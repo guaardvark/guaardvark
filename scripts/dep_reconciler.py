@@ -102,7 +102,7 @@ def main(argv: list[str] | None = None) -> int:
         log.error("sync in progress; refusing to reconcile (retry on next boot)")
         return 2
 
-    state_path = Path(args.state_file) if args.state_file else default_state_path()
+    state_path = Path(args.state_file) if args.state_file else default_state_path(repo)
     lock_path = state_path.with_suffix(".lock")
     log_path = repo / "logs" / "dep_reconciler.log"
     log_path.parent.mkdir(parents=True, exist_ok=True)

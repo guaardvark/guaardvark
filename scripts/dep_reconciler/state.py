@@ -10,15 +10,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-def default_state_path() -> Path:
-    """data/dep_reconciler/state-${HOSTNAME}.json — overridable via env."""
+def default_state_path(repo_root: Path | None = None) -> Path:
+    """<repo>/data/dep_reconciler/state-${HOSTNAME}.json — overridable via env.
+
+    Anchored on the repo root, not the CWD: resolved relative to CWD, a run from
+    $HOME read an empty state, took the trust-on-upgrade path and installed
+    nothing while reporting success.
+    """
     override = os.environ.get("GUAARDVARK_DEP_STATE_FILE")
     if override:
         return Path(override)
     hostname = socket.gethostname() or "unknown"
     # Slug: keep alnums, dashes, dots; replace anything else with '_'
     safe = "".join(c if c.isalnum() or c in "-." else "_" for c in hostname)
-    return (Path("data/dep_reconciler") / f"state-{safe}.json").resolve()
+    base = Path(repo_root) if repo_root is not None else Path.cwd()
+    return (base / "data" / "dep_reconciler" / f"state-{safe}.json").resolve()
 
 
 @dataclass

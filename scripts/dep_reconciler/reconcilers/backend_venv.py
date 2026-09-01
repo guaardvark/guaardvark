@@ -75,6 +75,12 @@ class BackendVenv(Reconciler):
         return out
 
     def install(self, log_path: Path) -> int:
+        # Same caps start.sh and install_pytorch.sh apply (numpy<2 and the
+        # numpy>=2-only transitives); without them this re-resolve was the
+        # one unconstrained pip pass left in the boot path.
+        constraints = self.root / "backend" / "constraints.txt"
+        if constraints.is_file() and not os.environ.get("PIP_CONSTRAINT"):
+            os.environ["PIP_CONSTRAINT"] = str(constraints)
         with log_path.open("a", encoding="utf-8") as log:
             log.write(f"\n=== {self.id} install @ {os.getpid()} ===\n")
             log.flush()

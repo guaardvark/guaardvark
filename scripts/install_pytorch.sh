@@ -222,6 +222,22 @@ if [ -z "${PIP_CONSTRAINT:-}" ] \
     vader_info "Applying pip constraints: backend/constraints.txt (numpy<2, setuptools<81)"
 fi
 
+# One source of truth for the CUDA channel. start.sh and heal_backend_venv.sh
+# pass GUAARDVARK_TORCH_CHANNEL from backend.services.hardware_policy; the
+# dep_reconciler and manual runs did not, so the arch table further down
+# decided instead — and it disagreed with the policy for Ampere/Ada (cu121 vs
+# cu124). Every reconciler pass then missed the fast path, swapped the whole
+# CUDA stack to cu121, and the next start.sh swapped it back to cu124: two
+# multi-GB downloads per boot (this repo's own logs, 2026-08-31). Ask the
+# policy ourselves whenever the caller did not.
+if [ -z "${GUAARDVARK_TORCH_CHANNEL:-}" ] && [ -x "$VENV_PYTHON" ]; then
+    _pt_policy_channel="$(cd "$PROJECT_ROOT" && "$VENV_PYTHON" -m backend.services.hardware_policy torch_channel 2>/dev/null || true)"
+    case "$_pt_policy_channel" in
+        cu[0-9]*|cpu) export GUAARDVARK_TORCH_CHANNEL="$_pt_policy_channel" ;;
+    esac
+    unset _pt_policy_channel
+fi
+
 # ---------------------------------------------------------------------------
 # Accelerator branching.
 #
@@ -414,8 +430,10 @@ if command -v nvidia-smi &> /dev/null; then
             vader_info "Detected ${ARCH_NAME} architecture (compute ${COMPUTE_CAP})"
             vader_detail "Using CUDA ${CUDA_NAME} for optimal performance"
         elif [ "$COMPUTE_MAJOR" -ge 8 ]; then
-            CUDA_VERSION="cu121"
-            CUDA_NAME="12.1"
+            # cu124, matching hardware_policy.torch_channel: the cu121 index tops
+            # out at torch 2.5.1 (CVE-2025-32434, torch.load RCE, fixed in 2.6.0).
+            CUDA_VERSION="cu124"
+            CUDA_NAME="12.4"
             ARCH_NAME="Ampere/Ada Lovelace"
             vader_info "Detected ${ARCH_NAME} architecture (compute ${COMPUTE_CAP})"
             vader_detail "Using CUDA ${CUDA_NAME} for modern GPU support"

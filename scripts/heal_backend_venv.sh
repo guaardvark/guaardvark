@@ -23,6 +23,9 @@ VENV_PIP="$VENV_DIR/bin/pip"
 LOG_DIR="$REPO_ROOT/logs"
 LOG_FILE="$LOG_DIR/heal_backend_venv.log"
 
+# shellcheck source=lib/venv_pins.sh
+. "$SCRIPT_DIR/lib/venv_pins.sh"
+
 SKIP_CV=0
 COMFYUI_ONLY=0
 RESTART_COMFYUI=1
@@ -131,9 +134,17 @@ pip_install_req() {
 }
 
 repin_numpy_setuptools() {
-    log "Re-pinning numpy<2 and setuptools (ML stack guard)..."
-    "$VENV_PIP" install --no-deps --force-reinstall \
-        'numpy<2.0,>=1.26.4' 'setuptools>=80.9.0,<81' 2>&1 | tail -3 || true
+    # Offline probe first; --force-reinstall needs the index even for a no-op,
+    # and this runs after every step (scripts/lib/venv_pins.sh).
+    local bad
+    bad="$(venv_pins_violated "$VENV_PYTHON" "${GV_ML_PINS[@]}")" || true
+    if [ -n "$bad" ]; then
+        log "Re-pinning ${bad//$'\n'/ } (ML stack guard)..."
+        # shellcheck disable=SC2086  # one spec per line, no spaces inside a spec
+        "$VENV_PIP" install --no-deps --force-reinstall $bad 2>&1 | tail -3 || true
+    else
+        log "numpy/setuptools pins already hold — no re-pin needed."
+    fi
     # Keep opencv on the project pin if CV deps bumped it to 5.x
     if "$VENV_PYTHON" -c 'import cv2' >/dev/null 2>&1; then
         "$VENV_PIP" install 'opencv-python==4.8.1.78' --quiet 2>&1 | tail -2 || true

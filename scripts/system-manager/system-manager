@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 REAL_SCRIPT_PATH=$(readlink -f "${BASH_SOURCE[0]}")
 MANAGER_DIR="$( cd "$( dirname "$REAL_SCRIPT_PATH" )" && pwd )"
 LIB_DIR="$MANAGER_DIR/lib"
-PYTHON_CMD="python3"
+PYTHON_CMD="${PYTHON_CMD:-python3}"
 
 # Ensure we can import our libs
 export PYTHONPATH="$LIB_DIR:$PYTHONPATH"
@@ -119,11 +119,31 @@ case "$1" in
         
         if [ -d "$BACKEND_DIR" ]; then
             echo "Re-installing dependencies..."
+            # The backend venv is Python 3.12 only (backend/requirements.txt header).
+            # On Ubuntu 26.04 `python3` is 3.14: a venv built from it has no wheels
+            # for numpy 1.26 / pandas 2.2, so pip compiled them from source and
+            # failed, and start.sh then threw that venv away (client box,
+            # 2026-08-31). Never build or fill a venv from anything but 3.12 —
+            # start.sh knows how to install one, so refuse and let it.
+            _py312_ok() { "$1" -c 'import sys; sys.exit(0 if sys.version_info[:2] == (3, 12) else 1)' >/dev/null 2>&1; }
             if [ ! -d "$VENV_DIR" ]; then
+                if ! _py312_ok "$PYTHON_CMD"; then
+                    if command -v python3.12 >/dev/null 2>&1 && _py312_ok python3.12; then
+                        PYTHON_CMD=python3.12
+                    else
+                        echo -e "${RED}✗ No Python 3.12 interpreter found ($PYTHON_CMD is $("$PYTHON_CMD" -V 2>&1)).${NC}"
+                        echo -e "${RED}  Not creating a venv from it. Run ./start.sh — it installs Python 3.12 first.${NC}"
+                        exit 1
+                    fi
+                fi
                 "$PYTHON_CMD" -m venv "$VENV_DIR" || { echo -e "${RED}✗ venv creation failed (install python3-venv for your Python version).${NC}"; exit 1; }
             fi
             if [ ! -x "$VENV_DIR/bin/pip" ]; then
                 echo -e "${RED}✗ venv is broken: $VENV_DIR/bin/pip missing.${NC}"
+                exit 1
+            fi
+            if ! _py312_ok "$VENV_DIR/bin/python"; then
+                echo -e "${RED}✗ $VENV_DIR is $("$VENV_DIR/bin/python" -V 2>&1), not Python 3.12. Not installing into it — ./start.sh recreates it.${NC}"
                 exit 1
             fi
             # Use requirements-base.txt to avoid overwriting smart-installed PyTorch

@@ -111,6 +111,7 @@ START_PID_FILE="$SCRIPT_DIR/.start_cache/start.sh.pid"
 mkdir -p "$SCRIPT_DIR/.start_cache"
 # shellcheck source=scripts/lib/start_lock.sh
 . "$SCRIPT_DIR/scripts/lib/start_lock.sh"
+. "$SCRIPT_DIR/scripts/lib/venv_pins.sh"
 if [ -f "$START_PID_FILE" ]; then
     _prev_pid=$(cat "$START_PID_FILE" 2>/dev/null)
     if [ "$(start_lock_guard_decision "$_prev_pid")" = "live" ]; then
@@ -178,8 +179,13 @@ if [ -f "$MANAGER_SCRIPT" ]; then
             "$MANAGER_SCRIPT" repair "$SCRIPT_DIR" || vader_warn "Auto-repair had issues, continuing with startup..."
         fi
     else
-        vader_info "Fresh or incomplete install detected (no usable venv). Running system-manager repair..."
-        "$MANAGER_SCRIPT" repair "$SCRIPT_DIR" || vader_warn "System-manager repair had issues; step 5 bootstrap will take over."
+        # No usable venv: step 5 (ensure_python_env) creates it with the Python
+        # 3.12 that platform_ensure_python resolves below, then bootstraps every
+        # requirements file. Running system-manager repair here first built the
+        # venv from whatever `python3` is — 3.14 on Ubuntu 26.04 — and pip then
+        # compiled numpy/pandas from source and failed, minutes before step 5
+        # threw that venv away and started over (client box, 2026-08-31).
+        vader_info "No usable Python venv yet — step 5 creates it with Python 3.12 and bootstraps dependencies."
     fi
 fi
 
@@ -1442,9 +1448,15 @@ ensure_backend_python_environment() {
             # install_pytorch.sh's `pip install --upgrade ... --index-url .../whl/<ver>` can
             # drag numpy 2.x + an old setuptools back in, violating the ML-stack pins
             # (numpy<2.0) and llama-index (setuptools>=80.9.0). Re-assert them without
-            # touching torch (--no-deps). Reconciled from PR #40 (anubissbe).
-            pip install --no-deps --force-reinstall 'numpy<2.0,>=1.26.4' 'setuptools>=80.9.0,<81' >> "$SETUP_LOG" 2>&1 \
-                || vader_warn "Could not re-pin numpy/setuptools after PyTorch — check 'pip check'."
+            # touching torch (--no-deps) — but only the ones actually wrong: the probe
+            # is offline, --force-reinstall is not (scripts/lib/venv_pins.sh).
+            _gv_bad_pins="$(venv_pins_violated "$VENV_DIR/bin/python" "${GV_ML_PINS[@]}")" || true
+            if [ -n "$_gv_bad_pins" ]; then
+                # shellcheck disable=SC2086  # one spec per line, no spaces inside a spec
+                pip install --no-deps --force-reinstall $_gv_bad_pins >> "$SETUP_LOG" 2>&1 \
+                    || vader_warn "Could not re-pin ${_gv_bad_pins//$'\n'/ } after PyTorch — check 'pip check'."
+            fi
+            unset _gv_bad_pins
             # Extra safety: always purge flash-attn/xformers after torch (even on GPU). These
             # are the direct cause of the aten::_flash schema mismatch (flash 2.5.7 vs torch
             # 2.5.1+cu124 philox vs rng_state) logged in backend.log/preflight on diffusers
@@ -1466,6 +1478,11 @@ ensure_backend_python_environment() {
             if ! "$VENV_DIR/bin/python" "$SCRIPT_DIR/scripts/dep_reconciler.py" --force --only backend_venv,cli_venv --repo-root "$SCRIPT_DIR" >> "$SETUP_LOG" 2>&1; then
                 vader_error "Dependency reconciler FAILED:"
                 tail -n 200 "$SETUP_LOG" | grep -A4 "Reconciliation failed for:" | sed 's/^/      /'
+                # pip reports an unreachable index as a resolver error ("No matching
+                # distribution", even "ResolutionImpossible"); say what it really was.
+                if tail -c 40000 "$LOGS_DIR/dep_reconciler.log" 2>/dev/null | grep -qE "$PIP_NET_FAULT_RE"; then
+                    vader_error "Cause: pip could not reach its package index (DNS or link fault). Nothing was removed — fix the network and re-run ./start.sh."
+                fi
                 vader_info "Details: $SETUP_LOG and logs/dep_reconciler.log. Repair: ./scripts/heal_backend_venv.sh"
             fi
         fi
@@ -1485,6 +1502,12 @@ ensure_backend_python_environment() {
                 > "$BOOTSTRAP_STAMP" 2>/dev/null || true
         else
             vader_error "Bootstrap did not produce a working Python environment."
+            # Name the import that fails instead of leaving it to the log.
+            "$VENV_DIR/bin/python" -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); import numpy, flask, celery, redis, psycopg2; import backend.config" 2>&1 \
+                | tail -n 3 | sed 's/^/      /'
+            if tail -c 40000 "$SETUP_LOG" 2>/dev/null | grep -qE "$PIP_NET_FAULT_RE"; then
+                vader_error "Cause: pip could not reach its package index (DNS or link fault) during the install above."
+            fi
             vader_info "See $SETUP_LOG for details. Recommended manual steps:"
             vader_info "  ./scripts/dep_reconciler.py --force"
             vader_info "  or: ./scripts/system-manager/system-manager repair ."
