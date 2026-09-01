@@ -166,6 +166,10 @@ def generate_text_to_video_batch():
             "face_restore": str(data.get("face_restore", "false")).lower() == "true",
             "lora_name": data.get("lora_name"),
             "lora_strength": float(data.get("lora_strength", 1.0)),
+            # Capability-contract knobs; the generator validates them against
+            # what the model declares.
+            "speed_profile": data.get("speed_profile") or None,
+            "style_embedding": data.get("style_embedding") or None,
             # Quality pipeline (v2.6.2) — opt-in cinematic director + keyframe->I2V.
             "director_mode": str(data.get("director_mode", "false")).lower() == "true",
             "cinematic_keyframe": str(data.get("cinematic_keyframe", "false")).lower() == "true",
@@ -182,6 +186,9 @@ def generate_text_to_video_batch():
                 "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
                 "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
                 "high_consistency": str(data.get("high_consistency", "false")).lower() == "true",
+                # A step count the person typed keeps priority over a model's
+                # step floor; preset-driven values are raised to the floor.
+                "steps_explicit": str(data.get("steps_explicit", "false")).lower() == "true",
             },
         }
 
@@ -215,6 +222,10 @@ def generate_image_to_video_batch():
         image_paths = _parse_list(data.get("image_paths") or data.get("image_ids"))
         if not image_paths:
             return error_response("No image_paths provided", 400)
+        # Index-paired with image_paths on models that declare l2v/flf2v and
+        # audio_in. guides is a list per item of {"kind", "path", "frame_idx", ...}.
+        last_frame_paths = _parse_list(data.get("last_frame_paths"))
+        guides = data.get("guides") if isinstance(data.get("guides"), list) else []
 
         model_id = data.get("model", DEFAULT_I2V_MODEL)
         ready, preflight_err = preflight_video_model(model_id)
@@ -245,6 +256,10 @@ def generate_image_to_video_batch():
             "face_restore": str(data.get("face_restore", "false")).lower() == "true",
             "lora_name": data.get("lora_name"),
             "lora_strength": float(data.get("lora_strength", 1.0)),
+            # Capability-contract knobs; the generator validates them against
+            # what the model declares.
+            "speed_profile": data.get("speed_profile") or None,
+            "style_embedding": data.get("style_embedding") or None,
             # Quality pipeline (v2.6.2) — opt-in cinematic director + keyframe->I2V.
             "director_mode": str(data.get("director_mode", "false")).lower() == "true",
             "cinematic_keyframe": str(data.get("cinematic_keyframe", "false")).lower() == "true",
@@ -256,6 +271,9 @@ def generate_image_to_video_batch():
                 "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
                 "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
                 "high_consistency": str(data.get("high_consistency", "false")).lower() == "true",
+                # A step count the person typed keeps priority over a model's
+                # step floor; preset-driven values are raised to the floor.
+                "steps_explicit": str(data.get("steps_explicit", "false")).lower() == "true",
             },
         }
 
@@ -264,7 +282,9 @@ def generate_image_to_video_batch():
             return error_response("Video generation service not available", 503)
 
         gpu_hint = _gpu_queue_hint()
-        status = generator.start_batch_from_images(image_paths=image_paths, **params)
+        status = generator.start_batch_from_images(
+            image_paths=image_paths, last_frame_paths=last_frame_paths, guides=guides, **params
+        )
         return success_response({
             "batch_id": status.batch_id,
             "status": status.status,

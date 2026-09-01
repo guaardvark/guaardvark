@@ -5,6 +5,7 @@ import threading
 import subprocess
 import time
 import os
+import tempfile
 import shutil
 import urllib.request
 import urllib.parse
@@ -131,6 +132,22 @@ class VideoGenerationRequest:
     face_restore: bool = False
     lora_name: Optional[str] = None
     lora_strength: float = 1.0
+    # Capability-contract inputs (backend/services/video_model_registry.py).
+    # A model that does not declare the capability rejects the field with a
+    # plain message instead of ignoring it.
+    speed_profile: Optional[str] = None       # id from the model's speed_profiles
+    style_embedding: Optional[str] = None     # id from the model's style_embeddings
+    first_frame_path: Optional[str] = None    # alias of metadata["image_path"]
+    last_frame_path: Optional[str] = None     # l2v / flf2v on models with those modes
+    # Anchors for models with audio_in: [{"kind": "audio"|"image", "path": str,
+    # "frame_idx": int, "seek_s": float, "duration_s": float}]
+    guides: List[Dict] = field(default_factory=list)
+    # Reference inputs for ref2v models (paths on this machine).
+    ref_images: List[str] = field(default_factory=list)
+    ref_videos: List[Dict] = field(default_factory=list)   # {"path": str, "audio_path": str|None}
+    ref_audios: List[str] = field(default_factory=list)
+    language: str = "English"                 # dialogue language for the prompt compiler
+    h3_intent: Optional[Dict] = None          # structured intent, compiled by h3_prompt_compiler
 
 
 @dataclass
@@ -142,6 +159,9 @@ class VideoGenerationResult:
     thumbnail_path: Optional[str] = None
     error: Optional[str] = None
     metadata: Dict[str, str] = field(default_factory=dict)
+    # True when the clip carries a soundtrack the model generated (H3 today;
+    # LTX once its audio latent is decoded). Mirrored as metadata["has_audio"].
+    has_audio: bool = False
 
 
 class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
@@ -226,27 +246,59 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         except requests.exceptions.RequestException:
             return False
 
-    def _upload_image_to_comfyui(self, image_path: str) -> Optional[str]:
+    def _upload_input_file(self, path: str, kind: str = "image") -> Optional[str]:
+        """Copy a local file into ComfyUI's input/ and return the name its
+        loader nodes use. ComfyUI has only /upload/image, but it stores any
+        file (server.py compares bytes, it does not decode), so audio guides
+        travel the same road and LoadAudio finds them by name."""
         try:
-            with open(image_path, 'rb') as f:
+            with open(path, 'rb') as f:
                 files = {'image': f}
                 data = {'type': 'input', 'overwrite': 'true'}
                 response = requests.post(
                     f"{self.comfy_url}/upload/image",
                     files=files,
                     data=data,
-                    timeout=30
+                    timeout=60,
                 )
                 response.raise_for_status()
 
             result = response.json()
             uploaded_name = result.get("name")
-            logger.info(f"Uploaded image to ComfyUI as: {uploaded_name}")
+            logger.info(f"Uploaded {kind} to ComfyUI as: {uploaded_name}")
             return uploaded_name
 
         except Exception as e:
-            logger.error(f"Failed to upload image to ComfyUI: {e}")
+            logger.error(f"Failed to upload {kind} to ComfyUI: {e}")
             return None
+
+    def _upload_image_to_comfyui(self, image_path: str) -> Optional[str]:
+        return self._upload_input_file(image_path, "image")
+
+    def _prepare_guide_audio(
+        self, path: str, seek_s: float = 0.0, duration_s: float = 0.0, max_s: Optional[float] = None
+    ) -> str:
+        """Return a WAV holding just the slice a guide needs. The encoder should
+        never see a three-minute song when the clip is five seconds long, so the
+        slice is cut with ffmpeg into the cache before upload. Returns the
+        original path when there is nothing to cut."""
+        limit = float(duration_s or 0)
+        if max_s:
+            limit = min(limit, float(max_s)) if limit else float(max_s)
+        if not seek_s and not limit:
+            return path
+        base = Path(getattr(self, "cache_dir", None) or Path(tempfile.gettempdir())) / "h3_guides"
+        base.mkdir(parents=True, exist_ok=True)
+        out = base / f"{uuid.uuid4().hex}.wav"
+        cmd = ["ffmpeg", "-y", "-i", str(path), "-ss", str(float(seek_s or 0))]
+        if limit:
+            cmd += ["-t", str(limit)]
+        cmd += ["-vn", "-acodec", "pcm_s16le", str(out)]
+        proc = subprocess.run(cmd, capture_output=True, timeout=120)
+        if proc.returncode != 0 or not out.exists() or out.stat().st_size == 0:
+            tail = (proc.stderr or b"").decode(errors="replace").strip().splitlines()[-1:] or [""]
+            raise RuntimeError(f"ffmpeg could not cut the guide audio: {tail[0]}")
+        return str(out)
 
 
     # ── CogVideoX model mapping ──────────────────────────────────────────────
@@ -433,6 +485,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     # the ratio it snapped to rather than emitting an arbitrary decimal.
     _ASPECT_RATIOS = {
         "16:9": 16 / 9, "9:16": 9 / 16, "1:1": 1.0, "4:3": 4 / 3, "3:2": 3 / 2,
+        "21:9": 21 / 9, "3:4": 3 / 4,
     }
 
     @classmethod
@@ -493,7 +546,13 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     def _clamp_pixel_area(cls, width: int, height: int, model: str) -> tuple[int, int]:
         """Scale (width, height) down to the family's pixel-area budget,
         preserving aspect ratio. No-op when unbudgeted or already within it."""
-        cap = cls._MAX_PIXEL_AREA_BY_FAMILY.get(cls._model_family(model))
+        cap = None
+        try:
+            from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+            cap = (VIDEO_MODEL_REGISTRY.get(model) or {}).get("max_pixel_area")
+        except Exception:  # noqa: BLE001 — never block a render on a registry read
+            cap = None
+        cap = cap or cls._MAX_PIXEL_AREA_BY_FAMILY.get(cls._model_family(model))
         area = int(width) * int(height)
         if not cap or area <= cap:
             return width, height
@@ -527,6 +586,13 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
     def _min_vram_gb_for(cls, model: str) -> int:
         """Conservative TOTAL-VRAM floor (GB) for `model`. Exact id wins; falls
         back to the model family; 0 means 'no floor known' (don't block)."""
+        try:
+            from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+            declared = (VIDEO_MODEL_REGISTRY.get(model) or {}).get("min_vram_gb")
+            if declared:
+                return int(declared)
+        except Exception:  # noqa: BLE001 — fall back to the tables below
+            pass
         if model in cls.MODEL_MIN_VRAM_GB:
             return cls.MODEL_MIN_VRAM_GB[model]
         return cls._FAMILY_MIN_VRAM_GB.get(cls._model_family(model), 0)
@@ -603,6 +669,183 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         """
         base_area = 1280 * 704
         return round(max(3.0, min(12.0, 8.0 * ((width * height) / base_area))), 1)
+
+    def _build_minimax_request(
+        self, request: VideoGenerationRequest, model_key: str,
+        image_path: Optional[str], seed: int, interpolation: int,
+    ) -> tuple:
+        """Turn a request into the H3 fl2va graph, or (None, message).
+
+        Everything the request asks for is checked against the capability
+        record the registry declares, so a wrong ask fails with one sentence
+        naming the fix rather than as a ComfyUI validation dump:
+
+        - speed profile → LoRA file (must be installed) and step count; a preset
+          value below the profile's floor is raised to it, a value the person
+          typed (metadata steps_explicit) is kept and logged;
+        - style embedding → its token appended after enhancement;
+        - first and last frame, image and audio guides → uploaded into input/;
+        - reference inputs → refused on this build (they need the ref2va model);
+        - negative prompt and guidance → logged once as ignored (no CFG).
+        """
+        from backend.services.video_model_registry import (
+            VIDEO_MODEL_REGISTRY, model_capabilities, speed_profile_for, style_embedding_token,
+        )
+        caps = model_capabilities(model_key)
+        modes = caps.get("modes") or []
+        entry_name = (VIDEO_MODEL_REGISTRY.get(model_key) or {}).get("name") or model_key
+
+        if "ref2v" in modes and "t2v" not in modes:
+            return None, (
+                f"{entry_name} is a reference-to-video build; its graph is not wired yet. "
+                f"Pick MiniMax H3 (Int8) for text, first-frame or first+last-frame clips."
+            )
+        if request.ref_images or request.ref_videos or request.ref_audios:
+            return None, (
+                f"{entry_name} takes no reference images, clips or audio; those need "
+                f"the MiniMax H3 Reference build."
+            )
+
+        profile = None
+        if request.speed_profile:
+            profile = speed_profile_for(model_key, request.speed_profile)
+            if profile is None:
+                return None, (
+                    f"Unknown speed profile '{request.speed_profile}' for {entry_name}; "
+                    f"declared: {', '.join(caps.get('speed_profiles') or {}) or 'none'}."
+                )
+        lora_file = None
+        lora_strength = 1.0
+        if profile and profile.get("lora"):
+            if not profile.get("lora_installed"):
+                lora_name = (VIDEO_MODEL_REGISTRY.get(profile["lora"]) or {}).get("name") or profile["lora"]
+                return None, (
+                    f"Speed profile '{profile.get('label') or profile['id']}' needs "
+                    f"'{lora_name}'. Open Manage Video Models and install it."
+                )
+            lora_file = profile.get("lora_file")
+            lora_strength = float(profile.get("strength") or 1.0)
+            min_edge = profile.get("min_short_edge")
+            if min_edge and min(int(request.width), int(request.height)) < int(min_edge):
+                return None, (
+                    f"Speed profile '{profile.get('label') or profile['id']}' is tuned for a "
+                    f"{min_edge}px short edge; requested {request.width}x{request.height}. "
+                    f"Pick the 768p canvas or another profile."
+                )
+
+        floor = int((profile or {}).get("min_steps") or caps.get("min_steps") or 20)
+        default_steps = int((profile or {}).get("steps") or caps.get("default_steps") or 20)
+        requested = int(request.num_inference_steps or 0)
+        explicit = str((request.metadata or {}).get("steps_explicit", "")).lower() in ("1", "true")
+        if explicit and requested > 0:
+            steps = requested
+            if steps < floor:
+                logger.info(
+                    "MiniMax H3: keeping the %d steps typed by the person, below the %d-step floor",
+                    steps, floor,
+                )
+        elif profile:
+            steps = default_steps
+        else:
+            steps = max(requested or default_steps, floor)
+            if requested and requested < floor:
+                logger.info("MiniMax H3: raised %d preset steps to the %d-step floor", requested, floor)
+
+        if not caps.get("cfg", True):
+            if request.negative_prompt or (request.guidance_scale is not None and request.guidance_scale > 1.0):
+                logger.info(
+                    "MiniMax H3 runs without CFG (BasicGuider); negative prompt and "
+                    "guidance_scale=%s are not used", request.guidance_scale,
+                )
+
+        prompt = request.prompt or ""
+        if request.style_embedding:
+            token = style_embedding_token(model_key, request.style_embedding)
+            if not token:
+                return None, (
+                    f"Unknown style embedding '{request.style_embedding}' for {entry_name}; "
+                    f"declared: {', '.join(e['id'] for e in caps.get('style_embeddings') or [])}."
+                )
+            prompt = f"{prompt} {token}".strip()
+
+        first_name = None
+        first_path = request.first_frame_path or image_path
+        if first_path:
+            if not Path(first_path).exists():
+                return None, f"First frame not found: {first_path}"
+            first_name = self._upload_image_to_comfyui(first_path)
+            if not first_name:
+                return None, "Failed to upload the first frame to ComfyUI"
+        last_name = None
+        if request.last_frame_path:
+            if "l2v" not in modes and "flf2v" not in modes:
+                return None, f"{entry_name} takes no last frame."
+            if not Path(request.last_frame_path).exists():
+                return None, f"Last frame not found: {request.last_frame_path}"
+            last_name = self._upload_image_to_comfyui(request.last_frame_path)
+            if not last_name:
+                return None, "Failed to upload the last frame to ComfyUI"
+
+        frames = self._minimax_frame_count(request.duration_frames)
+        fps = float(request.fps or 24)
+        guide_specs = []
+        for guide in request.guides or []:
+            if not caps.get("audio_in"):
+                return None, f"{entry_name} takes no guides."
+            kind = (guide or {}).get("kind")
+            path = (guide or {}).get("path")
+            if kind not in ("audio", "image") or not path:
+                return None, f"A guide needs kind audio|image and a path: {guide!r}"
+            if not Path(path).exists():
+                return None, f"Guide file not found: {path}"
+            frame_idx = int((guide or {}).get("frame_idx") or 0)
+            if kind == "audio":
+                try:
+                    remaining = (frames - frame_idx if frame_idx >= 0 else -frame_idx) / fps
+                    path = self._prepare_guide_audio(
+                        path, float(guide.get("seek_s") or 0), float(guide.get("duration_s") or 0),
+                        max_s=max(0.1, remaining),
+                    )
+                except Exception as e:  # noqa: BLE001 — the message is the diagnosis
+                    return None, str(e)
+            name = self._upload_input_file(path, kind)
+            if not name:
+                return None, f"Failed to upload the {kind} guide to ComfyUI"
+            guide_specs.append({"kind": kind, "filename": name, "frame_idx": frame_idx})
+
+        try:
+            workflow = self._create_minimax_workflow(
+                prompt=prompt,
+                model_key=model_key,
+                num_frames=request.duration_frames,
+                num_inference_steps=steps,
+                width=request.width,
+                height=request.height,
+                seed=seed,
+                fps=fps,
+                interpolation_multiplier=interpolation,
+                image_filename=first_name,
+                last_frame_filename=last_name,
+                lora_name=lora_file,
+                lora_strength=lora_strength,
+                guides=guide_specs,
+            )
+        except ValueError as e:
+            return None, str(e)
+
+        mode = (
+            "first+last-frame" if (first_name and last_name) else
+            "last-frame" if last_name else
+            "first-frame I2V" if first_name else "T2V"
+        )
+        logger.info(
+            "Using MiniMax H3 %s (%s, %d steps%s%s%s) via ComfyUI",
+            mode, model_key, steps,
+            f", profile {profile['id']}" if profile else "",
+            f", {len(guide_specs)} guide(s)" if guide_specs else "",
+            f", style {request.style_embedding}" if request.style_embedding else "",
+        )
+        return workflow, None
 
     def _vram_preflight(self, model: str) -> Optional[str]:
         """Read-only VRAM gate run BEFORE queuing a ComfyUI job, so an
@@ -1628,37 +1871,14 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
 
             elif model in self.MINIMAX_MODELS or str(model).startswith("minimax"):
                 model_key = model if model in self.MINIMAX_MODELS else "minimax-h3-int8"
-                # Official template: 20 steps, res_multistep, no CFG. The floor is
-                # declared in MODEL_OPTIONS.minSteps; here only fill an absent value.
-                mm_steps = request.num_inference_steps or 20
-                if request.guidance_scale is not None and request.guidance_scale > 1.0:
-                    logger.info(
-                        "MiniMax H3 runs without CFG (BasicGuider); ignoring guidance_scale=%.2f",
-                        request.guidance_scale,
-                    )
-                uploaded_image = None
-                if image_path and Path(image_path).exists():
-                    uploaded_image = self._upload_image_to_comfyui(image_path)
-                    if not uploaded_image:
-                        result.error = "Failed to upload image to ComfyUI"
-                        return result
-                workflow = self._create_minimax_workflow(
-                    prompt=request.prompt,
-                    model_key=model_key,
-                    num_frames=request.duration_frames,
-                    num_inference_steps=mm_steps,
-                    width=request.width,
-                    height=request.height,
-                    seed=seed,
-                    fps=request.fps or 24,
-                    interpolation_multiplier=interpolation,
-                    image_filename=uploaded_image,
+                workflow, mm_error = self._build_minimax_request(
+                    request, model_key, image_path, seed, interpolation
                 )
-                logger.info(
-                    "Using MiniMax H3 %s (%s) via ComfyUI",
-                    "first-frame I2V" if uploaded_image else "T2V",
-                    model_key,
-                )
+                if mm_error:
+                    result.error = mm_error
+                    return result
+                result.has_audio = True
+                result.metadata["has_audio"] = "1"
 
             else:
                 # SVD retired 2026-05-29. Supported: wan22-*, cogvideox-*, ltx23-*, ltx25-*, minimax-*.

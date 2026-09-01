@@ -119,6 +119,10 @@ class BatchVideoItem:
     id: str
     prompt: Optional[str] = None
     image_path: Optional[str] = None
+    # End frame for models that declare l2v / flf2v (MiniMax H3).
+    last_frame_path: Optional[str] = None
+    # Anchors for models that declare audio_in: [{"kind", "path", "frame_idx", ...}].
+    guides: List[Dict] = field(default_factory=list)
     metadata: Dict = field(default_factory=dict)
 
 
@@ -149,6 +153,10 @@ class BatchVideoRequest:
     face_restore: bool = False
     lora_name: Optional[str] = None
     lora_strength: float = 1.0
+    # Capability-contract knobs (video_model_registry): a declared speed profile
+    # (turbo LoRA + step count) and a declared style embedding id.
+    speed_profile: Optional[str] = None
+    style_embedding: Optional[str] = None
     # Cast members (trained character LoRAs) to lock into each clip. Resolved once
     # per batch via cast_lock.subjects_to_lock; the LoRA is baked into the cinematic
     # keyframe (the video model can't apply it). Selecting cast implies cinematic.
@@ -1093,6 +1101,10 @@ class BatchVideoGenerator:
                             face_restore=batch_request.face_restore,
                             lora_name=batch_request.lora_name,
                             lora_strength=batch_request.lora_strength,
+                            speed_profile=batch_request.speed_profile,
+                            style_embedding=batch_request.style_embedding,
+                            last_frame_path=item.last_frame_path,
+                            guides=list(item.guides or []),
                         )
 
                         result: VideoGenerationResult = self.video_generator.generate_video(gen_request)
@@ -1238,13 +1250,30 @@ class BatchVideoGenerator:
                             batch_id = batch_request.batch_id
                             ensure_subfolder("Videos", batch_id)
                             batch_dir = Path(batch_request.output_dir)
+                            # What the clip is and who made it travels with the
+                            # Document: the editor keeps a soundtrack it knows is
+                            # there, and publishing can carry the attribution the
+                            # model's license asks for.
+                            file_meta = {"source": "batch_generation", "batch_id": batch_id,
+                                         "model": batch_request.model}
+                            try:
+                                from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+                                lic = (VIDEO_MODEL_REGISTRY.get(batch_request.model) or {}).get("license") or {}
+                                if lic.get("attribution"):
+                                    file_meta["attribution"] = lic["attribution"]
+                            except Exception:
+                                pass
+                            audio_clips = {
+                                Path(r.video_path).name for r in status.results
+                                if r.success and r.video_path and (r.metadata or {}).get("has_audio") == "1"
+                            }
                             # Register all video files found in the batch directory
                             for vid_file in sorted(batch_dir.rglob("*.mp4")):
                                 register_file(
                                     physical_path=str(vid_file),
                                     folder_name="Videos",
                                     subfolder_name=batch_id,
-                                    file_metadata={"source": "batch_generation", "batch_id": batch_id},
+                                    file_metadata={**file_meta, "has_audio": vid_file.name in audio_clips},
                                 )
                             logger.info(f"Registered batch {batch_id} videos into Documents system")
                         finally:
@@ -1283,6 +1312,10 @@ class BatchVideoGenerator:
         from backend.services.output_registration import bates_name
         batch_id = params.get("batch_id") or bates_name("video_batch", "", self.base_output_dir)
         user_prompt = params.pop("prompt", "")
+        # Index-paired with image_paths: an end frame per item (flf2v) and the
+        # guides per item. Shorter lists leave the remaining items without.
+        last_frame_paths = list(params.pop("last_frame_paths", None) or [])
+        guides_per_item = list(params.pop("guides", None) or [])
         items = [
             BatchVideoItem(
                 id=str(uuid.uuid4()),
@@ -1291,9 +1324,11 @@ class BatchVideoGenerator:
                 # placeholder here used to drive identity drift in LTX I2V).
                 prompt=user_prompt or "",
                 image_path=path,
+                last_frame_path=(last_frame_paths[i] if i < len(last_frame_paths) else None) or None,
+                guides=list(guides_per_item[i] or []) if i < len(guides_per_item) else [],
                 metadata={"source": "image", "image_path": path},
             )
-            for path in image_paths
+            for i, path in enumerate(image_paths)
         ]
         metadata = dict(params.get("metadata") or {})
         if not metadata.get("display_name"):
@@ -1341,6 +1376,8 @@ class BatchVideoGenerator:
             face_restore=bool(params.get("face_restore", False)),
             lora_name=params.get("lora_name"),
             lora_strength=float(params.get("lora_strength", 1.0)),
+            speed_profile=params.get("speed_profile") or None,
+            style_embedding=params.get("style_embedding") or None,
             subject_ids=[int(s) for s in (params.get("subject_ids") or []) if str(s).strip()],
             director_mode=bool(params.get("director_mode", False)),
             cinematic_keyframe=bool(params.get("cinematic_keyframe", False)),

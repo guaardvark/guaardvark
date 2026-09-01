@@ -91,3 +91,62 @@ def test_clip_device_defaults_to_gpu_managed(monkeypatch):
     assert ComfyUIVideoGenerator._minimax_clip_device() == "default"
     monkeypatch.setenv("GUAARDVARK_WAN_CLIP_DEVICE", "cpu")
     assert ComfyUIVideoGenerator._minimax_clip_device() == "cpu"
+
+
+# ── optional inputs: last frame, turbo LoRA, guides ──────────────────────────
+
+def test_last_frame_and_first_plus_last():
+    wf = _t2v(last_frame_filename="end.png")
+    assert wf["16"] == {"class_type": "LoadImage", "inputs": {"image": "end.png"}}
+    assert wf["6"]["inputs"]["last_frame"] == ["16", 0]
+    assert "first_frame" not in wf["6"]["inputs"]
+    assert wf["14"]["inputs"]["filename_prefix"] == "minimax_h3_l2v"
+    wf = _t2v(image_filename="start.png", last_frame_filename="end.png")
+    assert wf["6"]["inputs"]["first_frame"] == ["5", 0]
+    assert wf["6"]["inputs"]["last_frame"] == ["16", 0]
+    assert wf["14"]["inputs"]["filename_prefix"] == "minimax_h3_flf2v"
+
+
+def test_turbo_lora_patches_the_model_for_guider_and_scheduler():
+    wf = _t2v(lora_name="turbo.safetensors", lora_strength=0.9, num_inference_steps=8)
+    assert wf["15"] == {
+        "class_type": "LoraLoaderModelOnly",
+        "inputs": {"model": ["1", 0], "lora_name": "turbo.safetensors", "strength_model": 0.9},
+    }
+    assert wf["7"]["inputs"]["model"] == ["15", 0]
+    assert wf["9"]["inputs"]["model"] == ["15", 0]
+    assert wf["9"]["inputs"]["steps"] == 8
+    # Absent by default.
+    assert "15" not in _t2v()
+
+
+def test_guides_chain_before_the_guider():
+    wf = _t2v(guides=[
+        {"kind": "audio", "filename": "line.wav", "frame_idx": 0},
+        {"kind": "image", "filename": "mid.png", "frame_idx": 60},
+    ])
+    assert wf["17"] == {"class_type": "LoadAudio", "inputs": {"audio": "line.wav"}}
+    assert wf["18"]["class_type"] == "MiniMaxH3AddGuide"
+    assert wf["18"]["inputs"] == {
+        "positive": ["6", 0], "audio_vae": ["4", 0], "latent": ["6", 1],
+        "audio": ["17", 0], "frame_idx": 0,
+    }
+    assert wf["19"] == {"class_type": "LoadImage", "inputs": {"image": "mid.png"}}
+    assert wf["20"]["inputs"] == {
+        "positive": ["18", 0], "vae": ["3", 0], "latent": ["6", 1],
+        "image": ["19", 0], "frame_idx": 60,
+    }
+    assert wf["7"]["inputs"]["conditioning"] == ["20", 0]
+    # Without guides the guider reads the node's own conditioning.
+    assert _t2v()["7"]["inputs"]["conditioning"] == ["6", 0]
+
+
+def test_guide_frame_index_is_checked_against_the_snapped_clip():
+    import pytest
+    with pytest.raises(ValueError, match="outside the clip's 124 frames"):
+        _t2v(guides=[{"kind": "audio", "filename": "a.wav", "frame_idx": 124}])
+    # Negative indices count from the end, as the node does.
+    wf = _t2v(guides=[{"kind": "image", "filename": "end.png", "frame_idx": -1}])
+    assert wf["18"]["inputs"]["frame_idx"] == -1
+    with pytest.raises(ValueError, match="kind audio|image"):
+        _t2v(guides=[{"kind": "video", "filename": "x.mp4"}])

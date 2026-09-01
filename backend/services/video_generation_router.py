@@ -151,7 +151,13 @@ class VideoGenerationRouter:
             self._cancel_idle_shutdown()
         try:
             generator = self.get_active_generator()
-            result = generator.generate_video(request)
+            # The batch runner holds a gpu_session around every clip; direct
+            # callers (tools, adapters, tests) came through here with nothing
+            # evicting the resident chat model, so a 14 GB video budget on a
+            # 16 GB card thrashed into CPU offload. The session is re-entrant:
+            # under the batch runner's outer session this is a no-op.
+            with self._render_session(request):
+                result = generator.generate_video(request)
             return result
         except RuntimeError as e:
             return VideoGenerationResult(
@@ -164,6 +170,25 @@ class VideoGenerationRouter:
                 self._active_generation_count = max(0, self._active_generation_count - 1)
                 if self._active_generation_count == 0:
                     self._schedule_idle_shutdown()
+
+    @staticmethod
+    def _render_session(request: VideoGenerationRequest):
+        """gpu_session for one clip, budgeted from the registry; a no-op context
+        when the policy module is unavailable so generation never depends on it."""
+        try:
+            from backend.services.gpu_resource_policy import gpu_session
+            from backend.services.job_types import JobKind
+            from backend.services.video_model_registry import vram_mb_for_model
+        except Exception:  # noqa: BLE001 — policy is optional at this seam
+            import contextlib
+            return contextlib.nullcontext()
+        op_id = f"router:{request.model}:{(request.metadata or {}).get('item_id') or id(request)}"
+        return gpu_session(
+            JobKind.VIDEO_RENDER, op_id,
+            evict_ollama=True,
+            free_comfyui=False,
+            vram_estimate_mb=vram_mb_for_model(request.model),
+        )
 
     @property
     def is_generating(self) -> bool:

@@ -1892,15 +1892,30 @@ class ComfyUIVideoWorkflowMixin:
         fps: float = 24.0,
         interpolation_multiplier: int = 1,
         image_filename: Optional[str] = None,
+        last_frame_filename: Optional[str] = None,
+        lora_name: Optional[str] = None,
+        lora_strength: float = 1.0,
+        guides: Optional[list] = None,
     ) -> dict:
-        """MiniMax H3 T2V / first-frame I2V — the official ComfyUI template graph.
+        """MiniMax H3 fl2va graph — the official ComfyUI template plus its optional inputs.
 
-        UNETLoader + CLIPLoader(minimax) + video VAE + audio VAE →
-        MiniMaxH3ImageToVideo (prompt + optional first_frame → conditioning and
-        an empty joint video+audio latent) → BasicGuider (the template runs no
-        CFG, so there is no negative prompt and guidance_scale is not a knob) →
-        SamplerCustomAdvanced (res_multistep / simple) → VAEDecode + VAEDecodeAudio
-        → VHS_VideoCombine with the audio track muxed in.
+        UNETLoader (+ LoraLoaderModelOnly for a turbo speed profile) + CLIPLoader
+        (minimax) + video VAE + audio VAE → MiniMaxH3ImageToVideo (prompt, optional
+        first and last frame → conditioning and an empty joint video+audio latent)
+        → zero or more MiniMaxH3AddGuide nodes (an image or an audio clip anchored
+        at a frame index; the audio anchor is a condition the model samples the
+        soundtrack against, not a copied track) → BasicGuider (the template runs
+        no CFG, so there is no negative prompt and guidance_scale is not a knob)
+        → SamplerCustomAdvanced (res_multistep / simple) → VAEDecode +
+        VAEDecodeAudio → VHS_VideoCombine with the audio track muxed in.
+
+        Node ids 1-14 are the template and stay stable for the tests; 15 is the
+        LoRA, 16 the last frame, 17+ the guide pairs (loader, AddGuide).
+
+        ``guides`` entries are ``{"kind": "audio"|"image", "filename": <name in
+        ComfyUI's input/>, "frame_idx": int}``; a frame index outside the clip is
+        rejected here with a plain message rather than as ComfyUI's validation
+        dump. Negative indices count from the end, as the node does.
 
         The model's whole point is native audio, so unlike the LTX builders the
         audio latent is decoded and kept. Decode is the plain VAEDecode the
@@ -1980,7 +1995,12 @@ class ComfyUIVideoWorkflowMixin:
                     "audio": ["13", 0],
                     "frame_rate": float(fps),
                     "loop_count": 0,
-                    "filename_prefix": "minimax_h3_i2v" if image_filename else "minimax_h3_t2v",
+                    "filename_prefix": (
+                        "minimax_h3_flf2v" if (image_filename and last_frame_filename)
+                        else "minimax_h3_l2v" if last_frame_filename
+                        else "minimax_h3_i2v" if image_filename
+                        else "minimax_h3_t2v"
+                    ),
                     "format": "video/h264-mp4",
                     "pix_fmt": "yuv420p",
                     "crf": 19,
@@ -1997,6 +2017,55 @@ class ComfyUIVideoWorkflowMixin:
             # (MiniMaxH3ImageToVideo._resize "disabled"), so no pre-scale node.
             workflow["5"] = {"class_type": "LoadImage", "inputs": {"image": image_filename}}
             workflow["6"]["inputs"]["first_frame"] = ["5", 0]
+        if last_frame_filename:
+            workflow["16"] = {"class_type": "LoadImage", "inputs": {"image": last_frame_filename}}
+            workflow["6"]["inputs"]["last_frame"] = ["16", 0]
+
+        if lora_name:
+            # Model-only LoRA: the turbo distillations touch the transformer, not
+            # the encoder. Both the guider and the scheduler read the patched model.
+            workflow["15"] = {
+                "class_type": "LoraLoaderModelOnly",
+                "inputs": {"model": ["1", 0], "lora_name": lora_name, "strength_model": float(lora_strength)},
+            }
+            workflow["7"]["inputs"]["model"] = ["15", 0]
+            workflow["9"]["inputs"]["model"] = ["15", 0]
+
+        conditioning = ["6", 0]
+        next_id = 17
+        for guide in guides or []:
+            kind = (guide or {}).get("kind")
+            filename = (guide or {}).get("filename")
+            frame_idx = int((guide or {}).get("frame_idx") or 0)
+            if kind not in ("audio", "image") or not filename:
+                raise ValueError(f"guide needs kind audio|image and a filename: {guide!r}")
+            if not -length <= frame_idx < length:
+                raise ValueError(
+                    f"guide frame_idx {frame_idx} is outside the clip's {length} frames"
+                )
+            loader_id, guide_id = str(next_id), str(next_id + 1)
+            next_id += 2
+            if kind == "audio":
+                workflow[loader_id] = {"class_type": "LoadAudio", "inputs": {"audio": filename}}
+                inputs = {
+                    "positive": conditioning,
+                    "audio_vae": ["4", 0],
+                    "latent": ["6", 1],
+                    "audio": [loader_id, 0],
+                    "frame_idx": frame_idx,
+                }
+            else:
+                workflow[loader_id] = {"class_type": "LoadImage", "inputs": {"image": filename}}
+                inputs = {
+                    "positive": conditioning,
+                    "vae": ["3", 0],
+                    "latent": ["6", 1],
+                    "image": [loader_id, 0],
+                    "frame_idx": frame_idx,
+                }
+            workflow[guide_id] = {"class_type": "MiniMaxH3AddGuide", "inputs": inputs}
+            conditioning = [guide_id, 0]
+        workflow["7"]["inputs"]["conditioning"] = conditioning
 
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
