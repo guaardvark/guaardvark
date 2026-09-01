@@ -309,6 +309,12 @@ Beats:
 5. **Generation** — live launch, stage progress, then time-lapse from the
    asset session.
 6. **The video** — cuts landing on beats; energy arc overlaid in a corner.
+6b. **One pass per cut** — switch the I2V model to MiniMax H3: the planner's
+   cut ceiling follows the model (15 s), so the same song plans fewer, longer
+   windows; each renders in one pass with its song slice anchored at frame
+   zero. Record the real cut count against the 21 clips on screen. Honesty
+   beat: the song stays the master track; the model's own soundtrack is
+   dropped by design.
 7. **Closer** — "One song and one director. Now imagine five crew members
    and a *script*. Episode nine." Chip `▸ Ep 9`.
 
@@ -340,6 +346,12 @@ Beats:
 8. **Approval gate** (human #2) → rendering: clips + voiceover + per-scene
    music mix (Ep 7's stack). Honesty beat: kill the backend mid-stage,
    restart, watch it resume idempotently.
+8b. **A scene that speaks** — the same production created with the video
+   model set to MiniMax H3 in the New Production dialog: one scene renders
+   as a single window, the cast member says their two lines in the clip
+   itself, windows join on the storyboard stills, no narration laid over.
+   Honesty beat: say whether identity from the cast's reference images held
+   against the LoRA still — whichever way it went.
 9. **Closer** — final.mp4 plays; hover "Open in Shotcut". "That file is a
    real editing project. Episode ten." Chip `▸ Ep 10`.
 
@@ -428,7 +440,12 @@ Beats:
 1. **VRAM budget** — Plugins page: stacked per-plugin segments moving during
    a live render.
 2. **Conflict detection** — starting ComfyUI offers to stop Ollama. VO tells
-   the 16-gigabyte truth straight: "one card. The system referees."
+   the 16-gigabyte truth straight: "one card. The system referees." While
+   ComfyUI cold-starts, fill the wait with the prompt compiler: paste a plain
+   sentence into the Video Generator on MiniMax H3 and show the effective
+   prompt it becomes (numbered shots, cut times, speaker ids). Record the
+   cold-start seconds and the first render's reserve-VRAM refusal, then the
+   3 GB reserve that fixes it.
 3. **Jobs vs Activity** — what you queued vs what it's doing on its own.
 4. **Kill switches** — five of them, ending with `./killswitch.sh` in a
    terminal (OBS). "Talks straight to the database and the O S. It works
