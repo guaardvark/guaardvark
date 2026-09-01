@@ -313,3 +313,71 @@ def test_generate_one_clip_threads_steps_interp_and_fill_method(app, monkeypatch
     assert captured["still_prompt"] == "a distinct shot"  # per-cut Director prompt → FLUX
     assert fill_kw["method"] == "forward"        # fill method reached the fill
     assert fill_kw["max_stretch"] == 2.5
+
+
+def test_clip_profile_reads_the_registry_for_declared_models(app):
+    svc = MusicVideoService(db.session)
+    wan = mvt._clip_profile(mvt._settings(_mk(svc)))
+    assert (wan["model"], wan["fps"], wan["min_frames"], wan["max_frames"], wan["audio_out"]) == \
+        ("wan22-14b-i2v", 16, 17, 49, False)
+    s = mvt._settings(_mk(svc, settings={"i2v_model": "minimax-h3-int8"}))
+    h3 = mvt._clip_profile(s)
+    assert (h3["fps"], h3["min_frames"], h3["max_frames"], h3["audio_out"]) == (24, 72, 175, True)
+    assert mvt._max_clip_s(s) == pytest.approx(175 / 24)
+    cog = mvt._clip_profile(mvt._settings(_mk(svc, settings={"i2v_engine": "cogvideox"})))
+    assert (cog["model"], cog["fps"], cog["max_frames"]) == ("cogvideox-5b-i2v", 7, 25)
+
+
+def test_generate_one_clip_on_a_native_audio_model_anchors_the_song_slice(app, monkeypatch, tmp_path):
+    import backend.services.comfyui_image_generator as cig
+    import backend.services.comfyui_video_generator as cvg
+    import backend.services.job_operation_gate as jog
+
+    svc = MusicVideoService(db.session)
+    song = tmp_path / "song.wav"; song.write_bytes(b"RIFF")
+    mv = _mk(svc, settings={"i2v_model": "minimax-h3-int8", "interpolation_multiplier": 2})
+    mv.song_path = str(song)
+    clip = {"index": 2, "start": 12.0, "end": 20.0, "clip_path": None, "status": "pending",
+            "prompt": "the singer walks toward the camera"}
+    mv.clips = [clip]
+    db.session.commit()
+
+    captured = {}
+
+    class _Img:
+        def __init__(self, **kw):
+            pass
+        def generate_image(self, **kw):
+            p = tmp_path / "still.png"; p.write_bytes(b"x"); return str(p)
+    monkeypatch.setattr(cig, "ComfyUIImageGenerator", _Img)
+    out = tmp_path / "h3.mp4"; out.write_bytes(b"x")
+
+    class _Result:
+        success = True
+        video_path = str(out)
+        error = None
+
+    class _Gen:
+        def generate_video(self, req):
+            captured["req"] = req
+            return _Result()
+    monkeypatch.setattr(cvg, "get_video_generator", lambda: _Gen())
+
+    class _Gate:
+        @contextlib.contextmanager
+        def gpu_exclusive(self, *a, **k):
+            yield
+    monkeypatch.setattr(jog, "get_gate", lambda: _Gate())
+    monkeypatch.setattr(mvt, "_comfyui_free_vram", lambda: None)
+    monkeypatch.setattr(mvt, "fill_clip_to_duration", lambda src, target_s, o, **kw: (Path(o).write_bytes(b"x"), o)[1])
+
+    mvt._generate_one_clip(mv, clip)
+
+    req = captured["req"]
+    assert req.model == "minimax-h3-int8" and req.fps == 24
+    assert req.duration_frames == 192              # 8 s cut on the 17k+5 grid
+    assert req.interpolation_multiplier == 1        # the model's own 24 fps, no RIFE
+    assert req.prompt.startswith("For the target video, at 0.00 seconds")
+    assert "lands on the beats of <Audio 1>" in req.prompt
+    assert req.guides == [{"kind": "audio", "path": str(song), "frame_idx": 0, "seek_s": 12.0, "duration_s": 8.0}]
+    assert req.h3_intent["mode"] == "i2va"

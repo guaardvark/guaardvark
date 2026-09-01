@@ -751,8 +751,10 @@ const MusicVideoPage = () => {
     return () => { alive = false; };
   }, []);
 
-  // I2V-capable models (subset from VideoGeneratorPage MODEL_OPTIONS for consistency)
-  const I2V_MODEL_OPTIONS = {
+  // I2V-capable models. The registry decides which models animate a keyframe
+  // (capabilities.supports_i2v); this static list only stands in until the
+  // API answers or when it is down.
+  const FALLBACK_I2V_MODEL_OPTIONS = {
     "wan22-14b-i2v": {
       label: "Wan 2.2 14B I2V (GGUF Q5) — Recommended",
       description: "Excellent cinematic motion, ~5s clips, good VRAM efficiency",
@@ -766,6 +768,34 @@ const MusicVideoPage = () => {
       description: "Follows the keyframe closely, 24fps, ~3s clips",
     },
   };
+  const [i2vModelOptions, setI2vModelOptions] = useState(FALLBACK_I2V_MODEL_OPTIONS);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/batch-video/models")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!alive) return;
+        const rows = (data?.data?.models || []).filter((m) => m.capabilities?.supports_i2v);
+        if (!rows.length) return;
+        const opts = {};
+        rows.forEach((m) => {
+          const caps = m.capabilities;
+          const seconds = caps.max_frames && caps.native_fps ? Math.round(caps.max_frames / caps.native_fps) : null;
+          opts[m.id] = {
+            label: `${m.name}${m.is_ready ? "" : " (not installed)"}`,
+            description: [
+              caps.audio_out ? "renders each cut in one pass with the song slice as its beat anchor" : "keyframe → silent clip",
+              seconds ? `up to ~${seconds}s per clip` : null,
+              m.license?.attribution || null,
+            ].filter(Boolean).join(" · "),
+            ready: !!m.is_ready,
+          };
+        });
+        setI2vModelOptions(opts);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   const refreshList = useCallback(async () => {
     try {
@@ -1170,9 +1200,14 @@ const MusicVideoPage = () => {
                     helperText="Wan 2.2 I2V generally produces superior motion/quality (may use more time/VRAM — your choice)"
                     sx={{ mt: 1 }}
                   >
-                    {Object.entries(I2V_MODEL_OPTIONS).map(([key, cfg]) => (
-                      <MenuItem key={key} value={key}>
-                        {cfg.label}
+                    {Object.entries(i2vModelOptions).map(([key, cfg]) => (
+                      <MenuItem key={key} value={key} disabled={cfg.ready === false}>
+                        <Box>
+                          <Typography variant="body2">{cfg.label}</Typography>
+                          {cfg.description && (
+                            <Typography variant="caption" color="text.secondary">{cfg.description}</Typography>
+                          )}
+                        </Box>
                       </MenuItem>
                     ))}
                   </TextField>

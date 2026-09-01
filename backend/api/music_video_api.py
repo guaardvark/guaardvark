@@ -107,6 +107,11 @@ def _mv_dict(mv: MusicVideo) -> dict:
     out["use_lora_consistency"] = s.get("use_lora_consistency", False)
     out["keyframe_model"] = s.get("keyframe_model", "flux-schnell")
     out["i2v_model"] = s.get("i2v_model") or ("wan22-14b-i2v" if s.get("i2v_engine", "wan") == "wan" else "cogvideox-5b-i2v")
+    try:
+        from backend.services.video_model_registry import model_capabilities
+        out["i2v_native_audio"] = bool((model_capabilities(out["i2v_model"]) or {}).get("audio_out"))
+    except Exception:  # noqa: BLE001 — informational only
+        out["i2v_native_audio"] = False
     # The rich visual treatment / short story the Director (acting as screenwriter) invented.
     # This is the creative foundation — per-cut prompts should advance this treatment.
     # This is the main defense against "every scene uses the identical repeated global prompt".

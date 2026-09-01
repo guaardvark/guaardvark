@@ -158,13 +158,45 @@ def _settings(mv: MusicVideo) -> dict:
     return s
 
 
-def _max_clip_s(s: dict) -> float:
-    """Longest real forward clip the chosen i2v engine produces, in seconds.
+# Per-family clip clamps the i2v step has always used for the storyboard →
+# I2V flow (frames, fps); models that declare native_fps / max_frames in the
+# registry override them.
+_LEGACY_CLIP = {"wan": (17, 49, 16), "cogvideox": (14, 25, 7)}
 
-    Derived from the frame clamp in _generate_one_clip: WAN ≤49 frames @16fps,
-    CogVideoX ≤25 frames @7fps. The planner uses this × max_stretch as its cut
-    ceiling so a forward clip can always fill its slot without a reverse."""
-    return (49 / 16) if s.get("i2v_engine", "wan") == "wan" else (25 / 7)
+
+def _clip_profile(s: dict) -> dict:
+    """{min_frames, max_frames, fps, audio_out, model} for the chosen i2v model.
+
+    A model that declares its capabilities in the registry (native_fps,
+    max_frames, min_clip_s, max_clip_s, audio_out) is described from them; the
+    Wan and CogVideoX clamps stay for entries that do not."""
+    model = s.get("i2v_model") or ("wan22-14b-i2v" if s.get("i2v_engine", "wan") == "wan" else "cogvideox-5b-i2v")
+    caps = {}
+    try:
+        from backend.services.video_model_registry import model_capabilities
+        caps = model_capabilities(model) or {}
+    except Exception:  # noqa: BLE001 — the legacy clamps still apply
+        caps = {}
+    if caps.get("native_fps") and caps.get("max_frames"):
+        fps = int(caps["native_fps"])
+        min_frames = int(round(float(caps.get("min_clip_s") or 0) * fps)) or 5
+        return {
+            "model": model, "fps": fps, "min_frames": min_frames,
+            "max_frames": int(caps["max_frames"]), "audio_out": bool(caps.get("audio_out")),
+            "frame_rule": caps.get("frame_rule"),
+        }
+    lo, hi, fps = _LEGACY_CLIP["wan" if "wan" in model.lower() else "cogvideox"]
+    return {"model": model, "fps": fps, "min_frames": lo, "max_frames": hi, "audio_out": False, "frame_rule": None}
+
+
+def _max_clip_s(s: dict) -> float:
+    """Longest real forward clip the chosen i2v model produces, in seconds.
+
+    The planner uses this × max_stretch as its cut ceiling so a forward clip
+    can always fill its slot without a reverse. A native-audio model (MiniMax
+    H3) renders the whole cut in one pass, so its ceiling is its longest clip."""
+    prof = _clip_profile(s)
+    return prof["max_frames"] / prof["fps"]
 
 
 # Fraction of the full Clip Stretch budget applied to the *shortest* (highest-energy) cuts.
@@ -684,17 +716,20 @@ def _generate_one_clip(mv: MusicVideo, clip: dict):
     # so users can pick via GUI (similar to VideoGeneratorPage). The still (keyframe)
     # is generated first (SDXL path when LoRA consistency is on), then fed to the chosen I2V.
     # Wan 2.2 I2V is preferred for quality when the user has the GPU budget.
-    i2v_model = s.get("i2v_model", "wan22-14b-i2v")
-    if "wan" in i2v_model.lower():
-        # Wan 2.2 14B (A14B) is a 16fps model — matches the engine's own default
-        # (comfyui_video_generator._create_wan22_i2v_workflow fps=16) and the
-        # VideoGeneratorPage. The old 24 here (the 5B TI2V rate) tagged the same
-        # frames 1.5x fast, so motion played sped-up vs the VideoGen page.
-        i2v_fps = 16
-        frames = max(17, min(49, int(round(motion_len_s * i2v_fps)) or 25))
-    else:
-        i2v_fps = 7
-        frames = max(14, min(25, int(round(motion_len_s * i2v_fps)) or 25))
+    prof = _clip_profile(s)
+    i2v_model = prof["model"]
+    # The model's own rate: Wan 2.2 14B is a 16fps model, CogVideoX 7fps, a
+    # registry model whatever it declares. Tagging frames at the wrong rate
+    # played motion sped-up or slowed against the Video Generator page.
+    i2v_fps = prof["fps"]
+    native_audio = prof["audio_out"]
+    if native_audio:
+        # The model renders picture and sound for the whole cut in one pass, so
+        # the motion length is the cut itself (capped at its longest clip); the
+        # fill step then trims to the slot and keeps the song as the master
+        # track. The song slice anchors the clip so its motion lands on the beat.
+        motion_len_s = min(base_slot_s, prof["max_frames"] / i2v_fps)
+    frames = max(prof["min_frames"], min(prof["max_frames"], int(round(motion_len_s * i2v_fps)) or prof["max_frames"]))
 
     # If the user has already curated storyboards (via the "thumbnails first" review
     # flow), reuse the reviewed storyboard image as the init for i2v instead of
@@ -804,6 +839,28 @@ def _generate_one_clip(mv: MusicVideo, clip: dict):
                 },
                 interpolation_multiplier=int(s["interpolation_multiplier"]),
             )
+            if native_audio:
+                # Native-audio path: the director's shot becomes the model's
+                # structured prompt and the song slice for this cut is anchored
+                # at frame 0 so the generated motion follows its beats. The
+                # clip's own soundtrack is dropped by the fill step; the song
+                # stays the master track.
+                from backend.services import h3_prompt_compiler as h3
+                song_path = _resolve_song_path(mv)
+                intent = h3.intent_from_cut(
+                    {"start_s": float(clip["start"]), "end_s": float(clip["end"])},
+                    clip_prompt, song_audio_index=1, style=s.get("prompt_style") or "cinematic",
+                )
+                compiled, diag = h3.compile(intent)
+                req_kwargs["prompt"] = compiled
+                req_kwargs["h3_intent"] = h3.intent_to_dict(intent)
+                req_kwargs["duration_frames"] = diag["frames"]
+                req_kwargs["interpolation_multiplier"] = 1
+                if song_path and os.path.exists(song_path):
+                    req_kwargs["guides"] = [{
+                        "kind": "audio", "path": song_path, "frame_idx": 0,
+                        "seek_s": float(clip["start"]), "duration_s": base_slot_s,
+                    }]
             if s.get("i2v_steps"):
                 req_kwargs["num_inference_steps"] = int(s["i2v_steps"])
             req = VideoGenerationRequest(**req_kwargs)
