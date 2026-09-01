@@ -52,6 +52,116 @@ def is_model_installed(model_id: str) -> bool:
     return True
 
 
+# ── MiniMax H3 shared capability data ────────────────────────────────────
+# Every H3 generation entry carries the same contract; the variants differ
+# only in precision, size and the VRAM tier they are meant for. Declared once
+# here and spliced into each entry so a limit is never re-typed per variant.
+#
+# Frame grid: the model samples 17k+5 frames at 24 fps (124 = ~5 s). The
+# trained range is 124-362 frames (~5-15 s); the node accepts less, and the
+# shipped "short" preset (73 frames, ~3 s) rendered for an external tester,
+# so the floor stays at 3 s until a measured run says otherwise.
+H3_FRAME_RULE = "17k+5"
+H3_NATIVE_FPS = 24
+H3_ASPECT_RATIOS = ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]
+H3_LICENSE = {
+    "name": "MiniMax H3 Community License",
+    "url": "https://huggingface.co/MiniMaxAI/MiniMax-H3/blob/main/LICENSE",
+    "form_url": "https://platform.minimax.io/h3-license",
+    "attribution": "MiniMax H3",
+    # Static text only. The product never checks entitlement online; the
+    # person installing reads this and decides, as with every gated model.
+    "note": (
+        "The license names the EU, UK, South Korea and USA as Excluded "
+        "Territories; MiniMax offers an application form for those. Commercial "
+        "products must display 'MiniMax H3' in their UI; revenue above 20M USD "
+        "needs written authorization; outputs may not be used to train other "
+        "models."
+    ),
+}
+# Ten style embeddings shipped beside the weights (models/embeddings). A
+# preset appends the token to the prompt after enhancement so the enhancer
+# cannot rewrite it. Ids are the filename stems minus the "minimaxh3_" prefix.
+H3_STYLE_EMBEDDING_IDS = [
+    "art_is_explosion", "blooming_flowers", "bullet_time", "dark_magic",
+    "fire_breath", "four_seasons", "kiss_camera", "spiral_ascent",
+    "storm_magic", "truman_show",
+]
+H3_STYLE_EMBEDDINGS = [
+    {
+        "id": sid,
+        "label": sid.replace("_", " ").capitalize(),
+        "token": f"embedding:minimaxh3_{sid}",
+        "file": f"minimaxh3_{sid}.safetensors",
+    }
+    for sid in H3_STYLE_EMBEDDING_IDS
+]
+# Speed profiles: the official template samples 20 steps without CFG. The
+# turbo LoRAs are Comfy-Org's distilled variants; their step counts come from
+# docs.comfy.org ("slightly lower audio and motion quality"), not from a
+# measurement here. min_steps is the no-bad-knob floor a preset may not go
+# below; an explicit value a person typed still wins and is logged.
+# The 4-step fl2v LoRA is tuned for the 768 px canvas, so it is gated to a
+# 768 short edge until a run at 480p is compared.
+H3_FL2VA_SPEED_PROFILES = {
+    "standard": {"label": "Standard (20 steps)", "steps": 20, "min_steps": 20},
+    "turbo-8": {
+        "label": "Turbo (8 steps)",
+        "lora": "minimax-h3-fl2v-turbo-8step",
+        "strength": 1.0,
+        "steps": 8,
+        "min_steps": 8,
+    },
+    "turbo-4-768p": {
+        "label": "Turbo 768p (4 steps)",
+        "lora": "minimax-h3-fl2v-turbo-4step-768p",
+        "strength": 1.0,
+        "steps": 4,
+        "min_steps": 4,
+        "min_short_edge": 768,
+    },
+}
+H3_REF2VA_SPEED_PROFILES = {
+    "standard": {"label": "Standard (20 steps)", "steps": 20, "min_steps": 20},
+    "turbo-4": {
+        "label": "Turbo (4 steps, experimental)",
+        "lora": "minimax-h3-ref2v-turbo-4step",
+        "strength": 1.0,
+        "steps": 4,
+        "min_steps": 4,
+        "experimental": True,
+    },
+}
+# Duration tiers: only the 175-frame tier ships until the 10 s / 15 s runs
+# record a pixel-area cap for each (Phase 0 of the H3 plan). The UI offers a
+# duration only when its tier exists here.
+H3_DURATION_TIERS = [{"frames": 175, "seconds": 7.3, "max_pixel_area": 768 * 1344}]
+# Keys shared by every H3 generation entry. `tier_defaults` (per VRAM class)
+# and `speed_profiles` are per variant.
+_H3_COMMON = {
+    "type": "minimax",
+    "dimension_alignment": 32,
+    # Template note: native canvas is a 768px short edge, capped at 768x1344.
+    "max_pixel_area": 768 * 1344,
+    "aspect_ratios": H3_ASPECT_RATIOS,
+    "audio_out": True,
+    "audio_in": True,
+    "cfg": False,
+    "native_fps": H3_NATIVE_FPS,
+    "frame_rule": H3_FRAME_RULE,
+    "max_frames": 175,
+    "min_clip_s": 3.0,
+    "max_clip_s": 15.0,
+    "duration_tiers": H3_DURATION_TIERS,
+    "min_steps": 20,
+    "default_steps": 20,
+    "style_embeddings": H3_STYLE_EMBEDDINGS,
+    "license": H3_LICENSE,
+}
+_H3_FL2VA_MODES = ["t2v", "i2v", "l2v", "flf2v"]
+_H3_REF_LIMITS = {"images": 9, "videos": 3, "audios": 3, "files": 12, "video_seconds": [2, 15]}
+
+
 VIDEO_MODEL_REGISTRY = {
     "cogvideox-5b": {
         "name": "CogVideoX 5B",
@@ -685,18 +795,19 @@ VIDEO_MODEL_REGISTRY = {
     # "Which MiniMax": the local-weights H3 release (Comfy-Org/MiniMax-H3), not
     # the Hailuo cloud API nodes that share the template name. Native ComfyUI
     # support (MiniMaxH3ImageToVideo etc.) landed in v0.30.0 (PR #15224); the
-    # bundled ComfyUI is v0.33.0. Variant choice follows the official
-    # video_minimax_h3_t2v template shipped in comfyui_workflow_templates:
-    # fl2va covers T2V and first/last-frame I2V in one file; ref2va (reference
-    # to video, 9 images / 3 clips) is a separate 21GB transformer and is not
-    # offered until something consumes it.
+    # bundled ComfyUI is v0.33.0. Two checkpoints: fl2va covers T2V and
+    # first/last-frame I2V; ref2va is reference-to-video (up to 9 images,
+    # 3 clips, 3 audio files). Each is offered as a precision ladder: pruned
+    # int8 for 16 GB cards, unpruned int8 for 24 GB, bf16 for 48 GB+. Only the
+    # 16 GB rung has been exercised; the others are declared from the repo's
+    # file list and the vendor's size classes, marked unmeasured below.
     "minimax-h3-int8": {
         "name": "MiniMax H3 (Int8, 16GB)",
         "description": "MiniMax H3 omni-modal video — generates picture and native "
                        "stereo audio in one pass. Pruned int8+convrot transformer for "
                        "RTX 40xx 16GB. T2V + first/last-frame I2V, 24fps, ~5-15s. "
                        "Requires ComfyUI ≥ 0.30.0. Pulls Qwen3-VL 32B encoder + "
-                       "video VAE + audio VAE (~42GB total).",
+                       "video VAE + audio VAE + style embeddings (~42GB total).",
         "hf_repo": "Comfy-Org/MiniMax-H3",
         "local_subdir": "diffusion_models",
         "files": [
@@ -705,19 +816,127 @@ VIDEO_MODEL_REGISTRY = {
                 "dst": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
             },
         ],
-        "requires": ["minimax-h3-qwen3vl-nvfp4", "minimax-h3-vae", "minimax-h3-audio-vae"],
+        "requires": [
+            "minimax-h3-qwen3vl-nvfp4",
+            "minimax-h3-vae",
+            "minimax-h3-audio-vae",
+            "minimax-h3-style-embeddings",
+        ],
         "size_gb": 20.97,
         # Same class as ltx25-distilled-int8 (20GB int8+convrot transformer, which
         # renders on this 16GB tier at 14000). Not yet measured for H3 itself —
-        # revisit when the generator workflow lands and a render is timed.
+        # replaced by the Phase 0 benchmark peak when it is recorded.
         "vram_mb": 14000,
-        "type": "minimax",
-        "dimension_alignment": 32,
-        # Template note: native canvas is a 768px short edge, capped at 768x1344.
-        "max_pixel_area": 768 * 1344,
-        # Official template samples 20 steps (res_multistep / simple, CFG 1).
-        # Carry that as the floor into MODEL_OPTIONS when generation is wired;
-        # the 4/8-step turbo LoRAs on the repo are a separate, unmeasured path.
+        "min_vram_gb": 16,
+        **_H3_COMMON,
+        "modes": _H3_FL2VA_MODES,
+        "speed_profiles": H3_FL2VA_SPEED_PROFILES,
+        # Per-VRAM-class starting points the Video Generator seeds its controls
+        # from. 16 GB starts at the template's 480p canvas and standard steps;
+        # whether turbo-8 becomes the 16 GB default is decided by the
+        # benchmark's 1-vs-5 comparison, not assumed.
+        "tier_defaults": {
+            "16": {"width": 864, "height": 480, "speed_profile": "standard", "frames": 124},
+            "24": {"width": 1344, "height": 768, "speed_profile": "standard", "frames": 124},
+        },
+    },
+    "minimax-h3-ref2va-int8": {
+        "name": "MiniMax H3 Reference (Int8, 16GB)",
+        "description": "MiniMax H3 reference-to-video: up to 9 reference images, "
+                       "3 reference clips and 3 audio files lock identity, motion, "
+                       "camera and voice, or edit and continue a clip. Pruned "
+                       "int8+convrot for RTX 40xx 16GB, 24fps, ~5-15s with native "
+                       "audio. Shares the Qwen3-VL encoder, VAEs and embeddings "
+                       "with MiniMax H3.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {
+                "src": "diffusion_models/minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+                "dst": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+            },
+        ],
+        "requires": [
+            "minimax-h3-qwen3vl-nvfp4",
+            "minimax-h3-vae",
+            "minimax-h3-audio-vae",
+            "minimax-h3-style-embeddings",
+        ],
+        "size_gb": 19.53,
+        # Same architecture and size class as the fl2va build; unmeasured.
+        "vram_mb": 14000,
+        "min_vram_gb": 16,
+        **_H3_COMMON,
+        "modes": ["ref2v"],
+        "ref_limits": _H3_REF_LIMITS,
+        "speed_profiles": H3_REF2VA_SPEED_PROFILES,
+        "tier_defaults": {
+            "16": {"width": 864, "height": 480, "speed_profile": "standard", "frames": 124},
+            "24": {"width": 1344, "height": 768, "speed_profile": "standard", "frames": 124},
+        },
+    },
+    "minimax-h3-int8-full": {
+        "name": "MiniMax H3 (Int8 unpruned, 24GB+)",
+        "description": "MiniMax H3 with the full modulation weights (Comfy-Org's "
+                       "pruned builds drop ~40% of them). Int8+convrot transformer "
+                       "plus the int8 Qwen3-VL encoder; meant for 24GB-class cards. "
+                       "Unmeasured: declared from the repo's size classes.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {
+                "src": "diffusion_models/minimax_h3_fl2va_int8_convrot.safetensors",
+                "dst": "minimax_h3_fl2va_int8_convrot.safetensors",
+            },
+        ],
+        "requires": [
+            "minimax-h3-qwen3vl-int8",
+            "minimax-h3-vae",
+            "minimax-h3-audio-vae",
+            "minimax-h3-style-embeddings",
+        ],
+        "size_gb": 31.70,
+        # Unmeasured. Sized so gpu_session refuses the 16 GB tier outright
+        # instead of offload-thrashing; a 24 GB run replaces this number.
+        "vram_mb": 22000,
+        "min_vram_gb": 24,
+        **_H3_COMMON,
+        "modes": _H3_FL2VA_MODES,
+        "speed_profiles": H3_FL2VA_SPEED_PROFILES,
+        "tier_defaults": {
+            "24": {"width": 1344, "height": 768, "speed_profile": "standard", "frames": 124},
+        },
+    },
+    "minimax-h3-bf16": {
+        "name": "MiniMax H3 (BF16, 48GB+)",
+        "description": "MiniMax H3 at full bf16 precision with the bf16 Qwen3-VL "
+                       "encoder (~110GB of weights). For workstation cards with "
+                       "48GB or more. Unmeasured: declared from the repo's size "
+                       "classes.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {
+                "src": "diffusion_models/minimax_h3_fl2va_bf16.safetensors",
+                "dst": "minimax_h3_fl2va_bf16.safetensors",
+            },
+        ],
+        "requires": [
+            "minimax-h3-qwen3vl-bf16",
+            "minimax-h3-vae",
+            "minimax-h3-audio-vae",
+            "minimax-h3-style-embeddings",
+        ],
+        "size_gb": 61.74,
+        # Unmeasured; the floor keeps it off every consumer tier.
+        "vram_mb": 44000,
+        "min_vram_gb": 48,
+        **_H3_COMMON,
+        "modes": _H3_FL2VA_MODES,
+        "speed_profiles": H3_FL2VA_SPEED_PROFILES,
+        "tier_defaults": {
+            "48": {"width": 1344, "height": 768, "speed_profile": "standard", "frames": 124},
+        },
     },
     "minimax-h3-qwen3vl-nvfp4": {
         "name": "Qwen3-VL 32B (NVFP4 AWQ) — MiniMax H3 text encoder",
@@ -734,6 +953,37 @@ VIDEO_MODEL_REGISTRY = {
             },
         ],
         "size_gb": 15.69,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "minimax-h3-qwen3vl-int8": {
+        "name": "Qwen3-VL 32B (Int8) — MiniMax H3 text encoder",
+        "description": "Encoder for the unpruned int8 H3 build on 24GB-class cards; "
+                       "no fp4 emulation.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "text_encoders",
+        "files": [
+            {
+                "src": "text_encoders/qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+                "dst": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+            },
+        ],
+        "size_gb": 25.28,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "minimax-h3-qwen3vl-bf16": {
+        "name": "Qwen3-VL 32B (BF16) — MiniMax H3 text encoder",
+        "description": "Full-precision encoder for the bf16 H3 build.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "text_encoders",
+        "files": [
+            {
+                "src": "text_encoders/qwen3vl_32b_minimax_h3_bf16.safetensors",
+                "dst": "qwen3vl_32b_minimax_h3_bf16.safetensors",
+            },
+        ],
+        "size_gb": 47.98,
         "vram_mb": 0,
         "type": "encoder",
     },
@@ -768,6 +1018,76 @@ VIDEO_MODEL_REGISTRY = {
         "size_gb": 0.61,
         "vram_mb": 0,
         "type": "vae",
+    },
+    "minimax-h3-style-embeddings": {
+        "name": "MiniMax H3 style embeddings",
+        "description": "Ten prompt embeddings shipped with H3 (bullet time, dark magic, "
+                       "four seasons, ...). Tiny; pulled with every H3 build so the "
+                       "style preset can never point at a missing file.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "embeddings",
+        "files": [
+            {"src": f"embeddings/{e['file']}", "dst": e["file"]} for e in H3_STYLE_EMBEDDINGS
+        ],
+        "size_gb": 0.011,
+        "vram_mb": 0,
+        "type": "embedding",
+    },
+    # Turbo LoRAs are optional (not in `requires`): 2 GB each, chosen through a
+    # speed profile. Preflight names the missing file when a profile asks for
+    # one that is not installed.
+    "minimax-h3-fl2v-turbo-8step": {
+        "name": "MiniMax H3 Turbo LoRA (8-step)",
+        "description": "Optional distilled LoRA for the fl2va builds: 8 sampling steps "
+                       "instead of 20 at slightly lower audio and motion quality "
+                       "(docs.comfy.org). Selected via the Turbo speed profile.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "loras",
+        "files": [
+            {
+                "src": "loras/minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+                "dst": "minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+            },
+        ],
+        "size_gb": 1.96,
+        "vram_mb": 0,
+        "type": "lora",
+        "applies_to": ["minimax-h3-int8", "minimax-h3-int8-full", "minimax-h3-bf16"],
+    },
+    "minimax-h3-fl2v-turbo-4step-768p": {
+        "name": "MiniMax H3 Turbo LoRA (4-step, 768p)",
+        "description": "Optional distilled LoRA for the fl2va builds tuned at the 768 px "
+                       "canvas: 4 sampling steps. Selected via the Turbo 768p speed "
+                       "profile, which requires a 768 px short edge.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "loras",
+        "files": [
+            {
+                "src": "loras/minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+                "dst": "minimax_h3_fl2v_turbo_4step_v1.0_768p_comfyui_bf16.safetensors",
+            },
+        ],
+        "size_gb": 1.96,
+        "vram_mb": 0,
+        "type": "lora",
+        "applies_to": ["minimax-h3-int8", "minimax-h3-int8-full", "minimax-h3-bf16"],
+    },
+    "minimax-h3-ref2v-turbo-4step": {
+        "name": "MiniMax H3 Reference Turbo LoRA (4-step, v0.1)",
+        "description": "Optional distilled LoRA for the ref2va build: 4 sampling steps. "
+                       "Vendor-labelled v0.1; the profile is marked experimental.",
+        "hf_repo": "Comfy-Org/MiniMax-H3",
+        "local_subdir": "loras",
+        "files": [
+            {
+                "src": "loras/minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+                "dst": "minimax_h3_ref2v_turbo_4step_v0.1_comfyui_bf16.safetensors",
+            },
+        ],
+        "size_gb": 1.96,
+        "vram_mb": 0,
+        "type": "lora",
+        "applies_to": ["minimax-h3-ref2va-int8"],
     },
 }
 
@@ -951,6 +1271,11 @@ def supports_first_frame_i2v(model_id: str) -> bool:
     entry = VIDEO_MODEL_REGISTRY.get(model_id or "")
     if not entry:
         return False
+    modes = entry.get("modes")
+    if modes:
+        # Declared capability wins: the H3 reference build has no first-frame
+        # input, so it must never be picked to animate a keyframe.
+        return "i2v" in modes or "flf2v" in modes
     mtype = entry.get("type")
     if mtype in ("ltx", "minimax"):
         return True
@@ -977,7 +1302,145 @@ def i2v_model_for(model_id: str, default: str = "wan22-14b-i2v") -> str:
                 and VIDEO_MODEL_REGISTRY[candidate].get("type") == entry.get("type") \
                 and supports_first_frame_i2v(candidate):
             return candidate
+    # No name-pattern sibling (the H3 reference build): the same-family
+    # first-frame model that shares the most companions, so the keyframe is
+    # still animated by the family the person picked.
+    if entry:
+        shared = set(entry.get("requires", []))
+        siblings = [
+            (len(shared & set(e.get("requires", []))), cid)
+            for cid, e in VIDEO_MODEL_REGISTRY.items()
+            if cid != mid and e.get("type") == entry.get("type") and supports_first_frame_i2v(cid)
+        ]
+        if siblings:
+            return max(siblings)[1]
     return default
+
+
+# ── Capability contract ──────────────────────────────────────────────────────
+# Flat keys on a generation entry describe what the model can do, so the
+# Video Generator, MCP tools and batch generators read data instead of
+# testing `type == "minimax"`. Entries that predate the contract get family
+# defaults from model_capabilities(); nothing here is a second registry.
+CAPABILITY_MODES = ("t2v", "i2v", "l2v", "flf2v", "ref2v")
+GENERATION_TYPES = ("wan", "cogvideox", "ltx", "hunyuan", "minimax")
+
+
+def _derived_modes(model_id: str, entry: dict) -> list:
+    mtype = entry.get("type")
+    if mtype == "wan":
+        kind = (wan_comfyui_map().get(model_id) or {}).get("type")
+        return {"t2v": ["t2v"], "i2v": ["i2v"], "ti2v": ["t2v", "i2v"]}.get(kind, ["t2v"])
+    if mtype == "hunyuan":
+        return ["i2v"] if (hunyuan_comfyui_map().get(model_id) or {}).get("type") == "i2v" else ["t2v"]
+    if mtype == "cogvideox":
+        return ["i2v"] if "i2v" in model_id else ["t2v"]
+    if mtype in ("ltx", "minimax"):
+        return ["t2v", "i2v"]
+    return []
+
+
+def model_capabilities(model_id: str) -> dict:
+    """The capability record for a generation entry (empty dict for companions
+    and unknown ids). Declared keys win; the rest are family defaults."""
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
+    if entry.get("type") not in GENERATION_TYPES:
+        return {}
+    caps = {
+        "modes": entry.get("modes") or _derived_modes(model_id, entry),
+        "audio_out": bool(entry.get("audio_out", False)),
+        "audio_in": bool(entry.get("audio_in", False)),
+        "cfg": bool(entry.get("cfg", True)),
+        "aspect_ratios": list(entry.get("aspect_ratios") or []),
+        "dimension_alignment": entry.get("dimension_alignment"),
+        "max_pixel_area": entry.get("max_pixel_area"),
+        "native_fps": entry.get("native_fps"),
+        "frame_rule": entry.get("frame_rule"),
+        "max_frames": entry.get("max_frames"),
+        "min_clip_s": entry.get("min_clip_s"),
+        "max_clip_s": entry.get("max_clip_s"),
+        "duration_tiers": list(entry.get("duration_tiers") or []),
+        "min_steps": entry.get("min_steps"),
+        "default_steps": entry.get("default_steps"),
+        "speed_profiles": dict(entry.get("speed_profiles") or {}),
+        "style_embeddings": list(entry.get("style_embeddings") or []),
+        "ref_limits": entry.get("ref_limits"),
+        "tier_defaults": dict(entry.get("tier_defaults") or {}),
+        "min_vram_gb": entry.get("min_vram_gb"),
+        "license": entry.get("license"),
+    }
+    caps["supports_t2v"] = "t2v" in caps["modes"]
+    caps["supports_i2v"] = "i2v" in caps["modes"] or "flf2v" in caps["modes"]
+    return caps
+
+
+def speed_profile_for(model_id: str, profile: str | None) -> dict | None:
+    """Resolve a declared speed profile to its settings plus the LoRA filename
+    the builder loads (``lora_file``), or None when the model does not declare
+    that profile. A profile without a LoRA resolves with ``lora_file`` None."""
+    if not profile:
+        return None
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
+    spec = (entry.get("speed_profiles") or {}).get(profile)
+    if not spec:
+        return None
+    resolved = dict(spec)
+    resolved["id"] = profile
+    resolved["lora_file"] = None
+    lora_id = spec.get("lora")
+    if lora_id:
+        lora_entry = VIDEO_MODEL_REGISTRY.get(lora_id) or {}
+        files = lora_entry.get("files") or []
+        resolved["lora_file"] = files[0]["dst"] if files else None
+        resolved["lora_installed"] = is_model_installed(lora_id)
+    return resolved
+
+
+def style_embedding_token(model_id: str, style_id: str | None) -> str | None:
+    """The prompt token for a declared style embedding id, or None."""
+    if not style_id:
+        return None
+    for emb in (VIDEO_MODEL_REGISTRY.get(model_id or "") or {}).get("style_embeddings") or []:
+        if emb.get("id") == style_id:
+            return emb.get("token")
+    return None
+
+
+def vram_tier_for(total_vram_mb: int | float | None, tiers) -> str | None:
+    """The largest declared tier key (a VRAM class in GB, as a string) that the
+    card meets. Cards that report a few hundred MB under a round number still
+    count for it, matching hardware_policy's grace for 15.9 GB "16 GB" cards."""
+    if not total_vram_mb or not tiers:
+        return None
+    total_gb = float(total_vram_mb) / 1024.0 + 0.5
+    best = None
+    for key in tiers:
+        try:
+            need = float(key)
+        except (TypeError, ValueError):
+            continue
+        if need <= total_gb and (best is None or need > float(best)):
+            best = key
+    return best
+
+
+def tier_defaults_for(model_id: str, total_vram_mb: int | float | None = None) -> dict:
+    """The starting settings for this card, chosen from the entry's
+    ``tier_defaults``. Probes VRAM when not supplied; returns {} when the
+    entry declares no tiers or the card is below every declared class."""
+    tiers = (VIDEO_MODEL_REGISTRY.get(model_id or "") or {}).get("tier_defaults") or {}
+    if not tiers:
+        return {}
+    if total_vram_mb is None:
+        try:
+            from backend.services.gpu_resource_coordinator import get_available_vram
+            total_vram_mb = (get_available_vram() or {}).get("total_mb") or 0
+        except Exception:
+            total_vram_mb = 0
+    key = vram_tier_for(total_vram_mb, tiers)
+    if key is None:
+        return {}
+    return {"tier": key, **tiers[key]}
 
 
 def wan_comfyui_map() -> dict:
@@ -1208,6 +1671,47 @@ def hunyuan_comfyui_map() -> dict:
     return out
 
 
+def _verify_capabilities(mid: str, entry: dict) -> list:
+    """Contract checks for an entry that declares capabilities: every mode is
+    in the vocabulary, every speed profile's LoRA exists and is a LoRA whose
+    floor does not exceed its step count, every style token has a file in an
+    embedding companion, and a license names its attribution."""
+    problems = []
+    for mode in entry.get("modes") or []:
+        if mode not in CAPABILITY_MODES:
+            problems.append(f"{mid}: unknown mode '{mode}'")
+    for pid, spec in (entry.get("speed_profiles") or {}).items():
+        steps, floor = spec.get("steps"), spec.get("min_steps")
+        if not steps or not floor or floor > steps:
+            problems.append(f"{mid}: speed profile '{pid}' needs min_steps <= steps")
+        lora = spec.get("lora")
+        if lora:
+            lora_entry = VIDEO_MODEL_REGISTRY.get(lora)
+            if not lora_entry or lora_entry.get("type") != "lora" or not lora_entry.get("files"):
+                problems.append(f"{mid}: speed profile '{pid}' names unknown LoRA '{lora}'")
+            elif mid not in (lora_entry.get("applies_to") or []):
+                problems.append(f"{mid}: LoRA '{lora}' does not list it in applies_to")
+    embedding_files = set()
+    for dep in entry.get("requires", []):
+        dep_entry = VIDEO_MODEL_REGISTRY.get(dep) or {}
+        if dep_entry.get("type") == "embedding":
+            embedding_files.update(f["dst"] for f in dep_entry.get("files", []))
+    for emb in entry.get("style_embeddings") or []:
+        if emb.get("file") not in embedding_files:
+            problems.append(f"{mid}: style embedding '{emb.get('id')}' has no file in an embedding companion")
+    if entry.get("min_steps") and entry.get("default_steps") \
+            and entry["default_steps"] < entry["min_steps"]:
+        problems.append(f"{mid}: default_steps below min_steps")
+    lic = entry.get("license")
+    if lic is not None and not (lic.get("name") and lic.get("attribution")):
+        problems.append(f"{mid}: license must carry name and attribution")
+    for tier, defaults in (entry.get("tier_defaults") or {}).items():
+        prof = defaults.get("speed_profile")
+        if prof and prof not in (entry.get("speed_profiles") or {}):
+            problems.append(f"{mid}: tier '{tier}' default names unknown speed profile '{prof}'")
+    return problems
+
+
 def verify_registry() -> list:
     """Sanity-check the registry is internally complete. Returns a list of
     human-readable problems (empty = healthy). Never raises."""
@@ -1241,6 +1745,7 @@ def verify_registry() -> list:
                 for k in ("unet", "clip", "vae", "audio_vae"):
                     if not m.get(k):
                         problems.append(f"{mid}: MiniMax ComfyUI map missing '{k}'")
+                problems.extend(_verify_capabilities(mid, entry))
             if entry.get("type") == "cogvideox" and entry.get("files"):
                 m = cogvideox_comfyui_map().get(mid, {})
                 for k in ("unet", "vae"):

@@ -36,7 +36,8 @@ const TYPE_LABELS = {
   vae: "Dependency",
   encoder: "Dependency",
   clip_vision: "Dependency",
-  lora: "Dependency",
+  lora: "Speed / identity LoRA",
+  embedding: "Dependency",
 };
 
 const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
