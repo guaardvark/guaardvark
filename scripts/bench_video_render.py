@@ -130,6 +130,9 @@ def main() -> int:
         "seagulls are heard, no music."
     ))
     ap.add_argument("--image", help="first frame for the image route")
+    ap.add_argument("--guide-audio", help="audio file anchored at --guide-frame (models with audio_in)")
+    ap.add_argument("--guide-frame", type=int, default=0)
+    ap.add_argument("--guide-seconds", type=float, default=0.0, help="cut the guide to this many seconds (0 = clip length)")
     ap.add_argument("--width", type=int, default=864)
     ap.add_argument("--height", type=int, default=480)
     ap.add_argument("--frames", type=int, default=124)
@@ -165,12 +168,20 @@ def main() -> int:
         body["speed_profile"] = args.speed_profile
     if args.style_embedding:
         body["style_embedding"] = args.style_embedding
+    guides = []
+    if args.guide_audio:
+        guides = [[{"kind": "audio", "path": os.path.abspath(args.guide_audio), "frame_idx": args.guide_frame,
+                    "duration_s": args.guide_seconds}]]
     if args.image:
         body["image_paths"] = [args.image]
         body["prompt"] = args.prompt
+        if guides:
+            body["guides"] = guides
         route = "/batch-video/generate/image"
     else:
         body["prompts"] = [args.prompt]
+        if guides:
+            body["guides"] = guides
         route = "/batch-video/generate/text"
 
     sampler = _Sampler()
@@ -204,6 +215,7 @@ def main() -> int:
     record = {
         "label": args.label,
         "model": args.model,
+        "guide_audio": bool(args.guide_audio),
         "speed_profile": args.speed_profile,
         "style_embedding": args.style_embedding,
         "canvas": f"{args.width}x{args.height}",

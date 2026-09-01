@@ -178,9 +178,10 @@ BEATS = [
     Beat(
         name="hook_models",
         narration=[
-            "Seven video models.",
-            "Wan. CogVideo X. LTX.",
-            "Text to video. Image to video.",
+            "Eleven video models. Five families.",
+            "Wan. CogVideo X. LTX. Hunyuan. MiniMax H3.",
+            "Text to video. Image to video. And one of them talks: "
+            "picture and its own soundtrack in one pass.",
             "",
             "On the same card that ran your chat, your images, and the "
             "voice you're hearing.",

@@ -52,7 +52,7 @@ REAL_CHAPTERS = {
         (99, "Closer — auto-filing into Files"),
     ],
     6: [
-        (0, "Hook — seven video models, one GPU"),
+        (0, "Hook — eleven video models, one GPU, one of them talks"),
         (22, "Preset tour — Quality, Duration, Motion, Aspect"),
         (43, "Live render — Queued → Storyboard → Director → Generating"),
         (72, "Draft-tier render"),
@@ -237,11 +237,13 @@ EPISODES = {
         title="Hollywood on One GPU — Video Gen",
         keyword="video gen",
         hook=(
-            "Seven video models. Wan. CogVideoX. LTX. Text to video, image to "
-            "video — on the same card that ran your chat in episode two."
+            "Eleven video models across five families. Wan. CogVideoX. LTX. "
+            "HunyuanVideo. MiniMax H3, which renders picture and its own "
+            "soundtrack in one pass — on the same card that ran your chat in "
+            "episode two."
         ),
         body=(
-            "Episode 6 tours video generation: seven backend models behind "
+            "Episode 6 tours video generation: eleven backend models behind "
             "one interface, the quality/duration/motion/aspect preset system, "
             "instant prompt styles, a live Fast-tier render with staged "
             "progress, the gpu_wait queue (renders wait for the card instead "
@@ -249,8 +251,8 @@ EPISODES = {
             "to the underlying ComfyUI graph."
         ),
         chapters=[
-            "Seven video models, one GPU",
-            "Model menu — Wan, CogVideoX, LTX...",
+            "Eleven video models, one GPU",
+            "Model menu — Wan, CogVideoX, LTX, Hunyuan, MiniMax H3",
             "Preset tour — Quality, Duration, Motion, Aspect",
             "Prompt styles — Cinematic, Anime, Claymation, Ghibli",
             "Live render — Queued → Storyboard → Director → Keyframe → Generating → Post",

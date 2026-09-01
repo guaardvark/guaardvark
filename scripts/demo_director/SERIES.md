@@ -214,15 +214,23 @@ Beats:
 renders pre-produced; Fast-tier short render live.
 
 Hook:
-> "Seven video models."
-> "Wan. CogVideo X. L T X."
-> "Text to video. Image to video."
+> "Eleven video models. Five families."
+> "Wan. CogVideo X. L T X. Hunyuan. MiniMax H3."
+> "Text to video. Image to video. And one of them talks."
 > ""
 > "On the same card that ran your chat in episode two."
 
 Beats:
-1. **Model menu** — 7 backends; VideoModelsModal downloads. Stat card:
-   `video_model_registry.py — one source of truth`.
+1. **Model menu** — 11 backends across 5 families; VideoModelsModal downloads,
+   with MiniMax H3's license chip and application-form link on its row. Stat
+   card: `video_model_registry.py — one source of truth` (the capability
+   contract every page reads lives there too).
+1b. **One of them talks** — a 5 s MiniMax H3 clip from the "Two-line dialogue
+   scene" preset, audio up on the reveal. Numbers on screen from the measured
+   run on a 16 GB RTX 40-series card: 186 s on the 8-step profile, 390 s at
+   20 steps, 14.5 GB peak. Honesty beat: ask the chat for a clip "with
+   sound" on Wan and read the refusal aloud — the tool names the model that
+   can, instead of rendering a silent clip.
 2. **Preset tour** — Quality (Fast→Maximum), Duration, Motion, Aspect. VO on
    the pixel-area trick: "reshape the frame; the VRAM bill stays the same."
 3. **Prompt styles** — Cinematic / Anime / Claymation / Ghibli — instant.
@@ -236,7 +244,8 @@ Beats:
    episode eight." Chip `▸ Ep 8`.
 
 Honesty beat: preflight refuses silent model fallback; gated-model errors
-tell you exactly what to do.
+tell you exactly what to do; the 1344x768 canvas on a 16 GB card runs out
+of memory and the registry says so instead of offering it.
 
 ---
 

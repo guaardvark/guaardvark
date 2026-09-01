@@ -1297,9 +1297,13 @@ class BatchVideoGenerator:
     ) -> BatchVideoStatus:
         from backend.services.output_registration import bates_name
         batch_id = params.get("batch_id") or bates_name("video_batch", "", self.base_output_dir)
+        guides_per_item = list(params.pop("guides", None) or [])
         items = [
-            BatchVideoItem(id=str(uuid.uuid4()), prompt=p, metadata={"source": "prompt"})
-            for p in prompts
+            BatchVideoItem(
+                id=str(uuid.uuid4()), prompt=p, metadata={"source": "prompt"},
+                guides=list(guides_per_item[i] or []) if i < len(guides_per_item) else [],
+            )
+            for i, p in enumerate(prompts)
         ]
         metadata = dict(params.get("metadata") or {})
         if not metadata.get("display_name") and prompts:

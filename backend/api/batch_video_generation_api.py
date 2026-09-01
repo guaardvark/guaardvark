@@ -142,6 +142,9 @@ def generate_text_to_video_batch():
         ready, preflight_err = preflight_video_model(model_id)
         if not ready:
             return error_response(preflight_err, 400)
+        # Per-prompt guides (audio or image anchors) on models that declare
+        # audio_in: a list per prompt of {"kind", "path", "frame_idx", ...}.
+        guides = data.get("guides") if isinstance(data.get("guides"), list) else []
 
         params = {
             "model": model_id,
@@ -197,7 +200,7 @@ def generate_text_to_video_batch():
             return error_response("Video generation service not available", 503)
 
         gpu_hint = _gpu_queue_hint()
-        status = generator.start_batch_from_prompts(prompts=prompts, **params)
+        status = generator.start_batch_from_prompts(prompts=prompts, guides=guides, **params)
         return success_response({
             "batch_id": status.batch_id,
             "status": status.status,
