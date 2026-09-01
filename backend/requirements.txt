@@ -85,7 +85,7 @@ docling>=2.123.0
 # registry + read-only output resources to Claude / Cursor / Grok / Zed).
 # Requires the 2.x SDK: handlers are Server constructor args (on_list_tools=...);
 # the 1.x decorator API the adapters previously used was removed in 2.0.
-mcp>=2.1,<3
+mcp>=2.1.1,<3
 
 # Image Generation Dependencies
 diffusers>=0.38.0
