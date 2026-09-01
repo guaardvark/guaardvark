@@ -1,6 +1,7 @@
 # backend/constraints.txt — global pip CONSTRAINTS for the shared backend venv.
 #
-# Applied via PIP_CONSTRAINT by scripts/install_pytorch.sh and
+# Applied via PIP_CONSTRAINT by start.sh's bootstrap passes,
+# scripts/heal_backend_venv.sh, scripts/install_pytorch.sh and
 # plugins/comfyui/scripts/install_deps.sh (guarded: only when this file exists
 # and PIP_CONSTRAINT isn't already set by the caller). Constraints never ADD
 # packages — they only cap versions when pip resolves something anyway.
@@ -21,6 +22,19 @@
 # their own stacks and may legitimately want numpy 2.x.
 
 numpy<2.0,>=1.26.4
+
+# Transitive deps whose current releases hard-require numpy>=2 (py3.12 metadata,
+# checked against PyPI 2026-08-31). Once one of them lands in the venv, every
+# UNCONSTRAINED resolve that touches it (requirements-cv most of all) upgrades
+# numpy to 2.x, the next constrained torch pass drags it back to 1.26.4, and
+# bootstrap loops through a full torch re-stage on every boot (observed in a
+# client-box setup.log 2026-08-31: opencv-contrib-python 5.0.0.93 + tifffile
+# 2026.7.31 + ml-dtypes 0.6.0 forcing numpy 2.5.2 on each requirements-cv pass).
+# Caps sit at the last numpy<2-friendly line of each:
+opencv-contrib-python<4.12   # 4.11.0.86 last allowing numpy 1.26; 4.12.0.88+ and 5.x need >=2
+tifffile<2026.4              # 2026.3.3 last with unpinned numpy; 2026.4.11 needs >=2.0, later >=2.1
+ml-dtypes<0.6                # 0.5.4 allows numpy>=1.26 on py3.12; 0.6.0 needs >=2.0
+
 # setuptools<81,>=80.9.0  -- REMOVED: unsatisfiable from the PyTorch index.
 #   install_pytorch.sh installs with --index-url https://download.pytorch.org/whl/<ver>,
 #   which REPLACES PyPI. That index hosts only setuptools 70.0.0/70.2.0/78.1.0, so this

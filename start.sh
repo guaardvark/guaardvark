@@ -1129,7 +1129,11 @@ ensure_venv_python_version() {
 # packages.
 BOOTSTRAP_STAMP="$VENV_DIR/.guaardvark_bootstrap_ts"
 venv_reqs_fingerprint() {
-    cat "$BACKEND_DIR/requirements-base.txt" "$BACKEND_DIR/requirements.txt" 2>/dev/null \
+    # constraints.txt and requirements-cv.txt shape the same venv (caps and CV
+    # pins) — a change to either must invalidate the stamp too, or a box with a
+    # stamped-but-drifted venv never picks the fix up.
+    cat "$BACKEND_DIR/requirements-base.txt" "$BACKEND_DIR/requirements.txt" \
+        "$BACKEND_DIR/requirements-cv.txt" "$BACKEND_DIR/constraints.txt" 2>/dev/null \
         | sha256sum 2>/dev/null | awk '{print $1}'
 }
 
@@ -1375,6 +1379,20 @@ ensure_backend_python_environment() {
         # install_pytorch.sh subprocess inherits it instead of re-deriving it.
         ensure_pip_tmpdir
 
+        # Constrain EVERY bootstrap pip pass, not just install_pytorch.sh. The
+        # requirements-cv resolve used to run unconstrained: once a numpy>=2-only
+        # transitive (opencv-contrib-python 5.x, tifffile 2026.4+, ml-dtypes 0.6)
+        # is in the venv, that pass upgrades numpy to 2.x, the constrained torch
+        # pass drags it back to 1.26.4, and every boot loops through a full torch
+        # re-stage. Operator-set PIP_CONSTRAINT wins; unset again before the
+        # reconciler — isolated plugin venvs manage their own stacks and must not
+        # inherit these caps (see the NOTE in backend/constraints.txt).
+        _gv_own_constraint=0
+        if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$BACKEND_DIR/constraints.txt" ]; then
+            export PIP_CONSTRAINT="$BACKEND_DIR/constraints.txt"
+            _gv_own_constraint=1
+        fi
+
         # requirements-base first (matches system-manager + leaves room for smart torch).
         # Fail fast: if the core files can't install there is nothing to boot —
         # stop HERE with the real error instead of cascading numpy tracebacks
@@ -1439,6 +1457,11 @@ ensure_backend_python_environment() {
             # import for batch_image_generation_api. Custom nodes + plugin reqs re-introduce them.
             "$VENV_DIR/bin/pip" uninstall -y flash-attn flash_attn xformers 2>/dev/null | tail -1 || true
         fi
+
+        if [ "${_gv_own_constraint:-0}" -eq 1 ]; then
+            unset PIP_CONSTRAINT
+        fi
+        unset _gv_own_constraint
 
         # Full reconciler pass for state tracking, CRITICAL_PACKAGES verification, cli_venv, etc.
         # A failure here is NOT a soft warn: it means a dependency target is broken.

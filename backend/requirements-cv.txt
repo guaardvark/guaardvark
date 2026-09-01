@@ -45,6 +45,16 @@ mediapipe==0.10.14     # no aarch64 wheel for many versions — primary Pi abort
 # model-maker workflows. Pin the last numpy<2-friendly line so one pass converges.
 jax==0.4.30
 jaxlib==0.4.30
+# Same failure mode, three more packages: mediapipe pulls opencv-contrib-python
+# unpinned, controlnet-aux pulls tifffile via scikit-image, jax pulls ml-dtypes.
+# Their current releases hard-require numpy>=2 (py3.12 metadata, checked against
+# PyPI 2026-08-31), so a bare `pip install -r` of this file upgrades numpy to
+# 2.x, and the next constrained torch pass downgrades it back — an install loop
+# that re-stages torch on every boot. Pin the last numpy<2-friendly line of
+# each; backend/constraints.txt carries matching caps for constrained installs.
+opencv-contrib-python==4.11.0.86   # 4.12.0.88+ and 5.x require numpy>=2
+tifffile==2026.3.3                 # 2026.4.11+ require numpy>=2
+ml-dtypes==0.5.4                   # 0.6.0 requires numpy>=2
 
 # --- Imaging backend used only by the two services above ---
 opencv-python==4.8.1.78
