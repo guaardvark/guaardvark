@@ -386,6 +386,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             name: m.name,
             dimension_alignment: m.dimension_alignment,
             max_pixel_area: m.max_pixel_area,
+            // Capability contract declared on the registry entry (modes, audio,
+            // cfg, step floor, speed profiles, style embeddings, license) plus
+            // the starting settings the backend picked for this card's VRAM class.
+            capabilities: m.capabilities || null,
+            tier_defaults: m.tier_defaults || null,
+            license: m.license || null,
           };
         });
         setModelMeta(meta);

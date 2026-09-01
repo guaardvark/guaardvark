@@ -29,6 +29,8 @@ from backend.services.video_model_registry import (
     DEFAULT_I2V_MODEL,
     preflight_video_model,
     classify_hf_download_error,
+    model_capabilities,
+    tier_defaults_for,
 )
 
 # GPU Resource Coordinator for pre-flight availability check
@@ -847,14 +849,26 @@ def _resolve_download_plan(model_id: str) -> List[str]:
     return plan
 
 
+def _detected_total_vram_mb() -> int:
+    """Total VRAM of the primary card, 0 when there is none or the probe
+    fails. Read once per listing so the tier lookup does not probe per model."""
+    try:
+        from backend.services.gpu_resource_coordinator import get_available_vram
+        return int((get_available_vram() or {}).get("total_mb") or 0)
+    except Exception:
+        return 0
+
+
 @batch_video_bp.route("/models", methods=["GET"])
 def list_video_models():
     """List all video models and their installation status."""
     try:
         models = []
+        total_vram_mb = _detected_total_vram_mb()
         for model_id, info in VIDEO_MODEL_REGISTRY.items():
             plan = _resolve_download_plan(model_id)
             requires = info.get("requires", [])
+            caps = model_capabilities(model_id)
             models.append({
                 "id": model_id,
                 "name": info["name"],
@@ -879,6 +893,14 @@ def list_video_models():
                         for e in plan if not _check_model_downloaded(e)),
                     2,
                 ),
+                # Capability contract (registry SSOT): empty for companions.
+                # tier_defaults is already resolved for this card's VRAM class
+                # so the page seeds its controls without knowing the tiers.
+                "capabilities": caps,
+                "tier_defaults": tier_defaults_for(model_id, total_vram_mb) if caps else {},
+                "license": info.get("license"),
+                # LoRA companions name the generation entries they apply to.
+                "applies_to": info.get("applies_to", []),
             })
         return success_response({"models": models})
     except Exception as e:
