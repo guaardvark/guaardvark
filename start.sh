@@ -1410,27 +1410,21 @@ ensure_backend_python_environment() {
             fi
         fi
 
-        # Optional CV/face-restoration extra (P3-10). These deps (gfpgan/realesrgan/
-        # basicsr/facexlib/controlnet-aux/mediapipe) lack reliable aarch64 wheels and
-        # used to abort the whole install on a Pi. Install them only when explicitly
-        # forced (GUAARDVARK_INSTALL_CV=1) OR auto-detected as a non-ARM GPU box.
-        # Failure here WARNS but never fails the core install — face-restore just stays
-        # disabled (its consumers import lazily inside try/except).
+        # Optional CV/face-restoration extra (P3-10) — OPT-IN ONLY. These deps
+        # (gfpgan/realesrgan/basicsr/facexlib/controlnet-aux/mediapipe) are a
+        # multi-hundred-MB stack that lacks reliable aarch64 wheels, and the
+        # earlier auto-install on any GPU box made every fresh install pay for
+        # two optional features. Both consumers import lazily inside try/except
+        # and degrade gracefully when absent (restoration_available=False /
+        # controlnet_available=False), so skipping costs nothing at boot.
+        # Failure here WARNS but never fails the core install.
         if [ -f "$BACKEND_DIR/requirements-cv.txt" ]; then
-            _cv_arch="$(uname -m 2>/dev/null || echo unknown)"
-            _cv_want=0
             if [ "${GUAARDVARK_INSTALL_CV:-0}" = "1" ]; then
-                _cv_want=1
-            elif command_exists nvidia-smi && nvidia-smi >/dev/null 2>&1 \
-                 && [ "$_cv_arch" != "aarch64" ] && [ "$_cv_arch" != "arm64" ]; then
-                _cv_want=1
-            fi
-            if [ "$_cv_want" -eq 1 ]; then
                 vader_info "Installing optional CV/face-restoration deps (requirements-cv.txt)..."
                 pip install -r "$BACKEND_DIR/requirements-cv.txt" >> "$SETUP_LOG" 2>&1 \
                     || vader_warn "Optional CV deps failed to install (face-restore stays disabled; non-fatal). Retry later: pip install -r backend/requirements-cv.txt"
             else
-                vader_info "Skipping optional CV deps (no GPU or ARM arch). Force with GUAARDVARK_INSTALL_CV=1"
+                vader_info "Skipping optional CV deps (face-restore/anatomy stay disabled). Opt in with GUAARDVARK_INSTALL_CV=1"
             fi
         fi
 

@@ -210,16 +210,13 @@ heal_cv_optional() {
         log "Skipping requirements-cv.txt (--skip-cv)"
         return 0
     fi
-    local arch want=0
-    arch="$(uname -m 2>/dev/null || echo unknown)"
-    if [ "${GUAARDVARK_INSTALL_CV:-0}" = "1" ]; then
-        want=1
-    elif command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1 \
-         && [ "$arch" != "aarch64" ] && [ "$arch" != "arm64" ]; then
-        want=1
-    fi
-    if [ "$want" -ne 1 ]; then
-        log "Skipping requirements-cv.txt (no NVIDIA GPU or ARM). Force with GUAARDVARK_INSTALL_CV=1"
+    # Opt-in only (matches start.sh): install when forced, or repair a stack an
+    # earlier opt-in already put in this venv. No auto-install on mere GPU
+    # presence — that made every fresh GPU box pay a multi-hundred-MB stack for
+    # two optional features (face-restore + anatomy/ControlNet).
+    if [ "${GUAARDVARK_INSTALL_CV:-0}" != "1" ] \
+       && ! "$VENV_PIP" show gfpgan >/dev/null 2>&1; then
+        log "Skipping requirements-cv.txt (not opted in, not installed). Opt in with GUAARDVARK_INSTALL_CV=1"
         return 0
     fi
     log "=== Step 4: optional CV / face restoration (requirements-cv.txt) ==="
