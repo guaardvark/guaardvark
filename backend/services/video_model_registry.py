@@ -831,12 +831,16 @@ VIDEO_MODEL_REGISTRY = {
             "minimax-h3-style-embeddings",
         ],
         "size_gb": 20.97,
-        # Provisional. 14000 (copied from ltx25-distilled-int8) plus the
-        # session's 1024 MB headroom exceeds what a 16 GB desktop card can free
-        # once the compositor and idle CUDA contexts hold ~2.7 GB, so the gate
-        # refused every render before one could be timed. ComfyUI partial-loads
-        # the transformer anyway; the measured peak replaces this number.
-        "vram_mb": 12000,
+        # Measured 2026-09-01 on a 16 GB RTX 40-series card (Ada) with 64 GB-class
+        # RAM: 864x480, 124 frames, 20 steps, --reserve-vram 3.0, PyTorch
+        # attention. Card peak 14.5 GB with ~2.7 GB held by the desktop and idle
+        # CUDA contexts, so the render's own working set was ~11.8 GB; ComfyUI
+        # partial-loads the transformer (6 GB resident, 14 GB offloaded) and the
+        # encoder to whatever is free, so the budget is the working set, not the
+        # weights. 14000 (copied from LTX-2.5) plus the session's 1 GB headroom
+        # asked for more than any 16 GB desktop card can free and refused every
+        # render. Wall time 390 s (~17 s/step); ComfyUI resident RAM peaked at 27 GB.
+        "vram_mb": 11000,
         "min_vram_gb": 16,
         **_H3_COMMON,
         "modes": _H3_FL2VA_MODES,
@@ -873,9 +877,9 @@ VIDEO_MODEL_REGISTRY = {
             "minimax-h3-style-embeddings",
         ],
         "size_gb": 19.53,
-        # Same architecture and size class as the fl2va build; provisional
-        # like it, unmeasured.
-        "vram_mb": 12000,
+        # Same architecture and size class as the fl2va build; carries its
+        # measured budget, unmeasured itself.
+        "vram_mb": 11000,
         "min_vram_gb": 16,
         **_H3_COMMON,
         "modes": ["ref2v"],

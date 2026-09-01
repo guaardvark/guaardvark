@@ -42,5 +42,5 @@ def test_router_wraps_generation_in_a_budgeted_session(monkeypatch):
     assert calls["op_id"] == "router:minimax-h3-int8:it1"
     assert calls["kw"]["evict_ollama"] is True and calls["kw"]["free_comfyui"] is False
     assert calls["kw"]["on_busy"] == "register"  # a held gate degrades, never refuses the clip
-    assert calls["kw"]["vram_estimate_mb"] == 12000
+    assert calls["kw"]["vram_estimate_mb"] == 11000
     assert calls["exited"] is True
