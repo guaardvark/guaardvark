@@ -823,10 +823,12 @@ VIDEO_MODEL_REGISTRY = {
             "minimax-h3-style-embeddings",
         ],
         "size_gb": 20.97,
-        # Same class as ltx25-distilled-int8 (20GB int8+convrot transformer, which
-        # renders on this 16GB tier at 14000). Not yet measured for H3 itself —
-        # replaced by the Phase 0 benchmark peak when it is recorded.
-        "vram_mb": 14000,
+        # Provisional. 14000 (copied from ltx25-distilled-int8) plus the
+        # session's 1024 MB headroom exceeds what a 16 GB desktop card can free
+        # once the compositor and idle CUDA contexts hold ~2.7 GB, so the gate
+        # refused every render before one could be timed. ComfyUI partial-loads
+        # the transformer anyway; the measured peak replaces this number.
+        "vram_mb": 12000,
         "min_vram_gb": 16,
         **_H3_COMMON,
         "modes": _H3_FL2VA_MODES,
@@ -863,8 +865,9 @@ VIDEO_MODEL_REGISTRY = {
             "minimax-h3-style-embeddings",
         ],
         "size_gb": 19.53,
-        # Same architecture and size class as the fl2va build; unmeasured.
-        "vram_mb": 14000,
+        # Same architecture and size class as the fl2va build; provisional
+        # like it, unmeasured.
+        "vram_mb": 12000,
         "min_vram_gb": 16,
         **_H3_COMMON,
         "modes": ["ref2v"],

@@ -897,7 +897,7 @@ class PluginManager:
         # a restart with the plugin down and its toggle still on. Wait it out.
         deadline = time.time() + 30
         while time.time() < deadline:
-            remaining = max(self.cooldown_remaining(plugin_id), self._global_cooldown_active())
+            remaining = max(self._gate.cooldown_remaining(plugin_id), self._gate._global_cooldown_active())
             if remaining <= 0:
                 break
             time.sleep(min(remaining, 1.0) + 0.05)
