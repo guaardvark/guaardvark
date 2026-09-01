@@ -19,6 +19,7 @@ export default function VideoGenEffectiveSettings({
   directorMode,
   faceRestore,
   freeu,
+  capabilities = null,
 }) {
   if (!computedParams) return null;
   return (
@@ -56,6 +57,20 @@ export default function VideoGenEffectiveSettings({
           <Chip size="small" color="primary" label="CogVideoX" sx={{ fontWeight: 600 }} />
         )}
         <Chip size="small" variant="outlined" label={`${computedParams.num_inference_steps} steps`} />
+        {computedParams.speed_profile && computedParams.speed_profile !== "standard" && (
+          <Chip
+            size="small"
+            variant="outlined"
+            color="success"
+            label={capabilities?.speed_profiles?.[computedParams.speed_profile]?.label || computedParams.speed_profile}
+          />
+        )}
+        {capabilities?.audio_out && (
+          <Chip size="small" variant="outlined" color="success" label="native audio" />
+        )}
+        {computedParams.style_embedding && (
+          <Chip size="small" variant="outlined" label={`style: ${computedParams.style_embedding}`} />
+        )}
         <Chip size="small" variant="outlined" label={`${computedParams.duration_frames} frames`} />
         <Chip size="small" variant="outlined" label={`${computedParams.fps} FPS`} />
         <Chip

@@ -117,6 +117,8 @@ export const ASPECT_RATIO_PRESETS = {
   "1:1": { label: "1:1", description: "Square", ratio: 1 },
   "4:3": { label: "4:3", description: "Standard", ratio: 4 / 3 },
   "3:2": { label: "3:2", description: "Classic", ratio: 3 / 2 },
+  "21:9": { label: "21:9", description: "Ultra-wide", ratio: 21 / 9 },
+  "3:4": { label: "3:4", description: "Portrait", ratio: 3 / 4 },
 };
 
 export const PROMPT_STYLES = {
@@ -247,21 +249,60 @@ export const MODEL_OPTIONS = {
     supportsI2V: true,
     dimensionAlignment: 32,
   },
+  // MiniMax H3: three precision rungs of one contract. The registry entry is
+  // the source of truth for limits (backend/services/video_model_registry.py);
+  // the page reads speed profiles, style embeddings, duration tiers and the
+  // per-VRAM-class starting settings from /api/batch-video/models and keeps
+  // these mirrors for offline rendering of the menu and for the tests.
   "minimax-h3-int8": {
     label: "MiniMax H3 Int8 (16GB)",
-    description: "MiniMax H3 — video with native stereo audio in one pass. 24fps, ~5s. T2V + first-frame I2V. ComfyUI ≥ 0.30.",
+    description: "MiniMax H3 — video with native stereo audio in one pass. 24fps, ~5s. T2V, first-frame and first+last-frame I2V. ComfyUI ≥ 0.30.",
     type: "minimax",
     nativeFps: 24,
     maxFrames: 175,
     // 0.4 MPx is the official template's default (864×480 at 16:9); the native
     // 768×1344 canvas is the cap, not the starting point, on a 16GB card.
     resolution: [864, 480],
-    aspectRatios: ["16:9", "9:16", "1:1"],
+    aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
     // The official ComfyUI template samples 20 steps (res_multistep / simple).
-    // Below that the base model is under-resolved like Wan; the 4/8-step turbo
-    // LoRAs are a separate path that is not offered here.
+    // Below that the base model is under-resolved like Wan. A speed profile
+    // (turbo LoRA) carries its own step count and floor, declared in the
+    // registry and read from the API; the ids are mirrored here.
     defaultSteps: 20,
     minSteps: 20,
+    speedProfiles: ["standard", "turbo-8", "turbo-4-768p"],
+    supportsT2V: true,
+    supportsI2V: true,
+    dimensionAlignment: 32,
+    maxPixelArea: 768 * 1344,
+  },
+  "minimax-h3-int8-full": {
+    label: "MiniMax H3 Int8 unpruned (24GB+)",
+    description: "MiniMax H3 with the full modulation weights and the int8 encoder. 24GB-class cards; unmeasured.",
+    type: "minimax",
+    nativeFps: 24,
+    maxFrames: 175,
+    resolution: [1344, 768],
+    aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    defaultSteps: 20,
+    minSteps: 20,
+    speedProfiles: ["standard", "turbo-8", "turbo-4-768p"],
+    supportsT2V: true,
+    supportsI2V: true,
+    dimensionAlignment: 32,
+    maxPixelArea: 768 * 1344,
+  },
+  "minimax-h3-bf16": {
+    label: "MiniMax H3 BF16 (48GB+)",
+    description: "MiniMax H3 at full precision with the bf16 encoder (~110GB of weights). Workstation cards; unmeasured.",
+    type: "minimax",
+    nativeFps: 24,
+    maxFrames: 175,
+    resolution: [1344, 768],
+    aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    defaultSteps: 20,
+    minSteps: 20,
+    speedProfiles: ["standard", "turbo-8", "turbo-4-768p"],
     supportsT2V: true,
     supportsI2V: true,
     dimensionAlignment: 32,
@@ -308,10 +349,33 @@ export const isLtxModel = (model) => MODEL_OPTIONS[model]?.type === "ltx";
 export const isHunyuanModel = (model) => MODEL_OPTIONS[model]?.type === "hunyuan";
 export const isMinimaxModel = (model) => MODEL_OPTIONS[model]?.type === "minimax";
 
+/** Longer presets appear only when the registry declares a duration tier for
+ *  them (a measured pixel-area cap at that length), so a 10 s or 15 s option
+ *  cannot be offered before someone has rendered one. */
+export const withDurationTiers = (presets, registryMeta) => {
+  const tiers = registryMeta?.capabilities?.duration_tiers;
+  if (!Array.isArray(tiers) || tiers.length === 0) return presets;
+  const fps = registryMeta?.capabilities?.native_fps || 24;
+  const known = new Set(Object.values(presets).map((p) => p.duration_frames));
+  const longest = Math.max(...Object.values(presets).map((p) => p.duration_frames));
+  const extra = {};
+  for (const tier of tiers) {
+    if (!tier?.frames || known.has(tier.frames) || tier.frames <= longest) continue;
+    const seconds = Math.round(tier.frames / fps);
+    extra[`tier_${tier.frames}`] = {
+      label: `${seconds} s`,
+      description: `~${seconds} seconds`,
+      duration_frames: tier.frames,
+      fps,
+    };
+  }
+  return Object.keys(extra).length ? { ...presets, ...extra } : presets;
+};
+
 /** Duration presets for a model. The preset fps must match the model's native
  *  rate — muxing 24fps-native frames at 16fps plays every clip in slow motion. */
-export const durationPresetsFor = (model) => {
-  if (isMinimaxModel(model)) return MINIMAX_DURATION_PRESETS;
+export const durationPresetsFor = (model, registryMeta) => {
+  if (isMinimaxModel(model)) return withDurationTiers(MINIMAX_DURATION_PRESETS, registryMeta);
   if (isHunyuanModel(model)) return HUNYUAN_DURATION_PRESETS;
   if (isLtxModel(model)) return LTX_DURATION_PRESETS;
   if (isWanModel(model)) {

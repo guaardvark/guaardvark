@@ -182,3 +182,35 @@ describe("step floors", () => {
     }
   });
 });
+
+describe("MiniMax H3 capability mirrors", () => {
+  it("offers the six ratios the registry declares, ultra-wide and portrait included", () => {
+    expect(Object.keys(aspectRatiosFor("minimax-h3-int8"))).toEqual(["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"]);
+    expect(ASPECT_RATIO_PRESETS["21:9"].ratio).toBeCloseTo(21 / 9);
+    expect(ASPECT_RATIO_PRESETS["3:4"].ratio).toBeCloseTo(0.75);
+    expect(resolveAspectRatio("minimax-h3-int8", "3:2")).toBe("21:9");
+  });
+
+  it("lists every H3 precision rung with the same floor and profiles", () => {
+    for (const id of ["minimax-h3-int8", "minimax-h3-int8-full", "minimax-h3-bf16"]) {
+      expect(MODEL_OPTIONS[id].type).toBe("minimax");
+      expect(MODEL_OPTIONS[id].minSteps).toBe(20);
+      expect(MODEL_OPTIONS[id].speedProfiles).toEqual(["standard", "turbo-8", "turbo-4-768p"]);
+      expect(MODEL_OPTIONS[id].supportsI2V).toBe(true);
+    }
+    expect(MODEL_OPTIONS["minimax-h3-bf16"].resolution).toEqual([1344, 768]);
+  });
+
+  it("adds longer duration presets only when the registry declares a tier", async () => {
+    const { withDurationTiers } = await import("../videoGeneratorPresets");
+    expect(durationPresetsFor("minimax-h3-int8")).toBe(MINIMAX_DURATION_PRESETS);
+    const meta = { capabilities: { native_fps: 24, duration_tiers: [{ frames: 175 }, { frames: 243 }, { frames: 362 }] } };
+    const presets = durationPresetsFor("minimax-h3-int8", meta);
+    expect(Object.keys(presets)).toEqual(["short", "medium", "long", "tier_243", "tier_362"]);
+    expect(presets.tier_243).toEqual({ label: "10 s", description: "~10 seconds", duration_frames: 243, fps: 24 });
+    expect(presets.tier_362.duration_frames).toBe(362);
+    // A tier the presets already cover adds nothing.
+    expect(withDurationTiers(MINIMAX_DURATION_PRESETS, { capabilities: { duration_tiers: [{ frames: 175 }] } }))
+      .toBe(MINIMAX_DURATION_PRESETS);
+  });
+});

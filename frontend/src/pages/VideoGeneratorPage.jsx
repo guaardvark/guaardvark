@@ -188,7 +188,15 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     lora_name: "",
     lora_strength: 1.0,
     wan_sampler_profile: "official",
+    // Capability-contract knobs; only sent when the model declares them.
+    speed_profile: "standard",
+    style_embedding: "",
   });
+  // End frame for models that declare first+last-frame generation (image mode).
+  const [endFrame, setEndFrame] = useState(null); // {path, name}
+  const [isUploadingEndFrame, setIsUploadingEndFrame] = useState(false);
+  // Which model the registry's per-VRAM-class defaults were last applied to.
+  const seededTierFor = useRef(null);
 
   // Cast picker: trained character Subjects whose LoRA locks identity into a
   // cinematic keyframe via character_still_pipeline (Z-Image/SDXL/FLUX by train base).
@@ -454,7 +462,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   }, [inputMode]);
 
   // Duration presets follow the selected model's native fps.
-  const durationPresets = useMemo(() => durationPresetsFor(model), [model]);
+  const durationPresets = useMemo(() => durationPresetsFor(model, modelMeta[model]), [model, modelMeta]);
 
   // A model that declares aspectRatios offers only those. Switching to one that
   // cannot render the current selection snaps it rather than leaving a ratio on
@@ -465,6 +473,35 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   }, [model]);
 
   // Calculate video dimensions from aspect ratio and size
+  // The capability record the registry declares for the selected model
+  // (modes, audio, cfg, step floor, speed profiles, style embeddings).
+  const modelCaps = useMemo(() => modelMeta[model]?.capabilities || null, [model, modelMeta]);
+  const activeSpeedProfile = useMemo(() => {
+    const profiles = modelCaps?.speed_profiles;
+    if (!profiles) return null;
+    return profiles[advancedParams.speed_profile] ? advancedParams.speed_profile : "standard";
+  }, [modelCaps, advancedParams.speed_profile]);
+
+  // Seed the controls from the registry's per-VRAM-class starting settings
+  // once, when the selected model's metadata arrives. Anything can be changed
+  // afterwards; a later metadata refresh does not reseed.
+  useEffect(() => {
+    const tier = modelMeta[model]?.tier_defaults;
+    if (!tier || seededTierFor.current === model) return;
+    seededTierFor.current = model;
+    if (tier.speed_profile) {
+      setAdvancedParams((prev) => ({ ...prev, speed_profile: tier.speed_profile }));
+    }
+    if (tier.frames) {
+      const presets = durationPresetsFor(model, modelMeta[model]);
+      const key = Object.entries(presets).find(([, p]) => p.duration_frames === tier.frames)?.[0];
+      if (key) setDurationPreset(key);
+    }
+  }, [model, modelMeta]);
+  useEffect(() => {
+    setEndFrame(null);
+  }, [model]);
+
   const videoDimensions = useMemo(() => {
     // Resolve through the model: the snap effect settles a render later, and
     // a restored config can name a ratio this model never supported.
@@ -485,7 +522,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     // MiniMax H3 uses the same fixed-budget treatment: its pixel area is what
     // costs VRAM, and the aspect ratio reshapes the frame inside it.
     if (isLtxModel(model) || isMinimaxModel(model)) {
-      const [nativeW, nativeH] = MODEL_OPTIONS[model].resolution;
+      const tier = modelMeta[model]?.tier_defaults;
+      const [nativeW, nativeH] = tier?.width && tier?.height
+        ? [tier.width, tier.height]
+        : MODEL_OPTIONS[model].resolution;
       const ratioConfig = ASPECT_RATIO_PRESETS[effectiveAspectRatio] || ASPECT_RATIO_PRESETS["16:9"];
       return fitAreaToRatio(nativeW * nativeH, ratioConfig.ratio, model, modelMeta[model]);
     }
@@ -525,7 +565,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // Compute final params from presets
   const computedParams = useMemo(() => {
     const quality = QUALITY_PRESETS[qualityPreset] || QUALITY_PRESETS.standard;
-    const currentDurationPresets = durationPresetsFor(model);
+    const currentDurationPresets = durationPresetsFor(model, modelMeta[model]);
     const baseDuration = currentDurationPresets[durationPreset] || currentDurationPresets.short;
     const motion = MOTION_PRESETS[motionPreset] || MOTION_PRESETS.normal;
     const modelConfig = MODEL_OPTIONS[model] || {};
@@ -558,10 +598,16 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     //
     // An explicit value in Advanced still wins: the floor exists to stop a preset
     // silently choosing a bad number, not to overrule someone who typed one.
-    const declaredMin = modelConfig.minSteps ?? (isCogVideoXModel(model) ? 50 : null);
-    if (declaredMin && effectiveSteps < declaredMin &&
-        (advancedParams.num_inference_steps === null || advancedParams.num_inference_steps === undefined)) {
+    const profileSpec = activeSpeedProfile ? modelCaps?.speed_profiles?.[activeSpeedProfile] : null;
+    const stepsTyped = !(advancedParams.num_inference_steps === null || advancedParams.num_inference_steps === undefined);
+    const declaredMin = profileSpec?.min_steps ?? modelConfig.minSteps ?? (isCogVideoXModel(model) ? 50 : null);
+    if (declaredMin && effectiveSteps < declaredMin && !stepsTyped) {
       effectiveSteps = declaredMin;
+    }
+    // A speed profile (turbo LoRA) is trained for its own step count; the
+    // quality preset's number is for the base sampler and is not used.
+    if (profileSpec?.steps && !stepsTyped) {
+      effectiveSteps = profileSpec.steps;
     }
 
     // LTX distilled is trained for 8 steps @ CFG=1 — quality presets that
@@ -676,6 +722,13 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       wan_sampler_profile: MODEL_OPTIONS[effectiveModel]?.samplerProfiles
         ? advancedParams.wan_sampler_profile
         : undefined,
+      speed_profile: activeSpeedProfile || undefined,
+      style_embedding: modelCaps?.style_embeddings?.length && advancedParams.style_embedding
+        ? advancedParams.style_embedding
+        : undefined,
+      // The backend raises a preset value to the model's floor but keeps one
+      // a person typed; tell it which this is.
+      steps_explicit: stepsTyped,
       subject_ids: selectedSubjectIds,
       interpolation_multiplier: tier.interpolation,
       upscale: tier.upscale || postUpscale,
@@ -694,7 +747,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           : {}),
       },
     };
-  }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode, qualityTier, promptStyle, enhancePrompt, directorMode, cinematicKeyframe, directorGuidance, fetaEnabled, fetaWeight, selectedSubjectIds, keyframeModel, postUpscale, highConsistencyMode, modelMeta]);
+  }, [qualityPreset, durationPreset, motionPreset, model, advancedParams, videoDimensions, lowVramMode, qualityTier, promptStyle, enhancePrompt, directorMode, cinematicKeyframe, directorGuidance, fetaEnabled, fetaWeight, selectedSubjectIds, keyframeModel, postUpscale, highConsistencyMode, modelMeta, modelCaps, activeSpeedProfile]);
 
   const {
     activeBatchId,
@@ -761,6 +814,37 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   }, [promptsText]);
 
   // File upload handling
+  // Upload one end frame through the same route as start images and keep its
+  // server path; sent as last_frame_paths, one per start image.
+  const handleEndFrameUpload = useCallback(async (file) => {
+    if (!file) return;
+    setIsUploadingEndFrame(true);
+    try {
+      const formData = new FormData();
+      formData.append("files", file);
+      const response = await fetch(`${API_BASE}/batch-image/upload`, { method: "POST", body: formData });
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || `Upload failed: HTTP ${response.status}`);
+      }
+      const data = await response.json();
+      if (data.success && data.data.batch_id) {
+        const statusRes = await fetch(`${API_BASE}/batch-image/status/${data.data.batch_id}?include_results=true`);
+        const statusData = statusRes.ok ? await statusRes.json() : null;
+        const first = statusData?.data?.results?.find((r) => r.success && r.image_path);
+        if (first) {
+          setEndFrame({ path: first.image_path, name: file.name });
+          return;
+        }
+      }
+      throw new Error("The end frame did not upload");
+    } catch (err) {
+      setError(`End frame upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingEndFrame(false);
+    }
+  }, []);
+
   const handleFileUpload = useCallback(async (files) => {
     if (!files || files.length === 0) return;
 
@@ -1013,6 +1097,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             }
           : {
               image_paths: imagePaths,
+              ...(endFrame?.path && modelCaps?.modes?.includes("flf2v")
+                ? { last_frame_paths: imagePaths.map(() => endFrame.path) }
+                : {}),
               prompt: lf && motionPrompt ? `${motionPrompt}, ${lf}` : motionPrompt,
               ...computedParams,
               fidelity_mode: fidelityMode,
@@ -1611,10 +1698,13 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               minRows={2}
               maxRows={4}
               value={negativePrompt}
+              disabled={modelCaps?.cfg === false || isMinimaxModel(model)}
               onChange={(e) => setNegativePrompt(e.target.value)}
               placeholder="blurry, distorted hands, washed out colors, flickering, jittery motion"
               helperText={
-                enhancePrompt && !negativePrompt.trim()
+                (modelCaps?.cfg === false || isMinimaxModel(model))
+                  ? "Not used by this model: it samples without classifier-free guidance."
+                  : enhancePrompt && !negativePrompt.trim()
                   ? "Enhance Prompt is on — the backend also auto-adds quality-focused negatives (blur, artifacts, anatomy defects) when this field is empty."
                   : "Target technical defects (blur, flicker, bad anatomy) for better consistency."
               }
@@ -1875,6 +1965,20 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                       title="The accelerator the backend detected for video generation"
                     />
                   </Box>
+                )}
+                {modelMeta[model]?.license?.name && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                    {modelMeta[model].license.attribution} · {modelMeta[model].license.name}.{" "}
+                    {modelMeta[model].license.note}
+                    {modelMeta[model].license.form_url && (
+                      <>
+                        {" "}
+                        <a href={modelMeta[model].license.form_url} target="_blank" rel="noreferrer noopener">
+                          Application form
+                        </a>
+                      </>
+                    )}
+                  </Typography>
                 )}
                 {anyModelReady === false && (
                   <Box sx={{ mt: 1, p: 1, border: 1, borderColor: "warning.main", borderRadius: 1 }}>
@@ -2215,6 +2319,69 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     </Select>
                   </FormControl>
                 )}
+                {modelCaps?.speed_profiles && (
+                  <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
+                    <InputLabel>Speed profile</InputLabel>
+                    <Select
+                      value={activeSpeedProfile || "standard"}
+                      onChange={(e) => setAdvancedParams({ ...advancedParams, speed_profile: e.target.value })}
+                      label="Speed profile"
+                    >
+                      {Object.entries(modelCaps.speed_profiles).map(([key, spec]) => (
+                        <MenuItem key={key} value={key}>
+                          <Box>
+                            <Typography variant="body2">{spec.label || key}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {spec.steps} steps
+                              {spec.lora ? " · distilled LoRA (installed separately)" : ""}
+                              {spec.min_short_edge ? ` · needs a ${spec.min_short_edge}px short edge` : ""}
+                              {spec.experimental ? " · experimental" : ""}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+                {modelCaps?.style_embeddings?.length > 0 && (
+                  <FormControl fullWidth size="small" sx={{ mt: 1.5 }}>
+                    <InputLabel>Style embedding</InputLabel>
+                    <Select
+                      value={advancedParams.style_embedding || ""}
+                      onChange={(e) => setAdvancedParams({ ...advancedParams, style_embedding: e.target.value })}
+                      label="Style embedding"
+                    >
+                      <MenuItem value="">None</MenuItem>
+                      {modelCaps.style_embeddings.map((emb) => (
+                        <MenuItem key={emb.id} value={emb.id}>{emb.label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+                {inputMode === "image" && modelCaps?.modes?.includes("flf2v") && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Button variant="outlined" size="small" component="label" disabled={isUploadingEndFrame}>
+                      {isUploadingEndFrame ? "Uploading end frame…" : endFrame ? `End frame: ${endFrame.name}` : "Add end frame (optional)"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          handleEndFrameUpload(e.target.files?.[0]);
+                          e.target.value = "";
+                        }}
+                      />
+                    </Button>
+                    {endFrame && (
+                      <Button size="small" onClick={() => setEndFrame(null)} sx={{ ml: 1 }}>
+                        Remove
+                      </Button>
+                    )}
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                      The clip ends on this frame; each start image gets the same end frame.
+                    </Typography>
+                  </Box>
+                )}
                 {isCogVideoXModel(model) && (
                   <>
                     <FormControlLabel
@@ -2260,14 +2427,15 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   type="number"
                   inputProps={{ step: 0.5, min: 1, max: 20 }}
                   value={advancedParams.guidance_scale}
+                  disabled={modelCaps?.cfg === false || isMinimaxModel(model)}
                   onChange={(e) =>
                     setAdvancedParams({
                       ...advancedParams,
                       guidance_scale: Number(e.target.value),
                     })
                   }
-                  helperText={isMinimaxModel(model)
-                    ? "MiniMax H3 samples without CFG — this value is not used."
+                  helperText={(modelCaps?.cfg === false || isMinimaxModel(model))
+                    ? "This model samples without CFG — guidance and the negative prompt are not used."
                     : `Default for ${isHunyuanModel(model) ? 'HunyuanVideo' : isLtxModel(model) ? 'LTX' : isWanModel(model) ? 'Wan' : 'CogVideoX'}: ${MODEL_DEFAULT_GUIDANCE[MODEL_OPTIONS[model]?.type] ?? 6}. Higher = stricter prompt adherence.`}
                   sx={{
                     width: { xs: '100%', sm: '280px' },
@@ -2344,6 +2512,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           <VideoGenEffectiveSettings
             model={model}
             computedParams={computedParams}
+            capabilities={modelCaps}
             cinematicKeyframe={cinematicKeyframe}
             selectedSubjectIds={selectedSubjectIds}
             keyframeModel={keyframeModel}

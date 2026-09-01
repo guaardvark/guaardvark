@@ -206,9 +206,43 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                   variant="outlined"
                 />
               )}
+              {model.license?.name && (
+                <Chip
+                  label={model.license.name}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                  title={model.license.note || ""}
+                  sx={{ height: 20, fontSize: "0.65rem" }}
+                />
+              )}
             </Box>
           }
-          secondary={model.description}
+          secondary={
+            model.license?.note ? (
+              <>
+                {model.description}
+                <Typography component="span" variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                  {model.license.note}{" "}
+                  {model.license.form_url && (
+                    <a href={model.license.form_url} target="_blank" rel="noreferrer noopener">
+                      Application form
+                    </a>
+                  )}
+                  {model.license.url && (
+                    <>
+                      {" · "}
+                      <a href={model.license.url} target="_blank" rel="noreferrer noopener">
+                        License text
+                      </a>
+                    </>
+                  )}
+                </Typography>
+              </>
+            ) : (
+              model.description
+            )
+          }
         />
 
         <Box sx={{ ml: 2, minWidth: 120, textAlign: "right" }}>
