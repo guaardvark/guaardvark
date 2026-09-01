@@ -4,7 +4,9 @@ from pathlib import Path
 from backend.services.comfyui_launch_flags import (
     ATTENTION_DEFAULT,
     ATTENTION_ENV,
+    RESERVE_VRAM_ENV,
     attention_cli_args,
+    reserve_vram_cli_args,
 )
 
 
@@ -39,3 +41,19 @@ def test_start_sh_matches_python_helper():
     assert "import sageattention" in text
     assert ":-pytorch}" in text  # same default as ATTENTION_DEFAULT
     assert "$ATTN_FLAG" in text.split("main.py")[1].split("\n")[0]
+
+
+def test_reserve_vram_defaults_and_overrides():
+    assert reserve_vram_cli_args({}) == ["--reserve-vram", "1"]
+    assert reserve_vram_cli_args({RESERVE_VRAM_ENV: "3.0"}) == ["--reserve-vram", "3"]
+    assert reserve_vram_cli_args({RESERVE_VRAM_ENV: "2.5"}) == ["--reserve-vram", "2.5"]
+    assert reserve_vram_cli_args({RESERVE_VRAM_ENV: "lots"}) == ["--reserve-vram", "1"]
+    assert reserve_vram_cli_args({RESERVE_VRAM_ENV: "-4"}) == ["--reserve-vram", "1"]
+
+
+def test_start_sh_reserve_vram_matches_python_helper():
+    root = Path(__file__).resolve().parents[3]
+    text = (root / "plugins/comfyui/scripts/start.sh").read_text()
+    assert RESERVE_VRAM_ENV in text
+    assert ':-1.0}' in text
+    assert '--reserve-vram "$RESERVE_VRAM"' in text

@@ -93,3 +93,24 @@ def attention_cli_args(
     if choice in ATTENTION_CLI_FLAG and available[choice]:
         return [ATTENTION_CLI_FLAG[choice]]
     return []
+
+
+# VRAM ComfyUI leaves untouched. 1.0 GB keeps the desktop compositor alive on
+# a maxed 16 GB card; a larger value makes the partial loader offload more
+# weights so a model whose activations outgrow ComfyUI's estimate (MiniMax H3
+# int8 on 16 GB) finishes a step instead of running out mid-kernel.
+RESERVE_VRAM_ENV = "GUAARDVARK_COMFYUI_RESERVE_VRAM"
+RESERVE_VRAM_DEFAULT = 1.0
+
+
+def reserve_vram_cli_args(env: Optional[Mapping[str, str]] = None) -> Sequence[str]:
+    """Return `--reserve-vram <gb>` for a ComfyUI argv; bad values fall back."""
+    src = env if env is not None else os.environ
+    raw = (src.get(RESERVE_VRAM_ENV) or "").strip()
+    try:
+        value = float(raw) if raw else RESERVE_VRAM_DEFAULT
+    except ValueError:
+        value = RESERVE_VRAM_DEFAULT
+    if value < 0:
+        value = RESERVE_VRAM_DEFAULT
+    return ["--reserve-vram", f"{value:g}"]

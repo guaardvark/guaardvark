@@ -79,19 +79,19 @@ class _Sampler(threading.Thread):
         self.peak_used_mb = 0
         self.util_samples: list[int] = []
         self.busy_started_at: float | None = None
-        self._stop = threading.Event()
+        self._halt = threading.Event()
 
     def run(self):
-        while not self._stop.is_set():
+        while not self._halt.is_set():
             used, util = _gpu_sample()
             self.peak_used_mb = max(self.peak_used_mb, used)
             self.util_samples.append(util)
             if util >= 50 and self.busy_started_at is None:
                 self.busy_started_at = time.time()
-            self._stop.wait(self.interval)
+            self._halt.wait(self.interval)
 
     def stop(self):
-        self._stop.set()
+        self._halt.set()
 
 
 def _steps_per_second_from_log(log_path: Path, since_offset: int) -> tuple[float | None, int]:

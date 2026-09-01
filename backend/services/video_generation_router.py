@@ -183,8 +183,13 @@ class VideoGenerationRouter:
             import contextlib
             return contextlib.nullcontext()
         op_id = f"router:{request.model}:{(request.metadata or {}).get('item_id') or id(request)}"
+        # The batch runner holds its session in its own thread and renders items
+        # from a pool, so this session never nests inside it; on a held gate it
+        # degrades to the register path (visible, no eviction) exactly as the
+        # batch path behaved before, instead of refusing the clip.
         return gpu_session(
             JobKind.VIDEO_RENDER, op_id,
+            on_busy="register",
             evict_ollama=True,
             free_comfyui=False,
             vram_estimate_mb=vram_mb_for_model(request.model),

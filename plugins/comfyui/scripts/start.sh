@@ -171,8 +171,12 @@ echo "Log: $LOG_FILE"
 #   --cache-none            no execution cache: caps the RAM-pressure cache AND
 #                           re-runs LoraLoader each prompt, which the patched
 #                           unpatch_model() relies on to rebuild patches
-#   --reserve-vram 1.0      the desktop compositor holds 600-800MB VRAM; without
-#                           headroom a maxed 16GB card starves it and Wayland dies
+#   --reserve-vram N        the desktop compositor holds 600-800MB VRAM; without
+#                           headroom a maxed 16GB card starves it and Wayland dies.
+#                           Default 1.0 GB; GUAARDVARK_COMFYUI_RESERVE_VRAM raises it
+#                           when a partially loaded model needs more room for its
+#                           activations than ComfyUI's estimate leaves (MiniMax H3's
+#                           int8 MLP ran out at 0.9 GB of headroom on a 16 GB card).
 #   --disable-pinned-memory ComfyUI otherwise page-locks up to ~90% of system RAM
 #                           for offload buffers; pinned pages cannot be swapped or
 #                           reclaimed, so the desktop starves before the OOM killer
@@ -237,7 +241,12 @@ case "$ATTENTION" in
     sage) [ "$SAGE_OK" = "1" ] && ATTN_FLAG="--use-sage-attention" ;;
 esac
 echo "Attention: ${ATTN_FLAG:-pytorch (default)}"
-"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 --disable-api-nodes $PIN_FLAG $PREVIEW_FLAGS $ATTN_FLAG >> "$LOG_FILE" 2>&1 &
+RESERVE_VRAM="${GUAARDVARK_COMFYUI_RESERVE_VRAM:-1.0}"
+case "$RESERVE_VRAM" in
+    ''|*[!0-9.]*) RESERVE_VRAM=1.0 ;;
+esac
+echo "Reserve VRAM: ${RESERVE_VRAM} GB"
+"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram "$RESERVE_VRAM" --disable-api-nodes $PIN_FLAG $PREVIEW_FLAGS $ATTN_FLAG >> "$LOG_FILE" 2>&1 &
 
 # Save PID
 PID_DIR="$PROJECT_ROOT/pids"
