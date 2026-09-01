@@ -9,6 +9,7 @@ Supports "fidelity_mode" (light enhancement only) for "Exact text mode"
 / preserve rendered lettering, plus model_family-aware motion hints.
 """
 
+import logging
 import re
 from typing import Optional
 
@@ -72,6 +73,8 @@ BASE_QUALITY_TERMS = "high quality, masterpiece"
 LIGHT_QUALITY_TERMS = "high quality, sharp focus, clean details, good contrast"
 
 # Model-family aware motion/temporal terms (injected to help Wan vs CogVideoX strengths).
+logger = logging.getLogger(__name__)
+
 MOTION_TERMS = {
     "default": "smooth coherent motion, temporal consistency",
     "wan": "smooth cinematic motion at native frame rate, strong temporal coherence, natural camera movement and dynamics",
@@ -209,6 +212,25 @@ IDENTITY_BLEED_NEGATIVE = (
 )
 
 
+# Families whose prompt has a shape of its own get a compiler instead of the
+# suffix path below. The value is "module:function"; the function receives the
+# same arguments plus whatever context the caller passes (duration, frames,
+# a structured intent) and returns the prompt to send. Import is lazy so a
+# missing compiler never breaks enhancement for the other families.
+FAMILY_COMPILERS = {
+    "minimax": "backend.services.h3_prompt_compiler:enhance_for_family",
+}
+
+
+def _family_compiler(model_family: Optional[str]):
+    target = FAMILY_COMPILERS.get((model_family or "").lower().strip())
+    if not target:
+        return None
+    module_name, func_name = target.split(":")
+    import importlib
+    return getattr(importlib.import_module(module_name), func_name)
+
+
 def enhance_video_prompt(
     prompt: str,
     style: str = "cinematic",
@@ -218,6 +240,7 @@ def enhance_video_prompt(
     fidelity_mode: bool = False,
     model_family: Optional[str] = None,
     motion_strength: Optional[float] = None,
+    **context,
 ) -> str:
     """Enhance a user prompt with quality descriptors for better video generation.
 
@@ -259,6 +282,16 @@ def enhance_video_prompt(
 
     if style == "none":
         return prompt
+
+    compiler = _family_compiler(model_family)
+    if compiler is not None:
+        try:
+            return compiler(
+                prompt, style=style, width=width, height=height,
+                fidelity_mode=fidelity_mode, motion_strength=motion_strength, **context,
+            )
+        except Exception as e:  # noqa: BLE001 — fall back to the generic path
+            logger.warning("family prompt compiler failed for %s: %s", model_family, e)
 
     suffix = STYLE_SUFFIXES.get(style)
     if not suffix:

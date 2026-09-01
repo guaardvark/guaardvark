@@ -1,0 +1,146 @@
+{
+  "family": "minimax",
+  "presets": [
+    {
+      "slug": "product-reveal-vertical",
+      "title": "Product reveal, vertical ad",
+      "category": "ads_products",
+      "duration_s": 8,
+      "ratio": "9:16",
+      "mode": "t2va",
+      "style": "cinematic",
+      "intent": {
+        "style": "Live-action, photorealistic product film",
+        "shots": [
+          {"description": "A matte black bottle stands on a dark stone slab in a black studio, a single warm key light raking across its label from the left; fine dust drifts in the beam", "duration_s": 3, "camera": "The camera pushes in with small amplitude at slow speed toward the label."},
+          {"description": "a top-down view as a slow pour of amber liquid fills a low glass beside the bottle, the surface catching the key light in a moving highlight", "duration_s": 3, "camera": "The camera holds a static shot."},
+          {"description": "a close shot of the bottle with the glass now in soft focus behind it, the label crisp and centered", "duration_s": 2, "camera": "The camera pulls out with small amplitude at slow speed."}
+        ],
+        "soundscape": "Quiet studio room tone, the soft pour of liquid into glass, and a single faint clink as the glass settles.",
+        "music": "A low sustained synth pad at a slow tempo with a soft pulse every two seconds, fading out at the end."
+      }
+    },
+    {
+      "slug": "two-line-dialogue-scene",
+      "title": "Two-line dialogue scene",
+      "category": "stories_films",
+      "duration_s": 10,
+      "ratio": "16:9",
+      "mode": "t2va",
+      "style": "cinematic",
+      "intent": {
+        "style": "Live-action, cinematic",
+        "shots": [
+          {"description": "A medium shot frames a woman in her thirties with short dark hair and a grey wool coat at a rain-streaked café window, a folded letter in her hands", "duration_s": 5, "camera": "The camera trucks right with small amplitude at slow speed.", "dialogue": [{"speaker": "the woman", "intro": "with a quiet, breathy voice", "text": "I get off at the next station.", "lang": "English"}]},
+          {"description": "a close-up of a man in his forties with a trimmed beard across the table, his coffee untouched, looking up from the cup", "duration_s": 5, "camera": "The camera holds a static shot.", "dialogue": [{"speaker": "the man", "intro": "with a low, unhurried voice", "text": "Then I'll wait on the platform.", "lang": "English"}]}
+        ],
+        "soundscape": "Steady rain taps against the window under low café room tone; cups clink softly in the background and a chair scrapes once.",
+        "music": "Sparse piano notes at a slow tempo, joined by a sustained low string that fades out under the last line."
+      }
+    },
+    {
+      "slug": "ugc-taste-test",
+      "title": "UGC taste test, phone footage",
+      "category": "vlog_social",
+      "duration_s": 8,
+      "ratio": "9:16",
+      "mode": "t2va",
+      "style": "realistic",
+      "intent": {
+        "style": "Live-action, handheld smartphone footage in vertical framing",
+        "shots": [
+          {"description": "A young man with curly hair and a green hoodie holds a steaming bowl of ramen up to the phone in a small kitchen, the bowl filling the lower half of the frame", "duration_s": 4, "camera": "The camera shakes slightly as he adjusts the phone.", "dialogue": [{"speaker": "the young man", "intro": "with an eager, fast-paced voice", "text": "Okay, first bite.", "lang": "English"}]},
+          {"description": "he lifts noodles with chopsticks, blows on them, tastes, and his eyes widen as he nods at the phone", "duration_s": 4, "camera": "The camera holds close on his face.", "dialogue": [{"speaker": "the young man", "text": "That broth is unreal.", "lang": "English"}]}
+        ],
+        "soundscape": "Kitchen room tone with a refrigerator hum, chopsticks tapping the bowl, a slurp, and a short laugh.",
+        "music": "N/A"
+      }
+    },
+    {
+      "slug": "claymation-whale",
+      "title": "Claymation whale breach",
+      "category": "action_fantasy",
+      "duration_s": 6,
+      "ratio": "16:9",
+      "mode": "t2va",
+      "style": "stop_motion",
+      "intent": {
+        "style": "Claymation, stop-motion with visible fingerprints in the clay",
+        "shots": [
+          {"description": "A wide shot of a grey-blue clay sea under a clay storm sky; a clay whale rises from the water, arcs, and crashes back, sending clay droplets outward", "duration_s": 6, "camera": "The camera tilts up with large amplitude at fast speed to follow the breach, then settles."}
+        ],
+        "soundscape": "Wind across water, a deep whoosh as the whale rises, and a heavy splash with scattered droplets landing.",
+        "music": "Plucked strings at a brisk tempo with a timpani hit on the splash."
+      }
+    },
+    {
+      "slug": "anime-greenhouse",
+      "title": "Anime greenhouse tea",
+      "category": "stories_films",
+      "duration_s": 8,
+      "ratio": "16:9",
+      "mode": "t2va",
+      "style": "anime",
+      "intent": {
+        "style": "2D-animated, anime with soft summer light",
+        "shots": [
+          {"description": "A medium shot inside a glass greenhouse: a girl with a straw hat and a white dress pours tea into a porcelain cup at a wooden table, sunlight through the panes making bright patches on the floor", "duration_s": 4, "camera": "The camera pushes in with small amplitude at slow speed."},
+          {"description": "a close-up of the cup as the tea swirls, steam rising, a leaf drifting down into the frame and landing on the saucer", "duration_s": 4, "camera": "The camera holds a static shot."}
+        ],
+        "soundscape": "Tea pouring into porcelain, birdsong outside the glass, and the creak of the wooden table as she leans in.",
+        "music": "A gentle music-box melody at a slow tempo with a soft harp arpeggio underneath."
+      }
+    },
+    {
+      "slug": "fashion-tracking",
+      "title": "Low-angle fashion tracking shot",
+      "category": "music_performance",
+      "duration_s": 8,
+      "ratio": "21:9",
+      "mode": "t2va",
+      "style": "cinematic",
+      "intent": {
+        "style": "Live-action, cinematic",
+        "shots": [
+          {"description": "A low-angle tracking shot follows a model in a long red coat and black boots walking down a wet city street at night, neon reflections sliding across the pavement", "duration_s": 8, "camera": "The camera tracks the subject with large amplitude at normal speed, staying at knee height."}
+        ],
+        "soundscape": "Boot heels striking wet pavement, distant traffic, and the hum of neon signs.",
+        "music": "A driving electronic beat at a fast tempo with a deep bass line that drops out for the last second."
+      }
+    },
+    {
+      "slug": "first-to-last-frame-turn",
+      "title": "First and last frame: a turn to camera",
+      "category": "stories_films",
+      "duration_s": 5,
+      "ratio": "16:9",
+      "mode": "fl2va",
+      "style": "cinematic",
+      "intent": {
+        "style": "Live-action, cinematic",
+        "shots": [
+          {"description": "The subject begins in the position and framing of Picture 1, turns toward the camera through a natural weight shift, and settles into the pose, spacing and composition of Picture 2", "duration_s": 5, "camera": "The camera pulls out with small amplitude at slow speed."}
+        ],
+        "soundscape": "Room tone with the rustle of clothing as the subject turns.",
+        "music": "N/A"
+      }
+    },
+    {
+      "slug": "seamless-web-loop",
+      "title": "Seamless web hero loop",
+      "category": "ads_products",
+      "duration_s": 6,
+      "ratio": "21:9",
+      "mode": "t2va",
+      "style": "artistic",
+      "intent": {
+        "style": "3D CG animation with a dark background and one accent colour",
+        "shots": [
+          {"description": "A wide shot of a slowly rotating chrome ring above a black reflective floor, a band of teal light travelling around its edge; the last frame matches the first so the clip loops without a cut", "duration_s": 6, "camera": "The camera performs an arc shot with small amplitude at slow speed."}
+        ],
+        "soundscape": "A faint electrical hum that stays level for the whole loop.",
+        "music": "N/A"
+      }
+    }
+  ]
+}

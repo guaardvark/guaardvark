@@ -928,6 +928,43 @@ def list_video_models():
         return error_response(str(e), 500)
 
 
+@batch_video_bp.route("/prompt-presets", methods=["GET"])
+def list_prompt_presets():
+    """Prompt presets for a model family, read from backend/prompt_bundles.
+
+    Each preset carries its structured intent and the prompt the compiler
+    renders from it, plus format hints (duration, ratio, mode). The community
+    gallery is returned as attributed links, never as copied prompt text
+    (see the bundle's NOTICE.md).
+    """
+    try:
+        from backend.services import h3_prompt_compiler as h3
+        model_id = (request.args.get("model") or "").strip()
+        family = (VIDEO_MODEL_REGISTRY.get(model_id) or {}).get("type") or request.args.get("family") or ""
+        if family != "minimax":
+            return success_response({"family": family, "presets": [], "gallery": None})
+        bundle = json.loads((h3.BUNDLE_DIR / "presets.json").read_text(encoding="utf-8"))
+        presets = []
+        for preset in bundle.get("presets", []):
+            intent = h3.intent_from_dict({**preset["intent"], "duration_s": preset.get("duration_s", 5),
+                                          "mode": preset.get("mode", "t2va")})
+            prompt, diag = h3.compile(intent)
+            presets.append({
+                "slug": preset["slug"], "title": preset["title"], "category": preset.get("category"),
+                "duration_s": preset.get("duration_s"), "ratio": preset.get("ratio"),
+                "mode": preset.get("mode", "t2va"), "style": preset.get("style"),
+                "prompt": prompt, "intent": preset["intent"], "frames": diag["frames"],
+            })
+        gallery = None
+        gallery_path = h3.BUNDLE_DIR / "gallery_index.json"
+        if gallery_path.exists():
+            gallery = json.loads(gallery_path.read_text(encoding="utf-8"))
+        return success_response({"family": family, "presets": presets, "gallery": gallery})
+    except Exception as e:
+        logger.error(f"Error listing prompt presets: {e}")
+        return error_response(str(e), 500)
+
+
 @batch_video_bp.route("/models/download", methods=["POST"])
 def download_video_model():
     """Start downloading a video model from HuggingFace."""

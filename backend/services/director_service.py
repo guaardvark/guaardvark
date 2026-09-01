@@ -112,6 +112,11 @@ class ShotPrompt:
     subjects: Optional[list[int]] = None
     transition_to_next: Optional[str] = None
     filter_preset: Optional[str] = None
+    # Spoken lines for models that render dialogue (MiniMax H3): copied from
+    # the screenwriter's shot, never written into ``prompt``, which stays
+    # pure-visual. Each entry: {"speaker", "text", "lang"?}.
+    dialogue: Optional[list[dict]] = None
+    speaker: Optional[str] = None
 
 
 @dataclass
@@ -307,6 +312,20 @@ Return STRICT JSON:
 with exactly one entry per input shot, in order. No commentary outside the JSON."""
 
 
+def _script_dialogue(scenes: list[dict]) -> dict[int, tuple]:
+    """Shot index → (character_name, dialogue) in the same flattened order
+    _build_script_user numbers the shots, so a planned shot keeps its line."""
+    out: dict[int, tuple] = {}
+    n = 0
+    for sc in scenes or []:
+        for sh in sc.get("shots", []) or []:
+            line = (sh.get("dialogue") or sh.get("dialogue_text") or "").strip()
+            if line:
+                out[n] = (sh.get("character_name") or sh.get("speaker") or None, line)
+            n += 1
+    return out
+
+
 def _build_script_user(scenes: list[dict], subjects: list[dict]) -> tuple[str, int]:
     """Flatten the screenwriter breakdown into a compact user prompt; returns (text, n_shots)."""
     subj_lines = []
@@ -384,6 +403,7 @@ def _plan_script_scenes(brief: DirectorBrief) -> DirectorResult:
     prompts_map: dict[int, str] = parsed.get("prompts") or {}
     meta = _extract_shot_meta(raw_content)
     lock = _cast_lock(brief.cast)
+    spoken = _script_dialogue(brief.scenes or [])
 
     shots: list[ShotPrompt] = []
     for i in range(n):
@@ -391,6 +411,7 @@ def _plan_script_scenes(brief: DirectorBrief) -> DirectorResult:
         m = meta.get(i, {})
         subj = m.get("subjects_in_shot") or m.get("subjects")
         subj_ids = [int(x) for x in subj if isinstance(x, (int, str)) and str(x).lstrip("-").isdigit()] if isinstance(subj, list) else None
+        speaker, line = spoken.get(i, (None, None))
         shots.append(ShotPrompt(
             prompt=_apply_lock(p, lock),
             index=i,
@@ -399,6 +420,8 @@ def _plan_script_scenes(brief: DirectorBrief) -> DirectorResult:
             mood=m.get("mood"),
             duration=m.get("duration_seconds") if isinstance(m.get("duration_seconds"), (int, float)) else None,
             subjects=subj_ids,
+            dialogue=[{"speaker": speaker or "the character", "text": line}] if line else None,
+            speaker=speaker,
         ))
 
     # Signal a thin/failed result so the caller can fall back to the swarm Cinematographer.

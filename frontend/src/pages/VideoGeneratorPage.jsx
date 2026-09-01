@@ -194,6 +194,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   });
   // End frame for models that declare first+last-frame generation (image mode).
   const [endFrame, setEndFrame] = useState(null); // {path, name}
+  // Prompt presets the backend ships for the selected model's family
+  // (/api/batch-video/prompt-presets); empty for families without any.
+  const [promptPresets, setPromptPresets] = useState([]);
+  const [promptGallery, setPromptGallery] = useState(null);
+  const [selectedPromptPreset, setSelectedPromptPreset] = useState("");
   const [isUploadingEndFrame, setIsUploadingEndFrame] = useState(false);
   // Which model the registry's per-VRAM-class defaults were last applied to.
   const seededTierFor = useRef(null);
@@ -500,7 +505,39 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   }, [model, modelMeta]);
   useEffect(() => {
     setEndFrame(null);
+    setSelectedPromptPreset("");
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/batch-video/prompt-presets?model=${encodeURIComponent(model)}`);
+        const data = res.ok ? await res.json() : null;
+        if (!alive) return;
+        setPromptPresets(data?.data?.presets || []);
+        setPromptGallery(data?.data?.gallery || null);
+      } catch (e) {
+        if (alive) {
+          setPromptPresets([]);
+          setPromptGallery(null);
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, [model]);
+
+  const applyPromptPreset = (slug) => {
+    setSelectedPromptPreset(slug);
+    const preset = promptPresets.find((p) => p.slug === slug);
+    if (!preset) return;
+    setPromptsText(preset.prompt);
+    if (preset.ratio && aspectRatiosFor(model)[preset.ratio]) setAspectRatio(preset.ratio);
+    const presets = durationPresetsFor(model, modelMeta[model]);
+    const key = Object.entries(presets).find(([, p]) => p.duration_frames === preset.frames)?.[0]
+      || Object.entries(presets).sort((a, b) => Math.abs(a[1].duration_frames - preset.frames) - Math.abs(b[1].duration_frames - preset.frames))[0]?.[0];
+    if (key) setDurationPreset(key);
+    if (preset.style) setPromptStyle(preset.style);
+  };
 
   const videoDimensions = useMemo(() => {
     // Resolve through the model: the snap effect settles a render later, and
@@ -1484,6 +1521,35 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             </ToggleButtonGroup>
           </Stack>
 
+          {inputMode === "text" && promptPresets.length > 0 && (
+            <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+              <InputLabel>Prompt preset</InputLabel>
+              <Select
+                value={selectedPromptPreset}
+                onChange={(e) => applyPromptPreset(e.target.value)}
+                label="Prompt preset"
+              >
+                <MenuItem value="">None</MenuItem>
+                {promptPresets.map((p) => (
+                  <MenuItem key={p.slug} value={p.slug}>
+                    <Box>
+                      <Typography variant="body2">{p.title}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {p.category} · {p.duration_s} s · {p.ratio}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+              {promptGallery?.source?.url && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Written in the model&apos;s structured prompt format. More examples in the{" "}
+                  <a href={promptGallery.source.url} target="_blank" rel="noreferrer noopener">community gallery</a>
+                  {" "}({promptGallery.source.name}).
+                </Typography>
+              )}
+            </FormControl>
+          )}
           {/* Prompt/Image Input */}
           {inputMode === "text" ? (
             <TextField

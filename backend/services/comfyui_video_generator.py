@@ -1580,6 +1580,12 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     model_family=mf,
                     fidelity_mode=getattr(request, "fidelity_mode", False),
                     motion_strength=request.motion_strength,
+                    # Context a family compiler needs (ignored by the suffix path).
+                    duration_s=(request.duration_frames or 0) / float(request.fps or 24),
+                    first_frame=bool(request.first_frame_path or (request.metadata or {}).get("image_path")),
+                    last_frame=bool(request.last_frame_path),
+                    language=request.language,
+                    h3_intent=request.h3_intent,
                 )
                 if not request.negative_prompt:
                     request.negative_prompt = get_default_negative_prompt(style=request.prompt_style)
