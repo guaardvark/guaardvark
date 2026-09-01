@@ -1403,6 +1403,8 @@ const SettingsPage = () => {
       if (d.videos?.batches) parts.push(`${d.videos.batches} video batch(es)`);
       if (d.audio?.files || d.audio?.jobs)
         parts.push(`${d.audio.files || 0} audio file(s), ${d.audio.jobs || 0} audio job(s)`);
+      const comfyFiles = (d.comfyui?.output?.files || 0) + (d.comfyui?.input?.files || 0);
+      if (comfyFiles) parts.push(`${comfyFiles} ComfyUI scratch file(s)`);
       const dbRows = (d.documents || 0) + (d.folders || 0) + (d.job_history || 0);
       if (dbRows) parts.push(`${dbRows} database row(s)`);
       let message = parts.length
@@ -1412,6 +1414,8 @@ const SettingsPage = () => {
       const skippedCount =
         (skipped.images?.length || 0) + (skipped.videos?.length || 0) + (skipped.audio?.length || 0);
       if (skippedCount) message += ` Skipped ${skippedCount} running job(s).`;
+      if (skipped.comfyui?.length)
+        message += ` ComfyUI is still rendering ${skipped.comfyui.length} prompt(s); its output and input folders were left alone.`;
       if (result?.sidecar_available === false)
         message += " Audio service was not running; its job records were removed directly.";
       if (result?.errors?.length) message += ` ${result.errors.length} error(s): ${result.errors[0]}`;
@@ -3852,7 +3856,9 @@ const SettingsPage = () => {
           <DialogContentText component="div">
             <Typography variant="body2" gutterBottom>
               This permanently deletes every batch image, batch video and audio generation —
-              the files themselves and their entries in Documents and Job History.
+              the files themselves and their entries in Documents and Job History — and empties
+              ComfyUI&apos;s own output and input folders, which hold a second copy of every render
+              and every uploaded reference image.
             </Typography>
             {deleteHistoryCounts ? (
               <Box component="ul" sx={{ pl: 2.5, my: 1 }}>
@@ -3876,6 +3882,12 @@ const SettingsPage = () => {
                 </li>
                 <li>
                   <Typography variant="body2">
+                    ComfyUI scratch: {deleteHistoryCounts.comfyui?.output?.files || 0} output file(s),{" "}
+                    {deleteHistoryCounts.comfyui?.input?.files || 0} input file(s), {formatByteSize(deleteHistoryCounts.comfyui?.bytes)}
+                  </Typography>
+                </li>
+                <li>
+                  <Typography variant="body2">
                     Database: {deleteHistoryCounts.db?.documents || 0} document(s),{" "}
                     {deleteHistoryCounts.db?.folders || 0} folder(s), {deleteHistoryCounts.db?.job_history || 0} job history row(s)
                   </Typography>
@@ -3891,6 +3903,11 @@ const SettingsPage = () => {
               deleteHistoryCounts?.audio?.running?.length) ? (
               <Typography variant="body2" gutterBottom>
                 Batches still generating are skipped and left in place.
+              </Typography>
+            ) : null}
+            {deleteHistoryCounts?.comfyui?.running?.length ? (
+              <Typography variant="body2" gutterBottom>
+                ComfyUI is still rendering; its output and input folders will be left alone this time.
               </Typography>
             ) : null}
             <Typography variant="body2" color="text.secondary">

@@ -4,6 +4,10 @@ and their database mirrors — and nothing else in the same folders.
 Scope is structural: a batch is a directory carrying batch_metadata.json, an
 audio generation is a uuid-hex-named file. Hand-named audio, editor renders,
 root folders, indexing job history and running batches must all survive.
+
+ComfyUI's output/ and input/ are emptied too (they duplicate what the batch
+directories own), except input/example.png which its checkout tracks, and
+never while ComfyUI has a prompt in flight.
 """
 from __future__ import annotations
 
@@ -12,6 +16,7 @@ import os
 import sys
 import threading
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -65,6 +70,26 @@ def upload(tmp_path):
     (audio / ".jobs" / f"{HEX_A}.json").write_text(json.dumps({"id": HEX_A, "status": "done"}))
     (audio / ".jobs" / f"{HEX_B}.json").write_text(json.dumps({"id": HEX_B, "status": "running"}))
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def comfy(tmp_path, monkeypatch):
+    """A ComfyUI tree the service resolves by default, so no test in this
+    module can reach the real plugins/comfyui/ComfyUI scratch folders."""
+    root = tmp_path / "comfy"
+    (root / "output").mkdir(parents=True)
+    (root / "input").mkdir()
+    (root / "input" / "example.png").write_bytes(b"ships-with-comfyui")
+    monkeypatch.setattr(svc, "_comfyui_dir", lambda d=None: Path(d) if d is not None else root)
+    return root
+
+
+def _seed_comfy_scratch(root):
+    (root / "output" / "wan22_i2v_00001.mp4").write_bytes(b"o" * 300)
+    (root / "output" / "wan22_i2v_00001.png").write_bytes(b"p" * 30)
+    (root / "input" / "ImageGen_ref.png").write_bytes(b"i" * 70)
+    (root / "input" / "3d").mkdir()
+    (root / "input" / "3d" / "model.glb").write_bytes(b"g" * 20)
 
 
 @pytest.fixture
@@ -267,3 +292,89 @@ def test_empty_tree_is_a_no_op(app, tmp_path, no_generators, sidecar_down):
     result = svc.delete_generation_history(upload_dir=tmp_path)
     assert result["success"] and result["bytes_freed"] == 0
     assert RetentionAudit.query.count() == 0
+
+
+def test_comfyui_scratch_is_counted_and_purged_except_example(seeded, comfy, no_generators, sidecar_down):
+    _seed_comfy_scratch(comfy)
+    counts = svc.count_generation_history(upload_dir=seeded)
+    assert counts["comfyui"] == {
+        "output": {"files": 2, "bytes": 330},
+        "input": {"files": 2, "bytes": 90},
+        "files": 4, "bytes": 420, "running": [],
+    }
+    img_bytes = _tree(seeded / "Images" / "ImageBatch_x")[1]
+    vid_bytes = _tree(seeded / "Videos" / "VideoBatch_y")[1]
+    assert counts["total_bytes"] == img_bytes + vid_bytes + 52 + 420
+
+    result = svc.delete_generation_history(upload_dir=seeded, triggered_by="test")
+    assert result["success"], result["errors"]
+    assert result["skipped"]["comfyui"] == []
+    assert result["deleted"]["comfyui"] == {"output": {"files": 2, "bytes": 330}, "input": {"files": 2, "bytes": 90}}
+    assert result["bytes_freed"] == img_bytes + vid_bytes + 52 + 420
+    assert sorted(p.name for p in (comfy / "output").iterdir()) == []
+    assert sorted(p.name for p in (comfy / "input").iterdir()) == ["example.png"]
+    assert (comfy / "input" / "example.png").read_bytes() == b"ships-with-comfyui"
+
+    audit = RetentionAudit.query.filter_by(kind="generation_history_comfyui").one()
+    assert audit.item_count == 4 and audit.bytes_freed == 420
+    assert audit.parameters["output"] == {"files": 2, "bytes": 330}
+
+
+def test_comfyui_in_flight_defers_both_scratch_folders(seeded, comfy, no_generators, monkeypatch):
+    _seed_comfy_scratch(comfy)
+
+    class _Queue:
+        status_code = 200
+        def raise_for_status(self):
+            pass
+        def json(self):
+            return {"queue_running": [[1, "prompt-a", {}, {}, []]], "queue_pending": [[2, "prompt-b", {}, {}, []]]}
+
+    def _get(url, timeout):
+        if url.endswith("/queue"):
+            return _Queue()
+        raise requests.ConnectionError("audio sidecar down")
+
+    monkeypatch.setattr(requests, "get", _get)
+    monkeypatch.setattr(requests, "delete", lambda *a, **k: (_ for _ in ()).throw(requests.ConnectionError("down")))
+
+    assert svc.count_generation_history(upload_dir=seeded)["comfyui"]["running"] == ["prompt-a", "prompt-b"]
+    result = svc.delete_generation_history(upload_dir=seeded)
+    assert result["success"], result["errors"]
+    assert result["skipped"]["comfyui"] == ["prompt-a", "prompt-b"]
+    assert result["deleted"]["comfyui"] == {"output": {"files": 0, "bytes": 0}, "input": {"files": 0, "bytes": 0}}
+    assert (comfy / "output" / "wan22_i2v_00001.mp4").exists()
+    assert (comfy / "input" / "3d" / "model.glb").exists()
+    # Batch history still went.
+    assert result["deleted"]["images"]["batches"] == 1
+    assert RetentionAudit.query.filter_by(kind="generation_history_comfyui").count() == 0
+
+
+def test_comfyui_queue_error_leaves_scratch_alone_and_is_reported(seeded, comfy, no_generators, monkeypatch):
+    _seed_comfy_scratch(comfy)
+
+    class _Boom:
+        status_code = 500
+        def raise_for_status(self):
+            raise requests.HTTPError("500 boom")
+
+    def _get(url, timeout):
+        if url.endswith("/queue"):
+            return _Boom()
+        raise requests.ConnectionError("audio sidecar down")
+
+    monkeypatch.setattr(requests, "get", _get)
+    monkeypatch.setattr(requests, "delete", lambda *a, **k: (_ for _ in ()).throw(requests.ConnectionError("down")))
+
+    result = svc.delete_generation_history(upload_dir=seeded)
+    assert result["success"] is False
+    assert any(e.startswith("comfyui queue") for e in result["errors"])
+    assert (comfy / "output" / "wan22_i2v_00001.mp4").exists()
+    assert (comfy / "input" / "ImageGen_ref.png").exists()
+    assert result["deleted"]["images"]["batches"] == 1
+
+
+def test_comfyui_dir_without_scratch_folders_is_a_no_op(app, tmp_path, no_generators, sidecar_down):
+    result = svc.delete_generation_history(upload_dir=tmp_path, comfyui_dir=tmp_path / "nowhere")
+    assert result["success"] and result["bytes_freed"] == 0
+    assert result["deleted"]["comfyui"] == {"output": {"files": 0, "bytes": 0}, "input": {"files": 0, "bytes": 0}}

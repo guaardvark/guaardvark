@@ -14,7 +14,15 @@ Scope is deliberately narrow and structural, not by folder prefix:
 - audio history = files in ``UPLOAD_DIR/Audio`` named ``<uuid4 hex>.wav``,
   ``.mp3`` or ``_input_params.json`` (the audio_foundry backends name every
   generation ``uuid.uuid4().hex``) plus the sidecar's ``.jobs/*.json``
-  records. Hand-named files in the same folder are user assets and stay.
+  records. Hand-named files in the same folder are user assets and stay;
+- ComfyUI scratch = everything in ``COMFYUI_DIR/output`` and
+  ``COMFYUI_DIR/input``. Every render is fetched over ``/view`` into a batch
+  directory and every reference frame is pushed over ``/upload/image``, so
+  what those two folders hold is a second copy of history the batch
+  directories already own (no ``documents`` row points into them). The one
+  exception is ``input/example.png``, which ComfyUI's own checkout tracks.
+  Both folders are left alone while ComfyUI has a prompt running or queued:
+  it reads ``input/`` and writes ``output/`` on the fly.
 
 Never touched: Film Crew productions, video-editor projects, the cast
 library and ``data/training/loras`` (the live LoRA registry ComfyUI loads),
@@ -38,6 +46,11 @@ AUDIO_GENERATED_RE = re.compile(r"^[0-9a-f]{32}(\.wav|\.mp3|_input_params\.json)
 ACTIVE_STATUSES = frozenset({"queued", "pending", "running", "processing"})
 SIDECAR_TIMEOUT_S = 10
 _DEFAULT_SIDECAR_URL = "http://127.0.0.1:8206"
+COMFYUI_TIMEOUT_S = 5
+COMFYUI_SCRATCH_DIRS = ("output", "input")
+# Files ComfyUI's own checkout ships in these folders (its .gitignore exempts
+# them); removing them dirties the plugin tree and breaks the stock workflow.
+COMFYUI_KEEP = {"input": frozenset({"example.png"})}
 
 
 # ─── filesystem ──────────────────────────────────────────────────────────────
@@ -101,6 +114,79 @@ def _audio_job_files(audio_root: Path) -> list[Path]:
     if not jobs_dir.is_dir():
         return []
     return sorted(jobs_dir.glob("*.json"))
+
+
+# ─── ComfyUI scratch ─────────────────────────────────────────────────────────
+
+def _comfyui_dir(comfyui_dir: Optional[str | Path] = None) -> Path:
+    if comfyui_dir is not None:
+        return Path(comfyui_dir)
+    from backend.config import COMFYUI_DIR
+    return Path(COMFYUI_DIR)
+
+
+def _comfyui_url() -> str:
+    from backend.config import COMFYUI_URL
+    return COMFYUI_URL
+
+
+def _comfyui_scratch(comfy: Path, sub: str) -> list[dict[str, Any]]:
+    """Top-level entries of ``COMFYUI_DIR/<sub>`` a purge removes, with sizes.
+
+    Subfolders (``3d``, ``clipspace``, SaveImage prefixes with a slash) go
+    whole; ComfyUI recreates them on demand.
+    """
+    root = comfy / sub
+    keep = COMFYUI_KEEP.get(sub, frozenset())
+    entries: list[dict[str, Any]] = []
+    if not root.is_dir():
+        return entries
+    for p in sorted(root.iterdir()):
+        if p.name in keep:
+            continue
+        try:
+            if p.is_symlink():
+                files, size = 1, 0  # the link goes, its target stays
+            elif p.is_dir():
+                files, size = _tree_stats(p)
+            elif p.is_file():
+                files, size = 1, p.stat().st_size
+            else:
+                continue
+        except OSError:
+            continue
+        entries.append({"path": p, "files": files, "bytes": size})
+    return entries
+
+
+def _remove_scratch_entry(p: Path) -> None:
+    if p.is_symlink() or not p.is_dir():
+        p.unlink()
+    else:
+        shutil.rmtree(p)
+
+
+def _comfyui_in_flight() -> list[str]:
+    """Prompt ids ComfyUI is running or has queued.
+
+    An unreachable ComfyUI has nothing in flight and returns ``[]``. Any other
+    failure raises: the caller cannot tell whether the folders are in use.
+    """
+    import requests
+    try:
+        resp = requests.get(f"{_comfyui_url()}/queue", timeout=COMFYUI_TIMEOUT_S)
+    except requests.ConnectionError:
+        return []
+    resp.raise_for_status()
+    queue = resp.json()
+    ids: list[str] = []
+    # Each queue entry is [number, prompt_id, prompt, extra_data, outputs].
+    for item in list(queue.get("queue_running") or []) + list(queue.get("queue_pending") or []):
+        if isinstance(item, (list, tuple)) and len(item) > 1:
+            ids.append(str(item[1]))
+        elif isinstance(item, dict) and item.get("prompt_id"):
+            ids.append(str(item["prompt_id"]))
+    return ids
 
 
 # ─── live generator state ────────────────────────────────────────────────────
@@ -275,7 +361,9 @@ def _delete_db_rows(folder_ids: list[int], doc_ids: list[int], job_history_ids: 
 
 # ─── public API ──────────────────────────────────────────────────────────────
 
-def count_generation_history(upload_dir: Optional[str | Path] = None) -> dict[str, Any]:
+def count_generation_history(
+    upload_dir: Optional[str | Path] = None, comfyui_dir: Optional[str | Path] = None
+) -> dict[str, Any]:
     """What "Delete History" would remove, for the confirmation dialog."""
     upload = _upload_dir(upload_dir)
     images = _discover_batches(upload / "Images")
@@ -283,10 +371,17 @@ def count_generation_history(upload_dir: Optional[str | Path] = None) -> dict[st
     audio_root = _audio_root(upload)
     audio_files = _audio_generated_files(audio_root)
     audio_jobs = _audio_job_files(audio_root)
+    comfy = _comfyui_dir(comfyui_dir)
+    scratch = {sub: _comfyui_scratch(comfy, sub) for sub in COMFYUI_SCRATCH_DIRS}
 
     running_images = sorted(_active_batch_ids(_generator_instance("images")))
     running_videos = sorted(_active_batch_ids(_generator_instance("videos")))
     running_audio = sorted(_sidecar_active_ids() or set())
+    try:
+        running_comfy = _comfyui_in_flight()
+    except Exception as e:
+        logger.warning("ComfyUI queue check failed: %s", e)
+        running_comfy = []
 
     audio_bytes = 0
     for p in audio_files:
@@ -308,7 +403,12 @@ def count_generation_history(upload_dir: Optional[str | Path] = None) -> dict[st
     except Exception as e:
         logger.warning("generation history DB count failed: %s", e)
 
-    total_bytes = sum(b["bytes"] for b in images) + sum(b["bytes"] for b in videos) + audio_bytes
+    comfy_counts = {
+        sub: {"files": sum(e["files"] for e in scratch[sub]), "bytes": sum(e["bytes"] for e in scratch[sub])}
+        for sub in COMFYUI_SCRATCH_DIRS
+    }
+    comfy_bytes = sum(c["bytes"] for c in comfy_counts.values())
+    total_bytes = sum(b["bytes"] for b in images) + sum(b["bytes"] for b in videos) + audio_bytes + comfy_bytes
     return {
         "images": {
             "batches": len(images),
@@ -328,15 +428,25 @@ def count_generation_history(upload_dir: Optional[str | Path] = None) -> dict[st
             "bytes": audio_bytes,
             "running": running_audio,
         },
+        "comfyui": {
+            **comfy_counts,
+            "files": sum(c["files"] for c in comfy_counts.values()),
+            "bytes": comfy_bytes,
+            "running": running_comfy,
+        },
         "db": db_counts,
         "total_bytes": total_bytes,
     }
 
 
 def delete_generation_history(
-    *, upload_dir: Optional[str | Path] = None, triggered_by: str = "settings_ui"
+    *,
+    upload_dir: Optional[str | Path] = None,
+    comfyui_dir: Optional[str | Path] = None,
+    triggered_by: str = "settings_ui",
 ) -> dict[str, Any]:
-    """Delete all batch-image, batch-video and audio generation history.
+    """Delete all batch-image, batch-video and audio generation history,
+    plus ComfyUI's output/ and input/ scratch.
 
     Each stage is isolated: a failure is recorded in ``errors`` and the
     remaining stages still run, so a bad sidecar cannot leave batch
@@ -345,11 +455,12 @@ def delete_generation_history(
     """
     upload = _upload_dir(upload_dir)
     errors: list[str] = []
-    skipped: dict[str, list[str]] = {"images": [], "videos": [], "audio": []}
+    skipped: dict[str, list[str]] = {"images": [], "videos": [], "audio": [], "comfyui": []}
     deleted: dict[str, Any] = {
         "images": {"batches": 0, "files": 0, "bytes": 0},
         "videos": {"batches": 0, "files": 0, "bytes": 0},
         "audio": {"jobs": 0, "files": 0, "bytes": 0},
+        "comfyui": {sub: {"files": 0, "bytes": 0} for sub in COMFYUI_SCRATCH_DIRS},
         "documents": 0,
         "folders": 0,
         "job_history": 0,
@@ -377,6 +488,28 @@ def delete_generation_history(
             deleted[kind]["files"] += batch["files"]
             deleted[kind]["bytes"] += batch["bytes"]
         _forget_batches(generators[kind], removed_ids[kind])
+
+    # 1b. ComfyUI's own output/ and input/. A prompt still executing may read
+    #     input/ or write output/ next, so a non-empty queue defers both.
+    comfy = _comfyui_dir(comfyui_dir)
+    purge_comfy = True
+    try:
+        skipped["comfyui"] = _comfyui_in_flight()
+    except Exception as e:
+        errors.append(f"comfyui queue: {e}")
+        purge_comfy = False
+    if skipped["comfyui"]:
+        purge_comfy = False
+    if purge_comfy:
+        for sub in COMFYUI_SCRATCH_DIRS:
+            for entry in _comfyui_scratch(comfy, sub):
+                try:
+                    _remove_scratch_entry(entry["path"])
+                except Exception as e:
+                    errors.append(f"comfyui/{sub}/{entry['path'].name}: {e}")
+                    continue
+                deleted["comfyui"][sub]["files"] += entry["files"]
+                deleted["comfyui"][sub]["bytes"] += entry["bytes"]
 
     # 2. Audio: let the sidecar drop its finished jobs so its memory and the
     #    .jobs files agree; if it is down, every job file is stale.
@@ -451,6 +584,17 @@ def delete_generation_history(
                 parameters={"skipped": skipped["audio"], "sidecar_available": sidecar_available},
                 triggered_by=triggered_by,
             )
+        comfy_files = sum(c["files"] for c in deleted["comfyui"].values())
+        if comfy_files:
+            record_deletion(
+                actor="user",
+                kind="generation_history_comfyui",
+                operation="bulk_delete",
+                item_count=comfy_files,
+                bytes_freed=sum(c["bytes"] for c in deleted["comfyui"].values()),
+                parameters={"dir": str(comfy), **deleted["comfyui"]},
+                triggered_by=triggered_by,
+            )
         if deleted["documents"] or deleted["folders"] or deleted["job_history"]:
             record_deletion(
                 actor="user",
@@ -463,7 +607,10 @@ def delete_generation_history(
     except Exception as e:
         errors.append(f"retention audit: {e}")
 
-    bytes_freed = deleted["images"]["bytes"] + deleted["videos"]["bytes"] + deleted["audio"]["bytes"]
+    bytes_freed = (
+        deleted["images"]["bytes"] + deleted["videos"]["bytes"] + deleted["audio"]["bytes"]
+        + sum(c["bytes"] for c in deleted["comfyui"].values())
+    )
     return {
         "success": not errors,
         "deleted": deleted,
