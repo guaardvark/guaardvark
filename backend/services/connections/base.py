@@ -43,6 +43,8 @@ class Capabilities:
     max_image_bytes: Optional[int] = None
     video: bool = False
     max_video_bytes: Optional[int] = None
+    # Longest clip the platform accepts, in seconds; None = no stated limit.
+    max_video_seconds: Optional[float] = None
     audio: bool = False
     requires_media: bool = False
     requires_public_url: bool = False
@@ -62,6 +64,7 @@ class Capabilities:
             "max_image_bytes": self.max_image_bytes,
             "video": self.video,
             "max_video_bytes": self.max_video_bytes,
+            "max_video_seconds": self.max_video_seconds,
             "audio": self.audio,
             "requires_media": self.requires_media,
             "requires_public_url": self.requires_public_url,
@@ -166,6 +169,10 @@ class MediaItem:
     height: Optional[int] = None
     duration_s: Optional[float] = None
     alt_text: Optional[str] = None
+    # From the Document's metadata: the model whose license asks to be named
+    # (MiniMax H3) and whether the clip carries a generated soundtrack.
+    attribution: Optional[str] = None
+    has_audio: bool = False
 
     @property
     def kind(self) -> str:

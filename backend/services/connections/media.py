@@ -51,23 +51,53 @@ def resolve_media(document_ids: Iterable[int]) -> List[MediaItem]:
 
         mime = mimetypes.guess_type(path)[0] or "application/octet-stream"
         alt_text = None
+        attribution = None
+        has_audio = False
         if doc.file_metadata:
             try:
-                meta = json.loads(doc.file_metadata)
+                meta = json.loads(doc.file_metadata) if isinstance(doc.file_metadata, str) else dict(doc.file_metadata)
                 alt_text = meta.get("original_prompt") or None
+                attribution = meta.get("attribution") or None
+                has_audio = bool(meta.get("has_audio"))
             except (ValueError, TypeError):
                 pass
 
-        items.append(
-            MediaItem(
-                path=path,
-                mime=mime,
-                bytes=os.path.getsize(path),
-                document_id=doc.id,
-                alt_text=alt_text,
-            )
+        item = MediaItem(
+            path=path,
+            mime=mime,
+            bytes=os.path.getsize(path),
+            document_id=doc.id,
+            alt_text=alt_text,
+            attribution=attribution,
+            has_audio=has_audio,
         )
+        if item.kind == "video":
+            item.duration_s = probe_duration(path)
+        items.append(item)
     return items
+
+
+def probe_duration(path: str) -> Optional[float]:
+    """Seconds of media at ``path`` via ffprobe, or None when unavailable."""
+    try:
+        from backend.services.swarm.clients import FfmpegRunner
+        value = FfmpegRunner().probe_duration(path)
+        return float(value) if value else None
+    except Exception:  # noqa: BLE001 — a missing ffprobe just skips the duration check
+        return None
+
+
+def disclosure_line(items: List[MediaItem]) -> Optional[str]:
+    """The machine-generated disclosure a post carries when its media names a
+    model whose license asks to be credited. Plain text in the post body; no
+    platform flag is set and nothing is sent anywhere else."""
+    names = []
+    for item in items:
+        if item.attribution and item.attribution not in names:
+            names.append(item.attribution)
+    if not names:
+        return None
+    return f"Generated with {', '.join(names)} on Guaardvark."
 
 
 def _human_bytes(n: int) -> str:
@@ -106,6 +136,13 @@ def validate_against(
         problems.append("This target does not accept images.")
     if videos and not caps.video:
         problems.append("This target does not accept video.")
+    if caps.video and caps.max_video_seconds is not None:
+        for item in videos:
+            if item.duration_s and item.duration_s > caps.max_video_seconds:
+                problems.append(
+                    f"{os.path.basename(item.path)} runs {item.duration_s:.0f}s; "
+                    f"the limit is {caps.max_video_seconds:.0f}s."
+                )
     if audio and not caps.audio:
         problems.append("This target does not accept audio.")
 

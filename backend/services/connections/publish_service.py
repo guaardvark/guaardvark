@@ -44,15 +44,17 @@ def preflight(
             per_connection[str(cid)] = {"violations": ["Connection not found."]}
             continue
         problems = _connection_problems(connection)
+        final_body = _body_with_disclosure(body, items, connection)
         if not problems:
             caps = registry.spec_for(connection.provider).capabilities
             problems = media_util.validate_against(
-                caps, items, body=body, title=title, visibility=visibility
+                caps, items, body=final_body, title=title, visibility=visibility
             )
         per_connection[str(cid)] = {
             "provider": connection.provider,
             "label": connection.display_name or connection.provider,
             "violations": problems,
+            "body": final_body,
         }
 
     return {
@@ -60,6 +62,26 @@ def preflight(
         "per_connection": per_connection,
         "violations": [],
     }
+
+
+def _discloses_ai_media(connection) -> bool:
+    """Per-connection opt-out for the disclosure line (config.disclose_ai_media,
+    default on). Config is the connection's non-secret JSON options."""
+    try:
+        cfg = json.loads(connection.config) if isinstance(connection.config, str) else (connection.config or {})
+    except (ValueError, TypeError):
+        cfg = {}
+    return bool(cfg.get("disclose_ai_media", True))
+
+
+def _body_with_disclosure(body: str, items, connection) -> str:
+    line = media_util.disclosure_line(items)
+    if not line or not _discloses_ai_media(connection):
+        return body
+    text = (body or "").rstrip()
+    if line in text:
+        return body
+    return f"{text}\n\n{line}" if text else line
 
 
 def _connection_problems(connection) -> List[str]:
@@ -111,8 +133,9 @@ def queue_publish(
         problems = _connection_problems(connection)
         spec = registry.spec_for(connection.provider)
         target_visibility = visibility or spec.capabilities.default_visibility
+        final_body = _body_with_disclosure(body, items, connection)
         problems += media_util.validate_against(
-            spec.capabilities, items, body=body, title=title, visibility=target_visibility
+            spec.capabilities, items, body=final_body, title=title, visibility=target_visibility
         )
         if problems:
             raise ValueError(f"{spec.label}: {problems[0]}")
@@ -123,7 +146,7 @@ def queue_publish(
             document_id=items[0].document_id if items else None,
             media_refs=media_util.media_refs_json(items),
             title=title,
-            body=body,
+            body=final_body,
             link_url=link_url,
             tags=json.dumps(tags or []),
             visibility=target_visibility,

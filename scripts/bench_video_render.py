@@ -104,18 +104,19 @@ def _steps_per_second_from_log(log_path: Path, since_offset: int) -> tuple[float
     except Exception:
         return None, 0
     # tqdm writes "100%|██████| 20/20 [01:40<00:00,  5.02s/it]" (or "it/s").
+    import re
     best = None
     count = 0
     for chunk in text.replace("\r", "\n").splitlines():
-        if "/it]" in chunk or "it/s]" in chunk:
-            count += 1
-            tail = chunk.rsplit(",", 1)[-1].strip().rstrip("]")
-            try:
-                val, unit = tail.split()
-                val = float(val)
-                best = val if unit.startswith("s/it") else (1.0 / val if val else None)
-            except Exception:
-                continue
+        m = re.search(r"([0-9.]+)\s*(s/it|it/s)\]", chunk)
+        if not m:
+            continue
+        count += 1
+        try:
+            val = float(m.group(1))
+        except ValueError:
+            continue
+        best = val if m.group(2) == "s/it" else (1.0 / val if val else None)
     return best, count
 
 
