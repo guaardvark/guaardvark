@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.8.1 — Profiles, extensions, and a bootstrap that converges offline
+
+16 commits since 2.8.0. Two product-shaping features — a profile switch and a client
+extension seam — and a set of installer fixes from watching a client box with a flapping
+resolver fail to finish bootstrap for an evening. Nothing in this release changes the
+database or the knowledge index; upgrading is a pull and a restart.
 
 - `start_postgres.sh` takes the role, database, host and port from `DATABASE_URL` and never
   re-provisions a role it did not create; before this a fork with its own role on the same
@@ -33,6 +38,38 @@
   `retention_audit`. Batches still generating are skipped. Film Crew productions, video
   editor projects, the cast library and LoRAs, and chat history are not touched. The audio
   sidecar gains `DELETE /jobs` so its in-memory job list and its `.jobs` files stay in step.
+- **Bootstrap converges offline.** Every step that contacted a package index even when
+  nothing needed to change is gone or gated: `install_pytorch.sh` probes the venv first
+  and skips the 3 GB torch re-stage when the exact build is already installed
+  (`GUAARDVARK_TORCH_FORCE=1` restores always-reinstall); the torch channel comes from the
+  hardware policy instead of a second table that disagreed with it (cu121 vs cu124 on
+  Ampere/Ada made the reconciler and `start.sh` swap the CUDA stack back and forth); the
+  numpy/setuptools re-pin probes offline (`scripts/lib/venv_pins.sh`) and only reinstalls
+  a violated spec; the cli reconciler skips when the editable install already points at
+  `cli/`; and `system-manager` never creates a venv from a non-3.12 interpreter (Ubuntu
+  26.04's `python3` is 3.14, whose venv compiled numpy from source and failed).
+- Every bootstrap pip pass runs under `backend/constraints.txt` (`PIP_CONSTRAINT`, operator
+  value wins), which now caps `opencv-contrib-python`, `tifffile` and `ml-dtypes` at their
+  last numpy<2 lines. Before this the unconstrained CV pass upgraded numpy to 2.x on every
+  boot and the torch pass dragged it back, looping through a full torch re-stage each time.
+- The CV / face-restoration stack (gfpgan, realesrgan, basicsr, facexlib, controlnet-aux,
+  mediapipe — hundreds of MB) is opt-in with `GUAARDVARK_INSTALL_CV=1` instead of
+  installing on every GPU box. Both consumers import lazily and degrade when it is absent.
+- Two installs on one machine no longer see each other's Celery workers: `start_celery.sh`
+  and `start.sh` count a worker only when its working directory is under this checkout,
+  the same confinement `stop.sh` already applies. The pgvector step distinguishes a
+  missing package from a missing superuser, names the package for the major actually
+  serving, and reads the same configured URL as the role and database do.
+- **Interconnector sync ships every `backend/` package.** The sync allowlist named
+  `backend/` packages one by one, so `backend/profiles` and `backend/extensions` never
+  reached a client while the synced `config.py` / `app.py` already imported them — every
+  client boot after Update Now died with `cannot import name 'extensions' from 'backend'`.
+  The nine missing entries are listed and a test walks the real `backend/` directory so
+  the next new package fails in CI, not on a client.
+- The PyPI project page shows the README again. `setup.py` read `long_description` from the
+  repo root, which the wheel build cannot see; the 2.8.0 wheel published with an empty
+  page. The release build now copies `README.md` into `cli/` the way it already does
+  `VERSION`.
 
 ## 2.8.0 — MiniMax H3, a rebuilt knowledge index, and a cleaner clean install
 
