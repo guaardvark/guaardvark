@@ -194,6 +194,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   });
   // End frame for models that declare first+last-frame generation (image mode).
   const [endFrame, setEndFrame] = useState(null); // {path, name}
+  // Audio guide for models that declare audio_in: a voice clip or track the
+  // model performs from the start of the clip. {path, name}
+  const [audioGuide, setAudioGuide] = useState(null);
+  const [voiceClips, setVoiceClips] = useState([]);
+  const [isUploadingAudioGuide, setIsUploadingAudioGuide] = useState(false);
   // Prompt presets the backend ships for the selected model's family
   // (/api/batch-video/prompt-presets); empty for families without any.
   const [promptPresets, setPromptPresets] = useState([]);
@@ -504,7 +509,37 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     }
   }, [model, modelMeta]);
   useEffect(() => {
+    if (!modelCaps?.audio_in) return;
+    let alive = true;
+    fetch(`${API_BASE}/audio-foundry/voice-clips`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (alive) setVoiceClips(data?.clips || []); })
+      .catch(() => { if (alive) setVoiceClips([]); });
+    return () => { alive = false; };
+  }, [modelCaps]);
+
+  const handleAudioGuideUpload = async (file) => {
+    if (!file) return;
+    setIsUploadingAudioGuide(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("name", file.name);
+      const res = await fetch(`${API_BASE}/audio-foundry/voice-clips/upload`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok || !data?.path) throw new Error(data?.error || `Upload failed: HTTP ${res.status}`);
+      setAudioGuide({ path: data.path, name: file.name });
+      setVoiceClips((prev) => [{ id: data.id || file.name, filename: file.name, path: data.path }, ...prev]);
+    } catch (err) {
+      setError(`Audio upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingAudioGuide(false);
+    }
+  };
+
+  useEffect(() => {
     setEndFrame(null);
+    setAudioGuide(null);
     setSelectedPromptPreset("");
     let alive = true;
     (async () => {
@@ -1121,10 +1156,17 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         selectedImages,
       };
 
+      const guidePayload =
+        audioGuide?.path && modelCaps?.audio_in
+          ? { guides: (inputMode === "text" ? finalPrompts : imagePaths).map(() => [
+              { kind: "audio", path: audioGuide.path, frame_idx: 0 },
+            ]) }
+          : {};
       const body =
         inputMode === "text"
           ? {
               prompts: finalPrompts,
+              ...guidePayload,
               ...computedParams,
               fidelity_mode: fidelityMode,
               high_consistency: highConsistencyMode,
@@ -1137,6 +1179,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               ...(endFrame?.path && modelCaps?.modes?.includes("flf2v")
                 ? { last_frame_paths: imagePaths.map(() => endFrame.path) }
                 : {}),
+              ...guidePayload,
               prompt: lf && motionPrompt ? `${motionPrompt}, ${lf}` : motionPrompt,
               ...computedParams,
               fidelity_mode: fidelityMode,
@@ -2446,6 +2489,44 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
                       The clip ends on this frame; each start image gets the same end frame.
                     </Typography>
+                  </Box>
+                )}
+                {modelCaps?.audio_in && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Audio to perform (optional)</InputLabel>
+                      <Select
+                        value={audioGuide?.path || ""}
+                        onChange={(e) => {
+                          const clip = voiceClips.find((c) => c.path === e.target.value);
+                          setAudioGuide(clip ? { path: clip.path, name: clip.filename } : null);
+                        }}
+                        label="Audio to perform (optional)"
+                      >
+                        <MenuItem value="">None</MenuItem>
+                        {voiceClips.map((c) => (
+                          <MenuItem key={c.id || c.path} value={c.path}>{c.filename}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 0.5 }}>
+                      <Button variant="outlined" size="small" component="label" disabled={isUploadingAudioGuide}>
+                        {isUploadingAudioGuide ? "Uploading…" : "Upload audio"}
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          hidden
+                          onChange={(e) => {
+                            handleAudioGuideUpload(e.target.files?.[0]);
+                            e.target.value = "";
+                          }}
+                        />
+                      </Button>
+                      <Typography variant="caption" color="text.secondary">
+                        A spoken line or a music cue anchored at the start of the clip: the model performs it
+                        (lip movement, timing) and samples the rest of the soundtrack around it. Cut to the clip length.
+                      </Typography>
+                    </Box>
                   </Box>
                 )}
                 {isCogVideoXModel(model) && (
