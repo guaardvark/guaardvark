@@ -30,7 +30,7 @@ eventlet==0.40.3
 # Data Processing & Analysis
 numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
 pandas==2.2.2
-pydantic==2.13.4
+pydantic==2.13.5
 psutil==7.2.2
 # nvidia-ml-py (imports as pynvml) is GPU-only — it powers VRAM queries in
 # gpu_resource_coordinator/ollama_resource_manager, but every importer does so
