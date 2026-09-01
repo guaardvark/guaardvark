@@ -148,6 +148,23 @@ const AudioFoundryPage = () => {
   const [musicInstruments, setMusicInstruments] = useState([]);
   const [musicExtra, setMusicExtra] = useState("");
   const [musicInstrumental, setMusicInstrumental] = useState(true);
+  // Music backend: the sidecar's ACE-Step (default) or MiniMax Music 3 through
+  // ComfyUI, which sings tagged lyrics; offered only when its weights are
+  // installed (the registry says), otherwise the option names the modal.
+  const [musicModel, setMusicModel] = useState("ace-step");
+  const [musicLyrics, setMusicLyrics] = useState("");
+  const [music3Ready, setMusic3Ready] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    axios.get(`${API_BASE}/batch-video/models`)
+      .then(({ data }) => {
+        if (!alive) return;
+        const row = (data?.data?.models || []).find((m) => m.id === "minimax-music3-int8");
+        setMusic3Ready(row ? !!row.is_ready : false);
+      })
+      .catch(() => { if (alive) setMusic3Ready(false); });
+    return () => { alive = false; };
+  }, []);
   const [musicPolish, setMusicPolish] = useState(true);
   const [musicPreview, setMusicPreview] = useState(null);
   const [musicPolishing, setMusicPolishing] = useState(false);
@@ -463,6 +480,8 @@ const AudioFoundryPage = () => {
         instrumental_only: musicInstrumental,
       };
       if (negativePrompt) payload.negative_prompt = negativePrompt;
+      if (!musicInstrumental && musicLyrics.trim()) payload.lyrics = musicLyrics.trim();
+      if (musicModel !== "ace-step") payload.model = musicModel;
 
       const res = await axios.post(
         `${API_BASE}/audio-foundry/generate/music`,
@@ -744,7 +763,35 @@ const AudioFoundryPage = () => {
                         }
                         label={<Typography variant="caption">Instrumental only</Typography>}
                       />
+                      <TextField
+                        select
+                        size="small"
+                        label="Music model"
+                        value={musicModel}
+                        onChange={(e) => setMusicModel(e.target.value)}
+                        sx={{ minWidth: 220 }}
+                        SelectProps={{ native: true }}
+                      >
+                        <option value="ace-step">ACE-Step (Audio Foundry)</option>
+                        <option value="minimax-music3-int8" disabled={music3Ready === false}>
+                          {music3Ready === false ? "MiniMax Music 3 (install in Manage Video Models)" : "MiniMax Music 3 (sings lyrics)"}
+                        </option>
+                      </TextField>
                     </Box>
+                    {!musicInstrumental && (
+                      <TextField
+                        label="Lyrics (optional)"
+                        multiline
+                        minRows={3}
+                        maxRows={8}
+                        size="small"
+                        value={musicLyrics}
+                        onChange={(e) => setMusicLyrics(e.target.value)}
+                        placeholder={"[Verse]\nwe drove all night under a paper moon\n[Chorus]\n..."}
+                        helperText="Section tags like [Verse], [Chorus], [Bridge] shape the song; MiniMax Music 3 sings them, ACE-Step follows them where it can."
+                        fullWidth
+                      />
+                    )}
 
                     <Box>
                       <Typography variant="caption" fontWeight="bold">Duration: {duration} seconds</Typography>

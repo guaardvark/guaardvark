@@ -261,6 +261,22 @@ def generate_fx():
 
 @audio_foundry_bp.route("/jobs/<job_id>", methods=["GET"])
 def job_status(job_id):
+    """Job status. A MiniMax Music 3 job (run here through ComfyUI) answers in
+    the sidecar's shape so the page polls both the same way."""
+    from backend.services import comfyui_music_generator as m3
+    job = m3.job_status(job_id)
+    if job is not None:
+        from flask import jsonify
+        status = {"failed": "error"}.get(job["status"], job["status"])
+        result = None
+        if status == "done":
+            result = {
+                "path": job.get("path"), "document_id": job.get("document_id"),
+                "duration_s": job.get("seconds"), "model": job.get("model"),
+                "attribution": job.get("attribution"), "seed": job.get("seed"),
+            }
+        return jsonify({"id": job_id, "status": status, "error": job.get("error"),
+                        "progress": {"current": 0, "total": 0}, "result": result}), 200
     body, status_code = _proxy_get(f"/jobs/{job_id}")
     return body, status_code
 

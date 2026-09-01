@@ -105,3 +105,19 @@ def test_audio_route_switches_on_model(monkeypatch):
     monkeypatch.setattr(vmr, "preflight_video_model", lambda m: (False, "not installed"))
     resp = client.post("/api/audio-foundry/generate/music", json={"model": MODEL, "style_prompt": "x"})
     assert resp.status_code == 400 and "not installed" in resp.get_json()["error"]
+
+
+def test_shared_jobs_route_answers_for_music3_jobs(monkeypatch):
+    from flask import Flask
+    from backend.api.audio_foundry_api import audio_foundry_bp
+    app = Flask(__name__)
+    app.register_blueprint(audio_foundry_bp)
+    client = app.test_client()
+    monkeypatch.setattr(m3, "job_status", lambda jid: {
+        "id": jid, "status": "failed", "error": "no room"} if jid == "bad" else {
+        "id": jid, "status": "done", "path": "/x/s.flac", "document_id": 9, "seconds": 45.0,
+        "model": MODEL, "attribution": "MiniMax-Music3", "seed": 1})
+    good = client.get("/api/audio-foundry/jobs/ok").get_json()
+    assert good["status"] == "done" and good["result"]["document_id"] == 9 and good["result"]["duration_s"] == 45.0
+    bad = client.get("/api/audio-foundry/jobs/bad").get_json()
+    assert bad["status"] == "error" and bad["error"] == "no room" and bad["result"] is None
