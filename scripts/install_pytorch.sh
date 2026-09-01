@@ -140,6 +140,76 @@ else
     vader_info "Using active virtualenv: $VIRTUAL_ENV"
 fi
 
+# --- fast path: skip the swap when the right build is already in place -------
+# Every branch below force-reinstalls, because pip treats +cu128 / +cpu / +rocm
+# as the SAME version and a plain install cannot fix a wrong variant. Right
+# after a backup-restore, wrong. But it also meant EVERY bootstrap re-downloaded
+# the ~3 GB torch+CUDA set on a box that already had the exact build — and a
+# flaky link during those minutes failed the reconciler, withheld the bootstrap
+# stamp, and forced yet another full bootstrap next boot (observed 2026-08-31:
+# ten DNS drops across one setup, torch never wrong once).
+#
+# So probe first. "Correct" means torch, torchvision AND torchaudio import,
+# all three carry the expected local tag (none at all for the default PyPI
+# wheel on macOS), and the accelerator the tag promises is actually reachable.
+# Anything short of that falls through to the full swap unchanged.
+# GUAARDVARK_TORCH_FORCE=1 restores the old always-reinstall behaviour.
+_pt_already_correct() {  # usage: _pt_already_correct <tag-substring|""> <cuda|none>; prints version on hit
+    if [ "${GUAARDVARK_TORCH_FORCE:-0}" = "1" ] || [ -n "${USE_PRE:-}" ]; then
+        return 1
+    fi
+    python3 - "$1" "$2" <<'EOF' 2>/dev/null
+import sys
+tag, accel = sys.argv[1], sys.argv[2]
+try:
+    import torch, torchvision, torchaudio
+except Exception:
+    sys.exit(1)
+for v in (torch.__version__, torchvision.__version__, torchaudio.__version__):
+    if tag and f"+{tag}" not in v:
+        sys.exit(1)
+    if not tag and "+" in v:
+        sys.exit(1)
+if accel == "cuda" and not torch.cuda.is_available():
+    sys.exit(1)
+try:
+    torch.zeros(1)
+except Exception:
+    sys.exit(1)
+print(torch.__version__)
+EOF
+}
+
+_pt_report_installed() {
+    vader_section "Verification:"
+    python3 - <<'EOF'
+import torch
+print(f"    PyTorch Version:    {torch.__version__}")
+print(f"    CUDA Available:     {torch.cuda.is_available()}")
+mps = getattr(torch.backends, "mps", None)
+if mps is not None:
+    print(f"    MPS Available:      {bool(mps.is_available())}")
+if torch.cuda.is_available():
+    try:
+        print(f"    GPU Device:         {torch.cuda.get_device_name(0)}")
+    except Exception as e:
+        print(f"    GPU Device:         N/A ({e})")
+EOF
+}
+
+_pt_skip_if_current() {  # usage: _pt_skip_if_current <tag-substring|""> <cuda|none>; exits 0 on hit
+    local ver
+    ver="$(_pt_already_correct "$1" "$2")" || return 0
+    vader_success "PyTorch ${ver} already matches the target build — skipping download and reinstall."
+    vader_detail "Force the full swap with GUAARDVARK_TORCH_FORCE=1"
+    # Keep the shared-venv contract on the fast path too: these are the known
+    # diffusers-import breakers and the deprecated pynvml dist. Offline, cheap.
+    pip uninstall -y flash-attn flash_attn xformers pynvml 2>/dev/null | tail -1 || true
+    _pt_report_installed
+    vader_header "PyTorch Installation Complete"
+    exit 0
+}
+
 # Pin-convergence: constrain the SHARED backend venv so `--upgrade
 # --force-reinstall torch...` can't re-resolve numpy to 2.x and force the
 # repin-downgrade churn (see backend/constraints.txt; numpy 1.26.4 cp312
@@ -199,6 +269,7 @@ if [ "$UNAME_S" = "Darwin" ]; then
     # MPS-capable build; the whl/cpu index would strip Metal support. Swap-safety
     # uninstall first (same rationale as the other branches) but no CUDA/triton
     # cleanup — those never exist on macOS — and no pynvml removal.
+    _pt_skip_if_current "" none
     _pt_stage_wheels "" torch torchvision torchaudio || exit 1
     pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
     _pt_install_staged "" torch torchvision torchaudio
@@ -250,6 +321,7 @@ if command -v rocm-smi &> /dev/null || _hardware_json_says_amd; then
     # Swap-safety: clean prior torch + any lingering CUDA/triton bloat from a
     # previous build, then force-reinstall the ROCm variant (the +rocm local
     # tag collides with +cpu/+cuXXX in pip's resolver, same as the CUDA path).
+    _pt_skip_if_current "$ROCM_WHL" cuda
     _pt_stage_wheels "https://download.pytorch.org/whl/${ROCM_WHL}" torch torchvision torchaudio || exit 1
     pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
     pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
@@ -370,6 +442,12 @@ if command -v nvidia-smi &> /dev/null; then
 
         vader_section "Installation Plan:"
 
+        if [ "$CUDA_VERSION" != "cpu" ]; then
+            _pt_skip_if_current "$CUDA_VERSION" cuda
+        else
+            _pt_skip_if_current cpu none
+        fi
+
         # --force-reinstall is required because pip's resolver treats the
         # local-version tag (e.g. +cu130 vs +cpu) as the SAME version number
         # for "already satisfied" purposes. Without --force-reinstall, a machine
@@ -467,6 +545,7 @@ EOF
         vader_warn "Could not detect GPU compute capability"
         vader_info "Installing CPU-only PyTorch as fallback..."
         echo ""
+        _pt_skip_if_current cpu none
         _pt_stage_wheels "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio || exit 1
         pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
         _pt_install_staged "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio
@@ -485,6 +564,7 @@ else
     vader_info "Installing CPU-only PyTorch..."
     echo ""
     # Same variant-swap safety: uninstall first, force-reinstall, drop pynvml.
+    _pt_skip_if_current cpu none
     _pt_stage_wheels "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio || exit 1
     pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
     pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
