@@ -181,6 +181,7 @@ export const MODEL_OPTIONS = {
     // which reads as smearing and colour bleed rather than as a faster render.
     // A quality preset must not be able to reach below it.
     minSteps: 20,
+    speedProfiles: ["standard", "lightx2v-4"],
     supportsT2V: true,
     supportsI2V: false,
     dimensionAlignment: 32,
@@ -199,6 +200,7 @@ export const MODEL_OPTIONS = {
     // which reads as smearing and colour bleed rather than as a faster render.
     // A quality preset must not be able to reach below it.
     minSteps: 20,
+    speedProfiles: ["standard", "lightx2v-4"],
     supportsT2V: false,
     supportsI2V: true,
     dimensionAlignment: 32,

@@ -670,6 +670,29 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         base_area = 1280 * 704
         return round(max(3.0, min(12.0, 8.0 * ((width * height) / base_area))), 1)
 
+    def _resolve_wan_profile(self, request: VideoGenerationRequest, model_key: str) -> tuple:
+        """The Wan speed profile a request names, resolved against the registry:
+        (profile dict, None) with its LoRA filenames, (None, None) when none was
+        asked for, or (None, message) when the model does not declare it or its
+        LoRAs are not installed."""
+        if not request.speed_profile or request.speed_profile == "standard":
+            return None, None
+        from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, speed_profile_for
+        entry = VIDEO_MODEL_REGISTRY.get(model_key) or {}
+        name = entry.get("name") or model_key
+        profile = speed_profile_for(model_key, request.speed_profile)
+        if profile is None:
+            declared = ", ".join(entry.get("speed_profiles") or {}) or "none"
+            return None, f"{name} declares no speed profile '{request.speed_profile}' (declared: {declared})."
+        if (profile.get("loras") or profile.get("lora")) and not profile.get("lora_installed"):
+            wanted = [VIDEO_MODEL_REGISTRY.get(pid, {}).get("name") or pid
+                      for pid in ([profile["lora"]] if profile.get("lora") else profile["loras"].values())]
+            return None, (
+                f"Speed profile '{profile.get('label') or profile['id']}' needs "
+                f"{' and '.join(wanted)}. Open Manage Video Models and install them."
+            )
+        return profile, None
+
     def _resolve_minimax_common(self, request: VideoGenerationRequest, model_key: str, caps: dict, entry_name: str) -> tuple:
         """Speed profile, LoRA, step count and prompt for either H3 build.
         Returns ((profile, lora_file, lora_strength, steps, prompt), None) or
@@ -1692,6 +1715,26 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
 
                 is_i2v = cfg.get("type") == "i2v"
 
+                wan_profile, wan_err = self._resolve_wan_profile(request, model_key)
+                if wan_err:
+                    result.error = wan_err
+                    return result
+                wan_steps = request.num_inference_steps
+                wan_cfg = request.guidance_scale
+                wan_shift = None
+                wan_lora_high = wan_lora_low = None
+                wan_lora_strength = 1.0
+                if wan_profile:
+                    explicit = str((request.metadata or {}).get("steps_explicit", "")).lower() in ("1", "true")
+                    if not (explicit and request.num_inference_steps):
+                        wan_steps = int(wan_profile["steps"])
+                    if wan_profile.get("cfg") is not None:
+                        wan_cfg = float(wan_profile["cfg"])
+                    wan_shift = wan_profile.get("shift")
+                    files = wan_profile.get("lora_files") or {}
+                    wan_lora_high, wan_lora_low = files.get("unet_high"), files.get("unet_low")
+                    wan_lora_strength = float(wan_profile.get("strength") or 1.0)
+
                 if cfg.get("single"):
                     # Wan 2.2 TI2V-5B: ONE model does both — image-to-video if a start
                     # image is given, else text-to-video. Fits 16GB, no MoE two-pass.
@@ -1731,14 +1774,18 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         negative_prompt=request.negative_prompt,
                         model_key=model_key,
                         num_frames=request.duration_frames,
-                        num_inference_steps=request.num_inference_steps,
-                        guidance_scale=request.guidance_scale,
+                        num_inference_steps=wan_steps,
+                        guidance_scale=wan_cfg,
                         sampler_profile=request.wan_sampler_profile,
                         width=request.width,
                         height=request.height,
                         seed=seed,
                         fps=request.fps,
                         interpolation_multiplier=interpolation,
+                        lora_high=wan_lora_high,
+                        lora_low=wan_lora_low,
+                        lora_strength=wan_lora_strength,
+                        shift_override=wan_shift,
                     )
                     logger.info(f"Using Wan 2.2 image-to-video ({model_key}) via ComfyUI GGUF")
                 else:
@@ -1750,13 +1797,17 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         negative_prompt=request.negative_prompt,
                         model_key=model_key,
                         num_frames=request.duration_frames,
-                        num_inference_steps=request.num_inference_steps,
-                        guidance_scale=request.guidance_scale,
+                        num_inference_steps=wan_steps,
+                        guidance_scale=wan_cfg,
                         width=request.width,
                         height=request.height,
                         seed=seed,
                         fps=request.fps,
                         interpolation_multiplier=interpolation,
+                        lora_high=wan_lora_high,
+                        lora_low=wan_lora_low,
+                        lora_strength=wan_lora_strength,
+                        shift_override=wan_shift,
                     )
                     logger.info(f"Using Wan 2.2 text-to-video ({model_key}) via ComfyUI GGUF")
 

@@ -468,6 +468,10 @@ class ComfyUIVideoWorkflowMixin:
         seed: Optional[int] = None,
         fps: int = 16,
         interpolation_multiplier: int = 2,
+        lora_high: Optional[str] = None,
+        lora_low: Optional[str] = None,
+        lora_strength: float = 1.0,
+        shift_override: Optional[float] = None,
     ) -> dict:
         """Build a ComfyUI API-format workflow for Wan 2.2 MoE text-to-video.
 
@@ -496,7 +500,7 @@ class ComfyUIVideoWorkflowMixin:
             clip_device,
         )
 
-        shift = self._wan_dynamic_shift(width, height)
+        shift = float(shift_override) if shift_override is not None else self._wan_dynamic_shift(width, height)
 
         workflow = {
             # ── Model Loading ──────────────────────────────────────────────
@@ -653,6 +657,24 @@ class ComfyUIVideoWorkflowMixin:
         }
 
         # Add RIFE frame interpolation if multiplier > 1
+        if lora_high or lora_low:
+            # A speed profile's distilled LoRA pair, one per expert. Model-only
+            # loaders so the text encoder is untouched; the two ModelSamplingSD3
+            # nodes read the patched experts. ComfyUI-GGUF applies LoRAs to the
+            # GGUF experts through the built-in loader (its README: experimental).
+            if lora_high:
+                workflow["17"] = {
+                    "class_type": "LoraLoaderModelOnly",
+                    "inputs": {"model": ["1", 0], "lora_name": lora_high, "strength_model": float(lora_strength)},
+                }
+                workflow["8"]["inputs"]["model"] = ["17", 0]
+            if lora_low:
+                workflow["18"] = {
+                    "class_type": "LoraLoaderModelOnly",
+                    "inputs": {"model": ["2", 0], "lora_name": lora_low, "strength_model": float(lora_strength)},
+                }
+                workflow["9"]["inputs"]["model"] = ["18", 0]
+
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(
                 workflow,
@@ -680,6 +702,10 @@ class ComfyUIVideoWorkflowMixin:
         fps: int = 16,
         interpolation_multiplier: int = 2,
         sampler_profile: Optional[str] = None,
+        lora_high: Optional[str] = None,
+        lora_low: Optional[str] = None,
+        lora_strength: float = 1.0,
+        shift_override: Optional[float] = None,
     ) -> dict:
         # Same MoE two-pass dance as Wan T2V, but the empty latent gets swapped
         # for WanImageToVideo — that node bakes the start frame into the
@@ -713,7 +739,9 @@ class ComfyUIVideoWorkflowMixin:
         # scaled curve stays available for whoever wants to re-test it.
         profile_key = self._wan5b_sampler_profile(sampler_profile)
         profile = self.WAN5B_SAMPLER_PROFILES[profile_key]
-        shift = profile["shift"] if profile["shift"] is not None else self._wan_dynamic_shift(width, height)
+        shift = float(shift_override) if shift_override is not None else (
+            profile["shift"] if profile["shift"] is not None else self._wan_dynamic_shift(width, height)
+        )
         logger.info(
             "Wan I2V MoE workflow clip_device=%s profile=%s shift=%.1f "
             "(TE off-GPU frees UNet residency on 16GB)",
@@ -801,6 +829,24 @@ class ComfyUIVideoWorkflowMixin:
                 },
             },
         }
+
+        if lora_high or lora_low:
+            # A speed profile's distilled LoRA pair, one per expert. Model-only
+            # loaders so the text encoder is untouched; the two ModelSamplingSD3
+            # nodes read the patched experts. ComfyUI-GGUF applies LoRAs to the
+            # GGUF experts through the built-in loader (its README: experimental).
+            if lora_high:
+                workflow["17"] = {
+                    "class_type": "LoraLoaderModelOnly",
+                    "inputs": {"model": ["1", 0], "lora_name": lora_high, "strength_model": float(lora_strength)},
+                }
+                workflow["8"]["inputs"]["model"] = ["17", 0]
+            if lora_low:
+                workflow["18"] = {
+                    "class_type": "LoraLoaderModelOnly",
+                    "inputs": {"model": ["2", 0], "lora_name": lora_low, "strength_model": float(lora_strength)},
+                }
+                workflow["9"]["inputs"]["model"] = ["18", 0]
 
         if interpolation_multiplier > 1:
             self._add_rife_interpolation(

@@ -132,6 +132,33 @@ H3_REF2VA_SPEED_PROFILES = {
         "experimental": True,
     },
 }
+# Wan 2.2 14B speed profile: the bundled ComfyUI templates run the 14B experts
+# at 4 steps, CFG 1, euler/simple, shift 5.0, with lightx2v's distilled LoRA
+# pair (one per expert) at strength 1.0. Our experts are GGUF Q5_K_M; ComfyUI-GGUF
+# calls LoRA loading "experimental but it should work with the built-in loader
+# nodes", so the profile is marked experimental until a render here confirms
+# it, and the standard profile stays the default.
+WAN14B_SPEED_PROFILES = {
+    "t2v": {
+        "standard": {"label": "Standard (25 steps)", "steps": 25, "min_steps": 20},
+        "lightx2v-4": {
+            "label": "Lightning (4 steps, lightx2v LoRA)",
+            "loras": {"unet_high": "wan22-t2v-lightx2v-high", "unet_low": "wan22-t2v-lightx2v-low"},
+            "strength": 1.0, "steps": 4, "min_steps": 4, "cfg": 1.0, "shift": 5.0,
+            "experimental": True,
+        },
+    },
+    "i2v": {
+        "standard": {"label": "Standard (25 steps)", "steps": 25, "min_steps": 20},
+        "lightx2v-4": {
+            "label": "Lightning (4 steps, lightx2v LoRA)",
+            "loras": {"unet_high": "wan22-i2v-lightx2v-high", "unet_low": "wan22-i2v-lightx2v-low"},
+            "strength": 1.0, "steps": 4, "min_steps": 4, "cfg": 1.0, "shift": 5.0,
+            "experimental": True,
+        },
+    },
+}
+
 # Duration tiers: only the 175-frame tier ships until the 10 s / 15 s runs
 # record a pixel-area cap for each (Phase 0 of the H3 plan). The UI offers a
 # duration only when its tier exists here.
@@ -251,6 +278,11 @@ VIDEO_MODEL_REGISTRY = {
         # morphs". Forbidding the ratio treated the symptom; the shift is fixed at
         # its source instead. The area clamp below still applies.
         "aspect_ratios": ["16:9", "9:16", "1:1"],
+        # The step floor the UI has enforced (Wan smears below 20; CLAUDE.md
+        # records the observation) now lives here so API and tool callers get it.
+        "min_steps": 20,
+        "default_steps": 25,
+        "speed_profiles": WAN14B_SPEED_PROFILES["t2v"],
     },
     "wan22-14b-i2v": {
         "name": "Wan 2.2 14B I2V MoE (GGUF Q5_K)",
@@ -280,6 +312,9 @@ VIDEO_MODEL_REGISTRY = {
         # morphs". Forbidding the ratio treated the symptom; the shift is fixed at
         # its source instead. The area clamp below still applies.
         "aspect_ratios": ["16:9", "9:16", "1:1"],
+        "min_steps": 20,
+        "default_steps": 25,
+        "speed_profiles": WAN14B_SPEED_PROFILES["i2v"],
     },
     "wan22-5b": {
         "name": "Wan 2.2 TI2V-5B (fp16)",
@@ -307,6 +342,8 @@ VIDEO_MODEL_REGISTRY = {
         # morphs". Forbidding the ratio treated the symptom; the shift is fixed at
         # its source instead. The area clamp below still applies.
         "aspect_ratios": ["16:9", "9:16", "1:1"],
+        "min_steps": 20,
+        "default_steps": 20,
     },
     "wan-vae": {
         "name": "Wan 2.1/2.2 VAE",
@@ -798,6 +835,66 @@ VIDEO_MODEL_REGISTRY = {
         "size_gb": 0.65,
         "vram_mb": 0,
         "type": "clip_vision",
+    },
+    "wan22-t2v-lightx2v-high": {
+        "name": "Wan 2.2 14B T2V Lightning LoRA (high noise)",
+        "description": "Optional lightx2v 4-step distillation for the Wan 2.2 14B T2V "
+                       "high-noise expert; paired with its low-noise sibling "
+                       "by the Lightning speed profile.",
+        "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+        "local_subdir": "loras",
+        "files": [
+            {"src": "split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors", "dst": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors"},
+        ],
+        "size_gb": 1.14,
+        "vram_mb": 0,
+        "type": "lora",
+        "applies_to": ["wan22-14b"],
+    },
+    "wan22-t2v-lightx2v-low": {
+        "name": "Wan 2.2 14B T2V Lightning LoRA (low noise)",
+        "description": "Optional lightx2v 4-step distillation for the Wan 2.2 14B T2V "
+                       "low-noise expert; paired with its high-noise sibling "
+                       "by the Lightning speed profile.",
+        "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+        "local_subdir": "loras",
+        "files": [
+            {"src": "split_files/loras/wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors", "dst": "wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors"},
+        ],
+        "size_gb": 1.14,
+        "vram_mb": 0,
+        "type": "lora",
+        "applies_to": ["wan22-14b"],
+    },
+    "wan22-i2v-lightx2v-high": {
+        "name": "Wan 2.2 14B I2V Lightning LoRA (high noise)",
+        "description": "Optional lightx2v 4-step distillation for the Wan 2.2 14B I2V "
+                       "high-noise expert; paired with its low-noise sibling "
+                       "by the Lightning speed profile.",
+        "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+        "local_subdir": "loras",
+        "files": [
+            {"src": "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors", "dst": "wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"},
+        ],
+        "size_gb": 1.14,
+        "vram_mb": 0,
+        "type": "lora",
+        "applies_to": ["wan22-14b-i2v"],
+    },
+    "wan22-i2v-lightx2v-low": {
+        "name": "Wan 2.2 14B I2V Lightning LoRA (low noise)",
+        "description": "Optional lightx2v 4-step distillation for the Wan 2.2 14B I2V "
+                       "low-noise expert; paired with its high-noise sibling "
+                       "by the Lightning speed profile.",
+        "hf_repo": "Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+        "local_subdir": "loras",
+        "files": [
+            {"src": "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors", "dst": "wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"},
+        ],
+        "size_gb": 1.14,
+        "vram_mb": 0,
+        "type": "lora",
+        "applies_to": ["wan22-14b-i2v"],
     },
     # ── MiniMax H3 ────────────────────────────────────────────────────────────
     # "Which MiniMax": the local-weights H3 release (Comfy-Org/MiniMax-H3), not
@@ -1408,6 +1505,17 @@ def speed_profile_for(model_id: str, profile: str | None) -> dict | None:
         files = lora_entry.get("files") or []
         resolved["lora_file"] = files[0]["dst"] if files else None
         resolved["lora_installed"] = is_model_installed(lora_id)
+    pair = spec.get("loras") or {}
+    if pair:
+        # One LoRA per model role (Wan 14B: unet_high / unet_low).
+        resolved["lora_files"] = {}
+        installed = True
+        for role, pid in pair.items():
+            entry = VIDEO_MODEL_REGISTRY.get(pid) or {}
+            files = entry.get("files") or []
+            resolved["lora_files"][role] = files[0]["dst"] if files else None
+            installed = installed and is_model_installed(pid)
+        resolved["lora_installed"] = installed
     return resolved
 
 
@@ -1699,8 +1807,8 @@ def _verify_capabilities(mid: str, entry: dict) -> list:
         steps, floor = spec.get("steps"), spec.get("min_steps")
         if not steps or not floor or floor > steps:
             problems.append(f"{mid}: speed profile '{pid}' needs min_steps <= steps")
-        lora = spec.get("lora")
-        if lora:
+        lora_ids = [spec["lora"]] if spec.get("lora") else list((spec.get("loras") or {}).values())
+        for lora in lora_ids:
             lora_entry = VIDEO_MODEL_REGISTRY.get(lora)
             if not lora_entry or lora_entry.get("type") != "lora" or not lora_entry.get("files"):
                 problems.append(f"{mid}: speed profile '{pid}' names unknown LoRA '{lora}'")
@@ -1739,6 +1847,7 @@ def verify_registry() -> list:
                 if dep not in VIDEO_MODEL_REGISTRY:
                     problems.append(f"{mid}: requires unknown model '{dep}'")
             if entry.get("type") == "wan":
+                problems.extend(_verify_capabilities(mid, entry))
                 m = wan_comfyui_map().get(mid, {})
                 # Single-model TI2V (5B) has one `unet`; MoE (A14B) has high/low experts.
                 required = ("unet", "clip", "vae") if m.get("single") else ("unet_high", "unet_low", "clip", "vae")
