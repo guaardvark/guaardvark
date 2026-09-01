@@ -6,6 +6,9 @@ frontend/src/components/videoeditor/buildPlanRequest.js from sync (broke a clien
 rebuild), 'data/' dropped metadata_service.py, etc. The fix matches directory
 patterns on path-segment boundaries. Each case below pins both directions.
 """
+import inspect
+from pathlib import Path
+
 import pytest
 
 from backend.services.interconnector_file_sync_service import InterconnectorFileSyncService
@@ -80,3 +83,29 @@ def test_real_artifacts_still_excluded(svc, path):
 def test_dependency_manifests_are_synced(svc, path):
     assert path in svc.default_sync_paths, f"{path} missing from default_sync_paths"
     assert svc.should_exclude_file(path) is False, f"{path} is in sync paths but exclude-filtered"
+
+
+# --- every top-level entry under backend/ must be on the allowlist (2026-08-31) ---
+# default_sync_paths names backend/ packages one by one. backend/profiles and
+# backend/extensions were added without a line here, so clients pulled a
+# config.py / app.py that import them and nothing to import: every client boot
+# died with "cannot import name 'extensions' from 'backend'". This walks the
+# real backend/ directory so the next new package fails here, not on a client.
+_BACKEND_DIR = Path(inspect.getfile(InterconnectorFileSyncService)).resolve().parents[1]
+
+
+def test_every_backend_entry_is_synced(svc):
+    listed = {p.rstrip("/") for p in svc.default_sync_paths}
+    missing = []
+    for entry in sorted(_BACKEND_DIR.iterdir()):
+        if entry.name.startswith("."):
+            continue
+        rel = f"backend/{entry.name}"
+        probe = f"{rel}/probe.py" if entry.is_dir() else rel
+        if svc.should_exclude_file(probe):
+            continue  # venv, data, __pycache__, logs, pids: excluded by policy
+        if rel not in listed:
+            missing.append(rel)
+    assert not missing, (
+        f"backend/ entries not in default_sync_paths (clients will never receive them): {missing}"
+    )

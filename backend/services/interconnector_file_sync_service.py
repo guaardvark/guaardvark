@@ -70,6 +70,20 @@ class InterconnectorFileSyncService:
             "backend/tasks/",
             "backend/migrations/",
             "backend/tests/",
+            # This list is an allowlist: a backend/ package that is not named
+            # here never reaches a client, while the synced app.py/config.py
+            # already import it -- the client then dies at import on its next
+            # boot. test_interconnector_exclude.py::test_every_backend_entry_is_synced
+            # fails when a new top-level entry is added without a line here.
+            "backend/extensions/",
+            "backend/profiles/",
+            "backend/mcp/",
+            "backend/rule_bundles/",
+            "backend/lesson_bundles/",
+            "backend/static/",
+            "backend/oom_priority.py",
+            "backend/schema.sql",
+            "backend/seed_rules.json",
             "backend/app.py",
             "backend/celery_app.py",
             "backend/celery_tasks_isolated.py",
