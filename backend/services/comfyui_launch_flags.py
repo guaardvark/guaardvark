@@ -55,3 +55,41 @@ def preview_cli_args(env: Optional[Mapping[str, str]] = None) -> Sequence[str]:
     size = max(PREVIEW_SIZE_MIN, min(PREVIEW_SIZE_MAX, size))
     args.extend(["--preview-size", str(size)])
     return args
+
+
+# Attention backend. ComfyUI's default is PyTorch SDPA. `ck` routes attention
+# through comfy_kitchen's int8 kernels (`--use-ck-attention`, ComfyUI ≥ 0.33),
+# which ships in the backend venv already; `sage` needs the separately
+# installed sageattention package (`--use-sage-attention`) and is never
+# auto-installed. The flag is process-wide: it changes every ComfyUI-routed
+# family, not only the one being tuned, which is why the default stays
+# `pytorch` until a family's benchmark shows no visible loss (MiniMax H3
+# runs 1-vs-2 and 3-vs-4 in the H3 plan decide whether `auto` becomes the
+# default). `auto` prefers ck, then sage, then pytorch, by availability.
+ATTENTION_ENV = "GUAARDVARK_COMFYUI_ATTENTION"
+ATTENTION_DEFAULT = "pytorch"
+ATTENTION_BACKENDS = frozenset({"auto", "ck", "sage", "pytorch"})
+ATTENTION_CLI_FLAG = {"ck": "--use-ck-attention", "sage": "--use-sage-attention"}
+
+
+def attention_cli_args(
+    env: Optional[Mapping[str, str]] = None,
+    *,
+    ck_available: bool = False,
+    sage_available: bool = False,
+) -> Sequence[str]:
+    """Return the attention flag for a ComfyUI argv, or nothing for PyTorch.
+
+    A backend that is requested but not importable falls back to nothing
+    (ComfyUI would refuse to start otherwise); the launcher logs the choice.
+    """
+    src = env if env is not None else os.environ
+    choice = (src.get(ATTENTION_ENV) or ATTENTION_DEFAULT).strip().lower()
+    if choice not in ATTENTION_BACKENDS:
+        choice = ATTENTION_DEFAULT
+    available = {"ck": ck_available, "sage": sage_available}
+    if choice == "auto":
+        choice = next((b for b in ("ck", "sage") if available[b]), "pytorch")
+    if choice in ATTENTION_CLI_FLAG and available[choice]:
+        return [ATTENTION_CLI_FLAG[choice]]
+    return []

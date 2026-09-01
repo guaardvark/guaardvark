@@ -185,6 +185,12 @@ echo "Log: $LOG_FILE"
 #                           GUAARDVARK_COMFYUI_PREVIEW_METHOD=none turns them off.
 #   --disable-api-nodes     no cloud API nodes, and the ComfyUI frontend stops
 #                           talking to the internet.
+#   --use-ck-attention /    attention backend, GUAARDVARK_COMFYUI_ATTENTION=
+#   --use-sage-attention    auto|ck|sage|pytorch (default pytorch). ck is
+#                           comfy_kitchen's int8 kernel already in the venv; sage
+#                           needs the sageattention package installed by hand.
+#                           Process-wide, every family. Keep in lockstep with
+#                           backend/services/comfyui_launch_flags.py.
 #
 # Nothing leaves the machine during generation. Custom nodes will download
 # weights from Hugging Face on their own when a file is missing (the CogVideoX
@@ -212,7 +218,26 @@ PREVIEW_FLAGS="--preview-method ${PREVIEW_METHOD}"
 if [ "$PREVIEW_METHOD" != "none" ]; then
     PREVIEW_FLAGS="$PREVIEW_FLAGS --preview-size ${PREVIEW_SIZE}"
 fi
-"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 --disable-api-nodes $PIN_FLAG $PREVIEW_FLAGS >> "$LOG_FILE" 2>&1 &
+# Attention backend: only a backend whose package imports is passed, so a
+# typo or a missing wheel never stops ComfyUI from starting.
+ATTENTION="${GUAARDVARK_COMFYUI_ATTENTION:-pytorch}"
+case "$ATTENTION" in
+    auto|ck|sage|pytorch) ;;
+    *) ATTENTION=pytorch ;;
+esac
+CK_OK=0; SAGE_OK=0
+"$VENV_PYTHON" -c 'import comfy_kitchen as ck, sys; sys.exit(0 if ck.int8_attention_is_available() else 1)' >/dev/null 2>&1 && CK_OK=1
+"$VENV_PYTHON" -c 'import sageattention' >/dev/null 2>&1 && SAGE_OK=1
+if [ "$ATTENTION" = "auto" ]; then
+    if [ "$CK_OK" = "1" ]; then ATTENTION=ck; elif [ "$SAGE_OK" = "1" ]; then ATTENTION=sage; else ATTENTION=pytorch; fi
+fi
+ATTN_FLAG=""
+case "$ATTENTION" in
+    ck)   [ "$CK_OK" = "1" ] && ATTN_FLAG="--use-ck-attention" ;;
+    sage) [ "$SAGE_OK" = "1" ] && ATTN_FLAG="--use-sage-attention" ;;
+esac
+echo "Attention: ${ATTN_FLAG:-pytorch (default)}"
+"$VENV_PYTHON" main.py --listen "${GUAARDVARK_COMFYUI_LISTEN:-127.0.0.1}" --port "$PORT" --disable-smart-memory --cache-none --reserve-vram 1.0 --disable-api-nodes $PIN_FLAG $PREVIEW_FLAGS $ATTN_FLAG >> "$LOG_FILE" 2>&1 &
 
 # Save PID
 PID_DIR="$PROJECT_ROOT/pids"

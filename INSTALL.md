@@ -122,6 +122,14 @@ The file is gitignored and merged over the manifest at load, so the override sur
 - **Ollama says a model is missing that `ollama list` shows** (WSL2 especially): a hand-started `ollama serve` runs as your user and reads `~/.ollama/models`, while the systemd service runs as `ollama` and reads `/usr/share/ollama/.ollama/models`. Stop the hand-started one and use the service: `sudo systemctl restart ollama`.
 - **`start.sh` says it is "not re-provisioning" PostgreSQL**: your `DATABASE_URL` names a role or database other than the stock `guaardvark`, and the connection failed. The script never resets a role it did not create. Fix the password in `.env`, create the role and database yourself, or run `./start.sh --skip-postgres` for an externally managed database.
 - **Film Crew fails with `model 'gemma4:e4b' not found`**: fixed in 2.8.0 — agents now use whichever Gemma4 tag the installer pulled. On older versions, `ollama pull gemma4:e4b`.
+- **Faster attention for video models.** ComfyUI runs PyTorch attention by
+  default.   Set `GUAARDVARK_COMFYUI_ATTENTION=ck` in `.env` to use the Comfy
+  Kitchen int8 kernel that ships in the backend venv, or `sage` if you have
+  installed the `sageattention` package into `backend/venv` yourself (Guaardvark
+  never installs it for you; SageAttention 2 needs a CUDA 12.4+ toolchain the
+  default cu121 wheels do not carry). `auto` picks whichever is available. The
+  setting applies to every ComfyUI-routed model, so compare a render before and
+  after; the ComfyUI plugin's start log prints the backend it chose.
 
 ## Data
 
