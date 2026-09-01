@@ -305,10 +305,14 @@ Full video generation pipeline running locally via ComfyUI with multiple model b
 - **CogVideoX 5B I2V** — image-to-video variant that animates a still image with text-guided motion
 - **LTX-2.3 Distilled FP8** — Lightricks LTX-2.3 for longer clips (~10s) on 16GB Ada; requires ComfyUI
 - **LTX-2.5 Distilled Int8** — Lightricks LTX-2.5 distilled (Gemma 4 + two-stage upsample) for ~10s clips on 16GB Ada; gated Hugging Face accept + ComfyUI ≥ 0.32.0; local weights only (no Partner Nodes / LTX Desktop)
+- **HunyuanVideo 13B T2V / I2V** (GGUF Q5) — Tencent HunyuanVideo, 24fps, ~3s clips, LLaVA encoder on CPU on 16GB cards
+- **MiniMax H3** (pruned Int8, 16GB; unpruned Int8 and BF16 rungs for 24GB and 48GB cards) — omni-modal: picture and native 32 kHz stereo audio in one pass (dialogue in 11 languages with lip sync, ambience, score), 24fps, 3–15s. Modes: text, first frame, last frame, first+last frame, and image or audio anchors at any frame. Speed profiles through the vendor's distilled LoRAs (8-step, 4-step at 768p). Ten style embeddings. Prompts are compiled into the model's structured format by `backend/services/h3_prompt_compiler.py`. Community license with territory terms shown in the Video Models modal.
+- **MiniMax H3 Reference** — the same model's reference build: up to 9 images, 3 clips and 3 audio files lock identity, motion, camera and voice, or edit and continue a clip; shares the encoder, VAEs and embeddings.
 
 #### Generation Modes
 - **Text-to-Video** — describe a scene in natural language and generate video from scratch
 - **Image-to-Video** — upload a reference image and animate it with motion direction prompts
+- **First + last frame, audio anchors, references** — on models that declare them (MiniMax H3): an end frame the clip lands on, a TTS line or song slice the model performs from a chosen frame, and reference images, clips and audio on the reference build. Every model declares its capabilities in `backend/services/video_model_registry.py`; the Video Generator, the chat tool `generate_video`, Film Crew and the music video pipeline read them instead of assuming a family.
 - **Batch generation** — queue multiple prompts via an in-process worker (one batch at a time; stage-level progress over WebSocket + HTTP poll)
 
 #### Quality Tiers (Post-Processing)

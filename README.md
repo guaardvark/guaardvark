@@ -44,7 +44,7 @@ See [Quick Start](#quick-start) for details and manual install options.
 
 | | | See it |
 |---|---|---|
-| **Media studio** | 7 local video models (Wan 2.2, CogVideoX, LTX), image generation, full-song music, neural voice with consent-gated cloning, 4K/8K upscaling | Eps [5](https://www.youtube.com/watch?v=s9I_0gD9Iko) · [6](https://www.youtube.com/watch?v=9rae9IJhXow) · [7](https://www.youtube.com/watch?v=BXlm7p-SxtU) |
+| **Media studio** | 11 local video models across five families (Wan 2.2, CogVideoX, LTX, HunyuanVideo, MiniMax H3 with native audio), image generation, full-song music, neural voice with consent-gated cloning, 4K/8K upscaling | Eps [5](https://www.youtube.com/watch?v=s9I_0gD9Iko) · [6](https://www.youtube.com/watch?v=9rae9IJhXow) · [7](https://www.youtube.com/watch?v=BXlm7p-SxtU) |
 | **Directors** | A beat-synced music-video director, a 5-role Film Crew, an auto-editing video editor — and the walkthrough director that produced this README's own video series | Eps [8](https://www.youtube.com/watch?v=l2LqKA9GQDc) · [9](https://www.youtube.com/watch?v=sq104u9N4Qg) |
 | **Coding agent & code intelligence** | Monaco editor, AST-aware analysis and dependency graphs, System Mapper: a live constellation of the whole codebase | [CAPABILITIES.md](CAPABILITIES.md) |
 | **Agent swarms** | Up to 20 parallel coding agents in isolated git worktrees with dependency-aware merging; fully-local backend via Ollama | [CAPABILITIES.md](CAPABILITIES.md) |
@@ -323,9 +323,12 @@ State-of-the-art video generation running entirely on your GPU. No cloud APIs, n
 | **LTX-2.5 Distilled Int8** | Text + Image-to-Video | ~10s (161 frames @ 16fps) | 768x512 | ~14GB |
 | **HunyuanVideo 13B** (GGUF Q5) | Text-to-Video | ~3s (73 frames @ 24fps, up to 129) | 848x480 | ~11GB |
 | **HunyuanVideo 13B I2V** (GGUF Q5) | Image-to-Video | ~3s (73 frames @ 24fps, up to 129) | 848x480 | ~11GB |
+| **MiniMax H3** (pruned Int8) | Text, first-frame, last-frame and first+last-frame → Video **with its own stereo soundtrack** (dialogue, ambience, score) | ~7s offered (175 frames @ 24fps; the model trains to 15s) | 864x480 default, 1344x768 max | 16GB card; measured 6.5 min for a 5s clip at 864x480, 20 steps, on a 16 GB RTX 40-series card |
+| **MiniMax H3 Reference** (pruned Int8) | Up to 9 images, 3 clips and 3 audio files → Video with soundtrack (identity, motion, voice, editing) | same | same | same |
 
 - **Resolution options** — 512px, 576px, 720px, 1280px, 1920px (1080p), and custom dimensions (aligned per model)
-- **Quality tiers** — Fast (10 steps), Standard (30), High (40), Maximum (50)
+- **Quality tiers** — Fast (10 steps), Standard (30), High (40), Maximum (50); a model declares the fewest steps it renders well at and a preset below that floor is raised to it (Wan and MiniMax H3: 20). MiniMax H3 also offers turbo speed profiles (8 and 4 steps) through its distilled LoRAs, installed from Manage Video Models.
+- **MiniMax H3** — a video model that generates picture and sound in one pass. Its prompt is compiled into the model's structured format (numbered shots with cut times, speaker ids, tagged dialogue) by Guaardvark, and the Film Crew renders each scene as one spoken window on it. Licensed under the MiniMax H3 Community License, which names the EU, UK, South Korea and USA as territories that need MiniMax's application form; the Video Models modal shows the license and the link, and posts carrying H3 clips add a "Generated with MiniMax H3" line.
 - **Frame interpolation** — 1x raw, 2x doubled FPS, 2x + upscale for cinema-quality output
 - **Prompt enhancement** — Cinematic, Realistic, Artistic, Anime, or raw
 - **Low VRAM mode** — reduces resolution, frames, and inference steps to keep 16GB cards inside budget (mutually exclusive with High consistency); video generation itself needs a 16GB-class card — see [docs/HARDWARE.md](docs/HARDWARE.md)

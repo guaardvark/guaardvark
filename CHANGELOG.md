@@ -1,5 +1,49 @@
 # Changelog
 
+## Unreleased — MiniMax H3 taken to its ceiling
+
+Everything the H3 release can do, wired through the product, on a branch until it merges.
+
+- **Capability contract.** Every video model entry can declare modes (text, first frame,
+  last frame, first+last, reference), audio in and out, whether it samples with CFG, its
+  frame rule and rate, clip bounds, a step floor and default, speed profiles, style
+  embeddings, reference limits, per-VRAM-class starting settings and its license.
+  `model_capabilities()` fills family defaults for older entries; `/api/batch-video/models`
+  exposes the record; the Video Generator, `generate_video`, Film Crew and the music video
+  pipeline read it instead of testing a family name. The step floor now lives in the
+  registry, so API and MCP callers get it too; a value a person typed still wins.
+- **MiniMax H3.** Reference build, unpruned Int8 (24GB) and BF16 (48GB) rungs, the three
+  turbo LoRAs as optional companions behind speed profiles, ten style embeddings, all six
+  aspect ratios, last-frame and first+last-frame modes, image and audio anchors at any
+  frame, and the reference graph (9 images, 3 clips, 3 audio files) with references named
+  in the prompt in wiring order. A prompt compiler renders Guaardvark's structured intent
+  into the model's format (numbered shots with cut times that add up to the clip, speaker
+  ids, tagged dialogue in the model card's eleven languages), with an optional polish pass
+  by the local director model that is discarded if it touches the dialogue. Eight authored
+  prompt presets ship in `backend/prompt_bundles/minimax_h3`.
+- **Film Crew on H3.** A production can name its video model; on a native-audio model each
+  scene renders as windows of at most fifteen seconds with the cast's lines spoken by the
+  model, joined on the storyboard stills, no voiceover laid over them, the score mixed
+  under the window's own soundtrack. Cast reference images go in as references when the
+  reference build is installed.
+- **Music video on H3.** The clip profile (rate, frame bounds, native audio) comes from the
+  registry; on a native-audio model each cut renders in one pass with the song slice
+  anchored at frame 0 so the motion follows its beats, the song staying the master track.
+- **Chat and MCP.** `generate_video` takes model, aspect ratio, seconds, first and last
+  image, references, audio and a speed profile, each checked against the model's record;
+  the assistant is told the H3 prompt format on video pages. Publishing adds a
+  "Generated with MiniMax H3 on Guaardvark" line to posts that carry H3 clips (opt-out per
+  connection) and enforces a per-platform clip-length cap declared in data.
+- **ComfyUI launch.** `GUAARDVARK_COMFYUI_ATTENTION=auto|ck|sage|pytorch` selects an
+  attention backend (Comfy Kitchen int8 ships in the venv; SageAttention is never
+  installed for you); `GUAARDVARK_COMFYUI_RESERVE_VRAM` raises the reserve a partially
+  loaded model needs. The plugin restart route no longer fails on a missing attribute.
+- **Measured** on a 16 GB RTX 40-series card with 64 GB-class RAM, pruned Int8, 864x480, 124
+  frames (5 s), 20 steps, PyTorch attention: 6.5 minutes wall, about 17 s per step, VRAM
+  peak 14.5 GB with most of the transformer offloaded, ComfyUI resident memory peak 27 GB;
+  the clip was clean. The first attempt ran out of memory at 1 GB of reserve; 3 GB
+  finished. Turbo and attention pairs are recorded in `logs/bench_video_render.jsonl`.
+
 ## 2.8.1 — Profiles, extensions, and a bootstrap that converges offline
 
 16 commits since 2.8.0. Two product-shaping features — a profile switch and a client
