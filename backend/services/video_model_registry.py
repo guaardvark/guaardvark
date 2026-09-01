@@ -164,8 +164,11 @@ WAN14B_SPEED_PROFILES = {
 # rendered in 237 s at 24.5 s/step, 15.4 GB peak; 362 frames (15.1 s) in
 # 372 s at 38 s/step with the transformer fully offloaded, 13.4 GB peak;
 # both clips stayed coherent to the last frame. The 480p pixel area is the
-# cap for the longer tiers on this card class; 1344x768 ran out of memory
-# even at 124 frames. The UI offers a duration only when its tier exists here.
+# cap for the longer tiers on this card class. The native 1344x768 canvas at
+# 124 frames ran out of memory with a 3 GB reserve and rendered with a 5 GB
+# one (GUAARDVARK_COMFYUI_RESERVE_VRAM=5.0): 171 s on the turbo-4-768p
+# profile at 31.6 s/step, transformer fully offloaded, 11.3 GB peak, clean
+# frames. The UI offers a duration only when its tier exists here.
 H3_DURATION_TIERS = [
     {"frames": 175, "seconds": 7.3, "max_pixel_area": 768 * 1344},
     {"frames": 243, "seconds": 10.1, "max_pixel_area": 864 * 480},

@@ -135,7 +135,8 @@ The file is gitignored and merged over the manifest at load, so the override sur
 - **A 20 GB-class video model runs out of memory at the first step** (MiniMax H3 on a 16 GB
   card): ComfyUI loaded it partially and left too little room for its activations. Set
   `GUAARDVARK_COMFYUI_RESERVE_VRAM=3.0` in `.env` and restart the ComfyUI plugin; the loader
-  offloads more weights and the step completes (slower, but it finishes).
+  offloads more weights and the step completes (slower, but it finishes). The 1344x768
+  canvas on a 16 GB card needs `5.0` (measured: 171 s for a 5 s clip on the 4-step profile).
 
 ## Data
 

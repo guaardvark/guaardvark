@@ -245,7 +245,8 @@ Beats:
 
 Honesty beat: preflight refuses silent model fallback; gated-model errors
 tell you exactly what to do; the 1344x768 canvas on a 16 GB card runs out
-of memory and the registry says so instead of offering it.
+of memory at the default reserve and the install notes say which reserve
+renders it, instead of the model quietly failing.
 
 ---
 
