@@ -125,7 +125,7 @@ imageio-ffmpeg==0.6.0
 piper-tts==1.7.0
 onnxruntime==1.22.1
 pydub==0.25.1
-librosa>=0.10.2  # Audio decode + duration probe in voice_api.py
+librosa>=1.0.0  # Audio decode + duration probe in voice_api.py
 soundfile>=0.14.0  # WAV/FLAC IO for voice_api + audio_foundry backends
 
 # Testing Dependencies
