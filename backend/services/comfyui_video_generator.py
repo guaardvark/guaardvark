@@ -670,42 +670,13 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         base_area = 1280 * 704
         return round(max(3.0, min(12.0, 8.0 * ((width * height) / base_area))), 1)
 
-    def _build_minimax_request(
-        self, request: VideoGenerationRequest, model_key: str,
-        image_path: Optional[str], seed: int, interpolation: int,
-    ) -> tuple:
-        """Turn a request into the H3 fl2va graph, or (None, message).
-
-        Everything the request asks for is checked against the capability
-        record the registry declares, so a wrong ask fails with one sentence
-        naming the fix rather than as a ComfyUI validation dump:
-
-        - speed profile → LoRA file (must be installed) and step count; a preset
-          value below the profile's floor is raised to it, a value the person
-          typed (metadata steps_explicit) is kept and logged;
-        - style embedding → its token appended after enhancement;
-        - first and last frame, image and audio guides → uploaded into input/;
-        - reference inputs → refused on this build (they need the ref2va model);
-        - negative prompt and guidance → logged once as ignored (no CFG).
-        """
+    def _resolve_minimax_common(self, request: VideoGenerationRequest, model_key: str, caps: dict, entry_name: str) -> tuple:
+        """Speed profile, LoRA, step count and prompt for either H3 build.
+        Returns ((profile, lora_file, lora_strength, steps, prompt), None) or
+        (None, message)."""
         from backend.services.video_model_registry import (
-            VIDEO_MODEL_REGISTRY, model_capabilities, speed_profile_for, style_embedding_token,
+            VIDEO_MODEL_REGISTRY, speed_profile_for, style_embedding_token,
         )
-        caps = model_capabilities(model_key)
-        modes = caps.get("modes") or []
-        entry_name = (VIDEO_MODEL_REGISTRY.get(model_key) or {}).get("name") or model_key
-
-        if "ref2v" in modes and "t2v" not in modes:
-            return None, (
-                f"{entry_name} is a reference-to-video build; its graph is not wired yet. "
-                f"Pick MiniMax H3 (Int8) for text, first-frame or first+last-frame clips."
-            )
-        if request.ref_images or request.ref_videos or request.ref_audios:
-            return None, (
-                f"{entry_name} takes no reference images, clips or audio; those need "
-                f"the MiniMax H3 Reference build."
-            )
-
         profile = None
         if request.speed_profile:
             profile = speed_profile_for(model_key, request.speed_profile)
@@ -768,6 +739,140 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 )
             prompt = f"{prompt} {token}".strip()
 
+        return (profile, lora_file, lora_strength, steps, prompt), None
+
+    def _build_minimax_ref_request(
+        self, request: VideoGenerationRequest, model_key: str, seed: int, interpolation: int,
+        caps: dict, entry_name: str,
+    ) -> tuple:
+        """The ref2va graph: reference images, clips (with or without their
+        soundtrack, or a separate one) and standalone audio, counted against
+        the registry's ref_limits, uploaded into input/, then wired in the
+        order the prompt's <Picture N> / <Video N> / <Audio N> tags follow."""
+        limits = caps.get("ref_limits") or {}
+        images = list(request.ref_images or [])
+        videos = list(request.ref_videos or [])
+        audios = list(request.ref_audios or [])
+        if request.first_frame_path or request.last_frame_path or request.guides:
+            return None, (
+                f"{entry_name} takes references, not first/last frames or guides; "
+                f"pick MiniMax H3 (Int8) for those."
+            )
+        if not images and not videos:
+            return None, (
+                f"{entry_name} needs at least one reference image or clip; audio "
+                f"cannot be the only reference."
+            )
+        for kind, items, key in (("image", images, "images"), ("clip", videos, "videos"), ("audio", audios, "audios")):
+            cap = limits.get(key)
+            if cap is not None and len(items) > cap:
+                return None, f"{entry_name} takes at most {cap} reference {kind}s; {len(items)} given."
+        total = len(images) + len(videos) + len(audios) + sum(
+            1 for v in videos if isinstance((v or {}).get("audio"), str) and v.get("audio")
+        )
+        if limits.get("files") and total > limits["files"]:
+            return None, f"{entry_name} takes at most {limits['files']} reference files; {total} given."
+
+        common, err = self._resolve_minimax_common(request, model_key, caps, entry_name)
+        if err:
+            return None, err
+        profile, lora_file, lora_strength, steps, prompt = common
+
+        def _upload(path, kind):
+            if not path or not Path(path).exists():
+                return None, f"Reference {kind} not found: {path}"
+            name = self._upload_input_file(path, kind)
+            return (name, None) if name else (None, f"Failed to upload the reference {kind} to ComfyUI")
+
+        image_names = []
+        for path in images:
+            name, err = _upload(path, "image")
+            if err:
+                return None, err
+            image_names.append(name)
+        video_specs = []
+        for video in videos:
+            video = video if isinstance(video, dict) else {"path": video}
+            name, err = _upload(video.get("path"), "clip")
+            if err:
+                return None, err
+            audio = video.get("audio_path")
+            if audio:
+                audio, err = _upload(audio, "audio")
+                if err:
+                    return None, err
+            else:
+                audio = bool(video.get("include_audio", True))
+            video_specs.append({"filename": name, "audio": audio})
+        audio_names = []
+        for path in audios:
+            name, err = _upload(path, "audio")
+            if err:
+                return None, err
+            audio_names.append(name)
+
+        try:
+            workflow = self._create_minimax_ref_workflow(
+                prompt=prompt,
+                model_key=model_key,
+                num_frames=request.duration_frames,
+                num_inference_steps=steps,
+                width=request.width,
+                height=request.height,
+                seed=seed,
+                fps=float(request.fps or 24),
+                interpolation_multiplier=interpolation,
+                ref_images=image_names,
+                ref_videos=video_specs,
+                ref_audios=audio_names,
+                ref_image_size=str((request.metadata or {}).get("ref_image_size") or "match"),
+                lora_name=lora_file,
+                lora_strength=lora_strength,
+            )
+        except ValueError as e:
+            return None, str(e)
+        logger.info(
+            "Using MiniMax H3 reference-to-video (%s, %d steps%s; %d image(s), %d clip(s), %d audio) via ComfyUI",
+            model_key, steps, f", profile {profile['id']}" if profile else "",
+            len(image_names), len(video_specs), len(audio_names),
+        )
+        return workflow, None
+
+    def _build_minimax_request(
+        self, request: VideoGenerationRequest, model_key: str,
+        image_path: Optional[str], seed: int, interpolation: int,
+    ) -> tuple:
+        """Turn a request into the H3 fl2va graph, or (None, message).
+
+        Everything the request asks for is checked against the capability
+        record the registry declares, so a wrong ask fails with one sentence
+        naming the fix rather than as a ComfyUI validation dump:
+
+        - speed profile → LoRA file (must be installed) and step count; a preset
+          value below the profile's floor is raised to it, a value the person
+          typed (metadata steps_explicit) is kept and logged;
+        - style embedding → its token appended after enhancement;
+        - first and last frame, image and audio guides → uploaded into input/;
+        - reference inputs → refused on this build (they need the ref2va model);
+        - negative prompt and guidance → logged once as ignored (no CFG).
+        """
+        from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, model_capabilities
+        caps = model_capabilities(model_key)
+        modes = caps.get("modes") or []
+        entry_name = (VIDEO_MODEL_REGISTRY.get(model_key) or {}).get("name") or model_key
+
+        if "ref2v" in modes and "t2v" not in modes:
+            return self._build_minimax_ref_request(request, model_key, seed, interpolation, caps, entry_name)
+        if request.ref_images or request.ref_videos or request.ref_audios:
+            return None, (
+                f"{entry_name} takes no reference images, clips or audio; those need "
+                f"the MiniMax H3 Reference build."
+            )
+
+        common, err = self._resolve_minimax_common(request, model_key, caps, entry_name)
+        if err:
+            return None, err
+        profile, lora_file, lora_strength, steps, prompt = common
         first_name = None
         first_path = request.first_frame_path or image_path
         if first_path:

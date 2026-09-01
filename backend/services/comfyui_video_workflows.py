@@ -1880,6 +1880,163 @@ class ComfyUIVideoWorkflowMixin:
         override = (os.environ.get("GUAARDVARK_WAN_CLIP_DEVICE") or "").strip().lower()
         return override if override in ("cpu", "default") else "default"
 
+    def _create_minimax_ref_workflow(
+        self,
+        prompt: str,
+        model_key: str = "minimax-h3-ref2va-int8",
+        num_frames: int = 124,
+        num_inference_steps: int = 20,
+        width: int = 864,
+        height: int = 480,
+        seed: Optional[int] = None,
+        fps: float = 24.0,
+        interpolation_multiplier: int = 1,
+        ref_images: Optional[list] = None,
+        ref_videos: Optional[list] = None,
+        ref_audios: Optional[list] = None,
+        ref_image_size: str = "match",
+        lora_name: Optional[str] = None,
+        lora_strength: float = 1.0,
+    ) -> dict:
+        """MiniMax H3 ref2va graph — the official video_minimax_h3_r2v template.
+
+        Same spine as the fl2va graph (ids 1-4 loaders, 7-14 sampler and
+        decode, 15 LoRA) with MiniMaxH3ReferenceToVideo at 6. Its grown inputs
+        are addressed the way the API JSON of the template does: dotted and
+        zero-based (``ref_images.ref_image_0``). Prompt tags stay one-based
+        (``<Picture 1>``) and follow wiring order: images, then each video's
+        soundtrack right before the video, then standalone audio.
+
+        ``ref_images``: filenames in ComfyUI's input/. ``ref_videos``: dicts
+        ``{"filename": str, "audio": True | False | "<audio filename>"}`` —
+        True wires the clip's own soundtrack from VHS_LoadVideo, a filename
+        loads a separate track. Videos are resampled to 24 fps and capped at
+        the model's longest clip; the node crops to its valid lengths.
+        Reference loaders sit at 20+ (images), 30+ (videos), 33+ (their
+        separate soundtracks) and 36+ (standalone audio).
+        """
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
+
+        files = self._minimax_loader_cfg(model_key)
+        length = self._minimax_frame_count(num_frames)
+        steps = int(num_inference_steps or 20)
+        max_ref_frames = 362  # 15 s at 24 fps on the 17k+5 grid
+
+        ref_inputs: dict = {}
+        workflow = {
+            "1": {
+                "class_type": "UNETLoader",
+                "inputs": {"unet_name": files["unet"], "weight_dtype": "default"},
+            },
+            "2": {
+                "class_type": "CLIPLoader",
+                "inputs": {
+                    "clip_name": files["clip"],
+                    "type": "minimax",
+                    "device": self._minimax_clip_device(),
+                },
+            },
+            "3": {"class_type": "VAELoader", "inputs": {"vae_name": files["vae"]}},
+            "4": {"class_type": "VAELoader", "inputs": {"vae_name": files["audio_vae"]}},
+        }
+        for i, filename in enumerate(ref_images or []):
+            nid = str(20 + i)
+            workflow[nid] = {"class_type": "LoadImage", "inputs": {"image": filename}}
+            ref_inputs[f"ref_images.ref_image_{i}"] = [nid, 0]
+        for k, video in enumerate(ref_videos or []):
+            vid_id = str(30 + k)
+            workflow[vid_id] = {
+                "class_type": "VHS_LoadVideo",
+                "inputs": {
+                    "video": video["filename"],
+                    "force_rate": 24,
+                    "custom_width": 0,
+                    "custom_height": 0,
+                    "frame_load_cap": max_ref_frames,
+                    "skip_first_frames": 0,
+                    "select_every_nth": 1,
+                },
+            }
+            ref_inputs[f"ref_videos.ref_video_{k}"] = [vid_id, 0]
+            audio = video.get("audio", True)
+            if audio is True:
+                ref_inputs[f"ref_video_audios.ref_video_audio_{k}"] = [vid_id, 2]
+            elif audio:
+                aud_id = str(33 + k)
+                workflow[aud_id] = {"class_type": "LoadAudio", "inputs": {"audio": audio}}
+                ref_inputs[f"ref_video_audios.ref_video_audio_{k}"] = [aud_id, 0]
+        for j, filename in enumerate(ref_audios or []):
+            nid = str(36 + j)
+            workflow[nid] = {"class_type": "LoadAudio", "inputs": {"audio": filename}}
+            ref_inputs[f"ref_audios.ref_audio_{j}"] = [nid, 0]
+
+        workflow["6"] = {
+            "class_type": "MiniMaxH3ReferenceToVideo",
+            "inputs": {
+                "clip": ["2", 0],
+                "vae": ["3", 0],
+                "audio_vae": ["4", 0],
+                "prompt": prompt,
+                "width": int(width),
+                "height": int(height),
+                "length": length,
+                "ref_image_size": ref_image_size if ref_image_size in ("match", "max") else "match",
+                **ref_inputs,
+            },
+        }
+        workflow.update({
+            "7": {"class_type": "BasicGuider", "inputs": {"model": ["1", 0], "conditioning": ["6", 0]}},
+            "8": {"class_type": "KSamplerSelect", "inputs": {"sampler_name": "res_multistep"}},
+            "9": {
+                "class_type": "BasicScheduler",
+                "inputs": {"model": ["1", 0], "scheduler": "simple", "steps": steps, "denoise": 1.0},
+            },
+            "10": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
+            "11": {
+                "class_type": "SamplerCustomAdvanced",
+                "inputs": {
+                    "noise": ["10", 0],
+                    "guider": ["7", 0],
+                    "sampler": ["8", 0],
+                    "sigmas": ["9", 0],
+                    "latent_image": ["6", 1],
+                },
+            },
+            "12": {"class_type": "VAEDecode", "inputs": {"samples": ["11", 0], "vae": ["3", 0]}},
+            "13": {"class_type": "VAEDecodeAudio", "inputs": {"samples": ["11", 0], "vae": ["4", 0]}},
+            "14": {
+                "class_type": "VHS_VideoCombine",
+                "inputs": {
+                    "images": ["12", 0],
+                    "audio": ["13", 0],
+                    "frame_rate": float(fps),
+                    "loop_count": 0,
+                    "filename_prefix": "minimax_h3_r2v",
+                    "format": "video/h264-mp4",
+                    "pix_fmt": "yuv420p",
+                    "crf": 19,
+                    "save_metadata": True,
+                    "pingpong": False,
+                    "save_output": True,
+                    "videopreview": {"hidden": False, "paused": False, "params": {}},
+                },
+            },
+        })
+        if lora_name:
+            workflow["15"] = {
+                "class_type": "LoraLoaderModelOnly",
+                "inputs": {"model": ["1", 0], "lora_name": lora_name, "strength_model": float(lora_strength)},
+            }
+            workflow["7"]["inputs"]["model"] = ["15", 0]
+            workflow["9"]["inputs"]["model"] = ["15", 0]
+        if interpolation_multiplier > 1:
+            self._add_rife_interpolation(
+                workflow, source_node_id="12", video_combine_node_id="14",
+                base_fps=fps, multiplier=interpolation_multiplier,
+            )
+        return workflow
+
     def _create_minimax_workflow(
         self,
         prompt: str,
