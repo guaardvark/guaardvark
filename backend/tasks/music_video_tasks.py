@@ -12,6 +12,7 @@ The generating stage is special: it self-re-dispatches ONE clip per invocation
 crash-resumes per-clip, and lets other queued work interleave between clips.
 """
 import logging
+import json
 import os
 import time
 from contextlib import contextmanager
@@ -247,6 +248,30 @@ def _clip_dir(mv_id: int) -> Path:
     d = Path(OUTPUT_DIR) / "videos" / f"music_video_{mv_id}" / "clips"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _song_lyrics_guidance(mv: MusicVideo) -> str | None:
+    """The song's lyrics as thematic direction for the director, when the
+    song was generated here and its Document carries them (ACE-Step and
+    MiniMax Music 3 write the same keys). The shots must never quote them:
+    the model would render the words as text."""
+    if not mv.song_document_id:
+        return None
+    try:
+        doc = db.session.get(Document, mv.song_document_id)
+        meta = doc.file_metadata if doc else None
+        if isinstance(meta, str):
+            meta = json.loads(meta)
+        lyrics = (meta or {}).get("lyrics") or ""
+    except Exception:  # noqa: BLE001 — lyrics are a bonus, never a blocker
+        return None
+    lyrics = " ".join(str(lyrics).split())
+    if not lyrics:
+        return None
+    return (
+        "LYRICS of the song, as thematic source only (never quote them, never show text; "
+        f"use them for subject, mood and story arc): {lyrics[:1500]}"
+    )
 
 
 def _resolve_song_path(mv: MusicVideo) -> str | None:
@@ -487,6 +512,9 @@ def run_analyzer(mv_id: int):
             # BYTE-IDENTICAL migration of the fragile MV path (still temp 0.7/0.65). We can flip
             # MV to the CREATIVE profile later as a separate, tested change.
             from backend.services.director_service import plan as director_plan, DirectorBrief, DirectorMode
+            _lyrics_note = _song_lyrics_guidance(mv)
+            if _lyrics_note:
+                _dir_guidance = f"{_dir_guidance}\n{_lyrics_note}" if _dir_guidance else _lyrics_note
             _res = director_plan(DirectorBrief(
                 mode=DirectorMode.SONG_CUTPLAN,
                 style=mv.style_prompt,

@@ -141,12 +141,46 @@ def generate_voice():
 
 @audio_foundry_bp.route("/generate/music", methods=["POST"])
 def generate_music():
+    """Music generation. ``model`` picks the backend: the sidecar's ACE-Step
+    (default) or MiniMax Music 3 through ComfyUI, which returns a job id to
+    poll at /generate/music/status/<id> like the sidecar's own jobs."""
+    payload = flask_request.get_json(silent=True) or {}
+    model = str(payload.get("model") or "").strip()
+    if model.startswith("minimax-music3"):
+        from flask import current_app, jsonify
+        from backend.services import comfyui_music_generator as m3
+        from backend.services.video_model_registry import preflight_video_model
+        ready, err = preflight_video_model(model)
+        if not ready:
+            return jsonify({"success": False, "error": err}), 400
+        try:
+            seconds = float(payload.get("duration_s") or payload.get("seconds") or 60)
+        except (TypeError, ValueError):
+            seconds = 60.0
+        job_id = m3.start_job(
+            app=current_app._get_current_object(),
+            caption=payload.get("style_prompt") or payload.get("caption") or "",
+            lyrics="" if payload.get("instrumental_only") else (payload.get("lyrics") or ""),
+            seconds=seconds, seed=payload.get("seed"), steps=payload.get("steps"), model_id=model,
+        )
+        return jsonify({"success": True, "job_id": job_id, "model": model, "status": "queued",
+                        "attribution": "MiniMax-Music3"}), 202
     body, status_code = _proxy_post(
         "/generate/music",
-        flask_request.get_json(silent=True) or {},
+        payload,
         GENERATION_TIMEOUT,
     )
     return body, status_code
+
+
+@audio_foundry_bp.route("/generate/music/status/<job_id>", methods=["GET"])
+def music_job_status(job_id):
+    from flask import jsonify
+    from backend.services import comfyui_music_generator as m3
+    job = m3.job_status(job_id)
+    if job is None:
+        return jsonify({"success": False, "error": "unknown job"}), 404
+    return jsonify({"success": True, **job}), 200
 
 
 @audio_foundry_bp.route("/rewrite-music-prompt", methods=["POST"])

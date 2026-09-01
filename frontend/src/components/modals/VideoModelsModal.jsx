@@ -38,6 +38,7 @@ const TYPE_LABELS = {
   clip_vision: "Dependency",
   lora: "Speed / identity LoRA",
   embedding: "Dependency",
+  audio: "Music",
 };
 
 const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {

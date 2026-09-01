@@ -896,6 +896,67 @@ VIDEO_MODEL_REGISTRY = {
         "type": "lora",
         "applies_to": ["wan22-14b-i2v"],
     },
+    # ── MiniMax Music 3 ───────────────────────────────────────────────────────
+    # Open-weight song model (lyrics and vocals, up to ~5 minutes) with native
+    # ComfyUI nodes since 0.33. Lives in this registry because everything under
+    # ComfyUI/models is installed, gated and budgeted here; the product contract
+    # stays /api/audio-foundry/generate/music with a model field. The MiniMax
+    # Music 3 Community License asks commercial products to display
+    # "MiniMax-Music3" and has no territory clause. VRAM is the vendor's
+    # "8 GB with layer streaming, 20-24 GB comfortable", unmeasured here.
+    "minimax-music3-int8": {
+        "name": "MiniMax Music 3 (Int8)",
+        "description": "Full songs with vocals from a caption and tagged lyrics, up to ~5 "
+                       "minutes, 32 kHz stereo. Int8 DiT plus the pruned int8 text encoder; "
+                       "tiled decode for long songs. Requires ComfyUI ≥ 0.33.",
+        "hf_repo": "Comfy-Org/MiniMax-Music-3",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {"src": "diffusion_models/minimax_music3_dit_int8_convrot.safetensors",
+             "dst": "minimax_music3_dit_int8_convrot.safetensors"},
+        ],
+        "requires": ["minimax-music3-text-encoder", "minimax-music3-dav"],
+        "size_gb": 2.33,
+        "vram_mb": 10000,
+        "min_vram_gb": 12,
+        "type": "audio",
+        "min_steps": 30,
+        "default_steps": 30,
+        "max_clip_s": 300.0,
+        "license": {
+            "name": "MiniMax Music 3 Community License",
+            "url": "https://huggingface.co/MiniMaxAI/MiniMax-Music3/blob/main/LICENSE",
+            "attribution": "MiniMax-Music3",
+            "note": "Commercial products must display 'MiniMax-Music3'; revenue above 20M USD "
+                    "needs written authorization. No territory restriction.",
+        },
+    },
+    "minimax-music3-text-encoder": {
+        "name": "MiniMax Music 3 text encoder (pruned Int8)",
+        "description": "Required by MiniMax Music 3 (CLIPLoader, type 'minimax'): the 8B "
+                       "language model that turns caption and lyrics into the song plan.",
+        "hf_repo": "Comfy-Org/MiniMax-Music-3",
+        "local_subdir": "text_encoders",
+        "files": [
+            {"src": "text_encoders/minimax_music3_text_encoder_pruned_int8_convrot.safetensors",
+             "dst": "minimax_music3_text_encoder_pruned_int8_convrot.safetensors"},
+        ],
+        "size_gb": 8.56,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "minimax-music3-dav": {
+        "name": "MiniMax Music 3 audio VAE",
+        "description": "Required by MiniMax Music 3; plain VAELoader from vae/.",
+        "hf_repo": "Comfy-Org/MiniMax-Music-3",
+        "local_subdir": "vae",
+        "files": [
+            {"src": "vae/minimax_music3_dav.safetensors", "dst": "minimax_music3_dav.safetensors"},
+        ],
+        "size_gb": 0.20,
+        "vram_mb": 0,
+        "type": "vae",
+    },
     # ── MiniMax H3 ────────────────────────────────────────────────────────────
     # "Which MiniMax": the local-weights H3 release (Comfy-Org/MiniMax-H3), not
     # the Hailuo cloud API nodes that share the template name. Native ComfyUI
@@ -1350,6 +1411,23 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
             )
         return True, ""
 
+    if mtype == "audio":
+        if not is_model_installed(model_id):
+            return False, (
+                f"{name} is not installed. Open Manage Video Models to download it "
+                f"(and its encoder / VAE companions) first."
+            )
+        for dep in entry.get("requires", []):
+            if not is_model_installed(dep):
+                dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
+                return False, (
+                    f"{name} is missing companion '{dep_name}'. "
+                    f"Open Manage Video Models and Install again (companions auto-pull)."
+                )
+        if not _comfyui_reachable():
+            return False, f"{name} requires ComfyUI ≥ 0.33.0. Start the ComfyUI plugin, then retry."
+        return True, ""
+
     if mtype == "minimax":
         if not is_model_installed(model_id):
             return False, (
@@ -1510,7 +1588,7 @@ def model_capabilities(model_id: str) -> dict:
     """The capability record for a generation entry (empty dict for companions
     and unknown ids). Declared keys win; the rest are family defaults."""
     entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
-    if entry.get("type") not in GENERATION_TYPES:
+    if entry.get("type") not in GENERATION_TYPES and entry.get("type") != "audio":
         return {}
     caps = {
         "modes": entry.get("modes") or _derived_modes(model_id, entry),
@@ -1782,6 +1860,29 @@ def minimax_comfyui_map() -> dict:
     return out
 
 
+def music_comfyui_map() -> dict:
+    """ComfyUI loader map for audio entries: {model_id: {unet, clip, vae}}."""
+    out = {}
+    try:
+        for mid, entry in VIDEO_MODEL_REGISTRY.items():
+            if entry.get("type") != "audio":
+                continue
+            dsts = [f["dst"] for f in entry.get("files", [])]
+            mapped = {"unet": dsts[0] if dsts else None, "clip": None, "vae": None}
+            for dep in entry.get("requires", []):
+                dep_entry = VIDEO_MODEL_REGISTRY.get(dep, {})
+                dep_files = dep_entry.get("files", [])
+                dep_dst = dep_files[0]["dst"] if dep_files else None
+                if dep_entry.get("type") == "encoder":
+                    mapped["clip"] = dep_dst
+                elif dep_entry.get("type") == "vae":
+                    mapped["vae"] = dep_dst
+            out[mid] = mapped
+    except Exception as e:
+        logger.error("music_comfyui_map() build failed: %s", e, exc_info=True)
+    return out
+
+
 def cogvideox_comfyui_map() -> dict:
     """Build the ComfyUI CogVideoX single-file loader map from the registry
     (never raises). Returns {model_id: {unet, vae}} for the wrapper's
@@ -1923,6 +2024,12 @@ def verify_registry() -> list:
                 for k in ("unet", "clip", "vae", "audio_vae"):
                     if not m.get(k):
                         problems.append(f"{mid}: MiniMax ComfyUI map missing '{k}'")
+                problems.extend(_verify_capabilities(mid, entry))
+            if entry.get("type") == "audio":
+                m = music_comfyui_map().get(mid, {})
+                for k in ("unet", "clip", "vae"):
+                    if not m.get(k):
+                        problems.append(f"{mid}: music ComfyUI map missing '{k}'")
                 problems.extend(_verify_capabilities(mid, entry))
             if entry.get("type") == "cogvideox" and entry.get("files"):
                 m = cogvideox_comfyui_map().get(mid, {})

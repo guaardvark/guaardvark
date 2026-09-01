@@ -381,3 +381,20 @@ def test_generate_one_clip_on_a_native_audio_model_anchors_the_song_slice(app, m
     assert "lands on the beats of <Audio 1>" in req.prompt
     assert req.guides == [{"kind": "audio", "path": str(song), "frame_idx": 0, "seek_s": 12.0, "duration_s": 8.0}]
     assert req.h3_intent["mode"] == "i2va"
+
+
+def test_song_lyrics_reach_the_director_as_thematic_guidance(app):
+    from backend.models import Document
+    svc = MusicVideoService(db.session)
+    doc = Document(filename="song.wav", path="Audio/song.wav",
+                   file_metadata='{"lyrics": "[Verse] we drove all night\\nunder a paper moon", "model": "MiniMax-Music3"}')
+    db.session.add(doc)
+    db.session.commit()
+    mv = _mk(svc)
+    mv.song_document_id = doc.id
+    db.session.commit()
+    note = mvt._song_lyrics_guidance(mv)
+    assert note.startswith("LYRICS of the song, as thematic source only")
+    assert "we drove all night under a paper moon" in note
+    mv.song_document_id = None
+    assert mvt._song_lyrics_guidance(mv) is None
