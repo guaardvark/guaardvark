@@ -129,7 +129,9 @@ The file is gitignored and merged over the manifest at load, so the override sur
   never installs it for you; SageAttention 2 needs a CUDA 12.4+ toolchain the
   default cu121 wheels do not carry). `auto` picks whichever is available. The
   setting applies to every ComfyUI-routed model, so compare a render before and
-  after; the ComfyUI plugin's start log prints the backend it chose.
+  after; the ComfyUI plugin's start log prints the backend it chose. Measured on
+  MiniMax H3 (16 GB RTX 40-series, 864x480, 20 steps): `ck` took 339 s against
+  390 s with frames indistinguishable at the same seed.
 - **A 20 GB-class video model runs out of memory at the first step** (MiniMax H3 on a 16 GB
   card): ComfyUI loaded it partially and left too little room for its activations. Set
   `GUAARDVARK_COMFYUI_RESERVE_VRAM=3.0` in `.env` and restart the ComfyUI plugin; the loader

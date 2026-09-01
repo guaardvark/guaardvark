@@ -42,7 +42,10 @@ Everything the H3 release can do, wired through the product, on a branch until i
   frames (5 s), 20 steps, PyTorch attention: 6.5 minutes wall, about 17 s per step, VRAM
   peak 14.5 GB with most of the transformer offloaded, ComfyUI resident memory peak 27 GB;
   the clip was clean. The first attempt ran out of memory at 1 GB of reserve; 3 GB
-  finished. Turbo and attention pairs are recorded in `logs/bench_video_render.jsonl`.
+  finished. Same seed and canvas: the 8-step turbo profile 186 s with the subject,
+  motion and background intact and slightly softer fur (now the 16 GB starting
+  profile); Comfy Kitchen int8 attention 339 s at 15 s per step with frames
+  indistinguishable from PyTorch (opt-in until the other families are compared).
 
 ## 2.8.1 — Profiles, extensions, and a bootstrap that converges offline
 

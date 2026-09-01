@@ -63,9 +63,12 @@ def preview_cli_args(env: Optional[Mapping[str, str]] = None) -> Sequence[str]:
 # installed sageattention package (`--use-sage-attention`) and is never
 # auto-installed. The flag is process-wide: it changes every ComfyUI-routed
 # family, not only the one being tuned, which is why the default stays
-# `pytorch` until a family's benchmark shows no visible loss (MiniMax H3
-# runs 1-vs-2 and 3-vs-4 in the H3 plan decide whether `auto` becomes the
-# default). `auto` prefers ck, then sage, then pytorch, by availability.
+# `pytorch` until every family has been compared. Measured 2026-09-01 for
+# MiniMax H3 on a 16 GB RTX 40-series card (864x480, 124 frames, 20 steps,
+# same seed): ck 339 s at 15.0 s/step against PyTorch 390 s at 17.0 s/step,
+# same VRAM peak, frames indistinguishable. Wan, LTX and Hunyuan are not yet
+# compared, so `auto` is a documented opt-in rather than the default. `auto`
+# prefers ck, then sage, then pytorch, by availability.
 ATTENTION_ENV = "GUAARDVARK_COMFYUI_ATTENTION"
 ATTENTION_DEFAULT = "pytorch"
 ATTENTION_BACKENDS = frozenset({"auto", "ck", "sage", "pytorch"})
