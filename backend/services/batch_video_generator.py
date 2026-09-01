@@ -1105,6 +1105,9 @@ class BatchVideoGenerator:
                             style_embedding=batch_request.style_embedding,
                             last_frame_path=item.last_frame_path,
                             guides=list(item.guides or []),
+                            ref_images=list((item.metadata or {}).get("ref_images") or meta.get("ref_images") or []),
+                            ref_videos=list((item.metadata or {}).get("ref_videos") or meta.get("ref_videos") or []),
+                            ref_audios=list((item.metadata or {}).get("ref_audios") or meta.get("ref_audios") or []),
                         )
 
                         result: VideoGenerationResult = self.video_generator.generate_video(gen_request)

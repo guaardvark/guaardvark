@@ -8,6 +8,7 @@ import shutil
 import uuid
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 
@@ -558,40 +559,146 @@ class AnimationGeneratorTool(BaseTool):
             )
 
 
+def _dims_for_ratio(ratio: str, caps: dict) -> tuple:
+    """A width/height for a ratio inside the model's pixel budget, aligned to
+    its grid; mirrors the page's fitAreaToRatio so the tool and the UI agree."""
+    try:
+        w_part, h_part = ratio.split(":")
+        r = float(w_part) / float(h_part)
+    except (ValueError, ZeroDivisionError):
+        return None, None
+    align = int(caps.get("dimension_alignment") or 16)
+    declared = int(caps.get("max_pixel_area") or 0)
+    # The usual 16 GB working budget, never above the declared cap.
+    budget = min(declared, 864 * 480) if declared else 832 * 480
+    width = (budget * r) ** 0.5
+    height = width / r
+    width = max(align, int(round(width / align) * align))
+    height = max(align, int(round(height / align) * align))
+    return width, height
+
+
+def _media_path(ref: Optional[str]) -> Optional[str]:
+    """A local path for a Document id or a path the caller already has."""
+    if ref is None:
+        return None
+    text = str(ref).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        try:
+            from backend.models import Document
+            from backend.services.document_path_resolver import resolve_document_path
+            doc = Document.query.get(int(text))
+            path = resolve_document_path(doc) if doc else None
+            return str(path) if path else None
+        except Exception as e:  # noqa: BLE001 — a missing row is a plain "not found"
+            logger.info("document %s did not resolve: %s", text, e)
+            return None
+    return text if os.path.exists(text) else None
+
+
 class VideoGeneratorTool(BaseTool):
-    """Generate a real text-to-video clip via the batch video pipeline (Wan et al.).
+    """Generate a real video clip via the batch video pipeline.
 
     Use when the user asks to create/generate/make a video from a description.
-    (Contrast generate_animation, which produces short frame-morph GIF loops.)"""
+    (Contrast generate_animation, which produces short frame-morph GIF loops.)
+    Every knob is checked against the capability record the model declares in
+    the video model registry, so an ask the model cannot honour (sound from a
+    silent family, references on a build without them, a length past its
+    longest clip) fails with one sentence instead of a wrong clip."""
 
     name = "generate_video"
     description = (
-        "Queue a video clip from a text prompt using the local video model "
-        "(Wan text-to-video). Returns immediately with a batch id and Studio "
-        "deep-link so long cinema/Wan jobs are not false-timeouted. Use when the "
-        "user asks to create, generate, or make a video. For short looping "
+        "Queue a video clip from a text prompt using a local video model. Returns "
+        "immediately with a batch id and Studio deep-link so long jobs are not "
+        "false-timeouted. Use when the user asks to create, generate, or make a "
+        "video. Pick model='minimax-h3-int8' (or audio=true) for a clip with its "
+        "own soundtrack and spoken dialogue; give first_image / last_image to "
+        "animate between frames; reference_images and reference_audio lock a "
+        "person, look or voice on the reference build. For short looping "
         "frame-morph animations use generate_animation instead."
     )
     parameters = {
         "prompt": ToolParameter(
             name="prompt",
             type="string",
-            description="Description of the video to generate (scene, subject, motion, style).",
+            description="Description of the video to generate (scene, subject, motion, style, any spoken lines).",
             required=True,
+        ),
+        "model": ToolParameter(
+            name="model",
+            type="string",
+            description="Video model id from the registry (e.g. wan22-5b, minimax-h3-int8). Default: the installed default.",
+            required=False,
+        ),
+        "aspect_ratio": ToolParameter(
+            name="aspect_ratio",
+            type="string",
+            description="16:9, 9:16, 1:1, 4:3, 3:2, 21:9 or 3:4; must be one the model declares.",
+            required=False,
+        ),
+        "duration_s": ToolParameter(
+            name="duration_s",
+            type="float",
+            description="Clip length in seconds; clamped to the model's declared range. Overrides duration_frames.",
+            required=False,
         ),
         "duration_frames": ToolParameter(
             name="duration_frames",
             type="int",
-            description="Number of frames. Default 49 (~2s at 24fps). Max 121.",
+            description="Number of frames (legacy). Default 49. Clamped to the model's longest clip.",
             required=False,
             default=49,
         ),
         "num_inference_steps": ToolParameter(
             name="num_inference_steps",
             type="int",
-            description="Inference steps. Default 25. Higher = better quality, slower.",
+            description="Inference steps. Omit to use the model's default; a value below the model's floor is raised to it.",
             required=False,
-            default=25,
+        ),
+        "audio": ToolParameter(
+            name="audio",
+            type="boolean",
+            description="Require a model that generates its own soundtrack (MiniMax H3). Fails on a silent family.",
+            required=False,
+            default=False,
+        ),
+        "first_image": ToolParameter(
+            name="first_image",
+            type="string",
+            description="Document id or path of the first frame (image-to-video).",
+            required=False,
+        ),
+        "last_image": ToolParameter(
+            name="last_image",
+            type="string",
+            description="Document id or path of the last frame; needs a model with first+last-frame mode.",
+            required=False,
+        ),
+        "reference_images": ToolParameter(
+            name="reference_images",
+            type="list",
+            description="Document ids or paths of reference images (identity, look); needs the reference build.",
+            required=False,
+        ),
+        "reference_audio": ToolParameter(
+            name="reference_audio",
+            type="string",
+            description="Document id or path of a voice or music reference; needs the reference build.",
+            required=False,
+        ),
+        "speed_profile": ToolParameter(
+            name="speed_profile",
+            type="string",
+            description="A speed profile the model declares (e.g. turbo-8).",
+            required=False,
+        ),
+        "style": ToolParameter(
+            name="style",
+            type="string",
+            description="Prompt style: cinematic, realistic, artistic, anime, 3d_animation, stop_motion, hand_drawn, western_cartoon, none.",
+            required=False,
         ),
         "wait_for_result": ToolParameter(
             name="wait_for_result",
@@ -612,34 +719,139 @@ class VideoGeneratorTool(BaseTool):
     def __init__(self):
         super().__init__()
 
+    @staticmethod
+    def resolve_request(prompt: str, *, model: Optional[str] = None, aspect_ratio: Optional[str] = None,
+                        duration_s: Optional[float] = None, duration_frames: Optional[int] = None,
+                        num_inference_steps: Optional[int] = None, audio: bool = False,
+                        first_image: Optional[str] = None, last_image: Optional[str] = None,
+                        reference_images: Optional[list] = None, reference_audio: Optional[str] = None,
+                        speed_profile: Optional[str] = None, style: Optional[str] = None) -> tuple:
+        """Turn the tool's arguments into batch parameters checked against the
+        model's capability record. Returns (params, None) or (None, message).
+        Pure: no service is touched, so the rules are testable."""
+        from backend.services.video_model_registry import (
+            DEFAULT_T2V_MODEL, VIDEO_MODEL_REGISTRY, model_capabilities, i2v_model_for,
+        )
+        model_id = (model or "").strip() or DEFAULT_T2V_MODEL
+        entry = VIDEO_MODEL_REGISTRY.get(model_id)
+        if not entry:
+            known = ", ".join(k for k in VIDEO_MODEL_REGISTRY if model_capabilities(k))
+            return None, f"Unknown video model '{model_id}'. Known: {known}."
+        caps = model_capabilities(model_id)
+        if not caps:
+            return None, f"'{model_id}' is a companion file, not a video model."
+        if audio and not caps.get("audio_out"):
+            return None, (
+                f"{entry['name']} renders silent clips. For a clip with its own soundtrack use "
+                f"a model that declares audio, such as minimax-h3-int8."
+            )
+        refs = [str(r) for r in (reference_images or []) if str(r).strip()]
+        if (refs or reference_audio) and "ref2v" not in caps["modes"]:
+            return None, (
+                f"{entry['name']} takes no reference images or audio; use the reference build "
+                f"(minimax-h3-ref2va-int8) for identity, look or voice references."
+            )
+        if last_image and "flf2v" not in caps["modes"] and "l2v" not in caps["modes"]:
+            return None, f"{entry['name']} has no last-frame mode; drop last_image or pick minimax-h3-int8."
+        if first_image and not caps.get("supports_i2v") and "ref2v" not in caps["modes"]:
+            sibling = i2v_model_for(model_id)
+            if sibling != model_id and sibling in VIDEO_MODEL_REGISTRY:
+                model_id, entry, caps = sibling, VIDEO_MODEL_REGISTRY[sibling], model_capabilities(sibling)
+            else:
+                return None, f"{entry['name']} cannot animate a first frame."
+
+        fps = int(caps.get("native_fps") or 24)
+        max_frames = int(caps.get("max_frames") or 121)
+        if duration_s is not None:
+            try:
+                frames = int(round(float(duration_s) * fps))
+            except (TypeError, ValueError):
+                return None, f"duration_s must be a number, got {duration_s!r}"
+        else:
+            try:
+                frames = int(duration_frames or 49)
+            except (TypeError, ValueError):
+                frames = 49
+        min_clip = caps.get("min_clip_s")
+        frames = max(int(round((min_clip or 0) * fps)) or 9, min(frames, max_frames))
+
+        steps = None
+        if num_inference_steps not in (None, ""):
+            try:
+                steps = max(1, min(int(num_inference_steps), 100))
+            except (TypeError, ValueError):
+                return None, f"num_inference_steps must be a number, got {num_inference_steps!r}"
+            floor = int(caps.get("min_steps") or 0)
+            if floor and steps < floor:
+                steps = floor
+        if speed_profile and speed_profile not in (caps.get("speed_profiles") or {}):
+            declared = ", ".join(caps.get("speed_profiles") or {}) or "none"
+            return None, f"{entry['name']} declares no speed profile '{speed_profile}' (declared: {declared})."
+
+        ratios = caps.get("aspect_ratios") or []
+        ratio = (aspect_ratio or "").strip()
+        if ratio and ratios and ratio not in ratios:
+            return None, f"{entry['name']} renders {', '.join(ratios)}; {ratio} is not one of them."
+        params = {
+            "model": model_id,
+            "duration_frames": frames,
+            "fps": fps,
+            "metadata": {"source": "chat"},
+        }
+        if ratio:
+            params["metadata"]["aspect_ratio"] = ratio
+            w, h = _dims_for_ratio(ratio, caps)
+            if w and h:
+                params["width"], params["height"] = w, h
+        if steps is not None:
+            params["num_inference_steps"] = steps
+            params["metadata"]["steps_explicit"] = True
+        elif caps.get("default_steps"):
+            params["num_inference_steps"] = int(caps["default_steps"])
+        if speed_profile:
+            params["speed_profile"] = speed_profile
+        if style:
+            params["prompt_style"] = style
+            if style == "none":
+                params["enhance_prompt"] = False
+        return params, None
+
     def execute(self, prompt: str, duration_frames: int = 49,
-                num_inference_steps: int = 25, wait_for_result: bool = False,
-                **kwargs) -> ToolResult:
+                num_inference_steps=None, wait_for_result: bool = False,
+                model: Optional[str] = None, aspect_ratio: Optional[str] = None,
+                duration_s=None, audio: bool = False, first_image: Optional[str] = None,
+                last_image: Optional[str] = None, reference_images=None,
+                reference_audio: Optional[str] = None, speed_profile: Optional[str] = None,
+                style: Optional[str] = None, **kwargs) -> ToolResult:
         import time as _time
 
         prompt = (prompt or "").strip()
         if not prompt:
             return ToolResult(success=False, error="Empty video prompt")
-        try:
-            duration_frames = max(9, min(int(duration_frames), 121))
-        except (TypeError, ValueError):
-            duration_frames = 49
-        try:
-            num_inference_steps = max(4, min(int(num_inference_steps), 50))
-        except (TypeError, ValueError):
-            num_inference_steps = 25
-
         wait_for_result = str(wait_for_result).lower() in ("1", "true", "yes")
+        audio = str(audio).lower() in ("1", "true", "yes")
+        if isinstance(reference_images, str):
+            reference_images = [x.strip() for x in reference_images.split(",") if x.strip()]
 
-        logger.info("VideoGeneratorTool: frames=%s steps=%s wait=%s prompt=%r",
-                    duration_frames, num_inference_steps, wait_for_result, prompt[:100])
+        params, err = self.resolve_request(
+            prompt, model=model, aspect_ratio=aspect_ratio, duration_s=duration_s,
+            duration_frames=duration_frames, num_inference_steps=num_inference_steps, audio=audio,
+            first_image=first_image, last_image=last_image, reference_images=reference_images,
+            reference_audio=reference_audio, speed_profile=speed_profile, style=style,
+        )
+        if err:
+            return ToolResult(success=False, error=err)
+        model_id = params["model"]
+        duration_frames = params["duration_frames"]
+        num_inference_steps = params.get("num_inference_steps")
+
+        logger.info("VideoGeneratorTool: model=%s frames=%s steps=%s wait=%s prompt=%r",
+                    model_id, duration_frames, num_inference_steps, wait_for_result, prompt[:100])
         try:
             from backend.services.batch_video_generator import get_batch_video_generator
-            from backend.services.video_model_registry import (
-                DEFAULT_T2V_MODEL, preflight_video_model,
-            )
+            from backend.services.video_model_registry import preflight_video_model
 
-            ready, preflight_err = preflight_video_model(DEFAULT_T2V_MODEL)
+            ready, preflight_err = preflight_video_model(model_id)
             if not ready:
                 return ToolResult(success=False, error=f"Video model not ready: {preflight_err}")
 
@@ -647,13 +859,35 @@ class VideoGeneratorTool(BaseTool):
             if not generator.service_available:
                 return ToolResult(success=False, error="Video generation service not available")
 
-            status = generator.start_batch_from_prompts(
-                prompts=[prompt],
-                model=DEFAULT_T2V_MODEL,
-                duration_frames=duration_frames,
-                num_inference_steps=num_inference_steps,
-                metadata={"source": "chat"},
-            )
+            first_path = _media_path(first_image) if first_image else None
+            if first_image and not first_path:
+                return ToolResult(success=False, error=f"first_image not found: {first_image}")
+            last_path = _media_path(last_image) if last_image else None
+            if last_image and not last_path:
+                return ToolResult(success=False, error=f"last_image not found: {last_image}")
+            ref_paths = [_media_path(r) for r in (reference_images or [])]
+            if any(p is None for p in ref_paths):
+                return ToolResult(success=False, error="A reference image was not found")
+            ref_audio_path = _media_path(reference_audio) if reference_audio else None
+            if reference_audio and not ref_audio_path:
+                return ToolResult(success=False, error=f"reference_audio not found: {reference_audio}")
+
+            if ref_paths or ref_audio_path:
+                # The reference build reads the references from the batch
+                # metadata; the prompt names them as <Picture N> / <Audio N>
+                # in wiring order.
+                params["metadata"].update({
+                    "ref_images": ref_paths,
+                    "ref_audios": [ref_audio_path] if ref_audio_path else [],
+                })
+                status = generator.start_batch_from_prompts(prompts=[prompt], **params)
+            elif first_path:
+                status = generator.start_batch_from_images(
+                    image_paths=[first_path], prompt=prompt,
+                    last_frame_paths=[last_path] if last_path else [], **params,
+                )
+            else:
+                status = generator.start_batch_from_prompts(prompts=[prompt], **params)
             batch_id = status.batch_id
             studio_url = f"/video?batch={batch_id}"
             jobs_url = "/tasks"

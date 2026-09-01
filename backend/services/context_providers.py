@@ -117,3 +117,12 @@ def page_context_provider(
 
 
 register_context_provider(PAGE_PROVIDER_NAME, page_context_provider)
+
+try:
+    # Prompt-format awareness for models that need a structured prompt; the
+    # provider itself decides when it applies (video pages, or an H3 model in
+    # the options) and costs nothing otherwise.
+    from backend.services.h3_prompt_compiler import chat_context_provider as _h3_provider
+    register_context_provider("h3_prompting", _h3_provider)
+except Exception as _e:  # pragma: no cover - awareness is an enhancement
+    logger.debug(f"[CONTEXT_PROVIDERS] h3 provider not registered: {_e}")

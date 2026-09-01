@@ -37,6 +37,15 @@
       "is_active": true,
       "description": "Model-scoped via target_models_json: models this small cannot hold long instructions, so the ask is trimmed.",
       "rule_text": "Answer in at most three sentences. Do not explain your reasoning unless asked."
+    },
+    {
+      "name": "minimax_h3_prompting",
+      "level": "SYSTEM",
+      "type": "PROMPT_TEMPLATE",
+      "target_models_json": "[\"__ALL__\"]",
+      "is_active": false,
+      "description": "Off by default. Turn on to keep the MiniMax H3 prompt format in every chat; the h3_prompting context provider already adds it on video pages.",
+      "rule_text": "When writing prompts for MiniMax H3 (video with its own soundtrack): use numbered shots [Shot 1], [Shot N] At MM:SS.mmm ...; describe composition, subjects, action and camera (motion type, amplitude, speed); give speakers stable ids (S1), (S2) and write lines as <d>[English] ...</d>; end with overall_soundscape: and non_diegetic_music: (or N/A). Shot times add up to the clip length. Concrete detail, no abstract mood words."
     }
   ]
 }

@@ -561,3 +561,35 @@ def polish_intent(intent: H3Intent, model: Optional[str] = None) -> H3Intent:
     if original != kept or len(polished.shots) != len(intent.shots):
         raise ValueError("polish changed the shot count or the dialogue")
     return polished
+
+
+# ─── chat awareness ─────────────────────────────────────────────────────────
+
+PROMPT_GUIDE = (
+    "MiniMax H3 prompt format (video with its own soundtrack, 3-15 s): write "
+    "`integrated_multimodal_description:` with numbered shots — `[Shot 1]` first, "
+    "later shots as `[Shot N] At MM:SS.mmm, the camera cuts to ...` — describing "
+    "composition, subjects, environment, action and camera moves as motion type "
+    "plus amplitude and speed; give speakers stable ids `(S1)`, `(S2)` and write "
+    "lines as `<d>[English] ...</d>`; then `overall_soundscape:` (ambient and "
+    "physical sounds only) and `non_diegetic_music:` (instrumentation, tempo, "
+    "dynamics, or N/A). Shot times must add up to the clip length. Prefer "
+    "concrete visible and audible detail over words like beautiful or epic. "
+    "With a first frame, begin with: For the target video, at 0.00 seconds into "
+    "the target video, <Picture 1> (from [Shot 1]) is fully referenced. The "
+    "generate_video tool compiles a plain prompt into this shape itself."
+)
+
+_VIDEO_PAGES = ("video", "film", "music", "storyboard", "studio")
+
+
+def chat_context_provider(page_context, options) -> Optional[str]:
+    """The H3 prompt guide, only when the person is on a video page or has an
+    H3 model in play; otherwise nothing, so other chats pay no tokens."""
+    page = ""
+    if isinstance(page_context, dict):
+        page = str(page_context.get("page") or "").lower()
+    model = str((options or {}).get("video_model") or "").lower()
+    if model.startswith("minimax") or any(key in page for key in _VIDEO_PAGES):
+        return PROMPT_GUIDE
+    return None

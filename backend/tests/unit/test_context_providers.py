@@ -152,3 +152,13 @@ def test_engine_treats_supplied_facts_as_local_not_realtime():
 
     src = inspect.getsource(UnifiedChatEngine)
     assert src.count("_local_facts_this_turn") >= 4  # reset, set, and both realtime checks
+
+
+def test_h3_prompting_provider_only_speaks_on_video_pages():
+    from backend.services.context_providers import list_context_providers
+    from backend.services.h3_prompt_compiler import chat_context_provider, PROMPT_GUIDE
+    assert "h3_prompting" in list_context_providers()
+    assert chat_context_provider({"page": "Chat"}, {}) is None
+    assert chat_context_provider({"page": "Video Generator"}, {}) == PROMPT_GUIDE
+    assert chat_context_provider(None, {"video_model": "minimax-h3-int8"}) == PROMPT_GUIDE
+    assert "integrated_multimodal_description" in PROMPT_GUIDE
