@@ -56,7 +56,8 @@ def build_server(config: MCPConfig | None = None) -> tuple[Server, dict[str, int
         version=version,
         instructions=(
             f"{MCP_TITLE} — local-first AI platform. Exposes generation, RAG, "
-            "memory, and web tools plus generated outputs as MCP resources."
+            "memory, and web tools plus generated outputs as MCP resources. "
+            "Docs: https://guaardvark.com/mcp/ · Support: support@guaardvark.com"
         ),
         website_url="https://guaardvark.com",
         on_list_tools=on_list_tools,
