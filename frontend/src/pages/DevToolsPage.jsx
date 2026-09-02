@@ -609,22 +609,22 @@ const DevToolsPage = () => {
               {dbHealth && !dbError ? (
                 <>
                   <Box display="flex" alignItems="center" mb={1}>
-                    {dbHealth.up_to_date ? (
+                    {dbHealth.status === "ok" ? (
                       <CheckCircle color="success" sx={{ mr: 1 }} />
                     ) : (
                       <Warning color="warning" sx={{ mr: 1 }} />
                     )}
                     <Chip
-                      label={dbHealth.up_to_date ? "Up to date" : "Needs update"}
-                      color={dbHealth.up_to_date ? "success" : "warning"}
+                      label={dbHealth.status === "ok" ? "Up to date" : "Needs update"}
+                      color={dbHealth.status === "ok" ? "success" : "warning"}
                       size="small"
                     />
                   </Box>
-                  <Typography variant="body2">Current: {dbHealth.current}</Typography>
+                  <Typography variant="body2">Current: {dbHealth.db_revision || "none"}</Typography>
                   <Typography variant="body2">
-                    Heads: {dbHealth.heads && dbHealth.heads.join(", ")}
+                    Heads: {(dbHealth.heads || [dbHealth.head]).filter(Boolean).join(", ")}
                   </Typography>
-                  {dbHealth.multiple_heads && (
+                  {dbHealth.status === "multiple_heads" && (
                     <Alert severity="error" sx={{ mt: 1 }}>
                       Multiple heads detected
                     </Alert>
