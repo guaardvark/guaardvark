@@ -9,7 +9,8 @@ reports about anything that could break those guarantees seriously.
 Please use **GitHub's private vulnerability reporting** (the "Report a
 vulnerability" button under the repository's Security tab). That opens a
 private thread with the maintainers — do **not** open a public issue for
-anything exploitable.
+anything exploitable. If you cannot use GitHub, email **support@guaardvark.com**
+with "SECURITY" in the subject line.
 
 You can expect an acknowledgement within a few days. Please include steps to
 reproduce and, when relevant, which surface is involved (backend API, agent

@@ -588,6 +588,8 @@ Guaardvark is built with love by a solo developer. If it's useful to you:
 
 Star the repo if you find it interesting — it helps with visibility.
 
+Questions, install trouble, or feedback: **support@guaardvark.com**. Press, partnerships, and business: **info@guaardvark.com**.
+
 ---
 
 ## Get Involved
@@ -644,7 +646,7 @@ Full setup, style, and PR expectations: **[CONTRIBUTING.md](CONTRIBUTING.md)**
 ### 5. Other ways to help (no code required)
 
 - Star the repo and share a short demo (screen agent, Film Crew, or Discord `/imagine`)
-- Report install friction with GPU model + logs from `logs/`
+- Report install friction with GPU model + logs from `logs/` (an issue, or email support@guaardvark.com)
 - Suggest recipes or workflows you wish worked out of the box
 - Support development: [Ko-fi](https://ko-fi.com/albenze) · [Sponsors](https://github.com/sponsors/guaardvark) · [PayPal](https://paypal.me/albenze)
 

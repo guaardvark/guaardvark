@@ -49,6 +49,7 @@ setup(
     long_description=_long_description,
     long_description_content_type="text/markdown",
     author="Guaardvark",
+    author_email="info@guaardvark.com",
     url="https://guaardvark.com",
     project_urls={
         "Source": "https://github.com/guaardvark/guaardvark",
