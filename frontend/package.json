@@ -34,7 +34,7 @@
     "react-image-crop": "^11.1.2",
     "react-markdown": "^10.1.0",
     "react-router": "^7.18.3",
-    "react-router-dom": "^7.18.0",
+    "react-router-dom": "^7.18.3",
     "react-syntax-highlighter": "^16.1.1",
     "react-virtuoso": "^4.18.12",
     "reactflow": "^11.11.4",
