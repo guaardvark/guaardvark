@@ -8,6 +8,7 @@ Thanks for your interest in contributing to Guaardvark! Whether it's a bug repor
 - [Good First Issues](https://github.com/guaardvark/guaardvark/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 - [Project Board](https://github.com/guaardvark/guaardvark/projects)
 - [README — Get Involved](README.md#get-involved)
+- Questions that do not fit an issue: info@guaardvark.com
 
 ### I want to help — 4 steps
 
