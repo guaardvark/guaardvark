@@ -53,7 +53,7 @@ jaxlib==0.4.30
 # that re-stages torch on every boot. Pin the last numpy<2-friendly line of
 # each; backend/constraints.txt carries matching caps for constrained installs.
 opencv-contrib-python==4.11.0.86   # 4.12.0.88+ and 5.x require numpy>=2
-tifffile==2026.3.3                 # 2026.4.11+ require numpy>=2
+tifffile==2026.8.23                 # 2026.4.11+ require numpy>=2
 ml-dtypes==0.5.4                   # 0.6.0 requires numpy>=2
 
 # --- Imaging backend used only by the two services above ---

@@ -32,7 +32,7 @@ numpy<2.0,>=1.26.4
 # 2026.7.31 + ml-dtypes 0.6.0 forcing numpy 2.5.2 on each requirements-cv pass).
 # Caps sit at the last numpy<2-friendly line of each:
 opencv-contrib-python<4.12   # 4.11.0.86 last allowing numpy 1.26; 4.12.0.88+ and 5.x need >=2
-tifffile<2026.4              # 2026.3.3 last with unpinned numpy; 2026.4.11 needs >=2.0, later >=2.1
+tifffile<2026.9              # 2026.3.3 last with unpinned numpy; 2026.4.11 needs >=2.0, later >=2.1
 ml-dtypes<0.6                # 0.5.4 allows numpy>=1.26 on py3.12; 0.6.0 needs >=2.0
 
 # setuptools<81,>=80.9.0  -- REMOVED: unsatisfiable from the PyTorch index.
