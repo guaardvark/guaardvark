@@ -9,6 +9,8 @@ MPS (that needs a Mac; tracked separately). They DO prove:
   - CPU-only and no-torch fall through correctly.
 """
 
+import functools
+
 import pytest
 
 import backend.services.offline_video_generator as ovg
@@ -23,9 +25,14 @@ def fake_torch(monkeypatch):
 
 
 def _set(monkeypatch, real_torch, *, cuda: bool, mps: bool):
-    monkeypatch.setattr(real_torch.cuda, "is_available", lambda: cuda)
+    # functools.wraps keeps ``__wrapped__`` on the stand-ins; torch's dynamo
+    # reads it off both probes when it builds its trace rules.
+    monkeypatch.setattr(real_torch.cuda, "is_available",
+                        functools.wraps(real_torch.cuda.is_available)(lambda: cuda))
     # _mps_available() reads torch.backends.mps.is_available — patch it there
-    monkeypatch.setattr(real_torch.backends.mps, "is_available", lambda: mps, raising=False)
+    monkeypatch.setattr(real_torch.backends.mps, "is_available",
+                        functools.wraps(real_torch.backends.mps.is_available)(lambda: mps),
+                        raising=False)
 
 
 def test_cuda_wins(monkeypatch, fake_torch):

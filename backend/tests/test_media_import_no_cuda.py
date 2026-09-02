@@ -62,9 +62,15 @@ _PROBE = textwrap.dedent(
 
     grc.get_gpu_coordinator = lambda: _NoGpu()
 
+    import functools
     import torch
-    torch.cuda.is_available = lambda: False
-    torch.backends.mps.is_available = lambda: False
+
+    # The stand-ins keep the real probe's metadata: torch's dynamo reads
+    # ``is_available.__wrapped__`` while building its trace rules, and
+    # diffusers imports dynamo, so a bare lambda here would turn every media
+    # import into an AttributeError instead of exercising the no-GPU branch.
+    torch.cuda.is_available = functools.wraps(torch.cuda.is_available)(lambda: False)
+    torch.backends.mps.is_available = functools.wraps(torch.backends.mps.is_available)(lambda: False)
 
     import importlib
     importlib.import_module({module!r})
