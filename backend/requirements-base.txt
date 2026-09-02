@@ -21,13 +21,13 @@ eventlet==0.40.3
 # Data Processing & Analysis
 numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
 pandas==2.2.2
-pydantic==2.13.4
+pydantic==2.13.5
 psutil==7.2.2
 
 # Web Scraping & File Processing
 beautifulsoup4==4.12.3
 lxml==6.1.1
-pypdf==6.15.0
+pypdf==6.16.1
 requests==2.34.2
 duckduckgo-search==8.1.1
 
@@ -72,7 +72,7 @@ sentencepiece>=0.2.0
 kornia>=0.7.1
 spandrel>=0.4.0
 av>=18.1.0
-pydantic-settings>=2.0
+pydantic-settings>=2.15.0
 
 # Face-restore / anatomy / ControlNet heavy CV deps moved to the OPTIONAL
 # extra backend/requirements-cv.txt (P3-10b): gfpgan, realesrgan, facexlib,

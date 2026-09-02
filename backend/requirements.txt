@@ -30,7 +30,7 @@ eventlet==0.40.3
 # Data Processing & Analysis
 numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
 pandas==2.2.2
-pydantic==2.13.4
+pydantic==2.13.5
 psutil==7.2.2
 # nvidia-ml-py (imports as pynvml) is GPU-only — it powers VRAM queries in
 # gpu_resource_coordinator/ollama_resource_manager, but every importer does so
@@ -46,7 +46,7 @@ psutil==7.2.2
 # Web Scraping & File Processing
 beautifulsoup4==4.12.3
 lxml==6.1.1
-pypdf==6.15.0
+pypdf==6.16.1
 requests==2.34.2
 google-auth==2.53.0
 websocket-client==1.8.0
@@ -85,7 +85,7 @@ docling>=2.123.0
 # registry + read-only output resources to Claude / Cursor / Grok / Zed).
 # Requires the 2.x SDK: handlers are Server constructor args (on_list_tools=...);
 # the 1.x decorator API the adapters previously used was removed in 2.0.
-mcp>=2.1,<3
+mcp>=2.1.1,<3
 
 # Image Generation Dependencies
 diffusers>=0.38.0
@@ -103,7 +103,7 @@ sentencepiece>=0.2.0
 kornia>=0.7.1
 spandrel>=0.4.0
 av>=18.1.0
-pydantic-settings>=2.0
+pydantic-settings>=2.15.0
 gguf>=0.18.0
 
 # Face-restore / anatomy / ControlNet heavy CV deps moved to the OPTIONAL
@@ -152,7 +152,7 @@ faster-whisper>=1.0.0
 tree-sitter>=0.22.0
 tree-sitter-python>=0.23.0
 tree-sitter-javascript>=0.23.0
-tree-sitter-typescript>=0.23.0
+tree-sitter-typescript>=0.23.2
 tree-sitter-java>=0.23.0
 tree-sitter-go>=0.23.0
 tree-sitter-rust>=0.23.0
