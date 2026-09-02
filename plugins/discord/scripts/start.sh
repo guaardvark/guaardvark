@@ -46,6 +46,11 @@ fi
 # Setup venv if needed
 source "$PROJECT_ROOT/backend/venv/bin/activate"
 
+# Plugin deps land in the shared backend venv; keep the project's pip
+# constraints on so a plugin pass cannot move numpy/opencv off the ML stack's pins.
+if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$PROJECT_ROOT/backend/constraints.txt" ]; then
+    export PIP_CONSTRAINT="$PROJECT_ROOT/backend/constraints.txt"
+fi
 # Install requirements
 pip install -q -r "$PLUGIN_ROOT/requirements.txt" 2>/dev/null || true
 

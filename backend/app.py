@@ -62,19 +62,7 @@ from logging.handlers import TimedRotatingFileHandler
 #     noise so voice processing doesn't emit 4 warnings per first-use.
 warnings.filterwarnings("ignore", category=SyntaxWarning, module=r"pydub\..*")
 
-#  2. JAX "TPU not found" + "CUDA-enabled jaxlib not installed" warnings.
-#     JAX gets pulled transitively (llama-index retrievers → some tokenizer)
-#     and logs these on first chat. We don't use JAX; suppress.
-class _JaxBackendNoiseFilter(logging.Filter):
-    def filter(self, record):
-        msg = record.getMessage()
-        return not (
-            "Unable to initialize backend 'tpu'" in msg
-            or "CUDA-enabled jaxlib is not installed" in msg
-        )
-logging.getLogger("jax._src.xla_bridge").addFilter(_JaxBackendNoiseFilter())
-
-#  3. Werkzeug "write() before start_response" AssertionError — dev-server-
+#  2. Werkzeug "write() before start_response" AssertionError — dev-server-
 #     only artifact (gunicorn doesn't have this check). Happens when a WSGI
 #     handler finalizes without calling start_response — usually streaming
 #     generators that error before yield. Fires as ERROR via the werkzeug

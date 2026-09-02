@@ -1,26 +1,23 @@
 # backend/requirements-cv.txt
-# OPTIONAL imaging / face-restoration / anatomy (ControlNet) extra.
+# OPTIONAL face-restoration extra (gfpgan / realesrgan) for the shared backend venv.
 #
 # WHY THIS FILE EXISTS (P3-10b, edge-portability):
 # These packages have thin or absent prebuilt wheels on aarch64 (Raspberry Pi)
 # and frequently FAIL TO BUILD FROM SOURCE there. When they lived in the main
 # requirements they aborted the ENTIRE `pip install` before chat/RAG was even
 # usable, bricking a chat-only install on a Pi. They are NOT imported by any
-# always-on path (app factory, config, chat engine, agent/screenshot). Every
-# consumer imports them lazily, inside a try/except, in clearly-optional feature
-# modules:
-#   - gfpgan / realesrgan / basicsr / facexlib  -> backend/services/face_restoration_service.py
+# always-on path. The one consumer imports them lazily, inside a try/except:
+#   - gfpgan / realesrgan / basicsr / facexlib -> backend/services/face_restoration_service.py
 #       (guarded module-top try/except; only reached via offline_image_generator
 #        and batch_image_generation_api, both lazy `from ... import` calls)
-#   - controlnet-aux / mediapipe                -> backend/services/anatomy_improvement_service.py
-#       (guarded module-top try/except; no live importer at all today)
-#   - opencv-python (cv2)                       -> ONLY the two services above
-# When absent, those services set `restoration_available=False` /
-# `controlnet_available=False` and degrade gracefully — no crash.
+# When absent, that service sets `restoration_available=False` and degrades
+# gracefully — no crash.
 #
-# INSTALL (on a box that wants face-restore / upscale / anatomy / ControlNet):
+# INSTALL (on a box that wants face restoration):
 #   pip install -r backend/requirements-cv.txt
-# AFTER torch is installed by scripts/install_pytorch.sh (these build against torch).
+# AFTER torch is installed by scripts/install_pytorch.sh (these build against torch),
+# and under backend/constraints.txt (PIP_CONSTRAINT), which pins the opencv
+# distributions and the numpy line the ML stack is built against.
 #
 # NOTE: basicsr 1.4.2 imports torchvision.transforms.functional_tensor, removed
 # in torchvision 0.17+. face_restoration_service.py already aliases it back at
@@ -34,27 +31,13 @@ basicsr>=1.4.2         # Required by GFPGAN and RealESRGAN
 lmdb>=1.0.0            # Required by GFPGAN/basicsr (no first-party import)
 tb-nightly             # Required by GFPGAN (optional at runtime, recommended)
 
-# --- Anatomy & Pose Control (ControlNet) ---
-controlnet-aux==0.0.9
-mediapipe==0.10.14     # no aarch64 wheel for many versions — primary Pi abort cause
-# mediapipe declares an UNPINNED jax/jaxlib dep; the resolver grabs the latest
-# (0.11.x), which requires numpy>=2.1 — permanently incompatible with the ML
-# stack's numpy<2.0 pin, so every install ends with pip resolver conflict noise
-# and a jax that can't even import. mediapipe's runtime (solutions/tasks APIs we
-# use via anatomy_improvement_service) never imports jax — it's only needed for
-# model-maker workflows. Pin the last numpy<2-friendly line so one pass converges.
-jax==0.4.30
-jaxlib==0.4.30
-# Same failure mode, three more packages: mediapipe pulls opencv-contrib-python
-# unpinned, controlnet-aux pulls tifffile via scikit-image, jax pulls ml-dtypes.
-# Their current releases hard-require numpy>=2 (py3.12 metadata, checked against
-# PyPI 2026-08-31), so a bare `pip install -r` of this file upgrades numpy to
-# 2.x, and the next constrained torch pass downgrades it back — an install loop
-# that re-stages torch on every boot. Pin the last numpy<2-friendly line of
-# each; backend/constraints.txt carries matching caps for constrained installs.
-opencv-contrib-python==4.11.0.86   # 4.12.0.88+ and 5.x require numpy>=2
-tifffile==2026.3.3                 # 2026.4.11+ require numpy>=2
-ml-dtypes==0.5.4                   # 0.6.0 requires numpy>=2
-
-# --- Imaging backend used only by the two services above ---
-opencv-python==4.8.1.78
+# --- Imaging backend (cv2) ---
+# opencv-python is the ONE declared distribution for the shared venv: gfpgan,
+# realesrgan, basicsr, facexlib and rapidocr all require it by that name, and
+# pip does not accept opencv-python-headless as a substitute. The three opencv
+# distributions unpack into the same cv2/ directory, so backend/constraints.txt
+# locks all three names to one version; any -headless/-contrib a transitive dep
+# brings in then matches these files instead of replacing them. cv2 is also
+# used by the upscaling and vision_pipeline plugins, ComfyUI video nodes and
+# rapidocr (docling), all in this venv.
+opencv-python

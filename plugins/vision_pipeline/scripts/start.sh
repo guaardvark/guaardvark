@@ -33,16 +33,22 @@ fi
 # Activate venv
 source "$PROJECT_ROOT/backend/venv/bin/activate"
 
-# Install requirements
-# Filter torch/xformers/flash/pynvml lines: core backend/venv (via install_pytorch.sh,
-# start.sh post-steps, and dep_reconciler) owns torch + these optional attn/CUDA
-# helpers. Including them from plugin reqs causes the flash schema mismatch errors
-# (2.5.7 vs current torch) during diffusers imports in batch/offline generators,
-# xformers version skew warnings, and pynvml FutureWarnings. Other plugin deps
-# (opencv-headless, fastapi, imagehash, watchdog...) are still installed.
-grep -v -iE '^(torch|xformers|flash| pynvml|nvidia-ml-py)' "$PLUGIN_ROOT/requirements.txt" > /tmp/vision_reqs_filtered.txt 2>/dev/null || cp "$PLUGIN_ROOT/requirements.txt" /tmp/vision_reqs_filtered.txt
-pip install -q -r /tmp/vision_reqs_filtered.txt 2>/dev/null || true
-rm -f /tmp/vision_reqs_filtered.txt
+# Install plugin deps into the shared backend venv under the project's pip
+# constraints. Filter torch*/xformers/flash/pynvml/numpy: core owns those
+# (install_pytorch.sh + backend/constraints.txt). An unconstrained pass here
+# pulled opencv-python-headless 5.x and with it numpy 2.x over the ML stack's
+# pin, corrupting C extensions mid-restart. Other plugin deps (fastapi,
+# imagehash, watchdog...) are still installed.
+if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$PROJECT_ROOT/backend/constraints.txt" ]; then
+    export PIP_CONSTRAINT="$PROJECT_ROOT/backend/constraints.txt"
+fi
+FILTERED_REQS="$(mktemp)"
+# Match bare pins too (numpy<2.0, torch>=2.0.0) — `=`-only patterns miss `<`/`>`.
+grep -v -iE '^(torch|torchvision|torchaudio|xformers|flash|pynvml|nvidia-ml-py|numpy)([<>=!~]|[[:space:]]|$)' \
+    "$PLUGIN_ROOT/requirements.txt" > "$FILTERED_REQS" 2>/dev/null \
+    || cp "$PLUGIN_ROOT/requirements.txt" "$FILTERED_REQS"
+pip install -q -r "$FILTERED_REQS" 2>/dev/null || true
+rm -f "$FILTERED_REQS"
 
 # Log file
 LOG_DIR="$PROJECT_ROOT/logs"

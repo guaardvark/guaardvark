@@ -14,7 +14,6 @@ from backend.services import local_weights as lw
 
 SERVICES = Path(__file__).resolve().parents[2] / "services"
 GUARDED = [
-    "anatomy_improvement_service.py",
     "offline_video_generator.py",
     "honesty_steering.py",
     "intent_service.py",

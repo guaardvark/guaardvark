@@ -1416,13 +1416,13 @@ ensure_backend_python_environment() {
             fi
         fi
 
-        # Optional CV/face-restoration extra (P3-10) — OPT-IN ONLY. These deps
-        # (gfpgan/realesrgan/basicsr/facexlib/controlnet-aux/mediapipe) are a
-        # multi-hundred-MB stack that lacks reliable aarch64 wheels, and the
-        # earlier auto-install on any GPU box made every fresh install pay for
-        # two optional features. Both consumers import lazily inside try/except
-        # and degrade gracefully when absent (restoration_available=False /
-        # controlnet_available=False), so skipping costs nothing at boot.
+        # Optional face-restoration extra (P3-10) — OPT-IN ONLY. These deps
+        # (gfpgan/realesrgan/basicsr/facexlib) are a multi-hundred-MB stack
+        # that lacks reliable aarch64 wheels, and the earlier auto-install on
+        # any GPU box made every fresh install pay for an optional feature. The
+        # consumer imports lazily inside try/except and degrades gracefully
+        # when absent (restoration_available=False), so skipping costs nothing
+        # at boot.
         # Failure here WARNS but never fails the core install.
         if [ -f "$BACKEND_DIR/requirements-cv.txt" ]; then
             if [ "${GUAARDVARK_INSTALL_CV:-0}" = "1" ]; then

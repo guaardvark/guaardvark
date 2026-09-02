@@ -9,10 +9,13 @@ One LlamaDocument is emitted per page: fine enough to carry a page number and a
 heading breadcrumb, coarse enough that the chunker downstream still has material
 to work with.
 
-OCR is deliberately not installed. The OCR extra pulls opencv-python>=5, which
-requires numpy>=2 and is incompatible with this stack's numpy<2 pin (see
-requirements-cv.txt). Born-digital PDFs are read from the text layer and need no
-OCR; scanned PDFs will produce little or no text here and are reported as such.
+OCR is switched off explicitly. The `docling` package pulls RapidOCR through
+its standard extra, and Docling's pipeline defaults to running OCR on every PDF
+page when an engine is importable, which is a download of OCR artifacts and a
+GPU/CPU cost this stack never asked for. Born-digital PDFs are read from the
+text layer and need no OCR; scanned PDFs will produce little or no text here and
+are reported as such. Enabling OCR is a product decision with its own
+model-download review, not a flag flip.
 """
 
 import logging
@@ -41,8 +44,15 @@ def supports(file_extension: str) -> bool:
 def _get_converter():
     global _converter
     if _converter is None:
-        from docling.document_converter import DocumentConverter
-        _converter = DocumentConverter()
+        from docling.datamodel.base_models import InputFormat
+        from docling.datamodel.pipeline_options import PdfPipelineOptions
+        from docling.document_converter import DocumentConverter, PdfFormatOption
+
+        pdf_options = PdfPipelineOptions()
+        pdf_options.do_ocr = False  # see module docstring
+        _converter = DocumentConverter(
+            format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=pdf_options)}
+        )
     return _converter
 
 

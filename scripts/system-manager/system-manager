@@ -146,6 +146,11 @@ case "$1" in
                 echo -e "${RED}✗ $VENV_DIR is $("$VENV_DIR/bin/python" -V 2>&1), not Python 3.12. Not installing into it — ./start.sh recreates it.${NC}"
                 exit 1
             fi
+            # Same pip constraints as start.sh/heal: keep numpy/opencv on the
+            # ML stack's pins even from this repair path.
+            if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$BACKEND_DIR/constraints.txt" ]; then
+                export PIP_CONSTRAINT="$BACKEND_DIR/constraints.txt"
+            fi
             # Use requirements-base.txt to avoid overwriting smart-installed PyTorch
             if [ -f "$BACKEND_DIR/requirements-base.txt" ]; then
                 "$VENV_DIR/bin/pip" install -r "$BACKEND_DIR/requirements-base.txt" || { echo -e "${RED}✗ pip install failed.${NC}"; exit 1; }

@@ -74,11 +74,10 @@ spandrel>=0.4.0
 av>=18.1.0
 pydantic-settings>=2.15.0
 
-# Face-restore / anatomy / ControlNet heavy CV deps moved to the OPTIONAL
-# extra backend/requirements-cv.txt (P3-10b): gfpgan, realesrgan, facexlib,
-# basicsr, lmdb, tb-nightly, controlnet-aux, mediapipe, opencv-python. They lack
-# aarch64/Pi wheels and aborted the whole install; only the (lazy, guarded)
-# face_restoration_service + anatomy_improvement_service use them.
+# Face-restore heavy CV deps moved to the OPTIONAL extra
+# backend/requirements-cv.txt (P3-10b): gfpgan, realesrgan, facexlib, basicsr,
+# lmdb, tb-nightly, opencv-python. They lack aarch64/Pi wheels and aborted the
+# whole install; only the (lazy, guarded) face_restoration_service uses them.
 # scipy/tqdm/PyYAML stay here — shared transitive deps of the always-on stack.
 scipy>=1.10.0  # used by image/audio paths; also a GFPGAN dep
 tqdm>=4.65.0   # transitive dep of transformers/huggingface_hub (always-on)

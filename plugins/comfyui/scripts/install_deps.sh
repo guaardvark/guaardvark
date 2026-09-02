@@ -120,6 +120,17 @@ ensure_custom_nodes() {
     done < "$MANIFEST"
 }
 
+# Print the requirements.txt paths of the manifest's nodes that exist on disk,
+# one per line, in manifest order. Usage: _manifest_node_requirements <manifest> <custom_nodes dir>
+_manifest_node_requirements() {
+    local manifest="$1" cn_dir="$2" name url sha
+    [ -f "$manifest" ] || return 0
+    while IFS='|' read -r name url sha; do
+        case "$name" in ''|'#'*) continue ;; esac
+        [ -f "$cn_dir/$name/requirements.txt" ] && printf '%s\n' "$cn_dir/$name/requirements.txt"
+    done < "$manifest"
+}
+
 install_comfyui_python_deps() {
     local SCRIPT_DIR PLUGIN_ROOT PROJECT_ROOT COMFYUI_DIR
     SCRIPT_DIR="$_COMFYUI_SCRIPTS_DIR"
@@ -233,10 +244,16 @@ install_comfyui_python_deps() {
             "https://github.com/sczhou/CodeFormer/releases/download/v0.1.0/codeformer.pth"
     fi
 
-    # All custom_nodes/*/requirements.txt → backend venv
+    # Requirements of the REQUIRED custom nodes (custom_nodes.manifest) → backend
+    # venv. Only manifest nodes: plugins/comfyui/ComfyUI/ is outside git and the
+    # Interconnector sync, so every box carries its own extra nodes, and an
+    # extra node's requirements.txt (comfyui_controlnet_aux asks for mediapipe,
+    # unpinned opencv-python and scikit-image) would otherwise be installed into
+    # the shared venv on every forced heal, on top of the ML stack's pins. Extra
+    # nodes stay on disk and load whatever the venv already has.
     if [ -d "$CN_DIR" ]; then
         local CN_REQ_FILES CN_HASH CN_STAMP_HASH
-        CN_REQ_FILES=$(find "$CN_DIR" -mindepth 2 -maxdepth 2 -name requirements.txt -type f 2>/dev/null | sort || true)
+        CN_REQ_FILES=$(_manifest_node_requirements "$PLUGIN_ROOT/custom_nodes.manifest" "$CN_DIR")
         if [ -n "$CN_REQ_FILES" ]; then
             CN_HASH=$(cat $CN_REQ_FILES 2>/dev/null | md5sum | cut -d' ' -f1 || true)
             CN_STAMP_HASH=""
@@ -284,7 +301,8 @@ install_comfyui_python_deps() {
 
     # Video-critical deps (Wan GGUF + VHS encode)
     local VIDEO_DEPS_MISSING=()
-    "$VENV_PYTHON" -c 'import cv2' >/dev/null 2>&1 || VIDEO_DEPS_MISSING+=('opencv-python==4.8.1.78')
+    # opencv-python is the declared cv2 distribution; backend/constraints.txt fixes its version.
+    "$VENV_PYTHON" -c 'import cv2' >/dev/null 2>&1 || VIDEO_DEPS_MISSING+=('opencv-python')
     "$VENV_PYTHON" -c 'import gguf' >/dev/null 2>&1 || VIDEO_DEPS_MISSING+=('gguf>=0.13.0' 'sentencepiece' 'protobuf')
     "$VENV_PYTHON" -c 'import imageio_ffmpeg' >/dev/null 2>&1 || VIDEO_DEPS_MISSING+=('imageio-ffmpeg')
     if [ ${#VIDEO_DEPS_MISSING[@]} -gt 0 ]; then
