@@ -41,7 +41,7 @@
     "remark-gfm": "^4.0.1",
     "socket.io-client": "^4.8.1",
     "zod": "^4.5.4",
-    "zustand": "^4.4.0"
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.2",
