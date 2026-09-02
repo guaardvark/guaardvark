@@ -46,7 +46,7 @@ psutil==7.2.2
 # Web Scraping & File Processing
 beautifulsoup4==4.12.3
 lxml==6.1.1
-pypdf==6.15.0
+pypdf==6.16.1
 requests==2.34.2
 google-auth==2.53.0
 websocket-client==1.8.0
