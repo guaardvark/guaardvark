@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, Card, CardActionArea, CardContent, Typography, useTheme, alpha } from '@mui/material';
 import { Folder as FolderIcon } from '@mui/icons-material';
-import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
+import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout/legacy';
 import { useLayout } from '../../contexts/LayoutContext';
 import { getFileIcon, getItemKey } from './fileUtils.jsx';
 import 'react-grid-layout/css/styles.css';

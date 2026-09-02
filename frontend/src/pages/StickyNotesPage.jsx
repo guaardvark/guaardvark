@@ -26,7 +26,7 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
-import ReactGridLayout from "react-grid-layout";
+import ReactGridLayout from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 

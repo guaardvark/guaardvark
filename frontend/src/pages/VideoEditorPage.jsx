@@ -54,7 +54,7 @@ import {
   saveProjectAs,
   renameProject,
 } from "../api/videoEditorService";
-import ReactGridLayout, { WidthProvider } from "react-grid-layout";
+import ReactGridLayout, { WidthProvider } from "react-grid-layout/legacy";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import DashboardCardWrapper from "../components/dashboard/DashboardCardWrapper";
