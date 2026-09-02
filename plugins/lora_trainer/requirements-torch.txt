@@ -3,7 +3,7 @@
 diffusers==0.38.0
 peft==0.16.0
 accelerate==1.10.0
-transformers==5.5.0
+transformers==5.10.1
 safetensors==0.5.3
 Pillow==12.3.0
 huggingface_hub==0.27.0
