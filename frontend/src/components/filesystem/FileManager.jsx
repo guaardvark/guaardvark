@@ -67,7 +67,7 @@ import {
   Archive as ArchiveIcon,
   DataObject as JsonIcon,
 } from '@mui/icons-material';
-import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
+import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout/legacy';
 import axios from 'axios';
 import FilePropertiesModal from '../modals/FilePropertiesModal';
 import FolderPropertiesModal from '../modals/FolderPropertiesModal';

@@ -24,7 +24,7 @@ import {
   ListItemText,
   CircularProgress,
 } from "@mui/material";
-import ReactGridLayout, { WidthProvider } from "react-grid-layout";
+import ReactGridLayout, { WidthProvider } from "react-grid-layout/legacy";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 
 import "react-grid-layout/css/styles.css";

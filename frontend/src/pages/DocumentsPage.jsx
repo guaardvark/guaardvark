@@ -18,7 +18,7 @@ import PdfViewerModal from "../components/documents/PdfViewerModal";
 import DocxViewerModal from "../components/documents/DocxViewerModal";
 import AudioPlayerModal from "../components/documents/AudioPlayerModal";
 import MediaPreviewOverlay from "../components/documents/MediaPreviewOverlay";
-import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
+import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout/legacy';
 import FolderWindow from "../components/documents/FolderWindow";
 import DocumentsContextMenu from "../components/documents/DocumentsContextMenu";
 import FilePropertiesModal from "../components/modals/FilePropertiesModal";

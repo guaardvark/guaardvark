@@ -48,7 +48,7 @@ import {
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 import { BrandLogo } from "../components/branding";
-import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout';
+import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout/legacy';
 import BatchImageGeneratorPage from './BatchImageGeneratorPage';
 import VideoGeneratorPage from './VideoGeneratorPage';
 import UpscalingPage from './UpscalingPage';
