@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Chat sessions API — minimal endpoints for the modal-session feature.
+"""Chat sessions API — the modal-session toggle and the chat export.
 
-Today this is just the agent-mode toggle. If the chat-session model grows
-more knobs (per-session model preference, RAG scope, etc.) they belong
-here too. Auto-discovered by blueprint_discovery.py.
+If the chat-session model grows more knobs (per-session model preference,
+RAG scope, etc.) they belong here too. Auto-discovered by blueprint_discovery.py.
 """
 
 import logging
@@ -77,4 +76,21 @@ def set_session_mode(session_id: str):
             db.session.rollback()
         except Exception:
             pass
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@chat_sessions_bp.route("/export", methods=["POST"])
+def export_chat_sessions():
+    """Write every stored chat session to a timestamped folder under the outputs directory.
+
+    Returns the folder (absolute and relative to the outputs directory) plus
+    the session and message counts written.
+    """
+    try:
+        from backend.services.chat_export_service import export_chats
+
+        result = export_chats()
+        return jsonify({"success": True, **result})
+    except Exception as e:
+        logger.error(f"export_chat_sessions failed: {e}")
         return jsonify({"success": False, "error": str(e)}), 500

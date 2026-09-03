@@ -75,6 +75,7 @@ import AgentsSettingsModal from "../components/modals/AgentsSettingsModal";
 import InterconnectorSettingsModal from "../components/modals/InterconnectorSettingsModal";
 import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import SettingsRow from "../components/settings/SettingsRow";
+import ExportChatsButton from "../components/settings/ExportChatsButton";
 import ProfileSection from "../components/settings/ProfileSection";
 import SettingsCardWrapper from "../components/settings/SettingsCardWrapper";
 import { SOCKET_URL } from "../api/apiClient";
@@ -3233,6 +3234,9 @@ const SettingsPage = () => {
                   </Tooltip>
                   <Button variant="outlined" size="small" onClick={openManageBackups} aria-label="Manage backups">Manage</Button>
                 </Box>
+              </SettingsRow>
+              <SettingsRow label="Chat Export">
+                <ExportChatsButton showMessage={showMessage} disabled={isProcessingBackup || isLoading} />
               </SettingsRow>
               <SettingsRow label="Rules Backup / Restore">
                 <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>

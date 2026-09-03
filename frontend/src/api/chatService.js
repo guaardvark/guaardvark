@@ -641,3 +641,16 @@ export const deleteChatSession = async (sessionId) => {
   });
   return handleResponse(response);
 };
+
+/**
+ * Export every stored chat session to a timestamped folder under data/outputs.
+ * Resolves to `{ success, directory, relative_directory, sessions, messages, exported_at }`.
+ */
+export const exportChatSessions = async () => {
+  const response = await fetch(`${BASE_URL}/chat-sessions/export`, { method: "POST" });
+  const data = await handleResponse(response);
+  if (!data || data.success === false) {
+    throw new Error((data && data.error) || "Chat export failed");
+  }
+  return data;
+};
