@@ -22,6 +22,7 @@ import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { useAppStore } from "../../stores/useAppStore";
 import { BASE_URL } from "../../api/apiClient";
 import ToolCallCard from "./ToolCallCard";
+import ThinkingCard from "./ThinkingCard";
 import AgentThinkingTrail from "./AgentThinkingTrail";
 import ImageLightbox from "../images/ImageLightbox";
 import { debugLog } from "../../utils/debugLog";
@@ -49,6 +50,9 @@ const formatTime = (timestamp) => {
   }
 };
 
+const joinReasoning = (segments) =>
+  segments.map((seg) => seg.text).filter(Boolean).join("\n\n");
+
 const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref) => {
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | complete | error
   const [startTime] = useState(() => new Date());
@@ -58,6 +62,13 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
   // {iteration, label, reasoning}. Distinct from `thinkingText` which is the
   // single-line live status (e.g. "Calling LLM...").
   const [agentThinkingSteps, setAgentThinkingSteps] = useState([]);
+  // Model reasoning from chat:reasoning, one segment per LLM call. Distinct
+  // from agentThinkingSteps (agent-loop status) and thinkingText (status line).
+  const [reasoningText, setReasoningText] = useState("");
+  const [reasoningStreaming, setReasoningStreaming] = useState(false);
+  const [reasoningElapsedMs, setReasoningElapsedMs] = useState(null);
+  const [reasoningExpanded, setReasoningExpanded] = useState(true);
+  const [truncated, setTruncated] = useState(false);
   debugLog('[StreamingMessage] RENDER: chatService=', !!chatService, 'status=', status, 'agentSteps.length=', agentThinkingSteps.length, 'sessionProp=', sessionId);
   const [toolCalls, setToolCalls] = useState([]); // [{tool, params, result, durationMs, isPending, outputChunks, requiresApproval}]
   const [content, setContent] = useState("");
@@ -78,6 +89,9 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
   const toolCallsRef = useRef(toolCalls);
   const thinkingTextRef = useRef("");
   const agentStepsRef = useRef([]);
+  const reasoningSegmentsRef = useRef([]); // [{iteration, text}]
+  const reasoningStartRef = useRef(null);
+  const reasoningElapsedRef = useRef(null);
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
@@ -103,6 +117,8 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
       images: imagesRef.current || [],
       agentThinkingSteps: agentStepsRef.current,
       thinkingText: thinkingTextRef.current,
+      thinking: joinReasoning(reasoningSegmentsRef.current),
+      truncated: false,
     })
   }));
 
@@ -143,6 +159,35 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
           },
         ]);
       }
+    });
+
+    chatService.onReasoning((data) => {
+      if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
+      const segments = reasoningSegmentsRef.current;
+      const iteration = data.iteration ?? 0;
+      let current = segments.length > 0 ? segments[segments.length - 1] : null;
+      if (!current || current.iteration !== iteration) {
+        current = { iteration, text: "" };
+        segments.push(current);
+      }
+      if (data.done) {
+        if (typeof data.text === "string" && data.text) {
+          current.text = data.text;
+        }
+        setReasoningStreaming(false);
+        if (reasoningStartRef.current != null) {
+          reasoningElapsedRef.current = Date.now() - reasoningStartRef.current;
+          setReasoningElapsedMs(reasoningElapsedRef.current);
+        }
+      } else {
+        if (reasoningStartRef.current == null) {
+          reasoningStartRef.current = Date.now();
+        }
+        current.text += data.delta || "";
+        setReasoningStreaming(true);
+        setStatus("streaming");
+      }
+      setReasoningText(joinReasoning(segments));
     });
 
     chatService.onToolCall((data) => {
@@ -218,6 +263,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
     chatService.onToken((data) => {
       if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
       setStatus("streaming");
+      setReasoningExpanded(false);
       setContent((prev) => prev + (data.content || ""));
     });
 
@@ -229,6 +275,22 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
       }
       debugLog('[StreamingMessage] RECEIVED chat:complete: responseLen=', (data.response||'').length, 'steps=', (data.steps||[]).length, 'agentStepsRefAtComplete=', agentStepsRef.current.length, 'session=', data.session_id);
       setStatus("complete");
+      setReasoningStreaming(false);
+      setReasoningExpanded(false);
+      if (reasoningStartRef.current != null && reasoningElapsedRef.current == null) {
+        reasoningElapsedRef.current = Date.now() - reasoningStartRef.current;
+        setReasoningElapsedMs(reasoningElapsedRef.current);
+      }
+      const isTruncated = data.truncated === true;
+      setTruncated(isTruncated);
+      // The final answer call's reasoning is authoritative; the live
+      // segments only stand in when chat:complete carries none.
+      const finalThinking = typeof data.thinking === "string" && data.thinking
+        ? data.thinking
+        : joinReasoning(reasoningSegmentsRef.current);
+      if (finalThinking) {
+        setReasoningText(finalThinking);
+      }
       if (data.response) {
         setContent(data.response);
       }
@@ -262,6 +324,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
                 success: tc.result?.success,
                 duration_ms: tc.durationMs,
                 output_preview: tc.result?.success ? tc.result.output : tc.result?.error,
+                artifact: tc.result?.artifact || null,
               })),
             }]
           : [];
@@ -282,6 +345,8 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
           // back and see what the agent was thinking on each step instead
           // of only the post-loop summary.
           agentThinkingSteps: agentStepsRef.current,
+          thinking: finalThinking,
+          truncated: isTruncated,
         });
       }
     });
@@ -444,6 +509,16 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
           </Box>
         )}
 
+        {/* Model reasoning, streamed live; collapses once the answer starts */}
+        {(reasoningText || reasoningStreaming) && (
+          <ThinkingCard
+            text={reasoningText}
+            streaming={reasoningStreaming}
+            elapsedMs={reasoningElapsedMs}
+            defaultExpanded={reasoningExpanded}
+          />
+        )}
+
         {/* Parallel execution indicator */}
         {isActive && toolCalls.filter(tc => tc.isPending).length > 1 && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
@@ -578,6 +653,16 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
               {content}
             </ReactMarkdown>
           </Box>
+        )}
+
+        {status === "complete" && truncated && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
+          >
+            Response reached the output limit.
+          </Typography>
         )}
 
         {/* Error display */}
