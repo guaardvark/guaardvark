@@ -7,6 +7,7 @@ into state for fine-grained drift visibility.
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -62,6 +63,12 @@ class PluginBundle(Reconciler):
         manifests = self.manifests()
         if not manifests:
             return 0
+        # Plugin bundles land in the shared backend venv: apply the same
+        # constraints as backend_venv.install(), or an enabled plugin's
+        # unbounded numpy/opencv line re-resolves the ML stack on every boot.
+        constraints = self.root / "backend" / "constraints.txt"
+        if constraints.is_file() and not os.environ.get("PIP_CONSTRAINT"):
+            os.environ["PIP_CONSTRAINT"] = str(constraints)
         with log_path.open("a", encoding="utf-8") as log:
             log.write(f"\n=== {self.id} install (members={self.members}) ===\n")
             log.flush()

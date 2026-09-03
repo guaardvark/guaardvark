@@ -145,10 +145,11 @@ Per-format dispatch in `get_documents_from_file()`: **Docling** for `.pdf`/`.doc
 markdown, existing readers for the rest. Docling returns `None` rather than raising when it cannot
 help, so the legacy readers remain the fallback chain.
 
-OCR is deliberately **not** installed: the OCR extra pulls `opencv-python>=5`, which requires
-`numpy>=2` and is incompatible with the pinned ML stack. Born-digital PDFs are read from the text
-layer and unaffected; a scanned PDF yields no text and says so rather than indexing an empty
-document.
+OCR is switched **off** in the Docling pipeline options: the `docling` package brings RapidOCR
+with it and would otherwise run OCR on every PDF page by default. Born-digital PDFs are read from
+the text layer and unaffected; a scanned PDF yields no text and says so rather than indexing an
+empty document. Turning OCR on is a separate decision that includes reviewing what the engine
+downloads.
 
 Chunks carry their source, section breadcrumb and page so a retrieved passage can cite itself, and
 `backend/utils/contextual_prepender.py` writes that context into the embedded text as well

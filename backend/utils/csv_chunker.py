@@ -13,6 +13,19 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+def _native_records(df) -> list:
+    """Sample rows as plain Python values.
+
+    The text of these rows is embedded and hashed, so it must not depend on how
+    pandas or numpy happen to box a scalar; `.item()` on anything that has it
+    pins the rendering to Python's own int/float/str.
+    """
+    out = []
+    for record in df.to_dict(orient="records"):
+        out.append({k: (v.item() if hasattr(v, "item") else v) for k, v in record.items()})
+    return out
+
+
 def _parse_csv_chunks(
     file_path: Path,
     encoding: str,
@@ -70,7 +83,7 @@ def _parse_csv_chunks(
             ]
             
             # Add sample data from this chunk
-            sample_rows = df_chunk.head(3).to_dict(orient="records")
+            sample_rows = _native_records(df_chunk.head(3))
             chunk_summary.append(f"Sample rows from chunk: {sample_rows}")
             
             chunk_document = Document(
@@ -216,7 +229,7 @@ def parse_csv_rows(
         for col in numeric_cols:
             summary_lines.append(f"Column '{col}': min={df[col].min()}, max={df[col].max()}, mean={df[col].mean()}")
         # Sample rows
-        sample_rows = df.head(3).to_dict(orient="records")
+        sample_rows = _native_records(df.head(3))
         summary_lines.append(f"Sample rows: {sample_rows}")
         summary_text = "\n".join(summary_lines)
         summary_doc = Document(

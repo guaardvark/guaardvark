@@ -106,11 +106,10 @@ av>=18.1.0
 pydantic-settings>=2.15.0
 gguf>=0.18.0
 
-# Face-restore / anatomy / ControlNet heavy CV deps moved to the OPTIONAL
-# extra backend/requirements-cv.txt (P3-10b): gfpgan, realesrgan, facexlib,
-# basicsr, lmdb, tb-nightly, controlnet-aux, mediapipe, opencv-python. They lack
-# aarch64/Pi wheels and aborted the whole install; only the (lazy, guarded)
-# face_restoration_service + anatomy_improvement_service use them.
+# Face-restore heavy CV deps moved to the OPTIONAL extra
+# backend/requirements-cv.txt (P3-10b): gfpgan, realesrgan, facexlib, basicsr,
+# lmdb, tb-nightly, opencv-python. They lack aarch64/Pi wheels and aborted the
+# whole install; only the (lazy, guarded) face_restoration_service uses them.
 # scipy/tqdm/PyYAML stay here — they're shared transitive deps of the always-on
 # stack (transformers/huggingface_hub require tqdm+pyyaml), not CV-exclusive.
 scipy>=1.10.0  # used by image/audio paths; also a GFPGAN dep
@@ -126,6 +125,7 @@ piper-tts==1.7.0
 onnxruntime==1.22.1
 pydub==0.25.1
 librosa>=0.10.2  # Audio decode + duration probe in voice_api.py
+numba>=0.61  # librosa's JIT; its numpy ceiling is what bounds the numpy line in constraints.txt
 soundfile>=0.14.0  # WAV/FLAC IO for voice_api + audio_foundry backends
 
 # Testing Dependencies

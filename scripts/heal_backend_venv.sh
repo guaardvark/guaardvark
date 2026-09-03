@@ -145,10 +145,6 @@ repin_numpy_setuptools() {
     else
         log "numpy/setuptools pins already hold — no re-pin needed."
     fi
-    # Keep opencv on the project pin if CV deps bumped it to 5.x
-    if "$VENV_PYTHON" -c 'import cv2' >/dev/null 2>&1; then
-        "$VENV_PIP" install 'opencv-python==4.8.1.78' --quiet 2>&1 | tail -2 || true
-    fi
 }
 
 heal_backend_core() {
