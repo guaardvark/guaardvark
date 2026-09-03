@@ -16,7 +16,7 @@ python-dotenv==1.2.2
 # Background Tasks & Caching
 celery==5.4.0
 redis==5.0.4
-eventlet==0.40.3
+eventlet==0.41.2
 
 # Data Processing & Analysis
 numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
