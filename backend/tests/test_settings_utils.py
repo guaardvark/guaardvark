@@ -54,8 +54,8 @@ class TestGetSetting:
                 mock_db.session.get.return_value = None
                 with patch.dict("os.environ", {}, clear=False):
                     import os
-                    os.environ.pop("GUAARDVARK_RAG_DEBUG", None)
-                    result = get_setting("rag_debug_enabled", default=True, cast=bool)
+                    os.environ.pop("GUAARDVARK_ADVANCED_RAG", None)
+                    result = get_setting("advanced_rag_enabled", default=True, cast=bool)
                     assert result is True
 
     def test_cast_bool_truthy_values(self):
@@ -67,7 +67,7 @@ class TestGetSetting:
                 for truthy in ["true", "True", "1", "yes"]:
                     mock_setting.value = truthy
                     mock_db.session.get.return_value = mock_setting
-                    assert get_setting("rag_debug_enabled", default=False, cast=bool) is True
+                    assert get_setting("advanced_rag_enabled", default=False, cast=bool) is True
 
     def test_cast_bool_falsy_values(self):
         """Bool cast handles 'false', 'False', '0', 'no', ''."""
@@ -78,7 +78,7 @@ class TestGetSetting:
                 for falsy in ["false", "False", "0", "no", ""]:
                     mock_setting.value = falsy
                     mock_db.session.get.return_value = mock_setting
-                    assert get_setting("rag_debug_enabled", default=True, cast=bool) is False
+                    assert get_setting("advanced_rag_enabled", default=True, cast=bool) is False
 
     def test_cast_int(self):
         """Int cast works for budget values."""
@@ -110,7 +110,7 @@ class TestSaveSetting:
         with patch("backend.utils.settings_utils.has_app_context", return_value=True):
             with patch("backend.utils.settings_utils.db") as mock_db:
                 mock_db.session.get.return_value = None
-                save_setting("rag_debug_enabled", "false")
+                save_setting("advanced_rag_enabled", "false")
                 mock_db.session.add.assert_called_once()
                 mock_db.session.commit.assert_called_once()
 

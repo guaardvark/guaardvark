@@ -94,7 +94,6 @@ SYSTEM_SETTING_KEYS = {
 ENV_VAR_MAP = {
     "enhanced_context_enabled": "GUAARDVARK_ENHANCED_CONTEXT",
     "advanced_rag_enabled": "GUAARDVARK_ADVANCED_RAG",
-    "rag_debug_enabled": "GUAARDVARK_RAG_DEBUG",
     "claude_escalation_mode": "GUAARDVARK_CLAUDE_ESCALATION_MODE",
     "claude_monthly_budget": "GUAARDVARK_CLAUDE_TOKEN_BUDGET",
     "vision_pipeline_enabled": "GUAARDVARK_VISION_PIPELINE",
