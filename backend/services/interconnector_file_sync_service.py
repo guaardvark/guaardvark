@@ -99,9 +99,9 @@ class InterconnectorFileSyncService:
             "backend/requirements.txt",
             "backend/requirements-base.txt",
             # requirements-cv was never listed (pre-existing gap): the CV extra
-            # and its jax/jaxlib pins silently never reached clients.
+            # and its pins silently never reached clients.
             "backend/requirements-cv.txt",
-            # Global pip constraints (numpy<2 convergence) — consumed via
+            # Global pip constraints (numpy line, opencv distributions) — consumed via
             # PIP_CONSTRAINT by install_pytorch.sh, comfyui install_deps.sh and
             # heal_backend_venv.sh; without it clients keep the numpy churn.
             "backend/constraints.txt",

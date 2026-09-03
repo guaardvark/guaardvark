@@ -436,14 +436,13 @@ check_python_version() {
     local major=${ver%%.*}
     local minor=${ver#*.}
     minor=${minor%%.*}
-    # Python 3.12 ONLY. The ML stack (numpy<2.0, mediapipe, basicsr/gfpgan,
-    # realesrgan) has no wheels for 3.13/3.14 yet, so anything newer sails into
-    # a marathon of build failures (issue #35). Fail fast with the real reason
-    # instead. NOTE: the old logic was inverted — it returned success for 3.13+
-    # and fell through to a failure for 3.12, the one version that works.
-    # Platform-aware install hint. The REQUIREMENT stays 3.12 everywhere (the
-    # numpy<2.0 / pandas==2.2.2 base pins have no 3.13+ wheels; CV deps are
-    # arch-skipped) — only the "how to get 3.12" guidance differs per OS/arch.
+    # Python 3.12 ONLY. pandas 2.2.2 and the face-restoration extra
+    # (basicsr/gfpgan/realesrgan) have no wheels for 3.13/3.14 yet, so anything
+    # newer sails into a marathon of build failures (issue #35). Fail fast with
+    # the real reason instead. NOTE: the old logic was inverted — it returned
+    # success for 3.13+ and fell through to a failure for 3.12, the one version
+    # that works. Platform-aware install hint. The REQUIREMENT stays 3.12
+    # everywhere — only the "how to get 3.12" guidance differs per OS/arch.
     # Defaults to the apt hint if detect_platform didn't run (older checkout).
     local py_hint
     case "${GUAARDVARK_OS:-linux}/${GUAARDVARK_ARCH:-x86_64}" in
@@ -456,7 +455,7 @@ check_python_version() {
         return 1
     fi
     if [ "$minor" -ge 13 ]; then
-        vader_error "Python $ver is not supported yet — the ML deps (numpy<2.0, pandas) have no wheels for 3.13+. Use Python 3.12. $py_hint"
+        vader_error "Python $ver is not supported yet — the ML deps (pandas 2.2.2, basicsr/gfpgan) have no wheels for 3.13+. Use Python 3.12. $py_hint"
         return 1
     fi
     return 0
@@ -1386,13 +1385,12 @@ ensure_backend_python_environment() {
         ensure_pip_tmpdir
 
         # Constrain EVERY bootstrap pip pass, not just install_pytorch.sh. The
-        # requirements-cv resolve used to run unconstrained: once a numpy>=2-only
-        # transitive (opencv-contrib-python 5.x, tifffile 2026.4+, ml-dtypes 0.6)
-        # is in the venv, that pass upgrades numpy to 2.x, the constrained torch
-        # pass drags it back to 1.26.4, and every boot loops through a full torch
-        # re-stage. Operator-set PIP_CONSTRAINT wins; unset again before the
-        # reconciler — isolated plugin venvs manage their own stacks and must not
-        # inherit these caps (see the NOTE in backend/constraints.txt).
+        # requirements-cv resolve used to run unconstrained: a transitive with a
+        # different numpy floor moved numpy, the constrained torch pass moved it
+        # back, and every boot looped through a full torch re-stage. Operator-set
+        # PIP_CONSTRAINT wins; unset again before the reconciler — isolated
+        # plugin venvs manage their own stacks and must not inherit these caps
+        # (see the NOTE in backend/constraints.txt).
         _gv_own_constraint=0
         if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$BACKEND_DIR/constraints.txt" ]; then
             export PIP_CONSTRAINT="$BACKEND_DIR/constraints.txt"
@@ -1446,8 +1444,8 @@ ensure_backend_python_environment() {
                 "$VENV_DIR/bin/pip" uninstall -y nvidia-ml-py pynvml 2>/dev/null | tail -1 || true
             fi
             # install_pytorch.sh's `pip install --upgrade ... --index-url .../whl/<ver>` can
-            # drag numpy 2.x + an old setuptools back in, violating the ML-stack pins
-            # (numpy<2.0) and llama-index (setuptools>=80.9.0). Re-assert them without
+            # drag a different numpy + an old setuptools back in, violating the ML-stack
+            # pins (scripts/lib/venv_pins.sh) and llama-index (setuptools>=80.9.0). Re-assert them without
             # touching torch (--no-deps) — but only the ones actually wrong: the probe
             # is offline, --force-reinstall is not (scripts/lib/venv_pins.sh).
             _gv_bad_pins="$(venv_pins_violated "$VENV_DIR/bin/python" "${GV_ML_PINS[@]}")" || true

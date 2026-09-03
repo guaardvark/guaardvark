@@ -249,11 +249,20 @@ heal_comfyui_deps() {
 
 verify_heal() {
     log "=== Step 6: verification ==="
-    local failed=0
+    local failed=0 bad
+    # The ML-stack pins are the source of truth (scripts/lib/venv_pins.sh);
+    # a hard-coded version here drifted from them once and failed every heal.
+    bad="$(venv_pins_violated "$VENV_PYTHON" "${GV_ML_PINS[@]}")" || true
+    if [ -n "$bad" ]; then
+        log "  FAIL pins: ${bad//$'\n'/ }"
+        failed=1
+    else
+        log "  OK  pins (${GV_ML_PINS[*]})"
+    fi
     "$VENV_PYTHON" -c "
 import sys
 checks = [
-    ('numpy 1.x', 'import numpy; assert numpy.__version__.startswith(\"1.\")'),
+    ('numpy', 'import numpy'),
     ('torch', 'import torch'),
     ('flask', 'import flask'),
     ('celery', 'import celery'),
