@@ -93,7 +93,7 @@ onnxruntime==1.22.1
 
 # Testing Dependencies
 pytest==9.0.3
-pytest-timeout==2.3.1
+pytest-timeout==2.4.0
 pytest-playwright==0.8.0  # 0.7.0 caps pytest<9.0.0; 0.8.0 supports pytest 9.x
 playwright==1.52.0
 
