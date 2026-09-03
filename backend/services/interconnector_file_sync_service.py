@@ -80,10 +80,6 @@ class InterconnectorFileSyncService:
             "backend/mcp/",
             "backend/rule_bundles/",
             "backend/lesson_bundles/",
-            # Prompt presets, gallery index and language table for the MiniMax
-            # H3 prompt compiler (backend/services/h3_prompt_compiler.py). Data,
-            # not a package, so it needs its own line like the bundles above.
-            "backend/prompt_bundles/",
             "backend/static/",
             "backend/oom_priority.py",
             "backend/schema.sql",

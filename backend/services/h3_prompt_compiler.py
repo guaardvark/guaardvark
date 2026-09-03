@@ -14,7 +14,8 @@ descriptions and returns the same structure, which is rendered and validated
 again; on any failure the deterministic prompt stands.
 
 The structure follows MiniMax's published prompt-writing guide (see
-backend/prompt_bundles/minimax_h3/NOTICE.md for the pointer). Base modes:
+plugins/comfyui/scripts/prompt_bundles/minimax_h3/NOTICE.md for the
+pointer). Base modes:
 an alignment instruction for keyframe modes, then
 ``integrated_multimodal_description``, ``overall_soundscape``,
 ``non_diegetic_music``. Reference mode: ``subject_definitions``, ``summary``,
@@ -30,9 +31,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+from backend.config import GUAARDVARK_ROOT
+
 logger = logging.getLogger(__name__)
 
-BUNDLE_DIR = Path(__file__).resolve().parent.parent / "prompt_bundles" / "minimax_h3"
+# Presets live beside the ComfyUI plugin scripts that run the model, under the
+# same root config.py uses for plugins/comfyui.
+BUNDLE_DIR = Path(GUAARDVARK_ROOT) / "plugins" / "comfyui" / "scripts" / "prompt_bundles" / "minimax_h3"
 NATIVE_FPS = 24
 MIN_SECONDS = 3.0
 MAX_SECONDS = 15.0

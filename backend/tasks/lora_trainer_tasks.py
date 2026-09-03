@@ -7,6 +7,7 @@ and the cast endpoint already records the user's chosen action."""
 from __future__ import annotations
 import json
 import logging
+import os
 from pathlib import Path
 from celery import Celery
 from flask import current_app
@@ -17,8 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 def _output_dir() -> str:
+    from backend.config import STORAGE_DIR
     return (current_app.config.get("LORA_OUTPUT_DIR")
-            or "data/training/loras")
+            or os.path.join(STORAGE_DIR, "training", "loras"))
 
 
 def _train_impl(subject_id: int, job_id: str | None = None) -> dict:

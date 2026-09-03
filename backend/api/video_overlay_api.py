@@ -29,6 +29,7 @@ from pathlib import Path
 
 from flask import Blueprint, request
 
+from backend.config import OUTPUT_DIR
 from backend.models import Document as DBDocument, db
 from backend.services.output_registration import register_file
 from backend.services.video_text_overlay import VideoOverlayError, add_text_to_video
@@ -254,7 +255,7 @@ def render_timeline_endpoint():
 
     # Source-named output via the resolver (Phase 3 of filename plan): pick
     # a unique UUID suffix to avoid collisions under concurrent renders.
-    editor_renders_dir = Path("data/outputs/videos/editor-renders")
+    editor_renders_dir = Path(OUTPUT_DIR) / "videos" / "editor-renders"
     editor_renders_dir.mkdir(parents=True, exist_ok=True)
     source_stem = Path(video_doc.filename).stem
     output_path = (editor_renders_dir / f"{source_stem}_{uuid.uuid4().hex[:8]}.mp4").resolve()

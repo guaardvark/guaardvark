@@ -244,7 +244,7 @@ def _clip_dir(mv_id: int) -> Path:
     try:
         from backend.config import OUTPUT_DIR
     except Exception:
-        OUTPUT_DIR = os.path.join(os.getcwd(), "data", "outputs")
+        OUTPUT_DIR = str(Path(__file__).resolve().parents[2] / "data" / "outputs")
     d = Path(OUTPUT_DIR) / "videos" / f"music_video_{mv_id}" / "clips"
     d.mkdir(parents=True, exist_ok=True)
     return d

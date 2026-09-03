@@ -20,7 +20,7 @@ Everything the H3 release can do, wired through the product, on a branch until i
   into the model's format (numbered shots with cut times that add up to the clip, speaker
   ids, tagged dialogue in the model card's eleven languages), with an optional polish pass
   by the local director model that is discarded if it touches the dialogue. Eight authored
-  prompt presets ship in `backend/prompt_bundles/minimax_h3`.
+  prompt presets ship in `plugins/comfyui/scripts/prompt_bundles/minimax_h3`.
 - **Film Crew on H3.** A production can name its video model; on a native-audio model each
   scene renders as windows of at most fifteen seconds with the cast's lines spoken by the
   model, joined on the storyboard stills, no voiceover laid over them, the score mixed

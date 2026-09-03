@@ -27,6 +27,15 @@ logger = logging.getLogger(__name__)
 
 # Known output bases for generators that write outside UPLOAD_DIR. New
 # generators that land outside UPLOAD_DIR should add their base here.
+def _project_root() -> Path:
+    """Repo root the generator bases hang off; never the process cwd."""
+    try:
+        from backend.config import GUAARDVARK_ROOT
+        return Path(GUAARDVARK_ROOT)
+    except Exception:
+        return Path(__file__).resolve().parents[2]
+
+
 _GENERATOR_OUTPUT_BASES = [
     "plugins/comfyui/ComfyUI/output",
     "data/outputs",
@@ -68,11 +77,11 @@ def _candidates_for_doc(doc) -> list[Path]:
         pass
 
     # 3. Project-root relative.
+    base_root = _project_root()
     if raw_path:
-        candidates.append(Path.cwd() / raw_path)
+        candidates.append(base_root / raw_path)
 
     # 4 + 5. Generator output bases — try basename(path) and filename.
-    base_root = Path.cwd()
     leaf_path = Path(raw_path).name if raw_path else ""
     for base in _GENERATOR_OUTPUT_BASES:
         full_base = base_root / base
