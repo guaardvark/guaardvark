@@ -13,12 +13,13 @@ Beat runs with ``--scheduler=backend.celery_beat_gates:GatedScheduler``.
 """
 from __future__ import annotations
 
+import heapq
 import json
 import logging
 import time
 from typing import Callable, Dict, Optional
 
-from celery.beat import PersistentScheduler
+from celery.beat import PersistentScheduler, event_t
 from celery.schedules import schedstate
 
 logger = logging.getLogger(__name__)
@@ -157,8 +158,33 @@ class GatedScheduler(PersistentScheduler):
         if gates:
             logger.info("beat feature gates: %s", ", ".join(f"{k}→{v}" for k, v in sorted(gates.items())))
 
-    def is_due(self, entry):
+    def _closed_gate(self, entry) -> Optional[str]:
         gate = (self.app.conf.get("beat_feature_gates") or {}).get(entry.name)
         if gate and not self.gate_cache.is_open(gate):
-            return schedstate(is_due=False, next=GATE_TTL_SECONDS)
+            return gate
+        return None
+
+    def tick(self, *args, **kwargs):
+        # Celery's tick looks only at the top of its heap. Answering "not due"
+        # for a closed entry there would leave it on top and starve every
+        # entry behind it (observed: beat sent nothing for eleven minutes).
+        # So a closed entry is moved GATE_TTL_SECONDS into the future and the
+        # tick repeats at once for whatever is next.
+        heap = self._heap
+        if heap and self.schedules_equal(self.old_schedulers, self.schedule):
+            event = heap[0]
+            if self._closed_gate(event.entry):
+                heapq.heappop(heap)
+                heapq.heappush(
+                    heap,
+                    event_t(self._when(event.entry, GATE_TTL_SECONDS), event.priority, event.entry),
+                )
+                return 0
+        return super().tick(*args, **kwargs)
+
+    def is_due(self, entry):
+        # Reached only when the heap was just rebuilt (tick above has not had
+        # its turn yet); answer "soon" so the next tick can rotate the entry.
+        if self._closed_gate(entry):
+            return schedstate(is_due=False, next=1.0)
         return super().is_due(entry)

@@ -55,10 +55,32 @@ def test_closed_gate_holds_the_entry_and_open_gate_defers_to_it(app):
 
     held = sched.is_due(_Entry("idle-check"))
     assert held.is_due is False
-    assert held.next == GATE_TTL_SECONDS
+    assert held.next == 1.0  # "ask again right away" — tick() does the real holding
 
     state["open"] = True
     assert sched.is_due(_Entry("idle-check")) == ("entry-decided", 5.0)
+
+
+def test_tick_rotates_a_closed_entry_off_the_heap_top(app, monkeypatch):
+    """Regression: a closed entry left on top starved every other entry."""
+    import heapq
+    from celery.beat import event_t
+
+    gate_beat_entries(app, {"heartbeat": "interconnector_client"})
+    sched = _scheduler(app, GateCache({"interconnector_client": lambda: False}, ttl=0))
+    entries = {"heartbeat": _Entry("heartbeat"), "core": _Entry("core")}
+    sched._store = {"entries": entries}  # PersistentScheduler.schedule reads its shelve here
+    sched.old_schedulers = entries
+    monkeypatch.setattr(GatedScheduler, "schedules_equal", lambda self, a, b: True)
+    monkeypatch.setattr(GatedScheduler, "_when", lambda self, entry, secs: 1000.0 + secs)
+    sched._heap = [event_t(10.0, 5, sched.schedule["heartbeat"]), event_t(20.0, 5, sched.schedule["core"])]
+    heapq.heapify(sched._heap)
+    monkeypatch.setattr(gates.PersistentScheduler, "tick", lambda self, *a, **k: "base-tick")
+
+    assert sched.tick() == 0  # closed entry moved out of the way, come straight back
+    assert sched._heap[0].entry.name == "core"
+    assert sched._heap[1].time == 1000.0 + GATE_TTL_SECONDS
+    assert sched.tick() == "base-tick"  # the core entry gets its turn
 
 
 def test_ungated_entry_is_untouched(app):
