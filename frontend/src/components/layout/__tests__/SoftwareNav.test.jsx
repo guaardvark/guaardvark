@@ -48,6 +48,13 @@ describe("SoftwareNav", () => {
     expect(screen.queryByRole("tablist", { name: "Workspace tools" })).not.toBeInTheDocument();
   });
 
+  it("pins the catalog's actions and Settings on the right", () => {
+    renderNav("/chat");
+    expect(screen.getByRole("button", { name: "System Metrics" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agent Screen" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  });
+
   it("surfaces pages the sidebar does not list", () => {
     renderNav("/chat");
     expect(screen.getByRole("tab", { name: /Voice Chat/ })).toBeInTheDocument();

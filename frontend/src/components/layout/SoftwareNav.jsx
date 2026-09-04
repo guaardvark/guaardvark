@@ -89,6 +89,11 @@ const SoftwareNav = () => {
   const activeWorkspaceId = currentItem?.workspace || null;
   const stripTools = activeWorkspaceId ? toolsForWorkspace(catalog, activeWorkspaceId) : [];
   const showStrip = stripTools.length > 1;
+  // Pinned right-hand buttons exist only when the brand's catalog carries them.
+  const byId = (id) => catalog.find((item) => item.id === id);
+  const metricsAction = byId("system-metrics");
+  const agentScreenAction = byId("agent-screen");
+  const settingsItem = byId("settings");
 
   const goWorkspace = (workspaceId) => {
     const tools = toolsForWorkspace(catalog, workspaceId);
@@ -199,34 +204,40 @@ const SoftwareNav = () => {
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0, ml: 0.5 }}>
-            <Tooltip title="System Metrics">
-              <ButtonBase
-                onClick={() => setMetricsModalOpen((open) => !open)}
-                aria-label="System Metrics"
-                sx={pinButtonSx(metricsModalOpen, "primary.main")}
-              >
-                {catalog.find((item) => item.id === "system-metrics")?.icon}
-              </ButtonBase>
-            </Tooltip>
-            <Tooltip title="Agent Screen">
-              <ButtonBase
-                onClick={() => setAgentScreenOpen(!agentScreenOpen)}
-                aria-label="Agent Screen"
-                sx={pinButtonSx(agentScreenOpen, "success.main")}
-              >
-                {catalog.find((item) => item.id === "agent-screen")?.icon}
-              </ButtonBase>
-            </Tooltip>
-            <Tooltip title="Settings">
-              <ButtonBase
-                component={NavLink}
-                to="/settings"
-                aria-label="Settings"
-                sx={pinButtonSx(pathIsActive("/settings", location.pathname), "primary.main")}
-              >
-                {catalog.find((item) => item.id === "settings")?.icon}
-              </ButtonBase>
-            </Tooltip>
+            {metricsAction && (
+              <Tooltip title={metricsAction.label}>
+                <ButtonBase
+                  onClick={() => setMetricsModalOpen((open) => !open)}
+                  aria-label={metricsAction.label}
+                  sx={pinButtonSx(metricsModalOpen, "primary.main")}
+                >
+                  {metricsAction.icon}
+                </ButtonBase>
+              </Tooltip>
+            )}
+            {agentScreenAction && (
+              <Tooltip title={agentScreenAction.label}>
+                <ButtonBase
+                  onClick={() => setAgentScreenOpen(!agentScreenOpen)}
+                  aria-label={agentScreenAction.label}
+                  sx={pinButtonSx(agentScreenOpen, "success.main")}
+                >
+                  {agentScreenAction.icon}
+                </ButtonBase>
+              </Tooltip>
+            )}
+            {settingsItem && (
+              <Tooltip title={settingsItem.label}>
+                <ButtonBase
+                  component={NavLink}
+                  to={hrefForItem(settingsItem)}
+                  aria-label={settingsItem.label}
+                  sx={pinButtonSx(pathIsActive(settingsItem.path, location.pathname), "primary.main")}
+                >
+                  {settingsItem.icon}
+                </ButtonBase>
+              </Tooltip>
+            )}
           </Box>
         </Box>
 
@@ -283,14 +294,18 @@ const SoftwareNav = () => {
         )}
       </Box>
 
-      <SystemMetricsModal
-        open={metricsModalOpen}
-        onClose={() => setMetricsModalOpen(false)}
-      />
-      <AgentScreenViewer
-        open={agentScreenOpen}
-        onClose={() => setAgentScreenOpen(false)}
-      />
+      {metricsAction && (
+        <SystemMetricsModal
+          open={metricsModalOpen}
+          onClose={() => setMetricsModalOpen(false)}
+        />
+      )}
+      {agentScreenAction && (
+        <AgentScreenViewer
+          open={agentScreenOpen}
+          onClose={() => setAgentScreenOpen(false)}
+        />
+      )}
     </>
   );
 };
