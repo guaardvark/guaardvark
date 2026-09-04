@@ -397,6 +397,17 @@ def create_celery_app():
     except ImportError as e:
         logger.warning(f"Could not import social outreach tasks: {e}")
 
+    # Beat entries a Settings toggle governs are held back by the scheduler
+    # while the toggle is off (backend/celery_beat_gates.py); declared here,
+    # next to the entries, so a new loop cannot be added without deciding.
+    from backend.celery_beat_gates import gate_beat_entries
+    gate_beat_entries(celery_app, {
+        'social-outreach-reddit-tick': 'social_outreach',
+        'social-outreach-self-share-tick': 'social_outreach',
+        'social-outreach-process-approved': 'social_outreach',
+        'social-outreach-reap-stuck-processing': 'social_outreach',
+    })
+
     try:
         from backend.tasks.memory_maintenance_tasks import cleanup_old_session_memory  # noqa: F401
         logger.info("Memory maintenance tasks imported successfully")
@@ -465,6 +476,8 @@ def create_celery_app():
             'schedule': float(os.environ.get("INTERCONNECTOR_HEARTBEAT_INTERVAL_S", 60)),
             'options': {'queue': 'health'},
         }
+        # Beat holds it back unless this node is an enabled client with a master.
+        gate_beat_entries(celery_app, {'interconnector-client-heartbeat': 'interconnector_client'})
         logger.info("Interconnector client-heartbeat task registered and scheduled")
     except ImportError as e:
         logger.warning(f"Could not import interconnector client heartbeat: {e}")

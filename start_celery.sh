@@ -142,6 +142,7 @@ start_beat() {
   local schedule_path="$SCRIPT_DIR/data/celerybeat-schedule"
 
   nohup celery -A backend.celery_app.celery beat \
+    --scheduler=backend.celery_beat_gates:GatedScheduler \
     --loglevel=info \
     --schedule="$schedule_path" \
     --pidfile="$SCRIPT_DIR/pids/celery_beat.pid" \
@@ -165,6 +166,7 @@ start_beat() {
   fi
   clean_beat_schedule
   nohup celery -A backend.celery_app.celery beat \
+    --scheduler=backend.celery_beat_gates:GatedScheduler \
     --loglevel=info \
     --schedule="$schedule_path" \
     --pidfile="$SCRIPT_DIR/pids/celery_beat.pid" \

@@ -106,6 +106,8 @@ def create_autoresearch_tasks(celery_app):
 
 def schedule_autoresearch_tasks(celery_app):
     """Register autoresearch Beat schedule."""
+    from backend.celery_beat_gates import gate_beat_entries
+
     celery_app.conf.beat_schedule.update({
         "autoresearch-idle-check": {
             "task": "autoresearch.check_idle",
@@ -113,3 +115,6 @@ def schedule_autoresearch_tasks(celery_app):
             "schedule": 600.0,
         },
     })
+    # Not sent at all while the Settings toggle is off (the task's own check
+    # stays as the second line of defence).
+    gate_beat_entries(celery_app, {"autoresearch-idle-check": "autoresearch"})
