@@ -480,6 +480,16 @@ class BatchImageGenerator:
             ram_gb = max(ram_gb, model_ram)
         return vram_mb, ram_gb
 
+    def _gpu_fault_message(self) -> Optional[str]:
+        """The offline generator's recorded GPU fault, or None."""
+        getter = getattr(self.image_generator, "gpu_fault_message", None)
+        if not callable(getter):
+            return None
+        try:
+            return getter()
+        except Exception:
+            return None
+
     def _batch_uses_cuda_offline_gen(self) -> bool:
         return bool(
             self.image_generator
@@ -1168,6 +1178,22 @@ class BatchImageGenerator:
                                         logger.error(f"Task failed: {e}")
                                         with self.batch_lock:
                                             batch_status.failed_images += 1
+
+                            # A context-killing CUDA error fails every later prompt
+                            # the same way; trying them only repeats the error once
+                            # per prompt. Fail the rest now and say why once.
+                            fault = self._gpu_fault_message()
+                            if fault and prompt_index < len(request.prompts):
+                                skipped = len(request.prompts) - prompt_index
+                                logger.error(
+                                    "Batch %s: GPU fault — failing the remaining %d "
+                                    "prompt(s) without trying them: %s",
+                                    batch_id, skipped, fault,
+                                )
+                                with self.batch_lock:
+                                    batch_status.failed_images += skipped
+                                    batch_status.error = fault
+                                prompt_index = len(request.prompts)
 
                     batch_status.end_time = datetime.now()
                     if batch_status.status == "cancelled":

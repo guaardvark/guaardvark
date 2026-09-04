@@ -4,6 +4,14 @@
 
 Everything the H3 release can do, wired through the product, on a branch until it merges.
 
+- **GPU faults are reported as GPU faults.** A CUDA error that kills the context (launch
+  timeout, illegal memory access, device-side assert, uncorrectable ECC and kin) is now
+  recognised in one place. The backend records it, refuses further GPU work immediately
+  instead of retrying it, fails the rest of a running batch without trying each prompt, and
+  tells the user the backend needs a restart. Before this, one driver watchdog reset left
+  every later image request failing for hours with "pipeline failed to load — usually VRAM
+  pressure or an incomplete download". Status reports the fault under `gpu_fault`.
+
 - **Capability contract.** Every video model entry can declare modes (text, first frame,
   last frame, first+last, reference), audio in and out, whether it samples with CFG, its
   frame rule and rate, clip bounds, a step floor and default, speed profiles, style
