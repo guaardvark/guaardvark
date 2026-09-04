@@ -7,11 +7,11 @@ import SoftwareNav from "../SoftwareNav";
 
 // This test describes the core catalog; a distribution's brand.jsx may
 // carry another one, so the brand is pinned to the core lists here.
-vi.mock("../../../config/brand", async () => {
+vi.mock("../../../config/brand", async (importOriginal) => {
+  const actual = await importOriginal();
   const { CORE_NAV_CATALOG, WORKSPACES } = await import("../../../config/navCatalog");
-  return {
-    default: { appName: "Guaardvark", navCatalog: CORE_NAV_CATALOG, workspaces: WORKSPACES },
-  };
+  const brand = { ...actual.default, navCatalog: CORE_NAV_CATALOG, workspaces: WORKSPACES };
+  return { ...actual, brand, default: brand };
 });
 
 vi.mock("../../../hooks/usePendingApprovals", () => ({
