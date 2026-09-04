@@ -5,6 +5,15 @@ import { MemoryRouter } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import SoftwareNav from "../SoftwareNav";
 
+// This test describes the core catalog; a distribution's brand.jsx may
+// carry another one, so the brand is pinned to the core lists here.
+vi.mock("../../../config/brand", async () => {
+  const { CORE_NAV_CATALOG, WORKSPACES } = await import("../../../config/navCatalog");
+  return {
+    default: { appName: "Guaardvark", navCatalog: CORE_NAV_CATALOG, workspaces: WORKSPACES },
+  };
+});
+
 vi.mock("../../../hooks/usePendingApprovals", () => ({
   usePendingApprovals: () => ({ count: 0 }),
 }));
