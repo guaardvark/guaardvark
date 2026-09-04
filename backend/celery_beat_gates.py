@@ -31,8 +31,14 @@ _TRUE = ("true", "1", "yes", "on")
 _engine = None
 
 
-def _read_setting(key: str, default: Optional[str] = None) -> Optional[str]:
-    """Read one settings row without a Flask app context (beat has none)."""
+def _read_setting(key: str, default: Optional[str] = None, table: str = "settings") -> Optional[str]:
+    """Read one row of a key/value settings table without a Flask app context.
+
+    Beat has no app context. ``table`` is one of the two key/value tables the
+    toggles live in ("settings" or "system_settings"); it is never user input.
+    """
+    if table not in ("settings", "system_settings"):
+        raise ValueError(f"unexpected settings table {table!r}")
     global _engine
     try:
         from sqlalchemy import create_engine, text
@@ -43,7 +49,7 @@ def _read_setting(key: str, default: Optional[str] = None) -> Optional[str]:
             _engine = create_engine(config.DATABASE_URL, pool_pre_ping=True)
         with _engine.connect() as conn:
             row = conn.execute(
-                text("SELECT value FROM settings WHERE key = :key"), {"key": key}
+                text(f"SELECT value FROM {table} WHERE key = :key"), {"key": key}
             ).fetchone()
         if row and row[0] is not None:
             return str(row[0])
@@ -66,6 +72,15 @@ def social_outreach_gate() -> bool:
     return _flag("social_outreach_enabled")
 
 
+def self_improvement_gate() -> bool:
+    """Self-improvement analysis loop; mirrors
+    self_improvement_service._is_self_improvement_enabled (no row → on)."""
+    raw = _read_setting("self_improvement_enabled", None, table="system_settings")
+    if raw is None:
+        return True
+    return raw.strip().lower() in _TRUE
+
+
 def interconnector_client_gate() -> bool:
     """This node is an enabled Interconnector *client* with a master URL."""
     raw = _read_setting("interconnector_config")
@@ -85,6 +100,7 @@ def interconnector_client_gate() -> bool:
 GATES: Dict[str, Callable[[], bool]] = {
     "autoresearch": autoresearch_gate,
     "social_outreach": social_outreach_gate,
+    "self_improvement": self_improvement_gate,
     "interconnector_client": interconnector_client_gate,
 }
 

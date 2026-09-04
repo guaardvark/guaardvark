@@ -154,3 +154,10 @@ def schedule_self_improvement_tasks(celery_app: Celery):
             "schedule": crontab(minute=15, hour="*/3"),  # Every 3 hours — are we clicking straight?
         },
     })
+    # Held back by beat while self-improvement is switched off in Settings.
+    from backend.celery_beat_gates import gate_beat_entries
+    gate_beat_entries(celery_app, {
+        "self-improvement-check": "self_improvement",
+        "uncle-claude-advice": "self_improvement",
+        "servo-optimization": "self_improvement",
+    })

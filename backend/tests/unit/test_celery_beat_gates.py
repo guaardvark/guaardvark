@@ -105,14 +105,17 @@ def test_failing_or_unknown_predicate_fails_safe():
 )
 def test_interconnector_client_gate_reads_the_config_row(monkeypatch, config, expected):
     raw = json.dumps(config) if config is not None else None
-    monkeypatch.setattr(gates, "_read_setting", lambda key, default=None: raw if key == "interconnector_config" else default)
+    monkeypatch.setattr(
+        gates, "_read_setting",
+        lambda key, default=None, table="settings": raw if key == "interconnector_config" else default,
+    )
     assert interconnector_client_gate() is expected
 
 
 def test_flag_gates_read_their_settings_keys(monkeypatch):
     seen = {}
 
-    def fake_read(key, default=None):
+    def fake_read(key, default=None, table="settings"):
         seen[key] = True
         return "true"
 
@@ -122,10 +125,30 @@ def test_flag_gates_read_their_settings_keys(monkeypatch):
     assert set(seen) == {"rag_autoresearch_auto_enabled", "social_outreach_enabled"}
 
 
+@pytest.mark.parametrize("raw, expected", [(None, True), ("true", True), ("false", False), ("FALSE ", False)])
+def test_self_improvement_gate_defaults_on_without_a_row(monkeypatch, raw, expected):
+    def fake_read(key, default=None, table="settings"):
+        assert (key, table) == ("self_improvement_enabled", "system_settings")
+        return raw if raw is not None else default
+
+    monkeypatch.setattr(gates, "_read_setting", fake_read)
+    assert gates.self_improvement_gate() is expected
+
+
+def test_read_setting_refuses_an_unknown_table():
+    with pytest.raises(ValueError):
+        gates._read_setting("k", table="users")
+
+
 def test_every_toggle_governed_loop_declares_its_gate():
     """The registrations in celery_app / rag_autoresearch_tasks stay declared."""
     from backend.tasks.rag_autoresearch_tasks import schedule_autoresearch_tasks
 
+    from backend.tasks.self_improvement_tasks import schedule_self_improvement_tasks
+
     app = Celery("gates-registration")
     schedule_autoresearch_tasks(app)
-    assert app.conf.beat_feature_gates["autoresearch-idle-check"] == "autoresearch"
+    schedule_self_improvement_tasks(app)
+    declared = app.conf.beat_feature_gates
+    assert declared["autoresearch-idle-check"] == "autoresearch"
+    assert {declared[n] for n in ("self-improvement-check", "uncle-claude-advice", "servo-optimization")} == {"self_improvement"}
