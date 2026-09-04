@@ -24,16 +24,13 @@ import {
   visibleWorkspaces,
   workspaceBadge,
 } from "../../config/navCatalog";
+import { useNavBadgeCounts } from "../../config/navBadges";
 import { usePendingApprovals } from "../../hooks/usePendingApprovals";
 import SystemMetricsModal from "../modals/SystemMetricsModal";
 import AgentScreenViewer from "../agent/AgentScreenViewer";
 
 const square = { borderRadius: 0 };
 
-// A brand may supply live counts for its own badge keys (brand.useNavBadgeCounts);
-// the hook identity is fixed at module load so React sees a stable call order.
-const EMPTY_COUNTS = Object.freeze({});
-const useBrandBadgeCounts = brand.useNavBadgeCounts || (() => EMPTY_COUNTS);
 
 const barButtonSx = (theme, { active, accent }) => ({
   px: 1.25,
@@ -78,8 +75,8 @@ const SoftwareNav = () => {
   const setAgentScreenOpen = useAppStore((state) => state.setAgentScreenOpen);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const { count: pendingApprovals } = usePendingApprovals();
-  const brandCounts = useBrandBadgeCounts();
-  const badgeCounts = { pendingApprovals, ...brandCounts };
+  // Core keys first; a distribution's navBadges.js adds its own.
+  const badgeCounts = { pendingApprovals, ...useNavBadgeCounts() };
   const homeRoute = landingRouteFor(profile) || "/dashboard";
 
   const catalog = useMemo(

@@ -18,10 +18,13 @@ vi.mock("../../../config/brand", async (importOriginal) => {
     ...actual.default,
     navCatalog: [...CORE_NAV_CATALOG, alerts],
     workspaces: WORKSPACES,
-    useNavBadgeCounts: () => ({ alerts: 4 }),
   };
   return { ...actual, brand, default: brand };
 });
+
+vi.mock("../../../config/navBadges", () => ({
+  useNavBadgeCounts: () => ({ alerts: 4 }),
+}));
 
 vi.mock("../../../hooks/usePendingApprovals", () => ({
   usePendingApprovals: () => ({ count: 0 }),

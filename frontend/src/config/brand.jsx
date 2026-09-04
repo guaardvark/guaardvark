@@ -34,8 +34,7 @@ export const brand = {
   },
   navGroups,
   // Full catalog and workspace list behind the Workspaces (top-bar) chrome.
-  // A brand may also set `useNavBadgeCounts`, a hook returning { badgeKey: n }
-  // for the badge keys its own catalog entries name.
+  // Live counts for badge keys come from config/navBadges.js.
   navCatalog: CORE_NAV_CATALOG,
   workspaces: WORKSPACES,
 };
