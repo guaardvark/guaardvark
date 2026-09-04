@@ -104,6 +104,22 @@ describe("buildNavCatalog", () => {
     expect(groups[1].label).toBe("Main");
   });
 
+  it("projects a brand-supplied catalog and workspace list", () => {
+    const workspaces = [{ id: "field", label: "Field" }, { id: "office", label: "Office" }];
+    const core = [
+      { id: "jobs", kind: "page", listed: true, path: "/jobs", label: "Jobs", sidebarGroup: "Field", workspace: "field" },
+      { id: "team", kind: "page", listed: true, path: "/team", label: "Team", sidebarGroup: "Office", workspace: "office" },
+    ];
+    const catalog = buildNavCatalog(
+      [{ label: "Acme", items: [{ text: "Roof", path: "/acme", icon: "x" }] }],
+      core,
+      workspaces,
+    );
+    expect(catalog.map((item) => item.id)).toEqual(["ext:/acme", "jobs", "team"]);
+    expect(catalog[0].workspace).toBe("office");
+    expect(visibleWorkspaces(catalog, workspaces).map((w) => w.id)).toEqual(["field", "office"]);
+  });
+
   it("maps an extension group named after a workspace onto that workspace", () => {
     const catalog = buildNavCatalog([
       { label: "Studio", items: [{ text: "LUT Lab", path: "/lut", icon: "x" }] },

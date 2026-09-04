@@ -5,7 +5,7 @@
 // brand-identifying value (name, tagline, theme, logo, nav layout, support
 // links) flowing through here so upstream merges never collide with a brand.
 import GuaardvarkLogo from "../components/branding/GuaardvarkLogo";
-import { catalogToNavGroups, CORE_NAV_CATALOG } from "./navCatalog";
+import { catalogToNavGroups, CORE_NAV_CATALOG, WORKSPACES } from "./navCatalog";
 
 const env = import.meta.env;
 
@@ -33,6 +33,9 @@ export const brand = {
     cashApp: "https://cash.app/$DeanAlbenze",
   },
   navGroups,
+  // Full catalog and workspace list behind the Workspaces (top-bar) chrome.
+  navCatalog: CORE_NAV_CATALOG,
+  workspaces: WORKSPACES,
 };
 
 export default brand;

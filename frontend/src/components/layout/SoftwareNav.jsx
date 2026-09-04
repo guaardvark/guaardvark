@@ -76,11 +76,15 @@ const SoftwareNav = () => {
   const homeRoute = landingRouteFor(profile) || "/dashboard";
 
   const catalog = useMemo(
-    () => filterCatalog(buildNavCatalog(extensionNavGroups()), profile?.hidden_routes),
+    () =>
+      filterCatalog(
+        buildNavCatalog(extensionNavGroups(), brand.navCatalog, brand.workspaces),
+        profile?.hidden_routes,
+      ),
     [profile],
   );
 
-  const workspaces = useMemo(() => visibleWorkspaces(catalog), [catalog]);
+  const workspaces = useMemo(() => visibleWorkspaces(catalog, brand.workspaces), [catalog]);
   const currentItem = matchCatalogItem(catalog, location.pathname);
   const activeWorkspaceId = currentItem?.workspace || null;
   const stripTools = activeWorkspaceId ? toolsForWorkspace(catalog, activeWorkspaceId) : [];

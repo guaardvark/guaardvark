@@ -1,5 +1,8 @@
 // Canonical navigation catalog. Sidebar and the software workspace chrome
 // both project this list; profiles hide by path; extensions prepend groups.
+// A brand supplies its own catalog and workspace list through config/brand.jsx
+// (`navCatalog`, `workspaces`); the helpers below take those as arguments and
+// default to the core lists.
 import React from "react";
 import { spacing } from "../theme/tokens";
 
@@ -563,11 +566,16 @@ export function matchCatalogItem(catalog, pathname) {
  * Turn extension `navGroups` into catalog entries, prepended so they list
  * ahead of core the same way Sidebar concatenates groups today.
  */
-export function buildNavCatalog(extensionGroups = []) {
+export function buildNavCatalog(
+  extensionGroups = [],
+  core = CORE_NAV_CATALOG,
+  workspaces = WORKSPACES,
+) {
   const extras = [];
+  const fallbackWorkspace = workspaces[workspaces.length - 1]?.id || "system";
   for (const group of extensionGroups) {
     const workspace =
-      WORKSPACES.find((w) => w.label === group.label)?.id || "system";
+      workspaces.find((w) => w.label === group.label)?.id || fallbackWorkspace;
     for (const item of group.items || []) {
       extras.push({
         id: `ext:${item.path}`,
@@ -584,7 +592,7 @@ export function buildNavCatalog(extensionGroups = []) {
       });
     }
   }
-  return extras.length ? [...extras, ...CORE_NAV_CATALOG] : CORE_NAV_CATALOG;
+  return extras.length ? [...extras, ...core] : core;
 }
 
 /** Drop catalog entries whose path the profile hides. Actions have no path. */
@@ -626,8 +634,8 @@ export function toolsForWorkspace(catalog, workspaceId) {
     .sort((a, b) => (a.stripOrder ?? 100) - (b.stripOrder ?? 100));
 }
 
-export function visibleWorkspaces(catalog) {
-  return WORKSPACES.filter((workspace) => toolsForWorkspace(catalog, workspace.id).length > 0);
+export function visibleWorkspaces(catalog, workspaces = WORKSPACES) {
+  return workspaces.filter((workspace) => toolsForWorkspace(catalog, workspace.id).length > 0);
 }
 
 export function workspaceBadge(catalog, workspaceId, badgeCounts = {}) {
