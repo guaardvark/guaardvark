@@ -16,6 +16,7 @@ import { useAppStore } from "./stores/useAppStore";
 import { BrandLogo } from "./components/branding";
 import brand from "./config/brand";
 import { landingRouteFor } from "./config/profile";
+import { NAV_CHROME, navChromeWidth } from "./config/navCatalog";
 import { extensionRoutes, extensionHeaders, extensionLandingRoute } from "./extensions";
 
 import TrainingFloater from "./components/agent/TrainingFloater";
@@ -67,6 +68,7 @@ const MusicVideoPage = lazy(() => import("./pages/MusicVideoPage"));
 const CastStudioPage = lazy(() => import("./pages/CastStudioPage"));
 const CastMemberPage = lazy(() => import("./pages/CastMemberPage"));
 import Sidebar from "./components/layout/Sidebar";
+import SoftwareNav from "./components/layout/SoftwareNav";
 import ProgressFooterBar from "./components/layout/ProgressFooterBar";
 import { StatusProvider } from "./contexts/StatusContext";
 import { HealthProvider } from "./contexts/HealthContext";
@@ -93,13 +95,22 @@ const AppLayout = ({ children }) => {
   useGpuIntent();
 
   const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
-  const drawerWidth = sidebarExpanded ? spacing.sidebarExpanded : spacing.sidebarCollapsed;
+  const navChrome = useAppStore((state) => state.navChrome) || NAV_CHROME.SIDEBAR;
+  const isSoftware = navChrome === NAV_CHROME.SOFTWARE;
+  const drawerWidth = navChromeWidth(navChrome, sidebarExpanded);
   // Layout slot: an extension may add a header bar above every page.
   const headers = extensionHeaders();
 
   return (
-    <Box sx={{ display: "flex", height: "100vh", overflow: "hidden" }}>
-      <Sidebar />
+    <Box
+      sx={{
+        display: "flex",
+        flexDirection: isSoftware ? "column" : "row",
+        height: "100vh",
+        overflow: "hidden",
+      }}
+    >
+      {isSoftware ? <SoftwareNav /> : <Sidebar />}
       <Box
         component="main"
         data-main-content
@@ -107,8 +118,10 @@ const AppLayout = ({ children }) => {
           flexGrow: 1,
           display: "flex",
           flexDirection: "column",
-          width: `calc(100% - ${drawerWidth}px)`,
-          height: "100vh",
+          width: isSoftware ? "100%" : `calc(100% - ${drawerWidth}px)`,
+          height: isSoftware ? undefined : "100vh",
+          minHeight: 0,
+          minWidth: 0,
           overflow: "hidden",
           position: "relative",
           transition: theme.transitions.create("width", {

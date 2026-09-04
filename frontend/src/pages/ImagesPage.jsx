@@ -61,6 +61,8 @@ import ImageLightbox from '../components/images/ImageLightbox';
 import PublishModal from '../components/modals/PublishModal';
 import PageLayout from '../components/layout/PageLayout';
 import { MEDIA_TABS, MEDIA_LIBRARY_TAB, mediaTabIndexForPath } from '../constants/mediaTabs';
+import { useAppStore } from '../stores/useAppStore';
+import { NAV_CHROME } from '../config/navCatalog';
 import { useLayout } from '../contexts/LayoutContext';
 import { useSnackbar } from '../components/common/SnackbarProvider';
 import { ContextualLoader } from '../components/common/LoadingStates';
@@ -102,6 +104,8 @@ const ImagesPage = () => {
   const navigate = useNavigate();
   const activeTab = mediaTabIndexForPath(location.pathname);
   const activeTabPath = MEDIA_TABS[activeTab].path;
+  const navChrome = useAppStore((state) => state.navChrome);
+  const showMediaTabs = navChrome !== NAV_CHROME.SOFTWARE;
 
   // Data
   const [rootFolders, setRootFolders] = useState([]);
@@ -1563,19 +1567,20 @@ const ImagesPage = () => {
         </>
       ) : null}
     >
-      {/* Tab bar */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-        <Tabs
-          value={activeTab}
-          onChange={(e, v) => navigate(MEDIA_TABS[v].path)}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          {MEDIA_TABS.map((tab) => (
-            <Tab key={tab.path} label={tab.label} />
-          ))}
-        </Tabs>
-      </Box>
+      {showMediaTabs && (
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+          <Tabs
+            value={activeTab}
+            onChange={(e, v) => navigate(MEDIA_TABS[v].path)}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            {MEDIA_TABS.map((tab) => (
+              <Tab key={tab.path} label={tab.label} />
+            ))}
+          </Tabs>
+        </Box>
+      )}
 
       {/* Media Library Tab */}
       {activeTab === MEDIA_LIBRARY_TAB && (<>

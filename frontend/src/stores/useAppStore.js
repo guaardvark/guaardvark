@@ -22,6 +22,12 @@ const createUISlice = (set, get) => ({
   setSidebarExpanded: (expanded) => set({ sidebarExpanded: expanded }),
   toggleSidebar: () => set((state) => ({ sidebarExpanded: !state.sidebarExpanded })),
 
+  navChrome: "sidebar",
+  setNavChrome: (chrome) => {
+    if (chrome !== "sidebar" && chrome !== "software") return;
+    set({ navChrome: chrome });
+  },
+
   listenerModeEnabled: false,
   toggleListenerMode: () => set((state) => ({ listenerModeEnabled: !state.listenerModeEnabled })),
 
@@ -180,6 +186,7 @@ export const useAppStore = create(
             themeName: state.themeName,
             dashboardLayout: state.dashboardLayout,
             sidebarExpanded: state.sidebarExpanded,
+            navChrome: state.navChrome,
             listenerModeEnabled: state.listenerModeEnabled,
             activeModel: state.activeModel,
             activeProjectId: state.activeProjectId,

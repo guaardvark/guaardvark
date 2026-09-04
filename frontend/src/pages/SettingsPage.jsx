@@ -51,6 +51,8 @@ import {
   LinearProgress,
   Divider,
   Collapse,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -678,6 +680,8 @@ const SettingsPage = () => {
   }, [voiceChatEnabled]);
 
   const themeName = useAppStore((state) => state.themeName);
+  const navChrome = useAppStore((state) => state.navChrome);
+  const setNavChrome = useAppStore((state) => state.setNavChrome);
 
   const { activeModel, isLoadingModel, modelError: _modelError, refreshActiveModel } =
     useStatus();
@@ -2689,6 +2693,18 @@ const SettingsPage = () => {
                     </Avatar>
                   </label>
                 </Box>
+              </SettingsRow>
+              <SettingsRow label="Navigation">
+                <ToggleButtonGroup
+                  value={navChrome || "sidebar"}
+                  exclusive
+                  onChange={(event, value) => value && setNavChrome(value)}
+                  size="small"
+                  aria-label="Navigation chrome"
+                >
+                  <ToggleButton value="sidebar">Sidebar</ToggleButton>
+                  <ToggleButton value="software">Workspaces</ToggleButton>
+                </ToggleButtonGroup>
               </SettingsRow>
               <SettingsRow label="Media Library Path">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>

@@ -1,6 +1,6 @@
 // The media workspace is one page with five tabs. Each tab owns a route so it
-// is linkable and reachable from the sidebar, and so the tab strip stays on
-// screen no matter which of them the user landed on.
+// is linkable and reachable from the sidebar. Under software (workspace) chrome
+// the Studio tool strip is this strip, so ImagesPage hides the duplicate row.
 
 export const MEDIA_TABS = [
   { path: "/images", label: "Media Library" },
