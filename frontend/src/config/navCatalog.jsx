@@ -548,12 +548,16 @@ export function pathIsActive(itemPath, pathname) {
   return pathname === itemPath || pathname.startsWith(`${itemPath}/`);
 }
 
-/** Longest matching page in the catalog for `pathname`. */
+/**
+ * Longest matching page in the catalog for `pathname`. Pages without a
+ * `workspace` (a pure pin such as a notifications button) do not drive the
+ * workspace bar, so their route keeps the enclosing workspace highlighted.
+ */
 export function matchCatalogItem(catalog, pathname) {
   let best = null;
   let bestLength = -1;
   for (const item of catalog) {
-    if (item.kind !== "page" || !item.path) continue;
+    if (item.kind !== "page" || !item.path || !item.workspace) continue;
     if (pathIsActive(item.path, pathname) && item.path.length > bestLength) {
       best = item;
       bestLength = item.path.length;
@@ -625,6 +629,11 @@ export function catalogToNavGroups(catalog) {
   }
 
   return groups;
+}
+
+/** Pages pinned to the right of the workspace bar, in catalog order. */
+export function pinnedItems(catalog) {
+  return catalog.filter((item) => item.kind === "page" && item.pinned && item.path);
 }
 
 export function toolsForWorkspace(catalog, workspaceId) {

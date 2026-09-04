@@ -19,6 +19,7 @@ import {
   hrefForItem,
   matchCatalogItem,
   pathIsActive,
+  pinnedItems,
   toolsForWorkspace,
   visibleWorkspaces,
   workspaceBadge,
@@ -28,6 +29,11 @@ import SystemMetricsModal from "../modals/SystemMetricsModal";
 import AgentScreenViewer from "../agent/AgentScreenViewer";
 
 const square = { borderRadius: 0 };
+
+// A brand may supply live counts for its own badge keys (brand.useNavBadgeCounts);
+// the hook identity is fixed at module load so React sees a stable call order.
+const EMPTY_COUNTS = Object.freeze({});
+const useBrandBadgeCounts = brand.useNavBadgeCounts || (() => EMPTY_COUNTS);
 
 const barButtonSx = (theme, { active, accent }) => ({
   px: 1.25,
@@ -72,7 +78,8 @@ const SoftwareNav = () => {
   const setAgentScreenOpen = useAppStore((state) => state.setAgentScreenOpen);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const { count: pendingApprovals } = usePendingApprovals();
-  const badgeCounts = { pendingApprovals };
+  const brandCounts = useBrandBadgeCounts();
+  const badgeCounts = { pendingApprovals, ...brandCounts };
   const homeRoute = landingRouteFor(profile) || "/dashboard";
 
   const catalog = useMemo(
@@ -93,7 +100,7 @@ const SoftwareNav = () => {
   const byId = (id) => catalog.find((item) => item.id === id);
   const metricsAction = byId("system-metrics");
   const agentScreenAction = byId("agent-screen");
-  const settingsItem = byId("settings");
+  const pins = pinnedItems(catalog);
 
   const goWorkspace = (workspaceId) => {
     const tools = toolsForWorkspace(catalog, workspaceId);
@@ -226,18 +233,33 @@ const SoftwareNav = () => {
                 </ButtonBase>
               </Tooltip>
             )}
-            {settingsItem && (
-              <Tooltip title={settingsItem.label}>
-                <ButtonBase
-                  component={NavLink}
-                  to={hrefForItem(settingsItem)}
-                  aria-label={settingsItem.label}
-                  sx={pinButtonSx(pathIsActive(settingsItem.path, location.pathname), "primary.main")}
-                >
-                  {settingsItem.icon}
-                </ButtonBase>
-              </Tooltip>
-            )}
+            {pins.map((item) => {
+              const active = pathIsActive(item.path, location.pathname);
+              const count = item.badge ? badgeCounts[item.badge] || 0 : 0;
+              return (
+                <Tooltip key={item.id} title={item.label}>
+                  <ButtonBase
+                    component={NavLink}
+                    to={hrefForItem(item)}
+                    aria-label={item.label}
+                    sx={pinButtonSx(active, "primary.main")}
+                  >
+                    {count > 0 ? (
+                      <Badge
+                        badgeContent={count}
+                        max={99}
+                        color="warning"
+                        sx={{ "& .MuiBadge-badge": { fontSize: "0.6rem", minWidth: 16, height: 16 } }}
+                      >
+                        {item.icon}
+                      </Badge>
+                    ) : (
+                      item.icon
+                    )}
+                  </ButtonBase>
+                </Tooltip>
+              );
+            })}
           </Box>
         </Box>
 

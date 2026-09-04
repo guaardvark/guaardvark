@@ -10,6 +10,7 @@ import {
   matchCatalogItem,
   hrefForItem,
   navChromeWidth,
+  pinnedItems,
   toolsForWorkspace,
   visibleWorkspaces,
   workspaceBadge,
@@ -140,6 +141,15 @@ describe("pathIsActive and matchCatalogItem", () => {
   it("prefers the longer nested path", () => {
     expect(matchCatalogItem(CORE_NAV_CATALOG, "/documents/bulk-import").id).toBe("bulk-import");
     expect(matchCatalogItem(CORE_NAV_CATALOG, "/cast/42").id).toBe("cast");
+  });
+
+  it("lets a pinned page without a workspace keep the enclosing workspace active", () => {
+    const catalog = [
+      ...CORE_NAV_CATALOG,
+      { id: "alerts", kind: "page", path: "/documents/alerts", label: "Alerts", pinned: true, listed: false },
+    ];
+    expect(matchCatalogItem(catalog, "/documents/alerts").id).toBe("files");
+    expect(pinnedItems(catalog).map((item) => item.id)).toEqual(["settings", "alerts"]);
   });
 
   it("treats /dashboard as the dashboard item", () => {

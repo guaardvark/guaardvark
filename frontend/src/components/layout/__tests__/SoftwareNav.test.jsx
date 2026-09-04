@@ -10,7 +10,16 @@ import SoftwareNav from "../SoftwareNav";
 vi.mock("../../../config/brand", async (importOriginal) => {
   const actual = await importOriginal();
   const { CORE_NAV_CATALOG, WORKSPACES } = await import("../../../config/navCatalog");
-  const brand = { ...actual.default, navCatalog: CORE_NAV_CATALOG, workspaces: WORKSPACES };
+  const alerts = {
+    id: "alerts", kind: "page", path: "/documents/alerts", label: "Alerts",
+    icon: React.createElement("span", null, "!"), pinned: true, listed: false, badge: "alerts",
+  };
+  const brand = {
+    ...actual.default,
+    navCatalog: [...CORE_NAV_CATALOG, alerts],
+    workspaces: WORKSPACES,
+    useNavBadgeCounts: () => ({ alerts: 4 }),
+  };
   return { ...actual, brand, default: brand };
 });
 
@@ -62,6 +71,14 @@ describe("SoftwareNav", () => {
     expect(screen.getByRole("button", { name: "System Metrics" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Agent Screen" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  });
+
+  it("pins a brand page with its live badge count", () => {
+    renderNav("/documents/alerts");
+    const pin = screen.getByRole("link", { name: "Alerts" });
+    expect(pin).toHaveAttribute("href", "/documents/alerts");
+    expect(pin).toHaveTextContent("4");
+    expect(screen.getByRole("button", { name: "Library" })).toHaveAttribute("aria-current", "page");
   });
 
   it("surfaces pages the sidebar does not list", () => {
