@@ -48,9 +48,15 @@ export const handleResponse = async (response, options = {}) => {
     } else if (responseText) {
       errorData.rawError = responseText;
     }
+    // The backend's standard error body nests the text: {"error": {"code",
+    // "message"}}. Handing that object to Error() stringifies it to
+    // "[object Object]", which is what the client box showed when its master
+    // was unreachable. Older endpoints still send a bare string under "error".
+    const nested = errorData?.error;
     const errorMessage =
-      errorData?.error ||
-      errorData?.message ||
+      (typeof nested === "string" && nested) ||
+      (typeof nested?.message === "string" && nested.message) ||
+      (typeof errorData?.message === "string" && errorData.message) ||
       `HTTP error! Status: ${response.status}`;
     const error = new Error(errorMessage);
     error.status = response.status;
