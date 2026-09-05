@@ -330,6 +330,20 @@ class AgentExecutor:
             logger.error(f"Failed to initialize default LLM for AgentExecutor: {e}", exc_info=True)
             return None
 
+    def _name_available_tools_on_miss(self, result) -> None:
+        """When the model invents a tool name, tell it what exists. A bare
+        "not found" left a local model retrying variations until the run
+        ran out (directed run 24, 2026-09-05: tool_code_read_file)."""
+        try:
+            if result.success or "not found in registry" not in (result.error or ""):
+                return
+            names = sorted(self.tool_registry.list_tools())
+            if names:
+                result.error = (f"{result.error}. Use one of the tools that exist: "
+                                f"{', '.join(names)}")
+        except Exception:
+            pass
+
     def set_tool_context(self, **kwargs):
         """Set extra kwargs that get forwarded to every tool execute() call."""
         self._tool_context.update(kwargs)
@@ -708,7 +722,8 @@ What tool do you need to call next?"""
                 except Exception:
                     pass
             result = self.tool_registry.execute_tool(tool_call.tool_name, agent_context=self._tool_context, **normalized_params)
-            
+            self._name_available_tools_on_miss(result)
+
             # Register result as resource if coordinator available
             if self.coordinator and process_id and result.success and result.output:
                 from backend.utils.system_coordinator import ResourceType
@@ -1067,6 +1082,7 @@ EXAMPLE - Final answer (no tools needed):
 
             # Execute
             result = self.tool_registry.execute_tool(sel.tool_name, agent_context=self._tool_context, **normalized_params)
+            self._name_available_tools_on_miss(result)
 
             if self.coordinator and process_id and result.success and result.output:
                 from backend.utils.system_coordinator import ResourceType

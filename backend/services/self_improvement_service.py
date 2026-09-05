@@ -488,9 +488,16 @@ class SelfImprovementService:
             self._running = False
 
     def submit_directed_task(
-        self, description: str, target_files: List[str] = None, priority: str = "medium"
+        self, description: str, target_files: List[str] = None, priority: str = "medium",
+        proposal: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Mode 3: User/Claude-submitted improvement task."""
+        """Mode 3: User/Claude-submitted improvement task.
+
+        ``proposal`` is an exact old/new text change already derived from the
+        task's evidence (see system_mapper.actions.mechanical_proposal). It is
+        staged as-is, behind the same human gate, and the agent is not asked to
+        rediscover it: on 2026-09-05 two directed runs on a one-line wiring fix
+        ended with the local model calling a tool that does not exist."""
         if not self._is_safe_to_run():
             return {"success": False, "reason": "Self-improvement cannot run"}
 
@@ -506,13 +513,17 @@ class SelfImprovementService:
             db.session.commit()
 
             self._current_run_id = run_record.id
-            failure = {
-                "file": ", ".join(target_files) if target_files else "unknown",
-                "test_name": "directed_improvement",
-                "error": description,
-            }
-            change = self._attempt_fix(failure, message=self._directed_message(
-                description, target_files))
+            change = None
+            if proposal:
+                change = self._stage_proposal(proposal, run_record.id)
+            else:
+                failure = {
+                    "file": ", ".join(target_files) if target_files else "unknown",
+                    "test_name": "directed_improvement",
+                    "error": description,
+                }
+                change = self._attempt_fix(failure, message=self._directed_message(
+                    description, target_files))
 
             # A directed run succeeded only if something was actually staged.
             # The agent's closing prose is not a change: on 2026-08-29 two runs
@@ -542,6 +553,23 @@ class SelfImprovementService:
         finally:
             self._running = False
             self._current_run_id = None
+
+    def _stage_proposal(self, proposal: Dict[str, Any], run_id: int) -> Optional[Dict[str, Any]]:
+        """Stage a mechanical proposal through the guarded path (path, lock,
+        protected-file and exact-match checks apply). Returns the change record,
+        or a description of why staging was refused."""
+        from backend.services.guarded_code_service import GuardedCodeError, stage_pending_fix
+        try:
+            fix_id = stage_pending_fix(
+                proposal["path"], proposal["old_text"], proposal["new_text"],
+                proposal.get("description") or "mechanical proposal",
+                severity=proposal.get("severity") or "medium", run_id=run_id,
+            )
+        except GuardedCodeError as exc:
+            logger.warning("mechanical proposal refused: %s", exc)
+            return {"file": proposal.get("path"), "fix_description": f"not staged: {exc}"}
+        return {"file": proposal.get("path"), "pending_fix_id": fix_id,
+                "fix_description": (proposal.get("description") or "")[:500]}
 
     @staticmethod
     def _directed_message(description: str, target_files: List[str] = None) -> str:

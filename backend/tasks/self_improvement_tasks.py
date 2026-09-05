@@ -74,8 +74,10 @@ def create_self_improvement_tasks(celery_app: Celery):
             return {"error": str(e)}
 
     @celery_app.task(name="self_improvement.run_directed_async", bind=True)
-    def run_directed_async(self, task_description: str, target_files=None, priority: str = "medium"):
-        """On-demand directed improvement (dispatched from API / System-Map)."""
+    def run_directed_async(self, task_description: str, target_files=None, priority: str = "medium",
+                           proposal=None):
+        """On-demand directed improvement (dispatched from API / System-Map).
+        ``proposal`` is a mechanical change already derived from the finding."""
         try:
             app = celery_app.flask_app if hasattr(celery_app, 'flask_app') else None
             if not app:
@@ -85,7 +87,8 @@ def create_self_improvement_tasks(celery_app: Celery):
                 from backend.services.self_improvement_service import get_self_improvement_service
                 service = get_self_improvement_service()
                 result = service.submit_directed_task(
-                    task_description, target_files=target_files, priority=priority)
+                    task_description, target_files=target_files, priority=priority,
+                    proposal=proposal)
                 logger.info(f"Async directed task result: {result}")
                 return result
         except Exception as e:
