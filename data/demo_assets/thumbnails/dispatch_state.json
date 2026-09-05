@@ -46,5 +46,13 @@
   "12": {
     "batch_id": "ImageBatch_08-14-2026_140109_142",
     "prompt": "cinematic photo of a mission control style desk panel with toggle switches and one guarded red switch, soft indicator lights, dark room, warm key light, shallow depth of field, no text"
+  },
+  "13": {
+    "batch_id": "ImageBatch_09-05-2026_040341_037",
+    "prompt": "cinematic photo of a heavy wooden front door standing slightly open with warm light spilling through the gap onto dark stone steps, brass handle catching the light, shallow depth of field, no text"
+  },
+  "14": {
+    "batch_id": "ImageBatch_09-05-2026_040341_038",
+    "prompt": "cinematic photo of an antique star chart spread on a dark navigator's table, brass dividers resting on it, constellations picked out by a warm lamp, shallow depth of field, no text"
   }
 }
