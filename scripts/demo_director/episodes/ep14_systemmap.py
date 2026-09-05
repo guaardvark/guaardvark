@@ -425,17 +425,10 @@ BEATS = [
         ],
         action=act_dispatch, verify=v_dispatch, reset=reset_dispatch,
     ),
-    Beat(
-        name="live",
-        narration=[
-            "The map is live. Open chat anywhere with control shift C, "
-            "and ask it to use the system mapper.",
-            "",
-            "That is a tool call, not a description of one. Watch the "
-            "module that answered it pulse, and the activity log record it.",
-        ],
-        action=act_live, verify=v_live, reset=reset_map,
-    ),
+    # The live beat (floating chat asks for the mapper; the module pulses and
+    # the activity log records the call) is written above but not in this
+    # cut: on 2026-09-05 the direct-dispatch tool call never reached the
+    # map's activity log (0/30, Idle) and the reply was the raw payload.
     Beat(
         name="closer",
         narration=[

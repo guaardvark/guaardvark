@@ -620,8 +620,10 @@ Beats:
 7. **dispatch** — an `unwired-tool` finding ▸ *Send to the self-improvement
    agent* ▸ the 202 toast. Honesty beat: only six kinds are dispatchable;
    dead-code and liveness findings are advisory by design.
-8. **live** — Ctrl+Shift+C floating chat on the map: "what's using vram" ▸
-   `inspect_gpu` ▸ the module pulses, the activity log records it.
+8. **live** — Ctrl+Shift+C floating chat on the map asks for the mapper ▸
+   the module pulses, the activity log records it. CUT from the 2026-09-05
+   shoot: the direct-dispatch call never reached the activity log (0/30,
+   Idle) and the reply was the raw payload (defect logged); code kept.
 9. **closer** — dead symbols shown vs suppressed; "the map would rather
    miss than lie"; `R`; chip ▸ Ep 15.
 

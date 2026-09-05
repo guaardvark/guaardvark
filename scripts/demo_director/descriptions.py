@@ -503,9 +503,9 @@ EPISODES = {
             "1,300+ modules computed from the code on disk, section "
             "spotlights, search, the tool-graph and ghost-endpoint overlays, "
             "ranked findings with the file and line, the finding that caught "
-            "an unreachable chat tool (the fix cites it by id), a live "
-            "dispatch to the self-improvement agent, and a chat tool call "
-            "pulsing its module in real time."
+            "an unreachable chat tool (the fix cites it by id, and the map "
+            "needed its own fix to clear it), and a live dispatch to the "
+            "self-improvement agent."
         ),
         chapters=[
             "The constellation",
@@ -515,7 +515,6 @@ EPISODES = {
             "Ranked findings",
             "The bug the map caught",
             "Send it to the self-improvement agent",
-            "Live — a tool call pulses its module",
             "Would rather miss than lie",
         ],
         links=[3, 11, 13, 15, 16],
