@@ -1,0 +1,29 @@
+This product edits its own code. That sentence should worry you — so here is every gate between an idea and a changed file.
+
+The code editor, chat that runs workstation tools instead of describing them, the codebase lock that returns 423 to every writer including the AI, self-check runs and the fix queue with bulk approve and apply, the guardian's six directives, the unified overnight director with its morning report, and the scheduler gate that used to be advisory.
+
+One machine. No cloud. This is Episode 15.
+
+CHAPTERS (add exact timestamps after the final edit)
+0:00 The editor
+[__:__] Chat that runs tools
+[__:__] The lock
+[__:__] Self-check and the fix queue
+[__:__] The guardian
+[__:__] The overnight director
+[__:__] The gate that lied
+
+FEATURED IN THIS EPISODE
+▸ Ep 11: The System That Fixes Itself — Self-Repair — {EP11}
+▸ Ep 13: The New Front Door — Workspaces, and Everything New Since Episode 12 — {EP13}
+▸ Ep 14: A Map of Everything — the System Map, Episode 14 — {EP14}
+▸ Ep 16: Plug In Anything — MCP, Episode 16 — {EP16}
+▸ Ep 17: Five Agents, One Repo — Swarm, Episode 17 — {EP17}
+
+Full playlist: {PLAYLIST}
+
+Guaardvark is a self-hosted AI system that writes, voices, shoots, and edits video — chat, image gen, video gen, voice cloning, an autonomous screen agent, and a full AI film crew — running on a single desktop GPU, no cloud API calls. This is one of 12 walkthrough episodes.
+
+Source & docs: https://github.com/guaardvark/guaardvark
+
+#Guaardvark #localAI #selfhostedAI #opensourceAI #offlineAI #AIvideogeneration #onemachinenocloud #selfcodingAI #AIcodingagent #selfimprovingsoftware #humanintheloop

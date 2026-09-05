@@ -55,6 +55,11 @@ EPISODES = {
     10: ("VIDEO EDITOR", "cinematic photo of film strips laid on a glowing lightbox on an editing desk, a loupe resting on one frame, dark room, warm light from below, shallow depth of field, no text"),
     11: ("SELF-REPAIR", "cinematic macro photo of a mechanical pocket watch with its gears exposed, tiny screwdriver resting beside it on a watchmaker's bench, warm lamp light, shallow depth of field, no text"),
     12: ("COMMAND CENTER", "cinematic photo of a mission control style desk panel with toggle switches and one guarded red switch, soft indicator lights, dark room, warm key light, shallow depth of field, no text"),
+    13: ("WHAT'S NEW", "cinematic photo of a heavy wooden front door standing slightly open with warm light spilling through the gap onto dark stone steps, brass handle catching the light, shallow depth of field, no text"),
+    14: ("SYSTEM MAP", "cinematic photo of an antique star chart spread on a dark navigator's table, brass dividers resting on it, constellations picked out by a warm lamp, shallow depth of field, no text"),
+    15: ("SELF-CODING", "cinematic photo of a mechanical typewriter with a sheet of paper mid-line and a small brass padlock resting beside the keys, warm desk lamp, dark study, shallow depth of field, no text"),
+    16: ("MCP", "cinematic photo of a vintage telephone switchboard with braided patch cables plugged into glowing jacks, one cable held mid-air, warm tungsten light, dark room, shallow depth of field, no text"),
+    17: ("SWARM", "cinematic macro photo of five brass clockwork bees on a dark workbench, one with its wings blurred in motion, warm rim light and soft haze, shallow depth of field, no text"),
 }
 
 SERIES_LABEL = "GUAARDVARK DEMO"
@@ -141,7 +146,7 @@ def composite(bg_path, ep_num, out_path):
 
     # Bottom bar: episode counter, right-aligned
     f_ep = font(96, 800)
-    label = f"Ep. {ep_num} of 12"
+    label = f"Ep. {ep_num} of 12" if ep_num <= 12 else f"Ep. {ep_num}"
     ew = draw.textlength(label, font=f_ep)
     ebox = draw.textbbox((0, 0), label, font=f_ep)
     ey = (bottom_bar[1] + bottom_bar[3]) / 2 - (ebox[3] - ebox[1]) / 2 - ebox[1]

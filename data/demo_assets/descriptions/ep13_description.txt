@@ -1,0 +1,37 @@
+Thirty-four pages, four groups, one sidebar — that was the front door for twelve episodes. Now it is a setting. Eight workspaces, one row of tools, and a tour of what landed since the series ended.
+
+The Workspaces top bar driven by the same navigation catalog as the sidebar, the keyboard shortcuts overlay, a fresh batch of renders in the Media Library, MiniMax H3 with native audio and a compiled prompt you can read before you render, chat reasoning streamed as its own channel with inline file artifacts, product profiles, Export Chats, Delete History, the rebuilt guaardvark command line, and the live GPU numbers everything ran on.
+
+One machine. No cloud. This is Episode 13.
+
+CHAPTERS (add exact timestamps after the final edit)
+0:00 The sidebar becomes a setting
+[__:__] Eight workspaces, three pins
+[__:__] Keyboard shortcuts overlay
+[__:__] Media Library — this morning's batch
+[__:__] MiniMax H3 — a compiled prompt
+[__:__] Two honest notes
+[__:__] Reasoning as its own channel
+[__:__] A file lands in the chat
+[__:__] Profiles, Export Chats, Delete History
+[__:__] The guaardvark REPL
+[__:__] One machine. No cloud.
+
+FEATURED IN THIS EPISODE
+▸ Ep 2: A Brain With Three Speeds — Chat Brain — {EP02}
+▸ Ep 5: A Million Pictures, One Prompt — Image Gen — {EP05}
+▸ Ep 6: Hollywood on One GPU — Video Gen — {EP06}
+▸ Ep 7: The Voice Foundry — Voice Clone — {EP07}
+▸ Ep 12: Command Center — Every Kill Switch, Explained — {EP12}
+▸ Ep 14: A Map of Everything — the System Map, Episode 14 — {EP14}
+▸ Ep 15: Guaardvark Codes — Editor, Guardrails, and the Fix Queue — {EP15}
+▸ Ep 16: Plug In Anything — MCP, Episode 16 — {EP16}
+▸ Ep 17: Five Agents, One Repo — Swarm, Episode 17 — {EP17}
+
+Full playlist: {PLAYLIST}
+
+Guaardvark is a self-hosted AI system that writes, voices, shoots, and edits video — chat, image gen, video gen, voice cloning, an autonomous screen agent, and a full AI film crew — running on a single desktop GPU, no cloud API calls. This is one of 12 walkthrough episodes.
+
+Source & docs: https://github.com/guaardvark/guaardvark
+
+#Guaardvark #localAI #selfhostedAI #opensourceAI #offlineAI #AIvideogeneration #onemachinenocloud #whatsnew #localAI #workspacesUI #MiniMaxH3

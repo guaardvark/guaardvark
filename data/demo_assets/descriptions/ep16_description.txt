@@ -1,0 +1,29 @@
+Forty-three tools. Any client that speaks the protocol. And a policy that says no by default.
+
+The MCP server's doctor and install commands, the default-deny policy read from its config, why 43 of 87 tools are exposed, an index profile tuned for MCP clients, a Claude Code session searching the knowledge base and generating an image through Guaardvark, and the approvals page where anything that acts waits for a person.
+
+One machine. No cloud. This is Episode 16.
+
+CHAPTERS (add exact timestamps after the final edit)
+0:00 Doctor
+[__:__] Install — six clients
+[__:__] The policy
+[__:__] An index profile for clients
+[__:__] A client on camera
+[__:__] Approvals
+[__:__] A recorded caveat
+
+FEATURED IN THIS EPISODE
+▸ Ep 2: A Brain With Three Speeds — Chat Brain — {EP02}
+▸ Ep 3: Your Files Have a Desktop — File Desktop — {EP03}
+▸ Ep 12: Command Center — Every Kill Switch, Explained — {EP12}
+▸ Ep 13: The New Front Door — Workspaces, and Everything New Since Episode 12 — {EP13}
+▸ Ep 14: A Map of Everything — the System Map, Episode 14 — {EP14}
+
+Full playlist: {PLAYLIST}
+
+Guaardvark is a self-hosted AI system that writes, voices, shoots, and edits video — chat, image gen, video gen, voice cloning, an autonomous screen agent, and a full AI film crew — running on a single desktop GPU, no cloud API calls. This is one of 12 walkthrough episodes.
+
+Source & docs: https://github.com/guaardvark/guaardvark
+
+#Guaardvark #localAI #selfhostedAI #opensourceAI #offlineAI #AIvideogeneration #onemachinenocloud #MCPserver #ModelContextProtocol #MCP #localAItools

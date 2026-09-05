@@ -1,11 +1,11 @@
-Seven video models. Wan. CogVideoX. LTX. Text to video, image to video — on the same card that ran your chat in episode two.
+Eleven video models across five families. Wan. CogVideoX. LTX. HunyuanVideo. MiniMax H3, which renders picture and its own soundtrack in one pass — on the same card that ran your chat in episode two.
 
-Episode 6 tours video generation: seven backend models behind one interface, the quality/duration/motion/aspect preset system, instant prompt styles, a live Fast-tier render with staged progress, the gpu_wait queue (renders wait for the card instead of failing), a Draft-vs-Cinema comparison, and one-click access to the underlying ComfyUI graph.
+Episode 6 tours video generation: eleven backend models behind one interface, the quality/duration/motion/aspect preset system, instant prompt styles, a live Fast-tier render with staged progress, the gpu_wait queue (renders wait for the card instead of failing), a Draft-vs-Cinema comparison, and one-click access to the underlying ComfyUI graph.
 
 One machine. No cloud. This is Episode 6 of 12.
 
 CHAPTERS
-0:00 Hook — seven video models, one GPU
+0:00 Hook — eleven video models, one GPU, one of them talks
 0:22 Preset tour — Quality, Duration, Motion, Aspect
 0:43 Live render — Queued → Storyboard → Director → Generating
 1:12 Draft-tier render
