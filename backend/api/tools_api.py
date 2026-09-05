@@ -6,6 +6,7 @@ This API enables the frontend ToolsPage and agent-based chat routing.
 """
 
 import logging
+import re
 import os
 import base64
 import time
@@ -376,7 +377,11 @@ def route_message():
                 screen_active = bool(context.get("agent_screen_active") or context.get("session_mode") == "agent")
                 # Reuse brain's classification where possible (avoids duplicating hard regex here).
                 is_vision = getattr(brain, '_is_vision_task', lambda m, i=None: False)(message, None) if hasattr(brain, '_is_vision_task') else False
-                if screen_active or is_vision or 'agent' in message.lower() or 'screen' in message.lower():
+                # Whole words only: "Agents" (a workspace) and "screenshot" are
+                # not requests to drive the desktop. Substring matching sent a
+                # plain file request to the screen-agent loop (2026-09-05).
+                asks_for_agent = bool(re.search(r"\b(?:agent|screen)\b", message, re.I))
+                if screen_active or is_vision or asks_for_agent:
                     route = type('obj', (object,), {
                         'route_type': type('rt', (object,), {'value': 'agent_loop'})(),
                         'tool_name': 'agent_task_execute' if 'execute' in message.lower() or 'do' in message.lower() else None,

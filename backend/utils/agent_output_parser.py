@@ -379,6 +379,26 @@ def parse_tool_calls_json(llm_response: str) -> ToolCallResponse:
         return ToolCallResponse()  # Empty = try next parser
 
 
+
+def relativize_local_paths(text: str) -> str:
+    """Absolute paths under the install become install-relative before the
+    model sees them, so an answer says outputs/csv/report.csv rather than the
+    machine's home directory (the same path then reaches the user verbatim)."""
+    if not text or "/" not in text:
+        return text
+    try:
+        from backend.config import STORAGE_DIR
+        from pathlib import Path
+        storage = str(STORAGE_DIR).rstrip("/")
+        repo = str(Path(storage).parent).rstrip("/")
+        if storage:
+            text = text.replace(storage + "/", "data/")
+        if repo and len(repo) > 1:
+            text = text.replace(repo + "/", "")
+    except Exception:
+        pass
+    return text
+
 def format_tool_result_for_llm(tool_name: str, result, format: str = 'json') -> str:
     """
     Format tool result for LLM observation.
@@ -403,7 +423,7 @@ def format_tool_result_for_llm(tool_name: str, result, format: str = 'json') -> 
                 output_str = re.sub(r'/api/\S+', '[image delivered to user]', output_str)
                 output_str = re.sub(r'/home/\S+', '', output_str)
                 output_str = re.sub(r'gen_\w+\.png', '', output_str)
-            obs["output"] = output_str
+            obs["output"] = relativize_local_paths(output_str)
             # Don't pass metadata with URLs/paths to the LLM
             if result.metadata and tool_name not in ("generate_image", "generate_animation"):
                 obs["metadata"] = result.metadata

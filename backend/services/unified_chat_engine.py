@@ -2726,7 +2726,8 @@ class UnifiedChatEngine:
                                emit_fn: Callable, session_id: str) -> str:
         """One bounded LLM call that turns a workstation tool's payload into an
         answer; the payload itself is the fallback when the model has nothing."""
-        raw = str(output)
+        from backend.utils.agent_output_parser import relativize_local_paths
+        raw = relativize_local_paths(str(output))
         messages = [
             {"role": "system", "content": _TOOL_PROSE_SYSTEM},
             {"role": "user", "content": (
