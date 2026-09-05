@@ -18,10 +18,14 @@ def _make_router() -> SlashRouter:
 def test_catalog_commands_are_registered_in_router():
     router = _make_router()
     names = set(router.get_command_names())
-    # "exit" is an alias to /quit and intentionally not listed separately.
-    catalog = set(COMMAND_TREE.keys()) - {"exit"}
-    assert catalog.issubset(names)
+    catalog = set(COMMAND_TREE.keys())
+    assert names == catalog, (
+        f"only in catalog: {sorted(catalog - names)}; "
+        f"only in router: {sorted(names - catalog)}"
+    )
     assert "quality" in names
+    assert "imagine" in names
+    assert "recipes" in names
 
 
 def test_router_subapp_dispatch_does_not_mutate_sys_argv():

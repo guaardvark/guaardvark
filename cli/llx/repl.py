@@ -14,6 +14,7 @@ from llx import __version__
 from llx.client import get_client, LlxError, LlxConnectionError
 from llx.completer import make_completer
 from llx.config import (
+    ensure_history_file,
     get_project_scope,
     get_recent_session,
     get_server_url,
@@ -29,6 +30,7 @@ from llx.theme import (
     THEMES,
     get_banner,
     make_console,
+    prompt_colors,
 )
 from llx.working_memory import (
     apply_attachments,
@@ -75,56 +77,50 @@ def _format_age(timestamp: float) -> str:
 
 
 def _build_prompt(ctx: ContextSnapshot, state: dict) -> HTML:
-    """Build the prompt string as prompt_toolkit HTML."""
-    parts = ["<b>agent</b>"]  # stripped prefix for more natural direct chat feel, like this Grok session
+    """Build the prompt string as prompt_toolkit HTML, using the active theme."""
+    c = prompt_colors()
+    parts = [f"<style fg='{c['brand']}'><b>gv</b></style>"]
 
-    # Online / offline / model info
     online = ctx.is_online()
     if online:
         model = ctx.get_model_name()
         if model and model != "unknown":
-            parts.append(f" <style color='#8880b0'>{model}</style>")
+            parts.append(f" <style fg='{c['dim']}'>{model}</style>")
 
-        # Active jobs
         jobs = ctx.get_active_jobs_count()
         if jobs > 0:
-            parts.append(f" <style color='#fdcb6e'>({jobs} jobs)</style>")
+            parts.append(f" <style fg='{c['warning']}'>({jobs} jobs)</style>")
     else:
-        parts.append(" <style color='#ff6b6b'>(offline)</style>")
+        parts.append(f" <style fg='{c['error']}'>(offline)</style>")
 
-    # Project scope
     scope = get_project_scope()
     if scope:
         name = scope.get("name") or f"id:{scope.get('id')}"
-        parts.append(f" <style color='#74b9ff'>[{name}]</style>")
+        parts.append(f" <style fg='{c['info']}'>[{name}]</style>")
 
     if state.get("agent_mode"):
-        parts.append(" <style color='#e17055'>[agent]</style>")
+        parts.append(f" <style fg='{c['agent']}'>[agent]</style>")
 
-    # Local coding state (like Cursor / Claude Code prompt)
     mem = normalize_working_memory(state.get("working_memory"))
     git = mem.get("git") or {}
     if git.get("branch"):
         dirty = "*" if git.get("dirty") else ""
-        parts.append(f" <style color='#a29bfe'>{git['branch']}{dirty}</style>")
+        parts.append(f" <style fg='{c['accent']}'>{git['branch']}{dirty}</style>")
     todos = mem.get("todos") or []
     open_t = sum(1 for t in todos if not t.get("done"))
     if open_t > 0:
-        parts.append(f" <style color='#fdcb6e'>({open_t} todo{'s' if open_t != 1 else ''})</style>")
+        parts.append(f" <style fg='{c['warning']}'>({open_t} todo{'s' if open_t != 1 else ''})</style>")
 
-    # Tools available (from last /tools)
     tool_count = len(state.get("_tool_names", [])) or len(state.get("working_memory", {}).get("_tool_names", []))
     if tool_count:
-        parts.append(f" <style color='#81ecec'>({tool_count} tools)</style>")
+        parts.append(f" <style fg='{c['info']}'>({tool_count} tools)</style>")
 
-    # Last tool used (agentic feel)
     recent = mem.get("recent_tools") or []
     if recent:
         last = recent[-1].get("tool", "")
         if last:
-            parts.append(f" <style color='#a5d8ff'>[{last}]</style>")
+            parts.append(f" <style fg='{c['accent_bright']}'>[{last}]</style>")
 
-    # CWD (short) + project hint
     cwd = mem.get("cwd") or str(Path.cwd())
     proj_name = mem.get("project_name")
     try:
@@ -132,11 +128,11 @@ def _build_prompt(ctx: ContextSnapshot, state: dict) -> HTML:
     except Exception:
         short = cwd
     if proj_name and proj_name != short:
-        parts.append(f" <style color='#888888'>[{proj_name} @ {short}]</style>")
+        parts.append(f" <style fg='{c['muted']}'>[{proj_name} @ {short}]</style>")
     else:
-        parts.append(f" <style color='#888888'>[{short}]</style>")
+        parts.append(f" <style fg='{c['muted']}'>[{short}]</style>")
 
-    parts.append(" <b>&gt;</b> ")
+    parts.append(f" <style fg='{c['brand']}'><b>&gt;</b></style> ")
     return HTML("".join(parts))
 
 
@@ -145,8 +141,11 @@ def _make_dynamic_completions(state_ref):
     def _dynamic_completions(command: str, sub_text: str):
         """Provide dynamic completions for certain commands."""
         if command == "theme":
+            from llx.theme import get_theme_names
+
+            names = get_theme_names()
             prefix = sub_text.strip().lower()
-            return [n for n in THEMES if n.startswith(prefix)] if prefix else list(THEMES.keys())
+            return [n for n in names if n.startswith(prefix)] if prefix else list(names)
         # Tool name completion (populated after /tools call)
         if command in ("tool", "tools"):
             tools = state_ref.get("_available_tools") or state_ref.get("_tool_names") or []
@@ -490,8 +489,7 @@ def launch_repl():
         )
 
     # Create prompt session
-    history_file = Path.home() / ".llx" / "history"
-    history_file.parent.mkdir(parents=True, exist_ok=True)
+    history_file = ensure_history_file()
     session = PromptSession(
         history=FileHistory(str(history_file)),
         completer=completer,

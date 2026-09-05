@@ -318,7 +318,7 @@ from llx.theme import make_console
 
 _ICON_TOOL  = "\u27e1"   # ⟡
 _ICON_OK    = "\u2713"   # ✓
-_ICON_LLAMA = "\U0001f999"  # 🦙
+_ICON_ASSISTANT = "\u276f"  # ❯  (brand mark — Unicode has no aardvark)
 
 # 8-step "shining cursor" spinner — edge sweeps clockwise around a block
 _SPINNER_FRAMES = ["▀", "▜", "▐", "▟", "▄", "▙", "▌", "▛"]
@@ -429,7 +429,7 @@ class ChatRenderer:
         # Print final accumulated text as rich Markdown with llama prefix
         full_text = "".join(self._tokens)
         if full_text.strip():
-            self._console.print(Text(f"{_ICON_LLAMA} ", style="bold"), end="")
+            self._console.print(Text(f"{_ICON_ASSISTANT} ", style="llx.brand"), end="")
             self._console.print(Markdown(full_text))
             hint = _maybe_web_access_hint(full_text)
             if hint:
@@ -680,6 +680,17 @@ class ChatRenderer:
 
         parts = []
 
+        if self._thinking_steps:
+            last = self._thinking_steps[-1]
+            iteration = last.get("iteration", "?")
+            status = last.get("status") or "thinking"
+            reasoning = (last.get("reasoning") or "").strip()
+            preview = reasoning[:160] + ("…" if len(reasoning) > 160 else "")
+            trail = f"[dim]▸ step {iteration} · {status}[/dim]"
+            if preview:
+                trail += f"\n[dim]  {preview}[/dim]"
+            parts.append(Text.from_markup(trail))
+
         # Tool call lines rendered as markup
         for line in self._tool_lines:
             parts.append(Text.from_markup(line))
@@ -699,6 +710,6 @@ class ChatRenderer:
         parts.append(Text(streaming_text))
 
         # Update title bar with progress
-        _set_title(f"{_ICON_LLAMA} agent — responding...")
+        _set_title(f"{_ICON_ASSISTANT} agent — responding...")
 
         self._live.update(Group(*parts))

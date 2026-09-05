@@ -22,6 +22,11 @@ FULL_STACK_SUBAPPS = frozenset(
         "images",
         "videos",
         "generate",
+        "plugins",
+        "gpu",
+        "audio",
+        "swarm",
+        "lessons",
     }
 )
 

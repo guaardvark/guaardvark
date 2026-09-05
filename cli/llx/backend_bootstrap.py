@@ -87,7 +87,7 @@ def is_backend_healthy(server_url: str | None = None, port: int | None = None, t
 
 
 def _sync_server_config(server_url: str) -> None:
-    """Keep ~/.llx/config.json server URL aligned after a successful bootstrap."""
+    """Keep ~/.guaardvark/cli.json server URL aligned after a successful bootstrap."""
     try:
         from llx.config import load_config, save_config
 

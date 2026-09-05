@@ -29,6 +29,12 @@ from llx.commands.launch import launch
 from llx.commands.quality import quality_app
 from llx.commands.outreach import outreach_app
 from llx.commands.recipes import recipes_app
+from llx.commands.plugins import plugins_app
+from llx.commands.gpu import gpu_app
+from llx.commands.mcp import mcp_app
+from llx.commands.audio import audio_app
+from llx.commands.swarm import swarm_app
+from llx.commands.lessons import lessons_app
 
 app = typer.Typer(
     name="guaardvark",
@@ -152,6 +158,31 @@ app.add_typer(videos_app, name="videos")
 app.add_typer(quality_app, name="quality")
 app.add_typer(outreach_app, name="outreach")
 app.add_typer(recipes_app, name="recipes")
+app.add_typer(plugins_app, name="plugins")
+app.add_typer(gpu_app, name="gpu")
+app.add_typer(mcp_app, name="mcp")
+app.add_typer(audio_app, name="audio")
+app.add_typer(swarm_app, name="swarm")
+app.add_typer(lessons_app, name="lessons")
+
+
+def completion(
+    shell: str = typer.Argument("bash", help="bash, zsh, or fish"),
+):
+    """Print a shell completion script for guaardvark."""
+    from click.shell_completion import get_completion_class
+    from typer.main import get_command
+
+    cls = get_completion_class(shell)
+    if cls is None:
+        output.print_error(f"Unsupported shell: {shell} (try bash, zsh, or fish)")
+        raise typer.Exit(1)
+    click_cmd = get_command(app)
+    script = cls(click_cmd, {}, "guaardvark", "_GUAARDVARK_COMPLETE").source()
+    print(script)
+
+
+app.command("completion")(completion)
 
 
 def version_callback(value: bool):
@@ -167,7 +198,7 @@ def main(
     json_out: bool = typer.Option(False, "--json", "-j", help="Output as JSON (for scripting)"),
     server: str | None = typer.Option(None, "--server", "-s", help="Override server URL"),
     timeout: float | None = typer.Option(None, "--timeout", "-t", help="Request timeout in seconds"),
-    theme: str | None = typer.Option(None, "--theme", help="Color theme (default, teal, musk, hacker, vader, guaardvark)"),
+    theme: str | None = typer.Option(None, "--theme", help="Color theme (default, teal, musk, hacker, vader, guaardvark, day, auto)"),
     verbose: bool = typer.Option(False, "--verbose", "-V", help="Verbose output"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-essential output"),
     non_interactive: bool = typer.Option(

@@ -56,3 +56,9 @@ class TestResolveReplLine:
             ["waves"],
         )
         assert resolve_repl_line("generate csv report") == ("generate", ["csv", "report"])
+
+    def test_plugin_and_gpu_intents(self):
+        assert resolve_repl_line("list plugins") == ("plugins", ["list"])
+        assert resolve_repl_line("gpu status") == ("gpu", ["status"])
+        assert resolve_repl_line("what's using the gpu") == ("gpu", ["status"])
+        assert resolve_repl_line("start comfyui") == ("plugins", ["start", "comfyui"])

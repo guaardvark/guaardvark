@@ -114,6 +114,12 @@ def jobs_watch(
 
             def on_complete(data):
                 progress.update(task, completed=100, description="[llx.success]Complete[/llx.success]")
+                try:
+                    from llx.notify import notify
+
+                    notify("Guaardvark", f"Job {job_id} complete")
+                except Exception:
+                    pass
 
             def on_error(msg):
                 progress.update(task, description=f"[llx.error]{msg}[/llx.error]")

@@ -64,14 +64,18 @@ def _doctor_cli_check() -> None:
     from pathlib import Path
 
     from llx.backend_bootstrap import is_backend_healthy
-    from llx.config import CONFIG_FILE, get_server_url
+    from llx.config import CONFIG_FILE, LEGACY_CONFIG_FILE, get_server_url
     from llx.launch_config import _config_path as launch_cfg_path, load_launch_config
     from llx.lite_mode import is_lite_mode
 
     checks: list[tuple[str, bool, str]] = []
 
-    llx_cfg = CONFIG_FILE
-    checks.append(("~/.llx/config.json", llx_cfg.is_file(), str(llx_cfg)))
+    if CONFIG_FILE.is_file():
+        checks.append(("~/.guaardvark/cli.json", True, str(CONFIG_FILE)))
+    elif LEGACY_CONFIG_FILE.is_file():
+        checks.append(("~/.llx/config.json (legacy)", True, str(LEGACY_CONFIG_FILE)))
+    else:
+        checks.append(("CLI config", True, f"{CONFIG_FILE} (not created yet)"))
 
     launch_path = launch_cfg_path()
     launch_exists = launch_path.is_file()
@@ -99,13 +103,24 @@ def _doctor_cli_check() -> None:
             )
         )
 
+    try:
+        from llx.termcaps import detect, tmux_hints
+
+        caps = detect()
+        gfx = caps.graphics
+        checks.append(("terminal", True, f"{caps.name}  colors={caps.color_count}  graphics={gfx}"))
+        if caps.tmux:
+            checks.append(("tmux", True, "passthrough needed for inline images: " + "; ".join(tmux_hints()[:2])))
+    except Exception:
+        pass
+
     console.print("[llx.brand]CLI Doctor[/llx.brand]\n")
     all_ok = True
     for label, ok, detail in checks:
         icon = ICON_ONLINE if ok else ICON_OFFLINE
         style = "llx.status.online" if ok else "llx.status.offline"
         console.print(f"  [{style}]{icon}[/{style}] [llx.kv.key]{label}:[/llx.kv.key] {detail}")
-        if label not in ("lite/full note", "launch mode") and not ok:
+        if label not in ("lite/full note", "launch mode", "terminal", "tmux") and not ok:
             all_ok = False
 
     if not all_ok:
