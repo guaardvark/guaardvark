@@ -650,6 +650,21 @@ _WORKSTATION_DIRECT = (
 )
 
 
+# Direct-dispatched workstation tools answer in prose. Their output is a
+# status payload (module counts, VRAM, log lines); handing it back verbatim
+# was a dict dump with machine paths in it (observed 2026-09-05). The raw
+# result still rides the tool card.
+_WORKSTATION_PROSE_TOOLS = frozenset(
+    {"map_codebase", "inspect_gpu", "read_logs", "swarm_status", "self_improvement_status"})
+
+_TOOL_PROSE_SYSTEM = (
+    "You are Guaardvark's assistant. Answer the user's message from the tool "
+    "result below in two to four plain sentences. Lead with the numbers or "
+    "facts that answer the question. Do not print JSON, file paths, "
+    "identifiers or lists of records; the raw result is already shown to the user."
+)
+
+
 def match_workstation_direct(message: str) -> Optional[tuple]:
     """Unambiguous NL → tool, so small local models cannot narrate instead of acting."""
     msg = (message or "").strip()
@@ -2707,6 +2722,26 @@ class UnifiedChatEngine:
             "edit_image", params, session_id, emit_fn, request_id, message, options,
         )
 
+    def _prose_for_tool_result(self, tool_name: str, user_message: str, output: Any,
+                               emit_fn: Callable, session_id: str) -> str:
+        """One bounded LLM call that turns a workstation tool's payload into an
+        answer; the payload itself is the fallback when the model has nothing."""
+        raw = str(output)
+        messages = [
+            {"role": "system", "content": _TOOL_PROSE_SYSTEM},
+            {"role": "user", "content": (
+                f"The user asked: {user_message}\n\n"
+                f"The tool {tool_name} returned:\n{raw[:6000]}")},
+        ]
+        try:
+            text, _in, _out = self._call_llm_streaming(
+                messages, emit_fn, session_id, emit_tokens=True, max_tokens=320)
+        except Exception as exc:
+            logger.warning("prose for %s failed, returning the payload: %s", tool_name, exc)
+            return raw
+        text = (text or "").strip()
+        return text if text and text != _REASONING_ONLY_FALLBACK_TEXT else raw
+
     def _run_direct_tool_execution(
         self,
         tool_name: str,
@@ -2849,6 +2884,9 @@ class UnifiedChatEngine:
             response = "Here's the generated video."
         elif result.success and image_url:
             response = "Here's the generated image." if tool_name == "generate_image" else str(result.output)
+        elif result.success and tool_name in _WORKSTATION_PROSE_TOOLS:
+            response = self._prose_for_tool_result(
+                tool_name, user_message, result.output, emit_fn, session_id)
         elif result.success:
             response = str(result.output)
         else:
