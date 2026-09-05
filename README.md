@@ -432,33 +432,38 @@ The CLI connects to a running Guaardvark instance or launches a lightweight embe
 
 ## CLI
 
-~40 commands/subcommands (25 command modules) with tab completion and fuzzy matching. The PyPI package is `guaardvark`; the command is often `llx` when working from the source tree (`cd cli && pip install -e .`).
+Typer + Rich + prompt_toolkit. The PyPI package and the command are `guaardvark` (`llx` is a deprecated alias). Tab completion works with or without a leading `/`; `/help imagine` shows one command; unknown commands suggest a close match.
 
 ```bash
-guaardvark                              # Interactive REPL (or `llx`)
+guaardvark                              # Interactive REPL
 guaardvark status                       # System dashboard
 guaardvark chat "explain this codebase" # Chat with RAG context
 guaardvark search "query"               # Semantic search
 guaardvark files upload report.pdf      # Upload and index
+guaardvark plugins list                 # ComfyUI / Ollama / …
+guaardvark gpu status                   # VRAM and owner lock
+guaardvark mcp install --client cursor  # Wire Guaardvark into Cursor
+guaardvark completion zsh               # Shell completion script
 ```
+
+Config: `~/.guaardvark/cli.json` (legacy `~/.llx/config.json` is still read). Themes: `default`, `teal`, `musk`, `hacker`, `vader`, `guaardvark`, `day`, `auto`. Short terminals get a compact aardvark banner.
 
 ### REPL Slash Commands (examples)
 
 ```
-/imagine <prompt>       Generate an image from text
+/imagine <prompt>       Generate an image (inline preview in Kitty/iTerm)
 /video <prompt>         Generate a video from text
-/voice <text>           Text-to-speech output
-/agent                  Toggle autonomous agent mode
-/web                    Open the web UI
+/voice <text>           Text-to-speech (plays locally)
+/agent [on|off|shot]    Screen-agent mode; shot = desktop screenshot
+/web [images|chat]      Open the web UI on the real frontend port
 /ingest <path>          Index files or directories for RAG
-/search <query>         Semantic search over indexed documents
-/models list            List available Ollama models
-/remember <text>        Save to persistent memory
-/memory list|search     Browse saved memories
-/backup create          Create a system backup
-/jobs list|watch        Monitor background tasks
-/config                 View or change settings
-/help                   Full command reference
+/plugins list|start     GPU / service plugins
+/gpu status|release     VRAM and owner lock
+/audio tts|music|sfx    Audio Foundry
+/swarm run <prompt>     Parallel agents in worktrees
+/lessons begin|end      Lesson pearls
+/skills                 List SKILL.md files
+/help [query]           Full command reference, or one command
 ```
 
 ---

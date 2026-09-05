@@ -62,6 +62,24 @@ Everything the H3 release can do, wired through the product, on a branch until i
   soundtrack with a 0.91 waveform correlation (0.99 on the envelope), rendered in 138 s
   on the turbo profile.
 
+## Unreleased — CLI
+
+The `guaardvark` command is now a peer of the web UI, not a subset.
+
+- **One command catalog.** Slash router, tab completion, `/help`, and the contract tests
+  share `COMMAND_TREE`. `/imagine`, `/video`, `/voice`, `/ingest`, `/agent`, `/web`,
+  `/load`, `/skills`, and `recipes` complete. Unknown commands get “Did you mean…?”.
+  Completion works without a leading `/`.
+- **Theme-true prompt.** REPL colors follow `/theme` (including `day` and `auto`). Compact
+  banner on short terminals so the 30-row aardvark art does not overflow. Chat prefix is
+  the brand mark, not a llama. `/clear` uses Rich. Config lives in `~/.guaardvark/cli.json`
+  (legacy `~/.llx` still read). `/web` uses the real frontend port from runtime.json.
+- **Studio commands.** `plugins`, `gpu`, `mcp`, `audio`, `swarm`, `lessons` wrap the
+  existing APIs. `guaardvark completion bash|zsh|fish` prints a shell script.
+  `guaardvark doctor --cli` reports terminal graphics / tmux passthrough.
+- **Show the artifact.** `/imagine` previews inline (Kitty / iTerm / chafa). `/voice`
+  plays locally. `/agent shot` dumps the agent desktop. Jobs notify on complete.
+
 ## 2.8.1 — Profiles, extensions, and a bootstrap that converges offline
 
 16 commits since 2.8.0. Two product-shaping features — a profile switch and a client
