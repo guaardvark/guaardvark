@@ -575,9 +575,9 @@ Beats:
 7. **reasoning** — a question to gemma4; the ThinkingCard streams reasoning
    as its own channel and folds when the answer starts; the leak it fixed;
    the 4,096-token window that was sized by a guess.
-8. **artifact** — ask for a CSV; the ArtifactCard lands inline. CUT from the
-   2026-09-05 shoot: the ask returned "Agent execution completed with no
-   response" on two chat models (defect logged); beat code kept for a retake.
+8. **artifact** — ask for a CSV; the ArtifactCard lands inline. Cut from the
+   first 2026-09-05 cut (the router sent the ask to the screen agent), back
+   in the reshoot after the router fix; narration says so.
 9. **housekeeping** — Product Profile (Creator vs Workstation, hover only),
    Export Chats (real click, snackbar with the count), Delete History (hover).
 10. **cli** — `guaardvark` REPL in a stage terminal: `/help gpu`,
@@ -618,12 +618,14 @@ Beats:
    `unified_chat_engine.py` cites finding `a21f45035732cf31`, fixed in
    `fdd82da`. "The map found a bug in the product it maps."
 7. **dispatch** — an `unwired-tool` finding ▸ *Send to the self-improvement
-   agent* ▸ the 202 toast. Honesty beat: only six kinds are dispatchable;
+   agent* ▸ the 202 toast; the exact one-line proposal is staged as a
+   PendingFix within seconds (mechanical remedy, no model); `v_dispatch`
+   requires the fix count to rise. Honesty beat: only six kinds are dispatchable;
    dead-code and liveness findings are advisory by design.
 8. **live** — Ctrl+Shift+C floating chat on the map asks for the mapper ▸
-   the module pulses, the activity log records it. CUT from the 2026-09-05
-   shoot: the direct-dispatch call never reached the activity log (0/30,
-   Idle) and the reply was the raw payload (defect logged); code kept.
+   the activity log records it, the module pulses, the answer is prose.
+   Cut from the first 2026-09-05 cut (the map listened on the wrong
+   channel); back in the reshoot after the fix; narration says so.
 9. **closer** — dead symbols shown vs suppressed; "the map would rather
    miss than lie"; `R`; chip ▸ Ep 15.
 

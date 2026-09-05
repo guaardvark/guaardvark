@@ -483,6 +483,7 @@ EPISODES = {
             "MiniMax H3 — a compiled prompt",
             "Two honest notes",
             "Reasoning as its own channel",
+            "A file lands in the chat",
             "Profiles, Export Chats, Delete History",
             "The guaardvark REPL",
             "One machine. No cloud.",
@@ -504,8 +505,9 @@ EPISODES = {
             "spotlights, search, the tool-graph and ghost-endpoint overlays, "
             "ranked findings with the file and line, the finding that caught "
             "an unreachable chat tool (the fix cites it by id, and the map "
-            "needed its own fix to clear it), and a live dispatch to the "
-            "self-improvement agent."
+            "needed its own fix to clear it), a dispatch that stages the exact "
+            "one-line proposal for review, and a chat tool call pulsing its "
+            "module in real time."
         ),
         chapters=[
             "The constellation",
@@ -515,6 +517,7 @@ EPISODES = {
             "Ranked findings",
             "The bug the map caught",
             "Send it to the self-improvement agent",
+            "Live — a tool call pulses its module",
             "Would rather miss than lie",
         ],
         links=[3, 11, 13, 15, 16],

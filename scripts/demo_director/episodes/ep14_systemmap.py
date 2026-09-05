@@ -236,6 +236,7 @@ def reset_dispatch(st: Stage):
     rows = api_get("/api/system-map/findings", kind="unwired-tool", limit=5)
     require(any(f.get("dispatchable") for f in rows.get("findings", [])),
             "no dispatchable unwired-tool finding")
+    _FIXES_BEFORE["n"] = status.get("total_fixes")
 
 
 def send_button_for(st: Stage, row):
@@ -268,8 +269,7 @@ def act_dispatch(st: Stage):
     st.hover_over(send.first, dur=0.7)
     time.sleep(1.2)
     st.glide_click(send.first, dur=0.5)
-    st.page.get_by_text(re.compile(
-        r"Dispatched to the self-improvement agent")).first.wait_for(
+    st.page.get_by_text(re.compile(r"^Dispatched")).first.wait_for(
         state="visible", timeout=30_000)
     time.sleep(3.0)
 
@@ -278,7 +278,18 @@ def v_dispatch(st: Stage):
     t0 = time.monotonic()
     api_get("/api/self-improvement/status", timeout=10)
     require(time.monotonic() - t0 < 5.0, "status route wedged after dispatch")
+    before = _FIXES_BEFORE.get("n")
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        now = api_get("/api/self-improvement/status", timeout=10).get("total_fixes")
+        if before is None or (now is not None and now > before):
+            break
+        time.sleep(2)
+    require(before is None or now > before, "no PendingFix was staged by the dispatch")
     verify_path(st, "/system-map")
+
+
+_FIXES_BEFORE: dict = {}
 
 
 # --------------------------------------------------------------- beat 7: live
@@ -295,18 +306,17 @@ def act_live(st: Stage):
     st.cursor.type_text("use the system mapper and tell me how many modules there are", delay_ms=40)
     press(st, "Return", settle=1.0)
     log = st.page.get_by_text(re.compile(r"map_codebase"))
-    try:
-        log.first.wait_for(state="visible", timeout=90_000)
-    except Exception:
-        pass
+    log.first.wait_for(state="visible", timeout=90_000)
     time.sleep(2.5)
-    counter = st.page.get_by_text(re.compile(r"\d+/30"))
+    counter = st.page.get_by_text(re.compile(r"[1-9]\d*/30"))
     if counter.count():
         st.hover_over(counter.first, dur=0.8)
     time.sleep(2.0)
 
 
 def v_live(st: Stage):
+    require(st.page.get_by_text(re.compile(r"[1-9]\d*/30")).count(),
+            "activity log still idle after the tool call")
     verify_path(st, "/system-map")
 
 
@@ -414,9 +424,14 @@ BEATS = [
             "Some findings you can send straight to the self-improvement "
             "agent. This one says a tool is registered but unreachable.",
             "",
-            "Send it, and the agent is queued in the background. Whatever "
-            "it proposes lands in the fix queue as a diff, for a person to "
-            "approve. It never edits on its own.",
+            "Send it. When the remedy is mechanical, like this one, the "
+            "exact one-line change is staged as a diff in the fix queue, "
+            "for a person to approve. Nothing is edited on its own.",
+            "",
+            "The first time we shot this, the finding went to a small "
+            "local model that invented a tool name and gave up. Now the "
+            "finding carries its own fix, and the model is only asked when "
+            "judgment is needed.",
             "",
             "Only six kinds of finding can be dispatched at all. Dead code "
             "and liveness findings are advisory by design. A tracing "
@@ -425,10 +440,21 @@ BEATS = [
         ],
         action=act_dispatch, verify=v_dispatch, reset=reset_dispatch,
     ),
-    # The live beat (floating chat asks for the mapper; the module pulses and
-    # the activity log records the call) is written above but not in this
-    # cut: on 2026-09-05 the direct-dispatch tool call never reached the
-    # map's activity log (0/30, Idle) and the reply was the raw payload.
+    Beat(
+        name="live",
+        narration=[
+            "The map is live. Open chat anywhere with control shift C, "
+            "and ask it to use the system mapper.",
+            "",
+            "That is a tool call, not a description of one. The activity "
+            "log records it, the module that answered pulses, and the "
+            "answer is a sentence, not a payload.",
+            "",
+            "First time we shot this, the log stayed empty: the map was "
+            "listening on the wrong channel. Fixed, and shown fixed.",
+        ],
+        action=act_live, verify=v_live, reset=reset_map,
+    ),
     Beat(
         name="closer",
         narration=[

@@ -352,6 +352,7 @@ def reset_artifact(st: Stage):
     if "/chat" not in st.path():
         set_nav_chrome(st, "software", path="/chat")
     chat_box(st).wait_for(state="visible", timeout=60_000)
+    new_chat(st)
     ps = api_get("/api/plugins")
     plugins = ps.get("plugins", ps) if isinstance(ps, dict) else ps
     if isinstance(plugins, dict):
@@ -571,10 +572,20 @@ BEATS = [
         ],
         action=act_reasoning, verify=v_reasoning, reset=reset_reasoning,
     ),
-    # The artifact beat (ask for a CSV, an ArtifactCard lands inline) is
-    # written above but not in this cut: on 2026-09-05 the request came back
-    # "Agent execution completed with no response" on two chat models. Put it
-    # back once generate_file answers that ask on the real path.
+    Beat(
+        name="artifact",
+        narration=[
+            "Ask for a file, and the file lands in the conversation. A "
+            "table you can read, a download you can keep, saved under your "
+            "outputs.",
+            "",
+            "This one did not work the first time we shot it: the router "
+            "read the word agents in the request and sent it to the screen "
+            "agent. That is fixed, and this is the fixed path.",
+        ],
+        action=act_artifact, verify=v_artifact, reset=reset_artifact,
+        min_hold=12.0,
+    ),
     Beat(
         name="housekeeping",
         narration=[
