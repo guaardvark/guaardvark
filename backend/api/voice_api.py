@@ -17,7 +17,7 @@ import json
 import psutil
 import requests
 
-from flask import Blueprint, current_app, jsonify, request, send_file
+from flask import Blueprint, Response, current_app, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 from backend.utils.response_utils import success_response, error_response
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
