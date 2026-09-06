@@ -2380,6 +2380,33 @@ else
 fi
 vader_separator
 
+# Optional: start an external whisper.cpp HTTP server for STT when
+# GUAARDVARK_USE_WHISPER_SERVER=1 (see backend/api/voice_api.py). This lets
+# Guaardvark reuse an already-built whisper-server instead of building its own
+# whisper-cli. Paths are overridable via GUAARDVARK_WHISPER_SERVER_BIN / _MODEL.
+if [ "${GUAARDVARK_USE_WHISPER_SERVER:-0}" = "1" ]; then
+    WHISPER_SERVER_BIN="${GUAARDVARK_WHISPER_SERVER_BIN:-$HOME/GitHub/whisper.cpp/build/bin/whisper-server}"
+    WHISPER_SERVER_MODEL="${GUAARDVARK_WHISPER_SERVER_MODEL:-$HOME/GitHub/whisper.cpp/models/ggml-base.bin}"
+    WHISPER_SERVER_PORT="${GUAARDVARK_WHISPER_SERVER_PORT:-5800}"
+    if [ -x "$WHISPER_SERVER_BIN" ] && [ -f "$WHISPER_SERVER_MODEL" ]; then
+        if lsof -Pi :$WHISPER_SERVER_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+            vader_success "Whisper server already running on port $WHISPER_SERVER_PORT"
+        else
+            vader_info "Starting whisper.cpp server on port $WHISPER_SERVER_PORT..."
+            "$WHISPER_SERVER_BIN" --host 127.0.0.1 --port "$WHISPER_SERVER_PORT" --model "$WHISPER_SERVER_MODEL" >> "$LOGS_DIR/whisper_server.log" 2>&1 &
+            echo $! > "$SCRIPT_DIR/pids/whisper_server.pid"
+            sleep 2
+            if lsof -Pi :$WHISPER_SERVER_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
+                vader_success "Whisper server started on port $WHISPER_SERVER_PORT"
+            else
+                vader_warn "Whisper server failed to start — check $LOGS_DIR/whisper_server.log"
+            fi
+        fi
+    else
+        vader_warn "Whisper server binary/model not found (GUAARDVARK_USE_WHISPER_SERVER=1 but $WHISPER_SERVER_BIN / $WHISPER_SERVER_MODEL missing)"
+    fi
+fi
+
 vader_step 8 "Setting up backend..."
 cd "$BACKEND_DIR" || { vader_error "Failed to cd to $BACKEND_DIR"; exit 1; }
 

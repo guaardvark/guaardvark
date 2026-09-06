@@ -455,3 +455,47 @@ def storyboard_shot_image(prod_id, shot_id):
     if not image_path.is_file():
         return jsonify({"error": "storyboard image file not found"}), 404
     return send_file(image_path)
+
+
+_SCRIPT_TEMPLATE_DIR = _REPO_ROOT / "docs" / "film-crew-scripts"
+
+
+def _resolve_script_template(filename: str) -> Path | None:
+    """Return the absolute path to a script template if it lives under the
+    allowed directory and exists; otherwise None (rejects path traversal)."""
+    if not filename or "/" in filename or "\\" in filename or filename.startswith("."):
+        return None
+    candidate = (_SCRIPT_TEMPLATE_DIR / filename).resolve()
+    try:
+        candidate.relative_to(_SCRIPT_TEMPLATE_DIR.resolve())
+    except ValueError:
+        return None
+    return candidate if candidate.is_file() else None
+
+
+@bp.get("/script-templates")
+def list_script_templates():
+    """List available Film Crew script templates from docs/film-crew-scripts."""
+    if not _SCRIPT_TEMPLATE_DIR.is_dir():
+        return jsonify({"templates": []})
+
+    templates = []
+    for f in sorted(_SCRIPT_TEMPLATE_DIR.iterdir()):
+        if f.is_file() and f.suffixes == [".tmplt", ".txt"]:
+            stat = f.stat()
+            templates.append({
+                "filename": f.name,
+                "name": f.stem.replace("_", " ").replace("-", " ").title(),
+                "size_bytes": stat.st_size,
+                "modified_at": stat.st_mtime,
+            })
+    return jsonify({"templates": templates})
+
+
+@bp.get("/script-templates/<filename>")
+def get_script_template(filename: str):
+    """Return the raw text of a Film Crew script template."""
+    path = _resolve_script_template(filename)
+    if path is None:
+        return jsonify({"error": "template not found"}), 404
+    return send_file(path, mimetype="text/plain; charset=utf-8")

@@ -373,6 +373,28 @@ def generate_music(req: MusicRequest) -> Any:
     return _dispatch(Intent.MUSIC, req)
 
 
+@app.get("/view")
+def view_file(path: str) -> Any:
+    """Stream a generated audio file over HTTP (remote-capable, mirrors ComfyUI's /view).
+
+    The generate endpoints return a local ``path``; this endpoint lets a client on
+    another machine fetch the bytes by that path. Only files under the output dir
+    are served (path-traversal guard).
+    """
+    from fastapi.responses import FileResponse
+    p = _Path(path)
+    if not p.is_absolute():
+        p = _out_dir / p
+    try:
+        resolved = p.resolve()
+        resolved.relative_to(_out_dir.resolve())
+    except (ValueError, OSError):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(str(resolved))
+
+
 @app.get("/jobs/{job_id}")
 def get_job(job_id: str) -> dict[str, Any]:
     job = _jobs.get(job_id)

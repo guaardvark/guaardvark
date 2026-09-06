@@ -62,6 +62,16 @@ export const listCastLibrary = async () => {
   return response.data;
 };
 
+export const listScriptTemplates = async () => {
+  const response = await axios.get(`${API_BASE}/production/script-templates`);
+  return response.data;
+};
+
+export const loadScriptTemplate = async (filename) => {
+  const response = await axios.get(`${API_BASE}/production/script-templates/${filename}`);
+  return response.data;
+};
+
 export const createCastSubject = async (data) => {
   const response = await axios.post(`${API_BASE}/cast-library/subjects`, data);
   return response.data;
@@ -175,6 +185,8 @@ const productionService = {
   approveStoryboard,
   regenerateShot,
   listCastLibrary,
+  listScriptTemplates,
+  loadScriptTemplate,
   createCastSubject,
   deleteCastSubject,
   getCastSubject,

@@ -279,6 +279,9 @@ fi
 kill_and_cleanup "backend"
 kill_and_cleanup "frontend"
 kill_and_cleanup "celery"
+# Optional external whisper.cpp server started by start.sh when
+# GUAARDVARK_USE_WHISPER_SERVER=1.
+kill_and_cleanup "whisper_server"
 
 # Clear Python bytecode cache so stale .pyc files never load old code
 find "$SCRIPT_DIR/backend" -path "*/venv" -prune -o -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null

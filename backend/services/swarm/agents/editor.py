@@ -131,6 +131,8 @@ class Editor:
         output_dir: str,
         default_voice: str = "default",
         music_mood: str = "neutral",
+        progress_cb=None,
+        existing_clips=None,
     ) -> RenderResult:
         """Render the full production. Output paths land under `output_dir`.
 
@@ -159,6 +161,14 @@ class Editor:
         from backend.config import FILM_CREW_PARALLEL_RENDER
         from concurrent.futures import ThreadPoolExecutor
 
+        # ``existing_clips`` is a {shot_number: clip_path} map of clips already
+        # rendered by a prior run (for resume after an interruption). Those shots
+        # skip re-render but still get VO / music / concat, so the final film is
+        # complete even though only the missing clips were generated now.
+        existing_clips = existing_clips or {}
+
+        total_shots = len(shots)
+
         if self.scene_renderer is not None:
             plan = self.plan_windows(shots)
             for window_index, window in enumerate(plan):
@@ -175,10 +185,16 @@ class Editor:
             # under it, so nothing here needs a second concat path.
             voiceover_paths = [clip for clip, _ in windows]
         elif FILM_CREW_PARALLEL_RENDER:
+
             logger.info(f"Starting parallel render for production {production_id}")
+            import threading
+            _done = 0
+            _done_lock = threading.Lock()
             with ThreadPoolExecutor(max_workers=3) as executor:
                 def render_one_shot(shot: ShotInput) -> tuple[str, str | None]:
-                    clip = self._render_clip(shot, clips_dir)
+                    clip = existing_clips.get(shot.shot_number)
+                    if not clip:
+                        clip = self._render_clip(shot, clips_dir)
                     shot_voice = shot.voice_id or default_voice
                     vo = self._render_voiceover(shot, audio_dir, shot_voice)
                     
@@ -188,14 +204,21 @@ class Editor:
                         clip = self.lipsync.lipsync(video_path=clip, audio_path=vo, output_path=synced)
                     
                     self._emit_progress(production_id, shot.shot_number, clip)
+                    if progress_cb:
+                        nonlocal _done
+                        with _done_lock:
+                            _done += 1
+                            progress_cb(_done, total_shots, shot.shot_number, clip)
                     return clip, vo
 
                 results = list(executor.map(render_one_shot, shots))
                 clip_paths = [r[0] for r in results]
                 voiceover_paths = [r[1] for r in results]
         else:
-            for shot in shots:
-                clip_path = self._render_clip(shot, clips_dir)
+            for idx, shot in enumerate(shots):
+                clip_path = existing_clips.get(shot.shot_number)
+                if not clip_path:
+                    clip_path = self._render_clip(shot, clips_dir)
                 shot_voice = shot.voice_id or default_voice
                 vo_path = self._render_voiceover(shot, audio_dir, shot_voice)
 
@@ -207,6 +230,8 @@ class Editor:
                 clip_paths.append(clip_path)
                 voiceover_paths.append(vo_path)
                 self._emit_progress(production_id, shot.shot_number, clip_path)
+                if progress_cb:
+                    progress_cb(idx + 1, total_shots, shot.shot_number, clip_path)
 
         # Phase 1.3: Per-scene music. Skipped entirely when AudioFoundry is
         # unavailable — the production still renders, just video-only.

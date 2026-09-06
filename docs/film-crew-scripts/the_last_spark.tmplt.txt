@@ -1,0 +1,48 @@
+Title: The Last Spark
+Author: A. Storyteller
+Credit: A Visual Novel Example
+
+FADE IN:
+
+SCENE 1
+
+EXT. FOREST PATH - DAY
+
+{{Forest Path:environment}}
+
+[[Elara]] walks cautiously along the overgrown path, hand near her {{Knife:prop}}.
+
+A {{Corrupted Wolf:prop}} made of twisted bark and shadow blocks her way.
+
+ELARA
+(whispering)
+Oh no.
+
+SHOT 1 - WIDE: Elara faces the wolf on the forest path. A distant spire is visible through the trees.
+SHOT 2 - MEDIUM: Elara's hand rests on her knife, eyes locked on the wolf.
+SHOT 3 - CLOSE-UP: Elara's eyes widen; the Lumin Seed glows faintly from her {{Satchel:prop}}.
+SHOT 4 - LOW ANGLE: The Corrupted Wolf looms over Elara, snarling.
+
+MUSIC: Tension_Builds.mp3
+SFX: Distant eerie caw, cracking branches
+
+FADE OUT.
+
+SCENE 2
+
+INT. OLD CABIN - DAY
+
+{{Old Cabin:environment}}
+
+[[Elara]] wraps the {{Lumin Seed:prop}} in cloth and puts it in her {{Satchel:prop}}.
+
+ELARA
+(V.O.)
+The Lumin Seed was the last spark of the Great Tree's light.
+
+SHOT 5 - INSERT: The Lumin Seed glows warmly in the cloth.
+SHOT 6 - WIDE: Elara steps out of the cabin into the quiet forest.
+
+SFX: Rustling cloth, gentle wind
+
+FADE OUT.

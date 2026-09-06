@@ -997,10 +997,20 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         # probe failure (fail open — don't block a card we just can't read).
         if not info.get("success"):
             reason = info.get("reason") or info.get("error") or ""
+            # On Apple Silicon MPS the NVIDIA probe fails, but ComfyUI can still
+            # render via MPS. Only hard-fail if MPS is not available either.
             if reason == "no_gpu_hardware" or "no NVIDIA" in str(reason):
-                return "GPU required for video generation: no NVIDIA GPU detected on this host."
-            logger.warning("VRAM preflight: probe unavailable (%s); proceeding", reason)
-            return None
+                try:
+                    import torch
+                    mps_ok = bool(hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
+                except Exception:
+                    mps_ok = False
+                if not mps_ok:
+                    return "GPU required for video generation: no NVIDIA GPU detected on this host."
+                # Fall through and let the MPS path run.
+            else:
+                logger.warning("VRAM preflight: probe unavailable (%s); proceeding", reason)
+                return None
 
         total_mb = info.get("total_mb") or 0
         free_mb = info.get("available_mb") or info.get("free_mb") or 0

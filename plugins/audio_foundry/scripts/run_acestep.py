@@ -62,6 +62,16 @@ def _eprint(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
 
+def _pick_device() -> str:
+    """CUDA > MPS > cpu. Lets ACE-Step run on Apple Silicon (MPS) as well as NVIDIA."""
+    import torch
+    if torch.cuda.is_available():
+        return "cuda"
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 def _respond(payload: dict[str, Any]) -> None:
     """Single JSON line on stdout — terminator is implicit \\n from print."""
     sys.stdout.write(json.dumps(payload) + "\n")
@@ -77,20 +87,9 @@ def _do_load(model_id: str) -> dict[str, Any]:
     import torch
     _torch = torch
 
-    # CUDA is the tested path. Apple Silicon runs the same pipeline on Metal
-    # (MPS) in ACE-Step's own Gradio app and in ComfyUI; here it is offered
-    # as experimental — say so in the log and in the error when neither exists.
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
-        device = "mps"
-        _eprint("[run_acestep] no CUDA; using Apple Silicon (MPS) — experimental, please report results")
-    else:
-        return {
-            "ok": False,
-            "error": "ACE-Step needs a GPU: NVIDIA (CUDA), or Apple Silicon via Metal (experimental). "
-                     "Neither is available on this machine.",
-        }
+    dev = _pick_device()
+    if dev == "cpu":
+        return {"ok": False, "error": "No GPU (CUDA or MPS) available — ACE-Step requires a GPU"}
 
     try:
         from acestep.pipeline_ace_step import ACEStepPipeline
@@ -103,7 +102,7 @@ def _do_load(model_id: str) -> dict[str, Any]:
     try:
         _pipeline = ACEStepPipeline(
             checkpoint_path=model_id,
-            device=device,
+            device=dev,
             torch_dtype=torch.float16,
         )
     except TypeError:
@@ -111,9 +110,9 @@ def _do_load(model_id: str) -> dict[str, Any]:
         _pipeline = ACEStepPipeline.from_pretrained(
             model_id,
             torch_dtype=torch.float16,
-        ).to(device)
+        ).to(dev)
 
-    _eprint(f"[run_acestep] {model_id} loaded (fp16, {device})")
+    _eprint(f"[run_acestep] {model_id} loaded (fp16, {dev})")
     return {"ok": True}
 
 
@@ -248,7 +247,10 @@ def _do_unload() -> dict[str, Any]:
     del _pipeline
     _pipeline = None
     if _torch is not None:
-        _torch.cuda.empty_cache()
+        if _torch.cuda.is_available():
+            _torch.cuda.empty_cache()
+        elif hasattr(_torch.backends, "mps") and _torch.backends.mps.is_available():
+            _torch.mps.empty_cache()
     _eprint("[run_acestep] unloaded")
     return {"ok": True}
 

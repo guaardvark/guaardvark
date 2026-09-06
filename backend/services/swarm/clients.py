@@ -41,9 +41,11 @@ def _service_up(base_url: str, timeout: float = 2.0) -> bool:
 class AudioFoundryClient:
     """Implements the Editor's AudioFoundry protocol against the :8206 plugin.
 
-    Same-machine, so the plugin returns an absolute path we copy to where the
-    Editor wants it. If the plugin is down, methods raise — the Editor catches
-    and treats audio as absent (see Editor._safe_audio).
+    Remote-capable: the plugin returns a logical ``path`` and we fetch the bytes
+    over HTTP via its /view endpoint (mirrors how the ComfyUI client downloads
+    outputs). Works whether the plugin is on this machine or another — just point
+    AUDIO_FOUNDRY_URL at it. If the plugin is down, methods raise — the Editor
+    catches and treats audio as absent (see Editor._safe_audio).
     """
 
     def __init__(self, base_url: str | None = None):
@@ -57,10 +59,14 @@ class AudioFoundryClient:
         resp.raise_for_status()
         data = resp.json()
         src = data.get("path") or data.get("output_path") or data.get("file")
-        if not src or not Path(src).is_file():
+        if not src:
             raise RuntimeError(f"audio_foundry returned no usable path: {data!r}")
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(src, output_path)
+        # Fetch the file bytes over HTTP (remote-capable, mirrors ComfyUI /view).
+        dl = requests.get(f"{self.base_url}/view", params={"path": src}, timeout=_GEN_TIMEOUT_S)
+        dl.raise_for_status()
+        with open(output_path, "wb") as f:
+            f.write(dl.content)
         return output_path
 
     def tts(self, *, text: str, voice: str, output_path: str) -> str:

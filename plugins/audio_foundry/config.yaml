@@ -30,7 +30,7 @@ backends:
     primary: chatterbox              # dispatcher order; fallback on OOM or primary failure
     fallback: kokoro
     chatterbox:
-      model: resemble-ai/chatterbox
+      model: ResembleAI/chatterbox
       sample_rate: 24000
       chunk_chars: 220               # long text split to prevent single-inference OOM
       timeout_s: 120

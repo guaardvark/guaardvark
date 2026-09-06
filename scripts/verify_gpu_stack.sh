@@ -89,7 +89,28 @@ check_venv "audio_foundry"       "$REPO_ROOT/plugins/audio_foundry/venv/bin/pyth
 check_venv "audio_foundry-music" "$REPO_ROOT/plugins/audio_foundry/venv-music/bin/python"
 check_venv "video_editor"        "$REPO_ROOT/plugins/video_editor/venv/bin/python"
 
-# Ollama: is a model loaded fully on GPU? `ollama ps` prints a PROCESSOR column.
+# ComfyUI: is the service reachable on its plugin port and serving the GUI?
+# The port is read from the plugin manifest so local overrides are respected.
+COMFY_PORT=$(python3 - "$REPO_ROOT" <<'PY'
+import json, sys
+root = sys.argv[1]
+for name in ("plugin.local.json", "plugin.json"):
+    path = f"{root}/plugins/comfyui/{name}"
+    try:
+        print(int(json.load(open(path))["port"]))
+        break
+    except Exception:
+        continue
+else:
+    print(8188)
+PY
+)
+if curl -sf --max-time 3 "http://127.0.0.1:${COMFY_PORT}/" >/dev/null 2>&1; then
+    echo "  ✔ comfyui: reachable on port ${COMFY_PORT}"
+else
+    echo "  ⚠ comfyui: not reachable on port ${COMFY_PORT} (start with: bash $REPO_ROOT/plugins/comfyui/scripts/start.sh)"
+    DEGRADED+=("comfyui")
+fi
 if command -v ollama >/dev/null 2>&1 && ollama ps >/dev/null 2>&1; then
     # Match the PROCESSOR column ("NN% CPU"), not a model NAME that contains
     # "cpu" (e.g. a model called cpu-bench would otherwise false-positive).
