@@ -43,14 +43,19 @@ _I2V_CAPTION_PROMPT = (
     "setting, and lighting. Describe exactly what is shown — do not invent "
     "details that are not visible."
 )
+# Motion-only fallback when the VLM returns nothing. Does not invent a subject.
+_I2V_MOTION_ONLY = (
+    "Animate this image with subtle natural motion. Keep the subject, "
+    "outfit, and scene exactly as shown."
+)
 
 
 def _caption_image_for_i2v(image_path: str) -> str:
     """VLM caption of an I2V source image, or "" when the VLM is unavailable.
 
     Uses the shared offline VisionAnalyzer (same model as character_captioner /
-    film_curator). Never raises — I2V must proceed with a generic prompt rather
-    than fail the item over captioning."""
+    film_curator). Never raises — I2V proceeds without a caption rather than
+    failing the item."""
     try:
         from PIL import Image
         from backend.utils.vision_analyzer import VisionAnalyzer
@@ -58,10 +63,21 @@ def _caption_image_for_i2v(image_path: str) -> str:
         res = VisionAnalyzer().analyze(img, _I2V_CAPTION_PROMPT, think=False)
         if getattr(res, "success", False) and (getattr(res, "description", "") or "").strip():
             return res.description.strip()
-        logger.warning("I2V auto-caption: VLM gave no description for %s", image_path)
+        logger.info("I2V auto-caption: VLM gave no description for %s", image_path)
     except Exception as e:
-        logger.warning("I2V auto-caption failed for %s: %s", image_path, e)
+        logger.info("I2V auto-caption failed for %s: %s", image_path, e)
     return ""
+
+
+def _i2v_prompt_from_caption(caption: str) -> tuple[str, bool]:
+    """(prompt, caption_empty). An empty VLM result is not filled with invented detail."""
+    text = (caption or "").strip()
+    if text:
+        return (
+            f"{text} Subtle natural motion; keep the subject, outfit, and scene exactly as shown.",
+            False,
+        )
+    return _I2V_MOTION_ONLY, True
 
 
 def _derive_display_name(text: str, max_len: int = 40) -> str:
@@ -1063,16 +1079,14 @@ class BatchVideoGenerator:
                         if item.image_path and not (item.prompt or "").strip():
                             self._set_stage(status, "caption", current_item=item.id)
                             caption = _caption_image_for_i2v(item.image_path)
-                            item.prompt = (
-                                f"{caption} Subtle natural motion; keep the subject, "
-                                f"outfit, and scene exactly as shown."
-                                if caption else
-                                "Animate this image with subtle natural motion. Keep "
-                                "the subject, outfit, and scene exactly as shown."
-                            )
-                            logger.info(
-                                "I2V auto-caption for %s: %s", item.id, item.prompt[:120]
-                            )
+                            item.prompt, caption_empty = _i2v_prompt_from_caption(caption)
+                            meta["caption_empty"] = caption_empty
+                            if caption_empty:
+                                meta["caption"] = None
+                                logger.info("I2V auto-caption empty for %s — motion-only prompt", item.id)
+                            else:
+                                meta["caption"] = caption
+                                logger.info("I2V auto-caption for %s: %s", item.id, item.prompt[:120])
 
                         self._set_stage(status, "generate", current_item=item.id)
                         gen_request = VideoGenerationRequest(
@@ -1118,7 +1132,10 @@ class BatchVideoGenerator:
                             frame_paths=result.frame_paths,
                             thumbnail_path=result.thumbnail_path,
                             error=result.error,
-                            metadata=dict(result.metadata or {}),
+                            metadata={
+                                **dict(result.metadata or {}),
+                                **({k: meta[k] for k in ("caption_empty", "caption") if k in meta}),
+                            },
                         )
                         if result.success and result.video_path:
                             self._set_stage(status, "post", current_item=item.id, save=False)

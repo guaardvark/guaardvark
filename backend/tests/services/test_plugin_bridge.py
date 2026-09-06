@@ -162,6 +162,20 @@ def test_cast_stage_plugin_map():
     assert pb.plugins_for_route("/cast/22") == []
 
 
+def test_music_video_nav_does_not_start_user_disabled_video_editor(reset_bridge_state, monkeypatch):
+    fake = reset_bridge_state
+    fake.enabled.update(["comfyui", "ollama"])
+    fake.state_store.prefs["video_editor"] = False
+    monkeypatch.setattr(pb, "ensure_plugins_for_stage", lambda *a, **k: None)
+
+    result = pb.prepare_plugins_for_route("/music-video")
+
+    assert "video_editor" not in fake.start_calls
+    assert fake.state_store.prefs["video_editor"] is False
+    actions = {a["plugin_id"]: a["action"] for a in result.get("actions", [])}
+    assert actions.get("video_editor") == "user_disabled"
+
+
 def test_user_disabled_blocks_non_critical_start(reset_bridge_state):
     fake = reset_bridge_state
     fake.state_store.prefs["comfyui"] = False

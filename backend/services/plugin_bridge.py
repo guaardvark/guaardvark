@@ -585,8 +585,11 @@ def prepare_plugins_for_route(route: str) -> Dict[str, Any]:
                 route, plugin_id,
             )
         else:
-            actions.append({"action": "start_failed", "plugin_id": plugin_id, "error": detail})
-            logger.warning("plugin_bridge: route %s could not start %s: %s", route, plugin_id, detail)
+            disabled = bool(detail and "user-disabled" in str(detail))
+            action = "user_disabled" if disabled else "start_failed"
+            actions.append({"action": action, "plugin_id": plugin_id, "error": detail})
+            log_fn = logger.info if disabled else logger.warning
+            log_fn("plugin_bridge: route %s could not start %s: %s", route, plugin_id, detail)
 
     result = {
         "route": route,

@@ -143,3 +143,20 @@ class TestChatImageModel:
 
         with patch("backend.utils.settings_utils.get_setting", return_value="zimage-turbo"):
             assert get_chat_image_model() == "zimage-turbo"
+
+
+class TestActiveVideoModelSettings:
+    def test_empty_means_inherit(self):
+        from backend.utils.settings_utils import get_active_video_model, get_active_video_model_overrides
+
+        with patch("backend.utils.settings_utils.get_setting", return_value=""):
+            assert get_active_video_model() == ""
+            assert get_active_video_model_overrides() == {
+                "i2v": "", "music_video": "", "film_crew": "",
+            }
+
+    def test_reads_persisted_global(self):
+        from backend.utils.settings_utils import get_active_video_model
+
+        with patch("backend.utils.settings_utils.get_setting", return_value="wan22-5b"):
+            assert get_active_video_model() == "wan22-5b"

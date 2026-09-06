@@ -675,7 +675,9 @@ def run_clip_generator(mv_id: int):
                         mv_id, target.get("index"))
             target["status"] = "failed"
             target["error"] = err
-            mv.clips = clips
+            mv.clips = list(clips)
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(mv, "clips")
             db.session.commit()
             celery.send_task("music_video.run_clip_generator", args=[mv_id], countdown=GPU_COOLDOWN_RETRY_S)
             return

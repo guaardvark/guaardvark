@@ -42,6 +42,9 @@ def test_adapter_resolves_relative_video_path(tmp_path, monkeypatch, Adapter):
     class _FakeGen:
         def generate_video(self, req):
             captured["output_dir"] = req.output_dir
+            captured["model"] = req.model
+            captured["frames"] = req.duration_frames
+            captured["fps"] = req.fps
             # ComfyUI writes the real file under output_dir/<item>/…; return the REL path.
             rel = "item_0/out.mp4"
             real = Path(req.output_dir) / rel
@@ -61,3 +64,27 @@ def test_adapter_resolves_relative_video_path(tmp_path, monkeypatch, Adapter):
     assert out_path.read_bytes() == b"VIDEO"
     # The adapter set output_dir to the output_path's parent (a known base).
     assert Path(captured["output_dir"]) == out_path.parent
+
+
+def test_wan_adapter_snaps_frames_to_4n_plus_1(tmp_path, monkeypatch):
+    captured = {}
+
+    class _FakeGen:
+        def generate_video(self, req):
+            captured["frames"] = req.duration_frames
+            captured["model"] = req.model
+            rel = "item_0/out.mp4"
+            real = Path(req.output_dir) / rel
+            real.parent.mkdir(parents=True, exist_ok=True)
+            real.write_bytes(b"VIDEO")
+            return _Result(rel)
+
+    monkeypatch.setattr(cvg, "get_video_generator", lambda: _FakeGen())
+    out_path = tmp_path / "clips" / "final.mp4"
+    Wan22I2VGenerator(model="wan22-5b", fps=24).i2v_from_image(
+        image_path="/tmp/still.png", prompt="x", loras=[],
+        duration_seconds=2.0, output_path=str(out_path),
+    )
+    assert captured["model"] == "wan22-5b"
+    assert captured["frames"] % 4 == 1
+    assert 17 <= captured["frames"] <= 49

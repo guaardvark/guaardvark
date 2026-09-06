@@ -187,6 +187,34 @@ def test_clip_generator_regenerates_when_file_missing(app, sent, monkeypatch):
     assert called.get("idx") == 0   # treated as not-done, regenerated
 
 
+def test_clip_interrupt_marks_clip_failed_and_continues(app, sent, monkeypatch):
+    svc = MusicVideoService(db.session)
+    mv = _mk(svc)
+    mv.current_stage = "generating"
+    mv.status = "generating"
+    mv.clips = [
+        {"index": 0, "start": 0.0, "end": 2.0, "clip_path": None, "status": "pending"},
+        {"index": 1, "start": 2.0, "end": 4.0, "clip_path": None, "status": "pending"},
+    ]
+    db.session.commit()
+
+    monkeypatch.setattr(
+        "backend.services.plugin_bridge.ensure_plugins_for_stage", lambda *a, **k: None,
+    )
+
+    def boom(m, c):
+        raise RuntimeError("ComfyUI execution_interrupted: prompt cancelled")
+    monkeypatch.setattr(mvt, "_generate_one_clip", boom)
+
+    mvt.run_clip_generator(mv.id)
+    db.session.refresh(mv)
+    assert mv.status != "failed_generating"
+    assert mv.clips[0]["status"] == "failed"
+    assert "execution_interrupted" in (mv.clips[0].get("error") or "")
+    assert mv.clips[1]["status"] == "pending"
+    assert ("music_video.run_clip_generator", (mv.id,)) in sent.calls
+
+
 def test_clip_generator_failure_fails_stage(app, sent, monkeypatch):
     svc = MusicVideoService(db.session)
     mv = _mk(svc)
