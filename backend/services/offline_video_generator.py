@@ -67,23 +67,7 @@ except Exception:
     _nvidia_gpu = bool(torch_available and torch.cuda.is_available())
 
 
-# --- MPS (Apple Silicon) support for offline video (ported/adapted for L/M users) ---
-def _mps_available() -> bool:
-    """Apple Silicon Metal (MPS) backend present?
-    Mirrors the pattern from feat/mac-mps-video preview (kept minimal & testable).
-    """
-    try:
-        return bool(torch_available and torch.backends.mps.is_available())
-    except Exception:
-        return False
 
-
-gpu_available = bool(_nvidia_gpu) or _mps_available()
-
-cogvideox_available = cogvideox_available and gpu_available
-svd_available = svd_available and gpu_available
-diffusers_available = diffusers_available and gpu_available
-video_generator_available = cogvideox_available or svd_available or diffusers_available
 
 
 def _select_accelerator():
