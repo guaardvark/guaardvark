@@ -221,7 +221,7 @@ class BatchVideoGenerator:
         self._running_batch_id: Optional[str] = None
 
         self.video_generator = get_video_generator()
-        self.service_available = getattr(self.video_generator, 'service_available', True) and video_generator_available if 'video_generator_available' in dir() else self.video_generator.service_available
+        self.service_available = getattr(self.video_generator, 'service_available', True)
         # Edge graceful: on no-GPU, batch video (which uses offline or Comfy) will inherit unavailable with reason from underlying generator.
         _get_video_logger()  # Initialize dedicated log file
 
