@@ -18,6 +18,7 @@ from typing import Optional
 
 from backend.config import UPLOAD_DIR
 from backend.models import Document as DBDocument, Folder, db
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,22 @@ def ensure_default_folders():
         logger.warning(f"Could not create default folders in DB (may already exist): {e}")
 
 
+def registrable_path(physical_path) -> Optional[Path]:
+    """``physical_path`` as a Path when it lives under a directory this install
+    owns, else None.
+
+    Sidecars and render tasks register outputs by absolute path; the uploads and
+    outputs directories and the install root are the only places those live.
+    """
+    from backend.config import GUAARDVARK_ROOT, OUTPUT_DIR
+    for base in (UPLOAD_DIR, OUTPUT_DIR, GUAARDVARK_ROOT):
+        try:
+            return contained(base, physical_path)
+        except PathEscapesRoot:
+            continue
+    return None
+
+
 def ensure_subfolder(parent_folder_name: str, subfolder_name: str) -> Folder:
     """
     Ensure a subfolder exists under a parent folder (e.g. Images/ImageBatch_04-02-2026_001).
@@ -118,7 +135,7 @@ def ensure_subfolder(parent_folder_name: str, subfolder_name: str) -> Folder:
     child_path = f"{parent_path}/{subfolder_name}"
 
     # Ensure physical dir
-    physical = Path(UPLOAD_DIR) / child_path
+    physical = contained(UPLOAD_DIR, child_path)
     physical.mkdir(parents=True, exist_ok=True)
 
     # Check if DB record exists
@@ -166,7 +183,10 @@ def register_file(
     Returns:
         The created Document record, or None on failure.
     """
-    p = Path(physical_path)
+    p = registrable_path(physical_path)
+    if p is None:
+        logger.warning(f"Refusing to register a file outside the data directories: {physical_path}")
+        return None
     if not p.exists():
         logger.warning(f"Cannot register non-existent file: {physical_path}")
         return None

@@ -92,6 +92,7 @@ from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core import Settings
 from llama_index.core.schema import QueryBundle
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 enhanced_chat_bp = Blueprint("enhanced_chat", __name__, url_prefix="/api/enhanced-chat")
 
@@ -2327,7 +2328,7 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
 
             # Save the file
             output_dir = current_app.config.get("OUTPUT_DIR", "data/outputs")
-            file_path = os.path.join(output_dir, filename)
+            file_path = contained_path(output_dir, filename)
             os.makedirs(output_dir, exist_ok=True)
 
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -5132,7 +5133,7 @@ def vision_analyze_image():
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             unique_id = str(uuid.uuid4())[:8]
             permanent_filename = f"chat_image_{timestamp}_{unique_id}{file_extension}"
-            permanent_path = os.path.join(permanent_dir, permanent_filename)
+            permanent_path = contained_path(permanent_dir, permanent_filename)
 
             # Save image permanently
             with open(permanent_path, 'wb') as f:
@@ -5335,12 +5336,12 @@ def serve_chat_image(image_id):
         # Check in permanent chat images directory
         from backend.config import UPLOAD_DIR, CACHE_DIR
         image_dir = os.path.join(UPLOAD_DIR, "chat_images")
-        image_path = os.path.join(image_dir, image_id)
+        image_path = contained_path(image_dir, image_id)
 
         if not os.path.exists(image_path):
             # Fallback to cache directory for recently uploaded images
             cache_dir = os.path.join(CACHE_DIR, "chat_images")
-            image_path = os.path.join(cache_dir, image_id)
+            image_path = contained_path(cache_dir, image_id)
 
             if not os.path.exists(image_path):
                 return error_response("Image not found", 404)

@@ -15,6 +15,7 @@ from backend.utils.plugin_secrets import (
     secret_field_names,
 )
 from ..plugins import get_plugin_manager
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,10 @@ def _read_plugin_log_text(plugin_id: str, lines: int) -> tuple[str, int, str]:
     candidates = PLUGIN_LOG_CANDIDATES.get(plugin_id, [f"{plugin_id}.log"])
     log_dir = Path(LOG_DIR)
     for name in candidates:
-        path = log_dir / name
+        try:
+            path = contained(log_dir, name)
+        except PathEscapesRoot:
+            continue
         if path.is_file():
             text, count = _tail_text_file(path, lines)
             return text, count, str(path)

@@ -2,6 +2,7 @@ import os
 import logging
 
 from flask import Blueprint, abort, current_app, send_from_directory, Response
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 uploads_bp = Blueprint("uploads_api", __name__)
 logger = logging.getLogger(__name__)
@@ -42,9 +43,9 @@ def get_upload(filename):
 
     # Local storage fallback
     uploads_dir = os.path.abspath(current_app.config["UPLOAD_FOLDER"])
-    safe_path = os.path.normpath(os.path.abspath(os.path.join(uploads_dir, filename)))
-    # Prevent directory traversal - path must be within uploads_dir and not the directory itself
-    if not safe_path.startswith(uploads_dir + os.sep):
+    try:
+        safe_path = contained_path(uploads_dir, filename)
+    except PathEscapesRoot:
         abort(403, description="Invalid file path.")
     if not os.path.isfile(safe_path):
         abort(404, description="File not found.")

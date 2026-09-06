@@ -48,6 +48,7 @@ from backend.utils.response_utils import (
     validation_error_response,
     not_found_response,
 )
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 # Try to import psutil for system capabilities detection
 try:
@@ -367,7 +368,10 @@ def _list_output_files(sub_path: Optional[str], limit: int = 200, offset: int = 
     results = []
 
     if sub_path:
-        base = outputs_root / sub_path
+        try:
+            base = contained(outputs_root, sub_path)
+        except PathEscapesRoot:
+            return results
     else:
         base = outputs_root
 
@@ -2155,13 +2159,9 @@ def fetch_output_content():
         if not rel_path:
             return validation_error_response("Missing required 'path' parameter")
 
-        outputs_root = _get_outputs_root().resolve()
-        target_path = (outputs_root / rel_path).resolve()
-
-        # Prevent path traversal
         try:
-            target_path.relative_to(outputs_root)
-        except ValueError:
+            target_path = contained(_get_outputs_root(), rel_path)
+        except PathEscapesRoot:
             return validation_error_response("Invalid path")
 
         if not target_path.exists() or not target_path.is_file():

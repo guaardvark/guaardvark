@@ -20,6 +20,7 @@ from flask import Blueprint, request, send_file
 from werkzeug.utils import secure_filename
 
 from backend.utils.response_utils import success_response, error_response
+from backend.utils.path_guard import PathEscapesRoot, contained
 from backend.services.batch_video_generator import get_batch_video_generator
 # Single source of truth for video-model file layout (download dst == install
 # check == ComfyUI loader paths). See backend/services/video_model_registry.py.
@@ -443,11 +444,10 @@ def list_batches():
 def get_video(batch_id: str, video_name: str):
     try:
         generator = get_batch_video_generator()
-        batch_dir = Path(generator.base_output_dir) / batch_id
-        video_path = (batch_dir / video_name).resolve()
         try:
-            video_path.relative_to(batch_dir)
-        except ValueError:
+            batch_dir = contained(generator.base_output_dir, batch_id)
+            video_path = contained(batch_dir, video_name)
+        except PathEscapesRoot:
             return error_response("Invalid video path", 400)
 
         if not video_path.exists():
@@ -475,11 +475,10 @@ def get_video(batch_id: str, video_name: str):
 def delete_video(batch_id: str, video_name: str):
     try:
         generator = get_batch_video_generator()
-        batch_dir = Path(generator.base_output_dir) / batch_id
-        target_path = (batch_dir / video_name).resolve()
         try:
-            target_path.relative_to(batch_dir)
-        except ValueError:
+            batch_dir = contained(generator.base_output_dir, batch_id)
+            target_path = contained(batch_dir, video_name)
+        except PathEscapesRoot:
             return error_response("Invalid video path", 400)
 
         if not target_path.exists():
@@ -520,11 +519,10 @@ def rename_video(batch_id: str, video_name: str):
             return error_response("New name cannot be empty", 400)
 
         generator = get_batch_video_generator()
-        batch_dir = Path(generator.base_output_dir) / batch_id
-        src_path = (batch_dir / video_name).resolve()
         try:
-            src_path.relative_to(batch_dir)
-        except ValueError:
+            batch_dir = contained(generator.base_output_dir, batch_id)
+            src_path = contained(batch_dir, video_name)
+        except PathEscapesRoot:
             return error_response("Invalid video path", 400)
 
         if not src_path.exists():
@@ -689,7 +687,10 @@ def rename_batch(batch_id: str):
 def download_batch(batch_id: str):
     try:
         generator = get_batch_video_generator()
-        batch_dir = Path(generator.base_output_dir) / batch_id
+        try:
+            batch_dir = contained(generator.base_output_dir, batch_id)
+        except PathEscapesRoot:
+            return error_response("Batch not found", 404)
         if not batch_dir.exists():
             return error_response("Batch not found", 404)
 

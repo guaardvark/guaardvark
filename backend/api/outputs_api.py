@@ -17,7 +17,7 @@ from pathlib import Path
 
 from flask import Blueprint, request
 
-from backend.services.output_registration import register_file
+from backend.services.output_registration import register_file, registrable_path
 from backend.utils.response_utils import error_response, success_response
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,8 @@ def register_output():
             error_code="MISSING_FIELDS",
         )
 
-    if not Path(physical_path).is_file():
+    physical = registrable_path(physical_path)
+    if physical is None or not physical.is_file():
         return error_response(
             f"File does not exist: {physical_path}",
             status_code=404,

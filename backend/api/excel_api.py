@@ -70,7 +70,12 @@ def extract_content_from_uploaded_excel():
         import tempfile
         import os
         
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(excel_file.filename).suffix) as temp_file:
+        suffix = Path(excel_file.filename or "").suffix.lower()
+        if suffix in (".xlsx", ".xlsm", ".xls", ".csv"):
+            safe_suffix = suffix
+        else:
+            safe_suffix = ".xlsx"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=safe_suffix) as temp_file:
             excel_file.save(temp_file.name)
             temp_path = temp_file.name
             

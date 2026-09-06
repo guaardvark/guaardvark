@@ -28,6 +28,7 @@ from backend.services.video_generation_router import (
     get_video_generator,
 )
 from backend.services.gpu_resource_coordinator import get_gpu_coordinator
+from backend.utils.path_guard import PathEscapesRoot, contained
 
 try:
     from backend.config import UPLOAD_DIR
@@ -381,7 +382,7 @@ class BatchVideoGenerator:
             return False
 
     def _get_batch_dir(self, batch_id: str) -> Path:
-        return self.base_output_dir / batch_id
+        return contained(self.base_output_dir, batch_id)
 
     def _attach_quality_metrics(
         self,
@@ -1919,7 +1920,10 @@ class BatchVideoGenerator:
         # Determine target item directory
         item_dir: Optional[Path] = None
         if item_id:
-            candidate = batch_dir / item_id
+            try:
+                candidate = contained(batch_dir, item_id)
+            except PathEscapesRoot:
+                return None
             if candidate.exists():
                 item_dir = candidate
         else:

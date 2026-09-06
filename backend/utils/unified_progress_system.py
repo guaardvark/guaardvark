@@ -15,6 +15,8 @@ from enum import Enum
 import threading
 import time
 
+from backend.utils.path_guard import PathEscapesRoot, contained
+
 logger = logging.getLogger(__name__)
 
 
@@ -580,7 +582,7 @@ class UnifiedProgressSystem:
             
         try:
             progress_dir = Path(str(self._output_dir)) / ".progress_jobs"
-            job_dir = progress_dir / process_id
+            job_dir = contained(progress_dir, process_id)
             metadata_file = job_dir / "metadata.json"
             
             if not metadata_file.exists():
@@ -623,7 +625,7 @@ class UnifiedProgressSystem:
             
         try:
             progress_dir = Path(str(self._output_dir)) / ".progress_jobs"
-            metadata_file = progress_dir / process_id / "metadata.json"
+            metadata_file = contained(progress_dir, process_id, "metadata.json")
             
             if metadata_file.exists():
                 raw = metadata_file.read_text(encoding="utf-8")
@@ -649,7 +651,7 @@ class UnifiedProgressSystem:
             
         try:
             progress_dir = Path(str(self._output_dir)) / ".progress_jobs"
-            metadata_file = progress_dir / process_id / "metadata.json"
+            metadata_file = contained(progress_dir, process_id, "metadata.json")
             
             if metadata_file.exists():
                 raw = metadata_file.read_text(encoding="utf-8")
@@ -709,7 +711,7 @@ class UnifiedProgressSystem:
         if self._file_based_enabled and self._output_dir:
             try:
                 progress_dir = Path(self._output_dir) / ".progress_jobs"
-                job_dir = progress_dir / process_id
+                job_dir = contained(progress_dir, process_id)
                 if job_dir.exists():
                     shutil.rmtree(job_dir)
                     logger.info(f"Cleaned up process files: {process_id}")

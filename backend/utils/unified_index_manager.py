@@ -22,6 +22,7 @@ from llama_index.core.storage.docstore import SimpleDocumentStore
 from llama_index.core.storage.index_store import SimpleIndexStore
 from llama_index.core.retrievers import BaseRetriever
 from llama_index.core.query_engine import BaseQueryEngine
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ class UnifiedIndexManager:
     def _get_persist_dir(self, project_id: Optional[str] = None) -> Path:
         """Get the persistence directory for an index"""
         if project_id:
-            return self.base_storage_dir / "projects" / str(project_id)
+            return contained(self.base_storage_dir / "projects", str(project_id))
         else:
             # Use main storage directory instead of empty global_index subdirectory
             return self.base_storage_dir
