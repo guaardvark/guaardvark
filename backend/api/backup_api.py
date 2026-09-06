@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify, request, send_file
 
 from backend import config
 from backend.services import backup_service
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 backup_bp = Blueprint("backup_bp", __name__, url_prefix="/api/backups")
 
@@ -71,13 +72,9 @@ def restore_backup_endpoint():
         if not name.endswith('.zip'):
             return jsonify({"error": "Only ZIP files are allowed"}), 400
         
-        path = os.path.join(config.BACKUP_DIR, name)
-        
-        # SECURITY FIX: Validate final path is within backup directory
-        backup_dir_real = os.path.realpath(config.BACKUP_DIR)
-        path_real = os.path.realpath(path)
-        
-        if not path_real.startswith(backup_dir_real + os.sep):
+        try:
+            path = contained_path(config.BACKUP_DIR, name)
+        except PathEscapesRoot:
             return jsonify({"error": "Invalid backup file path"}), 400
         
         # Check if file exists
@@ -108,10 +105,9 @@ def download_backup_endpoint(filename: str):
         return jsonify({"error": "Invalid filename"}), 400
     if not filename.endswith('.zip'):
         return jsonify({"error": "Only ZIP files can be downloaded"}), 400
-    path = os.path.join(config.BACKUP_DIR, filename)
-    backup_dir_real = os.path.realpath(config.BACKUP_DIR)
-    path_real = os.path.realpath(path)
-    if not path_real.startswith(backup_dir_real + os.sep) and path_real != backup_dir_real:
+    try:
+        path = contained_path(config.BACKUP_DIR, filename)
+    except PathEscapesRoot:
         return jsonify({"error": "Invalid backup file path"}), 400
     if not os.path.exists(path):
         return jsonify({"error": "Backup file not found"}), 404

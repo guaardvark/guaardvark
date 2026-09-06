@@ -34,6 +34,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger("swarm.app")
 
+
+def _contained(root, *parts) -> Path:
+    """Join ``parts`` under ``root``; raise ValueError if the result leaves root.
+
+    Same contract as backend/utils/path_guard.py (sidecars do not import the
+    backend): lexical normalisation, then a prefix check that must end on a
+    path boundary.
+    """
+    root_abs = os.path.abspath(os.fspath(root))
+    candidate = os.path.abspath(os.path.join(root_abs, *(os.fspath(p) for p in parts)))
+    if candidate.startswith(root_abs) and (
+        candidate == root_abs
+        or root_abs.endswith(os.sep)
+        or candidate[len(root_abs)] == os.sep
+    ):
+        return Path(candidate)
+    raise ValueError(f"{candidate!r} is outside {root_abs!r}")
+
 # --- Globals ---
 _config: Optional[SwarmConfig] = None
 _active_orchestrators: dict[str, SwarmOrchestrator] = {}  # swarm_id -> orchestrator
@@ -206,12 +224,12 @@ def health():
 @app.post("/swarm/launch")
 def launch_swarm(req: LaunchRequest):
     """Launch a swarm from a plan file. Runs async in background."""
-    plan_path = Path(req.plan_path)
-    if not plan_path.is_absolute():
-        # try relative to GUAARDVARK_ROOT
-        root = os.environ.get("GUAARDVARK_ROOT", "")
-        if root:
-            plan_path = Path(root) / plan_path
+    # Plan files live inside the Guaardvark root; relative paths resolve from it.
+    root = os.environ.get("GUAARDVARK_ROOT") or os.getcwd()
+    try:
+        plan_path = _contained(root, req.plan_path)
+    except ValueError:
+        raise HTTPException(400, f"plan_path must be inside {root}")
 
     if not plan_path.exists():
         raise HTTPException(404, f"Plan file not found: {plan_path}")
@@ -323,7 +341,11 @@ def swarm_status(swarm_id: str):
     # check disk for completed swarm results
     repo_path = _get_default_repo()
     if repo_path:
-        result_path = repo_path / (_config.worktree_base if _config else ".swarm-worktrees") / swarm_id / "result.json"
+        worktree_root = repo_path / (_config.worktree_base if _config else ".swarm-worktrees")
+        try:
+            result_path = _contained(worktree_root, swarm_id, "result.json")
+        except ValueError:
+            raise HTTPException(400, "invalid swarm_id")
         if result_path.exists():
             with open(result_path) as f:
                 data = json.load(f)
@@ -576,7 +598,10 @@ def list_templates():
 def get_template(filename: str):
     """Get the raw content of a template."""
     template_dir = Path(__file__).parent.parent / "templates"
-    template_path = template_dir / filename
+    try:
+        template_path = _contained(template_dir, filename)
+    except ValueError:
+        raise HTTPException(404, f"Template not found: {filename}")
 
     if not template_path.exists() or not template_path.suffix == ".md":
         raise HTTPException(404, f"Template not found: {filename}")
@@ -602,7 +627,10 @@ def save_template(req: SavePlanRequest):
     import re
     filename = re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
     
-    template_path = template_dir / filename
+    try:
+        template_path = _contained(template_dir, filename)
+    except ValueError:
+        raise HTTPException(400, f"invalid template filename: {filename}")
     
     try:
         template_path.write_text(req.content)

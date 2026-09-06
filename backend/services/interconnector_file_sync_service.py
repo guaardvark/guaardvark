@@ -14,6 +14,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
 from flask import current_app
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -316,15 +317,11 @@ class InterconnectorFileSyncService:
         patterns_include = include_patterns or []
         
         for sync_path in sync_paths:
-            if os.path.isabs(sync_path):
-                full_path = Path(sync_path).resolve()
-                try:
-                    full_path.relative_to(project_root)
-                except ValueError:
-                    logger.warning(f"[FILE_SYNC] Skipping absolute path outside project root: {full_path}")
-                    continue
-            else:
-                full_path = (project_root / sync_path).resolve()
+            try:
+                full_path = contained(project_root, sync_path)
+            except PathEscapesRoot:
+                logger.warning(f"[FILE_SYNC] Skipping path outside project root: {sync_path}")
+                continue
             
             logger.debug(f"[FILE_SYNC] Scanning path: {sync_path} -> {full_path}")
             
@@ -384,10 +381,9 @@ class InterconnectorFileSyncService:
         for rel_path in paths:
             if not rel_path:
                 continue
-            file_path = (project_root / rel_path).resolve()
             try:
-                file_path.relative_to(project_root)
-            except ValueError:
+                file_path = contained(project_root, rel_path)
+            except PathEscapesRoot:
                 logger.warning(f"[FILE_SYNC] Skipping path outside project root: {rel_path}")
                 continue
             if not file_path.is_file():
@@ -404,10 +400,9 @@ class InterconnectorFileSyncService:
     def resolve_local_file(self, relative_path: str) -> Optional[Dict]:
         """Hash a single local path (fallback when a batch scan omitted it)."""
         project_root = self.get_project_root()
-        file_path = (project_root / relative_path).resolve()
         try:
-            file_path.relative_to(project_root)
-        except ValueError:
+            file_path = contained(project_root, relative_path)
+        except PathEscapesRoot:
             return None
         if not file_path.is_file() or self.should_exclude_file(str(file_path)):
             return None
@@ -1072,7 +1067,10 @@ class InterconnectorFileSyncService:
         expected_size: Optional[int] = None
     ) -> Dict[str, Any]:
         project_root = self.get_project_root()
-        file_path = project_root / relative_path
+        try:
+            file_path = contained(project_root, relative_path)
+        except PathEscapesRoot:
+            file_path = None
         
         result = {
             "path": relative_path,
@@ -1087,7 +1085,7 @@ class InterconnectorFileSyncService:
         }
         
         try:
-            if not file_path.exists():
+            if file_path is None or not file_path.exists():
                 logger.warning(f"[FILE_SYNC VERIFY] File missing: {relative_path}")
                 result["errors"].append("File does not exist")
                 return result

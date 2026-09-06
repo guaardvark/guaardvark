@@ -9,7 +9,7 @@ Endpoint
 --------
 GET  /api/system-map/snapshot           — cached snapshot (re-computed if stale)
 GET  /api/system-map/snapshot?refresh=1 — force re-compute
-GET  /api/system-map/snapshot?root=<path> — map an arbitrary codebase
+GET  /api/system-map/snapshot?root=<path> — map the running codebase or an uploaded repository
                                             (DocumentsPage "Analyze codebase"
                                             wires to this)
 """
@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -64,12 +65,29 @@ def _is_fresh(cache_file: Path) -> bool:
     return age < CACHE_TTL_SECONDS
 
 
+def _allowed_root(root_arg: str) -> Path | None:
+    """A caller-supplied root, accepted only inside the running codebase or the
+    uploads directory (where Code Repository folders live)."""
+    from backend.config import GUAARDVARK_ROOT, UPLOAD_DIR
+    for base in (GUAARDVARK_ROOT, UPLOAD_DIR):
+        try:
+            return contained(base, root_arg)
+        except PathEscapesRoot:
+            continue
+    return None
+
+
 def _resolve_root(root_arg: str | None):
     """(root_path, None) on success, or (None, (json_error, status))."""
-    try:
-        root = Path(root_arg).resolve() if root_arg else _default_root()
-    except Exception as exc:
-        return None, (jsonify({"success": False, "error": f"Invalid root: {exc}"}), 400)
+    if not root_arg:
+        root = _default_root()
+    else:
+        root = _allowed_root(root_arg)
+        if root is None:
+            return None, (jsonify({
+                "success": False,
+                "error": "root must be inside the running codebase or the uploads directory",
+            }), 400)
     if not root.is_dir():
         return None, (jsonify({"success": False, "error": f"Not a directory: {root}"}), 400)
     return root, None

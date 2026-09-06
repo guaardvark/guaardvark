@@ -4,6 +4,16 @@
 
 Everything the H3 release can do, wired through the product, on a branch until it merges.
 
+- **Paths from a request stay inside the directory they belong to.** One helper,
+  `backend/utils/path_guard.py`, joins caller-supplied names under a server-chosen root and
+  refuses anything that lands outside it; forty call sites (batch video, files, backups,
+  outputs, jobs, uploads, the interconnector, the swarm and video-editor sidecars) now go
+  through it instead of their own `resolve()`/`startswith` checks. Vector-store table names
+  are quoted through psycopg2's `Identifier`, the self-test category is allow-listed before
+  it reaches a subprocess, Audio Foundry proxy replies are always JSON, and the system map
+  and `/build` accept roots inside the running codebase or the uploads directory only.
+  Closes the 280 open code-scanning alerts except the 21 that describe operator-directed
+  browsing of the server's own filesystem, which are dismissed with reasons.
 - **GPU faults are reported as GPU faults.** A CUDA error that kills the context (launch
   timeout, illegal memory access, device-side assert, uncorrectable ECC and kin) is now
   recognised in one place. The backend records it, refuses further GPU work immediately

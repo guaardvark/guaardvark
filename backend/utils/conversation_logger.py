@@ -9,6 +9,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from collections import Counter
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -376,7 +377,7 @@ class ConversationLogger:
         
         session = self.active_sessions[session_id]
         session_dir = self.storage_dir / "sessions"
-        session_file = session_dir / f"{session_id}_active.json"
+        session_file = contained(session_dir, f"{session_id}_active.json")
         
         try:
             # Ensure sessions directory exists
@@ -421,7 +422,7 @@ class ConversationLogger:
                 return
             
             # Write to temporary file first for atomic operation
-            temp_file = session_dir / f"{session_id}_active.json.tmp"
+            temp_file = contained(session_dir, f"{session_id}_active.json.tmp")
             
             try:
                 with open(temp_file, 'w', encoding='utf-8') as f:
@@ -446,7 +447,7 @@ class ConversationLogger:
     
     def _save_complete_session(self, session: ConversationSession) -> None:
         """Save complete session with summary"""
-        session_file = self.storage_dir / "sessions" / f"{session.session_id}.json"
+        session_file = contained(self.storage_dir / "sessions", f"{session.session_id}.json")
         summary_file = self.storage_dir / "summaries" / f"{session.session_id}_summary.md"
         
         try:

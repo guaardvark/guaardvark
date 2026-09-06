@@ -20,6 +20,7 @@ import requests
 from flask import Blueprint, current_app, jsonify, request, send_file
 from werkzeug.utils import secure_filename
 from backend.utils.response_utils import success_response, error_response
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 # Audio Foundry plugin endpoint — Kokoro primary (natural, fast per team voice audit),
 # Chatterbox for reference-clip cloning. Fallback to Piper. See plugins/audio_foundry/.
@@ -1290,10 +1291,10 @@ def _try_audio_foundry_voice(text: str, output_format: str, narrations_dir: str)
     # serve it without changing the security check on that endpoint.
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_filename = f"narration_{timestamp}.{output_format}"
-    out_path = os.path.join(narrations_dir, out_filename)
     try:
+        out_path = contained_path(narrations_dir, out_filename)
         shutil.copy2(src_path, out_path)
-    except (OSError, IOError) as e:
+    except (OSError, IOError, PathEscapesRoot) as e:
         logger.warning("Voice API: failed to stage audio_foundry output (%s) — using Piper fallback", e)
         return None
 

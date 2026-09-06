@@ -24,6 +24,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
+from backend.utils.path_guard import contained_path
+
 PROJECT_SCHEMA_VERSION = 1
 
 
@@ -64,10 +66,10 @@ class ProjectStore:
         return pid
 
     def _project_path(self, pid: str) -> str:
-        return os.path.join(self.base_dir, f"{self._check_pid(pid)}.project.json")
+        return contained_path(self.base_dir, f"{self._check_pid(pid)}.project.json")
 
     def _draft_path(self, pid: str) -> str:
-        return os.path.join(self.base_dir, f"{self._check_pid(pid)}.draft.json")
+        return contained_path(self.base_dir, f"{self._check_pid(pid)}.draft.json")
 
     # ---- index -------------------------------------------------------------
     def _read_index(self) -> dict[str, Any]:

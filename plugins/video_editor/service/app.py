@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import uuid
 from pathlib import Path
 from typing import Any, Optional
@@ -50,6 +51,24 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelna
 _config = load_config()
 _runtime = _config["runtime"]
 _paths = _config["paths"]
+
+
+def _contained(root, *parts) -> Path:
+    """Join ``parts`` under ``root``; raise ValueError if the result leaves root.
+
+    Same contract as backend/utils/path_guard.py (sidecars do not import the
+    backend): lexical normalisation, then a prefix check that must end on a
+    path boundary.
+    """
+    root_abs = os.path.abspath(os.fspath(root))
+    candidate = os.path.abspath(os.path.join(root_abs, *(os.fspath(p) for p in parts)))
+    if candidate.startswith(root_abs) and (
+        candidate == root_abs
+        or root_abs.endswith(os.sep)
+        or candidate[len(root_abs)] == os.sep
+    ):
+        return Path(candidate)
+    raise ValueError(f"{candidate!r} is outside {root_abs!r}")
 
 _jobs = JobTable(
     max_entries=_runtime.get("jobs", {}).get("max_entries", 200),
@@ -550,18 +569,16 @@ def open_in_shotcut(body: OpenInShotcutBody) -> dict[str, Any]:
     import subprocess
     import platform
 
-    mlt_path = Path(body.mlt_path).resolve()
-    if not mlt_path.exists():
-        raise HTTPException(status_code=404, detail=f"mlt not found: {mlt_path}")
-
-    allowed_root = Path(_paths["mlt_projects"]).resolve()
+    allowed_root = Path(_paths["mlt_projects"])
     try:
-        mlt_path.relative_to(allowed_root)
+        mlt_path = _contained(allowed_root, body.mlt_path)
     except ValueError:
         raise HTTPException(
             status_code=400,
             detail=f"mlt path must be under {allowed_root}",
         )
+    if not mlt_path.exists():
+        raise HTTPException(status_code=404, detail=f"mlt not found: {mlt_path}")
 
     # 1. Explicit override from body (if client sends shotcut_path)
     extra = getattr(body, "model_dump", lambda **k: {})() or {}
@@ -767,11 +784,9 @@ def get_sampled_frame(clip_hash: str, frame_index: int):
     if frame_index < 0 or frame_index > 99:
         raise HTTPException(status_code=400, detail="frame_index out of range")
 
-    frames_dir = (Path(_paths["mlt_projects"]).parent / "clip-scans" / "frames" / clip_hash).resolve()
-    # Path-traversal guard: the resolved dir must be under clip-scans/frames.
-    allowed_root = (Path(_paths["mlt_projects"]).parent / "clip-scans" / "frames").resolve()
+    allowed_root = Path(_paths["mlt_projects"]).parent / "clip-scans" / "frames"
     try:
-        frames_dir.relative_to(allowed_root)
+        frames_dir = _contained(allowed_root, clip_hash)
     except ValueError:
         raise HTTPException(status_code=400, detail="invalid clip_hash")
 
