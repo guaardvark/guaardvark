@@ -82,14 +82,42 @@ def parse_film_crew_nl(message: str) -> dict:
     return {"script_text": script or None}
 
 
+_OUTSIDE_DATA_DIRS = "must be inside the uploads or outputs directory or the install root"
+
+
+def _local_media_path(ref: str):
+    """``ref`` as a Path when it names a file under a directory this install owns.
+
+    Returns (path, None), (None, error) when the path is outside those
+    directories, or (None, None) when ``ref`` does not point at an existing
+    file at all. Chat and MCP callers hand these tools arbitrary strings, so
+    the same containment as output registration applies.
+    """
+    from backend.services.output_registration import registrable_path
+
+    text = (ref or "").strip()
+    if not text:
+        return None, None
+    candidate = Path(text).expanduser()
+    inside = registrable_path(str(candidate))
+    if inside is not None and inside.is_file():
+        return inside, None
+    if candidate.is_file():
+        return None, f"{text} {_OUTSIDE_DATA_DIRS}"
+    return None, None
+
+
 def _script_body(script_text: str):
-    """Return (text, None) or (None, error). A one-line existing path is read."""
+    """Return (text, None) or (None, error). A one-line path to a script file
+    under the data directories is read; any other text is the script itself."""
     text = (script_text or "").strip()
     if not text:
         return None, "script_text is required"
     if "\n" not in text:
-        path = Path(text).expanduser()
-        if path.is_file():
+        path, err = _local_media_path(text)
+        if err:
+            return None, f"script file {err}"
+        if path is not None:
             try:
                 return path.read_text(encoding="utf-8"), None
             except OSError as e:
@@ -109,10 +137,12 @@ def _document_from_song_ref(song: str):
         if not doc:
             return None, f"song document {ref} not found"
         return doc, None
-    path = Path(ref).expanduser()
-    if not path.is_file():
+    path, err = _local_media_path(ref)
+    if err:
+        return None, f"song file {err}"
+    if path is None:
         return None, f"song file not found: {ref}"
-    resolved = str(path.resolve())
+    resolved = str(path)
     existing = Document.query.filter_by(path=resolved).first()
     if existing:
         return existing, None

@@ -21,6 +21,7 @@ Both the batch-video API (download/install) and comfyui_video_generator
 (generation) import from here, so the two can no longer disagree.
 """
 
+import re
 import logging
 import os
 from pathlib import Path
@@ -1738,7 +1739,11 @@ def _hardware_fallback(role: str, total_vram_mb) -> str | None:
         return None
     if preferred in candidates:
         return preferred
-    return candidates[0]
+    # Largest model the card can hold, so a 16 GB card with two installed
+    # families gets the higher-fidelity one rather than whichever the registry
+    # happens to list first. Registry order only breaks ties.
+    order = list(VIDEO_MODEL_REGISTRY)
+    return max(candidates, key=lambda m: (vram_mb_for_model(m), -order.index(m)))
 
 
 def resolve_active_video_model(
@@ -1792,6 +1797,29 @@ def resolve_active_video_model(
     if fallback:
         return fallback, None
     return None, "No installed video model is ready for this card."
+
+
+_FRAME_RULE_RE = re.compile(r"^(\d+)[a-z]\+(\d+)$")
+
+
+def snap_frames(model_id: str, frames: int, *, up: bool = False) -> int:
+    """``frames`` moved onto the model's declared frame grid.
+
+    Rules are written as ``4n+1``, ``8n+1``, ``17k+5``: a step and an offset.
+    Snaps down by default (a request is never lengthened without asking); pass
+    ``up=True`` to snap up, as the MiniMax template does. A model with no rule
+    returns ``frames`` unchanged.
+    """
+    rule = (model_capabilities(model_id) or {}).get("frame_rule") or ""
+    m = _FRAME_RULE_RE.match(str(rule).replace(" ", ""))
+    if not m:
+        return int(frames)
+    step, offset = int(m.group(1)), int(m.group(2))
+    n = max(int(frames), offset)
+    k, rem = divmod(n - offset, step)
+    if up and rem:
+        k += 1
+    return offset + k * step
 
 
 def clip_defaults_for(model_id: str, total_vram_mb=None) -> dict:

@@ -4,6 +4,21 @@
 
 Everything the H3 release can do, wired through the product, on a branch until it merges.
 
+- **One active video model for every pipeline.** Chat `/video`, `videos generate` in the CLI,
+  batch requests that omit a model, the music video and Film Crew all pick their model through
+  one resolver: an explicit id, else a per-pipeline override, else the global setting at
+  `/api/settings/active_video_model`, else the largest installed model the card can hold. An id
+  that cannot run is refused in one sentence; families are never swapped silently. Omitted fps,
+  frames, steps and canvas fill from the model's declared native values, so the CogVideoX
+  low-VRAM path no longer cuts steps below the model's floor. Note: where the music video and
+  Film Crew editor used to hard-code Wan 2.2 14B I2V, the default now follows the registry,
+  which has been Wan 2.2 5B TI2V since July; pick 14B in the picker or the setting to keep it.
+- **Music video and Film Crew start from chat, the CLI and MCP.** "Make a music video from
+  song.mp3, neon noir" and "film this script …" create the project and start analysis or the
+  screenwriter, then stop at the Studio gate: nothing is approved and no GPU render starts
+  outside Studio. A song path or script path given to those tools must sit under the uploads or
+  outputs directory or the install root. Frame counts snap to each model's declared grid,
+  MiniMax's 17k+5 included.
 - **Paths from a request stay inside the directory they belong to.** One helper,
   `backend/utils/path_guard.py`, joins caller-supplied names under a server-chosen root and
   refuses anything that lands outside it; forty call sites (batch video, files, backups,

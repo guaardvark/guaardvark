@@ -2559,16 +2559,12 @@ class Wan22I2VGenerator:
     ) -> str:
         # Clamp to a short clip — long I2V drifts the face and blows 16 GB.
         # Snap to the model's declared frame rule (Wan/Hunyuan 4n+1, LTX 8n+1).
-        from backend.services.video_model_registry import model_capabilities
-        caps = model_capabilities(self.model)
+        from backend.services.video_model_registry import snap_frames
         raw = max(17, min(49, int(round(duration_seconds * self.fps)) or 25))
-        rule = (caps.get("frame_rule") or "4n+1")
-        if rule == "8n+1":
-            frames = max(17, ((raw - 1) // 8) * 8 + 1)
-        elif rule == "4n+1":
-            frames = max(17, ((raw - 1) // 4) * 4 + 1)
-        else:
-            frames = raw
+        frames = snap_frames(self.model, raw)
+        if frames < 17:
+            # Snapping down left too short a clip; take the next grid point up.
+            frames = snap_frames(self.model, 17, up=True)
         out_dir = Path(output_path).parent
         out_dir.mkdir(parents=True, exist_ok=True)
         gen = get_video_generator()

@@ -1,4 +1,6 @@
 """resolve_active_video_model: explicit > surface > global > hardware fallback."""
+import pytest
+
 from backend.services import video_model_registry as vmr
 
 
@@ -88,3 +90,43 @@ def test_clip_defaults_are_native_not_svd():
     d14 = vmr.clip_defaults_for("wan22-14b")
     assert d14["fps"] == 16
     assert d14["duration_frames"] <= 81
+
+
+def test_hardware_fallback_takes_the_largest_model_that_fits(monkeypatch):
+    """Two installed families, no setting: the card gets the bigger one, not the
+    one the registry happens to list first."""
+    monkeypatch.setattr(vmr, "_video_setting", lambda k: "")
+    installed = {"hunyuan-t2v", "ltx23-distilled-fp8"}
+    monkeypatch.setattr(vmr, "is_model_installed", lambda m: m in installed)
+    monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: 24576)
+    candidates = [m for m in installed if vmr._role_ok(m, "t2v")]
+    assert len(candidates) == 2, candidates
+    mid, err = vmr.resolve_active_video_model("t2v")
+    assert err is None
+    assert mid == max(candidates, key=vmr.vram_mb_for_model)
+
+
+def test_hardware_fallback_skips_models_that_do_not_fit(monkeypatch):
+    monkeypatch.setattr(vmr, "_video_setting", lambda k: "")
+    installed = {"hunyuan-t2v", "ltx23-distilled-fp8"}
+    monkeypatch.setattr(vmr, "is_model_installed", lambda m: m in installed)
+    small = min(vmr.vram_mb_for_model(m) for m in installed)
+    monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: small + 1024)
+    mid, err = vmr.resolve_active_video_model("t2v")
+    assert err is None
+    assert vmr.vram_mb_for_model(mid) == small
+
+
+@pytest.mark.parametrize("model,frames,expect_down,expect_up", [
+    ("wan22-5b", 30, 29, 33),              # 4n+1
+    ("ltx23-distilled-fp8", 30, 25, 33),   # 8n+1
+    ("minimax-h3-int8", 30, 22, 39),       # 17k+5
+])
+def test_snap_frames_follows_each_declared_grid(model, frames, expect_down, expect_up):
+    assert vmr.snap_frames(model, frames) == expect_down
+    assert vmr.snap_frames(model, frames, up=True) == expect_up
+
+
+def test_snap_frames_leaves_unruled_models_alone(monkeypatch):
+    monkeypatch.setattr(vmr, "model_capabilities", lambda m: {"frame_rule": None})
+    assert vmr.snap_frames("anything", 31) == 31

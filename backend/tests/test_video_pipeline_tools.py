@@ -149,7 +149,16 @@ def _no_dispatch_and_no_gpu(monkeypatch):
     )
 
 
-def test_music_video_tool_creates_plan_and_does_not_approve(app, tmp_path):
+@pytest.fixture
+def uploads_at_tmp(tmp_path, monkeypatch):
+    """Treat tmp_path as the uploads directory so temp media counts as ours."""
+    import backend.services.output_registration as oreg
+    monkeypatch.setattr(oreg, "UPLOAD_DIR", str(tmp_path))
+    return tmp_path
+
+
+def test_music_video_tool_creates_plan_and_does_not_approve(app, uploads_at_tmp):
+    tmp_path = uploads_at_tmp
     song = tmp_path / "song.mp3"
     song.write_bytes(b"ID3")
     with app.app_context():
@@ -192,7 +201,8 @@ def test_film_crew_tool_creates_and_does_not_render(app):
         assert prod.name == "Kettle"
 
 
-def test_film_crew_tool_reads_script_file(app, tmp_path):
+def test_film_crew_tool_reads_script_file(app, uploads_at_tmp):
+    tmp_path = uploads_at_tmp
     script = tmp_path / "scene.txt"
     script.write_text("INT. ROOM.\nHi.\n", encoding="utf-8")
     with app.app_context():
@@ -214,3 +224,23 @@ def test_music_video_tool_song_document_id(app, tmp_path):
         result = MusicVideoTool().execute(song=str(doc.id), style_prompt="deep blue")
         assert result.success, result.error
         assert result.metadata["approved"] is False
+
+
+def test_music_video_tool_refuses_song_outside_data_dirs(app, tmp_path):
+    """A real file that is not under uploads/outputs/install root is refused, not registered."""
+    song = tmp_path / "elsewhere.mp3"
+    song.write_bytes(b"ID3")
+    with app.app_context():
+        result = MusicVideoTool().execute(song=str(song), style_prompt="neon")
+        assert result.success is False
+        assert "inside the uploads" in (result.error or "")
+        assert Document.query.filter_by(path=str(song)).first() is None
+
+
+def test_film_crew_tool_does_not_read_script_outside_data_dirs(app, tmp_path):
+    secret = tmp_path / "notes.txt"
+    secret.write_text("INT. VAULT.\nThe combination is 1234.\n", encoding="utf-8")
+    with app.app_context():
+        result = FilmCrewTool().execute(script_text=str(secret))
+        assert result.success is False
+        assert "inside the uploads" in (result.error or "")

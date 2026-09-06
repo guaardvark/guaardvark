@@ -88,3 +88,25 @@ def test_wan_adapter_snaps_frames_to_4n_plus_1(tmp_path, monkeypatch):
     assert captured["model"] == "wan22-5b"
     assert captured["frames"] % 4 == 1
     assert 17 <= captured["frames"] <= 49
+
+
+def test_minimax_adapter_snaps_frames_to_17k_plus_5(tmp_path, monkeypatch):
+    captured = {}
+
+    class _FakeGen:
+        def generate_video(self, req):
+            captured["frames"] = req.duration_frames
+            rel = "item_0/out.mp4"
+            real = Path(req.output_dir) / rel
+            real.parent.mkdir(parents=True, exist_ok=True)
+            real.write_bytes(b"VIDEO")
+            return _Result(rel)
+
+    monkeypatch.setattr(cvg, "get_video_generator", lambda: _FakeGen())
+    out_path = tmp_path / "clips" / "final.mp4"
+    Wan22I2VGenerator(model="minimax-h3-int8", fps=24).i2v_from_image(
+        image_path="/tmp/still.png", prompt="x", loras=[],
+        duration_seconds=1.0, output_path=str(out_path),
+    )
+    assert captured["frames"] % 17 == 5
+    assert captured["frames"] >= 17
