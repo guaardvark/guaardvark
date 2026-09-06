@@ -99,6 +99,10 @@ def test_analyzer_seeds_cut_plan_and_gates(app, sent, monkeypatch, tmp_path):
             "shots": [],
         }
     monkeypatch.setattr(director, "_generate_storyline_and_prompts", _fake_director)
+    # director_service binds the generator at import time, so patch its copy too or
+    # the mock silently misses whenever another test imported the engine first.
+    import backend.services.director_service as director_service
+    monkeypatch.setattr(director_service, "_generate_storyline_and_prompts", _fake_director)
 
     mvt.run_analyzer(mv.id)
     db.session.refresh(mv)
