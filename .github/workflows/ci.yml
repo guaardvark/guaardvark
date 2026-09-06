@@ -224,4 +224,5 @@ jobs:
             backend/tests/unit/test_plugin_core_exemption.py \
             backend/tests/unit/test_plugin_local_overrides.py \
             backend/tests/integration/test_plugins_system.py \
-            backend/tests/unit/test_unified_progress_system.py
+            backend/tests/unit/test_unified_progress_system.py \
+            backend/tests/test_interconnector_exclude.py
