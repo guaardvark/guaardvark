@@ -46,7 +46,7 @@ See [Quick Start](#quick-start) for details and manual install options.
 |---|---|---|
 | **Media studio** | 11 local video models across five families (Wan 2.2, CogVideoX, LTX, HunyuanVideo, MiniMax H3 with native audio), image generation, full-song music, neural voice with consent-gated cloning, 4K/8K upscaling | Eps [5](https://www.youtube.com/watch?v=s9I_0gD9Iko) · [6](https://www.youtube.com/watch?v=9rae9IJhXow) · [7](https://www.youtube.com/watch?v=BXlm7p-SxtU) |
 | **Directors** | A beat-synced music-video director, a 5-role Film Crew, an auto-editing video editor — and the walkthrough director that produced this README's own video series | Eps [8](https://www.youtube.com/watch?v=l2LqKA9GQDc) · [9](https://www.youtube.com/watch?v=sq104u9N4Qg) |
-| **Coding agent & code intelligence** | Monaco editor, AST-aware analysis and dependency graphs, System Mapper: a live constellation of the whole codebase | [CAPABILITIES.md](CAPABILITIES.md) |
+| **Coding agent & code intelligence** | Monaco editor, AST-aware analysis and dependency graphs, System Mapper: a live constellation of the whole codebase | Ep [14](https://www.youtube.com/watch?v=yEy1tVKxsF0) |
 | **Agent swarms** | Up to 20 parallel coding agents in isolated git worktrees with dependency-aware merging; fully-local backend via Ollama | [CAPABILITIES.md](CAPABILITIES.md) |
 | **Screen agents** | A real Ubuntu/XFCE desktop of their own, vision + closed-loop servo clicking, live VNC viewer on any page | Ep [4](https://www.youtube.com/watch?v=3VfHrJmqYos) |
 | **Knowledge** | Hybrid RAG on pgvector with cross-encoder reranking, layout-aware document parsing with page-level citations, retrieval that shows its chunks and scores, Autoresearch that tunes retrieval overnight | Ep [3](https://www.youtube.com/watch?v=pT_J93qTCL0) |
@@ -55,7 +55,7 @@ See [Quick Start](#quick-start) for details and manual install options.
 
 ## ▶ The Walkthrough Series — every feature, on camera
 
-Short, unscripted-feeling screen recordings of the real system doing real work — narrated by a voice the system cloned itself (that's Episode 7). Ten episodes are live; the full series covers all twelve subsystems.
+Short, unscripted-feeling screen recordings of the real system doing real work — narrated by a voice the system cloned itself (that's Episode 7). Twelve episodes are live: the first series covers the twelve subsystems, and a second series picks up what shipped since.
 
 | | |
 |:---:|:---:|
@@ -64,6 +64,7 @@ Short, unscripted-feeling screen recordings of the real system doing real work �
 | [![Local Video Generation — Guaardvark Ep 6](https://img.youtube.com/vi/9rae9IJhXow/maxresdefault.jpg)](https://www.youtube.com/watch?v=9rae9IJhXow)<br>**Ep 6 — Video Gen:** seven models, one GPU | [![Local Voice Cloning — Guaardvark Ep 7](https://img.youtube.com/vi/BXlm7p-SxtU/maxresdefault.jpg)](https://www.youtube.com/watch?v=BXlm7p-SxtU)<br>**Ep 7 — Voice Clone:** consent-gated, self-checking |
 | [![Local AI Music Video — Guaardvark Ep 8](https://img.youtube.com/vi/l2LqKA9GQDc/maxresdefault.jpg)](https://www.youtube.com/watch?v=l2LqKA9GQDc)<br>**Ep 8 — Music Video:** drop a song, get a film | [![Local AI Film Crew — Guaardvark Ep 9](https://img.youtube.com/vi/sq104u9N4Qg/maxresdefault.jpg)](https://www.youtube.com/watch?v=sq104u9N4Qg)<br>**Ep 9 — Film Crew:** script, cast, storyboard, cut |
 | [![The System That Fixes Itself — Guaardvark Ep 11](https://img.youtube.com/vi/7kHvi_2vT6U/maxresdefault.jpg)](https://www.youtube.com/watch?v=7kHvi_2vT6U)<br>**Ep 11 — Self-Repair:** it fixes its own code, behind a gate you control | [![Command Center — Guaardvark Ep 12](https://img.youtube.com/vi/IMEnss9gjl4/maxresdefault.jpg)](https://www.youtube.com/watch?v=IMEnss9gjl4)<br>**Ep 12 — Command Center:** see everything, gate everything, kill everything |
+| [![The New Front Door — Guaardvark Ep 13](https://img.youtube.com/vi/3-3XHJHHVmA/maxresdefault.jpg)](https://www.youtube.com/watch?v=3-3XHJHHVmA)<br>**Ep 13 — The New Front Door:** the Workspaces bar, and everything new since the first series | [![A Map of Everything — Guaardvark Ep 14](https://img.youtube.com/vi/yEy1tVKxsF0/maxresdefault.jpg)](https://www.youtube.com/watch?v=yEy1tVKxsF0)<br>**Ep 14 — System Map:** every module, drawn from its real imports; findings that carry their own fix |
 
 **[▶ Watch the full playlist](https://www.youtube.com/playlist?list=PLYycooXIy1Qs)** — Episode 1 (the full tour) and Episode 10 (the video editor) are on the way.
 
@@ -241,7 +242,7 @@ A client's Linux desktop player refused to play a video — the distro was missi
 
 - **Monaco code editor** with multi-file tabs and an AI assistant pane.
 - **AST-aware code intelligence** — repository maps, dependency graphs, and structure-aware code search (`get_repository_map`, `read_ast_node`, `search_code` — also exposed over MCP).
-- **System Mapper** — a live, force-directed constellation of the entire codebase computed from real imports (1,100+ modules on camera in [Episode 11](https://www.youtube.com/watch?v=7kHvi_2vT6U)), with lifecycle tagging (live / dormant / stale) and ranked findings you can dispatch straight to the self-improvement agent.
+- **System Mapper** — a live, force-directed constellation of the entire codebase computed from real imports (1,300+ modules on camera in [Episode 14](https://www.youtube.com/watch?v=yEy1tVKxsF0)), with lifecycle tagging (active / dormant / auto-loaded / test / script / config), ranked findings you can dispatch to the self-improvement agent, and findings whose remedy is mechanical staged as an exact proposal for your review.
 - **Guarded self-coding** — every AI code write funnels through a single verified exact-replacement gate, behind the codebase lock.
 
 ### Model Context Protocol (MCP)
@@ -432,33 +433,38 @@ The CLI connects to a running Guaardvark instance or launches a lightweight embe
 
 ## CLI
 
-~40 commands/subcommands (25 command modules) with tab completion and fuzzy matching. The PyPI package is `guaardvark`; the command is often `llx` when working from the source tree (`cd cli && pip install -e .`).
+Typer + Rich + prompt_toolkit. The PyPI package and the command are `guaardvark` (`llx` is a deprecated alias). Tab completion works with or without a leading `/`; `/help imagine` shows one command; unknown commands suggest a close match.
 
 ```bash
-guaardvark                              # Interactive REPL (or `llx`)
+guaardvark                              # Interactive REPL
 guaardvark status                       # System dashboard
 guaardvark chat "explain this codebase" # Chat with RAG context
 guaardvark search "query"               # Semantic search
 guaardvark files upload report.pdf      # Upload and index
+guaardvark plugins list                 # ComfyUI / Ollama / …
+guaardvark gpu status                   # VRAM and owner lock
+guaardvark mcp install --client cursor  # Wire Guaardvark into Cursor
+guaardvark completion zsh               # Shell completion script
 ```
+
+Config: `~/.guaardvark/cli.json` (legacy `~/.llx/config.json` is still read). Themes: `default`, `teal`, `musk`, `hacker`, `vader`, `guaardvark`, `day`, `auto`. Short terminals get a compact aardvark banner.
 
 ### REPL Slash Commands (examples)
 
 ```
-/imagine <prompt>       Generate an image from text
+/imagine <prompt>       Generate an image (inline preview in Kitty/iTerm)
 /video <prompt>         Generate a video from text
-/voice <text>           Text-to-speech output
-/agent                  Toggle autonomous agent mode
-/web                    Open the web UI
+/voice <text>           Text-to-speech (plays locally)
+/agent [on|off|shot]    Screen-agent mode; shot = desktop screenshot
+/web [images|chat]      Open the web UI on the real frontend port
 /ingest <path>          Index files or directories for RAG
-/search <query>         Semantic search over indexed documents
-/models list            List available Ollama models
-/remember <text>        Save to persistent memory
-/memory list|search     Browse saved memories
-/backup create          Create a system backup
-/jobs list|watch        Monitor background tasks
-/config                 View or change settings
-/help                   Full command reference
+/plugins list|start     GPU / service plugins
+/gpu status|release     VRAM and owner lock
+/audio tts|music|sfx    Audio Foundry
+/swarm run <prompt>     Parallel agents in worktrees
+/lessons begin|end      Lesson pearls
+/skills                 List SKILL.md files
+/help [query]           Full command reference, or one command
 ```
 
 ---

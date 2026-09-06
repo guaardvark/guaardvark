@@ -231,19 +231,30 @@ def dispatch(finding_id):
     description = actions.describe(finding)
     priority = body.get("priority", "medium")
     target_files = list(finding.get("paths") or [])
+    # A finding whose remedy is fully determined by its evidence is staged as
+    # an exact proposal; the agent is only asked when judgment is needed.
+    proposal = actions.mechanical_proposal(finding, root)
     try:
         from backend.celery_app import celery as celery_app
         async_res = celery_app.send_task(
             "self_improvement.run_directed_async",
             kwargs={"task_description": description,
-                    "target_files": target_files, "priority": priority},
+                    "target_files": target_files, "priority": priority,
+                    "proposal": proposal},
+        )
+        reason = (
+            "Dispatched — the fix is mechanical, so the exact change is being "
+            "staged as a PendingFix for your review in Settings."
+            if proposal else
+            "Dispatched to the self-improvement agent — running in the "
+            "background. Review the proposed fix (a PendingFix) in Settings."
         )
         return jsonify({
             "success": True, "queued": True,
             "task_id": getattr(async_res, "id", None),
             "finding_id": finding_id,
-            "reason": ("Dispatched to the self-improvement agent — running in the "
-                       "background. Review the proposed fix (a PendingFix) in Settings."),
+            "mechanical": bool(proposal),
+            "reason": reason,
         }), 202
     except Exception as exc:
         logger.exception("dispatch enqueue failed")

@@ -40,7 +40,8 @@ def _sample_output_dir(subject_id: int) -> Path:
         from backend.config import STORAGE_DIR
         base = Path(STORAGE_DIR) / "outputs" / "character_samples" / str(subject_id)
     except Exception:
-        base = Path("data") / "outputs" / "character_samples" / str(subject_id)
+        base = (Path(__file__).resolve().parents[2] / "data" / "outputs"
+                / "character_samples" / str(subject_id))
     base.mkdir(parents=True, exist_ok=True)
     return base
 

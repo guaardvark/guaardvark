@@ -1,0 +1,31 @@
+Every module in this product, drawn from its real imports. Click one and it tells you who depends on it, whether it still runs, and what is wrong.
+
+The System Map on its own: a force-directed constellation of 1,300+ modules computed from the code on disk, section spotlights, search, the tool-graph and ghost-endpoint overlays, ranked findings with the file and line, the finding that caught an unreachable chat tool (the fix cites it by id), a live dispatch to the self-improvement agent, and a chat tool call pulsing its module in real time.
+
+One machine. No cloud. This is Episode 14.
+
+CHAPTERS (add exact timestamps after the final edit)
+0:00 The constellation
+[__:__] Spotlight a section
+[__:__] Search, and the detail panel
+[__:__] Tool graph and ghost endpoints
+[__:__] Ranked findings
+[__:__] The bug the map caught
+[__:__] Send it to the self-improvement agent
+[__:__] Live — a tool call pulses its module
+[__:__] Would rather miss than lie
+
+FEATURED IN THIS EPISODE
+▸ Ep 3: Your Files Have a Desktop — File Desktop — {EP03}
+▸ Ep 11: The System That Fixes Itself — Self-Repair — {EP11}
+▸ Ep 13: The New Front Door — Workspaces, and Everything New Since Episode 12 — {EP13}
+▸ Ep 15: Guaardvark Codes — Editor, Guardrails, and the Fix Queue — {EP15}
+▸ Ep 16: Plug In Anything — MCP, Episode 16 — {EP16}
+
+Full playlist: {PLAYLIST}
+
+Guaardvark is a self-hosted AI system that writes, voices, shoots, and edits video — chat, image gen, video gen, voice cloning, an autonomous screen agent, and a full AI film crew — running on a single desktop GPU, no cloud API calls. This is one of 12 walkthrough episodes.
+
+Source & docs: https://github.com/guaardvark/guaardvark
+
+#Guaardvark #localAI #selfhostedAI #opensourceAI #offlineAI #AIvideogeneration #onemachinenocloud #systemmap #codebasevisualization #dependencygraph #selfimprovingAI

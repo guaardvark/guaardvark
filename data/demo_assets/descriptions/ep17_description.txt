@@ -1,0 +1,28 @@
+Five agents. One repository. Every one of them in its own copy.
+
+The swarm orchestrator: six templates, the launch dialog with flight mode and auto-merge, a live dependency graph, one worktree per task on its own branch, the live diff, merge and clean up, and the resource monitor that stops spawning agents when the machine is busy.
+
+One machine. No cloud. This is Episode 17.
+
+CHAPTERS (add exact timestamps after the final edit)
+0:00 The sidecar
+[__:__] Templates
+[__:__] Launch
+[__:__] The graph
+[__:__] Worktrees
+[__:__] Merge and clean up
+[__:__] What this launch proved
+
+FEATURED IN THIS EPISODE
+▸ Ep 11: The System That Fixes Itself — Self-Repair — {EP11}
+▸ Ep 13: The New Front Door — Workspaces, and Everything New Since Episode 12 — {EP13}
+▸ Ep 14: A Map of Everything — the System Map, Episode 14 — {EP14}
+▸ Ep 15: Guaardvark Codes — Editor, Guardrails, and the Fix Queue — {EP15}
+
+Full playlist: {PLAYLIST}
+
+Guaardvark is a self-hosted AI system that writes, voices, shoots, and edits video — chat, image gen, video gen, voice cloning, an autonomous screen agent, and a full AI film crew — running on a single desktop GPU, no cloud API calls. This is one of 12 walkthrough episodes.
+
+Source & docs: https://github.com/guaardvark/guaardvark
+
+#Guaardvark #localAI #selfhostedAI #opensourceAI #offlineAI #AIvideogeneration #onemachinenocloud #agentswarm #multiagent #gitworktree #parallelcodingagents

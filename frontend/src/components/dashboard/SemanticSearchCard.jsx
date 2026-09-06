@@ -16,7 +16,6 @@ import ChatIcon from "@mui/icons-material/Chat";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import FileGenPopup from "../FileGenPopup";
 import { getChatHistory } from "../../api/chatService";
-import { getRagDebug } from "../../api/settingsService";
 import { generateFileFromChat } from "../../api/filegenService";
 import UnifiedChatService from "../../api/unifiedChatService";
 import StreamingMessage from "../chat/StreamingMessage";
@@ -39,7 +38,6 @@ const SemanticSearchCard = React.forwardRef(
     const [isSending, setIsSending] = useState(false);
     const [error, setError] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
-    const [ragDebugEnabled, setRagDebugEnabled] = useState(false);
     const inputRef = useRef(null);
 
     // Unified Chat Service (Socket.IO streaming)
@@ -141,20 +139,6 @@ const SemanticSearchCard = React.forwardRef(
     }, [loadHistory]);
 
     useEffect(() => {
-      const fetchRagDebugSetting = async () => {
-        try {
-          const result = await getRagDebug();
-          if (result && typeof result.rag_debug_enabled === "boolean") {
-            setRagDebugEnabled(result.rag_debug_enabled);
-          }
-        } catch (err) {
-          console.warn("SemanticSearchCard: Failed to fetch RAG debug setting:", err);
-        }
-      };
-      fetchRagDebugSetting();
-    }, []);
-
-    useEffect(() => {
       const handleStorageChange = (e) => {
         if (e.key === "guaardvark_chat_session_id") {
           loadHistory();
@@ -177,34 +161,6 @@ const SemanticSearchCard = React.forwardRef(
         window.removeEventListener('chatHistoryCleared', handleChatHistoryCleared);
       };
     }, []);
-
-    const filterDebugContent = useCallback((content) => {
-      if (!content || ragDebugEnabled) return content;
-      
-      const debugPatterns = [
-        /\*\*Thinking:\*\*.*?(?=\n\n|\n\*\*|$)/gs,
-        /\*\*Analysis:\*\*.*?(?=\n\n|\n\*\*|$)/gs,
-        /\*\*Context:\*\*.*?(?=\n\n|\n\*\*|$)/gs,
-        /\*\*Debug:\*\*.*?(?=\n\n|\n\*\*|$)/gs,
-        /\*\*RAG Debug:\*\*.*?(?=\n\n|\n\*\*|$)/gs,
-        /\[DEBUG\].*?(?=\n|\[|$)/gs,
-        /\[RAG\].*?(?=\n|\[|$)/gs,
-        /\[CONTEXT\].*?(?=\n|\[|$)/gs,
-        /^---.*?---$/gm,
-        /^### Debug Information.*?(?=\n#|$)/gms,
-        /^### RAG Debug.*?(?=\n#|$)/gms,
-        /^### Context.*?(?=\n#|$)/gms,
-      ];
-      
-      let filteredContent = content;
-      debugPatterns.forEach(pattern => {
-        filteredContent = filteredContent.replace(pattern, '');
-      });
-      
-      filteredContent = filteredContent.replace(/\n\s*\n\s*\n/g, '\n\n').trim();
-      
-      return filteredContent;
-    }, [ragDebugEnabled]);
 
     const handleStop = useCallback(() => {
       console.log("DEBUG: Stop button clicked in SemanticSearchCard");
@@ -438,7 +394,7 @@ const SemanticSearchCard = React.forwardRef(
                         fontSize: "0.875rem",
                       }}
                     >
-                      {truncateMessage(filterDebugContent(message.content))}
+                      {truncateMessage(message.content)}
                     </Typography>
                   </ListItem>
                 ))}
@@ -456,11 +412,10 @@ const SemanticSearchCard = React.forwardRef(
                     setIsSending(false);
 
                     if (result.content) {
-                      const filteredContent = filterDebugContent(result.content);
                       const completedMessage = {
                         id: `asst_unified_${Date.now()}`,
                         role: "assistant",
-                        content: filteredContent,
+                        content: result.content,
                         timestamp: new Date().toISOString(),
                       };
                       setMessages((prev) => [...prev, completedMessage]);

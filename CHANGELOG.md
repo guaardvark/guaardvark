@@ -4,6 +4,13 @@
 
 Everything the H3 release can do, wired through the product, on a branch until it merges.
 
+- **GPU faults are reported as GPU faults.** A CUDA error that kills the context (launch
+  timeout, illegal memory access, device-side assert, uncorrectable ECC and kin) is now
+  recognised in one place. The backend records it, refuses further GPU work immediately
+  instead of retrying it, fails the rest of a running batch without trying each prompt, and
+  tells the user the backend needs a restart. Before this, one driver watchdog reset left
+  every later image request failing for hours with "pipeline failed to load — usually VRAM
+  pressure or an incomplete download". Status reports the fault under `gpu_fault`.
 - **numpy 2.** The backend venv moves to `numpy>=2.1,<2.6` (the ceiling follows numba). What
   held the old `<2.0` pin was the optional CV extra, not PyTorch: the never-called anatomy
   service and its mediapipe/jax/controlnet-aux chain are gone, `opencv-python` is the one
@@ -30,7 +37,7 @@ Everything the H3 release can do, wired through the product, on a branch until i
   into the model's format (numbered shots with cut times that add up to the clip, speaker
   ids, tagged dialogue in the model card's eleven languages), with an optional polish pass
   by the local director model that is discarded if it touches the dialogue. Eight authored
-  prompt presets ship in `backend/prompt_bundles/minimax_h3`.
+  prompt presets ship in `plugins/comfyui/scripts/prompt_bundles/minimax_h3`.
 - **Film Crew on H3.** A production can name its video model; on a native-audio model each
   scene renders as windows of at most fifteen seconds with the cast's lines spoken by the
   model, joined on the storyboard stills, no voiceover laid over them, the score mixed
@@ -63,6 +70,24 @@ Everything the H3 release can do, wired through the product, on a branch until i
   performance track: a 4 s narration anchored at frame 0 came back in the clip's
   soundtrack with a 0.91 waveform correlation (0.99 on the envelope), rendered in 138 s
   on the turbo profile.
+
+## Unreleased — CLI
+
+The `guaardvark` command is now a peer of the web UI, not a subset.
+
+- **One command catalog.** Slash router, tab completion, `/help`, and the contract tests
+  share `COMMAND_TREE`. `/imagine`, `/video`, `/voice`, `/ingest`, `/agent`, `/web`,
+  `/load`, `/skills`, and `recipes` complete. Unknown commands get “Did you mean…?”.
+  Completion works without a leading `/`.
+- **Theme-true prompt.** REPL colors follow `/theme` (including `day` and `auto`). Compact
+  banner on short terminals so the 30-row aardvark art does not overflow. Chat prefix is
+  the brand mark, not a llama. `/clear` uses Rich. Config lives in `~/.guaardvark/cli.json`
+  (legacy `~/.llx` still read). `/web` uses the real frontend port from runtime.json.
+- **Studio commands.** `plugins`, `gpu`, `mcp`, `audio`, `swarm`, `lessons` wrap the
+  existing APIs. `guaardvark completion bash|zsh|fish` prints a shell script.
+  `guaardvark doctor --cli` reports terminal graphics / tmux passthrough.
+- **Show the artifact.** `/imagine` previews inline (Kitty / iTerm / chafa). `/voice`
+  plays locally. `/agent shot` dumps the agent desktop. Jobs notify on complete.
 
 ## 2.8.1 — Profiles, extensions, and a bootstrap that converges offline
 

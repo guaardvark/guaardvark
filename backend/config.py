@@ -98,7 +98,6 @@ _config_logger.info(f"Config initialized - STORAGE_DIR: {STORAGE_DIR}")
 
 ENHANCED_CONTEXT_ENABLED = os.environ.get("GUAARDVARK_ENHANCED_CONTEXT", "true").lower() == "true"
 ADVANCED_RAG_ENABLED = os.environ.get("GUAARDVARK_ADVANCED_RAG", "true").lower() == "true"
-RAG_DEBUG_ENABLED = os.environ.get("GUAARDVARK_RAG_DEBUG", "true").lower() == "true"
 CONTEXT_PERSISTENCE_DIR = _resolve_path("GUAARDVARK_CONTEXT_DIR", "data/context")
 
 AGENT_BRAIN_ENABLED = os.environ.get("GUAARDVARK_AGENT_BRAIN", "true").lower() == "true"
@@ -685,6 +684,12 @@ if not SECRET_KEY:
 METRICS_LOG_LEVEL = os.environ.get("GUAARDVARK_METRICS_LOG_LEVEL", "WARNING").upper()
 
 AGENTIC_MAX_TOKENS_FINAL = int(os.environ.get("GUAARDVARK_AGENTIC_MAX_TOKENS", "4096"))
+# Ollama counts a thinking model's reasoning tokens against num_predict, so with
+# thinking on the visible answer would be cut short unless the budget grows by
+# roughly the reasoning length. 4096 equals the answer budget: a 300-word request
+# on gemma4-12b produced ~6.4k chars (~2k tokens) of reasoning, so this leaves
+# headroom for longer chains without an open-ended ceiling.
+AGENTIC_THINKING_TOKEN_BUDGET = int(os.environ.get("GUAARDVARK_AGENTIC_THINKING_TOKENS", "4096"))
 AGENTIC_HISTORY_LIMIT = int(os.environ.get("GUAARDVARK_AGENTIC_HISTORY_LIMIT", "30"))
 
 CHAT_HISTORY_LIMIT_FOR_ENGINE = (

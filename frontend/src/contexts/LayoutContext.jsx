@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { useAppStore } from "../stores/useAppStore";
-import { spacing } from "../theme/tokens";
+import { navChromeWidth } from "../config/navCatalog";
 
 const LayoutContext = createContext(null);
 
@@ -64,11 +64,12 @@ const createGridSettings = () => {
  */
 export const useDashboardWidth = () => {
   const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
-  const sidebarWidth = sidebarExpanded ? spacing.sidebarExpanded : spacing.sidebarCollapsed;
+  const navChrome = useAppStore((state) => state.navChrome);
+  const chromeWidth = navChromeWidth(navChrome, sidebarExpanded);
 
   const calcWidth = useCallback(() => {
-    return window.innerWidth - sidebarWidth - CONTAINER_PADDING_PX * 2;
-  }, [sidebarWidth]);
+    return window.innerWidth - chromeWidth - CONTAINER_PADDING_PX * 2;
+  }, [chromeWidth]);
 
   const [width, setWidth] = useState(calcWidth);
 

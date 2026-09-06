@@ -9,6 +9,7 @@ import threading
 import uuid
 
 from flask import Blueprint, current_app, request, jsonify
+from backend.services.tool_activity import broadcast_tool_activity
 
 logger = logging.getLogger(__name__)
 
@@ -176,6 +177,7 @@ def unified_chat():
             }
             logger.info(f"[UNIFIED-EMIT] {event} room={session_id} agent_think={is_agent_think} keys={list(data_payload.keys()) if isinstance(data_payload,dict) else type(data_payload)} payload={log_payload}")
             socketio.emit(event, data_payload, room=session_id)
+            broadcast_tool_activity(event, data_payload)
         except Exception as emit_err:
             logger.warning(f"Failed to emit {event}: {emit_err}")
 
@@ -504,6 +506,7 @@ def resume_chat_background(session_id: str, state_id: int):
         if socketio.server is None:
             return
         socketio.emit(event, data_payload, room=session_id)
+        broadcast_tool_activity(event, data_payload)
         
     def run_resume():
         with app.app_context():

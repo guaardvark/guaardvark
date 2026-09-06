@@ -2,7 +2,7 @@
  * ToolCallCard - Inline collapsible card for a single tool call + result.
  * Displayed within a message bubble during unified chat streaming.
  */
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import {
   Box,
@@ -13,13 +13,6 @@ import {
   CircularProgress,
   Button,
   ButtonGroup,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
@@ -36,41 +29,10 @@ import Tooltip from "@mui/material/Tooltip";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { BASE_URL } from "../../api/apiClient";
+import ArtifactCard, { CSVTable, artifactShape } from "./ArtifactCard";
 
 // Tools that get thumbs up/down feedback — agent actions the user can judge
 const FEEDBACK_TOOLS = new Set(["agent_task_execute", "agent_screen_capture"]);
-
-const CSVTable = ({ csvString }) => {
-  if (!csvString || !csvString.includes(",")) return null;
-  const lines = csvString.trim().split("\n");
-  if (lines.length < 1) return null;
-  
-  const headers = lines[0].split(",").map(h => h.trim());
-  const rows = lines.slice(1).map(line => line.split(",").map(c => c.trim()));
-  
-  return (
-    <TableContainer component={Paper} variant="outlined" sx={{ my: 0.5, maxHeight: 200, overflow: "auto" }}>
-      <Table size="small" stickyHeader>
-        <TableHead>
-          <TableRow sx={{ bgcolor: "action.hover" }}>
-            {headers.map((h, i) => (
-              <TableCell key={i} sx={{ py: 0.25, px: 0.5, fontSize: "0.6rem", fontWeight: "bold" }}>{h}</TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map((row, i) => (
-            <TableRow key={i}>
-              {row.map((cell, j) => (
-                <TableCell key={j} sx={{ py: 0.25, px: 0.5, fontSize: "0.6rem" }}>{cell}</TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </TableContainer>
-  );
-};
 
 const ToolCallCard = ({
   toolName,
@@ -83,9 +45,18 @@ const ToolCallCard = ({
   requiresApproval,
   onApproval,
 }) => {
-  const [expanded, setExpanded] = useState(false);
+  const artifact = result?.artifact || null;
+  // A card that produced a file opens by default so the file is visible in the thread.
+  const [expanded, setExpanded] = useState(Boolean(artifact));
   const [feedback, setFeedback] = useState(null); // null | "up" | "down"
   const [responded, setResponded] = useState(false);
+
+  // Keyed on identity, not the object, so a parent that rebuilds `result` each
+  // render cannot re-open a card the user has collapsed.
+  const artifactKey = artifact ? `${artifact.filename}:${artifact.size_bytes}` : null;
+  useEffect(() => {
+    if (artifactKey) setExpanded(true);
+  }, [artifactKey]);
 
   const showFeedback = FEEDBACK_TOOLS.has(toolName) && result && !isPending;
 
@@ -283,7 +254,7 @@ const ToolCallCard = ({
           )}
 
           {/* Streaming/Final Result */}
-          {(outputChunks || result) && (
+          {(outputChunks || result) && !artifact && (
             <Box>
               <Typography
                 variant="caption"
@@ -330,6 +301,8 @@ const ToolCallCard = ({
               )}
             </Box>
           )}
+
+          {artifact && <ArtifactCard artifact={artifact} />}
 
           {/* Thumbs up/down feedback for agent tasks */}
           {showFeedback && (
@@ -378,6 +351,7 @@ ToolCallCard.propTypes = {
     success: PropTypes.bool,
     output: PropTypes.string,
     error: PropTypes.string,
+    artifact: artifactShape,
   }),
   durationMs: PropTypes.number,
   isPending: PropTypes.bool,

@@ -556,53 +556,15 @@ def set_branding():
     return success_response({"system_name": name, "logo_path": logo_rel})
 
 
-@settings_bp.route("/rag_debug", methods=["GET"])
-def get_rag_debug():
-    enabled = False
-    try:
-        setting = db.session.get(Setting, "rag_debug_enabled")
-        if setting and setting.value == "true":
-            enabled = True
-    except Exception as e:
-        current_app.logger.error(f"Failed to read RAG debug setting: {e}")
-    return success_response({"rag_debug_enabled": enabled})
-
-
-@settings_bp.route("/rag_debug", methods=["POST"])
-def set_rag_debug():
-    if not request.is_json:
-        return error_response("Request must be JSON")
-    data = request.get_json()
-    enabled = bool(data.get("rag_debug_enabled"))
-    try:
-        setting = db.session.get(Setting, "rag_debug_enabled")
-        if setting:
-            setting.value = "true" if enabled else "false"
-        else:
-            setting = Setting(
-                key="rag_debug_enabled", value="true" if enabled else "false"
-            )
-            db.session.add(setting)
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(
-            f"Failed to update RAG debug setting: {e}", exc_info=True
-        )
-        return error_response("Failed to update setting", status_code=500)
-    return success_response({"rag_debug_enabled": enabled})
-
-
 @settings_bp.route("/rag-features", methods=["GET"])
 def get_rag_features():
     """Get all RAG-related feature settings"""
     try:
-        from backend.config import ENHANCED_CONTEXT_ENABLED, ADVANCED_RAG_ENABLED, RAG_DEBUG_ENABLED
+        from backend.config import ENHANCED_CONTEXT_ENABLED, ADVANCED_RAG_ENABLED
         
         # Get database settings (runtime overrides)
         enhanced_context = ENHANCED_CONTEXT_ENABLED
-        advanced_rag = ADVANCED_RAG_ENABLED  
-        rag_debug = RAG_DEBUG_ENABLED
+        advanced_rag = ADVANCED_RAG_ENABLED
         
         # Check for database overrides
         try:
@@ -614,17 +576,12 @@ def get_rag_features():
             if rag_setting:
                 advanced_rag = rag_setting.value == "true"
                 
-            debug_setting = db.session.get(Setting, "rag_debug_enabled")
-            if debug_setting:
-                rag_debug = debug_setting.value == "true"
-                
         except Exception as db_error:
             current_app.logger.warning(f"Failed to read RAG settings from database: {db_error}")
         
         return success_response({
             "enhanced_context": enhanced_context,
             "advanced_rag": advanced_rag,
-            "rag_debug": rag_debug
         })
         
     except Exception as e:
@@ -644,8 +601,7 @@ def update_rag_features():
         # Update settings that are provided
         settings_to_update = {
             "enhanced_context_enabled": data.get("enhanced_context"),
-            "advanced_rag_enabled": data.get("advanced_rag"), 
-            "rag_debug_enabled": data.get("rag_debug")
+            "advanced_rag_enabled": data.get("advanced_rag"),
         }
         
         updated_settings = {}
@@ -668,8 +624,6 @@ def update_rag_features():
                     updated_settings["enhanced_context"] = bool_value
                 elif key == "advanced_rag_enabled":
                     updated_settings["advanced_rag"] = bool_value
-                elif key == "rag_debug_enabled":
-                    updated_settings["rag_debug"] = bool_value
         
         db.session.commit()
         

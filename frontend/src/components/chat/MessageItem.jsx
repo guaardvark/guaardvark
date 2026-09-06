@@ -27,6 +27,7 @@ import { BASE_URL } from "../../api/apiClient";
 import AgentResultDisplay from "./AgentResultDisplay";
 import { StatusChip } from "../../utils/familyColors";
 import ToolCallCard from "./ToolCallCard";
+import ThinkingCard from "./ThinkingCard";
 import AgentThinkingTrail from "./AgentThinkingTrail";
 import OrchestratorPlanView from "../orchestrator/OrchestratorPlanView";
 import ImageLightbox from "../images/ImageLightbox";
@@ -535,6 +536,11 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate }
           </Box>
         )}
 
+        {/* Model reasoning persisted from the streaming phase */}
+        {typeof message.thinking === "string" && message.thinking.trim() && (
+          <ThinkingCard text={message.thinking} streaming={false} defaultExpanded={false} />
+        )}
+
         {/* Agent loop reasoning trail — one collapsible holding every step,
             so a long see-think-act run doesn't stack N accordions. */}
         {message.agentThinkingSteps && message.agentThinkingSteps.length > 0 && (
@@ -596,6 +602,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate }
                       success: tc.success,
                       output: tc.output_preview,
                       error: tc.success ? null : tc.output_preview,
+                      artifact: tc.artifact || null,
                     } : null}
                     durationMs={tc.duration_ms}
                     isPending={false}
@@ -675,6 +682,15 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate }
             {typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)}
           </ReactMarkdown>
         </Box>
+        )}
+        {message.truncated === true && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
+          >
+            Response reached the output limit.
+          </Typography>
         )}
         {/* Feedback + narrate for assistant messages */}
         {!isUser && message.content && typeof message.content === 'string' && message.content.length > 10 && (
@@ -794,6 +810,8 @@ MessageItem.propTypes = {
     orchestratorPlan: PropTypes.object,
     orchestratorPlanId: PropTypes.string,
     messageType: PropTypes.string,
+    thinking: PropTypes.string,
+    truncated: PropTypes.bool,
   }).isRequired,
   sessionId: PropTypes.string,
   onOrchestratorUpdate: PropTypes.func,

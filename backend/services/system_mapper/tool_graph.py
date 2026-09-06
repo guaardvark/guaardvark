@@ -281,23 +281,34 @@ def _extract_core_tools(chat_engine: Path) -> tuple[list[str], dict[str, list[st
         return [], {}
 
     breakdown: dict[str, list[str]] = {}
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign):
-            continue
-        for tgt in node.targets:
-            if not isinstance(tgt, ast.Name):
+
+    def _collect(nodes, overwrite: bool) -> None:
+        for node in nodes:
+            if not isinstance(node, ast.Assign):
                 continue
-            # Catch CORE_TOOLS, BROWSER_TOOLS, AGENT_TOOLS, etc. — any *_TOOLS
-            if not (tgt.id.endswith("_TOOLS") or tgt.id == "CORE_TOOLS"):
-                continue
-            if not isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
-                continue
-            names = [
-                e.value for e in node.value.elts
-                if isinstance(e, ast.Constant) and isinstance(e.value, str)
-            ]
-            if names:
-                breakdown[tgt.id] = names
+            for tgt in node.targets:
+                if not isinstance(tgt, ast.Name):
+                    continue
+                # Catch CORE_TOOLS, BROWSER_TOOLS, AGENT_TOOLS, etc. — any *_TOOLS
+                if not (tgt.id.endswith("_TOOLS") or tgt.id == "CORE_TOOLS"):
+                    continue
+                if not isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
+                    continue
+                names = [
+                    e.value for e in node.value.elts
+                    if isinstance(e, ast.Constant) and isinstance(e.value, str)
+                ]
+                if names and (overwrite or tgt.id not in breakdown):
+                    breakdown[tgt.id] = names
+
+    # Module-level lists are the wiring and win by name. The chat engine also
+    # builds a function-local CORE_TOOLS set inside its semantic selector (the
+    # tools pinned regardless of similarity); letting that inner set overwrite
+    # the module-level list kept a tool that had been added to the real list
+    # reported as unwired. Function-local collections still count for names
+    # no module-level list defines.
+    _collect(tree.body, overwrite=True)
+    _collect(ast.walk(tree), overwrite=False)
 
     union: list[str] = []
     seen: set[str] = set()

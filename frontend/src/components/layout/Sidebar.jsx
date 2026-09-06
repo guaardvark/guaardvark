@@ -25,6 +25,7 @@ import { spacing } from "../../theme/tokens";
 import { BrandLogo } from "../branding";
 import brand from "../../config/brand";
 import { filterNavGroups, landingRouteFor } from "../../config/profile";
+import { pathIsActive } from "../../config/navCatalog";
 import { extensionNavGroups } from "../../extensions";
 import { usePendingApprovals } from "../../hooks/usePendingApprovals";
 import BarChartIcon from "@mui/icons-material/BarChart";
@@ -41,9 +42,8 @@ const EXPANDED_WIDTH = spacing.sidebarExpanded;
 const Sidebar = () => {
   const location = useLocation();
   const theme = useTheme();
-  // Navigation layout is brand-owned (config/brand.jsx navGroups); the active
-  // profile decides which of those items are listed. Read here, not at module
-  // scope, so the sidebar follows the profile once it arrives from the backend.
+  // Navigation layout is catalog-owned (config/navCatalog.jsx); brand.navGroups
+  // is the sidebar projection. The active profile decides which items are listed.
   const profile = useAppStore((state) => state.profile);
   const navGroups = useMemo(
     () => filterNavGroups([...extensionNavGroups(), ...brand.navGroups], profile?.hidden_routes),
@@ -223,17 +223,7 @@ const Sidebar = () => {
                 )}
                 <List disablePadding>
                   {group.items.map((item) => {
-                    // Match on whole path segments, not raw string prefix.
-                    // A bare startsWith() makes "/video" (Video Gen) light up
-                    // when the route is "/video-editor" or "/video-text-overlay",
-                    // because both literally start with "/video". Requiring an
-                    // exact match or a "/" boundary keeps nested routes
-                    // (e.g. /clients/123 -> Clients) highlighting correctly
-                    // while killing the sibling-collision.
-                    const isActive = item.path === "/"
-                      ? location.pathname === "/"
-                      : location.pathname === item.path ||
-                        location.pathname.startsWith(item.path + "/");
+                    const isActive = pathIsActive(item.path, location.pathname);
 
                     // A nav item may carry a live count. Collapsed, the badge is
                     // the only signal there is, so it rides the icon in both

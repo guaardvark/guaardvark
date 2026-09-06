@@ -301,7 +301,12 @@ export default function SystemMapPage() {
       }
     }
 
+    // Chat events are scoped to the asking session's room, which this page
+    // never joins; the backend mirrors them machine-wide as map:tool_activity
+    // (tool name and session only). The chat:* handlers stay for a socket
+    // that does share a room.
     const handlers = {
+      "map:tool_activity": (d) => pushEvent(d?.kind === "result" ? "result" : "call", d),
       "chat:tool_call": (d) => pushEvent("call", d),
       "chat:tool_result": (d) => pushEvent("result", d),
     };

@@ -51,6 +51,8 @@ import {
   LinearProgress,
   Divider,
   Collapse,
+  ToggleButton,
+  ToggleButtonGroup,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 
@@ -75,6 +77,7 @@ import AgentsSettingsModal from "../components/modals/AgentsSettingsModal";
 import InterconnectorSettingsModal from "../components/modals/InterconnectorSettingsModal";
 import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import SettingsRow from "../components/settings/SettingsRow";
+import ExportChatsButton from "../components/settings/ExportChatsButton";
 import ProfileSection from "../components/settings/ProfileSection";
 import SettingsCardWrapper from "../components/settings/SettingsCardWrapper";
 import { SOCKET_URL } from "../api/apiClient";
@@ -87,8 +90,6 @@ import { useNavigate } from "react-router-dom";
 import {
   getBranding,
   updateBranding,
-  getRagDebug,
-  setRagDebug as setRagDebugAPI,
   getRagFeatures,
   updateRagFeatures,
   clearBehaviorLog,
@@ -149,7 +150,6 @@ const SettingsPage = () => {
   const [isTestingLLM, setIsTestingLLM] = useState(false); // Local state for Test LLM button
   const { showMessage, closeSnackbar } = useSnackbar();
   const navigate = useNavigate();
-  const [ragDebug, setRagDebug] = useState(false);
   const [enhancedContext, setEnhancedContext] = useState(false);
   const [advancedRag, setAdvancedRag] = useState(false);
   const [advancedDebug, setAdvancedDebug] = useState(getInitialAdvancedDebug);
@@ -680,6 +680,8 @@ const SettingsPage = () => {
   }, [voiceChatEnabled]);
 
   const themeName = useAppStore((state) => state.themeName);
+  const navChrome = useAppStore((state) => state.navChrome);
+  const setNavChrome = useAppStore((state) => state.setNavChrome);
 
   const { activeModel, isLoadingModel, modelError: _modelError, refreshActiveModel } =
     useStatus();
@@ -1077,27 +1079,9 @@ const SettingsPage = () => {
           if (typeof data.advanced_rag === "boolean") {
             setAdvancedRag(data.advanced_rag);
           }
-          if (typeof data.rag_debug === "boolean") {
-            setRagDebug(data.rag_debug);
-          }
-        } else {
-          // Fallback to individual RAG debug call if new API fails
-          const ragResult = await getRagDebug();
-          if (ragResult && typeof ragResult.rag_debug_enabled === "boolean") {
-            setRagDebug(ragResult.rag_debug_enabled);
-          }
         }
       } catch (err) {
         console.warn("Failed to fetch RAG features:", err);
-        // Fallback to individual call
-        try {
-          const ragResult = await getRagDebug();
-          if (ragResult && typeof ragResult.rag_debug_enabled === "boolean") {
-            setRagDebug(ragResult.rag_debug_enabled);
-          }
-        } catch (fallbackErr) {
-          console.warn("Failed to fetch RAG debug setting:", fallbackErr);
-        }
       }
     };
     fetchRagFeatures();
@@ -1501,35 +1485,6 @@ const SettingsPage = () => {
       setIsLoading(false);
     }
   };
-  const handleRagDebugChange = async (event) => {
-    const isEnabled = deriveToggleValue(event, ragDebug);
-
-    try {
-      // Update backend first
-      const result = await setRagDebugAPI(isEnabled);
-
-      if (result.error) {
-        throw new Error(result.error);
-      }
-
-      // Update local state only if backend update succeeds
-      setRagDebug(isEnabled);
-
-      debugLog("RAG Debug Mode toggled", { isEnabled });
-      showMessage(
-        `RAG Debug mode ${isEnabled ? "enabled" : "disabled"}.`,
-        "success",
-      );
-    } catch (err) {
-      console.error("Failed to update RAG debug setting:", err);
-      showMessage(
-        `Failed to ${isEnabled ? "enable" : "disable"} RAG Debug mode: ${err.message}`,
-        "error",
-      );
-      // Don't update local state if backend update failed
-    }
-  };
-
   const handleEnhancedContextChange = async (event) => {
     const isEnabled = deriveToggleValue(event, enhancedContext);
 
@@ -2739,6 +2694,18 @@ const SettingsPage = () => {
                   </label>
                 </Box>
               </SettingsRow>
+              <SettingsRow label="Navigation">
+                <ToggleButtonGroup
+                  value={navChrome || "sidebar"}
+                  exclusive
+                  onChange={(event, value) => value && setNavChrome(value)}
+                  size="small"
+                  aria-label="Navigation chrome"
+                >
+                  <ToggleButton value="sidebar">Sidebar</ToggleButton>
+                  <ToggleButton value="software">Workspaces</ToggleButton>
+                </ToggleButtonGroup>
+              </SettingsRow>
               <SettingsRow label="Media Library Path">
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <TextField
@@ -3248,7 +3215,7 @@ const SettingsPage = () => {
           </SettingsCardWrapper>
 
           <SettingsCardWrapper title="RAG Performance">
-              <RAGDebugSection ragDebugEnabled={ragDebug} />
+              <RAGDebugSection />
           </SettingsCardWrapper>
 
           <SettingsCardWrapper title="Knowledge Index">
@@ -3283,6 +3250,9 @@ const SettingsPage = () => {
                   </Tooltip>
                   <Button variant="outlined" size="small" onClick={openManageBackups} aria-label="Manage backups">Manage</Button>
                 </Box>
+              </SettingsRow>
+              <SettingsRow label="Chat Export">
+                <ExportChatsButton showMessage={showMessage} disabled={isProcessingBackup || isLoading} />
               </SettingsRow>
               <SettingsRow label="Rules Backup / Restore">
                 <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
@@ -3475,7 +3445,6 @@ const SettingsPage = () => {
               </SettingsRow>
               <SettingsRow label="Developer" stacked>
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-                  <Chip label="RAG Debug" onClick={handleRagDebugChange} size="small" color={ragDebug ? "primary" : "default"} variant={ragDebug ? "filled" : "outlined"} />
                   <Chip label="Enhanced Context" onClick={handleEnhancedContextChange} size="small" color={enhancedContext ? "primary" : "default"} variant={enhancedContext ? "filled" : "outlined"} />
                   <Chip label="Advanced RAG" onClick={handleAdvancedRagChange} size="small" color={advancedRag ? "primary" : "default"} variant={advancedRag ? "filled" : "outlined"} />
                   <Chip label="Behavior Learning" onClick={handleBehaviorLearningToggle} size="small" color={behaviorLearningEnabled ? "primary" : "default"} variant={behaviorLearningEnabled ? "filled" : "outlined"} />

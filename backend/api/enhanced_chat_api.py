@@ -7,6 +7,7 @@ import backend.utils.llama_index_local_config
 
 import logging
 import json
+import re
 import uuid
 import os
 import time
@@ -1566,26 +1567,35 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
 
         return False
 
+    # Words and phrases that signal a need for current information. Matched on
+    # word boundaries: "now" must not fire on "know", nor "time" on "sometimes".
+    _CURRENT_INFO_INDICATORS = (
+        'current', 'today', "today's", 'todays', 'now', 'latest', 'recent',
+        'what is', 'what are', 'check', 'find', 'search',
+        'website', 'site',
+        'temperature', 'weather', 'forecast', 'time', 'date',
+        'duckduckgo', 'ddg', 'google', 'search for', 'look up',
+        'stock price', 'sports score', 'lottery', 'news about',
+    )
+    _CURRENT_INFO_RE = re.compile(
+        r"\b(?:" + "|".join(re.escape(k) for k in _CURRENT_INFO_INDICATORS) + r")\b"
+    )
+    # Bare domains ("example.com") without a scheme; scheme URLs are matched separately.
+    _DOMAIN_RE = re.compile(r"\b[\w-]+\.(?:com|org|net)\b")
+
     def _should_use_web_search(self, message: str) -> bool:
         """CHANGE 3: More permissive detection - trigger on any question or query that might need current info"""
         message_lower = message.lower().strip()
-
-        # Clear indicators that current/real-time information is needed
-        current_indicators = [
-            'current', 'today', 'todays', 'now', 'latest', 'recent',
-            'what is', 'what are', 'check', 'find', 'search',
-            'website', 'site', 'www.', 'http', '.com', '.org', '.net',
-            'temperature', 'weather', 'forecast', 'time', 'date',
-            'duckduckgo', 'ddg', 'google', 'search for', 'look up',
-            'stock price', 'sports score', 'lottery', 'news about'
-        ]
 
         # URL pattern detection
         import re
         has_url = bool(re.search(r'(?:https?://|www\.)[^\s]+', message))
 
         # Check for current information indicators
-        needs_current_info = any(indicator in message_lower for indicator in current_indicators)
+        needs_current_info = bool(
+            self._CURRENT_INFO_RE.search(message_lower)
+            or self._DOMAIN_RE.search(message_lower)
+        )
 
         # Question words that often need current information - EXPANDED
         question_patterns = [

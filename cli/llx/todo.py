@@ -1,6 +1,6 @@
 """Lightweight todo tracking for CLI sessions (mirrors todo_write usage in Grok sessions).
 
-Persists lightly to ~/.llx/todos/<session>.jsonl (best effort).
+Persists lightly to ~/.guaardvark/todos/<session>.jsonl (best effort).
 Keeps the REPL feeling like Cursor/Claude with visible task state.
 """
 
@@ -14,7 +14,7 @@ from typing import Any
 
 
 def _todos_dir() -> Path:
-    d = Path.home() / ".llx" / "todos"
+    d = Path.home() / ".guaardvark" / "todos"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

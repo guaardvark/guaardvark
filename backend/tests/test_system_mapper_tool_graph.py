@@ -118,3 +118,31 @@ def test_probe_nonzero_exit_returns_empty(tmp_path, monkeypatch):
     names, info = tool_graph._probe_runtime_registry(tmp_path)
     assert names == set()
     assert "error" in info
+
+
+# ---- module-level lists win over a function-local set of the same name -----
+
+def test_extract_core_tools_ignores_function_local_set(tmp_path):
+    """The chat engine also builds a function-local CORE_TOOLS set inside its
+    semantic selector. Only the module-level list is the wiring; the inner set
+    must not overwrite it (a tool added to the real list was reported as
+    unwired for a week because it did)."""
+    engine = tmp_path / "unified_chat_engine.py"
+    engine.write_text(
+        "CORE_TOOLS = [\n"
+        "    'web_search',\n"
+        "    'list_documents',  # added after a system-map finding\n"
+        "]\n"
+        "BROWSER_TOOLS = ['browser_navigate']\n"
+        "\n"
+        "def select_tools():\n"
+        "    CORE_TOOLS = {\n"
+        "        'web_search',\n"
+        "    }\n"
+        "    return CORE_TOOLS\n",
+        encoding="utf-8",
+    )
+    union, breakdown = tool_graph._extract_core_tools(engine)
+    assert breakdown["CORE_TOOLS"] == ["web_search", "list_documents"]
+    assert breakdown["BROWSER_TOOLS"] == ["browser_navigate"]
+    assert "list_documents" in union

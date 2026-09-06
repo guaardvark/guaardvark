@@ -6,6 +6,7 @@ import { Box, LinearProgress, Typography, Divider, useTheme } from '@mui/materia
 import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
 import TaskQueueIndicator from './TaskQueueIndicator';
 import { useAppStore } from '../../stores/useAppStore';
+import { navChromeWidth } from '../../config/navCatalog';
 
 // Friendly labels for process types
 const PROCESS_TYPE_LABELS = {
@@ -173,9 +174,9 @@ const ProgressFooterBar = () => {
         };
     }, []);
 
-    // Dynamic sidebar width
     const sidebarExpanded = useAppStore((state) => state.sidebarExpanded);
-    const drawerWidth = sidebarExpanded ? 240 : 64;
+    const navChrome = useAppStore((state) => state.navChrome);
+    const drawerWidth = navChromeWidth(navChrome, sidebarExpanded);
 
     // Truly hide when there's nothing to show. Previously the footer rendered
     // at opacity 0.2 with pointer-events disabled — a 24 px ghost bar that

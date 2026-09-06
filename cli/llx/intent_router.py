@@ -43,6 +43,12 @@ _NL_INTENT_RULES: list[tuple[re.Pattern[str], str, list[str] | None]] = [
         None,
     ),
 
+    (re.compile(r"^(?:list|show)\s+plugins?\s*$", re.I), "plugins", ["list"]),
+    (re.compile(r"^what(?:'s| is) using the gpu\s*$", re.I), "gpu", ["status"]),
+    (re.compile(r"^gpu(?:\s+status)?\s*$", re.I), "gpu", ["status"]),
+    (re.compile(r"^start\s+(comfyui|ollama|upscaling)\s*$", re.I), "plugins", None),
+    (re.compile(r"^play\s+(?:that\s+)?(?:voice|audio|clip)\s+(.+)$", re.I), "audio", None),
+
     # Local coding actions (new in this improvement)
     (re.compile(r"^(?:ls|list(?:\s+files?)?|dir)\s*(.*)$", re.I), "ls", None),
     (re.compile(r"^(?:cd|chdir)\s+(.+)$", re.I), "cd", None),
@@ -102,6 +108,11 @@ def resolve_repl_line(line: str) -> tuple[str, list[str]] | None:
             return "load", [tail] if tail else []
         if cmd in ("imagine", "video"):
             return cmd, [tail] if tail else []
+        if cmd == "plugins":
+            captured = (match.group(1) or "").strip() if match.lastindex else ""
+            return cmd, ["start", captured] if captured else ["list"]
+        if cmd == "audio":
+            return cmd, ["play", tail] if tail else ["voices"]
         return cmd, ["run", tail] if tail else []
 
     try:

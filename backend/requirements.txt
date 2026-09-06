@@ -25,7 +25,7 @@ python-dotenv==1.2.2
 # Background Tasks & Caching
 celery==5.4.0
 redis==5.0.4
-eventlet==0.40.3
+eventlet==0.41.2
 
 # Data Processing & Analysis
 numpy>=2.1,<2.6  # ceiling follows numba (0.67.0 declares numpy<2.6); the torch pass re-resolves numpy from the PyTorch index where numba is not in the graph. Measured 2.5.2, 2026-09-02
@@ -130,7 +130,7 @@ soundfile>=0.14.0  # WAV/FLAC IO for voice_api + audio_foundry backends
 
 # Testing Dependencies
 pytest==9.0.3
-pytest-timeout==2.3.1
+pytest-timeout==2.4.0
 pytest-playwright==0.8.0  # 0.7.0 caps pytest<9.0.0; 0.8.0 supports pytest 9.x
 playwright==1.52.0
 
@@ -151,11 +151,11 @@ faster-whisper>=1.0.0
 # Code Intelligence Dependencies
 tree-sitter>=0.22.0
 tree-sitter-python>=0.23.0
-tree-sitter-javascript>=0.23.0
+tree-sitter-javascript>=0.25.0
 tree-sitter-typescript>=0.23.2
 tree-sitter-java>=0.23.0
 tree-sitter-go>=0.23.0
-tree-sitter-rust>=0.23.0
+tree-sitter-rust>=0.24.2
 tree-sitter-c>=0.24.2
 tree-sitter-cpp>=0.23.0
 tree-sitter-ruby>=0.23.0

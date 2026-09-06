@@ -1,4 +1,9 @@
-"""LLX CLI configuration — loads/saves ~/.llx/config.json."""
+"""CLI configuration — loads/saves ~/.guaardvark/cli.json.
+
+The previous home was ~/.llx/config.json (from the deprecated `llx` command).
+Reads fall back to that path; writes always go to the new path. The launch
+contract (~/.guaardvark/config.json) is a different file and is not touched.
+"""
 
 import json
 import os
@@ -19,31 +24,49 @@ DEFAULT_CONFIG = {
     "chat_session_history": 50,
     "timeout": 60,
     "theme": "default",
+    "banner": "auto",  # auto | compact | full
+    "statusline": ["model", "gpu", "jobs", "git", "cwd"],
 }
 
-CONFIG_DIR = Path.home() / ".llx"
-CONFIG_FILE = CONFIG_DIR / "config.json"
-SESSIONS_FILE = CONFIG_DIR / "sessions.json"
+GUAARDVARK_DIR = Path.home() / ".guaardvark"
+CONFIG_DIR = GUAARDVARK_DIR
+CONFIG_FILE = GUAARDVARK_DIR / "cli.json"
+SESSIONS_FILE = GUAARDVARK_DIR / "sessions.json"
+HISTORY_FILE = GUAARDVARK_DIR / "history"
+
+LEGACY_CONFIG_DIR = Path.home() / ".llx"
+LEGACY_CONFIG_FILE = LEGACY_CONFIG_DIR / "config.json"
+LEGACY_SESSIONS_FILE = LEGACY_CONFIG_DIR / "sessions.json"
+LEGACY_HISTORY_FILE = LEGACY_CONFIG_DIR / "history"
 
 
 def ensure_config_dir():
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def _read_json(path: Path) -> dict | None:
+    if not path.exists():
+        return None
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
 def load_config() -> dict:
-    """Load config from ~/.llx/config.json, falling back to defaults."""
-    if CONFIG_FILE.exists():
-        try:
-            with open(CONFIG_FILE) as f:
-                saved = json.load(f)
-            return {**DEFAULT_CONFIG, **saved}
-        except (json.JSONDecodeError, OSError):
-            return dict(DEFAULT_CONFIG)
-    return dict(DEFAULT_CONFIG)
+    """Load CLI config. Prefer ~/.guaardvark/cli.json, else ~/.llx/config.json."""
+    saved = _read_json(CONFIG_FILE)
+    if saved is None:
+        saved = _read_json(LEGACY_CONFIG_FILE)
+    if saved is None:
+        return dict(DEFAULT_CONFIG)
+    return {**DEFAULT_CONFIG, **saved}
 
 
 def save_config(config: dict):
-    """Save config to ~/.llx/config.json."""
+    """Save config to ~/.guaardvark/cli.json (never writes the legacy path)."""
     ensure_config_dir()
     with open(CONFIG_FILE, "w") as f:
         json.dump(config, f, indent=2)
@@ -98,7 +121,7 @@ def get_server_url() -> str:
     1. GUAARDVARK_SERVER / LLX_SERVER env var
     2. Auto-discovery from ~/.guaardvark/runtime.json (written by start.sh)
     3. FLASK_PORT from repo .env via backend_bootstrap
-    4. ~/.llx/config.json user config
+    4. ~/.guaardvark/cli.json (or legacy ~/.llx/config.json) user config
     """
     url = os.environ.get(ENV_SERVER) or os.environ.get(ENV_SERVER_ALT)
     if url:
@@ -139,14 +162,55 @@ def get_api_key() -> str | None:
 
 # --- Session persistence ---
 
-def load_sessions() -> list[dict]:
-    """Load chat session history."""
-    if SESSIONS_FILE.exists():
+def get_frontend_url() -> str:
+    """Resolve the web UI origin.
+
+    Order: GUAARDVARK_FRONTEND env, ~/.guaardvark/runtime.json frontend_port,
+    VITE_PORT env, then http://localhost:5173.
+    """
+    explicit = os.environ.get("GUAARDVARK_FRONTEND")
+    if explicit:
+        return explicit.rstrip("/")
+    if RUNTIME_FILE.exists():
         try:
-            with open(SESSIONS_FILE) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, OSError):
-            return []
+            with open(RUNTIME_FILE) as f:
+                runtime = json.load(f)
+            port = runtime.get("frontend_port")
+            if port:
+                return f"http://localhost:{int(port)}"
+        except (json.JSONDecodeError, OSError, TypeError, ValueError):
+            pass
+    vite = os.environ.get("VITE_PORT")
+    if vite:
+        try:
+            return f"http://localhost:{int(vite)}"
+        except ValueError:
+            if vite.startswith("http"):
+                return vite.rstrip("/")
+    return "http://localhost:5173"
+
+
+def ensure_history_file() -> Path:
+    """Return the REPL history path, copying ~/.llx/history once if needed."""
+    ensure_config_dir()
+    if not HISTORY_FILE.exists() and LEGACY_HISTORY_FILE.exists():
+        try:
+            HISTORY_FILE.write_text(LEGACY_HISTORY_FILE.read_text(encoding="utf-8"), encoding="utf-8")
+        except OSError:
+            pass
+    return HISTORY_FILE
+
+
+def load_sessions() -> list[dict]:
+    """Load chat session history. Prefer the new path, else the legacy file."""
+    for path in (SESSIONS_FILE, LEGACY_SESSIONS_FILE):
+        if path.exists():
+            try:
+                with open(path) as f:
+                    data = json.load(f)
+                return data if isinstance(data, list) else []
+            except (json.JSONDecodeError, OSError):
+                return []
     return []
 
 

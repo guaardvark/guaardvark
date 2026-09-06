@@ -39,7 +39,7 @@ import TestRetrievalModal from "../modals/TestRetrievalModal";
 import QueryPatternsModal from "../modals/QueryPatternsModal";
 import ContextQualityModal from "../modals/ContextQualityModal";
 
-const RAGDebugSection = ({ ragDebugEnabled }) => {
+const RAGDebugSection = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [systemHealth, setSystemHealth] = useState(null);
@@ -51,10 +51,7 @@ const RAGDebugSection = ({ ragDebugEnabled }) => {
   const [queryPatternsModalOpen, setQueryPatternsModalOpen] = useState(false);
   const [contextQualityModalOpen, setContextQualityModalOpen] = useState(false);
 
-  // Fetch RAG data — only when RAG debug is enabled
   const fetchRAGData = useCallback(async () => {
-    if (!ragDebugEnabled) return;
-
     setLoading(true);
     setError(null);
 
@@ -73,20 +70,13 @@ const RAGDebugSection = ({ ragDebugEnabled }) => {
     } finally {
       setLoading(false);
     }
-  }, [ragDebugEnabled]);
+  }, []);
 
-  // Fetch when enabled, clear polling when disabled
   useEffect(() => {
-    if (!ragDebugEnabled) {
-      setSystemHealth(null);
-      setPerformanceMetrics(null);
-      setError(null);
-      return;
-    }
     fetchRAGData();
     const interval = setInterval(fetchRAGData, 30000);
     return () => clearInterval(interval);
-  }, [fetchRAGData, ragDebugEnabled]);
+  }, [fetchRAGData]);
 
   return (
     <Box>
@@ -236,8 +226,7 @@ const RAGDebugSection = ({ ragDebugEnabled }) => {
             </Paper>
           </Grid>
 
-          {/* Debug Actions — only shown when RAG Debug is enabled */}
-          {ragDebugEnabled && (
+          {(
             <Grid item xs={12}>
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>

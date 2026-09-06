@@ -63,6 +63,34 @@ except ImportError as e:
     diffusion_available = False
     logger.warning(f"Diffusion dependencies not available: {e}")
 
+
+# CUDA errors after which the driver has torn the context down. Every later CUDA
+# call in this process fails with the same text; torch cannot rebuild the context,
+# only a process restart can. Out-of-memory is deliberately absent: it is
+# recoverable and belongs to the OOM ladder in generate_image().
+# Observed 2026-09-03 on a 16 GB Blackwell box: one Xid 8 (channel watchdog,
+# "the launch timed out and was terminated") and the backend then failed every
+# image request for nine hours, each reported as a model download problem.
+_FATAL_CUDA_MARKERS = (
+    "launch timed out",            # cudaErrorLaunchTimeout — watchdog / Xid 8
+    "unspecified launch failure",  # cudaErrorLaunchFailure
+    "illegal memory access",       # cudaErrorIllegalAddress
+    "illegal instruction",         # cudaErrorIllegalInstruction
+    "misaligned address",          # cudaErrorMisalignedAddress
+    "invalid program counter",     # cudaErrorInvalidPc
+    "hardware stack error",        # cudaErrorHardwareStackError
+    "device-side assert",          # cudaErrorAssert
+    "uncorrectable ecc error",     # cudaErrorECCUncorrectable
+)
+
+
+def is_fatal_cuda_error(exc: BaseException) -> bool:
+    """True when ``exc`` is a CUDA error that leaves the process's context dead."""
+    msg = (str(exc) or "").lower()
+    if "out of memory" in msg:
+        return False
+    return any(marker in msg for marker in _FATAL_CUDA_MARKERS)
+
 try:
     from diffusers import FlowMatchEulerDiscreteScheduler
 except Exception:
@@ -308,6 +336,9 @@ class OfflineImageGenerator:
         self._img2img_pipeline = None
         self._img2img_family = None
         self._current_model = None
+        # Set by _mark_gpu_fault() after a context-killing CUDA error; read by
+        # every entry point so the process fails fast and says why.
+        self._gpu_fault: Optional[Dict[str, Any]] = None
         # Offload mode of the resident pipeline: None | "sequential" | "model" | "full"
         self._pipeline_offload_mode = None
         # One-shot force sequential reload after a mid-inference OOM.
@@ -497,8 +528,45 @@ class OfflineImageGenerator:
         cache[repo_id] = (verdict, now)
         return verdict
 
+    def _mark_gpu_fault(self, exc: BaseException, where: str) -> str:
+        """Record a context-killing CUDA error; return the user-facing message.
+
+        Only the first fault is recorded — everything after it is the same dead
+        context reporting itself. No CUDA calls are made here: freeing tensors on
+        a dead context raises again, and the process is being restarted anyway.
+        """
+        if self._gpu_fault is None:
+            first_line = (str(exc) or type(exc).__name__).strip().splitlines()[0]
+            self._gpu_fault = {
+                "error": first_line,
+                "where": where,
+                "at": datetime.now().isoformat(timespec="seconds"),
+            }
+            logger.critical(
+                "GPU FAULT during %s: %s — the CUDA context in this process is dead. "
+                "Every GPU job will fail until the backend is restarted. Driver report: "
+                "journalctl -k -b | grep -i xid",
+                where, first_line,
+            )
+        return self.gpu_fault_message()
+
+    def gpu_fault_message(self) -> Optional[str]:
+        """The message every GPU entry point returns once a fault is recorded."""
+        fault = self._gpu_fault
+        if not fault:
+            return None
+        return (
+            f"GPU fault at {fault['at']} during {fault['where']}: {fault['error']}. "
+            "The GPU driver reset this backend's CUDA context and it cannot be "
+            "recovered in-process. Restart the backend, then retry — the model and "
+            "its download are fine. Driver details: journalctl -k -b | grep -i xid"
+        )
+
     def _load_failure_reason(self, model_key: str, model_id: str) -> str:
         """Explain a load failure in terms the user can act on."""
+        fault = self.gpu_fault_message()
+        if fault:
+            return fault
         if self.is_comfy_only_model(model_key or ""):
             return (
                 f"'{model_key}' runs through ComfyUI and its weights are not installed. "
@@ -744,10 +812,15 @@ class OfflineImageGenerator:
         """
         if self._pipeline is not None and self._current_model == model_id:
             return  # already resident — its VRAM is already spent
+        fault = self.gpu_fault_message()
+        if fault:
+            raise RuntimeError(fault)
         estimate_mb = self._vram_estimate_mb(model_id, width, height)
         # Probe/evict is best-effort: a failing CUDA query must not kill the
         # request (2026-08-04: pinned by test_admission_failure_never_raises —
-        # only the orchestrator's hard_fit refusal below may raise).
+        # only the orchestrator's hard_fit refusal below may raise). The one
+        # exception is a context-killing CUDA error: the request is doomed and
+        # so is every request after it, so say that instead of admitting.
         try:
             if self._device == "cuda" and torch.cuda.is_available():
                 if self._pipeline is None:
@@ -765,6 +838,8 @@ class OfflineImageGenerator:
                     )
                     evict_ollama_models()
         except Exception as probe_err:
+            if is_fatal_cuda_error(probe_err):
+                raise RuntimeError(self._mark_gpu_fault(probe_err, "VRAM probe")) from probe_err
             logger.warning(
                 f"VRAM probe/evict failed (continuing to orchestrator admit): {probe_err}"
             )
@@ -1234,6 +1309,11 @@ class OfflineImageGenerator:
     def _load_pipeline(self, model_id: str, *, force_sequential: bool = False) -> bool:
         if not self.service_available:
             return False
+        if self._gpu_fault is not None:
+            logger.error(
+                "Refusing to load %s: %s", model_id, self.gpu_fault_message()
+            )
+            return False
 
         try:
             want_sequential = bool(force_sequential or self._force_sequential_offload)
@@ -1478,6 +1558,8 @@ class OfflineImageGenerator:
 
         except Exception as e:
             logger.error(f"Failed to load pipeline with model {model_id}: {e}")
+            if is_fatal_cuda_error(e):
+                self._mark_gpu_fault(e, "pipeline load")
             self._pipeline = None
             self._current_model = None
             self._pipeline_offload_mode = None
@@ -1945,6 +2027,10 @@ Negative Prompt: {negative_prompt}""",
         if not self.service_available:
             result.error = "Image generation service not available - missing dependencies"
             return result
+        fault = self.gpu_fault_message()
+        if fault:
+            result.error = fault
+            return result
 
         with self._generation_lock:
             self._notify_vision_pipeline("start")
@@ -2361,6 +2447,12 @@ Negative Prompt: {negative_prompt}""",
                     result.generation_time = time.time() - start_time
                     return result
                 except (AssertionError, RuntimeError, torch.cuda.OutOfMemoryError) as infer_err:
+                    if is_fatal_cuda_error(infer_err):
+                        # Dead context: no retry, no offload ladder, no unload —
+                        # every one of those is another CUDA call that fails.
+                        result.error = self._mark_gpu_fault(infer_err, "inference")
+                        result.generation_time = time.time() - start_time
+                        return result
                     # torch.compile recovery (SD/SDXL full-GPU path)
                     is_compile_failure = (
                         (isinstance(infer_err, AssertionError) and not str(infer_err))
@@ -2652,8 +2744,11 @@ Negative Prompt: {negative_prompt}""",
 
             except Exception as e:
                 logger.error(f"Image generation failed: {type(e).__name__}: {e}", exc_info=True)
-                error_msg = str(e) or f"{type(e).__name__} (no message)"
-                result.error = f"Generation failed: {error_msg}"
+                if is_fatal_cuda_error(e):
+                    result.error = self._mark_gpu_fault(e, "generation")
+                else:
+                    error_msg = str(e) or f"{type(e).__name__} (no message)"
+                    result.error = f"Generation failed: {error_msg}"
                 result.generation_time = time.time() - start_time
             finally:
                 # Always drop character LoRAs so keep_pipeline_loaded cannot leak identity.
@@ -2971,6 +3066,10 @@ Negative Prompt: {negative_prompt}""",
         if not self.service_available:
             result.error = "Image generation service not available"
             return result
+        fault = self.gpu_fault_message()
+        if fault:
+            result.error = fault
+            return result
 
         with self._generation_lock:
             self._notify_vision_pipeline("start")
@@ -3017,7 +3116,7 @@ Negative Prompt: {negative_prompt}""",
 
                 # Ensure the base txt2img pipeline is loaded (downloads model if needed)
                 if not self._load_pipeline(model_id):
-                    result.error = f"Failed to load model {model} ({model_id})"
+                    result.error = self._load_failure_reason(model, model_id)
                     return result
                 try:
                     from backend.services.gpu_memory_orchestrator import get_orchestrator
@@ -3233,6 +3332,7 @@ Negative Prompt: {negative_prompt}""",
             "device": self._device,
             "cuda_available": torch.cuda.is_available() if diffusion_available else False,
             "current_model": self._current_model,
+            "gpu_fault": self._gpu_fault,
             "models_dir": str(self.models_dir),
             "cache_dir": str(self.cache_dir),
             "available_models": self.get_available_models(),

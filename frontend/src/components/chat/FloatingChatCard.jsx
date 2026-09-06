@@ -22,6 +22,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
 import UnifiedChatService from "../../api/unifiedChatService";
 import StreamingMessage from "./StreamingMessage";
+import ThinkingCard from "./ThinkingCard";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 import VoiceChatButton from "../voice/VoiceChatButton";
 import ContinuousVoiceChat from "../voice/ContinuousVoiceChat";
@@ -357,12 +358,14 @@ const FloatingChatCard = () => {
     setIsStreamingMessage(false);
     setIsSending(false);
 
-    if (result.content) {
+    if (result.content || result.thinking) {
       addMessage({
         id: `asst_unified_${Date.now()}`,
         role: "assistant",
-        content: result.content,
+        content: result.content || "",
         toolCalls: result.toolCalls || [],
+        thinking: result.thinking || "",
+        truncated: result.truncated === true,
         timestamp: new Date().toISOString(),
       });
     }
@@ -388,7 +391,7 @@ const FloatingChatCard = () => {
             .join("\n")
         : "";
       const body = (partial.content || "").trim();
-      const hasAnything = body || stepText || (partial.toolCalls?.length || 0) > 0;
+      const hasAnything = body || stepText || (partial.toolCalls?.length || 0) > 0 || partial.thinking;
       if (hasAnything) {
         const composed = [
           body,
@@ -399,6 +402,8 @@ const FloatingChatCard = () => {
           role: "assistant",
           content: composed || "(stopped before any output)",
           toolCalls: partial.toolCalls || [],
+          thinking: partial.thinking || "",
+          truncated: false,
           timestamp: new Date().toISOString(),
           status: "aborted",
         });
@@ -719,6 +724,9 @@ const FloatingChatCard = () => {
                         py: 0.75,
                       }}
                     >
+                      {msg.role === "assistant" && typeof msg.thinking === "string" && msg.thinking.trim() && (
+                        <ThinkingCard text={msg.thinking} streaming={false} defaultExpanded={false} />
+                      )}
                       <Typography
                         variant="body2"
                         sx={{
@@ -730,6 +738,14 @@ const FloatingChatCard = () => {
                       >
                         {msg.content || ""}
                       </Typography>
+                      {msg.truncated === true && (
+                        <Typography
+                          variant="caption"
+                          sx={{ display: "block", mt: 0.5, fontStyle: "italic", color: "text.secondary", opacity: 0.8 }}
+                        >
+                          Response reached the output limit.
+                        </Typography>
+                      )}
                     </Box>
                     <Typography
                       variant="caption"

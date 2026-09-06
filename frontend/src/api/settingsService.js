@@ -638,33 +638,6 @@ export const setLlmDebug = async (enabled) => {
   }
 };
 
-export const getRagDebug = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/settings/rag_debug`);
-    return await handleResponse(response);
-  } catch (err) {
-    console.error(
-      "settingsService: Error getting RAG debug setting:",
-      err.message,
-    );
-    return { error: err.message };
-  }
-};
-
-export const setRagDebug = async (enabled) => {
-  try {
-    const response = await fetch(`${BASE_URL}/settings/rag_debug`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rag_debug_enabled: !!enabled }),
-    });
-    return await handleResponse(response);
-  } catch (err) {
-    console.error("settingsService: Error setting RAG debug:", err.message);
-    return { error: err.message };
-  }
-};
-
 export const getRagFeatures = async () => {
   try {
     const response = await fetch(`${BASE_URL}/settings/rag-features`);

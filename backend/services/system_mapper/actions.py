@@ -13,6 +13,7 @@ API already holds (findings carry a stable `id` from Finding.fingerprint()).
 from __future__ import annotations
 
 import json
+import re
 import os
 from pathlib import Path
 from typing import Any
@@ -106,15 +107,69 @@ def find_finding(snapshot: dict, finding_id: str) -> dict | None:
     return None
 
 
-def dispatch_finding(finding: dict, priority: str = "medium") -> dict[str, Any]:
-    """Hand a finding to the self-improvement agent as a directed task. The agent
-    investigates, proposes a fix (staged as a PendingFix), and runs verification."""
+# The file whose module-level *_TOOLS lists are the agent's wiring, and the
+# list a newly wired tool goes into. tool_graph.py reads the same file.
+WIRING_FILE = "backend/services/unified_chat_engine.py"
+WIRING_LIST = "CORE_TOOLS"
+
+_LIST_BLOCK = re.compile(r"^%s\s*=\s*\[\n(?P<body>(?:.*\n)*?)\]" % WIRING_LIST, re.M)
+
+
+def mechanical_proposal(finding: dict, root: str | Path | None = None) -> dict[str, Any] | None:
+    """A proposal derived from the finding's own evidence, for kinds whose
+    remedy is fully determined by it. Today: unwired-tool, which is one line
+    in one list. Returned as the exact old/new text stage_pending_fix takes,
+    so the queue holds a real diff and no model is asked to invent one.
+    Kinds that need judgment return None and go to the agent."""
+    if finding.get("kind") != "unwired-tool":
+        return None
+    tool = ((finding.get("evidence") or {}).get("tool") or "").strip()
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", tool):
+        return None
+    base = Path(root) if root else Path(__file__).resolve().parents[3]
+    path = base / WIRING_FILE
+    if not path.is_file():
+        return None
+    text = path.read_text(encoding="utf-8")
+    m = _LIST_BLOCK.search(text)
+    if not m:
+        return None
+    old_text = m.group(0)
+    if re.search(r'^\s*"%s"\s*,' % re.escape(tool), m.group("body"), re.M):
+        return None  # already wired; the finding is stale, let the map refresh
+    body = m.group("body").rstrip("\n")
+    new_text = (
+        f"{WIRING_LIST} = [\n{body}\n"
+        f'    "{tool}",  # wired by system-map finding {finding.get("id")}\n]'
+    )
+    ev = finding.get("evidence") or {}
+    where = f"{ev.get('registry_line')}" if ev.get("registry_line") else "?"
+    return {
+        "path": WIRING_FILE,
+        "old_text": old_text,
+        "new_text": new_text,
+        "description": (
+            f"Add '{tool}' to {WIRING_LIST} in {WIRING_FILE} so the agent can reach it. "
+            f"The tool is registered (tool_registry_init.py line {where}) but absent from "
+            f"every *_TOOLS list, so no agent could call it. Mechanical proposal built from "
+            f"system-map finding {finding.get('id')}; no model involved. Review whether "
+            f"{WIRING_LIST} is the right list before applying."
+        ),
+        "severity": finding.get("severity") or "medium",
+    }
+
+
+def dispatch_finding(finding: dict, priority: str = "medium", root: str | Path | None = None) -> dict[str, Any]:
+    """Hand a finding to the self-improvement service as a directed task. A
+    finding whose remedy is mechanical is staged as a PendingFix directly;
+    the rest go to the agent, which investigates and proposes a fix."""
     from backend.services.self_improvement_service import get_self_improvement_service
     svc = get_self_improvement_service()
     return svc.submit_directed_task(
         description=describe(finding),
         target_files=list(finding.get("paths") or []),
         priority=priority,
+        proposal=mechanical_proposal(finding, root),
     )
 
 

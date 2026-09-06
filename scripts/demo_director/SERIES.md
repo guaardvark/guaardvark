@@ -487,3 +487,256 @@ Beats:
 - [ ] Thumbnails: Image Gen/Infographic, episode keyword in title text
 - [ ] Descriptions: primary-keyword opener + chapters (= on-screen labels)
   + "Featured in this episode" links to the other 11
+
+---
+---
+
+# Series two — episodes 13 to 17
+
+Shot from 2026-09-05 against the product as it stands after the Workspaces
+top bar, profiles and the extension seam, MiniMax H3, the reasoning channel,
+the overnight director, MCP doctor/install and the CLI overhaul. Same
+narrator, same harness (`director.py`), plus `helpers.py` (shared stage
+helpers) and `dryrun.py` (reset → action → verify per beat, no narration, no
+recording, a screenshot per beat under `docs/local-workspace-only/demo_dryrun/`).
+
+## Series-two rules (add to the series-wide rules above)
+
+**Chrome.** Every episode is shot on the Workspaces top bar. A fresh browser
+profile starts on the sidebar, so each beat's `reset` seeds the persisted
+store (`helpers.set_nav_chrome`) off camera. Ep 13's first beat is the one
+place the sidebar is seen, flipping to the bar on camera.
+
+**Numbers are read, not typed.** Anything countable is fetched from the API
+when the beat file loads (Ep 14 builds its narration from
+`/api/system-map/snapshot?refresh=1`) and the `reset` refuses the take if the
+HUD disagrees. Never reuse a number from an earlier script:
+
+| say | not |
+|---|---|
+| 43 MCP tools exposed of 87 registered; resources are `data/outputs` files, listed to a cap of 500 | "23 tools · 58 resources" (Ep 12, retired) |
+| System Map lifecycle: active · dormant · auto-loaded · test · script · config | "live / dormant / stale" |
+| finding kinds today: untested-module, dormant-module, dead-symbol, ghost-api-caller, ghost-endpoint, url-prefix-collision, unwired-tool, import-cycle | any "stale" finding |
+| the command is `guaardvark` | `llx` |
+| MiniMax H3 int8 and the reference build are installed; MiniMax Music 3 and the Wan 4-step LoRAs are not; LTX audio decode ships off | any Music 3 or 4-step Wan render |
+| measured H3 on a 16 GB card, 864×480, 5 s: 186 s on the 8-step profile, 6.5 min at 20 steps, 14.5 GB peak | round numbers |
+| default-deny categories: seven | six (docs/ARCHITECTURE.md is stale) |
+
+**Privacy staging, before the first take, restored after the last.** Set the
+system name (Settings → System) to the public product name; the bar prints
+it. Park any private extension under an underscore folder name so neither
+the frontend glob nor the backend loader picks it up, restart the Vite dev
+server, and restart the backend before any episode that visits the Plugins
+page. Every series-two beat's `verify` runs `helpers.verify_no_private_names`,
+which greps the visible page, the tab title and every stage-terminal command
+against the clone's untracked pattern file and fails the take on a hit.
+
+**Terminal beats.** `ptyxis --standalone` on the stage display with the
+Wayland handle scrubbed (Ep 12's trick). No OBS on this box. No inline image
+protocol in ptyxis, so CLI beats stay on text commands.
+
+**Cloud on camera.** Ep 16 and Ep 17 may show Claude Code as the MCP client
+and as a swarm backend, against the AcmeCorp synthetic corpus and this
+repository's public code only (operator decision 2026-09-04).
+
+**Shoot order.** 13 → 14 (no GPU assets; Ollama + narrator resident) →
+15 (after a seeded research run) → 16 (after a Claude Code MCP session is
+proven) → 17 (after one end-to-end swarm run).
+
+---
+
+## Ep 13 — The New Front Door (5:00) — `ep13_whatsnew.py`
+**Primary:** navigation / what's new · **GPU cast:** Ollama (two chat beats)
++ Audio Foundry; ComfyUI resident but idle · **Assets:** the operator's
+fresh image batch in the Media Library (`EP13_MEDIA_FOLDER`).
+
+Hook (on the sidebar):
+> "Thirty-four pages. Four groups. One sidebar. That was the front door for
+> twelve episodes."
+> ""
+> "It is still here. But now it is a setting."
+
+Beats:
+1. **flip** — Settings ▸ System ▸ Navigation ▸ *Workspaces*; the layout
+   re-stacks on camera. Text: `Settings ▸ System ▸ Navigation`.
+2. **workspaces** — Studio (ten tools on the strip), Library, Agents,
+   System; the three pins: System Metrics, Agent Screen, Settings. One
+   catalog drives both looks; a distribution ships its own.
+3. **shortcuts** — `?` opens the keyboard shortcuts overlay.
+4. **media** — Media Library desktop; the batch rendered an hour earlier;
+   lightbox, arrow keys page. "Nothing was uploaded to see them."
+5. **h3** — Video Gen ▸ MiniMax H3 Int8 ▸ preset *Two-line dialogue scene*
+   ▸ effective settings (`native audio · 124 frames · 24 FPS`) ▸ *Preview
+   enhanced prompt* shows the compiled numbered shots. Measured numbers
+   spoken. No render.
+6. **honesty** — Audio Studio's music model menu says Music 3 is not
+   installed here; LTX soundtrack decode ships off because nobody has
+   listened to it. "A knob that might sound bad does not ship."
+7. **reasoning** — a question to gemma4; the ThinkingCard streams reasoning
+   as its own channel and folds when the answer starts; the leak it fixed;
+   the 4,096-token window that was sized by a guess.
+8. **artifact** — ask for a CSV; the ArtifactCard lands inline. Cut from the
+   first 2026-09-05 cut (the router sent the ask to the screen agent), back
+   in the reshoot after the router fix; narration says so.
+9. **housekeeping** — Product Profile (Creator vs Workstation, hover only),
+   Export Chats (real click, snackbar with the count), Delete History (hover).
+10. **cli** — `guaardvark` REPL in a stage terminal: `/help gpu`,
+    `gpu status`, `plugins list`, `/quit`.
+11. **closer** — the System Metrics pin: live GPU numbers. "One machine. No
+    cloud." Chips ▸ Ep 14 · ▸ Ep 15 · ▸ Ep 16 · ▸ Ep 17.
+
+Automation notes: `reset_media` refuses to shoot if the batch folder is not
+on the desktop; `reset_h3` refuses if `minimax-h3-int8` is not ready;
+`reset_reasoning` refuses if Ollama is not running. The artifact beat is its
+own beat so a model that will not produce a file fails one take, not the
+episode.
+
+---
+
+## Ep 14 — A Map of Everything (5:00) — `ep14_systemmap.py`
+**Primary:** System Map · **GPU cast:** Ollama (one tool call) + Audio
+Foundry · **Assets:** none; `?refresh=1` snapshot at load; self-improvement
+enabled, codebase unlocked, no run in progress (dispatch beat).
+
+Hook:
+> "Every module in this product, drawn from its real imports. <N> of them,
+> <E> edges between them, <C> import cycles."
+> ""
+> "Nothing here is hand drawn."
+
+Beats:
+1. **constellation** — HUD counts, wheel zoom, drag pan.
+2. **spotlight** — legend pills API → Services → Tools → clear; colour is
+   section, brightness is lifecycle.
+3. **search** — `/` → `unified_chat_engine` → the panel: section, lifecycle,
+   importers. `Esc`.
+4. **overlays** — *Tool graph* (registered / wired / unwired, spoken from
+   the snapshot) and *Ghost endpoints* (shown / routes).
+5. **findings** — ranked; Actionable is the default; kinds and counts
+   spoken from the snapshot; click one to locate it.
+6. **the catch** — stage terminal: the code comment in
+   `unified_chat_engine.py` cites finding `a21f45035732cf31`, fixed in
+   `fdd82da`. "The map found a bug in the product it maps."
+7. **dispatch** — an `unwired-tool` finding ▸ *Send to the self-improvement
+   agent* ▸ the 202 toast; the exact one-line proposal is staged as a
+   PendingFix within seconds (mechanical remedy, no model); `v_dispatch`
+   requires the fix count to rise. Honesty beat: only six kinds are dispatchable;
+   dead-code and liveness findings are advisory by design.
+8. **live** — Ctrl+Shift+C floating chat on the map asks for the mapper ▸
+   the activity log records it, the module pulses, the answer is prose.
+   Cut from the first 2026-09-05 cut (the map listened on the wrong
+   channel); back in the reshoot after the fix; narration says so.
+9. **closer** — dead symbols shown vs suppressed; "the map would rather
+   miss than lie"; `R`; chip ▸ Ep 15.
+
+Automation notes: the on-camera dispatch enqueues a real directed run
+(Celery, LLM, possibly GPU); `v_dispatch` re-times the status route so the
+2026-08-19 wedge cannot ship unnoticed. Self-improvement was switched on for
+the shoot and is switched back to its previous state afterwards.
+
+---
+
+## Ep 15 — Guaardvark Codes (6:00) — `ep15_code.py`
+**Primary:** Code Editor / self-improvement / overnight director · **GPU
+cast:** Ollama + Audio Foundry · **Assets:** one seeded 0.25 h *unified*
+research run (Ep 11 recipe above: ≥10 text documents, regenerate eval pairs,
+POST the run) and one staged PendingFix.
+
+Hook:
+> "This product edits its own code. That sentence should worry you."
+> ""
+> "So here is every gate between an idea and a changed file."
+
+Beats:
+1. **editor** — `/code-editor`: Run · Format · Debug · Build tooltips,
+   *Find Symbol* (Ctrl+Shift+O), the rules-cutoff toggle, the Ctrl+K
+   assistant.
+2. **workstation tools** — chat: "check the logs" and "use the system
+   mapper" dispatch the tool outright instead of asking a small model to
+   pick one. Eight tools; the three that act carry approval.
+3. **the lock** — Settings ▸ Uncle Claude ▸ Codebase Protection: lock it;
+   every writer, the AI included, now gets a 423. Unlock.
+4. **self-check** — *Run Self-Check* ▸ scan progress ▸ *Self-Improvement
+   Fixes*: the file, the cause, the diff; *Approve all* / *Apply all*.
+   Honesty: a directed run counts as success only when a fix was staged.
+5. **guardian** — the six directives an independent model can return,
+   ending in `lock_codebase` and `halt_family`.
+6. **overnight** — Autoresearch page: Unified / Retrieval / Code, the
+   budget, the morning report headline, promotions, the experiment ledger.
+   70/30 then 30/70; code never merges to main on its own.
+7. **the gate that lied** — a Settings toggle used to be advisory: beat kept
+   firing every ten minutes and the task early-returned. Now the scheduler
+   itself reads the toggle. The eleven-minute heap bug, told straight.
+8. **closer** — chip ▸ Ep 16.
+
+---
+
+## Ep 16 — Plug In Anything (4:30) — `ep16_mcp.py`
+**Primary:** MCP · **GPU cast:** ComfyUI (one image) + Audio Foundry ·
+**Assets:** Claude Code with the guaardvark server installed; AcmeCorp
+corpus indexed; backend restarted with private extensions parked (the
+Plugins page is on camera).
+
+Hook:
+> "Forty-three tools. Any client that speaks the protocol. And a policy
+> that says no by default."
+
+Beats:
+1. **doctor** — stage terminal: `python -m backend.mcp doctor`, PASS/FAIL
+   rows, a real stdio round-trip.
+2. **install** — `install --dry-run`: six clients, backups before the first
+   rewrite, other servers never touched.
+3. **the policy** — `list-tools` (43 of 87) and the seven deny categories
+   read from `backend/mcp/config.py`. Why 43: approval-required tools stay
+   hidden.
+4. **profiles** — Settings ▸ Knowledge Index ▸ index profiles: `mcp` wants
+   twelve finer passages, in its own vector table.
+5. **a client** — Claude Code in the stage terminal: `search_knowledge_base`
+   on AcmeCorp with cited passages, `inspect_gpu`, `generate_image`; the
+   output appears as a `guaardvark://outputs/…` resource.
+6. **approvals** — Connections ▸ MCP tab; the Approvals page; "requests
+   from chat or MCP always require approval."
+7. **honesty** — `read_logs` returns a machine path across the boundary; a
+   recorded caveat, not a hidden one.
+8. **closer** — chip ▸ Ep 17.
+
+---
+
+## Ep 17 — Five Agents, One Repo (5:00) — `ep17_swarm.py`
+**Primary:** Swarm orchestrator · **GPU cast:** Ollama + Audio Foundry ·
+**Assets:** one verified end-to-end run of `jsx_inventory_and_summaries`
+(3 tasks) before the shoot; a clean tree on a branch; the Plugins page on
+camera (backend restarted with private extensions parked).
+
+Hook:
+> "Five agents. One repository. Every one of them in its own copy."
+
+Beats:
+1. **the sidecar** — Plugins ▸ Swarm, port 8210.
+2. **templates** — six; the autoresearch one is what the overnight director
+   launches; its ground rules on screen ("NEVER self-score").
+3. **launch** — the dialog: template, max agents (5), Flight Mode alert,
+   auto-merge off; launch.
+4. **the graph** — React Flow nodes colour by status; a task goes queued →
+   running → done.
+5. **worktrees** — *Live Diff* of one task; stage terminal `git worktree
+   list` and the `.swarm-worktrees/<swarm>/<task>` layout; branch per task.
+6. **merge** — *Merge All* / *Clean Up*; history row with its cost or
+   `Free (local)`.
+7. **honesty** — the offline backend's availability is reported two ways by
+   two routes; say only what this launch proved. Resource monitor thresholds:
+   CPU 85 %, RAM 90 %, 500 MB VRAM.
+8. **closer** — series-two end grid, chips to 13–16.
+
+---
+
+## Series-two asset checklist
+- [x] Ep 13: fresh image batch on the Media Library desktop (2026-09-05)
+- [x] Ep 14: snapshot refresh; self-improvement enabled for the shoot
+- [ ] Ep 15: seeded unified research run + one PendingFix
+- [ ] Ep 16: `python -m backend.mcp install --client claude-code`, one proven
+      Claude Code session against AcmeCorp; backend restarted with private
+      extensions parked
+- [ ] Ep 17: one end-to-end swarm run on a scratch branch
+- [ ] Thumbnails 13–17 (`thumbnails.py EPISODES`), descriptions 13–17
+      (`descriptions.py`), private uploads to the same playlist

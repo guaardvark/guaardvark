@@ -13,9 +13,9 @@ import click
 import typer
 
 from llx import output
-from llx.command_catalog import COMMAND_META, COMMAND_TREE
+from llx.command_catalog import COMMAND_META, COMMAND_TREE, suggest_command
 from llx.lite_mode import lite_mode_block_message
-from llx.theme import make_console, THEMES, set_active_theme, get_active_theme_name
+from llx.theme import make_console, THEMES, set_active_theme, get_active_theme_name, get_theme_names
 from llx.typer_utils import build_typer_kwargs, format_command_usage
 
 
@@ -33,9 +33,10 @@ _HELP_GROUPS: list[tuple[str, list[str]]] = [
     ("Memory Commands", ["remember", "memory"]),
     ("Local Coding (agentic)", ["ls", "cd", "pwd", "read", "grep", "edit", "run", "test", "todo", "diff", "apply", "undo"]),
     ("Backend Tools", ["tools", "tool"]),
-    ("Context & State", ["context", "suggest", "analyze", "init", "load"]),
+    ("Context & State", ["context", "suggest", "analyze", "init", "load", "skills"]),
     ("Multi-Modal Commands", ["imagine", "video", "voice", "ingest", "agent", "web"]),
-    ("Admin Commands", ["jobs", "outreach", "logs", "backup", "family"]),
+    ("Admin Commands", ["jobs", "outreach", "logs", "backup", "family", "recipes"]),
+    ("Studio Commands", ["plugins", "gpu", "audio", "swarm", "lessons", "mcp"]),
     ("Config Commands", ["config", "settings", "theme", "quality"]),
     ("REPL", ["help", "quit", "exit"]),
 ]
@@ -89,7 +90,12 @@ class SlashRouter:
         handler = self._commands.get(cmd)
         if handler is None:
             self._console.print(f"[llx.error]Unknown command: /{cmd}[/llx.error]")
-            self._console.print("[llx.dim]Type /help for available commands.[/llx.dim]")
+            matches = suggest_command(cmd)
+            if matches:
+                listed = ", ".join(f"/{m}" for m in matches)
+                self._console.print(f"[llx.dim]Did you mean {listed}?[/llx.dim]")
+            else:
+                self._console.print("[llx.dim]Type /help for available commands.[/llx.dim]")
             return True
 
         try:
@@ -156,6 +162,7 @@ class SlashRouter:
         self._commands["analyze"] = self._cmd_analyze
         self._commands["init"] = self._cmd_init
         self._commands["load"] = self._cmd_load
+        self._commands["skills"] = self._cmd_skills
 
     # ── Typer-backed command registration ─────────────────────────
 
@@ -199,6 +206,13 @@ class SlashRouter:
         from llx.commands.system import models_app
         from llx.commands.quality import quality_app
         from llx.commands.outreach import outreach_app
+        from llx.commands.recipes import recipes_app
+        from llx.commands.plugins import plugins_app
+        from llx.commands.gpu import gpu_app
+        from llx.commands.mcp import mcp_app
+        from llx.commands.audio import audio_app
+        from llx.commands.swarm import swarm_app
+        from llx.commands.lessons import lessons_app
 
         subapps = {
             "files": files_app,
@@ -221,6 +235,13 @@ class SlashRouter:
             "videos": videos_app,
             "models": models_app,
             "quality": quality_app,
+            "recipes": recipes_app,
+            "plugins": plugins_app,
+            "gpu": gpu_app,
+            "mcp": mcp_app,
+            "audio": audio_app,
+            "swarm": swarm_app,
+            "lessons": lessons_app,
         }
         for name, subapp in subapps.items():
             self._register_subapp(name, subapp)
@@ -348,7 +369,7 @@ class SlashRouter:
 
     def _cmd_clear(self, args: list[str]):
         """Clear the console screen."""
-        os.system("cls" if os.name == "nt" else "clear")
+        self._console.clear()
 
     def _cmd_history(self, args: list[str]):
         """List recent sessions or resume one by index."""
@@ -499,19 +520,23 @@ class SlashRouter:
             # List available themes
             current = get_active_theme_name()
             self._console.print("\n[llx.brand_bright]Available themes:[/llx.brand_bright]")
-            for name, data in THEMES.items():
+            for name in get_theme_names():
+                if name in THEMES:
+                    desc = THEMES[name]["description"]
+                else:
+                    desc = "Follow terminal light/dark (COLORFGBG)"
                 marker = " [llx.success]*[/llx.success]" if name == current else ""
                 self._console.print(
                     f"  [llx.accent]{name:<12}[/llx.accent] "
-                    f"[llx.dim]{data['description']}[/llx.dim]{marker}"
+                    f"[llx.dim]{desc}[/llx.dim]{marker}"
                 )
             self._console.print(f"\n[llx.dim]Usage: /theme <name>[/llx.dim]\n")
             return
 
         name = args[0].lower()
-        if name not in THEMES:
+        if name not in THEMES and name not in get_theme_names():
             self._console.print(f"[llx.error]Unknown theme: {name}[/llx.error]")
-            self._console.print(f"[llx.dim]Available: {', '.join(THEMES.keys())}[/llx.dim]")
+            self._console.print(f"[llx.dim]Available: {', '.join(get_theme_names())}[/llx.dim]")
             return
 
         set_active_theme(name)
@@ -524,27 +549,54 @@ class SlashRouter:
         self._console = make_console()
         output.refresh_theme()
 
-        label = THEMES[name]["label"]
+        label = THEMES[name]["label"] if name in THEMES else name
         self._console.print(f"[llx.success]Theme switched to {label}[/llx.success]\n")
 
     def _cmd_help(self, args: list[str]):
-        """Print comprehensive help for all commands."""
+        """Print comprehensive help for all commands. `/help [query]` filters."""
+        query = " ".join(args).strip().lower() if args else ""
+
+        if query and query in self._commands:
+            meta = COMMAND_META.get(query, "")
+            sub = COMMAND_TREE.get(query, [])
+            self._console.print(f"[llx.brand_bright]/{query}[/llx.brand_bright]  {meta}")
+            if sub:
+                self._console.print(f"[llx.dim]Subcommands: {', '.join(sub)}[/llx.dim]")
+            self._console.print(f"[llx.dim]Usage: /{query}" + (f" {'|'.join(sub)}" if sub else "") + "[/llx.dim]")
+            return
+
         self._console.print("[llx.brand_bright]Guaardvark REPL[/llx.brand_bright]\n")
         self._console.print("[llx.dim]In chat mode, type a message to chat with the LLM.[/llx.dim]")
-        self._console.print("[llx.dim]Use slash commands to manage the system.[/llx.dim]\n")
+        self._console.print("[llx.dim]Use slash commands to manage the system. /help <command> for one command.[/llx.dim]\n")
 
+        shown = 0
         for section_title, commands in _HELP_GROUPS:
-            self._console.print(f"[llx.brand_bright]{section_title}:[/llx.brand_bright]")
+            rows = []
             for name in commands:
                 if name not in self._commands:
                     continue
                 meta = COMMAND_META.get(name, "")
                 sub = COMMAND_TREE.get(name, [])
+                if query and query not in name and query not in meta.lower() and not any(query in s for s in sub):
+                    continue
                 suffix = f" ({', '.join(sub)})" if sub else ""
+                rows.append((name, f"{meta}{suffix}"))
+            if not rows:
+                continue
+            self._console.print(f"[llx.brand_bright]{section_title}:[/llx.brand_bright]")
+            for name, desc in rows:
                 self._console.print(
-                    f"  [llx.accent]/{name}[/llx.accent]  [llx.dim]{meta}{suffix}[/llx.dim]"
+                    f"  [llx.accent]/{name}[/llx.accent]  [llx.dim]{desc}[/llx.dim]"
                 )
+                shown += 1
             self._console.print()
+
+        if query and shown == 0:
+            matches = suggest_command(query)
+            self._console.print(f"[llx.dim]No commands matching '{query}'.[/llx.dim]")
+            if matches:
+                listed = ", ".join(f"/{m}" for m in matches)
+                self._console.print(f"[llx.dim]Did you mean {listed}?[/llx.dim]")
 
     def _cmd_imagine(self, args: list[str]):
         """Generate an image from a text prompt (direct tool — same path as browser /imagine)."""
@@ -571,6 +623,18 @@ class SlashRouter:
                 response = data.get("response") or ""
                 if response:
                     self._console.print(f"[llx.dim]{response}[/llx.dim]")
+                try:
+                    from pathlib import Path as _Path
+
+                    from llx.media_preview import extract_media_path, preview_image
+
+                    media = extract_media_path(data, server or "")
+                    if media and not str(media).startswith("http") and _Path(media).is_file():
+                        preview_image(media, console=self._console)
+                    elif media:
+                        self._console.print(f"[link={media}]{media}[/link]")
+                except Exception:
+                    pass
             else:
                 err = data.get("error") or data.get("response") or "unknown error"
                 self._console.print(f"[llx.error]Image generation failed: {err}[/llx.error]")
@@ -624,6 +688,21 @@ class SlashRouter:
             self._console.print(f"[llx.success]Audio generated: {filename}[/llx.success]")
             if audio_url:
                 self._console.print(f"[llx.dim]{server}{audio_url}[/llx.dim]")
+            try:
+                from pathlib import Path as _Path
+
+                from llx.media_preview import extract_media_path, play_audio
+
+                media = extract_media_path(data, server or "")
+                local = filename if _Path(str(filename)).is_file() else None
+                if not local and media and not str(media).startswith("http") and _Path(str(media)).is_file():
+                    local = media
+                if local:
+                    player = play_audio(local)
+                    if player:
+                        self._console.print(f"[llx.dim]Playing with {player}[/llx.dim]")
+            except Exception:
+                pass
         except Exception as e:
             self._console.print(f"[llx.error]TTS failed: {e}[/llx.error]")
 
@@ -653,24 +732,80 @@ class SlashRouter:
             self._console.print(f"[llx.error]Indexing failed: {e}[/llx.error]")
 
     def _cmd_agent(self, args: list[str]):
-        """Toggle agent mode (tool-using autonomous agent)."""
-        current = self._state.get("agent_mode", False)
-        self._state["agent_mode"] = not current
-        # Mirror to agent_screen_active so chat POSTs flip the backend gate.
-        # This tells the backend to route Gemma4 through its screen-action
-        # direct path and to expose desktop/agent-control tools to every model.
-        self._state["agent_screen_active"] = self._state["agent_mode"]
+        """Toggle agent mode, or capture a screenshot of the agent desktop."""
+        sub = (args[0].lower() if args else "")
+        if sub in ("shot", "screenshot", "view"):
+            self._cmd_agent_shot()
+            return
+        if sub == "on":
+            wanted = True
+        elif sub == "off":
+            wanted = False
+        else:
+            wanted = not self._state.get("agent_mode", False)
 
-        if self._state["agent_mode"]:
+        self._state["agent_mode"] = wanted
+        self._state["agent_screen_active"] = wanted
+
+        if wanted:
             self._console.print("[llx.success]Agent mode ON[/llx.success]")
-            self._console.print("[llx.dim]Chat messages will use tool-calling agent.[/llx.dim]")
+            self._console.print("[llx.dim]Chat messages will use tool-calling agent. /agent shot for a screenshot.[/llx.dim]")
+            try:
+                from llx.config import get_frontend_url
+
+                url = get_frontend_url() + "/agent"
+                self._console.print(f"[llx.dim]Viewer: [link={url}]{url}[/link][/llx.dim]")
+            except Exception:
+                pass
         else:
             self._console.print("[llx.dim]Agent mode OFF — back to standard chat.[/llx.dim]")
+
+    def _cmd_agent_shot(self):
+        """Fetch the agent framebuffer and preview it in-terminal."""
+        server = self._state.get("server")
+        try:
+            from llx.client import get_client
+            from llx.media_preview import preview_image
+
+            client = get_client(server)
+            resp = client.http.post("/api/agent-control/capture/raw", json={"quality": 70})
+            if resp.status_code >= 400 or (resp.headers.get("content-type", "").startswith("application/json")):
+                try:
+                    err = resp.json().get("error", resp.text)
+                except Exception:
+                    err = resp.text
+                self._console.print(f"[llx.error]Screenshot failed: {err}[/llx.error]")
+                return
+            preview_image(resp.content, console=self._console)
+            self._console.print("[llx.dim]Agent desktop screenshot.[/llx.dim]")
+        except Exception as e:
+            self._console.print(f"[llx.error]Screenshot failed: {e}[/llx.error]")
 
     def _cmd_web(self, args: list[str]):
         """Open the Guaardvark web UI in the default browser."""
         import webbrowser
-        url = "http://localhost:5175"
+
+        from llx.config import get_frontend_url
+
+        _WEB_PATHS = {
+            "images": "/images",
+            "image": "/images",
+            "chat": "/",
+            "videos": "/videos",
+            "video": "/videos",
+            "settings": "/settings",
+            "plugins": "/plugins",
+            "gpu": "/plugins",
+            "files": "/files",
+            "docs": "/documents",
+            "documents": "/documents",
+        }
+        base = get_frontend_url()
+        path = ""
+        if args:
+            key = args[0].lower().lstrip("/")
+            path = _WEB_PATHS.get(key, f"/{key}" if key else "")
+        url = f"{base}{path}"
         webbrowser.open(url)
         self._console.print(f"[llx.success]Opening {url}[/llx.success]")
 
@@ -1592,6 +1727,36 @@ class SlashRouter:
             self._console.print("[llx.dim]Skill instructions injected. Future chat /analyze will use it. Use /context to view.[/llx.dim]")
         except Exception as e:
             self._console.print(f"[llx.error]Failed to load skill: {e}[/llx.error]")
+
+    def _cmd_skills(self, args: list[str]):
+        """List SKILL.md files under the project and ~/.guaardvark/skills."""
+        from pathlib import Path
+
+        roots = []
+        cwd = Path(self._state.get("cwd") or Path.cwd())
+        roots.append(cwd)
+        home_skills = Path.home() / ".guaardvark" / "skills"
+        if home_skills.exists():
+            roots.append(home_skills)
+        found: list[Path] = []
+        seen: set[str] = set()
+        for root in roots:
+            try:
+                for p in root.rglob("SKILL.md"):
+                    key = str(p.resolve())
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    found.append(p)
+            except OSError:
+                continue
+        if not found:
+            self._console.print("[llx.dim]No SKILL.md files found. Drop one in the project or ~/.guaardvark/skills.[/llx.dim]")
+            return
+        self._console.print("[llx.brand_bright]Skills:[/llx.brand_bright]")
+        for p in found[:50]:
+            self._console.print(f"  [llx.accent]{p}[/llx.accent]")
+        self._console.print("\n[llx.dim]Load with: /load <path>[/llx.dim]")
 
     def _cmd_quit(self, args: list[str]):
         """Exit the REPL."""

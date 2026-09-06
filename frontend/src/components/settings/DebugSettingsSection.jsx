@@ -11,9 +11,7 @@ import {
   Box
 } from '@mui/material';
 
-const DebugSettingsSection = ({ 
-  ragDebug, 
-  setRagDebug,
+const DebugSettingsSection = ({
   advancedDebug,
   setAdvancedDebug,
   behaviorLearningEnabled,
@@ -51,15 +49,6 @@ const DebugSettingsSection = ({
       <Grid container spacing={2}>
         <Grid item xs={12}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={ragDebug}
-                  onChange={(e) => setRagDebug(e.target.checked)}
-                />
-              }
-              label="Enable RAG Debug Mode"
-            />
             <FormControlLabel
               control={
                 <Switch

@@ -8,8 +8,10 @@ available system resources before loading.
 
 import logging
 import re
+import threading
 import time
-from typing import Dict, Optional, Tuple
+import weakref
+from typing import Dict, NamedTuple, Optional, Tuple
 
 import requests
 
@@ -45,6 +47,65 @@ FALLBACK_NUM_CTX = 8192
 # Cache for model info to avoid repeated API calls
 _model_info_cache: Dict[str, dict] = {}
 _cache_ttl = 300  # 5 minutes
+
+# When /api/show fails (Ollama unreachable, model not pulled, unparseable
+# reply) it is not retried for this long. Short on purpose: a backend that
+# boots before Ollama must pick up the real model info on the first chat turn
+# after Ollama answers, not minutes later.
+_unreachable_at: Dict[str, float] = {}
+_unreachable_ttl = 15  # seconds
+
+# LLM instances whose num_ctx is a placeholder chosen without model info.
+# Keyed by id(); the weak value drops the entry when the instance is collected.
+# Guarded by _provisional_lock because Flask handlers register and refresh
+# instances from different threads.
+_provisional_llms: "weakref.WeakValueDictionary[int, object]" = weakref.WeakValueDictionary()
+_provisional_lock = threading.Lock()
+
+
+class OverheadProfile(NamedTuple):
+    """Per-architecture memory model: ``fixed_mb_per_b`` + ``mb_per_b_per_ctx * num_ctx``, both scaled by billions of params."""
+
+    mb_per_b_per_ctx: float
+    fixed_mb_per_b: float
+
+
+# gemma4: measured on a 16 GiB card with Ollama's f16 KV cache and flash
+# attention on (OLLAMA_KV_CACHE_TYPE=f16, OLLAMA_FLASH_ATTENTION=1,
+# OLLAMA_NUM_PARALLEL=1); a q8_0/q4_0 KV cache would only lower the slope.
+#   * 11.9B dense Q4_K_M, weights 7206 MiB: nvidia-smi memory.used above idle
+#     8655 MiB @8192, 8799 @16384, 9087 @32768. Slope 0.01758 MiB/token =
+#     0.00148 MB/B/token; intercept 1305 MiB = 110 MB/B.
+#   * e4b (8.0B, Q4_K_M, 9163 MiB file of which 3.4 GB is resident for text):
+#     4643 MiB @8192, 4921 @32768. Slope 0.0113 MiB/token = 0.0014 MB/B/token.
+#     Sizing charges the whole file (audio/vision towers included), so the
+#     estimate overshoots real use ~2x for e2b/e4b; that errs towards less
+#     context, never towards OOM. At 32768 e4b sat at 6826 MiB of 16376.
+# Sliding-window attention on most layers keeps the slope ~50x below the fallback.
+OVERHEAD_PROFILES: Dict[str, OverheadProfile] = {
+    "gemma4": OverheadProfile(mb_per_b_per_ctx=0.0015, fixed_mb_per_b=110.0),
+}
+
+# Name patterns for families whose /api/show "family" may be missing or generic.
+_FAMILY_NAME_PATTERNS = {
+    "gemma4": r"gemma[\-_]?4",
+}
+
+# Unmeasured families: 0.08 MB per billion params per context token, the top of
+# the 0.019-0.081 range seen across 8B-14B dense models at 32K-262K context.
+# Overestimating costs a little context; underestimating is an OOM.
+FALLBACK_OVERHEAD = OverheadProfile(mb_per_b_per_ctx=0.08, fixed_mb_per_b=0.0)
+
+
+class NumCtxDecision(NamedTuple):
+    """``num_ctx`` to request, and whether it was sized from real model info.
+
+    ``resolved=False`` means Ollama could not describe the model and ``num_ctx``
+    is a placeholder; callers should re-resolve once Ollama answers.
+    """
+
+    num_ctx: int
+    resolved: bool
 
 
 def get_ollama_base_url() -> str:
@@ -146,6 +207,8 @@ def get_model_info(model_name: str) -> Optional[dict]:
     cached = _model_info_cache.get(cache_key)
     if cached and (time.time() - cached.get("_cached_at", 0)) < _cache_ttl:
         return cached
+    if (time.time() - _unreachable_at.get(cache_key, 0)) < _unreachable_ttl:
+        return None
 
     base_url = get_ollama_base_url()
 
@@ -157,22 +220,29 @@ def get_model_info(model_name: str) -> Optional[dict]:
         )
         if not resp.ok:
             logger.debug("Ollama /api/show returned %d for '%s'", resp.status_code, model_name)
+            _unreachable_at[cache_key] = time.time()
             return None
 
         data = resp.json()
         model_info_raw = data.get("model_info", {})
         details = data.get("details", {})
 
-        # Extract parameter count from model_info keys
+        # Extract parameter count from model_info keys. The native context is
+        # "<arch>.context_length"; rope keys such as
+        # "<arch>.rope.scaling.original_context_length" also contain the phrase
+        # and are only used when no exact key exists.
         parameter_count = 0
         native_context = 0
+        loose_context = 0
         for key, value in model_info_raw.items():
-            if "context_length" in key:
+            if key.endswith(".context_length"):
                 native_context = int(value)
-            if "block_count" in key or "num_hidden_layers" in key:
-                pass  # Architecture info
+            elif "context_length" in key:
+                loose_context = int(value)
             if "parameter_count" in key.lower():
                 parameter_count = int(value)
+        if native_context == 0:
+            native_context = loose_context
 
         # Estimate parameter count from details.parameter_size if not found
         if parameter_count == 0:
@@ -220,14 +290,24 @@ def get_model_info(model_name: str) -> Optional[dict]:
         }
 
         _model_info_cache[cache_key] = info
-        return info
+        _unreachable_at.pop(cache_key, None)
 
     except requests.RequestException as e:
         logger.warning("Failed to get model info for '%s': %s", model_name, e)
+        _unreachable_at[cache_key] = time.time()
         return None
     except Exception as e:
         logger.warning("Error parsing model info for '%s': %s", model_name, e)
+        _unreachable_at[cache_key] = time.time()
         return None
+
+    _refresh_provisional_instances(model_name)
+    return info
+
+
+def model_info_available(model_name: str) -> bool:
+    """Whether Ollama can currently describe ``model_name`` (cached once it can)."""
+    return get_model_info(model_name) is not None
 
 
 def model_supports_tools(model_name: str) -> bool:
@@ -238,29 +318,48 @@ def model_supports_tools(model_name: str) -> bool:
     return "tools" in info.get("capabilities", [])
 
 
-def _estimate_total_overhead_mb(parameter_count: int, num_ctx: int) -> float:
-    """
-    Estimate total memory overhead (KV cache + compute graph) in MB for a context size.
+def overhead_profile(model_name: str, model_info: Optional[dict] = None) -> OverheadProfile:
+    """The measured memory profile for a model's family, or ``FALLBACK_OVERHEAD``.
 
-    Empirically calibrated from real Ollama measurements across model families
-    in the 8B–14B range at 32K–262K context. Per-token overhead ranged from
-    0.019–0.081 MB per billion params per ctx token, varying by GQA ratio.
-    We use 0.08 (the higher measured value) to be safe — underestimating
-    causes OOM, overestimating just means slightly less context.
+    Matches ``/api/show``'s ``family`` first, then the model name, so a custom
+    tag of a measured architecture still gets its numbers.
     """
+    arch = str((model_info or {}).get("architecture", "")).lower()
+    if arch in OVERHEAD_PROFILES:
+        return OVERHEAD_PROFILES[arch]
+    lower = (model_name or "").lower()
+    for family, pattern in _FAMILY_NAME_PATTERNS.items():
+        if family in OVERHEAD_PROFILES and re.search(pattern, lower):
+            return OVERHEAD_PROFILES[family]
+    return FALLBACK_OVERHEAD
+
+
+def _estimate_total_overhead_mb(
+    parameter_count: int, num_ctx: int, profile: OverheadProfile = FALLBACK_OVERHEAD,
+) -> float:
+    """Memory (MB) beyond the weights — KV cache, compute graph, runner — at ``num_ctx``."""
     if parameter_count == 0:
         parameter_count = 7_000_000_000
 
     params_b = parameter_count / 1e9
+    return params_b * (profile.fixed_mb_per_b + num_ctx * profile.mb_per_b_per_ctx)
 
-    # Conservative empirical estimate: 0.08 MB per billion params per context token.
-    # Includes KV cache, compute graphs, and runner overhead.
-    mb_per_b_per_ctx = 0.08
 
-    return params_b * num_ctx * mb_per_b_per_ctx
+def _fallback_num_ctx(model_name: str) -> int:
+    """Placeholder num_ctx when Ollama cannot describe the model.
+
+    Only vision-only models get the smaller default; natively multimodal chat
+    models (Gemma 4) are the primary text LLM and take the text default.
+    """
+    return DEFAULT_TEXT_NUM_CTX if is_text_chat_model(model_name) else DEFAULT_VISION_NUM_CTX
 
 
 def compute_optimal_num_ctx(model_name: str) -> int:
+    """The num_ctx from :func:`decide_num_ctx`, for callers that only need the number."""
+    return decide_num_ctx(model_name).num_ctx
+
+
+def decide_num_ctx(model_name: str) -> NumCtxDecision:
     """
     Compute the optimal num_ctx for a model based on available system resources.
 
@@ -269,15 +368,21 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     2. If model needs CPU offloading → cap at 8192 (CPU KV lookups are slow,
        more context = more memory = more offloading = slower inference)
     3. In all cases, verify total estimated memory fits in available budget
+
+    Without model info the result is a placeholder (``resolved=False``); see
+    :func:`refresh_context_window` for picking up the real value later.
     """
     model_info = get_model_info(model_name)
-    resources = get_system_resources()
-
     if not model_info:
-        default = DEFAULT_VISION_NUM_CTX if is_vision_model(model_name) else DEFAULT_TEXT_NUM_CTX
+        default = _fallback_num_ctx(model_name)
         logger.info("No model info for '%s', using default num_ctx=%d", model_name, default)
-        return default
+        return NumCtxDecision(default, resolved=False)
 
+    resources = get_system_resources()
+    return NumCtxDecision(_size_num_ctx(model_name, model_info, resources), resolved=True)
+
+
+def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]) -> int:
     gpu_free_mb = resources["gpu_free_mb"]
     gpu_budget_mb = max(0, gpu_free_mb - GPU_RESERVE_MB)
     ram_budget_mb = max(0, resources["ram_free_mb"] - RAM_RESERVE_MB)
@@ -294,6 +399,7 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     param_count = model_info["parameter_count"]
     native_ctx = model_info.get("native_context", 0)
     params_b = param_count / 1e9 if param_count > 0 else 7.0
+    profile = overhead_profile(model_name, model_info)
 
     if model_weight_mb > total_budget_mb:
         logger.warning(
@@ -307,7 +413,7 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     # model needs CPU offloading — cap at 8192 to keep inference responsive.
     # (CPU KV cache lookups are slow; more context = more offloading = slower.)
     def _total_at_ctx(ctx):
-        return model_weight_mb + _estimate_total_overhead_mb(param_count, ctx)
+        return model_weight_mb + _estimate_total_overhead_mb(param_count, ctx, profile)
 
     total_at_default = _total_at_ctx(DEFAULT_TEXT_NUM_CTX)
     fits_in_gpu = total_at_default <= gpu_budget_mb
@@ -330,8 +436,8 @@ def compute_optimal_num_ctx(model_name: str) -> int:
     ceiling = min(native_ctx, practical_ceiling) if native_ctx > 0 else practical_ceiling
 
     # Also verify total fits in combined GPU+RAM budget
-    remaining_mb = total_budget_mb - model_weight_mb
-    mb_per_ctx_token = params_b * 0.08
+    remaining_mb = total_budget_mb - model_weight_mb - params_b * profile.fixed_mb_per_b
+    mb_per_ctx_token = params_b * profile.mb_per_b_per_ctx
     if mb_per_ctx_token > 0:
         max_ctx_by_memory = int(remaining_mb / mb_per_ctx_token)
     else:
@@ -363,11 +469,10 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
         (safe_to_load, reason, recommended_num_ctx)
     """
     model_info = get_model_info(model_name)
-    resources = get_system_resources()
-
     if not model_info:
-        return True, "Model info unavailable — proceeding with defaults", FALLBACK_NUM_CTX
+        return True, "Model info unavailable — proceeding with defaults", _fallback_num_ctx(model_name)
 
+    resources = get_system_resources()
     total_available_mb = (
         max(0, resources["gpu_free_mb"] - GPU_RESERVE_MB) +
         max(0, resources["ram_free_mb"] - RAM_RESERVE_MB)
@@ -389,7 +494,7 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
 
     # Check if we can give at least minimum context
     overhead_at_min = _estimate_total_overhead_mb(
-        model_info["parameter_count"], MIN_NUM_CTX,
+        model_info["parameter_count"], MIN_NUM_CTX, overhead_profile(model_name, model_info),
     )
     if model_weight_mb + overhead_at_min > total_available_mb:
         return (
@@ -425,14 +530,93 @@ def resolve_num_ctx(model_name: str, explicit: Optional[int] = None) -> int:
     """
     if explicit is not None:
         return int(explicit)
+    return resolve_num_ctx_decision(model_name).num_ctx
+
+
+def resolve_num_ctx_decision(model_name: str) -> NumCtxDecision:
+    """:func:`decide_num_ctx` that never raises; any failure is an unresolved text default."""
     try:
-        return compute_optimal_num_ctx(model_name)
+        return decide_num_ctx(model_name)
     except Exception as e:
         logger.warning(
             "Could not size num_ctx for %r (%s); falling back to %d",
             model_name, e, DEFAULT_TEXT_NUM_CTX,
         )
-        return DEFAULT_TEXT_NUM_CTX
+        return NumCtxDecision(DEFAULT_TEXT_NUM_CTX, resolved=False)
+
+
+def mark_provisional(llm, resolved: bool = False) -> None:
+    """Record that ``llm``'s num_ctx is a placeholder (no-op when ``resolved``).
+
+    Objects that cannot be weakly referenced cannot be tracked and keep their
+    placeholder; that only happens for stand-ins, never for an Ollama instance.
+    """
+    if resolved:
+        return
+    try:
+        with _provisional_lock:
+            _provisional_llms[id(llm)] = llm
+    except TypeError:
+        logger.debug("Cannot track %r for num_ctx refresh (no weakref support)", type(llm))
+
+
+def is_provisional(llm) -> bool:
+    """Whether ``llm`` still carries a placeholder num_ctx."""
+    with _provisional_lock:
+        return _provisional_llms.get(id(llm)) is llm
+
+
+def refresh_context_window(llm) -> int:
+    """The context window ``llm`` should be used with, re-resolved if it was a placeholder.
+
+    Cheap on the hot path: instances sized from real model info return their
+    ``context_window`` untouched. A provisional instance re-runs the sizing;
+    once Ollama describes the model, ``context_window`` and the mirrored
+    ``additional_kwargs["num_ctx"]`` are updated in place and the instance
+    stops being provisional. Until then the placeholder stays in force.
+
+    Callers that read ``context_window`` per request (the chat engine) should
+    read it through this function. Independently of that, the first successful
+    ``/api/show`` for a model refreshes every provisional instance of it, so a
+    boot-time placeholder is corrected as soon as anything asks Ollama about
+    the model.
+    """
+    current = int(getattr(llm, "context_window", 0) or 0)
+    if not is_provisional(llm):
+        return current
+    try:
+        decision = resolve_num_ctx_decision(getattr(llm, "model", "") or "")
+    except Exception:
+        return current
+    if not decision.resolved:
+        return current
+    llm.context_window = decision.num_ctx
+    extra = getattr(llm, "additional_kwargs", None)
+    if isinstance(extra, dict):
+        extra["num_ctx"] = decision.num_ctx
+    with _provisional_lock:
+        _provisional_llms.pop(id(llm), None)
+    logger.info(
+        "Re-resolved num_ctx for '%s': %d (placeholder was %d)",
+        getattr(llm, "model", ""), decision.num_ctx, current,
+    )
+    return decision.num_ctx
+
+
+def _refresh_provisional_instances(model_name: str) -> None:
+    """Re-size every provisional instance of ``model_name`` from freshly cached info.
+
+    Called by :func:`get_model_info` after a successful fetch; the sizing it
+    triggers hits the cache, so this never issues a second request.
+    """
+    with _provisional_lock:
+        waiting = [llm for llm in _provisional_llms.values()
+                   if getattr(llm, "model", None) == model_name]
+    for llm in waiting:
+        try:
+            refresh_context_window(llm)
+        except Exception as e:
+            logger.debug("Could not refresh num_ctx for '%s': %s", model_name, e)
 
 
 def build_ollama(model_name: str, **kwargs):
@@ -450,20 +634,28 @@ def build_ollama(model_name: str, **kwargs):
     """
     from llama_index.llms.ollama import Ollama
 
-    num_ctx = resolve_num_ctx(model_name, kwargs.pop("context_window", None))
+    explicit = kwargs.pop("context_window", None)
+    if explicit is not None:
+        decision = NumCtxDecision(int(explicit), resolved=True)
+    else:
+        decision = resolve_num_ctx_decision(model_name)
+    num_ctx = decision.num_ctx
     additional = dict(kwargs.pop("additional_kwargs", None) or {})
     additional.setdefault("num_ctx", num_ctx)
     if "base_url" not in kwargs:
         from backend.config import OLLAMA_BASE_URL
         kwargs["base_url"] = OLLAMA_BASE_URL
-    return Ollama(
+    llm = Ollama(
         model=model_name,
         context_window=num_ctx,
         additional_kwargs=additional,
         **kwargs,
     )
+    mark_provisional(llm, decision.resolved)
+    return llm
 
 
 def clear_cache():
-    """Clear the model info cache."""
+    """Clear the model info cache and the unreachable-Ollama backoff."""
     _model_info_cache.clear()
+    _unreachable_at.clear()

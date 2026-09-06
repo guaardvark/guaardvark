@@ -11,7 +11,7 @@ This document is the comprehensive reference of everything Guaardvark can do (mo
 - [AI Chat & Conversation](#ai-chat--conversation)
 - [AgentBrain — Three-Tier Routing](#agentbrain--three-tier-routing)
 - [RAG & Document Intelligence](#rag--document-intelligence)
-- [RAG Autoresearch](#rag-autoresearch)
+- [Overnight research (RAG + code + Auto Improve)](#overnight-research-rag--code--auto-improve)
 - [Self-Improvement Engine](#self-improvement-engine)
 - [Lesson Pearls & Memory](#lesson-pearls--memory)
 - [Autonomous Screen Agents](#autonomous-screen-agents)
@@ -31,7 +31,7 @@ This document is the comprehensive reference of everything Guaardvark can do (mo
 - [Multi-Machine Interconnector](#multi-machine-interconnector)
 - [WordPress Integration](#wordpress-integration)
 - [Automation Tools](#automation-tools)
-- [CLI (llx)](#cli-llx)
+- [CLI (guaardvark)](#cli-guaardvark)
 - [Plugin System](#plugin-system)
 - [System Architecture](#system-architecture)
 - [Startup & Operations](#startup--operations)
@@ -676,29 +676,38 @@ GUAARDVARK_AGENT_BROWSER=firefox     # Override agent's browser
 
 ---
 
-## CLI (llx)
+## CLI (guaardvark)
 
-Full platform access from the terminal.
+Full platform access from the terminal. Command is `guaardvark` (`llx` is a deprecated alias).
 
 ### Installation
 ```bash
 cd cli && pip install -e .
-llx init
+guaardvark setup
 ```
 
 ### Commands
 ```bash
-llx status                      # System dashboard
-llx chat "explain this codebase" # Chat with RAG streaming
-llx chat --no-rag "hello"       # Direct LLM, no document context
-llx search "query"              # Semantic search across documents
-llx files list                  # Browse files
-llx files upload report.pdf     # Upload and index a file
-llx generate csv "50 ideas"     # Bulk content generation
-llx jobs watch JOB_ID           # Live job progress
-llx rules list                  # List system prompts
-llx                             # Interactive REPL
+guaardvark                          # Interactive REPL
+guaardvark status                   # System dashboard
+guaardvark chat "explain this codebase"
+guaardvark search "query"
+guaardvark files upload report.pdf
+guaardvark plugins list|start|stop
+guaardvark gpu status|release
+guaardvark mcp install --client cursor
+guaardvark audio tts "hello"
+guaardvark swarm run "fix the tests"
+guaardvark lessons begin
+guaardvark completion zsh
+guaardvark doctor --cli
 ```
+
+### REPL
+- Theme-aware prompt (`/theme`, including `day` and `auto`); compact banner on short terminals
+- Tab completion with or without `/`; `/help [query]`; “Did you mean…?”
+- `/imagine` inline preview (Kitty / iTerm / chafa); `/voice` local playback; `/agent shot`
+- Config: `~/.guaardvark/cli.json` (legacy `~/.llx/config.json` still read)
 
 ### Quality Roadmap (v2.5.3)
 - **Standardized JSON contracts** for all automation outputs

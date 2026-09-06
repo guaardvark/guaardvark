@@ -115,6 +115,13 @@ class UnifiedChatService {
     debugLog('[UnifiedChatService] onThinking registration requested');
     this._on("chat:thinking", callback);
   }
+  /**
+   * Model reasoning stream: {delta} batches while the model thinks, then
+   * {done: true, text} once per LLM call with the full reasoning text.
+   */
+  onReasoning(callback) {
+    this._on("chat:reasoning", callback);
+  }
   onToolCall(callback) {
     this._on("chat:tool_call", callback);
   }

@@ -933,7 +933,7 @@ def list_video_models():
 
 @batch_video_bp.route("/prompt-presets", methods=["GET"])
 def list_prompt_presets():
-    """Prompt presets for a model family, read from backend/prompt_bundles.
+    """Prompt presets for a model family, read from plugins/comfyui/scripts/prompt_bundles.
 
     Each preset carries its structured intent and the prompt the compiler
     renders from it, plus format hints (duration, ratio, mode). The community

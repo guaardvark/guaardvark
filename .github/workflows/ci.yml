@@ -198,6 +198,7 @@ jobs:
             backend/tests/test_extensions_loader.py \
             extensions/_template/tests \
             backend/tests/api/test_batch_image_path_safety.py \
+            backend/tests/api/test_chat_export_api.py \
             backend/tests/test_audit_batch2_security.py \
             backend/tests/services/test_connections_safety.py \
             backend/tests/services/test_resource_hardening.py \

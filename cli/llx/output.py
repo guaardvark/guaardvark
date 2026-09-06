@@ -99,6 +99,14 @@ def print_warning(message: str):
     _console.print(f"[llx.warning]{ICON_WARNING} Warning:[/llx.warning] {message}")
 
 
+def print_link(label: str, url: str):
+    """Print an OSC-8 hyperlink when the terminal supports it (Rich markup)."""
+    if _json_mode or is_pipe():
+        print_json({"label": label, "url": url})
+        return
+    _out.print(f"[link={url}]{label}[/link]")
+
+
 def print_kv(pairs: dict, title: str | None = None):
     """Print key-value pairs as a neat panel."""
     if _json_mode or is_pipe():

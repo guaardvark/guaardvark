@@ -449,16 +449,14 @@ def get_default_llm() -> Ollama:
     except Exception as e:
         logger.warning("Failed to get saved active model, using default: %s", e)
 
-    # Adaptive context window based on available resources
-    try:
-        from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
-        num_ctx = compute_optimal_num_ctx(model_name)
-    except Exception as e:
-        logger.warning("Failed to compute adaptive num_ctx, using 8192: %s", e)
-        num_ctx = 8192
+    # Adaptive context window based on available resources. A placeholder
+    # chosen while Ollama is down is re-resolved by refresh_context_window().
+    from backend.utils.ollama_resource_manager import mark_provisional, resolve_num_ctx_decision
+    decision = resolve_num_ctx_decision(model_name)
+    num_ctx = decision.num_ctx
 
     temperature, sampling_kwargs = _default_chat_sampling()
-    return Ollama(
+    llm = Ollama(
         model=model_name,
         base_url=OLLAMA_BASE_URL,
         request_timeout=timeout_value,
@@ -467,6 +465,8 @@ def get_default_llm() -> Ollama:
         keep_alive=get_chat_keep_alive(),  # hardware-aware: ~15m on GPU (don't squat VRAM), resident on CPU
         additional_kwargs={"num_ctx": num_ctx, **sampling_kwargs},
     )
+    mark_provisional(llm, decision.resolved)
+    return llm
 
 
 def get_llm_for_startup() -> Ollama:
@@ -520,10 +520,18 @@ def get_llm_for_startup() -> Ollama:
             model_name = installed[0]
             logger.info("Falling back to first installed model '%s'.", model_name)
 
-    # Validate model can be loaded and compute adaptive context window
+    # Validate model can be loaded and compute adaptive context window. When
+    # Ollama cannot describe the model yet, num_ctx is a placeholder that
+    # refresh_context_window() replaces on first use.
+    from backend.utils.ollama_resource_manager import mark_provisional
+    resolved = False
     try:
-        from backend.utils.ollama_resource_manager import validate_model_before_load
+        from backend.utils.ollama_resource_manager import (
+            model_info_available,
+            validate_model_before_load,
+        )
         safe, reason, num_ctx = validate_model_before_load(model_name)
+        resolved = model_info_available(model_name)
         if not safe:
             logger.warning(
                 "Model '%s' may not fit in available memory: %s. Using minimum context.",
@@ -547,7 +555,12 @@ def get_llm_for_startup() -> Ollama:
         keep_alive=get_chat_keep_alive(),  # hardware-aware: ~15m on GPU (don't squat VRAM), resident on CPU
         additional_kwargs={"num_ctx": num_ctx, **sampling_kwargs},
     )
-    logger.info("Loaded LLM '%s' with num_ctx=%d in %.2fs", model_name, num_ctx, time.time() - start)
+    mark_provisional(llm, resolved)
+    logger.info(
+        "Loaded LLM '%s' with num_ctx=%d%s in %.2fs",
+        model_name, num_ctx, "" if resolved else " (placeholder, model info unavailable)",
+        time.time() - start,
+    )
     return llm
 
 
@@ -678,12 +691,13 @@ def load_active_llm() -> Ollama:
                 if saved_model in names:
                     logger.info("Loading previously active model: %s", saved_model)
                     timeout_value = min(LLM_REQUEST_TIMEOUT, 180.0)
-                    # Adaptive context window
-                    try:
-                        from backend.utils.ollama_resource_manager import compute_optimal_num_ctx
-                        num_ctx = compute_optimal_num_ctx(saved_model)
-                    except Exception:
-                        num_ctx = 8192
+                    # Adaptive context window; a placeholder is re-resolved later
+                    from backend.utils.ollama_resource_manager import (
+                        mark_provisional,
+                        resolve_num_ctx_decision,
+                    )
+                    decision = resolve_num_ctx_decision(saved_model)
+                    num_ctx = decision.num_ctx
                     temperature, sampling_kwargs = _default_chat_sampling()
                     llm = Ollama(
                         model=saved_model,
@@ -694,6 +708,7 @@ def load_active_llm() -> Ollama:
                         keep_alive=get_chat_keep_alive(),  # hardware-aware: ~15m GPU / resident CPU (no 24h squat)
                         additional_kwargs={"num_ctx": num_ctx, **sampling_kwargs},
                     )
+                    mark_provisional(llm, decision.resolved)
                     llm.complete("Test.")
                     return llm
                 else:

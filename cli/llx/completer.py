@@ -1,12 +1,15 @@
 """Slash-command tab completion for the Guaardvark REPL.
 
-Provides nested completion for ``/command subcommand`` patterns, wrapped in
-a ``FuzzyCompleter`` so partial and out-of-order keystrokes still match.
+Completes catalog commands with or without a leading ``/``. Nested
+subcommands, local paths, and a dynamic callback (live tool names, themes)
+are supported. Wrapped in ``FuzzyCompleter`` so partial and out-of-order
+keystrokes still match.
 """
 
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+from pathlib import Path
+from typing import Callable, Iterator, List, Optional
 
 from prompt_toolkit.completion import Completer, Completion
 from prompt_toolkit.completion.fuzzy_completer import FuzzyCompleter
@@ -20,12 +23,32 @@ def _get_meta(command: str) -> str:
     return COMMAND_META.get(command, "")
 
 
-# ---------------------------------------------------------------------------
-# Completer
-# ---------------------------------------------------------------------------
+def _path_completions(sub_prefix: str, cwd: Path | None = None) -> Iterator[Completion]:
+    """Yield filename completions relative to cwd."""
+    try:
+        base = cwd or Path.cwd()
+        prefix_path = Path(sub_prefix or ".")
+        search_dir = (base / prefix_path).parent if not (base / prefix_path).is_dir() else (base / prefix_path)
+        search_dir = search_dir.resolve()
+        if not search_dir.exists() or not search_dir.is_dir():
+            return
+        leaf = sub_prefix.rsplit("/", 1)[-1] if "/" in sub_prefix else sub_prefix
+        for entry in sorted(search_dir.iterdir(), key=lambda p: p.name):
+            if entry.name.startswith(".") and not sub_prefix.startswith("."):
+                continue
+            name = entry.name + ("/" if entry.is_dir() else "")
+            if name.lower().startswith(leaf.lower()):
+                yield Completion(
+                    name,
+                    start_position=-len(leaf),
+                    display_meta="dir" if entry.is_dir() else "file",
+                )
+    except Exception:
+        return
+
 
 class SlashCompleter(Completer):
-    """Tab-completion for ``/command [subcommand]`` input.
+    """Tab-completion for ``/command [subcommand]`` and bare ``command``.
 
     Parameters
     ----------
@@ -36,6 +59,8 @@ class SlashCompleter(Completer):
         additional completions.
     """
 
+    PATH_COMMANDS = frozenset({"ls", "read", "grep", "edit", "cd", "diff", "run", "ingest", "load"})
+
     def __init__(
         self,
         get_dynamic_completions: Optional[
@@ -44,20 +69,24 @@ class SlashCompleter(Completer):
     ) -> None:
         self.get_dynamic_completions = get_dynamic_completions
 
-    # ---- prompt_toolkit interface ----------------------------------------
-
     def get_completions(self, document: Document, complete_event):  # noqa: D401
         """Yield ``Completion`` objects for the current input."""
         text = document.text_before_cursor
+        has_slash = text.startswith("/")
+        stripped = text[1:] if has_slash else text
 
-        # Only activate when the line starts with "/"
-        if not text.startswith("/"):
+        last = text.rsplit(None, 1)[-1] if text.strip() else ""
+        if last.startswith("@"):
+            mention = last[1:]
+            yield from _path_completions(mention)
+            if not has_slash:
+                return
+
+        # Bare empty line is chat — do not dump every command.
+        if not has_slash and not stripped:
             return
 
-        stripped = text[1:]  # drop the leading "/"
-
         if " " not in stripped:
-            # Still typing the command name — complete top-level commands.
             prefix = stripped.lower()
             for cmd in COMMAND_TREE:
                 if cmd.startswith(prefix):
@@ -68,12 +97,10 @@ class SlashCompleter(Completer):
                     )
             return
 
-        # A space exists — split into command + remainder.
         cmd, _, rest = stripped.partition(" ")
         cmd = cmd.lower()
         sub_prefix = rest.lstrip().lower()
 
-        # Static subcommands
         if cmd in COMMAND_TREE:
             for sub in COMMAND_TREE[cmd]:
                 if sub.startswith(sub_prefix):
@@ -82,7 +109,6 @@ class SlashCompleter(Completer):
                         start_position=-len(sub_prefix) if sub_prefix else 0,
                     )
 
-        # Dynamic completions (plugin-provided, live data, etc.)
         if self.get_dynamic_completions is not None:
             dynamic = self.get_dynamic_completions(cmd, rest)
             if dynamic:
@@ -93,48 +119,31 @@ class SlashCompleter(Completer):
                             start_position=-len(sub_prefix) if sub_prefix else 0,
                         )
 
-        # Local path completion for coding commands
-        if cmd in {"ls", "read", "grep", "edit", "cd", "diff", "run"}:
-            try:
-                from pathlib import Path
-                base = Path.cwd()
-                prefix_path = Path(sub_prefix or ".")
-                # simple: list siblings of the dir being typed
-                search_dir = (base / prefix_path).parent if not (base / prefix_path).is_dir() else (base / prefix_path)
-                search_dir = search_dir.resolve()
-                if search_dir.exists() and search_dir.is_dir():
-                    for entry in sorted(search_dir.iterdir(), key=lambda p: p.name):
-                        if entry.name.startswith(".") and not sub_prefix.startswith("."):
-                            continue
-                        name = entry.name + ("/" if entry.is_dir() else "")
-                        if name.lower().startswith(sub_prefix.lower().rsplit("/", 1)[-1] if "/" in sub_prefix else sub_prefix.lower()):
-                            yield Completion(
-                                name,
-                                start_position=-len(sub_prefix.rsplit("/", 1)[-1]) if "/" in sub_prefix else -len(sub_prefix),
-                            )
-            except Exception:
-                pass
+        if cmd in self.PATH_COMMANDS:
+            yield from _path_completions(rest.lstrip())
 
-        # Dynamic backend tool name completion for /tool and /tools
         if cmd in {"tool", "tools"}:
-            try:
-                # Try to get cached tool names from state if slash router put them there
-                # Fallback to a few common high-value ones
-                tool_names = None
-                # We can't easily reach router state here; provide useful defaults + common ones
-                common_tools = ["read_code", "edit_code", "search_code", "list_files", "execute_python",
-                                "grep_search", "save_memory", "search_memory", "list_code_files",
-                                "get_repository_map", "verify_change", "agent_task_execute"]
-                for name in common_tools:
-                    if name.lower().startswith(sub_prefix.lower()):
-                        yield Completion(name, start_position=-len(sub_prefix) if sub_prefix else 0)
-            except Exception:
-                pass
+            common_tools = [
+                "read_code",
+                "edit_code",
+                "search_code",
+                "list_files",
+                "execute_python",
+                "grep_search",
+                "save_memory",
+                "search_memory",
+                "list_code_files",
+                "get_repository_map",
+                "verify_change",
+                "agent_task_execute",
+            ]
+            for name in common_tools:
+                if name.lower().startswith(sub_prefix):
+                    yield Completion(
+                        name,
+                        start_position=-len(sub_prefix) if sub_prefix else 0,
+                    )
 
-
-# ---------------------------------------------------------------------------
-# Factory
-# ---------------------------------------------------------------------------
 
 def make_completer(
     get_dynamic: Optional[Callable[[str, str], Optional[List[str]]]] = None,
