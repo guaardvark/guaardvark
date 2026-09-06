@@ -55,7 +55,7 @@
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.4",
-    "jsdom": "^23.0.0",
+    "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
     "rollup-plugin-polyfill-node": "^0.13.0",
     "terser": "^5.51.2",
