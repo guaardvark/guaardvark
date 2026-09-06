@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 from backend.utils.experiment_context import get_experiment_config, get_active_rag_params
 import backend.utils.llama_index_local_config
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 # Per edge-portability audit: remove unconditional CUDA_VISIBLE_DEVICES at
 # import time (causes "device 0 does not exist" on CPU/ARM boxes). Only set
@@ -349,11 +350,13 @@ class PostgresSparseRetriever:
             conn = _pg_connect()
             try:
                 freqs = {}
+                from psycopg2 import sql as pgsql
+                count_stmt = pgsql.SQL(
+                    "SELECT count(*) FROM {} WHERE text_search_tsv @@ to_tsquery('english', %s)"
+                ).format(pgsql.Identifier(f"data_{self.table}"))
                 with conn.cursor() as cur:
                     for t in terms:
-                        cur.execute(
-                            f'SELECT count(*) FROM "data_{self.table}" '
-                            f"WHERE text_search_tsv @@ to_tsquery('english', %s)", (t,))
+                        cur.execute(count_stmt, (t,))
                         freqs[t] = cur.fetchone()[0]
             finally:
                 conn.close()
@@ -378,16 +381,19 @@ class PostgresSparseRetriever:
             params.extend([key, str(value)])
         params.append(self.top_k)
         rank_fn = match_sql.split(" @@ ")[1].replace("%s", "%s")
-        sql = (
-            f"SELECT node_id, text, metadata_, "
+        from psycopg2 import sql as pgsql
+        # The table name is the one non-parameter piece; it goes through
+        # Identifier so it is quoted as an identifier, never spliced as text.
+        stmt = pgsql.SQL(
+            "SELECT node_id, text, metadata_, "
             f"ts_rank_cd(text_search_tsv, {rank_fn}, 34) AS rank "
-            f'FROM "data_{self.table}" WHERE ' + " AND ".join(where) +
+            "FROM {} WHERE " + " AND ".join(where) +
             " ORDER BY rank DESC LIMIT %s"
-        )
+        ).format(pgsql.Identifier(f"data_{self.table}"))
         conn = _pg_connect()
         try:
             with conn.cursor() as cur:
-                cur.execute(sql, params)
+                cur.execute(stmt, params)
                 return cur.fetchall()
         finally:
             conn.close()
@@ -661,7 +667,7 @@ def _persist_dir_for(project_id=None) -> str:
     index_mode = os.getenv("GUAARDVARK_PROJECT_INDEX_MODE", PROJECT_INDEX_MODE)
     index_root = os.getenv("GUAARDVARK_INDEX_ROOT", INDEX_ROOT)
     if index_mode == "per_project" and project_id:
-        return os.path.join(index_root, str(project_id))
+        return contained_path(index_root, str(project_id))
     return index_root
 
 
@@ -839,10 +845,10 @@ def _ensure_document_id_index(table: str) -> None:
     class cannot serve a prefix LIKE. Created here so a fresh install gets it
     without a migration step; IF NOT EXISTS makes it idempotent.
     """
-    ddl = (
-        f'CREATE INDEX IF NOT EXISTS "{table}_docid_prefix" '
-        f'ON "data_{table}" ((metadata_->>\'document_id\') text_pattern_ops)'
-    )
+    from psycopg2 import sql as pgsql
+    ddl = pgsql.SQL(
+        "CREATE INDEX IF NOT EXISTS {} ON {} ((metadata_->>'document_id') text_pattern_ops)"
+    ).format(pgsql.Identifier(f"{table}_docid_prefix"), pgsql.Identifier(f"data_{table}"))
     try:
         conn = _pg_connect()
         try:
@@ -985,8 +991,9 @@ def drop_vector_store(project_id=None, profile: Optional[str] = None) -> Dict[st
     try:
         conn = _pg_connect()
         try:
+            from psycopg2 import sql as pgsql
             with conn.cursor() as cur:
-                cur.execute(f'DROP TABLE IF EXISTS "{full}"')
+                cur.execute(pgsql.SQL("DROP TABLE IF EXISTS {}").format(pgsql.Identifier(full)))
             conn.commit()
         finally:
             conn.close()
@@ -1261,7 +1268,7 @@ def get_or_create_index(project_id: Optional[str] = None):
     
     if index_mode == "per_project" and project_id:
         key = str(project_id)
-        persist_dir = os.path.join(index_root, str(project_id))
+        persist_dir = contained_path(index_root, str(project_id))
 
     # Get the global index manager for access_stats tracking
     try:

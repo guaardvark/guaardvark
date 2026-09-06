@@ -69,7 +69,12 @@ def extract_text_from_uploaded_image():
         import tempfile
         import os
         
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(image_file.filename).suffix) as temp_file:
+        suffix = Path(image_file.filename or "").suffix.lower()
+        if suffix in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".tif"):
+            safe_suffix = suffix
+        else:
+            safe_suffix = ".png"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=safe_suffix) as temp_file:
             image_file.save(temp_file.name)
             temp_path = temp_file.name
             

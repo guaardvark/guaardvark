@@ -12,6 +12,7 @@ import base64
 import time
 from flask import Blueprint, request, jsonify, current_app, send_from_directory, abort
 from typing import Dict, Any, Optional
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -540,8 +541,9 @@ def serve_screenshot(filename):
     screenshots_dir = os.path.join(
         current_app.config.get("OUTPUT_DIR", "data/outputs"), "screenshots"
     )
-    safe_path = os.path.normpath(os.path.abspath(os.path.join(screenshots_dir, filename)))
-    if not safe_path.startswith(os.path.abspath(screenshots_dir) + os.sep):
+    try:
+        safe_path = contained_path(screenshots_dir, filename)
+    except PathEscapesRoot:
         abort(403)
     if not os.path.isfile(safe_path):
         abort(404)

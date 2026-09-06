@@ -12,6 +12,8 @@ import hashlib
 from collections import defaultdict
 from pathlib import Path
 from flask import Blueprint, request, jsonify
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
+from backend.services.guarded_code_service import default_repo_root
 
 logger = logging.getLogger(__name__)
 
@@ -551,8 +553,13 @@ def build_project():
         if not data or 'projectPath' not in data:
             return jsonify({"error": "projectPath is required"}), 400
 
-        project_path = data['projectPath']
         options = data.get('options', {})
+
+        # Builds run inside the configured repository root only.
+        try:
+            project_path = contained_path(default_repo_root(), data['projectPath'])
+        except PathEscapesRoot:
+            return jsonify({"error": "projectPath must be inside the configured repository root"}), 403
 
         if not os.path.exists(project_path):
             return jsonify({"error": "Project path not found"}), 404

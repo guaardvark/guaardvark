@@ -5,12 +5,31 @@ and precision control. One model in VRAM at a time (LRU-1).
 """
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.request import urlretrieve
 
 import torch
 
 logger = logging.getLogger("upscaling.model_manager")
+
+
+def _contained(root, *parts) -> Path:
+    """Join ``parts`` under ``root``; raise ValueError if the result leaves root.
+
+    Same contract as backend/utils/path_guard.py (sidecars do not import the
+    backend): lexical normalisation, then a prefix check that must end on a
+    path boundary.
+    """
+    root_abs = os.path.abspath(os.fspath(root))
+    candidate = os.path.abspath(os.path.join(root_abs, *(os.fspath(p) for p in parts)))
+    if candidate.startswith(root_abs) and (
+        candidate == root_abs
+        or root_abs.endswith(os.sep)
+        or candidate[len(root_abs)] == os.sep
+    ):
+        return Path(candidate)
+    raise ValueError(f"{candidate!r} is outside {root_abs!r}")
 
 MODEL_REGISTRY: List[Dict[str, Any]] = [
     {
@@ -92,7 +111,7 @@ class ModelManager:
         os.makedirs(models_dir, exist_ok=True)
 
     def _model_path(self, name: str) -> str:
-        return os.path.join(self.models_dir, f"{name}.pth")
+        return str(_contained(self.models_dir, f"{name}.pth"))
 
     def is_downloaded(self, name: str) -> bool:
         return os.path.isfile(self._model_path(name))

@@ -47,6 +47,7 @@ from backend.utils.unified_progress_system import ProcessStatus, ProcessType
 
 # Import professional file processor for high-quality CSV writing
 from backend.tools.file_processor import write_csv
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -2203,7 +2204,7 @@ Generate the CSV row now:"""
 
     def _write_enhanced_csv(self, content_rows: List[ContentRow], output_filename: str) -> Tuple[str, Dict]:
         """Write enhanced CSV with comprehensive metadata"""
-        output_path = os.path.join(self.output_dir, output_filename)
+        output_path = contained_path(self.output_dir, output_filename)
         
         # Convert ContentRow objects to dictionaries for Enfold format
         csv_data = []
@@ -2260,7 +2261,7 @@ Generate the CSV row now:"""
         thread_name = threading.current_thread().name
         logger.debug(f"generate_bulk_csv started in thread '{thread_name}' with {len(tasks)} tasks")
 
-        output_path = os.path.join(self.output_dir, output_filename)
+        output_path = contained_path(self.output_dir, output_filename)
         target_count = len(tasks)
 
         logger.debug(f"Bulk CSV output prepared (target_count={target_count})")

@@ -14,6 +14,7 @@ from flask import current_app
 
 from backend.models import Folder, Document as DBDocument, Client, Project, Website, db
 from backend.utils.unified_progress_system import get_unified_progress, ProcessType
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -198,7 +199,7 @@ class UnifiedUploadService:
             storage_path = chosen_filename
 
         # Construct full file path
-        file_path = os.path.join(upload_folder, storage_path)
+        file_path = contained_path(upload_folder, storage_path)
 
         # Create directory if needed
         Path(file_path).parent.mkdir(parents=True, exist_ok=True)

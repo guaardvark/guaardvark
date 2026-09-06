@@ -25,6 +25,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -620,7 +621,7 @@ class ServoArchive:
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"servo_archive_{timestamp}_{reason}.jsonl"
-        backup_path = self._archive_dir / backup_name
+        backup_path = contained(self._archive_dir, backup_name)
 
         with self._write_lock:
             self._archive_path.rename(backup_path)

@@ -29,6 +29,7 @@ from backend.utils.unified_progress_system import get_unified_progress, ProcessT
 from backend.utils.context_variables import context_manager
 from backend.utils.db_utils import ensure_db_session_cleanup
 from backend.utils.tracking_analyzer import TrackingAnalyzer
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 bulk_gen_bp = Blueprint("bulk_generation_api", __name__, url_prefix="/api/bulk-generate")
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def get_unique_filename(output_dir: str, filename: str) -> str:
     Generate a unique filename by adding sequence number if file already exists
     Example: filename.csv -> filename-001.csv, filename-002.csv, etc.
     """
-    base_path = os.path.join(output_dir, filename)
+    base_path = contained_path(output_dir, filename)
 
     # If file doesn't exist, return original filename
     if not os.path.exists(base_path):
@@ -51,7 +52,7 @@ def get_unique_filename(output_dir: str, filename: str) -> str:
     counter = 1
     while True:
         sequence_filename = f"{name}-{counter:03d}{ext}"
-        sequence_path = os.path.join(output_dir, sequence_filename)
+        sequence_path = contained_path(output_dir, sequence_filename)
 
         if not os.path.exists(sequence_path):
             return sequence_filename
@@ -1612,9 +1613,11 @@ def retry_failed_rows():
             return jsonify({"error": "tracking_file is required"}), 400
         
         # Validate tracking file exists
-        tracking_path = os.path.join(
-            os.path.dirname(__file__), '..', '..', 'data', 'outputs', 'tracking', tracking_file
-        )
+        tracking_dir = os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'outputs', 'tracking')
+        try:
+            tracking_path = contained_path(tracking_dir, tracking_file)
+        except PathEscapesRoot:
+            return jsonify({"error": "Invalid tracking_file"}), 400
         
         if not os.path.exists(tracking_path):
             return jsonify({"error": f"Tracking file not found: {tracking_file}"}), 404

@@ -27,6 +27,7 @@ from backend.services.guarded_code_service import (
 )
 from backend.utils.db_utils import ensure_db_session_cleanup
 from backend.utils.response_utils import success_response, error_response
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 files_bp = Blueprint("files", __name__, url_prefix="/api/files")
 logger = logging.getLogger(__name__)
@@ -106,16 +107,11 @@ def ensure_path_is_safe(path: str) -> bool:
 
     # Validate the final resolved path stays within base
     try:
-        base = get_upload_base_path()
-        final_path = os.path.normpath(os.path.join(str(base), path_for_validation))
-        base_str = str(base.resolve())
-        final_str = str(Path(final_path).resolve())
-
-        if not final_str.startswith(base_str):
-            logger.warning(f"Rejected path outside base: {path} -> {final_str} not in {base_str}")
-            return False
-
+        contained_path(get_upload_base_path(), path_for_validation)
         return True
+    except PathEscapesRoot:
+        logger.warning(f"Rejected path outside base: {path}")
+        return False
     except Exception as e:
         logger.error(f"Path validation error for {path}: {e}")
         return False
@@ -126,7 +122,7 @@ def get_physical_path(relative_path: str) -> Path:
     base = get_upload_base_path()
     if not relative_path or relative_path == "/":
         return base
-    return base / relative_path.lstrip("/")
+    return contained(base, relative_path.lstrip("/"))
 
 
 # ============================================================================
@@ -1364,7 +1360,7 @@ def get_thumbnail():
         if not ensure_path_is_safe(doc_path):
             return error_response("Invalid path", 400, "INVALID_PATH")
         base = get_upload_base_path()
-        doc_physical = base / doc_path.lstrip("/")
+        doc_physical = contained(base, doc_path.lstrip("/"))
         if not doc_physical.exists():
             return error_response("File not found", 404, "FILE_NOT_FOUND")
     else:

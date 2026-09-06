@@ -27,6 +27,7 @@ from flask import Flask, current_app, has_app_context
 from sqlalchemy import text
 
 from backend import config, models
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -829,7 +830,7 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
 
         os.makedirs(config.BACKUP_DIR, exist_ok=True)
         backup_name = _generate_backup_filename("data", name)
-        zip_path = Path(config.BACKUP_DIR) / f"{backup_name}.zip"
+        zip_path = contained(config.BACKUP_DIR, f"{backup_name}.zip")
 
         # The install root the app runs from — config.GUAARDVARK_ROOT, never
         # this file's location: a test (or a relocated install) must be able to
@@ -1052,7 +1053,7 @@ def create_full_backup(name: str | None = None) -> str:
         
         # Create backup filename with optional custom name
         backup_name = _generate_backup_filename("full", name)
-        zip_path = Path(config.BACKUP_DIR) / f"{backup_name}.zip"
+        zip_path = contained(config.BACKUP_DIR, f"{backup_name}.zip")
         
         # Extract timestamp for installation instructions
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1455,7 +1456,7 @@ def create_code_release(name: str | None = None) -> str:
         
         # Create backup filename with optional custom name
         backup_name = _generate_backup_filename("code_release", name)
-        zip_path = Path(config.BACKUP_DIR) / f"{backup_name}.zip"
+        zip_path = contained(config.BACKUP_DIR, f"{backup_name}.zip")
         
         # Extract timestamp for installation instructions
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1834,9 +1835,9 @@ To restore existing data, use a separate Guaardvark data backup.
 
 
 def _safe_extract(zf: ZipFile, member: str, dest_root: Path) -> Path | None:
-    dest = dest_root / member
-    dest = dest.resolve()
-    if not str(dest).startswith(str(dest_root.resolve())):
+    try:
+        dest = contained(dest_root, member)
+    except PathEscapesRoot:
         logger.warning("Skipping suspicious path %s", member)
         return None
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -2191,8 +2192,9 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
                 temp_file = _safe_extract(zf, member, tmp_path)
                 if temp_file:
                     # Determine the final destination, ensuring it stays under project_root
-                    dest_path = (project_root / member).resolve()
-                    if not str(dest_path).startswith(str(project_root.resolve())):
+                    try:
+                        dest_path = contained(project_root, member)
+                    except PathEscapesRoot:
                         logger.warning("Skipping suspicious restore path: %s", member)
                         continue
                     dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2301,7 +2303,10 @@ def list_backups() -> list:
 
 def delete_backup(filename: str) -> bool:
     """Delete a backup file."""
-    path = os.path.join(config.BACKUP_DIR, filename)
+    try:
+        path = contained_path(config.BACKUP_DIR, filename)
+    except PathEscapesRoot:
+        return False
     if os.path.exists(path):
         os.remove(path)
         return True

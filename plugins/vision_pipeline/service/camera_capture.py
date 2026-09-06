@@ -75,7 +75,7 @@ class CameraCapture:
             if not cap.isOpened():
                 cap.release()
                 # Try to distinguish the error
-                dev_path = f"/dev/video{device_index}"
+                dev_path = f"/dev/video{int(device_index)}"
                 if not os.path.exists(dev_path):
                     raise CameraNotFoundError(
                         f"No camera device found at index {device_index} ({dev_path} does not exist)"

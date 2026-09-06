@@ -22,8 +22,9 @@ import uuid
 from pathlib import Path
 
 import requests
-from flask import Blueprint, request as flask_request, current_app, send_file
+from flask import Blueprint, request as flask_request, current_app, jsonify, send_file
 from werkzeug.utils import secure_filename
+from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +46,17 @@ def _voice_ref_dir() -> Path:
     return target
 
 
+def _safe_ref_path(p) -> Path:
+    """``p`` as a Path inside the voice_references directory, or raise PathEscapesRoot."""
+    return contained(_voice_ref_dir(), p)
+
+
 def _is_safe_ref_path(p: Path) -> bool:
     """Reject anything that would escape the voice_references directory."""
     try:
-        p.resolve().relative_to(_voice_ref_dir().resolve())
+        _safe_ref_path(p)
         return True
-    except (ValueError, OSError):
+    except PathEscapesRoot:
         return False
 
 audio_foundry_bp = Blueprint("audio_foundry", __name__, url_prefix="/api/audio-foundry")
@@ -63,36 +69,36 @@ GENERATION_TIMEOUT = 600  # /generate/* — songs up to 4 minutes plus model loa
 def _proxy_get(path: str, timeout: int = QUICK_TIMEOUT):
     try:
         resp = requests.get(f"{AUDIO_FOUNDRY_URL}{path}", timeout=timeout)
-        return resp.json(), resp.status_code
+        return jsonify(resp.json()), resp.status_code
     except requests.ConnectionError:
-        return {"error": "Audio Foundry service not running"}, 503
+        return jsonify({"error": "Audio Foundry service not running"}), 503
     except Exception as e:
         logger.exception("Audio Foundry GET %s failed", path)
-        return {"error": str(e)}, 500
+        return jsonify({"error": str(e)}), 500
 
 
 def _proxy_post(path: str, json_data: dict, timeout: int):
     try:
         resp = requests.post(f"{AUDIO_FOUNDRY_URL}{path}", json=json_data, timeout=timeout)
-        return resp.json(), resp.status_code
+        return jsonify(resp.json()), resp.status_code
     except requests.ConnectionError:
-        return {"error": "Audio Foundry service not running"}, 503
+        return jsonify({"error": "Audio Foundry service not running"}), 503
     except requests.Timeout:
-        return {"error": f"Audio Foundry request timed out after {timeout}s"}, 504
+        return jsonify({"error": f"Audio Foundry request timed out after {timeout}s"}), 504
     except Exception as e:
         logger.exception("Audio Foundry POST %s failed", path)
-        return {"error": str(e)}, 500
+        return jsonify({"error": str(e)}), 500
 
 
 def _proxy_delete(path: str, timeout: int = QUICK_TIMEOUT):
     try:
         resp = requests.delete(f"{AUDIO_FOUNDRY_URL}{path}", timeout=timeout)
-        return resp.json(), resp.status_code
+        return jsonify(resp.json()), resp.status_code
     except requests.ConnectionError:
-        return {"error": "Audio Foundry service not running"}, 503
+        return jsonify({"error": "Audio Foundry service not running"}), 503
     except Exception as e:
         logger.exception("Audio Foundry DELETE %s failed", path)
-        return {"error": str(e)}, 500
+        return jsonify({"error": str(e)}), 500
 
 
 @audio_foundry_bp.route("/health", methods=["GET"])
@@ -127,9 +133,12 @@ def generate_voice():
         # Consent enforcement (voice specialist audit): reference must have been
         # uploaded via /voice-clips/upload (which creates .consent sidecar) and
         # be safe. This blocks arbitrary FS paths for cloning without consent.
-        p = Path(ref)
+        try:
+            p = _safe_ref_path(ref)
+        except PathEscapesRoot:
+            return {"error": "Invalid or unconsented reference_clip_path (upload via UI for consent)"}, 403
         consent = p.with_name(p.name + ".consent")
-        if not p.exists() or not consent.exists() or not _is_safe_ref_path(p):
+        if not p.exists() or not consent.exists():
             return {"error": "Invalid or unconsented reference_clip_path (upload via UI for consent)"}, 403
     body, status_code = _proxy_post(
         "/generate/voice",
@@ -328,7 +337,7 @@ def list_voice_clips():
         return {"clips": clips}, 200
     except Exception as e:
         logger.exception("voice clip list failed")
-        return {"error": str(e)}, 500
+        return jsonify({"error": str(e)}), 500
 
 
 @audio_foundry_bp.route("/voice-clips/upload", methods=["POST"])
@@ -386,7 +395,7 @@ def upload_voice_clip():
     except Exception as e:
         target.unlink(missing_ok=True)
         logger.exception("voice clip upload failed")
-        return {"error": str(e)}, 500
+        return jsonify({"error": str(e)}), 500
 
     # Consent sidecar for enforcement (per voice team audit): generate/voice with
     # reference_clip_path will require the sibling .consent to exist (created only
