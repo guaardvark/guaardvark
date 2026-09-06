@@ -288,6 +288,22 @@ def create_celery_app():
 
     celery_app.Task = ContextTask
 
+    # A task that raises must not leave its progress entry parked at 0 %: mark it
+    # errored with the exception text so the UI shows a failure, not a stall.
+    try:
+        from celery.signals import task_failure
+
+        @task_failure.connect
+        def _surface_task_failure(sender=None, task_id=None, exception=None, kwargs=None, **_ignored):
+            try:
+                from backend.utils.progress_failure import mark_progress_failed
+
+                mark_progress_failed(task_id, exception, kwargs)
+            except Exception:  # noqa: BLE001 - never fail a failing task twice
+                pass
+    except Exception:  # noqa: BLE001
+        pass
+
     # Flush the runtime-liveness buffer when a worker child recycles
     # (max_tasks_per_child=50) or the worker shuts down, so a recycling child
     # doesn't drop its buffered hits. Solo/concurrency=1 means count-based

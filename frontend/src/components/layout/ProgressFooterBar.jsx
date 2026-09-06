@@ -42,6 +42,7 @@ const ProgressFooterBar = () => {
     const [progress, setProgress] = useState(0);
     const [statusText, setStatusText] = useState('Idle');
     const [itemCount, setItemCount] = useState(null); // e.g., "3 of 10"
+    const [failed, setFailed] = useState(false); // last transition ended in an error
 
     // Refs for tracking
     const lastProcessIdRef = useRef(null);
@@ -67,6 +68,7 @@ const ProgressFooterBar = () => {
         if (hasActive) {
             lastActiveRef.current = true;
             setVisible(true);
+            setFailed(false);
 
             // Get all non-terminal processes sorted by priority then recency
             const processes = Array.from(activeProcesses.values()).filter(
@@ -130,12 +132,23 @@ const ProgressFooterBar = () => {
             // Show completion state briefly, then hide with a grace period
             lastActiveRef.current = false;
 
-            // Check if there are completed processes to show final state
+            // A failure outranks a completion: the reason has to be seen, not a 0 % bar.
+            const erroredProcess = Array.from(activeProcesses.values())
+                .filter(p => p && p.status === 'error')
+                .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
             const completedProcess = Array.from(activeProcesses.values()).find(
                 p => p && (p.status === 'complete' || p.status === 'end')
             );
 
-            if (completedProcess) {
+            let grace = 3000;
+            if (erroredProcess) {
+                setProgress(0);
+                setFailed(true);
+                const typeKey = erroredProcess.processType || erroredProcess.process_type || 'processing';
+                const label = PROCESS_TYPE_LABELS[typeKey] || typeKey;
+                setStatusText(`${label}: Failed — ${erroredProcess.message || 'no reason given'}`);
+                grace = 15000;
+            } else if (completedProcess) {
                 setProgress(100);
                 const typeKey = completedProcess.processType || completedProcess.process_type || 'processing';
                 const label = PROCESS_TYPE_LABELS[typeKey] || typeKey;
@@ -154,10 +167,11 @@ const ProgressFooterBar = () => {
                     setProgress(0);
                     setStatusText('Idle');
                     setItemCount(null);
+                    setFailed(false);
                     lastProcessIdRef.current = null;
                 }
                 hideTimerRef.current = null;
-            }, 3000);
+            }, grace);
 
         } else if (!visible) {
             // Fully idle state — nothing to do
@@ -206,7 +220,7 @@ const ProgressFooterBar = () => {
                 }}
             >
                 <LinearProgress
-                    color="info"
+                    color={failed ? "error" : "info"}
                     variant="determinate"
                     value={progress}
                     sx={{
@@ -222,7 +236,7 @@ const ProgressFooterBar = () => {
                     <Typography
                         variant="caption"
                         sx={{
-                            color: 'info.main',
+                            color: failed ? 'error.main' : 'info.main',
                             fontSize: '0.65rem',
                             fontWeight: 500,
                             mr: 1,
@@ -236,7 +250,7 @@ const ProgressFooterBar = () => {
                     <Typography
                         variant="caption"
                         sx={{
-                            color: 'info.main',
+                            color: failed ? 'error.main' : 'info.main',
                             fontSize: '0.65rem',
                             fontWeight: 500,
                             mr: 1,
@@ -250,7 +264,7 @@ const ProgressFooterBar = () => {
                 <Typography
                     variant="caption"
                     sx={{
-                        color: 'text.secondary',
+                        color: failed ? 'error.main' : 'text.secondary',
                         whiteSpace: 'nowrap',
                         fontSize: '0.7rem',
                         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
