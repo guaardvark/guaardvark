@@ -31,6 +31,6 @@ def test_pure_t2v_models_hand_off_to_their_sibling():
     assert BatchVideoGenerator._to_i2v_model("hunyuan-t2v") == "hunyuan-i2v"
 
 
-def test_unknown_model_falls_back_to_wan_14b_i2v():
-    assert BatchVideoGenerator._to_i2v_model("") == "wan22-14b-i2v"
-    assert BatchVideoGenerator._to_i2v_model("not-a-model") == "wan22-14b-i2v"
+def test_unknown_model_falls_back_to_default_i2v():
+    assert BatchVideoGenerator._to_i2v_model("") == vmr.DEFAULT_I2V_MODEL
+    assert BatchVideoGenerator._to_i2v_model("not-a-model") == vmr.DEFAULT_I2V_MODEL

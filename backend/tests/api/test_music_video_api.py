@@ -31,6 +31,14 @@ def client(app):
 def _no_dispatch(monkeypatch):
     # Never actually enqueue Celery work in API tests.
     monkeypatch.setattr(MusicVideoService, "dispatch_agent", lambda self, mv_id, agent: None)
+    monkeypatch.setattr(
+        "backend.services.video_model_registry.resolve_active_video_model",
+        lambda role, explicit=None, surface=None: (explicit or "wan22-5b", None),
+    )
+    monkeypatch.setattr(
+        "backend.api.music_video_api.get_video_generator",
+        lambda: type("VG", (), {"service_available": True})(),
+    )
 
 
 def _song_doc(tmp_path):
@@ -52,6 +60,23 @@ def test_create_rejects_missing_song_document(client):
         "name": "x", "style_prompt": "deep blue", "song_document_id": 9999,
     })
     assert resp.status_code == 400
+
+
+def test_create_rejects_unknown_i2v_model(client, app, tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "backend.services.video_model_registry.resolve_active_video_model",
+        lambda *a, **k: (None, "Unknown video model 'nope'"),
+    )
+    with app.app_context():
+        doc = _song_doc(tmp_path)
+        resp = client.post("/api/music-video", json={
+            "name": "x",
+            "style_prompt": "deep blue",
+            "song_document_id": doc.id,
+            "settings": {"i2v_model": "nope"},
+        })
+    assert resp.status_code == 400
+    assert "Unknown" in (resp.get_json() or {}).get("error", "")
 
 
 def test_create_advances_to_analyzing(client, app, tmp_path):

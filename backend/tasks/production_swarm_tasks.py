@@ -526,30 +526,38 @@ def run_editor(prod_id: int, i2v=None, audio_foundry=None, ffmpeg=None):
         # declares audio_out renders each scene as one window with its own
         # soundtrack instead of per-shot silent clips plus TTS.
         settings = dict(getattr(ctx.production, "settings_json", None) or {})
-        video_model = str(settings.get("video_model") or "").strip()
+        video_model = str(settings.get("video_model") or "").strip() or None
         scene_renderer = None
         vram_estimate_mb = 14000
-        if video_model:
-            from backend.services.video_model_registry import model_capabilities, vram_mb_for_model
-            caps = model_capabilities(video_model)
-            vram_estimate_mb = vram_mb_for_model(video_model, default=14000)
-            if caps.get("audio_out") and (caps.get("supports_i2v") or "ref2v" in caps.get("modes", [])):
-                from backend.services.comfyui_video_generator import MiniMaxH3SceneGenerator
-                scene_renderer = MiniMaxH3SceneGenerator(model=video_model)
+        from backend.services.video_model_registry import (
+            resolve_active_video_model, model_capabilities, vram_mb_for_model,
+        )
+        resolved, resolve_err = resolve_active_video_model(
+            "i2v", video_model, surface="film-crew",
+        )
+        if resolve_err:
+            ctx.fail(resolve_err)
+            return
+        caps = model_capabilities(resolved)
+        vram_estimate_mb = vram_mb_for_model(resolved, default=14000)
+        if caps.get("audio_out") and (caps.get("supports_i2v") or "ref2v" in caps.get("modes", [])):
+            from backend.services.comfyui_video_generator import MiniMaxH3SceneGenerator
+            scene_renderer = MiniMaxH3SceneGenerator(model=resolved)
 
         if i2v is None:
             # Animate each LoRA-consistent storyboard frame into a clip. Identity
-            # rides in the frame either way. Default = Wan 2.2 (chosen over the
-            # CogVideoX output); GUAARDVARK_FILM_I2V=cogvideox reverts
-            # to the CogVideoX-backed adapter. Wan additionally re-applies the LoRA
-            # + prompt to steady identity through motion.
-            engine = os.environ.get("GUAARDVARK_FILM_I2V", "wan").strip().lower()
+            # rides in the frame either way. GUAARDVARK_FILM_I2V=cogvideox reverts
+            # to the CogVideoX-backed adapter. Otherwise the resolved registry id.
+            engine = os.environ.get("GUAARDVARK_FILM_I2V", "").strip().lower()
             if engine in ("cogvideox", "cog", "svd"):
                 from backend.services.comfyui_video_generator import SvdI2VGenerator
                 i2v = SvdI2VGenerator()
             else:
                 from backend.services.comfyui_video_generator import Wan22I2VGenerator
-                i2v = Wan22I2VGenerator()
+                i2v = Wan22I2VGenerator(
+                    model=resolved,
+                    fps=int(caps.get("native_fps") or 24),
+                )
 
         # Real service clients with graceful degradation: ffmpeg always present
         # (system binary), audio only when the plugin is up, timeline compose

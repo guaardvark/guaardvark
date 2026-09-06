@@ -212,6 +212,10 @@ VIDEO_MODEL_REGISTRY = {
         "vram_mb": 16000,
         "type": "cogvideox",
         "dimension_alignment": 16,
+        "native_fps": 8,
+        "max_frames": 49,
+        "min_steps": 50,
+        "default_steps": 50,
     },
     "cogvideox-5b-i2v": {
         "name": "CogVideoX 1.5 5B I2V (BF16)",
@@ -242,6 +246,10 @@ VIDEO_MODEL_REGISTRY = {
         "vram_mb": 16000,
         "type": "cogvideox",
         "dimension_alignment": 16,
+        "native_fps": 8,
+        "max_frames": 49,
+        "min_steps": 50,
+        "default_steps": 50,
     },
     "cogvideox-vae": {
         "name": "CogVideoX VAE (BF16)",
@@ -293,6 +301,8 @@ VIDEO_MODEL_REGISTRY = {
         # records the observation) now lives here so API and tool callers get it.
         "min_steps": 20,
         "default_steps": 25,
+        "native_fps": 16,
+        "max_frames": 81,
         "speed_profiles": WAN14B_SPEED_PROFILES["t2v"],
     },
     "wan22-14b-i2v": {
@@ -325,6 +335,8 @@ VIDEO_MODEL_REGISTRY = {
         "aspect_ratios": ["16:9", "9:16", "1:1"],
         "min_steps": 20,
         "default_steps": 25,
+        "native_fps": 16,
+        "max_frames": 81,
         "speed_profiles": WAN14B_SPEED_PROFILES["i2v"],
     },
     "wan22-5b": {
@@ -355,6 +367,8 @@ VIDEO_MODEL_REGISTRY = {
         "aspect_ratios": ["16:9", "9:16", "1:1"],
         "min_steps": 20,
         "default_steps": 20,
+        "native_fps": 24,
+        "max_frames": 121,
     },
     "wan-vae": {
         "name": "Wan 2.1/2.2 VAE",
@@ -570,6 +584,10 @@ VIDEO_MODEL_REGISTRY = {
         "audio_out": False,
         "type": "ltx",
         "dimension_alignment": 32,
+        "native_fps": 16,
+        "max_frames": 161,
+        "default_steps": 8,
+        "min_steps": 8,
     },
     "ltx-gemma-fp4": {
         "name": "Gemma 3 12B IT (FP4) — LTX text encoder",
@@ -686,6 +704,10 @@ VIDEO_MODEL_REGISTRY = {
         "audio_out": False,
         "type": "ltx",
         "dimension_alignment": 32,
+        "native_fps": 16,
+        "max_frames": 161,
+        "default_steps": 8,
+        "min_steps": 8,
     },
     "ltx25-gemma4-int8": {
         "name": "Gemma 4 12B + proj (Int8) — LTX-2.5 text encoder",
@@ -778,6 +800,10 @@ VIDEO_MODEL_REGISTRY = {
         "type": "hunyuan",
         "dimension_alignment": 16,
         "max_pixel_area": 1_000_000,
+        "native_fps": 24,
+        "max_frames": 129,
+        "default_steps": 20,
+        "min_steps": 20,
     },
     "hunyuan-i2v": {
         "name": "HunyuanVideo 13B I2V (GGUF Q5_K_M)",
@@ -795,6 +821,10 @@ VIDEO_MODEL_REGISTRY = {
         "type": "hunyuan",
         "dimension_alignment": 16,
         "max_pixel_area": 1_000_000,
+        "native_fps": 24,
+        "max_frames": 129,
+        "default_steps": 20,
+        "min_steps": 20,
     },
     "hunyuan-llava-te": {
         "name": "LLaVA-Llama-3 8B Text Encoder (FP8) — HunyuanVideo",
@@ -1492,7 +1522,7 @@ def supports_first_frame_i2v(model_id: str) -> bool:
     return False
 
 
-def i2v_model_for(model_id: str, default: str = "wan22-14b-i2v") -> str:
+def i2v_model_for(model_id: str, default: str | None = None) -> str:
     """The model that animates a keyframe for `model_id`: the model itself
     when it takes a first frame, else its same-family I2V sibling
     (wan22-14b → wan22-14b-i2v, hunyuan-t2v → hunyuan-i2v, cogvideox-5b →
@@ -1518,7 +1548,7 @@ def i2v_model_for(model_id: str, default: str = "wan22-14b-i2v") -> str:
         ]
         if siblings:
             return max(siblings)[1]
-    return default
+    return default if default is not None else DEFAULT_I2V_MODEL
 
 
 # ── Family specs and extension hooks ─────────────────────────────────────────
@@ -1626,7 +1656,173 @@ def model_capabilities(model_id: str) -> dict:
     }
     caps["supports_t2v"] = "t2v" in caps["modes"]
     caps["supports_i2v"] = "i2v" in caps["modes"] or "flf2v" in caps["modes"]
+    spec = family_spec(entry.get("type"))
+    if caps["dimension_alignment"] is None:
+        caps["dimension_alignment"] = spec.get("dimension_alignment")
+    if caps["max_pixel_area"] is None:
+        caps["max_pixel_area"] = spec.get("max_pixel_area")
+    if not caps["frame_rule"]:
+        caps["frame_rule"] = spec.get("frame_rule")
     return caps
+
+
+_VRAM_FIT_MARGIN_MB = 1024
+_SURFACE_SETTING = {
+    "music-video": "active_video_model_music_video",
+    "film-crew": "active_video_model_film_crew",
+}
+
+
+def _role_ok(model_id: str, role: str) -> bool:
+    caps = model_capabilities(model_id)
+    if not caps:
+        return False
+    if role == "t2v":
+        return bool(caps.get("supports_t2v"))
+    if role == "i2v":
+        return bool(caps.get("supports_i2v"))
+    if role == "scene":
+        modes = caps.get("modes") or []
+        return bool(caps.get("audio_out") and (caps.get("supports_i2v") or "ref2v" in modes))
+    return False
+
+
+def _fits_card(model_id: str, total_vram_mb) -> bool:
+    if not total_vram_mb:
+        return True
+    return vram_mb_for_model(model_id) + _VRAM_FIT_MARGIN_MB <= float(total_vram_mb)
+
+
+def _video_setting(key: str) -> str:
+    try:
+        from backend.utils.settings_utils import get_setting
+        return (get_setting(key, default="") or "").strip()
+    except Exception:
+        return ""
+
+
+def _probe_total_vram_mb():
+    try:
+        from backend.services.gpu_resource_coordinator import get_available_vram
+        return (get_available_vram() or {}).get("total_mb") or 0
+    except Exception:
+        return 0
+
+
+def _accept_or_refuse(model_id: str, role: str) -> tuple:
+    ready, err = preflight_video_model(model_id)
+    if not ready:
+        return None, err
+    if not _role_ok(model_id, role):
+        name = (VIDEO_MODEL_REGISTRY.get(model_id) or {}).get("name") or model_id
+        return None, f"{name} cannot serve {role} generation."
+    return model_id, None
+
+
+def _hardware_fallback(role: str, total_vram_mb) -> str | None:
+    preferred = DEFAULT_I2V_MODEL if role == "i2v" else DEFAULT_T2V_MODEL
+    if role == "scene":
+        preferred = None
+    candidates = []
+    for mid, entry in VIDEO_MODEL_REGISTRY.items():
+        if entry.get("type") not in GENERATION_TYPES:
+            continue
+        if not _role_ok(mid, role):
+            continue
+        if not is_model_installed(mid):
+            continue
+        if not _fits_card(mid, total_vram_mb):
+            continue
+        candidates.append(mid)
+    if not candidates:
+        return None
+    if preferred in candidates:
+        return preferred
+    return candidates[0]
+
+
+def resolve_active_video_model(
+    role: str,
+    explicit: str | None = None,
+    *,
+    surface: str | None = None,
+) -> tuple:
+    """Pick the video model for this job.
+
+    Priority: explicit request → per-pipeline override → global active
+    setting → first installed model that fits the card. A typed id that
+    cannot run is refused in one sentence; families are never swapped
+    silently. Returns ``(model_id, None)`` or ``(None, message)``.
+    """
+    if role not in ("t2v", "i2v", "scene"):
+        return None, f"Unknown video role '{role}'."
+    explicit = (explicit or "").strip() or None
+    if explicit:
+        return _accept_or_refuse(explicit, role)
+
+    if surface:
+        key = _SURFACE_SETTING.get(surface)
+        if key:
+            override = _video_setting(key)
+            if override:
+                return _accept_or_refuse(override, role)
+
+    if role == "i2v":
+        i2v_override = _video_setting("active_video_model_i2v")
+        if i2v_override:
+            return _accept_or_refuse(i2v_override, "i2v")
+        global_id = _video_setting("active_video_model")
+        if global_id:
+            if _role_ok(global_id, "i2v"):
+                return _accept_or_refuse(global_id, "i2v")
+            sibling = i2v_model_for(global_id, default="")
+            if sibling:
+                return _accept_or_refuse(sibling, "i2v")
+    else:
+        global_id = _video_setting("active_video_model")
+        if global_id:
+            if _role_ok(global_id, role):
+                return _accept_or_refuse(global_id, role)
+            if role == "scene":
+                sibling = i2v_model_for(global_id, default="")
+                if sibling and _role_ok(sibling, "scene"):
+                    return _accept_or_refuse(sibling, "scene")
+
+    fallback = _hardware_fallback(role, _probe_total_vram_mb())
+    if fallback:
+        return fallback, None
+    return None, "No installed video model is ready for this card."
+
+
+def clip_defaults_for(model_id: str, total_vram_mb=None) -> dict:
+    """Native fps/frames/steps/canvas for a model when the caller omitted them."""
+    caps = model_capabilities(model_id)
+    tiers = tier_defaults_for(model_id, total_vram_mb)
+    fps = int(caps.get("native_fps") or 24)
+    max_frames = int(caps.get("max_frames") or 121)
+    frames = int(tiers.get("frames") or min(49, max_frames))
+    frames = max(1, min(frames, max_frames))
+    steps = int(tiers.get("steps") or caps.get("default_steps") or 20)
+    floor = int(caps.get("min_steps") or 0)
+    if floor:
+        steps = max(steps, floor)
+    width = tiers.get("width")
+    height = tiers.get("height")
+    if not width or not height:
+        area = int(caps.get("max_pixel_area") or 512 * 512)
+        align = int(caps.get("dimension_alignment") or 16) or 16
+        # 16:9 inside the pixel budget, snapped to alignment.
+        h = int((area * 9 / 16) ** 0.5)
+        w = int(h * 16 / 9)
+        width = max(align, (w // align) * align)
+        height = max(align, (h // align) * align)
+    return {
+        "fps": fps,
+        "duration_frames": frames,
+        "num_inference_steps": steps,
+        "width": int(width),
+        "height": int(height),
+    }
 
 
 def speed_profile_for(model_id: str, profile: str | None) -> dict | None:

@@ -168,6 +168,65 @@ def set_chat_image_model_route():
     return success_response({"model": model})
 
 
+@settings_bp.route("/active_video_model", methods=["GET"])
+def get_active_video_model_route():
+    """Persisted video-model default plus the resolved t2v/i2v/scene ids."""
+    from backend.utils.settings_utils import get_active_video_model, get_active_video_model_overrides
+    from backend.services.video_model_registry import resolve_active_video_model
+
+    overrides = get_active_video_model_overrides()
+    resolved = {}
+    for role in ("t2v", "i2v", "scene"):
+        mid, err = resolve_active_video_model(role)
+        resolved[role] = {"model": mid, "error": err}
+    return success_response({
+        "model": get_active_video_model(),
+        "i2v": overrides["i2v"],
+        "music_video": overrides["music_video"],
+        "film_crew": overrides["film_crew"],
+        "resolved": resolved,
+    })
+
+
+@settings_bp.route("/active_video_model", methods=["POST"])
+def set_active_video_model_route():
+    """Set the global video model and optional per-pipeline overrides.
+
+    Empty string clears a field (inherit / hardware fallback). An id that is
+    unknown or not installed is refused.
+    """
+    if not request.is_json:
+        return error_response("Request must be JSON")
+    data = request.get_json() or {}
+    from backend.utils.settings_utils import save_setting
+    from backend.services.video_model_registry import preflight_video_model, VIDEO_MODEL_REGISTRY
+
+    mapping = {
+        "model": "active_video_model",
+        "i2v": "active_video_model_i2v",
+        "music_video": "active_video_model_music_video",
+        "film_crew": "active_video_model_film_crew",
+    }
+    saved = {}
+    for field, key in mapping.items():
+        if field not in data:
+            continue
+        value = (data.get(field) or "").strip()
+        if value:
+            if value not in VIDEO_MODEL_REGISTRY:
+                return error_response(f"Unknown video model '{value}'", 400)
+            ready, err = preflight_video_model(value)
+            if not ready:
+                return error_response(err or f"{value} is not installed", 400)
+        try:
+            save_setting(key, value)
+        except Exception as e:
+            current_app.logger.error(f"Failed to update {key}: {e}")
+            return error_response("Failed to update setting", status_code=500)
+        saved[field] = value
+    return success_response(saved)
+
+
 @settings_bp.route("/media_models", methods=["GET"])
 def get_media_models():
     """Stills / cast-train / max-quality model registry + current selections.

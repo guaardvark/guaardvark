@@ -46,6 +46,16 @@ def _fresh_gpu_gate(monkeypatch):
             need_mb=int(estimate_mb) + int(margin_mb), headroom=True,
         ),
     )
+    monkeypatch.setattr(grp, "_load_admit_or_busy", lambda *a, **k: None)
+    monkeypatch.setattr(grp, "_acquire_cross_process_lease", lambda *a, **k: False)
+    monkeypatch.setattr(
+        "backend.services.video_model_registry.resolve_active_video_model",
+        lambda role, explicit=None, surface=None: (explicit or "wan22-5b", None),
+    )
+    monkeypatch.setattr(
+        "backend.services.video_model_registry.preflight_video_model",
+        lambda m: (True, ""),
+    )
     return fresh
 
 
@@ -636,6 +646,37 @@ def test_run_editor_uses_a_scene_renderer_for_a_native_audio_model(app, producti
     assert shots_arg[0].character_name == "Mara"
     assert shots_arg[0].ref_image_paths == ["/refs/mara_1.png", "/refs/mara_2.png"]
     assert shots_arg[0].character_description == "a woman in a grey coat"
+
+
+def test_run_editor_honours_a_silent_i2v_model(app, production, monkeypatch):
+    production.current_stage = "rendering"
+    production.settings_json = {"video_model": "wan22-5b"}
+    shot = ProductionShot(
+        production_id=production.id, scene_number=1, shot_number=1,
+        description="Wide", storyboard_image_path="/tmp/i.png", approved=True,
+    )
+    db.session.add(shot)
+    db.session.commit()
+    captured = {}
+
+    class _I2V:
+        def __init__(self, model="wan22-5b", fps=None):
+            captured["model"] = model
+            captured["fps"] = fps
+
+    monkeypatch.setattr(
+        "backend.services.comfyui_video_generator.Wan22I2VGenerator", _I2V,
+    )
+    with patch("backend.tasks.production_swarm_tasks.Editor") as MockEditor:
+        from backend.services.swarm.agents.editor import RenderResult
+        MockEditor.return_value.render.return_value = RenderResult(
+            final_mp4_path="/tmp/final.mp4", mlt_path=None,
+            clip_paths=["/tmp/shot_1.mp4"], voiceover_paths=[None], music_path=None,
+        )
+        run_editor(production.id, i2v=None, audio_foundry=MagicMock(), ffmpeg=MagicMock())
+        assert MockEditor.call_args.kwargs["scene_renderer"] is None
+    assert captured.get("model") == "wan22-5b"
+    assert captured.get("fps") == 24
 
 
 def test_run_editor_without_a_video_model_has_no_scene_renderer(app, production):

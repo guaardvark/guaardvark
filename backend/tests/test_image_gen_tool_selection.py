@@ -232,3 +232,13 @@ class TestCommandOnlyMode:
     def test_defaults_off_so_existing_behaviour_is_unchanged(self):
         from backend.services.unified_chat_engine import _media_requires_explicit_command
         assert _media_requires_explicit_command() is False
+
+    def test_video_chrome_strips_slash_and_nl(self):
+        from backend.services.unified_chat_engine import _VIDEO_CHROME_RE
+        assert _VIDEO_CHROME_RE.sub("", "/video a red cube").strip() == "a red cube"
+        assert _VIDEO_CHROME_RE.sub("", "generate a video of a red cube").strip() == "a red cube"
+
+    def test_gpu_heavy_tools_includes_generate_video(self):
+        from backend.services.unified_chat_engine import GPU_HEAVY_TOOLS
+        assert "generate_video" in GPU_HEAVY_TOOLS
+        assert "generate_image" in GPU_HEAVY_TOOLS

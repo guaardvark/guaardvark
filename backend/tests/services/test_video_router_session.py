@@ -44,3 +44,11 @@ def test_router_wraps_generation_in_a_budgeted_session(monkeypatch):
     assert calls["kw"]["on_busy"] == "register"  # a held gate degrades, never refuses the clip
     assert calls["kw"]["vram_estimate_mb"] == 11000
     assert calls["exited"] is True
+
+
+def test_batch_item_workers_adopt_the_outer_session():
+    import inspect
+    from backend.services import batch_video_generator as bvg
+    src = inspect.getsource(bvg.BatchVideoGenerator)
+    assert "adopt_gpu_session" in src
+    assert "_process_item_adopted" in src

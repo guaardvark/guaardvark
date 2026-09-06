@@ -20,6 +20,7 @@ export async function executeBuiltinCommand(name, args, context) {
     "/model": handleModel,
     "/imagemodel": handleImageModel,
     "/imagine": handleImagine,
+    "/video": handleVideo,
     "/websearch": handleWebSearch,
     "/gpu": handleGpu,
     "/logs": handleLogs,
@@ -301,6 +302,22 @@ async function handleImagine(args, { addMessage, onSendMessage }) {
     slash_command: "imagine",
     slash_args: args,
     image_model: model,
+  });
+
+  return { handled: true };
+}
+
+async function handleVideo(args, { addMessage, onSendMessage }) {
+  if (!args) {
+    addMessage({ role: "system", content: "Usage: `/video <prompt>`", tempId: `vid-${Date.now()}`, type: "command" });
+    return { handled: true };
+  }
+
+  onSendMessage(`/video ${args}`, null, {
+    direct_tool: "generate_video",
+    direct_tool_params: { prompt: args },
+    slash_command: "video",
+    slash_args: args,
   });
 
   return { handled: true };

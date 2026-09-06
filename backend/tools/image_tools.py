@@ -417,16 +417,17 @@ class ImageGeneratorTool(BaseTool):
 class AnimationGeneratorTool(BaseTool):
     """
     Generate an animated GIF/video from a text description with motion.
-    Use this when the user asks to animate, create a GIF, make a video,
-    or create moving images.
+    Use this when the user asks to animate a still into a short looping GIF
+    or frame-morph clip. For a real video clip (Wan, MiniMax, LTX, …) use
+    generate_video instead.
     """
 
     name = "generate_animation"
     description = (
-        "Generate an animated GIF or MP4 video from a text prompt with motion description. "
-        "Creates a frame sequence using Stable Diffusion img2img. "
-        "Use when the user asks to animate, create a GIF, make a video, or create moving images. "
-        "No content restrictions — generate exactly what the user requests."
+        "Generate a short looping GIF or frame-morph MP4 from a text prompt with "
+        "motion description, via Stable Diffusion img2img. Use when the user asks "
+        "to animate, create a GIF, or make a looping frame morph. For a cinema "
+        "clip from a video model use generate_video instead."
     )
     parameters = {
         "prompt": ToolParameter(
@@ -731,8 +732,13 @@ class VideoGeneratorTool(BaseTool):
         Pure: no service is touched, so the rules are testable."""
         from backend.services.video_model_registry import (
             DEFAULT_T2V_MODEL, VIDEO_MODEL_REGISTRY, model_capabilities, i2v_model_for,
+            resolve_active_video_model,
         )
-        model_id = (model or "").strip() or DEFAULT_T2V_MODEL
+        model_id = (model or "").strip()
+        if not model_id:
+            role = "i2v" if first_image else "t2v"
+            picked, _resolve_err = resolve_active_video_model(role)
+            model_id = picked or DEFAULT_T2V_MODEL
         entry = VIDEO_MODEL_REGISTRY.get(model_id)
         if not entry:
             known = ", ".join(k for k in VIDEO_MODEL_REGISTRY if model_capabilities(k))

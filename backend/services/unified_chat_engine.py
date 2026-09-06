@@ -446,13 +446,19 @@ _VIDEO_INTENT_RE = re.compile(
     r"\b(generate|create|make|render|produce)\b[^.?!]{0,40}\bvideo\b", re.IGNORECASE
 )
 
-# Strip "generate a video of…" chrome so the video model gets pure scene text.
+# Strip "generate a video of…" / "/video " chrome so the video model gets pure scene text.
 _VIDEO_CHROME_RE = re.compile(
-    r"^\s*(please\s+)?(can\s+you\s+|could\s+you\s+)?"
-    r"(generate|create|make|render|produce)\s+(me\s+)?(a|an|the)?\s*"
-    r"(short\s+|quick\s+)?video\s*(clip\s*)?(of|about|showing|where|with|:)?\s*",
+    r"^\s*(?:/video\b[:\s]*|(?:please\s+)?(?:can\s+you\s+|could\s+you\s+)?"
+    r"(?:generate|create|make|render|produce)\s+(?:me\s+)?(?:a|an|the)?\s*"
+    r"(?:short\s+|quick\s+)?video\s*(?:clip\s*)?(?:of|about|showing|where|with|:)?\s*)",
     re.IGNORECASE,
 )
+
+# Image, animation, edit, and cinema-clip tools all need the resident chat
+# model off the card before they run.
+GPU_HEAVY_TOOLS = frozenset({
+    "generate_image", "generate_animation", "edit_image", "generate_video",
+})
 
 
 def user_wants_video_generation(message: str) -> bool:
@@ -2172,7 +2178,6 @@ class UnifiedChatEngine:
             # Image/video generation needs ~3.5GB+ VRAM. The Ollama LLM stays
             # resident for its default 5-min keep_alive, competing for the GPU.
             # Evict it now so the SD pipeline can load without OOM.
-            GPU_HEAVY_TOOLS = {"generate_image", "generate_animation", "edit_image"}
             if GPU_HEAVY_TOOLS.intersection(t_name for _, t_name, _ in tool_jobs):
                 try:
                     from backend.services.gpu_resource_policy import evict_ollama_models
@@ -2484,9 +2489,9 @@ class UnifiedChatEngine:
             # append the "Latest tool results" that would trigger another LLM call (which
             # would hit the evicted model). The image is already emitted via chat:image.
             # This prevents the "LLM call failed" after GPU image job.
-            _heavy_image = {"generate_image", "generate_animation", "edit_image"}
+            _inline_image_tools = frozenset({"generate_image", "generate_animation", "edit_image"})
             last_tool_was_image_success = any(
-                (tc.get("tool_name") if isinstance(tc, dict) else getattr(tc, "tool_name", None)) in _heavy_image
+                (tc.get("tool_name") if isinstance(tc, dict) else getattr(tc, "tool_name", None)) in _inline_image_tools
                 and (tc.get("success") if isinstance(tc, dict) else True)
                 for s in steps[-1:] for tc in (s.get("tool_calls") or [])
             )
@@ -2523,8 +2528,7 @@ class UnifiedChatEngine:
             # finish loading before the next _call_llm_streaming in the next iteration.
             # Non-blocking best-effort; the backoff recovery in _call_llm_streaming is the
             # safety net.
-            _heavy = {"generate_image", "generate_animation", "edit_image"}
-            if any((tc.get("tool_name") if isinstance(tc, dict) else getattr(tc, "tool_name", None)) in _heavy
+            if any((tc.get("tool_name") if isinstance(tc, dict) else getattr(tc, "tool_name", None)) in GPU_HEAVY_TOOLS
                    for s in steps[-1:] for tc in (s.get("tool_calls") or [])):
                 try:
                     self._warmup_chat_llm_async(session_id)

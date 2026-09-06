@@ -145,6 +145,10 @@ def fake_gen(monkeypatch):
         lambda model_id: (True, ""),
     )
     monkeypatch.setattr(
+        "backend.services.video_model_registry.preflight_video_model",
+        lambda model_id: (True, ""),
+    )
+    monkeypatch.setattr(
         "backend.api.batch_video_generation_api._gpu_queue_hint",
         lambda: {"gpu_busy": False, "owner": None, "message": None},
     )
@@ -157,6 +161,25 @@ def client(fake_gen):
     app.config["TESTING"] = True
     app.register_blueprint(batch_video_bp)
     return app.test_client()
+
+
+def test_generate_text_omitted_model_uses_resolver(client, fake_gen, monkeypatch):
+    from backend.api import batch_video_generation_api as api
+    monkeypatch.setattr(api, "resolve_active_video_model", lambda role, explicit=None, surface=None: ("wan22-5b", None))
+    captured = {}
+    orig = fake_gen.start_batch_from_prompts
+
+    def _start(prompts, **params):
+        captured.update(params)
+        return orig(prompts, **params)
+
+    fake_gen.start_batch_from_prompts = _start
+    resp = client.post("/api/batch-video/generate/text", json={"prompts": ["a red cube"]})
+    assert resp.status_code == 200
+    assert captured.get("model") == "wan22-5b"
+    assert captured.get("fps") == 24
+    assert captured.get("num_inference_steps") >= 20
+    assert captured.get("width", 0) * captured.get("height", 0) > 512 * 512
 
 
 def test_generate_text_returns_queued_with_stage(client, fake_gen):

@@ -9,7 +9,9 @@ resolve = VideoGeneratorTool.resolve_request
 def test_default_model_and_legacy_frames():
     params, err = resolve("a dog")
     assert err is None
-    assert params["model"] == vmr.DEFAULT_T2V_MODEL and params["duration_frames"] == 49
+    caps = vmr.model_capabilities(params["model"])
+    assert caps.get("supports_t2v")
+    assert params["duration_frames"] == 49
     assert params["metadata"] == {"source": "chat"}
 
 
@@ -55,7 +57,7 @@ def test_steps_floor_and_explicit_flag():
 
 def test_duration_is_clamped_to_the_model():
     params, err = resolve("a dog", model="minimax-h3-int8", duration_s=40)
-    assert err is None and params["duration_frames"] == 175
+    assert err is None and params["duration_frames"] == 362
     params, err = resolve("a dog", model="minimax-h3-int8", duration_s=1)
     assert params["duration_frames"] == 72   # the 3 s floor at 24 fps
 

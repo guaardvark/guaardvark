@@ -713,9 +713,10 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       // Snap to the model's required alignment (always last, after every resize)
       ({ width, height } = snapDimensions(width, height, effectiveModel, modelMeta[effectiveModel]));
 
-      // Aggressive step reduction - tested working with 15 steps
-      if (effectiveSteps > 15) {
-        effectiveSteps = 15;
+      // Low-VRAM may cut resolution and frames, never steps below the floor.
+      const cogMin = modelConfig.minSteps || 50;
+      if (effectiveSteps > cogMin) {
+        effectiveSteps = cogMin;
       }
     }
 

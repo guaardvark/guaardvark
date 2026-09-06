@@ -145,6 +145,13 @@ def create():
     if not name or not style_prompt or not song_document_id:
         return jsonify({"error": "name, song_document_id and style_prompt are required"}), 400
 
+    from backend.services.video_model_registry import resolve_active_video_model
+    explicit_i2v = (settings.get("i2v_model") or "").strip() or None
+    picked, resolve_err = resolve_active_video_model("i2v", explicit_i2v, surface="music-video")
+    if resolve_err:
+        return jsonify({"error": resolve_err}), 400
+    settings["i2v_model"] = picked
+
     if project_id is not None and db.session.get(Project, project_id) is None:
         return jsonify({"error": f"project_id {project_id} not found"}), 400
 

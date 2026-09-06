@@ -166,10 +166,12 @@ describe("step floors", () => {
     const { MODEL_OPTIONS, QUALITY_PRESETS } = await import("../videoGeneratorPresets");
     for (const id of ["wan22-5b", "wan22-14b", "wan22-14b-i2v"]) {
       expect(MODEL_OPTIONS[id].minSteps).toBe(20);
-      // The Fast preset is below it, which is the whole point of the floor.
-      expect(QUALITY_PRESETS.fast.num_inference_steps).toBeLessThan(
+      // Fast's raw number may sit below a family's floor; the page raises it.
+      const floored = Math.max(
+        QUALITY_PRESETS.fast.num_inference_steps,
         MODEL_OPTIONS[id].minSteps,
       );
+      expect(floored).toBe(MODEL_OPTIONS[id].minSteps);
     }
   });
 
@@ -178,7 +180,7 @@ describe("step floors", () => {
     // LTX distilled runs at 8 by design; a floor here would waste time and can
     // degrade distilled output.
     for (const id of ["ltx23-distilled-fp8", "ltx25-distilled-int8"]) {
-      expect(MODEL_OPTIONS[id].minSteps).toBeUndefined();
+      expect(MODEL_OPTIONS[id].minSteps).toBe(8);
     }
   });
 });

@@ -332,7 +332,7 @@ Full video generation pipeline running locally via ComfyUI with multiple model b
 - No LLM calls required — pure string concatenation for instant enhancement
 
 #### Video UI
-- **Preset-driven interface** — quality presets (Fast 10-step / Standard 30-step / High 40-step / Maximum 50-step), duration presets, motion presets, and aspect ratio presets
+- **Preset-driven interface** — quality presets (Fast at the model's step floor / Standard / High / Maximum), duration presets, motion presets, and aspect ratio presets
 - **Real-time progress** — live progress bar with percentage and step count during generation
 - **Video gallery** — browse, preview, rename, download, and delete generated videos
 - **Advanced Editor** — one-click launch to ComfyUI's full node-based workflow editor, themed with the Guaardvark color scheme

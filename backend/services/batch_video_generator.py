@@ -617,7 +617,7 @@ class BatchVideoGenerator:
 
         A model that takes a first frame itself (LTX, MiniMax H3, Wan 5B TI2V,
         any *-i2v) keeps the job; a pure T2V model hands it to its same-family
-        I2V sibling. Only an unknown model falls back to Wan 2.2 14B I2V. The
+        I2V sibling. Only an unknown model falls back to DEFAULT_I2V_MODEL. The
         old rule swapped anything without "i2v" in its id for Wan 14B, so a
         person who picked LTX or MiniMax got a Wan render."""
         from backend.services.video_model_registry import i2v_model_for
@@ -1210,8 +1210,17 @@ class BatchVideoGenerator:
                     max_workers = 1
                 else:
                     max_workers = max(1, min(4, len(items)))
+                from backend.services.gpu_resource_policy import adopt_gpu_session
+
+                def _process_item_adopted(it):
+                    # The batch holds gpu_session on this thread's parent; pool
+                    # workers must adopt so the router session is a pass-through
+                    # instead of a degraded second exclusive claim.
+                    with adopt_gpu_session():
+                        return _process_item(it)
+
                 with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="video-item") as ex:
-                    future_map = {ex.submit(_process_item, it): it for it in items}
+                    future_map = {ex.submit(_process_item_adopted, it): it for it in items}
                     for fut in as_completed(future_map):
                         if cancel_event and cancel_event.is_set():
                             status.status = "cancelled"
@@ -1357,17 +1366,30 @@ class BatchVideoGenerator:
             except Exception:
                 seed_value = None
 
+        from backend.services.video_model_registry import clip_defaults_for
+        model_id = params.get("model") or "wan22-5b"
+        native = clip_defaults_for(model_id)
+
+        def _param_int(key, fallback):
+            raw = params.get(key)
+            if raw in (None, ""):
+                return fallback
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                return fallback
+
         batch_request = BatchVideoRequest(
             batch_id=batch_id,
             items=items,
             output_dir=str(batch_dir),
-            model=params.get("model", "wan22-5b"),
-            duration_frames=int(params.get("duration_frames", 25)),
-            fps=int(params.get("fps", 7)),
-            width=int(params.get("width", 512)),
-            height=int(params.get("height", 512)),
+            model=model_id,
+            duration_frames=_param_int("duration_frames", native["duration_frames"]),
+            fps=_param_int("fps", native["fps"]),
+            width=_param_int("width", native["width"]),
+            height=_param_int("height", native["height"]),
             motion_strength=float(params.get("motion_strength", 1.0)),
-            num_inference_steps=int(params.get("num_inference_steps", 25)),
+            num_inference_steps=_param_int("num_inference_steps", native["num_inference_steps"]),
             guidance_scale=float(params.get("guidance_scale", 7.5)),
             seed=seed_value,
             generate_frames_only=bool(params.get("generate_frames_only", False)),

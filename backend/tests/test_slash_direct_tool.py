@@ -49,6 +49,17 @@ class TestSlashCommandResolver:
         assert tool == "generate_image"
         assert params["prompt"] == "sunset"
 
+    def test_video_resolves_to_generate_video(self):
+        from backend.services.slash_command_executor import resolve_slash_direct_tool
+
+        tool, params = resolve_slash_direct_tool({
+            "slash_command": "video",
+            "slash_args": "a cat playing piano",
+        })
+        assert tool == "generate_video"
+        assert params["prompt"] == "a cat playing piano"
+        assert tool != "generate_animation"
+
 
 class TestDirectToolIntercept:
     def test_try_direct_tool_calls_registry_without_llm(self):

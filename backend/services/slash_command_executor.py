@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 SLASH_COMMAND_TOOL_MAP: Dict[str, str] = {
     "imagine": "generate_image",
     "websearch": "web_search",
-    # CLI-only today; browser handler can be added later
-    "video": "generate_animation",
+    "video": "generate_video",
     "remember": "save_memory",
     "gpu": "inspect_gpu",
     "logs": "read_logs",

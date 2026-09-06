@@ -22,6 +22,7 @@ def client(monkeypatch):
     monkeypatch.setattr(api, "_check_model_downloaded", lambda _m: False)
     monkeypatch.setattr(api, "_missing_check_files", lambda _m: [])
     monkeypatch.setattr(api, "_detected_total_vram_mb", lambda: 16376)
+    monkeypatch.setattr(api, "resolve_active_video_model", lambda role, explicit=None, surface=None: (None, "none"))
     return app.test_client()
 
 
@@ -40,7 +41,7 @@ def test_generation_rows_carry_capabilities_and_tier_defaults(client):
     assert caps["min_steps"] == 20 and "turbo-8" in caps["speed_profiles"]
     assert caps["aspect_ratios"][0] == "21:9"
     assert h3["tier_defaults"] == {
-        "tier": "16", "width": 864, "height": 480, "speed_profile": "standard", "frames": 124,
+        "tier": "16", "width": 864, "height": 480, "speed_profile": "turbo-8", "frames": 124,
     }
     assert h3["license"]["attribution"] == "MiniMax H3"
     assert h3["license"]["form_url"].startswith("https://")

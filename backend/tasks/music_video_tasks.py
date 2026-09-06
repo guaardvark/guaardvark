@@ -71,8 +71,13 @@ def _settings(mv: MusicVideo) -> dict:
     # Wan 2.2 I2V is generally the highest quality motion option available for the
     # storyboard → i2v flow.
     if not s.get("i2v_model"):
-        engine = s.get("i2v_engine", "wan")
-        s["i2v_model"] = "wan22-14b-i2v" if engine == "wan" else "cogvideox-5b-i2v"
+        engine = (s.get("i2v_engine") or "").strip().lower()
+        if engine in ("cogvideox", "cog", "svd"):
+            s["i2v_model"] = "cogvideox-5b-i2v"
+        else:
+            from backend.services.video_model_registry import resolve_active_video_model, DEFAULT_I2V_MODEL
+            picked, _err = resolve_active_video_model("i2v", surface="music-video")
+            s["i2v_model"] = picked or DEFAULT_I2V_MODEL
     s.setdefault("i2v_engine", "wan")  # keep for _max_clip_s etc.
     # Keyframe model — enforce the identity-lock invariant in the BACKEND, not just
     # as a fragile frontend onChange (MusicVideoPage promotes it on the consistency
@@ -171,10 +176,10 @@ def _clip_profile(s: dict) -> dict:
     A model that declares its capabilities in the registry (native_fps,
     max_frames, min_clip_s, max_clip_s, audio_out) is described from them; the
     Wan and CogVideoX clamps stay for entries that do not."""
-    model = s.get("i2v_model") or ("wan22-14b-i2v" if s.get("i2v_engine", "wan") == "wan" else "cogvideox-5b-i2v")
+    from backend.services.video_model_registry import model_capabilities, DEFAULT_I2V_MODEL
+    model = s.get("i2v_model") or DEFAULT_I2V_MODEL
     caps = {}
     try:
-        from backend.services.video_model_registry import model_capabilities
         caps = model_capabilities(model) or {}
     except Exception:  # noqa: BLE001 — the legacy clamps still apply
         caps = {}
@@ -664,6 +669,16 @@ def run_clip_generator(mv_id: int):
         celery.send_task("music_video.run_clip_generator", args=[mv_id], countdown=GPU_COOLDOWN_RETRY_S)
         return
     except Exception as e:  # noqa: BLE001
+        err = str(e)
+        if "execution_interrupted" in err.lower() and not (mv.status or "").startswith("cancelled"):
+            log.warning("music_video %s clip %s interrupted; marking clip failed and continuing",
+                        mv_id, target.get("index"))
+            target["status"] = "failed"
+            target["error"] = err
+            mv.clips = clips
+            db.session.commit()
+            celery.send_task("music_video.run_clip_generator", args=[mv_id], countdown=GPU_COOLDOWN_RETRY_S)
+            return
         log.exception("music_video %s clip %s generation failed", mv_id, target.get("index"))
         MusicVideoService(db.session).fail_stage(mv_id, stage="generating", error=str(e))
         return

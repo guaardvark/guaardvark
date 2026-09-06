@@ -16,6 +16,15 @@ const BUILT_IN_COMMANDS = [
     ruleId: null,
   },
   {
+    name: "/video",
+    description: "Queue a video clip from a text prompt",
+    usage: "/video <prompt>",
+    category: "generation",
+    args: "required",
+    handler: "builtin",
+    ruleId: null,
+  },
+  {
     name: "/imagemodel",
     description: "Switch chat image model (generation + editing) or show current",
     usage: "/imagemodel [model-name]",

@@ -18,12 +18,7 @@ videos_app = typer.Typer(help="Video generation and management", no_args_is_help
 
 TERMINAL_STATUSES = {"completed", "error", "cancelled"}
 
-KNOWN_MODELS = [
-    {"name": "svd", "type": "Image-to-Video", "vram": "~8 GB"},
-    {"name": "cogvideox-2b", "type": "Text-to-Video", "vram": "~10 GB"},
-    {"name": "cogvideox-5b", "type": "Text-to-Video", "vram": "~16 GB"},
-    {"name": "cogvideox-5b-i2v", "type": "Image-to-Video", "vram": "~16 GB+"},
-]
+
 
 
 def _poll_batch(api_client, batch_id: str, json_out: bool):
@@ -79,27 +74,32 @@ def _poll_batch(api_client, batch_id: str, json_out: bool):
 
 def _build_gen_params(
     model: Optional[str],
-    duration: int,
-    fps: int,
-    width: int,
-    height: int,
-    steps: int,
+    duration: Optional[int],
+    fps: Optional[int],
+    width: Optional[int],
+    height: Optional[int],
+    steps: Optional[int],
     guidance: float,
     motion: float,
     seed: Optional[int],
     frames_only: bool,
 ) -> dict:
-    """Build the shared generation parameters dict."""
+    """Build generation parameters. Omitted size/fps/steps let the API use the model native defaults."""
     params = {
-        "duration_frames": duration,
-        "fps": fps,
-        "width": width,
-        "height": height,
-        "num_inference_steps": steps,
         "guidance_scale": guidance,
         "motion_strength": motion,
         "generate_frames_only": frames_only,
     }
+    if duration is not None:
+        params["duration_frames"] = duration
+    if fps is not None:
+        params["fps"] = fps
+    if width is not None:
+        params["width"] = width
+    if height is not None:
+        params["height"] = height
+    if steps is not None:
+        params["num_inference_steps"] = steps
     if model:
         params["model"] = model
     if seed is not None:
@@ -146,14 +146,14 @@ def videos_list(
 def videos_generate(
     prompt: str = typer.Argument(..., help="Video description prompt"),
     count: int = typer.Option(1, "--count", "-n", help="Number of videos to generate"),
-    model: str = typer.Option(None, "--model", "-m", help="Model name (svd, cogvideox-2b, cogvideox-5b)"),
-    duration: int = typer.Option(25, "--duration", "-d", help="Duration in frames"),
-    fps: int = typer.Option(7, "--fps", help="Output frame rate"),
-    width: int = typer.Option(512, "--width", "-W", help="Video width"),
-    height: int = typer.Option(512, "--height", "-H", help="Video height"),
-    steps: int = typer.Option(25, "--steps", help="Inference steps"),
+    model: str = typer.Option(None, "--model", "-m", help="Registry model id (default: active video model)"),
+    duration: int = typer.Option(None, "--duration", "-d", help="Duration in frames (default: model native)"),
+    fps: int = typer.Option(None, "--fps", help="Output frame rate (default: model native)"),
+    width: int = typer.Option(None, "--width", "-W", help="Video width (default: model native)"),
+    height: int = typer.Option(None, "--height", "-H", help="Video height (default: model native)"),
+    steps: int = typer.Option(None, "--steps", help="Inference steps (default: model floor)"),
     guidance: float = typer.Option(7.5, "--guidance", help="Guidance scale"),
-    motion: float = typer.Option(1.0, "--motion", help="Motion strength (SVD)"),
+    motion: float = typer.Option(1.0, "--motion", help="Motion strength"),
     seed: int = typer.Option(None, "--seed", help="Random seed for reproducibility"),
     frames_only: bool = typer.Option(False, "--frames-only", help="Generate frames without combining"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for completion with progress"),
@@ -194,14 +194,14 @@ def videos_generate(
 def videos_from_image(
     image_path: str = typer.Argument(..., help="Path to source image"),
     count: int = typer.Option(1, "--count", "-n", help="Number of videos to generate"),
-    model: str = typer.Option(None, "--model", "-m", help="Model name (svd, cogvideox-5b-i2v)"),
-    duration: int = typer.Option(25, "--duration", "-d", help="Duration in frames"),
-    fps: int = typer.Option(7, "--fps", help="Output frame rate"),
-    width: int = typer.Option(512, "--width", "-W", help="Video width"),
-    height: int = typer.Option(512, "--height", "-H", help="Video height"),
-    steps: int = typer.Option(25, "--steps", help="Inference steps"),
+    model: str = typer.Option(None, "--model", "-m", help="Registry model id (default: active I2V model)"),
+    duration: int = typer.Option(None, "--duration", "-d", help="Duration in frames (default: model native)"),
+    fps: int = typer.Option(None, "--fps", help="Output frame rate (default: model native)"),
+    width: int = typer.Option(None, "--width", "-W", help="Video width (default: model native)"),
+    height: int = typer.Option(None, "--height", "-H", help="Video height (default: model native)"),
+    steps: int = typer.Option(None, "--steps", help="Inference steps (default: model floor)"),
     guidance: float = typer.Option(7.5, "--guidance", help="Guidance scale"),
-    motion: float = typer.Option(1.0, "--motion", help="Motion strength (SVD)"),
+    motion: float = typer.Option(1.0, "--motion", help="Motion strength"),
     seed: int = typer.Option(None, "--seed", help="Random seed for reproducibility"),
     frames_only: bool = typer.Option(False, "--frames-only", help="Generate frames without combining"),
     wait: bool = typer.Option(False, "--wait", "-w", help="Wait for completion with progress"),
@@ -288,17 +288,35 @@ def videos_status(
 
 @videos_app.command("models")
 def videos_models(
+    server: str = typer.Option(None, "--server", "-s"),
     json_out: bool = typer.Option(False, "--json", "-j"),
 ):
-    """List available video generation models."""
+    """List video models from the registry (installed status + active default)."""
+    server = server or get_global_server()
     json_out = json_out or get_global_json()
     output.set_json_mode(json_out)
-
-    if json_out or output.is_pipe():
-        output.print_json(KNOWN_MODELS)
-        return
-
-    output.print_table(KNOWN_MODELS, columns=["name", "type", "vram"], title="Video Models")
+    try:
+        api_client = get_client(server)
+        data = api_client.get("/api/batch-video/models")
+        payload = data.get("data", data)
+        models = payload.get("models", payload) if isinstance(payload, dict) else payload
+        if not isinstance(models, list):
+            models = []
+        generation = [m for m in models if m.get("capabilities")]
+        if json_out or output.is_pipe():
+            output.print_json(payload if isinstance(payload, dict) else generation)
+            return
+        rows = [{
+            "id": m.get("id", ""),
+            "name": m.get("name", ""),
+            "ready": "yes" if m.get("is_ready") else "no",
+            "active": "yes" if m.get("active") else "",
+            "vram": m.get("vram_mb") or "",
+        } for m in generation]
+        output.print_table(rows, columns=["id", "name", "ready", "active", "vram"], title="Video Models")
+    except (LlxConnectionError, LlxError) as e:
+        output.print_error(str(e))
+        raise typer.Exit(1)
 
 
 @videos_app.command("delete")
