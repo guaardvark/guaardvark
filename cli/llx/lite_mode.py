@@ -21,6 +21,8 @@ FULL_STACK_SUBAPPS = frozenset(
         "tasks",
         "images",
         "videos",
+        "music-video",
+        "film-crew",
         "generate",
         "plugins",
         "gpu",

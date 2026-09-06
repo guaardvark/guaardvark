@@ -55,6 +55,20 @@ class TestResolveReplLine:
             "video",
             ["waves"],
         )
+        assert resolve_repl_line("make a music video from song.mp3 neon noir") == (
+            "music-video",
+            ["create", "--song", "song.mp3", "--style", "neon noir"],
+        )
+        assert resolve_repl_line("generate a music video 12 wet asphalt")[0] == "music-video"
+        assert resolve_repl_line("start film crew") == ("film-crew", ["create"])
+        assert resolve_repl_line("film this script INT. KITCHEN") == (
+            "film-crew",
+            ["create", "--script", "INT. KITCHEN"],
+        )
+        assert resolve_repl_line("start the film crew with INT. ROOM") == (
+            "film-crew",
+            ["create", "--script", "INT. ROOM"],
+        )
         assert resolve_repl_line("generate csv report") == ("generate", ["csv", "report"])
 
     def test_plugin_and_gpu_intents(self):

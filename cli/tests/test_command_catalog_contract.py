@@ -26,6 +26,10 @@ def test_catalog_commands_are_registered_in_router():
     assert "quality" in names
     assert "imagine" in names
     assert "recipes" in names
+    assert "music-video" in names
+    assert "film-crew" in names
+    assert COMMAND_TREE["music-video"] == ["list", "create", "status", "cancel", "delete"]
+    assert COMMAND_TREE["film-crew"] == ["list", "create", "status", "delete"]
 
 
 def test_router_subapp_dispatch_does_not_mutate_sys_argv():

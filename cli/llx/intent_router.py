@@ -11,6 +11,41 @@ import shlex
 
 from llx.command_catalog import COMMAND_TREE
 
+_AUDIO_EXT = (".mp3", ".wav", ".flac", ".ogg", ".m4a", ".aac")
+_SCRIPT_EXT = (".txt", ".md", ".fountain", ".fdx")
+
+
+def _music_video_args(tail: str) -> list[str]:
+    args = ["create"]
+    song = None
+    rest = tail or ""
+    for token in rest.split():
+        cleaned = token.strip(".,;:\"'")
+        if cleaned.isdigit() or cleaned.lower().endswith(_AUDIO_EXT) or "/" in cleaned:
+            song = cleaned
+            rest = rest.replace(token, " ", 1)
+            break
+    style = " ".join(rest.split()).strip()
+    if song:
+        args += ["--song", song]
+    if style:
+        args += ["--style", style]
+    return args
+
+
+def _film_crew_args(tail: str) -> list[str]:
+    args = ["create"]
+    text = (tail or "").strip()
+    if not text:
+        return args
+    first = text.split()[0]
+    cleaned = first.strip(".,;:\"'")
+    if cleaned.lower().endswith(_SCRIPT_EXT) or "/" in cleaned:
+        args += ["--file", cleaned]
+        return args
+    args += ["--script", text]
+    return args
+
 # (pattern, command name, fixed sub-args or None to use parsed tail)
 _NL_INTENT_RULES: list[tuple[re.Pattern[str], str, list[str] | None]] = [
     (re.compile(r"^(?:list|show|what are)\s+(?:the\s+)?agents?\s*$", re.I), "agents", ["list"]),
@@ -35,6 +70,28 @@ _NL_INTENT_RULES: list[tuple[re.Pattern[str], str, list[str] | None]] = [
             re.I,
         ),
         "imagine",
+        None,
+    ),
+    # Music-video / Film Crew before the generic "make a video" rule.
+    (
+        re.compile(
+            r"^(?:generate|create|make|produce)\s+(?:a\s+)?music[\s-]?video(?:\s+(?:of|from|for|using|with))?\s*(.*)$",
+            re.I,
+        ),
+        "music-video",
+        None,
+    ),
+    (
+        re.compile(
+            r"^(?:start|run|create|make)\s+(?:the\s+)?film[\s-]?crew(?:\s+(?:on|for|with))?\s*(.*)$",
+            re.I,
+        ),
+        "film-crew",
+        None,
+    ),
+    (
+        re.compile(r"^(?:film|produce)\s+(?:this\s+)?script\s*(.*)$", re.I),
+        "film-crew",
         None,
     ),
     (
@@ -108,6 +165,10 @@ def resolve_repl_line(line: str) -> tuple[str, list[str]] | None:
             return "load", [tail] if tail else []
         if cmd in ("imagine", "video"):
             return cmd, [tail] if tail else []
+        if cmd == "music-video":
+            return cmd, _music_video_args(tail)
+        if cmd == "film-crew":
+            return cmd, _film_crew_args(tail)
         if cmd == "plugins":
             captured = (match.group(1) or "").strip() if match.lastindex else ""
             return cmd, ["start", captured] if captured else ["list"]

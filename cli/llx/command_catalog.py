@@ -49,6 +49,8 @@ COMMAND_TREE: dict[str, list[str]] = OrderedDict(
             "videos",
             ["list", "generate", "from-image", "status", "models", "delete", "download", "combine"],
         ),
+        ("music-video", ["list", "create", "status", "cancel", "delete"]),
+        ("film-crew", ["list", "create", "status", "delete"]),
         ("remember", []),
         ("memory", ["list", "search", "delete", "clear"]),
         # Local agentic coding surface
@@ -128,6 +130,8 @@ COMMAND_META: dict[str, str] = {
     "tasks": "Task management",
     "images": "Image generation",
     "videos": "Video generation",
+    "music-video": "Beat-synced music video (plan; approve in Studio)",
+    "film-crew": "Five-role Film Crew production (plan; render in Studio)",
     "remember": "Save to memory",
     "memory": "Manage saved memories",
     "ls": "List files (local)",

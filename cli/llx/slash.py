@@ -34,7 +34,7 @@ _HELP_GROUPS: list[tuple[str, list[str]]] = [
     ("Local Coding (agentic)", ["ls", "cd", "pwd", "read", "grep", "edit", "run", "test", "todo", "diff", "apply", "undo"]),
     ("Backend Tools", ["tools", "tool"]),
     ("Context & State", ["context", "suggest", "analyze", "init", "load", "skills"]),
-    ("Multi-Modal Commands", ["imagine", "video", "voice", "ingest", "agent", "web"]),
+    ("Multi-Modal Commands", ["imagine", "video", "music-video", "film-crew", "voice", "ingest", "agent", "web"]),
     ("Admin Commands", ["jobs", "outreach", "logs", "backup", "family", "recipes"]),
     ("Studio Commands", ["plugins", "gpu", "audio", "swarm", "lessons", "mcp"]),
     ("Config Commands", ["config", "settings", "theme", "quality"]),
@@ -203,6 +203,8 @@ class SlashRouter:
         from llx.commands.tasks import tasks_app
         from llx.commands.images import images_app
         from llx.commands.videos import videos_app
+        from llx.commands.music_video import music_video_app
+        from llx.commands.film_crew import film_crew_app
         from llx.commands.system import models_app
         from llx.commands.quality import quality_app
         from llx.commands.outreach import outreach_app
@@ -233,6 +235,8 @@ class SlashRouter:
             "tasks": tasks_app,
             "images": images_app,
             "videos": videos_app,
+            "music-video": music_video_app,
+            "film-crew": film_crew_app,
             "models": models_app,
             "quality": quality_app,
             "recipes": recipes_app,

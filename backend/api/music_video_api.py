@@ -106,7 +106,10 @@ def _mv_dict(mv: MusicVideo) -> dict:
     out["director_model"] = dm
     out["use_lora_consistency"] = s.get("use_lora_consistency", False)
     out["keyframe_model"] = s.get("keyframe_model", "flux-schnell")
-    out["i2v_model"] = s.get("i2v_model") or ("wan22-14b-i2v" if s.get("i2v_engine", "wan") == "wan" else "cogvideox-5b-i2v")
+    from backend.services.video_model_registry import DEFAULT_I2V_MODEL
+    out["i2v_model"] = s.get("i2v_model") or (
+        "cogvideox-5b-i2v" if s.get("i2v_engine") == "cogvideox" else DEFAULT_I2V_MODEL
+    )
     try:
         from backend.services.video_model_registry import model_capabilities
         out["i2v_native_audio"] = bool((model_capabilities(out["i2v_model"]) or {}).get("audio_out"))

@@ -16,6 +16,8 @@ SLASH_COMMAND_TOOL_MAP: Dict[str, str] = {
     "imagine": "generate_image",
     "websearch": "web_search",
     "video": "generate_video",
+    "music-video": "generate_music_video",
+    "film-crew": "start_film_crew",
     "remember": "save_memory",
     "gpu": "inspect_gpu",
     "logs": "read_logs",
@@ -72,6 +74,31 @@ def resolve_slash_direct_tool(
         if not prompt:
             return None, {}
         return mapped, {"prompt": prompt}
+    if slash == "music-video":
+        from backend.tools.video_pipeline_tools import parse_music_video_nl
+        parsed = parse_music_video_nl(args)
+        song = params.get("song") or parsed.get("song")
+        style = params.get("style_prompt") or parsed.get("style_prompt")
+        if not song or not style:
+            return None, {}
+        out = {"song": song, "style_prompt": style}
+        if params.get("name"):
+            out["name"] = params["name"]
+        if params.get("i2v_model"):
+            out["i2v_model"] = params["i2v_model"]
+        return mapped, out
+    if slash == "film-crew":
+        from backend.tools.video_pipeline_tools import parse_film_crew_nl
+        parsed = parse_film_crew_nl(args)
+        script = params.get("script_text") or parsed.get("script_text")
+        if not script:
+            return None, {}
+        out = {"script_text": script}
+        if params.get("name"):
+            out["name"] = params["name"]
+        if params.get("video_model"):
+            out["video_model"] = params["video_model"]
+        return mapped, out
     if slash == "remember":
         content = params.get("content") or args
         if not content:

@@ -47,6 +47,6 @@ def test_catalog_includes_new_commands():
 
     router = SlashRouter({"server": "http://localhost:5002", "session_id": "t", "message_count": 0, "agent_mode": False})
     names = set(router.get_command_names())
-    for cmd in ("plugins", "gpu", "mcp", "audio", "swarm", "lessons"):
+    for cmd in ("plugins", "gpu", "mcp", "audio", "swarm", "lessons", "music-video", "film-crew"):
         assert cmd in COMMAND_TREE
         assert cmd in names

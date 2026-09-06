@@ -575,6 +575,24 @@ def register_image_tools() -> List[str]:
         logger.warning(f"Failed to register video tool: {e}")
 
     try:
+        from backend.tools.video_pipeline_tools import MusicVideoTool
+        register_tool(MusicVideoTool())
+        registered.append("generate_music_video")
+        _tool_categories["generate_music_video"] = "image"
+        logger.debug("Registered: MusicVideoTool")
+    except Exception as e:
+        logger.warning(f"Failed to register music-video tool: {e}")
+
+    try:
+        from backend.tools.video_pipeline_tools import FilmCrewTool
+        register_tool(FilmCrewTool())
+        registered.append("start_film_crew")
+        _tool_categories["start_film_crew"] = "image"
+        logger.debug("Registered: FilmCrewTool")
+    except Exception as e:
+        logger.warning(f"Failed to register film-crew tool: {e}")
+
+    try:
         from backend.tools.image_tools import EditImageTool
         register_tool(EditImageTool())
         registered.append("edit_image")

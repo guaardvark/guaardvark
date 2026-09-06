@@ -360,6 +360,8 @@ TOOL_CONTEXT_KEYWORDS = {
     "media": (["play", "pause", "stop", "music", "song", "volume", "mute", "unmute",
                "next track", "skip", "playing", "louder", "quieter"], MEDIA_TOOLS),
     "image": (IMAGE_GEN_INTENT_KEYWORDS, IMAGE_TOOLS),
+    "music_video": (["music video", "music-video"], ["generate_music_video"]),
+    "film_crew": (["film crew", "film-crew", "film this script"], ["start_film_crew"]),
     "agent_control": (["virtual screen", "virtual display", "virtual computer", "virtual browser",
                        "virtual machine", "agent screen", "agent mode", "agent vision",
                        "on the virtual", "from the virtual", "using the virtual",
@@ -427,6 +429,9 @@ def user_wants_image_generation(message: str) -> bool:
     """Strict gate: create new media vs describe/reference existing images or prompts."""
     if not message or not message.strip():
         return False
+    from backend.tools.video_pipeline_tools import is_music_video_request, is_film_crew_request
+    if is_music_video_request(message) or is_film_crew_request(message):
+        return False
     msg_lower = message.lower()
     if _SLASH_MEDIA_RE.match(msg_lower):
         return True
@@ -464,6 +469,9 @@ GPU_HEAVY_TOOLS = frozenset({
 def user_wants_video_generation(message: str) -> bool:
     """True for explicit new-video requests; GIF/animation phrasing stays with generate_animation."""
     if not message or not message.strip():
+        return False
+    from backend.tools.video_pipeline_tools import is_music_video_request, is_film_crew_request
+    if is_music_video_request(message) or is_film_crew_request(message):
         return False
     msg_lower = message.lower()
     if _SLASH_MEDIA_RE.match(msg_lower):
@@ -1565,6 +1573,15 @@ class UnifiedChatEngine:
         edit_result = self._try_image_edit_direct(message, session_id, emit_fn, request_id, options)
         if edit_result is not None:
             return edit_result
+
+        # Music-video / Film Crew create-and-plan. Must run BEFORE generate_video:
+        # "make a music video" matches the generic video create-verb.
+        mv_result = self._try_music_video_direct(message, session_id, emit_fn, request_id, options)
+        if mv_result is not None:
+            return mv_result
+        fc_result = self._try_film_crew_direct(message, session_id, emit_fn, request_id, options)
+        if fc_result is not None:
+            return fc_result
 
         # Natural language VIDEO generation ("generate a video of ...") → direct
         # generate_video. Must run BEFORE the image intercept: "video of" is also in
@@ -3253,6 +3270,83 @@ class UnifiedChatEngine:
         logger.info("Video-gen direct (natural lang): generate_video(prompt=%r)", prompt[:80])
         return self._run_direct_tool_execution(
             "generate_video", {"prompt": prompt}, session_id, emit_fn, request_id, message, options
+        )
+
+    def _pipeline_usage_notice(
+        self, session_id: str, emit_fn: Callable, request_id: str,
+        user_message: str, text: str,
+    ) -> Dict[str, Any]:
+        self._save_message(session_id, "user", user_message)
+        emit_fn("chat:complete", {
+            "response": text, "iterations": 0, "steps": [],
+            "session_id": session_id, "request_id": request_id,
+        })
+        self._save_message(session_id, "assistant", text)
+        return {
+            "success": True, "response": text, "iterations": 0, "steps": [],
+            "request_id": request_id, "session_id": session_id,
+        }
+
+    def _try_music_video_direct(self, message: str, session_id: str,
+                                emit_fn: Callable, request_id: str,
+                                options: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """Start a music-video plan. Does not approve or render clips."""
+        from backend.tools.video_pipeline_tools import (
+            parse_music_video_nl, wants_music_video,
+        )
+        if not message or not message.strip():
+            return None
+        is_slash = bool(re.match(r"^\s*/music-video\b", message, re.IGNORECASE))
+        if not is_slash and not wants_music_video(message):
+            return None
+        if not is_slash and _media_requires_explicit_command():
+            return None
+        if not self.registry.get_tool("generate_music_video"):
+            return None
+        parsed = parse_music_video_nl(message)
+        if not parsed.get("song") or not parsed.get("style_prompt"):
+            return self._pipeline_usage_notice(
+                session_id, emit_fn, request_id, message,
+                "To start a music video I need a song (document id or audio path) "
+                "and a visual style. Example: make a music video from song.mp3 neon noir rain. "
+                "Approve the cut plan in Studio before any clip renders.",
+            )
+        logger.info("Music-video direct: song=%r style=%r", parsed["song"], parsed["style_prompt"][:80])
+        return self._run_direct_tool_execution(
+            "generate_music_video",
+            {"song": parsed["song"], "style_prompt": parsed["style_prompt"]},
+            session_id, emit_fn, request_id, message, options,
+        )
+
+    def _try_film_crew_direct(self, message: str, session_id: str,
+                              emit_fn: Callable, request_id: str,
+                              options: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """Start a Film Crew production. Does not render shots."""
+        from backend.tools.video_pipeline_tools import (
+            parse_film_crew_nl, wants_film_crew,
+        )
+        if not message or not message.strip():
+            return None
+        is_slash = bool(re.match(r"^\s*/film-crew\b", message, re.IGNORECASE))
+        if not is_slash and not wants_film_crew(message):
+            return None
+        if not is_slash and _media_requires_explicit_command():
+            return None
+        if not self.registry.get_tool("start_film_crew"):
+            return None
+        parsed = parse_film_crew_nl(message)
+        if not parsed.get("script_text"):
+            return self._pipeline_usage_notice(
+                session_id, emit_fn, request_id, message,
+                "To start Film Crew I need a screenplay or a path to one. "
+                "Example: film this script INT. KITCHEN — a kettle boils. "
+                "Casting, storyboards and renders wait in Studio.",
+            )
+        logger.info("Film-crew direct: script=%r", parsed["script_text"][:80])
+        return self._run_direct_tool_execution(
+            "start_film_crew",
+            {"script_text": parsed["script_text"]},
+            session_id, emit_fn, request_id, message, options,
         )
 
     def _native_tool_calls_to_response(self, native_calls, llm_response: str):

@@ -79,6 +79,19 @@ def test_create_rejects_unknown_i2v_model(client, app, tmp_path, monkeypatch):
     assert "Unknown" in (resp.get_json() or {}).get("error", "")
 
 
+def test_mv_dict_defaults_i2v_to_registry_default(app, tmp_path):
+    from backend.api.music_video_api import _mv_dict
+    from backend.services.video_model_registry import DEFAULT_I2V_MODEL
+    with app.app_context():
+        doc = _song_doc(tmp_path)
+        svc = MusicVideoService(db.session)
+        mv = svc.create(
+            name="x", song_document_id=doc.id, song_path=str(tmp_path / "song.wav"),
+            style_prompt="x", project_id=None, settings={},
+        )
+        assert _mv_dict(mv)["i2v_model"] == DEFAULT_I2V_MODEL
+
+
 def test_create_advances_to_analyzing(client, app, tmp_path):
     with app.app_context():
         doc = _song_doc(tmp_path)
