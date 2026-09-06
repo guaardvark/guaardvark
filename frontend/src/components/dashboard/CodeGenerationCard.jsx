@@ -142,7 +142,7 @@ const CodeGenerationCard = React.forwardRef(
             variant="contained"
             size="small"
             startIcon={<Add />}
-            onClick={() => navigate("/code-generation")}
+            onClick={() => navigate("/code-editor")}
             sx={{
               minWidth: "100px",
               textTransform: "none",
@@ -157,7 +157,7 @@ const CodeGenerationCard = React.forwardRef(
             variant="outlined"
             size="small"
             startIcon={<PlayArrow />}
-            onClick={() => navigate("/code-generation?mode=debug")}
+            onClick={() => navigate("/code-editor")}
             sx={{
               minWidth: "100px",
               textTransform: "none",
@@ -205,7 +205,7 @@ const CodeGenerationCard = React.forwardRef(
                     borderRadius: 1,
                   },
                 }}
-                onClick={() => navigate(`/code-generation?id=${generation.id}`)}
+                onClick={() => navigate("/code-editor")}
                 className="non-draggable"
               >
                 <ListItemText
@@ -294,7 +294,7 @@ const CodeGenerationCard = React.forwardRef(
           <Box sx={{ textAlign: "center", mt: 1 }}>
             <Button
               component={RouterLink}
-              to="/code-generation"
+              to="/code-editor"
               variant="text"
               size="small"
               sx={{

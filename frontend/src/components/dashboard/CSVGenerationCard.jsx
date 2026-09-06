@@ -41,7 +41,7 @@ const CSVGenerationCard = React.forwardRef(
     const navigate = useNavigate();
 
     const fetchRecentGenerations = useCallback(async () => {
-      // No implementation - CSV generation functionality not yet built
+      // The File Generation page owns CSV runs; this card has no history feed yet.
       setRecentGenerations([]);
     }, []);
 
@@ -113,7 +113,7 @@ const CSVGenerationCard = React.forwardRef(
             variant="contained"
             size="small"
             startIcon={<Add />}
-            onClick={() => navigate("/csv-generation")}
+            onClick={() => navigate("/file-generation")}
             sx={{
               minWidth: "100px",
               textTransform: "none",
@@ -128,7 +128,7 @@ const CSVGenerationCard = React.forwardRef(
             variant="outlined"
             size="small"
             startIcon={<Upload />}
-            onClick={() => navigate("/csv-generation?mode=import")}
+            onClick={() => navigate("/file-generation")}
             sx={{
               minWidth: "100px",
               textTransform: "none",
