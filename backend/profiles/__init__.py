@@ -333,35 +333,62 @@ def configured_name(root: Optional[Path] = None) -> Optional[str]:
     return None
 
 
-def set_configured_name(name: str, root: Optional[Path] = None) -> Path:
-    """Write GUAARDVARK_PROFILE=<name> into .env, replacing an existing line
-    and keeping everything else byte-for-byte. Validates the name against the
-    profiles that exist, so a typo cannot be persisted."""
-    if not _NAME_RE.match(name or ""):
-        raise ValueError(f"profile name {name!r} is not valid")
-    if name not in available_profiles(root):
-        raise ValueError(f"profile {name!r} not found")
+_ENV_KEY_RE = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
+
+
+def read_env_value(key: str, root: Optional[Path] = None) -> Optional[str]:
+    """The value of ``key`` in .env (last occurrence wins), or None."""
+    path = env_file(root)
+    if not path.is_file():
+        return None
+    value = None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith(f"{key}="):
+            value = line.split("=", 1)[1].strip().strip("'\"")
+    return value or None
+
+
+def set_env_value(key: str, value: Optional[str], root: Optional[Path] = None) -> Path:
+    """Write ``key=value`` into .env, replacing an existing line and keeping every
+    other byte; ``None`` removes the line. The file is replaced atomically."""
+    if not _ENV_KEY_RE.match(key or ""):
+        raise ValueError(f"env key {key!r} is not valid")
+    if value is not None and ("\n" in value or "\r" in value):
+        raise ValueError("env value must be a single line")
     path = env_file(root)
     lines = path.read_text(encoding="utf-8").splitlines(keepends=True) if path.is_file() else []
-    new_line = f"{PROFILE_ENV}={name}\n"
+    new_line = None if value is None else f"{key}={value}\n"
+    out = []
     replaced = False
-    for i, line in enumerate(lines):
-        if line.startswith(f"{PROFILE_ENV}="):
-            lines[i] = new_line
+    for line in lines:
+        if line.startswith(f"{key}="):
+            if new_line is not None and not replaced:
+                out.append(new_line)
             replaced = True
-            break
-    if not replaced:
-        if lines and not lines[-1].endswith("\n"):
-            lines[-1] += "\n"
-        lines.append(new_line)
+            continue
+        out.append(line)
+    if new_line is not None and not replaced:
+        if out and not out[-1].endswith("\n"):
+            out[-1] += "\n"
+        out.append(new_line)
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text("".join(lines), encoding="utf-8")
+    tmp.write_text("".join(out), encoding="utf-8")
     try:
         os.chmod(tmp, path.stat().st_mode & 0o777 if path.exists() else 0o600)
     except OSError:
         pass
     os.replace(tmp, path)
     return path
+
+
+def set_configured_name(name: str, root: Optional[Path] = None) -> Path:
+    """Write GUAARDVARK_PROFILE=<name> into .env. Validates the name against the
+    profiles that exist, so a typo cannot be persisted."""
+    if not _NAME_RE.match(name or ""):
+        raise ValueError(f"profile name {name!r} is not valid")
+    if name not in available_profiles(root):
+        raise ValueError(f"profile {name!r} not found")
+    return set_env_value(PROFILE_ENV, name, root)
 
 
 def env_file_writable(root: Optional[Path] = None) -> bool:

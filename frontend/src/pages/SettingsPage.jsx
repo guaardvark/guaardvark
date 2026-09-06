@@ -79,6 +79,7 @@ import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import SettingsRow from "../components/settings/SettingsRow";
 import ExportChatsButton from "../components/settings/ExportChatsButton";
 import ProfileSection from "../components/settings/ProfileSection";
+import OllamaLifecycleSection from "../components/settings/OllamaLifecycleSection";
 import SettingsCardWrapper from "../components/settings/SettingsCardWrapper";
 import { SOCKET_URL } from "../api/apiClient";
 import { SUPPORT_LINKS } from "../config/constants";
@@ -2609,6 +2610,7 @@ const SettingsPage = () => {
         <Box sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "20px", "& > *": { flex: "0 1 798px", minWidth: 560 } }}>
           <SettingsCardWrapper title="Product Profile">
             <ProfileSection />
+            <OllamaLifecycleSection />
           </SettingsCardWrapper>
 
           <SettingsCardWrapper title="System">

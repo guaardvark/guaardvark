@@ -44,6 +44,30 @@ export const setProfile = async (name) => {
   return data;
 };
 
+/**
+ * How the start/stop scripts treat Ollama, as recorded in .env.
+ * @returns {Promise<{keep_running: boolean, external: boolean, env_writable: boolean}>}
+ */
+export const getOllamaLifecycle = async () => {
+  const response = await fetch(`${BASE_URL}/settings/ollama_lifecycle`);
+  return await handleResponse(response);
+};
+
+/**
+ * Persist the Ollama policy. Takes effect on the next stop/start; no restart needed.
+ * @param {{keep_running?: boolean, external?: boolean}} body
+ */
+export const setOllamaLifecycle = async (body) => {
+  const response = await fetch(`${BASE_URL}/settings/ollama_lifecycle`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await handleResponse(response);
+  if (typeof data === "object" && data !== null && data.error) throw new Error(data.error);
+  return data;
+};
+
 export const getGenerationHistoryCounts = async () => {
   const endpoint = `${BASE_URL}/meta/generation-history`;
   try {

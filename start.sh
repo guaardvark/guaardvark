@@ -38,6 +38,7 @@ fi
 REQUESTED_PROFILE=""
 EXPECT_PROFILE=0
 VOICE_FLAG_GIVEN=0
+EXTERNAL_OLLAMA_FLAG=0
 for arg in "$@"; do
   if [ "$EXPECT_PROFILE" = 1 ]; then
     REQUESTED_PROFILE="$arg"; EXPECT_PROFILE=0; continue
@@ -60,6 +61,8 @@ for arg in "$@"; do
       echo "  --no-auto-build    Disable automatic frontend rebuild"
       echo "  --skip-migrations  Skip database migration checks"
       echo "  --skip-postgres    Skip PostgreSQL setup (for external DB users)"
+      echo "  --external-ollama  Use an Ollama you run yourself: never start it, never stop it"
+      echo "                     (persisted as GUAARDVARK_OLLAMA_EXTERNAL=1 in .env)"
       echo "  --app-mode         Launch browser on startup"
       echo "  --no-browser       Do not launch browser"
       echo "  --discord          Also start the Discord bot plugin"
@@ -70,6 +73,7 @@ for arg in "$@"; do
       exit 0
       ;;
     --fast) FAST_START=1 ;;
+    --external-ollama) EXTERNAL_OLLAMA_FLAG=1 ;;
     --test) TEST_MODE=1 ;;
     --no-voice) VOICE_CHECK=0; VOICE_FLAG_GIVEN=1 ;;
     --profile) EXPECT_PROFILE=1 ;;
@@ -244,6 +248,15 @@ if [ -n "$REQUESTED_PROFILE" ]; then
     echo "GUAARDVARK_PROFILE=$REQUESTED_PROFILE" >> "$SCRIPT_DIR/.env"
   fi
   export GUAARDVARK_PROFILE="$REQUESTED_PROFILE"
+fi
+if [ "$EXTERNAL_OLLAMA_FLAG" = 1 ]; then
+  touch "$SCRIPT_DIR/.env"
+  if grep -q '^GUAARDVARK_OLLAMA_EXTERNAL=' "$SCRIPT_DIR/.env"; then
+    sed -i.bak "s/^GUAARDVARK_OLLAMA_EXTERNAL=.*/GUAARDVARK_OLLAMA_EXTERNAL=1/" "$SCRIPT_DIR/.env" && rm -f "$SCRIPT_DIR/.env.bak"
+  else
+    echo "GUAARDVARK_OLLAMA_EXTERNAL=1" >> "$SCRIPT_DIR/.env"
+  fi
+  export GUAARDVARK_OLLAMA_EXTERNAL=1
 fi
 _PROFILE_EXPORTS="$("$PYTHON_CMD" "$SCRIPT_DIR/backend/profiles/__main__.py" export --shell 2>"$SCRIPT_DIR/.start_cache/profile.err" || true)"
 if [ -n "$_PROFILE_EXPORTS" ]; then
@@ -2084,7 +2097,18 @@ fi
 OLLAMA_PLUGIN_JSON="$SCRIPT_DIR/plugins/ollama/plugin.json"
 OLLAMA_ENABLED=$(plugin_effective_enabled "ollama" "$OLLAMA_PLUGIN_JSON")
 
-if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
+if [ "${GUAARDVARK_OLLAMA_EXTERNAL:-0}" = 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
+    # External Ollama: the user runs it; start.sh only checks that it answers.
+    if curl -sf --max-time 3 http://127.0.0.1:11434/ >/dev/null 2>&1; then
+        vader_success "Using external Ollama on 127.0.0.1:11434 (GUAARDVARK_OLLAMA_EXTERNAL=1; never started or stopped by these scripts)"
+    elif [ "${GUAARDVARK_OLLAMA_OPTIONAL:-0}" = "1" ]; then
+        vader_warn "External Ollama is not answering on 127.0.0.1:11434 — continuing because GUAARDVARK_OLLAMA_OPTIONAL=1."
+    else
+        vader_error "GUAARDVARK_OLLAMA_EXTERNAL=1 but nothing answers on 127.0.0.1:11434. Start your Ollama (ollama serve) and re-run ./start.sh,"
+        vader_error "or remove GUAARDVARK_OLLAMA_EXTERNAL from .env to let start.sh manage it."
+        exit 1
+    fi
+elif [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ "$OLLAMA_ENABLED" != "False" ]; then
     # Step 1: Check if already running
     if curl -sf --max-time 3 http://127.0.0.1:11434/ >/dev/null 2>&1; then
         vader_success "Ollama service is already active"

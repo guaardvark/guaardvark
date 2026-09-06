@@ -409,8 +409,15 @@ First run handles everything: Python 3.12, venv, Node dependencies, PostgreSQL, 
 ./start.sh --fast             # Skip dependency checks
 ./start.sh --test             # Health diagnostics
 ./start.sh --plugins          # Start all enabled plugins
-./stop.sh                     # Stop all services
+./start.sh --external-ollama  # You run Ollama yourself; never started or stopped by these scripts
+./stop.sh                     # Stop Guaardvark (and only the Ollama that start.sh launched)
+./stop.sh --keep-ollama       # Stop Guaardvark, leave Ollama running whoever started it
+./stop.sh --all               # Also stop your own `ollama serve` and the systemd service
 ```
+
+Ollama already running before `./start.sh` is adopted, not restarted, and left running on
+`./stop.sh`. To make either policy permanent, flip the switches in Settings → Product Profile →
+Ollama, or set `GUAARDVARK_OLLAMA_KEEP_RUNNING=1` / `GUAARDVARK_OLLAMA_EXTERNAL=1` in `.env`.
 
 ### Pick a profile
 

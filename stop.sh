@@ -21,6 +21,34 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PIDS_DIR="$SCRIPT_DIR/pids"
 # shellcheck source=scripts/lib/start_lock.sh
 . "$SCRIPT_DIR/scripts/lib/start_lock.sh"
+# shellcheck source=scripts/lib/ollama_lifecycle.sh
+. "$SCRIPT_DIR/scripts/lib/ollama_lifecycle.sh"
+
+# Flags. Ollama policy: by default only the instance start.sh launched is stopped;
+# --keep-ollama (or GUAARDVARK_OLLAMA_KEEP_RUNNING=1 in .env) touches nothing;
+# --all also stops user-owned serves, the systemd service and a dead port holder.
+STOP_ALL=0
+KEEP_OLLAMA=0
+for arg in "$@"; do
+    case "$arg" in
+        --all) STOP_ALL=1 ;;
+        --keep-ollama) KEEP_OLLAMA=1 ;;
+        --help|-h)
+            echo "Usage: ./stop.sh [--keep-ollama] [--all]"
+            echo "  --keep-ollama   leave Ollama running even if start.sh launched it"
+            echo "  --all           also stop user-owned ollama serve processes and the systemd service"
+            exit 0 ;;
+        *) echo "Unknown option: $arg (see --help)" >&2; exit 1 ;;
+    esac
+done
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    _keep_line=$(grep -E '^GUAARDVARK_OLLAMA_KEEP_RUNNING=' "$SCRIPT_DIR/.env" | tail -1)
+    [ -n "$_keep_line" ] && export "$_keep_line"
+    _ext_line=$(grep -E '^GUAARDVARK_OLLAMA_EXTERNAL=' "$SCRIPT_DIR/.env" | tail -1)
+    [ -n "$_ext_line" ] && export "$_ext_line"
+fi
+# An external Ollama is never ours to stop.
+[ "${GUAARDVARK_OLLAMA_EXTERNAL:-0}" = 1 ] && KEEP_OLLAMA=1
 
 vader_header "Guaardvark Stop Script"
 
@@ -209,79 +237,12 @@ if command -v lsof >/dev/null 2>&1; then
     fi
 fi
 
-# ── Stop Ollama (PID file → user processes → systemd → port cleanup) ──
-vader_info "Stopping Ollama..."
-ollama_killed=0
-
-# 1. Kill by PID file first
-OLLAMA_PID_FILE="$PIDS_DIR/ollama.pid"
-if [ -f "$OLLAMA_PID_FILE" ]; then
-    OLLAMA_PID=$(cat "$OLLAMA_PID_FILE" 2>/dev/null)
-    if [ -n "$OLLAMA_PID" ] && kill -0 "$OLLAMA_PID" 2>/dev/null; then
-        vader_info "Stopping Ollama via PID file (PID: $OLLAMA_PID)..."
-        kill -TERM "$OLLAMA_PID" 2>/dev/null
-        sleep 2
-        if kill -0 "$OLLAMA_PID" 2>/dev/null; then
-            kill -KILL "$OLLAMA_PID" 2>/dev/null
-            sleep 1
-        fi
-        if ! kill -0 "$OLLAMA_PID" 2>/dev/null; then
-            ollama_killed=$((ollama_killed + 1))
-        fi
-    fi
-    rm -f "$OLLAMA_PID_FILE"
-fi
-
-# 2. Kill any 'ollama serve' process owned by the current user (NOT the systemd 'ollama' user)
-CURRENT_USER=$(whoami)
-ollama_serve_pids=$(pgrep -f "ollama serve" 2>/dev/null)
-if [ -n "$ollama_serve_pids" ]; then
-    for pid in $ollama_serve_pids; do
-        # Check process owner — only kill our own user's processes
-        proc_owner=$(ps -o user= -p "$pid" 2>/dev/null | tr -d ' ')
-        if [ "$proc_owner" = "$CURRENT_USER" ]; then
-            vader_info "Killing user-owned ollama serve (PID: $pid, owner: $proc_owner)..."
-            kill -TERM "$pid" 2>/dev/null
-            sleep 1
-            if kill -0 "$pid" 2>/dev/null; then
-                kill -KILL "$pid" 2>/dev/null
-            fi
-            ollama_killed=$((ollama_killed + 1))
-        fi
-    done
-fi
-
-# 3. Try stopping the systemd service (passwordless if sudoers rule exists)
-if command -v systemctl >/dev/null 2>&1; then
-    if sudo -n systemctl stop ollama 2>/dev/null; then
-        vader_info "Stopped Ollama systemd service"
-        ollama_killed=$((ollama_killed + 1))
-    fi
-fi
-
-# 4. Final check — if port 11434 is still occupied, kill whatever is holding it
-if command -v lsof >/dev/null 2>&1; then
-    port_11434_pids=$(lsof -i TCP:11434 -sTCP:LISTEN -t 2>/dev/null)
-    if [ -n "$port_11434_pids" ]; then
-        for pid in $port_11434_pids; do
-            # Only kill if it doesn't respond to health check (zombie)
-            if ! curl -sf --max-time 2 http://127.0.0.1:11434/ >/dev/null 2>&1; then
-                vader_info "Killing unresponsive process on port 11434 (PID: $pid)..."
-                kill -TERM "$pid" 2>/dev/null
-                sleep 1
-                if kill -0 "$pid" 2>/dev/null; then
-                    kill -KILL "$pid" 2>/dev/null
-                fi
-                ollama_killed=$((ollama_killed + 1))
-            fi
-        done
-    fi
-fi
-
+# ── Stop Ollama (policy in scripts/lib/ollama_lifecycle.sh) ──
+OLLAMA_STOP_MODE=$(ollama_stop_mode "$STOP_ALL" "$KEEP_OLLAMA")
+vader_info "Ollama: $OLLAMA_STOP_MODE"
+stop_ollama "$OLLAMA_STOP_MODE" "$PIDS_DIR/ollama.pid"
 if [ "$ollama_killed" -gt 0 ]; then
     vader_success "Ollama stopped ($ollama_killed action(s) taken)."
-else
-    vader_info "Ollama was not running (or managed externally)."
 fi
 
 # ── Stop Guaardvark-owned alt Redis (sidecar on 6380–6399 only) ──

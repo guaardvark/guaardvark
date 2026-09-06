@@ -160,6 +160,8 @@ jobs:
           python -m pytest --timeout=600 -q \
             backend/tests/unit/test_platform_fallbacks.py \
             backend/tests/unit/test_platform.py \
+            backend/tests/unit/test_ollama_lifecycle_sh.py \
+            backend/tests/unit/test_env_values.py \
             backend/tests/test_media_import_no_cuda.py
 
       - name: start.sh parses and the preflight runs

@@ -562,6 +562,46 @@ def set_profile():
     return success_response({"name": name, "restart_required": name != P.active_profile().name})
 
 
+OLLAMA_KEEP_ENV = "GUAARDVARK_OLLAMA_KEEP_RUNNING"
+OLLAMA_EXTERNAL_ENV = "GUAARDVARK_OLLAMA_EXTERNAL"
+
+
+def _env_flag(value) -> bool:
+    return str(value or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+@settings_bp.route("/ollama_lifecycle", methods=["GET"])
+def get_ollama_lifecycle():
+    """How stop.sh and start.sh treat Ollama, as recorded in .env."""
+    from backend import profiles as P
+    return success_response({
+        "keep_running": _env_flag(P.read_env_value(OLLAMA_KEEP_ENV)),
+        "external": _env_flag(P.read_env_value(OLLAMA_EXTERNAL_ENV)),
+        "env_writable": P.env_file_writable(),
+    })
+
+
+@settings_bp.route("/ollama_lifecycle", methods=["POST"])
+def set_ollama_lifecycle():
+    """Persist the Ollama policy to .env. stop.sh reads it on every stop, start.sh on
+    every start, so no restart is needed."""
+    from backend import profiles as P
+    payload = request.get_json(silent=True) or {}
+    try:
+        if "keep_running" in payload:
+            P.set_env_value(OLLAMA_KEEP_ENV, "1" if _env_flag(payload["keep_running"]) else None)
+        if "external" in payload:
+            P.set_env_value(OLLAMA_EXTERNAL_ENV, "1" if _env_flag(payload["external"]) else None)
+    except ValueError as e:
+        return error_response(str(e), 400)
+    except OSError as e:
+        return error_response(f"could not write .env: {e}", 500)
+    return success_response({
+        "keep_running": _env_flag(P.read_env_value(OLLAMA_KEEP_ENV)),
+        "external": _env_flag(P.read_env_value(OLLAMA_EXTERNAL_ENV)),
+    })
+
+
 @settings_bp.route("/branding", methods=["POST"])
 def set_branding():
     """Update system name and/or logo."""
