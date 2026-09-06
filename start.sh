@@ -257,6 +257,19 @@ if [ "$VOICE_FLAG_GIVEN" = 0 ] && [ "${GUAARDVARK_PROFILE_VOICE_CHECK:-1}" = "0"
   VOICE_CHECK=0
 fi
 
+# ─── Backend port ─────────────────────────────────────────────────────────────
+# macOS reserves 5000 for the AirPlay Receiver (Monterey and later), so the default
+# there is 5055. An explicit FLASK_PORT (environment or .env) always wins. The chosen
+# default is written to .env so the backend, Vite and the CLI agree on every start.
+if [ -z "${FLASK_PORT:-}" ] && is_macos; then
+  FLASK_PORT=5055
+  touch "$SCRIPT_DIR/.env"
+  if ! grep -q '^FLASK_PORT=' "$SCRIPT_DIR/.env"; then
+    echo "FLASK_PORT=$FLASK_PORT" >> "$SCRIPT_DIR/.env"
+  fi
+  export FLASK_PORT
+fi
+
 # Generate SECRET_KEY if not set — prevents "Using default SECRET_KEY" warning.
 # Handles three cases: line missing, line present-but-empty, line present-with-value.
 # The first two need regeneration; only the third is a no-op.
@@ -2657,7 +2670,7 @@ elif { command_exists ss && ss -tlpn 2>/dev/null | grep -q ":$FLASK_PORT\b"; } \
     # macOS and the backend just dies on bind with a cryptic "Address already in use").
     if [ "$(uname -s)" = "Darwin" ] && [ "$FLASK_PORT" = "5000" ]; then
         vader_error "Port 5000 is in use — on macOS this is almost always the 'AirPlay Receiver' (System Settings → General → AirDrop & Handoff → AirPlay Receiver)."
-        vader_error "Either turn AirPlay Receiver off, or keep it on and set a different backend port: add 'FLASK_PORT=5055' to your .env, then re-run ./start.sh."
+        vader_error "The macOS default is 5055; this run asked for 5000 explicitly. Remove FLASK_PORT=5000 from .env (or set another port there), or turn AirPlay Receiver off, then re-run ./start.sh."
     else
         vader_error "Port $FLASK_PORT is in use by a non-Guaardvark process that does not respond to /api/health. Free it or set FLASK_PORT, then retry."
     fi

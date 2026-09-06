@@ -401,8 +401,8 @@ First run handles everything: Python 3.12, venv, Node dependencies, PostgreSQL, 
 | Service | URL (defaults; see `.env` for `VITE_PORT` / `FLASK_PORT`) |
 |---------|-----|
 | Web UI | http://localhost:5173 |
-| API | http://localhost:5000 |
-| Health Check | http://localhost:5000/api/health |
+| API | http://localhost:5000 (macOS: 5055) |
+| Health Check | http://localhost:5000/api/health (macOS: 5055) |
 
 ```bash
 ./start.sh                    # Full startup with health checks
@@ -617,7 +617,7 @@ git clone https://github.com/guaardvark/guaardvark.git && cd guaardvark
 ./start.sh
 ```
 
-Web UI → http://localhost:5173 · API → http://localhost:5000  
+Web UI → http://localhost:5173 · API → http://localhost:5000 (macOS: 5055)  
 Details: [INSTALL.md](INSTALL.md) · [agent mental model](docs/AGENT_MENTAL_MODEL.md) · full feature list: [CAPABILITIES.md](CAPABILITIES.md)
 
 ### 3. Pick a good first issue

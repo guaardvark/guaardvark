@@ -39,8 +39,8 @@ The startup script handles everything: Python 3.12 (auto-installed if needed), d
 | Service | URL |
 |---------|-----|
 | Web UI | http://localhost:5173 |
-| API | http://localhost:5000 |
-| Health Check | http://localhost:5000/api/health |
+| API | http://localhost:5000 (macOS: 5055) |
+| Health Check | http://localhost:5000/api/health (macOS: 5055) |
 
 First run may ask for your password once (PostgreSQL, Node.js, or Python packages via apt).
 
@@ -72,12 +72,15 @@ echo 'vm.swappiness=10' | sudo tee /etc/sysctl.d/99-guaardvark.conf && sudo sysc
 
 The same `./start.sh` works on macOS. Known differences, and what to expect:
 
-- **Port 5000 is taken by AirPlay Receiver** on Monterey and later. Either turn it off
-  (System Settings → General → AirDrop & Handoff → AirPlay Receiver) or add
-  `FLASK_PORT=5055` to `.env`. `start.sh` detects the clash and says so.
+- **Port 5000 is taken by AirPlay Receiver** on Monterey and later, so on macOS the backend
+  defaults to **5055** (`start.sh` writes `FLASK_PORT=5055` to `.env` on first start; the web UI,
+  Vite proxy and CLI follow it). Set `FLASK_PORT` yourself to use another port; if you force 5000
+  with AirPlay on, `start.sh` detects the clash and says so.
 - **GPU work runs on Metal (MPS) where the feature supports it.** Image generation and video
   generation via ComfyUI do; features that still need CUDA say so when you start them instead
-  of failing quietly: LoRA training, FX Lab (Stable Audio), ACE-Step song generation.
+  of failing quietly: LoRA training. ACE-Step song generation and FX Lab (Stable Audio Open)
+  each have an experimental Metal path: ACE-Step tries MPS on its own; FX Lab tries it when
+  `AUDIO_FOUNDRY_SAO_MPS=1` is set for the audio service. Results from real Macs are welcome in #41.
 - **The screen agent is Linux-only.** It is an X11 virtual display (Xvfb); on macOS the agent
   tools report that plainly and the rest of the app is unaffected.
 - **Already running ComfyUI Desktop?** Point Guaardvark at it with the port override under
