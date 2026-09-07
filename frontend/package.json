@@ -59,7 +59,7 @@
     "playwright": "^1.62.1",
     "rollup-plugin-polyfill-node": "^0.13.0",
     "terser": "^5.51.2",
-    "vite": "^7.3.5",
+    "vite": "^8.2.2",
     "vitest": "^4.1.10"
   },
   "overrides": {
