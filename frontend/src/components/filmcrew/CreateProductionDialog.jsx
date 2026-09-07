@@ -8,6 +8,11 @@ import {
   TextField,
   Autocomplete,
   Box,
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Typography,
   Stack
 } from '@mui/material';
@@ -15,6 +20,8 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { getProjects } from '../../api/projectService';
 import { listScriptTemplates, loadScriptTemplate } from '../../api/productionService';
 import CollapsibleAlert from "../common/CollapsibleAlert";
+
+const API_BASE = '/api';
 
 const CreateProductionDialog = ({ open, onClose, onCreated }) => {
   const [name, setName] = useState('');
@@ -27,12 +34,18 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
   const [templateLoading, setTemplateLoading] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState(null);
   const [error, setError] = useState(null);
+  // Installed video models that can animate a storyboard still, from the
+  // registry; a model that renders its own soundtrack is flagged so the
+  // choice says what it changes (scene windows with spoken lines).
+  const [videoModels, setVideoModels] = useState([]);
+  const [videoModel, setVideoModel] = useState('');
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (open) {
       loadProjects();
       loadTemplates();
+      loadVideoModels();
     }
   }, [open]);
 
@@ -50,6 +63,19 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
     } catch (err) {
       // Non-fatal: templates are optional.
       setTemplates([]);
+    }
+  };
+
+  const loadVideoModels = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/batch-video/models`);
+      const data = res.ok ? await res.json() : null;
+      const rows = (data?.data?.models || []).filter(
+        (m) => m.capabilities && (m.capabilities.supports_i2v || (m.capabilities.modes || []).includes('ref2v'))
+      );
+      setVideoModels(rows);
+    } catch (e) {
+      setVideoModels([]);
     }
   };
 
@@ -121,7 +147,8 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
       const payload = {
         name,
         script_text: scriptText,
-        project_id: projectId?.id || null
+        project_id: projectId?.id || null,
+        ...(videoModel ? { settings: { video_model: videoModel } } : {})
       };
       await onCreated(payload);
       onClose();
@@ -129,6 +156,7 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
       setName('');
       setScriptText('');
       setProjectId(null);
+      setVideoModel('');
       setSelectedTemplate(null);
       setUploadedFileName(null);
     } catch (err) {
@@ -158,6 +186,33 @@ const CreateProductionDialog = ({ open, onClose, onCreated }) => {
             value={projectId}
             onChange={(_, newValue) => setProjectId(newValue)}
           />
+          {videoModels.length > 0 && (
+            <FormControl fullWidth size="small">
+              <InputLabel>Video model</InputLabel>
+              <Select
+                value={videoModel}
+                onChange={(e) => setVideoModel(e.target.value)}
+                label="Video model"
+              >
+                <MenuItem value="">Default (Wan 2.2 image-to-video, silent clips + narration)</MenuItem>
+                {videoModels.map((m) => (
+                  <MenuItem key={m.id} value={m.id} disabled={!m.is_ready}>
+                    <Box>
+                      <Typography variant="body2">
+                        {m.name}{m.is_ready ? '' : ' (not installed)'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {m.capabilities.audio_out
+                          ? 'Renders each scene as one clip with spoken lines and sound'
+                          : 'Silent clips per shot, narration added by the editor'}
+                        {m.license?.attribution ? ` · ${m.license.attribution}` : ''}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <Autocomplete
             options={templates}
             getOptionLabel={(option) => option.name || ''}
