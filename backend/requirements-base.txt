@@ -19,7 +19,7 @@ redis==5.0.4
 eventlet==0.41.2
 
 # Data Processing & Analysis
-numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
+numpy>=2.1,<2.6  # ceiling follows numba (0.67.0 declares numpy<2.6); the torch pass re-resolves numpy from the PyTorch index where numba is not in the graph. Measured 2.5.2, 2026-09-02
 pandas==2.2.2
 pydantic==2.13.5
 psutil==7.2.2
@@ -51,8 +51,8 @@ sentence-transformers>=5.0.0
 # Layout-aware parsing for .pdf/.docx/.pptx (backend/utils/docling_loader.py).
 # Without it those formats have no reader at all and fall through to a legacy
 # path that raises. Pulls rapidocr, which requires opencv-python>=4.5 with no
-# upper bound, so install under backend/constraints.txt (PIP_CONSTRAINT) to keep
-# numpy<2.0. Verified at 2.123.0: numpy 1.26.4 and opencv-python 4.8.1.78 held.
+# upper bound; install under backend/constraints.txt (PIP_CONSTRAINT) so that
+# resolve lands on the locked opencv distribution version.
 docling>=2.123.0
 
 # Image Generation Dependencies (without torch)

@@ -211,15 +211,16 @@ _pt_skip_if_current() {  # usage: _pt_skip_if_current <tag-substring|""> <cuda|n
 }
 
 # Pin-convergence: constrain the SHARED backend venv so `--upgrade
-# --force-reinstall torch...` can't re-resolve numpy to 2.x and force the
-# repin-downgrade churn (see backend/constraints.txt; numpy 1.26.4 cp312
-# wheels verified present on the pytorch cu128/cpu indexes). Deliberately NOT
-# applied to isolated plugin venvs (--venv elsewhere) or a caller-set override.
+# --force-reinstall torch...` can't re-resolve numpy off the ML stack's line
+# and force the repin churn (see backend/constraints.txt; numpy 2.1-2.5 cp312
+# wheels verified present on the pytorch cu124/cu128/cpu indexes 2026-09-02).
+# Deliberately NOT applied to isolated plugin venvs (--venv elsewhere) or a
+# caller-set override.
 if [ -z "${PIP_CONSTRAINT:-}" ] \
    && [ "$TARGET_VENV" = "$PROJECT_ROOT/backend/venv" ] \
    && [ -f "$PROJECT_ROOT/backend/constraints.txt" ]; then
     export PIP_CONSTRAINT="$PROJECT_ROOT/backend/constraints.txt"
-    vader_info "Applying pip constraints: backend/constraints.txt (numpy<2, setuptools<81)"
+    vader_info "Applying pip constraints: backend/constraints.txt (numpy line, opencv distributions)"
 fi
 
 # One source of truth for the CUDA channel. start.sh and heal_backend_venv.sh

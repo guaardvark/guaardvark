@@ -36,6 +36,15 @@ Everything the H3 release can do, wired through the product, on a branch until i
   tells the user the backend needs a restart. Before this, one driver watchdog reset left
   every later image request failing for hours with "pipeline failed to load — usually VRAM
   pressure or an incomplete download". Status reports the fault under `gpu_fault`.
+- **numpy 2.** The backend venv moves to `numpy>=2.1,<2.6` (the ceiling follows numba). What
+  held the old `<2.0` pin was the optional CV extra, not PyTorch: the never-called anatomy
+  service and its mediapipe/jax/controlnet-aux chain are gone, `opencv-python` is the one
+  declared cv2 distribution with all three opencv names locked to one build in
+  `backend/constraints.txt`, every pip pass into the shared venv runs under those
+  constraints, and the ComfyUI installer only installs requirements for nodes in
+  `custom_nodes.manifest`. Docling's PDF pipeline sets `do_ocr=False` explicitly. Existing
+  installs pick this up on the next `./start.sh` (one full bootstrap pass); librosa 1.x is
+  installable again.
 
 - **Capability contract.** Every video model entry can declare modes (text, first frame,
   last frame, first+last, reference), audio in and out, whether it samples with CFG, its

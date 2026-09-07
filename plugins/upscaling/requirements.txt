@@ -1,21 +1,21 @@
 # NOTE: torch*, torchvision, xformers, flash-attn*, pynvml/nvidia-ml-py, and numpy are
 # managed exclusively by the core backend/venv (scripts/install_pytorch.sh +
-# backend/constraints.txt numpy<2 + start.sh post-torch cleans + dep_reconciler).
+# backend/constraints.txt + start.sh post-torch cleans + dep_reconciler).
 # They are listed here for docs / if this plugin is ever bootstrapped in isolation.
 # The plugin's start.sh filters these lines and applies backend/constraints.txt before
-# `pip install -r` into the shared venv. Unpinned numpy>=1.24 previously resolved to
-# 2.x on every boot, then heal/repin fought it back to 1.26.4 and left
-# "numpy.dtype size changed" ABI breakage in numpy.random / spandrel imports.
+# `pip install -r` into the shared venv. A numpy line here that disagreed with the
+# core's once made every boot flip numpy back and forth and left "numpy.dtype size
+# changed" ABI breakage in numpy.random / spandrel imports; keep it identical.
 spandrel>=0.4.0
 torch>=2.0.0
 torchvision>=0.15.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
 ffmpeg-python>=0.2.0
-# Cap <5: opencv 5.x wheels require numpy>=2 and leave broken cv2 namespaces when
-# mixed with the ML stack's numpy<2 pin / opencv-python dual installs.
-opencv-python-headless>=4.8.0,<5
-numpy<2.0,>=1.26.4
+# Version comes from backend/constraints.txt, which locks all opencv distributions
+# to one build so the shared cv2/ directory never mixes two.
+opencv-python-headless>=4.8.0
+numpy>=2.1,<2.6  # ceiling follows numba (0.67.0 declares numpy<2.6); the torch pass re-resolves numpy from the PyTorch index where numba is not in the graph. Measured 2.5.2, 2026-09-02
 watchdog>=3.0.0
 requests>=2.31.0
 pynvml>=11.5.0

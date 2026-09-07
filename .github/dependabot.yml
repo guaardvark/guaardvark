@@ -5,12 +5,6 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
-    ignore:
-      # librosa 1.x requires numpy>=2.1; the backend pins numpy<2.0 (see
-      # backend/requirements.txt), so the resolver falls back to building an
-      # old scipy from source and fails. Lift this with the numpy 2 migration.
-      - dependency-name: librosa
-        update-types: ["version-update:semver-major"]
   - package-ecosystem: pip
     directory: /cli
     schedule:

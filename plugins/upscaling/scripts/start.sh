@@ -35,8 +35,8 @@ source "$PROJECT_ROOT/backend/venv/bin/activate"
 
 # Install plugin deps into the shared backend venv.
 # Filter torch*/xformers/flash/pynvml/numpy: core owns those (install_pytorch.sh +
-# backend/constraints.txt). Blind `pip install -r` here used to pull numpy 2.x over
-# the ML stack's numpy<2 pin and corrupt C extensions mid-restart.
+# backend/constraints.txt). Blind `pip install -r` here used to move numpy off the
+# ML stack's line and corrupt C extensions mid-restart.
 if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$PROJECT_ROOT/backend/constraints.txt" ]; then
     export PIP_CONSTRAINT="$PROJECT_ROOT/backend/constraints.txt"
 fi
