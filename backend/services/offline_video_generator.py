@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
+from backend.services.local_weights import from_pretrained_local, is_cached  # noqa: E402
+
 if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
     os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True,max_split_size_mb:512,garbage_collection_threshold:0.8"
     logger.info("Set PYTORCH_CUDA_ALLOC_CONF (expandable_segments:True, gc_threshold:0.8)")
@@ -55,6 +57,19 @@ except Exception as e:
     CogVideoXImageToVideoPipeline = None
     cogvideox_available = False
 
+# --- MPS (Apple Silicon) support for offline video (ported/adapted for L/M users) ---
+# Must stay above the `gpu_available` computation below: that runs at import and
+# calls this, and on a non-CUDA machine the `or` does not short-circuit away.
+def _mps_available() -> bool:
+    """Apple Silicon Metal (MPS) backend present?
+    Mirrors the pattern from feat/mac-mps-video preview (kept minimal & testable).
+    """
+    try:
+        return bool(torch_available and torch.backends.mps.is_available())
+    except Exception:
+        return False
+
+
 # Edge audit (P3 + lead): graceful degradation on CPU-only / non-NVIDIA.
 # Heavy video gens (CogVideoX 8-16GB+, SVD) require an accelerator (CUDA or MPS).
 # Advertise unavailable with a clear reason instead of runtime OOM or silent fail.
@@ -65,6 +80,7 @@ try:
     _nvidia_gpu = bool(_gpu_coord.has_gpu()) if hasattr(_gpu_coord, "has_gpu") else (torch_available and torch.cuda.is_available())
 except Exception:
     _nvidia_gpu = bool(torch_available and torch.cuda.is_available())
+
 
 
 
@@ -181,15 +197,13 @@ def force_clear_gpu_memory() -> dict:
                 img_gen = get_image_generator()
                 if hasattr(img_gen, '_pipeline') and img_gen._pipeline is not None:
                     logger.info("Force unloading image generator pipeline...")
-                    try:
-                        if hasattr(img_gen._pipeline, 'to'):
-                            img_gen._pipeline.to('cpu')
-                    except Exception:
-                        pass
-                    del img_gen._pipeline
-                    img_gen._pipeline = None
-                    if hasattr(img_gen, '_current_model'):
-                        img_gen._current_model = None
+                    # The generator's own teardown detaches offload hooks under
+                    # its generation lock; wait=False refuses mid-render.
+                    if hasattr(img_gen, '_unload_pipeline'):
+                        img_gen._unload_pipeline(wait=False)
+                    else:
+                        del img_gen._pipeline
+                        img_gen._pipeline = None
             except Exception as e:
                 logger.warning(f"Error unloading image generator: {e}")
 
@@ -351,6 +365,25 @@ class OfflineVideoGenerator:
         thumbs_dir.mkdir(parents=True, exist_ok=True)
         return videos_dir, frames_dir, thumbs_dir
 
+    # The in-process diffusers cache (data/models/video_diffusion) is filled only
+    # by backend/tools/video/download_cogvideox_models.py, run on purpose. Before
+    # 2026-08-28 a cache miss here meant from_pretrained fetched ~20GB from
+    # Hugging Face the moment ComfyUI happened to be down and the router fell
+    # back to this backend.
+    _INSTALL_HINT = (
+        "Run backend/tools/video/download_cogvideox_models.py to populate the "
+        "in-process cache, or start the ComfyUI plugin and use its models."
+    )
+
+    def is_model_cached(self, model_key: str) -> bool:
+        """True when the diffusers snapshot for model_key is already in the
+        in-process cache. Never touches the network."""
+        cfg = self.COGVIDEOX_MODELS.get(model_key) or {}
+        repo = cfg.get("repo") or self.SVD_MODELS.get(model_key)
+        if not repo:
+            return False
+        return is_cached(repo, "model_index.json", cache_dir=self.models_dir)
+
     def _load_svd_pipeline(self, model_key: str = "svd"):
         if not svd_available:
             raise RuntimeError("SVD not available - diffusers not installed properly")
@@ -374,8 +407,9 @@ class OfflineVideoGenerator:
         logger.info(f"Loading SVD model: {model_id}")
 
         try:
-            self._svd_pipeline = StableVideoDiffusionPipeline.from_pretrained(
-                model_id,
+            self._svd_pipeline = from_pretrained_local(
+                StableVideoDiffusionPipeline, model_id,
+                purpose="SVD video", install_hint=self._INSTALL_HINT,
                 torch_dtype=self.dtype,
                 variant="fp16" if self.dtype == torch.float16 else None,
                 cache_dir=str(self.models_dir),
@@ -414,15 +448,11 @@ class OfflineVideoGenerator:
                 img_gen = get_image_generator()
                 if hasattr(img_gen, '_pipeline') and img_gen._pipeline is not None:
                     logger.info("Unloading image generator pipeline to free GPU memory")
-                    try:
-                        if hasattr(img_gen._pipeline, 'to'):
-                            img_gen._pipeline.to('cpu')
-                    except Exception:
-                        pass
-                    del img_gen._pipeline
-                    img_gen._pipeline = None
-                    if hasattr(img_gen, '_current_model'):
-                        img_gen._current_model = None
+                    if hasattr(img_gen, '_unload_pipeline'):
+                        img_gen._unload_pipeline(wait=False)
+                    else:
+                        del img_gen._pipeline
+                        img_gen._pipeline = None
                     if hasattr(img_gen, '_loaded_model'):
                         img_gen._loaded_model = None
                     gc.collect()
@@ -521,8 +551,9 @@ class OfflineVideoGenerator:
                     use_dtype = torch.bfloat16
                     logger.info("Using bfloat16 for better memory efficiency")
 
-            self._cogvideox_pipeline = PipelineClass.from_pretrained(
-                model_id,
+            self._cogvideox_pipeline = from_pretrained_local(
+                PipelineClass, model_id,
+                purpose="CogVideoX (in-process)", install_hint=self._INSTALL_HINT,
                 torch_dtype=use_dtype,
                 cache_dir=str(self.models_dir),
             )
@@ -1001,6 +1032,7 @@ class OfflineVideoGenerator:
                                 width=request.width, height=request.height,
                                 model_family=mf,
                                 fidelity_mode=getattr(request, "fidelity_mode", False),
+                                motion_strength=getattr(request, "motion_strength", None),
                             )
 
                         initial_image = None
