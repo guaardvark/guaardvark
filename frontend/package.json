@@ -60,7 +60,7 @@
     "rollup-plugin-polyfill-node": "^0.13.0",
     "terser": "^5.51.2",
     "vite": "^8.2.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "ws": "^8.20.1",
