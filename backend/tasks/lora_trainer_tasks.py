@@ -234,11 +234,13 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
     # Reaching here means the real trainer was NOT selected. Outside of pytest that
     # is a hard failure — we do NOT silently produce a fake LoRA (NO-MOCKS policy).
     # The most common cause in 'auto' is that RealLoraTrainer.is_available() returned
-    # False: the venv-torch CUDA probe didn't see a GPU (or timed out under contention).
-    # Fail loud with guidance; the caller marks the Subject 'failed' with this message.
+    # False: the accelerator probe (CUDA or Apple MPS) didn't see a device (or timed
+    # out under contention). Fail loud with guidance; the caller marks the Subject
+    # 'failed' with this message.
     if not allow_mock:
-        msg = ("Real LoRA trainer unavailable (venv-torch/CUDA probe failed). "
-               "Verify the GPU is free (nvidia-smi) and the trainer venv exists "
+        msg = ("Real LoRA trainer unavailable (accelerator probe failed: no CUDA or "
+               "Apple MPS). Verify the GPU is free (nvidia-smi) or MPS is available "
+               "(Apple Silicon), and the trainer venv exists "
                "(plugins/lora_trainer/scripts/setup_venv.sh), then retry. To bypass "
                "the probe under contention, set GUAARDVARK_LORA_BACKEND=real. "
                "Mock training is disabled by policy.")

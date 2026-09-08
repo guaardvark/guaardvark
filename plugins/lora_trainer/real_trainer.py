@@ -73,6 +73,10 @@ class RealLoraTrainer:
         "CUDA probe failed" that blocked subject 16's amend runs even on a free
         card. We force a real device for our GPU subprocess. An explicit non-empty
         value (a real multi-GPU pin) is respected; only ''/unset is repaired.
+
+        On Apple Silicon there is no CUDA; the trainer scripts fall back to the
+        MPS backend. Enable the MPS fallback env so unsupported ops degrade to
+        CPU instead of hard-failing mid-training.
         """
         import os
         env = dict(os.environ)
@@ -83,15 +87,20 @@ class RealLoraTrainer:
         env.setdefault(
             "PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True"
         )
+        # Apple Silicon: let unsupported MPS ops fall back to CPU rather than
+        # raising, so LoRA training can proceed on unified memory.
+        env.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
         return env
 
     @classmethod
     def is_available(cls) -> bool:
-        """True if any real train Python (venv-torch OR backend/venv) sees CUDA.
+        """True if any real train Python (venv-torch OR backend/venv) sees an
+        accelerator (CUDA or Apple MPS).
 
         Z-Image training uses backend/venv; SDXL uses venv-torch. Either is enough
         to pick the real backend (the per-base daemon will fail clearly if its own
-        python is missing).
+        python is missing). On Apple Silicon the backend/venv reports MPS (no CUDA),
+        which is sufficient for the Z-Image default path.
         """
         pythons = []
         if cls._VENV_PYTHON.exists():
@@ -111,9 +120,11 @@ class RealLoraTrainer:
                             str(py),
                             "-c",
                             "import torch, sys; "
-                            "ok = torch.cuda.is_available() and torch.cuda.device_count() > 0; "
+                            "cuda = torch.cuda.is_available() and torch.cuda.device_count() > 0; "
+                            "mps = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available(); "
+                            "ok = cuda or mps; "
                             "print('OK' if ok else 'NO'); "
-                            "print(torch.cuda.get_device_name(0) if ok else '', file=sys.stderr)",
+                            "print((torch.cuda.get_device_name(0) if cuda else 'mps'), file=sys.stderr)",
                         ],
                         capture_output=True,
                         text=True,
@@ -123,7 +134,7 @@ class RealLoraTrainer:
                     if probe.returncode == 0 and "OK" in probe.stdout:
                         if i:
                             logger.info(
-                                "real_trainer: CUDA probe OK (%s) attempt %d/%d",
+                                "real_trainer: accelerator probe OK (%s) attempt %d/%d",
                                 py, i + 1, attempts,
                             )
                         return True
@@ -133,7 +144,7 @@ class RealLoraTrainer:
                 if i < attempts - 1:
                     time.sleep(2)
         logger.warning(
-            "real_trainer: CUDA probe failed for all train pythons after retries: %s",
+            "real_trainer: accelerator probe failed for all train pythons after retries: %s",
             last,
         )
         return False

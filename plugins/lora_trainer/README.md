@@ -28,7 +28,7 @@ Optional: set `ZIMAGE_TURBO_TRAIN_ADAPTER=/path/to/ostris_adapter.safetensors` t
 
 Selection priority:
   1. `GUAARDVARK_LORA_BACKEND=real|auto|mock` env var (default: `auto`)
-  2. `auto`: use **real** if `venv-torch/bin/python` exists and CUDA probe passes; otherwise **fail** with an error (no silent mock fallback)
+  2. `auto`: use **real** if a train Python sees an accelerator (CUDA **or Apple MPS**); otherwise **fail** with an error (no silent mock fallback)
   3. `mock`: allowed only when `PYTEST_CURRENT_TEST` is set (unit/integration tests)
 
 ### Setting up real training
@@ -38,9 +38,25 @@ Selection priority:
 
 This creates `venv-torch/`, installs torch+diffusers+peft (~7 GB once + ~5 GB cache for the SDXL base on first run), and verifies CUDA. Once it succeeds, the next training dispatch picks the real backend automatically.
 
+### Apple Silicon (MPS) training
+
+The default **Z-Image** backend runs in `backend/venv` and now supports Apple
+Silicon via the MPS backend (no CUDA required). The trainer scripts resolve the
+accelerator as CUDA > MPS > CPU, and `RealLoraTrainer.is_available()` accepts MPS
+as a valid accelerator. Requirements:
+
+  - `backend/venv` must have `torch` (MPS build), `diffusers>=0.38` with
+    `ZImagePipeline`, and `peft` installed:
+    `backend/venv/bin/pip install peft`
+  - `PYTORCH_ENABLE_MPS_FALLBACK=1` is set automatically by the trainer driver so
+    unsupported MPS ops degrade to CPU instead of hard-failing.
+
+The SDXL-legacy backend still requires `venv-torch/` (CUDA wheels); on Apple
+Silicon use the Z-Image default instead.
+
 ### When real training is unavailable
 
-If `auto` cannot reach the real trainer (missing venv, GPU busy, CUDA probe failed), the Celery task returns `status: failed` with guidance — it does **not** write a fake LoRA. Check `nvidia-smi`, run `setup_venv.sh`, or set `GUAARDVARK_LORA_BACKEND=real` to bypass the availability probe.
+If `auto` cannot reach the real trainer (missing venv, GPU busy, accelerator probe failed), the Celery task returns `status: failed` with guidance — it does **not** write a fake LoRA. Check `nvidia-smi` (or MPS availability on Mac), run `setup_venv.sh`, or set `GUAARDVARK_LORA_BACKEND=real` to bypass the availability probe.
 
 ### Mock backend (tests only)
 
