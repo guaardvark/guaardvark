@@ -26,13 +26,6 @@ from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 # Chatterbox for reference-clip cloning. Fallback to Piper. See plugins/audio_foundry/.
 AUDIO_FOUNDRY_URL = os.environ.get("AUDIO_FOUNDRY_URL", "http://127.0.0.1:8206")
 
-# Optional: use an already-running whisper.cpp *server* (HTTP) for STT instead of
-# building/running Guaardvark's own whisper-cli. Set GUAARDVARK_USE_WHISPER_SERVER=1
-# (and optionally GUAARDVARK_WHISPER_SERVER_URL) to enable. Mirrors the
-# GUAARDVARK_ZIMAGE_USE_COMFYUI=1 opt-in pattern.
-USE_WHISPER_SERVER = os.environ.get("GUAARDVARK_USE_WHISPER_SERVER", "").strip().lower() in ("1", "true", "yes", "on")
-WHISPER_SERVER_URL = os.environ.get("GUAARDVARK_WHISPER_SERVER_URL", "http://127.0.0.1:5800").rstrip("/")
-
 # --- Blueprint Definition ---
 voice_bp = Blueprint("voice_api", __name__, url_prefix="/api/voice")
 
@@ -993,28 +986,6 @@ def parse_whisper_output(raw_output):
     return final_text
 
 @voice_bp.route("/speech-to-text", methods=["POST"])
-def _transcribe_via_whisper_server(audio_path: str) -> str:
-    """Transcribe an audio file via a running whisper.cpp HTTP server.
-
-    The whisper.cpp server exposes POST /inference with a JSON body containing
-    ``filename`` (a path on the server's filesystem). We save the uploaded audio
-    to a temp file, POST its path, and return the transcribed text.
-    """
-    try:
-        resp = requests.post(
-            f"{WHISPER_SERVER_URL}/inference",
-            json={"filename": audio_path, "temperature": 0.0},
-            timeout=120,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        text = (data.get("text") or "").strip()
-        return text
-    except Exception as e:
-        logger.error(f"Voice API: whisper-server transcription failed: {e}")
-        raise
-
-
 def speech_to_text():
     """Convert uploaded audio file to text using local Whisper.cpp with performance optimizations."""
     logger.info("Voice API: Received speech-to-text request (LOCAL) - PERFORMANCE OPTIMIZED")
@@ -1043,53 +1014,6 @@ def speech_to_text():
         
         if not allowed_audio_file(audio_file.filename):
             return error_response("Unsupported audio format", 400, "UNSUPPORTED_FORMAT")
-        
-        # Optional: route STT through an already-running whisper.cpp HTTP server.
-        if USE_WHISPER_SERVER:
-            try:
-                import io
-                from faster_whisper.audio import decode_audio
-                audio_bytes = audio_file.read()
-                audio_array = decode_audio(io.BytesIO(audio_bytes))
-                audio_duration = len(audio_array) / 16000.0
-
-                # Save to a temp WAV the whisper-server can read from disk.
-                tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-                tmp_path = tmp.name
-                tmp.close()
-                try:
-                    import wave
-                    with wave.open(tmp_path, "wb") as wf:
-                        wf.setnchannels(1)
-                        wf.setsampwidth(2)
-                        wf.setframerate(16000)
-                        wf.writeframes((audio_array * 32767).astype("int16").tobytes())
-
-                    start_time = time.time()
-                    final_text = _transcribe_via_whisper_server(tmp_path)
-                    processing_time = time.time() - start_time
-                    logger.info(f"Voice API: whisper-server completed in {processing_time:.2f}s")
-
-                    if final_text:
-                        release_rate_limit(request)
-                        return jsonify({
-                            "text": final_text,
-                            "transcribed_text": final_text,
-                            "duration": audio_duration,
-                            "processing_time": round(processing_time, 3),
-                            "model_used": "whisper-server",
-                            "engine": "whisper-server",
-                        })
-                    else:
-                        return jsonify({"error": "No speech detected in audio"}), 400
-                finally:
-                    try:
-                        os.unlink(tmp_path)
-                    except OSError:
-                        pass
-            except Exception as ws_err:
-                logger.error(f"Voice API: whisper-server path failed ({ws_err})")
-                return jsonify({"error": f"Speech recognition failed: {str(ws_err)}"}), 500
         
         # Get optional model preference from request
         preferred_model = request.form.get('model', DEFAULT_WHISPER_MODEL)
@@ -1861,31 +1785,6 @@ def stream_voice_chat():
         # Update audio file analysis after conversion
         wav_audio_size = os.path.getsize(wav_temp_path)
         logger.info(f"VOICE API: Converted WAV file analysis - Size: {wav_audio_size} bytes")
-        
-        # Optional: route STT through an already-running whisper.cpp HTTP server.
-        if USE_WHISPER_SERVER:
-            try:
-                transcribed_text = _transcribe_via_whisper_server(wav_temp_path)
-                logger.info(f"VOICE API: whisper-server transcription: '{transcribed_text}'")
-                if not transcribed_text:
-                    return jsonify({"error": "No speech detected in audio"}), 400
-                return jsonify({
-                    "transcribed_text": transcribed_text,
-                    "session_id": session_id,
-                    "streaming": True,
-                    "tts_handled_by": "frontend"
-                })
-            except Exception as ws_err:
-                logger.error(f"VOICE API: whisper-server transcription failed: {ws_err}")
-                return jsonify({"error": f"Transcription failed: {str(ws_err)}"}), 500
-            finally:
-                try:
-                    if os.path.exists(temp_file_path):
-                        os.unlink(temp_file_path)
-                    if os.path.exists(wav_temp_path):
-                        os.unlink(wav_temp_path)
-                except (OSError, IOError):
-                    pass
         
         try:
             # Step 1: Enhanced transcription using optimized Whisper with better parameters

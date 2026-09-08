@@ -80,10 +80,12 @@ try:
     _nvidia_gpu = bool(_gpu_coord.has_gpu()) if hasattr(_gpu_coord, "has_gpu") else (torch_available and torch.cuda.is_available())
 except Exception:
     _nvidia_gpu = bool(torch_available and torch.cuda.is_available())
+gpu_available = bool(_nvidia_gpu) or _mps_available()
 
-
-
-
+cogvideox_available = cogvideox_available and gpu_available
+svd_available = svd_available and gpu_available
+diffusers_available = diffusers_available and gpu_available
+video_generator_available = cogvideox_available or svd_available or diffusers_available
 
 
 def _select_accelerator():
