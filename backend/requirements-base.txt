@@ -15,7 +15,7 @@ python-dotenv==1.2.2
 
 # Background Tasks & Caching
 celery==5.4.0
-redis==5.0.4
+redis==8.1.0
 eventlet==0.41.2
 
 # Data Processing & Analysis
