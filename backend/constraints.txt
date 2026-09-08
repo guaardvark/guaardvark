@@ -36,7 +36,7 @@ numpy<2.0,>=1.26.4
 # setuptools note below for why that matters).
 opencv-python==4.11.0.86
 opencv-python-headless==4.11.0.86
-opencv-contrib-python==4.11.0.86
+opencv-contrib-python==5.0.0.93
 
 # Transitive deps whose current releases hard-require numpy>=2 (py3.12 metadata,
 # checked against PyPI 2026-08-31). Once one of them lands in the venv, every
