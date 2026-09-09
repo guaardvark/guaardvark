@@ -5,13 +5,13 @@
 # Both scripts used to run `pip install --no-deps --force-reinstall numpy… setuptools…`
 # unconditionally after every torch step. --force-reinstall consults the index even
 # when nothing would change, so on a flaky link a no-op re-pin failed with pip's
-# misleading "ResolutionImpossible: numpy<2.0,>=1.26.4 vs (constraint) numpy<2.0,>=1.26.4"
+# misleading "ResolutionImpossible: numpy… vs (constraint) numpy…" for the same spec
 # (client box, 2026-08-31). Probe first; re-pin only what is actually wrong.
 
 # The pins themselves. requirements.txt carries the same numpy line; setuptools is
 # re-asserted here because the PyTorch index only serves 78.1.0 and llama-index
 # needs >=80.9.0 (see backend/constraints.txt for why it is not a constraint).
-GV_ML_PINS=('numpy<2.0,>=1.26.4' 'setuptools>=80.9.0,<81')
+GV_ML_PINS=('numpy>=2.1,<2.6' 'setuptools>=80.9.0,<81')
 
 # venv_pins_violated <venv-python> [spec...]
 #   Prints the specs whose installed version does not satisfy them, one per line,

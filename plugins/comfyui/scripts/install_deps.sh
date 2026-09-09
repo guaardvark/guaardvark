@@ -151,9 +151,9 @@ install_comfyui_python_deps() {
 
     # Pin-convergence: ComfyUI core + custom-node requirements install into the
     # SHARED backend venv, and unpinned "numpy" lines in custom-node reqs were
-    # one of the two sources dragging numpy 2.4.x in over the ML stack's
-    # numpy<2.0 pin (install → force-downgrade churn on every boot; Observed in
-    # the 24.04 client box setup.log). Constrain the resolver up front — the REPIN
+    # one of the two sources moving numpy off the ML stack's line (install →
+    # force-downgrade churn on every boot; Observed in the 24.04 client box
+    # setup.log). Constrain the resolver up front — the REPIN
     # step below stays as a no-op safety net. Caller override respected.
     if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$PROJECT_ROOT/backend/constraints.txt" ]; then
         export PIP_CONSTRAINT="$PROJECT_ROOT/backend/constraints.txt"

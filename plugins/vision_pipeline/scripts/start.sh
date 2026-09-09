@@ -36,8 +36,8 @@ source "$PROJECT_ROOT/backend/venv/bin/activate"
 # Install plugin deps into the shared backend venv under the project's pip
 # constraints. Filter torch*/xformers/flash/pynvml/numpy: core owns those
 # (install_pytorch.sh + backend/constraints.txt). An unconstrained pass here
-# pulled opencv-python-headless 5.x and with it numpy 2.x over the ML stack's
-# pin, corrupting C extensions mid-restart. Other plugin deps (fastapi,
+# pulled an opencv-python-headless that moved numpy off the ML stack's line,
+# corrupting C extensions mid-restart. Other plugin deps (fastapi,
 # imagehash, watchdog...) are still installed.
 if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$PROJECT_ROOT/backend/constraints.txt" ]; then
     export PIP_CONSTRAINT="$PROJECT_ROOT/backend/constraints.txt"

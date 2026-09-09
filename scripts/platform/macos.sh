@@ -32,7 +32,7 @@ platform_install_system_deps() {
 }
 
 platform_ensure_python() {
-    # 3.12 required: the numpy<2.0 / pandas==2.2.2 pins have no 3.13 wheels.
+    # 3.12 required: the pandas==2.2.2 pin (and the face-restoration extra) has no 3.13 wheels.
     # Homebrew's default `python3` is 3.13 now, so we ask for python@3.12 explicitly.
     if command -v python3.12 >/dev/null 2>&1; then
         PYTHON_CMD=python3.12; export PYTHON_CMD; return 0

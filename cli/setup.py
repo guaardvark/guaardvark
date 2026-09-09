@@ -80,8 +80,8 @@ setup(
             "guaardvark=llx.main:run",
         ],
     },
-    # 3.12 only — the ML stack (numpy<2.0, mediapipe, basicsr/gfpgan) has no
-    # wheels for 3.13/3.14 yet, so an open lower bound lets pip try and fail (#35).
+    # 3.12 only — pandas 2.2.2 and the face-restoration extra (basicsr/gfpgan)
+    # have no wheels for 3.13/3.14 yet, so an open lower bound lets pip try and fail (#35).
     python_requires=">=3.12,<3.13",
     classifiers=[
         "Development Status :: 4 - Beta",

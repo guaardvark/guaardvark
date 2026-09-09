@@ -75,9 +75,9 @@ class BackendVenv(Reconciler):
         return out
 
     def install(self, log_path: Path) -> int:
-        # Same caps start.sh and install_pytorch.sh apply (numpy<2 and the
-        # numpy>=2-only transitives); without them this re-resolve was the
-        # one unconstrained pip pass left in the boot path.
+        # Same caps start.sh and install_pytorch.sh apply (the numpy line and
+        # the opencv distributions); without them this re-resolve was the one
+        # unconstrained pip pass left in the boot path.
         constraints = self.root / "backend" / "constraints.txt"
         if constraints.is_file() and not os.environ.get("PIP_CONSTRAINT"):
             os.environ["PIP_CONSTRAINT"] = str(constraints)

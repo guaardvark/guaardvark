@@ -71,8 +71,8 @@ def test_real_artifacts_still_excluded(svc, path):
 
 # --- dependency-pin manifests MUST ride the sync allowlist (2026-08-04) ---
 # default_sync_paths enumerates backend/ files INDIVIDUALLY, so new manifests
-# are silently left behind unless listed: backend/constraints.txt (numpy<2
-# convergence via PIP_CONSTRAINT) and backend/requirements-cv.txt (jax pins)
+# are silently left behind unless listed: backend/constraints.txt (numpy and
+# opencv convergence via PIP_CONSTRAINT) and backend/requirements-cv.txt
 # were both missing — clients kept the numpy churn no matter what master fixed.
 @pytest.mark.parametrize("path", [
     "backend/requirements.txt",
