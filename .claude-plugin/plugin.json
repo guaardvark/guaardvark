@@ -4,11 +4,26 @@
   "displayName": "Guaardvark",
   "version": "2.8.1",
   "description": "Drive a self-hosted Guaardvark from your coding agent: local image, video, music-video and Film Crew generation, voice and music, upscaling, LoRA training, Hugging Face model onboarding, agent swarms, local knowledge, code intelligence and supervised outreach, on your own GPU.",
-  "author": { "name": "Guaardvark", "url": "https://guaardvark.com" },
+  "author": {
+    "name": "Guaardvark",
+    "url": "https://guaardvark.com"
+  },
   "homepage": "https://guaardvark.com",
   "repository": "https://github.com/guaardvark/guaardvark",
   "license": "MIT",
-  "keywords": ["local-ai", "self-hosted", "image-generation", "video-generation", "music", "voice", "film-crew", "comfyui", "ollama", "mcp", "agents"],
+  "keywords": [
+    "local-ai",
+    "self-hosted",
+    "image-generation",
+    "video-generation",
+    "music",
+    "voice",
+    "film-crew",
+    "comfyui",
+    "ollama",
+    "mcp",
+    "agents"
+  ],
   "skills": "./.agents/skills/",
   "userConfig": {
     "guaardvark_root": {
@@ -20,8 +35,10 @@
   },
   "mcpServers": {
     "guaardvark": {
-      "command": "sh",
-      "args": ["-c", "cd \"$1\" && exec backend/venv/bin/python -m backend.mcp", "guaardvark-mcp", "${user_config.guaardvark_root}"]
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/mcp_launcher.sh",
+      "args": [
+        "${user_config.guaardvark_root}"
+      ]
     }
   }
 }

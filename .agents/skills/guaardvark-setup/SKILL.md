@@ -28,7 +28,8 @@ If the backend is not reachable, tell the user to start it from the Guaardvark c
    code intelligence, file processing, web fetch, image/video/animation/music-video/film-crew
    generation, `get_generation_status` for any queued batch, outreach drafting and GPU/log
    inspection. Generation tools queue by default over MCP and return a batch id. In Claude Code they appear as
-   `mcp__guaardvark__<tool>`. Install once from the checkout:
+   `mcp__guaardvark__<tool>` after `python -m backend.mcp install`, or as
+   `mcp__plugin_guaardvark_guaardvark__<tool>` when the plugin was installed from the marketplace. Install once from the checkout:
    ```bash
    python -m backend.mcp install      # writes the server entry into Claude Code, Cursor, Claude Desktop, Codex, Zed, Gemini
    python -m backend.mcp doctor       # self-test + stale-config scan
