@@ -1,5 +1,5 @@
 ---
-name: guaardvark-knowledge
+name: knowledge
 description: >-
   Answer from the user's own indexed documents with Guaardvark's local RAG, browse and
   read indexed files section by section, remember facts across sessions, and process or

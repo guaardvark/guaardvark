@@ -1,5 +1,5 @@
 ---
-name: guaardvark-outreach
+name: outreach
 description: >-
   Draft and review social outreach with Guaardvark's supervised outreach system (Reddit,
   Discord, Twitter/X, Facebook): grounded, graded drafts that never post without the

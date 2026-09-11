@@ -1,5 +1,5 @@
 ---
-name: guaardvark-upscale
+name: upscale
 description: >-
   Upscale images and video 2x to 4K/8K on the user's GPU through Guaardvark (Real-ESRGAN,
   HAT-L, SwinIR, two-pass). Use when the user asks to enlarge, sharpen, restore, or
@@ -8,7 +8,7 @@ description: >-
 
 # Upscaling with Guaardvark
 
-Read `guaardvark-setup` first; needs the `upscaling` plugin (`POST /api/plugins/upscaling/start`).
+Read `setup` first; needs the `upscaling` plugin (`POST /api/plugins/upscaling/start`).
 `B=${GUAARDVARK_URL:-http://localhost:5000}`. Models: `GET $B/api/upscaling/models` (default `HAT-L_SRx4`);
 install one with `POST $B/api/upscaling/models/download {"model": "<id>"}` only after the user says so.
 

@@ -1,5 +1,5 @@
 ---
-name: guaardvark-setup
+name: setup
 description: >-
   Connect this agent to a running Guaardvark (self-hosted AI studio) and check what it can
   do right now. Use first when the user mentions Guaardvark, asks to generate
@@ -60,17 +60,17 @@ If the backend is not reachable, tell the user to start it from the Guaardvark c
 
 | Skill | Use for |
 |---|---|
-| guaardvark-image | one image, edits, cast characters, batch image runs |
-| guaardvark-video | one clip, image-to-video, first/last frame, batch video runs, MiniMax H3 with sound |
-| guaardvark-music-video | a song in, a beat-cut music video out, with the approval gate |
-| guaardvark-film-crew | screenplay to finished short: writer, casting, storyboards, render, edit |
-| guaardvark-voice | narration, TTS, consent-gated voice cloning |
-| guaardvark-music | full songs with lyrics, instrumentals, sound effects |
-| guaardvark-upscale | 2x to 8K upscaling of images and video |
-| guaardvark-cast | Cast Library subjects and LoRA training for consistent characters |
-| guaardvark-models | add any Hugging Face model or LoRA from a URL |
-| guaardvark-swarm | parallel coding agents in git worktrees from a plan file |
-| guaardvark-knowledge | the user's indexed documents, memory, web fetch |
-| guaardvark-code | code search, repository map, self-improvement status |
-| guaardvark-outreach | supervised social drafts (never posts) |
-| guaardvark-ops | GPU, logs, Celery, plugins, Interconnector sync, autoresearch, infographics |
+| image | one image, edits, cast characters, batch image runs |
+| video | one clip, image-to-video, first/last frame, batch video runs, MiniMax H3 with sound |
+| music-video | a song in, a beat-cut music video out, with the approval gate |
+| film-crew | screenplay to finished short: writer, casting, storyboards, render, edit |
+| voice | narration, TTS, consent-gated voice cloning |
+| music | full songs with lyrics, instrumentals, sound effects |
+| upscale | 2x to 8K upscaling of images and video |
+| cast | Cast Library subjects and LoRA training for consistent characters |
+| models | add any Hugging Face model or LoRA from a URL |
+| swarm | parallel coding agents in git worktrees from a plan file |
+| knowledge | the user's indexed documents, memory, web fetch |
+| code | code search, repository map, self-improvement status |
+| outreach | supervised social drafts (never posts) |
+| ops | GPU, logs, Celery, plugins, Interconnector sync, autoresearch, infographics |

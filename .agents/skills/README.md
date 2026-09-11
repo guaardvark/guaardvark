@@ -18,7 +18,7 @@ Claude Code, from anywhere (the repository is a plugin marketplace):
 ```
 
 It asks for the path of your Guaardvark checkout, starts the MCP server from there, and loads
-the skills as `/guaardvark:guaardvark-image` and so on.
+the skills as `/guaardvark:image` and so on.
 
 Or from the Guaardvark checkout:
 
@@ -34,5 +34,5 @@ Set `GUAARDVARK_URL` when the backend is not on `http://localhost:5000` (macOS d
 
 ## Skills
 
-Start with `guaardvark-setup`; it lists the rest and checks the backend, plugins and models.
+Start with `setup`; it lists the rest and checks the backend, plugins and models.
 Every skill states the MCP tool or REST route it uses; nothing here invents an endpoint.

@@ -1,5 +1,5 @@
 ---
-name: guaardvark-music
+name: music
 description: >-
   Generate full songs with vocals or instrumentals (ACE-Step) and sound effects or
   ambience (Stable Audio Open) on the user's GPU through Guaardvark's Audio Foundry. Use
@@ -9,7 +9,7 @@ description: >-
 
 # Music and sound effects with Guaardvark
 
-Read `guaardvark-setup` first; needs the `audio_foundry` plugin. `B=${GUAARDVARK_URL:-http://localhost:5000}`.
+Read `setup` first; needs the `audio_foundry` plugin. `B=${GUAARDVARK_URL:-http://localhost:5000}`.
 ACE-Step takes ~10 GB VRAM; the orchestrator evicts other models while it runs.
 
 ## A song
@@ -43,6 +43,6 @@ curl -s -X POST $B/api/audio-foundry/generate/fx -H 'Content-Type: application/j
 
 ## Then
 
-- A finished song can go straight into guaardvark-music-video as the `song`.
+- A finished song can go straight into the music skill-video as the `song`.
 - Jobs: `GET $B/api/audio-foundry/jobs` lists, `DELETE` clears finished ones.
 - Attribution comes back in the job result; keep it with the file if the user publishes.

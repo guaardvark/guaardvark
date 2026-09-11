@@ -1,5 +1,5 @@
 ---
-name: guaardvark-ops
+name: ops
 description: >-
   Operate a running Guaardvark: GPU and VRAM state, plugin start/stop, logs, Celery tasks,
   the Interconnector sync to other machines, overnight RAG autoresearch, and infographics.

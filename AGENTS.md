@@ -8,7 +8,7 @@ asked to *use* Guaardvark. Contributor rules for *changing* it are in `CONTRIBUT
 
 ## First move
 
-Read `.agents/skills/guaardvark-setup/SKILL.md` before acting on any Guaardvark request.
+Read `.agents/skills/setup/SKILL.md` before acting on any Guaardvark request.
 It checks that the backend answers, which plugins are running, and which models are
 installed, then hands off to the skill for the job. Every skill names the exact MCP tool
 or REST route it uses. Do not invent an endpoint; if a skill does not cover the ask, say so.
@@ -17,20 +17,20 @@ or REST route it uses. Do not invent an endpoint; if a skill does not cover the 
 
 | The user wants | Read | Runs through |
 |---|---|---|
-| an image, an edit, a batch of images, a consistent character | `guaardvark-image` | MCP `generate_image`, `edit_image`; REST `/api/batch-image` |
-| a video clip, image-to-video, a clip with its own soundtrack, a batch | `guaardvark-video` | MCP `generate_video`; REST `/api/batch-video` |
-| a music video from a song | `guaardvark-music-video` | MCP `generate_music_video`; REST `/api/music-video` (approval gate) |
-| a short film from a script or logline | `guaardvark-film-crew` | MCP `start_film_crew`; REST `/api/production` (two gates) |
-| narration, a spoken line, a cloned voice | `guaardvark-voice` | REST `/api/audio-foundry`, `/api/voice` |
-| a song, a beat, a sound effect | `guaardvark-music` | REST `/api/audio-foundry` |
-| a bigger or sharper image or video | `guaardvark-upscale` | REST `/api/upscaling` |
-| the same face or object across renders, a LoRA | `guaardvark-cast` | REST `/api/cast-library` |
-| a model or LoRA from a Hugging Face link | `guaardvark-models` | REST `/models/from-hf`, `/models/user` |
-| several agents on one codebase | `guaardvark-swarm` | REST `/api/swarm` |
-| an answer from their documents, a memory | `guaardvark-knowledge` | MCP `search_knowledge_base`, `save_memory`, … |
-| where something is implemented, a repo map | `guaardvark-code` | MCP `search_codebase`, `get_repository_map`, … |
-| a reply drafted for a social thread | `guaardvark-outreach` | MCP `outreach_draft_post` (never posts) |
-| GPU state, logs, plugins, sync, autoresearch, an infographic | `guaardvark-ops` | MCP `inspect_gpu`, `read_logs`; REST `/api/plugins`, … |
+| an image, an edit, a batch of images, a consistent character | `image` | MCP `generate_image`, `edit_image`; REST `/api/batch-image` |
+| a video clip, image-to-video, a clip with its own soundtrack, a batch | `video` | MCP `generate_video`; REST `/api/batch-video` |
+| a music video from a song | `music-video` | MCP `generate_music_video`; REST `/api/music-video` (approval gate) |
+| a short film from a script or logline | `film-crew` | MCP `start_film_crew`; REST `/api/production` (two gates) |
+| narration, a spoken line, a cloned voice | `voice` | REST `/api/audio-foundry`, `/api/voice` |
+| a song, a beat, a sound effect | `music` | REST `/api/audio-foundry` |
+| a bigger or sharper image or video | `upscale` | REST `/api/upscaling` |
+| the same face or object across renders, a LoRA | `cast` | REST `/api/cast-library` |
+| a model or LoRA from a Hugging Face link | `models` | REST `/models/from-hf`, `/models/user` |
+| several agents on one codebase | `swarm` | REST `/api/swarm` |
+| an answer from their documents, a memory | `knowledge` | MCP `search_knowledge_base`, `save_memory`, … |
+| where something is implemented, a repo map | `code` | MCP `search_codebase`, `get_repository_map`, … |
+| a reply drafted for a social thread | `outreach` | MCP `outreach_draft_post` (never posts) |
+| GPU state, logs, plugins, sync, autoresearch, an infographic | `ops` | MCP `inspect_gpu`, `read_logs`; REST `/api/plugins`, … |
 | a queued render's state | any of the above | MCP `get_generation_status` |
 
 ## How the tools behave

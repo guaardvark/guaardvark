@@ -1,5 +1,5 @@
 ---
-name: guaardvark-code
+name: code
 description: >-
   Code intelligence over repositories Guaardvark has indexed: semantic code search,
   exact-text search, file listing, PageRank repository map, import dependency graph,
@@ -25,7 +25,7 @@ description: >-
 | `verify_change` | confirm text now exists in a file after an edit |
 | `map_codebase` | run the System Mapper: stats plus ranked findings |
 | `self_improvement_status` | can the self-improvement engine run (lock, flag, already running) |
-| `swarm_status` | the coding swarm (see guaardvark-swarm) |
+| `swarm_status` | the coding swarm (see the swarm skill) |
 
 ## Pattern
 

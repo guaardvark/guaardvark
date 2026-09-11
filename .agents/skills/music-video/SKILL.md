@@ -1,5 +1,5 @@
 ---
-name: guaardvark-music-video
+name: music-video
 description: >-
   Turn a song into a beat-synced music video with Guaardvark's Director: song analysis,
   per-cut shot prompts, storyboard keyframes, image-to-video renders, cuts on the beat.
@@ -9,7 +9,7 @@ description: >-
 
 # Music video with Guaardvark
 
-Read `guaardvark-setup` first. Needs the `comfyui` plugin and an installed i2v model
+Read `setup` first. Needs the `comfyui` plugin and an installed i2v model
 (`wan22-5b` by default; `minimax-h3-int8` for frame-matched continuity).
 
 ## Start: MCP `generate_music_video`
@@ -46,7 +46,7 @@ Creating a project without the MCP tool: `POST $B/api/music-video` with
 2. Offer storyboards before approval: they are cheap and catch a wrong style early.
 3. Ask for approval in plain words with the cost: number of cuts times the clip time for the
    chosen model. Approve only after a clear yes.
-4. Character in the video: create a Cast subject and train a LoRA first (guaardvark-cast) so the
+4. Character in the video: create a Cast subject and train a LoRA first (the cast skill) so the
    Director can lock identity across cuts.
 5. The finished cut is assembled to the detected beat grid. The Video Editor page can trim or
    overlay text afterwards.

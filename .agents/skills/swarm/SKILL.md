@@ -1,5 +1,5 @@
 ---
-name: guaardvark-swarm
+name: swarm
 description: >-
   Launch and watch Guaardvark's Swarm Orchestrator: parallel coding agents, each in its
   own git worktree, working a markdown plan and merging back deterministically. Use when
@@ -9,7 +9,7 @@ description: >-
 
 # Swarm with Guaardvark
 
-Read `guaardvark-setup` first; needs the `swarm` plugin (`POST /api/plugins/swarm/start`).
+Read `setup` first; needs the `swarm` plugin (`POST /api/plugins/swarm/start`).
 `B=${GUAARDVARK_URL:-http://localhost:5000}`. Status is also the MCP tool `swarm_status`.
 
 ## 1. Write the plan file

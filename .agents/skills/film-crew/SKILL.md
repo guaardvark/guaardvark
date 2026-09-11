@@ -1,5 +1,5 @@
 ---
-name: guaardvark-film-crew
+name: film-crew
 description: >-
   Run Guaardvark's five-role Film Crew locally: screenwriter, casting (Cast Library
   LoRAs), cinematographer storyboards, keyframe renders, editor. Turns a logline or
@@ -10,8 +10,8 @@ description: >-
 
 # Film Crew with Guaardvark
 
-Read `guaardvark-setup` first. Needs `comfyui`; casting with trained characters needs
-`lora_trainer` (see guaardvark-cast). Renders take minutes per shot.
+Read `setup` first. Needs `comfyui`; casting with trained characters needs
+`lora_trainer` (see the cast skill). Renders take minutes per shot.
 
 ## Start: MCP `start_film_crew`
 
@@ -43,7 +43,7 @@ Without the MCP tool: `POST $B/api/production` with `{"name", "script_text", "se
 
 1. Show the screenwriter's output (scenes, shots, subjects) before touching casting.
 2. Consistent faces come from trained LoRAs. If a subject has no Cast entry, offer to create and
-   train one (guaardvark-cast) or cast it "as described" and warn identity may drift.
+   train one (the cast skill) or cast it "as described" and warn identity may drift.
 3. State the render cost before the storyboard approval: shots × seconds × model speed.
 4. The editor assembles the shots in the Video Editor; the result appears in the media library.
 5. Nothing posts or uploads. The film stays on the machine unless the user moves it.

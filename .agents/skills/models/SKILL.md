@@ -1,5 +1,5 @@
 ---
-name: guaardvark-models
+name: models
 description: >-
   Add any Hugging Face image or video model, checkpoint or LoRA to Guaardvark from a URL,
   list what is installed, and download registry models on request. Use when the user
@@ -42,7 +42,7 @@ the product never phones home on its own. Always confirm the size and the licenc
 
 - Batch image: `adapters: [{"id": "<user model id>", "scale": 0.8}]` on `/generate/prompts`.
 - Batch video: `lora_name` + `lora_strength`, or `adapters` on `/generate/text`.
-- A trained Cast LoRA is different: it rides on `subject_ids` (guaardvark-cast).
+- A trained Cast LoRA is different: it rides on `subject_ids` (the cast skill).
 
 ## Rules
 

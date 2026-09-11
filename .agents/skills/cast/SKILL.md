@@ -1,5 +1,5 @@
 ---
-name: guaardvark-cast
+name: cast
 description: >-
   Build consistent characters, environments and props in Guaardvark's Cast Library and
   train LoRAs for them locally (reference photos → vision bible → sample plan → approved
@@ -9,7 +9,7 @@ description: >-
 
 # Cast Library and LoRA training
 
-Read `guaardvark-setup` first; training needs the `lora_trainer` plugin (CUDA, bf16) and an
+Read `setup` first; training needs the `lora_trainer` plugin (CUDA, bf16) and an
 installed train-ready base (Z-Image, SDXL or FLUX family). `B=${GUAARDVARK_URL:-http://localhost:5000}`.
 
 ## The pipeline

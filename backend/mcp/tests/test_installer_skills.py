@@ -12,7 +12,7 @@ from backend.mcp import installer
 def skills_tree(tmp_path, monkeypatch):
     root = tmp_path / "checkout"
     src = root / ".agents" / "skills"
-    for name in ("guaardvark-alpha", "guaardvark-beta"):
+    for name in ("alpha", "beta"):
         (src / name).mkdir(parents=True)
         (src / name / "SKILL.md").write_text(f"---\nname: {name}\ndescription: x\n---\n")
     (src / "_template").mkdir()  # no SKILL.md, must be ignored
@@ -39,6 +39,7 @@ def test_links_every_skill_into_both_targets(skills_tree):
             link = target / name
             assert link.is_symlink() or (link / "SKILL.md").is_file()
             assert (link / "SKILL.md").read_text().startswith("---")
+        assert not (target / "alpha").exists(), "personal links carry the guaardvark- prefix"
         assert not (target / "_template").exists()
 
 
@@ -51,7 +52,7 @@ def test_second_run_is_idempotent_and_repoints_stale_link(skills_tree):
     stale.unlink()
     stale.symlink_to(elsewhere, target_is_directory=True)
     results = installer.install_skills()
-    assert stale.resolve() == (root / ".agents" / "skills" / "guaardvark-alpha").resolve()
+    assert stale.resolve() == (root / ".agents" / "skills" / "alpha").resolve()
     assert any("already linked" in r.detail for r in results)
 
 

@@ -1,5 +1,5 @@
 ---
-name: guaardvark-voice
+name: voice
 description: >-
   Narration and text-to-speech on the user's machine through Guaardvark's Audio Foundry
   (Chatterbox, Kokoro, Piper) and consent-gated voice cloning from a reference clip. Use
@@ -9,7 +9,7 @@ description: >-
 
 # Voice with Guaardvark
 
-Read `guaardvark-setup` first. Expressive voices need the `audio_foundry` plugin running;
+Read `setup` first. Expressive voices need the `audio_foundry` plugin running;
 Piper works without it. `B=${GUAARDVARK_URL:-http://localhost:5000}`.
 
 ## Which engine

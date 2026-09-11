@@ -1,5 +1,5 @@
 ---
-name: guaardvark-image
+name: image
 description: >-
   Generate or edit images on the user's own GPU through Guaardvark: single images,
   instruction edits, consistent characters from the Cast Library, and batch runs of many
@@ -9,7 +9,7 @@ description: >-
 
 # Images with Guaardvark
 
-Read `guaardvark-setup` first if the backend or the `comfyui` plugin state is unknown.
+Read `setup` first if the backend or the `comfyui` plugin state is unknown.
 
 ## One image: MCP `generate_image`
 
@@ -21,7 +21,7 @@ Read `guaardvark-setup` first if the backend or the `comfyui` plugin state is un
 - `width` / `height`: 512, 768 or 1024. `style`: realistic, artistic, anime, photographic, digital-art.
 - **Consistent character**: pass `subject_ids=[<cast id>]` as its own array. Never put the
   trigger word alone in the prompt and expect the LoRA to load. Find ids with
-  `GET /api/cast-library` (see guaardvark-cast).
+  `GET /api/cast-library` (see the cast skill).
 - On-image text: quote the exact words in double quotes inside the prompt.
 - The tool returns the image URL (`/api/outputs/generated_images/<file>.png`, relative to the
   backend), the model that ran, steps, seed and whether a Cast LoRA was applied. Show the URL
@@ -54,7 +54,7 @@ curl -s -X POST $B/api/batch-image/generate/prompts -H 'Content-Type: applicatio
 ```
 - `prompts` may be strings or `{"prompt": "..."}` objects. There is a per-batch maximum; if the
   server answers 400 "Too many prompts", split the list.
-- Optional `adapters` (user LoRAs from guaardvark-models) and `subject_ids` (Cast Library).
+- Optional `adapters` (user LoRAs from the models skill) and `subject_ids` (Cast Library).
 - The response is `data.batch_id` (`ImageBatch_<date>_<n>`). Poll
   `GET $B/api/batch-image/status/<batch_id>?include_results=true`: `status` goes
   running → completed, with `completed_images` / `total_images`, `output_dir`, and one

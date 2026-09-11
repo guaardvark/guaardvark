@@ -214,6 +214,9 @@ def install_client(client: str, dry_run: bool = False, force: bool = False) -> I
 # ---------------------------------------------------------------------------
 
 SKILLS_SOURCE = Path(".agents") / "skills"
+# Skill folders carry bare job names (image, video, swarm, ...): inside the
+# checkout and in the Claude Code plugin the namespace is the plugin. In the
+# user's personal skills folder there is no namespace, so links get this prefix.
 SKILL_PREFIX = "guaardvark-"
 
 
@@ -258,17 +261,21 @@ def install_skills(dry_run: bool = False) -> list[InstallResult]:
     Returns one InstallResult per (target, skill) so ``run_install`` can print
     them in the same table as the client entries."""
     source = _skills_source_dir()
-    skills = sorted(p for p in source.glob(f"{SKILL_PREFIX}*") if (p / "SKILL.md").is_file())
+    skills = sorted(
+        p for p in source.iterdir()
+        if p.is_dir() and not p.name.startswith(("_", ".")) and (p / "SKILL.md").is_file()
+    )
     if not skills:
-        return [InstallResult("skills", "failed", f"no {SKILL_PREFIX}*/SKILL.md under {source}")]
+        return [InstallResult("skills", "failed", f"no <skill>/SKILL.md under {source}")]
     results: list[InstallResult] = []
     for target in _skill_targets():
         for skill in skills:
-            detail = _link_skill(skill, target / skill.name, dry_run)
+            link_name = skill.name if skill.name.startswith(SKILL_PREFIX) else SKILL_PREFIX + skill.name
+            detail = _link_skill(skill, target / link_name, dry_run)
             status = ("skipped" if detail.startswith("skipped")
                       else "dry-run" if dry_run
                       else "installed")
-            results.append(InstallResult(f"skill:{skill.name}", status, f"{target}: {detail}"))
+            results.append(InstallResult(f"skill:{link_name}", status, f"{target}: {detail}"))
     return results
 
 

@@ -1,5 +1,5 @@
 ---
-name: guaardvark-video
+name: video
 description: >-
   Generate video clips on the user's own GPU through Guaardvark: text-to-video,
   image-to-video, first+last frame animation, clips with their own soundtrack and dialogue
@@ -9,7 +9,7 @@ description: >-
 
 # Video with Guaardvark
 
-Read `guaardvark-setup` first if the backend or the `comfyui` plugin state is unknown.
+Read `setup` first if the backend or the `comfyui` plugin state is unknown.
 Video needs a 16 GB-class NVIDIA card. Clips take minutes, so every route is queued.
 
 ## Pick the model
