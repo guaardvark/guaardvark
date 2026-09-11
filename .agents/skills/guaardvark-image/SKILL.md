@@ -26,10 +26,10 @@ Read `guaardvark-setup` first if the backend or the `comfyui` plugin state is un
 - The tool returns the image URL (`/api/outputs/generated_images/<file>.png`, relative to the
   backend), the model that ran, steps, seed and whether a Cast LoRA was applied. Show the URL
   and the prompt you used. Measured: 768x768 on Z-Image Turbo in ~20 s on a free 16 GB card.
-- **An empty result means the MCP call timed out** (30 s per call by default,
-  `GUAARDVARK_MCP_TIMEOUT` raises it). It happens when the GPU is busy with another job:
-  check `inspect_gpu`, wait for that job, then retry; or queue through the REST batch route
-  below, which returns at once and is polled.
+- **An empty result means the call did not complete**, seen when the GPU was busy with
+  another job (the tool waits for the render; the client gives up first). Check
+  `inspect_gpu`, wait for that job, then retry with a changed prompt; or queue through the
+  REST batch route below, which returns at once and is polled.
 
 ## Edit an existing image: MCP `edit_image`
 
