@@ -28,21 +28,24 @@ https://github.com/user-attachments/assets/c6d9d18b-cfff-4ae2-8220-dc7f329fee5d
 
 **The self-hosted AI studio.** Coding agents and 20-agent swarms in isolated git worktrees, screen agents with their own real desktop, self-tuning RAG, continuous voice chat — and a full media pipeline: video, image, full-song music, neural voice. One install, one GPU, everything on your machine. Your machine. Your data. Your rules.
 
-> **The aardvark** (/ˈɑːrd.vɑːrk/; *Orycteropus afer*) is a medium-sized, burrowing, nocturnal mammal native to Africa. The aardvark is the only living member of the genus *Orycteropus*, the family Orycteropodidae and the order Tubulidentata. It is found over much of the southern two-thirds of the African continent, avoiding areas that are mainly rocky. A nocturnal feeder, the aardvark subsists on ants and termites (myrmecophagy) by using its sharp claws and powerful legs to dig the insects out of their hills, and its long snout to sniff out food. It digs a burrow in which to live and rear its young.
->
-> — [Wikipedia](https://en.wikipedia.org/wiki/Aardvark), CC BY-SA
+**Works with your coding agent.** Claude Code, Cursor, Codex, OpenClaw and Gemini CLI drive every flow above through the built-in MCP server and fifteen [agent skills](.agents/skills/README.md): "make a music video from this song", "film this script", "train a LoRA of this character", "swarm this refactor" — the agent queues the job on your GPU and polls it to the finished file.
 
-**The Guaardvark** (/ˈɡwɑːrd.vɑːrk/; *Workstationus selfhosticus*) is a burrowing, nocturnal AI system native to consumer hardware. The Guaardvark is the only living member of the repository [github.com/guaardvark/guaardvark](https://github.com/guaardvark/guaardvark), the family LocalAI, and the order AutonomousAgents. It is found across most of the modern desktop, avoiding regions that are mainly cloud. A nocturnal feeder, the Guaardvark subsists on prompts and unstructured data (promptophagy) by using its sixty-odd tools and a swarm of parallel coding agents to dig bugs out of their codebases, and a retrieval index to sniff out knowledge in the dark. It is fiercely territorial about its single GPU, admitting one process to the card at a time and evicting any language model found loitering there. It digs isolated git worktrees in which to work, and rears its images, video, music, and cloned voices entirely on your own machine.
+**Runs on Linux with one NVIDIA card** (16 GB for video). Apple Silicon is supported with GPU features arriving through Metal (what works today is in [INSTALL.md](INSTALL.md#install-macos-apple-silicon)); Windows through WSL2 is being verified.
 
-**See the [VERSION](VERSION) file for the current release** · [guaardvark.com](https://guaardvark.com)
-
-**Install with one command:**
+**Install** (one command, then open the Studio):
 
 ```bash
 curl -fsSL https://guaardvark.com/install.sh | bash
 ```
 
-See [Quick Start](#quick-start) for details and manual install options.
+**Add it to Claude Code** (two lines, no clone):
+
+```
+/plugin marketplace add guaardvark/guaardvark
+/plugin install guaardvark@guaardvark
+```
+
+**See the [VERSION](VERSION) file for the current release** · [guaardvark.com](https://guaardvark.com) · [Quick Start](#quick-start) for manual install options.
 
 > **For the exhaustive feature list, models, surfaces, and plugin details, see [CAPABILITIES.md](CAPABILITIES.md).** This README focuses on the marquee experience, quick start, and what makes Guaardvark different.
 
@@ -58,6 +61,12 @@ See [Quick Start](#quick-start) for details and manual install options.
 | **Knowledge** | Hybrid RAG on pgvector with cross-encoder reranking, layout-aware document parsing with page-level citations, retrieval that shows its chunks and scores, Autoresearch that tunes retrieval overnight | Ep [3](https://www.youtube.com/watch?v=pT_J93qTCL0) |
 | **Voice & channels** | Continuous voice chat, a three-tier chat brain, Discord bot, supervised outreach, MCP in both directions, a 25-module CLI | Ep [2](https://www.youtube.com/watch?v=5HcSAf96j_M) |
 | **Self-running platform** | Self-improvement behind guardian review and kill switches, rules engine, jobs & scheduling, schema-aware backups, GPU orchestrator, multi-machine Interconnector | Eps [11](https://www.youtube.com/watch?v=7kHvi_2vT6U) · [12](https://www.youtube.com/watch?v=IMEnss9gjl4) |
+
+> **The aardvark** (/ˈɑːrd.vɑːrk/; *Orycteropus afer*) is a medium-sized, burrowing, nocturnal mammal native to Africa. The aardvark is the only living member of the genus *Orycteropus*, the family Orycteropodidae and the order Tubulidentata. It is found over much of the southern two-thirds of the African continent, avoiding areas that are mainly rocky. A nocturnal feeder, the aardvark subsists on ants and termites (myrmecophagy) by using its sharp claws and powerful legs to dig the insects out of their hills, and its long snout to sniff out food. It digs a burrow in which to live and rear its young.
+>
+> — [Wikipedia](https://en.wikipedia.org/wiki/Aardvark), CC BY-SA
+
+**The Guaardvark** (/ˈɡwɑːrd.vɑːrk/; *Workstationus selfhosticus*) is a burrowing, nocturnal AI system native to consumer hardware. The Guaardvark is the only living member of the repository [github.com/guaardvark/guaardvark](https://github.com/guaardvark/guaardvark), the family LocalAI, and the order AutonomousAgents. It is found across most of the modern desktop, avoiding regions that are mainly cloud. A nocturnal feeder, the Guaardvark subsists on prompts and unstructured data (promptophagy) by using its sixty-odd tools and a swarm of parallel coding agents to dig bugs out of their codebases, and a retrieval index to sniff out knowledge in the dark. It is fiercely territorial about its single GPU, admitting one process to the card at a time and evicting any language model found loitering there. It digs isolated git worktrees in which to work, and rears its images, video, music, and cloned voices entirely on your own machine.
 
 ## ▶ The Walkthrough Series — every feature, on camera
 
@@ -148,6 +157,25 @@ The local-AI ecosystem has excellent tools for every slice: chat UIs, RAG second
 *Columns describe the typical shape of each category, not any single project — several projects exceed their category in places. The Guaardvark column links to walkthrough episodes where you can watch the claim happen.*
 
 If all you need is one slice, use the excellent specialist: a chat UI like Open WebUI, a node graph like ComfyUI (Guaardvark hands off to it with one click), a RAG workspace like AnythingLLM. Guaardvark is for when you want the whole studio on one box.
+
+### Agent-driven media production, side by side
+
+A newer category: the coding agent runs the studio. Facts checked 2026-09-11 from each project's repository; stars move, the shape does not.
+
+| | OpenMontage | Nomi | Maestro | Comfy MCP | Promptus / LocalForge / SimpliGen | **Guaardvark** |
+|---|---|---|---|---|---|---|
+| What it is | 12 video pipelines driven by Claude Code, Cursor, Codex | Desktop video workbench with 25 MCP tools | Local video, image, music, voice with a director mode | Official MCP for ComfyUI | One-click local image + video apps, $30–$97 one-time | The whole studio, driven by your agent or the Studio UI |
+| Generation runs | mostly cloud APIs, local models optional | your ComfyUI or cloud providers | local (a Wan2GP fork) | your ComfyUI, or Comfy Cloud on subscription | local | local |
+| Agent driving it | yes (skills + CLI) | yes (MCP) | no (in-app planner) | yes (generation only) | no | yes (MCP + skills) and the built-in agent brain |
+| Music, voice, voice clone | via cloud TTS/Suno | — | music + voice | audio nodes | — | ACE-Step songs, three TTS engines, consent-gated clone |
+| Film crew, music-video director | pipelines, storyboard board | storyboard + timeline | director mode | — | — | 5-role Film Crew, beat-synced director, video editor |
+| Coding swarm, screen agents, outreach, RAG | — | — | — | — | — | core |
+| LoRA training, upscaling, add any HF model by URL | — | — | LoRA browser | — | model manager | core, in the Studio |
+| OS | mac, Linux, Windows | mac, Windows | NVIDIA via Pinokio | any | Windows, mac (LocalForge: Linux too) | Linux; Apple Silicon partial (Metal); WSL2 in verification |
+| License | AGPL-3.0 | AGPL-3.0 | WanGP non-commercial | open source | proprietary | MIT |
+| Repository stars, 2026-09-11 | 57k | 0.5k | 0.5k | (part of ComfyUI, 133k) | — | 0.2k |
+
+*Every cell is a claim you can check in the linked repositories; corrections welcome in an issue.*
 
 ---
 

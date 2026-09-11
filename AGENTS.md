@@ -1,22 +1,62 @@
 # Guaardvark for coding agents
 
-This repository is a self-hosted AI studio that a coding agent can drive: image, video,
-music-video and Film Crew generation, voice and music, upscaling, LoRA training, model
-onboarding from Hugging Face, agent swarms, local knowledge, code intelligence and
-supervised outreach, all on the user's own machine.
+Guaardvark is a self-hosted AI studio on the user's own GPU: image, video, music-video and
+Film Crew generation, voice and music, upscaling, LoRA training, model onboarding from
+Hugging Face, coding swarms, local knowledge, code intelligence and supervised outreach.
+This file is for an agent that has this checkout open, or the plugin installed, and is
+asked to *use* Guaardvark. Contributor rules for *changing* it are in `CONTRIBUTING.md`.
 
-**Before acting on any Guaardvark request, read `.agents/skills/guaardvark-setup/SKILL.md`.**
-It checks that the backend is reachable, which plugins are running, and which models are
-installed, then routes to the skill for the job. Every skill under `.agents/skills/` names
-the exact MCP tool or REST route it uses; do not invent endpoints.
+## First move
 
-- Claude Code: `python -m backend.mcp install --skills` links the skills and the MCP server.
-- Cursor, Codex, OpenClaw, Gemini CLI: `python -m backend.mcp install` writes the MCP server
-  entry; the skills are read from `.agents/skills/` in this checkout.
+Read `.agents/skills/guaardvark-setup/SKILL.md` before acting on any Guaardvark request.
+It checks that the backend answers, which plugins are running, and which models are
+installed, then hands off to the skill for the job. Every skill names the exact MCP tool
+or REST route it uses. Do not invent an endpoint; if a skill does not cover the ask, say so.
+
+## Where to go
+
+| The user wants | Read | Runs through |
+|---|---|---|
+| an image, an edit, a batch of images, a consistent character | `guaardvark-image` | MCP `generate_image`, `edit_image`; REST `/api/batch-image` |
+| a video clip, image-to-video, a clip with its own soundtrack, a batch | `guaardvark-video` | MCP `generate_video`; REST `/api/batch-video` |
+| a music video from a song | `guaardvark-music-video` | MCP `generate_music_video`; REST `/api/music-video` (approval gate) |
+| a short film from a script or logline | `guaardvark-film-crew` | MCP `start_film_crew`; REST `/api/production` (two gates) |
+| narration, a spoken line, a cloned voice | `guaardvark-voice` | REST `/api/audio-foundry`, `/api/voice` |
+| a song, a beat, a sound effect | `guaardvark-music` | REST `/api/audio-foundry` |
+| a bigger or sharper image or video | `guaardvark-upscale` | REST `/api/upscaling` |
+| the same face or object across renders, a LoRA | `guaardvark-cast` | REST `/api/cast-library` |
+| a model or LoRA from a Hugging Face link | `guaardvark-models` | REST `/models/from-hf`, `/models/user` |
+| several agents on one codebase | `guaardvark-swarm` | REST `/api/swarm` |
+| an answer from their documents, a memory | `guaardvark-knowledge` | MCP `search_knowledge_base`, `save_memory`, … |
+| where something is implemented, a repo map | `guaardvark-code` | MCP `search_codebase`, `get_repository_map`, … |
+| a reply drafted for a social thread | `guaardvark-outreach` | MCP `outreach_draft_post` (never posts) |
+| GPU state, logs, plugins, sync, autoresearch, an infographic | `guaardvark-ops` | MCP `inspect_gpu`, `read_logs`; REST `/api/plugins`, … |
+| a queued render's state | any of the above | MCP `get_generation_status` |
+
+## How the tools behave
+
+- Over MCP, generation tools **queue and return a batch id** in milliseconds; poll
+  `get_generation_status` for the file. Pass `wait_for_result: true` only when the user
+  wants you to block. A failed call carries the backend's reason: read it and act on it.
+- The GPU is exclusive. One heavy model owns it; the orchestrator swaps Ollama out for a
+  render and back. A first call after a switch is slow. Say so instead of retrying blindly.
+- Music video and Film Crew stop at human gates before GPU spend. State the cost (cuts or
+  shots times seconds per clip) and get a clear yes before calling the approve route.
+- Voice cloning and LoRA training need consent for the voice or face. Ask; refuse if unclear.
+
+## Rules that hold everywhere
+
+1. Start GPU services through `POST /api/plugins/<id>/start`, never `systemctl`, so the
+   orchestrator knows what holds the card.
+2. Nothing downloads a model without the user saying so; offer the install route and wait.
+3. Everything is local. Do not upload the user's files, prompts or outputs anywhere.
+4. Report what actually happened: a queued job is queued, not done; a 503 is a plugin that
+   is off, not a broken product. Quote batch ids, file URLs and the model that ran.
+
+## Setup in one line each
+
+- Claude Code: `/plugin marketplace add guaardvark/guaardvark` then `/plugin install guaardvark@guaardvark`,
+  or from the checkout `python -m backend.mcp install --skills`.
+- Cursor, Codex, OpenClaw, Gemini CLI, Zed: `python -m backend.mcp install` from the checkout
+  writes the MCP entry; the skills are read from `.agents/skills/` in this repository.
 - Backend URL: `GUAARDVARK_URL`, default `http://localhost:5000` (macOS: 5055).
-
-Two rules that hold everywhere: start GPU services through the plugin routes, never with
-`systemctl`, so the orchestrator knows what holds the card; and nothing downloads a model
-without the user saying so.
-
-Contributor rules for changing this codebase are in `CONTRIBUTING.md`.
