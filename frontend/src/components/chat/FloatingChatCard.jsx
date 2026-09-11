@@ -7,7 +7,6 @@ import {
   TextField,
   Chip,
   List,
-  ListItem,
   Grow,
   useTheme,
 } from "@mui/material";
@@ -22,7 +21,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
 import UnifiedChatService from "../../api/unifiedChatService";
 import StreamingMessage from "./StreamingMessage";
-import ThinkingCard from "./ThinkingCard";
+import FloatingChatMessage from "./FloatingChatMessage";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 import VoiceChatButton from "../voice/VoiceChatButton";
 import ContinuousVoiceChat from "../voice/ContinuousVoiceChat";
@@ -694,71 +693,11 @@ const FloatingChatCard = () => {
 
               <List dense disablePadding>
                 {messages.slice(-15).map((msg) => (
-                  <ListItem
+                  <FloatingChatMessage
                     key={msg.id}
-                    disableGutters
-                    disablePadding
-                    sx={{
-                      flexDirection: "column",
-                      alignItems: msg.role === "user" ? "flex-end" : "flex-start",
-                      py: 0.5,
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        maxWidth: "85%",
-                        bgcolor:
-                          msg.role === "user"
-                            ? "primary.main"
-                            : msg.role === "system"
-                            ? "error.dark"
-                            : theme.palette.mode === "dark"
-                            ? "rgba(255,255,255,0.06)"
-                            : "rgba(0,0,0,0.04)",
-                        color:
-                          msg.role === "user" || msg.role === "system"
-                            ? "#fff"
-                            : "text.primary",
-                        borderRadius: msg.role === "user" ? "12px 12px 2px 12px" : "12px 12px 12px 2px",
-                        px: 1.5,
-                        py: 0.75,
-                      }}
-                    >
-                      {msg.role === "assistant" && typeof msg.thinking === "string" && msg.thinking.trim() && (
-                        <ThinkingCard text={msg.thinking} streaming={false} defaultExpanded={false} />
-                      )}
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontSize: "0.82rem",
-                          wordBreak: "break-word",
-                          whiteSpace: "pre-wrap",
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {msg.content || ""}
-                      </Typography>
-                      {msg.truncated === true && (
-                        <Typography
-                          variant="caption"
-                          sx={{ display: "block", mt: 0.5, fontStyle: "italic", color: "text.secondary", opacity: 0.8 }}
-                        >
-                          Response reached the output limit.
-                        </Typography>
-                      )}
-                    </Box>
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        fontSize: "0.65rem",
-                        color: "text.disabled",
-                        mt: 0.25,
-                        px: 0.5,
-                      }}
-                    >
-                      {formatTime(msg.timestamp)}
-                    </Typography>
-                  </ListItem>
+                    message={msg}
+                    formatTime={formatTime}
+                  />
                 ))}
               </List>
 
