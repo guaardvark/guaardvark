@@ -1,0 +1,18 @@
+{
+  "name": "guaardvark",
+  "owner": { "name": "Guaardvark", "url": "https://guaardvark.com" },
+  "metadata": {
+    "description": "Skills and the MCP server for a self-hosted Guaardvark: local media generation, agents and knowledge on your own GPU.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "guaardvark",
+      "source": "./",
+      "description": "Local image, video, music-video and Film Crew generation, voice and music, upscaling, LoRA training, Hugging Face model onboarding, agent swarms, local knowledge, code intelligence and supervised outreach, driven from Claude Code through the guaardvark MCP server.",
+      "homepage": "https://guaardvark.com",
+      "category": "productivity",
+      "keywords": ["local-ai", "self-hosted", "image", "video", "music", "voice", "comfyui", "ollama"]
+    }
+  ]
+}

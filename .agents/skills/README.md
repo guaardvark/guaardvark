@@ -10,7 +10,17 @@ from `~/.claude/skills/` or `.claude/skills/`.
 
 ## Install
 
-From the Guaardvark checkout:
+Claude Code, from anywhere (the repository is a plugin marketplace):
+
+```
+/plugin marketplace add guaardvark/guaardvark
+/plugin install guaardvark@guaardvark
+```
+
+It asks for the path of your Guaardvark checkout, starts the MCP server from there, and loads
+the skills as `/guaardvark:guaardvark-image` and so on.
+
+Or from the Guaardvark checkout:
 
 ```bash
 python -m backend.mcp install            # MCP server entry into every detected agent client
