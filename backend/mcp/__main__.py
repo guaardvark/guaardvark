@@ -85,6 +85,11 @@ def main(argv: list[str] | None = None) -> int:
         "--dry-run", action="store_true",
         help="Show what would be written/run without touching anything",
     )
+    install_cmd.add_argument(
+        "--skills", action="store_true",
+        help="Also link the agent skills in .agents/skills into ~/.claude/skills "
+             "(and into this checkout's .claude/skills) so Claude Code loads them",
+    )
 
     sub.add_parser(
         "doctor",
@@ -133,7 +138,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if cmd == "install":
         from backend.mcp.installer import run_install
-        return run_install(args.clients, dry_run=args.dry_run)
+        return run_install(args.clients, dry_run=args.dry_run, skills=args.skills)
 
     if cmd == "doctor":
         from backend.mcp.doctor import run_doctor

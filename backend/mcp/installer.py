@@ -209,19 +209,87 @@ def install_client(client: str, dry_run: bool = False, force: bool = False) -> I
     return InstallResult(client, "dry-run" if dry_run else "installed", detail)
 
 
-def run_install(clients: list[str] | None, dry_run: bool = False) -> int:
+# ---------------------------------------------------------------------------
+# Agent skills (.agents/skills -> ~/.claude/skills and <root>/.claude/skills)
+# ---------------------------------------------------------------------------
+
+SKILLS_SOURCE = Path(".agents") / "skills"
+SKILL_PREFIX = "guaardvark-"
+
+
+def _skills_source_dir() -> Path:
+    return _project_root() / SKILLS_SOURCE
+
+
+def _skill_targets() -> list[Path]:
+    """Where Claude Code looks for skills: the user's personal folder (every
+    project) and this checkout's project folder (``.claude/`` is gitignored
+    here, so the link is per-clone)."""
+    return [Path.home() / ".claude" / "skills", _project_root() / ".claude" / "skills"]
+
+
+def _link_skill(src: Path, dest: Path, dry_run: bool) -> str:
+    """Symlink ``dest`` -> ``src``; copy when symlinks are unavailable.
+
+    An existing symlink is repointed. An existing real directory that is not
+    ours is left alone and reported, never overwritten."""
+    if dest.is_symlink():
+        if dest.resolve() == src.resolve():
+            return "already linked"
+        if dry_run:
+            return f"would repoint -> {src}"
+        dest.unlink()
+    elif dest.exists():
+        return f"skipped: {dest} exists and is not a symlink"
+    if dry_run:
+        return f"would link -> {src}"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        dest.symlink_to(src, target_is_directory=True)
+        return f"linked -> {src}"
+    except (OSError, NotImplementedError):
+        shutil.copytree(src, dest)
+        return f"copied (symlinks unavailable) <- {src}"
+
+
+def install_skills(dry_run: bool = False) -> list[InstallResult]:
+    """Link every ``.agents/skills/guaardvark-*`` folder into each skills target.
+
+    Returns one InstallResult per (target, skill) so ``run_install`` can print
+    them in the same table as the client entries."""
+    source = _skills_source_dir()
+    skills = sorted(p for p in source.glob(f"{SKILL_PREFIX}*") if (p / "SKILL.md").is_file())
+    if not skills:
+        return [InstallResult("skills", "failed", f"no {SKILL_PREFIX}*/SKILL.md under {source}")]
+    results: list[InstallResult] = []
+    for target in _skill_targets():
+        for skill in skills:
+            detail = _link_skill(skill, target / skill.name, dry_run)
+            status = ("skipped" if detail.startswith("skipped")
+                      else "dry-run" if dry_run
+                      else "installed")
+            results.append(InstallResult(f"skill:{skill.name}", status, f"{target}: {detail}"))
+    return results
+
+
+def run_install(clients: list[str] | None, dry_run: bool = False, skills: bool = False) -> int:
     """
     Install the guaardvark server entry. With no explicit ``clients``,
-    auto-detect and configure everything present. Returns a process exit code.
+    auto-detect and configure everything present. With ``skills``, also link
+    the agent skills. Returns a process exit code.
     """
     explicit = bool(clients)
     targets = clients or [c for c in CLIENTS if _detect(c)]
-    if not targets:
+    if not targets and not skills:
         print("No supported MCP clients detected "
               f"(looked for: {', '.join(CLIENTS)}).", file=sys.stderr)
         return 1
 
     results = [install_client(c, dry_run=dry_run, force=explicit) for c in targets]
+    if skills:
+        results.extend(install_skills(dry_run=dry_run))
+    if not results:
+        return 1
 
     width = max(len(r.client) for r in results)
     failed = False

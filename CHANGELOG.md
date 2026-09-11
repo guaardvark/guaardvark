@@ -4,6 +4,7 @@
 
 Everything the H3 release can do, wired through the product, on a branch until it merges.
 
+- **Agent skills pack.** `.agents/skills/` carries fifteen Agent Skills (`guaardvark-setup`, `-image`, `-video`, `-music-video`, `-film-crew`, `-voice`, `-music`, `-upscale`, `-cast`, `-models`, `-swarm`, `-knowledge`, `-code`, `-outreach`, `-ops`), each naming the exact MCP tool or REST route for its flow, so a coding agent (Claude Code, Cursor, Codex, OpenClaw) can drive a running Guaardvark without guessing endpoints. `python -m backend.mcp install --skills` links them into `~/.claude/skills`; the pack README is `.agents/skills/README.md`.
 - **Z-Image gets prompts as prose, never as SD-era tags.** A plain sentence such as
   "a man and woman watching a movie on a couch, her head on his shoulder" was leaving the
   Images page with 22 phrases appended ("full body shot, realistic stance, correct anatomy,
