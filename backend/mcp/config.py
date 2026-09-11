@@ -13,7 +13,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,13 @@ class ToolPolicy:
     hide_dangerous: bool = True
     # If True, tools with ``requires_approval=True`` are hidden.
     hide_approval_required: bool = True
+    # Argument values applied when an MCP caller omits the key. An MCP client is
+    # a remote agent with its own request timeout, so a render that the chat
+    # surface waits on inline is queued here and polled with
+    # ``get_generation_status`` instead. A caller that passes the key wins.
+    argument_defaults: Dict[str, Dict[str, Any]] = field(
+        default_factory=lambda: {"generate_image": {"wait_for_result": False}}
+    )
 
 
 @dataclass
@@ -62,8 +69,17 @@ class MCPConfig:
     server_name: str = "guaardvark"
     tools: ToolPolicy = field(default_factory=ToolPolicy)
     resources: ResourcePolicy = field(default_factory=ResourcePolicy)
-    # Per-call timeout in seconds (matches GUAARDVARK_MCP_TIMEOUT).
-    timeout_seconds: int = 30
+    # Per-call timeout in seconds (``GUAARDVARK_MCP_TIMEOUT``). Enforced by the
+    # tools adapter: the tool keeps running in its worker thread, the caller gets
+    # an error that says so. Generation tools queue by default (see
+    # ``ToolPolicy.argument_defaults``), so this only has to cover synchronous
+    # work such as file processing and retrieval. A call whose arguments carry
+    # ``wait_for_result=true`` is allowed ``WAIT_TIMEOUT_SECONDS`` instead.
+    timeout_seconds: int = 120
+
+
+# Ceiling for calls that asked to wait for a render (``wait_for_result=true``).
+WAIT_TIMEOUT_SECONDS = 30 * 60
 
 
 def _merge(base: dict, override: dict) -> dict:
@@ -106,6 +122,10 @@ def load_config() -> MCPConfig:
                 cfg.timeout_seconds = int(server["timeout_seconds"])
 
             tools = server.get("tools", {})
+            if isinstance(tools.get("argument_defaults"), dict):
+                cfg.tools.argument_defaults = {
+                    str(k): dict(v) for k, v in tools["argument_defaults"].items() if isinstance(v, dict)
+                }
             if "deny_categories" in tools:
                 cfg.tools.deny_categories = list(tools["deny_categories"])
             if "allow" in tools:

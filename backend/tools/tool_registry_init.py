@@ -564,6 +564,15 @@ def register_image_tools() -> List[str]:
         logger.warning(f"Failed to register image tools: {e}")
 
     try:
+        from backend.tools.image_tools import GenerationStatusTool
+        register_tool(GenerationStatusTool())
+        registered.append("get_generation_status")
+        _tool_categories["get_generation_status"] = "image"
+        logger.debug("Registered: GenerationStatusTool")
+    except Exception as e:
+        logger.warning(f"Failed to register generation status tool: {e}")
+
+    try:
         from backend.tools.image_tools import AnimationGeneratorTool
         register_tool(AnimationGeneratorTool())
         registered.append("generate_animation")

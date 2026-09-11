@@ -76,6 +76,9 @@ class BaseTool:
     # Safety and Context flags
     is_dangerous: bool = False
     requires_approval: bool = False
+    # True for read-only status tools that a caller polls with the same
+    # arguments on purpose; exempts them from the duplicate-call guard.
+    idempotent: bool = False
     # How much of this tool's result the chat model gets to read before the
     # next turn. 500 keeps a chatty tool from crowding the context; a search
     # tool whose whole point is the text it returns declares more.

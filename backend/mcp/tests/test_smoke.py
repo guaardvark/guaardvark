@@ -225,7 +225,7 @@ async def test_stdio_initialize_and_list_tools():
 # ─────────────────────── tools/call dispatch ───────────────────────
 
 
-def _build_fake_tool_handlers(monkeypatch, execute):
+def _build_fake_tool_handlers(monkeypatch, execute, config=None):
     """Build mcp 2.x tool handlers exposing a single fake tool."""
     import mcp.types as mcp_types
     from backend.mcp import tools_adapter
@@ -245,7 +245,7 @@ def _build_fake_tool_handlers(monkeypatch, execute):
                                  input_schema={"type": "object", "properties": {}}))
     monkeypatch.setattr(tools_adapter, "collect_exposed_tools", lambda cfg: [pair])
 
-    on_list, on_call, count = tools_adapter.build_tool_handlers(MCPConfig())
+    on_list, on_call, count = tools_adapter.build_tool_handlers(config or MCPConfig())
     assert count == 1
     return on_list, on_call
 
@@ -290,3 +290,127 @@ async def test_tools_call_rejects_unexposed_tool(monkeypatch):
 
     assert result.is_error
     assert "not exposed" in result.content[0].text
+
+
+# ---------------------------------------------------------------------------
+# Argument defaults, worker thread, enforced timeout (2026-09-11)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_tools_call_applies_argument_defaults_when_key_omitted(monkeypatch):
+    from backend.services.agent_tools import ToolResult
+    from backend.mcp.config import MCPConfig
+
+    seen = {}
+
+    def _echo(**kw):
+        seen.update(kw)
+        return ToolResult(success=True, output="ok")
+
+    cfg = MCPConfig()
+    cfg.tools.argument_defaults = {"fake_echo": {"wait_for_result": False}}
+    _on_list, on_call = _build_fake_tool_handlers(monkeypatch, _echo, config=cfg)
+    await on_call(None, _call_params("fake_echo", {"prompt": "x"}))
+    assert seen == {"prompt": "x", "wait_for_result": False}
+
+    seen.clear()
+    await on_call(None, _call_params("fake_echo", {"prompt": "x", "wait_for_result": True}))
+    assert seen["wait_for_result"] is True, "a value the caller passed must win"
+
+
+@pytest.mark.asyncio
+async def test_tools_call_times_out_with_an_honest_message(monkeypatch):
+    import time
+    from backend.services.agent_tools import ToolResult
+    from backend.mcp.config import MCPConfig
+
+    def _slow(**kw):
+        time.sleep(0.5)
+        return ToolResult(success=True, output="late")
+
+    cfg = MCPConfig()
+    cfg.timeout_seconds = 0.05
+    _on_list, on_call = _build_fake_tool_handlers(monkeypatch, _slow, config=cfg)
+    result = await on_call(None, _call_params("fake_echo", {}))
+    assert result.is_error
+    text = result.content[0].text
+    assert "did not finish" in text and "still running" in text and "get_generation_status" in text
+
+
+@pytest.mark.asyncio
+async def test_wait_for_result_true_gets_the_wait_ceiling(monkeypatch):
+    from backend.mcp.config import MCPConfig, WAIT_TIMEOUT_SECONDS
+    from backend.mcp.tools_adapter import _call_timeout
+
+    cfg = MCPConfig()
+    cfg.timeout_seconds = 7
+    assert _call_timeout(cfg, {}) == 7.0
+    assert _call_timeout(cfg, {"wait_for_result": "true"}) == float(WAIT_TIMEOUT_SECONDS)
+    assert _call_timeout(cfg, {"wait_for_result": False}) == 7.0
+
+
+def test_description_names_the_mcp_default(monkeypatch):
+    """The schema a client sees must say that generate_image queues here."""
+    from backend.mcp.config import MCPConfig
+    from backend.mcp.tools_adapter import collect_exposed_tools
+    from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
+
+    class _Gen(BaseTool):
+        name = "generate_image"
+        description = "Generate an image."
+        parameters = {"wait_for_result": ToolParameter(name="wait_for_result", type="bool",
+                                                       description="", required=False, default=True)}
+
+        def execute(self, **kw):
+            return ToolResult(success=True, output="")
+
+    class _Registry:
+        def list_tools(self):
+            return ["generate_image"]
+
+        def get_tool(self, name):
+            return _Gen()
+
+    monkeypatch.setattr("backend.mcp.tools_adapter.get_tool_registry", lambda: _Registry())
+    monkeypatch.setattr("backend.mcp.tools_adapter._category_lookup", lambda: {"generate_image": "image"})
+    (_base, mcp_tool), = collect_exposed_tools(MCPConfig())
+    assert "wait_for_result=false" in mcp_tool.description
+
+
+@pytest.mark.asyncio
+async def test_idempotent_tool_may_be_polled_with_identical_arguments(monkeypatch):
+    """get_generation_status is called again with the same batch id on purpose."""
+    import mcp.types as mcp_types
+    from backend.mcp import tools_adapter
+    from backend.mcp.config import MCPConfig
+    from backend.services.agent_tools import BaseTool, ToolResult
+
+    class _Status(BaseTool):
+        name = "get_generation_status"
+        description = "status"
+        parameters = {}
+        idempotent = True
+
+        def execute(self, **kwargs):
+            return ToolResult(success=True, output="running")
+
+    base = _Status()
+    pair = (base, mcp_types.Tool(name=base.name, description="status",
+                                 input_schema={"type": "object", "properties": {}}))
+    monkeypatch.setattr(tools_adapter, "collect_exposed_tools", lambda cfg: [pair])
+    _on_list, on_call, _n = tools_adapter.build_tool_handlers(MCPConfig())
+    for _ in range(3):
+        result = await on_call(None, _call_params("get_generation_status", {"batch_id": "b1"}))
+        assert not result.is_error and result.content[0].text == "running"
+
+
+@pytest.mark.asyncio
+async def test_failed_tool_result_carries_its_error_text(monkeypatch):
+    """A ToolResult(success=False, error=...) used to reach the client as '(no output)'."""
+    from backend.services.agent_tools import ToolResult
+
+    _on_list, on_call = _build_fake_tool_handlers(
+        monkeypatch, lambda **kw: ToolResult(success=False, error="GPU busy: try again"))
+    result = await on_call(None, _call_params("fake_echo", {}))
+    assert result.is_error
+    assert result.content[0].text == "GPU busy: try again"

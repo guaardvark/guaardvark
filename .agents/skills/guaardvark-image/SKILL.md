@@ -26,10 +26,14 @@ Read `guaardvark-setup` first if the backend or the `comfyui` plugin state is un
 - The tool returns the image URL (`/api/outputs/generated_images/<file>.png`, relative to the
   backend), the model that ran, steps, seed and whether a Cast LoRA was applied. Show the URL
   and the prompt you used. Measured: 768x768 on Z-Image Turbo in ~20 s on a free 16 GB card.
-- **An empty result means the call did not complete**, seen when the GPU was busy with
-  another job (the tool waits for the render; the client gives up first). Check
-  `inspect_gpu`, wait for that job, then retry with a changed prompt; or queue through the
-  REST batch route below, which returns at once and is polled.
+- **Over MCP the call queues by default** (`wait_for_result` defaults to false there) and
+  returns `Image queued as batch ImageBatch_...` at once. Poll
+  `get_generation_status(batch_id=...)` every few seconds until `completed`; it returns the
+  file URL. Pass `wait_for_result: true` to block for the render instead (allowed up to 30
+  minutes). A call that exceeds the server's timeout answers with an error that says the
+  render is still running; it is not lost.
+- A failed call carries the backend's reason (plugin off, out of memory, bad model). Read it
+  and act on it; `inspect_gpu` and `GET /api/plugins/status` are the two checks that resolve most.
 
 ## Edit an existing image: MCP `edit_image`
 

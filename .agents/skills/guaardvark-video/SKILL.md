@@ -38,7 +38,9 @@ Never pass a step count below the model's `min_steps`; the server raises it and 
 - `first_image` / `last_image`: document id or path; last frame needs a first+last mode model.
 - `reference_images` / `reference_audio`: lock a person, look or voice (reference build only).
 - `wait_for_result` default false: the tool returns a batch id and a Studio deep link at once.
-  Give the user the link; poll `GET /api/batch-video/status/<batch_id>` only if they ask you to wait.
+  Give the user the link; poll `get_generation_status(batch_id=...)` (MCP) or
+  `GET /api/batch-video/status/<batch_id>` if they ask you to wait. `wait_for_result: true`
+  blocks for the clip, up to 30 minutes.
 
 ## Looping animation: MCP `generate_animation`
 

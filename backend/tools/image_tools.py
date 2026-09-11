@@ -19,6 +19,44 @@ _KONTEXT_MODEL_IDS = frozenset({
 })
 
 
+def _backend_base_url() -> str:
+    """Where the backend answers HTTP. ``GUAARDVARK_URL`` wins; otherwise the
+    port ``start.sh`` recorded in ``.env`` (macOS writes 5055); otherwise 5000."""
+    url = (os.environ.get("GUAARDVARK_URL") or "").strip()
+    if url:
+        return url.rstrip("/")
+    port = (os.environ.get("FLASK_PORT") or "").strip()
+    if not port:
+        env_file = Path(__file__).resolve().parents[2] / ".env"
+        try:
+            for line in env_file.read_text().splitlines():
+                if line.startswith("FLASK_PORT="):
+                    port = line.split("=", 1)[1].strip().strip("'\"")
+                    break
+        except OSError:
+            pass
+    return f"http://127.0.0.1:{port or '5000'}"
+
+
+def _http_json(method: str, path: str, payload=None, timeout: float = 30.0):
+    """One call to the backend's REST API. Returns the ``data`` object of the
+    standard envelope (or the raw body for routes that return one), raising
+    RuntimeError with the server's message on a non-2xx answer."""
+    import requests
+    url = _backend_base_url() + path
+    resp = requests.request(method, url, json=payload, timeout=timeout)
+    try:
+        body = resp.json()
+    except ValueError:
+        body = {}
+    if resp.status_code >= 400:
+        msg = body.get("error") or body.get("message") or resp.text[:200] or f"HTTP {resp.status_code}"
+        if resp.status_code == 503:
+            msg += " (start the plugin from the Studio Plugins page or POST /api/plugins/<id>/start)"
+        raise RuntimeError(msg)
+    return body.get("data", body) if isinstance(body, dict) else body
+
+
 def _unwrap_nested_prompt_json(prompt: str) -> tuple[str, list[int]]:
     """If the LLM stuffed a whole JSON blob into ``prompt``, extract fields.
 
@@ -229,15 +267,36 @@ class ImageGeneratorTool(BaseTool):
             required=False,
             default="auto",
         ),
+        "wait_for_result": ToolParameter(
+            name="wait_for_result",
+            type="bool",
+            description=(
+                "True (the default in chat): render now and return the image inline. "
+                "False: queue the render as an image batch and return its batch id at once; "
+                "poll get_generation_status for the file. Use False from a remote agent or "
+                "when the GPU may be busy."
+            ),
+            required=False,
+            default=True,
+        ),
     }
+
+    STUDIO_URL = "/images"
 
     def __init__(self):
         super().__init__()
 
     def execute(self, prompt: str, style: str = "realistic",
                 width: int = 1024, height: int = 1024,
-                model: str = "auto", subject_ids=None, **kwargs) -> ToolResult:
-        """Chat/CLI stills — cast LoRA path when subject_ids resolve; else stills_pipeline."""
+                model: str = "auto", subject_ids=None, wait_for_result: bool = True,
+                **kwargs) -> ToolResult:
+        """Chat/CLI stills — cast LoRA path when subject_ids resolve; else stills_pipeline.
+
+        With ``wait_for_result=False`` the prompt goes through the batch image
+        generator instead (the same queue the Images page uses) and the call
+        returns the batch id without touching the GPU."""
+        wait_for_result = str(wait_for_result).lower() in ("1", "true", "yes")
+        remote = self._context.get("transport") == "mcp"
         # Unwrap LLM mistakes: entire JSON stuffed into prompt=
         prompt, nested_ids = _unwrap_nested_prompt_json(prompt or "")
         # Explicit kwargs win, then nested JSON, then kwargs aliases
@@ -276,9 +335,19 @@ class ImageGeneratorTool(BaseTool):
                 seed = None
 
         logger.info(
-            "ImageGeneratorTool: %sx%s model=%s subject_ids=%s prompt=%r",
-            width, height, model, sid_list, (prompt or "")[:100],
+            "ImageGeneratorTool: %sx%s model=%s subject_ids=%s wait=%s prompt=%r",
+            width, height, model, sid_list, wait_for_result, (prompt or "")[:100],
         )
+        if remote or not wait_for_result:
+            # Outside the backend process (an MCP server) the render must not
+            # happen here: hand it to the backend over HTTP, and wait there if asked.
+            return self._queue(
+                prompt, style=style, width=width, height=height, model=model,
+                subject_ids=sid_list, negative_prompt=negative,
+                steps=kwargs.get("steps"),
+                guidance=kwargs.get("guidance") or kwargs.get("guidance_scale"),
+                via_http=remote, wait=wait_for_result and remote,
+            )
 
         try:
             if sid_list:
@@ -412,6 +481,289 @@ class ImageGeneratorTool(BaseTool):
         except Exception as e:
             logger.error(f"ImageGeneratorTool error: {e}", exc_info=True)
             return ToolResult(success=False, error=f"Image generation failed: {e}")
+
+
+    MAX_WAIT_S = 20 * 60
+    POLL_INTERVAL_S = 3.0
+
+    def _queue(self, prompt: str, *, style: str, width: int, height: int, model: str,
+               subject_ids: list, negative_prompt: str, steps=None, guidance=None,
+               via_http: bool = False, wait: bool = False) -> ToolResult:
+        """Enqueue one prompt on the batch image generator: in-process inside the
+        backend, over HTTP from anywhere else. Returns at once unless ``wait``."""
+        params = {
+            "model": model or "auto",
+            "style": style,
+            "width": width,
+            "height": height,
+            "negative_prompt": negative_prompt or "",
+            "ui_config": {"source": "chat", "tool": self.name},
+        }
+        if steps is not None:
+            params["steps"] = steps
+        if guidance is not None:
+            params["guidance"] = guidance
+        if subject_ids:
+            params["subject_ids"] = list(subject_ids)
+        try:
+            if via_http:
+                data = _http_json("POST", "/api/batch-image/generate/prompts",
+                                  {"prompts": [prompt], **params})
+                batch_id = data["batch_id"]
+            else:
+                from backend.services.batch_image_generator import start_batch_from_prompts
+                batch_id = start_batch_from_prompts([prompt], **params)
+        except ImportError:
+            return ToolResult(success=False, error="Batch image generation is not available.")
+        except Exception as e:
+            logger.error("ImageGeneratorTool queue failed: %s", e, exc_info=True)
+            return ToolResult(success=False, error=f"Could not queue the image: {e}")
+        if wait:
+            return self._wait_http(batch_id, prompt)
+        cast_line = (
+            f"Cast LoRA: ON subject_ids={list(subject_ids)}" if subject_ids
+            else "Cast LoRA: OFF (pass subject_ids=[id] for trained cast characters)"
+        )
+        return ToolResult(
+            success=True,
+            output="\n".join([
+                f"Image queued as batch {batch_id}.",
+                f"Prompt: {prompt}",
+                f"Size: {width}x{height} | Model: {model or 'auto'} | Style: {style}",
+                cast_line,
+                f"Poll: get_generation_status(batch_id=\"{batch_id}\")",
+                f"Open Images: {self.STUDIO_URL}",
+            ]),
+            metadata={
+                "prompt": prompt,
+                "batch_id": batch_id,
+                "queued": True,
+                "studio_url": self.STUDIO_URL,
+                "status_tool": "get_generation_status",
+                "width": width,
+                "height": height,
+                "model": model or "auto",
+                "subject_ids": list(subject_ids or []),
+            },
+        )
+
+
+    def _wait_http(self, batch_id: str, prompt: str) -> ToolResult:
+        """Poll the backend for a queued batch and return the finished file."""
+        import time as _time
+        deadline = _time.monotonic() + self.MAX_WAIT_S
+        status_tool = GenerationStatusTool()
+        status_tool.set_context(dict(self._context))
+        while _time.monotonic() < deadline:
+            _time.sleep(self.POLL_INTERVAL_S)
+            result = status_tool.execute(batch_id=batch_id)
+            if not result.success:
+                return result
+            info = result.metadata or {}
+            if info.get("status") == "completed" and info.get("files"):
+                f = info["files"][0]
+                return ToolResult(
+                    success=True,
+                    output="\n".join([
+                        "Image generated successfully"
+                        + (f" in {f['generation_time']:.1f}s." if f.get("generation_time") else "."),
+                        f"Image URL: {f['url']}",
+                        f"Prompt used: {prompt}",
+                        f"Model: {f.get('model') or 'auto'}",
+                        f"Batch: {batch_id}",
+                    ]),
+                    metadata={"image_url": f["url"], "batch_id": batch_id, "prompt": prompt,
+                              "model": f.get("model"), "generation_time": f.get("generation_time")},
+                )
+            if info.get("status") in ("error", "cancelled") or (
+                info.get("status") == "completed" and not info.get("files")
+            ):
+                err = info.get("error") or "; ".join(info.get("errors") or []) or info.get("status")
+                return ToolResult(success=False, error=f"Image generation failed: {err}")
+        return ToolResult(
+            success=True,
+            output=f"Image still rendering after {self.MAX_WAIT_S // 60} minutes (batch {batch_id}). "
+                   f"Poll get_generation_status(batch_id=\"{batch_id}\"); it is not a failure.",
+            metadata={"batch_id": batch_id, "queued": True, "still_running": True, "prompt": prompt},
+        )
+
+
+class GenerationStatusTool(BaseTool):
+    """Read the state of a queued image or video batch by id."""
+
+    name = "get_generation_status"
+    idempotent = True
+    description = (
+        "Report the state of a queued generation: an image batch (ImageBatch_...) from "
+        "generate_image with wait_for_result=false or the batch image route, or a video batch "
+        "from generate_video. Returns status, progress, and the URL of each finished file. "
+        "Use after a queued generate call, or when the user asks whether a render is done."
+    )
+    parameters = {
+        "batch_id": ToolParameter(
+            name="batch_id",
+            type="string",
+            description="The batch id a generate tool returned (e.g. ImageBatch_09-11-2026_132620_013).",
+            required=True,
+        ),
+    }
+
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def _image_status(batch_id: str):
+        from backend.services.batch_image_generator import get_batch_image_generator
+        generator = get_batch_image_generator()
+        status = generator.find_batch_status(batch_id, include_results=True)
+        if status is None:
+            return None
+        files = []
+        for r in status.results or []:
+            if r.success and r.image_path:
+                name = os.path.basename(r.image_path)
+                files.append({
+                    "url": f"/api/batch-image/image/{batch_id}/{name}",
+                    "path": r.image_path,
+                    "model": (r.metadata or {}).get("model_used"),
+                    "generation_time": r.generation_time,
+                })
+        failed = [r.error for r in (status.results or []) if not r.success and r.error]
+        return {
+            "kind": "image",
+            "batch_id": batch_id,
+            "status": status.status,
+            "completed": status.completed_images,
+            "failed": status.failed_images,
+            "total": status.total_images,
+            "error": status.error,
+            "errors": failed,
+            "files": files,
+            "studio_url": ImageGeneratorTool.STUDIO_URL,
+        }
+
+    @staticmethod
+    def _image_status_http(batch_id: str):
+        try:
+            d = _http_json("GET", f"/api/batch-image/status/{batch_id}?include_results=true")
+        except RuntimeError as e:
+            if "not found" in str(e).lower() or "404" in str(e):
+                return None
+            raise
+        if not d or not d.get("status"):
+            return None
+        files = []
+        for r in d.get("results") or []:
+            if r.get("success") and r.get("image_path"):
+                name = os.path.basename(r["image_path"])
+                files.append({
+                    "url": f"/api/batch-image/image/{batch_id}/{name}",
+                    "path": r["image_path"],
+                    "model": (r.get("metadata") or {}).get("model_used"),
+                    "generation_time": r.get("generation_time"),
+                })
+        failed = [r.get("error") for r in (d.get("results") or []) if not r.get("success") and r.get("error")]
+        return {
+            "kind": "image", "batch_id": batch_id, "status": d.get("status"),
+            "completed": d.get("completed_images"), "failed": d.get("failed_images"),
+            "total": d.get("total_images"), "error": d.get("error"), "errors": failed,
+            "files": files, "studio_url": ImageGeneratorTool.STUDIO_URL,
+        }
+
+    @staticmethod
+    def _video_status_http(batch_id: str):
+        try:
+            d = _http_json("GET", f"/api/batch-video/status/{batch_id}")
+        except RuntimeError as e:
+            if "not found" in str(e).lower() or "404" in str(e):
+                return None
+            raise
+        if not d or not d.get("status"):
+            return None
+        files = []
+        for r in d.get("results") or []:
+            if r.get("success") and r.get("video_path"):
+                entry = {"url": f"/api/batch-video/video/{batch_id}/{r['video_path']}"}
+                if r.get("thumbnail_path"):
+                    entry["thumbnail_url"] = f"/api/batch-video/video/{batch_id}/{r['thumbnail_path']}"
+                files.append(entry)
+        failed = [r.get("error") for r in (d.get("results") or []) if not r.get("success") and r.get("error")]
+        return {
+            "kind": "video", "batch_id": batch_id, "status": d.get("status"), "stage": d.get("stage"),
+            "completed": d.get("completed_videos"), "failed": len(failed), "total": d.get("total_videos"),
+            "error": d.get("error"), "errors": failed, "files": files,
+            "studio_url": f"/video?batch={batch_id}",
+        }
+
+    @staticmethod
+    def _video_status(batch_id: str):
+        from backend.services.batch_video_generator import get_batch_video_generator
+        generator = get_batch_video_generator()
+        status = generator.get_batch_status(batch_id)
+        if status is None:
+            return None
+        files = []
+        for r in status.results or []:
+            if r.success and r.video_path:
+                entry = {"url": f"/api/batch-video/video/{batch_id}/{r.video_path}"}
+                if r.thumbnail_path:
+                    entry["thumbnail_url"] = f"/api/batch-video/video/{batch_id}/{r.thumbnail_path}"
+                files.append(entry)
+        failed = [r.error for r in (status.results or []) if not r.success and r.error]
+        completed = sum(1 for r in (status.results or []) if r.success)
+        return {
+            "kind": "video",
+            "batch_id": batch_id,
+            "status": status.status,
+            "stage": getattr(status, "stage", None),
+            "completed": completed,
+            "failed": len(failed),
+            "total": getattr(status, "total_videos", None),
+            "error": getattr(status, "error", None),
+            "errors": failed,
+            "files": files,
+            "studio_url": f"/video?batch={batch_id}",
+        }
+
+    def execute(self, batch_id: str, **kwargs) -> ToolResult:
+        batch_id = (batch_id or "").strip()
+        if not batch_id:
+            return ToolResult(success=False, error="batch_id is required")
+        info = None
+        remote = self._context.get("transport") == "mcp"
+        readers = (self._image_status_http, self._video_status_http) if remote else (
+            self._image_status, self._video_status)
+        for reader in readers:
+            try:
+                info = reader(batch_id)
+            except ImportError:
+                continue
+            except Exception as e:
+                logger.warning("get_generation_status %s via %s: %s", batch_id, reader.__name__, e)
+                continue
+            if info is not None:
+                break
+        if info is None:
+            return ToolResult(success=False, error=f"No image or video batch named {batch_id}")
+        total = info.get("total")
+        done = info.get("completed") or 0
+        head = f"{info['kind'].title()} batch {batch_id}: {info['status']}"
+        if total:
+            head += f" ({done}/{total} finished"
+            if info.get("failed"):
+                head += f", {info['failed']} failed"
+            head += ")"
+        lines = [head]
+        for f in info["files"]:
+            lines.append(f"File: {f['url']}")
+        if info.get("error"):
+            lines.append(f"Error: {info['error']}")
+        for err in info.get("errors") or []:
+            lines.append(f"Failed item: {err}")
+        if info["status"] in ("queued", "pending", "running"):
+            lines.append("Still running; poll again in a few seconds.")
+        lines.append(f"Open Studio: {info['studio_url']}")
+        return ToolResult(success=True, output="\n".join(lines), metadata=info)
 
 
 class AnimationGeneratorTool(BaseTool):

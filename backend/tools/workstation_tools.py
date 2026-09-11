@@ -227,6 +227,7 @@ class DispatchMapFindingTool(BaseTool):
 
 class InspectGpuTool(BaseTool):
     name = "inspect_gpu"
+    idempotent = True
     description = (
         "Inspect live GPU state: nvidia-smi, the exclusive lock (Ollama vs video), "
         "orchestrator model slots, and which plugins are running. Use when the user "
@@ -320,6 +321,7 @@ class ReadLogsTool(BaseTool):
 
 class SwarmStatusTool(BaseTool):
     name = "swarm_status"
+    idempotent = True
     description = (
         "Get Swarm Orchestrator status (same as GET /api/swarm/status). "
         "Use when the user asks about the coding swarm, worktrees, or running swarm tasks. "

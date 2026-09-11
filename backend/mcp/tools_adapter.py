@@ -14,6 +14,7 @@ registered via the removed v1 decorator API.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from itertools import count
@@ -22,7 +23,7 @@ from typing import Any
 import mcp.types as mcp_types
 
 from backend.mcp.audit import audit_call
-from backend.mcp.config import MCPConfig, tool_is_exposed
+from backend.mcp.config import WAIT_TIMEOUT_SECONDS, MCPConfig, tool_is_exposed
 from backend.services.agent_tools import BaseTool, get_tool_registry
 from backend.services.tool_execution_guard import ToolExecutionGuard
 
@@ -114,9 +115,14 @@ def collect_exposed_tools(config: MCPConfig) -> list[tuple[BaseTool, mcp_types.T
             read_only_hint=(category in {"web", "knowledge", "memory"} and not tool.is_dangerous) or None,
             destructive_hint=bool(tool.is_dangerous) or None,
         )
+        description = (tool.description or "").strip() or tool.name
+        defaults = (config.tools.argument_defaults or {}).get(tool.name)
+        if defaults:
+            rendered = ", ".join(f"{k}={json.dumps(v)}" for k, v in defaults.items())
+            description += f" Over this MCP server, omitted arguments default to {rendered}."
         mcp_tool = mcp_types.Tool(
             name=tool.name,
-            description=(tool.description or "").strip() or tool.name,
+            description=description,
             input_schema=_tool_input_schema(tool),
             annotations=annotations,
         )
@@ -133,6 +139,25 @@ def _content_blocks_from_result(result: Any) -> list[mcp_types.ContentBlock]:
     if isinstance(result, (dict, list)):
         return [mcp_types.TextContent(type="text", text=json.dumps(result, default=str, indent=2))]
     return [mcp_types.TextContent(type="text", text=str(result))]
+
+
+def _call_timeout(config: MCPConfig, arguments: dict[str, Any]) -> float:
+    """The per-call ceiling: the configured timeout, or the wait ceiling when
+    the caller asked a generation tool to block until the render finishes."""
+    wait = arguments.get("wait_for_result")
+    if str(wait).lower() in ("1", "true", "yes"):
+        return float(max(config.timeout_seconds, WAIT_TIMEOUT_SECONDS))
+    return float(config.timeout_seconds)
+
+
+def _timeout_message(name: str, timeout: float) -> str:
+    return (
+        f"Tool '{name}' did not finish within {timeout:.0f} s. It is still running on the "
+        "Guaardvark server and was not cancelled; a render will land in Studio and in "
+        "data/outputs when it completes. For generation, call again with the default "
+        "(queued) mode and poll get_generation_status with the batch id; for everything "
+        "else, raise GUAARDVARK_MCP_TIMEOUT or data/config/mcp.json server.timeout_seconds."
+    )
 
 
 def _error_result(text: str) -> mcp_types.CallToolResult:
@@ -180,7 +205,12 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
 
             base_tool, _ = pair
 
-            ok, guard_reason = guard.check_call(name, arguments)
+            # A status poll is the same call again on purpose; the guard's
+            # duplicate-call rule is for agents looping on a failed action.
+            if getattr(base_tool, "idempotent", False):
+                ok, guard_reason = True, ""
+            else:
+                ok, guard_reason = guard.check_call(name, arguments)
             if not ok:
                 rec["outcome"] = "error"
                 rec["error_code"] = "guard_blocked"
@@ -190,8 +220,28 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
                     msg += f"\nSuggestion: {suggestion}"
                 return _error_result(msg)
 
+            for key, value in (config.tools.argument_defaults or {}).get(name, {}).items():
+                arguments.setdefault(key, value)
+            # Tools run inside this MCP server process, not inside the backend.
+            # Tell them so: a generation tool must hand the render to the
+            # backend over HTTP rather than load a diffusion pipeline here.
+            base_tool.set_context({"transport": "mcp"})
+            timeout = _call_timeout(config, arguments)
             try:
-                tool_result = base_tool.execute(**arguments)
+                # A BaseTool is synchronous. Running it on a worker thread keeps
+                # the server answering other calls while a render runs, and lets
+                # the timeout below fire instead of the client's.
+                tool_result = await asyncio.wait_for(
+                    asyncio.to_thread(base_tool.execute, **arguments), timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                guard.record_result(
+                    name, arguments, success=False, error="timeout",
+                    iteration=next(call_seq),
+                )
+                rec["outcome"] = "error"
+                rec["error_code"] = "timeout"
+                return _error_result(_timeout_message(name, timeout))
             except Exception as exc:
                 guard.record_result(
                     name, arguments, success=False, error=str(exc),
@@ -213,7 +263,12 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
                 rec["outcome"] = "error"
                 rec["error_code"] = "tool_failed"
 
-            blocks = _content_blocks_from_result(getattr(tool_result, "output", tool_result))
+            payload = getattr(tool_result, "output", tool_result)
+            if not success and payload in (None, ""):
+                # A failed ToolResult carries its reason in ``error``; without
+                # this the client saw "(no output)" and nothing to act on.
+                payload = getattr(tool_result, "error", None) or "Tool failed without a message."
+            blocks = _content_blocks_from_result(payload)
             rec["bytes_out"] = sum(len(getattr(b, "text", "")) for b in blocks)
             return mcp_types.CallToolResult(content=blocks, is_error=not success)
 
