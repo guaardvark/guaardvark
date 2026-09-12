@@ -60,6 +60,9 @@ EPISODES = {
     15: ("SELF-CODING", "cinematic photo of a mechanical typewriter with a sheet of paper mid-line and a small brass padlock resting beside the keys, warm desk lamp, dark study, shallow depth of field, no text"),
     16: ("MCP", "cinematic photo of a vintage telephone switchboard with braided patch cables plugged into glowing jacks, one cable held mid-air, warm tungsten light, dark room, shallow depth of field, no text"),
     17: ("SWARM", "cinematic macro photo of five brass clockwork bees on a dark workbench, one with its wings blurred in motion, warm rim light and soft haze, shallow depth of field, no text"),
+    # Ep 18 breaks the warm-object series look on purpose (launch piece, 2026-09-12):
+    # synthwave palette, neon, chrome. The composite for it gets its own treatment.
+    18: ("YOUR AGENT", "cyberpunk synthwave key art, a neon-outlined aardvark silhouette on a rain-slick rooftop, magenta and electric-cyan grid horizon, chrome sun with scanlines, volumetric fog, 1984 retro-future poster composition, high contrast, cinematic lighting, no text"),
 }
 
 SERIES_LABEL = "GUAARDVARK DEMO"
