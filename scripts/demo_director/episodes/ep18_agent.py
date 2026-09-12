@@ -29,8 +29,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from director import Beat, Episode, Stage  # noqa: E402
 from helpers import (  # noqa: E402
-    REPO, api_get, close_dialogs, goto, kill_stage_terminal, require, set_nav_chrome,
-    stage_terminal, verify_no_private_names, verify_path)
+    REPO, api_get, close_dialogs, focus_window, goto, kill_stage_terminal, require,
+    set_nav_chrome, stage_claude, stage_terminal, type_into_stage_terminal,
+    verify_no_private_names, verify_path)
+
+PLUGIN_TOOLS = "mcp__plugin_guaardvark_guaardvark__*,Skill"
 
 PY = "backend/venv/bin/python"
 SONG_DOC_ID = os.environ.get("EP18_SONG_DOC_ID", "")
@@ -91,20 +94,22 @@ def reset_ask(st: Stage):
 
 
 def act_ask(st: Stage):
-    # One sentence. The agent picks the music-video skill by its description and
-    # stops at the gate; it must not approve on its own.
-    prompt = (f"Make a music video from song document {SONG_DOC_ID} in this style: {STYLE}. "
-              "Follow the guaardvark skills. Stop at the approval gate and tell me the cost "
-              "before you ask me to approve.")
-    stage_terminal(
-        f"claude --max-turns 12 --allowedTools "
-        f"'mcp__plugin_guaardvark_guaardvark__*,Skill' -p \"{prompt}\"; sleep 60")
-    time.sleep(70.0)
+    # One interactive session, kept alive across the ask, gate and file beats,
+    # so the skill loading, the streamed tool calls and the permission prompt
+    # are all on camera. The agent must stop at the gate; it never approves.
+    stage_claude(PLUGIN_TOOLS, boot=8.0)
+    type_into_stage_terminal(
+        f"Make a music video from song document {SONG_DOC_ID} in this style: {STYLE}. "
+        "Follow the guaardvark skills. Stop at the approval gate and tell me the cost "
+        "before you ask me to approve.", delay_ms=40)
+    time.sleep(75.0)
 
 
 def reset_studio(st: Stage):
+    # Keep the Claude session alive; bring the Studio window forward.
     close_dialogs(st)
     set_nav_chrome(st, "software", path="/music-video")
+    focus_window("Chromium|Guaardvark")
     time.sleep(1.5)
 
 
@@ -116,33 +121,37 @@ def act_studio(st: Stage):
     time.sleep(6.0)
 
 
+def reset_keep_session(st: Stage):
+    # The interactive session from the ask beat stays up.
+    close_dialogs(st)
+
+
 def act_gate(st: Stage):
-    # The user answers the agent in the same terminal session: yes. The agent
-    # calls the approve route; renders start; the GPU HUD shows the swap.
-    stage_terminal(
-        "claude --continue --max-turns 6 --allowedTools "
-        "'mcp__plugin_guaardvark_guaardvark__*,Bash(curl *)' -p 'Yes, approve it.'; sleep 60")
-    time.sleep(40.0)
+    # The user answers the agent in the same session: yes. The approve route is
+    # a curl the skill names, so Claude Code asks permission for it on camera;
+    # the "y" is typed live. Then the GPU HUD shows the swap.
+    type_into_stage_terminal("Yes, approve it.", delay_ms=50)
+    time.sleep(12.0)
+    type_into_stage_terminal("y", delay_ms=120, settle=25.0)   # the permission prompt
+    focus_window("Chromium|Guaardvark")
     goto(st, "/dashboard", settle=2.0)
     time.sleep(8.0)
 
 
 def act_file(st: Stage):
-    stage_terminal(
-        "claude --continue --max-turns 8 --allowedTools "
-        "'mcp__plugin_guaardvark_guaardvark__get_generation_status' "
-        "-p 'Poll until the music video is finished and give me the file.'; sleep 60")
+    type_into_stage_terminal(
+        "Poll until the music video is finished and give me the file.", delay_ms=40)
     time.sleep(60.0)
+    focus_window("Chromium|Guaardvark")
     goto(st, "/media", settle=2.5)
     time.sleep(6.0)
 
 
 def act_caveat(st: Stage):
-    # The honesty beat: the queued image call, a clamp or a refusal read back verbatim.
-    stage_terminal(
-        "claude --max-turns 4 --allowedTools 'mcp__plugin_guaardvark_guaardvark__*' "
-        "-p 'Generate a 512x512 image of a paper boat with generate_image at 4 steps, then "
-        "poll it and tell me verbatim what the server changed or refused.'; sleep 45")
+    # The honesty beat, same session: a clamp or a refusal read back verbatim.
+    type_into_stage_terminal(
+        "Generate a 512x512 image of a paper boat with generate_image at 4 steps, then "
+        "poll it and tell me verbatim what the server changed or refused.", delay_ms=40)
     time.sleep(50.0)
 
 
@@ -185,14 +194,14 @@ BEATS = [
              "model arrives. One heavy job at a time.",
              "One machine. No cloud.",
          ],
-         action=act_gate, verify=v_any, reset=reset_terminal),
+         action=act_gate, verify=v_any, reset=reset_keep_session),
     Beat(name="file",
          narration=[
              "The agent polls by batch i d until the status route says completed, and hands "
              "back a file, not a promise.",
              "It is in the media library, on this disk.",
          ],
-         action=act_file, verify=lambda st: verify_path(st, "/media"), reset=reset_terminal),
+         action=act_file, verify=lambda st: verify_path(st, "/media"), reset=reset_keep_session),
     Beat(name="caveat",
          narration=[
              "One honest beat. Four steps is below what this model needs. The server raises "
@@ -200,7 +209,7 @@ BEATS = [
              "",
              f"{say(len(SKILLS))} skills. Your G P U. Your agent.",
          ],
-         action=act_caveat, verify=v_any, reset=reset_terminal),
+         action=act_caveat, verify=v_any, reset=reset_keep_session),
 ]
 
 

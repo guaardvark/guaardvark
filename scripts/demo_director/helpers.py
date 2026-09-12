@@ -116,6 +116,50 @@ def stage_terminal(cmd: str, cwd: Path | None = None):
         start_new_session=True)
 
 
+def _xdo(*args: str) -> subprocess.CompletedProcess:
+    env = {**os.environ, "DISPLAY": os.environ.get("DEMO_DISPLAY", ":98")}
+    return subprocess.run(["xdotool", *args], env=env, capture_output=True, text=True)
+
+
+def focus_window(name_pattern: str, timeout: float = 10.0) -> str:
+    """Raise the first window whose name matches (xdotool regex) and return its id."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        r = _xdo("search", "--onlyvisible", "--name", name_pattern)
+        wid = (r.stdout.split() or [""])[0]
+        if wid:
+            _xdo("windowactivate", "--sync", wid)
+            time.sleep(0.4)
+            return wid
+        time.sleep(0.5)
+    raise RuntimeError(f"no window matching {name_pattern!r} on the stage display")
+
+
+def focus_stage_terminal() -> str:
+    return focus_window("ptyxis|Ptyxis|script|claude")
+
+
+def type_into_stage_terminal(text: str, delay_ms: int = 45, enter: bool = True, settle: float = 1.0):
+    """Type into the stage terminal at a human pace so the keystrokes are on camera."""
+    focus_stage_terminal()
+    _xdo("type", "--delay", str(delay_ms), "--", text)
+    if enter:
+        time.sleep(0.3)
+        _xdo("key", "Return")
+    time.sleep(settle)
+
+
+def stage_claude(allowed_tools: str, cwd: Path | None = None, extra: str = "", boot: float = 7.0):
+    """Open an interactive Claude Code session in the stage terminal.
+
+    Interactive, not ``-p``: the skill loading, the streamed tool calls and any
+    permission prompt are on camera. Tools named in ``allowed_tools`` run
+    without a prompt; everything else asks, which is a beat in itself."""
+    stage_terminal(f"claude --allowedTools '{allowed_tools}' {extra}".strip(), cwd=cwd)
+    time.sleep(boot)
+    focus_stage_terminal()
+
+
 def kill_stage_terminal():
     # --standalone windows only; the operator's own ptyxis runs as a
     # gapplication service and never matches this pattern.
