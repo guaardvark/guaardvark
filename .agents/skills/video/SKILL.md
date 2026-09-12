@@ -15,8 +15,8 @@ Video needs a 16 GB-class NVIDIA card. Clips take minutes, so every route is que
 ## Pick the model
 
 `GET ${GUAARDVARK_URL:-http://localhost:5000}/api/batch-video/models` lists the registry with
-`installed`, `modes` (t2v, i2v), `max_frames`, `native_fps`, `aspect_ratios`, `min_steps`,
-`speed_profiles`, `audio_out`. Installed on a typical box:
+`is_downloaded` / `is_ready` (and `missing_files`), `capabilities` (`modes` t2v/i2v, `max_frames`, `native_fps`,
+`aspect_ratios`, `min_steps`, `speed_profiles`, `audio_out`), `vram_mb`, `size_gb`, `license`. Installed on a typical box:
 
 | id | what it is | notes |
 |---|---|---|

@@ -55,10 +55,10 @@ Before the first generation in a session, establish four facts and keep them in 
    `upscaling`; LoRA training needs `lora_trainer`; swarms need `swarm`. A route answers 503
    while its plugin is off. Start one with `POST /api/plugins/<id>/start`.
 3. **What models are installed.** `GET /api/batch-video/models` and
-   `GET /api/batch-image/models` list every registry entry with `installed`, modes, frame and
-   step limits and speed profiles. `GET /api/settings/active_video_model` says which one runs
+   `GET /api/batch-image/models` list every registry entry with `is_downloaded` / `is_ready`,
+   `missing_files`, and `capabilities` (modes, frame and step limits, speed profiles). `GET /api/settings/active_video_model` says which one runs
    by default for text-to-video, image-to-video and scenes. Never name a model you have not
-   seen marked installed.
+   seen with `is_ready: true`.
 4. **What the hardware allows.** `inspect_gpu` (MCP) shows the card, free memory, who holds
    the exclusive lock and which plugins are resident. The tiers below decide what to offer.
 

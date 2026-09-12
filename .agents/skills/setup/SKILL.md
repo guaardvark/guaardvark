@@ -49,7 +49,7 @@ If the backend is not reachable, tell the user to start it from the Guaardvark c
   `swarm`. Only one heavy model owns the GPU at a time; the orchestrator evicts Ollama for video
   and vice versa, so a first call after a switch is slow. `inspect_gpu` (MCP) shows who holds it.
 - Installed models: `GET /api/batch-video/models` and `GET /api/batch-image/models` list every
-  registry entry with capabilities; check `installed` before naming a model. Nothing downloads
+  registry entry with capabilities; check `is_ready` before naming a model. Nothing downloads
   without an explicit Install, so if a model is missing say so and offer
   `POST /api/batch-video/models/download {"model_id": "..."}` (or the image route with
   `{"model_path": "..."}`).

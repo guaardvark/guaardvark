@@ -14,7 +14,7 @@ the product never phones home on its own. Always confirm the size and the licenc
 
 ## What is there
 
-- Video: `GET $B/api/batch-video/models` (registry + user catalog, with `installed`, modes, limits).
+- Video: `GET $B/api/batch-video/models` (registry + user catalog, with `is_downloaded` / `is_ready`, `missing_files`, `capabilities`).
 - Image: `GET $B/api/batch-image/models`.
 - Download a registry model: `POST $B/api/batch-video/models/download {"model_id": "wan22-14b"}` /
   `POST $B/api/batch-image/models/download {"model_path": "<id>"}`; progress at
