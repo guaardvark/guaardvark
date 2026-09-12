@@ -25,7 +25,10 @@ BACKEND = os.environ.get("GUAARDVARK_URL", "http://127.0.0.1:5000").rstrip("/")
 DEFAULT_WORDS = ["I", "CAN", "USE", "ANY", "VOICE", "EVEN", "OUR", "CREATOR'S", "VOICE"]
 # One Kokoro voice per word, chosen for maximum contrast between neighbours.
 DEFAULT_VOICES = ["af_heart", "bm_george", "af_nova", "am_fenrir", "bf_emma", "em_alex", "am_puck"]
-CREATOR_WORDS = 2  # the last N words use the creator's clone
+CREATOR_WORDS = 2  # the last N words use the creator's clone, or the robot voice with --robot
+# ffmpeg "robot": ring-modulated spectrum plus a short metallic echo; reads as a vocoder.
+ROBOT_FILTER = ("afftfilt=real='hypot(re,im)*cos(2*3.14159*0.9*t)':imag='hypot(re,im)*sin(2*3.14159*0.9*t)',"
+                "aecho=0.8:0.6:8:0.3,highpass=f=120,lowpass=f=6000")
 
 
 def tts(text: str, *, voice_id: str | None, ref: str | None, out: Path, timeout=300) -> dict:
@@ -62,24 +65,34 @@ def main():
     ap.add_argument("--words", default=",".join(DEFAULT_WORDS))
     ap.add_argument("--voices", default=",".join(DEFAULT_VOICES), help="Kokoro ids for the non-creator words, in order")
     ap.add_argument("--ref", help="creator reference clip path (from the consent-gated upload)")
+    ap.add_argument("--robot", action="store_true",
+                    help="no clone: the last words are a Kokoro voice run through the robot filter")
+    ap.add_argument("--robot-voice", default="am_onyx", help="Kokoro voice under the robot filter")
     ap.add_argument("--creator-words", type=int, default=CREATOR_WORDS)
     ap.add_argument("--gap-ms", type=int, default=40, help="crossfade between words")
     ap.add_argument("--out", default="voice_gag.wav")
     a = ap.parse_args()
     words = [w.strip() for w in a.words.split(",") if w.strip()]
     voices = [v.strip() for v in a.voices.split(",") if v.strip()]
-    n_plain = len(words) - (a.creator_words if a.ref else 0)
+    n_plain = len(words) - (a.creator_words if (a.ref or a.robot) else 0)
     if len(voices) < n_plain:
         raise SystemExit(f"need {n_plain} voices for the non-creator words, got {len(voices)}")
     tmp = Path(tempfile.mkdtemp(prefix="voice_gag_"))
     parts, timings, t = [], [], 0.0
     for i, w in enumerate(words):
-        use_ref = a.ref and i >= n_plain
+        tail = i >= n_plain
+        use_ref = bool(a.ref) and tail
+        use_robot = a.robot and tail and not a.ref
         p = tmp / f"{i:02d}.wav"
-        info = tts(w, voice_id=None if use_ref else voices[i], ref=a.ref if use_ref else None, out=p)
+        info = tts(w, voice_id=a.robot_voice if use_robot else (None if use_ref else voices[i]),
+                   ref=a.ref if use_ref else None, out=p)
+        if use_robot:
+            raw = tmp / f"{i:02d}_raw.wav"; p.rename(raw)
+            subprocess.run(["ffmpeg", "-y", "-i", str(raw), "-af", ROBOT_FILTER, str(p)],
+                           check=True, capture_output=True)
         d = duration_s(p)
-        timings.append({"word": w, "voice": "creator" if use_ref else voices[i], "engine": info["engine"],
-                        "start": round(t, 3), "end": round(t + d, 3)})
+        timings.append({"word": w, "voice": "creator" if use_ref else ("robot" if use_robot else voices[i]),
+                        "engine": info["engine"], "start": round(t, 3), "end": round(t + d, 3)})
         t += d - (a.gap_ms / 1000.0 if parts else 0)
         parts.append(p)
         print(f"  {w:10s} {timings[-1]['voice']:10s} {d:.2f}s")
