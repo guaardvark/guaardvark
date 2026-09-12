@@ -5,6 +5,7 @@ in the editor.
 
     plates.py run        # keyframes → wait → queue every I2V pass → wait → manifest
     plates.py status     # read the manifest and print where each plate stands
+    plates.py upscale    # after run: 2x every finished clip through the upscaling plugin
 
 Everything goes through the backend's own routes (the same queue the Studio
 uses), so the GPU stays arbitrated and the Studio shows the jobs. Runs for
@@ -20,18 +21,25 @@ REPO = Path(__file__).resolve().parents[3]
 OUT = REPO / "data/demo_assets/launch/plates"
 COVERS = REPO / "data/demo_assets/launch/covers"
 MANIFEST = OUT / "manifest.json"
-W, H = 1280, 704                      # 16:9-ish, 32-aligned, under Wan's 1.0 MP area
+# 960x544: 16:9, 32-aligned, 522k px. The 1.0 MP ceiling (1312x736) made the 14B GGUF load
+# only ~6 GB of its 10.5 GB on a 16 GB card ("loaded partially", ~4.5 GB offloaded to CPU) and one
+# plate took 43 minutes. 2x upscale afterwards gives 1920x1088, a 4 px crop from 1080p.
+W, H = int(os.environ.get("PLATES_W", 960)), int(os.environ.get("PLATES_H", 544))
+PROFILE = os.environ.get("PLATES_PROFILE", "standard")   # "lightx2v-4" once the i2v Lightning LoRAs are installed
+UPSCALE = dict(model="realesrgan-x2", scale=2, two_pass=False, suffix="_2x")   # 1920x1088 from 960x544; 4 px crop to 1080p
 I2V = dict(model="wan22-14b-i2v", width=W, height=H, duration_frames=81, fps=16,
-           num_inference_steps=25, prompt_style="cinematic", enhance_prompt=False,
-           negative_prompt="text, letters, watermark, logo, blurry, low quality, jitter, flicker, morphing")
+           num_inference_steps=int(os.environ.get("PLATES_STEPS", 25)), speed_profile=PROFILE,
+           interpolation_multiplier=1, upscale=False,   # Draft tier: raw frames; upscaling is batched afterwards
+           prompt_style="cinematic", enhance_prompt=False,
+           negative_prompt="text, letters, watermark, logo, blurry, low quality, jitter, flicker, morphing, scanlines, VHS, tracking lines, static, noise, film grain, interlacing, chromatic aberration, glitch")
 STYLE = ("cyberpunk synthwave key art, magenta and electric-cyan palette on near-black, chrome highlights, "
-         "grid horizon, scanlines, volumetric fog, 1984 retro-future, high contrast, cinematic lighting, "
+         "grid horizon, volumetric fog, clean sharp render, high contrast, cinematic lighting, "
          "wide 16:9, the centre of the frame left empty for a title, no text")
 
 PLATES = [
   # id, statement (for the editor), keyframe prompt or existing image, motion prompt
   ("00_intro", "—", COVERS / "01_aardvark_rooftop.png",
-   "slow push-in toward the striped sun, rain falling, fog drifting across the rooftop, the sun stripes shimmer, the aardvark breathes, neon reflections ripple on wet tiles"),
+   "slow push-in toward the striped sun, rain falling, fog drifting across the rooftop, the sun stripes glow steadily, the aardvark breathes, neon reflections ripple on wet tiles"),
   ("01_one_machine", "ONE MACHINE. NO CLOUD.",
    f"a single dark computer tower standing alone at the bottom edge of an endless neon grid plain, storm clouds parting above, one thin beam of cyan light from the tower, {STYLE}",
    "storm clouds pull back and dissolve, the grid lights up in waves toward the horizon, the cyan beam pulses, slow drift forward"),
@@ -48,10 +56,10 @@ PLATES = [
    "the light streams swirl and bounce inside the cube, the cube rotates slowly, the grid scrolls beneath it, particles drift"),
   ("06_eleven_models", "ELEVEN VIDEO MODELS. ONE CARD.",
    f"eleven small floating film-reel screens orbiting an empty centre above a glowing chip on a dark grid, each screen a different neon tint, {STYLE}",
-   "the screens orbit slowly around the empty centre, each flickers with light, the chip glows and pulses, camera drifts sideways"),
+   "the screens orbit slowly around the empty centre, each glows and shifts colour, the chip glows and pulses, camera drifts sideways"),
   ("07_film_crew", "A FILM CREW THAT NEVER SLEEPS.",
    f"an empty neon-lit film set at night, a clapperboard and two director chairs at the edges, tungsten and magenta lights on stands, haze in the air, {STYLE}",
-   "haze drifts through the light beams, the set lights flicker on one by one, a slow dolly along the set, the clapperboard glints"),
+   "haze drifts through the light beams, the set lights switch on one by one, a slow dolly along the set, the clapperboard glints"),
   ("08_any_voice", "ANY VOICE. WITH CONSENT.",
    f"a chrome studio microphone at the left edge of frame, concentric neon waveform rings radiating across a dark grid, empty centre, {STYLE}",
    "the waveform rings ripple outward in time, the microphone glints, light pulses along the rings, gentle camera push"),
@@ -63,15 +71,15 @@ PLATES = [
    "cursors blink in the terminals, the lines of light stream toward the convergence point, the grid scrolls, slow push-in"),
   ("11_two_lines", "TWO LINES. NO CLONE.",
    f"a lone blinking terminal cursor low in the frame on black, a thin neon horizon line with a striped chrome sun far away, vast empty space, {STYLE}",
-   "the cursor blinks, the horizon grid scrolls toward the camera, the distant sun stripes shimmer, subtle rain"),
+   "the cursor blinks, the horizon grid scrolls toward the camera, the distant sun stripes glow, subtle rain"),
   ("12_loop_grid", "(generic loop A)",
    f"pure synthwave landscape, an endless neon grid to the horizon under a striped chrome sun, nothing else, {STYLE}",
-   "endless smooth dolly forward over the grid, the sun stripes shimmer, stars drift, no cuts"),
+   "endless smooth dolly forward over the grid, the sun stripes glow, stars drift, no cuts"),
   ("13_loop_rain", "(generic loop B)",
    f"abstract close-up of rain on wet black asphalt at night with magenta and cyan neon reflections, bokeh, no objects, {STYLE}",
    "rain falls and ripples the reflections, bokeh lights drift, slow slide sideways"),
   ("14_outro", "—", COVERS / "02_terminal_icons.png",
-   "code scrolls on the terminal screen, the laser beam streams toward the icon panel with particles flowing along it, the icons pulse in sequence, city lights flicker"),
+   "code scrolls on the terminal screen, the laser beam streams toward the icon panel with particles flowing along it, the icons pulse in sequence, city lights glow"),
 ]
 
 
@@ -95,10 +103,15 @@ def run():
     OUT.mkdir(parents=True, exist_ok=True)
     manifest = {"plates": {}, "started": time.strftime("%Y-%m-%d %H:%M:%S")}
     need_kf = [(pid, st, prompt, motion) for pid, st, prompt, motion in PLATES if isinstance(prompt, str)]
-    kf = post("/api/batch-image/generate/prompts",
-              {"prompts": [p for _, _, p, _ in need_kf], "model": "zimage-turbo", "width": W, "height": H,
-               "style": "artistic", "negative_prompt": "text, letters, watermark, logo, blurry, cluttered centre"})
-    kf_id = kf["batch_id"]; manifest["keyframe_batch"] = kf_id; log(f"keyframes queued: {kf_id} ({len(need_kf)} prompts)")
+    kf_id = os.environ.get("PLATES_KEYFRAME_BATCH")   # reuse a finished keyframe batch instead of rendering again
+    if kf_id:
+        log(f"keyframes reused: {kf_id}")
+    else:
+        kf = post("/api/batch-image/generate/prompts",
+                  {"prompts": [p for _, _, p, _ in need_kf], "model": "zimage-turbo", "width": W, "height": H,
+                   "style": "artistic", "negative_prompt": "text, letters, watermark, logo, blurry, cluttered centre, scanlines, VHS, tracking lines, static, noise, film grain, glitch"})
+        kf_id = kf["batch_id"]; log(f"keyframes queued: {kf_id} ({len(need_kf)} prompts)")
+    manifest["keyframe_batch"] = kf_id
     while True:
         s = get(f"/api/batch-image/status/{kf_id}?include_results=true")
         if s["status"] in ("completed", "error", "cancelled"): break
@@ -142,6 +155,28 @@ def run():
     log("ALL PLATES DONE")
 
 
+def upscale():
+    """After the plates finish: send every finished clip through the upscaling plugin (2x),
+    one job each, and record the output paths. Needs the upscaling plugin running."""
+    m = json.loads(MANIFEST.read_text())
+    for pid, r in m["plates"].items():
+        if not r.get("video") or r.get("upscale_job"):
+            continue
+        s = get(f"/api/batch-video/status/{r['video_batch']}")
+        ok = [x for x in s.get("results", []) if x.get("success") and x.get("video_path")]
+        if not ok:
+            continue
+        src = Path(s.get("output_dir") or "") / ok[0]["video_path"]
+        try:
+            j = post("/api/upscaling/upscale/video", {"input_path": str(src), **UPSCALE}, timeout=60)
+            r["upscale_job"] = j.get("job_id") or j.get("id"); r["upscale_input"] = str(src)
+            log(f"  {pid}: upscale queued {r['upscale_job']} ← {src.name}")
+        except requests.HTTPError as e:
+            r["upscale_error"] = e.response.text[:200]; log(f"  {pid}: upscale REFUSED {r['upscale_error']}")
+        MANIFEST.write_text(json.dumps(m, indent=1))
+    log("upscale jobs queued; poll GET /api/upscaling/jobs")
+
+
 def status():
     m = json.loads(MANIFEST.read_text())
     for pid, r in m["plates"].items():
@@ -149,4 +184,4 @@ def status():
 
 
 if __name__ == "__main__":
-    {"run": run, "status": status}[sys.argv[1] if len(sys.argv) > 1 else "status"]()
+    {"run": run, "status": status, "upscale": upscale}[sys.argv[1] if len(sys.argv) > 1 else "status"]()
