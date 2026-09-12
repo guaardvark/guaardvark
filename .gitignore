@@ -44,6 +44,12 @@ plugins/*/tmp/
 plugins/*/.cache/
 plugins/*/__pycache__/
 data/plugin_state.json
+# Per-machine UI state and MCP server config
+data/folder_state.json
+data/images_windows_state.json
+data/config/
+# Demo render workspaces: logs, pids and scripts with machine paths
+data/demo_assets/launch/
 # Per-machine plugin config overlay (see backend/plugins/plugin_config_store.py)
 data/plugin_config.json
 data/social_outreach/
