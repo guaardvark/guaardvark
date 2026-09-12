@@ -34,7 +34,10 @@ section with `get_document_outline` + `read_document_section` before quoting.
 - `save_memory`: a fact, preference or instruction to keep across sessions. Use when the user says
   "remember", or states a durable preference. One fact per call.
 - `search_memory`: check before assuming; recalled memories are what was true when saved.
-- `delete_memory` when the user says to forget something.
+- Forgetting: `delete_memory` is not exposed by this server by default, because it deletes. Find the
+  memory with `search_memory`, then delete it with `DELETE /api/memory/<id>` on the backend. An
+  operator who wants the tool over MCP adds `delete_memory` to `server.tools.allow` in
+  `data/config/mcp.json`.
 
 ## Rules
 

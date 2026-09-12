@@ -11,50 +11,15 @@ from pathlib import Path
 from typing import Optional
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
+from backend.utils.backend_http import backend_base_url as _backend_base_url
+from backend.utils.backend_http import http_json as _http_json
+from backend.utils.backend_http import is_mcp_transport, run_tool_in_backend
 
 logger = logging.getLogger(__name__)
 
 _KONTEXT_MODEL_IDS = frozenset({
     "kontext", "flux-kontext", "flux-kontext-dev", "flux.kontext",
 })
-
-
-def _backend_base_url() -> str:
-    """Where the backend answers HTTP. ``GUAARDVARK_URL`` wins; otherwise the
-    port ``start.sh`` recorded in ``.env`` (macOS writes 5055); otherwise 5000."""
-    url = (os.environ.get("GUAARDVARK_URL") or "").strip()
-    if url:
-        return url.rstrip("/")
-    port = (os.environ.get("FLASK_PORT") or "").strip()
-    if not port:
-        env_file = Path(__file__).resolve().parents[2] / ".env"
-        try:
-            for line in env_file.read_text().splitlines():
-                if line.startswith("FLASK_PORT="):
-                    port = line.split("=", 1)[1].strip().strip("'\"")
-                    break
-        except OSError:
-            pass
-    return f"http://127.0.0.1:{port or '5000'}"
-
-
-def _http_json(method: str, path: str, payload=None, timeout: float = 30.0):
-    """One call to the backend's REST API. Returns the ``data`` object of the
-    standard envelope (or the raw body for routes that return one), raising
-    RuntimeError with the server's message on a non-2xx answer."""
-    import requests
-    url = _backend_base_url() + path
-    resp = requests.request(method, url, json=payload, timeout=timeout)
-    try:
-        body = resp.json()
-    except ValueError:
-        body = {}
-    if resp.status_code >= 400:
-        msg = body.get("error") or body.get("message") or resp.text[:200] or f"HTTP {resp.status_code}"
-        if resp.status_code == 503:
-            msg += " (start the plugin from the Studio Plugins page or POST /api/plugins/<id>/start)"
-        raise RuntimeError(msg)
-    return body.get("data", body) if isinstance(body, dict) else body
 
 
 def _unwrap_nested_prompt_json(prompt: str) -> tuple[str, list[int]]:
@@ -121,6 +86,30 @@ def _normalize_subject_ids(raw) -> list[int]:
     return out
 
 
+def _match_cast_subjects(candidates: list[str], subjects: list[dict]) -> list[int]:
+    """Ids of subjects whose trigger word or name matches a prompt token, in prompt order."""
+    by_trigger = {}
+    by_name = {}
+    for s in subjects:
+        tw = (s.get("trigger_word") or "").strip().lower()
+        nm = (s.get("name") or "").strip().lower()
+        if tw:
+            by_trigger[tw] = s["id"]
+            by_trigger[tw.replace(" ", "_")] = s["id"]
+        if nm:
+            by_name[nm] = s["id"]
+            by_name[nm.replace(" ", "_")] = s["id"]
+    found: list[int] = []
+    seen: set[int] = set()
+    for c in candidates:
+        key = c.strip().lower()
+        sid = by_trigger.get(key) or by_name.get(key)
+        if sid and sid not in seen:
+            seen.add(sid)
+            found.append(sid)
+    return found
+
+
 def _resolve_cast_from_prompt(prompt: str) -> list[int]:
     """Match [trigger], trigger_word, or cast name tokens in the prompt to trained Subjects."""
     text = prompt or ""
@@ -140,8 +129,6 @@ def _resolve_cast_from_prompt(prompt: str) -> list[int]:
         from backend.models import Subject, db
 
         def _lookup() -> list[int]:
-            found: list[int] = []
-            seen: set[int] = set()
             rows = (
                 Subject.query.filter(
                     Subject.kind == "character",
@@ -149,27 +136,19 @@ def _resolve_cast_from_prompt(prompt: str) -> list[int]:
                     Subject.lora_path != "",
                 ).all()
             )
-            by_trigger = {}
-            by_name = {}
-            for s in rows:
-                tw = (s.trigger_word or "").strip().lower()
-                nm = (s.name or "").strip().lower()
-                if tw:
-                    by_trigger[tw] = s.id
-                    by_trigger[tw.replace(" ", "_")] = s.id
-                if nm:
-                    by_name[nm] = s.id
-                    by_name[nm.replace(" ", "_")] = s.id
-            for c in candidates:
-                key = c.strip().lower()
-                sid = by_trigger.get(key) or by_name.get(key)
-                if sid and sid not in seen:
-                    seen.add(sid)
-                    found.append(sid)
-            return found
+            return _match_cast_subjects(
+                candidates, [{"id": s.id, "trigger_word": s.trigger_word, "name": s.name} for s in rows],
+            )
 
         if has_app_context():
             return _lookup()
+        from backend.utils.backend_http import in_mcp_process, request_json
+        if in_mcp_process():
+            # The MCP server has no Flask app; the Cast Library route lists the subjects.
+            subjects = (request_json("GET", "/api/cast-library").data or {}).get("subjects") or []
+            return _match_cast_subjects(
+                candidates, [s for s in subjects if s.get("kind") == "character" and s.get("lora_path")],
+            )
         from backend.app import get_or_create_app
         app = get_or_create_app()
         with app.app_context():
@@ -832,6 +811,13 @@ class AnimationGeneratorTool(BaseTool):
                 vision_steering: bool = False, **kwargs) -> ToolResult:
         logger.info(f"AnimationGeneratorTool: prompt={prompt[:60]}..., motion={motion}, frames={frames}")
 
+        if is_mcp_transport(self):
+            # The frames render on the GPU, which belongs to the backend process.
+            return run_tool_in_backend(self.name, {
+                "prompt": prompt, "motion": motion, "frames": frames, "strength": strength,
+                "format": format, "vision_steering": vision_steering,
+            })
+
         try:
             from backend.services.animation_generator import (
                 get_animation_generator, AnimationRequest
@@ -1186,6 +1172,20 @@ class VideoGeneratorTool(BaseTool):
         prompt = (prompt or "").strip()
         if not prompt:
             return ToolResult(success=False, error="Empty video prompt")
+
+        if is_mcp_transport(self):
+            # Model preflight, document lookups and the batch queue belong to the backend process.
+            arguments = {
+                "prompt": prompt, "duration_frames": duration_frames,
+                "num_inference_steps": num_inference_steps, "wait_for_result": wait_for_result,
+                "model": model, "aspect_ratio": aspect_ratio, "duration_s": duration_s, "audio": audio,
+                "first_image": first_image, "last_image": last_image, "reference_images": reference_images,
+                "reference_audio": reference_audio, "speed_profile": speed_profile, "style": style,
+            }
+            return run_tool_in_backend(
+                self.name, {k: v for k, v in arguments.items() if v is not None},
+                read_timeout=self.MAX_WAIT_S + 60,
+            )
         wait_for_result = str(wait_for_result).lower() in ("1", "true", "yes")
         audio = str(audio).lower() in ("1", "true", "yes")
         if isinstance(reference_images, str):

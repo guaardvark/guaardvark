@@ -13,6 +13,7 @@ from typing import Any, Optional
 from datetime import datetime
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
+from backend.utils.backend_http import is_mcp_transport, run_tool_in_backend
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,9 @@ class BulkCSVGeneratorTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         """Start bulk CSV generation job"""
+        if is_mcp_transport(self):
+            # The generation services read Flask config and the database, so the job runs in the backend.
+            return run_tool_in_backend(self.name, kwargs)
         filename = kwargs.get("filename")
         quantity = kwargs.get("quantity")
         topic = kwargs.get("topic")

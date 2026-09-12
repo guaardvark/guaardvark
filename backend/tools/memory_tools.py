@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 from backend.models import db, AgentMemory, AgentMemoryAudit
 from backend.api.memory_api import add_memory, _query_memories
+from backend.utils.backend_http import BackendError, is_mcp_transport, request_json
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,14 @@ class SaveMemoryTool(BaseTool):
         project_id = agent_context.get("project_id")
         workspace_root = agent_context.get("workspace_root")
 
+        if not (content or "").strip():
+            return ToolResult(success=False, error="content is required.")
+
+        if is_mcp_transport(self):
+            return self._save_via_backend(
+                content, mem_type, tags, importance, session_id, project_id, workspace_root,
+            )
+
         try:
             memory = add_memory(
                 content=content,
@@ -81,9 +90,38 @@ class SaveMemoryTool(BaseTool):
                 metadata={"id": memory.id, "content": memory.content, "type": memory.type}
             )
         except Exception as e:
-            db.session.rollback()
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             logger.error(f"Failed to save memory: {e}")
             return ToolResult(success=False, error=f"Database error: {str(e)}")
+
+    def _save_via_backend(self, content, mem_type, tags, importance, session_id, project_id, workspace_root) -> ToolResult:
+        # The MCP server process has no Flask app; POST /api/memory owns
+        # validation, the audit row and the commit.
+        payload = {
+            "content": content,
+            "type": mem_type,
+            "source": "agent",
+            "tags": tags,
+            "importance": importance,
+            "session_id": session_id,
+            "project_id": project_id,
+            "workspace_root": workspace_root,
+        }
+        try:
+            body = request_json("POST", "/api/memory", payload=payload).body
+        except BackendError as e:
+            return ToolResult(success=False, error=f"Memory was not saved: {e}")
+        memory = (body or {}).get("memory") or {}
+        if not memory.get("id"):
+            return ToolResult(success=False, error="Memory was not saved: the backend returned no memory id.")
+        return ToolResult(
+            success=True,
+            output=f"Successfully saved to long-term memory (ID: {memory['id']}).",
+            metadata={"id": memory["id"], "content": memory.get("content"), "type": memory.get("type")},
+        )
 
 
 class SearchMemoryTool(BaseTool):
@@ -113,9 +151,12 @@ class SearchMemoryTool(BaseTool):
     def execute(self, **kwargs) -> ToolResult:
         query = kwargs.get("query", "").lower()
         limit = kwargs.get("limit", 5)
-        
+
+        if is_mcp_transport(self):
+            return self._search_via_backend(query, limit)
+
         try:
-            memories = _query_memories(query=query, limit=limit)
+            memories = _query_memories(query=query, limit=limit, raise_errors=True)
             
             if not memories:
                 return ToolResult(
@@ -138,6 +179,25 @@ class SearchMemoryTool(BaseTool):
         except Exception as e:
             logger.error(f"Failed to search memory: {e}")
             return ToolResult(success=False, error=f"Database error: {str(e)}")
+
+    def _search_via_backend(self, query: str, limit) -> ToolResult:
+        # GET /api/memory matches the query as one substring of content or tags
+        # and orders by trust; the in-process ranker also weighs recency and scope.
+        params = {"search": query, "limit": limit, "status": "active", "sort": "trust"}
+        try:
+            body = request_json("GET", "/api/memory", params=params).body
+        except BackendError as e:
+            return ToolResult(success=False, error=f"Memory search failed: {e}")
+        memories = (body or {}).get("memories") or []
+        if not memories:
+            return ToolResult(
+                success=True,
+                output=f"No memories found matching '{query}'.",
+                metadata={"results": []},
+            )
+        output_lines = [f"Found {len(memories)} memories matching '{query}':"]
+        output_lines += [f"- [ID: {m.get('id')}] ({m.get('type')}) {m.get('content')}" for m in memories]
+        return ToolResult(success=True, output="\n".join(output_lines), metadata={"results": memories})
 
 
 class DeleteMemoryTool(BaseTool):

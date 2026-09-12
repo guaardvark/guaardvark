@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 from backend.services.social_outreach import audit, kill_switch, persona
+from backend.utils.backend_http import BackendError, is_mcp_transport, request_json
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +37,23 @@ _KNOWN_RUN_PLATFORMS = (
 def _row_summary(row) -> Dict[str, Any]:
     """Slim a SocialOutreachLog row down to what the LLM (and the user
     reading the tool card) actually needs. The full row has post-hoc fields
-    that aren't useful in a chat answer."""
+    that aren't useful in a chat answer. Accepts the model row or its
+    to_dict() form, which is what the backend returns over HTTP."""
+    if isinstance(row, dict):
+        get = row.get
+    else:
+        def get(key):
+            return getattr(row, key, None)
+    created = get("created_at")
     return {
-        "id": row.id,
-        "platform": row.platform,
-        "action": row.action,
-        "status": row.status,
-        "grade": row.grade_score,
-        "target_url": row.target_url,
-        "draft_text": (row.draft_text or "")[:400],
-        "created_at": row.created_at.isoformat() if row.created_at else None,
+        "id": get("id"),
+        "platform": get("platform"),
+        "action": get("action"),
+        "status": get("status"),
+        "grade": get("grade_score"),
+        "target_url": get("target_url"),
+        "draft_text": (get("draft_text") or "")[:400],
+        "created_at": created.isoformat() if hasattr(created, "isoformat") else created,
     }
 
 
@@ -106,6 +114,9 @@ class OutreachListQueueTool(BaseTool):
             limit = 10
         limit = max(1, min(limit, 50))
 
+        if is_mcp_transport(self):
+            return self._list_via_backend(status, limit)
+
         try:
             from backend.models import SocialOutreachLog
             q = SocialOutreachLog.query
@@ -121,6 +132,29 @@ class OutreachListQueueTool(BaseTool):
         except Exception as e:
             logger.exception("outreach_list_queue failed")
             return ToolResult(success=False, error=str(e))
+
+    def _list_via_backend(self, status: str, limit: int) -> ToolResult:
+        # /queue and /approved are the Outreach page's own lists; any other
+        # status is filtered out of the most recent /audit rows.
+        path = {
+            "drafted": "/api/social-outreach/queue",
+            "approved": "/api/social-outreach/approved",
+        }.get(status)
+        params = None
+        if path is None:
+            path, params = "/api/social-outreach/audit", {"limit": 1000}
+        try:
+            rows = request_json("GET", path, params=params).data or []
+        except BackendError as e:
+            return ToolResult(success=False, error=f"Could not list outreach drafts: {e}")
+        rows = [r for r in rows if r.get("status") == status]
+        rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+        summary = [_row_summary(r) for r in rows[:limit]]
+        return ToolResult(
+            success=True,
+            output={"count": len(summary), "status": status, "rows": summary},
+            metadata={"count": len(summary), "status": status},
+        )
 
 
 class OutreachDraftPostTool(BaseTool):
@@ -274,6 +308,11 @@ class OutreachDraftPostTool(BaseTool):
         grade = float(result.get("grade") or 0.0)
         reason = result.get("reason") or ""
 
+        if is_mcp_transport(self):
+            return self._queue_via_backend(
+                platform, mode, target_url, target_thread_id, draft_text, grade, reason,
+            )
+
         # Persist the same way /draft-comment does so the OutreachPage queue
         # picks the row up immediately. Tag source so we can tell chat-driven
         # drafts apart from cron-driven ones.
@@ -300,6 +339,39 @@ class OutreachDraftPostTool(BaseTool):
                 "queued_status": "drafted",
             },
             metadata={"audit_id": audit_id, "grade": grade},
+        )
+
+    @staticmethod
+    def _queue_via_backend(platform, mode, target_url, target_thread_id, draft_text, grade, reason) -> ToolResult:
+        # POST /drafts always lands at status='drafted'; /draft-comment would
+        # approve for posting when outreach is unsupervised, which this tool
+        # promises never to do.
+        draft = {
+            "platform": platform,
+            "mode": mode,
+            "draft": draft_text,
+            "grade": grade,
+            "reason": reason,
+        }
+        if not draft_text:
+            return ToolResult(success=False, error="The persona returned an empty draft.", output=draft)
+        try:
+            row = request_json("POST", "/api/social-outreach/drafts", payload={
+                "platform": platform,
+                "action": "comment" if mode == "comment" else "share",
+                "target_url": target_url,
+                "target_thread_id": target_thread_id,
+                "draft_text": draft_text,
+                "grade_score": grade,
+                "source": "chat_tool",
+                "reason": reason,
+            }).data or {}
+        except BackendError as e:
+            return ToolResult(success=False, error=f"The draft was written but not queued: {e}", output=draft)
+        return ToolResult(
+            success=True,
+            output={**draft, "audit_id": row.get("id"), "queued_status": row.get("status", "drafted")},
+            metadata={"audit_id": row.get("id"), "grade": grade},
         )
 
 
@@ -375,6 +447,19 @@ class OutreachRejectDraftTool(BaseTool):
             event_id = int(kwargs.get("id"))
         except (TypeError, ValueError):
             return ToolResult(success=False, error="id must be an integer")
+
+        if is_mcp_transport(self):
+            try:
+                row = request_json("POST", f"/api/social-outreach/reject/{event_id}").data
+            except BackendError as e:
+                if e.status == 404:
+                    return ToolResult(success=False, error=f"draft {event_id} not found")
+                return ToolResult(success=False, error=str(e))
+            return ToolResult(
+                success=True,
+                output=_row_summary(row),
+                metadata={"id": row.get("id"), "status": row.get("status")},
+            )
 
         try:
             from backend.models import SocialOutreachLog, db

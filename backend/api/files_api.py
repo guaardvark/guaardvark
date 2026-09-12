@@ -813,6 +813,61 @@ def toggle_repo_status(folder_id):
         logger.error(f"Error toggling repo status: {e}", exc_info=True)
         return error_response(f"Failed to toggle repository status: {e}", 500, "TOGGLE_ERROR")
 
+
+@files_bp.route("/repositories", methods=["GET"])
+@ensure_db_session_cleanup
+def list_repositories():
+    """GET /api/files/repositories - Folders marked as Code Repositories"""
+    try:
+        repos = Folder.query.filter_by(is_repository=True).all()
+        return success_response({
+            "repositories": [
+                {
+                    "id": f.id,
+                    "name": f.name,
+                    "path": f.path,
+                    "has_metadata": bool(f.repo_metadata),
+                    "description": (f.description or "")[:200],
+                }
+                for f in repos
+            ]
+        })
+    except SQLAlchemyError as e:
+        logger.error(f"Database error listing repositories: {e}", exc_info=True)
+        return error_response("Database error", 500, "DB_ERROR")
+
+
+@files_bp.route("/folder/<int:folder_id>/repository", methods=["GET"])
+@ensure_db_session_cleanup
+def get_repository(folder_id):
+    """GET /api/files/folder/:id/repository - Repository metadata and on-disk root"""
+    try:
+        folder = db.session.get(Folder, folder_id)
+        if not folder:
+            return error_response("Folder not found", 404, "FOLDER_NOT_FOUND")
+        metadata = folder.repo_metadata
+        if isinstance(metadata, str) and metadata:
+            try:
+                metadata = json.loads(metadata)
+            except ValueError:
+                return error_response("Repository metadata is not valid JSON", 500, "BAD_REPO_METADATA")
+        try:
+            physical_path = str(get_physical_path(folder.path).resolve())
+        except (ValueError, PathEscapesRoot) as e:
+            logger.warning(f"Folder {folder_id} has no resolvable location: {e}")
+            physical_path = None
+        return success_response({
+            "id": folder.id,
+            "name": folder.name,
+            "path": folder.path,
+            "is_repository": bool(folder.is_repository),
+            "metadata": metadata or None,
+            "physical_path": physical_path,
+        })
+    except SQLAlchemyError as e:
+        logger.error(f"Database error reading repository {folder_id}: {e}", exc_info=True)
+        return error_response("Database error", 500, "DB_ERROR")
+
 # ============================================================================
 # FILE OPERATIONS
 # ============================================================================

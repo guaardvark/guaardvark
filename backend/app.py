@@ -15,6 +15,15 @@ from typing import Optional
 if __name__ == "__main__" and "backend.app" not in sys.modules:
     sys.modules["backend.app"] = sys.modules["__main__"]
 
+# The MCP server process (backend/mcp) stays Flask-free. Importing this module
+# builds the web app, starts sidecars and threads, and logs to stdout, which is
+# that process's JSON-RPC pipe. Tools there call the backend over HTTP instead.
+if os.environ.get("GUAARDVARK_MCP_PROCESS") == "1" and __name__ != "__main__":
+    raise ImportError(
+        "backend.app cannot be imported inside the MCP server process; "
+        "call the backend over HTTP (backend/utils/backend_http.py)."
+    )
+
 # Under memory pressure the kernel must kill THIS process, never the desktop
 # (2026-08-04 client box lockups). Early, before any heavy allocation.
 try:

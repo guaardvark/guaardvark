@@ -120,7 +120,8 @@ def get_approved():
 def create_draft():
     """Create a new draft from manual UI input. Lands in the queue as status='drafted'.
 
-    Body: {platform, action?, target_url?, target_thread_id?, draft_text?, grade_score?}
+    Body: {platform, action?, target_url?, target_thread_id?, draft_text?, grade_score?,
+           source?, reason?}
     Returns the new SocialOutreachLog row.
     """
     body = request.get_json(silent=True) or {}
@@ -140,8 +141,12 @@ def create_draft():
             grade_score = None
 
     # Reuse the audit pipeline so the manual draft hits jsonl + DB the same
-    # way an LLM-drafted row does. Marks "source=manual_ui" so we can later
+    # way an LLM-drafted row does. Marks "source=manual_ui" unless the caller
+    # names itself (outreach_draft_post sends "chat_tool"), so we can later
     # tell hand-rolled drafts apart from the cron-fed ones.
+    extra = {"source": body.get("source") or "manual_ui"}
+    if body.get("reason"):
+        extra["reason"] = body["reason"]
     audit_id = audit.log_outreach_event(
         platform=platform,
         action=action,
@@ -150,7 +155,7 @@ def create_draft():
         draft_text=draft_text,
         status="drafted",
         grade_score=grade_score,
-        extra={"source": "manual_ui"},
+        extra=extra,
     )
     if audit_id is None:
         return jsonify({"error": "failed to persist draft"}), 500

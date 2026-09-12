@@ -195,10 +195,11 @@ class WebAnalysisTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         """Analyze website and return comprehensive report"""
-        if not _is_web_access_allowed():
+        blocked = _web_access_block_reason("analyze websites")
+        if blocked:
             return ToolResult(
                 success=False,
-                error="Web access is disabled. Enable it in Settings to analyze websites."
+                error=blocked
             )
 
         url = kwargs.get("url", "").strip()
@@ -340,16 +341,30 @@ class WebAnalysisTool(BaseTool):
         }
 
 
-def _is_web_access_allowed() -> bool:
-    """Check if web access is enabled in settings."""
+def _web_access_block_reason(action: str) -> str | None:
+    """None when web access is enabled; otherwise the error the tool returns."""
+    disabled = f"Web access is disabled. Enable it in Settings to {action}."
     try:
         from flask import has_app_context
         from backend.utils.settings_utils import get_web_access
         if has_app_context():
-            return get_web_access()
+            return None if get_web_access() else disabled
     except Exception:
         pass
-    return False
+    from backend.utils.backend_http import BackendError, in_mcp_process, request_json
+    if in_mcp_process():
+        # The MCP server has no Flask app; the backend owns the setting.
+        try:
+            data = request_json("GET", "/api/settings/web_access").data or {}
+        except BackendError as e:
+            return f"Could not check whether web access is enabled: {e}"
+        return None if data.get("allow_web_search") else disabled
+    return disabled
+
+
+def _is_web_access_allowed() -> bool:
+    """Check if web access is enabled in settings."""
+    return _web_access_block_reason("use the web") is None
 
 
 class FetchUrlTool(BaseTool):
@@ -387,10 +402,11 @@ class FetchUrlTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         """Fetch the URL and return its text content."""
-        if not _is_web_access_allowed():
+        blocked = _web_access_block_reason("fetch URLs")
+        if blocked:
             return ToolResult(
                 success=False,
-                error="Web access is disabled. Enable it in Settings to fetch URLs.",
+                error=blocked,
             )
 
         url = (kwargs.get("url") or "").strip()
@@ -468,10 +484,11 @@ class WebSearchTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         """Perform web search"""
-        if not _is_web_access_allowed():
+        blocked = _web_access_block_reason("use web search")
+        if blocked:
             return ToolResult(
                 success=False,
-                error="Web access is disabled. Enable it in Settings to use web search."
+                error=blocked
             )
 
         query = kwargs.get("query", "").strip()

@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
+from backend.utils.backend_http import is_mcp_transport, run_tool_in_backend
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +201,10 @@ class MusicVideoTool(BaseTool):
         style_prompt = (style_prompt or "").strip()
         if not style_prompt:
             return ToolResult(success=False, error="style_prompt is required")
+        if is_mcp_transport(self):
+            # Document rows, the Director and Celery dispatch belong to the backend process.
+            arguments = {"song": song, "style_prompt": style_prompt, "name": name, "i2v_model": i2v_model}
+            return run_tool_in_backend(self.name, {k: v for k, v in arguments.items() if v is not None})
         try:
             from backend.models import db
             from backend.services.music_video_service import MusicVideoService
@@ -293,6 +298,10 @@ class FilmCrewTool(BaseTool):
 
     def execute(self, script_text: str, name: str | None = None,
                 video_model: str | None = None, **kwargs) -> ToolResult:
+        if is_mcp_transport(self):
+            # The production row, model resolution and screenwriter dispatch belong to the backend process.
+            arguments = {"script_text": script_text, "name": name, "video_model": video_model}
+            return run_tool_in_backend(self.name, {k: v for k, v in arguments.items() if v is not None})
         script_text, script_err = _script_body(script_text)
         if script_err:
             return ToolResult(success=False, error=script_err)

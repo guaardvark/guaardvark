@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 
 import requests
-from flask import Blueprint, request as flask_request
+from flask import Blueprint, has_request_context, request as flask_request
 
 from backend.services.guarded_code_service import default_repo_root
 from backend.utils.response_utils import success_response, error_response
@@ -48,10 +48,15 @@ def _internal_headers() -> dict:
     return {INTERNAL_TOKEN_HEADER: _internal_secret()}
 
 
-def _proxy_get(path: str, timeout: int = SWARM_TIMEOUT):
-    """Proxy a GET request to the swarm service."""
+def _proxy_get(path: str, timeout: int = SWARM_TIMEOUT, params: dict | None = None):
+    """Proxy a GET request to the swarm service.
+
+    ``params`` defaults to the current request's query string. Callers with no
+    request (chat tools on a worker thread) pass their own, or send none.
+    """
     try:
-        params = dict(flask_request.args)
+        if params is None:
+            params = dict(flask_request.args) if has_request_context() else {}
         resp = requests.get(
             f"{SWARM_URL}{path}", params=params, timeout=timeout, headers=_internal_headers()
         )

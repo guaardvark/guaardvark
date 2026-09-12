@@ -15,8 +15,14 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
+from backend.utils.backend_http import BackendError, is_mcp_transport, request_json
 
 logger = logging.getLogger(__name__)
+
+_SWARM_OFFLINE_ERROR = (
+    "Swarm plugin is not running (port 8210). Start it from /plugins or say so — "
+    "do not pretend a swarm launched."
+)
 
 _LOG_ALLOWLIST = frozenset({
     "backend.log",
@@ -335,20 +341,37 @@ class SwarmStatusTool(BaseTool):
     }
 
     def execute(self, **kwargs) -> ToolResult:
+        swarm_id = (kwargs.get("swarm_id") or "").strip()
+        if is_mcp_transport(self):
+            return self._status_via_backend(swarm_id)
+
         from backend.api import swarm_api
 
-        swarm_id = (kwargs.get("swarm_id") or "").strip()
         path = f"/swarm/status/{swarm_id}" if swarm_id else "/swarm/status"
         data, status = swarm_api._proxy_get(path)
         if status == 503:
             return ToolResult(
                 success=False,
-                error="Swarm plugin is not running (port 8210). Start it from /plugins or say so — do not pretend a swarm launched.",
+                error=_SWARM_OFFLINE_ERROR,
                 metadata={"http_status": 503, "data": data},
             )
         if status >= 400:
             return ToolResult(success=False, error=swarm_api._extract_error(data, "swarm status failed"), metadata={"http_status": status})
         return ToolResult(success=True, output=data)
+
+    def _status_via_backend(self, swarm_id: str) -> ToolResult:
+        path = f"/api/swarm/status/{swarm_id}" if swarm_id else "/api/swarm/status"
+        try:
+            resp = request_json("GET", path)
+        except BackendError as e:
+            if e.kind == "plugin_offline":
+                return ToolResult(success=False, error=_SWARM_OFFLINE_ERROR, metadata={"http_status": 503})
+            return ToolResult(success=False, error=str(e), metadata={"http_status": e.status})
+        # GET /api/swarm/status answers 200 with an empty list when the sidecar
+        # is down, so the offline case is only visible in its message.
+        if isinstance(resp.body, dict) and resp.body.get("message") == "Swarm service offline":
+            return ToolResult(success=False, error=_SWARM_OFFLINE_ERROR, metadata={"http_status": 503})
+        return ToolResult(success=True, output=resp.data)
 
 
 class LaunchSwarmTool(BaseTool):
@@ -416,6 +439,9 @@ class SelfImprovementStatusTool(BaseTool):
             svc = get_self_improvement_service()
             pre = svc.dispatch_precheck()
             payload: Dict[str, Any] = {"precheck": pre, "runs": [], "pending_fixes": []}
+            if is_mcp_transport(self):
+                payload.update(self._history_via_backend())
+                return ToolResult(success=True, output=payload)
             try:
                 from backend.models import PendingFix, SelfImprovementRun, db
                 runs = (
@@ -454,6 +480,30 @@ class SelfImprovementStatusTool(BaseTool):
         except Exception as e:
             logger.exception("self_improvement_status failed")
             return ToolResult(success=False, error=str(e))
+
+    @staticmethod
+    def _history_via_backend() -> Dict[str, Any]:
+        """Recent runs and fixes in the same shape as the in-process query."""
+        try:
+            runs = (request_json("GET", "/api/self-improvement/runs", params={"limit": 5}).data or {}).get("runs") or []
+            fixes = request_json("GET", "/api/self-improvement/pending-fixes", params={"limit": 8}).data or []
+        except BackendError as e:
+            return {"db_error": str(e)}
+        return {
+            "runs": [
+                {"id": r.get("id"), "trigger": r.get("trigger"), "status": r.get("status"), "created_at": r.get("timestamp")}
+                for r in runs
+            ],
+            "pending_fixes": [
+                {
+                    "id": f.get("id"),
+                    "status": f.get("status"),
+                    "file_path": f.get("file_path"),
+                    "summary": (f.get("fix_description") or "")[:240],
+                }
+                for f in fixes
+            ],
+        }
 
 
 class SubmitImprovementTool(BaseTool):

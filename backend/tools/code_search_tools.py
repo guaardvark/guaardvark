@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
+from backend.utils.backend_http import is_mcp_transport
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,13 @@ DEFAULT_LIMIT = 8
 # lines; eight hits is enough to answer and small enough to leave room for the
 # answer in the context window.
 MAX_OUTPUT_CHARS = 12000
+
+_SEMANTIC_UNAVAILABLE = (
+    "Semantic code search is unavailable: the zvec_grep plugin is not connected, and the "
+    "query has no code names to search for literally. Ask with a function, class or file "
+    "name, or start the zvec_grep plugin from the Plugins page."
+)
+_SYMBOL = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 
 
 def _default_root() -> str:
@@ -75,6 +83,39 @@ def _hybrid_search(root: str, query: str, limit: int) -> Optional[str]:
     except Exception as exc:  # noqa: BLE001
         logger.info("code search: hybrid call failed, using regex search: %s", exc)
         return None
+    return _mcp_text(result)
+
+
+def _hybrid_search_via_backend(root: str, query: str, limit: int) -> Optional[str]:
+    """The MCP server process has no zvec-grep client of its own; the backend
+    holds that connection, so the search runs there."""
+    from backend.utils.backend_http import BackendError, request_json
+
+    call = {"server": MCP_SERVER, "tool": MCP_TOOL, "arguments": {"root": root, "query": query, "limit": int(limit)}}
+
+    def _execute() -> Optional[Dict[str, Any]]:
+        body = request_json("POST", "/api/automation/mcp/execute", payload=call, read_timeout=60).body
+        return body if isinstance(body, dict) else None
+
+    try:
+        try:
+            result = _execute()
+        except BackendError as exc:
+            if exc.kind != "http":
+                raise
+            result = None
+        if not (result and result.get("success")):
+            # The backend connects MCP servers on demand. A search is safe to repeat.
+            request_json("POST", "/api/automation/mcp/connect", payload={"server": MCP_SERVER}, read_timeout=60)
+            result = _execute()
+    except BackendError as exc:
+        logger.info("code search: backend hybrid call failed, using regex search: %s", exc)
+        return None
+    return _mcp_text(result)
+
+
+def _mcp_text(result: Optional[Dict[str, Any]]) -> Optional[str]:
+    """The text of a successful zvec-grep call, or None."""
     if not result or not result.get("success"):
         return None
     payload = result.get("result") or {}
@@ -88,16 +129,30 @@ def _hybrid_search(root: str, query: str, limit: int) -> Optional[str]:
     return text
 
 
-def _regex_search(query: str) -> str:
-    """The repository's own regex search, widened word by word for prose queries."""
+def _symbol_tokens(query: str) -> list[str]:
+    """Words in the query that look like code names: snake_case, camelCase or
+    dotted. Plain English words would match most of the tree."""
+    tokens = []
+    for word in _SYMBOL.findall(query):
+        if "_" in word or "." in word or re.search(r"[a-z][A-Z]", word):
+            tokens.append(word)
+    return tokens[:6]
+
+
+def _regex_search(query: str) -> tuple[Optional[str], str]:
+    """The repository's regex search, for when semantic search is unavailable.
+
+    Returns (hits, searched_for). hits is None when the query has nothing a
+    literal search can use.
+    """
     from backend.tools.llama_code_tools import search_code
     out = search_code(re.escape(query))
     if "No matches" not in out and out.strip():
-        return out
-    words = [w for w in re.findall(r"[A-Za-z_][A-Za-z0-9_]{3,}", query)]
-    if not words:
-        return out
-    return search_code("|".join(re.escape(w) for w in words[:6]))
+        return out, query
+    symbols = _symbol_tokens(query)
+    if not symbols:
+        return None, ""
+    return search_code("|".join(re.escape(s) for s in symbols)), ", ".join(symbols)
 
 
 class SearchCodebaseTool(BaseTool):
@@ -139,11 +194,23 @@ class SearchCodebaseTool(BaseTool):
         if not Path(root).is_dir():
             return ToolResult(success=False, error=f"root is not a directory: {root}")
 
-        text = _hybrid_search(root, query, limit)
+        if is_mcp_transport(self):
+            text = _hybrid_search_via_backend(root, query, limit)
+        else:
+            text = _hybrid_search(root, query, limit)
         engine = "hybrid"
         if text is None:
-            text = _regex_search(query)
             engine = "regex"
+            hits, searched_for = _regex_search(query)
+            if hits is None:
+                return ToolResult(
+                    success=False, error=_SEMANTIC_UNAVAILABLE,
+                    metadata={"engine": engine, "root": root, "limit": limit},
+                )
+            text = (
+                "[Semantic search is unavailable (zvec_grep plugin not connected); "
+                f"regex matches for: {searched_for}]\n{hits}"
+            )
         if len(text) > MAX_OUTPUT_CHARS:
             text = text[:MAX_OUTPUT_CHARS].rsplit("\n", 1)[0] + "\n... [more hits omitted]"
         return ToolResult(success=True, output=text, metadata={"engine": engine, "root": root, "limit": limit})

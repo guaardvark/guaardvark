@@ -543,6 +543,7 @@ def _query_memories(
     status: str = "active",
     include_global: bool = True,
     cli_working_memory: dict | None = None,
+    raise_errors: bool = False,
 ):
     """Single source of truth for memory SELECT.
 
@@ -550,6 +551,10 @@ def _query_memories(
     that column. Scopes include matching rows plus global rows by default.
     Ordering uses a lightweight hybrid rank: importance, source trust, query/tag
     match, confidence, recency, and scope match. Embeddings can layer on later.
+
+    Prompt builders keep the default and get an empty list when the query
+    fails. A caller that reports results to a person passes raise_errors=True,
+    so a failure is not shown as "no memories".
     """
     try:
         q = db.session.query(AgentMemory)
@@ -695,6 +700,8 @@ def _query_memories(
         except Exception:
             pass
         logger.warning(f"Memory query failed (sources={sources}, types={types}): {e}")
+        if raise_errors:
+            raise
         return []
 
 
