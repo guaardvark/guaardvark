@@ -61,6 +61,8 @@ class ResourcePolicy:
     outputs_enabled: bool = True
     # Chroot for the outputs provider. Never serve files outside this.
     outputs_root: str = "data/outputs"
+    # Largest file resources/read embeds; a bigger one gets a download link instead.
+    max_inline_bytes: int = 8 * 1024 * 1024
 
 
 @dataclass
@@ -142,6 +144,8 @@ def load_config() -> MCPConfig:
                 cfg.resources.outputs_enabled = bool(resources["outputs_enabled"])
             if "outputs_root" in resources:
                 cfg.resources.outputs_root = str(resources["outputs_root"])
+            if "max_inline_bytes" in resources:
+                cfg.resources.max_inline_bytes = int(resources["max_inline_bytes"])
 
             logger.info("Loaded MCP config from %s", path)
         except (json.JSONDecodeError, OSError, ValueError) as exc:

@@ -25,6 +25,9 @@ class CodeGeneratorTool(BaseTool):
     """
 
     name = "codegen"
+    read_only = False
+    # Writes OUTPUT_DIR/code/<output_filename>, replacing a file of that name.
+    destructive = True
     description = "Analyze uploaded code files and generate complete, modified versions with requested changes"
 
     parameters = {
@@ -319,6 +322,7 @@ class CodeAnalysisTool(BaseTool):
     """
 
     name = "analyze_code"
+    read_only = True
     description = "Analyze code files for structure, patterns, best practices, and potential improvements"
 
     parameters = {

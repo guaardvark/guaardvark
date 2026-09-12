@@ -87,6 +87,7 @@ class KnowledgeSearchTool(BaseTool):
     """
 
     name = "search_knowledge_base"
+    read_only = True
     description = (
         "Search the internal knowledge base for information about the project, architecture, "
         "code repositories, or documents. Returns verbatim source passages with their filenames "

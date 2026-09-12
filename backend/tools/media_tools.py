@@ -23,6 +23,8 @@ class MediaPlayTool(BaseTool):
     """Play music by searching for songs/artists/albums, or resume playback."""
 
     name = "media_play"
+    read_only = False
+    destructive = False
     description = (
         "Play music by searching for songs, artists, albums, or genres. "
         "If user says 'play some music' or similar generic request without a specific artist/song, "
@@ -81,6 +83,8 @@ class MediaControlTool(BaseTool):
     """Control media playback: pause, stop, next, previous, toggle."""
 
     name = "media_control"
+    read_only = False
+    destructive = False
     description = (
         "Control media playback. Actions: pause, stop, next (skip to next track), "
         "previous (go back), toggle (play/pause toggle)."
@@ -134,6 +138,8 @@ class MediaVolumeTool(BaseTool):
     """Get or set the system audio volume."""
 
     name = "media_volume"
+    read_only = False
+    destructive = False
     description = (
         "Get or set the system audio volume level (0-100). "
         "Supports absolute ('50'), relative ('+10', '-10'), 'mute', and 'unmute'."
@@ -177,6 +183,7 @@ class MediaStatusTool(BaseTool):
     """Get current playback status and track info."""
 
     name = "media_status"
+    read_only = True
     description = (
         "Get current playback status: what's playing, track info "
         "(title, artist, album), player state, and volume level."

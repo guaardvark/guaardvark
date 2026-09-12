@@ -8,6 +8,9 @@ Answers "why doesn't my agent see Guaardvark?" in one command:
      against a subprocess (exactly what an external client does).
   2. Client-side scan — finds ``guaardvark`` entries in known agent config
      files and flags dead paths (stale checkouts, deleted venvs).
+  3. With ``--call``, real read-only tool calls through a fresh stdio server,
+     one per tool family. A tool whose prerequisite is down (backend, plugin,
+     media player) is reported as a warning, not a failure.
 
 Plain-text PASS/FAIL output; exit code 0 only when every check passes.
 """
@@ -140,6 +143,105 @@ def _check_stdio() -> bool:
     return _report(_PASS if ok else _FAIL, "stdio round-trip", detail)
 
 
+# One read-only probe per tool family. A probe runs only when tools/list
+# advertises that tool with readOnlyHint true, so nothing here can change state.
+_CALL_PROBES: list[tuple[str, dict[str, Any]]] = [
+    ("list_code_files", {"directory": "backend/mcp", "max_depth": 1}),
+    ("list_documents", {"limit": 1}),
+    ("search_memory", {"query": "doctor probe", "limit": 1}),
+    ("outreach_status", {}),
+    ("inspect_gpu", {}),
+    ("read_logs", {"lines": 10}),
+    ("swarm_status", {}),
+    ("self_improvement_status", {}),
+    ("list_code_repositories", {}),
+    ("search_codebase", {"query": "def run_doctor", "limit": 1}),
+    ("media_status", {}),
+]
+# Answers that mean a prerequisite is down rather than the tool being broken.
+_UNAVAILABLE_MARKERS = ("not answering", "not running", "No media player", "Start it from")
+
+
+async def _stdio_calls(probes: list[tuple[str, dict[str, Any]]], timeout: float = 90.0) -> list[tuple[str, str, str]]:
+    """Call each probe through a fresh stdio server. Returns (status, tool, detail) rows."""
+    env = dict(os.environ)
+    env["PYTHONUNBUFFERED"] = "1"
+    proc = await asyncio.create_subprocess_exec(
+        _python_executable(), "-m", "backend.mcp", "stdio",
+        cwd=str(_project_root()),
+        env=env,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+        limit=16 * 1024 * 1024,
+    )
+    assert proc.stdin and proc.stdout
+
+    def line(obj: dict) -> bytes:
+        return (json.dumps(obj) + "\n").encode()
+
+    async def request(msg_id: int, method: str, params: dict) -> dict:
+        proc.stdin.write(line({"jsonrpc": "2.0", "id": msg_id, "method": method, "params": params}))
+        await proc.stdin.drain()
+        async with asyncio.timeout(timeout):
+            while True:
+                raw = await proc.stdout.readline()
+                if not raw:
+                    raise RuntimeError("server exited")
+                text = raw.decode(errors="replace").strip()
+                if text:
+                    msg = json.loads(text)
+                    if msg.get("id") == msg_id:
+                        return msg
+
+    rows: list[tuple[str, str, str]] = []
+    try:
+        await request(1, "initialize", {
+            "protocolVersion": "2025-06-18", "capabilities": {},
+            "clientInfo": {"name": "guaardvark-doctor", "version": "0"},
+        })
+        proc.stdin.write(line({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}))
+        listed = await request(2, "tools/list", {})
+        read_only = set()
+        for tool in listed.get("result", {}).get("tools", []):
+            hints = tool.get("annotations") or {}
+            if hints.get("readOnlyHint", hints.get("read_only_hint")):
+                read_only.add(tool["name"])
+
+        for msg_id, (name, arguments) in enumerate(probes, start=3):
+            if name not in read_only:
+                rows.append((_WARN, name, "not listed as a read-only tool; skipped"))
+                continue
+            try:
+                msg = await request(msg_id, "tools/call", {"name": name, "arguments": arguments})
+            except TimeoutError:
+                rows.append((_FAIL, name, f"no answer within {timeout:.0f}s"))
+                continue
+            if "error" in msg:
+                rows.append((_FAIL, name, str(msg["error"])[:160]))
+                continue
+            result = msg.get("result") or {}
+            text = " ".join(block.get("text", "") for block in result.get("content", [])).strip()
+            if result.get("isError", result.get("is_error")):
+                status = _WARN if any(marker in text for marker in _UNAVAILABLE_MARKERS) else _FAIL
+                rows.append((status, name, text[:160]))
+            else:
+                rows.append((_PASS, name, (text.splitlines()[0] if text else "(empty)")[:100]))
+    except (RuntimeError, TimeoutError, json.JSONDecodeError) as exc:
+        rows.append((_FAIL, "stdio session", str(exc)[:200]))
+    finally:
+        proc.kill()
+        await proc.wait()
+    return rows
+
+
+def _check_calls() -> bool:
+    ok = True
+    for status, name, detail in asyncio.run(_stdio_calls(_CALL_PROBES)):
+        ok = _report(status, f"call: {name}", detail) and ok
+    return ok
+
+
 # ─────────────────────── client config scan ───────────────────────
 
 
@@ -246,7 +348,7 @@ def _check_clients() -> bool:
 # ─────────────────────── entry point ───────────────────────
 
 
-def run_doctor() -> int:
+def run_doctor(call: bool = False) -> int:
     print("Guaardvark MCP doctor\n")
     print("Server:")
     ok = _check_python()
@@ -254,6 +356,9 @@ def run_doctor() -> int:
     if ok:
         ok = _check_build() and ok
         ok = _check_stdio() and ok
+        if call and ok:
+            print("\nTool calls (read-only):")
+            ok = _check_calls() and ok
     else:
         print("  (skipping server build / stdio checks until the above pass)")
 

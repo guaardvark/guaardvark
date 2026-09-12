@@ -181,6 +181,8 @@ class ImageGeneratorTool(BaseTool):
     """
 
     name = "generate_image"
+    read_only = False
+    destructive = False
     description = (
         "Generate an image from a text prompt. Returns the URL of the generated image. "
         "Use when the user asks to create, generate, draw, or visualize an image. "
@@ -571,6 +573,7 @@ class GenerationStatusTool(BaseTool):
     """Read the state of a queued image or video batch by id."""
 
     name = "get_generation_status"
+    read_only = True
     idempotent = True
     description = (
         "Report the state of a queued generation: an image batch (ImageBatch_...) from "
@@ -754,6 +757,8 @@ class AnimationGeneratorTool(BaseTool):
     """
 
     name = "generate_animation"
+    read_only = False
+    destructive = False
     description = (
         "Generate a short looping GIF or frame-morph MP4 from a text prompt with "
         "motion description, via Stable Diffusion img2img. Use when the user asks "
@@ -816,7 +821,7 @@ class AnimationGeneratorTool(BaseTool):
             return run_tool_in_backend(self.name, {
                 "prompt": prompt, "motion": motion, "frames": frames, "strength": strength,
                 "format": format, "vision_steering": vision_steering,
-            })
+            }, read_timeout=31 * 60)
 
         try:
             from backend.services.animation_generator import (
@@ -948,6 +953,8 @@ class VideoGeneratorTool(BaseTool):
     longest clip) fails with one sentence instead of a wrong clip."""
 
     name = "generate_video"
+    read_only = False
+    destructive = False
     description = (
         "Queue a video clip from a text prompt using a local video model. Returns "
         "immediately with a batch id and Studio deep-link so long jobs are not "
@@ -1352,6 +1359,8 @@ class EditImageTool(BaseTool):
     image from text with no input picture.)"""
 
     name = "edit_image"
+    read_only = False
+    destructive = False
     description = (
         "Edit an existing image using a natural-language instruction. Use this when "
         "the user has attached/uploaded an image (or names one) and asks to add, "

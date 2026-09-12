@@ -157,6 +157,7 @@ def _regex_search(query: str) -> tuple[Optional[str], str]:
 
 class SearchCodebaseTool(BaseTool):
     name = "search_codebase"
+    read_only = True
     description = (
         "Search the current project's source code, which is already indexed: no path or "
         "upload is needed, just call it. Ask by meaning or by symbol: 'where is it decided "

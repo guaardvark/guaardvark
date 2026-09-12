@@ -138,6 +138,7 @@ class ReadCodeTool(BaseTool):
     """Tool to read source code files"""
 
     name = "read_code"
+    read_only = True
     description = (
         "Read the complete contents of a source code file. "
         "Returns file content with line count and character count. "
@@ -191,6 +192,7 @@ class SearchCodeTool(BaseTool):
     """Tool to search for patterns across the codebase"""
 
     name = "search_code"
+    read_only = True
     description = (
         "Search for code patterns across the project using case-insensitive regex. "
         "Returns all matches with file paths, line numbers, and matched content. "
@@ -469,6 +471,7 @@ class ListCodeFilesTool(BaseTool):
     """Tool to list project directory structure (code-exploration)."""
 
     name = "list_code_files"
+    read_only = True
     description = (
         "List files and directories to understand project structure. "
         "Returns a formatted tree view of the directory contents. "
@@ -534,6 +537,7 @@ class VerifyChangeTool(BaseTool):
     """Tool to verify code changes were applied correctly"""
 
     name = "verify_change"
+    read_only = True
     description = (
         "Verify that a code change was successful by checking if text exists in file. "
         "Use after edit_code to confirm changes were applied correctly. "
@@ -641,6 +645,7 @@ class GetRepositoryMapTool(BaseTool):
     """Tool to get the PageRank-based repository map of a Code Repository folder."""
 
     name = "get_repository_map"
+    read_only = True
     description = (
         "Retrieve the PageRank-based architectural repository map for a given folder ID. "
         "This map shows the most important functions and classes in the codebase and their relationships. "
@@ -690,6 +695,7 @@ class GetDependencyGraphTool(BaseTool):
     """Tool to get the import dependency graph of a Code Repository folder."""
 
     name = "get_dependency_graph"
+    read_only = True
     description = (
         "Retrieve the file-level import dependency graph for a given folder ID. "
         "This returns a JSON string mapping files to the files they import. "
@@ -739,6 +745,7 @@ class ReadASTNodeTool(BaseTool):
     """Tool to precisely extract a class or function from a Python file using AST."""
 
     name = "read_ast_node"
+    read_only = True
     description = (
         "Read the exact source code of a specific class or function from a Python file in a Code Repository folder. "
         "This is more precise and token-efficient than reading the entire file. "
@@ -857,6 +864,7 @@ class ListCodeRepositoriesTool(BaseTool):
     """Tool to list all folders marked as Code Repositories (for discovery in NL flows)."""
 
     name = "list_code_repositories"
+    read_only = True
     description = (
         "List all Code Repository folders that have been marked as such (is_repository=True) and analyzed. "
         "Returns id, name, path, and whether repo_metadata is available. "

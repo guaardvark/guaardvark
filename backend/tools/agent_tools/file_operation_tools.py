@@ -240,6 +240,7 @@ class ProcessFileTool(BaseTool):
     """Process and extract content from any supported file format"""
     
     name = "process_file"
+    read_only = True
     description = "Process and extract content from files (PDF, DOCX, CSV, images, Excel, etc.)"
     parameters = {
         "file_path": ToolParameter(

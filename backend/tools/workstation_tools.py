@@ -114,6 +114,7 @@ def _nvidia_smi() -> Dict[str, Any]:
 
 class MapCodebaseTool(BaseTool):
     name = "map_codebase"
+    read_only = True
     description = (
         "Run the System Mapper (same snapshot as /system-map) and return stats plus "
         "ranked findings. Use when the user says 'use the system mapper', 'map the "
@@ -233,6 +234,7 @@ class DispatchMapFindingTool(BaseTool):
 
 class InspectGpuTool(BaseTool):
     name = "inspect_gpu"
+    read_only = True
     idempotent = True
     description = (
         "Inspect live GPU state: nvidia-smi, the exclusive lock (Ollama vs video), "
@@ -273,6 +275,7 @@ class InspectGpuTool(BaseTool):
 
 class ReadLogsTool(BaseTool):
     name = "read_logs"
+    read_only = True
     description = (
         "Tail a Guaardvark log file under logs/. Use when the user says 'review the "
         "logs', 'check backend.log', 'celery errors', or 'what did the last crash say'."
@@ -327,6 +330,7 @@ class ReadLogsTool(BaseTool):
 
 class SwarmStatusTool(BaseTool):
     name = "swarm_status"
+    read_only = True
     idempotent = True
     description = (
         "Get Swarm Orchestrator status (same as GET /api/swarm/status). "
@@ -426,6 +430,7 @@ class LaunchSwarmTool(BaseTool):
 
 class SelfImprovementStatusTool(BaseTool):
     name = "self_improvement_status"
+    read_only = True
     description = (
         "Report whether self-improvement can run (codebase lock, enabled flag, "
         "already running) plus recent runs and PendingFix rows. Use when the user "

@@ -27,6 +27,9 @@ class BulkCSVGeneratorTool(BaseTool):
     """
 
     name = "generate_bulk_csv"
+    read_only = False
+    # Small jobs write OUTPUT_DIR/csv/<filename>, replacing a file of that name.
+    destructive = True
     description = "Generate bulk CSV files with hundreds of pages efficiently using concurrent processing"
 
     parameters = {
@@ -248,6 +251,9 @@ class FileGeneratorTool(BaseTool):
     """
 
     name = "generate_file"
+    read_only = False
+    # Writes to the filename it is given, replacing a file of that name.
+    destructive = True
     description = (
         "Create a brand-NEW output file from a description, written under data/outputs/files. "
         "It generates from the description ALONE and never reads any existing file. "
@@ -507,6 +513,9 @@ class CSVGeneratorTool(BaseTool):
     """
 
     name = "generate_csv"
+    read_only = False
+    # Writes to the filename it is given, replacing a file of that name.
+    destructive = True
     description = "Generate a CSV file based on user specifications and data structure instructions"
 
     parameters = {

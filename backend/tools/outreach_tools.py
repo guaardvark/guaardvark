@@ -61,6 +61,7 @@ class OutreachStatusTool(BaseTool):
     """Snapshot of the outreach loop: enabled, supervised, cadence."""
 
     name = "outreach_status"
+    read_only = True
     description = (
         "Get the current state of the social outreach loop (enabled / supervised / "
         "cadence per platform). Use when the user asks 'is outreach on?', 'how many "
@@ -89,6 +90,7 @@ class OutreachListQueueTool(BaseTool):
     """List drafts waiting for approval (or recently approved/posted)."""
 
     name = "outreach_list_queue"
+    read_only = True
     description = (
         "List social outreach drafts. Defaults to status='drafted' (pending review). "
         "Pass status='approved' to see what's queued to post next, or status='posted' "
@@ -161,6 +163,8 @@ class OutreachDraftPostTool(BaseTool):
     """Draft a single comment or share post and queue it for review."""
 
     name = "outreach_draft_post"
+    read_only = False
+    destructive = False
     description = (
         "Draft a social outreach comment or share post (does NOT post). "
         "Platforms: reddit, discord, facebook, twitter, youtube. "
@@ -431,6 +435,9 @@ class OutreachRejectDraftTool(BaseTool):
     """Reject a queued draft so it never posts."""
 
     name = "outreach_reject_draft"
+    read_only = False
+    # A rejected draft cannot be moved back to the queue.
+    destructive = True
     description = (
         "Reject an outreach draft by id. Marks the row 'rejected' so it won't post. "
         "Use when the user says 'kill that one', 'don't post draft 42', etc."

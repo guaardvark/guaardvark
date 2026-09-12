@@ -91,9 +91,13 @@ def main(argv: list[str] | None = None) -> int:
              "(and into this checkout's .claude/skills) so Claude Code loads them",
     )
 
-    sub.add_parser(
+    doctor_cmd = sub.add_parser(
         "doctor",
         help="Diagnose the MCP setup: server self-test + scan of agent client configs",
+    )
+    doctor_cmd.add_argument(
+        "--call", action="store_true",
+        help="Also make real read-only tool calls, one per tool family",
     )
 
     sub.add_parser(
@@ -142,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if cmd == "doctor":
         from backend.mcp.doctor import run_doctor
-        return run_doctor()
+        return run_doctor(call=args.call)
 
     if cmd == "list-tools":
         with _stdout_to_stderr():

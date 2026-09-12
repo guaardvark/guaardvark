@@ -163,6 +163,8 @@ class MusicVideoTool(BaseTool):
     """Start a beat-synced music-video plan. Does not approve or render clips."""
 
     name = "generate_music_video"
+    read_only = False
+    destructive = False
     description = (
         "Start a music-video project from a song and a visual style. Uploads or "
         "attaches the song, writes unique cut prompts, and stops at the approval "
@@ -270,6 +272,8 @@ class FilmCrewTool(BaseTool):
     """Start a Film Crew production from a script. Does not render shots."""
 
     name = "start_film_crew"
+    read_only = False
+    destructive = False
     description = (
         "Start a five-role Film Crew production from a screenplay. The screenwriter "
         "begins at once; casting, storyboards and GPU renders wait for you in Studio. "

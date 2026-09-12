@@ -22,6 +22,7 @@ class WordPressContentTool(BaseTool):
     """
 
     name = "generate_wordpress_content"
+    read_only = True
     description = "Generate a WordPress-compatible CSV row with SEO-optimized content for a specific topic and client"
 
     parameters = {
@@ -161,6 +162,7 @@ class EnhancedWordPressContentTool(BaseTool):
     """
 
     name = "generate_enhanced_wordpress_content"
+    read_only = True
     description = "Generate WordPress CSV content with RAG-enhanced business intelligence and topic constraints"
 
     parameters = {

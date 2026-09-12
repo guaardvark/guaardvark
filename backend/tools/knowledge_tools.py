@@ -72,6 +72,7 @@ class ListDocumentsTool(BaseTool):
     """Enumerate the documents present in the knowledge base."""
 
     name = "list_documents"
+    read_only = True
     description = (
         "List the documents currently in the knowledge base, with how many passages each "
         "contributes. Use this to find out what the knowledge base actually contains before "
@@ -142,6 +143,7 @@ class DocumentOutlineTool(BaseTool):
     """Show the section structure of one indexed document."""
 
     name = "get_document_outline"
+    read_only = True
     description = (
         "Show the internal structure of one indexed document — its sections or pages, in order, "
         "with passage counts. Use this after list_documents to see what is inside a document "
@@ -190,6 +192,7 @@ class ReadDocumentSectionTool(BaseTool):
     """Read the indexed passages of a specific section or page."""
 
     name = "read_document_section"
+    read_only = True
     description = (
         "Read the actual indexed text of one section or page of a document, without searching. "
         "Use after get_document_outline when you know which part you need."
@@ -255,6 +258,7 @@ class CorpusSummaryTool(BaseTool):
     """Retrieve corpus-level summaries produced by the RAPTOR pass."""
 
     name = "summarize_corpus"
+    read_only = True
     description = (
         "Get high-level summaries of what the whole knowledge base covers, rather than individual "
         "passages. Use for broad questions — overall themes, what a collection is about, how topics "

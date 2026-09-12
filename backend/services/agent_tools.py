@@ -46,6 +46,11 @@ class ToolParameter:
     required: bool = True
     description: str = ""
     default: Optional[Any] = None
+    # JSON Schema constraints, published to MCP clients and checked before a call.
+    enum: Optional[List[Any]] = None
+    minimum: Optional[float] = None
+    maximum: Optional[float] = None
+    items: Optional[str] = None  # element type of a list parameter, e.g. "string"
 
 
 @dataclass
@@ -79,6 +84,12 @@ class BaseTool:
     # True for read-only status tools that a caller polls with the same
     # arguments on purpose; exempts them from the duplicate-call guard.
     idempotent: bool = False
+    # What a call does to state, declared on the tool rather than guessed from
+    # its category. read_only: it changes nothing a person would notice.
+    # destructive: it removes or irreversibly changes something. None means
+    # undeclared, and the MCP server then advertises no hint.
+    read_only: Optional[bool] = None
+    destructive: Optional[bool] = None
     # How much of this tool's result the chat model gets to read before the
     # next turn. 500 keeps a chatty tool from crowding the context; a search
     # tool whose whole point is the text it returns declares more.

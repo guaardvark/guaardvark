@@ -5,7 +5,9 @@ import os
 from flask import Blueprint, abort, current_app, request, send_from_directory
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
-download_bp = Blueprint("outputs_api", __name__)
+# The name must differ from backend/api/outputs_api.py's blueprint: discovery
+# skips a name that is already registered, which left /outputs/<path> unserved.
+download_bp = Blueprint("outputs_download", __name__)
 
 _MARKUP_AS_TEXT = frozenset({".html", ".htm", ".xhtml", ".svg", ".xml"})
 

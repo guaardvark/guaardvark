@@ -165,6 +165,7 @@ class WebAnalysisTool(BaseTool):
     """
 
     name = "analyze_website"
+    read_only = True
     description = "Analyze a website URL to extract content, SEO information, structure, and provide insights"
 
     parameters = {
@@ -376,6 +377,7 @@ class FetchUrlTool(BaseTool):
     """
 
     name = "fetch_url"
+    read_only = True
     description = (
         "Fetch a specific URL and return its page title, meta description, and "
         "main text content (up to ~2000 chars). Use this for ANY question about "
@@ -455,6 +457,7 @@ class WebSearchTool(BaseTool):
     """
 
     name = "web_search"
+    read_only = True
     description = (
         "Search the web via DuckDuckGo — returns a ranked list of titles, "
         "snippets, and URLs for a query. Use this for open-ended research or "

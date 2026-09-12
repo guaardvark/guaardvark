@@ -17,6 +17,8 @@ class SaveMemoryTool(BaseTool):
     """Save a fact, preference, or note to long-term memory."""
     
     name = "save_memory"
+    read_only = False
+    destructive = False
     description = "Save a fact, user preference, or instruction to long-term memory. Use this to remember things the user tells you about themselves, their projects, or how they want you to behave."
     is_dangerous = False
     requires_approval = False
@@ -128,6 +130,7 @@ class SearchMemoryTool(BaseTool):
     """Search the agent's long-term memory."""
     
     name = "search_memory"
+    read_only = True
     description = "Search your long-term memory for previously saved facts, preferences, or instructions."
     is_dangerous = False
     requires_approval = False
