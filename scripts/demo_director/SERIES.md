@@ -730,6 +730,26 @@ Beats:
 
 ---
 
+## Ep 18 — Your Agent, Your Studio (4:30; 90 s social cut) — `ep18_agent.py`
+**Primary:** the Claude Code plugin + skills · **GPU cast:** ComfyUI (`wan22-5b` i2v) ·
+**Assets:** a 20–30 s ACE-Step song in the library (`EP18_SONG_DOC_ID`); Claude Code logged
+in on the stage display; the plugin installable from GitHub; backend restarted with private
+extensions parked. DRAFT 2026-09-12 — dry-run before shooting; shoot after Ep 16.
+
+Hook:
+> "Two lines. No clone."
+
+Beats: install (the two lines; 15 skills listed) → ask (one sentence; the agent names the
+skill, preflight, tool counts read from list-tools) → studio (cut plan in the music-video
+page; nothing on the GPU yet) → gate (cuts × seconds × model; "yes"; the swap on the HUD;
+mantra) → file (`get_generation_status` to completed; the media library) → caveat (a 4-step
+image request: the server raises the floor and the agent reads it back verbatim).
+
+Say/not additions: tool counts come from `list-tools` at load (Ep 16's "43 of 87" is stale
+since `get_generation_status` and the plugin work of 2026-09-11; the number on camera is
+whatever the command prints that day); skills load as `guaardvark:<name>`; the MCP tool ids
+in a plugin install are `mcp__plugin_guaardvark_guaardvark__<tool>`.
+
 ## Series-two asset checklist
 - [x] Ep 13: fresh image batch on the Media Library desktop (2026-09-05)
 - [x] Ep 14: snapshot refresh; self-improvement enabled for the shoot
