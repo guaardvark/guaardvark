@@ -31,10 +31,10 @@ I2V = dict(model="wan22-14b-i2v", width=W, height=H, duration_frames=81, fps=16,
            num_inference_steps=int(os.environ.get("PLATES_STEPS", 25)), speed_profile=PROFILE,
            interpolation_multiplier=1, upscale=False,   # Draft tier: raw frames; upscaling is batched afterwards
            prompt_style="cinematic", enhance_prompt=False,
-           negative_prompt="text, letters, watermark, logo, blurry, low quality, jitter, flicker, morphing, scanlines, VHS, tracking lines, static, noise, film grain, interlacing, chromatic aberration, glitch")
+           negative_prompt="text, letters, watermark, logo, blurry, low quality, jitter, flicker, morphing, scanlines, VHS, tracking lines, static, noise, film grain, interlacing, chromatic aberration, glitch, people, person, figure, character, crowd")
 STYLE = ("cyberpunk synthwave key art, magenta and electric-cyan palette on near-black, chrome highlights, "
          "grid horizon, volumetric fog, clean sharp render, high contrast, cinematic lighting, "
-         "wide 16:9, the centre of the frame left empty for a title, no text")
+         "wide 16:9, the centre of the frame is empty negative space, no text, no letters, no typography, no signage")
 
 PLATES = [
   # id, statement (for the editor), keyframe prompt or existing image, motion prompt
@@ -109,7 +109,7 @@ def run():
     else:
         kf = post("/api/batch-image/generate/prompts",
                   {"prompts": [p for _, _, p, _ in need_kf], "model": "zimage-turbo", "width": W, "height": H,
-                   "style": "artistic", "negative_prompt": "text, letters, watermark, logo, blurry, cluttered centre, scanlines, VHS, tracking lines, static, noise, film grain, glitch"})
+                   "style": "artistic", "negative_prompt": "text, letters, words, typography, title, caption, signage, watermark, logo, blurry, cluttered centre, scanlines, VHS, tracking lines, static, noise, film grain, glitch"})
         kf_id = kf["batch_id"]; log(f"keyframes queued: {kf_id} ({len(need_kf)} prompts)")
     manifest["keyframe_batch"] = kf_id
     while True:
@@ -126,8 +126,26 @@ def run():
     for pid, st, img, motion in PLATES:
         if isinstance(img, Path):
             manifest["plates"][pid] = {"statement": st, "keyframe": str(img), "motion": motion}
-    # queue every image-to-video pass; the worker drains them one at a time
-    for pid, rec in manifest["plates"].items():
+    # Let the image pipeline leave the card before the first video render, or the
+    # 14B loads with ~1 GB usable and runs from CPU (seen 2026-09-12: keyframes
+    # finished 10:08:57, the render started the same second, 9.6 GB offloaded).
+    for _ in range(12):
+        try:
+            g = get("/api/gpu/memory/status")
+            busy = [m for m in g.get("models", []) if m.get("model_type") == "image_batch" and m.get("in_use")]
+            if not busy:
+                break
+        except Exception:
+            break
+        time.sleep(10)
+    time.sleep(45)
+    # queue every image-to-video pass; the worker drains them one at a time.
+    # PLATES_ONLY=a,b limits the run (a probe plate first); PLATES_SKIP=a,b leaves finished ones out.
+    only = {x for x in os.environ.get("PLATES_ONLY", "").split(",") if x}
+    skip = {x for x in os.environ.get("PLATES_SKIP", "").split(",") if x}
+    for pid, rec in list(manifest["plates"].items()):
+        if (only and pid not in only) or pid in skip:
+            del manifest["plates"][pid]; continue
         try:
             v = post("/api/batch-video/generate/image",
                      {"image_paths": [rec["keyframe"]], "prompt": rec["motion"], "seed": 1984, **I2V}, timeout=120)
