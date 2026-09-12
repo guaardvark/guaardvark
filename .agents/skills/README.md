@@ -34,5 +34,7 @@ Set `GUAARDVARK_URL` when the backend is not on `http://localhost:5000` (macOS d
 
 ## Skills
 
-Start with `setup`; it lists the rest and checks the backend, plugins and models.
+Start with `setup`; it lists the rest and checks the backend, plugins and models. The operating
+contract around all of them (preflight, announce-before-spend, human checkpoints, what not to do)
+is [`AGENT_GUIDE.md`](../../AGENT_GUIDE.md) at the repository root.
 Every skill states the MCP tool or REST route it uses; nothing here invents an endpoint.
