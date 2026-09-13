@@ -373,7 +373,7 @@
       "firefox_running"
     ],
     "triggers": [
-      "^(?:leave|post|write|add|make|submit)\\s+(?:a\\s+)?(?:youtube\\s+)?comment\\b[^\\\"']*[\\\"'](.+?)[\\\"']",
+      "^(?:leave|post|write|add|make|submit)\\s+(?:a\\s+)?(?:youtube\\s+)?comment\\b[^\\\"']*[\\\"'](.+?)[\\\"']\\s*$",
       "^(?:leave|post|write|add|make)\\s+(?:a\\s+)?(?:youtube\\s+)?comment\\s+(?:saying|that says|which says|reading)\\s+(.+?)\\s*(?:on\\s+(?:this|the)\\b.*)?$"
     ],
     "steps": [

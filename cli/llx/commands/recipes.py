@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -14,13 +16,49 @@ from llx.commands.system import _find_project_root
 from llx.global_opts import get_global_json
 
 
+def _load_backend_validator():
+    """Load the dependency-free canonical validator without importing the backend app."""
+    validator_path = (
+        Path(__file__).resolve().parents[3]
+        / "backend"
+        / "services"
+        / "agent_knowledge_validator.py"
+    )
+    if not validator_path.is_file():
+        return None
+    module_name = "_guaardvark_agent_knowledge_validator"
+    spec = importlib.util.spec_from_file_location(module_name, validator_path)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except (ImportError, OSError):
+        sys.modules.pop(module_name, None)
+        return None
+    return module
+
+
+_BACKEND_VALIDATOR = _load_backend_validator()
+SUPPORTED_RECIPE_ACTIONS = (
+    _BACKEND_VALIDATOR.SUPPORTED_RECIPE_ACTIONS if _BACKEND_VALIDATOR is not None else None
+)
+validate_recipe_library = (
+    _BACKEND_VALIDATOR.validate_recipe_library if _BACKEND_VALIDATOR is not None else None
+)
+
+
 recipes_app = typer.Typer(
     help="List, inspect, and validate agent recipes without starting the backend.",
     no_args_is_help=True,
 )
 
-KNOWN_ACTIONS = frozenset(
+_FALLBACK_ACTIONS = frozenset(
     {"hotkey", "type", "click", "wait_until_settled", "wait_until_visible", "wait"}
+)
+KNOWN_ACTIONS = (
+    frozenset(SUPPORTED_RECIPE_ACTIONS) if SUPPORTED_RECIPE_ACTIONS is not None else _FALLBACK_ACTIONS
 )
 
 
@@ -95,6 +133,12 @@ def validate_recipes(payload: dict[str, Any]) -> list[str]:
                     f"{step_prefix} uses unknown action '{action}'. "
                     f"Known actions: {', '.join(sorted(KNOWN_ACTIONS))}."
                 )
+
+    if validate_recipe_library is not None:
+        canonical = validate_recipe_library(recipes, strict=True)
+        for message in canonical.error_messages():
+            if message not in errors:
+                errors.append(message)
 
     return errors
 
