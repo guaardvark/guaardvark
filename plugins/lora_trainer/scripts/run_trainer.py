@@ -9,6 +9,16 @@ import traceback
 _pipeline = None
 _torch = None
 
+def _dev():
+    """Accelerator device: CUDA > MPS (Apple Silicon) > CPU."""
+    if _torch is None:
+        return "cpu"
+    if _torch.cuda.is_available():
+        return "cuda"
+    if hasattr(_torch.backends, "mps") and _torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
 def _eprint(msg):
     print(msg, file=sys.stderr, flush=True)
 
@@ -26,14 +36,16 @@ def _do_load(cmd):
     import torch
     _torch = torch
     
-    if not torch.cuda.is_available():
-        return {"ok": False, "error": "CUDA not available — LoRA training requires a GPU"}
+    if not torch.cuda.is_available() and not (
+        hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+    ):
+        return {"ok": False, "error": "No accelerator available — LoRA training requires CUDA or Apple MPS"}
         
     try:
         from diffusers import StableDiffusionXLPipeline
         _pipeline = StableDiffusionXLPipeline.from_pretrained(
             model_id, torch_dtype=torch.bfloat16, use_safetensors=True,
-        ).to("cuda")
+        ).to(_dev())
         _eprint(f"[run_trainer] {model_id} loaded")
     except Exception as e:
         return {"ok": False, "error": f"failed to load {model_id}: {e}"}
@@ -91,7 +103,7 @@ def _do_train(cmd):
             img_tensor = transforms.Normalize([0.5], [0.5])(img_tensor)
             images.append(img_tensor)
             
-        images = _torch.stack(images).to("cuda", dtype=_torch.bfloat16)
+        images = _torch.stack(images).to(_dev(), dtype=_torch.bfloat16)
 
         instance_prompt = params.get("instance_prompt", "a photo")
         image_prompts = params.get("image_prompts") or []
@@ -106,7 +118,7 @@ def _do_train(cmd):
         for prompt in image_prompts[: len(image_paths)]:
             pe, _neg, pooled, _neg_pooled = _pipeline.encode_prompt(
                 prompt=prompt,
-                device=_torch.device("cuda"),
+                device=_torch.device(_dev()),
                 num_images_per_prompt=1,
                 do_classifier_free_guidance=False,
             )
@@ -128,7 +140,10 @@ def _do_train(cmd):
         vae.to("cpu")
         text_encoder.to("cpu")
         text_encoder_2.to("cpu")
-        _torch.cuda.empty_cache()
+        if _torch.cuda.is_available():
+            _torch.cuda.empty_cache()
+        elif _dev() == "mps":
+            _torch.mps.empty_cache()
 
         optimizer = _torch.optim.AdamW(
             filter(lambda p: p.requires_grad, unet.parameters()),
@@ -138,7 +153,10 @@ def _do_train(cmd):
         steps = params.get("steps", 400)
 
         from accelerate import Accelerator
-        accelerator = Accelerator(gradient_accumulation_steps=2, mixed_precision="bf16")
+        # bf16 mixed precision is CUDA-only; MPS falls back to no mixed precision
+        # (the UNet is already bf16). Accelerate's autocast device_type is inferred.
+        _mixed = "bf16" if _dev() == "cuda" else "no"
+        accelerator = Accelerator(gradient_accumulation_steps=2, mixed_precision=_mixed)
 
         unet, optimizer = accelerator.prepare(unet, optimizer)
 
@@ -162,7 +180,7 @@ def _do_train(cmd):
 
                 prompt_embeds = all_prompt_embeds[idx]
                 pooled_prompt_embeds = all_pooled_embeds[idx]
-                add_time_ids = _pipeline._get_add_time_ids((resolution, resolution), (0,0), (resolution, resolution), dtype=prompt_embeds.dtype, text_encoder_projection_dim=proj_dim).to("cuda")
+                add_time_ids = _pipeline._get_add_time_ids((resolution, resolution), (0,0), (resolution, resolution), dtype=prompt_embeds.dtype, text_encoder_projection_dim=proj_dim).to(_dev())
                 added_cond_kwargs = {"text_embeds": pooled_prompt_embeds, "time_ids": add_time_ids}
                 
                 model_pred = unet(noisy_latents, timesteps, prompt_embeds, added_cond_kwargs=added_cond_kwargs).sample
@@ -206,6 +224,10 @@ def _do_train(cmd):
         return {"ok": False, "error": f"OOM during training at step {cur_step}/{steps}: {e}"}
     except Exception as e:
         cur_step = step + 1 if 'step' in dir() else 'unknown'
+        # MPS raises a plain RuntimeError (not torch.cuda.OutOfMemoryError) on
+        # unified-memory exhaustion; surface it as an OOM-style failure.
+        if "out of memory" in str(e).lower():
+            return {"ok": False, "error": f"OOM during training at step {cur_step}/{steps}: {e}"}
         return {"ok": False, "error": f"training failed at step {cur_step}: {e}\n{traceback.format_exc()}"}
         
     return {"ok": True, "lora_path": output_path, "lora_version": 1}
@@ -216,7 +238,10 @@ def _do_unload(cmd):
         del _pipeline
         _pipeline = None
     if _torch is not None:
-        _torch.cuda.empty_cache()
+        if _torch.cuda.is_available():
+            _torch.cuda.empty_cache()
+        elif _dev() == "mps":
+            _torch.mps.empty_cache()
     return {"ok": True}
 
 def _do_shutdown(cmd):
