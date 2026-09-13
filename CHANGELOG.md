@@ -1,8 +1,72 @@
 # Changelog
 
-## Unreleased — MiniMax H3 taken to its ceiling
+## 2.9.0 — Agent skills, a Claude Code plugin, and MiniMax H3 at its ceiling
 
-Everything the H3 release can do, wired through the product, on a branch until it merges.
+229 commits since 2.8.1. A coding agent can drive Guaardvark through fifteen Agent Skills, a
+Claude Code plugin installable from this repository, and an MCP server that behaves the way its
+tools are described. MiniMax H3 is wired through the product, users can add their own Hugging
+Face models, and the Settings page, chat defaults and retrieval were rebuilt or fixed.
+**No database migration.** Python and frontend dependencies changed; the next `./start.sh` sees
+the edited requirement files and reinstalls, and the frontend installs from its lockfile.
+Interconnector clients: Update Now, restart, and rebuild the frontend bundle.
+
+- **Wan 2.2 14B no longer renders black rectangles under ComfyUI's ck attention.** ComfyUI's ck
+  (Comfy Kitchen INT8) attention left NaN patch tokens in Wan 2.2 14B image-to-video latents,
+  which decode as black rectangles: 6 of 9 Lightning renders at 960x544 with the same seed. The
+  same graphs with PyTorch attention had no NaN. The Wan 14B registry entries now declare
+  `attention: "pytorch"`, and the graph adds a `ModelAttentionBackend` after the LoRAs when
+  `GUAARDVARK_COMFYUI_ATTENTION` asks for ck, sage or auto and ComfyUI offers the node; a default
+  launch builds the same graph as before. MiniMax H3, where ck was measured faster with identical
+  frames, keeps it. A failed `/object_info` fetch is no longer cached, so a ComfyUI stopped for
+  another GPU job no longer reads as every node missing until the backend restarts.
+- **Adjust & Retry keeps the speed profile; a profile's LoRAs are not free adapters.** A batch
+  saved its step count but not its speed profile, so reloading a 4-step Lightning batch came back
+  as Standard at 4 steps, and the reload counted those steps as typed, which bypassed Wan's
+  20-step floor. Batches now save `speed_profile` and `style_embedding`, and the reload keeps the
+  stored steps only when `steps_explicit` says a person typed them. The Video Gen page no longer
+  lists a speed profile's LoRAs as adapters, and the backend refuses them with a message naming
+  the profile (`speed_profile_loras` in the registry). Tests: `backend/tests/services/test_wan_speed_profiles.py`.
+- **MCP tools that need the backend reach it over HTTP.** The MCP server has no Flask app, so any
+  tool that touched `db.session`, `current_app` or `flask.request` failed with "Working outside of
+  application context". Those tools now hand their work to the running backend
+  (`backend/utils/backend_http.py`, `POST /api/tools/execute`, two new GET routes for the
+  repository map and dependency graph); Film Crew, music video, bulk CSV, video and animation run
+  in the backend process, and `backend.app` refuses to import inside the MCP server.
+- **The MCP adapter behaves the way its tools are described.** Guard state is per client session;
+  an identical call is refused only while the first is still running, and a tool that keeps
+  failing pauses for 60 s instead of staying blocked. Every tool declares read-only (and
+  destructive where it can discard something), published schemas carry defaults, enums and
+  bounds and arguments are validated before a tool runs, a state-changing call accepts an
+  `idempotency_key`, `resources/list` pages with a cursor, the `/outputs/<path>` download route
+  registers again, and `doctor --call` makes one real read-only call per tool family.
+- **Verbatim prompts shows what the server saved.** The Settings toggle flipped before the save
+  and swallowed a failure; it now disables itself while saving, takes `enabled` and
+  `forced_by_env` from the response, and reports a failed save.
+- **Bring your own Hugging Face models.** Manage Video Models adds a model, LoRA or text encoder
+  from a pasted Hugging Face URL, a text encoder can be picked per generation, and user LoRAs and
+  encoders work on LTX and Hunyuan as well as Wan and MiniMax. The Images page adds Hugging Face
+  image models and LoRAs the same way.
+- **Settings.** The page was rebuilt around what each control does, five settings that reported
+  the wrong state were fixed, the Rules page filters learned rules, each retrieval profile has an
+  editor, and the Workspaces navigation choice writes the value the layout checks for.
+- **Ollama.** Only what `start.sh` started is stopped (`--keep-ollama`, `--all`,
+  `--external-ollama`, with matching Settings switches), and every request carries a context size
+  instead of inheriting the chat model's Modelfile window.
+- **Chat.** A host can hand the engine its conversation and hooks, so an embedded assistant runs
+  the engine's tool loop; Floating Chat messages have a copy-text icon.
+- **Video fixes.** The H3 Turbo 4-step profile no longer refuses the default canvas, the
+  effective-settings chip names the model that will run, the end-frame control says what it does,
+  and a failed task shows its reason instead of sitting at 0 %.
+- **macOS.** AppleDouble sidecar files are stripped, the LoRA venv is created, the backend
+  defaults to port 5055 away from AirPlay Receiver, pgvector builds from source when Homebrew's
+  formula skips the running Postgres major, and Stable Audio Open may try Apple Silicon when
+  opted in.
+- **Interconnector.** `frontend/public`, `VERSION` and `celery_beat_gates.py` now reach clients,
+  with the allowlist guard running in CI.
+- **Dependencies.** OpenCV is locked to 4.11.0.86 across its three distributions (the last line
+  that accepts numpy 1.x; numpy stays on 1.x) and the unused CV stack is gone; Vite 8, Vitest 5,
+  react-grid-layout 2 and zustand 5 on the frontend; `mcp>=2.1.1`, `peft>=0.20.0`,
+  `llama-index-vector-stores-postgres>=0.9.0` and `numba` in the backend.
 
 - **MCP calls no longer hang on a busy GPU, and the MCP server no longer renders.** The MCP server is its own process, and `generate_image` used to load a diffusion pipeline inside it, next to the backend's; a failed result then reached the client as `(no output)` because the adapter dropped `ToolResult.error`. Now the adapter tags calls with `transport=mcp`, and `generate_image` in that context hands the prompt to the backend over its HTTP API (queued by default, returning the batch id in ~10 ms; `wait_for_result=true` polls the backend and returns the file), `get_generation_status` reads any image or video batch back with file URLs (idempotent, so polling is not blocked by the duplicate-call guard), and failed results carry their error text. Inside the backend (chat) the inline render is unchanged. The MCP adapter now runs every tool on a worker thread under the configured timeout (default raised from a never-enforced 30 s to an enforced 120 s; 30 min for a call that asked to wait), answers a timeout with a message that the work is still running, and per-tool argument defaults live in `data/config/mcp.json` `server.tools.argument_defaults`. Tests: `backend/mcp/tests/test_smoke.py`, `backend/tests/unit/test_image_tool_queue.py`.
 - **AGENT_GUIDE.md.** The operating contract for a coding agent that uses Guaardvark: first-interaction rules, Rule Zero (every job goes through a skill), a mandatory preflight that turns the hardware tier into what this box can do, the announce-before-spend / ask-before-switch / no-silent-downgrade contract, the human checkpoints with the route that releases each, how the tools behave over MCP, prompting rules per model family, a quick lookup, what not to do, and a contributor section. `AGENTS.md` becomes the router that points at it.
@@ -177,7 +241,7 @@ Everything the H3 release can do, wired through the product, on a branch until i
   soundtrack with a 0.91 waveform correlation (0.99 on the envelope), rendered in 138 s
   on the turbo profile.
 
-## Unreleased — CLI
+### CLI
 
 The `guaardvark` command is now a peer of the web UI, not a subset.
 
