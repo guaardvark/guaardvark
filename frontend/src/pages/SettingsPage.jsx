@@ -143,6 +143,7 @@ const SettingsPage = () => {
   const [advancedDebug, setAdvancedDebug] = useState(getInitialAdvancedDebug);
   const [llmDebug, setLlmDebugState] = useState(getInitialLlmDebug);
   const [verbatimPrompts, setVerbatimPromptsState] = useState(false);
+  const [verbatimSaving, setVerbatimSaving] = useState(false);
   // VERBATIM_PROMPTS in the server environment overrides the toggle; when set
   // the chip shows on and cannot be changed here.
   const [verbatimForcedByEnv, setVerbatimForcedByEnv] = useState(false);
@@ -1697,7 +1698,8 @@ const SettingsPage = () => {
       onText: "Verbose logging enabled.",
       offText: "Verbose logging disabled.",
     });
-  const handleVerbatimPromptsToggle = (event) => {
+  const handleVerbatimPromptsToggle = async (event) => {
+    if (verbatimSaving) return;
     if (verbatimForcedByEnv) {
       showMessage(
         "Verbatim prompts are forced on by VERBATIM_PROMPTS in the server environment. Remove that variable and restart to control it here.",
@@ -1706,18 +1708,27 @@ const SettingsPage = () => {
       return;
     }
     const isEnabled = deriveToggleValue(event, verbatimPrompts);
-    setVerbatimPromptsState(isEnabled);
-    apiService
-      .setVerbatimPrompts(isEnabled)
-      .catch((err) =>
-        console.warn("Failed to update verbatim prompts setting:", err),
+    setVerbatimSaving(true);
+    try {
+      const result = await apiService.setVerbatimPrompts(isEnabled);
+      if (result?.error) throw new Error(result.error.message || result.error);
+      const payload = result?.data ?? result;
+      if (typeof payload?.enabled !== "boolean") {
+        throw new Error("Server did not confirm the prompt setting");
+      }
+      setVerbatimPromptsState(payload.enabled);
+      setVerbatimForcedByEnv(Boolean(payload.forced_by_env));
+      showMessage(
+        payload.enabled
+          ? "Verbatim prompts ON — AI prompt rewriting is disabled."
+          : "Verbatim prompts OFF — prompts get AI enhancement again.",
+        "info",
       );
-    showMessage(
-      isEnabled
-        ? "Verbatim prompts ON — your exact words go to the image/video model (no AI rewrite)."
-        : "Verbatim prompts OFF — prompts get AI enhancement again.",
-      "info",
-    );
+    } catch (err) {
+      showMessage(`Could not save Verbatim prompts: ${err.message}`, "error");
+    } finally {
+      setVerbatimSaving(false);
+    }
   };
   const handleLlmDebugToggle = (event) =>
     persistToggle({
@@ -2731,12 +2742,12 @@ const SettingsPage = () => {
             label="Verbatim prompts"
             on={verbatimPrompts}
             onToggle={() => handleVerbatimPromptsToggle()}
-            disabled={verbatimForcedByEnv}
+            disabled={verbatimForcedByEnv || verbatimSaving}
             note={verbatimForcedByEnv ? "forced by environment" : undefined}
             tooltip={
               verbatimForcedByEnv
                 ? "VERBATIM_PROMPTS is set in the server environment. Remove it and restart to control this here."
-                : "On: your exact words go to the image and video models. Off: the director model enriches them first."
+                : "On: disables AI prompt rewriting and automatic style additions. Model prompt limits and instruction-following still apply. Off: allows prompt enhancement."
             }
           />
         </Line>
