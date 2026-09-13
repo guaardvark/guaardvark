@@ -720,6 +720,13 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             applies = entry.get("applies_to") or []
             if applies and model_key not in applies:
                 return None, f"{entry.get('name') or aid} does not apply to this model"
+            from backend.services.video_model_registry import speed_profile_loras
+            owner = speed_profile_loras(model_key).get(aid)
+            if owner:
+                return None, (
+                    f"{entry.get('name') or aid} belongs to the '{owner}' speed profile. "
+                    "Choose that profile instead of adding it as an adapter."
+                )
             files = entry.get("files") or []
             filename = files[0]["dst"] if files else None
             if not filename:

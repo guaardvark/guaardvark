@@ -1473,6 +1473,10 @@ class BatchVideoGenerator:
                 "enhance_prompt": batch_request.enhance_prompt,
                 "fidelity_mode": batch_request.fidelity_mode,
                 "wan_sampler_profile": batch_request.wan_sampler_profile,
+                # A profile carries its own step count; saving the steps without it
+                # restores a 4-step Lightning batch as a 4-step Standard one.
+                "speed_profile": batch_request.speed_profile,
+                "style_embedding": batch_request.style_embedding,
                 "negative_prompt": batch_request.negative_prompt,
                 "freeu": batch_request.freeu,
                 "face_restore": batch_request.face_restore,

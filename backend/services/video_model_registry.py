@@ -1875,6 +1875,22 @@ def clip_defaults_for(model_id: str, total_vram_mb=None) -> dict:
     }
 
 
+def speed_profile_loras(model_id: str) -> dict:
+    """LoRA id -> label of the speed profile that owns it, for one model. A
+    profile LoRA is trained for its profile's steps, cfg and shift, and a Wan
+    pair is split per expert, so it is never offered or accepted as a free
+    adapter: stacked on both experts at the base settings it renders badly."""
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
+    owned = {}
+    for pid, spec in (entry.get("speed_profiles") or {}).items():
+        label = spec.get("label") or pid
+        if spec.get("lora"):
+            owned[spec["lora"]] = label
+        for lora_id in (spec.get("loras") or {}).values():
+            owned[lora_id] = label
+    return owned
+
+
 def speed_profile_for(model_id: str, profile: str | None) -> dict | None:
     """Resolve a declared speed profile to its settings plus the LoRA filename
     the builder loads (``lora_file``), or None when the model does not declare

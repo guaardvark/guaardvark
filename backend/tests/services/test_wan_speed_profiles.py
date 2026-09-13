@@ -69,3 +69,11 @@ def test_profile_resolution_refuses_missing_loras_and_unknown_names(monkeypatch)
     monkeypatch.setattr(vmr, "is_model_installed", lambda m: True)
     prof, err = gen._resolve_wan_profile(req.__class__(model="wan22-14b", speed_profile="lightx2v-4"), "wan22-14b")
     assert err is None and prof["lora_files"]["unet_high"].endswith("high_noise.safetensors")
+
+
+def test_profile_loras_are_refused_as_free_adapters():
+    assert set(vmr.speed_profile_loras("wan22-14b-i2v")) == {"wan22-i2v-lightx2v-high", "wan22-i2v-lightx2v-low"}
+    assert vmr.speed_profile_loras("wan22-5b") == {}
+    req = VideoGenerationRequest(model="wan22-14b-i2v", adapters=[{"id": "wan22-i2v-lightx2v-high", "strength": 0.7}])
+    out, err = _gen()._resolve_adapters(req, "wan22-14b-i2v")
+    assert out is None and "speed profile" in err

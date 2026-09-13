@@ -671,13 +671,20 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     return { width, height };
   }, [aspectRatio, videoSize, model, modelMeta]);
 
-  const applicableAdapters = useMemo(
-    () => (adapterModels || []).filter((m) => {
+  // A speed profile's LoRAs are trained for that profile's steps, cfg and shift, and
+  // Wan's pair is split per expert; offered here they would stack on both experts at
+  // the base settings. The profile picker is the only way to use them.
+  const applicableAdapters = useMemo(() => {
+    const owned = new Set();
+    Object.values(modelCaps?.speed_profiles || {}).forEach((spec) => {
+      if (spec?.lora) owned.add(spec.lora);
+      Object.values(spec?.loras || {}).forEach((id) => owned.add(id));
+    });
+    return (adapterModels || []).filter((m) => {
       const applies = m.applies_to || [];
-      return applies.length === 0 || applies.includes(model);
-    }),
-    [adapterModels, model],
-  );
+      return (applies.length === 0 || applies.includes(model)) && !owned.has(m.id);
+    });
+  }, [adapterModels, model, modelCaps]);
   const applicableEncoders = useMemo(
     () => (encoderModels || []).filter((m) => (m.applies_to || []).includes(model)),
     [encoderModels, model],
@@ -1388,7 +1395,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         if (typeof p.fidelity_mode === "boolean") setFidelityMode(p.fidelity_mode);
         setAdvancedParams((prev) => ({
           ...prev,
-          num_inference_steps: p.num_inference_steps ?? prev.num_inference_steps,
+          // Stored steps are what the batch ran, not what the person typed: a preset
+          // or speed profile chose them unless steps_explicit says otherwise. Loading
+          // them as typed would bypass the step floor and the profile's own count.
+          num_inference_steps: p.metadata?.steps_explicit ? (p.num_inference_steps ?? prev.num_inference_steps) : null,
+          speed_profile: p.speed_profile || "standard",
+          style_embedding: p.style_embedding || "",
           guidance_scale: p.guidance_scale ?? prev.guidance_scale,
           wan_sampler_profile: p.wan_sampler_profile ?? prev.wan_sampler_profile,
           freeu: !!p.freeu,
