@@ -682,7 +682,8 @@ class ComfyUIVideoWorkflowMixin:
         high_ref = ["17", 0] if lora_high else ["1", 0]
         low_ref = ["18", 0] if lora_low else ["2", 0]
         high_ref, next_id = self._chain_model_only_loras(workflow, high_ref, extra_loras, 40)
-        low_ref, _ = self._chain_model_only_loras(workflow, low_ref, extra_loras, next_id)
+        low_ref, next_id = self._chain_model_only_loras(workflow, low_ref, extra_loras, next_id)
+        high_ref, low_ref = self._apply_declared_attention(workflow, model_key, [high_ref, low_ref], next_id)
         workflow["8"]["inputs"]["model"] = high_ref
         workflow["9"]["inputs"]["model"] = low_ref
 
@@ -866,7 +867,8 @@ class ComfyUIVideoWorkflowMixin:
         high_ref = ["17", 0] if lora_high else ["1", 0]
         low_ref = ["18", 0] if lora_low else ["2", 0]
         high_ref, next_id = self._chain_model_only_loras(workflow, high_ref, extra_loras, 40)
-        low_ref, _ = self._chain_model_only_loras(workflow, low_ref, extra_loras, next_id)
+        low_ref, next_id = self._chain_model_only_loras(workflow, low_ref, extra_loras, next_id)
+        high_ref, low_ref = self._apply_declared_attention(workflow, model_key, [high_ref, low_ref], next_id)
         workflow["8"]["inputs"]["model"] = high_ref
         workflow["9"]["inputs"]["model"] = low_ref
 
@@ -2562,6 +2564,36 @@ class ComfyUIVideoWorkflowMixin:
         for inputs in consumers:
             inputs["model"] = model_ref
         return workflow
+
+    def _attention_pin_wanted(self) -> bool:
+        """True when ComfyUI was launched with a non-default attention backend (ck,
+        sage, auto) and offers ModelAttentionBackend to override it per model. On a
+        default launch the graph is left as ComfyUI would build it."""
+        from backend.services.comfyui_launch_flags import ATTENTION_BACKENDS, ATTENTION_DEFAULT, ATTENTION_ENV
+        choice = (os.environ.get(ATTENTION_ENV) or ATTENTION_DEFAULT).strip().lower()
+        if choice not in ATTENTION_BACKENDS or choice == ATTENTION_DEFAULT:
+            return False
+        try:
+            return bool(self.comfy_node_available("ModelAttentionBackend"))
+        except Exception:
+            return False
+
+    def _apply_declared_attention(self, workflow: dict, model_key: str, refs: list, start_id: int) -> list:
+        """Put a ModelAttentionBackend after each model ref when the registry entry (or
+        the shipped entry a user model was cloned from) declares ``attention`` and the
+        launch uses another backend; returns the new refs."""
+        from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+        entry = VIDEO_MODEL_REGISTRY.get(model_key) or {}
+        declared = entry.get("attention") or (VIDEO_MODEL_REGISTRY.get(entry.get("like") or "") or {}).get("attention")
+        names = {"pytorch": "pytorch attention"}
+        if declared not in names or not self._attention_pin_wanted():
+            return list(refs)
+        out = []
+        for i, ref in enumerate(refs):
+            sid = str(int(start_id) + i)
+            workflow[sid] = {"class_type": "ModelAttentionBackend", "inputs": {"model": ref, "attention": names[declared]}}
+            out.append([sid, 0])
+        return out
 
     def _chain_model_only_loras(self, workflow: dict, model_ref: list, loras: Optional[list], start_id: int) -> tuple:
         """Stack LoraLoaderModelOnly nodes after model_ref. Returns (new_ref, next_id)."""

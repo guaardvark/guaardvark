@@ -77,3 +77,19 @@ def test_profile_loras_are_refused_as_free_adapters():
     req = VideoGenerationRequest(model="wan22-14b-i2v", adapters=[{"id": "wan22-i2v-lightx2v-high", "strength": 0.7}])
     out, err = _gen()._resolve_adapters(req, "wan22-14b-i2v")
     assert out is None and "speed profile" in err
+
+
+def test_wan_graph_pins_pytorch_attention_only_when_the_launch_uses_another_backend(monkeypatch):
+    assert vmr.VIDEO_MODEL_REGISTRY["wan22-14b-i2v"]["attention"] == "pytorch"
+    monkeypatch.setattr(ComfyUIVideoGenerator, "comfy_node_available", lambda self, cls: True)
+    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", "ck")
+    wf = _gen()._create_wan22_i2v_workflow(
+        image_filename="s.png", prompt="a river", model_key="wan22-14b-i2v",
+        lora_high="h.safetensors", lora_low="l.safetensors", shift_override=5.0, num_inference_steps=4, guidance_scale=1.0,
+    )
+    assert wf["40"] == {"class_type": "ModelAttentionBackend", "inputs": {"model": ["17", 0], "attention": "pytorch attention"}}
+    assert wf["41"]["inputs"]["model"] == ["18", 0]
+    assert wf["8"]["inputs"]["model"] == ["40", 0] and wf["9"]["inputs"]["model"] == ["41", 0]
+    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", "pytorch")
+    plain = _gen()._create_wan22_i2v_workflow(image_filename="s.png", prompt="a river", model_key="wan22-14b-i2v")
+    assert "ModelAttentionBackend" not in {n["class_type"] for n in plain.values()}

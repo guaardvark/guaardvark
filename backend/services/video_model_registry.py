@@ -307,6 +307,9 @@ VIDEO_MODEL_REGISTRY = {
         "native_fps": 16,
         "max_frames": 81,
         "speed_profiles": WAN14B_SPEED_PROFILES["t2v"],
+        # Inferred, not measured: the same A14B expert architecture and attention
+        # path as wan22-14b-i2v, where ck attention was measured producing NaN tiles.
+        "attention": "pytorch",
     },
     "wan22-14b-i2v": {
         "name": "Wan 2.2 14B I2V MoE (GGUF Q5_K)",
@@ -341,6 +344,12 @@ VIDEO_MODEL_REGISTRY = {
         "native_fps": 16,
         "max_frames": 81,
         "speed_profiles": WAN14B_SPEED_PROFILES["i2v"],
+        # ComfyUI's ck (Comfy Kitchen INT8) attention put NaN patch tokens into these
+        # experts' latents, decoded as black rectangles: 6 of 9 Lightning renders at
+        # 960x544, seed 1984, 16 GB card (2026-09-12). The same graphs with PyTorch
+        # attention had NaN 0 and clean frames. The Wan graph pins this whenever the
+        # ComfyUI launch asks for another backend (GUAARDVARK_COMFYUI_ATTENTION).
+        "attention": "pytorch",
     },
     "wan22-5b": {
         "name": "Wan 2.2 TI2V-5B (fp16)",

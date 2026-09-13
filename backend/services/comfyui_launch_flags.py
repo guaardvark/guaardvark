@@ -66,8 +66,12 @@ def preview_cli_args(env: Optional[Mapping[str, str]] = None) -> Sequence[str]:
 # `pytorch` until every family has been compared. Measured 2026-09-01 for
 # MiniMax H3 on a 16 GB RTX 40-series card (864x480, 124 frames, 20 steps,
 # same seed): ck 339 s at 15.0 s/step against PyTorch 390 s at 17.0 s/step,
-# same VRAM peak, frames indistinguishable. Wan, LTX and Hunyuan are not yet
-# compared, so `auto` is a documented opt-in rather than the default. `auto`
+# same VRAM peak, frames indistinguishable. Wan 2.2 14B I2V was compared
+# 2026-09-12: ck left NaN patch tokens in Lightning renders (black tiles on 6 of 9
+# clips at 960x544) where PyTorch attention was clean, so the Wan 14B registry
+# entries declare `attention: pytorch` and the Wan graph pins it per model while
+# the process-wide flag stays. LTX and Hunyuan are not yet compared, so `auto` is
+# a documented opt-in rather than the default. `auto`
 # prefers ck, then sage, then pytorch, by availability.
 ATTENTION_ENV = "GUAARDVARK_COMFYUI_ATTENTION"
 ATTENTION_DEFAULT = "pytorch"

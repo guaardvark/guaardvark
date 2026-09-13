@@ -237,8 +237,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             response.raise_for_status()
             self._object_info_cache = response.json()
         except Exception as e:
+            # Not cached: ComfyUI is often stopped while another GPU job runs, and an
+            # empty cache would report every node missing until the backend restarts.
             logger.debug(f"Could not fetch ComfyUI object_info: {e}")
-            self._object_info_cache = {}
+            return {}
         return self._object_info_cache
 
     def comfy_node_available(self, class_type: str) -> bool:
