@@ -1,5 +1,6 @@
 """Chat command — conversation with the LLM."""
 
+import os
 import sys
 import uuid
 import time
