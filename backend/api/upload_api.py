@@ -345,6 +345,42 @@ def upload_file_endpoint():
         return jsonify({"error": "File content does not match file type or contains invalid data"}), 400
 
     if file and allowed_file(file.filename):
+        # --- Get project_id and tags from form data ---
+        project_id_str = request.form.get("project_id")
+        tags_str = request.form.get(
+            "tags"
+        )  # Expecting comma-separated string or similar
+        logger.debug(
+            f"Upload form data - project_id: {project_id_str}, tags: {tags_str}"
+        )
+
+        project_id = None
+        if project_id_str:
+            try:
+                project_id = int(project_id_str)
+                # SECURITY FIX: Add bounds checking for project_id
+                if project_id < 1 or project_id > 2147483647:  # 32-bit signed int max
+                    logger.warning(f"API Warning (POST /upload): Project ID out of valid range: {project_id}")
+                    project_id = None
+                # Optional: Validate if project_id actually exists in the Project table
+                elif Project and not db.session.get(Project, project_id):
+                    logger.warning(
+                        f"API Warning (POST /upload): Project ID {project_id} not found in database."
+                    )
+                    project_id = None  # Set back to None if validation fails
+            except ValueError:
+                logger.warning(
+                    f"API Warning (POST /upload): Invalid project_id '{project_id_str}'. Must be an integer."
+                )
+                project_id = None
+            except SQLAlchemyError as e:
+                logger.error(
+                    f"Database error validating project ID {project_id_str}: {e}",
+                    exc_info=True,
+                )
+                project_id = None
+        # --- End Get project_id and tags ---
+
         # Check if this is an image and should be forwarded to master
         file_ext = os.path.splitext(file.filename)[1].lower().lstrip(".")
         is_image = file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg']
@@ -423,42 +459,6 @@ def upload_file_endpoint():
         if _gitignore_filter.should_ignore(original_filename) or _gitignore_filter.should_ignore(filename):
             logger.info(f"Skipping ignored file: {original_filename}")
             return jsonify({"message": "File skipped (ignored by filter)", "skipped": True}), 200
-
-        # --- Get project_id and tags from form data ---
-        project_id_str = request.form.get("project_id")
-        tags_str = request.form.get(
-            "tags"
-        )  # Expecting comma-separated string or similar
-        logger.debug(
-            f"Upload form data - project_id: {project_id_str}, tags: {tags_str}"
-        )
-
-        project_id = None
-        if project_id_str:
-            try:
-                project_id = int(project_id_str)
-                # SECURITY FIX: Add bounds checking for project_id
-                if project_id < 1 or project_id > 2147483647:  # 32-bit signed int max
-                    logger.warning(f"API Warning (POST /upload): Project ID out of valid range: {project_id}")
-                    project_id = None
-                # Optional: Validate if project_id actually exists in the Project table
-                elif Project and not db.session.get(Project, project_id):
-                    logger.warning(
-                        f"API Warning (POST /upload): Project ID {project_id} not found in database."
-                    )
-                    project_id = None  # Set back to None if validation fails
-            except ValueError:
-                logger.warning(
-                    f"API Warning (POST /upload): Invalid project_id '{project_id_str}'. Must be an integer."
-                )
-                project_id = None
-            except SQLAlchemyError as e:
-                logger.error(
-                    f"Database error validating project ID {project_id_str}: {e}",
-                    exc_info=True,
-                )
-                project_id = None
-        # --- End Get project_id and tags ---
 
         try:
             upload_folder_path = current_app.config.get("UPLOAD_FOLDER")
