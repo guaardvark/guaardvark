@@ -41,6 +41,31 @@ _torch = None
 _model_id = None
 
 
+def _dev() -> str:
+    """Accelerator device for training: CUDA > MPS (Apple Silicon) > CPU.
+
+    Apple Silicon has no CUDA; torch.backends.mps is the Metal backend. The
+    trainer stages one heavy module at a time, so the device is resolved lazily
+    per call (after _torch is set in _do_load).
+    """
+    if _torch is None:
+        return "cpu"
+    if _torch.cuda.is_available():
+        return "cuda"
+    if hasattr(_torch.backends, "mps") and _torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def _is_bf16_supported() -> bool:
+    if _torch is None:
+        return False
+    if _torch.cuda.is_available():
+        return _torch.cuda.is_bf16_supported()
+    # MPS supports bfloat16 on Apple Silicon (M-series).
+    return _dev() == "mps"
+
+
 def _eprint(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
@@ -71,7 +96,7 @@ def _retag_peft_transformer_lora(state_dict: dict) -> dict:
 
 
 def _cuda_reclaim() -> None:
-    """Best-effort host + CUDA allocator reclaim between stages / after OOM."""
+    """Best-effort host + accelerator allocator reclaim between stages / after OOM."""
     gc.collect()
     if _torch is None:
         return
@@ -79,6 +104,8 @@ def _cuda_reclaim() -> None:
         if _torch.cuda.is_available():
             _torch.cuda.empty_cache()
             _torch.cuda.ipc_collect()
+        elif _dev() == "mps":
+            _torch.mps.empty_cache()
     except Exception:
         pass
 
@@ -125,12 +152,18 @@ def _move_pipeline_to_cpu() -> None:
 
 
 def _gpu_total_gb() -> float:
-    if _torch is None or not _torch.cuda.is_available():
+    if _torch is None:
         return 0.0
     try:
-        return float(_torch.cuda.get_device_properties(0).total_memory) / (1024**3)
+        if _torch.cuda.is_available():
+            return float(_torch.cuda.get_device_properties(0).total_memory) / (1024**3)
+        if _dev() == "mps":
+            # Apple Silicon unified memory: report the recommended max working set
+            # (defaults to ~2/3 of physical RAM) as the "VRAM" budget.
+            return float(_torch.mps.recommended_max_memory()) / (1024**3)
     except Exception:
-        return 0.0
+        pass
+    return 0.0
 
 
 def _resolve_model_path(model_id: str) -> str:
@@ -169,11 +202,16 @@ def _do_load(cmd: dict) -> dict:
         }
 
     _torch = torch
-    if not torch.cuda.is_available():
-        return {"ok": False, "error": "CUDA not available — Z-Image LoRA training requires a GPU"}
+    if not torch.cuda.is_available() and not (
+        hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+    ):
+        return {
+            "ok": False,
+            "error": "No accelerator available — Z-Image LoRA training requires CUDA or Apple MPS",
+        }
 
     path = _resolve_model_path(model_id)
-    dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+    dtype = torch.bfloat16 if _is_bf16_supported() else torch.float16
     try:
         # Stay on CPU at load — full Z-Image (~20GB weights) cannot fit a 16GB card.
         # Train stages VAE → TE → transformer onto CUDA one at a time.
@@ -267,8 +305,9 @@ def _do_train(cmd: dict) -> dict:
 
     stage = "init"
     step = -1
+    dev = _dev()
     try:
-        # Prior failed train can leave a PeftModel + CUDA weights; unwrap first.
+        # Prior failed train can leave a PeftModel + accelerator weights; unwrap first.
         _unwrap_peft_transformer()
         _move_pipeline_to_cpu()
 
@@ -292,9 +331,7 @@ def _do_train(cmd: dict) -> dict:
         transformer = get_peft_model(transformer, lora_config)
         # PEFT initializes adapters in fp32; cast trainable to bf16 so they match
         # the base transformer and cut grad / optimizer footprint on 16GB.
-        train_dtype = (
-            _torch.bfloat16 if _torch.cuda.is_bf16_supported() else _torch.float16
-        )
+        train_dtype = _torch.bfloat16 if _is_bf16_supported() else _torch.float16
         for _n, _p in transformer.named_parameters():
             if _p.requires_grad and _p.is_floating_point():
                 _p.data = _p.data.to(train_dtype)
@@ -304,8 +341,8 @@ def _do_train(cmd: dict) -> dict:
 
         # ── stage VAE: encode latents, then free VRAM ───────────────────────
         stage = "VAE"
-        _eprint("[run_zimage_trainer] staging VAE on CUDA for latent cache...")
-        vae.to("cuda")
+        _eprint(f"[run_zimage_trainer] staging VAE on {dev} for latent cache...")
+        vae.to(dev)
         tensors = []
         for path in image_paths:
             img = Image.open(path).convert("RGB")
@@ -313,7 +350,7 @@ def _do_train(cmd: dict) -> dict:
             t = transforms.ToTensor()(img)
             t = transforms.Normalize([0.5], [0.5])(t)
             tensors.append(t)
-        images = _torch.stack(tensors).to("cuda", dtype=vae.dtype)
+        images = _torch.stack(tensors).to(dev, dtype=vae.dtype)
 
         all_latents = []
         with _torch.no_grad():
@@ -332,8 +369,8 @@ def _do_train(cmd: dict) -> dict:
 
         # ── stage TE: encode prompts, then free VRAM ────────────────────────
         stage = "TE"
-        _eprint("[run_zimage_trainer] staging text encoder on CUDA for prompt cache...")
-        text_encoder.to("cuda")
+        _eprint(f"[run_zimage_trainer] staging text encoder on {dev} for prompt cache...")
+        text_encoder.to(dev)
         all_prompt_embeds = []
         with _torch.no_grad():
             for prompt in image_prompts[: len(image_paths)]:
@@ -341,7 +378,7 @@ def _do_train(cmd: dict) -> dict:
                 # (unlike SDXL/FLUX); signature is prompt/device/CFG/neg/embeds.
                 pe, _neg = _pipeline.encode_prompt(
                     prompt=prompt,
-                    device=_torch.device("cuda"),
+                    device=_torch.device(dev),
                     do_classifier_free_guidance=False,
                 )
                 # Park embeds on CPU until transformer stage
@@ -357,31 +394,37 @@ def _do_train(cmd: dict) -> dict:
         _cuda_reclaim()
         _eprint(f"[run_zimage_trainer] cached {len(all_prompt_embeds)} prompts; TE off GPU")
 
-        # ── stage transformer: train on CUDA with cached latents/embeds ─────
+        # ── stage transformer: train on accelerator with cached latents/embeds ─
         stage = "transformer"
-        free_b, total_b = _torch.cuda.mem_get_info()
-        _eprint(
-            f"[run_zimage_trainer] staging transformer+LoRA on CUDA "
-            f"(free={free_b/1024**3:.2f}G / total={total_b/1024**3:.2f}G, "
-            f"res={resolution}, rank={rank}, dtype={train_dtype})..."
-        )
+        if dev == "cuda":
+            free_b, total_b = _torch.cuda.mem_get_info()
+            _eprint(
+                f"[run_zimage_trainer] staging transformer+LoRA on CUDA "
+                f"(free={free_b/1024**3:.2f}G / total={total_b/1024**3:.2f}G, "
+                f"res={resolution}, rank={rank}, dtype={train_dtype})..."
+            )
+        else:
+            _eprint(
+                f"[run_zimage_trainer] staging transformer+LoRA on {dev} "
+                f"(res={resolution}, rank={rank}, dtype={train_dtype})..."
+            )
         _cuda_reclaim()
-        transformer.to("cuda")
+        transformer.to(dev)
 
         # Keep latents and prompt embeds on CPU — move only the current sample
         # per step. On 16GB the transformer + LoRA grads + AdamW states already
         # consume most of the card.
         n_samples = len(all_latents)
 
-        def _embeds_to_cuda(pe):
+        def _embeds_to_dev(pe):
             if isinstance(pe, list):
-                return [t.to("cuda") if hasattr(t, "to") else t for t in pe]
+                return [t.to(dev) if hasattr(t, "to") else t for t in pe]
             if hasattr(pe, "to"):
-                return pe.to("cuda")
+                return pe.to(dev)
             return pe
 
         def _embeds_del(pe):
-            """Delete CUDA copies of prompt embeds to free VRAM."""
+            """Delete accelerator copies of prompt embeds to free memory."""
             if isinstance(pe, list):
                 for t in pe:
                     del t
@@ -400,13 +443,13 @@ def _do_train(cmd: dict) -> dict:
         stage = "train_loop"
         for step in range(steps):
             idx = step % n_samples
-            # Move only this sample's latent to CUDA (tiny: single image latent).
-            # Each element already has shape [1, C, H, W] from vae.encode(images[i:i+1]).
-            x0 = all_latents[idx].to("cuda", dtype=train_dtype)
+            # Move only this sample's latent to the accelerator (tiny: single image
+            # latent). Each element already has shape [1, C, H, W] from vae.encode.
+            x0 = all_latents[idx].to(dev, dtype=train_dtype)
             noise = _torch.randn_like(x0)
 
             # Continuous flow-matching time in [0, 1]
-            u = _torch.rand((1,), device="cuda", dtype=train_dtype).clamp(0.02, 0.98)
+            u = _torch.rand((1,), device=dev, dtype=train_dtype).clamp(0.02, 0.98)
             # xt = (1-u)*x0 + u*noise ; velocity target = noise - x0
             u_b = u.view(-1, 1, 1, 1)
             xt = (1.0 - u_b) * x0 + u_b * noise
@@ -418,12 +461,12 @@ def _do_train(cmd: dict) -> dict:
 
             latent_in = xt.unsqueeze(2)  # match pipeline unsqueeze
             latent_list = list(latent_in.unbind(dim=0))
-            # Move only this sample's prompt embed to CUDA
-            pe_cuda = _embeds_to_cuda(all_prompt_embeds[idx])
-            if not isinstance(pe_cuda, list):
-                pe_list = [pe_cuda]
+            # Move only this sample's prompt embed to the accelerator
+            pe_dev = _embeds_to_dev(all_prompt_embeds[idx])
+            if not isinstance(pe_dev, list):
+                pe_list = [pe_dev]
             else:
-                pe_list = pe_cuda
+                pe_list = pe_dev
 
             model_out = transformer(
                 latent_list,
@@ -442,10 +485,10 @@ def _do_train(cmd: dict) -> dict:
             opt.step()
             opt.zero_grad(set_to_none=True)
 
-            # Free per-step CUDA tensors explicitly
-            _embeds_del(pe_cuda)
+            # Free per-step accelerator tensors explicitly
+            _embeds_del(pe_dev)
             del x0, noise, u, u_b, xt, target, timestep, latent_in, latent_list
-            del pe_cuda, pe_list, model_out, pred
+            del pe_dev, pe_list, model_out, pred
 
             if step % 50 == 0 or step == steps - 1:
                 _eprint(f"[run_zimage_trainer] step {step+1}/{steps} loss={loss.item():.5f}")
@@ -453,7 +496,7 @@ def _do_train(cmd: dict) -> dict:
 
             # Allocator hygiene — without this, reserved-but-free holes OOM ~step 7 on 16GB.
             if (step + 1) % 25 == 0:
-                _torch.cuda.empty_cache()
+                _cuda_reclaim()
 
         # ── save diffusers-compatible LoRA ──────────────────────────────────
         stage = "save"
@@ -538,6 +581,15 @@ def _do_train(cmd: dict) -> dict:
             _move_pipeline_to_cpu()
         except Exception:
             pass
+        # MPS raises a plain RuntimeError (not torch.cuda.OutOfMemoryError) when
+        # unified memory is exhausted; surface it as an OOM-style failure.
+        if "out of memory" in str(e).lower():
+            return {
+                "ok": False,
+                "error": (
+                    f"OOM during Z-Image training (stage={stage}, step {cur}/{steps}): {e}"
+                ),
+            }
         return {
             "ok": False,
             "error": (
@@ -554,7 +606,7 @@ def _do_unload(cmd: dict) -> dict:
         _pipeline = None
         _model_id = None
     if _torch is not None:
-        _torch.cuda.empty_cache()
+        _cuda_reclaim()
     return {"ok": True}
 
 

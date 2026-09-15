@@ -5,6 +5,7 @@ without a GPU. These tests verify the JSON protocol and error propagation of the
 parent driver class without actually spawning the torch subprocess.
 """
 import pytest
+from pathlib import Path
 from plugins.lora_trainer.real_trainer import RealLoraTrainer
 
 def test_real_trainer_is_available_returns_false_when_no_venv(monkeypatch):
@@ -15,7 +16,9 @@ def test_real_trainer_train_calls_send_with_correct_params(tmp_path, monkeypatch
     trainer = RealLoraTrainer()
     
     # Bypass subprocess spawn
-    monkeypatch.setattr(trainer, "_ensure_proc", lambda: None)
+    monkeypatch.setattr(trainer, "_ensure_proc", lambda backend="sdxl": None)
+    # Bypass backend path resolution: venv-torch is CUDA-only and absent on Macs.
+    monkeypatch.setattr(trainer, "_backend_paths", lambda backend: ("python", "runner", "stub-model"))
     
     sends = []
     def fake_send(msg, timeout_s):
@@ -23,6 +26,10 @@ def test_real_trainer_train_calls_send_with_correct_params(tmp_path, monkeypatch
         if msg["op"] == "load":
             return {"ok": True}
         if msg["op"] == "train":
+            # The driver validates that a real LoRA file was written; fake one.
+            out = Path(msg["params"]["output_path"])
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"\0" * 4096)
             return {"ok": True, "lora_path": msg["params"]["output_path"], "lora_version": 1}
         return {"ok": True}
         
@@ -49,7 +56,8 @@ def test_real_trainer_train_calls_send_with_correct_params(tmp_path, monkeypatch
 def test_real_trainer_propagates_daemon_failure(tmp_path, monkeypatch):
     trainer = RealLoraTrainer()
     
-    monkeypatch.setattr(trainer, "_ensure_proc", lambda: None)
+    monkeypatch.setattr(trainer, "_ensure_proc", lambda backend="sdxl": None)
+    monkeypatch.setattr(trainer, "_backend_paths", lambda backend: ("python", "runner", "stub-model"))
     
     def fake_send(msg, timeout_s):
         if msg["op"] == "load":
