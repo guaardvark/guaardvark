@@ -70,7 +70,7 @@ Pillow>=12.3.0  # aligned with requirements.txt. >=12.3.0: 12.2.0 carries 10 HIG
 torchsde>=0.2.6
 sentencepiece>=0.2.0
 kornia>=0.7.1
-spandrel>=0.4.0
+spandrel>=0.4.2
 av>=18.1.0
 pydantic-settings>=2.15.0
 
