@@ -63,7 +63,7 @@ llama-index-core>=0.13.0,<0.15.0  # Compatible with llama-index-embeddings-ollam
 llama-index-llms-ollama>=0.7.0  # Updated for llama-index-core 0.14.x
 llama-index-embeddings-ollama>=0.8.0
 llama-index-readers-file>=0.5.0  # Updated for llama-index-core 0.14.x
-llama-index-retrievers-bm25>=0.5.0  # Hybrid search: BM25 keyword retrieval
+llama-index-retrievers-bm25>=0.8.0  # Hybrid search: BM25 keyword retrieval
 # Retrieval storage and reranking. Both were silent missing deps: without the
 # pgvector store the index falls back to SimpleVectorStore and reports success
 # throughout — measured 0/7 needles retrieved on scripts/rag_validation, 6/7 at
