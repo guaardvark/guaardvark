@@ -79,7 +79,7 @@ pydantic-settings>=2.15.0
 # lmdb, tb-nightly, opencv-python. They lack aarch64/Pi wheels and aborted the
 # whole install; only the (lazy, guarded) face_restoration_service uses them.
 # scipy/tqdm/PyYAML stay here — shared transitive deps of the always-on stack.
-scipy>=1.10.0  # used by image/audio paths; also a GFPGAN dep
+scipy>=1.18.1  # used by image/audio paths; also a GFPGAN dep
 tqdm>=4.65.0   # transitive dep of transformers/huggingface_hub (always-on)
 PyYAML>=6.0    # transitive dep of transformers/huggingface_hub (always-on)
 

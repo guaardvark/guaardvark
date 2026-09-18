@@ -112,7 +112,7 @@ gguf>=0.18.0
 # whole install; only the (lazy, guarded) face_restoration_service uses them.
 # scipy/tqdm/PyYAML stay here — they're shared transitive deps of the always-on
 # stack (transformers/huggingface_hub require tqdm+pyyaml), not CV-exclusive.
-scipy>=1.10.0  # used by image/audio paths; also a GFPGAN dep
+scipy>=1.18.1  # used by image/audio paths; also a GFPGAN dep
 tqdm>=4.65.0   # transitive dep of transformers/huggingface_hub (always-on)
 PyYAML>=6.0    # transitive dep of transformers/huggingface_hub (always-on)
 
