@@ -25,6 +25,7 @@ from backend.services.guarded_code_service import (
     default_repo_root,
     live_repo_analysis_summary,
 )
+from backend.utils.clock import utcnow
 from backend.utils.db_utils import ensure_db_session_cleanup
 from backend.utils.response_utils import success_response, error_response
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
@@ -1692,7 +1693,7 @@ def edit_image():
                 folder_id=document.folder_id,
                 file_size=0,
                 file_type=f"image/{target_format}",
-                uploaded_at=datetime.datetime.utcnow(),
+                uploaded_at=utcnow(),
             )
             db.session.add(out_doc)
 

@@ -1,6 +1,7 @@
 from unittest.mock import patch, MagicMock
-from datetime import datetime
 import pytest
+
+from backend.utils.clock import utcnow
 
 
 @pytest.fixture
@@ -80,7 +81,7 @@ def test_middleware_forwards_workload_when_primary_is_remote(app, monkeypatch):
     r = WorkloadRoute(workload="llm_chat", mode="singular", primary="mw-remote",
                       fallback=[], workers=[], required_services=["ollama"],
                       min_vram_mb=4096, cpu_acceptable=False)
-    t = RoutingTable(routes={"llm_chat": r}, computed_at=datetime.utcnow(),
+    t = RoutingTable(routes={"llm_chat": r}, computed_at=utcnow(),
                      computed_by="mw-remote", node_count=2, fleet_hash="x")
     get_routing_store().set(t, persist=False)
 
@@ -119,7 +120,7 @@ def test_middleware_falls_back_to_local_when_forward_fails(app, monkeypatch):
     r = WorkloadRoute(workload="llm_chat", mode="singular", primary="fb-dead",
                       fallback=[], workers=[], required_services=["ollama"],
                       min_vram_mb=4096, cpu_acceptable=False)
-    t = RoutingTable(routes={"llm_chat": r}, computed_at=datetime.utcnow(),
+    t = RoutingTable(routes={"llm_chat": r}, computed_at=utcnow(),
                      computed_by="fb-dead", node_count=1, fleet_hash="x")
     get_routing_store().set(t, persist=False)
 

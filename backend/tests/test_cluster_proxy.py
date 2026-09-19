@@ -1,5 +1,4 @@
 from unittest.mock import MagicMock
-from datetime import datetime
 
 import pytest
 
@@ -8,6 +7,7 @@ from backend.services.cluster_proxy import (
     CLASSIFIER_RULES, ALWAYS_LOCAL_PREFIXES,
 )
 from backend.services.cluster_routing import RoutingTable, WorkloadRoute
+from backend.utils.clock import utcnow
 
 
 # ---- app fixture ----------------------------------------------------
@@ -112,7 +112,7 @@ def _table_with(primary, fallback):
                       primary=primary, fallback=fallback, workers=[],
                       required_services=["ollama"], min_vram_mb=4096,
                       cpu_acceptable=False)
-    return RoutingTable(routes={"llm_chat": r}, computed_at=datetime.utcnow(),
+    return RoutingTable(routes={"llm_chat": r}, computed_at=utcnow(),
                         computed_by="master", node_count=3, fleet_hash="x")
 
 
@@ -162,14 +162,14 @@ def test_resolver_yields_none_for_local_mode():
     r = WorkloadRoute(workload="llm_chat", mode="local", primary=None,
                       fallback=[], workers=[], required_services=["ollama"],
                       min_vram_mb=4096, cpu_acceptable=False)
-    t = RoutingTable(routes={"llm_chat": r}, computed_at=datetime.utcnow(),
+    t = RoutingTable(routes={"llm_chat": r}, computed_at=utcnow(),
                      computed_by="x", node_count=1, fleet_hash="x")
     targets = list(ProxyTargetResolver().resolve("llm_chat", t, local_node_id="me"))
     assert targets == [None]
 
 
 def test_resolver_yields_none_for_missing_workload():
-    t = RoutingTable(routes={}, computed_at=datetime.utcnow(),
+    t = RoutingTable(routes={}, computed_at=utcnow(),
                      computed_by="x", node_count=0, fleet_hash="x")
     targets = list(ProxyTargetResolver().resolve("llm_chat", t, local_node_id="me"))
     assert targets == [None]

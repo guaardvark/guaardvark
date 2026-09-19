@@ -1,6 +1,8 @@
 """Celery tasks for RAG Autoresearch — idle detection, scheduled runs, event triggers."""
 import logging
 
+from backend.utils.clock import utcnow
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,7 +51,7 @@ def create_autoresearch_tasks(celery_app):
 
             # One run per night: anything created in the last 20h counts.
             recent = ResearchRun.query.filter(
-                ResearchRun.created_at > datetime.utcnow() - timedelta(hours=20)
+                ResearchRun.created_at > utcnow() - timedelta(hours=20)
             ).first()
             if recent is not None:
                 return

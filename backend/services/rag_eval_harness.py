@@ -8,7 +8,6 @@ import json
 import hashlib
 import logging
 import time
-from datetime import datetime
 from typing import Optional
 
 from backend.config import (
@@ -46,6 +45,7 @@ def document_text(doc) -> str:
         return ""
     return text
 from backend.services.rag_experiment_agent import _extract_json
+from backend.utils.clock import utcnow
 from backend.utils.text_cut import cut_on_whitespace
 
 logger = logging.getLogger(__name__)
@@ -355,7 +355,7 @@ class RAGEvalHarness:
         documents = Document.query.all()
 
         sampled = random.sample(documents, min(len(documents), target_count * 3))
-        generation_id = f"gen-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+        generation_id = f"gen-{utcnow().strftime('%Y%m%d-%H%M%S')}"
 
         # Mix: ~50% specific, 30% reasoning, 20% multi_hop (RAGAS-style).
         n_specific = max(1, int(round(target_count * 0.5)))

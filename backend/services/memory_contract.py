@@ -19,8 +19,9 @@ from __future__ import annotations
 import json
 import math
 import re
-from datetime import datetime, timezone
 from typing import Any
+
+from backend.utils.clock import utcnow
 
 MEMORY_TYPES = {
     "fact",
@@ -137,10 +138,6 @@ def coerce_confidence(value: Any) -> float:
 
 def source_trust_weight(source: Any) -> float:
     return SOURCE_TRUST_WEIGHTS.get(str(source or "").lower(), 0.7)
-
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def query_tokens(text: str | None) -> set[str]:

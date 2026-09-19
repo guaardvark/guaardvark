@@ -19,10 +19,10 @@ import re
 import threading
 import time
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from backend.services.step_budget import StepBudget
+from backend.utils.clock import utcnow
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -3513,7 +3513,7 @@ Full toolbox awareness (SkillOpt-style skills + tools): You have access to a lar
             )
 
         return WorldState(
-            timestamp_iso=datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            timestamp_iso=utcnow().isoformat(timespec="seconds") + "Z",
             desktop_state=self._get_desktop_state(),
             dom_url=dom_url,
             dom_title=dom_title,

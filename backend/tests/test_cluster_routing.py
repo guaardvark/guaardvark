@@ -2,6 +2,7 @@ from backend.services.cluster_routing import (
     WorkerSlot, WorkloadRoute, RoutingTable, WORKLOAD_SPECS,
     stable_hash, compute_fleet_hash,
 )
+from backend.utils.clock import utcnow
 
 
 def test_workload_specs_keys():
@@ -35,8 +36,7 @@ def test_routing_table_round_trip():
                           primary="n1", fallback=["n2"], workers=[],
                           required_services=["ollama"], min_vram_mb=4096,
                           cpu_acceptable=False)
-    from datetime import datetime
-    t = RoutingTable(routes={"llm_chat": route}, computed_at=datetime.utcnow(),
+    t = RoutingTable(routes={"llm_chat": route}, computed_at=utcnow(),
                      computed_by="n1", node_count=2, fleet_hash="abc")
     d = t.to_dict()
     t2 = RoutingTable.from_dict(d)
@@ -52,9 +52,8 @@ def test_worker_slot_in_parallel_route():
                      primary=None, fallback=[], workers=ws,
                      required_services=["comfyui"], min_vram_mb=12288,
                      cpu_acceptable=False)
-    from datetime import datetime
     t = RoutingTable(routes={"video_generation": r},
-                     computed_at=datetime.utcnow(),
+                     computed_at=utcnow(),
                      computed_by="n1", node_count=2, fleet_hash="x")
     d = t.to_dict()
     t2 = RoutingTable.from_dict(d)
@@ -179,14 +178,13 @@ def test_spread_rule_avoids_stacking():
 
 def test_route_for_chat_prefers_loaded_model_node():
     from backend.services.cluster_routing import RoutingTable, WorkloadRoute
-    from datetime import datetime
     route = WorkloadRoute(
         workload="llm_chat", mode="singular",
         primary="n1", fallback=["n2"], workers=[],
         required_services=["ollama"], min_vram_mb=4096, cpu_acceptable=False,
     )
     table = RoutingTable(routes={"llm_chat": route},
-                         computed_at=datetime.utcnow(), computed_by="n1",
+                         computed_at=utcnow(), computed_by="n1",
                          node_count=2, fleet_hash="x")
     store = RoutingTableStore()
     store.set(table, persist=False)
@@ -204,13 +202,12 @@ def test_route_for_chat_prefers_loaded_model_node():
 
 def test_route_for_chat_without_model_returns_base():
     from backend.services.cluster_routing import RoutingTable, WorkloadRoute
-    from datetime import datetime
     route = WorkloadRoute(
         workload="llm_chat", mode="singular", primary="n1", fallback=["n2"],
         workers=[], required_services=["ollama"], min_vram_mb=4096,
         cpu_acceptable=False,
     )
-    table = RoutingTable(routes={"llm_chat": route}, computed_at=datetime.utcnow(),
+    table = RoutingTable(routes={"llm_chat": route}, computed_at=utcnow(),
                          computed_by="n1", node_count=2, fleet_hash="x")
     store = RoutingTableStore()
     store.set(table, persist=False)
@@ -220,12 +217,11 @@ def test_route_for_chat_without_model_returns_base():
 
 def test_store_persists_and_reloads(tmp_path):
     from backend.services.cluster_routing import RoutingTable, WorkloadRoute
-    from datetime import datetime
     route = WorkloadRoute(workload="llm_chat", mode="singular", primary="n1",
                           fallback=[], workers=[], required_services=["ollama"],
                           min_vram_mb=4096, cpu_acceptable=False)
     table = RoutingTable(routes={"llm_chat": route},
-                         computed_at=datetime.utcnow(), computed_by="n1",
+                         computed_at=utcnow(), computed_by="n1",
                          node_count=1, fleet_hash="abc")
     store = RoutingTableStore(persist_path=str(tmp_path / "table.json"))
     store.set(table, persist=True)

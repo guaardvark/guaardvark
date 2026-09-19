@@ -132,6 +132,7 @@ except Exception as _e:
     logging.getLogger(__name__).warning(f"Plugin-runner sidecar failed to start: {_e}")
     # Non-fatal — plugin_manager will fall back to direct subprocess.run
 
+from backend.utils.clock import utcnow
 from backend.utils.chat_utils import (
     DEFAULT_FALLBACK_SYSTEM_PROMPT,
     GLOBAL_DEFAULT_SYSTEM_PROMPT_RULE_NAME,
@@ -729,7 +730,7 @@ def _initialize_app_components(app):
                 metadata["status"] = "error"
                 metadata["message"] = _stale_error_message(metadata, comfyui_down)
                 metadata["is_complete"] = True
-                metadata["completion_time_utc"] = datetime.utcnow().isoformat()
+                metadata["completion_time_utc"] = utcnow().isoformat()
                 with open(metadata_file, "w") as f:
                     json.dump(metadata, f, indent=4)
                 if metadata.get("process_type") == "video_render":
