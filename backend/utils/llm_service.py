@@ -134,9 +134,15 @@ def get_llm_instance(
     # Falls through to the local Ollama instance otherwise (and on any error).
     try:
         from backend.services import llm_provider as _llm_provider
-        if _llm_provider.is_mistral_active():
-            from backend.services import mistral_provider
-            cloud_llm = mistral_provider.make_llamaindex_llm(_llm_provider.get_mistral_model())
+        _provider = _llm_provider.get_active_provider()
+        if _provider != _llm_provider.OLLAMA:
+            cloud_model = _llm_provider.get_active_cloud_model()
+            if _provider == _llm_provider.MISTRAL:
+                from backend.services import mistral_provider
+                cloud_llm = mistral_provider.make_llamaindex_llm(cloud_model)
+            else:
+                from backend.services import openai_provider
+                cloud_llm = openai_provider.make_llamaindex_llm(cloud_model)
             if cloud_llm is not None:
                 return cloud_llm  # type: ignore
     except Exception as e:  # noqa: BLE001 - never let provider logic break LLM access
@@ -479,8 +485,34 @@ def _default_chat_sampling():
     return temperature, profile
 
 
+def _openai_compatible_llm() -> Optional["Ollama"]:
+    """Return the OpenAI-compatible LLM when both GUAARDVARK_OPENAI_BASE_URL and
+    GUAARDVARK_OPENAI_MODEL are configured, else None.
+
+    Guards every local-Ollama factory so we never construct/load a local model
+    (squatting VRAM) when the main chat is routed to an OpenAI-compatible endpoint.
+    """
+    if not (os.environ.get("GUAARDVARK_OPENAI_BASE_URL") and os.environ.get("GUAARDVARK_OPENAI_MODEL")):
+        return None
+    try:
+        from backend.services import openai_provider
+        return openai_provider.make_llamaindex_llm()  # type: ignore[return-value]
+    except Exception as e:
+        logger.warning("OpenAI-compatible LLM init failed (%s); falling back to local", e)
+        return None
+
+
 def get_default_llm() -> Ollama:
-    """Instantiate and return the default Ollama LLM, preferring the saved active model."""
+    """Instantiate and return the default LLM.
+
+    When ``GUAARDVARK_OPENAI_BASE_URL`` + ``GUAARDVARK_OPENAI_MODEL`` are set, return the
+    OpenAI-compatible LLM instead of loading a local Ollama model (avoids squatting VRAM).
+    Otherwise instantiate the default Ollama LLM, preferring the saved active model.
+    """
+    openai_llm = _openai_compatible_llm()
+    if openai_llm is not None:
+        logger.info("get_default_llm: routed to OpenAI-compatible LLM; skipping local model load")
+        return openai_llm
     from backend.config import LLM_REQUEST_TIMEOUT, get_chat_keep_alive
     timeout_value = min(LLM_REQUEST_TIMEOUT, 180.0)
 
@@ -516,12 +548,24 @@ def get_default_llm() -> Ollama:
 
 
 def get_llm_for_startup() -> Ollama:
-    """Return an Ollama instance using the last active model if available.
+    """Return the LLM used for the main chat engine at startup.
 
-    Validates the chosen model is actually pulled in Ollama before returning.
-    If the saved model is missing (common after machine migration / restore),
-    fall through to the first installed model rather than warming up a ghost.
+    When ``GUAARDVARK_OPENAI_BASE_URL`` and ``GUAARDVARK_OPENAI_MODEL`` are both set
+    in .env, the main chat is routed through the OpenAI-compatible endpoint instead
+    of Ollama. Otherwise, fall back to an Ollama instance using the last active
+    model (validating it's actually pulled before returning; on a stale/missing
+    model, fall through to the first installed model rather than warming a ghost).
     """
+    # Route main chat through the OpenAI-compatible endpoint when both env vars
+    # are configured in .env. Falls back to Ollama if the LLM can't be built.
+    openai_llm = _openai_compatible_llm()
+    if openai_llm is not None:
+        logger.info(
+            "[LLM-Init] Main chat routed to OpenAI-compatible LLM (model=%s)",
+            os.environ.get("GUAARDVARK_OPENAI_MODEL"),
+        )
+        return openai_llm
+
     from backend.config import LLM_REQUEST_TIMEOUT, get_chat_keep_alive
 
     # Probe what Ollama actually has pulled — ground truth beats stored config.

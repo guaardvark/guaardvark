@@ -21,14 +21,15 @@ import {
   Divider,
   Alert
 } from '@mui/material';
-import { useSnackbar } from '../../contexts/SnackbarProvider';
-import apiService from '../../api/apiService';
+import { useSnackbar } from '../common/SnackbarProvider';
+import * as apiService from '../../api';
 import {
   getLlmProvider,
   setCloudModelsEnabled,
   setLlmProvider,
   getProviderModels,
   setMistralModel,
+  setOpenaiModel,
   testProviderConnection,
 } from '../../api/modelService';
 
@@ -50,9 +51,11 @@ const ModelManagementSection = ({
     provider: 'ollama',
     cloud_active: false,
     mistral_model: '',
+    openai_model: '',
     providers: [],
   });
   const [mistralModels, setMistralModels] = useState([]);
+  const [openaiModels, setOpenaiModels] = useState([]);
   const [providerBusy, setProviderBusy] = useState(false);
   const [testingConn, setTestingConn] = useState(false);
   const [testResult, setTestResult] = useState(null); // { ok, message }
@@ -64,11 +67,23 @@ const ModelManagementSection = ({
     (p) => p.id === 'mistral',
   );
   const mistralAvailable = !!mistralProvider?.available;
+  const openaiProvider = (providerState.providers || []).find(
+    (p) => p.id === 'openai',
+  );
+  const openaiAvailable = !!openaiProvider?.available;
 
   // Fetch the Mistral catalogue (best-effort; the toggles still work without it).
   const loadMistralModels = useCallback(async () => {
     try {
       setMistralModels(await getProviderModels('mistral'));
+    } catch {
+      /* model list is best-effort */
+    }
+  }, []);
+
+  const loadOpenaiModels = useCallback(async () => {
+    try {
+      setOpenaiModels(await getProviderModels('openai'));
     } catch {
       /* model list is best-effort */
     }
@@ -81,13 +96,15 @@ const ModelManagementSection = ({
         setProviderState((prev) => ({ ...prev, ...info }));
         if (info.cloud_models_enabled && info.provider === 'mistral') {
           loadMistralModels();
+        } else if (info.cloud_models_enabled && info.provider === 'openai') {
+          loadOpenaiModels();
         }
       }
     } catch (err) {
       // Endpoint missing / backend down — keep local defaults, don't spam the user.
       console.error('Failed to load LLM provider info:', err.message);
     }
-  }, [loadMistralModels]);
+  }, [loadMistralModels, loadOpenaiModels]);
 
   useEffect(() => {
     loadProvider();
@@ -111,7 +128,10 @@ const ModelManagementSection = ({
           : 'Cloud models disabled. Guaardvark is fully local again.',
         enabled ? 'warning' : 'success',
       );
-      if (enabled) loadMistralModels();
+      if (enabled) {
+        loadMistralModels();
+        loadOpenaiModels();
+      }
     } catch (err) {
       showMessage(`Could not change cloud models setting: ${err.message}`, 'error');
       await loadProvider();
@@ -132,13 +152,15 @@ const ModelManagementSection = ({
       } else {
         await loadProvider();
       }
-      showMessage(
+      const providerMsg =
         next === 'mistral'
           ? 'Chat now routes to Mistral (cloud API).'
-          : 'Chat now uses local Ollama.',
-        next === 'mistral' ? 'warning' : 'success',
-      );
+          : next === 'openai'
+            ? 'Chat now routes to the OpenAI-compatible provider.'
+            : 'Chat now uses local Ollama.';
+      showMessage(providerMsg, next === 'ollama' ? 'success' : 'warning');
       if (next === 'mistral' && mistralModels.length === 0) loadMistralModels();
+      if (next === 'openai' && openaiModels.length === 0) loadOpenaiModels();
     } catch (err) {
       showMessage(`Could not switch provider: ${err.message}`, 'error');
       await loadProvider();
@@ -165,7 +187,26 @@ const ModelManagementSection = ({
     } finally {
       setProviderBusy(false);
     }
+  };  // POST /api/llm/provider/openai-model — set the active OpenAI-compatible model.
+  const handleOpenaiModelChange = async (e) => {
+    const model = e.target.value;
+    setProviderBusy(true);
+    try {
+      const state = await setOpenaiModel(model);
+      if (state && typeof state === 'object' && state.provider) {
+        setProviderState((prev) => ({ ...prev, ...state }));
+      } else {
+        setProviderState((prev) => ({ ...prev, openai_model: model }));
+      }
+      showMessage(`OpenAI model set to ${model}.`, 'success');
+    } catch (err) {
+      showMessage(`Could not set OpenAI model: ${err.message}`, 'error');
+      await loadProvider();
+    } finally {
+      setProviderBusy(false);
+    }
   };
+
 
   // POST /api/llm/provider/test — live round-trip against the active provider.
   const handleTestConnection = async () => {
@@ -245,7 +286,7 @@ const ModelManagementSection = ({
 
   const handleRefreshModelsClick = () => {
     handleActionClick(
-      apiService.refreshModels,
+      apiService.getAvailableModels,
       [],
       null,
       "Refreshing available models...",
@@ -260,6 +301,12 @@ const ModelManagementSection = ({
     ? mistralModels
     : providerState.mistral_model
       ? [{ name: providerState.mistral_model, id: providerState.mistral_model }]
+      : [];
+
+  const openaiModelOptions = openaiModels.length
+    ? openaiModels
+    : providerState.openai_model
+      ? [{ name: providerState.openai_model, id: providerState.openai_model }]
       : [];
 
   return (
@@ -331,6 +378,19 @@ const ModelManagementSection = ({
                 </ToggleButton>
               </span>
             </Tooltip>
+            <Tooltip
+              title={
+                openaiAvailable
+                  ? "Route chat to your OpenAI-compatible provider"
+                  : `Set ${openaiProvider?.key_env || 'GUAARDVARK_OPENAI_API_KEY'} in .env to enable`
+              }
+            >
+              <span>
+                <ToggleButton value="openai" disabled={!openaiAvailable}>
+                  OpenAI-compatible (cloud)
+                </ToggleButton>
+              </span>
+            </Tooltip>
           </ToggleButtonGroup>
 
           {!mistralAvailable && (
@@ -342,6 +402,19 @@ const ModelManagementSection = ({
             >
               Mistral unavailable — set{' '}
               <code>{mistralProvider?.key_env || 'MISTRAL_API_KEY'}</code> in .env.
+            </Typography>
+          )}
+
+          {!openaiAvailable && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              display="block"
+              sx={{ mt: 0.5 }}
+            >
+              OpenAI-compatible unavailable — set{' '}
+              <code>{openaiProvider?.key_env || 'GUAARDVARK_OPENAI_API_KEY'}</code>
+              {' '}(and/or <code>GUAARDVARK_OPENAI_BASE_URL</code>) in .env.
             </Typography>
           )}
 
@@ -357,6 +430,51 @@ const ModelManagementSection = ({
                       onChange={handleMistralModelChange}
                     >
                       {mistralModelOptions.map((m) => (
+                        <MenuItem key={m.id || m.name} value={m.name}>
+                          {m.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    onClick={handleTestConnection}
+                    disabled={testingConn || providerBusy}
+                  >
+                    {testingConn ? (
+                      <CircularProgress size={22} />
+                    ) : (
+                      'Test Connection'
+                    )}
+                  </Button>
+                </Grid>
+              </Grid>
+              {testResult && (
+                <Alert
+                  severity={testResult.ok ? 'success' : 'error'}
+                  sx={{ mt: 2 }}
+                >
+                  {testResult.message}
+                </Alert>
+              )}
+            </Box>
+          )}
+
+          {activeProvider === 'openai' && (
+            <Box sx={{ mt: 2 }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={8}>
+                  <FormControl fullWidth size="small" disabled={providerBusy}>
+                    <InputLabel>OpenAI-compatible Model</InputLabel>
+                    <Select
+                      value={providerState.openai_model || ''}
+                      label="OpenAI-compatible Model"
+                      onChange={handleOpenaiModelChange}
+                    >
+                      {openaiModelOptions.map((m) => (
                         <MenuItem key={m.id || m.name} value={m.name}>
                           {m.name}
                         </MenuItem>
@@ -414,11 +532,14 @@ const ModelManagementSection = ({
               label="Select Model"
               onChange={(e) => setSelectedModel(e.target.value)}
             >
-              {availableModels.map((model) => (
-                <MenuItem key={model} value={model}>
-                  {model}
-                </MenuItem>
-              ))}
+              {availableModels.map((model) => {
+                const label = model?.name || model;
+                return (
+                  <MenuItem key={label} value={label}>
+                    {label}
+                  </MenuItem>
+                );
+              })}
             </Select>
           </FormControl>
         </Grid>

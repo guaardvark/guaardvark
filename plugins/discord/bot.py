@@ -71,12 +71,40 @@ class GuaardvarkBot(commands.Bot):
         intents.voice_states = True
         super().__init__(command_prefix=config.get("bot", {}).get("prefix", "!"), intents=intents)
         self.config = config
-        self.api_client = GuaardvarkClient(base_url=config["api"]["base_url"])
+        self.api_client = GuaardvarkClient(
+            base_url=config["api"]["base_url"],
+            voice_router_url=config.get("voice", {}).get("router_url", "http://localhost:8081"),
+        )
         # Serialise VIP greeting so two simultaneous interactions from the
         # same user don't both pass the "already greeted?" check, await
         # interaction.user.send(), and stamp duplicate DMs.
         self._vip_greet_lock = asyncio.Lock()
         self._vip_greeted_cache: set[int] = set()
+        self._patch_voice_recv_ssrc_bug()
+
+    @staticmethod
+    def _patch_voice_recv_ssrc_bug():
+        """Work around a bug in discord-ext-voice-recv 0.5.2a179.
+
+        VoiceRecvClient._remove_ssrc() dereferences self._reader.speaking_timer
+        without guarding against self._reader being the MISSING sentinel. When a
+        CLIENT_DISCONNECT / SPEAKING-off event arrives after stop_listening() (or
+        before a reader is attached), it raises AttributeError on the voice
+        websocket poller, killing the connection. Monkeypatch a guarded version.
+        """
+        try:
+            from discord.ext import voice_recv  # type: ignore
+
+            def _safe_remove_ssrc(self, *, user_id: int) -> None:
+                ssrc = self._id_to_ssrc.pop(user_id, None)
+                if ssrc and self._reader:
+                    self._reader.speaking_timer.drop_ssrc(ssrc)
+                    self._ssrc_to_id.pop(ssrc, None)
+
+            voice_recv.VoiceRecvClient._remove_ssrc = _safe_remove_ssrc
+            logger.info("Patched discord-ext-voice-recv _remove_ssrc bug")
+        except Exception as e:
+            logger.warning("Could not patch voice_recv _remove_ssrc: %s", e)
 
     async def setup_hook(self):
         await self.api_client.setup()

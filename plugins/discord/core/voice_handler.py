@@ -185,14 +185,13 @@ class VoiceHandler:
             wav_bytes = pcm_to_wav(pcm_data)
             t0 = time.monotonic()
             try:
-                stt_result = await self.api.speech_to_text(wav_bytes)
+                text = (await self.api.speech_to_text_router(wav_bytes)).strip()
             except APIError as e:
                 # 400 = "No speech detected" — benign (breath, cough, keyboard noise)
                 if e.status_code == 400:
                     logger.debug("No speech in %.1fs utterance from %s", utt_seconds, display_name)
                     return
                 raise
-            text = stt_result.get("text", "").strip()
             if not text:
                 return
             stt_s = time.monotonic() - t0
@@ -248,15 +247,9 @@ class VoiceHandler:
 
     async def speak(self, text: str):
         """TTS the text and play it in the connected voice channel."""
-        tts_result = await self.api.text_to_speech(text, voice=self.config.get("voice", {}).get("tts_voice", "ryan"))
-        audio_url = tts_result.get("audio_url")
-        if not audio_url and tts_result.get("filename"):
-            audio_url = f"/api/voice/audio/{tts_result['filename']}"
-        if not audio_url:
-            logger.warning("TTS returned no audio_url/filename: %s", tts_result)
-            return
-        logger.info("Voice TTS engine=%s url=%s", tts_result.get("engine", "?"), audio_url)
-        wav_audio = await self.api.fetch_audio_by_url(audio_url)
+        voice = self.config.get("voice", {}).get("tts_voice", "af_heart")
+        wav_audio = await self.api.text_to_speech_router(text, voice=voice)
+        logger.info("Voice TTS via router (voice=%s, %d bytes)", voice, len(wav_audio))
         await self._play_audio(wav_audio)
 
     async def _play_audio(self, wav_bytes: bytes):

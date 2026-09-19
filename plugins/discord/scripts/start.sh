@@ -59,6 +59,36 @@ LOG_DIR="$PROJECT_ROOT/logs"
 mkdir -p "$LOG_DIR"
 LOG_FILE="$LOG_DIR/discord_bot.log"
 
+# Optional: ensure the pi-omni voice stack (whisper:5800, kokoro:8880, router:8081).
+# Only runs when GUAARDVARK_START_VOICE_STACK=1. Health-gated and idempotent.
+# A marker file records that guaardvark started it, so stop.sh only stops it
+# when guaardvark owns it (not when pi-omni's run_ngrok.sh is managing it).
+VOICE_STACK_MARKER="$PROJECT_ROOT/pids/voice_stack.started"
+if [ "${GUAARDVARK_START_VOICE_STACK:-0}" = "1" ]; then
+    VOICE_START="$PROJECT_ROOT/../pi-omni-helper/voice-start.sh"
+    if [ ! -f "$VOICE_START" ]; then
+        echo "Warning: $VOICE_START not found — voice stack disabled"
+    elif curl -sf http://127.0.0.1:8081/health >/dev/null 2>&1; then
+        echo "Voice stack already running (router:8081 healthy)"
+    else
+        echo "Starting pi-omni voice stack (whisper:5800, kokoro:8880, router:8081)..."
+        : > "$LOG_DIR/voice-stack.log"
+        nohup bash "$VOICE_START" > "$LOG_DIR/voice-stack.log" 2>&1 &
+        # poll up to 90s for the router to become healthy
+        for i in $(seq 1 45); do
+            if curl -sf http://127.0.0.1:8081/health >/dev/null 2>&1; then
+                echo "Voice stack healthy"
+                touch "$VOICE_STACK_MARKER"
+                break
+            fi
+            sleep 2
+        done
+        if ! curl -sf http://127.0.0.1:8081/health >/dev/null 2>&1; then
+            echo "Warning: voice stack not healthy after 90s — check $LOG_DIR/voice-stack.log"
+        fi
+    fi
+fi
+
 echo "Starting Discord Bot..."
 echo "Plugin dir: $PLUGIN_ROOT"
 echo "Health port: $HEALTH_PORT"

@@ -38,6 +38,13 @@ class VoiceCog(commands.Cog):
             embed = discord.Embed(title="Voice Connected", description=f"Joined **{channel.name}**. Speak and I'll respond!", color=discord.Color.green())
             embed.set_footer(text="Use /voice leave to disconnect")
             await interaction.response.send_message(embed=embed)
+            # Spoken welcome — announce in the voice channel via TTS, alongside the embed.
+            greeting = (self.config.get("voice", {}).get("join_greeting") or "").strip()
+            if greeting:
+                try:
+                    await handler.speak(greeting)
+                except Exception:
+                    logger.exception("Failed to speak join greeting")
         else:
             await interaction.response.send_message("Failed to join voice channel.", ephemeral=True)
 

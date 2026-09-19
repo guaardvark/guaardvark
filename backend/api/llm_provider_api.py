@@ -60,6 +60,14 @@ def list_provider_models():
             return error_response("Mistral API key not configured (set MISTRAL_API_KEY in .env).", 400)
         from backend.services import mistral_provider
         return success_response(data={"provider": provider, "models": mistral_provider.list_models()})
+    if provider == lp.OPENAI:
+        if not lp.provider_available(lp.OPENAI):
+            return error_response(
+                "OpenAI-compatible provider not configured (set GUAARDVARK_OPENAI_API_KEY / GUAARDVARK_OPENAI_BASE_URL in .env).",
+                400,
+            )
+        from backend.services import openai_provider
+        return success_response(data={"provider": provider, "models": openai_provider.list_models()})
     # Ollama listing already has a dedicated endpoint; point callers there.
     return success_response(data={"provider": provider, "models": [], "see": "/api/model/list"})
 
@@ -76,18 +84,39 @@ def set_mistral_model():
     return success_response(data={"mistral_model": model}, message=f"Mistral model set to {model}")
 
 
+@llm_provider_bp.route("/provider/openai-model", methods=["POST"])
+def set_openai_model():
+    """Set the active OpenAI-compatible model. Body: {"model": "gpt-4o"}."""
+    from backend.services import llm_provider as lp
+    body = request.get_json(silent=True) or {}
+    try:
+        model = lp.set_openai_model(body.get("model", ""))
+    except ValueError as e:
+        return error_response(str(e), 400)
+    return success_response(data={"openai_model": model}, message=f"OpenAI model set to {model}")
+
+
 @llm_provider_bp.route("/provider/test", methods=["POST"])
 def test_mistral():
-    """Live round-trip against Mistral to confirm the key/model work."""
+    """Live round-trip against the ACTIVE cloud provider to confirm key/model work."""
     from backend.services import llm_provider as lp
-    if not lp.mistral_available():
-        return error_response("Mistral API key not configured (set MISTRAL_API_KEY in .env).", 400)
-    from backend.services import mistral_provider
+    provider = lp.get_active_provider()
+    if provider == lp.OLLAMA or provider not in lp.CLOUD_PROVIDERS:
+        return error_response("No active cloud provider selected to test.", 400)
+    if not lp.provider_available(provider):
+        env = lp.CLOUD_PROVIDERS[provider]["key_env"]
+        return error_response(
+            f"{lp.CLOUD_PROVIDERS[provider]['label']} not configured (set {env} in .env).", 400)
+    model = lp.get_active_cloud_model()
+    if provider == lp.MISTRAL:
+        from backend.services import mistral_provider as provider_mod
+    else:
+        from backend.services import openai_provider as provider_mod
     try:
-        text = mistral_provider.complete(
+        text = provider_mod.complete(
             "Reply with exactly: Connection successful",
-            model=lp.get_mistral_model(),
+            model=model,
         )
     except Exception as e:  # noqa: BLE001
-        return error_response(f"Mistral request failed: {e}", 503)
-    return success_response(data={"connected": True, "response": text, "model": lp.get_mistral_model()})
+        return error_response(f"{provider} request failed: {e}", 503)
+    return success_response(data={"connected": True, "response": text, "model": model, "provider": provider})

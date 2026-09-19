@@ -40,7 +40,7 @@ import {
   cancelMusicVideo,
 } from "../api/musicVideoService";
 import { getAllPluginStatus } from "../api/pluginsService";
-import { getAvailableModels } from "../api/modelService";
+import { getAvailableModels, getLlmProvider, getProviderModels } from "../api/modelService";
 import GpuGateBanner from "../components/common/GpuGateBanner";
 import useJobsGate from "../hooks/useJobsGate";
 import { useUnifiedProgress } from "../contexts/UnifiedProgressContext";
@@ -52,7 +52,7 @@ const DEFAULT_KEYFRAME_MODEL = "flux-schnell";
 
 // Local presentational + interactive component for the cut plan + Director prompts.
 // Keeps the main page component from exploding in size.
-function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, onGenerateStoryboards, onRegenStoryboard, comfyReady = true, comfyDisabled = false, comfyInfo = null, gpuBlocked = false }) {
+function PlanViewer({ detail, busy, models = [], cloudModels = [], onSavePlan, onRegeneratePlan, onGenerateStoryboards, onRegenStoryboard, comfyReady = true, comfyDisabled = false, comfyInfo = null, gpuBlocked = false }) {
   const cutPlan = detail.cut_plan || [];
   const clips = detail.clips || [];
   const isEditable = detail.current_stage === "awaiting_approval";
@@ -96,6 +96,9 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
   // Director-model options come from the installed models (embedding models filtered out).
   // Fall back to a small static list if the model API is unavailable. Always keep the default
   // and the currently-selected value selectable so the MUI Select value never goes orphaned.
+  // .env-configured OpenAI-compatible model(s), surfaced into the Director dropdown.
+  const cloudModelSet = useMemo(() => new Set((Array.isArray(cloudModels) ? cloudModels : [])
+         .map((m) => String(m).trim()).filter(Boolean).filter((m) => !isLikelyEmbeddingModel(m))), [cloudModels]);
   const directorModelOptions = useMemo(() => {
     const fromApi = (Array.isArray(models) ? models : [])
       .map((m) => (typeof m === "string" ? m : m?.name || m?.model))
@@ -103,10 +106,12 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
       .filter((m) => !isLikelyEmbeddingModel(m));
     const base = fromApi.length ? fromApi : ["gemma4:e4b", "gemma4:e2b", "gemma3:latest"];
     const ensured = new Set(base);
+          // include .env OpenAI-compatible model(s)
+      cloudModelSet.forEach((m) => ensured.add(m));
     ensured.add("gemma4:e4b");
     if (directorModel && !isLikelyEmbeddingModel(directorModel)) ensured.add(directorModel);
     return Array.from(ensured);
-  }, [models, directorModel]);
+  }, [models, cloudModelSet, directorModel]);
 
   const handleRegenStoryboard = async (index) => {
     // Bump version immediately to change the <img> src (adds ?v=N).
@@ -553,7 +558,9 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
             >
               {directorModelOptions.map((m) => (
                 <MenuItem key={m} value={m}>
-                  {m === "gemma4:e4b" ? "gemma4:e4b (default small)" : m}
+                  {m === "gemma4:e4b" ? "gemma4:e4b (default small)"
+                      : cloudModelSet.has(m) ? `${m} (cloud · .env)`
+                      : m}
                 </MenuItem>
               ))}
             </TextField>
@@ -625,6 +632,7 @@ const MusicVideoPage = () => {
   const [error, setError] = useState(null);
   const [pluginStatus, setPluginStatus] = useState(null); // {comfyui_reachable, ...} or {status:{comfyui:'stopped',...}} or {plugins:[...]} for storyboard guards
   const [models, setModels] = useState([]); // installed Ollama models for the director-model dropdown (embedding models filtered backend-side)
+  const [cloudModels, setCloudModels] = useState([]); // OpenAI-compatible (.env) models for the director dropdown
   const fileInputRef = useRef(null);
 
   // Load installed chat models once so the director-model dropdown only offers models that
@@ -641,6 +649,42 @@ const MusicVideoPage = () => {
     return () => { mounted = false; };
   }, []);
 
+
+            // Load the OpenAI-compatible model(s) from .env (GUAARDVARK_OPENAI_MODEL via
+            // GUAARDVARK_OPENAI_BASE_URL) so the Director dropdown offers the .env-configured
+            // cloud model the backend Director already prefers when available. Best-effort /
+            // silent: when it isn't configured the dropdown shows local Ollama only.
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+        try {
+          const state = await getLlmProvider();
+          if (!mounted) return;
+          const providers = Array.isArray(state?.providers) ? state.providers : [];
+          const openai = providers.find((x) => x?.id === "openai");
+          if (!openai?.available) return;
+
+                // Show the .env model first so the dropdown updates immediately; the
+                // optional remote catalogue (if any) only augments it.
+          const ids = new Set();
+          if (state?.openai_model) ids.add(String(state.openai_model).trim());
+          if (ids.size) setCloudModels(Array.from(ids));
+          try {
+            const cat = await getProviderModels("openai");
+            if (!mounted) return;
+            const merged = new Set(ids);
+             (Array.isArray(cat) ? cat : []).forEach((m) => {
+              const id = typeof m === "string" ? m : m?.id || m?.name;
+              if (id) merged.add(String(id).trim());
+              });
+            setCloudModels(Array.from(merged));
+            } catch { /* live catalogue fetch is best-effort; .env model already shown */ }
+        } catch {
+          /* provider endpoint missing / backend down — keep local Ollama only */
+        }
+    })();
+    return () => { mounted = false; };
+  }, []);
   // Lightweight plugin status poll (for storyboard guards; no full WS subscribe here to keep quiet)
   useEffect(() => {
     let mounted = true;
@@ -1438,6 +1482,7 @@ const MusicVideoPage = () => {
                   busy={busy}
                   gpuBlocked={gpuBusy}
                   models={models}
+                  cloudModels={cloudModels}
                   comfyReady={comfyReady}
                   comfyDisabled={comfyDisabled}
                   comfyInfo={comfyInfo}

@@ -1853,6 +1853,26 @@ class UnifiedChatEngine:
             logger.warning("edit_image: could not materialize attached image: %s", e)
             return None
 
+    def _maybe_smart_escalate(self, message: str, conversation_history: List[Dict[str, str]]) -> Optional[str]:
+        """When escalation mode is 'smart', ask the escalation provider (Uncle Claude or
+        any configured cloud provider) to answer the user's message. Returns the reply
+        text, or None if smart mode is off / no provider is configured / the call fails.
+        Used when the local LLM failed to produce a usable response."""
+        try:
+            from backend.utils.settings_utils import get_setting
+            if get_setting("claude_escalation_mode", default="manual") != "smart":
+                return None
+            from backend.services.claude_advisor_service import get_claude_advisor
+            advisor = get_claude_advisor()
+            if not advisor.is_available():
+                return None
+            result = advisor.escalate(message, list(conversation_history or []))
+            if result.get("available") and result.get("response"):
+                return result["response"]
+        except Exception as e:
+            logger.warning("smart escalation failed: %s", e)
+        return None
+
     def _run_chat(self, session_id: str, message: str, options: Dict[str, Any],
                   emit_fn: Callable, request_id: str, steps: List) -> Dict[str, Any]:
         """Internal chat execution with app context assumed."""
@@ -2314,6 +2334,21 @@ class UnifiedChatEngine:
                     friendly_error = f"LLM error: {error_str}"
 
                 emit_fn("chat:error", {"error": friendly_error, "session_id": session_id})
+
+                # Smart escalation: the local LLM failed. If smart mode is on and an
+                # escalation provider is configured, answer via the provider instead.
+                smart_resp = self._maybe_smart_escalate(message, [])
+                if smart_resp:
+                    emit_fn("chat:complete", {
+                        "response": smart_resp, "iterations": iteration,
+                        "steps": steps, "session_id": session_id, "aborted": False,
+                    })
+                    return {
+                        "success": True, "response": smart_resp,
+                        "request_id": request_id, "iterations": iteration,
+                        "escalated": True,
+                    }
+
                 return {
                     "success": False, "error": friendly_error,
                     "request_id": request_id, "iterations": iteration
@@ -2984,6 +3019,13 @@ class UnifiedChatEngine:
                         logger.info("[UNIFIED_ENGINE] Escalation mode=always, routed through Claude")
             except Exception as e:
                 logger.warning(f"[UNIFIED_ENGINE] Escalation always-mode failed, using local response: {e}")
+        elif escalation_mode == "smart" and not accumulated_response.strip():
+            # Smart mode: the local loop finished but produced no usable answer —
+            # escalate to the configured provider as a fallback.
+            smart_resp = self._maybe_smart_escalate(message, history)
+            if smart_resp:
+                accumulated_response = smart_resp
+                logger.info("[UNIFIED_ENGINE] Escalation mode=smart (local failed), routed through escalation provider")
 
         # 6c. Host finalizer: options["finalize_fn"](response, steps) -> str.
         # Runs before the response is emitted or saved, so a host can audit and
@@ -4058,17 +4100,16 @@ class UnifiedChatEngine:
         # loop below is provider-agnostic because mistral_provider.chat() yields
         # chunks in the same shape ollama.chat() does.
         from backend.services import llm_provider as _llm_provider
-        _use_mistral = _llm_provider.is_mistral_active()
+        _active_provider = _llm_provider.get_active_provider()
+        _use_cloud = _active_provider != _llm_provider.OLLAMA
 
         model_name = getattr(self.llm, "model", "gemma4:e4b")
         # Provider dispatch: when the master cloud toggle is on AND a cloud
         # provider is selected, route generation to its API. The streaming loop
-        # below is provider-agnostic — mistral_provider.chat() yields chunks in
-        # the same shape ollama.chat() does.
-        from backend.services import llm_provider as _llm_provider
-        _use_cloud = _llm_provider.is_mistral_active()
+        # below is provider-agnostic — mistral_provider/openai_provider.chat()
+        # yield chunks in the same shape ollama.chat() does.
         if _use_cloud:
-            model_name = _llm_provider.get_mistral_model()
+            model_name = _llm_provider.get_active_cloud_model()
 
         # Prioritize LLM load via orchestrator. This helps prevent image/video
         # jobs from evicting the chat model mid-analysis (the cause of the
@@ -4225,13 +4266,22 @@ class UnifiedChatEngine:
                 self._native_pending_tool_calls = None
 
             if _use_cloud:
-                from backend.services import mistral_provider
-                stream = mistral_provider.chat(
-                    model=model_name,
-                    messages=call_messages,
-                    stream=True,
-                    options=opts,
-                )
+                if _active_provider == _llm_provider.MISTRAL:
+                    from backend.services import mistral_provider
+                    stream = mistral_provider.chat(
+                        model=model_name,
+                        messages=call_messages,
+                        stream=True,
+                        options=opts,
+                    )
+                else:
+                    from backend.services import openai_provider
+                    stream = openai_provider.chat(
+                        model=model_name,
+                        messages=call_messages,
+                        stream=True,
+                        options=opts,
+                    )
             else:
                 from backend.config import get_chat_keep_alive
                 _chat_kwargs = dict(

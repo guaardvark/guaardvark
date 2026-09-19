@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 class GuaardvarkClient:
     """Async HTTP client for communicating with the Guaardvark backend API."""
 
-    def __init__(self, base_url: str = "http://localhost:5000/api"):
+    def __init__(self, base_url: str = "http://localhost:5000/api", voice_router_url: str = "http://localhost:8081"):
         self.base_url = base_url.rstrip("/")
+        self.voice_router_url = voice_router_url.rstrip("/")
         self.session: Optional[aiohttp.ClientSession] = None
 
     @property
@@ -307,6 +308,29 @@ class GuaardvarkClient:
         if not resolved:
             raise APIError(f"Refusing to fetch non-local URL: {url}", 400)
         async with self.session.get(resolved) as resp:
+            if resp.status >= 400:
+                raise APIError(await resp.text(), resp.status)
+            return await resp.read()
+
+    # --- Voice via pi-omni router (OpenAI-compatible) ---
+    async def speech_to_text_router(self, audio_bytes: bytes) -> str:
+        """POST /v1/audio/transcriptions on the pi-omni router (whisper.cpp)."""
+        form = aiohttp.FormData()
+        form.add_field("file", audio_bytes, filename="audio.wav", content_type="audio/wav")
+        async with self.session.post(
+            f"{self.voice_router_url}/v1/audio/transcriptions", data=form
+        ) as resp:
+            if resp.status >= 400:
+                raise APIError(await resp.text(), resp.status)
+            data = await resp.json()
+            return data.get("text", "")
+
+    async def text_to_speech_router(self, text: str, voice: str = "af_heart") -> bytes:
+        """POST /v1/audio/speech on the pi-omni router (Kokoro). Returns raw audio bytes."""
+        payload = {"model": "tts-1", "input": text, "voice": voice}
+        async with self.session.post(
+            f"{self.voice_router_url}/v1/audio/speech", json=payload
+        ) as resp:
             if resp.status >= 400:
                 raise APIError(await resp.text(), resp.status)
             return await resp.read()

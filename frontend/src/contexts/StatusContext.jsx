@@ -9,7 +9,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { getCurrentModel, getModelStatus } from "../api";
+import { getCurrentModel, getModelStatus, getLlmProvider } from "../api";
 import { useHealth } from "./HealthContext";
 
 // 1. Create the Context
@@ -44,6 +44,22 @@ export const StatusProvider = ({ children }) => {
         } catch (_) {
           // Not valid JSON, use as-is
         }
+      }
+
+      // When a cloud LLM provider is live, chat is served by the cloud model, so
+      // surface that (e.g. deepseek-v4-flash:cloud) instead of the local Ollama
+      // active model in the header / status bars.
+      try {
+        const provider = await getLlmProvider();
+        if (provider && provider.cloud_active) {
+          if (provider.provider === "mistral" && provider.mistral_model) {
+            modelName = provider.mistral_model;
+          } else if (provider.provider === "openai" && provider.openai_model) {
+            modelName = provider.openai_model;
+          }
+        }
+      } catch (_) {
+        // best-effort: keep the local active model if provider state is unavailable
       }
 
       setActiveModel(modelName || "N/A");

@@ -13,6 +13,8 @@ import threading
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+import requests
+
 from backend.config import GUAARDVARK_PROJECT_NAME
 from backend.utils.settings_utils import get_setting, save_setting
 
@@ -42,9 +44,25 @@ class ClaudeAdvisorService:
             return
         self._initialized = True
 
+        # Escalation provider selection. Supports Anthropic natively (back-compat)
+        # plus ANY OpenAI-compatible chat-completions endpoint (OpenAI, OpenRouter,
+        # Groq, Together, Ollama's OpenAI compat, Google's native OpenAI-compat, ...).
+        #   GUAARDVARK_ESCALATION_PROVIDER = auto | anthropic | openai | openrouter | ollama | generic
+        #   GUAARDVARK_ESCALATION_MODEL        escalation model name
+        #   GUAARDVARK_ESCALATION_API_KEY     API key for OpenAI-compatible providers
+        #   GUAARDVARK_ESCALATION_BASE_URL    base URL for OpenAI-compatible providers
+        #   (legacy) ANTHROPIC_API_KEY + GUAARDVARK_CLAUDE_MODEL -> anthropic
+        self._provider = (os.environ.get("GUAARDVARK_ESCALATION_PROVIDER", "auto") or "auto").strip().lower()
+        self._escalation_api_key = os.environ.get("GUAARDVARK_ESCALATION_API_KEY", "").strip() or None
+        self._escalation_base_url = os.environ.get("GUAARDVARK_ESCALATION_BASE_URL", "").strip() or None
+        self._escalation_model = os.environ.get("GUAARDVARK_ESCALATION_MODEL", "").strip() or None
+
         self._api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip() or None
-        self._client = None
-        self._model = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
+        self._client = None  # Anthropic client, only when provider == anthropic
+        self._model = (
+            self._escalation_model
+            or os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
+        )
         self._max_output_tokens = int(os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096"))
         self._monthly_budget = int(os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000"))
         self._escalation_mode = get_setting("claude_escalation_mode", default="manual")
@@ -53,19 +71,43 @@ class ClaudeAdvisorService:
         self._usage_reset_date = datetime.now().replace(day=1, hour=0, minute=0, second=0)
         self._usage_lock = threading.Lock()
 
-        if self._api_key:
-            try:
-                import anthropic
-                self._client = anthropic.Anthropic(api_key=self._api_key)
-                logger.info("ClaudeAdvisorService initialized with API key")
-            except ImportError:
-                logger.warning("anthropic package not installed — pip install anthropic")
-                self._client = None
-            except Exception as e:
-                logger.error(f"Failed to initialize Anthropic client: {e}")
-                self._client = None
+        # Resolve the effective provider: "anthropic" | "openai_compat" | None
+        self._effective_provider: Optional[str] = None
+        provider = self._provider
+        if provider == "auto":
+            if self._escalation_base_url:
+                provider = "openai_compat"
+            elif self._api_key:
+                provider = "anthropic"
+            else:
+                provider = "none"
+        elif provider in ("openai", "openrouter", "ollama", "generic"):
+            provider = "openai_compat"
+
+        if provider == "anthropic":
+            if self._api_key:
+                try:
+                    import anthropic
+                    self._client = anthropic.Anthropic(api_key=self._api_key)
+                    self._effective_provider = "anthropic"
+                    logger.info("ClaudeAdvisorService initialized with Anthropic provider")
+                except ImportError:
+                    logger.warning("anthropic package not installed — pip install anthropic")
+                except Exception as e:
+                    logger.error(f"Failed to initialize Anthropic client: {e}")
+            else:
+                logger.warning("Escalation provider=anthropic but no ANTHROPIC_API_KEY set.")
+        elif provider == "openai_compat":
+            if self._escalation_base_url:
+                self._effective_provider = "openai_compat"
+                logger.info(
+                    "ClaudeAdvisorService initialized with OpenAI-compatible provider: %s",
+                    self._escalation_base_url,
+                )
+            else:
+                logger.warning("OpenAI-compatible escalation provider selected but no GUAARDVARK_ESCALATION_BASE_URL set.")
         else:
-            logger.info("ClaudeAdvisorService initialized without API key (offline mode)")
+            logger.info("ClaudeAdvisorService initialized without a cloud provider (offline mode)")
 
         self._load_persisted_usage()
 
@@ -83,6 +125,10 @@ class ClaudeAdvisorService:
                 self._usage_reset_date = datetime.now().replace(day=1, hour=0, minute=0, second=0)
 
     def is_available(self) -> bool:
+        if getattr(self, "_effective_provider", None) is not None:
+            return True
+        # Compatibility: bare instances built without __init__ (e.g. in tests) that
+        # set _api_key/_client directly behave as the Anthropic provider.
         return self._api_key is not None and self._client is not None
 
     def _check_budget(self) -> bool:
@@ -118,6 +164,50 @@ class ClaudeAdvisorService:
                 (self._usage["total_tokens"] / self._monthly_budget) * 100, 1
             ) if self._monthly_budget > 0 else 0,
         }
+
+    def _complete(self, system: str, messages: List[Dict[str, str]], max_tokens: int) -> str:
+        """Call the resolved escalation provider with a system prompt + message list and
+        return the text reply. Tracks token usage internally."""
+        if getattr(self, "_effective_provider", None) == "anthropic" or (
+            getattr(self, "_effective_provider", None) is None and getattr(self, "_client", None) is not None
+        ):
+            resp = self._client.messages.create(
+                model=self._model,
+                max_tokens=max_tokens,
+                system=system,
+                messages=messages,
+            )
+            self._track_usage(
+                input_tokens=resp.usage.input_tokens,
+                output_tokens=resp.usage.output_tokens,
+            )
+            return resp.content[0].text
+
+        if self._effective_provider == "openai_compat":
+            url = self._escalation_base_url.rstrip("/") + "/chat/completions"
+            headers = {"Content-Type": "application/json"}
+            if self._escalation_api_key:
+                headers["Authorization"] = f"Bearer {self._escalation_api_key}"
+            body = {
+                "model": self._model,
+                "messages": [{"role": "system", "content": system}] + messages,
+                "max_tokens": max_tokens,
+            }
+            r = requests.post(url, json=body, headers=headers, timeout=180)
+            r.raise_for_status()
+            data = r.json()
+            text = ((data.get("choices") or [{}])[0].get("message", {}) or {}).get("content") or ""
+            try:
+                u = data.get("usage") or {}
+                self._track_usage(
+                    input_tokens=u.get("prompt_tokens", 0),
+                    output_tokens=u.get("completion_tokens", 0),
+                )
+            except Exception:
+                pass
+            return text
+
+        raise RuntimeError("No escalation provider configured")
 
     def _build_system_context(self) -> str:
         return (
@@ -162,26 +252,12 @@ class ClaudeAdvisorService:
             if system_context:
                 system_prompt += f"\n\nCurrent system context:\n{system_context}"
 
-            response = self._client.messages.create(
-                model=self._model,
-                max_tokens=self._max_output_tokens,
-                system=system_prompt,
-                messages=messages,
-            )
-
-            self._track_usage(
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-            )
+            response_text = self._complete(system_prompt, messages, self._max_output_tokens)
 
             return {
                 "available": True,
-                "response": response.content[0].text,
+                "response": response_text,
                 "model": self._model,
-                "usage": {
-                    "input_tokens": response.usage.input_tokens,
-                    "output_tokens": response.usage.output_tokens,
-                },
             }
         except Exception as e:
             logger.error(f"Claude escalation failed: {e}", exc_info=True)
@@ -211,6 +287,18 @@ class ClaudeAdvisorService:
             system_prompt = self._build_system_context()
             if system_context:
                 system_prompt += f"\n\nCurrent system context:\n{system_context}"
+
+            # OpenAI-compatible providers have no native streaming here — emit the
+            # whole response as a single token chunk.
+            if self._effective_provider == "openai_compat":
+                response_text = self._complete(system_prompt, messages, self._max_output_tokens)
+                if emit_fn and response_text:
+                    emit_fn("chat:token", {
+                        "content": response_text,
+                        "session_id": session_id,
+                        "source": "uncle_claude",
+                    })
+                return response_text or None
 
             full_response = ""
             input_tokens = 0
@@ -288,19 +376,11 @@ class ClaudeAdvisorService:
                 f"recursive self-modification of protected files)."
             )
 
-            response = self._client.messages.create(
-                model=self._model,
-                max_tokens=1024,
-                system=self._build_system_context(),
-                messages=[{"role": "user", "content": review_prompt}],
-            )
-
-            self._track_usage(
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-            )
-
-            response_text = response.content[0].text.strip()
+            response_text = self._complete(
+                self._build_system_context(),
+                [{"role": "user", "content": review_prompt}],
+                1024,
+            ).strip()
             if response_text.startswith("```"):
                 response_text = response_text.split("```")[1]
                 if response_text.startswith("json"):
@@ -354,19 +434,11 @@ class ClaudeAdvisorService:
                 '"action": "..."}], "overall_health": "good"|"warning"|"critical"}'
             )
 
-            response = self._client.messages.create(
-                model=self._model,
-                max_tokens=2048,
-                system=self._build_system_context(),
-                messages=[{"role": "user", "content": advice_prompt}],
-            )
-
-            self._track_usage(
-                input_tokens=response.usage.input_tokens,
-                output_tokens=response.usage.output_tokens,
-            )
-
-            response_text = response.content[0].text.strip()
+            response_text = self._complete(
+                self._build_system_context(),
+                [{"role": "user", "content": advice_prompt}],
+                2048,
+            ).strip()
             if response_text.startswith("```"):
                 response_text = response_text.split("```")[1]
                 if response_text.startswith("json"):

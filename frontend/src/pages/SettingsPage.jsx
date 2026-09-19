@@ -25,6 +25,7 @@ import PurgeIndexModal from "../components/modals/PurgeIndexModal";
 import ThemeSelectorModal from "../components/modals/ThemeSelectorModal";
 import UncleClaudeSection from "../components/settings/UncleClaudeSection";
 import AgentDisplaySection from "../components/settings/AgentDisplaySection";
+import ModelManagementSection from "../components/settings/ModelManagementSection";
 import KillSwitchModal from "../components/modals/KillSwitchModal";
 import RebootProgressModal from "../components/modals/RebootProgressModal";
 import ImageModelsModal from "../components/modals/ImageModelsModal";
@@ -2722,6 +2723,15 @@ const SettingsPage = () => {
           </ActionButton>
         </Line>
       </Cluster>
+
+      <ModelManagementSection
+        availableModels={availableModels}
+        selectedModel={selectedModel}
+        setSelectedModel={setSelectedModel}
+        activeModel={activeModel}
+        isLoading={isLoading}
+        refreshActiveModel={refreshActiveModel}
+      />
     </SettingsPanel>
   );
 

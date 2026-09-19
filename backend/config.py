@@ -332,6 +332,14 @@ MISTRAL_BASE_URL = os.environ.get("GUAARDVARK_MISTRAL_BASE_URL", "https://api.mi
 MISTRAL_DEFAULT_MODEL = os.environ.get("GUAARDVARK_MISTRAL_MODEL", "mistral-large-latest").strip()
 MISTRAL_REQUEST_TIMEOUT = int(os.environ.get("GUAARDVARK_MISTRAL_TIMEOUT", "120"))
 
+# OpenAI-compatible chat provider — one client covers OpenAI, OpenRouter, Groq,
+# Together, vLLM, and Ollama's OpenAI-compat endpoint. Base URL is the only thing
+# that changes between them (e.g. https://api.openai.com/v1, https://openrouter.ai/api/v1).
+OPENAI_API_KEY = (os.environ.get("GUAARDVARK_OPENAI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")).strip()
+OPENAI_BASE_URL = os.environ.get("GUAARDVARK_OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+OPENAI_DEFAULT_MODEL = os.environ.get("GUAARDVARK_OPENAI_MODEL", "gpt-4o-mini").strip()
+OPENAI_REQUEST_TIMEOUT = int(os.environ.get("GUAARDVARK_OPENAI_TIMEOUT", "120"))
+
 # GPU Memory Orchestrator settings
 GPU_QUALITY_TIER = os.environ.get("GUAARDVARK_GPU_QUALITY_TIER", "balanced")
 GPU_EVICTION_GRACE_SECONDS = int(os.environ.get("GUAARDVARK_GPU_EVICTION_GRACE", "30"))

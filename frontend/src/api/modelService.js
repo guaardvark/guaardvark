@@ -134,6 +134,18 @@ export const setMistralModel = async (model) => {
   return unwrapProvider(data);
 };
 
+// POST /api/llm/provider/openai-model -> set active OpenAI-compatible model.
+export const setOpenaiModel = async (model) => {
+  const response = await fetch(`${BASE_URL}/llm/provider/openai-model`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ model }),
+  });
+  const data = await handleResponse(response);
+  if (data?.error) throw new Error(data?.error?.message || data.error);
+  return unwrapProvider(data);
+};
+
 // POST /api/llm/provider/test -> live round-trip.
 // { connected, response, model } or an error.
 export const testProviderConnection = async () => {

@@ -31,9 +31,11 @@ logger = logging.getLogger(__name__)
 
 OLLAMA = "ollama"
 MISTRAL = "mistral"
+OPENAI = "openai"
 
 _PROVIDER_KEY = "llm_provider"
 _MISTRAL_MODEL_KEY = "mistral_active_model"
+_OPENAI_MODEL_KEY = "openai_active_model"
 _CLOUD_ENABLED_KEY = "cloud_models_enabled"
 
 
@@ -46,11 +48,26 @@ def _mistral_available() -> bool:
     return bool(config.MISTRAL_API_KEY)
 
 
+def _openai_available() -> bool:
+    if config.OPENAI_API_KEY:
+        return True
+    # Allow keyless OpenAI-compatible endpoints (e.g. local Ollama / vLLM on /v1).
+    return bool(
+        config.OPENAI_BASE_URL
+        and config.OPENAI_BASE_URL != "https://api.openai.com/v1"
+    )
+
+
 CLOUD_PROVIDERS: Dict[str, Dict] = {
     MISTRAL: {
         "label": "Mistral (cloud)",
         "key_env": "MISTRAL_API_KEY",
         "available_fn": _mistral_available,
+    },
+    OPENAI: {
+        "label": "OpenAI-compatible (cloud)",
+        "key_env": "GUAARDVARK_OPENAI_API_KEY",
+        "available_fn": _openai_available,
     },
 }
 
@@ -183,6 +200,35 @@ def is_mistral_active() -> bool:
 
 
 # ---------------------------------------------------------------------------
+# OpenAI-compatible model selection
+# ---------------------------------------------------------------------------
+def get_openai_model() -> str:
+    return _get_setting(_OPENAI_MODEL_KEY) or config.OPENAI_DEFAULT_MODEL
+
+
+def set_openai_model(model: str) -> str:
+    model = (model or "").strip()
+    if not model:
+        raise ValueError("OpenAI model name cannot be empty.")
+    _set_setting(_OPENAI_MODEL_KEY, model)
+    return model
+
+
+def is_openai_active() -> bool:
+    return get_active_provider() == OPENAI
+
+
+def get_active_cloud_model() -> Optional[str]:
+    """Return the model name for the active cloud provider, or None on Ollama."""
+    p = get_active_provider()
+    if p == MISTRAL:
+        return get_mistral_model()
+    if p == OPENAI:
+        return get_openai_model()
+    return None
+
+
+# ---------------------------------------------------------------------------
 # UI/state snapshot
 # ---------------------------------------------------------------------------
 def provider_state() -> Dict:
@@ -202,5 +248,6 @@ def provider_state() -> Dict:
         "provider": get_active_provider(),
         "cloud_active": cloud_active(),
         "mistral_model": get_mistral_model(),
+        "openai_model": get_openai_model(),
         "providers": providers,
     }
