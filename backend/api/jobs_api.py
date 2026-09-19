@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional
 
 from flask import Blueprint, current_app, jsonify
+from backend.utils.clock import utcnow
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
 try:
@@ -395,7 +396,7 @@ def cleanup_stuck_jobs_route():
         if db and TrainingJob:
             try:
                 from datetime import timedelta
-                cutoff_time = datetime.utcnow() - timedelta(hours=24)
+                cutoff_time = utcnow() - timedelta(hours=24)
                 completed_training_jobs = db.session.query(TrainingJob).filter(
                     TrainingJob.status.in_(["completed", "failed", "cancelled"]),
                     TrainingJob.completed_at < cutoff_time

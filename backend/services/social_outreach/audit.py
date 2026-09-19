@@ -10,9 +10,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
+
+from backend.utils.clock import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def log_outreach_event(
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
 
     record = {
-        "ts": datetime.utcnow().isoformat() + "Z",
+        "ts": utcnow().isoformat() + "Z",
         "platform": platform,
         "action": action,
         "status": status,
@@ -119,7 +120,7 @@ def log_trail_only(
     """
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
     record = {
-        "ts": datetime.utcnow().isoformat() + "Z",
+        "ts": utcnow().isoformat() + "Z",
         "platform": platform,
         "event": event,
         "target_url": target_url,
@@ -267,7 +268,7 @@ def recent_thread_ids(
         statuses = ["posted"]
     try:
         from backend.models import SocialOutreachLog
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = utcnow() - timedelta(hours=hours)
         rows = (
             SocialOutreachLog.query
             .filter(SocialOutreachLog.platform == platform)

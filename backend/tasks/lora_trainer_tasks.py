@@ -13,6 +13,7 @@ from celery import Celery
 from flask import current_app
 
 from backend.models import db, Subject
+from backend.utils.clock import utcnow
 from backend.utils.platform import (
     LORA_REAP_STUCK_AFTER_S,
     LORA_TRAIN_TASK_SOFT_TIME_LIMIT_S,
@@ -376,8 +377,7 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
         s.lora_version = result.get("lora_version", 1)
         s.training_status = "trained"
         s.training_error = None
-        from datetime import datetime
-        s.last_trained_at = datetime.utcnow()
+        s.last_trained_at = utcnow()
 
         # Only record image lists + promote samples after a *verified real* train.
         # real_trainer writes sidecar mock=false; anything else (or a tiny weights

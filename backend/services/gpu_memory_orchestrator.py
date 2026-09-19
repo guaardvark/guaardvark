@@ -17,9 +17,10 @@ import os
 import threading
 import time
 from dataclasses import dataclass, field, asdict
-from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Any
+
+from backend.utils.clock import utcnow
 
 import requests
 
@@ -613,7 +614,7 @@ class GPUMemoryOrchestrator:
             "tier_config": QUALITY_TIERS.get(self._quality_tier, {}),
             "idle_timeout_s": self._idle_timeout_s,
             "eviction_grace_s": self._eviction_grace_s,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utcnow().isoformat(),
         }
         return snapshot
 

@@ -10,6 +10,8 @@ from pathlib import Path
 from celery import shared_task
 from celery.exceptions import Retry
 
+from backend.utils.clock import utcnow
+
 try:
     from backend.models import db, TrainingJob, DeviceProfile
     from backend.utils.unified_progress_system import get_unified_progress, ProcessType, ProcessStatus
@@ -124,7 +126,7 @@ def parse_transcripts_task(self, job_id: str, input_path: str, recursive: bool =
     logger.info(f"Starting parse_transcripts_task for job {job_id}")
     
     try:
-        _update_job_status(job_id, status="running", pipeline_stage="parsing", started_at=datetime.utcnow(), celery_task_id=self.request.id)
+        _update_job_status(job_id, status="running", pipeline_stage="parsing", started_at=utcnow(), celery_task_id=self.request.id)
         _emit_progress(job_id, 0, "Starting transcript parsing...", "start")
         
         sys.path.insert(0, str(TRAINING_DIR / "scripts"))
@@ -164,7 +166,7 @@ def parse_transcripts_task(self, job_id: str, input_path: str, recursive: bool =
         _update_job_status(job_id, 
                           status="completed",
                           pipeline_stage="parsing",
-                          completed_at=datetime.utcnow(),
+                          completed_at=utcnow(),
                           progress=100,
                           config_json=json.dumps({
                               "input_path": input_path,
@@ -189,7 +191,7 @@ def filter_dataset_task(self, job_id: str, input_path: str, min_score: float = 0
     logger.info(f"Starting filter_dataset_task for job {job_id}")
     
     try:
-        _update_job_status(job_id, status="running", pipeline_stage="filtering", started_at=datetime.utcnow(), celery_task_id=self.request.id)
+        _update_job_status(job_id, status="running", pipeline_stage="filtering", started_at=utcnow(), celery_task_id=self.request.id)
         _emit_progress(job_id, 0, "Starting dataset filtering...", "start")
         
         input_path_obj = Path(input_path)
@@ -236,7 +238,7 @@ def filter_dataset_task(self, job_id: str, input_path: str, min_score: float = 0
         _update_job_status(job_id,
                           status="completed",
                           pipeline_stage="filtering",
-                          completed_at=datetime.utcnow(),
+                          completed_at=utcnow(),
                           progress=100,
                           config_json=json.dumps({
                               "input_path": input_path,
@@ -272,7 +274,7 @@ def finetune_model_task(self, job_id: str, config: dict, resume: bool = False):
             job_id,
             status="running",
             pipeline_stage="training",
-            started_at=datetime.utcnow(),
+            started_at=utcnow(),
             celery_task_id=self.request.id,
             pid=current_pid
         )
@@ -385,7 +387,7 @@ def finetune_model_task(self, job_id: str, config: dict, resume: bool = False):
         _update_job_status(job_id,
                           status="completed",
                           pipeline_stage="training",
-                          completed_at=datetime.utcnow(),
+                          completed_at=utcnow(),
                           progress=100,
                           lora_path=str(Path(model_dir) / "lora"),
                           checkpoint_path=checkpoint_path,
@@ -431,7 +433,7 @@ def export_gguf_task(self, job_id: str, model_dir: str, quantization: str = 'q4_
     logger.info(f"Starting export_gguf_task for job {job_id}")
     
     try:
-        _update_job_status(job_id, status="running", pipeline_stage="exporting", started_at=datetime.utcnow(), celery_task_id=self.request.id)
+        _update_job_status(job_id, status="running", pipeline_stage="exporting", started_at=utcnow(), celery_task_id=self.request.id)
         _emit_progress(job_id, 0, "Starting GGUF export...", "start")
         
         _emit_progress(job_id, 10, "Loading model for export...", "processing")
@@ -502,7 +504,7 @@ def import_ollama_task(self, job_id: str, model_dir: str, model_name: str):
     logger.info(f"Starting import_ollama_task for job {job_id}")
 
     try:
-        _update_job_status(job_id, status="running", pipeline_stage="importing", started_at=datetime.utcnow(), celery_task_id=self.request.id)
+        _update_job_status(job_id, status="running", pipeline_stage="importing", started_at=utcnow(), celery_task_id=self.request.id)
         _emit_progress(job_id, 0, "Starting Ollama import...", "start")
 
         model_dir_obj = Path(model_dir)
@@ -553,7 +555,7 @@ def import_ollama_task(self, job_id: str, model_dir: str, model_name: str):
         _update_job_status(job_id,
                           status="completed",
                           pipeline_stage="importing",
-                          completed_at=datetime.utcnow(),
+                          completed_at=utcnow(),
                           progress=100,
                           ollama_model_name=model_name)
         
@@ -575,7 +577,7 @@ def full_training_pipeline_task(self, job_id: str, config: dict):
     logger.info(f"Starting full_training_pipeline_task for job {job_id}")
     
     try:
-        _update_job_status(job_id, status="running", started_at=datetime.utcnow())
+        _update_job_status(job_id, status="running", started_at=utcnow())
         _emit_progress(job_id, 0, "Starting full training pipeline...", "processing")
 
         _emit_progress(job_id, 1, "Freeing GPU memory (unloading Ollama models)...", "processing")
@@ -667,7 +669,7 @@ def full_training_pipeline_task(self, job_id: str, config: dict):
         _update_job_status(job_id,
                           status="completed",
                           pipeline_stage="importing",
-                          completed_at=datetime.utcnow(),
+                          completed_at=utcnow(),
                           progress=100)
         
         _emit_progress(job_id, 100, "Full pipeline complete!", "complete")

@@ -2,8 +2,10 @@
 and the research-run engine (Phases A+B of the 2026-08-10 rebuild)."""
 import hashlib
 import pytest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import patch, MagicMock
+
+from backend.utils.clock import utcnow
 
 try:
     from flask import Flask
@@ -315,7 +317,7 @@ class TestResearchRunEngine:
         with app.app_context():
             stale = ResearchRun(
                 run_tag="old-dead", mode="rag_tuning", status="running",
-                started_at=datetime.utcnow() - timedelta(hours=3),
+                started_at=utcnow() - timedelta(hours=3),
             )
             db.session.add(stale)
             db.session.commit()
@@ -334,7 +336,7 @@ class TestResearchRunEngine:
         with app.app_context():
             db.session.add(ResearchRun(
                 run_tag="t-status", mode="rag_tuning", status="running",
-                started_at=datetime.utcnow(), wall_clock_budget_s=3600,
+                started_at=utcnow(), wall_clock_budget_s=3600,
             ))
             db.session.commit()
             svc = RAGAutoresearchService()

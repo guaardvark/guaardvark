@@ -44,6 +44,7 @@ from backend.services.job_registry import (
     parse_job_id,
 )
 from backend.services.job_types import Job, JobKind, JobStatus
+from backend.utils.clock import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -405,7 +406,7 @@ def jobs_summary():
     counts: dict[str, dict[str, int]] = {}
     total_active = 0
     total_terminal_24h = 0
-    cutoff = datetime.utcnow().replace(tzinfo=None)
+    cutoff = utcnow().replace(tzinfo=None)
 
     for kind, collector in _COLLECTORS.items():
         try:

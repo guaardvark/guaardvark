@@ -8,7 +8,6 @@ import os
 import time
 import logging
 import uuid
-from datetime import datetime
 from threading import Lock
 
 from backend.config import (
@@ -23,6 +22,7 @@ from backend.config import (
 )
 from backend.services.rag_eval_harness import RAGEvalHarness
 from backend.services.rag_experiment_agent import RAGExperimentAgent
+from backend.utils.clock import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -579,7 +579,7 @@ class RAGAutoresearchService:
                 params=config["params"],
                 composite_score=score,
                 is_active=activate,
-                promoted_at=datetime.utcnow() if activate else None,
+                promoted_at=utcnow() if activate else None,
                 source=source,
                 status="promoted" if activate else "candidate",
             )
@@ -676,7 +676,6 @@ class RAGAutoresearchService:
         eval_pair_count = 0
         try:
             from backend.models import ResearchRun, EvalPair
-            from datetime import datetime as _dt
             run = (
                 ResearchRun.query
                 .filter(ResearchRun.status.in_(("running", "pending")))
@@ -687,7 +686,7 @@ class RAGAutoresearchService:
                 active_run = run.to_dict()
                 remaining = None
                 if run.started_at and run.wall_clock_budget_s is not None:
-                    elapsed = (_dt.utcnow() - run.started_at).total_seconds()
+                    elapsed = (utcnow() - run.started_at).total_seconds()
                     remaining = max(0, int(run.wall_clock_budget_s - elapsed))
                 active_run["budget_remaining_s"] = remaining
             eval_pair_count = (

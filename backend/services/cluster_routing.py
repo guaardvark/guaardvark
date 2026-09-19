@@ -16,6 +16,8 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Any, Literal
 
+from backend.utils.clock import utcnow
+
 
 # ---- workload specs --------------------------------------------------
 
@@ -226,7 +228,7 @@ class RoutingTableBuilder:
 
         return RoutingTable(
             routes=routes,
-            computed_at=datetime.utcnow(),
+            computed_at=utcnow(),
             computed_by=master_node_id,
             node_count=len(profiles),
             fleet_hash=compute_fleet_hash(profiles, online_map),

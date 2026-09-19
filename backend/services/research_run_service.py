@@ -20,13 +20,14 @@ import logging
 import os
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from backend.config import (
     AUTORESEARCH_KEEP_MIN_DELTA,
     AUTORESEARCH_MIN_EXPERIMENT_INTERVAL,
     AUTORESEARCH_PHASE_PLATEAU_THRESHOLD,
 )
+from backend.utils.clock import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +101,7 @@ class ResearchRunService:
             if gate and mode == "code_tuning":
                 return {"error": gate}
 
-        run_tag = f"{mode}-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+        run_tag = f"{mode}-{utcnow().strftime('%Y%m%d-%H%M%S')}"
         run = ResearchRun(
             id=str(uuid.uuid4()),
             run_tag=run_tag,
@@ -120,7 +121,7 @@ class ResearchRunService:
         except Exception as e:
             run.status = "failed_precondition"
             run.halt_reason = f"celery_unreachable ({e.__class__.__name__})"
-            run.ended_at = datetime.utcnow()
+            run.ended_at = utcnow()
             run.report_md = self._write_report(
                 run, [], precondition_failure=run.halt_reason,
             )
@@ -404,7 +405,7 @@ class ResearchRunService:
         if not ok:
             run.status = "failed_precondition"
             run.halt_reason = reason
-            run.ended_at = datetime.utcnow()
+            run.ended_at = utcnow()
             run.report_md = self._write_report(run, [], precondition_failure=reason)
             db.session.commit()
             self._emit_run_complete(run)
@@ -412,7 +413,7 @@ class ResearchRunService:
             return
 
         run.status = "running"
-        run.started_at = datetime.utcnow()
+        run.started_at = utcnow()
         db.session.commit()
         self._running_run_id = run_id
 
@@ -483,7 +484,7 @@ class ResearchRunService:
         notes = [n for n in (promotion_note, code_note) if n]
         run.status = status_at_end
         run.halt_reason = halt_reason
-        run.ended_at = datetime.utcnow()
+        run.ended_at = utcnow()
         run.report_md = self._write_report(
             run, ledger, promotion_note="; ".join(notes) if notes else None,
         )
@@ -517,7 +518,7 @@ class ResearchRunService:
             except Exception as e:
                 run.status = "failed_precondition"
                 run.halt_reason = f"baseline_eval_failed: {e}"
-                run.ended_at = datetime.utcnow()
+                run.ended_at = utcnow()
                 run.report_md = self._write_report(run, [], precondition_failure=run.halt_reason)
                 db.session.commit()
                 self._emit_run_complete(run)
@@ -651,7 +652,7 @@ class ResearchRunService:
                 active.status = "superseded"
             best.is_active = True
             best.status = "promoted"
-            best.promoted_at = datetime.utcnow()
+            best.promoted_at = utcnow()
             db.session.commit()
             from backend.utils.experiment_context import invalidate_active_params_cache
             invalidate_active_params_cache()
@@ -730,7 +731,7 @@ class ResearchRunService:
         if live is True:
             return 0
         if live is None:
-            cutoff = datetime.utcnow() - timedelta(minutes=2)
+            cutoff = utcnow() - timedelta(minutes=2)
             rows = q.filter(
                 ResearchRun.started_at.is_(None),
                 ResearchRun.created_at < cutoff,
@@ -741,7 +742,7 @@ class ResearchRunService:
         for row in rows:
             row.status = "halted"
             row.halt_reason = "worker_crashed"
-            row.ended_at = datetime.utcnow()
+            row.ended_at = utcnow()
             n += 1
         if n:
             db.session.commit()
@@ -791,7 +792,7 @@ class ResearchRunService:
             if run and run.status in ("pending", "running"):
                 run.status = "halted"
                 run.halt_reason = "worker_crashed"
-                run.ended_at = datetime.utcnow()
+                run.ended_at = utcnow()
                 db.session.commit()
                 self._emit_run_complete(run)
         except Exception:
