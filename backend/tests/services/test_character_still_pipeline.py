@@ -21,7 +21,8 @@ def zimage_route():
     }
 
 
-def test_render_injects_trigger_and_uses_offline_for_zimage(tmp_path, zimage_route):
+def test_render_injects_trigger_and_uses_offline_for_zimage(tmp_path, zimage_route, monkeypatch):
+    monkeypatch.delenv("GUAARDVARK_ZIMAGE_USE_COMFYUI", raising=False)
     out = tmp_path / "out.png"
     out.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
 
@@ -82,6 +83,55 @@ def test_render_injects_trigger_and_uses_offline_for_zimage(tmp_path, zimage_rou
         Comfy.assert_not_called()
 
 
+def test_render_routes_zimage_to_comfy_when_opted_in(tmp_path, zimage_route, monkeypatch):
+    monkeypatch.setenv("GUAARDVARK_ZIMAGE_USE_COMFYUI", "1")
+    out = tmp_path / "out.png"
+    out.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
+
+    class Subj:
+        lora_path = str(tmp_path / "char.safetensors")
+        trigger_word = "hero_tok"
+        name = "Hero"
+        bible = "long invented paragraph"
+        training_settings_json = {
+            "base_model_id": "zimage-turbo",
+            "class_token": "man",
+            "bible_identity_marks": "teal highlights",
+        }
+
+    (tmp_path / "char.safetensors").write_bytes(b"x" * 200)
+
+    with patch(
+        "backend.services.media_model_registry.resolve_inference_for_loras",
+        return_value=zimage_route,
+    ), patch(
+        "backend.services.offline_image_generator.get_image_generator"
+    ) as get_gen, patch(
+        "backend.services.comfyui_image_generator.ComfyUIImageGenerator"
+    ) as Comfy:
+        comfy_gen = MagicMock()
+        comfy_gen.generate_image.return_value = str(out)
+        Comfy.return_value = comfy_gen
+
+        still = render_character_still(
+            "neon alley at night",
+            subjects=[Subj()],
+            include_bible=False,
+            source="cast",
+            output_path=str(tmp_path / "dest.png"),
+            width=512,
+            height=512,
+        )
+
+        assert still.success is True
+        assert still.metadata.get("family") == "zimage"
+        assert still.metadata.get("engine") == "comfy"
+        Comfy.assert_called_once()
+        comfy_gen.generate_image.assert_called_once()
+        assert comfy_gen.generate_image.call_args[1]["model"] == "zimage"
+        get_gen.assert_not_called()
+
+
 def test_render_refuses_mixed_family_error(tmp_path):
     with patch(
         "backend.services.media_model_registry.resolve_inference_for_loras",
@@ -96,7 +146,8 @@ def test_render_refuses_mixed_family_error(tmp_path):
         assert "family" in (still.error or "").lower() or "mixed" in (still.error or "").lower()
 
 
-def test_render_without_lora_returns_still_result_type():
+def test_render_without_lora_returns_still_result_type(monkeypatch):
+    monkeypatch.delenv("GUAARDVARK_ZIMAGE_USE_COMFYUI", raising=False)
     # Empty path: still returns StillResult (may fail offline without GPU — mock).
     with patch(
         "backend.services.offline_image_generator.get_image_generator"

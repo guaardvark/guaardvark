@@ -519,7 +519,8 @@ def generate_samples(subject_id: int, job_id: str | None = None, use_lora: bool 
     cancelled = False
     offline_gen = None
     comfy_gen = None
-    if route.get("engine") == "offline":
+    use_comfy = route.get("engine") == "comfy"
+    if not use_comfy:
         from backend.services.offline_image_generator import get_image_generator
         offline_gen = get_image_generator()
     else:
@@ -531,7 +532,10 @@ def generate_samples(subject_id: int, job_id: str | None = None, use_lora: bool 
             JobKind.VIDEO_RENDER,
             f"char_samples_{subject_id}",
             evict_ollama=True,
-            free_comfyui=True,
+            # Only unload ComfyUI's resident models when we are NOT rendering
+            # through ComfyUI. Freeing them on the Comfy path would force a full
+            # Z-Image reload (and apparent "restart") on every generation.
+            free_comfyui=not use_comfy,
             vram_estimate_mb=int(route.get("vram_estimate_mb") or 11000),
             require_fit=True,
             cross_process=True,

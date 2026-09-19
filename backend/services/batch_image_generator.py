@@ -745,6 +745,80 @@ class BatchImageGenerator:
                 success=False, error=str(e), prompt_used=prompt.prompt
             )
 
+    # ── Z-Image via ComfyUI (optional; GUAARDVARK_ZIMAGE_USE_COMFYUI=1) ────────
+    # When enabled, plain Z-Image generation routes to the reachable ComfyUI
+    # (reusing its installed z_image_turbo_bf16.safetensors) instead of Guaardvark's
+    # offline diffusers pipeline, so no separate model download is needed.
+    @staticmethod
+    def _zimage_via_comfyui_enabled() -> bool:
+        _v = os.environ.get("GUAARDVARK_ZIMAGE_USE_COMFYUI", "").strip().lower()
+        return _v in ("1", "true", "yes", "on")
+
+    @staticmethod
+    def _is_zimage_model(model_key: str | None) -> bool:
+        _k = (model_key or "").strip().lower()
+        return _k in ("zimage", "zimage-turbo", "z-image", "z_image_turbo") \
+            or "zimage" in _k or "z-image" in _k
+
+    def _generate_with_comfyui_zimage(self, prompt: BatchPrompt) -> Optional[ImageGenerationResult]:
+        """Generate a plain Z-Image via the reachable ComfyUI instead of the offline
+        diffusers pipeline. Reuses the Z-Image model already installed in ComfyUI."""
+        try:
+            from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+        except Exception as e:
+            logger.warning("ComfyUI Z-Image path unavailable: %s", e)
+            return ImageGenerationResult(
+                success=False,
+                error=f"ComfyUI Z-Image unavailable: {e}",
+                prompt_used=prompt.prompt,
+            )
+
+        width = max(int(prompt.width or 1024), 512)
+        height = max(int(prompt.height or 1024), 512)
+        steps = int(prompt.steps or 9)
+        # ComfyUI KSampler needs cfg >= 1.0. Guaardvark's OFFLINE Z-Image path uses
+        # guidance 0 (diffusers reads that as "no CFG" for a distilled model), but
+        # passing cfg=0 into ComfyUI's KSampler yields ZERO conditioning -> output
+        # that ignores the prompt. So map 0/None up to a real cfg (default 1.0, or
+        # GUAARDVARK_ZIMAGE_CFG). Explicit guidance >= 1.0 is honored as-is.
+        _cfg_default = float(os.environ.get("GUAARDVARK_ZIMAGE_CFG", "1.0"))
+        if prompt.guidance is not None and float(prompt.guidance) >= 1.0:
+            guidance = float(prompt.guidance)
+        else:
+            guidance = _cfg_default
+
+        import tempfile
+        out_path = os.path.join(
+            tempfile.gettempdir(), f"zimage_{prompt.id}_{int(time.time() * 1000)}.png"
+        )
+        try:
+            gen = ComfyUIImageGenerator(model="zimage")
+            path = gen.generate_image(
+                prompt=prompt.prompt,
+                loras=[],
+                output_path=out_path,
+                width=width,
+                height=height,
+                negative_prompt=prompt.negative_prompt or "",
+                seed=prompt.seed if prompt.seed is not None else 42,
+                steps=steps,
+                cfg=guidance,
+                model="zimage",
+            )
+            return ImageGenerationResult(
+                success=True,
+                image_path=path,
+                prompt_used=prompt.prompt,
+                model_used="zimage",
+                image_size=(width, height),
+                seed_used=prompt.seed,
+            )
+        except Exception as e:
+            logger.error("ComfyUI Z-Image batch generation failed: %s", e)
+            return ImageGenerationResult(
+                success=False, error=str(e), prompt_used=prompt.prompt
+            )
+
     def _generate_with_character_lora(self, prompt: BatchPrompt) -> Optional[ImageGenerationResult]:
         """Generate one image with cast character LoRA(s) via character_still_pipeline.
 
@@ -830,6 +904,8 @@ class BatchImageGenerator:
                 result = self._generate_with_character_lora(prompt)
             elif self._should_use_comfy_stills(prompt):
                 result = self._generate_with_comfy_flux(prompt, batch_id)
+            elif self._zimage_via_comfyui_enabled() and self._is_zimage_model(prompt.model):
+                result = self._generate_with_comfyui_zimage(prompt)
             else:
                 result = None
 

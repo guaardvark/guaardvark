@@ -152,14 +152,37 @@ def _compose_prompt(
 
 
 def _default_llm(*, system: str, user: str, model: str = "gemma4:12b") -> str:
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+
+    # Prefer the OpenAI-compatible provider (the same cloud/remote model the
+    # chat bot uses via GUAARDVARK_OPENAI_BASE_URL / GUAARDVARK_OPENAI_MODEL)
+    # when it is configured. Fall back to the local Ollama model otherwise.
+    try:
+        from backend.services import openai_provider
+        if openai_provider.available():
+            from backend.config import OPENAI_DEFAULT_MODEL
+            resp = openai_provider.chat(
+                model=OPENAI_DEFAULT_MODEL,
+                messages=messages,
+                stream=False,
+            )
+            content = (resp.get("message", {}) or {}).get("content", "") or ""
+            if content.strip():
+                return content
+    except Exception as e:
+        log.warning(
+            "OpenAI-compatible Character Generator LLM failed (%s); falling back to Ollama %s",
+            e, model,
+        )
+
     import ollama
     from backend.utils.ollama_resource_manager import think_payload
     resp = ollama.chat(
         model=model,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
+        messages=messages,
         format="json",  # hardens JSON parsing for the strict-schema agents
         **think_payload(model),
     )

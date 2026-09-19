@@ -376,6 +376,13 @@ def train_subject_lora_for_subject(subject_id: int, job_id: str | None = None) -
         s.lora_version = result.get("lora_version", 1)
         s.training_status = "trained"
         s.training_error = None
+        # When Z-Image is routed through ComfyUI, link the freshly-trained LoRA into
+        # ComfyUI's models/loras so generation can resolve it by basename.
+        try:
+            from backend.services.comfyui_image_generator import ensure_lora_in_comfyui
+            ensure_lora_in_comfyui(s.lora_path)
+        except Exception:
+            pass
         from datetime import datetime
         s.last_trained_at = datetime.utcnow()
 

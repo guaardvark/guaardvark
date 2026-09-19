@@ -60,6 +60,23 @@ VRAM_HARD_MIN_GB = 1.5     # below this free VRAM -> hard block
 VRAM_WARN_MIN_GB = 3.0     # below this -> warn (still admit)
 LOADAVG_HARD_MAX = 18.0    # 1-min loadavg above this -> hard block
 
+
+def _swap_hard_max_gb() -> float:
+    """Swap hard-block threshold, overridable via GUAARDVARK_SWAP_HARD_MAX_GB.
+
+    The 8 GB default is tuned for the 60 GB RAM Linux box that motivated this
+    gate. macOS (Apple Silicon) holds swap "sticky" — it does not release it
+    promptly after apps close — so a fixed 8 GB cap can permanently block
+    legitimate work on a healthy Mac. Operators can raise it via env.
+    """
+    raw = os.environ.get("GUAARDVARK_SWAP_HARD_MAX_GB", "").strip()
+    if raw:
+        try:
+            return float(raw)
+        except ValueError:
+            logger.warning("Invalid GUAARDVARK_SWAP_HARD_MAX_GB=%r; using default", raw)
+    return SWAP_HARD_MAX_GB
+
 # How long an admitted job's RAM reservation lingers to cover subprocess
 # "shadow RAM" before psutil reflects it.
 RESERVED_RAM_TTL_S = 60.0
@@ -210,8 +227,8 @@ class GlobalLoadGate:
                 f"need {weight.ram_gb:.1f} GB + {ram_floor:.1f} GB floor. "
                 "Swap does not count; pick a lighter model or add system RAM"
             )
-        if reading.swap_used_gb > SWAP_HARD_MAX_GB:
-            return f"swap in use: {reading.swap_used_gb:.1f} GB > {SWAP_HARD_MAX_GB:.0f} GB"
+        if reading.swap_used_gb > _swap_hard_max_gb():
+            return f"swap in use: {reading.swap_used_gb:.1f} GB > {_swap_hard_max_gb():.0f} GB"
         if reading.loadavg_1m > LOADAVG_HARD_MAX:
             return f"loadavg high: {reading.loadavg_1m:.1f} > {LOADAVG_HARD_MAX:.0f}"
         # VRAM only blocks when we actually know it (None == unknown == OK).

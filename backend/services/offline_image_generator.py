@@ -224,6 +224,9 @@ class OfflineImageGenerator:
             # FLUX.1-dev — max-quality stills via ComfyUI (not offline Diffusers).
             # Value is a sentinel; batch routes to Comfy when model=flux-dev.
             "flux-dev": "comfy:flux-dev",
+            # ComfyUI generic backend — chat/batch route to the reachable ComfyUI
+            # and pick whichever image engine is installed (Z-Image / FLUX).
+            "comfyui": "comfy:comfyui",
             "krea2-turbo": "krea/Krea-2-Turbo",
             "krea2-raw": "krea/Krea-2-Raw",
             "sd-xl": "stabilityai/stable-diffusion-xl-base-1.0",
@@ -236,7 +239,7 @@ class OfflineImageGenerator:
         # get_available_models() and model_recommender still honour it.
         self.hidden_models: set[str] = set()
         # Offline Diffusers cannot load these — batch/API must route to ComfyUI.
-        self.comfy_only_models = {"flux-dev"}
+        self.comfy_only_models = {"flux-dev", "comfyui"}
         # User-added entries (backend/services/user_image_models.py): family by id
         # or repo, file-kind entries keyed by their "user:<id>" sentinel, and the
         # catalog rows themselves. Filled by load_user_catalog() below.
@@ -248,6 +251,7 @@ class OfflineImageGenerator:
         self.model_meta = {
             "zimage-turbo": {"label": "Z-Image Turbo (Best daily)", "description": "Strong prompt adherence + text, fast (~9 steps / CFG 0). Default daily driver.", "recommended": True, "order": 0},
             "flux-dev": {"label": "FLUX.1 Dev (Max quality)", "description": "Highest ceiling stills via ComfyUI (~28 steps, FluxGuidance). Slower; needs Comfy + flux1-dev weights.", "recommended": False, "order": 1, "engine": "comfy"},
+            "comfyui": {"label": "ComfyUI (auto backend)", "description": "Routes image generation to the running ComfyUI plugin and picks the installed engine (Z-Image or FLUX).", "recommended": False, "order": 1, "engine": "comfy"},
             "krea2-turbo": {"label": "Krea 2 Turbo", "description": "12B aesthetic-first model, native 2K, 8 steps CFG-free. Fast inference.", "recommended": False, "order": 2},
             "krea2-raw": {"label": "Krea 2 Raw", "description": "Base 12B checkpoint — less post-trained than Turbo (~52 steps, CFG 3.5). Use for mature/creative prompts or LoRA base.", "recommended": False, "order": 3},
             "sd-xl": {"label": "SDXL Base", "description": "High-res 1024, reliable, huge LoRA ecosystem.", "recommended": False, "order": 4},
@@ -415,9 +419,13 @@ class OfflineImageGenerator:
             from backend.services.user_image_models import user_files_present, user_sentinel
             sentinel = model_id if model_id in self.user_files else self.available_models.get(model_id, user_sentinel(model_id))
             return user_files_present(self, sentinel)
+        # Sentinel ids — the generic ComfyUI backend has no HF snapshot; its
+        # assets are the running ComfyUI's.
+        mid = (model_id or "").lower()
+        if mid in ("comfyui", "comfy:comfyui"):
+            return self._comfyui_assets_present()
         # Comfy-only catalog keys: the video-registry install plan is the source of
         # truth (flux-dev, qwen-image-edit, …), not a diffusers snapshot.
-        mid = (model_id or "").lower()
         catalog_key = mid.split(":", 1)[1] if mid.startswith("comfy:") else None
         if catalog_key or mid in getattr(self, "comfy_only_models", set()) or mid == "flux-dev" or mid.endswith("flux-dev") or "flux1-dev" in mid:
             try:
@@ -527,6 +535,22 @@ class OfflineImageGenerator:
         ]
         t5_ok = any(p.is_file() and p.stat().st_size > 0 for p in t5_candidates)
         return all(p.is_file() and p.stat().st_size > 0 for p in (unet, vae, clip)) and t5_ok
+
+    @staticmethod
+    def _comfyui_assets_present() -> bool:
+        """True when ComfyUI has at least one usable image engine installed.
+
+        Queries the live server's /object_info (authoritative about model locations
+        — works for an external Comfy Desktop install, not just the bundled dir).
+        """
+        try:
+            from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+            gen = ComfyUIImageGenerator()
+            if not gen._available():
+                return False
+            return bool(gen.comfyui_installed_engines())
+        except Exception:
+            return False
 
     def is_comfy_only_model(self, model_key: str) -> bool:
         key = (model_key or "").strip().lower()
@@ -3522,6 +3546,7 @@ Negative Prompt: {negative_prompt}""",
                     "28-36GB" if "krea" in model_id.lower()
                     else "23GB+Comfy" if "flux" in model_key or "flux" in model_id.lower()
                     else "16GB" if "z-image" in model_id.lower() or "zimage" in model_key
+                    else "Comfy backend" if model_key == "comfyui"
                     else "12-15GB" if "xl" in model_id.lower()
                     else "4-7GB"
                 ),

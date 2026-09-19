@@ -247,12 +247,38 @@ def _generate_one(
     )
 
     # FLUX via Comfy is still a separate engine; offline path is the default.
+    # "comfyui" / "comfy" is a generic ComfyUI backend selector: auto-pick an
+    # installed engine (Z-Image when GUAARDVARK_ZIMAGE_USE_COMFYUI=1, else FLUX).
     mid = (model or "").lower()
     if "flux" in mid:
         return _generate_comfy_flux(
             prompt=prompt, negative=negative, model=model,
             width=width, height=height, steps=steps, guidance=guidance,
             steps_explicit=steps_explicit,
+            seed=seed, enhance_mode=enhance_mode, output=output, output_dir=output_dir,
+        )
+    if mid in ("comfyui", "comfy"):
+        choice = _comfyui_backend_choice()
+        if choice is None:
+            return StillResult(
+                success=False,
+                error=(
+                    "ComfyUI is not reachable or has no installed image engine. "
+                    "Start the ComfyUI plugin and install Z-Image or FLUX assets first."
+                ),
+                prompt_used=prompt,
+                enhance_mode=enhance_mode,
+            )
+        engine, comfy_model = choice
+        if engine == "zimage":
+            return _generate_comfy_zimage(
+                prompt=prompt, negative=negative, model=f"comfyui ({engine})",
+                width=width, height=height, steps=steps, guidance=guidance,
+                seed=seed, enhance_mode=enhance_mode, output=output, output_dir=output_dir,
+            )
+        return _generate_comfy_flux(
+            prompt=prompt, negative=negative, model=f"comfyui ({engine})",
+            width=width, height=height, steps=steps, guidance=guidance,
             seed=seed, enhance_mode=enhance_mode, output=output, output_dir=output_dir,
         )
 
@@ -437,7 +463,7 @@ def _generate_comfy_flux(
             height=height,
             negative_prompt=negative or None,
             seed=seed if seed is not None else 42,
-            model="flux",
+            model=model,
             steps=steps,
             steps_explicit=steps_explicit,
             cfg=guidance,
@@ -466,6 +492,110 @@ def _generate_comfy_flux(
             width=width,
             height=height,
             steps=getattr(gen, "last_steps", steps),
+            guidance=guidance,
+            enhance_mode=enhance_mode,
+        )
+    except Exception as e:
+        return StillResult(
+            success=False,
+            error=str(e),
+            prompt_used=prompt,
+            enhance_mode=enhance_mode,
+            width=width,
+            height=height,
+            steps=steps,
+            guidance=guidance,
+        )
+
+
+def _comfyui_backend_choice() -> tuple[str, str] | None:
+    """Pick a usable ComfyUI image engine for /imagemodel comfyui.
+
+    Returns (engine_label, comfy_model_tag) or None if ComfyUI is unreachable
+    or has no supported image engine installed.
+    """
+    try:
+        from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+
+        gen = ComfyUIImageGenerator()
+        if not gen._available():
+            return None
+
+        # Authoritative check against the live server's /object_info — this finds
+        # engines on an external Comfy Desktop install as well as the bundled one.
+        for engine in gen.comfyui_installed_engines():
+            if engine == "zimage":
+                return ("zimage", "zimage")
+            if engine == "flux-dev":
+                return ("flux-dev", "flux-dev")
+            if engine == "flux-schnell":
+                return ("flux-schnell", "flux")
+        return None
+    except Exception:
+        return None
+
+
+def _generate_comfy_zimage(
+    *,
+    prompt: str,
+    negative: str,
+    model: str,
+    width: int,
+    height: int,
+    steps: int,
+    guidance: float,
+    seed: int | None,
+    enhance_mode: str,
+    output: str,
+    output_dir: Path | str | None,
+) -> StillResult:
+    try:
+        from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+
+        gen = ComfyUIImageGenerator(model="zimage")
+        out_path = None
+        if output_dir:
+            out_path = str(Path(output_dir) / f"zimage_{uuid.uuid4().hex[:8]}.png")
+
+        # ComfyUI KSampler needs cfg >= 1.0; offline Z-Image uses CFG-free distilled.
+        _cfg_default = float(os.environ.get("GUAARDVARK_ZIMAGE_CFG", "1.0"))
+        cfg = float(guidance) if guidance is not None and float(guidance) >= 1.0 else _cfg_default
+
+        path = gen.generate_image(
+            prompt=prompt,
+            output_path=out_path or str(Path("/tmp") / f"zimage_{uuid.uuid4().hex[:8]}.png"),
+            width=width,
+            height=height,
+            negative_prompt=negative or "",
+            seed=seed if seed is not None else 42,
+            model="zimage",
+            steps=steps,
+            cfg=cfg,
+        )
+        url = None
+        if output == "chat_copy" and path:
+            try:
+                from backend.config import OUTPUT_DIR
+                out = Path(OUTPUT_DIR) / "generated_images"
+                out.mkdir(parents=True, exist_ok=True)
+                name = f"gen_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.png"
+                dest = out / name
+                shutil.copy2(path, dest)
+                path = str(dest)
+                url = f"/api/outputs/generated_images/{name}"
+            except Exception:
+                pass
+        return StillResult(
+            success=True,
+            image_path=path,
+            image_url=url,
+            seed_used=seed,
+            model_used=model,
+            prompt_used=prompt,
+            negative_used=negative,
+            width=width,
+            height=height,
+            steps=steps,
             guidance=guidance,
             enhance_mode=enhance_mode,
         )
