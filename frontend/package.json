@@ -24,7 +24,7 @@
     "axios": "^1.20.0",
     "d3-force": "^3.0.0",
     "dompurify": "^3.4.12",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^1.46.0",
     "mammoth": "^1.12.3",
     "monaco-editor": "^0.56.0",
     "prop-types": "^15.8.1",
