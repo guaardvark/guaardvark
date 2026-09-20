@@ -113,7 +113,7 @@ def test_identity_tool_forwards_only_the_switches_it_was_given(monkeypatch, tmp_
     monkeypatch.setattr(cfg, "OUTPUT_DIR", str(tmp_path / "outputs"))
     monkeypatch.setattr(cr, "_hash_dir", lambda: str(tmp_path / "consent"))
     face = tmp_path / "face.png"
-    face.write_bytes(b"png-bytes")
+    face.write_bytes(b"\x89PNG\r\n\x1a\n" + b"png-bytes")
     cr.record_consent(str(face), "ui_upload")
 
     calls = []

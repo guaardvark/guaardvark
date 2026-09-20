@@ -10,6 +10,24 @@ temp path) is recognised without asking twice.
 
 Only the consent step writes a record: the chat approval card, or a future UI
 upload route. Tools read it; MCP and CLI callers cannot substitute a flag.
+
+The reference path arrives as a tool argument, so it is chosen by the caller —
+a model following a conversation, not a person filling in a form. Two limits
+follow from that, and they are the reason this module does not simply open what
+it is handed:
+
+* **A sidecar is only written inside a directory this install owns.** Writing
+  ``<path>.consent`` beside an arbitrary path would let a caller drop a file
+  anywhere the process can write. An image living outside those directories —
+  a photo the user pointed at by typing its path — is still consented, by its
+  content-hash record under ``OUTPUT_DIR/consent/``, which is somewhere this
+  install already owns.
+* **Only image files are read.** A consent record has no business reading,
+  hashing and indexing a private key because a prompt named one.
+
+Reads of the image itself stay unrestricted on purpose: "your own photo,
+wherever you keep it" is the feature. Nothing is written outside the install
+to serve it.
 """
 
 from __future__ import annotations
@@ -21,13 +39,77 @@ import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from backend.utils.path_guard import PathEscapesRoot, contained_path
+
 logger = logging.getLogger(__name__)
 
 SIDECAR_SUFFIX = ".consent"
 
+# Leading bytes of the raster formats a reference photo arrives as. This is a
+# guard, not validation: a truncated PNG still hashes fine and still counts.
+# It exists to refuse a path that is not a picture at all.
+_IMAGE_SIGNATURES = (
+    b"\x89PNG\r\n\x1a\n",   # PNG
+    b"\xff\xd8\xff",          # JPEG
+    b"GIF87a",
+    b"GIF89a",
+    b"BM",                     # BMP
+    b"II*\x00",                # TIFF, little-endian
+    b"MM\x00*",                # TIFF, big-endian
+)
+
+
+def _looks_like_an_image(head: bytes) -> bool:
+    if any(head.startswith(sig) for sig in _IMAGE_SIGNATURES):
+        return True
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return True
+    if head[4:8] == b"ftyp":  # ISO-BMFF: HEIC, HEIF, AVIF
+        return True
+    return False
+
+
+def _is_image_file(path: str) -> bool:
+    """True when the first bytes on disk are an image signature."""
+    try:
+        with open(path, "rb") as f:
+            return _looks_like_an_image(f.read(16))
+    except OSError:
+        return False
+
+
+def _app_roots() -> tuple[str, ...]:
+    """The directories this install owns. A sidecar is written inside one or not
+    at all."""
+    try:
+        from backend.config import OUTPUT_DIR, STORAGE_DIR, UPLOAD_DIR
+        roots = (STORAGE_DIR, OUTPUT_DIR, UPLOAD_DIR)
+    except Exception:
+        roots = ("data",)
+    return tuple(os.path.abspath(r) for r in roots if r)
+
+
+def owned_sidecar_path(image_path: str) -> Optional[str]:
+    """``<image>.consent`` when the image sits inside a directory this install
+    owns, else ``None`` — the caller then relies on the content-hash record."""
+    if not image_path:
+        return None
+    wanted = os.path.abspath(image_path) + SIDECAR_SUFFIX
+    for root in _app_roots():
+        try:
+            return contained_path(root, wanted)
+        except PathEscapesRoot:
+            continue
+    return None
+
 
 def sidecar_path(image_path: str) -> str:
-    """``<image>.consent``, next to the image."""
+    """The sidecar naming convention, ``<image>.consent``.
+
+    Naming only. Do not open the result: the path is unguarded, and a caller
+    supplied the image path. Use :func:`owned_sidecar_path`, which returns
+    ``None`` rather than a path outside this install.
+    """
     return f"{image_path}{SIDECAR_SUFFIX}"
 
 
@@ -40,7 +122,13 @@ def _hash_dir() -> str:
 
 
 def content_hash(image_path: str) -> Optional[str]:
-    """SHA-256 of the file bytes; None when the file cannot be read."""
+    """SHA-256 of the file bytes; None when it cannot be read or is not an image.
+
+    The digest is over the whole file, unchanged, so records written before the
+    signature guard existed still match.
+    """
+    if not _is_image_file(image_path):
+        return None
     try:
         h = hashlib.sha256()
         with open(image_path, "rb") as f:
@@ -52,28 +140,37 @@ def content_hash(image_path: str) -> Optional[str]:
 
 
 def _hash_record_path(digest: str) -> str:
-    return os.path.join(_hash_dir(), f"{digest}{SIDECAR_SUFFIX}")
+    # The digest is hex and cannot escape, but the guard says so at the sink.
+    return contained_path(_hash_dir(), f"{digest}{SIDECAR_SUFFIX}")
+
+
+def _read_record(path: str, image_path: str) -> Dict[str, Any]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read().strip()
+        return json.loads(text) if text else {"path": image_path}
+    except (OSError, ValueError):
+        # An empty or hand-made sidecar still counts as consent, as it does for
+        # voice clips; only its details are unknown.
+        return {"path": image_path}
 
 
 def consent_record(image_path: str) -> Optional[Dict[str, Any]]:
-    """The stored record for this image, by sidecar first, then by content hash."""
+    """The stored record for this image, by sidecar first, then by content hash.
+
+    The sidecar is only consulted where one could have been written; an image
+    outside this install's directories is answered by its hash record alone.
+    """
     if not image_path:
         return None
-    for candidate in (sidecar_path(image_path), None):
-        if candidate is None:
-            digest = content_hash(image_path)
-            if not digest:
-                return None
-            candidate = _hash_record_path(digest)
-        if os.path.isfile(candidate):
-            try:
-                with open(candidate, "r", encoding="utf-8") as f:
-                    text = f.read().strip()
-                return json.loads(text) if text else {"path": image_path}
-            except (OSError, ValueError):
-                # An empty or hand-made sidecar still counts as consent, as it
-                # does for voice clips; only its details are unknown.
-                return {"path": image_path}
+    sidecar = owned_sidecar_path(image_path)
+    if sidecar and os.path.isfile(sidecar):
+        return _read_record(sidecar, image_path)
+    digest = content_hash(image_path)
+    if digest:
+        by_hash = _hash_record_path(digest)
+        if os.path.isfile(by_hash):
+            return _read_record(by_hash, image_path)
     return None
 
 
@@ -91,6 +188,8 @@ def record_consent(image_path: str, source: str, *, session_id: Optional[str] = 
     """
     if not image_path or not os.path.isfile(image_path):
         raise FileNotFoundError(f"reference image not found: {image_path}")
+    if not _is_image_file(image_path):
+        raise ValueError(f"reference is not an image file: {image_path}")
     digest = content_hash(image_path)
     record: Dict[str, Any] = {
         "path": os.path.abspath(image_path),
@@ -101,13 +200,26 @@ def record_consent(image_path: str, source: str, *, session_id: Optional[str] = 
         "recorded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     payload = json.dumps(record, indent=2)
-    with open(sidecar_path(image_path), "w", encoding="utf-8") as f:
-        f.write(payload)
+    stored = False
+    sidecar = owned_sidecar_path(image_path)
+    if sidecar:
+        with open(sidecar, "w", encoding="utf-8") as f:
+            f.write(payload)
+        stored = True
+    else:
+        logger.info(
+            "consent sidecar not written for %s: outside this install's directories; "
+            "the content-hash record covers it instead",
+            image_path,
+        )
     if digest:
         try:
             os.makedirs(_hash_dir(), exist_ok=True)
             with open(_hash_record_path(digest), "w", encoding="utf-8") as f:
                 f.write(payload)
+            stored = True
         except OSError as exc:
             logger.warning("consent hash record not written for %s: %s", image_path, exc)
+    if not stored:
+        raise OSError(f"no consent record could be stored for {image_path}")
     return record

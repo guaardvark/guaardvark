@@ -83,7 +83,7 @@ def test_generate_identity_requires_a_consent_record(tmp_path, monkeypatch):
     import backend.services.consent_records as cr
     monkeypatch.setattr(cr, "_hash_dir", lambda: str(tmp_path / "consent"))
     face = tmp_path / "face.png"
-    face.write_bytes(b"png-bytes")
+    face.write_bytes(b"\x89PNG\r\n\x1a\n" + b"png-bytes")
     result = GenerateIdentityTool().execute(prompt="a detective", image=str(face), consented=True)
     assert result.success is False
     assert result.metadata["needs_consent"] is True
