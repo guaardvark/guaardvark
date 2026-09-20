@@ -104,7 +104,7 @@ kornia>=0.7.1
 spandrel>=0.4.2
 av>=18.1.0
 pydantic-settings>=2.15.0
-gguf>=0.18.0
+gguf>=0.19.0
 
 # Face-restore heavy CV deps moved to the OPTIONAL extra
 # backend/requirements-cv.txt (P3-10b): gfpgan, realesrgan, facexlib, basicsr,
