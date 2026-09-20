@@ -21,8 +21,6 @@ import math
 import re
 from typing import Any
 
-from backend.utils.clock import utcnow
-
 MEMORY_TYPES = {
     "fact",
     "preference",

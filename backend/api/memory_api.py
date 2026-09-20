@@ -37,9 +37,9 @@ from backend.services.memory_contract import (
     normalize_memory_type,
     normalize_tags,
     source_trust_weight,
-    utcnow,
     validate_lesson_payload,
 )
+from backend.utils.clock import utcnow
 from backend.utils.memory_audit_log import (
     log_memory_failed,
     log_memory_rejected,
