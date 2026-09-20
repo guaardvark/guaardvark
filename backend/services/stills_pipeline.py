@@ -437,7 +437,12 @@ def _generate_comfy_flux(
             height=height,
             negative_prompt=negative or None,
             seed=seed if seed is not None else 42,
-            model="flux",
+            # The caller's tag, not a hard-coded "flux": _build_workflow picks the
+            # FLUX-dev graph on "flux" + "dev" and the schnell GGUF graph otherwise.
+            # Collapsing every tag to "flux" sent flux-dev requests through schnell
+            # while still applying the flux family's 28 steps / cfg 3.5 — dev
+            # settings on a 4-step distilled model.
+            model=model,
             steps=steps,
             steps_explicit=steps_explicit,
             cfg=guidance,
