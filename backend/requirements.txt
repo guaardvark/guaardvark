@@ -9,7 +9,7 @@
 # ML libs in this stack still import (resemble-perth via chatterbox-tts hit
 # this on 2026-04-28; gfpgan/basicsr/mediapipe historically use it too).
 # Once the rest of the stack migrates off pkg_resources we can drop this.
-setuptools<81
+setuptools<85
 
 # Core Flask/Backend Dependencies
 Flask==3.1.3
