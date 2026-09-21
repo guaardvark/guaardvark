@@ -22,12 +22,13 @@ it is handed:
   a photo the user pointed at by typing its path — is still consented, by its
   content-hash record under ``OUTPUT_DIR/consent/``, which is somewhere this
   install already owns.
-* **Only image files are read.** A consent record has no business reading,
-  hashing and indexing a private key because a prompt named one.
+* **Only regular image files are read.** A consent record has no business
+  reading, hashing and indexing a private key because a prompt named one, and
+  a path naming a FIFO would otherwise hang the request on ``open``.
 
-Reads of the image itself stay unrestricted on purpose: "your own photo,
-wherever you keep it" is the feature. Nothing is written outside the install
-to serve it.
+The *location* of the image stays unrestricted on purpose: "your own photo,
+wherever you keep it" is the feature, so no containment root is applied to the
+read. Nothing is written outside the install to serve it.
 """
 
 from __future__ import annotations
@@ -36,6 +37,7 @@ import hashlib
 import json
 import logging
 import os
+import stat
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
@@ -70,12 +72,25 @@ def _looks_like_an_image(head: bytes) -> bool:
 
 
 def _is_image_file(path: str) -> bool:
-    """True when the first bytes on disk are an image signature."""
+    """True when the first bytes on disk are an image signature.
+
+    Only a regular file is read. The caller chose this path, so it can name a
+    FIFO — whose ``open`` blocks until a writer appears, hanging the request —
+    or a device node. ``O_NONBLOCK`` returns instead of waiting, and the
+    ``fstat`` is on the descriptor actually opened, so the check cannot be
+    raced by swapping the path after a separate ``stat``.
+    """
+    fd = None
     try:
-        with open(path, "rb") as f:
-            return _looks_like_an_image(f.read(16))
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NONBLOCK", 0))
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return False
+        return _looks_like_an_image(os.read(fd, 16))
     except OSError:
         return False
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 def _app_roots() -> tuple[str, ...]:

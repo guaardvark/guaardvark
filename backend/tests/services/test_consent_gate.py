@@ -6,6 +6,7 @@ path pauses on the consent card, writes the record on approval, and answers
 with a refusal on decline; a caller's ``consented=true`` alone is never enough.
 """
 
+import os
 import shutil
 
 import pytest
@@ -119,6 +120,36 @@ def test_a_reference_that_is_not_an_image_is_refused(face, tmp_path):
         cr.record_consent(str(not_an_image), "chat_approval")
     assert not (tmp_path / "id_rsa.consent").exists()
     assert not (tmp_path / "consent").exists() or not list((tmp_path / "consent").iterdir())
+
+
+def test_a_reference_that_is_not_a_regular_file_is_refused(face, tmp_path):
+    """A FIFO must not be opened and waited on.
+
+    The reference path is a tool argument, so a caller can name one. A blocking
+    ``open`` on a FIFO with no writer never returns, which would hang the
+    request rather than refuse it. The test asserts termination as much as the
+    verdict: it fails by timing out if the guard is removed.
+    """
+    fifo = tmp_path / "pipe.png"
+    try:
+        os.mkfifo(fifo)
+    except (AttributeError, NotImplementedError, OSError):
+        pytest.skip("platform has no mkfifo")
+
+    assert cr.has_consent(str(fifo)) is False
+    assert cr.content_hash(str(fifo)) is None
+    # Refused before the image check even runs: record_consent's own
+    # os.path.isfile is already False for a FIFO, so this is FileNotFoundError
+    # rather than the ValueError a real-but-not-an-image file gets.
+    with pytest.raises((ValueError, OSError)):
+        cr.record_consent(str(fifo), "chat_approval")
+    assert not (tmp_path / "pipe.png.consent").exists()
+
+
+def test_a_directory_named_as_a_reference_is_refused(tmp_path):
+    a_dir = tmp_path / "looks_like.png"
+    a_dir.mkdir()
+    assert cr.has_consent(str(a_dir)) is False
 
 
 def test_a_sidecar_cannot_be_aimed_out_of_the_install_with_dots(face, tmp_path):
