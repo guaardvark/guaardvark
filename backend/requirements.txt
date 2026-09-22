@@ -44,7 +44,7 @@ psutil==7.2.2
 # nvidia-ml-py>=12.0.0  # GPU-only (pynvml) — now gated (see dep_reconciler and start.sh; not in base to avoid FutureWarning on CPU/ARM per edge audit)
 
 # Web Scraping & File Processing
-beautifulsoup4==4.12.3
+beautifulsoup4==4.15.0
 lxml==6.1.3
 pypdf==6.16.1
 requests==2.34.2
