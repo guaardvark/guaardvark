@@ -95,7 +95,7 @@ peft>=0.20.0  # Z-Image LoRA training runs in this venv (plugins/lora_trainer/sc
 safetensors>=0.8.0
 Pillow>=12.3.0
 pillow-heif>=1.7.0  # AVIF/HEIF image support for vision analysis
-mss>=10.0.0  # Fast screenshot capture for agent virtual display
+mss>=10.2.0  # Fast screenshot capture for agent virtual display
 
 # ComfyUI / Video Generation Dependencies
 torchsde>=0.2.6
