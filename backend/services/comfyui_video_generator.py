@@ -1058,7 +1058,6 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         """
         try:
             from backend.services.gpu_memory_orchestrator import get_orchestrator
-            from backend.services.gpu_resource_policy import compositor_vram_reserve_mb
             from backend.services.video_model_registry import vram_mb_for_model
         except Exception as e:  # noqa: BLE001
             logger.warning("VRAM admission unavailable (%s); queuing without it", e)
@@ -1074,9 +1073,13 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         while True:
             try:
                 orchestrator = get_orchestrator()
+                # No compositor reserve here. The orchestrator's idle-card rule
+                # admits an estimate only if it fits the card minus the reserve,
+                # and CogVideoX declares 16000 MB against 16376 on a 16 GB card:
+                # with 800 held back it could never be admitted. ComfyUI keeps
+                # its own --reserve-vram for the desktop.
                 orchestrator.request_model(
                     slot_id, estimate_mb, priority=90, hard_fit=True,
-                    vram_reserve_mb=compositor_vram_reserve_mb(),
                 )
             except RuntimeError as e:
                 short = str(e)
