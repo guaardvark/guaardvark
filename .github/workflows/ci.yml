@@ -74,11 +74,6 @@ jobs:
       - name: No machine-specific paths
         run: bash scripts/check_portable.sh
 
-      - name: Video workflow contract (no GPU)
-        run: |
-          source backend/venv/bin/activate
-          python -m pytest --timeout=300 -q backend/tests/services/test_workflow_contract_*.py
-
       - name: Check Python syntax
         run: |
           source backend/venv/bin/activate
@@ -339,6 +334,7 @@ jobs:
             backend/tests/services/test_model_availability.py \
             backend/tests/services/test_video_dimension_limits.py \
             backend/tests/services/test_video_model_preflight.py \
+            backend/tests/services/test_workflow_contract_*.py \
             backend/tests/services/test_music_video_service.py \
             backend/tests/services/test_music_video_director.py \
             backend/tests/unit/test_plugin_state_store.py \
