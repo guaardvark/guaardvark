@@ -261,12 +261,25 @@ VIDEO_MODEL_REGISTRY = {
         "check_files": ["transformer/diffusion_pytorch_model-00001-of-00002.safetensors", "vae/diffusion_pytorch_model.safetensors"],
         "size_gb": 11.3,
         "vram_mb": 16000,
+        # CogVideoXWrapper (fdb8abd, latest upstream) defines its latent format
+        # without latent_rgb_factors_reshape, which ComfyUI's Latent2RGB previewer
+        # reads: with --preview-method auto the sampler raises AttributeError on
+        # its first step (measured 2026-09-25, ComfyUI 0.33.0).
+        "live_preview": False,
         "type": "cogvideox",
         "dimension_alignment": 16,
         "native_fps": 8,
         "max_frames": 49,
         "min_steps": 50,
         "default_steps": 50,
+        # Measured 2026-09-25 on a 16376 MB card (bf16, sdpa, no CPU offload,
+        # 49 frames, ComfyUI --reserve-vram 1.0): 672x384 renders clean;
+        # 720x480, the canvas the model was trained at, runs out of memory in
+        # the transformer on the first sampler step. The 16 tier also covers
+        # larger cards; 720x480 on 24 GB is unmeasured.
+        "tier_defaults": {
+            "16": {"width": 672, "height": 384},
+        },
     },
     "cogvideox-5b-i2v": {
         "name": "CogVideoX 1.5 5B I2V (BF16)",
@@ -295,6 +308,11 @@ VIDEO_MODEL_REGISTRY = {
         "requires": ["t5-encoder", "cogvideox-vae"],
         "size_gb": 10.4,
         "vram_mb": 16000,
+        # CogVideoXWrapper (fdb8abd, latest upstream) defines its latent format
+        # without latent_rgb_factors_reshape, which ComfyUI's Latent2RGB previewer
+        # reads: with --preview-method auto the sampler raises AttributeError on
+        # its first step (measured 2026-09-25, ComfyUI 0.33.0).
+        "live_preview": False,
         "type": "cogvideox",
         "dimension_alignment": 16,
         "native_fps": 8,
@@ -403,9 +421,13 @@ VIDEO_MODEL_REGISTRY = {
         # ComfyUI's ck (Comfy Kitchen INT8) attention put NaN patch tokens into these
         # experts' latents, decoded as black rectangles: 6 of 9 Lightning renders at
         # 960x544, seed 1984, 16 GB card (2026-09-12). The same graphs with PyTorch
-        # attention had NaN 0 and clean frames. The Wan graph pins this whenever the
-        # ComfyUI launch asks for another backend (GUAARDVARK_COMFYUI_ATTENTION).
+        # attention had NaN 0 and clean frames. On the maintainer's box the 4-step
+        # Lightning profile under ck damaged 15 of 24 clips, while 25-step Standard
+        # renders under ck were clean. The graph pins PyTorch whenever the ComfyUI
+        # launch (GUAARDVARK_COMFYUI_ATTENTION) asks for a backend not verified for
+        # the profile being rendered.
         "attention": "pytorch",
+        "attention_verified": {"pytorch": ["*"], "ck": ["standard"]},
     },
     "wan22-5b": {
         "name": "Wan 2.2 TI2V-5B (fp16)",
@@ -437,6 +459,8 @@ VIDEO_MODEL_REGISTRY = {
         "default_steps": 20,
         "native_fps": 24,
         "max_frames": 121,
+        # Fits an 11 GB card without offload; the other Wan entries take the family's 16.
+        "min_vram_gb": 11,
     },
     "wan-vae": {
         "name": "Wan 2.1/2.2 VAE",
@@ -1288,6 +1312,10 @@ VIDEO_MODEL_REGISTRY = {
         **_H3_COMMON,
         "modes": _H3_FL2VA_MODES,
         "speed_profiles": H3_FL2VA_SPEED_PROFILES,
+        # Same card, seed and canvas, 20 steps: Comfy Kitchen int8 (ck) attention
+        # rendered frames indistinguishable from PyTorch's (339 s against 390 s).
+        # The turbo profiles and the other H3 builds were not compared under ck.
+        "attention_verified": {"pytorch": ["*"], "ck": ["standard"]},
         # Per-VRAM-class starting points the Video Generator seeds its controls
         # from. 16 GB starts at the template's 480p canvas on the 8-step turbo
         # profile: measured 2026-09-01 on the same card as vram_mb, 864x480,
@@ -1577,6 +1605,12 @@ def vram_mb_for_model(model_id: str, *, default: int = 11000) -> int:
     return vram if vram > 0 else default
 
 
+def live_preview_for_model(model_id: str) -> bool:
+    """False when the model's ComfyUI nodes cannot render sampler previews."""
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
+    return entry.get("live_preview", True) is not False
+
+
 def comfyui_reserve_vram_gb_for_model(model_id: str) -> Optional[float]:
     """The --reserve-vram a model's entry declares, or None when it has no opinion."""
     entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
@@ -1861,16 +1895,50 @@ def i2v_model_for(model_id: str, default: str | None = None) -> str:
 # adds a row here instead of editing those tables.
 FAMILY_SPECS = {
     "wan": {"dimension_alignment": 16, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "4n+1",
-            "lora_slot": "model_only", "audio_out": False, "guidance": 3.5},
+            "lora_slot": "model_only", "audio_out": False, "guidance": 3.5,
+            "frame_snap": None, "negative_prompt": True,
+            "text_encoder_cpu_max_vram_mb": 20 * 1024, "attention": "pytorch"},
     "cogvideox": {"dimension_alignment": 16, "max_pixel_area": None, "min_vram_gb": 16, "frame_rule": "8n+1",
-                  "lora_slot": None, "audio_out": False, "guidance": 6.0},
+                  "lora_slot": None, "audio_out": False, "guidance": 6.0,
+                  "frame_snap": None, "negative_prompt": True},
     "ltx": {"dimension_alignment": 32, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "8n+1",
-            "lora_slot": "model_only", "audio_out": False, "guidance": 1.0},
+            "lora_slot": "model_only", "audio_out": False, "guidance": 1.0,
+            "frame_snap": "down", "min_frames": 9, "frames_when_unset": 65, "negative_prompt": True,
+            "cfg_when_unset": 1.0, "cfg_range": [0.0, 1.5],
+            "text_encoder_cpu_max_vram_mb": 20 * 1024, "attention": "pytorch"},
     "hunyuan": {"dimension_alignment": 16, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "4n+1",
-                "lora_slot": "model_only", "audio_out": False, "guidance": 6.0},
+                "lora_slot": "model_only", "audio_out": False, "guidance": 6.0,
+                "frame_snap": "nearest", "min_frames": 1, "frames_when_unset": 73, "negative_prompt": False,
+                "text_encoder_cpu_max_vram_mb": 20 * 1024, "attention": "pytorch"},
     "minimax": {"dimension_alignment": 32, "max_pixel_area": 768 * 1344, "min_vram_gb": 16, "frame_rule": "17k+5",
-                "lora_slot": "model_only", "audio_out": True, "guidance": None},
+                "lora_slot": "model_only", "audio_out": True, "guidance": None,
+                "frame_snap": "up", "min_frames": 5, "frames_when_unset": 124, "negative_prompt": False,
+                "enforce_min_steps": True, "attention": "pytorch"},
 }
+# How the render holds a request to these (backend/services/video_render_limits.py):
+#   frame_snap          how a length is moved onto frame_rule: "down", "up" (MiniMax's
+#                       template rounds up), "nearest", or None (sent as asked)
+#   min_frames / frames_when_unset  the floor, and the length used when none is given
+#   enforce_min_steps   raise a preset step count to min_steps (a typed count stands)
+#   cfg_when_unset / cfg_range      guidance used when none is given; outside the
+#                       range the value is kept and logged
+#   negative_prompt     whether the graph has a negative branch
+#   text_encoder_cpu_max_vram_mb    at or below this total VRAM the text encoder
+#                       loads on CPU so the UNet keeps the card (Wan UMT5 is ~6.4 GB
+#                       resident; on 16-20 GB cards it pushed the GGUF UNet into CPU
+#                       offload at ~150 s per step)
+#   attention           the backend the graph pins (ModelAttentionBackend) when the
+#                       ComfyUI launch asks for one the entry has not verified;
+#                       None where the graph cannot take the pin (the CogVideoX
+#                       wrapper picks its own attention_mode)
+#   attention_verified  on an entry only: {backend: [speed profile ids]} measured
+#                       clean. PyTorch, ComfyUI's default and the backend every
+#                       render was measured with, is verified everywhere.
+# An entry may declare any of these to override its family.
+RENDER_LIMIT_KEYS = (
+    "frame_snap", "min_frames", "frames_when_unset", "enforce_min_steps", "cfg_when_unset",
+    "cfg_range", "negative_prompt", "text_encoder_cpu_max_vram_mb", "attention",
+)
 
 
 def family_spec(family: str) -> dict:
@@ -1985,6 +2053,13 @@ def model_capabilities(model_id: str) -> dict:
         caps["max_pixel_area"] = spec.get("max_pixel_area")
     if not caps["frame_rule"]:
         caps["frame_rule"] = spec.get("frame_rule")
+    if caps["min_vram_gb"] is None:
+        caps["min_vram_gb"] = spec.get("min_vram_gb")
+    for key in RENDER_LIMIT_KEYS:
+        caps[key] = entry[key] if key in entry else spec.get(key)
+    # Verified backends are measurements of this entry; a model cloned "like" it
+    # inherits the pin target through its type, not the measurement.
+    caps["attention_verified"] = dict(entry.get("attention_verified") or {"pytorch": ["*"]})
     return caps
 
 
