@@ -79,7 +79,7 @@ def test_fits_first_time_books_the_registry_estimate(generator, clock, monkeypat
     slot, estimate, kw = orch.requests[0]
     assert slot == "video:comfyui:VideoGen_1"
     assert estimate == 11000  # wan22-14b-i2v registry vram_mb
-    assert kw["hard_fit"] is True and kw["vram_reserve_mb"] == 800
+    assert kw["hard_fit"] is True and kw.get("vram_reserve_mb", 0) == 0
     assert orch.pinned == [slot] and generator._vram_booking == slot
     assert clock.sleeps == []
 
