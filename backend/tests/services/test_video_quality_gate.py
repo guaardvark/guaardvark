@@ -28,6 +28,10 @@ def _codes(result):
     return [f["code"] for f in result["flags"]]
 
 
+def _observed(result):
+    return [f["code"] for f in result.get("observations") or []]
+
+
 def test_a_clean_clip_is_not_flagged(made):
     result = vcm.inspect_video_frames(made["clean"], **EXPECT)
     assert result["readable"] and _codes(result) == []
@@ -36,10 +40,8 @@ def test_a_clean_clip_is_not_flagged(made):
 
 
 @pytest.mark.parametrize("name,code", [
-    ("black_tile", "black_tiles"),
     ("blown_out", "clipped_highlights"),
     ("washed_out", "washed_out"),
-    ("frozen", "frozen"),
     ("black_frames", "black_frames"),
 ])
 def test_each_defect_is_flagged(made, name, code):
@@ -49,12 +51,27 @@ def test_each_defect_is_flagged(made, name, code):
     assert flag["message"].startswith(vcm._FLAG_TEXT[code])
 
 
+@pytest.mark.parametrize("name,code", [
+    ("black_tile", "black_tiles"),
+    ("frozen", "frozen"),
+])
+def test_an_uncalibrated_check_is_an_observation_not_a_flag(made, name, code):
+    result = vcm.inspect_video_frames(made[name], **EXPECT)
+    assert code in _observed(result) and code not in _codes(result), result
+
+
+def test_every_observed_only_check_says_what_it_misfired_on():
+    assert set(vcm.OBSERVED_ONLY) <= set(vcm._FLAG_TEXT)
+    assert all(why.strip() for why in vcm.OBSERVED_ONLY.values())
+
+
 def test_washed_out_clip_also_reads_as_colourless(made):
-    assert "desaturated" in _codes(vcm.inspect_video_frames(made["washed_out"], **EXPECT))
+    assert "desaturated" in _observed(vcm.inspect_video_frames(made["washed_out"], **EXPECT))
 
 
 def test_a_black_tile_is_not_confused_with_a_dark_scene(made):
-    codes = _codes(vcm.inspect_video_frames(made["black_frames"], **EXPECT))
+    result = vcm.inspect_video_frames(made["black_frames"], **EXPECT)
+    codes = _codes(result) + _observed(result)
     assert "black_tiles" not in codes and "crushed_shadows" not in codes
 
 
@@ -171,7 +188,8 @@ def test_a_washed_out_clip_completes_with_its_flags_in_the_status(tmp_path, monk
     [result] = status.results
     assert result.success and status.status == "completed"
     quality = result.metadata["quality"]
-    assert quality["flagged"] and {"washed_out", "desaturated"} <= set(quality["flag_reasons"])
+    assert quality["flagged"] and quality["flag_reasons"] == ["washed_out"]
+    assert "desaturated" in [o["code"] for o in quality["frames"]["observations"]]
     saved = json.loads((batch_dir / "batch_metadata.json").read_text())
     assert saved["results"][0]["metadata"]["quality"]["flags"][0]["code"] == "washed_out"
 
@@ -182,7 +200,7 @@ def test_status_text_names_the_flags(monkeypatch):
     from backend.tools import image_tools
 
     quality = {"flagged": True, "frames": {"readable": True},
-               "flags": [{"code": "black_tiles", "message": "black tiles (NaN latents decode as black rectangles): in 3 of 9 sampled frames"}]}
+               "flags": [{"code": "black_frames", "message": "black frames: 3 of 9 sampled frames"}]}
     clean = {"flagged": False, "frames": {"readable": True}, "flags": []}
     body = {"status": "completed", "stage": "done", "completed_videos": 2, "total_videos": 2, "results": [
         {"success": True, "video_path": "a/videos/a.mp4", "metadata": {"quality": quality}},
@@ -199,6 +217,6 @@ def test_status_text_names_the_flags(monkeypatch):
     tool._context = {"transport": "mcp"}
     out = tool.execute(batch_id="VideoBatch_x")
     assert out.success
-    assert "Quality: flagged — black tiles (NaN latents decode as black rectangles)" in out.output
+    assert "Quality: flagged — black frames: 3 of 9 sampled frames" in out.output
     assert "Quality: no problems found in the sampled frames" in out.output
-    assert out.metadata["files"][0]["quality"]["flags"][0]["code"] == "black_tiles"
+    assert out.metadata["files"][0]["quality"]["flags"][0]["code"] == "black_frames"

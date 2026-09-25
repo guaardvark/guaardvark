@@ -225,6 +225,24 @@ _FLAG_TEXT = {
 }
 
 
+# Checks that are recorded as observations, not flags: over the 171 clips in a
+# local render folder (Wan 2.2 5B/14B T2V and I2V, LTX 2.3/2.5, Hunyuan I2V,
+# MiniMax H3, CogVideoX) each of these fired on renders a person judged fine,
+# and none on a render known to be damaged. A check moves back to a flag when
+# its threshold stops marking good clips; scripts/video_quality_scan.py shows
+# the metrics to calibrate against.
+OBSERVED_ONLY: Dict[str, str] = {
+    "black_tiles": (
+        "60 of 171 clips, all of the ones inspected dark scenery (night sky, black studio "
+        "backdrops): scenery black decodes to the same 0-6 luma as a NaN rectangle, and "
+        "requiring the tile to be lit elsewhere in the clip still left 20 good clips"),
+    "crushed_shadows": "12 of 171, deliberate dark neon grades",
+    "desaturated": "5 of 171, colourless subjects (white and grey objects)",
+    "oversaturated": "6 of 171, neon-lit scenes",
+    "frozen": "21 of 171, including slow push-ins whose frames do change",
+}
+
+
 def _t(key: str):
     return QUALITY_THRESHOLDS[key]["value"]
 
@@ -290,8 +308,9 @@ def inspect_video_frames(
     clipped highlights, crushed shadows, a washed-out or colourless image,
     posterised colour, frozen motion, and a size or length other than the
     request's. Returns {"readable", "width", "height", "frames", "fps",
-    "duration_s", "sampled", "metrics", "flags": [{"code", "message"}]}.
-    Thresholds: QUALITY_THRESHOLDS. Never raises."""
+    "duration_s", "sampled", "metrics", "flags": [{"code", "message"}],
+    "observations": [...]}; a check in OBSERVED_ONLY reports under
+    observations, not flags. Thresholds: QUALITY_THRESHOLDS. Never raises."""
     import numpy as np
 
     out: Dict[str, Any] = {"readable": False, "flags": [], "metrics": {}}
@@ -386,6 +405,8 @@ def inspect_video_frames(
     if expected_frames and abs(out["frames"] - int(expected_frames)) > int(frame_tolerance):
         flags.append(_flag("wrong_frame_count", f"{out['frames']} frames, expected {int(expected_frames)}"
                                                 f" (±{int(frame_tolerance)})"))
+    out["observations"] = [f for f in flags if f["code"] in OBSERVED_ONLY]
+    out["flags"] = [f for f in flags if f["code"] not in OBSERVED_ONLY]
     return out
 
 

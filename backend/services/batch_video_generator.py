@@ -457,7 +457,8 @@ class BatchVideoGenerator:
         try:
             check = inspect_video_frames(video_path, **(expected or {}))
             quality["frames"] = {k: check.get(k) for k in (
-                "readable", "width", "height", "frames", "fps", "duration_s", "sampled", "metrics")}
+                "readable", "width", "height", "frames", "fps", "duration_s", "sampled", "metrics",
+                "observations")}
             quality["flags"] = check.get("flags") or []
             if quality["flags"]:
                 quality["flagged"] = True
