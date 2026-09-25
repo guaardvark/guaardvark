@@ -11,6 +11,8 @@ import os
 import time
 from typing import Optional
 
+from backend.services.video_render_limits import UNKNOWN_PROFILE
+
 logger = logging.getLogger(__name__)
 
 
@@ -473,6 +475,7 @@ class ComfyUIVideoWorkflowMixin:
         shift_override: Optional[float] = None,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """Build a ComfyUI API-format workflow for Wan 2.2 MoE text-to-video.
 
@@ -486,7 +489,7 @@ class ComfyUIVideoWorkflowMixin:
         model_files = dict(self.WAN22_MODELS.get(model_key, self.WAN22_MODELS["wan22-14b"]))
         if text_encoder:
             model_files["clip"] = text_encoder
-        clip_device = self._wan_clip_device()
+        clip_device = self._text_encoder_device(model_key)
 
         # Default negative prompt for anatomy quality
         if not negative_prompt:
@@ -682,7 +685,9 @@ class ComfyUIVideoWorkflowMixin:
         low_ref = ["18", 0] if lora_low else ["2", 0]
         high_ref, next_id = self._chain_model_only_loras(workflow, high_ref, extra_loras, 40)
         low_ref, next_id = self._chain_model_only_loras(workflow, low_ref, extra_loras, next_id)
-        high_ref, low_ref = self._apply_declared_attention(workflow, model_key, [high_ref, low_ref], next_id)
+        high_ref, low_ref = self._apply_declared_attention(
+            workflow, model_key, [high_ref, low_ref], next_id, speed_profile
+        )
         workflow["8"]["inputs"]["model"] = high_ref
         workflow["9"]["inputs"]["model"] = low_ref
 
@@ -719,6 +724,7 @@ class ComfyUIVideoWorkflowMixin:
         shift_override: Optional[float] = None,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         # Same MoE two-pass dance as Wan T2V, but the empty latent gets swapped
         # for WanImageToVideo — that node bakes the start frame into the
@@ -729,7 +735,7 @@ class ComfyUIVideoWorkflowMixin:
         model_files = dict(self.WAN22_MODELS.get(model_key, self.WAN22_MODELS["wan22-14b-i2v"]))
         if text_encoder:
             model_files["clip"] = text_encoder
-        clip_device = self._wan_clip_device()
+        clip_device = self._text_encoder_device(model_key)
 
         if not negative_prompt:
             negative_prompt = (
@@ -867,7 +873,9 @@ class ComfyUIVideoWorkflowMixin:
         low_ref = ["18", 0] if lora_low else ["2", 0]
         high_ref, next_id = self._chain_model_only_loras(workflow, high_ref, extra_loras, 40)
         low_ref, next_id = self._chain_model_only_loras(workflow, low_ref, extra_loras, next_id)
-        high_ref, low_ref = self._apply_declared_attention(workflow, model_key, [high_ref, low_ref], next_id)
+        high_ref, low_ref = self._apply_declared_attention(
+            workflow, model_key, [high_ref, low_ref], next_id, speed_profile
+        )
         workflow["8"]["inputs"]["model"] = high_ref
         workflow["9"]["inputs"]["model"] = low_ref
 
@@ -900,6 +908,7 @@ class ComfyUIVideoWorkflowMixin:
         sampler_profile: Optional[str] = None,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """Wan 2.2 TI2V-5B — single-model text+image-to-video that FITS 16GB (no MoE
         two-pass, no CPU offload → none of the 38-min-per-clip A14B pain). Graph mirrors
@@ -915,7 +924,7 @@ class ComfyUIVideoWorkflowMixin:
         unet = cfg.get("unet") or "wan2.2_ti2v_5B_fp16.safetensors"
         clip = text_encoder or cfg.get("clip") or "umt5_xxl_fp8_e4m3fn_scaled.safetensors"
         vae = cfg.get("vae") or "wan2.2_vae.safetensors"
-        clip_device = self._wan_clip_device()
+        clip_device = self._text_encoder_device(model_key)
 
         if not negative_prompt:
             negative_prompt = (
@@ -1003,6 +1012,7 @@ class ComfyUIVideoWorkflowMixin:
                 multiplier=interpolation_multiplier,
             )
 
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
 
@@ -1022,6 +1032,7 @@ class ComfyUIVideoWorkflowMixin:
         audio_out: bool = False,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """LTX-2.3 distilled T2V — AV-aware core ComfyUI graph.
 
@@ -1052,7 +1063,7 @@ class ComfyUIVideoWorkflowMixin:
                 "bad proportions, extra limbs, static, jitter, morphing, watermark"
             )
 
-        clip_device = self._wan_clip_device()
+        clip_device = self._text_encoder_device(model_key)
 
         workflow = {
             "1": {
@@ -1161,6 +1172,7 @@ class ComfyUIVideoWorkflowMixin:
                 multiplier=interpolation_multiplier,
             )
         self._stack_user_loras(workflow, extra_loras)
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
 
@@ -1182,6 +1194,7 @@ class ComfyUIVideoWorkflowMixin:
         audio_out: bool = False,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """LTX-2.3 distilled I2V — AV concat path with LTXVImgToVideo start frame."""
         if seed is None:
@@ -1195,7 +1208,7 @@ class ComfyUIVideoWorkflowMixin:
         vae = cfg.get("vae") or "LTX23_video_vae_bf16.safetensors"
         audio_vae = cfg.get("audio_vae") or "LTX23_audio_vae_bf16.safetensors"
         length = self._ltx_frame_count(num_frames)
-        clip_device = self._wan_clip_device()
+        clip_device = self._text_encoder_device(model_key)
 
         if not negative_prompt:
             negative_prompt = (
@@ -1320,6 +1333,7 @@ class ComfyUIVideoWorkflowMixin:
                 multiplier=interpolation_multiplier,
             )
         self._stack_user_loras(workflow, extra_loras)
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
 
@@ -1370,6 +1384,7 @@ class ComfyUIVideoWorkflowMixin:
         audio_out: bool = False,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """LTX-2.5 distilled T2V — official two-stage ComfyUI graph, video-only decode.
 
@@ -1391,7 +1406,7 @@ class ComfyUIVideoWorkflowMixin:
             files["clip"] = text_encoder
         length = self._ltx_frame_count(num_frames)
         stage_w, stage_h = self._ltx25_stage1_size(width, height)
-        clip_device = self._wan_clip_device()
+        clip_device = self._text_encoder_device(model_key)
         negative_prompt = self._ltx25_default_negative(negative_prompt)
         cfg = float(guidance_scale if guidance_scale is not None else 1.0)
         # Distilled schedule is fixed; keep the arg for API symmetry / logging.
@@ -1546,6 +1561,7 @@ class ComfyUIVideoWorkflowMixin:
                 multiplier=interpolation_multiplier,
             )
         self._stack_user_loras(workflow, extra_loras)
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
     def _create_ltx25_i2v_workflow(
@@ -1566,6 +1582,7 @@ class ComfyUIVideoWorkflowMixin:
         audio_out: bool = False,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """LTX-2.5 distilled I2V — two-stage stack with LTXVImgToVideo start frame."""
         if seed is None:
@@ -1576,7 +1593,7 @@ class ComfyUIVideoWorkflowMixin:
             files["clip"] = text_encoder
         length = self._ltx_frame_count(num_frames)
         stage_w, stage_h = self._ltx25_stage1_size(width, height)
-        clip_device = self._wan_clip_device()
+        clip_device = self._text_encoder_device(model_key)
         negative_prompt = self._ltx25_default_negative(negative_prompt)
         cfg = float(guidance_scale if guidance_scale is not None else 1.0)
         _ = num_inference_steps
@@ -1753,6 +1770,7 @@ class ComfyUIVideoWorkflowMixin:
                 multiplier=interpolation_multiplier,
             )
         self._stack_user_loras(workflow, extra_loras)
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
 
@@ -1776,7 +1794,8 @@ class ComfyUIVideoWorkflowMixin:
 
     def _hunyuan_loader_nodes(self, cfg: dict) -> dict:
         """Nodes 1-3: GGUF UNet, DualCLIPLoader (clip_l + LLaVA-3), VAE."""
-        clip_device = self._wan_clip_device()
+        from backend.services.video_render_limits import text_encoder_device
+        clip_device = text_encoder_device("", family="hunyuan")
         logger.info("HunyuanVideo workflow unet=%s clip_device=%s", cfg["unet"], clip_device)
         return {
             "1": {"class_type": "UnetLoaderGGUF", "inputs": {"unet_name": cfg["unet"]}},
@@ -1858,6 +1877,7 @@ class ComfyUIVideoWorkflowMixin:
         interpolation_multiplier: int = 1,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """HunyuanVideo text-to-video on ComfyUI's native nodes with a GGUF UNet.
 
@@ -1896,6 +1916,7 @@ class ComfyUIVideoWorkflowMixin:
                 multiplier=interpolation_multiplier,
             )
         self._stack_user_loras(workflow, extra_loras)
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
     def _create_hunyuan_i2v_workflow(
@@ -1913,6 +1934,7 @@ class ComfyUIVideoWorkflowMixin:
         interpolation_multiplier: int = 1,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """HunyuanVideo image-to-video (v2 "replace" conditioning).
 
@@ -1971,6 +1993,7 @@ class ComfyUIVideoWorkflowMixin:
                 multiplier=interpolation_multiplier,
             )
         self._stack_user_loras(workflow, extra_loras)
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
     # ── MiniMax H3 ────────────────────────────────────────────────────────────
@@ -1993,8 +2016,8 @@ class ComfyUIVideoWorkflowMixin:
         the CPU is the slowest possible way to run it. Let ComfyUI partial-load
         it on the GPU (the official template does the same). The Wan override
         is honoured for anyone who wants to force it."""
-        override = (os.environ.get("GUAARDVARK_WAN_CLIP_DEVICE") or "").strip().lower()
-        return override if override in ("cpu", "default") else "default"
+        from backend.services.video_render_limits import text_encoder_device
+        return text_encoder_device("", family="minimax")
 
     def _create_minimax_ref_workflow(
         self,
@@ -2015,6 +2038,7 @@ class ComfyUIVideoWorkflowMixin:
         lora_strength: float = 1.0,
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """MiniMax H3 ref2va graph — the official video_minimax_h3_r2v template.
 
@@ -2159,6 +2183,7 @@ class ComfyUIVideoWorkflowMixin:
                 workflow, source_node_id="12", video_combine_node_id="14",
                 base_fps=fps, multiplier=interpolation_multiplier,
             )
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
     def _create_minimax_workflow(
@@ -2179,6 +2204,7 @@ class ComfyUIVideoWorkflowMixin:
         extra_loras: Optional[list] = None,
         text_encoder: Optional[str] = None,
         guides: Optional[list] = None,
+        speed_profile: Optional[str] = UNKNOWN_PROFILE,
     ) -> dict:
         """MiniMax H3 fl2va graph — the official ComfyUI template plus its optional inputs.
 
@@ -2370,6 +2396,7 @@ class ComfyUIVideoWorkflowMixin:
                 base_fps=fps,
                 multiplier=interpolation_multiplier,
             )
+        self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
     def _build_vae_decode_node(self, samples_node: str, vae_node: str, width: int, height: int) -> dict:
@@ -2567,35 +2594,62 @@ class ComfyUIVideoWorkflowMixin:
             inputs["model"] = model_ref
         return workflow
 
-    def _attention_pin_wanted(self) -> bool:
-        """True when ComfyUI was launched with a non-default attention backend (ck,
-        sage, auto) and offers ModelAttentionBackend to override it per model. On a
-        default launch the graph is left as ComfyUI would build it."""
+    def _launch_attention(self) -> Optional[str]:
+        """The non-default attention backend ComfyUI was launched with (ck, sage,
+        auto) when it also offers ModelAttentionBackend to override it per model;
+        None on a default launch, where the graph is left as ComfyUI builds it."""
         from backend.services.comfyui_launch_flags import ATTENTION_BACKENDS, ATTENTION_DEFAULT, ATTENTION_ENV
         choice = (os.environ.get(ATTENTION_ENV) or ATTENTION_DEFAULT).strip().lower()
         if choice not in ATTENTION_BACKENDS or choice == ATTENTION_DEFAULT:
-            return False
+            return None
         try:
-            return bool(self.comfy_node_available("ModelAttentionBackend"))
+            return choice if self.comfy_node_available("ModelAttentionBackend") else None
         except Exception:
-            return False
+            return None
 
-    def _apply_declared_attention(self, workflow: dict, model_key: str, refs: list, start_id: int) -> list:
-        """Put a ModelAttentionBackend after each model ref when the registry entry (or
-        the shipped entry a user model was cloned from) declares ``attention`` and the
-        launch uses another backend; returns the new refs."""
-        from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
-        entry = VIDEO_MODEL_REGISTRY.get(model_key) or {}
-        declared = entry.get("attention") or (VIDEO_MODEL_REGISTRY.get(entry.get("like") or "") or {}).get("attention")
+    def _attention_pin_wanted(self) -> bool:
+        return self._launch_attention() is not None
+
+    def _apply_declared_attention(self, workflow: dict, model_key: str, refs: list, start_id: int,
+                                  speed_profile: Optional[str] = UNKNOWN_PROFILE) -> list:
+        """Put a ModelAttentionBackend after each model ref when the launch uses a
+        backend the entry has not verified for this speed profile
+        (video_render_limits.attention_pin); returns the new refs."""
+        from backend.services.video_render_limits import attention_pin
+        launch = self._launch_attention()
+        target = attention_pin(model_key, speed_profile, launch, self._model_family(model_key)) if launch else None
         names = {"pytorch": "pytorch attention"}
-        if declared not in names or not self._attention_pin_wanted():
+        if target not in names:
             return list(refs)
         out = []
         for i, ref in enumerate(refs):
             sid = str(int(start_id) + i)
-            workflow[sid] = {"class_type": "ModelAttentionBackend", "inputs": {"model": ref, "attention": names[declared]}}
+            workflow[sid] = {"class_type": "ModelAttentionBackend", "inputs": {"model": ref, "attention": names[target]}}
             out.append([sid, 0])
         return out
+
+    _MODEL_SOURCES = ("UNETLoader", "UnetLoaderGGUF", "LoraLoaderModelOnly")
+
+    def _pin_model_attention(self, workflow: dict, model_key: str, speed_profile: Optional[str]) -> dict:
+        """Pin attention on every model edge leaving the loader and LoRA chain,
+        for builders whose model chain has no fixed ids."""
+        edges = {}
+        for node in workflow.values():
+            inputs = node.get("inputs") or {}
+            ref = inputs.get("model")
+            if (isinstance(ref, list) and len(ref) == 2 and ref[0] in workflow
+                    and node.get("class_type") not in (*self._MODEL_SOURCES, "ModelAttentionBackend")
+                    and workflow[ref[0]].get("class_type") in self._MODEL_SOURCES):
+                edges.setdefault(tuple(ref), []).append(inputs)
+        if not edges:
+            return workflow
+        ids = [int(k) for k in workflow if str(k).isdigit()]
+        sources = [list(ref) for ref in edges]
+        pinned = self._apply_declared_attention(workflow, model_key, sources, max(ids) + 1, speed_profile)
+        for ref, new_ref in zip(edges, pinned):
+            for inputs in edges[ref]:
+                inputs["model"] = new_ref
+        return workflow
 
     def _chain_model_only_loras(self, workflow: dict, model_ref: list, loras: Optional[list], start_id: int) -> tuple:
         """Stack LoraLoaderModelOnly nodes after model_ref. Returns (new_ref, next_id)."""
