@@ -644,7 +644,7 @@ Questions, install trouble, or feedback: **support@guaardvark.com**. Press, part
 
 ## Get Involved
 
-The Guaardvark engine is open source (MIT) and built in public; paid layers and client products built on it are separate and not covered by that license. Whether you want to try the bot, ship a small PR, or hang out with other local-AI builders — here is the short path.
+Guaardvark is open source (MIT) and built in public. Whether you want to try the bot, ship a small PR, or hang out with other local-AI builders — here is the short path.
 
 ### 1. Join the community
 
