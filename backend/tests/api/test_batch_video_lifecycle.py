@@ -218,6 +218,24 @@ def test_status_includes_stage_fields(client, fake_gen):
     assert data["status"] == "running"
 
 
+def test_status_counts_finished_clips_that_were_flagged(client, fake_gen):
+    create = client.post(
+        "/api/batch-video/generate/text",
+        json={"prompts": ["a", "b"], "model": "wan22-5b"},
+    )
+    batch_id = create.get_json()["data"]["batch_id"]
+    st = fake_gen._batches[batch_id]
+    washed = {"flagged": True, "flags": [{"code": "washed_out", "message": "washed out"}]}
+    st.results = [
+        BatchVideoResult(item_id="1", success=True, video_path="1/videos/a.mp4", metadata={"quality": washed}),
+        BatchVideoResult(item_id="2", success=True, video_path="2/videos/b.mp4",
+                         metadata={"quality": {"flagged": False, "flags": []}}),
+    ]
+    data = client.get(f"/api/batch-video/status/{batch_id}").get_json()["data"]
+    assert data["flagged_videos"] == 1
+    assert data["results"][0]["metadata"]["quality"]["flags"][0]["code"] == "washed_out"
+
+
 def test_cancel_batch_lifecycle(client, fake_gen):
     create = client.post(
         "/api/batch-video/generate/text",
@@ -316,4 +334,7 @@ def test_attach_quality_metrics_fail_open(tmp_path):
         high_consistency=True,
     )
     assert "quality" in br.metadata
-    assert br.metadata["quality"]["flagged"] is False
+    # The checkers fail open (nothing raises), but a clip that is not on disk is
+    # the one thing a finished item must not be: it is flagged, not passed.
+    assert br.metadata["quality"]["flagged"] is True
+    assert [f["code"] for f in br.metadata["quality"]["flags"]] == ["unreadable"]

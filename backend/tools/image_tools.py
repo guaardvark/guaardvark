@@ -600,6 +600,14 @@ class ImageGeneratorTool(BaseTool):
         )
 
 
+def _quality_summary(quality) -> Optional[dict]:
+    """The flags a finished clip carries, for status readers."""
+    if not isinstance(quality, dict):
+        return None
+    flags = [f for f in quality.get("flags") or [] if isinstance(f, dict) and f.get("message")]
+    return {"checked": bool((quality.get("frames") or {}).get("readable")) or bool(flags), "flags": flags}
+
+
 class GenerationStatusTool(BaseTool):
     """Read the state of a queued image or video batch by id."""
 
@@ -701,6 +709,7 @@ class GenerationStatusTool(BaseTool):
                 entry = {"url": f"/api/batch-video/video/{batch_id}/{r['video_path']}"}
                 if r.get("thumbnail_path"):
                     entry["thumbnail_url"] = f"/api/batch-video/video/{batch_id}/{r['thumbnail_path']}"
+                entry["quality"] = _quality_summary((r.get("metadata") or {}).get("quality"))
                 files.append(entry)
         failed = [r.get("error") for r in (d.get("results") or []) if not r.get("success") and r.get("error")]
         return {
@@ -723,6 +732,7 @@ class GenerationStatusTool(BaseTool):
                 entry = {"url": f"/api/batch-video/video/{batch_id}/{r.video_path}"}
                 if r.thumbnail_path:
                     entry["thumbnail_url"] = f"/api/batch-video/video/{batch_id}/{r.thumbnail_path}"
+                entry["quality"] = _quality_summary((getattr(r, "metadata", None) or {}).get("quality"))
                 files.append(entry)
         failed = [r.error for r in (status.results or []) if not r.success and r.error]
         completed = sum(1 for r in (status.results or []) if r.success)
@@ -775,6 +785,11 @@ class GenerationStatusTool(BaseTool):
                 lines.append(f"Steps: {f.get('steps') if f.get('steps') is not None else 'unknown'}")
                 if f.get("steps_notice"):
                     lines.append(f["steps_notice"])
+            quality = f.get("quality")
+            if quality and quality.get("flags"):
+                lines.append("Quality: flagged — " + "; ".join(q["message"] for q in quality["flags"]))
+            elif quality and quality.get("checked"):
+                lines.append("Quality: no problems found in the sampled frames")
         if info.get("error"):
             lines.append(f"Error: {info['error']}")
         for err in info.get("errors") or []:

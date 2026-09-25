@@ -409,14 +409,21 @@ class BatchVideoGenerator:
         batch_result: BatchVideoResult,
         *,
         video_path: str,
+        expected: Optional[Dict] = None,
         keyframe_path: Optional[str] = None,
         cinematic: bool = False,
         high_consistency: bool = False,
     ) -> None:
-        """Best-effort quality sidecar for completed clips (never raises / never fails the item)."""
+        """Quality record for a completed clip (never raises / never fails the item).
+
+        ``video_path`` is the clip's absolute path. The frame checker's flags
+        (``quality.flags``: code and a plain message) mark a clip that finished
+        but is not usable; ``expected`` holds the width, height and frame count
+        the request resolved to."""
         try:
             from backend.services.video_consistency_metrics import (
                 compute_basic_video_stats,
+                inspect_video_frames,
                 score_identity_preservation,
                 review_video_quality,
                 annotate_asset,
@@ -425,11 +432,23 @@ class BatchVideoGenerator:
             logger.debug("quality metrics import failed: %s", e)
             return
 
-        quality: Dict = {"flagged": False, "flag_reasons": []}
+        quality: Dict = {"flagged": False, "flag_reasons": [], "flags": []}
         try:
             quality["stats"] = compute_basic_video_stats(video_path)
         except Exception as e:
             logger.debug("basic video stats failed: %s", e)
+
+        try:
+            check = inspect_video_frames(video_path, **(expected or {}))
+            quality["frames"] = {k: check.get(k) for k in (
+                "readable", "width", "height", "frames", "fps", "duration_s", "sampled", "metrics",
+                "observations")}
+            quality["flags"] = check.get("flags") or []
+            if quality["flags"]:
+                quality["flagged"] = True
+                quality["flag_reasons"].extend(f["code"] for f in quality["flags"])
+        except Exception as e:  # noqa: BLE001 — the checker must never fail a render
+            logger.warning("frame quality check skipped for %s: %s", video_path, e)
 
         if cinematic and keyframe_path and Path(keyframe_path).exists():
             try:
@@ -459,6 +478,10 @@ class BatchVideoGenerator:
                             quality["flag_reasons"].append(
                                 f"low_identity_score:{score:.2f}"
                             )
+                            quality["flags"].append({
+                                "code": "low_identity_score",
+                                "message": f"the clip drifts from its keyframe: identity score {score:.2f}",
+                            })
             except Exception as e:
                 logger.debug("identity scoring skipped: %s", e)
 
@@ -472,6 +495,10 @@ class BatchVideoGenerator:
                     if isinstance(qscore, (int, float)) and qscore < 5:
                         quality["flagged"] = True
                         quality["flag_reasons"].append(f"low_vlm_score:{qscore}")
+                        quality["flags"].append({
+                            "code": "low_vlm_score",
+                            "message": f"the vision review scored it {qscore}/10",
+                        })
             except Exception as e:
                 logger.debug("VLM video review skipped: %s", e)
 
@@ -481,6 +508,24 @@ class BatchVideoGenerator:
             annotate_asset(video_path, {"quality": quality})
         except Exception:
             pass
+
+    @staticmethod
+    def _expected_output(gen_request: VideoGenerationRequest) -> Dict:
+        """Size and length the MP4 should have, from the request as generate_video
+        resolved it: upscale doubles the frame, RIFE multiplies the length, and a
+        model may move the length by one step of its frame grid."""
+        from backend.services.video_consistency_metrics import expected_output_frames, frame_grid_step
+        from backend.services.video_model_registry import model_capabilities
+
+        scale = 2 if (gen_request.metadata or {}).get("upscale") else 1
+        interp = max(1, int(gen_request.interpolation_multiplier or 1))
+        step = frame_grid_step((model_capabilities(gen_request.model) or {}).get("frame_rule"))
+        return {
+            "expected_width": int(gen_request.width) * scale,
+            "expected_height": int(gen_request.height) * scale,
+            "expected_frames": expected_output_frames(gen_request.duration_frames, interp),
+            "frame_tolerance": step * interp,
+        }
 
     @staticmethod
     def _compute_progress_pct(batch_status: BatchVideoStatus) -> int:
@@ -1149,9 +1194,11 @@ class BatchVideoGenerator:
                         )
                         if result.success and result.video_path:
                             self._set_stage(status, "post", current_item=item.id, save=False)
+                            from backend.services.comfyui_video_generator import resolve_generated_video_path
                             self._attach_quality_metrics(
                                 br,
-                                video_path=result.video_path,
+                                video_path=str(resolve_generated_video_path(result, batch_dir)),
+                                expected=self._expected_output(gen_request),
                                 keyframe_path=meta.get("image_path"),
                                 cinematic=bool(meta.get("cinematic_keyframe")),
                                 high_consistency=bool(
