@@ -156,6 +156,238 @@ def compute_frame_consistency(video_path: str | Path, sample_frames: int = 5) ->
     return out
 
 
+# ── Frame-level quality gate ─────────────────────────────────────────────────
+# Every threshold the frame checker uses, with why it sits where it does.
+# Luma is Rec.709 on 0-255 RGB; saturation is (max-min)/max per pixel. The
+# values follow from what each defect looks like in an 8-bit yuv420p MP4 (the
+# format VHS_VideoCombine writes); they have not yet been calibrated against a
+# corpus of real renders. scripts/video_quality_scan.py prints the metrics for
+# a folder of clips so they can be.
+QUALITY_THRESHOLDS: Dict[str, Dict[str, Any]] = {
+    "dark_luma": {"value": 6, "why": (
+        "A NaN latent decodes to RGB 0; yuv420p limited range brings it back as 0-3 and "
+        "compression ringing lifts a few edge pixels, so the 99th percentile of a truly "
+        "black region stays under 6 while the darkest real shadow detail sits above it.")},
+    "black_tile_scene_luma": {"value": 24, "why": (
+        "A tile only counts as a black tile when the frame around it is not itself dark; "
+        "below a mean luma of 24 the whole shot is night or a fade and a black tile is scenery.")},
+    "tile_grid": {"value": 8, "why": (
+        "8x8 tiles on the frame: each tile is ~100-170 px on the canvases these models "
+        "render, the scale of the black rectangles NaN latents leave, while a tile is small "
+        "enough that one damaged patch fills it.")},
+    "clipped_luma": {"value": 250, "why": "Luma at or above 250 of 255 has lost its highlight detail."},
+    "clipped_share": {"value": 0.20, "why": (
+        "A bright sky or a lamp can clip a few percent of a frame; a fifth of the frame "
+        "clipped on average across the samples is a blown-out render.")},
+    "crushed_luma": {"value": 5, "why": "Luma at or below 5 of 255 has lost its shadow detail."},
+    "crushed_share": {"value": 0.35, "why": (
+        "Night scenes legitimately hold a lot of near-black; over a third of every sampled "
+        "frame crushed is beyond a dark grade.")},
+    "washed_out_spread": {"value": 40, "why": (
+        "A washed-out render squeezes its luma into a narrow band (lifted blacks, dimmed "
+        "whites): under 40 of 255 between the 5th and 95th percentile. The clean test clip "
+        "spans 64 and the washed-out one 13; real renders are to be measured.")},
+    "washed_out_mean": {"value": 90, "why": (
+        "Low spread in a dark frame is a moody grade, not a wash-out; only a frame whose mean "
+        "luma is above 90 counts.")},
+    "desaturated": {"value": 0.06, "why": (
+        "A mean saturation under 0.06 reads as greyscale; generated colour footage sits well "
+        "above 0.15. Pixels darker than 20 are left out, their saturation is noise.")},
+    "oversaturated_share": {"value": 0.50, "why": (
+        "More than half the (non-dark) pixels at saturation above 0.9 is posterised colour, "
+        "not a vivid scene.")},
+    "frozen_diff": {"value": 0.5, "why": (
+        "Mean absolute luma difference between consecutive frames (0-255, frames scaled to "
+        "160 px wide). Identical frames re-encoded by libx264 differ by up to 0.35 while the "
+        "encoder settles and ~0.01 after; a 1 px pan every other frame measures ~1.7 on the "
+        "frames that move.")},
+    "frozen_share": {"value": 0.5, "why": (
+        "A clip is frozen when one unbroken run of still frames covers half of it; a held "
+        "beat of a second or two is a shot, not a failure.")},
+    "frame_count_grid": {"value": None, "why": (
+        "Models move a length onto their frame grid (4n+1, 8n+1, 17k+5), up or down, so an "
+        "expected count is allowed one grid step either way, multiplied by the RIFE factor.")},
+    "samples": {"value": 8, "why": "Every Nth frame such that about 8 are checked, plus the first and last."},
+}
+
+_FLAG_TEXT = {
+    "unreadable": "the file could not be decoded",
+    "black_frames": "black frames",
+    "black_tiles": "black tiles (NaN latents decode as black rectangles)",
+    "clipped_highlights": "blown-out highlights",
+    "crushed_shadows": "crushed shadows",
+    "washed_out": "washed out (low contrast, lifted blacks)",
+    "desaturated": "almost no colour",
+    "oversaturated": "posterised, oversaturated colour",
+    "frozen": "frozen video (frames do not change)",
+    "wrong_size": "wrong frame size",
+    "wrong_frame_count": "wrong number of frames",
+}
+
+
+def _t(key: str):
+    return QUALITY_THRESHOLDS[key]["value"]
+
+
+def _flag(code: str, detail: str) -> Dict[str, str]:
+    return {"code": code, "message": f"{_FLAG_TEXT[code]}: {detail}"}
+
+
+def expected_output_frames(requested: int, interpolation: int = 1) -> int:
+    """Frames the MP4 holds for a requested length: RIFE's multiplier m turns n
+    frames into (n - 1) * m + 1."""
+    n = max(1, int(requested or 0))
+    m = max(1, int(interpolation or 1))
+    return (n - 1) * m + 1
+
+
+def frame_grid_step(frame_rule: Optional[str]) -> int:
+    """The step of a "4n+1"-style rule, or 1 when there is none."""
+    import re
+
+    m = re.match(r"^(\d+)[a-z]\+\d+$", str(frame_rule or "").replace(" ", ""))
+    return int(m.group(1)) if m else 1
+
+
+def _analyse_frame(rgb) -> Dict[str, float]:
+    import numpy as np
+
+    f = rgb.astype(np.float32)
+    luma = 0.2126 * f[..., 0] + 0.7152 * f[..., 1] + 0.0722 * f[..., 2]
+    mx = f.max(axis=2)
+    sat = np.where(mx > 0, (mx - f.min(axis=2)) / np.maximum(mx, 1e-6), 0.0)
+    lit = mx > 20
+    n = _t("tile_grid")
+    h, w = luma.shape
+    black_tiles = 0
+    if float(luma.mean()) >= _t("black_tile_scene_luma"):
+        for ty in range(n):
+            for tx in range(n):
+                tile = luma[ty * h // n:(ty + 1) * h // n, tx * w // n:(tx + 1) * w // n]
+                if tile.size and float(np.percentile(tile, 99)) <= _t("dark_luma"):
+                    black_tiles += 1
+    return {
+        "mean_luma": float(luma.mean()),
+        "p99_luma": float(np.percentile(luma, 99)),
+        "spread": float(np.percentile(luma, 95) - np.percentile(luma, 5)),
+        "clipped": float((luma >= _t("clipped_luma")).mean()),
+        "crushed": float((luma <= _t("crushed_luma")).mean()),
+        "saturation": float(sat[lit].mean()) if lit.any() else 0.0,
+        "oversaturated": float((sat[lit] > 0.9).mean()) if lit.any() else 0.0,
+        "black_tiles": black_tiles,
+    }
+
+
+def inspect_video_frames(
+    video_path: str | Path,
+    *,
+    expected_width: Optional[int] = None,
+    expected_height: Optional[int] = None,
+    expected_frames: Optional[int] = None,
+    frame_tolerance: int = 0,
+) -> Dict[str, Any]:
+    """Decode a clip and flag what makes it unusable: black frames or tiles,
+    clipped highlights, crushed shadows, a washed-out or colourless image,
+    posterised colour, frozen motion, and a size or length other than the
+    request's. Returns {"readable", "width", "height", "frames", "fps",
+    "duration_s", "sampled", "metrics", "flags": [{"code", "message"}]}.
+    Thresholds: QUALITY_THRESHOLDS. Never raises."""
+    import numpy as np
+
+    out: Dict[str, Any] = {"readable": False, "flags": [], "metrics": {}}
+    p = Path(video_path)
+    try:
+        import av
+    except ImportError:
+        out["error"] = "PyAV is not installed"
+        return out
+    if not p.is_file():
+        out["flags"].append(_flag("unreadable", f"no file at {p}"))
+        return out
+
+    diffs: list = []
+    samples: Dict[int, Any] = {}
+    try:
+        with av.open(str(p)) as container:
+            stream = container.streams.video[0]
+            out["width"], out["height"] = int(stream.codec_context.width), int(stream.codec_context.height)
+            rate = stream.average_rate or stream.guessed_rate
+            out["fps"] = round(float(rate), 3) if rate else None
+            declared = int(stream.frames or 0)
+            step = max(1, (declared or 64) // _t("samples"))
+            aspect = out["height"] / max(1, out["width"])
+            small_w = 160
+            small_h = max(2, int(round(small_w * aspect / 2)) * 2)
+            prev_luma = last = None
+            count = 0
+            for frame in container.decode(stream):
+                rgb = frame.to_ndarray(width=small_w, height=small_h, format="rgb24")
+                luma = rgb.astype(np.float32) @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32)
+                if prev_luma is not None:
+                    diffs.append(float(np.abs(luma - prev_luma).mean()))
+                prev_luma = luma
+                if count % step == 0:
+                    samples[count] = rgb
+                last = (count, rgb)
+                count += 1
+            if last is not None:
+                samples[last[0]] = last[1]
+            out["frames"] = count
+            out["duration_s"] = round(count / float(rate), 3) if rate and count else None
+    except Exception as e:  # noqa: BLE001 — a clip that will not decode is a flag, not a crash
+        out["flags"].append(_flag("unreadable", str(e)[:200]))
+        return out
+
+    if not samples:
+        out["flags"].append(_flag("unreadable", "no video frames"))
+        return out
+    out["readable"] = True
+    out["sampled"] = sorted(samples)
+    per = {i: _analyse_frame(samples[i]) for i in out["sampled"]}
+    metric = lambda k: float(np.mean([m[k] for m in per.values()]))  # noqa: E731
+    out["metrics"] = {k: round(metric(k), 4) for k in (
+        "mean_luma", "spread", "clipped", "crushed", "saturation", "oversaturated")}
+    flags = out["flags"]
+    n = len(per)
+
+    black = [i for i, m in per.items() if m["p99_luma"] <= _t("dark_luma")]
+    if black:
+        flags.append(_flag("black_frames", f"{len(black)} of {n} sampled frames (frames {black[:6]})"))
+    tiled = {i: m["black_tiles"] for i, m in per.items() if m["black_tiles"]}
+    if tiled:
+        worst = max(tiled.values())
+        flags.append(_flag("black_tiles", f"in {len(tiled)} of {n} sampled frames, up to {worst} of "
+                                          f"{_t('tile_grid') ** 2} tiles (frames {sorted(tiled)[:6]})"))
+    if out["metrics"]["clipped"] > _t("clipped_share"):
+        flags.append(_flag("clipped_highlights", f"{out['metrics']['clipped']:.0%} of pixels at full white"))
+    if out["metrics"]["crushed"] > _t("crushed_share") and not black:
+        flags.append(_flag("crushed_shadows", f"{out['metrics']['crushed']:.0%} of pixels at full black"))
+    if out["metrics"]["spread"] < _t("washed_out_spread") and out["metrics"]["mean_luma"] > _t("washed_out_mean"):
+        flags.append(_flag("washed_out", f"luma spread {out['metrics']['spread']:.0f} of 255 "
+                                         f"around a mean of {out['metrics']['mean_luma']:.0f}"))
+    if out["metrics"]["saturation"] < _t("desaturated") and not black:
+        flags.append(_flag("desaturated", f"mean saturation {out['metrics']['saturation']:.2f}"))
+    if out["metrics"]["oversaturated"] > _t("oversaturated_share"):
+        flags.append(_flag("oversaturated", f"{out['metrics']['oversaturated']:.0%} of pixels fully saturated"))
+
+    if len(diffs) >= 4:
+        run = best = 0
+        for d in diffs:
+            run = run + 1 if d < _t("frozen_diff") else 0
+            best = max(best, run)
+        out["metrics"]["longest_still_run"] = best + 1 if best else 0
+        if best + 1 >= _t("frozen_share") * out["frames"] and best:
+            flags.append(_flag("frozen", f"{best + 1} of {out['frames']} frames unchanged in one run"))
+
+    if expected_width and expected_height and (out["width"], out["height"]) != (int(expected_width), int(expected_height)):
+        flags.append(_flag("wrong_size", f"{out['width']}x{out['height']}, asked for "
+                                         f"{int(expected_width)}x{int(expected_height)}"))
+    if expected_frames and abs(out["frames"] - int(expected_frames)) > int(frame_tolerance):
+        flags.append(_flag("wrong_frame_count", f"{out['frames']} frames, expected {int(expected_frames)}"
+                                                f" (±{int(frame_tolerance)})"))
+    return out
+
+
 DEFAULT_VIDEO_REVIEW_MODEL = "minicpm-v4.5:latest"
 
 _REVIEW_PROMPT = (

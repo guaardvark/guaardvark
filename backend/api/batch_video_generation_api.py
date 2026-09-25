@@ -451,6 +451,11 @@ def get_batch_status(batch_id: str):
                 "total_videos": status.total_videos,
                 "completed_videos": status.completed_videos,
                 "failed_videos": status.failed_videos,
+                # Finished but not usable as rendered: the post-render quality flags.
+                "flagged_videos": sum(
+                    1 for r in status.results
+                    if r.success and ((r.metadata or {}).get("quality") or {}).get("flagged")
+                ),
                 "start_time": status.start_time.isoformat() if status.start_time else None,
                 "end_time": status.end_time.isoformat() if status.end_time else None,
                 "results": results,

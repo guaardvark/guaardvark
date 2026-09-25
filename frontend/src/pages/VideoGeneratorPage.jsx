@@ -72,6 +72,7 @@ import {
   snapDimensions,
   fitAreaToRatio,
 } from "../constants/videoGeneratorPresets";
+import QualityFlagsPill from "../components/videogen/QualityFlagsPill";
 import VideoGenEffectiveSettings from "../components/videogen/VideoGenEffectiveSettings";
 import LiveLatentPreview from "../components/videogen/LiveLatentPreview";
 import { videoGenStageLabel } from "../components/videogen/stageLabels";
@@ -2635,14 +2636,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                                 variant="outlined"
                               />
                             )}
-                            {res.metadata?.quality?.flagged && (
-                              <Chip
-                                label="Review"
-                                size="small"
-                                color="warning"
-                                title={(res.metadata.quality.flag_reasons || []).join(", ")}
-                              />
-                            )}
+                            <QualityFlagsPill quality={res.metadata?.quality} />
                           </Stack>
                           {res.error && (
                             <Typography variant="caption" color="error" display="block" sx={{ mt: 0.5 }}>
