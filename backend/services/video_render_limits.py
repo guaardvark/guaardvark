@@ -19,6 +19,13 @@ With the switch on, sizes land on the entry's grid, lengths are snapped down
 onto ``frame_rule`` (up where the rule's template rounds up) inside
 ``[min_frames, max_frames]``, and every model raises a preset step count to its
 floor.
+
+``GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1`` (off by default) changes what a
+request that leaves guidance or the negative prompt empty gets: the model's
+reference values (``cfg_when_unset``, ``negative_when_unset``) instead of the
+7.5 and the style negative every model got before, and the identity-bleed
+guard only when a cast member or LoRA is in the request. docs/video-prompting.md
+has the trace and the templates the values come from.
 """
 
 from __future__ import annotations
@@ -41,6 +48,10 @@ STRICT_LIMITS_ENV = "GUAARDVARK_VIDEO_STRICT_LIMITS"
 # every profile ("*") covers it.
 UNKNOWN_PROFILE = "?"
 TEXT_ENCODER_DEVICE_ENV = "GUAARDVARK_WAN_CLIP_DEVICE"
+REFERENCE_DEFAULTS_ENV = "GUAARDVARK_VIDEO_REFERENCE_DEFAULTS"
+# The guidance the REST route, the batch request and the generator request each
+# filled in for a request that named none, whatever the model.
+LEGACY_CFG = 7.5
 
 # Ratio presets the UI offers, as width/height. A clamp names the ratio it
 # snapped to rather than an arbitrary decimal.
@@ -56,6 +67,10 @@ ASPECT_TOLERANCE = 0.06
 
 def strict_limits_enabled() -> bool:
     return (os.environ.get(STRICT_LIMITS_ENV) or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def reference_defaults_enabled() -> bool:
+    return (os.environ.get(REFERENCE_DEFAULTS_ENV) or "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def limits_for(model_id: str, family: Optional[str] = None) -> dict:
@@ -279,6 +294,50 @@ def resolve_cfg(model_id: str, requested, family: Optional[str] = None):
         logger.info("%s prefers CFG %s–%s (got %.2f); keeping caller value but quality may degrade.",
                     model_id, lo_hi[0], lo_hi[1], float(cfg))
     return cfg
+
+
+def cfg_when_unset(model_id: str, family: Optional[str] = None) -> Optional[float]:
+    """Guidance for a request that named none: the model's reference value with
+    the reference defaults on; None (keep what the request carries, LEGACY_CFG)
+    when they are off or the model declares none."""
+    if not reference_defaults_enabled():
+        return None
+    declared = limits_for(model_id, _family_of(model_id, family)).get("cfg_when_unset")
+    return None if declared is None else float(declared)
+
+
+# ── Prompt text ──────────────────────────────────────────────────────────────
+
+def default_negative(model_id: str, style: Optional[str], *, enhanced: bool, character: bool,
+                     family: Optional[str] = None) -> str:
+    """The negative prompt for a request that gave none ("" leaves the graph
+    builder's own).
+
+    Off: the style's negative plus the identity-bleed guard when the prompt is
+    enhanced, else "". On: the model's reference negative where it declares
+    one, else the style's when enhanced; the guard only for a ``character``
+    (a cast member or LoRA in the request)."""
+    from backend.utils.prompt_enhancer import IDENTITY_BLEED_NEGATIVE, get_default_negative_prompt
+
+    if not reference_defaults_enabled():
+        return get_default_negative_prompt(style=style) if enhanced else ""
+    declared = limits_for(model_id, _family_of(model_id, family)).get("negative_when_unset")
+    base = declared or (get_default_negative_prompt(style=style, identity_guard=False) if enhanced else "")
+    if character and base:
+        return f"{base}, {IDENTITY_BLEED_NEGATIVE}"
+    return base
+
+
+def withheld_style(model_id: str, style: Optional[str], family: Optional[str] = None) -> Optional[str]:
+    """Why ``style`` is not offered with this model, or None when it is."""
+    caps = limits_for(model_id, _family_of(model_id, family))
+    why = (caps.get("prompt_styles_withheld") or {}).get((style or "").lower().strip())
+    if why is None:
+        return None
+    name = (VIDEO_MODEL_REGISTRY.get(model_id) or {}).get("name") or model_id
+    offered = [s for s in (caps.get("prompt_styles") or []) if s != "none"]
+    return (f"{name} does not offer the '{style}' prompt style: {why}. "
+            f"Offered: {', '.join(offered) or 'none'}.")
 
 
 def resolve_fps(model_id: str, requested, family: Optional[str] = None):

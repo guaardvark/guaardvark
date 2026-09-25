@@ -153,7 +153,11 @@ def test_steps_under_strict_limits(model, requested, explicit, expected):
     ("ltx23-distilled-fp8", None, 1.0),
     ("ltx23-distilled-fp8", 7.5, 7.5),   # kept, logged
     ("wan22-14b", 3.5, 3.5),
-    ("wan22-14b", None, None),
+    ("wan22-14b", None, 3.5),
+    ("wan22-5b", None, 5.0),
+    ("hunyuan-t2v", None, 6.0),
+    ("cogvideox-5b", None, 6.0),
+    ("minimax-h3-int8", None, None),
 ])
 def test_cfg(model, requested, expected):
     assert rl.resolve_cfg(model, requested) == expected

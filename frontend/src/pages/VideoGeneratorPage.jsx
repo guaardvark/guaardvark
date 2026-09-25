@@ -524,6 +524,14 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // The capability record the registry declares for the selected model
   // (modes, audio, cfg, step floor, speed profiles, style embeddings).
   const modelCaps = useMemo(() => modelMeta[model]?.capabilities || null, [model, modelMeta]);
+  // Prompt styles the model offers; a style its registry entry withholds is
+  // not listed, and a selection it withholds falls back to the first offered.
+  const offeredStyles = modelCaps?.prompt_styles || null;
+  useEffect(() => {
+    if (offeredStyles && !offeredStyles.includes(promptStyle)) {
+      setPromptStyle(offeredStyles[0] || "none");
+    }
+  }, [offeredStyles, promptStyle]);
   const activeSpeedProfile = useMemo(() => {
     const profiles = modelCaps?.speed_profiles;
     if (!profiles) return null;
@@ -2244,9 +2252,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   <FormControl size="small" sx={{ minWidth: 180 }}>
                     <InputLabel>Prompt style</InputLabel>
                     <Select value={promptStyle} onChange={(e) => setPromptStyle(e.target.value)} label="Prompt style">
-                      {Object.entries(PROMPT_STYLES).map(([key, preset]) => (
-                        <MenuItem key={key} value={key}>{preset.label}</MenuItem>
-                      ))}
+                      {Object.entries(PROMPT_STYLES)
+                        .filter(([key]) => !offeredStyles || offeredStyles.includes(key))
+                        .map(([key, preset]) => (
+                          <MenuItem key={key} value={key}>{preset.label}</MenuItem>
+                        ))}
                     </Select>
                   </FormControl>
                   <TextField
