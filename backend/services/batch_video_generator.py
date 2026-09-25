@@ -156,6 +156,8 @@ class BatchVideoRequest:
     motion_strength: float = 1.0
     num_inference_steps: int = 25
     guidance_scale: float = 7.5
+    # False when the request named no guidance (see VideoGenerationRequest).
+    cfg_explicit: bool = False
     seed: Optional[int] = None
     generate_frames_only: bool = False
     frames_per_batch: int = 1
@@ -1053,6 +1055,8 @@ class BatchVideoGenerator:
                         meta = dict(item.metadata or {})
                         meta.setdefault("item_id", item.id)
                         meta["batch_controlled"] = True
+                        if cast_lora_paths or cast_keyframe_image or getattr(batch_request, "subject_ids", None):
+                            meta["cast"] = True
                         if item.image_path:
                             meta.setdefault("image_path", item.image_path)
 
@@ -1147,6 +1151,7 @@ class BatchVideoGenerator:
                             motion_strength=batch_request.motion_strength,
                             num_inference_steps=batch_request.num_inference_steps,
                             guidance_scale=batch_request.guidance_scale,
+                            cfg_explicit=batch_request.cfg_explicit,
                             seed=batch_request.seed,
                             generate_frames_only=batch_request.generate_frames_only,
                             frames_per_batch=batch_request.frames_per_batch,
@@ -1447,6 +1452,9 @@ class BatchVideoGenerator:
             except (TypeError, ValueError):
                 return fallback
 
+        guidance = params.get("guidance_scale")
+        cfg_explicit = guidance not in (None, "")
+
         batch_request = BatchVideoRequest(
             batch_id=batch_id,
             items=items,
@@ -1458,7 +1466,8 @@ class BatchVideoGenerator:
             height=_param_int("height", native["height"]),
             motion_strength=float(params.get("motion_strength", 1.0)),
             num_inference_steps=_param_int("num_inference_steps", native["num_inference_steps"]),
-            guidance_scale=float(params.get("guidance_scale", 7.5)),
+            guidance_scale=float(guidance) if cfg_explicit else 7.5,
+            cfg_explicit=cfg_explicit,
             seed=seed_value,
             generate_frames_only=bool(params.get("generate_frames_only", False)),
             frames_per_batch=int(params.get("frames_per_batch", 1)),
@@ -1509,7 +1518,8 @@ class BatchVideoGenerator:
                 "height": batch_request.height,
                 "motion_strength": batch_request.motion_strength,
                 "num_inference_steps": batch_request.num_inference_steps,
-                "guidance_scale": batch_request.guidance_scale,
+                # A retry of a batch that named no guidance names none either.
+                "guidance_scale": batch_request.guidance_scale if batch_request.cfg_explicit else None,
                 "seed": batch_request.seed,
                 "generate_frames_only": batch_request.generate_frames_only,
                 "frames_per_batch": batch_request.frames_per_batch,

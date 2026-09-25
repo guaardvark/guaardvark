@@ -148,6 +148,10 @@ STYLE_SUFFIXES = {
     ),
 }
 
+# Every style a request may name; "none" sends the prompt as written. A model can
+# withhold some of these (video_model_registry prompt_styles_withheld).
+PROMPT_STYLE_IDS = tuple(STYLE_SUFFIXES) + ("none",)
+
 # Quality-focused negative prompts per style.
 # These target only technical defects — no content restrictions.
 # Video-specific defects (flicker, jitter, temporal inconsistency) added to help motion models.
@@ -204,7 +208,7 @@ NEGATIVE_PROMPTS = {
 # under motion. It is deliberately scoped to HYBRID/ANATOMY artifacts (not "horse" wholesale),
 # so a character legitimately *riding* a horse still renders the horse; only the person growing
 # animal features is pushed away. The real fix is full-body training data (see DATASET_SPEC.md);
-# this is the cheap, zero-GPU stopgap. Appended to the default negative for every video clip.
+# this is the cheap, zero-GPU stopgap. get_default_negative_prompt says when it is appended.
 IDENTITY_BLEED_NEGATIVE = (
     "animal head, horse head, animal ears, animal face, fur on face, snout, muzzle, whiskers, "
     "human-animal hybrid, anthropomorphic, creature hybrid, deformed face, fused features, "
@@ -352,7 +356,7 @@ def enhance_video_prompt(
     return f"{trimmed} {full_suffix}"
 
 
-def get_default_negative_prompt(style: str = "cinematic") -> str:
+def get_default_negative_prompt(style: str = "cinematic", *, identity_guard: bool = True) -> str:
     """Get a quality-focused negative prompt (no content restrictions).
 
     Only targets technical defects: blur, artifacts, distortion, flickering,
@@ -362,12 +366,17 @@ def get_default_negative_prompt(style: str = "cinematic") -> str:
         style: One of "cinematic", "realistic", "artistic", "anime",
             "3d_animation", "stop_motion", "hand_drawn", "western_cartoon",
             or "none".
+        identity_guard: Append IDENTITY_BLEED_NEGATIVE. It names animal heads,
+            snouts and "anthropomorphic", so it also pushes against a clip whose
+            subject is an animal or a cartoon animal character; with
+            GUAARDVARK_VIDEO_REFERENCE_DEFAULTS on it is sent only when a cast
+            member or LoRA is in the request.
 
     Returns:
         A negative prompt string focused on quality issues.
     """
     style = (style or "cinematic").lower().strip()
     base = NEGATIVE_PROMPTS.get(style, NEGATIVE_PROMPTS["none"])
-    # Always include the identity/anatomy-bleed guard — it's the cheap stopgap for the
-    # character-LoRA "horse-head" failure mode and is harmless on non-character clips.
+    if not identity_guard:
+        return base
     return f"{base}, {IDENTITY_BLEED_NEGATIVE}"
