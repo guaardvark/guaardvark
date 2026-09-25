@@ -1172,13 +1172,19 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             logger.warning(f"Failed to interrupt ComfyUI: {e}")
             return False
 
-    def _queue_prompt(self, workflow: dict, client_id: Optional[str] = None) -> Optional[str]:
+    def _queue_prompt(
+        self, workflow: dict, client_id: Optional[str] = None, *, live_preview: bool = True,
+    ) -> Optional[str]:
         try:
             payload = {"prompt": workflow}
             # client_id scopes ComfyUI's /ws progress messages back to us so the
             # progress bridge can hear this generation. (server.py:883)
             if client_id:
                 payload["client_id"] = client_id
+            if not live_preview:
+                # Per-prompt override; ComfyUI restores its launch default after
+                # this prompt (execution.py set_preview_method).
+                payload["extra_data"] = {"preview_method": "none"}
             self._last_queue_error = None
             response = requests.post(
                 f"{self.comfy_url}/prompt",
@@ -2352,7 +2358,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             except Exception as _be:
                 logger.warning(f"Progress bridge unavailable (non-fatal): {_be}")
 
-            prompt_id = self._queue_prompt(workflow, client_id=client_id)
+            from backend.services.video_model_registry import live_preview_for_model
+            prompt_id = self._queue_prompt(
+                workflow, client_id=client_id, live_preview=live_preview_for_model(model),
+            )
 
             if not prompt_id:
                 progress_bridge.stop()

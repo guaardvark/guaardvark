@@ -261,6 +261,11 @@ VIDEO_MODEL_REGISTRY = {
         "check_files": ["transformer/diffusion_pytorch_model-00001-of-00002.safetensors", "vae/diffusion_pytorch_model.safetensors"],
         "size_gb": 11.3,
         "vram_mb": 16000,
+        # CogVideoXWrapper (fdb8abd, latest upstream) defines its latent format
+        # without latent_rgb_factors_reshape, which ComfyUI's Latent2RGB previewer
+        # reads: with --preview-method auto the sampler raises AttributeError on
+        # its first step (measured 2026-09-25, ComfyUI 0.33.0).
+        "live_preview": False,
         "type": "cogvideox",
         "dimension_alignment": 16,
         "native_fps": 8,
@@ -295,6 +300,11 @@ VIDEO_MODEL_REGISTRY = {
         "requires": ["t5-encoder", "cogvideox-vae"],
         "size_gb": 10.4,
         "vram_mb": 16000,
+        # CogVideoXWrapper (fdb8abd, latest upstream) defines its latent format
+        # without latent_rgb_factors_reshape, which ComfyUI's Latent2RGB previewer
+        # reads: with --preview-method auto the sampler raises AttributeError on
+        # its first step (measured 2026-09-25, ComfyUI 0.33.0).
+        "live_preview": False,
         "type": "cogvideox",
         "dimension_alignment": 16,
         "native_fps": 8,
@@ -1585,6 +1595,12 @@ def vram_mb_for_model(model_id: str, *, default: int = 11000) -> int:
     entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
     vram = int(entry.get("vram_mb") or 0)
     return vram if vram > 0 else default
+
+
+def live_preview_for_model(model_id: str) -> bool:
+    """False when the model's ComfyUI nodes cannot render sampler previews."""
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
+    return entry.get("live_preview", True) is not False
 
 
 def comfyui_reserve_vram_gb_for_model(model_id: str) -> Optional[float]:
