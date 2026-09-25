@@ -22,6 +22,7 @@ from werkzeug.utils import secure_filename
 from backend.utils.response_utils import success_response, error_response
 from backend.utils.path_guard import PathEscapesRoot, contained
 from backend.services.batch_video_generator import get_batch_video_generator
+from backend.services.job_types import RenderErrorKind, batch_failure, describe_failure, failure_kind
 # Single source of truth for video-model file layout (download dst == install
 # check == ComfyUI loader paths). See backend/services/video_model_registry.py.
 from backend.services.video_model_registry import (
@@ -135,13 +136,20 @@ def _parse_float(value):
     return float(value)
 
 
+def _failure_response(message, default_kind=RenderErrorKind.INVALID_REQUEST, status_code: int = 400):
+    """A refused request, with its failure record (job_types.describe_failure)
+    under error.details so every caller reads the same kind."""
+    kind = failure_kind(message, default_kind)
+    return error_response(str(message), status_code, details={"failure": describe_failure(kind, message)})
+
+
 def _withheld_style_error(params: dict):
     """400 when the request asks for a prompt style its model does not offer."""
     if not params.get("enhance_prompt"):
         return None
     from backend.services.video_render_limits import withheld_style
     why = withheld_style(params["model"], params.get("prompt_style"))
-    return error_response(why, 400) if why else None
+    return _failure_response(why) if why else None
 
 
 def _resolve_request_model(data, role: str):
@@ -198,10 +206,10 @@ def generate_text_to_video_batch():
 
         model_id, resolve_err = _resolve_request_model(data, "t2v")
         if resolve_err:
-            return error_response(resolve_err, 400)
+            return _failure_response(resolve_err)
         ready, preflight_err = prepare_video_model(model_id)
         if not ready:
-            return error_response(preflight_err, 400)
+            return _failure_response(preflight_err)
         # Per-prompt guides (audio or image anchors) on models that declare
         # audio_in: a list per prompt of {"kind", "path", "frame_idx", ...}.
         guides = data.get("guides") if isinstance(data.get("guides"), list) else []
@@ -298,10 +306,10 @@ def generate_image_to_video_batch():
 
         model_id, resolve_err = _resolve_request_model(data, "i2v")
         if resolve_err:
-            return error_response(resolve_err, 400)
+            return _failure_response(resolve_err)
         ready, preflight_err = prepare_video_model(model_id)
         if not ready:
-            return error_response(preflight_err, 400)
+            return _failure_response(preflight_err)
         clip = _clip_params(data, model_id)
 
         params = {
@@ -463,6 +471,8 @@ def get_batch_status(batch_id: str):
                 "frame_paths": r.frame_paths,
                 "thumbnail_path": r.thumbnail_path,
                 "error": r.error,
+                "error_kind": r.error_kind,
+                "failure": None if r.success else describe_failure(r.error_kind, r.error),
                 "metadata": r.metadata,
             }
             for r in status.results
@@ -489,6 +499,8 @@ def get_batch_status(batch_id: str):
                 "output_dir": status.output_dir,
                 "retry_data": getattr(status, "retry_data", None),
                 "error": getattr(status, "error", None),
+                # Why it stopped, the same record for the batch and each clip.
+                "failure": batch_failure(status),
             }
         )
     except Exception as e:

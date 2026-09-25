@@ -29,6 +29,7 @@ from backend.services.video_generation_router import (
 )
 from backend.services.gpu_resource_coordinator import get_gpu_coordinator
 from backend.utils.path_guard import PathEscapesRoot, contained
+from backend.services.job_types import RenderErrorKind
 
 try:
     from backend.config import UPLOAD_DIR
@@ -200,6 +201,7 @@ class BatchVideoResult:
     thumbnail_path: Optional[str] = None
     error: Optional[str] = None
     metadata: Dict = field(default_factory=dict)
+    error_kind: Optional[str] = None  # job_types.RenderErrorKind value
 
 
 @dataclass
@@ -221,6 +223,17 @@ class BatchVideoStatus:
     stage: str = "queued"
     current_item: Optional[str] = None
     progress_pct: Optional[int] = None
+    # Why the batch as a whole stopped (job_types.RenderErrorKind value); a
+    # failed clip carries its own on its result.
+    error_kind: Optional[str] = None
+
+
+AUTO_RETRY_ENV = "GUAARDVARK_VIDEO_AUTO_RETRY"
+
+
+def auto_retry_enabled() -> bool:
+    """Retry a clip whose failure kind is retryable (off by default)."""
+    return (os.environ.get(AUTO_RETRY_ENV) or "").strip().lower() in ("1", "true", "yes", "on")
 
 
 class BatchVideoGenerator:
@@ -353,6 +366,7 @@ class BatchVideoGenerator:
                 cancel_event = self.cancel_events.get(batch_request.batch_id)
                 if cancel_event and cancel_event.is_set():
                     status.status = "cancelled"
+                    status.error_kind = RenderErrorKind.CANCELLED.value
                     status.end_time = datetime.now()
                     if not status.error:
                         status.error = "Cancelled before start"
@@ -364,8 +378,10 @@ class BatchVideoGenerator:
                 self._run_batch(batch_request, status)
             except Exception as e:
                 logger.error(f"Queue worker crashed on batch {batch_request.batch_id}: {e}")
+                from backend.services.job_operation_gate import classify_render_exception
                 status.status = "error"
                 status.error = str(e)
+                status.error_kind = classify_render_exception(e).value
                 status.end_time = datetime.now()
                 self._save_metadata(status)
             finally:
@@ -676,6 +692,41 @@ class BatchVideoGenerator:
         except Exception as e:  # noqa: BLE001 — storyboard must never fail a render
             logger.warning(f"Storyboard expansion skipped for batch {batch_request.batch_id} (non-fatal): {e}")
 
+    def _render_with_retries(self, gen_request, cancel_event, item_id: str):
+        """Render one clip. With GUAARDVARK_VIDEO_AUTO_RETRY on, a failure whose
+        kind job_types.RENDER_ERROR_POLICY marks retryable is rendered again
+        after the policy's waits; off (the default), it renders once.
+
+        Each attempt gets a fresh copy of the request: generate_video rewrites
+        the prompt, negative and size in place, and a second pass over the
+        rewritten request would enhance the prompt twice."""
+        import copy
+
+        from backend.services.job_types import retry_waits
+
+        original = copy.deepcopy(gen_request)
+        result = self.video_generator.generate_video(gen_request)
+        if not auto_retry_enabled():
+            return result
+        attempts = 1
+        for wait_s in retry_waits(result.error_kind):
+            if result.success:
+                break
+            logger.info("Clip %s failed (%s); retrying in %.0fs (attempt %d)",
+                        item_id, result.error_kind, wait_s, attempts + 1)
+            if cancel_event is not None and cancel_event.wait(wait_s):
+                break
+            if cancel_event is None:
+                time.sleep(wait_s)
+            gen_request.__dict__.update(copy.deepcopy(original).__dict__)
+            result = self.video_generator.generate_video(gen_request)
+            attempts += 1
+            if not retry_waits(result.error_kind):
+                break  # succeeded, or failed in a way a retry cannot fix
+        result.metadata = dict(result.metadata or {})
+        result.metadata["render_attempts"] = attempts
+        return result
+
     @staticmethod
     def _to_i2v_model(model: Optional[str]) -> str:
         """The model that animates the cinematic keyframe.
@@ -823,6 +874,7 @@ class BatchVideoGenerator:
             if cancel_event and cancel_event.is_set():
                 status.status = "cancelled"
                 status.error = "Cancelled while waiting for GPU/VRAM"
+                status.error_kind = RenderErrorKind.CANCELLED.value
                 status.end_time = datetime.now()
                 self._set_stage(status, "done", save=False)
                 self._save_metadata(status)
@@ -868,6 +920,7 @@ class BatchVideoGenerator:
             except GpuCapacityError as e:
                 status.status = "error"
                 status.error = f"Could not acquire GPU: {e}"
+                status.error_kind = RenderErrorKind.CARD_TOO_SMALL.value
                 status.end_time = datetime.now()
                 self._set_stage(status, "done", save=False)
                 self._save_metadata(status)
@@ -885,6 +938,7 @@ class BatchVideoGenerator:
                         f"Could not acquire enough free VRAM after waiting "
                         f"{int(admit_deadline_s)}s: {e}"
                     )
+                    status.error_kind = RenderErrorKind.VRAM_BUSY.value
                     status.end_time = datetime.now()
                     self._set_stage(status, "done", save=False)
                     self._save_metadata(status)
@@ -1049,7 +1103,8 @@ class BatchVideoGenerator:
                 def _process_item(item):
                     """Inner worker: returns (batch_result, completed_delta, failed_delta, oom_flag)"""
                     if cancel_event and cancel_event.is_set():
-                        return (BatchVideoResult(item_id=item.id, success=False, error="cancelled before start"), 0, 0, False)
+                        return (BatchVideoResult(item_id=item.id, success=False, error="cancelled before start",
+                                             error_kind=RenderErrorKind.CANCELLED.value), 0, 0, False)
 
                     try:
                         meta = dict(item.metadata or {})
@@ -1104,10 +1159,12 @@ class BatchVideoGenerator:
                                         require_cast=bool(_cast_ids or cast_lora_paths),
                                     )
                                 except RuntimeError as e:
+                                    from backend.services.job_operation_gate import classify_render_exception
                                     br = BatchVideoResult(
                                         item_id=item.id,
                                         success=False,
                                         error=str(e),
+                                        error_kind=classify_render_exception(e).value,
                                     )
                                     return (br, 0, 1, False)
                                 if kf:
@@ -1119,6 +1176,7 @@ class BatchVideoGenerator:
                                         item_id=item.id,
                                         success=False,
                                         error="Cast keyframe still missing — refusing plain T2V",
+                                        error_kind=RenderErrorKind.OUTPUT_MISSING.value,
                                     )
                                     return (br, 0, 1, False)
                                 # else: non-cast keyframe failed -> fall through to T2V
@@ -1178,7 +1236,8 @@ class BatchVideoGenerator:
                             ref_audios=list((item.metadata or {}).get("ref_audios") or meta.get("ref_audios") or []),
                         )
 
-                        result: VideoGenerationResult = self.video_generator.generate_video(gen_request)
+                        result: VideoGenerationResult = self._render_with_retries(
+                            gen_request, cancel_event, item.id)
                         br = BatchVideoResult(
                             item_id=item.id,
                             success=result.success,
@@ -1186,6 +1245,7 @@ class BatchVideoGenerator:
                             frame_paths=result.frame_paths,
                             thumbnail_path=result.thumbnail_path,
                             error=result.error,
+                            error_kind=result.error_kind or (None if result.success else RenderErrorKind.UNKNOWN.value),
                             metadata={
                                 **dict(result.metadata or {}),
                                 **({k: meta[k] for k in ("caption_empty", "caption") if k in meta}),
@@ -1220,10 +1280,12 @@ class BatchVideoGenerator:
                                 self.video_generator.service_available = False
                             except Exception:
                                 pass
+                        from backend.services.job_operation_gate import classify_render_exception
                         br = BatchVideoResult(
                             item_id=item.id,
                             success=False,
                             error=err_str + oom_note,
+                            error_kind=classify_render_exception(e).value,
                         )
                         return (br, 0, 1, is_oom)
 
@@ -1309,7 +1371,10 @@ class BatchVideoGenerator:
                             it = future_map[fut]
                             logger.error(f"Item worker {it.id} failed: {e}")
                             status.failed_videos += 1
-                            status.results.append(BatchVideoResult(item_id=it.id, success=False, error=str(e)))
+                            from backend.services.job_operation_gate import classify_render_exception
+                            status.results.append(BatchVideoResult(
+                                item_id=it.id, success=False, error=str(e),
+                                error_kind=classify_render_exception(e).value))
                         finally:
                             self._save_metadata(status)
 
@@ -1641,6 +1706,7 @@ class BatchVideoGenerator:
                     stage=data.get("stage") or "done",
                     current_item=data.get("current_item"),
                     progress_pct=data.get("progress_pct"),
+                    error_kind=data.get("error_kind"),
                 )
             except Exception as e:  # pragma: no cover
                 logger.error(f"Failed to load batch status for {batch_id}: {e}")
@@ -1667,6 +1733,7 @@ class BatchVideoGenerator:
 
             was_running = (status.status == "running") or (self._running_batch_id == batch_id)
             status.status = "cancelled"
+            status.error_kind = RenderErrorKind.CANCELLED.value
             status.end_time = datetime.now()
             if not status.error:
                 status.error = "Cancelled by user"

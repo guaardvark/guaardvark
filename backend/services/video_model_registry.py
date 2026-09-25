@@ -27,6 +27,8 @@ import os
 from pathlib import Path
 from typing import Optional
 
+from backend.services.job_types import RenderErrorKind, RenderFailure
+
 logger = logging.getLogger(__name__)
 
 
@@ -1649,10 +1651,10 @@ def prepare_video_model(model_id: str) -> tuple[bool, str]:
     try:
         plugin_bridge.ensure_plugins_for_stage("video", "generating")
     except plugin_bridge.PluginUnavailable as exc:
-        return False, f"{err} (Automatic start failed: {exc})"
+        return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, f"{err} (Automatic start failed: {exc})")
     except Exception as exc:  # noqa: BLE001 - report, never raise into a request
         logger.warning("ComfyUI auto-start for %s failed: %s", model_id, exc)
-        return False, f"{err} (Automatic start failed: {exc})"
+        return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, f"{err} (Automatic start failed: {exc})")
 
     import time as _time
     deadline = _time.time() + COMFYUI_AUTOSTART_WAIT_S
@@ -1669,21 +1671,21 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
     """Return (ready, error_message). Blocks silent fallback to the wrong backend."""
     entry = VIDEO_MODEL_REGISTRY.get(model_id or "")
     if not entry:
-        return False, f"Unknown video model '{model_id}'"
+        return False, RenderFailure(RenderErrorKind.INVALID_REQUEST, f"Unknown video model '{model_id}'")
 
     name = entry.get("name") or model_id
     mtype = entry.get("type")
 
     if mtype == "wan":
         if not is_model_installed(model_id):
-            return False, (
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
                 f"{name} is not installed. Open Manage Video Models to download it "
                 f"before queuing a batch."
-            )
+            ))
         if not _comfyui_reachable():
-            return False, (
+            return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, (
                 f"{name} requires ComfyUI. Start the ComfyUI plugin, then retry."
-            )
+            ))
         return True, ""
 
     if mtype == "cogvideox":
@@ -1699,108 +1701,108 @@ def preflight_video_model(model_id: str) -> tuple[bool, str]:
                 offline_ok = False
             if offline_ok or is_model_installed(model_id):
                 return True, ""
-            return False, (
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
                 "CogVideoX 5B is not ready: install the model via Manage Video Models "
                 "or ensure the offline diffusers backend (torch + GPU) is available."
-            )
+            ))
 
         if not is_model_installed(model_id):
-            return False, (
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
                 f"{name} is not installed. Open Manage Video Models to download it."
-            )
+            ))
         for dep in entry.get("requires", []):
             if not is_model_installed(dep):
                 dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
-                return False, (
+                return False, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
                     f"{name} is missing companion '{dep_name}'. "
                     f"Open Manage Video Models and Install again (companions auto-pull)."
-                )
+                ))
         if not _comfyui_reachable():
-            return False, (
+            return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, (
                 f"{name} requires ComfyUI for image-to-video. Start ComfyUI, then retry."
-            )
+            ))
         return True, ""
 
     if mtype == "hunyuan":
         if not is_model_installed(model_id):
-            return False, (
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
                 f"{name} is not installed. Open Manage Video Models to download it "
                 f"(and its LLaVA / CLIP-L / VAE companions) before queuing a batch."
-            )
+            ))
         for dep in entry.get("requires", []):
             if not is_model_installed(dep):
                 dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
-                return False, (
+                return False, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
                     f"{name} is missing companion '{dep_name}'. "
                     f"Open Manage Video Models and Install again (companions auto-pull)."
-                )
+                ))
         if not _comfyui_reachable():
-            return False, (
+            return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, (
                 f"{name} requires ComfyUI with the ComfyUI-GGUF custom node. "
                 f"Start the ComfyUI plugin, then retry."
-            )
+            ))
         return True, ""
 
     if mtype == "ltx":
         if not is_model_installed(model_id):
-            return False, (
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
                 f"{name} is not installed. Open Manage Video Models to download it "
                 f"(and its Gemma / VAE companions) before queuing a batch."
-            )
+            ))
         for dep in entry.get("requires", []):
             if not is_model_installed(dep):
                 dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
-                return False, (
+                return False, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
                     f"{name} is missing companion '{dep_name}'. "
                     f"Open Manage Video Models and Install again (companions auto-pull)."
-                )
+                ))
         if not _comfyui_reachable():
             if str(model_id).startswith("ltx25"):
-                return False, (
+                return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, (
                     f"{name} requires ComfyUI ≥ 0.32.0 with LTX-2.5 support. "
                     f"Start the ComfyUI plugin, then retry."
-                )
-            return False, (
+                ))
+            return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, (
                 f"{name} requires ComfyUI ≥ 0.16.1 with LTX-2.3 support. "
                 f"Start the ComfyUI plugin, then retry."
-            )
+            ))
         return True, ""
 
     if mtype == "audio":
         if not is_model_installed(model_id):
-            return False, (
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
                 f"{name} is not installed. Open Manage Video Models to download it "
                 f"(and its encoder / VAE companions) first."
-            )
+            ))
         for dep in entry.get("requires", []):
             if not is_model_installed(dep):
                 dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
-                return False, (
+                return False, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
                     f"{name} is missing companion '{dep_name}'. "
                     f"Open Manage Video Models and Install again (companions auto-pull)."
-                )
+                ))
         if not _comfyui_reachable():
-            return False, f"{name} requires ComfyUI ≥ 0.33.0. Start the ComfyUI plugin, then retry."
+            return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, f"{name} requires ComfyUI ≥ 0.33.0. Start the ComfyUI plugin, then retry.")
         return True, ""
 
     if mtype == "minimax":
         if not is_model_installed(model_id):
-            return False, (
+            return False, RenderFailure(RenderErrorKind.MODEL_NOT_INSTALLED, (
                 f"{name} is not installed. Open Manage Video Models to download it "
                 f"(and its Qwen3-VL / VAE companions) before queuing a batch."
-            )
+            ))
         for dep in entry.get("requires", []):
             if not is_model_installed(dep):
                 dep_name = (VIDEO_MODEL_REGISTRY.get(dep) or {}).get("name") or dep
-                return False, (
+                return False, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
                     f"{name} is missing companion '{dep_name}'. "
                     f"Open Manage Video Models and Install again (companions auto-pull)."
-                )
+                ))
         if not _comfyui_reachable():
-            return False, (
+            return False, RenderFailure(RenderErrorKind.COMFYUI_DOWN, (
                 f"{name} requires ComfyUI ≥ 0.30.0 with MiniMax H3 support. "
                 f"Start the ComfyUI plugin, then retry."
-            )
+            ))
         return True, ""
 
     return True, ""

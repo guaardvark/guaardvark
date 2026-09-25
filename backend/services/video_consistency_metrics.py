@@ -351,6 +351,7 @@ def inspect_video_frames(
     n = len(per)
 
     black = [i for i, m in per.items() if m["p99_luma"] <= _t("dark_luma")]
+    out["black_sampled"] = len(black)
     if black:
         flags.append(_flag("black_frames", f"{len(black)} of {n} sampled frames (frames {black[:6]})"))
     tiled = {i: m["black_tiles"] for i, m in per.items() if m["black_tiles"]}

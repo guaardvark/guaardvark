@@ -14,6 +14,7 @@ from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 from backend.utils.backend_http import backend_base_url as _backend_base_url
 from backend.utils.backend_http import http_json as _http_json
 from backend.utils.backend_http import is_mcp_transport, run_tool_in_backend
+from backend.services.job_types import RenderErrorKind, batch_failure, describe_failure, failure_kind, failure_text
 
 logger = logging.getLogger(__name__)
 
@@ -712,10 +713,13 @@ class GenerationStatusTool(BaseTool):
                 entry["quality"] = _quality_summary((r.get("metadata") or {}).get("quality"))
                 files.append(entry)
         failed = [r.get("error") for r in (d.get("results") or []) if not r.get("success") and r.get("error")]
+        failures = [r.get("failure") or describe_failure(r.get("error_kind"), r.get("error"))
+                    for r in (d.get("results") or []) if not r.get("success")]
         return {
             "kind": "video", "batch_id": batch_id, "status": d.get("status"), "stage": d.get("stage"),
             "completed": d.get("completed_videos"), "failed": len(failed), "total": d.get("total_videos"),
             "error": d.get("error"), "errors": failed, "files": files,
+            "failure": d.get("failure"), "failures": failures,
             "studio_url": f"/video?batch={batch_id}",
         }
 
@@ -735,6 +739,8 @@ class GenerationStatusTool(BaseTool):
                 entry["quality"] = _quality_summary((getattr(r, "metadata", None) or {}).get("quality"))
                 files.append(entry)
         failed = [r.error for r in (status.results or []) if not r.success and r.error]
+        failures = [describe_failure(getattr(r, "error_kind", None), r.error)
+                    for r in (status.results or []) if not r.success]
         completed = sum(1 for r in (status.results or []) if r.success)
         return {
             "kind": "video",
@@ -747,6 +753,8 @@ class GenerationStatusTool(BaseTool):
             "error": getattr(status, "error", None),
             "errors": failed,
             "files": files,
+            "failure": batch_failure(status),
+            "failures": failures,
             "studio_url": f"/video?batch={batch_id}",
         }
 
@@ -790,10 +798,19 @@ class GenerationStatusTool(BaseTool):
                 lines.append("Quality: flagged — " + "; ".join(q["message"] for q in quality["flags"]))
             elif quality and quality.get("checked"):
                 lines.append("Quality: no problems found in the sampled frames")
-        if info.get("error"):
-            lines.append(f"Error: {info['error']}")
-        for err in info.get("errors") or []:
-            lines.append(f"Failed item: {err}")
+        failures = info.get("failures")
+        if failures is not None:
+            # Video: every failure with its kind, the batch's own first.
+            batch = info.get("failure")
+            if batch and info.get("error"):
+                lines.append("Error: " + failure_text(batch["kind"], batch["message"]))
+            for f in failures:
+                lines.append("Failed item: " + failure_text(f["kind"], f["message"]))
+        else:
+            if info.get("error"):
+                lines.append(f"Error: {info['error']}")
+            for err in info.get("errors") or []:
+                lines.append(f"Failed item: {err}")
         if info["status"] in ("queued", "pending", "running"):
             lines.append("Still running; poll again in a few seconds.")
         lines.append(f"Open Studio: {info['studio_url']}")
@@ -1281,7 +1298,9 @@ class VideoGeneratorTool(BaseTool):
 
             ready, preflight_err = prepare_video_model(model_id)
             if not ready:
-                return ToolResult(success=False, error=f"Video model not ready: {preflight_err}")
+                kind = failure_kind(preflight_err, RenderErrorKind.MODEL_NOT_INSTALLED)
+                return ToolResult(success=False, error=failure_text(kind, preflight_err),
+                                  metadata={"failure": describe_failure(kind, preflight_err)})
 
             generator = get_batch_video_generator()
             if not generator.service_available:
@@ -1354,11 +1373,9 @@ class VideoGeneratorTool(BaseTool):
                 if status.status == "completed":
                     break
                 if status.status in ("error", "cancelled"):
-                    err = status.error or (
-                        status.results[0].error if status.results and status.results[0].error
-                        else status.status
-                    )
-                    return ToolResult(success=False, error=f"Video generation failed: {err}")
+                    failure = batch_failure(status) or describe_failure(None, status.status)
+                    return ToolResult(success=False, error=failure_text(failure["kind"], failure["message"]),
+                                      metadata={"batch_id": batch_id, "failure": failure})
             else:
                 return ToolResult(
                     success=True,
@@ -1379,8 +1396,10 @@ class VideoGeneratorTool(BaseTool):
 
             result = next((r for r in status.results if r.success and r.video_path), None)
             if not result:
-                err = status.results[0].error if status.results else "no results"
-                return ToolResult(success=False, error=f"Video generation failed: {err}")
+                failure = batch_failure(status) or describe_failure(
+                    RenderErrorKind.OUTPUT_MISSING, "The batch finished without a video.")
+                return ToolResult(success=False, error=failure_text(failure["kind"], failure["message"]),
+                                  metadata={"batch_id": batch_id, "failure": failure})
 
             # video_path is batch-relative; the serving route accepts it verbatim.
             video_url = f"/api/batch-video/video/{batch_id}/{result.video_path}"

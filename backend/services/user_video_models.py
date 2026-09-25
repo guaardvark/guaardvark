@@ -344,7 +344,11 @@ def resolve_text_encoder(model_key: str, encoder_id: str | None) -> tuple[str | 
     if not filename:
         return None, f"{label} has no file."
     if not is_model_installed(eid):
-        return None, f"{label} is not installed. Open Manage Video Models to download it."
+        from backend.services.job_types import RenderErrorKind, RenderFailure
+        return None, RenderFailure(
+            RenderErrorKind.COMPANION_MISSING,
+            f"{label} is not installed. Open Manage Video Models to download it.",
+        )
     return filename, None
 
 
