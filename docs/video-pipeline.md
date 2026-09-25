@@ -548,7 +548,8 @@ anything that could not be confirmed without a GPU or ComfyUI.
   - on CogVideoX, also `adapters` and `text_encoder`.
 - **F-5. Negative prompts are dropped on three families.**
   - CogVideoX drops `negative_prompt`, including the default the enhancer just filled in: neither
-    builder call passes it.
+    builder call passes it. *Since docs/video-prompting.md: a typed negative is passed; the default
+    one only with `GUAARDVARK_VIDEO_REFERENCE_DEFAULTS`.*
   - Hunyuan has no negative input.
   - MiniMax logs it as unused.
 - **F-6. `wan_sampler_profile` is ignored on Wan 14B T2V.** The builder has no parameter for it. On
@@ -620,6 +621,9 @@ In every item below the value changes with at most a log line; nothing is writte
   - LTX distilled (registry description: "CFG=1") gets 7.5 with only an info log;
   - Hunyuan `FluxGuidance` and Cog get 7.5 against the family 6.0;
   - Wan gets 7.5 against 3.5.
+
+  *Since docs/video-prompting.md: with `GUAARDVARK_VIDEO_REFERENCE_DEFAULTS` a request that names
+  no cfg gets the model's `cfg_when_unset`.*
 
   FAMILY_SPECS `guidance`, `lora_slot` and `audio_out` have no reader in `backend/`.
 - **F-21. The cinematic keyframe path swaps the batch model for `i2v_model_for(model)`**
@@ -719,6 +723,8 @@ candidates for registry fields next to the model, with a note of what each was m
 - **F-40. Wan 14B T2V still uses the resolution-scaled shift.** The registry comments say the warp
   "was the sampler shift… the shift is fixed at its source" (R:349-353). The 14B T2V builder still
   uses `_wan_dynamic_shift` (W:507), which gives 3.0 at 736×416. I2V and 5B use the fixed 8.0.
+  *Since docs/video-prompting.md: T2V takes a named `wan_sampler_profile`'s shift, and with
+  `GUAARDVARK_VIDEO_REFERENCE_DEFAULTS` the default profile's 8.0 when none is named.*
 - **F-41. The LoRA comments contradict the code.** G:2445-2449 and the `Wan22I2VGenerator`
   docstring say Wan GGUF has no LoRA hook. The Wan builders do stack `LoraLoaderModelOnly`, and the
   registry ships Wan LoRAs.
