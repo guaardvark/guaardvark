@@ -171,3 +171,13 @@ def test_optional_post_nodes_chain_into_the_video(comfy, monkeypatch, model):
     wc.assert_optional_features(wf, fps)
     # FreeU and a legacy lora_name are skipped on this family rather than wired wrongly.
     assert not wc.nodes(wf, "FreeU_V2") and not wc.nodes(wf, "LoraLoader")
+
+
+@pytest.mark.parametrize("model", MODELS)
+def test_wrapper_graph_is_never_pinned(comfy, monkeypatch, model):
+    # The CogVideoX wrapper picks its own attention_mode; there is no MODEL edge to pin.
+    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", "ck")
+    fields = {"metadata": {"image_path": comfy.image}} if model.endswith("i2v") else {}
+    result, wf, req = _request(comfy, model, width=720, height=480, duration_frames=49, **fields)
+    assert wf is not None, result.error
+    assert not wc.nodes(wf, "ModelAttentionBackend")

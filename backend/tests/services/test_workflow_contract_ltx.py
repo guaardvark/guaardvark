@@ -177,7 +177,16 @@ def test_optional_post_nodes_chain_into_the_video(comfy, monkeypatch, model, mod
 
 
 @pytest.mark.parametrize("model", MODELS)
-def test_no_attention_pin_without_a_declaration(comfy, monkeypatch, model):
-    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", "ck")
-    result, wf, req = _request(comfy, model, "t2v", width=832, height=480, duration_frames=49)
-    assert not wc.nodes(wf, "ModelAttentionBackend")
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("backend,pinned", [("ck", True), ("pytorch", False)])
+def test_attention_pinned_where_the_launch_backend_is_not_verified(comfy, monkeypatch, model, mode, backend, pinned):
+    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", backend)
+    result, wf, req = _request(comfy, model, mode, width=832, height=480, duration_frames=49)
+    assert wf is not None, result.error
+    wc.assert_valid(wf)
+    assert not wc.orphan_nodes(wf)
+    pins = wc.nodes(wf, "ModelAttentionBackend")
+    assert bool(pins) is pinned
+    samplers = wc.nodes(wf, "CFGGuider") or wc.nodes(wf, "KSampler")
+    for _, sampler in samplers:
+        assert ("ModelAttentionBackend" in wc.model_path_classes(wf, sampler["inputs"]["model"])) is pinned

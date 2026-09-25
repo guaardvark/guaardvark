@@ -129,3 +129,15 @@ def test_optional_post_nodes_chain_into_the_video(comfy, monkeypatch, model):
                                                   duration_frames=49, **fields)
     assert wf is not None, result.error
     wc.assert_optional_features(wf, fps)
+
+
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize("backend,pinned", [("ck", True), ("pytorch", False)])
+def test_attention_pinned_where_the_launch_backend_is_not_verified(comfy, monkeypatch, model, backend, pinned):
+    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", backend)
+    result, wf, req = _request(comfy, model, width=848, height=480, duration_frames=49)
+    assert wf is not None, result.error
+    wc.assert_valid(wf)
+    assert not wc.orphan_nodes(wf)
+    _, guider = wc.one(wf, "BasicGuider")
+    assert ("ModelAttentionBackend" in wc.model_path_classes(wf, guider["inputs"]["model"])) is pinned
