@@ -209,10 +209,9 @@ class ComfyUIVideoWorkflowMixin:
                 "inputs": {
                     "model": model_name,
                     "precision": "bf16",
-                    "fp8_transformer": "disabled",
-                    "compile": False,
+                    "quantization": "disabled",
                     "attention_mode": "sdpa",
-                    "device": "main_device",
+                    "load_device": "main_device",
                 }
             },
             "5": {
@@ -2336,6 +2335,9 @@ class ComfyUIVideoWorkflowMixin:
                 raise ValueError(
                     f"guide frame_idx {frame_idx} is outside the clip's {length} frames"
                 )
+            # User LoRAs already sit at 40+; a guide pair never takes an id in use.
+            while str(next_id) in workflow or str(next_id + 1) in workflow:
+                next_id += 1
             loader_id, guide_id = str(next_id), str(next_id + 1)
             next_id += 2
             if kind == "audio":
@@ -2605,12 +2607,13 @@ class ComfyUIVideoWorkflowMixin:
                 continue
             sid = str(nid)
             nid += 1
+            strength = (spec or {}).get("strength")
             workflow[sid] = {
                 "class_type": "LoraLoaderModelOnly",
                 "inputs": {
                     "model": current,
                     "lora_name": name,
-                    "strength_model": float((spec or {}).get("strength") or 0.7),
+                    "strength_model": float(0.7 if strength is None else strength),
                 },
             }
             current = [sid, 0]
