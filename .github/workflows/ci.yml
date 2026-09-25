@@ -335,6 +335,7 @@ jobs:
             backend/tests/services/test_video_dimension_limits.py \
             backend/tests/services/test_video_model_preflight.py \
             backend/tests/services/test_video_quality_gate.py \
+            backend/tests/services/test_video_smoke_script.py \
             backend/tests/services/test_workflow_contract_*.py \
             backend/tests/services/test_video_render_limits.py \
             backend/tests/services/test_video_prompt_defaults.py \
