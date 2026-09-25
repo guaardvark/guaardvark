@@ -337,6 +337,7 @@ jobs:
             backend/tests/services/test_workflow_contract_*.py \
             backend/tests/services/test_video_render_limits.py \
             backend/tests/services/test_video_prompt_defaults.py \
+            backend/tests/services/test_video_quality_gate.py \
             backend/tests/services/test_music_video_service.py \
             backend/tests/services/test_music_video_director.py \
             backend/tests/unit/test_plugin_state_store.py \
