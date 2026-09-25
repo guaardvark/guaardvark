@@ -128,6 +128,22 @@ def _parse_int(value):
         return None
 
 
+def _parse_float(value):
+    """A number, or None for a field left out (the model's own value applies)."""
+    if value is None or value == "":
+        return None
+    return float(value)
+
+
+def _withheld_style_error(params: dict):
+    """400 when the request asks for a prompt style its model does not offer."""
+    if not params.get("enhance_prompt"):
+        return None
+    from backend.services.video_render_limits import withheld_style
+    why = withheld_style(params["model"], params.get("prompt_style"))
+    return error_response(why, 400) if why else None
+
+
 def _resolve_request_model(data, role: str):
     """Explicit body model, else the active-video-model resolver."""
     explicit = (data.get("model") or "").strip() or None
@@ -199,7 +215,7 @@ def generate_text_to_video_batch():
             "height": clip["height"],
             "motion_strength": float(data.get("motion_strength", 1.0)),
             "num_inference_steps": clip["num_inference_steps"],
-            "guidance_scale": float(data.get("guidance_scale", 7.5)),
+            "guidance_scale": _parse_float(data.get("guidance_scale")),
             "seed": _parse_int(data.get("seed")),
             "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
             "frames_per_batch": int(data.get("frames_per_batch", 1)),
@@ -247,6 +263,9 @@ def generate_text_to_video_batch():
             return error_response("Video generation service not available", 503)
 
         gpu_hint = _gpu_queue_hint()
+        style_err = _withheld_style_error(params)
+        if style_err:
+            return style_err
         status = generator.start_batch_from_prompts(prompts=prompts, guides=guides, **params)
         return success_response({
             "batch_id": status.batch_id,
@@ -294,7 +313,7 @@ def generate_image_to_video_batch():
             "height": clip["height"],
             "motion_strength": float(data.get("motion_strength", 1.0)),
             "num_inference_steps": clip["num_inference_steps"],
-            "guidance_scale": float(data.get("guidance_scale", 7.5)),
+            "guidance_scale": _parse_float(data.get("guidance_scale")),
             "seed": _parse_int(data.get("seed")),
             "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
             "frames_per_batch": int(data.get("frames_per_batch", 1)),
@@ -336,6 +355,9 @@ def generate_image_to_video_batch():
         if not generator.service_available:
             return error_response("Video generation service not available", 503)
 
+        style_err = _withheld_style_error(params)
+        if style_err:
+            return style_err
         gpu_hint = _gpu_queue_hint()
         status = generator.start_batch_from_images(
             image_paths=image_paths, last_frame_paths=last_frame_paths, guides=guides, **params
@@ -389,11 +411,8 @@ def enhance_prompt_preview():
             from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
             model_family = (VIDEO_MODEL_REGISTRY.get(model) or {}).get("type")
 
-        from backend.utils.prompt_enhancer import (
-            enhance_video_prompt,
-            get_default_negative_prompt,
-            has_text_intent,
-        )
+        from backend.services import video_render_limits as render_limits
+        from backend.utils.prompt_enhancer import enhance_video_prompt, has_text_intent
 
         enhanced = enhance_video_prompt(
             prompt,
@@ -402,15 +421,22 @@ def enhance_prompt_preview():
             height=height,
             fidelity_mode=fidelity,
             model_family=model_family,
+            motion_strength=data.get("motion_strength"),
         )
 
         # Default negative that the backend would inject if user left it blank
-        default_neg = get_default_negative_prompt(style=style)
+        character = bool(_parse_list(data.get("subject_ids")) or data.get("lora_name") or data.get("adapters"))
+        default_neg = render_limits.default_negative(
+            model, style, enhanced=True, character=character, family=model_family)
+        unset_cfg = render_limits.cfg_when_unset(model, model_family) if model else None
 
         return success_response({
             "original_prompt": prompt,
             "enhanced_prompt": enhanced,
             "default_negative_prompt": default_neg,
+            # Guidance a request that names none renders with.
+            "cfg_when_unset": unset_cfg if unset_cfg is not None else render_limits.LEGACY_CFG,
+            "reference_defaults": render_limits.reference_defaults_enabled(),
             "fidelity_mode": fidelity,
             "has_text_intent": has_text_intent(prompt),
             "model_family": model_family,

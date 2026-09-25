@@ -138,6 +138,12 @@ The file is gitignored and merged over the manifest at load, so the override sur
   after; the ComfyUI plugin's start log prints the backend it chose. Measured on
   MiniMax H3 (16 GB RTX 40-series, 864x480, 20 steps): `ck` took 339 s against
   390 s with frames indistinguishable at the same seed.
+- **Video clips from chat or MCP look washed out or over-cooked**: a request that names no
+  guidance renders at CFG 7.5 on every model, about twice what Wan's own ComfyUI template uses.
+  Set `GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1` in `.env` (off by default) and restart the backend
+  to switch such requests to each model's template guidance and Wan's template negative prompt.
+  The Studio page already sends each model's guidance. `docs/video-prompting.md` has the trace,
+  and `scripts/video_prompt_ab.py` compares the two on your card.
 - **A 20 GB-class video model runs out of memory at the first step** (MiniMax H3 on a 16 GB
   card): ComfyUI loaded it partially and left too little room for its activations. Set
   `GUAARDVARK_COMFYUI_RESERVE_VRAM=3.0` in `.env` and restart the ComfyUI plugin; the loader

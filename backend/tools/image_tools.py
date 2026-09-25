@@ -1080,7 +1080,11 @@ class VideoGeneratorTool(BaseTool):
         "style": ToolParameter(
             name="style",
             type="string",
-            description="Prompt style: cinematic, realistic, artistic, anime, 3d_animation, stop_motion, hand_drawn, western_cartoon, none.",
+            description=(
+                "Prompt style: cinematic, realistic, artistic, anime, 3d_animation, stop_motion, "
+                "hand_drawn, western_cartoon, none. A model may not offer every style; its "
+                "capability record lists prompt_styles."
+            ),
             required=False,
         ),
         "wait_for_result": ToolParameter(
@@ -1199,6 +1203,13 @@ class VideoGeneratorTool(BaseTool):
         if speed_profile:
             params["speed_profile"] = speed_profile
         if style:
+            style = str(style).strip().lower()
+            if style not in (caps.get("prompt_styles") or []):
+                from backend.services.video_render_limits import withheld_style
+                return None, withheld_style(model_id, style) or (
+                    f"Unknown style '{style}'. {entry['name']} offers: "
+                    f"{', '.join(caps.get('prompt_styles') or [])}."
+                )
             params["prompt_style"] = style
             if style == "none":
                 params["enhance_prompt"] = False

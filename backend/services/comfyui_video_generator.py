@@ -135,6 +135,9 @@ class VideoGenerationRequest:
     motion_strength: float = 1.0
     num_inference_steps: int = 25
     guidance_scale: float = 7.5
+    # False: the caller named no guidance and guidance_scale is a placeholder;
+    # with GUAARDVARK_VIDEO_REFERENCE_DEFAULTS the model's own value replaces it.
+    cfg_explicit: bool = False
     seed: Optional[int] = None
     generate_frames_only: bool = False
     frames_per_batch: int = 1
@@ -516,6 +519,38 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         """
         base_area = 1280 * 704
         return round(max(3.0, min(12.0, 8.0 * ((width * height) / base_area))), 1)
+
+    @classmethod
+    def _wan14b_t2v_shift(cls, request: VideoGenerationRequest) -> Optional[float]:
+        """Shift for Wan 14B T2V when no speed profile sets one; None keeps the
+        builder's resolution-scaled curve.
+
+        The builder ignored wan_sampler_profile (docs/video-pipeline.md F-6/F-40),
+        so it stayed on the curve that I2V and the 5B left for a fixed 8.0 after
+        it produced warping and colour bleed. A named profile's shift is now
+        used, as on I2V; with GUAARDVARK_VIDEO_REFERENCE_DEFAULTS an unnamed one
+        takes the default profile too. The sampler stays euler, as on I2V."""
+        named = (request.wan_sampler_profile or "").strip().lower() in cls.WAN5B_SAMPLER_PROFILES
+        if not (named or render_limits.reference_defaults_enabled()):
+            return None
+        key = request.wan_sampler_profile if named else cls.WAN5B_DEFAULT_SAMPLER_PROFILE
+        return cls.WAN5B_SAMPLER_PROFILES[key.strip().lower()]["shift"]
+
+    @staticmethod
+    def _request_has_character(request: VideoGenerationRequest) -> bool:
+        """A cast member or a LoRA is in the request: the case the identity-bleed
+        negative was written for."""
+        return bool(request.lora_name or request.adapters or (request.metadata or {}).get("cast"))
+
+    @staticmethod
+    def _cogvideox_negative(request: VideoGenerationRequest, user_negative: str) -> str:
+        """The CogVideoX graphs were built without a negative, so even a typed
+        one was dropped. A typed one is sent now; the default one only with the
+        reference defaults on, since sending it changes what a fresh clone
+        renders."""
+        if user_negative or render_limits.reference_defaults_enabled():
+            return request.negative_prompt or ""
+        return ""
 
     def _resolve_wan_profile(self, request: VideoGenerationRequest, model_key: str) -> tuple:
         """The Wan speed profile a request names, resolved against the registry:
@@ -1656,8 +1691,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             )
 
         # ── Prompt enhancement ───────────────────────────────────────
+        user_negative = request.negative_prompt
         # Settings → Verbatim Prompts (or VERBATIM_PROMPTS=1) means exact user text.
         _verbatim_video = False
+        _enhanced = False
         if request.enhance_prompt and request.prompt:
             try:
                 from backend.services.media_director import verbatim_prompts_enabled
@@ -1665,8 +1702,12 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             except Exception:
                 _verbatim_video = False
         if request.enhance_prompt and request.prompt and not _verbatim_video:
+            withheld = render_limits.withheld_style(
+                request.model, request.prompt_style, self._model_family(request.model))
+            if withheld:
+                return VideoGenerationResult(success=False, error=withheld, prompt_used=request.prompt)
             try:
-                from backend.utils.prompt_enhancer import enhance_video_prompt, get_default_negative_prompt
+                from backend.utils.prompt_enhancer import enhance_video_prompt
                 # Pass model_family for motion-aware hints (wan vs cogvideox)
                 mf = self._model_family(request.model)
                 request.prompt = enhance_video_prompt(
@@ -1684,13 +1725,17 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     language=request.language,
                     h3_intent=request.h3_intent,
                 )
-                if not request.negative_prompt:
-                    request.negative_prompt = get_default_negative_prompt(style=request.prompt_style)
+                _enhanced = True
                 logger.info(f"Prompt enhanced (style={request.prompt_style}, family={mf}): {request.prompt[:120]}...")
             except Exception as e:
                 logger.warning(f"Prompt enhancement failed, using original prompt: {e}")
         elif _verbatim_video:
             logger.info("verbatim prompts ON — skipping video prompt enhancement")
+        if not request.negative_prompt and not _verbatim_video:
+            request.negative_prompt = render_limits.default_negative(
+                request.model, request.prompt_style, enhanced=_enhanced,
+                character=self._request_has_character(request), family=self._model_family(request.model),
+            )
 
         if request.output_dir:
             batch_dir = Path(request.output_dir)
@@ -1770,6 +1815,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             )
             request.duration_frames = render_limits.resolve_frames(model, request.duration_frames, family)
             request.fps = render_limits.resolve_fps(model, request.fps, family)
+            if not request.cfg_explicit:
+                unset_cfg = render_limits.cfg_when_unset(model, family)
+                if unset_cfg is not None:
+                    request.guidance_scale = unset_cfg
             explicit_steps = str((request.metadata or {}).get("steps_explicit", "")).lower() in ("1", "true")
 
             interpolation = request.interpolation_multiplier
@@ -1904,7 +1953,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         lora_high=wan_lora_high,
                         lora_low=wan_lora_low,
                         lora_strength=wan_lora_strength,
-                        shift_override=wan_shift,
+                        shift_override=wan_shift if wan_shift is not None else self._wan14b_t2v_shift(request),
                         extra_loras=extra_loras,
                         text_encoder=te_file,
                     )
@@ -1987,6 +2036,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-5b")
                 workflow = self._create_cogvideox_text2video_workflow(
                     prompt=request.prompt,
+                    negative_prompt=self._cogvideox_negative(request, user_negative),
                     model_name=hf_model,
                     num_frames=request.duration_frames,
                     num_inference_steps=render_limits.resolve_steps(
@@ -2029,6 +2079,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 workflow = self._create_cogvideox_i2v_workflow(
                     image_filename=uploaded_image,
                     prompt=request.prompt,
+                    negative_prompt=self._cogvideox_negative(request, user_negative),
                     model_file=files["unet"],
                     vae_file=files["vae"],
                     num_frames=request.duration_frames,
