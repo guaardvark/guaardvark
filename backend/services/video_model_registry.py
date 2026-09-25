@@ -272,6 +272,14 @@ VIDEO_MODEL_REGISTRY = {
         "max_frames": 49,
         "min_steps": 50,
         "default_steps": 50,
+        # Measured 2026-09-25 on a 16376 MB card (bf16, sdpa, no CPU offload,
+        # 49 frames, ComfyUI --reserve-vram 1.0): 672x384 renders clean;
+        # 720x480, the canvas the model was trained at, runs out of memory in
+        # the transformer on the first sampler step. The 16 tier also covers
+        # larger cards; 720x480 on 24 GB is unmeasured.
+        "tier_defaults": {
+            "16": {"width": 672, "height": 384},
+        },
     },
     "cogvideox-5b-i2v": {
         "name": "CogVideoX 1.5 5B I2V (BF16)",
