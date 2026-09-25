@@ -645,6 +645,8 @@ In every item below the value changes with at most a log line; nothing is writte
   - `_wait_for_completion` logs `exec_err` and returns None (G:1648-1651).
   - The user sees "ComfyUI generation timed out or failed" (G:2573).
   - A ComfyUI-side OOM therefore never reaches the OOM branch.
+  - *Since docs/video-errors.md: the history entry's node, exception and first message line
+    are reported, with the kind (`oom`, `node_error`, `cancelled`).*
 - **F-26. A PNG can be reported as the video.**
   - Per-file download errors are swallowed.
   - With `generate_frames_only`, if the MP4 download fails and the PNGs arrive,
