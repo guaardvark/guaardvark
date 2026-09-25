@@ -3,8 +3,8 @@ renders with, traced into the graph generate_video queues.
 
 GUAARDVARK_VIDEO_REFERENCE_DEFAULTS off (a fresh clone) must render exactly as
 before: 7.5 on every model, the style negative with the identity-bleed guard.
-On, each model gets the value its reference ComfyUI template uses
-(docs/video-prompting.md), and the guard only for a request with a character.
+On, each model gets the value its reference ComfyUI template uses, and the
+guard only for a request with a character.
 """
 import json
 
@@ -166,7 +166,7 @@ def test_off_without_the_enhancer_the_builder_keeps_its_own_negative(comfy):
     assert negative.startswith("blurry, low quality, worst quality, deformed")
 
 
-# ── CogVideoX negatives (docs/video-pipeline.md F-5) ─────────────────────────
+# ── CogVideoX negatives ─────────────────────────
 
 @pytest.mark.parametrize("model", ["cogvideox-5b", "cogvideox-5b-i2v"])
 def test_cogvideox_sends_a_typed_negative(comfy, model):
@@ -358,7 +358,7 @@ def test_each_clip_carries_whether_guidance_was_named(tmp_path, monkeypatch, giv
 
 
 @pytest.mark.xfail(strict=True, reason=(
-    "docs/video-prompting.md: batch metadata (steps_explicit, upscale, teacache_threshold, "
+    "batch metadata (steps_explicit, upscale, teacache_threshold, "
     "feta_weight) never reaches the per-clip request"))
 def test_batch_metadata_reaches_each_clip(tmp_path, monkeypatch):
     clip = _run_clip(tmp_path, monkeypatch, enhance_prompt=False,

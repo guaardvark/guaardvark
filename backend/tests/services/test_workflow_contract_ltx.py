@@ -3,7 +3,7 @@ latent upsample, refine pass), text- and image-to-video.
 
 Every graph is checked against the ComfyUI /object_info snapshot, and the
 values a request resolves to are followed into the nodes that use them.
-Known gaps are strict xfails; docs/video-pipeline.md names each one.
+Known gaps are strict xfails, each naming the gap.
 """
 import pytest
 
@@ -106,7 +106,7 @@ def test_rendered_canvas_matches_the_resolved_request(comfy, model, mode, ratio)
 
 
 @pytest.mark.xfail(strict=True, reason=(
-    "docs/video-pipeline.md §4: LTX 2.5 halves the size onto the 32 px grid, so a size "
+    "LTX 2.5 halves the size onto the 32 px grid, so a size "
     "that is not a multiple of 64 comes out smaller than the request (800x480 -> 768x448)"))
 def test_ltx25_output_size_equals_the_request(comfy):
     result, wf, req = _request(comfy, "ltx25-distilled-int8", "t2v", width=800, height=480, duration_frames=49)
@@ -128,7 +128,7 @@ def test_rendered_frames_land_on_the_grid(comfy, model, which):
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-12: generate_video does not enforce max_frames")
+@pytest.mark.xfail(strict=True, reason="generate_video does not enforce max_frames")
 def test_rendered_frames_never_exceed_max_frames(comfy, model):
     caps = model_capabilities(model)
     result, wf, req = _request(comfy, model, "t2v", duration_frames=caps["max_frames"] + 40, width=832, height=480)

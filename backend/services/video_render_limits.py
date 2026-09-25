@@ -6,8 +6,7 @@ family's ``FAMILY_SPECS`` row) and is applied here, so a model is added by data
 plus a graph builder, and the builders only decide graph shape.
 
 Two families of rules differ from what the registry declares, and are kept as
-they are until ``GUAARDVARK_VIDEO_STRICT_LIMITS=1`` asks for the declared ones
-(docs/video-pipeline.md F-11, F-12, F-13, F-14):
+they are until ``GUAARDVARK_VIDEO_STRICT_LIMITS=1`` asks for the declared ones:
 
 - the size is snapped to the family grid, not the entry's (Wan entries declare
   32 px, the render snaps to 16);
@@ -24,8 +23,8 @@ floor.
 request that leaves guidance or the negative prompt empty gets: the model's
 reference values (``cfg_when_unset``, ``negative_when_unset``) instead of the
 7.5 and the style negative every model got before, and the identity-bleed
-guard only when a cast member or LoRA is in the request. docs/video-prompting.md
-has the trace and the templates the values come from.
+guard only when a cast member or LoRA is in the request. The values come from
+the model makers' ComfyUI workflow templates (see ``FAMILY_SPECS``).
 """
 
 from __future__ import annotations
@@ -407,7 +406,7 @@ def start_image(model_id: str, image_path: Optional[str], family: Optional[str] 
 
     An image on a text-only model is refused with its image-to-video sibling
     named. A model that also renders from text alone renders text-to-video
-    when the named file is missing (docs/video-pipeline.md F-28); one that
+    when the named file is missing; one that
     needs the image refuses."""
     from pathlib import Path
 
