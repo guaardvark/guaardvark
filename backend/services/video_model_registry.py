@@ -443,6 +443,8 @@ VIDEO_MODEL_REGISTRY = {
         "max_frames": 121,
         # Fits an 11 GB card without offload; the other Wan entries take the family's 16.
         "min_vram_gb": 11,
+        # video_wan2_2_5B_ti2v: KSampler cfg 5 (the 14B templates use 3.5).
+        "cfg_when_unset": 5.0,
     },
     "wan-vae": {
         "name": "Wan 2.1/2.2 VAE",
@@ -1869,14 +1871,31 @@ def i2v_model_for(model_id: str, default: str | None = None) -> str:
 # loader offers, whether it decodes audio and how it takes guidance. The
 # generator's per-family tables read these; an extension registering a family
 # adds a row here instead of editing those tables.
+# The negative prompts the model makers' own ComfyUI workflow templates ship
+# (package comfyui-workflow-templates-json 0.1.57, the one ComfyUI v0.34.0 pins
+# through comfyui-workflow-templates 0.11.48).
+# Wan: video_wan2_2_14B_i2v and video_wan2_2_5B_ti2v, verbatim. video_wan2_2_14B_t2v
+# adds two content terms (nudity, NSFW) that are left out here: the defaults
+# target defects, not content.
+WAN_REFERENCE_NEGATIVE = (
+    "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，"
+    "低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，"
+    "毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
+)
+# LTX: video_ltx2_3_t2v and video_ltx2_5_t2v, verbatim. Not the LTX default: it
+# names "cartoon" and "childish", against five of the eight prompt styles.
+# scripts/video_prompt_ab.py renders it as a variant.
+LTX_REFERENCE_NEGATIVE = "pc game, console game, video game, cartoon, childish, ugly"
+
 FAMILY_SPECS = {
     "wan": {"dimension_alignment": 16, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "4n+1",
             "lora_slot": "model_only", "audio_out": False, "guidance": 3.5,
             "frame_snap": None, "negative_prompt": True,
+            "cfg_when_unset": 3.5, "negative_when_unset": WAN_REFERENCE_NEGATIVE,
             "text_encoder_cpu_max_vram_mb": 20 * 1024, "attention": "pytorch"},
     "cogvideox": {"dimension_alignment": 16, "max_pixel_area": None, "min_vram_gb": 16, "frame_rule": "8n+1",
                   "lora_slot": None, "audio_out": False, "guidance": 6.0,
-                  "frame_snap": None, "negative_prompt": True},
+                  "frame_snap": None, "negative_prompt": True, "cfg_when_unset": 6.0},
     "ltx": {"dimension_alignment": 32, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "8n+1",
             "lora_slot": "model_only", "audio_out": False, "guidance": 1.0,
             "frame_snap": "down", "min_frames": 9, "frames_when_unset": 65, "negative_prompt": True,
@@ -1885,6 +1904,7 @@ FAMILY_SPECS = {
     "hunyuan": {"dimension_alignment": 16, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "4n+1",
                 "lora_slot": "model_only", "audio_out": False, "guidance": 6.0,
                 "frame_snap": "nearest", "min_frames": 1, "frames_when_unset": 73, "negative_prompt": False,
+                "cfg_when_unset": 6.0,
                 "text_encoder_cpu_max_vram_mb": 20 * 1024, "attention": "pytorch"},
     "minimax": {"dimension_alignment": 32, "max_pixel_area": 768 * 1344, "min_vram_gb": 16, "frame_rule": "17k+5",
                 "lora_slot": "model_only", "audio_out": True, "guidance": None,
@@ -1897,7 +1917,21 @@ FAMILY_SPECS = {
 #   min_frames / frames_when_unset  the floor, and the length used when none is given
 #   enforce_min_steps   raise a preset step count to min_steps (a typed count stands)
 #   cfg_when_unset / cfg_range      guidance used when none is given; outside the
-#                       range the value is kept and logged
+#                       range the value is kept and logged. The values are the
+#                       reference templates' (same package as above): Wan 14B
+#                       video_wan2_2_14B_t2v/_i2v 3.5 on the 20-step path, LTX
+#                       video_ltx2_3_t2v CFGGuider 1, Hunyuan hunyuan_video_text_to_video
+#                       FluxGuidance 6. CogVideoX has no template; 6.0 is the
+#                       CogVideoSampler default in the /object_info snapshot
+#                       (backend/tests/fixtures/comfyui_object_info.json).
+#                       A request that gives no guidance gets this only with
+#                       GUAARDVARK_VIDEO_REFERENCE_DEFAULTS on; with it off it keeps
+#                       the 7.5 every layer filled in before.
+#   negative_when_unset the negative prompt used when none is given, under
+#                       GUAARDVARK_VIDEO_REFERENCE_DEFAULTS; None keeps the style's
+#   prompt_styles_withheld  {style: why} prompt styles this model is not offered
+#                       with (backend/utils/prompt_enhancer.STYLE_SUFFIXES); the
+#                       evidence is an A/B run (scripts/video_prompt_ab.py)
 #   negative_prompt     whether the graph has a negative branch
 #   text_encoder_cpu_max_vram_mb    at or below this total VRAM the text encoder
 #                       loads on CPU so the UNet keeps the card (Wan UMT5 is ~6.4 GB
@@ -1914,6 +1948,7 @@ FAMILY_SPECS = {
 RENDER_LIMIT_KEYS = (
     "frame_snap", "min_frames", "frames_when_unset", "enforce_min_steps", "cfg_when_unset",
     "cfg_range", "negative_prompt", "text_encoder_cpu_max_vram_mb", "attention",
+    "negative_when_unset", "prompt_styles_withheld",
 )
 
 
@@ -2036,6 +2071,9 @@ def model_capabilities(model_id: str) -> dict:
     # Verified backends are measurements of this entry; a model cloned "like" it
     # inherits the pin target through its type, not the measurement.
     caps["attention_verified"] = dict(entry.get("attention_verified") or {"pytorch": ["*"]})
+    caps["prompt_styles_withheld"] = dict(caps.get("prompt_styles_withheld") or {})
+    from backend.utils.prompt_enhancer import PROMPT_STYLE_IDS
+    caps["prompt_styles"] = [s for s in PROMPT_STYLE_IDS if s not in caps["prompt_styles_withheld"]]
     return caps
 
 

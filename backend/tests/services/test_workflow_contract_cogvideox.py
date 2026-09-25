@@ -142,7 +142,6 @@ def test_prompt_and_seed_land_in_the_sampler(comfy, model):
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-5: generate_video does not pass negative_prompt to either CogVideoX builder")
 def test_rendered_negative_prompt_reaches_the_negative_encoder(comfy, model):
     result, wf, req = _request(comfy, model, width=720, height=480, duration_frames=49, negative_prompt="washed out")
     _, sampler = wc.one(wf, "CogVideoSampler")
