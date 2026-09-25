@@ -207,3 +207,27 @@ def test_optional_post_nodes_chain_into_the_video(comfy, monkeypatch, model):
     assert wf is not None, result.error
     wc.assert_optional_features(wf, 24)
     assert wc.source(wf, wc.video_output(wf)[1]["inputs"]["audio"])["class_type"] == "VAEDecodeAudio"
+
+
+@pytest.mark.parametrize("model,profile,pinned", [
+    ("minimax-h3-int8", None, False),     # Standard under ck measured identical to PyTorch
+    ("minimax-h3-int8", "turbo-8", True),  # turbo profiles not compared under ck
+] + [(m, None, True) for m in MODELS if m != "minimax-h3-int8"])
+def test_attention_pinned_where_ck_is_not_verified(monkeypatch, model, profile, pinned):
+    from backend.services.comfyui_video_generator import ComfyUIVideoGenerator
+
+    monkeypatch.setattr(ComfyUIVideoGenerator, "comfy_node_available", lambda self, cls: True)
+    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", "ck")
+    wf = (_ref(model, speed_profile=profile) if model in REF
+          else _fl2va(model, speed_profile=profile, lora_name="turbo.safetensors" if profile else None,
+                      extra_loras=LORAS))
+    wc.assert_valid(wf)
+    assert not wc.orphan_nodes(wf)
+    pins = wc.nodes(wf, "ModelAttentionBackend")
+    assert bool(pins) is pinned
+    for cls in ("BasicGuider", "BasicScheduler"):
+        _, node = wc.one(wf, cls)
+        chain = wc.model_path_classes(wf, node["inputs"]["model"])
+        assert ("ModelAttentionBackend" in chain) is pinned
+        assert chain[-1] == "UNETLoader"
+    assert len(pins) <= 1

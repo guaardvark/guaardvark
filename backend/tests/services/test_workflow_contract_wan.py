@@ -197,16 +197,18 @@ def test_rife_checkpoint_is_a_registry_file(comfy):
 # ── Attention pin ────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("backend,model,pinned", [
-    ("ck", "wan22-14b", True),
-    ("ck", "wan22-14b-i2v", True),
-    ("ck", "wan22-5b", False),       # 5B declares no attention
-    ("pytorch", "wan22-14b-i2v", False),  # default launch: graph left alone
+    ("ck", "wan22-14b", True),        # T2V: ck never measured
+    ("ck", "wan22-14b-i2v", False),   # Standard under ck measured clean
+    ("sage", "wan22-14b-i2v", True),  # sage never measured
+    ("ck", "wan22-5b", True),         # 5B: ck never measured
+    ("pytorch", "wan22-14b", False),  # default launch: graph left alone
 ])
-def test_declared_attention_pin(comfy, monkeypatch, backend, model, pinned):
+def test_attention_pinned_where_the_launch_backend_is_not_verified(comfy, monkeypatch, backend, model, pinned):
     monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", backend)
     result, wf, req = _request(comfy, model, width=832, height=480, duration_frames=49)
     assert wf is not None, result.error
     wc.assert_valid(wf)
+    assert not wc.orphan_nodes(wf)
     pins = wc.nodes(wf, "ModelAttentionBackend")
     if not pinned:
         assert not pins
@@ -215,7 +217,35 @@ def test_declared_attention_pin(comfy, monkeypatch, backend, model, pinned):
     samplers = _samplers(wf)
     assert len(pins) == len(samplers)
     for _, sampler in samplers:
-        assert "ModelAttentionBackend" in wc.model_path_classes(wf, sampler["inputs"]["model"])
+        chain = wc.model_path_classes(wf, sampler["inputs"]["model"])
+        assert "ModelAttentionBackend" in chain
+        # The pin sits after the LoRAs, so every LoRA runs under the pinned backend.
+        assert chain.index("ModelAttentionBackend") < len(chain) - 1
+
+
+@pytest.mark.parametrize("profile,pinned", [
+    ("lightx2v-4", True),   # ck damaged 15 of 24 Lightning clips
+    (None, False),          # Standard: verified clean under ck
+])
+def test_i2v_lightning_is_pinned_under_ck(monkeypatch, profile, pinned):
+    from backend.services.comfyui_video_generator import ComfyUIVideoGenerator
+
+    monkeypatch.setattr(ComfyUIVideoGenerator, "comfy_node_available", lambda self, cls: True)
+    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", "ck")
+    files = speed_profile_for("wan22-14b-i2v", "lightx2v-4")["lora_files"]
+    wf = _build("wan22-14b-i2v", image="start.png", lora_high=files["unet_high"], lora_low=files["unet_low"],
+                speed_profile=profile)
+    wc.assert_valid(wf)
+    assert bool(wc.nodes(wf, "ModelAttentionBackend")) is pinned
+
+
+def test_builder_not_told_the_profile_pins_under_ck(monkeypatch):
+    from backend.services.comfyui_video_generator import ComfyUIVideoGenerator
+
+    monkeypatch.setattr(ComfyUIVideoGenerator, "comfy_node_available", lambda self, cls: True)
+    monkeypatch.setenv("GUAARDVARK_COMFYUI_ATTENTION", "ck")
+    wf = _build("wan22-14b-i2v", image="start.png")
+    assert len(wc.nodes(wf, "ModelAttentionBackend")) == 2
 
 
 _PROFILE_GAP = pytest.mark.xfail(strict=True, reason=(
