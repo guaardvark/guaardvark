@@ -55,6 +55,29 @@ def _auth_headers() -> dict:
     return {}
 
 
+def _upscaling_up() -> bool:
+    try:
+        return requests.get(f"{UPSCALING_URL}/health", timeout=3).status_code == 200
+    except requests.RequestException:
+        return False
+
+
+def _start_upscaling_for_job():
+    """None when a job may be submitted; else the 503 response to return.
+
+    Starts the upscaling plugin first when it is down and
+    GUAARDVARK_JOB_SERVICE_START is on. Health, model and job-list routes never
+    start it.
+    """
+    from backend.services.plugin_bridge import job_service_start_enabled, start_for_job
+    if not job_service_start_enabled():
+        return None
+    ok, why = start_for_job("upscale", "generating", is_up=_upscaling_up)
+    if ok:
+        return None
+    return error_response(f"Upscaling service not running ({why})", 503)
+
+
 def _proxy_get(path: str, timeout: int = UPSCALING_TIMEOUT):
     """Proxy a GET request to the upscaling service."""
     try:
@@ -168,6 +191,9 @@ def upscale_video():
     # Remove None values (but keep two_pass even if False)
     payload = {k: v for k, v in payload.items() if v is not None}
 
+    down = _start_upscaling_for_job()
+    if down:
+        return down
     data, status = _proxy_post("/upscale/video", payload, timeout=30)
     if status in (200, 202):
         return success_response(data=data, message="Upscale job submitted")
@@ -248,6 +274,9 @@ def preview_upscale():
         "face_enhance": flask_request.form.get("face_enhance"),
     }
     
+    down = _start_upscaling_for_job()
+    if down:
+        return down
     try:
         resp = requests.post(
             f"{UPSCALING_URL}/upscale/image/upload",
@@ -408,6 +437,9 @@ def upscale_image():
         **_image_options_from_form(flask_request.form),
     }
 
+    down = _start_upscaling_for_job()
+    if down:
+        return down
     data, status = _proxy_post("/upscale/image", payload, timeout=UPSCALING_IMAGE_TIMEOUT)
     if status == 200:
         return success_response(
@@ -445,6 +477,9 @@ def upscale_images():
         **_image_options_from_form(flask_request.form),
     }
 
+    down = _start_upscaling_for_job()
+    if down:
+        return down
     data, status = _proxy_post("/upscale/images", payload, timeout=30)
     if status in (200, 202):
         return success_response(
@@ -536,6 +571,9 @@ def upload_and_upscale():
     if double_fps and double_fps.lower() in ("true", "1", "yes"):
         payload["double_fps"] = True
 
+    down = _start_upscaling_for_job()
+    if down:
+        return down
     data, status = _proxy_post("/upscale/video", payload, timeout=30)
     if status in (200, 202):
         return success_response(
