@@ -353,6 +353,7 @@ class MusicVideoService(PipelineService):
     valid_transitions = VALID_TRANSITIONS
     stage_to_agent = STAGE_TO_AGENT
     task_namespace = "music_video"
+    stage_context = "music-video"
 
     # --- Lifecycle ---------------------------------------------------------
 
@@ -383,9 +384,9 @@ class MusicVideoService(PipelineService):
     # State-machine plumbing (advance_if_predecessor / fail_stage /
     # find_non_terminal / dispatch_agent / resume_all / gpu_stage) is inherited
     # from PipelineService, driven by the class attributes set above.
-    # P2: dispatch_agent (and resume_all) now auto-calls ensure_plugins_for_stage
-    # using task_namespace + current_stage for proper sequencing (e.g. ollama for
-    # analyzing/Director, comfyui for storyboards/generating).
+    # dispatch_agent runs the stage prep for stage_context + current_stage when
+    # GUAARDVARK_PIPELINE_STAGE_PREP is on (e.g. ollama for analyzing, comfyui
+    # for generating).
 
     # --- Plan / Director helpers (pre-approval editing & re-planning) --------
 
