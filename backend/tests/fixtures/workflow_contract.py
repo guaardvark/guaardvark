@@ -508,8 +508,22 @@ class FakeComfyUI:
         self.info = info if info is not None else object_info()
         self.prompts: list = []
         self.uploads: list = []
+        # Scripted replies for the failure tests; the defaults are the above.
+        self.alive = True                # False: every request fails to connect
+        self.die_after_prompt = False    # ComfyUI goes away once a graph is queued
+        self.prompt_reply = None         # (status, body) for POST /prompt
+        self.history_entry = None        # the /history entry for a queued prompt
+        self.files: dict = {}            # output filename -> bytes served at /view
+        self.running = False             # /queue lists the last queued prompt as running
+
+    def _connect(self):
+        if not self.alive:
+            import requests
+
+            raise requests.ConnectionError("connection refused (fake ComfyUI is down)")
 
     def get(self, url, *args, **kwargs):
+        self._connect()
         path = urlsplit(url).path.lstrip("/")
         if not path:
             return _Response(200, {})
@@ -519,17 +533,25 @@ class FakeComfyUI:
             return _Response(200, {"system": {"argv": ["main.py"]}})
         if path.startswith("history/"):
             prompt_id = path.split("/", 1)[1]
+            if self.history_entry is not None:
+                return _Response(200, {prompt_id: self.history_entry})
             return _Response(200, {prompt_id: {"status": {
                 "status_str": "error", "completed": False,
                 "messages": [["execution_error", {"exception_message": self.STOP}]],
             }}})
         if path.startswith("queue"):
-            return _Response(200, {"queue_running": [], "queue_pending": []})
+            running = [[0, f"contract-{len(self.prompts)}"]] if self.running and self.prompts else []
+            return _Response(200, {"queue_running": running, "queue_pending": []})
         return _Response(404, {})
 
     def post(self, url, json=None, files=None, data=None, **kwargs):
+        self._connect()
         if url.endswith("/prompt"):
             self.prompts.append(json["prompt"])
+            if self.prompt_reply is not None:
+                return _Response(*self.prompt_reply)
+            if self.die_after_prompt:
+                self.alive = False
             return _Response(200, {"prompt_id": f"contract-{len(self.prompts)}"})
         if url.endswith("/upload/image"):
             handle = (files or {}).get("image")
@@ -542,6 +564,27 @@ class FakeComfyUI:
     def workflow(self) -> dict:
         assert self.prompts, "generate_video queued no graph"
         return self.prompts[-1]
+
+    def finish_with(self, files: dict) -> None:
+        """Report the queued prompt finished, with these output files (name ->
+        bytes) on the VHS output node, as ComfyUI's history does."""
+        self.files = dict(files)
+        self.history_entry = {
+            "status": {"status_str": "success", "completed": True, "messages": []},
+            "outputs": {"13": {"gifs": [{"filename": name, "subfolder": "", "type": "output"}
+                                        for name in files]}},
+        }
+
+    def urlretrieve(self, url, destination):
+        """urllib.request.urlretrieve, which _download_file uses for /view."""
+        self._connect()
+        from urllib.parse import parse_qs
+
+        name = parse_qs(urlsplit(url).query).get("filename", [""])[0]
+        if name not in self.files:
+            raise OSError(f"HTTP Error 404: {name} not found")
+        Path(destination).write_bytes(self.files[name])
+        return str(destination), None
 
 
 def install_fake_comfyui(monkeypatch, tmp_path, *, total_vram_mb: int = 16376, info: Optional[dict] = None):
@@ -571,6 +614,7 @@ def install_fake_comfyui(monkeypatch, tmp_path, *, total_vram_mb: int = 16376, i
             return None
 
     monkeypatch.setattr(cvg, "requests", _Requests)
+    monkeypatch.setattr(cvg.urllib.request, "urlretrieve", fake.urlretrieve)
     monkeypatch.setattr(cvg, "COMFYUI_DIR", "", raising=False)
     monkeypatch.setattr(
         gpu_resource_coordinator, "get_available_vram",
