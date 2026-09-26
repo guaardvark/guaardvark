@@ -17,34 +17,13 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-# Vision/multimodal model patterns — these need special handling
-VISION_MODEL_PATTERNS = [
-    r'vl\b', r'vision', r'llava', r'moondream', r'bakllava',
-    r'minicpm-v', r'llama.*vision', r'granite.*vision', r'gemma.*vision',
-    # Gemma 4 integrates vision natively — match even without "vision" suffix
-    r'gemma[\-_]?4',
-]
-
-# Model families that reason in Ollama's hidden ``thinking`` channel before
-# answering. Ollama's own capabilities list (``/api/show``) is authoritative
-# when it can be fetched; these names cover a server that is not answering yet
-# and unit tests that never reach one. What each cost when left on:
-#   * gemma4 12B, chat, 2026-09-06: 1,163 tokens / ~40 s for a 554-char reply
-#     against 183 tokens / ~10 s for an 858-char reply with thinking off.
-#   * gemma4 12B, summarisation (raptor_service): ~45x slower, shorter output.
-#   * qwen3.5 9B, structured extraction: 2-4k reasoning tokens per call, enough
-#     to blow a 120 s request timeout.
-THINKING_MODEL_PATTERNS = [
-    r'deepseek-r1', r'thinking', r'gemma[\-_]?4', r'qwen3',
-]
-
-# Models that are vision-only (not suitable as default text LLM).
-# Omits natively multimodal models (Gemma 4) that handle both text and vision.
-NON_TEXT_MODEL_PATTERNS = [
-    r'vl\b', r'vision', r'llava', r'moondream', r'bakllava',
-    r'minicpm-v', r'llama.*vision', r'granite.*vision', r'gemma.*vision',
-    r'embed', r'retrieval', r'minilm',
-]
+# Name rules for when Ollama cannot answer. Declared, with what each one cost
+# or protects against, in backend/services/model_capability_data.py.
+from backend.services.model_capability_data import (  # noqa: E402
+    NON_TEXT_NAME_PATTERNS as NON_TEXT_MODEL_PATTERNS,
+    THINKING_NAME_PATTERNS as THINKING_MODEL_PATTERNS,
+    VISION_NAME_PATTERNS as VISION_MODEL_PATTERNS,
+)
 
 # Memory reserves (MB)
 GPU_RESERVE_MB = 2048   # 2GB for embedding model + display + system
@@ -259,7 +238,10 @@ def get_model_info(model_name: str) -> Optional[dict]:
         parameter_count = 0
         native_context = 0
         loose_context = 0
+        embedding_length = 0
         for key, value in model_info_raw.items():
+            if key.endswith(".embedding_length"):
+                embedding_length = int(value)
             if key.endswith(".context_length"):
                 native_context = int(value)
             elif "context_length" in key:
@@ -306,6 +288,7 @@ def get_model_info(model_name: str) -> Optional[dict]:
             "size_mb": size_bytes / (1024 * 1024) if size_bytes else 0,
             "parameter_count": parameter_count,
             "native_context": native_context,
+            "embedding_length": embedding_length,
             "architecture": details.get("family", "unknown"),
             "families": details.get("families", []),
             "quantization": details.get("quantization_level", "unknown"),
@@ -341,11 +324,10 @@ def model_info_available(model_name: str) -> bool:
 
 
 def model_supports_tools(model_name: str) -> bool:
-    """Check if a model supports native function calling via Ollama's capabilities API."""
-    info = get_model_info(model_name)
-    if not info:
-        return False
-    return "tools" in info.get("capabilities", [])
+    """Check if a model supports native function calling via Ollama's capabilities API
+    (or the model's declared row; see model_capabilities)."""
+    from backend.services.model_capabilities import capabilities_for
+    return capabilities_for(model_name, with_vision=False).tools
 
 
 def model_supports_thinking(model_name: str) -> bool:
@@ -358,13 +340,10 @@ def model_supports_thinking(model_name: str) -> bool:
     """
     if not model_name:
         return False
-    lower = model_name.lower()
-    if any(re.search(p, lower) for p in THINKING_MODEL_PATTERNS):
+    from backend.services.model_capabilities import capabilities_for, thinks_by_name
+    if thinks_by_name(model_name):
         return True
-    info = get_model_info(model_name)
-    if not info:
-        return False
-    return "thinking" in (info.get("capabilities") or [])
+    return capabilities_for(model_name, with_vision=False).thinking
 
 
 def thinking_kwargs(model_name: str) -> dict:

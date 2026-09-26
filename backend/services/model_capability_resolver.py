@@ -549,6 +549,8 @@ def resolve(tag: str, surface: str = "agent_screen",
 
     info = _info(tag)
     vision, evidence = _vision_with_evidence(tag)
+    from backend.services.model_capabilities import record_from_info
+    record = record_from_info(tag, info, with_vision=False)
     eyes = eyes_for(tag, surface, screen)
     coords = coords_for(tag, screen)
 
@@ -571,11 +573,11 @@ def resolve(tag: str, surface: str = "agent_screen",
         tag=tag,
         exists=info is not None,
         sees_natively=vision,
-        supports_tools="tools" in ((info or {}).get("capabilities") or []),
-        supports_thinking="thinking" in ((info or {}).get("capabilities") or []),
-        context_window=int((info or {}).get("native_context") or 0),
-        size_mb=float((info or {}).get("size_mb") or 0.0),
-        architecture=(info or {}).get("architecture") or "unknown",
+        supports_tools=record.tools,
+        supports_thinking=record.thinking,
+        context_window=record.native_context,
+        size_mb=record.size_mb,
+        architecture=record.architecture,
         eyes=eyes,
         coords=coords,
         # A guessed convention is not a licence to click. Reading a model's
