@@ -90,6 +90,27 @@ def _proxy_post(path: str, json_data: dict, timeout: int):
         return jsonify({"error": str(e)}), 500
 
 
+def _audio_foundry_up() -> bool:
+    try:
+        return requests.get(f"{AUDIO_FOUNDRY_URL}/health", timeout=2).status_code == 200
+    except requests.RequestException:
+        return False
+
+
+def _proxy_generate(path: str, json_data: dict):
+    """POST a generation, starting Audio Foundry first when it is down.
+
+    The start happens only with GUAARDVARK_JOB_SERVICE_START on; the status and
+    health routes the Studio polls never start it.
+    """
+    from backend.services.plugin_bridge import job_service_start_enabled, start_for_job
+    if job_service_start_enabled():
+        ok, why = start_for_job("audio", "generating", is_up=_audio_foundry_up)
+        if not ok:
+            return jsonify({"error": f"Audio Foundry service not running ({why})"}), 503
+    return _proxy_post(path, json_data, GENERATION_TIMEOUT)
+
+
 def _proxy_delete(path: str, timeout: int = QUICK_TIMEOUT):
     try:
         resp = requests.delete(f"{AUDIO_FOUNDRY_URL}{path}", timeout=timeout)
@@ -170,11 +191,7 @@ def generate_voice():
         consent = p.with_name(p.name + ".consent")
         if not p.exists() or not consent.exists():
             return {"error": "Invalid or unconsented reference_clip_path (upload via UI for consent)"}, 403
-    body, status_code = _proxy_post(
-        "/generate/voice",
-        data,
-        GENERATION_TIMEOUT,
-    )
+    body, status_code = _proxy_generate("/generate/voice", data)
     return body, status_code
 
 
@@ -188,8 +205,10 @@ def generate_music():
     if model.startswith("minimax-music3"):
         from flask import current_app, jsonify
         from backend.services import comfyui_music_generator as m3
-        from backend.services.video_model_registry import preflight_video_model
-        ready, err = preflight_video_model(model)
+        from backend.services.plugin_bridge import job_service_start_enabled
+        from backend.services.video_model_registry import prepare_video_model, preflight_video_model
+        check = prepare_video_model if job_service_start_enabled() else preflight_video_model
+        ready, err = check(model)
         if not ready:
             return jsonify({"success": False, "error": err}), 400
         try:
@@ -204,11 +223,7 @@ def generate_music():
         )
         return jsonify({"success": True, "job_id": job_id, "model": model, "status": "queued",
                         "attribution": "MiniMax-Music3"}), 202
-    body, status_code = _proxy_post(
-        "/generate/music",
-        payload,
-        GENERATION_TIMEOUT,
-    )
+    body, status_code = _proxy_generate("/generate/music", payload)
     return body, status_code
 
 
@@ -282,11 +297,7 @@ def rewrite_music_prompt():
 
 @audio_foundry_bp.route("/generate/fx", methods=["POST"])
 def generate_fx():
-    body, status_code = _proxy_post(
-        "/generate/fx",
-        flask_request.get_json(silent=True) or {},
-        GENERATION_TIMEOUT,
-    )
+    body, status_code = _proxy_generate("/generate/fx", flask_request.get_json(silent=True) or {})
     return body, status_code
 
 
