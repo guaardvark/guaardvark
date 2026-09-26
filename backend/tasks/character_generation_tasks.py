@@ -73,19 +73,37 @@ def _resolve_cast_still_route(subject, lora_paths: list[str] | None = None) -> d
         resolve_inference_for_loras,
         subject_base_model_id,
     )
+    # Single source of truth for the Z-Image→ComfyUI opt-in flag — the same
+    # function character_still_pipeline and batch_image_generator delegate to.
+    from backend.services.stills_pipeline import zimage_via_comfyui_enabled
+    _zimage_via_comfyui_enabled = zimage_via_comfyui_enabled
 
     lora_paths = [p for p in (lora_paths or []) if p]
     if lora_paths:
         try:
             info = resolve_inference_for_loras(lora_paths)
             engine = info.get("inference_engine") or "offline"
-            if info.get("family") == "zimage" or engine == "offline":
+            family = info.get("family") or "zimage"
+            if family == "zimage" and _zimage_via_comfyui_enabled():
+                # Z-Image stills render through ComfyUI only when the operator opts
+                # in; the offline Diffusers path is CUDA-only (not Apple Silicon).
+                return {
+                    "engine": "comfy",
+                    "model_key": None,
+                    "comfy_model": "zimage",
+                    "base_model_id": info.get("base_model_id"),
+                    "family": family,
+                    "vram_estimate_mb": int(
+                        (info.get("profile") or {}).get("vram_infer_mb") or 11000
+                    ),
+                }
+            if family == "zimage" or engine == "offline":
                 return {
                     "engine": "offline",
                     "model_key": info.get("offline_model_key") or "zimage-turbo",
                     "comfy_model": None,
                     "base_model_id": info.get("base_model_id"),
-                    "family": info.get("family") or "zimage",
+                    "family": family,
                     "vram_estimate_mb": int(
                         (info.get("profile") or {}).get("vram_infer_mb") or 11000
                     ),
@@ -106,13 +124,23 @@ def _resolve_cast_still_route(subject, lora_paths: list[str] | None = None) -> d
 
     base_id = subject_base_model_id(subject)
     profile = get_profile(base_id) or {}
-    if profile.get("inference_engine") == "offline" or profile.get("family") == "zimage":
+    profile_family = profile.get("family") or "zimage"
+    if profile_family == "zimage" and _zimage_via_comfyui_enabled():
+        return {
+            "engine": "comfy",
+            "model_key": None,
+            "comfy_model": "zimage",
+            "base_model_id": profile.get("id") or base_id,
+            "family": profile_family,
+            "vram_estimate_mb": int(profile.get("vram_infer_mb") or 11000),
+        }
+    if profile.get("inference_engine") == "offline" or profile_family == "zimage":
         return {
             "engine": "offline",
             "model_key": profile.get("offline_model_key") or "zimage-turbo",
             "comfy_model": None,
             "base_model_id": profile.get("id") or base_id,
-            "family": profile.get("family") or "zimage",
+            "family": profile_family,
             "vram_estimate_mb": int(profile.get("vram_infer_mb") or 11000),
         }
     return {
@@ -519,7 +547,10 @@ def generate_samples(subject_id: int, job_id: str | None = None, use_lora: bool 
     cancelled = False
     offline_gen = None
     comfy_gen = None
-    if route.get("engine") == "offline":
+    # Preserve historic routing: anything the registry does not mark "offline"
+    # renders through Comfy (the registry only emits "offline"/"comfy" today).
+    use_comfy = route.get("engine") != "offline"
+    if not use_comfy:
         from backend.services.offline_image_generator import get_image_generator
         offline_gen = get_image_generator()
     else:
@@ -531,7 +562,11 @@ def generate_samples(subject_id: int, job_id: str | None = None, use_lora: bool 
             JobKind.VIDEO_RENDER,
             f"char_samples_{subject_id}",
             evict_ollama=True,
-            free_comfyui=True,
+            # Skip freeing ComfyUI's resident models only for the Z-Image route
+            # (this PR's opt-in path): freeing them would force a full Z-Image
+            # reload (and apparent "restart") on every generation. Existing
+            # FLUX/SDXL Comfy paths keep their historic eviction behaviour.
+            free_comfyui=not (use_comfy and route.get("family") == "zimage"),
             vram_estimate_mb=int(route.get("vram_estimate_mb") or 11000),
             require_fit=True,
             cross_process=True,

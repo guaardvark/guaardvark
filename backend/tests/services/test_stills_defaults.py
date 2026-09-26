@@ -177,6 +177,15 @@ def test_zimage_declares_its_measured_floor():
     assert kept["steps"] == 2 and kept["steps_notice"] is None
 
 
+def test_comfyui_selector_carries_zimage_floor():
+    # The generic ComfyUI backend resolves to Z-Image first, so it must carry the
+    # same floor the family declares — a knobs-free selection cannot render at 1.
+    assert model_family("comfyui") == "comfyui"
+    raised = resolve_stills_defaults("comfyui", steps=1)
+    assert raised["steps_floor"] == 2
+    assert raised["steps"] == 2
+
+
 @pytest.mark.parametrize("explicit, expected", [(False, 8), (True, 4)])
 def test_csv_carries_step_provenance(monkeypatch, explicit, expected):
     from backend.services.stills_defaults import _FAMILY_DEFAULTS

@@ -31,6 +31,18 @@ CharacterSource = Literal[
 ]
 
 
+def _zimage_via_comfyui_enabled() -> bool:
+    """Z-Image stills route through ComfyUI (``GUAARDVARK_ZIMAGE_USE_COMFYUI``).
+
+    Thin alias for ``stills_pipeline.zimage_via_comfyui_enabled`` — the single
+    source of truth shared with ``character_generation_tasks`` and
+    ``batch_image_generator``, so the flag is parsed in exactly one place.
+    """
+    from backend.services.stills_pipeline import zimage_via_comfyui_enabled
+
+    return zimage_via_comfyui_enabled()
+
+
 def _subjects_from_ids(subject_ids: Sequence[int] | None) -> list:
     """Load Subjects by id. Safe from daemon threads / Celery (opens app_context)."""
     if not subject_ids:
@@ -222,7 +234,10 @@ def render_character_still(
     family = (route.get("family") or "zimage").lower()
     engine = (route.get("inference_engine") or "offline").lower()
     if family == "zimage":
-        engine = "offline"
+        # Z-Image defaults to the offline Diffusers pipeline, but that path is
+        # CUDA-only. On Apple Silicon (MPS) route through ComfyUI when the
+        # operator opts in via GUAARDVARK_ZIMAGE_USE_COMFYUI=1.
+        engine = "comfy" if _zimage_via_comfyui_enabled() else "offline"
 
     strength_model = (
         route.get("offline_model_key")
@@ -266,7 +281,7 @@ def render_character_still(
     }
 
     try:
-        if engine == "offline" or family == "zimage":
+        if engine == "offline":
             from backend.services.offline_image_generator import (
                 ImageGenerationRequest,
                 get_image_generator,
@@ -326,9 +341,13 @@ def render_character_still(
                 metadata=meta,
             )
 
-        # Comfy SDXL / FLUX — never for Z-Image LoRAs (guarded above).
+        # Comfy SDXL / FLUX / Z-Image (Z-Image only when opted in via
+        # GUAARDVARK_ZIMAGE_USE_COMFYUI=1 — the offline path is CUDA-only).
         from backend.services.comfyui_image_generator import ComfyUIImageGenerator
-        model_tag = route.get("comfy_model_tag") or ("flux-dev" if family == "flux" else "sdxl")
+        if family == "zimage":
+            model_tag = "zimage"
+        else:
+            model_tag = route.get("comfy_model_tag") or ("flux-dev" if family == "flux" else "sdxl")
         gen = ComfyUIImageGenerator(lora_strength=strength)
         path = gen.generate_image(
             prompt=final_prompt,
@@ -337,7 +356,7 @@ def render_character_still(
             width=w,
             height=h,
             seed=seed if seed is not None else 42,
-            steps=st,
+            steps=st if st > 0 else (8 if family == "zimage" else (20 if family == "flux" else 30)),
             steps_explicit=steps_explicit,
             model=model_tag,
             negative_prompt=negative_prompt or None,

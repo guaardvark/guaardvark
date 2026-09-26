@@ -42,6 +42,10 @@ _FAMILY_DEFAULTS: dict[str, dict[str, Any]] = {
     # clean and only slightly softer than 3-9; 9 adds fine texture and legible
     # signage.
     "zimage": {"min_steps": 2, "width": 1024, "height": 1024, "steps": 9, "guidance": 0.0, "prompt_style": "natural"},
+    # Generic ComfyUI backend resolves to Z-Image first (see
+    # stills_pipeline._comfyui_backend_choice), so it carries Z-Image's min_steps
+    # floor — a default or an agent cannot pick a step count that renders badly.
+    "comfyui": {"min_steps": 2, "width": 1024, "height": 1024, "steps": 9, "guidance": 0.0, "prompt_style": "natural"},
     "krea2-turbo": {"width": 1024, "height": 1024, "steps": 8, "guidance": 0.0, "prompt_style": "tags"},
     "krea2-raw": {"width": 1024, "height": 1024, "steps": 52, "guidance": 3.5, "prompt_style": "tags"},
     "sdxl": {"width": 1024, "height": 1024, "steps": 25, "guidance": 7.0, "prompt_style": "tags"},
@@ -78,6 +82,8 @@ _LEGACY_GUIDANCE = 7.5
 def model_family(model: str | None) -> str:
     """Map catalog key / HF id / auto to a sampling family key."""
     mid = (model or "").strip().lower()
+    if mid == "comfyui":
+        return "comfyui"
     if not mid or mid == "auto":
         # Product daily driver family for unresolved auto.
         try:
@@ -166,6 +172,7 @@ def resolve_stills_defaults(
             "zimage": "Z-Image Turbo", "krea2-turbo": "Krea 2 Turbo",
             "krea2-raw": "Krea 2 Raw", "sdxl": "SDXL",
             "sd": "Stable Diffusion", "flux": "FLUX",
+            "comfyui": "ComfyUI (Z-Image)",
         }[family]
         notice = f"{label} needs at least {floor} steps; raised {resolved_steps} to {floor}."
         resolved_steps = floor

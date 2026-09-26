@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import tempfile
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -27,6 +28,20 @@ from typing import Any, Literal, Optional
 logger = logging.getLogger(__name__)
 
 Source = Literal["chat", "cli", "batch", "discord", "video", "smoke", "agent"]
+
+
+def zimage_via_comfyui_enabled() -> bool:
+    """True when Z-Image stills render through ComfyUI instead of the offline
+    Diffusers pipeline (``GUAARDVARK_ZIMAGE_USE_COMFYUI`` truthy).
+
+    Single source of truth: ``character_still_pipeline``,
+    ``character_generation_tasks`` and ``batch_image_generator`` all delegate
+    here, so renaming the flag updates every routing site at once. The offline
+    Z-Image path is CUDA-only; on Apple Silicon (MPS) the ComfyUI workflow is the
+    only working Z-Image path, so this routes those stills there.
+    """
+    _v = os.environ.get("GUAARDVARK_ZIMAGE_USE_COMFYUI", "").strip().lower()
+    return _v in ("1", "true", "yes", "on")
 
 
 @dataclass
@@ -125,19 +140,33 @@ def run_stills_pipeline(
     if not cleaned:
         return [StillResult(success=False, error="No valid prompts after sanitize")]
 
+    # "comfyui" / "comfy" is a generic selector: the actual engine (Z-Image,
+    # FLUX-dev, FLUX-schnell) is chosen from the live ComfyUI. Resolve it once
+    # here so family defaults (steps / canvas / prompt style) come from the
+    # engine's real family instead of a static "comfyui" row, which cannot carry
+    # the right step count for all three (9 steps is fine for Z-Image Turbo but
+    # badly under-resolves FLUX-dev, whose family default is 28). Explicit caller
+    # values still win inside resolve_stills_defaults.
+    comfy_choice: tuple[str, str] | None = None
+    family_model = model
+    if (model or "").strip().lower() in ("comfyui", "comfy"):
+        comfy_choice = _comfyui_backend_choice()
+        if comfy_choice is not None:
+            family_model = _COMFYUI_ENGINE_FAMILY.get(comfy_choice[0], "comfyui")
+
     enhance_mode = resolve_enhance_mode(
         enhance=enhance,
         director=director,
         auto_enhance=auto_enhance,
         verbatim=verbatim,
-        model=model,
+        model=family_model,
     )
 
     # Director rewrite (batch-level director already applied: pass enhance=none)
     if enhance_mode == "director":
         cleaned = apply_enhance_to_prompts(
             cleaned, enhance_mode="director", style=style, extra_guidance=extra_guidance,
-            model=model,
+            model=family_model,
         )
         # After director, offline stuffing would double-rewrite — use none for auto_enhance
         req_auto_enhance = False
@@ -147,7 +176,7 @@ def run_stills_pipeline(
         effective_mode = enhance_mode
 
     defaults = resolve_stills_defaults(
-        model,
+        family_model,
         width=width,
         height=height,
         steps=steps,
@@ -178,6 +207,7 @@ def run_stills_pipeline(
                 prompt=prompt_text,
                 negative=neg,
                 model=model_id,
+                comfy_choice=comfy_choice,
                 width=w,
                 height=h,
                 steps=st,
@@ -217,6 +247,7 @@ def _generate_one(
     prompt: str,
     negative: str,
     model: str,
+    comfy_choice: tuple[str, str] | None = None,
     width: int,
     height: int,
     steps: int,
@@ -247,6 +278,8 @@ def _generate_one(
     )
 
     # FLUX via Comfy is still a separate engine; offline path is the default.
+    # "comfyui" / "comfy" is a generic ComfyUI backend selector: auto-pick an
+    # installed engine (Z-Image when GUAARDVARK_ZIMAGE_USE_COMFYUI=1, else FLUX).
     mid = (model or "").lower()
     if "flux" in mid:
         return _generate_comfy_flux(
@@ -254,6 +287,36 @@ def _generate_one(
             width=width, height=height, steps=steps, guidance=guidance,
             steps_explicit=steps_explicit,
             seed=seed, enhance_mode=enhance_mode, output=output, output_dir=output_dir,
+        )
+    if mid in ("comfyui", "comfy"):
+        # run_stills_pipeline resolves the engine once and hands it down so the
+        # dispatched engine cannot disagree with the family defaults it used.
+        # Fall back to a live probe for any caller that skipped that façade.
+        choice = comfy_choice if comfy_choice is not None else _comfyui_backend_choice()
+        if choice is None:
+            return StillResult(
+                success=False,
+                error=(
+                    "ComfyUI is not reachable or has no installed image engine. "
+                    "Start the ComfyUI plugin and install Z-Image or FLUX assets first "
+                    "(Z-Image also needs GUAARDVARK_ZIMAGE_USE_COMFYUI=1)."
+                ),
+                prompt_used=prompt,
+                enhance_mode=enhance_mode,
+            )
+        engine, comfy_model = choice
+        if engine == "zimage":
+            return _generate_comfy_zimage(
+                prompt=prompt, negative=negative, model=f"comfyui ({engine})",
+                width=width, height=height, steps=steps, guidance=guidance,
+                seed=seed, enhance_mode=enhance_mode, output=output, output_dir=output_dir,
+            )
+        return _generate_comfy_flux(
+            prompt=prompt, negative=negative, model=f"comfyui ({engine})",
+            width=width, height=height, steps=steps, steps_explicit=steps_explicit,
+            guidance=guidance,
+            seed=seed, enhance_mode=enhance_mode, output=output, output_dir=output_dir,
+            comfy_model=comfy_model,
         )
 
     try:
@@ -423,7 +486,13 @@ def _generate_comfy_flux(
     enhance_mode: str,
     output: str,
     output_dir: Path | str | None,
+    comfy_model: str | None = None,
 ) -> StillResult:
+    # The caller's model tag chooses the graph (upstream #218): "flux" + "dev" is
+    # the FLUX-dev graph, plain "flux" the schnell GGUF branch. The generic
+    # ``comfyui`` selector passes the engine it resolved via ``comfy_model`` so
+    # dispatch matches the family defaults it was resolved from.
+    model_tag = comfy_model or model
     try:
         from backend.services.comfyui_image_generator import ComfyUIImageGenerator
         gen = ComfyUIImageGenerator()
@@ -437,12 +506,7 @@ def _generate_comfy_flux(
             height=height,
             negative_prompt=negative or None,
             seed=seed if seed is not None else 42,
-            # The caller's tag, not a hard-coded "flux": _build_workflow picks the
-            # FLUX-dev graph on "flux" + "dev" and the schnell GGUF graph otherwise.
-            # Collapsing every tag to "flux" sent flux-dev requests through schnell
-            # while still applying the flux family's 28 steps / cfg 3.5 — dev
-            # settings on a 4-step distilled model.
-            model=model,
+            model=model_tag,
             steps=steps,
             steps_explicit=steps_explicit,
             cfg=guidance,
@@ -471,6 +535,127 @@ def _generate_comfy_flux(
             width=width,
             height=height,
             steps=getattr(gen, "last_steps", steps),
+            guidance=guidance,
+            enhance_mode=enhance_mode,
+        )
+    except Exception as e:
+        return StillResult(
+            success=False,
+            error=str(e),
+            prompt_used=prompt,
+            enhance_mode=enhance_mode,
+            width=width,
+            height=height,
+            steps=steps,
+            guidance=guidance,
+        )
+
+
+# Map a ComfyUI engine tag (from _comfyui_backend_choice) to its stills family
+# so the generic "comfyui" selector can inherit that family's defaults.
+_COMFYUI_ENGINE_FAMILY = {
+    "zimage": "zimage",
+    "flux-dev": "flux",
+    "flux-schnell": "flux",
+}
+
+
+def _comfyui_backend_choice() -> tuple[str, str] | None:
+    """Pick a usable ComfyUI image engine for /imagemodel comfyui.
+
+    Returns (engine_label, comfy_model_tag) or None if ComfyUI is unreachable
+    or has no supported image engine installed.
+    """
+    try:
+        from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+
+        gen = ComfyUIImageGenerator()
+        if not gen._available():
+            return None
+
+        # Z-Image-via-ComfyUI is the opt-in route, so the generic selector must
+        # not silently turn it on: without GUAARDVARK_ZIMAGE_USE_COMFYUI the
+        # Z-Image engine is skipped and the selector falls back to FLUX when the
+        # live server has it.
+        zimage_ok = zimage_via_comfyui_enabled()
+        # Authoritative check against the live server's /object_info — this finds
+        # engines on an external Comfy Desktop install as well as the bundled one.
+        for engine in gen.comfyui_installed_engines():
+            if engine == "zimage":
+                if not zimage_ok:
+                    continue
+                return ("zimage", "zimage")
+            if engine == "flux-dev":
+                return ("flux-dev", "flux-dev")
+            if engine == "flux-schnell":
+                return ("flux-schnell", "flux")
+        return None
+    except Exception:
+        return None
+
+
+def _generate_comfy_zimage(
+    *,
+    prompt: str,
+    negative: str,
+    model: str,
+    width: int,
+    height: int,
+    steps: int,
+    guidance: float,
+    seed: int | None,
+    enhance_mode: str,
+    output: str,
+    output_dir: Path | str | None,
+) -> StillResult:
+    try:
+        from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+
+        gen = ComfyUIImageGenerator(model="zimage")
+        out_path = None
+        if output_dir:
+            out_path = str(Path(output_dir) / f"zimage_{uuid.uuid4().hex[:8]}.png")
+        tmp_dir = tempfile.gettempdir()
+
+        # ComfyUI KSampler needs cfg >= 1.0; offline Z-Image uses CFG-free distilled.
+        _cfg_default = float(os.environ.get("GUAARDVARK_ZIMAGE_CFG", "1.0"))
+        cfg = float(guidance) if guidance is not None and float(guidance) >= 1.0 else _cfg_default
+
+        path = gen.generate_image(
+            prompt=prompt,
+            output_path=out_path or str(Path(tmp_dir) / f"zimage_{uuid.uuid4().hex[:8]}.png"),
+            width=width,
+            height=height,
+            negative_prompt=negative or "",
+            seed=seed if seed is not None else 42,
+            model="zimage",
+            steps=steps,
+            cfg=cfg,
+        )
+        url = None
+        if output == "chat_copy" and path:
+            try:
+                from backend.config import OUTPUT_DIR
+                out = Path(OUTPUT_DIR) / "generated_images"
+                out.mkdir(parents=True, exist_ok=True)
+                name = f"gen_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}.png"
+                dest = out / name
+                shutil.copy2(path, dest)
+                path = str(dest)
+                url = f"/api/outputs/generated_images/{name}"
+            except Exception:
+                pass
+        return StillResult(
+            success=True,
+            image_path=path,
+            image_url=url,
+            seed_used=seed,
+            model_used=model,
+            prompt_used=prompt,
+            negative_used=negative,
+            width=width,
+            height=height,
+            steps=steps,
             guidance=guidance,
             enhance_mode=enhance_mode,
         )

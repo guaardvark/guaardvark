@@ -211,6 +211,14 @@ function formatEditBackendLine(m) {
   return `- \`${m.id}\` — ${m.name} (${flag})${tools ? ` · ${tools}` : ""}`;
 }
 
+// Generic ComfyUI backend — always selectable in chat even when no ComfyUI
+// assets are installed yet, since it routes to whatever engine ComfyUI has.
+const COMFYUI_MODEL_OPTION = {
+  id: "comfyui",
+  name: "ComfyUI (auto backend)",
+  is_downloaded: true,
+};
+
 async function handleImageModel(args, { addMessage }) {
   if (!args) {
     try {
@@ -221,10 +229,13 @@ async function handleImageModel(args, { addMessage }) {
       const data = await modelsRes.json();
       const models = data?.data?.models || data?.models || [];
       const editBackends = data?.data?.editing || data?.editing || [];
-      const downloaded = models.filter((m) => m.is_downloaded);
       const editLines = editBackends.length
         ? editBackends.map(formatEditBackendLine).join("\n")
         : "_(could not load edit backends)_";
+      const downloaded = [
+        COMFYUI_MODEL_OPTION,
+        ...models.filter((m) => m.is_downloaded),
+      ];
       addMessage({
         role: "system",
         content: `**Current image model:** \`${current}\`\n\n`
@@ -267,6 +278,19 @@ async function handleImageModel(args, { addMessage }) {
     return { handled: true };
   }
 
+  // "comfyui" is a backend selector, not a downloadable model — accept it
+  // regardless of asset status (the backend picks whatever engine is installed).
+  if (modelName === "comfyui") {
+    await saveImageModelChoice("comfyui");
+    addMessage({
+      role: "system",
+      content: "Image model switched to **comfyui** (ComfyUI auto backend). Generation will use the installed Z-Image or FLUX engine.",
+      tempId: `imgmodel-${Date.now()}`,
+      type: "command",
+    });
+    return { handled: true };
+  }
+
   try {
     const res = await fetch("/api/batch-image/models");
     const data = await res.json();
@@ -290,7 +314,7 @@ async function handleImageModel(args, { addMessage }) {
         });
       }
     } else {
-      const available = ["auto", "qwen-image-edit", "kontext", ...models.filter((m) => m.is_downloaded).map((m) => m.id)].join(", ");
+      const available = ["auto", "qwen-image-edit", "kontext", "comfyui", ...models.filter((m) => m.is_downloaded).map((m) => m.id)].join(", ");
       addMessage({
         role: "system",
         content: `Model \`${modelName}\` not found. Available: ${available}`,
