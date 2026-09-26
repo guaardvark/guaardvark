@@ -219,6 +219,21 @@ class ComfyUIImageGenerator:
         except requests.exceptions.RequestException:
             return False
 
+    def _require_up(self, down_message: str) -> None:
+        """Raise ``down_message`` unless ComfyUI answers.
+
+        With GUAARDVARK_JOB_SERVICE_START on, ComfyUI is started first through
+        the image stage; the reason a start did not help is added to the error.
+        """
+        if self._available():
+            return
+        from backend.services.plugin_bridge import job_service_start_enabled, start_for_job
+        if not job_service_start_enabled():
+            raise RuntimeError(down_message)
+        ok, why = start_for_job("image", "generating", is_up=self._available)
+        if not ok:
+            raise RuntimeError(f"{down_message} ({why})")
+
     # ── workflow ──────────────────────────────────────────────────────
     def _build_workflow(
         self, *, prompt: str, negative: str, lora_names: list[str],
@@ -730,11 +745,10 @@ class ComfyUIImageGenerator:
         self, *, image_paths: list[str], instruction: str, output_path: str,
         steps: int = 20, cfg: float = 2.5, seed: int = 42, pad: dict | None = None,
     ) -> str:
-        if not self._available():
-            raise RuntimeError(f"ComfyUI not reachable at {self.comfy_url} — cannot edit image")
         if not self.qwen_edit_installed():
             from backend.services.image_editing_packs import missing_message
             raise RuntimeError(missing_message("edit_image"))
+        self._require_up(f"ComfyUI not reachable at {self.comfy_url} — cannot edit image")
         names = []
         for p in image_paths:
             if not p or not os.path.exists(p):
@@ -763,13 +777,12 @@ class ComfyUIImageGenerator:
         weight = _identity_default('weight', weight)
         start_at = _identity_default('start_at', start_at)
         end_at = _identity_default('end_at', end_at)
-        if not self._available():
-            raise RuntimeError(f"ComfyUI not reachable at {self.comfy_url}")
         if not os.path.exists(image_path):
             raise RuntimeError(f"Source image not found: {image_path}")
         if not self.pulid_installed():
             from backend.services.image_editing_packs import missing_message
             raise RuntimeError(missing_message("generate_identity"))
+        self._require_up(f"ComfyUI not reachable at {self.comfy_url}")
         src_name = self._upload_image_to_comfyui(image_path)
         if not src_name:
             raise RuntimeError("Failed to upload the face reference to ComfyUI")
@@ -823,8 +836,6 @@ class ComfyUIImageGenerator:
         Holds the GPU for the whole edit (exclusivity + evict Ollama + free ComfyUI UNDER
         the held lease) so the ~11GB Kontext load can't OOM against a resident chat model
         or a concurrent render — enforced HERE so no caller can bypass it."""
-        if not self._available():
-            raise RuntimeError(f"ComfyUI not reachable at {self.comfy_url} — cannot edit image")
         if not os.path.exists(image_path):
             raise RuntimeError(f"Source image not found: {image_path}")
         if not self._kontext_installed():
@@ -833,6 +844,7 @@ class ComfyUIImageGenerator:
                 f"ComfyUI/models/unet/{KONTEXT_UNET}). Image editing is unavailable "
                 f"until that model finishes downloading."
             )
+        self._require_up(f"ComfyUI not reachable at {self.comfy_url} — cannot edit image")
         from backend.services.gpu_resource_policy import gpu_session
         from backend.services.job_types import JobKind
         import uuid as _uuid
@@ -904,10 +916,9 @@ class ComfyUIImageGenerator:
         steps_explicit: bool = False,
         model: str | None = None,  # e.g. keyframe_model from MV settings ("flux-schnell", "sdxl"...)
     ) -> str:
-        if not self._available():
-            raise RuntimeError(
-                f"ComfyUI not reachable at {self.comfy_url} — cannot generate storyboard image"
-            )
+        self._require_up(
+            f"ComfyUI not reachable at {self.comfy_url} — cannot generate storyboard image"
+        )
 
         effective_model = model or self.model
         # ComfyUI resolves LoRAs by basename within its loras search paths;

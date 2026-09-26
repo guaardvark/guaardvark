@@ -78,6 +78,19 @@ STAGE_PLUGIN_REQUIREMENTS: dict[str, dict[str, list[str]]] = {
     "video": {
         "generating": ["comfyui"],
     },
+    # Stills, edits and identity renders queued to ComfyUI (Studio batch images,
+    # chat and MCP image tools, Cast stills, storyboard keyframes).
+    "image": {
+        "generating": ["comfyui"],
+    },
+    # Voice, music and sound effects rendered by the Audio Foundry sidecar.
+    "audio": {
+        "generating": ["audio_foundry"],
+    },
+    # Image and video upscaling by the upscaling sidecar.
+    "upscale": {
+        "generating": ["upscaling"],
+    },
     "music-video": {
         "analyzing": ["video_editor", "ollama"],      # Director for per-cut unique prompts
         "storyboard": ["comfyui"],                     # Pre-approval thumbnails (flux/SDXL + LoRA)
@@ -379,6 +392,73 @@ def _resolve_gpu_conflict(needed: Set[str]) -> List[Dict[str, Any]]:
         elif res.get("blocked_by_job"):
             actions.append({"action": "gpu_swap_blocked", "plugin_id": pid, "error": res.get("error")})
     return actions
+
+
+# Starting a service for a job that needs it, on paths that used to report the
+# service as down (image, audio, upscaling, Film Crew storyboard and render).
+# Video renders start ComfyUI through prepare_video_model regardless.
+JOB_SERVICE_START_ENV = "GUAARDVARK_JOB_SERVICE_START"
+
+
+def job_service_start_enabled() -> bool:
+    return os.environ.get(JOB_SERVICE_START_ENV, "0").strip().lower() in (
+        "1", "true", "yes", "on",
+    )
+
+
+def _stage_wait_s(context: str, stage: str) -> float:
+    """Longest health wait the stage's plugins declare (plugin.json ``timeout``)."""
+    waits = [30.0]
+    try:
+        pm = _plugin_manager()
+        for pid in plugins_for_stage(context, stage):
+            meta = pm.registry.get_plugin(pid)
+            if meta is not None:
+                waits.append(float(getattr(meta.config, "timeout", 30) or 30))
+    except Exception:  # noqa: BLE001 - fall back to the default wait
+        pass
+    return max(waits)
+
+
+def start_for_job(context: str, stage: str, *, is_up, wait_s: Optional[float] = None) -> tuple[bool, str]:
+    """Start what (context, stage) needs when ``is_up()`` says it is down.
+
+    Returns (True, "") once ``is_up()`` answers, else (False, why). Never raises.
+    Does nothing unless GUAARDVARK_JOB_SERVICE_START and the plugin
+    auto-orchestrator are both on. Never starts from the MCP server process,
+    whose plugin manager would be a second one with its own gate and boot
+    routine. An explicit user-disable still wins (no job_critical here), and no
+    preference is persisted.
+    """
+    if is_up():
+        return True, ""
+    if not job_service_start_enabled():
+        return False, f"automatic start is off ({JOB_SERVICE_START_ENV})"
+    if not auto_orchestrator_enabled():
+        return False, "automatic start is off (GUAARDVARK_PLUGIN_AUTO_ORCHESTRATOR=0)"
+    from backend.utils.backend_http import in_mcp_process
+    if in_mcp_process():
+        return False, "not started from the MCP server process"
+    needed = plugins_for_stage(context, stage)
+    if not needed:
+        return False, f"no plugin is declared for {context}/{stage}"
+
+    logger.info("plugin_bridge: %s/%s needs %s; starting", context, stage, ", ".join(needed))
+    try:
+        ensure_plugins_for_stage(context, stage)
+    except PluginUnavailable as exc:
+        return False, f"automatic start failed: {exc}"
+    except Exception as exc:  # noqa: BLE001 - report, never raise into the job
+        logger.warning("plugin_bridge: start for %s/%s failed: %s", context, stage, exc)
+        return False, f"automatic start failed: {exc}"
+
+    budget = _stage_wait_s(context, stage) if wait_s is None else float(wait_s)
+    deadline = time.time() + budget
+    while not is_up():
+        if time.time() >= deadline:
+            return False, f"{', '.join(needed)} started but did not answer within {budget:.0f}s"
+        time.sleep(1.0)
+    return True, ""
 
 
 def ensure_plugin_running(

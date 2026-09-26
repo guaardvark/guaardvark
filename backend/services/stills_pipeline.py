@@ -426,6 +426,11 @@ def _generate_comfy_flux(
 ) -> StillResult:
     try:
         from backend.services.comfyui_image_generator import ComfyUIImageGenerator
+        from backend.services.image_render_limits import resolve_canvas, strict_limits_enabled
+        if strict_limits_enabled():
+            # FLUX's ~2 MP design range applies here too; the offline path and
+            # the Studio batch already clamp, this path sent the size as asked.
+            width, height, _ = resolve_canvas(width, height, model)
         gen = ComfyUIImageGenerator()
         out_path = None
         if output_dir:

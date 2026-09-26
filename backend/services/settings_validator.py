@@ -17,132 +17,44 @@ class ValidationResult:
     corrected_values: Dict[str, Any]
     recommendations: List[str]
 
-# Model-specific settings configuration
-MODEL_SETTINGS = {
-    "sd-xl": {
-        "guidance_range": (4.0, 9.0),
-        "recommended_guidance": 7.0,
-        "min_dimensions": (768, 768),
-        "recommended_dimensions": (1024, 1024),
-        "steps_range": (20, 40),
-        "recommended_steps": 25,
-        "best_for": ["high_res", "anatomy", "landscapes"],
-        "warnings": ["Guidance > 9.0 causes black images"],
-        "max_dimensions": (1536, 1536)
-    },
-    "sdxl-turbo": {
-        "guidance_range": (0.0, 1.0),
-        "recommended_guidance": 0.0,
-        "min_dimensions": (768, 768),
-        "recommended_dimensions": (1024, 1024),
-        "steps_range": (1, 4),
-        "recommended_steps": 4,
-        "best_for": ["speed", "previews", "high_res"],
-        "warnings": ["Not for final quality images", "Guidance not used by turbo models"],
-        "max_dimensions": (1536, 1536)
-    },
-    "sd-1.5": {
-        "guidance_range": (1.0, 15.0),
-        "recommended_guidance": 7.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 512),
-        "steps_range": (10, 50),
-        "recommended_steps": 20,
-        "best_for": ["general", "speed", "reliability"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
-    },
-    "realistic-vision": {
-        "guidance_range": (7.0, 10.0),
-        "recommended_guidance": 8.0,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 768),  # Best for portraits
-        "steps_range": (25, 40),
-        "recommended_steps": 30,
-        "best_for": ["faces", "portraits", "photorealism"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
-    },
-    "epic-realism": {
-        "guidance_range": (7.0, 9.0),
-        "recommended_guidance": 7.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (512, 768),
-        "steps_range": (30, 40),
-        "recommended_steps": 35,
-        "best_for": ["faces", "portraits", "cinematic"],
-        "warnings": [],
-        "max_dimensions": (768, 768)
-    },
-    "zimage-turbo": {
-        # CFG-distilled turbo: low guidance. Steps range is *recommended* envelope;
-        # auto_correct only clamps hard OOM/black-image hazards, not quality ambition.
-        "guidance_range": (0.0, 2.0),
-        "recommended_guidance": 0.0,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (1024, 1024),
-        # Low end is the measured floor (stills_defaults _FAMILY_DEFAULTS["zimage"]).
-        "steps_range": (2, 30),
-        # Official HF: num_inference_steps=9 → 8 DiT forwards; guidance_scale=0.0
-        "recommended_steps": 9,
-        "best_for": ["versatile", "photorealism", "faces", "anatomy", "text", "high_res"],
-        "warnings": [],
-        # 2K: max side 2688 (for 16:9 packs), area ~2048² — see image_resolution_limits
-        "max_dimensions": (2688, 2688),
-        "max_pixels": 2048 * 2048,
-        "hard_clamp": False,
-    },
-    "flux-dev": {
-        # FLUX.1-dev via Comfy: FluxGuidance (not classic CFG). Default 28/3.5 is
-        # the verified quality point; allow operators to push steps for max quality.
-        "guidance_range": (1.0, 6.0),
-        "recommended_guidance": 3.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (1024, 1024),
-        "steps_range": (8, 50),
-        "recommended_steps": 28,
-        "best_for": ["max_quality", "prompt_adherence", "photorealism", "text", "high_res"],
-        "warnings": [
-            "Runs through ComfyUI (needs Comfy up + flux1-dev weights).",
-            "Heavy VRAM — batch max_workers forced to 1.",
-            "Flux Dev design range is ~2.0 MP total — not 2048×2048.",
-        ],
-        "max_dimensions": (1920, 1920),
-        "max_pixels": 2_100_000,
-        "hard_clamp": False,
-        "engine": "comfy",
-        "force_max_workers": 1,
-    },
-    "krea2-turbo": {
-        "guidance_range": (0.0, 1.0),
-        "recommended_guidance": 0.0,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (1024, 1024),
-        "steps_range": (4, 20),
-        "recommended_steps": 8,
-        "best_for": ["aesthetic", "photorealism", "creative", "high_res", "versatile"],
-        "warnings": ["2K native is supported; high VRAM on 16GB cards."],
-        "max_dimensions": (2688, 2688),
-        "max_pixels": 2048 * 2048,
-        "hard_clamp": False,
-    },
-    "krea2-raw": {
-        "guidance_range": (1.0, 7.0),
-        "recommended_guidance": 3.5,
-        "min_dimensions": (512, 512),
-        "recommended_dimensions": (1024, 1024),
-        "steps_range": (20, 80),
-        "recommended_steps": 52,
-        "best_for": ["creative", "photorealism", "versatile", "high_res", "mature", "fine_tune_base"],
-        "warnings": [
-            "Slower than Turbo (~52 steps). Less safety post-training than Turbo.",
-            "2K native is supported; high VRAM on 16GB cards.",
-        ],
-        "max_dimensions": (2688, 2688),
-        "max_pixels": 2048 * 2048,
-        "hard_clamp": False,
-    }
+# Model-specific settings: the numbers (guidance/steps envelopes, recommended
+# values, canvas limits, engine) are declared in media_model_registry
+# (IMAGE_FAMILY_SPECS / IMAGE_MODEL_LIMITS) and read through image_render_limits;
+# what the UI says about each model stays here.
+_MODEL_NOTES = {
+    "sd-xl": {"best_for": ["high_res", "anatomy", "landscapes"],
+              "warnings": ["Guidance > 9.0 causes black images"]},
+    "sdxl-turbo": {"best_for": ["speed", "previews", "high_res"],
+                   "warnings": ["Not for final quality images", "Guidance not used by turbo models"]},
+    "sd-1.5": {"best_for": ["general", "speed", "reliability"], "warnings": []},
+    "realistic-vision": {"best_for": ["faces", "portraits", "photorealism"], "warnings": []},
+    "epic-realism": {"best_for": ["faces", "portraits", "cinematic"], "warnings": []},
+    "zimage-turbo": {"best_for": ["versatile", "photorealism", "faces", "anatomy", "text", "high_res"],
+                     "warnings": []},
+    "flux-dev": {"best_for": ["max_quality", "prompt_adherence", "photorealism", "text", "high_res"],
+                 "warnings": [
+                     "Runs through ComfyUI (needs Comfy up + flux1-dev weights).",
+                     "Heavy VRAM — batch max_workers forced to 1.",
+                     "Flux Dev design range is ~2.0 MP total — not 2048×2048.",
+                 ]},
+    "krea2-turbo": {"best_for": ["aesthetic", "photorealism", "creative", "high_res", "versatile"],
+                    "warnings": ["2K native is supported; high VRAM on 16GB cards."]},
+    "krea2-raw": {"best_for": ["creative", "photorealism", "versatile", "high_res", "mature", "fine_tune_base"],
+                  "warnings": [
+                      "Slower than Turbo (~52 steps). Less safety post-training than Turbo.",
+                      "2K native is supported; high VRAM on 16GB cards.",
+                  ]},
 }
+
+
+def _model_settings() -> Dict[str, Dict[str, Any]]:
+    from backend.services.image_render_limits import validator_settings
+    return {mid: {**numbers, **_MODEL_NOTES.get(mid, {"best_for": [], "warnings": []})}
+            for mid, numbers in validator_settings().items()}
+
+
+MODEL_SETTINGS = _model_settings()
+
 
 class SettingsValidator:
     """Validates image generation settings with model-specific rules."""

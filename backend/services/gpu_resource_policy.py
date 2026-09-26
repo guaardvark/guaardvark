@@ -605,6 +605,7 @@ def gpu_session(
     slot_id: Optional[str] = None,
     lease_seconds: Optional[int] = None,
     vram_reserve_mb: int = 0,
+    cancel_event=None,
 ) -> Iterator[bool]:
     """Claim the GPU for a unit of work — exclusivity + VRAM reclaim/budget in one place.
 
@@ -616,6 +617,9 @@ def gpu_session(
         and the estimate still does not fit, then
       * admits against system load and books the GPUMemoryOrchestrator budget when
         ``vram_estimate_mb`` is given, releasing everything on exit.
+
+    ``cancel_event`` ends an ``on_busy='wait'`` gate wait with ``GpuBusyError``
+    once it is set, so a cancelled job does not hold up the queue behind it.
 
     A refusal raised after the claim releases the gate without its post-release
     cooldown: nothing touched the card. Teardown runs in reverse order and before
@@ -681,7 +685,7 @@ def gpu_session(
                 lease_held = False
 
     with gate.gpu_exclusive(
-        kind, op_id, on_busy=on_busy, wait_timeout=wait_timeout
+        kind, op_id, on_busy=on_busy, wait_timeout=wait_timeout, cancel_event=cancel_event
     ) as acq:
         acquired = acq
         if acquired:

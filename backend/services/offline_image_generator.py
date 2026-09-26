@@ -197,6 +197,18 @@ def normalize_zimage_lora_state_dict(state_dict: Dict[str, Any]) -> Dict[str, An
     return out
 
 
+def _image_limits_for(model: str) -> dict:
+    from backend.services.image_render_limits import limits_for
+    return limits_for(model)
+
+
+def _offline_family_values(field: str) -> dict:
+    """``{family: value}`` for the Diffusers families that declare ``field``."""
+    from backend.services.image_render_limits import family_values
+    return {fam: value for fam, value in family_values(field).items()
+            if _image_limits_for(fam).get("engine") == "offline"}
+
+
 class OfflineImageGenerator:
 
     def __init__(self):
@@ -777,11 +789,14 @@ class OfflineImageGenerator:
     # wall of resident Ollama models (gemma 4.95GB + qwen3-embedding 4.32GB).
     # zimage: WITH enable_model_cpu_offload. krea2 model-offload peak ~14GB on 16GB
     # (2026-07-11); sequential offload is used on consumer cards and peaks lower.
-    _FAMILY_VRAM_MB = {"krea2": 14000, "zimage": 11000, "sdxl": 8000, "sd": 4000}
-    _KREA2_SEQUENTIAL_VRAM_MB = 10000  # layer-by-layer offload on ≤18GB cards
+    # Per-family prices are declared in media_model_registry.IMAGE_FAMILY_SPECS
+    # (vram_mb, vram_mb_sequential, ram_gb, *_slope_*), with the measurements
+    # behind them; the Diffusers families are read here.
+    _FAMILY_VRAM_MB = _offline_family_values("vram_mb")
+    _KREA2_SEQUENTIAL_VRAM_MB = _offline_family_values("vram_mb_sequential")["krea2"]  # layer-by-layer offload on ≤18GB cards
     # CPU-RAM footprint with enable_model_cpu_offload (weights + PyTorch arena).
     # Observed: ~47 GB RSS on 60 GB box during Z-Image batch; gate before load.
-    _FAMILY_RAM_GB = {"krea2": 24.0, "zimage": 21.0, "sdxl": 10.0, "sd": 6.0}
+    _FAMILY_RAM_GB = _offline_family_values("ram_gb")
     # zimage 24.0 -> 21.0 (2026-08-05): 24.0 predated the ladder/unload leak fixes
     # (the "~47 GB RSS" note above is from that era). The CALIBRATED comment below
     # measured peak RSS flat at 20.9-21.0 GB across 1024/1448/2048 AFTER those fixes.
@@ -803,8 +818,8 @@ class OfflineImageGenerator:
     # Tiled peaks are noisy but bounded WELL under 16GB, so slopes are modest:
     # they price bigger canvases without refusing tiled 2K on 16GB cards.
     # Override via GUAARDVARK_VRAM_SLOPE_MB_PER_MP / GUAARDVARK_RAM_SLOPE_GB_PER_MP.
-    _FAMILY_VRAM_SLOPE_MB_PER_MP = {"krea2": 1000, "zimage": 500, "sdxl": 1500, "sd": 800}
-    _FAMILY_RAM_SLOPE_GB_PER_MP = {"krea2": 1.0, "zimage": 1.0, "sdxl": 1.0, "sd": 0.5}
+    _FAMILY_VRAM_SLOPE_MB_PER_MP = _offline_family_values("vram_slope_mb_per_mp")
+    _FAMILY_RAM_SLOPE_GB_PER_MP = _offline_family_values("ram_slope_gb_per_mp")
 
     @staticmethod
     def _extra_megapixels(width: Optional[int], height: Optional[int]) -> float:
@@ -854,7 +869,7 @@ class OfflineImageGenerator:
         else:
             family = self._model_family(model_id)
             if family == "flux":
-                base = 12000
+                base = int(_image_limits_for("flux")["vram_mb"])
             elif family == "krea2" and self._will_use_sequential_for_krea2():
                 base = self._KREA2_SEQUENTIAL_VRAM_MB
             else:
@@ -876,7 +891,7 @@ class OfflineImageGenerator:
         else:
             family = self._model_family(model_id)
             if family == "flux":
-                base = 16.0
+                base = float(_image_limits_for("flux")["ram_gb"])
             else:
                 base = self._FAMILY_RAM_GB.get(family, 6.0)
         extra_mp = self._extra_megapixels(width, height)
@@ -1128,57 +1143,21 @@ class OfflineImageGenerator:
 
         Used on the primary generate path so Batch UI High / slider values actually run.
         Hard defaults live in ``_apply_family_sampling`` (fallback / family switch only).
+        The envelope (steps_range, cfg_range, default, measured floor) is the
+        model's registry row: a typed step count stands, an unset or runaway one
+        takes the default, and guidance outside the range takes the default.
         """
         if family == "zimage":
-            # Official HF: 9 steps / guidance 0. The low bound is the measured floor
-            # declared in stills_defaults, so a value the resolver raised is not
-            # changed again here; only an unset or runaway value falls back to 9.
-            from backend.services.stills_defaults import _FAMILY_DEFAULTS
-            floor = int(_FAMILY_DEFAULTS["zimage"].get("min_steps") or 4)
-            steps = int(request.num_inference_steps or 0)
-            if request.steps_explicit:
-                request.num_inference_steps = steps
-            elif steps <= 0 or steps > 30:
-                request.num_inference_steps = 9
-            else:
-                request.num_inference_steps = max(steps, floor)
-            try:
-                g = float(request.guidance_scale)
-            except (TypeError, ValueError):
-                g = -1.0
-            if g < 0.0 or g > 2.0:
-                request.guidance_scale = 0.0
-            else:
-                request.guidance_scale = g
+            key = "zimage-turbo"
         elif family == "krea2":
-            if self._krea2_variant(request.model or "") == "raw":
-                steps = int(request.num_inference_steps or 0)
-                if not request.steps_explicit and (steps < 20 or steps > 80):
-                    request.num_inference_steps = 52
-                else:
-                    request.num_inference_steps = steps
-                try:
-                    g = float(request.guidance_scale)
-                except (TypeError, ValueError):
-                    g = -1.0
-                if g < 1.0 or g > 7.0:
-                    request.guidance_scale = 3.5
-                else:
-                    request.guidance_scale = g
-            else:
-                steps = int(request.num_inference_steps or 0)
-                if not request.steps_explicit and (steps < 4 or steps > 20):
-                    request.num_inference_steps = 8
-                else:
-                    request.num_inference_steps = steps
-                try:
-                    g = float(request.guidance_scale)
-                except (TypeError, ValueError):
-                    g = -1.0
-                if g < 0.0 or g > 1.0:
-                    request.guidance_scale = 0.0
-                else:
-                    request.guidance_scale = g
+            key = "krea2-raw" if self._krea2_variant(request.model or "") == "raw" else "krea2-turbo"
+        else:
+            return
+        from backend.services.image_render_limits import envelope_cfg, envelope_steps
+        request.num_inference_steps = envelope_steps(
+            key, request.num_inference_steps, explicit=bool(request.steps_explicit),
+        )
+        request.guidance_scale = envelope_cfg(key, request.guidance_scale)
 
     def _apply_family_sampling(self, request: ImageGenerationRequest, family: str) -> None:
         """Force family-appropriate steps/guidance after model switch or fallback."""

@@ -32,22 +32,29 @@ from typing import Any
 #             Natural families get an LLM rewrite (media_director) or nothing.
 # Krea 2 also uses an LLM encoder (Qwen3-VL per its model_index) but has not
 # been A/B'd here yet, so it keeps "tags" until it is.
-_FAMILY_DEFAULTS: dict[str, dict[str, Any]] = {
-    # min_steps: the no-bad-knob floor for steps a default or an agent chose. None
-    # until measured; record the comparison beside the number when it is set.
-    # Z-Image Turbo 2: measured 2026-09-13 on this box at 1024x1024, seed 1984,
-    # verbatim prompts, three scenes (two people on a bench, a paper boat in neon
-    # rain, a bicycle under a street sign) at 1-9 steps. 1 step is visibly broken
-    # (grain over everything, blank faces, smeared newsprint, noisy wheels); 2 is
-    # clean and only slightly softer than 3-9; 9 adds fine texture and legible
-    # signage.
-    "zimage": {"min_steps": 2, "width": 1024, "height": 1024, "steps": 9, "guidance": 0.0, "prompt_style": "natural"},
-    "krea2-turbo": {"width": 1024, "height": 1024, "steps": 8, "guidance": 0.0, "prompt_style": "tags"},
-    "krea2-raw": {"width": 1024, "height": 1024, "steps": 52, "guidance": 3.5, "prompt_style": "tags"},
-    "sdxl": {"width": 1024, "height": 1024, "steps": 25, "guidance": 7.0, "prompt_style": "tags"},
-    "sd": {"width": 512, "height": 512, "steps": 20, "guidance": 7.5, "prompt_style": "tags"},
-    "flux": {"width": 1024, "height": 1024, "steps": 28, "guidance": 3.5, "prompt_style": "tags"},
-}
+
+
+def _build_family_defaults() -> dict[str, dict[str, Any]]:
+    """The caller-side defaults per sampling family, from the registry rows
+    (media_model_registry.IMAGE_FAMILY_SPECS / IMAGE_MODEL_LIMITS, where the
+    measurements behind each number are recorded)."""
+    from backend.services.image_render_limits import defaults_for
+
+    table: dict[str, dict[str, Any]] = {}
+    for key in ("zimage", "krea2-turbo", "krea2-raw", "sdxl", "sd", "flux"):
+        d = defaults_for(key, strict=False)
+        entry: dict[str, Any] = {}
+        if d["min_steps"] is not None:
+            entry["min_steps"] = int(d["min_steps"])
+        entry.update({"width": d["width"], "height": d["height"], "steps": d["steps"],
+                      "guidance": d["guidance"], "prompt_style": d["prompt_style"]})
+        table[key] = entry
+    return table
+
+
+# min_steps: the no-bad-knob floor for steps a default or an agent chose; only
+# families with a measured floor carry one.
+_FAMILY_DEFAULTS: dict[str, dict[str, Any]] = _build_family_defaults()
 
 # Generator-side family names (OfflineImageGenerator._model_family) that do not
 # carry the turbo/raw split used above.
@@ -117,6 +124,11 @@ def resolve_stills_defaults(
     """
     family = model_family(model)
     base = dict(_FAMILY_DEFAULTS.get(family) or _FAMILY_DEFAULTS["sd"])
+    from backend.services.image_render_limits import defaults_for, strict_limits_enabled
+    if strict_limits_enabled():
+        # The model's own starting point (sdxl-turbo 4/0.0, not SDXL's 25/7.0).
+        own = defaults_for(model, strict=True)
+        base.update({k: own[k] for k in ("width", "height", "steps", "guidance")})
 
     # Classic "unset" form: all three SD-era placeholders together. Intentional
     # draft sizes (e.g. 512² with Turbo steps/CFG) must NOT be rewritten.

@@ -103,9 +103,9 @@ class GPUResourceCoordinator:
             pid = lock_data.get('pid')
             lease_expires = lock_data.get('lease_expires_at')
 
-            # Check if process is dead
-            if pid and not self._is_process_alive(pid):
-                logger.warning(f"Removing stale GPU lock from dead process {pid}")
+            # Check if the holder is gone (dead, or its PID reused since)
+            if pid and not self._holder_alive(pid, lock_data.get('metadata')):
+                logger.warning(f"Removing stale GPU lock from process {pid}, which no longer holds it")
                 self._release_lock_file()
                 return
 
@@ -129,6 +129,33 @@ class GPUResourceCoordinator:
             return True
         except (OSError, ProcessLookupError):
             return False
+
+    @staticmethod
+    def _process_started_at(pid: int) -> Optional[float]:
+        try:
+            import psutil
+            return psutil.Process(pid).create_time()
+        except Exception:  # noqa: BLE001 - unknown start time: fall back to the PID alone
+            return None
+
+    def _holder_alive(self, pid: int, metadata: Optional[Dict[str, Any]]) -> bool:
+        """True while the process that took the lease still runs.
+
+        A live PID is not enough: after a reboot or a container restart the
+        recorded PID can belong to an unrelated process, and the lease would
+        hold until it expires (up to four hours for training). A lease records
+        when its holder started; a PID whose process started at another time
+        is not the holder. Leases written without that field keep the PID check.
+        """
+        if not self._is_process_alive(pid):
+            return False
+        recorded = (metadata or {}).get("pid_started_at")
+        if recorded is None:
+            return True
+        started = self._process_started_at(pid)
+        if started is None:
+            return True
+        return abs(started - float(recorded)) < 1.0
 
     def _read_lock_file(self) -> Optional[GPULockInfo]:
         """Read current lock state from file."""
@@ -509,8 +536,8 @@ class GPUResourceCoordinator:
             current_lock = self._read_lock_file()
             if current_lock is not None:
                 # Stale-PID / expired-lease cleanup (mirror acquire_for_video_generation).
-                if not self._is_process_alive(current_lock.pid):
-                    logger.warning(f"Stale GPU lock from dead PID {current_lock.pid}, cleaning up")
+                if not self._holder_alive(current_lock.pid, current_lock.metadata):
+                    logger.warning(f"Stale GPU lock from PID {current_lock.pid}, which no longer holds it; cleaning up")
                     self._release_lock_file()
                     current_lock = None
                 elif current_lock.lease_expires_at:
@@ -531,7 +558,8 @@ class GPUResourceCoordinator:
                 acquired_at=now.isoformat(),
                 pid=os.getpid(),
                 lease_expires_at=(now + timedelta(seconds=lease_seconds)).isoformat(),
-                metadata={"kind": "generic"},
+                metadata={"kind": "generic",
+                          "pid_started_at": self._process_started_at(os.getpid())},
             )
             self._write_lock_file(lock_info)
             logger.info(f"GPU lock acquired (generic: {label})")
@@ -546,7 +574,7 @@ class GPUResourceCoordinator:
             if current_lock.owner != label:
                 # Not ours (e.g. a video lock, or a different op) — never release it.
                 return {"success": False, "error": f"Lock owned by {current_lock.owner}, not {label}"}
-            if current_lock.pid != os.getpid() and self._is_process_alive(current_lock.pid):
+            if current_lock.pid != os.getpid() and self._holder_alive(current_lock.pid, current_lock.metadata):
                 return {"success": False, "error": "Lock owned by a different live process"}
             self._release_lock_file()
             logger.info(f"GPU lock released (generic: {label})")
