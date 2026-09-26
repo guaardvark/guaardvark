@@ -139,16 +139,15 @@ The file is gitignored and merged over the manifest at load, so the override sur
   MiniMax H3 (16 GB RTX 40-series, 864x480, 20 steps): `ck` took 339 s against
   390 s with frames indistinguishable at the same seed.
 - **Video clips from chat or MCP look washed out or over-cooked**: a request that names no
-  guidance renders at CFG 7.5 on every model, about twice what Wan's own ComfyUI template uses.
-  Set `GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1` in `.env` (off by default) and restart the backend
-  to switch such requests to each model's template guidance and Wan's template negative prompt.
-  The Studio page already sends each model's guidance. `scripts/video_prompt_ab.py` compares the
-  two on your card.
+  guidance renders with the model's own template value (LTX 1, Wan 14B 3.5, Wan 5B 5). Set
+  `GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1` in `.env` (off by default) and restart the backend to
+  also send Wan's template negative prompt when none is given. `scripts/video_prompt_ab.py`
+  compares the variants on your card.
 - **A 20 GB-class video model runs out of memory at the first step** (MiniMax H3 on a 16 GB
-  card): ComfyUI loaded it partially and left too little room for its activations. Set
-  `GUAARDVARK_COMFYUI_RESERVE_VRAM=3.0` in `.env` and restart the ComfyUI plugin; the loader
-  offloads more weights and the step completes (slower, but it finishes). The 1344x768
-  canvas on a 16 GB card needs `5.0` (measured: 171 s for a 5 s clip on the 4-step profile).
+  card): ComfyUI left too little room for its activations. Each model declares the
+  `--reserve-vram` it needs (H3 5.0, Wan 2.2 14B 1.0) and Guaardvark relaunches ComfyUI when the
+  running value differs. Remove `GUAARDVARK_COMFYUI_RESERVE_VRAM` from `.env` if it is set: an
+  explicit value overrides every model's own, and H3 runs out of memory at 1.0.
 
 ## Data
 

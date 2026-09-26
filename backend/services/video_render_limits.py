@@ -19,12 +19,13 @@ onto ``frame_rule`` (up where the rule's template rounds up) inside
 ``[min_frames, max_frames]``, and every model raises a preset step count to its
 floor.
 
-``GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1`` (off by default) changes what a
-request that leaves guidance or the negative prompt empty gets: the model's
-reference values (``cfg_when_unset``, ``negative_when_unset``) instead of the
-7.5 and the style negative every model got before, and the identity-bleed
-guard only when a cast member or LoRA is in the request. The values come from
-the model makers' ComfyUI workflow templates (see ``FAMILY_SPECS``).
+A request that names no guidance renders with the model's own value
+(``cfg_when_unset``). ``GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1`` (off by default)
+also gives a request that leaves the negative prompt empty the model's
+reference negative (``negative_when_unset``) instead of the style negative,
+with the identity-bleed guard only when a cast member or LoRA is in the
+request. The values come from the model makers' ComfyUI workflow templates
+(see ``FAMILY_SPECS``).
 """
 
 from __future__ import annotations
@@ -48,8 +49,8 @@ STRICT_LIMITS_ENV = "GUAARDVARK_VIDEO_STRICT_LIMITS"
 UNKNOWN_PROFILE = "?"
 TEXT_ENCODER_DEVICE_ENV = "GUAARDVARK_WAN_CLIP_DEVICE"
 REFERENCE_DEFAULTS_ENV = "GUAARDVARK_VIDEO_REFERENCE_DEFAULTS"
-# The guidance the REST route, the batch request and the generator request each
-# filled in for a request that named none, whatever the model.
+# The placeholder a request that names no guidance carries until the generator
+# replaces it with the model's cfg_when_unset; kept for a model that declares none.
 LEGACY_CFG = 7.5
 
 # Ratio presets the UI offers, as width/height. A clamp names the ratio it
@@ -300,11 +301,9 @@ def resolve_cfg(model_id: str, requested, family: Optional[str] = None):
 
 
 def cfg_when_unset(model_id: str, family: Optional[str] = None) -> Optional[float]:
-    """Guidance for a request that named none: the model's reference value with
-    the reference defaults on; None (keep what the request carries, LEGACY_CFG)
-    when they are off or the model declares none."""
-    if not reference_defaults_enabled():
-        return None
+    """Guidance for a request that named none: the model's reference value; None
+    (keep what the request carries, LEGACY_CFG) when the model declares none.
+    Distilled LTX renders noise at LEGACY_CFG and clean at its own 1.0."""
     declared = limits_for(model_id, _family_of(model_id, family)).get("cfg_when_unset")
     return None if declared is None else float(declared)
 

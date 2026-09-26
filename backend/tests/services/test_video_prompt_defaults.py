@@ -79,9 +79,9 @@ def _shifts(wf):
     return [n["inputs"]["shift"] for _, n in sorted(wc.nodes(wf, "ModelSamplingSD3"))]
 
 
-def test_case_off_renders_as_before(comfy):
+def test_case_off_takes_the_model_guidance_and_keeps_the_style_negative(comfy):
     wf, req = _render(comfy, "wan22-14b", **CASE)
-    assert _guidance(wf) == [7.5, 7.5]
+    assert _guidance(wf) == [3.5, 3.5]
     assert _shifts(wf) == [3.7, 3.7]  # the resolution-scaled curve at 864x480
     assert _negatives(wf) == {f"{NEGATIVE_PROMPTS['3d_animation']}, {IDENTITY_BLEED_NEGATIVE}"}
     assert "3D-animated, Pixar-style" in wc.encoded_text(wf, wc.nodes(wf, "KSamplerAdvanced")[0][1]["inputs"]["positive"])
@@ -127,9 +127,9 @@ def test_on_guidance_reaches_the_graph(comfy, reference_on, model):
 
 
 @pytest.mark.parametrize("model", sorted(REFERENCE_CFG))
-def test_off_guidance_is_the_old_placeholder(comfy, model):
+def test_unset_guidance_is_the_models_own_without_the_setting(comfy, model):
     wf, _ = _render(comfy, model, prompt="a red fox in snow", enhance_prompt=False)
-    assert set(_guidance(wf)) == {rl.LEGACY_CFG}
+    assert set(_guidance(wf)) == {REFERENCE_CFG[model]}
 
 
 def test_every_t2v_model_declares_guidance_or_takes_none():
@@ -280,7 +280,7 @@ def test_preview_shows_what_the_render_will_use(api, monkeypatch):
     client, _ = api
     body = {"prompt": "a fox", "model": "wan22-14b", "prompt_style": "3d_animation"}
     off = client.post("/api/batch-video/enhance-preview", json=body).get_json()["data"]
-    assert off["cfg_when_unset"] == 7.5 and off["reference_defaults"] is False
+    assert off["cfg_when_unset"] == 3.5 and off["reference_defaults"] is False
     assert off["default_negative_prompt"].endswith(IDENTITY_BLEED_NEGATIVE)
     monkeypatch.setenv(rl.REFERENCE_DEFAULTS_ENV, "1")
     on = client.post("/api/batch-video/enhance-preview", json=body).get_json()["data"]
