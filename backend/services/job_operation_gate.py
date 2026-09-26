@@ -77,6 +77,29 @@ def is_cuda_oom(exc: BaseException) -> bool:
     ) or "cuda out of memory" in msg
 
 
+def classify_render_exception(exc: BaseException):
+    """The RenderErrorKind for an exception raised while a render runs in this
+    process: a GPU refusal, an OOM, ComfyUI unreachable, else UNKNOWN."""
+    from backend.services.job_types import RenderErrorKind, failure_kind
+
+    carried = failure_kind(exc) or next((failure_kind(a) for a in getattr(exc, "args", ()) if failure_kind(a)), None)
+    if carried:
+        return carried
+    if isinstance(exc, GpuCapacityError):
+        return RenderErrorKind.CARD_TOO_SMALL
+    if isinstance(exc, GpuBusyError):
+        return RenderErrorKind.VRAM_BUSY
+    if is_cuda_oom(exc):
+        return RenderErrorKind.OOM
+    try:
+        import requests
+        if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
+            return RenderErrorKind.COMFYUI_DOWN
+    except ImportError:  # pragma: no cover - requests is a backend dependency
+        pass
+    return RenderErrorKind.UNKNOWN
+
+
 class JobOperationGate:
     """Thread-safe gate coordinating cross-surface job ops.
 

@@ -73,6 +73,8 @@ import {
   fitAreaToRatio,
 } from "../constants/videoGeneratorPresets";
 import QualityFlagsPill from "../components/videogen/QualityFlagsPill";
+import RenderFailureNote from "../components/videogen/RenderFailureNote";
+import { refusalText } from "../utils/renderFailure";
 import VideoGenEffectiveSettings from "../components/videogen/VideoGenEffectiveSettings";
 import LiveLatentPreview from "../components/videogen/LiveLatentPreview";
 import { videoGenStageLabel } from "../components/videogen/stageLabels";
@@ -1295,7 +1297,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        setError(formatUiError(errorData.error || errorData.message) || `Failed to queue batch: HTTP ${res.status}`);
+        setError(refusalText(errorData) || `Failed to queue batch: HTTP ${res.status}`);
         return;
       }
 
@@ -2648,11 +2650,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                             )}
                             <QualityFlagsPill quality={res.metadata?.quality} />
                           </Stack>
-                          {res.error && (
-                            <Typography variant="caption" color="error" display="block" sx={{ mt: 0.5 }}>
-                              {formatUiError(res.error)}
-                            </Typography>
-                          )}
+                          {!res.success && <RenderFailureNote failure={res.failure} error={res.error} />}
                         </CardContent>
                         <CardActions sx={{ pt: 0 }}>
                           {videoUrl && (

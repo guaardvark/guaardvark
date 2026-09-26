@@ -58,6 +58,7 @@ except Exception:  # pragma: no cover - defensive
 from backend.services.comfyui_video_workflows import ComfyUIVideoWorkflowMixin
 from backend.services import video_render_limits as render_limits
 from backend.services.video_render_limits import family_frame_count
+from backend.services.job_types import RenderErrorKind, RenderFailure, failure_kind, render_failed
 
 # How long a render waits for the orchestrator to free the registry estimate
 # before it gives up instead of queuing into a starved card. Same budget the
@@ -103,11 +104,20 @@ def _looks_like_blank_video(video_path) -> Optional[str]:
         # blackdetect with pic_th=0.98 flags ~fully-black frames only. A real clip —
         # even a dark/cinematic one — is not 98%-black pixels for ~its whole runtime,
         # so this only trips on a genuinely blank render (very low false-positive).
-        proc = subprocess.run(
-            ["ffmpeg", "-hide_banner", "-nostats", "-i", str(p),
-             "-vf", "blackdetect=d=0.1:pic_th=0.98", "-an", "-f", "null", "-"],
-            capture_output=True, text=True, timeout=120,
-        )
+        try:
+            proc = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-nostats", "-i", str(p),
+                 "-vf", "blackdetect=d=0.1:pic_th=0.98", "-an", "-f", "null", "-"],
+                capture_output=True, text=True, timeout=120,
+            )
+        except FileNotFoundError:
+            # No ffmpeg binary: decode with PyAV (backend/requirements.txt) instead.
+            from backend.services.video_consistency_metrics import inspect_video_frames
+            frames = inspect_video_frames(p)
+            sampled = len(frames.get("sampled") or [])
+            if frames.get("readable") and sampled and frames.get("black_sampled") == sampled:
+                return f"render is black in all {sampled} sampled frames — a blank/failed clip"
+            return None
         stderr = proc.stderr or ""
         dur_m = re.search(r"Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)", stderr)
         if not dur_m:
@@ -187,6 +197,22 @@ class VideoGenerationResult:
     # True when the clip carries a soundtrack the model generated (H3 today;
     # LTX once its audio latent is decoded). Mirrored as metadata["has_audio"].
     has_audio: bool = False
+    # job_types.RenderErrorKind value of a failure, set with the error.
+    error_kind: Optional[str] = None
+
+    def __post_init__(self):
+        if self.error and not self.error_kind:
+            kind = failure_kind(self.error)
+            self.error_kind = kind.value if kind else None
+
+    def fail(self, kind, message: str) -> "VideoGenerationResult":
+        """Mark the result failed with a kind (job_types.RenderErrorKind); a
+        message that already carries a kind keeps it."""
+        k = failure_kind(message) or RenderErrorKind(kind)
+        self.success = False
+        self.error = str(message)
+        self.error_kind = k.value
+        return self
 
 
 class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
@@ -569,10 +595,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         if (profile.get("loras") or profile.get("lora")) and not profile.get("lora_installed"):
             wanted = [VIDEO_MODEL_REGISTRY.get(pid, {}).get("name") or pid
                       for pid in ([profile["lora"]] if profile.get("lora") else profile["loras"].values())]
-            return None, (
+            return None, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
                 f"Speed profile '{profile.get('label') or profile['id']}' needs "
                 f"{' and '.join(wanted)}. Open Manage Video Models and install them."
-            )
+            ))
         return profile, None
 
     def _resolve_adapters(self, request: VideoGenerationRequest, model_key: str) -> tuple:
@@ -612,10 +638,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             if not filename:
                 return None, f"{entry.get('name') or aid} has no file"
             if not is_model_installed(aid):
-                return None, (
+                return None, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
                     f"{entry.get('name') or aid} is not installed. "
                     "Open Manage Video Models to download it."
-                )
+                ))
             out.append({
                 "filename": filename,
                 "strength": float(
@@ -644,10 +670,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         if profile and profile.get("lora"):
             if not profile.get("lora_installed"):
                 lora_name = (VIDEO_MODEL_REGISTRY.get(profile["lora"]) or {}).get("name") or profile["lora"]
-                return None, (
+                return None, RenderFailure(RenderErrorKind.COMPANION_MISSING, (
                     f"Speed profile '{profile.get('label') or profile['id']}' needs "
                     f"'{lora_name}'. Open Manage Video Models and install it."
-                )
+                ))
             lora_file = profile.get("lora_file")
             lora_strength = float(profile.get("strength") or 1.0)
             min_edge = profile.get("min_short_edge")
@@ -729,7 +755,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             if not path or not Path(path).exists():
                 return None, f"Reference {kind} not found: {path}"
             name = self._upload_input_file(path, kind)
-            return (name, None) if name else (None, f"Failed to upload the reference {kind} to ComfyUI")
+            return (name, None) if name else (None, self._upload_failure(f"reference {kind}"))
 
         image_names = []
         for path in images:
@@ -836,7 +862,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 return None, f"First frame not found: {first_path}"
             first_name = self._upload_image_to_comfyui(first_path)
             if not first_name:
-                return None, "Failed to upload the first frame to ComfyUI"
+                return None, self._upload_failure("first frame")
         last_name = None
         if request.last_frame_path:
             if "l2v" not in modes and "flf2v" not in modes:
@@ -845,7 +871,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 return None, f"Last frame not found: {request.last_frame_path}"
             last_name = self._upload_image_to_comfyui(request.last_frame_path)
             if not last_name:
-                return None, "Failed to upload the last frame to ComfyUI"
+                return None, self._upload_failure("last frame")
 
         frames = self._minimax_frame_count(request.duration_frames)
         fps = float(request.fps or 24)
@@ -871,7 +897,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     return None, str(e)
             name = self._upload_input_file(path, kind)
             if not name:
-                return None, f"Failed to upload the {kind} guide to ComfyUI"
+                return None, self._upload_failure(f"{kind} guide")
             guide_specs.append({"kind": kind, "filename": name, "frame_idx": frame_idx})
 
         try:
@@ -1221,6 +1247,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 # this prompt (execution.py set_preview_method).
                 payload["extra_data"] = {"preview_method": "none"}
             self._last_queue_error = None
+            self._last_queue_error_kind = None
             response = requests.post(
                 f"{self.comfy_url}/prompt",
                 json=payload,
@@ -1264,6 +1291,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 if e.response is not None:
                     detail = (e.response.text or "")[:500]
             self._last_queue_error = detail or str(e)
+            self._last_queue_error_kind = self._prompt_rejection_kind(e.response)
             logger.error(
                 "Failed to queue workflow in ComfyUI: %s%s",
                 e,
@@ -1272,6 +1300,11 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             return None
         except Exception as e:
             self._last_queue_error = str(e)
+            self._last_queue_error_kind = (
+                RenderErrorKind.COMFYUI_DOWN
+                if isinstance(e, (requests.exceptions.ConnectionError, requests.exceptions.Timeout))
+                else RenderErrorKind.UNKNOWN
+            )
             logger.error(f"Failed to queue workflow in ComfyUI: {e}")
             return None
 
@@ -1376,6 +1409,66 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             return None
 
     @staticmethod
+    def _prompt_rejection_kind(response) -> RenderErrorKind:
+        """The kind of a /prompt refusal, from ComfyUI's validation body: a node
+        class it does not know, a loader file that is not on disk, or another
+        input it rejected."""
+        try:
+            body = response.json() if response is not None else {}
+        except Exception:  # noqa: BLE001 — an unreadable body is still a refusal
+            body = {}
+        if not isinstance(body, dict):
+            return RenderErrorKind.NODE_ERROR
+        error = body.get("error") if isinstance(body.get("error"), dict) else {}
+        if error.get("type") == "missing_node_type":
+            return RenderErrorKind.NODE_MISSING
+        for node in (body.get("node_errors") or {}).values():
+            for ne in (node or {}).get("errors") or []:
+                input_name = str(((ne or {}).get("extra_info") or {}).get("input_name") or "")
+                if ne.get("type") == "value_not_in_list" and input_name.endswith("_name"):
+                    return RenderErrorKind.MODEL_NOT_INSTALLED
+        return RenderErrorKind.NODE_ERROR
+
+    @staticmethod
+    def _comfyui_down_result(request: "VideoGenerationRequest") -> "VideoGenerationResult":
+        """A node looked missing only because /object_info could not be read:
+        ComfyUI is not answering."""
+        return VideoGenerationResult(
+            success=False, prompt_used=request.prompt, error_kind=RenderErrorKind.COMFYUI_DOWN.value,
+            error="ComfyUI is not answering, so its nodes could not be checked.",
+        )
+
+    def _upload_failure(self, what: str) -> RenderFailure:
+        """The message for a file ComfyUI did not take: unreachable, or refused it."""
+        if not self._check_comfyui_connection():
+            return RenderFailure(RenderErrorKind.COMFYUI_DOWN, f"Failed to upload the {what} to ComfyUI: it is not reachable")
+        return RenderFailure(RenderErrorKind.INVALID_REQUEST, f"Failed to upload the {what} to ComfyUI")
+
+    @staticmethod
+    def _history_failure(entry: dict) -> Optional[RenderFailure]:
+        """What a finished-with-errors history entry says, with its kind: an
+        interrupt is a cancel, an out-of-memory exception is OOM, anything else
+        a node error naming the node."""
+        messages = ((entry or {}).get("status") or {}).get("messages") or []
+        for msg in messages:
+            if not isinstance(msg, (list, tuple)) or len(msg) < 2 or not isinstance(msg[1], dict):
+                continue
+            tag, payload = msg[0], msg[1]
+            if tag == "execution_interrupted":
+                return RenderFailure(RenderErrorKind.CANCELLED, "ComfyUI interrupted the render")
+            if tag == "execution_error":
+                from backend.services.job_operation_gate import is_cuda_oom
+                text = str(payload.get("exception_message") or payload.get("message") or "").strip()
+                etype = str(payload.get("exception_type") or "")
+                node = payload.get("node_type") or ""
+                where = f"{node} (node {payload.get('node_id')})" if node else "a node"
+                first = text.splitlines()[0].strip() if text else etype or "no message"
+                if "OutOfMemory" in etype or is_cuda_oom(RuntimeError(text)):
+                    return RenderFailure(RenderErrorKind.OOM, f"ComfyUI ran out of GPU memory in {where}: {first}")
+                return RenderFailure(RenderErrorKind.NODE_ERROR, f"ComfyUI failed in {where}: {first}")
+        return None
+
+    @staticmethod
     def _history_execution_error(entry: dict) -> Optional[str]:
         """Extract a human error from a ComfyUI history entry, if any."""
         status = entry.get("status") or {}
@@ -1451,6 +1544,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         start_time = time.time()
         effective_deadline = start_time + soft_budget
         last_log_time = start_time
+        # Why this returns None, for generate_video to report (job_types.RenderFailure).
+        self._last_wait_failure = None
         orphan_grace_s = 30
         idle_kill_s = 90
         idle_since: Optional[float] = None
@@ -1473,6 +1568,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     snap.get("util_pct"),
                     snap.get("free_mb"),
                 )
+                self._last_wait_failure = RenderFailure(
+                    RenderErrorKind.RENDER_TIMEOUT,
+                    f"ComfyUI had not finished the render after {int(elapsed)}s (the limit for this request)",
+                )
                 return None
 
             if not self._comfyui_alive():
@@ -1482,6 +1581,9 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                         "ComfyUI unreachable (%d consecutive probes) while waiting for %s — prompt orphaned",
                         consecutive_dead,
                         prompt_id,
+                    )
+                    self._last_wait_failure = RenderFailure(
+                        RenderErrorKind.COMFYUI_DOWN, "ComfyUI stopped answering during the render",
                     )
                     return None
                 logger.warning(
@@ -1508,6 +1610,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     exec_err = self._history_execution_error(entry)
                     if exec_err:
                         logger.error("Generation failed for %s: %s", prompt_id, exec_err)
+                        self._last_wait_failure = self._history_failure(entry) or RenderFailure(
+                            RenderErrorKind.NODE_ERROR, exec_err)
                         return None
                     outputs = entry.get("outputs") or {}
                     if outputs:
@@ -1562,6 +1666,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                             in_queue,
                             snap.get("util_pct"),
                             snap.get("free_mb"),
+                        )
+                        self._last_wait_failure = RenderFailure(
+                            RenderErrorKind.RENDER_TIMEOUT,
+                            "ComfyUI dropped the render: it left the queue without a result",
                         )
                         return None
 
@@ -1669,6 +1777,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             return VideoGenerationResult(
                 success=False,
                 error="ComfyUI service not available. Please start ComfyUI at http://127.0.0.1:8188",
+                error_kind=RenderErrorKind.COMFYUI_DOWN.value,
                 prompt_used=request.prompt,
             )
 
@@ -1687,8 +1796,9 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     "(commonly missing cv2: backend/venv/bin/pip install opencv-python); "
                     "check logs/comfyui.log for the import error, then restart ComfyUI."
                 ),
+                error_kind=RenderErrorKind.NODE_MISSING.value,
                 prompt_used=request.prompt,
-            )
+            ) if self._check_comfyui_connection() else self._comfyui_down_result(request)
 
         # ── Prompt enhancement ───────────────────────────────────────
         user_negative = request.negative_prompt
@@ -1705,7 +1815,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             withheld = render_limits.withheld_style(
                 request.model, request.prompt_style, self._model_family(request.model))
             if withheld:
-                return VideoGenerationResult(success=False, error=withheld, prompt_used=request.prompt)
+                return VideoGenerationResult(success=False, error=withheld, prompt_used=request.prompt,
+                                             error_kind=RenderErrorKind.INVALID_REQUEST.value)
             try:
                 from backend.utils.prompt_enhancer import enhance_video_prompt
                 # Pass model_family for motion-aware hints (wan vs cogvideox)
@@ -1789,22 +1900,19 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             # The running ComfyUI must carry this model's --reserve-vram.
             reserve_error = self._ensure_comfyui_reserve_for(model)
             if reserve_error:
-                result.error = reserve_error
-                return result
+                return result.fail(RenderErrorKind.COMFYUI_DOWN, reserve_error)
 
             # VRAM preflight: turn a known-under-spec card into an honest error
             # instead of queuing into a silent mid-render OOM. Fail-open on a
             # broken probe (see _vram_preflight); read-only, allocates nothing.
             preflight_error = self._vram_preflight(model)
             if preflight_error:
-                result.error = preflight_error
-                return result
+                return result.fail(RenderErrorKind.CARD_TOO_SMALL, preflight_error)
 
             # Then make the room: evict/wait before anything is queued.
             vram_error = self._ensure_vram_for_model(model, item_id)
             if vram_error:
-                result.error = vram_error
-                return result
+                return result.fail(RenderErrorKind.VRAM_BUSY, vram_error)
 
             # Size and length are held to what the model declares before any
             # builder sees them (backend/services/video_render_limits.py); old
@@ -1841,15 +1949,15 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                             "Fix: backend/venv/bin/pip install 'gguf>=0.13.0' sentencepiece protobuf, "
                             "then restart ComfyUI."
                         ),
+                        error_kind=RenderErrorKind.NODE_MISSING.value,
                         prompt_used=request.prompt,
-                    )
+                    ) if self._check_comfyui_connection() else self._comfyui_down_result(request)
 
                 is_i2v = cfg.get("type") == "i2v"
 
                 wan_profile, wan_err = self._resolve_wan_profile(request, model_key)
                 if wan_err:
-                    result.error = wan_err
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, wan_err)
                 wan_steps = render_limits.resolve_steps(
                     model_key, request.num_inference_steps, explicit=explicit_steps,
                     profile=wan_profile, family=family,
@@ -1868,17 +1976,14 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
 
                 extra_loras, adapter_err = self._resolve_adapters(request, model_key)
                 if adapter_err:
-                    result.error = adapter_err
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, adapter_err)
                 te_file, te_err = resolve_text_encoder(model_key, request.text_encoder)
                 if te_err:
-                    result.error = te_err
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, te_err)
 
                 image_path, mode_error = render_limits.start_image(model_key, image_path, family)
                 if mode_error:
-                    result.error = mode_error
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, mode_error)
 
                 if cfg.get("single"):
                     # Wan 2.2 TI2V-5B: ONE model does both — image-to-video if a start
@@ -1887,8 +1992,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     if image_path:
                         img_name = self._upload_image_to_comfyui(image_path)
                         if not img_name:
-                            result.error = "Failed to upload image to ComfyUI"
-                            return result
+                            return result.fail(RenderErrorKind.INVALID_REQUEST, self._upload_failure("image"))
                     workflow = self._create_wan22_5b_workflow(
                         speed_profile=request.speed_profile,
                         prompt=request.prompt,
@@ -1911,8 +2015,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 elif is_i2v:
                     uploaded_image = self._upload_image_to_comfyui(image_path)
                     if not uploaded_image:
-                        result.error = "Failed to upload image to ComfyUI"
-                        return result
+                        return result.fail(RenderErrorKind.INVALID_REQUEST, self._upload_failure("image"))
                     workflow = self._create_wan22_i2v_workflow(
                         speed_profile=request.speed_profile,
                         image_filename=uploaded_image,
@@ -1970,26 +2073,23 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                             "Fix: backend/venv/bin/pip install 'gguf>=0.13.0' sentencepiece protobuf, "
                             "then restart ComfyUI."
                         ),
+                        error_kind=RenderErrorKind.NODE_MISSING.value,
                         prompt_used=request.prompt,
-                    )
+                    ) if self._check_comfyui_connection() else self._comfyui_down_result(request)
                 frames = request.duration_frames
                 extra_loras, adapter_err = self._resolve_adapters(request, model_key)
                 if adapter_err:
-                    result.error = adapter_err
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, adapter_err)
                 te_file, te_err = resolve_text_encoder(model_key, request.text_encoder)
                 if te_err:
-                    result.error = te_err
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, te_err)
                 image_path, mode_error = render_limits.start_image(model_key, image_path, family)
                 if mode_error:
-                    result.error = mode_error
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, mode_error)
                 if (self.HUNYUAN_MODELS.get(model_key) or {}).get("type") == "i2v":
                     uploaded_image = self._upload_image_to_comfyui(image_path)
                     if not uploaded_image:
-                        result.error = "Failed to upload image to ComfyUI"
-                        return result
+                        return result.fail(RenderErrorKind.INVALID_REQUEST, self._upload_failure("image"))
                     workflow = self._create_hunyuan_i2v_workflow(
                         speed_profile=request.speed_profile,
                         image_filename=uploaded_image,
@@ -2030,8 +2130,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             elif model == "cogvideox-5b":
                 image_path, mode_error = render_limits.start_image(model, image_path, family)
                 if mode_error:
-                    result.error = mode_error
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, mode_error)
                 # Text-to-video via CogVideoX
                 hf_model = self.COGVIDEOX_MODELS.get(model, "THUDM/CogVideoX-5b")
                 workflow = self._create_cogvideox_text2video_workflow(
@@ -2061,20 +2160,17 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 # Image-to-video via CogVideoX
                 image_path, mode_error = render_limits.start_image(model, image_path, family)
                 if mode_error:
-                    result.error = mode_error
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, mode_error)
                 uploaded_image = self._upload_image_to_comfyui(image_path)
                 if not uploaded_image:
-                    result.error = "Failed to upload image to ComfyUI"
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, self._upload_failure("image"))
                 missing = self._cogvideox_i2v_missing_files(model)
                 if missing:
-                    result.error = (
+                    return result.fail(RenderErrorKind.MODEL_NOT_INSTALLED, (
                         f"CogVideoX I2V files missing on this machine: {', '.join(missing)}. "
                         f"Open Manage Video Models and Install CogVideoX 1.5 5B I2V "
                         f"(companions auto-pull). Generation never downloads on its own."
-                    )
-                    return result
+                    ))
                 files = self._cogvideox_i2v_files(model)
                 workflow = self._create_cogvideox_i2v_workflow(
                     image_filename=uploaded_image,
@@ -2119,15 +2215,14 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 if use_ltx25:
                     missing = self._ltx25_missing_files(model_key)
                     if missing:
-                        result.error = (
+                        return result.fail(RenderErrorKind.MODEL_NOT_INSTALLED, (
                             f"LTX-2.5 model files missing on this machine: "
                             f"{', '.join(missing)}. Transfer or download them into "
                             f"the ComfyUI models tree, then retry. (The audio VAE "
                             f"must be reachable from models/checkpoints/ — a symlink "
                             f"to ../vae/ works and is created automatically on "
                             f"plugin start when the vae/ copy exists.)"
-                        )
-                        return result
+                        ))
                 # Distilled defaults: 8 steps, CFG=1. Don't silently inherit Cog/Wan defaults.
                 ltx_steps = render_limits.resolve_steps(
                     model_key, request.num_inference_steps, explicit=explicit_steps, family=family
@@ -2135,22 +2230,18 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 ltx_cfg = render_limits.resolve_cfg(model_key, request.guidance_scale, family)
                 extra_loras, adapter_err = self._resolve_adapters(request, model_key)
                 if adapter_err:
-                    result.error = adapter_err
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, adapter_err)
                 te_file, te_err = resolve_text_encoder(model_key, request.text_encoder)
                 if te_err:
-                    result.error = te_err
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, te_err)
                 image_path, mode_error = render_limits.start_image(model_key, image_path, family)
                 if mode_error:
-                    result.error = mode_error
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, mode_error)
                 i2v = bool(image_path)
                 if i2v:
                     uploaded_image = self._upload_image_to_comfyui(image_path)
                     if not uploaded_image:
-                        result.error = "Failed to upload image to ComfyUI"
-                        return result
+                        return result.fail(RenderErrorKind.INVALID_REQUEST, self._upload_failure("image"))
                     if use_ltx25:
                         workflow = self._create_ltx25_i2v_workflow(
                             speed_profile=request.speed_profile,
@@ -2236,20 +2327,18 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     request, model_key, image_path, seed, interpolation
                 )
                 if mm_error:
-                    result.error = mm_error
-                    return result
+                    return result.fail(RenderErrorKind.INVALID_REQUEST, mm_error)
                 if render_limits.limits_for(model_key, family).get("audio_out"):
                     result.has_audio = True
                     result.metadata["has_audio"] = "1"
 
             else:
                 # SVD retired 2026-05-29. Supported: wan22-*, cogvideox-*, ltx23-*, ltx25-*, minimax-*.
-                result.error = (
+                return result.fail(RenderErrorKind.INVALID_REQUEST, (
                     f"Unsupported video model '{model}'. Use wan22-5b, wan22-14b, "
                     f"wan22-14b-i2v, cogvideox-5b, cogvideox-5b-i2v, "
                     f"ltx23-distilled-fp8, ltx25-distilled-int8, or minimax-h3-int8."
-                )
-                return result
+                ))
 
             # Apply Real-ESRGAN 2x upscale if requested
             upscale = request.metadata.get("upscale", False) if request.metadata else False
@@ -2417,11 +2506,10 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             if not prompt_id:
                 progress_bridge.stop()
                 queue_detail = getattr(self, "_last_queue_error", None)
-                result.error = (
+                return result.fail(getattr(self, "_last_queue_error_kind", None) or RenderErrorKind.NODE_ERROR, (
                     f"Failed to queue workflow in ComfyUI: {queue_detail}"
                     if queue_detail else "Failed to queue workflow in ComfyUI"
-                )
-                return result
+                ))
 
             # Soft budget scaled to what the GPU actually needs. Activity-aware
             # _wait_for_completion extends past this while Comfy/GPU stay busy.
@@ -2458,15 +2546,15 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             progress_bridge.stop()  # /history poll owns completion; bridge is done
 
             if not outputs:
-                result.error = "ComfyUI generation timed out or failed"
-                return result
+                failure = getattr(self, "_last_wait_failure", None) or RenderFailure(
+                    RenderErrorKind.RENDER_TIMEOUT, "ComfyUI generation timed out or failed")
+                return result.fail(failure.kind, failure)
 
             logger.info("Downloading results from ComfyUI...")
             downloaded_files = self._download_result(outputs, videos_dir)
 
             if not downloaded_files:
-                result.error = "No files were generated by ComfyUI"
-                return result
+                return result.fail(RenderErrorKind.OUTPUT_MISSING, "No files were generated by ComfyUI")
 
             # Separate the rendered video(s) from any exported PNG frame sequence:
             # Q3 frame export adds a SaveImage node alongside VHS_VideoCombine, so the
@@ -2482,13 +2570,12 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             # when a model/loader fails silently. No opt-out — we do not ship fake output.
             blank_reason = _looks_like_blank_video(Path(primary))
             if blank_reason:
-                result.error = (
+                logger.error(f"Zero-placebo guard rejected ComfyUI output: {blank_reason}")
+                return result.fail(RenderErrorKind.BLANK_OUTPUT, (
                     f"ComfyUI produced an invalid video: {blank_reason}. This usually "
                     "means a model/loader failed silently — verify the model is fully "
                     "installed."
-                )
-                logger.error(f"Zero-placebo guard rejected ComfyUI output: {blank_reason}")
-                return result  # success stays False — no fake 'done'
+                ))  # success stays False — no fake 'done'
 
             result.video_path = str(Path(primary).relative_to(batch_dir))
             # frame_paths exposes the lossless PNG sequence when it was exported (for
@@ -2550,14 +2637,14 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 or ("RuntimeError" in str(type(e)) and "memory" in err_str.lower())
             )
             if is_oom:
-                result.error = "OOM during ComfyUI video generation (VRAM exhausted; reduce res/steps, disable upscale/LoRA, or free other models first)"
+                result.fail(RenderErrorKind.OOM, "OOM during ComfyUI video generation (VRAM exhausted; reduce res/steps, disable upscale/LoRA, or free other models first)")
                 try:
                     self.service_available = False
                 except Exception:
                     pass
             else:
-                result.error = err_str
-            result.success = False
+                from backend.services.job_operation_gate import classify_render_exception
+                result.fail(classify_render_exception(e), err_str)
             return result
         finally:
             self._release_vram_booking()
@@ -2619,7 +2706,7 @@ class SvdI2VGenerator:
         )
         result = gen.generate_video(req)
         if not result.success or not result.video_path:
-            raise RuntimeError(f"I2V failed: {result.error or 'no video produced'}")
+            raise RuntimeError(render_failed("I2V", result.error_kind or (RenderErrorKind.OUTPUT_MISSING if result.success else None), result.error))
         shutil.copyfile(resolve_generated_video_path(result, out_dir), output_path)
         return output_path
 
@@ -2722,7 +2809,7 @@ class MiniMaxH3SceneGenerator:
         gen = get_video_generator()
         result = gen.generate_video(req)
         if not result.success or not result.video_path:
-            raise RuntimeError(f"MiniMax H3 scene failed: {result.error or 'no video produced'}")
+            raise RuntimeError(render_failed("MiniMax H3 scene", result.error_kind or (RenderErrorKind.OUTPUT_MISSING if result.success else None), result.error))
         shutil.copyfile(resolve_generated_video_path(result, out_dir), output_path)
         return output_path
 
@@ -2777,6 +2864,6 @@ class Wan22I2VGenerator:
         )
         result = gen.generate_video(req)
         if not result.success or not result.video_path:
-            raise RuntimeError(f"Wan 2.2 I2V failed: {result.error or 'no video produced'}")
+            raise RuntimeError(render_failed("Wan 2.2 I2V", result.error_kind or (RenderErrorKind.OUTPUT_MISSING if result.success else None), result.error))
         shutil.copyfile(resolve_generated_video_path(result, out_dir), output_path)
         return output_path

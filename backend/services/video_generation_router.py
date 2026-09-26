@@ -150,7 +150,15 @@ class VideoGenerationRouter:
             self._active_generation_count += 1
             self._cancel_idle_shutdown()
         try:
-            generator = self.get_active_generator()
+            try:
+                generator = self.get_active_generator()
+            except RuntimeError as e:
+                # No backend: ComfyUI is down and there is nothing to fall back to.
+                from backend.services.job_types import RenderErrorKind
+                return VideoGenerationResult(
+                    success=False, error=str(e), error_kind=RenderErrorKind.COMFYUI_DOWN.value,
+                    prompt_used=request.prompt,
+                )
             # The batch runner holds a gpu_session around every clip; direct
             # callers (tools, adapters, tests) came through here with nothing
             # evicting the resident chat model, so a 14 GB video budget on a
@@ -160,9 +168,11 @@ class VideoGenerationRouter:
                 result = generator.generate_video(request)
             return result
         except RuntimeError as e:
+            from backend.services.job_operation_gate import classify_render_exception
             return VideoGenerationResult(
                 success=False,
                 error=str(e),
+                error_kind=classify_render_exception(e).value,
                 prompt_used=request.prompt,
             )
         finally:
