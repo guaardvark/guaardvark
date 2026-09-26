@@ -46,6 +46,7 @@ def test_every_ready_t2v_or_i2v_model_gets_one_clip_per_mode():
     ("wan22-14b", 17, (832, 480), 20),     # 1 s at 16 fps on 4n+1
     ("wan22-5b", 25, (832, 480), 20),      # 1 s at 24 fps
     ("ltx23-distilled-fp8", 17, (832, 480), 8),
+    ("ltx25-distilled-int8", 17, (832, 448), 8),  # its 64 px output grid
     ("hunyuan-t2v", 25, (848, 480), 20),   # 16 px grid
     ("cogvideox-5b", 9, (672, 384), 50),   # its declared 16 GB canvas
     ("minimax-h3-int8", 73, (864, 480), 20),  # min_clip_s 3 s = 72, up onto 17k+5

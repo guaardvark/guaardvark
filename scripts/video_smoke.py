@@ -79,6 +79,8 @@ def smallest_clip(caps: dict) -> dict:
         ratio = "16:9" if "16:9" in ratios else ratios[0]
         rw, rh = (int(x) for x in ratio.split(":"))
         align = int(caps.get("dimension_alignment") or 16) or 16
+        if caps.get("output_alignment"):  # a two-stage graph's file lands on a coarser grid
+            align = math.lcm(align, int(caps["output_alignment"]))
         short = SHORT_SIDE
         long_side = short * max(rw, rh) / min(rw, rh)
         long_side = max(align, int(long_side // align) * align)
