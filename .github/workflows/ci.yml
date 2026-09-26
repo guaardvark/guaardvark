@@ -342,6 +342,7 @@ jobs:
             backend/tests/services/test_video_smoke_script.py \
             backend/tests/services/test_music_video_service.py \
             backend/tests/services/test_music_video_director.py \
+            backend/tests/services/test_pipeline_stage_prep.py \
             backend/tests/unit/test_plugin_state_store.py \
             backend/tests/unit/test_plugin_core_exemption.py \
             backend/tests/unit/test_plugin_local_overrides.py \
