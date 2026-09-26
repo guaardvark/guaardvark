@@ -228,6 +228,7 @@ class JobOperationGate:
         *,
         on_busy: str = "raise",
         wait_timeout: float = 120.0,
+        cancel_event: Optional[threading.Event] = None,
     ) -> Iterator[bool]:
         """Claim the GPU-exclusive slot for the duration of a ``with`` block.
 
@@ -243,7 +244,9 @@ class JobOperationGate:
           - "wait": poll up to ``wait_timeout`` seconds for the slot to free, then
             claim it — for SERIAL BACKGROUND queues (e.g. batch video) that should
             wait out a transient busy / the 8s post-release cooldown instead of
-            failing the job. Raises GpuBusyError only if it never frees in time.
+            failing the job. Raises GpuBusyError only if it never frees in time,
+            or as soon as ``cancel_event`` is set: a cancelled job must not sit
+            out the rest of the wait in front of the next one.
 
         Yields True when the exclusive slot was acquired, False in the
         degraded ("register") path. Release is idempotent and always runs in
@@ -257,6 +260,9 @@ class JobOperationGate:
             import time as _t
             deadline = _t.monotonic() + max(0.0, wait_timeout)
             while not acquired and _t.monotonic() < deadline:
+                if cancel_event is not None and cancel_event.is_set():
+                    reason = f"cancelled while waiting for the GPU ({reason})"
+                    break
                 _t.sleep(min(1.0, max(0.05, deadline - _t.monotonic())))
                 acquired, reason = self.try_claim_gpu_exclusive(kind, native_id)
             if acquired:
