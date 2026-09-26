@@ -226,7 +226,7 @@ def test_start_image_rules(tmp_path):
     missing = str(tmp_path / "gone.png")
     assert rl.start_image("wan22-14b-i2v", image) == (image, None)
     assert rl.start_image("wan22-5b", image) == (image, None)
-    assert rl.start_image("wan22-5b", missing) == (None, None)     # renders from text (F-28)
+    assert rl.start_image("wan22-5b", missing) == (None, None)     # renders from text
     assert rl.start_image("ltx23-distilled-fp8", None) == (None, None)
     assert rl.start_image("wan22-14b", image) == (
         None, "wan22-14b is text-to-video only. Use wan22-14b-i2v for image-to-video.")

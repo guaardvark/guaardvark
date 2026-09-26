@@ -210,7 +210,6 @@ def map_status(kind: JobKind, native_status: str | None) -> JobStatus:
 #
 # Every way a render can fail, named once where it is detected and read by the
 # batch status JSON, the MCP/chat tools, the Studio and the pipelines.
-# docs/video-errors.md lists the failure points and what each reported before.
 
 class RenderErrorKind(str, Enum):
     INVALID_REQUEST = "invalid_request"        # the request asks for something this model cannot do

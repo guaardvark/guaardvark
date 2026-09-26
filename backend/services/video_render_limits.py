@@ -6,8 +6,7 @@ family's ``FAMILY_SPECS`` row) and is applied here, so a model is added by data
 plus a graph builder, and the builders only decide graph shape.
 
 Two families of rules differ from what the registry declares, and are kept as
-they are until ``GUAARDVARK_VIDEO_STRICT_LIMITS=1`` asks for the declared ones
-(docs/video-pipeline.md F-11, F-12, F-13, F-14):
+they are until ``GUAARDVARK_VIDEO_STRICT_LIMITS=1`` asks for the declared ones:
 
 - the size is snapped to the family grid, not the entry's (Wan entries declare
   32 px, the render snaps to 16);
@@ -20,12 +19,13 @@ onto ``frame_rule`` (up where the rule's template rounds up) inside
 ``[min_frames, max_frames]``, and every model raises a preset step count to its
 floor.
 
-``GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1`` (off by default) changes what a
-request that leaves guidance or the negative prompt empty gets: the model's
-reference values (``cfg_when_unset``, ``negative_when_unset``) instead of the
-7.5 and the style negative every model got before, and the identity-bleed
-guard only when a cast member or LoRA is in the request. docs/video-prompting.md
-has the trace and the templates the values come from.
+A request that names no guidance renders with the model's own value
+(``cfg_when_unset``). ``GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1`` (off by default)
+also gives a request that leaves the negative prompt empty the model's
+reference negative (``negative_when_unset``) instead of the style negative,
+with the identity-bleed guard only when a cast member or LoRA is in the
+request. The values come from the model makers' ComfyUI workflow templates
+(see ``FAMILY_SPECS``).
 """
 
 from __future__ import annotations
@@ -49,8 +49,8 @@ STRICT_LIMITS_ENV = "GUAARDVARK_VIDEO_STRICT_LIMITS"
 UNKNOWN_PROFILE = "?"
 TEXT_ENCODER_DEVICE_ENV = "GUAARDVARK_WAN_CLIP_DEVICE"
 REFERENCE_DEFAULTS_ENV = "GUAARDVARK_VIDEO_REFERENCE_DEFAULTS"
-# The guidance the REST route, the batch request and the generator request each
-# filled in for a request that named none, whatever the model.
+# The placeholder a request that names no guidance carries until the generator
+# replaces it with the model's cfg_when_unset; kept for a model that declares none.
 LEGACY_CFG = 7.5
 
 # Ratio presets the UI offers, as width/height. A clamp names the ratio it
@@ -159,14 +159,18 @@ def clamp_pixel_area(model_id: str, width: int, height: int, frames: int = 0,
 
 def dimension_alignment(model_id: str, family: Optional[str] = None, *, strict: Optional[bool] = None) -> int:
     """The grid the render snaps to: the family's, or under strict limits the
-    entry's own declaration."""
+    entry's own declaration; always at least the entry's ``output_alignment``,
+    the grid its finished file lands on."""
+    import math
+
     strict = strict_limits_enabled() if strict is None else strict
     fam = _family_of(model_id, family)
-    if strict:
-        declared = limits_for(model_id, fam).get("dimension_alignment")
-        if declared:
-            return int(declared)
-    return int(family_spec(fam or "").get("dimension_alignment") or 16)
+    caps = limits_for(model_id, fam)
+    grid = int(family_spec(fam or "").get("dimension_alignment") or 16)
+    if strict and caps.get("dimension_alignment"):
+        grid = int(caps["dimension_alignment"])
+    output = caps.get("output_alignment")
+    return math.lcm(grid, int(output)) if output else grid
 
 
 def align_dimensions(model_id: str, width: int, height: int, family: Optional[str] = None,
@@ -297,11 +301,9 @@ def resolve_cfg(model_id: str, requested, family: Optional[str] = None):
 
 
 def cfg_when_unset(model_id: str, family: Optional[str] = None) -> Optional[float]:
-    """Guidance for a request that named none: the model's reference value with
-    the reference defaults on; None (keep what the request carries, LEGACY_CFG)
-    when they are off or the model declares none."""
-    if not reference_defaults_enabled():
-        return None
+    """Guidance for a request that named none: the model's reference value; None
+    (keep what the request carries, LEGACY_CFG) when the model declares none.
+    Distilled LTX renders noise at LEGACY_CFG and clean at its own 1.0."""
     declared = limits_for(model_id, _family_of(model_id, family)).get("cfg_when_unset")
     return None if declared is None else float(declared)
 
@@ -407,7 +409,7 @@ def start_image(model_id: str, image_path: Optional[str], family: Optional[str] 
 
     An image on a text-only model is refused with its image-to-video sibling
     named. A model that also renders from text alone renders text-to-video
-    when the named file is missing (docs/video-pipeline.md F-28); one that
+    when the named file is missing; one that
     needs the image refuses."""
     from pathlib import Path
 

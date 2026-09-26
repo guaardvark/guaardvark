@@ -213,7 +213,11 @@ class ComfyUIVideoWorkflowMixin:
                     "precision": "bf16",
                     "quantization": "disabled",
                     "attention_mode": "sdpa",
-                    "load_device": "main_device",
+                    # As in the I2V graph: the sampler moves the transformer to the
+                    # GPU when sampling starts. On main_device it lands on the card
+                    # whenever ComfyUI runs this loader before the text encode, and
+                    # CogVideoTextEncode then forces T5 onto the GPU beside it.
+                    "load_device": "offload_device",
                 }
             },
             "5": {

@@ -976,6 +976,10 @@ VIDEO_MODEL_REGISTRY = {
         "audio_out": False,
         "type": "ltx",
         "dimension_alignment": 32,
+        # Two stages: half size on the 32 px grid, then the x2 latent upscaler,
+        # so the file is always a multiple of 64 (832x480 came out 832x448,
+        # 2026-09-25). Requests snap to the size the model produces.
+        "output_alignment": 64,
         "native_fps": 16,
         "max_frames": 161,
         "default_steps": 8,
@@ -1958,6 +1962,8 @@ FAMILY_SPECS = {
 #   prompt_styles_withheld  {style: why} prompt styles this model is not offered
 #                       with (backend/utils/prompt_enhancer.STYLE_SUFFIXES); the
 #                       evidence is an A/B run (scripts/video_prompt_ab.py)
+#   output_alignment    the grid the finished file lands on when the graph resizes
+#                       (a two-stage upscale); requests always snap to it
 #   negative_prompt     whether the graph has a negative branch
 #   text_encoder_cpu_max_vram_mb    at or below this total VRAM the text encoder
 #                       loads on CPU so the UNet keeps the card (Wan UMT5 is ~6.4 GB
@@ -1974,7 +1980,7 @@ FAMILY_SPECS = {
 RENDER_LIMIT_KEYS = (
     "frame_snap", "min_frames", "frames_when_unset", "enforce_min_steps", "cfg_when_unset",
     "cfg_range", "negative_prompt", "text_encoder_cpu_max_vram_mb", "attention",
-    "negative_when_unset", "prompt_styles_withheld",
+    "negative_when_unset", "prompt_styles_withheld", "output_alignment",
 )
 
 

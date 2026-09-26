@@ -551,7 +551,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         """Shift for Wan 14B T2V when no speed profile sets one; None keeps the
         builder's resolution-scaled curve.
 
-        The builder ignored wan_sampler_profile (docs/video-pipeline.md F-6/F-40),
+        The builder ignored wan_sampler_profile,
         so it stayed on the curve that I2V and the 5B left for a fixed 8.0 after
         it produced warping and colour bleed. A named profile's shift is now
         used, as on I2V; with GUAARDVARK_VIDEO_REFERENCE_DEFAULTS an unnamed one

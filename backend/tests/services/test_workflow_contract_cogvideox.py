@@ -3,7 +3,7 @@
 
 Every graph is checked against the ComfyUI /object_info snapshot, and the
 values a request resolves to are followed into the nodes that use them.
-Known gaps are strict xfails; docs/video-pipeline.md names each one.
+Known gaps are strict xfails, each naming the gap.
 """
 import pytest
 
@@ -80,7 +80,7 @@ def test_i2v_loaders_name_the_files_the_registry_installs():
 
 
 @pytest.mark.xfail(strict=True, reason=(
-    "docs/video-pipeline.md F-43: the T2V graph loads the T5 encoder, which cogvideox-5b "
+    "the T2V graph loads the T5 encoder, which cogvideox-5b "
     "does not list in its requires"))
 def test_t2v_loaders_name_the_files_the_registry_installs():
     wf = _build("cogvideox-5b", interpolation_multiplier=1)
@@ -116,14 +116,14 @@ def test_rendered_canvas_matches_the_resolved_request(comfy, model, ratio):
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-13: CogVideoX never snaps frames to its 8n+1 grid")
+@pytest.mark.xfail(strict=True, reason="CogVideoX never snaps frames to its 8n+1 grid")
 def test_rendered_frames_are_snapped_to_the_grid(comfy, model):
     result, wf, req = _request(comfy, model, duration_frames=44, width=720, height=480)
     assert wc.on_frame_grid(model, _frames(wf)) and _frames(wf) <= 44
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-12: generate_video does not enforce max_frames")
+@pytest.mark.xfail(strict=True, reason="generate_video does not enforce max_frames")
 def test_rendered_frames_never_exceed_max_frames(comfy, model):
     caps = model_capabilities(model)
     result, wf, req = _request(comfy, model, duration_frames=caps["max_frames"] + 32, width=720, height=480)

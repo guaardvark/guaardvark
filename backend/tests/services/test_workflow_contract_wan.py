@@ -2,8 +2,7 @@
 
 Every graph is checked against the ComfyUI /object_info snapshot, and the
 values a request resolves to are followed into the nodes that use them.
-Known gaps are strict xfails so they flip when fixed; docs/video-pipeline.md
-names each one.
+Known gaps are strict xfails so they flip when fixed, each naming the gap.
 """
 import pytest
 
@@ -118,7 +117,7 @@ def test_rendered_canvas_matches_the_resolved_request(comfy, model, ratio):
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-11: Wan snaps to the family's 16 px, the entries declare 32")
+@pytest.mark.xfail(strict=True, reason="Wan snaps to the family's 16 px, the entries declare 32")
 def test_rendered_canvas_is_on_the_declared_grid(comfy, model):
     result, wf, req = _request(comfy, model, width=1296, height=720, duration_frames=49)
     assert wf is not None, result.error
@@ -138,7 +137,7 @@ def test_rendered_frames_on_grid_values(comfy, model, which):
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-13: Wan never snaps frames to its declared 4n+1 grid")
+@pytest.mark.xfail(strict=True, reason="Wan never snaps frames to its declared 4n+1 grid")
 def test_rendered_frames_are_snapped_to_the_grid(comfy, model):
     result, wf, req = _request(comfy, model, duration_frames=50, width=832, height=480)
     [(_, _, _, length)] = wc.canvas(wf)
@@ -146,7 +145,7 @@ def test_rendered_frames_are_snapped_to_the_grid(comfy, model):
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-12: generate_video does not enforce max_frames")
+@pytest.mark.xfail(strict=True, reason="generate_video does not enforce max_frames")
 def test_rendered_frames_never_exceed_max_frames(comfy, model):
     caps = model_capabilities(model)
     result, wf, req = _request(comfy, model, duration_frames=caps["max_frames"] + 40, width=832, height=480)
@@ -249,7 +248,7 @@ def test_builder_not_told_the_profile_pins_under_ck(monkeypatch):
 
 
 _PROFILE_GAP = pytest.mark.xfail(strict=True, reason=(
-    "docs/video-pipeline.md F-6/F-40: 14B T2V ignores wan_sampler_profile and keeps the "
+    "14B T2V ignores wan_sampler_profile and keeps the "
     "resolution-scaled shift; 14B I2V takes the profile's shift but keeps euler"))
 
 
