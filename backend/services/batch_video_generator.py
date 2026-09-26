@@ -909,6 +909,7 @@ class BatchVideoGenerator:
                     require_fit=True,
                     slot_id=slot_id,
                     lease_seconds=3600,
+                    cancel_event=cancel_event,
                 ):
                     # Clear wait metadata once admitted.
                     status.metadata.pop("gpu_wait_reason", None)
@@ -1930,7 +1931,10 @@ class BatchVideoGenerator:
             gate = get_gate()
             snap = gate.snapshot()
             holder = snap.get("gpu_holder") or {}
-            if holder.get("kind") == JobKind.VIDEO_RENDER.value:
+            # Only a claim one of these batches made: a Studio image batch or a
+            # router render also claims VIDEO_RENDER and is still running.
+            if (holder.get("kind") == JobKind.VIDEO_RENDER.value
+                    and str(holder.get("native_id", "")) in {str(b) for b in cancelled}):
                 gate.release_gpu_exclusive(JobKind.VIDEO_RENDER, str(holder.get("native_id", "")))
         except Exception as e:
             logger.warning(f"cancel_all_active: gate release failed: {e}")

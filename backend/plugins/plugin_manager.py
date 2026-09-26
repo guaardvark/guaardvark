@@ -1226,6 +1226,26 @@ class PluginManager:
             except Exception as e:
                 logger.warning(f"Ollama disable: error unloading {name}: {e}")
     
+    def _record_health(self, plugin_id: str, *, answering: bool) -> None:
+        """Keep the recorded status in step with what a health probe just saw.
+
+        A service that crashed (ComfyUI mid-render) stays RUNNING in
+        get_status() until something refreshes it; a probe that finds it gone
+        records it STOPPED, and one that finds it answering again records it
+        RUNNING. An ERROR kept for a stranger on the port is left alone, and the
+        persisted running set is not touched (see _refresh_status).
+        """
+        before = self._plugin_status.get(plugin_id)
+        if answering and before == PluginStatus.STOPPED:
+            after = PluginStatus.RUNNING
+        elif not answering and before == PluginStatus.RUNNING:
+            after = PluginStatus.STOPPED
+        else:
+            return
+        self._plugin_status[plugin_id] = after
+        logger.info(f"Health check: '{plugin_id}' {before.value} -> {after.value}")
+        self._broadcast_plugins_status(f"health:{plugin_id}:{after.value}")
+
     def health_check(self, plugin_id: str) -> Dict[str, Any]:
         """
         Get health status of a plugin.
@@ -1258,6 +1278,7 @@ class PluginManager:
                 response = requests.get(url, timeout=5)
                 
                 if response.status_code == 200:
+                    self._record_health(plugin_id, answering=True)
                     data = response.json()
                     data['plugin_id'] = plugin_id
                     return data
@@ -1268,6 +1289,7 @@ class PluginManager:
                         'plugin_id': plugin_id
                     }
             except requests.exceptions.ConnectionError:
+                self._record_health(plugin_id, answering=False)
                 payload = {'status': 'stopped', 'error': 'Service not running'}
                 # For the swarm plugin, the sidecar can't tell us *why* it's down
                 # when it isn't running. Run its static dependency check out of

@@ -515,6 +515,7 @@ class FakeComfyUI:
         self.history_entry = None        # the /history entry for a queued prompt
         self.files: dict = {}            # output filename -> bytes served at /view
         self.running = False             # /queue lists the last queued prompt as running
+        self.interrupts = []             # prompt ids POSTed to /interrupt (None: unscoped)
 
     def _connect(self):
         if not self.alive:
@@ -553,6 +554,18 @@ class FakeComfyUI:
             if self.die_after_prompt:
                 self.alive = False
             return _Response(200, {"prompt_id": f"contract-{len(self.prompts)}"})
+        if url.endswith("/interrupt"):
+            # ComfyUI stops the sampler and the prompt's history ends in
+            # execution_interrupted; the queue no longer lists it as running.
+            self.interrupts.append((json or {}).get("prompt_id"))
+            if self.prompts:
+                self.history_entry = {"status": {"status_str": "error", "completed": False, "messages": [
+                    ["execution_interrupted", {"prompt_id": f"contract-{len(self.prompts)}",
+                                               "node_id": "10", "node_type": "KSampler", "executed": []}]]}}
+            self.running = False
+            return _Response(200, {})
+        if url.endswith("/queue"):
+            return _Response(200, {})
         if url.endswith("/upload/image"):
             handle = (files or {}).get("image")
             name = Path(getattr(handle, "name", "upload.png")).name
