@@ -1,6 +1,6 @@
 """SVD graph contract. SVD is retired: no registry entry, no route in
 generate_video, and _create_svd_workflow has no caller. The builder is kept
-and checked so its state is on record (docs/video-pipeline.md §8)."""
+and checked so its state is on record."""
 import pytest
 
 from backend.tests.fixtures import workflow_contract as wc

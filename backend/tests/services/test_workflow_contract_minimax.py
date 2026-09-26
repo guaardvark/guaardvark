@@ -4,7 +4,7 @@ audio).
 
 Every graph is checked against the ComfyUI /object_info snapshot, and the
 values a request resolves to are followed into the nodes that use them.
-Known gaps are strict xfails; docs/video-pipeline.md names each one.
+Known gaps are strict xfails, each naming the gap.
 """
 import pytest
 
@@ -152,7 +152,7 @@ def test_rendered_frames_snap_up_to_the_template_grid(comfy, model, requested):
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-12: generate_video does not enforce max_frames")
+@pytest.mark.xfail(strict=True, reason="generate_video does not enforce max_frames")
 def test_rendered_frames_never_exceed_max_frames(comfy, model):
     caps = model_capabilities(model)
     result, wf, req = _request(comfy, model, duration_frames=caps["max_frames"] + 40, width=864, height=480)

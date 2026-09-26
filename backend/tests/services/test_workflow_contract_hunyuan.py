@@ -2,7 +2,7 @@
 
 Every graph is checked against the ComfyUI /object_info snapshot, and the
 values a request resolves to are followed into the nodes that use them.
-Known gaps are strict xfails; docs/video-pipeline.md names each one.
+Known gaps are strict xfails, each naming the gap.
 """
 import pytest
 
@@ -89,7 +89,7 @@ def test_rendered_frames_on_grid_values(comfy, model, which):
 
 @pytest.mark.parametrize("model", MODELS)
 @pytest.mark.xfail(strict=True, reason=(
-    "docs/video-pipeline.md F-13: Hunyuan rounds to the nearest 4n+1, so a request can "
+    "Hunyuan rounds to the nearest 4n+1, so a request can "
     "come back longer; the registry's snap_frames never lengthens"))
 def test_off_grid_frames_are_never_lengthened(comfy, model):
     result, wf, req = _request(comfy, model, duration_frames=75, width=848, height=480)
@@ -98,7 +98,7 @@ def test_off_grid_frames_are_never_lengthened(comfy, model):
 
 
 @pytest.mark.parametrize("model", MODELS)
-@pytest.mark.xfail(strict=True, reason="docs/video-pipeline.md F-12: generate_video does not enforce max_frames")
+@pytest.mark.xfail(strict=True, reason="generate_video does not enforce max_frames")
 def test_rendered_frames_never_exceed_max_frames(comfy, model):
     caps = model_capabilities(model)
     result, wf, req = _request(comfy, model, duration_frames=caps["max_frames"] + 40, width=848, height=480)
