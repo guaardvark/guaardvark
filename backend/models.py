@@ -24,6 +24,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship  # Ensure relationship is imported
 
+from backend.utils.clock import utcnow
+
 logger = logging.getLogger(__name__)
 db = SQLAlchemy()
 
@@ -2441,7 +2443,7 @@ class ExperimentRun(db.Model):
     proposer_model = db.Column(db.String(100), nullable=True)
     judge_model = db.Column(db.String(100), nullable=True)
     retrieval_metrics = db.Column(db.JSON, nullable=True)  # hit_rate_at_k/mrr/ndcg_at_10
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
     def to_dict(self):
         return {
@@ -2481,7 +2483,7 @@ class EvalPair(db.Model):
     # generation instead of stacking cost forever.
     is_active = db.Column(db.Boolean, default=True, index=True)
     stale_reason = db.Column(db.String(100), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     source_document = db.relationship("Document", backref="eval_pairs", lazy=True)
 
@@ -2513,7 +2515,7 @@ class ResearchConfig(db.Model):
     # promoted = live-eligible; candidate = awaiting A/B confirmation (nightly
     # runs, family broadcasts); rejected/superseded = history.
     status = db.Column(db.String(20), nullable=True, default="promoted")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
     def to_dict(self):
         return {
@@ -2548,7 +2550,7 @@ class ResearchRun(db.Model):
     halt_reason = db.Column(db.String(200), nullable=True)
     # The research program text frozen at kickoff (reproducibility).
     program_snapshot = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, index=True)
 
     def to_dict(self, include_report: bool = False):
         d = {
@@ -3650,7 +3652,7 @@ class SuspendedChatState(db.Model):
     rag_context = db.Column(db.Text, nullable=True)
     llm_response = db.Column(db.Text, nullable=True)
     step_info = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=utcnow)
 
 
 
