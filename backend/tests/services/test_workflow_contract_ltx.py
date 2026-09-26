@@ -105,9 +105,6 @@ def test_rendered_canvas_matches_the_resolved_request(comfy, model, mode, ratio)
     assert wc.output_fps(wf) == req.fps
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "LTX 2.5 halves the size onto the 32 px grid, so a size "
-    "that is not a multiple of 64 comes out smaller than the request (800x480 -> 768x448)"))
 def test_ltx25_output_size_equals_the_request(comfy):
     result, wf, req = _request(comfy, "ltx25-distilled-int8", "t2v", width=800, height=480, duration_frames=49)
     assert _output_size("ltx25-distilled-int8", wf) == (req.width, req.height)

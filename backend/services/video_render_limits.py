@@ -158,14 +158,18 @@ def clamp_pixel_area(model_id: str, width: int, height: int, frames: int = 0,
 
 def dimension_alignment(model_id: str, family: Optional[str] = None, *, strict: Optional[bool] = None) -> int:
     """The grid the render snaps to: the family's, or under strict limits the
-    entry's own declaration."""
+    entry's own declaration; always at least the entry's ``output_alignment``,
+    the grid its finished file lands on."""
+    import math
+
     strict = strict_limits_enabled() if strict is None else strict
     fam = _family_of(model_id, family)
-    if strict:
-        declared = limits_for(model_id, fam).get("dimension_alignment")
-        if declared:
-            return int(declared)
-    return int(family_spec(fam or "").get("dimension_alignment") or 16)
+    caps = limits_for(model_id, fam)
+    grid = int(family_spec(fam or "").get("dimension_alignment") or 16)
+    if strict and caps.get("dimension_alignment"):
+        grid = int(caps["dimension_alignment"])
+    output = caps.get("output_alignment")
+    return math.lcm(grid, int(output)) if output else grid
 
 
 def align_dimensions(model_id: str, width: int, height: int, family: Optional[str] = None,
