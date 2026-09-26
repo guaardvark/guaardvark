@@ -232,8 +232,15 @@ def render_character_still(
     )
     strength = resolve_lora_strength(strength_model, lora_strength)
 
+    from backend.services.image_render_limits import resolve_canvas, strict_limits_enabled
+    strict = strict_limits_enabled()
+    defaults_model = route.get("offline_model_key") or route.get("comfy_model_tag") or "auto"
+    if strict and engine == "comfy" and route.get("comfy_model_tag"):
+        # A FLUX route carries offline_model_key "zimage-turbo" (its fallback), which
+        # started FLUX stills from Z-Image's 9 steps / guidance 0.
+        defaults_model = route["comfy_model_tag"]
     defaults = resolve_stills_defaults(
-        route.get("offline_model_key") or route.get("comfy_model_tag") or "auto",
+        defaults_model,
         width=width,
         height=height,
         steps=steps,
@@ -329,6 +336,12 @@ def render_character_still(
         # Comfy SDXL / FLUX — never for Z-Image LoRAs (guarded above).
         from backend.services.comfyui_image_generator import ComfyUIImageGenerator
         model_tag = route.get("comfy_model_tag") or ("flux-dev" if family == "flux" else "sdxl")
+        extra = {}
+        if strict:
+            # The resolved guidance, not the graph's own default of 7.0 (FLUX-dev's
+            # FluxGuidance value is 3.5), and the family's canvas limits.
+            extra["cfg"] = g
+            w, h, _ = resolve_canvas(w, h, model_tag)
         gen = ComfyUIImageGenerator(lora_strength=strength)
         path = gen.generate_image(
             prompt=final_prompt,
@@ -341,6 +354,7 @@ def render_character_still(
             steps_explicit=steps_explicit,
             model=model_tag,
             negative_prompt=negative_prompt or None,
+            **extra,
         )
         st = getattr(gen, "last_steps", st)
         meta["steps"] = st

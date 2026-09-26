@@ -145,6 +145,113 @@ MEDIA_MODEL_REGISTRY: dict[str, dict[str, Any]] = {
 }
 
 
+# ── Render limits (read through backend/services/image_render_limits.py) ──────
+#
+# One row per family, then per-model rows keyed by the stills catalog id
+# (OfflineImageGenerator.available_models) that name their family and override
+# what differs. Fields:
+#   max_side / max_pixel_area / min_side   canvas ceiling and floor (px)
+#   dimension_alignment                   grid each side snaps to (px)
+#   width / height                        canvas when a request names none
+#   default_steps / min_steps             steps when none are given; the floor a
+#                                         default or an agent may not go under
+#   cfg_when_unset                        guidance when none is given
+#   steps_range / cfg_range               the model's working envelope
+#   min_dimensions                        smallest canvas the model is validated at
+#   hard_clamp                            False: out-of-range values are kept and
+#                                         warned about (quality slider owns them)
+#   prompt_style                          "natural" (LLM encoder, prose) or "tags"
+#   vram_mb / ram_gb                      admission price at 1 MP; *_slope_* add
+#                                         per megapixel above that; flux is priced
+#                                         for ComfyUI and has no slope
+#   engine                                "offline" (Diffusers) or "comfy"
+#   starts_from_family                    the caller-side defaults are the family
+#                                         row's unless GUAARDVARK_IMAGE_STRICT_LIMITS
+#                                         is on (the model's own values are what the
+#                                         validator recommends)
+IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
+    # Z-Image: official canvas ~512-2048 per side / ~2048^2 area. The long side
+    # may reach 2688 so 16:9 2K packs (2688x1472, ~3.95 MP) fit under the area.
+    # 9 steps / guidance 0.0 is the official HF recipe (9 steps -> 8 DiT
+    # forwards, CFG distilled out). min_steps 2 measured 2026-09-13 on a 16 GB
+    # card at 1024x1024, seed 1984, verbatim prompts, three scenes at 1-9 steps:
+    # 1 step is visibly broken (grain, blank faces, smeared text), 2 is clean and
+    # only slightly softer than 3-9. prompt_style "natural": Qwen3 encoder,
+    # measured 2026-09-07 (tag suffixes read as scene content, 4/4 seeds).
+    # vram 11000 with CPU model offload; ram 21.0 measured 2026-08-05 (peak RSS
+    # 20.9-21.0 GB flat at 1024/1448/2048 after the unload-leak fixes; 16.3 GB
+    # for one 1024 image on a 32 GB box). Slopes calibrated 2026-08-04 on a
+    # 16 GB 4070 Ti SUPER, sequential offload with VAE tiling: 1448^2 peak
+    # 12467 MB, 2048^2 peak 9534 MB.
+    "zimage": {
+        "max_side": 2688, "max_pixel_area": 2048 * 2048, "min_side": 256, "dimension_alignment": 16,
+        "width": 1024, "height": 1024, "default_steps": 9, "min_steps": 2, "cfg_when_unset": 0.0,
+        "prompt_style": "natural", "engine": "offline",
+        "vram_mb": 11000, "ram_gb": 21.0, "vram_slope_mb_per_mp": 500, "ram_slope_gb_per_mp": 1.0,
+    },
+    # Krea 2: native 2K, same canvas as Z-Image. The family row is Turbo
+    # (8 steps, CFG-free); Raw overrides below. Model-offload peak ~14 GB on a
+    # 16 GB card (2026-07-11); sequential offload on cards up to 18 GB peaks at
+    # ~10 GB. Also an LLM encoder (Qwen3-VL) but not A/B'd, so "tags".
+    "krea2": {
+        "max_side": 2688, "max_pixel_area": 2048 * 2048, "min_side": 256, "dimension_alignment": 16,
+        "width": 1024, "height": 1024, "default_steps": 8, "cfg_when_unset": 0.0,
+        "prompt_style": "tags", "engine": "offline",
+        "vram_mb": 14000, "vram_mb_sequential": 10000, "ram_gb": 24.0,
+        "vram_slope_mb_per_mp": 1000, "ram_slope_gb_per_mp": 1.0,
+    },
+    # FLUX.1-dev: design range ~0.1-2.0 MP (not 2048^2), through ComfyUI.
+    # 28 steps / FluxGuidance 3.5 is the verified quality point.
+    "flux": {
+        "max_side": 1920, "max_pixel_area": 2_100_000, "min_side": 256, "dimension_alignment": 16,
+        "width": 1024, "height": 1024, "default_steps": 28, "cfg_when_unset": 3.5,
+        "prompt_style": "tags", "engine": "comfy",
+        "vram_mb": 12000, "ram_gb": 16.0,
+    },
+    "sdxl": {
+        "max_side": 1536, "max_pixel_area": 1536 * 1536, "min_side": 256, "dimension_alignment": 16,
+        "width": 1024, "height": 1024, "default_steps": 25, "cfg_when_unset": 7.0,
+        "prompt_style": "tags", "engine": "offline",
+        "vram_mb": 8000, "ram_gb": 10.0, "vram_slope_mb_per_mp": 1500, "ram_slope_gb_per_mp": 1.0,
+    },
+    "sd": {
+        "max_side": 768, "max_pixel_area": 768 * 768, "min_side": 256, "dimension_alignment": 16,
+        "width": 512, "height": 512, "default_steps": 20, "cfg_when_unset": 7.5,
+        "prompt_style": "tags", "engine": "offline",
+        "vram_mb": 4000, "ram_gb": 6.0, "vram_slope_mb_per_mp": 800, "ram_slope_gb_per_mp": 0.5,
+    },
+}
+
+IMAGE_MODEL_LIMITS: dict[str, dict[str, Any]] = {
+    # CFG-distilled: the steps range is the recommended envelope, low end the
+    # measured floor above; out-of-range values are warned about, not clamped.
+    "zimage-turbo": {"family": "zimage", "steps_range": (2, 30), "cfg_range": (0.0, 2.0),
+                     "min_dimensions": (512, 512), "hard_clamp": False},
+    "krea2-turbo": {"family": "krea2", "steps_range": (4, 20), "cfg_range": (0.0, 1.0),
+                    "min_dimensions": (512, 512), "hard_clamp": False},
+    # Krea 2 Raw: the base checkpoint, ~52 steps / CFG 3.5.
+    "krea2-raw": {"family": "krea2", "default_steps": 52, "cfg_when_unset": 3.5,
+                  "steps_range": (20, 80), "cfg_range": (1.0, 7.0),
+                  "min_dimensions": (512, 512), "hard_clamp": False},
+    # FluxGuidance, not classic CFG. Heavy: batches run one image at a time.
+    "flux-dev": {"family": "flux", "steps_range": (8, 50), "cfg_range": (1.0, 6.0),
+                 "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
+    # SDXL: guidance above 9 renders black images, so its range is enforced.
+    "sd-xl": {"family": "sdxl", "steps_range": (20, 40), "cfg_range": (4.0, 9.0),
+              "min_dimensions": (768, 768)},
+    "sdxl-turbo": {"family": "sdxl", "starts_from_family": True, "default_steps": 4, "cfg_when_unset": 0.0,
+                   "steps_range": (1, 4), "cfg_range": (0.0, 1.0), "min_dimensions": (768, 768)},
+    "sd-1.5": {"family": "sd", "steps_range": (10, 50), "cfg_range": (1.0, 15.0),
+               "min_dimensions": (512, 512)},
+    # SD 1.5 fine-tunes, portrait-first canvases.
+    "realistic-vision": {"family": "sd", "starts_from_family": True, "default_steps": 30, "cfg_when_unset": 8.0,
+                         "steps_range": (25, 40), "cfg_range": (7.0, 10.0),
+                         "min_dimensions": (512, 512), "width": 512, "height": 768},
+    "epic-realism": {"family": "sd", "starts_from_family": True, "default_steps": 35, "cfg_when_unset": 7.5,
+                     "steps_range": (30, 40), "cfg_range": (7.0, 9.0),
+                     "min_dimensions": (512, 512), "width": 512, "height": 768},
+}
+
 def get_profile(model_id: str | None) -> Optional[dict[str, Any]]:
     if not model_id:
         return None

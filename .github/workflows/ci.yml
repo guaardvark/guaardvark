@@ -331,6 +331,7 @@ jobs:
             backend/tests/services/test_image_resolution_limits.py \
             backend/tests/services/test_image_prompt_sanitize.py \
             backend/tests/services/test_media_model_registry.py \
+            backend/tests/services/test_image_render_limits.py \
             backend/tests/services/test_model_availability.py \
             backend/tests/services/test_video_dimension_limits.py \
             backend/tests/services/test_video_model_preflight.py \
