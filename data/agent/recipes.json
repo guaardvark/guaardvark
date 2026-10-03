@@ -510,7 +510,7 @@
         "action": "wait_until_settled",
         "timeout_s": 1.5
       }
-    ]
+    ]  b
   },
   "close_tab": {
     "description": "Close the current browser tab.",
@@ -604,5 +604,101 @@
         "timeout_s": 8.0
       }
     ]
+  },
+   "next_tab": {
+     "description": "Switch to the next brower tab.",
+     "triggers": [
+       "^next\\s+tab \\s*$"
+       "^switch\\s+to\\s+the\\s+next\\s+tab\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "ctrl",
+          "tab"
+        ]
+     }
+   ]
+ },
+  "previous_tab": {
+    "description": "Switch to the previous brower tab.",
+    "triggers": [
+      "^previous\\s+tab \\s*$",
+      "^go\\s+to\\s+the\\s+previous\\s+tab\\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "ctrl",
+          "shift",
+          "tab"
+        ]
+     }
+   ]
+ },
+  "bookmark_page": {
+    "description": "Bookmark the current browser page.",
+    "triggers": [
+      "^bookmark\\s+(?:this\\s+)?page \\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "ctrl",
+          "d"
+        ]
+      },
+      {
+        "action": "wait_until_visible",
+        "target_description": "Firefox bookmark panel",
+        "timeout_s": 4.0
+  },
+  {
+     "action" : "hotkey",
+     "keys" : [
+            "Escape"
+      ]
+   }
+},
+  "zoom_in": {
+    "description":  "Zoom in on the current browser page.",
+    "triggers": [
+      "^zoom\\s+in \\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "ctrl",
+          "plus"
+        ]
+     },
+     {  "action" : "wait_until_settled",
+         "timeout_s" : 1.5
+       }
+   ]
+ },
+  "zoom_out": {
+    "description":  "Zoom out on the current browser page.",
+    "triggers": [
+      "^zoom\\s+out \\s*$"
+    ],
+    "steps": [
+      {
+        "action": "hotkey",
+        "keys": [
+          "ctrl",
+          "minus"
+        ]
+     },
+      {  "action" : "wait_until_settled",
+         "timeout_s" : 1.5
+       }
+   ]
+ }
+}
   }
 }
