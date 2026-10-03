@@ -25,7 +25,7 @@
     "@popperjs/core": "^2.11.8",
     "axios": "^1.20.0",
     "d3-force": "^3.0.0",
-    "dompurify": "^3.4.12",
+    "dompurify": "^3.4.16",
     "lucide-react": "^1.47.0",
     "mammoth": "^1.13.0",
     "monaco-editor": "^0.57.0",
@@ -66,7 +66,7 @@
   },
   "overrides": {
     "ws": "^8.20.1",
-    "dompurify": "^3.4.12",
+    "dompurify": "^3.4.16",
     "form-data": "^4.0.6",
     "js-yaml": "^4.3.0",
     "@babel/core": "^7.29.6",
