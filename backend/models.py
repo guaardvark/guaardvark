@@ -24,7 +24,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship  # Ensure relationship is imported
 
-from backend.utils.clock import utcnow
+from backend.utils.clock import iso_local, iso_utc, utcnow
 
 logger = logging.getLogger(__name__)
 db = SQLAlchemy()
@@ -3760,13 +3760,14 @@ class InboundScan(db.Model):
     payload = db.Column(db.Text)
     pending_fix_id = db.Column(db.Integer, index=True)
     decided_by = db.Column(db.String(80))
-    decided_at = db.Column(db.DateTime)
+    decided_at = db.Column(db.DateTime)  # local wall time (datetime.now()); created_at is naive UTC
     decision_note = db.Column(db.Text)
 
     def to_dict(self, include_payload: bool = False) -> dict:
+        """The row for the API; every time carries an explicit offset."""
         out = {
             "id": self.id,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": iso_utc(self.created_at),
             "source": self.source,
             "subject": self.subject,
             "mode": self.mode,
@@ -3781,7 +3782,7 @@ class InboundScan(db.Model):
             "status": self.status,
             "pending_fix_id": self.pending_fix_id,
             "decided_by": self.decided_by,
-            "decided_at": self.decided_at.isoformat() if self.decided_at else None,
+            "decided_at": iso_local(self.decided_at),
             "decision_note": self.decision_note,
             "landable": bool(self.payload),
         }

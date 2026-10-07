@@ -25,6 +25,7 @@ from __future__ import annotations
 import json
 import logging
 import queue
+import re
 import sys
 import threading
 from pathlib import Path
@@ -383,8 +384,426 @@ def git_ledger(limit: int = 50) -> List[dict]:
         return []
 
 
-def approve_git(digest: str, by: str, note: str) -> None:
-    _git_ledger_append({"kind": "approval", "digest": digest, "by": by, "note": note})
+LEDGER_MAX_RECORDS = 50000
+_ledger_cache: Dict[str, Any] = {}
+
+
+def _ledger_records() -> List[dict]:
+    """Every ledger record, oldest first (the newest LEDGER_MAX_RECORDS), re-read only when the files change."""
+    path = _git_ledger_path()
+    files = (path.with_suffix(".jsonl.1"), path)
+    stamp = (str(path), tuple((f.stat().st_size, f.stat().st_mtime_ns) if f.exists() else None for f in files))
+    if _ledger_cache.get("stamp") != stamp:
+        from collections import deque
+
+        from scripts.inbound_guard import ledger
+
+        _ledger_cache.update(stamp=stamp, records=list(deque(ledger.records(path), maxlen=LEDGER_MAX_RECORDS)))
+    return _ledger_cache["records"]
+
+
+def approve_git(digest: str, by: str, note: str, *, override_block: bool = False) -> dict:
+    """Record an approval for one git verdict, refusing a block without ``override_block`` as the CLI does."""
+    with _land_lock:
+        last = None
+        for item in _ledger_records():
+            if item.get("kind") == "verdict" and item.get("digest") == digest:
+                last = item
+        if last is None:
+            raise LookupError("No verdict is recorded for that digest")
+        if last.get("verdict") == "block" and not override_block:
+            raise ValueError("That change was blocked, not held. Read the findings; approving it needs override_block.")
+        entry = {"kind": "approval", "digest": digest, "by": by, "note": note,
+                 "subject": last.get("subject"), "verdict": last.get("verdict")}
+        _git_ledger_append(entry)
+        return entry
+
+
+# -- what a person's decision does, per item ------------------------------------------------------
+
+APPROVE_EFFECTS = {
+    "apply": "apply the held change",
+    "accept": "accept the file as it is",
+    "record": "record an approval only (the change already landed)",
+    "merge_hook": "lets this exact change through the merge hook",
+    "allow_again": "record an approval only; nothing is applied now, and exactly this change passes the guard "
+                   "if it is made again",
+}
+# Recorded after the fact: settings and inventories the posture checks diff, and
+# the first sweep's read of code that was already in place.
+_RECORDED_AFTER = ("posture", "watch-audit")
+# Ledger sources that only read a range (a manual or CI scan): nothing was applied or refused.
+_SCAN_ONLY = ("cli", "ci", "check")
+# Written by the reference-transaction hook after the ref had already moved.
+_REF_MOVED = ("fetch", "branch-update")
+
+
+def scan_effect(row, fix_status: Optional[str] = None) -> str:
+    """What approving one database verdict does; ``approve_and_land`` acts on exactly this."""
+    if row.source == "watch":
+        return "accept"
+    if row.source in _RECORDED_AFTER:
+        return "record"
+    if row.pending_fix_id:
+        return "record" if fix_status == "applied" else "apply"
+    if row.mode != "enforce":
+        return "record"  # observing: nothing held it, so it landed when it was made
+    return "apply" if row.payload else "allow_again"
+
+
+def git_effect(records: List[dict]) -> str:
+    """What approving a git verdict does, from every ledger record of that one change."""
+    for item in records:
+        source, mode = item.get("source"), item.get("mode")
+        if source in _REF_MOVED:
+            return "record"
+        if source == "git-merge" and (mode != "enforce" or item.get("approved")):
+            return "record"
+        if source not in _SCAN_ONLY and source != "git-merge" and mode != "enforce":
+            return "record"
+    if any(item.get("source") == "git-merge" for item in records):
+        return "merge_hook"
+    return "allow_again"
+
+
+def git_effect_for(digest: str) -> str:
+    return git_effect([r for r in _ledger_records() if r.get("kind") == "verdict" and r.get("digest") == digest])
+
+
+def _scan_notes(row, effect: str, fix_status: Optional[str], mode_now: str) -> Dict[str, Optional[str]]:
+    """The plain-words consequence of approving and of rejecting one database verdict."""
+    if row.source == "posture":
+        why = "Posture checks compare settings and inventories after they change; nothing is held."
+    elif row.source == "watch-audit":
+        why = "The first sweep read code that was already here; nothing is held."
+    elif effect == "accept":
+        why = "Already on disk: the sweep found it after it was written."
+    elif effect == "record" and fix_status == "applied":
+        why = "Its pending fix was already applied."
+    elif effect == "record":
+        why = "Recorded while the guard observed, so nothing held it: it landed when it was made."
+    elif effect == "allow_again":
+        why = "Refused when it was made, and its text was not kept, so there is nothing to apply."
+    elif row.pending_fix_id:
+        why = f"Waiting as pending fix #{row.pending_fix_id}; nothing is written until it is approved."
+    else:
+        why = "Held before it was written; nothing is written until it is approved."
+    if effect == "apply":
+        reject = ("reject it and its pending fix; nothing is written" if row.pending_fix_id
+                  else "discard it; nothing is written")
+    elif effect == "accept":
+        reject = "close it; the file stays on disk" + (
+            " and is not served to other machines until it changes" if mode_now == "enforce" else "")
+    elif effect == "allow_again":
+        reject = "close it; nothing was written and nothing is"
+    else:
+        reject = "close it; nothing is undone"
+    return {"approve_note": why, "what_reject_does": reject}
+
+
+def _finding_with_origin(finding: dict, providers: List[str]) -> dict:
+    """A finding plus ``origin``: core, extension, posture, or unknown for rows recorded before findings named their scanner."""
+    provider = finding.get("provider")
+    if provider and provider != "core":
+        origin = "extension"
+    elif provider == "core":
+        origin = "core"
+    elif finding.get("pack") == "posture":
+        origin = "posture"
+    else:
+        origin = "unknown" if providers else "core"
+    return {**finding, "origin": origin}
+
+
+def scanners_run(source: Optional[str], providers: List[str]) -> List[dict]:
+    """The checks that produced an item's findings: Guaardvark's own, then each extension scanner that ran."""
+    own = ({"name": "posture checks", "by": "Guaardvark"} if source == "posture"
+           else {"name": "core rules", "by": "Guaardvark"})
+    return [own] + [{"name": name, "by": f"extension {name.split('.', 1)[0]}"} for name in providers]
+
+
+def describe_scans(rows: List[Any]) -> List[dict]:
+    """API dicts for verdict rows, with when they were flagged and what approving or rejecting each does."""
+    from backend.models import InboundBaseline, PendingFix, db
+    from backend.utils.clock import iso_epoch, iso_local
+
+    fix_ids = [r.pending_fix_id for r in rows if r.pending_fix_id]
+    fixes = ({f.id: f for f in db.session.query(PendingFix).filter(PendingFix.id.in_(fix_ids)).all()}
+             if fix_ids else {})
+    watch_ids = [r.id for r in rows if r.source == "watch"]
+    baselines: Dict[int, Any] = {}
+    if watch_ids:
+        for base in db.session.query(InboundBaseline).filter(InboundBaseline.scan_id.in_(watch_ids)).all():
+            baselines.setdefault(base.scan_id, base)
+    mode_now = get_mode()
+    out = []
+    for row in rows:
+        fix = fixes.get(row.pending_fix_id)
+        fix_status = fix.status if fix is not None else None
+        effect = scan_effect(row, fix_status)
+        base = baselines.get(row.id)
+        data = row.to_dict()
+        data.update(
+            kind="scan",
+            flagged_at=data["created_at"],
+            mode_at_record=row.mode or None,
+            approve_effect=effect,
+            what_approve_does=APPROVE_EFFECTS[effect],
+            can_reject=True,
+            landed=effect in ("record", "accept"),
+            file_path=base.path if base is not None else None,
+            file_mtime=iso_epoch(base.mtime) if base is not None and base.mtime else None,
+            fix_status=fix_status,
+            fix_created_at=iso_local(fix.created_at) if fix is not None and fix.created_at else None,
+            scanners_run=scanners_run(row.source, data["providers"]),
+            findings=[_finding_with_origin(f, data["providers"]) for f in data["findings"]],
+            **_scan_notes(row, effect, fix_status, mode_now),
+        )
+        out.append(data)
+    return out
+
+
+def open_summary() -> Dict[str, int]:
+    """Open database verdicts by what they are: waiting, landed (recorded only), on disk, blocked."""
+    from types import SimpleNamespace
+
+    from backend.models import InboundScan, PendingFix, db
+
+    rows = (db.session.query(InboundScan.source, InboundScan.mode, InboundScan.verdict, InboundScan.pending_fix_id,
+                             InboundScan.payload.isnot(None), PendingFix.status)
+            .outerjoin(PendingFix, PendingFix.id == InboundScan.pending_fix_id)
+            .filter(InboundScan.status == "open").all())
+    counts = {"waiting": 0, "landed": 0, "on_disk": 0, "blocked": 0}
+    for source, mode, verdict, fix_id, has_payload, fix_status in rows:
+        effect = scan_effect(SimpleNamespace(source=source, mode=mode, pending_fix_id=fix_id, payload=has_payload),
+                             fix_status)
+        counts[{"accept": "on_disk", "record": "landed"}.get(effect, "waiting")] += 1
+        if verdict == "block":
+            counts["blocked"] += 1
+    return counts
+
+
+# -- git ledger items --------------------------------------------------------------------------------
+
+_SHA = re.compile(r"^[0-9a-f]{7,40}$")
+_RANGE_IN_SUBJECT = re.compile(r"\b([0-9a-f]{7,40})\.\.([0-9a-f]{7,40})\b")
+COMMITS_MAX = 500
+_commit_cache: Dict[tuple, dict] = {}
+
+
+def _record_shas(item: dict) -> tuple:
+    """(old, new) commits of one ledger record: the stored fields, else a range in the subject."""
+    old, new = item.get("old_sha"), item.get("new_sha")
+    if old and new:
+        return old, new
+    match = _RANGE_IN_SUBJECT.search(item.get("subject") or "")
+    return (match.group(1), match.group(2)) if match else (None, None)
+
+
+def commit_dates(old_sha: Optional[str], new_sha: Optional[str], repo: Optional[Path] = None) -> Optional[dict]:
+    """The commits ``old..new`` brought in: how many, and the oldest and newest committer dates.
+
+    None when either commit is unknown to this clone (pruned, or never fetched here).
+    """
+    if not (old_sha and new_sha and _SHA.match(old_sha) and _SHA.match(new_sha)):
+        return None
+    key = (str(repo or REPO_ROOT), old_sha, new_sha)
+    if key in _commit_cache:
+        return _commit_cache[key]
+    engine()
+    from datetime import datetime
+
+    from scripts.inbound_guard.sources import GitError, git
+
+    try:
+        out = git(repo or REPO_ROOT, "log", "--format=%H %cI", f"-n{COMMITS_MAX}", f"{old_sha}..{new_sha}", "--")
+    except GitError:
+        return None
+    dates = [line.split(" ", 1)[1] for line in out.decode("utf-8", "replace").splitlines() if " " in line]
+    parsed = sorted(dates, key=datetime.fromisoformat)
+    result = {
+        "range": f"{old_sha[:9]}..{new_sha[:9]}",
+        "count": len(dates),
+        "capped": len(dates) >= COMMITS_MAX,
+        "oldest_at": parsed[0] if parsed else None,
+        "newest_at": parsed[-1] if parsed else None,
+    }
+    if len(_commit_cache) > 2048:
+        _commit_cache.clear()
+    _commit_cache[key] = result
+    return result
+
+
+def _git_note(records: List[dict], effect: str, hooks_mode: str) -> str:
+    """Why a git item is in the state it is, and what approving it changes, in plain words."""
+    sources = {r.get("source") for r in records}
+    ref = next((r.get("ref") for r in reversed(records) if r.get("ref")), None) or "the branch"
+    if effect == "merge_hook" and hooks_mode != "enforce":
+        return ("The merge hook refused this merge commit while it enforced. It refuses nothing now, so approving "
+                "matters only if it enforces again. Approving merges nothing.")
+    if effect == "merge_hook":
+        return "The merge hook refused this merge commit. Approving merges nothing: run the merge again after."
+    if effect == "record" and "git-merge" in sources:
+        if any(r.get("source") == "git-merge" and r.get("approved") for r in records):
+            return "An approval for exactly this change already existed, so the merge went ahead."
+        return "Recorded while the guard observed, so nothing refused it: the merge went ahead."
+    if effect == "record" and "fetch" in sources:
+        return (f"Recorded after the fetch: the commits are in {ref}, not merged into a local branch by it. "
+                "The guard never refuses a fetch.")
+    if effect == "record" and "branch-update" in sources:
+        return (f"Recorded after {ref} had moved (a fast-forward, pull, reset or commit). "
+                "The guard never refuses a branch update.")
+    if effect == "record":
+        return "Recorded while the guard observed, so nothing held it: it landed when it was made."
+    if sources <= set(_SCAN_ONLY):
+        return "Recorded by a manual or CI scan, which reads a range and applies nothing."
+    return "Refused when it was made; nothing was applied."
+
+
+def _git_item(digest: str, records: List[dict], approval: Optional[dict], hooks_mode: str) -> dict:
+    """One change the git side recorded, folded from every ledger record that carries its digest."""
+    from backend.utils.clock import iso_text
+
+    newest, first = records[-1], records[0]
+    # A merge record names the branch that came in; the branch update it caused names only commits.
+    primary = next((r for r in reversed(records) if r.get("source") == "git-merge"), newest)
+    old_sha = new_sha = None
+    for item in reversed(records):
+        old_sha, new_sha = _record_shas(item)
+        if old_sha and new_sha:
+            break
+    effect = git_effect(records)
+    providers = newest.get("providers") or []
+    landed: Optional[bool] = effect == "record"
+    if effect == "allow_again" and all(r.get("source") in _SCAN_ONLY for r in records):
+        landed = None
+    return {
+        "kind": "git",
+        "digest": digest,
+        "subject": primary.get("subject"),
+        "source": primary.get("source"),
+        "sources": list(dict.fromkeys(r.get("source") for r in records if r.get("source"))),
+        "verdict": newest.get("verdict"),
+        "top_severity": newest.get("top_severity"),
+        "findings": [_finding_with_origin(f, providers) for f in newest.get("findings") or []],
+        "providers": providers,
+        "errors": newest.get("errors") or [],
+        "files": newest.get("files"),
+        "added_lines": newest.get("added_lines"),
+        "status": "approved" if approval else "open",
+        "approved": bool(approval),
+        "approved_at": iso_text(approval.get("ts")) if approval else None,
+        "mode_at_record": newest.get("mode"),
+        "ref": next((r.get("ref") for r in reversed(records) if r.get("ref")), None),
+        "flagged_at": iso_text(first.get("ts")),
+        "last_seen_at": iso_text(newest.get("ts")),
+        "seen": len(records),
+        "old_sha": old_sha,
+        "new_sha": new_sha,
+        "approve_effect": effect,
+        "what_approve_does": APPROVE_EFFECTS[effect],
+        "approve_note": _git_note(records, effect, hooks_mode),
+        "can_reject": False,
+        "what_reject_does": "a git record cannot be rejected here: the ledger keeps approvals only. "
+                            "Undo the merge or reset the branch in git.",
+        "landed": landed,
+        "scanners_run": scanners_run(newest.get("source"), providers),
+    }
+
+
+def git_items(offset: int = 0, limit: int = 50, *, include_approved: bool = False,
+              with_commits: bool = True, hooks_mode: Optional[str] = None) -> tuple:
+    """(page, total): changes the git side held or blocked, newest first, read from the whole ledger.
+
+    Records of one change (a merge, then the branch update it caused) are folded
+    into one item by digest. An approval anywhere in the ledger settles it.
+    """
+    records = _ledger_records()
+    approvals = {r["digest"]: r for r in records if r.get("kind") == "approval" and r.get("digest")}
+    groups: Dict[str, List[dict]] = {}
+    last_index: Dict[str, int] = {}
+    for index, item in enumerate(records):
+        if item.get("kind") != "verdict" or item.get("verdict") in (None, "allow") or not item.get("digest"):
+            continue
+        groups.setdefault(item["digest"], []).append(item)
+        last_index[item["digest"]] = index
+    hooks_mode = hooks_mode or git_hooks_status().get("mode", "off")
+    order = sorted((d for d in groups if include_approved or d not in approvals), key=last_index.get, reverse=True)
+    page = [_git_item(d, groups[d], approvals.get(d), hooks_mode) for d in order[offset:offset + limit]]
+    if with_commits:
+        for item in page:
+            item["commits"] = commit_dates(item["old_sha"], item["new_sha"])
+    return page, len(order)
+
+
+# -- decisions on several items ---------------------------------------------------------------------
+
+def approve_batch(ids: List[int], git_digests: List[str], *, by: str, note: str = "",
+                  include_blocks: bool = False) -> List[dict]:
+    """Approve items one at a time, each under the landing lock; a result per item says what happened.
+
+    A blocked item is skipped unless ``include_blocks``. One item failing does
+    not stop the rest; its reason comes back in its result.
+    """
+    from backend.models import InboundScan, db
+    from backend.services.guarded_code_service import GuardedCodeError
+
+    left_out = "blocked; left out unless blocks are included"
+    results: List[dict] = []
+    for scan_id in ids:
+        entry: Dict[str, Any] = {"kind": "scan", "id": scan_id}
+        row = db.session.get(InboundScan, scan_id)
+        if row is None:
+            results.append({**entry, "outcome": "failed", "reason": "No such inbound verdict"})
+            continue
+        if row.verdict == "block" and not include_blocks:
+            results.append({**entry, "outcome": "skipped", "reason": left_out})
+            continue
+        try:
+            done = approve_and_land(scan_id, by=by, note=note, override_block=include_blocks)
+        except (LookupError, ValueError, GuardedCodeError) as exc:
+            db.session.rollback()
+            results.append({**entry, "outcome": "failed", "reason": str(exc)})
+            continue
+        except Exception as exc:  # noqa: BLE001 - reported per item; the rest still run
+            db.session.rollback()
+            logger.warning("inbound guard: batch approve of #%s failed: %s", scan_id, exc, exc_info=True)
+            results.append({**entry, "outcome": "failed", "reason": str(exc)})
+            continue
+        results.append({**entry, "outcome": "approved", "effect": done["approve_effect"],
+                        "landed_paths": done["landed_paths"]})
+    for digest in git_digests:
+        entry = {"kind": "git", "digest": digest}
+        try:
+            approve_git(digest, by, note, override_block=include_blocks)
+        except ValueError:  # the only refusal approve_git makes is a block without the override
+            results.append({**entry, "outcome": "skipped", "reason": left_out})
+            continue
+        except Exception as exc:  # noqa: BLE001 - reported per item
+            results.append({**entry, "outcome": "failed", "reason": str(exc)})
+            continue
+        results.append({**entry, "outcome": "approved", "effect": git_effect_for(digest), "landed_paths": []})
+    return results
+
+
+def reject_batch(ids: List[int], git_digests: List[str], *, by: str, note: str = "") -> List[dict]:
+    """Reject database items one at a time; git records cannot be rejected and come back skipped."""
+    from backend.models import db
+
+    results: List[dict] = []
+    for scan_id in ids:
+        entry: Dict[str, Any] = {"kind": "scan", "id": scan_id}
+        try:
+            reject_held(scan_id, by=by, note=note)
+        except Exception as exc:  # noqa: BLE001 - reported per item
+            db.session.rollback()
+            results.append({**entry, "outcome": "failed", "reason": str(exc)})
+            continue
+        results.append({**entry, "outcome": "rejected"})
+    for digest in git_digests:
+        results.append({"kind": "git", "digest": digest, "outcome": "skipped",
+                        "reason": "a git record cannot be rejected; undo the merge or reset the branch in git"})
+    return results
 
 
 # -- registries -----------------------------------------------------------------------------
@@ -550,37 +969,42 @@ def _settle(row, status: str, by: str, note: str) -> None:
 
 
 def approve_and_land(scan_id: int, *, by: str, note: str = "", override_block: bool = False) -> dict:
-    """Approve a held change and make it land, or change nothing.
+    """Approve an open verdict and do exactly what ``scan_effect`` says for it, or change nothing.
 
-    Every kind of held item lands here, so a person's "approve" means the same
+    Every kind of item is approved here, so a person's "approve" means the same
     thing wherever they press it:
-    - an edit waiting as a pending fix is applied (exact text only, and only if
-      it still reads as it did when it was held);
-    - a held file operation (create, delete, rename) is carried out;
-    - a source-watch hold takes the file as it is now as judged.
+    - apply: an edit waiting as a pending fix is applied (exact text only, and
+      only if it still reads as it did when it was held), or a held file
+      operation (create, delete, rename) is carried out;
+    - accept: a source-watch hold takes the file as it is now as judged;
+    - record / allow_again: the approval is recorded and nothing is written,
+      because the change already landed or its text was not kept.
     The change lands first and the approval is recorded after, so a failure
-    leaves the item open with the reason.
+    leaves the item open with the reason. Returns the described row plus
+    ``landed_paths``.
     """
-    from backend.models import db
+    from backend.models import PendingFix, db
 
     with _land_lock:
         row = _open_scan(scan_id)
         if row.verdict == "block" and not override_block:
             raise ValueError("That change was blocked, not held. Read the findings; approving it needs override_block.")
+        fix = db.session.get(PendingFix, row.pending_fix_id) if row.pending_fix_id else None
+        effect = scan_effect(row, fix.status if fix is not None else None)
         landed: List[str] = []
-        if row.pending_fix_id:
+        if effect == "apply" and row.pending_fix_id:
             landed = _land_pending_fix(row, by=by, note=note)
-        elif row.payload:
+        elif effect == "apply":
             landed = _land_payload(json.loads(row.payload))
             _emit({"kind": "landed", "paths": landed, "source": row.source, "subject": row.subject,
                    "digest": row.digest, "scan_id": row.id})
         _settle(row, "approved", by, note)
         db.session.commit()
-        if row.source == "watch":
+        if effect == "accept":
             from backend.services import inbound_guard_watch
 
             inbound_guard_watch.approve_held(row.id)
-        return {**row.to_dict(), "landed": landed}
+        return {**describe_scans([row])[0], "landed_paths": landed}
 
 
 def _land_pending_fix(row, *, by: str, note: str) -> List[str]:
@@ -677,7 +1101,7 @@ def reject_held(scan_id: int, *, by: str, note: str = "") -> dict:
         db.session.commit()
         if row.pending_fix_id:
             resolve_for_fix(row.pending_fix_id, "reject", by=by, note=note)
-        return {**row.to_dict(), "landed": []}
+        return {**describe_scans([row])[0], "landed_paths": []}
 
 
 def _land_payload(payload: dict) -> List[str]:
@@ -786,8 +1210,8 @@ def verdicts_for_fixes(fix_ids: List[int]) -> Dict[int, dict]:
     out: Dict[int, dict] = {}
     rows = (db.session.query(InboundScan).filter(InboundScan.pending_fix_id.in_(fix_ids))
             .order_by(InboundScan.created_at.asc()).all())
-    for row in rows:
-        out[row.pending_fix_id] = row.to_dict()
+    for described in describe_scans(rows):
+        out[described["pending_fix_id"]] = described
     return out
 
 
