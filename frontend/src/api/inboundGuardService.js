@@ -20,12 +20,19 @@ export const inboundGuardService = {
     return post(ROOT, { mode });
   },
 
-  // git: include verdicts the git hooks recorded. Leave it off when polling:
-  // the database list alone is cheap.
-  async listScans(status = "open", limit = 50, { git = true } = {}) {
-    return handleResponse(
-      await fetch(`${ROOT}/scans?status=${encodeURIComponent(status)}&limit=${limit}&git=${git ? 1 : 0}`),
-    );
+  // git: include changes the git side recorded, read from the whole ledger. Leave
+  // it off when polling: the database list alone is cheap. offset and gitOffset
+  // page the two lists; the response carries scans_total and git_total.
+  async listScans(status = "open", limit = 50, { git = true, offset = 0, gitLimit = limit, gitOffset = 0 } = {}) {
+    const params = new URLSearchParams({
+      status,
+      limit: String(limit),
+      offset: String(offset),
+      git: git ? "1" : "0",
+      git_limit: String(gitLimit),
+      git_offset: String(gitOffset),
+    });
+    return handleResponse(await fetch(`${ROOT}/scans?${params}`));
   },
 
   async approveScan(id, { note = "", overrideBlock = false } = {}) {
@@ -48,7 +55,17 @@ export const inboundGuardService = {
     return post(`${ROOT}/sweep`, {});
   },
 
-  async approveGit(digest, note = "") {
-    return post(`${ROOT}/git/${encodeURIComponent(digest)}/approve`, { note });
+  async approveGit(digest, note = "", { overrideBlock = false } = {}) {
+    return post(`${ROOT}/git/${encodeURIComponent(digest)}/approve`, { note, override_block: overrideBlock });
+  },
+
+  // Decided item by item on the server; blocks are skipped unless includeBlocks.
+  // The response holds a result per item plus approved/skipped/failed counts.
+  async approveBatch({ ids = [], gitDigests = [], note = "", includeBlocks = false } = {}) {
+    return post(`${ROOT}/scans/approve-batch`, { ids, git_digests: gitDigests, note, include_blocks: includeBlocks });
+  },
+
+  async rejectBatch({ ids = [], gitDigests = [], note = "" } = {}) {
+    return post(`${ROOT}/scans/reject-batch`, { ids, git_digests: gitDigests, note });
   },
 };

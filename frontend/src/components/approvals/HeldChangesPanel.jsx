@@ -22,7 +22,8 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { inboundGuardService } from "../../api/inboundGuardService";
 import { approveHeldChange, isActionable, rejectHeldChange } from "../../api/heldChanges";
-import { FindingList } from "../settings/InboundGuardSection";
+import { FindingList, excerptLabelFor } from "../settings/InboundFindingList";
+import { EFFECT_BUTTON, formatExact, formatRelative, sourceLabel } from "../settings/inboundGuardReview";
 import { ConfirmActionDialog } from "../settings/ui";
 
 const VERDICT_COLOR = { block: "error", hold: "warning" };
@@ -30,36 +31,33 @@ const VERDICT_COLOR = { block: "error", hold: "warning" };
 const KIND_LABEL = (scan) => {
   if (scan.pending_fix_id) return "edit";
   if (scan.landable) return "file";
-  if (scan.source === "watch") return "on disk";
-  return scan.source;
+  return sourceLabel(scan.source);
 };
 
-// What approving does depends on what was kept when the change was stopped. An
-// edit refused outright (a block) keeps no text to apply; approving it records
-// the digest, so the same change passes when it is made again.
+// The backend decides what approving does (approve_effect) and acts on the same
+// rule; the fallback covers a response from a backend that does not send it yet.
 const APPROVAL_EFFECT = (scan) => {
   if (!scan) return "apply";
+  if (scan.approve_effect) return scan.approve_effect;
   if (scan.source === "watch") return "accept";
   if (scan.pending_fix_id || scan.landable) return "apply";
-  return "allow-again";
+  return "allow_again";
 };
 
 const APPROVED_MESSAGE = {
   apply: "Approved; the change landed",
   accept: "Accepted as it is on disk",
-  "allow-again": "Approved; nothing was applied. The same change goes through if it is made again",
+  record: "Approval recorded; nothing was written, because the change had already landed",
+  allow_again: "Approved; nothing was applied. The same change goes through if it is made again",
 };
 
-const formatWhen = (iso) => {
-  if (!iso) return "";
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "";
-  const mins = Math.round((Date.now() - then) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(iso).toLocaleDateString();
+const CONFIRM_TEXT = {
+  apply:
+    "The change is written into this checkout now. If the file no longer reads as it did when it was held, nothing is written and the reason is shown.",
+  accept: "Nothing is written: the file is already on disk. Approving accepts it as it is now.",
+  record: "Nothing is written: the change already landed. Approving records that you read it.",
+  allow_again:
+    "Nothing is written now. Exactly this change will pass the guard the next time it is made; read every finding first.",
 };
 
 const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
@@ -155,8 +153,14 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
                     color={VERDICT_COLOR[scan.verdict] || "default"}
                     sx={{ height: 18 }}
                   />
-                  <Typography variant="caption" color="text.secondary" component="span">
-                    {KIND_LABEL(scan)} · {scan.findings?.length || 0} finding(s) · {formatWhen(scan.created_at)}
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    component="span"
+                    title={formatExact(scan.flagged_at || scan.created_at)}
+                  >
+                    {KIND_LABEL(scan)} · {scan.findings?.length || 0} finding(s) ·{" "}
+                    {formatRelative(scan.flagged_at || scan.created_at)}
                   </Typography>
                 </Stack>
               }
@@ -186,7 +190,6 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
     const blocked = detail.verdict === "block";
     const diff = detail.fix?.diff || detail.diff;
     const effect = APPROVAL_EFFECT(detail);
-    const onDisk = effect === "accept";
     return (
       <Box sx={{ p: 3 }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }} flexWrap="wrap">
@@ -198,13 +201,22 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
           {detail.fix && <Chip label={`pending fix #${detail.fix.id}`} size="small" variant="outlined" />}
         </Stack>
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-          {detail.files} file(s), +{detail.added_lines} line(s) · {formatWhen(detail.created_at)} · digest {detail.digest}
+          {detail.files} file(s), +{detail.added_lines} line(s) · flagged{" "}
+          {formatExact(detail.flagged_at || detail.created_at)} · guard was in {detail.mode_at_record || detail.mode} mode
+          · digest {detail.digest}
         </Typography>
+        {detail.what_approve_does && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <strong>Approving:</strong> {detail.what_approve_does}. {detail.approve_note}
+            <br />
+            <strong>Rejecting:</strong> {detail.what_reject_does}.
+          </Alert>
+        )}
 
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
           What the guard found
         </Typography>
-        <FindingList findings={detail.findings} />
+        <FindingList findings={detail.findings} excerptLabel={excerptLabelFor(detail.source)} />
 
         {diff && (
           <Box sx={{ mt: 2 }}>
@@ -223,19 +235,6 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
             </Box>
           </Box>
         )}
-        {onDisk && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            This change is already on disk; the source watch found it. Approving accepts the file as it is now.
-            Rejecting leaves it there and keeps it out of what this machine sends to others until it changes.
-          </Alert>
-        )}
-        {effect === "allow-again" && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Nothing was kept to apply: this change was refused outright, so its text was not saved. Approving
-            lets exactly this change through the next time it is made. Rejecting closes it.
-          </Alert>
-        )}
-
         <Divider sx={{ my: 2 }} />
         <TextField size="small" label="Note" value={note} onChange={(e) => setNote(e.target.value)} fullWidth />
         {error && (
@@ -251,13 +250,7 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
             disabled={busy}
             onClick={() => setConfirming(true)}
           >
-            {blocked
-              ? "Approve despite the block"
-              : onDisk
-                ? "Accept"
-                : effect === "allow-again"
-                  ? "Approve"
-                  : "Approve and apply"}
+            {blocked ? "Approve despite the block" : EFFECT_BUTTON[effect] || "Approve"}
           </Button>
           <Button color="error" startIcon={<CancelIcon />} disabled={busy} onClick={() => act("reject")}>
             Reject
@@ -275,16 +268,29 @@ const HeldChangesPanel = ({ held, loading, onChanged, showMessage }) => {
       </Box>
       <ConfirmActionDialog
         open={confirming}
-        title={detail?.verdict === "block" ? "Approve a blocked change?" : "Apply this change?"}
-        description={
-          APPROVAL_EFFECT(detail) === "allow-again"
-            ? "Nothing is written now. Exactly this change will pass the guard the next time it is made; read every finding first."
-            : detail?.verdict === "block"
-              ? "The guard blocked this, not just held it. It lands only because you approve it here; read every finding first."
-              : "The change is written into this checkout now. If the file no longer reads as it did when it was held, nothing is written and the reason is shown."
+        title={
+          detail?.verdict === "block"
+            ? "Approve a blocked change?"
+            : APPROVAL_EFFECT(detail) === "apply"
+              ? "Apply this change?"
+              : "Record your approval?"
         }
-        facts={detail ? [{ label: "Findings", value: detail.findings?.length || 0 }] : []}
-        confirmLabel={detail?.verdict === "block" ? "Approve despite the block" : "Approve and apply"}
+        description={
+          detail?.verdict === "block" && APPROVAL_EFFECT(detail) === "apply"
+            ? "The guard blocked this, not just held it. It lands only because you approve it here; read every finding first."
+            : CONFIRM_TEXT[APPROVAL_EFFECT(detail)]
+        }
+        facts={
+          detail
+            ? [
+                { label: "Findings", value: detail.findings?.length || 0 },
+                { label: "Approving will", value: detail.what_approve_does || APPROVAL_EFFECT(detail) },
+              ]
+            : []
+        }
+        confirmLabel={
+          detail?.verdict === "block" ? "Approve despite the block" : EFFECT_BUTTON[APPROVAL_EFFECT(detail)] || "Approve"
+        }
         busy={busy}
         onConfirm={() => act("approve")}
         onClose={() => setConfirming(false)}
