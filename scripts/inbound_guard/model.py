@@ -52,8 +52,18 @@ class Change:
         return None
 
 
+CORE_PROVIDER = "core"
+
+
 @dataclass
 class Finding:
+    """One thing a rule noticed.
+
+    ``provider`` names what produced it, set by ``scan``: CORE_PROVIDER for the
+    rules in this package, or the registered name of an extension's scanner.
+    It is left out of ``to_dict`` while unset (findings built outside a scan).
+    """
+
     rule: str
     pack: str
     severity: str
@@ -61,9 +71,13 @@ class Finding:
     line: Optional[int]
     excerpt: str
     why: str
+    provider: Optional[str] = None
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        data = asdict(self)
+        if data["provider"] is None:
+            del data["provider"]
+        return data
 
 
 @dataclass

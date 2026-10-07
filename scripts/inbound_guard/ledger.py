@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import os
-import time
+from datetime import datetime
 from pathlib import Path
 from typing import Iterator, List, Optional, Set
 
@@ -19,6 +19,11 @@ except ImportError:  # Windows: appends of one short line are atomic enough ther
 
 LEDGER_NAME = "ledger.jsonl"
 ROTATE_BYTES = 5 * 1024 * 1024
+
+
+def now_iso() -> str:
+    """Local time as ISO-8601 with a ``±HH:MM`` offset, which every browser parses."""
+    return datetime.now().astimezone().isoformat(timespec="seconds")
 
 
 def guard_dir(common_dir: Path) -> Path:
@@ -32,7 +37,7 @@ def ledger_path(common_dir: Path) -> Path:
 def append(path: Path, record: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     record = dict(record)
-    record.setdefault("ts", time.strftime("%Y-%m-%dT%H:%M:%S%z"))
+    record.setdefault("ts", now_iso())
     line = json.dumps(record, ensure_ascii=True, sort_keys=True) + "\n"
     with open(path, "a", encoding="utf-8") as fh:
         if fcntl is not None:
