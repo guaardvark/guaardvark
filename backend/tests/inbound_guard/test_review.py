@@ -49,7 +49,7 @@ def _row(**kw):
     values = dict(source="self_code", subject="edit x.py", mode="observe", verdict="hold", top_severity="medium",
                   digest="d" * 20, findings=json.dumps([{"rule": "exec.shell-true", "pack": "execution",
                                                          "severity": "medium", "path": "x.py", "line": 3,
-                                                         "excerpt": "run(cmd, shell=True)", "why": "w",
+                                                         "excerpt": "a quoted line", "why": "w",
                                                          "provider": "core"}]),
                   providers="[]", errors="[]", files=1, added_lines=1, status="open")
     values.update(kw)
