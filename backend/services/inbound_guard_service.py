@@ -770,7 +770,7 @@ def approve_batch(ids: List[int], git_digests: List[str], *, by: str, note: str 
             logger.warning("inbound guard: batch approve of #%s failed: %s", scan_id, exc, exc_info=True)
             results.append({**entry, "outcome": "failed", "reason": str(exc)})
             continue
-        results.append({**entry, "outcome": "approved", "effect": done["approve_effect"],
+        results.append({**entry, "outcome": "approved", "effect": done["effect"],
                         "landed_paths": done["landed_paths"]})
     for digest in git_digests:
         entry = {"kind": "git", "digest": digest}
@@ -981,7 +981,7 @@ def approve_and_land(scan_id: int, *, by: str, note: str = "", override_block: b
       because the change already landed or its text was not kept.
     The change lands first and the approval is recorded after, so a failure
     leaves the item open with the reason. Returns the described row plus
-    ``landed_paths``.
+    ``effect`` (what this approval did) and ``landed_paths``.
     """
     from backend.models import PendingFix, db
 
@@ -1004,7 +1004,7 @@ def approve_and_land(scan_id: int, *, by: str, note: str = "", override_block: b
             from backend.services import inbound_guard_watch
 
             inbound_guard_watch.approve_held(row.id)
-        return {**describe_scans([row])[0], "landed_paths": landed}
+        return {**describe_scans([row])[0], "effect": effect, "landed_paths": landed}
 
 
 def _land_pending_fix(row, *, by: str, note: str) -> List[str]:
@@ -1101,7 +1101,7 @@ def reject_held(scan_id: int, *, by: str, note: str = "") -> dict:
         db.session.commit()
         if row.pending_fix_id:
             resolve_for_fix(row.pending_fix_id, "reject", by=by, note=note)
-        return {**describe_scans([row])[0], "landed_paths": []}
+        return {**describe_scans([row])[0], "effect": "reject", "landed_paths": []}
 
 
 def _land_payload(payload: dict) -> List[str]:

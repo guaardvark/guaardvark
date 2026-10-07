@@ -177,9 +177,10 @@ def test_an_observed_file_write_is_not_written_again(app, monkeypatch):
     observed = _row(payload=json.dumps({"kind": "write_file", "path": "x.py", "content": "old"}))
     enforced = _row(mode="enforce", digest="e" * 20,
                     payload=json.dumps({"kind": "write_file", "path": "y.py", "content": "new"}))
-    assert guard.approve_and_land(observed.id, by="t")["landed_paths"] == []
-    assert calls == []
-    assert guard.approve_and_land(enforced.id, by="t")["landed_paths"] == ["y.py"]
+    done = guard.approve_and_land(observed.id, by="t")
+    assert (done["effect"], done["landed_paths"], calls) == ("record", [], [])
+    done = guard.approve_and_land(enforced.id, by="t")
+    assert (done["effect"], done["landed_paths"]) == ("apply", ["y.py"])
     assert [c["path"] for c in calls] == ["y.py"]
 
 
@@ -195,6 +196,7 @@ def test_batch_approve_skips_blocks_and_reports_each_item(app, ledger_file):
     assert outcome == {("scan", held.id): "approved", ("scan", blocked.id): "skipped", ("scan", 999): "failed",
                        ("git", "1" * 20): "approved", ("git", "2" * 20): "skipped", ("git", "3" * 20): "failed"}
     assert (body["approved"], body["skipped"], body["failed"]) == (2, 2, 2)
+    assert {r.get("effect") for r in body["results"] if r["outcome"] == "approved"} == {"record"}
     assert db.session.get(InboundScan, blocked.id).status == "open"
     assert ledger.approval_for(ledger_file, "1" * 20) and not ledger.approval_for(ledger_file, "2" * 20)
 
