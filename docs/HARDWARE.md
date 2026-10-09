@@ -13,7 +13,7 @@ something is untested we say so and under-promise.
 | Tier | GPU VRAM | What to expect |
 |------|----------|----------------|
 | **A — CPU-only / no NVIDIA GPU** | none | Chat + RAG (keyword-first retrieval), voice in and out, the parallel coding-agent Swarm, the video editor, MCP. No image, video, or music generation; no upscaling. |
-| **B — Entry GPU** | 8–12 GB | Everything above, plus vector RAG, screen agents, SD/SDXL-class image generation, upscaling, and (at 12 GB) music generation. Video generation is refused — the preflight requires a 16 GB-class card. |
+| **B — Entry GPU** | 8–12 GB | Everything above, plus vector RAG, screen agents, SD/SDXL-class image generation, upscaling, and (at 12 GB) music generation. Video: at 12 GB the Wan 2.2 5B passes the preflight (its floor is 11 GB); every other video family needs 16 GB, and 8 GB cards get no video. |
 | **C — Design target** | 16 GB | The tier Guaardvark is built and tested on. The full stack: FLUX-class images, Wan 2.2 / LTX / CogVideoX video, music + neural voice, Film Crew, music videos — one heavy job at a time. |
 | **D — Headroom** | 20–24 GB+ | Concurrency and quality upgrades: two resident LLMs, heavier image models preferred automatically, text encoders stay on-GPU, larger agent step budgets, full-batch LoRA training. |
 
@@ -22,9 +22,11 @@ is partial — see the sections at the end.
 
 The canonical question — **"can I run this on a 12 GB card?"** — has a clean
 answer: yes for chat, RAG, screen agents, SD/SDXL images, upscaling, music, and
-voice; no for video generation, whose preflight checks total VRAM against a
-16 GB minimum for the Wan / LTX / CogVideoX families and refuses below it
-(with ~0.5 GB of grace, so "16 GB" cards that report 15.9 GB pass).
+voice; for video, only the Wan 2.2 5B. The video preflight checks total VRAM
+against each model's floor, with ~0.5 GB of grace: 11 GB for the Wan 2.2 5B,
+16 GB for the Wan 14B, LTX, Hunyuan, CogVideoX and MiniMax models (so "16 GB"
+cards that report 15.9 GB pass). A full 5B render on a 12 GB card has not been
+confirmed yet.
 
 On first run, `./start.sh` detects your hardware (written to
 `~/.guaardvark/hardware.json`) and derives the PyTorch build, Ollama server
@@ -36,10 +38,11 @@ tuning, and default models from it — see
 What works, and how the system adapts:
 
 - **Chat + RAG.** Ollama runs the default models on CPU. Machines with ≤ 8 GB
-  RAM (or any ARM machine) get a small text-only tier (`llama3.2:1b` +
-  `nomic-embed-text`); everything else gets `gemma4:e2b` (5.1B, ~7.2 GB
-  download, vision-capable). With no GPU, models are kept resident in RAM
-  instead of being unloaded, so you pay the load cost once.
+  RAM, or an ARM machine without an NVIDIA GPU (a Raspberry Pi, a Mac), get a
+  small text-only tier (`llama3.2:1b` + `nomic-embed-text`); everything else
+  gets `gemma4:e2b` (5.1B, ~7.2 GB download, vision-capable). With no GPU,
+  models are kept resident in RAM instead of being unloaded, so you pay the
+  load cost once.
 - **Retrieval degrades honestly.** Advanced (vector) RAG defaults off on
   CPU-only hosts; retrieval falls back to keyword-only search under memory
   pressure rather than thrashing.
@@ -68,10 +71,14 @@ What works, and how the system adapts:
 - **Music generation** (ACE-Step, ~10 GB, runs exclusively) fits on 12 GB —
   the orchestrator evicts everything else first — but not on 8 GB. FX
   generation (~6 GB) and TTS (≤ 2 GB) are fine on both.
-- **Video generation is gated off.** The preflight requires a 16 GB-class card
-  for every current video family (Wan 2.2 including the 5B, LTX-2.3/2.5,
-  CogVideoX-5B). The Low VRAM preset reduces frames/resolution/steps but does
-  not bypass this gate — it exists to keep 16 GB cards inside budget.
+- **Video generation is gated to one model.** The Wan 2.2 TI2V-5B declares an
+  11 GB floor, so a 12 GB card passes its preflight and the automatic pick
+  chooses it (the pick wants the model's ~11 GB plus 1 GB of margin; an 11 GB
+  card can select it by hand). A full render on 12 GB has not been confirmed
+  yet. Every other family (Wan 2.2 14B, LTX-2.3/2.5, Hunyuan, CogVideoX-5B,
+  MiniMax) requires a 16 GB-class card, and 8 GB cards get no video. The Low
+  VRAM preset reduces frames/resolution/steps but does not bypass this gate —
+  it exists to keep 16 GB cards inside budget.
 
 ## Tier C — the 16 GB design target
 
@@ -121,8 +128,10 @@ behavior, not a bug. Your desktop compositor also permanently holds
 
 ## System RAM, swap, and disk
 
-- **≤ 8 GB RAM (or ARM):** the bootstrap installs the small text-only model
-  tier — the ~7.2 GB Gemma4 download doesn't fit.
+- **≤ 8 GB RAM, or ARM without an NVIDIA GPU:** the bootstrap installs the
+  small text-only model tier — on ≤ 8 GB the ~7.2 GB Gemma4 download doesn't
+  fit. An ARM machine with an NVIDIA GPU (GB10 / DGX Spark, Jetson) and more
+  than 8 GB gets the standard tier.
 - **Image generation uses serious system RAM** when CPU offload kicks in:
   calibrated figures range from ~10 GB (SDXL) to ~21–24 GB (Z-Image / Krea2)
   of resident memory per job. 32 GB of system RAM is a sensible floor for the
@@ -153,9 +162,9 @@ Partial, actively improving — tracked in
 - **Verified on Apple Silicon:** offline image generation for the Z-Image
   and Krea 2 families runs natively on Metal (MPS; #183, live renders), and
   LoRA training runs on MPS (#182; slow, with timeouts raised to match).
-- **Conservative default:** ARM machines currently get the small
-  `llama3.2:1b` tier regardless of unified memory — pull a larger model
-  manually if your machine can hold it.
+- **Conservative default:** ARM machines without an NVIDIA GPU, Macs
+  included, currently get the small `llama3.2:1b` tier regardless of unified
+  memory — pull a larger model manually if your machine can hold it.
 - **Not verified by this project:** video generation through ComfyUI on
   Metal (no render on a Mac is on file); the other offline image families
   on MPS; the offline (diffusers) video path, which has an MPS branch with

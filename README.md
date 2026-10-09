@@ -39,7 +39,7 @@ https://github.com/user-attachments/assets/c6d9d18b-cfff-4ae2-8220-dc7f329fee5d
 
 ## Quick start
 
-**Linux with an NVIDIA GPU** (16 GB for video; chat, RAG and agents run on less, see the [hardware tiers](docs/HARDWARE.md)). A fresh Ubuntu desktop has no `curl` or `git`; run `sudo apt install -y curl git` first.
+**Linux with an NVIDIA GPU** (16 GB for video, 12 GB for the Wan 2.2 5B; chat, RAG and agents run on less, see the [hardware tiers](docs/HARDWARE.md)). A fresh Ubuntu desktop has no `curl` or `git`; run `sudo apt install -y curl git` first.
 
 ```bash
 curl -fsSL https://guaardvark.com/install.sh | bash
@@ -178,7 +178,7 @@ MiniMax H3 also comes as unpruned Int8 and BF16 builds for 24 GB and 48 GB cards
 - **Frame interpolation** with RIFE (1x raw, 2x frame rate, 2x plus upscale), **prompt enhancement** styles (Cinematic, Realistic, Artistic, Anime, or raw), a **low-VRAM mode** for Wan and CogVideoX, and a **batch queue** for prompt lists.
 - **ComfyUI integration:** one click into the node editor for custom workflows. Wan and LTX run through ComfyUI. LTX-2.5 needs ComfyUI ≥ 0.32.0 and a one-time license accept on [Lightricks/LTX-2.5](https://huggingface.co/Lightricks/LTX-2.5) (`HF_TOKEN` in `.env`); after the download, generation stays local.
 - **MiniMax H3** generates picture and sound in one pass. Guaardvark compiles your prompt into the model's structured format (numbered shots with cut times, speaker ids, tagged dialogue), and the Film Crew renders each scene as one spoken window on it. It is licensed under the MiniMax H3 Community License, which names the EU, UK, South Korea and USA as territories that need MiniMax's application form; the Video Models dialog shows the license and the link, and posts carrying H3 clips add a "Generated with MiniMax H3" line.
-- Video generation needs a 16 GB-class card; see [docs/HARDWARE.md](docs/HARDWARE.md).
+- Video generation needs a 16 GB-class card, except the Wan 2.2 5B, which is admitted from 11 GB; see [docs/HARDWARE.md](docs/HARDWARE.md).
 
 ### LoRA training and consistent characters
 
@@ -366,11 +366,12 @@ More screenshots are on [guaardvark.com](https://guaardvark.com).
 |---------|---------|-------------|
 | Chat + RAG | 4 GB | 8 GB |
 | Image generation | 6 GB | 12 GB |
-| Wan 2.2 video | 16 GB* | 16 GB |
+| Wan 2.2 5B video | 11 GB* | 16 GB |
+| Wan 2.2 14B video | 16 GB | 16 GB |
 | CogVideoX-5B video | 16 GB | 20 GB |
 | Upscaling | 0.5 GB | 2–4 GB |
 
-\* Wan's weights fit in ~11 GB, but the generation preflight requires a 16 GB-class card for every current video family; see [docs/HARDWARE.md](docs/HARDWARE.md).
+\* The Wan 2.2 5B declares an 11 GB floor: an 11 GB card can select it by hand, and from 12 GB the automatic pick chooses it. A full render on 12 GB has not been confirmed yet. Every other video family needs a 16 GB-class card; see [docs/HARDWARE.md](docs/HARDWARE.md).
 
 **Platforms.** Linux with one NVIDIA card is the primary target. Apple Silicon is supported, with GPU features arriving through Metal (what works today is in [INSTALL.md](INSTALL.md#install-macos-apple-silicon)). Windows through WSL2 is being verified.
 
