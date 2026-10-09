@@ -36,11 +36,11 @@ Never pass a step count below the model's `min_steps`; the server raises it and 
   `style` (cinematic, realistic, anime, 3d_animation, ...), `num_inference_steps`, `speed_profile`.
 - `audio: true` forces a soundtrack-capable model (H3) and fails on a silent family.
 - `first_image` / `last_image`: document id or path; last frame needs a first+last mode model.
-- `reference_images` (up to 9), `reference_clips` (up to 3, 2-15 s, their own sound included) and
+- `reference_images` (up to 9), `reference_clips` (up to 3, 2-15 s, their own sound left out) and
   `reference_audio` (up to 3): lock a person, look, motion or voice on the reference build
   (`minimax-h3-ref2va-int8`, picked when no model is named). The prompt names them
-  `<Picture N>`, `<Video N>`, `<Audio N>`; a clip's soundtrack takes an `<Audio N>` before the
-  standalone tracks. In the Studio this is the References input on Video Gen.
+  `<Picture N>`, `<Video N>`, `<Audio N>`; to keep a clip's sound, pass its track as
+  `reference_audio`. In the Studio this is the References input on Video Gen.
 - `wait_for_result` default false: the tool returns a batch id and a Studio deep link at once.
   Give the user the link; poll `get_generation_status(batch_id=...)` (MCP) or
   `GET /api/batch-video/status/<batch_id>` if they ask you to wait. `wait_for_result: true`
