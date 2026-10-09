@@ -124,7 +124,7 @@ def handle_voice_stream_end(data):
     logger.info(f"Voice stream ended for session: {session_id}, processing {len(audio_bytes)} bytes")
 
     try:
-        from faster_whisper.audio import decode_audio
+        from backend.utils.faster_whisper_utils import decode_audio
         from backend.utils.faster_whisper_utils import transcribe_audio_faster, FASTER_WHISPER_AVAILABLE
 
         if FASTER_WHISPER_AVAILABLE:
