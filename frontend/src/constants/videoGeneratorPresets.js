@@ -303,6 +303,24 @@ export const MODEL_OPTIONS = {
     dimensionAlignment: 32,
     maxPixelArea: 768 * 1344,
   },
+  // The reference build takes no text-only or first-frame request: it is
+  // offered under the References input, from capabilities.modes "ref2v".
+  "minimax-h3-ref2va-int8": {
+    label: "MiniMax H3 Reference Int8 (16GB)",
+    description: "MiniMax H3 reference-to-video: up to 9 pictures, 3 clips and 3 audio files lock identity, motion and voice, or edit and continue a clip. 24fps, native audio.",
+    type: "minimax",
+    nativeFps: 24,
+    maxFrames: 362,
+    resolution: [864, 480],
+    aspectRatios: ["21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    defaultSteps: 20,
+    minSteps: 20,
+    speedProfiles: ["standard", "turbo-4"],
+    supportsT2V: false,
+    supportsI2V: false,
+    dimensionAlignment: 32,
+    maxPixelArea: 768 * 1344,
+  },
   "minimax-h3-bf16": {
     label: "MiniMax H3 BF16 (48GB+)",
     description: "MiniMax H3 at full precision with the bf16 encoder (~110GB of weights). Workstation cards; unmeasured.",

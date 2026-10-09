@@ -19,9 +19,8 @@ from backend.services import video_model_registry as vmr
 
 ROOT = Path(__file__).resolve().parents[3]
 PRESETS = ROOT / "frontend" / "src" / "constants" / "videoGeneratorPresets.js"
-# Entries the frontend does not list on purpose: the reference build has no
-# reference-media panel yet, so it is reachable through the API and tools only.
-FRONTEND_EXEMPT = {"minimax-h3-ref2va-int8"}
+# Entries the frontend does not list on purpose.
+FRONTEND_EXEMPT = set()
 
 
 @pytest.fixture(scope="module")
