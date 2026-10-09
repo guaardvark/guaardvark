@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "guaardvark",
   "displayName": "Guaardvark",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "description": "Drive a self-hosted Guaardvark from your coding agent: local image, video, music-video and Film Crew generation, voice and music, upscaling, LoRA training, Hugging Face model onboarding, agent swarms, local knowledge, code intelligence and supervised outreach, on your own GPU.",
   "author": {
     "name": "Guaardvark",

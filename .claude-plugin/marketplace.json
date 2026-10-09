@@ -3,7 +3,7 @@
   "owner": { "name": "Guaardvark", "url": "https://guaardvark.com" },
   "metadata": {
     "description": "Skills and the MCP server for a self-hosted Guaardvark: local media generation, agents and knowledge on your own GPU.",
-    "version": "3.0.1"
+    "version": "3.1.0"
   },
   "plugins": [
     {

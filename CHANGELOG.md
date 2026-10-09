@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+## 3.1.0 — References for MiniMax H3, Sana Sprint, and an interface you can find your way around
+
+- **Video Gen takes References.** A third input next to Text and Image builds a board of
+  pictures, clips and voice for MiniMax H3 Reference, and start/end frames get an end-frame tile
+  with the Files picker. Boards are checked against the card's measured budget before they queue;
+  one that does not fit is refused with the reason.
+- **Sana Sprint** joins the offline image models: fast stills, priced by each model's measured
+  peak.
+- **Getting around.** First-run "Did you know" tips and a guide to the interface
+  (`docs/interface.md`). Drag files into Files, chat or the Video Editor bin; right-click menus
+  on Files and Notes; resize handles and one drop placeholder on every card page; Always approve
+  on chat tool cards.
+- **Keep ready** holds the chat model in memory and steps it aside for GPU work. Off by default.
+- **Settings → Access** has a Network access switch (off by default) and the chat model list
+  offers Start Ollama when Ollama is off.
+- **Speech to text** uses the Whisper model chosen in Settings, works with PyAV 19, and runs on
+  the CPU when CTranslate2 cannot use the card.
+- **Image, upscaling, reranker and Studio models download only behind an Install button**, never
+  on first use.
+- **Smaller cards:** SD and SDXL render on 8 GB cards, and LoRA training is offered only for
+  installed base models.
+- **Outreach posts only what it can confirm on the page.** Connections answer this machine only
+  without a key and hold publishes for approval; the proxy's own X-Forwarded-For entry is the one
+  trusted.
+- **Discord voice** hears end-to-end encrypted calls and replies in an installed voice.
+
 ## 3.0.1 — Video renders run to the end
 
 - **Video renders are no longer marked lost mid-render.** The check for whether ComfyUI is
