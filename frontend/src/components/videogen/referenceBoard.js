@@ -38,6 +38,12 @@ export const ROLE_OPTIONS = {
 
 export const DEFAULT_ROLE = { images: "keep", videos: "subject", audios: "voice" };
 
+/** A clip's sound when nobody picked one: an edit or a continuation keeps the
+ * clip's soundtrack; a clip used for who is in it or for its motion goes in
+ * silent, since its own dialogue is a second voice beside any voice reference.
+ * Mirrors _default_clip_audio in backend/api/batch_video_generation_api.py. */
+export const defaultClipAudio = (role) => (role === "edit" || role === "continue" ? "own" : "none");
+
 export const emptyBoard = () => ({ images: [], videos: [], audios: [] });
 
 let _seq = 0;
@@ -60,8 +66,9 @@ export function entryFromDocument(doc, row) {
     name: "",
     note: "",
     speaker: "",
-    // Clips: "own" | "none" | {ref, fileName}; filled in by the probe.
-    audio: row === "videos" ? "own" : undefined,
+    // Clips: "own" | "none" | {ref, fileName}; audioPicked once the person chose.
+    audio: row === "videos" ? defaultClipAudio(DEFAULT_ROLE.videos) : undefined,
+    audioPicked: false,
     durationS: null,
     hasAudio: null,
   };
@@ -187,7 +194,7 @@ export function serializeBoard(board) {
       ref: e.ref,
       role: e.role,
       name: e.name,
-      audio: typeof e.audio === "object" && e.audio !== null ? { ref: e.audio.ref } : e.audio || "own",
+      audio: typeof e.audio === "object" && e.audio !== null ? { ref: e.audio.ref } : e.audio || defaultClipAudio(e.role),
     })),
     audios: (board?.audios || []).map((e) => ({ ref: e.ref, role: e.role, speaker: e.speaker })),
   };

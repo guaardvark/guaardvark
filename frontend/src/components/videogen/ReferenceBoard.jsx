@@ -44,6 +44,7 @@ import {
   boardNames,
   boardTags,
   clipFramesAllowed,
+  defaultClipAudio,
   entryFromDocument,
   roomInRow,
 } from "./referenceBoard";
@@ -125,7 +126,13 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, o
         </Box>
         <FormControl size="small" fullWidth>
           <InputLabel>Use it to</InputLabel>
-          <Select value={entry.role} label="Use it to" onChange={(e) => onPatch({ role: e.target.value })}>
+          <Select
+            value={entry.role}
+            label="Use it to"
+            onChange={(e) => onPatch(row === "videos" && !entry.audioPicked
+              ? { role: e.target.value, audio: defaultClipAudio(e.target.value) }
+              : { role: e.target.value })}
+          >
             {ROLE_OPTIONS[row].map((o) => (
               <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
             ))}
@@ -169,7 +176,7 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, o
                 value={separate ? "separate" : entry.audio || "own"}
                 onChange={(e) => {
                   if (e.target.value === "separate") onPickSoundtrack();
-                  else onPatch({ audio: e.target.value });
+                  else onPatch({ audio: e.target.value, audioPicked: true });
                 }}
               >
                 <MenuItem value="own">Its own sound</MenuItem>
@@ -347,7 +354,7 @@ const ReferenceBoard = ({ value, onChange, limits, fit, onInsertTag, onError }) 
       onChange((b) => ({
         ...b,
         videos: b.videos.map((v) => (v.key === picker.soundtrackFor
-          ? { ...v, audio: { ref: String(doc.id), fileName: doc.filename } }
+          ? { ...v, audio: { ref: String(doc.id), fileName: doc.filename }, audioPicked: true }
           : v)),
       }));
       return;

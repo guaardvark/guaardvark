@@ -394,6 +394,14 @@ _REF_EXTENSIONS = {
 _REF_LABELS = {"image": "Picture", "video": "Clip", "audio": "Audio"}
 
 
+def _default_clip_audio(role) -> str:
+    """A clip's sound when the request names none: an edit or a continuation
+    keeps the clip's soundtrack; a clip used for who is in it or for its motion
+    goes in silent, since its own dialogue is a second voice beside any voice
+    reference (heard as overlapping voices in the 2026-10-09 renders)."""
+    return "own" if role in ("edit", "continue") else "none"
+
+
 def _reference_file(ref, kind: str, index: int):
     """One reference board entry's file as (path, None) or (None, why)."""
     label = f"Reference {_REF_LABELS[kind].lower()} {index}"
@@ -432,7 +440,7 @@ def _resolve_references(board, model_id: str):
         path, err = _reference_file(entry.get("ref"), "video", k)
         if err:
             return None, err
-        audio = entry.get("audio", "own")
+        audio = entry.get("audio") or _default_clip_audio(entry.get("role"))
         if isinstance(audio, dict):
             track, err = _reference_file(audio.get("ref"), "audio", k)
             if err:
