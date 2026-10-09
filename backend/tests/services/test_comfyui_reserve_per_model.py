@@ -32,7 +32,8 @@ def test_registry_declares_the_measured_reserves():
     assert comfyui_reserve_vram_gb_for_model("wan22-14b") == 1.0
     assert comfyui_reserve_vram_gb_for_model("wan22-14b-i2v") == 1.0
     assert comfyui_reserve_vram_gb_for_model("minimax-h3-int8") == 5.0
-    assert comfyui_reserve_vram_gb_for_model("minimax-h3-ref2va-int8") == 5.0
+    # A reference clip's frames ride through every step beside the render's.
+    assert comfyui_reserve_vram_gb_for_model("minimax-h3-ref2va-int8") == 8.0
     assert comfyui_reserve_vram_gb_for_model("wan22-5b") is None
     assert comfyui_reserve_vram_gb_for_model("no-such-model") is None
 

@@ -158,15 +158,17 @@ export function boardProblems(board, limits, fit = {}) {
       problems.push(`Clip ${i + 1} is ${v.durationS.toFixed(1)} s; clips need at least ${shortest} s.`);
     }
   });
+  // The budget was measured for boards with clips; pictures alone cost one
+  // latent frame each, about what the base build costs at the same length.
   const { budget, renderFrames, width, height, fps = 24 } = fit;
-  if (budget && renderFrames && width && height) {
+  if (budget && renderFrames && width && height && board?.videos?.length) {
     const seconds = Math.round(renderFrames / fps);
     const pictures = board?.images?.length || 0;
     const clips = board?.videos?.length || 0;
     const patches = Math.max(1, Math.floor(width / 16) * Math.floor(height / 16));
     const room = Math.floor(budget / patches) - h3LatentFrames(renderFrames);
     if (pictures > room) {
-      problems.push(`On this card a ${seconds} s clip at ${width}x${height} takes at most ${Math.max(0, room)} pictures.`);
+      problems.push(`On this card a ${seconds} s clip at ${width}x${height} with a reference clip takes at most ${Math.max(0, room)} pictures.`);
     } else {
       const each = clipFramesAllowed(budget, renderFrames, width, height, pictures, clips);
       if (each != null && shortest && each < h3GridFloor(shortest * fps)) {

@@ -1368,15 +1368,35 @@ VIDEO_MODEL_REGISTRY = {
         ],
         "size_gb": 19.53,
         # Same architecture and size class as the fl2va build; carries its
-        # measured budget, unmeasured itself.
+        # measured budget.
         "vram_mb": 11000,
         "min_vram_gb": 16,
         **_H3_COMMON,
         "modes": ["ref2v"],
+        # Reference video rides through every sampling step beside the clip
+        # being rendered, and ComfyUI sizes its partial load from the render
+        # alone, so a board with clips needs more of the card free than the
+        # fl2va reserve leaves. Measured 2026-10-09 on a 16 GB RTX 40-series
+        # card, 864x480, Standard 20 steps, one picture and one voice track,
+        # clips read at the render's size, Comfy Kitchen int8 ops on its eager
+        # backend (PyTorch cu124):
+        #   reserve 5: pictures only, 5 s: 13.1 GB peak, 510 s. 5 s + 2 s clip:
+        #     15.2 GB, 640 s. 3 s + 3 s clip: out of memory (ComfyUI kept
+        #     6.5 GB of weights for the shorter render). 5 s + 5 s clip: OOM.
+        #   reserve 8: 3 s + 3 s clip: 13.0 GB, 610 s (27.5 s/step).
+        #     5 s + 3 s clip: 12.9 GB, 760 s (33.8 s/step). 5 s + 5 s clip: OOM
+        #     (15.9 GB).
+        "comfyui_reserve_vram_gb": 8.0,
         "ref_limits": _H3_REF_LIMITS,
         "speed_profiles": H3_REF2VA_SPEED_PROFILES,
+        # ref_token_budget: the largest board measured to render on the class,
+        # in tokens: latent frames of the render, of every clip and one per
+        # picture, times (width/16)*(height/16). 16 GB: 5 s + 3 s clip + one
+        # picture at 864x480 = (37 + 22 + 1) * 1620. Other sizes scale by token
+        # count (unmeasured). The 24 GB class declares none: unmeasured.
         "tier_defaults": {
-            "16": {"width": 864, "height": 480, "speed_profile": "standard", "frames": 124},
+            "16": {"width": 864, "height": 480, "speed_profile": "standard", "frames": 124,
+                   "ref_token_budget": 60 * 1620},
             "24": {"width": 1344, "height": 768, "speed_profile": "standard", "frames": 124},
         },
     },
