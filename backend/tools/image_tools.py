@@ -1488,16 +1488,14 @@ def _ref_list(value) -> list:
 
 def _default_reference_prompt(prompt: str, refs: dict, params: dict) -> str:
     """The reference build's prompt for a tool call, which carries no roles:
-    pictures and clips are kept as shown, each clip's own sound comes with
-    it, and audio is a sound reference. Compiled before queuing, as the
-    Studio route does; Verbatim Prompts drops only the style opening."""
+    pictures and clips are kept as shown, clips go in silent, and audio is a
+    sound reference. Compiled before queuing, as the Studio route does;
+    Verbatim Prompts drops only the style opening."""
     from backend.services import h3_prompt_compiler as h3
-    from backend.services.comfyui_video_generator import _media_has_audio
     from backend.services.media_director import verbatim_prompts_enabled
     spec = {
         "images": [{"role": "keep"} for _ in refs["ref_images"]],
-        "videos": [{"role": "subject", "soundtrack": _media_has_audio(v["path"]) is not False}
-                   for v in refs["ref_videos"]],
+        "videos": [{"role": "subject", "soundtrack": False} for _ in refs["ref_videos"]],
         "audios": [{"role": "sound"} for _ in refs["ref_audios"]],
     }
     fps = float(params.get("fps") or 24)
@@ -1609,8 +1607,9 @@ class VideoGeneratorTool(BaseTool):
             name="reference_clips",
             type="list",
             items="string",
-            description=("Reference video clips (subject, motion, a clip to edit or continue), 2-15 s "
-                         "each, in the same forms as first_image; a clip's own sound comes with it. "
+            description=("Reference video clips (who is in them, their motion), 2-15 s each, in the "
+                         "same forms as first_image. Their own sound is left out so it does not compete "
+                         "with a voice reference; pass a clip's track as reference_audio to keep it. "
                          "Named <Video 1>, <Video 2> in the prompt; needs the reference build."),
             required=False,
         ),
@@ -1854,7 +1853,7 @@ class VideoGeneratorTool(BaseTool):
                 if err:
                     break
                 path, err = _resolve(label, ref)
-                resolved_refs[key].append({"path": path} if key == "ref_videos" else path)
+                resolved_refs[key].append({"path": path, "include_audio": False} if key == "ref_videos" else path)
         if err:
             return ToolResult(success=False, error=err)
 

@@ -4,6 +4,7 @@ import {
   boardProblems,
   boardTags,
   clipFramesAllowed,
+  defaultClipAudio,
   entryFromDocument,
   h3GridFloor,
   h3LatentFrames,
@@ -15,8 +16,8 @@ const LIMITS = { images: 9, videos: 3, audios: 3, files: 12, video_seconds: [2, 
 
 const board = () => {
   const pic = entryFromDocument({ id: 1, filename: "maya.png" }, "images");
-  const clip = { ...entryFromDocument({ id: 2, filename: "walk.mp4" }, "videos"), durationS: 4, hasAudio: true };
-  const silent = { ...entryFromDocument({ id: 3, filename: "pan.mp4" }, "videos"), durationS: 3, hasAudio: false };
+  const clip = { ...entryFromDocument({ id: 2, filename: "walk.mp4" }, "videos"), durationS: 4, hasAudio: true, audio: "own" };
+  const silent = { ...entryFromDocument({ id: 3, filename: "pan.mp4" }, "videos"), durationS: 3, hasAudio: false, audio: "own" };
   const voice = entryFromDocument({ id: 4, filename: "voice.wav" }, "audios");
   return { images: [pic], videos: [clip, silent], audios: [voice] };
 };
@@ -45,6 +46,12 @@ describe("reference board", () => {
     const b = board();
     b.videos[0] = { ...b.videos[0], durationS: 1.5 };
     expect(boardProblems(b, LIMITS)).toEqual(["Clip 1 is 1.5 s; clips need at least 2 s."]);
+  });
+
+  it("leaves a clip's own sound out unless it is edited or continued", () => {
+    expect(entryFromDocument({ id: 5, filename: "c.mp4" }, "videos").audio).toBe("none");
+    expect(defaultClipAudio("motion")).toBe("none");
+    expect(defaultClipAudio("continue")).toBe("own");
   });
 
   it("sends refs, roles and names, and a separate track by ref", () => {
