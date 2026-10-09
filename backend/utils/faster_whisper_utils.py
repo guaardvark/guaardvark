@@ -34,6 +34,10 @@ SPEECH_MODEL_MISSING_MESSAGE = "Install the speech model to use voice"
 # Global cache for the loaded model
 _whisper_model = None
 _current_model_size = None
+# Set when CTranslate2 could not run on the card here (its CUDA libraries, such
+# as libcublas.so.12, are missing beside an older CUDA build of torch); every
+# later load in this process then uses the CPU.
+_cuda_unusable: Optional[str] = None
 
 
 class SpeechModelMissing(RuntimeError):
@@ -104,6 +108,8 @@ def pick_device() -> str:
     forced = os.environ.get("GUAARDVARK_WHISPER_DEVICE", "").strip().lower()
     if forced in ("cpu", "cuda"):
         return forced
+    if _cuda_unusable:
+        return "cpu"
     try:
         from backend.utils.backend_http import in_mcp_process
         # Memory held by the MCP process is invisible to the backend's GPU admission.
@@ -264,6 +270,7 @@ def transcribe_audio_faster(audio_input, model_size: str = "tiny.en") -> Tuple[s
     Returns:
         Tuple of (transcribed_text, processing_time_seconds)
     """
+    global _cuda_unusable
     model = get_faster_whisper_model(model_size=model_size)
     start = time.time()
     if isinstance(audio_input, (str, bytes)) or hasattr(audio_input, "read"):
@@ -272,14 +279,30 @@ def transcribe_audio_faster(audio_input, model_size: str = "tiny.en") -> Tuple[s
         import io
         audio_input = decode_audio(io.BytesIO(audio_input) if isinstance(audio_input, bytes) else audio_input)
 
-    segments, info = model.transcribe(
-        audio_input,
-        beam_size=5,
-        vad_filter=True,
-        vad_parameters=dict(min_silence_duration_ms=500),
-    )
+    def run(m):
+        segments, _info = m.transcribe(
+            audio_input,
+            beam_size=5,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500),
+        )
+        # Segments are lazy: the card is first used here.
+        return " ".join(segment.text for segment in segments)
 
-    text = " ".join(segment.text for segment in segments)
+    try:
+        text = run(model)
+    except RuntimeError as e:
+        # CTranslate2 loads a CUDA model without its CUDA libraries and fails
+        # on the first encode. Fall back to the CPU for this process.
+        if getattr(model.model, "device", "") != "cuda" or not any(
+            word in str(e).lower() for word in ("libcublas", "libcudnn", "cuda")
+        ):
+            raise
+        _cuda_unusable = str(e)
+        logger.warning("faster-whisper cannot use the GPU here (%s); speech-to-text runs on the CPU", e)
+        unload()
+        model = get_faster_whisper_model(model_size=model_size, device="cpu")
+        text = run(model)
     duration = time.time() - start
 
     return text.strip(), duration
