@@ -1217,7 +1217,7 @@ def _speech_to_text_response():
         if USE_WHISPER_SERVER:
             try:
                 import io
-                from faster_whisper.audio import decode_audio
+                from backend.utils.faster_whisper_utils import decode_audio
                 audio_bytes = audio_file.read()
                 audio_array = decode_audio(io.BytesIO(audio_bytes))
                 audio_duration = len(audio_array) / 16000.0
@@ -1267,7 +1267,7 @@ def _speech_to_text_response():
         
         # PERFORMANCE OPTIMIZATION: In-memory audio decoding & STT
         try:
-            from faster_whisper.audio import decode_audio
+            from backend.utils.faster_whisper_utils import decode_audio
             from backend.utils.faster_whisper_utils import (
                 transcribe_audio_faster, FASTER_WHISPER_AVAILABLE, SpeechModelMissing,
             )

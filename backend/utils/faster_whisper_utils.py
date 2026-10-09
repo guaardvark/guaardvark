@@ -200,6 +200,60 @@ def unload() -> bool:
     return True
 
 
+def decode_audio(input_file, sampling_rate: int = 16000):
+    """Decode audio to mono float32 at ``sampling_rate``, as
+    faster_whisper.audio.decode_audio does. faster-whisper 1.2.1 opens the
+    file with ``metadata_errors=``, which PyAV 19 removed from ``av.open``, so
+    its decoder raises TypeError there; this one works with PyAV 18 and 19.
+    """
+    import gc
+    import io
+    import itertools
+
+    import av
+    import numpy as np
+
+    resampler = av.audio.resampler.AudioResampler(format="s16", layout="mono", rate=sampling_rate)
+    raw = io.BytesIO()
+    dtype = None
+
+    def frames_of(container):
+        iterator = iter(container.decode(audio=0))
+        while True:
+            try:
+                frame = next(iterator)
+            except StopIteration:
+                return
+            except av.error.InvalidDataError:
+                continue
+            frame.pts = None  # Ignore timestamp checks, as faster-whisper does.
+            yield frame
+
+    def grouped(frames, num_samples=500000):
+        fifo = av.audio.fifo.AudioFifo()
+        for frame in frames:
+            fifo.write(frame)
+            if fifo.samples >= num_samples:
+                yield fifo.read()
+        if fifo.samples > 0:
+            yield fifo.read()
+
+    with av.open(input_file, mode="r") as container:
+        # None flushes the resampler.
+        for frame in itertools.chain(grouped(frames_of(container)), [None]):
+            for out in resampler.resample(frame):
+                array = out.to_ndarray()
+                dtype = array.dtype
+                raw.write(array)
+
+    # PyAV's resampler holds memory until a collection (faster-whisper #390).
+    del resampler
+    gc.collect()
+    if dtype is None:
+        return np.zeros(0, dtype=np.float32)
+    return np.frombuffer(raw.getbuffer(), dtype=dtype).astype(np.float32) / 32768.0
+
+
 def transcribe_audio_faster(audio_input, model_size: str = "tiny.en") -> Tuple[str, float]:
     """Transcribe an audio file or numpy array using faster-whisper.
 
@@ -212,6 +266,11 @@ def transcribe_audio_faster(audio_input, model_size: str = "tiny.en") -> Tuple[s
     """
     model = get_faster_whisper_model(model_size=model_size)
     start = time.time()
+    if isinstance(audio_input, (str, bytes)) or hasattr(audio_input, "read"):
+        # A path or file: decode here, since faster-whisper's own decoder fails
+        # under PyAV 19 (see decode_audio).
+        import io
+        audio_input = decode_audio(io.BytesIO(audio_input) if isinstance(audio_input, bytes) else audio_input)
 
     segments, info = model.transcribe(
         audio_input,
