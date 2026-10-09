@@ -166,7 +166,7 @@ def _is_loopback_url(url: str | None) -> bool:
 
 def _install_env_api_key() -> str | None:
     """GUAARDVARK_API_KEY from the local install's .env, where start.sh and
-    Settings → API key keep it."""
+    Settings → Access keep it."""
     try:
         from llx.launch_config import resolve_guaardvark_root
 

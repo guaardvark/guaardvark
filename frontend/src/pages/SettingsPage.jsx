@@ -55,7 +55,10 @@ import {
   clearBehaviorLog,
   getMusicDirectory,
   setMusicDirectory as setMusicDirectoryAPI,
+  getChatKeepReady,
+  setChatKeepReady,
 } from "../api/settingsService";
+import { enablePlugin, startPlugin } from "../api/pluginsService";
 import { useAppStore } from "../stores/useAppStore";
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
@@ -129,6 +132,12 @@ const VOICE_CHAT_ENABLED_KEY = "guaardvark_voiceChatEnabled";
 
 const SettingsPage = () => {
   const [availableModels, setAvailableModels] = useState([]);
+  // Ollama did not answer the last model list; the list then holds only the
+  // saved model.
+  const [ollamaOffline, setOllamaOffline] = useState(false);
+  const [startingOllama, setStartingOllama] = useState(false);
+  const [keepReady, setKeepReady] = useState(null);
+  const [savingKeepReady, setSavingKeepReady] = useState(false);
   const [selectedModel, setSelectedModel] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
   const [_isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
@@ -877,14 +886,11 @@ const SettingsPage = () => {
   const fetchAvailableModels = useCallback(async () => {
     // Avoid clearing import/export notifications when refreshing the list
     try {
-      const modelsResult = await apiService.getAvailableModels();
+      const modelsResult = await apiService.getChatModelList();
       if (modelsResult?.error)
         throw new Error(`Available models fetch failed: ${modelsResult.error}`);
-      let modelsList = Array.isArray(modelsResult)
-        ? modelsResult.filter((m) => m && m.name)
-        : Array.isArray(modelsResult?.models)
-          ? modelsResult.models.filter((m) => m && m.name)
-          : [];
+      setOllamaOffline(modelsResult.ollamaOffline);
+      let modelsList = modelsResult.models.filter((m) => m && m.name);
       // Ensure the currently active model appears in the dropdown
       if (
         activeModel &&
@@ -939,6 +945,62 @@ const SettingsPage = () => {
       }
     })();
   }, []);
+
+  const handleStartOllama = async () => {
+    setStartingOllama(true);
+    try {
+      let result;
+      try {
+        result = await startPlugin("ollama");
+      } catch (err) {
+        // A switched-off plugin refuses to start; the button means "on".
+        if (!/disabled/i.test(err.message || "")) throw err;
+        await enablePlugin("ollama");
+        result = await startPlugin("ollama");
+      }
+      const data = result?.data ?? result;
+      if (data?.gated) {
+        throw new Error(
+          `Ollama was started moments ago; try again in ${Math.ceil(data.cooldown_remaining || 0)} s`,
+        );
+      }
+      showMessage("Ollama is running", "success");
+      await fetchAvailableModels();
+    } catch (err) {
+      showMessage(`Could not start Ollama: ${err.message}`, "error");
+    } finally {
+      setStartingOllama(false);
+    }
+  };
+
+  const fetchKeepReady = useCallback(async () => {
+    try {
+      const result = await getChatKeepReady();
+      setKeepReady(result?.data ?? result);
+    } catch {
+      // Older backend without Keep ready: the chip stays hidden.
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchKeepReady();
+    const id = setInterval(() => {
+      if (!document.hidden) fetchKeepReady();
+    }, 10000);
+    return () => clearInterval(id);
+  }, [fetchKeepReady]);
+
+  const handleKeepReadyToggle = async (next) => {
+    setSavingKeepReady(true);
+    try {
+      const result = await setChatKeepReady(next);
+      setKeepReady(result?.data ?? result);
+    } catch (err) {
+      showMessage(`Could not change Keep ready: ${err.message}`, "error");
+    } finally {
+      setSavingKeepReady(false);
+    }
+  };
 
   // Fetch GPU resources and embedding model list
   const fetchResources = useCallback(async () => {
@@ -2706,7 +2768,7 @@ const SettingsPage = () => {
           <ActionButton
             kind={chatModelPending ? "primary" : "neutral"}
             onClick={handleSetModelClick}
-            disabled={!chatModelPending || isLoading || isLoadingModel}
+            disabled={!chatModelPending || isLoading || isLoadingModel || ollamaOffline}
             loading={isLoadingModel}
             tooltip="Loads the model, unloads the previous one and rebuilds the query engine. Can take minutes on a cold GPU."
           >
@@ -2749,6 +2811,58 @@ const SettingsPage = () => {
             <LinearProgress sx={{ height: 4, borderRadius: 2 }} />
             <Hint>{modelSwitchMessage || "Switching model…"}</Hint>
           </Box>
+        )}
+        {ollamaOffline && (
+          <Line>
+            <StatusPill
+              tone="warn"
+              label="Ollama is off"
+              tooltip="Chat models run in Ollama. While it is off, the list shows only the saved model."
+            />
+            <ActionButton
+              kind="primary"
+              onClick={handleStartOllama}
+              loading={startingOllama}
+              tooltip="Starts the Ollama plugin, then reloads the list"
+            >
+              Start Ollama
+            </ActionButton>
+          </Line>
+        )}
+        {keepReady && (
+          <Line>
+            <SettingChip
+              label="Keep ready"
+              on={Boolean(keepReady.enabled)}
+              onToggle={handleKeepReadyToggle}
+              disabled={savingKeepReady || keepReady.env_writable === false}
+              tooltip="Keeps the chat model and voice input loaded with no idle timeout, so a reply after an hour is as fast as one after a minute. It steps aside for image, video and training work and loads again when that work is done. This machine only."
+            />
+            {keepReady.enabled && (
+              <StatusPill
+                tone={
+                  keepReady.state === "ready"
+                    ? "ok"
+                    : keepReady.state === "loading"
+                      ? "info"
+                      : "warn"
+                }
+                label={
+                  keepReady.state === "ready"
+                    ? "loaded"
+                    : keepReady.state === "loading"
+                      ? "loading"
+                      : keepReady.state === "stepped aside"
+                        ? "stepped aside"
+                        : "waiting"
+                }
+                tooltip={keepReady.detail || ""}
+              />
+            )}
+            {keepReady.enabled && keepReady.detail && keepReady.state !== "ready" && (
+              <Hint>{keepReady.detail}</Hint>
+            )}
+          </Line>
         )}
       </Cluster>
 
@@ -3343,7 +3457,7 @@ const SettingsPage = () => {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" })
               }
             >
-              Settings → API key
+              Settings → Access
             </ActionButton>
           ) : (
             <ActionButton onClick={() => navigate("/agents/mcp")}>

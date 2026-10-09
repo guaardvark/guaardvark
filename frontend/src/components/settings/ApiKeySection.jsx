@@ -1,9 +1,11 @@
 // frontend/src/components/settings/ApiKeySection.jsx
-// Settings → API key: this browser's sign-in, and this install's key.
+// Settings → Access: network access, this browser's sign-in, and this
+// install's key.
 //
 // Protected actions (running tools, automation, backups, file edits, ...)
 // answer the Guaardvark machine itself while the install has no key. Once it
-// has one, every device, that machine included, needs it. A browser signs in
+// has one, every device, that machine included, needs it. Network access on
+// opens them to every device on the local network, key or not. A browser signs in
 // by sending the key once to /api/auth/session; it then holds an HttpOnly
 // cookie, never the key (api/apiAuth.js). The install's key is created,
 // replaced and removed here, from the Guaardvark machine while there is no
@@ -33,21 +35,32 @@ import {
   getAuthStatus,
   removeApiKey,
   replaceApiKey,
+  setNetworkAccess,
   signIn,
   signOut,
 } from "../../api/authService";
-import { ActionButton, Cluster, ConfirmActionDialog, Hint, Line, SettingsPanel, StatusPill } from "./ui";
+import { ActionButton, Cluster, ConfirmActionDialog, Hint, Line, SettingChip, SettingsPanel, StatusPill } from "./ui";
 
 export const API_KEY_SECTION_ID = "settings-api-key";
 
-const NO_KEY_ELSEWHERE = (docker) =>
+const machineOf = (status) => status?.machine || "the Guaardvark machine";
+
+const NO_KEY_ELSEWHERE = (docker, machine = "the Guaardvark machine") =>
   docker
     ? "This install has no API key, so protected actions work only on the Guaardvark machine, and a browser never counts as that machine under Docker. Run ./start-docker.sh on the Docker host: it creates a key, prints it, and restarts with it."
-    : "This install has no API key, so protected actions work only on the Guaardvark machine. Create one there in Settings → API key, then enter it here.";
+    : `Network access is off and this install has no API key, so protected actions work only on ${machine} itself. Turn on Network access there, or create a key there and enter it here.`;
 
 /** Pill and sentence for what a status answer means for this browser. */
 export function describeStatus(status) {
   if (!status) return { tone: "neutral", label: "checking", text: "", ok: false };
+  if (status.network_access && status.on_local_network) {
+    return {
+      tone: "ok",
+      label: "network access",
+      text: `Network access is on, so this device can run protected actions on ${machineOf(status)} without the key.`,
+      ok: true,
+    };
+  }
   if (status.session_ok) {
     return {
       tone: "ok",
@@ -75,7 +88,7 @@ export function describeStatus(status) {
       ok: false,
     };
   }
-  return { tone: "warn", label: "Guaardvark machine only", text: NO_KEY_ELSEWHERE(status.docker), ok: false };
+  return { tone: "warn", label: `${machineOf(status)} only`, text: NO_KEY_ELSEWHERE(status.docker, machineOf(status)), ok: false };
 }
 
 function manageHint(status) {
@@ -84,7 +97,7 @@ function manageHint(status) {
   if (!status.key_required) {
     return status.docker
       ? "Under Docker the key is made by ./start-docker.sh on the Docker host."
-      : "A key can be created only on the Guaardvark machine itself: open Settings → API key in a browser there.";
+      : `A key can be created only on ${machineOf(status)} itself (or from any local device while Network access is on): open Settings → Access in a browser there.`;
   }
   return "Sign in with the current key above to replace or remove it. The Guaardvark machine keeps it in its .env file as GUAARDVARK_API_KEY.";
 }
@@ -119,7 +132,7 @@ function NewKeyDialog({ apiKey, onClose }) {
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
           It is shown once. This browser is already signed in with it and keeps the sign-in, not the key.
-          To use Guaardvark from another device, open Settings → API key there, paste it and press Save.
+          To use Guaardvark from another device, open Settings → Access there, paste it and press Save.
           Command-line and API clients send it in the X-API-Key header.
         </Typography>
         <Line nowrap>
@@ -204,7 +217,7 @@ export default function ApiKeySection() {
             ? { severity: "success", text: "That is this install's key. Press Save to sign this browser in with it." }
             : answer.key_required
               ? { severity: "warning", text: "That is not this install's API key." }
-              : { severity: "warning", text: NO_KEY_ELSEWHERE(answer.docker) },
+              : { severity: "warning", text: NO_KEY_ELSEWHERE(answer.docker, machineOf(answer)) },
         );
         return;
       }
@@ -231,6 +244,13 @@ export default function ApiKeySection() {
       await signOut();
       notifySessionChanged();
       setResult({ severity: "info", text: "Signed out in this browser. The install's key is unchanged." });
+    });
+
+  const toggleNetwork = (enabled) =>
+    run("network", async () => {
+      await setNetworkAccess(enabled);
+      notifySessionChanged();
+      await refresh();
     });
 
   const showNewKey = (key) => {
@@ -268,11 +288,11 @@ export default function ApiKeySection() {
   return (
     <SettingsPanel
       id={API_KEY_SECTION_ID}
-      title="API key"
+      title="Access"
       help={
         <>
-          Lets other devices and scripts run protected actions. Without a key they work only on the Guaardvark
-          machine itself.
+          What other devices may do here. Everyone on the network can chat and generate. Protected actions need
+          this machine, the API key, or Network access on.
           {status?.protected?.length > 0 && (
             <Box component="span" sx={{ display: "block", mt: 0.75 }}>
               Protected: {status.protected.join(" · ")}.
@@ -281,6 +301,28 @@ export default function ApiKeySection() {
         </>
       }
     >
+      <Cluster
+        label="Network"
+        help="Network access on: every device on this machine's local network can run protected actions too, with no key. Devices outside the local network still need the key. For a machine on a network you trust."
+        note={status ? (status.network_access ? "open to the local network" : "this machine and the key") : undefined}
+      >
+        <Line>
+          <SettingChip
+            label="Network access"
+            on={Boolean(status?.network_access)}
+            onToggle={toggleNetwork}
+            disabled={!status?.can_manage_network_access || busy === "network"}
+            tooltip={
+              status?.can_manage_network_access
+                ? "On: everything works from any device on the local network. Off: protected actions need this machine or the API key."
+                : status?.network_access_note ||
+                  `Change it on ${machineOf(status)} itself, or from a browser signed in with the key.`
+            }
+          />
+          {status?.network_access_note && <Hint>{status.network_access_note}</Hint>}
+        </Line>
+      </Cluster>
+
       <Cluster
         label="This browser"
         help="Sign this browser in with the install's key. The browser keeps a sign-in, not the key."

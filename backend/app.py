@@ -1209,6 +1209,16 @@ def _initialize_app_components(app):
     except Exception as e:
         app.logger.warning(f"MCP proxy tool sync unavailable: {e}")
 
+    # Keep ready loads the chat model from the GPU orchestrator's loop, which
+    # otherwise starts with the first request that needs it.
+    try:
+        from backend.services.chat_keep_ready import keep_ready_on
+        if keep_ready_on() and os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true":
+            from backend.services.gpu_memory_orchestrator import get_orchestrator
+            get_orchestrator()
+    except Exception as e:
+        app.logger.warning(f"Keep ready could not start: {e}")
+
     return app
 
 

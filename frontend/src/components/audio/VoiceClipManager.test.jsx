@@ -85,7 +85,7 @@ describe("VoiceClipManager", () => {
 
     expect(await screen.findByText(/works only on the Guaardvark machine/)).toBeInTheDocument();
     // Found once the closing dialog stops hiding the page from assistive tech.
-    expect(await screen.findByRole("button", { name: /Settings → API key/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Settings → Access/ })).toBeInTheDocument();
     expect(onRemoved).not.toHaveBeenCalled();
   });
 

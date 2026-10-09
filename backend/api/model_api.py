@@ -1218,6 +1218,11 @@ def set_current_model():
 
     # Quick validation using cached model list (avoids slow re-fetch)
     available_models_data = get_available_ollama_models(use_cache=True)
+    if isinstance(available_models_data, dict) and available_models_data.get("offline"):
+        return jsonify({
+            "error": "Ollama isn't running. Start it from the chat model list in Settings, or in Plugins → Ollama.",
+            "code": "ollama_offline",
+        }), 503
     if isinstance(available_models_data, dict) and available_models_data.get("error"):
         return jsonify({"error": f"Cannot verify model: {available_models_data['error']}"}), 500
 

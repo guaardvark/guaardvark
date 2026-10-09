@@ -272,7 +272,7 @@ Guaardvark speaks Model Context Protocol — both as a server (exposing its tool
 - **One-command client setup** — `python -m backend.mcp install` writes the server entry into the configs of detected clients (Claude Code, Codex, Cursor, Grok, Antigravity, opencode, Claude Desktop, Zed, Gemini); any other client can launch `guaardvark mcp serve`; `python -m backend.mcp doctor` self-tests the server and flags stale client configs
 - **Native tools exposed under the default-deny policy** — RAG, code intelligence, file management, image/video/music-video generation, songs and speech (`generate_music`, `generate_speech`), memory, web; `python -m backend.mcp list-tools` prints the live list and how many of the registered tools it exposes
 - **Read-only output resources** — generated media and documents under `data/outputs/` served as `guaardvark://outputs/...` (paged listing; chat exports, screenshots, consent records and training work are not served)
-- **API key** — for the backend of its own checkout the server sends the key in that checkout's `.env`, read on every call, so a key created or replaced in Settings → API key works without restarting the client; for a backend named by `GUAARDVARK_URL` it sends `GUAARDVARK_API_KEY` from its environment
+- **API key** — for the backend of its own checkout the server sends the key in that checkout's `.env`, read on every call, so a key created or replaced in Settings → Access works without restarting the client; for a backend named by `GUAARDVARK_URL` it sends `GUAARDVARK_API_KEY` from its environment
 - **Verified end-to-end** — smoke tests drive a real initialize/tools-list handshake over stdio
 
 ### MCP Client
@@ -679,7 +679,7 @@ Running a tool directly (`/api/tools/execute`) and the automation routes
 (`/api/automation/*`) answer only the Guaardvark machine itself, or a client
 that sends this install's API key (`GUAARDVARK_API_KEY`) in the `X-API-Key`
 header. A browser on another device is signed in once the key is entered in
-Settings → API key (an HttpOnly cookie; the browser does not keep the key);
+Settings → Access (an HttpOnly cookie; the browser does not keep the key);
 the key is created there on the Guaardvark machine, or by `./start-docker.sh`
 under Docker. `GUAARDVARK_PROTECT_TOOL_ENDPOINTS=false`
 opens these routes to every device that can reach the backend.

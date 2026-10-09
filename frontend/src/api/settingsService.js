@@ -811,3 +811,21 @@ export const setMusicDirectory = async (path) => {
     return { error: err.message };
   }
 };
+
+/** Keep ready: { enabled, state, detail, model, env_writable }. */
+export const getChatKeepReady = async () => {
+  const response = await fetch(`${BASE_URL}/settings/chat_keep_ready`);
+  return await handleResponse(response);
+};
+
+/** Turn Keep ready on or off for this machine; applies at once. */
+export const setChatKeepReady = async (enabled) => {
+  const response = await fetch(`${BASE_URL}/settings/chat_keep_ready`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  });
+  const data = await handleResponse(response);
+  if (typeof data === "object" && data !== null && data.error) throw new Error(data.error);
+  return data;
+};

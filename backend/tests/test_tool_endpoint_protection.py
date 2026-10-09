@@ -52,8 +52,8 @@ def _protected(app, path, method="GET"):
 def test_execute_is_refused_to_other_hosts_and_says_where_it_works(client):
     refused = _execute(client, REMOTE)
     assert refused.status_code == 403
-    assert refused.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE
-    assert "Guaardvark machine" in auth_guard.LOCAL_ONLY_MESSAGE and "API key" in auth_guard.LOCAL_ONLY_MESSAGE
+    assert refused.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
+    assert "Network access" in auth_guard.LOCAL_ONLY_MESSAGE and "API key" in auth_guard.LOCAL_ONLY_MESSAGE
 
 
 def test_execute_runs_for_this_machine(client):
@@ -101,12 +101,12 @@ def test_with_an_api_key_set_every_host_needs_it(client, monkeypatch):
     assert _execute(client, REMOTE, headers={"X-API-Key": "wrong"}).status_code == 401
     assert _execute(client, REMOTE, headers={"X-API-Key": "k-test"}).status_code == 200
     unkeyed = _execute(client, LOCAL)
-    assert unkeyed.status_code == 401 and unkeyed.get_json()["error"] == auth_guard.API_KEY_MESSAGE
+    assert unkeyed.status_code == 401 and unkeyed.get_json()["error"] == auth_guard.API_KEY_MESSAGE.format(machine=auth_guard.machine_name())
     assert _execute(client, LOCAL, headers={"X-API-Key": "k-test"}).status_code == 200
 
 
 def test_refusals_carry_the_code_the_web_ui_reads(client, monkeypatch):
-    # The web UI turns these codes into "Settings → API key" advice.
+    # The web UI turns these codes into "Settings → Access" advice.
     assert _execute(client, REMOTE).get_json()["code"] == auth_guard.LOCAL_ONLY_CODE
     monkeypatch.setenv("GUAARDVARK_API_KEY", "k-test")
     assert _execute(client, REMOTE).get_json()["code"] == auth_guard.API_KEY_CODE

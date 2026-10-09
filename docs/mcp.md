@@ -134,7 +134,7 @@ terminal (`--json`, pipes) it refuses unless the tool matches
   `/reload-config` always need a local caller or the `X-API-Key` header.
 - All of `/api/automation/`, `/api/tools/execute` and `/api/tools/jobs/` are
   behind the same rule. A browser on another device uses them once it is
-  signed in with this install's API key in Settings → API key; until then the MCP
+  signed in with this install's API key in Settings → Access; until then the MCP
   Servers page and the Tools page say so and link there. A browser on the
   Guaardvark machine itself is a local caller. Once `GUAARDVARK_API_KEY` is
   set, every caller needs the key, that browser included.

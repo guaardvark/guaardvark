@@ -199,20 +199,28 @@ def _guard_checks(debug: bool) -> tuple[list[dict], bool]:
         checks.append(_check(
             "api_key", "API key", OK,
             "Set. Protected actions (code execution, backups, restarts, file editing, "
-            "outreach and the rest Settings → API key lists) need it from every device, "
+            "outreach and the rest Settings → Access lists) need it from every device, "
             "this one included.",
         ))
     else:
         checks.append(_check(
             "api_key", "API key", INFO,
             "Not set. Protected actions answer only this machine; other devices cannot run "
-            "them until a key is created in Settings → API key.",
+            "them until a key is created in Settings → Access.",
         ))
     if state.restart_needed:
         checks.append(_check(
             "api_key_restart", "API key not loaded", WARN,
             "The key saved in .env is not the one the running backend uses. Restart "
             "Guaardvark to apply it.",
+        ))
+
+    if auth_guard.network_access_open():
+        checks.append(_check(
+            "network_access", "Network access", WARN,
+            "On. Every device on this machine's local network can run protected actions "
+            "without the API key. Turn it off in Settings → Access on a network you do "
+            "not trust.",
         ))
 
     if auth_guard.tool_endpoints_protected():

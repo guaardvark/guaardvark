@@ -1,4 +1,4 @@
-"""Settings → API key: GET /api/auth/status, signing a browser in and out with
+"""Settings → Access: GET /api/auth/status, signing a browser in and out with
 an HttpOnly cookie, and creating, replacing and removing the key.
 
 Drives the real auth blueprint and the tools blueprint behind the real auth

@@ -5,9 +5,11 @@ When GUAARDVARK_API_KEY is set in the environment, protected endpoints
 require it from every host, this machine included: in the X-API-Key header
 (command-line clients, the MCP server, scripts), or as a browser signed in
 with it (the HttpOnly session cookie of backend/utils/api_session.py, which
-Settings → API key obtains). When unset, requests from this machine pass and
-other hosts are refused. /api/auth/ reports the state, signs browsers in and
-out, and manages the key.
+Settings → Access obtains). When unset, requests from this machine pass and
+other hosts are refused. With network access on (GUAARDVARK_NETWORK_ACCESS),
+every device on this machine's local network passes as well, key or not.
+/api/auth/ reports the state, signs browsers in and out, and manages the key
+and network access.
 
 Agent screen captures (/api/tools/screenshots/) also answer a link signed by
 backend/utils/screenshot_urls.py, which is what chat's <img> tags carry.
@@ -15,7 +17,9 @@ backend/utils/screenshot_urls.py, which is what chat's <img> tags carry.
 
 import os
 import hmac
+import ipaddress
 import logging
+import socket
 
 from flask import request, jsonify
 
@@ -28,6 +32,8 @@ API_KEY_HEADER = "X-API-Key"
 PROTECTED_PREFIXES = (
     # Creating, replacing and removing the API key itself.
     '/api/auth/key',
+    # Turning network access on or off.
+    '/api/auth/network-access',
     '/api/code-execution/',
     '/api/backups/restore',
     '/api/backups/create',
@@ -53,7 +59,7 @@ PROTECTED_PREFIXES = (
 # the confirmation prompts chat would show. Tool jobs hold the results of those
 # calls. These routes answer only this machine, or a caller that sends the API
 # key; a browser on another device is signed in once the key is entered in
-# Settings → API key.
+# Settings → Access.
 # GUAARDVARK_PROTECT_TOOL_ENDPOINTS=false (or 0, no, off) opens them to every
 # host that can reach the backend; any other value, or none, keeps them closed.
 # It is read per request, like GUAARDVARK_API_KEY.
@@ -68,24 +74,34 @@ TOOL_ENDPOINT_PATHS = (
 )
 
 # The refusals. Each carries a code the web UI recognises (it then words the
-# advice for the page it is on and links to Settings → API key); the CLI shows
+# advice for the page it is on and links to Settings → Access); the CLI shows
 # the text as it is, so the text says what to do in both places.
 # local_only: this install has no key and the caller is another host.
 # api_key_required: this install has a key and the caller did not send it.
 # credential_rejected in the body: the caller did send a key or a sign-in, and
 # it is not accepted now.
 LOCAL_ONLY_CODE = "local_only"
+# outside_local_network: network access is on, no key, and the caller is not
+# on the local network.
+OUTSIDE_NETWORK_CODE = "outside_local_network"
 API_KEY_CODE = "api_key_required"
 SCREENSHOT_LINK_CODE = "screenshot_link_invalid"
 LOCAL_ONLY_MESSAGE = (
-    "This action works only on the Guaardvark machine itself, because this "
-    "install has no API key yet. To use it from another device, create a key "
-    "in Settings → API key on the Guaardvark machine, then enter it on that "
-    "device; command-line and API clients send it in the X-API-Key header."
+    "This action works only on {machine} itself: network access is off and "
+    "this install has no API key. To use it from another device, turn on "
+    "Settings → Access → Network access on {machine}, or create an API key "
+    "there and enter it on that device; command-line and API clients send "
+    "it in the X-API-Key header."
+)
+OUTSIDE_NETWORK_MESSAGE = (
+    "This action works only on {machine} and on devices on its local network, "
+    "and this device is outside it. Create an API key in Settings → Access on "
+    "{machine} and enter it on this device; command-line and API clients send "
+    "it in the X-API-Key header."
 )
 API_KEY_MESSAGE = (
-    "This action needs this install's API key. In the web UI, enter it in "
-    "Settings → API key; command-line and API clients send it in the "
+    "This action needs {machine}'s API key. In the web UI, enter it in "
+    "Settings → Access; command-line and API clients send it in the "
     "X-API-Key header (GUAARDVARK_API_KEY)."
 )
 # Says nothing about whether the file exists.
@@ -99,6 +115,27 @@ SCREENSHOT_PREFIX = "/api/tools/screenshots/"
 def tool_endpoints_protected() -> bool:
     """True unless GUAARDVARK_PROTECT_TOOL_ENDPOINTS opts out."""
     return os.environ.get(TOOL_ENDPOINTS_ENV, "").strip().lower() not in ("0", "false", "no", "off")
+
+
+# Settings → Access → Network access. On (1, true, yes, on), every protected
+# action is open to this machine and to every device on its local network,
+# with or without the API key; an address outside the local network still
+# needs the key. Off or unset keeps the rules above. Read per request, like
+# GUAARDVARK_API_KEY; backend/services/network_access_service.py changes it.
+NETWORK_ACCESS_ENV = "GUAARDVARK_NETWORK_ACCESS"
+
+
+def network_access_open() -> bool:
+    """True when network access is on."""
+    return os.environ.get(NETWORK_ACCESS_ENV, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def machine_name() -> str:
+    """This machine's host name, for messages that send someone to it."""
+    try:
+        return socket.gethostname() or "the Guaardvark machine"
+    except OSError:
+        return "the Guaardvark machine"
 
 
 # File APIs include both the document library and the live repository editor.
@@ -355,6 +392,20 @@ def request_is_from_this_machine() -> bool:
     return _is_localhost(_effective_client_ip())
 
 
+def request_is_from_local_network() -> bool:
+    """True for this machine and for private, loopback and link-local
+    addresses: the devices network access opens to. A public address, or one
+    in shared address space, as some VPNs hand out, is not."""
+    addr = _effective_client_ip()
+    if _is_localhost(addr):
+        return True
+    try:
+        ip = ipaddress.ip_address(_normalize_ip(addr))
+    except ValueError:
+        return False
+    return ip.is_private or ip.is_loopback or ip.is_link_local
+
+
 def request_has_valid_session() -> bool:
     """True when a browser signed in with the current key sent its cookie."""
     from backend.utils.api_session import VALID, session_state
@@ -373,8 +424,11 @@ def credential_rejected() -> bool:
 
 
 def caller_is_authorized() -> bool:
-    """The rule every protected route applies: the key (header or signed-in
+    """The rule every protected route applies: any device on the local network
+    while network access is on; otherwise the key (header or signed-in
     browser) once one is configured, this machine until then."""
+    if network_access_open() and request_is_from_local_network():
+        return True
     if configured_api_key():
         return request_carries_valid_key() or request_has_valid_session()
     return request_is_from_this_machine()
@@ -413,7 +467,13 @@ def protected_summary() -> list[str]:
 
 
 def _refusal(message: str, code: str, status: int):
-    return jsonify({"error": message, "code": code, "credential_rejected": credential_rejected()}), status
+    machine = machine_name()
+    return jsonify({
+        "error": message.format(machine=machine),
+        "code": code,
+        "credential_rejected": credential_rejected(),
+        "machine": machine,
+    }), status
 
 
 def check_endpoint_auth():
@@ -423,6 +483,7 @@ def check_endpoint_auth():
     - An OPTIONS request Flask answers itself (a CORS preflight) → allow
     - Agent screen captures: a link signed for that path passes, then the rule below
     - If endpoint is not protected → allow
+    - If network access is on → allow this machine and the local network
     - If GUAARDVARK_API_KEY is set → require X-API-Key header (any host)
     - If GUAARDVARK_API_KEY is NOT set → allow localhost, block remote
     """
@@ -442,12 +503,17 @@ def check_endpoint_auth():
     if not _is_protected():
         return None
 
+    if network_access_open() and request_is_from_local_network():
+        return None
+
     if not configured_api_key():
         if request_is_from_this_machine():
             return None
         logger.warning(
             f"[AUTH] Blocked remote access to {request.path} from {_effective_client_ip()}"
         )
+        if network_access_open():
+            return _refusal(OUTSIDE_NETWORK_MESSAGE, OUTSIDE_NETWORK_CODE, 403)
         return _refusal(LOCAL_ONLY_MESSAGE, LOCAL_ONLY_CODE, 403)
 
     if request_carries_valid_key() or request_has_valid_session():

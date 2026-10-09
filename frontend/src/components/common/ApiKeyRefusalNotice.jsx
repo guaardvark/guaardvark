@@ -1,7 +1,7 @@
 // frontend/src/components/common/ApiKeyRefusalNotice.jsx
 // What a browser sees when a protected route refuses it (backend/utils/
 // auth_guard.py): the advice from describeAuthRefusal and a link to
-// Settings → API key.
+// Settings → Access.
 //
 // ApiKeyRefusalNotice is mounted once in App and answers AUTH_REFUSED_EVENT from
 // any request, so pages that only log their errors still tell the person what
@@ -25,7 +25,7 @@ import {
   onSessionChanged,
 } from "../../api/apiAuth";
 
-const LINK_LABEL = "Settings → API key";
+const LINK_LABEL = "Settings → Access";
 // How many ApiKeyRefusalAlerts are on screen. The notice waits a moment and
 // stays quiet when a page already shows the advice where the action was.
 let inlineAlerts = 0;
@@ -66,7 +66,7 @@ ApiKeyRefusalAlert.propTypes = {
   message: PropTypes.node.isRequired,
   severity: PropTypes.string,
   sx: PropTypes.object,
-  // Called before the link opens Settings → API key (a dialog closes itself).
+  // Called before the link opens Settings → Access (a dialog closes itself).
   onFollow: PropTypes.func,
 };
 

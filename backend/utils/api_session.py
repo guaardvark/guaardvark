@@ -1,6 +1,6 @@
 """A browser signed in with this install's API key, as an HttpOnly cookie.
 
-The web UI never keeps the key. Settings → API key sends it once to
+The web UI never keeps the key. Settings → Access sends it once to
 POST /api/auth/session, which answers with a cookie holding a token derived
 from the key, HMAC-SHA256(key, "guaardvark-session-v1"), not the key itself.
 The cookie is HttpOnly (page scripts, and so an injected script, cannot read

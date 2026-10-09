@@ -23,7 +23,7 @@ import "@fontsource/raleway/500.css";
 import "@fontsource/raleway/600.css";
 import "./index.css"; // Basic global styles
 
-// Before the first render: axios refusals become Settings → API key advice,
+// Before the first render: axios refusals become Settings → Access advice,
 // and, only when the build names a backend on another origin, requests to it
 // carry this browser's sign-in cookie.
 installBackendCredentials({ axios });

@@ -628,11 +628,15 @@ def get_branding():
     profile = P.active_profile()
     if not name and profile.brand.get("app_name"):
         name = profile.brand["app_name"]
+    # Saving the answer is protected, so the first-run question goes only to
+    # a browser that can save it: this machine, one signed in with the key,
+    # or any local device while network access is on.
+    from backend.utils.auth_guard import caller_is_authorized
     return success_response({
         "system_name": name,
         "logo_path": logo,
         "profile": profile.public_dict(),
-        "profile_first_run": not P.profile_chosen(),
+        "profile_first_run": not P.profile_chosen() and caller_is_authorized(),
     })
 
 
@@ -714,6 +718,39 @@ def set_ollama_lifecycle():
         "keep_running": _env_flag(P.read_env_value(OLLAMA_KEEP_ENV)),
         "external": _env_flag(P.read_env_value(OLLAMA_EXTERNAL_ENV)),
     })
+
+
+@settings_bp.route("/chat_keep_ready", methods=["GET"])
+def get_chat_keep_ready():
+    """Keep ready: whether it is on and what it is doing now."""
+    from backend.services import chat_keep_ready
+    from backend import profiles as P
+    state = chat_keep_ready.status()
+    state["env_writable"] = P.env_file_writable()
+    return success_response(state)
+
+
+@settings_bp.route("/chat_keep_ready", methods=["POST"])
+def set_chat_keep_ready():
+    """Turn Keep ready on or off for this machine. Applies at once."""
+    from backend.services import chat_keep_ready
+    payload = request.get_json(silent=True) or {}
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        return error_response('Send {"enabled": true} or {"enabled": false}.', 400)
+    try:
+        chat_keep_ready.set_keep_ready(enabled)
+    except chat_keep_ready.KeepReadyRefused as e:
+        return error_response(e.message, 409)
+    except OSError as e:
+        return error_response(f"could not write .env: {e}", 500)
+    if enabled:
+        # Start the orchestrator's loop if nothing has yet, and check now
+        # rather than at its next pass.
+        from backend.services.gpu_memory_orchestrator import get_orchestrator
+        get_orchestrator()
+        chat_keep_ready.keep_ready_pass()
+    return success_response(chat_keep_ready.status())
 
 
 @settings_bp.route("/branding", methods=["POST"])

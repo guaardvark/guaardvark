@@ -1,5 +1,5 @@
 """Which API key the CLI sends: env vars, then its config, then, for a server
-on this machine, the local install's .env (where Settings → API key and
+on this machine, the local install's .env (where Settings → Access and
 start-docker.sh keep it)."""
 
 import json
