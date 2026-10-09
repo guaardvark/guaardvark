@@ -1,5 +1,5 @@
 """This install's API key: where the running key comes from, and creating,
-replacing and removing it from Settings → API key.
+replacing and removing it from Settings → Access.
 
 The key lives in the repo's ``.env`` as ``GUAARDVARK_API_KEY`` (written with the
 same writer as the profile and the Ollama policy, so every other line and the

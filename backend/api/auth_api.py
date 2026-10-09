@@ -1,4 +1,4 @@
-"""This install's API key, for Settings → API key.
+"""This install's API key and network access, for Settings → Access.
 
 GET /api/auth/status is open: it tells a browser whether the install has a key,
 whether the request came from the Guaardvark machine, whether it carried the
@@ -15,6 +15,10 @@ in auth_guard's protected list, so it answers the Guaardvark machine while the
 install has no key, and the current key or a signed-in browser once it has one.
 A new key is in the response body once, for copying to other devices, and the
 same response signs the calling browser in with it.
+
+POST /api/auth/network-access turns network access on or off (JSON
+{"enabled": bool}). It is protected like the key: this machine, the key, or,
+while network access is on, any device on the local network.
 """
 
 import hmac
@@ -23,6 +27,7 @@ import logging
 from flask import Blueprint, jsonify, request
 
 from backend.services import api_key_service as keys
+from backend.services import network_access_service as network
 from backend.utils import api_session, auth_guard
 
 logger = logging.getLogger(__name__)
@@ -48,6 +53,7 @@ def auth_status():
     state = keys.key_state()
     session = api_session.session_state()
     may_run = auth_guard.caller_is_authorized()
+    access = network.network_access_state()
     return _no_store(jsonify({
         "key_required": state.configured,
         "this_machine": auth_guard.request_is_from_this_machine(),
@@ -63,6 +69,12 @@ def auth_status():
         "docker": state.docker,
         "tool_endpoints_protected": auth_guard.tool_endpoints_protected(),
         "protected": auth_guard.protected_summary(),
+        "machine": auth_guard.machine_name(),
+        "network_access": access.enabled,
+        "can_manage_network_access": may_run and access.manageable,
+        "network_access_note": access.manage_note,
+        # Whether this device is one network access opens to.
+        "on_local_network": auth_guard.request_is_from_local_network(),
     }))
 
 
@@ -79,7 +91,7 @@ def sign_in():
     key = auth_guard.configured_api_key()
     if not key:
         return _error(
-            "This install has no API key yet. Create one in Settings → API key on the Guaardvark machine.",
+            f"This install has no API key yet. Create one in Settings → Access on {auth_guard.machine_name()}.",
             "no_key", 409,
         )
     if not hmac.compare_digest(provided.encode("utf-8"), key.encode("utf-8")):
@@ -158,3 +170,22 @@ def remove_key():
         logger.info("[AUTH] API key removed from %s", auth_guard._effective_client_ip())
     response, status = _no_store(jsonify({"removed": removed, "key_required": False, "session": False}))
     return api_session.clear_session_cookie(response), status
+
+
+@auth_bp.route("/network-access", methods=["POST"])
+def set_network_access():
+    refused = _checked()
+    if refused is not None:
+        return refused
+    payload = request.get_json(silent=True) or {}
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        return _error('Send {"enabled": true} or {"enabled": false}.', "enabled_missing", 400)
+    try:
+        network.set_network_access(enabled)
+    except network.NetworkAccessRefused as e:
+        return _error(e.message, "network_access_not_manageable", 409)
+    except OSError as e:
+        return _error(f"Could not write .env: {e}", "env_write_failed", 500)
+    logger.info("[AUTH] Network access turned %s from %s", "on" if enabled else "off", auth_guard._effective_client_ip())
+    return _no_store(jsonify({"network_access": enabled}))

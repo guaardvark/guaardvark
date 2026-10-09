@@ -68,7 +68,7 @@ export const handleResponse = async (response, options = {}) => {
     // (taskQueue.js); the server's text stays in error.data.
     const queueDown = response.status === 503 && isQueueUnreachable(errorData);
     const errorMessage =
-      (refusal && describeAuthRefusal(refusal, rejected)) ||
+      (refusal && describeAuthRefusal(refusal, rejected, errorData.machine)) ||
       (queueDown && QUEUE_UNREACHABLE_MESSAGE) ||
       (typeof nested === "string" && nested) ||
       (typeof nested?.message === "string" && nested.message) ||

@@ -249,7 +249,7 @@ def test_other_meta_mutation_still_blocked_from_remote_host(app, monkeypatch):
     )
 
     assert response.status_code == 403
-    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE
+    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
 
 
 def test_lan_device_via_local_proxy_is_still_treated_as_remote(app, monkeypatch):
@@ -265,7 +265,7 @@ def test_lan_device_via_local_proxy_is_still_treated_as_remote(app, monkeypatch)
     )
 
     assert response.status_code == 403
-    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE
+    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
 
 
 def test_forged_xff_from_direct_remote_peer_is_ignored(app, monkeypatch):
@@ -282,7 +282,7 @@ def test_forged_xff_from_direct_remote_peer_is_ignored(app, monkeypatch):
     )
 
     assert response.status_code == 403
-    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE
+    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
 
 
 def test_forged_xff_through_the_proxy_is_ignored(app, monkeypatch):
@@ -298,7 +298,7 @@ def test_forged_xff_through_the_proxy_is_ignored(app, monkeypatch):
     )
 
     assert response.status_code == 403
-    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE
+    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
 
 
 def test_genuine_localhost_via_proxy_is_allowed(app, monkeypatch):
@@ -326,7 +326,7 @@ def test_remote_file_mutation_is_blocked_without_api_key(app, monkeypatch):
     )
 
     assert response.status_code == 403
-    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE
+    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
 
 
 def test_remote_self_code_read_is_blocked_without_api_key(app, monkeypatch):
@@ -339,7 +339,7 @@ def test_remote_self_code_read_is_blocked_without_api_key(app, monkeypatch):
     )
 
     assert response.status_code == 403
-    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE
+    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
 
 
 def test_read_only_file_browser_get_remains_unprotected(app, monkeypatch):
@@ -383,7 +383,7 @@ def test_remote_memory_clear_is_blocked_without_api_key(app, monkeypatch):
     )
 
     assert response.status_code == 403
-    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE
+    assert response.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
 
 
 def test_remote_memory_read_remains_unprotected(app, monkeypatch):

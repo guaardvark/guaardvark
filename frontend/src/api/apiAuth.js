@@ -5,7 +5,7 @@
 // Protected backend routes (backend/utils/auth_guard.py) answer the Guaardvark
 // machine itself while the install has no API key. Once it has one they answer
 // the key in X-API-Key (command-line clients, the MCP server, scripts) or a
-// browser signed in with it. Settings → API key sends the key once to
+// browser signed in with it. Settings → Access sends the key once to
 // POST /api/auth/session; the backend answers with an HttpOnly cookie holding a
 // token derived from the key. Page scripts never keep the key and cannot read
 // the cookie, so an injected script cannot take it. The browser sends the
@@ -23,7 +23,7 @@
 export const API_KEY_SETTINGS_PATH = "/settings#settings-api-key";
 export const AUTH_REFUSED_EVENT = "guaardvark:auth-refused";
 export const SESSION_CHANGED_EVENT = "guaardvark:session-changed";
-export const AUTH_REFUSAL_CODES = ["local_only", "api_key_required"];
+export const AUTH_REFUSAL_CODES = ["local_only", "outside_local_network", "api_key_required"];
 
 const CHANNEL = "guaardvark-auth";
 // Marks this tab's own channel messages, which it already handled through the
@@ -100,15 +100,18 @@ export function authRefusalCode(body) {
  * What to do about a refusal, in the words the UI shows. `rejected`: the
  * request carried a sign-in or key that is not accepted now.
  */
-export function describeAuthRefusal(code, rejected = false) {
+export function describeAuthRefusal(code, rejected = false, machine = "the Guaardvark machine") {
+  if (code === "outside_local_network") {
+    return `This works only on ${machine} and on devices on its local network, and this device is outside it. Create an API key in Settings → Access on ${machine}, then enter it in Settings → Access on this device.`;
+  }
   if (code === "local_only") {
     return rejected
-      ? "This install no longer has an API key, so this works only on the Guaardvark machine itself. Create a new key there in Settings → API key, then enter it in Settings → API key on this device."
-      : "This works only on the Guaardvark machine itself. To use it here, create an API key in Settings → API key on the Guaardvark machine, then enter it in Settings → API key on this device.";
+      ? `${machine} no longer has an API key, so this works only on ${machine} itself. Turn on Settings → Access → Network access there, or create a new key there and enter it in Settings → Access on this device.`
+      : `This works only on ${machine} itself. To use it here, turn on Settings → Access → Network access on ${machine}, or create an API key there and enter it in Settings → Access on this device.`;
   }
   return rejected
-    ? "This browser was signed in with a key this install no longer uses. Enter the current key in Settings → API key."
-    : "Enter this install's API key in Settings → API key. It is shown when it is created, and the Guaardvark machine keeps it in its .env file as GUAARDVARK_API_KEY.";
+    ? `This browser was signed in with a key ${machine} no longer uses. Enter the current key in Settings → Access.`
+    : `Enter ${machine}'s API key in Settings → Access. It is shown when it is created, and ${machine} keeps it in its .env file as GUAARDVARK_API_KEY.`;
 }
 
 function dispatch(name, detail) {
@@ -218,7 +221,7 @@ export function installBackendCredentials({ axios, target = window, options } = 
           // Call sites show response.data.error or error.message; both carry
           // the advice, and the server's own words stay in server_error.
           const rejected = Boolean(response.data.credential_rejected);
-          const text = describeAuthRefusal(code, rejected);
+          const text = describeAuthRefusal(code, rejected, response.data.machine);
           response.data = { ...response.data, error: text, message: text, server_error: response.data.error };
           error.message = text;
           error.authRefused = code;

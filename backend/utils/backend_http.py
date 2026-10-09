@@ -77,7 +77,7 @@ def backend_api_key() -> str:
 
     For this checkout's own backend (no ``GUAARDVARK_URL``), the key in its
     ``.env`` comes first and is read on every call: that is the key the backend
-    runs with, and Settings → API key rewrites it, so a key created or replaced
+    runs with, and Settings → Access rewrites it, so a key created or replaced
     there works here without restarting the MCP client. Otherwise, and when
     ``.env`` has none, ``GUAARDVARK_API_KEY`` from this process's environment.
     """

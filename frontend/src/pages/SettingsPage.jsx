@@ -3343,7 +3343,7 @@ const SettingsPage = () => {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" })
               }
             >
-              Settings → API key
+              Settings → Access
             </ActionButton>
           ) : (
             <ActionButton onClick={() => navigate("/agents/mcp")}>

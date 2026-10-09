@@ -628,11 +628,15 @@ def get_branding():
     profile = P.active_profile()
     if not name and profile.brand.get("app_name"):
         name = profile.brand["app_name"]
+    # Saving the answer is protected, so the first-run question goes only to
+    # a browser that can save it: this machine, one signed in with the key,
+    # or any local device while network access is on.
+    from backend.utils.auth_guard import caller_is_authorized
     return success_response({
         "system_name": name,
         "logo_path": logo,
         "profile": profile.public_dict(),
-        "profile_first_run": not P.profile_chosen(),
+        "profile_first_run": not P.profile_chosen() and caller_is_authorized(),
     })
 
 
