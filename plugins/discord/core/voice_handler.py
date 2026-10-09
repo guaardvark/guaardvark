@@ -20,6 +20,11 @@ except ImportError:
     voice_recv = None
     VOICE_RECV_AVAILABLE = False
 
+try:
+    import davey
+except ImportError:
+    davey = None
+
 logger = logging.getLogger(__name__)
 
 DISCORD_SAMPLE_RATE = 48000
@@ -28,6 +33,11 @@ DISCORD_CHANNELS = 2
 BYTES_PER_SECOND = DISCORD_SAMPLE_RATE * DISCORD_CHANNELS * 2
 
 WATCHER_INTERVAL_S = 0.2
+
+# The frame a Discord client sends when it stops talking; it carries no speech.
+OPUS_SILENCE = b"\xf8\xff\xfe"
+# Every frame under Discord's end-to-end encryption (DAVE) ends with this marker.
+DAVE_MAGIC_MARKER = b"\xfa\xfa"
 
 
 def pcm_to_wav(pcm_data: bytes, sample_rate: int = DISCORD_SAMPLE_RATE, channels: int = DISCORD_CHANNELS) -> bytes:
@@ -45,7 +55,13 @@ if VOICE_RECV_AVAILABLE:
     class UtteranceSink(voice_recv.AudioSink):
         """Accumulates per-user PCM. write() runs on the voice-recv decoder thread,
         so it only touches plain structures under a lock; the segmentation watcher
-        (asyncio side) polls and pops completed utterances."""
+        (asyncio side) polls and pops completed utterances.
+
+        Discord encrypts every voice call end to end (DAVE). voice_recv removes
+        only the transport encryption, so its own Opus decoder would be handed
+        ciphertext and fail. The sink takes the Opus frames instead, removes
+        the end-to-end layer with discord.py's DAVE session, and decodes them
+        itself."""
 
         def __init__(self):
             super().__init__()
@@ -53,20 +69,59 @@ if VOICE_RECV_AVAILABLE:
             self.buffers: dict[int, bytearray] = {}
             self.last_packet: dict[int, float] = {}
             self.names: dict[int, str] = {}
+            self._decoders: dict[int, discord.opus.Decoder] = {}
+            # Users already reported in the log, so a long utterance logs once.
+            self._heard: set[int] = set()
+            self._undecryptable: set[int] = set()
 
         def wants_opus(self) -> bool:
-            return False
+            return True
+
+        def _decrypt(self, user_id: int, frame: bytes) -> Optional[bytes]:
+            """The Opus frame without its end-to-end layer, or None when it
+            cannot be removed (the session is still being keyed, or the frame
+            is not for it)."""
+            if not frame.endswith(DAVE_MAGIC_MARKER):
+                return frame
+            connection = getattr(getattr(self, "voice_client", None), "_connection", None)
+            session = getattr(connection, "dave_session", None)
+            if davey is None or session is None or not session.ready:
+                reason = "the DAVE session is not ready" if davey else "davey is not installed"
+            else:
+                try:
+                    return session.decrypt(user_id, davey.MediaType.audio, frame)
+                except Exception as e:
+                    reason = str(e)
+            if user_id not in self._undecryptable:
+                self._undecryptable.add(user_id)
+                logger.warning("Cannot decrypt voice from user %s yet (%s); dropping those frames", user_id, reason)
+            return None
 
         def write(self, user, data):
             try:
                 if user is None or getattr(user, "bot", False):
                     return
-                if not data.pcm:
+                frame = data.opus
+                if not frame or frame == OPUS_SILENCE:
                     return
+                frame = self._decrypt(user.id, bytes(frame))
+                if frame is None:
+                    return
+                decoder = self._decoders.get(user.id)
+                if decoder is None:
+                    decoder = self._decoders[user.id] = discord.opus.Decoder()
+                try:
+                    pcm = decoder.decode(frame, fec=False)
+                except discord.opus.OpusError:
+                    return
+                name = getattr(user, "display_name", str(user))
+                if user.id not in self._heard:
+                    self._heard.add(user.id)
+                    logger.info("Hearing %s", name)
                 with self.lock:
-                    self.buffers.setdefault(user.id, bytearray()).extend(data.pcm)
+                    self.buffers.setdefault(user.id, bytearray()).extend(pcm)
                     self.last_packet[user.id] = time.monotonic()
-                    self.names[user.id] = getattr(user, "display_name", str(user))
+                    self.names[user.id] = name
             except Exception:
                 logger.exception("UtteranceSink.write failed")
 
@@ -75,6 +130,7 @@ if VOICE_RECV_AVAILABLE:
                 self.buffers.clear()
                 self.last_packet.clear()
                 self.names.clear()
+            self._decoders.clear()
 
 
 class VoiceHandler:
@@ -189,7 +245,7 @@ class VoiceHandler:
             except APIError as e:
                 # 400 = "No speech detected" — benign (breath, cough, keyboard noise)
                 if e.status_code == 400:
-                    logger.debug("No speech in %.1fs utterance from %s", utt_seconds, display_name)
+                    logger.info("No speech in %.1fs utterance from %s", utt_seconds, display_name)
                     return
                 raise
             text = stt_result.get("text", "").strip()
@@ -248,7 +304,8 @@ class VoiceHandler:
 
     async def speak(self, text: str):
         """TTS the text and play it in the connected voice channel."""
-        tts_result = await self.api.text_to_speech(text, voice=self.config.get("voice", {}).get("tts_voice", "ryan"))
+        # An empty tts_voice lets Guaardvark speak in its own default voice.
+        tts_result = await self.api.text_to_speech(text, voice=self.config.get("voice", {}).get("tts_voice") or None)
         audio_url = tts_result.get("audio_url")
         if not audio_url and tts_result.get("filename"):
             audio_url = f"/api/voice/audio/{tts_result['filename']}"

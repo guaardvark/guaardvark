@@ -28,7 +28,7 @@ voice:
   enabled: true
   silence_threshold_ms: 1500
   max_listen_duration_s: 30
-  tts_voice: "ryan"
+  tts_voice: ""  # a Piper voice id such as "libritts"; empty uses Guaardvark's default
   interrupt_on_speech: true  # barge-in not implemented yet (reserved)
   min_utterance_ms: 400  # discard blips shorter than this (coughs, key clicks)
 

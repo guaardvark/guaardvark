@@ -30,6 +30,16 @@ if not logger.handlers:
     _fh = logging.FileHandler(os.path.join(log_dir, "discord_bot.log"))
     _fh.setFormatter(_fmt)
     logger.addHandler(_fh)
+    # The cogs and core modules log under their own package names. The voice
+    # receive extension reports packet and decode errors only through logging,
+    # and discord.py gives its loggers a NullHandler, so without a handler of
+    # their own those messages are lost.
+    for _name, _level in (("core", logging.INFO), ("commands", logging.INFO),
+                          ("discord.ext.voice_recv", logging.WARNING)):
+        _pkg_logger = logging.getLogger(_name)
+        _pkg_logger.setLevel(_level)
+        _pkg_logger.propagate = False
+        _pkg_logger.addHandler(_fh)
 
 
 _GUARD_MODULE = "guaardvark_sidecar_guard"
