@@ -2135,6 +2135,8 @@ def _role_ok(model_id: str, role: str) -> bool:
     if role == "scene":
         modes = caps.get("modes") or []
         return bool(caps.get("audio_out") and (caps.get("supports_i2v") or "ref2v" in modes))
+    if role == "ref2v":
+        return "ref2v" in (caps.get("modes") or [])
     return False
 
 
@@ -2189,7 +2191,7 @@ def _hardware_candidates(role: str, total_vram_mb) -> list:
     first. Registry order only breaks ties.
     """
     preferred = DEFAULT_I2V_MODEL if role == "i2v" else DEFAULT_T2V_MODEL
-    if role == "scene":
+    if role in ("scene", "ref2v"):
         preferred = None
     candidates = []
     for mid, entry in VIDEO_MODEL_REGISTRY.items():
@@ -2211,6 +2213,7 @@ _ROLE_TEXT = {
     "t2v": "video from text alone",
     "i2v": "video from a start image",
     "scene": "a clip with its own soundtrack",
+    "ref2v": "video from reference images, clips and audio",
 }
 
 
@@ -2218,8 +2221,8 @@ def _same_family_for_role(model_id: str, role: str) -> str | None:
     """A model of ``model_id``'s family that serves ``role``, or None.
 
     The model itself when it can; for i2v and scene its first-frame sibling
-    (i2v_model_for); for t2v a text-to-video model of the same type, an
-    installed one first, then the one sharing the most companions.
+    (i2v_model_for); for t2v and ref2v a model of the same type serving the
+    role, an installed one first, then the one sharing the most companions.
     """
     if _role_ok(model_id, role):
         return model_id
@@ -2233,7 +2236,7 @@ def _same_family_for_role(model_id: str, role: str) -> str | None:
     siblings = [
         (bool(is_model_installed(cid)), len(shared & set(e.get("requires", []))), cid)
         for cid, e in VIDEO_MODEL_REGISTRY.items()
-        if cid != model_id and e.get("type") == entry.get("type") and _role_ok(cid, "t2v")
+        if cid != model_id and e.get("type") == entry.get("type") and _role_ok(cid, role)
     ]
     return max(siblings)[2] if siblings else None
 
@@ -2258,7 +2261,7 @@ def resolve_active_video_model(
     ComfyUI: for callers that run prepare_video_model next, and for
     displays of the chosen model.
     """
-    if role not in ("t2v", "i2v", "scene"):
+    if role not in ("t2v", "i2v", "scene", "ref2v"):
         return None, f"Unknown video role '{role}'."
     explicit = (explicit or "").strip() or None
     if explicit:

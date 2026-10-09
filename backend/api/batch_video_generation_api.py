@@ -183,6 +183,87 @@ def _clip_params(data, model_id: str) -> dict:
     }
 
 
+def _render_params(data, model_id: str) -> dict:
+    """The render settings every generate route reads the same way."""
+    clip = _clip_params(data, model_id)
+    return {
+        "model": model_id,
+        "duration_frames": clip["duration_frames"],
+        "fps": clip["fps"],
+        "width": clip["width"],
+        "height": clip["height"],
+        "motion_strength": float(data.get("motion_strength", 1.0)),
+        "num_inference_steps": clip["num_inference_steps"],
+        "guidance_scale": _parse_float(data.get("guidance_scale")),
+        "seed": _parse_int(data.get("seed")),
+        "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
+        "frames_per_batch": int(data.get("frames_per_batch", 1)),
+        "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
+        "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
+        "prompt_style": data.get("prompt_style", "cinematic"),
+        "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
+        "fidelity_mode": str(data.get("fidelity_mode", data.get("preserve_text_fidelity", "false"))).lower() == "true",
+        "wan_sampler_profile": (data.get("wan_sampler_profile") or None),
+        "negative_prompt": data.get("negative_prompt", "") or "",
+        "freeu": str(data.get("freeu", "false")).lower() == "true",
+        "face_restore": str(data.get("face_restore", "false")).lower() == "true",
+        "lora_name": data.get("lora_name"),
+        "lora_strength": float(data.get("lora_strength", 1.0)),
+        "adapters": data.get("adapters") if isinstance(data.get("adapters"), list) else [],
+        "text_encoder": (data.get("text_encoder") or "").strip() or None,
+        # Capability-contract knobs; the generator validates them against
+        # what the model declares.
+        "speed_profile": data.get("speed_profile") or None,
+        "style_embedding": data.get("style_embedding") or None,
+        # Quality pipeline (v2.6.2) — opt-in cinematic director + keyframe->I2V.
+        "director_mode": str(data.get("director_mode", "false")).lower() == "true",
+        "cinematic_keyframe": str(data.get("cinematic_keyframe", "false")).lower() == "true",
+        "ui_config": data.get("ui_config"),
+        "director_guidance": data.get("director_guidance") or None,
+        "metadata": {
+            **(data.get("metadata") or {}),
+            "upscale": str(data.get("upscale", "false")).lower() == "true",
+            "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
+            "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
+            "high_consistency": str(data.get("high_consistency", "false")).lower() == "true",
+            # A step count the person typed keeps priority over a model's
+            # step floor; preset-driven values are raised to the floor.
+            "steps_explicit": str(data.get("steps_explicit", "false")).lower() == "true",
+        },
+    }
+
+
+def _media_path(ref, label: str):
+    """A Studio input (library document id or link, served URL, or a path
+    inside the install, uploads or outputs) as (path, None) or (None, why)."""
+    from backend.utils.media_inputs import document_file, resolve_media_ref
+    found = resolve_media_ref(ref, mcp=False, label=label, document_path=document_file,
+                              within_install=True)
+    return (found.path, None) if found.path else (None, found.error or f"{label} not found: {ref}")
+
+
+def _last_frames(data, model_id: str):
+    """Index-paired end frames, resolved, or (None, why) on a model without
+    a last-frame mode or a frame that cannot be read."""
+    raw = _parse_list(data.get("last_frame_paths"))
+    if not any(str(r or "").strip() for r in raw):
+        return [], None
+    modes = model_capabilities(model_id).get("modes") or []
+    if "l2v" not in modes and "flf2v" not in modes:
+        name = (VIDEO_MODEL_REGISTRY.get(model_id) or {}).get("name") or model_id
+        return None, f"{name} takes no end frame."
+    frames = []
+    for i, ref in enumerate(raw, start=1):
+        if not str(ref or "").strip():
+            frames.append(None)
+            continue
+        path, err = _media_path(ref, f"End frame {i}")
+        if err:
+            return None, err
+        frames.append(path)
+    return frames, None
+
+
 @batch_video_bp.route("/generate/text", methods=["POST"])
 def generate_text_to_video_batch():
     """
@@ -215,57 +296,19 @@ def generate_text_to_video_batch():
         # Per-prompt guides (audio or image anchors) on models that declare
         # audio_in: a list per prompt of {"kind", "path", "frame_idx", ...}.
         guides = data.get("guides") if isinstance(data.get("guides"), list) else []
-        clip = _clip_params(data, model_id)
+        # Per-prompt end frames on models that declare l2v: video that ends
+        # on a picture, with no start image.
+        last_frame_paths, frame_err = _last_frames(data, model_id)
+        if frame_err:
+            return _failure_response(frame_err)
 
         params = {
-            "model": model_id,
-            "duration_frames": clip["duration_frames"],
-            "fps": clip["fps"],
-            "width": clip["width"],
-            "height": clip["height"],
-            "motion_strength": float(data.get("motion_strength", 1.0)),
-            "num_inference_steps": clip["num_inference_steps"],
-            "guidance_scale": _parse_float(data.get("guidance_scale")),
-            "seed": _parse_int(data.get("seed")),
-            "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
-            "frames_per_batch": int(data.get("frames_per_batch", 1)),
-            "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
-            "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
-            "prompt_style": data.get("prompt_style", "cinematic"),
-            "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
-            "fidelity_mode": str(data.get("fidelity_mode", data.get("preserve_text_fidelity", "false"))).lower() == "true",
-            "wan_sampler_profile": (data.get("wan_sampler_profile") or None),
-            "negative_prompt": data.get("negative_prompt", "") or "",
-            "freeu": str(data.get("freeu", "false")).lower() == "true",
-            "face_restore": str(data.get("face_restore", "false")).lower() == "true",
-            "lora_name": data.get("lora_name"),
-            "lora_strength": float(data.get("lora_strength", 1.0)),
-            "adapters": data.get("adapters") if isinstance(data.get("adapters"), list) else [],
-            "text_encoder": (data.get("text_encoder") or "").strip() or None,
-            # Capability-contract knobs; the generator validates them against
-            # what the model declares.
-            "speed_profile": data.get("speed_profile") or None,
-            "style_embedding": data.get("style_embedding") or None,
-            # Quality pipeline (v2.6.2) — opt-in cinematic director + keyframe->I2V.
-            "director_mode": str(data.get("director_mode", "false")).lower() == "true",
-            "cinematic_keyframe": str(data.get("cinematic_keyframe", "false")).lower() == "true",
-            "ui_config": data.get("ui_config"),
-            "director_guidance": data.get("director_guidance") or None,
+            **_render_params(data, model_id),
             # Trained cast members to lock into each clip. The video model can't apply
             # a LoRA, so each selected character's SDXL LoRA is baked into a cinematic
             # keyframe (which then seeds I2V) — selecting cast implies cinematic mode.
             "subject_ids": _parse_list(data.get("subject_ids")),
             "storyboard_concept": storyboard_concept or None,
-            "metadata": {
-                **(data.get("metadata") or {}),
-                "upscale": str(data.get("upscale", "false")).lower() == "true",
-                "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
-                "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
-                "high_consistency": str(data.get("high_consistency", "false")).lower() == "true",
-                # A step count the person typed keeps priority over a model's
-                # step floor; preset-driven values are raised to the floor.
-                "steps_explicit": str(data.get("steps_explicit", "false")).lower() == "true",
-            },
         }
 
         generator = get_batch_video_generator()
@@ -276,7 +319,9 @@ def generate_text_to_video_batch():
         style_err = _withheld_style_error(params)
         if style_err:
             return style_err
-        status = generator.start_batch_from_prompts(prompts=prompts, guides=guides, **params)
+        status = generator.start_batch_from_prompts(
+            prompts=prompts, guides=guides, last_frame_paths=last_frame_paths, **params
+        )
         return success_response({
             "batch_id": status.batch_id,
             "status": status.status,
@@ -303,63 +348,19 @@ def generate_image_to_video_batch():
             return error_response("No image_paths provided", 400)
         # Index-paired with image_paths on models that declare l2v/flf2v and
         # audio_in. guides is a list per item of {"kind", "path", "frame_idx", ...}.
-        last_frame_paths = _parse_list(data.get("last_frame_paths"))
         guides = data.get("guides") if isinstance(data.get("guides"), list) else []
 
         model_id, resolve_err = _resolve_request_model(data, "i2v")
         if resolve_err:
             return _failure_response(resolve_err)
+        last_frame_paths, frame_err = _last_frames(data, model_id)
+        if frame_err:
+            return _failure_response(frame_err)
         ready, preflight_err = prepare_video_model(model_id)
         if not ready:
             return _failure_response(preflight_err)
-        clip = _clip_params(data, model_id)
 
-        params = {
-            "prompt": data.get("prompt", ""),
-            "model": model_id,
-            "duration_frames": clip["duration_frames"],
-            "fps": clip["fps"],
-            "width": clip["width"],
-            "height": clip["height"],
-            "motion_strength": float(data.get("motion_strength", 1.0)),
-            "num_inference_steps": clip["num_inference_steps"],
-            "guidance_scale": _parse_float(data.get("guidance_scale")),
-            "seed": _parse_int(data.get("seed")),
-            "generate_frames_only": str(data.get("generate_frames_only", "false")).lower() == "true",
-            "frames_per_batch": int(data.get("frames_per_batch", 1)),
-            "combine_frames": str(data.get("combine_frames", "false")).lower() == "true",
-            "interpolation_multiplier": int(data.get("interpolation_multiplier", 2)),
-            "prompt_style": data.get("prompt_style", "cinematic"),
-            "enhance_prompt": str(data.get("enhance_prompt", "true")).lower() != "false",
-            "fidelity_mode": str(data.get("fidelity_mode", data.get("preserve_text_fidelity", "false"))).lower() == "true",
-            "wan_sampler_profile": (data.get("wan_sampler_profile") or None),
-            "negative_prompt": data.get("negative_prompt", "") or "",
-            "freeu": str(data.get("freeu", "false")).lower() == "true",
-            "face_restore": str(data.get("face_restore", "false")).lower() == "true",
-            "lora_name": data.get("lora_name"),
-            "lora_strength": float(data.get("lora_strength", 1.0)),
-            "adapters": data.get("adapters") if isinstance(data.get("adapters"), list) else [],
-            "text_encoder": (data.get("text_encoder") or "").strip() or None,
-            # Capability-contract knobs; the generator validates them against
-            # what the model declares.
-            "speed_profile": data.get("speed_profile") or None,
-            "style_embedding": data.get("style_embedding") or None,
-            # Quality pipeline (v2.6.2) — opt-in cinematic director + keyframe->I2V.
-            "director_mode": str(data.get("director_mode", "false")).lower() == "true",
-            "cinematic_keyframe": str(data.get("cinematic_keyframe", "false")).lower() == "true",
-            "ui_config": data.get("ui_config"),
-            "director_guidance": data.get("director_guidance") or None,
-            "metadata": {
-                **(data.get("metadata") or {}),
-                "upscale": str(data.get("upscale", "false")).lower() == "true",
-                "teacache_threshold": float(data.get("teacache_threshold")) if data.get("teacache_threshold") else None,
-                "feta_weight": float(data.get("feta_weight")) if data.get("feta_weight") else None,
-                "high_consistency": str(data.get("high_consistency", "false")).lower() == "true",
-                # A step count the person typed keeps priority over a model's
-                # step floor; preset-driven values are raised to the floor.
-                "steps_explicit": str(data.get("steps_explicit", "false")).lower() == "true",
-            },
-        }
+        params = {"prompt": data.get("prompt", ""), **_render_params(data, model_id)}
 
         generator = get_batch_video_generator()
         if not generator.service_available:
@@ -380,6 +381,172 @@ def generate_image_to_video_batch():
         })
     except Exception as e:
         logger.error(f"Failed to start image-to-video batch: {e}")
+        return error_response(str(e), 500)
+
+
+# Extensions each reference slot takes; what ComfyUI's LoadImage, the video
+# loader and LoadAudio read.
+_REF_EXTENSIONS = {
+    "image": (".png", ".jpg", ".jpeg", ".webp", ".bmp"),
+    "video": (".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v"),
+    "audio": (".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac", ".opus"),
+}
+_REF_LABELS = {"image": "Picture", "video": "Clip", "audio": "Audio"}
+
+
+def _reference_file(ref, kind: str, index: int):
+    """One reference board entry's file as (path, None) or (None, why)."""
+    label = f"Reference {_REF_LABELS[kind].lower()} {index}"
+    path, err = _media_path(ref, label)
+    if err:
+        return None, err
+    if not path.lower().endswith(_REF_EXTENSIONS[kind]):
+        return None, f"{label} is not a{'n' if kind in ('image', 'audio') else ''} {kind} file: {Path(path).name}."
+    return path, None
+
+
+def _resolve_references(board, model_id: str):
+    """The reference board as (render inputs, intent spec) or (None, why).
+
+    ``board`` is ``{"images": [{ref, role, name, note}], "videos": [{ref,
+    role, name, audio: "own"|"none"|{"ref"}}], "audios": [{ref, role,
+    speaker, description}]}`` in tag order. The render inputs are the
+    request's ref_images / ref_videos / ref_audios; the intent spec is what
+    h3_prompt_compiler.intent_from_references reads, with each clip's
+    ``soundtrack`` set from what is actually wired.
+    """
+    from backend.services.comfyui_video_generator import _media_has_audio, reference_count_error
+
+    board = board if isinstance(board, dict) else {}
+    images, videos, audios = ([e for e in (board.get(k) or []) if isinstance(e, dict)]
+                              for k in ("images", "videos", "audios"))
+    inputs = {"ref_images": [], "ref_videos": [], "ref_audios": []}
+    spec = {"images": [], "videos": [], "audios": []}
+    for i, entry in enumerate(images, start=1):
+        path, err = _reference_file(entry.get("ref"), "image", i)
+        if err:
+            return None, err
+        inputs["ref_images"].append(path)
+        spec["images"].append({k: entry.get(k) for k in ("role", "name", "note")})
+    for k, entry in enumerate(videos, start=1):
+        path, err = _reference_file(entry.get("ref"), "video", k)
+        if err:
+            return None, err
+        audio = entry.get("audio", "own")
+        if isinstance(audio, dict):
+            track, err = _reference_file(audio.get("ref"), "audio", k)
+            if err:
+                return None, f"{err} (the separate soundtrack of clip {k})"
+            video = {"path": path, "audio_path": track}
+            soundtrack = True
+        else:
+            wants = audio != "none"
+            video = {"path": path, "include_audio": wants}
+            soundtrack = wants and _media_has_audio(path) is not False
+        inputs["ref_videos"].append(video)
+        spec["videos"].append({"role": entry.get("role"), "name": entry.get("name"), "soundtrack": soundtrack})
+    for j, entry in enumerate(audios, start=1):
+        path, err = _reference_file(entry.get("ref"), "audio", j)
+        if err:
+            return None, err
+        inputs["ref_audios"].append(path)
+        spec["audios"].append({k: entry.get(k) for k in ("role", "speaker", "description")})
+
+    caps = model_capabilities(model_id)
+    name = (VIDEO_MODEL_REGISTRY.get(model_id) or {}).get("name") or model_id
+    count_err = reference_count_error(caps.get("ref_limits") or {}, name, inputs["ref_images"],
+                                      inputs["ref_videos"], inputs["ref_audios"])
+    if count_err:
+        return None, count_err
+    return (inputs, spec), None
+
+
+def _reference_intent(prompt: str, spec: dict, params: dict, language: str) -> dict:
+    """The H3 intent the board compiles to, as the request's h3_intent."""
+    from backend.services import h3_prompt_compiler as h3
+    style = None if params.get("fidelity_mode") else params.get("prompt_style")
+    intent = h3.intent_from_references(
+        prompt, params["duration_frames"] / float(params["fps"] or 24), spec, style=style,
+        language=language, motion_strength=params.get("motion_strength"),
+    )
+    return h3.intent_to_dict(intent)
+
+
+@batch_video_bp.route("/generate/references", methods=["POST"])
+def generate_reference_video_batch():
+    """Start a reference-to-video clip: one prompt and the reference board
+    (pictures, clips, audio) on a model that declares ref2v.
+
+    With prompt enhancement on, the board's roles and names compile into the
+    model's reference sections (subject definitions, retention); with it off,
+    the prompt is sent as typed, its <Picture N> / <Video N> / <Audio N> tags
+    numbered in board order.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        prompt = (data.get("prompt") or "").strip()
+        if not prompt:
+            return error_response("No prompt provided", 400)
+        model_id, resolve_err = _resolve_request_model(data, "ref2v")
+        if resolve_err:
+            return _failure_response(resolve_err)
+        # Inputs resolve before the model preflight, which may start ComfyUI.
+        resolved, ref_err = _resolve_references(data.get("references"), model_id)
+        if ref_err:
+            return _failure_response(ref_err)
+        inputs, spec = resolved
+        ready, preflight_err = prepare_video_model(model_id)
+        if not ready:
+            return _failure_response(preflight_err)
+
+        # Identity comes from the references: no keyframe still, no rewrite
+        # of the prompt that names them.
+        params = {**_render_params(data, model_id), "director_mode": False, "cinematic_keyframe": False}
+        language = (data.get("language") or "").strip() or "English"
+        item_metadata = {**inputs, "language": language}
+        if params["enhance_prompt"]:
+            item_metadata["h3_intent"] = _reference_intent(prompt, spec, params, language)
+
+        generator = get_batch_video_generator()
+        if not generator.service_available:
+            return error_response("Video generation service not available", 503)
+        style_err = _withheld_style_error(params)
+        if style_err:
+            return style_err
+        gpu_hint = _gpu_queue_hint()
+        status = generator.start_batch_from_prompts(prompts=[prompt], item_metadata=item_metadata, **params)
+        return success_response({
+            "batch_id": status.batch_id,
+            "status": status.status,
+            "stage": getattr(status, "stage", "queued"),
+            "gpu": gpu_hint,
+        })
+    except Exception as e:
+        logger.error(f"Failed to start reference-to-video batch: {e}")
+        return error_response(str(e), 500)
+
+
+@batch_video_bp.route("/references/probe", methods=["POST"])
+def probe_reference():
+    """Length and sound of one reference file, so the board can number its
+    <Audio N> tags the way the graph wires them and flag a clip that is
+    too short before anything is queued."""
+    try:
+        from backend.services.comfyui_video_generator import _media_has_audio, _media_seconds
+
+        data = request.get_json(silent=True) or {}
+        kind = data.get("kind") if data.get("kind") in _REF_EXTENSIONS else "video"
+        path, err = _reference_file(data.get("ref"), kind, 1)
+        if err:
+            return _failure_response(err)
+        return success_response({
+            "name": Path(path).name,
+            "kind": kind,
+            "duration_s": _media_seconds(path) if kind != "image" else None,
+            "has_audio": _media_has_audio(path) if kind != "image" else False,
+        })
+    except Exception as e:
+        logger.error(f"Failed to probe reference: {e}")
         return error_response(str(e), 500)
 
 
@@ -424,6 +591,24 @@ def enhance_prompt_preview():
         from backend.services import video_render_limits as render_limits
         from backend.utils.prompt_enhancer import enhance_video_prompt, has_text_intent
 
+        h3_intent = None
+        if isinstance(data.get("references"), dict) and model:
+            # No files are read here: the board's own soundtrack flags stand in
+            # for what the render wires.
+            board = data["references"]
+            spec = {
+                "images": [e for e in board.get("images") or [] if isinstance(e, dict)],
+                "videos": [{**e, "soundtrack": bool(e.get("soundtrack"))}
+                           for e in board.get("videos") or [] if isinstance(e, dict)],
+                "audios": [e for e in board.get("audios") or [] if isinstance(e, dict)],
+            }
+            clip = _clip_params(data, model)
+            h3_intent = _reference_intent(prompt, spec, {
+                "duration_frames": clip["duration_frames"], "fps": clip["fps"],
+                "prompt_style": style, "fidelity_mode": fidelity,
+                "motion_strength": _parse_float(data.get("motion_strength")),
+            }, (data.get("language") or "").strip() or "English")
+
         enhanced = enhance_video_prompt(
             prompt,
             style=style,
@@ -432,6 +617,7 @@ def enhance_prompt_preview():
             fidelity_mode=fidelity,
             model_family=model_family,
             motion_strength=data.get("motion_strength"),
+            h3_intent=h3_intent,
         )
 
         # Default negative that the backend would inject if user left it blank

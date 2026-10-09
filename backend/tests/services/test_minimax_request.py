@@ -201,3 +201,33 @@ def test_wide_and_portrait_ratios_are_known():
     assert ComfyUIVideoGenerator._supported_aspect_ratios(MODEL) == [
         "21:9", "16:9", "4:3", "1:1", "3:4", "9:16",
     ]
+
+
+def test_reference_clip_shorter_than_the_floor_is_refused(gen, tmp_path, monkeypatch):
+    import backend.services.comfyui_video_generator as cvg
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"x")
+    monkeypatch.setattr(cvg, "_media_seconds", lambda path: 1.2)
+    wf, err = _ref(gen, tmp_path, ref_videos=[{"path": str(clip)}])
+    assert wf is None and "at least 2 s" in err and "1.2 s" in err
+    monkeypatch.setattr(cvg, "_media_seconds", lambda path: 20.0)
+    wf, err = _ref(gen, tmp_path, ref_videos=[{"path": str(clip)}])
+    assert err is None  # longer clips are read up to the model's longest
+
+
+def test_silent_reference_clip_goes_in_without_a_soundtrack(gen, tmp_path, monkeypatch):
+    import backend.services.comfyui_video_generator as cvg
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(b"x")
+    monkeypatch.setattr(cvg, "_media_has_audio", lambda path: False)
+    wf, err = _ref(gen, tmp_path, ref_videos=[{"path": str(clip)}])
+    assert err is None and "ref_video_audios.ref_video_audio_0" not in wf["6"]["inputs"]
+
+
+def test_separate_soundtracks_count_toward_the_file_cap(gen, tmp_path):
+    from backend.services.comfyui_video_generator import reference_count_error
+    limits = {"images": 9, "videos": 3, "audios": 3, "files": 12}
+    videos = [{"path": f"c{i}.mp4", "audio_path": f"t{i}.wav"} for i in range(3)]
+    assert reference_count_error(limits, "H3", ["a.png"] * 4, videos, ["v.wav"] * 3) == (
+        "H3 takes at most 12 reference files; 13 given.")
+    assert reference_count_error(limits, "H3", ["a.png"] * 3, videos, ["v.wav"] * 3) is None
