@@ -41,6 +41,13 @@ def gen():
     return _Gen()
 
 
+@pytest.fixture(autouse=True)
+def no_card_tier(monkeypatch):
+    """The reference board budget follows the card's VRAM class; these tests
+    pin it so they do not depend on the machine running them."""
+    monkeypatch.setattr(vmr, "tier_defaults_for", lambda *a, **k: {})
+
+
 @pytest.fixture
 def lora_installed(monkeypatch):
     monkeypatch.setattr(vmr, "is_model_installed", lambda m: m == "minimax-h3-fl2v-turbo-8step")
@@ -231,3 +238,60 @@ def test_separate_soundtracks_count_toward_the_file_cap(gen, tmp_path):
     assert reference_count_error(limits, "H3", ["a.png"] * 4, videos, ["v.wav"] * 3) == (
         "H3 takes at most 12 reference files; 13 given.")
     assert reference_count_error(limits, "H3", ["a.png"] * 3, videos, ["v.wav"] * 3) is None
+
+
+def test_board_budget_shares_the_room_between_clips():
+    from backend.services.comfyui_video_generator import _h3_grid_floor, _h3_latent_frames, reference_clip_frames
+    assert [_h3_latent_frames(n) for n in (5, 73, 107, 124, 175)] == [2, 22, 32, 37, 52]
+    assert _h3_grid_floor(48) == 39  # a 2 s clip is read as 39 frames
+    per_frame = (864 // 16) * (480 // 16)
+    assert reference_clip_frames(None, 124, 864, 480, 1, 1) is None
+    assert reference_clip_frames(50 * per_frame, 124, 864, 480, 1, 0) is None
+    # 50 - 37 (5 s render) - 1 picture = 12 latent frames: 39 frames for one clip.
+    assert reference_clip_frames(50 * per_frame, 124, 864, 480, 1, 1) == 39
+    assert reference_clip_frames(50 * per_frame, 124, 864, 480, 1, 2) == 5
+    assert reference_clip_frames(38 * per_frame, 124, 864, 480, 1, 1) == 0
+    # A smaller canvas spends fewer tokens per frame, so the same budget reads more.
+    assert reference_clip_frames(50 * per_frame, 124, 640, 352, 1, 1) > 39
+
+
+def test_reference_board_over_the_card_budget_is_refused(gen, tmp_path, monkeypatch):
+    per_frame = (864 // 16) * (480 // 16)
+    budget = {"tier": "16", "ref_token_budget": 50 * per_frame}
+    monkeypatch.setattr(vmr, "tier_defaults_for", lambda *a, **k: budget)
+    img, clip = tmp_path / "a.png", tmp_path / "clip.mp4"
+    img.write_bytes(b"x")
+    clip.write_bytes(b"x")
+    # 50 - 37 (5 s render) - 1 picture = 12 latent frames: the 39 frames a 2 s clip is read as.
+    wf, err = _ref(gen, tmp_path, ref_images=[str(img)], ref_videos=[{"path": str(clip)}])
+    assert err is None
+    wf, err = _ref(gen, tmp_path, ref_images=[str(img)], ref_videos=[{"path": str(clip)}] * 2)
+    assert wf is None and "On a 16 GB card" in err and "0.2 s of reference video per clip" in err
+    budget["ref_token_budget"] = 45 * per_frame
+    wf, err = _ref(gen, tmp_path, ref_images=[str(img)] * 9)
+    assert wf is None and "at most 8 reference pictures" in err
+
+
+def test_reference_clip_is_scaled_to_the_render_and_cut_to_its_share(gen, tmp_path, monkeypatch):
+    import backend.services.comfyui_video_generator as cvg
+    clip = tmp_path / "phone.mp4"
+    clip.write_bytes(b"x")
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        Path(cmd[-1]).write_bytes(b"y")
+        return type("P", (), {"returncode": 0, "stderr": b""})()
+
+    monkeypatch.setattr(cvg, "_media_dims", lambda path: (1920, 1080))
+    monkeypatch.setattr(cvg, "_media_seconds", lambda path: 9.0)
+    monkeypatch.setattr(cvg.subprocess, "run", fake_run)
+    gen.cache_dir = tmp_path
+    out = gen._prepare_reference_clip(str(clip), 864, 480, 39 / 24)
+    assert out != str(clip) and calls
+    cmd = calls[0]
+    assert cmd[cmd.index("-t") + 1] == "1.625"
+    assert cmd[cmd.index("-vf") + 1] == "scale=832:480:flags=lanczos"  # 16:9 kept inside 864x480
+    monkeypatch.setattr(cvg, "_media_dims", lambda path: (864, 480))
+    monkeypatch.setattr(cvg, "_media_seconds", lambda path: 1.0)
+    assert gen._prepare_reference_clip(str(clip), 864, 480, 39 / 24) == str(clip)

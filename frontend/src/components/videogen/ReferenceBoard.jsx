@@ -43,6 +43,7 @@ import {
   boardFileCount,
   boardNames,
   boardTags,
+  clipFramesAllowed,
   entryFromDocument,
   roomInRow,
 } from "./referenceBoard";
@@ -106,7 +107,7 @@ const Preview = ({ entry, row }) => {
   );
 };
 
-const ReferenceTile = ({ row, entry, index, count, tags, names, limits, onPatch, onMove, onRemove, onInsertTag, onPickSoundtrack }) => {
+const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, onPatch, onMove, onRemove, onInsertTag, onPickSoundtrack }) => {
   const tag = tags[entry.key];
   const soundTag = tags[`${entry.key}:audio`];
   const shortest = limits?.video_seconds?.[0];
@@ -180,6 +181,8 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, onPatch,
               {entry.durationS != null ? `${entry.durationS.toFixed(1)} s` : "Length unknown"}
               {entry.audio === "own" && entry.hasAudio === false ? " · this clip has no sound" : ""}
               {soundTag ? ` · its sound is ${soundTag}` : ""}
+              {readS && entry.durationS != null && entry.durationS > readS + 0.05
+                ? ` · the model reads its first ${readS.toFixed(1)} s` : ""}
             </Hint>
             {tooShort && <Typography variant="caption" color="error">Clips need at least {shortest} s.</Typography>}
           </>
@@ -211,7 +214,7 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, onPatch,
   );
 };
 
-const ReferenceRow = ({ row, board, limits, tags, names, onAdd, onUpdate, onOpenPicker, onInsertTag, onError, uploading }) => {
+const ReferenceRow = ({ row, board, limits, readS, tags, names, onAdd, onUpdate, onOpenPicker, onInsertTag, onError, uploading }) => {
   const kind = KIND_OF_ROW[row];
   const entries = board[row] || [];
   const cap = limits?.[row];
@@ -247,6 +250,7 @@ const ReferenceRow = ({ row, board, limits, tags, names, onAdd, onUpdate, onOpen
             tags={tags}
             names={names}
             limits={limits}
+            readS={readS}
             onPatch={(change) => patch(entry.key, change)}
             onMove={(delta) => move(i, delta)}
             onRemove={() => remove(entry.key)}
@@ -282,12 +286,22 @@ const ReferenceRow = ({ row, board, limits, tags, names, onAdd, onUpdate, onOpen
   );
 };
 
-const ReferenceBoard = ({ value, onChange, limits, onInsertTag, onError }) => {
+/**
+ * @param {object} [fit] {budget, renderFrames, width, height, fps}: the card's
+ *   measured board budget (tier_defaults.ref_token_budget) and the render's
+ *   length and size, so each clip shows how much of it the model reads.
+ */
+const ReferenceBoard = ({ value, onChange, limits, fit, onInsertTag, onError }) => {
   const [picker, setPicker] = useState(null); // {row, max, soundtrackFor?}
   const [uploadingRow, setUploadingRow] = useState(null);
   const board = value || { images: [], videos: [], audios: [] };
   const tags = boardTags(board);
   const names = boardNames(board);
+  const longest = limits?.video_seconds?.[1] ?? null;
+  const shareFrames = clipFramesAllowed(fit?.budget, fit?.renderFrames, fit?.width, fit?.height,
+    board.images.length, board.videos.length);
+  const share = shareFrames == null ? null : shareFrames / (fit?.fps || 24);
+  const readS = [longest, share].filter((x) => x != null && x > 0).reduce((a, b) => Math.min(a, b), Infinity);
 
   // Length and sound of each new clip, so the tags and the 2 s floor are right
   // before anything is queued.
@@ -349,6 +363,7 @@ const ReferenceBoard = ({ value, onChange, limits, onInsertTag, onError }) => {
           row={row}
           board={board}
           limits={limits}
+          readS={Number.isFinite(readS) ? readS : null}
           tags={tags}
           names={names}
           onAdd={addFiles}

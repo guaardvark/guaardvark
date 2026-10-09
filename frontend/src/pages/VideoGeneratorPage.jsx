@@ -1042,7 +1042,16 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   const refLimits = (modelCaps?.modes || []).includes("ref2v")
     ? modelCaps.ref_limits
     : modelMeta[refModelIds[0]]?.capabilities?.ref_limits;
-  const refProblems = useMemo(() => boardProblems(refBoard, refLimits), [refBoard, refLimits]);
+  // A card with a measured board budget shares it between the render, the
+  // pictures and the clips (tier_defaults.ref_token_budget).
+  const refFit = useMemo(() => ({
+    budget: modelMeta[model]?.tier_defaults?.ref_token_budget,
+    renderFrames: computedParams?.duration_frames,
+    width: computedParams?.width,
+    height: computedParams?.height,
+    fps: computedParams?.fps || 24,
+  }), [modelMeta, model, computedParams]);
+  const refProblems = useMemo(() => boardProblems(refBoard, refLimits, refFit), [refBoard, refLimits, refFit]);
 
   // Put a reference tag at the prompt's cursor (or its end).
   const insertPromptTag = useCallback((tag) => {
@@ -1907,6 +1916,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                     value={refBoard}
                     onChange={setRefBoard}
                     limits={refLimits}
+                    fit={refFit}
                     onInsertTag={insertPromptTag}
                     onError={setError}
                   />

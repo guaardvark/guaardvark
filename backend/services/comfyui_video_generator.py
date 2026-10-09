@@ -154,10 +154,60 @@ def reference_count_error(limits: dict, entry_name: str, images: list, videos: l
     return None
 
 
+def _h3_latent_frames(frames: int) -> int:
+    """Latent frames H3 gives ``frames`` video frames: the count snaps up to
+    the 17k+5 grid, and each 17 frames become 5 latent ones (the node's
+    temporal_shape)."""
+    n = max(5, int(frames or 0))
+    n += (5 - n % 17) % 17
+    return 2 if n <= 5 else ((n - 5) // 17) * 5 + 2
+
+
+def _h3_grid_floor(frames: float) -> int:
+    """The longest 17k+5 frame count not over ``frames``: what the reference
+    node reads of a clip that long."""
+    n = max(5, int(frames))
+    return ((n - 5) // 17) * 17 + 5
+
+
+def reference_clip_frames(budget: Optional[int], render_frames: int, width: int, height: int,
+                          pictures: int, clips: int) -> Optional[int]:
+    """Frames of reference video each clip may add on a card whose board has a
+    measured token budget (tier_defaults ref_token_budget). Clips and pictures
+    are read at the render's pixel area, so every latent frame costs
+    (width/16)*(height/16) tokens; the render's latent frames and one per
+    picture come first and the clips share the rest, on the 17k+5 grid. None
+    when no budget is declared or no clip is on the board; 0 when nothing is
+    left."""
+    if not budget or not clips:
+        return None
+    patches = max(1, (int(width) // 16) * (int(height) // 16))
+    room = (int(budget) // patches - _h3_latent_frames(render_frames) - int(pictures)) // int(clips)
+    if room < 2:
+        return 0
+    return ((room - 2) // 5) * 17 + 5
+
+
 def _media_seconds(path) -> Optional[float]:
     """Seconds of the media at ``path``, or None when ffprobe cannot tell."""
     from backend.services.connections.media import probe_duration
     return probe_duration(str(path)) if path else None
+
+
+def _media_dims(path) -> Optional[tuple]:
+    """(width, height) of the first video stream at ``path``, or None."""
+    if not path:
+        return None
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height",
+             "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, timeout=30,
+        )
+        w, h = (int(v) for v in out.stdout.strip().split(",")[:2])
+        return (w, h) if w > 0 and h > 0 else None
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
 
 
 def _media_has_audio(path) -> Optional[bool]:
@@ -400,6 +450,41 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             raise RuntimeError(f"ffmpeg could not cut the guide audio: {tail[0]}")
         return str(out)
 
+
+    def _prepare_reference_clip(self, path: str, width: int, height: int, max_s: Optional[float] = None) -> str:
+        """Return the clip as the reference graph should read it: no larger than
+        the render's pixel area and no longer than ``max_s``. The node reads a
+        clip at its own size up to a 768x1344 canvas, and every frame of it
+        rides through every sampling step beside the clip being rendered, so a
+        1080p clip costs about 2.5 times the memory of a 480p one. Pictures get
+        the same treatment from the node's "match" sizing. Returns the original
+        path when the clip is inside both limits or cannot be read."""
+        dims = _media_dims(path)
+        seconds = _media_seconds(path)
+        area = int(width or 0) * int(height or 0)
+        size = None
+        if dims and area and dims[0] * dims[1] > area:
+            k = (area / (dims[0] * dims[1])) ** 0.5
+            size = (max(32, int(dims[0] * k) // 32 * 32), max(32, int(dims[1] * k) // 32 * 32))
+        cut = max_s if (max_s and seconds is not None and seconds > max_s + 0.01) else None
+        if not size and not cut:
+            return path
+        base = Path(getattr(self, "cache_dir", None) or Path(tempfile.gettempdir())) / "h3_refs"
+        base.mkdir(parents=True, exist_ok=True)
+        out = base / f"{uuid.uuid4().hex}.mp4"
+        cmd = ["ffmpeg", "-y", "-i", str(path)]
+        if cut:
+            cmd += ["-t", f"{cut:.3f}"]
+        if size:
+            cmd += ["-vf", f"scale={size[0]}:{size[1]}:flags=lanczos"]
+        cmd += ["-c:v", "libx264", "-crf", "16", "-preset", "fast", "-c:a", "aac", str(out)]
+        proc = subprocess.run(cmd, capture_output=True, timeout=300)
+        if proc.returncode != 0 or not out.exists() or out.stat().st_size == 0:
+            tail = (proc.stderr or b"").decode(errors="replace").strip().splitlines()[-1:] or [""]
+            raise RuntimeError(f"ffmpeg could not prepare the reference clip: {tail[0]}")
+        logger.info("Reference clip %s prepared at %s%s", Path(path).name,
+                    f"{size[0]}x{size[1]}" if size else "its own size", f", first {cut:g} s" if cut else "")
+        return str(out)
 
     # ── CogVideoX model mapping ──────────────────────────────────────────────
 
@@ -799,6 +884,32 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             image_names.append(name)
         video_specs = []
         shortest, longest = (list(limits.get("video_seconds") or []) + [None, None])[:2]
+        # On a card with a measured board budget, the clips share what the
+        # render and the pictures leave (tier_defaults ref_token_budget).
+        from backend.services.video_model_registry import tier_defaults_for
+        tier = tier_defaults_for(model_key)
+        budget = tier.get("ref_token_budget")
+        fps = float(request.fps or 24)
+        render_s = request.duration_frames / fps
+        if budget:
+            patches = max(1, (int(request.width) // 16) * (int(request.height) // 16))
+            room = budget // patches - _h3_latent_frames(request.duration_frames)
+            if len(images) > room:
+                return None, (
+                    f"On a {tier.get('tier')} GB card a {render_s:.0f} s {entry_name} clip at "
+                    f"{request.width}x{request.height} takes at most {max(0, room)} reference pictures; "
+                    f"use fewer pictures, a shorter length or a smaller size."
+                )
+        per_clip = reference_clip_frames(budget, request.duration_frames, request.width, request.height,
+                                         len(images), len(videos))
+        if per_clip is not None and shortest and per_clip < _h3_grid_floor(shortest * fps):
+            return None, (
+                f"On a {tier.get('tier')} GB card a {render_s:.0f} s {entry_name} clip at "
+                f"{request.width}x{request.height} leaves {per_clip / fps:.1f} s of reference video per "
+                f"clip, under the {shortest:g} s a clip needs; choose a shorter length or a smaller size, "
+                f"or use fewer clips or pictures."
+            )
+        read_s = min(x for x in (longest, per_clip and per_clip / fps) if x) if (longest or per_clip) else None
         for video in videos:
             video = video if isinstance(video, dict) else {"path": video}
             seconds = _media_seconds(video.get("path"))
@@ -807,10 +918,14 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                     f"{entry_name} needs reference clips of at least {shortest:g} s; "
                     f"{Path(video.get('path') or '').name} is {seconds:.1f} s."
                 )
-            if seconds is not None and longest and seconds > longest:
-                logger.info("Reference clip %s is %.1f s; the model reads its first %g s",
-                            video.get("path"), seconds, longest)
-            name, err = _upload(video.get("path"), "clip")
+            if seconds is not None and read_s and seconds > read_s:
+                logger.info("Reference clip %s is %.1f s; the model reads its first %.2g s",
+                            video.get("path"), seconds, read_s)
+            try:
+                clip_path = self._prepare_reference_clip(video.get("path"), request.width, request.height, read_s)
+            except Exception as e:  # noqa: BLE001 — the message is the diagnosis
+                return None, str(e)
+            name, err = _upload(clip_path, "clip")
             if err:
                 return None, err
             audio = video.get("audio_path")

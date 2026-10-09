@@ -3,7 +3,10 @@ import {
   boardFileCount,
   boardProblems,
   boardTags,
+  clipFramesAllowed,
   entryFromDocument,
+  h3GridFloor,
+  h3LatentFrames,
   roomInRow,
   serializeBoard,
 } from "./referenceBoard";
@@ -57,5 +60,18 @@ describe("reference board", () => {
       ],
       audios: [{ ref: "4", role: "voice", speaker: "Maya" }],
     });
+  });
+
+  it("shares a measured card budget the way the backend does", () => {
+    expect([5, 73, 107, 124, 175].map(h3LatentFrames)).toEqual([2, 22, 32, 37, 52]);
+    expect(h3GridFloor(48)).toBe(39);
+    const perFrame = 54 * 30; // 864x480
+    expect(clipFramesAllowed(undefined, 124, 864, 480, 1, 1)).toBeNull();
+    expect(clipFramesAllowed(50 * perFrame, 124, 864, 480, 1, 1)).toBe(39);
+    expect(clipFramesAllowed(50 * perFrame, 124, 640, 352, 1, 1)).toBeGreaterThan(39);
+    const fit = { budget: 50 * perFrame, renderFrames: 124, width: 864, height: 480 };
+    const b = board();
+    expect(boardProblems(b, LIMITS, fit)[0]).toMatch(/leaves 0.2 s of reference video per clip/);
+    expect(boardProblems({ ...b, videos: [b.videos[0]] }, LIMITS, fit)).toEqual([]);
   });
 });

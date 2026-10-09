@@ -107,8 +107,38 @@ export function roomInRow(board, row, limits) {
   return Math.min(rowRoom, fileRoom);
 }
 
-/** Sentences naming what stops this board from rendering; empty when it can. */
-export function boardProblems(board, limits) {
+/** Latent frames MiniMax H3 gives `frames` video frames: the count snaps up
+ * to the 17k+5 grid and each 17 frames become 5 latent ones. Mirrors
+ * _h3_latent_frames in backend/services/comfyui_video_generator.py. */
+export function h3LatentFrames(frames) {
+  let n = Math.max(5, Math.floor(frames || 0));
+  n += (5 - (n % 17) + 17) % 17;
+  return n <= 5 ? 2 : Math.floor((n - 5) / 17) * 5 + 2;
+}
+
+/** The longest 17k+5 frame count not over `frames`: what the node reads of
+ * a clip that long (a 2 s clip is read as 39 frames). */
+export const h3GridFloor = (frames) => {
+  const n = Math.max(5, Math.floor(frames));
+  return Math.floor((n - 5) / 17) * 17 + 5;
+};
+
+/** Frames of reference video each clip may add on a card whose board has a
+ * measured token budget (tier_defaults.ref_token_budget), or null when none
+ * applies. Mirrors reference_clip_frames in the backend: clips and pictures are
+ * read at the render's size, so each latent frame costs (w/16)*(h/16) tokens. */
+export function clipFramesAllowed(budget, renderFrames, width, height, pictures, clips) {
+  if (!budget || !clips || !width || !height) return null;
+  const patches = Math.max(1, Math.floor(width / 16) * Math.floor(height / 16));
+  const room = Math.floor((Math.floor(budget / patches) - h3LatentFrames(renderFrames) - pictures) / clips);
+  if (room < 2) return 0;
+  return Math.floor((room - 2) / 5) * 17 + 5;
+}
+
+/** Sentences naming what stops this board from rendering; empty when it can.
+ * `fit` is {budget, renderFrames, width, height, fps} for a card with a
+ * measured budget. */
+export function boardProblems(board, limits, fit = {}) {
   const problems = [];
   if (!board?.images?.length && !board?.videos?.length) {
     problems.push("Add at least one picture or clip; audio cannot be the only reference.");
@@ -128,6 +158,22 @@ export function boardProblems(board, limits) {
       problems.push(`Clip ${i + 1} is ${v.durationS.toFixed(1)} s; clips need at least ${shortest} s.`);
     }
   });
+  const { budget, renderFrames, width, height, fps = 24 } = fit;
+  if (budget && renderFrames && width && height) {
+    const seconds = Math.round(renderFrames / fps);
+    const pictures = board?.images?.length || 0;
+    const clips = board?.videos?.length || 0;
+    const patches = Math.max(1, Math.floor(width / 16) * Math.floor(height / 16));
+    const room = Math.floor(budget / patches) - h3LatentFrames(renderFrames);
+    if (pictures > room) {
+      problems.push(`On this card a ${seconds} s clip at ${width}x${height} takes at most ${Math.max(0, room)} pictures.`);
+    } else {
+      const each = clipFramesAllowed(budget, renderFrames, width, height, pictures, clips);
+      if (each != null && shortest && each < h3GridFloor(shortest * fps)) {
+        problems.push(`On this card a ${seconds} s clip at ${width}x${height} leaves ${(each / fps).toFixed(1)} s of reference video per clip, under the ${shortest} s a clip needs. Choose a shorter duration or a smaller size, or use fewer clips or pictures.`);
+      }
+    }
+  }
   return problems;
 }
 
