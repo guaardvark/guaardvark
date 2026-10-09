@@ -1376,7 +1376,8 @@ VIDEO_MODEL_REGISTRY = {
         # Reference video rides through every sampling step beside the clip
         # being rendered, and ComfyUI sizes its partial load from the render
         # alone, so a board with clips needs more of the card free than the
-        # fl2va reserve leaves. Measured 2026-10-09 on a 16 GB RTX 40-series
+        # family's reserve leaves; boards of pictures keep the family's 5.0.
+        # Measured 2026-10-09 on a 16 GB RTX 40-series
         # card, 864x480, Standard 20 steps, one picture and one voice track,
         # clips read at the render's size, Comfy Kitchen int8 ops on its eager
         # backend (PyTorch cu124):
@@ -1386,7 +1387,7 @@ VIDEO_MODEL_REGISTRY = {
         #   reserve 8: 3 s + 3 s clip: 13.0 GB, 610 s (27.5 s/step).
         #     5 s + 3 s clip: 12.9 GB, 760 s (33.8 s/step). 5 s + 5 s clip: OOM
         #     (15.9 GB).
-        "comfyui_reserve_vram_gb": 8.0,
+        "comfyui_reserve_vram_gb_with_clips": 8.0,
         "ref_limits": _H3_REF_LIMITS,
         "speed_profiles": H3_REF2VA_SPEED_PROFILES,
         # ref_token_budget: the largest board measured to render on the class,
@@ -1647,10 +1648,14 @@ def live_preview_for_model(model_id: str) -> bool:
     return entry.get("live_preview", True) is not False
 
 
-def comfyui_reserve_vram_gb_for_model(model_id: str) -> Optional[float]:
-    """The --reserve-vram a model's entry declares, or None when it has no opinion."""
+def comfyui_reserve_vram_gb_for_model(model_id: str, with_clips: bool = False) -> Optional[float]:
+    """The --reserve-vram a model's entry declares, or None when it has no opinion.
+    ``with_clips`` asks for the reserve a reference board with clips needs,
+    where the entry declares one apart."""
     entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
     value = entry.get("comfyui_reserve_vram_gb")
+    if with_clips and entry.get("comfyui_reserve_vram_gb_with_clips") is not None:
+        value = entry["comfyui_reserve_vram_gb_with_clips"]
     if value is None:
         return None
     try:
