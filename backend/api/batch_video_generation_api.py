@@ -21,7 +21,7 @@ from flask import Blueprint, request, send_file
 
 from backend.utils.response_utils import success_response, error_response
 from backend.utils.path_guard import PathEscapesRoot, contained
-from backend.services.batch_video_generator import VideoRenameError, get_batch_video_generator
+from backend.services.batch_video_generator import VideoRenameError, _derive_display_name, get_batch_video_generator
 from backend.services.job_types import RenderErrorKind, batch_failure, describe_failure, failure_kind
 from backend.services.video_consistency_metrics import NEEDS_REVIEW
 # Single source of truth for video-model file layout (download dst == install
@@ -461,15 +461,23 @@ def _resolve_references(board, model_id: str):
     return (inputs, spec), None
 
 
-def _reference_intent(prompt: str, spec: dict, params: dict, language: str) -> dict:
-    """The H3 intent the board compiles to, as the request's h3_intent."""
+def _reference_prompt(prompt: str, spec: dict, params: dict, language: str) -> str:
+    """The prompt the reference build gets for this board.
+
+    Compiled here, as Film Crew compiles its scenes, not by the render's
+    enhancer: the roles and names are the person's own choices and must take
+    effect with Verbatim Prompts on too, which drops only the style opening.
+    Deterministic; no model is called.
+    """
     from backend.services import h3_prompt_compiler as h3
-    style = None if params.get("fidelity_mode") else params.get("prompt_style")
+    from backend.services.media_director import verbatim_prompts_enabled
+    plain = params.get("fidelity_mode") or verbatim_prompts_enabled()
     intent = h3.intent_from_references(
-        prompt, params["duration_frames"] / float(params["fps"] or 24), spec, style=style,
+        prompt, params["duration_frames"] / float(params["fps"] or 24), spec,
+        style=None if plain else params.get("prompt_style"),
         language=language, motion_strength=params.get("motion_strength"),
     )
-    return h3.intent_to_dict(intent)
+    return h3.compile(intent)[0]
 
 
 @batch_video_bp.route("/generate/references", methods=["POST"])
@@ -478,9 +486,9 @@ def generate_reference_video_batch():
     (pictures, clips, audio) on a model that declares ref2v.
 
     With prompt enhancement on, the board's roles and names compile into the
-    model's reference sections (subject definitions, retention); with it off,
-    the prompt is sent as typed, its <Picture N> / <Video N> / <Audio N> tags
-    numbered in board order.
+    model's reference sections (subject definitions, retention) before the
+    batch is queued; with it off, the prompt is sent as typed, its
+    <Picture N> / <Video N> / <Audio N> tags numbered in board order.
     """
     try:
         data = request.get_json(silent=True) or {}
@@ -503,9 +511,11 @@ def generate_reference_video_batch():
         # of the prompt that names them.
         params = {**_render_params(data, model_id), "director_mode": False, "cinematic_keyframe": False}
         language = (data.get("language") or "").strip() or "English"
-        item_metadata = {**inputs, "language": language}
+        sent = prompt
         if params["enhance_prompt"]:
-            item_metadata["h3_intent"] = _reference_intent(prompt, spec, params, language)
+            sent = _reference_prompt(prompt, spec, params, language)
+            params["enhance_prompt"] = False  # compiled; the render must not enhance it again
+        params["metadata"] = {"display_name": _derive_display_name(prompt), **params["metadata"]}
 
         generator = get_batch_video_generator()
         if not generator.service_available:
@@ -514,7 +524,7 @@ def generate_reference_video_batch():
         if style_err:
             return style_err
         gpu_hint = _gpu_queue_hint()
-        status = generator.start_batch_from_prompts(prompts=[prompt], item_metadata=item_metadata, **params)
+        status = generator.start_batch_from_prompts(prompts=[sent], item_metadata=inputs, **params)
         return success_response({
             "batch_id": status.batch_id,
             "status": status.status,
@@ -591,7 +601,7 @@ def enhance_prompt_preview():
         from backend.services import video_render_limits as render_limits
         from backend.utils.prompt_enhancer import enhance_video_prompt, has_text_intent
 
-        h3_intent = None
+        reference_prompt = None
         if isinstance(data.get("references"), dict) and model:
             # No files are read here: the board's own soundtrack flags stand in
             # for what the render wires.
@@ -603,13 +613,13 @@ def enhance_prompt_preview():
                 "audios": [e for e in board.get("audios") or [] if isinstance(e, dict)],
             }
             clip = _clip_params(data, model)
-            h3_intent = _reference_intent(prompt, spec, {
+            reference_prompt = _reference_prompt(prompt, spec, {
                 "duration_frames": clip["duration_frames"], "fps": clip["fps"],
                 "prompt_style": style, "fidelity_mode": fidelity,
                 "motion_strength": _parse_float(data.get("motion_strength")),
             }, (data.get("language") or "").strip() or "English")
 
-        enhanced = enhance_video_prompt(
+        enhanced = reference_prompt or enhance_video_prompt(
             prompt,
             style=style,
             width=width,
@@ -617,7 +627,6 @@ def enhance_prompt_preview():
             fidelity_mode=fidelity,
             model_family=model_family,
             motion_strength=data.get("motion_strength"),
-            h3_intent=h3_intent,
         )
 
         # Default negative that the backend would inject if user left it blank

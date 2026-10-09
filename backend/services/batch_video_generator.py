@@ -133,8 +133,8 @@ def _get_video_logger():
 
 
 # Item metadata keys a retry, restore or re-render has to carry over: the
-# reference inputs and the H3 intent compiled from the reference board.
-ITEM_METADATA_KEYS = ("ref_images", "ref_videos", "ref_audios", "h3_intent", "language")
+# reference inputs a reference-to-video item renders from.
+ITEM_METADATA_KEYS = ("ref_images", "ref_videos", "ref_audios")
 
 
 @dataclass
@@ -1429,8 +1429,6 @@ class BatchVideoGenerator:
                             ref_images=list((item.metadata or {}).get("ref_images") or meta.get("ref_images") or []),
                             ref_videos=list((item.metadata or {}).get("ref_videos") or meta.get("ref_videos") or []),
                             ref_audios=list((item.metadata or {}).get("ref_audios") or meta.get("ref_audios") or []),
-                            h3_intent=meta.get("h3_intent") or None,
-                            language=meta.get("language") or "English",
                         )
 
                         result: VideoGenerationResult = self._render_with_retries(
@@ -1604,8 +1602,8 @@ class BatchVideoGenerator:
         from backend.services.output_registration import bates_name
         batch_id = params.get("batch_id") or bates_name("video_batch", "", self.base_output_dir)
         # Index-paired with prompts: guides and an end frame per item (l2v).
-        # item_metadata goes on every item: reference inputs and the
-        # structured H3 intent the render worker reads from there.
+        # item_metadata goes on every item: the reference inputs the render
+        # worker reads from there.
         guides_per_item = list(params.pop("guides", None) or [])
         last_frame_paths = list(params.pop("last_frame_paths", None) or [])
         item_metadata = dict(params.pop("item_metadata", None) or {})
