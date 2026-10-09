@@ -77,12 +77,19 @@ def set_keep_ready(enabled: bool, root: Optional[Path] = None) -> bool:
 
 
 def status() -> dict:
-    """What Keep ready is doing now, for Settings."""
+    """What Keep ready is doing now, for Settings. "ready" is checked against
+    Ollama on every read, since the last pass may be up to 30 s old."""
     with _lock:
         out = dict(_status)
     out["enabled"] = keep_ready_on()
     if not out["enabled"]:
         out.update(state="off", detail=None)
+    elif out["state"] == "ready" and out.get("model"):
+        try:
+            if _loaded_entry(out["model"]) is None:
+                out.update(state="waiting", detail=f"{out['model']} is not loaded; it loads at the next check")
+        except Exception:
+            out.update(state="waiting", detail="Ollama is not running")
     return out
 
 
