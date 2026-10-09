@@ -1216,8 +1216,9 @@ def set_current_model():
     new_model_name = data["model"]
     logger.info(f"Starting async model switch to: {new_model_name}")
 
-    # Quick validation using cached model list (avoids slow re-fetch)
-    available_models_data = get_available_ollama_models(use_cache=True)
+    # A fresh list (one local /api/tags call): a cached one would let a switch
+    # start against an Ollama that stopped since, and fail in the background.
+    available_models_data = get_available_ollama_models(use_cache=False)
     if isinstance(available_models_data, dict) and available_models_data.get("offline"):
         return jsonify({
             "error": "Ollama isn't running. Start it from the chat model list in Settings, or in Plugins → Ollama.",
