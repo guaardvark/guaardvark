@@ -884,11 +884,13 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             image_names.append(name)
         video_specs = []
         shortest, longest = (list(limits.get("video_seconds") or []) + [None, None])[:2]
-        # On a card with a measured board budget, the clips share what the
-        # render and the pictures leave (tier_defaults ref_token_budget).
+        # On a card with a measured board budget, clips share what the render
+        # and the pictures leave (tier_defaults ref_token_budget). A board of
+        # pictures alone costs one latent frame each, about what the base build
+        # costs at the same length, so the budget applies only with clips.
         from backend.services.video_model_registry import tier_defaults_for
         tier = tier_defaults_for(model_key)
-        budget = tier.get("ref_token_budget")
+        budget = tier.get("ref_token_budget") if videos else None
         fps = float(request.fps or 24)
         render_s = request.duration_frames / fps
         if budget:
@@ -897,8 +899,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             if len(images) > room:
                 return None, (
                     f"On a {tier.get('tier')} GB card a {render_s:.0f} s {entry_name} clip at "
-                    f"{request.width}x{request.height} takes at most {max(0, room)} reference pictures; "
-                    f"use fewer pictures, a shorter length or a smaller size."
+                    f"{request.width}x{request.height} with a reference clip takes at most {max(0, room)} "
+                    f"reference pictures; use fewer pictures, a shorter length or a smaller size."
                 )
         per_clip = reference_clip_frames(budget, request.duration_frames, request.width, request.height,
                                          len(images), len(videos))

@@ -268,8 +268,11 @@ def test_reference_board_over_the_card_budget_is_refused(gen, tmp_path, monkeypa
     wf, err = _ref(gen, tmp_path, ref_images=[str(img)], ref_videos=[{"path": str(clip)}] * 2)
     assert wf is None and "On a 16 GB card" in err and "0.2 s of reference video per clip" in err
     budget["ref_token_budget"] = 45 * per_frame
-    wf, err = _ref(gen, tmp_path, ref_images=[str(img)] * 9)
+    wf, err = _ref(gen, tmp_path, ref_images=[str(img)] * 9, ref_videos=[{"path": str(clip)}])
     assert wf is None and "at most 8 reference pictures" in err
+    # Pictures alone are not held to the clip budget.
+    wf, err = _ref(gen, tmp_path, ref_images=[str(img)] * 9)
+    assert err is None
 
 
 def test_reference_clip_is_scaled_to_the_render_and_cut_to_its_share(gen, tmp_path, monkeypatch):
