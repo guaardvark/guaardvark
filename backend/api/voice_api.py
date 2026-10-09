@@ -891,6 +891,23 @@ PIPER_VOICES = {
 }
 DEFAULT_VOICE = "libritts"
 
+
+def _installed_piper_voice(voice: str) -> Optional[str]:
+    """The Piper voice to speak with: the one asked for when its model is
+    installed, else the default, else any installed voice; None when no Piper
+    voice is installed. A caller's configured voice may name one this machine
+    never downloaded (a fresh install has only the default)."""
+    backend_path = get_backend_path()
+
+    def installed(voice_id):
+        config = PIPER_VOICES.get(voice_id)
+        return bool(config) and os.path.exists(os.path.join(backend_path, config["model"]))
+
+    for candidate in (voice, DEFAULT_VOICE, *PIPER_VOICES):
+        if installed(candidate):
+            return candidate
+    return None
+
 # Supported audio formats
 # ogg: Firefox's MediaRecorder records Ogg/Opus; faster-whisper decodes it like webm.
 SUPPORTED_AUDIO_FORMATS = {
@@ -1376,6 +1393,12 @@ def text_to_speech():
 
         if voice not in PIPER_VOICES:
             return jsonify({"error": f"Invalid voice. Must be one of: {list(PIPER_VOICES.keys())}"}), 400
+        piper_voice = _installed_piper_voice(voice)
+        if piper_voice is None:
+            return jsonify({"error": "No Piper voice is installed on this machine."}), 503
+        if piper_voice != voice:
+            logger.info("Voice API: Piper voice %s is not installed; speaking with %s", voice, piper_voice)
+            voice = piper_voice
 
         # Generate a unique stream ID
         stream_id = str(uuid.uuid4())
@@ -1662,11 +1685,14 @@ def narrate():
                 "error": f"Invalid voice. Must be one of: {list(PIPER_VOICES.keys())}"
             }), 400
 
+        piper_voice = _installed_piper_voice(voice)
+        if piper_voice is None:
+            return jsonify({"error": "No Piper voice is installed on this machine."}), 503
+        if piper_voice != voice:
+            logger.info("Voice API: Piper voice %s is not installed; narrating with %s", voice, piper_voice)
+            voice = piper_voice
         voice_config = PIPER_VOICES[voice]
         piper_model = os.path.join(backend_path, voice_config["model"])
-
-        if not os.path.exists(piper_model):
-            return jsonify({"error": f"Piper model not found: {voice}. Download it first."}), 503
 
         # Clean text helper (same logic as text_to_speech)
         def clean_section(text):

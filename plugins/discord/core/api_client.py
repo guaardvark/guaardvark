@@ -276,9 +276,12 @@ class GuaardvarkClient:
         form.add_field("audio", audio_bytes, filename="audio.wav", content_type="audio/wav")
         return await self._post("/voice/speech-to-text", data=form)
 
-    async def text_to_speech(self, text: str, voice: str = "ryan") -> dict:
-        """POST /voice/text-to-speech"""
-        return await self._post("/voice/text-to-speech", json={"text": text, "voice": voice})
+    async def text_to_speech(self, text: str, voice: str | None = None) -> dict:
+        """POST /voice/text-to-speech; no voice means the backend's default."""
+        payload = {"text": text}
+        if voice:
+            payload["voice"] = voice
+        return await self._post("/voice/text-to-speech", json=payload)
 
     async def get_voice_audio(self, filename: str) -> bytes:
         """GET /voice/audio/<filename>"""
