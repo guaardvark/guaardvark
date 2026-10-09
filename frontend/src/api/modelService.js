@@ -31,7 +31,8 @@ export const getAvailableModels = async () => {
  */
 export const getChatModelList = async () => {
   try {
-    const response = await fetch(`${BASE_URL}/model/list`);
+    // Fresh, not the backend's 30 s cache, so a stopped Ollama shows at once.
+    const response = await fetch(`${BASE_URL}/model/list?refresh=true`);
     const data = await handleResponse(response);
     if (typeof data === "object" && data !== null && data.error) throw new Error(data.error);
     const payload = data?.data || data?.message || data || {};
