@@ -463,7 +463,7 @@ def intent_from_shots(shots: Iterable[Any], duration_s: float, *, subjects: Iter
 # words; these map the roles onto the guide's retention and task vocabulary.
 # Picture role "first_frame" is not a subject: it becomes a picture_frames entry.
 PICTURE_ROLES = {
-    "keep": ("fully_preserved", "face, build, clothing and colours stay as shown"),
+    "keep": ("fully_preserved", "its look stays as shown: features, shape, clothing and colours"),
     "loose": ("partially_preserved", "recognisably the same, with pose and lighting free to change"),
     "detail": ("attribute_transfer", "only the named detail is taken from the reference"),
     "hint": ("weak_reference", "a loose guide for look and feel"),
