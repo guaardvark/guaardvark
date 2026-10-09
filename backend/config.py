@@ -509,8 +509,13 @@ def get_chat_keep_alive():
     - No GPU: keep resident (env GUAARDVARK_CHAT_KEEP_ALIVE_CPU, default "-1") so a CPU box
       isn't reloading the model from disk every idle cycle. RAM-pressure eviction is handled
       separately by the orchestrator — "resident" does NOT mean "pinned forever".
+    Keep ready (Settings → Models, backend/services/chat_keep_ready.py) asks for -1 on any box;
+    the orchestrator still evicts the model for exclusive GPU work.
     Returns an int when numeric (Ollama: seconds, -1 = forever), else the string (e.g. "15m").
     """
+    from backend.services.chat_keep_ready import keep_ready_on
+    if keep_ready_on():
+        return -1
     try:
         from backend.services.gpu_resource_coordinator import has_gpu
         gpu = has_gpu()

@@ -55,6 +55,8 @@ import {
   clearBehaviorLog,
   getMusicDirectory,
   setMusicDirectory as setMusicDirectoryAPI,
+  getChatKeepReady,
+  setChatKeepReady,
 } from "../api/settingsService";
 import { enablePlugin, startPlugin } from "../api/pluginsService";
 import { useAppStore } from "../stores/useAppStore";
@@ -134,6 +136,8 @@ const SettingsPage = () => {
   // saved model.
   const [ollamaOffline, setOllamaOffline] = useState(false);
   const [startingOllama, setStartingOllama] = useState(false);
+  const [keepReady, setKeepReady] = useState(null);
+  const [savingKeepReady, setSavingKeepReady] = useState(false);
   const [selectedModel, setSelectedModel] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
   const [_isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
@@ -966,6 +970,35 @@ const SettingsPage = () => {
       showMessage(`Could not start Ollama: ${err.message}`, "error");
     } finally {
       setStartingOllama(false);
+    }
+  };
+
+  const fetchKeepReady = useCallback(async () => {
+    try {
+      const result = await getChatKeepReady();
+      setKeepReady(result?.data ?? result);
+    } catch {
+      // Older backend without Keep ready: the chip stays hidden.
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchKeepReady();
+    const id = setInterval(() => {
+      if (!document.hidden) fetchKeepReady();
+    }, 10000);
+    return () => clearInterval(id);
+  }, [fetchKeepReady]);
+
+  const handleKeepReadyToggle = async (next) => {
+    setSavingKeepReady(true);
+    try {
+      const result = await setChatKeepReady(next);
+      setKeepReady(result?.data ?? result);
+    } catch (err) {
+      showMessage(`Could not change Keep ready: ${err.message}`, "error");
+    } finally {
+      setSavingKeepReady(false);
     }
   };
 
@@ -2794,6 +2827,41 @@ const SettingsPage = () => {
             >
               Start Ollama
             </ActionButton>
+          </Line>
+        )}
+        {keepReady && (
+          <Line>
+            <SettingChip
+              label="Keep ready"
+              on={Boolean(keepReady.enabled)}
+              onToggle={handleKeepReadyToggle}
+              disabled={savingKeepReady || keepReady.env_writable === false}
+              tooltip="Keeps the chat model and voice input loaded with no idle timeout, so a reply after an hour is as fast as one after a minute. It steps aside for image, video and training work and loads again when that work is done. This machine only."
+            />
+            {keepReady.enabled && (
+              <StatusPill
+                tone={
+                  keepReady.state === "ready"
+                    ? "ok"
+                    : keepReady.state === "loading"
+                      ? "info"
+                      : "warn"
+                }
+                label={
+                  keepReady.state === "ready"
+                    ? "loaded"
+                    : keepReady.state === "loading"
+                      ? "loading"
+                      : keepReady.state === "stepped aside"
+                        ? "stepped aside"
+                        : "waiting"
+                }
+                tooltip={keepReady.detail || ""}
+              />
+            )}
+            {keepReady.enabled && keepReady.detail && keepReady.state !== "ready" && (
+              <Hint>{keepReady.detail}</Hint>
+            )}
           </Line>
         )}
       </Cluster>

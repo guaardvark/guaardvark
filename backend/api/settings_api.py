@@ -720,6 +720,39 @@ def set_ollama_lifecycle():
     })
 
 
+@settings_bp.route("/chat_keep_ready", methods=["GET"])
+def get_chat_keep_ready():
+    """Keep ready: whether it is on and what it is doing now."""
+    from backend.services import chat_keep_ready
+    from backend import profiles as P
+    state = chat_keep_ready.status()
+    state["env_writable"] = P.env_file_writable()
+    return success_response(state)
+
+
+@settings_bp.route("/chat_keep_ready", methods=["POST"])
+def set_chat_keep_ready():
+    """Turn Keep ready on or off for this machine. Applies at once."""
+    from backend.services import chat_keep_ready
+    payload = request.get_json(silent=True) or {}
+    enabled = payload.get("enabled")
+    if not isinstance(enabled, bool):
+        return error_response('Send {"enabled": true} or {"enabled": false}.', 400)
+    try:
+        chat_keep_ready.set_keep_ready(enabled)
+    except chat_keep_ready.KeepReadyRefused as e:
+        return error_response(e.message, 409)
+    except OSError as e:
+        return error_response(f"could not write .env: {e}", 500)
+    if enabled:
+        # Start the orchestrator's loop if nothing has yet, and check now
+        # rather than at its next pass.
+        from backend.services.gpu_memory_orchestrator import get_orchestrator
+        get_orchestrator()
+        chat_keep_ready.keep_ready_pass()
+    return success_response(chat_keep_ready.status())
+
+
 @settings_bp.route("/branding", methods=["POST"])
 def set_branding():
     """Update system name and/or logo."""

@@ -1163,11 +1163,17 @@ class GPUMemoryOrchestrator:
     # ------------------------------------------------------------------
 
     def _background_loop(self):
-        """Periodic sync + idle eviction."""
+        """Periodic sync + idle eviction, and Keep ready in the server process."""
+        # Celery workers build their own orchestrator; one process loading the
+        # chat model is enough.
+        keeps_ready = os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true"
         while not self._stop_event.is_set():
             try:
                 self._sync_from_hardware()
                 self._evict_idle_models()
+                if keeps_ready:
+                    from backend.services.chat_keep_ready import keep_ready_pass
+                    keep_ready_pass()
                 self._emit_status_if_subscribers()
             except Exception as e:
                 logger.error(f"Background loop error: {e}")
@@ -1199,9 +1205,14 @@ class GPUMemoryOrchestrator:
             gpu_present = has_gpu()
         except Exception:
             gpu_present = True  # detection failure → preserve prior (GPU) behavior
+        from backend.services import chat_keep_ready
+        kept = chat_keep_ready.active_chat_model() if chat_keep_ready.keep_ready_on() else None
         with self._lock:
             for slot in list(self._registry.values()):
                 if slot.state != SlotState.LOADED:
+                    continue
+                # Keep ready: the chat model leaves only for work that needs the card.
+                if kept and slot.slot_id.startswith("ollama:") and chat_keep_ready.same_model(slot.slot_id[7:], kept):
                     continue
                 # Active inference pin — never idle-evict mid-denoise / mid-batch.
                 if int(getattr(slot, "in_use", 0) or 0) > 0:
