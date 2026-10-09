@@ -1205,7 +1205,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             logger.debug("ComfyUI queue probe failed: %s", e)
             return None
 
-    def _ensure_comfyui_reserve_for(self, model: str) -> Optional[str]:
+    def _ensure_comfyui_reserve_for(self, model: str, with_clips: bool = False) -> Optional[str]:
         """Relaunch ComfyUI when its --reserve-vram is not the one this model needs.
 
         The reserve is declared per model in the registry
@@ -1225,7 +1225,7 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
         except Exception as e:  # noqa: BLE001
             logger.debug("reserve helpers unavailable: %s", e)
             return None
-        needed = comfyui_reserve_vram_gb_for_model(model)
+        needed = comfyui_reserve_vram_gb_for_model(model, with_clips=with_clips)
         if needed is None:
             return None
         if explicit_reserve_vram_gb(launch_env(self._project_root)) is not None:
@@ -2060,8 +2060,9 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             model = request.model or "cogvideox-5b"
             seed = request.seed if request.seed is not None else int(time.time() * 1000) % (2**31)
 
-            # The running ComfyUI must carry this model's --reserve-vram.
-            reserve_error = self._ensure_comfyui_reserve_for(model)
+            # The running ComfyUI must carry this model's --reserve-vram (a
+            # reference board with clips may declare its own).
+            reserve_error = self._ensure_comfyui_reserve_for(model, with_clips=bool(request.ref_videos))
             if reserve_error:
                 return result.fail(RenderErrorKind.COMFYUI_DOWN, reserve_error)
 

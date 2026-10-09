@@ -127,7 +127,7 @@ def test_generate_video_does_not_queue_when_vram_cannot_be_freed(monkeypatch, tm
     gen._object_info_cache = None
     gen.comfy_node_available = lambda *_a, **_k: True
     gen._vram_preflight = lambda model: None
-    gen._ensure_comfyui_reserve_for = lambda model: None  # the reserve check has its own tests
+    gen._ensure_comfyui_reserve_for = lambda model, **_: None  # the reserve check has its own tests
     gen._ensure_vram_for_model = lambda model, op_id: f"Could not free enough VRAM for {model} after waiting 600s: short"
     queued = []
     gen._queue_prompt = lambda *a, **k: queued.append(a) or "prompt-id"
