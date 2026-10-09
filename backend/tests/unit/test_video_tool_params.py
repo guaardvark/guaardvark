@@ -87,3 +87,20 @@ def test_dims_follow_alignment_and_budget():
     w, h = _dims_for_ratio("1:1", vmr.model_capabilities("wan22-5b"))
     assert w == h and w % 32 == 0
     assert _dims_for_ratio("bad", {}) == (None, None)
+
+
+def test_references_without_a_model_ask_for_a_reference_build(monkeypatch):
+    roles = []
+    monkeypatch.setattr(vmr, "resolve_active_video_model",
+                        lambda role, *a, **k: roles.append(role) or ("minimax-h3-ref2va-int8", None))
+    params, err = resolve("<Video 1> again, at night", reference_clips=["/c.mp4"])
+    assert err is None and roles == ["ref2v"] and params["model"] == "minimax-h3-ref2va-int8"
+
+
+def test_reference_counts_follow_the_registry_limits():
+    params, err = resolve("<Picture 1> waves", model="minimax-h3-ref2va-int8",
+                          reference_images=["/x.png"], reference_audio=["/a.wav"] * 4)
+    assert params is None and "at most 3 reference audios" in err
+    params, err = resolve("<Picture 1> waves", model="minimax-h3-ref2va-int8",
+                          reference_images=["/x.png"], reference_audio="/a.wav")
+    assert err is None

@@ -1476,20 +1476,39 @@ def _dims_for_ratio(ratio: str, caps: dict) -> tuple:
     return width, height
 
 
-def _document_file(doc_id: int) -> Optional[str]:
-    """The file behind a library document, or None."""
-    from backend.models import Document, db
-    from backend.services.document_path_resolver import resolve_document_path
-    doc = db.session.get(Document, doc_id)
-    path = resolve_document_path(doc) if doc else None
-    return str(path) if path else None
+def _ref_list(value) -> list:
+    """A reference argument as a list of non-empty strings: a list, one
+    string, or a comma-separated string."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        value = value.split(",")
+    return [str(v).strip() for v in value if str(v or "").strip()]
+
+
+def _default_reference_intent(prompt: str, refs: dict, params: dict) -> dict:
+    """The H3 reference intent for a tool call, which carries no roles:
+    pictures and clips are kept as shown, each clip's own sound comes with
+    it, and audio is a sound reference."""
+    from backend.services import h3_prompt_compiler as h3
+    from backend.services.comfyui_video_generator import _media_has_audio
+    spec = {
+        "images": [{"role": "keep"} for _ in refs["ref_images"]],
+        "videos": [{"role": "subject", "soundtrack": _media_has_audio(v["path"]) is not False}
+                   for v in refs["ref_videos"]],
+        "audios": [{"role": "sound"} for _ in refs["ref_audios"]],
+    }
+    fps = float(params.get("fps") or 24)
+    intent = h3.intent_from_references(prompt, params["duration_frames"] / fps, spec,
+                                       style=params.get("prompt_style") or "cinematic")
+    return h3.intent_to_dict(intent)
 
 
 def _media_input(ref, *, mcp: bool, label: str):
     """A generate_video input (document id, served URL, resource URI or path)
     as a MediaRef, under the shared media-input rules."""
-    from backend.utils.media_inputs import resolve_media_ref
-    return resolve_media_ref(ref, mcp=mcp, label=label, document_path=_document_file)
+    from backend.utils.media_inputs import document_file, resolve_media_ref
+    return resolve_media_ref(ref, mcp=mcp, label=label, document_path=document_file)
 
 
 class VideoGeneratorTool(BaseTool):
@@ -1511,8 +1530,9 @@ class VideoGeneratorTool(BaseTool):
         "false-timeouted. Use when the user asks to create, generate, or make a "
         "video. Pick model='minimax-h3-int8' (or audio=true) for a clip with its "
         "own soundtrack and spoken dialogue; give first_image / last_image to "
-        "animate between frames; reference_images and reference_audio lock a "
-        "person, look or voice on the reference build. For short looping "
+        "animate between frames; reference_images, reference_clips and "
+        "reference_audio lock a person, look, motion or voice on the reference "
+        "build (picked automatically when no model is named). For short looping "
         "frame-morph animations use generate_animation instead."
     )
     parameters = {
@@ -1583,11 +1603,22 @@ class VideoGeneratorTool(BaseTool):
                          "as first_image; needs the reference build."),
             required=False,
         ),
+        "reference_clips": ToolParameter(
+            name="reference_clips",
+            type="list",
+            items="string",
+            description=("Reference video clips (subject, motion, a clip to edit or continue), 2-15 s "
+                         "each, in the same forms as first_image; a clip's own sound comes with it. "
+                         "Named <Video 1>, <Video 2> in the prompt; needs the reference build."),
+            required=False,
+        ),
         "reference_audio": ToolParameter(
             name="reference_audio",
-            type="string",
-            description=("A voice or music reference, in the same forms as first_image (a generated "
-                         "song's document id works); needs the reference build."),
+            type="list",
+            items="string",
+            description=("Voice or music references (up to 3), each in the same forms as first_image "
+                         "(a generated song's document id works); a single string also works. Needs "
+                         "the reference build."),
             required=False,
         ),
         "speed_profile": ToolParameter(
@@ -1630,8 +1661,9 @@ class VideoGeneratorTool(BaseTool):
                         duration_s: Optional[float] = None, duration_frames: Optional[int] = None,
                         num_inference_steps: Optional[int] = None, audio: bool = False,
                         first_image: Optional[str] = None, last_image: Optional[str] = None,
-                        reference_images: Optional[list] = None, reference_audio: Optional[str] = None,
-                        speed_profile: Optional[str] = None, style: Optional[str] = None) -> tuple:
+                        reference_images: Optional[list] = None, reference_audio=None,
+                        speed_profile: Optional[str] = None, style: Optional[str] = None,
+                        reference_clips: Optional[list] = None) -> tuple:
         """Turn the tool's arguments into batch parameters checked against the
         model's capability record. Returns (params, None) or (None, message).
         Pure: no service is touched, so the rules are testable."""
@@ -1639,11 +1671,14 @@ class VideoGeneratorTool(BaseTool):
             GENERATION_TYPES, VIDEO_MODEL_REGISTRY, model_capabilities, i2v_model_for,
             resolve_active_video_model,
         )
+        refs = _ref_list(reference_images)
+        clips = _ref_list(reference_clips)
+        audios = _ref_list(reference_audio)
         model_id = (model or "").strip()
         if not model_id:
             # The resolver never swaps families; its refusal is the answer,
             # not a cue to render on some other model.
-            role = "i2v" if first_image else "t2v"
+            role = "ref2v" if (refs or clips or audios) else "i2v" if first_image else "t2v"
             picked, resolve_err = resolve_active_video_model(role, comfyui_down_ok=True)
             if not picked:
                 return None, resolve_err or (
@@ -1667,12 +1702,17 @@ class VideoGeneratorTool(BaseTool):
                 f"{entry['name']} renders silent clips. For a clip with its own soundtrack use "
                 f"a model that declares audio, such as minimax-h3-int8."
             )
-        refs = [str(r) for r in (reference_images or []) if str(r).strip()]
-        if (refs or reference_audio) and "ref2v" not in caps["modes"]:
+        if (refs or clips or audios) and "ref2v" not in caps["modes"]:
             return None, (
-                f"{entry['name']} takes no reference images or audio; use the reference build "
-                f"(minimax-h3-ref2va-int8) for identity, look or voice references."
+                f"{entry['name']} takes no reference images, clips or audio; use the reference build "
+                f"(minimax-h3-ref2va-int8) for identity, look, motion or voice references."
             )
+        if "ref2v" in caps["modes"]:
+            from backend.services.comfyui_video_generator import reference_count_error
+            count_err = reference_count_error(caps.get("ref_limits") or {}, entry["name"], refs,
+                                              [{"path": c} for c in clips], audios)
+            if count_err:
+                return None, count_err
         if last_image and "flf2v" not in caps["modes"] and "l2v" not in caps["modes"]:
             return None, f"{entry['name']} has no last-frame mode; drop last_image or pick minimax-h3-int8."
         if first_image and not caps.get("supports_i2v") and "ref2v" not in caps["modes"]:
@@ -1754,8 +1794,8 @@ class VideoGeneratorTool(BaseTool):
                 model: Optional[str] = None, aspect_ratio: Optional[str] = None,
                 duration_s=None, audio: bool = False, first_image: Optional[str] = None,
                 last_image: Optional[str] = None, reference_images=None,
-                reference_audio: Optional[str] = None, speed_profile: Optional[str] = None,
-                style: Optional[str] = None, **kwargs) -> ToolResult:
+                reference_audio=None, speed_profile: Optional[str] = None,
+                style: Optional[str] = None, reference_clips=None, **kwargs) -> ToolResult:
         import time as _time
 
         prompt = (prompt or "").strip()
@@ -1769,7 +1809,8 @@ class VideoGeneratorTool(BaseTool):
                 "num_inference_steps": num_inference_steps, "wait_for_result": wait_for_result,
                 "model": model, "aspect_ratio": aspect_ratio, "duration_s": duration_s, "audio": audio,
                 "first_image": first_image, "last_image": last_image, "reference_images": reference_images,
-                "reference_audio": reference_audio, "speed_profile": speed_profile, "style": style,
+                "reference_clips": reference_clips, "reference_audio": reference_audio,
+                "speed_profile": speed_profile, "style": style,
             }
             return run_tool_in_backend(
                 self.name, {k: v for k, v in arguments.items() if v is not None},
@@ -1777,14 +1818,16 @@ class VideoGeneratorTool(BaseTool):
             )
         wait_for_result = str(wait_for_result).lower() in ("1", "true", "yes")
         audio = str(audio).lower() in ("1", "true", "yes")
-        if isinstance(reference_images, str):
-            reference_images = [x.strip() for x in reference_images.split(",") if x.strip()]
+        reference_images = _ref_list(reference_images)
+        reference_clips = _ref_list(reference_clips)
+        reference_audio = _ref_list(reference_audio)
 
         params, err = self.resolve_request(
             prompt, model=model, aspect_ratio=aspect_ratio, duration_s=duration_s,
             duration_frames=duration_frames, num_inference_steps=num_inference_steps, audio=audio,
             first_image=first_image, last_image=last_image, reference_images=reference_images,
             reference_audio=reference_audio, speed_profile=speed_profile, style=style,
+            reference_clips=reference_clips,
         )
         if err:
             return ToolResult(success=False, error=err)
@@ -1794,16 +1837,24 @@ class VideoGeneratorTool(BaseTool):
 
         # Inputs resolve before the model preflight, which may start ComfyUI.
         mcp = is_mcp_caller(self)
-        inputs = [("first_image", first_image), ("last_image", last_image)]
-        inputs += [("reference image", r) for r in (reference_images or []) if str(r or "").strip()]
-        inputs.append(("reference_audio", reference_audio))
-        resolved = []
-        for label, ref in inputs:
+        def _resolve(label, ref):
             found = _media_input(ref, mcp=mcp, label=label)
-            if found.error:
-                return ToolResult(success=False, error=found.error)
-            resolved.append(found.path)
-        first_path, last_path, *ref_paths, ref_audio_path = resolved
+            return found.path, found.error
+
+        first_path, err = _resolve("first_image", first_image)
+        if not err:
+            last_path, err = _resolve("last_image", last_image)
+        resolved_refs = {"ref_images": [], "ref_videos": [], "ref_audios": []}
+        for key, label, refs in (("ref_images", "reference image", reference_images),
+                                 ("ref_videos", "reference clip", reference_clips),
+                                 ("ref_audios", "reference audio", reference_audio)):
+            for ref in refs:
+                if err:
+                    break
+                path, err = _resolve(label, ref)
+                resolved_refs[key].append({"path": path} if key == "ref_videos" else path)
+        if err:
+            return ToolResult(success=False, error=err)
 
         logger.info("VideoGeneratorTool: model=%s frames=%s steps=%s wait=%s prompt=%r",
                     model_id, duration_frames, num_inference_steps, wait_for_result, prompt[:100])
@@ -1821,15 +1872,14 @@ class VideoGeneratorTool(BaseTool):
             if not generator.service_available:
                 return ToolResult(success=False, error="Video generation service not available")
 
-            if ref_paths or ref_audio_path:
-                # The reference build reads the references from the batch
-                # metadata; the prompt names them as <Picture N> / <Audio N>
-                # in wiring order.
-                params["metadata"].update({
-                    "ref_images": ref_paths,
-                    "ref_audios": [ref_audio_path] if ref_audio_path else [],
-                })
-                status = generator.start_batch_from_prompts(prompts=[prompt], **params)
+            if any(resolved_refs.values()):
+                # The render reads references from each item; the prompt names
+                # them as <Picture N> / <Video N> / <Audio N> in wiring order.
+                item_metadata = {**resolved_refs, "language": "English"}
+                if params.get("enhance_prompt", True):
+                    item_metadata["h3_intent"] = _default_reference_intent(prompt, resolved_refs, params)
+                status = generator.start_batch_from_prompts(prompts=[prompt], item_metadata=item_metadata,
+                                                            **params)
             elif first_path:
                 status = generator.start_batch_from_images(
                     image_paths=[first_path], prompt=prompt,

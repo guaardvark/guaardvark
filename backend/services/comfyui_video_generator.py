@@ -133,6 +133,51 @@ def _looks_like_blank_video(video_path) -> Optional[str]:
         return None
 
 
+def reference_count_error(limits: dict, entry_name: str, images: list, videos: list,
+                          audios: list) -> Optional[str]:
+    """One sentence when a reference request breaks the model's ref_limits,
+    else None. Videos are ``{"path", "audio_path"?, "include_audio"?}``; a
+    separate soundtrack counts as a file of its own."""
+    if not images and not videos:
+        return (f"{entry_name} needs at least one reference image or clip; audio "
+                f"cannot be the only reference.")
+    for kind, items, key in (("image", images, "images"), ("clip", videos, "videos"), ("audio", audios, "audios")):
+        cap = (limits or {}).get(key)
+        if cap is not None and len(items) > cap:
+            return f"{entry_name} takes at most {cap} reference {kind}s; {len(items)} given."
+    total = len(images) + len(videos) + len(audios) + sum(
+        1 for v in videos if isinstance(v, dict) and v.get("audio_path")
+    )
+    files = (limits or {}).get("files")
+    if files and total > files:
+        return f"{entry_name} takes at most {files} reference files; {total} given."
+    return None
+
+
+def _media_seconds(path) -> Optional[float]:
+    """Seconds of the media at ``path``, or None when ffprobe cannot tell."""
+    from backend.services.connections.media import probe_duration
+    return probe_duration(str(path)) if path else None
+
+
+def _media_has_audio(path) -> Optional[bool]:
+    """True when ``path`` has an audio stream, False when it has none, None
+    when ffprobe is missing or cannot read the file."""
+    if not path:
+        return None
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "stream=index",
+             "-of", "csv=p=0", str(path)],
+            capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if out.returncode != 0:
+        return None
+    return bool(out.stdout.strip())
+
+
 @dataclass
 class VideoGenerationRequest:
     prompt: str = ""
@@ -725,20 +770,9 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 f"{entry_name} takes references, not first/last frames or guides; "
                 f"pick MiniMax H3 (Int8) for those."
             )
-        if not images and not videos:
-            return None, (
-                f"{entry_name} needs at least one reference image or clip; audio "
-                f"cannot be the only reference."
-            )
-        for kind, items, key in (("image", images, "images"), ("clip", videos, "videos"), ("audio", audios, "audios")):
-            cap = limits.get(key)
-            if cap is not None and len(items) > cap:
-                return None, f"{entry_name} takes at most {cap} reference {kind}s; {len(items)} given."
-        total = len(images) + len(videos) + len(audios) + sum(
-            1 for v in videos if isinstance((v or {}).get("audio"), str) and v.get("audio")
-        )
-        if limits.get("files") and total > limits["files"]:
-            return None, f"{entry_name} takes at most {limits['files']} reference files; {total} given."
+        count_err = reference_count_error(limits, entry_name, images, videos, audios)
+        if count_err:
+            return None, count_err
 
         common, err = self._resolve_minimax_common(request, model_key, caps, entry_name)
         if err:
@@ -764,8 +798,18 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 return None, err
             image_names.append(name)
         video_specs = []
+        shortest, longest = (list(limits.get("video_seconds") or []) + [None, None])[:2]
         for video in videos:
             video = video if isinstance(video, dict) else {"path": video}
+            seconds = _media_seconds(video.get("path"))
+            if seconds is not None and shortest and seconds < shortest:
+                return None, (
+                    f"{entry_name} needs reference clips of at least {shortest:g} s; "
+                    f"{Path(video.get('path') or '').name} is {seconds:.1f} s."
+                )
+            if seconds is not None and longest and seconds > longest:
+                logger.info("Reference clip %s is %.1f s; the model reads its first %g s",
+                            video.get("path"), seconds, longest)
             name, err = _upload(video.get("path"), "clip")
             if err:
                 return None, err
@@ -775,7 +819,9 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 if err:
                     return None, err
             else:
-                audio = bool(video.get("include_audio", True))
+                # The loader's audio output fails on a clip with no sound, so a
+                # silent clip goes in without a soundtrack whatever was asked.
+                audio = bool(video.get("include_audio", True)) and _media_has_audio(video.get("path")) is not False
             video_specs.append({"filename": name, "audio": audio})
         audio_names = []
         for path in audios:

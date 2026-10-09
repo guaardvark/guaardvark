@@ -82,6 +82,14 @@ import { applicableAdapters as applicableAdapterModels } from "../utils/videoAda
 import { applyClipRename, applyClipRenameToPlayer, clipFileName } from "../utils/videoRename";
 import VideoGenEffectiveSettings from "../components/videogen/VideoGenEffectiveSettings";
 import LiveLatentPreview from "../components/videogen/LiveLatentPreview";
+import ReferenceBoard from "../components/videogen/ReferenceBoard";
+import FrameSlot from "../components/videogen/FrameSlot";
+import {
+  boardProblems,
+  emptyBoard,
+  previewBoard,
+  serializeBoard,
+} from "../components/videogen/referenceBoard";
 import { videoGenStageLabel } from "../components/videogen/stageLabels";
 import {
   PlayArrow as PlayIcon,
@@ -208,8 +216,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     // User text encoder id ("" = the one the model ships with).
     text_encoder: "",
   });
-  // End frame for models that declare first+last-frame generation (image mode).
-  const [endFrame, setEndFrame] = useState(null); // {path, name}
+  // End frame for models that declare l2v / flf2v (image mode): {ref, name,
+  // thumbnailUrl}, ref being an uploaded file's path or a library document id.
+  const [endFrame, setEndFrame] = useState(null);
+  // Reference board for models that declare ref2v (references mode).
+  const [refBoard, setRefBoard] = useState(emptyBoard);
+  const promptInputRef = useRef(null);
   // Audio guide for models that declare audio_in: a voice clip or track the
   // model performs from the start of the clip. {path, name}
   const [audioGuide, setAudioGuide] = useState(null);
@@ -477,6 +489,19 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     })();
   }, []);
 
+  // Models that take a reference board; the References input is offered
+  // whenever the registry lists one, installed or not (Generate routes an
+  // uninstalled one to Install).
+  const refModelIds = useMemo(
+    () => Object.keys(modelMeta).filter((id) => modelMeta[id]?.capabilities?.modes?.includes("ref2v")),
+    [modelMeta],
+  );
+  useEffect(() => {
+    if (inputMode === "references" && Object.keys(modelMeta).length > 0 && refModelIds.length === 0) {
+      setInputMode("text");
+    }
+  }, [inputMode, modelMeta, refModelIds]);
+
   // Filter models by current input mode AND the backend allowlist.
   // Registry-only (user-added) ids are not in MODEL_OPTIONS; capabilities win.
   const availableModels = useMemo(() => {
@@ -492,6 +517,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       .filter((id) => {
         const caps = modelMeta[id]?.capabilities || {};
         const opt = MODEL_OPTIONS[id];
+        if (inputMode === "references") return (caps.modes || []).includes("ref2v");
         return inputMode === "image"
           ? (caps.supports_i2v ?? opt?.supportsI2V)
           : (caps.supports_t2v ?? opt?.supportsT2V);
@@ -511,9 +537,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   useEffect(() => {
     const meta = modelMeta[model];
     const opt = MODEL_OPTIONS[model];
-    const isCompatible = inputMode === "image"
-      ? (meta?.capabilities?.supports_i2v ?? opt?.supportsI2V)
-      : (meta?.capabilities?.supports_t2v ?? opt?.supportsT2V);
+    const isCompatible = inputMode === "references"
+      ? (meta?.capabilities?.modes || []).includes("ref2v")
+      : inputMode === "image"
+        ? (meta?.capabilities?.supports_i2v ?? opt?.supportsI2V)
+        : (meta?.capabilities?.supports_t2v ?? opt?.supportsT2V);
     if (!isCompatible) {
       const fallback = availableModels[0]?.[0]
         || (inputMode === "image" ? DEFAULT_I2V_MODEL : DEFAULT_T2V_MODEL);
@@ -595,9 +623,19 @@ const VideoGeneratorPage = ({ embedded = false }) => {
     }
   };
 
+  // A model change keeps the end frame and audio guide when the new model
+  // takes them too, so switching precision builds does not drop a pick.
   useEffect(() => {
-    setEndFrame(null);
-    setAudioGuide(null);
+    const caps = modelMeta[model]?.capabilities;
+    if (caps) {
+      const modes = caps.modes || [];
+      if (!modes.includes("l2v") && !modes.includes("flf2v")) setEndFrame(null);
+      if (!caps.audio_in) setAudioGuide(null);
+    }
+    // Keyed on the model only: a metadata refresh must not clear a pick.
+  }, [model]);
+
+  useEffect(() => {
     setSelectedPromptPreset("");
     let alive = true;
     (async () => {
@@ -959,6 +997,14 @@ const VideoGeneratorPage = ({ embedded = false }) => {
           model,
           width: (computedParams && computedParams.width) || videoDimensions.width,
           height: (computedParams && computedParams.height) || videoDimensions.height,
+          ...(inputMode === "references"
+            ? {
+                references: previewBoard(refBoard),
+                duration_frames: computedParams?.duration_frames,
+                fps: computedParams?.fps,
+                motion_strength: computedParams?.motion_strength,
+              }
+            : {}),
         }),
       });
       const data = await res.json();
@@ -983,6 +1029,34 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       .filter(Boolean);
   }, [promptsText]);
 
+  // End-frame modes the selected model declares (image mode): flf2v with a
+  // start image, l2v without one.
+  const endFrameModes = useMemo(
+    () => (inputMode === "image" ? (modelCaps?.modes || []).filter((m) => m === "l2v" || m === "flf2v") : []),
+    [inputMode, modelCaps],
+  );
+  const lastFrameOnly =
+    inputMode === "image" && selectedImages.length === 0 && !!endFrame?.ref && endFrameModes.includes("l2v");
+  // The board follows the reference model's ref_limits, also while the model
+  // list is still switching over to it.
+  const refLimits = (modelCaps?.modes || []).includes("ref2v")
+    ? modelCaps.ref_limits
+    : modelMeta[refModelIds[0]]?.capabilities?.ref_limits;
+  const refProblems = useMemo(() => boardProblems(refBoard, refLimits), [refBoard, refLimits]);
+
+  // Put a reference tag at the prompt's cursor (or its end).
+  const insertPromptTag = useCallback((tag) => {
+    const el = promptInputRef.current;
+    setPromptsText((prev) => {
+      const start = el?.selectionStart ?? prev.length;
+      const end = el?.selectionEnd ?? prev.length;
+      const before = prev.slice(0, start);
+      const pad = before && !/\s$/.test(before) ? " " : "";
+      return `${before}${pad}${tag} ${prev.slice(end)}`;
+    });
+    requestAnimationFrame(() => el?.focus());
+  }, []);
+
   // File upload handling
   // Upload one end frame through the same route as start images and keep its
   // server path; sent as last_frame_paths, one per start image.
@@ -1003,7 +1077,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         const statusData = statusRes.ok ? await statusRes.json() : null;
         const first = statusData?.data?.results?.find((r) => r.success && r.image_path);
         if (first) {
-          setEndFrame({ path: first.image_path, name: file.name });
+          const fileName = first.image_path.replace(/\\/g, "/").split("/").pop();
+          setEndFrame({
+            ref: first.image_path,
+            name: file.name,
+            thumbnailUrl: `${API_BASE}/batch-image/image/${data.data.batch_id}/${encodeURIComponent(fileName)}`,
+          });
           return;
         }
       }
@@ -1202,8 +1281,20 @@ const VideoGeneratorPage = ({ embedded = false }) => {
       setError("Please enter at least one prompt.");
       return;
     }
-    if (inputMode === "image" && selectedImages.length === 0) {
-      setError("Please select or upload at least one image.");
+    if (inputMode === "image" && selectedImages.length === 0 && !lastFrameOnly) {
+      setError(endFrameModes.includes("l2v")
+        ? "Add a start image, or an end frame and a description."
+        : "Please select or upload at least one image.");
+      return;
+    }
+    if ((lastFrameOnly || inputMode === "references") && !promptsText.trim()) {
+      setError(inputMode === "references"
+        ? "Describe the video, naming the references."
+        : "Describe the video that ends on the end frame.");
+      return;
+    }
+    if (inputMode === "references" && refProblems.length > 0) {
+      setError(refProblems[0]);
       return;
     }
 
@@ -1251,17 +1342,42 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         qualityPreset, durationPreset, motionPreset, aspectRatio, videoSize,
         promptStyle, cinematicKeyframe, fidelityMode, negativePrompt,
         storyboardMode, storyboardShots, lowVramMode, highConsistencyMode, advancedParams,
-        selectedImages,
+        selectedImages, endFrame, refBoard,
       };
 
       const guidePayload =
-        audioGuide?.path && modelCaps?.audio_in
-          ? { guides: (inputMode === "text" ? finalPrompts : imagePaths).map(() => [
+        audioGuide?.path && modelCaps?.audio_in && inputMode !== "references"
+          ? { guides: (inputMode === "text" ? finalPrompts : lastFrameOnly ? [motionPrompt] : imagePaths).map(() => [
               { kind: "audio", path: audioGuide.path, frame_idx: 0 },
             ]) }
           : {};
+      const promptWithLook = lf && motionPrompt ? `${motionPrompt}, ${lf}` : motionPrompt;
       const body =
-        inputMode === "text"
+        inputMode === "references"
+          ? {
+              prompt: promptWithLook,
+              references: serializeBoard(refBoard),
+              ...computedParams,
+              // Identity comes from the references, not a keyframe or a rewrite.
+              director_mode: false,
+              cinematic_keyframe: false,
+              fidelity_mode: fidelityMode,
+              high_consistency: highConsistencyMode,
+              ...negativePayload,
+              ui_config: uiConfig,
+            }
+          : lastFrameOnly
+          ? {
+              prompts: [promptWithLook],
+              last_frame_paths: [endFrame.ref],
+              ...guidePayload,
+              ...computedParams,
+              fidelity_mode: fidelityMode,
+              high_consistency: highConsistencyMode,
+              ...negativePayload,
+              ui_config: uiConfig,
+            }
+          : inputMode === "text"
           ? {
               prompts: finalPrompts,
               ...guidePayload,
@@ -1274,11 +1390,11 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             }
           : {
               image_paths: imagePaths,
-              ...(endFrame?.path && modelCaps?.modes?.includes("flf2v")
-                ? { last_frame_paths: imagePaths.map(() => endFrame.path) }
+              ...(endFrame?.ref && endFrameModes.includes("flf2v")
+                ? { last_frame_paths: imagePaths.map(() => endFrame.ref) }
                 : {}),
               ...guidePayload,
-              prompt: lf && motionPrompt ? `${motionPrompt}, ${lf}` : motionPrompt,
+              prompt: promptWithLook,
               ...computedParams,
               fidelity_mode: fidelityMode,
               high_consistency: highConsistencyMode,
@@ -1287,7 +1403,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
             };
 
       const url =
-        inputMode === "text"
+        inputMode === "references"
+          ? `${API_BASE}/batch-video/generate/references`
+          : inputMode === "text" || lastFrameOnly
           ? `${API_BASE}/batch-video/generate/text`
           : `${API_BASE}/batch-video/generate/image`;
 
@@ -1384,6 +1502,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         if (cfg.storyboardShots) setStoryboardShots(cfg.storyboardShots);
         if (typeof cfg.lowVramMode === "boolean") setLowVramMode(cfg.lowVramMode);
         if (cfg.advancedParams && typeof cfg.advancedParams === "object") setAdvancedParams(cfg.advancedParams);
+        if (cfg.endFrame && (cfg.endFrame.ref || cfg.endFrame.path)) {
+          setEndFrame({ ...cfg.endFrame, ref: cfg.endFrame.ref || cfg.endFrame.path });
+        }
+        if (cfg.refBoard && typeof cfg.refBoard === "object") {
+          setRefBoard({ images: [], videos: [], audios: [], ...cfg.refBoard });
+        }
 
         if (Array.isArray(cfg.selectedImages) && cfg.selectedImages.length > 0) {
           setSelectedImages(cfg.selectedImages);
@@ -1504,7 +1628,12 @@ const VideoGeneratorPage = ({ embedded = false }) => {
 
   const controlsDisabled = isGenerating;
   const canQueue =
-    !isGenerating && (inputMode === "text" ? parsedPrompts.length > 0 : selectedImages.length > 0);
+    !isGenerating && (
+      inputMode === "text" ? parsedPrompts.length > 0
+        : inputMode === "references"
+          ? promptsText.trim().length > 0 && refBoard.images.length + refBoard.videos.length > 0
+          : selectedImages.length > 0 || (lastFrameOnly && promptsText.trim().length > 0)
+    );
   const { gpuBusy, blockReason } = useJobsGate({ submitMode: "queue" });
   const castIdentityLocked = selectedSubjectIds.length > 0;
   const keyframeModelOptions = useMemo(() => {
@@ -1736,6 +1865,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   options={[
                     { value: "text", label: "Text" },
                     { value: "image", label: "Image" },
+                    ...(refModelIds.length > 0
+                      ? [{ value: "references", label: "References", tooltip: "Pictures, clips and audio the clip keeps: who is in it, how it moves, how it sounds." }]
+                      : []),
                   ]}
                 />
               </Cluster>
@@ -1769,7 +1901,35 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   )}
                 </Cluster>
               )}
-              {inputMode === "text" ? (
+              {inputMode === "references" ? (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                  <ReferenceBoard
+                    value={refBoard}
+                    onChange={setRefBoard}
+                    limits={refLimits}
+                    onInsertTag={insertPromptTag}
+                    onError={setError}
+                  />
+                  <TextField
+                    label="Describe the video"
+                    multiline
+                    minRows={3}
+                    maxRows={8}
+                    value={promptsText}
+                    onChange={(e) => setPromptsText(e.target.value)}
+                    inputRef={promptInputRef}
+                    placeholder='Maya walks into the cafe, looks at the camera and says "Morning!"'
+                    helperText={enhancePrompt
+                      ? "Use the names you gave above, or click a tag to insert it."
+                      : "Enhance is off: this is sent as typed, so name references by their tags."}
+                    fullWidth
+                    size="small"
+                  />
+                  {refProblems.length > 0 && (refBoard.images.length + refBoard.videos.length + refBoard.audios.length) > 0 && (
+                    <Hint sx={{ color: "warning.main" }}>{refProblems.join(" ")}</Hint>
+                  )}
+                </Box>
+              ) : inputMode === "text" ? (
                 <TextField
                   label={storyboardMode ? "Storyboard concept" : "What do you want to see? (one prompt per line)"}
                   multiline
@@ -1795,7 +1955,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               ) : (
                 <Box>
                   <TextField
-                    label="Describe the motion or action (optional)"
+                    label={selectedImages.length === 0 && endFrame && endFrameModes.includes("l2v")
+                      ? "Describe the video that ends on the end frame"
+                      : "Describe the motion or action (optional)"}
                     multiline
                     minRows={2}
                     maxRows={4}
@@ -1845,6 +2007,20 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   <Line sx={{ mt: 1 }}>
                     <ActionButton onClick={openGallery}>Select from gallery</ActionButton>
                   </Line>
+                  {endFrameModes.length > 0 && (
+                    <Box sx={{ mt: 1.5 }}>
+                      <FrameSlot
+                        label="End frame"
+                        value={endFrame}
+                        onChange={setEndFrame}
+                        onUploadFile={handleEndFrameUpload}
+                        uploading={isUploadingEndFrame}
+                        hint={endFrameModes.includes("l2v")
+                          ? "The clip ends on this picture. Without a start image, it is made from your description."
+                          : "The clip ends on this picture."}
+                      />
+                    </Box>
+                  )}
                   {selectedImages.length > 0 && (
                     <Box sx={{ mt: 1, display: "flex", gap: 1, flexWrap: "wrap" }}>
                       {selectedImages.map((img) => (
@@ -1912,7 +2088,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                 <ActionButton
                   onClick={fetchPromptPreview}
                   loading={previewLoading}
-                  disabled={!((inputMode === "text" ? parsedPrompts.length : promptsText.trim()) > 0)}
+                  disabled={!((inputMode === "text" ? parsedPrompts.length : promptsText.trim().length) > 0)}
                 >
                   Preview enhanced
                 </ActionButton>
@@ -1930,6 +2106,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
               )}
             </SettingsPanel>
 
+            {inputMode !== "references" && (
             <SettingsPanel
               id="videogen-pipeline"
               title="Pipeline"
@@ -2027,6 +2204,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   : "LoRA + prompt invent each keyframe still, then animate."}
               </Hint>
             </SettingsPanel>
+            )}
 
             <SettingsPanel id="videogen-clip" title="Clip">
               <Cluster label="Model">
@@ -2295,24 +2473,7 @@ const VideoGeneratorPage = ({ embedded = false }) => {
                   </Select>
                 </FormControl>
               )}
-              {inputMode === "image" && modelCaps?.modes?.includes("flf2v") && (
-                <Line>
-                  <ActionButton component="label" loading={isUploadingEndFrame}>
-                    {endFrame ? `End frame: ${endFrame.name}` : "Add end frame"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      hidden
-                      onChange={(e) => {
-                        handleEndFrameUpload(e.target.files?.[0]);
-                        e.target.value = "";
-                      }}
-                    />
-                  </ActionButton>
-                  {endFrame && <ActionButton onClick={() => setEndFrame(null)}>Remove</ActionButton>}
-                </Line>
-              )}
-              {modelCaps?.audio_in && (
+              {modelCaps?.audio_in && inputMode !== "references" && (
                 <Cluster label="Audio guide">
                   <Line nowrap>
                     <FormControl size="small" className="grow">

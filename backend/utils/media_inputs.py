@@ -52,6 +52,16 @@ MCP_REFUSAL = (
 DocumentPath = Callable[[int], Optional[str]]
 
 
+def document_file(doc_id: int) -> Optional[str]:
+    """The file behind a library document, or None. The ``document_path``
+    the media tools and the Studio routes pass to ``resolve_media_ref``."""
+    from backend.models import Document, db
+    from backend.services.document_path_resolver import resolve_document_path
+    doc = db.session.get(Document, doc_id)
+    path = resolve_document_path(doc) if doc else None
+    return str(path) if path else None
+
+
 class MediaRef(NamedTuple):
     """What ``resolve_media_ref`` found: ``path`` on success, else ``error``.
 

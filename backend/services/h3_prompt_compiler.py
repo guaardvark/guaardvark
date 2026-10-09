@@ -215,7 +215,8 @@ def _render_dialogue(d: H3Dialogue, speakers: _Speakers, subject_tag: str = "") 
 
 def _ensure_period(text: str) -> str:
     text = (text or "").strip()
-    if text and text[-1] not in ".!?":
+    # A closing quote after the sentence's own mark already ends it.
+    if text and text[-1] not in ".!?" and not (text[-1] in "\"'”’" and text[-2:-1] in (".", "!", "?")):
         text += "."
     return text
 
@@ -456,6 +457,118 @@ def intent_from_shots(shots: Iterable[Any], duration_s: float, *, subjects: Iter
             for shot in intent.shots:
                 shot.description = re.sub(rf"\b{re.escape(name)}\b", f"<Subject {s.id}>", shot.description)
     return intent
+
+
+# The Video Generator's reference board offers each reference a role in plain
+# words; these map the roles onto the guide's retention and task vocabulary.
+# Picture role "first_frame" is not a subject: it becomes a picture_frames entry.
+PICTURE_ROLES = {
+    "keep": ("fully_preserved", "face, build, clothing and colours stay as shown"),
+    "loose": ("partially_preserved", "recognisably the same, with pose and lighting free to change"),
+    "detail": ("attribute_transfer", "only the named detail is taken from the reference"),
+    "hint": ("weak_reference", "a loose guide for look and feel"),
+}
+CLIP_ROLES = {
+    "subject": ("fully_preserved", "reference generation", "its defining features are retained"),
+    "motion": ("attribute_transfer", "reference generation",
+               "only its motion and camera movement are followed; who and what appear come from the description"),
+    "edit": ("fully_preserved", "video editing", "everything the description does not change stays as it is"),
+    "continue": ("fully_preserved", "video continuation", "the new video picks up where it ends"),
+}
+AUDIO_ROLES = ("voice", "music", "sound")
+
+
+def intent_from_references(prompt: str, duration_s: float, refs: dict, *, style: Optional[str] = None,
+                           language: str = "English", motion_strength: Optional[float] = None) -> H3Intent:
+    """A reference-mode intent from a free-text prompt and the reference board.
+
+    ``refs`` is ``{"images": [...], "videos": [...], "audios": [...]}`` in
+    wiring order. Images carry ``role`` (PICTURE_ROLES or "first_frame"),
+    ``name`` and ``note``; pictures sharing a name are one subject. Videos
+    carry ``role`` (CLIP_ROLES), ``name`` and ``soundtrack`` (True when a
+    track is wired with the clip). Audios carry ``role`` (AUDIO_ROLES),
+    ``speaker`` and ``description``. Names written in the prompt become
+    their subject's tag. Audio numbering follows the graph: each clip's
+    soundtrack takes the next <Audio N> before the standalone tracks.
+    """
+    images = list((refs or {}).get("images") or [])
+    videos = list((refs or {}).get("videos") or [])
+    audios = list((refs or {}).get("audios") or [])
+    subjects: list[H3Subject] = []
+    by_name: dict[str, H3Subject] = {}
+    picture_frames: list[int] = []
+    task_types: list[str] = []
+
+    def _subject(name: str, retention: str, note: str, label: str = "the subject") -> H3Subject:
+        # Only a name the person typed is matched in the prompt; a default
+        # label like "the scene" must not rewrite their words.
+        key = name.strip().lower()
+        if key and key in by_name:
+            return by_name[key]
+        subj = H3Subject(id=len(subjects) + 1, description=name.strip() or label,
+                         retention=retention, note=note)
+        subjects.append(subj)
+        if key:
+            by_name[key] = subj
+        return subj
+
+    for i, img in enumerate(images, start=1):
+        role = img.get("role") or "keep"
+        if role == "first_frame":
+            picture_frames.append(i)
+            continue
+        retention, default_note = PICTURE_ROLES.get(role, PICTURE_ROLES["keep"])
+        note = (img.get("note") or "").strip() or default_note
+        _subject(img.get("name") or "", retention, note).pictures.append(i)
+    if picture_frames:
+        task_types.append("keyframe completion")
+    if images and len(picture_frames) < len(images):
+        task_types.append("reference generation")
+
+    audio_refs: list[H3AudioRef] = []
+    for k, vid in enumerate(videos, start=1):
+        role = vid.get("role") if vid.get("role") in CLIP_ROLES else "subject"
+        retention, task, default_note = CLIP_ROLES[role]
+        label = {"motion": "the motion and camera movement", "continue": "the scene",
+                 "edit": "the source footage"}.get(role, "the subject")
+        note = default_note.replace("it ends", f"<Video {k}> ends")
+        _subject(vid.get("name") or "", retention, note, label).videos.append(k)
+        task_types.append(task)
+        if vid.get("soundtrack"):
+            audio_refs.append(H3AudioRef(index=len(audio_refs) + 1, role="reference",
+                                         description=f"the soundtrack of <Video {k}>"))
+
+    music = "N/A"
+    for aud in audios:
+        index = len(audio_refs) + 1
+        role = aud.get("role") if aud.get("role") in AUDIO_ROLES else "sound"
+        description = (aud.get("description") or "").strip()
+        if role == "voice":
+            speaker = (aud.get("speaker") or "").strip()
+            subj = by_name.get(speaker.lower()) if speaker else None
+            audio_refs.append(H3AudioRef(index=index, role="reference", description=description,
+                                         speaker=f"<Subject {subj.id}>" if subj else (speaker or "the speaker")))
+            task_types.append("audio reference")
+        elif role == "music":
+            audio_refs.append(H3AudioRef(index=index, role="fully_copy",
+                                         description=description or "the music, used as is"))
+            music = f"<Audio {index}> is reused as the complete score."
+            task_types.append("audio reuse")
+        else:
+            audio_refs.append(H3AudioRef(index=index, role="reference",
+                                         description=description or "the sound the scene should match"))
+            task_types.append("audio reference")
+
+    opening = STYLE_OPENINGS.get((style or "").lower(), "") if style and style != "none" else ""
+    shot = H3Shot(description=(prompt or "").strip(), camera=_camera_from_motion(motion_strength))
+    for subj in by_name.values():
+        shot.description = re.sub(rf"\b{re.escape(subj.description)}\b", f"<Subject {subj.id}>",
+                                  shot.description, flags=re.IGNORECASE)
+    return H3Intent(
+        duration_s=duration_s, mode="ref2va", style=opening, shots=[shot], subjects=subjects,
+        audio_refs=audio_refs, picture_frames=picture_frames, task_types=list(dict.fromkeys(task_types)),
+        music=music, language=normalize_language(language),
+    )
 
 
 def intent_from_cut(cut: dict, prompt: str, *, song_audio_index: int = 1, style: Optional[str] = None,

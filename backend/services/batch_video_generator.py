@@ -132,6 +132,11 @@ def _get_video_logger():
     return logger
 
 
+# Item metadata keys a retry, restore or re-render has to carry over: the
+# reference inputs and the H3 intent compiled from the reference board.
+ITEM_METADATA_KEYS = ("ref_images", "ref_videos", "ref_audios", "h3_intent", "language")
+
+
 @dataclass
 class BatchVideoItem:
     id: str
@@ -680,6 +685,9 @@ class BatchVideoGenerator:
         params["seed"] = None  # the same seed would render the same clip
         params["metadata"] = {**dict(params.get("metadata") or {}),
                               "rerender_of": {"batch_id": batch_id, "item_id": item_id}}
+        for key in ("guides", "last_frame_paths"):
+            per_item = list(params.get(key) or [])
+            params[key] = per_item[index:index + 1]
         if rd.get("mode") == "image":
             image_paths = rd.get("image_paths") or []
             if index >= len(image_paths):
@@ -1421,6 +1429,8 @@ class BatchVideoGenerator:
                             ref_images=list((item.metadata or {}).get("ref_images") or meta.get("ref_images") or []),
                             ref_videos=list((item.metadata or {}).get("ref_videos") or meta.get("ref_videos") or []),
                             ref_audios=list((item.metadata or {}).get("ref_audios") or meta.get("ref_audios") or []),
+                            h3_intent=meta.get("h3_intent") or None,
+                            language=meta.get("language") or "English",
                         )
 
                         result: VideoGenerationResult = self._render_with_retries(
@@ -1593,10 +1603,16 @@ class BatchVideoGenerator:
     ) -> BatchVideoStatus:
         from backend.services.output_registration import bates_name
         batch_id = params.get("batch_id") or bates_name("video_batch", "", self.base_output_dir)
+        # Index-paired with prompts: guides and an end frame per item (l2v).
+        # item_metadata goes on every item: reference inputs and the
+        # structured H3 intent the render worker reads from there.
         guides_per_item = list(params.pop("guides", None) or [])
+        last_frame_paths = list(params.pop("last_frame_paths", None) or [])
+        item_metadata = dict(params.pop("item_metadata", None) or {})
         items = [
             BatchVideoItem(
-                id=str(uuid.uuid4()), prompt=p, metadata={"source": "prompt"},
+                id=str(uuid.uuid4()), prompt=p, metadata={**item_metadata, "source": "prompt"},
+                last_frame_path=(last_frame_paths[i] if i < len(last_frame_paths) else None) or None,
                 guides=list(guides_per_item[i] or []) if i < len(guides_per_item) else [],
             )
             for i, p in enumerate(prompts)
@@ -1760,7 +1776,15 @@ class BatchVideoGenerator:
                 "metadata": dict(batch_request.metadata or {}),
                 # Exact control-panel snapshot for "Adjust & Retry" (restore the UI verbatim).
                 "ui_config": params.get("ui_config"),
+                # Per-item inputs, index-paired with prompts / image_paths; the
+                # start_batch_* methods pop them back off on retry and restore.
+                "guides": [list(i.guides or []) for i in items],
+                "last_frame_paths": [i.last_frame_path for i in items],
             }
+            shared_item_meta = {k: v for k, v in (items[0].metadata or {}).items()
+                                if k in ITEM_METADATA_KEYS} if items else {}
+            if shared_item_meta:
+                retry_params["item_metadata"] = shared_item_meta
             # item_ids is index-paired with prompts / image_paths, so one clip
             # can be rendered again on its own (rerender_item).
             if is_image_mode:
