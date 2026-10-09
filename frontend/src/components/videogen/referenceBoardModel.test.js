@@ -10,7 +10,7 @@ import {
   h3LatentFrames,
   roomInRow,
   serializeBoard,
-} from "./referenceBoard";
+} from "./referenceBoardModel";
 
 const LIMITS = { images: 9, videos: 3, audios: 3, files: 12, video_seconds: [2, 15] };
 

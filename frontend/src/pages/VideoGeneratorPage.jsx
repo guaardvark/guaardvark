@@ -89,7 +89,7 @@ import {
   emptyBoard,
   previewBoard,
   serializeBoard,
-} from "../components/videogen/referenceBoard";
+} from "../components/videogen/referenceBoardModel";
 import { videoGenStageLabel } from "../components/videogen/stageLabels";
 import {
   PlayArrow as PlayIcon,

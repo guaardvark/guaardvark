@@ -1,4 +1,4 @@
-// frontend/src/components/videogen/referenceBoard.js
+// frontend/src/components/videogen/referenceBoardModel.js
 //
 // The reference board's data: pictures, clips and audio a reference-to-video
 // model (capabilities.modes includes "ref2v") is conditioned on. Pure helpers
