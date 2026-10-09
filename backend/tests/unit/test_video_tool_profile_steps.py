@@ -16,7 +16,10 @@ resolve = VideoGeneratorTool.resolve_request
 
 def _rendered(model: str, profile: str | None, asked):
     """(what the tool sends, what the generator's step resolver renders)."""
-    params, err = resolve("a fox", model=model, speed_profile=profile, num_inference_steps=asked)
+    # A reference build refuses a request without a reference picture or clip.
+    refs = ["fox.png"] if vmr.VIDEO_MODEL_REGISTRY[model].get("ref_limits") else None
+    params, err = resolve("a fox", model=model, speed_profile=profile, num_inference_steps=asked,
+                          reference_images=refs)
     assert err is None, err
     spec = dict(vmr.model_capabilities(model)["speed_profiles"][profile]) if profile else None
     explicit = bool(params["metadata"].get("steps_explicit"))
