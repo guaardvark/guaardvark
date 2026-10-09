@@ -25,6 +25,25 @@ export const getAvailableModels = async () => {
   }
 };
 
+/**
+ * The chat model list for Settings, and whether Ollama answered at all.
+ * { models, ollamaOffline } or { error }.
+ */
+export const getChatModelList = async () => {
+  try {
+    const response = await fetch(`${BASE_URL}/model/list`);
+    const data = await handleResponse(response);
+    if (typeof data === "object" && data !== null && data.error) throw new Error(data.error);
+    const payload = data?.data || data?.message || data || {};
+    return {
+      models: Array.isArray(payload.models) ? payload.models : [],
+      ollamaOffline: Boolean(payload.ollama_offline),
+    };
+  } catch (err) {
+    return { error: err.message || "Failed to fetch available models." };
+  }
+};
+
 export const getCurrentModel = async () => {
   try {
     const response = await fetch(`${BASE_URL}/model`);

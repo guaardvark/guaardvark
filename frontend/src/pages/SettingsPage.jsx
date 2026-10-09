@@ -56,6 +56,7 @@ import {
   getMusicDirectory,
   setMusicDirectory as setMusicDirectoryAPI,
 } from "../api/settingsService";
+import { enablePlugin, startPlugin } from "../api/pluginsService";
 import { useAppStore } from "../stores/useAppStore";
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
@@ -129,6 +130,10 @@ const VOICE_CHAT_ENABLED_KEY = "guaardvark_voiceChatEnabled";
 
 const SettingsPage = () => {
   const [availableModels, setAvailableModels] = useState([]);
+  // Ollama did not answer the last model list; the list then holds only the
+  // saved model.
+  const [ollamaOffline, setOllamaOffline] = useState(false);
+  const [startingOllama, setStartingOllama] = useState(false);
   const [selectedModel, setSelectedModel] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("");
   const [_isLoadingEmbeddingModel, setIsLoadingEmbeddingModel] = useState(true);
@@ -877,14 +882,11 @@ const SettingsPage = () => {
   const fetchAvailableModels = useCallback(async () => {
     // Avoid clearing import/export notifications when refreshing the list
     try {
-      const modelsResult = await apiService.getAvailableModels();
+      const modelsResult = await apiService.getChatModelList();
       if (modelsResult?.error)
         throw new Error(`Available models fetch failed: ${modelsResult.error}`);
-      let modelsList = Array.isArray(modelsResult)
-        ? modelsResult.filter((m) => m && m.name)
-        : Array.isArray(modelsResult?.models)
-          ? modelsResult.models.filter((m) => m && m.name)
-          : [];
+      setOllamaOffline(modelsResult.ollamaOffline);
+      let modelsList = modelsResult.models.filter((m) => m && m.name);
       // Ensure the currently active model appears in the dropdown
       if (
         activeModel &&
@@ -939,6 +941,33 @@ const SettingsPage = () => {
       }
     })();
   }, []);
+
+  const handleStartOllama = async () => {
+    setStartingOllama(true);
+    try {
+      let result;
+      try {
+        result = await startPlugin("ollama");
+      } catch (err) {
+        // A switched-off plugin refuses to start; the button means "on".
+        if (!/disabled/i.test(err.message || "")) throw err;
+        await enablePlugin("ollama");
+        result = await startPlugin("ollama");
+      }
+      const data = result?.data ?? result;
+      if (data?.gated) {
+        throw new Error(
+          `Ollama was started moments ago; try again in ${Math.ceil(data.cooldown_remaining || 0)} s`,
+        );
+      }
+      showMessage("Ollama is running", "success");
+      await fetchAvailableModels();
+    } catch (err) {
+      showMessage(`Could not start Ollama: ${err.message}`, "error");
+    } finally {
+      setStartingOllama(false);
+    }
+  };
 
   // Fetch GPU resources and embedding model list
   const fetchResources = useCallback(async () => {
@@ -2706,7 +2735,7 @@ const SettingsPage = () => {
           <ActionButton
             kind={chatModelPending ? "primary" : "neutral"}
             onClick={handleSetModelClick}
-            disabled={!chatModelPending || isLoading || isLoadingModel}
+            disabled={!chatModelPending || isLoading || isLoadingModel || ollamaOffline}
             loading={isLoadingModel}
             tooltip="Loads the model, unloads the previous one and rebuilds the query engine. Can take minutes on a cold GPU."
           >
@@ -2749,6 +2778,23 @@ const SettingsPage = () => {
             <LinearProgress sx={{ height: 4, borderRadius: 2 }} />
             <Hint>{modelSwitchMessage || "Switching model…"}</Hint>
           </Box>
+        )}
+        {ollamaOffline && (
+          <Line>
+            <StatusPill
+              tone="warn"
+              label="Ollama is off"
+              tooltip="Chat models run in Ollama. While it is off, the list shows only the saved model."
+            />
+            <ActionButton
+              kind="primary"
+              onClick={handleStartOllama}
+              loading={startingOllama}
+              tooltip="Starts the Ollama plugin, then reloads the list"
+            >
+              Start Ollama
+            </ActionButton>
+          </Line>
         )}
       </Cluster>
 
