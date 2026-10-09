@@ -1,26 +1,12 @@
 #!/bin/bash
 
 
-VADER_RED="\033[38;5;196m"
-VADER_RED_DARK="\033[38;5;88m"
-VADER_RED_LIGHT="\033[38;5;203m"
-VADER_GRAY="\033[38;5;244m"
-VADER_GRAY_DARK="\033[38;5;238m"
-VADER_WHITE="\033[38;5;255m"
-VADER_WHITE_DIM="\033[38;5;250m"
-VADER_RESET="\033[0m"
-VADER_BOLD="\033[1m"
-
-vader_header() { echo -e "${VADER_RED}${VADER_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${VADER_RESET}"; }
-vader_separator() { echo -e "${VADER_GRAY_DARK}─────────────────────────────────────────────────────────────────${VADER_RESET}"; }
-vader_title() { echo -e "${VADER_WHITE}${VADER_BOLD}$1${VADER_RESET}"; }
-vader_info() { echo -e "  ${VADER_GRAY}·${VADER_RESET} ${VADER_WHITE_DIM}$1${VADER_RESET}"; }
-vader_success() { echo -e "  ${VADER_RED}✔${VADER_RESET} ${VADER_WHITE}$1${VADER_RESET}"; }
-vader_warn() { echo -e "  ${VADER_RED_LIGHT}⚠${VADER_RESET} ${VADER_RED_LIGHT}$1${VADER_RESET}"; }
-vader_error() { echo -e "  ${VADER_RED_DARK}✖${VADER_RESET} ${VADER_RED}$1${VADER_RESET}"; }
-vader_step() { echo -e "\n${VADER_RED}${VADER_BOLD}► [$1/${TOTAL_STEPS}]${VADER_RESET} ${VADER_WHITE}${VADER_BOLD}$2${VADER_RESET}"; }
+# Pinned boot feed: palette, mascot, phase board. See scripts/lib/terminal_ui.sh.
+# shellcheck source=scripts/lib/terminal_ui.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/terminal_ui.sh"
 
 START_TIME=$(date +%s)
+export START_TIME
 TOTAL_STEPS=11
 
 FAST_START=0
@@ -151,7 +137,9 @@ if [ -f "$START_PID_FILE" ]; then
     fi
 fi
 echo $$ > "$START_PID_FILE"
-trap 'rm -f "$START_PID_FILE" 2>/dev/null' EXIT
+trap '_vader_fx_stop; rm -f "$START_PID_FILE" 2>/dev/null' EXIT
+
+vader_boot_banner
 
 # ── Platform detection (detect → route to a per-OS backend) ──────────────────
 # Sets GUAARDVARK_OS/_ARCH/_ACCEL/_IS_WSL and sources the matching backend
@@ -226,6 +214,7 @@ mkdir -p "$CACHE_DIR"
 LOGS_DIR="$SCRIPT_DIR/logs"
 mkdir -p "$LOGS_DIR"
 SETUP_LOG="$LOGS_DIR/setup.log"
+_vader_set_log "$SETUP_LOG"
 
 if [ -n "$GUAARDVARK_ROOT" ] && [ "$GUAARDVARK_ROOT" != "$SCRIPT_DIR" ]; then
   vader_warn "Ignoring GUAARDVARK_ROOT override ('$GUAARDVARK_ROOT'); using script directory '$SCRIPT_DIR'."
@@ -877,18 +866,51 @@ is_port_listening() {
     local timeout=$2
     local service_name=$3
     if ! command_exists ss; then
-        sleep "$timeout"
+        _vader_sleep "$timeout" "waiting for ${service_name:-a listener}"
         return 0
     fi
-    
+
     local check_interval=0.5
     local max_checks=$((timeout * 2))
+    local i fr el
+    local frames=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
+    local _spin=0
+    # The phase board already spins. A second cursor line would tear it.
+    if [ "${_VADER_BOARD:-0}" = 1 ]; then
+        _VADER_ACTIVITY=$(_vader_clean "waiting for ${service_name:-a listener}")
+        _VADER_LEVEL=info
+        _vader_live_clear
+        _vader_status_write
+        for (( i=1; i<=max_checks; i++ )); do
+            if ss -tlpn 2>/dev/null | grep -q ":$port\b"; then
+                return 0
+            fi
+            sleep $check_interval
+        done
+        return 1
+    fi
+    if [ "${_VADER_TTY:-0}" = 1 ]; then
+        _spin=1
+        printf '\033[?25l' > "$_VADER_OUT" 2>/dev/null || true
+    fi
     for (( i=1; i<=max_checks; i++ )); do
-        if ss -tlpn 2>/dev/null | grep -q ":$port\b"; then 
-            return 0; 
+        if ss -tlpn 2>/dev/null | grep -q ":$port\b"; then
+            if [ "$_spin" = 1 ]; then
+                printf '\r\033[K\033[?25h' > "$_VADER_OUT" 2>/dev/null || true
+            fi
+            return 0
+        fi
+        if [ "$_spin" = 1 ]; then
+            fr=${frames[$(( (i - 1) % 10 ))]}
+            el=$(( i / 2 ))
+            printf '\r  \033[38;2;186;178;255m%s\033[0m  \033[38;2;220;226;255mwaiting for %s\033[38;2;148;156;198m  %ss\033[0m\033[K' \
+                "$fr" "$service_name" "$el" > "$_VADER_OUT"
         fi
         sleep $check_interval
     done
+    if [ "$_spin" = 1 ]; then
+        printf '\r\033[K\033[?25h' > "$_VADER_OUT" 2>/dev/null || true
+    fi
     return 1
 }
 
@@ -1084,8 +1106,10 @@ check_ollama_model() {
 }
 
 run_health_checks() {
-    echo ""
-    vader_title "=== Running Health Checks ==="
+    if [ "${_VADER_BOARD:-0}" != 1 ]; then
+        echo ""
+    fi
+    vader_info "Health checks"
     
     local all_passed=true
     local critical_failed=false
@@ -1174,7 +1198,9 @@ run_health_checks() {
         vader_warn "Ollama model check failed (non-critical)"
     fi
     
-    echo ""
+    if [ "${_VADER_BOARD:-0}" != 1 ]; then
+        echo ""
+    fi
     if [ "$critical_failed" = true ]; then
         vader_error "Critical health checks failed. System may not function properly."
         return 1
@@ -1372,7 +1398,10 @@ pip_install_requirements() {
     local req="$1" attempt max_attempts=4 devheaders_fixed=0 compiler_fixed=0 log_mark attempt_out
     for attempt in $(seq 1 "$max_attempts"); do
         log_mark=$(wc -c < "$SETUP_LOG" 2>/dev/null || echo 0)
-        if pip install -r "$req" >> "$SETUP_LOG" 2>&1; then
+        _VADER_ACTIVITY="installing $(basename "$req")"
+        _vader_run "$SETUP_LOG" -- pip install -r "$req"
+        local _pip_rc=$?
+        if [ "$_pip_rc" -eq 0 ]; then
             [ "$attempt" -gt 1 ] && vader_success "$(basename "$req") installed on retry $attempt."
             return 0
         fi
@@ -1384,7 +1413,8 @@ pip_install_requirements() {
             vader_warn "pip failed building a native wheel: Python dev headers missing (Python.h)."
             if command_exists apt-get; then
                 vader_info "Auto-fix: installing python3.12-dev via apt, then retrying $(basename "$req")..."
-                sudo apt-get install -y python3.12-dev python3.12-venv >> "$SETUP_LOG" 2>&1 || true
+                _vader_sudo_v || true
+                _vader_run "$SETUP_LOG" -- sudo apt-get install -y python3.12-dev python3.12-venv || true
                 devheaders_fixed=1
                 continue
             fi
@@ -1396,7 +1426,8 @@ pip_install_requirements() {
             vader_warn "pip failed building a native wheel: no C compiler or kernel headers on this system."
             if command_exists apt-get; then
                 vader_info "Auto-fix: installing build-essential via apt, then retrying $(basename "$req")..."
-                sudo apt-get install -y build-essential >> "$SETUP_LOG" 2>&1 || true
+                _vader_sudo_v || true
+                _vader_run "$SETUP_LOG" -- sudo apt-get install -y build-essential || true
                 compiler_fixed=1
                 continue
             fi
@@ -1542,7 +1573,9 @@ ensure_backend_python_environment() {
         if [ -f "$BACKEND_DIR/requirements-cv.txt" ]; then
             if [ "${GUAARDVARK_INSTALL_CV:-0}" = "1" ]; then
                 vader_info "Installing optional CV/face-restoration deps (requirements-cv.txt)..."
-                pip install -r "$BACKEND_DIR/requirements-cv.txt" >> "$SETUP_LOG" 2>&1 \
+                _vader_run "$SETUP_LOG" -- pip install -r "$BACKEND_DIR/requirements-cv.txt"
+                local _cv_rc=$?
+                [ "$_cv_rc" -eq 0 ] \
                     || vader_warn "Optional CV deps failed to install (face-restore stays disabled; non-fatal). Retry later: pip install -r backend/requirements-cv.txt"
             else
                 vader_info "Skipping optional CV deps (face-restore/anatomy stay disabled). Opt in with GUAARDVARK_INSTALL_CV=1"
@@ -1554,11 +1587,14 @@ ensure_backend_python_environment() {
         # (same as the isolated plugin setup_venv.sh scripts use). Falls back
         # gracefully if the policy module or backend venv is not ready yet.
         if [ -f "$SCRIPT_DIR/scripts/install_pytorch.sh" ]; then
+            _VADER_ACTIVITY="installing PyTorch"
             GUAARDVARK_TORCH_CHANNEL="$("$VENV_DIR/bin/python" -m backend.services.hardware_policy torch_channel 2>/dev/null || true)" \
-                bash "$SCRIPT_DIR/scripts/install_pytorch.sh" >> "$SETUP_LOG" 2>&1 || vader_warn "install_pytorch.sh exited non-zero (GPU mode may be limited)"
+                _vader_run "$SETUP_LOG" -- bash "$SCRIPT_DIR/scripts/install_pytorch.sh"
+            local _pt_rc=$?
+            [ "$_pt_rc" -eq 0 ] || vader_warn "install_pytorch.sh exited non-zero (GPU mode may be limited)"
             # Gate nvidia-ml-py post-torch per edge audit (avoid FutureWarning/unneeded dep on CPU/ARM/ROCm/Metal).
             if ! command -v nvidia-smi &> /dev/null; then
-                "$VENV_DIR/bin/pip" uninstall -y nvidia-ml-py pynvml 2>/dev/null | tail -1 || true
+                "$VENV_DIR/bin/pip" uninstall -y nvidia-ml-py pynvml >>"$SETUP_LOG" 2>&1 || true
             fi
             # install_pytorch.sh's `pip install --upgrade ... --index-url .../whl/<ver>` can
             # drag numpy 2.x + an old setuptools back in, violating the ML-stack pins
@@ -1568,7 +1604,11 @@ ensure_backend_python_environment() {
             _gv_bad_pins="$(venv_pins_violated "$VENV_DIR/bin/python" "${GV_ML_PINS[@]}")" || true
             if [ -n "$_gv_bad_pins" ]; then
                 # shellcheck disable=SC2086  # one spec per line, no spaces inside a spec
-                pip install --no-deps --force-reinstall $_gv_bad_pins >> "$SETUP_LOG" 2>&1 \
+                _VADER_ACTIVITY="restoring package pins"
+                # shellcheck disable=SC2086
+                _vader_run "$SETUP_LOG" -- pip install --no-deps --force-reinstall $_gv_bad_pins
+                local _pin_rc=$?
+                [ "$_pin_rc" -eq 0 ] \
                     || vader_warn "Could not re-pin ${_gv_bad_pins//$'\n'/ } after PyTorch — check 'pip check'."
             fi
             unset _gv_bad_pins
@@ -1576,7 +1616,7 @@ ensure_backend_python_environment() {
             # are the direct cause of the aten::_flash schema mismatch (flash 2.5.7 vs torch
             # 2.5.1+cu124 philox vs rng_state) logged in backend.log/preflight on diffusers
             # import for batch_image_generation_api. Custom nodes + plugin reqs re-introduce them.
-            "$VENV_DIR/bin/pip" uninstall -y flash-attn flash_attn xformers 2>/dev/null | tail -1 || true
+            "$VENV_DIR/bin/pip" uninstall -y flash-attn flash_attn xformers >>"$SETUP_LOG" 2>&1 || true
         fi
 
         if [ "${_gv_own_constraint:-0}" -eq 1 ]; then
@@ -1590,7 +1630,8 @@ ensure_backend_python_environment() {
         # preflight_check.py turns into a red failure (no more green "All checks
         # passed" over a half-installed venv).
         if [ -x "$VENV_DIR/bin/python" ]; then
-            if ! "$VENV_DIR/bin/python" "$SCRIPT_DIR/scripts/dep_reconciler.py" --force --only backend_venv,cli_venv --repo-root "$SCRIPT_DIR" >> "$SETUP_LOG" 2>&1; then
+            _VADER_ACTIVITY="reconciling dependencies"
+            if ! _vader_run "$SETUP_LOG" -- "$VENV_DIR/bin/python" "$SCRIPT_DIR/scripts/dep_reconciler.py" --force --only backend_venv,cli_venv --repo-root "$SCRIPT_DIR"; then
                 vader_error "Dependency reconciler FAILED:"
                 tail -n 200 "$SETUP_LOG" | grep -A4 "Reconciliation failed for:" | sed 's/^/      /'
                 # pip reports an unreachable index as a resolver error ("No matching
@@ -1663,13 +1704,13 @@ ensure_frontend_deps() {
             return 0
         fi
         vader_info "Ensuring frontend dependencies (using npm ci for lockfile safety)..."
-        if (cd "$FRONTEND_DIR" && npm ci >> "$SETUP_LOG" 2>&1); then
+        if _vader_run "$SETUP_LOG" -- bash -c 'cd "$1" && npm ci' _ "$FRONTEND_DIR"; then
             printf '%s\n' "$cur_node" > "$stamp" 2>/dev/null || true
             GUAARDVARK_NODE_REPLACED=0
             vader_success "Frontend node_modules ready"
         else
             vader_warn "npm ci failed — trying npm install (may touch package-lock.json)"
-            if (cd "$FRONTEND_DIR" && npm install >> "$SETUP_LOG" 2>&1); then
+            if _vader_run "$SETUP_LOG" -- bash -c 'cd "$1" && npm install' _ "$FRONTEND_DIR"; then
                 printf '%s\n' "$cur_node" > "$stamp" 2>/dev/null || true
                 GUAARDVARK_NODE_REPLACED=0
             else
@@ -1682,10 +1723,6 @@ ensure_frontend_deps() {
     fi
     return 0
 }
-
-vader_header
-vader_title "  Guaardvark Startup Script v5.1 - Smart Install Mode (intelligent bootstrap restored)"
-vader_header
 
 ACTIVE_MODEL_FILE="$GUAARDVARK_STORAGE_DIR/active_model.txt"
 if [ -f "$ACTIVE_MODEL_FILE" ]; then
@@ -1818,7 +1855,8 @@ if ! command_exists "ollama"; then
             vader_info "Installing zstd (required by ollama installer)..."
             sudo apt-get install -y zstd >/dev/null 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
         fi
-        curl -fsSL https://ollama.com/install.sh | sh || OLLAMA_AVAILABLE=0
+        _vader_sudo_v || true
+        _vader_run "$SETUP_LOG" -- bash -c 'curl -fsSL https://ollama.com/install.sh | sh' || OLLAMA_AVAILABLE=0
         command_exists "ollama" || OLLAMA_AVAILABLE=0
     else
         OLLAMA_AVAILABLE=0
@@ -1832,7 +1870,8 @@ fi
 if ! command_exists ffmpeg; then
     vader_warn "FFmpeg not found. Voice features require FFmpeg."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
-        if sudo apt-get update && sudo apt-get install -y ffmpeg; then
+        _vader_sudo_v || true
+        if _vader_run "$SETUP_LOG" -- sudo apt-get update && _vader_run "$SETUP_LOG" -- sudo apt-get install -y ffmpeg; then
             vader_success "FFmpeg installed successfully"
         else
             vader_warn "FFmpeg installation failed. Voice features will be unavailable."
@@ -1915,7 +1954,7 @@ mitigate_nic_quirks
 vader_separator
 
 vader_step 3 "Ensuring Redis service is running..."
-"$(dirname "$0")/start_redis.sh" || { vader_error "Redis failed to start"; exit 1; }
+_vader_run "$SETUP_LOG" -- "$(dirname "$0")/start_redis.sh" || { vader_error "Redis failed to start"; exit 1; }
 # start_redis.sh rewrites REDIS_URL when an alt port dies — pick it up immediately
 # so later Celery / backend exports match a live broker.
 if [ -f "$SCRIPT_DIR/.env" ]; then
@@ -1942,7 +1981,7 @@ vader_success "Redis broker PING ok (:${_redis_check_port})"
 vader_separator
 
 vader_step 4 "Ensuring PostgreSQL database is ready..."
-"$(dirname "$0")/start_postgres.sh" || { vader_error "PostgreSQL setup failed"; exit 1; }
+_vader_run "$SETUP_LOG" -- "$(dirname "$0")/start_postgres.sh" || { vader_error "PostgreSQL setup failed"; exit 1; }
 if [ -f "$SCRIPT_DIR/.env" ]; then
   set -a
   . "$SCRIPT_DIR/.env"
@@ -2000,7 +2039,7 @@ if [ -d "$CLI_DIR" ] && [ -f "$CLI_DIR/setup.py" ]; then
     if [ -d "$CLI_VENV_DIR" ]; then
         if [ ! -f "$CLI_VENV_DIR/bin/guaardvark" ] && [ -x "$CLI_VENV_DIR/bin/python" ]; then
             vader_info "CLI binary missing — installing editable cli package..."
-            if "$CLI_VENV_DIR/bin/python" "$SCRIPT_DIR/scripts/dep_reconciler.py" --only cli_venv --force --repo-root "$SCRIPT_DIR" >> "$SETUP_LOG" 2>&1; then
+            if _vader_run "$SETUP_LOG" -- "$CLI_VENV_DIR/bin/python" "$SCRIPT_DIR/scripts/dep_reconciler.py" --only cli_venv --force --repo-root "$SCRIPT_DIR"; then
                 vader_success "CLI tool installed"
             else
                 vader_warn "CLI install failed (see setup.log); guaardvark command may be unavailable"
@@ -2679,6 +2718,7 @@ source "$VENV_DIR/bin/activate" || { vader_error "Failed to activate venv for Fl
 # If the ensure_ steps above did their job, this will pass quickly.
 # If something is still wrong we fail here with a clear message instead of
 # a confusing ModuleNotFoundError 30 lines later in the app.
+_vader_spin_bg_start "loading the backend"
 _POST_BOOTSTRAP_ERR=$("$VENV_DIR/bin/python" -c "
 import sys
 sys.path.insert(0, '$SCRIPT_DIR')
@@ -2687,6 +2727,7 @@ import backend.config, backend.models, backend.app
 print('Post-bootstrap core imports: OK')
 " 2>&1)
 _POST_BOOTSTRAP_RC=$?
+_vader_spin_bg_stop
 if [ "$_POST_BOOTSTRAP_RC" -ne 0 ]; then
     vader_error "Post-bootstrap validation failed:"
     printf '%s\n' "$_POST_BOOTSTRAP_ERR"
@@ -2704,8 +2745,10 @@ vader_success "Post-bootstrap validation passed (core Python environment is usab
 # Quick import validation (catches stale cache / missing symbols after sync)
 if [ "$FAST_START" -eq 0 ]; then
     cd "$SCRIPT_DIR"
-    PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH" python3 scripts/preflight_check.py --quick >> "$GUAARDVARK_LOG_DIR/preflight.log" 2>&1
-    if [ $? -ne 0 ]; then
+    _VADER_ACTIVITY="preflight check"
+    PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH" _vader_run "$GUAARDVARK_LOG_DIR/preflight.log" -- python3 scripts/preflight_check.py --quick
+    _pf_rc=$?
+    if [ "$_pf_rc" -ne 0 ]; then
         # RED and specific, not a soft one-liner: a failed preflight means a
         # known-broken capability (missing torch on a GPU box, unhealed
         # reconcile). Print the actual errors so nobody has to dig in logs.
@@ -2901,7 +2944,7 @@ if [ "$BACKEND_ADOPTED" -eq 0 ]; then
     BACKEND_PID=$!
     echo "$BACKEND_PID" > "$SCRIPT_DIR/pids/backend.pid"
 
-    sleep 4
+    _vader_sleep 4 "starting the backend"
 
     if ! is_port_listening "$FLASK_PORT" 90 "Backend"; then
         vader_error "Backend failed to start listening on port $FLASK_PORT after 90 seconds."
@@ -2938,7 +2981,7 @@ vader_separator
 
 vader_step 10 "Starting enhanced Celery workers..."
 if [ -f "$SCRIPT_DIR/start_celery.sh" ]; then
-    bash "$SCRIPT_DIR/start_celery.sh"
+    _vader_run "$LOGS_DIR/celery.log" -- bash "$SCRIPT_DIR/start_celery.sh" || true
     # Only workers whose cwd is this checkout count — another install on the
     # same machine must neither satisfy this check nor lend its PID.
     CELERY_PID=""
@@ -3065,7 +3108,7 @@ if [ "$FORCE_CLEAN" -eq 0 ] && [ -n "$FRONTEND_FP" ] && [ -f "$FRONTEND_DIR/dist
    && [ "$(cat "$FRONTEND_BUILD_STAMP" 2>/dev/null)" = "$FRONTEND_FP" ]; then
     vader_info "Frontend unchanged since the last good build — skipping the build"
 elif vader_info "Building frontend (production) before serving..." \
-   && (cd "$FRONTEND_DIR" && $NPM_CMD run build >> "$FRONTEND_LOG_FILE" 2>&1); then
+   && _vader_run "$FRONTEND_LOG_FILE" -- bash -c 'cd "$1" && exec "$2" run build' _ "$FRONTEND_DIR" "$NPM_CMD"; then
     vader_success "Frontend build complete"
     [ -n "$FRONTEND_FP" ] && printf '%s\n' "$FRONTEND_FP" > "$FRONTEND_BUILD_STAMP"
 elif [ -f "$FRONTEND_DIR/dist/index.html" ]; then
@@ -3087,7 +3130,7 @@ if [ "$FRONTEND_CAN_SERVE" -eq 1 ]; then
     nohup $NPM_CMD run dev -- --host --port=$VITE_PORT >> "$FRONTEND_LOG_FILE" 2>&1 &
     FRONTEND_PID=$!
     echo "$FRONTEND_PID" > "$SCRIPT_DIR/pids/frontend.pid"
-    sleep 3
+    _vader_sleep 3 "starting the frontend"
 fi
 
 if [ "$FRONTEND_CAN_SERVE" -ne 1 ]; then
@@ -3383,67 +3426,22 @@ vader_success "Runtime state written to $RUNTIME_DIR/runtime.json"
 END_TIME=$(date +%s)
 DURATION=$((END_TIME - START_TIME))
 
-echo ""
-vader_header
-vader_title "  Guaardvark Startup Script v5.1 Finished (Duration: ${DURATION}s)"
-vader_header
-echo ""
-
-vader_title "Access URLs:"
-echo -e "  ${VADER_WHITE}Frontend:${VADER_RESET} ${VADER_RED}http://localhost:$VITE_PORT${VADER_RESET}"
-echo -e "  ${VADER_WHITE}Backend API:${VADER_RESET} ${VADER_RED}http://localhost:$FLASK_PORT${VADER_RESET}"
-echo -e "  ${VADER_WHITE}Backend Health:${VADER_RESET} ${VADER_RED}http://localhost:$FLASK_PORT/api/health${VADER_RESET}"
-if [ "$VOICE_CHECK" -eq 1 ]; then
-echo -e "  ${VADER_WHITE}Voice API Status:${VADER_RESET} ${VADER_RED}http://localhost:$FLASK_PORT/api/voice/status${VADER_RESET}"
-fi
-echo ""
-
-# LAN / phone / tablet access (the main addition for this feature).
-# Printed using the same PRIMARY_LAN_IP we baked into the frontend bundle (if any).
-# Users on the same Wi-Fi simply open the Frontend line in Android Chrome (or any browser)
-# and use regular chat or the /voice-chat interface to drive agentic tasks.
+# LAN URL uses the address baked in at build time, else one more lookup.
 LAN_IPS_PRINTED=""
 if [ -n "$PRIMARY_LAN_IP" ]; then
     LAN_IPS_PRINTED="http://${PRIMARY_LAN_IP}:$VITE_PORT"
-    vader_title "LAN / Network Access (phone, tablet, other devices on same Wi-Fi/LAN):"
-    echo -e "  ${VADER_WHITE}Frontend (text chat + voice chat):${VADER_RESET} ${VADER_RED}http://${PRIMARY_LAN_IP}:$VITE_PORT${VADER_RESET}"
-    echo -e "  ${VADER_WHITE}Backend (direct):${VADER_RESET} ${VADER_RED}http://${PRIMARY_LAN_IP}:$FLASK_PORT${VADER_RESET}"
-    echo -e "  ${VADER_GRAY}Open the Frontend URL above from your Android device (same network).${VADER_RESET}"
-    echo -e "  ${VADER_GRAY}Grant microphone permission for voice chat. All traffic is local.${VADER_RESET}"
-    echo ""
 else
-    # Fallback: compute at print time in case the build-time one was empty
     _late_lan=$(get_lan_ips | awk '{print $1}')
     if [ -n "$_late_lan" ]; then
         LAN_IPS_PRINTED="http://${_late_lan}:$VITE_PORT"
-        vader_title "LAN / Network Access (phone, tablet, other devices on same Wi-Fi/LAN):"
-        echo -e "  ${VADER_WHITE}Frontend (text chat + voice chat):${VADER_RESET} ${VADER_RED}http://${_late_lan}:$VITE_PORT${VADER_RESET}"
-        echo -e "  ${VADER_WHITE}Backend (direct):${VADER_RESET} ${VADER_RED}http://${_late_lan}:$FLASK_PORT${VADER_RESET}"
-        echo -e "  ${VADER_GRAY}Open the Frontend URL above from your Android device (same network).${VADER_RESET}"
-        echo -e "  ${VADER_GRAY}Grant microphone permission for voice chat. All traffic is local.${VADER_RESET}"
-        echo ""
     fi
 fi
 
-vader_title "Log Files:"
-echo -e "  ${VADER_GRAY}Backend startup:${VADER_RESET} ${VADER_WHITE}$BACKEND_STARTUP_LOG_FILE${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Celery worker:${VADER_RESET} ${VADER_WHITE}$LOGS_DIR/celery.log${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Frontend:${VADER_RESET} ${VADER_WHITE}$FRONTEND_LOG_FILE${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Setup:${VADER_RESET} ${VADER_WHITE}$SETUP_LOG${VADER_RESET}"
-echo ""
-
-vader_title "Management:"
-echo -e "  ${VADER_GRAY}Stop services:${VADER_RESET} ${VADER_WHITE}./stop.sh${VADER_RESET}"
-echo -e "  ${VADER_GRAY}View logs:${VADER_RESET} ${VADER_WHITE}tail -f $BACKEND_STARTUP_LOG_FILE${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Test mode:${VADER_RESET} ${VADER_WHITE}./start.sh --test${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Fast start:${VADER_RESET} ${VADER_WHITE}./start.sh --fast${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Parallel checks:${VADER_RESET} ${VADER_WHITE}./start.sh --parallel${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Skip voice check:${VADER_RESET} ${VADER_WHITE}./start.sh --no-voice${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Skip auto-build:${VADER_RESET} ${VADER_WHITE}./start.sh --no-auto-build${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Skip migrations:${VADER_RESET} ${VADER_WHITE}./start.sh --skip-migrations${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Launch in app mode:${VADER_RESET} ${VADER_WHITE}./start.sh --app-mode${VADER_RESET}"
-echo -e "  ${VADER_GRAY}Disable browser launch:${VADER_RESET} ${VADER_WHITE}./start.sh --no-browser${VADER_RESET}"
-echo ""
+vader_ready_card "$DURATION" \
+    "http://localhost:$VITE_PORT" \
+    "http://localhost:$FLASK_PORT" \
+    "$LAN_IPS_PRINTED" \
+    "$BACKEND_STARTUP_LOG_FILE"
 
 if [ "$TEST_MODE" -eq 1 ]; then
     vader_success "Test mode completed - all systems checked."

@@ -20,7 +20,12 @@ _linux_os_release() {
 }
 
 _linux_sudo_available() {
-    sudo -n true 2>/dev/null || sudo -v 2>/dev/null
+    sudo -n true 2>/dev/null && return 0
+    if declare -F _vader_sudo_v >/dev/null 2>&1; then
+        _vader_sudo_v
+        return $?
+    fi
+    sudo -v 2>/dev/null
 }
 
 _linux_python312_usable() {
@@ -147,7 +152,13 @@ _linux_apt_install_python312() {
 
 platform_install_system_deps() {
     vader_info "Installing system deps via apt (postgresql, redis, ffmpeg, node, build tools, zstd)..."
-    sudo apt-get install -y postgresql postgresql-contrib redis-server ffmpeg nodejs npm cmake build-essential zstd python3.12-dev python3.12-venv || return 1
+    local log="${SETUP_LOG:-${SCRIPT_DIR:-.}/logs/setup.log}"
+    declare -F _vader_sudo_v >/dev/null 2>&1 && { _vader_sudo_v || true; }
+    if declare -F _vader_run >/dev/null 2>&1; then
+        _vader_run "$log" -- sudo apt-get install -y postgresql postgresql-contrib redis-server ffmpeg nodejs npm cmake build-essential zstd python3.12-dev python3.12-venv || return 1
+    else
+        sudo apt-get install -y postgresql postgresql-contrib redis-server ffmpeg nodejs npm cmake build-essential zstd python3.12-dev python3.12-venv || return 1
+    fi
 }
 
 platform_ensure_python() {

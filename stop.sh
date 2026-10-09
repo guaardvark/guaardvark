@@ -1,21 +1,8 @@
 #!/bin/bash
 
 
-VADER_RED="\033[38;5;196m"
-VADER_RED_DARK="\033[38;5;88m"
-VADER_RED_LIGHT="\033[38;5;203m"
-VADER_GRAY="\033[38;5;244m"
-VADER_GRAY_DARK="\033[38;5;238m"
-VADER_WHITE="\033[38;5;255m"
-VADER_WHITE_DIM="\033[38;5;250m"
-VADER_RESET="\033[0m"
-VADER_BOLD="\033[1m"
-
-vader_header() { echo -e "\n${VADER_RED}${VADER_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${VADER_RESET}\n${VADER_WHITE}${VADER_BOLD}  $1${VADER_RESET}\n${VADER_RED}${VADER_BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${VADER_RESET}"; }
-vader_info() { echo -e "  ${VADER_GRAY}·${VADER_RESET} ${VADER_WHITE_DIM}$1${VADER_RESET}"; }
-vader_success() { echo -e "  ${VADER_RED}✔${VADER_RESET} ${VADER_WHITE}$1${VADER_RESET}"; }
-vader_warn() { echo -e "  ${VADER_RED_LIGHT}⚠${VADER_RESET} ${VADER_RED_LIGHT}$1${VADER_RESET}"; }
-vader_error() { echo -e "  ${VADER_RED_DARK}✖${VADER_RESET} ${VADER_RED}$1${VADER_RESET}"; }
+# shellcheck source=scripts/lib/terminal_ui.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/scripts/lib/terminal_ui.sh"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PIDS_DIR="$SCRIPT_DIR/pids"
@@ -50,7 +37,7 @@ fi
 # An external Ollama is never ours to stop.
 [ "${GUAARDVARK_OLLAMA_EXTERNAL:-0}" = 1 ] && KEEP_OLLAMA=1
 
-vader_header "Guaardvark Stop Script"
+vader_stop_begin
 
 # Reap a leftover ./start.sh (including Ctrl+Z / STAT=T) so the next
 # ./start.sh is not blocked by the overlap guard. Must run even when no
@@ -173,6 +160,7 @@ fi
 
 # ── Stop ComfyUI first (free GPU memory before other shutdowns) ──
 # Only check ComfyUI if it's enabled or actually running
+vader_step 1 "ComfyUI"
 comfyui_enabled=$(_plugin_enabled "comfyui")
 comfyui_running=false
 _plugin_running "comfyui" && comfyui_running=true
@@ -182,7 +170,7 @@ comfyui_stopped=false
 COMFYUI_PORT=$(_plugin_port comfyui 8188)
 
 if [ "$comfyui_enabled" = "False" ] && [ "$comfyui_running" = false ]; then
-    vader_info "ComfyUI: not enabled, skipping."
+    vader_quiet "not running"
 else
 
 # 1. Use the plugin's own stop script if it exists
@@ -246,14 +234,20 @@ if command -v lsof >/dev/null 2>&1; then
 fi
 
 # ── Stop Ollama (policy in scripts/lib/ollama_lifecycle.sh) ──
+vader_step 2 "Ollama"
 OLLAMA_STOP_MODE=$(ollama_stop_mode "$STOP_ALL" "$KEEP_OLLAMA")
 vader_info "Ollama: $OLLAMA_STOP_MODE"
 stop_ollama "$OLLAMA_STOP_MODE" "$PIDS_DIR/ollama.pid"
-if [ "$ollama_killed" -gt 0 ]; then
+if [ "$OLLAMA_STOP_MODE" = "keep" ]; then
+    vader_quiet "left running"
+elif [ "$ollama_killed" -gt 0 ]; then
     vader_success "Ollama stopped ($ollama_killed action(s) taken)."
+else
+    vader_quiet "not running"
 fi
 
 # ── Stop Guaardvark-owned alt Redis (sidecar on 6380–6399 only) ──
+vader_step 3 "Studio"
 # Never kill system Redis on :6379 managed by systemd. We only stop a process
 # whose PID we recorded in pids/redis.pid when start_redis.sh launched a sidecar.
 if [ -f "$PIDS_DIR/redis.pid" ]; then
@@ -295,6 +289,7 @@ kill_and_cleanup "whisper_server"
 find "$SCRIPT_DIR/backend" -path "*/venv" -prune -o -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null
 find "$SCRIPT_DIR/backend" -path "*/venv" -prune -o -name "*.pyc" -type f -exec rm -f {} + 2>/dev/null
 
+vader_step 4 "Workers"
 vader_info "Cleaning up any remaining processes from this environment..."
 
 flask_pids=$(pgrep -f "(python.*backend[./]app|flask run)" 2>/dev/null)
@@ -402,6 +397,7 @@ if [ -x "$AGENT_DISPLAY_SCRIPT" ]; then
 fi
 
 # ── Stop enabled plugins (Discord bot, etc.) ──
+vader_step 5 "Plugins"
 vader_info "Stopping enabled plugins..."
 for plugin_dir in "$SCRIPT_DIR"/plugins/*/; do
     plugin_name=$(basename "$plugin_dir")
@@ -443,4 +439,4 @@ if [ -f "$RUNTIME_FILE" ]; then
     fi
 fi
 
-vader_success "All Guaardvark services stopped"
+vader_stop_done

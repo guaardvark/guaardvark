@@ -25,7 +25,12 @@ platform_install_system_deps() {
     # stderr and exits 1, making this function bail before installing anything.
     _have_brew || { vader_error "Homebrew is required on macOS — install from https://brew.sh, then re-run."; return 1; }
     vader_info "Installing system deps via Homebrew (postgresql@16, redis, ffmpeg, node, cmake, zstd)..."
-    _brew install postgresql@16 redis ffmpeg node cmake zstd || return 1
+    local log="${SETUP_LOG:-${SCRIPT_DIR:-.}/logs/setup.log}"
+    if declare -F _vader_run >/dev/null 2>&1; then
+        _vader_run "$log" -- _brew install postgresql@16 redis ffmpeg node cmake zstd || return 1
+    else
+        _brew install postgresql@16 redis ffmpeg node cmake zstd || return 1
+    fi
     # Postgres/Redis run under launchd via brew services (the macOS analog of systemd).
     _brew services start postgresql@16 2>/dev/null || vader_warn "Could not auto-start postgresql@16 — run: brew services start postgresql@16"
     _brew services start redis        2>/dev/null || vader_warn "Could not auto-start redis — run: brew services start redis"
@@ -38,7 +43,14 @@ platform_ensure_python() {
         PYTHON_CMD=python3.12; export PYTHON_CMD; return 0
     fi
     vader_info "Installing Python 3.12 via Homebrew..."
-    if _brew install python@3.12; then
+    local log="${SETUP_LOG:-${SCRIPT_DIR:-.}/logs/setup.log}"
+    local _py_rc=0
+    if declare -F _vader_run >/dev/null 2>&1; then
+        _vader_run "$log" -- _brew install python@3.12 || _py_rc=$?
+    else
+        _brew install python@3.12 || _py_rc=$?
+    fi
+    if [ "$_py_rc" -eq 0 ]; then
         PYTHON_CMD="$(_brew --prefix)/opt/python@3.12/bin/python3.12"
         export PYTHON_CMD
     else
