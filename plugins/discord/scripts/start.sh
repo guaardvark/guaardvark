@@ -37,8 +37,9 @@ if lsof -Pi :$HEALTH_PORT -sTCP:LISTEN -t >/dev/null 2>&1; then
     exit 1
 fi
 
-# Check backend health
-FLASK_PORT="${FLASK_PORT:-5002}"
+# Check backend health. 5000 is the backend's own default (start.sh); export it
+# so config.yaml's ${FLASK_PORT} resolves to the same port when .env has none.
+export FLASK_PORT="${FLASK_PORT:-5000}"
 if ! curl -sf "http://localhost:${FLASK_PORT}/api/health" >/dev/null 2>&1; then
     echo "Warning: Backend not reachable at localhost:${FLASK_PORT} (bot will start anyway)"
 fi

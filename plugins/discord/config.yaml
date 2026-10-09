@@ -4,7 +4,7 @@ bot:
   guild_id: 1481468315187810306
 
 api:
-  base_url: "http://localhost:${FLASK_PORT:-5002}/api"
+  base_url: "http://localhost:${FLASK_PORT:-5000}/api"
   timeout: 120
   health_check_interval: 60
 
