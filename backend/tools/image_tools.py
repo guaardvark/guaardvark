@@ -1486,12 +1486,14 @@ def _ref_list(value) -> list:
     return [str(v).strip() for v in value if str(v or "").strip()]
 
 
-def _default_reference_intent(prompt: str, refs: dict, params: dict) -> dict:
-    """The H3 reference intent for a tool call, which carries no roles:
+def _default_reference_prompt(prompt: str, refs: dict, params: dict) -> str:
+    """The reference build's prompt for a tool call, which carries no roles:
     pictures and clips are kept as shown, each clip's own sound comes with
-    it, and audio is a sound reference."""
+    it, and audio is a sound reference. Compiled before queuing, as the
+    Studio route does; Verbatim Prompts drops only the style opening."""
     from backend.services import h3_prompt_compiler as h3
     from backend.services.comfyui_video_generator import _media_has_audio
+    from backend.services.media_director import verbatim_prompts_enabled
     spec = {
         "images": [{"role": "keep"} for _ in refs["ref_images"]],
         "videos": [{"role": "subject", "soundtrack": _media_has_audio(v["path"]) is not False}
@@ -1499,9 +1501,9 @@ def _default_reference_intent(prompt: str, refs: dict, params: dict) -> dict:
         "audios": [{"role": "sound"} for _ in refs["ref_audios"]],
     }
     fps = float(params.get("fps") or 24)
-    intent = h3.intent_from_references(prompt, params["duration_frames"] / fps, spec,
-                                       style=params.get("prompt_style") or "cinematic")
-    return h3.intent_to_dict(intent)
+    style = None if verbatim_prompts_enabled() else params.get("prompt_style") or "cinematic"
+    intent = h3.intent_from_references(prompt, params["duration_frames"] / fps, spec, style=style)
+    return h3.compile(intent)[0]
 
 
 def _media_input(ref, *, mcp: bool, label: str):
@@ -1875,10 +1877,13 @@ class VideoGeneratorTool(BaseTool):
             if any(resolved_refs.values()):
                 # The render reads references from each item; the prompt names
                 # them as <Picture N> / <Video N> / <Audio N> in wiring order.
-                item_metadata = {**resolved_refs, "language": "English"}
+                sent = prompt
                 if params.get("enhance_prompt", True):
-                    item_metadata["h3_intent"] = _default_reference_intent(prompt, resolved_refs, params)
-                status = generator.start_batch_from_prompts(prompts=[prompt], item_metadata=item_metadata,
+                    sent = _default_reference_prompt(prompt, resolved_refs, params)
+                    params["enhance_prompt"] = False
+                    from backend.services.batch_video_generator import _derive_display_name
+                    params["metadata"].setdefault("display_name", _derive_display_name(prompt))
+                status = generator.start_batch_from_prompts(prompts=[sent], item_metadata=resolved_refs,
                                                             **params)
             elif first_path:
                 status = generator.start_batch_from_images(
