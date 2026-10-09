@@ -858,6 +858,41 @@ _vader_board_close() {
     fi
 }
 
+# Stop the painter and leave the checklist where it is, with every row finished.
+# The ready card and the stopped card print underneath that frame.
+_vader_board_finish() {
+    local dir prev
+    if [ "${_VADER_BOARD:-0}" != 1 ]; then
+        return 0
+    fi
+    dir="${_VADER_DIR:-}"
+    if [ -n "$dir" ]; then
+        : > "$dir/boot.closed"
+        _vader_paint_lock "$dir" || true
+    fi
+    _vader_paint_stop
+    if [ "${_VADER_TOTAL:-0}" -ge 1 ]; then
+        _VADER_PHASE=$((_VADER_TOTAL + 1))
+        _vader_status_write
+    fi
+    prev=0
+    if [ -n "$dir" ]; then
+        prev=$(cat "$dir/boot.rows" 2>/dev/null || echo 0)
+        case "$prev" in ''|*[!0-9]*) prev=0 ;; esac
+    fi
+    if [ "$prev" -gt 0 ] && [ "$_VADER_TTY" = 1 ]; then
+        _vader_paint_once "$prev" 0 "$dir" "$_VADER_OUT" >/dev/null || true
+    fi
+    if [ -n "$dir" ]; then
+        _vader_paint_unlock "$dir"
+    fi
+    _VADER_BOARD=0
+    export GUAARDVARK_BOOT_FRAME=0
+    if [ "$_VADER_TTY" = 1 ]; then
+        printf '\033[?25h' > "$_VADER_OUT" 2>/dev/null || true
+    fi
+}
+
 # Read boot.status into _VS_* . Not sourced: activity text is not trusted as shell.
 _vader_read_status() {
     local file="$1" line key val
@@ -1150,6 +1185,12 @@ _vader_paint_start() {
         done
     ) 2>"$dir/boot.painter.err" &
     _VADER_PAINT_PID=$!
+    # The painter is a fork of this script, so its cmdline is start.sh too.
+    # stop.sh reaps every start.sh except the pids listed here. Without this
+    # it kills the painter at step 1 and the rest of the boot is invisible.
+    START_LOCK_PROTECT_PIDS="${START_LOCK_PROTECT_PIDS:-} ${_VADER_PAINT_PID}"
+    export START_LOCK_PROTECT_PIDS
+    printf '%s\n' "$_VADER_PAINT_PID" > "$dir/boot.painter.pid" 2>/dev/null || true
 }
 
 # --- public printers -------------------------------------------------------
@@ -1459,7 +1500,7 @@ _vader_kv() {
 vader_ready_card() {
     local dur="$1" studio="$2" api="$3" lan="$4" logfile="$5" clock
     clock=$(_vader_clock "$dur")
-    _vader_board_close
+    _vader_board_finish
     _vader_fx_stop
     echo ""
     if [ "$_VADER_COLOR" != 1 ]; then
@@ -1534,7 +1575,7 @@ vader_stop_done() {
     now=$(date +%s)
     dur=$((now - start))
     clock=$(_vader_clock "$dur")
-    _vader_board_close
+    _vader_board_finish
     _vader_fx_stop
     echo ""
     if [ "$_VADER_COLOR" != 1 ]; then

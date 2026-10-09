@@ -1763,8 +1763,11 @@ if [ -f "$SCRIPT_DIR/stop.sh" ]; then
 fi
 
 kill_process "$FLASK_PORT" "Flask backend" "$FLASK_PROCESS_PATTERN" &
+_kp_flask=$!
 kill_process "$VITE_PORT" "Vite frontend" "$VITE_PROCESS_PATTERN" &
-wait
+_kp_vite=$!
+# A bare wait also joins the boot painter (it never exits) and hangs startup.
+wait "$_kp_flask" "$_kp_vite"
 
 if [ -f "$SCRIPT_DIR/pids/celery.pid" ]; then
     celery_pid=$(cat "$SCRIPT_DIR/pids/celery.pid" 2>/dev/null)
