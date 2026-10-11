@@ -129,11 +129,11 @@ def test_match_unwired_qwen_image():
 # ── Qwen-Image 2.1 (real Hugging Face listings, 2026-10-11) ─────────────────
 
 _ABENZERPS_ROOT = [
-    "qwen-image-2.1-UC-BF16.gguf", "qwen-image-2.1-UC-MLX-4bit.safetensors",
-    "qwen-image-2.1-UC-MLX-6bit.safetensors", "qwen-image-2.1-UC-MLX-8bit.safetensors",
-    "qwen-image-2.1-UC-NVFP4.safetensors", "qwen-image-2.1-UC-Q4_0.gguf",
-    "qwen-image-2.1-UC-Q8_0.gguf", "qwen-image-2.1-UC-fp8.safetensors",
-    "qwen-image-2.1-UC-int8_convrot.safetensors", "qwen-image-2.1-uncensored-lora.safetensors",
+    "qwen-image-2.1-FT-BF16.gguf", "qwen-image-2.1-FT-MLX-4bit.safetensors",
+    "qwen-image-2.1-FT-MLX-6bit.safetensors", "qwen-image-2.1-FT-MLX-8bit.safetensors",
+    "qwen-image-2.1-FT-NVFP4.safetensors", "qwen-image-2.1-FT-Q4_0.gguf",
+    "qwen-image-2.1-FT-Q8_0.gguf", "qwen-image-2.1-FT-fp8.safetensors",
+    "qwen-image-2.1-FT-int8_convrot.safetensors", "qwen-image-2.1-finetune-lora.safetensors",
     "text_encoders/qwen3vl_8b_bf16.safetensors", "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
     "vae/qwen_image_2.1_vae_bf16.safetensors",
 ]
@@ -149,7 +149,7 @@ _COMFY_ORG_21_ROOT = [
 def test_qwen_image_21_repack_repo_root_is_the_wired_21_family():
     matches = umf.match_families(
         domain="image", files=[{"src": f} for f in _ABENZERPS_ROOT], src=None,
-        hf_repo="abenzerps/Qwen-Image-2.1-Uncensored-GGUF", has_model_index=False,
+        hf_repo="example-org/Qwen-Image-2.1-Finetune-GGUF", has_model_index=False,
         pipeline_tag="text-to-image", base_model=["Qwen/Qwen-Image-2.1"],
     )
     top = matches[0]
@@ -161,10 +161,10 @@ def test_qwen_image_21_repack_repo_root_is_the_wired_21_family():
 
 def test_qwen_image_21_single_file_pastes_resolve_whatever_the_suffix():
     # Matching names the family; whether the file loads is weight_file_problem's call.
-    for src in ("qwen-image-2.1-UC-fp8.safetensors", "qwen-image-2.1-UC-Q8_0.gguf"):
+    for src in ("qwen-image-2.1-FT-fp8.safetensors", "qwen-image-2.1-FT-Q8_0.gguf"):
         m = umf.match_families(
             domain="image", files=[], src=src,
-            hf_repo="abenzerps/Qwen-Image-2.1-Uncensored-GGUF", has_model_index=False,
+            hf_repo="example-org/Qwen-Image-2.1-Finetune-GGUF", has_model_index=False,
         )
         assert (m[0]["family"], m[0]["role"]) == ("qwen-image-21", "generation"), src
 
@@ -180,8 +180,8 @@ def test_comfy_org_qwen_image_21_repo_is_the_wired_21_family():
 
 def test_card_base_model_resolves_a_repack_without_a_version_in_its_names():
     m = umf.match_families(
-        domain="image", files=[{"src": "model-uc-fp8.safetensors"}], src=None,
-        hf_repo="someone/uncensored-repack", has_model_index=False,
+        domain="image", files=[{"src": "model-ft-fp8.safetensors"}], src=None,
+        hf_repo="someone/finetune-repack", has_model_index=False,
         base_model="Qwen/Qwen-Image-2.1",
     )
     assert m[0]["family"] == "qwen-image-21" and m[0]["wired"] is True
@@ -215,8 +215,8 @@ def test_a_diffusers_21_repo_with_the_10_class_still_resolves_to_21():
 
 
 @pytest.mark.parametrize("family,name,fragment", [
-    ("qwen-image-21", "qwen-image-2.1-UC-Q8_0.gguf", "GGUF loader does not read"),
-    ("qwen-image-21", "qwen-image-2.1-UC-MLX-8bit.safetensors", "Apple MLX"),
+    ("qwen-image-21", "qwen-image-2.1-FT-Q8_0.gguf", "GGUF loader does not read"),
+    ("qwen-image-21", "qwen-image-2.1-FT-MLX-8bit.safetensors", "Apple MLX"),
     ("flux", "flux1-dev-MLX-4bit.safetensors", "Apple MLX"),
     ("qwen-image-edit", "qwen_image_edit_MLX.safetensors", "Apple MLX"),
     ("qwen-image-21", "qwen-image-2.1.ckpt", "pick a .safetensors"),
@@ -227,7 +227,7 @@ def test_weight_files_a_comfy_loader_cannot_read_are_refused_by_name(family, nam
 
 
 @pytest.mark.parametrize("family,name", [
-    ("qwen-image-21", "qwen-image-2.1-UC-fp8.safetensors"),
+    ("qwen-image-21", "qwen-image-2.1-FT-fp8.safetensors"),
     ("qwen-image-21", "diffusion_models/qwen_image_2.1_int8_convrot.safetensors"),
     ("flux", "flux1-dev-Q8_0.gguf"),
     ("flux", "flux1-dev.safetensors"),
@@ -266,7 +266,7 @@ def test_a_multi_base_lora_card_is_not_refused_for_a_base_it_also_names():
 @pytest.mark.parametrize("model_id,family", [
     ("flux-dev", "flux"), ("flux", "flux"), ("FLUX1-dev", "flux"), ("comfyui (flux-schnell)", "flux"),
     ("user-flux-fp8", "flux"), ("qwen-image-21", "qwen-image-21"),
-    ("user-qwen-image-21-uc-fp8", "qwen-image-21"),
+    ("user-qwen-image-21-ft-fp8", "qwen-image-21"),
     ("user-qwen-image-edit-x", None), ("zimage-turbo", None), ("sd-xl", None), ("", None), (None, None),
     ("user-sdxl-juggernaut", None), ("comfyui", None),
 ])

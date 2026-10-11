@@ -287,8 +287,8 @@ def test_list_carries_missing_files_for_comfy_rows(client, monkeypatch):
     gen.get_available_models = lambda probe_remote=True: {
         "qwen-image-21": {**base, "id": "comfy:qwen-image-21", "label": "Qwen-Image 2.1", "family": "qwen-image-21",
                           "user": False, "missing_files": ["qwen-image-21-clip:qwen3vl_8b_int8_convrot.safetensors"]},
-        "user-qwen-image-21-uc": {**base, "id": "user:user-qwen-image-21-uc", "label": "UC", "family": "qwen-image-21",
-                                  "user": True, "missing_files": ["user-qwen-image-21-uc:qwen-image-2.1-UC-fp8.safetensors",
+        "user-qwen-image-21-ft": {**base, "id": "user:user-qwen-image-21-ft", "label": "FT", "family": "qwen-image-21",
+                                  "user": True, "missing_files": ["user-qwen-image-21-ft:qwen-image-2.1-FT-fp8.safetensors",
                                                                   "qwen-image-21-vae:qwen_image_2.1_vae_bf16.safetensors"]},
         "zimage-turbo": {**base, "id": "Tongyi-MAI/Z-Image-Turbo", "label": "Z", "family": "zimage", "user": False},
     }
@@ -298,7 +298,7 @@ def test_list_carries_missing_files_for_comfy_rows(client, monkeypatch):
     assert payload["success"], payload
     rows = {m["id"]: m for m in payload["data"]["models"]}
     assert rows["qwen-image-21"]["missing_files"] == ["qwen-image-21-clip:qwen3vl_8b_int8_convrot.safetensors"]
-    assert rows["user-qwen-image-21-uc"]["missing_files"][0].startswith("user-qwen-image-21-uc:")
+    assert rows["user-qwen-image-21-ft"]["missing_files"][0].startswith("user-qwen-image-21-ft:")
     assert rows["zimage-turbo"]["missing_files"] == []
     assert rows["qwen-image-21"]["prompt_style"] == "natural"
 

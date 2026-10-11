@@ -28,7 +28,7 @@ describe('modelFamily', () => {
   it('resolves Qwen-Image 2.1 ids, shipped and user, and leaves the editing model alone', () => {
     expect(modelFamily('qwen-image-21')).toBe('qwen-image-21');
     expect(modelFamily('user-qwen-image-21-foo')).toBe('qwen-image-21');
-    expect(modelFamily('user-qwen-image-21-uc-fp8-xl')).toBe('qwen-image-21');
+    expect(modelFamily('user-qwen-image-21-ft-fp8-xl')).toBe('qwen-image-21');
     expect(modelFamily('qwen-image-edit')).toBe('sd');
   });
 

@@ -145,8 +145,8 @@ def test_flux_generation_is_one_comfy_unet(catalog_dir, tmp_path):
 def test_qwen_image_21_generation_is_one_safetensors_in_diffusion_models(catalog_dir, tmp_path):
     gen = _generator(tmp_path)
     mid, entry = uim.add_user_model(
-        gen, role="generation", family="qwen-image-21", hf_repo="abenzerps/Qwen-Image-2.1-Uncensored-GGUF",
-        files=[{"src": "qwen-image-2.1-UC-fp8.safetensors", "size": 7_120_000_000}],
+        gen, role="generation", family="qwen-image-21", hf_repo="example-org/Qwen-Image-2.1-Finetune-GGUF",
+        files=[{"src": "qwen-image-2.1-FT-fp8.safetensors", "size": 7_120_000_000}],
         has_model_index=False, name="Qwen 2.1 UC fp8",
     )
     assert mid.startswith("user-qwen-image-21-")
@@ -158,8 +158,8 @@ def test_qwen_image_21_generation_is_one_safetensors_in_diffusion_models(catalog
 
 
 @pytest.mark.parametrize("family,src,fragment", [
-    ("qwen-image-21", "qwen-image-2.1-UC-Q8_0.gguf", "GGUF loader does not read"),
-    ("qwen-image-21", "qwen-image-2.1-UC-MLX-8bit.safetensors", "Apple MLX"),
+    ("qwen-image-21", "qwen-image-2.1-FT-Q8_0.gguf", "GGUF loader does not read"),
+    ("qwen-image-21", "qwen-image-2.1-FT-MLX-8bit.safetensors", "Apple MLX"),
     ("flux", "flux1-dev-MLX-4bit.safetensors", "Apple MLX"),
 ])
 def test_comfy_weight_files_the_loader_cannot_read_are_refused_at_add(catalog_dir, tmp_path, family, src, fragment):
@@ -174,23 +174,23 @@ def test_comfy_weight_files_the_loader_cannot_read_are_refused_at_add(catalog_di
 
 def test_preview_warns_about_files_the_suggested_family_cannot_load(monkeypatch):
     listed = [
-        {"src": "qwen-image-2.1-UC-Q8_0.gguf", "size": 1},
-        {"src": "qwen-image-2.1-UC-MLX-8bit.safetensors", "size": 1},
-        {"src": "qwen-image-2.1-UC-fp8.safetensors", "size": 1},
+        {"src": "qwen-image-2.1-FT-Q8_0.gguf", "size": 1},
+        {"src": "qwen-image-2.1-FT-MLX-8bit.safetensors", "size": 1},
+        {"src": "qwen-image-2.1-FT-fp8.safetensors", "size": 1},
     ]
     monkeypatch.setattr(uim, "inspect_hf_repo", lambda url: {
-        "hf_repo": "abenzerps/Qwen-Image-2.1-Uncensored-GGUF", "revision": "main", "src": None,
+        "hf_repo": "example-org/Qwen-Image-2.1-Finetune-GGUF", "revision": "main", "src": None,
         "files": listed, "gated": False, "truncated": False, "has_model_index": False,
         "pipeline_tag": "text-to-image", "index_class": None, "license": "other",
         "base_model": ["Qwen/Qwen-Image-2.1"], "token_present": False, "warnings": [],
     })
-    preview = uim.preview_hf_url("https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF")
+    preview = uim.preview_hf_url("https://huggingface.co/example-org/Qwen-Image-2.1-Finetune-GGUF")
     assert preview["suggested_family"] == "qwen-image-21"
     problems = {f["src"]: f.get("problem") for f in preview["files"]}
-    assert problems["qwen-image-2.1-UC-fp8.safetensors"] is None
-    assert "GGUF loader" in problems["qwen-image-2.1-UC-Q8_0.gguf"]
-    assert "Apple MLX" in problems["qwen-image-2.1-UC-MLX-8bit.safetensors"]
-    assert any("qwen-image-2.1-UC-Q8_0.gguf" in w and "GGUF loader" in w for w in preview["warnings"])
+    assert problems["qwen-image-2.1-FT-fp8.safetensors"] is None
+    assert "GGUF loader" in problems["qwen-image-2.1-FT-Q8_0.gguf"]
+    assert "Apple MLX" in problems["qwen-image-2.1-FT-MLX-8bit.safetensors"]
+    assert any("qwen-image-2.1-FT-Q8_0.gguf" in w and "GGUF loader" in w for w in preview["warnings"])
     assert any("MLX-8bit" in w and "Apple MLX" in w for w in preview["warnings"])
     assert preview["base_model"] == ["Qwen/Qwen-Image-2.1"]
 

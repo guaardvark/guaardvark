@@ -44,8 +44,8 @@ def comfy_models(tmp_path, monkeypatch):
 def _add_qwen(gen):
     return uim.add_user_model(
         gen, role="generation", family="qwen-image-21",
-        hf_repo="abenzerps/Qwen-Image-2.1-Uncensored-GGUF",
-        files=[{"src": "qwen-image-2.1-UC-fp8.safetensors", "size": 7_120_000_000}],
+        hf_repo="example-org/Qwen-Image-2.1-Finetune-GGUF",
+        files=[{"src": "qwen-image-2.1-FT-fp8.safetensors", "size": 7_120_000_000}],
         has_model_index=False, name="Qwen UC fp8",
     )
 
@@ -125,13 +125,13 @@ def test_ready_needs_the_unet_and_every_companion(catalog_dir, tmp_path, comfy_m
     gen = _generator(tmp_path)
     mid, _ = _add_qwen(gen)
     sentinel = uim.user_sentinel(mid)
-    unet = comfy_models / "diffusion_models" / "qwen-image-2.1-UC-fp8.safetensors"
+    unet = comfy_models / "diffusion_models" / "qwen-image-2.1-FT-fp8.safetensors"
     clip = comfy_models / "text_encoders" / "qwen3vl_8b_int8_convrot.safetensors"
     vae = comfy_models / "vae" / "qwen_image_2.1_vae_bf16.safetensors"
 
     assert uim.user_model_ready(gen, sentinel) is False
     assert uim.user_missing_files(gen, mid) == [
-        f"{mid}:qwen-image-2.1-UC-fp8.safetensors",
+        f"{mid}:qwen-image-2.1-FT-fp8.safetensors",
         "qwen-image-21-clip:qwen3vl_8b_int8_convrot.safetensors",
         "qwen-image-21-vae:qwen_image_2.1_vae_bf16.safetensors",
     ]
@@ -181,7 +181,7 @@ def test_a_companion_pull_that_leaves_no_file_fails_the_install(catalog_dir, tmp
     gen = _generator(tmp_path)
     mid, _ = _add_qwen(gen)
     sentinel = uim.user_sentinel(mid)
-    _write(comfy_models / "diffusion_models" / "qwen-image-2.1-UC-fp8.safetensors")
+    _write(comfy_models / "diffusion_models" / "qwen-image-2.1-FT-fp8.safetensors")
     monkeypatch.setattr(vmr, "download_entry_files", lambda entry, local_dir, *, check=None: None)
 
     ok, err = uim.download_companions(gen, sentinel)
@@ -193,7 +193,7 @@ def test_comfy_t2i_target_names_the_graph_and_the_users_unet(catalog_dir, tmp_pa
     gen = _generator(tmp_path)
     mid, _ = _add_qwen(gen)
     assert uim.comfy_t2i_target(gen, mid) == {
-        "family": "qwen-image-21", "tag": "qwen-image-21", "unet": "qwen-image-2.1-UC-fp8.safetensors",
+        "family": "qwen-image-21", "tag": "qwen-image-21", "unet": "qwen-image-2.1-FT-fp8.safetensors",
     }
     gguf_mid, _ = uim.add_user_model(
         gen, role="generation", family="flux", hf_repo="city96/flux-mirror",

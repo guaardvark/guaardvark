@@ -77,10 +77,10 @@ def test_negative_is_empty_unless_one_was_asked_for():
 
 
 def test_user_ids_and_their_unet_reach_the_graph():
-    gen = ComfyUIImageGenerator(model="user-qwen-image-21-uc-fp8", qwen21_unet="qwen-image-2.1-UC-fp8.safetensors")
+    gen = ComfyUIImageGenerator(model="user-qwen-image-21-ft-fp8", qwen21_unet="qwen-image-2.1-FT-fp8.safetensors")
     wf = gen._build_workflow(prompt="p", negative="", lora_names=[], width=1024, height=1024,
-                             seed=1, steps=25, cfg=1.0, model="user-qwen-image-21-uc-fp8")
-    assert wf["unet"]["inputs"]["unet_name"] == "qwen-image-2.1-UC-fp8.safetensors"
+                             seed=1, steps=25, cfg=1.0, model="user-qwen-image-21-ft-fp8")
+    assert wf["unet"]["inputs"]["unet_name"] == "qwen-image-2.1-FT-fp8.safetensors"
     assert "TextEncodeQwenImage21" in _types(wf)
 
 
@@ -93,7 +93,7 @@ def test_loras_on_qwen_are_refused_not_dropped():
     with pytest.raises(RuntimeError, match="do not take LoRAs"):
         gen._build_workflow(prompt="p", negative="", lora_names=["style_v1.safetensors"],
                             width=1024, height=1024, seed=1, steps=25, cfg=1.0,
-                            model="user-qwen-image-21-uc-fp8")
+                            model="user-qwen-image-21-ft-fp8")
 
 
 def test_flux_graphs_are_untouched():

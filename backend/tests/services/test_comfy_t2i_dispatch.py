@@ -13,9 +13,9 @@ from backend.services import stills_pipeline as sp
 from backend.services.batch_image_generator import BatchImageGenerator, BatchPrompt
 
 USER_ENTRIES = {
-    "user-qwen-image-21-uc-fp8": {
+    "user-qwen-image-21-ft-fp8": {
         "family": "qwen-image-21", "role": "generation", "engine": "comfy", "kind": "comfy_files",
-        "files": [{"src": "qwen-image-2.1-UC-fp8.safetensors", "dst": "qwen-image-2.1-UC-fp8.safetensors"}],
+        "files": [{"src": "qwen-image-2.1-FT-fp8.safetensors", "dst": "qwen-image-2.1-FT-fp8.safetensors"}],
     },
     "user-flux-q8": {
         "family": "flux", "role": "generation", "engine": "comfy", "kind": "comfy_files",
@@ -62,7 +62,7 @@ def _batch_gen():
 
 @pytest.mark.parametrize("model,family", [
     ("flux-dev", "flux"), ("flux", "flux"), ("user-flux-fp8", "flux"),
-    ("qwen-image-21", "qwen-image-21"), ("user-qwen-image-21-uc-fp8", "qwen-image-21"),
+    ("qwen-image-21", "qwen-image-21"), ("user-qwen-image-21-ft-fp8", "qwen-image-21"),
     ("user-qwen-image-edit-x", None), ("zimage-turbo", None), ("sd-xl", None), ("auto", None),
 ])
 def test_batch_predicate_and_comfy_route(model, family):
@@ -129,13 +129,13 @@ def test_shipped_qwen_batch_renders_on_its_graph_with_template_defaults(recordin
 
 def test_user_qwen_batch_renders_with_its_unet_and_keeps_typed_values(recording):
     gen = _batch_gen()
-    prompt = BatchPrompt(id="p1", prompt="a lighthouse", model="user-qwen-image-21-uc-fp8",
+    prompt = BatchPrompt(id="p1", prompt="a lighthouse", model="user-qwen-image-21-ft-fp8",
                          steps=12, guidance=2.0, width=1536, height=1024)
     prompt.metadata["steps_explicit"] = True
     gen._generate_with_comfy_flux(prompt, "batch-1")
     inst = recording.instances[-1]
     assert inst.kwargs["model"] == "qwen-image-21"
-    assert inst.kwargs["qwen21_unet"] == "qwen-image-2.1-UC-fp8.safetensors"
+    assert inst.kwargs["qwen21_unet"] == "qwen-image-2.1-FT-fp8.safetensors"
     assert inst.kwargs["flux_unet"] is None and inst.kwargs["flux_dev_unet"] is None
     assert (inst.call["steps"], inst.call["cfg"]) == (12, 2.0)
     assert inst.call["steps_explicit"] is True
@@ -179,7 +179,7 @@ def _one(monkeypatch, model, hold_gpu=False):
     return seen
 
 
-@pytest.mark.parametrize("model", ["flux-dev", "flux", "user-flux-fp8", "qwen-image-21", "user-qwen-image-21-uc-fp8"])
+@pytest.mark.parametrize("model", ["flux-dev", "flux", "user-flux-fp8", "qwen-image-21", "user-qwen-image-21-ft-fp8"])
 def test_chat_routes_every_comfy_stills_id_to_the_comfy_branch(monkeypatch, model):
     seen = _one(monkeypatch, model, hold_gpu=True)
     assert seen["model"] == model and seen["hold_gpu"] is True
@@ -208,11 +208,11 @@ def test_chat_user_qwen_resolves_its_unet_and_is_admitted(recording, monkeypatch
         lambda: SimpleNamespace(user_entries=dict(USER_ENTRIES)),
     )
     sp._generate_comfy_flux(
-        prompt="p", negative="", model="user-qwen-image-21-uc-fp8", width=1024, height=1024, steps=25,
+        prompt="p", negative="", model="user-qwen-image-21-ft-fp8", width=1024, height=1024, steps=25,
         guidance=1.0, seed=1, enhance_mode="none", output="path", output_dir=str(tmp_path), hold_gpu=True,
     )
     inst = recording.instances[-1]
-    assert inst.kwargs == {"qwen21_unet": "qwen-image-2.1-UC-fp8.safetensors"}
+    assert inst.kwargs == {"qwen21_unet": "qwen-image-2.1-FT-fp8.safetensors"}
     assert inst.call["model"] == "qwen-image-21"
     assert inst.call["admit_vram_mb"] == 14000
 
@@ -250,5 +250,5 @@ def test_chat_defaults_for_qwen_come_from_its_family_row():
     d = resolve_stills_defaults("qwen-image-21")
     assert (d["family"], d["steps"], d["guidance"], d["width"], d["height"]) == ("qwen-image-21", 25, 1.0, 1024, 1024)
     assert d["steps_floor"] is None
-    d = resolve_stills_defaults("user-qwen-image-21-uc-fp8", steps=40, guidance=2.0)
+    d = resolve_stills_defaults("user-qwen-image-21-ft-fp8", steps=40, guidance=2.0)
     assert (d["steps"], d["guidance"]) == (40, 2.0)

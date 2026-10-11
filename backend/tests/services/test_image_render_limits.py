@@ -238,7 +238,7 @@ def test_the_catalog_models_all_have_a_row():
     ("realistic-vision", "sd"), ("epic-realism", "sd"), ("", "sd"), (None, "sd"),
     ("sana-sprint", "sana"), ("Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers", "sana"),
     ("qwen-image-21", "qwen-image-21"), ("comfy:qwen-image-21", "qwen-image-21"),
-    ("user-qwen-image-21-uc-fp8", "qwen-image-21"),
+    ("user-qwen-image-21-ft-fp8", "qwen-image-21"),
 ])
 def test_one_family_mapper(model, family):
     from backend.services.image_resolution_limits import resolve_family
