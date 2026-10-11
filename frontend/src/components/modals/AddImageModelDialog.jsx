@@ -1,6 +1,7 @@
 // Add a Hugging Face image model or LoRA to the user image catalog, then Install.
 // Role is required: a new generation model of a shipped family (a diffusers repo,
-// a single SD / SDXL checkpoint, or a FLUX UNET) or a LoRA stacked on one.
+// a single SD / SDXL checkpoint, or a FLUX or Qwen-Image 2.1 UNET) or a LoRA
+// stacked on one.
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -154,7 +155,8 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1 }}>
         <Hint>
           Paste a Hugging Face URL or org/repo. A diffusers repo installs whole; a single
-          .safetensors is a checkpoint (SD, SDXL) or a LoRA. FLUX stills are one UNET in ComfyUI.
+          .safetensors is a checkpoint (SD, SDXL) or a LoRA. FLUX and Qwen-Image 2.1 stills are
+          one UNET in ComfyUI.
         </Hint>
         <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
           <TextField
@@ -219,7 +221,7 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
               <Typography variant="body2" color="error">
                 {role === "lora"
                   ? "No family in this list stacks that LoRA."
-                  : "No wired family fits this repo. Paste a checkpoint, a FLUX UNET, or a diffusers repo this product already runs."}
+                  : "No wired family fits this repo. Paste a checkpoint, a FLUX or Qwen-Image 2.1 UNET, or a diffusers repo this product already runs."}
               </Typography>
             )}
             <TextField size="small" label="Name" value={name} onChange={(e) => setName(e.target.value)} />

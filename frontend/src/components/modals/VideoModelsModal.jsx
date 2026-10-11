@@ -42,6 +42,7 @@ const TYPE_LABELS = {
   embedding: "Dependency",
   audio: "Music",
   "qwen-edit": "Image editing",
+  "qwen-image": "Image generation",
   pulid: "Image editing",
   editing: "Image editing",
 };

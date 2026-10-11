@@ -14,6 +14,10 @@
 export function modelFamily(model) {
   const m = String(model || 'auto').toLowerCase();
   if (m === 'auto') return 'auto';
+  // Shipped `qwen-image-21` and user `user-qwen-image-21-<slug>`. Tested before
+  // the substring families so a slug cannot pull the id elsewhere; the editing
+  // model `qwen-image-edit` does not contain this token and is unaffected.
+  if (m.includes('qwen-image-21')) return 'qwen-image-21';
   if (m.includes('flux')) return 'flux';
   if (m.includes('zimage') || m.includes('z-image')) return 'zimage';
   if (m.includes('krea')) return m.includes('raw') ? 'krea-raw' : 'krea-turbo';
@@ -50,8 +54,15 @@ export function promptStyleFor(model, modelOptions = [], autoPromptStyle = null)
   if (m === 'auto') return autoPromptStyle || 'natural';
   const opt = (modelOptions || []).find((o) => o.value === m);
   if (opt?.promptStyle) return opt.promptStyle;
-  return modelFamily(m) === 'zimage' ? 'natural' : 'tags';
+  const fam = modelFamily(m);
+  return fam === 'zimage' || fam === 'qwen-image-21' ? 'natural' : 'tags';
 }
+
+// Qwen-Image 2.1 guidance range. The official ComfyUI template
+// (image_qwen_image_2_1_t2i.json) runs cfg 1.0 and says to raise it only with a
+// negative prompt; the slider stops at 10 so a stray drag cannot reach SD-era
+// values. Nothing above 1.0 has been measured on this product's path.
+export const QWEN_IMAGE_21_GUIDANCE_MAX = 10;
 
 export const ZIMAGE_STEPS = 9;
 export const ZIMAGE_GUIDANCE = 0;
@@ -101,6 +112,14 @@ const PRESETS_BY_FAMILY = {
     { value: 'fast', label: 'Fast', steps: 1, guidance: 4.5, description: 'Single-step preview' },
     { value: 'standard', label: 'Standard', steps: 2, guidance: 4.5, description: 'Sana Sprint recipe (2 steps)' },
   ],
+  // Qwen-Image 2.1 numbers come from the official ComfyUI template
+  // (image_qwen_image_2_1_t2i.json): 25 steps, cfg 1.0, euler/simple, with the
+  // note that the official pipeline uses 40-50 steps. Nothing below 25 is offered
+  // because no faster count has been measured on a card.
+  'qwen-image-21': [
+    { value: 'standard', label: 'Standard', steps: 25, guidance: 1.0, description: 'Official ComfyUI template (25 steps, cfg 1)' },
+    { value: 'high', label: 'High Quality', steps: 40, guidance: 1.0, description: 'Official pipeline range (40-50 steps), slower' },
+  ],
   sdxl: [
     { value: 'fast', label: 'Fast', steps: 20, guidance: 6.0, description: 'Quick SDXL' },
     { value: 'standard', label: 'Standard', steps: 25, guidance: 7.0, description: 'Balanced SDXL' },
@@ -127,6 +146,7 @@ const DEFAULT_PRESET_BY_FAMILY = {
   'krea-raw': 'high',
   'sdxl-turbo': 'standard',
   sana: 'standard',
+  'qwen-image-21': 'standard',
   sdxl: 'standard',
   sd: 'standard',
 };

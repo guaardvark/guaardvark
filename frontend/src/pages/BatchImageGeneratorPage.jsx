@@ -64,6 +64,7 @@ import useJobsGate from '../hooks/useJobsGate';
 import { formatUiError } from '../utils/uiError';
 import { ActionButton, Hint, SettingChip } from '../components/settings/ui';
 import {
+  QWEN_IMAGE_21_GUIDANCE_MAX,
   ZIMAGE_GUIDANCE,
   ZIMAGE_PRESET_STEPS,
   ZIMAGE_STEPS,
@@ -313,6 +314,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
   // Quality presets — family-aware (see utils/batchImageSettings for the tables).
   const isFlux = family === 'flux';
+  const isQwenImage21 = family === 'qwen-image-21';
+  // Stills rendered by a ComfyUI graph: one picture at a time, 1K native, and a
+  // guidance scale that is not SD-era CFG.
+  const comfyStills = isFlux || isQwenImage21;
   const isZimage = isZimageModel(params.model);
   const unusedNegAnat = ignoresNegativeAndAnatomy(params.model);
   // A prose model (Z-Image, and Auto while it resolves to one) reads tag
@@ -332,10 +337,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const castLockedNote = 'Set by the selected character\u2019s base model while a character is picked.';
   // The worker renders one picture at a time on a CUDA card (one pipeline, one
   // card), so Max Workers only applies elsewhere; the chip shows the real count.
-  const oneAtATime = generatorDevice === 'cuda' || isFlux;
+  const oneAtATime = generatorDevice === 'cuda' || comfyStills;
   const effectiveWorkers = oneAtATime ? 1 : params.max_workers;
-  const oneAtATimeNote = isFlux && generatorDevice !== 'cuda'
-    ? 'FLUX renders one picture at a time.'
+  const oneAtATimeNote = comfyStills && generatorDevice !== 'cuda'
+    ? `${isFlux ? 'FLUX' : 'Qwen-Image 2.1'} renders one picture at a time.`
     : 'One picture at a time on the graphics card.';
 
   // Generating never downloads a model. A picked model that is not installed
@@ -392,11 +397,19 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     { label: 'Flux max 9:16 (1088x1920)', width: 1088, height: 1920, pack: 'flux2mp' },
     { label: 'Flux max 3:2 (1728x1152)', width: 1728, height: 1152, pack: 'flux2mp' },
     { label: 'Flux max 2:3 (1152x1728)', width: 1152, height: 1728, pack: 'flux2mp' },
+    // Qwen-Image 2.1 2K pack: the official ComfyUI template notes native 2K
+    // (2048x2048) output and sides in multiples of 32; no side above 2048.
+    { label: 'Qwen 2K Square (2048x2048)', width: 2048, height: 2048, pack: 'qwen2k' },
+    { label: 'Qwen 2K 16:9 (2048x1152)', width: 2048, height: 1152, pack: 'qwen2k' },
+    { label: 'Qwen 2K 9:16 (1152x2048)', width: 1152, height: 2048, pack: 'qwen2k' },
+    { label: 'Qwen 2K 3:2 (2048x1376)', width: 2048, height: 1376, pack: 'qwen2k' },
+    { label: 'Qwen 2K 2:3 (1376x2048)', width: 1376, height: 2048, pack: 'qwen2k' },
   ];
 
   const dimensionPresetsForModel = (modelValue) => {
     const fam = modelFamily(modelValue);
     const flux = fam === 'flux';
+    const qwen = fam === 'qwen-image-21';
     const modernDit = fam === 'auto' || fam === 'zimage' || fam.startsWith('krea');
     const legacySd = fam === 'sd';
     return dimensionPresetsBase.filter((p) => {
@@ -405,6 +418,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       if (p.pack === '1k') return !legacySd;
       if (p.pack === '2k') return modernDit && !flux;
       if (p.pack === 'flux2mp') return flux;
+      if (p.pack === 'qwen2k') return qwen;
       return true;
     });
   };
@@ -924,7 +938,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         newParams.steps = ZIMAGE_PRESET_STEPS[presetValue] ?? ZIMAGE_STEPS;
         newParams.guidance = ZIMAGE_GUIDANCE;
       }
-      if (fam === 'flux') {
+      if (fam === 'flux' || fam === 'qwen-image-21') {
         newParams.max_workers = 1; // VRAM safety — heavy Comfy graph
       }
       // The explicit High 2K preset is the only thing that puts the canvas at 2048².
@@ -2145,7 +2159,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                 </MenuItem>
                               ))}
                             </Select>
-                            {(isFlux || isModernDit)
+                            {(comfyStills || isModernDit)
                               && (params.width * params.height > 1024 * 1024) && (
                               <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
                                 High-res (&gt;1MP): more VRAM; may OOM on 16GB cards.
@@ -2194,7 +2208,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             value={isZimage ? ZIMAGE_GUIDANCE : params.guidance}
                             onChange={(e, value) => setParams({ ...params, guidance: value })}
                             min={0}
-                            max={isFlux ? 6 : 20}
+                            max={isFlux ? 6 : isQwenImage21 ? QWEN_IMAGE_21_GUIDANCE_MAX : 20}
                             step={0.5}
                             marks
                             disabled={isZimage || castLocked}
@@ -2207,6 +2221,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           {isZimage && !castLocked && (
                             <Typography variant="caption" color="text.secondary">
                               Z-Image runs CFG-free — guidance is fixed at 0. Use Steps for quality.
+                            </Typography>
+                          )}
+                          {isQwenImage21 && !castLocked && (
+                            <Typography variant="caption" color="text.secondary">
+                              Qwen-Image 2.1 runs at guidance 1 on the official path. Raise it only together with a negative prompt.
                             </Typography>
                           )}
                           {family === 'auto' && (

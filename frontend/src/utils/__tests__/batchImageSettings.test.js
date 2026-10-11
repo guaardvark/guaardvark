@@ -18,6 +18,8 @@ describe("promptStyleFor", () => {
   it("falls back to the family table when the list has no answer", () => {
     expect(promptStyleFor("no-answer-xl", options)).toBe("tags");
     expect(promptStyleFor("zimage-turbo", [])).toBe("natural");
+    expect(promptStyleFor("qwen-image-21", [])).toBe("natural");
+    expect(promptStyleFor("user-qwen-image-21-foo", [])).toBe("natural");
     expect(promptStyleFor("flux-dev", [])).toBe("tags");
   });
 

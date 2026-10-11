@@ -25,6 +25,13 @@ describe('modelFamily', () => {
     expect(modelFamily('sana-sprint-0.6b')).toBe('sana');
   });
 
+  it('resolves Qwen-Image 2.1 ids, shipped and user, and leaves the editing model alone', () => {
+    expect(modelFamily('qwen-image-21')).toBe('qwen-image-21');
+    expect(modelFamily('user-qwen-image-21-foo')).toBe('qwen-image-21');
+    expect(modelFamily('user-qwen-image-21-uc-fp8-xl')).toBe('qwen-image-21');
+    expect(modelFamily('qwen-image-edit')).toBe('sd');
+  });
+
   it('does not treat auto as Z-Image (the router may pick SDXL)', () => {
     expect(isZimageModel('auto')).toBe(false);
     expect(isZimageModel('zimage-turbo')).toBe(true);
@@ -57,6 +64,19 @@ describe('quality presets', () => {
     expect(qualityPresetsForModel('sd-xl').some((p) => p.steps === 25)).toBe(true);
   });
 
+  it('gives Qwen-Image 2.1 the official template recipe and nothing faster', () => {
+    const presets = qualityPresetsForModel('qwen-image-21');
+    expect(presets.map((p) => p.value)).toEqual(['standard', 'high']);
+    expect(presets.every((p) => p.guidance === 1.0)).toBe(true);
+    expect(presets.every((p) => p.steps >= 25)).toBe(true);
+    expect(presets.find((p) => p.value === 'standard').steps).toBe(25);
+    const high = presets.find((p) => p.value === 'high').steps;
+    expect(high).toBeGreaterThanOrEqual(40);
+    expect(high).toBeLessThanOrEqual(50);
+    expect(resolveQualityPreset('user-qwen-image-21-foo', 'flux-ultra')).toBe('standard');
+    expect(qualityPresetsForModel('user-qwen-image-21-foo')).toBe(presets);
+  });
+
   it('keeps the current preset when the new family offers it', () => {
     expect(resolveQualityPreset('sd-xl', 'fast')).toBe('fast');
     expect(resolveQualityPreset('zimage-turbo', 'standard')).toBe('standard');
@@ -70,7 +90,7 @@ describe('quality presets', () => {
   });
 
   it('every family default exists in its own list', () => {
-    for (const model of ['auto', 'zimage-turbo', 'flux-dev', 'krea2-turbo', 'krea2-raw', 'sd-xl', 'sdxl-turbo', 'realistic-vision', 'sana-sprint']) {
+    for (const model of ['auto', 'zimage-turbo', 'flux-dev', 'krea2-turbo', 'krea2-raw', 'sd-xl', 'sdxl-turbo', 'realistic-vision', 'sana-sprint', 'qwen-image-21']) {
       const def = resolveQualityPreset(model, 'not-a-preset');
       expect(qualityPresetsForModel(model).map((p) => p.value)).toContain(def);
     }
