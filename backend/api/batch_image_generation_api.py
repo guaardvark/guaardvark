@@ -140,6 +140,20 @@ def _image_download_dest(img, catalog_key: str, hf_model_id: str) -> Path:
     return img._get_model_path(hf_model_id)
 
 
+def _image_download_watch_dirs(img, catalog_key: str, hf_model_id: str) -> List[Path]:
+    """Every directory the download writes: the model's own, plus the companion
+    entries a user ComfyUI model installs beside it (text_encoders/, vae/)."""
+    dirs = [_image_download_dest(img, catalog_key, hf_model_id)]
+    try:
+        from backend.services.user_image_models import companion_dirs
+        for d in companion_dirs(img, catalog_key):
+            if d not in dirs:
+                dirs.append(d)
+    except Exception as e:  # noqa: BLE001 — progress only; the download itself decides
+        logger.debug("companion watch dirs for %s skipped: %s", catalog_key, e)
+    return dirs
+
+
 def _reconcile_image_download_status_on_load() -> None:
     global model_download_status, _IMAGE_DOWNLOAD_EPOCH
     try:
@@ -732,6 +746,9 @@ def list_models():
                 "user": bool(info.get("user")),
                 "family": family,
                 "kind": info.get("kind"),
+                # ComfyUI models: the files (model + companions) Install still has
+                # to fetch, in the editing packs' "<entry>:<file>" shape.
+                "missing_files": list(info.get("missing_files") or []),
                 # "natural": an LLM text encoder that reads prompts as prose, so
                 # the page's content-type tags and anatomy phrasing are not
                 # applied (offline_image_generator.enhance_prompt_for_quality).
@@ -854,6 +871,14 @@ def _start_image_model_download(model_path: str):
             estimated_size_gb = round(file_bytes / (1024 ** 3), 3)
         else:
             estimated_size_gb = IMAGE_MODEL_SIZES.get(catalog_key, IMAGE_MODEL_SIZES.get(hf_model_id, 2.5))
+        if user_entry:
+            # A user ComfyUI model's Install also fetches the companions its
+            # family's shipped entry requires; the progress bar counts them.
+            try:
+                from backend.services.user_image_models import missing_companion_size_gb
+                estimated_size_gb = round(estimated_size_gb + missing_companion_size_gb(img, catalog_key), 3)
+            except Exception as e:  # noqa: BLE001 — the estimate only shapes the progress bar
+                logger.debug("companion size for %s skipped: %s", catalog_key, e)
 
         with model_download_lock:
             now = time.time()
@@ -883,9 +908,9 @@ def _start_image_model_download(model_path: str):
         def download_task(hf_model_id, total_gb, epoch):
             _start_time = time.time()
             total_bytes = int(total_gb * 1024**3) if total_gb else 1
-            dest = _image_download_dest(generator.image_generator, catalog_key, hf_model_id)
+            dests = _image_download_watch_dirs(generator.image_generator, catalog_key, hf_model_id)
             hf_cache = _hf_cache_repo_dir(hf_model_id)
-            watched = [d for d in (dest, hf_cache) if d is not None]
+            watched = [d for d in (*dests, hf_cache) if d is not None]
             baseline = sum(_dir_bytes(d) for d in watched)
             stalled = threading.Event()
 

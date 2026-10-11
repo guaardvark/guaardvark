@@ -44,6 +44,27 @@ class DuplicateUserModel(ValueError):
 # wired=False rows are detectable so Look up can refuse them by name.
 # roles / layout / engine tell the dialogs what to ask for; like is the shipped
 # catalog id whose sampling policy and (for Comfy) graph the add clones.
+# comfy_graph names the ComfyUI text-to-image graph a Comfy family renders on
+# (comfyui_image_generator._build_workflow); a Comfy family without one (the
+# Chat editor) has no stills route. graph_models maps a UNET suffix to the
+# shipped registry entry whose graph (and companions) a user file of that
+# suffix renders on; files not listed render on `like`.
+# weight_suffixes / refused_suffixes / refused_name_tokens say which weight
+# files a Comfy family's loader reads; build_user_entry refuses the rest and
+# Look up warns about them (weight_file_problem). A row without
+# weight_suffixes takes every WEIGHT_SUFFIXES file.
+
+# Apple MLX repacks carry the format in the name; ComfyUI has no loader for them.
+_MLX_REFUSAL = {
+    "mlx": "is an Apple MLX file, which ComfyUI cannot load. Pick an fp8 or int8 .safetensors instead.",
+}
+
+# Qwen-Image 2.1 spellings seen in repo ids, file names and base_model fields.
+_QWEN21_TOKENS = (
+    "qwen-image-2.1", "qwen_image_2.1", "qwenimage2.1", "qwenimage-2.1", "qwen-image2.1",
+    "qwen-image-2-1", "qwen_image_2_1", "qwen-image-21", "qwen_image_21", "qwenimage21",
+    "qwen image 2.1",
+)
 
 IMAGE_FAMILIES = (
     {
@@ -125,6 +146,11 @@ IMAGE_FAMILIES = (
         "layout": "comfy_files",
         "single_file": True,
         "lora_engine": "comfy",
+        "comfy_graph": "flux",
+        # A .gguf UNET renders on the schnell graph (UnetLoaderGGUF, fp8 T5);
+        # any other file on the dev graph (`like`). Companions follow the graph.
+        "graph_models": {".gguf": "flux-schnell"},
+        "refused_name_tokens": _MLX_REFUSAL,
         "tokens": ("flux", "flux.1", "flux1"),
         "pipeline_tags": ("flux",),
         "index_classes": ("FluxPipeline", "FluxImg2ImgPipeline", "FluxControlPipeline"),
@@ -141,22 +167,51 @@ IMAGE_FAMILIES = (
         "single_file": True,
         "lora_engine": None,
         "local_subdir": "diffusion_models",
+        "refused_name_tokens": _MLX_REFUSAL,
         "tokens": ("qwen-image-edit", "qwenimage-edit", "qwen_image_edit"),
         "pipeline_tags": ("qwen-image-edit",),
         "index_classes": ("QwenImageEditPipeline", "QwenImageEditPlusPipeline"),
+    },
+    {
+        "id": "qwen-image-21",
+        "domain": "image",
+        "wired": True,
+        "label": "Qwen-Image 2.1",
+        "engine": "comfy",
+        "like": "qwen-image-21",
+        "roles": ("generation",),
+        "layout": "comfy_files",
+        "single_file": True,
+        "lora_engine": None,
+        "local_subdir": "diffusion_models",
+        "comfy_graph": "qwen-image-21",
+        # The 2.1 GGUF architecture (qwen_image21) is not in the installed
+        # ComfyUI-GGUF loader; the fp8 / int8 .safetensors load with UNETLoader.
+        "weight_suffixes": (".safetensors",),
+        "refused_suffixes": {
+            ".gguf": "is a GGUF the installed GGUF loader does not read (qwen_image21 architecture). "
+                     "Pick the fp8 or int8 .safetensors instead.",
+        },
+        "refused_name_tokens": _MLX_REFUSAL,
+        "tokens": _QWEN21_TOKENS,
+        "pipeline_tags": (),
+        "index_classes": (),
     },
 )
 
 UNWIRED_FAMILIES = (
     {
+        # Qwen-Image 1.0. Edit and 2.1 pastes are claimed first (_qwen_claim), so
+        # this row only refuses the 1.0 checkpoints.
         "id": "qwen-image",
         "domain": "image",
         "wired": False,
-        "label": "Qwen-Image",
+        "label": "Qwen-Image 1.0",
         "tokens": ("qwen-image", "qwenimage", "qwen_image"),
         "pipeline_tags": ("qwen-image",),
         "index_classes": ("QwenImagePipeline",),
-        "message": "Qwen-Image text-to-image is not wired yet — Qwen-Image-Edit (the Chat editor) is a different family.",
+        "message": "Qwen-Image 1.0 text-to-image is not wired — Qwen-Image 2.1 is the supported "
+                   "text-to-image family (Qwen-Image-Edit is the Chat editor).",
     },
     {
         "id": "sd3",
@@ -320,8 +375,83 @@ def image_generation_families() -> dict:
             "lora_engine": row.get("lora_engine"),
             "layout": row["layout"],
             "local_subdir": row.get("local_subdir"),
+            "comfy_graph": row.get("comfy_graph"),
+            "graph_models": dict(row.get("graph_models") or {}),
         }
     return out
+
+
+def comfy_graph_model(family_id: str, unet: str | None) -> str | None:
+    """The shipped registry entry whose ComfyUI graph a user UNET of ``family_id``
+    renders on, which is also the tag the graph builder dispatches on and the
+    entry whose ``requires`` are the model's companions. None for families
+    without a stills graph."""
+    row = _image_family_row(family_id) or {}
+    if not row.get("comfy_graph"):
+        return None
+    low = (unet or "").lower()
+    for suffix, model_id in (row.get("graph_models") or {}).items():
+        if low.endswith(suffix):
+            return model_id
+    return row.get("like")
+
+
+def _image_family_row(family_id: str) -> dict | None:
+    return next((r for r in IMAGE_FAMILIES if r["id"] == family_id), None)
+
+
+def weight_file_problem(family_id: str, filename: str | None) -> str | None:
+    """Why a Comfy family's loader cannot read ``filename``, or None when it can.
+
+    Read from the family row: ``refused_name_tokens`` (a format named in the
+    file, MLX), ``refused_suffixes`` (a suffix with its own reason), then
+    ``weight_suffixes`` (anything else the loader does not take). Families that
+    declare none accept every weight file.
+    """
+    row = _image_family_row(family_id) or {}
+    name = Path(filename or "").name
+    low = name.lower()
+    if not low:
+        return None
+    for tok, why in (row.get("refused_name_tokens") or {}).items():
+        if tok in low:
+            return f"{name} {why}"
+    for suffix, why in (row.get("refused_suffixes") or {}).items():
+        if low.endswith(suffix):
+            return f"{name} {why}"
+    accepted = row.get("weight_suffixes")
+    if accepted and not low.endswith(tuple(accepted)):
+        return (
+            f"{name} is not a file {row.get('label', family_id)} loads; "
+            f"pick a {' or '.join(accepted)} file."
+        )
+    return None
+
+
+def comfy_t2i_family(model_id: str | None) -> str | None:
+    """The ComfyUI text-to-image family a model id renders on, or None.
+
+    A user id carries its family as the prefix (``user-flux-…``,
+    ``user-qwen-image-21-…``) and is answered from that alone; a user family
+    without a stills graph (the Chat editor) is None. A shipped id or Comfy tag
+    names the family by token (``flux-dev``, ``comfyui (flux-schnell)``,
+    ``qwen-image-21``).
+    """
+    key = (model_id or "").strip().lower()
+    if not key:
+        return None
+    graph_rows = [r for r in IMAGE_FAMILIES if r["wired"] and r.get("engine") == "comfy"]
+    if key.startswith("user-"):
+        for row in graph_rows:
+            if key.startswith(f"user-{row['id']}-") or key == f"user-{row['id']}":
+                return row["id"] if row.get("comfy_graph") else None
+        return None
+    for row in graph_rows:
+        if row.get("comfy_graph") and (
+            key == row["id"] or any(tok in key for tok in row["tokens"])
+        ):
+            return row["id"]
+    return None
 
 
 def image_lora_families() -> tuple:
@@ -446,18 +576,32 @@ def list_hf_weight_files(repo_id: str, revision: str = "main") -> tuple[list, bo
     return files, gated, truncated
 
 
-def _license_from_info(info) -> str | None:
+def _card_field(info, *names):
     card = getattr(info, "card_data", None) or getattr(info, "cardData", None)
-    if isinstance(card, dict):
-        lic = card.get("license") or card.get("licence")
-        if lic:
-            return str(lic)
-    if card is not None:
-        lic = getattr(card, "license", None) or (card.get("license") if hasattr(card, "get") else None)
-        if lic:
-            return str(lic)
-    lic = getattr(info, "license", None)
+    for name in names:
+        value = None
+        if isinstance(card, dict):
+            value = card.get(name)
+        elif card is not None:
+            value = getattr(card, name, None) or (card.get(name) if hasattr(card, "get") else None)
+        if value:
+            return value
+    return None
+
+
+def _license_from_info(info) -> str | None:
+    lic = _card_field(info, "license", "licence") or getattr(info, "license", None)
     return str(lic) if lic else None
+
+
+def _base_model_from_info(info) -> list:
+    """The card's ``base_model`` (a repo id or a list of them), as a list."""
+    value = _card_field(info, "base_model")
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value if v]
+    return [str(value)]
 
 
 def inspect_hf_repo(url: str) -> dict:
@@ -473,11 +617,13 @@ def inspect_hf_repo(url: str) -> dict:
     has_model_index = False
     pipeline_tag = None
     license_id = None
+    base_model: list = []
     try:
         api = HfApi()
         info = api.model_info(repo, revision=revision)
         pipeline_tag = getattr(info, "pipeline_tag", None) or None
         license_id = _license_from_info(info)
+        base_model = _base_model_from_info(info)
         gated = gated or bool(getattr(info, "gated", False))
     except Exception:  # noqa: BLE001 — listing already succeeded
         info = None
@@ -498,6 +644,7 @@ def inspect_hf_repo(url: str) -> dict:
         "pipeline_tag": pipeline_tag,
         "index_class": index_class,
         "license": license_id,
+        "base_model": base_model,
         "token_present": hf_token_present(),
         "warnings": _inspect_warnings(files, has_model_index),
     }
@@ -538,6 +685,27 @@ def _inspect_warnings(files: list, has_model_index: bool) -> list:
 def _blob(files: list, src: str | None, hf_repo: str) -> str:
     names = [src] if src else [f.get("src") or "" for f in files]
     return " ".join(names + [hf_repo or ""]).lower()
+
+
+def _base_models_text(base_model) -> str:
+    if isinstance(base_model, (list, tuple)):
+        return " ".join(str(b) for b in base_model if b).lower()
+    return str(base_model or "").lower()
+
+
+def _qwen_claim(blob: str, cls: str | None, base_model=None) -> str | None:
+    """Which Qwen-Image family a paste names, in claim order: "edit", "21", or
+    None (Qwen-Image 1.0, or no Qwen at all). The card's base_model counts for
+    the 2.1 claim only, so a repack without a version in its names resolves;
+    it stays out of the general match (a multi-base LoRA card names families
+    the file is not)."""
+    if "edit" in blob or (cls and "edit" in cls.lower()):
+        return "edit"
+    if any(tok in blob for tok in _QWEN21_TOKENS):
+        return "21"
+    if any(tok in _base_models_text(base_model) for tok in _QWEN21_TOKENS):
+        return "21"
+    return None
 
 
 def _has_moe_pair(files: list, src: str | None) -> bool:
@@ -647,11 +815,17 @@ def match_families(
     has_model_index: bool = False,
     pipeline_tag: str | None = None,
     index_class: str | None = None,
+    base_model=None,
 ) -> list[dict]:
-    """Rank family matches. Unwired hits are returned alone so the UI refuses them."""
+    """Rank family matches. Unwired hits are returned alone so the UI refuses them.
+
+    ``base_model`` is the card's base_model field; a Qwen-Image 2.1 repack whose
+    file names carry no version still resolves through it.
+    """
     blob = _blob(files, src, hf_repo)
     tag = (pipeline_tag or "").lower().replace("_", "-")
     cls = _class_stem(index_class)
+    qwen_claim = _qwen_claim(blob, cls, base_model) if domain == "image" else None
     unwired = []
     for row in UNWIRED_FAMILIES:
         if row["domain"] != domain:
@@ -661,10 +835,8 @@ def match_families(
             or tag in {t.lower() for t in row.get("pipeline_tags") or ()}
             or (cls and cls in (row.get("index_classes") or ()))
         )
-        if row["id"] == "qwen-image" and (
-            "edit" in blob or (cls and "edit" in cls.lower())
-        ):
-            # Qwen-Image-Edit is a wired family; do not refuse it as unwired t2i.
+        if row["id"] == "qwen-image" and qwen_claim:
+            # Edit and 2.1 are wired families; only 1.0 is refused here.
             continue
         if hit:
             unwired.append({
@@ -684,7 +856,11 @@ def match_families(
     if domain == "video":
         names = _role_names(files, src)
         blob = " ".join(names + [hf_repo or ""]).lower()
-    role = _guess_role(blob, domain)
+        role = _guess_role(blob, domain)
+    else:
+        # The role is read from the main weights: a LoRA or an encoder listed
+        # beside an image model does not make the repo a LoRA.
+        role = _guess_role(" ".join(_role_names(files, src) + [hf_repo or ""]).lower(), domain)
     matches = []
 
     if domain == "image":
@@ -715,6 +891,9 @@ def match_families(
             if row["id"] == "zimage" and role == "lora" and score == 0:
                 score += 1
                 reasons.append("lora-default")
+            if row["id"] == "qwen-image-21" and qwen_claim == "21" and score == 0:
+                score += 3
+                reasons.append("base_model")
             if role not in row["roles"]:
                 continue
             if score <= 0:

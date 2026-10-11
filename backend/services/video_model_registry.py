@@ -94,6 +94,122 @@ def is_model_installed(model_id: str) -> bool:
     return entry_files_present(VIDEO_MODEL_REGISTRY.get(model_id))
 
 
+def install_plan(model_id: str) -> list:
+    """model_id plus every entry its `requires` chain names, order-preserving.
+
+    A UNET is dead weight without its encoder and VAE; one Install of the plan
+    yields a render-ready set. Ids outside the registry are skipped.
+    """
+    plan: list = []
+
+    def _add(mid: str):
+        if mid in plan or mid not in VIDEO_MODEL_REGISTRY:
+            return
+        plan.append(mid)
+        for dep in VIDEO_MODEL_REGISTRY[mid].get("requires", []):
+            _add(dep)
+
+    _add(model_id)
+    return plan
+
+
+def missing_plan_files(model_id: str) -> list:
+    """``"<entry>:<file>"`` for every file of the plan that is absent on disk."""
+    from backend.services.local_weights import is_cached
+
+    missing: list = []
+    for eid in install_plan(model_id):
+        info = VIDEO_MODEL_REGISTRY.get(eid, {})
+        if info.get("dest") == "hf_cache":
+            for f in info.get("files", []):
+                if not is_cached(info["hf_repo"], f["src"]):
+                    missing.append(f"{eid}:{f['src']}")
+            continue
+        base = resolve_entry_dir(info)
+        for cf in info.get("check_files", []):
+            fp = base / cf
+            if not fp.exists() or fp.stat().st_size == 0:
+                missing.append(f"{eid}:{cf}")
+    return missing
+
+
+def is_plan_installed(model_id: str) -> bool:
+    """True when the model and every companion it requires are on disk."""
+    return model_id in VIDEO_MODEL_REGISTRY and all(
+        is_model_installed(eid) for eid in install_plan(model_id)
+    )
+
+
+def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
+    """Fetch one registry entry's files into ``local_dir`` at their ``dst`` names.
+
+    ``check`` is called before each file and may raise to stop the pull (a stall
+    monitor or a newer download taking over). Files already present are kept.
+    """
+    import shutil
+    from huggingface_hub import hf_hub_download, snapshot_download
+
+    def _check():
+        if check is not None:
+            check()
+
+    _check()
+    if entry.get("dest") == "hf_cache":
+        # The loader that reads this file calls hf_hub_download itself, so the
+        # file has to sit in the Hugging Face cache under its own repo.
+        for spec in entry.get("files", []):
+            _check()
+            hf_hub_download(repo_id=entry["hf_repo"], filename=spec["src"])
+    elif "direct_urls" in entry:
+        import urllib.request
+        for spec in entry["direct_urls"]:
+            _check()
+            dst = local_dir / spec["dst"]
+            if dst.exists() and dst.stat().st_size > 0:
+                continue
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            urllib.request.urlretrieve(spec["url"], str(dst))
+    elif "files" in entry:
+        for spec in entry["files"]:
+            _check()
+            dst = local_dir / spec["dst"]
+            if not (dst.exists() and dst.stat().st_size > 0):
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                got = Path(hf_hub_download(
+                    repo_id=entry["hf_repo"],
+                    filename=spec["src"],
+                    local_dir=str(local_dir),
+                ))
+                if got.resolve() != dst.resolve():
+                    shutil.move(str(got), str(dst))
+            # Some ComfyUI loaders enumerate a different directory than where
+            # the file canonically lives (LTXVAudioVAELoader reads checkpoints/,
+            # audio VAEs live in vae/); also_link hardlinks the file there.
+            extra = spec.get("also_link")
+            if extra and dst.exists():
+                link_dst = comfyui_models_dir() / extra / dst.name
+                if not link_dst.exists():
+                    link_dst.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        os.link(str(dst), str(link_dst))
+                    except OSError:
+                        shutil.copy2(str(dst), str(link_dst))
+    elif "hf_filename" in entry:
+        hf_hub_download(
+            repo_id=entry["hf_repo"],
+            filename=entry["hf_filename"],
+            local_dir=str(local_dir),
+        )
+        if entry["check_files"][0] != entry["hf_filename"]:
+            src = local_dir / entry["hf_filename"]
+            dst = local_dir / entry["check_files"][0]
+            if src.exists() and not dst.exists():
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(str(src), str(dst))
+    else:
+        snapshot_download(repo_id=entry["hf_repo"], local_dir=str(local_dir))
+
+
 # ── MiniMax H3 shared capability data ────────────────────────────────────
 # Every H3 generation entry carries the same contract; the variants differ
 # only in precision, size and the VRAM tier they are meant for. Declared once
@@ -710,6 +826,69 @@ VIDEO_MODEL_REGISTRY = {
         "vram_mb": 12000,
         "min_steps": 20,
         "type": "qwen-edit",
+    },
+    # ── Qwen-Image 2.1 — text-to-image through ComfyUI ───────────────────────
+    # Official Comfy-Org split files. The graph needs the TextEncodeQwenImage21
+    # and QwenImage21Cache nodes (ComfyUI 0.37+); `comfy_nodes` is checked
+    # against the running server's /object_info before a render is queued.
+    # Licence: Qwen Research License, non-commercial research and evaluation
+    # only (huggingface.co/Qwen/Qwen-Image-2.1/blob/main/LICENSE).
+    "qwen-image-21-vae": {
+        "name": "Qwen-Image 2.1 VAE (bf16)",
+        "description": "VAE for Qwen-Image 2.1 (Wan 2.2 layout, 16x, RGBA). Not the Qwen-Image 1.0 "
+                       "or Qwen-Image-Edit VAE. Qwen Research License (non-commercial).",
+        "hf_repo": "Comfy-Org/Qwen-Image-2.1",
+        "local_subdir": "vae",
+        "files": [
+            {"src": "vae/qwen_image_2.1_vae_bf16.safetensors", "dst": "qwen_image_2.1_vae_bf16.safetensors"},
+        ],
+        "size_gb": 0.68,
+        "vram_mb": 0,
+        "type": "vae",
+    },
+    "qwen-image-21-clip": {
+        "name": "Qwen3-VL 8B text encoder (int8 convrot)",
+        "description": "CLIPLoader type=qwen_image for Qwen-Image 2.1; the file the official "
+                       "Comfy template loads. Qwen Research License (non-commercial).",
+        "hf_repo": "Comfy-Org/Qwen-Image-2.1",
+        "local_subdir": "text_encoders",
+        "files": [
+            {
+                "src": "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+                "dst": "qwen3vl_8b_int8_convrot.safetensors",
+            },
+        ],
+        "size_gb": 9.35,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "qwen-image-21": {
+        "name": "Qwen-Image 2.1 (int8 convrot)",
+        "description": "Text-to-image with a Qwen3-VL prose encoder, native 2K output, optional "
+                       "transparent (RGBA) renders. Qwen Research License: non-commercial "
+                       "research and evaluation only. Needs ComfyUI 0.37 or newer.",
+        "hf_repo": "Comfy-Org/Qwen-Image-2.1",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {
+                "src": "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+                "dst": "qwen_image_2.1_int8_convrot.safetensors",
+            },
+        ],
+        "requires": ["qwen-image-21-clip", "qwen-image-21-vae"],
+        "size_gb": 7.26,
+        # Sampling defaults are the official Comfy-Org template's
+        # (image_qwen_image_2_1_t2i: 25 steps, cfg 1.0, euler/simple, 1024x1024).
+        # Nothing has been measured on a card yet, so there is no min_steps.
+        "default_steps": 25,
+        "default_cfg": 1.0,
+        # PROVISIONAL, unmeasured: sized from the int8 transformer (7.3 GB on disk)
+        # plus the int8 Qwen3-VL encoder (9.4 GB) with ComfyUI offloading the
+        # encoder after the text pass, like the Qwen-Image-Edit pack above whose
+        # 12000 was measured. Replace with a measured peak.
+        "vram_mb": 14000,
+        "comfy_nodes": ["TextEncodeQwenImage21", "QwenImage21Cache"],
+        "type": "qwen-image",
     },
     # ── PuLID-FLUX — one face photo → new prompt on flux-dev (no LoRA train) ──
     "pulid-antelopev2": {

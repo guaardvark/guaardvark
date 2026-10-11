@@ -31,6 +31,8 @@ from pathlib import Path
 
 from backend.services.user_model_families import (
     DuplicateUserModel,
+    comfy_graph_model,
+    comfy_t2i_family,
     family_choices as _table_family_choices,
     find_duplicate,
     image_generation_families,
@@ -38,6 +40,7 @@ from backend.services.user_model_families import (
     inspect_hf_repo,
     match_families,
     sanitize_repo_src,
+    weight_file_problem,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,6 +63,7 @@ _FAMILY_MARKERS = {
     "sdxl": ("xl",),
     "flux": ("flux",),
     "sana": ("sana",),
+    "qwen-image-21": ("qwen-image-21",),
 }
 ROLES = ("generation", "lora")
 
@@ -121,29 +125,50 @@ def preview_hf_url(url: str) -> dict:
         has_model_index=inspected.get("has_model_index") or False,
         pipeline_tag=inspected.get("pipeline_tag"),
         index_class=inspected.get("index_class"),
+        base_model=inspected.get("base_model"),
     )
     wired = [m for m in matches if m.get("wired")]
     unwired = [m for m in matches if not m.get("wired")]
     top = (unwired or wired or [None])[0]
+    warnings = list(inspected.get("warnings") or [])
+    files = [dict(f) for f in inspected["files"]]
+    if top and top.get("wired") and top.get("role") == "generation":
+        warnings.extend(_annotate_weight_problems(files, top.get("family") or ""))
     return {
         "hf_repo": inspected["hf_repo"],
         "revision": inspected.get("revision") or "main",
         "src": inspected.get("src"),
-        "files": inspected["files"],
+        "files": files,
         "gated": inspected.get("gated") or False,
         "truncated": inspected.get("truncated") or False,
         "has_model_index": inspected.get("has_model_index") or False,
         "license": inspected.get("license"),
+        "base_model": list(inspected.get("base_model") or []),
         "token_present": inspected.get("token_present") or False,
         "pipeline_tag": inspected.get("pipeline_tag"),
         "index_class": inspected.get("index_class"),
-        "warnings": list(inspected.get("warnings") or []),
+        "warnings": warnings,
         "matches": matches,
         "suggested_role": (top or {}).get("role") if top and top.get("wired") else None,
         "suggested_family": (top or {}).get("family") if top and top.get("wired") else None,
         "unwired": unwired[0] if unwired else None,
         "families": family_choices(),
     }
+
+
+def _annotate_weight_problems(files: list, family: str) -> list:
+    """Mark each listed file the family's loader cannot read (``problem``) and
+    return one warning per distinct reason, naming the files it covers."""
+    by_reason: dict[str, list[str]] = {}
+    for f in files:
+        problem = weight_file_problem(family, f.get("src"))
+        if not problem:
+            continue
+        f["problem"] = problem
+        name = Path(f.get("src") or "").name
+        reason = problem[len(name):].strip() if problem.startswith(name) else problem
+        by_reason.setdefault(reason, []).append(name)
+    return [f"{', '.join(names)} {reason}" for reason, names in by_reason.items()]
 
 
 def family_choices() -> list:
@@ -239,6 +264,9 @@ def build_user_entry(
             raise ValueError(
                 f"A {spec['label']} stills model is one UNET file (.safetensors or .gguf). Pick exactly one."
             )
+        problem = weight_file_problem(family, specs[0]["src"])
+        if problem:
+            raise ValueError(problem)
         kind = "comfy_files"
         local_subdir = spec.get("local_subdir") or "unet"
     elif has_model_index:
@@ -455,8 +483,109 @@ def user_files_present(generator, sentinel: str) -> bool:
     return bool(uf.get("files"))
 
 
+# ── companions of a user ComfyUI generation model ───────────────────────────
+# A user UNET renders on its family's shipped graph, with the encoder and VAE
+# that shipped entry (`like`) requires. Install fetches them beside the UNET,
+# and the model is ready only once they are on disk too.
+
+def _user_file_entry_for(generator, key: str) -> dict | None:
+    files = getattr(generator, "user_files", None) or {}
+    uf = files.get(key)
+    if uf is None:
+        uf = files.get(user_sentinel(key))
+    if uf is None:
+        av = (getattr(generator, "available_models", None) or {}).get(key)
+        uf = files.get(av or "")
+    return uf
+
+
+def _graph_model_of(uf: dict | None) -> str | None:
+    """The shipped registry entry whose graph a user ComfyUI generation model
+    renders on (user_model_families.comfy_graph_model); None for LoRAs,
+    snapshots and families without a stills graph."""
+    if not uf or uf.get("engine") != "comfy" or uf.get("kind") != "comfy_files":
+        return None
+    files = uf.get("files") or []
+    unet = (files[0].get("dst") if files else None) or None
+    return comfy_graph_model(uf.get("family") or "", unet)
+
+
+def companion_ids(generator, key: str) -> list:
+    """Registry ids a user ComfyUI generation model renders with: the ``requires``
+    of the shipped entry whose graph it renders on (a FLUX .gguf renders on
+    flux-schnell and needs its fp8 T5, a .safetensors on flux-dev's fp16 T5)."""
+    graph_model = _graph_model_of(_user_file_entry_for(generator, key))
+    if not graph_model:
+        return []
+    from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+    return list((VIDEO_MODEL_REGISTRY.get(graph_model) or {}).get("requires") or [])
+
+
+def missing_companions(generator, key: str) -> list:
+    from backend.services.video_model_registry import is_model_installed
+    return [eid for eid in companion_ids(generator, key) if not is_model_installed(eid)]
+
+
+def companion_dirs(generator, key: str) -> list:
+    """Directories the companions download into (for progress watching)."""
+    from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, resolve_entry_dir
+    return [resolve_entry_dir(VIDEO_MODEL_REGISTRY[eid]) for eid in companion_ids(generator, key)]
+
+
+def missing_companion_size_gb(generator, key: str) -> float:
+    from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+    return float(sum(
+        float(VIDEO_MODEL_REGISTRY[eid].get("size_gb") or 0) for eid in missing_companions(generator, key)
+    ))
+
+
+def user_missing_files(generator, key: str) -> list:
+    """``"<id>:<file>"`` for the user model's own absent files and its missing companions'."""
+    uf = _user_file_entry_for(generator, key)
+    if not uf:
+        return []
+    model_id = key if is_user_model_id(key) else (uf.get("dir") or key)
+    missing = []
+    base = _user_dest_dir(generator, uf)
+    for spec in uf.get("files") or []:
+        p = base / spec["dst"]
+        if not p.is_file() or p.stat().st_size == 0:
+            missing.append(f"{model_id}:{spec['dst']}")
+    from backend.services.video_model_registry import missing_plan_files
+    for eid in missing_companions(generator, key):
+        missing.extend(missing_plan_files(eid))
+    return missing
+
+
+def user_model_ready(generator, sentinel: str) -> bool:
+    """The user's files are on disk and, for a ComfyUI generation model, so are
+    the companions its graph loads."""
+    return user_files_present(generator, sentinel) and not missing_companions(generator, sentinel)
+
+
+def download_companions(generator, sentinel: str, stop=None) -> tuple[bool, str | None]:
+    """Fetch the companions a user ComfyUI model still lacks, through the registry downloader."""
+    from backend.services.video_model_registry import (
+        VIDEO_MODEL_REGISTRY, download_entry_files, is_model_installed, resolve_entry_dir,
+    )
+
+    def _check():
+        if stop is not None and stop.is_set():
+            raise RuntimeError("Download stalled")
+
+    for eid in missing_companions(generator, sentinel):
+        entry = VIDEO_MODEL_REGISTRY[eid]
+        local_dir = resolve_entry_dir(entry)
+        local_dir.mkdir(parents=True, exist_ok=True)
+        download_entry_files(entry, local_dir, check=_check)
+        if not is_model_installed(eid):
+            return False, f"Download of {eid} finished but its files are missing under {local_dir}"
+    return True, None
+
+
 def download_user_files(generator, sentinel: str, stop=None) -> tuple[bool, str | None]:
-    """hf_hub_download each declared file into the dest dir, resuming partials."""
+    """hf_hub_download each declared file into the dest dir, resuming partials,
+    then the companions a ComfyUI generation model renders with."""
     from huggingface_hub import hf_hub_download
 
     uf = (getattr(generator, "user_files", {}) or {}).get(sentinel)
@@ -478,10 +607,33 @@ def download_user_files(generator, sentinel: str, stop=None) -> tuple[bool, str 
                 got.replace(want)
         if uf.get("kind") == "lora":
             _write_lora_sidecar(base, uf)
-        return True, None
+        if stop is not None and stop.is_set():
+            return False, "Download stalled"
+        return download_companions(generator, sentinel, stop=stop)
     except Exception as e:  # noqa: BLE001 — the message is the diagnosis
         logger.error("user image file download failed for %s: %s", sentinel, e)
         return False, str(e)
+
+
+def comfy_t2i_target(generator, model_id: str) -> dict | None:
+    """How a model id renders on a ComfyUI text-to-image graph, or None.
+
+    ``{"family", "tag", "unet"}``: ``tag`` is the model string _build_workflow
+    dispatches on and ``unet`` the loader filename. A shipped id passes through
+    (``unet`` None, the graph loads its registry file). A user entry supplies
+    its own UNET and renders on the shipped entry comfy_graph_model names for
+    it, the same entry its companions come from.
+    """
+    family = comfy_t2i_family(model_id)
+    if not family:
+        return None
+    mid = (model_id or "").strip()
+    if not is_user_model_id(mid):
+        return {"family": family, "tag": mid, "unet": None}
+    entry = (getattr(generator, "user_entries", None) or {}).get(mid) or {}
+    files = entry.get("files") or []
+    unet = (files[0].get("dst") if files else None) or None
+    return {"family": family, "tag": comfy_graph_model(family, unet) or family, "unet": unet}
 
 
 def _write_lora_sidecar(base: Path, uf: dict) -> None:

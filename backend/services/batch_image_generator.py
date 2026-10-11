@@ -615,7 +615,7 @@ class BatchImageGenerator:
             return None
         else:
             model_key = self._resolve_batch_model_key(prompt.model, prompt.prompt)
-        if self._is_comfy_flux_model(model_key):
+        if self._comfy_t2i_family(model_key):
             return None
         return gen.available_models.get(model_key, model_key)
 
@@ -649,10 +649,14 @@ class BatchImageGenerator:
                 model_key = self._character_model_key(prompt)
             else:
                 model_key = self._resolve_batch_model_key(prompt.model, prompt.prompt)
-            if self._is_comfy_flux_model(model_key):
-                # Full FLUX-dev fp8 stills: ~12GB+ with T5; serialize workers elsewhere
-                vram_mb = max(vram_mb, 12000)
-                ram_gb = max(ram_gb, 16.0)
+            comfy_family = self._comfy_t2i_family(model_key)
+            if comfy_family:
+                # ComfyUI stills are priced flat by their family row (FLUX-dev fp8
+                # ~12GB with T5); the registry prices Qwen-Image 2.1. Workers are
+                # serialized elsewhere.
+                fam_vram, fam_ram = self._comfy_t2i_price(comfy_family)
+                vram_mb = max(vram_mb, fam_vram)
+                ram_gb = max(ram_gb, fam_ram)
                 continue
             catalog_id = gen.available_models.get(model_key, model_key)
 
@@ -864,12 +868,23 @@ class BatchImageGenerator:
         return gen.missing_model_message(prompt.model or "auto")
 
     @staticmethod
-    def _is_comfy_flux_model(model_key: str | None) -> bool:
-        k = (model_key or "").strip().lower()
-        return "flux" in k
+    def _comfy_t2i_family(model_key: str | None) -> str | None:
+        """The ComfyUI text-to-image family a model key renders on ("flux",
+        "qwen-image-21"), or None for offline models and Comfy families without
+        a stills graph (user_model_families.comfy_t2i_family)."""
+        from backend.services.user_model_families import comfy_t2i_family
+        return comfy_t2i_family(model_key)
+
+    @staticmethod
+    def _comfy_t2i_price(family: str) -> Tuple[int, float]:
+        """(vram_mb, ram_gb) a ComfyUI stills family is admitted at: its
+        IMAGE_FAMILY_SPECS row, which for Qwen-Image 2.1 reads the registry."""
+        from backend.services.image_render_limits import limits_for
+        lim = limits_for(family)
+        return int(lim.get("vram_mb") or 12000), float(lim.get("ram_gb") or 16.0)
 
     def _should_use_comfy_stills(self, prompt: BatchPrompt) -> bool:
-        if self._is_comfy_flux_model(prompt.model):
+        if self._comfy_t2i_family(prompt.model):
             return True
         adapters = getattr(prompt, "adapter_loras", None) or []
         if not adapters:
@@ -880,33 +895,42 @@ class BatchImageGenerator:
         except Exception:
             return False
 
-    def _user_flux_unet(self, model_key: str | None) -> str | None:
-        mid = (model_key or "").strip()
-        if not mid.startswith("user-"):
+    def _comfy_t2i_target(self, model_key: str | None) -> Optional[dict]:
+        """{family, tag, unet} for a ComfyUI stills model: a user entry's own
+        UNET and the graph it renders on (user_image_models.comfy_t2i_target)."""
+        family = self._comfy_t2i_family(model_key)
+        if not family:
             return None
+        shipped = {"family": family, "tag": (model_key or "").strip(), "unet": None}
+        if not (model_key or "").strip().startswith("user-"):
+            return shipped
         try:
-            from backend.services.offline_image_generator import get_image_generator
-            entry = (getattr(get_image_generator(), "user_entries", None) or {}).get(mid) or {}
-            files = entry.get("files") or []
-            return (files[0].get("dst") if files else None) or None
+            from backend.services.user_image_models import comfy_t2i_target
+            gen = getattr(self, "image_generator", None)
+            if gen is None:
+                from backend.services.offline_image_generator import get_image_generator
+                gen = get_image_generator()
+            return comfy_t2i_target(gen, model_key) or shipped
         except Exception:
-            return None
+            return shipped
 
     def _generate_with_comfy_flux(self, prompt: BatchPrompt, batch_id: str = "") -> Optional[ImageGenerationResult]:
-        """FLUX stills or SDXL+LoRA via ComfyUI (user-added weights included)."""
+        """ComfyUI stills (FLUX, Qwen-Image 2.1) or SDXL+LoRA via ComfyUI, user-added weights included."""
         try:
             from backend.services.comfyui_image_generator import ComfyUIImageGenerator
         except Exception as e:
-            logger.warning("ComfyUI FLUX path unavailable: %s", e)
+            logger.warning("ComfyUI stills path unavailable: %s", e)
             return ImageGenerationResult(
                 success=False,
-                error=f"ComfyUI FLUX unavailable: {e}",
+                error=f"ComfyUI stills unavailable: {e}",
                 prompt_used=prompt.prompt,
             )
 
+        target = self._comfy_t2i_target(prompt.model)
+        family = (target or {}).get("family")
         width = prompt.width if prompt.width and prompt.width >= 512 else 1024
         height = prompt.height if prompt.height and prompt.height >= 512 else 1024
-        if self._is_comfy_flux_model(prompt.model):
+        if family:
             if prompt.width and prompt.width >= 768:
                 width = prompt.width
             if prompt.height and prompt.height >= 768:
@@ -914,20 +938,25 @@ class BatchImageGenerator:
             try:
                 from backend.services.image_resolution_limits import clamp_image_dimensions
                 ow, oh = width, height
-                width, height, warns = clamp_image_dimensions(width, height, "flux")
+                width, height, warns = clamp_image_dimensions(width, height, family)
                 for msg in warns:
-                    logger.warning("FLUX batch: %s", msg)
+                    logger.warning("%s batch: %s", family, msg)
                 if (width, height) != (ow, oh):
-                    logger.info("FLUX batch resolution %sx%s → %sx%s", ow, oh, width, height)
+                    logger.info("%s batch resolution %sx%s → %sx%s", family, ow, oh, width, height)
             except Exception as e:
-                logger.debug("FLUX dim clamp skipped: %s", e)
-        steps = int(prompt.steps if prompt.metadata.get("steps_explicit", False) else (prompt.steps or 28))
-        # FluxGuidance value (user "guidance" slider); KSampler cfg stays 1.0 inside Comfy.
-        guidance = float(prompt.guidance) if prompt.guidance is not None else 3.5
+                logger.debug("%s dim clamp skipped: %s", family, e)
+        # Defaults when the prompt carries none are the family row's (FLUX 28 /
+        # FluxGuidance 3.5, Qwen-Image 2.1 25 / cfg 1.0 from the official template).
+        from backend.services.image_render_limits import defaults_for
+        own = defaults_for(family or "flux-dev")
+        steps = int(prompt.steps if prompt.metadata.get("steps_explicit", False) else (prompt.steps or own["steps"]))
+        # FLUX: the FluxGuidance value (user "guidance" slider), KSampler cfg stays 1.0
+        # inside Comfy. Qwen-Image 2.1: the KSampler cfg itself.
+        guidance = float(prompt.guidance) if prompt.guidance is not None else float(own["guidance"])
 
         import tempfile, os as _os, time as _time
         out_path = _os.path.join(
-            tempfile.gettempdir(), f"flux_{prompt.id}_{int(_time.time() * 1000)}.png"
+            tempfile.gettempdir(), f"{(family or 'comfy').replace('-', '_')}_{prompt.id}_{int(_time.time() * 1000)}.png"
         )
         # FLUX is deterministic: identical prompt + identical seed = identical
         # pixels. This branch used to pin the seed to a literal 42 whenever the
@@ -935,18 +964,21 @@ class BatchImageGenerator:
         # rendering N copies of the same image. Derive per-slot instead.
         seed = resolve_image_seed(prompt, batch_id)
         loras = list(getattr(prompt, "adapter_loras", None) or [])
-        unet = self._user_flux_unet(prompt.model)
-        model_tag = "flux-dev"
-        if unet and str(unet).lower().endswith(".gguf"):
-            model_tag = "flux-schnell"
-        elif not self._is_comfy_flux_model(prompt.model):
+        unet = (target or {}).get("unet")
+        if not family:
             model_tag = "sdxl"
+        elif family == "flux":
+            # Shipped FLUX ids render on the dev graph; a user .gguf on schnell.
+            model_tag = target["tag"] if unet else "flux-dev"
+        else:
+            model_tag = target["tag"]
         try:
             gen = ComfyUIImageGenerator(
                 model=model_tag,
                 lora_strength=float(getattr(prompt, "adapter_scale", 0.8) or 0.8),
                 flux_unet=unet if model_tag == "flux-schnell" else None,
                 flux_dev_unet=unet if model_tag == "flux-dev" else None,
+                qwen21_unet=unet if family == "qwen-image-21" else None,
             )
             path = gen.generate_image(
                 prompt=prompt.prompt,
@@ -973,7 +1005,7 @@ class BatchImageGenerator:
                 metadata={"steps": getattr(gen, "last_steps", steps)},
             )
         except Exception as e:
-            logger.error("FLUX.1-dev batch generation failed: %s", e)
+            logger.error("ComfyUI %s batch generation failed: %s", model_tag, e)
             return ImageGenerationResult(
                 success=False, error=str(e), prompt_used=prompt.prompt
             )

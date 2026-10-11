@@ -1290,48 +1290,17 @@ def _check_model_downloaded(model_id: str) -> bool:
 
 
 def _missing_check_files(model_id: str) -> List[str]:
-    """Return the check_files (model + companions) that are absent on disk — the
-    precise reason a model isn't 'ready'. Surfaces the issue #36 case where a dir
-    holds GBs of the wrong quant but the one required file is missing, instead of
-    leaving the UI with an unexplained is_ready=False.
-    """
-    from backend.services.local_weights import is_cached
-    from backend.services.video_model_registry import resolve_entry_dir
-
-    missing: List[str] = []
-    for eid in _resolve_download_plan(model_id):
-        info = VIDEO_MODEL_REGISTRY.get(eid, {})
-        if info.get("dest") == "hf_cache":
-            for f in info.get("files", []):
-                if not is_cached(info["hf_repo"], f["src"]):
-                    missing.append(f"{eid}:{f['src']}")
-            continue
-        base = resolve_entry_dir(info)
-        for cf in info.get("check_files", []):
-            fp = base / cf
-            if not fp.exists() or fp.stat().st_size == 0:
-                missing.append(f"{eid}:{cf}")
-    return missing
+    """The check_files (model + companions) absent on disk: the precise reason a
+    model is not ready (video_model_registry.missing_plan_files)."""
+    from backend.services.video_model_registry import missing_plan_files
+    return missing_plan_files(model_id)
 
 
 def _resolve_download_plan(model_id: str) -> List[str]:
-    """Expand a model id into [model + required companions], order-preserving.
-
-    A WAN unet is dead weight without its VAE + text encoder; CogVideoX needs
-    its T5 encoder. `requires` in the registry declares those companions so one
-    Install click yields a render-ready set instead of a half-installed model.
-    """
-    plan: List[str] = []
-
-    def _add(mid: str):
-        if mid in plan or mid not in VIDEO_MODEL_REGISTRY:
-            return
-        plan.append(mid)
-        for dep in VIDEO_MODEL_REGISTRY[mid].get("requires", []):
-            _add(dep)
-
-    _add(model_id)
-    return plan
+    """Expand a model id into [model + required companions], order-preserving
+    (video_model_registry.install_plan)."""
+    from backend.services.video_model_registry import install_plan
+    return install_plan(model_id)
 
 
 def _detected_total_vram_mb() -> int:
@@ -1543,77 +1512,12 @@ def start_video_model_download(model_id):
 
             def _pull_one(einfo, local_dir):
                 """Pull a single registry entry's files into local_dir."""
-                _still_owner()
-                if einfo.get("dest") == "hf_cache":
-                    # The loader that reads this file calls hf_hub_download
-                    # itself, so the file has to sit in the Hugging Face cache
-                    # under its own repo, not in a local_dir.
-                    for spec in einfo.get("files", []):
-                        _still_owner()
-                        hf_hub_download(repo_id=einfo["hf_repo"], filename=spec["src"])
-                elif "direct_urls" in einfo:
-                    import urllib.request
-                    for spec in einfo["direct_urls"]:
-                        _still_owner()
-                        dst = local_dir / spec["dst"]
-                        if dst.exists() and dst.stat().st_size > 0:
-                            continue
-                        dst.parent.mkdir(parents=True, exist_ok=True)
-                        urllib.request.urlretrieve(spec["url"], str(dst))
-                elif "files" in einfo:
-                    # Explicit per-file pulls: only the bytes we actually need,
-                    # placed at the exact name ComfyUI's loaders expect.
-                    for spec in einfo["files"]:
-                        _still_owner()
-                        dst = local_dir / spec["dst"]
-                        if not (dst.exists() and dst.stat().st_size > 0):
-                            dst.parent.mkdir(parents=True, exist_ok=True)
-                            got = Path(hf_hub_download(
-                                repo_id=einfo["hf_repo"],
-                                filename=spec["src"],
-                                local_dir=str(local_dir),
-                            ))
-                            if got.resolve() != dst.resolve():
-                                shutil.move(str(got), str(dst))
-                        # Some ComfyUI loaders enumerate a DIFFERENT directory
-                        # than where the file canonically lives (e.g.
-                        # LTXVAudioVAELoader reads checkpoints/, audio VAEs
-                        # live in vae/). also_link hardlinks the file there —
-                        # previously a by-hand step that fresh installs missed,
-                        # failing workflow validation ('Value not in list').
-                        extra = spec.get("also_link")
-                        if extra and dst.exists():
-                            link_dst = models_dir / extra / dst.name
-                            if not link_dst.exists():
-                                link_dst.parent.mkdir(parents=True,
-                                                      exist_ok=True)
-                                try:
-                                    os.link(str(dst), str(link_dst))
-                                except OSError:
-                                    shutil.copy2(str(dst), str(link_dst))
-                elif "hf_filename" in einfo:
-                    hf_hub_download(
-                        repo_id=einfo["hf_repo"],
-                        filename=einfo["hf_filename"],
-                        local_dir=str(local_dir),
-                    )
-                    if einfo["check_files"][0] != einfo["hf_filename"]:
-                        src = local_dir / einfo["hf_filename"]
-                        dst = local_dir / einfo["check_files"][0]
-                        if src.exists() and not dst.exists():
-                            dst.parent.mkdir(parents=True, exist_ok=True)
-                            shutil.copy2(str(src), str(dst))
-                else:
-                    snapshot_download(
-                        repo_id=einfo["hf_repo"],
-                        local_dir=str(local_dir),
-                    )
+                download_entry_files(einfo, local_dir, check=_still_owner)
 
             last_repo = None
             try:
-                from huggingface_hub import hf_hub_download, snapshot_download
+                from backend.services.video_model_registry import download_entry_files
 
-                models_dir = _get_comfyui_models_dir()
                 # Resolve each entry's target dir up front and snapshot a baseline
                 # so progress reflects ONLY the bytes this run adds (dirs like
                 # unet/ may already hold other models). Unique dirs only, so a

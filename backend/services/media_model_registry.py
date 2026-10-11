@@ -169,6 +169,18 @@ MEDIA_MODEL_REGISTRY: dict[str, dict[str, Any]] = {
 #                                         row's unless GUAARDVARK_IMAGE_STRICT_LIMITS
 #                                         is on (the model's own values are what the
 #                                         validator recommends)
+
+
+def _registry_vram_mb(model_id: str, default: int) -> int:
+    """A ComfyUI family's admission price, read once from its registry entry so
+    the number is declared in one place."""
+    try:
+        from backend.services.video_model_registry import vram_mb_for_model
+        return int(vram_mb_for_model(model_id, default=default))
+    except Exception:  # noqa: BLE001 — the registry import is environment-specific
+        return default
+
+
 IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
     # Z-Image: official canvas ~512-2048 per side / ~2048^2 area. The long side
     # may reach 2688 so 16:9 2K packs (2688x1472, ~3.95 MP) fit under the area.
@@ -207,6 +219,18 @@ IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
         "width": 1024, "height": 1024, "default_steps": 28, "cfg_when_unset": 3.5,
         "prompt_style": "tags", "engine": "comfy",
         "vram_mb": 12000, "ram_gb": 16.0,
+    },
+    # Qwen-Image 2.1 through ComfyUI. Every number is the official Comfy-Org
+    # template's (image_qwen_image_2_1_t2i: 1024x1024, 25 steps, cfg 1.0; its
+    # usage note names native 2K output and sides in multiples of 32). Nothing is
+    # measured on a card yet, so there is no min_steps; vram_mb/ram_gb are the
+    # registry entry's provisional figures (video_model_registry "qwen-image-21").
+    # prompt_style "natural": a Qwen3-VL encoder reads prompts as prose.
+    "qwen-image-21": {
+        "max_side": 2048, "max_pixel_area": 2048 * 2048, "min_side": 256, "dimension_alignment": 32,
+        "width": 1024, "height": 1024, "default_steps": 25, "cfg_when_unset": 1.0,
+        "prompt_style": "natural", "engine": "comfy",
+        "vram_mb": _registry_vram_mb("qwen-image-21", 14000), "ram_gb": 16.0,
     },
     # SDXL loads whole onto cards of 10 GB and up (vram_mb 8000: ~6.9 GB of fp16
     # weights plus the working set). Below that it runs with CPU model offload,
@@ -260,6 +284,10 @@ IMAGE_MODEL_LIMITS: dict[str, dict[str, Any]] = {
     # FluxGuidance, not classic CFG. Heavy: batches run one image at a time.
     "flux-dev": {"family": "flux", "steps_range": (8, 50), "cfg_range": (1.0, 6.0),
                  "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
+    # The template's usage note: cfg stays 1.0 unless a negative prompt is used;
+    # the official pipeline samples 40-50 steps, the template starts at 25.
+    "qwen-image-21": {"family": "qwen-image-21", "steps_range": (10, 50), "cfg_range": (1.0, 5.0),
+                      "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
     # SDXL: guidance above 9 renders black images, so its range is enforced.
     "sd-xl": {"family": "sdxl", "steps_range": (20, 40), "cfg_range": (4.0, 9.0),
               "min_dimensions": (768, 768)},

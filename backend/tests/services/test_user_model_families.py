@@ -115,6 +115,7 @@ def test_match_wan_moe_pair():
 
 
 def test_match_unwired_qwen_image():
+    # Qwen-Image 1.0 is refused by name, and the refusal names 2.1 as the supported family.
     matches = umf.match_families(
         domain="image", files=[], src=None, hf_repo="Qwen/Qwen-Image",
         has_model_index=True, pipeline_tag="qwen-image",
@@ -122,6 +123,166 @@ def test_match_unwired_qwen_image():
     assert matches[0]["wired"] is False
     assert matches[0]["family"] == "qwen-image"
     assert "not wired" in matches[0]["reason"]
+    assert "2.1" in matches[0]["reason"]
+
+
+# ── Qwen-Image 2.1 (real Hugging Face listings, 2026-10-11) ─────────────────
+
+_ABENZERPS_ROOT = [
+    "qwen-image-2.1-UC-BF16.gguf", "qwen-image-2.1-UC-MLX-4bit.safetensors",
+    "qwen-image-2.1-UC-MLX-6bit.safetensors", "qwen-image-2.1-UC-MLX-8bit.safetensors",
+    "qwen-image-2.1-UC-NVFP4.safetensors", "qwen-image-2.1-UC-Q4_0.gguf",
+    "qwen-image-2.1-UC-Q8_0.gguf", "qwen-image-2.1-UC-fp8.safetensors",
+    "qwen-image-2.1-UC-int8_convrot.safetensors", "qwen-image-2.1-uncensored-lora.safetensors",
+    "text_encoders/qwen3vl_8b_bf16.safetensors", "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+    "vae/qwen_image_2.1_vae_bf16.safetensors",
+]
+_COMFY_ORG_21_ROOT = [
+    "diffusion_models/qwen_image_2.1_bf16.safetensors",
+    "diffusion_models/qwen_image_2.1_int8_convrot.safetensors",
+    "loras/qwen_image_2.1_turbo_lora_avg_rank_178_bf16.safetensors",
+    "text_encoders/qwen3vl_8b_int8_convrot.safetensors",
+    "vae/qwen_image_2.1_vae_bf16.safetensors",
+]
+
+
+def test_qwen_image_21_repack_repo_root_is_the_wired_21_family():
+    matches = umf.match_families(
+        domain="image", files=[{"src": f} for f in _ABENZERPS_ROOT], src=None,
+        hf_repo="abenzerps/Qwen-Image-2.1-Uncensored-GGUF", has_model_index=False,
+        pipeline_tag="text-to-image", base_model=["Qwen/Qwen-Image-2.1"],
+    )
+    top = matches[0]
+    assert (top["family"], top["wired"], top["like"]) == ("qwen-image-21", True, "qwen-image-21")
+    # The LoRA and encoders beside the model do not make the repo a LoRA.
+    assert top["role"] == "generation"
+    assert not any(m["family"] == "qwen-image" for m in matches)
+
+
+def test_qwen_image_21_single_file_pastes_resolve_whatever_the_suffix():
+    # Matching names the family; whether the file loads is weight_file_problem's call.
+    for src in ("qwen-image-2.1-UC-fp8.safetensors", "qwen-image-2.1-UC-Q8_0.gguf"):
+        m = umf.match_families(
+            domain="image", files=[], src=src,
+            hf_repo="abenzerps/Qwen-Image-2.1-Uncensored-GGUF", has_model_index=False,
+        )
+        assert (m[0]["family"], m[0]["role"]) == ("qwen-image-21", "generation"), src
+
+
+def test_comfy_org_qwen_image_21_repo_is_the_wired_21_family():
+    m = umf.match_families(
+        domain="image", files=[{"src": f} for f in _COMFY_ORG_21_ROOT], src=None,
+        hf_repo="Comfy-Org/Qwen-Image-2.1", has_model_index=False,
+        base_model=["Qwen/Qwen-Image-2.1"],
+    )
+    assert (m[0]["family"], m[0]["role"], m[0]["wired"]) == ("qwen-image-21", "generation", True)
+
+
+def test_card_base_model_resolves_a_repack_without_a_version_in_its_names():
+    m = umf.match_families(
+        domain="image", files=[{"src": "model-uc-fp8.safetensors"}], src=None,
+        hf_repo="someone/uncensored-repack", has_model_index=False,
+        base_model="Qwen/Qwen-Image-2.1",
+    )
+    assert m[0]["family"] == "qwen-image-21" and m[0]["wired"] is True
+
+
+def test_qwen_claim_order_edit_then_21_then_10():
+    edit = umf.match_families(
+        domain="image", files=[{"src": "qwen_image_edit_2509_fp8_e4m3fn.safetensors"}], src=None,
+        hf_repo="Comfy-Org/Qwen-Image-Edit_ComfyUI", has_model_index=False,
+    )
+    assert edit[0]["family"] == "qwen-image-edit" and edit[0]["wired"] is True
+    v21 = umf.match_families(
+        domain="image", files=[{"src": "qwen_image_2.1_int8_convrot.safetensors"}], src=None,
+        hf_repo="mirror/qwen-image", has_model_index=False,
+    )
+    assert v21[0]["family"] == "qwen-image-21" and v21[0]["wired"] is True
+    v10 = umf.match_families(
+        domain="image", files=[{"src": "qwen_image_fp8_e4m3fn.safetensors"}], src=None,
+        hf_repo="Comfy-Org/Qwen-Image_ComfyUI", has_model_index=False,
+    )
+    assert v10[0]["family"] == "qwen-image" and v10[0]["wired"] is False
+    assert "2.1" in v10[0]["reason"]
+
+
+def test_a_diffusers_21_repo_with_the_10_class_still_resolves_to_21():
+    m = umf.match_families(
+        domain="image", files=[], src=None, hf_repo="Qwen/Qwen-Image-2.1",
+        has_model_index=True, index_class="QwenImagePipeline",
+    )
+    assert m[0]["family"] == "qwen-image-21" and m[0]["wired"] is True
+
+
+@pytest.mark.parametrize("family,name,fragment", [
+    ("qwen-image-21", "qwen-image-2.1-UC-Q8_0.gguf", "GGUF loader does not read"),
+    ("qwen-image-21", "qwen-image-2.1-UC-MLX-8bit.safetensors", "Apple MLX"),
+    ("flux", "flux1-dev-MLX-4bit.safetensors", "Apple MLX"),
+    ("qwen-image-edit", "qwen_image_edit_MLX.safetensors", "Apple MLX"),
+    ("qwen-image-21", "qwen-image-2.1.ckpt", "pick a .safetensors"),
+])
+def test_weight_files_a_comfy_loader_cannot_read_are_refused_by_name(family, name, fragment):
+    problem = umf.weight_file_problem(family, name)
+    assert problem and problem.startswith(name) and fragment in problem
+
+
+@pytest.mark.parametrize("family,name", [
+    ("qwen-image-21", "qwen-image-2.1-UC-fp8.safetensors"),
+    ("qwen-image-21", "diffusion_models/qwen_image_2.1_int8_convrot.safetensors"),
+    ("flux", "flux1-dev-Q8_0.gguf"),
+    ("flux", "flux1-dev.safetensors"),
+    ("sdxl", "anything.gguf"),
+])
+def test_weight_files_the_loader_reads_pass(family, name):
+    assert umf.weight_file_problem(family, name) is None
+
+
+@pytest.mark.parametrize("family", ["flux", "qwen-image-edit"])
+@pytest.mark.parametrize("suffix", umf.WEIGHT_SUFFIXES)
+def test_flux_and_edit_rows_still_take_every_weight_suffix(family, suffix):
+    # Only Qwen-Image 2.1 narrows the suffixes; the other Comfy rows keep taking
+    # what they took before (the MLX refusal is by name, not suffix).
+    assert umf.weight_file_problem(family, f"model{suffix}") is None
+
+
+def test_a_multi_base_lora_card_is_not_refused_for_a_base_it_also_names():
+    # The card's base_model feeds the Qwen 2.1 claim only; a FLUX LoRA whose card
+    # also lists SD3.5 as a base stays a FLUX LoRA instead of an SD3 refusal.
+    m = umf.match_families(
+        domain="image", files=[{"src": "flux-dev-style-lora.safetensors"}], src=None,
+        hf_repo="someone/flux-style-lora", has_model_index=False,
+        base_model=["black-forest-labs/FLUX.1-dev", "stabilityai/stable-diffusion-3.5-large"],
+    )
+    assert (m[0]["family"], m[0]["role"], m[0]["wired"]) == ("flux", "lora", True)
+    # And a base_model naming an unwired family alone does not refuse a plain file.
+    m = umf.match_families(
+        domain="image", files=[{"src": "merged.safetensors"}], src=None,
+        hf_repo="someone/sdxl-merge", has_model_index=False,
+        base_model=["stabilityai/stable-diffusion-3.5-large"],
+    )
+    assert all(x["wired"] for x in m) or m == []
+
+
+@pytest.mark.parametrize("model_id,family", [
+    ("flux-dev", "flux"), ("flux", "flux"), ("FLUX1-dev", "flux"), ("comfyui (flux-schnell)", "flux"),
+    ("user-flux-fp8", "flux"), ("qwen-image-21", "qwen-image-21"),
+    ("user-qwen-image-21-uc-fp8", "qwen-image-21"),
+    ("user-qwen-image-edit-x", None), ("zimage-turbo", None), ("sd-xl", None), ("", None), (None, None),
+    ("user-sdxl-juggernaut", None), ("comfyui", None),
+])
+def test_comfy_t2i_family_reads_the_family_off_the_id(model_id, family):
+    assert umf.comfy_t2i_family(model_id) == family
+
+
+def test_base_model_from_card_data():
+    class _Info:
+        card_data = {"base_model": ["Qwen/Qwen-Image-2.1"], "license": "other"}
+
+    assert umf._base_model_from_info(_Info()) == ["Qwen/Qwen-Image-2.1"]
+    _Info.card_data = {"base_model": "Qwen/Qwen-Image-2.1"}
+    assert umf._base_model_from_info(_Info()) == ["Qwen/Qwen-Image-2.1"]
+    _Info.card_data = {}
+    assert umf._base_model_from_info(_Info()) == []
 
 
 def test_match_wired_qwen_image_edit_repo():

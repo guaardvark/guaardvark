@@ -177,6 +177,18 @@ try:
                        or "pulid_flux_v0.9.1.safetensors")
     PULID_MIN_STEPS = int(_PULID.get("min_steps") or 20)
     PULID_IDENTITY_DEFAULTS.update(_PULID.get("identity_defaults") or {})
+    # Qwen-Image 2.1 text-to-image: loader filenames, the official template's
+    # sampling defaults and the ComfyUI node classes the graph needs.
+    _QWEN21 = _VMR.get("qwen-image-21") or {}
+    QWEN21_UNET = ((_QWEN21.get("files") or [{}])[0].get("dst")
+                   or "qwen_image_2.1_int8_convrot.safetensors")
+    QWEN21_CLIP = (((_VMR.get("qwen-image-21-clip") or {}).get("files") or [{}])[0].get("dst")
+                   or "qwen3vl_8b_int8_convrot.safetensors")
+    QWEN21_VAE = (((_VMR.get("qwen-image-21-vae") or {}).get("files") or [{}])[0].get("dst")
+                  or "qwen_image_2.1_vae_bf16.safetensors")
+    QWEN21_DEFAULT_STEPS = int(_QWEN21.get("default_steps") or 25)
+    QWEN21_DEFAULT_CFG = float(_QWEN21.get("default_cfg") or 1.0)
+    QWEN21_NODES = tuple(_QWEN21.get("comfy_nodes") or ("TextEncodeQwenImage21", "QwenImage21Cache"))
 except Exception:  # pragma: no cover - registry import is environment-specific
     KONTEXT_UNET = "flux1-kontext-dev-Q6_K.gguf"
     KONTEXT_DEFAULT_STEPS = 28
@@ -186,8 +198,22 @@ except Exception:  # pragma: no cover - registry import is environment-specific
     QWEN_EDIT_VAE = "qwen_image_vae.safetensors"
     PULID_FLUX_FILE = "pulid_flux_v0.9.1.safetensors"
     PULID_MIN_STEPS = 20
+    QWEN21_UNET = "qwen_image_2.1_int8_convrot.safetensors"
+    QWEN21_CLIP = "qwen3vl_8b_int8_convrot.safetensors"
+    QWEN21_VAE = "qwen_image_2.1_vae_bf16.safetensors"
+    QWEN21_DEFAULT_STEPS = 25
+    QWEN21_DEFAULT_CFG = 1.0
+    QWEN21_NODES = ("TextEncodeQwenImage21", "QwenImage21Cache")
     _is_model_installed = None
     _comfy_models_dir = None
+
+# The model tag the Qwen-Image 2.1 graph dispatches on (shipped id and the
+# prefix of every user id of the family).
+QWEN21_TAG = "qwen-image-21"
+# TextEncodeQwenImage21's resolution input, as the official template sets it.
+QWEN21_ENCODER_RESOLUTION = 1024
+# The sides the model samples on; the template's usage note asks for multiples of 32.
+QWEN21_SIDE_ALIGNMENT = 32
 
 # A neutral SDXL negative — keeps anatomy/quality sane without fighting the LoRA.
 DEFAULT_NEGATIVE = (
@@ -274,28 +300,32 @@ def ensure_lora_in_comfyui(lora_path: str) -> bool:
         return False
 
 
-# Engine list is a live /object_info query (a large payload). Cache it briefly so
-# a per-model listing does not fan out one probe per row, and so a down ComfyUI
-# does not cost a timeout per row. Short enough that starting/stopping the plugin
-# is picked up within a few seconds. Set the TTL to 0 to disable caching.
+# /object_info is a large payload that answers both "which engines are installed"
+# and "which node classes exist". Cache it briefly so a per-model listing does
+# not fan out one probe per row, and so a down ComfyUI does not cost a timeout
+# per row. Short enough that starting/stopping the plugin is picked up within a
+# few seconds. Set the TTL to 0 to disable caching.
 _ENGINE_CACHE_TTL_SECONDS = float(
     os.environ.get("GUAARDVARK_COMFYUI_ENGINE_CACHE_TTL", "5")
 )
-_ENGINE_CACHE: dict[str, tuple[float, list[str]]] = {}
+_ENGINE_CACHE: dict[str, tuple[float, dict | None]] = {}
+_CACHE_MISS = object()
 
 
-def _engine_cache_get(comfy_url: str) -> list[str] | None:
+def _engine_cache_get(comfy_url: str):
+    """The cached object_info (a dict, or None for an unreachable server), or
+    ``_CACHE_MISS`` when nothing fresh is cached."""
     if _ENGINE_CACHE_TTL_SECONDS <= 0:
-        return None
+        return _CACHE_MISS
     cached = _ENGINE_CACHE.get(comfy_url)
     if cached is not None and (time.monotonic() - cached[0]) < _ENGINE_CACHE_TTL_SECONDS:
-        return list(cached[1])
-    return None
+        return cached[1]
+    return _CACHE_MISS
 
 
-def _engine_cache_put(comfy_url: str, engines: list[str]) -> None:
+def _engine_cache_put(comfy_url: str, info: dict | None) -> None:
     if _ENGINE_CACHE_TTL_SECONDS > 0:
-        _ENGINE_CACHE[comfy_url] = (time.monotonic(), list(engines))
+        _ENGINE_CACHE[comfy_url] = (time.monotonic(), info)
 
 
 
@@ -329,7 +359,7 @@ class ComfyUIImageGenerator:
     def __init__(self, comfy_url: str | None = None, lora_strength: float = 0.25, model: str | None = None,
                  flux_unet: str | None = None, flux_t5: str | None = None,
                  flux_clip: str | None = None, flux_vae: str | None = None,
-                 flux_dev_unet: str | None = None):
+                 flux_dev_unet: str | None = None, qwen21_unet: str | None = None):
         self.comfy_url = (comfy_url or _COMFY_URL).rstrip("/")
         self.lora_strength = lora_strength
         self.model = model or "sdxl"  # "flux-schnell", "sdxl", "sdxl-lora" etc. (from MV keyframe_model)
@@ -339,6 +369,8 @@ class ComfyUIImageGenerator:
         self.flux_clip = flux_clip or FLUX_CLIP
         self.flux_vae = flux_vae or FLUX_VAE
         self.flux_dev_unet = flux_dev_unet or FLUX_DEV_UNET
+        # A user-added Qwen-Image 2.1 UNET; the shipped registry file otherwise.
+        self.qwen21_unet = qwen21_unet or QWEN21_UNET
 
     # ── connectivity ──────────────────────────────────────────────────
     def _available(self) -> bool:
@@ -347,28 +379,58 @@ class ComfyUIImageGenerator:
         except requests.exceptions.RequestException:
             return False
 
-    def comfyui_installed_engines(self) -> list[str]:
-        """Which image engines can the reachable ComfyUI actually run?
+    def _object_info(self, *, fresh: bool = False) -> dict | None:
+        """The running server's ``/object_info``: the authoritative source for the
+        node classes it has and where its models are (an external Comfy Desktop
+        install, not the bundled plugin dir). None when the server is unreachable.
 
-        Queries the running server's ``/object_info`` — the authoritative source
-        for where the live models are (an external Comfy Desktop install, not the
-        bundled plugin dir). Returns engine tags like ``['zimage', 'flux-dev']``.
-
-        The result is cached for a few seconds (see ``_ENGINE_CACHE_TTL_SECONDS``)
-        so callers that must not block — and per-model listings — do not issue a
-        probe each time. An unreachable server caches an empty list for the same
-        TTL, so a down ComfyUI does not cost a timeout per model.
+        Cached for a few seconds (``_ENGINE_CACHE_TTL_SECONDS``) so callers that
+        must not block, and per-model listings, do not issue a probe each time;
+        an unreachable server is cached too, so a down ComfyUI does not cost a
+        timeout per model. ``fresh`` skips the cache for one probe.
         """
-        cached = _engine_cache_get(self.comfy_url)
-        if cached is not None:
+        cached = _CACHE_MISS if fresh else _engine_cache_get(self.comfy_url)
+        if cached is not _CACHE_MISS:
             return cached
         try:
             resp = requests.get(f"{self.comfy_url}/object_info", timeout=5)
             resp.raise_for_status()
             info = resp.json()
+            if not isinstance(info, dict):
+                info = {}
         except Exception as e:
             logger.warning("ComfyUI object_info probe failed: %s", e)
-            _engine_cache_put(self.comfy_url, [])
+            info = None
+        _engine_cache_put(self.comfy_url, info)
+        return info
+
+    def missing_node_classes(self, class_names) -> list[str]:
+        """The node classes in ``class_names`` the running ComfyUI does not have.
+
+        Empty when nothing is asked for (no probe is made), when every one is
+        there, and when the server could not be asked even by a fresh probe (its
+        own validation then reports what is missing). A cached empty answer, from
+        a server that was still starting, is not trusted for this: one uncached
+        probe is made first.
+        """
+        names = list(class_names or ())
+        if not names:
+            return []
+        info = self._object_info()
+        if not info:
+            info = self._object_info(fresh=True)
+        if not info:
+            return []
+        return [name for name in names if name not in info]
+
+    def comfyui_installed_engines(self) -> list[str]:
+        """Which image engines can the reachable ComfyUI actually run?
+
+        Reads ``_object_info`` and returns engine tags like ``['zimage', 'flux-dev']``;
+        an unreachable server reads as no engines.
+        """
+        info = self._object_info()
+        if not info:
             return []
 
         def _choices(node: str, key: str) -> list[str]:
@@ -398,7 +460,6 @@ class ComfyUIImageGenerator:
         if (FLUX_UNET in all_unet and FLUX_T5 in dual
                 and FLUX_CLIP in dual and FLUX_VAE in vae):
             engines.append("flux-schnell")
-        _engine_cache_put(self.comfy_url, engines)
         return engines
 
     def _require_up(self, down_message: str) -> None:
@@ -496,6 +557,19 @@ class ComfyUIImageGenerator:
                     )
                     effective_model = "zimage"
                     ml = "zimage"
+
+        if QWEN21_TAG in ml:
+            if lora_names:
+                # The graph has no LoRA input; dropping them would silently lose
+                # the identity or style the caller asked for.
+                raise RuntimeError(
+                    "Qwen-Image 2.1 renders do not take LoRAs yet. Remove the LoRA "
+                    "or pick a FLUX, SDXL or Z-Image model for it."
+                )
+            return self._build_qwen21_workflow(
+                prompt=prompt, negative=negative, width=width, height=height,
+                seed=seed, steps=steps, cfg=cfg,
+            )
 
         if "flux" in ml and "dev" in ml:
             # FLUX-dev branch: plain flux-dev stills, and LoRAs whose sidecar names
@@ -946,6 +1020,87 @@ class ComfyUIImageGenerator:
         wf["save"] = {"class_type": "SaveImage", "inputs": {"filename_prefix": "edit-qwen", "images": ["vae", 0]}}
         return wf
 
+    def _build_qwen21_workflow(
+        self, *, prompt: str, negative: str, width: int, height: int,
+        seed: int, steps: int, cfg: float,
+    ) -> dict:
+        """The official Comfy-Org Qwen-Image 2.1 text-to-image graph
+        (image_qwen_image_2_1_t2i): UNETLoader + CLIPLoader(qwen_image) +
+        VAELoader, QwenImage21Cache on the model, TextEncodeQwenImage21 for both
+        conditionings, EmptyLatentImage, KSampler euler/simple.
+
+        Steps and cfg default to the template's (25, 1.0) when the caller gives
+        none; a value that is given is used as given. No floor is declared: nothing
+        has been measured on a card yet. Sides snap down to multiples of 32.
+        """
+        n = int(steps) if steps and int(steps) > 0 else QWEN21_DEFAULT_STEPS
+        guidance = float(cfg) if cfg is not None and float(cfg) > 0 else QWEN21_DEFAULT_CFG
+        grid = QWEN21_SIDE_ALIGNMENT
+        w = max(grid, (int(width) // grid) * grid)
+        h = max(grid, (int(height) // grid) * grid)
+        # The generic SDXL negative is tag stuffing a prose encoder reads as
+        # content; the template leaves the negative empty unless one is asked for.
+        neg = "" if negative in (None, "", DEFAULT_NEGATIVE) else str(negative)
+        return {
+            "unet": {
+                "class_type": "UNETLoader",
+                "inputs": {"unet_name": self.qwen21_unet, "weight_dtype": "default"},
+            },
+            "clip": {
+                "class_type": "CLIPLoader",
+                "inputs": {"clip_name": QWEN21_CLIP, "type": "qwen_image"},
+            },
+            "vae_loader": {"class_type": "VAELoader", "inputs": {"vae_name": QWEN21_VAE}},
+            "cache": {
+                "class_type": "QwenImage21Cache",
+                "inputs": {"model": ["unet", 0], "device": "auto", "dtype": "default"},
+            },
+            "encode": {
+                "class_type": "TextEncodeQwenImage21",
+                "inputs": {
+                    "clip": ["clip", 0],
+                    "prompt": prompt,
+                    "negative_prompt": neg,
+                    "resolution": QWEN21_ENCODER_RESOLUTION,
+                },
+            },
+            "latent": {
+                "class_type": "EmptyLatentImage",
+                "inputs": {"width": w, "height": h, "batch_size": 1},
+            },
+            "sampler": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "seed": seed, "steps": n, "cfg": guidance,
+                    "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0,
+                    "model": ["cache", 0], "positive": ["encode", 0],
+                    "negative": ["encode", 1], "latent_image": ["latent", 0],
+                },
+            },
+            "vae": {"class_type": "VAEDecode", "inputs": {"samples": ["sampler", 0], "vae": ["vae_loader", 0]}},
+            "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-qwen-image-21", "images": ["vae", 0]}},
+        }
+
+    def required_node_classes(self, model: str | None) -> tuple:
+        """Node classes a model's graph needs beyond ComfyUI's long-standing core."""
+        if QWEN21_TAG in (model or "").lower():
+            return tuple(QWEN21_NODES)
+        return ()
+
+    def check_graph_nodes(self, model: str | None) -> None:
+        """Raise before queueing when the running ComfyUI lacks a node the
+        model's graph uses; the message names the ComfyUI version that has it.
+        A graph that declares no nodes is not probed for."""
+        required = self.required_node_classes(model)
+        if not required:
+            return
+        missing = self.missing_node_classes(required)
+        if missing:
+            raise RuntimeError(
+                "Qwen-Image 2.1 needs ComfyUI 0.37 or newer: the running ComfyUI has no "
+                f"{', '.join(missing)} node. Update the ComfyUI plugin and try again."
+            )
+
     def _build_pulid_workflow(
         self, *, src_image_name: str, prompt: str, width: int, height: int,
         steps: int, seed: int, weight: float | None = None, start_at: float | None = None,
@@ -1239,7 +1394,14 @@ class ComfyUIImageGenerator:
         steps: int = 30, cfg: float = 7.0,
         steps_explicit: bool = False,
         model: str | None = None,  # e.g. keyframe_model from MV settings ("flux-schnell", "sdxl"...)
+        admit_vram_mb: int | None = None,
     ) -> str:
+        """Render one still on the ComfyUI graph ``model`` names.
+
+        ``admit_vram_mb`` claims the GPU for the render the way a chat edit does
+        (refuse when busy, require the estimate to fit); callers that already
+        hold a session (the batch runner) leave it None.
+        """
         self._require_up(
             f"ComfyUI not reachable at {self.comfy_url} — cannot generate storyboard image"
         )
@@ -1277,18 +1439,24 @@ class ComfyUIImageGenerator:
             model=effective_model,
             steps_explicit=steps_explicit,
         )
+        self.check_graph_nodes(effective_model)
 
-        prompt_id = self._queue(workflow)
-        if not prompt_id:
-            raise RuntimeError("ComfyUI did not accept the image workflow")
+        if admit_vram_mb:
+            result = self._run_edit_graph(
+                workflow, output_path, job="stills_comfy", vram_mb=int(admit_vram_mb), timeout=300,
+            )
+        else:
+            prompt_id = self._queue(workflow)
+            if not prompt_id:
+                raise RuntimeError("ComfyUI did not accept the image workflow")
 
-        outputs = self._wait(prompt_id)
-        if outputs is None:
-            raise RuntimeError(f"ComfyUI image generation timed out (prompt {prompt_id})")
+            outputs = self._wait(prompt_id)
+            if outputs is None:
+                raise RuntimeError(f"ComfyUI image generation timed out (prompt {prompt_id})")
 
-        result = self._fetch_first_image(outputs, output_path)
-        if result is None:
-            raise RuntimeError(f"ComfyUI produced no image for prompt {prompt_id}")
+            result = self._fetch_first_image(outputs, output_path)
+            if result is None:
+                raise RuntimeError(f"ComfyUI produced no image for prompt {prompt_id}")
 
         self.last_steps = next(
             node["inputs"]["steps"] for node in workflow.values()

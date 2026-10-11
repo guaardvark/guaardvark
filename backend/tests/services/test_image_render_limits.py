@@ -38,6 +38,8 @@ OLD_STILLS_DEFAULTS = {
     "sd": {"width": 512, "height": 512, "steps": 20, "guidance": 7.5, "prompt_style": "tags"},
     "flux": {"width": 1024, "height": 1024, "steps": 28, "guidance": 3.5, "prompt_style": "tags"},
     "sana": {"width": 1024, "height": 1024, "steps": 2, "guidance": 4.5, "prompt_style": "tags"},
+    # Qwen-Image 2.1: the official Comfy-Org template's values; no measured floor yet.
+    "qwen-image-21": {"width": 1024, "height": 1024, "steps": 25, "guidance": 1.0, "prompt_style": "natural"},
 }
 
 OLD_MODEL_SETTINGS = {'epic-realism': {'best_for': ['faces', 'portraits', 'cinematic'],
@@ -64,6 +66,21 @@ OLD_MODEL_SETTINGS = {'epic-realism': {'best_for': ['faces', 'portraits', 'cinem
                   'warnings': ['Runs through ComfyUI (needs Comfy up + flux1-dev weights).',
                                'Heavy VRAM — batch max_workers forced to 1.',
                                'Flux Dev design range is ~2.0 MP total — not 2048×2048.']},
+     'qwen-image-21': {'best_for': ['prompt_adherence', 'text', 'high_res', 'transparency'],
+                       'engine': 'comfy',
+                       'force_max_workers': 1,
+                       'guidance_range': (1.0, 5.0),
+                       'hard_clamp': False,
+                       'max_dimensions': (2048, 2048),
+                       'max_pixels': 4194304,
+                       'min_dimensions': (512, 512),
+                       'recommended_dimensions': (1024, 1024),
+                       'recommended_guidance': 1.0,
+                       'recommended_steps': 25,
+                       'steps_range': (10, 50),
+                       'warnings': ['Runs through ComfyUI 0.37 or newer (needs Comfy up + the Qwen-Image 2.1 weights).',
+                                    'Heavy VRAM — batch max_workers forced to 1.',
+                                    'Qwen Research License: non-commercial research and evaluation only.']},
      'krea2-raw': {'best_for': ['creative', 'photorealism', 'versatile', 'high_res', 'mature', 'fine_tune_base'],
                    'guidance_range': (1.0, 7.0),
                    'hard_clamp': False,
@@ -208,7 +225,7 @@ def test_every_model_row_names_a_family_with_a_full_row():
 
 
 def test_the_catalog_models_all_have_a_row():
-    catalog = {"zimage-turbo", "flux-dev", "krea2-turbo", "krea2-raw", "sd-xl", "sdxl-turbo",
+    catalog = {"zimage-turbo", "flux-dev", "qwen-image-21", "krea2-turbo", "krea2-raw", "sd-xl", "sdxl-turbo",
                "realistic-vision", "epic-realism", "sana-sprint",
                "sana-sprint-0.6b"}   # OfflineImageGenerator.available_models
     assert catalog <= set(IMAGE_MODEL_LIMITS)
@@ -220,6 +237,8 @@ def test_the_catalog_models_all_have_a_row():
     ("sd-xl", "sdxl"), ("sdxl-turbo", "sdxl"), ("stabilityai/stable-diffusion-xl-base-1.0", "sdxl"),
     ("realistic-vision", "sd"), ("epic-realism", "sd"), ("", "sd"), (None, "sd"),
     ("sana-sprint", "sana"), ("Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers", "sana"),
+    ("qwen-image-21", "qwen-image-21"), ("comfy:qwen-image-21", "qwen-image-21"),
+    ("user-qwen-image-21-uc-fp8", "qwen-image-21"),
 ])
 def test_one_family_mapper(model, family):
     from backend.services.image_resolution_limits import resolve_family

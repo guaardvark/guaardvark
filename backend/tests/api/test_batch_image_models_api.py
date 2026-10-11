@@ -276,6 +276,59 @@ def test_list_includes_undownloaded_user_flux(client, monkeypatch):
     assert "user-flux-fp8" not in [m["id"] for m in payload["data"]["unavailable_models"]]
 
 
+def test_list_carries_missing_files_for_comfy_rows(client, monkeypatch):
+    # A ComfyUI model that lacks its companions says which files Install still
+    # fetches, in the editing packs' "<entry>:<file>" shape; offline rows say [].
+    from backend.services import user_image_models as uim
+
+    gen = api.get_batch_image_generator().image_generator
+    base = {"downloaded": False, "availability": "downloadable", "selectable": True,
+            "description": "", "recommended": False, "kind": "comfy_files", "order": 1}
+    gen.get_available_models = lambda probe_remote=True: {
+        "qwen-image-21": {**base, "id": "comfy:qwen-image-21", "label": "Qwen-Image 2.1", "family": "qwen-image-21",
+                          "user": False, "missing_files": ["qwen-image-21-clip:qwen3vl_8b_int8_convrot.safetensors"]},
+        "user-qwen-image-21-uc": {**base, "id": "user:user-qwen-image-21-uc", "label": "UC", "family": "qwen-image-21",
+                                  "user": True, "missing_files": ["user-qwen-image-21-uc:qwen-image-2.1-UC-fp8.safetensors",
+                                                                  "qwen-image-21-vae:qwen_image_2.1_vae_bf16.safetensors"]},
+        "zimage-turbo": {**base, "id": "Tongyi-MAI/Z-Image-Turbo", "label": "Z", "family": "zimage", "user": False},
+    }
+    monkeypatch.setattr(uim, "catalog_rows", lambda _g: [])
+    monkeypatch.setattr(uim, "family_choices", lambda: [])
+    payload = client.get("/api/batch-image/models").get_json()
+    assert payload["success"], payload
+    rows = {m["id"]: m for m in payload["data"]["models"]}
+    assert rows["qwen-image-21"]["missing_files"] == ["qwen-image-21-clip:qwen3vl_8b_int8_convrot.safetensors"]
+    assert rows["user-qwen-image-21-uc"]["missing_files"][0].startswith("user-qwen-image-21-uc:")
+    assert rows["zimage-turbo"]["missing_files"] == []
+    assert rows["qwen-image-21"]["prompt_style"] == "natural"
+
+
+def test_generator_missing_files_reads_the_registry_plan(monkeypatch, tmp_path):
+    from backend.services import video_model_registry as vmr
+    from backend.services.offline_image_generator import OfflineImageGenerator as G
+
+    monkeypatch.setattr(vmr, "comfyui_models_dir", lambda: tmp_path / "models")
+    gen = G.__new__(G)
+    gen.available_models = {"qwen-image-21": "comfy:qwen-image-21", "flux-dev": "comfy:flux-dev",
+                            "zimage-turbo": "Tongyi-MAI/Z-Image-Turbo"}
+    gen.comfy_only_models = {"flux-dev", "qwen-image-21", "comfyui"}
+    gen.user_entries, gen.user_files, gen.family_overrides = {}, {}, {}
+    assert gen.missing_files_for("qwen-image-21") == [
+        "qwen-image-21:qwen_image_2.1_int8_convrot.safetensors",
+        "qwen-image-21-clip:qwen3vl_8b_int8_convrot.safetensors",
+        "qwen-image-21-vae:qwen_image_2.1_vae_bf16.safetensors",
+    ]
+    assert gen.missing_files_for("zimage-turbo") == []
+    assert gen._is_model_downloaded("comfy:qwen-image-21") is False
+    for eid in vmr.install_plan("qwen-image-21"):
+        entry = vmr.VIDEO_MODEL_REGISTRY[eid]
+        p = vmr.resolve_entry_dir(entry) / entry["check_files"][0]
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(b"x")
+    assert gen._is_model_downloaded("comfy:qwen-image-21") is True
+    assert gen.missing_files_for("qwen-image-21") == []
+
+
 def test_list_reports_prompt_style_per_model_and_for_auto(client, monkeypatch):
     # The page hides the content-type and anatomy controls for models that
     # read prompts as prose; the list says which ones those are.

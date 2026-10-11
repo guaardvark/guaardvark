@@ -41,7 +41,7 @@ def _build_family_defaults() -> dict[str, dict[str, Any]]:
     from backend.services.image_render_limits import defaults_for
 
     table: dict[str, dict[str, Any]] = {}
-    for key in ("zimage", "krea2-turbo", "krea2-raw", "sdxl", "sd", "flux", "sana"):
+    for key in ("zimage", "krea2-turbo", "krea2-raw", "sdxl", "sd", "flux", "sana", "qwen-image-21"):
         d = defaults_for(key, strict=False)
         entry: dict[str, Any] = {}
         if d["min_steps"] is not None:
@@ -99,6 +99,8 @@ def model_family(model: str | None) -> str:
             mid = (resolve_stills_model("auto") or "zimage-turbo").strip().lower()
         except Exception:
             mid = "zimage-turbo"
+    if "qwen-image-21" in mid:
+        return "qwen-image-21"
     if "flux" in mid:
         return "flux"
     if "krea" in mid:
@@ -187,7 +189,7 @@ def resolve_stills_defaults(
             "zimage": "Z-Image Turbo", "krea2-turbo": "Krea 2 Turbo",
             "krea2-raw": "Krea 2 Raw", "sdxl": "SDXL",
             "sd": "Stable Diffusion", "flux": "FLUX", "sana": "Sana Sprint",
-            "comfyui": "ComfyUI (Z-Image)",
+            "comfyui": "ComfyUI (Z-Image)", "qwen-image-21": "Qwen-Image 2.1",
         }[family]
         notice = f"{label} needs at least {floor} steps; raised {resolved_steps} to {floor}."
         resolved_steps = floor

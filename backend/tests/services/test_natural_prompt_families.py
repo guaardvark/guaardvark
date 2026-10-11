@@ -23,6 +23,10 @@ def test_prompt_style_is_declared_per_family():
     assert stills_defaults.prompt_style("Tongyi-MAI/Z-Image-Turbo") == "natural"
     assert stills_defaults.prompt_style("sd-xl") == "tags"
     assert stills_defaults.prompt_style("krea2-turbo") == "tags"
+    # Qwen-Image 2.1 encodes with Qwen3-VL and reads prompts as prose.
+    assert stills_defaults.prompt_style("qwen-image-21") == "natural"
+    assert stills_defaults.prompt_style("user-qwen-image-21-uc-fp8") == "natural"
+    assert stills_defaults.prompt_style_for_family("qwen-image-21") == "natural"
     # generator-side family names resolve too
     assert stills_defaults.prompt_style_for_family("zimage") == "natural"
     assert stills_defaults.prompt_style_for_family("krea2") == "tags"

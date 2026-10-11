@@ -37,6 +37,12 @@ _MODEL_NOTES = {
                      "Heavy VRAM — batch max_workers forced to 1.",
                      "Flux Dev design range is ~2.0 MP total — not 2048×2048.",
                  ]},
+    "qwen-image-21": {"best_for": ["prompt_adherence", "text", "high_res", "transparency"],
+                      "warnings": [
+                          "Runs through ComfyUI 0.37 or newer (needs Comfy up + the Qwen-Image 2.1 weights).",
+                          "Heavy VRAM — batch max_workers forced to 1.",
+                          "Qwen Research License: non-commercial research and evaluation only.",
+                      ]},
     "sana-sprint": {"best_for": ["speed", "previews", "high_res", "low_vram"],
                     "warnings": ["Ignores negative prompts."]},
     "sana-sprint-0.6b": {"best_for": ["speed", "previews", "low_vram"],

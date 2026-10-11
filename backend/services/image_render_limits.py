@@ -49,6 +49,8 @@ def family_of(model: Optional[str]) -> str:
         return "zimage"
     if key.startswith("krea") or "krea2" in key or "krea-2" in key:
         return "krea2"
+    if "qwen-image-21" in key:
+        return "qwen-image-21"
     if key.startswith("flux") or "flux" in key:
         return "flux"
     if "sana" in key:

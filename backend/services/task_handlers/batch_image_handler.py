@@ -72,7 +72,7 @@ class BatchImageHandler(BaseTaskHandler):
                 "model": {
                     "type": "string",
                     "default": "auto",
-                    "enum": ["auto", "zimage-turbo", "flux-dev", "krea2-turbo", "krea2-raw", "sd-xl", "sdxl-turbo", "realistic-vision", "epic-realism", "sana-sprint", "sana-sprint-0.6b"],
+                    "enum": ["auto", "zimage-turbo", "flux-dev", "qwen-image-21", "krea2-turbo", "krea2-raw", "sd-xl", "sdxl-turbo", "realistic-vision", "epic-realism", "sana-sprint", "sana-sprint-0.6b"],
                     "description": "Image model; 'auto' lets the router pick the best downloaded model"
                 },
                 "max_workers": {

@@ -353,6 +353,8 @@ class OfflineImageGenerator:
             # FLUX.1-dev — max-quality stills via ComfyUI (not offline Diffusers).
             # Value is a sentinel; batch routes to Comfy when model=flux-dev.
             "flux-dev": "comfy:flux-dev",
+            # Qwen-Image 2.1 — text-to-image via ComfyUI 0.37+; same sentinel shape.
+            "qwen-image-21": "comfy:qwen-image-21",
             # ComfyUI generic backend — chat/batch route to the reachable ComfyUI
             # and pick whichever image engine is installed (Z-Image / FLUX).
             "comfyui": "comfy:comfyui",
@@ -370,7 +372,7 @@ class OfflineImageGenerator:
         # get_available_models() and model_recommender still honour it.
         self.hidden_models: set[str] = set()
         # Offline Diffusers cannot load these — batch/API must route to ComfyUI.
-        self.comfy_only_models = {"flux-dev", "comfyui"}
+        self.comfy_only_models = {"flux-dev", "qwen-image-21", "comfyui"}
         # User-added entries (backend/services/user_image_models.py): family by id
         # or repo, file-kind entries keyed by their "user:<id>" sentinel, and the
         # catalog rows themselves. Filled by load_user_catalog() below.
@@ -382,6 +384,7 @@ class OfflineImageGenerator:
         self.model_meta = {
             "zimage-turbo": {"label": "Z-Image Turbo (Best daily)", "description": "Strong prompt adherence + text, fast (~9 steps / CFG 0). Default daily driver.", "recommended": True, "order": 0},
             "flux-dev": {"label": "FLUX.1 Dev (Max quality)", "description": "Highest ceiling stills via ComfyUI (~28 steps, FluxGuidance). Slower; needs Comfy + flux1-dev weights.", "recommended": False, "order": 1, "engine": "comfy"},
+            "qwen-image-21": {"label": "Qwen-Image 2.1 (ComfyUI)", "description": "Prose prompts, native 2K, transparent renders; 25 steps, cfg 1 (official template). Needs ComfyUI 0.37+. Qwen Research License: non-commercial research and evaluation only.", "recommended": False, "order": 1, "engine": "comfy"},
             "comfyui": {"label": "ComfyUI (auto backend)", "description": "Routes image generation to the running ComfyUI plugin and picks the installed engine (Z-Image or FLUX).", "recommended": False, "order": 1, "engine": "comfy"},
             "krea2-turbo": {"label": "Krea 2 Turbo", "description": "12B aesthetic-first model, native 2K, 8 steps CFG-free. Fast inference.", "recommended": False, "order": 2},
             "krea2-raw": {"label": "Krea 2 Raw", "description": "Base 12B checkpoint — less post-trained than Turbo (~52 steps, CFG 3.5). Use for mature/creative prompts or LoRA base.", "recommended": False, "order": 3},
@@ -553,26 +556,27 @@ class OfflineImageGenerator:
 
     def _is_model_downloaded(self, model_id: str) -> bool:
         if self._user_file_entry(model_id) is not None:
-            from backend.services.user_image_models import user_files_present, user_sentinel
+            from backend.services.user_image_models import user_model_ready, user_sentinel
             sentinel = model_id if model_id in self.user_files else self.available_models.get(model_id, user_sentinel(model_id))
-            return user_files_present(self, sentinel)
+            return user_model_ready(self, sentinel)
         # Sentinel ids — the generic ComfyUI backend has no HF snapshot; its
         # assets are the running ComfyUI's.
         mid = (model_id or "").lower()
         if mid in ("comfyui", "comfy:comfyui"):
             return self._comfyui_assets_present()
         # Comfy-only catalog keys: the video-registry install plan is the source of
-        # truth (flux-dev, qwen-image-edit, …), not a diffusers snapshot.
+        # truth (flux-dev, qwen-image-21, …), not a diffusers snapshot. Ready means
+        # the model and every companion its entry requires are on disk.
         catalog_key = mid.split(":", 1)[1] if mid.startswith("comfy:") else None
         if catalog_key or mid in getattr(self, "comfy_only_models", set()) or mid == "flux-dev" or mid.endswith("flux-dev") or "flux1-dev" in mid:
             try:
-                from backend.services.video_model_registry import is_model_installed
+                from backend.services.video_model_registry import is_plan_installed
                 key = catalog_key or (
                     "flux-dev" if (mid == "flux-dev" or mid.endswith("flux-dev") or "flux1-dev" in mid)
                     else (model_id if model_id in getattr(self, "comfy_only_models", set()) else None)
                 )
                 if key:
-                    return bool(is_model_installed(key))
+                    return bool(is_plan_installed(key))
             except Exception:
                 pass
             if mid == "flux-dev" or "flux1-dev" in mid or (catalog_key == "flux-dev"):
@@ -705,6 +709,26 @@ class OfflineImageGenerator:
         if (entry.get("engine") == "comfy" and entry.get("role") == "generation"):
             return True
         return key.startswith("user-flux")
+
+    def missing_files_for(self, model_key: str) -> List[str]:
+        """``"<entry>:<file>"`` for what a ComfyUI model still lacks on disk: the
+        model's own file and the companions its registry entry (or, for a user
+        model, its family's shipped ``like``) requires. Empty for offline models,
+        whose readiness is the snapshot check."""
+        if not self.is_comfy_only_model(model_key):
+            return []
+        try:
+            if self._user_file_entry(model_key) is not None:
+                from backend.services.user_image_models import user_missing_files
+                return user_missing_files(self, model_key)
+            mid = str(self.available_models.get(model_key) or model_key)
+            catalog_key = mid.split(":", 1)[1] if mid.startswith("comfy:") else model_key
+            from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, missing_plan_files
+            if catalog_key in VIDEO_MODEL_REGISTRY:
+                return missing_plan_files(catalog_key)
+        except Exception as e:  # noqa: BLE001 — a listing must not fail on one row
+            logger.debug("missing_files_for(%s) failed: %s", model_key, e)
+        return []
 
     # How long a repo-access verdict stays good. The menu asks per model, so without
     # a cache every dropdown open would fan out HTTP requests.
@@ -929,6 +953,8 @@ class OfflineImageGenerator:
             return "krea2"
         if "z-image" in mid or "zimage" in mid or key.startswith("zimage"):
             return "zimage"
+        if "qwen-image-21" in mid or key.startswith("qwen-image-21"):
+            return "qwen-image-21"
         if "flux" in mid or key.startswith("flux"):
             return "flux"
         if "sana" in mid or key.startswith("sana"):
@@ -1074,8 +1100,9 @@ class OfflineImageGenerator:
                 family, base = "zimage", self._OFFLOAD_TURBO_VRAM_MB
         else:
             family = self._model_family(model_id)
-            if family == "flux":
-                base = int(_image_limits_for("flux")["vram_mb"])
+            if _image_limits_for(family).get("engine") == "comfy":
+                # ComfyUI families (FLUX, Qwen-Image 2.1) are priced flat by their row.
+                base = int(_image_limits_for(family)["vram_mb"])
             elif family == "krea2" and self._will_use_sequential_for_krea2():
                 base = self._KREA2_SEQUENTIAL_VRAM_MB
             elif family == "sdxl" and self._sdxl_offloads():
@@ -1100,8 +1127,8 @@ class OfflineImageGenerator:
             family, base = "zimage", self._FAMILY_RAM_GB["zimage"]
         else:
             family = self._model_family(model_id)
-            if family == "flux":
-                base = float(_image_limits_for("flux")["ram_gb"])
+            if _image_limits_for(family).get("engine") == "comfy":
+                base = float(_image_limits_for(family)["ram_gb"])
             elif self._limits_row(model_id).get("ram_gb"):
                 base = float(self._limits_row(model_id)["ram_gb"])
             else:
@@ -3997,9 +4024,13 @@ Negative Prompt: {negative_prompt}""",
                 "selectable": availability in ("ready", "downloadable"),
                 "gated": gated,
                 "current": model_id == self._current_model,
+                # ComfyUI rows say which files are still missing (model + companions),
+                # the way the editing packs do; offline rows have no file list.
+                "missing_files": [] if downloaded else self.missing_files_for(model_key),
                 "size_estimate": (
                     "28-36GB" if "krea" in model_id.lower()
                     else "23GB+Comfy" if "flux" in model_key or "flux" in model_id.lower()
+                    else "17GB+Comfy" if "qwen-image-21" in model_key
                     else "16GB" if "z-image" in model_id.lower() or "zimage" in model_key
                     else "Comfy backend" if model_key == "comfyui"
                     else "12-15GB" if "xl" in model_id.lower()

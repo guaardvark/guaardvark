@@ -314,16 +314,19 @@ def _generate_one(
         get_image_generator,
     )
 
-    # FLUX via Comfy is still a separate engine; offline path is the default.
-    # "comfyui" / "comfy" is a generic ComfyUI backend selector: auto-pick an
-    # installed engine (Z-Image when GUAARDVARK_ZIMAGE_USE_COMFYUI=1, else FLUX).
+    # ComfyUI stills families (FLUX, Qwen-Image 2.1) are a separate engine; the
+    # offline path is the default. "comfyui" / "comfy" is a generic ComfyUI
+    # backend selector: auto-pick an installed engine (Z-Image when
+    # GUAARDVARK_ZIMAGE_USE_COMFYUI=1, else FLUX).
+    from backend.services.user_model_families import comfy_t2i_family
     mid = (model or "").lower()
-    if "flux" in mid:
+    if comfy_t2i_family(model):
         return _generate_comfy_flux(
             prompt=prompt, negative=negative, model=model,
             width=width, height=height, steps=steps, guidance=guidance,
             steps_explicit=steps_explicit,
             seed=seed, enhance_mode=enhance_mode, output=output, output_dir=output_dir,
+            hold_gpu=hold_gpu,
         )
     if mid in ("comfyui", "comfy"):
         # run_stills_pipeline resolves the engine once and hands it down so the
@@ -533,12 +536,25 @@ def _generate_comfy_flux(
     output: str,
     output_dir: Path | str | None,
     comfy_model: str | None = None,
+    hold_gpu: bool = False,
 ) -> StillResult:
     # The caller's model tag chooses the graph (upstream #218): "flux" + "dev" is
-    # the FLUX-dev graph, plain "flux" the schnell GGUF branch. The generic
-    # ``comfyui`` selector passes the engine it resolved via ``comfy_model`` so
-    # dispatch matches the family defaults it was resolved from.
+    # the FLUX-dev graph, plain "flux" the schnell GGUF branch, "qwen-image-21"
+    # the Qwen-Image 2.1 graph. The generic ``comfyui`` selector passes the
+    # engine it resolved via ``comfy_model`` so dispatch matches the family
+    # defaults it was resolved from. A user-added model resolves to its family's
+    # graph with its own UNET file.
     model_tag = comfy_model or model
+    unet_kwargs: dict = {}
+    target = _user_comfy_target(model) if comfy_model is None else None
+    if target and target.get("unet"):
+        model_tag = target["tag"]
+        if target["family"] == "qwen-image-21":
+            unet_kwargs["qwen21_unet"] = target["unet"]
+        elif model_tag == "flux-schnell":
+            unet_kwargs["flux_unet"] = target["unet"]
+        else:
+            unet_kwargs["flux_dev_unet"] = target["unet"]
     try:
         from backend.services.comfyui_image_generator import ComfyUIImageGenerator
         from backend.services.image_render_limits import resolve_canvas, strict_limits_enabled
@@ -546,7 +562,7 @@ def _generate_comfy_flux(
             # FLUX's ~2 MP design range applies here too; the offline path and
             # the Studio batch already clamp, this path sent the size as asked.
             width, height, _ = resolve_canvas(width, height, model)
-        gen = ComfyUIImageGenerator()
+        gen = ComfyUIImageGenerator(**unet_kwargs)
         out_path = None
         if output_dir:
             out_path = str(Path(output_dir) / f"flux_{uuid.uuid4().hex[:8]}.png")
@@ -561,6 +577,7 @@ def _generate_comfy_flux(
             steps=steps,
             steps_explicit=steps_explicit,
             cfg=guidance,
+            admit_vram_mb=_comfy_admission_mb(model_tag) if hold_gpu else None,
         )
         url = None
         if output == "chat_copy" and path:
@@ -609,6 +626,33 @@ _COMFYUI_ENGINE_FAMILY = {
     "flux-dev": "flux",
     "flux-schnell": "flux",
 }
+
+
+def _user_comfy_target(model: str | None) -> dict | None:
+    """A user-added ComfyUI model's {family, tag, unet}; None for shipped ids,
+    offline models and when the generator cannot be read."""
+    from backend.services.user_image_models import is_user_model_id
+    if not is_user_model_id(model or ""):
+        return None
+    try:
+        from backend.services.offline_image_generator import get_image_generator
+        from backend.services.user_image_models import comfy_t2i_target
+        return comfy_t2i_target(get_image_generator(), model)
+    except Exception as e:  # noqa: BLE001 — the graph then loads its registry file
+        logger.debug("user comfy target for %r not resolved: %s", model, e)
+        return None
+
+
+def _comfy_admission_mb(model_tag: str | None) -> int | None:
+    """The VRAM a chat render on ``model_tag`` is admitted at, from the family's
+    registry entry; None for the FLUX graphs, which chat has always queued
+    without a claim."""
+    from backend.services.user_model_families import comfy_t2i_family
+    family = comfy_t2i_family(model_tag)
+    if family != "qwen-image-21":
+        return None
+    from backend.services.video_model_registry import vram_mb_for_model
+    return int(vram_mb_for_model(family))
 
 
 def _comfyui_backend_choice() -> tuple[str, str] | None:
