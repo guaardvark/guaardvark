@@ -204,6 +204,18 @@ IMAGE_MODEL_SIZES = {
     "Efficient-Large-Model/Sana_Sprint_0.6B_1024px_diffusers": 7.7,
 }
 
+def _catalog_size_gb(path: str) -> float:
+    """Download size of a catalog row. A ``comfy:`` key is the sum of its registry
+    install plan (model + companions); anything else comes from IMAGE_MODEL_SIZES."""
+    if path.startswith("comfy:"):
+        from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY, install_plan
+        total = sum(float(VIDEO_MODEL_REGISTRY.get(e, {}).get("size_gb") or 0)
+                    for e in install_plan(path.split(":", 1)[1]))
+        if total:
+            return round(total, 2)
+    return IMAGE_MODEL_SIZES.get(path, 2.5)
+
+
 # Why a model is missing from the picker, phrased for the person reading it.
 _AVAILABILITY_REASONS = {
     "needs_licence": (
@@ -739,7 +751,7 @@ def list_models():
                 "label": info.get("label", model_id),
                 "description": info.get("description", ""),
                 "recommended": info.get("recommended", False),
-                "size_gb": info.get("size_gb") or IMAGE_MODEL_SIZES.get(info["id"], 2.5),
+                "size_gb": info.get("size_gb") or _catalog_size_gb(info["id"]),
                 "availability": info.get("availability", "downloadable"),
                 "gated": bool(info.get("gated")),
                 # User catalog rows (Manage Image Models → Add new model).
