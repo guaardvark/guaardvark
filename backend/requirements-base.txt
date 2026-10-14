@@ -21,7 +21,7 @@ eventlet==0.41.2
 # Data Processing & Analysis
 numpy<2.0,>=1.26.4  # Pin to <2.0 for PyTorch compatibility
 pandas==2.2.2
-pydantic==2.13.5
+pydantic==2.14.1
 psutil==7.2.2
 # regex runs search_code's caller-supplied patterns under a per-call timeout
 # (backend/tools/llama_code_tools.py). transformers, nltk and tiktoken install it
