@@ -131,7 +131,7 @@ piper-tts==1.7.0
 onnxruntime==1.30.0
 pydub==0.25.1
 librosa>=0.10.2  # Audio decode + duration probe in voice_api.py
-numba>=0.61  # librosa's JIT; its numpy ceiling is what bounds the numpy line in constraints.txt
+numba>=0.68.0  # librosa's JIT; its numpy ceiling is what bounds the numpy line in constraints.txt
 soundfile>=0.14.0  # WAV/FLAC IO for voice_api + audio_foundry backends
 
 # Testing Dependencies
