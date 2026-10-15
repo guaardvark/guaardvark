@@ -653,7 +653,7 @@ class ComfyUIVideoWorkflowMixin:
 
             # ── Decode + Output ────────────────────────────────────────────
             # Node 12: VAE Decode — tiled for HD+ so your GPU doesn't rage-quit
-            "12": self._build_vae_decode_node("11", "4", width, height),
+            "12": self._build_vae_decode_node("11", "4", width, height, num_frames=num_frames),
             # Node 13: Create video from frames
             "13": {
                 "class_type": "VHS_VideoCombine",
@@ -846,7 +846,7 @@ class ComfyUIVideoWorkflowMixin:
                     "return_with_leftover_noise": "disable",
                 },
             },
-            "12": self._build_vae_decode_node("11", "4", width, height),
+            "12": self._build_vae_decode_node("11", "4", width, height, num_frames=num_frames),
             "13": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
@@ -990,7 +990,7 @@ class ComfyUIVideoWorkflowMixin:
                     "denoise": 1.0,
                 },
             },
-            "12": self._build_vae_decode_node("10", "4", width, height),
+            "12": self._build_vae_decode_node("10", "4", width, height, num_frames=num_frames),
             "13": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
@@ -2422,14 +2422,32 @@ class ComfyUIVideoWorkflowMixin:
         self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
-    def _build_vae_decode_node(self, samples_node: str, vae_node: str, width: int, height: int) -> dict:
+    def _build_vae_decode_node(
+        self,
+        samples_node: str,
+        vae_node: str,
+        width: int,
+        height: int,
+        num_frames: Optional[int] = None,
+    ) -> dict:
         """Pick the right VAE decode strategy based on resolution.
 
         Standard VAEDecode works fine for tiny tests. Above that, tiled decoding
         saves your VRAM from a very bad day. Lowered threshold to 720 for video.
+
+        ``num_frames`` (pixel frames) keeps the decode in ONE temporal window.
+        ComfyUI's ``temporal_size`` is in pixel frames, and with the old fixed 64
+        every Wan clip longer than 64 frames (5B: up to 121, 14B: 81) was decoded
+        as two independent windows. Wan's causal VAE restarts its cache at each
+        window, so the second half came back with a different exposure — the
+        "video dims halfway through" seam. Spatial tiling still bounds VRAM.
         """
         use_tiled = width >= 720 or height >= 720
         if use_tiled:
+            temporal_size = 64
+            if num_frames:
+                # Step 4, max 4096 (ComfyUI's input limits); cover every frame.
+                temporal_size = min(4096, max(64, -(-int(num_frames) // 4) * 4 + 4))
             return {
                 "class_type": "VAEDecodeTiled",
                 "inputs": {
@@ -2437,7 +2455,7 @@ class ComfyUIVideoWorkflowMixin:
                     "vae": [vae_node, 0],
                     "tile_size": 480,
                     "overlap": 64,
-                    "temporal_size": 64,
+                    "temporal_size": temporal_size,
                     "temporal_overlap": 8,
                 }
             }

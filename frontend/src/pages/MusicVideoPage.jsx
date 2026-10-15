@@ -811,6 +811,9 @@ const MusicVideoPage = () => {
   const [useLoraConsistency, setUseLoraConsistency] = useState(false);
   const [keyframeModel, setKeyframeModel] = useState(DEFAULT_KEYFRAME_MODEL);
   const [i2vModel, setI2vModel] = useState("wan22-5b");
+  // The model the form returns to after a create: the server's active i2v pick
+  // once it loads, not a hard-coded 5B (which silently replaced a 14B choice).
+  const [defaultI2vModel, setDefaultI2vModel] = useState("wan22-5b");
   // Z-Image Turbo stills render offline (as on the Images page); offered when it is installed.
   const [zimageInstalled, setZimageInstalled] = useState(false);
   const keyframeTouched = useRef(false);
@@ -924,7 +927,10 @@ const MusicVideoPage = () => {
         });
         setI2vModelOptions(opts);
         const active = payload.active_i2v;
-        if (active && opts[active]) setI2vModel(active);
+        if (active && opts[active]) {
+          setI2vModel(active);
+          setDefaultI2vModel(active);
+        }
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -1028,7 +1034,7 @@ const MusicVideoPage = () => {
       setUseLoraConsistency(false);
       setSelectedSubjectIds([]);
       setKeyframeModel(defaultKeyframe);
-      setI2vModel("wan22-5b");
+      setI2vModel(defaultI2vModel);
       // Reset any future advanced model params here too
       if (fileInputRef.current) fileInputRef.current.value = "";
       await refreshList();
