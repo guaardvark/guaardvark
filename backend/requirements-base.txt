@@ -36,7 +36,7 @@ pypdf==6.20.0
 requests==2.34.2
 # Interconnector machine keys and request signatures (backend/utils/node_auth.py,
 # Ed25519); kept in step with requirements.txt.
-cryptography>=50.0.1
+cryptography>=50.0.2
 duckduckgo-search==8.1.1
 
 # Database & Utilities
