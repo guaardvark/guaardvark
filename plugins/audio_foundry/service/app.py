@@ -86,6 +86,14 @@ class MusicRequest(BaseModel):
     output_format: str = Field("wav", pattern="^(wav|mp3)$")
     seed: Optional[int] = None
     async_mode: bool = Field(False, alias="async")
+    # ACE-Step 1.5. A bpm, key, meter or language the person stated or edited.
+    # Empty means the planner may choose. arrangement_accepted means the
+    # caption is already the one to render, and must not be planned again.
+    bpm: Optional[int] = Field(None, ge=30, le=300)
+    keyscale: Optional[str] = Field(None, max_length=32)
+    timesignature: Optional[str] = Field(None, max_length=8)
+    vocal_language: Optional[str] = Field(None, max_length=16)
+    arrangement_accepted: bool = False
 
 
 # ---------- app setup --------------------------------------------------------
@@ -409,6 +417,26 @@ def generate_voice_stream(req: VoiceRequest) -> Any:
             else:
                 yield item
     return StreamingResponse(byte_stream(), media_type="audio/wav")
+
+
+@app.post("/plan/music")
+def plan_music(req: MusicRequest) -> Any:
+    """ACE-Step 1.5 only: expand a description into a caption and metadata. No audio."""
+    params = req.model_dump(exclude_none=True)
+    for key in ("async_mode", "output_format", "negative_prompt", "seed", "arrangement_accepted"):
+        params.pop(key, None)
+    if params.get("model") not in (None, "ace-step-1.5"):
+        raise HTTPException(status_code=400, detail="Arrange is for ACE-Step 1.5")
+    params["model"] = "ace-step-1.5"
+    try:
+        arrangement = _dispatcher.plan(Intent.MUSIC, **params)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except NotWired as e:
+        raise HTTPException(status_code=501, detail=str(e)) from e
+    except BackendUnavailable as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    return {"arrangement": arrangement}
 
 
 @app.post("/generate/music")

@@ -1,6 +1,8 @@
-"""Natural-language → ACE-Step tag-prompt rewriter.
+"""Natural-language → ACE-Step v1 tag-prompt rewriter.
 
-ACE-Step is tag-trained: it expects a comma-separated genre/instrument/mood
+ACE-Step 1.5 does not use this module. Its own 1.7B planner expands a
+description (plugins/audio_foundry/backends/music_gen_acestep15.py). v1 is
+tag-trained: it expects a comma-separated genre/instrument/mood
 vocabulary, the way SD1.5 expects danbooru tags. Vague descriptors like
 "professional" or "futuristic" without a genre anchor let the model fall to
 its strongest training prior — frequently country/folk — even when the user

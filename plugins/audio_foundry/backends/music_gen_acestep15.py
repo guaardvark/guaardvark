@@ -26,6 +26,7 @@ from typing import Any
 from backends.base import GenerationResult
 from backends.hub_weights import INSTALL_HINT, WeightsNotInstalled
 from backends.music_gen_acestep import ACEStepBackend
+from backends.music_prompt_facts import resolve_accepted_params, resolve_plan_params
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,8 @@ ENV_MARKER = ".acestep15-source"
 
 _LOAD_TIMEOUT_S = 600
 _GENERATE_TIMEOUT_S = 600
+# A plan is one planner pass, metadata and lyrics, before any audio.
+_PLAN_TIMEOUT_S = 240
 
 
 def load_catalog() -> dict[str, Any]:
@@ -58,6 +61,53 @@ def environment_ready(cat: dict[str, Any]) -> bool:
     except OSError:
         return False
     return environment_python(cat).exists() and built_from == cat["source"]["commit"]
+
+
+def _constraints_of(arrangement: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "bpm": arrangement.get("bpm"),
+        "keyscale": arrangement.get("keyscale") or "",
+        "timesignature": arrangement.get("timesignature") or "",
+        "vocal_language": arrangement.get("vocal_language") or "",
+        "lyrics": arrangement.get("lyrics") or "",
+        "instrumental_only": bool(arrangement.get("instrumental_only")),
+        "duration_s": arrangement.get("duration_s"),
+    }
+
+
+def _apply_locks(arrangement: dict[str, Any], resolved: dict[str, Any]) -> dict[str, Any]:
+    """A stated or edited value replaces whatever the planner wrote for that field."""
+    if resolved.get("bpm"):
+        arrangement["bpm"] = int(resolved["bpm"])
+    if resolved.get("keyscale"):
+        arrangement["keyscale"] = resolved["keyscale"]
+    if resolved.get("timesignature"):
+        arrangement["timesignature"] = str(resolved["timesignature"])
+    if resolved.get("vocal_language"):
+        arrangement["vocal_language"] = resolved["vocal_language"]
+    arrangement["duration_s"] = float(resolved.get("duration_s") or arrangement.get("duration_s") or 60)
+    arrangement["instrumental_only"] = bool(resolved.get("instrumental_only"))
+    if arrangement["instrumental_only"]:
+        arrangement["lyrics"] = "[Instrumental]"
+    return arrangement
+
+
+def _arrangement_from_request(resolved: dict[str, Any]) -> dict[str, Any]:
+    """The card that was accepted, with no second trip through the planner."""
+    instrumental = bool(resolved.get("instrumental_only"))
+    lyrics = "[Instrumental]" if instrumental else (resolved.get("lyrics") or "")
+    return {
+        "caption": (resolved.get("style_prompt") or "").strip(),
+        "lyrics": lyrics,
+        "bpm": resolved.get("bpm"),
+        "keyscale": resolved.get("keyscale") or "",
+        "timesignature": resolved.get("timesignature") or "",
+        "vocal_language": resolved.get("vocal_language") or "",
+        "duration_s": float(resolved.get("duration_s") or 60),
+        "instrumental_only": instrumental,
+        "genres": "",
+        "query": (resolved.get("style_prompt") or "").strip(),
+    }
 
 
 def missing_weights(cat: dict[str, Any]) -> list[str]:
@@ -112,17 +162,76 @@ class ACEStep15Backend(ACEStepBackend):
         self._planner = cat["planner"]
         logger.info("ACE-Step 1.5 daemon ready (model=%s)", self.MODEL_ID)
 
+    def plan(self, **params: Any) -> dict[str, Any]:
+        """Expand a description with the loaded 1.7B planner. No audio."""
+        if not self.is_loaded:
+            raise RuntimeError("ACE-Step 1.5 not loaded; dispatcher should call load() first")
+        resolved, locks = resolve_plan_params(params)
+        arrangement = self._request_plan(resolved)
+        arrangement = _apply_locks(arrangement, resolved)
+        arrangement["locks"] = locks
+        arrangement["planner"] = self._planner
+        return arrangement
+
+    def _request_plan(self, params: dict[str, Any]) -> dict[str, Any]:
+        duration_s = min(float(params.get("duration_s", 60.0)), self._max_duration_s)
+        result = self._send(
+            {
+                "op": "plan",
+                "params": {
+                    "query": params.get("style_prompt") or "",
+                    "lyrics": params.get("lyrics") or "",
+                    "instrumental_only": bool(params.get("instrumental_only", False)),
+                    "duration_s": duration_s,
+                    "bpm": params.get("bpm"),
+                    "keyscale": params.get("keyscale") or "",
+                    "timesignature": params.get("timesignature") or "",
+                    "vocal_language": params.get("vocal_language") or "",
+                },
+            },
+            timeout_s=_PLAN_TIMEOUT_S,
+        )
+        if not result.get("ok"):
+            raise RuntimeError(f"ACE-Step 1.5 plan failed: {result.get('error', '<no error>')}")
+        arrangement = result.get("arrangement")
+        if not isinstance(arrangement, dict) or not (arrangement.get("caption") or "").strip():
+            raise RuntimeError("ACE-Step 1.5 plan failed: planner returned no caption")
+        return arrangement
+
     def generate(self, **params: Any) -> GenerationResult:
         if not self.is_loaded:
             raise RuntimeError("ACE-Step 1.5 not loaded; dispatcher should call load() first")
 
-        style_prompt: str = params["style_prompt"]
         negative_prompt: str | None = params.get("negative_prompt")
-        lyrics: str | None = params.get("lyrics")
-        instrumental_only = bool(params.get("instrumental_only", False))
-        duration_s = min(float(params.get("duration_s", 60.0)), self._max_duration_s)
         seed = params.get("seed")
         requested_format = params.get("output_format", "wav")
+        accepted = bool(params.get("arrangement_accepted"))
+        if accepted:
+            resolved = resolve_accepted_params(params)
+            arrangement = _arrangement_from_request(resolved)
+            arrangement["accepted"] = True
+            arrangement["locks"] = {}
+        else:
+            # A client that did not arrange still gets the planner. The page
+            # arranges first so the caption can be edited; this path is the
+            # one a tool call takes.
+            resolved, locks = resolve_plan_params(params)
+            arrangement = _apply_locks(self._request_plan(resolved), resolved)
+            arrangement["locks"] = locks
+            arrangement["accepted"] = False
+            arrangement["planner"] = self._planner
+            resolved = {**resolved, **_constraints_of(arrangement)}
+            resolved["style_prompt"] = arrangement["caption"]
+            resolved["lyrics"] = arrangement["lyrics"]
+
+        style_prompt = (resolved.get("style_prompt") or "").strip()
+        if not style_prompt:
+            raise RuntimeError("ACE-Step 1.5 needs a caption")
+        lyrics = resolved.get("lyrics") or ""
+        instrumental_only = bool(resolved.get("instrumental_only", False))
+        duration_s = min(float(resolved.get("duration_s", 60.0)), self._max_duration_s)
+        arrangement["planner"] = arrangement.get("planner") or self._planner
+        arrangement["duration_s"] = duration_s
 
         self._output_root.mkdir(parents=True, exist_ok=True)
         wav_path = self._output_root / f"{uuid.uuid4().hex}.wav"
@@ -136,6 +245,12 @@ class ACEStep15Backend(ACEStepBackend):
                     "lyrics": lyrics or "",
                     "instrumental_only": instrumental_only,
                     "duration_s": duration_s,
+                    "bpm": arrangement.get("bpm"),
+                    "keyscale": arrangement.get("keyscale") or "",
+                    "timesignature": arrangement.get("timesignature") or "",
+                    "vocal_language": arrangement.get("vocal_language") or "",
+                    # The caption above is the one that was planned or edited.
+                    "use_cot_caption": False,
                     "steps": self.STEPS,
                     "seed": seed,
                     "thinking": True,
@@ -171,6 +286,8 @@ class ACEStep15Backend(ACEStepBackend):
                 "lyrics": lyrics or "",
                 "instrumental_only": instrumental_only,
                 "requested_duration_s": duration_s,
+                "arrangement": arrangement,
+                "use_cot_caption": False,
                 "steps": self.STEPS,
                 "planner": self._planner,
                 # The seed the render used, so the take can be repeated even when

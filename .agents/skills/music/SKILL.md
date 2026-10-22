@@ -30,11 +30,14 @@ curl -s -X POST $B/api/audio-foundry/generate/music -H 'Content-Type: applicatio
 - `model`: omit (or `"ace-step"`) for ACE-Step v1; `"ace-step-1.5"` for ACE-Step 1.5 (MIT,
   48 kHz, turbo model plus a planner) once it is installed in Audio Studio → Manage models.
   Not installed → `400` with `needs_install`; nothing is downloaded.
-- `style_prompt` uses ACE-Step's tag vocabulary: genre, instruments, mood, tempo, vocal type.
+- For v1, `style_prompt` uses ACE-Step's tag vocabulary: genre, instruments, mood, tempo, vocal type.
   Vague words ("professional", "futuristic") drift to the model's prior; be concrete.
-  `negative_prompt` is accepted but neither ACE-Step model applies it (the result says
-  `negative_prompt_applied: false`). `POST $B/api/audio-foundry/rewrite-music-prompt`
-  turns plain English into the tag form when the user wants help.
+  `POST $B/api/audio-foundry/rewrite-music-prompt` turns plain English into that tag form.
+  For 1.5, write a sentence. The loaded 1.7B planner expands it into a caption, lyrics, tempo,
+  key and meter before the render, and keeps a bpm or key written in the sentence.
+  `POST $B/api/audio-foundry/plan-music` with the same body as generate returns that arrangement
+  and does not render. `negative_prompt` is accepted but neither ACE-Step model applies it (the result says
+  `negative_prompt_applied: false`).
 - `lyrics` with `[verse]` / `[chorus]` / `[bridge]` markers; omit or set `instrumental_only: true`.
 - `duration_s` up to 240. Always send `"async": true` for anything over a few seconds.
 - Response `202 {"job_id"}` → poll `GET $B/api/audio-foundry/jobs/<job_id>`; done when `status`

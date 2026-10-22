@@ -110,6 +110,23 @@ def test_unload_releases_both(rig):
     assert v1.loaded is False and v15.loaded is False
 
 
+def test_plan_selects_15_and_returns_its_arrangement(rig):
+    d, v1, v15, _orch = rig
+    seen = {}
+
+    def _plan(**params):
+        seen.update(params)
+        return {"caption": "A quiet piano piece.", "bpm": 84}
+
+    v15.plan = _plan
+    arrangement = d.plan(Intent.MUSIC, style_prompt="quiet piano, 84 bpm")
+    assert arrangement["bpm"] == 84
+    assert v15.loaded is True and v1.loaded is False
+    assert "model" not in seen
+    assert seen["style_prompt"] == "quiet piano, 84 bpm"
+    assert v1.calls == []
+
+
 def test_the_15_backend_refuses_before_spawning_when_not_installed(tmp_path, monkeypatch):
     from backends import music_gen_acestep15 as m
     from backends.hub_weights import WeightsNotInstalled

@@ -13,12 +13,32 @@ Commands:
         -> {"ok": true} on success
         -> {"ok": false, "error": "..."} on failure
 
+    {"op": "plan",
+     "params": {
+        "query": "...",              # the person's description, not a tag list
+        "lyrics": "",                # empty: the planner writes them, unless instrumental
+        "instrumental_only": false,
+        "duration_s": 60.0,          # locked into the plan
+        "bpm": null,                 # null: the planner chooses; a number is kept
+        "keyscale": "",
+        "timesignature": "",         # "2", "3", "4" or "6"
+        "vocal_language": ""
+     }}
+        -> {"ok": true, "arrangement": {caption, lyrics, bpm, keyscale,
+            timesignature, vocal_language, duration_s, instrumental_only, genres, query}}
+
     {"op": "generate",
      "params": {
-        "style_prompt": "...",
+        "style_prompt": "...",       # the caption the DiT hears
         "lyrics": "...",
         "instrumental_only": false,
         "duration_s": 60.0,
+        "bpm": null,
+        "keyscale": "",
+        "timesignature": "",
+        "vocal_language": "",
+        "use_cot_caption": true,     # false once a caption was accepted, so a second
+                                     # planner pass does not replace it
         "steps": 8,
         "seed": null,                # null: a fresh one; the seed used is reported back
         "thinking": true,            # the 1.7B planner writes metadata and audio codes first
@@ -172,6 +192,137 @@ def _do_load() -> dict[str, Any]:
     return {"ok": True}
 
 
+def _locked_metadata(params: dict[str, Any]) -> dict[str, str]:
+    """Constraints the planner must write through, as the strings its decoder injects."""
+    locked: dict[str, str] = {}
+    if params.get("bpm"):
+        locked["bpm"] = str(int(params["bpm"]))
+    if params.get("duration_s"):
+        locked["duration"] = str(int(float(params["duration_s"])))
+    keyscale = (params.get("keyscale") or "").strip()
+    if keyscale:
+        locked["keyscale"] = keyscale
+    meter = (params.get("timesignature") or "").strip()
+    if meter:
+        locked["timesignature"] = meter
+    language = (params.get("vocal_language") or "").strip()
+    if language and language.lower() != "unknown":
+        locked["language"] = language
+    return locked
+
+
+def _whole_number(value: Any, low: int, high: int) -> int | None:
+    try:
+        number = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if number < low or number > high:
+        return None
+    return number
+
+
+def _clean_caption(text: str) -> str:
+    collapsed = " ".join((text or "").split())
+    if len(collapsed) <= 1500:
+        return collapsed
+    # The planner's caption field is a sentence. Cut at a period before the
+    # decoder's token budget, not in the middle of a word.
+    cut = collapsed.rfind(".", 0, 1500)
+    if cut > 200:
+        return collapsed[: cut + 1]
+    return collapsed[:1500].rstrip()
+
+
+def _arrangement_from_metadata(metadata: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    instrumental = bool(params.get("instrumental_only"))
+    lyrics = "[Instrumental]" if instrumental else (metadata.get("lyrics") or params.get("lyrics") or "")
+    if not instrumental:
+        lyrics = str(lyrics).strip()[:4000]
+    meter = str(metadata.get("timesignature") or "").strip()
+    if meter.endswith("/4") or meter.endswith("/8"):
+        meter = meter.split("/")[0]
+    if meter not in {"2", "3", "4", "6"}:
+        meter = ""
+    return {
+        "caption": _clean_caption(str(metadata.get("caption") or "")),
+        "lyrics": lyrics,
+        "bpm": _whole_number(metadata.get("bpm"), 30, 300),
+        "keyscale": str(metadata.get("keyscale") or "").strip(),
+        "timesignature": meter,
+        "vocal_language": str(metadata.get("language") or metadata.get("vocal_language") or "").strip(),
+        "duration_s": float(params.get("duration_s") or metadata.get("duration") or 60),
+        "instrumental_only": instrumental,
+        "genres": str(metadata.get("genres") or "").strip(),
+        "query": (params.get("query") or params.get("style_prompt") or "").strip(),
+    }
+
+
+def _expand_query(query: str, instrumental: bool, locked: dict[str, str]) -> tuple[dict[str, Any], str]:
+    """Simple mode: expand a description. Same call as create_sample_from_query,
+    plus locked bpm, key, meter, language and duration, which that method does
+    not accept.
+    """
+    formatted = _lm.build_formatted_prompt_for_inspiration(query, instrumental=instrumental)
+    output_text, status = _lm.generate_from_formatted_prompt(
+        formatted_prompt=formatted,
+        cfg={
+            "temperature": 0.85,
+            "repetition_penalty": 1.0,
+            "target_duration": None,
+            "user_metadata": locked or None,
+            "skip_caption": False,
+            "skip_language": "language" in locked,
+            "skip_genres": False,
+            "generation_phase": "understand",
+            "caption": "",
+            "lyrics": "",
+        },
+        use_constrained_decoding=True,
+        stop_at_reasoning=False,
+    )
+    if not output_text:
+        return {}, status or "planner returned nothing"
+    metadata, _parsed_codes = _lm.parse_lm_output(output_text)
+    lyrics = _lm._extract_lyrics_from_output(output_text)
+    if lyrics:
+        metadata["lyrics"] = lyrics
+    elif instrumental:
+        metadata["lyrics"] = "[Instrumental]"
+    return metadata, status
+
+
+def _do_plan(params: dict[str, Any]) -> dict[str, Any]:
+    """Ask the loaded 1.7B planner for a caption, lyrics and metadata. No audio."""
+    if _lm is None:
+        return {"ok": False, "error": "model not loaded — send 'load' first"}
+
+    query = (params.get("query") or params.get("style_prompt") or "").strip()
+    if not query:
+        return {"ok": False, "error": "a description is required"}
+    lyrics = (params.get("lyrics") or "").strip()
+    instrumental = bool(params.get("instrumental_only"))
+    locked = _locked_metadata(params)
+    _eprint(
+        f"[run_acestep15] plan query={query[:80]!r} lyrics={len(lyrics)}-chars "
+        f"instrumental={instrumental} locked={locked or '-'}"
+    )
+    if lyrics and not instrumental:
+        metadata, status = _lm.format_sample_from_input(
+            caption=query, lyrics=lyrics, user_metadata=locked or None,
+        )
+    else:
+        metadata, status = _expand_query(query, instrumental, locked)
+    arrangement = _arrangement_from_metadata(metadata or {}, params)
+    if not arrangement["caption"]:
+        return {"ok": False, "error": status or "planner returned no caption"}
+    _eprint(
+        f"[run_acestep15] plan caption={arrangement['caption'][:100]!r} "
+        f"bpm={arrangement['bpm']} key={arrangement['keyscale'] or '-'} "
+        f"meter={arrangement['timesignature'] or '-'}"
+    )
+    return {"ok": True, "arrangement": arrangement}
+
+
 def _do_generate(params: dict[str, Any]) -> dict[str, Any]:
     if _dit is None:
         return {"ok": False, "error": "model not loaded — send 'load' first"}
@@ -188,6 +339,13 @@ def _do_generate(params: dict[str, Any]) -> dict[str, Any]:
     seed = params.get("seed")
     seed = int(seed) if seed is not None else random.randint(0, 2**32 - 1)
     out_path = Path(params["out_path"])
+    bpm = _whole_number(params.get("bpm"), 30, 300)
+    keyscale = (params.get("keyscale") or "").strip()
+    meter = (params.get("timesignature") or "").strip()
+    language = (params.get("vocal_language") or "").strip() or "unknown"
+    # Once a caption was planned or edited, a second CoT caption would replace
+    # it. Audio codes still need thinking; only the caption rewrite is off.
+    use_cot_caption = bool(params.get("use_cot_caption", True))
 
     gen_params = GenerationParams(
         task_type="text2music",
@@ -195,8 +353,13 @@ def _do_generate(params: dict[str, Any]) -> dict[str, Any]:
         lyrics=lyrics,
         instrumental=instrumental_only,
         duration=duration_s,
+        bpm=bpm,
+        keyscale=keyscale,
+        timesignature=meter,
+        vocal_language=language,
         inference_steps=int(params.get("steps", 8)),
         thinking=bool(params.get("thinking", True)),
+        use_cot_caption=use_cot_caption,
     )
     # generate_music takes the DiT's seed from the config, never from
     # GenerationParams.seed. The planner seeds itself only for batches, so with one
@@ -209,7 +372,8 @@ def _do_generate(params: dict[str, Any]) -> dict[str, Any]:
 
     _eprint(
         f"[run_acestep15] generate style={style_prompt[:60]!r} duration={duration_s:.1f}s "
-        f"lyrics={len(lyrics)}-chars instrumental={instrumental_only} seed={seed}"
+        f"lyrics={len(lyrics)}-chars instrumental={instrumental_only} bpm={bpm} "
+        f"cot_caption={use_cot_caption} seed={seed}"
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     # Same filesystem as out_path, so the move is a rename; anything else ACE-Step
@@ -261,6 +425,8 @@ def _handle(cmd: dict[str, Any]) -> dict[str, Any]:
         return {"ok": True, "ready": _dit is not None}
     if op == "load":
         return _do_load()
+    if op == "plan":
+        return _do_plan(cmd.get("params") or {})
     if op == "generate":
         return _do_generate(cmd["params"])
     if op == "unload":

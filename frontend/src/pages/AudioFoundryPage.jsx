@@ -165,6 +165,58 @@ const composeMusicIntent = (genres, moods, instruments, extraText) => {
   return parts.join(", ");
 };
 
+// ACE-Step 1.5 reads a sentence. Chips are hints appended to it, not the caption.
+const composeAce15Query = (genres, moods, instruments, extraText) => {
+  const hints = [...genres, ...moods, ...instruments].map((s) => s.toLowerCase());
+  const text = (extraText || "").trim();
+  if (text && hints.length) return `${text}\n\nAlso: ${hints.join(", ")}`;
+  if (text) return text;
+  return hints.join(", ");
+};
+
+const METERS = [
+  { value: "4", label: "4/4" },
+  { value: "3", label: "3/4" },
+  { value: "6", label: "6/8" },
+  { value: "2", label: "2/4" },
+];
+
+const VOCAL_LANGUAGES = [
+  ["", "Auto"],
+  ["en", "English"],
+  ["es", "Spanish"],
+  ["fr", "French"],
+  ["de", "German"],
+  ["it", "Italian"],
+  ["pt", "Portuguese"],
+  ["ja", "Japanese"],
+  ["ko", "Korean"],
+  ["zh", "Chinese"],
+  ["yue", "Cantonese"],
+  ["hi", "Hindi"],
+  ["bn", "Bengali"],
+  ["ar", "Arabic"],
+  ["ru", "Russian"],
+];
+
+const meterLabel = (value) => METERS.find((m) => m.value === String(value))?.label || value || "";
+
+const languageLabel = (code) => {
+  if (!code || code === "unknown") return "";
+  const row = VOCAL_LANGUAGES.find(([value]) => value === code);
+  return row ? row[1] : code;
+};
+
+const lockSummary = (locks) => {
+  if (!locks) return "";
+  const parts = [];
+  if (locks.bpm) parts.push(`${locks.bpm} bpm`);
+  if (locks.keyscale) parts.push(locks.keyscale);
+  if (locks.timesignature) parts.push(meterLabel(locks.timesignature));
+  if (locks.vocal_language) parts.push(locks.vocal_language);
+  return parts.join(", ");
+};
+
 const AudioFoundryPage = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -178,7 +230,7 @@ const AudioFoundryPage = () => {
   // Form States
   const [voiceText, setVoiceText] = useState("");
   const [fxPrompt, setFxPrompt] = useState("");
-  const [duration, setDuration] = useState(10);
+  const [duration, setDuration] = useState(60);
   // FX Lab has its own length: Music runs 10-240 s, Stable Audio Open stops at 47 s.
   const [fxDuration, setFxDuration] = useState(10);
 
@@ -236,6 +288,9 @@ const AudioFoundryPage = () => {
   const [musicPolish, setMusicPolish] = useState(true);
   const [musicPreview, setMusicPreview] = useState(null);
   const [musicPolishing, setMusicPolishing] = useState(false);
+  // ACE-Step 1.5 arrangement from the loaded planner. Editable, then composed.
+  const [arrangement, setArrangement] = useState(null);
+  const [arranging, setArranging] = useState(false);
   const [voiceBackend, setVoiceBackend] = useState("auto");
   const [voiceId, setVoiceId] = useState(DEFAULT_VOICE);
   const [voiceGroups, setVoiceGroups] = useState(FALLBACK_VOICES);
@@ -521,6 +576,7 @@ const AudioFoundryPage = () => {
   // music that doesn't match the chips visible on screen.
   const toggleMusicChip = (category, value) => {
     setMusicPreview(null);
+    setArrangement(null);
     const setter = {
       genre: setMusicGenres,
       mood: setMusicMoods,
@@ -535,11 +591,13 @@ const AudioFoundryPage = () => {
   // Same auto-invalidate logic for the free-text box.
   const handleMusicExtraChange = (value) => {
     setMusicPreview(null);
+    setArrangement(null);
     setMusicExtra(value);
   };
 
   const handleMusicInstrumentalToggle = (value) => {
     setMusicPreview(null);
+    setArrangement(null);
     setMusicInstrumental(value);
   };
 
@@ -586,19 +644,71 @@ const AudioFoundryPage = () => {
     }
   };
 
+  const isAce15 = musicModel === "ace-step-1.5";
+
+  // Ask the 1.5 planner, already loaded with the turbo model, for a caption
+  // and the tempo, key and meter. Nothing is rendered.
+  const arrangeMusic = async () => {
+    const query = composeAce15Query(musicGenres, musicMoods, musicInstruments, musicExtra);
+    if (!query) {
+      setError("Describe the song, or pick a genre, mood or instrument.");
+      return;
+    }
+    setArranging(true);
+    setError(null);
+    try {
+      const res = await axios.post(`${API_BASE}/audio-foundry/plan-music`, {
+        style_prompt: query,
+        lyrics: musicInstrumental ? "" : musicLyrics.trim(),
+        instrumental_only: musicInstrumental,
+        duration_s: duration,
+        model: "ace-step-1.5",
+      });
+      const next = res.data?.arrangement;
+      if (!next?.caption) {
+        setError("The planner did not return a caption.");
+        return;
+      }
+      setArrangement(next);
+    } catch (err) {
+      console.error("Music arrange failed:", err);
+      const detail = err.response?.data?.detail;
+      setError(
+        (typeof detail === "string" && detail) ||
+        formatUiError(err.response?.data?.error) ||
+        "Arrange failed. Audio Foundry has to be running with ACE-Step 1.5 loaded."
+      );
+    } finally {
+      setArranging(false);
+    }
+  };
+
+  const updateArrangement = (patch) => {
+    setArrangement((prev) => (prev ? { ...prev, ...patch } : prev));
+  };
+
   // Final generation: send {style_prompt, negative_prompt, duration_s,
   // instrumental_only} to /generate/music. Resolves the prompt from the
   // preview if one exists, otherwise from the raw chip+text composition.
+  // ACE-Step 1.5 sends the edited arrangement and does not plan a second time.
   const generateMusic = async () => {
-    const intent = composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra);
-    if (!intent && !musicPreview) {
+    const intent = isAce15
+      ? composeAce15Query(musicGenres, musicMoods, musicInstruments, musicExtra)
+      : composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra);
+    if (!intent && !musicPreview && !arrangement) {
       setError("Pick at least one genre/mood/instrument or add a description first.");
+      return;
+    }
+    if (isAce15 && !arrangement?.caption?.trim()) {
+      setError("Arrange the song first, then compose.");
       return;
     }
 
     let stylePrompt = intent;
     let negativePrompt = "";
-    if (musicPreview) {
+    if (isAce15) {
+      stylePrompt = arrangement.caption.trim();
+    } else if (musicPreview) {
       stylePrompt = musicPreview.style_prompt || intent;
       negativePrompt = musicPreview.negative_prompt || "";
     }
@@ -613,6 +723,13 @@ const AudioFoundryPage = () => {
       openModels(missingRows[0].id);
       return;
     }
+    if (isAce15 && arrangement?.bpm) {
+      const bpm = Number(arrangement.bpm);
+      if (!Number.isInteger(bpm) || bpm < 30 || bpm > 300) {
+        setError("Tempo must be a whole number between 30 and 300 bpm.");
+        return;
+      }
+    }
 
     setLoading(true);
     setError(null);
@@ -623,8 +740,21 @@ const AudioFoundryPage = () => {
         instrumental_only: musicInstrumental,
       };
       if (negativePrompt) payload.negative_prompt = negativePrompt;
-      if (!musicInstrumental && musicLyrics.trim()) payload.lyrics = musicLyrics.trim();
-      if (musicModel !== "ace-step") payload.model = musicModel;
+      if (isAce15) {
+        payload.model = "ace-step-1.5";
+        payload.arrangement_accepted = true;
+        if (!musicInstrumental && (arrangement.lyrics || "").trim()) {
+          payload.lyrics = arrangement.lyrics.trim();
+        }
+        const bpm = Number(arrangement.bpm);
+        if (bpm) payload.bpm = bpm;
+        if (arrangement.keyscale) payload.keyscale = arrangement.keyscale;
+        if (arrangement.timesignature) payload.timesignature = arrangement.timesignature;
+        if (arrangement.vocal_language) payload.vocal_language = arrangement.vocal_language;
+      } else {
+        if (!musicInstrumental && musicLyrics.trim()) payload.lyrics = musicLyrics.trim();
+        if (musicModel !== "ace-step") payload.model = musicModel;
+      }
 
       const res = await axios.post(
         `${API_BASE}/audio-foundry/generate/music`,
@@ -890,20 +1020,23 @@ const AudioFoundryPage = () => {
                   <Stack spacing={2.5}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <Typography variant="h6" fontWeight="bold">Music Composer</Typography>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={musicPolish}
-                            onChange={(e) => { setMusicPolish(e.target.checked); setMusicPreview(null); }}
-                            size="small"
-                          />
-                        }
-                        label={<Typography variant="caption">Polish with AI</Typography>}
-                        sx={{ m: 0 }}
-                      />
+                      {!isAce15 && (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={musicPolish}
+                              onChange={(e) => { setMusicPolish(e.target.checked); setMusicPreview(null); }}
+                              size="small"
+                            />
+                          }
+                          label={<Typography variant="caption">Polish with AI</Typography>}
+                          sx={{ m: 0 }}
+                        />
+                      )}
                     </Box>
 
-                    {/* Genre row — pick the anchor that keeps ACE-Step from drifting to country */}
+                    {/* Genre row — pick the anchor that keeps ACE-Step v1 from drifting to country.
+                        On 1.5 these are hints; the description is what the planner reads. */}
                     <Box>
                       <Typography variant="caption" fontWeight="bold" color="text.secondary">Genre</Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
@@ -958,12 +1091,19 @@ const AudioFoundryPage = () => {
                     </Box>
 
                     {/* Free-text "additional details" — anything the chips don't cover */}
+                    {isAce15 && (
+                      <Typography variant="caption" color="text.secondary">
+                        Describe the song in a sentence. Name a bpm or a key if you want them kept.
+                      </Typography>
+                    )}
                     <TextField
                       fullWidth
                       variant="filled"
                       multiline
-                      minRows={2}
-                      placeholder="Additional details (optional): 'driving rhythm for a chase scene', 'with rain', etc."
+                      minRows={isAce15 ? 3 : 2}
+                      placeholder={isAce15
+                        ? "A quiet song about missing a train, male vocal, 84 bpm"
+                        : "Additional details (optional): 'driving rhythm for a chase scene', 'with rain', etc."}
                       value={musicExtra}
                       onChange={(e) => handleMusicExtraChange(e.target.value)}
                       sx={{ "& .MuiFilledInput-root": { borderRadius: 2 } }}
@@ -985,7 +1125,11 @@ const AudioFoundryPage = () => {
                         size="small"
                         label="Music model"
                         value={musicModel}
-                        onChange={(e) => setMusicModel(e.target.value)}
+                        onChange={(e) => {
+                          setMusicModel(e.target.value);
+                          setMusicPreview(null);
+                          setArrangement(null);
+                        }}
                         sx={{ minWidth: 220 }}
                         SelectProps={{ native: true }}
                       >
@@ -1006,7 +1150,7 @@ const AudioFoundryPage = () => {
                         maxRows={8}
                         size="small"
                         value={musicLyrics}
-                        onChange={(e) => setMusicLyrics(e.target.value)}
+                        onChange={(e) => { setMusicLyrics(e.target.value); setArrangement(null); }}
                         placeholder={"[Verse]\nwe drove all night under a paper moon\n[Chorus]\n..."}
                         helperText="Section tags like [Verse], [Chorus], [Bridge] shape the song; MiniMax Music 3 sings them, ACE-Step follows them where it can."
                         fullWidth
@@ -1020,13 +1164,13 @@ const AudioFoundryPage = () => {
                         min={10}
                         max={240}
                         step={10}
-                        onChange={(e, v) => setDuration(v)}
+                        onChange={(e, v) => { setDuration(v); setArrangement(null); }}
                         sx={{ color: "#2196f3" }}
                       />
                     </Box>
 
-                    {/* Polish preview — shown only when Polish is on AND we have a result */}
-                    {musicPolish && musicPreview && (
+                    {/* v1 polish preview. 1.5 shows an editable arrangement from its planner. */}
+                    {!isAce15 && musicPolish && musicPreview && (
                       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
                         <Stack spacing={1.25}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1062,10 +1206,125 @@ const AudioFoundryPage = () => {
                       </Paper>
                     )}
 
-                    {/* Two-button flow:
-                        Polish=ON without preview → "Polish & Preview" calls the rewriter.
-                        Polish=ON with preview, OR Polish=OFF → "Compose Music" generates. */}
-                    {musicPolish && !musicPreview ? (
+                    {isAce15 && arrangement && (
+                      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
+                        <Stack spacing={1.25}>
+                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <Typography variant="caption" fontWeight="bold" color="primary">
+                              Arrangement
+                            </Typography>
+                            <Button
+                              size="small"
+                              onClick={() => setArrangement(null)}
+                              sx={{ minWidth: 0, textTransform: "none" }}
+                            >
+                              Discard
+                            </Button>
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            Edit this, then compose. The song uses this caption.
+                          </Typography>
+                          {lockSummary(arrangement.locks) && (
+                            <Typography variant="caption" color="text.secondary">
+                              Kept from your description: {lockSummary(arrangement.locks)}.
+                            </Typography>
+                          )}
+                          <TextField
+                            label="Caption"
+                            multiline
+                            minRows={3}
+                            size="small"
+                            value={arrangement.caption || ""}
+                            onChange={(e) => updateArrangement({ caption: e.target.value })}
+                            fullWidth
+                          />
+                          {!musicInstrumental && (
+                            <TextField
+                              label="Lyrics"
+                              multiline
+                              minRows={4}
+                              maxRows={10}
+                              size="small"
+                              value={arrangement.lyrics || ""}
+                              onChange={(e) => updateArrangement({ lyrics: e.target.value })}
+                              fullWidth
+                            />
+                          )}
+                          <Stack direction="row" spacing={1}>
+                            <TextField
+                              label="BPM"
+                              size="small"
+                              type="number"
+                              value={arrangement.bpm ?? ""}
+                              onChange={(e) => updateArrangement({ bpm: e.target.value === "" ? null : Number(e.target.value) })}
+                              inputProps={{ min: 30, max: 300 }}
+                              sx={{ width: 100 }}
+                            />
+                            <TextField
+                              label="Key"
+                              size="small"
+                              value={arrangement.keyscale || ""}
+                              onChange={(e) => updateArrangement({ keyscale: e.target.value })}
+                              placeholder="A minor"
+                              sx={{ flex: 1 }}
+                            />
+                          </Stack>
+                          <Stack direction="row" spacing={1}>
+                            <TextField
+                              select
+                              label="Meter"
+                              size="small"
+                              value={arrangement.timesignature || ""}
+                              onChange={(e) => updateArrangement({ timesignature: e.target.value })}
+                              sx={{ flex: 1 }}
+                              SelectProps={{ native: true }}
+                            >
+                              <option value="">Auto</option>
+                              {METERS.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                              ))}
+                            </TextField>
+                            <TextField
+                              select
+                              label="Language"
+                              size="small"
+                              value={arrangement.vocal_language && arrangement.vocal_language !== "unknown" ? arrangement.vocal_language : ""}
+                              onChange={(e) => updateArrangement({ vocal_language: e.target.value })}
+                              sx={{ flex: 1 }}
+                              SelectProps={{ native: true }}
+                            >
+                              {VOCAL_LANGUAGES.map(([code, label]) => (
+                                <option key={code || "auto"} value={code}>{label}</option>
+                              ))}
+                              {arrangement.vocal_language
+                                && arrangement.vocal_language !== "unknown"
+                                && !VOCAL_LANGUAGES.some(([code]) => code === arrangement.vocal_language) && (
+                                <option value={arrangement.vocal_language}>{arrangement.vocal_language}</option>
+                              )}
+                            </TextField>
+                          </Stack>
+                          {arrangement.genres && (
+                            <Typography variant="caption" color="text.secondary">
+                              Genres: {arrangement.genres}
+                            </Typography>
+                          )}
+                        </Stack>
+                      </Paper>
+                    )}
+
+                    {/* 1.5 arranges before compose. v1 polishes into tags, or composes directly. */}
+                    {isAce15 && !arrangement ? (
+                      <Button
+                        variant="contained"
+                        size="large"
+                        startIcon={arranging ? <CircularProgress size={20} color="inherit" /> : <MagicIcon />}
+                        disabled={arranging || loading}
+                        onClick={arrangeMusic}
+                        sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#2196f3", "&:hover": { backgroundColor: "#1976d2" } }}
+                      >
+                        {arranging ? "Arranging..." : "Arrange"}
+                      </Button>
+                    ) : !isAce15 && musicPolish && !musicPreview ? (
                       <Button
                         variant="contained"
                         size="large"
@@ -1083,7 +1342,9 @@ const AudioFoundryPage = () => {
                         startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <MusicIcon />}
                         disabled={
                           loading ||
-                          (!composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra) && !musicPreview)
+                          (isAce15
+                            ? !arrangement?.caption?.trim()
+                            : (!composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra) && !musicPreview))
                         }
                         onClick={generateMusic}
                         sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#2196f3", "&:hover": { backgroundColor: "#1976d2" } }}
@@ -1211,6 +1472,12 @@ const AudioFoundryPage = () => {
                           <Typography variant="caption" display="block" color="text.secondary">FIDELITY</Typography>
                           <Typography variant="body2" fontWeight="bold">{result.sample_rate} Hz</Typography>
                         </Grid>
+                        {result.meta?.seed != null && result.meta.seed !== "" && (
+                          <Grid item xs={6}>
+                            <Typography variant="caption" display="block" color="text.secondary">SEED</Typography>
+                            <Typography variant="body2" fontWeight="bold">{String(result.meta.seed)}</Typography>
+                          </Grid>
+                        )}
                         <Grid item xs={12}>
                           {/* The file's name only: the server path carries the account name, and
                               the file is reached through the Audio library, not the path. */}
@@ -1219,6 +1486,36 @@ const AudioFoundryPage = () => {
                             {fileNameOf(result.path) || "—"}
                           </Typography>
                         </Grid>
+                        {result.meta?.arrangement && (
+                          <Grid item xs={12}>
+                            <Typography variant="caption" display="block" color="text.secondary">CAPTION SENT</Typography>
+                            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                              {result.meta.arrangement.caption || "—"}
+                            </Typography>
+                            <Stack direction="row" spacing={2} sx={{ mt: 1, flexWrap: "wrap" }}>
+                              {result.meta.arrangement.bpm != null && result.meta.arrangement.bpm !== "" && (
+                                <Typography variant="body2"><b>{result.meta.arrangement.bpm}</b> bpm</Typography>
+                              )}
+                              {result.meta.arrangement.keyscale && (
+                                <Typography variant="body2">{result.meta.arrangement.keyscale}</Typography>
+                              )}
+                              {result.meta.arrangement.timesignature && (
+                                <Typography variant="body2">{meterLabel(result.meta.arrangement.timesignature)}</Typography>
+                              )}
+                              {languageLabel(result.meta.arrangement.vocal_language) && (
+                                <Typography variant="body2">{languageLabel(result.meta.arrangement.vocal_language)}</Typography>
+                              )}
+                            </Stack>
+                            {result.meta.arrangement.lyrics && (
+                              <Box sx={{ mt: 1, maxHeight: 160, overflow: "auto" }}>
+                                <Typography variant="caption" display="block" color="text.secondary">LYRICS SENT</Typography>
+                                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", opacity: 0.9 }}>
+                                  {result.meta.arrangement.lyrics}
+                                </Typography>
+                              </Box>
+                            )}
+                          </Grid>
+                        )}
                       </Grid>
                     </CardContent>
                   </Card>

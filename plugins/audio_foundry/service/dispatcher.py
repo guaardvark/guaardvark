@@ -202,6 +202,40 @@ class Dispatcher:
                 # and the orchestrator already knows we are LOADED.
                 raise
 
+    def plan(self, intent: Intent, **params: Any) -> dict[str, Any]:
+        """Load the backend that can arrange, then ask it. No audio.
+
+        Music planning selects ACE-Step 1.5. The same slot handshake as
+        generate applies, so a plan does not run beside another engine.
+        """
+        params = dict(params)
+        with self._intent_locks[intent]:
+            with self._state_lock:
+                backend = self._backends.get(intent)
+                if backend is None:
+                    raise NotWired(f"No backend registered for intent: {intent.value}")
+                available, reason = backend.availability()
+                if not available:
+                    raise BackendUnavailable(
+                        reason or f"Backend {backend.name} is unavailable on this machine"
+                    )
+                prepare = getattr(backend, "prepare_plan", None)
+                if prepare is None:
+                    raise NotWired(f"No arrangement planner for intent: {intent.value}")
+                if prepare(params):
+                    self._orch.evict(f"{_SLOT_PREFIX}:{intent.value}")
+                if not backend.is_loaded:
+                    self._load_with_orchestrator(intent, backend)
+
+            import time
+            self._last_used[intent] = time.monotonic()
+            try:
+                result = backend.plan(**params)
+                self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
+                return result
+            except Exception:
+                raise
+
     def stream(self, intent: Intent, **params: Any):
         """Streaming generation for lower perceived latency (voice specialist rec).
 

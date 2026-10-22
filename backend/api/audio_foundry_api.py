@@ -295,6 +295,31 @@ def generate_voice():
     return body, status_code
 
 
+@audio_foundry_bp.route("/plan-music", methods=["POST"])
+def plan_music():
+    """ACE-Step 1.5: turn a description into a caption, lyrics and metadata.
+
+    No audio. The planner is the 1.7B model already loaded with ACE-Step 1.5,
+    so this does not call Ollama. ACE-Step v1 still uses /rewrite-music-prompt.
+    """
+    payload = flask_request.get_json(silent=True) or {}
+    text = (payload.get("style_prompt") or payload.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "style_prompt is required"}), 400
+    from backend.services.audio_foundry_models import missing_parts
+    missing = missing_parts("ace-step-1.5")
+    if missing:
+        return jsonify({"success": False, "needs_install": "ace-step-1.5", "error": (
+            f"ACE-Step 1.5 is not installed (missing {missing[0]}). Open Audio Studio → "
+            "Manage models and Install it; arranging never downloads on its own.")}), 400
+    body, status_code = _proxy_post(
+        "/plan/music",
+        {**payload, "style_prompt": text, "model": "ace-step-1.5"},
+        GENERATION_TIMEOUT,
+    )
+    return body, status_code
+
+
 @audio_foundry_bp.route("/generate/music", methods=["POST"])
 def generate_music():
     """Music generation. ``model`` picks the backend: the sidecar's ACE-Step v1

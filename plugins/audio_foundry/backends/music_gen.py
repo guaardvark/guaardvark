@@ -78,6 +78,23 @@ class MusicGenBackend(AudioBackend):
         for engine in self._engines.values():
             engine.unload()
 
+    def prepare_plan(self, params: dict[str, Any]) -> bool:
+        """Aim a plan at ACE-Step 1.5. The dispatcher releases the GPU slot when this unloads v1."""
+        params["model"] = MODEL_V15
+        return self.select_for_request(params)
+
+    def plan(self, **params: Any) -> dict[str, Any]:
+        """Arrange with ACE-Step 1.5's planner. v1 has no equivalent pass."""
+        self.prepare_plan(params)
+        params.pop("model", None)
+        engine = self._engines[MODEL_V15]
+        if not engine.is_loaded:
+            engine.load()
+        plan = getattr(engine, "plan", None)
+        if plan is None:
+            raise RuntimeError("ACE-Step 1.5 cannot arrange a song")
+        return plan(**params)
+
     def generate(self, **params: Any) -> GenerationResult:
         self.select_for_request(params)
         params.pop("model", None)

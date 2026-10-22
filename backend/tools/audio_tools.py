@@ -148,8 +148,10 @@ class GenerateMusicTool(BaseTool):
         "Studio's Audio page. Needs the Audio Foundry plugin running (it answers that it is not "
         "running otherwise). model 'ace-step-1.5' uses ACE-Step 1.5 instead of v1 when it has "
         "been installed in Audio Studio → Manage models; it is refused otherwise, never "
-        "downloaded. For a spoken line use generate_speech; for a music video set to a "
-        "song, generate_music_video."
+        "downloaded. ACE-Step 1.5 expands a plain-language style into a caption, lyrics, "
+        "tempo, key and meter with the planner loaded beside it, and keeps a bpm or key "
+        "written in the style. For a spoken line use generate_speech; for a music video "
+        "set to a song, generate_music_video."
     )
     parameters = {
         "style": ToolParameter(
@@ -177,8 +179,9 @@ class GenerateMusicTool(BaseTool):
         "model": ToolParameter(
             name="model", type="string", required=False, default="ace-step",
             enum=list(MUSIC_MODELS),
-            description="'ace-step' (default): ACE-Step v1. 'ace-step-1.5': ACE-Step 1.5, a newer "
-                        "MIT-licensed model, available once installed in Audio Studio → Manage models.",
+            description="'ace-step' (default): ACE-Step v1, tag-style prompts. 'ace-step-1.5': ACE-Step 1.5, "
+                        "available once installed in Audio Studio → Manage models. 1.5 expands a sentence "
+                        "into the caption it renders and keeps a stated bpm or key.",
         ),
     }
 
