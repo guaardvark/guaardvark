@@ -884,6 +884,39 @@ def _analysis_stamp(metadata: dict) -> str:
     return f"Analysed {when}{files}. Files added or changed since then are not reflected."
 
 
+PROJECT_FOLDER_MAP_NOTE = (
+    " In a chat inside a project that has a folder, leave folder_id empty: the folder itself is "
+    "read from disk, with paths relative to it, and rebuilt when its source changes."
+)
+NO_FOLDER_ID = (
+    "folder_id is required: take it from list_code_repositories. In a chat inside a project "
+    "that has a folder, it can be left empty to use that folder."
+)
+
+
+def _project_code_map(tool):
+    """(data, None) for the chat's project folder, built from disk; (None, None)
+    when the turn has no folder (or runs over MCP); (None, error) on failure."""
+    root = _turn_project_root(tool)
+    if not root:
+        return None, None
+    import hashlib
+    from backend.services.repository_analysis_service import project_code_map
+
+    project_id = (getattr(tool, "_context", None) or {}).get("project_id")
+    key = f"project-{int(project_id)}" if project_id else "root-" + hashlib.sha1(root.encode()).hexdigest()[:12]
+    try:
+        return project_code_map(key, root), None
+    except Exception as e:  # noqa: BLE001 - reported to the model, not raised
+        logger.error(f"Mapping {root} failed: {e}", exc_info=True)
+        return None, display_text(f"Could not map the project folder: {e}")
+
+
+def _project_map_stamp(data):
+    return (f"Mapped from the project folder {display_text(data['root'])} at {data['analyzed_at']} "
+            f"({data['file_count']} source files); paths are relative to it.")
+
+
 class GetRepositoryMapTool(BaseTool):
     """Tool to get the PageRank-based repository map of a Code Repository folder."""
 
@@ -899,20 +932,30 @@ class GetRepositoryMapTool(BaseTool):
         "or not analysed yet, and says so when the analysis found no code symbols. For import edges use "
         "get_dependency_graph; for one Python symbol's source, read_ast_node; for Guaardvark's own "
         "checkout, map_codebase."
+        + PROJECT_FOLDER_MAP_NOTE
     )
     parameters = {
         "folder_id": ToolParameter(
             name="folder_id",
             type="int",
-            required=True,
-            description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id."
+            required=False,
+            description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id. In a chat inside a project that has a folder, leave it empty to use that folder."
         )
     }
 
     def execute(self, **kwargs) -> ToolResult:
         folder_id = kwargs.get("folder_id")
         if not folder_id:
-            return ToolResult(success=False, error="Missing required parameter: folder_id")
+            data, err = _project_code_map(self)
+            if err:
+                return ToolResult(success=False, error=err)
+            if data is None:
+                return ToolResult(success=False, error=NO_FOLDER_ID)
+            if not data["repository_map"]:
+                return ToolResult(success=True, output="No classes or functions to map. " + _project_map_stamp(data),
+                                  metadata={"root": data["root"]})
+            return ToolResult(success=True, output=f"{_project_map_stamp(data)}\n\n{data['repository_map']}",
+                              metadata={"root": data["root"], "analyzed_at": data["analyzed_at"]})
 
         try:
             folder, err = _repository_folder(self, folder_id)
@@ -965,20 +1008,35 @@ class GetDependencyGraphTool(BaseTool):
         "not in the graph), and fails with a message if the folder is not analysed. For a "
         "ranked symbol overview use get_repository_map; for import cycles in Guaardvark's own checkout, "
         "map_codebase."
+        + PROJECT_FOLDER_MAP_NOTE
     )
     parameters = {
         "folder_id": ToolParameter(
             name="folder_id",
             type="int",
-            required=True,
-            description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id."
+            required=False,
+            description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id. In a chat inside a project that has a folder, leave it empty to use that folder."
         )
     }
 
     def execute(self, **kwargs) -> ToolResult:
         folder_id = kwargs.get("folder_id")
         if not folder_id:
-            return ToolResult(success=False, error="Missing required parameter: folder_id")
+            data, err = _project_code_map(self)
+            if err:
+                return ToolResult(success=False, error=err)
+            if data is None:
+                return ToolResult(success=False, error=NO_FOLDER_ID)
+            return ToolResult(
+                success=True,
+                output=json.dumps({
+                    "root": display_text(data["root"]),
+                    "analyzed_at": data["analyzed_at"],
+                    "file_count": data["file_count"],
+                    "graph": data["dependency_graph"],
+                }, indent=2),
+                metadata={"root": data["root"], "node_count": len(data["dependency_graph"])},
+            )
 
         try:
             folder, err = _repository_folder(self, folder_id)
@@ -1024,13 +1082,15 @@ class ReadASTNodeTool(BaseTool):
         "Fails with a message for non-.py or absolute paths, paths outside the folder, a missing file, "
         "syntax errors or a name not found. Find names with get_repository_map; for the whole file, "
         "read_code with 'data/uploads/' plus the path get_repository_map shows."
+        " In a chat inside a project that has a folder, leave folder_id empty and give the path relative "
+        "to that folder."
     )
     parameters = {
         "folder_id": ToolParameter(
             name="folder_id",
             type="int",
-            required=True,
-            description="Integer id of the Code Repository folder, from list_code_repositories. It does not need to be analysed."
+            required=False,
+            description="Integer id of the Code Repository folder, from list_code_repositories. It does not need to be analysed. In a chat inside a project that has a folder, leave it empty to read from that folder."
         ),
         "filepath": ToolParameter(
             name="filepath",
@@ -1051,8 +1111,11 @@ class ReadASTNodeTool(BaseTool):
         filepath = kwargs.get("filepath")
         node_name = kwargs.get("node_name")
 
-        if not folder_id or not filepath or not node_name:
-            return ToolResult(success=False, error="Missing required parameter: folder_id, filepath, or node_name")
+        if not filepath or not node_name:
+            return ToolResult(success=False, error="Missing required parameter: filepath or node_name")
+        turn_root = None if folder_id else _turn_project_root(self)
+        if not folder_id and not turn_root:
+            return ToolResult(success=False, error=NO_FOLDER_ID)
 
         if not filepath.endswith(".py"):
             return ToolResult(success=False, error="read_ast_node currently only supports Python (.py) files.")
@@ -1061,17 +1124,25 @@ class ReadASTNodeTool(BaseTool):
             if Path(filepath).is_absolute():
                 return ToolResult(success=False, error="filepath must be relative to the Code Repository folder.")
 
-            folder, err = _repository_folder(self, folder_id, with_physical_path=True)
-            if err:
-                return ToolResult(success=False, error=err)
+            if turn_root:
+                from backend.services.guarded_code_service import forbidden_path_reason
+                from backend.tools.llama_code_tools import _private_reason
+                repo_root = Path(turn_root).resolve()
+                reason = forbidden_path_reason(filepath) or _private_reason(filepath, repo_root)
+                if reason:
+                    return ToolResult(success=False, error=reason)
+            else:
+                folder, err = _repository_folder(self, folder_id, with_physical_path=True)
+                if err:
+                    return ToolResult(success=False, error=err)
 
-            if not folder["is_repository"]:
-                return ToolResult(success=False, error=f"Folder {folder_id} is not marked as a Code Repository.")
+                if not folder["is_repository"]:
+                    return ToolResult(success=False, error=f"Folder {folder_id} is not marked as a Code Repository.")
 
-            if not folder.get("physical_path"):
-                return ToolResult(success=False, error=f"Folder {folder_id} has no location on disk.")
+                if not folder.get("physical_path"):
+                    return ToolResult(success=False, error=f"Folder {folder_id} has no location on disk.")
 
-            repo_root = Path(folder["physical_path"]).resolve()
+                repo_root = Path(folder["physical_path"]).resolve()
             full_path = (repo_root / filepath).resolve()
             try:
                 full_path.relative_to(repo_root)
