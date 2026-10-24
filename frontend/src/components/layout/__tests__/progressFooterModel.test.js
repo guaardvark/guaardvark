@@ -141,6 +141,49 @@ describe("footerView and chips", () => {
     expect(view.entries).toHaveLength(2);
   });
 
+  it("keeps one indexing job as its own line", () => {
+    const view = footerView(buildFooterEntries(
+      [{ job_id: "idx", processType: "indexing", status: "processing", progress: 20,
+        message: "Indexing 2 of 10 files", timestamp: 1, additional_data: {} }],
+      [videoJob()],
+    ));
+    expect(view.statusText).toBe("Indexing 2 of 10 files");
+    expect(view.entries).toHaveLength(2);
+  });
+
+  it("folds indexing jobs that have not started into one line", () => {
+    const waiting = (id) => ({
+      job_id: id, processType: "indexing", status: "start", progress: 0,
+      message: `Starting indexing... (Indexing document ${id}: f.py)`, timestamp: 1,
+      additional_data: { document_id: id },
+    });
+    const view = footerView(buildFooterEntries([waiting("a"), waiting("b"), waiting("c")], []));
+    expect(view.entries).toHaveLength(1);
+    expect(view.statusText).toBe("Indexing: 3 documents waiting to start");
+    expect(view.itemCount).toBeNull();
+    expect(view.progress).toBe(0);
+  });
+
+  it("leads folded indexing jobs with the one that is moving and counts the rest", () => {
+    const parked = {
+      job_id: "parked", processType: "indexing", status: "start", progress: 0,
+      message: "Starting indexing... (Indexing document 1: a.py)", timestamp: 1,
+      additional_data: {},
+    };
+    const moving = {
+      job_id: "moving", processType: "indexing", status: "processing", progress: 55,
+      message: "Starting indexing for document 2", timestamp: 5, additional_data: {},
+    };
+    const view = footerView(buildFooterEntries(
+      [parked, moving, { ...parked, job_id: "parked-2" }, denoising()],
+      [videoJob()],
+    ));
+    expect(view.entries).toHaveLength(2);
+    expect(view.statusText).toBe("Starting indexing for document 2 (1 running, 2 waiting)");
+    expect(view.progress).toBe(55);
+    expect(view.itemCount).toBeNull();
+  });
+
   it("writes running chips with their percentage", () => {
     const view = footerView(buildFooterEntries(
       [denoising(), { job_id: "idx", processType: "indexing", status: "processing", progress: 20,

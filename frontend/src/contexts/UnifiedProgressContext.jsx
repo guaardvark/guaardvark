@@ -51,6 +51,8 @@ const ACTIONS = {
 };
 
 // Reducer for atomic state management
+const FINISHED_STATUSES = new Set(['complete', 'completed', 'error', 'cancelled', 'canceled', 'failed', 'end']);
+
 const progressReducer = (state, action) => {
   switch (action.type) {
     case ACTIONS.ADD_PROCESS:
@@ -84,11 +86,12 @@ const progressReducer = (state, action) => {
       const now = Date.now();
 
       for (const [jobId, process] of state.activeProcesses.entries()) {
-        // Only purge ghost jobs that are:
-        // 1. In 'processing' status but missing from the server
-        // 2. AND older than 60 seconds (gives new jobs time to appear in metadata files)
+        // Purge ghost jobs: not finished here, missing from the server, and
+        // older than 60 seconds (new jobs need that long to reach the metadata
+        // files). Queued and started rows count: a lost task never moves past
+        // its first status.
         const age = now - (process.timestamp || 0);
-        if (!validJobIds.has(jobId) && process.status === 'processing' && age > 60000) {
+        if (!validJobIds.has(jobId) && !FINISHED_STATUSES.has(process.status) && age > 60000) {
           newProcesses.delete(jobId);
           changed = true;
         }

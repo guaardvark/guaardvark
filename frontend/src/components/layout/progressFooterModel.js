@@ -145,6 +145,34 @@ function rank(type) {
   return i === -1 ? PRIORITY.length : i;
 }
 
+// Each uploaded file indexes under its own progress record, so a dropped
+// folder lists one row per file. Two or more fold into one line that says how
+// many are running and how many wait; a single indexing job is unchanged.
+function foldIndexingEntries(entries) {
+  const indexing = entries.filter((e) => e.type === "indexing");
+  if (indexing.length <= 1) return entries;
+  const rest = entries.filter((e) => e.type !== "indexing");
+  const running = indexing.filter((e) => !e.waiting && (e.progress ?? 0) > 0);
+  const lead = running.length
+    ? running.reduce((best, e) => (e.timestamp > best.timestamp ? e : best))
+    : null;
+  const waitingCount = indexing.length - running.length;
+  const folded = {
+    key: "indexing-batch",
+    type: "indexing",
+    name: "",
+    waiting: running.length === 0,
+    waitKind: running.length === 0 ? "queue" : null,
+    text: running.length
+      ? `${lead.text} (${running.length} running, ${waitingCount} waiting)`
+      : `${indexing.length} documents waiting to start`,
+    progress: running.length ? lead.progress : 0,
+    itemCount: null,
+    timestamp: indexing.reduce((max, e) => Math.max(max, e.timestamp || 0), 0),
+  };
+  return [...rest, folded];
+}
+
 /**
  * One entry per job in flight, running ones first. A clip's video_render steps
  * fold into their batch, matched by batch_id or by the batch's current item.
@@ -179,7 +207,7 @@ export function buildFooterEntries(processes, videoJobs) {
     }
     entries.push(processEntry(p));
   }
-  return entries.sort(
+  return foldIndexingEntries(entries).sort(
     (a, b) => Number(a.waiting) - Number(b.waiting) || rank(a.type) - rank(b.type) || b.timestamp - a.timestamp,
   );
 }

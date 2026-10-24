@@ -273,6 +273,38 @@ def _dispatch_document(progress_system, index_document_task, doc):
     return None
 
 
+def _mark_pending(docs) -> list:
+    """Make these documents PENDING for one catch-up, in one commit, and return
+    the ones marked. A document a live single-document task is indexing is left
+    to it. update_document_status refuses INDEXING or ERROR back to PENDING, so
+    the column is written here."""
+    from backend.tasks.index_resume_tasks import _job_is_live
+    marked = []
+    for doc in docs:
+        if doc.index_status == "INDEXING" and _job_is_live(doc.indexing_job_id):
+            continue
+        doc.index_status = "PENDING"
+        doc.indexing_job_id = None
+        doc.error_message = None
+        marked.append(doc)
+    db.session.commit()
+    return marked
+
+
+def _start_catch_up(docs):
+    """Mark ``docs`` PENDING and hand them to the one catch-up a person starts
+    (index_resume_tasks.start_manual_drain). Returns (job_id, queued, error)."""
+    marked = _mark_pending(docs)
+    if not marked:
+        return None, 0, None
+    from backend.tasks.index_resume_tasks import start_manual_drain
+    try:
+        job_id, error = start_manual_drain([d.id for d in marked])
+    except Exception as e:  # noqa: BLE001 - Redis down: the rows stay PENDING for the beat
+        return None, 0, e
+    return job_id, (0 if error else len(marked)), error
+
+
 # Documents an emptied index must take again: the indexed ones, those being
 # indexed, and those whose last run failed (their vectors were kept until a
 # successful run, and an index rebuilt from scratch should try them again).
@@ -294,11 +326,11 @@ def requeue_indexed_documents() -> dict:
     """Index every INDEXED document again, after its vectors were cleared.
 
     For an embedding model change: the documents that were searchable before
-    are queued straight away rather than left PENDING, where the unhurried
-    resume task would reach them behind any backlog. While indexing is paused,
-    or once the queue refuses a task, the rest are left PENDING for it (the
-    refused one ERROR, as in a bulk run). Returns {"queued": n, "pending": n},
-    where pending counts every document not queued.
+    go to one catch-up straight away rather than waiting for the unhurried
+    15-minute one behind any backlog. While indexing is paused, or when the
+    catch-up cannot start, they are left PENDING for the 15-minute one.
+    Returns {"queued": n, "pending": n}, where pending counts every document
+    not handed to the catch-up.
     """
     out = _requeue(("INDEXED",))
     return {"queued": out["queued"], "pending": out["pending"]}
@@ -314,23 +346,10 @@ def _requeue(statuses) -> dict:
         by_status[doc.index_status] = by_status.get(doc.index_status, 0) + 1
     if not docs:
         return {"queued": 0, "pending": 0, "by_status": by_status}
-    progress_system = get_unified_progress()
-    from backend.celery_tasks_isolated import index_document_task
-    queued = 0
-    stopped = _get_indexing_paused_setting()
-    for doc in docs:
-        if not stopped:
-            update_document_status(doc.id, "INDEXING")
-            refused = _dispatch_document(progress_system, index_document_task, doc)
-            if refused is None:
-                queued += 1
-                continue
-            # As in a bulk run: nothing is indexing it, and Resume pending
-            # indexing re-queues ERROR rows once the queue is back.
-            update_document_status(doc.id, "ERROR", str(refused))
-            stopped = True
-            continue
-        update_document_status(doc.id, "PENDING")
+    if _get_indexing_paused_setting():
+        _mark_pending(docs)
+        return {"queued": 0, "pending": len(docs), "by_status": by_status}
+    _job_id, queued, _error = _start_catch_up(docs)
     return {"queued": queued, "pending": len(docs) - queued, "by_status": by_status}
 
 
@@ -380,26 +399,11 @@ def trigger_bulk_indexing():
         if not all_doc_ids:
             return jsonify({"error": "No documents found in the specified folders/documents."}), 404
 
-        # Create a parent progress job
-        progress_system = get_unified_progress()
-        job_id = progress_system.create_process(
-            ProcessType.INDEXING,
-            f"Bulk indexing {len(all_doc_ids)} documents"
-        )
-        progress_system.update_process(job_id, 0, "Starting bulk indexing")
-
-        # Dispatch Celery task for each document
-        try:
-            from backend.celery_tasks_isolated import index_document_task
-        except ImportError as e:
-            logger.error(f"Failed to import Celery task: {e}")
-            return jsonify({"error": "Indexing service unavailable"}), 500
-
         import hashlib
 
-        dispatched = 0
         skipped = 0
-        for doc_id in all_doc_ids:
+        to_index = []
+        for doc_id in sorted(all_doc_ids):
             doc = db.session.get(DBDocument, doc_id)
             if not doc:
                 continue
@@ -424,14 +428,18 @@ def trigger_bulk_indexing():
                 except Exception as e:
                     logger.debug(f"Hash check failed for doc {doc_id}, will re-index: {e}")
 
-            update_document_status(doc.id, "INDEXING")
-            stopped = _dispatch_document(progress_system, index_document_task, doc)
-            if stopped:
-                return _queue_stopped(doc.id, job_id, dispatched, len(all_doc_ids), stopped)
-            dispatched += 1
+            to_index.append(doc)
 
-        progress_system.complete_process(job_id, f"Queued {dispatched} for indexing, {skipped} unchanged")
-        logger.info(f"Bulk indexing: dispatched {dispatched} tasks, skipped {skipped} unchanged (batch job {job_id})")
+        # One catch-up with one progress row, not a task and a row per document.
+        job_id, dispatched, refused = _start_catch_up(to_index)
+        if refused is not None:
+            return jsonify({
+                "error": f"Indexing was not started: {refused}",
+                "code": getattr(refused, "code", None),
+                "job_id": job_id,
+                "dispatched": 0,
+            }), 503
+        logger.info(f"Bulk indexing: {dispatched} documents to one catch-up, {skipped} unchanged (job {job_id})")
 
         # Auto-trigger repository analysis for folders with enough code files
         from backend.utils.code_chunker import CODE_LANGUAGE_MAP
@@ -529,33 +537,15 @@ def resume_pending_indexing():
 
         doc_ids = [d.id for d in candidates]
 
-        # Reuse bulk logic style: create parent job, dispatch
-        progress_system = get_unified_progress()
-        job_id = progress_system.create_process(
-            ProcessType.INDEXING,
-            f"Resume pending indexing for {len(doc_ids)} documents"
-        )
-        progress_system.update_process(job_id, 0, "Resuming pending indexing")
-
-        try:
-            from backend.celery_tasks_isolated import index_document_task
-        except ImportError as e:
-            logger.error(f"Failed to import Celery task: {e}")
-            return jsonify({"error": "Indexing service unavailable"}), 500
-
-        dispatched = 0
-        for doc_id in doc_ids:
-            doc = db.session.get(DBDocument, doc_id)
-            if not doc:
-                continue
-            update_document_status(doc.id, "INDEXING")
-            stopped = _dispatch_document(progress_system, index_document_task, doc)
-            if stopped:
-                return _queue_stopped(doc.id, job_id, dispatched, len(doc_ids), stopped)
-            dispatched += 1
-
-        progress_system.complete_process(job_id, f"Queued {dispatched} for indexing")
-        logger.info(f"Resume pending: dispatched {dispatched} indexing tasks (batch job {job_id})")
+        job_id, dispatched, refused = _start_catch_up(candidates)
+        if refused is not None:
+            return jsonify({
+                "error": f"Indexing was not started: {refused}",
+                "code": getattr(refused, "code", None),
+                "job_id": job_id,
+                "dispatched": 0,
+            }), 503
+        logger.info(f"Resume pending: {dispatched} documents to one catch-up (job {job_id})")
 
         return jsonify({
             "message": f"Resumed indexing for {dispatched} pending/error documents.",

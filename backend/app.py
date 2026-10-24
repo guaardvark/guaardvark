@@ -656,12 +656,37 @@ def _initialize_app_components(app):
                     return False
                 if metadata.get("status") in TERMINAL_STATUSES:
                     return False
+                message = _stale_error_message(metadata, comfyui_down)
+                # An indexing job past the full timeout leaves its document at
+                # INDEXING, where no catch-up looks; return it to the queue. Not
+                # on the shorter Redis-outage bound, where the task may be alive.
+                if metadata.get("process_type") == "indexing" and threshold >= float(STALE_THRESHOLD):
+                    try:
+                        with app.app_context():
+                            from backend.tasks.index_resume_tasks import release_reaped_indexing_job
+                            if release_reaped_indexing_job(metadata) == "PENDING":
+                                message = "Timed out; the document was returned to the indexing queue"
+                    except Exception as release_exc:
+                        app.logger.warning("Could not return a reaped indexing document: %s", release_exc)
                 metadata["status"] = "error"
-                metadata["message"] = _stale_error_message(metadata, comfyui_down)
+                metadata["message"] = message
                 metadata["is_complete"] = True
                 metadata["completion_time_utc"] = utcnow().isoformat()
                 with open(metadata_file, "w") as f:
                     json.dump(metadata, f, indent=4)
+                # The page drops the row only when it hears the job ended.
+                try:
+                    socketio.emit("job_progress", {
+                        "job_id": metadata.get("job_id", "unknown"),
+                        "progress": metadata.get("progress", 0),
+                        "message": message,
+                        "status": "error",
+                        "process_type": metadata.get("process_type", "unknown"),
+                        "timestamp": metadata["completion_time_utc"],
+                        **(metadata.get("additional_data") or {}),
+                    }, to="global_progress")
+                except Exception:
+                    pass
                 if metadata.get("process_type") == "video_render":
                     _cleanup_orphaned_video_job(metadata)
                 app.logger.info(
