@@ -189,21 +189,57 @@ def _symbol_tokens(query: str) -> list[str]:
     return tokens[:6]
 
 
-def _regex_search(query: str, limit: int = DEFAULT_LIMIT) -> tuple[Optional[str], str]:
-    """The repository's regex search over the Guaardvark checkout, for when
-    semantic search is unavailable. Lists at most ``limit`` hits.
+_STOPWORDS = frozenset("""
+    a an and are code does file files find for from function functions how in into is it its
+    of on or project that the this to what where which who why with
+""".split())
+
+
+def _content_words(query: str) -> list[str]:
+    """The query's longer words that are not filler, for a literal search of a
+    plain-English question ("where is a blocked address checked")."""
+    words = []
+    for word in re.findall(r"[A-Za-z][A-Za-z0-9]{3,}", query):
+        w = word.lower()
+        if w not in _STOPWORDS and w not in words:
+            words.append(w)
+    return words[:6]
+
+
+def _regex_search(query: str, limit: int = DEFAULT_LIMIT, root: Optional[str] = None) -> tuple[Optional[str], str]:
+    """The repository's regex search, over ``root`` (default: the Guaardvark
+    checkout), for when semantic search is unavailable. Tries the query as
+    written, then its code-like names, then its content words. Lists at most
+    ``limit`` hits.
 
     Returns (hits, searched_for). hits is None when the query has nothing a
     literal search can use.
     """
-    from backend.tools.llama_code_tools import search_code
-    out = search_code(re.escape(query), max_hits=limit)
-    if "No matches" not in out and out.strip():
-        return out, query
-    symbols = _symbol_tokens(query)
-    if not symbols:
+    from contextlib import nullcontext
+    from backend.tools.llama_code_tools import rooted_at, search_code
+
+    with rooted_at(root) if root else nullcontext():
+        out = search_code(re.escape(query), max_hits=limit)
+        if "No matches" not in out and out.strip():
+            return out, query
+        symbols, words = _symbol_tokens(query), _content_words(query)
+        if symbols:
+            out = search_code("|".join(re.escape(t) for t in symbols), max_hits=limit)
+            if "No matches" not in out:
+                return out, ", ".join(symbols)
+        if words:
+            # Definitions named after the question's words first: "which function
+            # blocks an address" should list def validate_block before every line
+            # that mentions an address.
+            stems = "|".join(re.escape(w[:-1] if w.endswith("s") and not w.endswith("ss") else w) for w in words)
+            definition = rf"^\s*(?:async\s+)?(?:def|class|function|const|let|var|func|fn)\s+\w*(?:{stems})\w*"
+            out = search_code(definition, max_hits=limit)
+            if "No matches" not in out:
+                return out, "definitions named after " + ", ".join(words)
+            out = search_code("|".join(re.escape(w) for w in words), max_hits=limit)
+            if "No matches" not in out:
+                return out, ", ".join(words)
         return None, ""
-    return search_code("|".join(re.escape(s) for s in symbols), max_hits=limit), ", ".join(symbols)
 
 
 class SearchCodebaseTool(BaseTool):
@@ -269,19 +305,7 @@ class SearchCodebaseTool(BaseTool):
             text = f"[Searched {label}: hybrid meaning and keyword search (zvec_grep)]\n{text}"
         else:
             engine = "regex"
-            if not _is_checkout(root):
-                # The literal fallback reads only the Guaardvark checkout; its
-                # hits would come from a different tree than the one asked for.
-                return ToolResult(
-                    success=False,
-                    error=(
-                        f"Semantic code search did not answer for {label} (the zvec_grep plugin "
-                        "is not connected, or has no index there), and the literal fallback "
-                        "searches only Guaardvark's own checkout."
-                    ),
-                    metadata={"engine": engine, **meta},
-                )
-            hits, searched_for = _regex_search(query, limit)
+            hits, searched_for = _regex_search(query, limit, None if _is_checkout(root) else root)
             if hits is None:
                 return ToolResult(success=False, error=_SEMANTIC_UNAVAILABLE, metadata={"engine": engine, **meta})
             if hits.startswith("ERROR"):
@@ -289,7 +313,7 @@ class SearchCodebaseTool(BaseTool):
             text = (
                 f"[Searched {label}: literal search for {searched_for}, at most {limit} hits listed. "
                 "Semantic search is unavailable (the zvec_grep plugin is not connected, or has no "
-                f"index for this checkout).]\n{hits}"
+                f"index for this folder).]\n{hits}"
             )
         if len(text) > MAX_OUTPUT_CHARS:
             text = text[:MAX_OUTPUT_CHARS].rsplit("\n", 1)[0] + "\n... [more hits omitted]"

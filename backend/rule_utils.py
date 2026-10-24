@@ -295,13 +295,44 @@ def _bounded_rules_block(block: str, max_chars: int) -> str:
     return "\n".join(lines) + "\n"
 
 
-def get_chat_rules_block(model_name: Optional[str] = None) -> str:
+def _project_rules(project_id, model_name: Optional[str]) -> str:
+    """Active rules of one project: rows that name it, or are linked to it, at any
+    level, formatted under a "Project Rules" header. "" when it has none."""
+    if not db or not Rule or not project_id:
+        return ""
+    try:
+        pid = int(project_id)
+        rows = (
+            db.session.query(Rule)
+            .filter(
+                Rule.is_active == True,
+                or_(Rule.type == None, Rule.type.in_(RULE_BLOCK_TYPES)),
+                or_(Rule.name == None, ~Rule.name.in_(PROMPT_SLOT_RULE_NAMES)),
+                or_(Rule.project_id == pid, Rule.linked_projects.any(id=pid)),
+            )
+            .order_by(Rule.created_at)
+            .all()
+        )
+    except Exception as e:  # noqa: BLE001 - a failed lookup means no project rules, never an error in the prompt
+        logger.error("Database error fetching rules of project %s: %s", project_id, e)
+        return ""
+    rows = [r for r in rows if _model_matches(model_name, r.target_models)]
+    if not rows:
+        return ""
+    return "\n## Project Rules:\n" + "\n".join(f"- {r.rule_text.strip()}" for r in rows) + "\n"
+
+
+def get_chat_rules_block(model_name: Optional[str] = None, project_id=None) -> str:
     """The active rules a chat system prompt carries for model_name.
 
-    Lists CHAT_RULE_LEVELS through ``get_formatted_rules`` and bounds the
-    result at CHAT_RULES_MAX_CHARS. "" when no rule applies.
+    Lists CHAT_RULE_LEVELS through ``get_formatted_rules``, then the rules of
+    the chat's project when it has any, and bounds the result at
+    CHAT_RULES_MAX_CHARS. "" when no rule applies.
     """
     block = get_formatted_rules(levels=list(CHAT_RULE_LEVELS), model_name=model_name)
+    project_block = _project_rules(project_id, model_name)
+    if project_block:
+        block = (block or "\n--- Applicable Rules & Guidelines ---\n") + project_block
     if not block:
         return ""
     return _bounded_rules_block(block, CHAT_RULES_MAX_CHARS)

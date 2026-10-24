@@ -6106,7 +6106,9 @@ class UnifiedChatEngine:
                 if text:
                     logger.info(f"Loaded rule ID {rule_id} for unified chat")
                 persona = text or default_prompt
-                rules_block = rule_utils.get_chat_rules_block(model_name)
+                rules_block = rule_utils.get_chat_rules_block(
+                    model_name, project_id=getattr(self, "_project_id", None)
+                )
                 if rules_block:
                     return f"{persona}\n\n{rules_block.strip()}"
                 return persona
