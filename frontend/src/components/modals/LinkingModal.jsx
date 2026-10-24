@@ -25,6 +25,7 @@ import {
   InputAdornment,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import { translate, useUiTranslation } from "../../i18n";
 
 const LinkingModal = ({
   open,
@@ -37,6 +38,7 @@ const LinkingModal = ({
   apiUpdateLinks, // Expected: func(primaryEntityType, primaryEntityId, linkableEntityType, targetEntityIdsToLink) -> Promise<void>
   onLinksUpdated,
 }) => {
+  const { t } = useUiTranslation();
   const [activeTabConfig, setActiveTabConfig] = useState(null);
   const [availableItems, setAvailableItems] = useState([]);
   const [checkedItemIds, setCheckedItemIds] = useState(new Set());
@@ -89,7 +91,7 @@ const LinkingModal = ({
         console.error(
           `LinkingModal: Configuration error - Missing apiServiceFunction for ${activeTabConfig.pluralLabel}.`,
         );
-        setError(`Configuration error for ${activeTabConfig.pluralLabel}.`);
+        setError(translate("dialogs.linking.configError", { items: activeTabConfig.pluralLabel }));
       }
       return;
     }
@@ -141,7 +143,7 @@ const LinkingModal = ({
       );
       setError(
         err.message ||
-          `Failed to load ${activeTabConfig?.pluralLabel || "items"}.`,
+          translate("dialogs.linking.loadFailed", { items: activeTabConfig?.pluralLabel || translate("dialogs.linking.itemsLower") }),
       );
       setAvailableItems([]);
       setCheckedItemIds(new Set());
@@ -191,7 +193,7 @@ const LinkingModal = ({
   const handleSaveLinks = async () => {
     if (!primaryEntityId || !activeTabConfig || !apiUpdateLinks) {
       setError(
-        "Cannot save links: Missing entity information or API configuration.",
+        t("dialogs.linking.missingInfo"),
       );
       return;
     }
@@ -207,13 +209,13 @@ const LinkingModal = ({
       // A helper that reports failure as a value instead of throwing must
       // not be announced as success.
       if (result && result.success === false) {
-        throw new Error(result.error || "Failed to save links.");
+        throw new Error(result.error || t("dialogs.linking.saveFailed"));
       }
       if (onLinksUpdated) onLinksUpdated();
       onClose(true);
     } catch (err) {
       console.error("LinkingModal: Error saving links:", err);
-      setError(err.message || "Failed to save links.");
+      setError(err.message || t("dialogs.linking.saveFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -237,14 +239,14 @@ const LinkingModal = ({
   if (!primaryEntityId && open) {
     return (
       <Dialog open={open} onClose={() => onClose(false)}>
-        <DialogTitle>Error</DialogTitle>
+        <DialogTitle>{t("dialogs.linking.errorTitle")}</DialogTitle>
         <DialogContent>
           <Alert severity="error">
-            Primary entity data is missing. Cannot open linking modal.
+            {t("dialogs.linking.missingEntity")}
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => onClose(false)}>Close</Button>
+          <Button onClick={() => onClose(false)}>{t("dialogs.shared.close")}</Button>
         </DialogActions>
       </Dialog>
     );
@@ -262,8 +264,11 @@ const LinkingModal = ({
       scroll="paper"
     >
       <DialogTitle>
-        Link {activeTabConfig?.pluralLabel || "Items"} to {primaryEntityType}: &quot;
-        {primaryEntityName || `ID: ${primaryEntityId}`}&quot;
+        {t("dialogs.linking.title", {
+          items: activeTabConfig?.pluralLabel || t("dialogs.linking.itemsTitle"),
+          type: primaryEntityType,
+          name: primaryEntityName || t("dialogs.linking.idFallback", { id: primaryEntityId }),
+        })}
       </DialogTitle>
       <DialogContent
         dividers
@@ -271,8 +276,7 @@ const LinkingModal = ({
       >
         {!hasLinkableTypes ? (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            No linkable item types have been configured for this{" "}
-            {primaryEntityType}.
+            {t("dialogs.linking.noTypes", { type: primaryEntityType })}
           </Alert>
         ) : (
           <>
@@ -292,7 +296,7 @@ const LinkingModal = ({
               {linkableTypesConfig.map((config, index) => (
                 <Tab
                   key={config.entityType}
-                  label={`Link ${config.pluralLabel}`}
+                  label={t("dialogs.linking.tab", { items: config.pluralLabel })}
                   id={`link-tab-${config.entityType}`}
                   aria-controls={`link-panel-${config.entityType}`}
                   value={index}
@@ -304,7 +308,7 @@ const LinkingModal = ({
               fullWidth
               variant="outlined"
               size="small"
-              placeholder={`Search ${activeTabConfig?.pluralLabel || "items"}...`}
+              placeholder={t("dialogs.linking.search", { items: activeTabConfig?.pluralLabel || t("dialogs.linking.itemsLower") })}
               value={searchTerm}
               onChange={handleSearchChange}
               sx={{ mb: 1, flexShrink: 0 }}
@@ -339,15 +343,16 @@ const LinkingModal = ({
                 >
                   <CircularProgress />
                   <Typography sx={{ ml: 2 }}>
-                    Loading {activeTabConfig?.pluralLabel || "items"}...
+                    {t("dialogs.linking.loading", { items: activeTabConfig?.pluralLabel || t("dialogs.linking.itemsLower") })}
                   </Typography>
                 </Box>
               ) : availableItems.length === 0 && !error ? (
                 <Typography
                   sx={{ textAlign: "center", mt: 2, fontStyle: "italic" }}
                 >
-                  No {activeTabConfig?.pluralLabel || "items"} available{" "}
-                  {searchTerm ? "matching your search" : "to link"}.
+                  {searchTerm
+                    ? t("dialogs.linking.noneMatching", { items: activeTabConfig?.pluralLabel || t("dialogs.linking.itemsLower") })
+                    : t("dialogs.linking.noneToLink", { items: activeTabConfig?.pluralLabel || t("dialogs.linking.itemsLower") })}
                 </Typography>
               ) : (
                 <List dense>
@@ -379,14 +384,14 @@ const LinkingModal = ({
                           item.name ||
                           item.title ||
                           item.filename ||
-                          `ID: ${item.id}`
+                          t("dialogs.linking.idFallback", { id: item.id })
                         }
                         secondary={
                           item.description ||
                           item.type ||
                           item.url ||
                           item.email ||
-                          `ID: ${item.id}`
+                          t("dialogs.linking.idFallback", { id: item.id })
                         }
                         primaryTypographyProps={{ noWrap: true }}
                         secondaryTypographyProps={{
@@ -408,7 +413,7 @@ const LinkingModal = ({
           disabled={isLoading}
           color="inherit"
         >
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button
           onClick={handleSaveLinks}
@@ -420,7 +425,7 @@ const LinkingModal = ({
           {isLoading ? (
             <CircularProgress size={24} color="inherit" />
           ) : (
-            "Save Links"
+            t("dialogs.linking.saveLinks")
           )}
         </Button>
       </DialogActions>

@@ -21,6 +21,7 @@ import {
 import StorageIcon from "@mui/icons-material/Storage";
 import CloudDoneIcon from "@mui/icons-material/CloudDone";
 import CodeIcon from "@mui/icons-material/Code";
+import { translate, useUiTranslation } from "../../i18n";
 
 const DATA_COMPONENTS = [
   "clients",
@@ -33,18 +34,19 @@ const DATA_COMPONENTS = [
   "system_settings",
 ];
 
-const COMPONENT_LABELS = {
-  clients: "Clients",
-  documents: "Documents & Files",
-  projects: "Projects",
-  tasks: "Tasks",
-  websites: "Websites",
-  chats: "Chat History",
-  rules: "Rules & Prompts",
-  system_settings: "System Settings",
-};
+const componentLabels = () => ({
+  clients: translate("backups.createBackup.components.clients"),
+  documents: translate("backups.createBackup.components.documents"),
+  projects: translate("backups.createBackup.components.projects"),
+  tasks: translate("backups.createBackup.components.tasks"),
+  websites: translate("backups.createBackup.components.websites"),
+  chats: translate("backups.createBackup.components.chats"),
+  rules: translate("backups.createBackup.components.rules"),
+  system_settings: translate("backups.createBackup.components.systemSettings"),
+});
 
 const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
+  const { t } = useUiTranslation();
   const [selected, setSelected] = useState([]);
   const [backupName, setBackupName] = useState("");
   const [selectedType, setSelectedType] = useState(null);
@@ -81,48 +83,49 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
     {
       key: "data",
       icon: <StorageIcon sx={{ fontSize: 36 }} />,
-      title: "Data Backup",
-      subtitle: "Database, uploads, settings",
-      description: "Back up your application data with optional component selection. Typically 20-200 MB.",
+      title: t("backups.createBackup.dataTitle"),
+      subtitle: t("backups.createBackup.dataSubtitle"),
+      description: t("backups.createBackup.dataDescription"),
       color: "primary",
     },
     {
       key: "full",
       icon: <CloudDoneIcon sx={{ fontSize: 36 }} />,
-      title: "Full Backup",
-      subtitle: "Everything for deployment",
-      description: "Complete system: code, config, database, uploads, and all data. Deployable to a new machine.",
+      title: t("backups.createBackup.fullTitle"),
+      subtitle: t("backups.createBackup.fullSubtitle"),
+      description: t("backups.createBackup.fullDescription"),
       color: "success",
     },
     {
       key: "code_release",
       icon: <CodeIcon sx={{ fontSize: 36 }} />,
-      title: "Code Release",
-      subtitle: "Source code only, zero data",
-      description: "For distribution or fresh installs. Recipients run ./start.sh for a clean setup.",
+      title: t("backups.createBackup.codeTitle"),
+      subtitle: t("backups.createBackup.codeSubtitle"),
+      description: t("backups.createBackup.codeDescription"),
       color: "warning",
     },
   ];
+  const labels = componentLabels();
 
   return (
     <Dialog open={open} onClose={handleClose} fullWidth maxWidth="md">
-      <DialogTitle>Create Backup</DialogTitle>
+      <DialogTitle>{t("backups.createBackup.title")}</DialogTitle>
       <DialogContent dividers>
         <Box sx={{ mb: 2 }}>
           <TextField
             fullWidth
-            label="Backup Name (Optional)"
+            label={t("backups.createBackup.nameLabel")}
             variant="outlined"
             value={backupName}
             onChange={(e) => setBackupName(e.target.value)}
-            helperText="Custom name for the backup file (timestamp appended automatically)"
+            helperText={t("backups.createBackup.nameHelp")}
             size="small"
           />
         </Box>
 
         {/* Type selector cards */}
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          Select backup type:
+          {t("backups.createBackup.selectType")}:
         </Typography>
         <Box sx={{ display: "flex", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
           {typeCards.map((card) => (
@@ -164,11 +167,11 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
           <>
             <Divider sx={{ my: 2 }} />
             <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-              Select components (leave empty for all):
+              {t("backups.createBackup.selectComponents")}
             </Typography>
             <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
-              <Button size="small" onClick={handleSelectAll}>Select All</Button>
-              <Button size="small" onClick={handleSelectNone}>Select None</Button>
+              <Button size="small" onClick={handleSelectAll}>{t("backups.createBackup.selectAll")}</Button>
+              <Button size="small" onClick={handleSelectNone}>{t("backups.createBackup.selectNone")}</Button>
             </Box>
             <FormGroup row>
               {DATA_COMPONENTS.map((c) => (
@@ -183,7 +186,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
                       onChange={handleChange}
                     />
                   }
-                  label={<Typography variant="body2">{COMPONENT_LABELS[c] || c}</Typography>}
+                  label={<Typography variant="body2">{labels[c] || c}</Typography>}
                 />
               ))}
             </FormGroup>
@@ -198,7 +201,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
               }
               label={
                 <Typography variant="body2">
-                  Include Plugins (scripts, configs — excludes models and datasets)
+                  {t("backups.createBackup.includePlugins")}
                 </Typography>
               }
             />
@@ -208,7 +211,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
 
       <DialogActions>
         <Button onClick={handleClose} disabled={isProcessing}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button
           onClick={handleCreate}
@@ -217,7 +220,7 @@ const CreateBackupModal = ({ open, onClose, onCreate, isProcessing }) => {
           color={selectedType ? typeCards.find((c) => c.key === selectedType)?.color || "primary" : "primary"}
         >
           {isProcessing ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-          {isProcessing ? "Creating..." : selectedType ? `Create ${typeCards.find((c) => c.key === selectedType)?.title}` : "Select a Type"}
+          {isProcessing ? t("backups.createBackup.creating") : selectedType ? t("backups.createBackup.createType", { type: typeCards.find((c) => c.key === selectedType)?.title }) : t("backups.createBackup.selectTypeButton")}
         </Button>
       </DialogActions>
     </Dialog>

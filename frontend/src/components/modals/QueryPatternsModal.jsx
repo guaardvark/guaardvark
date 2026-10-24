@@ -36,8 +36,10 @@ import SearchIcon from "@mui/icons-material/Search";
 import ScoreIcon from "@mui/icons-material/Score";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AnalyticsIcon from "@mui/icons-material/Analytics";
+import { translate, useUiTranslation } from "../../i18n";
 
 const QueryPatternsModal = ({ open, onClose }) => {
+  const { t } = useUiTranslation();
   const [loading, setLoading] = useState(false);
   const [patterns, setPatterns] = useState(null);
   const [error, setError] = useState(null);
@@ -58,7 +60,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(data.error || "Failed to fetch query patterns");
+        throw new Error(data.error || translate("dialogs.queryPatterns.fetchFailed"));
       }
 
       setPatterns(data.data);
@@ -86,14 +88,14 @@ const QueryPatternsModal = ({ open, onClose }) => {
     if (typeof time === 'number') {
       return `${(time * 1000).toFixed(1)}ms`;
     }
-    return 'N/A';
+    return t("dialogs.queryPatterns.notAvailable");
   };
 
   const formatScore = (score) => {
     if (typeof score === 'number') {
       return score.toFixed(3);
     }
-    return 'N/A';
+    return t("dialogs.queryPatterns.notAvailable");
   };
 
   const getPerformanceColor = (time) => {
@@ -107,14 +109,14 @@ const QueryPatternsModal = ({ open, onClose }) => {
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
           <AnalyticsIcon color="primary" />
-          <Typography variant="h6">Query Patterns Analysis</Typography>
+          <Typography variant="h6">{t("dialogs.queryPatterns.title")}</Typography>
           <Button
             size="small"
             onClick={fetchPatterns}
             startIcon={<RefreshIcon />}
             disabled={loading}
           >
-            Refresh
+            {t("dialogs.shared.refresh")}
           </Button>
         </Stack>
       </DialogTitle>
@@ -124,7 +126,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
           <Box display="flex" justifyContent="center" alignItems="center" sx={{ py: 4 }}>
             <CircularProgress />
             <Typography variant="body2" sx={{ ml: 2 }}>
-              Analyzing query patterns...
+              {t("dialogs.queryPatterns.analyzing")}
             </Typography>
           </Box>
         )}
@@ -149,7 +151,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      Unique Patterns
+                      {t("dialogs.queryPatterns.uniquePatterns")}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -165,7 +167,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      Most Used Pattern
+                      {t("dialogs.queryPatterns.mostUsed")}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -185,7 +187,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      Avg Response Time
+                      {t("dialogs.queryPatterns.avgResponseTime")}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -205,7 +207,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      Avg Similarity
+                      {t("dialogs.queryPatterns.avgSimilarity")}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -216,21 +218,21 @@ const QueryPatternsModal = ({ open, onClose }) => {
             {patterns.most_common_patterns && patterns.most_common_patterns.length > 0 && (
               <Paper sx={{ mb: 3 }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Typography variant="h6">Most Common Query Patterns</Typography>
+                  <Typography variant="h6">{t("dialogs.queryPatterns.mostCommon")}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Patterns are grouped by the first word of queries
+                    {t("dialogs.queryPatterns.groupedBy")}
                   </Typography>
                 </Box>
                 <TableContainer>
                   <Table>
                     <TableHead>
                       <TableRow>
-                        <TableCell>Pattern</TableCell>
-                        <TableCell align="right">Count</TableCell>
-                        <TableCell align="right">Avg Time</TableCell>
-                        <TableCell align="right">Avg Nodes</TableCell>
-                        <TableCell align="right">Avg Score</TableCell>
-                        <TableCell align="right">Performance</TableCell>
+                        <TableCell>{t("dialogs.queryPatterns.pattern")}</TableCell>
+                        <TableCell align="right">{t("dialogs.queryPatterns.count")}</TableCell>
+                        <TableCell align="right">{t("dialogs.queryPatterns.avgTime")}</TableCell>
+                        <TableCell align="right">{t("dialogs.queryPatterns.avgNodes")}</TableCell>
+                        <TableCell align="right">{t("dialogs.queryPatterns.avgScore")}</TableCell>
+                        <TableCell align="right">{t("dialogs.queryPatterns.performance")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -256,7 +258,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                           </TableCell>
                           <TableCell align="right">
                             <Typography variant="body2">
-                              {stats.avg_nodes_retrieved?.toFixed(1) || 'N/A'}
+                              {stats.avg_nodes_retrieved?.toFixed(1) || t("dialogs.queryPatterns.notAvailable")}
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
@@ -268,8 +270,8 @@ const QueryPatternsModal = ({ open, onClose }) => {
                             <Chip
                               size="small"
                               label={
-                                stats.avg_retrieval_time < 0.1 ? "Fast" :
-                                stats.avg_retrieval_time < 0.5 ? "Good" : "Slow"
+                                stats.avg_retrieval_time < 0.1 ? t("dialogs.queryPatterns.fast") :
+                                stats.avg_retrieval_time < 0.5 ? t("dialogs.queryPatterns.good") : t("dialogs.queryPatterns.slow")
                               }
                               color={getPerformanceColor(stats.avg_retrieval_time)}
                             />
@@ -285,14 +287,14 @@ const QueryPatternsModal = ({ open, onClose }) => {
             {/* Performance Insights */}
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Performance Insights
+                {t("dialogs.queryPatterns.insights")}
               </Typography>
               
               {patterns.pattern_stats && Object.keys(patterns.pattern_stats).length > 0 ? (
                 <Grid container spacing={2}>
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" color="primary" gutterBottom>
-                      Fastest Patterns
+                      {t("dialogs.queryPatterns.fastest")}
                     </Typography>
                     {Object.entries(patterns.pattern_stats)
                       .sort(([,a], [,b]) => a.avg_retrieval_time - b.avg_retrieval_time)
@@ -312,7 +314,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
 
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" color="primary" gutterBottom>
-                      Most Relevant Patterns
+                      {t("dialogs.queryPatterns.mostRelevant")}
                     </Typography>
                     {Object.entries(patterns.pattern_stats)
                       .sort(([,a], [,b]) => b.avg_similarity_score - a.avg_similarity_score)
@@ -332,7 +334,7 @@ const QueryPatternsModal = ({ open, onClose }) => {
                 </Grid>
               ) : (
                 <Alert severity="info">
-                  No query patterns available yet. Use the system to generate some queries first.
+                  {t("dialogs.queryPatterns.noPatternsYet")}
                 </Alert>
               )}
             </Paper>
@@ -341,14 +343,14 @@ const QueryPatternsModal = ({ open, onClose }) => {
 
         {patterns && patterns.total_patterns === 0 && !loading && (
           <Alert severity="info">
-            No query patterns found. Start using the RAG system to generate pattern data.
+            {t("dialogs.queryPatterns.noPatterns")}
           </Alert>
         )}
       </DialogContent>
 
       <DialogActions>
         <Button onClick={handleClose} startIcon={<CloseIcon />}>
-          Close
+          {t("dialogs.shared.close")}
         </Button>
       </DialogActions>
     </Dialog>

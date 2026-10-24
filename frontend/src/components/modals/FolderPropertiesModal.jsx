@@ -30,9 +30,10 @@ import * as apiService from '../../api';
 import axios from 'axios';
 import { formatUiError } from '../../utils/uiError';
 import ConfirmActionDialog from '../settings/ui/ConfirmActionDialog';
+import { translate, uiLocale, useUiTranslation, Trans } from '../../i18n';
 
 // The server's reason from an axios error, else the error's own text.
-const reasonOf = (err) => formatUiError(err?.response?.data) || formatUiError(err) || 'the request failed';
+const reasonOf = (err) => formatUiError(err?.response?.data) || formatUiError(err) || translate('dialogs.folderProperties.requestFailed');
 
 const API_BASE = '/api/files';
 
@@ -43,6 +44,7 @@ const FolderPropertiesModal = ({
   onSave,
   onDelete,
 }) => {
+  const { t } = useUiTranslation();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -147,10 +149,10 @@ const FolderPropertiesModal = ({
       setWebsites(Array.isArray(websitesList) ? websitesList : []);
       // These services answer { error } instead of throwing.
       const refused = [clientsList, projectsList, websitesList].find((l) => !Array.isArray(l) && l?.error);
-      if (refused) setFailure(`Clients, projects or websites could not be loaded: ${formatUiError(refused.error)}.`);
+      if (refused) setFailure(t('dialogs.folderProperties.entitiesFailed', { reason: formatUiError(refused.error) }));
     } catch (err) {
       console.error('Failed to load entities:', err);
-      setFailure(`Clients, projects or websites could not be loaded: ${reasonOf(err)}.`);
+      setFailure(t('dialogs.folderProperties.entitiesFailed', { reason: reasonOf(err) }));
     } finally {
       setLoading(false);
     }
@@ -174,7 +176,7 @@ const FolderPropertiesModal = ({
       await onSave(folderData.id, payload);
     } catch (err) {
       console.error('Failed to save folder properties:', err);
-      setFailure(`The folder properties were not saved: ${reasonOf(err)}.`);
+      setFailure(t('dialogs.folderProperties.saveFailed', { reason: reasonOf(err) }));
     } finally {
       setSaving(false);
     }
@@ -195,7 +197,7 @@ const FolderPropertiesModal = ({
       }
       await onDelete(fid);
     } catch (err) {
-      setFailure(`The folder was not deleted: ${reasonOf(err)}.`);
+      setFailure(t('dialogs.folderProperties.deleteFailed', { reason: reasonOf(err) }));
     } finally {
       setDeleting(false);
     }
@@ -210,15 +212,15 @@ const FolderPropertiesModal = ({
       setIsRepository(prev => !prev);
     } catch (err) {
       console.error('Failed to toggle repository status:', err);
-      setFailure(`The repository setting was not changed: ${reasonOf(err)}.`);
+      setFailure(t('dialogs.folderProperties.repoToggleFailed', { reason: reasonOf(err) }));
     } finally {
       setTogglingRepo(false);
     }
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString();
+    if (!dateString) return t('dialogs.fileProperties.notAvailable');
+    return new Date(dateString).toLocaleString(uiLocale());
   };
 
   if (!folderData) return null;
@@ -227,7 +229,7 @@ const FolderPropertiesModal = ({
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">Folder Properties</Typography>
+          <Typography variant="h6">{t('dialogs.folderProperties.title')}</Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
@@ -243,32 +245,32 @@ const FolderPropertiesModal = ({
         {/* Folder Information */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Folder Information
+            {t('dialogs.folderProperties.folderInformation')}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Typography variant="body2">
-                <strong>Name:</strong> {folderData.name}
+                <Trans i18nKey="dialogs.folderProperties.name" values={{ name: folderData.name }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Path:</strong> {folderData.path || 'N/A'}
+                <Trans i18nKey="dialogs.folderProperties.path" values={{ path: folderData.path || t('dialogs.fileProperties.notAvailable') }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Created:</strong> {formatDate(folderData.created_at)}
+                <Trans i18nKey="dialogs.folderProperties.created" values={{ date: formatDate(folderData.created_at) }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Subfolders:</strong> {folderData.subfolder_count || 0}
+                <Trans i18nKey="dialogs.folderProperties.subfolders" values={{ count: folderData.subfolder_count || 0 }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Files:</strong> {folderData.document_count || 0}
+                <Trans i18nKey="dialogs.folderProperties.files" values={{ count: folderData.document_count || 0 }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={12}>
@@ -283,9 +285,9 @@ const FolderPropertiesModal = ({
                 }
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    Code Repository
+                    {t('dialogs.folderProperties.codeRepository')}
                     {parentProps?.is_repository && isRepository && (
-                      <Chip label="inherited" size="small" variant="outlined" color="info" sx={{ height: 20, fontSize: '0.7rem' }} />
+                      <Chip label={t('dialogs.folderProperties.inherited')} size="small" variant="outlined" color="info" sx={{ height: 20, fontSize: '0.7rem' }} />
                     )}
                   </Box>
                 }
@@ -302,7 +304,7 @@ const FolderPropertiesModal = ({
                     <Chip key={fw} label={fw} size="small" color="primary" variant="outlined" />
                   ))}
                   {folderData.repo_metadata.file_count != null && (
-                    <Chip label={`${folderData.repo_metadata.file_count} files`} size="small" variant="outlined" />
+                    <Chip label={t('dialogs.folderProperties.fileCount', { count: folderData.repo_metadata.file_count })} size="small" variant="outlined" />
                   )}
                 </Box>
               )}
@@ -319,14 +321,19 @@ const FolderPropertiesModal = ({
           sx={{ mb: 2 }}
         >
           <Typography variant="body2">
-            <strong>Note:</strong> Properties set here will be applied to all files and subfolders within this folder, including nested subfolders.
+            <Trans i18nKey="dialogs.folderProperties.cascadeNote" components={{ bold: <strong /> }} />
           </Typography>
         </Alert>
 
         {parentProps && (parentProps.client_id || parentProps.project_id || parentProps.website_id || parentProps.tags || parentProps.notes) && (
           <Alert severity="info" sx={{ mb: 2 }}>
             <Typography variant="body2">
-              Some properties are inherited from the parent folder. Fields marked <Chip label="inherited" size="small" variant="outlined" color="info" sx={{ height: 18, fontSize: '0.65rem', mx: 0.5 }} /> were set by the parent.
+              <Trans
+                i18nKey="dialogs.folderProperties.inheritedNote"
+                components={{
+                  chip: <Chip label={t('dialogs.folderProperties.inherited')} size="small" variant="outlined" color="info" sx={{ height: 18, fontSize: '0.65rem', mx: 0.5 }} />,
+                }}
+              />
             </Typography>
           </Alert>
         )}
@@ -334,7 +341,7 @@ const FolderPropertiesModal = ({
         {/* Entity Links */}
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Entity Links (Optional)
+            {t('dialogs.fileProperties.entityLinks')}
           </Typography>
 
           {loading ? (
@@ -352,7 +359,7 @@ const FolderPropertiesModal = ({
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label={parentProps?.client_id && formData.client_id === parentProps.client_id ? 'Link to Client (inherited)' : 'Link to Client'}
+                      label={parentProps?.client_id && formData.client_id === parentProps.client_id ? t('dialogs.folderProperties.linkClientInherited') : t('dialogs.fileProperties.linkClient')}
                       size="small"
                     />
                   )}
@@ -367,7 +374,7 @@ const FolderPropertiesModal = ({
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label={parentProps?.project_id && formData.project_id === parentProps.project_id ? 'Link to Project (inherited)' : 'Link to Project'}
+                      label={parentProps?.project_id && formData.project_id === parentProps.project_id ? t('dialogs.folderProperties.linkProjectInherited') : t('dialogs.fileProperties.linkProject')}
                       size="small"
                     />
                   )}
@@ -382,7 +389,7 @@ const FolderPropertiesModal = ({
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label={parentProps?.website_id && formData.website_id === parentProps.website_id ? 'Link to Website (inherited)' : 'Link to Website'}
+                      label={parentProps?.website_id && formData.website_id === parentProps.website_id ? t('dialogs.folderProperties.linkWebsiteInherited') : t('dialogs.fileProperties.linkWebsite')}
                       size="small"
                     />
                   )}
@@ -397,29 +404,29 @@ const FolderPropertiesModal = ({
         {/* Tags and Notes */}
         <Box>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Metadata
+            {t('dialogs.fileProperties.metadata')}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label={parentProps?.tags && formData.tags && parentProps.tags === formData.tags ? 'Tags (inherited)' : 'Tags (comma-separated)'}
+                label={parentProps?.tags && formData.tags && parentProps.tags === formData.tags ? t('dialogs.folderProperties.tagsInherited') : t('dialogs.fileProperties.tags')}
                 size="small"
                 value={formData.tags}
                 onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                placeholder="important, draft, review"
+                placeholder={t('dialogs.fileProperties.tagsPlaceholder')}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label={parentProps?.notes && formData.notes && parentProps.notes === formData.notes ? 'Notes (inherited)' : 'Notes'}
+                label={parentProps?.notes && formData.notes && parentProps.notes === formData.notes ? t('dialogs.folderProperties.notesInherited') : t('dialogs.fileProperties.notes')}
                 size="small"
                 multiline
                 rows={3}
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Add any notes about this folder..."
+                placeholder={t('dialogs.folderProperties.notesPlaceholder')}
               />
             </Grid>
           </Grid>
@@ -437,27 +444,27 @@ const FolderPropertiesModal = ({
               size="small"
               disabled={saving || deleting}
             >
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? t('dialogs.fileProperties.deleting') : t('dialogs.shared.delete')}
             </Button>
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button onClick={onClose} disabled={saving || deleting}>Cancel</Button>
+          <Button onClick={onClose} disabled={saving || deleting}>{t('dialogs.shared.cancel')}</Button>
           <Button 
             onClick={handleSave} 
             variant="contained" 
             disabled={saving || deleting}
             startIcon={saving ? <CircularProgress size={16} /> : null}
           >
-            {saving ? 'Saving...' : 'Save & Apply to All'}
+            {saving ? t('dialogs.folderProperties.saving') : t('dialogs.folderProperties.saveAndApply')}
           </Button>
         </Box>
       </DialogActions>
       <ConfirmActionDialog
         open={confirmingDelete}
-        title="Delete this folder"
-        description={`"${folderData?.name}" and everything in it are deleted.`}
-        confirmLabel="Delete folder"
+        title={t('dialogs.folderProperties.deleteTitle')}
+        description={t('dialogs.folderProperties.deleteDescription', { name: folderData?.name })}
+        confirmLabel={t('dialogs.folderProperties.deleteFolder')}
         onConfirm={handleDelete}
         onClose={() => setConfirmingDelete(false)}
       />

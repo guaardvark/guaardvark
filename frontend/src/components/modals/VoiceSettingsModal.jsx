@@ -4,6 +4,7 @@
 import React from "react";
 import { Dialog, DialogTitle, DialogContent } from "@mui/material";
 import VoiceSettingsContent from "../settings/VoiceSettingsContent";
+import { useUiTranslation } from "../../i18n";
 
 const VoiceSettingsModal = ({
   open,
@@ -28,9 +29,10 @@ const VoiceSettingsModal = ({
   onManageVoiceModels,
   showMessage,
 }) => {
+  const { t } = useUiTranslation();
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Voice Settings</DialogTitle>
+      <DialogTitle>{t("dialogs.voiceSettings.title")}</DialogTitle>
       <DialogContent dividers>
         <VoiceSettingsContent
           voiceSettings={voiceSettings}

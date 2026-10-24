@@ -22,8 +22,10 @@ import RecordVoiceOverIcon from "@mui/icons-material/RecordVoiceOver";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import axios from "axios";
+import { translate, useUiTranslation } from "../../i18n";
 
 const VoiceModelsModal = ({ open, onClose, showMessage }) => {
+  const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [downloadStatus, setDownloadStatus] = useState({
@@ -45,10 +47,10 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
       if (res.data.success) {
         setModels(res.data.data.models);
       } else {
-        setError("Failed to load voice models");
+        setError(translate("models.voiceModels.failedToLoad"));
       }
     } catch (err) {
-      setError(err.message || "Error fetching voice models");
+      setError(err.message || translate("models.voiceModels.errorFetching"));
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
         const status = res.data.data;
         setDownloadStatus(status);
         if (!status.is_downloading && status.status === "completed") {
-          showMessage?.("Voice model download completed!", "success");
+          showMessage?.(translate("models.voiceModels.completed"), "success");
           fetchModels();
           setDownloadStatus((prev) => ({
             ...prev,
@@ -69,7 +71,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
             current_model: null,
           }));
         } else if (!status.is_downloading && status.status === "failed") {
-          showMessage?.(`Download failed: ${status.error}`, "error");
+          showMessage?.(translate("models.shared.downloadFailed", { error: status.error }), "error");
           setDownloadStatus((prev) => ({
             ...prev,
             status: "idle",
@@ -111,7 +113,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
           (m) => m.id === modelId && m.model_type === modelType
         );
         showMessage?.(
-          `Started downloading ${model?.name || modelId}...`,
+          t("models.shared.startedDownloadingDots", { name: model?.name || modelId }),
           "info"
         );
         setDownloadStatus({
@@ -125,13 +127,13 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
           total_mb: model?.size_mb || 0,
         });
       } else {
-        showMessage?.(res.data.error || "Failed to start download", "error");
+        showMessage?.(res.data.error || t("models.shared.failedToStartDownload"), "error");
       }
     } catch (err) {
       if (err.response?.status === 409) {
-        showMessage?.("A download is already in progress.", "warning");
+        showMessage?.(t("models.shared.downloadInProgress"), "warning");
       } else {
-        showMessage?.(err.message || "Error starting download", "error");
+        showMessage?.(err.message || t("models.shared.errorStartingDownload"), "error");
       }
     }
   };
@@ -182,8 +184,8 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
             <Box sx={{ width: 130 }}>
               <Typography variant="caption" noWrap>
                 {downloadStatus.status === "starting"
-                  ? "Starting..."
-                  : `${downloadStatus.progress}% \u2014 ${downloadStatus.speed_mbps} MB/s`}
+                  ? t("models.shared.startingDots")
+                  : t("models.shared.progressSpeed", { progress: downloadStatus.progress, speed: downloadStatus.speed_mbps })}
               </Typography>
               <LinearProgress
                 variant={downloadStatus.progress > 0 ? "determinate" : "indeterminate"}
@@ -198,7 +200,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
           ) : model.is_downloaded ? (
             <Chip
               icon={<CheckCircleIcon />}
-              label="Installed"
+              label={t("models.shared.installed")}
               color="success"
               size="small"
               variant="outlined"
@@ -211,7 +213,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
               onClick={() => handleDownload(model.id, model.model_type)}
               disabled={isDownloading}
             >
-              Install
+              {t("dialogs.shared.install")}
             </Button>
           )}
         </Box>
@@ -226,7 +228,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
       maxWidth="sm"
       fullWidth
     >
-      <DialogTitle>Manage Voice Models</DialogTitle>
+      <DialogTitle>{t("models.voiceModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
           <Box mb={2}>
@@ -246,7 +248,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
               color="text.secondary"
               sx={{ mt: 1, mb: 0.5, px: 1 }}
             >
-              Speech-to-Text (Whisper)
+              {t("models.voiceModels.whisperSection")}
             </Typography>
             <List disablePadding>
               {whisperModels.map(renderModel)}
@@ -260,7 +262,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
               color="text.secondary"
               sx={{ mb: 0.5, px: 1 }}
             >
-              Text-to-Speech (Piper)
+              {t("models.voiceModels.piperSection")}
             </Typography>
             <List disablePadding>
               {piperModels.map(renderModel)}
@@ -273,7 +275,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
                 align="center"
                 sx={{ py: 3 }}
               >
-                No voice models configured.
+                {t("models.voiceModels.noModels")}
               </Typography>
             )}
           </>
@@ -281,7 +283,7 @@ const VoiceModelsModal = ({ open, onClose, showMessage }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isDownloading}>
-          {isDownloading ? "Downloading..." : "Close"}
+          {isDownloading ? t("models.shared.downloadingDots") : t("dialogs.shared.close")}
         </Button>
       </DialogActions>
     </Dialog>

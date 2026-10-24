@@ -25,12 +25,13 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import axios from "axios";
 import { ActionButton, StatusPill } from "../settings/ui";
 import { enablePlugin, startPlugin } from "../../api/pluginsService";
+import { translate, useUiTranslation, Trans } from "../../i18n";
 
-const GROUP_LABELS = {
-  voice: "Voice",
-  music: "Music",
-  fx: "Sound FX",
-};
+const groupLabels = () => ({
+  voice: translate("models.audioFoundryModels.groups.voice"),
+  music: translate("models.audioFoundryModels.groups.music"),
+  fx: translate("models.audioFoundryModels.groups.fx"),
+});
 
 const GROUP_ORDER = ["voice", "music", "fx"];
 
@@ -48,6 +49,7 @@ const AudioFoundryModelsModal = ({
   highlightModelId,
   onChanged,
 }) => {
+  const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
   const [plugin, setPlugin] = useState({ running: false, enabled: false, status: "unknown" });
   const [loading, setLoading] = useState(true);
@@ -78,10 +80,10 @@ const AudioFoundryModelsModal = ({
         setPlugin(res.data.plugin || { running: false, enabled: false, status: "unknown" });
         setError(null);
       } else {
-        setError("Failed to load audio models");
+        setError(translate("models.audioFoundryModels.failedToLoad"));
       }
     } catch (err) {
-      setError(err.message || "Error fetching audio models");
+      setError(err.message || translate("models.audioFoundryModels.errorFetching"));
     } finally {
       setLoading(false);
     }
@@ -95,11 +97,11 @@ const AudioFoundryModelsModal = ({
         setDl((prev) => {
           if (prev.is_downloading && !next.is_downloading) {
             if (next.status === "completed") {
-              showMessageRef.current?.("Model installed", "success");
+              showMessageRef.current?.(translate("models.shared.modelInstalled"), "success");
               fetchModels();
               onChanged?.();
             } else if (next.status === "failed") {
-              showMessageRef.current?.(`Download failed: ${next.error || "unknown"}`, "error");
+              showMessageRef.current?.(translate("models.shared.downloadFailed", { error: next.error || translate("models.shared.unknown") }), "error");
               fetchModels();
             }
           }
@@ -140,13 +142,13 @@ const AudioFoundryModelsModal = ({
       const res = await axios.post("/api/audio-foundry/models/download", { id: assetId });
       if (res.data?.success) {
         if (res.data.already_installed) {
-          showMessageRef.current?.("Already installed", "info");
+          showMessageRef.current?.(t("models.audioFoundryModels.alreadyInstalled"), "info");
           fetchModels();
           onChanged?.();
           return;
         }
         const asset = models.find((m) => m.id === assetId);
-        showMessageRef.current?.(`Started downloading ${asset?.name || assetId}…`, "info");
+        showMessageRef.current?.(t("models.shared.startedDownloading", { name: asset?.name || assetId }), "info");
         setDl({
           is_downloading: true,
           current_id: assetId,
@@ -158,16 +160,16 @@ const AudioFoundryModelsModal = ({
           error: null,
         });
       } else {
-        showMessageRef.current?.(res.data?.error || "Failed to start", "error");
+        showMessageRef.current?.(res.data?.error || t("models.shared.failedToStart"), "error");
       }
     } catch (err) {
       if (err.response?.status === 409) {
-        showMessageRef.current?.("Another download is already running.", "warning");
+        showMessageRef.current?.(t("models.shared.anotherDownloadRunning"), "warning");
       } else {
         const msg =
           err.response?.data?.error ||
           err.message ||
-          "Error starting download";
+          t("models.shared.errorStartingDownload");
         showMessageRef.current?.(msg, "error");
       }
     }
@@ -208,12 +210,12 @@ const AudioFoundryModelsModal = ({
         /* already enabled is fine */
       }
       await startPlugin("audio_foundry");
-      showMessageRef.current?.("Audio Foundry started", "success");
+      showMessageRef.current?.(t("models.audioFoundryModels.pluginStarted"), "success");
       await fetchModels();
       onChanged?.();
     } catch (err) {
       showMessageRef.current?.(
-        err?.message || "Could not start Audio Foundry. Check Plugins and audio_foundry.log.",
+        err?.message || t("models.audioFoundryModels.pluginStartFailed"),
         "error",
       );
     } finally {
@@ -250,7 +252,7 @@ const AudioFoundryModelsModal = ({
               </Typography>
               {size && <Chip label={size} size="small" variant="outlined" />}
               {m.gated && (
-                <Chip label="Gated" size="small" color="warning" variant="outlined" />
+                <Chip label={t("models.audioFoundryModels.gated")} size="small" color="warning" variant="outlined" />
               )}
               {m.license && <Chip label={m.license} size="small" variant="outlined" />}
             </Box>
@@ -267,11 +269,11 @@ const AudioFoundryModelsModal = ({
               )}
               {m.gated && m.terms_url && !m.installed && (
                 <Typography variant="caption" sx={{ display: "block", mt: 0.25 }}>
-                  Accept terms at{" "}
-                  <a href={m.terms_url} target="_blank" rel="noreferrer">
-                    {m.hf_repo}
-                  </a>
-                  , then set HF_TOKEN in .env.
+                  <Trans
+                    i18nKey="models.audioFoundryModels.acceptTerms"
+                    values={{ repo: m.hf_repo }}
+                    components={{ anchor: <a href={m.terms_url} target="_blank" rel="noreferrer" /> }}
+                  />
                 </Typography>
               )}
               {m.hf_repo && (
@@ -290,10 +292,10 @@ const AudioFoundryModelsModal = ({
             <Box sx={{ width: 160 }}>
               <Typography variant="caption" noWrap>
                 {dl.status === "starting"
-                  ? "Starting…"
+                  ? t("models.shared.starting")
                   : dl.status === "installing"
-                    ? "Building its environment…"
-                    : `${dl.progress}% — ${dl.speed_mbps} MB/s`}
+                    ? t("models.audioFoundryModels.buildingEnvironment")
+                    : t("models.shared.progressSpeed", { progress: dl.progress, speed: dl.speed_mbps })}
               </Typography>
               <LinearProgress
                 variant={dl.progress > 0 ? "determinate" : "indeterminate"}
@@ -307,7 +309,7 @@ const AudioFoundryModelsModal = ({
           ) : m.installed ? (
             <Chip
               icon={<CheckCircleIcon />}
-              label="Installed"
+              label={t("models.shared.installed")}
               color="success"
               size="small"
               variant="outlined"
@@ -320,7 +322,7 @@ const AudioFoundryModelsModal = ({
               onClick={() => handleInstall(m.id)}
               disabled={dl.is_downloading}
             >
-              Install
+              {t("dialogs.shared.install")}
             </Button>
           )}
         </Box>
@@ -338,12 +340,10 @@ const AudioFoundryModelsModal = ({
       <DialogTitle>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <GraphicEqIcon />
-          Audio Studio models
+          {t("models.audioFoundryModels.title")}
         </Box>
         <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-          Voice, music and FX weights install into the shared Hugging Face cache
-          (ACE-Step 1.5 into data/models, with its own Python environment).
-          Generation will not download them on its own.
+          {t("models.audioFoundryModels.intro")}
         </Typography>
       </DialogTitle>
 
@@ -359,13 +359,13 @@ const AudioFoundryModelsModal = ({
             tone={pluginTone}
             label={
               pluginRunning
-                ? "Audio Foundry running"
-                : `Audio Foundry ${plugin.status || "stopped"}`
+                ? t("models.audioFoundryModels.pluginRunning")
+                : t("models.audioFoundryModels.pluginStatus", { status: plugin.status || t("models.audioFoundryModels.stopped") })
             }
           />
           {!pluginRunning && (
             <ActionButton onClick={handleStartPlugin} loading={starting}>
-              Start plugin
+              {t("models.audioFoundryModels.startPlugin")}
             </ActionButton>
           )}
         </Box>
@@ -376,6 +376,7 @@ const AudioFoundryModelsModal = ({
           </Box>
         ) : (
           GROUP_ORDER.map((group, idx) => {
+            const labels = groupLabels();
             const rows = models.filter((m) => m.group === group);
             if (!rows.length) return null;
             return (
@@ -386,7 +387,7 @@ const AudioFoundryModelsModal = ({
                   color="text.secondary"
                   sx={{ mb: 0.5, px: 1 }}
                 >
-                  {GROUP_LABELS[group] || group}
+                  {labels[group] || group}
                 </Typography>
                 <List disablePadding>{rows.map(renderRow)}</List>
               </Box>
@@ -402,12 +403,12 @@ const AudioFoundryModelsModal = ({
             disabled={dl.is_downloading || loading || starting}
             startIcon={<CloudDownloadIcon />}
           >
-            Install all missing ({missingTotalGb.toFixed(1)} GB)
+            {t("models.shared.installAllMissing", { size: missingTotalGb.toFixed(1) })}
           </Button>
         )}
         <Box sx={{ flex: 1 }} />
         <Button onClick={onClose} disabled={dl.is_downloading || starting}>
-          {dl.is_downloading ? "Downloading…" : "Close"}
+          {dl.is_downloading ? t("models.shared.downloading") : t("dialogs.shared.close")}
         </Button>
       </DialogActions>
     </Dialog>

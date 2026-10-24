@@ -21,29 +21,41 @@ import {
   getTrainingDatasetLocations,
   inspectTrainingDataset,
 } from "../../api/trainingService";
+import { translate, useUiTranslation } from "../../i18n";
 
 const DATASET_EXTENSIONS = [".jsonl", ".json"];
 // Typing pauses this long before the path is read.
 const INSPECT_DELAY_MS = 300;
 
-const FORMAT_LABELS = {
-  messages: "chat messages",
-  sharegpt: "ShareGPT conversations",
-  prompt_completion: "prompt/completion",
-  alpaca: "instruction/output",
-  text: "plain text",
+// "<count> <format>" for each format the inspector reports.
+const formatCount = (fmt, count) => {
+  switch (fmt) {
+    case "messages":
+      return translate("dialogs.trainingDataset.formats.messages", { count });
+    case "sharegpt":
+      return translate("dialogs.trainingDataset.formats.sharegpt", { count });
+    case "prompt_completion":
+      return translate("dialogs.trainingDataset.formats.promptCompletion", { count });
+    case "alpaca":
+      return translate("dialogs.trainingDataset.formats.alpaca", { count });
+    case "text":
+      return translate("dialogs.trainingDataset.formats.text", { count });
+    default:
+      return `${count} ${fmt}`;
+  }
 };
 
 const baseName = (path) =>
   path.replace(/\/+$/, "").split("/").pop().replace(/\.(jsonl|json)$/i, "");
 
 const InspectPanel = ({ report, inspecting }) => {
+  const { t } = useUiTranslation();
   if (inspecting) {
     return (
       <Box sx={{ mt: 1 }}>
         <LinearProgress />
         <Typography variant="caption" color="text.secondary">
-          Reading the dataset…
+          {t("dialogs.trainingDataset.reading")}
         </Typography>
       </Box>
     );
@@ -52,23 +64,22 @@ const InspectPanel = ({ report, inspecting }) => {
   if (!report.trainable) {
     return (
       <Alert severity="error" sx={{ mt: 1 }}>
-        {report.reason ? `This cannot be trained on: ${report.reason}` : "This cannot be trained on."}
+        {report.reason ? t("dialogs.trainingDataset.notTrainableReason", { reason: report.reason }) : t("dialogs.trainingDataset.notTrainable")}
       </Alert>
     );
   }
   const formats = Object.entries(report.formats || {})
-    .map(([fmt, n]) => `${n} ${FORMAT_LABELS[fmt] || fmt}`)
+    .map(([fmt, n]) => formatCount(fmt, n))
     .join(", ");
   const fileCount = report.files?.length || 0;
   return (
     <Box sx={{ mt: 1 }} data-testid="dataset-inspect">
       <Alert severity="success">
-        {report.usable} of {report.rows} rows can be trained on ({formats}), in {fileCount} file
-        {fileCount === 1 ? "" : "s"}.
+        {t("dialogs.trainingDataset.usable", { usable: report.usable, rows: report.rows, formats, count: fileCount })}
       </Alert>
       {report.error_count > 0 && (
         <Alert severity="warning" sx={{ mt: 1 }}>
-          {report.error_count} row{report.error_count === 1 ? "" : "s"} will be skipped:
+          {t("dialogs.trainingDataset.skipped", { count: report.error_count })}:
           <Box component="ul" sx={{ m: 0, pl: 2 }}>
             {report.errors.map((e) => (
               <li key={e}>
@@ -81,7 +92,7 @@ const InspectPanel = ({ report, inspecting }) => {
       {report.samples?.length > 0 && (
         <Box sx={{ mt: 1 }}>
           <Typography variant="caption" color="text.secondary">
-            First rows as the trainer reads them
+            {t("dialogs.trainingDataset.firstRows")}
           </Typography>
           {report.samples.map((sample, i) => (
             <Box
@@ -126,6 +137,7 @@ const TrainingDatasetModal = ({
   onSave,
   isSaving,
 }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -171,7 +183,7 @@ const TrainingDatasetModal = ({
         })
         .catch((err) => {
           if (id === inspectId.current) {
-            setReport({ trainable: false, reason: err.message || "the dataset could not be read" });
+            setReport({ trainable: false, reason: err.message || translate("dialogs.trainingDataset.unreadable") });
           }
         })
         .finally(() => {
@@ -194,11 +206,11 @@ const TrainingDatasetModal = ({
 
   const handleSave = () => {
     if (!formData.name.trim()) {
-      setFormError("Dataset name is required.");
+      setFormError(t("dialogs.trainingDataset.nameRequired"));
       return;
     }
     if (!pathReady) {
-      setFormError("Choose a file or folder that can be trained on.");
+      setFormError(t("dialogs.trainingDataset.pathNotReady"));
       return;
     }
     setFormError(null);
@@ -212,7 +224,7 @@ const TrainingDatasetModal = ({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
-        {datasetData ? `Edit Dataset: ${datasetData.name}` : "Add New Dataset"}
+        {datasetData ? t("dialogs.trainingDataset.editTitle", { name: datasetData.name }) : t("dialogs.trainingDataset.addTitle")}
       </DialogTitle>
       <DialogContent dividers>
         {formError && (
@@ -227,7 +239,7 @@ const TrainingDatasetModal = ({
               required
               fullWidth
               margin="dense"
-              label="Dataset Name"
+              label={t("dialogs.trainingDataset.nameLabel")}
               name="name"
               value={formData.name}
               onChange={handleInputChange}
@@ -240,7 +252,7 @@ const TrainingDatasetModal = ({
               multiline
               minRows={2}
               margin="dense"
-              label="Description"
+              label={t("dialogs.trainingDataset.description")}
               name="description"
               value={formData.description}
               onChange={handleInputChange}
@@ -252,7 +264,7 @@ const TrainingDatasetModal = ({
               fullWidth
               required
               margin="dense"
-              label="File or folder (.jsonl or .json)"
+              label={t("dialogs.trainingDataset.pathLabel")}
               name="path"
               value={formData.path}
               onChange={handleInputChange}
@@ -264,15 +276,15 @@ const TrainingDatasetModal = ({
                       onClick={() => setDirectoryPickerOpen(true)}
                       edge="end"
                       disabled={isSaving}
-                      title="Browse this machine"
-                      aria-label="Browse this machine"
+                      title={t("dialogs.trainingDataset.browse")}
+                      aria-label={t("dialogs.trainingDataset.browse")}
                     >
                       <FolderOpenIcon />
                     </IconButton>
                   </InputAdornment>
                 ),
               }}
-              helperText="A .jsonl or .json file on this machine, or a folder of them (searched inside)."
+              helperText={t("dialogs.trainingDataset.pathHelp")}
             />
             <InspectPanel report={report} inspecting={inspecting} />
           </Grid>
@@ -280,10 +292,10 @@ const TrainingDatasetModal = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isSaving}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button onClick={handleSave} variant="contained" disabled={!canSave}>
-          Save
+          {t("dialogs.shared.save")}
         </Button>
       </DialogActions>
 
@@ -303,7 +315,7 @@ const TrainingDatasetModal = ({
         purpose="training"
         mode="fileOrFolder"
         fileExtensions={DATASET_EXTENSIONS}
-        title="Choose a dataset file or folder"
+        title={t("dialogs.trainingDataset.pickerTitle")}
       />
     </Dialog>
   );

@@ -23,6 +23,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import axios from "axios";
 import { ActionButton, ConfirmActionDialog, SettingChip } from "../settings/ui";
 import AddImageModelDialog from "./AddImageModelDialog";
+import { translate, useUiTranslation, Trans } from "../../i18n";
 
 const modelMatchesDownload = (model, currentModel) =>
   !!currentModel && (currentModel === model.path || currentModel === model.id);
@@ -30,6 +31,7 @@ const modelMatchesDownload = (model, currentModel) =>
 // installModelId: opened from a page's Install button. That row is brought into
 // view and its install started, as if the person had clicked Install on it.
 const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
+  const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
   const [adapters, setAdapters] = useState([]);
   // Chat photo-tool packs (Qwen-Image-Edit, Kontext, PuLID, background removal).
@@ -72,10 +74,10 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
         setUnavailable(check ? res.data.data.unavailable_models || [] : []);
         setChecked(check);
       } else {
-        setError("Failed to load models");
+        setError(translate("models.shared.failedToLoadModels"));
       }
     } catch (err) {
-      setError(err.message || "Error fetching models");
+      setError(err.message || translate("models.shared.errorFetchingModels"));
     } finally {
       setLoading(false);
     }
@@ -88,11 +90,11 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
         const status = res.data.data;
         setDownloadStatus(status);
         if (!status.is_downloading && status.status === "completed") {
-          showMessageRef.current?.("Model download completed!", "success");
+          showMessageRef.current?.(translate("models.shared.downloadCompleted"), "success");
           fetchModels();
           setDownloadStatus((prev) => ({ ...prev, status: "idle", current_model: null }));
         } else if (!status.is_downloading && status.status === "failed") {
-          showMessageRef.current?.(`Download failed: ${status.error}`, "error");
+          showMessageRef.current?.(translate("models.shared.downloadFailed", { error: status.error }), "error");
           fetchModels();
           setDownloadStatus((prev) => ({ ...prev, status: "idle", current_model: null }));
         }
@@ -130,7 +132,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
       const res = await axios.post("/api/batch-image/models/download", { model_path: modelRef });
       if (res.data.success) {
         const startedPath = res.data.data?.model_path || modelRef;
-        showMessage?.(`Started downloading ${model.name || model.id}...`, "info");
+        showMessage?.(t("models.shared.startedDownloadingDots", { name: model.name || model.id }), "info");
         setDownloadStatus({
           is_downloading: true,
           current_model: startedPath,
@@ -141,13 +143,13 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
           total_gb: model.size_gb || 0,
         });
       } else {
-        showMessage?.(res.data.error || "Failed to start download", "error");
+        showMessage?.(res.data.error || t("models.shared.failedToStartDownload"), "error");
       }
     } catch (err) {
       if (err.response?.status === 409) {
-        showMessage?.("A download is already in progress.", "warning");
+        showMessage?.(t("models.shared.downloadInProgress"), "warning");
       } else {
-        showMessage?.(formatUiError(err.response?.data?.error) || err.message || "Error starting download", "error");
+        showMessage?.(formatUiError(err.response?.data?.error) || err.message || t("models.shared.errorStartingDownload"), "error");
       }
     }
   };
@@ -163,7 +165,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
     if (target.is_downloaded) return;
     if (downloadStatus.is_downloading) {
       if (!modelMatchesDownload(target, downloadStatus.current_model)) {
-        showMessage?.("A download is already in progress.", "warning");
+        showMessage?.(translate("models.shared.downloadInProgress"), "warning");
       }
       return;
     }
@@ -177,13 +179,13 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
         params: { delete_files: removeTarget.deleteFiles ? "1" : "0" },
       });
       if (res.data.success) {
-        showMessage?.(`Removed ${removeTarget.name || removeTarget.id}.`, "info");
+        showMessage?.(t("models.imageModels.removed", { name: removeTarget.name || removeTarget.id }), "info");
         fetchModels();
       } else {
-        showMessage?.(res.data.error?.message || "Could not remove", "error");
+        showMessage?.(res.data.error?.message || t("models.shared.couldNotRemove"), "error");
       }
     } catch (err) {
-      showMessage?.(formatUiError(err.response?.data?.error) || err.message || "Could not remove", "error");
+      showMessage?.(formatUiError(err.response?.data?.error) || err.message || t("models.shared.couldNotRemove"), "error");
     } finally {
       setRemoveTarget(null);
     }
@@ -228,8 +230,8 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
         <Box sx={{ width: 130 }}>
           <Typography variant="caption" noWrap>
             {downloadStatus.status === "starting"
-              ? "Starting..."
-              : `${downloadStatus.progress}% \u2014 ${downloadStatus.speed_mbps} MB/s`}
+              ? t("models.shared.startingDots")
+              : t("models.shared.progressSpeed", { progress: downloadStatus.progress, speed: downloadStatus.speed_mbps })}
           </Typography>
           <LinearProgress
             variant={downloadStatus.progress > 0 ? "determinate" : "indeterminate"}
@@ -245,7 +247,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5 }}>
         {model.is_downloaded ? (
-          <Chip icon={<CheckCircleIcon />} label="Installed" color="success" size="small" variant="outlined" />
+          <Chip icon={<CheckCircleIcon />} label={t("models.shared.installed")} color="success" size="small" variant="outlined" />
         ) : (
           <Button
             variant="outlined"
@@ -254,12 +256,12 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             onClick={() => handleDownload(model)}
             disabled={isDownloading}
           >
-            Install
+            {t("dialogs.shared.install")}
           </Button>
         )}
         {model.user && (
           <ActionButton kind="destructive" onClick={() => setRemoveTarget(model)} disabled={isDownloading}>
-            Remove
+            {t("dialogs.shared.remove")}
           </ActionButton>
         )}
       </Box>
@@ -268,7 +270,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
 
   return (
     <Dialog open={open} onClose={() => !isDownloading && onClose()} maxWidth="sm" fullWidth>
-      <DialogTitle>Manage Image Generation Models</DialogTitle>
+      <DialogTitle>{t("models.imageModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
           <Box mb={2}>
@@ -304,15 +306,15 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                           {model.name || model.id}
                         </Typography>
                         {model.recommended && (
-                          <Chip label="Recommended" size="small" color="primary" variant="outlined" />
+                          <Chip label={t("models.imageModels.recommended")} size="small" color="primary" variant="outlined" />
                         )}
-                        {model.user && <Chip label={`Yours · ${model.family || "model"}`} size="small" variant="outlined" />}
+                        {model.user && <Chip label={t("models.imageModels.yours", { family: model.family || t("models.imageModels.modelFallback") })} size="small" variant="outlined" />}
                         {model.size_gb > 0 && (
                           <Chip label={`${model.size_gb} GB`} size="small" variant="outlined" />
                         )}
                         {checked && !model.is_downloaded && (
                           <Chip
-                            label={model.gated ? "Gated · uses your HF token" : "Available"}
+                            label={model.gated ? t("models.imageModels.gatedToken") : t("models.imageModels.available")}
                             size="small"
                             color={model.gated ? "warning" : "success"}
                             variant="outlined"
@@ -340,7 +342,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             })}
             {unavailable.length > 0 && (
               <Typography variant="overline" color="text.secondary" sx={{ display: "block", mt: 2 }}>
-                Not available
+                {t("models.imageModels.notAvailable")}
               </Typography>
             )}
             {unavailable.map((model) => (
@@ -357,7 +359,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             ))}
             {adapters.length > 0 && (
               <Typography variant="overline" color="text.secondary" sx={{ display: "block", mt: 2 }}>
-                Your LoRAs
+                {t("models.imageModels.yourLoras")}
               </Typography>
             )}
             {adapters.map((a) => (
@@ -387,7 +389,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             {editing.length > 0 && (
               <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 2 }}>
                 <Typography variant="overline" color="text.secondary">
-                  Image editing
+                  {t("models.imageModels.imageEditing")}
                 </Typography>
                 {editingMissing.length > 0 && (
                   <Button
@@ -396,7 +398,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                     onClick={handleInstallAllEditing}
                     disabled={isDownloading}
                   >
-                    Install all editing tools ({editingMissingGb.toFixed(1)} GB)
+                    {t("models.imageModels.installAllEditing", { size: editingMissingGb.toFixed(1) })}
                   </Button>
                 )}
               </Box>
@@ -427,7 +429,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                         {pack.description}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" component="span" display="block">
-                        Chat: {(pack.tools || []).join(", ")}
+                        {t("models.imageModels.chatTools", { tools: (pack.tools || []).join(", ") })}
                       </Typography>
                     </>
                   }
@@ -437,7 +439,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             ))}
             {models.length === 0 && !loading && (
               <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
-                No models available in configuration.
+                {t("models.imageModels.noModels")}
               </Typography>
             )}
           </List>
@@ -448,26 +450,24 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
             companions still live under Video Models. */}
         <Box sx={{ mt: 2, p: 1.5, borderRadius: 1, bgcolor: "action.hover" }}>
           <Typography variant="caption" color="text.secondary">
-            <strong>FLUX.1-dev</strong> stills install here. Add another FLUX UNET or LoRA with
-            Add new model. Keyframe GGUF packs (schnell) still live under{" "}
-            <strong>Video Models</strong>.
+            <Trans i18nKey="models.imageModels.fluxNote" components={{ bold: <strong /> }} />
           </Typography>
         </Box>
       </DialogContent>
       <DialogActions>
         <ActionButton onClick={() => setAddOpen(true)} disabled={isDownloading}>
-          Add new model
+          {t("models.shared.addNewModel")}
         </ActionButton>
         <ActionButton
           onClick={() => fetchModels(true)}
           disabled={isDownloading || loading}
-          tooltip="Asks huggingface.co whether each model that is not installed can be downloaded. Sends no token; Install uses yours."
+          tooltip={t("models.imageModels.checkAccessTooltip")}
         >
-          Check access
+          {t("models.imageModels.checkAccess")}
         </ActionButton>
         <Box sx={{ flex: 1 }} />
         <Button onClick={onClose} disabled={isDownloading}>
-          {isDownloading ? "Downloading..." : "Close"}
+          {isDownloading ? t("models.shared.downloadingDots") : t("dialogs.shared.close")}
         </Button>
       </DialogActions>
       <AddImageModelDialog
@@ -481,17 +481,17 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
       />
       <ConfirmActionDialog
         open={Boolean(removeTarget)}
-        title={`Remove ${removeTarget?.name || ""}?`}
-        description="Drops it from your catalog. Downloaded files stay unless you turn on Delete downloaded files."
+        title={t("models.shared.removeTitle", { name: removeTarget?.name || "" })}
+        description={t("models.imageModels.removeDescription")}
         extra={
           <SettingChip
-            label="Delete downloaded files"
+            label={t("models.shared.deleteDownloadedFiles")}
             on={Boolean(removeTarget?.deleteFiles)}
             onToggle={(next) => setRemoveTarget((t) => (t ? { ...t, deleteFiles: next } : t))}
           />
         }
-        keeps="the shipped Image Models list"
-        confirmLabel="Remove"
+        keeps={t("models.imageModels.removeKeeps")}
+        confirmLabel={t("dialogs.shared.remove")}
         onClose={() => setRemoveTarget(null)}
         onConfirm={handleRemove}
       />

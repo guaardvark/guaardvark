@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import * as apiService from '../../api';
+import { uiLocale, useUiTranslation, Trans } from '../../i18n';
 
 // API base URL for files endpoint
 const API_BASE = '/api/files';
@@ -36,6 +37,7 @@ const FilePropertiesModal = ({
   onDelete,
   onReindex,
 }) => {
+  const { t } = useUiTranslation();
   const [loading, setLoading] = useState(false);
   const [reindexing, setReindexing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -127,7 +129,7 @@ const FilePropertiesModal = ({
   };
 
   const handleDelete = async () => {
-    if (confirm(`Delete file "${fileData?.filename}"?`)) {
+    if (confirm(t('dialogs.fileProperties.deleteConfirm', { name: fileData?.filename }))) {
       setDeleting(true);
       try {
         await onDelete(fileData.id);
@@ -157,8 +159,8 @@ const FilePropertiesModal = ({
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString();
+    if (!dateString) return t('dialogs.fileProperties.notAvailable');
+    return new Date(dateString).toLocaleString(uiLocale());
   };
 
   if (!fileData) return null;
@@ -167,7 +169,7 @@ const FilePropertiesModal = ({
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h6">File Properties</Typography>
+          <Typography variant="h6">{t('dialogs.fileProperties.title')}</Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
@@ -178,32 +180,32 @@ const FilePropertiesModal = ({
         {/* File Information */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            File Information
+            {t('dialogs.fileProperties.fileInformation')}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <Typography variant="body2">
-                <strong>Name:</strong> {fileData.filename}
+                <Trans i18nKey="dialogs.fileProperties.name" values={{ name: fileData.filename }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Size:</strong> {formatBytes(fileData.size)}
+                <Trans i18nKey="dialogs.fileProperties.size" values={{ size: formatBytes(fileData.size) }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Imported:</strong> {formatDate(fileData.uploaded_at)}
+                <Trans i18nKey="dialogs.fileProperties.imported" values={{ date: formatDate(fileData.uploaded_at) }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Status:</strong> {fileData.index_status || 'N/A'}
+                <Trans i18nKey="dialogs.fileProperties.status" values={{ status: fileData.index_status || t('dialogs.fileProperties.notAvailable') }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
             <Grid item xs={6}>
               <Typography variant="body2">
-                <strong>Path:</strong> {fileData.path || 'N/A'}
+                <Trans i18nKey="dialogs.fileProperties.path" values={{ path: fileData.path || t('dialogs.fileProperties.notAvailable') }} components={{ bold: <strong /> }} />
               </Typography>
             </Grid>
           </Grid>
@@ -214,7 +216,7 @@ const FilePropertiesModal = ({
         {/* Entity Links */}
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Entity Links (Optional)
+            {t('dialogs.fileProperties.entityLinks')}
           </Typography>
 
           {loading ? (
@@ -230,7 +232,7 @@ const FilePropertiesModal = ({
                   value={clients.find(c => c.id === formData.client_id) || null}
                   onChange={(e, newValue) => setFormData({ ...formData, client_id: newValue?.id || null })}
                   renderInput={(params) => (
-                    <TextField {...params} label="Link to Client" size="small" />
+                    <TextField {...params} label={t('dialogs.fileProperties.linkClient')} size="small" />
                   )}
                 />
               </Grid>
@@ -241,7 +243,7 @@ const FilePropertiesModal = ({
                   value={projects.find(p => p.id === formData.project_id) || null}
                   onChange={(e, newValue) => setFormData({ ...formData, project_id: newValue?.id || null })}
                   renderInput={(params) => (
-                    <TextField {...params} label="Link to Project" size="small" />
+                    <TextField {...params} label={t('dialogs.fileProperties.linkProject')} size="small" />
                   )}
                 />
               </Grid>
@@ -252,7 +254,7 @@ const FilePropertiesModal = ({
                   value={websites.find(w => w.id === formData.website_id) || null}
                   onChange={(e, newValue) => setFormData({ ...formData, website_id: newValue?.id || null })}
                   renderInput={(params) => (
-                    <TextField {...params} label="Link to Website" size="small" />
+                    <TextField {...params} label={t('dialogs.fileProperties.linkWebsite')} size="small" />
                   )}
                 />
               </Grid>
@@ -265,29 +267,29 @@ const FilePropertiesModal = ({
         {/* Tags and Notes */}
         <Box>
           <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Metadata
+            {t('dialogs.fileProperties.metadata')}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Tags (comma-separated)"
+                label={t('dialogs.fileProperties.tags')}
                 size="small"
                 value={formData.tags}
                 onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                placeholder="important, draft, review"
+                placeholder={t('dialogs.fileProperties.tagsPlaceholder')}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Notes"
+                label={t('dialogs.fileProperties.notes')}
                 size="small"
                 multiline
                 rows={3}
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                placeholder="Add any notes about this file..."
+                placeholder={t('dialogs.fileProperties.notesPlaceholder')}
               />
             </Grid>
           </Grid>
@@ -304,7 +306,7 @@ const FilePropertiesModal = ({
               size="small"
               disabled={reindexing || deleting}
             >
-              {reindexing ? 'Reindexing...' : 'Reindex'}
+              {reindexing ? t('dialogs.fileProperties.reindexing') : t('dialogs.fileProperties.reindex')}
             </Button>
           )}
           <Button
@@ -315,13 +317,13 @@ const FilePropertiesModal = ({
             size="small"
             disabled={reindexing || deleting}
           >
-            {deleting ? 'Deleting...' : 'Delete'}
+            {deleting ? t('dialogs.fileProperties.deleting') : t('dialogs.shared.delete')}
           </Button>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button onClick={onClose} disabled={reindexing || deleting}>Cancel</Button>
+          <Button onClick={onClose} disabled={reindexing || deleting}>{t('dialogs.shared.cancel')}</Button>
           <Button onClick={handleSave} variant="contained" disabled={reindexing || deleting}>
-            Save Changes
+            {t('dialogs.fileProperties.saveChanges')}
           </Button>
         </Box>
       </DialogActions>

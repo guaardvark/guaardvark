@@ -27,6 +27,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useTheme } from "@mui/material/styles";
 
 import * as apiService from "../../api";
+import { translate, useUiTranslation } from "../../i18n";
 
 const ALL_MODELS_VALUE = "__ALL__";
 
@@ -73,25 +74,23 @@ export const contentFieldFor = (type) => {
     case "PROMPT_TEMPLATE":
     case "SYSTEM_PROMPT":
       return {
-        label: "Prompt Template",
-        helperText: "Enter the prompt template with {placeholders} as needed",
+        label: translate("dialogs.ruleAction.content.promptLabel"),
+        helperText: translate("dialogs.ruleAction.content.promptHelp"),
       };
     case "QA_TEMPLATE":
       return {
-        label: "QA Template",
-        helperText:
-          "The answer-from-context template; keep {context_str} and {query_str}",
+        label: translate("dialogs.ruleAction.content.qaLabel"),
+        helperText: translate("dialogs.ruleAction.content.qaHelp"),
       };
     case "COMMAND_RULE":
       return {
-        label: "Command Prompt",
-        helperText:
-          "The prompt the command runs; {{args}} is replaced by what follows the command",
+        label: translate("dialogs.ruleAction.content.commandLabel"),
+        helperText: translate("dialogs.ruleAction.content.commandHelp", { argsToken: "{{args}}" }),
       };
     default:
       return {
-        label: "Rule Content",
-        helperText: "Define the rule logic or content",
+        label: translate("dialogs.ruleAction.content.ruleLabel"),
+        helperText: translate("dialogs.ruleAction.content.ruleHelp"),
       };
   }
 };
@@ -113,6 +112,7 @@ const RuleActionModal = ({
   onOpenLinker,
   isSaving,
 }) => {
+  const { t } = useUiTranslation();
   const isNewRule = !ruleData?.id;
   const theme = useTheme();
   const [formData, setFormData] = useState({});
@@ -158,19 +158,13 @@ const RuleActionModal = ({
             : [];
           setModelOptions([ALL_MODELS_VALUE, ...new Set(names)]);
           if (names.length === 0) {
-            setModelFetchError(
-              "No installed models were listed (is Ollama running?). " +
-                "Only All Models can be chosen; models already set on this rule are kept."
-            );
+            setModelFetchError(translate("dialogs.ruleAction.noModelsListed"));
           }
         } catch (err) {
           console.error("RuleActionModal: Failed to fetch models:", err);
           // Local-first: no made-up model names when the local list is
           // unavailable. The rule's existing targets stay selectable as-is.
-          setModelFetchError(
-            `Could not load the installed model list: ${err.message}. ` +
-              "Only All Models can be chosen; models already set on this rule are kept."
-          );
+          setModelFetchError(translate("dialogs.ruleAction.modelListFailed", { error: err.message }));
           setModelOptions([ALL_MODELS_VALUE]);
         } finally {
           setIsLoadingModels(false);
@@ -207,7 +201,7 @@ const RuleActionModal = ({
       const { type, level } = effectiveTypeAndLevel(formData, ruleData);
 
       if (type === "COMMAND_RULE" && !formData.command_label?.trim()) {
-        alert("Command is required for command rules.");
+        alert(t("dialogs.ruleAction.commandRequiredAlert"));
         return;
       }
 
@@ -263,32 +257,32 @@ const RuleActionModal = ({
     switch (type) {
       case "COMMAND":
         return {
-          label: "COMMAND",
+          label: t("dialogs.ruleAction.kinds.command"),
           color: theme.palette.primary.main,
-          description: "Interactive slash command",
+          description: t("dialogs.ruleAction.kinds.commandDescription"),
         };
       case "SYSTEM":
         return {
-          label: "SYSTEM",
+          label: t("dialogs.ruleAction.kinds.system"),
           color: theme.palette.error.main,
-          description: "Core system prompt",
+          description: t("dialogs.ruleAction.kinds.systemDescription"),
         };
       case "LEARNED":
         // A learned row with a reference_id was written by the /saverule
         // command of the /api/query endpoint, which the chat page does not
         // call; one without came from the rule bundle.
         return {
-          label: "LEARNED",
+          label: t("dialogs.ruleAction.kinds.learned"),
           color: theme.palette.info.main,
           description: ruleData?.reference_id
-            ? "Saved by /saverule on the /api/query endpoint"
-            : "Learned rule shipped in the rule bundle",
+            ? t("dialogs.ruleAction.kinds.learnedSaverule")
+            : t("dialogs.ruleAction.kinds.learnedBundle"),
         };
       default:
         return {
-          label: "PROMPT",
+          label: t("dialogs.ruleAction.kinds.prompt"),
           color: theme.palette.warning.main,
-          description: "User prompt template",
+          description: t("dialogs.ruleAction.kinds.promptDescription"),
         };
     }
   };
@@ -312,8 +306,8 @@ const RuleActionModal = ({
         }}
       >
         {isNewRule
-          ? "Create Rule"
-          : `Edit: ${formData.name || ruleData?.name || "Rule"}`}
+          ? t("dialogs.ruleAction.createTitle")
+          : t("dialogs.ruleAction.editTitle", { name: formData.name || ruleData?.name || t("dialogs.ruleAction.ruleFallback") })}
         <IconButton onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
@@ -330,7 +324,7 @@ const RuleActionModal = ({
             <Grid container spacing={2}>
               <Grid item xs={12} sm={8}>
                 <TextField
-                  label="Name"
+                  label={t("dialogs.ruleAction.name")}
                   name="name"
                   value={formData.name || ""}
                   onChange={handleChange}
@@ -340,8 +334,8 @@ const RuleActionModal = ({
                   disabled={nameLocked}
                   helperText={
                     nameLocked
-                      ? "The chat engine looks this rule up by name, so the name cannot change"
-                      : "A unique and descriptive name"
+                      ? t("dialogs.ruleAction.nameLocked")
+                      : t("dialogs.ruleAction.nameHelp")
                   }
                 />
               </Grid>
@@ -363,7 +357,7 @@ const RuleActionModal = ({
                       onChange={handleChange}
                     />
                   }
-                  label="Active"
+                  label={t("dialogs.ruleAction.active")}
                 />
               </Grid>
             </Grid>
@@ -375,7 +369,7 @@ const RuleActionModal = ({
               <Grid item xs={12} sm={6}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Type:
+                    {t("dialogs.ruleAction.type")}:
                   </Typography>
                   <Typography
                     variant="body2"
@@ -393,13 +387,13 @@ const RuleActionModal = ({
                   <Typography variant="caption" color="text.secondary">
                     {typeInfo.description}
                     {!isNewRule &&
-                      ` (${effective.level} / ${effective.type || "no type"}, kept on save)`}
+                      " " + t("dialogs.ruleAction.keptOnSave", { level: effective.level, type: effective.type || t("dialogs.ruleAction.noType") })}
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Command (optional)"
+                  label={t("dialogs.ruleAction.command")}
                   name="command_label"
                   value={formData.command_label || ""}
                   onChange={handleChange}
@@ -409,12 +403,12 @@ const RuleActionModal = ({
                   disabled={commandLocked}
                   helperText={
                     commandLocked
-                      ? "Type is fixed after creation; create a new rule to add a command"
+                      ? t("dialogs.ruleAction.commandLocked")
                       : commandRequired && !isNewRule
-                        ? "Required; the type is fixed after creation"
+                        ? t("dialogs.ruleAction.commandRequiredFixed")
                         : commandRequired
-                          ? "Required for command rules"
-                          : "Leave empty for prompt templates"
+                          ? t("dialogs.ruleAction.commandRequired")
+                          : t("dialogs.ruleAction.commandEmpty")
                   }
                   error={commandRequired && !formData.command_label?.trim()}
                 />
@@ -441,7 +435,7 @@ const RuleActionModal = ({
           {/* Description & Models */}
           <Grid item xs={12}>
             <TextField
-              label="Description"
+              label={t("dialogs.ruleAction.description")}
               name="description"
               value={formData.description || ""}
               onChange={handleChange}
@@ -449,7 +443,7 @@ const RuleActionModal = ({
               minRows={2}
               maxRows={4}
               fullWidth
-              helperText="Optional description of purpose and usage"
+              helperText={t("dialogs.ruleAction.descriptionHelp")}
             />
           </Grid>
 
@@ -463,7 +457,7 @@ const RuleActionModal = ({
                 handleMultiSelectChange("target_models", newValue)
               }
               getOptionLabel={(option) =>
-                option === ALL_MODELS_VALUE ? "All Models" : option
+                option === ALL_MODELS_VALUE ? t("dialogs.ruleAction.allModels") : option
               }
               isOptionEqualToValue={(option, value) => option === value}
               renderTags={(value, getTagProps) =>
@@ -474,7 +468,7 @@ const RuleActionModal = ({
                       key={key || option}
                       variant="outlined"
                       label={
-                        option === ALL_MODELS_VALUE ? "All Models" : option
+                        option === ALL_MODELS_VALUE ? t("dialogs.ruleAction.allModels") : option
                       }
                       {...otherTagProps}
                     />
@@ -484,9 +478,9 @@ const RuleActionModal = ({
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Target Models"
-                  placeholder="Select models or leave empty for all"
-                  helperText="Choose which models this rule applies to"
+                  label={t("dialogs.ruleAction.targetModels")}
+                  placeholder={t("dialogs.ruleAction.targetPlaceholder")}
+                  helperText={t("dialogs.ruleAction.targetHelp")}
                   InputProps={{
                     ...params.InputProps,
                     endAdornment: (
@@ -514,7 +508,7 @@ const RuleActionModal = ({
               onClick={handleOpenLinkerModal}
               disabled={isSaving}
             >
-              Links
+              {t("dialogs.ruleAction.links")}
             </Button>
             <Button
               variant="text"
@@ -523,13 +517,13 @@ const RuleActionModal = ({
               onClick={handleDelete}
               disabled={isSaving}
             >
-              Delete
+              {t("dialogs.shared.delete")}
             </Button>
           </>
         )}
         <Box sx={{ flexGrow: 1 }} />
         <Button onClick={onClose} disabled={isSaving}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button
           onClick={handleSave}
@@ -541,7 +535,7 @@ const RuleActionModal = ({
             (commandRequired && !formData.command_label?.trim())
           }
         >
-          {isSaving ? "Saving..." : isNewRule ? "Create" : "Save"}
+          {isSaving ? t("dialogs.ruleAction.saving") : isNewRule ? t("dialogs.shared.create") : t("dialogs.shared.save")}
         </Button>
       </DialogActions>
     </Dialog>

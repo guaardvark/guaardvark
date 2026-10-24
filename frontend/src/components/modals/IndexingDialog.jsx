@@ -26,8 +26,10 @@ import {
   submitToIndex,
   updateIndexingConfig,
 } from "../../api/searchConsoleService";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
+  const { t } = useUiTranslation();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -43,7 +45,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
       const data = await getIndexingStatus(websiteId);
       setStatus(data);
     } catch (err) {
-      setError(err.message || "Failed to load indexing status.");
+      setError(err.message || translate("dialogs.indexing.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -62,7 +64,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
         open: true,
         message:
           res?.message ||
-          "Submission job queued; URLs will be submitted in the background.",
+          t("dialogs.indexing.queued"),
         severity: "success",
       });
       // Reflect the just-synced queue counts.
@@ -71,7 +73,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
     } catch (err) {
       onFeedback?.({
         open: true,
-        message: `Submit failed: ${err.message || "Unknown error"}`,
+        message: t("dialogs.indexing.submitFailed", { error: err.message || t("dialogs.indexing.unknownError") }),
         severity: "error",
       });
     } finally {
@@ -87,14 +89,14 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
       onFeedback?.({
         open: true,
         message: enabled
-          ? "Auto-submit enabled — this site will drip up to its daily quota."
-          : "Auto-submit disabled.",
+          ? t("dialogs.indexing.dripEnabled")
+          : t("dialogs.indexing.dripDisabled"),
         severity: "info",
       });
     } catch (err) {
       onFeedback?.({
         open: true,
-        message: `Could not update setting: ${err.message || "Unknown error"}`,
+        message: t("dialogs.indexing.updateFailed", { error: err.message || t("dialogs.indexing.unknownError") }),
         severity: "error",
       });
     }
@@ -105,7 +107,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
-        Google Indexing
+        {t("dialogs.indexing.title")}
         {website?.url ? (
           <Typography variant="body2" color="text.secondary" noWrap>
             {website.url}
@@ -123,21 +125,19 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
           <Stack spacing={2}>
             {!status.credentials_ok && (
               <Alert severity="warning">
-                Service-account credentials not found on the server. Submissions
-                will fail until the Google Indexing key is configured.
+                {t("dialogs.indexing.noCredentials")}
               </Alert>
             )}
 
             <Box>
               <Typography variant="subtitle2" gutterBottom>
-                Today's quota
+                {t("dialogs.indexing.todaysQuota")}
               </Typography>
               <Typography variant="h5">
                 {status.submitted_today}
                 <Typography component="span" variant="body2" color="text.secondary">
                   {" "}
-                  / {status.daily_cap} submitted &nbsp;·&nbsp;{" "}
-                  {status.quota_remaining} remaining
+                  {t("dialogs.indexing.quotaDetail", { cap: status.daily_cap, remaining: status.quota_remaining })}
                 </Typography>
               </Typography>
             </Box>
@@ -146,24 +146,23 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
 
             <Box>
               <Typography variant="subtitle2" gutterBottom>
-                Queue
+                {t("dialogs.indexing.queue")}
               </Typography>
               <Stack direction="row" spacing={1}>
-                <Chip label={`${queue.pending || 0} pending`} color="default" size="small" />
-                <Chip label={`${queue.success || 0} indexed`} color="success" size="small" />
-                <Chip label={`${queue.failed || 0} failed`} color="error" size="small" />
+                <Chip label={t("dialogs.indexing.pending", { count: queue.pending || 0 })} color="default" size="small" />
+                <Chip label={t("dialogs.indexing.indexed", { count: queue.success || 0 })} color="success" size="small" />
+                <Chip label={t("dialogs.indexing.failed", { count: queue.failed || 0 })} color="error" size="small" />
               </Stack>
               {status.last_sitemap_sync && (
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                  Last sitemap sync:{" "}
-                  {new Date(status.last_sitemap_sync).toLocaleString()}
+                  {t("dialogs.indexing.lastSync", { date: new Date(status.last_sitemap_sync).toLocaleString(uiLocale()) })}
                 </Typography>
               )}
             </Box>
 
             <Divider />
 
-            <Tooltip title="When on, a background job submits up to the daily quota for this site every day, newest pages first, until the sitemap is fully covered.">
+            <Tooltip title={t("dialogs.indexing.dripTooltip")}>
               <FormControlLabel
                 control={
                   <Switch
@@ -171,16 +170,16 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
                     onChange={handleToggleDrip}
                   />
                 }
-                label="Auto-submit daily (drip up to quota)"
+                label={t("dialogs.indexing.dripLabel")}
               />
             </Tooltip>
           </Stack>
         ) : (
-          <Typography color="text.secondary">No status available.</Typography>
+          <Typography color="text.secondary">{t("dialogs.indexing.noStatus")}</Typography>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t("dialogs.shared.close")}</Button>
         <Button
           variant="contained"
           startIcon={
@@ -189,7 +188,7 @@ const IndexingDialog = ({ open, onClose, website, onFeedback }) => {
           onClick={handleSubmitNow}
           disabled={submitting || loading || (status && !status.credentials_ok)}
         >
-          {submitting ? "Queuing…" : "Sync sitemap & submit now"}
+          {submitting ? t("dialogs.indexing.queuing") : t("dialogs.indexing.submitNow")}
         </Button>
       </DialogActions>
     </Dialog>

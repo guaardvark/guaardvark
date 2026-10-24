@@ -12,8 +12,10 @@ import {
   Typography,
   CircularProgress,
 } from "@mui/material";
+import { useUiTranslation } from "../../i18n";
 
 const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
+  const { t } = useUiTranslation();
   const [options, setOptions] = useState({
     purgeDocuments: false,
     purgeEmbeddings: false,
@@ -38,11 +40,10 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Purge Index</DialogTitle>
+      <DialogTitle>{t("backups.purgeIndex.title")}</DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2" sx={{ mb: 2 }}>
-          Select which parts of the index to purge and optionally specify a date
-          range.
+          {t("backups.purgeIndex.intro")}
         </Typography>
         <FormGroup>
           <FormControlLabel
@@ -53,7 +54,7 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
                 onChange={handleChange}
               />
             }
-            label="Indexed Documents"
+            label={t("backups.purgeIndex.indexedDocuments")}
           />
           <FormControlLabel
             control={
@@ -63,7 +64,7 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
                 onChange={handleChange}
               />
             }
-            label="Embeddings"
+            label={t("backups.purgeIndex.embeddings")}
           />
           <FormControlLabel
             control={
@@ -73,11 +74,11 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
                 onChange={handleChange}
               />
             }
-            label="Metadata"
+            label={t("backups.purgeIndex.metadata")}
           />
         </FormGroup>
         <TextField
-          label="From Date"
+          label={t("backups.purgeIndex.fromDate")}
           type="date"
           name="afterDate"
           value={options.afterDate}
@@ -87,7 +88,7 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
           InputLabelProps={labelProps}
         />
         <TextField
-          label="To Date"
+          label={t("backups.purgeIndex.toDate")}
           type="date"
           name="beforeDate"
           value={options.beforeDate}
@@ -99,7 +100,7 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isProcessing}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button
           onClick={handleConfirm}
@@ -110,7 +111,7 @@ const PurgeIndexModal = ({ open, onClose, onConfirm, isProcessing }) => {
           {isProcessing ? (
             <CircularProgress size={24} color="inherit" />
           ) : (
-            "Purge"
+            t("backups.purgeIndex.purge")
           )}
         </Button>
       </DialogActions>

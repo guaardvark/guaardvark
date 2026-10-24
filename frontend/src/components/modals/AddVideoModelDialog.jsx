@@ -25,16 +25,22 @@ import axios from "axios";
 import { ActionButton, ChoiceChips, Hint } from "../settings/ui";
 import useHfModelLookup from "../../hooks/useHfModelLookup";
 import { formatWeightSize, selectedBytes } from "../../utils/hfUrl";
+import { translate, useUiTranslation } from "../../i18n";
 
-const ROLE_OPTIONS = [
-  { value: "lora", label: "LoRA on a model" },
-  { value: "generation", label: "New generation model" },
-  { value: "encoder", label: "Text encoder" },
+const roleOptions = () => [
+  { value: "lora", label: translate("models.addModel.roleLora") },
+  { value: "generation", label: translate("models.addModel.roleGeneration") },
+  { value: "encoder", label: translate("models.addVideoModel.roleEncoder") },
 ];
 
-const LIKE_LABEL = { lora: "Applies to", generation: "Like", encoder: "Replaces the encoder of" };
+const likeLabels = () => ({
+  lora: translate("models.addModel.appliesTo"),
+  generation: translate("models.addVideoModel.like"),
+  encoder: translate("models.addVideoModel.replacesEncoder"),
+});
 
 const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) => {
+  const { t } = useUiTranslation();
   const { url, onUrlChange, looking, preview, error, setError, handleLookup } = useHfModelLookup({
     endpoint: "/api/batch-video/models/from-hf",
     open,
@@ -138,7 +144,7 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
         install,
       });
       if (!res.data.success) {
-        setError(res.data.error?.message || res.data.message || "Could not add");
+        setError(res.data.error?.message || res.data.message || t("models.addModel.couldNotAdd"));
         setSaving(false);
         return;
       }
@@ -146,18 +152,18 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
       const dl = res.data.data?.download;
       const label = res.data.data?.entry?.name || name;
       if (problems.length) {
-        showMessage?.(`Added ${label}, with registry notes: ${problems.join("; ")}`, "warning");
+        showMessage?.(t("models.addVideoModel.registryNotes", { name: label, notes: problems.join("; ") }), "warning");
       } else if (dl?.error) {
-        showMessage?.(`Added ${label}. Install did not start: ${dl.error}`, "warning");
+        showMessage?.(t("models.addModel.addedInstallFailed", { name: label, error: dl.error }), "warning");
       } else if (install) {
-        showMessage?.(`Added ${label}. Installing…`, "info");
+        showMessage?.(t("models.addModel.addedInstalling", { name: label }), "info");
       } else {
-        showMessage?.(`Added ${label}. Install when you are ready.`, "info");
+        showMessage?.(t("models.addModel.addedInstallLater", { name: label }), "info");
       }
       onAdded?.(res.data.data?.id);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error?.message || err.message || "Could not add");
+      setError(err.response?.data?.error?.message || err.message || t("models.addModel.couldNotAdd"));
     } finally {
       setSaving(false);
     }
@@ -195,9 +201,9 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
           displayEmpty
           sx={{ minWidth: 88 }}
         >
-          <MenuItem value="">auto</MenuItem>
-          <MenuItem value="high">High</MenuItem>
-          <MenuItem value="low">Low</MenuItem>
+          <MenuItem value="">{t("models.addVideoModel.expertAuto")}</MenuItem>
+          <MenuItem value="high">{t("models.addVideoModel.expertHigh")}</MenuItem>
+          <MenuItem value="low">{t("models.addVideoModel.expertLow")}</MenuItem>
         </Select>
       )}
     </Box>
@@ -205,18 +211,16 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
 
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add new model</DialogTitle>
+      <DialogTitle>{t("models.shared.addNewModel")}</DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1 }}>
         <Hint>
-          Paste a Hugging Face URL or org/repo. The file lands in ComfyUI the same way Install already works.
-          Pick whether it is a LoRA on a model you have, another UNET like one, or a text encoder that
-          stands in for the one a model ships with.
+          {t("models.addVideoModel.hint")}
         </Hint>
         <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
           <TextField
             size="small"
             fullWidth
-            label="Hugging Face URL"
+            label={t("models.addModel.hfUrl")}
             placeholder="https://huggingface.co/org/repo/blob/main/file.safetensors"
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
@@ -224,7 +228,7 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
             disabled={looking || saving}
           />
           <ActionButton onClick={handleLookup} loading={looking} disabled={!url.trim()}>
-            Look up
+            {t("models.addModel.lookUp")}
           </ActionButton>
         </Box>
         {looking && <LinearProgress />}
@@ -245,22 +249,22 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
               {preview.license ? ` · ${preview.license}` : ""}
               {preview.gated
                 ? preview.token_present
-                  ? " · gated (agree on the model page with your HF_TOKEN account)"
-                  : " · gated (set HF_TOKEN in .env and restart)"
+                  ? " · " + t("models.addModel.gatedAgree")
+                  : " · " + t("models.addModel.gatedSetToken")
                 : ""}
-              {preview.truncated ? " · file list truncated" : ""}
+              {preview.truncated ? " · " + t("models.addModel.fileListTruncated") : ""}
             </Typography>
             {(preview.warnings || []).map((w) => (
               <Typography key={w} variant="caption" color="warning.main">
                 {w}
               </Typography>
             ))}
-            <ChoiceChips ariaLabel="Role" value={role} onChange={setRole} options={ROLE_OPTIONS} />
+            <ChoiceChips ariaLabel={t("models.addModel.role")} value={role} onChange={setRole} options={roleOptions()} />
             <FormControl size="small" fullWidth>
-              <InputLabel>{LIKE_LABEL[role]}</InputLabel>
+              <InputLabel>{likeLabels()[role]}</InputLabel>
               <Select
                 value={likeChoices.some((m) => m.id === like) ? like : ""}
-                label={LIKE_LABEL[role]}
+                label={likeLabels()[role]}
                 onChange={(e) => setLike(e.target.value)}
               >
                 {likeChoices.map((m) => (
@@ -272,17 +276,17 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
             </FormControl>
             {likeChoices.length === 0 && (
               <Typography variant="body2" color="error">
-                No shipped model in this list takes that role.
+                {t("models.addVideoModel.noShippedModel")}
               </Typography>
             )}
-            <TextField size="small" label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+            <TextField size="small" label={t("models.addModel.name")} value={name} onChange={(e) => setName(e.target.value)} />
             <Typography variant="overline" color="text.secondary">
-              {singleFile ? "Files (pick one)" : "Files"}
+              {singleFile ? t("models.addModel.filesPickOne") : t("models.addVideoModel.files")}
             </Typography>
             {files.length > 8 && (
               <TextField
                 size="small"
-                label="Filter files"
+                label={t("models.addModel.filterFiles")}
                 value={fileFilter}
                 onChange={(e) => setFileFilter(e.target.value)}
               />
@@ -290,7 +294,7 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
             <Box sx={{ maxHeight: 240, overflow: "auto", border: 1, borderColor: "divider", borderRadius: 1, px: 1 }}>
               {files.length === 0 && (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                  No weight files listed. Paste a URL that includes the filename.
+                  {t("models.addModel.noWeightFiles")}
                 </Typography>
               )}
               {singleFile ? (
@@ -315,23 +319,22 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
               )}
             </Box>
             {needsMoE && (
-              <Hint>This family is two experts. Pick one HighNoise file and one LowNoise file.</Hint>
+              <Hint>{t("models.addVideoModel.moeHint")}</Hint>
             )}
             {role === "encoder" && (
               <Hint>
-                One file. It replaces the shipped text encoder for every model in that family; pick it on the
-                Video Gen page under Text encoder. The shipped one stays installed.
+                {t("models.addVideoModel.encoderHint")}
               </Hint>
             )}
             <Hint>
-              {name.trim() || "Unnamed"} · {likeName || "template"} · {role}
+              {name.trim() || t("models.addModel.unnamed")} · {likeName || t("models.addVideoModel.templateFallback")} · {role}
               {bytes > 0 ? ` · ${(bytes / 1024 ** 3).toFixed(2)} GB` : ""}
-              {preview.license ? ` · licence ${preview.license}` : ""}
+              {preview.license ? " · " + t("models.addModel.licence", { licence: preview.license }) : ""}
               {preview.gated && repoUrl && (
                 <>
                   {" · "}
                   <a href={repoUrl} target="_blank" rel="noreferrer noopener">
-                    Agree and access
+                    {t("models.addModel.agreeAndAccess")}
                   </a>
                 </>
               )}
@@ -341,13 +344,13 @@ const AddVideoModelDialog = ({ open, onClose, models, showMessage, onAdded }) =>
       </DialogContent>
       <DialogActions>
         <ActionButton onClick={onClose} disabled={saving}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </ActionButton>
         <ActionButton onClick={() => handleAdd(false)} disabled={!pending}>
-          Add only
+          {t("models.addModel.addOnly")}
         </ActionButton>
         <ActionButton kind="primary" onClick={() => handleAdd(true)} loading={saving} disabled={!pending}>
-          Add and install
+          {t("models.addModel.addAndInstall")}
         </ActionButton>
       </DialogActions>
     </Dialog>

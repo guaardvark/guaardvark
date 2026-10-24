@@ -28,6 +28,7 @@ import {
   managedApiCall,
 } from "../../utils/resource_manager";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
+import { translate, useUiTranslation } from "../../i18n";
 
 // Allowed file types (should match backend ALLOWED_EXTENSIONS)
 const ALLOWED_FILE_TYPES = [
@@ -62,6 +63,7 @@ const UnifiedUploadModal = ({
   projectId = null, // Pre-selected project
   mode = "document", // "document" or "chat"
 }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState({
     filename: "",
     project_id: projectId || "",
@@ -88,7 +90,7 @@ const UnifiedUploadModal = ({
     } catch (err) {
       console.error("Error fetching projects for modal:", err);
       setProjects([]);
-      setFormError(`Failed to load projects: ${err.message}`);
+      setFormError(translate("dialogs.unifiedUpload.loadProjectsFailed", { error: err.message }));
     } finally {
       setIsLoadingProjects(false);
     }
@@ -141,7 +143,7 @@ const UnifiedUploadModal = ({
   const validateFile = (file) => {
     const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
     if (!ALLOWED_FILE_TYPES.includes(fileExtension)) {
-      return `File type "${fileExtension}" is not supported. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}`;
+      return t("dialogs.unifiedUpload.unsupportedType", { extension: fileExtension, allowed: ALLOWED_FILE_TYPES.join(', ') });
     }
     return null; // No validation errors
   };
@@ -169,7 +171,7 @@ const UnifiedUploadModal = ({
     setFormError(null);
     
     if (!selectedFile) {
-      setFormError("Please select a file to import.");
+      setFormError(t("dialogs.unifiedUpload.selectFile"));
       return;
     }
 
@@ -187,10 +189,10 @@ const UnifiedUploadModal = ({
             finalProjectId = newProject.id;
             await fetchProjectsForDropdown();
           } else {
-            throw new Error(newProject.error || "Failed to create new project.");
+            throw new Error(newProject.error || t("dialogs.unifiedUpload.createProjectFailed"));
           }
         } catch (err) {
-          setFormError(`Project creation error: ${err.message}`);
+          setFormError(t("dialogs.unifiedUpload.projectCreationError", { error: err.message }));
           return;
         }
       }
@@ -206,7 +208,7 @@ const UnifiedUploadModal = ({
       // Start process in unified progress tracking
       startProcess(
         processId,
-        `Importing ${selectedFile.name}...`,
+        t("dialogs.unifiedUpload.progressStart", { name: selectedFile.name }),
         "file_upload"
       );
 
@@ -228,7 +230,7 @@ const UnifiedUploadModal = ({
               updateProcess(
                 processId,
                 progressData.percentage,
-                `Importing ${selectedFile.name} (${progressData.percentage}%)`
+                t("dialogs.unifiedUpload.progressUpdate", { name: selectedFile.name, percent: progressData.percentage })
               );
             }
           );
@@ -245,7 +247,7 @@ const UnifiedUploadModal = ({
       // Mark upload as completed in progress context
       completeProcess(
         processId,
-        `Import completed: ${selectedFile.name}`
+        t("dialogs.unifiedUpload.progressDone", { name: selectedFile.name })
       );
 
       // Success - call callback and close modal
@@ -259,12 +261,12 @@ const UnifiedUploadModal = ({
 
     } catch (error) {
       console.error("Upload error:", error);
-      setFormError(`Import failed: ${error.message}`);
+      setFormError(t("dialogs.unifiedUpload.importFailed", { error: error.message }));
       
       // Mark upload as failed in progress context
       errorProcess(
         processId,
-        `Import failed: ${selectedFile.name} - ${error.message}`
+        t("dialogs.unifiedUpload.progressFailed", { name: selectedFile.name, error: error.message })
       );
     } finally {
       setIsUploading(false);
@@ -277,7 +279,7 @@ const UnifiedUploadModal = ({
     }
   };
 
-  const modalTitle = mode === "chat" ? "Import File for Chat" : "Import Document";
+  const modalTitle = mode === "chat" ? t("dialogs.unifiedUpload.chatTitle") : t("dialogs.unifiedUpload.documentTitle");
 
   return (
     <Dialog 
@@ -338,10 +340,10 @@ const UnifiedUploadModal = ({
               />
               <UploadFileIcon sx={{ fontSize: 48, color: "primary.main", mb: 1 }} />
               <Typography variant="body1" gutterBottom>
-                {selectedFile ? selectedFile.name : "Click to select a file"}
+                {selectedFile ? selectedFile.name : t("dialogs.unifiedUpload.clickToSelect")}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Supported formats: {ALLOWED_FILE_TYPES.slice(0, 8).join(', ')}...
+                {t("dialogs.unifiedUpload.supportedFormats", { formats: ALLOWED_FILE_TYPES.slice(0, 8).join(', ') })}
               </Typography>
             </Box>
           </Grid>
@@ -352,13 +354,13 @@ const UnifiedUploadModal = ({
               <Box sx={{ mb: 1 }}>
                 <Typography variant="body2" color="text.secondary">
                   {uploadProgress.percentage > 0 
-                    ? `Importing file... ${uploadProgress.percentage}%`
-                    : "Importing file..."}
+                    ? t("dialogs.unifiedUpload.importingPercent", { percent: uploadProgress.percentage })
+                    : t("dialogs.unifiedUpload.importing")}
                 </Typography>
                 {uploadProgress.speed > 0 && (
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    Speed: {formatFileSize(uploadProgress.speed)}/s
-                    {uploadProgress.eta && ` • ETA: ${formatDuration(uploadProgress.eta)}`}
+                    {t("dialogs.unifiedUpload.speed", { speed: formatFileSize(uploadProgress.speed) })}
+                    {uploadProgress.eta && " • " + t("dialogs.unifiedUpload.eta", { time: formatDuration(uploadProgress.eta) })}
                   </Typography>
                 )}
               </Box>
@@ -383,8 +385,8 @@ const UnifiedUploadModal = ({
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Project"
-                  placeholder="Select or create project"
+                  label={t("dialogs.unifiedUpload.project")}
+                  placeholder={t("dialogs.unifiedUpload.projectPlaceholder")}
                   fullWidth
                   disabled={isUploading}
                 />
@@ -399,11 +401,11 @@ const UnifiedUploadModal = ({
           <Grid item xs={12}>
             <TextField
               name="tags"
-              label="Tags (comma-separated)"
+              label={t("dialogs.unifiedUpload.tags")}
               value={formData.tags}
               onChange={handleInputChange}
               fullWidth
-              placeholder="e.g., important, client-doc, analysis"
+              placeholder={t("dialogs.unifiedUpload.tagsPlaceholder")}
               disabled={isUploading}
             />
           </Grid>
@@ -415,7 +417,7 @@ const UnifiedUploadModal = ({
           onClick={handleClose} 
           disabled={isUploading}
         >
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button
           variant="contained"
@@ -423,7 +425,7 @@ const UnifiedUploadModal = ({
           disabled={!selectedFile || isUploading}
           startIcon={isUploading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
         >
-          {isUploading ? "Uploading..." : "Upload"}
+          {isUploading ? t("dialogs.unifiedUpload.uploading") : t("dialogs.unifiedUpload.upload")}
         </Button>
       </DialogActions>
     </Dialog>

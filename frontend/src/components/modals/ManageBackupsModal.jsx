@@ -18,13 +18,14 @@ import RestoreIcon from "@mui/icons-material/Restore";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DownloadIcon from "@mui/icons-material/Download";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
-const TYPE_CONFIG = {
-  full: { label: "Full", color: "success" },
-  data: { label: "Data", color: "primary" },
-  code: { label: "Code", color: "warning" },
-  auto: { label: "Auto", color: "default" },
-};
+const typeConfig = () => ({
+  full: { label: translate("backups.shared.typeFull"), color: "success" },
+  data: { label: translate("backups.shared.typeData"), color: "primary" },
+  code: { label: translate("backups.shared.typeCode"), color: "warning" },
+  auto: { label: translate("backups.shared.typeAuto"), color: "default" },
+});
 
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return "0 B";
@@ -35,13 +36,15 @@ function formatBytes(bytes) {
 }
 
 function formatDate(timestamp) {
-  if (!timestamp) return "Unknown";
+  if (!timestamp) return translate("backups.shared.unknownDate");
   try {
     const d = new Date(timestamp * 1000);
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
-      " at " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return translate("backups.shared.dateAtTime", {
+      date: d.toLocaleDateString(uiLocale(), { month: "short", day: "numeric", year: "numeric" }),
+      time: d.toLocaleTimeString(uiLocale(), { hour: "2-digit", minute: "2-digit" }),
+    });
   } catch {
-    return "Unknown";
+    return translate("backups.shared.unknownDate");
   }
 }
 
@@ -54,7 +57,9 @@ const ManageBackupsModal = ({
   onRefresh,
   backups = [],
 }) => {
+  const { t } = useUiTranslation();
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const types = typeConfig();
 
   // Support both old (string[]) and new (object[]) API formats
   const normalizedBackups = backups.map((b) =>
@@ -75,8 +80,8 @@ const ManageBackupsModal = ({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        Manage Backups
-        <Tooltip title="Refresh list">
+        {t("backups.manageBackups.title")}
+        <Tooltip title={t("backups.manageBackups.refreshList")}>
           <IconButton onClick={onRefresh} size="small">
             <RefreshIcon />
           </IconButton>
@@ -86,16 +91,16 @@ const ManageBackupsModal = ({
         {normalizedBackups.length === 0 ? (
           <Box sx={{ textAlign: "center", py: 4 }}>
             <Typography variant="body1" color="text.secondary">
-              No backups found
+              {t("backups.manageBackups.empty")}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Create a backup first to see it here
+              {t("backups.manageBackups.emptyHint")}
             </Typography>
           </Box>
         ) : (
           <List disablePadding>
             {normalizedBackups.map((backup) => {
-              const cfg = TYPE_CONFIG[backup.type] || TYPE_CONFIG.data;
+              const cfg = types[backup.type] || types.data;
               const isConfirming = confirmDelete === backup.name;
               return (
                 <ListItem
@@ -109,17 +114,17 @@ const ManageBackupsModal = ({
                   }}
                   secondaryAction={
                     <Box sx={{ display: "flex", gap: 0.5 }}>
-                      <Tooltip title="Download">
+                      <Tooltip title={t("dialogs.shared.download")}>
                         <IconButton onClick={() => onDownload?.(backup.name)} size="small">
                           <DownloadIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Restore from this backup">
+                      <Tooltip title={t("backups.manageBackups.restoreFromThis")}>
                         <IconButton onClick={() => onRestore?.(backup.name)} color="primary" size="small">
                           <RestoreIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title={isConfirming ? "Click again to confirm" : "Delete"}>
+                      <Tooltip title={isConfirming ? t("backups.manageBackups.clickAgainToConfirm") : t("dialogs.shared.delete")}>
                         <IconButton
                           onClick={() => handleDelete(backup.name)}
                           color={isConfirming ? "error" : "default"}
@@ -155,7 +160,7 @@ const ManageBackupsModal = ({
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t("dialogs.shared.close")}</Button>
       </DialogActions>
     </Dialog>
   );

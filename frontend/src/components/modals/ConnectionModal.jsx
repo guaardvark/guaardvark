@@ -21,6 +21,7 @@ import {
   updateConnection,
 } from "../../api/connectionsService";
 import { codeFromPaste } from "../social/oauthCode";
+import { translate, uiLocale, useUiTranslation, Trans } from "../../i18n";
 
 const MASK_PLACEHOLDER = "••••••••••••••••";
 const REDIRECT_PLACEHOLDER = "{redirect_uri}";
@@ -45,6 +46,7 @@ const SetupStep = ({ text, redirectUri }) => {
  * a provider added on the backend appears here without a frontend change.
  */
 const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, onSaved }) => {
+  const { t } = useUiTranslation();
   const spec = providerSpec;
   // A connection created in this dialog: an OAuth one stays open on it so
   // the person can authorize straight away.
@@ -100,7 +102,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
       if (isOAuth) setCreated(saved);
       onFeedback?.({
         open: true,
-        message: isEdit ? "Connection updated." : "Connection created.",
+        message: isEdit ? translate("dialogs.connection.updated") : translate("dialogs.connection.created"),
         severity: "success",
       });
       onSaved?.(saved);
@@ -138,7 +140,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
       const result = await completeOAuth(current.id, pasted.code, redirectUri);
       onFeedback?.({
         open: true,
-        message: result.message || "Authorized.",
+        message: result.message || translate("dialogs.connection.authorized"),
         severity: result.ok ? "success" : "warning",
       });
       onSaved?.(result.connection);
@@ -155,7 +157,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        {isEdit ? `Edit ${spec.label}` : `Connect ${spec.label}`}
+        {isEdit ? t("dialogs.connection.editTitle", { provider: spec.label }) : t("dialogs.connection.connectTitle", { provider: spec.label })}
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ mt: 1 }}>
@@ -166,7 +168,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
                 <>
                   {" "}
                   <Link href={spec.docs_url} target="_blank" rel="noopener">
-                    Documentation
+                    {t("dialogs.connection.documentation")}
                   </Link>
                 </>
               )}
@@ -187,31 +189,32 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
 
           {spec.review_required && (
             <Alert severity="warning">
-              This platform requires app review before its API can post on your
-              behalf.
+              {t("dialogs.connection.reviewRequired")}
             </Alert>
           )}
 
           {isEnvManaged && (
             <Alert severity="info">
-              This credential comes from the environment variable{" "}
-              <code>{current.credential_env_key}</code> and is managed outside
-              the app.
+              <Trans
+                i18nKey="dialogs.connection.envManaged"
+                values={{ envKey: current.credential_env_key }}
+                components={{ code: <code /> }}
+              />
             </Alert>
           )}
 
           {error && <Alert severity="error">{error}</Alert>}
 
           <TextField
-            label="Account name"
+            label={t("dialogs.connection.accountName")}
             value={accountSlug}
             onChange={(e) => setAccountSlug(e.target.value)}
             disabled={isEdit}
             size="small"
-            helperText="Distinguishes multiple accounts on the same platform."
+            helperText={t("dialogs.connection.accountNameHelp")}
           />
           <TextField
-            label="Display name"
+            label={t("dialogs.connection.displayName")}
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             size="small"
@@ -255,7 +258,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
                   }
                   helperText={
                     alreadySet
-                      ? `Configured (${current.credential_hint}). Leave blank to keep.`
+                      ? t("dialogs.connection.configured", { hint: current.credential_hint })
                       : field.help
                   }
                 />
@@ -264,7 +267,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
 
           {isOAuth && !isEdit && (
             <Typography variant="body2" color="text.secondary">
-              Save first; the authorization step appears here once the connection exists.
+              {t("dialogs.connection.saveFirst")}
             </Typography>
           )}
 
@@ -276,18 +279,18 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
                   color={tokenExpiry < new Date() ? "error" : "text.secondary"}
                   sx={{ mb: 1 }}
                 >
-                  {tokenExpiry < new Date() ? "Authorization expired" : "Authorization lasts until"}{" "}
-                  {tokenExpiry.toLocaleDateString()}.
+                  {tokenExpiry < new Date()
+                    ? t("dialogs.connection.expired", { date: tokenExpiry.toLocaleDateString(uiLocale()) })
+                    : t("dialogs.connection.lastsUntil", { date: tokenExpiry.toLocaleDateString(uiLocale()) })}
                 </Typography>
               )}
               <Button variant="outlined" onClick={handleStartOAuth} size="small">
-                Authorize with {spec.label}
+                {t("dialogs.connection.authorizeWith", { provider: spec.label })}
               </Button>
               {oauth && (
                 <Stack spacing={1} sx={{ mt: 2 }}>
                   <Typography variant="body2">
-                    Open this URL, approve access, then paste the address your browser lands
-                    on, or just the code in it.
+                    {t("dialogs.connection.oauthInstructions")}
                   </Typography>
                   <TextField
                     value={oauth.authorize_url}
@@ -296,7 +299,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
                     onFocus={(e) => e.target.select()}
                   />
                   <TextField
-                    label="Address or code"
+                    label={t("dialogs.connection.addressOrCode")}
                     value={oauthCode}
                     onChange={(e) => setOauthCode(e.target.value)}
                     size="small"
@@ -307,7 +310,7 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
                     disabled={!oauthCode.trim() || saving}
                     onClick={handleCompleteOAuth}
                   >
-                    Complete authorization
+                    {t("dialogs.connection.complete")}
                   </Button>
                 </Stack>
               )}
@@ -316,9 +319,9 @@ const ConnectionModal = ({ open, onClose, connection, providerSpec, onFeedback, 
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("dialogs.shared.cancel")}</Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("dialogs.connection.saving") : t("dialogs.shared.save")}
         </Button>
       </DialogActions>
     </Dialog>

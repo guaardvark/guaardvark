@@ -20,25 +20,28 @@ import {
 import MemoryIcon from "@mui/icons-material/Memory";
 import SpeedIcon from "@mui/icons-material/Speed";
 import StorageIcon from "@mui/icons-material/Storage";
+import { translate, useUiTranslation, Trans } from "../../i18n";
 
 // Words for each level. Which levels are offered, which is the default and the
 // share of the bf16 weights each file comes to are the backend's
 // (job.export_levels, from LEVELS in backend/services/training_gguf_converter.py);
 // the backend refuses any other level.
-const LEVEL_WORDS = {
-  q8_0: { description: "Near full precision, about half the size", quality: 6 },
-  f16: { description: "Full precision (largest)", quality: 7 },
-};
+const levelWords = () => ({
+  q8_0: { description: translate("dialogs.exportQuantization.levelNearFull"), quality: 6 },
+  f16: { description: translate("dialogs.exportQuantization.levelFull"), quality: 7 },
+});
 
-const toOptions = (levels) =>
-  (levels || []).map((level) => ({
+const toOptions = (levels) => {
+  const words = levelWords();
+  return (levels || []).map((level) => ({
     value: level.value,
     label: level.label,
     sizeShare: level.size_share,
     recommended: Boolean(level.default),
-    description: LEVEL_WORDS[level.value]?.description || "",
-    quality: LEVEL_WORDS[level.value]?.quality || 5,
+    description: words[level.value]?.description || "",
+    quality: words[level.value]?.quality || 5,
   }));
+};
 
 const ExportQuantizationModal = ({
   open,
@@ -50,6 +53,7 @@ const ExportQuantizationModal = ({
   currentQuantization = null,
   levels = [],
 }) => {
+  const { t } = useUiTranslation();
   const options = toOptions(levels);
   const defaultLevel = (options.find((o) => o.recommended) || options[0])?.value || "";
   const [quantization, setQuantization] = useState(defaultLevel);
@@ -76,11 +80,11 @@ const ExportQuantizationModal = ({
 
   const handleExport = () => {
     if (!modelName.trim()) {
-      setFormError("Model name is required");
+      setFormError(t("dialogs.exportQuantization.nameRequired"));
       return;
     }
     if (!/^[a-z0-9][a-z0-9_-]*$/.test(modelName)) {
-      setFormError("Model name must be lowercase, start with letter/number, and contain only a-z, 0-9, -, _");
+      setFormError(t("dialogs.exportQuantization.nameInvalid"));
       return;
     }
     setFormError(null);
@@ -106,7 +110,7 @@ const ExportQuantizationModal = ({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
-        {isReQuantize ? "Re-Quantize Model" : "Export to Ollama"}
+        {isReQuantize ? t("dialogs.exportQuantization.reQuantizeTitle") : t("dialogs.exportQuantization.exportTitle")}
       </DialogTitle>
       <DialogContent dividers>
         {formError && (
@@ -117,16 +121,20 @@ const ExportQuantizationModal = ({
 
         {isReQuantize && currentQuantization && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Current quantization: <strong>{currentQuantization.toUpperCase()}</strong>
+            <Trans
+              i18nKey="dialogs.exportQuantization.currentLevel"
+              values={{ level: currentQuantization.toUpperCase() }}
+              components={{ bold: <strong /> }}
+            />
             {currentQuantization === "f16" && options.some((o) => o.value === "q8_0") && (
-              <> - This is full precision. Q8_0 is about half the size at near full precision.</>
+              <> - {t("dialogs.exportQuantization.fullPrecisionNote")}</>
             )}
           </Alert>
         )}
 
         {options.length === 0 && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            No export level is offered for this job.
+            {t("dialogs.exportQuantization.noLevels")}
           </Alert>
         )}
 
@@ -135,21 +143,21 @@ const ExportQuantizationModal = ({
             <TextField
               required
               fullWidth
-              label="Ollama Model Name"
+              label={t("dialogs.exportQuantization.nameLabel")}
               value={modelName}
               onChange={(e) => setModelName(e.target.value.toLowerCase())}
               disabled={isExporting}
-              helperText="Name to register in Ollama (e.g., guaardvark-mymodel)"
+              helperText={t("dialogs.exportQuantization.nameHelp")}
               autoFocus
             />
           </Grid>
 
           <Grid item xs={12}>
             <FormControl fullWidth>
-              <InputLabel>Quantization Level</InputLabel>
+              <InputLabel>{t("dialogs.exportQuantization.levelLabel")}</InputLabel>
               <Select
                 value={quantization}
-                label="Quantization Level"
+                label={t("dialogs.exportQuantization.levelLabel")}
                 onChange={(e) => setQuantization(e.target.value)}
                 disabled={isExporting}
               >
@@ -161,7 +169,7 @@ const ExportQuantizationModal = ({
                         {option.description}
                       </Typography>
                       {option.recommended && (
-                        <Chip label="Recommended" size="small" color="primary" />
+                        <Chip label={t("dialogs.exportQuantization.recommended")} size="small" color="primary" />
                       )}
                     </Box>
                   </MenuItem>
@@ -185,19 +193,19 @@ const ExportQuantizationModal = ({
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <StorageIcon fontSize="small" color="action" />
                   <Typography variant="body2">
-                    Size: {estimateFileSize(quantization) || "Unknown"}
+                    {t("dialogs.exportQuantization.size", { size: estimateFileSize(quantization) || t("dialogs.exportQuantization.unknown") })}
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <SpeedIcon fontSize="small" color="action" />
                   <Typography variant="body2">
-                    Quality: {"★".repeat(selectedOption.quality)}{"☆".repeat(7 - selectedOption.quality)}
+                    {t("dialogs.exportQuantization.quality")}: {"★".repeat(selectedOption.quality)}{"☆".repeat(7 - selectedOption.quality)}
                   </Typography>
                 </Box>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <MemoryIcon fontSize="small" color="action" />
                   <Typography variant="body2">
-                    VRAM: {selectedOption.sizeShare <= 0.35 ? "Low" : selectedOption.sizeShare <= 0.75 ? "Medium" : "High"}
+                    VRAM: {selectedOption.sizeShare <= 0.35 ? t("dialogs.exportQuantization.vramLow") : selectedOption.sizeShare <= 0.75 ? t("dialogs.exportQuantization.vramMedium") : t("dialogs.exportQuantization.vramHigh")}
                   </Typography>
                 </Box>
               </Box>
@@ -207,7 +215,7 @@ const ExportQuantizationModal = ({
           {job?.base_model && (
             <Grid item xs={12}>
               <Typography variant="caption" color="text.secondary">
-                Base model: {job.base_model}
+                {t("dialogs.exportQuantization.baseModel", { model: job.base_model })}
               </Typography>
             </Grid>
           )}
@@ -215,7 +223,7 @@ const ExportQuantizationModal = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isExporting}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button
           onClick={handleExport}
@@ -223,7 +231,7 @@ const ExportQuantizationModal = ({
           disabled={isExporting || !selectedOption}
           startIcon={isExporting ? <CircularProgress size={16} /> : null}
         >
-          {isExporting ? "Exporting..." : isReQuantize ? "Re-Quantize" : "Export"}
+          {isExporting ? t("dialogs.exportQuantization.exporting") : isReQuantize ? t("dialogs.exportQuantization.reQuantize") : t("dialogs.exportQuantization.export")}
         </Button>
       </DialogActions>
     </Dialog>
