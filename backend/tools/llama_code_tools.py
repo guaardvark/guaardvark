@@ -80,9 +80,10 @@ def _is_own_git_checkout(root: Path) -> bool:
 
 
 def _private_reason(relative_path: str, root: Path) -> Optional[str]:
-    """Why a root-relative path is not source: git-ignored in a checkout, or a
-    hidden, dependency or build folder in any other folder."""
-    if _is_own_git_checkout(root):
+    """Why a root-relative path is not source: git-ignored (or, without git, under
+    the checkout's local-data folders) in Guaardvark's checkout or another git
+    checkout; a hidden, dependency or build folder in any other folder."""
+    if root == PROJECT_ROOT or _is_own_git_checkout(root):
         return private_path_reason(relative_path, root)
     parts = relative_path.replace("\\", "/").strip("/").split("/")
     if any(p.startswith(".") for p in parts) or in_build_dir(relative_path + "/x"):

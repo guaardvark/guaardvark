@@ -103,8 +103,10 @@ def test_regex_fallback_lists_at_most_limit_hits(checkout):
     assert "showing first 3" in res.output
 
 
-def test_regex_fallback_does_not_answer_for_another_tree(checkout, outside):
+def test_regex_fallback_answers_from_the_tree_it_was_asked_about(checkout, outside):
+    (outside / "lib.py").write_text("def is_mcp_transport_elsewhere(): pass\n")
     with patch.object(cst, "_hybrid_search", lambda root, q, l: None):
         res = _chat_tool().execute(query="is_mcp_transport", root=str(outside))
-    assert not res.success
-    assert "searches only Guaardvark's own checkout" in res.error
+    assert res.success and res.metadata["engine"] == "regex"
+    assert "lib.py:1" in res.output
+    assert "backend/a.py" not in res.output
