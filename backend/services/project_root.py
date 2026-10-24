@@ -28,7 +28,7 @@ def validate_root_path(raw: Optional[str]) -> Tuple[Optional[str], Optional[str]
 
     path, refusal = resolve_import_directory(os.path.expanduser(str(raw).strip()))
     if refusal:
-        return None, refusal.replace("Bulk Import can only use", "A project folder must be in")
+        return None, refusal.replace("Bulk Import can only use folders in", "A project folder must be in")
     if not os.path.isdir(path):
         return None, f"{raw} is not a folder on this machine"
     return str(path), None
