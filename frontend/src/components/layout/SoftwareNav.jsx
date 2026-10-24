@@ -1,3 +1,5 @@
+import { useUiTranslation } from "../../i18n";
+import { navigationLabel } from "../../i18n/navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
@@ -69,6 +71,7 @@ const pinButtonSx = (active, activeColor) => ({
 });
 
 const SoftwareNav = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const location = useLocation();
   const navigate = useNavigate();
@@ -127,7 +130,7 @@ const SoftwareNav = () => {
     <>
       <Box
         component="nav"
-        aria-label="Workspace"
+        aria-label={t("navigation.workspace")}
         sx={{
           flexShrink: 0,
           borderBottom: "1px solid",
@@ -212,7 +215,7 @@ const SoftwareNav = () => {
                   aria-current={active ? "page" : undefined}
                   sx={barButtonSx(theme, { active, accent: theme.palette.primary.main })}
                 >
-                  {workspace.label}
+                  {navigationLabel(workspace.label)}
                   {count > 0 && <NavCount count={count} />}
                 </ButtonBase>
               );
@@ -222,10 +225,10 @@ const SoftwareNav = () => {
 
           <Box sx={{ display: "flex", alignItems: "center", flexShrink: 0, ml: 0.5 }}>
             {metricsAction && (
-              <Tooltip title={metricsAction.label}>
+              <Tooltip title={navigationLabel(metricsAction.label, metricsAction)}>
                 <ButtonBase
                   onClick={() => setMetricsModalOpen((open) => !open)}
-                  aria-label={metricsAction.label}
+                  aria-label={navigationLabel(metricsAction.label, metricsAction)}
                   sx={pinButtonSx(metricsModalOpen, "primary.main")}
                 >
                   {metricsAction.icon}
@@ -233,10 +236,10 @@ const SoftwareNav = () => {
               </Tooltip>
             )}
             {agentScreenAction && (
-              <Tooltip title={agentScreenAction.label}>
+              <Tooltip title={navigationLabel(agentScreenAction.label, agentScreenAction)}>
                 <ButtonBase
                   onClick={() => setAgentScreenOpen(!agentScreenOpen)}
-                  aria-label={agentScreenAction.label}
+                  aria-label={navigationLabel(agentScreenAction.label, agentScreenAction)}
                   sx={pinButtonSx(agentScreenOpen, "success.main")}
                 >
                   {agentScreenAction.icon}
@@ -247,11 +250,11 @@ const SoftwareNav = () => {
               const active = pathIsActive(item.path, location.pathname);
               const count = item.badge ? badgeCounts[item.badge] || 0 : 0;
               return (
-                <Tooltip key={item.id} title={item.label}>
+                <Tooltip key={item.id} title={navigationLabel(item.label, item)}>
                   <ButtonBase
                     component={NavLink}
                     to={hrefForItem(item)}
-                    aria-label={item.label}
+                    aria-label={navigationLabel(item.label, item)}
                     sx={pinButtonSx(active, "primary.main")}
                   >
                     {count > 0 ? (
@@ -270,14 +273,14 @@ const SoftwareNav = () => {
                 </Tooltip>
               );
             })}
-            {voiceAction && <GlobalMicButton variant="bar" label={voiceAction.label} primary />}
+            {voiceAction && <GlobalMicButton variant="bar" label={navigationLabel(voiceAction.label, voiceAction)} primary />}
             {chatAction && (
-              <Tooltip title={chatUnavailable ? "This page has its own chat" : chatAction.label}>
+              <Tooltip title={chatUnavailable ? t("navigation.thisPageHasItsOwnChat") : navigationLabel(chatAction.label, chatAction)}>
                 <span>
                   <ButtonBase
                     onClick={toggleChat}
                     disabled={chatUnavailable}
-                    aria-label={chatAction.label}
+                    aria-label={navigationLabel(chatAction.label, chatAction)}
                     aria-pressed={chatOpen}
                     sx={{
                       ...pinButtonSx(chatOpen, "primary.main"),
@@ -295,7 +298,7 @@ const SoftwareNav = () => {
         {showStrip && (
           <Box
             role="tablist"
-            aria-label="Workspace tools"
+            aria-label={t("navigation.workspaceTools")}
             sx={{
               display: "flex",
               alignItems: "center",
@@ -331,7 +334,7 @@ const SoftwareNav = () => {
                   }}
                 >
                   {item.icon}
-                  {item.label}
+                  {navigationLabel(item.label, item)}
                   {count > 0 && <NavCount count={count} />}
                 </ButtonBase>
               );

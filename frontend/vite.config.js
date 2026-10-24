@@ -272,6 +272,9 @@ export default defineConfig(({ mode }) => {
         // Function form: Vite 8 bundles with Rolldown, which does not accept
         // the object form ("manualChunks is not a function"). Same groups.
         manualChunks: (id) => {
+          // MUI's locale packs load only when a language other than English
+          // is picked (src/i18n/muiLocale.js), so they stay their own chunk.
+          if (/[\\/]@mui[\\/]material[\\/]locale[\\/]/.test(id)) return undefined;
           const m = id.match(/[\\/]node_modules[\\/]((?:@[^\\/]+[\\/])?[^\\/]+)/);
           if (!m) return undefined;
           return VENDOR_CHUNKS[m[1]];

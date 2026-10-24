@@ -1,0 +1,300 @@
+{
+  "common": {
+    "voice": {
+      "en": "3091c8446f8d",
+      "out": "0d1c9a3fab5f"
+    },
+    "collapse": {
+      "en": "9cf188d3a677",
+      "out": "65eabd6b3d99"
+    }
+  },
+  "navigation": {
+    "systemMetrics": {
+      "en": "ed9177cab1ec",
+      "out": "aae5b815a3c5"
+    },
+    "agentScreen": {
+      "en": "6c347bd0f951",
+      "out": "a44f485e55fb"
+    },
+    "workspace": {
+      "en": "4ca0a75c2b7f",
+      "out": "d3ea501adf50"
+    },
+    "thisPageHasItsOwnChat": {
+      "en": "b8c455e1e3ec",
+      "out": "5fa1cb44405d"
+    },
+    "workspaceTools": {
+      "en": "7b36c62bdb9c",
+      "out": "63ae2d81af91"
+    },
+    "toggleDrawer": {
+      "en": "85716432f1b2",
+      "out": "e4085cd51df2"
+    },
+    "dashboard": {
+      "en": "d87f47b47e4d",
+      "out": "d625b4432112"
+    },
+    "items.dashboard": {
+      "en": "d87f47b47e4d",
+      "out": "d625b4432112"
+    },
+    "items.chat": {
+      "en": "2ced57f12591",
+      "out": "2ced57f12591"
+    },
+    "items.files": {
+      "en": "6ce6c512ea43",
+      "out": "9cc5b00d0e8a"
+    },
+    "items.media": {
+      "en": "0c77aeece8c2",
+      "out": "82dabd0bba3a"
+    },
+    "items.notes": {
+      "en": "70440046a3dc",
+      "out": "73035e47f793"
+    },
+    "items.code-editor": {
+      "en": "926f42773144",
+      "out": "8793f58309a8"
+    },
+    "items.swarm": {
+      "en": "5c7e3aec1f91",
+      "out": "5c7e3aec1f91"
+    },
+    "items.system-map": {
+      "en": "c5a0ff6ba212",
+      "out": "2bb12939a488"
+    },
+    "items.self-improvement": {
+      "en": "28b92b616b4b",
+      "out": "fd5ee90bf8ec"
+    },
+    "items.film-crew": {
+      "en": "cc7504e29bc6",
+      "out": "cc7504e29bc6"
+    },
+    "items.cast": {
+      "en": "1b9c95f0865d",
+      "out": "af0aba67d95b"
+    },
+    "items.music-video": {
+      "en": "2d8fbf481ac6",
+      "out": "f7d4fd0cfa3d"
+    },
+    "items.video-editor": {
+      "en": "58704582aa05",
+      "out": "c0d453c95abd"
+    },
+    "items.video-gen": {
+      "en": "7c99b6523353",
+      "out": "3a0988f27595"
+    },
+    "items.image-gen": {
+      "en": "1751a365569c",
+      "out": "673ec2ea54c1"
+    },
+    "items.infographic": {
+      "en": "80ee7b6303d8",
+      "out": "89f05cfd7e96"
+    },
+    "items.upscaling": {
+      "en": "754a68b52585",
+      "out": "2d1ddef11cc7"
+    },
+    "items.audio": {
+      "en": "c5ce333758b9",
+      "out": "21487933e92e"
+    },
+    "items.video-text": {
+      "en": "492828ff5622",
+      "out": "b8a48e60e822"
+    },
+    "items.clients": {
+      "en": "28e22fe3dde5",
+      "out": "e84b64f4b7a2"
+    },
+    "items.projects": {
+      "en": "53e890d5f0ff",
+      "out": "8541c1877ee3"
+    },
+    "items.websites": {
+      "en": "a87a48da60ac",
+      "out": "4392e77c08c5"
+    },
+    "items.jobs": {
+      "en": "437736fdb5bb",
+      "out": "0e783f9dd49b"
+    },
+    "items.activity": {
+      "en": "81c0d915fa6d",
+      "out": "399313c0908f"
+    },
+    "items.outreach": {
+      "en": "5649177651f7",
+      "out": "f03a23ea9782"
+    },
+    "items.social-accounts": {
+      "en": "23c0f6414909",
+      "out": "e3dcf1faab0e"
+    },
+    "items.social-posts": {
+      "en": "d8914541ed89",
+      "out": "62118d6e0e20"
+    },
+    "items.rules": {
+      "en": "56f3a29659c0",
+      "out": "6cf5398877d0"
+    },
+    "items.agent-tools": {
+      "en": "ff8dd4938c31",
+      "out": "ab10e63d86b0"
+    },
+    "items.agents": {
+      "en": "64acf7e2a759",
+      "out": "9930c695a01e"
+    },
+    "items.agent-memory": {
+      "en": "13ad345870f8",
+      "out": "ab98d2c059fe"
+    },
+    "items.filegen": {
+      "en": "ec9e69f5e63a",
+      "out": "ec9e69f5e63a"
+    },
+    "items.csvgen": {
+      "en": "6c8b987cf601",
+      "out": "6c8b987cf601"
+    },
+    "items.autoresearch": {
+      "en": "e3910b5158e3",
+      "out": "687c1cf268bf"
+    },
+    "items.plugins": {
+      "en": "ab2e26dd8b88",
+      "out": "ab2e26dd8b88"
+    },
+    "items.connections": {
+      "en": "8f3509b64e0e",
+      "out": "bf843eaafd3f"
+    },
+    "items.approvals": {
+      "en": "deb9d03cf06d",
+      "out": "20719683e746"
+    },
+    "items.settings": {
+      "en": "c7f73bb54d92",
+      "out": "9751f876e9e7"
+    },
+    "items.voice-chat": {
+      "en": "3091c8446f8d",
+      "out": "0d1c9a3fab5f"
+    },
+    "items.training": {
+      "en": "b6fe7f5e7917",
+      "out": "70eb8e355e64"
+    },
+    "items.upload": {
+      "en": "8bdf057f91e7",
+      "out": "b3fc97a5c006"
+    },
+    "items.bulk-import": {
+      "en": "b90fbf97d3c2",
+      "out": "4e2097e0263c"
+    },
+    "items.wordpress-sites": {
+      "en": "0e1b7dfcc2d8",
+      "out": "98ce181b62f1"
+    },
+    "items.wordpress-pages": {
+      "en": "c19592d2dfe7",
+      "out": "f29e34c80833"
+    },
+    "items.dev-tools": {
+      "en": "b07926d19da2",
+      "out": "47a8159d607a"
+    },
+    "items.system-metrics": {
+      "en": "ed9177cab1ec",
+      "out": "aae5b815a3c5"
+    },
+    "items.agent-screen": {
+      "en": "6c347bd0f951",
+      "out": "e6c8c3f37e06"
+    },
+    "items.voice-mic": {
+      "en": "3091c8446f8d",
+      "out": "0d1c9a3fab5f"
+    },
+    "items.floating-chat": {
+      "en": "8a123dbd5bac",
+      "out": "29af6758d78f"
+    },
+    "groups.Main": {
+      "en": "62bce9422ff2",
+      "out": "f3b86b13dbbc"
+    },
+    "groups.Code": {
+      "en": "adac69379a62",
+      "out": "c355102341ea"
+    },
+    "groups.Studio": {
+      "en": "5b23bd71b38c",
+      "out": "5b23bd71b38c"
+    },
+    "groups.Management": {
+      "en": "63cecca67b70",
+      "out": "c2318d6ea5b1"
+    },
+    "groups.Configuration": {
+      "en": "754164850f38",
+      "out": "806f281f713d"
+    },
+    "workspaces.home": {
+      "en": "70f8bb9a8a53",
+      "out": "4f70d8c37e6a"
+    },
+    "workspaces.chat": {
+      "en": "2ced57f12591",
+      "out": "2ced57f12591"
+    },
+    "workspaces.studio": {
+      "en": "5b23bd71b38c",
+      "out": "5b23bd71b38c"
+    },
+    "workspaces.library": {
+      "en": "b8100f5ba8bd",
+      "out": "497ac5c11bf3"
+    },
+    "workspaces.code": {
+      "en": "adac69379a62",
+      "out": "c355102341ea"
+    },
+    "workspaces.work": {
+      "en": "00040bab8a78",
+      "out": "96d2f486b9ea"
+    },
+    "workspaces.agents": {
+      "en": "64acf7e2a759",
+      "out": "9930c695a01e"
+    },
+    "workspaces.system": {
+      "en": "bc0792d8dc81",
+      "out": "c004160342cd"
+    }
+  },
+  "settings": {
+    "language.label": {
+      "en": "89b86ab0e66f",
+      "out": "009433886003"
+    },
+    "language.help": {
+      "en": "a5f170ee33e5",
+      "out": "92a0a027e797"
+    }
+  }
+}

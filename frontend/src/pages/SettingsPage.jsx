@@ -39,6 +39,7 @@ import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import ExportChatsButton from "../components/settings/ExportChatsButton";
 import ProfileSection from "../components/settings/ProfileSection";
 import TipsSetting from "../components/settings/TipsSetting";
+import LanguageSetting from "../components/settings/LanguageSetting";
 import JobOrderSetting from "../components/settings/JobOrderSetting";
 import { SOCKET_URL, handleResponse } from "../api/apiClient";
 import { SUPPORT_LINKS } from "../config/constants";
@@ -2580,7 +2581,7 @@ const SettingsPage = () => {
     <SettingsPanel
       id="settings-general"
       title="General"
-      help="Your name, picture and theme, how pages are listed, tips, job order, the music folder and the product profile."
+      help="Your name, picture and theme, the interface language, how pages are listed, tips, job order, the music folder and the product profile."
     >
       <input
         type="file"
@@ -2689,6 +2690,7 @@ const SettingsPage = () => {
           />
         </Line>
       </Cluster>
+      <LanguageSetting />
       <TipsSetting />
       <JobOrderSetting showMessage={showMessage} />
       <Cluster

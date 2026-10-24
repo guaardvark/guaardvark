@@ -1,0 +1,6 @@
+{
+  "language": {
+    "label": "Language",
+    "help": "The language of the interface, saved in this browser."
+  }
+}

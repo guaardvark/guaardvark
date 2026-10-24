@@ -1,3 +1,4 @@
+import { useUiTranslation } from "../../i18n";
 import React from "react";
 import { AppBar, Toolbar, Typography, IconButton, Box } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -5,6 +6,7 @@ import ModelStatusBar from "./ModelStatusBar";
 
 // --- MODIFIED: Removed isSidebarOpen prop, accept only handleDrawerToggle ---
 const Header = ({ handleDrawerToggle }) => {
+  const { t } = useUiTranslation();
   return (
     <AppBar
       position="fixed"
@@ -25,7 +27,7 @@ const Header = ({ handleDrawerToggle }) => {
         {/* IconButton remains unchanged - always visible */}
         <IconButton
           color="inherit"
-          aria-label="toggle drawer"
+          aria-label={t("navigation.toggleDrawer")}
           edge="start"
           onClick={handleDrawerToggle}
           sx={{
@@ -42,7 +44,7 @@ const Header = ({ handleDrawerToggle }) => {
           component="div"
           sx={{ flexGrow: 1, color: "text.primary" }}
         >
-          Dashboard {/* Title can be dynamic later */}
+          {t("navigation.dashboard")} {/* Title can be dynamic later */}
         </Typography>
         {/* Model Status Bar with multimodal capability dots */}
         <Box sx={{ display: "flex", alignItems: "center" }}>
