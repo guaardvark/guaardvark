@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { Code, Map, GitMerge, X as CloseIcon } from 'lucide-react';
 import { useTheme } from '@mui/material/styles';
+import { useUiTranslation, uiLocale } from '../../i18n';
 
 // The dialogs render in a portal, but React still bubbles their events up the
 // component tree into the folder window's title bar, where a double mousedown
@@ -29,6 +30,7 @@ const keepEventsInDialog = {
 // A repository folder's analysis, opened from a small INTEL button so it does
 // not take room above the folder's files.
 const CodeRepoDashboard = ({ folder }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [intelOpen, setIntelOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
@@ -72,14 +74,14 @@ const CodeRepoDashboard = ({ folder }) => {
   const dependencyCount = Object.keys(dependencyGraph).length;
 
   const formatAnalyzedAt = (dateString) => {
-    if (!dateString) return 'Never';
+    if (!dateString) return t('documents.codeRepo.never');
     const date = new Date(dateString);
-    return Number.isNaN(date.getTime()) ? 'Unknown' : date.toLocaleString();
+    return Number.isNaN(date.getTime()) ? t('documents.codeRepo.unknown') : date.toLocaleString(uiLocale());
   };
 
   return (
     <>
-      <Tooltip title="Code Repository Intelligence: languages, frameworks, repository map and dependencies">
+      <Tooltip title={t('documents.codeRepo.buttonTooltip')}>
         <Button
           variant="outlined"
           size="small"
@@ -87,7 +89,7 @@ const CodeRepoDashboard = ({ folder }) => {
             e.stopPropagation();
             setIntelOpen(true);
           }}
-          aria-label={`Code Repository Intelligence for ${folder.name}`}
+          aria-label={t('documents.codeRepo.buttonLabel', { name: folder.name })}
           sx={{
             ml: 0.5,
             minWidth: 0,
@@ -100,7 +102,7 @@ const CodeRepoDashboard = ({ folder }) => {
             letterSpacing: '0.05em',
           }}
         >
-          INTEL
+          {t('documents.codeRepo.button')}
         </Button>
       </Tooltip>
 
@@ -108,9 +110,9 @@ const CodeRepoDashboard = ({ folder }) => {
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
             <Code size={24} color={theme.palette.primary.main} />
-            <Typography variant="h6" noWrap>Code Repository Intelligence</Typography>
+            <Typography variant="h6" noWrap>{t('documents.codeRepo.title')}</Typography>
           </Box>
-          <IconButton onClick={() => setIntelOpen(false)} size="small" aria-label="Close">
+          <IconButton onClick={() => setIntelOpen(false)} size="small" aria-label={t('documents.actions.close')}>
             <CloseIcon size={20} />
           </IconButton>
         </DialogTitle>
@@ -119,7 +121,7 @@ const CodeRepoDashboard = ({ folder }) => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 2, mb: 2 }}>
             <Typography variant="subtitle1" noWrap>{folder.name}</Typography>
             <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-              Analyzed: {formatAnalyzedAt(analyzed_at)}
+              {t('documents.codeRepo.analyzed', { date: formatAnalyzedAt(analyzed_at) })}
             </Typography>
           </Box>
 
@@ -132,7 +134,7 @@ const CodeRepoDashboard = ({ folder }) => {
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={12} sm={6}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Languages & Frameworks
+                {t('documents.codeRepo.languagesFrameworks')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 {frameworkList.map((fw) => (
@@ -142,18 +144,18 @@ const CodeRepoDashboard = ({ folder }) => {
                   <Chip key={lang} label={count == null ? lang : `${lang} (${count})`} size="small" variant="outlined" />
                 ))}
                 {frameworkList.length === 0 && topLanguages.length === 0 && (
-                  <Chip label="Analysis pending" size="small" variant="outlined" />
+                  <Chip label={t('documents.codeRepo.analysisPending')} size="small" variant="outlined" />
                 )}
               </Box>
             </Grid>
             <Grid item xs={12} sm={6}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Statistics
+                {t('documents.codeRepo.statistics')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <Chip label={`${file_count} files`} size="small" />
+                <Chip label={t('documents.codeRepo.fileCount', { count: file_count })} size="small" />
                 {dependencyCount > 0 && (
-                  <Chip label={`${dependencyCount} mapped files`} size="small" />
+                  <Chip label={t('documents.codeRepo.mappedFileCount', { count: dependencyCount })} size="small" />
                 )}
               </Box>
             </Grid>
@@ -167,7 +169,7 @@ const CodeRepoDashboard = ({ folder }) => {
               disabled={!repository_map}
               size="small"
             >
-              View Repository Map
+              {t('documents.codeRepo.viewMap')}
             </Button>
             <Button
               variant="outlined"
@@ -176,19 +178,19 @@ const CodeRepoDashboard = ({ folder }) => {
               disabled={dependencyCount === 0}
               size="small"
             >
-              View Dependencies
+              {t('documents.codeRepo.viewDependencies')}
             </Button>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIntelOpen(false)}>Close</Button>
+          <Button onClick={() => setIntelOpen(false)}>{t('documents.actions.close')}</Button>
         </DialogActions>
       </Dialog>
 
       {/* Repository Map Dialog */}
       <Dialog open={mapOpen} onClose={() => setMapOpen(false)} maxWidth="lg" fullWidth {...keepEventsInDialog}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Repository Map
+          {t('documents.codeRepo.mapTitle')}
           <IconButton onClick={() => setMapOpen(false)} size="small">
             <CloseIcon size={20} />
           </IconButton>
@@ -197,19 +199,19 @@ const CodeRepoDashboard = ({ folder }) => {
         <DialogContent>
           <Box sx={{ bgcolor: 'background.default', p: 2, borderRadius: 1, overflowX: 'auto' }}>
             <Typography variant="body2" component="pre" sx={{ fontFamily: 'monospace' }}>
-              {repository_map || 'No map available.'}
+              {repository_map || t('documents.codeRepo.noMap')}
             </Typography>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMapOpen(false)}>Close</Button>
+          <Button onClick={() => setMapOpen(false)}>{t('documents.actions.close')}</Button>
         </DialogActions>
       </Dialog>
 
       {/* Dependency Graph Dialog */}
       <Dialog open={graphOpen} onClose={() => setGraphOpen(false)} maxWidth="lg" fullWidth {...keepEventsInDialog}>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Dependency Graph
+          {t('documents.codeRepo.graphTitle')}
           <IconButton onClick={() => setGraphOpen(false)} size="small">
             <CloseIcon size={20} />
           </IconButton>
@@ -223,7 +225,7 @@ const CodeRepoDashboard = ({ folder }) => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setGraphOpen(false)}>Close</Button>
+          <Button onClick={() => setGraphOpen(false)}>{t('documents.actions.close')}</Button>
         </DialogActions>
       </Dialog>
     </>

@@ -66,13 +66,14 @@ import { opaqueMenuPaperSx } from "../components/common/opaqueMenuPaper";
 import { toHexColor } from "../utils/colorHex";
 import copyText from "../utils/copyText";
 import { guardHtmlMedia, unguardHtmlMedia } from "../utils/assetGuard";
+import { useUiTranslation, translate } from "../i18n";
 
 const LAYOUT_MODES = ["normal", "compact", "collapsed"];
-const LAYOUT_MODE_LABELS = {
-  normal: "Normal",
-  compact: "Compact",
-  collapsed: "Collapsed",
-};
+const layoutModeLabels = () => ({
+  normal: translate("notes.layoutMode.normal"),
+  compact: translate("notes.layoutMode.compact"),
+  collapsed: translate("notes.layoutMode.collapsed"),
+});
 const LAYOUT_MODE_ICONS = {
   normal: ViewModule,
   compact: ViewComfy,
@@ -149,6 +150,7 @@ const StickyNote = React.memo(
     theme,
     noteRef,
   }) => {
+    const { t } = useUiTranslation();
     const colorInputRef = useRef(null);
     const contentRef = useRef(null);
     const contentPropRef = useRef(content);
@@ -292,7 +294,7 @@ const StickyNote = React.memo(
                 autoFocus
                 className="non-draggable"
                 value={titleDraft}
-                placeholder="Untitled"
+                placeholder={t("notes.untitled")}
                 onMouseDown={(e) => e.stopPropagation()}
                 onChange={(e) => setTitleDraft(e.target.value)}
                 onBlur={() => {
@@ -345,14 +347,14 @@ const StickyNote = React.memo(
                   fontStyle: title ? "normal" : "italic",
                 }}
               >
-                {title || "Untitled"}
+                {title || t("notes.untitled")}
               </Typography>
             )}
           </Box>
 
           {/* Color picker dot — matches DashboardCardWrapper (8x8) */}
           <Box sx={{ position: "relative", ml: 0.5 }}>
-            <Tooltip title="Change color">
+            <Tooltip title={t("notes.note.changeColor")}>
               <IconButton
                 onClick={() => colorInputRef.current?.click()}
                 className="non-draggable"
@@ -398,9 +400,9 @@ const StickyNote = React.memo(
           </Box>
 
           {/* Close parks the note. The button sits clear of the corner resize handle. */}
-          <Tooltip title="Close">
+          <Tooltip title={t("notes.note.close")}>
             <IconButton
-              aria-label="Close note"
+              aria-label={t("notes.note.closeNote")}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation();
@@ -444,9 +446,9 @@ const StickyNote = React.memo(
               }}
             >
               {[
-                { cmd: "bold", icon: <FormatBold sx={{ fontSize: 14 }} />, tip: "Bold (Ctrl+B)" },
-                { cmd: "italic", icon: <FormatItalic sx={{ fontSize: 14 }} />, tip: "Italic (Ctrl+I)" },
-                { cmd: "underline", icon: <FormatUnderlined sx={{ fontSize: 14 }} />, tip: "Underline (Ctrl+U)" },
+                { cmd: "bold", icon: <FormatBold sx={{ fontSize: 14 }} />, tip: t("notes.note.bold") },
+                { cmd: "italic", icon: <FormatItalic sx={{ fontSize: 14 }} />, tip: t("notes.note.italic") },
+                { cmd: "underline", icon: <FormatUnderlined sx={{ fontSize: 14 }} />, tip: t("notes.note.underline") },
               ].map(({ cmd, icon, tip }) => (
                 <Tooltip key={cmd} title={tip}>
                   <IconButton
@@ -469,7 +471,7 @@ const StickyNote = React.memo(
                   </IconButton>
                 </Tooltip>
               ))}
-              <Tooltip title="Insert Link">
+              <Tooltip title={t("notes.note.insertLink")}>
                 <IconButton
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -520,7 +522,7 @@ const StickyNote = React.memo(
                   textDecoration: "underline",
                 },
                 "&:empty::before": {
-                  content: '"Type your note..."',
+                  content: JSON.stringify(t("notes.note.bodyPlaceholder")),
                   color: placeholderColor,
                   fontStyle: "italic",
                 },
@@ -537,6 +539,7 @@ StickyNote.displayName = "StickyNote";
 // ─── Main page component ────────────────────────────────────────────────────
 
 const StickyNotesPage = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
   const { gridSettings } = useLayout();
@@ -553,7 +556,7 @@ const StickyNotesPage = () => {
   } = gridSettings;
 
   const [initialStateLoaded, setInitialStateLoaded] = useState(false);
-  const [layoutError, setLayoutError] = useState(null);
+  const [layoutError, setLayoutError] = useState(null); // { kind, message }
   const [notes, setNotes] = useState({});
   const [noteColors, setNoteColors] = useState({});
   const [minimizedCards, setMinimizedCards] = useState({});
@@ -770,7 +773,7 @@ const StickyNotesPage = () => {
         }
       } catch (e) {
         console.error("StickyNotes: Error fetching state:", e);
-        setLayoutError(`Failed to load notes: ${e.message}. Using defaults.`);
+        setLayoutError({ kind: "load", message: e.message });
         const id = `note-${Date.now()}`;
         setNotes({ [id]: { content: "", title: "" } });
         setNoteColors({ [id]: NOTE_COLORS[0] });
@@ -829,7 +832,7 @@ const StickyNotesPage = () => {
         setTimeout(() => setSaveIndicator(null), 2000);
       } catch (err) {
         console.error("Failed to save sticky notes state:", err);
-        setLayoutError("Failed to save notes.");
+        setLayoutError({ kind: "save" });
         setSaveIndicator("error");
         setTimeout(() => setSaveIndicator(null), 3000);
       }
@@ -1348,7 +1351,7 @@ const StickyNotesPage = () => {
       // copyText never throws; it resolves false when neither the Clipboard API
       // (secure contexts only) nor the execCommand fallback could copy.
       copyText(text).then((ok) => {
-        if (!ok) setLayoutError("Could not copy: clipboard permission denied");
+        if (!ok) setLayoutError({ kind: "copy" });
       });
     }
     setContextMenu(null);
@@ -1361,7 +1364,7 @@ const StickyNotesPage = () => {
       text = await navigator.clipboard.readText();
     } catch (err) {
       setContextMenu(null);
-      setLayoutError(`Could not paste: ${err?.message || "clipboard permission denied"}`);
+      setLayoutError({ kind: "paste", message: err?.message });
       return;
     }
     setContextMenu(null);
@@ -1393,11 +1396,20 @@ const StickyNotesPage = () => {
   const _isCompact = layoutMode === "compact";
   const isCollapsed = layoutMode === "collapsed";
   const deleteSource = deleteConfirm?.source === "closed" ? closedNotes : notes;
-  const deleteNoteTitle = (deleteConfirm && deleteSource[deleteConfirm.noteId]?.title) || "Untitled";
+  const deleteNoteTitle = (deleteConfirm && deleteSource[deleteConfirm.noteId]?.title) || t("notes.untitled");
+  const layoutModeLabel = layoutModeLabels()[layoutMode];
+  const layoutErrorText = (error) => {
+    if (error.kind === "load") return t("notes.errors.loadFailed", { message: error.message });
+    if (error.kind === "save") return t("notes.errors.saveFailed");
+    if (error.kind === "copy") return t("notes.errors.copyDenied");
+    return error.message
+      ? t("notes.errors.pasteFailed", { message: error.message })
+      : t("notes.errors.pasteDenied");
+  };
 
   if (!initialStateLoaded) {
     return (
-      <PageLayout title="Notes" variant="grid">
+      <PageLayout title={t("notes.pageTitle")} variant="grid">
         <Box
           sx={{
             display: "flex",
@@ -1408,7 +1420,7 @@ const StickyNotesPage = () => {
         >
           <ContextualLoader
             loading
-            message="Loading notes..."
+            message={t("notes.loading")}
             showProgress={false}
             inline
           />
@@ -1419,7 +1431,7 @@ const StickyNotesPage = () => {
 
   return (
     <PageLayout
-      title="Notes"
+      title={t("notes.pageTitle")}
       variant="grid"
       actions={
         <>
@@ -1435,7 +1447,7 @@ const StickyNotesPage = () => {
           }}>
             <SearchIcon sx={{ fontSize: 18, opacity: 0.5, mr: 0.5 }} />
             <InputBase
-              placeholder="Search notes..."
+              placeholder={t("notes.toolbar.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               sx={{ fontSize: "0.8rem", py: 0.25 }}
@@ -1444,7 +1456,7 @@ const StickyNotesPage = () => {
           </Box>
 
           {/* Cards / Notes toggle */}
-          <Tooltip title="Dashboard Cards">
+          <Tooltip title={t("notes.toolbar.dashboardCards")}>
             <IconButton
               onClick={() => navigate("/")}
               size="small"
@@ -1453,7 +1465,7 @@ const StickyNotesPage = () => {
               <DashboardIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Sticky Notes">
+          <Tooltip title={t("notes.toolbar.stickyNotes")}>
             <IconButton
               size="small"
               sx={{ color: "primary.main" }}
@@ -1463,15 +1475,15 @@ const StickyNotesPage = () => {
           </Tooltip>
 
           {/* Add note */}
-          <Tooltip title="Add Note">
-            <IconButton aria-label="Add note" onClick={handleAddNote} size="small" sx={{ ml: 1 }}>
+          <Tooltip title={t("notes.toolbar.addNoteTooltip")}>
+            <IconButton aria-label={t("notes.toolbar.addNote")} onClick={handleAddNote} size="small" sx={{ ml: 1 }}>
               <Add fontSize="small" />
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="Closed notes">
+          <Tooltip title={t("notes.toolbar.closedNotes")}>
             <IconButton
-              aria-label="Closed notes"
+              aria-label={t("notes.toolbar.closedNotes")}
               onClick={() => setClosedDrawerOpen(true)}
               size="small"
             >
@@ -1488,10 +1500,10 @@ const StickyNotesPage = () => {
 
           {/* Layout mode cycle */}
           <Tooltip
-            title={`Layout: ${LAYOUT_MODE_LABELS[layoutMode]} (click to cycle)`}
+            title={t("notes.toolbar.layoutCycle", { mode: layoutModeLabel })}
           >
             <IconButton
-              aria-label={`Layout: ${LAYOUT_MODE_LABELS[layoutMode]}`}
+              aria-label={t("notes.toolbar.layoutMode", { mode: layoutModeLabel })}
               onClick={handleCycleLayoutMode}
               size="small"
               sx={{ opacity: 0.6 }}
@@ -1505,15 +1517,15 @@ const StickyNotesPage = () => {
             <Fade in>
               <Box sx={{ display: "flex", alignItems: "center", ml: 1, opacity: 0.6 }}>
                 {saveIndicator === "saving" && (
-                  <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>Saving...</Typography>
+                  <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>{t("notes.toolbar.saving")}</Typography>
                 )}
                 {saveIndicator === "saved" && (
-                  <Tooltip title="All changes saved">
+                  <Tooltip title={t("notes.toolbar.allSaved")}>
                     <CloudDone sx={{ fontSize: 16, color: "success.main" }} />
                   </Tooltip>
                 )}
                 {saveIndicator === "error" && (
-                  <Tooltip title="Failed to save">
+                  <Tooltip title={t("notes.toolbar.saveFailed")}>
                     <CloudOff sx={{ fontSize: 16, color: "error.main" }} />
                   </Tooltip>
                 )}
@@ -1556,7 +1568,7 @@ const StickyNotesPage = () => {
             sx={{ mb: 1 }}
             onClose={() => setLayoutError(null)}
           >
-            {layoutError}
+            {layoutErrorText(layoutError)}
           </MuiAlert>
         )}
 
@@ -1704,11 +1716,11 @@ const StickyNotesPage = () => {
                           }}
                         >
                           {note.title || (note.content
-                            ? note.content.replace(/<[^>]*>/g, "").substring(0, 40) || "Empty note"
-                            : "Empty note")}
+                            ? note.content.replace(/<[^>]*>/g, "").substring(0, 40) || t("notes.emptyNote")
+                            : t("notes.emptyNote"))}
                         </Typography>
                         <IconButton
-                          aria-label="Close note"
+                          aria-label={t("notes.note.closeNote")}
                           size="small"
                           className="non-draggable"
                           onMouseDown={(e) => e.stopPropagation()}
@@ -1773,15 +1785,15 @@ const StickyNotesPage = () => {
           <>
             <MenuItem onClick={() => contextMenu && handleCopyNote(contextMenu.noteId)}>
               <ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>
-              <ListItemText>Copy</ListItemText>
+              <ListItemText>{t("notes.menu.copy")}</ListItemText>
             </MenuItem>
             <MenuItem onClick={() => contextMenu && handleSelectAllNote(contextMenu.noteId)}>
               <ListItemIcon><SelectAll fontSize="small" /></ListItemIcon>
-              <ListItemText>Select all</ListItemText>
+              <ListItemText>{t("notes.menu.selectAll")}</ListItemText>
             </MenuItem>
             <MenuItem onClick={() => contextMenu && handlePasteNote(contextMenu.noteId)}>
               <ListItemIcon><ContentPaste fontSize="small" /></ListItemIcon>
-              <ListItemText>Paste</ListItemText>
+              <ListItemText>{t("notes.menu.paste")}</ListItemText>
             </MenuItem>
             <Divider />
           </>
@@ -1818,7 +1830,7 @@ const StickyNotesPage = () => {
           setContextMenu(null);
         }}>
           <ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>
-          <ListItemText>Duplicate</ListItemText>
+          <ListItemText>{t("notes.menu.duplicate")}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => {
           if (contextMenu) {
@@ -1828,7 +1840,7 @@ const StickyNotesPage = () => {
           setContextMenu(null);
         }}>
           <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Rename</ListItemText>
+          <ListItemText>{t("notes.menu.rename")}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => {
           if (contextMenu) handleTogglePin(contextMenu.noteId);
@@ -1839,7 +1851,7 @@ const StickyNotesPage = () => {
               ? <PushPin fontSize="small" />
               : <PushPinOutlined fontSize="small" />}
           </ListItemIcon>
-          <ListItemText>{pinnedNotes[contextMenu?.noteId] ? "Unpin" : "Pin to Top"}</ListItemText>
+          <ListItemText>{pinnedNotes[contextMenu?.noteId] ? t("notes.menu.unpin") : t("notes.menu.pinToTop")}</ListItemText>
         </MenuItem>
         <Divider />
         <MenuItem
@@ -1850,7 +1862,7 @@ const StickyNotesPage = () => {
           sx={{ color: "error.main" }}
         >
           <ListItemIcon><Delete fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t("notes.actions.delete")}</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -1859,10 +1871,10 @@ const StickyNotesPage = () => {
           on this page: it is gone once the page unmounts or reloads. */}
       <Dialog open={Boolean(deleteConfirm)} onClose={() => setDeleteConfirm(null)} maxWidth="xs">
         <DialogTitle sx={{ fontSize: "0.9rem" }}>
-          {`Delete "${deleteNoteTitle}"? Ctrl+Z brings it back until you leave or reload this page.`}
+          {t("notes.deleteDialog.title", { title: deleteNoteTitle })}
         </DialogTitle>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirm(null)} size="small">Cancel</Button>
+          <Button onClick={() => setDeleteConfirm(null)} size="small">{t("notes.actions.cancel")}</Button>
           <Button
             onClick={() => {
               if (deleteConfirm) handleDeleteNote(deleteConfirm.noteId, deleteConfirm.source);
@@ -1872,7 +1884,7 @@ const StickyNotesPage = () => {
             variant="contained"
             size="small"
           >
-            Delete
+            {t("notes.actions.delete")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1887,16 +1899,16 @@ const StickyNotesPage = () => {
       >
         <MenuItem onClick={() => { handleAddNote(); setDesktopMenu(null); }}>
           <ListItemIcon><Add fontSize="small" /></ListItemIcon>
-          <ListItemText>New Note</ListItemText>
+          <ListItemText>{t("notes.boardMenu.newNote")}</ListItemText>
         </MenuItem>
         <Divider />
         <MenuItem onClick={() => { handleCycleLayoutMode(); setDesktopMenu(null); }}>
           <ListItemIcon><LayoutModeIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Cycle Layout</ListItemText>
+          <ListItemText>{t("notes.boardMenu.cycleLayout")}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => { navigate("/"); setDesktopMenu(null); }}>
           <ListItemIcon><DashboardIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Go to Dashboard</ListItemText>
+          <ListItemText>{t("notes.boardMenu.goToDashboard")}</ListItemText>
         </MenuItem>
       </Menu>
 
@@ -1907,7 +1919,7 @@ const StickyNotesPage = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ fontSize: "0.9rem" }}>Rename Note</DialogTitle>
+        <DialogTitle sx={{ fontSize: "0.9rem" }}>{t("notes.renameDialog.title")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -1924,12 +1936,12 @@ const StickyNotesPage = () => {
                 }
               }
             }}
-            placeholder="Note title"
+            placeholder={t("notes.renameDialog.placeholder")}
             sx={{ mt: 1 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRenameTarget(null)} size="small">Cancel</Button>
+          <Button onClick={() => setRenameTarget(null)} size="small">{t("notes.actions.cancel")}</Button>
           <Button
             onClick={() => {
               if (renameTarget) {
@@ -1940,18 +1952,18 @@ const StickyNotesPage = () => {
             variant="contained"
             size="small"
           >
-            Save
+            {t("notes.actions.save")}
           </Button>
         </DialogActions>
       </Dialog>
 
       <TextInputDialog
         open={linkDialogOpen}
-        title="Insert Link"
-        label="URL"
+        title={t("notes.linkDialog.title")}
+        label={t("notes.linkDialog.url")}
         placeholder="https://"
         inputType="url"
-        submitLabel="Insert"
+        submitLabel={t("notes.linkDialog.insert")}
         onSubmit={applyInsertLink}
         onClose={closeLinkDialog}
       />

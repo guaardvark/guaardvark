@@ -33,11 +33,14 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { BASE_URL } from '../../api/apiClient';
+import { useUiTranslation } from '../../i18n';
 
 const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
+  const { t } = useUiTranslation();
   const [csvData, setCsvData] = useState([]);
   const [headers, setHeaders] = useState([]);
   const [loading, setLoading] = useState(true);
+  // { message: the server's text, failed: 'load' | 'save' }; our fallback is worded at render.
   const [error, setError] = useState(null);
   const [editingCell, setEditingCell] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -110,7 +113,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
         setCsvData(data);
         setOriginalData(JSON.parse(JSON.stringify(data))); // Deep copy
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load CSV data');
+        setError({ message: err.response?.data?.message, failed: 'load' });
       } finally {
         setLoading(false);
       }
@@ -190,7 +193,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
         onSave(fileData.id, csvData);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save CSV data');
+      setError({ message: err.response?.data?.message, failed: 'save' });
     } finally {
       setSaving(false);
     }
@@ -233,7 +236,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
   if (error) {
     return (
       <Alert severity="error" sx={{ m: 2 }}>
-        {error}
+        {error.message || (error.failed === 'save' ? t('files.csv.saveFailed') : t('files.csv.loadFailed'))}
       </Alert>
     );
   }
@@ -253,19 +256,19 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <EditIcon />
             <Typography variant="h6">
-              {fileData.filename} - Spreadsheet View
+              {t('files.csv.title', { filename: fileData.filename })}
             </Typography>
             {hasChanges && (
-              <Chip label="Unsaved Changes" color="warning" size="small" />
+              <Chip label={t('files.csv.unsavedChanges')} color="warning" size="small" />
             )}
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Download CSV">
+            <Tooltip title={t('files.csv.downloadCsv')}>
               <IconButton onClick={handleDownload} size="small">
                 <DownloadIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Close">
+            <Tooltip title={t('files.close')}>
               <IconButton onClick={onClose} size="small">
                 <CloseIcon />
               </IconButton>
@@ -280,7 +283,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
           <Paper sx={{ p: 2, mb: 2, borderRadius: 0 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="body2" color="text.secondary">
-                {csvData.length} rows × {headers.length} columns
+                {t('files.csv.dimensions', { rows: csvData.length, columns: headers.length })}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
@@ -289,7 +292,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
                   onClick={handleAddRow}
                   size="small"
                 >
-                  Add Row
+                  {t('files.csv.addRow')}
                 </Button>
                 <Button
                   variant="contained"
@@ -298,7 +301,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
                   disabled={!hasChanges || saving}
                   size="small"
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? t('files.csv.saving') : t('files.csv.saveChanges')}
                 </Button>
               </Box>
             </Box>
@@ -325,7 +328,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
                       </TableCell>
                     ))}
                     <TableCell sx={{ minWidth: 80 }}>
-                      Actions
+                      {t('files.actions')}
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -389,7 +392,7 @@ const CSVSpreadsheetViewer = ({ fileData, onClose, onSave }) => {
                         );
                       })}
                       <TableCell>
-                        <Tooltip title="Delete Row">
+                        <Tooltip title={t('files.csv.deleteRow')}>
                           <IconButton
                             size="small"
                             onClick={() => handleDeleteRow(rowIndex)}

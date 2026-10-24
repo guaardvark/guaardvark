@@ -10,6 +10,7 @@ import FolderContents from './FolderContents';
 import CodeRepoDashboard from './CodeRepoDashboard';
 import BreadcrumbNav from '../filesystem/BreadcrumbNav';
 import { persistListingView, readStoredListingView } from './folderViewPolicy';
+import { useUiTranslation } from '../../i18n';
 
 const FolderWindow = React.forwardRef(({
   _id,
@@ -31,6 +32,7 @@ const FolderWindow = React.forwardRef(({
   folderColors = {},
   ...gridLayoutProps
 }, ref) => {
+  const { t } = useUiTranslation();
   // Track current path within this folder window for subfolder navigation
   const [currentPath, setCurrentPath] = useState(folder.path);
   // Whether this folder's contents contain visual media (images/videos)
@@ -87,18 +89,18 @@ const FolderWindow = React.forwardRef(({
         sx={{ mr: 0.5 }}
       >
         <ToggleButton value="list" size="small" sx={{ minWidth: 'auto', px: 0.5 }}>
-          <Tooltip title="List View">
+          <Tooltip title={t("documents.folderWindow.listView")}>
             <ViewListIcon sx={{ fontSize: '14px' }} />
           </Tooltip>
         </ToggleButton>
         <ToggleButton value="grid" size="small" sx={{ minWidth: 'auto', px: 0.5 }}>
-          <Tooltip title="Grid View">
+          <Tooltip title={t("documents.folderWindow.gridView")}>
             <ViewModuleIcon sx={{ fontSize: '14px' }} />
           </Tooltip>
         </ToggleButton>
         {hasMedia && (
           <ToggleButton value="media" size="small" sx={{ minWidth: 'auto', px: 0.5 }}>
-            <Tooltip title="Media View">
+            <Tooltip title={t("documents.folderWindow.mediaView")}>
               <ViewComfyIcon sx={{ fontSize: '14px' }} />
             </Tooltip>
           </ToggleButton>

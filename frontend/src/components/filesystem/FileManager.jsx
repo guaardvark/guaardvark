@@ -81,6 +81,7 @@ import FolderPropertiesModal from '../modals/FolderPropertiesModal';
 import CSVSpreadsheetViewer from './CSVSpreadsheetViewer';
 import { useSnackbar } from '../common/SnackbarProvider';
 import { useLayout } from '../../contexts/LayoutContext';
+import { useUiTranslation, uiLocale } from '../../i18n';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -207,6 +208,7 @@ const getFileIconSmall = (filename, isSelected) => {
 };
 
 const FileManager = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const { showMessage } = useSnackbar();
   const { gridSettings } = useLayout();
@@ -281,22 +283,48 @@ const FileManager = () => {
   // Helper to create unique key for items
   const getItemKey = (item, type) => `${type}-${item.id}`;
   
-  // Validation helpers
+  // Validation helpers. A name error is kept as { reason, type } (or the
+  // server's message) and worded by nameErrorText when it is shown.
   const validateName = (name, type = 'name') => {
     if (!name || !name.trim()) {
-      return `${type === 'folder' ? 'Folder' : 'File'} name cannot be empty`;
+      return { reason: 'empty', type };
     }
     const trimmedName = name.trim();
     if (INVALID_FILENAME_CHARS.test(trimmedName)) {
-      return `${type === 'folder' ? 'Folder' : 'File'} name contains invalid characters. Please use only letters, numbers, spaces, hyphens, underscores${type === 'file' ? ', and dots' : ''}.`;
+      return { reason: 'invalid', type };
     }
     if (trimmedName.length > MAX_FILENAME_LENGTH) {
-      return `${type === 'folder' ? 'Folder' : 'File'} name is too long. Maximum length is ${MAX_FILENAME_LENGTH} characters.`;
+      return { reason: 'tooLong', type };
     }
     return null;
   };
+
+  const nameErrorText = (error) => {
+    if (!error || typeof error === 'string') return error;
+    const isFolder = error.type === 'folder';
+    switch (error.reason) {
+      case 'empty':
+        return isFolder ? t('files.manager.folderNameEmpty') : t('files.manager.fileNameEmpty');
+      case 'invalid':
+        if (isFolder) return t('files.manager.folderNameInvalid');
+        return error.type === 'file' ? t('files.manager.fileNameInvalid') : t('files.manager.nameInvalid');
+      case 'tooLong':
+        return isFolder
+          ? t('files.manager.folderNameTooLong', { max: MAX_FILENAME_LENGTH })
+          : t('files.manager.fileNameTooLong', { max: MAX_FILENAME_LENGTH });
+      case 'createFolderFailed':
+        return t('files.manager.createFolderFailed');
+      case 'renameFolderFailed':
+        return t('files.manager.renameFolderFailed');
+      case 'renameFileFailed':
+        return t('files.manager.renameFileFailed');
+      default:
+        return '';
+    }
+  };
   
-  // Confirmation dialog helpers
+  // Confirmation dialog helpers. title and message are functions returning the
+  // text, so an open dialog follows a language change.
   const showConfirmDialog = (title, message, onConfirm, onCancel = null) => {
     setConfirmDialog({
       open: true,
@@ -376,9 +404,11 @@ const FileManager = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(stateToSave),
       });
-      if (!res.ok) failure = `the backend answered HTTP ${res.status}`;
+      if (!res.ok) failure = t('files.manager.layoutNotSavedHttp', { status: res.status });
     } catch (err) {
-      failure = err?.message || 'the request failed';
+      failure = err?.message
+        ? t('files.manager.layoutNotSavedError', { reason: err.message })
+        : t('files.manager.layoutNotSavedRequest');
     }
     if (!failure) return;
     // The loader falls back to these keys; write them so the fallback is real.
@@ -391,7 +421,7 @@ const FileManager = () => {
     // Layout saves follow every drag; say a failure once, not per drag.
     if (!layoutSaveNoticeRef.current) {
       layoutSaveNoticeRef.current = true;
-      showMessage(`Folder layout was not saved to the server (${failure}); it is kept in this browser only.`, 'warning');
+      showMessage(failure, 'warning');
     }
   }, [folderLayouts, folderColors, showMessage]);
 
@@ -771,8 +801,8 @@ const FileManager = () => {
 
     const itemNames = selected.map(item => item.name || item.filename).join(', ');
     showConfirmDialog(
-      `Delete ${selected.length} item(s)?`,
-      `Are you sure you want to delete the following items?\n\n${itemNames}`,
+      () => t('files.manager.deleteSelectedTitle', { count: selected.length }),
+      () => t('files.manager.deleteSelectedMessage', { names: itemNames }),
       async () => {
         setIsOperationInProgress(true);
         handleCloseContextMenu();
@@ -790,7 +820,7 @@ const FileManager = () => {
             } catch (err) {
               results.failed.push({
                 name: item.name || item.filename,
-                error: err.response?.data?.message || 'Unknown error',
+                error: err.response?.data?.message || t('files.unknownError'),
               });
             }
           }
@@ -799,16 +829,20 @@ const FileManager = () => {
           await fetchContents();
           
           if (results.failed.length === 0) {
-            showMessage(`Successfully deleted ${results.success.length} item(s)`, 'success');
+            showMessage(t('files.manager.deletedAll', { count: results.success.length }), 'success');
           } else {
             const failedNames = results.failed.map(f => `${f.name}: ${f.error}`).join('\n');
             showMessage(
-              `Deleted ${results.success.length} item(s), but ${results.failed.length} failed:\n${failedNames}`,
+              t('files.manager.deletedSome', {
+                count: results.success.length,
+                failed: results.failed.length,
+                names: failedNames,
+              }),
               'warning'
             );
           }
         } catch (err) {
-          showMessage(err.response?.data?.message || 'Failed to delete some items', 'error');
+          showMessage(err.response?.data?.message || t('files.manager.deleteSomeFailed'), 'error');
         } finally {
           setIsOperationInProgress(false);
         }
@@ -853,11 +887,11 @@ const FileManager = () => {
       setNewFolderName('');
       setCreateFolderError('');
       await fetchContents();
-      showMessage('Folder created successfully', 'success');
+      showMessage(t('files.manager.folderCreated'), 'success');
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Failed to create folder';
-      setCreateFolderError(errorMsg);
-      showMessage(errorMsg, 'error');
+      const serverMessage = err.response?.data?.message;
+      setCreateFolderError(serverMessage || { reason: 'createFolderFailed' });
+      showMessage(serverMessage || t('files.manager.createFolderFailed'), 'error');
     } finally {
       setIsOperationInProgress(false);
     }
@@ -892,11 +926,11 @@ const FileManager = () => {
       setNewName('');
       setRenameFolderError('');
       await fetchContents();
-      showMessage('Folder renamed successfully', 'success');
+      showMessage(t('files.manager.folderRenamed'), 'success');
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Failed to rename folder';
-      setRenameFolderError(errorMsg);
-      showMessage(errorMsg, 'error');
+      const serverMessage = err.response?.data?.message;
+      setRenameFolderError(serverMessage || { reason: 'renameFolderFailed' });
+      showMessage(serverMessage || t('files.manager.renameFolderFailed'), 'error');
     } finally {
       setIsOperationInProgress(false);
     }
@@ -907,8 +941,8 @@ const FileManager = () => {
     if (!selectedItem) return;
 
     showConfirmDialog(
-      'Delete Folder',
-      `Are you sure you want to delete "${selectedItem.name}" and all its contents? This action cannot be undone.`,
+      () => t('files.manager.deleteFolderTitle'),
+      () => t('files.manager.deleteFolderMessage', { name: selectedItem.name }),
       async () => {
         setIsOperationInProgress(true);
         handleCloseContextMenu();
@@ -916,9 +950,9 @@ const FileManager = () => {
         try {
           await axios.delete(`${API_BASE}/folder/${selectedItem.id}`);
           await fetchContents();
-          showMessage('Folder deleted successfully', 'success');
+          showMessage(t('files.manager.folderDeleted'), 'success');
         } catch (err) {
-          showMessage(err.response?.data?.message || 'Failed to delete folder', 'error');
+          showMessage(err.response?.data?.message || t('files.manager.deleteFolderFailed'), 'error');
         } finally {
           setIsOperationInProgress(false);
         }
@@ -959,7 +993,7 @@ const FileManager = () => {
     if (oversizedFiles.length > 0) {
       const oversizedNames = oversizedFiles.map(f => `${f.name} (${f.size.toFixed(2)} MB)`).join('\n');
       showMessage(
-        `The following files exceed the maximum size of ${MAX_FILE_SIZE_MB} MB:\n${oversizedNames}`,
+        t('files.manager.filesTooLarge', { max: MAX_FILE_SIZE_MB, names: oversizedNames }),
         'error'
       );
       if (validFilesWithPaths.length === 0) return;
@@ -1023,7 +1057,7 @@ const FileManager = () => {
             idx === i ? { ...f, status: 'error', error: errorMsg } : f
           ),
         }));
-        showMessage(`Upload failed for ${relativePath}: ${errorMsg}`, 'error');
+        showMessage(t('files.manager.uploadFailedFor', { name: relativePath, error: errorMsg }), 'error');
       }
     }
 
@@ -1033,12 +1067,19 @@ const FileManager = () => {
     setIsOperationInProgress(false);
     setUploadProgress({ files: [], current: 0, total: 0 });
 
-    const skippedNote = prune && (prune.folders || prune.files) ? `; ${prunedNote(prune)}` : '';
+    const skipped = prune && (prune.folders || prune.files) ? prunedNote(prune) : '';
     if (results.success.length > 0 && results.failed.length === 0) {
-      showMessage(`Successfully uploaded ${results.success.length} file(s) with folder structure preserved${skippedNote}`, 'success');
+      showMessage(
+        skipped
+          ? t('files.manager.uploadedAllSkipped', { count: results.success.length, skipped })
+          : t('files.manager.uploadedAll', { count: results.success.length }),
+        'success'
+      );
     } else if (results.success.length > 0) {
       showMessage(
-        `Uploaded ${results.success.length} file(s), but ${results.failed.length} failed${skippedNote}`,
+        skipped
+          ? t('files.manager.uploadedSomeSkipped', { count: results.success.length, failed: results.failed.length, skipped })
+          : t('files.manager.uploadedSome', { count: results.success.length, failed: results.failed.length }),
         'warning'
       );
     }
@@ -1085,11 +1126,11 @@ const FileManager = () => {
       setNewName('');
       setRenameFileError('');
       await fetchContents();
-      showMessage('File renamed successfully', 'success');
+      showMessage(t('files.manager.fileRenamed'), 'success');
     } catch (err) {
-      const errorMsg = err.response?.data?.message || 'Failed to rename file';
-      setRenameFileError(errorMsg);
-      showMessage(errorMsg, 'error');
+      const serverMessage = err.response?.data?.message;
+      setRenameFileError(serverMessage || { reason: 'renameFileFailed' });
+      showMessage(serverMessage || t('files.manager.renameFileFailed'), 'error');
     } finally {
       setIsOperationInProgress(false);
     }
@@ -1100,8 +1141,8 @@ const FileManager = () => {
     if (!selectedItem) return;
 
     showConfirmDialog(
-      'Delete File',
-      `Are you sure you want to delete "${selectedItem.filename}"? This action cannot be undone.`,
+      () => t('files.manager.deleteFileTitle'),
+      () => t('files.manager.deleteFileMessage', { name: selectedItem.filename }),
       async () => {
         setIsOperationInProgress(true);
         handleCloseContextMenu();
@@ -1109,9 +1150,9 @@ const FileManager = () => {
         try {
           await axios.delete(`${API_BASE}/document/${selectedItem.id}`);
           await fetchContents();
-          showMessage('File deleted successfully', 'success');
+          showMessage(t('files.manager.fileDeleted'), 'success');
         } catch (err) {
-          showMessage(err.response?.data?.message || 'Failed to delete file', 'error');
+          showMessage(err.response?.data?.message || t('files.manager.deleteFileFailed'), 'error');
         } finally {
           setIsOperationInProgress(false);
         }
@@ -1140,9 +1181,9 @@ const FileManager = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      showMessage('File downloaded successfully', 'success');
+      showMessage(t('files.manager.fileDownloaded'), 'success');
     } catch (err) {
-      showMessage(err.response?.data?.message || 'Failed to download file', 'error');
+      showMessage(err.response?.data?.message || t('files.manager.downloadFileFailed'), 'error');
     } finally {
       setIsOperationInProgress(false);
     }
@@ -1203,7 +1244,7 @@ const FileManager = () => {
     if (filesToUpload.length > 0) {
       handleFileSelectWithPaths(filesToUpload, prune);
     } else if (prune.folders || prune.files) {
-      showMessage(`Nothing to upload: ${prunedNote(prune)}`, 'info');
+      showMessage(t('files.manager.nothingToUpload', { skipped: prunedNote(prune) }), 'info');
     }
   }, [draggedItem, draggedItems]);
 
@@ -1233,7 +1274,7 @@ const FileManager = () => {
       dragImage.style.borderRadius = '4px';
       dragImage.style.fontSize = '14px';
       dragImage.style.fontWeight = '500';
-      dragImage.textContent = `${selected.length} item${selected.length > 1 ? 's' : ''}`;
+      dragImage.textContent = t('files.manager.dragCount', { count: selected.length });
       document.body.appendChild(dragImage);
       e.dataTransfer.setDragImage(dragImage, dragImage.offsetWidth / 2, dragImage.offsetHeight / 2);
       setTimeout(() => document.body.removeChild(dragImage), 0);
@@ -1302,7 +1343,7 @@ const FileManager = () => {
     });
 
     if (validItems.length === 0) {
-      showMessage('Cannot drop items into themselves', 'warning');
+      showMessage(t('files.manager.cannotDropIntoSelf'), 'warning');
       setDraggedItem(null);
       setDraggedItems([]);
       return;
@@ -1333,7 +1374,7 @@ const FileManager = () => {
         } catch (err) {
           results.failed.push({
             name: item.filename || item.name,
-            error: err.response?.data?.message || 'Unknown error',
+            error: err.response?.data?.message || t('files.unknownError'),
           });
         }
       }
@@ -1348,18 +1389,22 @@ const FileManager = () => {
       // Show results
       if (results.failed.length === 0) {
         showMessage(
-          `Successfully moved ${results.success.length} item(s) to "${targetFolder.name}"`,
+          t('files.manager.movedAll', { count: results.success.length, folder: targetFolder.name }),
           'success'
         );
       } else {
         const failedNames = results.failed.map(f => `${f.name}: ${f.error}`).join('\n');
         showMessage(
-          `Moved ${results.success.length} item(s), but ${results.failed.length} failed:\n${failedNames}`,
+          t('files.manager.movedSome', {
+            count: results.success.length,
+            failed: results.failed.length,
+            names: failedNames,
+          }),
           'warning'
         );
       }
     } catch (err) {
-      showMessage(err.response?.data?.message || 'Failed to move items', 'error');
+      showMessage(err.response?.data?.message || t('files.manager.moveFailed'), 'error');
     } finally {
       setIsOperationInProgress(false);
       setDraggedItem(null);
@@ -1378,7 +1423,23 @@ const FileManager = () => {
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    return date.toLocaleDateString(uiLocale()) + ' ' + date.toLocaleTimeString(uiLocale());
+  };
+
+  // index_status is the server's value and stays one for comparisons; only the
+  // chip text is translated. A value not listed here is shown as sent.
+  const indexStatusLabel = (status) => {
+    switch (status) {
+      case 'INDEXED': return t('files.indexStatus.indexed');
+      case 'INDEXING': return t('files.indexStatus.indexing');
+      case 'PENDING': return t('files.indexStatus.pending');
+      case 'ERROR': return t('files.indexStatus.error');
+      case 'NOT_INDEXED': return t('files.indexStatus.notIndexed');
+      case 'STORED': return t('files.indexStatus.stored');
+      case 'STORED_TRUNCATED': return t('files.indexStatus.storedTruncated');
+      case 'STORAGE_FAILED': return t('files.indexStatus.storageFailed');
+      default: return status;
+    }
   };
 
   const handleCut = () => {
@@ -1405,12 +1466,12 @@ const FileManager = () => {
             destination_path: currentPath,
           });
           setClipboard(null);
-          showMessage('File moved successfully', 'success');
+          showMessage(t('files.manager.fileMoved'), 'success');
         } else {
           await axios.post(`${API_BASE}/document/${item.id}/copy`, {
             destination_path: currentPath,
           });
-          showMessage('File copied successfully', 'success');
+          showMessage(t('files.manager.fileCopied'), 'success');
         }
       } else if (item.itemType === 'folder') {
         if (operation === 'cut') {
@@ -1419,18 +1480,18 @@ const FileManager = () => {
             parent_path: currentPath,
           });
           setClipboard(null);
-          showMessage('Folder moved successfully', 'success');
+          showMessage(t('files.manager.folderMoved'), 'success');
         } else {
           await axios.post(`${API_BASE}/folder/${item.id}/copy`, {
             target_folder_id: currentFolderId,
           });
-          showMessage('Folder copied successfully', 'success');
+          showMessage(t('files.manager.folderCopied'), 'success');
         }
       }
 
       await fetchContents();
     } catch (err) {
-      showMessage(err.response?.data?.message || 'Failed to paste item', 'error');
+      showMessage(err.response?.data?.message || t('files.manager.pasteFailed'), 'error');
     } finally {
       setIsOperationInProgress(false);
     }
@@ -1461,14 +1522,14 @@ const FileManager = () => {
       if (response.data?.data?.cascade_stats) {
         const stats = response.data.data.cascade_stats;
         showMessage(
-          `Properties applied successfully! Files updated: ${stats.files_updated}, Subfolders processed: ${stats.folders_processed}`,
+          t('files.manager.propertiesApplied', { files: stats.files_updated, folders: stats.folders_processed }),
           'success'
         );
       } else {
-        showMessage('Properties updated successfully', 'success');
+        showMessage(t('files.manager.propertiesUpdated'), 'success');
       }
     } catch (err) {
-      showMessage(err.response?.data?.message || 'Failed to update folder properties', 'error');
+      showMessage(err.response?.data?.message || t('files.manager.folderPropertiesFailed'), 'error');
     } finally {
       setIsOperationInProgress(false);
     }
@@ -1487,7 +1548,7 @@ const FileManager = () => {
           underline="hover"
           color={currentPath === '/' ? 'text.primary' : 'inherit'}
         >
-          Files
+          {t('files.manager.root')}
         </Link>
         {parts.map((part, index) => {
           // Path without leading slash (matches DB storage format)
@@ -1736,7 +1797,7 @@ const FileManager = () => {
                       </Typography>
                       {item.index_status && (
                         <Chip
-                          label={item.index_status}
+                          label={indexStatusLabel(item.index_status)}
                           size="small"
                           color={
                             item.index_status === 'INDEXED' ? 'success' :
@@ -1755,7 +1816,7 @@ const FileManager = () => {
           {folderItems.length === 0 && fileItems.length === 0 && (
             <Grid item xs={12}>
               <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
-                This folder is empty. Create a folder or upload files to get started.
+                {t('files.manager.empty')}
               </Typography>
             </Grid>
           )}
@@ -1783,11 +1844,11 @@ const FileManager = () => {
                 }}
               />
             </TableCell>
-            <TableCell>Name</TableCell>
-            <TableCell>Type</TableCell>
-            <TableCell align="right">Size</TableCell>
-            <TableCell align="right">Modified</TableCell>
-            <TableCell align="right">Actions</TableCell>
+            <TableCell>{t('files.manager.columnName')}</TableCell>
+            <TableCell>{t('files.manager.columnType')}</TableCell>
+            <TableCell align="right">{t('files.manager.columnSize')}</TableCell>
+            <TableCell align="right">{t('files.manager.columnModified')}</TableCell>
+            <TableCell align="right">{t('files.actions')}</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -1858,7 +1919,7 @@ const FileManager = () => {
                     <Typography>{folder.name}</Typography>
                   </Box>
                 </TableCell>
-                <TableCell>Folder</TableCell>
+                <TableCell>{t('files.manager.typeFolder')}</TableCell>
                 <TableCell align="right">-</TableCell>
                 <TableCell align="right">{formatDate(folder.updated_at)}</TableCell>
                 <TableCell align="right">
@@ -1944,7 +2005,7 @@ const FileManager = () => {
                     <Typography>{doc.filename}</Typography>
                     {doc.index_status && (
                       <Chip
-                        label={doc.index_status}
+                        label={indexStatusLabel(doc.index_status)}
                         size="small"
                         color={
                           doc.index_status === 'INDEXED' ? 'success' :
@@ -1956,7 +2017,7 @@ const FileManager = () => {
                     )}
                   </Box>
                 </TableCell>
-                <TableCell>File</TableCell>
+                <TableCell>{t('files.manager.typeFile')}</TableCell>
                 <TableCell align="right">{formatBytes(doc.size)}</TableCell>
                 <TableCell align="right">{formatDate(doc.uploaded_at)}</TableCell>
                 <TableCell align="right">
@@ -1978,7 +2039,7 @@ const FileManager = () => {
             <TableRow>
               <TableCell colSpan={6} align="center">
                 <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
-                  This folder is empty. Create a folder or upload files to get started.
+                  {t('files.manager.empty')}
                 </Typography>
               </TableCell>
             </TableRow>
@@ -2018,12 +2079,12 @@ const FileManager = () => {
               sx={{ mr: 2 }}
             >
               <ToggleButton value="list">
-                <Tooltip title="List View">
+                <Tooltip title={t('files.view.list')}>
                   <ViewListIcon fontSize="small" />
                 </Tooltip>
               </ToggleButton>
               <ToggleButton value="grid">
-                <Tooltip title="Grid View">
+                <Tooltip title={t('files.view.grid')}>
                   <ViewModuleIcon fontSize="small" />
                 </Tooltip>
               </ToggleButton>
@@ -2035,7 +2096,7 @@ const FileManager = () => {
               onClick={handleCreateFolderClick}
               disabled={isOperationInProgress}
             >
-              New Folder
+              {t('files.manager.newFolder')}
             </Button>
             <Button
               variant="contained"
@@ -2043,7 +2104,7 @@ const FileManager = () => {
               onClick={handleUploadClick}
               disabled={isOperationInProgress}
             >
-              Upload
+              {t('files.manager.upload')}
             </Button>
           </Box>
         </Box>
@@ -2109,7 +2170,7 @@ const FileManager = () => {
             }}
           >
             <Typography variant="h5" color="primary">
-              Drop files here to upload
+              {t('files.manager.dropToUpload')}
             </Typography>
           </Box>
         )}
@@ -2124,7 +2185,7 @@ const FileManager = () => {
         {uploadProgress.total > 0 && (
           <Box sx={{ p: 2 }}>
             <Typography variant="body2" sx={{ mb: 1 }}>
-              Uploading {uploadProgress.current} of {uploadProgress.total} files...
+              {t('files.manager.uploadingProgress', { current: uploadProgress.current, total: uploadProgress.total })}
             </Typography>
             <LinearProgress 
               variant="determinate" 
@@ -2139,10 +2200,10 @@ const FileManager = () => {
                   </Typography>
                   {file.status === 'uploading' && <CircularProgress size={16} />}
                   {file.status === 'success' && (
-                    <Chip label="Success" size="small" color="success" />
+                    <Chip label={t('files.manager.uploadSuccess')} size="small" color="success" />
                   )}
                   {file.status === 'error' && (
-                    <Chip label="Error" size="small" color="error" />
+                    <Chip label={t('files.manager.uploadError')} size="small" color="error" />
                   )}
                 </Box>
               ))}
@@ -2174,7 +2235,7 @@ const FileManager = () => {
           }}
         >
           <Typography variant="body2">
-            {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''} selected
+            {t('files.manager.selectedCount', { count: selectedItems.size })}
           </Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button
@@ -2183,14 +2244,14 @@ const FileManager = () => {
               onClick={selectAll}
               disabled={isOperationInProgress}
             >
-              Select All
+              {t('files.manager.selectAll')}
             </Button>
             <Button
               size="small"
               onClick={clearSelection}
               disabled={isOperationInProgress}
             >
-              Clear
+              {t('files.manager.clear')}
             </Button>
             <Button
               size="small"
@@ -2199,7 +2260,7 @@ const FileManager = () => {
               onClick={handleDeleteSelected}
               disabled={isOperationInProgress}
             >
-              Delete Selected
+              {t('files.manager.deleteSelected')}
             </Button>
           </Box>
         </Paper>
@@ -2216,13 +2277,13 @@ const FileManager = () => {
 
       {/* Confirmation Dialog */}
       <Dialog open={confirmDialog.open} onClose={handleConfirmDialogClose}>
-        <DialogTitle>{confirmDialog.title}</DialogTitle>
+        <DialogTitle>{confirmDialog.title && confirmDialog.title()}</DialogTitle>
         <DialogContent>
-          <Typography style={{ whiteSpace: 'pre-line' }}>{confirmDialog.message}</Typography>
+          <Typography style={{ whiteSpace: 'pre-line' }}>{confirmDialog.message && confirmDialog.message()}</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleConfirmDialogClose} disabled={isOperationInProgress}>
-            Cancel
+            {t('files.manager.cancel')}
           </Button>
           <Button 
             onClick={confirmDialog.onConfirm} 
@@ -2231,7 +2292,7 @@ const FileManager = () => {
             disabled={isOperationInProgress}
             startIcon={isOperationInProgress ? <CircularProgress size={16} /> : null}
           >
-            Confirm
+            {t('files.manager.confirm')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2251,41 +2312,41 @@ const FileManager = () => {
         {!selectedItem && [
           // Blank space context menu
           <MenuItem key="paste" onClick={(e) => { e.stopPropagation(); handlePaste(); }} disabled={!clipboard}>
-            <ListItemText>Paste</ListItemText>
+            <ListItemText>{t('files.menu.paste')}</ListItemText>
           </MenuItem>,
           <MenuItem key="new-folder" onClick={(e) => { e.stopPropagation(); handleCreateFolderClick(); }}>
-            <ListItemText>New Folder</ListItemText>
+            <ListItemText>{t('files.manager.newFolder')}</ListItemText>
           </MenuItem>,
           <MenuItem key="upload" onClick={(e) => { e.stopPropagation(); handleUploadClick(); }}>
-            <ListItemText>Upload Files</ListItemText>
+            <ListItemText>{t('files.menu.uploadFiles')}</ListItemText>
           </MenuItem>,
           <MenuItem key="select-all" onClick={(e) => { e.stopPropagation(); selectAll(); handleCloseContextMenu(); }}>
-            <ListItemText>Select All</ListItemText>
+            <ListItemText>{t('files.manager.selectAll')}</ListItemText>
           </MenuItem>
         ]}
         {/* Multi-select context menu */}
         {selectedItems.size > 1 && selectedItem && [
           <MenuItem key="multi-info" disabled sx={{ opacity: 0.7 }}>
-            <ListItemText>{selectedItems.size} items selected</ListItemText>
+            <ListItemText>{t('files.manager.selectedCount', { count: selectedItems.size })}</ListItemText>
           </MenuItem>,
           <MenuItem key="delete-selected" onClick={(e) => { e.stopPropagation(); handleDeleteSelected(); }}>
             <ListItemIcon><DeleteIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Delete Selected ({selectedItems.size})</ListItemText>
+            <ListItemText>{t('files.menu.deleteSelectedCount', { count: selectedItems.size })}</ListItemText>
           </MenuItem>,
           <MenuItem key="clear-selection" onClick={(e) => { e.stopPropagation(); clearSelection(); handleCloseContextMenu(); }}>
-            <ListItemText>Clear Selection</ListItemText>
+            <ListItemText>{t('files.menu.clearSelection')}</ListItemText>
           </MenuItem>
         ]}
         {/* Single folder context menu */}
         {selectedItems.size <= 1 && selectedItem?.itemType === 'folder' && [
           <MenuItem key="cut" onClick={(e) => { e.stopPropagation(); handleCut(); }}>
-            <ListItemText>Cut</ListItemText>
+            <ListItemText>{t('files.menu.cut')}</ListItemText>
           </MenuItem>,
           <MenuItem key="copy" onClick={(e) => { e.stopPropagation(); handleCopy(); }}>
-            <ListItemText>Copy</ListItemText>
+            <ListItemText>{t('files.menu.copy')}</ListItemText>
           </MenuItem>,
           <MenuItem key="paste" onClick={(e) => { e.stopPropagation(); handlePaste(); }} disabled={!clipboard}>
-            <ListItemText>Paste</ListItemText>
+            <ListItemText>{t('files.menu.paste')}</ListItemText>
           </MenuItem>,
           <MenuItem key="color" disableRipple disableGutters>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 0.5 }}>
@@ -2310,54 +2371,54 @@ const FileManager = () => {
             </Box>
           </MenuItem>,
           <MenuItem key="rename" onClick={(e) => { e.stopPropagation(); handleRenameFolderClick(); }}>
-            <ListItemText>Rename</ListItemText>
+            <ListItemText>{t('files.menu.rename')}</ListItemText>
           </MenuItem>,
           <MenuItem key="properties" onClick={(e) => { e.stopPropagation(); handleProperties(); }}>
-            <ListItemText>Properties</ListItemText>
+            <ListItemText>{t('files.menu.properties')}</ListItemText>
           </MenuItem>,
           <MenuItem key="delete" onClick={(e) => { e.stopPropagation(); handleDeleteFolder(); }}>
-            <ListItemText>Delete</ListItemText>
+            <ListItemText>{t('files.menu.delete')}</ListItemText>
           </MenuItem>
         ]}
         {/* Single file context menu */}
         {selectedItems.size <= 1 && selectedItem?.itemType === 'file' && [
           <MenuItem key="cut" onClick={(e) => { e.stopPropagation(); handleCut(); }}>
-            <ListItemText>Cut</ListItemText>
+            <ListItemText>{t('files.menu.cut')}</ListItemText>
           </MenuItem>,
           <MenuItem key="copy" onClick={(e) => { e.stopPropagation(); handleCopy(); }}>
-            <ListItemText>Copy</ListItemText>
+            <ListItemText>{t('files.menu.copy')}</ListItemText>
           </MenuItem>,
           <MenuItem key="paste" onClick={(e) => { e.stopPropagation(); handlePaste(); }} disabled={!clipboard}>
-            <ListItemText>Paste</ListItemText>
+            <ListItemText>{t('files.menu.paste')}</ListItemText>
           </MenuItem>,
           selectedItem?.filename?.toLowerCase().endsWith('.csv') && (
             <MenuItem key="spreadsheet" onClick={(e) => { e.stopPropagation(); handleOpenCSV(); }}>
-              <ListItemText>Open in Spreadsheet</ListItemText>
+              <ListItemText>{t('files.menu.openInSpreadsheet')}</ListItemText>
             </MenuItem>
           ),
           <MenuItem key="download" onClick={(e) => { e.stopPropagation(); handleDownloadFile(); }}>
-            <ListItemText>Download</ListItemText>
+            <ListItemText>{t('files.menu.download')}</ListItemText>
           </MenuItem>,
           <MenuItem key="rename" onClick={(e) => { e.stopPropagation(); handleRenameFileClick(); }}>
-            <ListItemText>Rename</ListItemText>
+            <ListItemText>{t('files.menu.rename')}</ListItemText>
           </MenuItem>,
           <MenuItem key="properties" onClick={(e) => { e.stopPropagation(); handleProperties(); }}>
-            <ListItemText>Properties</ListItemText>
+            <ListItemText>{t('files.menu.properties')}</ListItemText>
           </MenuItem>,
           <MenuItem key="delete" onClick={(e) => { e.stopPropagation(); handleDeleteFile(); }}>
-            <ListItemText>Delete</ListItemText>
+            <ListItemText>{t('files.menu.delete')}</ListItemText>
           </MenuItem>
         ]}
       </Menu>
 
       {/* Create Folder Dialog */}
       <Dialog open={createFolderOpen} onClose={() => !isOperationInProgress && setCreateFolderOpen(false)}>
-        <DialogTitle>Create New Folder</DialogTitle>
+        <DialogTitle>{t('files.manager.createFolderTitle')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Folder Name"
+            label={t('files.manager.folderName')}
             fullWidth
             value={newFolderName}
             onChange={(e) => {
@@ -2365,7 +2426,7 @@ const FileManager = () => {
               if (createFolderError) setCreateFolderError('');
             }}
             error={!!createFolderError}
-            helperText={createFolderError}
+            helperText={nameErrorText(createFolderError)}
             disabled={isOperationInProgress}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !isOperationInProgress) {
@@ -2376,26 +2437,26 @@ const FileManager = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateFolderOpen(false)} disabled={isOperationInProgress}>Cancel</Button>
+          <Button onClick={() => setCreateFolderOpen(false)} disabled={isOperationInProgress}>{t('files.manager.cancel')}</Button>
           <Button 
             onClick={handleCreateFolder} 
             variant="contained"
             disabled={isOperationInProgress || !newFolderName.trim()}
             startIcon={isOperationInProgress ? <CircularProgress size={16} /> : null}
           >
-            Create
+            {t('files.manager.create')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Rename Folder Dialog */}
       <Dialog open={renameFolderOpen} onClose={() => !isOperationInProgress && setRenameFolderOpen(false)}>
-        <DialogTitle>Rename Folder</DialogTitle>
+        <DialogTitle>{t('files.manager.renameFolderTitle')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="New Name"
+            label={t('files.manager.newName')}
             fullWidth
             value={newName}
             onChange={(e) => {
@@ -2403,7 +2464,7 @@ const FileManager = () => {
               if (renameFolderError) setRenameFolderError('');
             }}
             error={!!renameFolderError}
-            helperText={renameFolderError}
+            helperText={nameErrorText(renameFolderError)}
             disabled={isOperationInProgress}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !isOperationInProgress) {
@@ -2414,26 +2475,26 @@ const FileManager = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRenameFolderOpen(false)} disabled={isOperationInProgress}>Cancel</Button>
+          <Button onClick={() => setRenameFolderOpen(false)} disabled={isOperationInProgress}>{t('files.manager.cancel')}</Button>
           <Button 
             onClick={handleRenameFolder} 
             variant="contained"
             disabled={isOperationInProgress || !newName.trim()}
             startIcon={isOperationInProgress ? <CircularProgress size={16} /> : null}
           >
-            Rename
+            {t('files.menu.rename')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Rename File Dialog */}
       <Dialog open={renameFileOpen} onClose={() => !isOperationInProgress && setRenameFileOpen(false)}>
-        <DialogTitle>Rename File</DialogTitle>
+        <DialogTitle>{t('files.manager.renameFileTitle')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="New Name"
+            label={t('files.manager.newName')}
             fullWidth
             value={newName}
             onChange={(e) => {
@@ -2441,7 +2502,7 @@ const FileManager = () => {
               if (renameFileError) setRenameFileError('');
             }}
             error={!!renameFileError}
-            helperText={renameFileError}
+            helperText={nameErrorText(renameFileError)}
             disabled={isOperationInProgress}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !isOperationInProgress) {
@@ -2452,14 +2513,14 @@ const FileManager = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRenameFileOpen(false)} disabled={isOperationInProgress}>Cancel</Button>
+          <Button onClick={() => setRenameFileOpen(false)} disabled={isOperationInProgress}>{t('files.manager.cancel')}</Button>
           <Button 
             onClick={handleRenameFile} 
             variant="contained"
             disabled={isOperationInProgress || !newName.trim()}
             startIcon={isOperationInProgress ? <CircularProgress size={16} /> : null}
           >
-            Rename
+            {t('files.menu.rename')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2479,9 +2540,9 @@ const FileManager = () => {
             setPropertiesOpen(false);
             setSelectedItem(null);
             await fetchContents();
-            showMessage('Properties updated successfully', 'success');
+            showMessage(t('files.manager.propertiesUpdated'), 'success');
           } catch (err) {
-            showMessage(err.response?.data?.message || 'Failed to update properties', 'error');
+            showMessage(err.response?.data?.message || t('files.manager.propertiesFailed'), 'error');
           } finally {
             setIsOperationInProgress(false);
           }
@@ -2493,9 +2554,9 @@ const FileManager = () => {
             setPropertiesOpen(false);
             setSelectedItem(null);
             await fetchContents();
-            showMessage('File deleted successfully', 'success');
+            showMessage(t('files.manager.fileDeleted'), 'success');
           } catch (err) {
-            showMessage(err.response?.data?.message || 'Failed to delete file', 'error');
+            showMessage(err.response?.data?.message || t('files.manager.deleteFileFailed'), 'error');
           } finally {
             setIsOperationInProgress(false);
           }
@@ -2507,12 +2568,12 @@ const FileManager = () => {
             const apiBase = BASE_URL;
             const response = await axios.post(`${apiBase}/index/${id}`);
             if (response.data.success || response.status === 202) {
-              showMessage('Document reindexing started successfully!', 'success');
+              showMessage(t('files.manager.reindexStarted'), 'success');
               await fetchContents(); // Refresh to show updated status
             }
           } catch (err) {
             showMessage(
-              err.response?.data?.message || formatUiError(err.response?.data?.error) || 'Failed to reindex document',
+              err.response?.data?.message || formatUiError(err.response?.data?.error) || t('files.manager.reindexFailed'),
               'error'
             );
           } finally {
@@ -2537,9 +2598,9 @@ const FileManager = () => {
             setFolderPropertiesOpen(false);
             setSelectedItem(null);
             await fetchContents();
-            showMessage('Folder deleted successfully', 'success');
+            showMessage(t('files.manager.folderDeleted'), 'success');
           } catch (err) {
-            showMessage(err.response?.data?.message || 'Failed to delete folder', 'error');
+            showMessage(err.response?.data?.message || t('files.manager.deleteFolderFailed'), 'error');
           } finally {
             setIsOperationInProgress(false);
           }

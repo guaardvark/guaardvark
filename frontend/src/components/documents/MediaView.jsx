@@ -18,6 +18,7 @@ import VideocamIcon from '@mui/icons-material/Videocam';
 import { Folder } from 'lucide-react';
 import { API_BASE, getFileIconSmall, isImageFile, isVideoFile } from './fileUtils';
 import { isVisualMediaFile } from './folderViewPolicy';
+import { useUiTranslation } from '../../i18n';
 
 const MediaView = ({
   items,
@@ -27,6 +28,7 @@ const MediaView = ({
   onNavigateToPath,
   initialFileId = null,
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -75,7 +77,7 @@ const MediaView = ({
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'text.secondary', gap: 1, py: 4 }}>
         <ImageIcon sx={{ fontSize: 48, opacity: 0.3 }} />
-        <Typography variant="body2">This folder is empty</Typography>
+        <Typography variant="body2">{t('documents.folder.empty')}</Typography>
       </Box>
     );
   }
@@ -115,7 +117,7 @@ const MediaView = ({
         )}
         {!currentFile && (
           <Typography variant="body2" sx={{ color: 'grey.500' }}>
-            Select a file
+            {t('documents.mediaView.selectFile')}
           </Typography>
         )}
 
@@ -248,10 +250,10 @@ const MediaView = ({
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', px: 2, py: 0.75, bgcolor: 'grey.900', borderTop: 1, borderColor: 'grey.800', flexShrink: 0 }}>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Button size="small" disabled={!hasPrev} onClick={() => navigateTo(currentIndex - 1)} sx={{ color: 'grey.400', minWidth: 'auto' }}>
-              Previous
+              {t('documents.mediaView.previous')}
             </Button>
             <Button size="small" disabled={!hasNext} onClick={() => navigateTo(currentIndex + 1)} sx={{ color: 'grey.400', minWidth: 'auto' }}>
-              Next
+              {t('documents.mediaView.next')}
             </Button>
             <Typography variant="caption" sx={{ color: 'grey.500', ml: 1 }}>
               {currentFile?.filename || currentFile?.name}
@@ -262,7 +264,7 @@ const MediaView = ({
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Button size="small" onClick={() => fileUrl && window.open(fileUrl, '_blank')} startIcon={<OpenInNewIcon />} sx={{ color: 'grey.400' }}>
-              Open
+              {t('documents.mediaView.open')}
             </Button>
             <Button size="small" onClick={() => {
               if (!fileUrl) return;
@@ -271,7 +273,7 @@ const MediaView = ({
               a.download = currentFile.filename || currentFile.name;
               a.click();
             }} startIcon={<DownloadIcon />} sx={{ color: 'grey.400' }}>
-              Download
+              {t('documents.mediaView.download')}
             </Button>
           </Box>
         </Box>

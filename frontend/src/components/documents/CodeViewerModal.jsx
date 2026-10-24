@@ -28,10 +28,12 @@ import Editor from "../../utils/monaco";
 import { getDocumentContent, getRepoFileContent, updateDocument } from "../../api/documentService";
 import { getLanguageFromFilename } from "../../utils/languageDetector";
 import copyText from "../../utils/copyText";
+import { useUiTranslation } from "../../i18n";
 
 // startEditing opens straight into edit mode (the Files page's Edit action);
 // a live-repo file stays in view mode, as its toggle is disabled.
 const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing = false }) => {
+  const { t } = useUiTranslation();
   const [content, setContent] = useState(null);
   const [originalContent, setOriginalContent] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -59,7 +61,7 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
       : getDocumentContent(file.id);
     loader.then((result) => {
       if (result.error) {
-        setError(result.error);
+        setError({ detail: result.error });
       } else {
         const text = typeof result === "string" ? result : result.content || result.data || "";
         setContent(text);
@@ -88,7 +90,7 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
   const handleSave = async () => {
     if (!file?.id || !isModified) return;
     if (isLiveRepoFile) {
-      setError("Live repository files are read-only here. Use a staged self-code edit instead.");
+      setError({ code: "readOnly" });
       return;
     }
     setSaving(true);
@@ -96,14 +98,14 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
       await updateDocument(file.id, { content });
       setOriginalContent(content);
     } catch (err) {
-      setError(`Save failed: ${err.message}`);
+      setError({ code: "saveFailed", detail: err.message });
     }
     setSaving(false);
   };
 
   const handleToggleEdit = () => {
     if (isLiveRepoFile) {
-      setError("Live repository files are review-first and cannot be edited directly in this modal.");
+      setError({ code: "reviewFirst" });
       return;
     }
     setEditing(!editing);
@@ -111,11 +113,22 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
 
   const handleClose = () => {
     if (isModified) {
-      if (!window.confirm("You have unsaved changes. Discard them?")) return;
+      if (!window.confirm(t("documents.codeViewer.discardConfirm"))) return;
     }
     setEditing(false);
     onClose();
   };
+
+  // Our own errors are kept as codes and worded here, so they follow a language change.
+  const errorText = !error
+    ? null
+    : error.code === "readOnly"
+      ? t("documents.codeViewer.liveRepoReadOnly")
+      : error.code === "saveFailed"
+        ? t("documents.codeViewer.saveFailed", { error: error.detail })
+        : error.code === "reviewFirst"
+          ? t("documents.codeViewer.liveRepoReviewFirst")
+          : error.detail;
 
   return (
     <Dialog
@@ -149,28 +162,28 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
           </Typography>
           <Chip label={language} size="small" variant="outlined" sx={{ fontSize: "0.7rem" }} />
           {isLiveRepoFile && (
-            <Chip label="Live repo · read-only" size="small" color="primary" variant="outlined" sx={{ fontSize: "0.65rem", height: 20 }} />
+            <Chip label={t("documents.codeViewer.liveRepoChip")} size="small" color="primary" variant="outlined" sx={{ fontSize: "0.65rem", height: 20 }} />
           )}
           {isModified && (
-            <Chip label="Modified" size="small" color="warning" sx={{ fontSize: "0.65rem", height: 20 }} />
+            <Chip label={t("documents.codeViewer.modified")} size="small" color="warning" sx={{ fontSize: "0.65rem", height: 20 }} />
           )}
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          <Tooltip title={editing ? "View mode" : "Edit mode"}>
+          <Tooltip title={editing ? t("documents.codeViewer.viewMode") : t("documents.codeViewer.editMode")}>
             <span>
               <IconButton size="small" onClick={handleToggleEdit} disabled={loading || !!error || isLiveRepoFile}>
                 {editing ? <ViewIcon fontSize="small" /> : <EditIcon fontSize="small" />}
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="Open in Code Editor">
+          <Tooltip title={t("documents.codeViewer.openInCodeEditor")}>
             <span>
               <IconButton size="small" onClick={handleOpenInEditor} disabled={loading || !!error}>
                 <CodeIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="Copy to clipboard">
+          <Tooltip title={t("documents.codeViewer.copy")}>
             <span>
               <IconButton size="small" onClick={handleCopy} disabled={!content}>
                 {copied ? <CheckIcon fontSize="small" color="success" /> : <CopyIcon fontSize="small" />}
@@ -191,7 +204,7 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
         )}
         {error && (
           <Box sx={{ p: 3, textAlign: "center" }}>
-            <Typography color="error">{error}</Typography>
+            <Typography color="error">{errorText}</Typography>
           </Box>
         )}
         {!loading && !error && content !== null && (
@@ -220,7 +233,7 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
 
       <DialogActions sx={{ px: 2, py: 1, borderTop: 1, borderColor: "divider" }}>
         <Button onClick={handleClose} size="small">
-          Close
+          {t("documents.actions.close")}
         </Button>
         <Button
           onClick={handleSave}
@@ -229,7 +242,7 @@ const CodeViewerModal = ({ open, onClose, file, onOpenInCodeEditor, startEditing
           startIcon={saving ? <CircularProgress size={14} /> : <SaveIcon />}
           disabled={!isModified || saving || loading || !!error}
         >
-          {saving ? "Saving..." : "Save"}
+          {saving ? t("documents.codeViewer.saving") : t("documents.codeViewer.save")}
         </Button>
       </DialogActions>
     </Dialog>

@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import { Close as CloseIcon, MusicNote as AudioIcon } from "@mui/icons-material";
 import axios from "axios";
+import { useUiTranslation } from "../../i18n";
 
 const API_BASE = "/api/files";
 
@@ -45,6 +46,7 @@ const formatSampleRate = (sr) => {
 };
 
 const AudioPlayerModal = ({ open, onClose, file }) => {
+  const { t } = useUiTranslation();
   // The file passed in usually comes from the lightweight listing (no
   // metadata). Fetch the full record on open so the prompt caption + chips
   // can render. Single round-trip; no listing perf hit.
@@ -76,7 +78,7 @@ const AudioPlayerModal = ({ open, onClose, file }) => {
 
   // Prefer the freshly-fetched record; fall back to whatever was passed in.
   const enriched = fullDoc || file;
-  const filename = enriched.filename || enriched.name || "audio";
+  const filename = enriched.filename || enriched.name || t("documents.audioPlayer.untitled");
   const meta = getMeta(enriched);
   // SAO/voice/music backends each store a prompt-like field; fall back through
   // the most likely names so we don't have to special-case per backend here.
@@ -100,9 +102,9 @@ const AudioPlayerModal = ({ open, onClose, file }) => {
         <Box sx={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {filename}
         </Box>
-        <Tooltip title="Close">
+        <Tooltip title={t("documents.actions.close")}>
           <IconButton
-            aria-label="close"
+            aria-label={t("documents.audioPlayer.closeLabel")}
             onClick={onClose}
             sx={{ position: "absolute", right: 8, top: 8 }}
           >
@@ -139,15 +141,15 @@ const AudioPlayerModal = ({ open, onClose, file }) => {
             {duration && <Chip size="small" label={duration} />}
             {sampleRate && <Chip size="small" label={sampleRate} />}
             {backend && <Chip size="small" label={backend} variant="outlined" />}
-            {seed !== null && <Chip size="small" label={`seed: ${seed}`} variant="outlined" />}
+            {seed !== null && <Chip size="small" label={t("documents.audioPlayer.seed", { seed })} variant="outlined" />}
           </Stack>
         )}
       </DialogContent>
 
       <DialogActions>
-        <Button onClick={handleDownload}>Open in new tab</Button>
+        <Button onClick={handleDownload}>{t("documents.audioPlayer.openInNewTab")}</Button>
         <Button onClick={onClose} variant="contained">
-          Close
+          {t("documents.actions.close")}
         </Button>
       </DialogActions>
     </Dialog>

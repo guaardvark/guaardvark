@@ -26,6 +26,7 @@ import { useSnackbar } from '../common/SnackbarProvider';
 import { API_BASE, getFileIcon, getFileIconSmall, FolderIndexIndicator, formatBytes, formatDate, getItemKey } from './fileUtils.jsx';
 import MediaView from './MediaView';
 import { folderHasVisualMedia } from './folderViewPolicy';
+import { useUiTranslation } from '../../i18n';
 
 // Stable grid components (must be defined outside render to avoid Virtuoso remounts)
 const GridItemWrapper = React.forwardRef(({ children, ...props }, ref) => (
@@ -60,6 +61,7 @@ const FolderContents = ({
   folderColors = {}, // Folder ID → color map for nested color coding
   onMediaDetected, // Callback: fires true/false when folder contents are loaded
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const { showMessage } = useSnackbar();
   const [items, setItems] = useState({ folders: [], files: [] });
@@ -144,8 +146,8 @@ const FolderContents = ({
       setHasMore(data.has_more ?? false);
       setTotalItems((data.total_folders ?? 0) + (data.total_documents ?? 0));
     } catch (err) {
-      setError('Failed to load folder contents');
-      showMessage?.('Failed to load folder contents', 'error');
+      setError('documents.folder.loadFailed');
+      showMessage?.(t('documents.folder.loadFailed'), 'error');
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -182,8 +184,8 @@ const FolderContents = ({
         onMediaDetected(folderHasVisualMedia(newFiles));
       }
     } catch (err) {
-      setError('Failed to load folder contents');
-      showMessage?.('Failed to load folder contents', 'error');
+      setError('documents.folder.loadFailed');
+      showMessage?.(t('documents.folder.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -564,7 +566,7 @@ const FolderContents = ({
   if (error) {
     return (
       <Box sx={{ p: 2 }}>
-        <Alert severity="error">{error}</Alert>
+        <Alert severity="error">{t(error)}</Alert>
       </Box>
     );
   }
@@ -584,7 +586,7 @@ const FolderContents = ({
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          This folder is empty
+          {t('documents.folder.empty')}
         </Typography>
       </Box>
     );
@@ -657,7 +659,7 @@ const FolderContents = ({
                   direction={orderBy === 'name' ? order : 'asc'}
                   onClick={() => handleSortRequest('name')}
                 >
-                  Name
+                  {t('documents.folder.columnName')}
                 </TableSortLabel>
               </TableCell>
               <TableCell align="right">
@@ -666,7 +668,7 @@ const FolderContents = ({
                   direction={orderBy === 'date' ? order : 'asc'}
                   onClick={() => handleSortRequest('date')}
                 >
-                  Date
+                  {t('documents.folder.columnDate')}
                 </TableSortLabel>
               </TableCell>
               <TableCell align="right">
@@ -675,7 +677,7 @@ const FolderContents = ({
                   direction={orderBy === 'size' ? order : 'asc'}
                   onClick={() => handleSortRequest('size')}
                 >
-                  Size
+                  {t('documents.folder.columnSize')}
                 </TableSortLabel>
               </TableCell>
             </TableRow>
@@ -705,7 +707,7 @@ const FolderContents = ({
                       {isFolder ? item.name : item.filename}
                     </Typography>
                     {isFolder && item.is_repository && (
-                      <Tooltip title="Code Repository">
+                      <Tooltip title={t('documents.folder.codeRepository')}>
                         <Code size={14} color={theme.palette.primary.main} style={{ marginLeft: 4 }} />
                       </Tooltip>
                     )}
@@ -721,7 +723,7 @@ const FolderContents = ({
                 <TableCell align="right">
                   <Typography variant="body2" color="text.secondary">
                     {isFolder
-                      ? `${(item.subfolder_count || 0) + (item.document_count || 0)} items`
+                      ? t('documents.folder.itemCount', { count: (item.subfolder_count || 0) + (item.document_count || 0) })
                       : formatBytes(item.size)}
                   </Typography>
                 </TableCell>
@@ -862,7 +864,7 @@ const FolderContents = ({
                       </Box>
                       {item.is_repository && (
                         <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
-                          <Tooltip title="Code Repository">
+                          <Tooltip title={t('documents.folder.codeRepository')}>
                             <Code size={16} color={theme.palette.primary.main} />
                           </Tooltip>
                         </Box>

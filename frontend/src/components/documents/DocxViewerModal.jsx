@@ -18,10 +18,12 @@ import {
   Description as DocIcon,
   Download as DownloadIcon,
 } from "@mui/icons-material";
+import { useUiTranslation } from "../../i18n";
 
 const API_BASE = '/api/files';
 
 const DocxViewerModal = ({ open, onClose, file }) => {
+  const { t } = useUiTranslation();
   const filename = file?.filename || file?.name || "document.docx";
   const fileUrl = file?.id ? `${API_BASE}/document/${file.id}/download?v=${file.updated_at || ''}` : "";
   const [html, setHtml] = useState(null);
@@ -36,12 +38,12 @@ const DocxViewerModal = ({ open, onClose, file }) => {
       try {
         const mammoth = await import("mammoth/mammoth.browser");
         const resp = await fetch(fileUrl);
-        if (!resp.ok) throw new Error(`Fetch failed (${resp.status})`);
+        if (!resp.ok) throw Object.assign(new Error(), { status: resp.status });
         const buf = await resp.arrayBuffer();
         const result = await mammoth.convertToHtml({ arrayBuffer: buf });
         if (!cancelled) setHtml(result.value);
       } catch (e) {
-        if (!cancelled) setError(e.message || "Could not render document");
+        if (!cancelled) setError({ status: e.status, message: e.message });
       }
     })();
     return () => { cancelled = true; };
@@ -77,7 +79,7 @@ const DocxViewerModal = ({ open, onClose, file }) => {
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          <Tooltip title="Download original">
+          <Tooltip title={t("documents.docxViewer.downloadOriginal")}>
             <span>
               <IconButton size="small" onClick={handleDownload} disabled={!fileUrl}>
                 <DownloadIcon fontSize="small" />
@@ -93,7 +95,11 @@ const DocxViewerModal = ({ open, onClose, file }) => {
       <DialogContent sx={{ flex: 1, overflow: "auto", bgcolor: "background.paper" }}>
         {error ? (
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-            <Typography color="error">{error}</Typography>
+            <Typography color="error">
+              {error.status
+                ? t("documents.docxViewer.fetchFailed", { status: error.status })
+                : error.message || t("documents.docxViewer.renderFailed")}
+            </Typography>
           </Box>
         ) : html === null ? (
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>

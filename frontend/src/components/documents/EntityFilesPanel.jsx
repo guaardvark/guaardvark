@@ -17,7 +17,10 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import { getDocuments } from "../../api/documentService";
 import { BASE_URL, handleResponse } from "../../api/apiClient";
+import { useUiTranslation } from "../../i18n";
 
+// The kind word only fills the generic sentences; each known kind has its own
+// whole sentence in locales/en/documents.json (the `context` option picks it).
 const KIND_WORD = { client: "client", website: "website" };
 
 async function entityName(kind, id) {
@@ -38,6 +41,7 @@ async function entityName(kind, id) {
  * @param {function(): void} onClose
  */
 const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
+  const { t } = useUiTranslation();
   const [docs, setDocs] = useState([]);
   const [name, setName] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +72,7 @@ const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
     <Paper
       elevation={8}
       role="region"
-      aria-label={`Files for this ${word}`}
+      aria-label={t("documents.entityFiles.regionLabel", { context: kind, kind: word })}
       sx={{
         position: "absolute",
         top: 12,
@@ -85,15 +89,15 @@ const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 1.5, py: 1, borderBottom: 1, borderColor: "divider" }}>
         <Typography variant="subtitle2" sx={{ flex: 1, minWidth: 0 }} noWrap>
-          Files for {name ? `${word} ${name}` : `this ${word}`}
+          {t("documents.entityFiles.title", { context: name ? `${kind}Named` : kind, name: name || word })}
         </Typography>
         {!loading && (
           <Typography variant="caption" color="text.secondary">
             {docs.length}
           </Typography>
         )}
-        <Tooltip title="Close">
-          <IconButton size="small" onClick={onClose} aria-label="Close">
+        <Tooltip title={t("documents.actions.close")}>
+          <IconButton size="small" onClick={onClose} aria-label={t("documents.actions.close")}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
@@ -106,12 +110,12 @@ const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
         )}
         {!loading && error && (
           <Typography variant="body2" color="error" sx={{ p: 1.5 }}>
-            Could not load the files: {error}
+            {t("documents.entityFiles.loadFailed", { error })}
           </Typography>
         )}
         {!loading && !error && docs.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>
-            No files are linked to this {word}. Link a file or folder to it from its Properties.
+            {t("documents.entityFiles.empty", { context: kind, kind: word })}
           </Typography>
         )}
         {!loading && docs.length > 0 && (
@@ -120,7 +124,7 @@ const EntityFilesPanel = ({ kind, id, onOpenFile, onClose }) => {
               <ListItemButton key={doc.id} onClick={() => onOpenFile(doc)}>
                 <ListItemText
                   primary={doc.filename}
-                  secondary={doc.folder?.path || "Files root"}
+                  secondary={doc.folder?.path || t("documents.entityFiles.filesRoot")}
                   primaryTypographyProps={{ noWrap: true }}
                   secondaryTypographyProps={{ noWrap: true }}
                 />

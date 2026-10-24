@@ -34,11 +34,14 @@ import {
 } from '@mui/icons-material';
 import { BASE_URL, handleResponse } from '../api/apiClient';
 import copyText from '../utils/copyText';
+import { useUiTranslation, uiLocale } from '../i18n';
 
 const FileBrowser = ({ onFileSelect, _onClose }) => {
+  const { t } = useUiTranslation();
   const [currentPath, setCurrentPath] = useState('');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
+  // { message: the error's own text, failed: what failed }; our fallback is worded at render.
   const [error, setError] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState('');
@@ -58,7 +61,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
       setItems(data.data?.items || []);
       setCurrentPath(path);
     } catch (err) {
-      setError(err.message || 'Failed to load directory');
+      setError({ message: err.message, failed: 'directory' });
       console.error('File browser error:', err);
     } finally {
       setLoading(false);
@@ -75,7 +78,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
       setSelectedFile(data.data || data);
       setShowFileDialog(true);
     } catch (err) {
-      setError(err.message || 'Failed to load file');
+      setError({ message: err.message, failed: 'file' });
       console.error('File read error:', err);
     }
   };
@@ -96,7 +99,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
       const data = await handleResponse(response);
       setSearchResults(data.data?.results || []);
     } catch (err) {
-      setError(err.message || 'Search failed');
+      setError({ message: err.message, failed: 'search' });
       console.error('Search error:', err);
     } finally {
       setSearching(false);
@@ -130,7 +133,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
     if (!selectedFile) return;
     
     try {
-      const revisionInstructions = prompt("Enter instructions for the file revision:", "");
+      const revisionInstructions = prompt(t('files.browser.revisionPrompt'), "");
       if (!revisionInstructions) return;
       
       const response = await fetch(`${BASE_URL}/files/generate-revision`, {
@@ -148,15 +151,19 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
       const data = await handleResponse(response);
       
       if (data.success) {
-        alert(`File revision generated successfully!\n\nNew file: ${data.data.revision_name}\nLocation: ${data.data.revision_path}\nSize: ${data.data.file_size} bytes`);
+        alert(t('files.browser.revisionGenerated', {
+          name: data.data.revision_name,
+          path: data.data.revision_path,
+          size: data.data.file_size,
+        }));
         // Refresh the current directory to show the new file
         loadDirectory(currentPath);
       } else {
-        alert(`Failed to generate revision: ${data.message || 'Unknown error'}`);
+        alert(t('files.browser.revisionFailed', { message: data.message || t('files.unknownError') }));
       }
     } catch (err) {
       console.error('Revision generation error:', err);
-      alert(`Error generating revision: ${err.message}`);
+      alert(t('files.browser.revisionError', { message: err.message }));
     }
   };
 
@@ -178,7 +185,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
   const getBreadcrumbItems = () => {
     const parts = currentPath.split('/').filter(Boolean);
     const items = [
-      { name: 'Root', path: '' }
+      { name: t('files.browser.root'), path: '' }
     ];
     
     let currentPathPart = '';
@@ -200,14 +207,14 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
       {/* Header */}
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
         <Typography variant="h6" gutterBottom>
-          File Browser
+          {t('files.browser.title')}
         </Typography>
         
         {/* Search */}
         <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
           <TextField
             size="small"
-            placeholder="Search files..."
+            placeholder={t('files.browser.searchPlaceholder')}
             value={searchPattern}
             onChange={(e) => setSearchPattern(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && searchFiles()}
@@ -219,7 +226,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
             disabled={!searchPattern.trim() || searching}
             startIcon={searching ? <CircularProgress size={16} /> : <SearchIcon />}
           >
-            Search
+            {t('files.browser.search')}
           </Button>
         </Box>
 
@@ -241,7 +248,11 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
       {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ m: 2 }}>
-          {error}
+          {error.message || {
+            directory: t('files.browser.loadDirectoryFailed'),
+            file: t('files.browser.loadFileFailed'),
+            search: t('files.browser.searchFailed'),
+          }[error.failed]}
         </Alert>
       )}
 
@@ -275,7 +286,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
                         />
                       )}
                       <Typography variant="caption" color="text.secondary">
-                        {new Date(item.modified * 1000).toLocaleDateString()}
+                        {new Date(item.modified * 1000).toLocaleDateString(uiLocale())}
                       </Typography>
                     </Box>
                   }
@@ -298,7 +309,7 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
             <FileIcon />
             {selectedFile?.name}
             <Chip
-              label={selectedFile?.content_type || 'unknown'}
+              label={selectedFile?.content_type || t('files.browser.unknownType')}
               size="small"
               color="primary"
             />
@@ -307,10 +318,10 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
         <DialogContent>
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              Path: {selectedFile?.path}
+              {t('files.browser.path', { path: selectedFile?.path })}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Size: {selectedFile?.size} bytes
+              {t('files.browser.size', { size: selectedFile?.size })}
             </Typography>
           </Box>
           
@@ -328,9 +339,9 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowFileDialog(false)}>
-            Close
+            {t('files.close')}
           </Button>
-          <Tooltip title="Copy content to clipboard">
+          <Tooltip title={t('files.browser.copyContent')}>
             <IconButton onClick={copyToClipboard}>
               <CopyIcon />
             </IconButton>
@@ -341,14 +352,14 @@ const FileBrowser = ({ onFileSelect, _onClose }) => {
             startIcon={<InfoIcon />}
             sx={{ mr: 1 }}
           >
-            Generate Revision
+            {t('files.browser.generateRevision')}
           </Button>
           <Button
             variant="contained"
             onClick={handleFileSelect}
             startIcon={<InfoIcon />}
           >
-            Use for LLM
+            {t('files.browser.useForLlm')}
           </Button>
         </DialogActions>
       </Dialog>

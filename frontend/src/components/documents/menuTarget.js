@@ -1,5 +1,7 @@
 // Which folder a Files-page action lands in.
 
+import { translate } from '../../i18n';
+
 /** Folder holding a stored path; '/' for a top-level item. */
 export function parentPath(path) {
   if (!path) return '/';
@@ -26,7 +28,7 @@ export function menuTargetPath(contextType, item) {
 
 /** Short name for a folder path in messages. */
 export function folderLabel(path) {
-  if (!path || path === '/') return 'Files';
+  if (!path || path === '/') return translate('documents.rootFolderName');
   const parts = path.split('/').filter(Boolean);
-  return parts[parts.length - 1] || 'Files';
+  return parts[parts.length - 1] || translate('documents.rootFolderName');
 }

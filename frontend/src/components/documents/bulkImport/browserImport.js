@@ -12,6 +12,7 @@
 import {
   ensureFolderPath, filesFolderApi, isSensitiveName, SENSITIVE_PATTERNS, storedFolderName,
 } from "../../../utils/droppedFiles";
+import { translate } from "../../../i18n";
 
 export { isSensitiveName, SENSITIVE_PATTERNS };
 
@@ -131,7 +132,7 @@ export const stageFileList = (fileList) =>
 export const stagedLabel = (files) => {
   const tops = new Set(files.map(({ relativePath }) => relativePath.split("/")[0]));
   if (tops.size === 1 && files[0]?.relativePath.includes("/")) return `"${[...tops][0]}"`;
-  return `${files.length} file${files.length === 1 ? "" : "s"}`;
+  return translate("upload.bulk.fileCount", { count: files.length });
 };
 
 const dirOf = (relativePath) => {
@@ -202,7 +203,7 @@ export const uploadStaged = async ({
       existing.add(res.data?.data?.filename || file.name);
     } catch (err) {
       result.errors += 1;
-      const reason = err.response?.data?.error?.message || err.response?.data?.message || err.message || "upload failed";
+      const reason = err.response?.data?.error?.message || err.response?.data?.message || err.message || translate("upload.bulk.uploadFailedReason");
       result.failures.push(`${relativePath}: ${reason}`);
     }
   }

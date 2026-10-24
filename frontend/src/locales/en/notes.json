@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Normal",
+    "compact": "Compact",
+    "collapsed": "Collapsed"
+  },
+  "untitled": "Untitled",
+  "note": {
+    "changeColor": "Change color",
+    "close": "Close",
+    "closeNote": "Close note",
+    "bold": "Bold (Ctrl+B)",
+    "italic": "Italic (Ctrl+I)",
+    "underline": "Underline (Ctrl+U)",
+    "insertLink": "Insert Link",
+    "bodyPlaceholder": "Type your note..."
+  },
+  "errors": {
+    "loadFailed": "Failed to load notes: {{message}}. Using defaults.",
+    "saveFailed": "Failed to save notes.",
+    "copyDenied": "Could not copy: clipboard permission denied",
+    "pasteFailed": "Could not paste: {{message}}",
+    "pasteDenied": "Could not paste: clipboard permission denied"
+  },
+  "pageTitle": "Notes",
+  "loading": "Loading notes...",
+  "toolbar": {
+    "searchPlaceholder": "Search notes...",
+    "dashboardCards": "Dashboard Cards",
+    "stickyNotes": "Sticky Notes",
+    "addNoteTooltip": "Add Note",
+    "addNote": "Add note",
+    "closedNotes": "Closed notes",
+    "layoutCycle": "Layout: {{mode}} (click to cycle)",
+    "layoutMode": "Layout: {{mode}}",
+    "saving": "Saving...",
+    "allSaved": "All changes saved",
+    "saveFailed": "Failed to save"
+  },
+  "emptyNote": "Empty note",
+  "menu": {
+    "copy": "Copy",
+    "selectAll": "Select all",
+    "paste": "Paste",
+    "duplicate": "Duplicate",
+    "rename": "Rename",
+    "unpin": "Unpin",
+    "pinToTop": "Pin to Top"
+  },
+  "actions": {
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "deleteDialog": {
+    "title": "Delete \"{{title}}\"? Ctrl+Z brings it back until you leave or reload this page."
+  },
+  "boardMenu": {
+    "newNote": "New Note",
+    "cycleLayout": "Cycle Layout",
+    "goToDashboard": "Go to Dashboard"
+  },
+  "renameDialog": {
+    "title": "Rename Note",
+    "placeholder": "Note title"
+  },
+  "linkDialog": {
+    "title": "Insert Link",
+    "url": "URL",
+    "insert": "Insert"
+  },
+  "closed": {
+    "justNow": "Just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}}d ago",
+    "deleteNamed": "Delete {{title}}",
+    "heading": "Closed notes",
+    "searchPlaceholder": "Search closed notes...",
+    "empty": "No closed notes",
+    "noMatches": "No matches",
+    "groups": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "thisWeek": "This week",
+      "older": "Older"
+    }
+  }
+}

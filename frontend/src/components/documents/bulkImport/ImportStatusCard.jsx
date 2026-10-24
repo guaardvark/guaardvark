@@ -3,11 +3,14 @@
 import React, { useState } from "react";
 import { Box, Collapse, LinearProgress, Paper, Stack, Typography } from "@mui/material";
 import { ActionButton, StatusPill } from "../../settings/ui";
-import { isTerminalStatus, jobPill, resultLine } from "./importStatus";
+import { isTerminalStatus, jobPill, jobText, resultLine } from "./importStatus";
+import { intoLabel } from "./ImportTargetSelect";
+import { useUiTranslation } from "../../../i18n";
 
 const PREVIEW_NAMES_SHOWN = 200;
 
 const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
+  const { t } = useUiTranslation();
   const [showList, setShowList] = useState(false);
   if (!job) return null;
 
@@ -16,7 +19,15 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
   const progress = typeof job.progress === "number" ? job.progress : null;
   const line = resultLine(job.stats, { preview: job.preview });
   const previewNames = job.preview && Array.isArray(job.stats?.files) ? job.stats.files : [];
-  const failures = job.failures || [];
+  // Files too large for one upload are kept as paths and worded here.
+  const failures = [
+    ...(job.failures || []),
+    ...(job.tooLarge || []).map((path) => t("upload.bulk.status.tooLargeFailure", { path })),
+  ];
+  const message = jobText(job.message);
+  const awayNote = jobText(job.awayNote);
+  // A record saved before `into` was kept carries its label as text.
+  const into = job.into ? intoLabel(job.into) : job.intoLabel;
   const listed = previewNames.length ? previewNames : failures;
 
   return (
@@ -26,15 +37,15 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
           <StatusPill
             label={pill.label}
             tone={pill.tone}
-            tooltip={job.jobId ? `Job ${job.jobId}` : ""}
+            tooltip={job.jobId ? t("upload.bulk.status.jobTooltip", { id: job.jobId }) : ""}
           />
           <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }}>
-            {job.sourceLabel}
-            {job.intoLabel ? ` → ${job.intoLabel}` : ""}
+            {jobText(job.sourceLabel)}
+            {into ? ` → ${into}` : ""}
           </Typography>
           {!done && onStop && (
-            <ActionButton onClick={onStop} tooltip="Finishes the file in progress, then stops">
-              Stop
+            <ActionButton onClick={onStop} tooltip={t("upload.bulk.status.stopTooltip")}>
+              {t("upload.bulk.status.stop")}
             </ActionButton>
           )}
         </Stack>
@@ -46,9 +57,9 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
           />
         )}
 
-        {job.message && (
+        {message && (
           <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            {job.message}
+            {message}
           </Typography>
         )}
         {line && (
@@ -56,9 +67,9 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
             {line}
           </Typography>
         )}
-        {job.awayNote && (
+        {awayNote && (
           <Typography variant="caption" color="text.secondary">
-            {job.awayNote}
+            {awayNote}
           </Typography>
         )}
 
@@ -66,10 +77,10 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
           <Box>
             <ActionButton kind="link" onClick={() => setShowList((v) => !v)}>
               {showList
-                ? "Hide the list"
+                ? t("upload.bulk.status.hideList")
                 : previewNames.length
-                ? `Show the ${previewNames.length} file${previewNames.length === 1 ? "" : "s"}`
-                : `Show the ${failures.length} failed`}
+                ? t("upload.bulk.status.showFiles", { count: previewNames.length })
+                : t("upload.bulk.status.showFailed", { count: failures.length })}
             </ActionButton>
             <Collapse in={showList} unmountOnExit>
               <Box
@@ -80,7 +91,7 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
                   <li key={`${i}-${name}`}>{name}</li>
                 ))}
                 {listed.length > PREVIEW_NAMES_SHOWN && (
-                  <li>and {listed.length - PREVIEW_NAMES_SHOWN} more</li>
+                  <li>{t("upload.bulk.status.andMore", { count: listed.length - PREVIEW_NAMES_SHOWN })}</li>
                 )}
               </Box>
             </Collapse>
@@ -89,8 +100,8 @@ const ImportStatusCard = ({ job, onOpenFiles, onImportAnother, onStop }) => {
 
         {done && (onOpenFiles || onImportAnother) && (
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            {onOpenFiles && !job.preview && <ActionButton onClick={onOpenFiles}>Open Files</ActionButton>}
-            {onImportAnother && <ActionButton onClick={onImportAnother}>Import another</ActionButton>}
+            {onOpenFiles && !job.preview && <ActionButton onClick={onOpenFiles}>{t("upload.bulk.status.openFiles")}</ActionButton>}
+            {onImportAnother && <ActionButton onClick={onImportAnother}>{t("upload.bulk.status.importAnother")}</ActionButton>}
           </Stack>
         )}
       </Stack>

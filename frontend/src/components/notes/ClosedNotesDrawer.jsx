@@ -18,6 +18,7 @@ import SearchIcon from "@mui/icons-material/Search";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import StickyNote2OutlinedIcon from "@mui/icons-material/StickyNote2Outlined";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import { useUiTranslation, translate, uiLocale } from "../../i18n";
 
 const DRAWER_WIDTH = 340;
 
@@ -37,12 +38,12 @@ const formatRelative = (isoString) => {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return "Just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays === 1) return "Yesterday";
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+  if (diffMins < 1) return translate("notes.closed.justNow");
+  if (diffMins < 60) return translate("notes.closed.minutesAgo", { count: diffMins });
+  if (diffHours < 24) return translate("notes.closed.hoursAgo", { count: diffHours });
+  if (diffDays === 1) return translate("notes.closed.yesterday");
+  if (diffDays < 7) return translate("notes.closed.daysAgo", { count: diffDays });
+  return date.toLocaleDateString(uiLocale(), { month: "short", day: "numeric" });
 };
 
 const groupClosed = (entries) => {
@@ -62,6 +63,7 @@ const groupClosed = (entries) => {
 };
 
 const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteRequest }) => {
+  const { t } = useUiTranslation();
   const [searchQuery, setSearchQuery] = useState("");
 
   const entries = useMemo(() => {
@@ -95,12 +97,12 @@ const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteReque
                 sx={{ fontSize: 16, mt: 0.4, color: "text.disabled", flexShrink: 0 }}
               />
               <Typography variant="body2" noWrap sx={{ flex: 1, color: "text.secondary" }}>
-                {note.title || "Untitled"}
+                {note.title || t("notes.untitled")}
               </Typography>
-              <Tooltip title="Delete">
+              <Tooltip title={t("notes.actions.delete")}>
                 <IconButton
                   size="small"
-                  aria-label={`Delete ${note.title || "Untitled"}`}
+                  aria-label={t("notes.closed.deleteNamed", { title: note.title || t("notes.untitled") })}
                   onClick={(e) => {
                     e.stopPropagation();
                     onDeleteRequest(note.id);
@@ -182,11 +184,11 @@ const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteReque
     >
       <Box sx={{ p: 2, pb: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5 }}>
-          Closed notes
+          {t("notes.closed.heading")}
         </Typography>
         <TextField
           size="small"
-          placeholder="Search closed notes..."
+          placeholder={t("notes.closed.searchPlaceholder")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           fullWidth
@@ -202,14 +204,14 @@ const ClosedNotesDrawer = ({ open, onClose, closedNotes, onReopen, onDeleteReque
       <List sx={{ flex: 1, overflow: "auto", pt: 0 }}>
         {filtered.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pt: 2 }}>
-            {entries.length === 0 ? "No closed notes" : "No matches"}
+            {entries.length === 0 ? t("notes.closed.empty") : t("notes.closed.noMatches")}
           </Typography>
         ) : (
           <>
-            {renderGroup("Today", groups.today)}
-            {renderGroup("Yesterday", groups.yesterday)}
-            {renderGroup("This week", groups.thisWeek)}
-            {renderGroup("Older", groups.older)}
+            {renderGroup(t("notes.closed.groups.today"), groups.today)}
+            {renderGroup(t("notes.closed.groups.yesterday"), groups.yesterday)}
+            {renderGroup(t("notes.closed.groups.thisWeek"), groups.thisWeek)}
+            {renderGroup(t("notes.closed.groups.older"), groups.older)}
           </>
         )}
       </List>

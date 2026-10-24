@@ -27,6 +27,7 @@ import {
 } from "@mui/icons-material";
 import FolderIconComponent from "./FolderIcon";
 import { getFileTypeInfo, formatTimestamp } from "../../utils/fileTypeUtils";
+import { useUiTranslation } from "../../i18n";
 
 const FolderView = ({ 
   _folderName, 
@@ -35,6 +36,7 @@ const FolderView = ({
   onItemContextMenu,
   _loading = false 
 }) => {
+  const { t } = useUiTranslation();
   const [viewMode, setViewMode] = useState("grid"); // "grid" or "list"
 
   const handleViewChange = (event, newView) => {
@@ -75,7 +77,7 @@ const FolderView = ({
       return (
         <Chip
           icon={<CheckCircleIcon />}
-          label="Indexed"
+          label={t("files.folderView.indexed")}
           size="small"
           color="success"
           variant="outlined"
@@ -85,7 +87,7 @@ const FolderView = ({
       return (
         <Chip
           icon={<ScheduleIcon />}
-          label="Indexing"
+          label={t("files.folderView.indexing")}
           size="small"
           color="warning"
           variant="outlined"
@@ -95,7 +97,7 @@ const FolderView = ({
       return (
         <Chip
           icon={<ErrorIcon />}
-          label="Failed"
+          label={t("files.folderView.failed")}
           size="small"
           color="error"
           variant="outlined"
@@ -105,7 +107,7 @@ const FolderView = ({
     
     return (
       <Chip
-        label="Not Indexed"
+        label={t("files.folderView.notIndexed")}
         size="small"
         variant="outlined"
         sx={{ opacity: 0.7 }}
@@ -142,7 +144,7 @@ const FolderView = ({
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            {items.length} items
+            {t("files.itemCount", { count: items.length })}
           </Typography>
           <ToggleButtonGroup
             value={viewMode}
@@ -151,12 +153,12 @@ const FolderView = ({
             size="small"
           >
             <ToggleButton value="grid">
-              <Tooltip title="Grid View">
+              <Tooltip title={t("files.view.grid")}>
                 <GridViewIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
             <ToggleButton value="list">
-              <Tooltip title="List View">
+              <Tooltip title={t("files.view.list")}>
                 <ListViewIcon fontSize="small" />
               </Tooltip>
             </ToggleButton>
@@ -175,7 +177,7 @@ const FolderView = ({
               }}
             >
               <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                This folder is empty
+                {t("files.folderView.empty")}
               </Typography>
             </Box>
           ) : (
@@ -251,7 +253,7 @@ const FolderView = ({
         }}
       >
         <Typography variant="body2" color="text.secondary">
-          {items.length} items
+          {t("files.itemCount", { count: items.length })}
         </Typography>
         <ToggleButtonGroup
           value={viewMode}
@@ -260,12 +262,12 @@ const FolderView = ({
           size="small"
         >
           <ToggleButton value="grid">
-            <Tooltip title="Grid View">
+            <Tooltip title={t("files.view.grid")}>
               <GridViewIcon fontSize="small" />
             </Tooltip>
           </ToggleButton>
           <ToggleButton value="list">
-            <Tooltip title="List View">
+            <Tooltip title={t("files.view.list")}>
               <ListViewIcon fontSize="small" />
             </Tooltip>
           </ToggleButton>
@@ -285,7 +287,7 @@ const FolderView = ({
             }}
           >
             <Typography variant="body2" color="text.secondary" fontStyle="italic">
-              This folder is empty
+              {t("files.folderView.empty")}
             </Typography>
           </Box>
         ) : (

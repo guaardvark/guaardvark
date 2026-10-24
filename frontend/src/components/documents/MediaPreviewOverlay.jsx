@@ -5,8 +5,10 @@ import { Box, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import MediaView from './MediaView';
 import { isVisualMediaFile } from './folderViewPolicy';
+import { useUiTranslation } from '../../i18n';
 
 const MediaPreviewOverlay = ({ file, siblings = [], onClose, onFileOpen, onContextMenu }) => {
+  const { t } = useUiTranslation();
   const files = (siblings.length ? siblings : (file ? [file] : []))
     .filter((f) => isVisualMediaFile(f.filename || f.name));
 
@@ -39,7 +41,7 @@ const MediaPreviewOverlay = ({ file, siblings = [], onClose, onFileOpen, onConte
         onClick={onClose}
         sx={{ position: 'absolute', top: 8, right: 8, color: 'white', zIndex: 1 }}
         size="small"
-        aria-label="Close preview"
+        aria-label={t('documents.mediaView.closePreview')}
       >
         <CloseIcon />
       </IconButton>

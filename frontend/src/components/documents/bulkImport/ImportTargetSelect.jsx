@@ -3,6 +3,7 @@
 // top-level folder the import creates.
 import React from "react";
 import { Divider, ListSubheader, MenuItem, TextField } from "@mui/material";
+import { translate, useUiTranslation } from "../../../i18n";
 
 export const DEFAULT_INTO = { id: null, path: null, name: "Imports", isNew: true };
 
@@ -13,10 +14,11 @@ const NEW_FOLDER = "__new_folder__";
 export const intoLabel = (into) => {
   if (!into) return "";
   const parts = (into.path || into.name || "").split("/").filter(Boolean);
-  return ["Files", ...parts].join(" › ");
+  return [translate("upload.bulk.filesPage"), ...parts].join(" › ");
 };
 
 const ImportTargetSelect = ({ folders, value, onChange, onNewFolder, disabled = false }) => {
+  const { t } = useUiTranslation();
   const options = folders.map((f) => ({ id: f.id, path: f.path, name: f.name, isNew: false }));
   const hasDefault = options.some((o) => o.name === DEFAULT_INTO.name);
   if (!hasDefault) options.unshift(DEFAULT_INTO);
@@ -36,26 +38,30 @@ const ImportTargetSelect = ({ folders, value, onChange, onNewFolder, disabled = 
     <TextField
       select
       size="small"
-      label="Into"
+      label={t("upload.bulk.into.label")}
       value={keyOf(value)}
       onChange={handleChange}
       disabled={disabled}
       sx={{ minWidth: 220 }}
       SelectProps={{
-        renderValue: () => (value?.path || value?.name || "").split("/").filter(Boolean).join(" › ") +
-          (value?.isNew ? " (new)" : ""),
+        renderValue: () => {
+          const name = (value?.path || value?.name || "").split("/").filter(Boolean).join(" › ");
+          return value?.isNew ? t("upload.bulk.into.newFolder", { name }) : name;
+        },
       }}
       inputProps={{ "data-testid": "import-into" }}
     >
-      <ListSubheader>Folders in Files</ListSubheader>
-      {options.map((o) => (
-        <MenuItem key={keyOf(o)} value={keyOf(o)}>
-          {(o.path || o.name).split("/").filter(Boolean).join(" › ")}
-          {o.isNew ? " (new)" : ""}
-        </MenuItem>
-      ))}
+      <ListSubheader>{t("upload.bulk.into.foldersInFiles")}</ListSubheader>
+      {options.map((o) => {
+        const name = (o.path || o.name).split("/").filter(Boolean).join(" › ");
+        return (
+          <MenuItem key={keyOf(o)} value={keyOf(o)}>
+            {o.isNew ? t("upload.bulk.into.newFolder", { name }) : name}
+          </MenuItem>
+        );
+      })}
       <Divider />
-      <MenuItem value={NEW_FOLDER}>New folder…</MenuItem>
+      <MenuItem value={NEW_FOLDER}>{t("upload.bulk.into.newFolderOption")}</MenuItem>
     </TextField>
   );
 };

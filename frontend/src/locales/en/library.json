@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "Output {{jobId}} deleted successfully",
+    "deleteFailed": "Failed to delete output: {{message}}",
+    "retryStarting": "Starting retry for {{count}} failed rows...",
+    "retryStarted": "Retry job started successfully! Job ID: {{jobId}}",
+    "retryFailed": "Failed to start retry: {{message}}",
+    "nothingToClear": "No outputs to clear",
+    "clearing": "Clearing all outputs...",
+    "cleared": "Successfully deleted {{count}} outputs",
+    "clearFailed": "Failed to clear outputs: {{message}}"
+  },
+  "clearConfirm": "Are you sure you want to delete ALL {{count}} outputs? This action cannot be undone.",
+  "pageTitle": "Content Outputs",
+  "stats": {
+    "total": "{{count}} Total",
+    "today": "{{count}} Today",
+    "thisWeek": "{{count}} This Week"
+  },
+  "clearAll": "Clear All",
+  "refresh": "Refresh Output List",
+  "loading": "Loading outputs...",
+  "empty": {
+    "title": "No outputs found",
+    "description": "Generate some content using the bulk generation feature to see outputs here"
+  }
+}

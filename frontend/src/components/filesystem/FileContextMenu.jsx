@@ -14,6 +14,7 @@ import {
   OpenInNew as OpenIcon,
   Visibility as ViewIcon,
 } from "@mui/icons-material";
+import { useUiTranslation } from "../../i18n";
 
 const FileContextMenu = ({ 
   anchorPosition, 
@@ -21,6 +22,7 @@ const FileContextMenu = ({
   item, 
   onAction 
 }) => {
+  const { t } = useUiTranslation();
   const handleAction = (action) => {
     if (onAction) {
       onAction(action, item);
@@ -51,7 +53,7 @@ const FileContextMenu = ({
           <ListItemIcon>
             <OpenIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Open</ListItemText>
+          <ListItemText>{t("files.menu.open")}</ListItemText>
         </MenuItem>
       )}
 
@@ -60,7 +62,7 @@ const FileContextMenu = ({
           <ListItemIcon>
             <ViewIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>View Details</ListItemText>
+          <ListItemText>{t("files.menu.viewDetails")}</ListItemText>
         </MenuItem>
       )}
 
@@ -69,7 +71,7 @@ const FileContextMenu = ({
           <ListItemIcon>
             <OpenIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Open Folder</ListItemText>
+          <ListItemText>{t("files.menu.openFolder")}</ListItemText>
         </MenuItem>
       )}
 
@@ -79,21 +81,21 @@ const FileContextMenu = ({
         <ListItemIcon>
           <EditIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Rename</ListItemText>
+        <ListItemText>{t("files.menu.rename")}</ListItemText>
       </MenuItem>
 
       <MenuItem onClick={() => handleAction("copy")}>
         <ListItemIcon>
           <CopyIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Copy</ListItemText>
+        <ListItemText>{t("files.menu.copy")}</ListItemText>
       </MenuItem>
 
       <MenuItem onClick={() => handleAction("move")}>
         <ListItemIcon>
           <MoveIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Move</ListItemText>
+        <ListItemText>{t("files.menu.move")}</ListItemText>
       </MenuItem>
 
       {isFile && (
@@ -101,7 +103,7 @@ const FileContextMenu = ({
           <ListItemIcon>
             <DownloadIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Download</ListItemText>
+          <ListItemText>{t("files.menu.download")}</ListItemText>
         </MenuItem>
       )}
 
@@ -112,7 +114,7 @@ const FileContextMenu = ({
           <ListItemIcon>
             <RefreshIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Reindex</ListItemText>
+          <ListItemText>{t("files.menu.reindex")}</ListItemText>
         </MenuItem>
       )}
 
@@ -120,7 +122,7 @@ const FileContextMenu = ({
         <ListItemIcon>
           <InfoIcon fontSize="small" />
         </ListItemIcon>
-        <ListItemText>Properties</ListItemText>
+        <ListItemText>{t("files.menu.properties")}</ListItemText>
       </MenuItem>
 
       <Divider />
@@ -132,7 +134,7 @@ const FileContextMenu = ({
         <ListItemIcon>
           <DeleteIcon fontSize="small" color="error" />
         </ListItemIcon>
-        <ListItemText>Delete</ListItemText>
+        <ListItemText>{t("files.menu.delete")}</ListItemText>
       </MenuItem>
     </Menu>
   );

@@ -13,10 +13,12 @@ import {
   PictureAsPdf as PdfIcon,
   OpenInNew as OpenInNewIcon,
 } from "@mui/icons-material";
+import { useUiTranslation } from "../../i18n";
 
 const API_BASE = '/api/files';
 
 const PdfViewerModal = ({ open, onClose, file }) => {
+  const { t } = useUiTranslation();
   const filename = file?.filename || file?.name || "document.pdf";
   const fileUrl = file?.id ? `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}` : "";
 
@@ -58,7 +60,7 @@ const PdfViewerModal = ({ open, onClose, file }) => {
           </Typography>
         </Box>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-          <Tooltip title="Open in new tab">
+          <Tooltip title={t("documents.pdfViewer.openInNewTab")}>
             <span>
               <IconButton size="small" onClick={handleOpenInNewTab} disabled={!fileUrl}>
                 <OpenInNewIcon fontSize="small" />
@@ -82,7 +84,7 @@ const PdfViewerModal = ({ open, onClose, file }) => {
           />
         ) : (
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
-            <Typography color="text.secondary">No PDF file selected</Typography>
+            <Typography color="text.secondary">{t("documents.pdfViewer.noFile")}</Typography>
           </Box>
         )}
       </DialogContent>
