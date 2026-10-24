@@ -1,14 +1,15 @@
 """Repository analysis service — generates architectural summaries and metadata for code repos."""
 
 import ast
+import hashlib
 import json
 import logging
 import os
 import posixpath
 import re
 from datetime import datetime
-from pathlib import PurePosixPath
-from typing import Dict, List, Optional, Tuple
+from pathlib import Path, PurePosixPath
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from backend.models import Folder, Document, db
 from backend.services.indexing_service import add_text_to_index
@@ -31,6 +32,7 @@ FRAMEWORK_INDICATORS = {
 }
 
 REACT_INDICATORS = {".jsx", ".tsx"}
+_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 VUE_INDICATORS = {".vue"}
 ANGULAR_INDICATOR = "angular.json"
 
@@ -189,13 +191,22 @@ class RepositoryAnalysisService:
     @staticmethod
     def _build_module_lookup(folder: Folder, documents: list) -> Tuple[Dict[str, str], Dict[str, str]]:
         """Build path/module lookup tables whose values are stored document paths."""
+        return RepositoryAnalysisService._lookups(
+            documents, lambda doc: RepositoryAnalysisService._repo_relative_path(folder, doc.path)
+        )
+
+    @staticmethod
+    def _lookups(files: list, rel_of) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """Path and module lookup tables over ``files`` (each with .path, its key, and
+        .filename), whose values are the files' keys. ``rel_of(file)`` is the
+        file's path relative to the repository root."""
         from backend.utils.code_chunker import CODE_LANGUAGE_MAP
 
         path_lookup: Dict[str, str] = {}
         module_lookup: Dict[str, str] = {}
 
-        for doc in documents:
-            rel_path = RepositoryAnalysisService._repo_relative_path(folder, doc.path)
+        for doc in files:
+            rel_path = rel_of(doc)
             if not rel_path:
                 continue
 
@@ -330,17 +341,39 @@ class RepositoryAnalysisService:
             return {}
 
         all_files = RepositoryAnalysisService._get_all_files_recursive(folder)
-        path_lookup, module_lookup = RepositoryAnalysisService._build_module_lookup(folder, all_files)
+        graph = RepositoryAnalysisService._dependency_graph(
+            all_files, lambda doc: RepositoryAnalysisService._repo_relative_path(folder, doc.path)
+        )
 
+        # Store in folder metadata
+        try:
+            existing = json.loads(folder.repo_metadata) if folder.repo_metadata else {}
+            existing["dependency_graph"] = graph
+            folder.repo_metadata = json.dumps(existing)
+            db.session.commit()
+            logger.info(f"Built dependency graph for {folder.name}: {len(graph)} files with imports")
+        except Exception as e:
+            logger.error(f"Failed to save dependency graph: {e}")
+
+        return graph
+
+    @staticmethod
+    def _dependency_graph(files: list, rel_of) -> Dict[str, List[str]]:
+        """{file key: [in-repository file keys it imports]} over ``files`` (each with
+        .path, its key, .filename and .content), for Python and JS/TS imports.
+        ``rel_of(file)`` is the file's path relative to the repository root."""
+        from backend.utils.code_chunker import CODE_LANGUAGE_MAP
+
+        path_lookup, module_lookup = RepositoryAnalysisService._lookups(files, rel_of)
         graph = {}
 
-        for doc in all_files:
+        for doc in files:
             ext = os.path.splitext(doc.filename)[1].lower()
             language = CODE_LANGUAGE_MAP.get(ext)
             if not language or not doc.content:
                 continue
 
-            rel_path = RepositoryAnalysisService._repo_relative_path(folder, doc.path)
+            rel_path = rel_of(doc)
             resolved = []
 
             if language == "python":
@@ -361,16 +394,6 @@ class RepositoryAnalysisService:
             if resolved:
                 graph[doc.path] = sorted(set(resolved))
 
-        # Store in folder metadata
-        try:
-            existing = json.loads(folder.repo_metadata) if folder.repo_metadata else {}
-            existing["dependency_graph"] = graph
-            folder.repo_metadata = json.dumps(existing)
-            db.session.commit()
-            logger.info(f"Built dependency graph for {folder.name}: {len(graph)} files with imports")
-        except Exception as e:
-            logger.error(f"Failed to save dependency graph: {e}")
-
         return graph
 
     @staticmethod
@@ -390,92 +413,16 @@ class RepositoryAnalysisService:
         Lists the most important symbols across all files, fitting within
         the token budget. Indexed as a document for RAG context injection.
         """
-        import networkx as nx
-        from backend.utils.code_symbol_extractor import extract_symbols
-        from backend.utils.code_chunker import CODE_LANGUAGE_MAP
-
         folder = db.session.get(Folder, folder_id)
         if not folder:
             return ""
 
         all_files = RepositoryAnalysisService._get_all_files_recursive(folder)
-
-        # Collect all symbols per file
-        file_symbols = {}
-        for doc in all_files:
-            ext = os.path.splitext(doc.filename)[1].lower()
-            language = CODE_LANGUAGE_MAP.get(ext)
-            if not language or not doc.content:
-                continue
-            symbols = extract_symbols(doc.content, language)
-            if symbols:
-                file_symbols[doc.path] = symbols
-
-        if not file_symbols:
+        repo_map = RepositoryAnalysisService._repository_map(folder.name, all_files, token_budget)
+        if not repo_map:
             # Stored empty, so readers can tell "nothing to map" from "not built yet".
             RepositoryAnalysisService._store_repository_map(folder, "")
             return ""
-
-        # Build a simple reference graph for PageRank
-        G = nx.DiGraph()
-        for path, syms in file_symbols.items():
-            for s in syms:
-                if s["type"] in ("function", "class", "method"):
-                    node_id = f"{path}::{s['name']}"
-                    G.add_node(node_id, path=path, name=s["name"], type=s["type"])
-
-        # Add edges: if a file's code mentions a symbol defined in another file
-        for path, syms in file_symbols.items():
-            doc = next((d for d in all_files if d.path == path), None)
-            if not doc or not doc.content:
-                continue
-            for other_path, other_syms in file_symbols.items():
-                if other_path == path:
-                    continue
-                for s in other_syms:
-                    if s["type"] in ("function", "class", "method") and s["name"] in doc.content:
-                        src = f"{path}::caller"
-                        dst = f"{other_path}::{s['name']}"
-                        if dst in G:
-                            G.add_edge(src, dst)
-
-        # Rank by PageRank
-        try:
-            ranks = nx.pagerank(G, max_iter=50) if len(G) > 0 else {}
-        except Exception:
-            ranks = {n: 1.0 for n in G.nodes()}
-
-        # Build the map text, fitting within token budget
-        file_ranked = {}
-        for node_id, rank in ranks.items():
-            data = G.nodes.get(node_id, {})
-            path = data.get("path")
-            if path:
-                if path not in file_ranked:
-                    file_ranked[path] = []
-                file_ranked[path].append((rank, data.get("name", ""), data.get("type", "")))
-
-        sorted_files = sorted(
-            file_ranked.items(),
-            key=lambda item: max(r for r, _, _ in item[1]),
-            reverse=True,
-        )
-
-        lines = [f"# Repository Map: {folder.name}\n"]
-        char_budget = token_budget * 4  # ~4 chars per token
-
-        for path, ranked_syms in sorted_files:
-            section = f"\n## {path}\n"
-            ranked_syms.sort(reverse=True)
-            for _, name, sym_type in ranked_syms[:10]:
-                section += f"- {sym_type}: {name}\n"
-
-            if len("\n".join(lines)) + len(section) > char_budget:
-                lines.append("\n... (truncated to fit token budget)")
-                break
-            lines.append(section)
-
-        repo_map = "\n".join(lines)
 
         # Store in folder metadata and index
         RepositoryAnalysisService._store_repository_map(folder, repo_map)
@@ -500,6 +447,77 @@ class RepositoryAnalysisService:
             logger.error(f"Failed to index repository map: {e}")
 
         return repo_map
+
+    @staticmethod
+    def _repository_map(title: str, files: list, token_budget: int = 4096) -> str:
+        """A PageRank-ranked map of the classes, functions and methods in ``files``
+        (each with .path, .filename and .content), within ``token_budget``. A file
+        that names a symbol another file defines links to it. "" when no file has
+        symbols."""
+        import networkx as nx
+        from backend.utils.code_symbol_extractor import extract_symbols
+        from backend.utils.code_chunker import CODE_LANGUAGE_MAP
+
+        file_symbols = {}
+        for doc in files:
+            ext = os.path.splitext(doc.filename)[1].lower()
+            language = CODE_LANGUAGE_MAP.get(ext)
+            if not language or not doc.content:
+                continue
+            symbols = extract_symbols(doc.content, language)
+            if symbols:
+                file_symbols[doc.path] = symbols
+        if not file_symbols:
+            return ""
+
+        G = nx.DiGraph()
+        defined_in: Dict[str, List[str]] = {}
+        for path, syms in file_symbols.items():
+            for s in syms:
+                if s["type"] in ("function", "class", "method"):
+                    G.add_node(f"{path}::{s['name']}", path=path, name=s["name"], type=s["type"])
+                    defined_in.setdefault(s["name"], []).append(path)
+
+        # One pass over each file's identifiers instead of searching its text for
+        # every symbol in the repository.
+        for doc in files:
+            if doc.path not in file_symbols or not doc.content:
+                continue
+            for name in set(_IDENTIFIER.findall(doc.content)) & defined_in.keys():
+                for other_path in defined_in[name]:
+                    if other_path != doc.path:
+                        G.add_edge(f"{doc.path}::caller", f"{other_path}::{name}")
+
+        try:
+            ranks = nx.pagerank(G, max_iter=50) if len(G) > 0 else {}
+        except Exception:
+            ranks = {n: 1.0 for n in G.nodes()}
+
+        file_ranked = {}
+        for node_id, rank in ranks.items():
+            data = G.nodes.get(node_id, {})
+            path = data.get("path")
+            if path:
+                file_ranked.setdefault(path, []).append((rank, data.get("name", ""), data.get("type", "")))
+
+        sorted_files = sorted(
+            file_ranked.items(),
+            key=lambda item: max(r for r, _, _ in item[1]),
+            reverse=True,
+        )
+
+        lines = [f"# Repository Map: {title}\n"]
+        char_budget = token_budget * 4  # ~4 chars per token
+        for path, ranked_syms in sorted_files:
+            section = f"\n## {path}\n"
+            ranked_syms.sort(reverse=True)
+            for _, name, sym_type in ranked_syms[:10]:
+                section += f"- {sym_type}: {name}\n"
+            if len("\n".join(lines)) + len(section) > char_budget:
+                lines.append("\n... (truncated to fit token budget)")
+                break
+            lines.append(section)
+        return "\n".join(lines)
 
     @staticmethod
     def _generate_llm_summary(
@@ -583,3 +601,97 @@ Be concise. Focus on what a developer needs to understand the codebase."""
         for sub in folder.subfolders.all():
             files.extend(RepositoryAnalysisService._get_all_files_recursive(sub))
         return files
+
+
+# A project folder's import graph and repository map, built from the files on
+# disk and kept in data/code_maps/<key>.json until the folder's source changes.
+MAX_MAPPED_FILES = 4000
+MAX_MAPPED_FILE_BYTES = 512 * 1024
+
+
+class _DiskFile(NamedTuple):
+    path: str  # relative to the folder; the key in the graph and the map
+    filename: str
+    content: str
+
+
+def _code_maps_dir() -> Path:
+    from backend.config import STORAGE_DIR
+
+    return Path(STORAGE_DIR) / "code_maps"
+
+
+def _listed_source(root: str) -> Tuple[List[str], float]:
+    """The folder's source files the code tools would list (git-aware, without
+    hidden, dependency and build folders), and their newest modification time."""
+    from backend.tools.llama_code_tools import _source_files, rooted_at
+    from backend.utils.code_chunker import CODE_LANGUAGE_MAP
+
+    with rooted_at(root):
+        rels = _source_files("")
+    rels = sorted(r for r in rels if os.path.splitext(r)[1].lower() in CODE_LANGUAGE_MAP)[:MAX_MAPPED_FILES]
+    newest = 0.0
+    for rel in rels:
+        try:
+            newest = max(newest, os.stat(os.path.join(root, rel)).st_mtime)
+        except OSError:
+            continue
+    return rels, newest
+
+
+def _read_disk_files(root: str, rels: List[str]) -> List[_DiskFile]:
+    files = []
+    for rel in rels:
+        full = os.path.join(root, rel)
+        try:
+            if os.path.getsize(full) > MAX_MAPPED_FILE_BYTES:
+                continue
+            with open(full, "rb") as f:
+                raw = f.read()
+        except OSError:
+            continue
+        if b"\x00" in raw[:8192]:
+            continue
+        files.append(_DiskFile(rel, os.path.basename(rel), raw.decode("utf-8", errors="replace")))
+    return files
+
+
+def project_code_map(key: str, root: str, token_budget: Optional[int] = None, force: bool = False) -> Dict:
+    """The import graph and repository map of the folder ``root``, from disk.
+
+    Returns {root, analyzed_at, file_count, languages, dependency_graph,
+    repository_map}; graph and map paths are relative to ``root``. Built at most
+    once per change: the cache under ``key`` is reused while no listed file is
+    newer than it and the list of files is the same.
+    """
+    root = os.path.realpath(root)
+    rels, newest = _listed_source(root)
+    listing = hashlib.sha1("\n".join(rels).encode()).hexdigest()
+    cache = _code_maps_dir() / f"{key}.json"
+    if not force and cache.is_file():
+        try:
+            data = json.loads(cache.read_text())
+            if data.get("root") == root and data.get("listing") == listing and data.get("newest_mtime", 0) >= newest:
+                return data
+        except (OSError, ValueError):
+            pass
+
+    budget = token_budget or int(os.environ.get("GUAARDVARK_REPO_MAP_TOKEN_BUDGET", "4096"))
+    files = _read_disk_files(root, rels)
+    data = {
+        "root": root,
+        "analyzed_at": datetime.now().isoformat(timespec="seconds"),
+        "file_count": len(rels),
+        "newest_mtime": newest,
+        "listing": listing,
+        "languages": RepositoryAnalysisService.get_language_breakdown(rels),
+        "dependency_graph": RepositoryAnalysisService._dependency_graph(files, lambda f: f.path),
+        "repository_map": RepositoryAnalysisService._repository_map(os.path.basename(root), files, budget),
+    }
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    tmp = cache.with_name(cache.name + ".tmp")
+    tmp.write_text(json.dumps(data))
+    os.replace(tmp, cache)
+    logger.info("Mapped %s: %d source files, %d with in-folder imports",
+                root, len(rels), len(data["dependency_graph"]))
+    return data

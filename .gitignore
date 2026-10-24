@@ -100,6 +100,9 @@ data/agent/desktop/
 # Wayland desktop bridge runtime state: the portal restore token and its log
 data/desktop_bridge/
 
+# Import graphs and repository maps of project folders, rebuilt from disk
+data/code_maps/
+
 # Agent browser state — cookies, sessions, history, cache, anything that
 # should never leave the local machine. Was previously only excluded via
 # .git/info/exclude (per-clone, not shared); promoting to the tracked
