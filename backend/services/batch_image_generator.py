@@ -1741,6 +1741,10 @@ class BatchImageGenerator:
                     except Exception:
                         pass
 
+                    # One image at a time on a CUDA card: one pipeline per card, and a
+                    # second worker only waits on its generation lock. Measured 2026-10-24
+                    # on a 16 GB card (Z-Image Turbo, 1344x768, 9 steps, 6 images): one
+                    # worker 160 s, two workers 171 s, each image 23 s against 46 s.
                     max_workers = 1 if self._batch_uses_cuda_offline_gen() else request.max_workers
 
                     results = []
