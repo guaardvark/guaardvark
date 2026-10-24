@@ -912,6 +912,22 @@ def _project_code_map(tool):
         return None, display_text(f"Could not map the project folder: {e}")
 
 
+def _folder_of_turn_project(tool, folder_id) -> bool:
+    """True when folder_id is a Library folder of the chat's own project and the
+    project has a folder on disk: the upload is a snapshot of that folder, so the
+    folder itself answers."""
+    if not folder_id or not _turn_project_root(tool):
+        return False
+    project_id = (getattr(tool, "_context", None) or {}).get("project_id")
+    if not project_id:
+        return False
+    try:
+        folder = db.session.get(Folder, int(folder_id))
+    except (TypeError, ValueError):
+        return False
+    return bool(folder and folder.project_id and int(folder.project_id) == int(project_id))
+
+
 def _project_map_stamp(data):
     return (f"Mapped from the project folder {display_text(data['root'])} at {data['analyzed_at']} "
             f"({data['file_count']} source files); paths are relative to it.")
@@ -945,7 +961,7 @@ class GetRepositoryMapTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         folder_id = kwargs.get("folder_id")
-        if not folder_id:
+        if not folder_id or _folder_of_turn_project(self, folder_id):
             data, err = _project_code_map(self)
             if err:
                 return ToolResult(success=False, error=err)
@@ -1021,7 +1037,7 @@ class GetDependencyGraphTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         folder_id = kwargs.get("folder_id")
-        if not folder_id:
+        if not folder_id or _folder_of_turn_project(self, folder_id):
             data, err = _project_code_map(self)
             if err:
                 return ToolResult(success=False, error=err)
@@ -1113,7 +1129,7 @@ class ReadASTNodeTool(BaseTool):
 
         if not filepath or not node_name:
             return ToolResult(success=False, error="Missing required parameter: filepath or node_name")
-        turn_root = None if folder_id else _turn_project_root(self)
+        turn_root = _turn_project_root(self) if (not folder_id or _folder_of_turn_project(self, folder_id)) else None
         if not folder_id and not turn_root:
             return ToolResult(success=False, error=NO_FOLDER_ID)
 
