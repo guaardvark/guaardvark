@@ -235,20 +235,6 @@ def trigger_document_indexing(document_id):
         )
 
 
-def _queue_stopped(doc_id, job_id, dispatched, total, exc):
-    """Answer for a batch whose dispatch failed part-way: the documents queued
-    before it keep indexing; the one that failed is ERROR, since nothing is
-    indexing it, and Resume pending indexing re-queues it once Redis is back."""
-    update_document_status(doc_id, "ERROR", str(exc))
-    mark_progress_not_started(job_id, exc)
-    return jsonify({
-        "error": f"{dispatched} of {total} documents were queued, then indexing stopped: {exc}",
-        "code": exc.code,
-        "job_id": job_id,
-        "dispatched": dispatched,
-    }), 503
-
-
 def _dispatch_document(progress_system, index_document_task, doc):
     """Queue one document of a batch under its own progress record.
 
