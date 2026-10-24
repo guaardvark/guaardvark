@@ -51,6 +51,7 @@ import { useSnackbar } from "../common/SnackbarProvider";
 import { useAppStore } from "../../stores/useAppStore";
 import ClientUpdatePanel from "./ClientUpdatePanel";
 import InterconnectorEnrolments from "./InterconnectorEnrolments";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -67,15 +68,16 @@ const redactValue = (value) => {
 // Client: whether the master has let this machine join, and the key
 // fingerprint the person approving it there compares with.
 const FleetMembership = ({ identity }) => {
+  const { t } = useUiTranslation();
   if (!identity) return null;
   const fleet = identity.fleet || {};
   const key = identity.key_fingerprint;
-  const keyLine = key ? `This machine's key: ${key}` : "This machine's key is made at its first enrolment.";
+  const keyLine = key ? t("settingsInterconnector.fleet.thisKey", { key }) : t("settingsInterconnector.fleet.keyMadeAtEnrolment");
   if (fleet.status === "approved") {
     return (
       <Alert severity="success">
-        This machine is part of the fleet.{" "}
-        {fleet.master_fingerprint ? `Master's key: ${fleet.master_fingerprint}. ` : ""}
+        {t("settingsInterconnector.fleet.approved")}{" "}
+        {fleet.master_fingerprint ? `${t("settingsInterconnector.fleet.masterKey", { fingerprint: fleet.master_fingerprint })} ` : ""}
         {keyLine}
       </Alert>
     );
@@ -83,26 +85,26 @@ const FleetMembership = ({ identity }) => {
   if (fleet.status === "pending") {
     return (
       <Alert severity="info">
-        Waiting for approval on the master (Settings → Interconnector, machines joining the
-        fleet). Approve it there only if it shows the same key. {keyLine}
+        {t("settingsInterconnector.fleet.pending")} {keyLine}
       </Alert>
     );
   }
   if (fleet.status === "refused") {
     return (
       <Alert severity="warning">
-        The master did not enrol this machine{fleet.message ? `: ${fleet.message}` : "."} {keyLine}
+        {fleet.message ? t("settingsInterconnector.fleet.refusedWithReason", { reason: fleet.message }) : t("settingsInterconnector.fleet.refused")} {keyLine}
       </Alert>
     );
   }
   return (
     <Alert severity="info">
-      Save to ask the master to enrol this machine; the operator approves it there. {keyLine}
+      {t("settingsInterconnector.fleet.notEnrolled")} {keyLine}
     </Alert>
   );
 };
 
 const InterconnectorSettings = () => {
+  const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
   const systemName = useAppStore((state) => state.systemName);
 
@@ -345,7 +347,7 @@ const InterconnectorSettings = () => {
         console.warn('Interconnector plugin not enabled');
         // Keep default config - don't call setConfig since state is already initialized
       } else if (response.error) {
-        showMessage(`Failed to load configuration: ${response.error}`, "error");
+        showMessage(t("settingsInterconnector.messages.loadConfigFailed", { error: response.error }), "error");
       } else if (response.data?.config) {
         const loadedConfig = response.data.config;
         setConfig(loadedConfig);
@@ -360,7 +362,7 @@ const InterconnectorSettings = () => {
     } catch (error) {
       // Silently handle if plugin is not enabled
       if (error.message !== 'Not Found') {
-        showMessage(`Error loading configuration: ${error.message}`, "error");
+        showMessage(t("settingsInterconnector.messages.loadConfigError", { error: error.message }), "error");
       }
     } finally {
       setIsLoading(false);
@@ -419,7 +421,7 @@ const InterconnectorSettings = () => {
       console.error("[INTERCONNECTOR] Error loading nodes:", error);
       setNodes([]);
       // Otherwise the node list just looks empty.
-      showMessage(`Connected machines could not be loaded: ${errorMsg || "the request failed"}`, "error");
+      showMessage(t("settingsInterconnector.messages.nodesFailed", { error: errorMsg || t("settingsInterconnector.requestFailed") }), "error");
     }
   };
 
@@ -442,7 +444,7 @@ const InterconnectorSettings = () => {
     } catch (error) {
       console.warn("[INTERCONNECTOR] Failed to load sync profiles:", error.message);
       if (!isDisabledPluginError(error)) {
-        showMessage(`Sync profiles could not be loaded: ${error.message || "the request failed"}`, "error");
+        showMessage(t("settingsInterconnector.messages.profilesFailed", { error: error.message || t("settingsInterconnector.requestFailed") }), "error");
       }
     }
   };
@@ -456,7 +458,7 @@ const InterconnectorSettings = () => {
     } catch (error) {
       console.warn("[INTERCONNECTOR] Failed to load approvals:", error.message);
       if (!isDisabledPluginError(error)) {
-        showMessage(`Pending approvals could not be loaded: ${error.message || "the request failed"}`, "error");
+        showMessage(t("settingsInterconnector.messages.approvalsFailed", { error: error.message || t("settingsInterconnector.requestFailed") }), "error");
       }
     } finally {
       setIsLoadingApprovals(false);
@@ -471,7 +473,7 @@ const InterconnectorSettings = () => {
       if (systemName) {
         updatedNodeName = systemName;
       } else {
-        showMessage("Please set a System Name in Branding before enabling the interconnector", "warning");
+        showMessage(t("settingsInterconnector.messages.setSystemName"), "warning");
         return;
       }
     }
@@ -491,21 +493,21 @@ const InterconnectorSettings = () => {
       const configToSave = { ...config, is_enabled: false };
       const response = await interconnectorApi.updateInterconnectorConfig(configToSave);
       if (response.error === 'Not Found') {
-        showMessage("Interconnector plugin is not enabled on this server", "warning");
+        showMessage(t("settingsInterconnector.messages.pluginDisabled"), "warning");
         setIsSaving(false);
         return;
       }
       if (response.error) {
-        throw new Error(response.error?.message || response.error || 'Unknown error');
+        throw new Error(response.error?.message || response.error || t("settingsInterconnector.unknownError"));
       }
       const newConfig = response.data?.config || response.config || configToSave;
       setConfig(newConfig);
       rememberSaved(newConfig);
-      showMessage("Network Interconnector disabled", "success");
+      showMessage(t("settingsInterconnector.messages.disabled"), "success");
     } catch (error) {
       setConfig(prev => ({ ...prev, is_enabled: true }));
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
-      showMessage(`Failed to disable: ${errorMsg}`, "error");
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
+      showMessage(t("settingsInterconnector.messages.disableFailed", { error: errorMsg }), "error");
     } finally {
       setIsSaving(false);
     }
@@ -544,12 +546,12 @@ const InterconnectorSettings = () => {
       
       const response = await interconnectorApi.updateInterconnectorConfig(configToSave);
       if (response.error === 'Not Found') {
-        showMessage("Interconnector plugin is not enabled on this server", "warning");
+        showMessage(t("settingsInterconnector.messages.pluginDisabled"), "warning");
         setIsSaving(false);
         return;
       }
       if (response.error) {
-        throw new Error(response.error?.message || response.error || 'Unknown error');
+        throw new Error(response.error?.message || response.error || t("settingsInterconnector.unknownError"));
       }
       
       // Update config with saved values if returned
@@ -569,7 +571,7 @@ const InterconnectorSettings = () => {
       if (registersNow) lastRegistration.current = registrationKey(saved, nodeId);
       rememberSaved(saved);
 
-      showMessage("Configuration saved successfully", "success");
+      showMessage(t("settingsInterconnector.messages.saved"), "success");
 
       // Reload status after enabling
       if (configToSave.is_enabled) {
@@ -589,7 +591,7 @@ const InterconnectorSettings = () => {
         if (enrolment.error || step.error) {
           if (lastRegistration.current === key) lastRegistration.current = null;
           const reason = step.message || enrolment.error || step.error;
-          showMessage(`Configuration saved, but the master did not enrol this machine: ${reason}`, "warning");
+          showMessage(t("settingsInterconnector.messages.savedNotEnrolled", { reason }), "warning");
         } else {
           if (step.node_id && step.node_id !== nodeId) {
             lastRegistration.current = registrationKey(saved, step.node_id);
@@ -598,11 +600,11 @@ const InterconnectorSettings = () => {
           }
           if (step.pending) {
             showMessage(
-              `Configuration saved. Approve this machine on the master (key ${step.fingerprint}).`,
+              t("settingsInterconnector.messages.savedPending", { fingerprint: step.fingerprint }),
               "info"
             );
           } else {
-            showMessage("Configuration saved; this machine is part of the fleet", "success");
+            showMessage(t("settingsInterconnector.messages.savedInFleet"), "success");
           }
         }
       }
@@ -615,8 +617,8 @@ const InterconnectorSettings = () => {
         }
       }
     } catch (error) {
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
-      showMessage(`Failed to save configuration: ${errorMsg}`, "error");
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
+      showMessage(t("settingsInterconnector.messages.saveFailed", { error: errorMsg }), "error");
     } finally {
       setIsSaving(false);
     }
@@ -626,7 +628,7 @@ const InterconnectorSettings = () => {
     try {
       const response = await interconnectorApi.generateInterconnectorApiKey();
       if (response.error) {
-        throw new Error(response.error?.message || response.error || 'Unknown error');
+        throw new Error(response.error?.message || response.error || t("settingsInterconnector.unknownError"));
       }
 
       const apiData = response.data || response;
@@ -639,22 +641,22 @@ const InterconnectorSettings = () => {
         api_key_hash: apiData.api_key_hash,
       }));
 
-      showMessage("API key generated successfully. Copy it now - it won't be shown again!", "success");
+      showMessage(t("settingsInterconnector.messages.keyGenerated"), "success");
     } catch (error) {
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
-      showMessage(`Failed to generate API key: ${errorMsg}`, "error");
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
+      showMessage(t("settingsInterconnector.messages.keyFailed", { error: errorMsg }), "error");
     }
   };
 
   const handleDisconnectNode = async (nodeId) => {
-    if (!window.confirm(`Disconnect node ${nodeId}?`)) return;
+    if (!window.confirm(t("settingsInterconnector.messages.confirmDisconnect", { node: nodeId }))) return;
 
     try {
       await interconnectorApi.disconnectInterconnectorNode(nodeId);
-      showMessage(`Node ${nodeId} disconnected`, "success");
+      showMessage(t("settingsInterconnector.messages.nodeDisconnected", { node: nodeId }), "success");
       await loadNodes();
     } catch (error) {
-      showMessage(`Failed to disconnect node: ${error.message}`, "error");
+      showMessage(t("settingsInterconnector.messages.disconnectFailed", { error: error.message }), "error");
     }
   };
 
@@ -692,7 +694,7 @@ const InterconnectorSettings = () => {
 
       if (response.error) {
         console.error("[INTERCONNECTOR] Sync response contains error:", response.error);
-        throw new Error(response.error?.message || response.error || 'Unknown error');
+        throw new Error(response.error?.message || response.error || t("settingsInterconnector.unknownError"));
       }
 
       const syncData = response.data || response;
@@ -717,10 +719,12 @@ const InterconnectorSettings = () => {
         errors: fileSummary.total_errors || 0
       });
 
-      let message = `File sync complete: ${fileProcessed} files processed`;
-      if (fileCreated > 0) message += `, ${fileCreated} created`;
-      if (fileUpdated > 0) message += `, ${fileUpdated} updated`;
-      if (fileBackedUp > 0) message += `, ${fileBackedUp} backed up`;
+      const message = [
+        t("settingsInterconnector.messages.fileSyncComplete", { count: fileProcessed }),
+        fileCreated > 0 && t("settingsInterconnector.messages.filesCreated", { count: fileCreated }),
+        fileUpdated > 0 && t("settingsInterconnector.messages.filesUpdated", { count: fileUpdated }),
+        fileBackedUp > 0 && t("settingsInterconnector.messages.filesBackedUp", { count: fileBackedUp }),
+      ].filter(Boolean).join(", ");
 
       showMessage(message, "success");
     } catch (error) {
@@ -730,8 +734,8 @@ const InterconnectorSettings = () => {
         data: error.data,
         stack: error.stack
       });
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
-      showMessage(`File sync failed: ${errorMsg}`, "error");
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
+      showMessage(t("settingsInterconnector.messages.fileSyncFailed", { error: errorMsg }), "error");
       setCodeSyncResults({ error: errorMsg });
     } finally {
       setIsSyncingCode(false);
@@ -766,7 +770,7 @@ const InterconnectorSettings = () => {
 
       if (response.error) {
         console.error("[INTERCONNECTOR] Sync response contains error:", response.error);
-        throw new Error(response.error?.message || response.error || 'Unknown error');
+        throw new Error(response.error?.message || response.error || t("settingsInterconnector.unknownError"));
       }
 
       const syncData = response.data || response;
@@ -784,7 +788,7 @@ const InterconnectorSettings = () => {
       // Check for file sync results
       debugLog("[INTERCONNECTOR] Entity sync summary", summary);
 
-      let message = `Sync complete: ${totalProcessed} entities processed, ${totalCreated} created, ${totalUpdated} updated`;
+      let message = t("settingsInterconnector.messages.syncComplete", { processed: totalProcessed, created: totalCreated, updated: totalUpdated });
 
       showMessage(message, "success");
     } catch (error) {
@@ -794,8 +798,8 @@ const InterconnectorSettings = () => {
         data: error.data,
         stack: error.stack
       });
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
-      showMessage(`Sync failed: ${errorMsg}`, "error");
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
+      showMessage(t("settingsInterconnector.messages.syncFailed", { error: errorMsg }), "error");
       setDataSyncResults({ error: errorMsg });
     } finally {
       setIsSyncingData(false);
@@ -811,11 +815,20 @@ const InterconnectorSettings = () => {
         payload.approved_files = approvedFiles;
       }
       await interconnectorApi.decideApproval(approvalId, payload);
-      showMessage(`Approval ${decision}d`, "success");
+      showMessage(
+        { approve: t("settingsInterconnector.messages.approvalDone.approve"), decline: t("settingsInterconnector.messages.approvalDone.decline") }[decision],
+        "success",
+      );
       await loadApprovals();
     } catch (error) {
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
-      showMessage(`Failed to ${decision} approval: ${errorMsg}`, "error");
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
+      showMessage(
+        {
+          approve: t("settingsInterconnector.messages.approvalFailed.approve", { error: errorMsg }),
+          decline: t("settingsInterconnector.messages.approvalFailed.decline", { error: errorMsg }),
+        }[decision],
+        "error",
+      );
     } finally {
       setIsLoadingApprovals(false);
     }
@@ -832,10 +845,10 @@ const InterconnectorSettings = () => {
       };
       const res = await interconnectorApi.broadcastPush(payload);
       setBroadcastResult(res.data || res);
-      showMessage("Broadcast started", "success");
+      showMessage(t("settingsInterconnector.messages.broadcastStarted"), "success");
     } catch (error) {
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
-      showMessage(`Failed to start broadcast: ${errorMsg}`, "error");
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
+      showMessage(t("settingsInterconnector.messages.broadcastFailed", { error: errorMsg }), "error");
     }
   };
 
@@ -849,16 +862,16 @@ const InterconnectorSettings = () => {
       const response = await interconnectorApi.testFileScanning();
 
       if (response.error) {
-        const errorMsg = response.error?.message || response.error || 'Unknown error';
+        const errorMsg = response.error?.message || response.error || t("settingsInterconnector.unknownError");
         setFileScanTestResult({ success: false, message: errorMsg });
-        showMessage(`File scan test failed: ${errorMsg}`, "error");
+        showMessage(t("settingsInterconnector.messages.fileScanFailed", { error: errorMsg }), "error");
       } else {
         const testData = response.data || response;
         const totalFiles = testData.total_files || 0;
         const totalSizeMB = testData.total_size_mb || 0;
         const _projectRoot = testData.project_root || "unknown";
         
-        const message = `File scan test successful: Found ${totalFiles} files (${totalSizeMB} MB)`;
+        const message = t("settingsInterconnector.messages.fileScanOk", { count: totalFiles, size: totalSizeMB });
         setFileScanTestResult({ 
           success: true, 
           message,
@@ -867,9 +880,9 @@ const InterconnectorSettings = () => {
         showMessage(message, "success");
       }
     } catch (error) {
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
       setFileScanTestResult({ success: false, message: errorMsg });
-      showMessage(`File scan test failed: ${errorMsg}`, "error");
+      showMessage(t("settingsInterconnector.messages.fileScanFailed", { error: errorMsg }), "error");
     } finally {
       setIsTestingFileScan(false);
     }
@@ -885,18 +898,18 @@ const InterconnectorSettings = () => {
       const response = await interconnectorApi.fetchOutputsIndex(100);
 
       if (response.error) {
-        const errorMsg = response.error?.message || response.error || 'Unknown error';
-        showMessage(`Failed to load outputs index: ${errorMsg}`, "error");
+        const errorMsg = response.error?.message || response.error || t("settingsInterconnector.unknownError");
+        showMessage(t("settingsInterconnector.messages.outputsFailed", { error: errorMsg }), "error");
         setOutputsIndex({ error: errorMsg });
       } else {
         const data = response.data || response;
         setOutputsIndex(data);
         const count = data.count || (data.files ? data.files.length : 0);
-        showMessage(`Outputs available: ${count} file(s)`, "success");
+        showMessage(t("settingsInterconnector.messages.outputsAvailable", { count }), "success");
       }
     } catch (error) {
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
-      showMessage(`Failed to load outputs index: ${errorMsg}`, "error");
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
+      showMessage(t("settingsInterconnector.messages.outputsFailed", { error: errorMsg }), "error");
       setOutputsIndex({ error: errorMsg });
     } finally {
       setIsLoadingOutputs(false);
@@ -917,20 +930,24 @@ const InterconnectorSettings = () => {
       const response = await interconnectorApi.testClientConnection(nodeId);
 
       if (response.error) {
-        const errorMsg = response.error?.message || response.error || 'Unknown error';
+        const errorMsg = response.error?.message || response.error || t("settingsInterconnector.unknownError");
         setClientTestResults(prev => ({
           ...prev,
           [nodeId]: { success: false, message: errorMsg }
         }));
-        showMessage(`Connection test failed for ${nodeName}: ${errorMsg}`, "error");
+        showMessage(t("settingsInterconnector.messages.clientTestFailed", { node: nodeName, error: errorMsg }), "error");
       } else {
         const testData = response.data || response;
         const status = testData.connection_status || "unknown";
         const latency = testData.latency_ms || 0;
         
-        let message = `Connection test ${status === 'success' ? 'successful' : status}`;
-        if (latency > 0) {
-          message += ` (${latency}ms latency)`;
+        let message;
+        if (status === 'success') {
+          message = latency > 0 ? t("settingsInterconnector.messages.clientTestOkLatency", { latency }) : t("settingsInterconnector.messages.clientTestOk");
+        } else {
+          message = latency > 0
+            ? t("settingsInterconnector.messages.clientTestStatusLatency", { status, latency })
+            : t("settingsInterconnector.messages.clientTestStatus", { status });
         }
         
         setClientTestResults(prev => ({
@@ -943,18 +960,18 @@ const InterconnectorSettings = () => {
         }));
         
         if (status === 'success') {
-          showMessage(`Successfully connected to ${nodeName}: ${latency}ms`, "success");
+          showMessage(t("settingsInterconnector.messages.clientConnected", { node: nodeName, latency }), "success");
         } else {
-          showMessage(`Connection test ${status} for ${nodeName}`, "warning");
+          showMessage(t("settingsInterconnector.messages.clientTestStatusFor", { status, node: nodeName }), "warning");
         }
       }
     } catch (error) {
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
       setClientTestResults(prev => ({
         ...prev,
         [nodeId]: { success: false, message: errorMsg }
       }));
-      showMessage(`Connection test failed for ${nodeName}: ${errorMsg}`, "error");
+      showMessage(t("settingsInterconnector.messages.clientTestFailed", { node: nodeName, error: errorMsg }), "error");
     } finally {
       const testingSet = new Set(testingClientNodes);
       testingSet.delete(nodeId);
@@ -964,7 +981,7 @@ const InterconnectorSettings = () => {
 
   const handleTestConnection = async () => {
     if (!config.master_url || !config.master_api_key) {
-      showMessage("Please enter Master URL and API Key first", "warning");
+      showMessage(t("settingsInterconnector.messages.enterMasterFirst"), "warning");
       return;
     }
 
@@ -978,23 +995,23 @@ const InterconnectorSettings = () => {
       );
 
       if (response.error) {
-        const errorMsg = response.error?.message || response.error || 'Unknown error';
+        const errorMsg = response.error?.message || response.error || t("settingsInterconnector.unknownError");
         setConnectionTestResult({ success: false, message: errorMsg });
-        showMessage(`Connection test failed: ${errorMsg}`, "error");
+        showMessage(t("settingsInterconnector.messages.testFailed", { error: errorMsg }), "error");
       } else {
         const testData = response.data || response;
         const quality = testData.quality || '';
         const latency = testData.latency_ms || 0;
         const message = quality 
-          ? `Connection successful (${quality}, ${latency}ms)` 
-          : "Connection successful";
+          ? t("settingsInterconnector.messages.testOkQuality", { quality, latency })
+          : t("settingsInterconnector.messages.testOk");
         setConnectionTestResult({ success: true, message });
         showMessage(message, "success");
       }
     } catch (error) {
-      const errorMsg = error.data?.error?.message || error.data?.message || error.message || 'Unknown error';
+      const errorMsg = error.data?.error?.message || error.data?.message || error.message || t("settingsInterconnector.unknownError");
       setConnectionTestResult({ success: false, message: errorMsg });
-      showMessage(`Connection test failed: ${errorMsg}`, "error");
+      showMessage(t("settingsInterconnector.messages.testFailed", { error: errorMsg }), "error");
     } finally {
       setIsTestingConnection(false);
     }
@@ -1041,9 +1058,9 @@ const InterconnectorSettings = () => {
       <Box display="flex" alignItems="center" gap={2} mb={2}>
         <NetworkIcon fontSize="large" color="primary" />
         <Box>
-          <Typography variant="h6">Network Interconnector</Typography>
+          <Typography variant="h6">{t("settingsInterconnector.ui.title")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Connect multiple Guaardvark instances on your local network
+            {t("settingsInterconnector.ui.subtitle")}
           </Typography>
         </Box>
       </Box>
@@ -1053,11 +1070,11 @@ const InterconnectorSettings = () => {
       {/* Main Enable/Disable Toggle */}
       <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
         <Typography variant="subtitle1" gutterBottom>
-          Network Interconnector Status
+          {t("settingsInterconnector.ui.status")}
         </Typography>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
           <Chip
-            label={config.is_enabled ? "Disable Network Interconnector" : "Enable Network Interconnector"}
+            label={config.is_enabled ? t("settingsInterconnector.ui.disable") : t("settingsInterconnector.ui.enable")}
             color={config.is_enabled ? 'primary' : 'default'}
             onClick={handleToggleEnabled}
             disabled={isSaving}
@@ -1072,34 +1089,34 @@ const InterconnectorSettings = () => {
           />
         </Box>
         <Typography variant="caption" color="text.secondary">
-          Allow this instance to connect with other Guaardvark nodes
+          {t("settingsInterconnector.ui.statusHelp")}
         </Typography>
       </Paper>
 
       {config.is_enabled && (
       <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Configuration
+          {t("settingsInterconnector.ui.configuration")}
         </Typography>
 
         <Grid container spacing={3}>
           {/* Node Mode Selection */}
           <Grid item xs={12} md={6}>
             <FormControl fullWidth>
-              <InputLabel>Node Mode</InputLabel>
+              <InputLabel>{t("settingsInterconnector.ui.nodeMode")}</InputLabel>
               <Select
                 value={config.node_mode}
-                label="Node Mode"
+                label={t("settingsInterconnector.ui.nodeMode")}
                 onChange={(e) => setConfig({ ...config, node_mode: e.target.value })}
               >
-                <MenuItem value="master">Master (Server)</MenuItem>
-                <MenuItem value="client">Client</MenuItem>
+                <MenuItem value="master">{t("settingsInterconnector.ui.modeMaster")}</MenuItem>
+                <MenuItem value="client">{t("settingsInterconnector.ui.modeClient")}</MenuItem>
               </Select>
             </FormControl>
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
               {config.node_mode === "master"
-                ? "This system will act as the central server. Other systems will connect to it."
-                : "This system will connect to a master server and sync data with it."}
+                ? t("settingsInterconnector.ui.masterHelp")
+                : t("settingsInterconnector.ui.clientHelp")}
             </Typography>
           </Grid>
 
@@ -1107,11 +1124,11 @@ const InterconnectorSettings = () => {
           <Grid item xs={12} md={6}>
             <TextField
               fullWidth
-              label="Node Name"
+              label={t("settingsInterconnector.ui.nodeName")}
               value={config.node_name}
               onChange={(e) => setConfig({ ...config, node_name: e.target.value })}
               placeholder={systemName || "My-LLM-System"}
-              helperText={!config.node_name ? "Required - will use System Name from Branding if empty" : "A friendly name to identify this node"}
+              helperText={!config.node_name ? t("settingsInterconnector.ui.nodeNameRequired") : t("settingsInterconnector.ui.nodeNameHelp")}
               error={!config.node_name && config.is_enabled}
             />
           </Grid>
@@ -1121,14 +1138,14 @@ const InterconnectorSettings = () => {
                 <>
                   <Grid item xs={12}>
                     <Divider sx={{ my: 1 }}>
-                      <Chip label="Master Server Settings" size="small" />
+                      <Chip label={t("settingsInterconnector.ui.masterSettings")} size="small" />
                     </Divider>
                   </Grid>
 
                   <Grid item xs={12}>
                     <Box>
                       <Typography variant="subtitle2" gutterBottom>
-                        API Key Authentication
+                        {t("settingsInterconnector.ui.apiKeyAuth")}
                       </Typography>
                       <FormControlLabel
                         control={
@@ -1140,17 +1157,17 @@ const InterconnectorSettings = () => {
                         label={
                           <Box>
                             <Typography variant="body2" fontWeight="bold">
-                              Require API Key Authentication
+                              {t("settingsInterconnector.ui.requireApiKey")}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              Disable for trusted local networks (less secure)
+                              {t("settingsInterconnector.ui.requireApiKeyHelp")}
                             </Typography>
                           </Box>
                         }
                       />
                       {!config.require_api_key && (
                         <Alert severity="warning" sx={{ mt: 1 }}>
-                          API key authentication is disabled. Only use this on trusted local networks.
+                          {t("settingsInterconnector.ui.apiKeyAuthOff")}
                         </Alert>
                       )}
                     </Box>
@@ -1159,17 +1176,17 @@ const InterconnectorSettings = () => {
                   <Grid item xs={12}>
                     <Box>
                       <Typography variant="subtitle2" gutterBottom>
-                        API Key (for clients to connect)
+                        {t("settingsInterconnector.ui.apiKeyForClients")}
                       </Typography>
                       {config.api_key_hash ? (
                         <Box>
                           <Alert severity="success" sx={{ mb: 2 }}>
-                            API Key is configured (hash: {config.api_key_hash.substring(0, 16)}...)
+                            {t("settingsInterconnector.ui.apiKeyConfigured", { hash: config.api_key_hash.substring(0, 16) })}
                           </Alert>
                           {generatedApiKey && showApiKey && (
                             <Alert severity="warning" sx={{ mb: 2 }}>
                               <Typography variant="body2" fontWeight="bold">
-                                Save this API key now - it won't be shown again:
+                                {t("settingsInterconnector.ui.saveKeyNow")}
                               </Typography>
                               <Typography
                                 variant="body2"
@@ -1188,7 +1205,7 @@ const InterconnectorSettings = () => {
                         </Box>
                       ) : (
                         <Alert severity="info" sx={{ mb: 2 }}>
-                          No API key configured. Generate one to allow clients to connect.
+                          {t("settingsInterconnector.ui.noApiKey")}
                         </Alert>
                       )}
                       <Box display="flex" gap={2} alignItems="center" flexWrap="wrap" sx={{ mb: 2 }}>
@@ -1198,7 +1215,7 @@ const InterconnectorSettings = () => {
                           startIcon={<KeyIcon />}
                           onClick={handleGenerateApiKey}
                         >
-                          {config.api_key_hash ? "Regenerate API Key" : "Generate API Key"}
+                          {config.api_key_hash ? t("settingsInterconnector.ui.regenerateKey") : t("settingsInterconnector.ui.generateKey")}
                         </Button>
                         <Button
                           variant="outlined"
@@ -1207,7 +1224,7 @@ const InterconnectorSettings = () => {
                           disabled={isTestingFileScan}
                           startIcon={isTestingFileScan ? <CircularProgress size={16} /> : <ManualSyncIcon />}
                         >
-                          {isTestingFileScan ? "Testing..." : "Test File Scanning"}
+                          {isTestingFileScan ? t("settingsInterconnector.ui.testing") : t("settingsInterconnector.ui.testFileScan")}
                         </Button>
                         {fileScanTestResult && (
                           <Chip
@@ -1222,30 +1239,30 @@ const InterconnectorSettings = () => {
                         <Box sx={{ mt: 2 }}>
                           <Alert severity="success">
                             <Typography variant="body2" fontWeight="bold">
-                              File Scan Results:
+                              {t("settingsInterconnector.ui.scanResults")}
                             </Typography>
                             <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                              Total Files: {fileScanTestResult.details.total_files || 0}
+                              {t("settingsInterconnector.ui.totalFiles", { count: fileScanTestResult.details.total_files || 0 })}
                             </Typography>
                             <Typography variant="caption" display="block">
-                              Total Size: {fileScanTestResult.details.total_size_mb || 0} MB
+                              {t("settingsInterconnector.ui.totalSize", { size: fileScanTestResult.details.total_size_mb || 0 })}
                             </Typography>
                             <Typography variant="caption" display="block">
-                              Project Root: {fileScanTestResult.details.project_root || "unknown"}
+                              {t("settingsInterconnector.ui.projectRoot", { root: fileScanTestResult.details.project_root || t("settingsInterconnector.ui.unknown") })}
                             </Typography>
                             {fileScanTestResult.details.critical_files && (
                               <>
                                 <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: "bold" }}>
-                                  Critical Files Check:
+                                  {t("settingsInterconnector.ui.criticalFiles")}
                                 </Typography>
                                 {fileScanTestResult.details.critical_files.found && fileScanTestResult.details.critical_files.found.length > 0 && (
                                   <Typography variant="caption" display="block" sx={{ ml: 2, color: "success.main" }}>
-                                    Found: {fileScanTestResult.details.critical_files.found.join(", ")}
+                                    {t("settingsInterconnector.ui.found", { files: fileScanTestResult.details.critical_files.found.join(", ") })}
                                   </Typography>
                                 )}
                                 {fileScanTestResult.details.critical_files.missing && fileScanTestResult.details.critical_files.missing.length > 0 && (
                                   <Typography variant="caption" display="block" sx={{ ml: 2, color: "error.main" }}>
-                                    Missing: {fileScanTestResult.details.critical_files.missing.join(", ")}
+                                    {t("settingsInterconnector.ui.missing", { files: fileScanTestResult.details.critical_files.missing.join(", ") })}
                                   </Typography>
                                 )}
                               </>
@@ -1253,13 +1270,13 @@ const InterconnectorSettings = () => {
                             {fileScanTestResult.details.by_directory && Object.keys(fileScanTestResult.details.by_directory).length > 0 && (
                               <>
                                 <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: "bold" }}>
-                                  Files by Directory:
+                                  {t("settingsInterconnector.ui.byDirectory")}
                                 </Typography>
                                 {Object.entries(fileScanTestResult.details.by_directory)
                                   .slice(0, 5)
                                   .map(([dir, info]) => (
                                     <Typography key={dir} variant="caption" display="block" sx={{ ml: 2 }}>
-                                      {dir}: {info.count} files ({Math.round(info.size / 1024)} KB)
+                                      {t("settingsInterconnector.ui.directoryLine", { dir, count: info.count, size: Math.round(info.size / 1024) })}
                                     </Typography>
                                   ))}
                               </>
@@ -1267,7 +1284,7 @@ const InterconnectorSettings = () => {
                             {fileScanTestResult.details.sample_files && fileScanTestResult.details.sample_files.length > 0 && (
                               <>
                                 <Typography variant="caption" display="block" sx={{ mt: 1, fontWeight: "bold" }}>
-                                  Sample Files (paths):
+                                  {t("settingsInterconnector.ui.sampleFiles")}
                                 </Typography>
                                 {fileScanTestResult.details.sample_files.slice(0, 5).map((f, idx) => (
                                   <Typography key={idx} variant="caption" display="block" sx={{ ml: 2, fontFamily: "monospace", fontSize: "0.7rem" }}>
@@ -1276,7 +1293,7 @@ const InterconnectorSettings = () => {
                                 ))}
                                 {fileScanTestResult.details.sample_files.length > 5 && (
                                   <Typography variant="caption" display="block" sx={{ ml: 2, fontStyle: "italic" }}>
-                                    ... and {fileScanTestResult.details.sample_files.length - 5} more
+                                    {t("settingsInterconnector.ui.andMoreSpaced", { count: fileScanTestResult.details.sample_files.length - 5 })}
                                   </Typography>
                                 )}
                               </>
@@ -1294,30 +1311,30 @@ const InterconnectorSettings = () => {
                 <>
                   <Grid item xs={12}>
                     <Divider sx={{ my: 1 }}>
-                      <Chip label="Master Server Connection" size="small" />
+                      <Chip label={t("settingsInterconnector.ui.masterConnection")} size="small" />
                     </Divider>
                   </Grid>
 
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
-                      label="Master Server Address"
+                      label={t("settingsInterconnector.ui.masterAddress")}
                       value={config.master_url}
                       onChange={(e) => setConfig({ ...config, master_url: e.target.value })}
                       placeholder="192.168.1.100"
-                      helperText="IP or hostname (http:// and :5000 added automatically if omitted)"
+                      helperText={t("settingsInterconnector.ui.masterAddressHelp")}
                     />
                   </Grid>
 
                   <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
-                      label="Master API Key"
+                      label={t("settingsInterconnector.ui.masterApiKey")}
                       type="password"
                       value={config.master_api_key}
                       onChange={(e) => setConfig({ ...config, master_api_key: e.target.value })}
-                      placeholder="Enter API key from master"
-                      helperText="API key provided by the master server"
+                      placeholder={t("settingsInterconnector.ui.masterApiKeyPlaceholder")}
+                      helperText={t("settingsInterconnector.ui.masterApiKeyHelp")}
                     />
                   </Grid>
 
@@ -1330,7 +1347,7 @@ const InterconnectorSettings = () => {
                         disabled={isTestingConnection || !config.master_url || (config.require_api_key !== false && !config.master_api_key)}
                         startIcon={isTestingConnection ? <CircularProgress size={16} /> : <NetworkIcon />}
                       >
-                        Test Connection
+                        {t("settingsInterconnector.ui.testConnection")}
                       </Button>
                       {connectionTestResult && (
                         <Chip
@@ -1352,17 +1369,17 @@ const InterconnectorSettings = () => {
               {/* Sync Settings */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 1 }}>
-                  <Chip label="Sync Settings" size="small" />
+                  <Chip label={t("settingsInterconnector.ui.syncSettings")} size="small" />
                 </Divider>
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" gutterBottom>
-                  Sync Options
+                  {t("settingsInterconnector.ui.syncOptions")}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
                   <Chip
-                    label="Enable Auto-Sync"
+                    label={t("settingsInterconnector.ui.enableAutoSync")}
                     color={config.auto_sync_enabled ? 'primary' : 'default'}
                     onClick={(_e) => setConfig({ ...config, auto_sync_enabled: !config.auto_sync_enabled })}
                     variant={config.auto_sync_enabled ? 'filled' : 'outlined'}
@@ -1375,7 +1392,7 @@ const InterconnectorSettings = () => {
                   />
                 </Box>
                 <Typography variant="caption" color="text.secondary" display="block">
-                  Automatically sync data at regular intervals
+                  {t("settingsInterconnector.ui.autoSyncHelp")}
                 </Typography>
               </Grid>
 
@@ -1383,7 +1400,7 @@ const InterconnectorSettings = () => {
                 <TextField
                   fullWidth
                   type="number"
-                  label="Sync Interval (seconds)"
+                  label={t("settingsInterconnector.ui.syncInterval")}
                   value={config.sync_interval_seconds}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1395,19 +1412,23 @@ const InterconnectorSettings = () => {
                   }}
                   disabled={!config.auto_sync_enabled}
                   inputProps={{ min: 60, max: 3600 }}
-                  helperText="How often to sync (60-3600 seconds)"
+                  helperText={t("settingsInterconnector.ui.syncIntervalHelp")}
                 />
               </Grid>
 
               <Grid item xs={12}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Entities to Sync
+                  {t("settingsInterconnector.ui.entitiesToSync")}
                 </Typography>
                 <Box display="flex" gap={1} flexWrap="wrap">
                 {["clients", "projects", "websites"].map((entity) => (
                     <Chip
                       key={entity}
-                      label={entity.charAt(0).toUpperCase() + entity.slice(1)}
+                      label={{
+                        clients: t("settingsInterconnector.ui.entities.clients"),
+                        projects: t("settingsInterconnector.ui.entities.projects"),
+                        websites: t("settingsInterconnector.ui.entities.websites"),
+                      }[entity]}
                       color={config.sync_entities.includes(entity) ? "primary" : "default"}
                       onClick={() => {
                         const newEntities = config.sync_entities.includes(entity)
@@ -1431,7 +1452,7 @@ const InterconnectorSettings = () => {
                 disabled={isSaving || !config.node_name}
                 startIcon={isSaving ? <CircularProgress size={16} /> : <SuccessIcon />}
               >
-                {isSaving ? "Saving..." : "Save Configuration"}
+                {isSaving ? t("settingsInterconnector.ui.saving") : t("settingsInterconnector.ui.saveConfiguration")}
               </Button>
               <Button
                 variant="outlined"
@@ -1439,7 +1460,7 @@ const InterconnectorSettings = () => {
                 onClick={handleCancelConfiguration}
                 disabled={isSaving}
               >
-                Cancel
+                {t("settingsInterconnector.ui.cancel")}
               </Button>
             </Box>
           </Grid>
@@ -1454,16 +1475,16 @@ const InterconnectorSettings = () => {
             <Card sx={{ mb: 3, bgcolor: "background.paper" }}>
               <CardContent>
                 <Typography variant="subtitle1" gutterBottom>
-                  Current Status
+                  {t("settingsInterconnector.ui.currentStatus")}
                 </Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6} md={3}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Mode
+                        {t("settingsInterconnector.ui.mode")}
                       </Typography>
                       <Chip
-                        label={status.node_mode || "N/A"}
+                        label={status.node_mode || t("settingsInterconnector.ui.notAvailable")}
                         color={status.node_mode === "master" ? "primary" : "secondary"}
                         size="small"
                         icon={status.node_mode === "master" ? <StorageIcon /> : <ComputerIcon />}
@@ -1473,18 +1494,18 @@ const InterconnectorSettings = () => {
                   <Grid item xs={12} sm={6} md={3}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Node Name
+                        {t("settingsInterconnector.ui.nodeName")}
                       </Typography>
-                      <Typography variant="body2">{status.node_name || "Not Set"}</Typography>
+                      <Typography variant="body2">{status.node_name || t("settingsInterconnector.ui.notSet")}</Typography>
                     </Box>
                   </Grid>
                   <Grid item xs={12} sm={6} md={3}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Auto-Sync
+                        {t("settingsInterconnector.ui.autoSync")}
                       </Typography>
                       <Chip
-                        label={status.auto_sync_enabled ? "Enabled" : "Disabled"}
+                        label={status.auto_sync_enabled ? t("settingsInterconnector.ui.enabled") : t("settingsInterconnector.ui.disabled")}
                         color={status.auto_sync_enabled ? "success" : "default"}
                         size="small"
                       />
@@ -1493,12 +1514,12 @@ const InterconnectorSettings = () => {
                   <Grid item xs={12} sm={6} md={3}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Last Sync
+                        {t("settingsInterconnector.ui.lastSync")}
                       </Typography>
                       <Typography variant="body2">
                         {status.last_sync_time
-                          ? new Date(status.last_sync_time).toLocaleString()
-                          : "Never"}
+                          ? new Date(status.last_sync_time).toLocaleString(uiLocale())
+                          : t("settingsInterconnector.ui.never")}
                       </Typography>
                     </Box>
                   </Grid>
@@ -1521,7 +1542,7 @@ const InterconnectorSettings = () => {
                   onClick={() => setShowAdvancedClientView(!showAdvancedClientView)}
                   sx={{ color: "text.secondary" }}
                 >
-                  {showAdvancedClientView ? "Hide Advanced Options" : "Show Advanced Options (Data Sync)"}
+                  {showAdvancedClientView ? t("settingsInterconnector.ui.hideAdvanced") : t("settingsInterconnector.ui.showAdvanced")}
                 </Button>
               </Box>
 
@@ -1529,43 +1550,43 @@ const InterconnectorSettings = () => {
               {showAdvancedClientView && config.master_api_key && (
                 <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
                   <Typography variant="h6" gutterBottom>
-                    Advanced Sync Options
+                    {t("settingsInterconnector.ui.advancedTitle")}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" gutterBottom>
-                    Manual data synchronization and advanced file operations
+                    {t("settingsInterconnector.ui.advancedHelp")}
                   </Typography>
 
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
-                      Sync Profile
+                      {t("settingsInterconnector.ui.syncProfile")}
                     </Typography>
                     <FormControl fullWidth size="small" sx={{ maxWidth: 320 }}>
-                      <InputLabel>Profile</InputLabel>
+                      <InputLabel>{t("settingsInterconnector.ui.profile")}</InputLabel>
                       <Select
-                        label="Profile"
+                        label={t("settingsInterconnector.ui.profile")}
                         value={selectedProfile || ""}
                         onChange={(e) => setSelectedProfile(e.target.value || null)}
                       >
-                        <MenuItem value="">(default)</MenuItem>
+                        <MenuItem value="">{t("settingsInterconnector.ui.default")}</MenuItem>
                         {profiles.map((p) => (
                           <MenuItem key={p.id} value={p.name}>
-                            {p.name} {p.is_default ? "(default)" : ""}
+                            {p.name} {p.is_default ? t("settingsInterconnector.ui.default") : ""}
                           </MenuItem>
                         ))}
                       </Select>
                     </FormControl>
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                      Profiles scope which entities and file paths are synced.
+                      {t("settingsInterconnector.ui.profilesHelp")}
                     </Typography>
                   </Box>
 
                   {/* Data sync */}
                   <Box sx={{ mb: 3 }}>
                     <Typography variant="subtitle2" gutterBottom>
-                      Data Sync
+                      {t("settingsInterconnector.ui.dataSync")}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Sync clients, projects, and websites with the master
+                      {t("settingsInterconnector.ui.dataSyncHelp")}
                     </Typography>
                     <Box display="flex" gap={1} flexWrap="wrap" mt={1}>
                       <Button
@@ -1575,7 +1596,7 @@ const InterconnectorSettings = () => {
                         disabled={isSyncingData}
                         startIcon={isSyncingData ? <CircularProgress size={16} /> : <SyncIcon />}
                       >
-                        Sync (Bidirectional)
+                        {t("settingsInterconnector.ui.syncBidirectional")}
                       </Button>
                       <Button
                         variant="outlined"
@@ -1583,7 +1604,7 @@ const InterconnectorSettings = () => {
                         onClick={() => handleManualSync("pull")}
                         disabled={isSyncingData}
                       >
-                        Pull from Master
+                        {t("settingsInterconnector.ui.pullFromMaster")}
                       </Button>
                       <Button
                         variant="outlined"
@@ -1591,7 +1612,7 @@ const InterconnectorSettings = () => {
                         onClick={() => handleManualSync("push")}
                         disabled={isSyncingData}
                       >
-                        Push to Master
+                        {t("settingsInterconnector.ui.pushToMaster")}
                       </Button>
                     </Box>
 
@@ -1599,7 +1620,7 @@ const InterconnectorSettings = () => {
                       <Box mt={2}>
                         <LinearProgress />
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                          Synchronizing data...
+                          {t("settingsInterconnector.ui.synchronizing")}
                         </Typography>
                       </Box>
                     )}
@@ -1611,15 +1632,17 @@ const InterconnectorSettings = () => {
                         ) : (
                           <Alert severity="success">
                             <Typography variant="body2">
-                              Data sync completed
+                              {t("settingsInterconnector.ui.dataSyncCompleted")}
                             </Typography>
                             {dataSyncResults.summary && (
                               <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                Processed: {dataSyncResults.summary.total_processed || 0} |
-                                Created: {dataSyncResults.summary.total_created || 0} |
-                                Updated: {dataSyncResults.summary.total_updated || 0}
+                                {t("settingsInterconnector.ui.dataSummary", {
+                                  processed: dataSyncResults.summary.total_processed || 0,
+                                  created: dataSyncResults.summary.total_created || 0,
+                                  updated: dataSyncResults.summary.total_updated || 0,
+                                })}
                                 {dataSyncResults.summary.total_conflicts > 0 &&
-                                  ` | Conflicts: ${dataSyncResults.summary.total_conflicts}`}
+                                  ` | ${t("settingsInterconnector.ui.conflicts", { count: dataSyncResults.summary.total_conflicts })}`}
                               </Typography>
                             )}
                           </Alert>
@@ -1633,10 +1656,10 @@ const InterconnectorSettings = () => {
                   {/* Outputs browse */}
                   <Box sx={{ mb: 3 }}>
                     <Typography variant="subtitle2" gutterBottom>
-                      Outputs (browse-only)
+                      {t("settingsInterconnector.ui.outputs")}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      View generated outputs from the master without copying files
+                      {t("settingsInterconnector.ui.outputsHelp")}
                     </Typography>
                     <Button
                       variant="outlined"
@@ -1646,7 +1669,7 @@ const InterconnectorSettings = () => {
                       startIcon={isLoadingOutputs ? <CircularProgress size={16} /> : <StorageIcon />}
                       sx={{ mr: 1 }}
                     >
-                      {isLoadingOutputs ? "Loading..." : "Load Outputs Index"}
+                      {isLoadingOutputs ? t("settingsInterconnector.ui.loading") : t("settingsInterconnector.ui.loadOutputs")}
                     </Button>
                     {outputsIndex && (
                       <Box sx={{ mt: 2 }}>
@@ -1655,18 +1678,18 @@ const InterconnectorSettings = () => {
                         ) : (
                           <Alert severity="info">
                             <Typography variant="caption">
-                              {`Found ${outputsIndex.count || (outputsIndex.files ? outputsIndex.files.length : 0)} file(s)`}
+                              {t("settingsInterconnector.ui.foundFiles", { count: outputsIndex.count || (outputsIndex.files ? outputsIndex.files.length : 0) })}
                             </Typography>
                             {outputsIndex.files && outputsIndex.files.length > 0 && (
                               <Box sx={{ mt: 1 }}>
                                 {outputsIndex.files.slice(0, 5).map((f, idx) => (
                                   <Typography key={idx} variant="caption" display="block" sx={{ fontFamily: "monospace" }}>
-                                    {f.path} ({Math.round((f.size || 0) / 1024)} KB)
+                                    {t("settingsInterconnector.ui.outputFile", { path: f.path, size: Math.round((f.size || 0) / 1024) })}
                                   </Typography>
                                 ))}
                                 {outputsIndex.files.length > 5 && (
                                   <Typography variant="caption" display="block" sx={{ fontStyle: "italic" }}>
-                                    ...and {outputsIndex.files.length - 5} more
+                                    {t("settingsInterconnector.ui.andMore", { count: outputsIndex.files.length - 5 })}
                                   </Typography>
                                 )}
                               </Box>
@@ -1682,10 +1705,10 @@ const InterconnectorSettings = () => {
                   {/* Legacy Code sync (kept for backward compatibility) */}
                   <Box>
                     <Typography variant="subtitle2" gutterBottom>
-                      Legacy Code Sync
+                      {t("settingsInterconnector.ui.legacyCodeSync")}
                     </Typography>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Alternative method to pull code updates (use the simplified panel above instead)
+                      {t("settingsInterconnector.ui.legacyHelp")}
                     </Typography>
                     <Button
                       variant="outlined"
@@ -1695,14 +1718,14 @@ const InterconnectorSettings = () => {
                       disabled={isSyncingCode}
                       sx={{ mb: 1 }}
                     >
-                      {isSyncingCode ? "Pulling Code..." : "Pull Code (Legacy)"}
+                      {isSyncingCode ? t("settingsInterconnector.ui.pullingCode") : t("settingsInterconnector.ui.pullCode")}
                     </Button>
 
                     {isSyncingCode && (
                       <Box mt={2}>
                         <LinearProgress />
                         <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                          Pulling code updates...
+                          {t("settingsInterconnector.ui.pullingUpdates")}
                         </Typography>
                       </Box>
                     )}
@@ -1714,15 +1737,17 @@ const InterconnectorSettings = () => {
                         ) : (
                           <Alert severity="success">
                             <Typography variant="body2">
-                              Code sync completed
+                              {t("settingsInterconnector.ui.codeSyncCompleted")}
                             </Typography>
                             {codeSyncResults.files && (
                               <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                                Files: {codeSyncResults.files.summary?.total_processed || 0} processed |
-                                {codeSyncResults.files.summary?.total_created || 0} created |
-                                {codeSyncResults.files.summary?.total_updated || 0} updated
+                                {t("settingsInterconnector.ui.codeSummary", {
+                                  processed: codeSyncResults.files.summary?.total_processed || 0,
+                                  created: codeSyncResults.files.summary?.total_created || 0,
+                                  updated: codeSyncResults.files.summary?.total_updated || 0,
+                                })}
                                 {codeSyncResults.files.summary?.total_backed_up > 0 &&
-                                  ` | ${codeSyncResults.files.summary.total_backed_up} backed up`}
+                                  ` | ${t("settingsInterconnector.ui.backedUp", { count: codeSyncResults.files.summary.total_backed_up })}`}
                               </Typography>
                             )}
                           </Alert>
@@ -1736,24 +1761,24 @@ const InterconnectorSettings = () => {
                   {/* Pending Approvals */}
                   <Box>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                      <Typography variant="subtitle2">Pending File Approvals</Typography>
+                      <Typography variant="subtitle2">{t("settingsInterconnector.ui.pendingApprovals")}</Typography>
                       <Button size="small" onClick={loadApprovals} startIcon={<RefreshIcon />} disabled={isLoadingApprovals}>
-                        Refresh
+                        {t("settingsInterconnector.ui.refresh")}
                       </Button>
                     </Box>
                     {isLoadingApprovals ? (
                       <LinearProgress />
                     ) : pendingApprovals.length === 0 ? (
-                      <Alert severity="info">No pending approvals</Alert>
+                      <Alert severity="info">{t("settingsInterconnector.ui.noApprovals")}</Alert>
                     ) : (
                       <TableContainer>
                         <Table size="small">
                           <TableHead>
                             <TableRow>
-                              <TableCell>ID</TableCell>
-                              <TableCell>Files</TableCell>
-                              <TableCell>Received</TableCell>
-                              <TableCell align="right">Actions</TableCell>
+                              <TableCell>{t("settingsInterconnector.ui.approvalColumns.id")}</TableCell>
+                              <TableCell>{t("settingsInterconnector.ui.approvalColumns.files")}</TableCell>
+                              <TableCell>{t("settingsInterconnector.ui.approvalColumns.received")}</TableCell>
+                              <TableCell align="right">{t("settingsInterconnector.ui.approvalColumns.actions")}</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
@@ -1762,9 +1787,9 @@ const InterconnectorSettings = () => {
                               return (
                                 <TableRow key={appr.id}>
                                   <TableCell>{appr.id}</TableCell>
-                                  <TableCell>{files.length} files</TableCell>
+                                  <TableCell>{t("settingsInterconnector.ui.fileCount", { count: files.length })}</TableCell>
                                   <TableCell>
-                                    {appr.received_at ? new Date(appr.received_at).toLocaleString() : "-"}
+                                    {appr.received_at ? new Date(appr.received_at).toLocaleString(uiLocale()) : "-"}
                                   </TableCell>
                                   <TableCell align="right">
                                     <Button
@@ -1774,7 +1799,7 @@ const InterconnectorSettings = () => {
                                       onClick={() => handleApprovalDecision(appr.id, "approve")}
                                       sx={{ mr: 1 }}
                                     >
-                                      Approve
+                                      {t("settingsInterconnector.ui.approve")}
                                     </Button>
                                     <Button
                                       size="small"
@@ -1782,7 +1807,7 @@ const InterconnectorSettings = () => {
                                       color="error"
                                       onClick={() => handleApprovalDecision(appr.id, "decline")}
                                     >
-                                      Decline
+                                      {t("settingsInterconnector.ui.decline")}
                                     </Button>
                                   </TableCell>
                                 </TableRow>
@@ -1805,10 +1830,10 @@ const InterconnectorSettings = () => {
           {config.node_mode === "master" && (
             <Paper elevation={2} sx={{ p: 3 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">Connected Nodes</Typography>
+                <Typography variant="h6">{t("settingsInterconnector.ui.connectedNodes")}</Typography>
                 <Box display="flex" gap={1} alignItems="center">
                   <Button variant="contained" size="small" onClick={handleBroadcastAll}>
-                    Broadcast Sync (all)
+                    {t("settingsInterconnector.ui.broadcastAll")}
                   </Button>
                   <IconButton onClick={loadNodes} size="small">
                     <RefreshIcon />
@@ -1817,17 +1842,17 @@ const InterconnectorSettings = () => {
               </Box>
 
               {nodes.length === 0 ? (
-                <Alert severity="info">No client nodes connected yet</Alert>
+                <Alert severity="info">{t("settingsInterconnector.ui.noNodes")}</Alert>
               ) : (
                 <TableContainer>
                   <Table size="small">
                     <TableHead>
                       <TableRow>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Node Name</TableCell>
-                        <TableCell>Host</TableCell>
-                        <TableCell>Last Heartbeat</TableCell>
-                        <TableCell align="right">Actions</TableCell>
+                        <TableCell>{t("settingsInterconnector.ui.nodeColumns.status")}</TableCell>
+                        <TableCell>{t("settingsInterconnector.ui.nodeColumns.nodeName")}</TableCell>
+                        <TableCell>{t("settingsInterconnector.ui.nodeColumns.host")}</TableCell>
+                        <TableCell>{t("settingsInterconnector.ui.nodeColumns.lastHeartbeat")}</TableCell>
+                        <TableCell align="right">{t("settingsInterconnector.ui.nodeColumns.actions")}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1838,7 +1863,7 @@ const InterconnectorSettings = () => {
                           <TableRow key={node.node_id}>
                             <TableCell>
                               <Chip
-                                label={node.status || "unknown"}
+                                label={node.status || t("settingsInterconnector.ui.unknown")}
                                 color={getStatusColor(node.status)}
                                 icon={getStatusIcon(node.status)}
                                 size="small"
@@ -1850,12 +1875,12 @@ const InterconnectorSettings = () => {
                             </TableCell>
                             <TableCell>
                               {node.last_heartbeat
-                                ? new Date(node.last_heartbeat).toLocaleString()
-                                : "Never"}
+                                ? new Date(node.last_heartbeat).toLocaleString(uiLocale())
+                                : t("settingsInterconnector.ui.never")}
                             </TableCell>
                             <TableCell align="right">
                               <Box display="flex" gap={1} justifyContent="flex-end" alignItems="center">
-                                <Tooltip title="Test connection to client">
+                                <Tooltip title={t("settingsInterconnector.ui.testClient")}>
                                   <span>
                                     <IconButton
                                       size="small"
@@ -1874,14 +1899,14 @@ const InterconnectorSettings = () => {
                                 {testResult && (
                                   <Tooltip title={testResult.message}>
                                     <Chip
-                                      label={testResult.success ? "Connected" : "Failed"}
+                                      label={testResult.success ? t("settingsInterconnector.ui.connected") : t("settingsInterconnector.ui.failed")}
                                       color={testResult.success ? "success" : "error"}
                                       size="small"
                                       sx={{ height: 24 }}
                                     />
                                   </Tooltip>
                                 )}
-                                <Tooltip title="Disconnect node">
+                                <Tooltip title={t("settingsInterconnector.ui.disconnectNode")}>
                                   <IconButton
                                     size="small"
                                     onClick={() => handleDisconnectNode(node.node_id)}
@@ -1901,7 +1926,9 @@ const InterconnectorSettings = () => {
               )}
               {broadcastResult && (
                 <Alert severity="info" sx={{ mt: 2 }}>
-                  Broadcast started: {broadcastResult.broadcast_id || broadcastResult.data?.broadcast_id || "pending"}
+                  {t("settingsInterconnector.ui.broadcastStartedId", {
+                    id: broadcastResult.broadcast_id || broadcastResult.data?.broadcast_id || t("settingsInterconnector.ui.pending"),
+                  })}
                 </Alert>
               )}
             </Paper>

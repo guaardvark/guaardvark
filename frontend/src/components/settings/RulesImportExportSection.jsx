@@ -11,8 +11,10 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import { useSnackbar } from '../../contexts/SnackbarProvider';
 import apiService from '../../api/apiService';
+import { useUiTranslation } from '../../i18n';
 
 const RulesImportExportSection = ({ isLoading }) => {
+  const { t } = useUiTranslation();
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [selectedFileForImport, setSelectedFileForImport] = useState(null);
@@ -22,12 +24,12 @@ const RulesImportExportSection = ({ isLoading }) => {
 
   const handleExportRulesClick = async () => {
     setIsExporting(true);
-    showMessage("Exporting rules...", "info");
+    showMessage(t("settingsSections.rulesImportExport.exporting"), "info");
     try {
       const result = await apiService.exportRules();
       if (result?.error) throw new Error(result.error);
       if (!result?.rules || !Array.isArray(result.rules))
-        throw new Error("Invalid export format received from server.");
+        throw new Error(t("settingsSections.rulesImportExport.invalidFormat"));
 
       const jsonString = JSON.stringify(result, null, 2);
       const blob = new Blob([jsonString], { type: "application/json" });
@@ -41,12 +43,12 @@ const RulesImportExportSection = ({ isLoading }) => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showMessage(
-        `Successfully exported ${result.rules.length} rules.`,
+        t("settingsSections.rulesImportExport.exported", { count: result.rules.length }),
         "success",
       );
     } catch (err) {
       console.error("Error exporting rules:", err);
-      showMessage(`Export failed: ${err.message}`, "error");
+      showMessage(t("settingsSections.rulesImportExport.exportFailed", { error: err.message }), "error");
     } finally {
       setIsExporting(false);
     }
@@ -65,12 +67,12 @@ const RulesImportExportSection = ({ isLoading }) => {
 
   const handleImportRulesClick = async () => {
     if (!selectedFileForImport) {
-      showMessage("Please select a file first.", "warning");
+      showMessage(t("settingsSections.rulesImportExport.selectFirst"), "warning");
       return;
     }
 
     setIsImporting(true);
-    showMessage("Importing rules...", "info");
+    showMessage(t("settingsSections.rulesImportExport.importing"), "info");
     try {
       const formData = new FormData();
       formData.append("file", selectedFileForImport);
@@ -80,7 +82,7 @@ const RulesImportExportSection = ({ isLoading }) => {
         throw new Error(result.error.message || result.error);
       }
 
-      const message = result?.warning || result?.message || "Rules imported successfully.";
+      const message = result?.warning || result?.message || t("settingsSections.rulesImportExport.imported");
       const severity = result?.warning ? "warning" : "success";
       showMessage(message, severity);
       
@@ -91,7 +93,7 @@ const RulesImportExportSection = ({ isLoading }) => {
       }
     } catch (err) {
       if (err.message !== "User aborted") {
-        showMessage(`Import failed: ${err.message}`, "error");
+        showMessage(t("settingsSections.rulesImportExport.importFailed", { error: err.message }), "error");
       }
     } finally {
       setIsImporting(false);
@@ -101,7 +103,7 @@ const RulesImportExportSection = ({ isLoading }) => {
   return (
     <Paper elevation={3} sx={{ p: 2 }}>
       <Typography variant="h6" gutterBottom>
-        Rules Import/Export
+        {t("settingsSections.rulesImportExport.title")}
       </Typography>
       <Grid container spacing={2}>
         <Grid item xs={12}>
@@ -115,13 +117,13 @@ const RulesImportExportSection = ({ isLoading }) => {
             {isExporting ? (
               <CircularProgress size={24} />
             ) : (
-              "Export All Rules"
+              t("settingsSections.rulesImportExport.exportAll")
             )}
           </Button>
         </Grid>
         <Grid item xs={12}>
           <Typography variant="subtitle2" gutterBottom>
-            Import Rules
+            {t("settingsSections.rulesImportExport.importRules")}
           </Typography>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6}>
@@ -141,7 +143,7 @@ const RulesImportExportSection = ({ isLoading }) => {
                   disabled={isImporting || isLoading}
                   fullWidth
                 >
-                  Choose File
+                  {t("settingsSections.rulesImportExport.chooseFile")}
                 </Button>
               </label>
             </Grid>
@@ -155,7 +157,7 @@ const RulesImportExportSection = ({ isLoading }) => {
                 {isImporting ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
-                  "Import Rules"
+                  t("settingsSections.rulesImportExport.importRules")
                 )}
               </Button>
             </Grid>
@@ -167,7 +169,7 @@ const RulesImportExportSection = ({ isLoading }) => {
                 display="block"
                 sx={{ textAlign: "center", mt: 1 }}
               >
-                Selected: {selectedFileNameForImport}
+                {t("settingsSections.rulesImportExport.selected", { name: selectedFileNameForImport })}
               </Typography>
             </Grid>
           )}

@@ -9,22 +9,24 @@ import {
   installIdentityEncoder,
   removeIdentityEncoder,
 } from "../../api/productionService";
+import { translate, useUiTranslation } from "../../i18n";
 
 const describeChecks = (status) => {
   const smoke =
     status.smoke_check === "embed"
-      ? `identity score after LoRA training, green from ${status.smoke_threshold}`
+      ? translate("settingsAccess.identityCheck.smokeEmbed", { threshold: status.smoke_threshold })
       : status.smoke_check === "vlm"
-        ? "identity from the vision model after LoRA training"
-        : "no identity score after LoRA training";
+        ? translate("settingsAccess.identityCheck.smokeVlm")
+        : translate("settingsAccess.identityCheck.smokeNone");
   const clips =
     status.clip_check === "embed"
-      ? `clips held for review when the middle frame matches the keyframe under ${status.clip_floor}`
-      : "clips compared with their keyframe by colour only";
-  return `${smoke}; ${clips}.`;
+      ? translate("settingsAccess.identityCheck.clipsEmbed", { floor: status.clip_floor })
+      : translate("settingsAccess.identityCheck.clipsColour");
+  return translate("settingsAccess.identityCheck.checks", { smoke, clips });
 };
 
 const IdentityCheckControl = ({ showMessage }) => {
+  const { t } = useUiTranslation();
   const [status, setStatus] = useState(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,14 +52,14 @@ const IdentityCheckControl = ({ showMessage }) => {
     return () => clearTimeout(timer.current);
   }, [running, status, load]);
 
-  const act = async (call, verb) => {
+  const act = async (call, failMessage) => {
     setBusy(true);
     try {
       const next = await call();
       setStatus(next);
       if (next?.error) showMessage?.(next.error, "warning");
     } catch (e) {
-      showMessage?.(`Could not ${verb}: ${e.message || e}`, "error");
+      showMessage?.(failMessage(e.message || e), "error");
     } finally {
       setBusy(false);
     }
@@ -65,60 +67,66 @@ const IdentityCheckControl = ({ showMessage }) => {
 
   if (!status) return null;
   const job = status.install || {};
-  const size = `${status.size_mb} MB`;
-  const what = `${status.repo} (${status.license}, ${size}) from Hugging Face, pinned to commit ${String(status.revision).slice(0, 12)}, into ${status.location}`;
+  const size = t("settingsAccess.identityCheck.sizeMb", { size: status.size_mb });
+  const what = t("settingsAccess.identityCheck.what", {
+    repo: status.repo,
+    license: status.license,
+    size,
+    revision: String(status.revision).slice(0, 12),
+    location: status.location,
+  });
 
   return (
     <>
       <Line>
         {status.installed ? (
-          <StatusPill label="Installed" tone="ok" tooltip={what} />
+          <StatusPill label={t("settingsAccess.identityCheck.installed")} tone="ok" tooltip={what} />
         ) : running ? (
           <StatusPill
-            label={job.downloaded_mb > 0 ? `Installing ${job.progress}%` : "Installing"}
+            label={job.downloaded_mb > 0 ? t("settingsAccess.identityCheck.installingPercent", { percent: job.progress }) : t("settingsAccess.identityCheck.installing")}
             tone="info"
             tooltip={what}
           />
         ) : (
-          <StatusPill label="Not installed" tone="neutral" tooltip={what} />
+          <StatusPill label={t("settingsAccess.identityCheck.notInstalled")} tone="neutral" tooltip={what} />
         )}
         {!status.installed && !running && (
           <ActionButton
-            onClick={() => act(installIdentityEncoder, "start the install")}
+            onClick={() => act(installIdentityEncoder, (error) => t("settingsAccess.identityCheck.actionFailedInstall", { error }))}
             loading={busy}
-            tooltip={`Downloads ${what}. Nothing is downloaded until you click.`}
+            tooltip={t("settingsAccess.identityCheck.installTooltip", { what })}
           >
-            {`Install ${status.name} (${size})`}
+            {t("settingsAccess.identityCheck.install", { name: status.name, size })}
           </ActionButton>
         )}
         {status.installed && (
           <ActionButton
             onClick={() => setConfirmRemove(true)}
             disabled={busy}
-            tooltip={`Deletes ${status.location}; Install brings it back.`}
+            tooltip={t("settingsAccess.identityCheck.removeTooltip", { location: status.location })}
           >
-            Remove
+            {t("settingsAccess.identityCheck.remove")}
           </ActionButton>
         )}
       </Line>
       {!status.installed && (
-        <Hint>Install downloads {what}. Nothing is downloaded until you click it.</Hint>
+        <Hint>{t("settingsAccess.identityCheck.installHint", { what })}</Hint>
       )}
-      <Hint>Now: {describeChecks(status)}</Hint>
-      {job.state === "failed" && job.error && <Hint>Install failed: {job.error}</Hint>}
+      <Hint>{t("settingsAccess.identityCheck.now", { checks: describeChecks(status) })}</Hint>
+      {job.state === "failed" && job.error && <Hint>{t("settingsAccess.identityCheck.installFailed", { error: job.error })}</Hint>}
       <ConfirmActionDialog
         open={confirmRemove}
         reversible
-        title={`Remove ${status.name}?`}
-        description="The identity check goes back to what it did before the encoder: no identity score after LoRA training, and clips compared with their keyframe by colour. Scores already stored stay as they are."
+        title={t("settingsAccess.identityCheck.removeTitle", { name: status.name })}
+        description={t("settingsAccess.identityCheck.removeDescription")}
         facts={[
-          { label: "Deletes", value: status.location },
-          { label: "Size", value: size },
+          { label: t("settingsAccess.identityCheck.deletes"), value: status.location },
+          { label: t("settingsAccess.identityCheck.size"), value: size },
         ]}
-        confirmLabel="Remove"
+        confirmLabel={t("settingsAccess.identityCheck.remove")}
         busy={busy}
         onConfirm={async () => {
-          await act(removeIdentityEncoder, "remove it");
+          await act(removeIdentityEncoder, (error) => t("settingsAccess.identityCheck.actionFailedRemove", { error }));
           setConfirmRemove(false);
         }}
         onClose={() => setConfirmRemove(false)}

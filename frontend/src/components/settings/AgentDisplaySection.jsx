@@ -17,6 +17,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 import { ActionButton, Hint, Line, StatusPill } from './ui';
+import { translate, useUiTranslation } from '../../i18n';
 import copyText from '../../utils/copyText';
 import {
   getDisplayStatus,
@@ -26,18 +27,18 @@ import {
 } from '../../api/agentDisplayService';
 
 // Friendly labels — keep them tight so the row renders cleanly.
-const COMPONENT_LABELS = {
-  Xvfb: 'Xvfb (virtual X server)',
-  x11vnc: 'x11vnc (VNC bridge)',
-  openbox: 'Openbox (window manager)',
-  tint2: 'Tint2 (taskbar)',
-  xdotool: 'xdotool (input synthesis)',
-  scrot: 'scrot (screen capture fallback)',
-  browser: 'Browser (Firefox / Chromium)',
-  mss: 'mss (Python screen capture)',
+const componentLabels = () => ({
+  Xvfb: translate("settingsSections.agentDisplay.components.xvfb"),
+  x11vnc: translate("settingsSections.agentDisplay.components.x11vnc"),
+  openbox: translate("settingsSections.agentDisplay.components.openbox"),
+  tint2: translate("settingsSections.agentDisplay.components.taskbar"),
+  xdotool: translate("settingsSections.agentDisplay.components.xdotool"),
+  scrot: translate("settingsSections.agentDisplay.components.scrot"),
+  browser: translate("settingsSections.agentDisplay.components.browser"),
+  mss: translate("settingsSections.agentDisplay.components.mss"),
   start_script: 'start_agent_display.sh',
-  display_running: 'Display :99 is live',
-};
+  display_running: translate("settingsSections.agentDisplay.components.displayRunning"),
+});
 
 const COMPONENT_ORDER = [
   'Xvfb', 'x11vnc', 'openbox', 'tint2', 'xdotool', 'scrot',
@@ -66,6 +67,7 @@ const StatusRow = ({ label, ok, version, hint }) => (
 );
 
 const AgentDisplaySection = ({ showMessage }) => {
+  const { t } = useUiTranslation();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [installing, setInstalling] = useState(false);
@@ -89,7 +91,7 @@ const AgentDisplaySection = ({ showMessage }) => {
         setManualInstall(null);
       }
     } catch (e) {
-      setError(e.message || 'Failed to probe agent display');
+      setError(e.message || t("settingsSections.agentDisplay.probeFailed"));
     } finally {
       setLoading(false);
     }
@@ -106,20 +108,20 @@ const AgentDisplaySection = ({ showMessage }) => {
     // browser window — say so, or it just looks like the button hung.
     showMessage?.(
       status?.install_method === 'pkexec'
-        ? 'Approve the password prompt on your desktop to continue installing.'
-        : 'Installing agent display dependencies… apt-get may take a minute.',
+        ? t("settingsSections.agentDisplay.approvePassword")
+        : t("settingsSections.agentDisplay.installing"),
       'info',
     );
     try {
       const result = await installDisplay();
       if (result.success) {
         if (result.already_installed) {
-          showMessage?.('Agent Display dependencies already installed.', 'info');
+          showMessage?.(t("settingsSections.agentDisplay.alreadyInstalled"), 'info');
         } else {
-          showMessage?.('Agent Display dependencies installed.', 'success');
+          showMessage?.(t("settingsSections.agentDisplay.installed"), 'success');
         }
       } else {
-        showMessage?.(`Install failed: ${result.error}`, 'error');
+        showMessage?.(t("settingsSections.agentDisplay.installFailed", { error: result.error }), 'error');
       }
     } catch (e) {
       // handleResponse throws on non-2xx but preserves the JSON body on error.data.
@@ -129,7 +131,7 @@ const AgentDisplaySection = ({ showMessage }) => {
       if (data.needs_manual_install && data.manual_command) {
         setManualInstall({ command: data.manual_command, reason: data.error || e.message });
       } else {
-        showMessage?.(`Install failed: ${e.message}`, 'error');
+        showMessage?.(t("settingsSections.agentDisplay.installFailed", { error: e.message }), 'error');
       }
     } finally {
       setInstalling(false);
@@ -140,24 +142,24 @@ const AgentDisplaySection = ({ showMessage }) => {
   const onCopyCommand = async (command) => {
     // Clipboard needs a secure context; over plain http on a LAN IP copyText falls back to execCommand.
     if (await copyText(command)) {
-      showMessage?.('Command copied to clipboard.', 'success');
+      showMessage?.(t("settingsSections.agentDisplay.copied"), 'success');
     } else {
-      showMessage?.('Could not copy — select the command and copy it manually.', 'warning');
+      showMessage?.(t("settingsSections.agentDisplay.copyFailed"), 'warning');
     }
   };
 
   const onStart = async () => {
     setControlAction('start');
-    showMessage?.('Starting agent display…', 'info');
+    showMessage?.(t("settingsSections.agentDisplay.starting"), 'info');
     try {
       const result = await startDisplay();
       if (result.success) {
-        showMessage?.('Agent display is up on :99.', 'success');
+        showMessage?.(t("settingsSections.agentDisplay.started"), 'success');
       } else {
-        showMessage?.(`Start failed: ${result.error}`, 'error');
+        showMessage?.(t("settingsSections.agentDisplay.startFailed", { error: result.error }), 'error');
       }
     } catch (e) {
-      showMessage?.(`Start failed: ${e.message}`, 'error');
+      showMessage?.(t("settingsSections.agentDisplay.startFailed", { error: e.message }), 'error');
     } finally {
       setControlAction(null);
       refresh();
@@ -166,16 +168,16 @@ const AgentDisplaySection = ({ showMessage }) => {
 
   const onStop = async () => {
     setControlAction('stop');
-    showMessage?.('Stopping agent display…', 'info');
+    showMessage?.(t("settingsSections.agentDisplay.stopping"), 'info');
     try {
       const result = await stopDisplay({ force: true });
       if (result.success) {
-        showMessage?.('Agent display stopped.', 'success');
+        showMessage?.(t("settingsSections.agentDisplay.stopped"), 'success');
       } else {
-        showMessage?.(`Stop failed: ${result.error}`, 'error');
+        showMessage?.(t("settingsSections.agentDisplay.stopFailed", { error: result.error }), 'error');
       }
     } catch (e) {
-      showMessage?.(`Stop failed: ${e.message}`, 'error');
+      showMessage?.(t("settingsSections.agentDisplay.stopFailed", { error: e.message }), 'error');
     } finally {
       setControlAction(null);
       refresh();
@@ -184,7 +186,7 @@ const AgentDisplaySection = ({ showMessage }) => {
 
   const onRestart = async () => {
     setControlAction('restart');
-    showMessage?.('Restarting agent display…', 'info');
+    showMessage?.(t("settingsSections.agentDisplay.restarting"), 'info');
     try {
       // A stop the backend refuses (409: an agent task or training holds the
       // display) ends the restart here. Any other stop failure means it was
@@ -193,18 +195,18 @@ const AgentDisplaySection = ({ showMessage }) => {
         await stopDisplay({ force: true });
       } catch (stopErr) {
         if (stopErr?.status === 409) {
-          showMessage?.(`Restart refused: ${stopErr.message}`, 'warning');
+          showMessage?.(t("settingsSections.agentDisplay.restartRefused", { error: stopErr.message }), 'warning');
           return;
         }
       }
       const startResult = await startDisplay();
       if (startResult.success) {
-        showMessage?.('Agent display restarted.', 'success');
+        showMessage?.(t("settingsSections.agentDisplay.restarted"), 'success');
       } else {
-        showMessage?.(`Restart failed: ${startResult.error}`, 'error');
+        showMessage?.(t("settingsSections.agentDisplay.restartFailed", { error: startResult.error }), 'error');
       }
     } catch (e) {
-      showMessage?.(`Restart failed: ${e.message}`, 'error');
+      showMessage?.(t("settingsSections.agentDisplay.restartFailed", { error: e.message }), 'error');
     } finally {
       setControlAction(null);
       refresh();
@@ -237,17 +239,15 @@ const AgentDisplaySection = ({ showMessage }) => {
     || (needsInstall && !canAutoInstall && status.manual_command
       ? {
         command: status.manual_command,
-        reason: 'Installing system packages requires sudo, and this machine asks for a '
-          + 'password. Guaardvark runs as a web service with no terminal, so it cannot '
-          + 'answer that prompt. Run this in a terminal, then click Recheck.',
+        reason: t("settingsSections.agentDisplay.manualReason"),
       }
       : null);
   const isRunning = !!status.display_running;
   const pill = needsInstall
-    ? { tone: 'warn', label: `Display :99 · ${[...missingApt, ...missingPip].length} missing` }
+    ? { tone: 'warn', label: t("settingsSections.agentDisplay.pillMissing", { count: [...missingApt, ...missingPip].length }) }
     : isRunning
-      ? { tone: 'ok', label: 'Display :99 live' }
-      : { tone: 'neutral', label: 'Display :99 not running' };
+      ? { tone: 'ok', label: t("settingsSections.agentDisplay.pillLive") }
+      : { tone: 'neutral', label: t("settingsSections.agentDisplay.pillNotRunning") };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -259,10 +259,10 @@ const AgentDisplaySection = ({ showMessage }) => {
             onClick={onInstall}
             loading={installing}
             tooltip={status.install_method === 'pkexec'
-              ? 'Installs via apt-get and pip; your desktop will ask for your password.'
-              : 'Installs via apt-get and pip.'}
+              ? t("settingsSections.agentDisplay.installTooltipPkexec")
+              : t("settingsSections.agentDisplay.installTooltip")}
           >
-            Install missing
+            {t("settingsSections.agentDisplay.installMissing")}
           </ActionButton>
         )}
         {!needsInstall && isRunning && (
@@ -273,16 +273,16 @@ const AgentDisplaySection = ({ showMessage }) => {
               loading={controlAction === 'restart'}
               disabled={controlAction !== null}
             >
-              Restart
+              {t("settingsSections.agentDisplay.restart")}
             </ActionButton>
             <ActionButton
               startIcon={<StopIcon />}
               onClick={onStop}
               loading={controlAction === 'stop'}
               disabled={controlAction !== null}
-              tooltip="Stops Xvfb, x11vnc and the window manager. Refused while an agent task or training is using the display."
+              tooltip={t("settingsSections.agentDisplay.stopTooltip")}
             >
-              Stop
+              {t("settingsSections.agentDisplay.stop")}
             </ActionButton>
           </>
         )}
@@ -292,21 +292,21 @@ const AgentDisplaySection = ({ showMessage }) => {
             onClick={onStart}
             loading={controlAction === 'start'}
             disabled={controlAction !== null}
-            tooltip="Starts Xvfb, x11vnc, openbox and tint2 on :99. Can take up to a minute."
+            tooltip={t("settingsSections.agentDisplay.startTooltip")}
           >
-            Start display
+            {t("settingsSections.agentDisplay.start")}
           </ActionButton>
         )}
         <ActionButton kind="link" startIcon={<RefreshIcon />} onClick={refresh} disabled={loading || installing}>
-          Recheck
+          {t("settingsSections.agentDisplay.recheck")}
         </ActionButton>
         <ActionButton kind="link" onClick={() => setShowComponents((v) => !v)}>
-          {showComponents ? 'Hide components' : 'Components'}
+          {showComponents ? t("settingsSections.agentDisplay.hideComponents") : t("settingsSections.agentDisplay.showComponents")}
         </ActionButton>
       </Line>
 
       {needsInstall && !pendingManual && (
-        <Hint>Missing: {[...missingApt, ...missingPip].join(', ')}.</Hint>
+        <Hint>{t("settingsSections.agentDisplay.missing", { packages: [...missingApt, ...missingPip].join(', ') })}</Hint>
       )}
 
       {pendingManual && (
@@ -328,7 +328,7 @@ const AgentDisplaySection = ({ showMessage }) => {
             <Box component="code" sx={{ flex: 1, whiteSpace: 'pre' }}>
               {pendingManual.command}
             </Box>
-            <Tooltip title="Copy command">
+            <Tooltip title={t("settingsSections.agentDisplay.copyCommand")}>
               <Button
                 size="small"
                 color="inherit"
@@ -336,14 +336,13 @@ const AgentDisplaySection = ({ showMessage }) => {
                 onClick={() => onCopyCommand(pendingManual.command)}
                 sx={{ flexShrink: 0 }}
               >
-                Copy
+                {t("settingsSections.agentDisplay.copy")}
               </Button>
             </Tooltip>
           </Box>
           {missingPip.length > 0 && (
             <Typography variant="caption" sx={{ display: 'block', mt: 1 }}>
-              The Python package{missingPip.length > 1 ? 's' : ''} ({missingPip.join(', ')})
-              {' '}will install automatically — no sudo needed for that part.
+              {t("settingsSections.agentDisplay.pipAutomatic", { count: missingPip.length, packages: missingPip.join(', ') })}
             </Typography>
           )}
         </MuiAlert>
@@ -354,7 +353,7 @@ const AgentDisplaySection = ({ showMessage }) => {
           {COMPONENT_ORDER.map((key) => {
             const comp = components[key];
             if (!comp) return null;
-            const label = COMPONENT_LABELS[key] || key;
+            const label = componentLabels()[key] || key;
             return (
               <StatusRow
                 key={key}

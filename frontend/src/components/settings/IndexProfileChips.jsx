@@ -7,23 +7,31 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { CircularProgress } from "@mui/material";
 import { Hint, Line, SettingChip } from "./ui";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 export const fmtBytes = (n) => {
-  if (!n || n < 1024) return `${n || 0} B`;
-  const units = ["KB", "MB", "GB"];
+  if (!n || n < 1024) return translate("settingsSections.units.b", { size: n || 0 });
+  const units = [
+    (size) => translate("settingsSections.units.kb", { size }),
+    (size) => translate("settingsSections.units.mb", { size }),
+    (size) => translate("settingsSections.units.gb", { size }),
+  ];
   let v = n / 1024;
   let i = 0;
   while (v >= 1024 && i < units.length - 1) {
     v /= 1024;
     i += 1;
   }
-  return `${v.toFixed(1)} ${units[i]}`;
+  return units[i](v.toFixed(1));
 };
 
 export const describeProjection = (p) => {
   const proj = p?.projection || {};
-  if (!proj.exists) return "not built";
-  return `${(proj.rows ?? 0).toLocaleString()} vectors · ${fmtBytes(proj.size_bytes)}`;
+  if (!proj.exists) return translate("settingsSections.indexProfiles.notBuilt");
+  return translate("settingsSections.indexProfiles.projection", {
+    rows: (proj.rows ?? 0).toLocaleString(uiLocale()),
+    size: fmtBytes(proj.size_bytes),
+  });
 };
 
 /**
@@ -33,6 +41,7 @@ export const describeProjection = (p) => {
  * @param {function} [onEdit]      receives the profile; the chip shows a gear
  */
 const IndexProfileChips = ({ onLoaded, reloadKey, showMessage, onEdit }) => {
+  const { t } = useUiTranslation();
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -44,12 +53,12 @@ const IndexProfileChips = ({ onLoaded, reloadKey, showMessage, onEdit }) => {
     try {
       const res = await fetch("/api/settings/index_profiles");
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || "Failed to load profiles");
+      if (!res.ok) throw new Error(body?.error || t("settingsSections.indexProfiles.loadFailed"));
       const list = body?.data?.profiles || body?.profiles || [];
       setProfiles(list);
       onLoaded?.(list);
     } catch (e) {
-      setError(e.message || "Failed to load index profiles");
+      setError(e.message || t("settingsSections.indexProfiles.loadIndexFailed"));
     } finally {
       setLoading(false);
     }
@@ -69,16 +78,16 @@ const IndexProfileChips = ({ onLoaded, reloadKey, showMessage, onEdit }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ active }),
       });
-      if (!res.ok) throw new Error((await res.json())?.error || "Failed to update");
+      if (!res.ok) throw new Error((await res.json())?.error || t("settingsSections.indexProfiles.updateFailed"));
       await load();
       showMessage?.(
         next
-          ? `"${name}" is active: it will be built by the next indexing run and used for queries.`
-          : `"${name}" is inactive: kept on disk, not queried.`,
+          ? t("settingsSections.indexProfiles.activated", { name })
+          : t("settingsSections.indexProfiles.deactivated", { name }),
         "info",
       );
     } catch (e) {
-      setError(e.message || "Failed to update profiles");
+      setError(e.message || t("settingsSections.indexProfiles.updateProfilesFailed"));
     } finally {
       setBusy("");
     }
@@ -95,9 +104,18 @@ const IndexProfileChips = ({ onLoaded, reloadKey, showMessage, onEdit }) => {
           on={!!p.active}
           disabled={busy === p.name}
           note={describeProjection(p)}
-          tooltip={`${p.description ? `${p.description} ` : ""}top_k ${p.top_k} · window ${p.context_window_chunks} · rerank ${
-            p.rerank ? "on" : "off"
-          }. ${p.active ? "Active: kept up to date and queried." : "Inactive: turning it on marks it for the next indexing run; nothing is built now."}`}
+          tooltip={
+            (p.description ? `${p.description} ` : "") +
+            t("settingsSections.indexProfiles.settingsSummary", {
+              topK: p.top_k,
+              window: p.context_window_chunks,
+              rerank: p.rerank
+                ? t("settingsSections.indexProfiles.rerankOn")
+                : t("settingsSections.indexProfiles.rerankOff"),
+            }) +
+            " " +
+            (p.active ? t("settingsSections.indexProfiles.activeNote") : t("settingsSections.indexProfiles.inactiveNote"))
+          }
           onToggle={(next) => toggle(p.name, next)}
           onSettings={onEdit ? () => onEdit(p) : undefined}
         />

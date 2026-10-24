@@ -8,6 +8,7 @@ import React from "react";
 import { Box, ButtonBase, Tooltip, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import { useUiTranslation } from "../../../i18n";
 
 export const chipSx = (theme, on, disabled) => ({
   height: 28,
@@ -42,6 +43,7 @@ export const chipSx = (theme, on, disabled) => ({
  * @param {string}   [testId]
  */
 const SettingChip = ({ label, on, onToggle, disabled = false, tooltip = "", note, onSettings, testId, sx }) => {
+  const { t } = useUiTranslation();
   const chip = (
     <ButtonBase
       role="switch"
@@ -62,7 +64,7 @@ const SettingChip = ({ label, on, onToggle, disabled = false, tooltip = "", note
         <Box
           component="span"
           role="button"
-          aria-label={`${label} settings`}
+          aria-label={t("settings.ui.chipSettings", { label })}
           onClick={(e) => {
             e.stopPropagation();
             onSettings();

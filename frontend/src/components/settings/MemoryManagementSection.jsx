@@ -35,6 +35,7 @@ import useContextMenu from "../../hooks/useContextMenu";
 import copyText from "../../utils/copyText";
 import { handleResponse } from "../../api/apiClient";
 import { formatUiError } from "../../utils/uiError";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 // Compact spreadsheet-style timestamp: "MM/DD HH:MM:SS". Full ISO available
 // on hover via title attribute for forensic detail.
@@ -80,7 +81,7 @@ const parseLesson = (memory) => {
     const parsed = JSON.parse(memory.content);
     if (!parsed || typeof parsed !== "object") return null;
     return {
-      title: (parsed.title || "Untitled Lesson").toString(),
+      title: (parsed.title || translate("settingsMemory.untitledLesson")).toString(),
       stepCount: Array.isArray(parsed.steps) ? parsed.steps.length : 0,
       paramCount: Array.isArray(parsed.parameters) ? parsed.parameters.length : 0,
     };
@@ -130,7 +131,8 @@ const similarMemories = (memory, memories) => {
 // `title`/`icon` default to the section heading the Settings page expects.
 // AgentMemoryPage renders this under a PageLayout header that already says
 // "Agent Memory", and passes title={null} so the name isn't printed twice.
-const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon /> }) => {
+const MemoryManagementSection = ({ title = translate("settingsMemory.title"), icon = <MemoryIcon /> }) => {
+  const { t } = useUiTranslation();
   const [memories, setMemories] = useState([]);
   // The API's count of matching rows; null until the first page answers.
   const [total, setTotal] = useState(null);
@@ -166,9 +168,9 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
   // so the line still makes sense when reinjected under the
   // "User's saved memories" header in the system prompt.
   const placeholderByType = {
-    fact: "e.g., The user's main machine has 64GB RAM and an RTX 4090.",
-    preference: "e.g., I prefer Python code formatted with Black.",
-    note: "e.g., After a click, the icon may be obscured by the app that opened — treat that as success.",
+    fact: t("settingsMemory.placeholders.fact"),
+    preference: t("settingsMemory.placeholders.preference"),
+    note: t("settingsMemory.placeholders.note"),
   };
 
   // Edit dialog state — two flavors: structured (lesson_summary) vs plain (everything else)
@@ -218,10 +220,10 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         setMemories((prev) => prev.map((m) => (m.id === editTarget.id ? data.memory : m)));
         setEditTarget(null);
       } else {
-        setActionError(formatUiError(data.error || "Failed to update memory") || "The memory request failed");
+        setActionError(formatUiError(data.error || t("settingsMemory.errors.update")) || t("settingsMemory.errors.requestFailed"));
       }
     } catch (err) {
-      setActionError(formatUiError(err.message) || "The memory request failed");
+      setActionError(formatUiError(err.message) || t("settingsMemory.errors.requestFailed"));
     } finally {
       setSavingEdit(false);
     }
@@ -258,7 +260,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         setMemories(data.memories);
         setTotal(typeof data.total === "number" ? data.total : data.memories.length);
       } else {
-        setError(data.error || "Failed to load memories");
+        setError(data.error || t("settingsMemory.errors.load"));
       }
     } catch (err) {
       setError(err.message);
@@ -316,10 +318,10 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         setMemories(memories.filter((m) => m.id !== id));
         setTotal((prev) => (prev == null ? prev : Math.max(0, prev - 1)));
       } else {
-        setActionError(formatUiError(data.error || "Failed to delete memory") || "The memory request failed");
+        setActionError(formatUiError(data.error || t("settingsMemory.errors.delete")) || t("settingsMemory.errors.requestFailed"));
       }
     } catch (err) {
-      setActionError(formatUiError(err.message) || "The memory request failed");
+      setActionError(formatUiError(err.message) || t("settingsMemory.errors.requestFailed"));
     }
   };
 
@@ -333,10 +335,10 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
       if (data.success) {
         setMemories((prev) => prev.map((m) => (m.id === memory.id ? data.memory : m)));
       } else {
-        setActionError(formatUiError(data.error || "Failed to update memory status") || "The memory request failed");
+        setActionError(formatUiError(data.error || t("settingsMemory.errors.updateStatus")) || t("settingsMemory.errors.requestFailed"));
       }
     } catch (err) {
-      setActionError(formatUiError(err.message) || "The memory request failed");
+      setActionError(formatUiError(err.message) || t("settingsMemory.errors.requestFailed"));
     }
   };
 
@@ -361,7 +363,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         body: JSON.stringify({ content: mergedContent }),
       });
       if (!updateData.success) {
-        setActionError(formatUiError(updateData.error || "Failed to merge memory") || "The memory request failed");
+        setActionError(formatUiError(updateData.error || t("settingsMemory.errors.merge")) || t("settingsMemory.errors.requestFailed"));
         return;
       }
       await handleStatusChange(editTarget, "archived");
@@ -371,7 +373,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
       setMergePickerOpen(false);
       setMergeTargetId("");
     } catch (err) {
-      setActionError(formatUiError(err.message) || "The memory request failed");
+      setActionError(formatUiError(err.message) || t("settingsMemory.errors.requestFailed"));
     } finally {
       setMerging(false);
     }
@@ -392,10 +394,10 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         setMemories([]);
         setTotal(0);
       } else {
-        setActionError(formatUiError(data.error || "Failed to clear memories") || "The memory request failed");
+        setActionError(formatUiError(data.error || t("settingsMemory.errors.clear")) || t("settingsMemory.errors.requestFailed"));
       }
     } catch (err) {
-      setActionError(formatUiError(err.message) || "The memory request failed");
+      setActionError(formatUiError(err.message) || t("settingsMemory.errors.requestFailed"));
     }
   };
 
@@ -424,7 +426,11 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         setNewContent("");
         setNewTags("");
         setNotice(
-          `Already saved: "${quoted}" is a ${saved.type || "memory"} from ${formatTimestamp(saved.created_at)}. Nothing new was added.`,
+          t("settingsMemory.alreadySaved", {
+            text: quoted,
+            type: saved.type || t("settingsMemory.memoryNoun"),
+            time: formatTimestamp(saved.created_at),
+          }),
         );
         reload();
       } else if (data.success) {
@@ -433,10 +439,10 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         setNewTags("");
         reload(1); // refresh list and total
       } else {
-        setActionError(formatUiError(data.error || "Failed to add memory") || "The memory request failed");
+        setActionError(formatUiError(data.error || t("settingsMemory.errors.add")) || t("settingsMemory.errors.requestFailed"));
       }
     } catch (err) {
-      setActionError(formatUiError(err.message) || "The memory request failed");
+      setActionError(formatUiError(err.message) || t("settingsMemory.errors.requestFailed"));
     } finally {
       setAdding(false);
     }
@@ -445,7 +451,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
   return (
     <SettingsSection title={title} icon={icon}>
       <Typography variant="body2" color="text.secondary" paragraph>
-        Manage the long-term memories, facts, and preferences the agent has learned about you. The agent uses these to personalize its responses.
+        {t("settingsMemory.intro")}
       </Typography>
 
       <Box sx={{ display: "flex", gap: 2, mb: 3 }}>
@@ -453,56 +459,56 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
           <TextField
             size="small"
             fullWidth
-            placeholder="Search memories..."
+            placeholder={t("settingsMemory.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
               startAdornment: <SearchIcon color="action" sx={{ mr: 1 }} />,
             }}
           />
-          <Button type="submit" variant="outlined">Search</Button>
+          <Button type="submit" variant="outlined">{t("settingsMemory.search")}</Button>
         </form>
         <Button 
           variant="contained" 
           startIcon={<AddIcon />}
           onClick={() => setOpenAdd(true)}
         >
-          Add Memory
+          {t("settingsMemory.addMemory")}
         </Button>
       </Box>
 
       <Box sx={{ display: "flex", gap: 1.5, mb: 2, flexWrap: "wrap" }}>
-        <TextField select size="small" label="Type" value={filterType} onChange={(e) => setFilterType(e.target.value)} SelectProps={{ native: true }} InputLabelProps={{ shrink: true }} sx={{ minWidth: 130 }}>
-          <option value="">All types</option>
-          <option value="fact">Fact</option>
-          <option value="preference">Preference</option>
-          <option value="note">Note</option>
-          <option value="lesson">Lesson</option>
-          <option value="belief_update">Belief update</option>
-          <option value="snippet">Snippet</option>
+        <TextField select size="small" label={t("settingsMemory.filters.type")} value={filterType} onChange={(e) => setFilterType(e.target.value)} SelectProps={{ native: true }} InputLabelProps={{ shrink: true }} sx={{ minWidth: 130 }}>
+          <option value="">{t("settingsMemory.filters.allTypes")}</option>
+          <option value="fact">{t("settingsMemory.filters.fact")}</option>
+          <option value="preference">{t("settingsMemory.filters.preference")}</option>
+          <option value="note">{t("settingsMemory.filters.note")}</option>
+          <option value="lesson">{t("settingsMemory.filters.lesson")}</option>
+          <option value="belief_update">{t("settingsMemory.filters.beliefUpdate")}</option>
+          <option value="snippet">{t("settingsMemory.filters.snippet")}</option>
         </TextField>
-        <TextField select size="small" label="Source" value={filterSource} onChange={(e) => setFilterSource(e.target.value)} SelectProps={{ native: true }} InputLabelProps={{ shrink: true }} sx={{ minWidth: 150 }}>
-          <option value="">All sources</option>
-          <option value="manual">Manual</option>
-          <option value="chat">Chat</option>
-          <option value="cli">CLI</option>
-          <option value="agent">Agent</option>
-          <option value="lesson_summary">Lesson summary</option>
-          <option value="learned_from_feedback">Feedback</option>
-          <option value="candidate_recipe">Candidate recipe</option>
+        <TextField select size="small" label={t("settingsMemory.filters.source")} value={filterSource} onChange={(e) => setFilterSource(e.target.value)} SelectProps={{ native: true }} InputLabelProps={{ shrink: true }} sx={{ minWidth: 150 }}>
+          <option value="">{t("settingsMemory.filters.allSources")}</option>
+          <option value="manual">{t("settingsMemory.filters.manual")}</option>
+          <option value="chat">{t("settingsMemory.filters.chat")}</option>
+          <option value="cli">{t("settingsMemory.filters.cli")}</option>
+          <option value="agent">{t("settingsMemory.filters.agent")}</option>
+          <option value="lesson_summary">{t("settingsMemory.filters.lessonSummary")}</option>
+          <option value="learned_from_feedback">{t("settingsMemory.filters.feedback")}</option>
+          <option value="candidate_recipe">{t("settingsMemory.filters.candidateRecipe")}</option>
         </TextField>
-        <TextField select size="small" label="Status" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
-          <option value="all">All status</option>
-          <option value="active">Active</option>
-          <option value="archived">Archived</option>
-          <option value="wrong">Wrong</option>
+        <TextField select size="small" label={t("settingsMemory.filters.status")} value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
+          <option value="all">{t("settingsMemory.filters.allStatus")}</option>
+          <option value="active">{t("settingsMemory.filters.active")}</option>
+          <option value="archived">{t("settingsMemory.filters.archived")}</option>
+          <option value="wrong">{t("settingsMemory.filters.wrong")}</option>
         </TextField>
-        <TextField select size="small" label="Sort" value={sortMode} onChange={(e) => setSortMode(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
-          <option value="rank">Rank</option>
-          <option value="">Newest</option>
+        <TextField select size="small" label={t("settingsMemory.filters.sort")} value={sortMode} onChange={(e) => setSortMode(e.target.value)} SelectProps={{ native: true }} sx={{ minWidth: 130 }}>
+          <option value="rank">{t("settingsMemory.filters.rank")}</option>
+          <option value="">{t("settingsMemory.filters.newest")}</option>
         </TextField>
         <Button size="small" variant="outlined" onClick={() => fetchMemories(searchQuery)}>
-          Apply Filters
+          {t("settingsMemory.filters.apply")}
         </Button>
       </Box>
 
@@ -510,7 +516,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         <Alert
           severity="error"
           sx={{ mb: 2 }}
-          action={<Button color="inherit" size="small" onClick={() => reload()}>Retry</Button>}
+          action={<Button color="inherit" size="small" onClick={() => reload()}>{t("settingsMemory.retry")}</Button>}
         >
           {error}
         </Alert>
@@ -529,7 +535,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
           </Box>
         ) : memories.length === 0 ? (
           <Box sx={{ textAlign: "center", p: 4, color: "text.secondary" }}>
-            <Typography>{error ? "The memories could not be loaded." : "No memories found."}</Typography>
+            <Typography>{error ? t("settingsMemory.loadFailed") : t("settingsMemory.empty")}</Typography>
           </Box>
         ) : (
           // Spreadsheet-style memory table. Clicking any row opens the existing
@@ -539,13 +545,13 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 130 }}>When</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem" }}>Content</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 100 }}>Type</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 110 }}>Source</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 90 }}>Rank</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 100 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem" }}>Tags</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 130 }}>{t("settingsMemory.columns.when")}</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem" }}>{t("settingsMemory.columns.content")}</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 100 }}>{t("settingsMemory.columns.type")}</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 110 }}>{t("settingsMemory.columns.source")}</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 90 }}>{t("settingsMemory.columns.rank")}</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 100 }}>{t("settingsMemory.columns.status")}</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem" }}>{t("settingsMemory.columns.tags")}</TableCell>
                 <TableCell sx={{ fontWeight: 700, fontSize: "0.7rem", width: 120, whiteSpace: "nowrap" }} align="right"></TableCell>
               </TableRow>
             </TableHead>
@@ -553,7 +559,16 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
               {memories.map((memory) => {
                 const lesson = parseLesson(memory);
                 const contentDisplay = lesson
-                  ? `${lesson.title} (${lesson.stepCount} step${lesson.stepCount === 1 ? "" : "s"}${lesson.paramCount > 0 ? `, ${lesson.paramCount} param${lesson.paramCount === 1 ? "" : "s"}` : ""})`
+                  ? lesson.paramCount > 0
+                    ? t("settingsMemory.lessonSummaryWithParams", {
+                        title: lesson.title,
+                        steps: t("settingsMemory.lessonSteps", { count: lesson.stepCount }),
+                        params: t("settingsMemory.lessonParams", { count: lesson.paramCount }),
+                      })
+                    : t("settingsMemory.lessonSummary", {
+                        title: lesson.title,
+                        steps: t("settingsMemory.lessonSteps", { count: lesson.stepCount }),
+                      })
                   : memory.content;
                 const typeLabel = lesson ? "lesson" : (memory.type || "—");
                 return (
@@ -565,7 +580,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
                     sx={{ cursor: "pointer", "& td": { py: 0.5, fontSize: "0.75rem" } }}
                   >
                     <TableCell sx={{ fontFamily: "monospace", whiteSpace: "nowrap" }}>
-                      <Tooltip title={new Date(memory.created_at).toLocaleString()} placement="top" arrow>
+                      <Tooltip title={new Date(memory.created_at).toLocaleString(uiLocale())} placement="top" arrow>
                         <span>{formatTimestamp(memory.created_at)}</span>
                       </Tooltip>
                     </TableCell>
@@ -587,7 +602,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
                     </TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>{memory.source || "—"}</TableCell>
                     <TableCell sx={{ color: "text.secondary" }}>
-                      <Tooltip title={memory.rank_reason || "Rank uses importance, trust, scope, recency, and query matches."} placement="top" arrow>
+                      <Tooltip title={memory.rank_reason || t("settingsMemory.rankTooltip")} placement="top" arrow>
                         <span>{memory.rank_score ?? "—"}</span>
                       </Tooltip>
                     </TableCell>
@@ -616,14 +631,14 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
                     <TableCell align="right" sx={{ whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                       {memory.status !== "active" && (
                         <Button size="small" color="success" onClick={() => handleStatusChange(memory, "active")}>
-                          Restore
+                          {t("settingsMemory.restore")}
                         </Button>
                       )}
-                      <Tooltip title={memory.status === "archived" ? "Archived" : "Archive"}>
+                      <Tooltip title={memory.status === "archived" ? t("settingsMemory.archivedTooltip") : t("settingsMemory.archive")}>
                         <span>
                           <IconButton
                             size="small"
-                            aria-label="Archive memory"
+                            aria-label={t("settingsMemory.archiveAria")}
                             onClick={() => handleStatusChange(memory, "archived")}
                             disabled={memory.status === "archived"}
                           >
@@ -631,12 +646,12 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
                           </IconButton>
                         </span>
                       </Tooltip>
-                      <Tooltip title={memory.status === "wrong" ? "Marked wrong" : "Mark wrong"}>
+                      <Tooltip title={memory.status === "wrong" ? t("settingsMemory.markedWrong") : t("settingsMemory.markWrong")}>
                         <span>
                           <IconButton
                             size="small"
                             color="warning"
-                            aria-label="Mark memory wrong"
+                            aria-label={t("settingsMemory.markWrongAria")}
                             onClick={() => handleStatusChange(memory, "wrong")}
                             disabled={memory.status === "wrong"}
                           >
@@ -646,7 +661,7 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
                       </Tooltip>
                       <IconButton
                         size="small"
-                        aria-label="delete"
+                        aria-label={t("settingsMemory.deleteAria")}
                         onClick={() => handleDelete(memory.id)}
                         color="error"
                       >
@@ -667,26 +682,26 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         actions={
           rowMenu.payload
             ? [
-                { label: "Edit…", onClick: () => openEditForMemory(rowMenu.payload) },
-                { label: "Copy content", onClick: () => copyText(rowMenu.payload.content) },
+                { label: t("settingsMemory.menu.edit"), onClick: () => openEditForMemory(rowMenu.payload) },
+                { label: t("settingsMemory.menu.copy"), onClick: () => copyText(rowMenu.payload.content) },
                 rowMenu.payload.status !== "active" && {
-                  label: "Restore",
+                  label: t("settingsMemory.menu.restore"),
                   onClick: () => handleStatusChange(rowMenu.payload, "active"),
                   dividerBefore: true,
                 },
                 {
-                  label: "Archive",
+                  label: t("settingsMemory.menu.archive"),
                   onClick: () => handleStatusChange(rowMenu.payload, "archived"),
                   disabled: rowMenu.payload.status === "archived",
                   dividerBefore: rowMenu.payload.status === "active",
                 },
                 {
-                  label: "Mark wrong",
+                  label: t("settingsMemory.menu.markWrong"),
                   onClick: () => handleStatusChange(rowMenu.payload, "wrong"),
                   disabled: rowMenu.payload.status === "wrong",
                 },
                 {
-                  label: "Delete",
+                  label: t("settingsMemory.menu.delete"),
                   onClick: () => handleDelete(rowMenu.payload.id),
                   color: "error.main",
                   dividerBefore: true,
@@ -699,11 +714,11 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
       {memories.length > 0 && (
         <Box sx={{ mt: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography variant="caption" color="text.secondary">
-            Total: {total ?? memories.length}
+            {t("settingsMemory.total", { count: total ?? memories.length })}
             {total != null && memories.length < total && (
               <>
                 {" "}
-                (showing {memories.length})
+                {t("settingsMemory.showing", { count: memories.length })}
                 <Button
                   size="small"
                   variant="text"
@@ -711,25 +726,25 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
                   disabled={loadingMore}
                   sx={{ ml: 1, py: 0, minWidth: 0, textTransform: "none" }}
                 >
-                  {loadingMore ? "Loading…" : "Load more"}
+                  {loadingMore ? t("settingsMemory.loading") : t("settingsMemory.loadMore")}
                 </Button>
               </>
             )}
           </Typography>
           <Button color="error" size="small" onClick={handleClearAll}>
-            Clear All Memories
+            {t("settingsMemory.clearAll")}
           </Button>
         </Box>
       )}
 
       {/* Add Memory Dialog */}
       <Dialog open={openAdd} onClose={() => !adding && setOpenAdd(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add New Memory</DialogTitle>
+        <DialogTitle>{t("settingsMemory.add.title")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Memory Content"
+            label={t("settingsMemory.add.content")}
             fullWidth
             multiline
             rows={3}
@@ -741,29 +756,29 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
           <Box sx={{ display: "flex", gap: 2 }}>
             <TextField
               select
-              label="Type"
+              label={t("settingsMemory.add.type")}
               value={newType}
               onChange={(e) => setNewType(e.target.value)}
               SelectProps={{ native: true }}
               sx={{ minWidth: 120 }}
             >
-              <option value="fact">Fact</option>
-              <option value="preference">Preference</option>
-              <option value="note">Note</option>
+              <option value="fact">{t("settingsMemory.filters.fact")}</option>
+              <option value="preference">{t("settingsMemory.filters.preference")}</option>
+              <option value="note">{t("settingsMemory.filters.note")}</option>
             </TextField>
             <TextField
-              label="Tags (comma separated)"
+              label={t("settingsMemory.add.tags")}
               fullWidth
               value={newTags}
               onChange={(e) => setNewTags(e.target.value)}
-              placeholder="e.g., coding, python"
+              placeholder={t("settingsMemory.add.tagsPlaceholder")}
             />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenAdd(false)} disabled={adding}>Cancel</Button>
+          <Button onClick={() => setOpenAdd(false)} disabled={adding}>{t("settingsMemory.add.cancel")}</Button>
           <Button onClick={handleAddMemory} variant="contained" disabled={adding || !newContent.trim()}>
-            {adding ? <CircularProgress size={24} /> : "Save"}
+            {adding ? <CircularProgress size={24} /> : t("settingsMemory.add.save")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -775,12 +790,12 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Edit Memory</DialogTitle>
+        <DialogTitle>{t("settingsMemory.edit.title")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Memory Content"
+            label={t("settingsMemory.edit.content")}
             fullWidth
             multiline
             rows={5}
@@ -802,20 +817,20 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
               await handleDelete(id);
             }}
           >
-            Delete
+            {t("settingsMemory.edit.delete")}
           </Button>
           {mergeCandidates.length > 0 && (
             <ActionButton onClick={handleMergeDuplicate} disabled={savingEdit}>
-              Merge Duplicate
+              {t("settingsMemory.edit.mergeDuplicate")}
             </ActionButton>
           )}
-          <Button onClick={() => setEditTarget(null)} disabled={savingEdit}>Cancel</Button>
+          <Button onClick={() => setEditTarget(null)} disabled={savingEdit}>{t("settingsMemory.edit.cancel")}</Button>
           <Button
             onClick={handleSavePlainEdit}
             variant="contained"
             disabled={savingEdit || !editContent.trim()}
           >
-            {savingEdit ? <CircularProgress size={24} /> : "Save"}
+            {savingEdit ? <CircularProgress size={24} /> : t("settingsMemory.edit.save")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -826,19 +841,19 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Merge into another memory</DialogTitle>
+        <DialogTitle>{t("settingsMemory.mergePicker.title")}</DialogTitle>
         <DialogContent>
           <Hint sx={{ display: "block", mb: 1.5 }}>
-            These memories read like this one. Pick the one to keep: this one is appended to it, then archived.
+            {t("settingsMemory.mergePicker.hint")}
           </Hint>
           {mergeCandidates.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              No other memories are loaded to merge into.
+              {t("settingsMemory.mergePicker.none")}
             </Typography>
           ) : (
             <Box sx={{ maxHeight: 280, overflow: "auto", py: 0.5 }}>
               <ChoiceChips
-                ariaLabel="Merge target memory"
+                ariaLabel={t("settingsMemory.mergePicker.aria")}
                 value={mergeTargetId}
                 onChange={setMergeTargetId}
                 options={mergeCandidates.map((m) => ({
@@ -852,28 +867,28 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
         </DialogContent>
         <DialogActions>
           <ActionButton onClick={() => setMergePickerOpen(false)} disabled={merging}>
-            Cancel
+            {t("settingsMemory.mergePicker.cancel")}
           </ActionButton>
           <ActionButton
             kind="destructive"
             disabled={!mergeTargetId || merging}
             onClick={() => setMergeConfirmOpen(true)}
           >
-            Merge
+            {t("settingsMemory.mergePicker.merge")}
           </ActionButton>
         </DialogActions>
       </Dialog>
 
       <ConfirmActionDialog
         open={pendingDelete != null}
-        title={pendingDelete === "all" ? "Delete all memories" : "Delete this memory"}
+        title={pendingDelete === "all" ? t("settingsMemory.deleteAllTitle") : t("settingsMemory.deleteOneTitle")}
         description={
           pendingDelete === "all"
-            ? "Every memory the agent has saved is deleted."
+            ? t("settingsMemory.deleteAllDescription")
             : (memories.find((m) => m.id === pendingDelete)?.content || "").slice(0, 160) || null
         }
-        facts={pendingDelete === "all" && typeof total === "number" ? [{ label: "Memories", value: total }] : []}
-        confirmLabel={pendingDelete === "all" ? "Delete all" : "Delete memory"}
+        facts={pendingDelete === "all" && typeof total === "number" ? [{ label: t("settingsMemory.factMemories"), value: total }] : []}
+        confirmLabel={pendingDelete === "all" ? t("settingsMemory.deleteAll") : t("settingsMemory.deleteMemory")}
         onConfirm={() => {
           const target = pendingDelete;
           setPendingDelete(null);
@@ -885,14 +900,14 @@ const MemoryManagementSection = ({ title = "Agent Memory", icon = <MemoryIcon />
 
       <ConfirmActionDialog
         open={mergeConfirmOpen}
-        title="Merge this memory"
-        description="The chosen memory keeps its text with this one appended. This memory is archived."
+        title={t("settingsMemory.mergeConfirm.title")}
+        description={t("settingsMemory.mergeConfirm.description")}
         facts={[
-          { label: "Source", value: (editContent || editTarget?.content || "").slice(0, 120) || `#${editTarget?.id}` },
-          { label: "Target", value: (mergeTarget?.content || "").slice(0, 120) || `#${mergeTargetId}` },
+          { label: t("settingsMemory.mergeConfirm.source"), value: (editContent || editTarget?.content || "").slice(0, 120) || `#${editTarget?.id}` },
+          { label: t("settingsMemory.mergeConfirm.target"), value: (mergeTarget?.content || "").slice(0, 120) || `#${mergeTargetId}` },
         ]}
-        keeps="Other memories, and the target's type and tags"
-        confirmLabel="Merge"
+        keeps={t("settingsMemory.mergeConfirm.keeps")}
+        confirmLabel={t("settingsMemory.mergeConfirm.merge")}
         busy={merging}
         onConfirm={confirmMerge}
         onClose={() => !merging && setMergeConfirmOpen(false)}
