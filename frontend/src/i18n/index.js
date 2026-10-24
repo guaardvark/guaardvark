@@ -7,6 +7,8 @@
 import i18n from "i18next";
 import { initReactI18next, useTranslation } from "react-i18next";
 
+export { default as Trans } from "./Trans";
+
 const ENGLISH_FILES = import.meta.glob("../locales/en/*.json", { eager: true, import: "default" });
 // _sources.json is the translation script's record, not strings.
 const OTHER_FILES = import.meta.glob(

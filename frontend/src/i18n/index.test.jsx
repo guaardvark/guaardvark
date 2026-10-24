@@ -1,6 +1,5 @@
 import React, { memo, useState } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { Trans } from "react-i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as muiLocales from "@mui/material/locale";
 import i18n, {
@@ -9,6 +8,7 @@ import i18n, {
   languageName,
   setLanguage,
   SUPPORTED_LANGUAGES,
+  Trans,
   uiLocale,
   useUiTranslation,
 } from "./index";
@@ -145,6 +145,35 @@ describe("markup inside a sentence", () => {
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
     await act(() => setLanguage("de"));
     expect(screen.getByRole("link", { name: "Einstellungen" })).toBeInTheDocument();
+  });
+});
+
+describe("values inside a Trans sentence", () => {
+  it("shows a value holding tags as text, even one named like the sentence's own", () => {
+    i18n.addResource("en", "translation", "transTest.file", "Open <bold>{{name}}</bold> now");
+    render(
+      <p data-testid="file">
+        <Trans
+          i18nKey="transTest.file"
+          values={{ name: "a <bold>x</bold> <strong>y</strong> & z.txt" }}
+          components={{ bold: <b /> }}
+        />
+      </p>,
+    );
+    const sentence = screen.getByTestId("file");
+    expect(sentence).toHaveTextContent("Open a <bold>x</bold> <strong>y</strong> & z.txt now");
+    expect(sentence.querySelectorAll("b")).toHaveLength(1);
+    expect(sentence.querySelector("strong")).toBeNull();
+  });
+
+  it("renders an entity written in the English", () => {
+    i18n.addResource("en", "translation", "transTest.space", "Used&nbsp;{{used}} of <bold>{{total}}</bold>");
+    render(
+      <p data-testid="space">
+        <Trans i18nKey="transTest.space" values={{ used: 1, total: 2 }} components={{ bold: <b /> }} />
+      </p>,
+    );
+    expect(screen.getByTestId("space").textContent).toBe("Used\u00a01 of 2");
   });
 });
 
