@@ -212,7 +212,8 @@ def installed_models() -> list[str]:
         return [m["name"] for m in json.load(resp).get("models", [])]
 
 
-def ask_model(model: str, code: str, label: str, batch: dict[str, tuple[str, int | None]], feedback: str = "") -> dict:
+def ask_model(model: str, code: str, label: str, batch: dict[str, tuple[str, int | None]],
+              feedback: str = "", glossary: dict[str, str] | None = None) -> dict:
     lines = []
     for key, (text, count) in batch.items():
         note = f" (plural form used when count = {count})" if count is not None else ""
@@ -228,6 +229,9 @@ def ask_model(model: str, code: str, label: str, batch: dict[str, tuple[str, int
         f"key to its translation, nothing else."
     )
     prompt = "Translate these strings:\n" + "\n".join(lines)
+    if glossary:
+        terms = "\n".join(f"{json.dumps(en, ensure_ascii=False)} = {json.dumps(tr, ensure_ascii=False)}" for en, tr in glossary.items())
+        prompt = f"Use these established {label} terms wherever the English uses them:\n{terms}\n\n" + prompt
     if feedback:
         prompt += "\n\nYour last answer for some keys was rejected:\n" + feedback
     body = {
@@ -268,13 +272,14 @@ def batches(items: dict[str, tuple[str, int | None]], budget: int = 1500):
         yield batch
 
 
-def translate_batch(model: str, code: str, label: str, batch: dict) -> tuple[dict[str, str], dict[str, list[str]]]:
+def translate_batch(model: str, code: str, label: str, batch: dict,
+                    glossary: dict[str, str] | None = None) -> tuple[dict[str, str], dict[str, list[str]]]:
     done: dict[str, str] = {}
     failed: dict[str, list[str]] = {}
     pending = dict(batch)
     for attempt in range(2):
         feedback = "\n".join(f"{json.dumps(k)}: {'; '.join(v)}" for k, v in failed.items()) if attempt else ""
-        answer = ask_model(model, code, label, pending, feedback)
+        answer = ask_model(model, code, label, pending, feedback, glossary)
         failed = {}
         for key, (source, _count) in pending.items():
             issues = problems(source, answer.get(key, ""))
@@ -291,13 +296,31 @@ def translate_batch(model: str, code: str, label: str, batch: dict) -> tuple[dic
 # ---------------------------------------------------------------- run
 
 
+# Areas whose short labels become the glossary for the rest, so "Library" or
+# "Settings" reads the same on every screen. They are translated first.
+GLOSSARY_AREAS = ("navigation", "common")
+
+
+def glossary_for(code: str, english: dict[str, dict[str, str]], limit: int = 80) -> dict[str, str]:
+    terms: dict[str, str] = {}
+    for area in GLOSSARY_AREAS:
+        current = flatten(read_json(LOCALES / code / f"{area}.json"))
+        for key, text in english.get(area, {}).items():
+            have = current.get(key)
+            if have and text != have and len(text.split()) <= 3 and not PLACEHOLDER.search(text):
+                terms.setdefault(text.strip(), have.strip())
+    return dict(list(terms.items())[:limit])
+
+
 def plan_language(code: str, english: dict[str, dict[str, str]], areas: list[str] | None):
     """What each area of one language needs: missing, stale, edited, extra."""
     folder = LOCALES / code
     sources = read_json(folder / SOURCES_FILE)
     categories = plural_categories(code)
     report = {}
-    for area, strings in english.items():
+    ordered = [a for a in GLOSSARY_AREAS if a in english] + [a for a in english if a not in GLOSSARY_AREAS]
+    for area in ordered:
+        strings = english[area]
         if areas and area not in areas:
             continue
         wanted = target_keys(strings, categories)
@@ -353,7 +376,8 @@ def run_language(code: str, english, areas, model: str | None, dry_run: bool) ->
             current.pop(key, None)
             record.pop(key, None)
         for batch in batches(todo):
-            done, failed = translate_batch(model, code, label, batch)
+            glossary = None if area in GLOSSARY_AREAS else glossary_for(code, english)
+            done, failed = translate_batch(model, code, label, batch, glossary)
             for key, value in done.items():
                 current[key] = value
                 record[key] = {"en": digest(batch[key][0]), "out": digest(value)}
