@@ -35,6 +35,17 @@ export function describeUpdate(health, baseline) {
   if (!health?.boot_id) return null;
   const update = health.update || null;
 
+  if (health.gpu_fault) {
+    const at = String(health.gpu_fault.at || "");
+    const time = at.includes("T") ? at.split("T")[1].slice(0, 5) : "";
+    return {
+      kind: "restart",
+      reason: "gpu_fault",
+      key: `gpufault:${health.boot_id}:${at}`,
+      message: `The GPU stopped responding${time ? ` at ${time}` : ""}. Image generation fails until Guaardvark restarts.`,
+    };
+  }
+
   if (health.restart_required) {
     return {
       kind: "restart",
@@ -152,7 +163,9 @@ const UpdateAppliedBanner = () => {
           setRebootOpen(true);
         }}
         title="Restart Guaardvark"
-        description="Restarts the backend, the workers and ComfyUI so the update takes effect. Every generation, index job and chat reply in flight is lost, and this page will disconnect until the services are back."
+        description={`Restarts the backend, the workers and ComfyUI ${
+          notice?.reason === "gpu_fault" ? "so the GPU can be used again" : "so the update takes effect"
+        }. Every generation, index job and chat reply in flight is lost, and this page will disconnect until the services are back.`}
         keeps="documents, chats, media, rules and settings."
         confirmLabel="Restart now"
       />
