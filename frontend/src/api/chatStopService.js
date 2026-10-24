@@ -7,6 +7,7 @@
  * refused request comes back as a specific error instead of nothing.
  */
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 const post = (url) =>
   fetch(url, { method: "POST" }).then((res) => handleResponse(res, { quiet: true }));
@@ -25,16 +26,18 @@ export async function stopChatTurn(sessionId) {
   ]);
   const [abort, kill] = results;
   const failures = [];
-  if (abort.status === "rejected") failures.push(["the chat turn", abort.reason]);
-  if (kill.status === "rejected") failures.push(["the agent task", kill.reason]);
+  if (abort.status === "rejected") failures.push(["chatTurn", abort.reason]);
+  if (kill.status === "rejected") failures.push(["agentTask", kill.reason]);
   if (!failures.length) return { ok: true };
   const offline = failures.some(([, err]) => err?.backendOffline);
-  const what = failures.map(([name]) => name).join(" and ");
   const why = offline
-    ? "the backend is not reachable"
+    ? translate("messages.chatStop.backendUnreachable")
     : failures.map(([, err]) => err?.message || String(err)).join("; ");
-  return {
-    ok: false,
-    error: `Stop did not reach ${what}: ${why}. It may still be running.`,
-  };
+  const error =
+    failures.length > 1
+      ? translate("messages.chatStop.notReachedBoth", { reason: why })
+      : failures[0][0] === "chatTurn"
+        ? translate("messages.chatStop.notReachedChatTurn", { reason: why })
+        : translate("messages.chatStop.notReachedAgentTask", { reason: why });
+  return { ok: false, error };
 }

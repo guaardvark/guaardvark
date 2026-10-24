@@ -62,11 +62,17 @@ import {
   Psychology as PsychologyIcon,
   Hub as HubIcon,
 } from "@mui/icons-material";
+import { useUiTranslation, uiLocale } from "../i18n";
+
+// A failed check that brought no message of its own; worded where it renders.
+const UNKNOWN_ERROR = "unknown_error";
+const SERVICE_DOWN = "service_down";
 
 // SECURITY DISABLED: Token authentication removed for single-user system
 // const DEV_SECRET_KEY = import.meta.env.VITE_DEV_TOKEN || "dev-secret-key-change-in-production";
 
 const DevToolsPage = () => {
+  const { t } = useUiTranslation();
   const { activeModel, isLoadingModel, modelError } = useStatus();
   const [health, setHealth] = useState(null);
   const [dbHealth, setDbHealth] = useState(null);
@@ -124,7 +130,7 @@ const DevToolsPage = () => {
           setCeleryError(null);
         } else {
           setCeleryHealth(null);
-          setCeleryError(data.details?.error || "Service down");
+          setCeleryError(data.details?.error || SERVICE_DOWN);
         }
       }
     });
@@ -139,6 +145,13 @@ const DevToolsPage = () => {
       }
     };
   }, []);
+
+  const errorText = (error) =>
+    error === UNKNOWN_ERROR
+      ? t("devTools.errors.unknown")
+      : error === SERVICE_DOWN
+        ? t("devTools.errors.serviceDown")
+        : error;
 
   const handleCloseSnackbar = () =>
     setSnackbar((prev) => ({ ...prev, open: false }));
@@ -160,7 +173,7 @@ const DevToolsPage = () => {
     try {
       setSnackbar({
         open: true,
-        message: "Running progress jobs cleanup...",
+        message: t("devTools.cleanup.running"),
         severity: "info",
       });
 
@@ -169,7 +182,11 @@ const DevToolsPage = () => {
       
       setSnackbar({
         open: true,
-        message: `${result.message}: ${result.cleaned_count} stuck jobs cleaned up (${result.stuck_jobs_found} found)`,
+        message: t("devTools.cleanup.result", {
+          message: result.message,
+          cleaned: result.cleaned_count,
+          found: result.stuck_jobs_found,
+        }),
         severity: result.cleaned_count > 0 ? "success" : "info",
       });
 
@@ -180,7 +197,7 @@ const DevToolsPage = () => {
       console.error("Progress jobs cleanup failed:", error);
       setSnackbar({
         open: true,
-        message: `Cleanup failed: ${error.message}`,
+        message: t("devTools.cleanup.failed", { error: error.message }),
         severity: "error",
       });
     } finally {
@@ -193,7 +210,7 @@ const DevToolsPage = () => {
     try {
       setSnackbar({
         open: true,
-        message: "Indexing entities for universal RAG access...",
+        message: t("devTools.entityIndexing.running"),
         severity: "info",
       });
 
@@ -213,13 +230,15 @@ const DevToolsPage = () => {
         const total = clients + projects + websites + tasks;
         setSnackbar({
           open: true,
-          message: `Entity indexing completed: ${total} entities indexed (${clients} clients, ${projects} projects, ${websites} websites, ${tasks} tasks)${errors > 0 ? `, ${errors} errors` : ''}`,
+          message: errors > 0
+            ? t("devTools.entityIndexing.completedWithErrors", { total, clients, projects, websites, tasks, errors })
+            : t("devTools.entityIndexing.completed", { total, clients, projects, websites, tasks }),
           severity: errors > 0 ? "warning" : "success"
         });
       } else {
         setSnackbar({
           open: true,
-          message: result.error || 'Entity indexing failed',
+          message: result.error || t("devTools.entityIndexing.failed"),
           severity: "error"
         });
       }
@@ -227,7 +246,7 @@ const DevToolsPage = () => {
       console.error('Entity indexing error:', error);
       setSnackbar({
         open: true,
-        message: `Entity indexing failed: ${error.message}`,
+        message: t("devTools.entityIndexing.failedWithError", { error: error.message }),
         severity: "error"
       });
     } finally {
@@ -239,7 +258,7 @@ const DevToolsPage = () => {
     try {
       setSnackbar({
         open: true,
-        message: "Initiating service restart...",
+        message: t("devTools.restart.starting"),
         severity: "info",
       });
       
@@ -247,7 +266,7 @@ const DevToolsPage = () => {
       
       setSnackbar({
         open: true,
-        message: result.message || "Service restart initiated successfully",
+        message: result.message || t("devTools.restart.started"),
         severity: "success",
       });
       
@@ -257,7 +276,7 @@ const DevToolsPage = () => {
         if (document.contains(document.querySelector('[data-component="devtools"]'))) {
           setSnackbar({
             open: true,
-            message: "Services are restarting. The page may disconnect temporarily.",
+            message: t("devTools.restart.restarting"),
             severity: "warning",
           });
         }
@@ -267,7 +286,7 @@ const DevToolsPage = () => {
       console.error("Service restart failed:", error);
       setSnackbar({
         open: true,
-        message: `Service restart failed: ${error.message}`,
+        message: t("devTools.restart.failed", { error: error.message }),
         severity: "error",
       });
     }
@@ -291,7 +310,7 @@ const DevToolsPage = () => {
       setHealthError(null);
     } else {
       console.error("Backend health fetch error:", hRes.reason);
-      setHealthError(hRes.reason?.message || "Error");
+      setHealthError(hRes.reason?.message || UNKNOWN_ERROR);
       setHealth(null);
     }
 
@@ -300,7 +319,7 @@ const DevToolsPage = () => {
       setDbError(null);
     } else {
       console.error("DB health fetch error:", dbRes.reason);
-      setDbError(dbRes.reason?.message || "Error");
+      setDbError(dbRes.reason?.message || UNKNOWN_ERROR);
       setDbHealth(null);
     }
 
@@ -309,7 +328,7 @@ const DevToolsPage = () => {
       setCeleryError(null);
     } else {
       console.error("Celery health fetch error:", celRes.reason);
-      setCeleryError(celRes.reason?.message || "Error");
+      setCeleryError(celRes.reason?.message || UNKNOWN_ERROR);
       setCeleryHealth(null);
     }
 
@@ -318,7 +337,7 @@ const DevToolsPage = () => {
       setRedisError(null);
     } else {
       console.error("Redis health fetch error:", redisRes.reason);
-      setRedisError(redisRes.reason?.message || "Error");
+      setRedisError(redisRes.reason?.message || UNKNOWN_ERROR);
       setRedisHealth(null);
     }
 
@@ -409,14 +428,14 @@ const DevToolsPage = () => {
       setSelfTestResults(res.results || res);
       setSnackbar({
         open: true,
-        message: "Self-test complete",
+        message: t("devTools.selfTest.complete"),
         severity: "success",
       });
     } catch (err) {
       console.error("Self-test failed:", err);
       setSnackbar({
         open: true,
-        message: `Self-test failed: ${err.message}`,
+        message: t("devTools.selfTest.failed", { error: err.message }),
         severity: "error",
       });
     } finally {
@@ -433,7 +452,7 @@ const DevToolsPage = () => {
       const resp = await fetch(`/api/logs/tail?lines=100`);
       
       if (!resp.ok) {
-        throw new Error(`Failed to fetch logs (${resp.status})`);
+        throw new Error(t("devTools.logs.fetchFailed", { status: resp.status }));
       }
       
       const text = await resp.text();
@@ -491,40 +510,40 @@ const DevToolsPage = () => {
 
   return (
     <PageLayout
-      title="System Dashboard"
+      title={t("devTools.title")}
       variant="standard"
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel || "Default"}
+      activeModel={isLoadingModel ? t("devTools.loading") : modelError ? t("devTools.status.error") : activeModel || t("devTools.model.default")}
     >
       <Box data-component="devtools">
       {/* System Status Summary */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            System Status Summary
+            {t("devTools.summary.heading")}
           </Typography>
           <Box display="flex" gap={2} flexWrap="wrap">
             <Chip
               icon={health && !healthError ? <CheckCircle /> : <ErrorIcon />}
-              label={`Backend: ${health && !healthError ? 'Healthy' : 'Error'}`}
+              label={t("devTools.summary.backend", { state: health && !healthError ? t("devTools.status.healthy") : t("devTools.status.error") })}
               color={health && !healthError ? 'success' : 'error'}
               variant="outlined"
             />
             <Chip
               icon={dbHealth && !dbError ? <CheckCircle /> : <ErrorIcon />}
-              label={`Database: ${dbHealth && !dbError ? 'Healthy' : 'Error'}`}
+              label={t("devTools.summary.database", { state: dbHealth && !dbError ? t("devTools.status.healthy") : t("devTools.status.error") })}
               color={dbHealth && !dbError ? 'success' : 'error'}
               variant="outlined"
             />
             <Chip
               icon={celeryHealth && !celeryError ? <CheckCircle /> : <ErrorIcon />}
-              label={`Celery: ${celeryHealth && !celeryError ? 'Healthy' : 'Error'}`}
+              label={t("devTools.summary.celery", { state: celeryHealth && !celeryError ? t("devTools.status.healthy") : t("devTools.status.error") })}
               color={celeryHealth && !celeryError ? 'success' : 'error'}
               variant="outlined"
             />
             <Chip
               icon={redisHealth && !redisError ? <CheckCircle /> : <ErrorIcon />}
-              label={`Redis: ${redisHealth && !redisError ? 'Healthy' : 'Error'}`}
+              label={t("devTools.summary.redis", { state: redisHealth && !redisError ? t("devTools.status.healthy") : t("devTools.status.error") })}
               color={redisHealth && !redisError ? 'success' : 'error'}
               variant="outlined"
             />
@@ -538,9 +557,9 @@ const DevToolsPage = () => {
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
                 <Typography variant="h6">
-                  Backend
+                  {t("devTools.backend.heading")}
                 </Typography>
-                <Tooltip title="Refresh">
+                <Tooltip title={t("devTools.actions.refresh")}>
                   <IconButton size="small" onClick={handleRetry}>
                     <Refresh />
                   </IconButton>
@@ -552,26 +571,26 @@ const DevToolsPage = () => {
                     <CheckCircle color="success" sx={{ mr: 1 }} />
                     <Chip label={health.status} color="success" size="small" />
                   </Box>
-                  <Typography variant="body2">Version: {health.version}</Typography>
-                  <Typography variant="body2">Uptime: {Math.round(health.uptime_seconds)}s</Typography>
+                  <Typography variant="body2">{t("devTools.backend.version", { version: health.version })}</Typography>
+                  <Typography variant="body2">{t("devTools.backend.uptime", { seconds: Math.round(health.uptime_seconds) })}</Typography>
                   {health.index_loaded && (
                     <Typography variant="body2" color="success.main">
-                      ✓ Index loaded
+                      {t("devTools.backend.indexLoaded")}
                     </Typography>
                   )}
                 </>
               ) : healthError ? (
                 <Alert severity="error" action={
                   <Button color="inherit" size="small" onClick={handleRetry}>
-                    Retry
+                    {t("devTools.actions.retry")}
                   </Button>
                 }>
-                  {healthError}
+                  {errorText(healthError)}
                 </Alert>
               ) : (
                 <Box display="flex" alignItems="center">
                   <CircularProgress size={20} sx={{ mr: 1 }} />
-                  <Typography variant="body2">Checking...</Typography>
+                  <Typography variant="body2">{t("devTools.checking")}</Typography>
                 </Box>
               )}
             </CardContent>
@@ -581,7 +600,7 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Database / Migrations
+                {t("devTools.database.heading")}
               </Typography>
               {dbHealth && !dbError ? (
                 <>
@@ -592,33 +611,33 @@ const DevToolsPage = () => {
                       <Warning color="warning" sx={{ mr: 1 }} />
                     )}
                     <Chip
-                      label={dbHealth.status === "ok" ? "Up to date" : "Needs update"}
+                      label={dbHealth.status === "ok" ? t("devTools.database.upToDate") : t("devTools.database.needsUpdate")}
                       color={dbHealth.status === "ok" ? "success" : "warning"}
                       size="small"
                     />
                   </Box>
-                  <Typography variant="body2">Current: {dbHealth.db_revision || "none"}</Typography>
+                  <Typography variant="body2">{t("devTools.database.current", { revision: dbHealth.db_revision || t("devTools.database.noRevision") })}</Typography>
                   <Typography variant="body2">
-                    Heads: {(dbHealth.heads || [dbHealth.head]).filter(Boolean).join(", ")}
+                    {t("devTools.database.heads", { heads: (dbHealth.heads || [dbHealth.head]).filter(Boolean).join(", ") })}
                   </Typography>
                   {dbHealth.status === "multiple_heads" && (
                     <Alert severity="error" sx={{ mt: 1 }}>
-                      Multiple heads detected
+                      {t("devTools.database.multipleHeads")}
                     </Alert>
                   )}
                 </>
               ) : dbError ? (
                 <Alert severity="error" action={
                   <Button color="inherit" size="small" onClick={handleRetry}>
-                    Retry
+                    {t("devTools.actions.retry")}
                   </Button>
                 }>
-                  {dbError}
+                  {errorText(dbError)}
                 </Alert>
               ) : (
                 <Box display="flex" alignItems="center">
                   <CircularProgress size={20} sx={{ mr: 1 }} />
-                  <Typography variant="body2">Checking...</Typography>
+                  <Typography variant="body2">{t("devTools.checking")}</Typography>
                 </Box>
               )}
             </CardContent>
@@ -628,7 +647,7 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Celery Worker
+                {t("devTools.celery.heading")}
               </Typography>
               {celeryHealth && !celeryError ? (
                 <>
@@ -638,19 +657,19 @@ const DevToolsPage = () => {
                   </Box>
                   {celeryHealth.result && (
                     <Typography variant="body2" color="success.main">
-                      ✓ Ping: {celeryHealth.result}
+                      {t("devTools.celery.ping", { result: celeryHealth.result })}
                     </Typography>
                   )}
                   {celeryTasks && (
                     <Box mt={1}>
                       <Typography variant="body2">
-                        Active: {Object.keys(celeryTasks.active || {}).length}
+                        {t("devTools.celery.active", { count: Object.keys(celeryTasks.active || {}).length })}
                       </Typography>
                       <Typography variant="body2">
-                        Queued: {Object.keys(celeryTasks.reserved || {}).length}
+                        {t("devTools.celery.queued", { count: Object.keys(celeryTasks.reserved || {}).length })}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Debug: {JSON.stringify(celeryTasks.active || {})}
+                        {t("devTools.celery.debug", { tasks: JSON.stringify(celeryTasks.active || {}) })}
                       </Typography>
                     </Box>
                   )}
@@ -658,15 +677,15 @@ const DevToolsPage = () => {
               ) : celeryError ? (
                 <Alert severity="error" action={
                   <Button color="inherit" size="small" onClick={handleRetry}>
-                    Retry
+                    {t("devTools.actions.retry")}
                   </Button>
                 }>
-                  {celeryError}
+                  {errorText(celeryError)}
                 </Alert>
               ) : (
                 <Box display="flex" alignItems="center">
                   <CircularProgress size={20} sx={{ mr: 1 }} />
-                  <Typography variant="body2">Checking...</Typography>
+                  <Typography variant="body2">{t("devTools.checking")}</Typography>
                 </Box>
               )}
             </CardContent>
@@ -676,7 +695,7 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Redis Cache
+                {t("devTools.redis.heading")}
               </Typography>
               {redisHealth && !redisError ? (
                 <>
@@ -685,21 +704,21 @@ const DevToolsPage = () => {
                     <Chip label={redisHealth.status} color="success" size="small" />
                   </Box>
                   <Typography variant="body2" color="success.main">
-                    ✓ Connection established
+                    {t("devTools.redis.connected")}
                   </Typography>
                 </>
               ) : redisError ? (
                 <Alert severity="error" action={
                   <Button color="inherit" size="small" onClick={handleRetry}>
-                    Retry
+                    {t("devTools.actions.retry")}
                   </Button>
                 }>
-                  {redisError}
+                  {errorText(redisError)}
                 </Alert>
               ) : (
                 <Box display="flex" alignItems="center">
                   <CircularProgress size={20} sx={{ mr: 1 }} />
-                  <Typography variant="body2">Checking...</Typography>
+                  <Typography variant="body2">{t("devTools.checking")}</Typography>
                 </Box>
               )}
             </CardContent>
@@ -709,10 +728,10 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Recent Failed Tasks
+                {t("devTools.failedTasks.heading")}
               </Typography>
               {failedTasks.length === 0 ? (
-                <Typography>No recent failures.</Typography>
+                <Typography>{t("devTools.failedTasks.none")}</Typography>
               ) : (
                 failedTasks.map((t) => (
                   <Typography key={t.id}>
@@ -727,7 +746,7 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                System Controls
+                {t("devTools.controls.heading")}
               </Typography>
               <Box display="flex" gap={1} flexWrap="wrap">
                 <Button
@@ -736,7 +755,7 @@ const DevToolsPage = () => {
                   onClick={handleRetry}
                   startIcon={<Refresh />}
                 >
-                  Refresh All
+                  {t("devTools.controls.refreshAll")}
                 </Button>
                 <Button
                   variant="outlined"
@@ -744,7 +763,7 @@ const DevToolsPage = () => {
                   onClick={handleSelfTest}
                   disabled={loadingSelfTest}
                 >
-                  {loadingSelfTest ? "Running..." : "Self Test"}
+                  {loadingSelfTest ? t("devTools.controls.running") : t("devTools.controls.selfTest")}
                 </Button>
                 <Button
                   variant="outlined"
@@ -752,12 +771,12 @@ const DevToolsPage = () => {
                   onClick={handleRestartServices}
                   color="warning"
                 >
-                  Restart Services
+                  {t("devTools.controls.restartServices")}
                 </Button>
               </Box>
               <Box mt={2}>
                 <Typography variant="body2" color="text.secondary">
-                  Auto-refresh every 5 seconds
+                  {t("devTools.controls.autoRefresh")}
                 </Typography>
               </Box>
             </CardContent>
@@ -769,29 +788,29 @@ const DevToolsPage = () => {
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                 <Typography variant="h6">
-                  Progress Jobs Management
+                  {t("devTools.jobs.heading")}
                 </Typography>
                 <Box display="flex" gap={1}>
                   <Chip 
-                    label={`${incompleteJobs.length} Active`} 
+                    label={t("devTools.jobs.activeCount", { count: incompleteJobs.length })} 
                     color={incompleteJobs.length > 5 ? 'warning' : 'success'} 
                     size="small" 
                   />
                   <Chip 
-                    label={`${completedJobs.length} Completed`} 
+                    label={t("devTools.jobs.completedCount", { count: completedJobs.length })} 
                     color="info" 
                     size="small" 
                   />
                   {stuckJobsCount > 0 && (
                     <Chip 
-                      label={`${stuckJobsCount} Stuck`} 
+                      label={t("devTools.jobs.stuckCount", { count: stuckJobsCount })} 
                       color="error" 
                       size="small" 
                     />
                   )}
                   {!progressSystemHealthy && (
                     <Chip 
-                      label="System Unhealthy" 
+                      label={t("devTools.jobs.systemUnhealthy")} 
                       color="error" 
                       size="small" 
                     />
@@ -808,7 +827,11 @@ const DevToolsPage = () => {
                   startIcon={loadingCleanup ? <CircularProgress size={16} /> : <CleaningServices />}
                   color={stuckJobsCount > 0 ? 'warning' : 'primary'}
                 >
-                  {loadingCleanup ? 'Cleaning...' : `Clean Stuck Jobs${stuckJobsCount > 0 ? ` (${stuckJobsCount})` : ''}`}
+                  {loadingCleanup
+                    ? t("devTools.jobs.cleaning")
+                    : stuckJobsCount > 0
+                      ? t("devTools.jobs.cleanStuckCount", { count: stuckJobsCount })
+                      : t("devTools.jobs.cleanStuck")}
                 </Button>
                 <Button
                   variant="outlined"
@@ -818,7 +841,7 @@ const DevToolsPage = () => {
                   startIcon={loadingEntityIndexing ? <CircularProgress size={16} /> : <CheckCircle />}
                   color="secondary"
                 >
-                  {loadingEntityIndexing ? 'Indexing...' : 'Index Entities'}
+                  {loadingEntityIndexing ? t("devTools.jobs.indexing") : t("devTools.jobs.indexEntities")}
                 </Button>
                 <Button
                   variant="outlined"
@@ -826,41 +849,41 @@ const DevToolsPage = () => {
                   onClick={fetchData}
                   startIcon={<Refresh />}
                 >
-                  Refresh
+                  {t("devTools.actions.refresh")}
                 </Button>
               </Box>
 
               {stuckJobsCount > 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }}>
-                  {stuckJobsCount} jobs appear to be stuck (no active Celery tasks or stale timestamps). Consider running cleanup.
+                  {t("devTools.jobs.stuckWarning", { count: stuckJobsCount })}
                 </Alert>
               )}
               {!progressSystemHealthy && (
                 <Alert severity="error" sx={{ mb: 2 }}>
-                  Progress system detected issues. Some jobs may not be functioning properly.
+                  {t("devTools.jobs.systemIssues")}
                 </Alert>
               )}
 
               <Accordion>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Typography variant="subtitle1">
-                    Job Details ({progressJobs.length} total)
+                    {t("devTools.jobs.details", { count: progressJobs.length })}
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
                   {progressJobs.length === 0 ? (
-                    <Typography color="text.secondary">No active jobs</Typography>
+                    <Typography color="text.secondary">{t("devTools.jobs.noActive")}</Typography>
                   ) : (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead>
                           <TableRow>
-                            <TableCell>Job ID</TableCell>
-                            <TableCell>Type</TableCell>
-                            <TableCell>Status</TableCell>
-                            <TableCell>Progress</TableCell>
-                            <TableCell>Last Update</TableCell>
-                            <TableCell>Message</TableCell>
+                            <TableCell>{t("devTools.jobs.columns.jobId")}</TableCell>
+                            <TableCell>{t("devTools.jobs.columns.type")}</TableCell>
+                            <TableCell>{t("devTools.jobs.columns.status")}</TableCell>
+                            <TableCell>{t("devTools.jobs.columns.progress")}</TableCell>
+                            <TableCell>{t("devTools.jobs.columns.lastUpdate")}</TableCell>
+                            <TableCell>{t("devTools.jobs.columns.message")}</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -885,7 +908,7 @@ const DevToolsPage = () => {
                                   <Box display="flex" alignItems="center">
                                     {job.id || job.job_id || `job_${index + 1}`}
                                     {isStale && (
-                                      <Tooltip title="Stale job (>1 hour without update)">
+                                      <Tooltip title={t("devTools.jobs.staleTooltip")}>
                                         <Warning color="warning" sx={{ ml: 1, fontSize: 16 }} />
                                       </Tooltip>
                                     )}
@@ -893,14 +916,14 @@ const DevToolsPage = () => {
                                 </TableCell>
                                 <TableCell>
                                   <Chip 
-                                    label={job.process_type || job.type || 'Unknown'} 
+                                    label={job.process_type || job.type || t("devTools.jobs.unknownType")} 
                                     size="small" 
                                     variant="outlined"
                                   />
                                 </TableCell>
                                 <TableCell>
                                   <Chip 
-                                    label={job.is_complete ? 'Complete' : (job.status || 'Processing')}
+                                    label={job.is_complete ? t("devTools.jobs.complete") : (job.status || t("devTools.jobs.processing"))}
                                     color={job.is_complete ? 'success' : (isStale ? 'warning' : 'info')}
                                     size="small"
                                   />
@@ -908,7 +931,7 @@ const DevToolsPage = () => {
                                 <TableCell>{job.progress || 0}%</TableCell>
                                 <TableCell>
                                   <Typography variant="body2" color="text.secondary">
-                                    {isValidDate ? lastUpdate.toLocaleString() : (rawTimestamp ? 'Invalid Date' : 'No timestamp')}
+                                    {isValidDate ? lastUpdate.toLocaleString(uiLocale()) : (rawTimestamp ? t("devTools.jobs.invalidDate") : t("devTools.jobs.noTimestamp"))}
                                     {isValidDate && hoursSinceUpdate > 1 && (
                                       <Typography 
                                         component="span" 
@@ -916,14 +939,14 @@ const DevToolsPage = () => {
                                         color="warning.main"
                                         sx={{ ml: 0.5 }}
                                       >
-                                        {` (${Math.round(hoursSinceUpdate)}h ago)`}
+                                        {" "}{t("devTools.jobs.hoursAgo", { hours: Math.round(hoursSinceUpdate) })}
                                       </Typography>
                                     )}
                                   </Typography>
                                 </TableCell>
                                 <TableCell>
                                   <Typography variant="body2" noWrap title={job.message || job.description}>
-                                    {(job.message || job.description || 'No message').substring(0, 50)}
+                                    {(job.message || job.description || t("devTools.jobs.noMessage")).substring(0, 50)}
                                     {(job.message || job.description || '').length > 50 ? '...' : ''}
                                   </Typography>
                                 </TableCell>
@@ -936,7 +959,7 @@ const DevToolsPage = () => {
                   )}
                   {progressJobs.length > 10 && (
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      ... and {progressJobs.length - 10} more jobs
+                      {t("devTools.jobs.moreJobs", { count: progressJobs.length - 10 })}
                     </Typography>
                   )}
                 </AccordionDetails>
@@ -947,8 +970,8 @@ const DevToolsPage = () => {
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <FixIcon sx={{ color: "success.main" }} />
-                    <Typography variant="subtitle1">Self-improvement log</Typography>
-                    <Chip label={`${siRunsTotal} runs`} size="small" variant="outlined" />
+                    <Typography variant="subtitle1">{t("devTools.selfImprovement.heading")}</Typography>
+                    <Chip label={t("devTools.selfImprovement.runs", { count: siRunsTotal })} size="small" variant="outlined" />
                   </Box>
                 </AccordionSummary>
                 <AccordionDetails>
@@ -961,12 +984,12 @@ const DevToolsPage = () => {
                 <AccordionSummary expandIcon={<ExpandMore />} onClick={() => { if (familyNodes.length === 0 && !uncleStatus) fetchFamilyNetwork(); }}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <HubIcon sx={{ color: FAMILY_BLUE }} />
-                    <Typography variant="subtitle1">Family Network</Typography>
+                    <Typography variant="subtitle1">{t("devTools.family.heading")}</Typography>
                   </Box>
                 </AccordionSummary>
                 <AccordionDetails>
                   <Button size="small" onClick={fetchFamilyNetwork} startIcon={<Refresh />} sx={{ mb: 2 }}>
-                    Refresh
+                    {t("devTools.actions.refresh")}
                   </Button>
 
                   {/* Uncle Claude Status Card */}
@@ -976,7 +999,7 @@ const DevToolsPage = () => {
                       <Box sx={{ flex: 1 }}>
                         <Typography variant="subtitle2" sx={{ color: UNCLE_GOLD }}>Uncle Claude</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {uncleStatus?.model || "Not configured"} | {uncleStatus?.available ? "Online" : "Offline"}
+                          {uncleStatus?.model || t("devTools.family.notConfigured")} | {uncleStatus?.available ? t("devTools.family.online") : t("devTools.family.offline")}
                         </Typography>
                         {uncleStatus?.usage && (
                           <LinearProgress
@@ -1004,7 +1027,7 @@ const DevToolsPage = () => {
                     <CircularProgress size={24} />
                   ) : familyNodes.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
-                      No family nodes connected. Configure the Interconnector in Settings.
+                      {t("devTools.family.noNodes")}
                     </Typography>
                   ) : (
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
@@ -1023,7 +1046,7 @@ const DevToolsPage = () => {
                               {node.vram_total > 0 && (
                                 <Box sx={{ mt: 0.5 }}>
                                   <Typography variant="caption" color="text.secondary">
-                                    VRAM: {node.vram_free || 0} / {node.vram_total} MB
+                                    {t("devTools.family.vram", { free: node.vram_free || 0, total: node.vram_total })}
                                   </Typography>
                                   <LinearProgress
                                     variant="determinate"
@@ -1034,7 +1057,7 @@ const DevToolsPage = () => {
                               )}
                             </Box>
                             <Chip
-                              label={node.status || "unknown"}
+                              label={node.status || t("devTools.family.unknownStatus")}
                               size="small"
                               color={node.status === "active" ? "success" : "default"}
                             />
@@ -1054,14 +1077,14 @@ const DevToolsPage = () => {
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                 <Typography variant="h6" gutterBottom>
-                  Backend Logs (last 100 lines)
+                  {t("devTools.logs.heading")}
                 </Typography>
                 <Button size="small" onClick={fetchLogs} disabled={logsLoading}>
-                  {logsLoading ? "Loading..." : "Refresh"}
+                  {logsLoading ? t("devTools.loading") : t("devTools.actions.refresh")}
                 </Button>
               </Box>
               {logsError ? (
-                <Alert severity="error">Failed to load logs: {logsError}</Alert>
+                <Alert severity="error">{t("devTools.logs.loadFailed", { error: logsError })}</Alert>
               ) : (
                 <Box
                   sx={{
@@ -1076,7 +1099,7 @@ const DevToolsPage = () => {
                   }}
                   component="pre"
                 >
-                  {logs || (logsLoading ? "Loading..." : "No log output.")}
+                  {logs || (logsLoading ? t("devTools.loading") : t("devTools.logs.empty"))}
                 </Box>
               )}
             </CardContent>
@@ -1086,20 +1109,20 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Performance Overview
+                {t("devTools.performance.heading")}
               </Typography>
               <Box>
                 <Typography variant="body2">
-                  Backend Uptime: {health ? Math.round(health.uptime_seconds) : 'N/A'}s
+                  {t("devTools.performance.backendUptime", { seconds: health ? Math.round(health.uptime_seconds) : t("devTools.performance.notAvailable") })}
                 </Typography>
                 <Typography variant="body2">
-                  Celery Tasks: {celeryTasks ? Object.keys(celeryTasks.active || {}).length : 'N/A'} active
+                  {t("devTools.performance.celeryTasks", { tasks: celeryTasks ? Object.keys(celeryTasks.active || {}).length : t("devTools.performance.notAvailable") })}
                 </Typography>
                 <Typography variant="body2">
-                  Active Jobs: {incompleteJobs.length}
+                  {t("devTools.performance.activeJobs", { count: incompleteJobs.length })}
                 </Typography>
                 <Typography variant="body2">
-                  Failed Tasks: {failedTasks.length}
+                  {t("devTools.performance.failedTasks", { count: failedTasks.length })}
                 </Typography>
               </Box>
             </CardContent>
@@ -1109,7 +1132,7 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                System Metrics
+                {t("devTools.metrics.heading")}
               </Typography>
               <Box sx={{ maxWidth: 300 }}>
                 <SystemMetricsBar />
@@ -1121,7 +1144,7 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Self-Test Results
+                {t("devTools.selfTest.resultsHeading")}
               </Typography>
               {selfTestResults ? (
                 <Box sx={{ mt: 2 }}>
@@ -1131,7 +1154,7 @@ const DevToolsPage = () => {
                 </Box>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  Run a self-test to see detailed system diagnostics
+                  {t("devTools.selfTest.resultsEmpty")}
                 </Typography>
               )}
             </CardContent>
@@ -1141,7 +1164,7 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Diagnostics
+                {t("devTools.diagnostics.heading")}
               </Typography>
               <DiagnosticsPanel showMessage={showMessage} />
             </CardContent>
@@ -1151,7 +1174,7 @@ const DevToolsPage = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Retrieval debug
+                {t("devTools.retrievalDebug.heading")}
               </Typography>
               <RAGDebugSection />
             </CardContent>

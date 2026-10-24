@@ -20,9 +20,11 @@ import {
   experimentsSummary,
   runOutcome,
 } from '../../utils/autoresearchLabels';
+import { useUiTranslation } from '../../i18n';
 
 const RAGAutoresearchCard = React.forwardRef(
   ({ style, isMinimized, onToggleMinimize, cardColor, onCardColorChange, ...props }, ref) => {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const [status, setStatus] = useState(null);
   const [history, setHistory] = useState([]);
@@ -94,14 +96,14 @@ const RAGAutoresearchCard = React.forwardRef(
 
   const menuActions = [
     status?.running
-      ? { label: 'Pause run', icon: <PauseIcon fontSize="small" />, onClick: handleStop }
+      ? { label: t('dashboard.autoresearch.pauseRun'), icon: <PauseIcon fontSize="small" />, onClick: handleStop }
       : {
-          label: 'Start run',
+          label: t('dashboard.autoresearch.startRun'),
           icon: <PlayIcon fontSize="small" />,
           onClick: handleStart,
           disabled: loading || !status,
         },
-    { label: 'Refresh', icon: <RefreshIcon fontSize="small" />, onClick: refresh },
+    { label: t('common.refresh'), icon: <RefreshIcon fontSize="small" />, onClick: refresh },
   ];
 
   const lastRun = status?.last_run || null;
@@ -115,7 +117,7 @@ const RAGAutoresearchCard = React.forwardRef(
       onToggleMinimize={onToggleMinimize}
       cardColor={cardColor}
       onCardColorChange={onCardColorChange}
-      title="RAG Autoresearch"
+      title={t('dashboard.autoresearch.title')}
       titleBarActions={
         <ScienceIcon fontSize="small" sx={{ color: status?.running ? 'success.main' : 'text.secondary', opacity: 0.8 }} />
       }
@@ -125,7 +127,7 @@ const RAGAutoresearchCard = React.forwardRef(
       <Box sx={{ height: '100%' }}>
       {!status ? (
         <Box sx={{ p: 1, textAlign: 'center' }}>
-          <Typography variant="caption" color="text.secondary">Autoresearch unavailable</Typography>
+          <Typography variant="caption" color="text.secondary">{t('dashboard.autoresearch.unavailable')}</Typography>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -133,22 +135,22 @@ const RAGAutoresearchCard = React.forwardRef(
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Chip
-                label={status.running ? 'Running' : status.paused ? 'Paused' : 'Idle'}
+                label={status.running ? t('dashboard.autoresearch.running') : status.paused ? t('dashboard.autoresearch.paused') : t('dashboard.autoresearch.idle')}
                 size="small"
                 color={status.running ? 'success' : 'default'}
                 sx={{ height: 20, fontSize: '0.7rem' }}
               />
               <Typography variant="caption" color="text.secondary">
-                Phase {status.phase}
+                {t('dashboard.autoresearch.phase', { phase: status.phase })}
                 {status.current_parameter ? ` · ${status.current_parameter}` : ""}
               </Typography>
             </Box>
             {status.running ? (
-              <Tooltip title="Pause optimization">
+              <Tooltip title={t('dashboard.autoresearch.pauseOptimization')}>
                 <IconButton size="small" onClick={handleStop}><PauseIcon sx={{ fontSize: 16 }} /></IconButton>
               </Tooltip>
             ) : (
-              <Tooltip title="Start bounded research run">
+              <Tooltip title={t('dashboard.autoresearch.startBounded')}>
                 <span>
                   <IconButton size="small" onClick={handleStart} disabled={loading}>
                     <PlayIcon sx={{ fontSize: 16 }} />
@@ -166,7 +168,7 @@ const RAGAutoresearchCard = React.forwardRef(
             <Tooltip
               title={
                 status.total_health_checks
-                  ? `${status.total_health_checks} test-suite health checks are not counted`
+                  ? t('dashboard.autoresearch.healthChecksNotCounted', { count: status.total_health_checks })
                   : ''
               }
             >
@@ -180,7 +182,7 @@ const RAGAutoresearchCard = React.forwardRef(
           {lastRun && (
             <Box sx={{ mb: 1 }}>
               <Typography variant="caption" color="text.secondary">
-                Latest run:{' '}
+                {t('dashboard.autoresearch.latestRun')}:{' '}
                 <Link
                   component="button"
                   variant="caption"
@@ -212,11 +214,11 @@ const RAGAutoresearchCard = React.forwardRef(
                     const isHealth = label.kind === 'health';
                     return (
                       <TableRow key={exp.id}>
-                        <TableCell>{isHealth ? 'test suite' : exp.parameter_changed}</TableCell>
+                        <TableCell>{isHealth ? t('dashboard.autoresearch.testSuite') : exp.parameter_changed}</TableCell>
                         <TableCell>{exp.new_value}</TableCell>
                         <TableCell>
                           <Chip
-                            label={label.selfReported ? `${label.status} (self-reported)` : label.status}
+                            label={label.selfReported ? t('dashboard.autoresearch.selfReported', { status: label.status }) : label.status}
                             size="small"
                             color={label.tone}
                             variant={isHealth ? 'outlined' : 'filled'}
@@ -239,7 +241,7 @@ const RAGAutoresearchCard = React.forwardRef(
           {history.length === 0 && !status.running && (
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Typography variant="caption" color="text.secondary">
-                No experiments yet. Click play to start a bounded run.
+                {t('dashboard.autoresearch.noExperiments')}
               </Typography>
             </Box>
           )}

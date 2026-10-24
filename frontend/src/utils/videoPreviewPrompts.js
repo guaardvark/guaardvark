@@ -6,6 +6,7 @@
 // VideoGeneratorPage: Text input sends one prompt per line with Look & Feel
 // appended to each; Image and References input send the one description,
 // with Look & Feel appended when there is one.
+import { translate } from "../i18n";
 
 // The preview route takes one prompt per call; the enhancer is a pure
 // function, so a batch is previewed line by line up to this many.
@@ -42,21 +43,32 @@ export function promptsToPreview({ inputMode, promptsText, lookAndFeel = "", sto
  * @param {boolean} [args.storyboard]  the Director will expand this concept
  */
 export function previewLabel({ shown, total, verbatim = false, enhanceOff = false, storyboard = false }) {
-  const asTyped = verbatim
-    ? "as typed (Verbatim prompts is on in Settings)"
-    : enhanceOff
-      ? "as typed (Enhance prompt is off)"
-      : null;
+  // Which "as typed" reason applies, if any: each label is one whole sentence.
+  const mode = verbatim ? "Verbatim" : enhanceOff ? "EnhanceOff" : "Enhanced";
   if (storyboard) {
-    return asTyped
-      ? `Concept ${asTyped}; the Storyboard step still writes the shots`
-      : "Enhanced concept; the Storyboard step writes the shots from it, so the clips get different prompts";
+    if (mode === "Verbatim") return translate("messages.videoPreview.conceptVerbatim");
+    if (mode === "EnhanceOff") return translate("messages.videoPreview.conceptEnhanceOff");
+    return translate("messages.videoPreview.conceptEnhanced");
   }
   if (total <= 1) {
-    return asTyped ? `Prompt ${asTyped}` : "Enhanced prompt (what will be sent)";
+    if (mode === "Verbatim") return translate("messages.videoPreview.promptVerbatim");
+    if (mode === "EnhanceOff") return translate("messages.videoPreview.promptEnhanceOff");
+    return translate("messages.videoPreview.promptEnhanced");
   }
-  const count = shown < total ? `first ${shown} of ${total} clips` : `${total} clips, one each`;
-  return asTyped ? `Prompts ${asTyped}: ${count}` : `Enhanced prompts (what will be sent): ${count}`;
+  const first = shown < total;
+  if (mode === "Verbatim") {
+    return first
+      ? translate("messages.videoPreview.promptsVerbatimFirst", { shown, count: total })
+      : translate("messages.videoPreview.promptsVerbatimAll", { count: total });
+  }
+  if (mode === "EnhanceOff") {
+    return first
+      ? translate("messages.videoPreview.promptsEnhanceOffFirst", { shown, count: total })
+      : translate("messages.videoPreview.promptsEnhanceOffAll", { count: total });
+  }
+  return first
+    ? translate("messages.videoPreview.promptsEnhancedFirst", { shown, count: total })
+    : translate("messages.videoPreview.promptsEnhancedAll", { count: total });
 }
 
 /** One block per clip, numbered when there is more than one. */

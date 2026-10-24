@@ -83,6 +83,10 @@ Open an issue using the **Feature Request** template. Describe the use case — 
 
 Documentation lives in the README, `docs/ARCHITECTURE.md`, and inline code comments. If something confused you, it'll confuse others — fixes welcome.
 
+### Translate the Interface
+
+The interface can run in any language. [docs/LOCALIZATION.md](docs/LOCALIZATION.md) covers writing translatable text, adding a language with a local model, and correcting a translation by hand.
+
 ---
 
 ## Development Setup

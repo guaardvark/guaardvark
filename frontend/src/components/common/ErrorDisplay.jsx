@@ -24,6 +24,7 @@ import {
   BugReport as BugReportIcon
 } from '@mui/icons-material';
 import { useState } from 'react';
+import { translate, uiLocale, useUiTranslation, Trans } from '../../i18n';
 
 /**
  * Comprehensive error display component
@@ -41,6 +42,7 @@ export const ErrorDisplay = ({
   className = '',
   sx = {}
 }) => {
+  const { t } = useUiTranslation();
   const [showExpandedDetails, setShowExpandedDetails] = useState(false);
   
   if (!error) return null;
@@ -49,7 +51,7 @@ export const ErrorDisplay = ({
   const errorInfo = typeof error === 'string' 
     ? { message: error }
     : {
-        message: error.message || 'An unexpected error occurred',
+        message: error.message || t('layoutCommon.errorDisplay.unexpectedError'),
         code: error.code || error.status,
         details: error.details || error.stack,
         timestamp: error.timestamp || new Date().toISOString()
@@ -67,7 +69,7 @@ export const ErrorDisplay = ({
 
   // Sanitize error message to prevent XSS
   const sanitizeErrorMessage = (message) => {
-    if (typeof message !== 'string') return 'An error occurred';
+    if (typeof message !== 'string') return t('layoutCommon.errorDisplay.genericError');
     
     // Strip markup but keep its text; React escapes the result when rendering.
     return stripHtmlTags(message).trim();
@@ -80,13 +82,13 @@ export const ErrorDisplay = ({
     
     // Replace technical jargon with user-friendly messages
     const friendlyMessages = {
-      'Network Error': 'Unable to connect to the server. Please check your internet connection.',
-      'timeout': 'The request took too long to complete. Please try again.',
-      '401': 'Authentication required. Please log in.',
-      '403': 'You do not have permission to perform this action.',
-      '404': 'The requested resource was not found.',
-      '500': 'Server error. Please try again later.',
-      '503': 'Service temporarily unavailable. Please try again later.'
+      'Network Error': t('layoutCommon.errorDisplay.friendly.network'),
+      'timeout': t('layoutCommon.errorDisplay.friendly.timeout'),
+      '401': t('layoutCommon.errorDisplay.friendly.unauthorized'),
+      '403': t('layoutCommon.errorDisplay.friendly.forbidden'),
+      '404': t('layoutCommon.errorDisplay.friendly.notFound'),
+      '500': t('layoutCommon.errorDisplay.friendly.serverError'),
+      '503': t('layoutCommon.errorDisplay.friendly.unavailable')
     };
 
     for (const [key, friendly] of Object.entries(friendlyMessages)) {
@@ -118,7 +120,7 @@ export const ErrorDisplay = ({
             <IconButton
               size="small"
               onClick={() => setShowExpandedDetails(!showExpandedDetails)}
-              aria-label="toggle details"
+              aria-label={t('layoutCommon.errorDisplay.toggleDetails')}
             >
               {showExpandedDetails ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
@@ -131,7 +133,7 @@ export const ErrorDisplay = ({
               variant="outlined"
               color="inherit"
             >
-              Retry
+              {t('common.retry')}
             </Button>
           )}
           {onReport && (
@@ -142,14 +144,14 @@ export const ErrorDisplay = ({
               variant="outlined"
               color="inherit"
             >
-              Report
+              {t('layoutCommon.errorDisplay.report')}
             </Button>
           )}
           {onDismiss && (
             <IconButton
               size="small"
               onClick={onDismiss}
-              aria-label="close error"
+              aria-label={t('layoutCommon.errorDisplay.closeError')}
             >
               <CloseIcon />
             </IconButton>
@@ -158,9 +160,9 @@ export const ErrorDisplay = ({
       }
     >
       <AlertTitle sx={{ mb: 1 }}>
-        {severity === 'error' ? 'Error' : 
-         severity === 'warning' ? 'Warning' : 
-         'Information'}
+        {severity === 'error' ? t('common.error') : 
+         severity === 'warning' ? t('layoutCommon.errorDisplay.severity.warning') : 
+         t('layoutCommon.errorDisplay.severity.info')}
       </AlertTitle>
       
       <Typography variant="body2" component="div">
@@ -171,22 +173,26 @@ export const ErrorDisplay = ({
         <Collapse in={showExpandedDetails} timeout="auto" unmountOnExit>
           <Box sx={{ mt: 2, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
             <Typography variant="caption" color="text.secondary" component="div">
-              <strong>Error Details:</strong>
+              <strong>{t('layoutCommon.errorDisplay.errorDetails')}:</strong>
             </Typography>
             {errorInfo.code && (
               <Typography variant="caption" color="text.secondary" component="div">
-                <strong>Code:</strong> {errorInfo.code}
+                <Trans i18nKey="layoutCommon.errorDisplay.code" values={{ code: errorInfo.code }} components={{ bold: <strong /> }} />
               </Typography>
             )}
             {errorInfo.timestamp && (
               <Typography variant="caption" color="text.secondary" component="div">
-                <strong>Time:</strong> {new Date(errorInfo.timestamp).toLocaleString()}
+                <Trans
+                  i18nKey="layoutCommon.errorDisplay.time"
+                  values={{ time: new Date(errorInfo.timestamp).toLocaleString(uiLocale()) }}
+                  components={{ bold: <strong /> }}
+                />
               </Typography>
             )}
             {errorInfo.details && (
               <Box sx={{ mt: 1 }}>
                 <Typography variant="caption" color="text.secondary" component="div">
-                  <strong>Technical Details:</strong>
+                  <strong>{t('layoutCommon.errorDisplay.technicalDetails')}:</strong>
                 </Typography>
                 <Typography 
                   variant="caption" 
@@ -218,11 +224,12 @@ export const ErrorDisplay = ({
  */
 export const ErrorCard = ({ 
   error, 
-  title = "Something went wrong",
-  description = "An unexpected error occurred. Please try refreshing the page.",
+  title = translate("layoutCommon.errorDisplay.cardTitle"),
+  description = translate("layoutCommon.errorDisplay.cardDescription"),
   onRetry = null,
   showReportButton = true
 }) => {
+  const { t } = useUiTranslation();
   if (!error) return null;
 
   return (
@@ -256,14 +263,14 @@ export const ErrorCard = ({
                 startIcon={<RefreshIcon />}
                 onClick={onRetry}
               >
-                Try Again
+                {t('layoutCommon.errorDisplay.tryAgain')}
               </Button>
             )}
             <Button
               variant="outlined"
               onClick={() => window.location.reload()}
             >
-              Refresh Page
+              {t('layoutCommon.errorDisplay.refreshPage')}
             </Button>
           </Stack>
         </Stack>
@@ -282,6 +289,7 @@ export const ErrorToast = ({
   autoHideDuration = 6000,
   severity = 'error'
 }) => {
+  const { t } = useUiTranslation();
   if (!error) return null;
 
   return (
@@ -297,7 +305,7 @@ export const ErrorToast = ({
         variant="filled"
         sx={{ width: '100%' }}
       >
-        {typeof error === 'string' ? error : error.message || 'An error occurred'}
+        {typeof error === 'string' ? error : error.message || t('layoutCommon.errorDisplay.genericError')}
       </Alert>
     </Snackbar>
   );

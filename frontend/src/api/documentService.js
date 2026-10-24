@@ -3,6 +3,7 @@
 import { BASE_URL, handleResponse } from "./apiClient";
 import { needsCredentials } from "./apiAuth";
 import { API_TIMEOUT_GENERATION } from "../config/constants";
+import { translate } from "../i18n";
 
 export const getDocuments = async (queryParams = {}) => {
   const { projectId, page = 1, perPage = 10, ...otherFilters } = queryParams;
@@ -24,7 +25,7 @@ export const getDocuments = async (queryParams = {}) => {
     return data;
   } catch (err) {
     console.error("documentService: Error getting documents:", err.message);
-    return { error: err.message || "Failed to get documents." };
+    return { error: err.message || translate("messages.documents.listFailed") };
   }
 };
 
@@ -174,11 +175,11 @@ export const getDocumentContent = async (documentId) => {
     const response = await fetch(`${BASE_URL}/docs/${documentId}/content/raw`);
     if (!response.ok) {
       if (response.status === 404) {
-        throw new Error("Document not found");
+        throw new Error(translate("messages.documents.notFound"));
       } else if (response.status === 400) {
-        throw new Error("Invalid document ID");
+        throw new Error(translate("messages.documents.invalidId"));
       } else {
-        throw new Error(`Failed to fetch document content (${response.status})`);
+        throw new Error(translate("messages.documents.contentFailedStatus", { status: response.status }));
       }
     }
 
@@ -190,7 +191,7 @@ export const getDocumentContent = async (documentId) => {
       `documentService: Error fetching content for document ${documentId}:`,
       err.message,
     );
-    return { error: err.message || "Failed to fetch document content." };
+    return { error: err.message || translate("messages.documents.contentFailed") };
   }
 };
 
@@ -210,7 +211,7 @@ export const getRepoFileContent = async (relativePath) => {
       `documentService: Error fetching repo file ${relativePath}:`,
       err.message,
     );
-    return { error: err.message || "Failed to fetch repository file." };
+    return { error: err.message || translate("messages.documents.repoFileFailed") };
   }
 };
 
@@ -299,20 +300,20 @@ export const uploadFile = async (
 
     // Handle network errors
     xhr.onerror = () => {
-      const error = new Error("Network error during file upload");
+      const error = new Error(translate("messages.documents.uploadNetworkError"));
       console.error("documentService: Network error uploading file");
       reject(error);
     };
 
     // Handle request abortion
     xhr.onabort = () => {
-      const error = new Error("Upload cancelled");
+      const error = new Error(translate("messages.documents.uploadCancelled"));
       reject(error);
     };
 
     // Handle timeout
     xhr.ontimeout = () => {
-      const error = new Error("Upload timeout");
+      const error = new Error(translate("messages.documents.uploadTimeout"));
       console.error("documentService: Upload timeout");
       reject(error);
     };

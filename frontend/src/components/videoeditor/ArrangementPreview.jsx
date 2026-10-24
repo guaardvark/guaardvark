@@ -4,6 +4,7 @@
 
 import React from "react";
 import { Box, Stack, Chip, Typography } from "@mui/material";
+import { useUiTranslation } from "../../i18n";
 
 const fmtTime = (s) => {
   const m = Math.floor(s / 60);
@@ -12,10 +13,11 @@ const fmtTime = (s) => {
 };
 
 const ArrangementPreview = ({ arrangement }) => {
+  const { t } = useUiTranslation();
   if (!arrangement || !arrangement.clips || arrangement.clips.length === 0) {
     return (
       <Typography variant="caption" color="text.secondary">
-        Hit Plan to generate an arrangement.
+        {t("videoEditor.arrangement.empty")}
       </Typography>
     );
   }
@@ -23,7 +25,7 @@ const ArrangementPreview = ({ arrangement }) => {
   return (
     <Stack spacing={0.5}>
       <Typography variant="caption" color="text.secondary">
-        Arrangement · style: {arrangement.style_recipe_name} · seed: {arrangement.seed}
+        {t("videoEditor.arrangement.summary", { style: arrangement.style_recipe_name, seed: arrangement.seed })}
       </Typography>
       {arrangement.clips.map((c, i) => (
         <Box

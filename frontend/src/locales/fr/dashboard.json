@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "Gestionnaire de projet",
+    "loadFailed": "Erreur lors du chargement des données du projet.",
+    "empty": "Aucun projet trouvé.",
+    "unnamed": "Projet sans nom",
+    "client": "Client : {{name}}"
+  },
+  "website": {
+    "title": "Données du site Web",
+    "loadFailed": "Erreur lors du chargement des données du site Web.",
+    "deleteConfirm": "Supprimer ce site Web ?",
+    "empty": "Aucun site Web trouvé.",
+    "unnamed": "Site sans nom",
+    "details": "Projet : {{project}} | Docs : {{docs}}",
+    "openUrl": "Ouvrir l'URL dans un nouvel onglet",
+    "copyUrl": "Copier l'URL"
+  },
+  "tasks": {
+    "title": "Tâches",
+    "unknownStatus": "Inconnu",
+    "loadFailed": "Échec du chargement des tâches.",
+    "nameAndTypeRequired": "Le nom et le type de la tâche sont requis.",
+    "created": "Tâche « {{name}} » créée avec succès !",
+    "createFailed": "Erreur lors de la création de la tâche : {{message}}",
+    "addTaskMenu": "Ajouter une tâche…",
+    "addTaskButton": "+ Ajouter une tâche",
+    "empty": "Aucune tâche trouvée.",
+    "unnamed": "Tâche sans nom",
+    "viewAll": "Voir toutes les tâches ({{count}})",
+    "addDialogTitle": "Ajouter une nouvelle tâche",
+    "taskName": "Nom de la tâche",
+    "taskType": "Type de tâche",
+    "output": "Résultat/Description",
+    "outputPlaceholder": "Optionnel : Décrivez le résultat attendu ou des détails supplémentaires...",
+    "creating": "Création en cours...",
+    "create": "Créer la tâche"
+  },
+  "chat": {
+    "title": "Chat",
+    "csvDescription": "Générer un fichier CSV basé sur : \"{{excerpt}}\"",
+    "historyFailed": "Échec du chargement de l'historique du chat",
+    "fileGenerated": "Le fichier \"{{filename}}\" a été généré avec succès ! Vous pouvez le télécharger dans le dossier des sorties.",
+    "fileGenFailed": "Échec de la génération du fichier : {{message}}",
+    "notConnected": "Service de chat non connecté. Veuillez patienter et réessayer.",
+    "sendFailed": "Échec de l'envoi du message",
+    "errorMessage": "Erreur : {{message}}",
+    "messageCount": "{{count}} messages",
+    "noMessages": "Aucun message",
+    "reloadHistory": "Recharger l'historique",
+    "stopGenerating": "Arrêter la génération",
+    "roles": {
+      "user": "Vous",
+      "system": "Système",
+      "assistant": "Assistant"
+    },
+    "empty": "Aucun message pour le moment. Commencez une conversation !",
+    "placeholder": "Tapez un message..."
+  },
+  "clients": {
+    "title": "Clients",
+    "loadFailed": "Erreur lors du chargement des données client.",
+    "empty": "Aucun client trouvé.",
+    "unnamed": "Client sans nom",
+    "projectCount": "Projets : {{count}}"
+  },
+  "csvgen": {
+    "title": "Génération CSV",
+    "newCsv": "Nouveau CSV",
+    "import": "Importer",
+    "empty": "Aucun travail CSV pour le moment."
+  },
+  "codegen": {
+    "title": "Génération de code",
+    "newCode": "Nouveau code",
+    "debug": "Débogage",
+    "empty": "Aucune tâche de génération de code pour le moment."
+  },
+  "imggen": {
+    "title": "Génération d'images",
+    "newImages": "Nouvelles images",
+    "batchMode": "Mode batch",
+    "empty": "Aucun lot d'images pour le moment.",
+    "viewAll": "Voir tous les lots"
+  },
+  "files": {
+    "title": "Gestionnaire de fichiers"
+  },
+  "family": {
+    "title": "Famille & Auto-amélioration",
+    "queuing": "Mise en file d'attente...",
+    "runCheck": "Lancer la vérification",
+    "uncleOnline": "Uncle en ligne",
+    "uncleOffline": "Uncle hors ligne",
+    "siOn": "SI: On",
+    "siOff": "SI: Off",
+    "locked": "Verrouillé",
+    "stages": {
+      "starting": "Démarrage...",
+      "testing": "Tests en cours",
+      "analyzed": "Analyse des résultats",
+      "fixing": "Application des corrections",
+      "complete": "Terminé",
+      "error": "Erreur"
+    },
+    "tokens": "Tokens : {{percent}}%",
+    "totalFixes": "Total des corrections appliquées : {{count}}",
+    "recentActivity": "Activité récente",
+    "noRuns": "Aucune session d'auto-amélioration pour le moment",
+    "reviewed": "Révisé"
+  },
+  "autoresearch": {
+    "title": "Auto-recherche RAG",
+    "pauseRun": "Pause de l'exécution",
+    "startRun": "Démarrer l'exécution",
+    "unavailable": "Auto-recherche indisponible",
+    "running": "En cours",
+    "paused": "En pause",
+    "idle": "Inactif",
+    "phase": "Phase {{phase}}",
+    "pauseOptimization": "Pause de l'optimisation",
+    "startBounded": "Démarrer une recherche limitée",
+    "healthChecksNotCounted": "{{count}} vérifications de santé de la suite de tests ne sont pas comptées",
+    "latestRun": "Dernière exécution",
+    "testSuite": "suite de tests",
+    "selfReported": "{{status}} (auto-rapporté)",
+    "noExperiments": "Aucune expérience pour le moment. Cliquez sur lecture pour démarrer une exécution limitée."
+  },
+  "gpu": {
+    "title": "Mémoire GPU",
+    "tiers": {
+      "speed": "Vitesse",
+      "balanced": "Équilibré",
+      "quality": "Qualité"
+    },
+    "tierMenu": {
+      "speed": "Niveau de vitesse",
+      "balanced": "Niveau équilibré",
+      "quality": "Niveau qualité"
+    },
+    "states": {
+      "loaded": "Chargé",
+      "loading": "Chargement...",
+      "unloading": "Déchargement...",
+      "unloaded": "Inactif"
+    },
+    "unavailable": "Statut GPU indisponible",
+    "evict": "Évincer {{model}}",
+    "systemOther": "Système/Autre : {{size}} Go",
+    "qualityTier": "Niveau qualité",
+    "evictFromGpu": "Évincer du GPU",
+    "noModels": "Aucun modèle chargé"
+  },
+  "title": "Tableau de bord",
+  "layoutModes": {
+    "normal": "Normal",
+    "compact": "Compact",
+    "layered": "Compact superposé",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "Échec de la récupération de l'état du tableau de bord : {{statusText}} (Statut : {{status}})",
+  "loadStateFailed": "Échec du chargement de l'état du tableau de bord : {{message}}. Utilisation des paramètres par défaut.",
+  "saveStateFailed": "Échec de l'enregistrement des modifications du tableau de bord.",
+  "menu": {
+    "cycleLayout": "Changer de mise en page (suivant : {{mode}})",
+    "resetLayout": "Réinitialiser la mise en page...",
+    "noHiddenCards": "Aucune carte masquée",
+    "showCard": "Afficher {{card}}",
+    "showAllHidden": "Afficher toutes les cartes masquées"
+  },
+  "stickyNotes": "Notes autocollantes",
+  "loadingDashboard": "Chargement du tableau de bord...",
+  "dashboardCards": "Cartes du tableau de bord",
+  "layoutTooltip": "Mise en page : {{mode}} (cliquer pour changer)",
+  "missingCard": "Carte manquante : {{id}}",
+  "resetConfirm": {
+    "title": "Réinitialiser la mise en page du tableau de bord ?",
+    "description": "Chaque carte revient à sa position et taille par défaut, les couleurs sont réinitialisées et les cartes masquées sont affichées à nouveau.",
+    "keeps": "ce que les cartes affichent (projets, tâches, chats, fichiers)",
+    "confirm": "Réinitialiser la mise en page"
+  },
+  "cardWrapper": {
+    "openPage": "Ouvrir la page",
+    "expand": "Agrandir",
+    "minimize": "Réduire",
+    "changeColour": "Changer la couleur…",
+    "resetColour": "Réinitialiser la couleur",
+    "hideCard": "Masquer la carte",
+    "changeColor": "Changer la couleur de la carte"
+  },
+  "refreshData": "Actualiser les données",
+  "viewAllJobs": "Voir tous les emplois",
+  "edit": "Modifier…",
+  "recentRuns": {
+    "status": {
+      "completed": "Terminé",
+      "running": "En cours",
+      "queued": "En file d'attente",
+      "pending": "En attente",
+      "paused": "Pause",
+      "failed": "Échoué",
+      "cancelled": "Annulé",
+      "unknown": "Inconnu"
+    },
+    "images": "{{done}}/{{total}} images",
+    "jobNumber": "Emploi {{id}}",
+    "loadFailed": "Impossible de charger les exécutions récentes : {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "Échec de la récupération du statut du système.",
+    "noData": "Aucune donnée de statut retournée.",
+    "title": "Diagnostics Système",
+    "python": "Python : {{version}}",
+    "platform": "Plateforme : {{platform}}",
+    "dbPath": "Chemin DB : {{path}}",
+    "dbSize": "Taille DB : {{size}} Ko",
+    "documents": "Documents : {{count}}",
+    "models": "Modèles : {{count}}",
+    "indexStatus": "Statut de l'index : {{status}}",
+    "runSelfTest": "Lancer l'auto-test",
+    "rebuildIndex": "Reconstruire l'index",
+    "clearCache": "Vider le cache"
+  }
+}

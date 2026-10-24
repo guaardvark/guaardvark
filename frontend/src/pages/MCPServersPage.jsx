@@ -5,11 +5,15 @@
 import React from "react";
 import PageLayout from "../components/layout/PageLayout";
 import MCPServersSection from "../components/settings/MCPServersSection";
+import { useUiTranslation } from "../i18n";
 
-const MCPServersPage = () => (
-  <PageLayout title="MCP Servers" variant="standard">
-    <MCPServersSection />
-  </PageLayout>
-);
+const MCPServersPage = () => {
+  const { t } = useUiTranslation();
+  return (
+    <PageLayout title={t("mcp.title")} variant="standard">
+      <MCPServersSection />
+    </PageLayout>
+  );
+};
 
 export default MCPServersPage;

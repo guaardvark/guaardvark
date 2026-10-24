@@ -1,6 +1,7 @@
 // frontend/src/api/ruleService.js
 // Version 1.0: Service for rule/prompt related API calls.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 const rulesUrl = (filters = {}) => {
   const params = new URLSearchParams();
@@ -27,7 +28,7 @@ export const getRules = async (filters = {}) => {
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("ruleService: Error fetching rules/prompts:", err.message);
-    return { error: err.message || "Failed to fetch rules/prompts." };
+    return { error: err.message || translate("messages.rules.listFailed") };
   }
 };
 
@@ -55,7 +56,7 @@ export const getRulesPage = async (filters = {}) => {
     };
   } catch (err) {
     console.error("ruleService: Error fetching rules page:", err.message);
-    return { error: err.message || "Failed to fetch rules/prompts." };
+    return { error: err.message || translate("messages.rules.listFailed") };
   }
 };
 

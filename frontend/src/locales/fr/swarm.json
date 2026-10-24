@@ -1,0 +1,131 @@
+{
+  "taskStatus": {
+    "pending": "En attente",
+    "blocked": "Bloqué",
+    "queued": "En file d'attente",
+    "running": "En cours",
+    "done": "Terminé",
+    "failed": "Échoué",
+    "needsReview": "À réviser",
+    "merged": "Fusionné",
+    "cancelled": "Annulé",
+    "noChanges": "Aucun changement",
+    "timedOut": "Délai dépassé"
+  },
+  "messages": {
+    "enterPlanPath": "Entrez le chemin du fichier de plan",
+    "launched": "Swarm lancé : {{id}}",
+    "launchFailed": "Lancement échoué",
+    "noSwarmId": "Aucun ID Swarm",
+    "cancelled": "Annulé",
+    "cancelFailed": "Annulation échouée",
+    "merged": "Branches fusionnées : {{merged}}, conflits : {{conflicts}}",
+    "mergeFailed": "Fusion échouée",
+    "cleanedUp": "Nettoyé",
+    "cleanupFailed": "Nettoyage échoué",
+    "logsFailed": "Impossible de récupérer les logs",
+    "templateLoadFailed": "Échec du chargement du modèle",
+    "filenameAndContentRequired": "Le nom du fichier et le contenu sont requis",
+    "planSaved": "Plan enregistré dans les modèles",
+    "saveFailed": "Échec de l'enregistrement",
+    "enterGoal": "Entrez ce que vous voulez accomplir",
+    "planGenerated": "Plan généré par l'IA !",
+    "aiGenerationFailed": "Échec de la génération par l'IA"
+  },
+  "actions": {
+    "cancel": "Annuler",
+    "mergeAll": "Tout fusionner",
+    "cleanUp": "Nettoyer"
+  },
+  "menu": {
+    "collapse": "Réduire",
+    "expand": "Développer",
+    "copySwarmId": "Copier l'ID Swarm",
+    "viewLogs": "Voir les logs",
+    "viewDiff": "Voir la diff",
+    "copyBranchName": "Copier le nom de la branche",
+    "copyTaskId": "Copier l'ID de la tâche",
+    "launch": "Lancer…"
+  },
+  "title": "Swarm",
+  "header": {
+    "online": "En ligne",
+    "offline": "Hors ligne",
+    "serviceOffline": "Service Hors ligne",
+    "refresh": "Actualiser",
+    "createPlan": "Créer un nouveau plan",
+    "launchSwarm": "Lancer Swarm"
+  },
+  "sections": {
+    "activeSwarms": "Swarms actifs",
+    "quickLaunchTemplates": "Modèles de lancement rapide",
+    "recentSwarms": "Swarms récents"
+  },
+  "taskCount": "{{count}} tâches",
+  "flightMode": "Mode Avion",
+  "history": {
+    "freeLocal": "Libre (local)",
+    "cleanUp": "Nettoyer"
+  },
+  "empty": {
+    "title": "Aucun Swarm en cours",
+    "description": "Lancez un swarm d'agents IA pour travailler sur votre base de code en parallèle.",
+    "startPlugin": "Lancez d'abord le plugin swarm.",
+    "launchFirst": "Lancez votre premier Swarm"
+  },
+  "launchDialog": {
+    "title": "Lancer Swarm",
+    "template": "Modèle (facultatif)",
+    "customPlanFile": "Fichier de plan personnalisé",
+    "templateOption": "{{title}} ({{count}} tâches)",
+    "planPath": "Chemin du fichier de plan",
+    "planPathPlaceholder": "chemin/vers/plan.md ou sélectionnez un modèle ci-dessus",
+    "planPathHelp": "Relatif à GUAARDVARK_ROOT ou chemin absolu",
+    "maxAgents": "Agents simultanés max",
+    "autoMerge": "Fusion auto",
+    "flightModeInfo": "Mode Avion : uniquement backends hors ligne (Ollama). Les conflits seront auto-sérialisés.",
+    "cancel": "Annuler",
+    "launchFlightMode": "Lancer (Mode Vol)",
+    "launch": "Lancer"
+  },
+  "editor": {
+    "title": "Éditeur de plan Swarm",
+    "aiHint": "Décrivez votre tâche, et l'IA générera la structure plan.md pour vous.",
+    "aiPlaceholder": "ex: 'Refactorer tous les points de terminaison API pour utiliser le nouveau modèle Response'",
+    "aiSuggest": "Suggérer un plan par IA",
+    "filename": "Nom du fichier (ex. migrate_api.md)",
+    "content": "Contenu du plan (Markdown)",
+    "formatHint": "Format : Utilisez <bold>## Nom de la tâche</bold> pour chaque tâche. Ajoutez <bold>Deps: [1]</bold> pour les dépendances.",
+    "cancel": "Annuler",
+    "saveToTemplates": "Enregistrer dans les modèles"
+  },
+  "taskView": {
+    "loadingLogs": "Chargement des journaux...",
+    "noLogs": "(aucun journal)",
+    "noChanges": "(aucune modification dans l'arborescence)",
+    "diffFailed": "Échec de la récupération du diff",
+    "title": "Détail de la tâche : {{id}}",
+    "logsTab": "Journaux",
+    "liveDiffTab": "Diff en direct",
+    "noOutputYet": "(aucune sortie pour le moment)",
+    "fetchingDiff": "Récupération du diff de l'arborescence...",
+    "refreshDiff": "Actualiser le diff"
+  },
+  "swarmStatus": {
+    "failed": "Échoué",
+    "running": "En cours",
+    "completed": "Terminé"
+  },
+  "card": {
+    "progress": "{{done}}/{{total}} tâches",
+    "free": "Libre",
+    "activeAgents": "{{count}} actif",
+    "diskUsage": "{{size}} Mo",
+    "dependencyGraph": "GRAPHE DE DÉPENDANCE",
+    "viewTaskDetail": "Voir le détail de la tâche"
+  },
+  "elapsed": {
+    "minutesSeconds": "{{minutes}}m {{seconds}}s",
+    "seconds": "{{seconds}}s"
+  }
+}

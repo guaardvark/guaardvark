@@ -59,6 +59,7 @@ import { createPlan } from "../api/orchestratorService";
 import { mergeActivePlanIntoMessages, hydrateOrchestratorFields } from "../utils/orchestratorChat";
 import { debugLog } from "../utils/debugLog";
 import { directToolOptions } from "../utils/slashCommandRegistry";
+import { useUiTranslation } from "../i18n";
 
 const USE_AGENT_ROUTING = () => {
   try {
@@ -79,6 +80,7 @@ const USE_UNIFIED_CHAT = () => {
 };
 
 const ChatPage = () => {
+  const { t } = useUiTranslation();
   const { projectId } = useParams();
   const navHistory = useNavigate();
 
@@ -267,7 +269,7 @@ const ChatPage = () => {
       if (data.session_id !== sessionId) return;
       const newImg = {
         url: data.image_url,
-        alt: data.alt || "Generated image",
+        alt: data.alt || t("chatPage.messages.generatedImageAlt"),
         caption: data.caption || "",
       };
       // Update the most recent assistant message with the image
@@ -488,7 +490,7 @@ const ChatPage = () => {
         // Graceful degradation — surface but don't crash. Most common reason:
         // backend restart orphaned the in-memory ACTIVE_LESSONS entry.
         console.warn("End lesson:", data?.error || `HTTP ${res.status}`);
-        setError(`The lesson ended but was not saved: ${formatUiError(data?.error) || `the backend answered HTTP ${res.status}`}.`);
+        setError({ notice: "lessonNotSaved", reason: formatUiError(data?.error), status: res.status });
         setActiveLessonId(null);
         clearLessonPearls();
         return;
@@ -503,7 +505,7 @@ const ChatPage = () => {
       clearLessonPearls();
     } catch (err) {
       console.error("End lesson error:", err);
-      setError(`The lesson ended but was not saved: ${formatUiError(err) || "the request failed"}.`);
+      setError({ notice: "lessonNotSaved", reason: formatUiError(err) });
       setActiveLessonId(null);
       clearLessonPearls();
     } finally {
@@ -529,7 +531,7 @@ const ChatPage = () => {
         .catch((e) => {
           // The badge says agent mode; without the saved mode the backend
           // treats the new chat as chat mode, so say it did not stick.
-          setError(`Agent mode was not saved for the new chat: ${formatUiError(e) || "the request failed"}. Send /agent to try again.`);
+          setError({ notice: "agentModeNotSaved", reason: formatUiError(e) });
         });
     }
 
@@ -899,7 +901,7 @@ const ChatPage = () => {
       setMessages((prev) => [...prev, {
         id: `stop_err_${Date.now()}`,
         role: "system",
-        content: `Error: ${result.error}`,
+        content: t("chatPage.messages.error", { error: result.error }),
         timestamp: new Date().toISOString(),
       }]);
     });
@@ -950,9 +952,9 @@ const ChatPage = () => {
         const successMessage = {
           id: `success_${Date.now()}`,
           role: "system",
-          content: `Bulk CSV generation started! Generating ${fileData.quantity || "multiple"
-            } entries for "${fileData.filename
-            }". This may take several minutes to complete.`,
+          content: fileData.quantity
+            ? t("chatPage.messages.bulkStarted", { quantity: fileData.quantity, filename: fileData.filename })
+            : t("chatPage.messages.bulkStartedNoQuantity", { filename: fileData.filename }),
         };
         setMessages((prev) => [...prev, successMessage]);
       } else {
@@ -996,7 +998,7 @@ const ChatPage = () => {
         const successMessage = {
           id: `success_${Date.now()}`,
           role: "system",
-          content: `File "${fileData.filename}" generated successfully! You can download it from the outputs folder.`,
+          content: t("chatPage.messages.fileGenerated", { filename: fileData.filename }),
         };
         setMessages((prev) => [...prev, successMessage]);
       }
@@ -1006,8 +1008,9 @@ const ChatPage = () => {
       const errorMessage = {
         id: `error_${Date.now()}`,
         role: "system",
-        content: `${fileData.isBulkRequest ? "Bulk CSV generation" : "File generation"
-          } failed: ${error.message}`,
+        content: fileData.isBulkRequest
+          ? t("chatPage.messages.bulkFailed", { error: error.message })
+          : t("chatPage.messages.fileFailed", { error: error.message }),
       };
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
@@ -1099,8 +1102,7 @@ const ChatPage = () => {
             {
               id: `info_${Date.now()}`,
               role: "system",
-              content:
-                "**File Generation Mode**: Analyzing your request for code/file generation...",
+              content: t("chatPage.messages.modes.fileGeneration"),
             },
           ]);
           return await sendChatMessage(
@@ -1119,7 +1121,7 @@ const ChatPage = () => {
             {
               id: `info_${Date.now()}`,
               role: "system",
-              content: "**Coding Mode**: Providing programming assistance...",
+              content: t("chatPage.messages.modes.coding"),
             },
           ]);
           return await sendChatMessage(
@@ -1138,8 +1140,7 @@ const ChatPage = () => {
             {
               id: `info_${Date.now()}`,
               role: "system",
-              content:
-                "**Web Research Mode**: Searching for current information...",
+              content: t("chatPage.messages.modes.web"),
             },
           ]);
           return await sendChatMessage(
@@ -1158,7 +1159,7 @@ const ChatPage = () => {
             {
               id: `info_${Date.now()}`,
               role: "system",
-              content: "**Data Tools Mode**: Processing data request...",
+              content: t("chatPage.messages.modes.data"),
             },
           ]);
           return await sendChatMessage(
@@ -1394,7 +1395,7 @@ const ChatPage = () => {
         const errorMessage = {
           id: `error_${Date.now()}`,
           role: "system",
-          content: `Message too long: ${inputText.length} characters. Maximum allowed: 100,000 characters.`,
+          content: t("chatPage.messages.tooLong", { length: inputText.length }),
         };
         setMessages((prev) => [...prev, errorMessage]);
         return;
@@ -1470,14 +1471,14 @@ const ChatPage = () => {
             }
 
           } else {
-            throw new Error(response.error || "Failed to create plan");
+            throw new Error(response.error || t("chatPage.messages.planNotCreated"));
           }
         } catch (e) {
           console.error("Orchestrator error:", e);
           setMessages(prev => [...prev, {
             id: `err_${Date.now()}`,
             role: 'system',
-            content: `Failed to create plan: ${e.message}`
+            content: t("chatPage.messages.planFailed", { error: e.message })
           }]);
         } finally {
           setIsSending(false);
@@ -1534,7 +1535,7 @@ const ChatPage = () => {
         const thinkingMessage = {
           id: agentMsgId,
           role: "assistant",
-          content: "Agent is actively reasoning and routing your request...",
+          content: t("chatPage.messages.agentWorking"),
           isAgentLoop: true,
           agentLoopStatus: "thinking",
           timestamp: new Date().toISOString(),
@@ -1568,9 +1569,9 @@ const ChatPage = () => {
               result?.error;
             if (!content) {
               if (agentResult?.success === false) {
-                content = "Agent execution failed (no response from the model).";
+                content = t("chatPage.messages.agentFailedNoResponse");
               } else {
-                content = "Agent execution completed with no response.";
+                content = t("chatPage.messages.agentEmptyResponse");
               }
             }
             const screenshotUrls = agentResult?.screenshot_urls || [];
@@ -1601,7 +1602,7 @@ const ChatPage = () => {
                 return {
                   id: agentMsgId,
                   role: "assistant",
-                  content: `Agent execution failed: ${agentError.message}`,
+                  content: t("chatPage.messages.agentFailed", { error: agentError.message }),
                   timestamp: new Date().toISOString(),
                 };
               }
@@ -1698,7 +1699,7 @@ const ChatPage = () => {
           const infoMessage = {
             id: `info_${Date.now()}`,
             role: "system",
-            content: "File generation is already in progress. I'll continue our conversation while that processes.",
+            content: t("chatPage.messages.fileGenerationBusy"),
           };
           setMessages((prev) => [...prev, infoMessage]);
         }
@@ -1922,7 +1923,7 @@ const ChatPage = () => {
             {
               id: `error_${Date.now()}`,
               role: "system",
-              content: `Error: ${unifiedError.message}`,
+              content: t("chatPage.messages.error", { error: unifiedError.message }),
             },
           ]);
         } finally {
@@ -2033,12 +2034,9 @@ const ChatPage = () => {
         }
 
         // Only now show the guidance message. Agent mode really shouldn't use the no-tools path.
-        const reason = useUnifiedChat
-          ? "the unified chat socket is not connected (recovery attempted)"
-          : "unified chat is disabled";
-        const content =
-          `Agent mode requires unified chat tools, but ${reason}. ` +
-          "Reconnect (or reload) or type `/chat` to return to normal chat mode.";
+        const content = useUnifiedChat
+          ? t("chatPage.messages.agentModeSocketDown")
+          : t("chatPage.messages.agentModeUnifiedDisabled");
 
         console.warn("CHAT_PATH: Blocked enhanced-chat fallback in agent mode (after recovery attempt)", {
           useUnifiedChat,
@@ -2133,7 +2131,9 @@ const ChatPage = () => {
             if (attempt === maxRetries) {
               result = {
                 success: true,
-                content: `I apologize, but I'm experiencing technical difficulties processing your message: "${inputText.substring(0, 100)}${inputText.length > 100 ? '...' : ''}"\n\nThe system encountered connectivity issues, but your message has been preserved in our conversation history. Please try asking your question again, or rephrase it if you'd like.`,
+                content: t("chatPage.messages.technicalDifficulties", {
+                  excerpt: `${inputText.substring(0, 100)}${inputText.length > 100 ? '...' : ''}`,
+                }),
                 enhanced: false,
                 fallback: true,
                 technicalError: true
@@ -2202,7 +2202,7 @@ const ChatPage = () => {
             {
               id: `warn_${Date.now()}`,
               role: "system",
-              content: `Warning: ${warningText}`,
+              content: t("chatPage.messages.warning", { warning: warningText }),
             },
           ]);
         }
@@ -2220,7 +2220,7 @@ const ChatPage = () => {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, role: "system", content: "Request stopped by user" }
+                ? { ...m, role: "system", content: t("chatPage.messages.stopped") }
                 : m
             )
           );
@@ -2232,7 +2232,7 @@ const ChatPage = () => {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, role: "system", content: `Error: ${errorText}` }
+                ? { ...m, role: "system", content: t("chatPage.messages.error", { error: errorText }) }
                 : m
             )
           );
@@ -2270,11 +2270,25 @@ const ChatPage = () => {
     const successMessage = {
       id: `success_${Date.now()}`,
       role: "system",
-      content: `File uploaded successfully! Indexing has been started in the background. Check the System Dashboard to monitor progress.`,
+      content: t("chatPage.messages.uploaded"),
     };
     setMessages((prev) => [...prev, successMessage]);
 
   }, []);
+
+  // Page errors are kept as what went wrong and worded when shown, so the
+  // banner follows a change of interface language.
+  const pageErrorText = ({ notice, reason, status }) => {
+    if (notice === "agentModeNotSaved") {
+      return reason
+        ? t("chatPage.errors.agentModeNotSaved", { reason })
+        : t("chatPage.errors.agentModeNotSavedRequestFailed");
+    }
+    if (reason) return t("chatPage.errors.lessonNotSaved", { reason });
+    return status === undefined
+      ? t("chatPage.errors.lessonNotSavedRequestFailed")
+      : t("chatPage.errors.lessonNotSavedHttp", { status });
+  };
 
   return (
     <PageLayout variant="fullscreen" noPadding>
@@ -2315,10 +2329,10 @@ const ChatPage = () => {
             <ChevronRightIcon fontSize="small" />
           </IconButton>
           <Typography variant="h5" component="h1" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            Chat
+            {t("chatPage.header.title")}
             {messages.length > 0 && (
               <Chip
-                label={`${messages.length} msg${messages.length !== 1 ? 's' : ''}`}
+                label={t("chatPage.header.messageCount", { count: messages.length })}
                 size="small"
                 variant="outlined"
                 sx={{ height: 20, fontSize: '0.7rem' }}
@@ -2330,7 +2344,7 @@ const ChatPage = () => {
         {}
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           {!activeLessonId ? (
-            <Tooltip title="Begin Lesson — thumbs-ups will string into a lesson summary">
+            <Tooltip title={t("chatPage.header.beginLesson")}>
               <span>
                 <IconButton
                   onClick={handleBeginLesson}
@@ -2347,7 +2361,7 @@ const ChatPage = () => {
               </span>
             </Tooltip>
           ) : (
-            <Tooltip title="End Lesson — distill pearls into an editable summary">
+            <Tooltip title={t("chatPage.header.endLesson")}>
               <span>
                 <IconButton
                   onClick={handleEndLesson}
@@ -2364,7 +2378,7 @@ const ChatPage = () => {
               </span>
             </Tooltip>
           )}
-          <Tooltip title="All chats">
+          <Tooltip title={t("chatPage.header.allChats")}>
             <span>
               <IconButton
                 onClick={() => setPreviousChatsOpen(true)}
@@ -2379,7 +2393,7 @@ const ChatPage = () => {
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="Start a new chat session">
+          <Tooltip title={t("chatPage.header.newChat")}>
             <span>
               <IconButton
                 onClick={handleNewChat}
@@ -2399,16 +2413,23 @@ const ChatPage = () => {
           </Tooltip>
 
           <Tooltip
-            title={`Active Model: ${isLoadingModel ? "Loading..." : modelError ? "Error fetching model" : activeModel || "N/A"}`}
+            title={t("chatPage.header.activeModel", {
+              model: isLoadingModel
+                ? t("chatPage.header.modelLoading")
+                : modelError
+                  ? t("chatPage.header.modelFetchError")
+                  : activeModel || t("chatPage.header.modelUnknown"),
+            })}
           >
             <span>
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                Model:{" "}
-                {isLoadingModel
-                  ? "Loading..."
-                  : modelError
-                    ? "Error"
-                    : activeModel || "Default"}
+                {t("chatPage.header.model", {
+                  model: isLoadingModel
+                    ? t("chatPage.header.modelLoading")
+                    : modelError
+                      ? t("chatPage.header.modelError")
+                      : activeModel || t("chatPage.header.modelDefault"),
+                })}
               </Typography>
             </span>
           </Tooltip>
@@ -2417,12 +2438,12 @@ const ChatPage = () => {
 
       {!llmReady && (
         <Alert severity="info" sx={{ mx: 2, mb: 1 }}>
-          Model is loading into GPU memory... Chat will be ready in a moment.
+          {t("chatPage.status.modelWarmingUp")}
         </Alert>
       )}
 
       {/* Agent screen floating panel renders via portal from the chip in the header */}
-      {error && <Alert severity="error" sx={{ mx: 2, mb: 1 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mx: 2, mb: 1 }}>{pageErrorText(error)}</Alert>}
 
       {}
 
@@ -2546,12 +2567,15 @@ const ChatPage = () => {
 
       {isSending && !isStreamingMessage && (
         <Typography sx={{ p: 2, fontStyle: "italic" }} align="center">
-          Assistant is typing...
+          {t("chatPage.status.typing")}
         </Typography>
       )}
       {showBudget && (
         <Box sx={{ p: 1, bgcolor: 'warning.light', fontSize: '0.8em', border: '1px solid #ff9800' }}>
-          Agent mode is on: each message is a task the assistant carries out with its tools, up to {budgetTelemetry.total || 20} steps per message; the last task had {budgetTelemetry.remaining ?? '?'} steps left.
+          {t("chatPage.status.agentBudget", {
+            total: budgetTelemetry.total || 20,
+            remaining: budgetTelemetry.remaining ?? '?',
+          })}
         </Box>
       )}
       <ChatInput

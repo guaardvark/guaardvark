@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { getAllCommands, getBuiltInCommands, filterCommands, parseCommand } from "../utils/slashCommandRegistry";
+import { translate } from "../i18n";
 
 /**
  * Shared slash command hook for all chat inputs.
@@ -64,7 +65,7 @@ export default function useSlashCommands({ addMessage, updateMessage, onSendMess
       console.error("Command execution error:", err);
       addMessage?.({
         role: "system",
-        content: `Command failed: ${err.message}`,
+        content: translate("messages.slash.commandFailed", { reason: err.message }),
         tempId: `err-${Date.now()}`,
       });
       return { handled: true };

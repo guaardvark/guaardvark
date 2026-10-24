@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from "react";
 import { Popper, Paper, Box, Typography, Chip, Fade } from "@mui/material";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * Autocomplete dropdown for slash commands.
@@ -13,6 +14,7 @@ import { Popper, Paper, Box, Typography, Chip, Fade } from "@mui/material";
  *   open — boolean visibility
  */
 export default function SlashCommandPopup({ commands, selectedIndex, onSelect, anchorEl, open }) {
+  const { t } = useUiTranslation();
   const listRef = useRef(null);
 
   // Scroll selected item into view
@@ -32,6 +34,16 @@ export default function SlashCommandPopup({ commands, selectedIndex, onSelect, a
     model: "info",
     utility: "default",
     custom: "warning",
+  };
+
+  // The category is the registry's id; the chip shows its name.
+  const categoryLabels = {
+    generation: t("chat.slashCommands.categories.generation"),
+    model: t("chat.slashCommands.categories.model"),
+    utility: t("chat.slashCommands.categories.utility"),
+    custom: t("chat.slashCommands.categories.custom"),
+    agent: t("chat.slashCommands.categories.agent"),
+    outreach: t("chat.slashCommands.categories.outreach"),
   };
 
   return (
@@ -88,7 +100,7 @@ export default function SlashCommandPopup({ commands, selectedIndex, onSelect, a
                   {cmd.description}
                 </Typography>
                 <Chip
-                  label={cmd.category}
+                  label={categoryLabels[cmd.category] || cmd.category}
                   size="small"
                   color={categoryColors[cmd.category] || "default"}
                   variant="outlined"

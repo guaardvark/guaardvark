@@ -11,6 +11,7 @@ import axios from 'axios';
 
 // The app's one API base (VITE_API_BASE_URL, default /api), as everywhere else.
 import { BASE_URL as API_BASE } from '../../api/apiClient';
+import { uiLocale, useUiTranslation } from '../../i18n';
 const THUMB_SIZE = 160;
 const GRID_GAP = 8;
 
@@ -28,6 +29,7 @@ const ImageThumbnailGrid = ({
   onImageDoubleClick,
   refreshKey = 0,
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [items, setItems] = useState({ folders: [], files: [] });
   const [loading, setLoading] = useState(true);
@@ -218,14 +220,14 @@ const ImageThumbnailGrid = ({
             onClick={() => { setSortDir(sortBy === 'name' && sortDir === 'asc' ? 'desc' : 'asc'); setSortBy('name'); }}
             sx={{ flex: 1 }}
           >
-            <Typography variant="caption" color="text.secondary">Name</Typography>
+            <Typography variant="caption" color="text.secondary">{t('images.grid.name')}</Typography>
           </TableSortLabel>
           <TableSortLabel
             active={sortBy === 'date'}
             direction={sortBy === 'date' ? sortDir : 'asc'}
             onClick={() => { setSortDir(sortBy === 'date' && sortDir === 'asc' ? 'desc' : 'asc'); setSortBy('date'); }}
           >
-            <Typography variant="caption" color="text.secondary">Date</Typography>
+            <Typography variant="caption" color="text.secondary">{t('images.grid.date')}</Typography>
           </TableSortLabel>
           <TableSortLabel
             active={sortBy === 'size'}
@@ -233,12 +235,12 @@ const ImageThumbnailGrid = ({
             onClick={() => { setSortDir(sortBy === 'size' && sortDir === 'asc' ? 'desc' : 'asc'); setSortBy('size'); }}
             sx={{ minWidth: 60 }}
           >
-            <Typography variant="caption" color="text.secondary">Size</Typography>
+            <Typography variant="caption" color="text.secondary">{t('images.grid.size')}</Typography>
           </TableSortLabel>
         </Box>
         {allItems.length === 0 && (
           <Box data-background="true" sx={{ width: '100%', textAlign: 'center', py: 4 }}>
-            <Typography color="text.secondary" data-background="true">Empty folder</Typography>
+            <Typography color="text.secondary" data-background="true">{t('images.grid.emptyFolder')}</Typography>
           </Box>
         )}
         {allItems.map((item, index) => {
@@ -286,7 +288,7 @@ const ImageThumbnailGrid = ({
                 </Typography>
               ) : (
                 <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60, textAlign: 'right', flexShrink: 0 }}>
-                  {isFolder ? `${(item.document_count || 0) + (item.subfolder_count || 0)} items` : ''}
+                  {isFolder ? t('images.grid.folderItems', { count: (item.document_count || 0) + (item.subfolder_count || 0) }) : ''}
                 </Typography>
               )}
             </Box>
@@ -318,7 +320,7 @@ const ImageThumbnailGrid = ({
     >
       {allItems.length === 0 && (
         <Box data-background="true" sx={{ width: '100%', textAlign: 'center', py: 4 }}>
-          <Typography color="text.secondary" data-background="true">Empty folder</Typography>
+          <Typography color="text.secondary" data-background="true">{t('images.grid.emptyFolder')}</Typography>
         </Box>
       )}
 
@@ -426,7 +428,7 @@ function formatDate(dateStr) {
   if (!dateStr) return '';
   try {
     const d = new Date(dateStr);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    return d.toLocaleDateString(uiLocale(), { month: 'short', day: 'numeric', year: 'numeric' });
   } catch {
     return '';
   }

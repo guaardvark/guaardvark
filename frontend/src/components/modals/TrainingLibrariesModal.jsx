@@ -43,9 +43,7 @@ import {
   removeTrainingBaseModel,
   removeTrainingLibraries,
 } from "../../api/trainingService";
-
-const RESTART_HINT =
-  "Restart Guaardvark (Settings > Danger zone > Reboot) before training, so the trainer loads the new libraries.";
+import { translate, useUiTranslation, Trans } from "../../i18n";
 
 const sizeLabel = (mb) => {
   const n = Number(mb) || 0;
@@ -59,21 +57,21 @@ const bytesLabel = (bytes) => sizeLabel((Number(bytes) || 0) / 1e6);
 const stateChip = (lib) => {
   if (lib.state === "installed") {
     return (
-      <Chip icon={<CheckCircleIcon />} label="Installed" color="success" size="small" variant="outlined" />
+      <Chip icon={<CheckCircleIcon />} label={translate("dialogs.trainingLibraries.installed")} color="success" size="small" variant="outlined" />
     );
   }
   if (lib.state === "other_version") {
     return (
       <Chip
-        label={`${lib.installed_version} installed`}
+        label={translate("dialogs.trainingLibraries.otherVersionInstalled", { version: lib.installed_version })}
         color="warning"
         size="small"
         variant="outlined"
-        title={`Pinned: ${lib.version}`}
+        title={translate("dialogs.trainingLibraries.pinned", { version: lib.version })}
       />
     );
   }
-  return <Chip label="Not installed" size="small" variant="outlined" />;
+  return <Chip label={translate("dialogs.trainingLibraries.notInstalled")} size="small" variant="outlined" />;
 };
 
 /**
@@ -94,6 +92,7 @@ const TrainingLibrariesModal = ({
   onConverterChanged,
   focus,
 }) => {
+  const { t } = useUiTranslation();
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -139,15 +138,15 @@ const TrainingLibrariesModal = ({
       const run = data.run || {};
       if (lastConverterState.current === "running" && run.state !== "running") {
         if (run.state === "completed") {
-          showMessageRef.current?.("GGUF converter installed.", "success");
+          showMessageRef.current?.(translate("dialogs.trainingLibraries.converterInstalled"), "success");
         } else if (run.state === "failed") {
-          showMessageRef.current?.(`GGUF converter install failed: ${run.error}`, "error");
+          showMessageRef.current?.(translate("dialogs.trainingLibraries.converterInstallFailed", { error: run.error }), "error");
         }
         onConverterChangedRef.current?.(data);
       }
       lastConverterState.current = run.state;
     } catch (err) {
-      setConverterError(err.message || "Could not read the GGUF converter.");
+      setConverterError(err.message || translate("dialogs.trainingLibraries.converterReadFailed"));
     }
   }, []);
 
@@ -159,15 +158,15 @@ const TrainingLibrariesModal = ({
       const download = data?.download || {};
       if (lastDownloadState.current === "running" && download.state !== "running") {
         if (download.state === "completed") {
-          showMessageRef.current?.(`${download.model} downloaded.`, "success");
+          showMessageRef.current?.(translate("dialogs.trainingLibraries.modelDownloaded", { model: download.model }), "success");
         } else if (download.state === "failed") {
-          showMessageRef.current?.(`${download.model} download failed: ${download.error}`, "error");
+          showMessageRef.current?.(translate("dialogs.trainingLibraries.modelDownloadFailed", { model: download.model, error: download.error }), "error");
         }
         onBaseModelsChangedRef.current?.(data);
       }
       lastDownloadState.current = download.state;
     } catch (err) {
-      setBaseError(err.message || "Could not read the base models.");
+      setBaseError(err.message || translate("dialogs.trainingLibraries.baseModelsReadFailed"));
     }
   }, []);
 
@@ -181,12 +180,14 @@ const TrainingLibrariesModal = ({
         const removing = data.run.action === "remove";
         if (state === "completed") {
           showMessageRef.current?.(
-            removing ? "Training libraries removed." : "Training libraries installed.",
+            removing ? translate("dialogs.trainingLibraries.librariesRemoved") : translate("dialogs.trainingLibraries.librariesInstalled"),
             "success",
           );
         } else if (state === "failed") {
           showMessageRef.current?.(
-            `Training libraries ${removing ? "remove" : "install"} failed: ${data.run.error || "unknown error"}`,
+            removing
+              ? translate("dialogs.trainingLibraries.librariesRemoveFailed", { error: data.run.error || translate("dialogs.trainingLibraries.unknownError") })
+              : translate("dialogs.trainingLibraries.librariesInstallFailed", { error: data.run.error || translate("dialogs.trainingLibraries.unknownError") }),
             "error",
           );
         }
@@ -194,7 +195,7 @@ const TrainingLibrariesModal = ({
       }
       lastRunState.current = state;
     } catch (err) {
-      setError(err.message || "Could not read the training libraries.");
+      setError(err.message || translate("dialogs.trainingLibraries.librariesReadFailed"));
     } finally {
       setLoading(false);
     }
@@ -265,11 +266,11 @@ const TrainingLibrariesModal = ({
       lastConverterState.current = data?.run?.state || null;
       setConverter(data);
       if (action === "remove") {
-        showMessageRef.current?.("GGUF converter removed.", "success");
+        showMessageRef.current?.(t("dialogs.trainingLibraries.converterRemoved"), "success");
         onConverterChangedRef.current?.(data);
       }
     } catch (err) {
-      const message = err.message || `Could not ${action} the GGUF converter.`;
+      const message = err.message || (action === "install" ? t("dialogs.trainingLibraries.converterInstallError") : t("dialogs.trainingLibraries.converterRemoveError"));
       showMessageRef.current?.(message, "error");
       setConverterError(message);
       fetchConverter();
@@ -292,11 +293,11 @@ const TrainingLibrariesModal = ({
       lastDownloadState.current = data?.download?.state || null;
       setBaseInfo(data);
       if (action === "remove") {
-        showMessageRef.current?.(`${model.name} removed.`, "success");
+        showMessageRef.current?.(t("dialogs.trainingLibraries.modelRemoved", { model: model.name }), "success");
         onBaseModelsChangedRef.current?.(data);
       }
     } catch (err) {
-      const message = err.message || `Could not ${action} ${model.name}.`;
+      const message = err.message || (action === "download" ? t("dialogs.trainingLibraries.modelDownloadError", { model: model.name }) : t("dialogs.trainingLibraries.modelRemoveError", { model: model.name }));
       showMessageRef.current?.(message, "error");
       setBaseError(message);
       fetchBaseModels();
@@ -320,7 +321,7 @@ const TrainingLibrariesModal = ({
       lastRunState.current = data?.run?.state || "running";
       setInfo(data);
     } catch (err) {
-      const message = err.message || `Could not start the ${action}.`;
+      const message = err.message || (action === "install" ? t("dialogs.trainingLibraries.startInstallError") : t("dialogs.trainingLibraries.startRemoveError"));
       showMessageRef.current?.(message, "error");
       setActionError(message);
       fetchStatus();
@@ -342,16 +343,20 @@ const TrainingLibrariesModal = ({
 
   // The install button's words; on a machine the hardware policy calls not
   // practical every form says "anyway", so choosing it is the insisting.
-  const anyway = notPractical ? " anyway" : "";
   let installLabel = null;
   if (missing.length > 0) {
     const size = sizeLabel(info?.download_mb);
-    installLabel = size ? `Install${anyway} (about ${size})` : `Install${anyway}`;
+    if (size) {
+      installLabel = notPractical ? t("dialogs.trainingLibraries.installAnywayAbout", { size }) : t("dialogs.trainingLibraries.installAbout", { size });
+    } else {
+      installLabel = notPractical ? t("dialogs.trainingLibraries.installAnyway") : t("dialogs.trainingLibraries.install");
+    }
   } else if (unmet.length > 0) {
-    installLabel = `Repair${anyway}`;
+    installLabel = notPractical ? t("dialogs.trainingLibraries.repairAnyway") : t("dialogs.trainingLibraries.repair");
   } else if (otherVersions.length > 0) {
-    installLabel = `Install pinned versions${anyway}`;
+    installLabel = notPractical ? t("dialogs.trainingLibraries.installPinnedAnyway") : t("dialogs.trainingLibraries.installPinned");
   }
+  const restartHint = t("dialogs.trainingLibraries.restartHint");
 
   const hardwareLine = () => {
     if (!info) return null;
@@ -364,12 +369,10 @@ const TrainingLibrariesModal = ({
 
   return (
     <Dialog open={open} onClose={() => !running && !busy && !converterBusy && onClose()} maxWidth="sm" fullWidth>
-      <DialogTitle>Training libraries</DialogTitle>
+      <DialogTitle>{t("dialogs.trainingLibraries.title")}</DialogTitle>
       <DialogContent dividers>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Optional. Fine-tuning on the Training page needs these Python libraries. Nothing is
-          installed until you click Install; they go into the Python environment Guaardvark&apos;s
-          backend runs in.
+          {t("dialogs.trainingLibraries.intro")}
         </Typography>
 
         {(error || actionError) && (
@@ -380,13 +383,16 @@ const TrainingLibrariesModal = ({
 
         {notPractical && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            <strong>Training is not practical on this machine.</strong> {hardware.reason} Nothing
-            installs unless you choose Install anyway.
+            <Trans
+              i18nKey="dialogs.trainingLibraries.notPractical"
+              values={{ reason: hardware.reason }}
+              components={{ bold: <strong /> }}
+            />
           </Alert>
         )}
         {info && hardware.practical && (
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-            This machine: {hardwareLine() || hardware.reason}
+            {t("dialogs.trainingLibraries.thisMachine", { hardware: hardwareLine() || hardware.reason })}
           </Typography>
         )}
 
@@ -419,7 +425,7 @@ const TrainingLibrariesModal = ({
                           label={sizeLabel(lib.download_mb)}
                           size="small"
                           variant="outlined"
-                          title={lib.download_includes ? `Includes ${lib.download_includes}` : ""}
+                          title={lib.download_includes ? t("dialogs.trainingLibraries.includes", { what: lib.download_includes }) : ""}
                         />
                       )}
                     </Box>
@@ -434,7 +440,7 @@ const TrainingLibrariesModal = ({
 
         {unmet.length > 0 && !running && (
           <Alert severity="warning" sx={{ mt: 2 }}>
-            Installed, but incomplete. Repair installs what is missing:
+            {t("dialogs.trainingLibraries.unmetIntro")}
             <Box component="ul" sx={{ m: 0, pl: 2 }}>
               {unmet.map((u) => (
                 <li key={u}>
@@ -449,12 +455,16 @@ const TrainingLibrariesModal = ({
           <Box sx={{ mt: 2, p: 1.5, borderRadius: 1, bgcolor: "action.hover" }}>
             {info.changes?.map((c) => (
               <Typography key={c.name} variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                Also moves <strong>{c.name}</strong> {c.installed} to {c.needs}: {c.why}. Remove puts it back.
+                <Trans
+                  i18nKey="dialogs.trainingLibraries.alsoMoves"
+                  values={{ name: c.name, installed: c.installed, needs: c.needs, why: c.why }}
+                  components={{ bold: <strong /> }}
+                />
               </Typography>
             ))}
             {info.left_out?.map((l) => (
               <Typography key={l.name} variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                Leaves out <strong>{l.name}</strong>: {l.why}
+                <Trans i18nKey="dialogs.trainingLibraries.leavesOut" values={{ name: l.name, why: l.why }} components={{ bold: <strong /> }} />
               </Typography>
             ))}
           </Box>
@@ -465,7 +475,9 @@ const TrainingLibrariesModal = ({
             {running && (
               <>
                 <Typography variant="body2" noWrap>
-                  {run.action === "remove" ? "Removing" : "Installing"}: {run.phase}
+                  {run.action === "remove"
+                    ? t("dialogs.trainingLibraries.removingPhase", { phase: run.phase })
+                    : t("dialogs.trainingLibraries.installingPhase", { phase: run.phase })}
                 </Typography>
                 <LinearProgress
                   variant={run.progress > 1 ? "determinate" : "indeterminate"}
@@ -476,18 +488,22 @@ const TrainingLibrariesModal = ({
             )}
             {run.state === "completed" && (
               <Alert severity="success" sx={{ mb: 1 }}>
-                {run.action === "remove" ? "Removed." : "Installed."} {RESTART_HINT}
+                {run.action === "remove" ? t("dialogs.trainingLibraries.removed") : t("dialogs.trainingLibraries.installedDone")} {restartHint}
                 {run.check?.ok && (
                   <Typography variant="caption" sx={{ display: "block" }}>
-                    Trainer check: {run.check.cuda_device || "GPU"}, bf16 {run.check.bf16 ? "yes" : "no"}, TRL{" "}
-                    {run.check.libraries?.trl}, Unsloth {run.check.libraries?.unsloth}.
+                    {t("dialogs.trainingLibraries.trainerCheck", {
+                      device: run.check.cuda_device || "GPU",
+                      bf16: run.check.bf16 ? t("dialogs.trainingLibraries.yes") : t("dialogs.trainingLibraries.no"),
+                      trl: run.check.libraries?.trl,
+                      unsloth: run.check.libraries?.unsloth,
+                    })}
                   </Typography>
                 )}
               </Alert>
             )}
             {run.pip_check_new?.length > 0 && (
               <Alert severity="warning" sx={{ mb: 1 }}>
-                pip check reports problems this install introduced:
+                {t("dialogs.trainingLibraries.pipCheck")}
                 <Box component="ul" sx={{ m: 0, pl: 2 }}>
                   {run.pip_check_new.map((line) => (
                     <li key={line}>
@@ -499,7 +515,7 @@ const TrainingLibrariesModal = ({
             )}
             {run.state === "failed" && (
               <Alert severity="error" sx={{ mb: 1 }}>
-                {run.error || "Failed."}
+                {run.error || t("dialogs.trainingLibraries.failed")}
               </Alert>
             )}
             {run.log?.length > 0 && (
@@ -523,17 +539,16 @@ const TrainingLibrariesModal = ({
         )}
         {run.restart_needed && !running && run.state !== "completed" && (
           <Alert severity="info" sx={{ mt: 2 }}>
-            {RESTART_HINT}
+            {restartHint}
           </Alert>
         )}
 
         <Divider sx={{ my: 2 }} />
         <Typography variant="subtitle1" fontWeight={500}>
-          Base models
+          {t("dialogs.trainingLibraries.baseModels")}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          The models a fine-tune starts from. Download fetches one from huggingface.co when you
-          click it, without your Hugging Face token; training itself never downloads.
+          {t("dialogs.trainingLibraries.baseModelsIntro")}
         </Typography>
         {baseError && (
           <Alert severity="error" sx={{ mb: 1 }}>
@@ -542,7 +557,7 @@ const TrainingLibrariesModal = ({
         )}
         {baseInfo?.download?.state === "failed" && (
           <Alert severity="error" sx={{ mb: 1 }}>
-            {baseInfo.download.model} did not download: {baseInfo.download.error}
+            {t("dialogs.trainingLibraries.didNotDownload", { model: baseInfo.download.model, error: baseInfo.download.error })}
           </Alert>
         )}
         {!baseInfo && !baseError ? (
@@ -571,12 +586,12 @@ const TrainingLibrariesModal = ({
                         {model.description}
                         {model.trainable === false && (
                           <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                            Not offered for training yet: its GPU memory has not been measured.
+                            {t("dialogs.trainingLibraries.notMeasured")}
                           </Typography>
                         )}
                         {!model.fits && (
                           <Typography variant="caption" color="warning.main" sx={{ display: "block" }}>
-                            Does not fit: {model.fit_reason}
+                            {t("dialogs.trainingLibraries.doesNotFitReason", { reason: model.fit_reason })}
                           </Typography>
                         )}
                         {active && (
@@ -586,7 +601,7 @@ const TrainingLibrariesModal = ({
                               value={baseInfo.download.progress || 0}
                             />
                             <Typography variant="caption">
-                              {baseInfo.download.downloaded_gb || 0} of {model.size_gb} GB
+                              {t("dialogs.trainingLibraries.downloadProgress", { downloaded: baseInfo.download.downloaded_gb || 0, total: model.size_gb })}
                             </Typography>
                           </Box>
                         )}
@@ -596,13 +611,13 @@ const TrainingLibrariesModal = ({
                   <Box sx={{ ml: 2, minWidth: 130, textAlign: "right" }}>
                     {model.installed ? (
                       <Stack spacing={1} alignItems="flex-end">
-                        <Chip icon={<CheckCircleIcon />} label="Downloaded" color="success" size="small" variant="outlined" />
+                        <Chip icon={<CheckCircleIcon />} label={t("dialogs.trainingLibraries.downloaded")} color="success" size="small" variant="outlined" />
                         <ActionButton
                           kind="destructive"
                           onClick={() => setConfirmRemoveModel(model)}
                           disabled={baseBusy || downloading}
                         >
-                          Remove
+                          {t("dialogs.shared.remove")}
                         </ActionButton>
                       </Stack>
                     ) : model.fits ? (
@@ -613,10 +628,10 @@ const TrainingLibrariesModal = ({
                         onClick={() => runBaseAction("download", model)}
                         disabled={baseBusy || downloading}
                       >
-                        {active ? "Downloading..." : "Download"}
+                        {active ? t("dialogs.trainingLibraries.downloading") : t("dialogs.shared.download")}
                       </Button>
                     ) : (
-                      <Chip label="Does not fit" size="small" variant="outlined" />
+                      <Chip label={t("dialogs.trainingLibraries.doesNotFit")} size="small" variant="outlined" />
                     )}
                   </Box>
                 </ListItem>
@@ -628,13 +643,10 @@ const TrainingLibrariesModal = ({
         <Divider sx={{ my: 2 }} />
         <Box ref={converterSection}>
           <Typography variant="subtitle1" fontWeight={500}>
-            GGUF converter
+            {t("dialogs.trainingLibraries.converter")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Export to Ollama converts a trained model to one GGUF file with llama.cpp&apos;s converter
-            (MIT license). Nothing downloads until you click Install; then the converter&apos;s files
-            come from GitHub at a pinned release, each checked against the sha256 Guaardvark pins.
-            No Python packages are installed: it runs on the ones Guaardvark already has.
+            {t("dialogs.trainingLibraries.converterIntro")}
           </Typography>
           {converterError && (
             <Alert severity="error" sx={{ mb: 1 }}>
@@ -648,7 +660,7 @@ const TrainingLibrariesModal = ({
           )}
           {converter && converter.problem && !converterRunning && (
             <Alert severity="warning" sx={{ mb: 1 }}>
-              The installed converter cannot be used: {converter.problem}. Install it again.
+              {t("dialogs.trainingLibraries.converterUnusable", { problem: converter.problem })}
             </Alert>
           )}
           {!converter && !converterError ? (
@@ -662,7 +674,7 @@ const TrainingLibrariesModal = ({
                   primary={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                       <Typography variant="body1" fontWeight={500}>
-                        {converter.project} converter
+                        {t("dialogs.trainingLibraries.converterName", { project: converter.project })}
                       </Typography>
                       <Chip
                         label={converter.tag}
@@ -676,7 +688,7 @@ const TrainingLibrariesModal = ({
                           label={bytesLabel(converter.download_bytes)}
                           size="small"
                           variant="outlined"
-                          title={`${converter.files} files`}
+                          title={t("dialogs.trainingLibraries.fileCount", { count: converter.files })}
                         />
                       )}
                       <Chip label={converter.license} size="small" variant="outlined" />
@@ -687,8 +699,10 @@ const TrainingLibrariesModal = ({
                     <>
                       {converter.role}
                       <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                        Checked with: {(converter.architectures || []).join(", ") || "none yet"} models.
-                        Export levels: {(converter.levels || []).map((l) => l.label).join(", ")}.
+                        {t("dialogs.trainingLibraries.checkedWith", {
+                          architectures: (converter.architectures || []).join(", ") || t("dialogs.trainingLibraries.noneYet"),
+                          levels: (converter.levels || []).map((l) => l.label).join(", "),
+                        })}
                       </Typography>
                       {converterRunning && (
                         <Box sx={{ mt: 1 }}>
@@ -697,8 +711,10 @@ const TrainingLibrariesModal = ({
                             value={converter.run.progress || 0}
                           />
                           <Typography variant="caption">
-                            {bytesLabel(converter.run.fetched_bytes) || "0 MB"} of{" "}
-                            {bytesLabel(converter.download_bytes)}
+                            {t("dialogs.trainingLibraries.fetchProgress", {
+                              fetched: bytesLabel(converter.run.fetched_bytes) || "0 MB",
+                              total: bytesLabel(converter.download_bytes),
+                            })}
                           </Typography>
                         </Box>
                       )}
@@ -708,13 +724,13 @@ const TrainingLibrariesModal = ({
                 <Box sx={{ ml: 2, minWidth: 130, textAlign: "right" }}>
                   {converter.state === "installed" ? (
                     <Stack spacing={1} alignItems="flex-end">
-                      <Chip icon={<CheckCircleIcon />} label="Installed" color="success" size="small" variant="outlined" />
+                      <Chip icon={<CheckCircleIcon />} label={t("dialogs.trainingLibraries.installed")} color="success" size="small" variant="outlined" />
                       <ActionButton
                         kind="destructive"
                         onClick={() => setConfirmConverter("remove")}
                         disabled={converterBusy || converterRunning}
                       >
-                        Remove
+                        {t("dialogs.shared.remove")}
                       </ActionButton>
                     </Stack>
                   ) : (
@@ -726,7 +742,7 @@ const TrainingLibrariesModal = ({
                         onClick={() => setConfirmConverter("install")}
                         disabled={converterBusy || converterRunning}
                       >
-                        {converterRunning ? "Installing..." : converter.state === "missing" ? "Install" : "Install again"}
+                        {converterRunning ? t("dialogs.trainingLibraries.installing") : converter.state === "missing" ? t("dialogs.shared.install") : t("dialogs.trainingLibraries.installAgain")}
                       </Button>
                       {converter.state !== "missing" && !converterRunning && (
                         <ActionButton
@@ -734,7 +750,7 @@ const TrainingLibrariesModal = ({
                           onClick={() => setConfirmConverter("remove")}
                           disabled={converterBusy}
                         >
-                          Remove
+                          {t("dialogs.shared.remove")}
                         </ActionButton>
                       )}
                     </Stack>
@@ -748,7 +764,7 @@ const TrainingLibrariesModal = ({
       <DialogActions>
         {removal.remove?.length > 0 && (
           <ActionButton kind="destructive" onClick={() => setConfirmRemove(true)} disabled={running || busy}>
-            Remove
+            {t("dialogs.shared.remove")}
           </ActionButton>
         )}
         <Box sx={{ flex: 1 }} />
@@ -765,37 +781,37 @@ const TrainingLibrariesModal = ({
           </Button>
         )}
         <Button onClick={onClose} disabled={running || busy}>
-          {running ? (run.action === "remove" ? "Removing..." : "Installing...") : "Close"}
+          {running ? (run.action === "remove" ? t("dialogs.trainingLibraries.removing") : t("dialogs.trainingLibraries.installing")) : t("dialogs.shared.close")}
         </Button>
       </DialogActions>
       <ConfirmActionDialog
         open={confirmRemove}
-        title="Remove the training libraries?"
-        description="Uninstalls them from Guaardvark's Python environment. Training jobs refuse to start until they are installed again."
+        title={t("dialogs.trainingLibraries.removeLibrariesTitle")}
+        description={t("dialogs.trainingLibraries.removeLibrariesDescription")}
         facts={[
-          { label: "Uninstalls", value: (removal.remove || []).join(", ") || "nothing" },
+          { label: t("dialogs.trainingLibraries.uninstalls"), value: (removal.remove || []).join(", ") || t("dialogs.trainingLibraries.nothing") },
           ...(restoreList.length > 0
             ? [
                 {
-                  label: "Puts back (downloads)",
+                  label: t("dialogs.trainingLibraries.putsBack"),
                   value: restoreList.map(([name, version]) => `${name} ${version}`).join(", "),
                 },
               ]
             : []),
         ]}
-        keeps="trained adapters, exported models and training datasets"
-        confirmLabel="Remove"
+        keeps={t("dialogs.trainingLibraries.keepsTrained")}
+        confirmLabel={t("dialogs.shared.remove")}
         busy={busy}
         onConfirm={() => runAction("remove")}
         onClose={() => !busy && setConfirmRemove(false)}
       />
       <ConfirmActionDialog
         open={Boolean(confirmRemoveModel)}
-        title={`Remove ${confirmRemoveModel?.name || "this base model"}?`}
-        description="Deletes its weights from this machine. Jobs on it refuse to start until it is downloaded again."
-        facts={[{ label: "Frees about", value: sizeLabel((confirmRemoveModel?.size_gb || 0) * 1000) || "-" }]}
-        keeps="trained adapters, exported models and training datasets"
-        confirmLabel="Remove"
+        title={t("dialogs.trainingLibraries.removeModelTitle", { name: confirmRemoveModel?.name || t("dialogs.trainingLibraries.thisBaseModel") })}
+        description={t("dialogs.trainingLibraries.removeModelDescription")}
+        facts={[{ label: t("dialogs.trainingLibraries.freesAbout"), value: sizeLabel((confirmRemoveModel?.size_gb || 0) * 1000) || "-" }]}
+        keeps={t("dialogs.trainingLibraries.keepsTrained")}
+        confirmLabel={t("dialogs.shared.remove")}
         busy={baseBusy}
         onConfirm={() => runBaseAction("remove", confirmRemoveModel)}
         onClose={() => !baseBusy && setConfirmRemoveModel(null)}
@@ -803,38 +819,39 @@ const TrainingLibrariesModal = ({
       <ConfirmActionDialog
         open={confirmConverter === "install"}
         reversible
-        title="Install the GGUF converter?"
-        description={
-          "Downloads llama.cpp's Hugging Face to GGUF converter, MIT-licensed code by the ggml " +
-          "authors. Each file is checked against the sha256 Guaardvark pins before it is kept; " +
-          "if any differs, nothing is installed. Remove deletes it again."
-        }
+        title={t("dialogs.trainingLibraries.installConverterTitle")}
+        description={t("dialogs.trainingLibraries.installConverterDescription")}
         facts={
           converter
             ? [
-                { label: "Downloads", value: `${converter.files} files, ${bytesLabel(converter.download_bytes)}` },
+                { label: t("dialogs.trainingLibraries.downloads"), value: t("dialogs.trainingLibraries.downloadsValue", { count: converter.files, size: bytesLabel(converter.download_bytes) }) },
                 {
-                  label: "From",
-                  value: `${converter.download_host}, ${converter.repo} release ${converter.tag} (commit ${converter.commit})`,
+                  label: t("dialogs.trainingLibraries.from"),
+                  value: t("dialogs.trainingLibraries.fromValue", {
+                    host: converter.download_host,
+                    repo: converter.repo,
+                    tag: converter.tag,
+                    commit: converter.commit,
+                  }),
                 },
-                { label: "License", value: `${converter.license} (llama.cpp)` },
-                { label: "Python packages", value: converter.python_packages },
-                { label: "Installs into", value: converter.location },
+                { label: t("dialogs.trainingLibraries.license"), value: `${converter.license} (llama.cpp)` },
+                { label: t("dialogs.trainingLibraries.pythonPackages"), value: converter.python_packages },
+                { label: t("dialogs.trainingLibraries.installsInto"), value: converter.location },
               ]
             : []
         }
-        confirmLabel="Install"
+        confirmLabel={t("dialogs.shared.install")}
         busy={converterBusy}
         onConfirm={() => runConverterAction("install")}
         onClose={() => !converterBusy && setConfirmConverter(null)}
       />
       <ConfirmActionDialog
         open={confirmConverter === "remove"}
-        title="Remove the GGUF converter?"
-        description="Deletes it from this machine. Export to Ollama waits until it is installed again."
-        facts={[{ label: "Deletes", value: converter?.location || "-" }]}
-        keeps="trained adapters, exported GGUF files and the models already in Ollama"
-        confirmLabel="Remove"
+        title={t("dialogs.trainingLibraries.removeConverterTitle")}
+        description={t("dialogs.trainingLibraries.removeConverterDescription")}
+        facts={[{ label: t("dialogs.trainingLibraries.deletes"), value: converter?.location || "-" }]}
+        keeps={t("dialogs.trainingLibraries.keepsConverter")}
+        confirmLabel={t("dialogs.shared.remove")}
         busy={converterBusy}
         onConfirm={() => runConverterAction("remove")}
         onClose={() => !converterBusy && setConfirmConverter(null)}

@@ -14,6 +14,7 @@ import {
   DialogTitle,
   TextField,
 } from "@mui/material";
+import { translate, useUiTranslation } from "../../i18n";
 
 /**
  * @param {boolean}  open
@@ -35,12 +36,13 @@ const TextInputDialog = ({
   label,
   placeholder,
   initialValue = "",
-  submitLabel = "OK",
-  cancelLabel = "Cancel",
+  submitLabel = translate("common.ok"),
+  cancelLabel = translate("common.cancel"),
   inputType = "text",
   onSubmit,
   onClose,
 }) => {
+  useUiTranslation();
   const [value, setValue] = useState(initialValue);
   const inputRef = useRef(null);
 

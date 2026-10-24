@@ -2,6 +2,7 @@
 // API service for the Upscaling plugin
 
 import { BASE_URL as API_BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 const BASE_URL = `${API_BASE_URL}/upscaling`;
 
@@ -110,7 +111,7 @@ export const previewImage = async (blob, options = {}) => {
         data.error?.message ||
         (typeof data.error === "string" && data.error) ||
         data.message ||
-        "Failed to generate preview";
+        translate("messages.upscaling.previewFailed");
     } catch {
       error = response.statusText;
     }

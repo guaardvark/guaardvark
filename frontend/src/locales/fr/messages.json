@@ -1,0 +1,599 @@
+{
+  "access": {
+    "defaultMachine": "la machine Guaardvark",
+    "outsideLocalNetwork": "Cela fonctionne uniquement sur {{machine}} et sur les appareils de son réseau local, et cet appareil est à l'extérieur. Créez une clé API dans Paramètres → Accès sur {{machine}}, puis saisissez-la dans Paramètres → Accès sur cet appareil.",
+    "runsCodeKeyRequired": "Ceci exécute un programme sur {{machine}}, ce qui ne fonctionne que sur {{machine}} elle-même ou avec sa clé API, même si l'accès réseau est activé. Créez une clé API dans Paramètres → Accès sur {{machine}}, puis saisissez-la dans Paramètres → Accès sur cet appareil.",
+    "fleetKeyRequired": "Cette action Interconnector fonctionne uniquement sur {{machine}} elle-même ou avec sa clé API, même si l'accès réseau est activé. Créez une clé API dans Paramètres → Accès sur {{machine}}, puis saisissez-la dans Paramètres → Accès sur cet appareil.",
+    "localOnlyKeyRemoved": "{{machine}} n'a plus de clé API, donc cela ne fonctionne plus que sur {{machine}} elle-même. Activez Paramètres → Accès → Accès réseau là-bas, ou créez une nouvelle clé là-bas et saisissez-la dans Paramètres → Accès sur cet appareil.",
+    "localOnly": "Ceci ne fonctionne que sur {{machine}} elle-même. Pour l'utiliser ici, activez Paramètres → Accès → Accès réseau sur {{machine}}, ou créez une clé API là-bas et saisissez-la dans Paramètres → Accès sur cet appareil.",
+    "keyOutOfDate": "Ce navigateur était connecté avec une clé que {{machine}} n'utilise plus. Saisissez la clé actuelle dans Paramètres → Accès.",
+    "keyRequired": "Entrez la clé API de {{machine}} dans Paramètres → Accès. Elle est affichée lors de sa création, et {{machine}} la conserve dans son fichier .env sous GUAARDVARK_API_KEY."
+  },
+  "taskQueue": {
+    "unreachable": "Non démarré : la file d'attente en arrière-plan de Guaardvark (Redis) est inaccessible. Exécutez ./start.sh sur la machine Guaardvark pour démarrer Redis et le worker, puis réessayez.",
+    "nextStepNotStarted": "L'étape suivante n'a pas été démarrée. Elle démarre lors du redémarrage de Guaardvark (./start.sh)."
+  },
+  "api": {
+    "httpError": "Erreur HTTP {{status}} - {{statusText}}",
+    "unknownStatus": "Erreur inconnue",
+    "httpErrorStatus": "Erreur HTTP ! Statut : {{status}}",
+    "invalidJson": "Échec de l'analyse de la réponse JSON du serveur."
+  },
+  "chatStop": {
+    "backendUnreachable": "le backend est inaccessible",
+    "notReachedBoth": "L'arrêt n'a pas atteint le tour de chat ni la tâche de l'agent : {{reason}}. Il peut encore être en cours.",
+    "notReachedChatTurn": "L'arrêt n'a pas atteint le tour de chat : {{reason}}. Il peut encore être en cours.",
+    "notReachedAgentTask": "L'arrêt n'a pas atteint la tâche de l'agent : {{reason}}. Il peut encore être en cours."
+  },
+  "heldChanges": {
+    "gitRecordRejectRefused": "Un enregistrement git ne peut être qu'approuvé ; annulez la fusion dans git pour le rejeter."
+  },
+  "address": {
+    "requestFailed": "Échec de la requête"
+  },
+  "backups": {
+    "downloadFailed": "Échec du téléchargement : {{status}}"
+  },
+  "bulkGeneration": {
+    "csvTimeout": "Délai de requête dépassé - la génération groupée CSV a pris trop de temps",
+    "csvFailed": "Échec de la génération groupée CSV",
+    "structuredCsvTimeout": "Délai d'expiration - la génération de CSV structuré a pris trop de temps",
+    "structuredCsvFailed": "Échec de la génération de CSV structuré",
+    "statusFailed": "Échec de la récupération du statut de génération",
+    "estimateFailed": "Échec de l'estimation du temps de génération",
+    "topicsFailed": "Échec de la génération des sujets",
+    "xmlTimeout": "Délai d'expiration - la génération XML groupée a pris trop de temps",
+    "xmlFailed": "Échec de la génération du contenu XML"
+  },
+  "chat": {
+    "sendQueryFailed": "Échec de l'envoi de la requête.",
+    "sendCommandFailed": "Échec de l'envoi de la commande.",
+    "duplicateRequest": "Requête en double détectée",
+    "apiError": "Erreur API Chat : {{status}}",
+    "exportFailed": "Échec de l'exportation du chat",
+    "historyFailed": "Échec de la récupération de l'historique : {{status}}"
+  },
+  "codeExecution": {
+    "pythonFailed": "Échec de l'exécution du code Python",
+    "javascriptFailed": "Échec de l'exécution du code JavaScript",
+    "shellFailed": "Échec de l'exécution de la commande shell",
+    "formatFailed": "Échec du formatage du code",
+    "lintFailed": "Échec du linting du code",
+    "buildFailed": "Échec de la construction du projet"
+  },
+  "codeIntelligence": {
+    "noCode": "Aucun contenu de code fourni pour l'analyse",
+    "provideCode": "Veuillez fournir un contenu de code à analyser.",
+    "analysisDone": "Analyse terminée avec succès.",
+    "analysisTimeout": "La demande d'analyse a expiré après 2 minutes",
+    "analysisTimeoutHelp": "La demande d'analyse a pris trop de temps. Cela peut arriver avec des fichiers très volumineux ou un code complexe. Veuillez réessayer avec une sélection de code plus petite ou une requête plus simple.",
+    "unknownError": "Une erreur inconnue est survenue",
+    "analysisFailed": "Échec de l'analyse. Veuillez vérifier la connexion au backend et réessayer.",
+    "noDescription": "Aucune description fournie pour la génération de code",
+    "codeGenerated": "Code généré avec succès",
+    "generationTimeout": "La demande de génération de code a expiré après 2 minutes. Veuillez essayer une requête plus simple.",
+    "generationUnknownError": "Une erreur inconnue est survenue lors de la génération de code",
+    "explanationFailed": "Échec de l'explication. Veuillez vérifier la connexion au backend.",
+    "validationFailed": "Échec de la validation",
+    "readFileFailed": "Échec de la lecture du fichier",
+    "readFilesFailed": "Échec de la lecture des fichiers"
+  },
+  "documents": {
+    "listFailed": "Échec de la récupération des documents.",
+    "notFound": "Document non trouvé",
+    "invalidId": "ID de document invalide",
+    "contentFailedStatus": "Échec de la récupération du contenu du document ({{status}})",
+    "contentFailed": "Échec de la récupération du contenu du document.",
+    "repoFileFailed": "Échec de la récupération du fichier du dépôt.",
+    "uploadNetworkError": "Erreur réseau lors du téléchargement du fichier",
+    "uploadCancelled": "Téléchargement annulé",
+    "uploadTimeout": "Délai de téléchargement dépassé"
+  },
+  "fileOperations": {
+    "readFailed": "Échec de la lecture du fichier",
+    "saved": "Fichier enregistré avec succès",
+    "writeFailed": "Échec de l'écriture du fichier",
+    "created": "Fichier créé avec succès",
+    "createFailed": "Échec de la création du fichier",
+    "deleted": "Fichier supprimé avec succès",
+    "deleteFailed": "Échec de la suppression du fichier",
+    "listFailed": "Échec de la liste du répertoire",
+    "directoryCreated": "Répertoire créé avec succès",
+    "createDirectoryFailed": "Échec de la création du répertoire",
+    "renamed": "Fichier renommé avec succès",
+    "renameFailed": "Échec du renommage du fichier"
+  },
+  "fileGeneration": {
+    "cancelledOrTimedOut": "La demande a été annulée ou le délai a expiré.",
+    "unknownError": "Une erreur inconnue est survenue.",
+    "batchCsvFailed": "Échec de la génération CSV groupée"
+  },
+  "indexing": {
+    "cancelFailed": "Échec de l'annulation de l'emploi.",
+    "jobsFailed": "Échec de la récupération des emplois."
+  },
+  "interconnector": {
+    "timeout": "Délai de la requête dépassé après {{timeout}}ms",
+    "outputsIndexFailed": "Échec de la récupération de l'index des sorties"
+  },
+  "models": {
+    "listFailed": "Échec de la récupération des modèles disponibles."
+  },
+  "musicVideo": {
+    "storyboardTimeout": "Délai de génération du storyboard dépassé"
+  },
+  "projects": {
+    "listFailed": "Échec de la récupération des projets.",
+    "getFailed": "Échec de la récupération du projet {{projectId}}."
+  },
+  "ragDebug": {
+    "uptimeUnknown": "Inconnu",
+    "uptimeDays": "{{days}}j {{hours}}h {{minutes}}m",
+    "uptimeHours": "{{hours}}h {{minutes}}m",
+    "uptimeMinutes": "{{minutes}}m"
+  },
+  "rules": {
+    "listFailed": "Échec de la récupération des règles/prompts."
+  },
+  "tasks": {
+    "listFailed": "Échec de la récupération des tâches."
+  },
+  "training": {
+    "datasetsFailed": "Échec de la récupération des jeux de données d'entraînement."
+  },
+  "upscaling": {
+    "previewFailed": "Échec de la génération de l'aperçu"
+  },
+  "websites": {
+    "listFailed": "Échec de la récupération des sites Web."
+  },
+  "settings": {
+    "testSuiteTimeout": "Délai d'expiration de la suite de tests après 5 minutes",
+    "rebootStarted": "Redémarrage lancé.",
+    "rebootConnectionLost": "Redémarrage lancé, la connexion a pu être perdue comme prévu."
+  },
+  "links": {
+    "updated": "Liens {{entityType}} mis à jour avec succès",
+    "updateFailed": "Échec de la mise à jour des liens"
+  },
+  "videoEditor": {
+    "requestFailed": "Échec de la requête de l'Éditeur vidéo",
+    "loadRecipesFailed": "Impossible de charger les recettes de style",
+    "submitPlanFailed": "Impossible de soumettre la tâche Plan",
+    "reanalyzeFailed": "Échec de la réanalyse",
+    "clipHashFailed": "Échec de la recherche de la vignette du clip",
+    "pollPlanFailed": "Impossible de sonder la tâche Plan",
+    "renderFailed": "Échec du rendu",
+    "loadFiltersFailed": "Impossible de charger les filtres",
+    "loadTransitionsFailed": "Impossible de charger les transitions",
+    "launchShotcutFailed": "Impossible de lancer Shotcut",
+    "listProjectsFailed": "Impossible de lister les projets",
+    "loadCurrentProjectFailed": "Impossible de charger le projet actuel",
+    "openProjectFailed": "Impossible d'ouvrir le projet",
+    "createProjectFailed": "Impossible de créer le projet",
+    "autosaveFailed": "Échec de l'enregistrement auto",
+    "saveProjectFailed": "Impossible de sauvegarder le projet",
+    "saveProjectAsFailed": "Impossible de sauvegarder sous",
+    "renameProjectFailed": "Impossible de renommer le projet",
+    "deleteProjectFailed": "Impossible de supprimer le projet",
+    "validateProjectFailed": "Impossible de valider le projet"
+  },
+  "voice": {
+    "streamingError": "Erreur de streaming",
+    "noActiveRecording": "Aucune enregistrement actif",
+    "micNeedsSecureContext": "Le micro nécessite HTTPS ou localhost",
+    "micUnsupported": "Votre navigateur ne prend pas en charge l'accès au micro.",
+    "permissionCheckFailed": "Échec de la vérification des permissions du micro.",
+    "permissionRequestFailed": "Échec de la demande de permission du micro.",
+    "micAccessDenied": "Accès au micro refusé. Veuillez activer les permissions.",
+    "startFailedPermission": "Échec du démarrage de l'enregistrement. Permission micro refusée.",
+    "startFailedNoMic": "Échec du démarrage de l'enregistrement. Aucun micro trouvé.",
+    "startFailedRetry": "Échec du démarrage de l'enregistrement. Veuillez réessayer.",
+    "noSpeech": "Aucune parole détectée.",
+    "noAudio": "Aucune donnée audio enregistrée.",
+    "recordingFailed": "Échec de l'enregistrement."
+  },
+  "clients": {
+    "listFailed": "Échec de la récupération des clients.",
+    "nameRequired": "Le nom du client est requis."
+  },
+  "logo": {
+    "noFile": "Aucun fichier fourni",
+    "tooLarge": "Taille de fichier trop grande. Taille maximale : {{size}}Mo",
+    "invalidType": "Type de fichier invalide. Types autorisés : {{types}}"
+  },
+  "voiceSession": {
+    "micBlocked": "L'accès au microphone est bloqué. Autorisez-le pour ce site dans votre navigateur, puis réessayez.",
+    "noMic": "Aucun microphone n'a été trouvé.",
+    "micBusy": "Le microphone est utilisé par une autre application.",
+    "noMatchingMic": "Aucun microphone ne correspond aux paramètres demandés.",
+    "pushToTalkHint": "Maintenez le bouton micro (ou Ctrl+Shift+Espace) pendant que vous parlez.",
+    "micReady": "Microphone prêt. Maintenez pour parler.",
+    "holdLonger": "Maintenez le micro un peu plus longtemps pendant que vous parlez.",
+    "micOff": "Le microphone est désactivé dans les Paramètres Voix (Paramètres → Chat → Chat vocal).",
+    "micStartFailedReason": "Le microphone n'a pas pu démarrer : {{reason}}",
+    "micStartFailed": "Le microphone n'a pas pu démarrer.",
+    "audioStartFailed": "Le traitement audio n'a pas pu démarrer : {{reason}}",
+    "micEnded": "Le microphone s'est arrêté (débranché ou utilisé par une autre application).",
+    "recorderUnsupported": "Ce navigateur ne peut pas enregistrer de son : {{reason}}",
+    "recordingError": "Erreur d'enregistrement : {{reason}}",
+    "unknownReason": "inconnu",
+    "recorderStartFailed": "L'enregistrement n'a pas pu démarrer : {{reason}}",
+    "sttFailed": "Échec de la reconnaissance vocale",
+    "rateLimited": "Trop de requêtes vocales cette minute ; celle-ci a été ignorée.",
+    "busy": "Le système est occupé ; celui-ci a été ignoré.",
+    "backendOffline": "Le backend est injoignable ; celui-ci n'a pas été transcrit.",
+    "transcribeFailed": "Impossible de transcrire : {{reason}}",
+    "noChatOpen": "Aucun chat n'est ouvert pour envoyer ce message.",
+    "sendFailed": "Impossible d'envoyer : {{reason}}",
+    "noSpeechTimeout": "Rien n'a été entendu, le micro est donc désactivé à nouveau."
+  },
+  "voicePhase": {
+    "clickHint": {
+      "handsfree": "Cliquez pour activer l'écoute mains libres",
+      "toggle": "Cliquez et parlez ; le message est envoyé lors d'une pause",
+      "push": "Maintenez pour parler"
+    },
+    "requestingPermission": {
+      "title": "Attente de l'autorisation du microphone",
+      "hint": "Autorisez le microphone dans la fenêtre du navigateur."
+    },
+    "waitingForWake": {
+      "title": "Attente de « Hey {{systemName}} »",
+      "hint": "Dites la phrase d'activation, puis votre demande."
+    },
+    "listening": {
+      "title": "Écoute",
+      "hint": "Parlez ; chaque pause envoie un message. Cliquez pour arrêter."
+    },
+    "recording": {
+      "title": "Enregistrement",
+      "hint": "Relâchez pour envoyer."
+    },
+    "hearing": {
+      "title": "Écoute en cours",
+      "hint": "Pause pour envoyer."
+    },
+    "transcribing": "Transcription",
+    "sending": "Envoi au chat",
+    "responding": {
+      "title": "Attente de la réponse",
+      "hint": "Toujours à l'écoute."
+    },
+    "speaking": {
+      "title": "Lecture de la réponse",
+      "hint": "Le micro est en pause pendant qu'il parle."
+    },
+    "denied": "Microphone bloqué",
+    "error": "La voix ne fonctionne pas",
+    "micOff": "Micro désactivé",
+    "outcomes": {
+      "sent": "envoyé",
+      "wake": "phrase de réveil",
+      "ignored": "pas de phrase de réveil, non envoyé",
+      "unsent": "pas de chat ouvert, non envoyé",
+      "failed": "envoi échoué"
+    }
+  },
+  "batchVideo": {
+    "requestFailed": "la requête a échoué",
+    "listFailed": "Les lots de vidéos n'ont pas pu être chargés : {{reason}}.",
+    "queueFailed": "La file d'attente des vidéos ne se met pas à jour : {{reason}}.",
+    "clearFailedStatus": "Effacement échoué : HTTP {{status}}",
+    "clearFailed": "Effacement échoué : {{reason}}",
+    "combineFailed": "Échec de la combinaison des images : {{reason}}.",
+    "deleted": "Lot supprimé.",
+    "deleteFailedStatus": "Suppression échouée : HTTP {{status}}",
+    "deleteFailed": "Suppression échouée : {{reason}}",
+    "cancelFailed": "Annulation échouée : {{reason}}. Le lot est peut-être encore en cours.",
+    "retryFailedStatus": "Réessai échoué : HTTP {{status}}",
+    "retried": "Réessayé en tant que nouveau lot {{batchId}}. Le lot original échoué est conservé dans l'historique.",
+    "retryFailed": "Réessai échoué : {{reason}}",
+    "approveFailedStatus": "Approbation échouée : HTTP {{status}}",
+    "clipApproved": "Clip approuvé et ajouté aux Fichiers.",
+    "approveFailed": "Approbation échouée : {{reason}}",
+    "rerenderFailedStatus": "Re-rendu échoué : HTTP {{status}}",
+    "rerendering": "Re-rendu en cours pour {{newBatchId}}. Le clip conservé reste dans {{batchId}}.",
+    "rerenderFailed": "Re-rendu échoué : {{reason}}"
+  },
+  "unsavedChanges": {
+    "leaveConfirm": "Vous avez des modifications non enregistrées sur cette page. Voulez-vous quitter et les abandonner ?"
+  },
+  "agentRouter": {
+    "routingFailed": "Échec du routage",
+    "executionFailed": "Échec de l'exécution"
+  },
+  "hfLookup": {
+    "failed": "Échec de la recherche"
+  },
+  "notifications": {
+    "operationFailed": "Échec de l'opération"
+  },
+  "errors": {
+    "unexpected": "Une erreur inattendue est survenue",
+    "badRequest": "Requête incorrecte. Veuillez vérifier votre saisie.",
+    "unauthorized": "Authentification requise. Veuillez vous connecter.",
+    "forbidden": "Vous n'avez pas la permission d'effectuer cette action.",
+    "notFound": "La ressource demandée n'a pas été trouvée.",
+    "validation": "Erreur de validation. Veuillez vérifier votre saisie.",
+    "tooManyRequests": "Trop de requêtes. Veuillez réessayer plus tard.",
+    "server": "Erreur serveur. Veuillez réessayer plus tard.",
+    "unavailable": "Service temporairement indisponible. Veuillez réessayer plus tard.",
+    "httpStatus": "Erreur HTTP {{status}}",
+    "network": "Erreur réseau. Veuillez vérifier votre connexion.",
+    "timeout": "Délai de la requête dépassé. Veuillez réessayer.",
+    "uploadFailed": "Échec du téléchargement du document. Veuillez réessayer.",
+    "indexingFailed": "Échec de l'indexation du document. Veuillez réessayer.",
+    "chatFailed": "Échec de la demande de chat. Veuillez réessayer.",
+    "projectFailed": "Échec de l'opération du projet. Veuillez réessayer."
+  },
+  "audioRecorder": {
+    "permissionDenied": "Permission du microphone refusée",
+    "resumeFailed": "Échec de la reprise du contexte audio - l'accès au microphone peut être bloqué",
+    "volumeMonitoringFailed": "Échec de la surveillance du volume : {{reason}}",
+    "unsupported": "L'enregistrement audio n'est pas pris en charge dans ce navigateur"
+  },
+  "approvals": {
+    "loadFailed": "Impossible de charger les approbations en attente",
+    "heldWaiting_one": "Modification de code en attente d'approbation",
+    "heldWaiting_other": "{{count}} modifications de code en attente d'approbation",
+    "publishWaiting_one": "Publication en attente d'approbation",
+    "publishWaiting_other": "{{count}} publications en attente d'approbation"
+  },
+  "slash": {
+    "help": "## Commandes disponibles\n\n{{commands}}",
+    "helpLine": "**{{name}}** — {{description}}\n  Utilisation : `{{usage}}`",
+    "voiceDisabled": "Le chat vocal est désactivé.",
+    "voiceEnabled": "Le chat vocal est activé.",
+    "voiceUnavailable": "Le chat vocal n'est pas disponible dans ce contexte.",
+    "visionStatus": "**{{name}}:** {{status}}",
+    "unknownStatus": "inconnu",
+    "visionHint": "Activez-le ou désactivez-le depuis la page des Plugins.",
+    "visionNotInstalled": "Le plugin Vision Pipeline n'est pas installé.",
+    "visionReadFailed": "Impossible de lire le statut de Vision Pipeline : {{reason}}",
+    "modelStatus": "**Modèle actuel :** {{model}}\n\n**Modèles disponibles :**\n{{models}}",
+    "unknownModel": "Inconnu",
+    "modelsFailed": "Échec de la récupération des modèles : {{reason}}",
+    "modelSwitched": "Modèle basculé vers **{{model}}**.",
+    "failed": "Échec : {{reason}}",
+    "modelSwitchFailed": "Échec du basculement du modèle : {{reason}}",
+    "installed": "installé",
+    "notInstalled": "non installé",
+    "comfyuiAutoBackend": "ComfyUI (backend auto)",
+    "editBackendsFailed": "_(impossible de charger les backends d'édition)_",
+    "imageModelStatus": "**Modèle d'image actuel :** `{{current}}`\n\nUtilisé pour `/imagine` et **generate_image**. Les modifications (`edit_image`, `/inpaint`) choisissent automatiquement **Qwen-Image-Edit** s'il est installé, sinon **FLUX Kontext**.\n\n**Packs de retouche d'image** (Installer via Gérer les modèles d'image → Retouche d'image) :\n{{editLines}}\n\n**Génération — téléchargé :**\n{{downloaded}}\n\n**Génération — non téléchargé :**\n{{notDownloaded}}\n\n_Astuce : `/imagemodel auto` utilise Qwen-Image-Edit pour les modifications par instruction lorsque ce pack est installé._",
+    "none": "_(aucun)_",
+    "imageModelsFailed": "Échec de la récupération des modèles d'image : {{reason}}",
+    "imageModelAuto": "Modèle d'image basculé sur **auto** (les retouches utilisent Qwen-Image-Edit s'il est installé, sinon Kontext ; sans aucun des deux, la retouche vous demandera d'en installer un).",
+    "imageEditsQwen": "Les retouches d'image utiliseront **qwen-image-edit** lorsque ce pack est installé.",
+    "imageEditsKontext": "Les retouches d'image utiliseront **kontext** (FLUX.1 Kontext) lorsqu'il est installé.",
+    "imageModelComfyui": "Modèle d'image basculé sur **comfyui** (backend auto ComfyUI). La génération utilisera le moteur Z-Image ou FLUX installé.",
+    "imageModelNotDownloaded": "Le modèle `{{model}}` n'est pas téléchargé. Téléchargez-le d'abord depuis la page Images.",
+    "imageModelSwitched": "Modèle d'image basculé sur **{{model}}** ({{name}}). Utilisé pour la génération de chat et les modifications img2img.",
+    "imageModelNotFound": "Modèle `{{model}}` non trouvé. Disponibles : {{available}}",
+    "usage": {
+      "imagine": "Utilisation : `/imagine <prompt>`",
+      "inpaint": "Utilisation : `/inpaint <instruction>` — joignez une photo, sinon la dernière image de ce chat sera utilisée.",
+      "identity": "Utilisation : `/identity <prompt>` — joignez une photo de visage que vous avez le droit d'utiliser (votre portrait ou un sujet de Cast).",
+      "video": "Utilisation : `/video <prompt>`",
+      "musicVideo": "Utilisation : `/music-video <song-path-or-id> <style>` — lance un plan ; approuvez dans le Studio avant le rendu des clips.",
+      "filmCrew": "Utilisation : `/film-crew <screenplay>` — lance le scénariste ; le rendu attend dans le Studio.",
+      "websearch": "Utilisation : `/websearch <query>`, `/websearch site:<address>` (audit d'une page) ou `/websearch sitemap:<url>` (liste des pages d'un sitemap)",
+      "plan": "Utilisation : `/plan <request>`",
+      "training": "Utilisation : `/training <task>` — ex: `/training Work the Comments Trainer — follow the banner, click Start Over when done, don't stop.`",
+      "thinking": "Utilisation : `/thinking on` ou `/thinking off` (ou `/thinking` pour afficher l'état actuel)."
+    },
+    "musicVideoNeedsSong": "Une chanson (ID de document ou chemin audio) et un style visuel sont requis. Exemple : `/music-video song.mp3 neon noir rain`",
+    "sitemapNotRead": "Plan de site non lu : {{reason}}",
+    "backendAnswered": "le backend a répondu HTTP {{status}}",
+    "backendUnreachable": "le backend est injoignable",
+    "sitemap": {
+      "redirected": "{{url}} (redirigé vers {{finalUrl}})",
+      "title": "**Plan de site :** {{url}}",
+      "index_one": "Un index de plan de site nommant {{count}} plans de site ; ils sont listés, non ouverts.",
+      "index_other": "Un index de plan de site nommant {{count}} plans de site ; ils sont listés, non ouverts.",
+      "numberedEntryModified": "{{number}}. {{url}} (dernière modification {{lastmod}})",
+      "firstOf": "Premier {{shown}} :\n{{items}}",
+      "pageUrls_one": "URL de page {{count}}.",
+      "pageUrls_other": "URL de page {{count}}.",
+      "depth": "profondeur {{depth}} : {{pages}}",
+      "byDepth": "Par profondeur de chemin : {{depths}}",
+      "landingPages": "Pages d'accueil (niveau supérieur, priorité supérieure à 0,5) :",
+      "landingEntry": "{{number}}. {{url}} (priorité {{priority}})",
+      "entryModified": "- {{url}} (dernière modification {{lastmod}})",
+      "pagesList": "Pages :\n{{items}}"
+    },
+    "outreach": {
+      "enabled": "Activé",
+      "disabled": "Désactivé",
+      "supervised": "supervisé",
+      "unsupervised": "non supervisé",
+      "redisOffline": "- {{platform}}: Redis hors ligne",
+      "cadenceLast": "- {{platform}}: {{posts}}/{{cap}} aujourd'hui, il y a {{minutes}}m",
+      "cadence": "- {{platform}}: {{posts}}/{{cap}} aujourd'hui",
+      "status": "**Prospection:** {{state}} ({{mode}})\n\n{{cadence}}",
+      "noCadence": "Aucune donnée de cadence.",
+      "statusFailed": "Échec du statut de prospection : {{reason}}",
+      "refused": "Prospection : demande refusée.",
+      "intentFailed": "Échec de l'intention de prospection : {{reason}}",
+      "queued": "Tâche de prospection mise en file d'attente sous le numéro #{{taskId}}.",
+      "commandFailed": "Échec de la commande de prospection : {{reason}}"
+    },
+    "training": {
+      "started": "Lancement de l'entraînement (jusqu'à 1000 itérations / 1 heure). Surveillez VNC pour le progrès ; consultez `logs/backend.log` pour les événements servo. Tâche : _{{task}}_",
+      "rejectedBusy": "Lancement d'entraînement rejeté : {{reason}} — utilisez le bouton d'arrêt d'urgence ou attendez la fin de l'exécution actuelle.",
+      "rejected": "Lancement d'entraînement rejeté : {{reason}}",
+      "unknownError": "erreur inconnue",
+      "failed": "Échec du lancement d'entraînement : {{reason}}"
+    },
+    "rule": {
+      "failedDetails": "{{name}} échoué : {{reason}} ({{details}})",
+      "failed": "{{name}} échoué : {{reason}}",
+      "wroteSize": "{{name}} a écrit {{file}} ({{bytes}} octets) dans le dossier des sorties.",
+      "wrote": "{{name}} a écrit {{file}} dans le dossier des sorties."
+    },
+    "agent": {
+      "needsSession": "/agent nécessite une session — ouvrez un chat d'abord.",
+      "switchFailed": "Échec du passage en mode agent : {{reason}}",
+      "already": "Déjà en **mode agent**. Tapez une tâche de contrôle d'écran, ou utilisez `/chat` pour sortir.",
+      "switched": "Passage en **mode agent** — les messages passent par l'agent (il parlera et agira). Tapez `/chat` pour sortir."
+    },
+    "thinking": {
+      "needsSession": "/thinking nécessite une session — ouvrez un chat d'abord.",
+      "statusDefault": "🧠 La réflexion pour ce chat utilise **la valeur par défaut (Paramètres → Chat)**.\nUtilisez `/thinking on` pour activer le raisonnement étape par étape (plus lent) ou `/thinking off` pour des réponses plus rapides.",
+      "statusOn": "🧠 La réflexion pour ce chat est **ACTIVÉE**.\nUtilisez `/thinking on` pour activer le raisonnement étape par étape (plus lent) ou `/thinking off` pour des réponses plus rapides.",
+      "statusOff": "🧠 La réflexion pour ce chat est **DÉSACTIVÉE**.\nUtilisez `/thinking on` pour activer le raisonnement étape par étape (plus lent) ou `/thinking off` pour des réponses plus rapides.",
+      "enabled": "🧠 Réflexion **activée** pour ce chat — le modèle raisonnera étape par étape avant de répondre (plus lent, mieux pour les prompts complexes).",
+      "disabled": "⚡ Réflexion **désactivée** pour ce chat — réponses plus rapides."
+    },
+    "chatMode": {
+      "needsSession": "/chat nécessite une session — ouvrez un chat d'abord.",
+      "already": "Déjà en mode chat.",
+      "switched": "Passage en **mode chat**. Les messages passent à nouveau par le LLM. Tapez `/agent` pour revenir en arrière.",
+      "exitFailed": "Échec de la sortie du mode agent : {{reason}}"
+    },
+    "commandFailed": "Commande échouée : {{reason}}"
+  },
+  "autoresearch": {
+    "reasons": {
+      "ollamaUnreachable": "Ollama n'est pas en cours d'exécution",
+      "insufficientCorpus": "pas assez de documents indexés",
+      "noEvalPairs": "aucune question d'évaluation",
+      "evalSourcesNotIndexed": "les questions d'évaluation proviennent de documents non indexés",
+      "judgeUnset": "aucun modèle juge distinct n'est défini",
+      "judgeSameAsAnswerModel": "le modèle juge est le même que le modèle de réponse",
+      "celeryUnreachable": "la file de tâches est inaccessible",
+      "baselineEvalFailed": "la base de référence n'a pas pu être mesurée",
+      "prerequisiteCheckFailed": "les vérifications de départ n'ont pu être exécutées",
+      "codebaseLocked": "la base de code est verrouillée",
+      "selfImprovementDisabled": "l'auto-amélioration est désactivée"
+    },
+    "noReason": "aucune raison enregistrée",
+    "notRun": "Non exécuté : {{reasons}}",
+    "starting": "Démarrage…",
+    "noBaseline": "Aucune base de référence mesurée",
+    "scoresWithBest": "{{base}} → {{latest}} (meilleur {{best}})",
+    "halt": "Arrêt : {{reason}}",
+    "healthPass": "réussi",
+    "healthFail": "échec",
+    "healthUnknown": "inconnu",
+    "healthStatus": "vérification de l'état : {{outcome}}",
+    "healthCheck": "vérification de l'état",
+    "selfReported": "auto-rapporté",
+    "baselineNotMeasured": "Base : non mesurée",
+    "baselineMeasured": "Base : {{score}} (mesurée à {{at}})",
+    "baselineNoTime": "Base : {{score}} (heure de mesure non enregistrée)",
+    "evalPairsNone": "aucune",
+    "evalPairsWithUnindexed": "{{active}} actif · {{unindexed}} à partir de docs non indexées",
+    "evalPairsActive": "{{active}} actif",
+    "activeChatModel": "le modèle de chat actif",
+    "judgeIsAnswerModel": "Ceci est le modèle de réponse ({{model}}), il évalue donc ses propres réponses. Les exécutions nocturnes ne démarreront pas.",
+    "judgeNotSet": "Non défini, donc {{model}} évalue ses propres réponses. Les exécutions nocturnes ne démarreront pas.",
+    "experimentsSummary_one": "{{count}} expérience · {{promoted}} mises en avant",
+    "experimentsSummary_other": "{{count}} expériences · {{promoted}} promues"
+  },
+  "imageModels": {
+    "notInstalledSize": "{{description}} (non installé — L'installation télécharge environ {{size}} Go)",
+    "notInstalled": "{{description}} (non installé — Installer)"
+  },
+  "attachment": {
+    "tooLarge": "Cette image fait {{size}} après redimensionnement ; la limite est {{limit}}. Choisissez une image plus petite.",
+    "totalTooLarge_one": "Ces {{count}} images totalisent {{size}} après redimensionnement ; la limite est {{limit}}. Supprimez-en une ou choisissez des images plus petites.",
+    "totalTooLarge_other": "Ces {{count}} images totalisent {{size}} après redimensionnement ; la limite est de {{limit}}. Supprimez-en une ou choisissez des images plus petites.",
+    "chatError": "Erreur de chat",
+    "readFailed": "Impossible de lire cette image",
+    "encodeFailed": "Impossible d'encoder l'image",
+    "readResizedFailed": "Impossible de lire l'image redimensionnée",
+    "noImage": "Aucune image à joindre",
+    "drawFailed": "Impossible de dessiner l'image"
+  },
+  "fileTypes": {
+    "noTimestamp": "N/A"
+  },
+  "hfUrl": {
+    "empty": "Collez une URL Hugging Face ou un identifiant org/repo.",
+    "notHuggingFace": "Seules les URL Hugging Face ou les identifiants org/repo sont acceptés.",
+    "notModelRepo": "Il s'agit d'un dataset ou d'un Space Hugging Face, pas d'un dépôt de modèle. Collez une URL de modèle (huggingface.co/org/repo)."
+  },
+  "replySpeech": {
+    "noVoiceInstalled": "Aucune voix n'est installée, les réponses ne peuvent donc pas être lues. Installez-en une dans les Paramètres de Voix (Paramètres → Chat → Chat vocal), ou lancez le plugin Audio Foundry avec un pack de voix Kokoro installé.",
+    "stoppedPartwayReason": "La première partie de la réponse a été lue, puis la lecture s'est arrêtée : {{reason}}",
+    "stoppedPartway": "La première partie de la réponse a été lue, puis la lecture s'est arrêtée",
+    "failedReason": "Échec de la lecture de la réponse : {{reason}}",
+    "failed": "Échec de la lecture de la réponse"
+  },
+  "renderFailure": {
+    "withNext": "{{text}} Suivant : {{action}}",
+    "retryable": "{{text}} (Un nouvel essai ultérieur peut réussir.)"
+  },
+  "uiError": {
+    "generic": "Une erreur est survenue"
+  },
+  "imageEdit": {
+    "cropAfterTransform": "Recadrer avant de faire pivoter ou de retourner : annuler la rotation ou le retournement, recadrer, puis pivoter ou retourner à nouveau."
+  },
+  "paths": {
+    "home": "Accueil"
+  },
+  "droppedFiles": {
+    "folders_one": "{{count}} dossier",
+    "folders_other": "{{count}} dossiers",
+    "files_one": "{{count}} fichier",
+    "files_other": "{{count}} fichiers",
+    "foldersAndFiles": "{{folders}} et {{files}}",
+    "leftOut": "exclus {{items}} (cachés, résultat de construction ou identifiants)"
+  },
+  "entityLinks": {
+    "files": "Fichiers",
+    "scheduleTask": "Planifier la tâche"
+  },
+  "batches": {
+    "fallbackName": "Lot"
+  },
+  "family": {
+    "selfImprovement": "Auto-amélioration"
+  },
+  "videoPromptControls": {
+    "enhanceOff": "aucun effet quand l'amélioration du prompt est désactivée",
+    "verbatim": "aucun effet quand les prompts verbatim sont activés dans les Paramètres",
+    "viaReferenceCompiler": "via le compilateur de référence",
+    "viaPromptEnhancer": "via l'optimiseur de prompt",
+    "styleVerbatim": "Style du prompt : aucun effet quand les prompts verbatim sont activés dans les Paramètres",
+    "styleEnhanceOff": "Style du prompt : aucun effet quand l'amélioration du prompt est désactivée",
+    "styleExactText": "Style du prompt : aucun effet quand le texte exact est activé"
+  },
+  "videoPreview": {
+    "conceptVerbatim": "Concept tel que saisi (les prompts verbatim sont activés dans les Paramètres) ; l'étape Storyboard écrit toujours les plans",
+    "conceptEnhanceOff": "Concept tel que saisi (l'amélioration du prompt est désactivée) ; l'étape Storyboard écrit toujours les plans",
+    "conceptEnhanced": "Concept amélioré ; l'étape Storyboard en tire les plans, les clips reçoivent ainsi des prompts différents",
+    "promptVerbatim": "Prompt tel que saisi (Prompts verbatim activé dans les Paramètres)",
+    "promptEnhanceOff": "Prompt tel que saisi (Amélioration de prompt désactivée)",
+    "promptEnhanced": "Prompt amélioré (ce qui sera envoyé)",
+    "promptsVerbatimFirst_one": "Prompts tels que saisis (Prompts verbatim activé dans les Paramètres) : premier {{shown}} sur {{count}} clips",
+    "promptsVerbatimFirst_other": "Prompts tels que saisis (Prompts verbatim activé dans les Paramètres) : premier {{shown}} sur {{count}} clips",
+    "promptsVerbatimAll_one": "Prompts tels que saisis (Prompts verbatim activé dans les Paramètres) : {{count}} clips, un pour chaque",
+    "promptsVerbatimAll_other": "Prompts tels que saisis (Prompts verbatim activé dans les Paramètres) : {{count}} clips, un pour chaque",
+    "promptsEnhanceOffFirst_one": "Prompts tels que saisis (Amélioration de prompt désactivée) : premier {{shown}} sur {{count}} clips",
+    "promptsEnhanceOffFirst_other": "Prompts tels que saisis (Amélioration de prompt désactivée) : premier {{shown}} sur {{count}} clips",
+    "promptsEnhanceOffAll_one": "Prompts tels que saisis (Amélioration de prompt désactivée) : {{count}} clips, un pour chaque",
+    "promptsEnhanceOffAll_other": "Prompts tels que saisis (Amélioration de prompt désactivée) : {{count}} clips, un pour chaque",
+    "promptsEnhancedFirst_one": "Prompts améliorés (ce qui sera envoyé) : premier {{shown}} sur {{count}} clips",
+    "promptsEnhancedFirst_other": "Prompts améliorés (ce qui sera envoyé) : {{shown}} des {{count}} clips",
+    "promptsEnhancedAll_one": "Prompts améliorés (ce qui sera envoyé) : {{count}} clips, un par chacun",
+    "promptsEnhancedAll_other": "Prompts améliorés (ce qui sera envoyé) : {{count}} clips, un par chacun"
+  },
+  "videoSteps": {
+    "profileSteps": "{{label}} ({{steps}} étapes)",
+    "speedProfile": "profil de vitesse",
+    "lowVramClamp": "Limite VRAM basse",
+    "setBy": "définis par {{label}}",
+    "preset": "préréglage"
+  },
+  "assetGuard": {
+    "blocked": "image distante bloquée",
+    "offlineFirst": "(hors ligne en priorité)"
+  },
+  "appStore": {
+    "brandingFailed": "Échec de la récupération de l'image de marque : {{status}}"
+  }
+}

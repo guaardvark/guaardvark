@@ -1,0 +1,106 @@
+{
+  "filter": {
+    "all": "Alle",
+    "active": "Aktiv",
+    "completed": "Abgeschlossen",
+    "failed": "Fehlgeschlagen",
+    "project": "Projekt: {{name}}",
+    "client": "Kunde: {{name}}",
+    "website": "Website: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "Projekte konnten nicht geladen werden: {{error}}",
+    "modelsFailed": "Modelle konnten nicht geladen werden: {{error}}",
+    "requestFailed": "die Anfrage ist fehlgeschlagen"
+  },
+  "video": {
+    "loadFailed": "Fehler beim Laden der Video-Batch-Aufträge",
+    "cancelled": "Video-Batch-Auftrag abgebrochen",
+    "cancelRefused": "Videogenerierung-Auftrag konnte nicht abgebrochen werden",
+    "cancelFailed": "Abbruch fehlgeschlagen",
+    "title": "Video-Batch-Aufträge",
+    "intro": "In der Warteschlange befindliche und laufende Batches aus der einheitlichen VIDEO_GEN-Pipeline (Batch Video / Video Generator). Diese Seite (Job-Planer) verwaltet auch ältere geplante Aufgaben für Code, Inhalte, CSV, Analysen und benutzerdefinierte Aufgaben über das New Job-Menü.",
+    "refresh": "Video-Batch-Aufträge aktualisieren",
+    "empty": "Keine ausstehenden Video-Batch-Aufträge.",
+    "label": "Label",
+    "status": "Status",
+    "progress": "Fortschritt",
+    "actions": "Aktionen",
+    "cancel": "Abbrechen"
+  },
+  "notFound": "Aufgabe {{id}} wurde nicht gefunden",
+  "queue": {
+    "started": "Verarbeitung der Aufgabenwarteschlange gestartet",
+    "failed": "Verarbeitung der Warteschlange fehlgeschlagen: {{error}}"
+  },
+  "created": "Aufgabe erfolgreich erstellt",
+  "updated": "Aufgabe erfolgreich aktualisiert",
+  "saveFailed": "Fehler beim Speichern der Aufgabe: {{error}}",
+  "deleted": "Aufgabe erfolgreich gelöscht",
+  "duplicatedWithId": "Aufgabe erfolgreich dupliziert (ID: {{id}})",
+  "duplicated": "Aufgabe erfolgreich dupliziert",
+  "duplicateFailed": "Fehler beim Duplizieren der Aufgabe: {{error}}",
+  "delete": {
+    "title": "Diese Aufgabe löschen",
+    "description": "\"{{name}}\" wurde gelöscht.",
+    "thisTask": "diese Aufgabe",
+    "confirm": "Aufgabe löschen"
+  },
+  "deleteFailed": "Fehler beim Löschen der Aufgabe: {{error}}",
+  "start": {
+    "invalid": "Ungültige Aufgabendaten",
+    "starting": "Aufgabe wird gestartet: {{name}}",
+    "unnamed": "Unbenannte Aufgabe",
+    "failed": "Fehler beim Starten der Aufgabe: {{error}}",
+    "started": "Aufgabe \"{{name}}\" erfolgreich gestartet"
+  },
+  "clear": {
+    "none": "Keine Aufgaben zum Löschen",
+    "title": "Alle Aufgaben löschen",
+    "description": "Jede Aufgabe in dieser Liste wird gelöscht.",
+    "tasksFact": "Aufgaben",
+    "confirm": "Alle löschen",
+    "clearing": "Alle Aufgaben werden gelöscht...",
+    "done": "Erfolgreich {{count}} Aufgaben gelöscht",
+    "failed": "Fehler beim Löschen der Aufgaben: {{error}}"
+  },
+  "title": "Auftragsplaner",
+  "counts": {
+    "pending": "{{count}} Ausstehend",
+    "queued": "{{count}} In Warteschlange",
+    "running": "{{count}} Läuft"
+  },
+  "runQueue_one": "Führe {{count}} Aufgabe aus",
+  "runQueue_other": "{{count}} Aufgaben ausführen",
+  "clearAll": "Alles leeren",
+  "newJob": "Neuer Auftrag",
+  "newMenu": {
+    "code": "Code-Generierung",
+    "csv": "CSV / Mehrfachinhalte",
+    "content": "Content-Generierung",
+    "analysis": "Datenanalyse",
+    "custom": "Benutzerdefinierter Auftrag"
+  },
+  "typeFilter": {
+    "label": "Typ",
+    "all": "Alle Typen",
+    "code": "Code-Gen",
+    "csv": "CSV / Mehrfach",
+    "content": "Inhalt",
+    "analysis": "Analyse"
+  },
+  "loading": "Aufgaben werden geladen...",
+  "emptyTitle": "Keine Aufgaben gefunden",
+  "emptyDescription": "Nutze die Schnellaktionen oben, um deine erste Aufgabe zu erstellen",
+  "menu": {
+    "start": "Start",
+    "cancel": "Abbrechen",
+    "edit": "Bearbeiten",
+    "duplicate": "Duplizieren",
+    "newCode": "Neue Code-Generierung",
+    "newCsv": "Neue CSV / Mehrfachinhalte",
+    "newContent": "Neue Content-Generierung",
+    "newAnalysis": "Neue Datenanalyse",
+    "newCustom": "Neuer benutzerdefinierter Auftrag"
+  }
+}

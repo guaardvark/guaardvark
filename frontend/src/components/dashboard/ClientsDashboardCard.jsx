@@ -19,6 +19,7 @@ import { entityLinkActions } from "../../utils/entityLinks";
 import useContextMenu from "../../hooks/useContextMenu";
 import { getClients } from "../../api";
 import { getLogoUrl } from "../../config/logoConfig";
+import { useUiTranslation } from "../../i18n";
 
 const ClientsDashboardCard = React.forwardRef(
   (
@@ -32,6 +33,7 @@ const ClientsDashboardCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const [clients, setClients] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -49,7 +51,7 @@ const ClientsDashboardCard = React.forwardRef(
         setClients(Array.isArray(result) ? result : []);
       } catch (err) {
         console.error("ClientsDashboardCard fetch error:", err);
-        setError(err.message || "Error loading client data.");
+        setError(err.message || t("dashboard.clients.loadFailed"));
         setClients([]);
       } finally {
         setIsLoading(false);
@@ -68,9 +70,9 @@ const ClientsDashboardCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="Clients"
+        title={t("dashboard.clients.title")}
         {...props}
-        contextMenuActions={[{ label: "Refresh", onClick: fetchClients }]}
+        contextMenuActions={[{ label: t("common.refresh"), onClick: fetchClients }]}
       >
         {isLoading && (
           <CircularProgress
@@ -88,7 +90,7 @@ const ClientsDashboardCard = React.forwardRef(
             variant="body2"
             sx={{ color: "text.secondary", mt: 2, textAlign: "center" }}
           >
-            No clients found.
+            {t("dashboard.clients.empty")}
           </Typography>
         )}
         {!isLoading && !error && clients.length > 0 && (
@@ -123,8 +125,8 @@ const ClientsDashboardCard = React.forwardRef(
                   </ListItemAvatar>
                 )}
                 <ListItemText
-                  primary={client.name || "Unnamed Client"}
-                  secondary={`Projects: ${client.project_count ?? 0}`}
+                  primary={client.name || t("dashboard.clients.unnamed")}
+                  secondary={t("dashboard.clients.projectCount", { count: client.project_count ?? 0 })}
                   primaryTypographyProps={{
                     style: {
                       whiteSpace: "nowrap",
@@ -150,7 +152,7 @@ const ClientsDashboardCard = React.forwardRef(
           actions={
             rowMenu.payload
               ? [
-                  { label: "Open", onClick: () => navigate(`/clients?clientId=${rowMenu.payload.id}`) },
+                  { label: t("common.open"), onClick: () => navigate(`/clients?clientId=${rowMenu.payload.id}`) },
                   ...entityLinkActions("client", rowMenu.payload.id, navigate),
                 ]
               : []

@@ -14,6 +14,7 @@ import { useAppStore } from "../../stores/useAppStore";
 import { useVoiceChatEnabled } from "../../hooks/useVoiceChatEnabled";
 import { describeVoicePhase } from "../../utils/voicePhase";
 import brand from "../../config/brand";
+import { translate, useUiTranslation } from "../../i18n";
 import VoiceSessionPopover from "./VoiceSessionPopover";
 
 // A press longer than this is push-to-talk; shorter is a click.
@@ -68,10 +69,11 @@ function phaseVisual(phase, listenMode, theme) {
 const GlobalMicButton = ({
   variant = "bar",
   expanded = false,
-  label = "Voice",
+  label = translate("common.voice"),
   showMenu = variant === "bar" || variant === "rail",
   primary = false,
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const voice = useVoiceSession();
   const enabled = useVoiceChatEnabled();
@@ -191,14 +193,14 @@ const GlobalMicButton = ({
     <Box>
       <div>{title}</div>
       {hint && <div style={{ opacity: 0.8 }}>{hint}</div>}
-      {!state.session && state.phase === "idle" && <div style={{ opacity: 0.8 }}>Hold to talk · Ctrl+Shift+Space</div>}
+      {!state.session && state.phase === "idle" && <div style={{ opacity: 0.8 }}>{t("voice.mic.holdToTalkShortcut")}</div>}
     </Box>
   );
 
   const mainButton = (
     <ButtonBase
       ref={buttonRef}
-      aria-label={`${label}: ${title}`}
+      aria-label={t("voice.mic.buttonLabel", { label, title })}
       aria-pressed={Boolean(state.session || state.push)}
       data-voice-phase={state.phase}
       onPointerDown={onPointerDown}
@@ -237,9 +239,9 @@ const GlobalMicButton = ({
           {mainButton}
         </Tooltip>
         {showMenu && (
-          <Tooltip title="Voice options">
+          <Tooltip title={t("voice.mic.options")}>
             <ButtonBase
-              aria-label="Voice options"
+              aria-label={t("voice.mic.options")}
               aria-haspopup="dialog"
               onClick={openMenu}
               sx={{

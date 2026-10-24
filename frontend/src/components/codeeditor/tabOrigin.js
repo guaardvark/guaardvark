@@ -4,6 +4,8 @@
 // CodeEditorPage, WordPressPagesCard); it is never inferred from the file name,
 // because a library document and a repo file can share one.
 
+import { translate } from "../../i18n";
+
 export const TAB_SOURCE = {
   // Files kept in the browser's localStorage (new tabs land here).
   LOCAL: "local",
@@ -25,7 +27,7 @@ export const TAB_LOAD = {
   FAILED: "failed",
 };
 
-export const tabDisplayName = (tab) => (tab?.filePath || "Untitled").split("/").pop();
+export const tabDisplayName = (tab) => (tab?.filePath || translate("codeEditor.tabs.untitled")).split("/").pop();
 
 /** A tab whose content is still being fetched. */
 export function loadingTab(tab) {
@@ -40,7 +42,7 @@ export function loadedTab(tab, content) {
 
 /** A tab whose content could not be fetched; it holds nothing and cannot be saved. */
 export function failedTab(tab, error) {
-  const message = (error && error.message) || (typeof error === "string" && error) || "Failed to load";
+  const message = (error && error.message) || (typeof error === "string" && error) || translate("codeEditor.tabs.loadFailed");
   return { ...tab, content: "", savedContent: null, loadState: TAB_LOAD.FAILED, loadError: message, isModified: false };
 }
 
@@ -58,19 +60,22 @@ export function isDirty(tab) {
  * @returns {{reason: "none"|"loading"|"failed"|"clean", message: string}|null}
  */
 export function saveRefusal(tab) {
-  if (!tab) return { reason: "none", message: "No tab to save." };
+  if (!tab) return { reason: "none", message: translate("codeEditor.tabs.noTabToSave") };
   const name = tabDisplayName(tab);
   const state = tab.loadState || TAB_LOAD.LOADED;
   if (state === TAB_LOAD.LOADING) {
-    return { reason: "loading", message: `${name} is still loading; nothing was saved.` };
+    return { reason: "loading", message: translate("codeEditor.tabs.stillLoading", { name }) };
   }
   if (state === TAB_LOAD.FAILED) {
     return {
       reason: "failed",
-      message: `${name} did not load (${tab.loadError || "unknown error"}); nothing was saved, the stored copy is untouched.`,
+      message: translate("codeEditor.tabs.notLoaded", {
+        name,
+        error: tab.loadError || translate("codeEditor.tabs.unknownError"),
+      }),
     };
   }
-  if (!isDirty(tab)) return { reason: "clean", message: `No changes to save in ${name}.` };
+  if (!isDirty(tab)) return { reason: "clean", message: translate("codeEditor.tabs.noChanges", { name }) };
   return null;
 }
 
@@ -83,21 +88,21 @@ export function saveTargetFor(tab) {
   if (tab.readOnly || tab.source === TAB_SOURCE.LIVE_REPO) {
     return {
       kind: "readonly",
-      message: "Live repository files are read-only here. Use self-code proposed edits for changes.",
+      message: translate("codeEditor.tabs.liveRepoReadOnly"),
     };
   }
   if (tab.source === TAB_SOURCE.DOCUMENT) {
     if (tab.documentId === null || tab.documentId === undefined || tab.documentId === "") {
       return {
         kind: "error",
-        message: "This library document has no id, so it cannot be saved. Reopen it from the Files card.",
+        message: translate("codeEditor.tabs.documentNoId"),
       };
     }
     return { kind: "document", documentId: tab.documentId };
   }
   if (tab.source === TAB_SOURCE.FILESYSTEM) {
     if (!tab.filePath || !String(tab.filePath).trim()) {
-      return { kind: "error", message: "This repo file has no path, so it cannot be saved." };
+      return { kind: "error", message: translate("codeEditor.tabs.repoNoPath") };
     }
     return { kind: "repo", path: tab.filePath };
   }

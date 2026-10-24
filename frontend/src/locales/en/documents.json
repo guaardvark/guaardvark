@@ -1,0 +1,259 @@
+{
+  "rootFolderName": "Files",
+  "pdfViewer": {
+    "openInNewTab": "Open in new tab",
+    "noFile": "No PDF file selected"
+  },
+  "docxViewer": {
+    "fetchFailed": "Fetch failed ({{status}})",
+    "renderFailed": "Could not render document",
+    "downloadOriginal": "Download original"
+  },
+  "actions": {
+    "close": "Close",
+    "cancel": "Cancel"
+  },
+  "entityFiles": {
+    "regionLabel": "Files for this {{kind}}",
+    "regionLabel_client": "Files for this client",
+    "regionLabel_website": "Files for this website",
+    "title": "Files for {{name}}",
+    "title_client": "Files for this client",
+    "title_clientNamed": "Files for client {{name}}",
+    "title_website": "Files for this website",
+    "title_websiteNamed": "Files for website {{name}}",
+    "loadFailed": "Could not load the files: {{error}}",
+    "empty": "No files are linked to this {{kind}}. Link a file or folder to it from its Properties.",
+    "empty_client": "No files are linked to this client. Link a file or folder to it from its Properties.",
+    "empty_website": "No files are linked to this website. Link a file or folder to it from its Properties.",
+    "filesRoot": "Files root"
+  },
+  "audioPlayer": {
+    "untitled": "audio",
+    "closeLabel": "close",
+    "seed": "seed: {{seed}}",
+    "openInNewTab": "Open in new tab"
+  },
+  "folderWindow": {
+    "listView": "List View",
+    "gridView": "Grid View",
+    "mediaView": "Media View",
+    "codeRepoChip": "CODE REPO"
+  },
+  "contextMenu": {
+    "openInWindow": "Open in Window",
+    "minimize": "Minimize",
+    "newFolder": "New Folder",
+    "importFiles": "Import Files",
+    "paste": "Paste",
+    "closeWindow": "Close Window",
+    "reviewWithAgent": "Review with Agent",
+    "cut": "Cut",
+    "copy": "Copy",
+    "rename": "Rename",
+    "properties": "Properties",
+    "bulkImportHere": "Bulk import into this folder…",
+    "indexContents": "Index Contents",
+    "delete": "Delete",
+    "download": "Download",
+    "edit": "Edit",
+    "view": "View",
+    "openInCodeEditor": "Open in Code Editor",
+    "index": "Index",
+    "open": "Open",
+    "restore": "Restore"
+  },
+  "codeRepo": {
+    "never": "Never",
+    "unknown": "Unknown",
+    "buttonTooltip": "Code Repository Intelligence: languages, frameworks, repository map and dependencies",
+    "buttonLabel": "Code Repository Intelligence for {{name}}",
+    "button": "INTEL",
+    "title": "Code Repository Intelligence",
+    "analyzed": "Analyzed: {{date}}",
+    "languagesFrameworks": "Languages & Frameworks",
+    "analysisPending": "Analysis pending",
+    "statistics": "Statistics",
+    "fileCount_one": "{{count}} files",
+    "fileCount_other": "{{count}} files",
+    "mappedFileCount_one": "{{count}} mapped files",
+    "mappedFileCount_other": "{{count}} mapped files",
+    "viewMap": "View Repository Map",
+    "viewDependencies": "View Dependencies",
+    "mapTitle": "Repository Map",
+    "noMap": "No map available.",
+    "graphTitle": "Dependency Graph"
+  },
+  "desktop": {
+    "loadFailed": "Failed to load desktop items",
+    "movedToFolder": "Moved {{count}} item(s) to {{folder}}",
+    "movedToDesktop": "Moved {{count}} item(s) to desktop"
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "Live repository files are read-only here. Use a staged self-code edit instead.",
+    "saveFailed": "Save failed: {{error}}",
+    "liveRepoReviewFirst": "Live repository files are review-first and cannot be edited directly in this modal.",
+    "discardConfirm": "You have unsaved changes. Discard them?",
+    "liveRepoChip": "Live repo · read-only",
+    "modified": "Modified",
+    "viewMode": "View mode",
+    "editMode": "Edit mode",
+    "openInCodeEditor": "Open in Code Editor",
+    "copy": "Copy to clipboard",
+    "saving": "Saving...",
+    "save": "Save"
+  },
+  "folder": {
+    "empty": "This folder is empty",
+    "loadFailed": "Failed to load folder contents",
+    "columnName": "Name",
+    "columnDate": "Date",
+    "columnSize": "Size",
+    "codeRepository": "Code Repository",
+    "itemCount_one": "{{count}} items",
+    "itemCount_other": "{{count}} items"
+  },
+  "mediaView": {
+    "selectFile": "Select a file",
+    "previous": "Previous",
+    "next": "Next",
+    "open": "Open",
+    "download": "Download",
+    "closePreview": "Close preview"
+  },
+  "indexStatus": {
+    "indexed": "Indexed",
+    "indexing": "Indexing...",
+    "pending": "Pending",
+    "error": "Error",
+    "folderFull": "Fully indexed ({{indexed}}/{{total}})",
+    "folderPartial": "Partially indexed ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "Folder name cannot be empty",
+    "emptyFileName": "File name cannot be empty",
+    "invalidFolderName": "Folder name contains invalid characters. Please use only letters, numbers, spaces, hyphens, underscores.",
+    "invalidFileName": "File name contains invalid characters. Please use only letters, numbers, spaces, hyphens, underscores, and dots.",
+    "invalidName": "File name contains invalid characters. Please use only letters, numbers, spaces, hyphens, underscores.",
+    "folderNameTooLong": "Folder name is too long. Maximum length is {{max}} characters.",
+    "fileNameTooLong": "File name is too long. Maximum length is {{max}} characters."
+  },
+  "indexing": {
+    "nothing": "Nothing to index",
+    "alreadyIndexedOne": "Already indexed; the file has not changed",
+    "alreadyIndexedAll_one": "Everything is already indexed ({{count}} files unchanged)",
+    "alreadyIndexedAll_other": "Everything is already indexed ({{count}} files unchanged)",
+    "documentCount_one": "{{count}} document",
+    "documentCount_other": "{{count}} documents",
+    "folderCount_one": "{{count}} folder",
+    "folderCount_other": "{{count}} folders",
+    "startedFromFoldersSkipped": "Indexing {{documents}} from {{folders}}, {{skipped}} already indexed",
+    "startedFromFolders": "Indexing {{documents}} from {{folders}}",
+    "startedSkipped": "Indexing {{documents}}, {{skipped}} already indexed",
+    "started": "Indexing {{documents}}",
+    "startFailed": "Failed to trigger indexing",
+    "failed": "Indexing failed: {{error}}"
+  },
+  "page": {
+    "refreshFailed": "Failed to refresh",
+    "downloading": "Downloading {{name}}",
+    "title": "Files",
+    "loadingFolders": "Loading folders...",
+    "importFiles": "Import Files",
+    "arrangeIcons": "Arrange Icons",
+    "arrangeWindows": "Arrange Windows",
+    "modelLoading": "Loading...",
+    "modelError": "Error",
+    "emptyTitle": "No documents yet",
+    "emptyHint": "Drag files here or right-click to create a folder",
+    "folderItemCount_one": "{{count}} item",
+    "folderItemCount_other": "{{count}} items",
+    "uploadProgress_one": "Uploading {{current}}/{{count}} file...",
+    "uploadProgress_other": "Uploading {{current}}/{{count}} files..."
+  },
+  "import": {
+    "nothingToImport": "Nothing to import: {{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "upload failed",
+    "importedSkipped": "Imported {{count}} file(s) into {{folder}}; {{skipped}}",
+    "imported": "Imported {{count}} file(s) into {{folder}}",
+    "importedPartlySkipped": "Imported {{count}} file(s) into {{folder}}; {{failed}} failed ({{error}}); {{skipped}}",
+    "importedPartly": "Imported {{count}} file(s) into {{folder}}; {{failed}} failed ({{error}})",
+    "failed": "Import failed: {{error}}",
+    "importedFiltered": "Imported {{count}} file(s) into {{folder}} ({{ignored}} ignored by filter)",
+    "failedPlain": "Import failed"
+  },
+  "move": {
+    "intoOwnSubfolder": "Cannot move \"{{name}}\" into its own subfolder",
+    "unknownError": "Unknown error",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "Moved {{count}} item(s)",
+    "failed": "Failed to move items",
+    "movedPartly": "Moved {{count}} item(s), {{failed}} failed",
+    "dropFailed": "Failed to handle drop",
+    "operationFailed": "Operation failed: {{error}}"
+  },
+  "newFolder": {
+    "created": "Folder \"{{name}}\" created",
+    "failed": "Failed to create folder",
+    "title": "Create New Folder",
+    "nameLabel": "Folder Name",
+    "create": "Create"
+  },
+  "clipboard": {
+    "copied": "Copied {{count}} item(s)",
+    "cut": "Cut {{count}} item(s)",
+    "foldersNotPastable": "Folders cannot be pasted into {{folder}}",
+    "liveRepoReadOnly": "Items in the live repository are read-only here",
+    "itemFailed": "failed",
+    "pasted": "Pasted {{count}} item(s) into {{folder}}",
+    "moved": "Moved {{count}} item(s) into {{folder}}",
+    "pastedPartly": "Pasted {{count}} item(s) into {{folder}}; {{failed}} failed: {{error}}",
+    "movedPartly": "Moved {{count}} item(s) into {{folder}}; {{failed}} failed: {{error}}",
+    "pasteFailed": "Paste failed: {{error}}",
+    "moveFailed": "Move failed: {{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "The live code mount is read-only",
+    "deleted": "Deleted {{count}} item(s)",
+    "someFailed": "Some deletes may have failed — refreshing state",
+    "confirmTitle": "Confirm Delete",
+    "confirmBody_one": "Delete {{count}} item? This action cannot be undone.",
+    "confirmBody_other": "Delete {{count}} items? This action cannot be undone.",
+    "confirm": "Delete"
+  },
+  "properties": {
+    "fileNotFound": "File not found",
+    "loadFailed": "Failed to load file details",
+    "fileUpdated": "File properties updated successfully",
+    "fileUpdateFailed": "Failed to update file properties",
+    "updateFailed": "Update failed: {{error}}",
+    "fileDeleted": "File deleted successfully",
+    "fileDeleteFailed": "Failed to delete file",
+    "deleteFailed": "Delete failed: {{error}}",
+    "reindexStarted": "Reindexing triggered successfully. Status will update shortly.",
+    "reindexStartFailed": "Failed to trigger reindexing",
+    "reindexFailed": "Reindexing failed: {{error}}",
+    "folderApplied": "Properties applied successfully! Files updated: {{files}}, Subfolders processed: {{folders}}",
+    "folderUpdated": "Folder properties updated successfully",
+    "folderUpdateFailed": "Failed to update folder properties",
+    "folderDeleted": "Folder deleted"
+  },
+  "rename": {
+    "folderRenamed": "Folder renamed to \"{{name}}\"",
+    "fileRenamed": "File renamed to \"{{name}}\"",
+    "failedReason": "Rename failed: {{reason}}",
+    "failed": "Rename failed",
+    "folderTitle": "Rename Folder",
+    "fileTitle": "Rename File",
+    "fileNameLabel": "File Name",
+    "fileHint": "Changes the name shown in Guaardvark; the file on disk keeps its name.",
+    "submit": "Rename"
+  },
+  "review": {
+    "liveRepoOnly": "Self-code review is only available for the live repo mount",
+    "dispatchedTask": "Self-code review dispatched ({{taskId}})",
+    "dispatched": "Self-code review dispatched",
+    "failed": "Failed to dispatch self-code review"
+  }
+}

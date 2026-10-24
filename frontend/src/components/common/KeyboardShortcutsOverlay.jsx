@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import KeyboardIcon from "@mui/icons-material/Keyboard";
+import { translate, useUiTranslation } from "../../i18n";
 
 /** Dispatch on window to open the shortcuts reference from elsewhere (a tip's "Show me"). */
 export const SHOW_SHORTCUTS_EVENT = "guaardvark:show-shortcuts";
@@ -22,54 +23,58 @@ export const SHOW_SHORTCUTS_EVENT = "guaardvark:show-shortcuts";
 // Real shortcuts wired elsewhere in the app — keep this list in sync with the
 // handlers that own each key (referenced in comments) rather than inventing new
 // ones. `?` itself is owned here.
-const SHORTCUT_GROUPS = [
-  {
-    group: "Global",
-    items: [
-      { keys: ["?"], desc: "Show this keyboard shortcuts reference" },
-      { keys: ["Ctrl", "Shift", "C"], desc: "Toggle the floating chat panel" },
-      // VoiceSessionProvider (contexts/VoiceSessionContext.jsx)
-      { keys: ["Ctrl", "Shift", "Space"], desc: "Voice: tap to start or stop the mic, hold to talk" },
-    ],
-  },
-  {
-    group: "Chat",
-    items: [
-      { keys: ["Enter"], desc: "Send message" },
-      { keys: ["Shift", "Enter"], desc: "Insert a newline" },
-      { keys: ["↑"], desc: "Recall previous message" },
-      { keys: ["↓"], desc: "Recall next message" },
-    ],
-  },
-  {
-    // pages/CodeEditorPage.jsx and components/codeeditor/CodeEditorCard.jsx
-    group: "Code Editor",
-    items: [
-      { keys: ["Ctrl", "S"], desc: "Save the file" },
-      { keys: ["Ctrl", "Shift", "S"], desc: "Save the session now: open tabs and chat" },
-      { keys: ["Ctrl", "Shift", "O"], desc: "Find a function or class and jump to it" },
-      { keys: ["Ctrl", "1–5"], desc: "Jump to Files, Editor, Chat, Search, Output" },
-      { keys: ["Ctrl", "Shift", "E"], desc: "Explain the selected code in the chat" },
-    ],
-  },
-  {
-    group: "System Map",
-    items: [
-      { keys: ["/"], desc: "Focus search" },
-      { keys: ["Ctrl", "K"], desc: "Focus search" },
-      { keys: ["R"], desc: "Reset the view" },
-      { keys: ["Esc"], desc: "Clear search / selection" },
-    ],
-  },
-  {
-    group: "Video Editor",
-    items: [
-      { keys: ["Space"], desc: "Play / pause the preview" },
-      { keys: ["Ctrl", "Z"], desc: "Undo the last timeline change" },
-      { keys: ["Delete"], desc: "Remove the selected text overlay" },
-    ],
-  },
-];
+const shortcutGroups = () => {
+  const ctrl = translate("layoutCommon.shortcuts.keys.ctrl");
+  const shift = translate("layoutCommon.shortcuts.keys.shift");
+  return [
+    {
+      group: translate("layoutCommon.shortcuts.groups.global"),
+      items: [
+        { keys: ["?"], desc: translate("layoutCommon.shortcuts.showShortcuts") },
+        { keys: [ctrl, shift, "C"], desc: translate("layoutCommon.shortcuts.toggleFloatingChat") },
+        // VoiceSessionProvider (contexts/VoiceSessionContext.jsx)
+        { keys: [ctrl, shift, translate("layoutCommon.shortcuts.keys.space")], desc: translate("layoutCommon.shortcuts.voiceMic") },
+      ],
+    },
+    {
+      group: translate("layoutCommon.shortcuts.groups.chat"),
+      items: [
+        { keys: [translate("layoutCommon.shortcuts.keys.enter")], desc: translate("layoutCommon.shortcuts.sendMessage") },
+        { keys: [shift, translate("layoutCommon.shortcuts.keys.enter")], desc: translate("layoutCommon.shortcuts.newline") },
+        { keys: ["↑"], desc: translate("layoutCommon.shortcuts.previousMessage") },
+        { keys: ["↓"], desc: translate("layoutCommon.shortcuts.nextMessage") },
+      ],
+    },
+    {
+      // pages/CodeEditorPage.jsx and components/codeeditor/CodeEditorCard.jsx
+      group: translate("layoutCommon.shortcuts.groups.codeEditor"),
+      items: [
+        { keys: [ctrl, "S"], desc: translate("layoutCommon.shortcuts.saveFile") },
+        { keys: [ctrl, shift, "S"], desc: translate("layoutCommon.shortcuts.saveSession") },
+        { keys: [ctrl, shift, "O"], desc: translate("layoutCommon.shortcuts.findSymbol") },
+        { keys: [ctrl, "1–5"], desc: translate("layoutCommon.shortcuts.jumpToPanel") },
+        { keys: [ctrl, shift, "E"], desc: translate("layoutCommon.shortcuts.explainSelection") },
+      ],
+    },
+    {
+      group: translate("layoutCommon.shortcuts.groups.systemMap"),
+      items: [
+        { keys: ["/"], desc: translate("layoutCommon.shortcuts.focusSearch") },
+        { keys: [ctrl, "K"], desc: translate("layoutCommon.shortcuts.focusSearch") },
+        { keys: ["R"], desc: translate("layoutCommon.shortcuts.resetView") },
+        { keys: [translate("layoutCommon.shortcuts.keys.esc")], desc: translate("layoutCommon.shortcuts.clearSearch") },
+      ],
+    },
+    {
+      group: translate("layoutCommon.shortcuts.groups.videoEditor"),
+      items: [
+        { keys: [translate("layoutCommon.shortcuts.keys.space")], desc: translate("layoutCommon.shortcuts.playPause") },
+        { keys: [ctrl, "Z"], desc: translate("layoutCommon.shortcuts.undo") },
+        { keys: [translate("layoutCommon.shortcuts.keys.delete")], desc: translate("layoutCommon.shortcuts.removeOverlay") },
+      ],
+    },
+  ];
+};
 
 function KeyCombo({ keys }) {
   return (
@@ -101,6 +106,7 @@ function KeyCombo({ keys }) {
 }
 
 const KeyboardShortcutsOverlay = () => {
+  const { t } = useUiTranslation();
   const [open, setOpen] = useState(false);
 
   const handleClose = useCallback(() => setOpen(false), []);
@@ -134,22 +140,24 @@ const KeyboardShortcutsOverlay = () => {
     };
   }, []);
 
+  const groups = shortcutGroups();
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box display="flex" alignItems="center">
             <KeyboardIcon sx={{ mr: 1 }} />
-            Keyboard shortcuts
+            {t("layoutCommon.shortcuts.title")}
           </Box>
-          <IconButton onClick={handleClose} size="small" aria-label="Close shortcuts">
+          <IconButton onClick={handleClose} size="small" aria-label={t("layoutCommon.shortcuts.close")}>
             <CloseIcon />
           </IconButton>
         </Box>
       </DialogTitle>
       <DialogContent dividers>
-        {SHORTCUT_GROUPS.map((group, gi) => (
-          <Box key={group.group} sx={{ mb: gi < SHORTCUT_GROUPS.length - 1 ? 2 : 0 }}>
+        {groups.map((group, gi) => (
+          <Box key={group.group} sx={{ mb: gi < groups.length - 1 ? 2 : 0 }}>
             <Typography
               variant="overline"
               sx={{ color: "text.secondary", letterSpacing: 1 }}

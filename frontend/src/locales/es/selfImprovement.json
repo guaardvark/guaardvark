@@ -1,0 +1,92 @@
+{
+  "page": {
+    "title": "Auto-mejora",
+    "systemMap": "Mapa del sistema",
+    "uncleClaudeSettings": "Uncle Claude en Ajustes",
+    "intro": "Guaardvark realiza sus propias pruebas, redacta correcciones y las prepara para tu revisión. Nada llega al código hasta que lo apruebas y aplicas, y Codebase locked detiene cualquier cambio.",
+    "recentRuns": "Ejecuciones recientes",
+    "noCodeKeeps": "No hay conservas de código en Auto-investigación."
+  },
+  "codeKeeps": {
+    "approved": "Conserva de código aprobado. Aplícalo desde Correcciones pendientes.",
+    "rejected": "Conserva de código rechazado",
+    "approveFailed": "Error al aprobar conserva de código: {{error}}",
+    "rejectFailed": "Error al rechazar conserva de código: {{error}}",
+    "title": "Conservas de código",
+    "intro": "Los brazos de Swarm que pasaron preserve-and-extend se conservan. Aprueba aquí y luego aplica desde Ajustes; nada se fusiona automáticamente a main.",
+    "description": "Descripción",
+    "status": "Estado",
+    "created": "Creado",
+    "actions": "Acciones",
+    "approve": "Aprobar",
+    "reject": "Rechazar"
+  },
+  "fixStatus": {
+    "proposed": "propuesto",
+    "triaged": "triaje",
+    "approved": "aprobado",
+    "applied": "aplicado",
+    "rejected": "rechazado"
+  },
+  "controls": {
+    "title": "Auto-mejora",
+    "help": "Guaardvark revisa su propio código y propone correcciones para que las revises. Codebase locked bloquea cualquier edición automática.",
+    "enabledChip": "Auto-mejora",
+    "enabledTooltip": "Permite que el mentor escanee la base de código y proponga correcciones para revisión.",
+    "lockedChip": "Base de código bloqueada",
+    "lockedOnTooltip": "Las ediciones autónomas están bloqueadas. Desactiva para permitirlas.",
+    "lockedOffTooltip": "Activa para bloquear cada edición autónoma en el árbol de origen.",
+    "turnOnFirst": "Activa primero la auto-mejora",
+    "unlockFirst": "Desbloquea primero la base de código",
+    "runTooltip": "Ejecuta las comprobaciones ahora. Cancelar pide al servidor que se detenga; cerrar la vista deja el escaneo ejecutándose.",
+    "runSelfCheck": "Ejecutar auto-comprobación",
+    "lastRun_one": "Última ejecución {{date}} ({{status}}) · {{count}} ejecución exitosa.",
+    "lastRun_other": "Última ejecución {{date}} ({{status}}) · {{count}} ejecuciones exitosas.",
+    "noRuns": "Aún no hay ejecuciones.",
+    "readingStatus": "Leyendo estado…",
+    "lockedNote": "Base de código bloqueada: las ediciones autónomas están bloqueadas.",
+    "cancelled": "Cancelado",
+    "scanInBackground": "El escaneo continúa en segundo plano",
+    "pendingFixes": "Correcciones pendientes",
+    "pendingFixesHelp": "Correcciones propuestas por la auto-comprobación, esperando a que las revises o apliques. Nada llega al código hasta que lo apruebes y apliques.",
+    "waiting": "{{count}} esperando",
+    "reviewFixes": "Revisar correcciones"
+  },
+  "runStatus": {
+    "running": "ejecutando",
+    "success": "éxito",
+    "failed": "fallido",
+    "cancelled": "cancelado",
+    "blocked_by_guardian": "bloqueado_por_guardian"
+  },
+  "trigger": {
+    "scheduled": "programado",
+    "reactive": "reactivo",
+    "directed": "dirigido",
+    "family_learning": "aprendizaje familiar"
+  },
+  "runs": {
+    "filter": {
+      "all": "Todos",
+      "scheduled": "Programados",
+      "reactive": "Reactivos",
+      "directed": "Dirigidos",
+      "success": "Éxito",
+      "failed": "Fallidos"
+    },
+    "empty": "Aún no hay ejecuciones de auto-mejora registradas.",
+    "status": "Estado",
+    "trigger": "Activador",
+    "timestamp": "Marca de tiempo",
+    "duration": "Duración",
+    "uncleReviewed": "Revisado por Uncle",
+    "details": "Detalles",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "Revisado",
+    "notReviewed": "No",
+    "expand": "Expandir",
+    "uncleFeedback": "Comentarios de Uncle Claude",
+    "changesMade": "Cambios realizados",
+    "testResults": "Resultados de prueba"
+  }
+}

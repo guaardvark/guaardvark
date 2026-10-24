@@ -11,6 +11,7 @@ import { useSnackbar } from "../common/SnackbarProvider";
 import * as apiService from "../../api";
 import AlertSnackbar from "../common/AlertSnackbar";
 import { METRICS_POLL_INTERVAL_MS } from "../../config";
+import { translate, useUiTranslation } from "../../i18n";
 
 const MIN_WIDTH = 210;
 const MIN_HEIGHT = 220;
@@ -29,6 +30,7 @@ const getBarColor = (val, isTemp = false) => {
 };
 
 const TelemetryGraph = ({ history, title, primaryColor, secondaryColor, scale }) => {
+  const { t } = useUiTranslation();
   if (!history || history.length < 2) return null;
 
   const width = 240;
@@ -67,19 +69,19 @@ const TelemetryGraph = ({ history, title, primaryColor, secondaryColor, scale })
             letterSpacing: "0.1em",
           }}
         >
-          {title} HISTORY (30s)
+          {t("dialogs.systemMetrics.history", { device: title })}
         </Typography>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: primaryColor }} />
             <Typography sx={{ fontSize: `${0.5 * scale}rem`, fontFamily: "monospace", color: primaryColor, fontWeight: 700 }}>
-              UTL
+              {t("dialogs.systemMetrics.utilization")}
             </Typography>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
             <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: secondaryColor }} />
             <Typography sx={{ fontSize: `${0.5 * scale}rem`, fontFamily: "monospace", color: secondaryColor, fontWeight: 700 }}>
-              MEM
+              {t("dialogs.systemMetrics.memory")}
             </Typography>
           </Box>
         </Box>
@@ -134,9 +136,9 @@ const TelemetryGraph = ({ history, title, primaryColor, secondaryColor, scale })
             pointerEvents: "none",
           }}
         >
-          <Typography sx={{ fontSize: "0.45rem", fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>-30s</Typography>
-          <Typography sx={{ fontSize: "0.45rem", fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>-15s</Typography>
-          <Typography sx={{ fontSize: "0.45rem", fontFamily: "monospace", color: "rgba(255,255,255,0.4)", fontWeight: 700 }}>NOW</Typography>
+          <Typography sx={{ fontSize: "0.45rem", fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>{t("dialogs.systemMetrics.axisStart")}</Typography>
+          <Typography sx={{ fontSize: "0.45rem", fontFamily: "monospace", color: "rgba(255,255,255,0.3)" }}>{t("dialogs.systemMetrics.axisMiddle")}</Typography>
+          <Typography sx={{ fontSize: "0.45rem", fontFamily: "monospace", color: "rgba(255,255,255,0.4)", fontWeight: 700 }}>{t("dialogs.systemMetrics.now")}</Typography>
         </Box>
       </Box>
     </Box>
@@ -144,6 +146,7 @@ const TelemetryGraph = ({ history, title, primaryColor, secondaryColor, scale })
 };
 
 const SystemMetricsModal = ({ open, onClose }) => {
+  const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
   const [metrics, setMetrics] = useState(null);
   const [gpuHistory, setGpuHistory] = useState([]);
@@ -172,7 +175,7 @@ const SystemMetricsModal = ({ open, onClose }) => {
       try {
         const data = await apiService.getSystemMetrics();
         if (!data || data.error) {
-          throw new Error(data?.error || "Failed to fetch system metrics.");
+          throw new Error(data?.error || translate("dialogs.systemMetrics.fetchFailed"));
         }
         if (isMounted) {
           setMetrics(data);
@@ -202,7 +205,7 @@ const SystemMetricsModal = ({ open, onClose }) => {
       } catch (err) {
         console.error("SystemMetricsModal:", err);
         if (!err.message.includes("fetch")) {
-          showMessage(`Failed to fetch system metrics: ${err.message}`, "error");
+          showMessage(translate("dialogs.systemMetrics.fetchFailedWithError", { error: err.message }), "error");
         }
       }
     };
@@ -276,7 +279,7 @@ const SystemMetricsModal = ({ open, onClose }) => {
             flexShrink: 0,
           }}
         >
-          {safeValue !== null ? `${Math.round(safeValue)}${unit}` : "N/A"}
+          {safeValue !== null ? `${Math.round(safeValue)}${unit}` : t("dialogs.systemMetrics.notAvailable")}
         </Typography>
       </Box>
     );
@@ -407,7 +410,7 @@ const SystemMetricsModal = ({ open, onClose }) => {
                 textTransform: "uppercase",
               }}
             >
-              {size.w >= 220 ? "SYSTEM TELEMETRY" : "METRICS"}
+              {size.w >= 220 ? t("dialogs.systemMetrics.title") : t("dialogs.systemMetrics.titleShort")}
             </Typography>
           </Box>
           <IconButton
@@ -448,7 +451,7 @@ const SystemMetricsModal = ({ open, onClose }) => {
                       color: "text.secondary",
                     }}
                   >
-                    CONNECTING TELEMETRY...
+                    {t("dialogs.systemMetrics.connecting")}
                   </Typography>
                 </Box>
               ) : (
@@ -475,7 +478,7 @@ const SystemMetricsModal = ({ open, onClose }) => {
                             letterSpacing: "0.12em",
                           }}
                         >
-                          GPU TELEMETRY
+                          {t("dialogs.systemMetrics.gpuTelemetry")}
                         </Typography>
                         {metrics.gpu_mem_used_gb !== null && metrics.gpu_mem_used_gb !== undefined && (
                           <Typography
@@ -491,9 +494,9 @@ const SystemMetricsModal = ({ open, onClose }) => {
                           </Typography>
                         )}
                       </Box>
-                      <MetricRow label="MEM" value={metrics?.gpu_mem ?? null} />
-                      <MetricRow label="UTL" value={metrics?.gpu_percent ?? null} />
-                      <MetricRow label="TMP" value={metrics?.gpu_temp ?? null} isTemp />
+                      <MetricRow label={t("dialogs.systemMetrics.memory")} value={metrics?.gpu_mem ?? null} />
+                      <MetricRow label={t("dialogs.systemMetrics.utilization")} value={metrics?.gpu_percent ?? null} />
+                      <MetricRow label={t("dialogs.systemMetrics.temperature")} value={metrics?.gpu_temp ?? null} isTemp />
                     </Box>
                   )}
 
@@ -518,7 +521,7 @@ const SystemMetricsModal = ({ open, onClose }) => {
                           letterSpacing: "0.12em",
                         }}
                       >
-                        CPU TELEMETRY
+                        {t("dialogs.systemMetrics.cpuTelemetry")}
                       </Typography>
                       {metrics.cpu_mem_used_gb !== null && metrics.cpu_mem_used_gb !== undefined && (
                         <Typography
@@ -534,9 +537,9 @@ const SystemMetricsModal = ({ open, onClose }) => {
                         </Typography>
                       )}
                     </Box>
-                    <MetricRow label="MEM" value={metrics?.cpu_mem ?? null} />
-                    <MetricRow label="UTL" value={metrics?.cpu_percent ?? null} />
-                    <MetricRow label="TMP" value={metrics?.cpu_temp ?? null} isTemp />
+                    <MetricRow label={t("dialogs.systemMetrics.memory")} value={metrics?.cpu_mem ?? null} />
+                    <MetricRow label={t("dialogs.systemMetrics.utilization")} value={metrics?.cpu_percent ?? null} />
+                    <MetricRow label={t("dialogs.systemMetrics.temperature")} value={metrics?.cpu_temp ?? null} isTemp />
                   </Box>
 
                   {/* Live Telemetry History Graphs */}
@@ -584,7 +587,7 @@ const SystemMetricsModal = ({ open, onClose }) => {
                           fontWeight: 600,
                         }}
                       >
-                        NO GPU METRICS TOOL DETECTED
+                        {t("dialogs.systemMetrics.noGpuTool")}
                       </Typography>
                     </Box>
                   )}

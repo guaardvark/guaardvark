@@ -15,6 +15,7 @@ import {
   Typography,
 } from "@mui/material";
 import { ActionButton, Cluster, Hint, Line, SettingChip } from "./ui";
+import { useUiTranslation } from "../../i18n";
 
 const clampInt = (value, min, max, fallback) => {
   const n = parseInt(value, 10);
@@ -29,6 +30,7 @@ const clampInt = (value, min, max, fallback) => {
  * @param {function} onSaved(message)
  */
 const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
+  const { t } = useUiTranslation();
   const [draft, setDraft] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -85,11 +87,11 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
           payload?.error || payload?.message || `HTTP ${res.status}`,
         );
       onSaved?.(
-        `Profile "${profile.name}" saved. Applies to the next query; no rebuild needed.`,
+        t("settingsSections.indexProfileEdit.saved", { name: profile.name }),
       );
       onClose();
     } catch (e) {
-      setError(e.message || "Failed to save profile");
+      setError(e.message || t("settingsSections.indexProfileEdit.saveFailed"));
     } finally {
       setBusy(false);
     }
@@ -103,11 +105,11 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
       fullWidth
     >
       <DialogTitle sx={{ fontSize: "1rem" }}>
-        Edit profile: {profile.name}
+        {t("settingsSections.indexProfileEdit.title", { name: profile.name })}
       </DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
         <TextField
-          label="Description"
+          label={t("settingsSections.indexProfileEdit.description")}
           size="small"
           fullWidth
           value={draft.description}
@@ -115,7 +117,7 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
             setDraft((d) => ({ ...d, description: e.target.value }))
           }
         />
-        <Cluster label="Retrieval" note="applies at query time; change freely">
+        <Cluster label={t("settingsSections.indexProfileEdit.retrieval")} note={t("settingsSections.indexProfileEdit.retrievalNote")}>
           <Line>
             <TextField
               label="top_k"
@@ -127,10 +129,10 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
               onChange={(e) =>
                 setDraft((d) => ({ ...d, top_k: e.target.value }))
               }
-              helperText="passages retrieved per query"
+              helperText={t("settingsSections.indexProfileEdit.topKHelp")}
             />
             <TextField
-              label="Context window"
+              label={t("settingsSections.indexProfileEdit.contextWindow")}
               type="number"
               size="small"
               className="grow"
@@ -142,21 +144,21 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
                   context_window_chunks: e.target.value,
                 }))
               }
-              helperText="neighbouring chunks added around each hit"
+              helperText={t("settingsSections.indexProfileEdit.contextWindowHelp")}
             />
           </Line>
           <Line>
             <SettingChip
-              label="Rerank"
+              label={t("settingsSections.indexProfileEdit.rerank")}
               on={draft.rerank}
               onToggle={(next) => setDraft((d) => ({ ...d, rerank: next }))}
-              tooltip="Re-orders the retrieved passages with a cross-encoder before answering"
+              tooltip={t("settingsSections.indexProfileEdit.rerankTooltip")}
             />
           </Line>
         </Cluster>
         <Cluster
-          label="Recorded at build time"
-          note="changing these means rebuilding the profile"
+          label={t("settingsSections.indexProfileEdit.recorded")}
+          note={t("settingsSections.indexProfileEdit.recordedNote")}
         >
           <Box
             sx={{
@@ -167,23 +169,23 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
             }}
           >
             <Typography variant="caption" color="text.secondary">
-              Embedding model
+              {t("settingsSections.indexProfileEdit.embeddingModel")}
             </Typography>
             <Typography variant="body2">
-              {profile.embedding_model || "the globally active model"}
+              {profile.embedding_model || t("settingsSections.indexProfileEdit.globalModel")}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Vector width
+              {t("settingsSections.indexProfileEdit.vectorWidth")}
             </Typography>
             <Typography variant="body2">
-              {profile.embed_dim ? `${profile.embed_dim}d` : "not built yet"}
+              {profile.embed_dim ? `${profile.embed_dim}d` : t("settingsSections.indexProfileEdit.notBuiltYet")}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Chunking
+              {t("settingsSections.indexProfileEdit.chunking")}
             </Typography>
             <Typography variant="body2">
-              {profile.chunk_strategy || "auto"} · {profile.chunk_chars || 600}{" "}
-              chars
+              {profile.chunk_strategy || "auto"} ·{" "}
+              {t("settingsSections.indexProfileEdit.chunkChars", { chars: profile.chunk_chars || 600 })}
             </Typography>
           </Box>
         </Cluster>
@@ -191,7 +193,7 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
       </DialogContent>
       <DialogActions>
         <ActionButton onClick={onClose} disabled={busy}>
-          Cancel
+          {t("settingsSections.indexProfileEdit.cancel")}
         </ActionButton>
         <ActionButton
           kind={dirty ? "primary" : "neutral"}
@@ -199,7 +201,7 @@ const IndexProfileEditDialog = ({ open, profile, onClose, onSaved }) => {
           loading={busy}
           disabled={!dirty}
         >
-          Save
+          {t("settingsSections.indexProfileEdit.save")}
         </ActionButton>
       </DialogActions>
     </Dialog>

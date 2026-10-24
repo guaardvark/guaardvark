@@ -4,6 +4,7 @@ import { useSnackbar } from "../common/SnackbarProvider";
 import * as apiService from "../../api";
 import AlertSnackbar from "../common/AlertSnackbar";
 import { METRICS_POLL_INTERVAL_MS } from "../../config";
+import { useUiTranslation } from "../../i18n";
 
 const getBarColor = (val, isTemp = false) => {
   if (val === null || val === undefined || isNaN(val)) return "#6b7280";
@@ -14,6 +15,7 @@ const getBarColor = (val, isTemp = false) => {
 };
 
 const SystemMetricsBar = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const { showMessage } = useSnackbar();
   const [metrics, setMetrics] = useState(null);
@@ -37,7 +39,7 @@ const SystemMetricsBar = () => {
       } catch (err) {
         console.error("SystemMetricsBar:", err);
         if (!err.message.includes("fetch")) {
-          showMessage(`Failed to fetch system metrics: ${err.message}`, "error");
+          showMessage(t("layout.systemMetrics.fetchFailed", { message: err.message }), "error");
         }
       }
     };
@@ -105,7 +107,7 @@ const SystemMetricsBar = () => {
             flexShrink: 0,
           }}
         >
-          {safeValue !== null ? `${Math.round(safeValue)}${unit}` : "N/A"}
+          {safeValue !== null ? `${Math.round(safeValue)}${unit}` : t("layout.notAvailable")}
         </Typography>
       </Box>
     );
@@ -124,7 +126,7 @@ const SystemMetricsBar = () => {
         <Typography
           sx={{ fontSize: "0.6rem", fontFamily: "monospace", color: "text.secondary" }}
         >
-          CONNECTING...
+          {t("layout.systemMetrics.connecting")}
         </Typography>
       </Box>
     );
@@ -176,9 +178,9 @@ const SystemMetricsBar = () => {
               </Typography>
             )}
           </Box>
-          <MetricRow label="MEM" value={metrics?.gpu_mem ?? null} />
-          <MetricRow label="UTL" value={metrics?.gpu_percent ?? null} />
-          <MetricRow label="TMP" value={metrics?.gpu_temp ?? null} isTemp />
+          <MetricRow label={t("layout.systemMetrics.memory")} value={metrics?.gpu_mem ?? null} />
+          <MetricRow label={t("layout.systemMetrics.utilization")} value={metrics?.gpu_percent ?? null} />
+          <MetricRow label={t("layout.systemMetrics.temperature")} value={metrics?.gpu_temp ?? null} isTemp />
         </Box>
       )}
 
@@ -218,9 +220,9 @@ const SystemMetricsBar = () => {
             </Typography>
           )}
         </Box>
-        <MetricRow label="MEM" value={metrics?.cpu_mem ?? null} />
-        <MetricRow label="UTL" value={metrics?.cpu_percent ?? null} />
-        <MetricRow label="TMP" value={metrics?.cpu_temp ?? null} isTemp />
+        <MetricRow label={t("layout.systemMetrics.memory")} value={metrics?.cpu_mem ?? null} />
+        <MetricRow label={t("layout.systemMetrics.utilization")} value={metrics?.cpu_percent ?? null} />
+        <MetricRow label={t("layout.systemMetrics.temperature")} value={metrics?.cpu_temp ?? null} isTemp />
       </Box>
 
       {/* GPU Tools Status */}
@@ -235,7 +237,7 @@ const SystemMetricsBar = () => {
             mt: 0.5,
           }}
         >
-          NO GPU TOOLS
+          {t("layout.systemMetrics.noGpuTools")}
         </Typography>
       )}
 

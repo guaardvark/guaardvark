@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "Chat redactó esta publicación.",
+      "mcp": "Una herramienta de IA conectada vía MCP redactó esta publicación.",
+      "schedule": "Una programación puso esta publicación en cola.",
+      "unknown": "Esta publicación proviene de un emisor que no especificó su tipo."
+    },
+    "fields": {
+      "body": "texto",
+      "title": "título",
+      "linkUrl": "enlace",
+      "tags": "etiquetas",
+      "visibility": "visibilidad",
+      "postOptions": "campos de publicación",
+      "aiDisclosure": "etiqueta de IA",
+      "scheduledAt": "hora"
+    }
+  },
+  "rejectDialog": {
+    "title": "¿Rechazar esta publicación?",
+    "body": "No se enviará y no podrá ser aprobada después; en su lugar, se deberá poner en cola una nueva publicación. El motivo que se indica abajo quedará registrado.",
+    "reasonLabel": "Motivo (opcional)",
+    "reasonPlaceholder": "¿Por qué no se enviará?",
+    "keep": "Conservarla",
+    "rejecting": "Rechazando…",
+    "reject": "Rechazar"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} no está disponible en esta instalación, por lo que no se puede editar esta publicación.",
+    "title": "Editar antes de aprobar",
+    "draftedNote": "{{drafted}} Lo que guardes aquí es lo que se publicará una vez que lo apruebes.",
+    "caption": "Leyenda",
+    "text": "Texto",
+    "scheduleHelp": "Aún espera tu aprobación.",
+    "goesOutAs": "Sale como (con las líneas {{platform}} o la licencia del medio lo requiere):",
+    "savingNote": "Guardar lo mantiene en espera. Aprébalo después.",
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  },
+  "page": {
+    "families": {
+      "social": "Social",
+      "aiProviders": "Proveedores de IA",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "conectado",
+      "error": "error",
+      "expired": "expirado",
+      "disabled": "desactivado",
+      "unconfigured": "sin configurar"
+    },
+    "removed": "Conexión eliminada.",
+    "publicOn": "{{label}}: activado para esta cuenta. Cada subida seguirá esperando tu aprobación.",
+    "publicOff": "{{label}}: desactivado para esta cuenta.",
+    "withoutApprovalOn": "Las publicaciones que inicies aquí para este canal saldrán sin aprobación.",
+    "withoutApprovalOff": "Las publicaciones en este canal esperarán aprobación.",
+    "title": "Conexiones",
+    "intro": "Cuentas y servicios a los que esta instalación puede publicar o contactar. Las credenciales se guardan fuera de la base de datos.",
+    "postingStopped": "La publicación pública está detenida. Reanúdala en la página de Alcance.",
+    "queuedHeld": "Las publicaciones en cola se retienen en la página de Aprobaciones.",
+    "publishingEnabled": "Publicación habilitada",
+    "approvalNote": "Cada publicación espera tu aprobación en la página de Aprobaciones. Se puede configurar un webhook de Discord, que publica en un canal que gestionas, para que publique sin esperar en su propia tarjeta. Una cuenta de YouTube se sube como privada hasta que su tarjeta permita las subidas públicas.",
+    "addConnection": "Añadir conexión",
+    "appReview": "revisión de la app",
+    "noCredentials": "Sin credenciales",
+    "withoutApprovalTooltip": "Para un canal que gestionas. Las publicaciones que inicies aquí se publicarán sin esperar en la página de Aprobaciones; las solicitudes desde el chat, MCP o un horario seguirán esperando.",
+    "postWithoutApproval": "Publicar sin aprobación",
+    "onThroughSetting": "Activado a través del ajuste global {{setting}}. Cambiarlo aquí mantiene una opción específica para esta cuenta en su lugar.",
+    "testing": "Probando…",
+    "test": "Probar",
+    "edit": "Editar",
+    "remove": "Eliminar",
+    "empty": "Aún no hay conexiones en esta categoría.",
+    "environment": "Entorno",
+    "environmentNote": "Detectado desde el entorno del proceso del backend. Se gestiona fuera de la aplicación y se muestra aquí en modo de solo lectura.",
+    "encrypted": "Encriptado",
+    "unencrypted": "Sin encriptar",
+    "credentialCount": "{{count}} credencial(es)"
+  }
+}

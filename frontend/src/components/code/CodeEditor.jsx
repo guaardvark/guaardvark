@@ -12,6 +12,7 @@ import {
 import Editor from "../../utils/monaco";
 import { useTheme } from "@mui/material/styles";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
+import { useUiTranslation } from "../../i18n";
 
 // Language mappings for Monaco Editor
 const LANGUAGE_MAPPINGS = {
@@ -86,11 +87,13 @@ const CodeEditor = ({
   wordWrap = "on",
   minimap = true,
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const editorRef = useRef(null);
   const monacoRef = useRef(null);
   const [content, setContent] = useState(initialContent);
   const [isModified, setIsModified] = useState(false);
+  // A message from the failed call, or SAVE_FAILED / AI_FAILED when it gave none.
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -200,20 +203,20 @@ const CodeEditor = ({
 
     try {
       setIsLoading(true);
-      const processId = startProcess("file-save", "Saving file...", "file_generation");
+      const processId = startProcess("file-save", t("code.editor.saving"), "file_generation");
 
       await onSave(content, filePath);
 
       setIsModified(false);
       setError(null);
-      completeProcess(processId, "File saved successfully");
+      completeProcess(processId, t("code.editor.saved"));
     } catch (err) {
-      setError(err.message || "Failed to save file");
-      errorProcess("file-save", err.message || "Save failed");
+      setError(err.message || "SAVE_FAILED");
+      errorProcess("file-save", err.message || t("code.editor.saveFailedShort"));
     } finally {
       setIsLoading(false);
     }
-  }, [content, filePath, isModified, onSave, startProcess, completeProcess, errorProcess]);
+  }, [content, filePath, isModified, onSave, startProcess, completeProcess, errorProcess, t]);
 
   // Handle AI assist action
   const handleAiAssist = useCallback(async () => {
@@ -221,7 +224,7 @@ const CodeEditor = ({
 
     try {
       setIsLoading(true);
-      const processId = startProcess("ai-assist", "Getting AI assistance...", "llm_processing");
+      const processId = startProcess("ai-assist", t("code.editor.aiAssisting"), "llm_processing");
 
       const selection = editorRef.current.getSelection();
       const selectedText = editorRef.current.getModel().getValueInRange(selection);
@@ -234,14 +237,14 @@ const CodeEditor = ({
       };
 
       await onAiAssist(context);
-      completeProcess(processId, "AI assistance completed");
+      completeProcess(processId, t("code.editor.aiDone"));
     } catch (err) {
-      setError(err.message || "AI assistance failed");
-      errorProcess("ai-assist", err.message || "AI assistance failed");
+      setError(err.message || "AI_FAILED");
+      errorProcess("ai-assist", err.message || t("code.editor.aiFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [content, detectedLanguage, filePath, onAiAssist, startProcess, completeProcess, errorProcess]);
+  }, [content, detectedLanguage, filePath, onAiAssist, startProcess, completeProcess, errorProcess, t]);
 
   // Handle run/debug action
   const handleRun = useCallback(() => {
@@ -264,6 +267,11 @@ const CodeEditor = ({
     }
   }, [detectedLanguage, initialContent, onContentChange]);
 
+  const errorText =
+    error === "SAVE_FAILED" ? t("code.editor.saveFailed")
+      : error === "AI_FAILED" ? t("code.editor.aiFailed")
+        : error;
+
   return (
     <Paper elevation={2} sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Toolbar */}
@@ -282,7 +290,7 @@ const CodeEditor = ({
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Typography variant="body2" color="text.secondary">
-              {filePath || "Untitled"}
+              {filePath || t("codeEditor.tabs.untitled")}
             </Typography>
             {isModified && (
               <Typography variant="body2" color="warning.main">
@@ -295,7 +303,7 @@ const CodeEditor = ({
           </Box>
 
           <Box sx={{ display: "flex", gap: 1 }}>
-            <Tooltip title="AI Assist (Ctrl+K)">
+            <Tooltip title={t("code.editor.aiAssist")}>
               <span>
                 <IconButton
                   size="small"
@@ -308,7 +316,7 @@ const CodeEditor = ({
               </span>
             </Tooltip>
 
-            <Tooltip title="Run Code">
+            <Tooltip title={t("codeEditor.card.runCode")}>
               <span>
                 <IconButton
                   size="small"
@@ -321,7 +329,7 @@ const CodeEditor = ({
               </span>
             </Tooltip>
 
-            <Tooltip title="Save (Ctrl+S)">
+            <Tooltip title={t("codeEditor.card.save")}>
               <span>
                 <IconButton
                   size="small"
@@ -340,7 +348,7 @@ const CodeEditor = ({
       {/* Error Alert */}
       {error && (
         <Alert severity="error" onClose={() => setError(null)} sx={{ m: 1 }}>
-          {error}
+          {errorText}
         </Alert>
       )}
 
@@ -362,7 +370,7 @@ const CodeEditor = ({
                 height: "100%",
               }}
             >
-              <Typography color="text.secondary">Loading editor...</Typography>
+              <Typography color="text.secondary">{t("code.editor.loading")}</Typography>
             </Box>
           }
         />

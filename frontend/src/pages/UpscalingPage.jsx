@@ -49,6 +49,7 @@ import * as upscalingService from "../api/upscalingService";
 import { formatUiError } from "../utils/uiError";
 import { enablePlugin, listPlugins, startPlugin } from "../api/pluginsService";
 import lazyWithReload from "../utils/lazyWithReload";
+import { translate, useUiTranslation } from "../i18n";
 
 const UpscalingModelsModal = lazyWithReload(() =>
   import("../components/modals/UpscalingModelsModal")
@@ -65,8 +66,8 @@ const VIDEO_EXTENSIONS = ["mp4", "mkv", "avi", "mov", "webm", "flv", "wmv"];
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "bmp", "tif", "tiff"];
 
 // null means "whatever the model's native factor is" — the plugin decides.
-const IMAGE_SCALES = [
-  { value: "", label: "Model default" },
+const imageScales = () => [
+  { value: "", label: translate("upscaling.settings.modelDefaultScale") },
   { value: "2", label: "2x" },
   { value: "3", label: "3x" },
   { value: "4", label: "4x" },
@@ -77,6 +78,7 @@ const isVideoFile = (name) => VIDEO_EXTENSIONS.includes(extensionOf(name));
 const isImageFile = (name) => IMAGE_EXTENSIONS.includes(extensionOf(name));
 
 const UpscalingPage = ({ embedded = false }) => {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const pollingRef = useRef(null);
@@ -193,7 +195,7 @@ const UpscalingPage = ({ embedded = false }) => {
       const started = await startPlugin("upscaling");
       // A start held back by the GPU gate or a cooldown answers 200 with success=false.
       if (started?.data?.success === false) {
-        setError(`The upscaling service did not start: ${started.message || started.data.error || "try again shortly"}`);
+        setError(t("upscaling.service.startRefused", { reason: started.message || started.data.error || t("upscaling.service.tryAgainShortly") }));
         return;
       }
       const deadline = Date.now() + 60000;
@@ -203,10 +205,10 @@ const UpscalingPage = ({ embedded = false }) => {
         up = await checkService();
       }
       if (!up) {
-        setError("The upscaling service did not answer within a minute. Its log is on the Plugins page.");
+        setError(t("upscaling.service.startTimeout"));
       }
     } catch (e) {
-      setError(`Could not start the upscaling service: ${e.message || "unknown error"}`);
+      setError(t("upscaling.service.startFailed", { error: e.message || t("upscaling.errors.unknown") }));
     } finally {
       setStartingService(false);
     }
@@ -242,7 +244,7 @@ const UpscalingPage = ({ embedded = false }) => {
         }
       } catch (e) {
         // Without the list the model picker is empty; say why.
-        setError(`Upscaling models could not be loaded: ${formatUiError(e) || "the request failed"}.`);
+        setError(t("upscaling.errors.modelsLoadFailed", { error: formatUiError(e) || t("upscaling.errors.requestFailed") }));
       }
     },
     [serviceAvailable],
@@ -368,7 +370,7 @@ const UpscalingPage = ({ embedded = false }) => {
         const allowed = (mediaKind === "image" ? IMAGE_EXTENSIONS : VIDEO_EXTENSIONS)
           .map((ext) => `.${ext}`)
           .join(", ");
-        setError(`Skipped ${rejected} unsupported file(s). Allowed: ${allowed}`);
+        setError(t("upscaling.errors.unsupportedSkipped", { count: rejected, allowed }));
       }
     },
     [acceptsFile, mediaKind],
@@ -442,7 +444,7 @@ const UpscalingPage = ({ embedded = false }) => {
         });
         succeeded += 1;
       } catch (e) {
-        failures.push(`${file.name}: ${e.message || "failed"}`);
+        failures.push(`${file.name}: ${e.message || t("upscaling.errors.failedReason")}`);
       }
     }
 
@@ -450,12 +452,12 @@ const UpscalingPage = ({ embedded = false }) => {
     if (succeeded > 0) {
       setSuccess(
         total === 1
-          ? `Upscale job submitted for "${selectedFiles[0].name}"`
-          : `Submitted ${succeeded} of ${total} upscale jobs`
+          ? t("upscaling.messages.jobSubmitted", { name: selectedFiles[0].name })
+          : t("upscaling.messages.jobsSubmitted", { submitted: succeeded, total })
       );
     }
     if (failures.length > 0) {
-      setError(`Failed to submit: ${failures.join("; ")}`);
+      setError(t("upscaling.errors.submitFailed", { details: failures.join("; ") }));
     }
     setSelectedFiles([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -497,21 +499,21 @@ const UpscalingPage = ({ embedded = false }) => {
             url: `${API_BASE}/upscaling/output/image/${encodeURIComponent(data.output_file)}`,
           };
         });
-        setSuccess(`Upscaled "${file.name}"`);
+        setSuccess(t("upscaling.messages.imageUpscaled", { name: file.name }));
         setSelectedFiles([]);
       } else {
         const res = await upscalingService.upscaleImages(selectedFiles, options);
         const data = res.data || res;
-        setSuccess(`Queued ${data.queued ?? selectedFiles.length} images for upscaling`);
+        setSuccess(t("upscaling.messages.imagesQueued", { count: data.queued ?? selectedFiles.length }));
         if (data.rejected?.length > 0) {
-          setError(`Skipped: ${data.rejected.join("; ")}`);
+          setError(t("upscaling.errors.skipped", { details: data.rejected.join("; ") }));
         }
         setSelectedFiles([]);
         await Promise.all([fetchJobs(), refreshHealth()]);
         startPolling();
       }
     } catch (e) {
-      setError(e.message || "Image upscale failed");
+      setError(e.message || t("upscaling.errors.imageFailed"));
     } finally {
       setUploadProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -540,7 +542,7 @@ const UpscalingPage = ({ embedded = false }) => {
       await upscalingService.cancelJob(jobId);
       await fetchJobs();
     } catch (e) {
-      setError(`Cancel failed: ${formatUiError(e) || "the request failed"}. The job may still be running.`);
+      setError(t("upscaling.errors.cancelFailed", { error: formatUiError(e) || t("upscaling.errors.requestFailed") }));
     }
   };
 
@@ -550,7 +552,7 @@ const UpscalingPage = ({ embedded = false }) => {
       await upscalingService.clearFinishedJobs();
       await fetchJobs();
     } catch (e) {
-      setError(`Clearing finished jobs failed: ${formatUiError(e) || "the request failed"}.`);
+      setError(t("upscaling.errors.clearFailed", { error: formatUiError(e) || t("upscaling.errors.requestFailed") }));
     }
   };
 
@@ -585,7 +587,7 @@ const UpscalingPage = ({ embedded = false }) => {
       setPreviewUpscaledUrl(upscaledUrl);
     } catch (err) {
       console.error(err);
-      setError(`Preview failed: ${err.message}`);
+      setError(t("upscaling.errors.previewFailed", { error: err.message }));
     } finally {
       setIsPreviewing(false);
     }
@@ -618,22 +620,29 @@ const UpscalingPage = ({ embedded = false }) => {
     return m > 0 ? `${m}m ${s}s` : `${s}s`;
   };
 
-  const gpu = serviceHealth?.gpu || "Unknown";
+  const gpu = serviceHealth?.gpu || t("upscaling.gpu.unknown");
   const vramUsed = serviceHealth?.vram_used_mb || 0;
   const vramTotal = serviceHealth?.vram_total_mb || 0;
   const modelLoaded = serviceHealth?.model_loaded;
 
   const isImageMode = mediaKind === "image";
+  const upscaleAction = selectedFiles.length > 1
+    ? isImageMode
+      ? t("upscaling.submit.upscaleImages", { count: selectedFiles.length })
+      : t("upscaling.submit.upscaleVideos", { count: selectedFiles.length })
+    : isImageMode
+      ? t("upscaling.submit.upscaleImage")
+      : t("upscaling.submit.upscaleVideo");
   const canSubmit = !!serviceAvailable || (serviceAvailable === false && !!startsOnJob);
 
   const Wrapper = embedded ? React.Fragment : PageLayout;
   const wrapperProps = embedded ? {} : {
-    title: "Upscaling",
+    title: t("upscaling.page.title"),
     variant: "standard",
     actions: (
       <Stack direction="row" spacing={1} alignItems="center">
         <Button size="small" startIcon={<BackIcon />} onClick={() => navigate("/video")}>
-          Video Gen
+          {t("upscaling.page.videoGen")}
         </Button>
         <IconButton size="small" onClick={() => { checkService(); fetchJobs(); }}>
           <RefreshIcon />
@@ -657,15 +666,15 @@ const UpscalingPage = ({ embedded = false }) => {
               disabled={startingService || isUploading}
               startIcon={startingService ? <CircularProgress size={14} color="inherit" /> : null}
             >
-              {startingService ? "Starting..." : "Start now"}
+              {startingService ? t("upscaling.service.starting") : t("upscaling.service.startNow")}
             </Button>
           }
         >
           {startsOnJob
-            ? "The upscaling service is stopped. It starts by itself when you upscale something, or you can start it now."
+            ? t("upscaling.service.stoppedAutostart")
             : startPolicyWhyNot === "switched_off"
-              ? "Upscaling is switched off on the Plugins page. Start it here to upscale."
-              : "The upscaling service is stopped. Start it to upscale."}
+              ? t("upscaling.service.switchedOff")
+              : t("upscaling.service.stopped")}
         </Alert>
       )}
 
@@ -687,7 +696,7 @@ const UpscalingPage = ({ embedded = false }) => {
           <Card sx={{ boxShadow: 2, borderRadius: 2, mb: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                {isImageMode ? "Upload Images" : "Upload Video"}
+                {isImageMode ? t("upscaling.upload.imagesTitle") : t("upscaling.upload.videoTitle")}
               </Typography>
 
               <ToggleButtonGroup
@@ -700,11 +709,11 @@ const UpscalingPage = ({ embedded = false }) => {
               >
                 <ToggleButton value="video">
                   <MovieIcon fontSize="small" sx={{ mr: 1 }} />
-                  Video
+                  {t("upscaling.upload.video")}
                 </ToggleButton>
                 <ToggleButton value="image">
                   <ImageIcon fontSize="small" sx={{ mr: 1 }} />
-                  Image
+                  {t("upscaling.upload.image")}
                 </ToggleButton>
               </ToggleButtonGroup>
 
@@ -739,17 +748,17 @@ const UpscalingPage = ({ embedded = false }) => {
                 {selectedFiles.length === 0 ? (
                   <Typography variant="body1" color="text.secondary">
                     {isImageMode
-                      ? "Drag & drop images here, or click to browse"
-                      : "Drag & drop videos here, or click to browse"}
+                      ? t("upscaling.upload.dropImages")
+                      : t("upscaling.upload.dropVideos")}
                   </Typography>
                 ) : (
                   <Stack spacing={0.5} sx={{ mt: 0.5 }} onClick={(e) => e.stopPropagation()}>
                     <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 0.5 }}>
                       <Typography variant="body2" color="text.secondary">
-                        {selectedFiles.length} file{selectedFiles.length === 1 ? "" : "s"} ready
+                        {t("upscaling.upload.filesReady", { count: selectedFiles.length })}
                       </Typography>
                       <Button size="small" onClick={handleClearFiles} disabled={isUploading}>
-                        Clear all
+                        {t("upscaling.upload.clearAll")}
                       </Button>
                     </Stack>
                     {selectedFiles.map((f, i) => (
@@ -808,10 +817,10 @@ const UpscalingPage = ({ embedded = false }) => {
               <Stack spacing={2}>
                 <Stack direction="row" spacing={1} alignItems="flex-start">
                   <FormControl fullWidth size="small" sx={{ flex: 1 }}>
-                    <InputLabel>Model</InputLabel>
+                    <InputLabel>{t("upscaling.settings.model")}</InputLabel>
                     <Select
                       value={selectedModel}
-                      label="Model"
+                      label={t("upscaling.settings.model")}
                       onChange={(e) => setSelectedModel(e.target.value)}
                     >
                       {models.downloaded?.map((m) => (
@@ -828,7 +837,7 @@ const UpscalingPage = ({ embedded = false }) => {
                     disabled={!serviceAvailable}
                     sx={{ mt: 0.5, flexShrink: 0, whiteSpace: "nowrap" }}
                   >
-                    Manage Upscaling Models
+                    {t("upscaling.settings.manageModels")}
                   </Button>
                 </Stack>
 
@@ -844,28 +853,28 @@ const UpscalingPage = ({ embedded = false }) => {
                           onClick={() => openUpscalingModels(modelToInstall.name)}
                           sx={{ whiteSpace: "nowrap" }}
                         >
-                          Install
+                          {t("upscaling.settings.install")}
                         </Button>
                       )
                     }
                   >
                     {modelToInstall
-                      ? `No upscaling model is installed. Install ${modelToInstall.name}${
-                          modelToInstall.size_mb ? ` (${modelToInstall.size_mb} MB)` : ""
-                        } to upscale; upscaling never downloads one on its own.`
-                      : "No upscaling model is installed. Add one in Manage Upscaling Models to upscale."}
+                      ? modelToInstall.size_mb
+                        ? t("upscaling.settings.noModelInstallSized", { model: modelToInstall.name, size: modelToInstall.size_mb })
+                        : t("upscaling.settings.noModelInstall", { model: modelToInstall.name })
+                      : t("upscaling.settings.noModel")}
                   </Alert>
                 )}
 
                 {isImageMode ? (
                   <FormControl fullWidth size="small">
-                    <InputLabel>Output Scale</InputLabel>
+                    <InputLabel>{t("upscaling.settings.outputScale")}</InputLabel>
                     <Select
                       value={imageScale}
-                      label="Output Scale"
+                      label={t("upscaling.settings.outputScale")}
                       onChange={(e) => setImageScale(e.target.value)}
                     >
-                      {IMAGE_SCALES.map((option) => (
+                      {imageScales().map((option) => (
                         <MenuItem key={option.value || "native"} value={option.value}>
                           {option.label}
                         </MenuItem>
@@ -875,7 +884,7 @@ const UpscalingPage = ({ embedded = false }) => {
                 ) : (
                   <Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Target Resolution
+                      {t("upscaling.settings.targetResolution")}
                     </Typography>
                     <ToggleButtonGroup
                       value={targetResolution}
@@ -903,9 +912,9 @@ const UpscalingPage = ({ embedded = false }) => {
                   }
                   label={
                     <Stack>
-                      <Typography variant="body2">Two-Pass Mode</Typography>
+                      <Typography variant="body2">{t("upscaling.settings.twoPass")}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Runs model twice for higher quality (slower)
+                        {t("upscaling.settings.twoPassHelp")}
                       </Typography>
                     </Stack>
                   }
@@ -921,9 +930,9 @@ const UpscalingPage = ({ embedded = false }) => {
                   }
                   label={
                     <Stack>
-                      <Typography variant="body2">Face Enhancement</Typography>
+                      <Typography variant="body2">{t("upscaling.settings.faceEnhance")}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        Restores faces using GFPGAN
+                        {t("upscaling.settings.faceEnhanceHelp")}
                       </Typography>
                     </Stack>
                   }
@@ -940,9 +949,9 @@ const UpscalingPage = ({ embedded = false }) => {
                     }
                     label={
                       <Stack>
-                        <Typography variant="body2">Double Framerate</Typography>
+                        <Typography variant="body2">{t("upscaling.settings.doubleFps")}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Interpolates frames for smoother motion (slower)
+                          {t("upscaling.settings.doubleFpsHelp")}
                         </Typography>
                       </Stack>
                     }
@@ -952,7 +961,7 @@ const UpscalingPage = ({ embedded = false }) => {
                 <Box>
                   <Stack direction="row" justifyContent="space-between">
                     <Typography variant="body2" color="text.secondary">
-                      Sharpening
+                      {t("upscaling.settings.sharpening")}
                     </Typography>
                     <Typography variant="body2">{sharpen.toFixed(1)}</Typography>
                   </Stack>
@@ -969,7 +978,7 @@ const UpscalingPage = ({ embedded = false }) => {
                 <Box>
                   <Stack direction="row" justifyContent="space-between">
                     <Typography variant="body2" color="text.secondary">
-                      Denoising Pre-pass
+                      {t("upscaling.settings.denoise")}
                     </Typography>
                     <Typography variant="body2">{denoiseStrength.toFixed(1)}</Typography>
                   </Stack>
@@ -994,13 +1003,13 @@ const UpscalingPage = ({ embedded = false }) => {
                 >
                   {isUploading
                     ? serviceAvailable === false && uploadProgress?.current === 1
-                      ? "Starting the upscaling service..."
+                      ? t("upscaling.submit.startingService")
                       : uploadProgress
-                      ? `Uploading ${uploadProgress.current}/${uploadProgress.total}...`
-                      : "Uploading..."
-                    : selectedFiles.length > 1
-                      ? `Upscale ${selectedFiles.length} ${isImageMode ? "Images" : "Videos"}${twoPass ? " (2-Pass)" : ""}`
-                      : `Upscale ${isImageMode ? "Image" : "Video"}${twoPass ? " (2-Pass)" : ""}`}
+                      ? t("upscaling.submit.uploadingProgress", { current: uploadProgress.current, total: uploadProgress.total })
+                      : t("upscaling.submit.uploading")
+                    : twoPass
+                      ? t("upscaling.submit.twoPass", { action: upscaleAction })
+                      : upscaleAction}
                 </Button>
               </Stack>
             </CardContent>
@@ -1011,7 +1020,7 @@ const UpscalingPage = ({ embedded = false }) => {
             <Card sx={{ boxShadow: 2, borderRadius: 2 }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                  GPU Status
+                  {t("upscaling.gpu.title")}
                 </Typography>
                 <Stack spacing={1}>
                   <Stack direction="row" justifyContent="space-between">
@@ -1030,13 +1039,13 @@ const UpscalingPage = ({ embedded = false }) => {
                     sx={{ height: 6, borderRadius: 1 }}
                   />
                   <Stack direction="row" justifyContent="space-between">
-                    <Typography variant="body2" color="text.secondary">Active Model</Typography>
-                    <Typography variant="body2">{modelLoaded || "None"}</Typography>
+                    <Typography variant="body2" color="text.secondary">{t("upscaling.gpu.activeModel")}</Typography>
+                    <Typography variant="body2">{modelLoaded || t("upscaling.gpu.none")}</Typography>
                   </Stack>
                   <Stack direction="row" justifyContent="space-between">
                     <Typography variant="body2" color="text.secondary">torch.compile</Typography>
                     <Chip
-                      label={serviceHealth.compile_enabled ? "Enabled" : "Disabled"}
+                      label={serviceHealth.compile_enabled ? t("upscaling.gpu.enabled") : t("upscaling.gpu.disabled")}
                       size="small"
                       color={serviceHealth.compile_enabled ? "success" : "default"}
                     />
@@ -1063,21 +1072,21 @@ const UpscalingPage = ({ embedded = false }) => {
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <Typography variant="subtitle2" align="center" gutterBottom>
-                      Original
+                      {t("upscaling.result.original")}
                     </Typography>
                     <img
                       src={imageResult.originalUrl}
-                      alt="Original"
+                      alt={t("upscaling.result.original")}
                       style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
                     />
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="subtitle2" align="center" gutterBottom>
-                      Upscaled
+                      {t("upscaling.result.upscaled")}
                     </Typography>
                     <img
                       src={imageResult.url}
-                      alt="Upscaled"
+                      alt={t("upscaling.result.upscaled")}
                       style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
                     />
                   </Grid>
@@ -1091,7 +1100,7 @@ const UpscalingPage = ({ embedded = false }) => {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Open full size
+                    {t("upscaling.result.openFullSize")}
                   </Button>
                   <Button
                     size="small"
@@ -1100,7 +1109,7 @@ const UpscalingPage = ({ embedded = false }) => {
                     href={imageResult.url}
                     download
                   >
-                    Download
+                    {t("upscaling.result.download")}
                   </Button>
                 </Stack>
               </CardContent>
@@ -1112,7 +1121,7 @@ const UpscalingPage = ({ embedded = false }) => {
               <CardContent sx={{ p: 3 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Preview Upscale
+                    {t("upscaling.preview.title")}
                   </Typography>
                   <IconButton size="small" onClick={closePreview}>
                     <CloseIcon />
@@ -1122,7 +1131,7 @@ const UpscalingPage = ({ embedded = false }) => {
                 {!previewUpscaledUrl ? (
                   <Box textAlign="center">
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Seek to a frame and click "Generate Preview" to see the upscaled frame.
+                      {t("upscaling.preview.hint")}
                     </Typography>
                     <Box
                       sx={{
@@ -1144,7 +1153,7 @@ const UpscalingPage = ({ embedded = false }) => {
                         onClick={handleGeneratePreview}
                         disabled={isPreviewing || startingService || !canSubmit || noModelInstalled}
                       >
-                        {isPreviewing ? "Generating..." : "Generate Preview"}
+                        {isPreviewing ? t("upscaling.preview.generating") : t("upscaling.preview.generate")}
                       </Button>
                     </Box>
                   </Box>
@@ -1153,28 +1162,28 @@ const UpscalingPage = ({ embedded = false }) => {
                     <Grid container spacing={2}>
                       <Grid item xs={6}>
                         <Typography variant="subtitle2" align="center" gutterBottom>
-                          Original Frame
+                          {t("upscaling.preview.originalFrame")}
                         </Typography>
                         <img
                           src={previewOriginalUrl}
-                          alt="Original"
+                          alt={t("upscaling.result.original")}
                           style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
                         />
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="subtitle2" align="center" gutterBottom>
-                          Upscaled Frame
+                          {t("upscaling.preview.upscaledFrame")}
                         </Typography>
                         <img
                           src={previewUpscaledUrl}
-                          alt="Upscaled"
+                          alt={t("upscaling.result.upscaled")}
                           style={{ width: "100%", height: "auto", display: "block", borderRadius: "8px" }}
                         />
                       </Grid>
                     </Grid>
                     <Box sx={{ mt: 2, textAlign: "center" }}>
                       <Button onClick={() => setPreviewUpscaledUrl(null)}>
-                        Back to Video
+                        {t("upscaling.preview.backToVideo")}
                       </Button>
                     </Box>
                   </Box>
@@ -1187,7 +1196,7 @@ const UpscalingPage = ({ embedded = false }) => {
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Upscale Jobs
+                  {t("upscaling.jobs.title")}
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Button
@@ -1195,7 +1204,7 @@ const UpscalingPage = ({ embedded = false }) => {
                     onClick={handleClearFinished}
                     disabled={finishedCount === 0}
                   >
-                    Clear finished{finishedCount > 0 ? ` (${finishedCount})` : ""}
+                    {finishedCount > 0 ? t("upscaling.jobs.clearFinishedCount", { count: finishedCount }) : t("upscaling.jobs.clearFinished")}
                   </Button>
                   <IconButton size="small" onClick={fetchJobs}>
                     <RefreshIcon />
@@ -1205,7 +1214,7 @@ const UpscalingPage = ({ embedded = false }) => {
 
               {jobs.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", py: 4 }}>
-                  No upscale jobs yet. Upload a video or a batch of images to get started.
+                  {t("upscaling.jobs.empty")}
                 </Typography>
               ) : (
                 <Stack spacing={2}>
@@ -1220,7 +1229,7 @@ const UpscalingPage = ({ embedded = false }) => {
                           <Box sx={{ flex: 1, minWidth: 0 }}>
                             <Typography variant="subtitle2" noWrap>
                               {isBatch
-                                ? `${job.item_count || total} image${(job.item_count || total) === 1 ? "" : "s"}`
+                                ? t("images.shared.imageCount", { count: job.item_count || total })
                                 : job.input_path?.split("/").pop() || job.job_id}
                             </Typography>
                             <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: "wrap" }}>
@@ -1262,7 +1271,7 @@ const UpscalingPage = ({ embedded = false }) => {
                           <Box sx={{ mt: 1.5 }}>
                             <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
                               <Typography variant="caption" color="text.secondary">
-                                {isBatch ? "Image" : "Frame"} {done} / {total || "?"}
+                                {isBatch ? t("upscaling.jobs.imageProgress", { done, total: total || "?" }) : t("upscaling.jobs.frameProgress", { done, total: total || "?" })}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
                                 {total > 0 ? `${Math.round((done / total) * 100)}%` : ""}
@@ -1312,7 +1321,7 @@ const UpscalingPage = ({ embedded = false }) => {
                                 window.open(`${API_BASE}/upscaling/output/${encodeURIComponent(filename)}`, "_blank");
                               }}
                             >
-                              Play
+                              {t("upscaling.jobs.play")}
                             </Button>
                             <Button
                               size="small"
@@ -1321,7 +1330,7 @@ const UpscalingPage = ({ embedded = false }) => {
                               href={`${API_BASE}/upscaling/output/${encodeURIComponent(job.output_path.split("/").pop())}`}
                               download
                             >
-                              Download
+                              {t("upscaling.result.download")}
                             </Button>
                           </>
                         )}
@@ -1332,7 +1341,7 @@ const UpscalingPage = ({ embedded = false }) => {
                             startIcon={<CancelIcon />}
                             onClick={() => handleCancelJob(job.job_id)}
                           >
-                            Cancel
+                            {t("upscaling.jobs.cancel")}
                           </Button>
                         )}
                       </CardActions>

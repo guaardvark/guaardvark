@@ -20,6 +20,7 @@ import { generateFileFromChat } from "../../api/filegenService";
 import UnifiedChatService from "../../api/unifiedChatService";
 import StreamingMessage from "../chat/StreamingMessage";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 const SemanticSearchCard = React.forwardRef(
   (
@@ -33,6 +34,7 @@ const SemanticSearchCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const [messages, setMessages] = useState([]);
     const [inputText, setInputText] = useState("");
     const [isSending, setIsSending] = useState(false);
@@ -108,7 +110,9 @@ const SemanticSearchCard = React.forwardRef(
         return {
           isCSVRequest: true,
           filename: filename,
-          description: `Generate CSV file based on: "${message.substring(0, 100)}${message.length > 100 ? '...' : ''}"`
+          description: t("dashboard.chat.csvDescription", {
+            excerpt: `${message.substring(0, 100)}${message.length > 100 ? '...' : ''}`,
+          }),
         };
       }
       
@@ -127,7 +131,7 @@ const SemanticSearchCard = React.forwardRef(
         }
       } catch (err) {
         console.error("SemanticSearchCard: Failed to load chat history:", err);
-        setError("Failed to load chat history");
+        setError(t("dashboard.chat.historyFailed"));
         setMessages([]);
       } finally {
         setIsLoading(false);
@@ -194,7 +198,7 @@ const SemanticSearchCard = React.forwardRef(
         const successMessage = {
           id: `success_${Date.now()}`,
           role: "system",
-          content: `File "${fileData.filename}" generated successfully! You can download it from the outputs folder.`,
+          content: t("dashboard.chat.fileGenerated", { filename: fileData.filename }),
           timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, successMessage]);
@@ -206,7 +210,7 @@ const SemanticSearchCard = React.forwardRef(
         const errorMessage = {
           id: `error_${Date.now()}`,
           role: "system",
-          content: `File generation failed: ${error.message}`,
+          content: t("dashboard.chat.fileGenFailed", { message: error.message }),
           timestamp: new Date().toISOString(),
         };
         setMessages((prev) => [...prev, errorMessage]);
@@ -248,7 +252,7 @@ const SemanticSearchCard = React.forwardRef(
 
       if (!unifiedChatService) {
         console.error("SemanticSearchCard: UnifiedChatService not available (socket not connected)");
-        setError("Chat service not connected. Please wait and try again.");
+        setError(t("dashboard.chat.notConnected"));
         return;
       }
 
@@ -266,13 +270,13 @@ const SemanticSearchCard = React.forwardRef(
         setIsStreamingMessage(false);
         setIsSending(false);
 
-        const errorText = error.message || "Failed to send message";
+        const errorText = error.message || t("dashboard.chat.sendFailed");
         setMessages((prev) => [
           ...prev,
           {
             id: `error_${Date.now()}`,
             role: "system",
-            content: `Error: ${errorText}`,
+            content: t("dashboard.chat.errorMessage", { message: errorText }),
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -290,7 +294,7 @@ const SemanticSearchCard = React.forwardRef(
     const formatMessageTime = (timestamp) => {
       if (!timestamp) return "";
       const date = new Date(timestamp);
-      return date.toLocaleTimeString([], {
+      return date.toLocaleTimeString(uiLocale(), {
         hour: "2-digit",
         minute: "2-digit",
       });
@@ -311,19 +315,19 @@ const SemanticSearchCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="Chat"
+        title={t("dashboard.chat.title")}
         minimizedContent={
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", p: 0.5 }}>
             <ChatIcon sx={{ mr: 1, fontSize: "1rem" }} />
             <Typography variant="body2">
-              {messages.length > 0 ? `${messages.length} messages` : "No messages"}
+              {messages.length > 0 ? t("dashboard.chat.messageCount", { count: messages.length }) : t("dashboard.chat.noMessages")}
             </Typography>
           </Box>
         }
         {...props}
         contextMenuActions={[
-          { label: "Reload history", onClick: loadHistory },
-          isSending && { label: "Stop generating", onClick: handleStop },
+          { label: t("dashboard.chat.reloadHistory"), onClick: loadHistory },
+          isSending && { label: t("dashboard.chat.stopGenerating"), onClick: handleStop },
         ]}
       >
             {error && (
@@ -382,7 +386,7 @@ const SemanticSearchCard = React.forwardRef(
                               : "secondary.main",
                         }}
                       >
-                        {message.role === "user" ? "You" : message.role === "system" ? "System" : "Assistant"}
+                        {message.role === "user" ? t("dashboard.chat.roles.user") : message.role === "system" ? t("dashboard.chat.roles.system") : t("dashboard.chat.roles.assistant")}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {formatMessageTime(message.timestamp)}
@@ -446,7 +450,7 @@ const SemanticSearchCard = React.forwardRef(
                   py: 2,
                 }}
               >
-                No messages yet. Start a conversation!
+                {t("dashboard.chat.empty")}
               </Typography>
             )}
 
@@ -465,7 +469,7 @@ const SemanticSearchCard = React.forwardRef(
               <TextField
                 ref={inputRef}
                 size="small"
-                placeholder="Type a message..."
+                placeholder={t("dashboard.chat.placeholder")}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}

@@ -43,30 +43,32 @@ import copyText from "../utils/copyText";
 import { executeAgent, getAgents, resetAgent, toggleAgent } from "../api/agentsService";
 import { createPlan } from "../api/orchestratorService";
 import { useStatus } from "../contexts/StatusContext";
+import { translate, useUiTranslation } from "../i18n";
 
-const GROUPS = [
+// A function, so the labels are worded in the interface language when the groups are built.
+const agentGroups = () => [
   {
     key: "create",
-    label: "Create",
-    help: "Agents that write pages, code and data files.",
+    label: translate("agents.groups.create"),
+    help: translate("agents.groups.createHelp"),
     order: ["content_creator", "code_assistant", "data_analyst"],
   },
   {
     key: "web",
-    label: "Web",
-    help: "Agents that search, read and drive web pages. They need web access on in Settings.",
+    label: translate("agents.groups.web"),
+    help: translate("agents.groups.webHelp"),
     order: ["research_agent", "browser_automation"],
   },
   {
     key: "computer",
-    label: "This computer",
-    help: "Agents that act on this machine: the agent's own screen, the desktop and media playback.",
+    label: translate("agents.groups.computer"),
+    help: translate("agents.groups.computerHelp"),
     order: ["agent_vision_control", "desktop_automation", "media_control"],
   },
   {
     key: "routing",
-    label: "Routing",
-    help: "General Assistant takes what no specialist matches; Task Orchestrator splits a multi-step request across agents.",
+    label: translate("agents.groups.routing"),
+    help: translate("agents.groups.routingHelp"),
     order: ["general_assistant", "orchestrator_agent"],
   },
 ];
@@ -74,8 +76,9 @@ const GROUPS = [
 const isOrchestrator = (agent) => agent?.agent_type === "orchestrator";
 
 function groupAgents(agents) {
-  const known = new Set(GROUPS.map((g) => g.key));
-  const groups = GROUPS.map((group) => ({
+  const definitions = agentGroups();
+  const known = new Set(definitions.map((g) => g.key));
+  const groups = definitions.map((group) => ({
     ...group,
     agents: agents
       .filter((a) => a.group === group.key)
@@ -86,7 +89,7 @@ function groupAgents(agents) {
       }),
   }));
   const other = agents.filter((a) => !known.has(a.group));
-  if (other.length) groups.push({ key: "other", label: "Other", help: "", agents: other });
+  if (other.length) groups.push({ key: "other", label: translate("agents.groups.other"), help: "", agents: other });
   return groups.filter((g) => g.agents.length > 0);
 }
 
@@ -121,19 +124,21 @@ const TONE_COLOR = { ok: "success.main", warn: "warning.main", off: "text.disabl
 const HEAD_CELL = { fontWeight: 700, fontSize: "0.72rem", whiteSpace: "nowrap" };
 
 /** Every agent in one table, in the same group order as the tiles. */
-const AgentsTable = ({ groups, onOpen, onContextMenu }) => (
+const AgentsTable = ({ groups, onOpen, onContextMenu }) => {
+  const { t } = useUiTranslation();
+  return (
   <TableContainer component={Paper} variant="outlined">
-    <Table size="small" aria-label="Agents">
+    <Table size="small" aria-label={t("agents.table.label")}>
       <TableHead>
         <TableRow>
-          <TableCell sx={HEAD_CELL}>Agent</TableCell>
-          <TableCell sx={HEAD_CELL}>Group</TableCell>
-          <TableCell sx={HEAD_CELL}>What it does</TableCell>
-          <TableCell sx={HEAD_CELL}>Status</TableCell>
-          <TableCell sx={HEAD_CELL} align="right">Tools</TableCell>
-          <TableCell sx={HEAD_CELL} align="right">Max steps</TableCell>
-          <TableCell sx={HEAD_CELL}>Model</TableCell>
-          <TableCell sx={HEAD_CELL}>Edited</TableCell>
+          <TableCell sx={HEAD_CELL}>{t("agents.table.agent")}</TableCell>
+          <TableCell sx={HEAD_CELL}>{t("agents.table.group")}</TableCell>
+          <TableCell sx={HEAD_CELL}>{t("agents.table.whatItDoes")}</TableCell>
+          <TableCell sx={HEAD_CELL}>{t("agents.table.status")}</TableCell>
+          <TableCell sx={HEAD_CELL} align="right">{t("agents.table.tools")}</TableCell>
+          <TableCell sx={HEAD_CELL} align="right">{t("agents.table.maxSteps")}</TableCell>
+          <TableCell sx={HEAD_CELL}>{t("agents.table.model")}</TableCell>
+          <TableCell sx={HEAD_CELL}>{t("agents.table.edited")}</TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -185,7 +190,7 @@ const AgentsTable = ({ groups, onOpen, onContextMenu }) => (
                 <TableCell align="right">{isOrchestrator(agent) ? "—" : tools}</TableCell>
                 <TableCell align="right">{isOrchestrator(agent) ? "—" : agent.max_iterations}</TableCell>
                 <TableCell sx={{ color: agent.model ? "text.primary" : "text.secondary", whiteSpace: "nowrap" }}>
-                  {agent.model || "Chat model"}
+                  {agent.model || t("agents.table.chatModel")}
                 </TableCell>
                 <TableCell sx={{ color: "text.secondary" }}>{edits.length ? edits.join(", ") : "—"}</TableCell>
               </TableRow>
@@ -195,9 +200,11 @@ const AgentsTable = ({ groups, onOpen, onContextMenu }) => (
       </TableBody>
     </Table>
   </TableContainer>
-);
+  );
+};
 
 const AgentsPage = () => {
+  const { t, language } = useUiTranslation();
   const { activeModel, isLoadingModel, modelError } = useStatus();
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -235,10 +242,10 @@ const AgentsPage = () => {
       if (response?.success) {
         setAgents(response.agents || []);
       } else {
-        setError(response?.error || "Failed to load agents");
+        setError(response?.error || t("agents.page.loadFailed"));
       }
     } catch (err) {
-      setError(err?.message || "Failed to load agents");
+      setError(err?.message || t("agents.page.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -248,7 +255,7 @@ const AgentsPage = () => {
     loadAgents();
   }, [loadAgents]);
 
-  const groups = useMemo(() => groupAgents(agents), [agents]);
+  const groups = useMemo(() => groupAgents(agents), [agents, language]);
   const editing = agents.find((a) => a.id === editingId) || null;
 
   const replaceAgent = useCallback((updated) => {
@@ -265,12 +272,16 @@ const AgentsPage = () => {
         if (res?.success) {
           if (res.agent) replaceAgent(res.agent);
           else setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, enabled: res.enabled } : a)));
-          notify(`${agent.name} ${res.enabled ? "enabled" : "disabled"}`);
+          notify(
+            res.enabled
+              ? t("agents.page.enabled", { name: agent.name })
+              : t("agents.page.disabled", { name: agent.name }),
+          );
         } else {
-          notifyError(res?.error || "Toggle failed");
+          notifyError(res?.error || t("agents.page.toggleFailed"));
         }
       } catch (err) {
-        notifyError(err?.message || "Toggle failed");
+        notifyError(err?.message || t("agents.page.toggleFailed"));
       }
     },
     [notify, notifyError, replaceAgent],
@@ -279,8 +290,8 @@ const AgentsPage = () => {
   const copyId = useCallback(
     async (agent) => {
       // copyText falls back to execCommand: navigator.clipboard is absent over plain http on the LAN.
-      if (await copyText(agent.id)) notify(`Copied ${agent.id}`);
-      else notifyError("Could not copy to the clipboard");
+      if (await copyText(agent.id)) notify(t("agents.page.copied", { id: agent.id }));
+      else notifyError(t("agents.page.copyFailed"));
     },
     [notify, notifyError],
   );
@@ -292,13 +303,13 @@ const AgentsPage = () => {
       const res = await resetAgent(resetTarget.id);
       if (res?.success) {
         replaceAgent(res.agent);
-        notify(`${resetTarget.name} reset to default`);
+        notify(t("agents.reset.done", { name: resetTarget.name }));
         setResetTarget(null);
       } else {
-        notifyError(res?.error || "Reset failed");
+        notifyError(res?.error || t("agents.reset.failed"));
       }
     } catch (err) {
-      notifyError(err?.message || "Reset failed");
+      notifyError(err?.message || t("agents.reset.failed"));
     } finally {
       setResetting(false);
     }
@@ -317,7 +328,7 @@ const AgentsPage = () => {
     try {
       context = testContextJson?.trim() ? JSON.parse(testContextJson) : {};
     } catch (_e) {
-      setTestResult({ success: false, error: "Context must be valid JSON" });
+      setTestResult({ success: false, error: t("agents.test.invalidContext") });
       return;
     }
     setTestRunning(true);
@@ -329,7 +340,7 @@ const AgentsPage = () => {
         : await executeAgent({ agent_id: testAgent.id, message: testMessage, context });
       setTestResult(res);
     } catch (err) {
-      setTestResult({ success: false, error: err?.message || "Agent execution failed" });
+      setTestResult({ success: false, error: err?.message || t("agents.test.executionFailedError") });
     } finally {
       setTestRunning(false);
     }
@@ -341,12 +352,12 @@ const AgentsPage = () => {
     if (!agent) return [];
     const edits = agentEdits(agent);
     return [
-      { label: "Edit", onClick: () => setEditingId(agent.id) },
-      { label: "Test", onClick: () => openTest(agent) },
-      { label: agent.enabled ? "Disable" : "Enable", onClick: () => handleToggle(agent) },
-      { label: "Copy id", onClick: () => copyId(agent) },
+      { label: t("agents.actions.edit"), onClick: () => setEditingId(agent.id) },
+      { label: t("agents.actions.test"), onClick: () => openTest(agent) },
+      { label: agent.enabled ? t("agents.actions.disable") : t("agents.actions.enable"), onClick: () => handleToggle(agent) },
+      { label: t("agents.actions.copyId"), onClick: () => copyId(agent) },
       {
-        label: "Reset to default",
+        label: t("agents.actions.resetToDefault"),
         dividerBefore: true,
         disabled: edits.length === 0,
         onClick: () => setResetTarget(agent),
@@ -356,29 +367,29 @@ const AgentsPage = () => {
 
   return (
     <PageLayout
-      title="Agents"
+      title={t("agents.page.title")}
       variant="standard"
       actions={
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <ToggleButtonGroup value={view} exclusive onChange={changeView} size="small" aria-label="Agents view">
-            <ToggleButton value="tiles" aria-label="Tile view">
-              <Tooltip title="Tile view">
+          <ToggleButtonGroup value={view} exclusive onChange={changeView} size="small" aria-label={t("agents.page.viewLabel")}>
+            <ToggleButton value="tiles" aria-label={t("agents.page.tileView")}>
+              <Tooltip title={t("agents.page.tileView")}>
                 <ViewModule fontSize="small" />
               </Tooltip>
             </ToggleButton>
-            <ToggleButton value="table" aria-label="Table view">
-              <Tooltip title="Table view">
+            <ToggleButton value="table" aria-label={t("agents.page.tableView")}>
+              <Tooltip title={t("agents.page.tableView")}>
                 <ViewList fontSize="small" />
               </Tooltip>
             </ToggleButton>
           </ToggleButtonGroup>
           <ActionButton startIcon={<Refresh />} onClick={loadAgents} disabled={loading}>
-            Refresh
+            {t("common.refresh")}
           </ActionButton>
         </Box>
       }
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
+      activeModel={isLoadingModel ? t("common.loading") : modelError ? t("common.error") : activeModel}
     >
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -388,13 +399,13 @@ const AgentsPage = () => {
 
       {loading && agents.length === 0 ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <ContextualLoader loading message="Loading agents..." showProgress={false} inline />
+          <ContextualLoader loading message={t("agents.page.loading")} showProgress={false} inline />
         </Box>
       ) : agents.length === 0 ? (
         <EmptyState
           icon={<SmartToyOutlined />}
-          title="No agents found"
-          description="Agents will appear here once configured"
+          title={t("agents.page.emptyTitle")}
+          description={t("agents.page.emptyDescription")}
         />
       ) : view === "table" ? (
         <AgentsTable groups={groups} onOpen={(a) => setEditingId(a.id)} onContextMenu={(event, a) => menu.open(event, a)} />
@@ -428,7 +439,11 @@ const AgentsPage = () => {
         onClose={() => setEditingId(null)}
         onSaved={(updated, { reset } = {}) => {
           replaceAgent(updated);
-          notify(reset ? `${updated?.name || "Agent"} reset to default` : "Agent updated");
+          notify(
+            reset
+              ? t("agents.reset.done", { name: updated?.name || t("agents.page.unnamedAgent") })
+              : t("agents.page.updated"),
+          );
         }}
         onToggle={handleToggle}
         onTest={openTest}
@@ -444,21 +459,20 @@ const AgentsPage = () => {
       />
 
       <Dialog open={Boolean(testAgent)} onClose={() => setTestAgent(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Test {testAgent?.name}</DialogTitle>
+        <DialogTitle>{t("agents.test.title", { name: testAgent?.name })}</DialogTitle>
         <DialogContent>
           {isOrchestrator(testAgent) ? (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Shows the plan the orchestrator makes for this message; the steps are not run.
+              {t("agents.test.planOnly")}
             </Alert>
           ) : (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Run really runs the agent with this message, the same as asking in chat: it uses its tools and may create
-              files in Guaardvark&apos;s outputs folder.
+              {t("agents.test.realRun")}
             </Alert>
           )}
           <TextField
             fullWidth
-            label="Message"
+            label={t("agents.test.message")}
             value={testMessage}
             onChange={(e) => setTestMessage(e.target.value)}
             sx={{ mt: 1, mb: 2 }}
@@ -467,7 +481,7 @@ const AgentsPage = () => {
           />
           <TextField
             fullWidth
-            label="Context (JSON)"
+            label={t("agents.test.context")}
             value={testContextJson}
             onChange={(e) => setTestContextJson(e.target.value)}
             sx={{ mb: 2 }}
@@ -479,9 +493,9 @@ const AgentsPage = () => {
               <Alert severity={testOk ? "success" : "error"} sx={{ mb: 2 }}>
                 {testOk
                   ? isOrchestrator(testAgent)
-                    ? "Plan made"
-                    : `Execution complete (${testResult?.result?.iterations || 0} iterations)`
-                  : testResult?.error || testResult?.result?.error || "Execution failed"}
+                    ? t("agents.test.planMade")
+                    : t("agents.test.complete", { iterations: testResult?.result?.iterations || 0 })
+                  : testResult?.error || testResult?.result?.error || t("agents.test.failed")}
               </Alert>
               <Box
                 component="pre"
@@ -505,14 +519,14 @@ const AgentsPage = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <ActionButton onClick={() => setTestAgent(null)}>Close</ActionButton>
+          <ActionButton onClick={() => setTestAgent(null)}>{t("common.close")}</ActionButton>
           <ActionButton
             kind="primary"
             startIcon={testRunning ? <CircularProgress size={14} color="inherit" /> : <PlayArrow />}
             onClick={runTest}
             disabled={testRunning || !testMessage.trim()}
           >
-            Run
+            {t("agents.test.run")}
           </ActionButton>
         </DialogActions>
       </Dialog>

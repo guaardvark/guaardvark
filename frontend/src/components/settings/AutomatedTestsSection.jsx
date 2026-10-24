@@ -12,27 +12,29 @@ import {
 } from '@mui/material';
 import { useSnackbar } from '../../contexts/SnackbarProvider';
 import apiService from '../../api/apiService';
+import { useUiTranslation } from '../../i18n';
 
 const AutomatedTestsSection = ({ isLoading }) => {
+  const { t } = useUiTranslation();
   const [isRunningTests, setIsRunningTests] = useState(false);
   const [testSuiteResults, setTestSuiteResults] = useState(null);
   const { showMessage } = useSnackbar();
 
   const handleRunAllTests = async () => {
     setIsRunningTests(true);
-    showMessage("Running comprehensive test suite...", "info");
+    showMessage(t("settingsSections.automatedTests.running"), "info");
     try {
       const result = await apiService.runTestSuite();
       setTestSuiteResults(result);
       
       if (result?.error) {
-        showMessage(`Tests completed with errors: ${result.error}`, "warning");
+        showMessage(t("settingsSections.automatedTests.completedWithErrors", { error: result.error }), "warning");
       } else {
-        showMessage("Test suite completed successfully.", "success");
+        showMessage(t("settingsSections.automatedTests.completed"), "success");
       }
     } catch (err) {
       console.error("Error running test suite:", err);
-      showMessage(`Test suite failed: ${err.message}`, "error");
+      showMessage(t("settingsSections.automatedTests.failed", { error: err.message }), "error");
     } finally {
       setIsRunningTests(false);
     }
@@ -41,10 +43,10 @@ const AutomatedTestsSection = ({ isLoading }) => {
   return (
     <Paper elevation={3} sx={{ p: 2 }}>
       <Typography variant="h6" gutterBottom>
-        Automated Tests
+        {t("settingsSections.automatedTests.title")}
       </Typography>
       <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-        <Tooltip title="Run unit, integration and end-to-end tests">
+        <Tooltip title={t("settingsSections.automatedTests.runTooltip")}>
           <span>
             <Button
               variant="contained"
@@ -54,7 +56,7 @@ const AutomatedTestsSection = ({ isLoading }) => {
               {isRunningTests ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
-                "Run Test Suite"
+                t("settingsSections.automatedTests.run")
               )}
             </Button>
           </span>
@@ -69,7 +71,7 @@ const AutomatedTestsSection = ({ isLoading }) => {
           borderRadius={1}
         >
           <Typography variant="subtitle1" gutterBottom>
-            Test Suite Output:
+            {t("settingsSections.automatedTests.output")}
           </Typography>
           <pre
             style={{ whiteSpace: "pre-wrap", fontFamily: "monospace" }}

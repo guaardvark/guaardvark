@@ -1,0 +1,109 @@
+{
+  "settings": {
+    "modelDefaultScale": "Escala por defecto del modelo",
+    "model": "Modelo",
+    "manageModels": "Gestionar modelos de Escalado",
+    "install": "Instalar",
+    "noModelInstallSized": "No hay ningún modelo de Escalado instalado. Instala {{model}} ({{size}} MB) para escalar; el Escalado nunca descarga uno por su cuenta.",
+    "noModelInstall": "No hay ningún modelo de Escalado instalado. Instala {{model}} para escalar; el Escalado nunca descarga uno por su cuenta.",
+    "noModel": "No hay ningún modelo de Escalado instalado. Añade uno en Gestionar modelos de Escalado para escalar.",
+    "outputScale": "Escala de salida",
+    "targetResolution": "Resolución objetivo",
+    "twoPass": "Modo de doble paso",
+    "twoPassHelp": "Ejecuta el modelo dos veces para mayor calidad (más lento)",
+    "faceEnhance": "Mejora de rostro",
+    "faceEnhanceHelp": "Restaura rostros usando GFPGAN",
+    "doubleFps": "Doble tasa de fotogramas",
+    "doubleFpsHelp": "Interpola fotogramas para un movimiento más fluido (más lento)",
+    "sharpening": "Enfoque",
+    "denoise": "Pre-paso de eliminación de ruido"
+  },
+  "service": {
+    "startRefused": "El servicio de Escalado no se inició: {{reason}}",
+    "tryAgainShortly": "reintentar en breve",
+    "startTimeout": "El servicio de Escalado no respondió en un minuto. Su registro está en la página de Plugins.",
+    "startFailed": "No se pudo iniciar el servicio de Escalado: {{error}}",
+    "starting": "Iniciando...",
+    "startNow": "Iniciar ahora",
+    "stoppedAutostart": "El servicio de Escalado está detenido. Se inicia automáticamente cuando escalas algo, o puedes iniciarlo ahora.",
+    "switchedOff": "El Escalado está desactivado en la página de Plugins. Inícialo aquí para escalar.",
+    "stopped": "El servicio de Escalado está detenido. Inícialo para escalar."
+  },
+  "errors": {
+    "unknown": "error desconocido",
+    "modelsLoadFailed": "No se pudieron cargar los modelos de Escalado: {{error}}.",
+    "requestFailed": "la solicitud falló",
+    "unsupportedSkipped": "Se omitieron {{count}} archivo(s) no admitido(s). Permitidos: {{allowed}}",
+    "failedReason": "fallido",
+    "submitFailed": "Error al enviar: {{details}}",
+    "skipped": "Omitido: {{details}}",
+    "imageFailed": "Error en el Escalado de imagen",
+    "cancelFailed": "Error al cancelar: {{error}}. La tarea podría seguir en ejecución.",
+    "clearFailed": "Error al limpiar tareas finalizadas: {{error}}.",
+    "previewFailed": "Error en la vista previa: {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "Tarea de Escalado enviada para \"{{name}}\"",
+    "jobsSubmitted": "Se enviaron {{submitted}} de {{total}} tareas de Escalado",
+    "imageUpscaled": "Imagen \"{{name}}\" escalada",
+    "imagesQueued": "Se han puesto en cola {{count}} imágenes para el Escalado"
+  },
+  "gpu": {
+    "unknown": "Desconocido",
+    "title": "Estado de la GPU",
+    "activeModel": "Modelo activo",
+    "none": "Ninguno",
+    "enabled": "Activado",
+    "disabled": "Desactivado"
+  },
+  "submit": {
+    "upscaleImages": "Escalar {{count}} Imágenes",
+    "upscaleVideos": "Escalar {{count}} Videos",
+    "upscaleImage": "Escalado de imagen",
+    "upscaleVideo": "Escalado de video",
+    "startingService": "Iniciando el servicio de escalado...",
+    "uploadingProgress": "Subiendo {{current}}/{{total}}...",
+    "uploading": "Subiendo...",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "Escalado",
+    "videoGen": "Gen. de video"
+  },
+  "upload": {
+    "imagesTitle": "Subir imágenes",
+    "videoTitle": "Subir video",
+    "video": "Video",
+    "image": "Imagen",
+    "dropImages": "Arrastra y suelta las imágenes aquí, o haz clic para buscar",
+    "dropVideos": "Arrastra y suelta los videos aquí, o haz clic para buscar",
+    "filesReady_one": "{{count}} archivo listo",
+    "filesReady_other": "{{count}} archivos listos",
+    "clearAll": "Limpiar todo"
+  },
+  "result": {
+    "original": "Original",
+    "upscaled": "Escalado",
+    "openFullSize": "Abrir en tamaño completo",
+    "download": "Descargar"
+  },
+  "preview": {
+    "title": "Vista previa de escalado",
+    "hint": "Busca un fotograma y haz clic en \"Generar vista previa\" para ver el fotograma escalado.",
+    "generating": "Generando...",
+    "generate": "Generar vista previa",
+    "originalFrame": "Fotograma original",
+    "upscaledFrame": "Fotograma escalado",
+    "backToVideo": "Volver al video"
+  },
+  "jobs": {
+    "title": "Tareas de escalado",
+    "clearFinishedCount": "Limpiar finalizados ({{count}})",
+    "clearFinished": "Limpiar finalizados",
+    "empty": "Aún no hay tareas de escalado. Sube un video o un lote de imágenes para comenzar.",
+    "imageProgress": "Imagen {{done}} / {{total}}",
+    "frameProgress": "Cuadro {{done}} / {{total}}",
+    "play": "Reproducir",
+    "cancel": "Cancelar"
+  }
+}

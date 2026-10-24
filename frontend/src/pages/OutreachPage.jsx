@@ -47,26 +47,27 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import * as outreachApi from "../api/outreachService";
+import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
 
 // Per-platform character soft-caps used by the pre-flight panel.
 // Sources: reddit (10000 comment), youtube (~10000), discord (2000),
 // facebook (~5000), internal note (no cap — display only).
-const PLATFORM_LIMITS = {
-  reddit: { max: 10000, label: "Reddit comment" },
-  reddit_share: { max: 300, label: "Reddit title" },
-  youtube: { max: 10000, label: "YouTube comment" },
-  discord: { max: 2000, label: "Discord message" },
-  facebook: { max: 5000, label: "Facebook post" },
-  internal: { max: 0, label: "Internal note" },
-};
+const platformLimits = () => ({
+  reddit: { max: 10000, label: translate("outreach.limits.reddit") },
+  reddit_share: { max: 300, label: translate("outreach.limits.redditShare") },
+  youtube: { max: 10000, label: translate("outreach.limits.youtube") },
+  discord: { max: 2000, label: translate("outreach.limits.discord") },
+  facebook: { max: 5000, label: translate("outreach.limits.facebook") },
+  internal: { max: 0, label: translate("outreach.limits.internal") },
+});
 
-const TONE_OPTIONS = [
-  { value: "default", label: "Default voice (direct, competent, dry)" },
-  { value: "engaging", label: "Engaging / curious" },
-  { value: "technical", label: "Technical / precise" },
-  { value: "casual", label: "Casual / phone-typed" },
-  { value: "formal", label: "Formal" },
-  { value: "humorous", label: "Humorous (dry, used sparingly)" },
+const toneOptions = () => [
+  { value: "default", label: translate("outreach.tones.default") },
+  { value: "engaging", label: translate("outreach.tones.engaging") },
+  { value: "technical", label: translate("outreach.tones.technical") },
+  { value: "casual", label: translate("outreach.tones.casual") },
+  { value: "formal", label: translate("outreach.tones.formal") },
+  { value: "humorous", label: translate("outreach.tones.humorous") },
 ];
 
 // How an approved draft goes out (backend platforms.py, also in status.posting_modes):
@@ -75,16 +76,27 @@ const TONE_OPTIONS = [
 // queue is the only output, flagged in the modal so that is no surprise. X and
 // LinkedIn are not offered: outreach never posts to them (a person's own
 // LinkedIn posts go through Social Accounts).
-const PLATFORM_OPTIONS = [
-  { value: "reddit", label: "Reddit comment", posts: "watched" },
-  { value: "youtube", label: "YouTube comment", posts: "watched" },
-  { value: "discord", label: "Discord message", posts: "bot" },
-  { value: "facebook", label: "Facebook comment", posts: "watched" },
-  { value: "internal", label: "Internal note", posts: null },
+const platformOptions = () => [
+  { value: "reddit", label: translate("outreach.platforms.reddit"), posts: "watched" },
+  { value: "youtube", label: translate("outreach.platforms.youtube"), posts: "watched" },
+  { value: "discord", label: translate("outreach.platforms.discord"), posts: "bot" },
+  { value: "facebook", label: translate("outreach.platforms.facebook"), posts: "watched" },
+  { value: "internal", label: translate("outreach.platforms.internal"), posts: null },
 ];
 
 // Terminal statuses the History panel lists ("all" shows these together).
 const HISTORY_STATUSES = ["posted", "aborted", "rejected", "unsupported"];
+
+// Labels for the audit statuses shown as chips; any other status shows as sent.
+const statusLabels = () => ({
+  posted: translate("outreach.statuses.posted"),
+  aborted: translate("outreach.statuses.aborted"),
+  rejected: translate("outreach.statuses.rejected"),
+  unsupported: translate("outreach.statuses.unsupported"),
+  all: translate("outreach.statuses.all"),
+  drafted: translate("outreach.statuses.drafted"),
+  approved: translate("outreach.statuses.approved"),
+});
 
 const CHAT_EXAMPLES = [
   "comment on youtube videos about local LLMs",
@@ -147,6 +159,7 @@ function formatGate(passed) {
 }
 
 const OutreachPage = () => {
+  const { t } = useUiTranslation();
   const [status, setStatus] = useState(null);
   const [queue, setQueue] = useState([]);
   const [approved, setApproved] = useState([]);
@@ -196,7 +209,7 @@ const OutreachPage = () => {
     try {
       setStatus(await outreachApi.fetchStatus());
     } catch (e) {
-      setError(`status fetch failed: ${e.message}`);
+      setError(t("outreach.errors.statusFetch", { error: e.message }));
     }
   }, []);
 
@@ -213,7 +226,7 @@ const OutreachPage = () => {
         return null;
       });
     } catch (e) {
-      setError(`queue fetch failed: ${e.message}`);
+      setError(t("outreach.errors.queueFetch", { error: e.message }));
     } finally {
       setLoadingQueue(false);
     }
@@ -226,7 +239,7 @@ const OutreachPage = () => {
     } catch (e) {
       console.warn(`approved fetch failed: ${e.message}`);
       // The approved list would read as empty; say it did not load.
-      setError(`approved fetch failed: ${e.message}`);
+      setError(t("outreach.errors.approvedFetch", { error: e.message }));
     }
   }, []);
 
@@ -245,7 +258,7 @@ const OutreachPage = () => {
       setHistory(Array.isArray(rows) ? rows : []);
     } catch (e) {
       console.warn(`history fetch failed: ${e.message}`);
-      setError(`history fetch failed: ${e.message}`);
+      setError(t("outreach.errors.historyFetch", { error: e.message }));
     } finally {
       setLoadingHistory(false);
     }
@@ -256,7 +269,7 @@ const OutreachPage = () => {
     try {
       setSnippets(await outreachApi.fetchSnippets());
     } catch (e) {
-      setError(`snippets fetch failed: ${e.message}`);
+      setError(t("outreach.errors.snippetsFetch", { error: e.message }));
     } finally {
       setLoadingSnippets(false);
     }
@@ -267,7 +280,7 @@ const OutreachPage = () => {
       const out = await outreachApi.fetchProfile();
       setProfile(out?.profile || null);
     } catch (e) {
-      setError(`profile fetch failed: ${e.message}`);
+      setError(t("outreach.errors.profileFetch", { error: e.message }));
     }
   }, []);
 
@@ -322,8 +335,8 @@ const OutreachPage = () => {
       setProfile(out?.profile || null);
       setProfileOpen(false);
       setInfo(out?.configured
-        ? "Profile saved. Drafts, links and snippets now come from it."
-        : "Profile saved. Add a name and a pitch before drafting: nothing is drafted without them.");
+        ? t("outreach.info.profileSaved")
+        : t("outreach.info.profileSavedIncomplete"));
       await fetchSnippets();
     } catch (e) {
       setProfileError(e.message);
@@ -340,7 +353,7 @@ const OutreachPage = () => {
     setInfo(null);
   };
 
-  const limit = PLATFORM_LIMITS[platform] || { max: 0, label: platform };
+  const limit = platformLimits()[platform] || { max: 0, label: platform };
   const charCount = draft.length;
   const wordCount = countWords(draft);
   const urls = useMemo(() => extractUrls(draft), [draft]);
@@ -359,13 +372,13 @@ const OutreachPage = () => {
     setError(null); setInfo(null);
     try {
       const row = await outreachApi.approveDraft(selected.id, draft);
-      setInfo(`Approved draft #${selected.id}. ${row?.next || ""}`.trim());
+      setInfo(`${t("outreach.info.approved", { id: selected.id })} ${row?.next || ""}`.trim());
       setSelected(null);
       setDraft("");
       await fetchQueue();
       await fetchApproved();
     } catch (e) {
-      setError(`approve failed: ${e.message}`);
+      setError(t("outreach.errors.approve", { error: e.message }));
     } finally {
       setBusy(false);
     }
@@ -377,12 +390,12 @@ const OutreachPage = () => {
     setError(null); setInfo(null);
     try {
       await outreachApi.rejectDraft(selected.id);
-      setInfo(`Rejected draft #${selected.id}.`);
+      setInfo(t("outreach.info.rejected", { id: selected.id }));
       setSelected(null);
       setDraft("");
       await fetchQueue();
     } catch (e) {
-      setError(`reject failed: ${e.message}`);
+      setError(t("outreach.errors.reject", { error: e.message }));
     } finally {
       setBusy(false);
     }
@@ -405,7 +418,7 @@ const OutreachPage = () => {
         mode: "comment",
       });
       setDraft(out.draft || "");
-      setInfo(`Redrafted (grade ${(out.grade ?? 0).toFixed(2)}): ${out.reason || ""}`);
+      setInfo(t("outreach.info.redrafted", { grade: (out.grade ?? 0).toFixed(2), reason: out.reason || "" }));
       try {
         await outreachApi.rejectDraft(priorId);
       } catch (_) {
@@ -418,7 +431,7 @@ const OutreachPage = () => {
         if (next) selectQueueItem(next);
       }
     } catch (e) {
-      setError(`redraft failed: ${e.message}`);
+      setError(t("outreach.errors.redraft", { error: e.message }));
     } finally {
       setBusy(false);
     }
@@ -431,10 +444,10 @@ const OutreachPage = () => {
     try {
       const updated = await outreachApi.patchDraft(selected.id, { draft_text: draft, platform });
       setSelected(updated);
-      setInfo(`Saved draft #${selected.id}. Still in the queue, not posted.`);
+      setInfo(t("outreach.info.saved", { id: selected.id }));
       await fetchQueue();
     } catch (e) {
-      setError(`save failed: ${e.message}`);
+      setError(t("outreach.errors.save", { error: e.message }));
     } finally {
       setBusy(false);
     }
@@ -455,7 +468,7 @@ const OutreachPage = () => {
 
   const handleSeedNewDraftLLM = async () => {
     if (!ndContext.trim()) {
-      setError("Add some thread context — give the LLM something to riff on.");
+      setError(t("outreach.errors.needContext"));
       return;
     }
     setNdBusy(true);
@@ -478,7 +491,7 @@ const OutreachPage = () => {
       if (out.audit_id) setNdSeededId(out.audit_id);
       await fetchQueue();
     } catch (e) {
-      setError(`LLM seed failed: ${e.message}`);
+      setError(t("outreach.errors.seed", { error: e.message }));
     } finally {
       setNdBusy(false);
     }
@@ -486,7 +499,7 @@ const OutreachPage = () => {
 
   const handleSaveNewDraft = async () => {
     if (!ndBody.trim()) {
-      setError("Draft body is empty — type something or seed it with the LLM.");
+      setError(t("outreach.errors.emptyBody"));
       return;
     }
     setNdBusy(true);
@@ -506,13 +519,17 @@ const OutreachPage = () => {
         ? await outreachApi.patchDraft(ndSeededId, payload)
         : await outreachApi.createDraft(payload);
       setNewDraftOpen(false);
-      setInfo(`${ndSeededId ? "Updated" : "Created"} draft #${row.id}. It's in the queue waiting for approval.`);
+      setInfo(
+        ndSeededId
+          ? t("outreach.info.updatedDraft", { id: row.id })
+          : t("outreach.info.createdDraft", { id: row.id }),
+      );
       await fetchQueue();
       // Auto-select the freshly saved row so the user can immediately keep
       // editing or hit Approve without hunting for it in the list.
       selectQueueItem(row);
     } catch (e) {
-      setError(`save failed: ${e.message}`);
+      setError(t("outreach.errors.save", { error: e.message }));
     } finally {
       setNdBusy(false);
     }
@@ -536,7 +553,7 @@ const OutreachPage = () => {
       }
       const out = await outreachApi.runPass(body);
       if (out.task_id != null) setLastTaskId(out.task_id);
-      setInfo(out.message || `${passPlatform} pass added to the Job Queue as task #${out.task_id}.`);
+      setInfo(out.message || t("outreach.info.passQueued", { platform: passPlatform, id: out.task_id }));
       // Pass takes seconds-to-minutes on the worker. Refresh once now and
       // again shortly after so the new draft lands in the visible queue
       // without making the user hit the refresh icon.
@@ -544,7 +561,7 @@ const OutreachPage = () => {
       await fetchApproved();
       setTimeout(() => { fetchQueue(); fetchApproved(); fetchStatus(); }, 8000);
     } catch (e) {
-      setError(`run-pass failed: ${e.message}`);
+      setError(t("outreach.errors.runPass", { error: e.message }));
     } finally {
       setBusy(false);
     }
@@ -553,7 +570,7 @@ const OutreachPage = () => {
   const handleScoutUrl = async ({ silent = false } = {}) => {
     const url = (ndUrl || "").trim();
     if (!url || !/^https?:\/\//i.test(url)) {
-      if (!silent) setError("Paste an http(s) URL first.");
+      if (!silent) setError(t("outreach.errors.needUrl"));
       return;
     }
     setNdScouting(true);
@@ -569,10 +586,15 @@ const OutreachPage = () => {
       if (out.target_thread_id && !ndThreadId) setNdThreadId(out.target_thread_id);
       if (out.suggested_platform) setNdPlatform(out.suggested_platform);
       if (!silent) {
-        setInfo(`Scouted ${out.hostname || "URL"} (${out.source}). Topic prefilled — edit before drafting.`);
+        setInfo(
+          t("outreach.info.scouted", {
+            host: out.hostname || t("outreach.info.scoutedUrl"),
+            source: out.source,
+          }),
+        );
       }
     } catch (e) {
-      if (!silent) setError(`scout failed: ${e.message}`);
+      if (!silent) setError(t("outreach.errors.scout", { error: e.message }));
     } finally {
       setNdScouting(false);
     }
@@ -595,7 +617,7 @@ const OutreachPage = () => {
       }
       await fetchStatus();
     } catch (e) {
-      setError(`toggle failed: ${e.message}`);
+      setError(t("outreach.errors.toggle", { error: e.message }));
     } finally {
       setBusy(false);
     }
@@ -612,16 +634,20 @@ const OutreachPage = () => {
         const held = result.held_publishes || 0;
         const inFlight = result.in_flight_publishes || 0;
         setInfo(
-          `All public posting stopped. ${held} queued Connections publish(es) held on the Approvals page.` +
-            (inFlight ? ` ${inFlight} already being sent could not be recalled.` : ""),
+          t("outreach.info.postingStopped", { count: held }) +
+            (inFlight ? ` ${t("outreach.info.inFlight", { count: inFlight })}` : ""),
         );
       } else {
         await outreachApi.resumePosting();
-        setInfo("Public posting resumed. Held Connections publishes still wait on the Approvals page.");
+        setInfo(t("outreach.info.postingResumed"));
       }
       await fetchStatus();
     } catch (e) {
-      setError(`${stopping ? "stop" : "resume"} failed: ${e.message}`);
+      setError(
+        stopping
+          ? t("outreach.errors.stop", { error: e.message })
+          : t("outreach.errors.resume", { error: e.message }),
+      );
     } finally {
       setBusy(false);
     }
@@ -649,7 +675,7 @@ const OutreachPage = () => {
     try {
       setCitationMeta(await outreachApi.fetchMeta(citationUrl.trim()));
     } catch (e) {
-      setError(`citation fetch failed: ${e.message}`);
+      setError(t("outreach.errors.citation", { error: e.message }));
     } finally {
       setCitationLoading(false);
     }
@@ -680,14 +706,14 @@ const OutreachPage = () => {
       {/* Top status bar */}
       <Paper sx={{ p: 1.5, mb: 2 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-          <Typography variant="h6" sx={{ mr: 2 }}>Outreach</Typography>
+          <Typography variant="h6" sx={{ mr: 2 }}>{t("outreach.header.title")}</Typography>
           {status ? (
             <>
               <Chip
                 size="small"
                 icon={<PowerSettingsNewIcon />}
                 color={status.enabled ? "success" : "default"}
-                label={status.enabled ? "Enabled" : "Disabled"}
+                label={status.enabled ? t("outreach.header.enabled") : t("outreach.header.disabled")}
                 onClick={handleEnableToggle}
                 variant="filled"
               />
@@ -695,7 +721,7 @@ const OutreachPage = () => {
                 size="small"
                 icon={<VisibilityIcon />}
                 color="warning"
-                label="Every post needs your approval"
+                label={t("outreach.header.approvalChip")}
                 variant="outlined"
               />
               {status.cadence && Object.entries(status.cadence).map(([p, c]) => (
@@ -706,10 +732,16 @@ const OutreachPage = () => {
                   color={c.redis === "unavailable" ? "warning" : "default"}
                   label={
                     c.redis === "unavailable"
-                      ? `${p}: Redis offline`
-                      : `${p}: ${c.posts_in_24h ?? 0}/${c.daily_cap ?? 0} today` +
+                      ? t("outreach.header.redisOffline", { platform: p })
+                      : t("outreach.header.cadence", {
+                          platform: p,
+                          posts: c.posts_in_24h ?? 0,
+                          cap: c.daily_cap ?? 0,
+                        }) +
                         (c.last_post_seconds_ago != null
-                          ? ` · last ${Math.floor(c.last_post_seconds_ago / 60)}m ago`
+                          ? ` · ${t("outreach.header.lastPost", {
+                              minutes: Math.floor(c.last_post_seconds_ago / 60),
+                            })}`
                           : "")
                   }
                 />
@@ -728,18 +760,19 @@ const OutreachPage = () => {
               onClick={() => setPostingStopConfirmOpen(true)}
               disabled={busy}
             >
-              {status.posting_stopped ? "Resume public posting" : "Stop all public posting"}
+              {status.posting_stopped ? t("outreach.header.resumePosting") : t("outreach.header.stopPosting")}
             </Button>
           )}
           {lastTaskId != null && (
             <Typography variant="caption" color="text.secondary">
-              Last pass:{" "}
-              <Link component={RouterLink} to="/tasks" underline="hover">
-                Job #{lastTaskId}
-              </Link>
+              <Trans
+                i18nKey="outreach.header.lastPass"
+                values={{ id: lastTaskId }}
+                components={{ jobLink: <Link component={RouterLink} to="/tasks" underline="hover" /> }}
+              />
             </Typography>
           )}
-          <Tooltip title="Refresh">
+          <Tooltip title={t("outreach.header.refresh")}>
             <IconButton
               size="small"
               onClick={() => { fetchStatus(); fetchQueue(); fetchApproved(); fetchHistory(); fetchSnippets(); fetchProfile(); }}
@@ -750,15 +783,12 @@ const OutreachPage = () => {
         </Box>
         {status?.posting_stopped && (
           <Alert severity="error" icon={<StopCircleIcon />} sx={{ mt: 1 }}>
-            All public posting is stopped: outreach and Connections publish nothing until you resume.
-            Approved outreach drafts stay approved; queued Connections publishes wait on the Approvals page.
+            {t("outreach.header.postingStoppedAlert")}
           </Alert>
         )}
         {status && (
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1, fontSize: "0.7rem" }}>
-            Scout/draft runs queue comments here and nothing posts until you approve it. Approved
-            Reddit, YouTube and Facebook drafts post one at a time from the Approvals page, with
-            Post now, while you watch the Agent Screen; the Discord bot sends Discord drafts.
+            {t("outreach.header.howItWorks")}
           </Typography>
         )}
       </Paper>
@@ -783,7 +813,7 @@ const OutreachPage = () => {
           <Paper sx={{ p: 2 }}>
             <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
               <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                What you promote
+                {t("outreach.profile.title")}
               </Typography>
               {profile && (
                 <Button
@@ -793,7 +823,7 @@ const OutreachPage = () => {
                   onClick={openProfileDialog}
                   sx={{ textTransform: "none", py: 0.25 }}
                 >
-                  {profileConfigured ? "Edit" : "Set up"}
+                  {profileConfigured ? t("outreach.profile.edit") : t("outreach.profile.setUp")}
                 </Button>
               )}
             </Stack>
@@ -810,21 +840,45 @@ const OutreachPage = () => {
                   {profile.pitch}
                 </Typography>
                 <Stack direction="row" spacing={0.5} sx={{ flexWrap: "wrap", gap: 0.5 }}>
-                  {profile.site_url && <Chip size="small" variant="outlined" label="site" sx={{ height: 18, fontSize: "0.65rem" }} />}
-                  {profile.repo_url && <Chip size="small" variant="outlined" label="repo" sx={{ height: 18, fontSize: "0.65rem" }} />}
+                  {profile.site_url && (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={t("outreach.profile.site")}
+                      sx={{ height: 18, fontSize: "0.65rem" }}
+                    />
+                  )}
+                  {profile.repo_url && (
+                    <Chip
+                      size="small"
+                      variant="outlined"
+                      label={t("outreach.profile.repo")}
+                      sx={{ height: 18, fontSize: "0.65rem" }}
+                    />
+                  )}
                   {profile.account_handle && <Chip size="small" variant="outlined" label={`@${profile.account_handle}`} sx={{ height: 18, fontSize: "0.65rem" }} />}
-                  <Chip size="small" variant="outlined" label={`${profile.videos?.length || 0} video${profile.videos?.length === 1 ? "" : "s"}`} sx={{ height: 18, fontSize: "0.65rem" }} />
-                  <Chip size="small" variant="outlined" label={`${profile.features?.length || 0} feature${profile.features?.length === 1 ? "" : "s"}`} sx={{ height: 18, fontSize: "0.65rem" }} />
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={t("outreach.profile.videoCount", { count: profile.videos?.length || 0 })}
+                    sx={{ height: 18, fontSize: "0.65rem" }}
+                  />
+                  <Chip
+                    size="small"
+                    variant="outlined"
+                    label={t("outreach.profile.featureCount", { count: profile.features?.length || 0 })}
+                    sx={{ height: 18, fontSize: "0.65rem" }}
+                  />
                 </Stack>
                 {!profile.site_url && (
                   <Typography variant="caption" color="warning.main">
-                    No site URL: self-share and linked comments are skipped until one is set.
+                    {t("outreach.profile.noSiteUrl")}
                   </Typography>
                 )}
               </Stack>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                Nothing to promote yet. Drafts, self-share and snippets stay empty until you add a name and a pitch.
+                {t("outreach.profile.empty")}
               </Typography>
             )}
           </Paper>
@@ -832,9 +886,9 @@ const OutreachPage = () => {
           <Paper sx={{ p: 2 }}>
             <Stack direction="row" alignItems="center" sx={{ mb: 1 }}>
               <Typography variant="subtitle2" sx={{ flex: 1 }}>
-                Queue ({queue.length})
+                {t("outreach.queue.title", { count: queue.length })}
               </Typography>
-              <Tooltip title="Start a new draft from scratch">
+              <Tooltip title={t("outreach.queue.newTooltip")}>
                 <Button
                   size="small"
                   variant="outlined"
@@ -842,12 +896,12 @@ const OutreachPage = () => {
                   onClick={openNewDraft}
                   sx={{ textTransform: "none", py: 0.25 }}
                 >
-                  New
+                  {t("outreach.queue.new")}
                 </Button>
               </Tooltip>
             </Stack>
             <Stack direction="row" spacing={0.5} sx={{ mb: 1, flexWrap: "wrap" }}>
-              <Tooltip title="Add a Reddit outreach pass to the Job Queue (next sub from targets.json) — drafts land here when it's done">
+              <Tooltip title={t("outreach.queue.redditPassTooltip")}>
                 <span style={{ flex: 1, minWidth: "30%" }}>
                   <Button
                     fullWidth
@@ -858,11 +912,11 @@ const OutreachPage = () => {
                     onClick={() => handleRunPass("reddit")}
                     sx={{ textTransform: "none", justifyContent: "flex-start", fontSize: "0.75rem" }}
                   >
-                    Reddit pass
+                    {t("outreach.queue.redditPass")}
                   </Button>
                 </span>
               </Tooltip>
-              <Tooltip title="Scout YouTube for videos matching your profile's feature keywords, then draft comments with your repo link into this queue">
+              <Tooltip title={t("outreach.queue.youtubePassTooltip")}>
                 <span style={{ flex: 1, minWidth: "30%" }}>
                   <Button
                     fullWidth
@@ -873,11 +927,11 @@ const OutreachPage = () => {
                     onClick={() => handleRunPass("youtube")}
                     sx={{ textTransform: "none", justifyContent: "flex-start", fontSize: "0.75rem" }}
                   >
-                    YouTube pass
+                    {t("outreach.queue.youtubePass")}
                   </Button>
                 </span>
               </Tooltip>
-              <Tooltip title="Add a self-share pass to the Job Queue — submits a link post to the next round-robin sub">
+              <Tooltip title={t("outreach.queue.selfShareTooltip")}>
                 <span style={{ flex: 1, minWidth: "30%" }}>
                   <Button
                     fullWidth
@@ -888,7 +942,7 @@ const OutreachPage = () => {
                     onClick={() => handleRunPass("self_share")}
                     sx={{ textTransform: "none", justifyContent: "flex-start", fontSize: "0.75rem" }}
                   >
-                    Self-share
+                    {t("outreach.queue.selfShare")}
                   </Button>
                 </span>
               </Tooltip>
@@ -896,26 +950,27 @@ const OutreachPage = () => {
             <TextField
               size="small"
               fullWidth
-              label="Pass topics (optional)"
-              placeholder="Ollama, ComfyUI, voice cloning"
+              label={t("outreach.queue.passTopics")}
+              placeholder={t("outreach.queue.passTopicsPlaceholder")}
               value={passTopics}
               onChange={(e) => setPassTopics(e.target.value)}
-              helperText="Comma-separated. Used by YouTube keyword scout and Reddit thread filter."
+              helperText={t("outreach.queue.passTopicsHelp")}
               sx={{ mb: 1, "& .MuiFormHelperText-root": { fontSize: "0.65rem", mx: 0 } }}
-              inputProps={{ "aria-label": "Pass topics" }}
+              inputProps={{ "aria-label": t("outreach.queue.passTopicsLabel") }}
             />
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1, fontSize: "0.65rem" }}>
-              YouTube pass scouts your profile's feature keywords then drafts comments with your repo link for your approval.
+              {t("outreach.queue.youtubePassNote")}
             </Typography>
             {approved.length > 0 && (
               <Paper variant="outlined" sx={{ mb: 1, p: 1 }}>
                 <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }}>
-                  Approved — waiting ({approved.length})
+                  {t("outreach.queue.approvedWaiting", { count: approved.length })}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, fontSize: "0.65rem" }}>
-                  Start Reddit, YouTube and Facebook posts from the{" "}
-                  <Link component={RouterLink} to="/approvals" underline="hover">Approvals page</Link>
-                  {" "}with Post now; the Discord bot sends Discord drafts.
+                  <Trans
+                    i18nKey="outreach.queue.approvedNote"
+                    components={{ approvalsLink: <Link component={RouterLink} to="/approvals" underline="hover" /> }}
+                  />
                 </Typography>
                 <List dense disablePadding sx={{ maxHeight: 140, overflowY: "auto" }}>
                   {approved.map((r) => (
@@ -932,7 +987,7 @@ const OutreachPage = () => {
                         }
                         secondary={
                           r.created_at
-                            ? new Date(r.created_at).toLocaleString()
+                            ? new Date(r.created_at).toLocaleString(uiLocale())
                             : undefined
                         }
                         secondaryTypographyProps={{ variant: "caption", fontSize: "0.6rem" }}
@@ -944,7 +999,7 @@ const OutreachPage = () => {
             )}
             <Paper variant="outlined" sx={{ mb: 1, p: 1 }}>
               <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }}>
-                Ask in chat
+                {t("outreach.queue.askInChat")}
               </Typography>
               <Stack spacing={0.25}>
                 {CHAT_EXAMPLES.map((ex) => (
@@ -963,7 +1018,7 @@ const OutreachPage = () => {
               <CircularProgress size={20} />
             ) : queue.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No drafts pending. Add an Outreach pass to the Job Queue, or wait for the scheduled ticks, then refresh to see new entries.
+                {t("outreach.queue.empty")}
               </Typography>
             ) : (
               <List dense disablePadding sx={{ maxHeight: 360, overflowY: "auto" }}>
@@ -981,7 +1036,7 @@ const OutreachPage = () => {
                           {row.grade_score != null && (
                             <Chip
                               size="small"
-                              label={`grade ${row.grade_score.toFixed(2)}`}
+                              label={t("outreach.queue.grade", { grade: row.grade_score.toFixed(2) })}
                               color={row.grade_score >= 0.7 ? "success" : "warning"}
                               sx={{ height: 18, fontSize: "0.65rem" }}
                             />
@@ -990,7 +1045,7 @@ const OutreachPage = () => {
                       }
                       secondary={
                         <Typography variant="caption" sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                          {row.draft_text || "(empty draft)"}
+                          {row.draft_text || t("outreach.queue.emptyDraft")}
                         </Typography>
                       }
                     />
@@ -1001,11 +1056,11 @@ const OutreachPage = () => {
           </Paper>
 
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Source</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.source.title")}</Typography>
             {selected ? (
               <Stack spacing={1}>
                 <Typography variant="caption" color="text.secondary">
-                  Drafted {new Date(selected.created_at).toLocaleString()}
+                  {t("outreach.source.drafted", { date: new Date(selected.created_at).toLocaleString(uiLocale()) })}
                 </Typography>
                 {selected.target_url && (
                   <Link href={selected.target_url} target="_blank" rel="noopener" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.85rem" }}>
@@ -1013,7 +1068,9 @@ const OutreachPage = () => {
                   </Link>
                 )}
                 {selected.target_thread_id && (
-                  <Typography variant="caption" color="text.secondary">thread id: {selected.target_thread_id}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("outreach.source.threadId", { id: selected.target_thread_id })}
+                  </Typography>
                 )}
                 {selected.abort_reason && (
                   <Alert severity="warning" sx={{ py: 0.5 }}>{selected.abort_reason}</Alert>
@@ -1021,35 +1078,43 @@ const OutreachPage = () => {
               </Stack>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                Select a queue item to load its source context.
+                {t("outreach.source.empty")}
               </Typography>
             )}
           </Paper>
 
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Snippet bank</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.snippets.title")}</Typography>
             {loadingSnippets ? (
               <CircularProgress size={20} />
             ) : snippets && (snippets.pitch || snippets.site_url || snippets.repo_url || snippets.videos?.length || Object.keys(snippets.feature_blurbs || {}).length) ? (
               <Stack spacing={0.5}>
                 {snippets.pitch && (
-                  <Button size="small" variant="outlined" onClick={() => insertSnippet(snippets.pitch)}>Insert pitch</Button>
+                  <Button size="small" variant="outlined" onClick={() => insertSnippet(snippets.pitch)}>
+                    {t("outreach.snippets.insertPitch")}
+                  </Button>
                 )}
                 {snippets.site_url && (
-                  <Button size="small" variant="outlined" onClick={() => insertSnippet(snippets.site_url)}>Insert site URL</Button>
+                  <Button size="small" variant="outlined" onClick={() => insertSnippet(snippets.site_url)}>
+                    {t("outreach.snippets.insertSiteUrl")}
+                  </Button>
                 )}
                 {snippets.repo_url && (
-                  <Button size="small" variant="outlined" onClick={() => insertSnippet(snippets.repo_url)}>Insert repo URL</Button>
+                  <Button size="small" variant="outlined" onClick={() => insertSnippet(snippets.repo_url)}>
+                    {t("outreach.snippets.insertRepoUrl")}
+                  </Button>
                 )}
                 {(snippets.videos || []).map((v, i) => (
                   <Button key={`${v.url}-${i}`} size="small" variant="outlined" onClick={() => insertSnippet(v.url)}>
-                    Insert {v.label || `video ${i + 1}`}
+                    {t("outreach.snippets.insertVideo", {
+                      label: v.label || t("outreach.snippets.videoNumber", { number: i + 1 }),
+                    })}
                   </Button>
                 ))}
                 {Object.keys(snippets.feature_blurbs || {}).length > 0 && (
                   <>
                     <Divider sx={{ my: 1 }} />
-                    <Typography variant="caption" color="text.secondary">Feature blurbs</Typography>
+                    <Typography variant="caption" color="text.secondary">{t("outreach.snippets.featureBlurbs")}</Typography>
                     {Object.entries(snippets.feature_blurbs).map(([k, v]) => (
                       <Tooltip key={k} title={v} placement="left">
                         <Button size="small" sx={{ justifyContent: "flex-start", textTransform: "none" }} onClick={() => insertSnippet(v)}>
@@ -1062,10 +1127,10 @@ const OutreachPage = () => {
               </Stack>
             ) : snippets ? (
               <Typography variant="body2" color="text.secondary">
-                Fill in "What you promote" to get snippets here.
+                {t("outreach.snippets.fillProfile")}
               </Typography>
             ) : (
-              <Typography variant="body2" color="text.secondary">Snippets unavailable.</Typography>
+              <Typography variant="body2" color="text.secondary">{t("outreach.snippets.unavailable")}</Typography>
             )}
           </Paper>
         </Stack>
@@ -1075,19 +1140,21 @@ const OutreachPage = () => {
           <Paper sx={{ p: 2 }}>
             <Stack direction="row" spacing={2} sx={{ mb: 1.5 }}>
               <FormControl size="small" sx={{ minWidth: 220 }}>
-                <InputLabel>Platform</InputLabel>
-                <Select value={platform} label="Platform" onChange={(e) => setPlatform(e.target.value)}>
-                  {PLATFORM_OPTIONS.map(p => (<MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>))}
+                <InputLabel>{t("outreach.drafting.platform")}</InputLabel>
+                <Select value={platform} label={t("outreach.drafting.platform")} onChange={(e) => setPlatform(e.target.value)}>
+                  {platformOptions().map(p => (<MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>))}
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 240 }}>
-                <InputLabel>Tone</InputLabel>
-                <Select value={tone} label="Tone" onChange={(e) => setTone(e.target.value)}>
-                  {TONE_OPTIONS.map(t => (<MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>))}
+                <InputLabel>{t("outreach.drafting.tone")}</InputLabel>
+                <Select value={tone} label={t("outreach.drafting.tone")} onChange={(e) => setTone(e.target.value)}>
+                  {toneOptions().map((option) => (
+                    <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
               <Box sx={{ flex: 1 }} />
-              <Tooltip title="Have the LLM redraft this with current tone + platform">
+              <Tooltip title={t("outreach.drafting.redraftTooltip")}>
                 <span>
                   <Button
                     size="small"
@@ -1096,7 +1163,7 @@ const OutreachPage = () => {
                     onClick={handleRedraft}
                     disabled={!selected || busy}
                   >
-                    Redraft
+                    {t("outreach.drafting.redraft")}
                   </Button>
                 </span>
               </Tooltip>
@@ -1108,25 +1175,30 @@ const OutreachPage = () => {
               maxRows={30}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Pick a queue item to load its draft, or type one here. Markdown is fine for Reddit / Discord."
+              placeholder={t("outreach.drafting.placeholder")}
               sx={{ "& .MuiInputBase-input": { fontFamily: '"Inter","Roboto",sans-serif', fontSize: "0.95rem" } }}
             />
             <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-              <Typography variant="caption" color="text.secondary">{wordCount} words</Typography>
-              <Typography variant="caption" color={lengthOk === false ? "warning.main" : "text.secondary"}>
-                {charCount} chars{limit.max > 0 ? ` / ${limit.max}` : ""}
+              <Typography variant="caption" color="text.secondary">
+                {t("outreach.drafting.words", { count: wordCount })}
               </Typography>
-              <Typography variant="caption" color="text.secondary">{urls.length} link{urls.length === 1 ? "" : "s"}</Typography>
+              <Typography variant="caption" color={lengthOk === false ? "warning.main" : "text.secondary"}>
+                {t("outreach.drafting.chars", { count: charCount })}
+                {limit.max > 0 ? ` / ${limit.max}` : ""}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {t("outreach.drafting.linkCount", { count: urls.length })}
+              </Typography>
             </Stack>
           </Paper>
 
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Citation tool</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.citation.title")}</Typography>
             <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
               <TextField
                 size="small"
                 fullWidth
-                placeholder="Paste a URL — title + domain pulled for clean attribution"
+                placeholder={t("outreach.citation.placeholder")}
                 value={citationUrl}
                 onChange={(e) => setCitationUrl(e.target.value)}
               />
@@ -1136,18 +1208,18 @@ const OutreachPage = () => {
                 onClick={handleFetchMeta}
                 disabled={!citationUrl.trim() || citationLoading}
               >
-                {citationLoading ? <CircularProgress size={16} /> : "Fetch"}
+                {citationLoading ? <CircularProgress size={16} /> : t("outreach.citation.fetch")}
               </Button>
             </Stack>
             {citationMeta && (
               <Stack spacing={0.5}>
-                <Typography variant="body2"><strong>{citationMeta.title || "(no title)"}</strong></Typography>
+                <Typography variant="body2"><strong>{citationMeta.title || t("outreach.citation.noTitle")}</strong></Typography>
                 <Typography variant="caption" color="text.secondary">{citationMeta.hostname}</Typography>
                 {citationMeta.description && (
                   <Typography variant="caption" sx={{ fontStyle: "italic" }}>{citationMeta.description}</Typography>
                 )}
                 <Box>
-                  <Button size="small" onClick={insertCitation}>Insert citation</Button>
+                  <Button size="small" onClick={insertCitation}>{t("outreach.citation.insert")}</Button>
                 </Box>
               </Stack>
             )}
@@ -1157,35 +1229,42 @@ const OutreachPage = () => {
         {/* ── Task / Output Zone ─────────────────────────────────────── */}
         <Stack spacing={2}>
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Pre-flight</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.preflight.title")}</Typography>
             <Stack spacing={0.75}>
               <Stack direction="row" spacing={1} alignItems="center">
                 {formatGate(draftPresent)}
-                <Typography variant="body2">Draft present</Typography>
+                <Typography variant="body2">{t("outreach.preflight.draftPresent")}</Typography>
               </Stack>
               <Stack direction="row" spacing={1} alignItems="center">
                 {formatGate(lengthOk)}
                 <Typography variant="body2">
-                  Length OK {limit.max > 0 ? `(${charCount}/${limit.max} for ${limit.label})` : "(no platform cap)"}
+                  {t("outreach.preflight.lengthOk")}{" "}
+                  {limit.max > 0
+                    ? t("outreach.preflight.lengthDetail", { count: charCount, max: limit.max, label: limit.label })
+                    : t("outreach.preflight.noCap")}
                 </Typography>
               </Stack>
               <Stack direction="row" spacing={1} alignItems="center">
                 {formatGate(linkOk)}
                 <Typography variant="body2">
-                  Links well-formed {urls.length === 0 ? "(none)" : `(${urls.length})`}
+                  {t("outreach.preflight.linksOk")}{" "}
+                  {urls.length === 0 ? t("outreach.preflight.none") : `(${urls.length})`}
                 </Typography>
               </Stack>
               <Stack direction="row" spacing={1} alignItems="center">
                 {formatGate(gradeOk)}
                 <Typography variant="body2">
-                  Self-grade ≥ 0.7 {selected?.grade_score != null ? `(${selected.grade_score.toFixed(2)})` : "(no draft selected)"}
+                  {t("outreach.preflight.gradeOk")}{" "}
+                  {selected?.grade_score != null
+                    ? `(${selected.grade_score.toFixed(2)})`
+                    : t("outreach.preflight.noDraftSelected")}
                 </Typography>
               </Stack>
             </Stack>
           </Paper>
 
           <Paper sx={{ p: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 1 }}>Action</Typography>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.action.title")}</Typography>
             <Stack spacing={1}>
               <Button
                 fullWidth
@@ -1195,11 +1274,11 @@ const OutreachPage = () => {
                 disabled={!selected || preflightBlocksApprove || busy}
                 onClick={handleApprove}
               >
-                Approve for posting
+                {t("outreach.action.approve")}
               </Button>
               {preflightBlocksApprove && selected && (
                 <Typography variant="caption" color="warning.main">
-                  Fix pre-flight warnings (length / grade / empty draft) before approving.
+                  {t("outreach.action.fixWarnings")}
                 </Typography>
               )}
               <Button
@@ -1209,7 +1288,7 @@ const OutreachPage = () => {
                 disabled={!selected || selected.status !== "drafted" || !draftPresent || busy}
                 onClick={handleSaveEdit}
               >
-                Save edits
+                {t("outreach.action.saveEdits")}
               </Button>
               <Button
                 fullWidth
@@ -1218,25 +1297,37 @@ const OutreachPage = () => {
                 disabled={!selected || busy}
                 onClick={handleReject}
               >
-                Reject
+                {t("outreach.action.reject")}
               </Button>
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-                Approve posts nothing. An approved Reddit, YouTube or Facebook draft is posted from the
-                Approvals page with Post now while you watch the Agent Screen; the Discord bot sends
-                Discord drafts. Reject removes it from the queue.
+                {t("outreach.action.note")}
               </Typography>
             </Stack>
           </Paper>
 
           {selected && (
             <Paper sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Selected draft</Typography>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>{t("outreach.selected.title")}</Typography>
               <Stack spacing={0.5}>
                 <Typography variant="caption" color="text.secondary">
-                  id #{selected.id} · status: <Chip size="small" label={selected.status} sx={{ height: 18, fontSize: "0.65rem" }} />
+                  <Trans
+                    i18nKey="outreach.selected.idStatus"
+                    values={{ id: selected.id }}
+                    components={{
+                      statusChip: (
+                        <Chip
+                          size="small"
+                          label={statusLabels()[selected.status] || selected.status}
+                          sx={{ height: 18, fontSize: "0.65rem" }}
+                        />
+                      ),
+                    }}
+                  />
                 </Typography>
                 {selected.task_id && (
-                  <Typography variant="caption" color="text.secondary">task id: {selected.task_id}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {t("outreach.selected.taskId", { id: selected.task_id })}
+                  </Typography>
                 )}
               </Stack>
             </Paper>
@@ -1248,20 +1339,20 @@ const OutreachPage = () => {
       <Paper sx={{ p: 2, mt: 2 }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
           <Typography variant="subtitle2" sx={{ flex: 1 }}>
-            History
+            {t("outreach.history.title")}
           </Typography>
           {[...HISTORY_STATUSES, "all"].map((f) => (
             <Chip
               key={f}
               size="small"
-              label={f}
+              label={statusLabels()[f] || f}
               variant={historyFilter === f ? "filled" : "outlined"}
               color={historyFilter === f ? "primary" : "default"}
               onClick={() => setHistoryFilter(f)}
               sx={{ textTransform: "capitalize" }}
             />
           ))}
-          <Tooltip title="Refresh now">
+          <Tooltip title={t("outreach.history.refresh")}>
             <span>
               <IconButton size="small" onClick={fetchHistory} disabled={loadingHistory}>
                 <RefreshIcon fontSize="small" />
@@ -1278,7 +1369,7 @@ const OutreachPage = () => {
           if (filtered.length === 0) {
             return (
               <Typography variant="body2" color="text.secondary">
-                Nothing in this view yet. Drafts that get approved and successfully post will appear under 'posted'; servo failures land under 'aborted'; ones you reject in the queue land under 'rejected'; approved drafts that nothing here can post on their platform (a reply outside YouTube, for one) land under 'unsupported'.
+                {t("outreach.history.empty")}
               </Typography>
             );
           }
@@ -1309,13 +1400,13 @@ const OutreachPage = () => {
                       <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
                         <Tooltip title={ts ? ts.toString() : ""}>
                           <Typography variant="caption" color="text.secondary" sx={{ minWidth: 130 }}>
-                            {ts ? ts.toLocaleString() : "—"}
+                            {ts ? ts.toLocaleString(uiLocale()) : "—"}
                           </Typography>
                         </Tooltip>
                         <Chip size="small" label={row.platform} sx={{ height: 18, fontSize: "0.65rem" }} />
                         <Chip
                           size="small"
-                          label={row.status}
+                          label={statusLabels()[row.status] || row.status}
                           color={statusColor}
                           sx={{ height: 18, fontSize: "0.65rem" }}
                         />
@@ -1330,7 +1421,7 @@ const OutreachPage = () => {
                           </Link>
                         ) : (
                           <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-                            (no target url)
+                            {t("outreach.history.noTarget")}
                           </Typography>
                         )}
                         <Typography variant="caption" color="text.secondary">
@@ -1374,9 +1465,9 @@ const OutreachPage = () => {
         fullWidth
       >
         <DialogTitle sx={{ pb: 1 }}>
-          New outreach draft
+          {t("outreach.newDraft.title")}
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-            Lands in the queue as a drafted row. Approve later from the main panel — or seed the body with the LLM, edit, and save.
+            {t("outreach.newDraft.subtitle")}
           </Typography>
         </DialogTitle>
         <DialogContent dividers>
@@ -1393,26 +1484,26 @@ const OutreachPage = () => {
             {/* Metadata column */}
             <Stack spacing={1.5}>
               <FormControl size="small" fullWidth>
-                <InputLabel>Platform</InputLabel>
-                <Select value={ndPlatform} label="Platform" onChange={(e) => setNdPlatform(e.target.value)}>
-                  {PLATFORM_OPTIONS.map(p => (
+                <InputLabel>{t("outreach.newDraft.platform")}</InputLabel>
+                <Select value={ndPlatform} label={t("outreach.newDraft.platform")} onChange={(e) => setNdPlatform(e.target.value)}>
+                  {platformOptions().map(p => (
                     <MenuItem key={p.value} value={p.value}>
-                      {p.label}{p.posts ? "" : " (not posted)"}
+                      {p.label}{p.posts ? "" : ` ${t("outreach.newDraft.notPosted")}`}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
               <FormControl size="small" fullWidth>
-                <InputLabel>Action</InputLabel>
-                <Select value={ndAction} label="Action" onChange={(e) => setNdAction(e.target.value)}>
-                  <MenuItem value="comment">Comment / reply</MenuItem>
-                  <MenuItem value="share">Share / new post</MenuItem>
+                <InputLabel>{t("outreach.newDraft.action")}</InputLabel>
+                <Select value={ndAction} label={t("outreach.newDraft.action")} onChange={(e) => setNdAction(e.target.value)}>
+                  <MenuItem value="comment">{t("outreach.newDraft.actionComment")}</MenuItem>
+                  <MenuItem value="share">{t("outreach.newDraft.actionShare")}</MenuItem>
                 </Select>
               </FormControl>
               <Stack direction="row" spacing={0.5} alignItems="flex-start">
                 <TextField
                   size="small"
-                  label="Target URL"
+                  label={t("outreach.newDraft.targetUrl")}
                   placeholder="https://reddit.com/r/SideProject/..."
                   value={ndUrl}
                   onChange={(e) => setNdUrl(e.target.value)}
@@ -1426,7 +1517,7 @@ const OutreachPage = () => {
                   }}
                   fullWidth
                 />
-                <Tooltip title="Have the agent fetch OP + top comments for this URL">
+                <Tooltip title={t("outreach.newDraft.scoutTooltip")}>
                   <span>
                     <IconButton
                       size="small"
@@ -1441,32 +1532,32 @@ const OutreachPage = () => {
               </Stack>
               <TextField
                 size="small"
-                label="Thread ID (optional)"
-                placeholder="auto-filled by Scout for Reddit URLs"
+                label={t("outreach.newDraft.threadId")}
+                placeholder={t("outreach.newDraft.threadIdPlaceholder")}
                 value={ndThreadId}
                 onChange={(e) => setNdThreadId(e.target.value)}
                 fullWidth
               />
-              {!PLATFORM_OPTIONS.find(p => p.value === ndPlatform)?.posts && (
+              {!platformOptions().find(p => p.value === ndPlatform)?.posts && (
                 <Alert severity="info" sx={{ py: 0.5, fontSize: "0.7rem" }}>
-                  Nothing here posts to {ndPlatform}; approving keeps the row but does not ship it.
+                  {t("outreach.newDraft.notShipped", { platform: ndPlatform })}
                 </Alert>
               )}
               <Divider sx={{ my: 0.5 }} />
               <Typography variant="caption" color="text.secondary">
-                Tone for LLM seeding picks up the main page's tone selector ({tone}).
+                {t("outreach.newDraft.toneNote", { tone })}
               </Typography>
               {ndGrade != null && (
                 <Chip
                   size="small"
-                  label={`LLM grade: ${ndGrade.toFixed(2)}`}
+                  label={t("outreach.newDraft.grade", { grade: ndGrade.toFixed(2) })}
                   color={ndGrade >= 0.7 ? "success" : "warning"}
                   sx={{ alignSelf: "flex-start" }}
                 />
               )}
               {ndSeededId && (
                 <Typography variant="caption" color="text.secondary">
-                  Seeded queue row #{ndSeededId} — Save will update it in place.
+                  {t("outreach.newDraft.seeded", { id: ndSeededId })}
                 </Typography>
               )}
             </Stack>
@@ -1474,8 +1565,8 @@ const OutreachPage = () => {
             {/* Body column */}
             <Stack spacing={1.5}>
               <TextField
-                label="Topic / thread context"
-                placeholder="Paste the OP + a few top comments, or describe what the thread is about. The LLM uses this to draft a relevant reply."
+                label={t("outreach.newDraft.context")}
+                placeholder={t("outreach.newDraft.contextPlaceholder")}
                 value={ndContext}
                 onChange={(e) => setNdContext(e.target.value)}
                 multiline
@@ -1484,7 +1575,7 @@ const OutreachPage = () => {
                 fullWidth
               />
               <Stack direction="row" spacing={1}>
-                <Tooltip title="Have the LLM draft the body from the topic + tone above">
+                <Tooltip title={t("outreach.newDraft.draftTooltip")}>
                   <span>
                     <Button
                       size="small"
@@ -1493,18 +1584,18 @@ const OutreachPage = () => {
                       disabled={ndBusy || !ndContext.trim()}
                       onClick={handleSeedNewDraftLLM}
                     >
-                      Draft with LLM
+                      {t("outreach.newDraft.draftWithLlm")}
                     </Button>
                   </span>
                 </Tooltip>
                 <Box sx={{ flex: 1 }} />
                 <Typography variant="caption" color="text.secondary" sx={{ alignSelf: "center" }}>
-                  {ndBody.length} chars
+                  {t("outreach.newDraft.chars", { count: ndBody.length })}
                 </Typography>
               </Stack>
               <TextField
-                label="Draft body"
-                placeholder="Type the post here, or click 'Draft with LLM' to seed it from the topic above."
+                label={t("outreach.newDraft.body")}
+                placeholder={t("outreach.newDraft.bodyPlaceholder")}
                 value={ndBody}
                 onChange={(e) => setNdBody(e.target.value)}
                 multiline
@@ -1517,7 +1608,7 @@ const OutreachPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={closeNewDraftModal} disabled={ndBusy}>
-            Cancel
+            {t("outreach.newDraft.cancel")}
           </Button>
           <Button
             variant="contained"
@@ -1525,7 +1616,7 @@ const OutreachPage = () => {
             onClick={handleSaveNewDraft}
             disabled={ndBusy || !ndBody.trim()}
           >
-            {ndSeededId ? "Save (update seeded row)" : "Save draft"}
+            {ndSeededId ? t("outreach.newDraft.saveSeeded") : t("outreach.newDraft.save")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1538,9 +1629,9 @@ const OutreachPage = () => {
         fullWidth
       >
         <DialogTitle sx={{ pb: 1 }}>
-          What you promote
+          {t("outreach.profileDialog.title")}
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-            Stays on this machine (data/social_outreach/profile.json). Drafts cite only what is here; the pitch sheet in data/agent/PITCH.md, when present, takes precedence over the pitch and features.
+            {t("outreach.profileDialog.subtitle")}
           </Typography>
         </DialogTitle>
         <DialogContent dividers>
@@ -1553,8 +1644,8 @@ const OutreachPage = () => {
             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
               <TextField
                 size="small"
-                label="Name"
-                placeholder="What you call it"
+                label={t("outreach.profileDialog.name")}
+                placeholder={t("outreach.profileDialog.namePlaceholder")}
                 value={profileForm.name}
                 onChange={(e) => setProfileField("name", e.target.value)}
                 fullWidth
@@ -1562,8 +1653,8 @@ const OutreachPage = () => {
               />
               <TextField
                 size="small"
-                label="Account handle"
-                placeholder="the account you post from, without @"
+                label={t("outreach.profileDialog.handle")}
+                placeholder={t("outreach.profileDialog.handlePlaceholder")}
                 value={profileForm.account_handle}
                 onChange={(e) => setProfileField("account_handle", e.target.value)}
                 fullWidth
@@ -1572,8 +1663,8 @@ const OutreachPage = () => {
             </Stack>
             <TextField
               size="small"
-              label="Pitch"
-              placeholder="One or two sentences on what it is and who it is for."
+              label={t("outreach.profileDialog.pitch")}
+              placeholder={t("outreach.profileDialog.pitchPlaceholder")}
               value={profileForm.pitch}
               onChange={(e) => setProfileField("pitch", e.target.value)}
               multiline
@@ -1585,27 +1676,27 @@ const OutreachPage = () => {
             <Stack direction={{ xs: "column", md: "row" }} spacing={1.5}>
               <TextField
                 size="small"
-                label="Site URL"
+                label={t("outreach.profileDialog.siteUrl")}
                 placeholder="https://"
                 value={profileForm.site_url}
                 onChange={(e) => setProfileField("site_url", e.target.value)}
                 fullWidth
-                helperText="Where comments and self-share posts point. Links to it get UTM tags."
+                helperText={t("outreach.profileDialog.siteUrlHelp")}
               />
               <TextField
                 size="small"
-                label="Repo URL"
+                label={t("outreach.profileDialog.repoUrl")}
                 placeholder="https://"
                 value={profileForm.repo_url}
                 onChange={(e) => setProfileField("repo_url", e.target.value)}
                 fullWidth
-                helperText="Preferred over the site on YouTube."
+                helperText={t("outreach.profileDialog.repoUrlHelp")}
               />
             </Stack>
 
             <Divider />
             <Stack direction="row" alignItems="center">
-              <Typography variant="subtitle2" sx={{ flex: 1 }}>Videos</Typography>
+              <Typography variant="subtitle2" sx={{ flex: 1 }}>{t("outreach.profileDialog.videos")}</Typography>
               <Button
                 size="small"
                 startIcon={<AddIcon />}
@@ -1613,19 +1704,19 @@ const OutreachPage = () => {
                 onClick={() => addProfileRow("videos", { label: "", url: "" })}
                 sx={{ textTransform: "none" }}
               >
-                Add video
+                {t("outreach.profileDialog.addVideo")}
               </Button>
             </Stack>
             {profileForm.videos.length === 0 && (
               <Typography variant="caption" color="text.secondary">
-                Each one becomes an insert button in the snippet bank.
+                {t("outreach.profileDialog.videosEmpty")}
               </Typography>
             )}
             {profileForm.videos.map((v, i) => (
               <Stack key={`video-${i}`} direction="row" spacing={1} alignItems="flex-start">
                 <TextField
                   size="small"
-                  label="Label"
+                  label={t("outreach.profileDialog.label")}
                   value={v.label}
                   onChange={(e) => setProfileRow("videos", i, "label", e.target.value)}
                   sx={{ width: { xs: "40%", md: 220 } }}
@@ -1633,13 +1724,13 @@ const OutreachPage = () => {
                 />
                 <TextField
                   size="small"
-                  label="URL"
+                  label={t("outreach.profileDialog.url")}
                   placeholder="https://"
                   value={v.url}
                   onChange={(e) => setProfileRow("videos", i, "url", e.target.value)}
                   fullWidth
                 />
-                <Tooltip title="Remove">
+                <Tooltip title={t("outreach.profileDialog.remove")}>
                   <IconButton size="small" onClick={() => removeProfileRow("videos", i)} sx={{ mt: 0.25 }}>
                     <DeleteOutlineIcon fontSize="small" />
                   </IconButton>
@@ -1649,7 +1740,7 @@ const OutreachPage = () => {
 
             <Divider />
             <Stack direction="row" alignItems="center">
-              <Typography variant="subtitle2" sx={{ flex: 1 }}>Features</Typography>
+              <Typography variant="subtitle2" sx={{ flex: 1 }}>{t("outreach.profileDialog.features")}</Typography>
               <Button
                 size="small"
                 startIcon={<AddIcon />}
@@ -1657,17 +1748,17 @@ const OutreachPage = () => {
                 onClick={() => addProfileRow("features", { key: "", blurb: "", keywords: "" })}
                 sx={{ textTransform: "none" }}
               >
-                Add feature
+                {t("outreach.profileDialog.addFeature")}
               </Button>
             </Stack>
             <Typography variant="caption" color="text.secondary">
-              The blurb is what a draft may say about the feature. Keywords (comma-separated, whole words) are what a thread has to mention for the scouts to pick it up; the first feature whose keyword matches wins, so list the specific ones first.
+              {t("outreach.profileDialog.featuresNote")}
             </Typography>
             {profileForm.features.map((f, i) => (
               <Stack key={`feature-${i}`} direction="row" spacing={1} alignItems="flex-start">
                 <TextField
                   size="small"
-                  label="Key"
+                  label={t("outreach.profileDialog.key")}
                   placeholder="local_ai"
                   value={f.key}
                   onChange={(e) => setProfileRow("features", i, "key", e.target.value)}
@@ -1676,7 +1767,7 @@ const OutreachPage = () => {
                 />
                 <TextField
                   size="small"
-                  label="Blurb"
+                  label={t("outreach.profileDialog.blurb")}
                   value={f.blurb}
                   onChange={(e) => setProfileRow("features", i, "blurb", e.target.value)}
                   fullWidth
@@ -1684,13 +1775,13 @@ const OutreachPage = () => {
                 />
                 <TextField
                   size="small"
-                  label="Keywords"
-                  placeholder="ollama, local llm"
+                  label={t("outreach.profileDialog.keywords")}
+                  placeholder={t("outreach.profileDialog.keywordsPlaceholder")}
                   value={f.keywords}
                   onChange={(e) => setProfileRow("features", i, "keywords", e.target.value)}
                   sx={{ width: { xs: "40%", md: 260 } }}
                 />
-                <Tooltip title="Remove">
+                <Tooltip title={t("outreach.profileDialog.remove")}>
                   <IconButton size="small" onClick={() => removeProfileRow("features", i)} sx={{ mt: 0.25 }}>
                     <DeleteOutlineIcon fontSize="small" />
                   </IconButton>
@@ -1701,7 +1792,7 @@ const OutreachPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setProfileOpen(false)} disabled={profileBusy}>
-            Cancel
+            {t("outreach.profileDialog.cancel")}
           </Button>
           <Button
             variant="contained"
@@ -1709,55 +1800,55 @@ const OutreachPage = () => {
             onClick={handleSaveProfile}
             disabled={profileBusy}
           >
-            Save
+            {t("outreach.profileDialog.save")}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={postingStopConfirmOpen} onClose={() => setPostingStopConfirmOpen(false)}>
         <DialogTitle>
-          {status?.posting_stopped ? "Resume public posting?" : "Stop all public posting?"}
+          {status?.posting_stopped ? t("outreach.postingDialog.resumeTitle") : t("outreach.postingDialog.stopTitle")}
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
             {status?.posting_stopped
-              ? "Posts can go out again. Held Connections publishes stay on the Approvals page until someone approves them; approved outreach drafts can be posted again while outreach is enabled (Reddit, YouTube and Facebook with Post now on the Approvals page)."
-              : "Nothing is posted publicly from this install until you resume: no outreach replies or shares, and no Connections publishes, including scheduled, chat and MCP requests. Queued Connections publishes are held on the Approvals page and need approving again; approved outreach drafts stay approved. A post already being sent may still go out. This is separate from the outreach Enabled switch."}
+              ? t("outreach.postingDialog.resumeBody")
+              : t("outreach.postingDialog.stopBody")}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPostingStopConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setPostingStopConfirmOpen(false)}>{t("outreach.postingDialog.cancel")}</Button>
           <Button
             variant="contained"
             color={status?.posting_stopped ? "success" : "error"}
             onClick={confirmPostingStopToggle}
             autoFocus
           >
-            {status?.posting_stopped ? "Resume posting" : "Stop posting"}
+            {status?.posting_stopped ? t("outreach.postingDialog.resume") : t("outreach.postingDialog.stop")}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={killConfirmOpen} onClose={() => setKillConfirmOpen(false)}>
         <DialogTitle>
-          {status?.enabled ? "Disable outreach?" : "Enable outreach?"}
+          {status?.enabled ? t("outreach.enableDialog.disableTitle") : t("outreach.enableDialog.enableTitle")}
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
             {status?.enabled
-              ? "This turns the kill switch off: scheduled ticks and new passes stop. Approved drafts will not post until you enable again."
-              : "This turns outreach on. Every draft still waits for your approval, and Reddit, YouTube and Facebook posts start only from Post now on the Approvals page."}
+              ? t("outreach.enableDialog.disableBody")
+              : t("outreach.enableDialog.enableBody")}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setKillConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setKillConfirmOpen(false)}>{t("outreach.enableDialog.cancel")}</Button>
           <Button
             variant="contained"
             color={status?.enabled ? "warning" : "success"}
             onClick={confirmEnableToggle}
             autoFocus
           >
-            {status?.enabled ? "Disable" : "Enable"}
+            {status?.enabled ? t("outreach.enableDialog.disable") : t("outreach.enableDialog.enable")}
           </Button>
         </DialogActions>
       </Dialog>

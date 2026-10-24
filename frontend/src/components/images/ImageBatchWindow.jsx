@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import FolderWindowWrapper from '../documents/FolderWindowWrapper';
 import ImageBatchContents from './ImageBatchContents';
+import { useUiTranslation } from '../../i18n';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -28,6 +29,7 @@ const ImageBatchWindow = ({
   onFeedback,
   ...layoutProps
 }) => {
+  const { t } = useUiTranslation();
   const handleDownload = useCallback(async () => {
     if (!batch?.batch_id) return;
     try {
@@ -42,9 +44,9 @@ const ImageBatchWindow = ({
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-      onFeedback?.(`Download started for ${batch.display_name || batch.batch_id}`, 'success');
+      onFeedback?.(t('images.batchWindow.downloadStarted', { name: batch.display_name || batch.batch_id }), 'success');
     } catch (err) {
-      onFeedback?.(`Download failed: ${err.message}`, 'error');
+      onFeedback?.(t('images.batchWindow.downloadFailed', { error: err.message }), 'error');
     }
   }, [batch, onFeedback]);
 
@@ -63,7 +65,7 @@ const ImageBatchWindow = ({
         sx={{ height: 18, fontSize: '0.6rem', '& .MuiChip-label': { px: 0.5 } }}
       />
       {batch?.status === 'completed' && (
-        <Tooltip title="Download batch">
+        <Tooltip title={t('images.batchWindow.download')}>
           <IconButton size="small" onClick={handleDownload} className="non-draggable" sx={{ width: 20, height: 20 }}>
             <DownloadIcon sx={{ fontSize: 14 }} />
           </IconButton>
@@ -72,7 +74,7 @@ const ImageBatchWindow = ({
     </Box>
   );
 
-  const title = batch?.display_name || batch?.batch_id || 'Batch';
+  const title = batch?.display_name || batch?.batch_id || t('images.batchWindow.fallbackTitle');
 
   return (
     <FolderWindowWrapper

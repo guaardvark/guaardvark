@@ -20,6 +20,7 @@ import {
   readSeenTips,
   tipShownThisSession,
 } from "./didYouKnowModel";
+import { useUiTranslation } from "../../i18n";
 
 // Long enough for the page to settle before anything else asks for attention.
 export const TIP_DELAY_MS = 6000;
@@ -44,6 +45,7 @@ export const TIP_ACTIONS = {
  * @param {{tips?: Array<object>, delayMs?: number}} props  `tips` and `delayMs` are test seams.
  */
 const DidYouKnowTip = ({ tips = TIPS, delayMs = TIP_DELAY_MS }) => {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { tipsEnabled, setTipsEnabled, ready, updateNoticeVisible, profile, navChrome, sidebarExpanded } =
@@ -109,7 +111,7 @@ const DidYouKnowTip = ({ tips = TIPS, delayMs = TIP_DELAY_MS }) => {
   return (
     <Paper
       role="region"
-      aria-label="Did you know"
+      aria-label={t("layoutCommon.didYouKnow.regionLabel")}
       elevation={6}
       sx={(theme) => ({
         position: "fixed",
@@ -128,9 +130,9 @@ const DidYouKnowTip = ({ tips = TIPS, delayMs = TIP_DELAY_MS }) => {
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.5 }}>
         <LightbulbOutlinedIcon sx={{ fontSize: 16, color: "primary.main" }} />
         <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: 0.5, flexGrow: 1 }}>
-          Did you know?
+          {t("layoutCommon.didYouKnow.title")}
         </Typography>
-        <IconButton size="small" aria-label="Close tip" onClick={close} sx={{ p: 0.25, mr: -0.75 }}>
+        <IconButton size="small" aria-label={t("layoutCommon.didYouKnow.closeTip")} onClick={close} sx={{ p: 0.25, mr: -0.75 }}>
           <CloseIcon sx={{ fontSize: 16 }} />
         </IconButton>
       </Box>
@@ -140,11 +142,11 @@ const DidYouKnowTip = ({ tips = TIPS, delayMs = TIP_DELAY_MS }) => {
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 1, mx: -0.75 }}>
         {hasShowMe && (
           <Button size="small" onClick={showMe} sx={{ textTransform: "none" }}>
-            Show me
+            {t("layoutCommon.didYouKnow.showMe")}
           </Button>
         )}
         <Button size="small" onClick={nextTip} sx={{ textTransform: "none" }}>
-          Next tip
+          {t("layoutCommon.didYouKnow.nextTip")}
         </Button>
         <Button
           size="small"
@@ -152,7 +154,7 @@ const DidYouKnowTip = ({ tips = TIPS, delayMs = TIP_DELAY_MS }) => {
           onClick={stopTips}
           sx={{ textTransform: "none", ml: "auto", color: "text.secondary" }}
         >
-          Don&apos;t show tips
+          {t("layoutCommon.didYouKnow.stopTips")}
         </Button>
       </Box>
     </Paper>

@@ -7,75 +7,107 @@
  * "floating-chat"). A tip whose route the active profile hides is skipped.
  * New tips go at the end, so a browser that has seen the list meets them first.
  */
+import { translate } from "../i18n";
+
 export const TIPS = Object.freeze([
   {
     id: "dashboard-card-menu",
-    text: "Right-click any card on the Dashboard to open its page, minimize it, give it a colour or hide it.",
+    get text() {
+      return translate("options.tips.dashboardCardMenu");
+    },
     route: "/dashboard",
   },
   {
     id: "shortcuts",
-    text: "Press ? anywhere outside a text box to see the keyboard shortcuts.",
+    get text() {
+      return translate("options.tips.shortcuts");
+    },
     action: "shortcuts",
   },
   {
     id: "mic-hands-free",
-    text: "Click the microphone to talk hands-free: each pause sends what you said to the chat. Click it again to stop.",
+    get text() {
+      return translate("options.tips.micHandsFree");
+    },
   },
   {
     id: "floating-chat",
-    text: "Ctrl+Shift+C opens the floating chat on any page. Its chip names the page you are on, and the chat is told which page and record you have open.",
+    get text() {
+      return translate("options.tips.floatingChat");
+    },
     action: "floating-chat",
   },
   {
     id: "drop-into-files",
-    text: "Drag files or whole folders from your computer onto the Files page. They are uploaded where you drop them and indexed for chat and search.",
+    get text() {
+      return translate("options.tips.dropIntoFiles");
+    },
     route: "/documents",
   },
   {
     id: "dashboard-hidden-cards",
-    text: "Hid a Dashboard card by mistake? Right-click an empty part of the Dashboard to show it again.",
+    get text() {
+      return translate("options.tips.dashboardHiddenCards");
+    },
     route: "/dashboard",
   },
   {
     id: "move-resize-cards",
-    text: "Cards on the Dashboard, Code Editor and Video Editor move by their title bar and resize from any edge or corner. Double-click a title bar to fold a card away.",
+    get text() {
+      return translate("options.tips.moveResizeCards");
+    },
     route: "/dashboard",
   },
   {
     id: "settings-hover-help",
-    text: "In Settings, a title with a dotted underline explains itself: rest the pointer on it.",
+    get text() {
+      return translate("options.tips.settingsHoverHelp");
+    },
     route: "/settings",
   },
   {
     id: "navigation-modes",
-    text: "Settings → General → Navigation switches between the sidebar and a Workspaces bar that groups pages by task.",
+    get text() {
+      return translate("options.tips.navigationModes");
+    },
     route: "/settings#settings-general",
   },
   {
     id: "drop-into-chat",
-    text: "Drop a document or an image into any chat to add it: documents are indexed, an image goes with your next message.",
+    get text() {
+      return translate("options.tips.dropIntoChat");
+    },
     route: "/chat",
   },
   {
     id: "mic-push-to-talk",
-    text: "Hold the microphone, or hold Ctrl+Shift+Space, to talk only while you hold it. Right-click the mic to change what a click does.",
+    get text() {
+      return translate("options.tips.micPushToTalk");
+    },
   },
   {
     id: "dashboard-layouts",
-    text: "Right-click an empty part of the Dashboard to cycle its layout: Normal, Compact, Compact Layered and Mode-X. Cards stay free to move in every layout.",
+    get text() {
+      return translate("options.tips.dashboardLayouts");
+    },
     route: "/dashboard",
   },
   {
     id: "footer-jobs",
-    text: "While jobs run, the bar at the bottom shows them side by side. Rest the pointer on it to list every job; click to keep the list open.",
+    get text() {
+      return translate("options.tips.footerJobs");
+    },
   },
   {
     id: "update-notice",
-    text: "When Guaardvark is updated while it runs, a notice above the bottom bar says whether a page reload or a restart finishes the update.",
+    get text() {
+      return translate("options.tips.updateNotice");
+    },
   },
   {
     id: "right-click-everywhere",
-    text: "Right-click works across the app: files, notes, chat messages, jobs, rules, plugins and more each have their own menu.",
+    get text() {
+      return translate("options.tips.rightClickEverywhere");
+    },
   },
 ]);

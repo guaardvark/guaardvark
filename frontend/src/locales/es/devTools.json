@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "Servicio caído",
+    "unknown": "Error"
+  },
+  "cleanup": {
+    "running": "Limpiando tareas en progreso...",
+    "result": "{{message}}: tareas atascadas limpiadas ({{cleaned}} limpiadas, {{found}} encontradas)",
+    "failed": "Error en la limpieza: {{error}}"
+  },
+  "entityIndexing": {
+    "running": "Indexando entidades para acceso RAG universal...",
+    "completed": "Indexación de entidades completada: {{total}} entidades indexadas ({{clients}} clientes, {{projects}} proyectos, {{websites}} sitios web, {{tasks}} tareas)",
+    "completedWithErrors": "Indexación de entidades completada: {{total}} entidades indexadas ({{clients}} clientes, {{projects}} proyectos, {{websites}} sitios web, {{tasks}} tareas), {{errors}} errores",
+    "failed": "Error en la indexación de entidades",
+    "failedWithError": "Error en la indexación de entidades: {{error}}"
+  },
+  "restart": {
+    "starting": "Iniciando reinicio del servicio...",
+    "started": "Reinicio del servicio iniciado con éxito",
+    "restarting": "Los servicios se están reiniciando. La página puede desconectarse temporalmente.",
+    "failed": "Error en el reinicio del servicio: {{error}}"
+  },
+  "selfTest": {
+    "complete": "Autodiagnóstico completo",
+    "failed": "Autodiagnóstico fallido: {{error}}",
+    "resultsHeading": "Resultados del Autodiagnóstico",
+    "resultsEmpty": "Ejecuta un autodiagnóstico para ver el diagnóstico detallado del sistema"
+  },
+  "logs": {
+    "fetchFailed": "Error al obtener registros ({{status}})",
+    "heading": "Registros del Backend (últimas 100 líneas)",
+    "loadFailed": "Error al cargar registros: {{error}}",
+    "empty": "Sin salida de registros."
+  },
+  "title": "Panel del sistema",
+  "loading": "Cargando...",
+  "status": {
+    "error": "Error",
+    "healthy": "Saludable"
+  },
+  "model": {
+    "default": "Predeterminado"
+  },
+  "summary": {
+    "heading": "Resumen del estado del sistema",
+    "backend": "Backend: {{state}}",
+    "database": "Base de datos: {{state}}",
+    "celery": "Celery: {{state}}",
+    "redis": "Redis: {{state}}"
+  },
+  "actions": {
+    "refresh": "Actualizar",
+    "retry": "Reintentar"
+  },
+  "checking": "Comprobando...",
+  "backend": {
+    "heading": "Backend",
+    "version": "Versión: {{version}}",
+    "uptime": "Tiempo de actividad: {{seconds}}s",
+    "indexLoaded": "✓ Índice cargado"
+  },
+  "database": {
+    "heading": "Base de datos / Migraciones",
+    "upToDate": "Actualizado",
+    "needsUpdate": "Requiere actualización",
+    "current": "Actual: {{revision}}",
+    "noRevision": "ninguno",
+    "heads": "Cabeceras: {{heads}}",
+    "multipleHeads": "Múltiples cabeceras detectadas"
+  },
+  "celery": {
+    "heading": "Worker de Celery",
+    "ping": "✓ Ping: {{result}}",
+    "active": "Activos: {{count}}",
+    "queued": "En cola: {{count}}",
+    "debug": "Depuración: {{tasks}}"
+  },
+  "redis": {
+    "heading": "Caché de Redis",
+    "connected": "✓ Conexión establecida"
+  },
+  "failedTasks": {
+    "heading": "Tareas fallidas recientes",
+    "none": "Sin fallos recientes."
+  },
+  "controls": {
+    "heading": "Controles del sistema",
+    "refreshAll": "Actualizar todo",
+    "running": "Ejecutando...",
+    "selfTest": "Autodiagnóstico",
+    "restartServices": "Reiniciar servicios",
+    "autoRefresh": "Auto-actualizar cada 5 segundos"
+  },
+  "jobs": {
+    "heading": "Gestión de tareas de progreso",
+    "activeCount": "{{count}} Activas",
+    "completedCount": "{{count}} Completadas",
+    "stuckCount": "{{count}} Atascadas",
+    "systemUnhealthy": "Sistema no saludable",
+    "cleaning": "Limpiando...",
+    "cleanStuck": "Limpiar tareas atascadas",
+    "cleanStuckCount": "Limpiar tareas atascadas ({{count}})",
+    "indexing": "Indexando...",
+    "indexEntities": "Indexar entidades",
+    "stuckWarning": "Parece que {{count}} tareas están atascadas (sin tareas activas de Celery o marcas de tiempo obsoletas). Considera ejecutar la limpieza.",
+    "systemIssues": "El sistema de progreso detectó problemas. Algunas tareas podrían no funcionar correctamente.",
+    "details": "Detalles de la tarea ({{count}} en total)",
+    "noActive": "Sin tareas activas",
+    "columns": {
+      "jobId": "ID de tarea",
+      "type": "Tipo",
+      "status": "Estado",
+      "progress": "Progreso",
+      "lastUpdate": "Última actualización",
+      "message": "Mensaje"
+    },
+    "staleTooltip": "Tarea obsoleta (>1 hora sin actualización)",
+    "unknownType": "Desconocido",
+    "complete": "Completar",
+    "processing": "Procesando",
+    "invalidDate": "Fecha no válida",
+    "noTimestamp": "Sin marca de tiempo",
+    "hoursAgo": "(hace {{hours}}h)",
+    "noMessage": "Sin mensaje",
+    "moreJobs": "... y {{count}} tareas más"
+  },
+  "selfImprovement": {
+    "heading": "Registro de auto-mejora",
+    "runs": "{{count}} ejecuciones"
+  },
+  "family": {
+    "heading": "Red familiar",
+    "notConfigured": "No configurado",
+    "online": "En línea",
+    "offline": "Desconectado",
+    "noNodes": "No hay nodos de familia conectados. Configura el Interconnector en Ajustes.",
+    "vram": "VRAM: {{free}} / {{total}} MB",
+    "unknownStatus": "desconocido"
+  },
+  "performance": {
+    "heading": "Resumen de rendimiento",
+    "notAvailable": "N/A",
+    "backendUptime": "Tiempo de actividad del backend: {{seconds}}s",
+    "celeryTasks": "Tareas de Celery: {{tasks}} activas",
+    "activeJobs": "Tareas activas: {{count}}",
+    "failedTasks": "Tareas fallidas: {{count}}"
+  },
+  "metrics": {
+    "heading": "Métricas del sistema"
+  },
+  "diagnostics": {
+    "heading": "Diagnóstico"
+  },
+  "retrievalDebug": {
+    "heading": "Depuración de recuperación"
+  }
+}

@@ -4,6 +4,7 @@
 import React, { useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import { BASE_URL } from "../../api/apiClient";
+import { translate, useUiTranslation, Trans } from "../../i18n";
 import {
   Dialog,
   DialogTitle,
@@ -34,6 +35,7 @@ import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import ArticleIcon from "@mui/icons-material/Article";
 
 const TestRetrievalModal = ({ open, onClose }) => {
+  const { t } = useUiTranslation();
   const [query, setQuery] = useState("");
   const [projectId, setProjectId] = useState("");
   const [topK, setTopK] = useState(5);
@@ -43,7 +45,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
 
   const handleTest = useCallback(async () => {
     if (!query.trim()) {
-      setError("Please enter a query to test");
+      setError(translate("dialogs.testRetrieval.queryRequired"));
       return;
     }
 
@@ -71,7 +73,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(data.error || "Retrieval test failed");
+        throw new Error(data.error || translate("dialogs.testRetrieval.testFailed"));
       }
 
       setResults(data.data);
@@ -96,14 +98,14 @@ const TestRetrievalModal = ({ open, onClose }) => {
     if (typeof score === 'number') {
       return score.toFixed(3);
     }
-    return score || 'N/A';
+    return score || t("dialogs.testRetrieval.notAvailable");
   };
 
   const formatTime = (time) => {
     if (typeof time === 'number') {
       return `${(time * 1000).toFixed(1)}ms`;
     }
-    return time || 'N/A';
+    return time || t("dialogs.testRetrieval.notAvailable");
   };
 
   return (
@@ -111,15 +113,15 @@ const TestRetrievalModal = ({ open, onClose }) => {
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
           <SearchIcon color="primary" />
-          <Typography variant="h6">Test RAG Retrieval</Typography>
+          <Typography variant="h6">{t("dialogs.testRetrieval.title")}</Typography>
         </Stack>
       </DialogTitle>
 
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <TextField
-            label="Query"
-            placeholder="Enter your test query..."
+            label={t("dialogs.testRetrieval.query")}
+            placeholder={t("dialogs.testRetrieval.queryPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             fullWidth
@@ -131,8 +133,8 @@ const TestRetrievalModal = ({ open, onClose }) => {
           <Grid container spacing={2} sx={{ mb: 2 }}>
             <Grid item xs={6}>
               <TextField
-                label="Project ID (optional)"
-                placeholder="Leave blank for global search"
+                label={t("dialogs.testRetrieval.projectId")}
+                placeholder={t("dialogs.testRetrieval.projectPlaceholder")}
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
                 fullWidth
@@ -140,7 +142,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
             </Grid>
             <Grid item xs={6}>
               <TextField
-                label="Top K Results"
+                label={t("dialogs.testRetrieval.topK")}
                 type="number"
                 value={topK}
                 onChange={(e) => setTopK(Math.max(1, Math.min(20, parseInt(e.target.value) || 5)))}
@@ -157,7 +159,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
             startIcon={loading ? <CircularProgress size={20} /> : <SearchIcon />}
             sx={{ mb: 2 }}
           >
-            {loading ? "Testing..." : "Test Retrieval"}
+            {loading ? t("dialogs.testRetrieval.testing") : t("dialogs.testRetrieval.test")}
           </Button>
         </Box>
 
@@ -172,7 +174,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
             {/* Query Analysis */}
             <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
               <Typography variant="h6" gutterBottom>
-                Query Analysis
+                {t("dialogs.testRetrieval.queryAnalysis")}
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={4}>
@@ -186,14 +188,14 @@ const TestRetrievalModal = ({ open, onClose }) => {
                 <Grid item xs={4}>
                   <Chip
                     icon={<ArticleIcon />}
-                    label={`${results.metrics?.retrieved_nodes || 0} nodes`}
+                    label={t("dialogs.testRetrieval.nodes", { count: results.metrics?.retrieved_nodes || 0 })}
                     variant="outlined"
                     size="small"
                   />
                 </Grid>
                 <Grid item xs={4}>
                   <Chip
-                    label={`${results.query_analysis?.query_complexity || 'Unknown'} complexity`}
+                    label={t("dialogs.testRetrieval.complexity", { complexity: results.query_analysis?.query_complexity || t("dialogs.testRetrieval.unknown") })}
                     variant="outlined"
                     size="small"
                   />
@@ -202,13 +204,21 @@ const TestRetrievalModal = ({ open, onClose }) => {
 
               <Box sx={{ mt: 2 }}>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Query:</strong> {results.metrics?.query}
+                  <Trans i18nKey="dialogs.testRetrieval.queryLine" values={{ query: results.metrics?.query }} components={{ bold: <strong /> }} />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Avg Similarity:</strong> {formatScore(results.metrics?.avg_similarity_score)}
+                  <Trans
+                    i18nKey="dialogs.testRetrieval.avgSimilarity"
+                    values={{ score: formatScore(results.metrics?.avg_similarity_score) }}
+                    components={{ bold: <strong /> }}
+                  />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  <strong>Top Score:</strong> {formatScore(results.metrics?.top_score)}
+                  <Trans
+                    i18nKey="dialogs.testRetrieval.topScore"
+                    values={{ score: formatScore(results.metrics?.top_score) }}
+                    components={{ bold: <strong /> }}
+                  />
                 </Typography>
               </Box>
             </Paper>
@@ -217,7 +227,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
             {results.detailed_nodes && results.detailed_nodes.length > 0 ? (
               <Box>
                 <Typography variant="h6" gutterBottom>
-                  Retrieval Results ({results.detailed_nodes.length})
+                  {t("dialogs.testRetrieval.results", { count: results.detailed_nodes.length })}
                 </Typography>
                 
                 {results.detailed_nodes.map((node, index) => (
@@ -225,7 +235,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                       <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%' }}>
                         <Chip
-                          label={`Rank ${node.rank}`}
+                          label={t("dialogs.testRetrieval.rank", { rank: node.rank })}
                           size="small"
                           variant="outlined"
                         />
@@ -239,7 +249,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                           {node.content_preview}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {node.content_length} chars
+                          {t("dialogs.testRetrieval.chars", { count: node.content_length })}
                         </Typography>
                       </Stack>
                     </AccordionSummary>
@@ -252,7 +262,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
                       {node.metadata && Object.keys(node.metadata).length > 0 && (
                         <Box>
                           <Typography variant="subtitle2" gutterBottom>
-                            Metadata
+                            {t("dialogs.testRetrieval.metadata")}
                           </Typography>
                           <Paper variant="outlined" sx={{ p: 1, bgcolor: 'grey.50' }}>
                             <pre style={{ fontSize: '12px', margin: 0, whiteSpace: 'pre-wrap' }}>
@@ -267,14 +277,14 @@ const TestRetrievalModal = ({ open, onClose }) => {
               </Box>
             ) : (
               <Alert severity="info">
-                No results found for this query. Try a different search term or check if documents are properly indexed.
+                {t("dialogs.testRetrieval.noResults")}
               </Alert>
             )}
 
             {/* Error Handling */}
             {results.error && (
               <Alert severity="error" sx={{ mt: 2 }}>
-                <Typography variant="subtitle2">Retrieval Error</Typography>
+                <Typography variant="subtitle2">{t("dialogs.testRetrieval.retrievalError")}</Typography>
                 {results.error}
               </Alert>
             )}
@@ -284,7 +294,7 @@ const TestRetrievalModal = ({ open, onClose }) => {
 
       <DialogActions>
         <Button onClick={handleClose} startIcon={<CloseIcon />}>
-          Close
+          {t("dialogs.shared.close")}
         </Button>
       </DialogActions>
     </Dialog>

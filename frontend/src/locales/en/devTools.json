@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "Service down",
+    "unknown": "Error"
+  },
+  "cleanup": {
+    "running": "Running progress jobs cleanup...",
+    "result": "{{message}}: {{cleaned}} stuck jobs cleaned up ({{found}} found)",
+    "failed": "Cleanup failed: {{error}}"
+  },
+  "entityIndexing": {
+    "running": "Indexing entities for universal RAG access...",
+    "completed": "Entity indexing completed: {{total}} entities indexed ({{clients}} clients, {{projects}} projects, {{websites}} websites, {{tasks}} tasks)",
+    "completedWithErrors": "Entity indexing completed: {{total}} entities indexed ({{clients}} clients, {{projects}} projects, {{websites}} websites, {{tasks}} tasks), {{errors}} errors",
+    "failed": "Entity indexing failed",
+    "failedWithError": "Entity indexing failed: {{error}}"
+  },
+  "restart": {
+    "starting": "Initiating service restart...",
+    "started": "Service restart initiated successfully",
+    "restarting": "Services are restarting. The page may disconnect temporarily.",
+    "failed": "Service restart failed: {{error}}"
+  },
+  "selfTest": {
+    "complete": "Self-test complete",
+    "failed": "Self-test failed: {{error}}",
+    "resultsHeading": "Self-Test Results",
+    "resultsEmpty": "Run a self-test to see detailed system diagnostics"
+  },
+  "logs": {
+    "fetchFailed": "Failed to fetch logs ({{status}})",
+    "heading": "Backend Logs (last 100 lines)",
+    "loadFailed": "Failed to load logs: {{error}}",
+    "empty": "No log output."
+  },
+  "title": "System Dashboard",
+  "loading": "Loading...",
+  "status": {
+    "error": "Error",
+    "healthy": "Healthy"
+  },
+  "model": {
+    "default": "Default"
+  },
+  "summary": {
+    "heading": "System Status Summary",
+    "backend": "Backend: {{state}}",
+    "database": "Database: {{state}}",
+    "celery": "Celery: {{state}}",
+    "redis": "Redis: {{state}}"
+  },
+  "actions": {
+    "refresh": "Refresh",
+    "retry": "Retry"
+  },
+  "checking": "Checking...",
+  "backend": {
+    "heading": "Backend",
+    "version": "Version: {{version}}",
+    "uptime": "Uptime: {{seconds}}s",
+    "indexLoaded": "✓ Index loaded"
+  },
+  "database": {
+    "heading": "Database / Migrations",
+    "upToDate": "Up to date",
+    "needsUpdate": "Needs update",
+    "current": "Current: {{revision}}",
+    "noRevision": "none",
+    "heads": "Heads: {{heads}}",
+    "multipleHeads": "Multiple heads detected"
+  },
+  "celery": {
+    "heading": "Celery Worker",
+    "ping": "✓ Ping: {{result}}",
+    "active": "Active: {{count}}",
+    "queued": "Queued: {{count}}",
+    "debug": "Debug: {{tasks}}"
+  },
+  "redis": {
+    "heading": "Redis Cache",
+    "connected": "✓ Connection established"
+  },
+  "failedTasks": {
+    "heading": "Recent Failed Tasks",
+    "none": "No recent failures."
+  },
+  "controls": {
+    "heading": "System Controls",
+    "refreshAll": "Refresh All",
+    "running": "Running...",
+    "selfTest": "Self Test",
+    "restartServices": "Restart Services",
+    "autoRefresh": "Auto-refresh every 5 seconds"
+  },
+  "jobs": {
+    "heading": "Progress Jobs Management",
+    "activeCount": "{{count}} Active",
+    "completedCount": "{{count}} Completed",
+    "stuckCount": "{{count}} Stuck",
+    "systemUnhealthy": "System Unhealthy",
+    "cleaning": "Cleaning...",
+    "cleanStuck": "Clean Stuck Jobs",
+    "cleanStuckCount": "Clean Stuck Jobs ({{count}})",
+    "indexing": "Indexing...",
+    "indexEntities": "Index Entities",
+    "stuckWarning": "{{count}} jobs appear to be stuck (no active Celery tasks or stale timestamps). Consider running cleanup.",
+    "systemIssues": "Progress system detected issues. Some jobs may not be functioning properly.",
+    "details": "Job Details ({{count}} total)",
+    "noActive": "No active jobs",
+    "columns": {
+      "jobId": "Job ID",
+      "type": "Type",
+      "status": "Status",
+      "progress": "Progress",
+      "lastUpdate": "Last Update",
+      "message": "Message"
+    },
+    "staleTooltip": "Stale job (>1 hour without update)",
+    "unknownType": "Unknown",
+    "complete": "Complete",
+    "processing": "Processing",
+    "invalidDate": "Invalid Date",
+    "noTimestamp": "No timestamp",
+    "hoursAgo": "({{hours}}h ago)",
+    "noMessage": "No message",
+    "moreJobs": "... and {{count}} more jobs"
+  },
+  "selfImprovement": {
+    "heading": "Self-improvement log",
+    "runs": "{{count}} runs"
+  },
+  "family": {
+    "heading": "Family Network",
+    "notConfigured": "Not configured",
+    "online": "Online",
+    "offline": "Offline",
+    "noNodes": "No family nodes connected. Configure the Interconnector in Settings.",
+    "vram": "VRAM: {{free}} / {{total}} MB",
+    "unknownStatus": "unknown"
+  },
+  "performance": {
+    "heading": "Performance Overview",
+    "notAvailable": "N/A",
+    "backendUptime": "Backend Uptime: {{seconds}}s",
+    "celeryTasks": "Celery Tasks: {{tasks}} active",
+    "activeJobs": "Active Jobs: {{count}}",
+    "failedTasks": "Failed Tasks: {{count}}"
+  },
+  "metrics": {
+    "heading": "System Metrics"
+  },
+  "diagnostics": {
+    "heading": "Diagnostics"
+  },
+  "retrievalDebug": {
+    "heading": "Retrieval debug"
+  }
+}

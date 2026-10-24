@@ -16,6 +16,7 @@ import {
 } from "@mui/icons-material";
 
 import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
+import { useUiTranslation } from "../../i18n";
 
 const QuickActionsCard = React.forwardRef(
   (
@@ -31,6 +32,7 @@ const QuickActionsCard = React.forwardRef(
     },
     ref
   ) => {
+    const { t } = useUiTranslation();
     const _currentTab = openTabs?.[activeTabIndex];
 
     const handleAction = useCallback((action) => {
@@ -40,7 +42,7 @@ const QuickActionsCard = React.forwardRef(
     return (
       <DashboardCardWrapper
         ref={ref}
-        title="Actions"
+        title={t("codeEditor.quickActions.title")}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
         isMinimized={isMinimized}
@@ -50,7 +52,7 @@ const QuickActionsCard = React.forwardRef(
       >
         <Box sx={{ p: 1 }}>
           <Stack spacing={1}>
-            <Tooltip title="Code execution not implemented">
+            <Tooltip title={t("codeEditor.quickActions.runUnavailable")}>
               <span>
                 <Button
                   fullWidth
@@ -59,12 +61,12 @@ const QuickActionsCard = React.forwardRef(
                   onClick={() => handleAction('run')}
                   disabled={true}
                 >
-                  Run
+                  {t("codeEditor.quickActions.run")}
                 </Button>
               </span>
             </Tooltip>
 
-            <Tooltip title="Code formatting not implemented">
+            <Tooltip title={t("codeEditor.quickActions.formatUnavailable")}>
               <span>
                 <Button
                   fullWidth
@@ -73,12 +75,12 @@ const QuickActionsCard = React.forwardRef(
                   onClick={() => handleAction('format')}
                   disabled={true}
                 >
-                  Format
+                  {t("codeEditor.quickActions.format")}
                 </Button>
               </span>
             </Tooltip>
 
-            <Tooltip title="Debugging not implemented">
+            <Tooltip title={t("codeEditor.quickActions.debugUnavailable")}>
               <span>
                 <Button
                   fullWidth
@@ -87,12 +89,12 @@ const QuickActionsCard = React.forwardRef(
                   onClick={() => handleAction('debug')}
                   disabled={true}
                 >
-                  Debug
+                  {t("codeEditor.quickActions.debug")}
                 </Button>
               </span>
             </Tooltip>
 
-            <Tooltip title="Build system not implemented">
+            <Tooltip title={t("codeEditor.quickActions.buildUnavailable")}>
               <span>
                 <Button
                   fullWidth
@@ -101,7 +103,7 @@ const QuickActionsCard = React.forwardRef(
                   onClick={() => handleAction('build')}
                   disabled={true}
                 >
-                  Build
+                  {t("codeEditor.quickActions.build")}
                 </Button>
               </span>
             </Tooltip>

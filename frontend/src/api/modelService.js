@@ -1,6 +1,7 @@
 // frontend/src/api/modelService.js
 // Version 1.0: Service for model-related API calls.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 export const getAvailableModels = async () => {
   try {
@@ -21,7 +22,7 @@ export const getAvailableModels = async () => {
       "modelService: Error fetching available models:",
       err.message,
     );
-    return { error: err.message || "Failed to fetch available models." };
+    return { error: err.message || translate("messages.models.listFailed") };
   }
 };
 
@@ -41,7 +42,7 @@ export const getChatModelList = async () => {
       ollamaOffline: Boolean(payload.ollama_offline),
     };
   } catch (err) {
-    return { error: err.message || "Failed to fetch available models." };
+    return { error: err.message || translate("messages.models.listFailed") };
   }
 };
 

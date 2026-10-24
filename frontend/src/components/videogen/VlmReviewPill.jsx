@@ -6,11 +6,13 @@
 
 import React from "react";
 import { StatusPill } from "../settings/ui";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * @param {object} review  a result's metadata.quality.vlm_review
  */
 const VlmReviewPill = ({ review }) => {
+  const { t } = useUiTranslation();
   if (!review || typeof review !== "object") return null;
   const score = review.review?.quality_score;
   const reviewed = review.status ? review.status === "reviewed" : review.available === true;
@@ -18,14 +20,14 @@ const VlmReviewPill = ({ review }) => {
     return (
       <StatusPill
         tone={score >= 5 ? "ok" : "warn"}
-        label={`QA ${score}/10`}
+        label={t("video.vlmReview.score", { score })}
         tooltip={review.review?.justification || ""}
       />
     );
   }
   // Records written before the "not reviewed" state carry only a reason code.
-  const why = review.message || review.reason || "the vision review gave no score";
-  return <StatusPill tone="neutral" label="Not reviewed" tooltip={`Not reviewed: ${why}`} />;
+  const why = review.message || review.reason || t("video.vlmReview.noScore");
+  return <StatusPill tone="neutral" label={t("video.vlmReview.notReviewed")} tooltip={t("video.vlmReview.notReviewedWhy", { reason: why })} />;
 };
 
 export default VlmReviewPill;

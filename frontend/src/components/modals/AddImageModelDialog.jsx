@@ -26,13 +26,15 @@ import axios from "axios";
 import { ActionButton, ChoiceChips, Hint } from "../settings/ui";
 import useHfModelLookup from "../../hooks/useHfModelLookup";
 import { formatWeightSize, selectedBytes } from "../../utils/hfUrl";
+import { translate, useUiTranslation } from "../../i18n";
 
-const ROLE_OPTIONS = [
-  { value: "generation", label: "New generation model" },
-  { value: "lora", label: "LoRA on a model" },
+const roleOptions = () => [
+  { value: "generation", label: translate("models.addModel.roleGeneration") },
+  { value: "lora", label: translate("models.addModel.roleLora") },
 ];
 
 const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
+  const { t } = useUiTranslation();
   const { url, onUrlChange, looking, preview, error, setError, handleLookup } = useHfModelLookup({
     endpoint: "/api/batch-image/models/from-hf",
     open,
@@ -118,25 +120,25 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
         install,
       });
       if (!res.data.success) {
-        setError(res.data.error?.message || res.data.message || "Could not add");
+        setError(res.data.error?.message || res.data.message || t("models.addModel.couldNotAdd"));
         setSaving(false);
         return;
       }
       const dl = res.data.data?.download;
       if (dl?.error) {
         showMessage?.(
-          `Added ${res.data.data?.entry?.name || name}. Install did not start: ${dl.error}`,
+          t("models.addModel.addedInstallFailed", { name: res.data.data?.entry?.name || name, error: dl.error }),
           "warning",
         );
       } else if (install) {
-        showMessage?.(`Added ${res.data.data?.entry?.name || name}. Installing…`, "info");
+        showMessage?.(t("models.addModel.addedInstalling", { name: res.data.data?.entry?.name || name }), "info");
       } else {
-        showMessage?.(`Added ${res.data.data?.entry?.name || name}. Install when you are ready.`, "info");
+        showMessage?.(t("models.addModel.addedInstallLater", { name: res.data.data?.entry?.name || name }), "info");
       }
       onAdded?.(res.data.data?.id);
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error?.message || err.message || "Could not add");
+      setError(err.response?.data?.error?.message || err.message || t("models.addModel.couldNotAdd"));
     } finally {
       setSaving(false);
     }
@@ -151,18 +153,16 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
 
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Add new model</DialogTitle>
+      <DialogTitle>{t("models.shared.addNewModel")}</DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5, pt: 1 }}>
         <Hint>
-          Paste a Hugging Face URL or org/repo. A diffusers repo installs whole; a single
-          .safetensors is a checkpoint (SD, SDXL) or a LoRA. FLUX and Qwen-Image 2.1 stills are
-          one UNET in ComfyUI.
+          {t("models.addImageModel.hint")}
         </Hint>
         <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
           <TextField
             size="small"
             fullWidth
-            label="Hugging Face URL"
+            label={t("models.addModel.hfUrl")}
             placeholder="https://huggingface.co/org/repo"
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
@@ -170,7 +170,7 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
             disabled={looking || saving}
           />
           <ActionButton onClick={handleLookup} loading={looking} disabled={!url.trim()}>
-            Look up
+            {t("models.addModel.lookUp")}
           </ActionButton>
         </Box>
         {looking && <LinearProgress />}
@@ -188,26 +188,26 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
           <>
             <Typography variant="caption" color="text.secondary">
               {preview.hf_repo}
-              {preview.has_model_index ? " · diffusers repo" : " · files only"}
+              {preview.has_model_index ? " · " + t("models.addImageModel.diffusersRepo") : " · " + t("models.addImageModel.filesOnly")}
               {preview.license ? ` · ${preview.license}` : ""}
               {preview.gated
                 ? preview.token_present
-                  ? " · gated (agree on the model page with your HF_TOKEN account)"
-                  : " · gated (set HF_TOKEN in .env and restart)"
+                  ? " · " + t("models.addModel.gatedAgree")
+                  : " · " + t("models.addModel.gatedSetToken")
                 : ""}
-              {preview.truncated ? " · file list truncated" : ""}
+              {preview.truncated ? " · " + t("models.addModel.fileListTruncated") : ""}
             </Typography>
             {(preview.warnings || []).map((w) => (
               <Typography key={w} variant="caption" color="warning.main">
                 {w}
               </Typography>
             ))}
-            <ChoiceChips ariaLabel="Role" value={role} onChange={setRole} options={ROLE_OPTIONS} />
+            <ChoiceChips ariaLabel={t("models.addModel.role")} value={role} onChange={setRole} options={roleOptions()} />
             <FormControl size="small" fullWidth>
-              <InputLabel>{role === "lora" ? "Applies to" : "Family"}</InputLabel>
+              <InputLabel>{role === "lora" ? t("models.addModel.appliesTo") : t("models.addImageModel.family")}</InputLabel>
               <Select
                 value={familyOk ? family : ""}
-                label={role === "lora" ? "Applies to" : "Family"}
+                label={role === "lora" ? t("models.addModel.appliesTo") : t("models.addImageModel.family")}
                 onChange={(e) => setFamily(e.target.value)}
               >
                 {familyChoices.map((f) => (
@@ -220,22 +220,22 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
             {familyChoices.length === 0 && (
               <Typography variant="body2" color="error">
                 {role === "lora"
-                  ? "No family in this list stacks that LoRA."
-                  : "No wired family fits this repo. Paste a checkpoint, a FLUX or Qwen-Image 2.1 UNET, or a diffusers repo this product already runs."}
+                  ? t("models.addImageModel.noLoraFamily")
+                  : t("models.addImageModel.noWiredFamily")}
               </Typography>
             )}
-            <TextField size="small" label="Name" value={name} onChange={(e) => setName(e.target.value)} />
+            <TextField size="small" label={t("models.addModel.name")} value={name} onChange={(e) => setName(e.target.value)} />
             {snapshot ? (
-              <Hint>The whole repo installs, the same way the shipped models do.</Hint>
+              <Hint>{t("models.addImageModel.wholeRepo")}</Hint>
             ) : (
               <>
                 <Typography variant="overline" color="text.secondary">
-                  Files (pick one)
+                  {t("models.addModel.filesPickOne")}
                 </Typography>
                 {files.length > 8 && (
                   <TextField
                     size="small"
-                    label="Filter files"
+                    label={t("models.addModel.filterFiles")}
                     value={fileFilter}
                     onChange={(e) => setFileFilter(e.target.value)}
                   />
@@ -243,7 +243,7 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
                 <Box sx={{ maxHeight: 240, overflow: "auto", border: 1, borderColor: "divider", borderRadius: 1, px: 1 }}>
                   {files.length === 0 && (
                     <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-                      No weight files listed. Paste a URL that includes the filename.
+                      {t("models.addModel.noWeightFiles")}
                     </Typography>
                   )}
                   {singleFile ? (
@@ -284,14 +284,14 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
               </>
             )}
             <Hint>
-              {name.trim() || "Unnamed"} · {familySpec?.label || family || "family"} · {role}
+              {name.trim() || t("models.addModel.unnamed")} · {familySpec?.label || family || t("models.addImageModel.familyFallback")} · {role}
               {bytes > 0 ? ` · ${(bytes / 1024 ** 3).toFixed(2)} GB` : ""}
-              {preview.license ? ` · licence ${preview.license}` : ""}
+              {preview.license ? " · " + t("models.addModel.licence", { licence: preview.license }) : ""}
               {preview.gated && repoUrl && (
                 <>
                   {" · "}
                   <a href={repoUrl} target="_blank" rel="noreferrer noopener">
-                    Agree and access
+                    {t("models.addModel.agreeAndAccess")}
                   </a>
                 </>
               )}
@@ -301,13 +301,13 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
       </DialogContent>
       <DialogActions>
         <ActionButton onClick={onClose} disabled={saving}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </ActionButton>
         <ActionButton onClick={() => handleAdd(false)} disabled={!pending}>
-          Add only
+          {t("models.addModel.addOnly")}
         </ActionButton>
         <ActionButton kind="primary" onClick={() => handleAdd(true)} loading={saving} disabled={!pending}>
-          Add and install
+          {t("models.addModel.addAndInstall")}
         </ActionButton>
       </DialogActions>
     </Dialog>

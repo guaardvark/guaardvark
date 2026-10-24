@@ -21,8 +21,10 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import IconButton from "@mui/material/IconButton";
+import { useUiTranslation } from "../../i18n";
 
 function WordPressSiteModal({ open, onClose, site, clients, projects, onSave }) {
+  const { t } = useUiTranslation();
   const isEditMode = Boolean(site);
 
   const [formData, setFormData] = useState({
@@ -82,15 +84,15 @@ function WordPressSiteModal({ open, onClose, site, clients, projects, onSave }) 
   const validate = () => {
     const newErrors = {};
     if (!formData.url.trim()) {
-      newErrors.url = "URL is required";
+      newErrors.url = t("dialogs.wordPressSite.urlRequired");
     } else if (!formData.url.match(/^https?:\/\/.+/)) {
-      newErrors.url = "URL must start with http:// or https://";
+      newErrors.url = t("dialogs.wordPressSite.urlScheme");
     }
     if (!formData.username.trim()) {
-      newErrors.username = "Username is required";
+      newErrors.username = t("dialogs.wordPressSite.usernameRequired");
     }
     if (!isEditMode && !formData.api_key.trim()) {
-      newErrors.api_key = "API key is required";
+      newErrors.api_key = t("dialogs.wordPressSite.apiKeyRequired");
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -120,7 +122,7 @@ function WordPressSiteModal({ open, onClose, site, clients, projects, onSave }) 
       <DialogTitle>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography variant="h6">
-            {isEditMode ? "Edit WordPress Site" : "Register WordPress Site"}
+            {isEditMode ? t("dialogs.wordPressSite.editTitle") : t("dialogs.wordPressSite.registerTitle")}
           </Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
@@ -130,42 +132,41 @@ function WordPressSiteModal({ open, onClose, site, clients, projects, onSave }) 
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           <Alert severity="info">
-            Use WordPress Application Passwords for secure API access. Go to Users → Your Profile
-            → Application Passwords in WordPress admin to create one.
+            {t("dialogs.wordPressSite.passwordHint")}
           </Alert>
 
           <TextField
             fullWidth
-            label="WordPress Site URL"
+            label={t("dialogs.wordPressSite.urlLabel")}
             value={formData.url}
             onChange={(e) => handleChange("url", e.target.value)}
             error={!!errors.url}
-            helperText={errors.url || "Full URL including https://"}
+            helperText={errors.url || t("dialogs.wordPressSite.urlHelp")}
             required
             placeholder="https://example.com"
           />
 
           <TextField
             fullWidth
-            label="Site Name (Optional)"
+            label={t("dialogs.wordPressSite.siteNameLabel")}
             value={formData.site_name}
             onChange={(e) => handleChange("site_name", e.target.value)}
-            helperText="Display name for this site"
+            helperText={t("dialogs.wordPressSite.siteNameHelp")}
           />
 
           <TextField
             fullWidth
-            label="WordPress Username"
+            label={t("dialogs.wordPressSite.usernameLabel")}
             value={formData.username}
             onChange={(e) => handleChange("username", e.target.value)}
             error={!!errors.username}
-            helperText={errors.username || "WordPress username"}
+            helperText={errors.username || t("dialogs.wordPressSite.usernameHelp")}
             required
           />
 
           <TextField
             fullWidth
-            label="Application Password"
+            label={t("dialogs.wordPressSite.passwordLabel")}
             type="password"
             value={formData.api_key}
             onChange={(e) => handleChange("api_key", e.target.value)}
@@ -173,8 +174,8 @@ function WordPressSiteModal({ open, onClose, site, clients, projects, onSave }) 
             helperText={
               errors.api_key ||
               (isEditMode
-                ? "Leave blank to keep existing password"
-                : "WordPress Application Password (not your regular password)")
+                ? t("dialogs.wordPressSite.passwordKeep")
+                : t("dialogs.wordPressSite.passwordHelp"))
             }
             required={!isEditMode}
           />
@@ -187,7 +188,7 @@ function WordPressSiteModal({ open, onClose, site, clients, projects, onSave }) 
               handleChange("client_id", newValue ? newValue.id : null);
             }}
             renderInput={(params) => (
-              <TextField {...params} label="Client (Optional)" placeholder="Select client" />
+              <TextField {...params} label={t("dialogs.wordPressSite.clientLabel")} placeholder={t("dialogs.wordPressSite.clientPlaceholder")} />
             )}
           />
 
@@ -199,31 +200,31 @@ function WordPressSiteModal({ open, onClose, site, clients, projects, onSave }) 
               handleChange("project_id", newValue ? newValue.id : null);
             }}
             renderInput={(params) => (
-              <TextField {...params} label="Project (Optional)" placeholder="Select project" />
+              <TextField {...params} label={t("dialogs.wordPressSite.projectLabel")} placeholder={t("dialogs.wordPressSite.projectPlaceholder")} />
             )}
           />
 
           <FormControl fullWidth>
-            <InputLabel>Status</InputLabel>
+            <InputLabel>{t("dialogs.wordPressSite.status")}</InputLabel>
             <Select
               value={formData.status}
-              label="Status"
+              label={t("dialogs.wordPressSite.status")}
               onChange={(e) => handleChange("status", e.target.value)}
             >
-              <MenuItem value="active">Active</MenuItem>
-              <MenuItem value="inactive">Inactive</MenuItem>
+              <MenuItem value="active">{t("dialogs.wordPressSite.active")}</MenuItem>
+              <MenuItem value="inactive">{t("dialogs.wordPressSite.inactive")}</MenuItem>
             </Select>
           </FormControl>
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("dialogs.shared.cancel")}</Button>
         <Button
           variant="contained"
           onClick={handleSubmit}
           disabled={isSaving}
         >
-          {isSaving ? "Saving..." : isEditMode ? "Update" : "Register"}
+          {isSaving ? t("dialogs.wordPressSite.saving") : isEditMode ? t("dialogs.shared.update") : t("dialogs.wordPressSite.register")}
         </Button>
       </DialogActions>
     </Dialog>

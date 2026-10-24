@@ -1,0 +1,106 @@
+{
+  "filter": {
+    "all": "Tout",
+    "active": "Actif",
+    "completed": "Terminé",
+    "failed": "Échoué",
+    "project": "Projet : {{name}}",
+    "client": "Client : {{name}}",
+    "website": "Site Web : {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "Impossible de charger les projets : {{error}}",
+    "modelsFailed": "Impossible de charger les modèles : {{error}}",
+    "requestFailed": "la requête a échoué"
+  },
+  "video": {
+    "loadFailed": "Échec du chargement des lots de tâches Vidéo",
+    "cancelled": "Lot de tâches Vidéo annulé",
+    "cancelRefused": "Impossible d'annuler la tâche Vidéo",
+    "cancelFailed": "Annulation échouée",
+    "title": "Lots de tâches Vidéo",
+    "intro": "Files d'attente et exécution des lots du pipeline unifié VIDEO_GEN (Batch Vidéo / Générateur Vidéo). Cette page (Planificateur de tâches) gère également les tâches programmées héritées pour le code, le contenu, le CSV, l'analyse et les tâches personnalisées via le menu Nouveau Job.",
+    "refresh": "Actualiser les lots de tâches Vidéo",
+    "empty": "Aucun lot de tâches Vidéo en attente.",
+    "label": "Étiquette",
+    "status": "Statut",
+    "progress": "Progression",
+    "actions": "Actions",
+    "cancel": "Annuler"
+  },
+  "notFound": "La tâche {{id}} n'a pas été trouvée",
+  "queue": {
+    "started": "Traitement de la file d'attente commencé",
+    "failed": "Échec du traitement de la file d'attente : {{error}}"
+  },
+  "created": "Tâche créée avec succès",
+  "updated": "Tâche mise à jour avec succès",
+  "saveFailed": "Échec de l'enregistrement de la tâche : {{error}}",
+  "deleted": "Tâche supprimée avec succès",
+  "duplicatedWithId": "Tâche dupliquée avec succès (ID : {{id}})",
+  "duplicated": "Tâche dupliquée avec succès",
+  "duplicateFailed": "Échec de la duplication de la tâche : {{error}}",
+  "delete": {
+    "title": "Supprimer cette tâche",
+    "description": "\"{{name}}\" est supprimé.",
+    "thisTask": "cette tâche",
+    "confirm": "Supprimer la tâche"
+  },
+  "deleteFailed": "Échec de la suppression de la tâche : {{error}}",
+  "start": {
+    "invalid": "Données de tâche invalides",
+    "starting": "Démarrage de la tâche : {{name}}",
+    "unnamed": "Tâche sans nom",
+    "failed": "Échec du démarrage de la tâche : {{error}}",
+    "started": "La tâche \"{{name}}\" a été démarrée avec succès"
+  },
+  "clear": {
+    "none": "Aucune tâche à effacer",
+    "title": "Supprimer toutes les tâches",
+    "description": "Chaque tâche de cette liste est supprimée.",
+    "tasksFact": "Tâches",
+    "confirm": "Tout supprimer",
+    "clearing": "Effacement de toutes les tâches...",
+    "done": "Succès : {{count}} tâches supprimées",
+    "failed": "Échec de l'effacement des tâches : {{error}}"
+  },
+  "title": "Planificateur d'Emplois",
+  "counts": {
+    "pending": "{{count}} En attente",
+    "queued": "{{count}} En file d'attente",
+    "running": "{{count}} En cours"
+  },
+  "runQueue_one": "Exécuter {{count}} tâche",
+  "runQueue_other": "Exécuter {{count}} tâches",
+  "clearAll": "Tout effacer",
+  "newJob": "Nouvel Emploi",
+  "newMenu": {
+    "code": "Génération de code",
+    "csv": "CSV / Contenu groupé",
+    "content": "Génération de contenu",
+    "analysis": "Analyse de données",
+    "custom": "Emploi personnalisé"
+  },
+  "typeFilter": {
+    "label": "Type",
+    "all": "Tous les types",
+    "code": "Gén. Code",
+    "csv": "CSV / Groupé",
+    "content": "Contenu",
+    "analysis": "Analyse"
+  },
+  "loading": "Chargement des tâches...",
+  "emptyTitle": "Aucune tâche trouvée",
+  "emptyDescription": "Utilisez les actions rapides ci-dessus pour créer votre première tâche",
+  "menu": {
+    "start": "Démarrer",
+    "cancel": "Annuler",
+    "edit": "Modifier",
+    "duplicate": "Dupliquer",
+    "newCode": "Nouvelle Génération de Code",
+    "newCsv": "Nouveau CSV / Contenu Groupé",
+    "newContent": "Nouvelle Génération de Contenu",
+    "newAnalysis": "Nouvelle Analyse de Données",
+    "newCustom": "Nouvel Emploi Personnalisé"
+  }
+}

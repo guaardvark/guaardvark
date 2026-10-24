@@ -3,6 +3,7 @@
 // change before it records the approval; a change that can no longer land as it
 // was held stays open and the reason comes back as the error.
 import { inboundGuardService } from "./inboundGuardService";
+import { translate } from "../i18n";
 
 /** Held items waiting on a person: enforced holds and blocks, not reports or git records. */
 export const isActionable = (scan) =>
@@ -15,7 +16,7 @@ export const approveHeldChange = (entry, { note = "", overrideBlock = false } = 
 
 export const rejectHeldChange = (entry, { note = "" } = {}) => {
   if (entry.kind === "git") {
-    return Promise.reject(new Error("A git record can only be approved; undo the merge in git to reject it."));
+    return Promise.reject(new Error(translate("messages.heldChanges.gitRecordRejectRefused")));
   }
   return inboundGuardService.rejectScan(entry.item.id, { note });
 };

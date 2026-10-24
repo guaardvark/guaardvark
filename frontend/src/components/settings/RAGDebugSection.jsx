@@ -34,6 +34,7 @@ import {
   getHealthPercentage,
 } from "../../api/ragDebugService";
 import { Cluster, DashboardStrip, DashboardTile } from "./ui";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 // Modal components
 import TestRetrievalModal from "../modals/TestRetrievalModal";
@@ -41,6 +42,7 @@ import QueryPatternsModal from "../modals/QueryPatternsModal";
 import ContextQualityModal from "../modals/ContextQualityModal";
 
 const RAGDebugSection = () => {
+  const { t } = useUiTranslation();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [systemHealth, setSystemHealth] = useState(null);
@@ -67,7 +69,7 @@ const RAGDebugSection = () => {
       setLastUpdated(new Date());
     } catch (err) {
       console.error("Failed to fetch RAG data:", err);
-      setError(err.message || "Failed to load RAG information");
+      setError(err.message || t("settingsSections.ragDebug.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -85,10 +87,10 @@ const RAGDebugSection = () => {
         <Stack direction="row" spacing={1} alignItems="center">
           {lastUpdated && (
             <Typography variant="caption" color="text.secondary">
-              Updated: {lastUpdated.toLocaleTimeString()}
+              {t("settingsSections.ragDebug.updated", { time: lastUpdated.toLocaleTimeString(uiLocale()) })}
             </Typography>
           )}
-          <Tooltip title="Refresh data">
+          <Tooltip title={t("settingsSections.ragDebug.refreshTooltip")}>
             <span>
               <Button
                 size="small"
@@ -97,7 +99,7 @@ const RAGDebugSection = () => {
                 disabled={loading}
                 startIcon={loading ? <CircularProgress size={16} /> : <RefreshIcon />}
               >
-                Refresh
+                {t("settingsSections.ragDebug.refresh")}
               </Button>
             </span>
           </Tooltip>
@@ -106,7 +108,7 @@ const RAGDebugSection = () => {
 
       {error && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Could not load retrieval health: {error}
+          {t("settingsSections.ragDebug.healthFailed", { error })}
         </Alert>
       )}
 
@@ -123,7 +125,7 @@ const RAGDebugSection = () => {
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
               <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
                 <HealthAndSafetyIcon fontSize="small" />
-                System Health
+                {t("settingsSections.ragDebug.systemHealth")}
               </Typography>
 
               <Box display="flex" alignItems="center" gap={2} mb={2}>
@@ -139,13 +141,13 @@ const RAGDebugSection = () => {
               </Box>
 
               <Typography variant="body2" color="text.secondary" mb={1}>
-                Uptime: {formatUptime(systemHealth.uptime)}
+                {t("settingsSections.ragDebug.uptime", { uptime: formatUptime(systemHealth.uptime) })}
               </Typography>
 
               {systemHealth.health_issues?.length > 0 && (
                 <Alert severity="warning">
                   <Typography variant="caption">
-                    Issues: {systemHealth.health_issues.join(", ")}
+                    {t("settingsSections.ragDebug.issues", { issues: systemHealth.health_issues.join(", ") })}
                   </Typography>
                 </Alert>
               )}
@@ -157,19 +159,19 @@ const RAGDebugSection = () => {
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
               <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
                 <StorageIcon fontSize="small" />
-                Index Statistics
+                {t("settingsSections.ragDebug.indexStatistics")}
               </Typography>
 
               <Stack spacing={1}>
                 <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">Cached Indexes:</Typography>
+                  <Typography variant="body2">{t("settingsSections.ragDebug.cachedIndexes")}</Typography>
                   <Typography variant="body2" fontWeight="bold">
                     {systemHealth.index_stats?.total_cached || 0}
                   </Typography>
                 </Box>
 
                 <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">Memory Usage:</Typography>
+                  <Typography variant="body2">{t("settingsSections.ragDebug.memoryUsage")}</Typography>
                   <Typography variant="body2" fontWeight="bold">
                     {formatBytes(systemHealth.index_stats?.total_memory_usage || 0)}
                   </Typography>
@@ -177,8 +179,10 @@ const RAGDebugSection = () => {
 
                 <Box>
                   <Typography variant="body2" mb={0.5}>
-                    Cache Hit Rate: {Math.round((systemHealth.index_stats?.access_stats?.cache_hits || 0) /
-                    Math.max(1, (systemHealth.index_stats?.access_stats?.total_loads || 1)) * 100)}%
+                    {t("settingsSections.ragDebug.cacheHitRate", {
+                      rate: Math.round((systemHealth.index_stats?.access_stats?.cache_hits || 0) /
+                      Math.max(1, (systemHealth.index_stats?.access_stats?.total_loads || 1)) * 100),
+                    })}
                   </Typography>
                   <LinearProgress
                     variant="determinate"
@@ -197,26 +201,26 @@ const RAGDebugSection = () => {
             <Paper variant="outlined" sx={{ p: 2, height: "100%" }}>
               <Typography variant="subtitle1" gutterBottom display="flex" alignItems="center" gap={1}>
                 <SpeedIcon fontSize="small" />
-                Performance
+                {t("settingsSections.ragDebug.performance")}
               </Typography>
 
               <Stack spacing={1}>
                 <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">Total Queries:</Typography>
+                  <Typography variant="body2">{t("settingsSections.ragDebug.totalQueries")}</Typography>
                   <Typography variant="body2" fontWeight="bold">
                     {systemHealth.system_metrics?.total_queries || 0}
                   </Typography>
                 </Box>
 
                 <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">Avg Response:</Typography>
+                  <Typography variant="body2">{t("settingsSections.ragDebug.avgResponse")}</Typography>
                   <Typography variant="body2" fontWeight="bold">
-                    {(systemHealth.system_metrics?.avg_retrieval_time || 0).toFixed(2)}ms
+                    {t("settingsSections.ragDebug.milliseconds", { time: (systemHealth.system_metrics?.avg_retrieval_time || 0).toFixed(2) })}
                   </Typography>
                 </Box>
 
                 <Box display="flex" justifyContent="space-between">
-                  <Typography variant="body2">Error Rate:</Typography>
+                  <Typography variant="body2">{t("settingsSections.ragDebug.errorRate")}</Typography>
                   <Typography
                     variant="body2"
                     fontWeight="bold"
@@ -232,39 +236,39 @@ const RAGDebugSection = () => {
           {performanceMetrics && (
             <Grid item xs={12}>
               <Cluster
-                label="Retrieval window"
-                note={performanceMetrics.time_period || "Last 24 hours"}
+                label={t("settingsSections.ragDebug.retrievalWindow")}
+                note={performanceMetrics.time_period || t("settingsSections.ragDebug.last24Hours")}
               >
                 <DashboardStrip>
                   <DashboardTile
-                    label="Retrievals"
+                    label={t("settingsSections.ragDebug.retrievals")}
                     value={performanceMetrics.retrieval_stats?.total_retrievals ?? 0}
-                    sub="count"
+                    sub={t("settingsSections.ragDebug.subCount")}
                   />
                   <DashboardTile
-                    label="Avg retrieval"
+                    label={t("settingsSections.ragDebug.avgRetrieval")}
                     value={(performanceMetrics.retrieval_stats?.avg_retrieval_time ?? 0).toFixed(2)}
-                    sub="ms"
+                    sub={t("settingsSections.ragDebug.subMs")}
                   />
                   <DashboardTile
-                    label="Avg nodes"
+                    label={t("settingsSections.ragDebug.avgNodes")}
                     value={(performanceMetrics.retrieval_stats?.avg_nodes_retrieved ?? 0).toFixed(1)}
-                    sub="nodes"
+                    sub={t("settingsSections.ragDebug.subNodes")}
                   />
                   <DashboardTile
-                    label="Avg similarity"
+                    label={t("settingsSections.ragDebug.avgSimilarity")}
                     value={(performanceMetrics.retrieval_stats?.avg_similarity_score ?? 0).toFixed(3)}
-                    sub="score"
+                    sub={t("settingsSections.ragDebug.subScore")}
                   />
                   <DashboardTile
-                    label="Avg relevance"
+                    label={t("settingsSections.ragDebug.avgRelevance")}
                     value={(performanceMetrics.context_quality_stats?.avg_relevance_score ?? 0).toFixed(3)}
-                    sub="score"
+                    sub={t("settingsSections.ragDebug.subScore")}
                   />
                   <DashboardTile
-                    label="Assessments"
+                    label={t("settingsSections.ragDebug.assessments")}
                     value={performanceMetrics.context_quality_stats?.total_assessments ?? 0}
-                    sub="count"
+                    sub={t("settingsSections.ragDebug.subCount")}
                   />
                 </DashboardStrip>
               </Cluster>
@@ -275,7 +279,7 @@ const RAGDebugSection = () => {
             <Grid item xs={12}>
               <Paper variant="outlined" sx={{ p: 2 }}>
                 <Typography variant="subtitle1" gutterBottom>
-                  Debug Actions
+                  {t("settingsSections.ragDebug.debugActions")}
                 </Typography>
 
                 <Stack direction="row" spacing={2} flexWrap="wrap">
@@ -285,7 +289,7 @@ const RAGDebugSection = () => {
                     startIcon={<AnalyticsIcon />}
                     onClick={() => setTestRetrievalModalOpen(true)}
                   >
-                    Test Retrieval
+                    {t("settingsSections.ragDebug.testRetrieval")}
                   </Button>
 
                   <Button
@@ -294,7 +298,7 @@ const RAGDebugSection = () => {
                     startIcon={<DnsIcon />}
                     onClick={() => setQueryPatternsModalOpen(true)}
                   >
-                    Query Patterns
+                    {t("settingsSections.ragDebug.queryPatterns")}
                   </Button>
 
                   <Button
@@ -303,7 +307,7 @@ const RAGDebugSection = () => {
                     startIcon={<BugReportIcon />}
                     onClick={() => setContextQualityModalOpen(true)}
                   >
-                    Context Quality
+                    {t("settingsSections.ragDebug.contextQuality")}
                   </Button>
                 </Stack>
               </Paper>

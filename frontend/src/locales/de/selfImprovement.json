@@ -1,0 +1,92 @@
+{
+  "page": {
+    "title": "Selbstverbesserung",
+    "systemMap": "Systemübersicht",
+    "uncleClaudeSettings": "Uncle Claude in Einstellungen",
+    "intro": "Guaardvark führt eigene Tests durch, entwirft Fixes und bereitet sie für deine Überprüfung vor. Nichts gelangt in den Code, bevor du es nicht freigibst und anwendest, und Codebase locked stoppt jede Änderung.",
+    "recentRuns": "Letzte Durchläufe",
+    "noCodeKeeps": "Keine Code-Fixes bei Autoresearch."
+  },
+  "codeKeeps": {
+    "approved": "Code-Fix genehmigt. Wende ihn unter Ausstehenden Fixes an.",
+    "rejected": "Code-Fix abgelehnt",
+    "approveFailed": "Fehler beim Genehmigen des Code-Fix: {{error}}",
+    "rejectFailed": "Fehler beim Ablehnen des Code-Fix: {{error}}",
+    "title": "Code-Fixes",
+    "intro": "Swarm-Armen, die preserve-and-extend bestanden haben. Hier genehmigen, dann unter Einstellungen anwenden – nichts wird automatisch in den Hauptbereich gemergt.",
+    "description": "Beschreibung",
+    "status": "Status",
+    "created": "Erstellt",
+    "actions": "Aktionen",
+    "approve": "Freigeben",
+    "reject": "Ablehnen"
+  },
+  "fixStatus": {
+    "proposed": "vorgeschlagen",
+    "triaged": "sortiert",
+    "approved": "genehmigt",
+    "applied": "angewendet",
+    "rejected": "abgelehnt"
+  },
+  "controls": {
+    "title": "Selbstverbesserung",
+    "help": "Guaardvark prüft seinen eigenen Code und schlägt Fixes zur Überprüfung vor. Codebase locked blockiert jede automatische Bearbeitung.",
+    "enabledChip": "Selbstverbesserung",
+    "enabledTooltip": "Ermöglicht dem Mentor, die Codebasis zu scannen und Fixes zur Überprüfung vorzuschlagen.",
+    "lockedChip": "Codebasis gesperrt",
+    "lockedOnTooltip": "Autonome Bearbeitungen sind blockiert. Deaktiviere dies, um sie zu erlauben.",
+    "lockedOffTooltip": "Aktiviere dies, um jede autonome Bearbeitung des Quellbaums zu blockieren.",
+    "turnOnFirst": "Schalte zuerst Selbstverbesserung ein",
+    "unlockFirst": "Codebasis zuerst entsperren",
+    "runTooltip": "Führt die Prüfungen jetzt aus. Abbrechen bittet den Server, zu stoppen; das Schließen der Ansicht lässt den Scan weiterlaufen.",
+    "runSelfCheck": "Selbstprüfung ausführen",
+    "lastRun_one": "Letzter Durchlauf {{date}} ({{status}}) · {{count}} erfolgreicher Durchlauf.",
+    "lastRun_other": "Letzter Durchlauf {{date}} ({{status}}) · {{count}} erfolgreiche Durchläufe.",
+    "noRuns": "Noch keine Durchläufe.",
+    "readingStatus": "Status wird gelesen…",
+    "lockedNote": "Codebasis ist gesperrt: autonome Bearbeitungen sind blockiert.",
+    "cancelled": "Abgebrochen",
+    "scanInBackground": "Scan läuft im Hintergrund weiter",
+    "pendingFixes": "Ausstehende Korrekturen",
+    "pendingFixesHelp": "Von der Selbstprüfung vorgeschlagene Korrekturen, die auf deine Prüfung oder Anwendung warten. Nichts erreicht den Code, bis du es freigibst und anwendest.",
+    "waiting": "{{count}} warten",
+    "reviewFixes": "Korrekturen prüfen"
+  },
+  "runStatus": {
+    "running": "läuft",
+    "success": "erfolgreich",
+    "failed": "fehlgeschlagen",
+    "cancelled": "abgebrochen",
+    "blocked_by_guardian": "durch Guardian blockiert"
+  },
+  "trigger": {
+    "scheduled": "geplant",
+    "reactive": "reaktiv",
+    "directed": "gerichtet",
+    "family_learning": "family_learning"
+  },
+  "runs": {
+    "filter": {
+      "all": "Alle",
+      "scheduled": "Geplant",
+      "reactive": "Reaktiv",
+      "directed": "Gerichtet",
+      "success": "Erfolgreich",
+      "failed": "Fehlgeschlagen"
+    },
+    "empty": "Noch keine Selbstverbesserungs-Durchläufe aufgezeichnet.",
+    "status": "Status",
+    "trigger": "Auslöser",
+    "timestamp": "Zeitstempel",
+    "duration": "Dauer",
+    "uncleReviewed": "Von Uncle geprüft",
+    "details": "Details",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "Überprüft",
+    "notReviewed": "Nein",
+    "expand": "Ausklappen",
+    "uncleFeedback": "Feedback von Uncle Claude",
+    "changesMade": "Vorgenommene Änderungen",
+    "testResults": "Testergebnisse"
+  }
+}

@@ -23,6 +23,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
 import { io } from 'socket.io-client';
 import { useAppStore } from '../../stores/useAppStore';
+import { useUiTranslation } from '../../i18n';
 
 const STORAGE_KEY = 'guaardvark_lesson_floater_state';
 const DEFAULT_WIDTH = 340;
@@ -51,6 +52,7 @@ function fmtElapsed(ms) {
 }
 
 export default function LessonPearlsFloater({ onClose }) {
+  const { t } = useUiTranslation();
   const activeLessonId = useAppStore((s) => s.activeLessonId);
   const pearls = useAppStore((s) => s.lessonPearls);
   const addLessonPearl = useAppStore((s) => s.addLessonPearl);
@@ -223,7 +225,7 @@ export default function LessonPearlsFloater({ onClose }) {
       >
         <SchoolIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
         <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', flex: 1 }}>
-          Lesson — {pearls.length} {pearls.length === 1 ? 'pearl' : 'pearls'}
+          {t('agents.lesson.heading', { count: pearls.length })}
         </Typography>
         {finalizing ? (
           <HourglassTopIcon sx={{ fontSize: 14, color: 'warning.main' }} />
@@ -252,7 +254,7 @@ export default function LessonPearlsFloater({ onClose }) {
           {collapsed ? <ExpandMoreIcon sx={{ fontSize: 16 }} /> : <ExpandLessIcon sx={{ fontSize: 16 }} />}
         </IconButton>
         {onClose && (
-          <Tooltip title="Hide (the lesson keeps running — use End Lesson in the chat header to stop)">
+          <Tooltip title={t('agents.lesson.hide')}>
             <IconButton className="header-btn" size="small" onClick={onClose} sx={{ p: 0.25 }}>
               <CloseIcon sx={{ fontSize: 16 }} />
             </IconButton>
@@ -268,7 +270,7 @@ export default function LessonPearlsFloater({ onClose }) {
               variant="body2"
               sx={{ color: 'text.secondary', textAlign: 'center', py: 3, px: 1, fontSize: '0.8rem' }}
             >
-              Waiting for the first pearl. Thumbs-up any reply that got it right.
+              {t('agents.lesson.waiting')}
             </Typography>
           ) : (
             <Box>
@@ -307,7 +309,7 @@ export default function LessonPearlsFloater({ onClose }) {
                     variant="body2"
                     sx={{ fontSize: '0.8rem', lineHeight: 1.4, wordBreak: 'break-word' }}
                   >
-                    {p.task || '(no task text)'}
+                    {p.task || t('agents.lesson.noTaskText')}
                   </Typography>
                 </Box>
               ))}
@@ -318,7 +320,7 @@ export default function LessonPearlsFloater({ onClose }) {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5, pt: 1.5, borderTop: 1, borderColor: 'divider' }}>
               <HourglassTopIcon sx={{ fontSize: 16, color: 'warning.main' }} />
               <Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-                Finalizing lesson — distilling pearls into a summary…
+                {t('agents.lesson.finalizing')}
               </Typography>
             </Box>
           )}

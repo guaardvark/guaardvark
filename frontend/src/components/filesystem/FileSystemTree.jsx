@@ -19,6 +19,7 @@ import {
   Computer as ComputerIcon,
 } from "@mui/icons-material";
 import FolderIconComponent from "./FolderIcon";
+import { useUiTranslation } from "../../i18n";
 
 const systemFolders = [
   { name: "Desktop", path: "/Desktop", count: 0 },
@@ -38,6 +39,7 @@ const systemFolders = [
 ];
 
 const FileSystemTree = ({ currentPath, onNavigate, folderCounts = {} }) => {
+  const { t } = useUiTranslation();
   const [expandedFolders, setExpandedFolders] = useState(new Set(["root"]));
 
   const toggleExpand = (folderId) => {
@@ -93,7 +95,7 @@ const FileSystemTree = ({ currentPath, onNavigate, folderCounts = {} }) => {
             <ListItemText
               primary={
                 <Typography variant="body2" fontWeight={600}>
-                  Computer
+                  {t("files.tree.computer")}
                 </Typography>
               }
             />
@@ -145,7 +147,7 @@ const FileSystemTree = ({ currentPath, onNavigate, folderCounts = {} }) => {
                           variant="caption"
                           sx={{ color: "text.secondary" }}
                         >
-                          {folderCounts[folder.name]} items
+                          {t("files.itemCount", { count: folderCounts[folder.name] })}
                         </Typography>
                       )
                     }

@@ -3,10 +3,11 @@
 // to plugins/video_editor/ on port 8207.
 
 import axios from "axios";
+import { translate } from "../i18n";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
-export const getVideoEditorErrorMessage = (error, fallback = "Video Editor request failed") => {
+export const getVideoEditorErrorMessage = (error, fallback = translate("messages.videoEditor.requestFailed")) => {
   const data = error?.response?.data;
   if (!data) return error?.message || fallback;
 
@@ -46,7 +47,7 @@ const request = async (promise, fallback) => {
 };
 
 export const listStyleRecipes = async () => {
-  const res = await request(axios.get(`${API_BASE}/video-editor/recipes`), "Could not load style recipes");
+  const res = await request(axios.get(`${API_BASE}/video-editor/recipes`), translate("messages.videoEditor.loadRecipesFailed"));
   return res.data?.recipes || [];
 };
 
@@ -72,7 +73,7 @@ export const submitPlan = async ({
   };
   if (song_document_id) body.song_document_id = song_document_id;
   if (song_path) body.song_path = song_path;
-  const res = await request(axios.post(`${API_BASE}/video-editor/plan`, body), "Could not submit Plan job");
+  const res = await request(axios.post(`${API_BASE}/video-editor/plan`, body), translate("messages.videoEditor.submitPlanFailed"));
   return res.data;
 };
 
@@ -82,7 +83,7 @@ export const rescanClip = async ({ document_id, source_path, style_recipe_name =
   const body = { style_recipe_name, n_frames };
   if (document_id) body.document_id = document_id;
   if (source_path) body.source_path = source_path;
-  const res = await request(axios.post(`${API_BASE}/video-editor/vision/rescan-clip`, body), "Re-analyze failed");
+  const res = await request(axios.post(`${API_BASE}/video-editor/vision/rescan-clip`, body), translate("messages.videoEditor.reanalyzeFailed"));
   return res.data;
 };
 
@@ -91,7 +92,7 @@ export const getClipHash = async ({ document_id, source_path }) => {
   const body = {};
   if (document_id) body.document_id = document_id;
   if (source_path) body.source_path = source_path;
-  const res = await request(axios.post(`${API_BASE}/video-editor/vision/clip-hash`, body), "Clip thumbnail lookup failed");
+  const res = await request(axios.post(`${API_BASE}/video-editor/vision/clip-hash`, body), translate("messages.videoEditor.clipHashFailed"));
   return res.data?.hash || null;
 };
 
@@ -103,7 +104,7 @@ export const frameThumbnailUrl = (clipHash, frameIndex) =>
 export const getPlanJob = async (jobId) => {
   const res = await request(
     axios.get(`${API_BASE}/video-editor/jobs/${encodeURIComponent(jobId)}`),
-    "Could not poll Plan job",
+    translate("messages.videoEditor.pollPlanFailed"),
   );
   return res.data;
 };
@@ -134,23 +135,23 @@ export const renderArrangement = async ({
   if (audio_path) body.audio_path = audio_path;
   const res = await request(
     axios.post(`${API_BASE}/video-editor/shotcut/compose-arrangement`, body),
-    "Render failed",
+    translate("messages.videoEditor.renderFailed"),
   );
   return res.data;
 };
 
 export const listFilterCatalog = async () => {
-  const res = await request(axios.get(`${API_BASE}/video-editor/catalog/filters`), "Could not load filters");
+  const res = await request(axios.get(`${API_BASE}/video-editor/catalog/filters`), translate("messages.videoEditor.loadFiltersFailed"));
   return res.data?.categories || {};
 };
 
 export const listTransitionCatalog = async () => {
-  const res = await request(axios.get(`${API_BASE}/video-editor/catalog/transitions`), "Could not load transitions");
+  const res = await request(axios.get(`${API_BASE}/video-editor/catalog/transitions`), translate("messages.videoEditor.loadTransitionsFailed"));
   return res.data?.transitions || [];
 };
 
 export const openInShotcut = async (mlt_path) => {
-  const res = await request(axios.post(`${API_BASE}/video-editor/open-in-shotcut`, { mlt_path }), "Could not launch Shotcut");
+  const res = await request(axios.post(`${API_BASE}/video-editor/open-in-shotcut`, { mlt_path }), translate("messages.videoEditor.launchShotcutFailed"));
   return res.data;
 };
 
@@ -161,30 +162,30 @@ const PROJECTS = `${API_BASE}/video-editor/projects`;
 
 // Gallery catalog: { currentId, projects: [{id,name,createdAt,updatedAt,posterDocumentId,clipCount}] }.
 export const listProjects = async () => {
-  const res = await request(axios.get(PROJECTS), "Could not list projects");
+  const res = await request(axios.get(PROJECTS), translate("messages.videoEditor.listProjectsFailed"));
   return res.data || { currentId: null, projects: [] };
 };
 
 // The project to open on load (migrates the legacy session / creates Untitled).
 // Returns the working state (draft if newer) plus a `_meta` { id, name, isDirty, savedAt, draftAt }.
 export const getCurrentProject = async () => {
-  const res = await request(axios.get(`${PROJECTS}/current`), "Could not load current project");
+  const res = await request(axios.get(`${PROJECTS}/current`), translate("messages.videoEditor.loadCurrentProjectFailed"));
   return res.data;
 };
 
 export const openProject = async (id) => {
-  const res = await request(axios.get(`${PROJECTS}/${encodeURIComponent(id)}`), "Could not open project");
+  const res = await request(axios.get(`${PROJECTS}/${encodeURIComponent(id)}`), translate("messages.videoEditor.openProjectFailed"));
   return res.data;
 };
 
 export const createProject = async (name = "Untitled", editable = undefined) => {
-  const res = await request(axios.post(PROJECTS, { name, editable }), "Could not create project");
+  const res = await request(axios.post(PROJECTS, { name, editable }), translate("messages.videoEditor.createProjectFailed"));
   return res.data;
 };
 
 // Autosave → writes the draft of the current project. Returns { id, name, isDirty, savedAt, draftAt }.
 export const autosaveCurrentProject = async (editable) => {
-  const res = await request(axios.put(`${PROJECTS}/current`, editable), "Autosave failed");
+  const res = await request(axios.put(`${PROJECTS}/current`, editable), translate("messages.videoEditor.autosaveFailed"));
   return res.data;
 };
 
@@ -193,21 +194,21 @@ export const autosaveCurrentProject = async (editable) => {
 export const autosaveProjectDraft = async (id, editable) => {
   const res = await request(
     axios.put(`${PROJECTS}/${encodeURIComponent(id)}/draft`, editable),
-    "Autosave failed",
+    translate("messages.videoEditor.autosaveFailed"),
   );
   return res.data;
 };
 
 // Explicit Save → promote the draft (or send an explicit body) to the project file.
 export const saveProject = async (id, editable = undefined) => {
-  const res = await request(axios.put(`${PROJECTS}/${encodeURIComponent(id)}`, editable || {}), "Could not save project");
+  const res = await request(axios.put(`${PROJECTS}/${encodeURIComponent(id)}`, editable || {}), translate("messages.videoEditor.saveProjectFailed"));
   return res.data;
 };
 
 export const saveProjectAs = async (id, name, editable = undefined) => {
   const res = await request(
     axios.post(`${PROJECTS}/${encodeURIComponent(id)}/save-as`, { name, editable }),
-    "Could not save project as",
+    translate("messages.videoEditor.saveProjectAsFailed"),
   );
   return res.data;
 };
@@ -215,18 +216,18 @@ export const saveProjectAs = async (id, name, editable = undefined) => {
 export const renameProject = async (id, name) => {
   const res = await request(
     axios.patch(`${PROJECTS}/${encodeURIComponent(id)}`, { name }),
-    "Could not rename project",
+    translate("messages.videoEditor.renameProjectFailed"),
   );
   return res.data;
 };
 
 export const deleteProject = async (id) => {
-  const res = await request(axios.delete(`${PROJECTS}/${encodeURIComponent(id)}`), "Could not delete project");
+  const res = await request(axios.delete(`${PROJECTS}/${encodeURIComponent(id)}`), translate("messages.videoEditor.deleteProjectFailed"));
   return res.data;
 };
 
 // Reference-integrity report: { clips: [{clipId, status: ok|missing|stale}], missing, stale }.
 export const validateProject = async (id) => {
-  const res = await request(axios.post(`${PROJECTS}/${encodeURIComponent(id)}/validate`), "Could not validate project");
+  const res = await request(axios.post(`${PROJECTS}/${encodeURIComponent(id)}/validate`), translate("messages.videoEditor.validateProjectFailed"));
   return res.data;
 };

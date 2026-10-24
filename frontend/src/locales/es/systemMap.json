@@ -1,0 +1,74 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "Servicios",
+    "utils": "Utilidades",
+    "tools": "Herramientas",
+    "tasks": "Tareas",
+    "frontend": "Frontend",
+    "plugins": "Plugins",
+    "clear": "limpiar"
+  },
+  "errors": {
+    "snapshotFailed": "Error en la instantánea"
+  },
+  "dispatch": {
+    "queued": "Enviado al agente de Auto-mejora — ejecutándose en segundo plano.",
+    "proposed": "Enviado al agente de Auto-mejora — revisa la corrección propuesta en Ajustes.",
+    "notRun": "Envío no ejecutado — {{reason}}",
+    "notRunNoReason": "Envío no ejecutado — sin motivo especificado",
+    "failed": "Error en el envío: {{error}}"
+  },
+  "title": "Mapa del sistema",
+  "stats": "{{modules}} módulos · {{edges}} conexiones",
+  "severity": {
+    "critical": "{{count}} críticos",
+    "medium": "{{count}} medios",
+    "hygiene": "{{count}} de higiene"
+  },
+  "searchPlaceholder": "Buscar ( / )",
+  "resetView": "Restablecer vista (R)",
+  "refresh": {
+    "cached": "En caché hace {{seconds}}s — haz clic para recalcular",
+    "computed": "Calculado hace {{seconds}}s"
+  },
+  "overlays": {
+    "ghostEndpoints": "Endpoints fantasma",
+    "ghostEndpointsCount": "Endpoints fantasma ({{count}})",
+    "toolGraph": "Grafo de herramientas",
+    "toolGraphCount": "Grafo de herramientas ({{count}})"
+  },
+  "controlsHint": "arrastrar · desplazar | rueda · zoom | / · buscar | r · restablecer | clic en chips · resaltar secciones",
+  "detail": {
+    "hovered": "En foco",
+    "selected": "Seleccionado",
+    "importers_one": "{{count}} importador",
+    "importers_other": "{{count}} importadores",
+    "findings": "Hallazgos ({{count}})",
+    "moreFindings": "… y {{count}} más",
+    "escToClear": "Pulsa <code>Esc</code> para borrar"
+  },
+  "loading": "Mapeando el sistema…",
+  "panel": {
+    "findings": "Hallazgos",
+    "activity": "Actividad"
+  },
+  "findings": {
+    "actionable": "Accionables",
+    "critical": "Críticos",
+    "all": "Todos",
+    "intro": "Hallazgos clasificados · haz clic para localizar · enviar para corregir",
+    "empty": "Sin hallazgos en este nivel de gravedad. 🎉",
+    "dispatch": "Enviar al agente de Auto-mejora para proponer una corrección",
+    "dismiss": "Descartar — reconocer y dejar de mostrar este hallazgo"
+  },
+  "activity": {
+    "title": "Actividad en vivo",
+    "intro": "Las llamadas a herramientas en el chat aparecen aquí. Los módulos coincidentes parpadean en la constelación.",
+    "empty": "Inactivo. Pregúntale algo al agente para iniciar el pulso.",
+    "now": "ahora",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

@@ -23,6 +23,7 @@ import {
   vadConfigFrom,
 } from "../config/voiceDefaults";
 import { derivePhase } from "../stores/useVoiceSessionStore";
+import { translate } from "../i18n";
 
 const RECORDER_TIMESLICE_MS = 250;
 // With nobody speaking, the running recording is restarted this often so it
@@ -50,15 +51,19 @@ const MIME_CANDIDATES = [
   "audio/ogg;codecs=opus",
 ];
 
+// The message is a function so it is worded in the interface's language when the error happens.
+const micBlocked = () => translate("messages.voiceSession.micBlocked");
+const noMic = () => translate("messages.voiceSession.noMic");
+const micBusy = () => translate("messages.voiceSession.micBusy");
 const MEDIA_ERRORS = {
-  NotAllowedError: ["denied", "Microphone access is blocked. Allow it for this site in the browser, then try again."],
-  PermissionDeniedError: ["denied", "Microphone access is blocked. Allow it for this site in the browser, then try again."],
-  SecurityError: ["denied", "Microphone access is blocked. Allow it for this site in the browser, then try again."],
-  NotFoundError: ["no-device", "No microphone was found."],
-  DevicesNotFoundError: ["no-device", "No microphone was found."],
-  OverconstrainedError: ["no-device", "No microphone matches the requested settings."],
-  NotReadableError: ["busy", "The microphone is in use by another application."],
-  TrackStartError: ["busy", "The microphone is in use by another application."],
+  NotAllowedError: ["denied", micBlocked],
+  PermissionDeniedError: ["denied", micBlocked],
+  SecurityError: ["denied", micBlocked],
+  NotFoundError: ["no-device", noMic],
+  DevicesNotFoundError: ["no-device", noMic],
+  OverconstrainedError: ["no-device", () => translate("messages.voiceSession.noMatchingMic")],
+  NotReadableError: ["busy", micBusy],
+  TrackStartError: ["busy", micBusy],
 };
 
 function stopTracks(stream) {
@@ -223,7 +228,7 @@ export class VoiceSessionEngine {
     }
     if (this.activationMode === "push") {
       if (this.playbackActive) this.stopSpeaking();
-      this._notice("Hold the mic button (or Ctrl+Shift+Space) while you talk.");
+      this._notice(translate("messages.voiceSession.pushToTalkHint"));
       return Promise.resolve(false);
     }
     return this.start(this.activationMode === "handsfree" ? "handsfree" : "utterance");
@@ -303,7 +308,7 @@ export class VoiceSessionEngine {
       // Released before the mic was ready (often: while the permission prompt was up).
       if (ok) {
         this._release("push");
-        this._notice("Microphone ready. Hold to talk.");
+        this._notice(translate("messages.voiceSession.micReady"));
       }
       return false;
     }
@@ -335,7 +340,7 @@ export class VoiceSessionEngine {
     const entry = this._takeRecorder();
     if (heldMs < MIN_PUSH_MS) {
       this._discardEntry(entry);
-      this._notice("Hold the mic a little longer while you talk.");
+      this._notice(translate("messages.voiceSession.holdLonger"));
     } else {
       this._transcribeEntry(entry, { wake: false });
     }
@@ -347,7 +352,7 @@ export class VoiceSessionEngine {
   acquire(reason = "meter") {
     if (this.shutDown) return Promise.resolve(false);
     if (!this.deps.isSecureContext() || !this.deps.hasMediaDevices()) {
-      this._fail("insecure", "Mic needs HTTPS or localhost");
+      this._fail("insecure", translate("messages.voice.micNeedsSecureContext"));
       return Promise.resolve(false);
     }
     this.clearError();
@@ -447,11 +452,11 @@ export class VoiceSessionEngine {
 
   _micAllowed() {
     if (this.settings.micEnabled === false) {
-      this._fail("mic-off", "The microphone is turned off in Voice Settings (Settings → Chat → Voice chat).");
+      this._fail("mic-off", translate("messages.voiceSession.micOff"));
       return false;
     }
     if (!this.deps.isSecureContext() || !this.deps.hasMediaDevices()) {
-      this._fail("insecure", "Mic needs HTTPS or localhost");
+      this._fail("insecure", translate("messages.voice.micNeedsSecureContext"));
       return false;
     }
     return true;
@@ -493,9 +498,10 @@ export class VoiceSessionEngine {
       });
     } catch (err) {
       this._set({ requesting: false });
-      const [code, message] = MEDIA_ERRORS[err?.name] || [
+      const known = MEDIA_ERRORS[err?.name];
+      const [code, message] = known ? [known[0], known[1]()] : [
         "mic",
-        `The microphone could not start${err?.message ? `: ${err.message}` : "."}`,
+        err?.message ? translate("messages.voiceSession.micStartFailedReason", { reason: err.message }) : translate("messages.voiceSession.micStartFailed"),
       ];
       if (code === "denied") this._set({ permission: "denied" });
       this._fail(code, message);
@@ -511,7 +517,7 @@ export class VoiceSessionEngine {
       await this._buildGraph(stream);
     } catch (err) {
       this._closeStream();
-      this._fail("audio", `Audio processing could not start: ${err?.message || err}`);
+      this._fail("audio", translate("messages.voiceSession.audioStartFailed", { reason: err?.message || err }));
       return false;
     }
     if (this.holders.size === 0 || this.shutDown) {
@@ -595,7 +601,7 @@ export class VoiceSessionEngine {
 
   _onTrackEnded() {
     if (!this.stream) return;
-    this._fail("ended", "The microphone stopped (unplugged, or taken by another application).");
+    this._fail("ended", translate("messages.voiceSession.micEnded"));
     this.session = null;
     this.pushActive = false;
     this.holders.clear();
@@ -677,7 +683,7 @@ export class VoiceSessionEngine {
     try {
       rec = this.deps.createRecorder(this.stream, mimeType ? { mimeType } : undefined);
     } catch (err) {
-      this._fail("recorder", `This browser cannot record audio: ${err?.message || err}`);
+      this._fail("recorder", translate("messages.voiceSession.recorderUnsupported", { reason: err?.message || err }));
       this.stop({ flush: false });
       return;
     }
@@ -686,12 +692,12 @@ export class VoiceSessionEngine {
       if (event?.data && event.data.size > 0) entry.chunks.push(event.data);
     };
     rec.onerror = (event) => {
-      this._notice(`Recording error: ${event?.error?.message || "unknown"}`);
+      this._notice(translate("messages.voiceSession.recordingError", { reason: event?.error?.message || translate("messages.voiceSession.unknownReason") }));
     };
     try {
       rec.start(RECORDER_TIMESLICE_MS);
     } catch (err) {
-      this._fail("recorder", `Recording could not start: ${err?.message || err}`);
+      this._fail("recorder", translate("messages.voiceSession.recorderStartFailed", { reason: err?.message || err }));
       this.stop({ flush: false });
       return;
     }
@@ -781,7 +787,7 @@ export class VoiceSessionEngine {
   _onSttError(err) {
     if (err?.name === "AbortError") return;
     const status = err?.status;
-    const message = err?.message || "Speech recognition failed";
+    const message = err?.message || translate("messages.voiceSession.sttFailed");
     if (status === 400 && /no speech/i.test(message)) return;
     if (status === 409 || err?.data?.code === "SPEECH_MODEL_MISSING") {
       this._fail("model", message);
@@ -789,18 +795,18 @@ export class VoiceSessionEngine {
       return;
     }
     if (status === 429) {
-      this._notice("Too many voice requests this minute; that one was skipped.");
+      this._notice(translate("messages.voiceSession.rateLimited"));
       return;
     }
     if (status === 503) {
-      this._notice("The system is busy; that one was skipped.");
+      this._notice(translate("messages.voiceSession.busy"));
       return;
     }
     if (err?.backendOffline) {
-      this._notice("The backend is not reachable; that one was not transcribed.");
+      this._notice(translate("messages.voiceSession.backendOffline"));
       return;
     }
-    this._notice(`Could not transcribe: ${message}`);
+    this._notice(translate("messages.voiceSession.transcribeFailed", { reason: message }));
   }
 
   async _route(text, { wake }) {
@@ -828,7 +834,7 @@ export class VoiceSessionEngine {
     const sink = this.activeSink();
     if (!sink) {
       this._record({ text: heard, at, outcome: "unsent" });
-      this._notice("No chat is open to send this to.");
+      this._notice(translate("messages.voiceSession.noChatOpen"));
       return;
     }
     const turn = { id: `voice_${at}_${++this.turnSeq}`, text: message, at };
@@ -842,7 +848,7 @@ export class VoiceSessionEngine {
     } catch (err) {
       this._record({ text: heard, at, outcome: "failed" });
       this._set({ sending: false });
-      this._notice(`Could not send: ${err?.message || err}`);
+      this._notice(translate("messages.voiceSession.sendFailed", { reason: err?.message || err }));
     }
   }
 
@@ -898,7 +904,7 @@ export class VoiceSessionEngine {
       this.noSpeechTimer = null;
       if (this.session !== "utterance" || this.vad.speaking) return;
       this.stop({ flush: false });
-      this._notice("Didn't hear anything, so the mic is off again.");
+      this._notice(translate("messages.voiceSession.noSpeechTimeout"));
     }, NO_SPEECH_TIMEOUT_MS);
   }
 

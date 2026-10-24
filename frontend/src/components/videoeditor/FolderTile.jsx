@@ -11,6 +11,7 @@ import {
   Folder as FolderIcon,
   ChevronRight as ChevronRightIcon,
 } from "@mui/icons-material";
+import { useUiTranslation } from "../../i18n";
 
 // Filter helper: a thumbnail strip with all-null entries (audio folder
 // with no thumbs, mixed batch with thumbs missing) just renders an
@@ -19,6 +20,7 @@ const _renderableThumbs = (preview_thumbs = []) =>
   preview_thumbs.filter(Boolean).slice(0, 3);
 
 const FolderTile = ({ group, variant = "grid", onOpen }) => {
+  const { t } = useUiTranslation();
   const [failed, setFailed] = useState({});
   if (!group?.folder) return null;
   const { folder, items, preview_thumbs = [] } = group;
@@ -77,7 +79,7 @@ const FolderTile = ({ group, variant = "grid", onOpen }) => {
             color="text.secondary"
             sx={{ fontSize: "0.65rem", lineHeight: 1.2 }}
           >
-            {count} {count === 1 ? "item" : "items"}
+            {t("videoEditor.folder.itemCount", { count })}
           </Typography>
         </Box>
         <ChevronRightIcon fontSize="small" sx={{ color: "text.disabled" }} />

@@ -4,8 +4,10 @@ import CloseIcon from "@mui/icons-material/Close";
 import { BrandLogo } from "../branding";
 import { useAppStore } from "../../stores/useAppStore";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
+import { useUiTranslation } from "../../i18n";
 
 const FloatingChatFAB = () => {
+  const { t } = useUiTranslation();
   const isOpen = useFloatingChatStore((s) => s.isOpen);
   const toggleOpen = useFloatingChatStore((s) => s.toggleOpen);
   const hasMessages = useFloatingChatStore((s) => s.messages.length > 0);
@@ -27,7 +29,7 @@ const FloatingChatFAB = () => {
           "&:hover .floating-chat-dismiss, & .floating-chat-dismiss:focus-visible": { opacity: 1 },
         }}
       >
-        <Tooltip title="Open chat (Ctrl+Shift+C)" placement="left">
+        <Tooltip title={t("chat.floating.openShortcut")} placement="left">
           <Fab
             color="primary"
             onClick={toggleOpen}
@@ -81,8 +83,8 @@ const FloatingChatFAB = () => {
         <ButtonBase
           className="floating-chat-dismiss"
           onClick={hideFab}
-          aria-label="Hide chat button"
-          title="Hide (Ctrl+Shift+C still opens chat)"
+          aria-label={t("chat.floating.hideButton")}
+          title={t("chat.floating.hideTooltip")}
           sx={{
             position: "absolute",
             top: -6,

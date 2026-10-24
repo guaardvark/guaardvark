@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import StorageIcon from "@mui/icons-material/Storage";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 function formatBytes(bytes) {
   if (!bytes || bytes === 0) return "0 B";
@@ -32,21 +33,24 @@ function formatDate(timestamp) {
   if (!timestamp) return "";
   try {
     const d = new Date(timestamp * 1000);
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) +
-      " at " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return translate("backups.shared.dateAtTime", {
+      date: d.toLocaleDateString(uiLocale(), { month: "short", day: "numeric", year: "numeric" }),
+      time: d.toLocaleTimeString(uiLocale(), { hour: "2-digit", minute: "2-digit" }),
+    });
   } catch {
     return "";
   }
 }
 
-const TYPE_CONFIG = {
-  full: { label: "Full", color: "success" },
-  data: { label: "Data", color: "primary" },
-  code: { label: "Code", color: "warning" },
-  auto: { label: "Auto", color: "default" },
-};
+const typeConfig = () => ({
+  full: { label: translate("backups.shared.typeFull"), color: "success" },
+  data: { label: translate("backups.shared.typeData"), color: "primary" },
+  code: { label: translate("backups.shared.typeCode"), color: "warning" },
+  auto: { label: translate("backups.shared.typeAuto"), color: "default" },
+});
 
 const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = [] }) => {
+  const { t } = useUiTranslation();
   const [tab, setTab] = useState(0);
   const [file, setFile] = useState(null);
   const [fileInfo, setFileInfo] = useState(null);
@@ -98,10 +102,11 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
   };
 
   const hasSelection = (tab === 0 && selectedBackup) || (tab === 1 && file);
+  const types = typeConfig();
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Restore Backup</DialogTitle>
+      <DialogTitle>{t("backups.restoreBackup.title")}</DialogTitle>
       <DialogContent dividers sx={{ p: 0 }}>
         <Tabs
           value={tab}
@@ -109,8 +114,8 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
           variant="fullWidth"
           sx={{ borderBottom: 1, borderColor: "divider" }}
         >
-          <Tab icon={<StorageIcon fontSize="small" />} iconPosition="start" label="Server Backups" />
-          <Tab icon={<UploadFileIcon fontSize="small" />} iconPosition="start" label="Import File" />
+          <Tab icon={<StorageIcon fontSize="small" />} iconPosition="start" label={t("backups.restoreBackup.serverBackups")} />
+          <Tab icon={<UploadFileIcon fontSize="small" />} iconPosition="start" label={t("backups.restoreBackup.importFile")} />
         </Tabs>
 
         <Box sx={{ p: 2 }}>
@@ -118,12 +123,12 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
           {tab === 0 && (
             normalizedBackups.length === 0 ? (
               <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
-                No backups on server. Create one first or upload a file.
+                {t("backups.restoreBackup.noServerBackups")}
               </Typography>
             ) : (
               <List disablePadding sx={{ maxHeight: 300, overflow: "auto" }}>
                 {normalizedBackups.map((b) => {
-                  const cfg = TYPE_CONFIG[b.type] || TYPE_CONFIG.data;
+                  const cfg = types[b.type] || types.data;
                   const isSelected = selectedBackup === b.name;
                   return (
                     <ListItem key={b.name} disablePadding sx={{ mb: 0.5 }}>
@@ -165,12 +170,12 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
                 fullWidth
                 sx={{ py: 3, borderStyle: "dashed" }}
               >
-                {fileInfo ? fileInfo.name : "Choose backup file (.zip)"}
+                {fileInfo ? fileInfo.name : t("backups.restoreBackup.chooseFile")}
                 <input type="file" hidden accept=".zip" onChange={handleFile} />
               </Button>
               {fileInfo && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-                  Size: {fileInfo.size}
+                  {t("backups.restoreBackup.size", { size: fileInfo.size })}
                 </Typography>
               )}
             </Box>
@@ -180,7 +185,7 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
           {hasSelection && (
             <Alert severity="warning" sx={{ mt: 2 }}>
               <Typography variant="body2">
-                Restoring will overwrite existing data. Make sure you have a current backup first.
+                {t("backups.restoreBackup.overwriteWarning")}
               </Typography>
             </Alert>
           )}
@@ -188,7 +193,7 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isProcessing}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button
           variant="contained"
@@ -199,7 +204,7 @@ const RestoreBackupModal = ({ open, onClose, onRestore, isProcessing, backups = 
           {isProcessing ? (
             <CircularProgress size={20} sx={{ mr: 1 }} />
           ) : null}
-          {isProcessing ? "Restoring..." : confirmed ? "Confirm Restore" : "Restore"}
+          {isProcessing ? t("backups.restoreBackup.restoring") : confirmed ? t("backups.restoreBackup.confirmRestore") : t("backups.restoreBackup.restore")}
         </Button>
       </DialogActions>
     </Dialog>

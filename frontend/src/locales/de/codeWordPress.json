@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "Klicks: {{clicks}} | Impressionen: {{impressions}} | Position: {{position}}",
+    "notAvailable": "Nicht verfügbar"
+  },
+  "errors": {
+    "fetchFailed": "Seiten abrufen fehlgeschlagen",
+    "loadFailed": "Seiten laden fehlgeschlagen",
+    "pullFailed": "Seiten abrufen fehlgeschlagen",
+    "processFailed": "Seite verarbeiten fehlgeschlagen",
+    "queueFailed": "Seiten in die Warteschlange aufnehmen fehlgeschlagen",
+    "executeFailed": "Warteschlange ausführen fehlgeschlagen",
+    "recommendationsFailed": "Empfehlungen abrufen fehlgeschlagen. Funktion erscheint bald."
+  },
+  "feedback": {
+    "pulled": "{{count}} Seiten abgerufen",
+    "nonePending": "Keine Seiten warten auf Verarbeitung",
+    "queued": "{{count}} Seiten zur Verarbeitung in die Warteschlange aufgenommen",
+    "processed": "{{succeeded}} von {{total}} Seiten verarbeitet"
+  },
+  "recommendations": {
+    "summary": "Die KI-Empfehlungsfunktion wird den Seiteninhalt analysieren und intelligente Vorschläge für Verbesserungen liefern.",
+    "content": {
+      "title": "Inhaltsverbesserung",
+      "description": "Inhalt auf SEO-Optimierung, Verbesserungen der Lesbarkeit und Steigerung des Engagements analysieren."
+    },
+    "seo": {
+      "title": "SEO-Optimierung",
+      "description": "Meta-Tags, Überschriftenstruktur und Möglichkeiten zur Keyword-Optimierung prüfen."
+    },
+    "structure": {
+      "title": "Inhaltsstruktur",
+      "description": "Inhaltsorganisation bewerten und Verbesserungen für eine bessere Nutzererfahrung vorschlagen."
+    },
+    "priority": {
+      "high": "hoch",
+      "medium": "mittel",
+      "low": "niedrig"
+    },
+    "title": "KI-Empfehlungen",
+    "none": "Derzeit keine spezifischen Empfehlungen verfügbar.",
+    "loading": "Empfehlungen werden geladen...",
+    "processNow": "Jetzt verarbeiten"
+  },
+  "title": "WordPress-Seiten",
+  "actions": {
+    "pull": "Abrufen",
+    "queue": "In Warteschlange ({{count}})",
+    "process": "Verarbeiten",
+    "close": "Schließen",
+    "cancel": "Abbrechen"
+  },
+  "site": "WordPress-Website",
+  "filters": {
+    "pull": "Abgerufen",
+    "all": "Alle",
+    "pulled": "Abgeholt",
+    "pending": "Ausstehend",
+    "error": "Fehler",
+    "process": "Verarbeiten",
+    "processing": "Wird verarbeitet",
+    "completed": "Abgeschlossen",
+    "approved": "Freigegeben"
+  },
+  "stats": {
+    "total": "Gesamt: {{total}}",
+    "pending": "Ausstehend: {{pending}}",
+    "completed": "Abgeschlossen: {{completed}}"
+  },
+  "empty": {
+    "noPages": "Keine Seiten gefunden. Abrufe die Seiten, um zu beginnen.",
+    "selectSite": "Wähle eine WordPress-Website aus, um die Seiten anzuzeigen"
+  },
+  "table": {
+    "title": "Titel",
+    "type": "Typ",
+    "seo": "SEO",
+    "ai": "KI"
+  },
+  "untitled": "Unbenannt",
+  "tooltips": {
+    "getRecommendations": "Klicken für KI-Empfehlungen",
+    "hasImprovements": "Verbesserungen vorhanden",
+    "noImprovements": "Keine Verbesserungen"
+  },
+  "pullDialog": {
+    "title": "Seiten von WordPress abrufen",
+    "postType": "Beitragstyp",
+    "posts": "Beiträge",
+    "pages": "Seiten",
+    "maxPages": "Max. Seiten (Optional)",
+    "maxPagesHelper": "Lass leer, um alle Seiten abzurufen",
+    "pulling": "Abrufen...",
+    "submit": "Seiten abrufen"
+  }
+}

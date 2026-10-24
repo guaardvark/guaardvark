@@ -24,8 +24,11 @@ import { listCastLibrary, listProductionSubjects, castSubject, confirmCasting } 
 import { dispatchWarning } from '../../api/taskQueue';
 import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
 import DragDropImageUpload from './DragDropImageUpload';
+import { kindLabel, trainingStatusLabel } from './CastLibraryView';
+import { useUiTranslation } from '../../i18n';
 
 const CastingPanel = ({ productionId, onCastingConfirmed }) => {
+  const { t } = useUiTranslation();
   const [castingData, setCastingData] = useState({});
   const [castLibrary, setCastLibrary] = useState([]);
   const [subjectsToCast, setSubjectsToCast] = useState([]);
@@ -49,7 +52,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
         setCastLibrary(library.subjects || []);
         setSubjectsToCast(prodSubjects.subjects || []);
       } catch (err) {
-        if (!cancelled) setError('Failed to load casting data');
+        if (!cancelled) setError(t('filmCrew.casting.loadFailed'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -165,7 +168,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
           if (res?.training_job_id) {
             setTrainingJobs((prev) => ({
               ...prev,
-              [subj.id]: { id: res.training_job_id, message: 'LoRA training starting…' },
+              [subj.id]: { id: res.training_job_id, message: t('filmCrew.casting.trainingStarting') },
             }));
           }
         }
@@ -176,7 +179,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
       // Surface the backend's real reason instead of a generic failure. The
       // confirm endpoint returns {error, incomplete_subjects:[{name,...}]}.
       const data = err?.response?.data;
-      let msg = data?.error || err?.message || 'Failed to confirm casting';
+      let msg = data?.error || err?.message || t('filmCrew.casting.confirmFailed');
       const incomplete = data?.incomplete_subjects;
       if (Array.isArray(incomplete) && incomplete.length) {
         const names = incomplete
@@ -198,30 +201,28 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
 
   return (
     <Box sx={{ mt: 3 }}>
-      <Typography variant="h6" gutterBottom>Pick a face for your character</Typography>
+      <Typography variant="h6" gutterBottom>{t('filmCrew.casting.title')}</Typography>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
       {!loading && subjectsToCast.length > 0 && notReadySubjects().length > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Pick a cast action for: {notReadySubjects().map((s) => s.name).join(', ')}.
+          {t('filmCrew.casting.pickAction', { names: notReadySubjects().map((s) => s.name).join(', ') })}
           {notReadySubjects().some((s) => s.training_status === 'failed') &&
-            ' A subject whose LoRA training failed must be re-cast before you can continue.'}
+            ` ${t('filmCrew.casting.recastFailed')}`}
         </Alert>
       )}
       {!loading && subjectsToCast.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          No subjects yet — the Screenwriter agent will populate these from the script.
-          If you're seeing this after the script ran, the screenwriter run may have failed
-          (check the failed-stage indicator above).
+          {t('filmCrew.casting.noSubjects')}
         </Alert>
       )}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Subject</TableCell>
-              <TableCell>Kind</TableCell>
-              <TableCell>Action</TableCell>
-              <TableCell>Details</TableCell>
+              <TableCell>{t('filmCrew.casting.subject')}</TableCell>
+              <TableCell>{t('filmCrew.casting.kind')}</TableCell>
+              <TableCell>{t('filmCrew.casting.action')}</TableCell>
+              <TableCell>{t('filmCrew.casting.details')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -231,7 +232,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                   {subj.name}
                   {subj.training_status && (
                     <Chip
-                      label={subj.training_status}
+                      label={trainingStatusLabel(subj.training_status)}
                       size="small"
                       color={STATUS_COLOR[subj.training_status] || 'default'}
                       variant="outlined"
@@ -239,7 +240,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                     />
                   )}
                 </TableCell>
-                <TableCell><Chip label={subj.kind} size="small" /></TableCell>
+                <TableCell><Chip label={kindLabel(subj.kind)} size="small" /></TableCell>
                 <TableCell>
                   {isCastRequired(subj) ? (
                     <FormControl component="fieldset">
@@ -248,15 +249,15 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                         value={castingData[subj.id]?.action || ''}
                         onChange={(e) => handleActionChange(subj.id, e.target.value)}
                       >
-                        <FormControlLabel value="use_existing_lora" control={<Radio />} label="Existing LoRA" />
-                        <FormControlLabel value="train_from_uploads" control={<Radio />} label="Upload Photos" />
-                        <FormControlLabel value="train_from_generated" control={<Radio />} label="AI Generated" />
-                        <FormControlLabel value="as_described" control={<Radio />} label="As described" />
+                        <FormControlLabel value="use_existing_lora" control={<Radio />} label={t('filmCrew.casting.existingLora')} />
+                        <FormControlLabel value="train_from_uploads" control={<Radio />} label={t('filmCrew.casting.uploadPhotos')} />
+                        <FormControlLabel value="train_from_generated" control={<Radio />} label={t('filmCrew.casting.aiGenerated')} />
+                        <FormControlLabel value="as_described" control={<Radio />} label={t('filmCrew.casting.asDescribed')} />
                       </RadioGroup>
                     </FormControl>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      Generated inline — no casting needed
+                      {t('filmCrew.casting.inline')}
                     </Typography>
                   )}
                 </TableCell>
@@ -265,13 +266,13 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                     <Autocomplete
                       options={castLibrary.filter(l => l.lora_path)}
                       getOptionLabel={(option) => option.name}
-                      renderInput={(params) => <TextField {...params} label="Select LoRA" size="small" />}
+                      renderInput={(params) => <TextField {...params} label={t('filmCrew.casting.selectLora')} size="small" />}
                       onChange={(_, newValue) => handleLoraChange(subj.id, newValue)}
                     />
                   )}
                   {castingData[subj.id]?.action === 'as_described' && (
                     <Typography variant="body2" color="text.secondary">
-                      Drawn from the script each shot, with no training. Its face can change between shots.
+                      {t('filmCrew.casting.asDescribedHint')}
                     </Typography>
                   )}
                   {castingData[subj.id]?.action === 'train_from_uploads' && (
@@ -279,7 +280,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                       subjectId={subj.id}
                       existingPaths={castingData[subj.id]?.ref_image_paths || []}
                       onUploaded={(paths) => handleRefsUploaded(subj.id, paths)}
-                      helperText="Drop a few clear photos — that's the LoRA's only training data."
+                      helperText={t('filmCrew.casting.uploadHint')}
                     />
                   )}
                   {(subj.training_status === 'training' || trainingJobs[subj.id]) && (
@@ -289,7 +290,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
                         value={trainingJobs[subj.id]?.progress || 0}
                       />
                       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                        {trainingJobs[subj.id]?.message || 'LoRA training in progress…'}
+                        {trainingJobs[subj.id]?.message || t('filmCrew.casting.trainingInProgress')}
                       </Typography>
                     </Box>
                   )}
@@ -306,7 +307,7 @@ const CastingPanel = ({ productionId, onCastingConfirmed }) => {
           disabled={confirming || !isAllConfirmed()}
           onClick={handleConfirm}
         >
-          {confirming ? 'Casting...' : 'Confirm Casting'}
+          {confirming ? t('filmCrew.casting.confirming') : t('filmCrew.casting.confirm')}
         </Button>
       </Box>
     </Box>

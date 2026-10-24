@@ -21,8 +21,10 @@ import { listChatSessions, deleteChatSession } from "../../api/chatService";
 import EntityContextMenu from "../common/EntityContextMenu";
 import useContextMenu from "../../hooks/useContextMenu";
 import { formatUiError } from "../../utils/uiError";
+import { useUiTranslation, uiLocale } from "../../i18n";
 
 const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSelectSession }) => {
+  const { t } = useUiTranslation();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   // A failed load or delete, said in the dialog instead of an empty list.
@@ -42,7 +44,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
       setSessions(data.sessions || []);
     } catch (err) {
       console.error("Failed to load sessions:", err);
-      setFailure({ load: true, text: `Previous chats could not be loaded: ${formatUiError(err) || "the request failed"}.` });
+      setFailure({ load: true, detail: formatUiError(err) });
     } finally {
       setLoading(false);
     }
@@ -58,7 +60,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
       }
     } catch (err) {
       console.error("Failed to delete session:", err);
-      setFailure({ load: false, text: `The chat was not deleted: ${formatUiError(err) || "the request failed"}.` });
+      setFailure({ load: false, detail: formatUiError(err) });
     }
   };
 
@@ -70,29 +72,39 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      return "Today " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return t("chat.previousChats.todayAt", {
+        time: date.toLocaleTimeString(uiLocale(), { hour: "2-digit", minute: "2-digit" }),
+      });
     } else if (diffDays === 1) {
-      return "Yesterday " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return t("chat.previousChats.yesterdayAt", {
+        time: date.toLocaleTimeString(uiLocale(), { hour: "2-digit", minute: "2-digit" }),
+      });
     } else if (diffDays < 7) {
-      return date.toLocaleDateString([], { weekday: "short" }) + " " +
-        date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return date.toLocaleDateString(uiLocale(), { weekday: "short" }) + " " +
+        date.toLocaleTimeString(uiLocale(), { hour: "2-digit", minute: "2-digit" });
     }
-    return date.toLocaleDateString([], { month: "short", day: "numeric" }) + " " +
-      date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleDateString(uiLocale(), { month: "short", day: "numeric" }) + " " +
+      date.toLocaleTimeString(uiLocale(), { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Previous Chats</DialogTitle>
+      <DialogTitle>{t("chat.previousChats.title")}</DialogTitle>
       <DialogContent dividers sx={{ p: 0, height: 400, overflowY: "auto", display: "flex", flexDirection: "column", justifyContent: "flex-start" }}>
         {failure && (
           <Alert
             severity="error"
             sx={{ m: 1 }}
             onClose={failure.load ? undefined : () => setFailure(null)}
-            action={failure.load ? <Button color="inherit" size="small" onClick={loadSessions}>Retry</Button> : undefined}
+            action={failure.load ? <Button color="inherit" size="small" onClick={loadSessions}>{t("chat.sessions.retry")}</Button> : undefined}
           >
-            {failure.text}
+            {failure.load
+              ? failure.detail
+                ? t("chat.previousChats.loadFailed", { reason: failure.detail })
+                : t("chat.previousChats.loadFailedUnknown")
+              : failure.detail
+              ? t("chat.sessions.deleteFailed", { reason: failure.detail })
+              : t("chat.sessions.deleteFailedUnknown")}
           </Alert>
         )}
         {loading ? (
@@ -101,7 +113,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
           </Box>
         ) : failure?.load ? null : sessions.length === 0 ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-            <Typography color="text.secondary">No previous chats</Typography>
+            <Typography color="text.secondary">{t("chat.previousChats.empty")}</Typography>
           </Box>
         ) : (
           <List disablePadding>
@@ -115,7 +127,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
                     edge="end"
                     size="small"
                     onClick={(e) => handleDelete(session.session_id, e)}
-                    title="Remove chat"
+                    title={t("chat.previousChats.remove")}
                     sx={{
                       color: "text.disabled",
                       "&:hover": { color: "text.secondary" },
@@ -133,7 +145,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
                   }}
                 >
                   <ListItemText
-                    primary={session.preview || "New chat"}
+                    primary={session.preview || t("chat.sessions.newChat")}
                     secondary={formatDate(session.created_at)}
                     primaryTypographyProps={{
                       noWrap: true,
@@ -158,14 +170,14 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
             rowMenu.payload
               ? [
                   {
-                    label: "Open",
+                    label: t("chat.sessions.open"),
                     onClick: () => {
                       onSelectSession(rowMenu.payload.session_id);
                       onClose();
                     },
                   },
                   {
-                    label: "Delete",
+                    label: t("chat.sessions.delete"),
                     onClick: () => handleDelete(rowMenu.payload.session_id),
                     color: "error.main",
                     dividerBefore: true,
@@ -176,7 +188,7 @@ const PreviousChatsModal = ({ open, onClose, projectId, currentSessionId, onSele
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t("chat.previousChats.close")}</Button>
       </DialogActions>
     </Dialog>
   );

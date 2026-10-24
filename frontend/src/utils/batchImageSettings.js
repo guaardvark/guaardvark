@@ -5,6 +5,7 @@
 // share one prompt builder (they used to disagree about Look & Feel) and so
 // the family logic has a single definition instead of four inline tests that
 // disagreed about `auto` and exact-vs-fuzzy matching.
+import { translate } from "../i18n";
 
 /**
  * Sampling family for a catalog model id. `auto` is its own family: the
@@ -74,63 +75,63 @@ export const ZIMAGE_GUIDANCE = 0;
 export const ZIMAGE_PRESET_STEPS = { fast: 6, standard: 9, 'high-2k': 9 };
 
 const ZIMAGE_PRESETS = [
-  { value: 'fast', label: 'Fast', steps: 6, guidance: 0.0, description: 'Quick draft' },
-  { value: 'standard', label: 'Standard', steps: 9, guidance: 0.0, description: 'Official Turbo recipe (HF)' },
+  { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 6, guidance: 0.0, get description() { return translate('options.imagePresets.descriptions.zimage.fast'); } },
+  { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 9, guidance: 0.0, get description() { return translate('options.imagePresets.descriptions.zimage.standard'); } },
   // The 2K jump is its own explicitly-labelled preset: a preset that silently
   // rewrote the canvas to 2048x2048 put 16GB cards into memory crashes.
-  { value: 'high-2k', label: 'High 2K (2048²)', steps: 9, guidance: 0.0, description: 'Official recipe at 2K canvas — heavy; 16GB cards may refuse' },
+  { value: 'high-2k', get label() { return translate('options.imagePresets.labels.high2k'); }, steps: 9, guidance: 0.0, get description() { return translate('options.imagePresets.descriptions.zimage.high2k'); } },
 ];
 
 const PRESETS_BY_FAMILY = {
   flux: [
-    { value: 'flux-fast', label: 'FLUX Fast', steps: 16, guidance: 3.0, description: 'Faster FLUX.1-dev stills' },
-    { value: 'flux-quality', label: 'FLUX Max Quality', steps: 28, guidance: 3.5, description: 'Default max-quality FLUX.1-dev' },
-    { value: 'flux-ultra', label: 'FLUX Ultra', steps: 40, guidance: 4.0, description: 'Highest steps — slow, peak detail' },
+    { value: 'flux-fast', get label() { return translate('options.imagePresets.labels.fluxFast'); }, steps: 16, guidance: 3.0, get description() { return translate('options.imagePresets.descriptions.flux.fluxFast'); } },
+    { value: 'flux-quality', get label() { return translate('options.imagePresets.labels.fluxQuality'); }, steps: 28, guidance: 3.5, get description() { return translate('options.imagePresets.descriptions.flux.fluxQuality'); } },
+    { value: 'flux-ultra', get label() { return translate('options.imagePresets.labels.fluxUltra'); }, steps: 40, guidance: 4.0, get description() { return translate('options.imagePresets.descriptions.flux.fluxUltra'); } },
   ],
   zimage: ZIMAGE_PRESETS,
   // `auto` resolves to the product default (Z-Image) when nothing else fits,
   // so its presets mirror that family; guidance stays editable.
   auto: ZIMAGE_PRESETS,
   'krea-turbo': [
-    { value: 'fast', label: 'Fast', steps: 6, guidance: 0.0, description: 'Krea turbo CFG-free' },
-    { value: 'standard', label: 'Standard', steps: 8, guidance: 0.0, description: 'Balanced turbo' },
-    { value: 'high', label: 'High Quality', steps: 12, guidance: 0.0, description: 'More steps' },
+    { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 6, guidance: 0.0, get description() { return translate('options.imagePresets.descriptions.kreaTurbo.fast'); } },
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 8, guidance: 0.0, get description() { return translate('options.imagePresets.descriptions.kreaTurbo.standard'); } },
+    { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 12, guidance: 0.0, get description() { return translate('options.imagePresets.descriptions.kreaTurbo.high'); } },
   ],
   'krea-raw': [
-    { value: 'standard', label: 'Standard', steps: 40, guidance: 3.5, description: 'Krea raw quality' },
-    { value: 'high', label: 'High Quality', steps: 52, guidance: 3.5, description: 'Default raw' },
-    { value: 'ultra', label: 'Ultra', steps: 60, guidance: 3.5, description: 'Slow, peak detail' },
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 40, guidance: 3.5, get description() { return translate('options.imagePresets.descriptions.kreaRaw.standard'); } },
+    { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 52, guidance: 3.5, get description() { return translate('options.imagePresets.descriptions.kreaRaw.high'); } },
+    { value: 'ultra', get label() { return translate('options.imagePresets.labels.ultra'); }, steps: 60, guidance: 3.5, get description() { return translate('options.imagePresets.descriptions.kreaRaw.ultra'); } },
   ],
   // SDXL Turbo is a 1-4 step, CFG-free distillation; the backend validator
   // clamps to that range (settings_validator.py), so offering the SDXL Base
   // 20-35 step presets showed numbers that never ran.
   'sdxl-turbo': [
-    { value: 'fast', label: 'Fast', steps: 1, guidance: 0.0, description: 'Single-step preview' },
-    { value: 'standard', label: 'Standard', steps: 4, guidance: 0.0, description: 'Turbo recipe (4 steps, CFG-free)' },
+    { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 1, guidance: 0.0, get description() { return translate('options.imagePresets.descriptions.sdxlTurbo.fast'); } },
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 4, guidance: 0.0, get description() { return translate('options.imagePresets.descriptions.sdxlTurbo.standard'); } },
   ],
   // Sana Sprint samples in 1-4 steps with an embedded guidance of 4.5; 2 steps
   // was the cleanest of 1/2/4 (media_model_registry, sana family row).
   sana: [
-    { value: 'fast', label: 'Fast', steps: 1, guidance: 4.5, description: 'Single-step preview' },
-    { value: 'standard', label: 'Standard', steps: 2, guidance: 4.5, description: 'Sana Sprint recipe (2 steps)' },
+    { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 1, guidance: 4.5, get description() { return translate('options.imagePresets.descriptions.sana.fast'); } },
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 2, guidance: 4.5, get description() { return translate('options.imagePresets.descriptions.sana.standard'); } },
   ],
   // Qwen-Image 2.1 numbers come from the official ComfyUI template
   // (image_qwen_image_2_1_t2i.json): 25 steps, cfg 1.0, euler/simple, with the
   // note that the official pipeline uses 40-50 steps. Nothing below 25 is offered
   // because no faster count has been measured on a card.
   'qwen-image-21': [
-    { value: 'standard', label: 'Standard', steps: 25, guidance: 1.0, description: 'Official ComfyUI template (25 steps, cfg 1)' },
-    { value: 'high', label: 'High Quality', steps: 40, guidance: 1.0, description: 'Official pipeline range (40-50 steps), slower' },
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 25, guidance: 1.0, get description() { return translate('options.imagePresets.descriptions.qwenImage21.standard'); } },
+    { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 40, guidance: 1.0, get description() { return translate('options.imagePresets.descriptions.qwenImage21.high'); } },
   ],
   sdxl: [
-    { value: 'fast', label: 'Fast', steps: 20, guidance: 6.0, description: 'Quick SDXL' },
-    { value: 'standard', label: 'Standard', steps: 25, guidance: 7.0, description: 'Balanced SDXL' },
-    { value: 'high', label: 'High Quality', steps: 35, guidance: 7.5, description: 'Final SDXL' },
+    { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 20, guidance: 6.0, get description() { return translate('options.imagePresets.descriptions.sdxl.fast'); } },
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 25, guidance: 7.0, get description() { return translate('options.imagePresets.descriptions.sdxl.standard'); } },
+    { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 35, guidance: 7.5, get description() { return translate('options.imagePresets.descriptions.sdxl.high'); } },
   ],
   sd: [
-    { value: 'fast', label: 'Fast', steps: 15, guidance: 7.0, description: 'Quick generation, good for testing' },
-    { value: 'standard', label: 'Standard', steps: 20, guidance: 7.5, description: 'Balanced quality and speed' },
-    { value: 'high', label: 'High Quality', steps: 30, guidance: 8.0, description: 'High quality, slower generation' },
+    { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 15, guidance: 7.0, get description() { return translate('options.imagePresets.descriptions.sd.fast'); } },
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 20, guidance: 7.5, get description() { return translate('options.imagePresets.descriptions.sd.standard'); } },
+    { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 30, guidance: 8.0, get description() { return translate('options.imagePresets.descriptions.sd.high'); } },
   ],
 };
 
@@ -230,13 +231,14 @@ export function buildFinalPrompts({ inputMode, batchItems, lookAndFeel, quantity
  */
 export function imageModelOption(m) {
   const installed = m.is_downloaded !== false;
-  const size = m.size_gb ? ` ~${m.size_gb} GB` : '';
   return {
     value: m.id,
     label: m.recommended ? `${m.label} ⭐` : m.label,
     description: installed
       ? (m.description || '')
-      : `${m.description || ''} (not installed — Install downloads${size})`.trim(),
+      : (m.size_gb
+        ? translate('messages.imageModels.notInstalledSize', { description: m.description || '', size: m.size_gb })
+        : translate('messages.imageModels.notInstalled', { description: m.description || '' })).trim(),
     installed,
     recommended: !!m.recommended,
     name: m.name || m.label || m.id,

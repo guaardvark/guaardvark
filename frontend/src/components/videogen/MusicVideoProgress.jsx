@@ -11,15 +11,17 @@ import {
 } from "@mui/material";
 import {
   CLIP_CELL_COLOR,
-  STAGE_STATE_TEXT,
+  stageStateText,
   activeStepIndex,
   clipCellState,
+  clipCellStateText,
   currentClipText,
   etaText,
   formatDuration,
   visibleStages,
 } from "./musicVideoProgressModel";
 import StatusPill from "../settings/ui/StatusPill";
+import { useUiTranslation } from "../../i18n";
 
 const STATE_TONE = { queued: "warn", waiting: "warn", failed: "error", cancelled: "neutral", active: "info", done: "ok" };
 
@@ -32,13 +34,14 @@ const STATE_TONE = { queued: "warn", waiting: "warn", failed: "error", cancelled
  * meter, or a backend that predates it).
  */
 export default function MusicVideoProgress({ progress, clips = [], compact = false, running = false, onCutClick }) {
+  const { t } = useUiTranslation();
   if (!progress || !Array.isArray(progress.stages) || progress.overall_pct == null) {
     if (!running) return null;
     return (
       <Box sx={{ minWidth: 120 }} data-testid="mv-progress-unknown">
         <LinearProgress sx={{ height: compact ? 4 : 8, borderRadius: 1 }} />
         <Typography variant="caption" color="text.secondary" noWrap display="block">
-          Working…
+          {t("video.progress.working")}
         </Typography>
       </Box>
     );
@@ -78,7 +81,7 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
                     ? formatDuration(s.duration_s)
                     : ["active", "queued"].includes(s.state) && s.pct
                       ? `${Math.round(s.pct)}%`
-                      : STAGE_STATE_TEXT[s.state] || ""}
+                      : stageStateText()[s.state] || ""}
                 </Typography>
               }
             >
@@ -100,7 +103,7 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
             )}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {[eta, progress.elapsed_seconds != null ? `${formatDuration(progress.elapsed_seconds)} elapsed` : ""]
+            {[eta, progress.elapsed_seconds != null ? t("video.progress.elapsed", { duration: formatDuration(progress.elapsed_seconds) }) : ""]
               .filter(Boolean)
               .join(" · ")}
           </Typography>
@@ -115,7 +118,7 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
           <StatusPill
             sx={{ mt: 0.75 }}
             tone={STATE_TONE[active.state] || "neutral"}
-            label={STAGE_STATE_TEXT[active.state]}
+            label={stageStateText()[active.state]}
           />
         )}
       </Box>
@@ -131,11 +134,18 @@ export default function MusicVideoProgress({ progress, clips = [], compact = fal
             {activeClips.map((c) => {
               const state = clipCellState(c, currentIndex);
               return (
-                <Tooltip key={c.index} title={`Cut #${c.index} · ${state}${c.locked ? " · locked" : ""}`}>
+                <Tooltip
+                  key={c.index}
+                  title={t("video.progress.cutTooltip", {
+                    index: c.index,
+                    state: clipCellStateText(state),
+                    locked: c.locked ? ` · ${t("video.progress.locked")}` : "",
+                  })}
+                >
                   <Box
                     role={onCutClick ? "button" : undefined}
                     tabIndex={onCutClick ? 0 : undefined}
-                    aria-label={`Cut ${c.index} ${state}`}
+                    aria-label={t("video.progress.cutAria", { index: c.index, state: clipCellStateText(state) })}
                     onClick={onCutClick ? () => onCutClick(c.index) : undefined}
                     onKeyDown={onCutClick ? (e) => {
                       if (e.key === "Enter" || e.key === " ") {

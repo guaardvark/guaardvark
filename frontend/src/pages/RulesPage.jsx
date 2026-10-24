@@ -42,6 +42,7 @@ import copyText from "../utils/copyText";
 import RuleActionModal from "../components/modals/RuleActionModal";
 import LinkingModal from "../components/modals/LinkingModal";
 import { useStatus } from "../contexts/StatusContext";
+import { useUiTranslation } from "../i18n";
 
 const logger = console;
 
@@ -120,6 +121,7 @@ function getComparator(order, orderBy) {
 import { stableSort } from "../utils/sortUtils";
 
 const RulesPage = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const { activeModel } = useStatus();
 
@@ -214,10 +216,10 @@ const RulesPage = () => {
         setPagesLoaded(Math.max(1, Math.ceil(items.length / PAGE_SIZE)));
       } catch (e) {
         logger.error("Failed to load rules:", e);
-        setError(e.message || "Failed to load rules");
+        setError(e.message || t("rules.page.errors.loadFailed"));
         setFeedback({
           open: true,
-          message: e.message || "Failed to load rules",
+          message: e.message || t("rules.page.errors.loadFailed"),
           severity: "error",
         });
       } finally {
@@ -244,7 +246,7 @@ const RulesPage = () => {
       logger.error("Failed to load more rules:", e);
       setFeedback({
         open: true,
-        message: e.message || "Failed to load more rules",
+        message: e.message || t("rules.page.errors.loadMoreFailed"),
         severity: "error",
       });
     } finally {
@@ -286,12 +288,12 @@ const RulesPage = () => {
           result.error?.toString() ||
           result.errors?.toString() ||
           result.detail ||
-          "Could not save rule";
+          t("rules.page.errors.couldNotSave");
         throw new Error(errorMsg);
       }
       setFeedback({
         open: true,
-        message: `Rule ${ruleDataToSave.id ? "updated" : "created"} successfully!`,
+        message: ruleDataToSave.id ? t("rules.page.updated") : t("rules.page.created"),
         severity: "success",
       });
       handleCloseActionModal();
@@ -301,7 +303,7 @@ const RulesPage = () => {
       logger.error("Save rule failed:", err);
       setFeedback({
         open: true,
-        message: err.message || "Failed to save rule",
+        message: err.message || t("rules.page.errors.saveFailed"),
         severity: "error",
       });
       return { error: err };
@@ -313,7 +315,7 @@ const RulesPage = () => {
   const handleDeleteRule = async (ruleId) => {
     if (
       !window.confirm(
-        "Are you sure you want to delete this rule? This action cannot be undone.",
+        t("rules.page.deleteConfirm"),
       )
     )
       return;
@@ -321,7 +323,7 @@ const RulesPage = () => {
       await apiService.deleteRule(ruleId);
       setFeedback({
         open: true,
-        message: "Rule deleted successfully.",
+        message: t("rules.page.deleted"),
         severity: "success",
       });
       if (selectedRuleForModal?.id === ruleId) {
@@ -332,7 +334,7 @@ const RulesPage = () => {
       logger.error("Delete rule failed:", err);
       setFeedback({
         open: true,
-        message: err.message || "Failed to delete rule",
+        message: err.message || t("rules.page.errors.deleteFailed"),
         severity: "error",
       });
     }
@@ -359,12 +361,12 @@ const RulesPage = () => {
           result.error?.message ||
             result.errors?.toString() ||
             result.detail ||
-            "Could not duplicate rule",
+            t("rules.page.errors.couldNotDuplicate"),
         );
       }
       setFeedback({
         open: true,
-        message: "Rule duplicated (inactive).",
+        message: t("rules.page.duplicated"),
         severity: "success",
       });
       loadRules();
@@ -372,7 +374,7 @@ const RulesPage = () => {
       logger.error("Duplicate rule failed:", err);
       setFeedback({
         open: true,
-        message: err.message || "Failed to duplicate rule",
+        message: err.message || t("rules.page.errors.duplicateFailed"),
         severity: "error",
       });
     }
@@ -394,12 +396,12 @@ const RulesPage = () => {
           result.error?.message ||
             result.errors?.toString() ||
             result.detail ||
-            "Could not update rule status",
+            t("rules.page.errors.couldNotUpdateStatus"),
         );
       }
       setFeedback({
         open: true,
-        message: `Rule ${updatedRule.is_active ? "activated" : "deactivated"}.`,
+        message: updatedRule.is_active ? t("rules.page.activated") : t("rules.page.deactivated"),
         severity: "success",
       });
     } catch (err) {
@@ -412,7 +414,7 @@ const RulesPage = () => {
       );
       setFeedback({
         open: true,
-        message: err.message || "Failed to update rule status",
+        message: err.message || t("rules.page.errors.updateStatusFailed"),
         severity: "error",
       });
     }
@@ -431,7 +433,7 @@ const RulesPage = () => {
     loadRules();
     setFeedback({
       open: true,
-      message: "Links updated successfully!",
+      message: t("rules.page.linksUpdated"),
       severity: "success",
     });
   };
@@ -449,13 +451,13 @@ const RulesPage = () => {
   }, [rules, order, orderBy]);
 
   const headCells = [
-    { id: "id", label: "ID", sortable: true, minWidth: 10 }, // Added ID column
-    { id: "name", label: "Name / Description", sortable: true, minWidth: 300 }, // Made wider
-    { id: "x_column", label: "X", sortable: true }, // Merged column
-    { id: "target_models", label: "Target Model(s)", sortable: true }, // Now sortable
+    { id: "id", label: t("rules.page.columns.id"), sortable: true, minWidth: 10 }, // Added ID column
+    { id: "name", label: t("rules.page.columns.name"), sortable: true, minWidth: 300 }, // Made wider
+    { id: "x_column", label: t("rules.page.columns.x"), sortable: true }, // Merged column
+    { id: "target_models", label: t("rules.page.columns.targetModels"), sortable: true }, // Now sortable
     {
       id: "is_active",
-      label: "Status",
+      label: t("rules.page.columns.status"),
       sortable: true,
       minWidth: 80,
       align: "center",
@@ -470,7 +472,7 @@ const RulesPage = () => {
 
   return (
     <PageLayout
-      title="Rules Management"
+      title={t("rules.page.title")}
       variant="standard"
       actions={
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -479,13 +481,13 @@ const RulesPage = () => {
             exclusive
             value={levelFilter}
             onChange={(e, v) => v && setLevelFilter(v)}
-            aria-label="Rule filter"
+            aria-label={t("rules.page.filterLabel")}
           >
             <ToggleButton value="all" sx={{ px: 1.25, py: 0.25 }}>
-              All
+              {t("rules.page.filterAll")}
             </ToggleButton>
             <ToggleButton value="LEARNED" sx={{ px: 1.25, py: 0.25 }}>
-              Learned
+              {t("rules.page.filterLearned")}
             </ToggleButton>
           </ToggleButtonGroup>
           <Button
@@ -495,7 +497,7 @@ const RulesPage = () => {
             disabled={isLoading || isModalSaving}
             size="small"
           >
-            New
+            {t("rules.page.new")}
           </Button>
         </Box>
       }
@@ -506,9 +508,7 @@ const RulesPage = () => {
             color="text.secondary"
             sx={{ display: "block", px: 2, pb: 1 }}
           >
-            Learned rules are the ones shipped in the rule bundle. The chat
-            does not add rules on its own. Delete any that are wrong here;
-            Settings can clear all of them at once.
+            {t("rules.page.learnedNote")}
           </Typography>
         ) : null
       }
@@ -574,8 +574,8 @@ const RulesPage = () => {
                     align="center"
                     sx={{ py: 3 }}
                   >
-                    <CircularProgress size={24} sx={{ mr: 1 }} /> Loading
-                    rules...
+                    <CircularProgress size={24} sx={{ mr: 1 }} />{" "}
+                    {t("rules.page.loading")}
                   </TableCell>
                 </TableRow>
               ) : !isLoading && sortedRules.length === 0 && !error ? (
@@ -589,13 +589,13 @@ const RulesPage = () => {
                       icon={<GavelOutlined />}
                       title={
                         levelFilter === "LEARNED"
-                          ? "No learned rules"
-                          : "No rules found"
+                          ? t("rules.page.emptyLearnedTitle")
+                          : t("rules.page.emptyTitle")
                       }
                       description={
                         levelFilter === "LEARNED"
-                          ? "No learned rule is loaded from the rule bundle."
-                          : "Create a rule to define system prompts and commands"
+                          ? t("rules.page.emptyLearnedDescription")
+                          : t("rules.page.emptyDescription")
                       }
                     />
                   </TableCell>
@@ -612,7 +612,7 @@ const RulesPage = () => {
                     onContextMenu={(e) => rowMenu.open(e, rule)}
                   >
                     <TableCell sx={{ minWidth: 10, maxWidth: 50 }}>
-                      <Tooltip title={`Rule ID: ${rule.id}`}>
+                      <Tooltip title={t("rules.page.ruleId", { id: rule.id })}>
                         <Typography
                           variant="body2"
                           sx={{
@@ -636,14 +636,14 @@ const RulesPage = () => {
                           minWidth: 0,
                         }}
                       >
-                        <Tooltip title={rule.name || "N/A"}>
+                        <Tooltip title={rule.name || t("rules.page.notAvailable")}>
                           <Typography variant="body2" noWrap>
-                            {rule.name || "Unnamed Rule"}
+                            {rule.name || t("rules.page.unnamed")}
                           </Typography>
                         </Tooltip>
                         {rule.level === "LEARNED" && (
                           <Chip
-                            label="learned"
+                            label={t("rules.page.learnedChip")}
                             size="small"
                             variant="outlined"
                             sx={{ height: 18, fontSize: "0.65rem" }}
@@ -656,7 +656,7 @@ const RulesPage = () => {
                         color="text.secondary"
                         noWrap
                       >
-                        {rule.description || "No description"}
+                        {rule.description || t("rules.page.noDescription")}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -700,7 +700,7 @@ const RulesPage = () => {
                                 display: "inline-block",
                               }}
                             >
-                              SYSTEM
+                              {t("rules.page.typeSystem")}
                             </Typography>
                           );
                         } else {
@@ -718,7 +718,7 @@ const RulesPage = () => {
                                 display: "inline-block",
                               }}
                             >
-                              PROMPT
+                              {t("rules.page.typePrompt")}
                             </Typography>
                           );
                         }
@@ -728,7 +728,7 @@ const RulesPage = () => {
                       <Tooltip
                         title={
                           rule.target_models.includes("__ALL__")
-                            ? "All Models"
+                            ? t("rules.page.allModels")
                             : rule.target_models.join(", ")
                         }
                       >
@@ -738,7 +738,7 @@ const RulesPage = () => {
                           {rule.target_models.includes("__ALL__") ||
                           rule.target_models.length === 0 ? (
                             <Chip
-                              label="All Models"
+                              label={t("rules.page.allModels")}
                               size="small"
                               variant="outlined"
                               color="primary"
@@ -771,10 +771,14 @@ const RulesPage = () => {
                       onClick={(e) => e.stopPropagation()}
                     >
                       <Tooltip
-                        title={`Click to ${rule.is_active ? "deactivate" : "activate"}`}
+                        title={
+                          rule.is_active
+                            ? t("rules.page.clickToDeactivate")
+                            : t("rules.page.clickToActivate")
+                        }
                       >
                         <Chip
-                          label={rule.is_active ? "Active" : "Inactive"}
+                          label={rule.is_active ? t("rules.page.active") : t("rules.page.inactive")}
                           size="small"
                           color={rule.is_active ? "success" : "default"}
                           variant={rule.is_active ? "filled" : "outlined"}
@@ -805,7 +809,7 @@ const RulesPage = () => {
                       align="right"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <Tooltip title="Duplicate Rule">
+                      <Tooltip title={t("rules.page.duplicateRule")}>
                         <IconButton
                           onClick={() => handleDuplicateRule(rule)}
                           size="small"
@@ -814,7 +818,7 @@ const RulesPage = () => {
                           <FileCopyIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete Rule">
+                      <Tooltip title={t("rules.page.deleteRule")}>
                         <IconButton
                           onClick={() => handleDeleteRule(rule.id)}
                           size="small"
@@ -839,16 +843,16 @@ const RulesPage = () => {
           actions={
             rowMenu.payload
               ? [
-                  { label: "Edit…", onClick: () => handleOpenActionModal(rowMenu.payload) },
+                  { label: t("rules.page.menu.edit"), onClick: () => handleOpenActionModal(rowMenu.payload) },
                   {
-                    label: rowMenu.payload.is_active ? "Deactivate" : "Activate",
+                    label: rowMenu.payload.is_active ? t("rules.page.menu.deactivate") : t("rules.page.menu.activate"),
                     onClick: () => handleToggleActive(rowMenu.payload),
                   },
-                  { label: "Duplicate", onClick: () => handleDuplicateRule(rowMenu.payload) },
-                  { label: "Link to projects…", onClick: () => handleOpenLinkingModal(rowMenu.payload) },
-                  { label: "Copy ID", onClick: () => copyText(rowMenu.payload.id), dividerBefore: true },
+                  { label: t("rules.page.menu.duplicate"), onClick: () => handleDuplicateRule(rowMenu.payload) },
+                  { label: t("rules.page.menu.linkToProjects"), onClick: () => handleOpenLinkingModal(rowMenu.payload) },
+                  { label: t("rules.page.menu.copyId"), onClick: () => copyText(rowMenu.payload.id), dividerBefore: true },
                   {
-                    label: "Delete",
+                    label: t("rules.page.menu.delete"),
                     onClick: () => handleDeleteRule(rowMenu.payload.id),
                     color: "error.main",
                     dividerBefore: true,
@@ -869,11 +873,11 @@ const RulesPage = () => {
               borderColor: "divider",
             }}
           >
-            Total Rules: {total ?? rules.length}
+            {t("rules.page.total", { total: total ?? rules.length })}
             {total != null && rules.length < total && (
               <>
                 {" "}
-                (showing {rules.length})
+                {t("rules.page.showing", { shown: rules.length })}
                 <Button
                   size="small"
                   variant="text"
@@ -881,7 +885,7 @@ const RulesPage = () => {
                   disabled={isLoadingMore}
                   sx={{ ml: 1, py: 0, minWidth: 0, textTransform: "none" }}
                 >
-                  {isLoadingMore ? "Loading…" : "Load more"}
+                  {isLoadingMore ? t("rules.page.loadingMore") : t("rules.page.loadMore")}
                 </Button>
               </>
             )}
@@ -909,8 +913,8 @@ const RulesPage = () => {
           linkableTypesConfig={[
             {
               entityType: "project",
-              singularLabel: "Project",
-              pluralLabel: "Projects",
+              singularLabel: t("rules.page.linkProject"),
+              pluralLabel: t("rules.page.linkProjects"),
               apiServiceFunction: apiService.getProjects,
             },
           ]}

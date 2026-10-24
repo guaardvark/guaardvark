@@ -61,6 +61,7 @@ import useContextMenu from "../hooks/useContextMenu";
 import { entityLinkActions } from "../utils/entityLinks";
 import EmptyState from "../components/common/EmptyState";
 import { ContextualLoader } from "../components/common/LoadingStates";
+import { uiLocale, useUiTranslation } from "../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -72,7 +73,7 @@ import { getComparator, stableSort } from "../utils/sortUtils";
 const formatDate = (dateString) => {
   if (!dateString) return "-";
   try {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString(uiLocale());
   } catch (e) {
     console.warn("Error formatting date:", dateString, e);
     return dateString;
@@ -80,6 +81,7 @@ const formatDate = (dateString) => {
 };
 
 function ProjectsPage() {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -124,11 +126,11 @@ function ProjectsPage() {
 
       if (projData?.error)
         throw new Error(
-          `Projects: ${projData.error.message || projData.error}`,
+          t("projects.list.loadErrors.projects", { error: projData.error.message || projData.error }),
         );
       if (clientData?.error)
         throw new Error(
-          `Clients: ${clientData.error.message || clientData.error}`,
+          t("projects.list.loadErrors.clients", { error: clientData.error.message || clientData.error }),
         );
 
       setProjects(Array.isArray(projData) ? projData : []);
@@ -139,7 +141,7 @@ function ProjectsPage() {
       );
     } catch (err) {
       console.error("Error fetching projects or clients:", err);
-      setError(`Failed to fetch data: ${err.message}`);
+      setError(t("projects.list.fetchFailed", { error: err.message }));
       setProjects([]);
       setClients([]);
     } finally {
@@ -203,7 +205,7 @@ function ProjectsPage() {
     if (!formName.trim()) {
       setFeedback({
         open: true,
-        message: "Project Name is required.",
+        message: t("projects.list.nameRequired"),
         severity: "warning",
       });
       return;
@@ -211,7 +213,7 @@ function ProjectsPage() {
     if (!formClientValue) {
       setFeedback({
         open: true,
-        message: "Client is required.",
+        message: t("projects.list.clientRequired"),
         severity: "warning",
       });
       return;
@@ -243,23 +245,25 @@ function ProjectsPage() {
           });
           if (createClientResponse?.error) {
             throw new Error(
-              `Failed to create client: ${createClientResponse.error.message || createClientResponse.error}`,
+              t("projects.list.createClientFailed", {
+                error: createClientResponse.error.message || createClientResponse.error,
+              }),
             );
           }
           if (!createClientResponse?.id) {
             throw new Error(
-              `Failed to get ID for newly created client: ${newClientName}`,
+              t("projects.list.newClientNoId", { name: newClientName }),
             );
           }
           clientIdToSave = createClientResponse.id;
           fetchProjectsAndClients(); // Re-fetch clients to include the new one
         }
       } else {
-        throw new Error("Invalid client selection or input.");
+        throw new Error(t("projects.list.invalidClient"));
       }
 
       if (!clientIdToSave) {
-        throw new Error("Could not determine Client ID to save.");
+        throw new Error(t("projects.list.noClientId"));
       }
 
       const payload = {
@@ -275,7 +279,7 @@ function ProjectsPage() {
           throw new Error(result.error.message || result.error);
         setFeedback({
           open: true,
-          message: "Project updated successfully!",
+          message: t("projects.list.updated"),
           severity: "success",
         });
       } else {
@@ -284,7 +288,7 @@ function ProjectsPage() {
           throw new Error(result.error.message || result.error);
         setFeedback({
           open: true,
-          message: "Project created successfully!",
+          message: t("projects.list.created"),
           severity: "success",
         });
       }
@@ -294,7 +298,7 @@ function ProjectsPage() {
       console.error("Save project error:", err);
       setFeedback({
         open: true,
-        message: `Failed to save project: ${err.message}`,
+        message: t("projects.list.saveFailed", { error: err.message }),
         severity: "error",
       });
     } finally {
@@ -310,7 +314,7 @@ function ProjectsPage() {
       if (result?.error) throw new Error(result.error.message || result.error);
       setFeedback({
         open: true,
-        message: "Project deleted successfully!",
+        message: t("projects.list.deleted"),
         severity: "info",
       });
       handleCloseDeleteDialog();
@@ -319,7 +323,7 @@ function ProjectsPage() {
       console.error("Delete project error:", err);
       setFeedback({
         open: true,
-        message: `Failed to delete project: ${err.message}`,
+        message: t("projects.list.deleteFailed", { error: err.message }),
         severity: "error",
       });
     } finally {
@@ -334,7 +338,7 @@ function ProjectsPage() {
 
   const getClientName = (clientId) => {
     const client = clients.find((c) => c.id === clientId);
-    return client ? client.name : "N/A";
+    return client ? client.name : t("projects.list.notAvailable");
   };
 
   const handleSortRequest = (property) => {
@@ -348,19 +352,19 @@ function ProjectsPage() {
   }, [projects, order, orderBy]);
 
   const headCells = [
-    { id: "name", label: "Project Name", sortable: true },
-    { id: "client.name", label: "Client", sortable: true },
-    { id: "description", label: "Description", sortable: false },
-    { id: "document_count", label: "Docs", sortable: true, align: "right" },
-    { id: "website_count", label: "Sites", sortable: true, align: "right" },
-    { id: "task_count", label: "Tasks", sortable: true, align: "right" },
-    { id: "updated_at", label: "Last Updated", sortable: true },
-    { id: "actions", label: "Actions", sortable: false, align: "right" },
+    { id: "name", label: t("projects.list.columns.name"), sortable: true },
+    { id: "client.name", label: t("projects.list.columns.client"), sortable: true },
+    { id: "description", label: t("projects.list.columns.description"), sortable: false },
+    { id: "document_count", label: t("projects.list.columns.docs"), sortable: true, align: "right" },
+    { id: "website_count", label: t("projects.list.columns.sites"), sortable: true, align: "right" },
+    { id: "task_count", label: t("projects.list.columns.tasks"), sortable: true, align: "right" },
+    { id: "updated_at", label: t("projects.list.columns.updated"), sortable: true },
+    { id: "actions", label: t("projects.list.columns.actions"), sortable: false, align: "right" },
   ];
 
   return (
     <PageLayout
-      title="Projects"
+      title={t("projects.list.title")}
       variant="standard"
       viewToggle={{
         mode: viewMode,
@@ -374,11 +378,17 @@ function ProjectsPage() {
           onClick={() => handleOpenEditDialog(null)}
           disabled={isSaving}
         >
-          Add Project
+          {t("projects.list.addProject")}
         </Button>
       }
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
+      activeModel={
+        isLoadingModel
+          ? t("projects.list.modelLoading")
+          : modelError
+            ? t("projects.list.modelError")
+            : activeModel
+      }
     >
       <Box
         onContextMenu={(e) => handleContextMenu(e, null)}
@@ -405,14 +415,14 @@ function ProjectsPage() {
           </MuiAlert>
         )}
         {isLoading && (
-          <ContextualLoader loading message="Loading projects..." showProgress={false} inline />
+          <ContextualLoader loading message={t("projects.list.loading")} showProgress={false} inline />
         )}
 
         {!isLoading && sortedProjects.length === 0 && !error && (
           <EmptyState
             icon={<FolderOutlined />}
-            title="No projects found"
-            description="Add one to get started!"
+            title={t("projects.list.emptyTitle")}
+            description={t("projects.list.emptyDescription")}
           />
         )}
 
@@ -462,11 +472,11 @@ function ProjectsPage() {
                             noWrap
                             title={getClientName(project.client_id)}
                           >
-                            Client: {getClientName(project.client_id)}
+                            {t("projects.list.client", { name: getClientName(project.client_id) })}
                           </Typography>
                           <Tooltip
                             title={
-                              project.description || "No description available."
+                              project.description || t("projects.list.noDescriptionAvailable")
                             }
                           >
                             <Typography
@@ -485,7 +495,7 @@ function ProjectsPage() {
                                 WebkitBoxOrient: "vertical",
                               }}
                             >
-                              {project.description || "No description"}
+                              {project.description || t("projects.list.noDescription")}
                             </Typography>
                           </Tooltip>
                           <Box
@@ -499,20 +509,20 @@ function ProjectsPage() {
                             }}
                           >
                             <Typography variant="caption">
-                              Docs: {project.document_count ?? 0}
+                              {t("projects.list.docsCount", { count: project.document_count ?? 0 })}
                             </Typography>
                             <Typography variant="caption">
-                              Sites: {project.website_count ?? 0}
+                              {t("projects.list.sitesCount", { count: project.website_count ?? 0 })}
                             </Typography>
                             <Typography variant="caption">
-                              Tasks: {project.task_count ?? 0}
+                              {t("projects.list.tasksCount", { count: project.task_count ?? 0 })}
                             </Typography>
                             <Typography variant="caption">
-                              Rules: {project.rule_count ?? 0}
+                              {t("projects.list.rulesCount", { count: project.rule_count ?? 0 })}
                             </Typography>
                             {project.video_count > 0 && (
                               <Typography variant="caption">
-                                Videos: {project.video_count}
+                                {t("projects.list.videosCount", { count: project.video_count })}
                               </Typography>
                             )}
                           </Box>
@@ -605,7 +615,7 @@ function ProjectsPage() {
                       </TableCell>
                       <TableCell>{formatDate(project.updated_at)}</TableCell>
                       <TableCell align="right" sx={{ pr: 2 }}>
-                        <Tooltip title="Edit Project">
+                        <Tooltip title={t("projects.list.editProject")}>
                           <span>
                             <IconButton
                               size="small"
@@ -619,7 +629,7 @@ function ProjectsPage() {
                             </IconButton>
                           </span>
                         </Tooltip>
-                        <Tooltip title="Delete Project">
+                        <Tooltip title={t("projects.list.deleteProject")}>
                           <span>
                             <IconButton
                               size="small"
@@ -651,7 +661,7 @@ function ProjectsPage() {
                   borderColor: "divider",
                 }}
               >
-                Total Projects: {sortedProjects.length}
+                {t("projects.list.total", { total: sortedProjects.length })}
               </Typography>
             )}
           </Paper>
@@ -663,11 +673,19 @@ function ProjectsPage() {
         anchorPosition={pageMenu.anchorPosition}
         onClose={pageMenu.close}
         actions={contextItem ? [
-          { label: 'Edit', onClick: () => handleOpenEditDialog(contextItem) },
-          { label: 'Delete', onClick: () => handleOpenDeleteDialog(contextItem), color: 'error.main' },
+          { label: t("projects.list.menu.edit"), onClick: () => handleOpenEditDialog(contextItem) },
+          {
+            label: t("projects.list.menu.delete"),
+            onClick: () => handleOpenDeleteDialog(contextItem),
+            color: 'error.main',
+          },
           ...entityLinkActions('project', contextItem.id, navigate),
         ] : [
-          { label: 'New Project', icon: <AddIcon fontSize="small" />, onClick: () => handleOpenEditDialog(null) },
+          {
+            label: t("projects.list.menu.newProject"),
+            icon: <AddIcon fontSize="small" />,
+            onClick: () => handleOpenEditDialog(null),
+          },
         ]}
       />
 
@@ -679,7 +697,7 @@ function ProjectsPage() {
         maxWidth="sm"
       >
         <DialogTitle>
-          {currentItem?.id ? "Edit Project" : "Add New Project"}
+          {currentItem?.id ? t("projects.list.editTitle") : t("projects.list.addTitle")}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -689,7 +707,7 @@ function ProjectsPage() {
               margin="dense"
               id="project-form-name"
               name="projectName"
-              label="Project Name"
+              label={t("projects.list.nameLabel")}
               type="text"
               fullWidth
               variant="outlined"
@@ -725,11 +743,11 @@ function ProjectsPage() {
               renderInput={(params) => (
                 <TextField
                   {...params}
-                  label="Client"
+                  label={t("projects.list.clientLabel")}
                   required
                   margin="dense"
                   variant="outlined"
-                  helperText="Select existing client or type a new name to create one."
+                  helperText={t("projects.list.clientHelp")}
                   error={
                     !formClientValue &&
                     Boolean(formName.trim()) /* Only show error if trying to save */
@@ -742,7 +760,7 @@ function ProjectsPage() {
               margin="dense"
               id="project-form-description"
               name="projectDescription"
-              label="Description (Optional)"
+              label={t("projects.list.descriptionLabel")}
               type="text"
               fullWidth
               multiline
@@ -760,7 +778,7 @@ function ProjectsPage() {
             disabled={isSaving}
             color="inherit"
           >
-            Cancel
+            {t("projects.list.cancel")}
           </Button>
           <Button
             onClick={handleSave}
@@ -769,19 +787,17 @@ function ProjectsPage() {
               isSaving || isLoading || !formName.trim() || !formClientValue
             }
           >
-            {isSaving ? <CircularProgress size={24} /> : "Save Project"}
+            {isSaving ? <CircularProgress size={24} /> : t("projects.list.save")}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog}>
-        <DialogTitle>Confirm Deletion</DialogTitle>
+        <DialogTitle>{t("projects.list.deleteTitle")}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete the project &quot;{currentItem?.name}&quot;?
-            This action cannot be undone. Associated items may need to be
-            reassigned or handled separately.
+            {t("projects.list.deleteConfirm", { name: currentItem?.name })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -790,7 +806,7 @@ function ProjectsPage() {
             disabled={isSaving}
             color="inherit"
           >
-            Cancel
+            {t("projects.list.cancel")}
           </Button>
           <Button
             onClick={handleDelete}
@@ -798,7 +814,7 @@ function ProjectsPage() {
             variant="contained"
             disabled={isSaving}
           >
-            {isSaving ? <CircularProgress size={24} /> : "Delete Project"}
+            {isSaving ? <CircularProgress size={24} /> : t("projects.list.delete")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -46,6 +46,7 @@ import {
 import { useTheme } from "@mui/material/styles";
 import { getOutputDetails, downloadOutputCSV, downloadOutputXML, deleteOutput, retryFailedRows } from "../../api/outputService";
 import { getAvailableModels } from "../../api";
+import { useUiTranslation } from "../../i18n";
 
 const OutputModal = ({ 
   open, 
@@ -53,6 +54,7 @@ const OutputModal = ({
   output, 
   onDelete 
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -118,7 +120,7 @@ const OutputModal = ({
     try {
       await downloadOutputCSV(output.filename);
     } catch (err) {
-      setError(`Failed to download CSV: ${err.message}`);
+      setError(t("dialogs.output.downloadCsvFailed", { error: err.message }));
     } finally {
       setActionLoading(prev => ({ ...prev, csv: false }));
     }
@@ -129,14 +131,14 @@ const OutputModal = ({
     try {
       await downloadOutputXML(output.filename);
     } catch (err) {
-      setError(`Failed to download XML: ${err.message}`);
+      setError(t("dialogs.output.downloadXmlFailed", { error: err.message }));
     } finally {
       setActionLoading(prev => ({ ...prev, xml: false }));
     }
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete output "${output.job_id}"? This action cannot be undone.`)) {
+    if (!window.confirm(t("dialogs.output.deleteConfirm", { name: output.job_id }))) {
       return;
     }
 
@@ -148,7 +150,7 @@ const OutputModal = ({
       }
       onClose();
     } catch (err) {
-      setError(`Failed to delete output: ${err.message}`);
+      setError(t("dialogs.output.deleteFailed", { error: err.message }));
     } finally {
       setActionLoading(prev => ({ ...prev, delete: false }));
     }
@@ -161,22 +163,22 @@ const OutputModal = ({
       setError(null);
       // Close retry dialog and show success
       setShowRetryDialog(false);
-      setError(`Retry job started successfully! Job ID: ${result.retry_job_id}`);
+      setError(t("dialogs.output.retryStarted", { id: result.retry_job_id }));
     } catch (err) {
       let errorMessage = err.message;
       
       // Provide helpful error messages for common issues
       if (errorMessage.includes('No failed topics found')) {
         if (retryOptions.retry_mode === 'partial_failures') {
-          errorMessage = 'No partial failures found. Try "All Failed" or "Zero Attempts Only" instead.';
+          errorMessage = t("dialogs.output.noPartialFailures");
         } else if (retryOptions.retry_mode === 'zero_attempts') {
-          errorMessage = 'No zero-attempt failures found. Try "All Failed" instead.';
+          errorMessage = t("dialogs.output.noZeroAttemptFailures");
         } else {
-          errorMessage = 'No failed topics found for the selected retry mode. Try a different mode.';
+          errorMessage = t("dialogs.output.noFailedTopics");
         }
       }
       
-      setError(`Failed to start retry job: ${errorMessage}`);
+      setError(t("dialogs.output.retryFailed", { error: errorMessage }));
     } finally {
       setActionLoading(prev => ({ ...prev, retry: false }));
     }
@@ -195,9 +197,9 @@ const OutputModal = ({
 
       const result = await retryFailedRows(output.filename, quickRetryOptions);
       setError(null);
-      setError(`Retry job started successfully! Job ID: ${result.retry_job_id}`);
+      setError(t("dialogs.output.retryStarted", { id: result.retry_job_id }));
     } catch (err) {
-      setError(`Failed to start retry job: ${err.message}`);
+      setError(t("dialogs.output.retryFailed", { error: err.message }));
     } finally {
       setActionLoading(prev => ({ ...prev, retry: false }));
     }
@@ -245,9 +247,9 @@ const OutputModal = ({
   };
 
   const getRowStatusText = (row) => {
-    if (row.status === 'failed') return 'Failed';
-    if (row.replacement_count > 0) return `Replaced (${row.replacement_count} attempts)`;
-    return 'Original';
+    if (row.status === 'failed') return t("dialogs.output.rowFailed");
+    if (row.replacement_count > 0) return t("dialogs.output.rowReplaced", { count: row.replacement_count });
+    return t("dialogs.output.rowOriginal");
   };
 
   if (!output) return null;
@@ -278,7 +280,7 @@ const OutputModal = ({
             {output.job_id}
           </Typography>
           <Chip
-            label={output.failed_rows > 0 ? "Failed" : output.replaced_rows > 0 ? "Replaced" : "Complete"}
+            label={output.failed_rows > 0 ? t("dialogs.output.statusFailed") : output.replaced_rows > 0 ? t("dialogs.output.statusReplaced") : t("dialogs.output.statusComplete")}
             color={output.failed_rows > 0 ? "error" : output.replaced_rows > 0 ? "warning" : "success"}
             size="small"
           />
@@ -302,7 +304,7 @@ const OutputModal = ({
             {/* Summary Statistics */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>
-                Summary
+                {t("dialogs.output.summary")}
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={6} sm={3}>
@@ -311,7 +313,7 @@ const OutputModal = ({
                       {output.active_rows}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Generated
+                      {t("dialogs.output.generated")}
                     </Typography>
                   </Box>
                 </Grid>
@@ -321,7 +323,7 @@ const OutputModal = ({
                       {output.replaced_rows}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Replaced
+                      {t("dialogs.output.replaced")}
                     </Typography>
                   </Box>
                 </Grid>
@@ -331,7 +333,7 @@ const OutputModal = ({
                       {output.failed_rows}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Failed
+                      {t("dialogs.output.failed")}
                     </Typography>
                   </Box>
                 </Grid>
@@ -341,7 +343,7 @@ const OutputModal = ({
                       {output.success_rate.toFixed(0)}%
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Success Rate
+                      {t("dialogs.output.successRate")}
                     </Typography>
                   </Box>
                 </Grid>
@@ -353,12 +355,12 @@ const OutputModal = ({
             {/* Generation Metadata */}
             <Box sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: "bold" }}>
-                Generation Details
+                {t("dialogs.output.generationDetails")}
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Generated
+                    {t("dialogs.output.generated")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium" }}>
                     {formatTimestamp(output.export_timestamp)}
@@ -366,15 +368,15 @@ const OutputModal = ({
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">
-                    LLM Model
+                    {t("dialogs.output.llmModel")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium", fontFamily: "monospace" }}>
-                    {output.model_name || "Unknown"}
+                    {output.model_name || t("dialogs.output.unknown")}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Target Rows
+                    {t("dialogs.output.targetRows")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium" }}>
                     {output.target_row_count}
@@ -382,7 +384,7 @@ const OutputModal = ({
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">
-                    File Size
+                    {t("dialogs.output.fileSize")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium" }}>
                     {(output.file_size / 1024).toFixed(1)} KB
@@ -390,7 +392,7 @@ const OutputModal = ({
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body2" color="text.secondary">
-                    Total Rows
+                    {t("dialogs.output.totalRows")}
                   </Typography>
                   <Typography variant="body1" sx={{ fontWeight: "medium" }}>
                     {output.total_rows}
@@ -399,7 +401,7 @@ const OutputModal = ({
                 {output.client && (
                   <Grid item xs={12} sm={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Client
+                      {t("dialogs.output.client")}
                     </Typography>
                     <Typography variant="body1" sx={{ fontWeight: "medium" }}>
                       {output.client}
@@ -409,7 +411,7 @@ const OutputModal = ({
                 {output.project && (
                   <Grid item xs={12} sm={6}>
                     <Typography variant="body2" color="text.secondary">
-                      Project
+                      {t("dialogs.output.project")}
                     </Typography>
                     <Typography variant="body1" sx={{ fontWeight: "medium" }}>
                       {output.project}
@@ -424,7 +426,7 @@ const OutputModal = ({
               <Accordion>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                    Row Details ({details.row_records.length} rows)
+                    {t("dialogs.output.rowDetails", { count: details.row_records.length })}
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
@@ -435,15 +437,15 @@ const OutputModal = ({
                           {getRowStatusIcon(row)}
                         </ListItemIcon>
                         <ListItemText
-                          primary={`Row ${index + 1}: ${row.original_topic || 'Unknown'}`}
-                          secondary={`${getRowStatusText(row)} - ${row.final_word_count || 0} words`}
+                          primary={t("dialogs.output.rowTitle", { number: index + 1, topic: row.original_topic || t("dialogs.output.unknown") })}
+                          secondary={t("dialogs.output.rowSummary", { status: getRowStatusText(row), count: row.final_word_count || 0 })}
                         />
                       </ListItem>
                     ))}
                     {details.row_records.length > 20 && (
                       <ListItem>
                         <ListItemText
-                          secondary={`... and ${details.row_records.length - 20} more rows`}
+                          secondary={t("dialogs.output.moreRows", { count: details.row_records.length - 20 })}
                         />
                       </ListItem>
                     )}
@@ -470,7 +472,7 @@ const OutputModal = ({
           onClick={handleDownloadCSV}
           disabled={actionLoading.xml || actionLoading.csv || actionLoading.delete || actionLoading.retry}
         >
-          {output?.has_retries ? 'CSV (Merged)' : 'CSV'}
+          {output?.has_retries ? t("dialogs.output.csvMerged") : 'CSV'}
         </Button>
         {output && output.inactive_rows > 0 && (
           <Button
@@ -487,7 +489,7 @@ const OutputModal = ({
               }
             }}
           >
-            RETRY FAILED
+            {t("dialogs.output.retryFailedButton")}
           </Button>
         )}
         <Button
@@ -504,7 +506,7 @@ const OutputModal = ({
             }
           }}
         >
-          DELETE
+          {t("dialogs.output.deleteButton")}
         </Button>
       </DialogActions>
 
@@ -515,15 +517,15 @@ const OutputModal = ({
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Retry Failed Rows</DialogTitle>
+        <DialogTitle>{t("dialogs.output.retryTitle")}</DialogTitle>
         <DialogContent sx={{ p: 3 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Retry generation for {output?.inactive_rows || 0} failed rows from job {output?.job_id}
+            {t("dialogs.output.retryIntro", { count: output?.inactive_rows || 0, job: output?.job_id })}
           </Typography>
 
           <Box sx={{ mb: 3 }}>
             <FormLabel component="legend" sx={{ mb: 2, fontWeight: "bold" }}>
-              Retry Mode
+              {t("dialogs.output.retryMode")}
             </FormLabel>
             <RadioGroup
               value={retryOptions.retry_mode}
@@ -532,28 +534,28 @@ const OutputModal = ({
               <FormControlLabel
                 value="all_inactive"
                 control={<Radio />}
-                label={`All Failed (${output?.inactive_rows || 0} rows) - Recommended`}
+                label={t("dialogs.output.modeAll", { count: output?.inactive_rows || 0 })}
               />
               <FormControlLabel
                 value="zero_attempts"
                 control={<Radio />}
-                label={`Zero Attempts Only (${output?.inactive_rows - (output?.replaced_rows || 0) || 0} rows)`}
+                label={t("dialogs.output.modeZero", { count: output?.inactive_rows - (output?.replaced_rows || 0) || 0 })}
               />
               <FormControlLabel
                 value="partial_failures"
                 control={<Radio />}
-                label={`Partial Failures (${output?.replaced_rows || 0} rows) - May be empty`}
+                label={t("dialogs.output.modePartial", { count: output?.replaced_rows || 0 })}
               />
             </RadioGroup>
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              💡 Tip: If "Partial Failures" shows 0 rows, use "All Failed" or "Zero Attempts Only"
+              {t("dialogs.output.retryTip")}
             </Typography>
           </Box>
 
           <Box sx={{ mb: 3 }}>
             <TextField
               fullWidth
-              label="Output Filename"
+              label={t("dialogs.output.outputFilename")}
               value={retryOptions.output_filename}
               onChange={(e) => handleRetryFilenameChange(e.target.value)}
               placeholder="retry_output.csv"
@@ -563,11 +565,11 @@ const OutputModal = ({
 
           <Box sx={{ mb: 3 }}>
             <FormControl fullWidth variant="outlined">
-              <InputLabel>Model</InputLabel>
+              <InputLabel>{t("dialogs.output.model")}</InputLabel>
               <Select
                 value={retryOptions.model_name}
                 onChange={(e) => setRetryOptions(prev => ({ ...prev, model_name: e.target.value }))}
-                label="Model"
+                label={t("dialogs.output.model")}
                 disabled={isLoadingModels}
               >
                 {availableModels.map((model) => (
@@ -581,7 +583,7 @@ const OutputModal = ({
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setShowRetryDialog(false)}>
-            Cancel
+            {t("dialogs.shared.cancel")}
           </Button>
           <Button
             variant="contained"
@@ -589,7 +591,7 @@ const OutputModal = ({
             onClick={handleRetry}
             disabled={actionLoading.retry || !retryOptions.model_name}
           >
-            Start Retry
+            {t("dialogs.output.startRetry")}
           </Button>
         </DialogActions>
       </Dialog>

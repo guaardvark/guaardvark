@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { setProfile as saveProfile } from "../../api/settingsService";
 import { useAppStore } from "../../stores/useAppStore";
+import { translate, useUiTranslation, Trans } from "../../i18n";
 
 /**
  * Asked once, on a fresh install: what is Guaardvark for here?
@@ -24,20 +25,21 @@ import { useAppStore } from "../../stores/useAppStore";
  * read at boot. Distributions never see this: their installer names the
  * profile in .env.
  */
-const CHOICES = [
+const choices = () => [
   {
     name: "creator",
-    title: "Creator",
-    blurb: "Image, video, audio and Film Crew. Agents, the knowledge index, outreach and automation stay installed but out of the way.",
+    title: translate("dialogs.firstRunProfile.creatorTitle"),
+    blurb: translate("dialogs.firstRunProfile.creatorBlurb"),
   },
   {
     name: "workstation",
-    title: "Workstation",
-    blurb: "Everything: chat, knowledge index, agents, media studio, outreach, automation.",
+    title: translate("dialogs.firstRunProfile.workstationTitle"),
+    blurb: translate("dialogs.firstRunProfile.workstationBlurb"),
   },
 ];
 
 const FirstRunProfileDialog = () => {
+  const { t } = useUiTranslation();
   const pending = useAppStore((s) => s.profileFirstRun);
   const setPending = useAppStore((s) => s.setProfileFirstRun);
   const active = useAppStore((s) => s.profile);
@@ -68,16 +70,19 @@ const FirstRunProfileDialog = () => {
 
   return (
     <Dialog open maxWidth="sm" fullWidth aria-labelledby="first-run-profile-title">
-      <DialogTitle id="first-run-profile-title">What do you want Guaardvark for?</DialogTitle>
+      <DialogTitle id="first-run-profile-title">{t("dialogs.firstRunProfile.title")}</DialogTitle>
       <DialogContent dividers>
         {restart ? (
           <Alert severity="success">
-            Profile set to <strong>{choice}</strong>. Restart Guaardvark to apply it; until then you are
-            on <strong>{active?.label || active?.name}</strong>.
+            <Trans
+              i18nKey="dialogs.firstRunProfile.restartNeeded"
+              values={{ choice, profile: active?.label || active?.name }}
+              components={{ bold: <strong /> }}
+            />
           </Alert>
         ) : (
           <Stack spacing={1.5}>
-            {CHOICES.map((c) => (
+            {choices().map((c) => (
               <Card
                 key={c.name}
                 variant="outlined"
@@ -94,12 +99,15 @@ const FirstRunProfileDialog = () => {
               </Card>
             ))}
             <Typography variant="caption" color="text.secondary">
-              A starting point, not a ceiling — change it any time in Settings → Product Profile.
+              {t("dialogs.firstRunProfile.changeLater")}
             </Typography>
             {error && (
               <Alert severity="warning">
-                Could not save the choice ({error}). Set <code>GUAARDVARK_PROFILE={choice}</code> in{" "}
-                <code>.env</code>, or run <code>./start.sh --profile {choice}</code>.
+                <Trans
+                  i18nKey="dialogs.firstRunProfile.saveFailed"
+                  values={{ error, choice }}
+                  components={{ code: <code /> }}
+                />
               </Alert>
             )}
           </Stack>
@@ -108,17 +116,17 @@ const FirstRunProfileDialog = () => {
       <DialogActions>
         {restart ? (
           <Button onClick={() => setPending(false)} variant="contained">
-            Got it
+            {t("dialogs.firstRunProfile.gotIt")}
           </Button>
         ) : (
           <>
             {error && (
               <Button onClick={() => setPending(false)} disabled={saving}>
-                Later
+                {t("dialogs.firstRunProfile.later")}
               </Button>
             )}
             <Button onClick={confirm} variant="contained" disabled={saving}>
-              {saving ? "Saving..." : "Continue"}
+              {saving ? t("dialogs.firstRunProfile.saving") : t("dialogs.firstRunProfile.continue")}
             </Button>
           </>
         )}

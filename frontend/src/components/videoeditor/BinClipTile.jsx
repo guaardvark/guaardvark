@@ -10,6 +10,7 @@ import {
   Star as StarIcon,
 } from "@mui/icons-material";
 import MediaThumb from "./MediaThumb";
+import { useUiTranslation } from "../../i18n";
 
 // keptRanges is an array of [start, end] (seconds) — a thin strip under the
 // name, green for kept, red for cut. Only meaningful for video clips post-Plan.
@@ -41,6 +42,7 @@ function KeptRangesStrip({ keptRanges, durationSeconds }) {
 }
 
 const BinClipTile = ({ clip, selected, onSelect, onRemove, warning, keptRanges, durationSeconds }) => {
+  const { t } = useUiTranslation();
   return (
     <Box
       onClick={() => onSelect(clip.clipId)}
@@ -62,7 +64,7 @@ const BinClipTile = ({ clip, selected, onSelect, onRemove, warning, keptRanges, 
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           {clip.isMasterSong && (
-            <Tooltip title="Master soundtrack">
+            <Tooltip title={t("videoEditor.bin.masterSoundtrack")}>
               <StarIcon sx={{ fontSize: 14, color: "warning.main", flexShrink: 0 }} />
             </Tooltip>
           )}
@@ -85,7 +87,7 @@ const BinClipTile = ({ clip, selected, onSelect, onRemove, warning, keptRanges, 
         />
       </Box>
 
-      <Tooltip title="Remove from bin">
+      <Tooltip title={t("videoEditor.bin.remove")}>
         <IconButton
           size="small"
           onClick={(e) => { e.stopPropagation(); onRemove(clip.clipId); }}

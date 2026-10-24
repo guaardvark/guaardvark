@@ -1,5 +1,6 @@
 
 import { useState, useCallback } from 'react';
+import { translate } from '../../i18n';
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -119,19 +120,19 @@ export const useVoiceSettingsManager = (initialSettings = {}) => {
     const errors = [];
     
     if (settings.recordingVolume < 0 || settings.recordingVolume > 2) {
-      errors.push('Recording volume must be between 0 and 2');
+      errors.push(translate('voice.settingsManager.recordingVolumeRange'));
     }
     
     if (settings.playbackVolume < 0 || settings.playbackVolume > 2) {
-      errors.push('Playback volume must be between 0 and 2');
+      errors.push(translate('voice.settingsManager.playbackVolumeRange'));
     }
     
     if (settings.playbackSpeed < 0.5 || settings.playbackSpeed > 2) {
-      errors.push('Playback speed must be between 0.5 and 2');
+      errors.push(translate('voice.settingsManager.playbackSpeedRange'));
     }
     
     if (settings.maxRecordingDuration < 5 || settings.maxRecordingDuration > 300) {
-      errors.push('Max recording duration must be between 5 and 300 seconds');
+      errors.push(translate('voice.settingsManager.maxDurationRange'));
     }
     
     return errors;

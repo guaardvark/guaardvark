@@ -14,8 +14,9 @@ import { Alert, Box, Button, ListSubheader, MenuItem, TextField, Typography } fr
 import { getVoiceCatalog } from "../../api/audioFoundryService";
 import { catalogGroups, indexVoices, voiceStatus } from "../../utils/voiceCatalog";
 import { StatusPill } from "../settings/ui";
+import { useUiTranslation, translate } from "../../i18n";
 
-export const DEFAULT_VOICE_LABEL = "Default voice";
+export const defaultVoiceLabel = () => translate("filmCrew.voicePicker.defaultVoice");
 // Audio Studio opens Manage models on the Kokoro row from this link.
 export const MANAGE_KOKORO_PATH = "/audio?models=kokoro";
 
@@ -30,6 +31,7 @@ const Caption = ({ children, color = "text.secondary" }) => (
 Caption.propTypes = { children: PropTypes.node, color: PropTypes.string };
 
 const CastVoicePicker = ({ value, onChange, disabled = false }) => {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const [catalog, setCatalog] = useState(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -57,26 +59,26 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
   const offCatalog = status.state === "invalid" || status.state === "unknown";
   const selectValue = status.id;
 
-  const autoFallback = plainLabel(index?.get(catalog?.kokoro?.default)?.label) || "default voice";
-  const defaultHint = `Audio Foundry chooses: Chatterbox's stock voice, or Kokoro's ${autoFallback} when Chatterbox cannot run.`;
+  const autoFallback = plainLabel(index?.get(catalog?.kokoro?.default)?.label) || t("filmCrew.voicePicker.defaultVoiceLower");
+  const defaultHint = t("filmCrew.voicePicker.defaultHint", { voice: autoFallback });
 
   const renderValue = (selected) => {
-    if (!selected) return DEFAULT_VOICE_LABEL;
+    if (!selected) return defaultVoiceLabel();
     const voice = index?.get(selected);
-    if (voice) return `${voice.label} (${voice.id})${voice.installed === false ? " · not installed" : ""}`;
-    return status.state === "invalid" ? `${selected} (not an Audio Foundry voice)` : selected;
+    if (voice) return `${voice.label} (${voice.id})${voice.installed === false ? ` · ${t("filmCrew.voicePicker.notInstalledLower")}` : ""}`;
+    return status.state === "invalid" ? t("filmCrew.voicePicker.notFoundryVoice", { id: selected }) : selected;
   };
 
   let helperText = "";
   if (status.state === "default") helperText = defaultHint;
-  else if (status.state === "installed") helperText = `${status.voice.group} · speaks this character's lines in Film Crew renders.`;
+  else if (status.state === "installed") helperText = t("filmCrew.voicePicker.installedHint", { group: status.voice.group });
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
       <TextField
         select
         fullWidth
-        label="Voice"
+        label={t("filmCrew.voicePicker.label")}
         value={selectValue}
         disabled={disabled}
         error={status.state === "invalid"}
@@ -90,16 +92,16 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
         }}
       >
         <MenuItem value="">
-          {DEFAULT_VOICE_LABEL}
-          <Caption>Audio Foundry chooses</Caption>
+          {defaultVoiceLabel()}
+          <Caption>{t("filmCrew.voicePicker.foundryChooses")}</Caption>
         </MenuItem>
         {offCatalog && (
           <MenuItem value={status.id}>
             {status.id}
             {status.state === "invalid" ? (
-              <Caption color="error.main">saved · not an Audio Foundry voice</Caption>
+              <Caption color="error.main">{t("filmCrew.voicePicker.savedInvalid")}</Caption>
             ) : (
-              <Caption>saved</Caption>
+              <Caption>{t("filmCrew.voicePicker.saved")}</Caption>
             )}
           </MenuItem>
         )}
@@ -111,7 +113,7 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
                 <span>{voice.label}</span>
                 <Caption>{voice.id}</Caption>
                 {voice.installed === false && (
-                  <StatusPill label="Not installed" tone="warn" sx={{ ml: "auto" }} />
+                  <StatusPill label={t("filmCrew.voicePicker.notInstalled")} tone="warn" sx={{ ml: "auto" }} />
                 )}
               </Box>
             </MenuItem>
@@ -121,8 +123,7 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
 
       {status.state === "invalid" && (
         <Alert severity="error">
-          The saved voice &ldquo;{status.id}&rdquo; is not an Audio Foundry voice, so renders leave it out and
-          this character speaks in the default voice. Pick a voice from the list, then save.
+          {t("filmCrew.voicePicker.invalidAlert", { id: status.id })}
         </Alert>
       )}
       {status.state === "not_installed" && (
@@ -130,18 +131,16 @@ const CastVoicePicker = ({ value, onChange, disabled = false }) => {
           severity="warning"
           action={
             <Button color="inherit" size="small" sx={{ whiteSpace: "nowrap" }} onClick={() => navigate(MANAGE_KOKORO_PATH)}>
-              Manage models
+              {t("filmCrew.voicePicker.manageModels")}
             </Button>
           }
         >
-          {status.voice.label} is not installed on this machine. Until it is, Audio Foundry refuses it and this
-          character&rsquo;s lines render without a voiceover. Install Kokoro in Audio Studio &rarr; Manage models.
+          {t("filmCrew.voicePicker.notInstalledAlert", { voice: status.voice.label })}
         </Alert>
       )}
       {loadFailed && (
         <Alert severity="info">
-          The voice list could not be loaded, so only the default voice is offered and the saved voice is not
-          checked. It is kept as it is.
+          {t("filmCrew.voicePicker.loadFailed")}
         </Alert>
       )}
     </Box>

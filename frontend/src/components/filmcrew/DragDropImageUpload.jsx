@@ -8,6 +8,7 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ImageIcon from "@mui/icons-material/Image";
 import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
+import { useUiTranslation } from "../../i18n";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 const DEFAULT_ACCEPT = "image/png,image/jpeg,image/webp,image/gif,image/bmp";
@@ -58,15 +59,16 @@ function ExistingThumb({ subjectId, index, name, status }) {
 
 // Extra pool thumbnails (e.g. approved generated samples not yet promoted into refs).
 function ExtraThumb({ src, name, status }) {
+  const { t } = useUiTranslation();
   const [failed, setFailed] = useState(false);
   if (!src || failed) {
-    return <Chip icon={<ImageIcon sx={{ fontSize: 16 }} />} label={name || "sample"} size="small" variant="outlined" />;
+    return <Chip icon={<ImageIcon sx={{ fontSize: 16 }} />} label={name || t("filmCrew.upload.sample")} size="small" variant="outlined" />;
   }
   return (
     <Box sx={{ position: "relative", width: 72, height: 72, borderRadius: 1, overflow: "hidden", border: 1, borderColor: "divider" }}>
       <img
         src={src}
-        alt={name || "sample"}
+        alt={name || t("filmCrew.upload.sample")}
         title={name}
         loading="lazy"
         onError={() => setFailed(true)}
@@ -108,6 +110,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
   },
   ref,
 ) {
+  const { t } = useUiTranslation();
   const [staged, setStaged] = useState([]); // [{file, previewUrl}] when no subjectId
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
@@ -131,7 +134,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
       if (onUploaded) onUploaded(res.data?.ref_image_paths || []);
       setConfirmIdx(null);
     } catch (e) {
-      setError(formatUiError(e.response?.data?.error) || "Failed to delete image.");
+      setError(formatUiError(e.response?.data?.error) || t("filmCrew.upload.deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -172,7 +175,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
         if (onUploaded) onUploaded(res.data?.subject?.ref_image_paths || []);
         return res.data;
       } catch (e) {
-        setError(formatUiError(e.response?.data?.error) || "Upload failed.");
+        setError(formatUiError(e.response?.data?.error) || t("filmCrew.upload.uploadFailed"));
         throw e;
       } finally {
         setUploading(false);
@@ -262,7 +265,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
           <>
             <CloudUploadIcon sx={{ fontSize: 36, color: "text.secondary", mb: 1 }} />
             <Typography variant="body2" color="text.secondary">
-              Drop reference images here or click to pick
+              {t("filmCrew.upload.dropHint")}
             </Typography>
             {helperText && (
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
@@ -271,7 +274,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
             )}
             {poolCount > 0 && (
               <Typography variant="caption" sx={{ display: "block", mt: 1 }}>
-                {poolCount} image{poolCount === 1 ? "" : "s"} ready
+                {t("filmCrew.upload.ready", { count: poolCount })}
               </Typography>
             )}
           </>
@@ -286,7 +289,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
 
       {skipped.length > 0 && (
         <Alert severity="warning" sx={{ mt: 1 }} onClose={() => setSkipped([])}>
-          Skipped: {skipped.map((s) => `${s.name} (${s.reason})`).join("; ")}
+          {t("filmCrew.upload.skipped", { files: skipped.map((s) => `${s.name} (${s.reason})`).join("; ") })}
         </Alert>
       )}
 
@@ -305,7 +308,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
           }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-            Staged uploads ({staged.length}) — scroll if needed
+            {t("filmCrew.upload.staged", { count: staged.length })}
           </Typography>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: 'flex-start' }}>
             {staged.map((s, idx) => (
@@ -347,8 +350,12 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
           }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-            Training set ({existingPaths.length + (extraItems?.length || 0)}) — refs
-            {(extraItems?.length || 0) > 0 ? ` + ${extraItems.length} approved generated` : ''} — scroll to see all
+            {t("filmCrew.upload.trainingSet", {
+              count: existingPaths.length + (extraItems?.length || 0),
+              approved: (extraItems?.length || 0) > 0
+                ? ` + ${t("filmCrew.upload.approvedGenerated", { count: extraItems.length })}`
+                : '',
+            })}
           </Typography>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: 'flex-start' }}>
             {existingPaths.map((p, idx) => {
@@ -364,7 +371,7 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
                   {subjectId && (
                     <IconButton
                       size="small"
-                      aria-label="delete reference image"
+                      aria-label={t("filmCrew.upload.deleteAria")}
                       onClick={(e) => { e.stopPropagation(); setConfirmIdx(idx); }}
                       sx={{
                         position: "absolute", top: -8, right: -8,
@@ -388,17 +395,16 @@ const DragDropImageUpload = React.forwardRef(function DragDropImageUpload(
       )}
 
       <Dialog open={confirmIdx != null} onClose={() => !deleting && setConfirmIdx(null)}>
-        <DialogTitle>Delete reference image?</DialogTitle>
+        <DialogTitle>{t("filmCrew.upload.deleteTitle")}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This removes the image from this character and deletes the file from disk.
-            This can't be undone.
+            {t("filmCrew.upload.deleteText")}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmIdx(null)} disabled={deleting}>Cancel</Button>
+          <Button onClick={() => setConfirmIdx(null)} disabled={deleting}>{t("filmCrew.upload.cancel")}</Button>
           <Button onClick={confirmDeleteExisting} color="error" variant="contained" disabled={deleting}>
-            {deleting ? "Deleting…" : "Delete"}
+            {deleting ? t("filmCrew.upload.deleting") : t("filmCrew.upload.delete")}
           </Button>
         </DialogActions>
       </Dialog>

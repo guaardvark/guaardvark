@@ -4,8 +4,22 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { submitPlan, getPlanJob, getVideoEditorErrorMessage } from "../../api/videoEditorService";
+import { useUiTranslation, translate } from "../../i18n";
 
 const ACTIVE_STATUSES = new Set(["submitting", "queued", "running"]);
+
+// Our own stage labels are kept as functions and read in the interface's
+// current language; a message from the server is kept as it came.
+const OWN_TEXT = {
+  idle: () => translate("videoEditor.plan.stage.idle"),
+  ready: () => translate("videoEditor.plan.stage.ready"),
+  failed: () => translate("videoEditor.plan.stage.failed"),
+  submitting: () => translate("videoEditor.plan.stage.submitting"),
+  queued: () => translate("videoEditor.plan.stage.queued"),
+  restored: () => translate("videoEditor.plan.stage.restored"),
+  waiting: () => translate("videoEditor.plan.stage.waiting"),
+};
+const textOf = (value) => (typeof value === "function" ? value() : value);
 
 const initialState = {
   status: "idle",
@@ -13,7 +27,7 @@ const initialState = {
   result: null,
   error: null,
   progress: 0,
-  stageLabel: "Idle",
+  stageLabel: OWN_TEXT.idle,
   startedAt: null,
   finishedAt: null,
 };
@@ -25,6 +39,7 @@ const normalizeJobStatus = (jobStatus) => {
 };
 
 export function usePlanJob() {
+  useUiTranslation();
   const [state, setState] = useState(initialState);
   const pollRef = useRef(null);
 
@@ -40,9 +55,9 @@ export function usePlanJob() {
       job: fresh,
       status: nextStatus,
       result: nextStatus === "done" ? fresh.result || null : prev.result,
-      error: nextStatus === "failed" ? fresh.error || "Plan failed" : null,
+      error: nextStatus === "failed" ? fresh.error || OWN_TEXT.failed : null,
       progress: typeof fresh.progress === "number" ? fresh.progress : prev.progress,
-      stageLabel: fresh.message || (nextStatus === "done" ? "Plan ready" : nextStatus === "failed" ? "Plan failed" : prev.stageLabel),
+      stageLabel: fresh.message || (nextStatus === "done" ? OWN_TEXT.ready : nextStatus === "failed" ? OWN_TEXT.failed : prev.stageLabel),
       finishedAt: nextStatus === "done" || nextStatus === "failed" ? Date.now() : null,
     }));
     if (nextStatus === "done" || nextStatus === "failed") {
@@ -55,7 +70,7 @@ export function usePlanJob() {
     setState({
       ...initialState,
       status: "submitting",
-      stageLabel: "Submitting Plan",
+      stageLabel: OWN_TEXT.submitting,
       startedAt: Date.now(),
     });
     try {
@@ -64,7 +79,7 @@ export function usePlanJob() {
         id: submitted.job_id,
         status: submitted.status || "queued",
         progress: 0,
-        message: submitted.message || "Queued",
+        message: submitted.message || OWN_TEXT.queued,
       };
       setState((prev) => ({
         ...prev,
@@ -77,9 +92,9 @@ export function usePlanJob() {
       setState((prev) => ({
         ...prev,
         status: "failed",
-        error: e.videoEditorMessage || getVideoEditorErrorMessage(e, "Plan failed"),
+        error: e.videoEditorMessage || getVideoEditorErrorMessage(e, translate("videoEditor.plan.stage.failed")),
         progress: 0,
-        stageLabel: "Plan failed",
+        stageLabel: OWN_TEXT.failed,
         finishedAt: Date.now(),
       }));
     }
@@ -93,7 +108,7 @@ export function usePlanJob() {
       job: null,
       error: null,
       progress: 0,
-      stageLabel: "Idle",
+      stageLabel: OWN_TEXT.idle,
       finishedAt: Date.now(),
     }));
   }, [stopPolling]);
@@ -113,7 +128,7 @@ export function usePlanJob() {
       status: "done",
       result,
       progress: 1,
-      stageLabel: "Plan restored",
+      stageLabel: OWN_TEXT.restored,
       finishedAt: Date.now(),
     });
   }, [stopPolling]);
@@ -125,7 +140,7 @@ export function usePlanJob() {
       result: null,
       error: null,
       progress: ACTIVE_STATUSES.has(prev.status) ? prev.progress : 0,
-      stageLabel: ACTIVE_STATUSES.has(prev.status) ? prev.stageLabel : "Idle",
+      stageLabel: ACTIVE_STATUSES.has(prev.status) ? prev.stageLabel : OWN_TEXT.idle,
       finishedAt: null,
     }));
   }, []);
@@ -157,8 +172,8 @@ export function usePlanJob() {
       } catch (e) {
         setState((prev) => ({
           ...prev,
-          stageLabel: "Waiting for Plan status",
-          error: e.videoEditorMessage || getVideoEditorErrorMessage(e, "Could not poll Plan job"),
+          stageLabel: OWN_TEXT.waiting,
+          error: e.videoEditorMessage || getVideoEditorErrorMessage(e, translate("videoEditor.plan.pollFailed")),
         }));
         console.warn("plan poll:", e);
       }
@@ -179,11 +194,11 @@ export function usePlanJob() {
     updateClipAnalysis,
     planning,
     status: state.status,
-    stageLabel: state.stageLabel,
+    stageLabel: textOf(state.stageLabel),
     progress: state.progress,
     job: state.job,
     result: state.result,
-    error: state.error,
+    error: textOf(state.error),
     startedAt: state.startedAt,
     finishedAt: state.finishedAt,
   };

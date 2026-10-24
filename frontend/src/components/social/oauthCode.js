@@ -3,6 +3,7 @@
 // the code itself, or the whole address the browser landed on. An address
 // must carry the state this dialog's authorization started with, so a code
 // from another attempt (or someone else's link) is not used.
+import { translate } from "../../i18n";
 
 /**
  * @param {string} pasted
@@ -20,21 +21,21 @@ export const codeFromPaste = (pasted, expectedState) => {
   try {
     url = new URL(text);
   } catch {
-    return { code: "", error: "That address could not be read. Paste it again, or just the code." };
+    return { code: "", error: translate("social.oauthCode.unreadable") };
   }
   const params = url.searchParams;
   const denied = params.get("error");
   if (denied) {
     const reason = params.get("error_description") || denied;
-    return { code: "", error: `Access was not granted: ${reason}. Authorize again.` };
+    return { code: "", error: translate("social.oauthCode.denied", { reason }) };
   }
   const code = params.get("code");
-  if (!code) return { code: "", error: "That address has no authorization code in it." };
+  if (!code) return { code: "", error: translate("social.oauthCode.noCode") };
   const state = params.get("state");
   if (expectedState && state !== expectedState) {
     return {
       code: "",
-      error: "That address is from a different authorization attempt. Press Authorize again and use the new one.",
+      error: translate("social.oauthCode.otherAttempt"),
     };
   }
   return { code, error: null };

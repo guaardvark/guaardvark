@@ -11,6 +11,7 @@ import VlmReviewPill from "./VlmReviewPill";
 import ColourMatchPill from "./ColourMatchPill";
 import KeyframeMatchPill from "./KeyframeMatchPill";
 import ClipReviewHold, { ReviewStatePill } from "./ClipReviewHold";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * @param {object[]} clips       the music video's clips (index, status, quality, review)
@@ -20,27 +21,28 @@ import ClipReviewHold, { ReviewStatePill } from "./ClipReviewHold";
  * @param {Function} [clipUrl]   (index) => URL of the rendered cut, played on a held cut
  */
 const CutQualityList = ({ clips, onApprove, onRerender, busy = false, clipUrl }) => {
+  const { t } = useUiTranslation();
   const checked = (clips || []).filter((c) => c && c.status === "done" && (c.quality || c.review));
   if (checked.length === 0) return null;
   const held = checked.filter((c) => c.review?.state === "needs_review");
   return (
     <Box sx={{ mb: 2 }}>
       <Typography variant="subtitle2" gutterBottom>
-        Cut quality
-        {held.length > 0 ? ` — ${held.length} held for review; the video is assembled once each is approved or re-rendered` : ""}
+        {t("video.cutQuality.title")}
+        {held.length > 0 ? ` — ${t("video.cutQuality.held", { count: held.length })}` : ""}
       </Typography>
       <Stack spacing={1}>
         {checked.map((c) => (
           <Box key={c.index}>
             <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
-              <Typography variant="body2" sx={{ mr: 0.5 }}>Cut #{c.index}</Typography>
+              <Typography variant="body2" sx={{ mr: 0.5 }}>{t("video.cutQuality.cut", { index: c.index })}</Typography>
               <ReviewStatePill review={c.review} />
               <QualityFlagsPill quality={c.quality} />
               <KeyframeMatchPill quality={c.quality} />
               <ColourMatchPill quality={c.quality} />
               <VlmReviewPill review={c.quality?.vlm_review} />
               {!c.review && !(c.quality?.flags || []).length && (
-                <Typography variant="caption" color="text.secondary">no problems found</Typography>
+                <Typography variant="caption" color="text.secondary">{t("video.cutQuality.noProblems")}</Typography>
               )}
             </Stack>
             {clipUrl && c.review?.state === "needs_review" && (
@@ -59,7 +61,7 @@ const CutQualityList = ({ clips, onApprove, onRerender, busy = false, clipUrl })
               busy={busy}
               onApprove={() => onApprove(c.index)}
               onRerender={() => onRerender(c.index)}
-              heldText="It is not used in the video until you approve it."
+              heldText={t("video.cutQuality.heldUntilApproved")}
             />
           </Box>
         ))}

@@ -2,6 +2,7 @@
 // Code execution service for CodeEditorPage
 
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 const CODE_EXEC_BASE = "/code-execution";
 
@@ -40,7 +41,7 @@ export const executePythonCode = async (code, options = {}) => {
     console.error("Python code execution failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to execute Python code",
+      error: error.message || translate("messages.codeExecution.pythonFailed"),
       output: "",
       stdout: "",
       stderr: error.message || ""
@@ -82,7 +83,7 @@ export const executeJavaScriptCode = async (code, options = {}) => {
     console.error("JavaScript code execution failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to execute JavaScript code",
+      error: error.message || translate("messages.codeExecution.javascriptFailed"),
       output: "",
       stdout: "",
       stderr: error.message || ""
@@ -125,7 +126,7 @@ export const executeShellCommand = async (command, options = {}) => {
     console.error("Shell command execution failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to execute shell command",
+      error: error.message || translate("messages.codeExecution.shellFailed"),
       output: "",
       stdout: "",
       stderr: error.message || ""
@@ -171,7 +172,7 @@ export const formatCode = async (code, language, options = {}) => {
     console.error("Code formatting failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to format code",
+      error: error.message || translate("messages.codeExecution.formatFailed"),
       formattedCode: code,
       originalCode: code
     };
@@ -216,7 +217,7 @@ export const lintCode = async (code, language, options = {}) => {
     console.error("Code linting failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to lint code",
+      error: error.message || translate("messages.codeExecution.lintFailed"),
       errors: [],
       warnings: [],
       suggestions: []
@@ -261,7 +262,7 @@ export const buildProject = async (projectPath, options = {}) => {
     console.error("Project build failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to build project",
+      error: error.message || translate("messages.codeExecution.buildFailed"),
       output: "",
       artifacts: []
     };

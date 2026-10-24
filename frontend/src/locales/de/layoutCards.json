@@ -1,0 +1,41 @@
+{
+  "output": {
+    "status": {
+      "failed": "Fehlgeschlagen",
+      "replaced": "Ersetzt",
+      "complete": "Abgeschlossen"
+    },
+    "retryFailedRows": "{{count}} fehlgeschlagene Zeilen erneut versuchen",
+    "deleteOutput": "Ausgabe löschen",
+    "generated": "Generiert",
+    "replaced": "Ersetzt",
+    "successRate": "Erfolgsrate",
+    "rows": "{{count}} Zeilen"
+  },
+  "task": {
+    "status": {
+      "pending": "Ausstehend",
+      "queued": "In der Warteschlange",
+      "running": "Läuft",
+      "paused": "Pausiert",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "unknown": "Unbekannt"
+    },
+    "statusWithRetries": "{{status}} ({{retries}}x)",
+    "projectNumber": "Projekt {{id}}",
+    "noProject": "Kein Projekt",
+    "untitled": "Unbenannte Aufgabe",
+    "noClient": "Kein Kunde",
+    "queuedForExecution": "In die Ausführungswarteschlange aufgenommen...",
+    "processing": "Wird verarbeitet …",
+    "noDescriptionAvailable": "Keine Beschreibung verfügbar.",
+    "noDescription": "Keine Beschreibung",
+    "deleteTask": "Aufgabe löschen",
+    "runTask": "Aufgabe ausführen",
+    "startJob": "Auftrag starten",
+    "cancelQueuedTask": "Wartende Aufgabe abbrechen",
+    "stopJob": "Auftrag stoppen"
+  }
+}

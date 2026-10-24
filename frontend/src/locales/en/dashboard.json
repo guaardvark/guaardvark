@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "Project Manager",
+    "loadFailed": "Error loading project data.",
+    "empty": "No projects found.",
+    "unnamed": "Unnamed Project",
+    "client": "Client: {{name}}"
+  },
+  "website": {
+    "title": "Website Data",
+    "loadFailed": "Error loading website data.",
+    "deleteConfirm": "Delete this website?",
+    "empty": "No websites found.",
+    "unnamed": "Unnamed Site",
+    "details": "Project: {{project}} | Docs: {{docs}}",
+    "openUrl": "Open URL in new tab",
+    "copyUrl": "Copy URL"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "unknownStatus": "Unknown",
+    "loadFailed": "Failed to load tasks.",
+    "nameAndTypeRequired": "Task Name and Type are required.",
+    "created": "Task '{{name}}' created successfully!",
+    "createFailed": "Error creating task: {{message}}",
+    "addTaskMenu": "Add Task…",
+    "addTaskButton": "+ Add Task",
+    "empty": "No tasks found.",
+    "unnamed": "Unnamed Task",
+    "viewAll": "View All Tasks ({{count}})",
+    "addDialogTitle": "Add New Task",
+    "taskName": "Task Name",
+    "taskType": "Task Type",
+    "output": "Output/Description",
+    "outputPlaceholder": "Optional: Describe the expected output or additional details...",
+    "creating": "Creating...",
+    "create": "Create Task"
+  },
+  "chat": {
+    "title": "Chat",
+    "csvDescription": "Generate CSV file based on: \"{{excerpt}}\"",
+    "historyFailed": "Failed to load chat history",
+    "fileGenerated": "File \"{{filename}}\" generated successfully! You can download it from the outputs folder.",
+    "fileGenFailed": "File generation failed: {{message}}",
+    "notConnected": "Chat service not connected. Please wait and try again.",
+    "sendFailed": "Failed to send message",
+    "errorMessage": "Error: {{message}}",
+    "messageCount": "{{count}} messages",
+    "noMessages": "No messages",
+    "reloadHistory": "Reload history",
+    "stopGenerating": "Stop generating",
+    "roles": {
+      "user": "You",
+      "system": "System",
+      "assistant": "Assistant"
+    },
+    "empty": "No messages yet. Start a conversation!",
+    "placeholder": "Type a message..."
+  },
+  "clients": {
+    "title": "Clients",
+    "loadFailed": "Error loading client data.",
+    "empty": "No clients found.",
+    "unnamed": "Unnamed Client",
+    "projectCount": "Projects: {{count}}"
+  },
+  "csvgen": {
+    "title": "CSV Generation",
+    "newCsv": "New CSV",
+    "import": "Import",
+    "empty": "No CSV jobs yet."
+  },
+  "codegen": {
+    "title": "Code Generation",
+    "newCode": "New Code",
+    "debug": "Debug",
+    "empty": "No code generation jobs yet."
+  },
+  "imggen": {
+    "title": "Image Generation",
+    "newImages": "New Images",
+    "batchMode": "Batch Mode",
+    "empty": "No image batches yet.",
+    "viewAll": "View all batches"
+  },
+  "files": {
+    "title": "File Manager"
+  },
+  "family": {
+    "title": "Family & Self-improvement",
+    "queuing": "Queuing...",
+    "runCheck": "Run Check",
+    "uncleOnline": "Uncle Online",
+    "uncleOffline": "Uncle Offline",
+    "siOn": "SI: On",
+    "siOff": "SI: Off",
+    "locked": "Locked",
+    "stages": {
+      "starting": "Starting...",
+      "testing": "Running Tests",
+      "analyzed": "Analyzing Results",
+      "fixing": "Applying Fixes",
+      "complete": "Complete",
+      "error": "Error"
+    },
+    "tokens": "Tokens: {{percent}}%",
+    "totalFixes": "Total fixes applied: {{count}}",
+    "recentActivity": "Recent Activity",
+    "noRuns": "No self-improvement runs yet",
+    "reviewed": "Reviewed"
+  },
+  "autoresearch": {
+    "title": "RAG Autoresearch",
+    "pauseRun": "Pause run",
+    "startRun": "Start run",
+    "unavailable": "Autoresearch unavailable",
+    "running": "Running",
+    "paused": "Paused",
+    "idle": "Idle",
+    "phase": "Phase {{phase}}",
+    "pauseOptimization": "Pause optimization",
+    "startBounded": "Start bounded research run",
+    "healthChecksNotCounted": "{{count}} test-suite health checks are not counted",
+    "latestRun": "Latest run",
+    "testSuite": "test suite",
+    "selfReported": "{{status}} (self-reported)",
+    "noExperiments": "No experiments yet. Click play to start a bounded run."
+  },
+  "gpu": {
+    "title": "GPU Memory",
+    "tiers": {
+      "speed": "Speed",
+      "balanced": "Balanced",
+      "quality": "Quality"
+    },
+    "tierMenu": {
+      "speed": "Speed tier",
+      "balanced": "Balanced tier",
+      "quality": "Quality tier"
+    },
+    "states": {
+      "loaded": "Loaded",
+      "loading": "Loading...",
+      "unloading": "Unloading...",
+      "unloaded": "Idle"
+    },
+    "unavailable": "GPU status unavailable",
+    "evict": "Evict {{model}}",
+    "systemOther": "System/Other: {{size}} GB",
+    "qualityTier": "Quality Tier",
+    "evictFromGpu": "Evict from GPU",
+    "noModels": "No models loaded"
+  },
+  "title": "Dashboard",
+  "layoutModes": {
+    "normal": "Normal",
+    "compact": "Compact",
+    "layered": "Compact Layered",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "Failed to fetch dashboard state: {{statusText}} (Status: {{status}})",
+  "loadStateFailed": "Failed to load dashboard state: {{message}}. Using defaults.",
+  "saveStateFailed": "Failed to save dashboard state changes.",
+  "menu": {
+    "cycleLayout": "Cycle layout (next: {{mode}})",
+    "resetLayout": "Reset layout…",
+    "noHiddenCards": "No hidden cards",
+    "showCard": "Show {{card}}",
+    "showAllHidden": "Show all hidden cards"
+  },
+  "stickyNotes": "Sticky Notes",
+  "loadingDashboard": "Loading dashboard...",
+  "dashboardCards": "Dashboard Cards",
+  "layoutTooltip": "Layout: {{mode}} (click to cycle)",
+  "missingCard": "Missing Card: {{id}}",
+  "resetConfirm": {
+    "title": "Reset the dashboard layout?",
+    "description": "Every card goes back to its default place and size, card colours are cleared and hidden cards are shown again.",
+    "keeps": "what the cards show (projects, tasks, chats, files)",
+    "confirm": "Reset layout"
+  },
+  "cardWrapper": {
+    "openPage": "Open page",
+    "expand": "Expand",
+    "minimize": "Minimize",
+    "changeColour": "Change colour…",
+    "resetColour": "Reset colour",
+    "hideCard": "Hide card",
+    "changeColor": "Change card color"
+  },
+  "refreshData": "Refresh data",
+  "viewAllJobs": "View all jobs",
+  "edit": "Edit…",
+  "recentRuns": {
+    "status": {
+      "completed": "Completed",
+      "running": "Running",
+      "queued": "Queued",
+      "pending": "Pending",
+      "paused": "Paused",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "images": "{{done}}/{{total}} images",
+    "jobNumber": "Job {{id}}",
+    "loadFailed": "Could not load recent runs: {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "Failed to fetch system status.",
+    "noData": "No status data returned.",
+    "title": "System Diagnostics",
+    "python": "Python: {{version}}",
+    "platform": "Platform: {{platform}}",
+    "dbPath": "DB Path: {{path}}",
+    "dbSize": "DB Size: {{size}} KB",
+    "documents": "Documents: {{count}}",
+    "models": "Models: {{count}}",
+    "indexStatus": "Index Status: {{status}}",
+    "runSelfTest": "Run Self-Test",
+    "rebuildIndex": "Rebuild Index",
+    "clearCache": "Clear Cache"
+  }
+}

@@ -25,6 +25,7 @@ import {
   armDisplayIdle,
   cancelDisplayIdle,
 } from '../../api/agentDisplayService';
+import { useUiTranslation } from '../../i18n';
 
 const API_BASE = '/api';
 const STORAGE_KEY = 'guaardvark_agent_screen_state';
@@ -53,11 +54,12 @@ function saveState(state) {
 
 // Chip for the sidebar or any page header — toggles the floating window
 export function AgentScreenChip({ onClick, streaming, inPopup }) {
+  const { t } = useUiTranslation();
   return (
-    <Tooltip title="Agent virtual screen">
+    <Tooltip title={t('agents.screen.chipTooltip')}>
       <Chip
         icon={<DesktopWindowsIcon sx={{ fontSize: '14px !important' }} />}
-        label={inPopup ? 'Popup' : streaming ? 'Live' : 'Screen'}
+        label={inPopup ? t('agents.screen.popup') : streaming ? t('agents.screen.live') : t('agents.screen.screen')}
         size="small"
         color={streaming || inPopup ? 'success' : 'default'}
         variant={streaming || inPopup ? 'filled' : 'outlined'}
@@ -75,6 +77,7 @@ export function AgentScreenChip({ onClick, streaming, inPopup }) {
 
 // Global floating window — render once in App or layout
 export default function AgentScreenViewer({ open, onClose }) {
+  const { t } = useUiTranslation();
   const saved = loadState();
   const [streaming, setStreaming] = useState(saved.streaming ?? true);
   const [fps, setFps] = useState(saved.fps ?? 2);
@@ -132,7 +135,7 @@ export default function AgentScreenViewer({ open, onClose }) {
         const blob = await response.blob();
         if (blob.size < 100) {
           consecutiveFailures.current++;
-          setCaptureError('Empty frame received');
+          setCaptureError(t('agents.screen.emptyFrame'));
           return;
         }
         consecutiveFailures.current = 0;
@@ -145,14 +148,14 @@ export default function AgentScreenViewer({ open, onClose }) {
         imageSrcRef.current = url;
       } else if (response.status === 503) {
         consecutiveFailures.current++;
-        setCaptureError('Agent display not running');
+        setCaptureError(t('agents.screen.displayNotRunning'));
       } else {
         consecutiveFailures.current++;
-        setCaptureError(`Capture failed (${response.status})`);
+        setCaptureError(t('agents.screen.captureFailed', { status: response.status }));
       }
     } catch (err) {
       consecutiveFailures.current++;
-      setCaptureError('Connection lost');
+      setCaptureError(t('agents.screen.connectionLost'));
     }
   }, []);
 
@@ -183,11 +186,11 @@ export default function AgentScreenViewer({ open, onClose }) {
           setDisplayReady(true);
           setCaptureError(null);
         } else {
-          setCaptureError(result?.error || 'Failed to start agent display');
+          setCaptureError(result?.error || t('agents.screen.startFailed'));
         }
       })
       .catch(() => {
-        if (!cancelled) setCaptureError('Failed to start agent display');
+        if (!cancelled) setCaptureError(t('agents.screen.startFailed'));
       })
       .finally(() => {
         if (!cancelled) setDisplayStarting(false);
@@ -319,7 +322,7 @@ export default function AgentScreenViewer({ open, onClose }) {
     const win = window.open('', 'agent_screen',
       `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`);
     if (!win) return;
-    win.document.title = 'Guaardvark Agent Screen';
+    win.document.title = t('agents.screen.popupTitle');
     win.document.body.style.cssText = 'margin:0;padding:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;';
     win.document.body.innerHTML = '<img id="screen" style="max-width:100%;max-height:100%;object-fit:contain;" />';
     const img = win.document.getElementById('screen');
@@ -377,12 +380,12 @@ export default function AgentScreenViewer({ open, onClose }) {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <DesktopWindowsIcon sx={{ fontSize: 13, color: 'text.secondary' }} />
           <Typography variant="caption" sx={{ fontWeight: 500, color: 'text.secondary', fontSize: '0.7rem' }}>
-            Agent Screen
+            {t('agents.screen.title')}
           </Typography>
           {isTraining && (
             <Chip
               icon={<CircleIcon sx={{ fontSize: '5px !important', animation: 'pulse 1.5s ease-in-out infinite', '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.3 } } }} />}
-              label="Training"
+              label={t('agents.screen.training')}
               size="small"
               color="error"
               sx={{ height: 16, fontSize: '0.55rem', '& .MuiChip-icon': { ml: 0.25 }, '& .MuiChip-label': { px: 0.5 } }}
@@ -391,7 +394,7 @@ export default function AgentScreenViewer({ open, onClose }) {
           {!isTraining && (streaming || isInPopup) && (
             <Chip
               icon={<CircleIcon sx={{ fontSize: '5px !important' }} />}
-              label={isInPopup ? 'Popup' : `${fps}fps`}
+              label={isInPopup ? t('agents.screen.popup') : t('agents.screen.fpsValue', { fps })}
               size="small"
               color="success"
               sx={{ height: 16, fontSize: '0.55rem', '& .MuiChip-icon': { ml: 0.25 }, '& .MuiChip-label': { px: 0.5 } }}
@@ -399,7 +402,7 @@ export default function AgentScreenViewer({ open, onClose }) {
           )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-          <Tooltip title={kbdForwarding ? 'Keyboard → Agent: ON (click to stop)' : 'Send keyboard to Agent Screen'}>
+          <Tooltip title={kbdForwarding ? t('agents.keyboard.forwardingOn') : t('agents.keyboard.forwardingOff')}>
             <IconButton
               className="header-btn"
               size="small"
@@ -426,12 +429,12 @@ export default function AgentScreenViewer({ open, onClose }) {
         <Box sx={{ position: 'relative', bgcolor: '#000' }}>
           <Box sx={{ aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {isInPopup ? (
-              <Typography variant="caption" color="grey.600">In popup</Typography>
+              <Typography variant="caption" color="grey.600">{t('agents.screen.inPopup')}</Typography>
             ) : imageSrc ? (
               <img
                 ref={imgRef}
                 src={imageSrc}
-                alt="Agent screen"
+                alt={t('agents.screen.imageAlt')}
                 onClick={handleScreenClick}
                 style={{
                   maxWidth: '100%',
@@ -442,7 +445,7 @@ export default function AgentScreenViewer({ open, onClose }) {
               />
             ) : (
               <Typography variant="caption" color={captureError ? 'error.main' : 'grey.600'}>
-                {captureError || (displayStarting ? 'Starting agent display…' : streaming ? 'Connecting...' : 'Paused')}
+                {captureError || (displayStarting ? t('agents.screen.starting') : streaming ? t('agents.screen.connecting') : t('agents.screen.paused'))}
               </Typography>
             )}
           </Box>
@@ -454,7 +457,7 @@ export default function AgentScreenViewer({ open, onClose }) {
               display: 'flex', alignItems: 'center', gap: 0.5,
               bgcolor: 'rgba(0,0,0,0.5)', borderRadius: 1, px: 0.5, py: 0.1,
             }}>
-              <Typography variant="caption" color="grey.500" sx={{ fontSize: '0.55rem' }}>FPS</Typography>
+              <Typography variant="caption" color="grey.500" sx={{ fontSize: '0.55rem' }}>{t('agents.screen.fps')}</Typography>
               <Slider value={fps} onChange={(_, v) => setFps(v)} min={1} max={10} step={1} size="small"
                 sx={{ width: 40, color: 'grey.600', py: 0 }} />
             </Box>

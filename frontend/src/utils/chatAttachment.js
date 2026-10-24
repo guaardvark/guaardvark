@@ -6,6 +6,7 @@
 // the send-side ceiling is 8 MB.
 
 import { BASE_URL } from "../api/apiClient";
+import { translate } from "../i18n";
 
 export const CHAT_ATTACHMENT_MAX_EDGE = 2048;
 export const CHAT_ATTACHMENT_JPEG_QUALITY = 0.9;
@@ -44,14 +45,14 @@ export function formatAttachmentSize(bytes) {
 }
 
 export function refuseAttachmentMessage(byteLength, maxBytes = CHAT_ATTACHMENT_MAX_BYTES_FALLBACK) {
-  return `This image is ${formatAttachmentSize(byteLength)} after resize; the limit is ${formatAttachmentSize(maxBytes)}. Choose a smaller image.`;
+  return translate("messages.attachment.tooLarge", { size: formatAttachmentSize(byteLength), limit: formatAttachmentSize(maxBytes) });
 }
 
 // Several pictures on one turn share the limit (the server counts them
 // together), so the refusal names the total, not one picture.
 export function refuseAttachmentsTotalMessage(count, totalBytes, maxBytes = CHAT_ATTACHMENT_MAX_BYTES_FALLBACK) {
   if (!(count > 1)) return refuseAttachmentMessage(totalBytes, maxBytes);
-  return `These ${count} images total ${formatAttachmentSize(totalBytes)} after resize; the limit is ${formatAttachmentSize(maxBytes)}. Remove one or choose smaller images.`;
+  return translate("messages.attachment.totalTooLarge", { count, size: formatAttachmentSize(totalBytes), limit: formatAttachmentSize(maxBytes) });
 }
 
 // What the send path hands unifiedChatService for the pictures of a turn:
@@ -67,13 +68,13 @@ export function attachedPictures(sendOptions) {
 }
 
 export function chatErrorMessage(payload) {
-  if (payload == null) return "Chat error";
+  if (payload == null) return translate("messages.attachment.chatError");
   if (typeof payload === "string" && payload.trim()) return payload;
   const nested = payload.error;
   if (typeof nested === "string" && nested.trim()) return nested;
   if (typeof nested?.message === "string" && nested.message.trim()) return nested.message;
   if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
-  return "Chat error";
+  return translate("messages.attachment.chatError");
 }
 
 function defaultCreateCanvas(width, height) {
@@ -93,7 +94,7 @@ function defaultLoadImage(file) {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      reject(new Error("Could not read this image"));
+      reject(new Error(translate("messages.attachment.readFailed")));
     };
     img.src = url;
   });
@@ -114,7 +115,7 @@ function canvasToBlob(canvas, mime, quality) {
     if (typeof canvas.toBlob === "function") {
       canvas.toBlob(
         (blob) => {
-          if (!blob) reject(new Error("Could not encode the image"));
+          if (!blob) reject(new Error(translate("messages.attachment.encodeFailed")));
           else resolve(blob);
         },
         mime,
@@ -144,7 +145,7 @@ function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result || ""));
-    reader.onerror = () => reject(new Error("Could not read the resized image"));
+    reader.onerror = () => reject(new Error(translate("messages.attachment.readResizedFailed")));
     reader.readAsDataURL(blob);
   });
 }
@@ -174,7 +175,7 @@ function scaledSize(width, height, maxEdge) {
  * }>}
  */
 export async function downscaleChatAttachment(file, options = {}) {
-  if (!file) throw new Error("No image to attach");
+  if (!file) throw new Error(translate("messages.attachment.noImage"));
   const maxEdge = options.maxEdge ?? CHAT_ATTACHMENT_MAX_EDGE;
   const quality = options.quality ?? CHAT_ATTACHMENT_JPEG_QUALITY;
   const loadImage = options.loadImage ?? defaultLoadImage;
@@ -184,7 +185,7 @@ export async function downscaleChatAttachment(file, options = {}) {
   const { width, height } = scaledSize(img.width, img.height, maxEdge);
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Could not draw the image");
+  if (!ctx) throw new Error(translate("messages.attachment.drawFailed"));
   ctx.drawImage(img, 0, 0, width, height);
 
   const sourceType = (file.type || "").toLowerCase();

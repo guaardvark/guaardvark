@@ -1,0 +1,56 @@
+{
+  "title": "Agent Tools",
+  "loadFailed": "Failed to load tools",
+  "copied": "Copied to clipboard",
+  "copyFailed": "Could not copy to the clipboard",
+  "parameters": "Parameters",
+  "copyName": "Copy tool name",
+  "card": {
+    "test": "Test"
+  },
+  "table": {
+    "name": "Name",
+    "category": "Category",
+    "description": "Description",
+    "params": "Params",
+    "actions": "Actions",
+    "requiredList": "Required: {{params}}",
+    "optionalList": "Optional: {{params}}",
+    "requiredCount": "{{count}} req",
+    "optionalCount": "{{count}} opt",
+    "noParams": "None",
+    "testTool": "Test tool"
+  },
+  "noMatch": "No tools found matching \"{{query}}\"",
+  "tabs": {
+    "tools": "Tools ({{count}})",
+    "schemas": "Schemas",
+    "categories": "Categories"
+  },
+  "searchPlaceholder": "Search tools...",
+  "view": {
+    "label": "view mode",
+    "cardLabel": "card view",
+    "card": "Card View",
+    "listLabel": "list view",
+    "list": "List View"
+  },
+  "loading": "Loading tools...",
+  "schemas": {
+    "copyAll": "Copy All",
+    "loading": "Loading schemas..."
+  },
+  "menu": {
+    "test": "Test…"
+  },
+  "test": {
+    "succeeded": "Tool executed successfully",
+    "executionFailed": "Tool execution failed",
+    "title": "Test Tool: {{name}}",
+    "noApprovalWarning": "Execute runs this tool for real, right away, without the approval step chat asks for first.",
+    "requiredHelper": "Required. {{description}} ({{type}})",
+    "result": "Result",
+    "failed": "Execution failed",
+    "execute": "Execute"
+  }
+}

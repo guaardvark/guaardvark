@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "Service nicht verfügbar",
+    "unknown": "Fehler"
+  },
+  "cleanup": {
+    "running": "Bereinigung von Fortschritts-Jobs läuft...",
+    "result": "{{message}}: {{cleaned}} hängende Jobs bereinigt ({{found}} gefunden)",
+    "failed": "Bereinigung fehlgeschlagen: {{error}}"
+  },
+  "entityIndexing": {
+    "running": "Entitäten für universellen RAG-Zugriff werden indiziert...",
+    "completed": "Entitätsindizierung abgeschlossen: {{total}} Entitäten indiziert ({{clients}} Kunden, {{projects}} Projekte, {{websites}} Websites, {{tasks}} Aufgaben)",
+    "completedWithErrors": "Entitätsindizierung abgeschlossen: {{total}} Entitäten indiziert ({{clients}} Kunden, {{projects}} Projekte, {{websites}} Websites, {{tasks}} Aufgaben), {{errors}} Fehler",
+    "failed": "Entitätsindizierung fehlgeschlagen",
+    "failedWithError": "Entitätsindizierung fehlgeschlagen: {{error}}"
+  },
+  "restart": {
+    "starting": "Neustart des Dienstes wird eingeleitet...",
+    "started": "Neustart des Dienstes erfolgreich eingeleitet",
+    "restarting": "Dienste werden neu gestartet. Die Seite kann vorübergehend die Verbindung verlieren.",
+    "failed": "Neustart des Dienstes fehlgeschlagen: {{error}}"
+  },
+  "selfTest": {
+    "complete": "Selbsttest abgeschlossen",
+    "failed": "Selbsttest fehlgeschlagen: {{error}}",
+    "resultsHeading": "Selbsttest-Ergebnisse",
+    "resultsEmpty": "Führe einen Selbsttest aus, um detaillierte Systemdiagnosen zu sehen"
+  },
+  "logs": {
+    "fetchFailed": "Abrufen der Logs fehlgeschlagen ({{status}})",
+    "heading": "Backend-Logs (letzte 100 Zeilen)",
+    "loadFailed": "Laden der Logs fehlgeschlagen: {{error}}",
+    "empty": "Keine Log-Ausgabe."
+  },
+  "title": "Systemdashboard",
+  "loading": "Wird geladen …",
+  "status": {
+    "error": "Fehler",
+    "healthy": "Gesund"
+  },
+  "model": {
+    "default": "Standard"
+  },
+  "summary": {
+    "heading": "Systemstatus-Zusammenfassung",
+    "backend": "Backend: {{state}}",
+    "database": "Datenbank: {{state}}",
+    "celery": "Celery: {{state}}",
+    "redis": "Redis: {{state}}"
+  },
+  "actions": {
+    "refresh": "Aktualisieren",
+    "retry": "Erneut versuchen"
+  },
+  "checking": "Prüfe...",
+  "backend": {
+    "heading": "Backend",
+    "version": "Version: {{version}}",
+    "uptime": "Uptime: {{seconds}}s",
+    "indexLoaded": "✓ Index geladen"
+  },
+  "database": {
+    "heading": "Datenbank / Migrationen",
+    "upToDate": "Auf dem neuesten Stand",
+    "needsUpdate": "Update erforderlich",
+    "current": "Aktuell: {{revision}}",
+    "noRevision": "keine",
+    "heads": "Heads: {{heads}}",
+    "multipleHeads": "Mehrere Heads erkannt"
+  },
+  "celery": {
+    "heading": "Celery Worker",
+    "ping": "✓ Ping: {{result}}",
+    "active": "Aktiv: {{count}}",
+    "queued": "In Warteschlange: {{count}}",
+    "debug": "Debug: {{tasks}}"
+  },
+  "redis": {
+    "heading": "Redis Cache",
+    "connected": "✓ Verbindung hergestellt"
+  },
+  "failedTasks": {
+    "heading": "Kürzlich fehlgeschlagene Aufgaben",
+    "none": "Keine aktuellen Fehler."
+  },
+  "controls": {
+    "heading": "Systemsteuerung",
+    "refreshAll": "Alles aktualisieren",
+    "running": "Läuft...",
+    "selfTest": "Selbsttest",
+    "restartServices": "Dienste neu starten",
+    "autoRefresh": "Auto-Aktualisierung alle 5 Sekunden"
+  },
+  "jobs": {
+    "heading": "Fortschritts-Auftragsverwaltung",
+    "activeCount": "{{count}} Aktiv",
+    "completedCount": "{{count}} Abgeschlossen",
+    "stuckCount": "{{count}} Blockiert",
+    "systemUnhealthy": "System instabil",
+    "cleaning": "Bereinigung...",
+    "cleanStuck": "Hängende Aufträge bereinigen",
+    "cleanStuckCount": "Hängende Aufträge bereinigen ({{count}})",
+    "indexing": "Indizierung...",
+    "indexEntities": "Entitäten indizieren",
+    "stuckWarning": "{{count}} Aufträge scheinen hängig zu sein (keine aktiven Celery-Tasks oder veraltete Zeitstempel). Bereinigung in Betracht ziehen.",
+    "systemIssues": "Fortschrittssystem hat Probleme erkannt. Einige Aufträge funktionieren möglicherweise nicht korrekt.",
+    "details": "Auftragsdetails (insgesamt {{count}})",
+    "noActive": "Keine aktiven Aufträge",
+    "columns": {
+      "jobId": "Auftrags-ID",
+      "type": "Typ",
+      "status": "Status",
+      "progress": "Fortschritt",
+      "lastUpdate": "Letzte Aktualisierung",
+      "message": "Nachricht"
+    },
+    "staleTooltip": "Veralteter Auftrag (>1 Std. ohne Update)",
+    "unknownType": "Unbekannt",
+    "complete": "Abgeschlossen",
+    "processing": "Verarbeitung",
+    "invalidDate": "Ungültiges Datum",
+    "noTimestamp": "Kein Zeitstempel",
+    "hoursAgo": "(vor {{hours}}h)",
+    "noMessage": "Keine Nachricht",
+    "moreJobs": "... und {{count}} weitere Aufträge"
+  },
+  "selfImprovement": {
+    "heading": "Selbstverbesserungs-Protokoll",
+    "runs": "{{count}} Durchläufe"
+  },
+  "family": {
+    "heading": "Familiennetzwerk",
+    "notConfigured": "Nicht konfiguriert",
+    "online": "Online",
+    "offline": "Offline",
+    "noNodes": "Keine Familienknoten verbunden. Konfiguriere den Interconnector in den Einstellungen.",
+    "vram": "VRAM: {{free}} / {{total}} MB",
+    "unknownStatus": "unbekannt"
+  },
+  "performance": {
+    "heading": "Leistungsübersicht",
+    "notAvailable": "Nicht verfügbar",
+    "backendUptime": "Backend-Uptime: {{seconds}}s",
+    "celeryTasks": "Celery-Tasks: {{tasks}} aktiv",
+    "activeJobs": "Aktive Aufträge: {{count}}",
+    "failedTasks": "Fehlgeschlagene Aufgaben: {{count}}"
+  },
+  "metrics": {
+    "heading": "Systemmetriken"
+  },
+  "diagnostics": {
+    "heading": "Diagnose"
+  },
+  "retrievalDebug": {
+    "heading": "Retrieval-Debug"
+  }
+}

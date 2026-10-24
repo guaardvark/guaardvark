@@ -2,6 +2,7 @@
 // Output Management Service - API calls for managing bulk generation outputs
 
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 const API_URL = `${BASE_URL}/outputs`;
 
@@ -39,7 +40,7 @@ export const downloadOutputCSV = async (filename) => {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+      throw new Error(errorData.error || translate("messages.api.httpErrorStatus", { status: response.status }));
     }
     
     // Get filename from Content-Disposition header or use default
@@ -80,7 +81,7 @@ export const downloadOutputXML = async (filename) => {
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+      throw new Error(errorData.error || translate("messages.api.httpErrorStatus", { status: response.status }));
     }
     
     // Get filename from Content-Disposition header or use default

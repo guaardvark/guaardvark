@@ -12,12 +12,17 @@
 // when its next step could not be queued: they answer {dispatched: false,
 // warning}, and the project resumes when Guaardvark restarts. dispatchWarning()
 // picks that out for a page to show.
+import { translate } from "../i18n";
 
 export const TASK_QUEUE_UNREACHABLE = "task_queue_unreachable";
 
+// The English text. What the UI shows is queueUnreachableMessage(), read when
+// the error is made so it follows the interface's language.
 export const QUEUE_UNREACHABLE_MESSAGE =
   "Not started: Guaardvark's background queue (Redis) is not reachable. " +
   "Run ./start.sh on the Guaardvark machine to start Redis and the background worker, then try again.";
+
+export const queueUnreachableMessage = () => translate("messages.taskQueue.unreachable");
 
 const INSTALLED = Symbol.for("guaardvark.queueMessages");
 
@@ -35,7 +40,7 @@ export function dispatchWarning(result) {
   if (!result || result.dispatched !== false) return null;
   return typeof result.warning === "string" && result.warning
     ? result.warning
-    : "The next step was not started. It starts when Guaardvark is restarted (./start.sh).";
+    : translate("messages.taskQueue.nextStepNotStarted");
 }
 
 /** Word axios errors for a task that was not started; installed once. */
@@ -46,13 +51,14 @@ export function installQueueMessages({ axios } = {}) {
     (error) => {
       const response = error?.response;
       if (response && response.status === 503 && isQueueUnreachable(response.data)) {
+        const text = queueUnreachableMessage();
         response.data = {
           ...response.data,
-          error: QUEUE_UNREACHABLE_MESSAGE,
-          message: QUEUE_UNREACHABLE_MESSAGE,
+          error: text,
+          message: text,
           server_error: response.data.error,
         };
-        error.message = QUEUE_UNREACHABLE_MESSAGE;
+        error.message = text;
         error.queueUnreachable = true;
       }
       return Promise.reject(error);

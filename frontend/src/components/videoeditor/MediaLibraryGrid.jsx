@@ -7,15 +7,17 @@ import React from "react";
 import { Grid, Typography } from "@mui/material";
 import FolderTile from "./FolderTile";
 import MediaTile from "./MediaTile";
+import { useUiTranslation } from "../../i18n";
 import { mergeTiles } from "./groupByFolder";
 
 const MediaLibraryGrid = ({ grouping, kind, onItemClick, onItemDragStart, onFolderOpen }) => {
+  const { t } = useUiTranslation();
   const tiles = mergeTiles(grouping);
 
   if (tiles.length === 0) {
     return (
       <Typography variant="caption" color="text.secondary" sx={{ p: 1, display: "block" }}>
-        Nothing here yet. Generate via the Studio or import from Documents.
+        {t("videoEditor.media.empty")}
       </Typography>
     );
   }

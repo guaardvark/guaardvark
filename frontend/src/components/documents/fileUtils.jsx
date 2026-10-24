@@ -16,6 +16,7 @@ import {
   Folder as FolderIcon,
 } from 'lucide-react';
 import { Box } from '@mui/material';
+import { useUiTranslation, translate, uiLocale } from '../../i18n';
 
 // Export folder icon for use in other components
 export { FolderIcon };
@@ -88,6 +89,7 @@ export const isDocxFile = (filename) => {
 
 // Helper component for index status indicator dot
 const IndexStatusIndicator = ({ indexStatus, theme }) => {
+  const { t } = useUiTranslation();
   if (!indexStatus) return null;
 
   let dotColor = null;
@@ -95,13 +97,13 @@ const IndexStatusIndicator = ({ indexStatus, theme }) => {
 
   if (indexStatus === 'INDEXED') {
     dotColor = theme.palette.success.main || '#4CAF50';
-    tooltipText = 'Indexed';
+    tooltipText = t('documents.indexStatus.indexed');
   } else if (indexStatus === 'INDEXING' || indexStatus === 'PENDING') {
     dotColor = theme.palette.warning.main || '#FF9800';
-    tooltipText = indexStatus === 'INDEXING' ? 'Indexing...' : 'Pending';
+    tooltipText = indexStatus === 'INDEXING' ? t('documents.indexStatus.indexing') : t('documents.indexStatus.pending');
   } else if (indexStatus === 'ERROR') {
     dotColor = theme.palette.error.main || '#F44336';
-    tooltipText = 'Error';
+    tooltipText = t('documents.indexStatus.error');
   } else {
     return null; // No indicator for other statuses
   }
@@ -128,6 +130,7 @@ const IndexStatusIndicator = ({ indexStatus, theme }) => {
 // Helper component for folder index status indicator dot
 // Shows green if all docs indexed, yellow if partial, nothing if no docs or none indexed
 export const FolderIndexIndicator = ({ item, theme, size = 6 }) => {
+  const { t } = useUiTranslation();
   const docCount = item.document_count || 0;
   const indexedCount = item.indexed_document_count || 0;
   if (docCount === 0 || indexedCount === 0) return null;
@@ -137,8 +140,8 @@ export const FolderIndexIndicator = ({ item, theme, size = 6 }) => {
     ? (theme.palette.success.main || '#4CAF50')
     : (theme.palette.warning.main || '#FF9800');
   const tooltipText = isFullyIndexed
-    ? `Fully indexed (${indexedCount}/${docCount})`
-    : `Partially indexed (${indexedCount}/${docCount})`;
+    ? t('documents.indexStatus.folderFull', { indexed: indexedCount, total: docCount })
+    : t('documents.indexStatus.folderPartial', { indexed: indexedCount, total: docCount });
 
   return (
     <Box
@@ -430,20 +433,27 @@ export const formatBytes = (bytes) => {
 export const formatDate = (dateString) => {
   if (!dateString) return '';
   const date = new Date(dateString);
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+  return date.toLocaleDateString(uiLocale()) + ' ' + date.toLocaleTimeString(uiLocale());
 };
 
 // Validate file/folder name
 export const validateName = (name, type = 'name') => {
   if (!name || !name.trim()) {
-    return `${type === 'folder' ? 'Folder' : 'File'} name cannot be empty`;
+    return type === 'folder'
+      ? translate('documents.validation.emptyFolderName')
+      : translate('documents.validation.emptyFileName');
   }
   const trimmedName = name.trim();
   if (INVALID_FILENAME_CHARS.test(trimmedName)) {
-    return `${type === 'folder' ? 'Folder' : 'File'} name contains invalid characters. Please use only letters, numbers, spaces, hyphens, underscores${type === 'file' ? ', and dots' : ''}.`;
+    if (type === 'folder') return translate('documents.validation.invalidFolderName');
+    return type === 'file'
+      ? translate('documents.validation.invalidFileName')
+      : translate('documents.validation.invalidName');
   }
   if (trimmedName.length > MAX_FILENAME_LENGTH) {
-    return `${type === 'folder' ? 'Folder' : 'File'} name is too long. Maximum length is ${MAX_FILENAME_LENGTH} characters.`;
+    return type === 'folder'
+      ? translate('documents.validation.folderNameTooLong', { max: MAX_FILENAME_LENGTH })
+      : translate('documents.validation.fileNameTooLong', { max: MAX_FILENAME_LENGTH });
   }
   return null;
 };

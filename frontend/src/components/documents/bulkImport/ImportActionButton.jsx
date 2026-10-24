@@ -5,9 +5,10 @@
 import React, { useRef, useState } from "react";
 import { Button, ButtonGroup, ListItemText, Menu, MenuItem, Tooltip } from "@mui/material";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import { translate, useUiTranslation } from "../../../i18n";
 
 const ImportActionButton = ({
-  label = "Import",
+  label = translate("upload.bulk.action.import"),
   disabled = false,
   disabledReason = "",
   canPreview = false,
@@ -16,6 +17,7 @@ const ImportActionButton = ({
   onPreview,
   onMove,
 }) => {
+  const { t } = useUiTranslation();
   const anchorRef = useRef(null);
   const [open, setOpen] = useState(false);
   const run = (handler) => () => {
@@ -24,13 +26,13 @@ const ImportActionButton = ({
   };
 
   const group = (
-    <ButtonGroup variant="contained" size="small" ref={anchorRef} disabled={disabled} aria-label="Import">
+    <ButtonGroup variant="contained" size="small" ref={anchorRef} disabled={disabled} aria-label={t("upload.bulk.action.import")}>
       <Button onClick={onImport} sx={{ px: 2, whiteSpace: "nowrap" }}>
         {label}
       </Button>
       <Button
         size="small"
-        aria-label="More ways to import"
+        aria-label={t("upload.bulk.action.moreWays")}
         aria-haspopup="menu"
         aria-expanded={open ? "true" : undefined}
         onClick={() => setOpen((v) => !v)}
@@ -58,20 +60,20 @@ const ImportActionButton = ({
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >
         <MenuItem onClick={run(onImport)}>
-          <ListItemText primary="Import" secondary="Copies the files; the source is left as it is" />
+          <ListItemText primary={t("upload.bulk.action.import")} secondary={t("upload.bulk.action.importHint")} />
         </MenuItem>
         <MenuItem onClick={run(onPreview)} disabled={!canPreview}>
           <ListItemText
-            primary="Preview only"
-            secondary={canPreview ? "Counts what would come in; changes nothing" : "Already counted above for dropped files"}
+            primary={t("upload.bulk.action.previewOnly")}
+            secondary={canPreview ? t("upload.bulk.action.previewHint") : t("upload.bulk.action.previewCounted")}
           />
         </MenuItem>
         <MenuItem onClick={run(onMove)} disabled={!canMove}>
           <ListItemText
-            primary="Import and move…"
+            primary={t("upload.bulk.action.importAndMove")}
             secondary={canMove
-              ? "Removes each file from the source once it is in Files; asks first"
-              : "Only for a folder on the Guaardvark machine"}
+              ? t("upload.bulk.action.moveHint")
+              : t("upload.bulk.action.moveServerOnly")}
           />
         </MenuItem>
       </Menu>

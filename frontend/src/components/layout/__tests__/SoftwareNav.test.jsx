@@ -1,9 +1,13 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import SoftwareNav from "../SoftwareNav";
+import Sidebar from "../Sidebar";
+import { setLanguage } from "../../../i18n";
+import german from "../../../locales/de/navigation.json";
+import { useAppStore } from "../../../stores/useAppStore";
 import { VoiceSessionProvider } from "../../../contexts/VoiceSessionContext";
 
 // This test describes the core catalog; a distribution's brand.jsx may
@@ -61,6 +65,37 @@ function renderNav(path = "/batch-images") {
 describe("SoftwareNav", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(async () => {
+    await act(() => setLanguage("en"));
+  });
+
+  // Expected labels come from the German file, so a better translation does
+  // not break the test; only a label left in English would.
+  it("updates the workspace bar in place while preserving the active route", async () => {
+    renderNav("/documents/alerts");
+    await act(() => setLanguage("de"));
+    expect(screen.getByRole("navigation", { name: german.workspace })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: german.workspaces.library })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: german.items.settings })).toHaveAttribute("href", "/settings");
+    // A label the core catalog does not own stays as its brand wrote it.
+    expect(screen.getByRole("link", { name: "Alerts" })).toHaveAttribute("href", "/documents/alerts");
+  });
+
+  it("updates the sidebar without changing its selected page or stored expansion", async () => {
+    const expanded = useAppStore.getState().sidebarExpanded;
+    useAppStore.setState({ sidebarExpanded: true });
+    render(
+      <ThemeProvider theme={createTheme()}>
+        <MemoryRouter initialEntries={["/settings"]}><Sidebar /></MemoryRouter>
+      </ThemeProvider>,
+    );
+    await act(() => setLanguage("de"));
+    expect(screen.getByRole("link", { name: german.items.settings })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: german.items.files })).toHaveAttribute("href", "/documents");
+    expect(useAppStore.getState().sidebarExpanded).toBe(true);
+    useAppStore.setState({ sidebarExpanded: expanded });
   });
 
   it("shows workspaces and the studio tool strip on a studio route", () => {

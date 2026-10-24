@@ -7,6 +7,7 @@ import axios from 'axios';
 import { useSnackbar } from '../common/SnackbarProvider';
 import DesktopItemsGrid from './DesktopItemsGrid';
 import { API_BASE, getItemKey } from './fileUtils.jsx';
+import { useUiTranslation } from '../../i18n';
 
 const DocumentsDesktop = ({
   onFolderOpen,
@@ -18,6 +19,7 @@ const DocumentsDesktop = ({
   _onContextMenu,
   openWindowFolderIds = [],
 }) => {
+  const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
   const [items, setItems] = useState({ folders: [], files: [] });
   const [loading, setLoading] = useState(true);
@@ -71,8 +73,8 @@ const DocumentsDesktop = ({
         hasGeneratedLayout.current = true;
       }
     } catch (err) {
-      setError('Failed to load desktop items');
-      showMessage?.('Failed to load desktop items', 'error');
+      setError('documents.desktop.loadFailed');
+      showMessage?.(t('documents.desktop.loadFailed'), 'error');
     } finally {
       setLoading(false);
     }
@@ -147,10 +149,10 @@ const DocumentsDesktop = ({
         }
       }
 
-      showMessage?.(`Moved ${itemsToMove.length} item(s) to ${targetFolder.name}`, 'success');
+      showMessage?.(t('documents.desktop.movedToFolder', { count: itemsToMove.length, folder: targetFolder.name }), 'success');
       fetchItems(); // Refresh
     } catch (err) {
-      showMessage?.('Failed to move items', 'error');
+      showMessage?.(t('documents.move.failed'), 'error');
     } finally {
       handleDragEnd();
     }
@@ -182,10 +184,10 @@ const DocumentsDesktop = ({
         }
       }
 
-      showMessage?.(`Moved ${itemsToMove.length} item(s) to desktop`, 'success');
+      showMessage?.(t('documents.desktop.movedToDesktop', { count: itemsToMove.length }), 'success');
       fetchItems(); // Refresh
     } catch (err) {
-      showMessage?.('Failed to move items', 'error');
+      showMessage?.(t('documents.move.failed'), 'error');
     } finally {
       handleDragEnd();
     }
@@ -202,7 +204,7 @@ const DocumentsDesktop = ({
   if (error) {
     return (
       <Box sx={{ p: 2 }}>
-        <Alert severity="error">{error}</Alert>
+        <Alert severity="error">{t(error)}</Alert>
       </Box>
     );
   }

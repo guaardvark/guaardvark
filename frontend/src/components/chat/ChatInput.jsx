@@ -46,9 +46,11 @@ import {
   splitChatFiles,
   uploadChatDocument,
 } from "../../utils/chatDocumentUpload";
+import { useUiTranslation } from "../../i18n";
 
 const ChatInput = forwardRef(
   ({ onSendMessage, onStop, disabled = false, chimeIn = false, onChimeIn, sessionId = "default", codeGenMode = false, onVoiceStateChange = () => { }, onAddMessage, onUpdateMessage, onClearMessages, onPlanCreated, projectId, composerError, onClearComposerError }, ref) => {
+    const { t } = useUiTranslation();
     const [inputText, setInputText] = useState("");
     const fileRef = useRef(null);
     const inputRef = useRef(null);
@@ -195,10 +197,7 @@ const ChatInput = forwardRef(
       if (window.showMessage) {
         setTimeout(() => {
           // Show initial status for Universal RAG (no specific mode active)
-          window.showMessage(
-            `Chat interface ready - **UNIVERSAL RAG** active (all data accessible, no mode restrictions)`,
-            "info"
-          );
+          window.showMessage(t("chat.input.readyNotice"), "info");
         }, 1000); // Delay to ensure other startup messages are shown first
       }
     }, []); // Only run on mount
@@ -270,7 +269,8 @@ const ChatInput = forwardRef(
             setFileUploadState((prev) => ({
               ...prev,
               progress,
-              fileName: indexing ? `${file.name} (indexing...)` : file.name,
+              fileName: file.name,
+              indexing: Boolean(indexing),
             })),
         });
         if (!result.ok) {
@@ -319,7 +319,7 @@ const ChatInput = forwardRef(
       if (!file.type.startsWith("image/")) {
         setImageState((prev) => ({
           ...prev,
-          error: "Please select an image file",
+          error: { kind: "notImage" },
         }));
         return;
       }
@@ -327,7 +327,7 @@ const ChatInput = forwardRef(
       const id = `img_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       setImageState((prev) => {
         if (prev.images.length >= MAX_IMAGES) {
-          return { ...prev, error: `Maximum ${MAX_IMAGES} images allowed` };
+          return { ...prev, error: { kind: "tooMany" } };
         }
         return {
           ...prev,
@@ -362,7 +362,7 @@ const ChatInput = forwardRef(
         setImageState((prev) => ({
           ...prev,
           images: prev.images.filter((img) => img.id !== id),
-          error: err?.message || "Could not prepare this image",
+          error: err?.message || { kind: "prepareFailed" },
         }));
       }
     };
@@ -646,6 +646,15 @@ Please try a different image or check if the vision model is properly loaded.`;
       }
     };
 
+    // Our own image errors are kept as a kind and worded here; messages from
+    // the attachment helpers arrive as text.
+    const imageErrorText = (error) => {
+      if (typeof error === "string") return error;
+      if (error.kind === "notImage") return t("chat.input.notImage");
+      if (error.kind === "tooMany") return t("chat.input.tooManyImages", { count: MAX_IMAGES });
+      return t("chat.input.prepareFailed");
+    };
+
     const handleKeyPress = (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
@@ -668,7 +677,11 @@ Please try a different image or check if the vision model is properly loaded.`;
         {fileUploadState.uploading && (
           <Box data-testid="chat-upload-progress">
             <Typography variant="caption" color="text.secondary">
-              Uploading {fileUploadState.fileName}
+              {t("chat.input.uploading", {
+                name: fileUploadState.indexing
+                  ? t("chat.input.fileIndexing", { name: fileUploadState.fileName })
+                  : fileUploadState.fileName,
+              })}
             </Typography>
             <LinearProgress
               variant="determinate"
@@ -687,7 +700,7 @@ Please try a different image or check if the vision model is properly loaded.`;
               setFileUploadState((prev) => ({ ...prev, error: null }))
             }
           >
-            Upload failed: {fileUploadState.error}
+            {t("chat.input.uploadFailed", { error: fileUploadState.error })}
           </Alert>
         )}
 
@@ -701,7 +714,7 @@ Please try a different image or check if the vision model is properly loaded.`;
                     {img.pending ? (
                       <Box
                         role="img"
-                        aria-label={`Preparing ${img.file.name}`}
+                        aria-label={t("chat.input.preparingNamed", { name: img.file.name })}
                         sx={{
                           width: 80,
                           height: 80,
@@ -748,7 +761,7 @@ Please try a different image or check if the vision model is properly loaded.`;
                     </IconButton>
                   </Box>
                   {img.pending ? (
-                    <StatusPill label="Preparing" tone="neutral" tooltip="Resizing before it is sent" />
+                    <StatusPill label={t("chat.input.preparing")} tone="neutral" tooltip={t("chat.input.preparingTooltip")} />
                   ) : (
                     <StatusPill
                       label={formatAttachmentSize(img.byteLength)}
@@ -756,7 +769,7 @@ Please try a different image or check if the vision model is properly loaded.`;
                       tooltip={
                         attachmentExceedsLimit(img.byteLength, attachmentMaxBytes)
                           ? refuseAttachmentMessage(img.byteLength, attachmentMaxBytes)
-                          : "Size after resize, as it will be sent"
+                          : t("chat.input.sizeTooltip")
                       }
                     />
                   )}
@@ -765,13 +778,13 @@ Please try a different image or check if the vision model is properly loaded.`;
             </Box>
             {imageState.images.length > 1 && legacyVisionPath && (
               <Alert severity="info" sx={{ mt: 1, py: 0 }}>
-                The legacy vision endpoint takes one picture: only the first image is sent. Remove it to send another one.
+                {t("chat.input.legacyVisionOneImage")}
               </Alert>
             )}
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
               <Chip
                 icon={<AttachFileIcon />}
-                label={`${imageState.images.length} image${imageState.images.length > 1 ? "s" : ""} selected`}
+                label={t("chat.input.imagesSelected", { count: imageState.images.length })}
                 size="small"
                 variant="outlined"
               />
@@ -793,7 +806,7 @@ Please try a different image or check if the vision model is properly loaded.`;
                     mt: 0.5,
                   }}
                 >
-                  {imageState.images.length > 1 ? "Analyzing images..." : "Analyzing image..."}
+                  {imageState.images.length > 1 ? t("chat.input.analyzingImages") : t("chat.input.analyzingImage")}
                 </Box>
               </Box>
             )}
@@ -807,7 +820,7 @@ Please try a different image or check if the vision model is properly loaded.`;
             sx={{ mb: 1 }}
             onClose={() => setImageState((prev) => ({ ...prev, error: null }))}
           >
-            {imageState.error}
+            {imageErrorText(imageState.error)}
           </Alert>
         )}
 
@@ -831,7 +844,7 @@ Please try a different image or check if the vision model is properly loaded.`;
           />
 
           {/* File attachment button */}
-          <Tooltip title="Attach file or image">
+          <Tooltip title={t("chat.input.attach")}>
             {disabled ? (
               <span>
                 <IconButton
@@ -855,7 +868,7 @@ Please try a different image or check if the vision model is properly loaded.`;
 
           {/* The global mic: hold to talk, click per the activation mode. */}
           <Box sx={{ display: "flex", alignItems: "center", alignSelf: "center" }}>
-            <GlobalMicButton variant="inline" label="Voice" showMenu={false} />
+            <GlobalMicButton variant="inline" label={t("common.voice")} showMenu={false} />
           </Box>
 
           {/* Slash command autocomplete popup */}
@@ -870,7 +883,7 @@ Please try a different image or check if the vision model is properly loaded.`;
           {/* Agent mode badge — sits above the input when active */}
           {agentModeActive && (
             <Chip
-              label="AGENT MODE — type /chat to exit"
+              label={t("chat.input.agentModeBadge")}
               color="warning"
               size="small"
               sx={{
@@ -890,12 +903,12 @@ Please try a different image or check if the vision model is properly loaded.`;
             size="small"
             placeholder={
               noteMode
-                ? "Add a note for the agent — it reads it at its next step and keeps going"
+                ? t("chat.input.placeholderNote")
                 : agentModeActive
-                ? "Describe a screen action — every message is a task while in agent mode"
+                ? t("chat.input.placeholderAgent")
                 : imageState.images.length > 0
-                  ? "Ask about this image..."
-                  : "Type your message, paste an image, or use voice..."
+                  ? t("chat.input.placeholderImage")
+                  : t("chat.input.placeholder")
             }
             value={inputText}
             onChange={(e) => {
@@ -937,7 +950,7 @@ Please try a different image or check if the vision model is properly loaded.`;
 
           {/* Send-note button, beside Stop, while the agent is working */}
           {noteMode && (
-            <Tooltip title="Send note to the agent (it keeps working)">
+            <Tooltip title={t("chat.input.sendNote")}>
               <span>
                 <IconButton
                   color="warning"
@@ -954,14 +967,14 @@ Please try a different image or check if the vision model is properly loaded.`;
           <Tooltip
             title={
               disabled
-                ? "Stop (Esc)"
+                ? t("chat.input.stop")
                 : imageState.analyzing
-                  ? "Analyzing image..."
+                  ? t("chat.input.analyzingImage")
                   : preparingImage
-                    ? "Preparing image..."
+                    ? t("chat.input.preparingImage")
                     : imageState.images.length > 0
-                      ? "Analyze image"
-                      : "Send message"
+                      ? t("chat.input.analyzeImage")
+                      : t("chat.input.send")
             }
           >
             {imageState.analyzing || (preparingImage && !disabled) ? (

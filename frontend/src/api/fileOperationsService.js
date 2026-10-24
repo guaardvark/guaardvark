@@ -2,6 +2,7 @@
 // File operations service for CodeEditorPage
 
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 const FILE_OPS_BASE = "/api/files";
 
@@ -33,7 +34,7 @@ export const readFile = async (filePath) => {
     console.error("File read failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to read file",
+      error: error.message || translate("messages.fileOperations.readFailed"),
       content: ""
     };
   }
@@ -60,13 +61,13 @@ export const writeFile = async (filePath, content) => {
       success: true,
       filePath: result.filePath || filePath,
       size: result.size || content.length,
-      message: "File saved successfully"
+      message: translate("messages.fileOperations.saved")
     };
   } catch (error) {
     console.error("File write failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to write file"
+      error: error.message || translate("messages.fileOperations.writeFailed")
     };
   }
 };
@@ -91,13 +92,13 @@ export const createFile = async (filePath, content = "") => {
     return {
       success: true,
       filePath: result.filePath || filePath,
-      message: "File created successfully"
+      message: translate("messages.fileOperations.created")
     };
   } catch (error) {
     console.error("File creation failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to create file"
+      error: error.message || translate("messages.fileOperations.createFailed")
     };
   }
 };
@@ -120,13 +121,13 @@ export const deleteFile = async (filePath) => {
     await handleResponse(response);
     return {
       success: true,
-      message: "File deleted successfully"
+      message: translate("messages.fileOperations.deleted")
     };
   } catch (error) {
     console.error("File deletion failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to delete file"
+      error: error.message || translate("messages.fileOperations.deleteFailed")
     };
   }
 };
@@ -157,7 +158,7 @@ export const listDirectory = async (dirPath) => {
     console.error("Directory listing failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to list directory",
+      error: error.message || translate("messages.fileOperations.listFailed"),
       files: [],
       directories: []
     };
@@ -182,13 +183,13 @@ export const createDirectory = async (dirPath) => {
     await handleResponse(response);
     return {
       success: true,
-      message: "Directory created successfully"
+      message: translate("messages.fileOperations.directoryCreated")
     };
   } catch (error) {
     console.error("Directory creation failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to create directory"
+      error: error.message || translate("messages.fileOperations.createDirectoryFailed")
     };
   }
 };
@@ -214,13 +215,13 @@ export const renameFile = async (oldPath, newPath) => {
       success: true,
       oldPath,
       newPath: result.newPath || newPath,
-      message: "File renamed successfully"
+      message: translate("messages.fileOperations.renamed")
     };
   } catch (error) {
     console.error("File rename failed:", error);
     return {
       success: false,
-      error: error.message || "Failed to rename file"
+      error: error.message || translate("messages.fileOperations.renameFailed")
     };
   }
 };

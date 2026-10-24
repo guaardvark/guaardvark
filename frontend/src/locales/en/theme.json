@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "default": "Dark Gray",
+    "light": "Light"
+  },
+  "descriptions": {
+    "guaardvark": "Ultra-minimal monochrome theme inspired by guaardvark.com",
+    "default": "Clean dark theme with teal accents",
+    "musk": "Futuristic dark theme with neon cyan and red accents",
+    "hacker": "Pip-Boy inspired wasteland terminal with radiation green and amber",
+    "vader": "Dark imposing theme with black and red accents inspired by Darth Vader",
+    "light": "Clean light theme with teal accents — easy on the eyes"
+  }
+}

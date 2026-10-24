@@ -19,6 +19,7 @@ import { keyframes } from '@mui/material/styles';
 import voiceService from '../../api/voiceService';
 import { checkForWakeWord } from '../../utils/wakeWordMatcher';
 import CanvasWaveform from './CanvasWaveform';
+import { translate, useUiTranslation, Trans } from '../../i18n';
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -139,6 +140,7 @@ const ContinuousVoiceChat = React.forwardRef(({
   systemName = 'Guaardvark',  // Wake word is always "Hey Guaardvark"
   onWakeWordDetected = () => {},
 }, ref) => {
+  const { t } = useUiTranslation();
   // --- Voice settings loader ---
   const getVoiceSettings = useCallback(() => {
     try {
@@ -617,7 +619,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
       if (consecutiveErrorsRef.current >= vadConfigRef.current.maxConsecutiveErrors) {
         console.error('ContinuousVoiceChat: Too many consecutive errors, stopping listening');
-        setError('Too many audio processing errors. Please restart voice chat.');
+        setError(translate('voice.continuous.errors.tooManyErrors'));
         stopListening();
       }
     }
@@ -734,7 +736,7 @@ const ContinuousVoiceChat = React.forwardRef(({
     } catch (err) {
       console.error('ContinuousVoiceChat: Error processing segment:', err);
 
-      const errorMessage = err.message || 'Failed to process speech';
+      const errorMessage = err.message || translate('voice.continuous.errors.processFailed');
 
       if (errorMessage.includes('Audio conversion failed') ||
           errorMessage.includes('Invalid data found')) {
@@ -862,7 +864,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
       mediaRecorderRef.current.onerror = (error) => {
         console.error('ContinuousVoiceChat: MediaRecorder error:', error);
-        setError('Recording error occurred');
+        setError(translate('voice.continuous.errors.recordingError'));
         onError(error);
       };
 
@@ -898,7 +900,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
       if (!analyzer) {
         console.error('ContinuousVoiceChat: Failed to create audio analyzer');
-        throw new Error('Failed to initialize audio analyzer');
+        throw new Error(translate('voice.continuous.errors.analyzerFailed'));
       }
 
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -974,7 +976,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
     } catch (err) {
       console.error('ContinuousVoiceChat: Failed to start listening:', err);
-      setError(err.message || 'Failed to start listening');
+      setError(err.message || translate('voice.continuous.errors.startFailed'));
       setIsListening(false);
       onError(err);
       cleanup();
@@ -1210,7 +1212,7 @@ const ContinuousVoiceChat = React.forwardRef(({
   }, [isListening, audioLevels, speechDetected, segmentCount, processingQueue, waveformActive, currentVolume, listeningMode]);
 
   const formatDuration = (count) => {
-    return `${count} sent`;
+    return t('voice.popup.sent', { count });
   };
 
   // --- Shared status chips ---
@@ -1218,7 +1220,7 @@ const ContinuousVoiceChat = React.forwardRef(({
     <>
       {wakeWordEnabled && isListening && (
         <Chip
-          label={listeningMode === 'active' ? 'Active' : 'Passive'}
+          label={listeningMode === 'active' ? t('voice.continuous.active') : t('voice.continuous.passive')}
           size="small"
           color={listeningMode === 'active' ? 'success' : 'default'}
           variant={listeningMode === 'active' ? 'filled' : 'outlined'}
@@ -1227,7 +1229,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       )}
       {isListening && (
         <Chip
-          label={speechDetected ? 'Speaking' : 'Listening'}
+          label={speechDetected ? t('voice.continuous.speaking') : t('voice.continuous.listening')}
           size="small"
           color={speechDetected ? 'error' : 'default'}
           variant="filled"
@@ -1249,7 +1251,7 @@ const ContinuousVoiceChat = React.forwardRef(({
       )}
       {processingQueue > 0 && (
         <Chip
-          label={`${processingQueue} queued`}
+          label={t('voice.continuous.queued', { count: processingQueue })}
           size="small"
           color="warning"
           variant="outlined"
@@ -1258,13 +1260,13 @@ const ContinuousVoiceChat = React.forwardRef(({
         />
       )}
       {isMicMuted && (
-        <Chip label="Mic Muted" size="small" color="warning" variant="filled" sx={{ fontSize: '0.7rem' }} />
+        <Chip label={t('voice.continuous.micMuted')} size="small" color="warning" variant="filled" sx={{ fontSize: '0.7rem' }} />
       )}
       {isAISpeaking && (
-        <Chip label="AI Speaking" size="small" color="success" variant="filled" sx={{ fontSize: '0.7rem' }} />
+        <Chip label={t('voice.popup.aiSpeaking')} size="small" color="success" variant="filled" sx={{ fontSize: '0.7rem' }} />
       )}
       {consecutiveErrorDisplay > 0 && (
-        <Chip label={`${consecutiveErrorDisplay} errors`} size="small" color="error" variant="filled" sx={{ fontSize: '0.7rem' }} />
+        <Chip label={t('voice.continuous.errorCount', { count: consecutiveErrorDisplay })} size="small" color="error" variant="filled" sx={{ fontSize: '0.7rem' }} />
       )}
     </>
   );
@@ -1307,7 +1309,7 @@ const ContinuousVoiceChat = React.forwardRef(({
         >
           <CircularProgress size={10} />
           <Typography variant="caption" sx={{ fontSize: '0.65rem' }}>
-            Initializing...
+            {t('voice.continuous.initializing')}
           </Typography>
         </Box>
       )}
@@ -1320,7 +1322,7 @@ const ContinuousVoiceChat = React.forwardRef(({
     const isProcessingAudio = isProcessing || processingQueue > 0;
 
     return (
-      <Tooltip title={isProcessingAudio ? 'Processing...' : isListening ? 'Stop listening' : 'Start voice chat'}>
+      <Tooltip title={isProcessingAudio ? t('voice.button.processing') : isListening ? t('voice.popup.stopListening') : t('voice.continuous.startVoiceChat')}>
         <span>
           <IconButton
             onClick={handleToggle}
@@ -1393,8 +1395,8 @@ const ContinuousVoiceChat = React.forwardRef(({
         <Tooltip
           title={
             isListening
-              ? 'Click to stop listening'
-              : 'Click to start continuous listening'
+              ? t('voice.continuous.clickToStop')
+              : t('voice.continuous.clickToStart')
           }
         >
           <span>
@@ -1427,7 +1429,7 @@ const ContinuousVoiceChat = React.forwardRef(({
 
         {!isListening && keyboardShortcutEnabled && (
           <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
-            Press <strong>Spacebar</strong> to toggle
+            <Trans i18nKey="voice.continuous.spacebarHint" components={{ bold: <strong /> }} />
           </Typography>
         )}
       </Box>
@@ -1446,9 +1448,9 @@ const ContinuousVoiceChat = React.forwardRef(({
           <Typography variant="body2" color="text.secondary">
             {isListening
               ? listeningMode === 'passive'
-                ? `Say "Hey ${systemName}" to activate`
-                : `Listening actively (${Math.round(activeListeningDurationRef.current / 1000)}s timeout)`
-              : `Wake word: "Hey ${systemName}"`
+                ? t('voice.continuous.sayWakePhrase', { systemName })
+                : t('voice.continuous.listeningActively', { seconds: Math.round(activeListeningDurationRef.current / 1000) })
+              : t('voice.continuous.wakeWord', { systemName })
             }
           </Typography>
         </Box>
@@ -1466,11 +1468,11 @@ const ContinuousVoiceChat = React.forwardRef(({
         >
           <MicOffIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
           <Typography variant="body1" color="text.secondary">
-            Click the microphone button or press Spacebar to start listening
+            {t('voice.continuous.idleHint')}
           </Typography>
           {wakeWordEnabled && (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              Wake word mode is enabled — listener will start in passive mode
+              {t('voice.continuous.wakeModeHint')}
             </Typography>
           )}
         </Paper>

@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { getJobPriority, setJobPriority } from "../../api/settingsService";
 import { Cluster, Line, SettingChip } from "./ui";
+import { useUiTranslation } from "../../i18n";
 
 const readFlag = (result) => {
   const on = result?.data?.job_priority_enabled ?? result?.job_priority_enabled;
@@ -14,6 +15,7 @@ const readFlag = (result) => {
  * served. On ranks waiting work by class and lets the Activity page move it.
  */
 const JobOrderSetting = ({ showMessage }) => {
+  const { t } = useUiTranslation();
   const [on, setOn] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -40,25 +42,25 @@ const JobOrderSetting = ({ showMessage }) => {
     const stored = readFlag(result);
     if (result?.error || stored === null) {
       setOn(previous);
-      showMessage?.("Job order was not saved", "error");
+      showMessage?.(t("settingsSections.jobOrder.notSaved"), "error");
       return;
     }
     setOn(stored);
-    showMessage?.(stored ? "Job order on" : "Job order off: each queue keeps its own order", "success");
+    showMessage?.(stored ? t("settingsSections.jobOrder.on") : t("settingsSections.jobOrder.off"), "success");
   };
 
   return (
     <Cluster
-      label="Job order"
-      help="Off: each queue runs its jobs first come, first served, as it always has. On: jobs waiting for the graphics card go in class order: chat and voice first, then the renders and batches you started, then background work (indexing, autoresearch, self-improvement, scheduled tasks). Background work also pauses while you chat and moves up the longer it waits; the nightly autoresearch run waits for an idle machine; a running job is never stopped; a render that would unload a swarm agent's model waits for the agent unless you press Run now. The Activity page shows the line and lets you move items up or down. Other parts of the app pick the change up within 30 seconds."
+      label={t("settingsSections.jobOrder.label")}
+      help={t("settingsSections.jobOrder.help")}
     >
       <Line>
         <SettingChip
-          label="Prioritise interactive work"
+          label={t("settingsSections.jobOrder.chip")}
           on={on}
           onToggle={toggle}
           disabled={!loaded || saving}
-          tooltip="Rank waiting jobs by class: interactive, then yours, then background"
+          tooltip={t("settingsSections.jobOrder.chipTooltip")}
           testId="job-order-setting"
         />
       </Line>

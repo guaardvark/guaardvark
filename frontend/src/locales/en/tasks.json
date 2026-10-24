@@ -1,0 +1,106 @@
+{
+  "filter": {
+    "all": "All",
+    "active": "Active",
+    "completed": "Completed",
+    "failed": "Failed",
+    "project": "Project: {{name}}",
+    "client": "Client: {{name}}",
+    "website": "Website: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "Projects could not be loaded: {{error}}",
+    "modelsFailed": "Models could not be loaded: {{error}}",
+    "requestFailed": "the request failed"
+  },
+  "video": {
+    "loadFailed": "Failed to load video batch jobs",
+    "cancelled": "Video batch job cancelled",
+    "cancelRefused": "Could not cancel VideoGen job",
+    "cancelFailed": "Cancel failed",
+    "title": "Video Batch Jobs",
+    "intro": "Queued and running batches from the unified VIDEO_GEN pipeline (Batch Video / Video Generator). This page (Job Scheduler) also handles legacy scheduled jobs for code, content, CSV, analysis, and custom tasks via the New Job menu.",
+    "refresh": "Refresh Video Batch jobs",
+    "empty": "No pending video batch jobs.",
+    "label": "Label",
+    "status": "Status",
+    "progress": "Progress",
+    "actions": "Actions",
+    "cancel": "Cancel"
+  },
+  "notFound": "Task {{id}} was not found",
+  "queue": {
+    "started": "Task queue processing started",
+    "failed": "Failed to process queue: {{error}}"
+  },
+  "created": "Task created successfully",
+  "updated": "Task updated successfully",
+  "saveFailed": "Failed to save task: {{error}}",
+  "deleted": "Task deleted successfully",
+  "duplicatedWithId": "Task duplicated successfully (ID: {{id}})",
+  "duplicated": "Task duplicated successfully",
+  "duplicateFailed": "Failed to duplicate task: {{error}}",
+  "delete": {
+    "title": "Delete this task",
+    "description": "\"{{name}}\" is deleted.",
+    "thisTask": "this task",
+    "confirm": "Delete task"
+  },
+  "deleteFailed": "Failed to delete task: {{error}}",
+  "start": {
+    "invalid": "Invalid task data",
+    "starting": "Starting task: {{name}}",
+    "unnamed": "Unnamed Task",
+    "failed": "Failed to start task: {{error}}",
+    "started": "Task \"{{name}}\" started successfully"
+  },
+  "clear": {
+    "none": "No tasks to clear",
+    "title": "Delete all tasks",
+    "description": "Every task in this list is deleted.",
+    "tasksFact": "Tasks",
+    "confirm": "Delete all",
+    "clearing": "Clearing all tasks...",
+    "done": "Successfully deleted {{count}} tasks",
+    "failed": "Failed to clear tasks: {{error}}"
+  },
+  "title": "Job Scheduler",
+  "counts": {
+    "pending": "{{count}} Pending",
+    "queued": "{{count}} Queued",
+    "running": "{{count}} Running"
+  },
+  "runQueue_one": "Run {{count}} Task",
+  "runQueue_other": "Run {{count}} Tasks",
+  "clearAll": "Clear All",
+  "newJob": "New Job",
+  "newMenu": {
+    "code": "Code Generation",
+    "csv": "CSV / Bulk Content",
+    "content": "Content Generation",
+    "analysis": "Data Analysis",
+    "custom": "Custom Job"
+  },
+  "typeFilter": {
+    "label": "Type",
+    "all": "All Types",
+    "code": "Code Gen",
+    "csv": "CSV / Bulk",
+    "content": "Content",
+    "analysis": "Analysis"
+  },
+  "loading": "Loading tasks...",
+  "emptyTitle": "No tasks found",
+  "emptyDescription": "Use the quick actions above to create your first task",
+  "menu": {
+    "start": "Start",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "duplicate": "Duplicate",
+    "newCode": "New Code Generation",
+    "newCsv": "New CSV / Bulk Content",
+    "newContent": "New Content Generation",
+    "newAnalysis": "New Data Analysis",
+    "newCustom": "New Custom Job"
+  }
+}

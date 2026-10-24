@@ -36,23 +36,25 @@ import {
   submitToIndex,
   updateIndexingConfig,
 } from "../../api/searchConsoleService";
+import { translate, uiLocale, useUiTranslation, Trans } from "../../i18n";
 
-const STATUS_CHIP = {
-  success: { label: "indexed", color: "success" },
-  pending: { label: "pending", color: "default" },
-  failed: { label: "failed", color: "error" },
-};
+const statusChip = () => ({
+  success: { label: translate("websites.indexing.status.indexed"), color: "success" },
+  pending: { label: translate("websites.indexing.status.pending"), color: "default" },
+  failed: { label: translate("websites.indexing.status.failed"), color: "error" },
+});
 
 const formatTime = (iso) => {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString(uiLocale());
   } catch {
     return iso;
   }
 };
 
 const IndexingPanel = ({ website, onFeedback }) => {
+  const { t } = useUiTranslation();
   const websiteId = website?.id;
 
   const [status, setStatus] = useState(null);
@@ -70,7 +72,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
     try {
       setStatus(await getIndexingStatus(websiteId));
     } catch (err) {
-      setError(err.message || "Failed to load indexing status.");
+      setError(err.message || t("websites.indexing.statusLoadFailed"));
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,9 @@ const IndexingPanel = ({ website, onFeedback }) => {
       // The log is supplementary — surface as feedback, not a blocking error.
       onFeedback?.({
         open: true,
-        message: `Could not load submission log: ${err.message || "Unknown error"}`,
+        message: t("websites.indexing.logLoadFailed", {
+          error: err.message || t("websites.indexing.unknownError"),
+        }),
         severity: "warning",
       });
     } finally {
@@ -111,8 +115,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
       onFeedback?.({
         open: true,
         message:
-          res?.message ||
-          "Submission job queued; URLs will be submitted in the background.",
+          res?.message || t("websites.indexing.submitQueued"),
         severity: "success",
       });
       if (res?.status) setStatus(res.status);
@@ -121,7 +124,9 @@ const IndexingPanel = ({ website, onFeedback }) => {
     } catch (err) {
       onFeedback?.({
         open: true,
-        message: `Submit failed: ${err.message || "Unknown error"}`,
+        message: t("websites.indexing.submitFailed", {
+          error: err.message || t("websites.indexing.unknownError"),
+        }),
         severity: "error",
       });
     } finally {
@@ -137,14 +142,16 @@ const IndexingPanel = ({ website, onFeedback }) => {
       onFeedback?.({
         open: true,
         message: enabled
-          ? "Auto-submit enabled — this site will drip up to its daily quota."
-          : "Auto-submit disabled.",
+          ? t("websites.indexing.dripEnabled")
+          : t("websites.indexing.dripDisabled"),
         severity: "info",
       });
     } catch (err) {
       onFeedback?.({
         open: true,
-        message: `Could not update setting: ${err.message || "Unknown error"}`,
+        message: t("websites.indexing.settingFailed", {
+          error: err.message || t("websites.indexing.unknownError"),
+        }),
         severity: "error",
       });
     }
@@ -165,15 +172,14 @@ const IndexingPanel = ({ website, onFeedback }) => {
   }
 
   if (!status) {
-    return <Typography color="text.secondary">No indexing status available.</Typography>;
+    return <Typography color="text.secondary">{t("websites.indexing.noStatus")}</Typography>;
   }
 
   return (
     <Stack spacing={2}>
       {!status.credentials_ok && (
         <Alert severity="warning">
-          Service-account credentials not found on the server. Submissions will fail until
-          the Google Indexing key is configured.
+          {t("websites.indexing.noCredentials")}
         </Alert>
       )}
 
@@ -187,14 +193,20 @@ const IndexingPanel = ({ website, onFeedback }) => {
         >
           <Box>
             <Typography variant="subtitle2" gutterBottom>
-              Today's quota
+              {t("websites.indexing.quotaTitle")}
             </Typography>
             <Typography variant="h5">
-              {status.submitted_today}
-              <Typography component="span" variant="body2" color="text.secondary">
-                {" "}
-                / {status.daily_cap} submitted &nbsp;·&nbsp; {status.quota_remaining} remaining
-              </Typography>
+              <Trans
+                i18nKey="websites.indexing.quota"
+                values={{
+                  submitted: status.submitted_today,
+                  cap: status.daily_cap,
+                  remaining: status.quota_remaining,
+                }}
+                components={{
+                  detail: <Typography component="span" variant="body2" color="text.secondary" />,
+                }}
+              />
             </Typography>
           </Box>
           <Button
@@ -205,35 +217,43 @@ const IndexingPanel = ({ website, onFeedback }) => {
             onClick={handleSubmitNow}
             disabled={submitting || !status.credentials_ok}
           >
-            {submitting ? "Queuing…" : "Sync sitemap & submit now"}
+            {submitting ? t("websites.indexing.queuing") : t("websites.indexing.submitNow")}
           </Button>
         </Stack>
 
         <Divider sx={{ my: 2 }} />
 
         <Typography variant="subtitle2" gutterBottom>
-          Queue
+          {t("websites.indexing.queue")}
         </Typography>
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Chip label={`${queue.pending || 0} pending`} size="small" />
-          <Chip label={`${queue.success || 0} indexed`} color="success" size="small" />
-          <Chip label={`${queue.failed || 0} failed`} color="error" size="small" />
+          <Chip label={t("websites.indexing.queuePending", { count: queue.pending || 0 })} size="small" />
+          <Chip
+            label={t("websites.indexing.queueIndexed", { count: queue.success || 0 })}
+            color="success"
+            size="small"
+          />
+          <Chip
+            label={t("websites.indexing.queueFailed", { count: queue.failed || 0 })}
+            color="error"
+            size="small"
+          />
         </Stack>
 
         <Stack direction="row" spacing={3} sx={{ mt: 1.5 }} flexWrap="wrap" useFlexGap>
           <Typography variant="caption" color="text.secondary">
-            Last sitemap sync: {formatTime(status.last_sitemap_sync)}
+            {t("websites.indexing.lastSitemapSync", { time: formatTime(status.last_sitemap_sync) })}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Last run: {formatTime(status.last_run_at)}
+            {t("websites.indexing.lastRun", { time: formatTime(status.last_run_at) })}
           </Typography>
         </Stack>
 
-        <Tooltip title="When on, a background job submits up to the daily quota for this site every day, newest pages first, until the sitemap is fully covered.">
+        <Tooltip title={t("websites.indexing.dripTooltip")}>
           <FormControlLabel
             sx={{ mt: 1 }}
             control={<Switch checked={!!status.enabled} onChange={handleToggleDrip} />}
-            label="Auto-submit daily (drip up to quota)"
+            label={t("websites.indexing.dripLabel")}
           />
         </Tooltip>
       </Paper>
@@ -242,7 +262,7 @@ const IndexingPanel = ({ website, onFeedback }) => {
       <Box>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
           <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
-            Submission log
+            {t("websites.indexing.logTitle")}
           </Typography>
           <FormControl size="small" sx={{ minWidth: 130 }}>
             <Select
@@ -250,13 +270,13 @@ const IndexingPanel = ({ website, onFeedback }) => {
               displayEmpty
               onChange={(e) => setStatusFilter(e.target.value)}
             >
-              <MenuItem value="">All statuses</MenuItem>
-              <MenuItem value="pending">Pending</MenuItem>
-              <MenuItem value="success">Indexed</MenuItem>
-              <MenuItem value="failed">Failed</MenuItem>
+              <MenuItem value="">{t("websites.indexing.filterAll")}</MenuItem>
+              <MenuItem value="pending">{t("websites.indexing.filterPending")}</MenuItem>
+              <MenuItem value="success">{t("websites.indexing.filterIndexed")}</MenuItem>
+              <MenuItem value="failed">{t("websites.indexing.filterFailed")}</MenuItem>
             </Select>
           </FormControl>
-          <Tooltip title="Refresh log">
+          <Tooltip title={t("websites.indexing.refreshLog")}>
             <span>
               <IconButton size="small" onClick={loadSubmissions} disabled={logLoading}>
                 <RefreshIcon fontSize="small" />
@@ -270,12 +290,12 @@ const IndexingPanel = ({ website, onFeedback }) => {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: "bold" }}>URL</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>{t("websites.indexing.columns.url")}</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>{t("websites.indexing.columns.status")}</TableCell>
                   <TableCell sx={{ fontWeight: "bold" }} align="right">
-                    HTTP
+                    {t("websites.indexing.columns.http")}
                   </TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Submitted</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>{t("websites.indexing.columns.submitted")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -288,14 +308,14 @@ const IndexingPanel = ({ website, onFeedback }) => {
                         sx={{ py: 2, textAlign: "center", fontStyle: "italic" }}
                       >
                         {logLoading
-                          ? "Loading…"
-                          : "No submissions yet. Sync the sitemap and submit to populate this log."}
+                          ? t("websites.indexing.loading")
+                          : t("websites.indexing.empty")}
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
                   submissions.map((row) => {
-                    const chip = STATUS_CHIP[row.status] || {
+                    const chip = statusChip()[row.status] || {
                       label: row.status,
                       color: "default",
                     };
@@ -309,7 +329,13 @@ const IndexingPanel = ({ website, onFeedback }) => {
                             whiteSpace: "nowrap",
                           }}
                         >
-                          <Tooltip title={row.error ? `${row.url}\n\nError: ${row.error}` : row.url}>
+                          <Tooltip
+                            title={
+                              row.error
+                                ? t("websites.indexing.urlError", { url: row.url, error: row.error })
+                                : row.url
+                            }
+                          >
                             <Typography variant="body2">{row.url}</Typography>
                           </Tooltip>
                         </TableCell>

@@ -1,0 +1,259 @@
+{
+  "rootFolderName": "Fichiers",
+  "pdfViewer": {
+    "openInNewTab": "Ouvrir dans un nouvel onglet",
+    "noFile": "Aucun fichier PDF sélectionné"
+  },
+  "docxViewer": {
+    "fetchFailed": "Échec de la récupération ({{status}})",
+    "renderFailed": "Impossible de générer le document",
+    "downloadOriginal": "Télécharger l'original"
+  },
+  "actions": {
+    "close": "Fermer",
+    "cancel": "Annuler"
+  },
+  "entityFiles": {
+    "regionLabel": "Fichiers pour ce {{kind}}",
+    "regionLabel_client": "Fichiers pour ce client",
+    "regionLabel_website": "Fichiers pour ce site Web",
+    "title": "Fichiers pour {{name}}",
+    "title_client": "Fichiers pour ce client",
+    "title_clientNamed": "Fichiers pour le client {{name}}",
+    "title_website": "Fichiers pour ce site Web",
+    "title_websiteNamed": "Fichiers pour le site Web {{name}}",
+    "loadFailed": "Impossible de charger les fichiers : {{error}}",
+    "empty": "Aucun fichier n'est lié à ce {{kind}}. Liez un fichier ou un dossier via ses Propriétés.",
+    "empty_client": "Aucun fichier n'est lié à ce client. Liez un fichier ou un dossier via ses Propriétés.",
+    "empty_website": "Aucun fichier n'est lié à ce site Web. Liez un fichier ou un dossier via ses Propriétés.",
+    "filesRoot": "Racine des fichiers"
+  },
+  "audioPlayer": {
+    "untitled": "audio",
+    "closeLabel": "fermer",
+    "seed": "graine : {{seed}}",
+    "openInNewTab": "Ouvrir dans un nouvel onglet"
+  },
+  "folderWindow": {
+    "listView": "Vue en liste",
+    "gridView": "Vue en grille",
+    "mediaView": "Vue Médias",
+    "codeRepoChip": "DÉPÔT CODE"
+  },
+  "contextMenu": {
+    "openInWindow": "Ouvrir dans une fenêtre",
+    "minimize": "Réduire",
+    "newFolder": "Nouveau dossier",
+    "importFiles": "Importer des fichiers",
+    "paste": "Coller",
+    "closeWindow": "Fermer la fenêtre",
+    "reviewWithAgent": "Réviser avec Agent",
+    "cut": "Couper",
+    "copy": "Copier",
+    "rename": "Renommer",
+    "properties": "Propriétés",
+    "bulkImportHere": "Importation groupée dans ce dossier…",
+    "indexContents": "Indexer le contenu",
+    "delete": "Supprimer",
+    "download": "Télécharger",
+    "edit": "Modifier",
+    "view": "Voir",
+    "openInCodeEditor": "Ouvrir dans l'Éditeur de code",
+    "index": "Indexer",
+    "open": "Ouvrir",
+    "restore": "Restaurer"
+  },
+  "codeRepo": {
+    "never": "Jamais",
+    "unknown": "Inconnu",
+    "buttonTooltip": "Intelligence du dépôt de code : langages, frameworks, carte du dépôt et dépendances",
+    "buttonLabel": "Intelligence du dépôt de code pour {{name}}",
+    "button": "INTEL",
+    "title": "Intelligence du dépôt de code",
+    "analyzed": "Analysé : {{date}}",
+    "languagesFrameworks": "Langages & Frameworks",
+    "analysisPending": "Analyse en attente",
+    "statistics": "Statistiques",
+    "fileCount_one": "{{count}} fichier",
+    "fileCount_other": "{{count}} fichiers",
+    "mappedFileCount_one": "{{count}} fichiers mappés",
+    "mappedFileCount_other": "{{count}} fichiers mappés",
+    "viewMap": "Voir la carte du dépôt",
+    "viewDependencies": "Voir les dépendances",
+    "mapTitle": "Carte du dépôt",
+    "noMap": "Aucune carte disponible.",
+    "graphTitle": "Graphique des dépendances"
+  },
+  "desktop": {
+    "loadFailed": "Échec du chargement des éléments du bureau",
+    "movedToFolder": "Déplacé {{count}} élément(s) vers {{folder}}",
+    "movedToDesktop": "Déplacé {{count}} élément(s) vers le bureau"
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "Les fichiers du dépôt en direct sont en lecture seule ici. Utilisez une modification de code auto-édition à la place.",
+    "saveFailed": "Échec de l'enregistrement : {{error}}",
+    "liveRepoReviewFirst": "Les fichiers du dépôt en direct sont en mode révision et ne peuvent pas être modifiés directement dans cette fenêtre.",
+    "discardConfirm": "Vous avez des modifications non enregistrées. Les ignorer ?",
+    "liveRepoChip": "Dépôt en direct · lecture seule",
+    "modified": "Modifié",
+    "viewMode": "Mode vue",
+    "editMode": "Mode édition",
+    "openInCodeEditor": "Ouvrir dans l'Éditeur de code",
+    "copy": "Copier dans le presse-papiers",
+    "saving": "Enregistrement...",
+    "save": "Enregistrer"
+  },
+  "folder": {
+    "empty": "Ce dossier est vide",
+    "loadFailed": "Échec du chargement du contenu du dossier",
+    "columnName": "Nom",
+    "columnDate": "Date",
+    "columnSize": "Taille",
+    "codeRepository": "Dépôt de code",
+    "itemCount_one": "{{count}} élément(s)",
+    "itemCount_other": "{{count}} éléments"
+  },
+  "mediaView": {
+    "selectFile": "Sélectionner un fichier",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "open": "Ouvrir",
+    "download": "Télécharger",
+    "closePreview": "Fermer l'aperçu"
+  },
+  "indexStatus": {
+    "indexed": "Indexé",
+    "indexing": "Indexation...",
+    "pending": "En attente",
+    "error": "Erreur",
+    "folderFull": "Entièrement indexé ({{indexed}}/{{total}})",
+    "folderPartial": "Partiellement indexé ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "Le nom du dossier ne peut pas être vide",
+    "emptyFileName": "Le nom du fichier ne peut pas être vide",
+    "invalidFolderName": "Le nom du dossier contient des caractères invalides. Veuillez utiliser uniquement des lettres, des chiffres, des espaces, des tirets et des underscores.",
+    "invalidFileName": "Le nom du fichier contient des caractères invalides. Veuillez utiliser uniquement des lettres, des chiffres, des espaces, des tirets, des underscores et des points.",
+    "invalidName": "Le nom contient des caractères invalides. Veuillez utiliser uniquement des lettres, des chiffres, des espaces, des tirets et des underscores.",
+    "folderNameTooLong": "Le nom du dossier est trop long. Longueur maximale de {{max}} caractères.",
+    "fileNameTooLong": "Le nom du fichier est trop long. Longueur maximale de {{max}} caractères."
+  },
+  "indexing": {
+    "nothing": "Rien à indexer",
+    "alreadyIndexedOne": "Déjà indexé ; le fichier n'a pas changé",
+    "alreadyIndexedAll_one": "Tout est déjà indexé ({{count}} fichiers inchangés)",
+    "alreadyIndexedAll_other": "Tout est déjà indexé ({{count}} fichiers inchangés)",
+    "documentCount_one": "{{count}} document",
+    "documentCount_other": "{{count}} documents",
+    "folderCount_one": "{{count}} dossier",
+    "folderCount_other": "{{count}} dossiers",
+    "startedFromFoldersSkipped": "Indexation de {{documents}} depuis {{folders}}, {{skipped}} déjà indexés",
+    "startedFromFolders": "Indexation de {{documents}} depuis {{folders}}",
+    "startedSkipped": "Indexation de {{documents}}, {{skipped}} déjà indexés",
+    "started": "Indexation de {{documents}}",
+    "startFailed": "Échec du déclenchement de l'indexation",
+    "failed": "Échec de l'indexation : {{error}}"
+  },
+  "page": {
+    "refreshFailed": "Échec de l'actualisation",
+    "downloading": "Téléchargement de {{name}}",
+    "title": "Fichiers",
+    "loadingFolders": "Chargement des dossiers...",
+    "importFiles": "Importer des fichiers",
+    "arrangeIcons": "Organiser les icônes",
+    "arrangeWindows": "Organiser les fenêtres",
+    "modelLoading": "Chargement...",
+    "modelError": "Erreur",
+    "emptyTitle": "Aucun document pour le moment",
+    "emptyHint": "Faites glisser les fichiers ici ou faites un clic droit pour créer un dossier",
+    "folderItemCount_one": "{{count}} élément",
+    "folderItemCount_other": "{{count}} éléments",
+    "uploadProgress_one": "Téléchargement de {{current}}/{{count}} fichier...",
+    "uploadProgress_other": "Téléchargement de {{current}}/{{count}} fichiers..."
+  },
+  "import": {
+    "nothingToImport": "Rien à importer : {{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "échec du téléchargement",
+    "importedSkipped": "Importation de {{count}} fichier(s) dans {{folder}} ; {{skipped}} ignoré(s)",
+    "imported": "Importation de {{count}} fichier(s) dans {{folder}}",
+    "importedPartlySkipped": "Importation de {{count}} fichier(s) dans {{folder}} ; {{failed}} échoué(s) ({{error}}) ; {{skipped}} ignoré(s)",
+    "importedPartly": "Importation de {{count}} fichier(s) dans {{folder}} ; {{failed}} échoué(s) ({{error}})",
+    "failed": "Échec de l'importation : {{error}}",
+    "importedFiltered": "Importation de {{count}} fichier(s) dans {{folder}} ({{ignored}} ignoré(s) par le filtre)",
+    "failedPlain": "Échec de l'importation"
+  },
+  "move": {
+    "intoOwnSubfolder": "Impossible de déplacer \"{{name}}\" dans son propre sous-dossier",
+    "unknownError": "Erreur inconnue",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "Déplacement de {{count}} élément(s)",
+    "failed": "Échec du déplacement des éléments",
+    "movedPartly": "Déplacement de {{count}} élément(s), {{failed}} échoué(s)",
+    "dropFailed": "Échec du traitement du dépôt",
+    "operationFailed": "Échec de l'opération : {{error}}"
+  },
+  "newFolder": {
+    "created": "Dossier \"{{name}}\" créé",
+    "failed": "Échec de la création du dossier",
+    "title": "Créer un nouveau dossier",
+    "nameLabel": "Nom du dossier",
+    "create": "Créer"
+  },
+  "clipboard": {
+    "copied": "Copie de {{count}} élément(s)",
+    "cut": "Coupe de {{count}} élément(s)",
+    "foldersNotPastable": "Les dossiers ne peuvent pas être collés dans {{folder}}",
+    "liveRepoReadOnly": "Les éléments dans le répertoire en direct sont en lecture seule ici",
+    "itemFailed": "échec",
+    "pasted": "Colle {{count}} élément(s) dans {{folder}}",
+    "moved": "Déplacé {{count}} élément(s) vers {{folder}}",
+    "pastedPartly": "Colle {{count}} élément(s) dans {{folder}} ; {{failed}} échec : {{error}}",
+    "movedPartly": "Déplacé {{count}} élément(s) vers {{folder}} ; {{failed}} échec : {{error}}",
+    "pasteFailed": "Échec du collage : {{error}}",
+    "moveFailed": "Échec du déplacement : {{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "Le montage du code en direct est en lecture seule",
+    "deleted": "Supprimé {{count}} élément(s)",
+    "someFailed": "Certaines suppressions ont pu échouer — actualisation de l'état",
+    "confirmTitle": "Confirmer la suppression",
+    "confirmBody_one": "Supprimer {{count}} élément ? Cette action ne peut pas être annulée.",
+    "confirmBody_other": "Supprimer {{count}} éléments ? Cette action ne peut pas être annulée.",
+    "confirm": "Supprimer"
+  },
+  "properties": {
+    "fileNotFound": "Fichier non trouvé",
+    "loadFailed": "Échec du chargement des détails du fichier",
+    "fileUpdated": "Propriétés du fichier mises à jour avec succès",
+    "fileUpdateFailed": "Échec de la mise à jour des propriétés du fichier",
+    "updateFailed": "Échec de la mise à jour : {{error}}",
+    "fileDeleted": "Fichier supprimé avec succès",
+    "fileDeleteFailed": "Échec de la suppression du fichier",
+    "deleteFailed": "Échec de la suppression : {{error}}",
+    "reindexStarted": "Réindexation lancée avec succès. Le statut sera mis à jour sous peu.",
+    "reindexStartFailed": "Échec du lancement de la réindexation",
+    "reindexFailed": "Indexation échouée : {{error}}",
+    "folderApplied": "Propriétés appliquées avec succès ! Fichiers mis à jour : {{files}}, Sous-dossiers traités : {{folders}}",
+    "folderUpdated": "Propriétés du dossier mises à jour avec succès",
+    "folderUpdateFailed": "Échec de la mise à jour des propriétés du dossier",
+    "folderDeleted": "Dossier supprimé"
+  },
+  "rename": {
+    "folderRenamed": "Dossier renommé en \"{{name}}\"",
+    "fileRenamed": "Fichier renommé en \"{{name}}\"",
+    "failedReason": "Échec du renommage : {{reason}}",
+    "failed": "Échec du renommage",
+    "folderTitle": "Renommer le dossier",
+    "fileTitle": "Renommer le fichier",
+    "fileNameLabel": "Nom du fichier",
+    "fileHint": "Modifie le nom affiché dans Guaardvark ; le fichier sur le disque conserve son nom.",
+    "submit": "Renommer"
+  },
+  "review": {
+    "liveRepoOnly": "La révision de code est uniquement disponible pour le montage du dépôt en direct",
+    "dispatchedTask": "Révision de code envoyée ({{taskId}})",
+    "dispatched": "Révision de code envoyée",
+    "failed": "Échec de l'envoi de la révision de code"
+  }
+}

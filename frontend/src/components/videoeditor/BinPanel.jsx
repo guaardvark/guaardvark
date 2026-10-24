@@ -7,6 +7,7 @@ import { Box, Stack, Typography, LinearProgress, Alert } from "@mui/material";
 import { VideoLibrary as VideoIcon, FolderOpen as OpenFolderIcon } from "@mui/icons-material";
 import BinClipTile from "./BinClipTile";
 import { useExternalDrop } from "./useExternalDrop";
+import { useUiTranslation } from "../../i18n";
 
 const BinPanel = ({
   binClips,
@@ -18,6 +19,7 @@ const BinPanel = ({
   warningsByClipId = {},  // {clipId: warning text}
   planDecorationsByClipId = {},
 }) => {
+  const { t } = useUiTranslation();
   // OS file drop: upload → Document → bin tile.
   const { onDrop, onDragOver, uploading, progress, error } = useExternalDrop({
     onUploaded: (docs) => {
@@ -62,8 +64,8 @@ const BinPanel = ({
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1, py: 0.75, borderBottom: 1, borderColor: "divider" }}>
         <VideoIcon fontSize="small" />
-        <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>Project Bin</Typography>
-        <Typography variant="caption" color="text.secondary">{binClips.length} clip{binClips.length !== 1 ? "s" : ""}</Typography>
+        <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>{t("videoEditor.bin.title")}</Typography>
+        <Typography variant="caption" color="text.secondary">{t("videoEditor.bin.clipCount", { count: binClips.length })}</Typography>
       </Stack>
 
       <Box
@@ -82,7 +84,7 @@ const BinPanel = ({
       >
         {uploading && (
           <Box sx={{ mb: 1 }}>
-            <Typography variant="caption">Uploading...</Typography>
+            <Typography variant="caption">{t("videoEditor.bin.uploading")}</Typography>
             <LinearProgress variant="determinate" value={progress} />
           </Box>
         )}
@@ -90,7 +92,7 @@ const BinPanel = ({
         {binClips.length === 0 ? (
           <Stack alignItems="center" justifyContent="center" sx={{ height: "100%", color: "text.secondary" }}>
             <OpenFolderIcon sx={{ fontSize: 40, opacity: 0.4 }} />
-            <Typography variant="caption">Drag clips from the Library or your file browser</Typography>
+            <Typography variant="caption">{t("videoEditor.bin.empty")}</Typography>
           </Stack>
         ) : (
           <Stack spacing={1}>

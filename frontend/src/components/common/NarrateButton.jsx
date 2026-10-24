@@ -19,8 +19,10 @@ import DownloadIcon from '@mui/icons-material/Download';
 import CloseIcon from '@mui/icons-material/Close';
 import voiceService from '../../api/voiceService';
 import { BASE_URL } from '../../api/apiClient';
+import { useUiTranslation } from '../../i18n';
 
 export default function NarrateButton({ text, voice, size = 'small', variant = 'icon', showEngineToggle = true }) {
+  const { t } = useUiTranslation();
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -46,7 +48,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
       const data = await voiceService.narrate(text, options);
       setResult(data);
     } catch (err) {
-      setError(err.message || 'Narration failed');
+      setError(err.message || t('layoutCommon.narrate.failed'));
     } finally {
       setLoading(false);
     }
@@ -64,7 +66,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
   const engineToggle = showEngineToggle ? (
     <Box sx={{ display: 'inline-flex', gap: 0.5, ml: 0.5 }}>
       <Chip
-        label="Fast"
+        label={t('layoutCommon.narrate.fast')}
         size="small"
         variant={!isExpressive ? 'filled' : 'outlined'}
         color={!isExpressive ? 'primary' : 'default'}
@@ -72,7 +74,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
         sx={{ height: 20, fontSize: '0.65rem', cursor: loading ? 'default' : 'pointer' }}
       />
       <Chip
-        label="Expressive"
+        label={t('layoutCommon.narrate.expressive')}
         size="small"
         variant={isExpressive ? 'filled' : 'outlined'}
         color={isExpressive ? 'secondary' : 'default'}
@@ -87,7 +89,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
         <audio ref={audioRef} controls src={audioSrc} style={{ height: 32, maxWidth: 260 }} />
-        <Tooltip title="Download narration">
+        <Tooltip title={t('layoutCommon.narrate.download')}>
           <IconButton
             size="small"
             component={Link}
@@ -97,13 +99,13 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
             <DownloadIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Close">
+        <Tooltip title={t('common.close')}>
           <IconButton size="small" onClick={handleClose}>
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
         <Typography variant="caption" color="text.secondary">
-          {result.duration_seconds}s · {result.sections} section{result.sections !== 1 ? 's' : ''}
+          {t('layoutCommon.narrate.summary', { seconds: result.duration_seconds, count: result.sections })}
           {result.engine && result.engine !== 'piper-tts' ? ` · ${result.engine}` : ''}
         </Typography>
       </Box>
@@ -121,7 +123,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
     );
   }
 
-  const loadingText = isExpressive ? 'Generating (slow)...' : 'Narrating...';
+  const loadingText = isExpressive ? t('layoutCommon.narrate.generatingSlow') : t('layoutCommon.narrate.narrating');
 
   if (variant === 'button') {
     return (
@@ -133,7 +135,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
           disabled={loading || !text}
           sx={{ textTransform: 'none' }}
         >
-          {loading ? loadingText : 'Narrate'}
+          {loading ? loadingText : t('layoutCommon.narrate.narrate')}
         </Button>
         {engineToggle}
       </Box>
@@ -142,7 +144,7 @@ export default function NarrateButton({ text, voice, size = 'small', variant = '
 
   return (
     <Box sx={{ display: 'inline-flex', alignItems: 'center' }}>
-      <Tooltip title={loading ? (isExpressive ? 'Expressive TTS generating (10-30s)...' : 'Generating narration...') : 'Narrate this text'}>
+      <Tooltip title={loading ? (isExpressive ? t('layoutCommon.narrate.expressiveGenerating') : t('layoutCommon.narrate.generating')) : t('layoutCommon.narrate.narrateText')}>
         <span>
           <IconButton size={size} onClick={handleNarrate} disabled={loading || !text}>
             {loading ? <CircularProgress size={18} /> : <RecordVoiceOverIcon fontSize="small" />}

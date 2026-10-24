@@ -24,8 +24,21 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { executePlan, getPlanStatus } from '../../api/orchestratorService';
+import { translate, useUiTranslation } from '../../i18n';
+
+// Step and plan statuses as shown; the values from the API stay the ones compared.
+const statusLabel = (status) =>
+    ({
+        pending: translate('agents.plan.status.pending'),
+        running: translate('agents.plan.status.running'),
+        completed: translate('agents.plan.status.completed'),
+        failed: translate('agents.plan.status.failed'),
+        planning: translate('agents.plan.status.planning'),
+        executing: translate('agents.plan.status.executing'),
+    })[status] ?? status;
 
 const StepItem = ({ step, embedded }) => {
+    const { t } = useUiTranslation();
     const [expanded, setExpanded] = useState(false);
 
     const getStatusIcon = (status) => {
@@ -58,7 +71,7 @@ const StepItem = ({ step, embedded }) => {
                     primary={
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start" gap={1}>
                             <Typography variant={embedded ? 'caption' : 'subtitle1'} sx={{ fontWeight: embedded ? 600 : undefined }}>
-                                Step {step.id}: {step.description}
+                                {t('agents.plan.step', { id: step.id, description: step.description })}
                             </Typography>
                             <Chip
                                 label={step.assigned_agent}
@@ -72,7 +85,7 @@ const StepItem = ({ step, embedded }) => {
                     secondary={
                         <React.Fragment>
                             <Typography component="span" variant="caption" color="text.secondary">
-                                Status: {step.status}
+                                {t('agents.plan.stepStatus', { status: statusLabel(step.status) })}
                             </Typography>
                             {step.result && (
                                 <Button
@@ -81,12 +94,12 @@ const StepItem = ({ step, embedded }) => {
                                     endIcon={expanded ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
                                     sx={{ ml: 1, minWidth: 0, fontSize: embedded ? '0.65rem' : undefined }}
                                 >
-                                    View Result
+                                    {t('agents.plan.viewResult')}
                                 </Button>
                             )}
                             {step.error && (
                                 <Typography color="error" variant="caption" sx={{ mt: 0.5, display: 'block' }}>
-                                    Error: {step.error}
+                                    {t('agents.plan.stepError', { error: step.error })}
                                 </Typography>
                             )}
                         </React.Fragment>
@@ -119,6 +132,7 @@ StepItem.propTypes = {
 };
 
 const OrchestratorPlanView = ({ plan, planId, onExecutionComplete, embedded = false }) => {
+    const { t } = useUiTranslation();
     const [currentPlan, setCurrentPlan] = useState(plan);
     const [executing, setExecuting] = useState(false);
     const [expanded, setExpanded] = useState(
@@ -241,12 +255,12 @@ const OrchestratorPlanView = ({ plan, planId, onExecutionComplete, embedded = fa
                         flex: 1,
                     }}
                 >
-                    Orchestration plan — {stepCount} step{stepCount === 1 ? "" : "s"}
+                    {t('agents.plan.heading', { count: stepCount })}
                 </Typography>
 
                 <Box display="flex" alignItems="center" gap={embedded ? 0.5 : 1.5}>
                     <Chip
-                        label={currentPlan.status}
+                        label={statusLabel(currentPlan.status)}
                         size="small"
                         color={
                             currentPlan.status === 'completed' ? 'success' :
@@ -293,7 +307,7 @@ const OrchestratorPlanView = ({ plan, planId, onExecutionComplete, embedded = fa
                                 }}
                                 disabled={executing}
                             >
-                                {executing ? 'Executing...' : 'Execute Plan'}
+                                {executing ? t('agents.plan.executing') : t('agents.plan.execute')}
                             </Button>
                         </Box>
                     )}

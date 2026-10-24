@@ -50,13 +50,29 @@ import DOMPurify from "dompurify";
 import { ContextualLoader } from "../components/common/LoadingStates";
 import EntityContextMenu from "../components/common/EntityContextMenu";
 import useContextMenu from "../hooks/useContextMenu";
+import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
+const processStatusLabels = () => ({
+  completed: translate("wordpress.pages.processStatus.completed"),
+  processing: translate("wordpress.pages.processStatus.processing"),
+  pending: translate("wordpress.pages.processStatus.pending"),
+  approved: translate("wordpress.pages.processStatus.approved"),
+  rejected: translate("wordpress.pages.processStatus.rejected"),
+});
+
+const pullStatusLabels = () => ({
+  pulled: translate("wordpress.pages.pullStatus.pulled"),
+  error: translate("wordpress.pages.pullStatus.error"),
+  pending: translate("wordpress.pages.pullStatus.pending"),
+});
+
 const ProcessStatusChip = ({ status }) => {
-  if (!status) return <Chip label="Pending" size="small" color="default" />;
+  const { t } = useUiTranslation();
+  if (!status) return <Chip label={t("wordpress.pages.processStatus.none")} size="small" color="default" />;
   const normalized = status.toLowerCase();
   let color = "default";
   let icon = null;
@@ -86,7 +102,7 @@ const ProcessStatusChip = ({ status }) => {
   }
   return (
     <Chip
-      label={status}
+      label={processStatusLabels()[status] || status}
       color={color}
       size="small"
       icon={icon}
@@ -96,6 +112,7 @@ const ProcessStatusChip = ({ status }) => {
 };
 
 const PullStatusChip = ({ status }) => {
+  useUiTranslation();
   if (!status) return null;
   const normalized = status.toLowerCase();
   let color = "default";
@@ -113,11 +130,17 @@ const PullStatusChip = ({ status }) => {
       color = "default";
   }
   return (
-    <Chip label={status} color={color} size="small" sx={{ textTransform: "capitalize" }} />
+    <Chip
+      label={pullStatusLabels()[status] || status}
+      color={color}
+      size="small"
+      sx={{ textTransform: "capitalize" }}
+    />
   );
 };
 
 function WordPressPagesPage() {
+  const { t } = useUiTranslation();
   const [pages, setPages] = useState([]);
   const [sites, setSites] = useState([]);
   const [searchParams] = useSearchParams();
@@ -208,14 +231,14 @@ function WordPressPagesPage() {
       if (response.success && response.data) {
         setPages(response.data.pages || []);
       } else {
-        throw new Error(response.error || "Failed to fetch pages");
+        throw new Error(response.error || t("wordpress.pages.fetchFailed"));
       }
     } catch (err) {
       console.error("Error fetching WordPress pages:", err);
-      setError(err.message || "Failed to load pages");
+      setError(err.message || t("wordpress.pages.loadFailed"));
       setFeedback({
         open: true,
-        message: err.message || "Failed to load pages",
+        message: err.message || t("wordpress.pages.loadFailed"),
         severity: "error",
       });
     } finally {
@@ -260,7 +283,7 @@ function WordPressPagesPage() {
       if (response.success) {
         setFeedback({
           open: true,
-          message: `Pulled ${response.data.total_pulled || 0} pages`,
+          message: t("wordpress.pages.pulled", { count: response.data.total_pulled || 0 }),
           severity: "success",
         });
         // Refresh pages after successful pull
@@ -269,12 +292,12 @@ function WordPressPagesPage() {
         }, 500);
         timeoutRefs.current.push(timeoutId);
       } else {
-        throw new Error(response.error || "Failed to pull pages");
+        throw new Error(response.error || t("wordpress.pages.pullFailed"));
       }
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.message || "Failed to pull pages",
+        message: err.message || t("wordpress.pages.pullFailed"),
         severity: "error",
       });
     } finally {
@@ -290,7 +313,7 @@ function WordPressPagesPage() {
       if (response.success) {
         setFeedback({
           open: true,
-          message: `Page processing started. This may take a few moments. Refresh to see results.`,
+          message: t("wordpress.pages.processStarted"),
           severity: "success",
         });
         // Refresh pages after a delay to show updated status
@@ -299,12 +322,12 @@ function WordPressPagesPage() {
         }, 2000);
         timeoutRefs.current.push(timeoutId);
       } else {
-        throw new Error(response.error || "Failed to process page");
+        throw new Error(response.error || t("wordpress.pages.processFailed"));
       }
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.message || "Failed to process page",
+        message: err.message || t("wordpress.pages.processFailed"),
         severity: "error",
       });
     } finally {
@@ -323,7 +346,7 @@ function WordPressPagesPage() {
     if (pendingPages.length === 0) {
       setFeedback({
         open: true,
-        message: "No pages pending processing",
+        message: t("wordpress.pages.nonePending"),
         severity: "info",
       });
       return;
@@ -338,7 +361,7 @@ function WordPressPagesPage() {
       if (response.success) {
         setFeedback({
           open: true,
-          message: `Queued ${response.data?.queued || pendingPages.length} pages for processing`,
+          message: t("wordpress.pages.queued", { count: response.data?.queued || pendingPages.length }),
           severity: "success",
         });
         // Refresh pages after queueing
@@ -347,12 +370,12 @@ function WordPressPagesPage() {
         }, 500);
         timeoutRefs.current.push(timeoutId);
       } else {
-        throw new Error(response.error || "Failed to queue pages");
+        throw new Error(response.error || t("wordpress.pages.queueFailed"));
       }
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.message || "Failed to queue pages",
+        message: err.message || t("wordpress.pages.queueFailed"),
         severity: "error",
       });
     } finally {
@@ -374,7 +397,7 @@ function WordPressPagesPage() {
         const total = response.data?.total ?? 0;
         setFeedback({
           open: true,
-          message: `Processed ${succeeded}/${total} pages`,
+          message: t("wordpress.pages.processed", { succeeded, total }),
           severity: "success",
         });
         const timeoutId = setTimeout(() => {
@@ -382,12 +405,12 @@ function WordPressPagesPage() {
         }, 2000);
         timeoutRefs.current.push(timeoutId);
       } else {
-        throw new Error(response.error || "Failed to execute queue");
+        throw new Error(response.error || t("wordpress.pages.executeFailed"));
       }
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.message || "Failed to execute queue",
+        message: err.message || t("wordpress.pages.executeFailed"),
         severity: "error",
       });
     } finally {
@@ -439,7 +462,7 @@ function WordPressPagesPage() {
 
   return (
     <PageLayout
-      title="WordPress Pages"
+      title={t("wordpress.pages.title")}
       variant="standard"
       actions={
         selectedSite && (
@@ -451,7 +474,7 @@ function WordPressPagesPage() {
               disabled={isPulling}
               size="small"
             >
-              Pull Pages
+              {t("wordpress.pages.pullPages")}
             </Button>
             <Button
               variant="outlined"
@@ -460,7 +483,7 @@ function WordPressPagesPage() {
               disabled={isProcessing || pendingCount === 0}
               size="small"
             >
-              Queue Processing ({pendingCount})
+              {t("wordpress.pages.queueProcessing", { count: pendingCount })}
             </Button>
             <Button
               variant="contained"
@@ -469,7 +492,7 @@ function WordPressPagesPage() {
               disabled={isProcessing || pendingCount === 0}
               size="small"
             >
-              Process Queue
+              {t("wordpress.pages.processQueue")}
             </Button>
           </Stack>
         )
@@ -478,10 +501,10 @@ function WordPressPagesPage() {
       {/* Site Selector */}
       <Box sx={{ mb: 3 }}>
         <FormControl fullWidth sx={{ maxWidth: 400 }}>
-          <InputLabel>WordPress Site</InputLabel>
+          <InputLabel>{t("wordpress.pages.site")}</InputLabel>
           <Select
             value={selectedSite || ""}
-            label="WordPress Site"
+            label={t("wordpress.pages.site")}
             onChange={(e) => {
               const value = e.target.value;
               const siteId = value ? parseInt(value, 10) : null;
@@ -502,56 +525,64 @@ function WordPressPagesPage() {
       {/* Filters */}
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Pull Status</InputLabel>
+          <InputLabel>{t("wordpress.pages.pullStatusLabel")}</InputLabel>
           <Select
             value={filterStatus}
-            label="Pull Status"
+            label={t("wordpress.pages.pullStatusLabel")}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="pulled">Pulled</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="error">Error</MenuItem>
+            <MenuItem value="all">{t("wordpress.pages.filters.all")}</MenuItem>
+            <MenuItem value="pulled">{t("wordpress.pages.filters.pulled")}</MenuItem>
+            <MenuItem value="pending">{t("wordpress.pages.filters.pending")}</MenuItem>
+            <MenuItem value="error">{t("wordpress.pages.filters.error")}</MenuItem>
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 150 }}>
-          <InputLabel>Process Status</InputLabel>
+          <InputLabel>{t("wordpress.pages.processStatusLabel")}</InputLabel>
           <Select
             value={filterProcessStatus}
-            label="Process Status"
+            label={t("wordpress.pages.processStatusLabel")}
             onChange={(e) => setFilterProcessStatus(e.target.value)}
           >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="pending">Pending</MenuItem>
-            <MenuItem value="processing">Processing</MenuItem>
-            <MenuItem value="completed">Completed</MenuItem>
-            <MenuItem value="approved">Approved</MenuItem>
+            <MenuItem value="all">{t("wordpress.pages.filters.all")}</MenuItem>
+            <MenuItem value="pending">{t("wordpress.pages.filters.pending")}</MenuItem>
+            <MenuItem value="processing">{t("wordpress.pages.filters.processing")}</MenuItem>
+            <MenuItem value="completed">{t("wordpress.pages.filters.completed")}</MenuItem>
+            <MenuItem value="approved">{t("wordpress.pages.filters.approved")}</MenuItem>
           </Select>
         </FormControl>
       </Stack>
 
       {/* Stats */}
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-        <Chip label={`Total: ${pages.length}`} variant="outlined" />
-        <Chip label={`Pending: ${pendingCount}`} color="warning" variant="outlined" />
-        <Chip label={`Completed: ${completedCount}`} color="success" variant="outlined" />
+        <Chip label={t("wordpress.pages.statTotal", { count: pages.length })} variant="outlined" />
+        <Chip
+          label={t("wordpress.pages.statPending", { count: pendingCount })}
+          color="warning"
+          variant="outlined"
+        />
+        <Chip
+          label={t("wordpress.pages.statCompleted", { count: completedCount })}
+          color="success"
+          variant="outlined"
+        />
       </Stack>
 
       {isLoading ? (
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-          <ContextualLoader loading message="Loading pages..." showProgress={false} inline />
+          <ContextualLoader loading message={t("wordpress.pages.loading")} showProgress={false} inline />
         </Box>
       ) : (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Title</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Pull Status</TableCell>
-                <TableCell>Process Status</TableCell>
-                <TableCell>Has Improvements</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t("wordpress.pages.columns.title")}</TableCell>
+                <TableCell>{t("wordpress.pages.columns.type")}</TableCell>
+                <TableCell>{t("wordpress.pages.columns.pullStatus")}</TableCell>
+                <TableCell>{t("wordpress.pages.columns.processStatus")}</TableCell>
+                <TableCell>{t("wordpress.pages.columns.hasImprovements")}</TableCell>
+                <TableCell align="right">{t("wordpress.pages.columns.actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -565,7 +596,7 @@ function WordPressPagesPage() {
                 >
                   <TableCell>
                     <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {page.title || "Untitled"}
+                      {page.title || t("wordpress.pages.untitled")}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {page.slug}
@@ -580,20 +611,20 @@ function WordPressPagesPage() {
                   </TableCell>
                   <TableCell>
                     {page.improved_title || page.improved_content ? (
-                      <Chip label="Yes" color="success" size="small" />
+                      <Chip label={t("wordpress.pages.yes")} color="success" size="small" />
                     ) : (
-                      <Chip label="No" size="small" />
+                      <Chip label={t("wordpress.pages.no")} size="small" />
                     )}
                   </TableCell>
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Tooltip title="View Details">
+                      <Tooltip title={t("wordpress.pages.viewDetails")}>
                         <IconButton size="small" onClick={() => handleViewDiff(page)}>
                           <VisibilityIcon />
                         </IconButton>
                       </Tooltip>
                       {page.pull_status === "pulled" && page.process_status === "pending" && (
-                        <Tooltip title="Process Now">
+                        <Tooltip title={t("wordpress.pages.processNow")}>
                           <span>
                             <IconButton
                               size="small"
@@ -620,15 +651,19 @@ function WordPressPagesPage() {
         actions={
           pageMenu.payload
             ? [
-                { label: "View Details", onClick: () => handleViewDiff(pageMenu.payload) },
+                { label: t("wordpress.pages.menu.viewDetails"), onClick: () => handleViewDiff(pageMenu.payload) },
                 pageMenu.payload.pull_status === "pulled" &&
                   pageMenu.payload.process_status === "pending" && {
-                    label: "Process Now",
+                    label: t("wordpress.pages.menu.processNow"),
                     onClick: () => handleProcessPage(pageMenu.payload.id),
                     disabled: isProcessing,
                   },
-                { label: "Refresh", onClick: fetchPages, dividerBefore: true },
-                { label: "Pull Pages…", onClick: () => setPullDialogOpen(true), disabled: isPulling },
+                { label: t("wordpress.pages.menu.refresh"), onClick: fetchPages, dividerBefore: true },
+                {
+                  label: t("wordpress.pages.menu.pullPages"),
+                  onClick: () => setPullDialogOpen(true),
+                  disabled: isPulling,
+                },
               ]
             : []
         }
@@ -637,16 +672,16 @@ function WordPressPagesPage() {
       {pages.length === 0 && !isLoading && (
         <Box sx={{ textAlign: "center", py: 8 }}>
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No pages found
+            {t("wordpress.pages.emptyTitle")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {selectedSite
-              ? "Pull pages from WordPress to get started"
-              : "Select a WordPress site to view pages"}
+              ? t("wordpress.pages.emptyPull")
+              : t("wordpress.pages.emptySelect")}
           </Typography>
           {selectedSite && (
             <Button variant="contained" startIcon={<DownloadIcon />} onClick={() => setPullDialogOpen(true)}>
-              Pull Pages
+              {t("wordpress.pages.pullPages")}
             </Button>
           )}
         </Box>
@@ -663,26 +698,26 @@ function WordPressPagesPage() {
         maxWidth="sm" 
         fullWidth
       >
-        <DialogTitle>Pull Pages from WordPress</DialogTitle>
+        <DialogTitle>{t("wordpress.pages.pullTitle")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <FormControl fullWidth>
-              <InputLabel>Post Type</InputLabel>
+              <InputLabel>{t("wordpress.pages.postType")}</InputLabel>
               <Select
                 value={pullOptions.post_type}
-                label="Post Type"
+                label={t("wordpress.pages.postType")}
                 onChange={(e) =>
                   setPullOptions({ ...pullOptions, post_type: e.target.value })
                 }
               >
-                <MenuItem value="post">Posts</MenuItem>
-                <MenuItem value="page">Pages</MenuItem>
+                <MenuItem value="post">{t("wordpress.pages.postTypePosts")}</MenuItem>
+                <MenuItem value="page">{t("wordpress.pages.postTypePages")}</MenuItem>
               </Select>
             </FormControl>
             <TextField
               fullWidth
               type="number"
-              label="Max Pages (Optional)"
+              label={t("wordpress.pages.maxPages")}
             value={pullOptions.max_pages || ""}
             onChange={(e) => {
               const value = e.target.value;
@@ -691,16 +726,16 @@ function WordPressPagesPage() {
                 max_pages: value ? (parseInt(value, 10) || null) : null,
               });
             }}
-            helperText="Leave empty to pull all pages"
+            helperText={t("wordpress.pages.maxPagesHelp")}
             inputProps={{ min: 1 }}
             />
             {isPulling && <LinearProgress />}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPullDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setPullDialogOpen(false)}>{t("wordpress.pages.cancel")}</Button>
           <Button variant="contained" onClick={handlePull} disabled={isPulling}>
-            {isPulling ? "Pulling..." : "Pull Pages"}
+            {isPulling ? t("wordpress.pages.pulling") : t("wordpress.pages.pullPages")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -708,7 +743,7 @@ function WordPressPagesPage() {
       {/* Diff View Dialog */}
       <Dialog open={diffDialogOpen} onClose={() => setDiffDialogOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
-          <Typography variant="h6">Page Content Details</Typography>
+          <Typography variant="h6">{t("wordpress.pages.detailsTitle")}</Typography>
           <Typography variant="caption" color="text.secondary">
             {selectedPage?.title}
           </Typography>
@@ -718,7 +753,7 @@ function WordPressPagesPage() {
               <PullStatusChip status={selectedPage.pull_status} />
               {selectedPage.process_status === "processing" && (
                 <Chip 
-                  label="Processing in progress..." 
+                  label={t("wordpress.pages.processingInProgress")}
                   color="warning" 
                   size="small" 
                   icon={<CircularProgress size={16} />}
@@ -731,25 +766,25 @@ function WordPressPagesPage() {
           {selectedPage && (
             <Box sx={{ mt: 2 }}>
               <Tabs value={diffTab} onChange={(e, newValue) => setDiffTab(newValue)}>
-                <Tab label="Title" />
-                <Tab label="Content" />
-                <Tab label="Excerpt" />
-                <Tab label="SEO" />
-                <Tab label="Metadata" />
+                <Tab label={t("wordpress.pages.tabs.title")} />
+                <Tab label={t("wordpress.pages.tabs.content")} />
+                <Tab label={t("wordpress.pages.tabs.excerpt")} />
+                <Tab label={t("wordpress.pages.tabs.seo")} />
+                <Tab label={t("wordpress.pages.tabs.metadata")} />
               </Tabs>
               <Box sx={{ mt: 2, maxHeight: 500, overflow: "auto" }}>
                 {diffTab === 0 && (
                   <>
                     <Typography variant="subtitle2" gutterBottom>
-                      Original Title
+                      {t("wordpress.pages.originalTitle")}
                     </Typography>
                     <Paper sx={{ p: 2, mb: 2 }}>
-                      {selectedPage.title || "N/A"}
+                      {selectedPage.title || t("wordpress.pages.notAvailable")}
                     </Paper>
                     {selectedPage.improved_title ? (
                       <>
                         <Typography variant="subtitle2" gutterBottom>
-                          Improved Title
+                          {t("wordpress.pages.improvedTitle")}
                         </Typography>
                         <Paper sx={{ p: 2, mb: 2 }}>
                           {selectedPage.improved_title}
@@ -759,7 +794,7 @@ function WordPressPagesPage() {
                       selectedPage.process_status === "pending" && (
                         <Paper sx={{ p: 2, mb: 2 }}>
                           <Typography variant="body2" color="text.secondary">
-                            Not processed yet. Click "Process Now" to generate improvements.
+                            {t("wordpress.pages.notProcessed")}
                           </Typography>
                         </Paper>
                       )
@@ -769,19 +804,19 @@ function WordPressPagesPage() {
                 {diffTab === 1 && (
                   <>
                     <Typography variant="subtitle2" gutterBottom>
-                      Original Content
+                      {t("wordpress.pages.originalContent")}
                     </Typography>
                     <Paper sx={{ p: 2, mb: 2, maxHeight: 300, overflow: "auto" }}>
                       {selectedPage.content ? (
                         <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedPage.content) }} />
                       ) : (
-                        <Typography variant="body2" color="text.secondary">N/A</Typography>
+                        <Typography variant="body2" color="text.secondary">{t("wordpress.pages.notAvailable")}</Typography>
                       )}
                     </Paper>
                     {selectedPage.improved_content ? (
                       <>
                         <Typography variant="subtitle2" gutterBottom>
-                          Improved Content
+                          {t("wordpress.pages.improvedContent")}
                         </Typography>
                         <Paper sx={{ p: 2, mb: 2, maxHeight: 300, overflow: "auto" }}>
                           <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(selectedPage.improved_content) }} />
@@ -791,7 +826,7 @@ function WordPressPagesPage() {
                       selectedPage.process_status === "pending" && (
                         <Paper sx={{ p: 2, mb: 2 }}>
                           <Typography variant="body2" color="text.secondary">
-                            Not processed yet. Click "Process Now" to generate improvements.
+                            {t("wordpress.pages.notProcessed")}
                           </Typography>
                         </Paper>
                       )
@@ -801,15 +836,15 @@ function WordPressPagesPage() {
                 {diffTab === 2 && (
                   <>
                     <Typography variant="subtitle2" gutterBottom>
-                      Original Excerpt
+                      {t("wordpress.pages.originalExcerpt")}
                     </Typography>
                     <Paper sx={{ p: 2, mb: 2 }}>
-                      {selectedPage.excerpt || "N/A"}
+                      {selectedPage.excerpt || t("wordpress.pages.notAvailable")}
                     </Paper>
                     {selectedPage.improved_excerpt ? (
                       <>
                         <Typography variant="subtitle2" gutterBottom>
-                          Improved Excerpt
+                          {t("wordpress.pages.improvedExcerpt")}
                         </Typography>
                         <Paper sx={{ p: 2, mb: 2 }}>
                           {selectedPage.improved_excerpt}
@@ -819,7 +854,7 @@ function WordPressPagesPage() {
                       selectedPage.process_status === "pending" && (
                         <Paper sx={{ p: 2, mb: 2 }}>
                           <Typography variant="body2" color="text.secondary">
-                            Not processed yet. Click "Process Now" to generate improvements.
+                            {t("wordpress.pages.notProcessed")}
                           </Typography>
                         </Paper>
                       )
@@ -829,14 +864,38 @@ function WordPressPagesPage() {
                 {diffTab === 3 && (
                   <>
                     <Typography variant="subtitle2" gutterBottom>
-                      SEO Metadata
+                      {t("wordpress.pages.seoMetadata")}
                     </Typography>
                     <Paper sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="body2"><strong>Meta Title:</strong> {selectedPage.improved_meta_title || selectedPage.title || "N/A"}</Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}><strong>Meta Description:</strong> {selectedPage.improved_meta_description || selectedPage.excerpt || "N/A"}</Typography>
+                      <Typography variant="body2">
+                        <Trans
+                          i18nKey="wordpress.pages.metaTitle"
+                          values={{
+                            title:
+                              selectedPage.improved_meta_title ||
+                              selectedPage.title ||
+                              t("wordpress.pages.notAvailable"),
+                          }}
+                          components={{ bold: <strong /> }}
+                        />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        <Trans
+                          i18nKey="wordpress.pages.metaDescription"
+                          values={{
+                            description:
+                              selectedPage.improved_meta_description ||
+                              selectedPage.excerpt ||
+                              t("wordpress.pages.notAvailable"),
+                          }}
+                          components={{ bold: <strong /> }}
+                        />
+                      </Typography>
                       {selectedPage.improved_schema && (
                         <>
-                          <Typography variant="body2" sx={{ mt: 1 }}><strong>Schema Markup:</strong></Typography>
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            <Trans i18nKey="wordpress.pages.schemaMarkup" components={{ bold: <strong /> }} />
+                          </Typography>
                           <pre style={{ fontSize: "0.75rem", overflow: "auto", maxHeight: 200 }}>
                             {(() => {
                               try {
@@ -857,39 +916,85 @@ function WordPressPagesPage() {
                 {diffTab === 4 && (
                   <>
                     <Typography variant="subtitle2" gutterBottom>
-                      Page Metadata
+                      {t("wordpress.pages.pageMetadata")}
                     </Typography>
                     <Paper sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="body2"><strong>Post ID:</strong> {selectedPage.wordpress_post_id}</Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}><strong>Post Type:</strong> {selectedPage.post_type}</Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}><strong>Slug:</strong> {selectedPage.slug || "N/A"}</Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}><strong>Status:</strong> {selectedPage.status}</Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}><strong>Author:</strong> {selectedPage.author_name || "N/A"}</Typography>
+                      <Typography variant="body2">
+                        <Trans
+                          i18nKey="wordpress.pages.postId"
+                          values={{ id: selectedPage.wordpress_post_id }}
+                          components={{ bold: <strong /> }}
+                        />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        <Trans
+                          i18nKey="wordpress.pages.postTypeValue"
+                          values={{ type: selectedPage.post_type }}
+                          components={{ bold: <strong /> }}
+                        />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        <Trans
+                          i18nKey="wordpress.pages.slug"
+                          values={{ slug: selectedPage.slug || t("wordpress.pages.notAvailable") }}
+                          components={{ bold: <strong /> }}
+                        />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        <Trans
+                          i18nKey="wordpress.pages.status"
+                          values={{ status: selectedPage.status }}
+                          components={{ bold: <strong /> }}
+                        />
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        <Trans
+                          i18nKey="wordpress.pages.author"
+                          values={{ author: selectedPage.author_name || t("wordpress.pages.notAvailable") }}
+                          components={{ bold: <strong /> }}
+                        />
+                      </Typography>
                       {selectedPage.date && (
                         <Typography variant="body2" sx={{ mt: 1 }}>
-                          <strong>Published:</strong> {new Date(selectedPage.date).toLocaleString()}
+                          <Trans
+                            i18nKey="wordpress.pages.published"
+                            values={{ date: new Date(selectedPage.date).toLocaleString(uiLocale()) }}
+                            components={{ bold: <strong /> }}
+                          />
                         </Typography>
                       )}
                       {selectedPage.modified && (
                         <Typography variant="body2" sx={{ mt: 1 }}>
-                          <strong>Modified:</strong> {new Date(selectedPage.modified).toLocaleString()}
+                          <Trans
+                            i18nKey="wordpress.pages.modified"
+                            values={{ date: new Date(selectedPage.modified).toLocaleString(uiLocale()) }}
+                            components={{ bold: <strong /> }}
+                          />
                         </Typography>
                       )}
                       {selectedPage.pulled_at && (
                         <Typography variant="body2" sx={{ mt: 1 }}>
-                          <strong>Pulled:</strong> {new Date(selectedPage.pulled_at).toLocaleString()}
+                          <Trans
+                            i18nKey="wordpress.pages.pulledAt"
+                            values={{ date: new Date(selectedPage.pulled_at).toLocaleString(uiLocale()) }}
+                            components={{ bold: <strong /> }}
+                          />
                         </Typography>
                       )}
                       {selectedPage.processed_at && (
                         <Typography variant="body2" sx={{ mt: 1 }}>
-                          <strong>Processed:</strong> {new Date(selectedPage.processed_at).toLocaleString()}
+                          <Trans
+                            i18nKey="wordpress.pages.processedAt"
+                            values={{ date: new Date(selectedPage.processed_at).toLocaleString(uiLocale()) }}
+                            components={{ bold: <strong /> }}
+                          />
                         </Typography>
                       )}
                     </Paper>
                     {selectedPage.improvement_summary && (
                       <>
                         <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>
-                          Improvement Summary
+                          {t("wordpress.pages.improvementSummary")}
                         </Typography>
                         <Paper sx={{ p: 2 }}>
                           {selectedPage.improvement_summary}
@@ -903,7 +1008,7 @@ function WordPressPagesPage() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDiffDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setDiffDialogOpen(false)}>{t("wordpress.pages.close")}</Button>
           <Button 
             startIcon={<RefreshIcon />}
             onClick={() => {
@@ -917,7 +1022,7 @@ function WordPressPagesPage() {
               }
             }}
           >
-            Refresh
+            {t("wordpress.pages.refresh")}
           </Button>
           {selectedPage && selectedPage.pull_status === "pulled" && selectedPage.process_status === "pending" && (
             <Button 
@@ -929,7 +1034,7 @@ function WordPressPagesPage() {
               }}
               disabled={isProcessing}
             >
-              Process Now
+              {t("wordpress.pages.processNow")}
             </Button>
           )}
         </DialogActions>

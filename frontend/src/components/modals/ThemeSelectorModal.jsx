@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 import { themes } from "../../theme";
 import { useAppStore } from "../../stores/useAppStore";
+import { useUiTranslation } from "../../i18n";
 
 // Inline SVG cologne bottle icon for Elon's Musk theme
 const CologneBottleIcon = ({ size = 40 }) => (
@@ -66,6 +67,7 @@ const SithIcon = ({ size = 40 }) => (
 );
 
 const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
+  const { t } = useUiTranslation();
   const { label, description, previewGradient, icon } = themeData;
   
   const getPreviewStyle = () => {
@@ -141,7 +143,7 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
         )}
         {isSelected && (
           <Chip
-            label="Selected"
+            label={t("dialogs.themeSelector.selectedChip")}
             color="primary"
             size="small"
             sx={{
@@ -182,7 +184,7 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
             color: "text.secondary",
           }}
         >
-          {description || "Classic theme design"}
+          {description || t("dialogs.themeSelector.classicDescription")}
         </Typography>
       </CardContent>
     </Card>
@@ -190,6 +192,7 @@ const ThemePreview = ({ themeKey, themeData, isSelected, onClick }) => {
 };
 
 const ThemeSelectorModal = ({ open, onClose }) => {
+  const { t } = useUiTranslation();
   const themeName = useAppStore((state) => state.themeName);
   const setThemeName = useAppStore((state) => state.setThemeName);
   const [tempTheme, setTempTheme] = useState(themeName);
@@ -228,10 +231,10 @@ const ThemeSelectorModal = ({ open, onClose }) => {
     >
       <DialogTitle sx={{ pb: 1, bgcolor: "background.paper" }}>
         <Typography variant="h5" component="div" sx={{ fontWeight: 600, color: "text.primary" }}>
-          Choose Your Theme
+          {t("dialogs.themeSelector.title")}
         </Typography>
         <Typography variant="body2" sx={{ mt: 0.5, color: "text.secondary" }}>
-          Select a visual theme to personalize your experience
+          {t("dialogs.themeSelector.subtitle")}
         </Typography>
       </DialogTitle>
 
@@ -252,17 +255,17 @@ const ThemeSelectorModal = ({ open, onClose }) => {
         {/* Current selection info */}
         <Box sx={{ mt: 3, p: 2, bgcolor: "background.paper", borderRadius: 1 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: "text.primary" }}>
-            Selected: {themes[tempTheme]?.label || "Unknown"}
+            {t("dialogs.themeSelector.selected", { theme: themes[tempTheme]?.label || t("dialogs.themeSelector.unknown") })}
           </Typography>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {themes[tempTheme]?.description || "No description available"}
+            {themes[tempTheme]?.description || t("dialogs.themeSelector.noDescription")}
           </Typography>
         </Box>
       </DialogContent>
 
       <DialogActions sx={{ p: 2, gap: 1, bgcolor: "background.paper" }}>
         <Button onClick={handleCancel} variant="outlined">
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button 
           onClick={handleApply} 
@@ -270,7 +273,7 @@ const ThemeSelectorModal = ({ open, onClose }) => {
           disabled={tempTheme === themeName}
           sx={{ minWidth: 100 }}
         >
-          {tempTheme === themeName ? "Applied" : "Apply Theme"}
+          {tempTheme === themeName ? t("dialogs.themeSelector.applied") : t("dialogs.themeSelector.apply")}
         </Button>
       </DialogActions>
     </Dialog>

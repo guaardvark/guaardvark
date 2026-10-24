@@ -15,8 +15,10 @@ import {
   Download as DownloadIcon,
 } from "@mui/icons-material";
 import UnifiedWaveform from "./UnifiedWaveform";
+import { useUiTranslation } from "../../i18n";
 
 const WaveformPlayer = ({ src, title, duration, onDownload, color }) => {
+  const { t } = useUiTranslation();
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [audioLevels, setAudioLevels] = useState([]);
@@ -108,7 +110,7 @@ const WaveformPlayer = ({ src, title, duration, onDownload, color }) => {
 
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
           <Typography variant="subtitle1" fontWeight="bold" noWrap>
-            {title || "Generated Audio"}
+            {title || t("audio.player.generatedAudio")}
           </Typography>
           
           <Box sx={{ mt: 1, mb: 1 }}>
@@ -138,7 +140,7 @@ const WaveformPlayer = ({ src, title, duration, onDownload, color }) => {
           <Typography variant="caption" fontWeight="bold">
             {duration ? `${duration.toFixed(1)}s` : "--"}
           </Typography>
-          <Tooltip title="Download">
+          <Tooltip title={t("audio.player.download")}>
             <IconButton onClick={() => onDownload(src)} size="small">
               <DownloadIcon />
             </IconButton>

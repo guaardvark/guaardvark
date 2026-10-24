@@ -2,6 +2,7 @@
 // request (backend/services/job_types.py describe_failure), as text.
 
 import { formatUiError } from "./uiError";
+import { translate } from "../i18n";
 
 /**
  * One line for a failure record: "Label: message Next: action".
@@ -11,8 +12,8 @@ import { formatUiError } from "./uiError";
 export function failureText(failure) {
   if (!failure) return "";
   let text = failure.message ? `${failure.label}: ${failure.message}` : failure.label || "";
-  if (failure.action) text += ` Next: ${failure.action}`;
-  if (failure.retryable) text += " (Retrying later can succeed.)";
+  if (failure.action) text = translate("messages.renderFailure.withNext", { text, action: failure.action });
+  if (failure.retryable) text = translate("messages.renderFailure.retryable", { text });
   return text;
 }
 

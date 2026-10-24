@@ -25,11 +25,12 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { BrandLogo } from '../branding';
+import { translate, useUiTranslation } from '../../i18n';
 
 // Enhanced Loading Spinner with context
 export const ContextualLoader = ({
   loading = false,
-  message = "Loading...",
+  message = translate("common.loading"),
   submessage = null,
   progress = null,
   size = 40,
@@ -39,6 +40,7 @@ export const ContextualLoader = ({
   inline = false,
   branded = false
 }) => {
+  const { t } = useUiTranslation();
   const [elapsedTime, setElapsedTime] = useState(0);
 
   useEffect(() => {
@@ -133,7 +135,7 @@ export const ContextualLoader = ({
           />
           {estimatedTime && (
             <Chip
-              label={`~${estimatedTime}s remaining`}
+              label={t("layoutCommon.loading.remaining", { seconds: estimatedTime })}
               size="small"
               variant="outlined"
               color="info"
@@ -177,13 +179,14 @@ export const ContextualLoader = ({
 // Linear Progress Bar with enhanced feedback
 export const EnhancedLinearProgress = ({
   progress = null,
-  message = "Processing...",
+  message = translate("layoutCommon.loading.processing"),
   variant = "indeterminate",
   color = "primary",
   height = 4,
   showPercentage = true,
   animate = true
 }) => {
+  useUiTranslation();
   return (
     <Box sx={{ width: '100%', mb: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
@@ -253,6 +256,7 @@ export const CodeEditorSkeleton = () => (
 
 // Network Status Indicator
 export const NetworkStatus = () => {
+  const { t } = useUiTranslation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [showOfflineAlert, setShowOfflineAlert] = useState(false);
 
@@ -279,10 +283,10 @@ export const NetworkStatus = () => {
   return (
     <>
       {/* Status Indicator */}
-      <Tooltip title={isOnline ? 'Connected' : 'Offline'}>
+      <Tooltip title={isOnline ? t("layoutCommon.loading.connected") : t("layoutCommon.loading.offline")}>
         <Chip
           icon={isOnline ? <OnlineIcon /> : <OfflineIcon />}
-          label={isOnline ? 'Online' : 'Offline'}
+          label={isOnline ? t("layoutCommon.loading.online") : t("layoutCommon.loading.offline")}
           size="small"
           color={isOnline ? 'success' : 'error'}
           variant="outlined"
@@ -320,10 +324,10 @@ export const NetworkStatus = () => {
           >
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                You're offline
+                {t("layoutCommon.loading.offlineTitle")}
               </Typography>
               <Typography variant="caption">
-                Some features may not be available. Check your connection.
+                {t("layoutCommon.loading.offlineBody")}
               </Typography>
             </Box>
           </Alert>
@@ -337,12 +341,13 @@ export const NetworkStatus = () => {
 export const LoadingButton = ({
   children,
   loading = false,
-  loadingText = "Loading...",
+  loadingText = translate("common.loading"),
   success = false,
   error = false,
   onClick,
   ...props
 }) => {
+  const { t } = useUiTranslation();
   const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
@@ -372,7 +377,7 @@ export const LoadingButton = ({
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <SuccessIcon sx={{ fontSize: 16 }} />
-          Success!
+          {t("layoutCommon.loading.success")}
         </Box>
       );
     }
@@ -380,7 +385,7 @@ export const LoadingButton = ({
       return (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <ErrorIcon sx={{ fontSize: 16 }} />
-          Error
+          {t("common.error")}
         </Box>
       );
     }
@@ -405,10 +410,11 @@ export const LoadingButton = ({
 
 // Progress Feedback with stages
 export const StageProgress = ({ stages = [], currentStage = 0, error = null }) => {
+  const { t } = useUiTranslation();
   return (
     <Box sx={{ width: '100%', py: 2 }}>
       <Typography variant="body2" gutterBottom>
-        {error ? 'Process Failed' : stages[currentStage] || 'Processing...'}
+        {error ? t("layoutCommon.loading.processFailed") : stages[currentStage] || t("layoutCommon.loading.processing")}
       </Typography>
 
       <LinearProgress
@@ -420,12 +426,12 @@ export const StageProgress = ({ stages = [], currentStage = 0, error = null }) =
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary">
-          {error ? 'Failed' : `Step ${currentStage + 1} of ${stages.length}`}
+          {error ? t("layoutCommon.loading.failed") : t("layoutCommon.loading.step", { current: currentStage + 1, total: stages.length })}
         </Typography>
         {error && (
           <Chip
             icon={<ErrorIcon />}
-            label="Error"
+            label={t("common.error")}
             size="small"
             color="error"
             variant="outlined"

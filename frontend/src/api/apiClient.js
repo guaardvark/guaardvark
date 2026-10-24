@@ -2,7 +2,8 @@
 // Version 1.0: Centralized API client logic.
 
 import { announceRefusal, authRefusalCode, describeAuthRefusal, isBackendUrl } from "./apiAuth";
-import { isQueueUnreachable, QUEUE_UNREACHABLE_MESSAGE } from "./taskQueue";
+import { isQueueUnreachable, queueUnreachableMessage } from "./taskQueue";
+import { translate } from "../i18n";
 
 // Default to '/api' so requests use the Vite proxy during development
 // Strip any trailing slash to avoid double slashes or Flask 405 errors
@@ -40,7 +41,10 @@ export const handleResponse = async (response, options = {}) => {
 
   if (!response.ok) {
     let errorData = {
-      message: `HTTP error ${response.status} - ${response.statusText || "Unknown Error"}`,
+      message: translate("messages.api.httpError", {
+        status: response.status,
+        statusText: response.statusText || translate("messages.api.unknownStatus"),
+      }),
     };
     if (isJson && responseText) {
       try {
@@ -69,11 +73,11 @@ export const handleResponse = async (response, options = {}) => {
     const queueDown = response.status === 503 && isQueueUnreachable(errorData);
     const errorMessage =
       (refusal && describeAuthRefusal(refusal, rejected, errorData.machine)) ||
-      (queueDown && QUEUE_UNREACHABLE_MESSAGE) ||
+      (queueDown && queueUnreachableMessage()) ||
       (typeof nested === "string" && nested) ||
       (typeof nested?.message === "string" && nested.message) ||
       (typeof errorData?.message === "string" && errorData.message) ||
-      `HTTP error! Status: ${response.status}`;
+      translate("messages.api.httpErrorStatus", { status: response.status });
     const error = new Error(errorMessage);
     error.status = response.status;
     error.data = errorData;
@@ -115,7 +119,7 @@ export const handleResponse = async (response, options = {}) => {
         "Raw:",
         responseText,
       );
-      throw new Error("Failed to parse JSON response from server.");
+      throw new Error(translate("messages.api.invalidJson"));
     }
   } else if (contentType && contentType.includes("text/plain")) {
     return responseText;

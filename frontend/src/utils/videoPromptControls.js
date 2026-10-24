@@ -14,8 +14,7 @@
 //   on; the compiler keeps the motion strength under Verbatim and drops the
 //   style under Verbatim or Exact text (batch_video_generation_api).
 
-const VERBATIM = "no effect while Verbatim prompts is on in Settings";
-const ENHANCE_OFF = "no effect while Enhance prompt is off";
+import { translate } from "../i18n";
 
 /**
  * @param {object} args
@@ -38,9 +37,9 @@ export function promptControlsState({
   const references = inputMode === "references";
 
   let motion;
-  if (!enhancePrompt) motion = { active: false, note: ENHANCE_OFF };
-  else if (verbatimPrompts && !references) motion = { active: false, note: VERBATIM };
-  else motion = { active: true, note: references ? "via the reference compiler" : "via prompt enhancer" };
+  if (!enhancePrompt) motion = { active: false, note: translate("messages.videoPromptControls.enhanceOff") };
+  else if (verbatimPrompts && !references) motion = { active: false, note: translate("messages.videoPromptControls.verbatim") };
+  else motion = { active: true, note: references ? translate("messages.videoPromptControls.viaReferenceCompiler") : translate("messages.videoPromptControls.viaPromptEnhancer") };
 
   const storyboardReads = storyboardMode && inputMode === "text";
   const directorReads = directorMode && !verbatimPrompts && !references;
@@ -49,11 +48,11 @@ export function promptControlsState({
   if (enhancerReads || storyboardReads || directorReads) {
     style = { active: true, note: "" };
   } else if (verbatimPrompts) {
-    style = { active: false, note: `Prompt style: ${VERBATIM}` };
+    style = { active: false, note: translate("messages.videoPromptControls.styleVerbatim") };
   } else if (!enhancePrompt) {
-    style = { active: false, note: `Prompt style: ${ENHANCE_OFF}` };
+    style = { active: false, note: translate("messages.videoPromptControls.styleEnhanceOff") };
   } else {
-    style = { active: false, note: "Prompt style: no effect while Exact text is on" };
+    style = { active: false, note: translate("messages.videoPromptControls.styleExactText") };
   }
   return { motion, style };
 }

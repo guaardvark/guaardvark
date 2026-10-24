@@ -3,6 +3,7 @@ import { Autocomplete, Box, CircularProgress, TextField, Typography } from "@mui
 
 import useDebounce from "../../hooks/useDebounce";
 import { suggestAddresses } from "../../api/addressService";
+import { translate, useUiTranslation } from "../../i18n";
 
 /**
  * Free-text address field that suggests as you type.
@@ -25,7 +26,7 @@ const AddressAutocomplete = ({
   value = "",
   onChange,
   onResolve,
-  label = "Address",
+  label = translate("layoutCommon.addressAutocomplete.label"),
   placeholder,
   helperText,
   size = "small",
@@ -37,6 +38,7 @@ const AddressAutocomplete = ({
   inputProps = {},
   "data-testid": dataTestId,
 }) => {
+  useUiTranslation();
   const [options, setOptions] = useState([]);
   const [attribution, setAttribution] = useState(null);
   const [inputText, setInputText] = useState(value || "");

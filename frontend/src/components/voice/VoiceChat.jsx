@@ -25,6 +25,7 @@ import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
 import AudioVisualizer from './AudioVisualizer';
 import VolumeMeter from './VolumeMeter';
 import VoiceSettingsModal from './VoiceSettingsModal';
+import { translate, uiLocale, useUiTranslation, Trans } from '../../i18n';
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -38,6 +39,7 @@ const VoiceChat = ({
   onError = () => {},
   className = ''
 }) => {
+  const { t } = useUiTranslation();
   const [voiceSettings, setVoiceSettings] = useState({
     voice: 'libritts',
     recordingQuality: 'medium',
@@ -58,6 +60,7 @@ const VoiceChat = ({
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  // '' | 'transcribing' | 'responding' | 'speech'; worded while rendering.
   const [processingStage, setProcessingStage] = useState('');
   const [lastTranscription, setLastTranscription] = useState('');
   const [lastResponse, setLastResponse] = useState('');
@@ -70,6 +73,7 @@ const VoiceChat = ({
   const [recordingVolume, setRecordingVolume] = useState(0);
   const [duration, setDuration] = useState(0);
   const [audioLevels, setAudioLevels] = useState([]);
+  // { detail, fallback: 'start' | 'stop' }, worded while rendering.
   const [recordingError, setRecordingError] = useState(null);
   const [permission, setPermission] = useState('unknown');
 
@@ -200,7 +204,7 @@ const VoiceChat = ({
       debugLog('VoiceChat: Recording started successfully');
     } catch (error) {
       console.error('VoiceChat: Failed to start recording:', error);
-      setRecordingError(error.message || 'Failed to start recording');
+      setRecordingError({ detail: error.message, fallback: 'start' });
       onError(error);
     }
   };
@@ -253,10 +257,10 @@ const VoiceChat = ({
   const handleVoiceStream = useCallback(async (audioBlob) => {
     try {
       setIsProcessing(true);
-      setProcessingStage('Transcribing audio...');
+      setProcessingStage('transcribing');
 
       if (!audioBlob || audioBlob.size < 1000) {
-        throw new Error('Recording too short or empty. Please record for at least 1-2 seconds.');
+        throw new Error(translate('voice.button.errors.tooShort'));
       }
 
       if (audioBlob.size < 5000) {
@@ -279,7 +283,7 @@ const VoiceChat = ({
       // Step 2: If backend signals streaming, listen for SocketIO tokens
       const socket = socketRef?.current;
       if (result.streaming && socket?.connected) {
-        setProcessingStage('Generating response...');
+        setProcessingStage('responding');
 
         // Join the session room so we receive events
         socket.emit('chat:join', { session_id: sessionId });
@@ -287,7 +291,7 @@ const VoiceChat = ({
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             cleanup();
-            reject(new Error('LLM response timed out after 180 seconds'));
+            reject(new Error(translate('voice.chat.errors.timeout')));
           }, 180000);
 
           const onToken = (data) => {
@@ -317,7 +321,7 @@ const VoiceChat = ({
             // TTS on complete response
             let audioUrl = null;
             if (fullResponse) {
-              setProcessingStage('Generating speech...');
+              setProcessingStage('speech');
               try {
                 const cleaned = cleanTextForTTS(fullResponse);
                 const ttsResult = await voiceService.textToSpeech(cleaned, voiceSettings.voice);
@@ -346,7 +350,7 @@ const VoiceChat = ({
           const onError = (data) => {
             if (data.session_id !== sessionId) return;
             cleanup();
-            reject(new Error(data.error || 'LLM streaming error'));
+            reject(new Error(data.error || translate('voice.chat.errors.streaming')));
           };
 
           const cleanup = () => {
@@ -376,7 +380,7 @@ const VoiceChat = ({
         }]);
 
         if (llmResponse) {
-          setProcessingStage('Generating speech...');
+          setProcessingStage('speech');
           try {
             const cleaned = cleanTextForTTS(llmResponse);
             const ttsResult = await voiceService.textToSpeech(cleaned, voiceSettings.voice);
@@ -401,14 +405,7 @@ const VoiceChat = ({
       console.error('Voice stream error:', error);
 
       if (error.message && error.message.includes('No speech detected')) {
-        const enhancedError = new Error(
-          'No speech detected in recording. Please try:\n' +
-          '• Speaking louder and clearer\n' +
-          '• Getting closer to the microphone\n' +
-          '• Reducing background noise\n' +
-          '• Recording for 2-5 seconds minimum\n' +
-          '• Checking your microphone volume settings'
-        );
+        const enhancedError = new Error(translate('voice.chat.errors.noSpeechTips'));
         enhancedError.type = 'speech_detection_failure';
         onError(enhancedError);
       } else {
@@ -454,7 +451,7 @@ const VoiceChat = ({
       }
     } catch (error) {
       console.error('VoiceChat: Failed to stop recording:', error);
-      setRecordingError(error.message || 'Failed to stop recording');
+      setRecordingError({ detail: error.message, fallback: 'stop' });
       setIsRecording(false);
       onError(error);
       return null;
@@ -484,7 +481,7 @@ const VoiceChat = ({
 
   const handleSendStoppedAudio = async () => {
     if (!stoppedAudioBlob) {
-      onError(new Error('No audio to send. Please record first.'));
+      onError(new Error(translate('voice.chat.errors.noAudio')));
       return;
     }
 
@@ -499,7 +496,7 @@ const VoiceChat = ({
 
   const handleStopAndSend = async () => {
     if (duration < 1000) {
-      onError(new Error('Please record for at least 1 second before sending.'));
+      onError(new Error(translate('voice.chat.errors.tooShortToSend')));
       return;
     }
 
@@ -567,16 +564,30 @@ const VoiceChat = ({
     return 'primary';
   };
 
+  const stageText = {
+    transcribing: t('voice.chat.stage.transcribing'),
+    responding: t('voice.chat.stage.responding'),
+    speech: t('voice.chat.stage.speech'),
+  }[processingStage] || '';
+
+  const recordingErrorText = recordingError
+    ? recordingError.detail ||
+      (recordingError.fallback === 'stop' ? t('voice.chat.errors.stopFailed') : t('voice.button.errors.startFailed'))
+    : null;
+
   const getRecordingButtonText = () => {
-    if (isProcessing) return processingStage || 'Processing...';
+    if (isProcessing) return stageText || t('voice.button.processing');
     if (isRecording) {
       const minDuration = 1000;
       if (duration < minDuration) {
-        return `Recording... ${(duration / 1000).toFixed(1)}s (speak for ${Math.ceil((minDuration - duration) / 1000)}s more)`;
+        return t('voice.chat.recordingNeedMore', {
+          elapsed: (duration / 1000).toFixed(1),
+          remaining: Math.ceil((minDuration - duration) / 1000),
+        });
       }
-      return `Recording... ${(duration / 1000).toFixed(1)}s (ready to send)`;
+      return t('voice.chat.recordingReady', { elapsed: (duration / 1000).toFixed(1) });
     }
-    return 'Start Recording';
+    return t('voice.chat.startRecording');
   };
 
   const volumePercentage = Math.round((recordingVolume || 0) * 100);
@@ -586,12 +597,12 @@ const VoiceChat = ({
       {}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
         <Typography variant="h5" component="h2" fontWeight="bold">
-          Voice Assistant
+          {t('voice.chat.title')}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {}
           <Chip
-            label={`Volume: ${volumePercentage}%`}
+            label={t('voice.chat.volume', { level: volumePercentage })}
             color={isRecording && volumePercentage > 0 ? 'success' : 'default'}
             variant={isRecording ? 'filled' : 'outlined'}
             size="small"
@@ -610,7 +621,7 @@ const VoiceChat = ({
       {recordingError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            <strong>Recording Error:</strong> {recordingError}
+            <Trans i18nKey="voice.chat.recordingErrorLabel" components={{ bold: <strong /> }} /> {recordingErrorText}
           </Typography>
         </Alert>
       )}
@@ -694,7 +705,7 @@ const VoiceChat = ({
                   startIcon={<MicOffIcon />}
                   size="large"
                 >
-                  Stop Recording
+                  {t('voice.chat.stopRecording')}
                 </Button>
                 <Button
                   variant="contained"
@@ -704,7 +715,7 @@ const VoiceChat = ({
                   startIcon={<SendIcon />}
                   size="large"
                 >
-                  Stop & Send
+                  {t('voice.chat.stopAndSend')}
                 </Button>
                 <Button
                   variant="outlined"
@@ -713,7 +724,7 @@ const VoiceChat = ({
                   startIcon={<CancelIcon />}
                   size="large"
                 >
-                  Cancel
+                  {t('voice.chat.cancel')}
                 </Button>
               </>
             )}
@@ -727,7 +738,7 @@ const VoiceChat = ({
                   startIcon={<SendIcon />}
                   size="large"
                 >
-                  Send Audio ({Math.round(stoppedAudioBlob.size / 1024)}KB)
+                  {t('voice.chat.sendAudio', { size: Math.round(stoppedAudioBlob.size / 1024) })}
                 </Button>
                 <Button
                   variant="outlined"
@@ -736,7 +747,7 @@ const VoiceChat = ({
                   startIcon={<CancelIcon />}
                   size="large"
                 >
-                  Discard
+                  {t('voice.chat.discard')}
                 </Button>
                 <Button
                   variant="outlined"
@@ -745,7 +756,7 @@ const VoiceChat = ({
                   startIcon={<MicIcon />}
                   size="large"
                 >
-                  Record Again
+                  {t('voice.chat.recordAgain')}
                 </Button>
               </>
             )}
@@ -754,7 +765,7 @@ const VoiceChat = ({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <CircularProgress size={24} />
                 <Typography variant="body2" color="text.secondary">
-                  {processingStage}
+                  {stageText}
                 </Typography>
               </Box>
             )}
@@ -763,11 +774,11 @@ const VoiceChat = ({
           {}
           <Box sx={{ textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              {isRecording ? `Recording in progress... (Volume: ${volumePercentage}%)` : 
-                               stoppedAudioBlob ? `Audio ready to send (${Math.round(stoppedAudioBlob.size / 1024)}KB, ${(duration / 1000).toFixed(1)}s)` :
-               isProcessing ? 'Processing your request...' :
-               permission === 'denied' ? 'Microphone access denied' :
-               'Ready to record'}
+              {isRecording ? t('voice.chat.status.recording', { level: volumePercentage }) : 
+                               stoppedAudioBlob ? t('voice.chat.status.audioReady', { size: Math.round(stoppedAudioBlob.size / 1024), seconds: (duration / 1000).toFixed(1) }) :
+               isProcessing ? t('voice.chat.status.processing') :
+               permission === 'denied' ? t('voice.chat.status.micDenied') :
+               t('voice.chat.status.ready')}
             </Typography>
           </Box>
         </Box>
@@ -784,25 +795,27 @@ const VoiceChat = ({
           }}
         >
           <Typography variant="h6" gutterBottom>
-            Last Interaction
+            {t('voice.chat.lastInteraction')}
           </Typography>
           
           {lastTranscription && (
             <Box sx={{ mb: 2 }}>
-              <Typography variant="subtitle2" color="primary" gutterBottom>
-                You said:
-              </Typography>
+              <Trans
+                i18nKey="voice.chat.youSaid"
+                components={{ label: <Typography variant="subtitle2" color="primary" gutterBottom /> }}
+              />
               <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                &quot;{lastTranscription}&quot;
+                {t('voice.chat.quotedTranscript', { text: lastTranscription })}
               </Typography>
             </Box>
           )}
           
           {lastResponse && (
             <Box>
-              <Typography variant="subtitle2" color="secondary" gutterBottom>
-                Assistant responded:
-              </Typography>
+              <Trans
+                i18nKey="voice.chat.assistantResponded"
+                components={{ label: <Typography variant="subtitle2" color="secondary" gutterBottom /> }}
+              />
               <Typography variant="body2">
                 {lastResponse}
               </Typography>
@@ -811,7 +824,7 @@ const VoiceChat = ({
                   <VolumeUpIcon fontSize="small" />
                   <audio controls style={{ height: 32 }}>
                     <source src={currentAudioUrl} type="audio/wav" />
-                    Your browser does not support the audio element.
+                    {t('voice.chat.audioUnsupported')}
                   </audio>
                 </Box>
               )}
@@ -830,22 +843,22 @@ const VoiceChat = ({
           }}
         >
           <Typography variant="h6" gutterBottom>
-            Conversation History ({conversationHistory.length})
+            {t('voice.chat.history', { count: conversationHistory.length })}
           </Typography>
           <Divider sx={{ mb: 2 }} />
           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
             {conversationHistory.map((entry) => (
               <Box key={entry.id} sx={{ mb: 3, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
                 <Typography variant="caption" color="text.secondary" gutterBottom>
-                  {new Date(entry.timestamp).toLocaleString()}
+                  {new Date(entry.timestamp).toLocaleString(uiLocale())}
                 </Typography>
                 
                 <Box sx={{ mt: 1 }}>
                   <Typography variant="body2" color="primary" gutterBottom>
-                    <strong>You:</strong> {entry.transcription}
+                    <Trans i18nKey="voice.chat.youLabel" components={{ bold: <strong /> }} /> {entry.transcription}
                   </Typography>
                   <Typography variant="body2" color="secondary">
-                    <strong>Assistant:</strong> {entry.llmResponse}
+                    <Trans i18nKey="voice.chat.assistantLabel" components={{ bold: <strong /> }} /> {entry.llmResponse}
                   </Typography>
                 </Box>
               </Box>

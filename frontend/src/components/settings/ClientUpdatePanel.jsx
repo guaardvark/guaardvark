@@ -37,6 +37,7 @@ import {
 } from "@mui/icons-material";
 import * as interconnectorApi from "../../api/interconnectorService";
 import { useSnackbar } from "../common/SnackbarProvider";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -45,6 +46,7 @@ const debugLog = (...args) => {
 };
 
 const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
+  const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
 
   // Update status state
@@ -123,7 +125,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
         summary: data.summary || { backend: 0, frontend: 0, other: 0 },
         masterVersion: data.master_version,
         localVersion: data.local_version,
-        lastChecked: new Date().toLocaleString(),
+        lastChecked: new Date().toLocaleString(uiLocale()),
         error: null,
       });
 
@@ -148,7 +150,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
       setUpdateStatus((prev) => ({
         ...prev,
         checking: false,
-        error: err.message || "Failed to check for updates",
+        error: err.message || t("settingsInterconnector.clientUpdate.checkFailed"),
       }));
     }
   }, [isEnabled, masterUrl]);
@@ -180,7 +182,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
       const response = await interconnectorApi.previewUpdates();
 
       if (response.error) {
-        showMessage(`Failed to load preview: ${response.error}`, "error");
+        showMessage(t("settingsInterconnector.clientUpdate.previewFailed", { error: response.error }), "error");
         setLoadingPreview(false);
         return;
       }
@@ -188,14 +190,14 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
       setPreviewData(response.data || response);
       setShowPreview(true);
     } catch (err) {
-      showMessage(`Failed to load preview: ${err.message}`, "error");
+      showMessage(t("settingsInterconnector.clientUpdate.previewFailed", { error: err.message }), "error");
     } finally {
       setLoadingPreview(false);
     }
   };
 
   const handleApplyUpdates = async () => {
-    if (!window.confirm("Apply all updates? Existing files will be backed up automatically.")) {
+    if (!window.confirm(t("settingsInterconnector.clientUpdate.confirmApply"))) {
       return;
     }
 
@@ -209,13 +211,14 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
       setApplyProgress(90);
 
       if (response.error) {
-        showMessage(`Update failed: ${response.error}`, "error");
+        showMessage(t("settingsInterconnector.clientUpdate.updateFailed", { error: response.error }), "error");
         setLastUpdateResult({ success: false, error: response.error });
       } else {
         const data = response.data || response;
-        const message = `Updated ${data.applied || 0} files (${data.created || 0} new, ${data.updated || 0} modified)${
-          data.restart_required ? ". Restart Guaardvark to finish the update." : ""
-        }`;
+        const counts = { applied: data.applied || 0, created: data.created || 0, updated: data.updated || 0 };
+        const message = data.restart_required
+          ? t("settingsInterconnector.clientUpdate.updatedRestart", counts)
+          : t("settingsInterconnector.clientUpdate.updated", counts);
         showMessage(message, "success");
         setLastUpdateResult({
           success: true,
@@ -248,7 +251,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
         }, 1000);
       }
     } catch (err) {
-      showMessage(`Update failed: ${err.message}`, "error");
+      showMessage(t("settingsInterconnector.clientUpdate.updateFailed", { error: err.message }), "error");
       setLastUpdateResult({ success: false, error: err.message });
     } finally {
       setApplying(false);
@@ -266,7 +269,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
 
   const formatSyncedAt = (iso) => {
     if (!iso) return null;
-    try { return new Date(iso).toLocaleString(); } catch { return iso; }
+    try { return new Date(iso).toLocaleString(uiLocale()); } catch { return iso; }
   };
 
   // Not enabled or not configured
@@ -280,9 +283,9 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
       <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
         <Box display="flex" alignItems="center" gap={1}>
           <CodeIcon color="primary" />
-          <Typography variant="h6">Code Updates</Typography>
+          <Typography variant="h6">{t("settingsInterconnector.clientUpdate.title")}</Typography>
         </Box>
-        <Tooltip title="Check for updates">
+        <Tooltip title={t("settingsInterconnector.clientUpdate.checkTooltip")}>
           <span>
             <IconButton
               onClick={checkForUpdates}
@@ -311,7 +314,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
         <Box textAlign="center" py={2}>
           <CircularProgress size={32} />
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Checking for updates...
+            {t("settingsInterconnector.clientUpdate.checking")}
           </Typography>
         </Box>
       )}
@@ -321,16 +324,15 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
         <Box textAlign="center" py={2}>
           <CheckIcon sx={{ fontSize: 48, color: "success.main", mb: 1 }} />
           <Typography variant="h6" color="success.main">
-            System is up to date
+            {t("settingsInterconnector.clientUpdate.upToDate")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Last checked: {updateStatus.lastChecked || "Never"}
+            {t("settingsInterconnector.clientUpdate.lastChecked", { when: updateStatus.lastChecked || t("settingsInterconnector.clientUpdate.never") })}
           </Typography>
           {syncStatus.masterTrackedFiles != null && (
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-              Master tracks {syncStatus.masterTrackedFiles} core file
-              {syncStatus.masterTrackedFiles !== 1 ? "s" : ""}
-              {syncStatus.lastApplyAt ? ` · last apply ${formatSyncedAt(syncStatus.lastApplyAt)}` : ""}
+              {t("settingsInterconnector.clientUpdate.masterTracks", { count: syncStatus.masterTrackedFiles })}
+              {syncStatus.lastApplyAt ? ` · ${t("settingsInterconnector.clientUpdate.lastApply", { when: formatSyncedAt(syncStatus.lastApplyAt) })}` : ""}
             </Typography>
           )}
         </Box>
@@ -354,12 +356,12 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
             <DownloadIcon sx={{ fontSize: 28, color: "#000" }} />
             <Box flex={1}>
               <Typography variant="subtitle1" sx={{ color: "#000", fontWeight: 600 }}>
-                {updateStatus.count} Update{updateStatus.count !== 1 ? "s" : ""} Available
+                {t("settingsInterconnector.clientUpdate.updatesAvailable", { count: updateStatus.count })}
               </Typography>
               <Box display="flex" gap={0.5} flexWrap="wrap" mt={0.5}>
                 {updateStatus.summary.backend > 0 && (
                   <Chip
-                    label={`${updateStatus.summary.backend} backend`}
+                    label={t("settingsInterconnector.clientUpdate.backendCount", { count: updateStatus.summary.backend })}
                     size="small"
                     sx={{
                       bgcolor: "rgba(0,0,0,0.15)",
@@ -372,7 +374,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
                 )}
                 {updateStatus.summary.frontend > 0 && (
                   <Chip
-                    label={`${updateStatus.summary.frontend} frontend`}
+                    label={t("settingsInterconnector.clientUpdate.frontendCount", { count: updateStatus.summary.frontend })}
                     size="small"
                     sx={{
                       bgcolor: "rgba(0,0,0,0.15)",
@@ -385,7 +387,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
                 )}
                 {updateStatus.summary.other > 0 && (
                   <Chip
-                    label={`${updateStatus.summary.other} other`}
+                    label={t("settingsInterconnector.clientUpdate.otherCount", { count: updateStatus.summary.other })}
                     size="small"
                     sx={{
                       bgcolor: "rgba(0,0,0,0.15)",
@@ -398,9 +400,9 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
                 )}
                 {updateStatus.driftFiles > 0 && (
                   <Chip
-                    label={`${updateStatus.driftFiles} locally modified`}
+                    label={t("settingsInterconnector.clientUpdate.driftCount", { count: updateStatus.driftFiles })}
                     size="small"
-                    title="These files were edited on this client; the master copy will be restored."
+                    title={t("settingsInterconnector.clientUpdate.driftTooltip")}
                     sx={{
                       bgcolor: "rgba(180,83,9,0.25)",
                       color: "#000",
@@ -423,7 +425,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
               disabled={applying}
               startIcon={applying ? <CircularProgress size={16} /> : <DownloadIcon />}
             >
-              {applying ? "Updating..." : "Update Now"}
+              {applying ? t("settingsInterconnector.clientUpdate.updating") : t("settingsInterconnector.clientUpdate.updateNow")}
             </Button>
             <Button
               variant="outlined"
@@ -431,7 +433,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
               disabled={loadingPreview}
               endIcon={showPreview ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             >
-              {loadingPreview ? "Loading..." : showPreview ? "Hide Details" : "View Changes"}
+              {loadingPreview ? t("settingsInterconnector.clientUpdate.loading") : showPreview ? t("settingsInterconnector.clientUpdate.hideDetails") : t("settingsInterconnector.clientUpdate.viewChanges")}
             </Button>
           </Box>
 
@@ -440,7 +442,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
             <Box mb={2}>
               <LinearProgress variant="determinate" value={applyProgress} />
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                Downloading and applying updates...
+                {t("settingsInterconnector.clientUpdate.applying")}
               </Typography>
             </Box>
           )}
@@ -466,23 +468,26 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
                 }}
               >
                 <Typography variant="subtitle2">
-                  {previewData?.count || 0} files will be updated ({previewData?.total_size_display || "0 B"})
+                  {t("settingsInterconnector.clientUpdate.filesToUpdate", {
+                    count: previewData?.count || 0,
+                    size: previewData?.total_size_display || t("settingsSections.units.b", { size: 0 }),
+                  })}
                 </Typography>
               </Box>
               <TableContainer sx={{ maxHeight: 300 }}>
                 <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
-                      <TableCell width={40}>Action</TableCell>
-                      <TableCell>File</TableCell>
-                      <TableCell align="right" width={80}>Size</TableCell>
+                      <TableCell width={40}>{t("settingsInterconnector.clientUpdate.columns.action")}</TableCell>
+                      <TableCell>{t("settingsInterconnector.clientUpdate.columns.file")}</TableCell>
+                      <TableCell align="right" width={80}>{t("settingsInterconnector.clientUpdate.columns.size")}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {previewData?.files?.map((file, index) => (
                       <TableRow key={index} hover>
                         <TableCell>
-                          <Tooltip title={file.action === "create" ? "New file" : "Modified"}>
+                          <Tooltip title={file.action === "create" ? t("settingsInterconnector.clientUpdate.newFile") : t("settingsInterconnector.clientUpdate.modified")}>
                             {getActionIcon(file.action)}
                           </Tooltip>
                         </TableCell>
@@ -506,7 +511,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
               </TableContainer>
               <Box sx={{ p: 1.5, bgcolor: "warning.dark", borderTop: 1, borderColor: "divider" }}>
                 <Typography variant="caption" color="warning.contrastText">
-                  All existing files will be backed up before changes are applied.
+                  {t("settingsInterconnector.clientUpdate.backupNote")}
                 </Typography>
               </Box>
             </Box>
@@ -514,7 +519,7 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
 
           {/* Last Checked */}
           <Typography variant="caption" color="text.secondary">
-            Last checked: {updateStatus.lastChecked || "Never"}
+            {t("settingsInterconnector.clientUpdate.lastChecked", { when: updateStatus.lastChecked || t("settingsInterconnector.clientUpdate.never") })}
           </Typography>
         </Box>
       )}
@@ -526,21 +531,25 @@ const ClientUpdatePanel = ({ masterUrl, _masterApiKey, isEnabled }) => {
           {lastUpdateResult.success ? (
             <Alert severity="success">
               <Typography variant="body2" fontWeight="bold">
-                Update completed successfully
+                {t("settingsInterconnector.clientUpdate.completed")}
               </Typography>
               <Typography variant="caption" display="block">
-                Applied {lastUpdateResult.applied} files ({lastUpdateResult.created} new, {lastUpdateResult.updated} modified)
+                {t("settingsInterconnector.clientUpdate.applied", {
+                  applied: lastUpdateResult.applied,
+                  created: lastUpdateResult.created,
+                  updated: lastUpdateResult.updated,
+                })}
               </Typography>
               {lastUpdateResult.backupPath && (
                 <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
                   <FolderIcon sx={{ fontSize: 14, verticalAlign: "middle", mr: 0.5 }} />
-                  Backups saved to: {lastUpdateResult.backupPath}
+                  {t("settingsInterconnector.clientUpdate.backupsSaved", { path: lastUpdateResult.backupPath })}
                 </Typography>
               )}
             </Alert>
           ) : (
             <Alert severity="error">
-              Update failed: {lastUpdateResult.error}
+              {t("settingsInterconnector.clientUpdate.updateFailed", { error: lastUpdateResult.error })}
             </Alert>
           )}
         </Box>

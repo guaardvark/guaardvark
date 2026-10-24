@@ -4,8 +4,10 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Line, Hint, StatusPill, ActionButton } from "./ui";
 import { getRerankerStatus, installReranker } from "../../api/settingsService";
+import { useUiTranslation } from "../../i18n";
 
 const RerankerControl = ({ showMessage }) => {
+  const { t } = useUiTranslation();
   const [status, setStatus] = useState(null);
   const timer = useRef(null);
 
@@ -33,26 +35,26 @@ const RerankerControl = ({ showMessage }) => {
     try {
       setStatus(await installReranker());
     } catch (e) {
-      showMessage?.(`Could not start the install: ${e.message || e}`, "error");
+      showMessage?.(t("settingsSections.reranker.installStartFailed", { error: e.message || e }), "error");
     }
   };
 
   if (!status) return null;
-  const size = status.size_gb ? `${status.size_gb} GB` : "";
+  const size = status.size_gb ? t("settingsSections.reranker.size", { size: status.size_gb }) : "";
   const job = status.install || {};
 
   if (!status.enabled) {
     return (
       <Line>
-        <StatusPill label="Off" tooltip="GUAARDVARK_RERANK_CROSS_ENCODER is false in .env" />
+        <StatusPill label={t("settingsSections.reranker.off")} tooltip={t("settingsSections.reranker.offTooltip")} />
       </Line>
     );
   }
   if (status.installed) {
     return (
       <Line>
-        <StatusPill label="Installed" tone="ok" tooltip={status.model} />
-        {status.load_error && <Hint>Did not load: {status.load_error}</Hint>}
+        <StatusPill label={t("settingsSections.reranker.installed")} tone="ok" tooltip={status.model} />
+        {status.load_error && <Hint>{t("settingsSections.reranker.loadFailed", { error: status.load_error })}</Hint>}
       </Line>
     );
   }
@@ -60,22 +62,26 @@ const RerankerControl = ({ showMessage }) => {
     <Line>
       {running ? (
         <StatusPill
-          label={job.progress != null ? `Installing ${job.progress}%` : `Installing ${job.downloaded_gb} GB`}
+          label={job.progress != null ? t("settingsSections.reranker.installingPercent", { percent: job.progress }) : t("settingsSections.reranker.installingGb", { size: job.downloaded_gb })}
           tone="info"
           tooltip={status.model}
         />
       ) : (
-        <StatusPill label="Not installed" tone="warn" tooltip={status.model} />
+        <StatusPill label={t("settingsSections.reranker.notInstalled")} tone="warn" tooltip={status.model} />
       )}
       {!running && (
         <ActionButton
           onClick={install}
-          tooltip={`Downloads ${status.model}${size ? ` (${size})` : ""} from Hugging Face. Searches work without it, ranked less precisely.`}
+          tooltip={
+            size
+              ? t("settingsSections.reranker.downloadTooltipWithSize", { model: status.model, size })
+              : t("settingsSections.reranker.downloadTooltip", { model: status.model })
+          }
         >
-          {size ? `Install (${size})` : "Install"}
+          {size ? t("settingsSections.reranker.installWithSize", { size }) : t("settingsSections.reranker.install")}
         </ActionButton>
       )}
-      {job.state === "failed" && <Hint>Install failed: {job.error}</Hint>}
+      {job.state === "failed" && <Hint>{t("settingsSections.reranker.installFailed", { error: job.error })}</Hint>}
     </Line>
   );
 };

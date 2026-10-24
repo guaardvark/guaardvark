@@ -5,8 +5,10 @@ import { Box, Typography } from "@mui/material";
 import { BrandLogo } from "../components/branding";
 import { useLayout } from "../contexts/LayoutContext";
 import PageLayout from "../components/layout/PageLayout";
+import { useUiTranslation } from "../i18n";
 
 const NotFoundPage = () => {
+  const { t } = useUiTranslation();
   const { setShowFooter } = useLayout();
 
   useEffect(() => {
@@ -15,11 +17,11 @@ const NotFoundPage = () => {
   }, [setShowFooter]);
 
   return (
-    <PageLayout title="Page Not Found" variant="standard">
+    <PageLayout title={t("notFound.title")} variant="standard">
       <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", pt: 4 }}>
         <BrandLogo size={80} variant="warning" sx={{ mb: 2 }} />
         <Typography variant="h5" component="h1" gutterBottom>
-          404 - Page Not Found
+          {t("notFound.heading")}
         </Typography>
       </Box>
     </PageLayout>

@@ -1,5 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import { useUiTranslation } from '../../i18n';
 
 /**
  * VolumeMeter Component
@@ -14,6 +15,7 @@ const VolumeMeter = ({
   showLabel = true,
   className = ''
 }) => {
+  const { t } = useUiTranslation();
   // Size configurations
   const sizeConfig = {
     small: {
@@ -85,7 +87,7 @@ const VolumeMeter = ({
     <div className={`volume-meter ${className}`}>
       {showLabel && (
         <div className={`text-center mb-2 ${config.fontSize} font-medium text-gray-600`}>
-          Volume: {volumeLevel}%
+          {t('voice.volumeMeter.level', { level: volumeLevel })}
         </div>
       )}
       
@@ -146,7 +148,7 @@ const VolumeMeter = ({
       {/* Volume level text */}
       {showLabel && (
         <div className={`text-center mt-1 ${config.fontSize} text-gray-500`}>
-          {isRecording ? 'Recording' : 'Ready'}
+          {isRecording ? t('voice.volumeMeter.recording') : t('voice.volumeMeter.ready')}
         </div>
       )}
     </div>

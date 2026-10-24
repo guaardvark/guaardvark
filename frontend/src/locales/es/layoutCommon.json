@@ -1,0 +1,227 @@
+{
+  "addressAutocomplete": {
+    "label": "Dirección"
+  },
+  "apiKeyRefusal": {
+    "settingsLink": "Ajustes → Acceso"
+  },
+  "backendOffline": {
+    "message": "Backend fuera de línea — reintentando… Ejecuta <code>guaardvark</code> en una terminal, o <code>./start.sh</code> para el stack completo."
+  },
+  "changedElsewhere": {
+    "keepMine": "Mantener la mía",
+    "message": "{{names}} cambió en otro lugar mientras editabas. Recarga para usar la versión guardada, o mantén tu edición y guárdala sobre ese cambio."
+  },
+  "didYouKnow": {
+    "regionLabel": "Sabías que",
+    "title": "¿Sabías que?",
+    "closeTip": "Cerrar consejo",
+    "showMe": "Muéstrame",
+    "nextTip": "Siguiente consejo",
+    "stopTips": "No mostrar consejos"
+  },
+  "directoryPicker": {
+    "title": "Seleccionar directorio",
+    "loadFailed": "Error al cargar la carpeta",
+    "notFoundShowingHome": "No se encontró {{path}}; mostrando tu carpeta de inicio.",
+    "notFoundShowing": "No se encontró {{path}}; mostrando {{fallback}}.",
+    "folderNotFound": "Carpeta no encontrada",
+    "root": "Raíz",
+    "hideRecent": "Ocultar recientes",
+    "showRecent": "Rutas recientes",
+    "recentPaths": "Rutas recientes",
+    "goHome": "Ir a la carpeta de inicio",
+    "homeFolder": "Carpeta de inicio",
+    "path": "Ruta",
+    "openPathFirst": "Pulsa Enter o Ve para abrir esta ruta antes de seleccionarla.",
+    "parentFolder": "Carpeta superior",
+    "go": "Ir",
+    "searchPlaceholder": "Buscar en el directorio actual...",
+    "showFiles": "Mostrar archivos",
+    "browse": "Explorar",
+    "hiddenFolders": "Las carpetas ocultas no se muestran.",
+    "noMatches": "No se encontraron elementos coincidentes.",
+    "emptyFolder": "Esta carpeta está vacía.",
+    "noSubdirectories": "No se encontraron subdirectorios. Puedes seleccionar este directorio.",
+    "itemCount": "{{count}} elementos",
+    "folderCount_one": "{{count}} carpeta",
+    "folderCount_other": "{{count}} carpetas",
+    "fileCount_one": "{{count}} archivo",
+    "fileCount_other": "{{count}} archivos",
+    "foldersAndFiles": "{{folders}}, {{files}}",
+    "summaryMatching": "{{summary}} coinciden con \"{{query}}\"",
+    "summaryPickable": "{{summary}} · {{extensions}} archivos pueden ser seleccionados",
+    "chooseFile": "Elegir un archivo",
+    "selectNamed": "Seleccionar: {{name}}"
+  },
+  "errorBoundary": {
+    "updatedTitle": "Guaardvark se ha actualizado",
+    "errorTitle": "Algo salió mal",
+    "updatedBody": "El código de esta página cambió mientras estaba abierta. Recarga para cargar la nueva versión.",
+    "errorBody": "La aplicación encontró un error inesperado. Esto ha sido registrado para su investigación.",
+    "reloadPage": "Recargar página",
+    "tryAgain": "Reintentar",
+    "detailsHeading": "Detalles del error (Solo modo de desarrollo)"
+  },
+  "errorDisplay": {
+    "unexpectedError": "Ocurrió un error inesperado",
+    "genericError": "Ocurrió un error",
+    "friendly": {
+      "network": "No se pudo conectar al servidor. Por favor, comprueba tu conexión a internet.",
+      "timeout": "La solicitud tardó demasiado en completarse. Por favor, inténtalo de nuevo.",
+      "unauthorized": "Autenticación requerida. Por favor, inicia sesión.",
+      "forbidden": "No tienes permiso para realizar esta acción.",
+      "notFound": "No se encontró el recurso solicitado.",
+      "serverError": "Error del servidor. Por favor, inténtalo de nuevo más tarde.",
+      "unavailable": "Servicio temporalmente no disponible. Por favor, inténtalo de nuevo más tarde."
+    },
+    "toggleDetails": "alternar detalles",
+    "report": "Reportar",
+    "closeError": "cerrar error",
+    "severity": {
+      "warning": "Advertencia",
+      "info": "Información"
+    },
+    "errorDetails": "Detalles del error",
+    "code": "<bold>Código:</bold> {{code}}",
+    "time": "<bold>Hora:</bold> {{time}}",
+    "technicalDetails": "Detalles técnicos",
+    "cardTitle": "Algo salió mal",
+    "cardDescription": "Ocurrió un error inesperado. Por favor, intenta actualizar la página.",
+    "tryAgain": "Reintentar",
+    "refreshPage": "Actualizar página"
+  },
+  "errorProvider": {
+    "detailsTitle": "Detalles del error"
+  },
+  "gpuGate": {
+    "queued": "{{reason}}. Las nuevas tareas esperan en cola y comienzan automáticamente cuando la GPU está libre.",
+    "blocked": "{{reason}}. Los botones se desbloquean cuando la GPU está libre.",
+    "job": "Tarea: {{detail}}"
+  },
+  "shortcuts": {
+    "groups": {
+      "global": "Global",
+      "chat": "Chat",
+      "codeEditor": "Editor de código",
+      "systemMap": "Mapa del sistema",
+      "videoEditor": "Editor de video"
+    },
+    "keys": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "space": "Espacio",
+      "enter": "Enter",
+      "esc": "Esc",
+      "delete": "Eliminar"
+    },
+    "showShortcuts": "Mostrar esta referencia de atajos de teclado",
+    "toggleFloatingChat": "Alternar el panel de chat flotante",
+    "voiceMic": "Voz: pulsa para iniciar o detener el micro, mantén para hablar",
+    "sendMessage": "Enviar mensaje",
+    "newline": "Insertar un salto de línea",
+    "previousMessage": "Recordar mensaje anterior",
+    "nextMessage": "Recordar mensaje siguiente",
+    "saveFile": "Guardar el archivo",
+    "saveSession": "Guardar la sesión ahora: pestañas y chat",
+    "findSymbol": "Buscar una función o clase y saltar a ella",
+    "jumpToPanel": "Saltar a Archivos, Editor, Chat, Búsqueda, Salida",
+    "explainSelection": "Explicar el código seleccionado en el chat",
+    "focusSearch": "Enfocar búsqueda",
+    "resetView": "Restablecer la vista",
+    "clearSearch": "Limpiar búsqueda / selección",
+    "playPause": "Reproducir / pausar la vista previa",
+    "undo": "Deshacer el último cambio en la línea de tiempo",
+    "removeOverlay": "Eliminar la superposición de texto seleccionada",
+    "title": "Atajos de teclado",
+    "close": "Cerrar atajos"
+  },
+  "loading": {
+    "remaining": "Quedan ~{{seconds}}s",
+    "processing": "Procesando...",
+    "connected": "Conectado",
+    "offline": "Desconectado",
+    "online": "En línea",
+    "offlineTitle": "Estás desconectado",
+    "offlineBody": "Es posible que algunas funciones no estén disponibles. Revisa tu conexión.",
+    "success": "¡Éxito!",
+    "processFailed": "Error en el proceso",
+    "failed": "Error",
+    "step": "Paso {{current}} de {{total}}"
+  },
+  "mediaPicker": {
+    "listFailed": "No se pudo listar la biblioteca.",
+    "uploadFailed": "Error al subir.",
+    "kinds": {
+      "image": {
+        "choose": "Elegir imágenes",
+        "onlyHere": "Solo las imágenes van aquí; los otros archivos se añadieron a Archivos.",
+        "empty": "Aún no hay imágenes en Archivos. Sube una o genera una en el Studio.",
+        "emptyFiltered": "No hay imágenes en Archivos que coincidan con ese nombre. Sube una o genera una en el Studio."
+      },
+      "video": {
+        "choose": "Elegir clips",
+        "onlyHere": "Solo los clips van aquí; los otros archivos se añadieron a Archivos.",
+        "empty": "Aún no hay clips en Archivos. Sube uno o genera uno en el Studio.",
+        "emptyFiltered": "Aún no hay clips en Archivos que coincidan con ese nombre. Sube uno o genera uno en el Studio."
+      },
+      "audio": {
+        "choose": "Elegir archivos de audio",
+        "onlyHere": "Solo los archivos de audio van aquí; los otros archivos se añadieron a Archivos.",
+        "empty": "Aún no hay archivos de audio en Archivos. Sube uno o genera uno en el Studio.",
+        "emptyFiltered": "Aún no hay archivos de audio en Archivos que coincidan con ese nombre. Sube uno o genera uno en el Studio."
+      }
+    },
+    "filterPlaceholder": "Filtrar por nombre",
+    "uploadFromDisk": "Subir desde el disco",
+    "upToMore": "Hasta {{count}} más.",
+    "pickOne": "Elegir uno.",
+    "useCount": "Usar {{count}}",
+    "use": "Usar"
+  },
+  "narrate": {
+    "failed": "Error en la narración",
+    "fast": "Rápido",
+    "expressive": "Expresivo",
+    "download": "Descargar narración",
+    "summary_one": "{{seconds}}s · {{count}} sección",
+    "summary_other": "{{seconds}}s · {{count}} secciones",
+    "generatingSlow": "Generando (lento)...",
+    "narrating": "Narrando...",
+    "narrate": "Narrar",
+    "expressiveGenerating": "Generando TTS expresivo (10-30s)...",
+    "generating": "Generando narración...",
+    "narrateText": "Narrar este texto"
+  },
+  "projectState": {
+    "title": "Error de estado del proyecto",
+    "intro": "Hubo un error con la gestión del estado del proyecto. Esto podría deberse a:",
+    "causes": {
+      "network": "Problemas de conectividad de red",
+      "sync": "Problemas de sincronización de datos",
+      "relationships": "Relaciones de proyecto no válidas",
+      "corruption": "Corrupción de estado"
+    },
+    "errorMessage": "Error: {{message}}",
+    "unknownError": "Error desconocido"
+  },
+  "sevenDayPicker": {
+    "time": "Hora"
+  },
+  "updateNotice": {
+    "gpuFaultAt": "La GPU dejó de responder a las {{time}}. La generación de imágenes fallará hasta que Guaardvark se reinicie.",
+    "gpuFault": "La GPU dejó de responder. La generación de imágenes fallará hasta que Guaardvark se reinicie.",
+    "restartWithReason": "Guaardvark se actualizó. Reinícialo para finalizar ({{reason}}).",
+    "restart": "Guaardvark se actualizó. Reinícialo para finalizar.",
+    "restarted": "Guaardvark se reinició. Recarga esta página para usar la nueva versión.",
+    "reloadFiles_one": "Guaardvark se actualizó ({{count}} archivo). Recarga esta página para usar la nueva versión.",
+    "reloadFiles_other": "Guaardvark se actualizó ({{count}} archivos). Recarga esta página para usar la nueva versión.",
+    "reload": "Guaardvark se actualizó. Recarga esta página para usar la nueva versión.",
+    "restartButton": "Reiniciar",
+    "confirmTitle": "Reiniciar Guaardvark",
+    "confirmGpu": "Reinicia el backend, los workers y ComfyUI para que la GPU pueda usarse de nuevo. Se perderá cada generación, tarea de indexación y respuesta de chat en curso, y esta página se desconectará hasta que los servicios vuelvan.",
+    "confirmUpdate": "Reinicia el backend, los workers y ComfyUI para que la actualización surta efecto. Se perderá cada generación, tarea de indexación y respuesta de chat en curso, y esta página se desconectará hasta que los servicios vuelvan.",
+    "keeps": "documentos, chats, multimedia, reglas y ajustes.",
+    "restartNow": "Reiniciar ahora"
+  }
+}

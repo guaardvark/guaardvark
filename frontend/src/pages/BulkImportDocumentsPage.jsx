@@ -24,8 +24,9 @@ import ImportDropZone from "../components/documents/bulkImport/ImportDropZone";
 import ImportStatusCard from "../components/documents/bulkImport/ImportStatusCard";
 import ImportActionButton from "../components/documents/bulkImport/ImportActionButton";
 import ImportTargetSelect, { DEFAULT_INTO, intoLabel } from "../components/documents/bulkImport/ImportTargetSelect";
-import { isTerminalStatus, isSuccessStatus, skippedPhrase } from "../components/documents/bulkImport/importStatus";
+import { isTerminalStatus, isSuccessStatus, jobNote, skippedPhrase } from "../components/documents/bulkImport/importStatus";
 import { stageDrop, stageFileList, stagedLabel, uploadStaged } from "../components/documents/bulkImport/browserImport";
+import { useUiTranslation } from "../i18n";
 
 const POLL_INTERVAL_MS = 3000;
 const FILES_API = `${BASE_URL}/files`;
@@ -62,14 +63,14 @@ const formatBytes = (bytes) => {
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 };
-const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 const BulkImportDocumentsPage = () => {
+  const { t, language } = useUiTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { showMessage } = useSnackbar();
 
-  // Where from: null, { kind: "server", path }, or { kind: "browser", files, skipped, tooLarge, totalBytes, label }.
+  // Where from: null, { kind: "server", path }, or { kind: "browser", files, skipped, tooLarge, totalBytes }.
   const [source, setSource] = useState(null);
   const [into, setInto] = useState(DEFAULT_INTO);
   const [rootFolders, setRootFolders] = useState([]);
@@ -173,7 +174,7 @@ const BulkImportDocumentsPage = () => {
         message: status?.message || prev.message,
         progress: typeof status?.progress === "number" ? status.progress : prev.progress,
         stats: status?.stats && Object.keys(status.stats).length ? status.stats : prev.stats,
-        awayNote: first && prev.resumed && terminal ? "Finished while you were away." : prev.awayNote,
+        awayNote: first && prev.resumed && terminal ? jobNote("finishedAway") : prev.awayNote,
       };
     });
   }, []);
@@ -191,7 +192,7 @@ const BulkImportDocumentsPage = () => {
       if (err.status !== 404) {
         setJob((prev) =>
           prev && prev.jobId === jobId
-            ? { ...prev, message: "Can't reach the server right now; still checking this import…" }
+            ? { ...prev, message: jobNote("unreachable") }
             : prev);
         return null;
       }
@@ -201,7 +202,7 @@ const BulkImportDocumentsPage = () => {
           ? {
             ...prev,
             status: "error",
-            message: "This import's status is no longer kept (the server keeps it for an hour). Its files are in Files.",
+            message: jobNote("expired"),
           }
           : prev);
       return null;
@@ -242,7 +243,7 @@ const BulkImportDocumentsPage = () => {
       };
       const response = await startBulkImport(payload);
       if (!response?.job_id) {
-        showMessage(response?.message || "The import did not start", "error");
+        showMessage(response?.message || t("upload.bulk.notStarted"), "error");
         return;
       }
       const record = {
@@ -251,14 +252,14 @@ const BulkImportDocumentsPage = () => {
         mode,
         preview,
         status: response.status || "queued",
-        message: preview ? "Counting the files…" : "Import started",
-        sourceLabel: `From ${displayPath(source.path, browseInfo.home)}`,
-        intoLabel: intoLabel(into),
+        message: preview ? jobNote("counting") : jobNote("started"),
+        sourceLabel: jobNote("fromServer", { path: displayPath(source.path, browseInfo.home) }),
+        into: { path: into.path, name: into.name },
       };
       setJob(record);
-      writeJson(JOB_KEY, { jobId: record.jobId, mode, preview, sourceLabel: record.sourceLabel, intoLabel: record.intoLabel });
+      writeJson(JOB_KEY, { jobId: record.jobId, mode, preview, sourceLabel: record.sourceLabel, into: record.into });
     } catch (error) {
-      showMessage(error.message || "Failed to start the import", "error");
+      showMessage(error.message || t("upload.bulk.startFailed"), "error");
     } finally {
       setStarting(false);
     }
@@ -268,9 +269,9 @@ const BulkImportDocumentsPage = () => {
   useEffect(() => {
     if (job?.kind === "server" && job.mode === "move-preview" && isSuccessStatus(job.status) && !job.moveAsked) {
       const count = Number(job.stats?.total_files) || 0;
-      setJob((prev) => ({ ...prev, moveAsked: true, ...(count === 0 ? { message: "Nothing to move: no files would come in." } : {}) }));
+      setJob((prev) => ({ ...prev, moveAsked: true, ...(count === 0 ? { message: jobNote("nothingToMove") } : {}) }));
       if (count > 0) {
-        setMoveConfirm({ count, skipped: skippedPhrase(job.stats?.skipped_private) });
+        setMoveConfirm({ count, skippedPrivate: job.stats?.skipped_private });
       }
     }
   }, [job]);
@@ -292,30 +293,36 @@ const BulkImportDocumentsPage = () => {
     try {
       staged = await staging;
     } catch (err) {
-      showMessage(`Could not read what was dropped: ${err?.message || "unknown error"}`, "error");
+      showMessage(t("upload.bulk.readDropFailed", { reason: err?.message || t("upload.bulk.unknownError") }), "error");
       return;
     }
     if (staged.files.length === 0) {
-      const why = [skippedPhrase(staged.skipped), staged.tooLarge.length ? plural(staged.tooLarge.length, "file") + " over 100 MB" : ""]
+      const why = [
+        skippedPhrase(staged.skipped),
+        staged.tooLarge.length ? t("upload.bulk.tooLargeCount", { count: staged.tooLarge.length }) : "",
+      ]
         .filter(Boolean)
         .join("; ");
-      showMessage(`Nothing to import${why ? `: skipped ${why}` : ""}`, "warning");
+      showMessage(why ? t("upload.bulk.nothingToImportSkipped", { why }) : t("upload.bulk.nothingToImport"), "warning");
       return;
     }
     setJob(null);
-    setSource({ kind: "browser", ...staged, label: stagedLabel(staged.files) });
+    setSource({ kind: "browser", ...staged });
   };
 
   const startUpload = async () => {
     if (source?.kind !== "browser") return;
     stopUploadRef.current = false;
+    const label = stagedLabel(source.files);
     const record = {
       kind: "browser",
       status: "uploading",
       progress: 0,
-      message: "Starting the upload…",
-      sourceLabel: `From ${source.label} (this computer)`,
-      intoLabel: intoLabel(into),
+      message: jobNote("uploadStarting"),
+      sourceLabel: label.startsWith('"')
+        ? jobNote("fromBrowserFolder", { name: label })
+        : jobNote("fromBrowserFiles", { count: source.files.length }),
+      into: { path: into.path, name: into.name },
     };
     setJob(record);
     try {
@@ -334,7 +341,7 @@ const BulkImportDocumentsPage = () => {
             ? {
               ...prev,
               progress: total ? Math.round((done / total) * 100) : 0,
-              message: name ? `Uploading ${done + 1} of ${total} · ${name}` : prev.message,
+              message: name ? jobNote("uploadingFile", { number: done + 1, total, name }) : prev.message,
             }
             : prev)),
       });
@@ -343,8 +350,8 @@ const BulkImportDocumentsPage = () => {
         status: result.stopped ? "stopped" : "complete",
         progress: 100,
         message: result.stopped
-          ? `Stopped after ${plural(result.imported + result.skipped + result.errors, "file")} of ${source.files.length}`
-          : "Upload finished",
+          ? jobNote("uploadStopped", { count: result.imported + result.skipped + result.errors, total: source.files.length })
+          : jobNote("uploadFinished"),
         stats: {
           total_files: source.files.length,
           imported: result.imported,
@@ -353,7 +360,8 @@ const BulkImportDocumentsPage = () => {
           queued_for_indexing: result.queued_for_indexing,
           skipped_private: source.skipped,
         },
-        failures: [...result.failures, ...source.tooLarge.map((p) => `${p}: over 100 MB, not uploaded`)],
+        failures: result.failures,
+        tooLarge: source.tooLarge,
       }));
       if (into.isNew) {
         const folders = await loadRootFolders();
@@ -361,7 +369,7 @@ const BulkImportDocumentsPage = () => {
         if (created) chooseInto({ ...created, isNew: false });
       }
     } catch (err) {
-      setJob((prev) => ({ ...prev, status: "error", message: err.message || "The upload failed" }));
+      setJob((prev) => ({ ...prev, status: "error", message: err.message || jobNote("uploadFailed") }));
     }
   };
 
@@ -394,13 +402,16 @@ const BulkImportDocumentsPage = () => {
   };
 
   const fileCount = source?.kind === "browser" ? source.files.length : null;
-  const importLabel = fileCount != null ? `Import ${plural(fileCount, "file")}` : "Import";
+  const importLabel = fileCount != null
+    ? t("upload.bulk.action.importFiles", { count: fileCount })
+    : t("upload.bulk.action.import");
   const disabledReason = !source
-    ? "Choose what to import first"
+    ? t("upload.bulk.chooseFirst")
     : busy
-    ? "Wait for the current import to finish"
+    ? t("upload.bulk.waitForImport")
     : "";
 
+  // rootLabel words the home folder, so the chips follow the language too.
   const serverChips = useMemo(() => {
     const roots = browseInfo.roots.map((r) => ({ path: r, label: rootLabel(r, browseInfo.home) }));
     const recent = recentPaths
@@ -408,38 +419,48 @@ const BulkImportDocumentsPage = () => {
       .slice(0, RECENT_CHIPS)
       .map((p) => ({ path: p, label: displayPath(p, browseInfo.home) }));
     return [...recent, ...roots];
-  }, [browseInfo, recentPaths]);
+  }, [browseInfo, recentPaths, language]);
 
   const linkKinds = [
-    { key: "client_id", label: "Client", items: entities.clients, name: (c) => c.name },
-    { key: "project_id", label: "Project", items: entities.projects, name: (p) => p.name },
-    { key: "website_id", label: "Website", items: entities.websites, name: (w) => w.url },
+    { key: "client_id", label: t("upload.bulk.links.client"), items: entities.clients, name: (c) => c.name },
+    { key: "project_id", label: t("upload.bulk.links.project"), items: entities.projects, name: (p) => p.name },
+    { key: "website_id", label: t("upload.bulk.links.website"), items: entities.websites, name: (w) => w.url },
   ].filter((k) => k.items.length > 0);
+
+  const moveSkipped = moveConfirm ? skippedPhrase(moveConfirm.skippedPrivate) : "";
 
   const bigDrop = source?.kind === "browser" &&
     (source.files.length > BIG_DROP_FILES || source.totalBytes > BIG_DROP_BYTES);
 
+  const stagedName = source?.kind === "browser" ? stagedLabel(source.files) : "";
+  const filesAndSize = source?.kind === "browser"
+    ? t("upload.bulk.from.filesAndSize", { count: source.files.length, size: formatBytes(source.totalBytes) })
+    : "";
   const fromLine = source && (
     <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "flex-start", sm: "center" }}>
       <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.5 }}>
-        From
+        {t("upload.bulk.from.label")}
       </Typography>
       <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0, overflowWrap: "anywhere" }} data-testid="import-from">
         {source.kind === "server" ? (
           <>
             {displayPath(source.path, browseInfo.home)}
             <Typography component="span" variant="body2" color="text.secondary">
-              {" · folder on the Guaardvark machine; runs in the background"}
+              {" · "}{t("upload.bulk.from.serverNote")}
             </Typography>
           </>
         ) : (
           <>
-            {source.label.startsWith('"') ? `${source.label} · ` : ""}
-            {plural(source.files.length, "file")}, {formatBytes(source.totalBytes)}
+            {stagedName.startsWith('"') ? `${stagedName} · ` : ""}
+            {filesAndSize}
             <Typography component="span" variant="body2" color="text.secondary">
-              {" · from this computer, uploaded as copies"}
-              {skippedPhrase(source.skipped) ? ` · skipped ${skippedPhrase(source.skipped)}` : ""}
-              {source.tooLarge.length ? ` · ${plural(source.tooLarge.length, "file")} over 100 MB left out` : ""}
+              {" · "}{t("upload.bulk.from.browserNote")}
+              {skippedPhrase(source.skipped)
+                ? ` · ${t("upload.bulk.result.skipped", { what: skippedPhrase(source.skipped) })}`
+                : ""}
+              {source.tooLarge.length
+                ? ` · ${t("upload.bulk.from.tooLargeLeftOut", { count: source.tooLarge.length })}`
+                : ""}
             </Typography>
           </>
         )}
@@ -447,11 +468,11 @@ const BulkImportDocumentsPage = () => {
       <Stack direction="row" spacing={1}>
         {source.kind === "server" && (
           <ActionButton onClick={() => setPickerOpen(true)} disabled={busy}>
-            Change
+            {t("upload.bulk.from.change")}
           </ActionButton>
         )}
         <ActionButton onClick={() => setSource(null)} disabled={busy}>
-          Clear
+          {t("upload.bulk.from.clear")}
         </ActionButton>
       </Stack>
     </Stack>
@@ -459,24 +480,24 @@ const BulkImportDocumentsPage = () => {
 
   return (
     <PageLayout
-      title="Bulk Import"
+      title={t("upload.bulk.title")}
       variant="standard"
       actions={
         <Stack direction="row" spacing={1}>
           {(source || job) && (
             <ActionButton onClick={startOver} disabled={starting}>
-              Start over
+              {t("upload.bulk.startOver")}
             </ActionButton>
           )}
           <ActionButton kind="link" onClick={() => navigate("/documents")}>
-            Files
+            {t("upload.bulk.filesPage")}
           </ActionButton>
         </Stack>
       }
     >
       <Stack spacing={2}>
         <Typography variant="body2" color="text.secondary">
-          Bring a folder into Files and index it for search.
+          {t("upload.bulk.intro")}
         </Typography>
 
         <Paper variant="outlined" sx={{ p: 2 }}>
@@ -484,7 +505,7 @@ const BulkImportDocumentsPage = () => {
             <ImportDropZone
               compact={Boolean(source)}
               disabled={busy}
-              disabledReason="Wait for the current import to finish"
+              disabledReason={t("upload.bulk.waitForImport")}
               onDrop={(snapshot) => stage(stageDrop(snapshot))}
               onPick={(files) => stage(Promise.resolve(stageFileList(files)))}
             >
@@ -495,14 +516,14 @@ const BulkImportDocumentsPage = () => {
               <Stack spacing={1}>
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
                   <Typography variant="body2" color="text.secondary">
-                    Or a folder on the Guaardvark machine
+                    {t("upload.bulk.orServerFolder")}
                   </Typography>
                   <ActionButton
                     onClick={() => setPickerOpen(true)}
                     disabled={busy}
                     sx={{ whiteSpace: { xs: "normal", sm: "nowrap" }, height: { xs: "auto", sm: 30 }, py: { xs: 0.75, sm: 0 } }}
                   >
-                    Browse the Guaardvark machine…
+                    {t("upload.bulk.browseServer")}
                   </ActionButton>
                 </Stack>
                 {serverChips.length > 0 && (
@@ -524,8 +545,7 @@ const BulkImportDocumentsPage = () => {
 
             {bigDrop && (
               <Typography variant="caption" color="text.secondary">
-                That is a large drop. If this folder is on the Guaardvark machine, choose it there instead: it runs in
-                the background and can move instead of copy.
+                {t("upload.bulk.bigDrop")}
               </Typography>
             )}
           </Stack>
@@ -540,7 +560,7 @@ const BulkImportDocumentsPage = () => {
             disabled={busy}
           />
           <ActionButton kind="link" onClick={() => setMoreOpen((v) => !v)}>
-            {moreOpen ? "Fewer options ▾" : "More options ▸"}
+            {moreOpen ? t("upload.bulk.fewerOptions") : t("upload.bulk.moreOptions")}
           </ActionButton>
           <Box sx={{ flexGrow: 1 }} />
           <ImportActionButton
@@ -560,17 +580,17 @@ const BulkImportDocumentsPage = () => {
             <Stack spacing={1.5}>
               <Box>
                 <SettingChip
-                  label="Index files an earlier import left unindexed"
+                  label={t("upload.bulk.reindexMissing")}
                   on={reindexMissing}
                   onToggle={setReindexMissing}
                   disabled={busy}
-                  tooltip="A file an earlier import already brought in is skipped and its source left alone; with this on it is queued for indexing if its indexing never finished. Files already indexed are not indexed again."
+                  tooltip={t("upload.bulk.reindexMissingTooltip")}
                 />
               </Box>
               {linkKinds.length > 0 && (
                 <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "stretch", sm: "center" }}>
                   <Typography variant="overline" color="text.secondary">
-                    Link to
+                    {t("upload.bulk.links.linkTo")}
                   </Typography>
                   {linkKinds.map((kind) => (
                     <TextField
@@ -583,7 +603,7 @@ const BulkImportDocumentsPage = () => {
                       disabled={busy}
                       sx={{ minWidth: 180 }}
                     >
-                      <MenuItem value="">None</MenuItem>
+                      <MenuItem value="">{t("upload.bulk.links.none")}</MenuItem>
                       {kind.items.map((item) => (
                         <MenuItem key={item.id} value={item.id}>
                           {kind.name(item)}
@@ -613,15 +633,15 @@ const BulkImportDocumentsPage = () => {
         onClose={() => setPickerOpen(false)}
         onSelect={(path) => pickServerFolder(path)}
         initialPath={source?.kind === "server" ? source.path : "~"}
-        title="Choose a folder on the Guaardvark machine"
+        title={t("upload.bulk.pickerTitle")}
       />
 
       <TextInputDialog
         open={newFolderOpen}
-        title="New folder in Files"
-        description="The import creates it at the top level of Files."
-        label="Folder name"
-        submitLabel="Use this folder"
+        title={t("upload.bulk.newFolder.title")}
+        description={t("upload.bulk.newFolder.description")}
+        label={t("upload.bulk.newFolder.label")}
+        submitLabel={t("upload.bulk.newFolder.submit")}
         onSubmit={(name) => {
           setNewFolderOpen(false);
           const existing = rootFolders.find((f) => f.name === name);
@@ -632,15 +652,17 @@ const BulkImportDocumentsPage = () => {
 
       <ConfirmActionDialog
         open={Boolean(moveConfirm)}
-        title="Move the files into Files?"
-        description="Each file not already in Files is removed from the source folder once it is safely in Files."
+        title={t("upload.bulk.move.title")}
+        description={t("upload.bulk.move.description")}
         facts={moveConfirm ? [
-          { label: "Files found", value: moveConfirm.count },
-          { label: "From", value: source?.kind === "server" ? displayPath(source.path, browseInfo.home) : "" },
-          { label: "Into", value: intoLabel(into) },
+          { label: t("upload.bulk.move.filesFound"), value: moveConfirm.count },
+          { label: t("upload.bulk.from.label"), value: source?.kind === "server" ? displayPath(source.path, browseInfo.home) : "" },
+          { label: t("upload.bulk.into.label"), value: intoLabel(into) },
         ] : []}
-        keeps={`files already imported earlier (left where they are)${moveConfirm?.skipped ? `, and the ${moveConfirm.skipped} skipped` : ""}`}
-        confirmLabel="Move"
+        keeps={moveSkipped
+          ? t("upload.bulk.move.keepsWithSkipped", { skipped: moveSkipped })
+          : t("upload.bulk.move.keeps")}
+        confirmLabel={t("upload.bulk.move.confirm")}
         onConfirm={() => {
           setMoveConfirm(null);
           startServerJob({ mode: "move" });

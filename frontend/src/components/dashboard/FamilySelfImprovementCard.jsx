@@ -26,6 +26,7 @@ import { StatusChip, UNCLE_GOLD, getFamilyColors } from "../../utils/familyColor
 import { claudeAdvisorService } from "../../api/claudeAdvisorService";
 import { selfImprovementService } from "../../api/selfImprovementService";
 import io from "socket.io-client";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 // Stage color mapping
 const STAGE_COLORS = {
@@ -49,6 +50,7 @@ const FamilySelfImprovementCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const theme = useTheme();
     const _colors = getFamilyColors(theme);
     const [claudeStatus, setClaudeStatus] = useState(null);
@@ -101,7 +103,7 @@ const FamilySelfImprovementCard = React.forwardRef(
 
     const handleTrigger = async () => {
       try {
-        setProgress({ stage: "starting", detail: "Queuing...", progress: 0 });
+        setProgress({ stage: "starting", detail: t("dashboard.family.queuing"), progress: 0 });
         await selfImprovementService.triggerRun();
         setTimeout(fetchData, 3000);
       } catch (err) {
@@ -122,14 +124,14 @@ const FamilySelfImprovementCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="Family & Self-improvement"
+        title={t("dashboard.family.title")}
         titleBarActions={
           <PsychologyIcon fontSize="small" sx={{ color: UNCLE_GOLD, opacity: 0.8 }} />
         }
         {...props}
         contextMenuActions={[
-          { label: "Refresh", onClick: fetchData },
-          canRunCheck && { label: "Run Check", onClick: handleTrigger },
+          { label: t("common.refresh"), onClick: fetchData },
+          canRunCheck && { label: t("dashboard.family.runCheck"), onClick: handleTrigger },
         ]}
       >
         {loading ? (
@@ -143,15 +145,15 @@ const FamilySelfImprovementCard = React.forwardRef(
               <StatusChip
                 source="uncle_claude"
                 status={claudeStatus?.available ? "connected" : "offline"}
-                label={claudeStatus?.available ? "Uncle Online" : "Uncle Offline"}
+                label={claudeStatus?.available ? t("dashboard.family.uncleOnline") : t("dashboard.family.uncleOffline")}
               />
               <StatusChip
                 source="self_improvement"
                 status={siStatus?.enabled ? "enabled" : "disabled"}
-                label={siStatus?.enabled ? "SI: On" : "SI: Off"}
+                label={siStatus?.enabled ? t("dashboard.family.siOn") : t("dashboard.family.siOff")}
               />
               {siStatus?.codebase_locked && (
-                <StatusChip source="nephew" status="locked" label="Locked" />
+                <StatusChip source="nephew" status="locked" label={t("dashboard.family.locked")} />
               )}
             </Stack>
 
@@ -160,12 +162,12 @@ const FamilySelfImprovementCard = React.forwardRef(
               <Box sx={{ mt: 0.5 }}>
                 <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
                   <Typography variant="caption" fontWeight="bold" color={`${STAGE_COLORS[progress.stage] || "info"}.main`}>
-                    {progress.stage === "starting" && "Starting..."}
-                    {progress.stage === "testing" && "Running Tests"}
-                    {progress.stage === "analyzed" && "Analyzing Results"}
-                    {progress.stage === "fixing" && "Applying Fixes"}
-                    {progress.stage === "complete" && "Complete"}
-                    {progress.stage === "error" && "Error"}
+                    {progress.stage === "starting" && t("dashboard.family.stages.starting")}
+                    {progress.stage === "testing" && t("dashboard.family.stages.testing")}
+                    {progress.stage === "analyzed" && t("dashboard.family.stages.analyzed")}
+                    {progress.stage === "fixing" && t("dashboard.family.stages.fixing")}
+                    {progress.stage === "complete" && t("dashboard.family.stages.complete")}
+                    {progress.stage === "error" && t("dashboard.family.stages.error")}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {Math.round((progress.progress || 0) * 100)}%
@@ -187,7 +189,7 @@ const FamilySelfImprovementCard = React.forwardRef(
             {claudeStatus?.available && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
-                  Tokens: {usage.budget_used_percent || 0}%
+                  {t("dashboard.family.tokens", { percent: usage.budget_used_percent || 0 })}
                 </Typography>
                 <LinearProgress
                   variant="determinate"
@@ -205,7 +207,7 @@ const FamilySelfImprovementCard = React.forwardRef(
             {/* Fixes count */}
             {(siStatus?.total_fixes || 0) > 0 && (
               <Typography variant="caption" color="text.secondary">
-                Total fixes applied: {siStatus.total_fixes}
+                {t("dashboard.family.totalFixes", { count: siStatus.total_fixes })}
               </Typography>
             )}
 
@@ -213,11 +215,11 @@ const FamilySelfImprovementCard = React.forwardRef(
 
             {/* Recent Runs */}
             <Typography variant="caption" fontWeight="bold">
-              Recent Activity
+              {t("dashboard.family.recentActivity")}
             </Typography>
             {runs.length === 0 ? (
               <Typography variant="caption" color="text.secondary">
-                No self-improvement runs yet
+                {t("dashboard.family.noRuns")}
               </Typography>
             ) : (
               <List dense disablePadding>
@@ -240,12 +242,12 @@ const FamilySelfImprovementCard = React.forwardRef(
                       }
                       secondary={
                         <Typography variant="caption" color="text.secondary">
-                          {run.timestamp ? new Date(run.timestamp).toLocaleString() : ""}
+                          {run.timestamp ? new Date(run.timestamp).toLocaleString(uiLocale()) : ""}
                         </Typography>
                       }
                     />
                     {run.uncle_reviewed && (
-                      <Chip label="Reviewed" size="small" sx={{ bgcolor: UNCLE_GOLD, color: "#000", fontSize: "0.6rem", height: 18 }} />
+                      <Chip label={t("dashboard.family.reviewed")} size="small" sx={{ bgcolor: UNCLE_GOLD, color: "#000", fontSize: "0.6rem", height: 18 }} />
                     )}
                   </ListItem>
                 ))}
@@ -261,7 +263,7 @@ const FamilySelfImprovementCard = React.forwardRef(
                 startIcon={<PlayIcon />}
                 sx={{ alignSelf: "flex-start" }}
               >
-                Run Check
+                {t("dashboard.family.runCheck")}
               </Button>
             )}
           </Box>

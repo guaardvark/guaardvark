@@ -14,6 +14,7 @@ import {
   VOICE_SETTINGS_KEY,
   readVoiceSettings,
 } from "../config/voiceDefaults";
+import { translate } from "../i18n";
 
 const VoiceContext = createContext();
 export const useVoice = () => useContext(VoiceContext);
@@ -254,8 +255,8 @@ export const VoiceProvider = ({ children }) => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         const errorMsg = window.isSecureContext === false
-          ? "Mic needs HTTPS or localhost"
-          : "Your browser doesn't support microphone access.";
+          ? translate("messages.voice.micNeedsSecureContext")
+          : translate("messages.voice.micUnsupported");
         setMicPermissionError(errorMsg);
         setMicPermissionState('unavailable');
         return;
@@ -276,7 +277,7 @@ export const VoiceProvider = ({ children }) => {
     } catch (error) {
       if (!isMountedRef.current) return;
       
-      setMicPermissionError("Failed to check microphone permissions.");
+      setMicPermissionError(translate("messages.voice.permissionCheckFailed"));
       setMicPermissionState('denied');
       setMicEnabled(false);
     } finally {
@@ -311,7 +312,7 @@ export const VoiceProvider = ({ children }) => {
     } catch (error) {
       if (!isMountedRef.current) return false;
       
-      setMicPermissionError("Failed to get microphone permission.");
+      setMicPermissionError(translate("messages.voice.permissionRequestFailed"));
       setMicPermissionState('denied');
       setMicEnabled(false);
       
@@ -414,7 +415,7 @@ export const VoiceProvider = ({ children }) => {
     
     if (!micEnabled) {
       if (micPermissionState === 'denied') {
-        setRecordingError("Microphone access denied. Please enable permissions.");
+        setRecordingError(translate("messages.voice.micAccessDenied"));
         return;
       }
       
@@ -448,16 +449,16 @@ export const VoiceProvider = ({ children }) => {
       
     } catch (error) {
       if (isMountedRef.current) {
-        let errorMessage = "Failed to start recording. ";
+        let errorMessage;
         
         if (error.name === 'NotAllowedError') {
-          errorMessage += "Microphone permission denied.";
+          errorMessage = translate("messages.voice.startFailedPermission");
           setMicPermissionState('denied');
           setMicEnabled(false);
         } else if (error.name === 'NotFoundError') {
-          errorMessage += "No microphone found.";
+          errorMessage = translate("messages.voice.startFailedNoMic");
         } else {
-          errorMessage += "Please try again.";
+          errorMessage = translate("messages.voice.startFailedRetry");
         }
         
         setRecordingError(errorMessage);
@@ -486,16 +487,16 @@ export const VoiceProvider = ({ children }) => {
             if (transcription.text && transcription.text.trim()) {
               setTranscribedText(transcription.text);
             } else {
-              setRecordingError("No speech detected.");
+              setRecordingError(translate("messages.voice.noSpeech"));
             }
           }
         } else {
-          setRecordingError("No audio data recorded.");
+          setRecordingError(translate("messages.voice.noAudio"));
         }
         
       } catch (error) {
         console.warn("Error stopping recording:", error);
-        setRecordingError("Recording failed.");
+        setRecordingError(translate("messages.voice.recordingFailed"));
       }
       
       cleanupTimeoutRef.current = setTimeout(() => {

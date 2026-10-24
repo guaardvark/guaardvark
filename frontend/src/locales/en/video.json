@@ -1,0 +1,200 @@
+{
+  "common": {
+    "upload": "Upload",
+    "addFromFiles": "Add from Files"
+  },
+  "stage": {
+    "queued": "Queued",
+    "gpuWait": "Waiting for GPU",
+    "storyboard": "Storyboard",
+    "director": "Director",
+    "keyframe": "Keyframe",
+    "generate": "Generating",
+    "post": "Post-process",
+    "register": "Registering",
+    "done": "Done"
+  },
+  "keyframeMatch": {
+    "atFrame": "at frame {{frame}} of {{frames}}",
+    "label": "Keyframe {{percent}}%",
+    "tooltip": "Image-encoder match between the keyframe and the clip{{where}}. Reacts to what is in the shot changing, not only its colours{{hold}}.",
+    "holdBelow": "; under {{percent}}% the clip is held for a look"
+  },
+  "colourMatch": {
+    "label": "Colour {{percent}}%",
+    "tooltip": "Colour match with the keyframe{{where}}. Compares colours only, not who is in the shot."
+  },
+  "vlmReview": {
+    "score": "QA {{score}}/10",
+    "noScore": "the vision review gave no score",
+    "notReviewed": "Not reviewed",
+    "notReviewedWhy": "Not reviewed: {{reason}}"
+  },
+  "latentPreview": {
+    "alt": "Live latent preview",
+    "caption": "Live latent preview — not final quality"
+  },
+  "qualityFlags": {
+    "unreadable": "Unreadable",
+    "blackFrames": "Black frames",
+    "blackTiles": "Black tiles",
+    "clippedHighlights": "Blown out",
+    "crushedShadows": "Crushed shadows",
+    "washedOut": "Washed out",
+    "desaturated": "No colour",
+    "oversaturated": "Oversaturated",
+    "frozen": "Frozen",
+    "flashes": "Flashing",
+    "wrongSize": "Wrong size",
+    "wrongFrameCount": "Wrong length",
+    "colourDrift": "Colour drift",
+    "keyframeDrift": "Keyframe drift",
+    "lowReviewScore": "Low review score",
+    "review": "Review",
+    "count": "{{count}} quality flags"
+  },
+  "clipReview": {
+    "needsReview": "Needs review",
+    "approved": "Approved",
+    "rerendered": "Re-rendered",
+    "newBatch": "New batch {{batch}}",
+    "heldUntilApproved": "It is not added to Files until you approve it.",
+    "held": "Held for review{{reasons}}.",
+    "reasons": ": {{reasons}}",
+    "approve": "Approve",
+    "rerenderTooltip": "Render this clip again as a new batch, same settings, new seed",
+    "rerender": "Re-render"
+  },
+  "cutQuality": {
+    "title": "Cut quality",
+    "held": "{{count}} held for review; the video is assembled once each is approved or re-rendered",
+    "cut": "Cut #{{index}}",
+    "noProblems": "no problems found",
+    "heldUntilApproved": "It is not used in the video until you approve it."
+  },
+  "effective": {
+    "title": "Effective settings",
+    "steps": "{{count}} steps",
+    "nativeAudio": "native audio",
+    "styleEmbedding": "style: {{style}}",
+    "frames": "{{count}} frames",
+    "fps": "{{fps}} FPS",
+    "seconds": "~{{seconds}}s",
+    "keyframeModel": "Keyframe: {{model}}",
+    "director": "Director",
+    "faceRestore": "Face restore",
+    "interpolation": "{{multiplier}}x FPS",
+    "upscale": "2x Upscale",
+    "promptStyle": "{{style}} style",
+    "cast": "Cast ×{{count}}"
+  },
+  "frameSlot": {
+    "drop": "Drop the {{frame}} here",
+    "remove": "Remove the {{frame}}",
+    "choose": "Choose the {{frame}}"
+  },
+  "progress": {
+    "state": {
+      "done": "Done",
+      "active": "Running",
+      "queued": "Waiting for GPU",
+      "waiting": "Waiting for you",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "pending": "Not started",
+      "skipped": "Skipped"
+    },
+    "etaMeasured": "~{{duration}} left (measured)",
+    "etaEstimate": "~{{duration}} left (estimate)",
+    "cell": {
+      "done": "done",
+      "held": "held",
+      "failed": "failed",
+      "rendering": "rendering",
+      "cancelled": "cancelled",
+      "pending": "pending"
+    },
+    "clipOf": "Clip {{position}}/{{total}}",
+    "waitingForGpu": "waiting for GPU",
+    "working": "Working…",
+    "elapsed": "{{duration}} elapsed",
+    "cutTooltip": "Cut #{{index}} · {{state}}{{locked}}",
+    "locked": "locked",
+    "cutAria": "Cut {{index}} {{state}}"
+  },
+  "referenceBoard": {
+    "rows": {
+      "images": "Pictures",
+      "videos": "Clips",
+      "audios": "Audio"
+    },
+    "roles": {
+      "keep": "Keep exactly",
+      "loose": "Keep the look loosely",
+      "detail": "Borrow one detail",
+      "hint": "Light hint",
+      "firstFrame": "Use as the first frame",
+      "subject": "Keep who is in it",
+      "motion": "Copy its motion and camera",
+      "edit": "Edit this clip",
+      "continue": "Continue this clip",
+      "voice": "Voice for a character",
+      "music": "Use as the music",
+      "sound": "Match this sound"
+    },
+    "problems": {
+      "needVisual": "Add at least one picture or clip; audio cannot be the only reference.",
+      "tooManyImages": "Pictures take at most {{count}}.",
+      "tooManyVideos": "Clips take at most {{count}}.",
+      "tooManyAudios": "Audio take at most {{count}}.",
+      "tooManyFiles": "At most {{count}} files in all.",
+      "clipTooShort": "Clip {{clip}} is {{seconds}} s; clips need at least {{shortest}} s.",
+      "tooManyPictures": "On this card a {{seconds}} s clip at {{width}}x{{height}} with a reference clip takes at most {{count}} pictures.",
+      "clipShareTooShort": "On this card a {{seconds}} s clip at {{width}}x{{height}} leaves {{share}} s of reference video per clip, under the {{shortest}} s a clip needs. Choose a shorter duration or a smaller size, or use fewer clips or pictures."
+    },
+    "help": {
+      "images": "People, places, products or a look to keep. Give pictures of the same person the same name.",
+      "videos": "A clip to keep someone from, copy the motion of, edit, or continue. 2 to 15 seconds.",
+      "audios": "A voice for a character, music to use as is, or a sound to match."
+    },
+    "rowNames": {
+      "images": "pictures",
+      "videos": "clips",
+      "audios": "audio"
+    },
+    "insertTag": "Insert into the prompt",
+    "useItTo": "Use it to",
+    "whoOrWhat": "Who or what is this?",
+    "whoOrWhatExample": "e.g. Maya, the red car",
+    "optional": "optional",
+    "whichDetail": "Which detail?",
+    "whichDetailExample": "e.g. only the leather jacket",
+    "whoseVoice": "Whose voice?",
+    "forExample": "e.g. {{name}}",
+    "whoseVoiceHint": "a name from the pictures",
+    "notOnBoard": "Not a name on the board ({{names}})",
+    "sound": "Sound",
+    "ownSound": "Its own sound",
+    "noSound": "No sound",
+    "track": "Track: {{file}}",
+    "separateTrack": "A separate track…",
+    "lengthUnknown": "Length unknown",
+    "clipHasNoSound": "this clip has no sound",
+    "itsSoundIs": "its sound is {{tag}}",
+    "modelReadsFirst": "the model reads its first {{seconds}} s",
+    "clipsNeedAtLeast": "Clips need at least {{shortest}} s.",
+    "earlier": "Earlier (renumbers the tags)",
+    "moveEarlier": "Move earlier",
+    "later": "Later (renumbers the tags)",
+    "moveLater": "Move later",
+    "remove": "Remove",
+    "removeReference": "Remove reference",
+    "onlyThisRow": "Only {{rows}} go in this row.",
+    "dropHere": "Drop {{rows}} here",
+    "dropHereOr": "Drop {{rows}} here, or",
+    "couldNotRead": "Could not read {{file}}.",
+    "uploadFailed": "Upload failed.",
+    "fileCount": "{{used}} of {{total}} files. Each clip's separate track counts as one.",
+    "chooseSoundtrack": "Choose the clip's soundtrack"
+  }
+}

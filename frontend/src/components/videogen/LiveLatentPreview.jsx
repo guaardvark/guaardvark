@@ -1,8 +1,10 @@
 import React from "react";
 import { Box, Typography } from "@mui/material";
+import { useUiTranslation } from "../../i18n";
 
 /** Sampler thumbnail. Colourful blobs are expected (Latent2RGB), not the final MP4. */
 export default function LiveLatentPreview({ src, aspectRatio = "16 / 9" }) {
+  const { t } = useUiTranslation();
   if (!src) return null;
   return (
     <Box sx={{ mb: 1.5 }}>
@@ -20,12 +22,12 @@ export default function LiveLatentPreview({ src, aspectRatio = "16 / 9" }) {
         <Box
           component="img"
           src={src}
-          alt="Live latent preview"
+          alt={t("video.latentPreview.alt")}
           sx={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       </Box>
       <Typography variant="caption" color="text.secondary">
-        Live latent preview — not final quality
+        {t("video.latentPreview.caption")}
       </Typography>
     </Box>
   );

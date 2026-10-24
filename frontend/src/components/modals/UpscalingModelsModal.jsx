@@ -22,6 +22,7 @@ import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import * as upscalingService from "../../api/upscalingService";
+import { translate, useUiTranslation } from "../../i18n";
 
 function normalizeModelsPayload(res) {
   const raw = res?.data ?? res;
@@ -50,6 +51,7 @@ function buildRows(payload) {
 // installModelName: opened from a page's Install button. That row's install
 // starts once the list has loaded, as if the person had clicked Install on it.
 const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, installModelName }) => {
+  const { t } = useUiTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -66,7 +68,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
       setRows(buildRows(payload));
       setError(null);
     } catch (err) {
-      setError(err.message || "Error fetching upscaling models");
+      setError(err.message || translate("models.upscalingModels.errorFetching"));
     } finally {
       setLoading(false);
     }
@@ -87,7 +89,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
     try {
       setDownloadingName(name);
       await upscalingService.downloadModel(name);
-      showMessage?.(`Installed ${name}`, "success");
+      showMessage?.(t("models.upscalingModels.installedName", { name }), "success");
       await fetchModels();
       onInstalled?.(name);
     } catch (err) {
@@ -95,7 +97,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
         err?.data?.error?.message ||
         err?.data?.message ||
         err?.message ||
-        "Download failed";
+        t("models.upscalingModels.downloadFailed");
       showMessage?.(msg, "error");
     } finally {
       setDownloadingName(null);
@@ -112,7 +114,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
 
   return (
     <Dialog open={open} onClose={() => !isDownloading && onClose()} maxWidth="sm" fullWidth>
-      <DialogTitle>Manage Upscaling Models</DialogTitle>
+      <DialogTitle>{t("models.upscalingModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
           <Box mb={2}>
@@ -151,8 +153,8 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                     }
                     secondary={
                       model.is_downloaded
-                        ? "Ready to use in the upscaler"
-                        : "Not installed — Install adds it to the model dropdown"
+                        ? t("models.upscalingModels.ready")
+                        : t("models.upscalingModels.notInstalled")
                     }
                   />
 
@@ -160,14 +162,14 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                     {isThis ? (
                       <Box sx={{ width: 130 }}>
                         <Typography variant="caption" noWrap>
-                          Downloading…
+                          {t("models.shared.downloading")}
                         </Typography>
                         <LinearProgress sx={{ mt: 0.5 }} />
                       </Box>
                     ) : model.is_downloaded ? (
                       <Chip
                         icon={<CheckCircleIcon />}
-                        label="Installed"
+                        label={t("models.shared.installed")}
                         color="success"
                         size="small"
                         variant="outlined"
@@ -180,7 +182,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
                         onClick={() => handleDownload(model.name)}
                         disabled={isDownloading}
                       >
-                        Install
+                        {t("dialogs.shared.install")}
                       </Button>
                     )}
                   </Box>
@@ -189,7 +191,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
             })}
             {rows.length === 0 && !loading && (
               <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
-                No upscaling models returned from the service.
+                {t("models.upscalingModels.noModels")}
               </Typography>
             )}
           </List>
@@ -197,7 +199,7 @@ const UpscalingModelsModal = ({ open, onClose, showMessage, onInstalled, install
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isDownloading}>
-          {isDownloading ? "Downloading…" : "Close"}
+          {isDownloading ? t("models.shared.downloading") : t("dialogs.shared.close")}
         </Button>
       </DialogActions>
     </Dialog>

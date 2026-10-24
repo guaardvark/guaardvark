@@ -14,6 +14,7 @@ import {
 import { themes } from "./theme";
 import { spacing } from "./theme/tokens";
 import { themeCssVars } from "./theme/cssVars";
+import { useLocalizedTheme } from "./i18n/muiLocale";
 import { useAppStore } from "./stores/useAppStore";
 import { BrandLogo } from "./components/branding";
 import brand from "./config/brand";
@@ -175,10 +176,11 @@ const GlobalTrainer = () => {
 
 const AppContainer = () => {
   const themeName = useAppStore((state) => state.themeName);
-  const theme =
+  const theme = useLocalizedTheme(
     themes[themeName]?.theme ||
-    themes[brand.defaultThemeKey]?.theme ||
-    themes["guaardvark"].theme;
+      themes[brand.defaultThemeKey]?.theme ||
+      themes["guaardvark"].theme,
+  );
   // A profile may land somewhere other than the dashboard (creator: /images).
   // The dashboard stays reachable at /dashboard — unlisted, not removed.
   const profile = useAppStore((state) => state.profile);

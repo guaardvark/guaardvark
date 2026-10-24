@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Box, TextField } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 // Simple 7-day calendar with time selector
 const SevenDayTimePicker = ({ value, onChange, disabled = false }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [selectedDate, setSelectedDate] = useState("");
   const [time, setTime] = useState("");
@@ -69,7 +71,7 @@ const SevenDayTimePicker = ({ value, onChange, disabled = false }) => {
                     backgroundColor: theme.palette.background.default,
                   }}
                 >
-                  {d.toLocaleDateString(undefined, { weekday: "short" })}
+                  {d.toLocaleDateString(uiLocale(), { weekday: "short" })}
                 </th>
               ))}
             </tr>
@@ -108,7 +110,7 @@ const SevenDayTimePicker = ({ value, onChange, disabled = false }) => {
       </Box>
       {selectedDate && (
         <TextField
-          label="Time"
+          label={t("layoutCommon.sevenDayPicker.time")}
           type="time"
           value={time}
           onChange={(e) => setTime(e.target.value)}

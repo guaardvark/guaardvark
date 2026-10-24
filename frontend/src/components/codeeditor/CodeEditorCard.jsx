@@ -49,6 +49,7 @@ import { saveTargetFor, saveRefusal, loadedTab, tabDisplayName, TAB_LOAD } from 
 import { bindEditorActions, modelPathFor, disposeTabModels } from "./editorBindings";
 import { readDroppedCodeFiles, dropNotice as noticeForDrop } from "./droppedCode";
 import { dragCarriesFiles, snapshotDrop } from "../../utils/droppedFiles";
+import { useUiTranslation } from "../../i18n";
 
 // Monaco command behind the lightbulb actions (Fix with AI, Explain, Optimize):
 // each sends the lines under the marker or selection to the chat card.
@@ -75,6 +76,7 @@ const CodeEditorCard = React.forwardRef(
     },
     ref
   ) => {
+    const { t } = useUiTranslation();
     const editorRef = useRef(null);
     const [editorMounts, setEditorMounts] = useState(0);
     const contextUpdateTimeoutRef = useRef(null);
@@ -314,22 +316,22 @@ ${currentTab.content}
 
           if (problems.length > 0) {
             actions.push({
-              title: 'Fix with AI',
+              title: t("codeEditor.card.fixWithAi"),
               kind: 'quickfix',
-              command: { id: CODE_ACTION_COMMAND, title: 'Fix with AI', arguments: ['fix', model, range, problems] }
+              command: { id: CODE_ACTION_COMMAND, title: t("codeEditor.card.fixWithAi"), arguments: ['fix', model, range, problems] }
             });
           }
 
           actions.push({
-            title: 'Explain Code',
+            title: t("codeEditor.card.explainCode"),
             kind: 'refactor',
-            command: { id: CODE_ACTION_COMMAND, title: 'Explain Code', arguments: ['explain', model, range] }
+            command: { id: CODE_ACTION_COMMAND, title: t("codeEditor.card.explainCode"), arguments: ['explain', model, range] }
           });
 
           actions.push({
-            title: 'Optimize Code',
+            title: t("codeEditor.card.optimizeCode"),
             kind: 'refactor',
-            command: { id: CODE_ACTION_COMMAND, title: 'Optimize Code', arguments: ['optimize', model, range] }
+            command: { id: CODE_ACTION_COMMAND, title: t("codeEditor.card.optimizeCode"), arguments: ['optimize', model, range] }
           });
 
           return { actions, dispose: () => {} };
@@ -366,7 +368,7 @@ ${currentTab.content}
           clearTimeout(contextUpdateTimeoutRef.current);
         }
       };
-    }, [updateEditorContext, onEditorContextChange]);
+    }, [updateEditorContext, onEditorContextChange, t]);
 
     // Not bound to a key: the completion it fetches is never shown, so Ctrl+Space
     // stays Monaco's own suggestion list.
@@ -488,12 +490,12 @@ ${currentTab.content}
             return { success: false, error: error.message };
           }
         }
-        return { success: false, error: 'Editor not available' };
+        return { success: false, error: t("codeEditor.card.editorUnavailable") };
       },
       getEditor: () => editorRef.current,
       getSelection: () => editorRef.current?.getSelection(),
       getPosition: () => editorRef.current?.getPosition()
-    }), []);
+    }), [t]);
 
     // A jump asked for by the page (Find Symbol) runs once its tab is showing
     // and Monaco has mounted; the Editor child updates its model before this runs.
@@ -539,17 +541,17 @@ ${currentTab.content}
         // string would replace the stored document.
         const refusal = saveRefusal(currentTab);
         if (refusal && refusal.reason === 'clean') {
-          completeProcess(startProcess("save-file", "Saving file...", "file_generation"), refusal.message);
+          completeProcess(startProcess("save-file", t("codeEditor.card.saving"), "file_generation"), refusal.message);
           return;
         }
         if (refusal) {
           throw new Error(refusal.message);
         }
-        const processId = startProcess("save-file", "Saving file...", "file_generation");
+        const processId = startProcess("save-file", t("codeEditor.card.saving"), "file_generation");
 
         // Validate file content
         if (currentTab.content === undefined || currentTab.content === null) {
-          throw new Error('Cannot save file with undefined content');
+          throw new Error(t("codeEditor.card.undefinedContent"));
         }
         // The text this save writes, and the tab it belongs to: the user can
         // type, switch or close tabs while the write is in flight.
@@ -576,7 +578,7 @@ ${currentTab.content}
 
         // Validate file path
         if (!actualFilePath || actualFilePath.trim() === '') {
-          throw new Error('Invalid file path');
+          throw new Error(t("codeEditor.card.invalidPath"));
         }
 
         if (target.kind === 'document') {
@@ -591,7 +593,7 @@ ${currentTab.content}
           // A repo file keeps its repo-relative path and the guarded write route.
           const result = await fileOperationsService.writeFile(target.path, sent);
           if (!result.success) {
-            throw new Error(result.error || 'Failed to save file');
+            throw new Error(result.error || t("codeEditor.card.saveFailed"));
           }
         } else {
           // Save to localStorage with error handling
@@ -616,9 +618,9 @@ ${currentTab.content}
             localStorage.setItem('codeEditorFiles', JSON.stringify(existingFiles));
           } catch (storageError) {
             if (storageError.name === 'QuotaExceededError') {
-              throw new Error('Storage quota exceeded. Please free up some space by deleting unused files.');
+              throw new Error(t("codeEditor.card.storageFull"));
             }
-            throw new Error(`Failed to save file to local storage: ${storageError.message}`);
+            throw new Error(t("codeEditor.card.localSaveFailed", { error: storageError.message }));
           }
         }
 
@@ -638,11 +640,11 @@ ${currentTab.content}
             : tab
         ));
 
-        completeProcess(processId, `File saved as ${actualFilePath}`);
+        completeProcess(processId, t("codeEditor.card.savedAs", { path: actualFilePath }));
       } catch (err) {
         errorProcess("save-file", err.message);
       }
-    }, [currentTab, activeTabIndex, setOpenTabs, startProcess, completeProcess, errorProcess]);
+    }, [currentTab, activeTabIndex, setOpenTabs, startProcess, completeProcess, errorProcess, t]);
     handleSaveRef.current = handleSave;
 
     const handleTabChange = useCallback((event, newValue) => {
@@ -664,7 +666,7 @@ ${currentTab.content}
         setCloseConfirmDialog({
           open: true,
           tabIndex: tabIndex,
-          tabName: (tabToClose.filePath || "Untitled").split('/').pop()
+          tabName: tabToClose.filePath ? tabToClose.filePath.split('/').pop() : null
         });
         return;
       }
@@ -807,12 +809,12 @@ ${currentTab.content}
         // eslint-disable-next-line no-control-regex -- intentional: \x00-\x1f matches OS-illegal filename control chars
         const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
         if (invalidChars.test(trimmedName)) {
-          alert('Filename contains invalid characters. Please use only letters, numbers, spaces, hyphens, and underscores.');
+          alert(t("codeEditor.rename.invalidChars"));
           return;
         }
 
         if (trimmedName.length > 255) {
-          alert('Filename is too long. Please use a shorter name.');
+          alert(t("codeEditor.rename.tooLong"));
           return;
         }
 
@@ -858,14 +860,14 @@ ${currentTab.content}
         setRenameValue("");
       } catch (error) {
         console.error('Error renaming tab:', error);
-        alert('Failed to rename file. Please try again.');
+        alert(t("codeEditor.rename.failed"));
       }
-    }, [renameDialog.tabIndex, renameValue, openTabs, setOpenTabs]);
+    }, [renameDialog.tabIndex, renameValue, openTabs, setOpenTabs, t]);
 
     return (
       <DashboardCardWrapper
         ref={ref}
-        title="Code Editor"
+        title={t("codeEditor.card.title")}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
         isMinimized={isMinimized}
@@ -900,9 +902,9 @@ ${currentTab.content}
                 gap: 0.5,
               }}
             >
-              <Typography variant="h6">Drop to open in a new tab</Typography>
+              <Typography variant="h6">{t("codeEditor.card.dropTitle")}</Typography>
               <Typography variant="body2" color="text.secondary">
-                Opens an unsaved copy; your file is not changed
+                {t("codeEditor.card.dropHint")}
               </Typography>
             </Box>
           )}
@@ -939,7 +941,7 @@ ${currentTab.content}
                   label={
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <Typography variant="body2">
-                        {(tab.filePath || "Untitled").split('/').pop()}
+                        {(tab.filePath || t("codeEditor.tabs.untitled")).split('/').pop()}
                         {tab.isModified && " •"}
                       </Typography>
                       <Box
@@ -975,27 +977,27 @@ ${currentTab.content}
             {/* Action buttons */}
             <Box sx={{ display: 'flex', gap: 0.5, px: 1 }}>
               {/* New file button */}
-              <Tooltip title="New File">
+              <Tooltip title={t("codeEditor.card.newFile")}>
                 <IconButton size="small" onClick={createNewTab}>
                   <AddIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
               {/* Preview button - only show for WordPress HTML pages */}
               {currentTab && currentTab.source === "wordpress" && currentTab.language === "html" && (
-                <Tooltip title="Preview HTML">
+                <Tooltip title={t("codeEditor.card.previewHtml")}>
                   <IconButton size="small" onClick={() => setPreviewDialogOpen(true)}>
                     <PreviewIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
               )}
-              <Tooltip title="Save (Ctrl+S)">
+              <Tooltip title={t("codeEditor.card.save")}>
                 <span>
                   <IconButton size="small" onClick={handleSave} disabled={!currentTab}>
                     <SaveIcon fontSize="small" />
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title="Run Code">
+              <Tooltip title={t("codeEditor.card.runCode")}>
                 <span>
                   <IconButton size="small" onClick={handleRunCode} disabled={!currentTab?.content || !onRun}>
                     <PlayArrowIcon fontSize="small" />
@@ -1003,7 +1005,7 @@ ${currentTab.content}
                 </span>
               </Tooltip>
               {currentTab && (
-                <Tooltip title="Tab Options">
+                <Tooltip title={t("codeEditor.card.tabOptions")}>
                   <IconButton
                     size="small"
                     onClick={(e) => handleTabContextMenu(e, activeTabIndex)}
@@ -1020,13 +1022,13 @@ ${currentTab.content}
             {editorError ? (
               <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 <Alert severity="error" sx={{ mb: 2 }}>
-                  Editor failed to load: {editorError.message}
+                  {t("codeEditor.card.editorFailed", { error: editorError.message })}
                 </Alert>
                 <IconButton onClick={() => setEditorError(null)} color="primary">
                   <RefreshIcon />
                 </IconButton>
                 <Typography variant="body2" color="text.secondary">
-                  Click to retry
+                  {t("codeEditor.card.clickToRetry")}
                 </Typography>
               </Box>
             ) : currentTab ? (
@@ -1038,12 +1040,12 @@ ${currentTab.content}
                   sx={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, bgcolor: 'rgba(0,0,0,0.55)' }}
                 >
                   <CircularProgress size={20} />
-                  <Typography variant="body2">Loading {tabDisplayName(currentTab)}…</Typography>
+                  <Typography variant="body2">{t("codeEditor.card.loadingTab", { name: tabDisplayName(currentTab) })}</Typography>
                 </Box>
               )}
               {currentTab.loadState === TAB_LOAD.FAILED && (
                 <Alert severity="error" data-testid="tab-failed" sx={{ position: 'absolute', top: 8, left: 8, right: 8, zIndex: 2 }}>
-                  {tabDisplayName(currentTab)} did not load: {currentTab.loadError}. Nothing will be saved from this tab; close it and open the file again.
+                  {t("codeEditor.card.tabFailed", { name: tabDisplayName(currentTab), error: currentTab.loadError })}
                 </Alert>
               )}
               <Editor
@@ -1084,15 +1086,15 @@ ${currentTab.content}
                 }}
               >
                 <Typography variant="h6" color="text.secondary">
-                  No files open
+                  {t("codeEditor.card.noFiles")}
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
-                  Open a file from the File Tree, create a new one, or drop a code file here
+                  {t("codeEditor.card.emptyHint")}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ mb: 2, textAlign: 'center', maxWidth: 420 }}>
-                  A dropped file opens as an unsaved copy. Save keeps it in this browser; the file on your computer is not changed.
+                  {t("codeEditor.card.dropNote")}
                 </Typography>
-                <Tooltip title="Create New File">
+                <Tooltip title={t("codeEditor.card.createNewFile")}>
                   <IconButton
                     onClick={createNewTab}
                     sx={{
@@ -1129,15 +1131,15 @@ ${currentTab.content}
             <ListItemIcon>
               <DriveFileRenameOutline fontSize="small" />
             </ListItemIcon>
-            <ListItemText>Rename Tab</ListItemText>
+            <ListItemText>{t("codeEditor.menu.renameTab")}</ListItemText>
           </MenuItem>
           <MenuItem onClick={toggleAiHover}>
             <ListItemIcon>
               <SmartToyIcon fontSize="small" color={aiHoverEnabled ? "primary" : "inherit"} />
             </ListItemIcon>
             <ListItemText
-              primary={`AI hover explanations: ${aiHoverEnabled ? "on" : "off"}`}
-              secondary="Each hovered word asks the model once"
+              primary={aiHoverEnabled ? t("codeEditor.menu.aiHoverOn") : t("codeEditor.menu.aiHoverOff")}
+              secondary={t("codeEditor.menu.aiHoverHint")}
             />
           </MenuItem>
         </Menu>
@@ -1151,7 +1153,9 @@ ${currentTab.content}
           fullWidth
         >
           <DialogTitle>
-            Preview: {currentTab?.wordpressPageTitle || currentTab?.filePath || 'Untitled'}
+            {t("codeEditor.preview.title", {
+              title: currentTab?.wordpressPageTitle || currentTab?.filePath || t("codeEditor.tabs.untitled"),
+            })}
           </DialogTitle>
           <DialogContent sx={{ p: 0 }}>
             <Box
@@ -1166,13 +1170,13 @@ ${currentTab.content}
                 border: 'none',
                 display: 'block',
               }}
-              title="HTML Preview"
+              title={t("codeEditor.preview.frameTitle")}
               key={currentTab?.content} // Force refresh when content changes
             />
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setPreviewDialogOpen(false)}>
-              Close
+              {t("codeEditor.actions.close")}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1191,14 +1195,14 @@ ${currentTab.content}
           }}
         >
           <DialogTitle>
-            Rename File
+            {t("codeEditor.rename.title")}
           </DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
               inputRef={renameInputRef}
               margin="dense"
-              label="New File Name"
+              label={t("codeEditor.rename.label")}
               fullWidth
               variant="outlined"
               value={renameValue}
@@ -1208,15 +1212,15 @@ ${currentTab.content}
                   handleRenameConfirm();
                 }
               }}
-              helperText="Enter the new name for this file"
+              helperText={t("codeEditor.rename.helper")}
             />
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setRenameDialog({ open: false, tabIndex: null })}>
-              Cancel
+              {t("codeEditor.actions.cancel")}
             </Button>
             <Button onClick={handleRenameConfirm} variant="contained">
-              Rename
+              {t("codeEditor.rename.confirm")}
             </Button>
           </DialogActions>
         </Dialog>
@@ -1225,19 +1229,21 @@ ${currentTab.content}
         <Dialog open={closeConfirmDialog.open} onClose={handleCloseConfirmCancel}>
           <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WarningIcon color="warning" />
-            Unsaved Changes
+            {t("codeEditor.unsaved.title")}
           </DialogTitle>
           <DialogContent>
             <Typography>
-              "{closeConfirmDialog.tabName}" has unsaved changes. Do you want to discard them?
+              {t("codeEditor.unsaved.message", {
+                name: closeConfirmDialog.tabName ?? t("codeEditor.tabs.untitled"),
+              })}
             </Typography>
           </DialogContent>
           <DialogActions>
             <Button onClick={handleCloseConfirmCancel}>
-              Cancel
+              {t("codeEditor.actions.cancel")}
             </Button>
             <Button onClick={handleCloseConfirmDiscard} color="error" variant="contained">
-              Discard Changes
+              {t("codeEditor.unsaved.discard")}
             </Button>
           </DialogActions>
         </Dialog>

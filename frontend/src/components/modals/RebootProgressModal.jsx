@@ -22,6 +22,7 @@ import { BASE_URL } from '../../api/apiClient';
 import { announceRefusal, authRefusalCode, describeAuthRefusal } from '../../api/apiAuth';
 import { getBackendHealth } from '../../api/devtoolsService';
 import { ApiKeyRefusalAlert } from '../common/ApiKeyRefusalNotice';
+import { useUiTranslation } from '../../i18n';
 
 // Strip ANSI escape codes from terminal output
 // eslint-disable-next-line no-control-regex -- intentional: ANSI escape sequences are control chars by definition
@@ -29,6 +30,7 @@ const ANSI_RE = /\x1b\[[0-9;]*[a-zA-Z]|\x1b\].*?\x07/g;
 const stripAnsi = (s) => s.replace(ANSI_RE, '');
 
 const RebootProgressModal = ({ open, onClose }) => {
+  const { t } = useUiTranslation();
   const _theme = useTheme();
   const [output, setOutput] = useState([]);
   const [status, setStatus] = useState('idle'); // idle | running | complete | error
@@ -96,7 +98,7 @@ const RebootProgressModal = ({ open, onClose }) => {
 
   const startReboot = async () => {
     setStatus('running');
-    addLine('status', 'Initiating reboot...');
+    addLine('status', t('backups.reboot.initiating'));
 
     try {
       abortRef.current = new AbortController();
@@ -155,7 +157,7 @@ const RebootProgressModal = ({ open, onClose }) => {
               addLine('error', data.message);
             } else if (data.type === 'complete' && data.polling) {
               if (data.logServerUrl) logServerUrlRef.current = data.logServerUrl;
-              addLine('status', 'Switching to live log polling...');
+              addLine('status', t('backups.reboot.switchingToPolling'));
               startLogServerPolling();
               return; // exit SSE loop
             }
@@ -169,14 +171,14 @@ const RebootProgressModal = ({ open, onClose }) => {
 
       // Network error or stream error = Flask died (expected during reboot)
       if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('Network') || err.message?.includes('input stream') || err.message?.includes('stream')) {
-        addLine('status', 'Server connection lost — services stopping...');
+        addLine('status', t('backups.reboot.connectionLost'));
         startLogServerPolling();
         return;
       }
 
-      setErrorMessage(err.message || 'Failed to start reboot');
+      setErrorMessage(err.message || t('backups.reboot.startFailed'));
       setStatus('error');
-      addLine('error', err.message || 'Failed to start reboot');
+      addLine('error', err.message || t('backups.reboot.startFailed'));
     }
   };
 
@@ -186,7 +188,7 @@ const RebootProgressModal = ({ open, onClose }) => {
     const url = logServerUrlRef.current;
     if (!url) {
       // No log server — skip straight to health-check polling
-      addLine('status', 'Waiting for system to come back online...');
+      addLine('status', t('backups.reboot.waitingForOnline'));
       startHealthCheckPolling();
       return;
     }
@@ -199,7 +201,7 @@ const RebootProgressModal = ({ open, onClose }) => {
     const poll = async () => {
       if (!mountedRef.current) return;
       if (attempts >= MAX_ATTEMPTS) {
-        addLine('status', 'Max polling time reached — checking health...');
+        addLine('status', t('backups.reboot.maxPollingReached'));
         startHealthCheckPolling();
         return;
       }
@@ -256,14 +258,14 @@ const RebootProgressModal = ({ open, onClose }) => {
       if (!mountedRef.current) return;
       if (attempts >= MAX) {
         setStatus('error');
-        setErrorMessage('System did not come back online within the expected time.');
-        addLine('error', 'Timeout waiting for system restart');
+        setErrorMessage(t('backups.reboot.didNotComeBack'));
+        addLine('error', t('backups.reboot.timeout'));
         return;
       }
       attempts++;
 
       if (attempts % 5 === 0) {
-        addLine('status', `Waiting for system... (${attempts}/${MAX})`);
+        addLine('status', t('backups.reboot.waitingAttempt', { attempt: attempts, max: MAX }));
       }
 
       try {
@@ -301,7 +303,7 @@ const RebootProgressModal = ({ open, onClose }) => {
   const finishReboot = () => {
     if (!mountedRef.current) return;
     setStatus('complete');
-    addLine('status', 'System is back online!');
+    addLine('status', t('backups.reboot.backOnline'));
 
     // Shutdown the log server (best-effort)
     if (logServerUrlRef.current) {
@@ -340,7 +342,7 @@ const RebootProgressModal = ({ open, onClose }) => {
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         {statusIcon}
-        System Reboot
+        {t('backups.reboot.title')}
       </DialogTitle>
 
       <DialogContent>
@@ -350,7 +352,7 @@ const RebootProgressModal = ({ open, onClose }) => {
 
         {status === 'complete' && (
           <Alert severity="success" sx={{ mb: 1.5 }}>
-            Reboot complete — reloading page...
+            {t('backups.reboot.complete')}
           </Alert>
         )}
 
@@ -383,7 +385,7 @@ const RebootProgressModal = ({ open, onClose }) => {
         >
           {output.length === 0 ? (
             <Typography variant="body2" sx={{ color: '#8b949e', fontFamily: 'inherit' }}>
-              Waiting for output...
+              {t('backups.reboot.waitingForOutput')}
             </Typography>
           ) : (
             output.map((item, idx) => {
@@ -423,7 +425,7 @@ const RebootProgressModal = ({ open, onClose }) => {
           variant="contained"
           startIcon={<CloseIcon />}
         >
-          {status === 'running' ? 'Rebooting...' : status === 'complete' ? 'Reloading...' : 'Close'}
+          {status === 'running' ? t('backups.reboot.rebooting') : status === 'complete' ? t('backups.reboot.reloading') : t('dialogs.shared.close')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -11,6 +11,7 @@ import {
 import { RefreshOutlined } from "@mui/icons-material";
 import { BrandLogo } from "../branding";
 import { isStaleModuleError, reloadOnceForStaleModule } from "../../utils/lazyWithReload";
+import { translate, useUiTranslation } from "../../i18n";
 
 // The outermost boundary sits outside the MUI theme, whose defaults are light.
 // These are the variables AppContainer publishes from the active theme; the
@@ -100,7 +101,7 @@ class ErrorBoundaryCore extends React.Component {
             </Box>
 
             <Typography variant="h4" gutterBottom color="error">
-              {stale ? "Guaardvark was updated" : "Something went wrong"}
+              {stale ? translate("layoutCommon.errorBoundary.updatedTitle") : translate("layoutCommon.errorBoundary.errorTitle")}
             </Typography>
 
             <Typography
@@ -109,8 +110,8 @@ class ErrorBoundaryCore extends React.Component {
               sx={{ color: fullPage ? PAGE_COLOURS.muted : "text.secondary" }}
             >
               {stale
-                ? "This page's code changed while it was open. Reload to load the new version."
-                : "The application encountered an unexpected error. This has been logged for investigation."}
+                ? translate("layoutCommon.errorBoundary.updatedBody")
+                : translate("layoutCommon.errorBoundary.errorBody")}
             </Typography>
 
             <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
@@ -119,14 +120,14 @@ class ErrorBoundaryCore extends React.Component {
                 startIcon={<RefreshOutlined />}
                 onClick={this.handleReload}
               >
-                Reload Page
+                {translate("layoutCommon.errorBoundary.reloadPage")}
               </Button>
               {!stale && (
                 <Button
                   variant="outlined"
                   onClick={this.handleReset}
                 >
-                  Try Again
+                  {translate("layoutCommon.errorBoundary.tryAgain")}
                 </Button>
               )}
             </Stack>
@@ -136,7 +137,7 @@ class ErrorBoundaryCore extends React.Component {
                 <Divider sx={{ my: 2 }} />
                 <Alert severity="error" sx={{ textAlign: "left" }}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Error Details (Development Mode Only):
+                    {translate("layoutCommon.errorBoundary.detailsHeading")}:
                   </Typography>
                   <Typography variant="body2" component="pre" sx={{
                     whiteSpace: "pre-wrap",
@@ -167,6 +168,8 @@ class ErrorBoundaryCore extends React.Component {
  * @param {boolean}   [props.fullPage]  for the boundary outside the theme provider
  */
 const ErrorBoundary = ({ resetKey, ...props }) => {
+  // The class below reads translate(); this re-renders it on a language change.
+  useUiTranslation();
   const inheritedKey = React.useContext(ErrorResetContext);
   return <ErrorBoundaryCore {...props} resetKey={resetKey ?? inheritedKey} />;
 };

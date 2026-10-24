@@ -56,6 +56,7 @@ import PageLayout from "../components/layout/PageLayout";
 import { ContextualLoader } from "../components/common/LoadingStates";
 import { PROJECT_TABS } from "../utils/entityLinks";
 import ProjectVideosPanel from "../components/projects/ProjectVideosPanel";
+import { uiLocale, useUiTranslation, Trans } from "../i18n";
 
 const tabIndexFor = (name) => Math.max(0, PROJECT_TABS.indexOf(name));
 
@@ -72,6 +73,7 @@ const ProjectEditModal = ({
   isSaving,
   clients,
 }) => {
+  const { t } = useUiTranslation();
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formRootPath, setFormRootPath] = useState("");
@@ -96,11 +98,11 @@ const ProjectEditModal = ({
 
   const handleSave = () => {
     if (!formName.trim()) {
-      setModalError("Project name is required.");
+      setModalError(t("projects.detail.editModal.nameRequired"));
       return;
     }
     if (!formClientValue || !formClientValue.id) {
-      setModalError("Client is required.");
+      setModalError(t("projects.detail.editModal.clientRequired"));
       return;
     }
     setModalError("");
@@ -115,7 +117,7 @@ const ProjectEditModal = ({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>Edit Project: {project?.name}</DialogTitle>
+      <DialogTitle>{t("projects.detail.editModal.title", { name: project?.name })}</DialogTitle>
       <DialogContent>
         {modalError && (
           <MuiAlert severity="error" sx={{ mb: 2 }}>
@@ -125,7 +127,7 @@ const ProjectEditModal = ({
         <TextField
           autoFocus
           margin="dense"
-          label="Project Name"
+          label={t("projects.detail.editModal.name")}
           type="text"
           fullWidth
           variant="outlined"
@@ -146,7 +148,7 @@ const ProjectEditModal = ({
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Client"
+              label={t("projects.detail.editModal.client")}
               variant="outlined"
               required
               disabled={isSaving}
@@ -156,7 +158,7 @@ const ProjectEditModal = ({
         />
         <TextField
           margin="dense"
-          label="Description"
+          label={t("projects.detail.editModal.description")}
           type="text"
           fullWidth
           multiline
@@ -168,28 +170,28 @@ const ProjectEditModal = ({
         />
         <TextField
           margin="dense"
-          label="Project folder"
+          label={t("projects.detail.editModal.folder")}
           type="text"
           fullWidth
           variant="outlined"
           placeholder="~/projects/my-app"
           value={formRootPath}
           onChange={(e) => setFormRootPath(e.target.value)}
-          helperText="A folder on this machine. This project's chats search and read its code in place, and its GUAARDVARK.md (or AGENTS.md, CLAUDE.md) is their instructions. Leave empty for none."
+          helperText={t("projects.detail.editModal.folderHelp")}
           sx={{ mt: 2 }}
           disabled={isSaving}
         />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isSaving} color="inherit">
-          Cancel
+          {t("projects.detail.editModal.cancel")}
         </Button>
         <Button
           onClick={handleSave}
           variant="contained"
           disabled={isSaving || !formName.trim() || !formClientValue?.id}
         >
-          {isSaving ? <CircularProgress size={24} /> : "Save Changes"}
+          {isSaving ? <CircularProgress size={24} /> : t("projects.detail.editModal.save")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -197,6 +199,7 @@ const ProjectEditModal = ({
 };
 
 const ProjectDetailPage = () => {
+  const { t } = useUiTranslation();
   const { projectId } = useParams();
   const navigate = useNavigate();
   const _theme = useTheme();
@@ -269,9 +272,9 @@ const ProjectDetailPage = () => {
     } catch (err) {
       console.error(`Error fetching project ${projectId}:`, err);
       const errMsg =
-        err.message || `Failed to load project details for ID ${projectId}.`;
+        err.message || t("projects.detail.loadFailed", { id: projectId });
       setProjectError(errMsg);
-      showMessage(`Error loading project: ${errMsg}`, "error");
+      showMessage(t("projects.detail.loadError", { error: errMsg }), "error");
     } finally {
       setIsLoadingProject(false);
     }
@@ -288,7 +291,7 @@ const ProjectDetailPage = () => {
         throw new Error(tasksResult.error.message || tasksResult.error);
       setTasks(Array.isArray(tasksResult) ? tasksResult : []);
     } catch (err) {
-      const msg = err.message || "Failed to load tasks.";
+      const msg = err.message || t("projects.detail.tasksLoadFailed");
       setTasksError(msg);
       setTasks([]);
       showMessage(msg, "error");
@@ -311,7 +314,7 @@ const ProjectDetailPage = () => {
         throw new Error(docsResult.error.message || docsResult.error);
       setDocuments(docsResult?.documents || docsResult?.items || []);
     } catch (err) {
-      const msg = err.message || "Failed to load documents.";
+      const msg = err.message || t("projects.detail.docsLoadFailed");
       setDocsError(msg);
       setDocuments([]);
       showMessage(msg, "error");
@@ -332,7 +335,7 @@ const ProjectDetailPage = () => {
         throw new Error(websitesResult.error.message || websitesResult.error);
       setWebsites(Array.isArray(websitesResult) ? websitesResult : []);
     } catch (err) {
-      const msg = err.message || "Failed to load websites.";
+      const msg = err.message || t("projects.detail.websitesLoadFailed");
       setWebsitesError(msg);
       setWebsites([]);
       showMessage(msg, "error");
@@ -351,7 +354,7 @@ const ProjectDetailPage = () => {
         throw new Error(rulesResult.error.message || rulesResult.error);
       setLinkedRules(Array.isArray(rulesResult) ? rulesResult : []);
     } catch (err) {
-      setRulesError(err.message || "Failed to load linked rules.");
+      setRulesError(err.message || t("projects.detail.rulesLoadFailed"));
       setLinkedRules([]);
     } finally {
       setIsLoadingRules(false);
@@ -391,7 +394,7 @@ const ProjectDetailPage = () => {
     /* ... (same as before, ensure projectId is Number) ... */
     if (!newTaskName.trim()) {
       setFeedback({
-        message: "Task name cannot be empty.",
+        message: t("projects.detail.taskNameEmpty"),
         severity: "warning",
         open: true,
       });
@@ -407,14 +410,14 @@ const ProjectDetailPage = () => {
       };
       await apiService.createTask(taskData);
       setFeedback({
-        message: "Task added successfully!",
+        message: t("projects.detail.taskAdded"),
         severity: "success",
         open: true,
       });
       handleCloseAddTaskDialog();
       fetchTasks();
     } catch (err) {
-      showMessage(`Failed to add task: ${err.message}`, "error");
+      showMessage(t("projects.detail.taskAddFailed", { error: err.message }), "error");
     } finally {
       setIsSavingTask(false);
     }
@@ -435,13 +438,13 @@ const ProjectDetailPage = () => {
       if (result?.error) throw new Error(result.error.message || result.error);
       setFeedback({
         open: true,
-        message: "Project details updated!",
+        message: t("projects.detail.projectUpdated"),
         severity: "success",
       });
       fetchProjectDetails(); // Refresh project details
       handleCloseProjectEditModal();
     } catch (err) {
-      showMessage(`Failed to update project: ${err.message}`, "error");
+      showMessage(t("projects.detail.projectUpdateFailed", { error: err.message }), "error");
     } finally {
       setIsSavingProject(false);
     }
@@ -451,25 +454,25 @@ const ProjectDetailPage = () => {
     /* ... (same as before) ... */
     if (
       window.confirm(
-        `Are you sure you want to delete project "${project?.name}" (ID: ${projectId})? This action cannot be undone and might affect associated items.`,
+        t("projects.detail.deleteConfirm", { name: project?.name, id: projectId }),
       )
     ) {
       setIsActionLoading(true); // Use general action loading or specific
       setFeedback({
-        message: "Deleting project...",
+        message: t("projects.detail.deleting"),
         severity: "info",
         open: true,
       });
       try {
         await apiService.deleteProject(projectId);
         setFeedback({
-          message: "Project deleted successfully. Redirecting...",
+          message: t("projects.detail.deleted"),
           severity: "success",
           open: true,
         });
         setTimeout(() => navigate("/projects"), 1500);
       } catch (err) {
-        showMessage(`Error deleting project: ${err.message}`, "error");
+        showMessage(t("projects.detail.deleteError", { error: err.message }), "error");
       } finally {
         setIsActionLoading(false);
       }
@@ -491,7 +494,7 @@ const ProjectDetailPage = () => {
         ? rules.map((r) => ({ id: r.id, name: r.name, description: r.type }))
         : [];
     } catch (error) {
-      showMessage(`Error fetching rules: ${error.message}`, "error");
+      showMessage(t("projects.detail.rulesFetchError", { error: error.message }), "error");
       return [];
     }
   }, []);
@@ -510,7 +513,7 @@ const ProjectDetailPage = () => {
             ? rules.map((r) => ({ id: r.id, name: r.name }))
             : [];
         } catch (error) {
-          showMessage(`Error fetching linked rules: ${error.message}`, "error");
+          showMessage(t("projects.detail.linkedRulesFetchError", { error: error.message }), "error");
           return [];
         }
       }
@@ -548,7 +551,7 @@ const ProjectDetailPage = () => {
           await Promise.all([...toLinkPromises, ...toUnlinkPromises]);
           // Success feedback handled by onLinksUpdated
         } catch (error) {
-          showMessage(`Error updating rule links: ${error.message}`, "error");
+          showMessage(t("projects.detail.ruleLinksError", { error: error.message }), "error");
           throw error;
         } finally {
           setIsActionLoading(false);
@@ -560,7 +563,7 @@ const ProjectDetailPage = () => {
   const handleRuleLinksUpdated = () => {
     fetchRules();
     setFeedback({
-      message: "Rule links updated.",
+      message: t("projects.detail.ruleLinksUpdated"),
       severity: "success",
       open: true,
     });
@@ -571,7 +574,7 @@ const ProjectDetailPage = () => {
     /* ... (same as before) ... */
     if (!docId) return;
     setFeedback({
-      message: `Requesting indexing for Document ID: ${docId}...`,
+      message: t("projects.detail.indexRequesting", { id: docId }),
       severity: "info",
       open: true,
     });
@@ -581,15 +584,14 @@ const ProjectDetailPage = () => {
       if (result?.error) throw new Error(result.error.message || result.error);
       setFeedback({
         message:
-          result?.message ||
-          `Indexing triggered for Doc ID: ${docId}. Status will update shortly.`,
+          result?.message || t("projects.detail.indexTriggered", { id: docId }),
         severity: "success",
         open: true,
       });
       setTimeout(fetchDocuments, 3000); // Give some time for status to potentially update
     } catch (err) {
       setFeedback({
-        message: `Error triggering indexing: ${err.message}`,
+        message: t("projects.detail.indexError", { error: err.message }),
         severity: "error",
         open: true,
       });
@@ -602,12 +604,12 @@ const ProjectDetailPage = () => {
     if (!docId) return;
     if (
       window.confirm(
-        `Are you sure you want to delete document "${filename}" (ID: ${docId})? This will remove it from the database and index.`,
+        t("projects.detail.docDeleteConfirm", { filename, id: docId }),
       )
     ) {
       setIsActionLoading(true);
       setFeedback({
-        message: `Deleting document ${docId}...`,
+        message: t("projects.detail.docDeleting", { id: docId }),
         severity: "info",
         open: true,
       });
@@ -616,14 +618,14 @@ const ProjectDetailPage = () => {
         if (result?.error)
           throw new Error(result.error.message || result.error);
         setFeedback({
-          message: result?.message || `Document ${docId} deleted successfully.`,
+          message: result?.message || t("projects.detail.docDeleted", { id: docId }),
           severity: "success",
           open: true,
         });
         fetchDocuments();
       } catch (err) {
         setFeedback({
-          message: `Error deleting document: ${err.message}`,
+          message: t("projects.detail.docDeleteError", { error: err.message }),
           severity: "error",
           open: true,
         });
@@ -651,7 +653,7 @@ const ProjectDetailPage = () => {
       if (result?.error) throw new Error(result.error.message || result.error);
       setFeedback({
         open: true,
-        message: "Website created successfully!",
+        message: t("projects.detail.websiteCreated"),
         severity: "success",
       });
       handleCloseWebsiteModal();
@@ -659,7 +661,7 @@ const ProjectDetailPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to create website: ${err.message}`,
+        message: t("projects.detail.websiteCreateFailed", { error: err.message }),
         severity: "error",
       });
     } finally {
@@ -670,28 +672,28 @@ const ProjectDetailPage = () => {
   if (isLoadingProject && !project) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
-        <ContextualLoader loading message="Loading project details..." showProgress={false} inline />
+        <ContextualLoader loading message={t("projects.detail.loading")} showProgress={false} inline />
       </Box>
     );
   }
   if (projectError) {
     return (
       <MuiAlert severity="error" sx={{ m: 2 }}>
-        Error loading project: {projectError}
+        {t("projects.detail.loadError", { error: projectError })}
       </MuiAlert>
     );
   }
   if (!project) {
     return (
       <Typography sx={{ p: 3, textAlign: "center" }}>
-        Project not found or failed to load.
+        {t("projects.detail.notFound")}
       </Typography>
     );
   }
 
   return (
     <PageLayout
-      title={`Project: ${project?.name || ""}`}
+      title={t("projects.detail.title", { name: project?.name || "" })}
       variant="standard"
       actions={
         <Button
@@ -702,15 +704,27 @@ const ProjectDetailPage = () => {
           onClick={handleDeleteProject}
           disabled={isActionLoading || isSavingProject}
         >
-          Delete
+          {t("projects.detail.delete")}
         </Button>
       }
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
+      activeModel={
+        isLoadingModel
+          ? t("projects.detail.modelLoading")
+          : modelError
+            ? t("projects.detail.modelError")
+            : activeModel
+      }
       headerContent={
         <Box sx={{ px: 2, pb: 0.5 }}>
           <Typography variant="caption" color="text.secondary">
-            Client: {project?.client?.name || "N/A"} | ID: {project?.id} | Created: {project?.created_at ? new Date(project.created_at).toLocaleDateString() : "N/A"}
+            {t("projects.detail.header", {
+              client: project?.client?.name || t("projects.detail.notAvailable"),
+              id: project?.id,
+              created: project?.created_at
+                ? new Date(project.created_at).toLocaleDateString(uiLocale())
+                : t("projects.detail.notAvailable"),
+            })}
           </Typography>
         </Box>
       }
@@ -734,9 +748,9 @@ const ProjectDetailPage = () => {
         <Typography
           variant="body2"
           sx={{ mx: 1.5, mt: 1.5, color: "text.secondary", fontFamily: "monospace" }}
-          title="This project's chats search and read code in this folder"
+          title={t("projects.detail.folderTitle")}
         >
-          Project folder: {project.effective_root}
+          {t("projects.detail.folder", { path: project.effective_root })}
         </Typography>
       )}
 
@@ -758,7 +772,7 @@ const ProjectDetailPage = () => {
             gutterBottom
             sx={{ fontWeight: "medium" }}
           >
-            Description
+            {t("projects.detail.description")}
           </Typography>
           <Typography
             variant="body2"
@@ -780,7 +794,7 @@ const ProjectDetailPage = () => {
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
-          aria-label="project detail tabs"
+          aria-label={t("projects.detail.tabsLabel")}
           variant="scrollable"
           scrollButtons="auto"
           sx={{
@@ -793,27 +807,27 @@ const ProjectDetailPage = () => {
           }}
         >
           <Tab
-            label="Tasks"
+            label={t("projects.detail.tabs.tasks")}
             id="project-tab-tasks"
             aria-controls="project-panel-tasks"
           />
           <Tab
-            label="Documents"
+            label={t("projects.detail.tabs.documents")}
             id="project-tab-documents"
             aria-controls="project-panel-documents"
           />
           <Tab
-            label="Websites"
+            label={t("projects.detail.tabs.websites")}
             id="project-tab-websites"
             aria-controls="project-panel-websites"
           />
           <Tab
-            label="Rules/Prompts"
+            label={t("projects.detail.tabs.rules")}
             id="project-tab-rules"
             aria-controls="project-panel-rules"
           />
           <Tab
-            label="Videos"
+            label={t("projects.detail.tabs.videos")}
             id="project-tab-videos"
             aria-controls="project-panel-videos"
           />
@@ -838,7 +852,7 @@ const ProjectDetailPage = () => {
               }}
             >
               <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
-                Tasks for {project.name}
+                {t("projects.detail.tasksFor", { name: project.name })}
               </Typography>
               <Button
                 variant="contained"
@@ -847,25 +861,25 @@ const ProjectDetailPage = () => {
                 onClick={handleOpenAddTaskDialog}
                 disabled={isActionLoading || isSavingTask}
               >
-                Add Task
+                {t("projects.detail.addTask")}
               </Button>
             </Box>
             {isLoadingTasks && (
               <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
                 <CircularProgress size={24} />
-                <Typography sx={{ ml: 1 }}>Loading tasks...</Typography>
+                <Typography sx={{ ml: 1 }}>{t("projects.detail.loadingTasks")}</Typography>
               </Box>
             )}
             {tasksError && (
               <MuiAlert severity="error" sx={{ my: 1 }}>
-                Error loading tasks: {tasksError}
+                {t("projects.detail.tasksError", { error: tasksError })}
               </MuiAlert>
             )}
             {!isLoadingTasks && !tasksError && tasks.length === 0 && (
               <Typography
                 sx={{ my: 2, textAlign: "center", fontStyle: "italic" }}
               >
-                No tasks found for this project.
+                {t("projects.detail.noTasks")}
               </Typography>
             )}
             {!isLoadingTasks && !tasksError && tasks.length > 0 && (
@@ -875,11 +889,11 @@ const ProjectDetailPage = () => {
                     key={task.id}
                     divider
                     secondaryAction={
-                      <Tooltip title="Edit Task (Not Implemented on Detail Page yet)">
+                      <Tooltip title={t("projects.detail.editTaskTooltip")}>
                         <span>
                           <IconButton
                             edge="end"
-                            aria-label="edit task"
+                            aria-label={t("projects.detail.editTaskLabel")}
                             size="small"
                             disabled
                           >
@@ -895,8 +909,12 @@ const ProjectDetailPage = () => {
                     <ListItemText
                       primaryTypographyProps={{ variant: "body2" }}
                       secondaryTypographyProps={{ variant: "caption" }}
-                      primary={task.name || `Task ${task.id}`}
-                      secondary={`Status: ${task.status || "N/A"} | Type: ${task.type || "N/A"} | Created: ${new Date(task.created_at).toLocaleDateString()}`}
+                      primary={task.name || t("projects.detail.taskFallback", { id: task.id })}
+                      secondary={t("projects.detail.taskDetails", {
+                        status: task.status || t("projects.detail.notAvailable"),
+                        type: task.type || t("projects.detail.notAvailable"),
+                        created: new Date(task.created_at).toLocaleDateString(uiLocale()),
+                      })}
                     />
                   </ListItem>
                 ))}
@@ -913,25 +931,24 @@ const ProjectDetailPage = () => {
             aria-labelledby="project-tab-documents"
           >
             <Typography variant="h6" sx={{ fontSize: "1.1rem", mb: 2 }}>
-              Documents in {project.name}
+              {t("projects.detail.documentsIn", { name: project.name })}
             </Typography>
             {isLoadingDocs && (
               <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
                 <CircularProgress size={24} />
-                <Typography sx={{ ml: 1 }}>Loading documents...</Typography>
+                <Typography sx={{ ml: 1 }}>{t("projects.detail.loadingDocs")}</Typography>
               </Box>
             )}
             {docsError && (
               <MuiAlert severity="error" sx={{ my: 1 }}>
-                Error loading documents: {docsError}
+                {t("projects.detail.docsError", { error: docsError })}
               </MuiAlert>
             )}
             {!isLoadingDocs && !docsError && documents.length === 0 && (
               <Typography
                 sx={{ my: 2, textAlign: "center", fontStyle: "italic" }}
               >
-                No documents found. Upload and assign via Upload page or main
-                Documents page.
+                {t("projects.detail.noDocs")}
               </Typography>
             )}
             {!isLoadingDocs && !docsError && documents.length > 0 && (
@@ -945,8 +962,8 @@ const ProjectDetailPage = () => {
                         <Tooltip
                           title={
                             doc.index_status === "INDEXED"
-                              ? "Re-Index Document"
-                              : "Index Document"
+                              ? t("projects.detail.reindexDoc")
+                              : t("projects.detail.indexDoc")
                           }
                         >
                           <span>
@@ -967,16 +984,16 @@ const ProjectDetailPage = () => {
                               {doc.index_status === "INDEXING" ? (
                                 <CircularProgress size={16} />
                               ) : (
-                                "Index"
+                                t("projects.detail.index")
                               )}
                             </Button>
                           </span>
                         </Tooltip>
-                        <Tooltip title="Delete Document">
+                        <Tooltip title={t("projects.detail.deleteDoc")}>
                           <span>
                             <IconButton
                               edge="end"
-                              aria-label="delete document"
+                              aria-label={t("projects.detail.deleteDocLabel")}
                               size="small"
                               onClick={() =>
                                 handleDeleteDoc(doc.id, doc.filename)
@@ -1010,23 +1027,26 @@ const ProjectDetailPage = () => {
                       secondaryTypographyProps={{ variant: "caption" }}
                       primary={doc.filename}
                       secondary={
-                        <>
-                          Status:{" "}
-                          <Chip
-                            label={doc.index_status || "N/A"}
-                            size="small"
-                            color={
-                              doc.index_status === "INDEXED"
-                                ? "success"
-                                : doc.index_status === "ERROR"
-                                  ? "error"
-                                  : "default"
-                            }
-                            sx={{ mr: 1, height: "auto", lineHeight: 1.2 }}
-                          />{" "}
-                          Uploaded:{" "}
-                          {formatTimestamp(doc.created_at || doc.uploaded_at)}
-                        </>
+                        <Trans
+                          i18nKey="projects.detail.docDetails"
+                          values={{ uploaded: formatTimestamp(doc.created_at || doc.uploaded_at) }}
+                          components={{
+                            status: (
+                              <Chip
+                                label={doc.index_status || t("projects.detail.notAvailable")}
+                                size="small"
+                                color={
+                                  doc.index_status === "INDEXED"
+                                    ? "success"
+                                    : doc.index_status === "ERROR"
+                                      ? "error"
+                                      : "default"
+                                }
+                                sx={{ mr: 1, height: "auto", lineHeight: 1.2 }}
+                              />
+                            ),
+                          }}
+                        />
                       }
                     />
                   </ListItem>
@@ -1052,7 +1072,7 @@ const ProjectDetailPage = () => {
               }}
             >
               <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
-                Websites for {project.name}
+                {t("projects.detail.websitesFor", { name: project.name })}
               </Typography>
               <Button
                 variant="contained"
@@ -1061,25 +1081,25 @@ const ProjectDetailPage = () => {
                 onClick={handleAddWebsite}
                 disabled={isActionLoading}
               >
-                Add Website
+                {t("projects.detail.addWebsite")}
               </Button>
             </Box>
             {isLoadingWebsites && (
               <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
                 <CircularProgress size={24} />
-                <Typography sx={{ ml: 1 }}>Loading websites...</Typography>
+                <Typography sx={{ ml: 1 }}>{t("projects.detail.loadingWebsites")}</Typography>
               </Box>
             )}
             {websitesError && (
               <MuiAlert severity="error" sx={{ my: 1 }}>
-                Error loading websites: {websitesError}
+                {t("projects.detail.websitesError", { error: websitesError })}
               </MuiAlert>
             )}
             {!isLoadingWebsites && !websitesError && websites.length === 0 && (
               <Typography
                 sx={{ my: 2, textAlign: "center", fontStyle: "italic" }}
               >
-                No websites linked.
+                {t("projects.detail.noWebsites")}
               </Typography>
             )}
             {!isLoadingWebsites && !websitesError && websites.length > 0 && (
@@ -1089,11 +1109,11 @@ const ProjectDetailPage = () => {
                     key={site.id}
                     divider
                     secondaryAction={
-                      <Tooltip title="Edit Website (Not Implemented on Detail Page yet)">
+                      <Tooltip title={t("projects.detail.editWebsiteTooltip")}>
                         <span>
                           <IconButton
                             edge="end"
-                            aria-label="edit website"
+                            aria-label={t("projects.detail.editWebsiteLabel")}
                             size="small"
                             disabled
                           >
@@ -1119,7 +1139,10 @@ const ProjectDetailPage = () => {
                           {site.url}
                         </Link>
                       }
-                      secondary={`Status: ${site.status || "N/A"} | Added: ${new Date(site.created_at).toLocaleDateString()}`}
+                      secondary={t("projects.detail.websiteDetails", {
+                        status: site.status || t("projects.detail.notAvailable"),
+                        added: new Date(site.created_at).toLocaleDateString(uiLocale()),
+                      })}
                     />
                   </ListItem>
                 ))}
@@ -1149,7 +1172,7 @@ const ProjectDetailPage = () => {
               }}
             >
               <Typography variant="h6" sx={{ fontSize: "1.1rem" }}>
-                Linked Rules & Prompts for {project.name}
+                {t("projects.detail.rulesFor", { name: project.name })}
               </Typography>
               <Button
                 variant="contained"
@@ -1158,25 +1181,25 @@ const ProjectDetailPage = () => {
                 onClick={handleOpenLinkRuleModal}
                 disabled={isActionLoading}
               >
-                Link Rule/Prompt
+                {t("projects.detail.linkRule")}
               </Button>
             </Box>
             {isLoadingRules && (
               <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
                 <CircularProgress size={24} />
-                <Typography sx={{ ml: 1 }}>Loading rules...</Typography>
+                <Typography sx={{ ml: 1 }}>{t("projects.detail.loadingRules")}</Typography>
               </Box>
             )}
             {rulesError && (
               <MuiAlert severity="error" sx={{ my: 1 }}>
-                Error loading linked rules: {rulesError}
+                {t("projects.detail.rulesError", { error: rulesError })}
               </MuiAlert>
             )}
             {!isLoadingRules && !rulesError && linkedRules.length === 0 && (
               <Typography
                 sx={{ my: 2, textAlign: "center", fontStyle: "italic" }}
               >
-                No rules or prompts linked to this project.
+                {t("projects.detail.noRules")}
               </Typography>
             )}
             {!isLoadingRules && !rulesError && linkedRules.length > 0 && (
@@ -1186,11 +1209,11 @@ const ProjectDetailPage = () => {
                     key={rule.id}
                     divider
                     secondaryAction={
-                      <Tooltip title="Unlink from Project">
+                      <Tooltip title={t("projects.detail.unlinkTooltip")}>
                         <span>
                           <IconButton
                             edge="end"
-                            aria-label="unlink rule"
+                            aria-label={t("projects.detail.unlinkLabel")}
                             size="small"
                             onClick={async () => {
                               setIsActionLoading(true);
@@ -1201,13 +1224,13 @@ const ProjectDetailPage = () => {
                                 );
                                 fetchRules();
                                 setFeedback({
-                                  message: "Rule unlinked.",
+                                  message: t("projects.detail.ruleUnlinked"),
                                   severity: "success",
                                   open: true,
                                 });
                               } catch (e) {
                                 setFeedback({
-                                  message: `Failed: ${e.message}`,
+                                  message: t("projects.detail.failed", { error: e.message }),
                                   severity: "error",
                                   open: true,
                                 });
@@ -1235,8 +1258,12 @@ const ProjectDetailPage = () => {
                     <ListItemText
                       primaryTypographyProps={{ variant: "body2" }}
                       secondaryTypographyProps={{ variant: "caption" }}
-                      primary={rule.name || `Rule ${rule.id}`}
-                      secondary={`Type: ${rule.type || "RULE"} | Level: ${rule.level || "N/A"} | Active: ${rule.is_active ? "Yes" : "No"}`}
+                      primary={rule.name || t("projects.detail.ruleFallback", { id: rule.id })}
+                      secondary={t("projects.detail.ruleDetails", {
+                        type: rule.type || "RULE",
+                        level: rule.level || t("projects.detail.notAvailable"),
+                        active: rule.is_active ? t("projects.detail.yes") : t("projects.detail.no"),
+                      })}
                     />
                   </ListItem>
                 ))}
@@ -1252,13 +1279,13 @@ const ProjectDetailPage = () => {
         fullWidth
         maxWidth="sm"
       >
-        <DialogTitle>Add New Task to &quot;{project?.name}&quot;</DialogTitle>
+        <DialogTitle>{t("projects.detail.addTaskTitle", { name: project?.name })}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
             id="new-task-name"
-            label="Task Name"
+            label={t("projects.detail.taskName")}
             type="text"
             fullWidth
             variant="outlined"
@@ -1270,7 +1297,7 @@ const ProjectDetailPage = () => {
           <TextField
             margin="dense"
             id="new-task-description"
-            label="Task Description (Optional)"
+            label={t("projects.detail.taskDescription")}
             type="text"
             fullWidth
             multiline
@@ -1287,14 +1314,14 @@ const ProjectDetailPage = () => {
             disabled={isSavingTask}
             color="inherit"
           >
-            Cancel
+            {t("projects.detail.cancel")}
           </Button>
           <Button
             onClick={handleSaveNewTask}
             variant="contained"
             disabled={isSavingTask || !newTaskName.trim()}
           >
-            {isSavingTask ? <CircularProgress size={24} /> : "Save Task"}
+            {isSavingTask ? <CircularProgress size={24} /> : t("projects.detail.saveTask")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1310,8 +1337,8 @@ const ProjectDetailPage = () => {
           linkableTypesConfig={[
             {
               entityType: "rule",
-              singularLabel: "Rule/Prompt",
-              pluralLabel: "Rules & Prompts",
+              singularLabel: t("projects.detail.linkRuleSingular"),
+              pluralLabel: t("projects.detail.linkRulePlural"),
               apiServiceFunction: getRulesForLinking,
             },
           ]}

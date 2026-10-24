@@ -28,6 +28,7 @@ import { getOutputs, retryFailedRows, deleteOutput } from '../api/outputService'
 import OutputCard from '../components/cards/OutputCard';
 import OutputModal from '../components/modals/OutputModal';
 import { ContextualLoader } from '../components/common/LoadingStates';
+import { useUiTranslation } from '../i18n';
 
 const _API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -36,6 +37,7 @@ const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
 });
 
 const ContentLibraryPage = () => {
+  const { t } = useUiTranslation();
   const _theme = useTheme();
   const _navigate = useNavigate();
 
@@ -90,13 +92,13 @@ const ContentLibraryPage = () => {
       setOutputs(prev => prev.filter(o => o.filename !== output.filename));
       setFeedback({
         open: true,
-        message: `Output ${output.job_id} deleted successfully`,
+        message: t("library.feedback.deleted", { jobId: output.job_id }),
         severity: "success",
       });
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to delete output: ${err.message}`,
+        message: t("library.feedback.deleteFailed", { message: err.message }),
         severity: "error",
       });
     }
@@ -107,7 +109,7 @@ const ContentLibraryPage = () => {
     try {
       setFeedback({
         open: true,
-        message: `Starting retry for ${output.inactive_rows} failed rows...`,
+        message: t("library.feedback.retryStarting", { count: output.inactive_rows }),
         severity: "info",
       });
 
@@ -123,7 +125,7 @@ const ContentLibraryPage = () => {
       
       setFeedback({
         open: true,
-        message: `Retry job started successfully! Job ID: ${result.retry_job_id}`,
+        message: t("library.feedback.retryStarted", { jobId: result.retry_job_id }),
         severity: "success",
       });
 
@@ -133,7 +135,7 @@ const ContentLibraryPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to start retry: ${err.message}`,
+        message: t("library.feedback.retryFailed", { message: err.message }),
         severity: "error",
       });
     }
@@ -150,13 +152,13 @@ const ContentLibraryPage = () => {
     if (outputs.length === 0) {
       setFeedback({
         open: true,
-        message: "No outputs to clear",
+        message: t("library.feedback.nothingToClear"),
         severity: "info",
       });
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to delete ALL ${outputs.length} outputs? This action cannot be undone.`)) {
+    if (!window.confirm(t("library.clearConfirm", { count: outputs.length }))) {
       return;
     }
 
@@ -164,7 +166,7 @@ const ContentLibraryPage = () => {
       setIsLoading(true);
       setFeedback({
         open: true,
-        message: "Clearing all outputs...",
+        message: t("library.feedback.clearing"),
         severity: "info",
       });
 
@@ -174,7 +176,7 @@ const ContentLibraryPage = () => {
 
       setFeedback({
         open: true,
-        message: `Successfully deleted ${outputs.length} outputs`,
+        message: t("library.feedback.cleared", { count: outputs.length }),
         severity: "success",
       });
 
@@ -183,7 +185,7 @@ const ContentLibraryPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to clear outputs: ${err.message}`,
+        message: t("library.feedback.clearFailed", { message: err.message }),
         severity: "error",
       });
     } finally {
@@ -211,25 +213,25 @@ const ContentLibraryPage = () => {
 
   return (
     <PageLayout
-      title="Content Outputs"
+      title={t("library.pageTitle")}
       variant="standard"
       actions={
         <>
           <Box sx={{ display: "flex", gap: 1 }}>
             <Chip
-              label={`${outputStats.total} Total`}
+              label={t("library.stats.total", { count: outputStats.total })}
               size="small"
               variant="outlined"
               sx={{ fontWeight: "bold" }}
             />
             <Chip
-              label={`${outputStats.today} Today`}
+              label={t("library.stats.today", { count: outputStats.today })}
               size="small"
               variant="outlined"
               sx={{ fontWeight: "bold" }}
             />
             <Chip
-              label={`${outputStats.thisWeek} This Week`}
+              label={t("library.stats.thisWeek", { count: outputStats.thisWeek })}
               size="small"
               variant="outlined"
               sx={{ fontWeight: "bold" }}
@@ -247,10 +249,10 @@ const ContentLibraryPage = () => {
                 fontWeight: "medium",
               }}
             >
-              Clear All
+              {t("library.clearAll")}
             </Button>
           )}
-          <Tooltip title="Refresh Output List">
+          <Tooltip title={t("library.refresh")}>
             <span>
               <IconButton
                 onClick={fetchOutputs}
@@ -296,14 +298,14 @@ const ContentLibraryPage = () => {
         {/* Content Outputs */}
         {isLoading ? (
               <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 6 }}>
-                <ContextualLoader loading message="Loading outputs..." showProgress={false} inline />
+                <ContextualLoader loading message={t("library.loading")} showProgress={false} inline />
               </Box>
             ) : outputs.length === 0 ? (
               <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
                 <EmptyState
                   icon={<LibraryBooksOutlined />}
-                  title="No outputs found"
-                  description="Generate some content using the bulk generation feature to see outputs here"
+                  title={t("library.empty.title")}
+                  description={t("library.empty.description")}
                 />
               </Paper>
             ) : (

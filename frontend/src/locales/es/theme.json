@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "default": "Gris oscuro",
+    "light": "Claro"
+  },
+  "descriptions": {
+    "guaardvark": "Tema monocromático ultra-minimalista inspirado en guaardvark.com",
+    "default": "Tema oscuro limpio con acentos en color cerceta",
+    "musk": "Tema oscuro futurista con acentos en cian neón y rojo",
+    "hacker": "Terminal de páramo inspirada en Pip-Boy con verde radiación y ámbar",
+    "vader": "Tema oscuro e imponente con acentos en negro y rojo inspirado en Darth Vader",
+    "light": "Tema claro y limpio con acentos en color cerceta — cómodo para la vista"
+  }
+}

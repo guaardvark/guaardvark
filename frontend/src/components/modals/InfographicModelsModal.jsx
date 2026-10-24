@@ -23,8 +23,10 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import CloudDownloadIcon from "@mui/icons-material/CloudDownload";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import axios from "axios";
+import { translate, useUiTranslation } from "../../i18n";
 
 const InfographicModelsModal = ({ open, onClose, showMessage }) => {
+  const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -47,10 +49,10 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
         setModels(res.data.models || []);
         setError(null);
       } else {
-        setError("Failed to load models");
+        setError(translate("models.shared.failedToLoadModels"));
       }
     } catch (err) {
-      setError(err.message || "Error fetching models");
+      setError(err.message || translate("models.shared.errorFetchingModels"));
     } finally {
       setLoading(false);
     }
@@ -65,10 +67,10 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
           // Refresh list when a download flips to completed / failed
           if (prev.is_downloading && !next.is_downloading) {
             if (next.status === "completed") {
-              showMessage?.("Model installed", "success");
+              showMessage?.(translate("models.shared.modelInstalled"), "success");
               fetchModels();
             } else if (next.status === "failed") {
-              showMessage?.(`Download failed: ${next.error || "unknown"}`, "error");
+              showMessage?.(translate("models.shared.downloadFailed", { error: next.error || translate("models.shared.unknown") }), "error");
             }
           }
           return next;
@@ -102,7 +104,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
       const res = await axios.post("/api/infographic/models/download", { id: assetId });
       if (res.data?.success) {
         const asset = models.find((m) => m.id === assetId);
-        showMessage?.(`Started downloading ${asset?.name || assetId}…`, "info");
+        showMessage?.(t("models.shared.startedDownloading", { name: asset?.name || assetId }), "info");
         setDl({
           is_downloading: true,
           current_id: assetId,
@@ -114,13 +116,13 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
           error: null,
         });
       } else {
-        showMessage?.(res.data?.error || "Failed to start", "error");
+        showMessage?.(res.data?.error || t("models.shared.failedToStart"), "error");
       }
     } catch (err) {
       if (err.response?.status === 409) {
-        showMessage?.("Another download is already running.", "warning");
+        showMessage?.(t("models.shared.anotherDownloadRunning"), "warning");
       } else {
-        showMessage?.(err.message || "Error starting download", "error");
+        showMessage?.(err.message || t("models.shared.errorStartingDownload"), "error");
       }
     }
   };
@@ -161,11 +163,10 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
       <DialogTitle>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <AutoAwesomeIcon />
-          Infographic Models (Flux schnell)
+          {t("models.infographicModels.title")}
         </Box>
         <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
-          Four files power the Infographic tab — diffusion model, two text encoders, and a VAE.
-          They install into ComfyUI's model tree, so the comfyui plugin must be enabled to use them.
+          {t("models.infographicModels.intro")}
         </Typography>
       </DialogTitle>
 
@@ -218,8 +219,8 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
                       <Box sx={{ width: 160 }}>
                         <Typography variant="caption" noWrap>
                           {dl.status === "starting"
-                            ? "Starting…"
-                            : `${dl.progress}% — ${dl.speed_mbps} MB/s`}
+                            ? t("models.shared.starting")
+                            : t("models.shared.progressSpeed", { progress: dl.progress, speed: dl.speed_mbps })}
                         </Typography>
                         <LinearProgress
                           variant={dl.progress > 0 ? "determinate" : "indeterminate"}
@@ -233,7 +234,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
                     ) : m.installed ? (
                       <Chip
                         icon={<CheckCircleIcon />}
-                        label="Installed"
+                        label={t("models.shared.installed")}
                         color="success"
                         size="small"
                         variant="outlined"
@@ -246,7 +247,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
                         onClick={() => handleInstall(m.id)}
                         disabled={dl.is_downloading}
                       >
-                        Install
+                        {t("dialogs.shared.install")}
                       </Button>
                     )}
                   </Box>
@@ -255,7 +256,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
             })}
             {models.length === 0 && !loading && (
               <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
-                No Flux assets configured.
+                {t("models.infographicModels.noAssets")}
               </Typography>
             )}
           </List>
@@ -269,12 +270,12 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
             disabled={dl.is_downloading || loading}
             startIcon={<CloudDownloadIcon />}
           >
-            Install all missing ({missingTotalGb.toFixed(1)} GB)
+            {t("models.shared.installAllMissing", { size: missingTotalGb.toFixed(1) })}
           </Button>
         )}
         <Box sx={{ flex: 1 }} />
         <Button onClick={onClose} disabled={dl.is_downloading}>
-          {dl.is_downloading ? "Downloading…" : "Close"}
+          {dl.is_downloading ? t("models.shared.downloading") : t("dialogs.shared.close")}
         </Button>
       </DialogActions>
     </Dialog>

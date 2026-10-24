@@ -24,6 +24,7 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
 import LinkIcon from "@mui/icons-material/Link";
 import * as apiService from "../../api";
 import LinkingModal from "./LinkingModal";
+import { translate, useUiTranslation } from "../../i18n";
 
 // Allowed file types (should match backend ALLOWED_EXTENSIONS)
 const ALLOWED_FILE_TYPES = [
@@ -43,6 +44,7 @@ const DocumentActionModal = ({
   onReindex,
   onDeleteFromModal,
 }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState({
     id: null,
     filename: "",
@@ -74,7 +76,7 @@ const DocumentActionModal = ({
     } catch (err) {
       console.error("Error fetching projects for modal:", err);
       setProjects([]);
-      setFormError(`Failed to load projects: ${err.message}`);
+      setFormError(translate("dialogs.documentAction.loadProjectsFailed", { error: err.message }));
     } finally {
       setIsLoadingProjects(false);
     }
@@ -144,7 +146,7 @@ const DocumentActionModal = ({
     // Check file type (file size limits removed to allow large files)
     const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
     if (!ALLOWED_FILE_TYPES.includes(fileExtension)) {
-      return `File type "${fileExtension}" is not supported. Allowed types: ${ALLOWED_FILE_TYPES.join(', ')}`;
+      return t("dialogs.documentAction.unsupportedType", { extension: fileExtension, allowed: ALLOWED_FILE_TYPES.join(', ') });
     }
     
     return null; // No validation errors
@@ -187,11 +189,11 @@ const DocumentActionModal = ({
             await fetchProjectsForDropdown();
           } else {
             throw new Error(
-              newProject.error || "Failed to create new project.",
+              newProject.error || t("dialogs.documentAction.createProjectFailed"),
             );
           }
         } catch (err) {
-          setFormError(`Project creation error: ${err.message}`);
+          setFormError(t("dialogs.documentAction.projectCreationError", { error: err.message }));
           return;
         }
       }
@@ -199,7 +201,7 @@ const DocumentActionModal = ({
 
     if (isEditMode) {
       if (!formData.id) {
-        setFormError("Document ID is missing. Cannot save changes.");
+        setFormError(t("dialogs.documentAction.missingId"));
         return;
       }
       const payload = {
@@ -215,7 +217,7 @@ const DocumentActionModal = ({
       onSave(formData.id, payload);
     } else {
       if (!selectedFile) {
-        setFormError("Please select a file to upload.");
+        setFormError(t("dialogs.documentAction.selectFile"));
         return;
       }
       // Pass a plain object, not FormData
@@ -241,7 +243,7 @@ const DocumentActionModal = ({
     if (onDeleteFromModal && documentData?.id) {
       if (
         window.confirm(
-          `Are you sure you want to delete document "${documentData.filename}" (ID: ${documentData.id})? This action cannot be undone.`,
+          t("dialogs.documentAction.deleteConfirm", { name: documentData.filename, id: documentData.id }),
         )
       ) {
         setIsDeleting(true);
@@ -255,20 +257,20 @@ const DocumentActionModal = ({
   const linkableTypesConfig = isEditMode ? [
     {
       entityType: "project",
-      singularLabel: "Project",
-      pluralLabel: "Projects",
+      singularLabel: t("dialogs.documentAction.project"),
+      pluralLabel: t("dialogs.documentAction.projects"),
       apiServiceFunction: apiService.getProjects,
     },
     {
       entityType: "task",
-      singularLabel: "Task", 
-      pluralLabel: "Tasks",
+      singularLabel: t("dialogs.documentAction.task"),
+      pluralLabel: t("dialogs.documentAction.tasks"),
       apiServiceFunction: apiService.getTasks,
     },
     {
       entityType: "client",
-      singularLabel: "Client",
-      pluralLabel: "Clients", 
+      singularLabel: t("dialogs.documentAction.client"),
+      pluralLabel: t("dialogs.documentAction.clients"),
       apiServiceFunction: apiService.getClients,
     }
   ] : [];
@@ -290,7 +292,7 @@ const DocumentActionModal = ({
   };
 
   const getTitleText = () =>
-    isEditMode ? formData.filename || "File Details" : "Upload New Document";
+    isEditMode ? formData.filename || t("dialogs.documentAction.fileDetails") : t("dialogs.documentAction.uploadTitle");
   const anyActionInProgress = isSaving || isReindexing || isDeleting;
 
   return (
@@ -344,7 +346,7 @@ const DocumentActionModal = ({
                   fullWidth
                   margin="dense"
                   id="doc-filename-modal"
-                  label="Filename"
+                  label={t("dialogs.documentAction.filename")}
                   name="filename"
                   value={formData.filename}
                   disabled
@@ -361,8 +363,8 @@ const DocumentActionModal = ({
                   disabled={anyActionInProgress}
                 >
                   {selectedFile
-                    ? `File: ${selectedFile.name}`
-                    : "Select File to Upload"}
+                    ? t("dialogs.documentAction.selectedFile", { name: selectedFile.name })
+                    : t("dialogs.documentAction.selectFileButton")}
                   <input type="file" hidden onChange={handleFileChange} />
                 </Button>
                 {selectedFile && (
@@ -371,7 +373,7 @@ const DocumentActionModal = ({
                     display="block"
                     sx={{ mt: 1, textAlign: "center" }}
                   >
-                    Size: {(selectedFile.size / 1024).toFixed(2)} KB
+                    {t("dialogs.documentAction.size", { size: (selectedFile.size / 1024).toFixed(2) })}
                   </Typography>
                 )}
               </Grid>
@@ -383,7 +385,7 @@ const DocumentActionModal = ({
                 loading={isLoadingProjects}
                 getOptionLabel={(option) => {
                   if (typeof option === "string") return option;
-                  return option.name || `ID: ${option.id}`;
+                  return option.name || t("dialogs.documentAction.idFallback", { id: option.id });
                 }}
                 value={formProjectValue}
                 onChange={handleProjectChange}
@@ -399,7 +401,7 @@ const DocumentActionModal = ({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Assign to Project (Optional)"
+                    label={t("dialogs.documentAction.assignProject")}
                     variant="outlined"
                     margin="dense"
                     InputProps={{
@@ -423,12 +425,12 @@ const DocumentActionModal = ({
                 fullWidth
                 margin="dense"
                 id="document-tags-modal"
-                label="Tags (comma-separated)"
+                label={t("dialogs.documentAction.tags")}
                 name="tags"
                 value={formData.tags}
                 onChange={handleInputChange}
                 disabled={anyActionInProgress}
-                helperText="Enter tags separated by commas, e.g., important, draft, v1"
+                helperText={t("dialogs.documentAction.tagsHelp")}
               />
             </Grid>
             <Grid item xs={12}>
@@ -436,14 +438,14 @@ const DocumentActionModal = ({
                 fullWidth
                 margin="dense"
                 id="document-notes-modal"
-                label="Notes"
+                label={t("dialogs.documentAction.notes")}
                 name="notes"
                 value={formData.notes || ''}
                 onChange={handleInputChange}
                 disabled={anyActionInProgress}
                 multiline
                 rows={4}
-                helperText="Add notes or comments about this document"
+                helperText={t("dialogs.documentAction.notesHelp")}
               />
             </Grid>
           </Grid>
@@ -454,7 +456,7 @@ const DocumentActionModal = ({
       >
         <Box sx={{ display: "flex", gap: 1 }}>
           {isEditMode && onDeleteFromModal && (
-            <Tooltip title="Delete this document">
+            <Tooltip title={t("dialogs.documentAction.deleteTooltip")}>
               <span>
                 <Button
                   variant="outlined"
@@ -463,7 +465,7 @@ const DocumentActionModal = ({
                   onClick={handleInternalDelete}
                   disabled={anyActionInProgress}
                 >
-                  Delete
+                  {t("dialogs.shared.delete")}
                 </Button>
               </span>
             </Tooltip>
@@ -475,14 +477,14 @@ const DocumentActionModal = ({
             disabled={anyActionInProgress}
             color="inherit"
           >
-            Cancel
+            {t("dialogs.shared.cancel")}
           </Button>
           {isEditMode && onReindex && (
             <Tooltip
               title={
                 documentData.index_status === "INDEXED"
-                  ? "Re-Index Document"
-                  : "Index Document"
+                  ? t("dialogs.documentAction.reindex")
+                  : t("dialogs.documentAction.index")
               }
             >
               <span>
@@ -507,7 +509,7 @@ const DocumentActionModal = ({
 
           {/* Enhanced Entity Linking */}
           {isEditMode && (
-            <Tooltip title="Link to Projects, Tasks & Clients">
+            <Tooltip title={t("dialogs.documentAction.linkTooltip")}>
               <span>
                 <IconButton
                   color="primary"
@@ -529,9 +531,9 @@ const DocumentActionModal = ({
             {isSaving ? (
               <CircularProgress size={24} color="inherit" />
             ) : isEditMode ? (
-              "Save Changes"
+              t("dialogs.documentAction.saveChanges")
             ) : (
-              "Upload"
+              t("dialogs.documentAction.upload")
             )}
           </Button>
         </Box>

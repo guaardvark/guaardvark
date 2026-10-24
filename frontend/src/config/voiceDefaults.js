@@ -8,21 +8,24 @@
  * because the browser's storage event only reaches other tabs.
  */
 
+import { translate } from "../i18n";
+
 export const VOICE_SETTINGS_KEY = "guaardvark_voiceSettings";
 export const VOICE_SETTINGS_EVENT = "voiceSettingsChanged";
 
 /** What a click on a mic button does. Holding a mic button always talks. */
 export const ACTIVATION_MODES = Object.freeze(["push", "toggle", "handsfree"]);
 export const DEFAULT_ACTIVATION_MODE = "handsfree";
+// Getters, so each read follows the interface's language.
 export const ACTIVATION_MODE_LABELS = Object.freeze({
-  push: "Push to talk",
-  toggle: "Tap to talk",
-  handsfree: "Hands-free",
+  get push() { return translate("options.voiceActivation.push.label"); },
+  get toggle() { return translate("options.voiceActivation.toggle.label"); },
+  get handsfree() { return translate("options.voiceActivation.handsfree.label"); },
 });
 export const ACTIVATION_MODE_HELP = Object.freeze({
-  push: "Hold the mic (or Ctrl+Shift+Space) while you speak; release to send.",
-  toggle: "Click, speak, and it sends when you pause. The mic closes after each message.",
-  handsfree: "Click once and talk; every pause sends a message until you click again.",
+  get push() { return translate("options.voiceActivation.push.help"); },
+  get toggle() { return translate("options.voiceActivation.toggle.help"); },
+  get handsfree() { return translate("options.voiceActivation.handsfree.help"); },
 });
 
 /**

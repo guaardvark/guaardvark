@@ -35,6 +35,7 @@ import {
   Description as DocumentIcon,
 } from "@mui/icons-material";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
+import { useUiTranslation } from "../../i18n";
 
 // File type detection
 const getFileIcon = (filename) => {
@@ -68,6 +69,7 @@ const TreeNode = ({
   expandedNodes,
   onToggleExpand
 }) => {
+  const { t } = useUiTranslation();
   const [contextMenu, setContextMenu] = useState(null);
 
   const handleContextMenu = useCallback((event) => {
@@ -167,20 +169,20 @@ const TreeNode = ({
         {node.type === "folder" && [
           <MenuItem key="new-file" onClick={() => handleAction("create-file")}>
             <CreateFileIcon fontSize="small" sx={{ mr: 1 }} />
-            New File
+            {t("codeEditor.card.newFile")}
           </MenuItem>,
           <MenuItem key="new-folder" onClick={() => handleAction("create-folder")}>
             <CreateFolderIcon fontSize="small" sx={{ mr: 1 }} />
-            New Folder
+            {t("codeEditor.fileTree.newFolder")}
           </MenuItem>
         ]}
         <MenuItem onClick={() => handleAction("rename")}>
           <RenameIcon fontSize="small" sx={{ mr: 1 }} />
-          Rename
+          {t("codeEditor.rename.confirm")}
         </MenuItem>
         <MenuItem onClick={() => handleAction("delete")} sx={{ color: "error.main" }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-          Delete
+          {t("codeEditor.fileTree.delete")}
         </MenuItem>
       </Menu>
 
@@ -206,7 +208,9 @@ const TreeNode = ({
 
 // Create/Rename dialog
 const FileActionDialog = ({ open, action, onClose, onConfirm, initialValue = "" }) => {
+  const { t } = useUiTranslation();
   const [value, setValue] = useState(initialValue);
+  // "required" or "extension" when the name is refused, worded at render.
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -216,12 +220,12 @@ const FileActionDialog = ({ open, action, onClose, onConfirm, initialValue = "" 
 
   const handleSubmit = useCallback(() => {
     if (!value.trim()) {
-      setError("Name is required");
+      setError("required");
       return;
     }
 
     if (action === "create-file" && !value.includes(".")) {
-      setError("File must have an extension");
+      setError("extension");
       return;
     }
 
@@ -230,12 +234,17 @@ const FileActionDialog = ({ open, action, onClose, onConfirm, initialValue = "" 
 
   const getTitle = () => {
     switch (action) {
-      case "create-file": return "Create New File";
-      case "create-folder": return "Create New Folder";
-      case "rename": return "Rename";
-      default: return "File Action";
+      case "create-file": return t("codeEditor.fileTree.createFileTitle");
+      case "create-folder": return t("codeEditor.fileTree.createFolderTitle");
+      case "rename": return t("codeEditor.rename.confirm");
+      default: return t("code.fileTree.actionTitle");
     }
   };
+
+  const errorText =
+    error === "required" ? t("code.fileTree.nameRequired")
+      : error === "extension" ? t("code.fileTree.needsExtension")
+        : "";
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -244,14 +253,14 @@ const FileActionDialog = ({ open, action, onClose, onConfirm, initialValue = "" 
         <TextField
           autoFocus
           margin="dense"
-          label={action === "create-folder" ? "Folder Name" : "File Name"}
+          label={action === "create-folder" ? t("codeEditor.fileTree.folderNameLabel") : t("codeEditor.fileTree.fileNameLabel")}
           type="text"
           fullWidth
           variant="outlined"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           error={!!error}
-          helperText={error}
+          helperText={errorText}
           onKeyPress={(e) => {
             if (e.key === "Enter") {
               handleSubmit();
@@ -260,9 +269,9 @@ const FileActionDialog = ({ open, action, onClose, onConfirm, initialValue = "" 
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("codeEditor.actions.cancel")}</Button>
         <Button onClick={handleSubmit} variant="contained">
-          {action === "rename" ? "Rename" : "Create"}
+          {action === "rename" ? t("codeEditor.rename.confirm") : t("codeEditor.fileTree.create")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -276,9 +285,11 @@ const FileTreeNavigator = ({
   files = [],
   loading = false
 }) => {
+  const { t } = useUiTranslation();
   const [treeData, setTreeData] = useState([]);
   const [expandedNodes, setExpandedNodes] = useState(new Set());
   const [actionDialog, setActionDialog] = useState({ open: false, action: null, node: null });
+  // { action } of the file action that failed, worded at render.
   const [error, setError] = useState(null);
 
   const { startProcess, completeProcess, errorProcess } = useUnifiedProgress();
@@ -379,7 +390,7 @@ const FileTreeNavigator = ({
     const { action, node } = actionDialog;
 
     try {
-      const processId = startProcess(`file-${action}`, `${action} in progress...`, "file_generation");
+      const processId = startProcess(`file-${action}`, t("code.fileTree.actionRunning", { action }), "file_generation");
 
       switch (action) {
         case "create-file":
@@ -410,15 +421,15 @@ const FileTreeNavigator = ({
           break;
       }
 
-      completeProcess(processId, `${action} completed`);
+      completeProcess(processId, t("code.fileTree.actionDone", { action }));
       setActionDialog({ open: false, action: null, node: null });
 
     } catch (err) {
       console.error(`File ${action} failed:`, err);
       errorProcess(`file-${action}`, err.message);
-      setError(`Failed to ${action} file`);
+      setError({ action });
     }
-  }, [actionDialog, onFileCreate, startProcess, completeProcess, errorProcess]);
+  }, [actionDialog, onFileCreate, startProcess, completeProcess, errorProcess, t]);
 
   // Create new file in root
   const handleCreateFile = useCallback(() => {
@@ -429,6 +440,8 @@ const FileTreeNavigator = ({
       initialValue: ""
     });
   }, []);
+
+  const errorText = error ? t("code.fileTree.actionFailed", { action: error.action }) : null;
 
   return (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
@@ -441,8 +454,8 @@ const FileTreeNavigator = ({
         alignItems: "center",
         justifyContent: "space-between"
       }}>
-        <Typography variant="h6">Files</Typography>
-        <Tooltip title="New File">
+        <Typography variant="h6">{t("codeEditor.fileTree.title")}</Typography>
+        <Tooltip title={t("codeEditor.card.newFile")}>
           <IconButton size="small" onClick={handleCreateFile}>
             <AddIcon />
           </IconButton>
@@ -452,7 +465,7 @@ const FileTreeNavigator = ({
       {/* Error Display */}
       {error && (
         <Alert severity="error" onClose={() => setError(null)} sx={{ m: 1 }}>
-          {error}
+          {errorText}
         </Alert>
       )}
 
@@ -460,7 +473,7 @@ const FileTreeNavigator = ({
       <Box sx={{ flexGrow: 1, overflow: "auto" }}>
         {loading ? (
           <Box sx={{ p: 2, textAlign: "center" }}>
-            <Typography color="text.secondary">Loading files...</Typography>
+            <Typography color="text.secondary">{t("code.fileTree.loading")}</Typography>
           </Box>
         ) : treeData.length > 0 ? (
           treeData.map((node) => (
@@ -477,7 +490,7 @@ const FileTreeNavigator = ({
         ) : (
           <Box sx={{ p: 2, textAlign: "center" }}>
             <Typography color="text.secondary" variant="body2">
-              No files found
+              {t("code.fileTree.empty")}
             </Typography>
             <Button
               size="small"
@@ -485,7 +498,7 @@ const FileTreeNavigator = ({
               onClick={handleCreateFile}
               sx={{ mt: 1 }}
             >
-              Create File
+              {t("code.fileTree.createFile")}
             </Button>
           </Box>
         )}

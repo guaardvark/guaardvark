@@ -38,11 +38,12 @@ import {
   updateConnection,
   updatePublishSettings,
 } from "../api/connectionsService";
+import { translate, useUiTranslation } from "../i18n";
 
-const FAMILIES = [
-  { key: "social", label: "Social" },
-  { key: "ai_provider", label: "AI Providers" },
-  { key: "mcp_server", label: "MCP" },
+const families = () => [
+  { key: "social", label: translate("connections.page.families.social") },
+  { key: "ai_provider", label: translate("connections.page.families.aiProviders") },
+  { key: "mcp_server", label: translate("connections.page.families.mcp") },
 ];
 
 const STATUS_COLOR = {
@@ -53,7 +54,16 @@ const STATUS_COLOR = {
   unconfigured: "default",
 };
 
+const statusLabels = () => ({
+  connected: translate("connections.page.status.connected"),
+  error: translate("connections.page.status.error"),
+  expired: translate("connections.page.status.expired"),
+  disabled: translate("connections.page.status.disabled"),
+  unconfigured: translate("connections.page.status.unconfigured"),
+});
+
 const ConnectionsPage = () => {
+  const { t } = useUiTranslation();
   const [family, setFamily] = useState("social");
   const [connections, setConnections] = useState([]);
   const [providers, setProviders] = useState([]);
@@ -125,7 +135,7 @@ const ConnectionsPage = () => {
     try {
       await deleteConnection(connection.id);
       setConnections((prev) => prev.filter((c) => c.id !== connection.id));
-      setFeedback({ open: true, message: "Connection removed.", severity: "success" });
+      setFeedback({ open: true, message: t("connections.page.removed"), severity: "success" });
     } catch (e) {
       setFeedback({ open: true, message: e.message, severity: "error" });
     }
@@ -149,8 +159,8 @@ const ConnectionsPage = () => {
       setFeedback({
         open: true,
         message: value
-          ? `${optIn.label}: on for this account. Every upload still waits for your approval.`
-          : `${optIn.label}: off for this account.`,
+          ? t("connections.page.publicOn", { label: optIn.label })
+          : t("connections.page.publicOff", { label: optIn.label }),
         severity: "success",
       });
     } catch (e) {
@@ -167,8 +177,8 @@ const ConnectionsPage = () => {
       setFeedback({
         open: true,
         message: value
-          ? "Publishes you start here to this channel now go out without approval."
-          : "Publishes to this channel wait for approval again.",
+          ? t("connections.page.withoutApprovalOn")
+          : t("connections.page.withoutApprovalOff"),
         severity: "success",
       });
     } catch (e) {
@@ -179,15 +189,14 @@ const ConnectionsPage = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
       <Typography variant="h4" gutterBottom>
-        Connections
+        {t("connections.page.title")}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Accounts and services this install can publish to or call out to.
-        Credentials are stored outside the database.
+        {t("connections.page.intro")}
       </Typography>
 
       <Tabs value={family} onChange={(_e, v) => setFamily(v)} sx={{ mb: 2 }}>
-        {FAMILIES.map((f) => (
+        {families().map((f) => (
           <Tab key={f.key} value={f.key} label={f.label} />
         ))}
       </Tabs>
@@ -204,8 +213,8 @@ const ConnectionsPage = () => {
             {settings.posting_stopped && (
               <Alert severity="error" sx={{ mb: 2 }}>
                 {settings.posting_stop_reason ||
-                  "Public posting is stopped. Resume it on the Outreach page."}{" "}
-                Queued publishes are held on the Approvals page.
+                  t("connections.page.postingStopped")}{" "}
+                {t("connections.page.queuedHeld")}
               </Alert>
             )}
             <Stack direction="row" alignItems="center" spacing={2} flexWrap="wrap">
@@ -214,13 +223,10 @@ const ConnectionsPage = () => {
                   checked={settings.publish_enabled}
                   onChange={(e) => handleSettingChange("publish_enabled", e.target.checked)}
                 />
-                <Typography variant="body2">Publishing enabled</Typography>
+                <Typography variant="body2">{t("connections.page.publishingEnabled")}</Typography>
               </Stack>
               <Typography variant="body2" color="text.secondary">
-                Every publish waits for your approval on the Approvals page. A Discord
-                webhook, which posts into a channel you manage, can be set to post without
-                it on its own card. A YouTube account uploads as private until its card
-                allows public uploads.
+                {t("connections.page.approvalNote")}
               </Typography>
             </Stack>
           </CardContent>
@@ -234,7 +240,7 @@ const ConnectionsPage = () => {
           onClick={(e) => setAddAnchor(e.currentTarget)}
           disabled={!providers.length}
         >
-          Add connection
+          {t("connections.page.addConnection")}
         </Button>
         <Menu
           anchorEl={addAnchor}
@@ -251,7 +257,7 @@ const ConnectionsPage = () => {
             >
               {spec.label}
               {spec.review_required && (
-                <Chip label="app review" size="small" sx={{ ml: 1 }} />
+                <Chip label={t("connections.page.appReview")} size="small" sx={{ ml: 1 }} />
               )}
             </MenuItem>
           ))}
@@ -281,7 +287,7 @@ const ConnectionsPage = () => {
                       </Typography>
                       <Chip
                         size="small"
-                        label={conn.status}
+                        label={statusLabels()[conn.status] || conn.status}
                         color={STATUS_COLOR[conn.status] || "default"}
                       />
                     </Stack>
@@ -297,7 +303,7 @@ const ConnectionsPage = () => {
                       <Typography variant="caption" color="text.secondary">
                         {conn.has_credentials
                           ? `${conn.credential_hint} · ${conn.credential_source}`
-                          : "No credentials"}
+                          : t("connections.page.noCredentials")}
                       </Typography>
                     </Stack>
                     {conn.error_message && (
@@ -312,8 +318,8 @@ const ConnectionsPage = () => {
                           checked={conn.config?.post_without_approval === true}
                           onChange={(e) => handlePostWithoutApproval(conn, e.target.checked)}
                         />
-                        <Tooltip title="For a channel you manage. Publishes you start here go out without waiting on the Approvals page; requests from chat, MCP or a schedule still wait.">
-                          <Typography variant="body2">Post without approval</Typography>
+                        <Tooltip title={t("connections.page.withoutApprovalTooltip")}>
+                          <Typography variant="body2">{t("connections.page.postWithoutApproval")}</Typography>
                         </Tooltip>
                       </Stack>
                     )}
@@ -341,8 +347,7 @@ const ConnectionsPage = () => {
                         </Typography>
                         {conn.public_opt_in?.source === "setting" && (
                           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                            On through the install-wide setting {optIn.legacy_setting}. Switching it
-                            here keeps a choice for this account instead.
+                            {t("connections.page.onThroughSetting", { setting: optIn.legacy_setting })}
                           </Typography>
                         )}
                       </Box>
@@ -354,7 +359,7 @@ const ConnectionsPage = () => {
                       onClick={() => handleTest(conn)}
                       disabled={testingId === conn.id}
                     >
-                      {testingId === conn.id ? "Testing…" : "Test"}
+                      {testingId === conn.id ? t("connections.page.testing") : t("connections.page.test")}
                     </Button>
                     <Button
                       size="small"
@@ -362,10 +367,10 @@ const ConnectionsPage = () => {
                         setModal({ open: true, connection: conn, spec })
                       }
                     >
-                      Edit
+                      {t("connections.page.edit")}
                     </Button>
                     <Button size="small" color="error" onClick={() => handleDelete(conn)}>
-                      Remove
+                      {t("connections.page.remove")}
                     </Button>
                   </CardActions>
                 </Card>
@@ -375,7 +380,7 @@ const ConnectionsPage = () => {
           {!connections.length && (
             <Grid item xs={12}>
               <Alert severity="info">
-                No connections in this category yet.
+                {t("connections.page.empty")}
               </Alert>
             </Grid>
           )}
@@ -386,11 +391,10 @@ const ConnectionsPage = () => {
         <Box sx={{ mt: 4 }}>
           <Divider sx={{ mb: 2 }} />
           <Typography variant="h6" gutterBottom>
-            Environment
+            {t("connections.page.environment")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Detected from the backend process environment. Managed outside the
-            app and shown here read-only.
+            {t("connections.page.environmentNote")}
           </Typography>
           <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
             {environment.map((entry) => (
@@ -406,8 +410,8 @@ const ConnectionsPage = () => {
 
       {storeHealth && (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
-          {storeHealth.encrypted ? "Encrypted" : "Unencrypted"} ·{" "}
-          {storeHealth.record_count} credential(s) · {storeHealth.path}
+          {storeHealth.encrypted ? t("connections.page.encrypted") : t("connections.page.unencrypted")} ·{" "}
+          {t("connections.page.credentialCount", { count: storeHealth.record_count })} · {storeHealth.path}
           {storeHealth.mode ? ` (${storeHealth.mode})` : ""}
         </Typography>
       )}

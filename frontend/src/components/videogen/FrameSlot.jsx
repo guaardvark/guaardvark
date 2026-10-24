@@ -12,8 +12,12 @@ import { ActionButton, Hint, Line } from "../settings/ui";
 import MediaPickerDialog from "../common/MediaPickerDialog";
 import FileDropOverlay from "../chat/FileDropOverlay";
 import useFileDropZone from "../../hooks/useFileDropZone";
+import { useUiTranslation } from "../../i18n";
 
-const FrameSlot = ({ label, value, onChange, onUploadFile, uploading = false, hint }) => {
+const FrameSlot = ({ label, frameName, value, onChange, onUploadFile, uploading = false, hint }) => {
+  const { t } = useUiTranslation();
+  // The frame as it reads inside a sentence ("Drop the end frame here").
+  const frame = frameName ?? label.toLowerCase();
   const [pickerOpen, setPickerOpen] = useState(false);
   const inputRef = useRef(null);
   const drop = useFileDropZone({
@@ -26,7 +30,7 @@ const FrameSlot = ({ label, value, onChange, onUploadFile, uploading = false, hi
 
   return (
     <Box {...drop.dropProps} sx={{ position: "relative", width: 208 }}>
-      <FileDropOverlay active={drop.isDragActive} label={`Drop the ${label.toLowerCase()} here`} compact />
+      <FileDropOverlay active={drop.isDragActive} label={t("video.frameSlot.drop", { frame })} compact />
       {value ? (
         <Box sx={{ position: "relative", borderRadius: "8px", overflow: "hidden", border: 1, borderColor: "divider" }}>
           <Box component="img" src={value.thumbnailUrl} alt={value.name} sx={{ width: "100%", height: 117, objectFit: "cover", display: "block" }} />
@@ -35,8 +39,8 @@ const FrameSlot = ({ label, value, onChange, onUploadFile, uploading = false, hi
             <Typography variant="caption" color="text.secondary" noWrap title={value.name} sx={{ flex: 1, minWidth: 0 }}>
               {value.name}
             </Typography>
-            <Tooltip title={`Remove the ${label.toLowerCase()}`}>
-              <IconButton size="small" onClick={() => onChange(null)} aria-label={`Remove the ${label.toLowerCase()}`}>
+            <Tooltip title={t("video.frameSlot.remove", { frame })}>
+              <IconButton size="small" onClick={() => onChange(null)} aria-label={t("video.frameSlot.remove", { frame })}>
                 <CloseIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -57,8 +61,8 @@ const FrameSlot = ({ label, value, onChange, onUploadFile, uploading = false, hi
           <Typography variant="caption" sx={{ fontWeight: 600 }}>{label}</Typography>
           {hint && <Hint>{hint}</Hint>}
           <Line>
-            <ActionButton loading={uploading} onClick={() => inputRef.current?.click()}>Upload</ActionButton>
-            <ActionButton onClick={() => setPickerOpen(true)}>Add from Files</ActionButton>
+            <ActionButton loading={uploading} onClick={() => inputRef.current?.click()}>{t("video.common.upload")}</ActionButton>
+            <ActionButton onClick={() => setPickerOpen(true)}>{t("video.common.addFromFiles")}</ActionButton>
           </Line>
         </Box>
       )}
@@ -76,7 +80,7 @@ const FrameSlot = ({ label, value, onChange, onUploadFile, uploading = false, hi
         open={pickerOpen}
         kind="image"
         max={1}
-        title={`Choose the ${label.toLowerCase()}`}
+        title={t("video.frameSlot.choose", { frame })}
         onPick={(docs) => {
           const doc = docs[0];
           if (doc) {

@@ -2,6 +2,7 @@
 // Links from a client, project, website or task to the page that shows it.
 // TaskPage, ProjectDetailPage and DocumentsPage read these same parameters;
 // change both sides together.
+import { translate } from "../i18n";
 
 /** Query parameters the Tasks page reads. */
 export const TASK_PARAMS = {
@@ -67,9 +68,9 @@ export function taskPath(id) {
 export function entityLinkActions(kind, id, navigate) {
   const files = entityFilesPath(kind, id);
   return [
-    files && { label: "Files", onClick: () => navigate(files), dividerBefore: true },
+    files && { label: translate("messages.entityLinks.files"), onClick: () => navigate(files), dividerBefore: true },
     {
-      label: "Schedule Task",
+      label: translate("messages.entityLinks.scheduleTask"),
       onClick: () => navigate(scheduleTaskPath(kind, id)),
       dividerBefore: !files,
     },

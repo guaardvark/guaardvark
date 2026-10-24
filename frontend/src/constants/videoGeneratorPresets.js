@@ -1,28 +1,30 @@
+import { translate } from "../i18n";
+
 export const QUALITY_PRESETS = {
   fast: {
-    label: "⚡ Fast",
-    description: "Preview at the model's step floor (never below it)",
+    get label() { return translate("options.videoPresets.quality.fast.label"); },
+    get description() { return translate("options.videoPresets.quality.fast.description"); },
     num_inference_steps: 10,
     width: 720,
     height: 480,
   },
   standard: {
-    label: "✨ Standard",
-    description: "Good quality (30 steps)",
+    get label() { return translate("options.videoPresets.quality.standard.label"); },
+    get description() { return translate("options.videoPresets.quality.standard.description"); },
     num_inference_steps: 30,
     width: 720,
     height: 480,
   },
   high: {
-    label: "🎬 High Quality",
-    description: "Best details (40 steps)",
+    get label() { return translate("options.videoPresets.quality.high.label"); },
+    get description() { return translate("options.videoPresets.quality.high.description"); },
     num_inference_steps: 40,
     width: 720,
     height: 480,
   },
   maximum: {
-    label: "🏆 Maximum",
-    description: "Maximum quality (50 steps)",
+    get label() { return translate("options.videoPresets.quality.maximum.label"); },
+    get description() { return translate("options.videoPresets.quality.maximum.description"); },
     num_inference_steps: 50,
     width: 720,
     height: 480,
@@ -30,36 +32,36 @@ export const QUALITY_PRESETS = {
 };
 
 export const COGVIDEOX_DURATION_PRESETS = {
-  short: { label: "Short", description: "~3 seconds", duration_frames: 24, fps: 8 },
-  medium: { label: "Medium", description: "~4 seconds", duration_frames: 33, fps: 8 },
-  long: { label: "Long", description: "~6 seconds", duration_frames: 49, fps: 8 },
+  short: { get label() { return translate("options.videoPresets.duration.short"); }, get description() { return translate("options.videoPresets.duration.about", { count: 3 }); }, duration_frames: 24, fps: 8 },
+  medium: { get label() { return translate("options.videoPresets.duration.medium"); }, get description() { return translate("options.videoPresets.duration.about", { count: 4 }); }, duration_frames: 33, fps: 8 },
+  long: { get label() { return translate("options.videoPresets.duration.long"); }, get description() { return translate("options.videoPresets.duration.about", { count: 6 }); }, duration_frames: 49, fps: 8 },
 };
 
 /** CogVideoX 1.5 I2V renders its card's 5 s length at 16fps; the card's 10 s
  *  (161 frames) is not offered until it has been measured on a 16 GB card. */
 export const COGVIDEOX15_DURATION_PRESETS = {
-  short: { label: "5 s", description: "5 seconds", duration_frames: 81, fps: 16 },
+  short: { get label() { return translate("options.videoPresets.duration.seconds", { seconds: 5 }); }, get description() { return translate("options.videoPresets.duration.exact", { count: 5 }); }, duration_frames: 81, fps: 16 },
 };
 
 /** Wan 2.2 14B (T2V / I2V) is 16fps-native. */
 export const WAN_DURATION_PRESETS = {
-  short: { label: "Short", description: "~2 seconds", duration_frames: 33, fps: 16 },
-  medium: { label: "Medium", description: "~3 seconds", duration_frames: 49, fps: 16 },
-  long: { label: "Long", description: "~5 seconds", duration_frames: 81, fps: 16 },
+  short: { get label() { return translate("options.videoPresets.duration.short"); }, get description() { return translate("options.videoPresets.duration.about", { count: 2 }); }, duration_frames: 33, fps: 16 },
+  medium: { get label() { return translate("options.videoPresets.duration.medium"); }, get description() { return translate("options.videoPresets.duration.about", { count: 3 }); }, duration_frames: 49, fps: 16 },
+  long: { get label() { return translate("options.videoPresets.duration.long"); }, get description() { return translate("options.videoPresets.duration.about", { count: 5 }); }, duration_frames: 81, fps: 16 },
 };
 
 /** Wan 2.2 TI2V-5B is 24fps-native (official template: 121 frames @ 24fps); frames 4n+1. */
 export const WAN_5B_DURATION_PRESETS = {
-  short: { label: "Short", description: "~2 seconds", duration_frames: 49, fps: 24 },
-  medium: { label: "Medium", description: "~3 seconds", duration_frames: 73, fps: 24 },
-  long: { label: "Long", description: "~5 seconds", duration_frames: 121, fps: 24 },
+  short: { get label() { return translate("options.videoPresets.duration.short"); }, get description() { return translate("options.videoPresets.duration.about", { count: 2 }); }, duration_frames: 49, fps: 24 },
+  medium: { get label() { return translate("options.videoPresets.duration.medium"); }, get description() { return translate("options.videoPresets.duration.about", { count: 3 }); }, duration_frames: 73, fps: 24 },
+  long: { get label() { return translate("options.videoPresets.duration.long"); }, get description() { return translate("options.videoPresets.duration.about", { count: 5 }); }, duration_frames: 121, fps: 24 },
 };
 
 /** LTX-2.3 / 2.5 frame counts must be 8n+1. 161 @ 16fps ≈ 10s (16GB Ada target). */
 export const LTX_DURATION_PRESETS = {
-  short: { label: "Short", description: "~4 seconds", duration_frames: 65, fps: 16 },
-  medium: { label: "Medium", description: "~6 seconds", duration_frames: 97, fps: 16 },
-  long: { label: "Long", description: "~10 seconds", duration_frames: 161, fps: 16 },
+  short: { get label() { return translate("options.videoPresets.duration.short"); }, get description() { return translate("options.videoPresets.duration.about", { count: 4 }); }, duration_frames: 65, fps: 16 },
+  medium: { get label() { return translate("options.videoPresets.duration.medium"); }, get description() { return translate("options.videoPresets.duration.about", { count: 6 }); }, duration_frames: 97, fps: 16 },
+  long: { get label() { return translate("options.videoPresets.duration.long"); }, get description() { return translate("options.videoPresets.duration.about", { count: 10 }); }, duration_frames: 161, fps: 16 },
 };
 
 /** HunyuanVideo frame counts must be 4n+1; native 24fps. 73 @ 24fps ≈ 3s (official template). */
@@ -68,47 +70,47 @@ export const LTX_DURATION_PRESETS = {
 // and 15 s presets come from the registry's duration tiers (measured on a
 // 16 GB card at 480p), appended by durationPresetsFor().
 export const MINIMAX_DURATION_PRESETS = {
-  short: { label: "Short", description: "~3 seconds", duration_frames: 73, fps: 24 },
-  medium: { label: "Medium", description: "~5 seconds", duration_frames: 124, fps: 24 },
-  long: { label: "Long", description: "~7 seconds", duration_frames: 175, fps: 24 },
+  short: { get label() { return translate("options.videoPresets.duration.short"); }, get description() { return translate("options.videoPresets.duration.about", { count: 3 }); }, duration_frames: 73, fps: 24 },
+  medium: { get label() { return translate("options.videoPresets.duration.medium"); }, get description() { return translate("options.videoPresets.duration.about", { count: 5 }); }, duration_frames: 124, fps: 24 },
+  long: { get label() { return translate("options.videoPresets.duration.long"); }, get description() { return translate("options.videoPresets.duration.about", { count: 7 }); }, duration_frames: 175, fps: 24 },
 };
 
 export const HUNYUAN_DURATION_PRESETS = {
-  short: { label: "Short", description: "~2 seconds", duration_frames: 49, fps: 24 },
-  medium: { label: "Medium", description: "~3 seconds", duration_frames: 73, fps: 24 },
-  long: { label: "Long", description: "~4 seconds", duration_frames: 97, fps: 24 },
+  short: { get label() { return translate("options.videoPresets.duration.short"); }, get description() { return translate("options.videoPresets.duration.about", { count: 2 }); }, duration_frames: 49, fps: 24 },
+  medium: { get label() { return translate("options.videoPresets.duration.medium"); }, get description() { return translate("options.videoPresets.duration.about", { count: 3 }); }, duration_frames: 73, fps: 24 },
+  long: { get label() { return translate("options.videoPresets.duration.long"); }, get description() { return translate("options.videoPresets.duration.about", { count: 4 }); }, duration_frames: 97, fps: 24 },
 };
 
 export const MOTION_PRESETS = {
-  subtle: { label: "🌊 Subtle", description: "Gentle movement", motion_strength: 0.5 },
-  normal: { label: "🎯 Normal", description: "Balanced motion", motion_strength: 1.0 },
-  dynamic: { label: "💨 Dynamic", description: "More movement", motion_strength: 1.5 },
-  intense: { label: "🔥 Intense", description: "Maximum motion", motion_strength: 2.0 },
+  subtle: { get label() { return translate("options.videoPresets.motion.subtle.label"); }, get description() { return translate("options.videoPresets.motion.subtle.description"); }, motion_strength: 0.5 },
+  normal: { get label() { return translate("options.videoPresets.motion.normal.label"); }, get description() { return translate("options.videoPresets.motion.normal.description"); }, motion_strength: 1.0 },
+  dynamic: { get label() { return translate("options.videoPresets.motion.dynamic.label"); }, get description() { return translate("options.videoPresets.motion.dynamic.description"); }, motion_strength: 1.5 },
+  intense: { get label() { return translate("options.videoPresets.motion.intense.label"); }, get description() { return translate("options.videoPresets.motion.intense.description"); }, motion_strength: 2.0 },
 };
 
 export const OUTPUT_QUALITY_TIERS = {
-  draft: { label: "Draft", description: "Raw model output — fastest, lowest polish", interpolation: 1, upscale: false },
-  standard: { label: "Standard", description: "2x FPS interpolation for smoother motion", interpolation: 2, upscale: false },
-  cinema: { label: "Cinema", description: "2x FPS + 2x upscale — recommended for final output", interpolation: 2, upscale: true },
+  draft: { get label() { return translate("options.videoPresets.outputTiers.draft.label"); }, get description() { return translate("options.videoPresets.outputTiers.draft.description"); }, interpolation: 1, upscale: false },
+  standard: { get label() { return translate("options.videoPresets.outputTiers.standard.label"); }, get description() { return translate("options.videoPresets.outputTiers.standard.description"); }, interpolation: 2, upscale: false },
+  cinema: { get label() { return translate("options.videoPresets.outputTiers.cinema.label"); }, get description() { return translate("options.videoPresets.outputTiers.cinema.description"); }, interpolation: 2, upscale: true },
 };
 
 export const KEYFRAME_MODEL_OPTIONS = {
   "from-lora": {
-    label: "Auto (character LoRA base)",
-    description: "Z-Image / SDXL / FLUX from the cast member’s training base",
+    get label() { return translate("options.videoPresets.keyframeModels.fromLora.label"); },
+    get description() { return translate("options.videoPresets.keyframeModels.fromLora.description"); },
   },
-  "flux-schnell": { label: "FLUX.1-schnell", description: "Fast, beautiful stills (default without cast)" },
-  "flux-dev-lora": { label: "FLUX-dev + LoRA", description: "Comfy FLUX stills (non-cast or explicit)" },
-  sdxl: { label: "SDXL", description: "High-fidelity stills without LoRA" },
-  "sdxl-lora": { label: "SDXL + LoRA", description: "Legacy SDXL character path" },
+  "flux-schnell": { label: "FLUX.1-schnell", get description() { return translate("options.videoPresets.keyframeModels.fluxSchnell.description"); } },
+  "flux-dev-lora": { label: "FLUX-dev + LoRA", get description() { return translate("options.videoPresets.keyframeModels.fluxDevLora.description"); } },
+  sdxl: { label: "SDXL", get description() { return translate("options.videoPresets.keyframeModels.sdxl.description"); } },
+  "sdxl-lora": { label: "SDXL + LoRA", get description() { return translate("options.videoPresets.keyframeModels.sdxlLora.description"); } },
 };
 
 export const DEFAULT_KEYFRAME_MODEL = "flux-schnell";
 
 /** Wan 2.2 5B sampling profiles (backend WAN5B_SAMPLER_PROFILES). */
 export const WAN5B_SAMPLER_PROFILES = {
-  official: { label: "Official — uni_pc, shift 8 (default)", description: "ComfyUI's bundled Wan 2.2 5B template settings" },
-  adaptive: { label: "Guaardvark — euler, adaptive shift", description: "Experimental: shift scales with resolution, floors at 3 below ~740px" },
+  official: { get label() { return translate("options.videoPresets.samplerProfiles.official.label"); }, get description() { return translate("options.videoPresets.samplerProfiles.official.description"); } },
+  adaptive: { get label() { return translate("options.videoPresets.samplerProfiles.adaptive.label"); }, get description() { return translate("options.videoPresets.samplerProfiles.adaptive.description"); } },
 };
 
 // Family defaults, mirroring the backend workflow signatures. A model whose
@@ -119,39 +121,39 @@ export const WAN5B_SAMPLER_PROFILES = {
 export const MODEL_DEFAULT_GUIDANCE = { wan: 3.5, cogvideox: 6.0, ltx: 1.0, hunyuan: 6.0, minimax: 1.0 };
 
 export const ASPECT_RATIO_PRESETS = {
-  "16:9": { label: "16:9", description: "Widescreen", ratio: 16 / 9 },
-  "9:16": { label: "9:16", description: "Portrait/Vertical", ratio: 9 / 16 },
-  "1:1": { label: "1:1", description: "Square", ratio: 1 },
-  "4:3": { label: "4:3", description: "Standard", ratio: 4 / 3 },
-  "3:2": { label: "3:2", description: "Classic", ratio: 3 / 2 },
-  "21:9": { label: "21:9", description: "Ultra-wide", ratio: 21 / 9 },
-  "3:4": { label: "3:4", description: "Portrait", ratio: 3 / 4 },
+  "16:9": { label: "16:9", get description() { return translate("options.videoPresets.aspectRatios.widescreen"); }, ratio: 16 / 9 },
+  "9:16": { label: "9:16", get description() { return translate("options.videoPresets.aspectRatios.portraitVertical"); }, ratio: 9 / 16 },
+  "1:1": { label: "1:1", get description() { return translate("options.videoPresets.aspectRatios.square"); }, ratio: 1 },
+  "4:3": { label: "4:3", get description() { return translate("options.videoPresets.aspectRatios.standard"); }, ratio: 4 / 3 },
+  "3:2": { label: "3:2", get description() { return translate("options.videoPresets.aspectRatios.classic"); }, ratio: 3 / 2 },
+  "21:9": { label: "21:9", get description() { return translate("options.videoPresets.aspectRatios.ultraWide"); }, ratio: 21 / 9 },
+  "3:4": { label: "3:4", get description() { return translate("options.videoPresets.aspectRatios.portrait"); }, ratio: 3 / 4 },
 };
 
 export const PROMPT_STYLES = {
-  cinematic: { label: "Cinematic", description: "Film-quality lighting and motion" },
-  realistic: { label: "Realistic", description: "Photorealistic detail" },
-  artistic: { label: "Artistic", description: "Stylized and expressive" },
-  anime: { label: "Anime (Japanese)", description: "Japanese cel-shaded animation" },
-  "3d_animation": { label: "3D Animation (Pixar-style)", description: "Polished CGI, expressive characters" },
-  stop_motion: { label: "Stop-motion / Claymation", description: "Tactile clay, handcrafted feel" },
-  hand_drawn: { label: "Hand-drawn 2D (Ghibli-style)", description: "Painterly watercolor backgrounds" },
-  western_cartoon: { label: "Western Cartoon", description: "Bold outlines, flat shading, snappy motion" },
-  none: { label: "None", description: "No enhancement" },
+  cinematic: { get label() { return translate("options.videoPresets.promptStyles.cinematic.label"); }, get description() { return translate("options.videoPresets.promptStyles.cinematic.description"); } },
+  realistic: { get label() { return translate("options.videoPresets.promptStyles.realistic.label"); }, get description() { return translate("options.videoPresets.promptStyles.realistic.description"); } },
+  artistic: { get label() { return translate("options.videoPresets.promptStyles.artistic.label"); }, get description() { return translate("options.videoPresets.promptStyles.artistic.description"); } },
+  anime: { get label() { return translate("options.videoPresets.promptStyles.anime.label"); }, get description() { return translate("options.videoPresets.promptStyles.anime.description"); } },
+  "3d_animation": { get label() { return translate("options.videoPresets.promptStyles.animation3d.label"); }, get description() { return translate("options.videoPresets.promptStyles.animation3d.description"); } },
+  stop_motion: { get label() { return translate("options.videoPresets.promptStyles.stopMotion.label"); }, get description() { return translate("options.videoPresets.promptStyles.stopMotion.description"); } },
+  hand_drawn: { get label() { return translate("options.videoPresets.promptStyles.handDrawn.label"); }, get description() { return translate("options.videoPresets.promptStyles.handDrawn.description"); } },
+  western_cartoon: { get label() { return translate("options.videoPresets.promptStyles.westernCartoon.label"); }, get description() { return translate("options.videoPresets.promptStyles.westernCartoon.description"); } },
+  none: { get label() { return translate("options.videoPresets.promptStyles.none.label"); }, get description() { return translate("options.videoPresets.promptStyles.none.description"); } },
 };
 
 export const VIDEO_SIZE_PRESETS = {
-  small: { label: "Small", description: "512px (faster)", baseSize: 512 },
-  medium: { label: "Medium", description: "576px", baseSize: 576 },
-  large: { label: "Large", description: "720px (CogVideoX native)", baseSize: 720 },
-  hd: { label: "HD", description: "1280px (CPU offload, slower)", baseSize: 1280 },
-  fullhd: { label: "Full HD", description: "1920px (CPU offload, much slower)", baseSize: 1920 },
+  small: { get label() { return translate("options.videoPresets.sizes.small.label"); }, get description() { return translate("options.videoPresets.sizes.small.description"); }, baseSize: 512 },
+  medium: { get label() { return translate("options.videoPresets.sizes.medium.label"); }, description: "576px", baseSize: 576 },
+  large: { get label() { return translate("options.videoPresets.sizes.large.label"); }, get description() { return translate("options.videoPresets.sizes.large.description"); }, baseSize: 720 },
+  hd: { label: "HD", get description() { return translate("options.videoPresets.sizes.hd.description"); }, baseSize: 1280 },
+  fullhd: { label: "Full HD", get description() { return translate("options.videoPresets.sizes.fullhd.description"); }, baseSize: 1920 },
 };
 
 export const MODEL_OPTIONS = {
   "wan22-5b": {
-    label: "Wan 2.2 5B TI2V (Recommended)",
-    description: "Fast 5s clips, fits 16GB — no offload. Text + image to video.",
+    get label() { return translate("options.videoPresets.models.wan225b.label"); },
+    get description() { return translate("options.videoPresets.models.wan225b.description"); },
     type: "wan",
     nativeFps: 24,
     samplerProfiles: ["official", "adaptive"],
@@ -177,7 +179,7 @@ export const MODEL_OPTIONS = {
   },
   "wan22-14b": {
     label: "Wan 2.2 14B (GGUF Q5)",
-    description: "Best quality, 5s videos (16GB VRAM)",
+    get description() { return translate("options.videoPresets.models.wan2214b.description"); },
     type: "wan",
     nativeFps: 16,
     maxFrames: 81,
@@ -196,7 +198,7 @@ export const MODEL_OPTIONS = {
   },
   "wan22-14b-i2v": {
     label: "Wan 2.2 14B I2V (GGUF Q5)",
-    description: "Top-tier image-to-video, 5s clips (16GB VRAM)",
+    get description() { return translate("options.videoPresets.models.wan2214bI2v.description"); },
     type: "wan",
     nativeFps: 16,
     maxFrames: 81,
@@ -215,7 +217,7 @@ export const MODEL_OPTIONS = {
   },
   "cogvideox-5b": {
     label: "CogVideoX 5B",
-    description: "6s videos, in-process diffusers — no ComfyUI needed (~16GB VRAM)",
+    get description() { return translate("options.videoPresets.models.cogvideox5b.description"); },
     type: "cogvideox",
     nativeFps: 8,
     maxFrames: 49,
@@ -228,7 +230,7 @@ export const MODEL_OPTIONS = {
   },
   "cogvideox-5b-i2v": {
     label: "CogVideoX 1.5 5B I2V",
-    description: "Image-to-video, 5 s at 1360x768 (~16GB VRAM)",
+    get description() { return translate("options.videoPresets.models.cogvideox5bI2v.description"); },
     type: "cogvideox",
     // CogVideoX 1.5's card: short side 768, long side up to 1360, 16fps,
     // 5 s. The registry entry carries the same numbers.
@@ -247,7 +249,7 @@ export const MODEL_OPTIONS = {
   },
   "ltx23-distilled-fp8": {
     label: "LTX-2.3 Distilled FP8 (16GB)",
-    description: "Lightricks LTX-2.3 — 8 steps, up to ~10s on 16GB Ada. T2V + I2V.",
+    get description() { return translate("options.videoPresets.models.ltx23.description"); },
     type: "ltx",
     nativeFps: 16,
     maxFrames: 161,
@@ -260,8 +262,7 @@ export const MODEL_OPTIONS = {
   },
   "ltx25-distilled-int8": {
     label: "LTX-2.5 Distilled Int8 (16GB)",
-    description: "Lightricks LTX-2.5 — 8 steps, up to ~10s on 16GB Ada. T2V + I2V. "
-      + "Gated HF accept + ComfyUI ≥ 0.32.",
+    get description() { return translate("options.videoPresets.models.ltx25.description"); },
     type: "ltx",
     nativeFps: 16,
     maxFrames: 161,
@@ -279,7 +280,7 @@ export const MODEL_OPTIONS = {
   // these mirrors for offline rendering of the menu and for the tests.
   "minimax-h3-int8": {
     label: "MiniMax H3 Int8 (16GB)",
-    description: "MiniMax H3 — video with native stereo audio in one pass. 24fps, ~5s. T2V, first-frame and first+last-frame I2V. ComfyUI ≥ 0.30.",
+    get description() { return translate("options.videoPresets.models.minimaxH3Int8.description"); },
     type: "minimax",
     nativeFps: 24,
     maxFrames: 362,
@@ -301,7 +302,7 @@ export const MODEL_OPTIONS = {
   },
   "minimax-h3-int8-full": {
     label: "MiniMax H3 Int8 unpruned (24GB+)",
-    description: "MiniMax H3 with the full modulation weights and the int8 encoder. 24GB-class cards; unmeasured.",
+    get description() { return translate("options.videoPresets.models.minimaxH3Int8Full.description"); },
     type: "minimax",
     nativeFps: 24,
     maxFrames: 362,
@@ -319,7 +320,7 @@ export const MODEL_OPTIONS = {
   // offered under the References input, from capabilities.modes "ref2v".
   "minimax-h3-ref2va-int8": {
     label: "MiniMax H3 Reference Int8 (16GB)",
-    description: "MiniMax H3 reference-to-video: up to 9 pictures, 3 clips and 3 audio files lock identity, motion and voice, or edit and continue a clip. 24fps, native audio.",
+    get description() { return translate("options.videoPresets.models.minimaxH3Reference.description"); },
     type: "minimax",
     nativeFps: 24,
     maxFrames: 362,
@@ -335,7 +336,7 @@ export const MODEL_OPTIONS = {
   },
   "minimax-h3-bf16": {
     label: "MiniMax H3 BF16 (48GB+)",
-    description: "MiniMax H3 at full precision with the bf16 encoder (~110GB of weights). Workstation cards; unmeasured.",
+    get description() { return translate("options.videoPresets.models.minimaxH3Bf16.description"); },
     type: "minimax",
     nativeFps: 24,
     maxFrames: 362,
@@ -351,7 +352,7 @@ export const MODEL_OPTIONS = {
   },
   "hunyuan-t2v": {
     label: "HunyuanVideo 13B T2V (GGUF Q5)",
-    description: "Tencent HunyuanVideo — cinematic motion, no content filter. 24fps, ~3s clips (16GB VRAM)",
+    get description() { return translate("options.videoPresets.models.hunyuanT2v.description"); },
     type: "hunyuan",
     nativeFps: 24,
     maxFrames: 129,
@@ -365,7 +366,7 @@ export const MODEL_OPTIONS = {
   },
   "hunyuan-i2v": {
     label: "HunyuanVideo 13B I2V (GGUF Q5)",
-    description: "HunyuanVideo image-to-video (v2) — follows the start frame closely. 24fps, ~3s (16GB VRAM)",
+    get description() { return translate("options.videoPresets.models.hunyuanI2v.description"); },
     type: "hunyuan",
     nativeFps: 24,
     maxFrames: 129,
@@ -414,7 +415,7 @@ export function modelChipLabel(modelId, registryMeta) {
   const type = familyType(modelId, registryMeta);
   const named = FAMILY_CHIP_LABEL[type];
   if (named) return named(modelId);
-  return opt?.label || registryMeta?.name || modelId || "Unknown model";
+  return opt?.label || registryMeta?.name || modelId || translate("options.videoPresets.unknownModel");
 }
 
 /** Longer presets appear only when the registry declares a duration tier for
@@ -431,8 +432,8 @@ export const withDurationTiers = (presets, registryMeta) => {
     if (!tier?.frames || known.has(tier.frames) || tier.frames <= longest) continue;
     const seconds = Math.round(tier.frames / fps);
     extra[`tier_${tier.frames}`] = {
-      label: `${seconds} s`,
-      description: `~${seconds} seconds`,
+      get label() { return translate("options.videoPresets.duration.seconds", { seconds }); },
+      get description() { return translate("options.videoPresets.duration.about", { count: seconds }); },
       duration_frames: tier.frames,
       fps,
     };

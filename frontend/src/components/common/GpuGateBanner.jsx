@@ -1,5 +1,6 @@
 import React from "react";
 import { Alert, Tooltip } from "@mui/material";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * @param {boolean} [gpuBusy] - GPU held or cooling down (preferred)
@@ -15,12 +16,13 @@ export default function GpuGateBanner({
   blockDetail,
   queueMode = false,
 }) {
+  const { t } = useUiTranslation();
   const busy = gpuBusy ?? gpuBlocked;
   if (!busy || !blockReason) return null;
 
   const text = queueMode
-    ? `${blockReason}. New jobs wait in line and start on their own when the graphics card is free.`
-    : `${blockReason}. Buttons unlock when the graphics card is free.`;
+    ? t("layoutCommon.gpuGate.queued", { reason: blockReason })
+    : t("layoutCommon.gpuGate.blocked", { reason: blockReason });
 
   const alert = (
     <Alert severity="info" sx={{ mb: 1 }}>
@@ -29,7 +31,7 @@ export default function GpuGateBanner({
   );
   if (!blockDetail) return alert;
   return (
-    <Tooltip title={`Job: ${blockDetail}`} arrow>
+    <Tooltip title={t("layoutCommon.gpuGate.job", { detail: blockDetail })} arrow>
       {alert}
     </Tooltip>
   );

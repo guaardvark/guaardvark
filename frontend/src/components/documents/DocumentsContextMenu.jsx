@@ -4,6 +4,7 @@
 import React from 'react';
 import { Menu, MenuItem, Divider, Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
+import { useUiTranslation, translate } from '../../i18n';
 
 const FOLDER_COLOR_CHOICES = ['#1976d2', '#9c27b0', '#d32f2f', '#f57c00', '#388e3c', '#455a64', '#7b1fa2', '#5d4037'];
 
@@ -36,9 +37,10 @@ const DocumentsContextMenu = ({
   isImage = false,
   isCode = false,
   isPdf = false,
-  openLabel = 'Open in Window',
-  minimizeLabel = 'Minimize',
+  openLabel = translate('documents.contextMenu.openInWindow'),
+  minimizeLabel = translate('documents.contextMenu.minimize'),
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const open = Boolean(anchorPosition);
 
@@ -90,12 +92,12 @@ const DocumentsContextMenu = ({
         }
         sx={menuStyles}
       >
-        <MenuItem onClick={select(onNewFolder)}>New Folder</MenuItem>
-        <MenuItem onClick={select(onUpload)}>Import Files</MenuItem>
+        <MenuItem onClick={select(onNewFolder)}>{t("documents.contextMenu.newFolder")}</MenuItem>
+        <MenuItem onClick={select(onUpload)}>{t("documents.contextMenu.importFiles")}</MenuItem>
         {hasClipboard && (
           <>
             <Divider />
-            <MenuItem onClick={select(onPaste)}>Paste</MenuItem>
+            <MenuItem onClick={select(onPaste)}>{t("documents.contextMenu.paste")}</MenuItem>
           </>
         )}
       </Menu>
@@ -118,12 +120,12 @@ const DocumentsContextMenu = ({
       >
         {onOpenWindow && <MenuItem onClick={select(onOpenWindow)}>{openLabel}</MenuItem>}
         {onToggleMinimize && <MenuItem onClick={select(onToggleMinimize)}>{minimizeLabel}</MenuItem>}
-        {onCloseWindow && <MenuItem onClick={select(onCloseWindow)}>Close Window</MenuItem>}
-        {onReviewWithAgent && <MenuItem onClick={select(onReviewWithAgent)}>Review with Agent</MenuItem>}
+        {onCloseWindow && <MenuItem onClick={select(onCloseWindow)}>{t("documents.contextMenu.closeWindow")}</MenuItem>}
+        {onReviewWithAgent && <MenuItem onClick={select(onReviewWithAgent)}>{t("documents.contextMenu.reviewWithAgent")}</MenuItem>}
         {hasWindowActions && <Divider />}
-        {onCut && <MenuItem onClick={select(onCut)}>Cut</MenuItem>}
-        {onCopy && <MenuItem onClick={select(onCopy)}>Copy</MenuItem>}
-        <MenuItem onClick={select(onPaste)} disabled={!hasClipboard}>Paste</MenuItem>
+        {onCut && <MenuItem onClick={select(onCut)}>{t("documents.contextMenu.cut")}</MenuItem>}
+        {onCopy && <MenuItem onClick={select(onCopy)}>{t("documents.contextMenu.copy")}</MenuItem>}
+        <MenuItem onClick={select(onPaste)} disabled={!hasClipboard}>{t("documents.contextMenu.paste")}</MenuItem>
         <Divider />
         {onColorChange && (
           <MenuItem disableRipple disableGutters sx={{ px: 1.5, py: 0.6 }}>
@@ -154,19 +156,19 @@ const DocumentsContextMenu = ({
             </Box>
           </MenuItem>
         )}
-        {onRename && <MenuItem onClick={select(onRename)}>Rename</MenuItem>}
-        {onProperties && <MenuItem onClick={select(onProperties)}>Properties</MenuItem>}
-        {onBulkImportHere && <MenuItem onClick={select(onBulkImportHere)}>Bulk import into this folder…</MenuItem>}
+        {onRename && <MenuItem onClick={select(onRename)}>{t("documents.contextMenu.rename")}</MenuItem>}
+        {onProperties && <MenuItem onClick={select(onProperties)}>{t("documents.contextMenu.properties")}</MenuItem>}
+        {onBulkImportHere && <MenuItem onClick={select(onBulkImportHere)}>{t("documents.contextMenu.bulkImportHere")}</MenuItem>}
         {onIndex && (
           <>
             <Divider />
-            <MenuItem onClick={select(onIndex)}>Index Contents</MenuItem>
+            <MenuItem onClick={select(onIndex)}>{t("documents.contextMenu.indexContents")}</MenuItem>
           </>
         )}
         {onDelete && (
           <>
             <Divider />
-            <MenuItem onClick={select(onDelete)}>Delete</MenuItem>
+            <MenuItem onClick={select(onDelete)}>{t("documents.contextMenu.delete")}</MenuItem>
           </>
         )}
       </Menu>
@@ -185,32 +187,32 @@ const DocumentsContextMenu = ({
         }
         sx={menuStyles}
       >
-        {onCut && <MenuItem onClick={select(onCut)}>Cut</MenuItem>}
-        {onCopy && <MenuItem onClick={select(onCopy)}>Copy</MenuItem>}
-        <MenuItem onClick={select(onPaste)} disabled={!hasClipboard}>Paste</MenuItem>
+        {onCut && <MenuItem onClick={select(onCut)}>{t("documents.contextMenu.cut")}</MenuItem>}
+        {onCopy && <MenuItem onClick={select(onCopy)}>{t("documents.contextMenu.copy")}</MenuItem>}
+        <MenuItem onClick={select(onPaste)} disabled={!hasClipboard}>{t("documents.contextMenu.paste")}</MenuItem>
         {onDownload && (
           <>
             <Divider />
-            <MenuItem onClick={select(onDownload)}>Download</MenuItem>
+            <MenuItem onClick={select(onDownload)}>{t("documents.contextMenu.download")}</MenuItem>
           </>
         )}
-        {isImage && onEdit && <MenuItem onClick={select(onEdit)}>Edit</MenuItem>}
-        {isCode && onEdit && <MenuItem onClick={select(onEdit)}>Edit</MenuItem>}
-        {isPdf && onEdit && <MenuItem onClick={select(onEdit)}>View</MenuItem>}
-        {isCode && onOpenInCodeEditor && <MenuItem onClick={select(onOpenInCodeEditor)}>Open in Code Editor</MenuItem>}
-        {onReviewWithAgent && <MenuItem onClick={select(onReviewWithAgent)}>Review with Agent</MenuItem>}
-        {onRename && <MenuItem onClick={select(onRename)}>Rename</MenuItem>}
-        {onProperties && <MenuItem onClick={select(onProperties)}>Properties</MenuItem>}
+        {isImage && onEdit && <MenuItem onClick={select(onEdit)}>{t("documents.contextMenu.edit")}</MenuItem>}
+        {isCode && onEdit && <MenuItem onClick={select(onEdit)}>{t("documents.contextMenu.edit")}</MenuItem>}
+        {isPdf && onEdit && <MenuItem onClick={select(onEdit)}>{t("documents.contextMenu.view")}</MenuItem>}
+        {isCode && onOpenInCodeEditor && <MenuItem onClick={select(onOpenInCodeEditor)}>{t("documents.contextMenu.openInCodeEditor")}</MenuItem>}
+        {onReviewWithAgent && <MenuItem onClick={select(onReviewWithAgent)}>{t("documents.contextMenu.reviewWithAgent")}</MenuItem>}
+        {onRename && <MenuItem onClick={select(onRename)}>{t("documents.contextMenu.rename")}</MenuItem>}
+        {onProperties && <MenuItem onClick={select(onProperties)}>{t("documents.contextMenu.properties")}</MenuItem>}
         {onIndex && (
           <>
             <Divider />
-            <MenuItem onClick={select(onIndex)}>Index</MenuItem>
+            <MenuItem onClick={select(onIndex)}>{t("documents.contextMenu.index")}</MenuItem>
           </>
         )}
         {onDelete && (
           <>
             <Divider />
-            <MenuItem onClick={select(onDelete)}>Delete</MenuItem>
+            <MenuItem onClick={select(onDelete)}>{t("documents.contextMenu.delete")}</MenuItem>
           </>
         )}
       </Menu>

@@ -9,8 +9,10 @@ import { Box, Typography, Collapse, IconButton } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import PsychologyIcon from "@mui/icons-material/Psychology";
+import { useUiTranslation } from "../../i18n";
 
 const AgentThinkingTrail = ({ steps }) => {
+  const { t } = useUiTranslation();
   const [expanded, setExpanded] = useState(false);
   if (import.meta.env.DEV) {
     console.debug('[AgentThinkingTrail] RENDER steps.length=', (steps||[]).length, ' (live from Streaming or persisted from MessageItem)');
@@ -54,8 +56,14 @@ const AgentThinkingTrail = ({ steps }) => {
             flex: 1,
           }}
         >
-          Agent thinking — {stepCount} step{stepCount === 1 ? "" : "s"}
-          {noteCount > 0 ? `, ${noteCount} note${noteCount === 1 ? "" : "s"} from you` : ""}
+          {noteCount > 0
+            ? t("chat.thinkingTrail.summaryWithNotes", {
+                steps: t("chat.thinkingTrail.steps", { count: stepCount }),
+                notes: t("chat.thinkingTrail.notes", { count: noteCount }),
+              })
+            : t("chat.thinkingTrail.summary", {
+                steps: t("chat.thinkingTrail.steps", { count: stepCount }),
+              })}
         </Typography>
         <IconButton size="small" sx={{ p: 0 }}>
           {expanded ? (
@@ -94,8 +102,8 @@ const AgentThinkingTrail = ({ steps }) => {
                   }}
                 >
                   {isNote
-                    ? `You, before step ${step.iteration ?? idx + 1}`
-                    : `Step ${step.iteration ?? idx + 1}`}
+                    ? t("chat.thinkingTrail.noteBeforeStep", { step: step.iteration ?? idx + 1 })
+                    : t("chat.thinkingTrail.step", { step: step.iteration ?? idx + 1 })}
                   {!isNote && step.label ? ` — ${step.label}` : ""}
                 </Typography>
                 <Box
@@ -113,7 +121,7 @@ const AgentThinkingTrail = ({ steps }) => {
                     wordBreak: "break-word",
                   }}
                 >
-                  {reasoning || "(no reasoning recorded)"}
+                  {reasoning || t("chat.thinkingTrail.noReasoning")}
                 </Box>
               </Box>
             );

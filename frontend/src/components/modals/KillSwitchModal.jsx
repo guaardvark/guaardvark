@@ -26,8 +26,10 @@ import {
 } from '@mui/icons-material';
 import voiceService from '../../api/voiceService';
 import { ConfirmActionDialog } from '../settings/ui';
+import { useUiTranslation, Trans } from '../../i18n';
 
 const KillSwitchModal = ({ open, onClose }) => {
+  const { t } = useUiTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [systemStatus, setSystemStatus] = useState(null);
   const [killResult, setKillResult] = useState(null);
@@ -42,7 +44,7 @@ const KillSwitchModal = ({ open, onClose }) => {
       const response = await voiceService.getSystemStatus();
       setSystemStatus(response.system_status);
     } catch (err) {
-      setError(`Failed to get system status: ${err.message}`);
+      setError(t('backups.killSwitch.statusFailed', { error: err.message }));
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +65,7 @@ const KillSwitchModal = ({ open, onClose }) => {
       }, 1000);
       
     } catch (err) {
-      setError(`Failed to kill processes: ${err.message}`);
+      setError(t('backups.killSwitch.killFailed', { error: err.message }));
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +84,7 @@ const KillSwitchModal = ({ open, onClose }) => {
       }, 500);
       
     } catch (err) {
-      setError(`Failed to cleanup processes: ${err.message}`);
+      setError(t('backups.killSwitch.cleanupFailed', { error: err.message }));
     } finally {
       setIsLoading(false);
     }
@@ -111,14 +113,13 @@ const KillSwitchModal = ({ open, onClose }) => {
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <WarningIcon color="error" />
-        Emergency Kill Switch
+        {t('backups.killSwitch.title')}
       </DialogTitle>
       
       <DialogContent>
         <Alert severity="warning" sx={{ mb: 2 }}>
           <Typography variant="body2">
-            <strong>WARNING:</strong> This will forcefully terminate all active LLM processes. 
-            Use only when the system is unresponsive or consuming excessive resources.
+            <Trans i18nKey="backups.killSwitch.warning" components={{ bold: <strong /> }} />
           </Typography>
         </Alert>
 
@@ -126,7 +127,7 @@ const KillSwitchModal = ({ open, onClose }) => {
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
             <MemoryIcon />
-            System Status
+            {t('backups.killSwitch.systemStatus')}
           </Typography>
           
           {systemStatus ? (
@@ -137,8 +138,8 @@ const KillSwitchModal = ({ open, onClose }) => {
                     <SpeedIcon color={getStatusColor(systemStatus.cpu_percent, 80)} />
                   </ListItemIcon>
                   <ListItemText 
-                    primary={`CPU Usage: ${systemStatus.cpu_percent.toFixed(1)}%`}
-                    secondary={systemStatus.cpu_percent > 80 ? "High CPU usage detected" : "Normal"}
+                    primary={t('backups.killSwitch.cpuUsage', { percent: systemStatus.cpu_percent.toFixed(1) })}
+                    secondary={systemStatus.cpu_percent > 80 ? t('backups.killSwitch.highCpu') : t('backups.killSwitch.normal')}
                   />
                 </ListItem>
                 
@@ -147,8 +148,8 @@ const KillSwitchModal = ({ open, onClose }) => {
                     <MemoryIcon color={getStatusColor(systemStatus.memory_percent, 80)} />
                   </ListItemIcon>
                   <ListItemText 
-                    primary={`Memory Usage: ${systemStatus.memory_percent.toFixed(1)}%`}
-                    secondary={`Available: ${systemStatus.memory_available_gb.toFixed(1)} GB`}
+                    primary={t('backups.killSwitch.memoryUsage', { percent: systemStatus.memory_percent.toFixed(1) })}
+                    secondary={t('backups.killSwitch.memoryAvailable', { gb: systemStatus.memory_available_gb.toFixed(1) })}
                   />
                 </ListItem>
                 
@@ -157,8 +158,8 @@ const KillSwitchModal = ({ open, onClose }) => {
                     <StorageIcon color={getStatusColor(systemStatus.disk_percent, 90)} />
                   </ListItemIcon>
                   <ListItemText 
-                    primary={`Disk Usage: ${systemStatus.disk_percent.toFixed(1)}%`}
-                    secondary={`Free: ${systemStatus.disk_free_gb.toFixed(1)} GB`}
+                    primary={t('backups.killSwitch.diskUsage', { percent: systemStatus.disk_percent.toFixed(1) })}
+                    secondary={t('backups.killSwitch.diskFree', { gb: systemStatus.disk_free_gb.toFixed(1) })}
                   />
                 </ListItem>
                 
@@ -169,21 +170,21 @@ const KillSwitchModal = ({ open, onClose }) => {
                     <StopIcon color={systemStatus.active_processes > 0 ? "warning" : "success"} />
                   </ListItemIcon>
                   <ListItemText 
-                    primary={`Active LLM Processes: ${systemStatus.active_processes}`}
-                    secondary={systemStatus.system_overloaded ? "System is overloaded" : "System is stable"}
+                    primary={t('backups.killSwitch.activeProcesses', { count: systemStatus.active_processes })}
+                    secondary={systemStatus.system_overloaded ? t('backups.killSwitch.overloaded') : t('backups.killSwitch.stable')}
                   />
                 </ListItem>
               </List>
               
               {systemStatus.system_overloaded && (
                 <Alert severity="error" sx={{ mt: 1 }}>
-                  System is currently overloaded. Consider using the kill switch.
+                  {t('backups.killSwitch.overloadedAlert')}
                 </Alert>
               )}
             </Box>
           ) : (
             <Typography variant="body2" color="text.secondary">
-              Click "Get System Status" to view current resource usage.
+              {t('backups.killSwitch.statusHint')}
             </Typography>
           )}
         </Box>
@@ -193,21 +194,22 @@ const KillSwitchModal = ({ open, onClose }) => {
           <Box sx={{ mb: 3 }}>
             <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <StopIcon />
-              Kill Results
+              {t('backups.killSwitch.killResults')}
             </Typography>
             
             <Alert severity="success" sx={{ mb: 2 }}>
-              Successfully killed {killResult.total_killed} processes
-              {killResult.total_failed > 0 && `, ${killResult.total_failed} failed`}
+              {killResult.total_failed > 0
+                ? t('backups.killSwitch.killedWithFailures', { count: killResult.total_killed, failed: killResult.total_failed })
+                : t('backups.killSwitch.killed', { count: killResult.total_killed })}
             </Alert>
 
             {killResult.web_access && (
               <Alert severity={killResult.web_access.allow_web_search === false ? "warning" : "error"} sx={{ mb: 2 }}>
                 {killResult.web_access.allow_web_search === false
-                  ? "Web access is now off: no tool, agent task or agent browser can reach outside sites. It stays off until you turn it back on in Settings."
-                  : `Web access could not be turned off: ${killResult.web_access.error || "unknown error"}`}
-                {killResult.web_access.agent_browser?.task_stopped && " The running agent task was stopped."}
-                {killResult.web_access.agent_browser?.browser_closed > 0 && " The agent's browser was closed."}
+                  ? t('backups.killSwitch.webAccessOff')
+                  : t('backups.killSwitch.webAccessFailed', { error: killResult.web_access.error || t('backups.killSwitch.unknownError') })}
+                {killResult.web_access.agent_browser?.task_stopped && " " + t('backups.killSwitch.agentTaskStopped')}
+                {killResult.web_access.agent_browser?.browser_closed > 0 && " " + t('backups.killSwitch.agentBrowserClosed')}
               </Alert>
             )}
             
@@ -219,8 +221,8 @@ const KillSwitchModal = ({ open, onClose }) => {
                       <CheckCircleIcon color="success" />
                     </ListItemIcon>
                     <ListItemText 
-                      primary={`PID ${process.pid} (${process.type})`}
-                      secondary={`Duration: ${process.duration?.toFixed(1)}s`}
+                      primary={t('backups.killSwitch.processWithType', { pid: process.pid, type: process.type })}
+                      secondary={t('backups.killSwitch.duration', { seconds: process.duration?.toFixed(1) })}
                     />
                   </ListItem>
                 ))}
@@ -230,7 +232,7 @@ const KillSwitchModal = ({ open, onClose }) => {
             {killResult.failed_processes.length > 0 && (
               <>
                 <Typography variant="subtitle2" color="error" sx={{ mt: 2, mb: 1 }}>
-                  Failed to kill:
+                  {t('backups.killSwitch.failedToKill')}:
                 </Typography>
                 <List dense>
                   {killResult.failed_processes.map((process, index) => (
@@ -239,7 +241,7 @@ const KillSwitchModal = ({ open, onClose }) => {
                         <ErrorIcon color="error" />
                       </ListItemIcon>
                       <ListItemText 
-                        primary={`PID ${process.pid}`}
+                        primary={t('backups.killSwitch.process', { pid: process.pid })}
                         secondary={process.error}
                       />
                     </ListItem>
@@ -265,7 +267,7 @@ const KillSwitchModal = ({ open, onClose }) => {
           variant="outlined"
           startIcon={isLoading ? <CircularProgress size={16} /> : <MemoryIcon />}
         >
-          Get System Status
+          {t('backups.killSwitch.getSystemStatus')}
         </Button>
         
         <Button 
@@ -275,7 +277,7 @@ const KillSwitchModal = ({ open, onClose }) => {
           color="warning"
           startIcon={isLoading ? <CircularProgress size={16} /> : <StopIcon />}
         >
-          Cleanup Dead Processes
+          {t('backups.killSwitch.cleanupDead')}
         </Button>
         
         <Button 
@@ -285,7 +287,7 @@ const KillSwitchModal = ({ open, onClose }) => {
           color="error"
           startIcon={isLoading ? <CircularProgress size={16} /> : <StopIcon />}
         >
-          KILL ALL PROCESSES
+          {t('backups.killSwitch.killAll')}
         </Button>
         <ConfirmActionDialog
           open={confirmKill}
@@ -294,14 +296,14 @@ const KillSwitchModal = ({ open, onClose }) => {
             setConfirmKill(false);
             handleKillAllProcesses();
           }}
-          title="Kill all LLM processes"
-          description="Force-terminates every model process. Any chat reply, generation or index job in flight is lost, and the next request will reload the model from scratch."
-          keeps="documents, chats, media and settings."
-          confirmLabel="Kill all"
+          title={t('backups.killSwitch.confirmTitle')}
+          description={t('backups.killSwitch.confirmDescription')}
+          keeps={t('backups.killSwitch.confirmKeeps')}
+          confirmLabel={t('backups.killSwitch.confirmLabel')}
         />
         
         <Button onClick={onClose} disabled={isLoading}>
-          Close
+          {t('dialogs.shared.close')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -3,6 +3,7 @@
 
 import { BASE_URL } from './apiClient';
 import { API_TIMEOUT_GENERATION, API_TIMEOUT_BULK_XML } from '../config/constants';
+import { translate } from '../i18n';
 const API_URL = BASE_URL;
 
 const debugLog = (...args) => {
@@ -61,10 +62,10 @@ export const generateBulkCSV = async (naturalLanguage, outputFilename, contextVa
   } catch (error) {
     if (error.name === 'AbortError') {
       console.error("bulkGenerationService: Request timeout after 5 minutes");
-      throw new Error('Request timeout - bulk CSV generation took too long');
+      throw new Error(translate("messages.bulkGeneration.csvTimeout"));
     }
     console.error("bulkGenerationService: Error calling bulk CSV generation API:", error.message);
-    throw new Error(error.message || 'Bulk CSV generation failed');
+    throw new Error(error.message || translate("messages.bulkGeneration.csvFailed"));
   }
 };
 
@@ -167,10 +168,10 @@ export const generateStructuredCSV = async (params) => {
   } catch (error) {
     if (error.name === 'AbortError') {
       console.error("bulkGenerationService: Request timeout after 5 minutes");
-      throw new Error('Request timeout - structured CSV generation took too long');
+      throw new Error(translate("messages.bulkGeneration.structuredCsvTimeout"));
     }
     console.error("bulkGenerationService: Error calling structured CSV generation API:", error.message);
-    throw new Error(error.message || 'Structured CSV generation failed');
+    throw new Error(error.message || translate("messages.bulkGeneration.structuredCsvFailed"));
   }
 };
 
@@ -192,7 +193,7 @@ export const getBulkGenerationStatus = async (jobId) => {
     return data;
   } catch (error) {
     console.error("bulkGenerationService: Error getting bulk generation status:", error.message);
-    throw new Error(error.message || 'Failed to get generation status');
+    throw new Error(error.message || translate("messages.bulkGeneration.statusFailed"));
   }
 };
 
@@ -220,7 +221,7 @@ export const estimateBulkGenerationTime = async (generationParams) => {
     return data;
   } catch (error) {
     console.error("bulkGenerationService: Error estimating generation time:", error.message);
-    throw new Error(error.message || 'Failed to estimate generation time');
+    throw new Error(error.message || translate("messages.bulkGeneration.estimateFailed"));
   }
 };
 
@@ -248,7 +249,7 @@ export const generateTopics = async (topicParams) => {
     return data;
   } catch (error) {
     console.error("bulkGenerationService: Error generating topics:", error.message);
-    throw new Error(error.message || 'Failed to generate topics');
+    throw new Error(error.message || translate("messages.bulkGeneration.topicsFailed"));
   }
 };
 
@@ -314,9 +315,9 @@ export const generateBulkXML = async (params) => {
   } catch (error) {
     if (error.name === 'AbortError') {
       console.error("bulkGenerationService: XML request timeout after 10 minutes");
-      throw new Error('Request timeout - bulk XML generation took too long');
+      throw new Error(translate("messages.bulkGeneration.xmlTimeout"));
     }
     console.error("bulkGenerationService: Error generating bulk XML:", error.message);
-    throw new Error(error.message || 'Failed to generate XML content');
+    throw new Error(error.message || translate("messages.bulkGeneration.xmlFailed"));
   }
 }; 

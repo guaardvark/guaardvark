@@ -29,6 +29,7 @@ import {
   getTrainingLibraries,
 } from "../../api/trainingService";
 import TrainingLibrariesModal from "./TrainingLibrariesModal";
+import { translate, useUiTranslation, Trans } from "../../i18n";
 
 import ComputerIcon from "@mui/icons-material/Computer";
 
@@ -61,7 +62,13 @@ const withinModel = (config, model) => {
   };
 };
 
-const LOAD_LABELS = ["datasets", "device profiles", "base models", "image folders", "hardware"];
+const loadLabels = () => [
+  translate("dialogs.newTrainingJob.loadLabels.datasets"),
+  translate("dialogs.newTrainingJob.loadLabels.deviceProfiles"),
+  translate("dialogs.newTrainingJob.loadLabels.baseModels"),
+  translate("dialogs.newTrainingJob.loadLabels.imageFolders"),
+  translate("dialogs.newTrainingJob.loadLabels.hardware"),
+];
 
 const NewTrainingJobModal = ({
   open,
@@ -69,6 +76,7 @@ const NewTrainingJobModal = ({
   onSave,
   isSaving,
 }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState(emptyForm);
   const [formError, setFormError] = useState(null);
   const [datasets, setDatasets] = useState([]);
@@ -112,10 +120,11 @@ const NewTrainingJobModal = ({
       getHardwareCapabilities(),
     ]);
     const value = (i) => (results[i].status === "fulfilled" ? results[i].value : null);
+    const labels = loadLabels();
     const problems = results
       .map((r, i) => {
-        if (r.status === "rejected") return `${LOAD_LABELS[i]} (${r.reason?.message || "failed"})`;
-        if (r.value && r.value.error) return `${LOAD_LABELS[i]} (${r.value.error})`;
+        if (r.status === "rejected") return t("dialogs.newTrainingJob.loadProblem", { what: labels[i], reason: r.reason?.message || t("dialogs.newTrainingJob.loadFailed") });
+        if (r.value && r.value.error) return t("dialogs.newTrainingJob.loadProblem", { what: labels[i], reason: r.value.error });
         return null;
       })
       .filter(Boolean);
@@ -210,19 +219,19 @@ const NewTrainingJobModal = ({
 
   const handleSave = () => {
     if (!formData.name.trim()) {
-      setFormError("Job name is required.");
+      setFormError(t("dialogs.newTrainingJob.nameRequired"));
       return;
     }
     if (!formData.base_model || !selectedModel?.installed || selectedModel?.trainable === false) {
-      setFormError("Choose a downloaded base model.");
+      setFormError(t("dialogs.newTrainingJob.modelRequired"));
       return;
     }
     if (!formData.dataset_id) {
-      setFormError("Dataset is required.");
+      setFormError(t("dialogs.newTrainingJob.datasetRequired"));
       return;
     }
     if (formData.task_type === "vision" && !formData.images_path) {
-        setFormError("Image folder is required for vision tasks.");
+        setFormError(t("dialogs.newTrainingJob.imagesRequired"));
         return;
     }
 
@@ -251,15 +260,18 @@ const NewTrainingJobModal = ({
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>Create New Training Job</DialogTitle>
+      <DialogTitle>{t("dialogs.newTrainingJob.title")}</DialogTitle>
       <DialogContent dividers>
         {hardwareCaps && (
           <Alert severity="success" icon={<ComputerIcon />} sx={{ mb: 2 }}>
             <Typography variant="subtitle2">
-              Detected Hardware: {hardwareCaps.gpu_name || "CPU Only"} ({hardwareCaps.vram_total_mb ? `${(hardwareCaps.vram_total_mb / 1024).toFixed(1)}GB VRAM` : "No GPU"})
+              {t("dialogs.newTrainingJob.detectedHardware", {
+                gpu: hardwareCaps.gpu_name || t("dialogs.newTrainingJob.cpuOnly"),
+                vram: hardwareCaps.vram_total_mb ? `${(hardwareCaps.vram_total_mb / 1024).toFixed(1)}GB VRAM` : t("dialogs.newTrainingJob.noGpu"),
+              })}
             </Typography>
             <Typography variant="caption">
-              Intelligent defaults applied based on your {(hardwareCaps.vram_total_mb / 1024).toFixed(0)}GB {hardwareCaps.gpu_name}.
+              {t("dialogs.newTrainingJob.defaultsApplied", { vram: (hardwareCaps.vram_total_mb / 1024).toFixed(0), gpu: hardwareCaps.gpu_name })}
             </Typography>
           </Alert>
         )}
@@ -269,28 +281,32 @@ const NewTrainingJobModal = ({
             sx={{ mb: 2 }}
             action={
               <Button color="inherit" size="small" onClick={() => setLibrariesOpen(true)}>
-                Training libraries
+                {t("dialogs.newTrainingJob.trainingLibraries")}
               </Button>
             }
           >
             {missingLibraries.length > 0 ? (
               <Typography variant="body2">
-                <strong>Training libraries are not installed.</strong>{" "}
-                Fine-tuning needs {missingLibraries.map((l) => l.name).join(", ")}. Install them
-                from Training libraries (also in Settings), then create the job.
+                <Trans
+                  i18nKey="dialogs.newTrainingJob.librariesMissing"
+                  values={{ libraries: missingLibraries.map((l) => l.name).join(", ") }}
+                  components={{ bold: <strong /> }}
+                />
               </Typography>
             ) : (
               <Typography variant="body2">
-                <strong>Training libraries are installed, but incomplete.</strong>{" "}
-                {(libraries.unmet || []).join("; ")}. Click Repair in Training libraries (also
-                in Settings), then create the job.
+                <Trans
+                  i18nKey="dialogs.newTrainingJob.librariesIncomplete"
+                  values={{ unmet: (libraries.unmet || []).join("; ") }}
+                  components={{ bold: <strong /> }}
+                />
               </Typography>
             )}
           </Alert>
         )}
         {loadProblems.length > 0 && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            Could not load {loadProblems.join(", ")}.
+            {t("dialogs.newTrainingJob.couldNotLoad", { problems: loadProblems.join(", ") })}
           </Alert>
         )}
         {formError && (
@@ -300,7 +316,7 @@ const NewTrainingJobModal = ({
         )}
         {loading && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Loading options...
+            {t("dialogs.newTrainingJob.loadingOptions")}
           </Alert>
         )}
         <Grid container spacing={2} sx={{ mt: 0 }}>
@@ -310,27 +326,27 @@ const NewTrainingJobModal = ({
               required
               fullWidth
               margin="dense"
-              label="Job Name"
+              label={t("dialogs.newTrainingJob.jobName")}
               name="name"
               value={formData.name}
               onChange={handleInputChange}
               disabled={isSaving}
-              helperText="A descriptive name for this training job"
+              helperText={t("dialogs.newTrainingJob.jobNameHelp")}
             />
           </Grid>
 
           {visionDeclared && (
             <Grid item xs={12}>
               <FormControl component="fieldset">
-                <Typography variant="caption" color="textSecondary">Task Type</Typography>
+                <Typography variant="caption" color="textSecondary">{t("dialogs.newTrainingJob.taskType")}</Typography>
                 <RadioGroup
                   row
                   name="task_type"
                   value={formData.task_type}
                   onChange={handleInputChange}
                 >
-                  <FormControlLabel value="text" control={<Radio />} label="Text Generation" disabled={isSaving} />
-                  <FormControlLabel value="vision" control={<Radio />} label="Vision Fine-Tuning" disabled={isSaving} />
+                  <FormControlLabel value="text" control={<Radio />} label={t("dialogs.newTrainingJob.textGeneration")} disabled={isSaving} />
+                  <FormControlLabel value="vision" control={<Radio />} label={t("dialogs.newTrainingJob.visionFineTuning")} disabled={isSaving} />
                 </RadioGroup>
               </FormControl>
             </Grid>
@@ -338,14 +354,14 @@ const NewTrainingJobModal = ({
 
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth margin="dense" required>
-              <InputLabel id="base-model-label">Base Model</InputLabel>
+              <InputLabel id="base-model-label">{t("dialogs.newTrainingJob.baseModel")}</InputLabel>
               <Select
                 labelId="base-model-label"
                 name="base_model"
                 value={formData.base_model}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                label="Base Model"
+                label={t("dialogs.newTrainingJob.baseModel")}
                 renderValue={(id) => baseModels.find((m) => m.id === id)?.name || id}
               >
                 {fittingModels.map((model) => (
@@ -354,10 +370,10 @@ const NewTrainingJobModal = ({
                       primary={model.name}
                       secondary={
                         model.trainable === false
-                          ? "Not offered for training yet: its GPU memory has not been measured"
+                          ? t("dialogs.newTrainingJob.notMeasured")
                           : model.installed
-                          ? `${model.license} · up to ${model.max_seq_length} tokens`
-                          : `Not downloaded (${model.size_gb} GB)`
+                          ? t("dialogs.newTrainingJob.modelDetails", { license: model.license, tokens: model.max_seq_length })
+                          : t("dialogs.newTrainingJob.notDownloadedSize", { size: model.size_gb })
                       }
                     />
                   </MenuItem>
@@ -366,15 +382,14 @@ const NewTrainingJobModal = ({
             </FormControl>
             {!loading && baseModels.length > 0 && fittingModels.length === 0 && (
               <Alert severity="warning" sx={{ mt: 1 }}>
-                No declared base model fits this machine: {baseModels[0].fit_reason}
+                {t("dialogs.newTrainingJob.noFit", { reason: baseModels[0].fit_reason })}
               </Alert>
             )}
             {notDownloaded.length > 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-                {notDownloaded.map((m) => m.name).join(", ")} {notDownloaded.length === 1 ? "is" : "are"} not
-                downloaded.{" "}
+                {t("dialogs.newTrainingJob.notDownloaded", { models: notDownloaded.map((m) => m.name).join(", "), count: notDownloaded.length })}{" "}
                 <Button size="small" onClick={() => setLibrariesOpen(true)} sx={{ p: 0, minWidth: 0, verticalAlign: "baseline" }}>
-                  Download base models
+                  {t("dialogs.newTrainingJob.downloadBaseModels")}
                 </Button>
               </Typography>
             )}
@@ -384,25 +399,25 @@ const NewTrainingJobModal = ({
             <TextField
               fullWidth
               margin="dense"
-              label="Output Model Name"
+              label={t("dialogs.newTrainingJob.outputModelName")}
               name="output_model_name"
               value={formData.output_model_name}
               onChange={handleInputChange}
               disabled={isSaving}
-              helperText="Optional: Name for the fine-tuned model"
+              helperText={t("dialogs.newTrainingJob.outputModelNameHelp")}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth margin="dense" required>
-              <InputLabel id="dataset-label">Dataset</InputLabel>
+              <InputLabel id="dataset-label">{t("dialogs.newTrainingJob.dataset")}</InputLabel>
               <Select
                 labelId="dataset-label"
                 name="dataset_id"
                 value={formData.dataset_id}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                label="Dataset"
+                label={t("dialogs.newTrainingJob.dataset")}
               >
                 {datasets.map((ds) => (
                   <MenuItem key={ds.id} value={ds.id}>
@@ -416,17 +431,17 @@ const NewTrainingJobModal = ({
           {formData.task_type === "vision" && (
             <Grid item xs={12} sm={6}>
                <FormControl fullWidth margin="dense" required>
-                <InputLabel>Image Folder</InputLabel>
+                <InputLabel>{t("dialogs.newTrainingJob.imageFolder")}</InputLabel>
                 <Select
                     name="images_path"
                     value={formData.images_path}
                     onChange={handleInputChange}
                     disabled={isSaving}
-                    label="Image Folder"
+                    label={t("dialogs.newTrainingJob.imageFolder")}
                 >
                     {imageFolders.map((folder) => (
                     <MenuItem key={folder.path} value={folder.path}>
-                        {folder.name} ({folder.image_count} images)
+                        {t("dialogs.newTrainingJob.folderImages", { name: folder.name, count: folder.image_count })}
                     </MenuItem>
                     ))}
                 </Select>
@@ -436,26 +451,28 @@ const NewTrainingJobModal = ({
 
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth margin="dense">
-              <InputLabel>Device Profile</InputLabel>
+              <InputLabel>{t("dialogs.newTrainingJob.deviceProfile")}</InputLabel>
               <Select
                 name="device_profile_id"
                 value={formData.device_profile_id}
                 onChange={handleDeviceProfileChange}
                 disabled={isSaving}
-                label="Device Profile"
+                label={t("dialogs.newTrainingJob.deviceProfile")}
               >
                 {deviceProfiles.map((profile) => (
                   <MenuItem key={profile.id} value={profile.id}>
-                    {profile.name} {profile.is_default && "(Default)"}
+                    {profile.name} {profile.is_default && t("dialogs.newTrainingJob.defaultProfile")}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
             {selectedProfile && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-                {selectedProfile.device_type?.toUpperCase()} |
-                Max Batch: {selectedProfile.max_batch_size} |
-                Max Seq: {selectedProfile.max_seq_length}
+                {t("dialogs.newTrainingJob.profileSummary", {
+                  type: selectedProfile.device_type?.toUpperCase(),
+                  batch: selectedProfile.max_batch_size,
+                  seq: selectedProfile.max_seq_length,
+                })}
                 {selectedProfile.gpu_vram_mb && ` | VRAM: ${selectedProfile.gpu_vram_mb / 1024}GB`}
               </Typography>
             )}
@@ -464,7 +481,7 @@ const NewTrainingJobModal = ({
           <Grid item xs={12}>
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2" gutterBottom>
-              Training Configuration
+              {t("dialogs.newTrainingJob.trainingConfiguration")}
             </Typography>
           </Grid>
 
@@ -473,15 +490,15 @@ const NewTrainingJobModal = ({
               fullWidth
               type="number"
               margin="dense"
-              label="Training Steps"
+              label={t("dialogs.newTrainingJob.steps")}
               name="config.steps"
               value={formData.config.steps}
               onChange={handleInputChange}
               disabled={isSaving}
               inputProps={{ min: 1 }}
-              placeholder="Auto"
+              placeholder={t("dialogs.newTrainingJob.stepsAuto")}
               InputLabelProps={{ shrink: true }}
-              helperText="Empty: about three passes over the dataset"
+              helperText={t("dialogs.newTrainingJob.stepsHelp")}
             />
           </Grid>
 
@@ -490,13 +507,13 @@ const NewTrainingJobModal = ({
               fullWidth
               type="number"
               margin="dense"
-              label="Learning Rate"
+              label={t("dialogs.newTrainingJob.learningRate")}
               name="config.lr"
               value={formData.config.lr}
               onChange={handleInputChange}
               disabled={isSaving}
               inputProps={{ min: 0, step: 0.0001 }}
-              helperText="e.g., 0.0002"
+              helperText={t("dialogs.newTrainingJob.learningRateHelp")}
             />
           </Grid>
 
@@ -505,13 +522,13 @@ const NewTrainingJobModal = ({
               fullWidth
               type="number"
               margin="dense"
-              label="Batch Size"
+              label={t("dialogs.newTrainingJob.batchSize")}
               name="config.batch_size"
               value={formData.config.batch_size}
               onChange={handleInputChange}
               disabled={isSaving}
               inputProps={{ min: 1, max: selectedModel?.max_batch_size }}
-              helperText={selectedModel ? `Max: ${selectedModel.max_batch_size}` : selectedProfile && `Max: ${selectedProfile.max_batch_size}`}
+              helperText={selectedModel ? t("dialogs.newTrainingJob.max", { max: selectedModel.max_batch_size }) : selectedProfile && t("dialogs.newTrainingJob.max", { max: selectedProfile.max_batch_size })}
             />
           </Grid>
 
@@ -520,13 +537,13 @@ const NewTrainingJobModal = ({
               fullWidth
               type="number"
               margin="dense"
-              label="LoRA Rank"
+              label={t("dialogs.newTrainingJob.loraRank")}
               name="config.rank"
               value={formData.config.rank}
               onChange={handleInputChange}
               disabled={isSaving}
               inputProps={{ min: 1 }}
-              helperText="LoRA adapter rank (typically 8-32)"
+              helperText={t("dialogs.newTrainingJob.loraRankHelp")}
             />
           </Grid>
 
@@ -535,13 +552,13 @@ const NewTrainingJobModal = ({
               fullWidth
               type="number"
               margin="dense"
-              label="Max Sequence Length"
+              label={t("dialogs.newTrainingJob.seqLength")}
               name="config.seq_length"
               value={formData.config.seq_length}
               onChange={handleInputChange}
               disabled={isSaving}
               inputProps={{ min: 128, max: selectedModel?.max_seq_length }}
-              helperText={selectedModel ? `Max: ${selectedModel.max_seq_length}` : selectedProfile && `Max: ${selectedProfile.max_seq_length}`}
+              helperText={selectedModel ? t("dialogs.newTrainingJob.max", { max: selectedModel.max_seq_length }) : selectedProfile && t("dialogs.newTrainingJob.max", { max: selectedProfile.max_seq_length })}
             />
           </Grid>
 
@@ -555,21 +572,21 @@ const NewTrainingJobModal = ({
                   disabled={isSaving}
                 />
               }
-              label="Start training immediately after creation"
+              label={t("dialogs.newTrainingJob.startImmediately")}
             />
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isSaving}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button
           onClick={handleSave}
           variant="contained"
           disabled={isSaving || (libraries !== null && !libraries.ready) || !selectedModel?.installed}
         >
-          Create Job
+          {t("dialogs.newTrainingJob.createJob")}
         </Button>
       </DialogActions>
       <TrainingLibrariesModal

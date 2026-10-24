@@ -38,6 +38,7 @@ import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { BASE_URL } from "../../api/apiClient";
 import { guardedMediaSrc } from "../../utils/assetGuard";
 import copyText from "../../utils/copyText";
+import { useUiTranslation } from "../../i18n";
 
 // Body height: ~24 lines of 0.7rem code, small enough that one card never
 // fills the chat viewport (the floating chat card is ~600px tall).
@@ -227,6 +228,7 @@ ArtifactBody.propTypes = {
 };
 
 const ArtifactCard = ({ artifact }) => {
+  const { t } = useUiTranslation();
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -254,9 +256,9 @@ const ArtifactCard = ({ artifact }) => {
   };
 
   const note = !hasContent
-    ? "Preview not available for this file; use Download or Open."
+    ? t("chat.artifact.noPreview")
     : artifact.content_truncated
-    ? "Preview truncated; download the file for the full content."
+    ? t("chat.artifact.previewTruncated")
     : null;
 
   return (
@@ -311,8 +313,8 @@ const ArtifactCard = ({ artifact }) => {
         )}
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
           {hasContent && (
-            <Tooltip title={copied ? "Copied" : "Copy content"}>
-              <IconButton size="small" aria-label="Copy content" onClick={handleCopy} sx={{ p: 0.25 }}>
+            <Tooltip title={copied ? t("chat.artifact.copied") : t("chat.artifact.copyContent")}>
+              <IconButton size="small" aria-label={t("chat.artifact.copyContent")} onClick={handleCopy} sx={{ p: 0.25 }}>
                 {copied ? (
                   <CheckIcon sx={{ fontSize: 16, color: "success.main" }} />
                 ) : (
@@ -322,10 +324,10 @@ const ArtifactCard = ({ artifact }) => {
             </Tooltip>
           )}
           {url && (
-            <Tooltip title="Download">
+            <Tooltip title={t("chat.artifact.download")}>
               <IconButton
                 size="small"
-                aria-label="Download"
+                aria-label={t("chat.artifact.download")}
                 component="a"
                 href={url}
                 download={artifact.filename}
@@ -336,10 +338,10 @@ const ArtifactCard = ({ artifact }) => {
             </Tooltip>
           )}
           {inlineUrl && (
-            <Tooltip title="Open in new tab">
+            <Tooltip title={t("chat.artifact.openInNewTab")}>
               <IconButton
                 size="small"
-                aria-label="Open in new tab"
+                aria-label={t("chat.artifact.openInNewTab")}
                 component="a"
                 href={inlineUrl}
                 target="_blank"

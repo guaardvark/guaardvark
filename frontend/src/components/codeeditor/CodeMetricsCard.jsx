@@ -12,6 +12,7 @@ import {
 } from "@mui/material";
 
 import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
+import { useUiTranslation } from "../../i18n";
 
 const CodeMetricsCard = React.forwardRef(
   (
@@ -27,6 +28,7 @@ const CodeMetricsCard = React.forwardRef(
     },
     ref
   ) => {
+    const { t } = useUiTranslation();
     const currentTab = openTabs?.[activeTabIndex];
 
     const metrics = useMemo(() => {
@@ -55,7 +57,7 @@ const CodeMetricsCard = React.forwardRef(
     return (
       <DashboardCardWrapper
         ref={ref}
-        title="Metrics"
+        title={t("codeEditor.metrics.title")}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
         isMinimized={isMinimized}
@@ -68,38 +70,38 @@ const CodeMetricsCard = React.forwardRef(
             <List dense>
               <ListItem sx={{ py: 0.25 }}>
                 <ListItemText
-                  primary="Lines"
+                  primary={t("codeEditor.metrics.lines")}
                   secondary={<Chip label={metrics.lines} size="small" />}
                 />
               </ListItem>
               <ListItem sx={{ py: 0.25 }}>
                 <ListItemText
-                  primary="Characters"
+                  primary={t("codeEditor.metrics.characters")}
                   secondary={<Chip label={metrics.characters} size="small" />}
                 />
               </ListItem>
               <ListItem sx={{ py: 0.25 }}>
                 <ListItemText
-                  primary="Words"
+                  primary={t("codeEditor.metrics.words")}
                   secondary={<Chip label={metrics.words} size="small" />}
                 />
               </ListItem>
               <ListItem sx={{ py: 0.25 }}>
                 <ListItemText
-                  primary="Functions"
+                  primary={t("codeEditor.metrics.functions")}
                   secondary={<Chip label={metrics.functions} size="small" color="primary" />}
                 />
               </ListItem>
               <ListItem sx={{ py: 0.25 }}>
                 <ListItemText
-                  primary="Imports"
+                  primary={t("codeEditor.metrics.imports")}
                   secondary={<Chip label={metrics.imports} size="small" color="secondary" />}
                 />
               </ListItem>
             </List>
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
-              No file open
+              {t("codeEditor.metrics.noFile")}
             </Typography>
           )}
         </Box>

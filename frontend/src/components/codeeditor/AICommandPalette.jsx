@@ -21,6 +21,7 @@ import {
   Search as SearchIcon,
   KeyboardArrowRight as ArrowIcon,
 } from '@mui/icons-material';
+import { useUiTranslation } from '../../i18n';
 
 const AICommandPalette = ({
   commands = {},
@@ -29,6 +30,7 @@ const AICommandPalette = ({
   onCommandSelect,
   currentContext = null,
 }) => {
+  const { t } = useUiTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
 
@@ -146,12 +148,12 @@ const AICommandPalette = ({
           {/* Header */}
           <Box sx={{ p: 2, bgcolor: 'primary.main', color: 'primary.contrastText' }}>
             <Typography variant="h6" sx={{ mb: 1 }}>
-              AI Command Palette
+              {t('codeAssistant.palette.title')}
             </Typography>
             <TextField
               fullWidth
               size="small"
-              placeholder="Search commands..."
+              placeholder={t('codeAssistant.palette.searchPlaceholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
@@ -177,7 +179,10 @@ const AICommandPalette = ({
           {currentContext && (
             <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover' }}>
               <Typography variant="caption" color="text.secondary">
-                Current file: {currentContext.filePath || 'untitled'} ({currentContext.language || 'text'})
+                {t('codeAssistant.palette.currentFile', {
+                  file: currentContext.filePath || t('codeAssistant.untitled'),
+                  language: currentContext.language || 'text',
+                })}
               </Typography>
             </Box>
           )}
@@ -187,7 +192,7 @@ const AICommandPalette = ({
             {filteredCommands.length === 0 ? (
               <Box sx={{ p: 3, textAlign: 'center' }}>
                 <Typography color="text.secondary">
-                  No commands found matching "{searchTerm}"
+                  {t('codeAssistant.palette.noMatches', { search: searchTerm })}
                 </Typography>
               </Box>
             ) : (
@@ -298,7 +303,7 @@ const AICommandPalette = ({
           {/* Footer */}
           <Box sx={{ px: 2, py: 1, bgcolor: 'action.hover', borderTop: 1, borderColor: 'divider' }}>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              Use ↑↓ to navigate, Enter to select, Esc to close
+              {t('codeAssistant.palette.keyboardHelp')}
             </Typography>
           </Box>
         </Paper>

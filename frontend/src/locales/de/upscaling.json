@@ -1,0 +1,109 @@
+{
+  "settings": {
+    "modelDefaultScale": "Standardmodell",
+    "model": "Modell",
+    "manageModels": "Hochskalierungsmodelle verwalten",
+    "install": "Installieren",
+    "noModelInstallSized": "Kein Hochskalierungsmodell installiert. Installiere {{model}} ({{size}} MB), um hochzuskalieren; die Hochskalierung lädt niemals automatisch eines herunter.",
+    "noModelInstall": "Kein Hochskalierungsmodell installiert. Installiere {{model}}, um hochzuskalieren; die Hochskalierung lädt niemals automatisch eines herunter.",
+    "noModel": "Kein Hochskalierungsmodell installiert. Füge eines unter Hochskalierungsmodelle verwalten hinzu, um hochzuskalieren.",
+    "outputScale": "Ausgabekalierung",
+    "targetResolution": "Zielauflösung",
+    "twoPass": "Zwei-Pass-Modus",
+    "twoPassHelp": "Läuft das Modell zweimal für eine höhere Qualität (langsamer)",
+    "faceEnhance": "Gesichtsoptimierung",
+    "faceEnhanceHelp": "Wiederherstellt Gesichter mit GFPGAN",
+    "doubleFps": "Doppelte Bildrate",
+    "doubleFpsHelp": "Interpoliert Frames für flüssigere Bewegungen (langsamer)",
+    "sharpening": "Schärfung",
+    "denoise": "Denoising-Vorpass"
+  },
+  "service": {
+    "startRefused": "Der Hochskalierungsdienst konnte nicht gestartet werden: {{reason}}",
+    "tryAgainShortly": "in Kürze erneut versuchen",
+    "startTimeout": "Der Hochskalierungsdienst hat innerhalb einer Minute nicht geantwortet. Das Protokoll findest du auf der Plugins-Seite.",
+    "startFailed": "Hochskalierungsdienst konnte nicht gestartet werden: {{error}}",
+    "starting": "Wird gestartet …",
+    "startNow": "Jetzt starten",
+    "stoppedAutostart": "Der Hochskalierungsdienst ist gestoppt. Er startet automatisch, wenn du etwas hochskalierst, oder du kannst ihn jetzt manuell starten.",
+    "switchedOff": "Hochskalierung ist auf der Plugins-Seite ausgeschaltet. Starte sie hier, um zu hochskalieren.",
+    "stopped": "Der Hochskalierungsdienst ist gestoppt. Starte ihn, um zu hochskalieren."
+  },
+  "errors": {
+    "unknown": "unbekannter Fehler",
+    "modelsLoadFailed": "Hochskalierungsmodelle konnten nicht geladen werden: {{error}}.",
+    "requestFailed": "die Anfrage ist fehlgeschlagen",
+    "unsupportedSkipped": "{{count}} nicht unterstützte Datei(en) übersprungen. Erlaubt: {{allowed}}",
+    "failedReason": "fehlgeschlagen",
+    "submitFailed": "Übermittlung fehlgeschlagen: {{details}}",
+    "skipped": "Übersprungen: {{details}}",
+    "imageFailed": "Bild-Hochskalierung fehlgeschlagen",
+    "cancelFailed": "Abbrechen fehlgeschlagen: {{error}}. Der Auftrag läuft möglicherweise noch.",
+    "clearFailed": "Löschen beendeter Aufträge fehlgeschlagen: {{error}}.",
+    "previewFailed": "Vorschau fehlgeschlagen: {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "Hochskalierungsauftrag für \"{{name}}\" übermittelt",
+    "jobsSubmitted": "{{submitted}} von {{total}} Hochskalierungsaufträgen übermittelt",
+    "imageUpscaled": "\"{{name}}\" hochskaliert",
+    "imagesQueued": "{{count}} Bilder für die Hochskalierung in die Warteschlange aufgenommen"
+  },
+  "gpu": {
+    "unknown": "Unbekannt",
+    "title": "GPU-Status",
+    "activeModel": "Aktives Modell",
+    "none": "Keines",
+    "enabled": "Aktiviert",
+    "disabled": "Deaktiviert"
+  },
+  "submit": {
+    "upscaleImages": "{{count}} Bilder hochskalieren",
+    "upscaleVideos": "{{count}} Videos hochskalieren",
+    "upscaleImage": "Bild hochskalieren",
+    "upscaleVideo": "Video hochskalieren",
+    "startingService": "Hochskalierungsdienst wird gestartet...",
+    "uploadingProgress": "Hochladen von {{current}} von {{total}}...",
+    "uploading": "Wird hochgeladen …",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "Hochskalierung",
+    "videoGen": "Videogenerierung"
+  },
+  "upload": {
+    "imagesTitle": "Bilder hochladen",
+    "videoTitle": "Video hochladen",
+    "video": "Video",
+    "image": "Bild",
+    "dropImages": "Bilder hier hineinziehen oder klicken, um zu durchsuchen",
+    "dropVideos": "Videos hier hineinziehen oder klicken, um zu durchsuchen",
+    "filesReady_one": "{{count}} Datei bereit",
+    "filesReady_other": "{{count}} Dateien bereit",
+    "clearAll": "Alle löschen"
+  },
+  "result": {
+    "original": "Original",
+    "upscaled": "Hochskaliert",
+    "openFullSize": "In voller Größe öffnen",
+    "download": "Herunterladen"
+  },
+  "preview": {
+    "title": "Hochskalierungsvorschau",
+    "hint": "Wähle einen Frame aus und klicke auf \"Vorschau generieren\", um den hochskalierten Frame zu sehen.",
+    "generating": "Wird generiert...",
+    "generate": "Vorschau generieren",
+    "originalFrame": "Originaler Frame",
+    "upscaledFrame": "Hochskalierter Frame",
+    "backToVideo": "Zurück zum Video"
+  },
+  "jobs": {
+    "title": "Hochskalierungs-Aufträge",
+    "clearFinishedCount": "Abgeschlossene löschen ({{count}})",
+    "clearFinished": "Abgeschlossene löschen",
+    "empty": "Noch keine Hochskalierungs-Aufträge. Lade ein Video oder eine Gruppe von Bildern hoch, um zu beginnen.",
+    "imageProgress": "Bild {{done}} / {{total}}",
+    "frameProgress": "Frame {{done}} / {{total}}",
+    "play": "Abspielen",
+    "cancel": "Abbrechen"
+  }
+}

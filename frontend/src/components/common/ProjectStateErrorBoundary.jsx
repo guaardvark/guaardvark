@@ -5,6 +5,49 @@ import React from 'react';
 import { Alert, Box, Button, Typography } from '@mui/material';
 import { Refresh as RefreshIcon } from '@mui/icons-material';
 import { useAppStore } from '../../stores/useAppStore';
+import { useUiTranslation } from '../../i18n';
+
+/** The boundary's recovery panel; a function component so it follows a language change. */
+const ProjectStateErrorFallback = ({ error, onRetry }) => {
+  const { t } = useUiTranslation();
+  return (
+    <Box sx={{ p: 3, textAlign: 'center' }}>
+      <Alert severity="error" sx={{ mb: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          {t('layoutCommon.projectState.title')}
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          {t('layoutCommon.projectState.intro')}
+        </Typography>
+        <Box component="ul" sx={{ textAlign: 'left', mb: 2 }}>
+          <li>{t('layoutCommon.projectState.causes.network')}</li>
+          <li>{t('layoutCommon.projectState.causes.sync')}</li>
+          <li>{t('layoutCommon.projectState.causes.relationships')}</li>
+          <li>{t('layoutCommon.projectState.causes.corruption')}</li>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          {t('layoutCommon.projectState.errorMessage', { message: error?.message || t('layoutCommon.projectState.unknownError') })}
+        </Typography>
+      </Alert>
+      
+      <Button
+        variant="contained"
+        startIcon={<RefreshIcon />}
+        onClick={onRetry}
+        sx={{ mr: 2 }}
+      >
+        {t('common.retry')}
+      </Button>
+      
+      <Button
+        variant="outlined"
+        onClick={() => window.location.reload()}
+      >
+        {t('layoutCommon.errorBoundary.reloadPage')}
+      </Button>
+    </Box>
+  );
+};
 
 class ProjectStateErrorBoundary extends React.Component {
   constructor(props) {
@@ -56,41 +99,7 @@ class ProjectStateErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <Box sx={{ p: 3, textAlign: 'center' }}>
-          <Alert severity="error" sx={{ mb: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Project State Error
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 2 }}>
-              There was an error with the project state management. This could be due to:
-            </Typography>
-            <Box component="ul" sx={{ textAlign: 'left', mb: 2 }}>
-              <li>Network connectivity issues</li>
-              <li>Data synchronization problems</li>
-              <li>Invalid project relationships</li>
-              <li>State corruption</li>
-            </Box>
-            <Typography variant="body2" color="text.secondary">
-              Error: {this.state.error?.message || 'Unknown error'}
-            </Typography>
-          </Alert>
-          
-          <Button
-            variant="contained"
-            startIcon={<RefreshIcon />}
-            onClick={this.handleRetry}
-            sx={{ mr: 2 }}
-          >
-            Retry
-          </Button>
-          
-          <Button
-            variant="outlined"
-            onClick={() => window.location.reload()}
-          >
-            Reload Page
-          </Button>
-        </Box>
+        <ProjectStateErrorFallback error={this.state.error} onRetry={this.handleRetry} />
       );
     }
 

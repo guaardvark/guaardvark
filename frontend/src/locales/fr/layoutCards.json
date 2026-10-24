@@ -1,0 +1,41 @@
+{
+  "output": {
+    "status": {
+      "failed": "Échoué",
+      "replaced": "Remplacé",
+      "complete": "Terminé"
+    },
+    "retryFailedRows": "Réessayer {{count}} lignes échouées",
+    "deleteOutput": "Supprimer la sortie",
+    "generated": "Généré",
+    "replaced": "Remplacé",
+    "successRate": "Taux de réussite",
+    "rows": "{{count}} lignes"
+  },
+  "task": {
+    "status": {
+      "pending": "En attente",
+      "queued": "En file d'attente",
+      "running": "En cours",
+      "paused": "En pause",
+      "completed": "Terminé",
+      "failed": "Échoué",
+      "cancelled": "Annulé",
+      "unknown": "Inconnu"
+    },
+    "statusWithRetries": "{{status}} ({{retries}}x)",
+    "projectNumber": "Projet {{id}}",
+    "noProject": "Aucun projet",
+    "untitled": "Tâche sans titre",
+    "noClient": "Aucun client",
+    "queuedForExecution": "En file d'attente pour exécution...",
+    "processing": "Traitement en cours...",
+    "noDescriptionAvailable": "Aucune description disponible.",
+    "noDescription": "Pas de description",
+    "deleteTask": "Supprimer la tâche",
+    "runTask": "Exécuter la tâche",
+    "startJob": "Démarrer l'emploi",
+    "cancelQueuedTask": "Annuler la tâche en file d'attente",
+    "stopJob": "Arrêter l'emploi"
+  }
+}

@@ -30,16 +30,17 @@ import {
   scanStatusFromPayload,
   scanUiPhase,
 } from "./scanProgressState";
+import { translate, useUiTranslation } from "../../i18n";
 
 // The six phases the modal walks through. Keys align with the labels we
 // derive from the backend `stage` field below.
 const PHASES = [
-  { key: "dispatch", label: "Dispatching" },
-  { key: "baseline", label: "Test baseline" },
-  { key: "analyze",  label: "Analyzing" },
-  { key: "propose",  label: "Proposing fixes" },
-  { key: "verify",   label: "Verifying fixes" },
-  { key: "done",     label: "Complete" },
+  { key: "dispatch", label: () => translate("settingsSections.scanProgress.phases.dispatch") },
+  { key: "baseline", label: () => translate("settingsSections.scanProgress.phases.baseline") },
+  { key: "analyze",  label: () => translate("settingsSections.scanProgress.phases.analyze") },
+  { key: "propose",  label: () => translate("settingsSections.scanProgress.phases.propose") },
+  { key: "verify",   label: () => translate("settingsSections.scanProgress.phases.verify") },
+  { key: "done",     label: () => translate("settingsSections.scanProgress.phases.done") },
 ];
 
 // Translate the backend SocketIO `stage` string into one of our modal phases.
@@ -69,13 +70,14 @@ function inferPhase(run) {
 
 function formatElapsed(sec) {
   if (sec == null) return "—";
-  if (sec < 60) return `${sec.toFixed(0)}s`;
+  if (sec < 60) return translate("settingsSections.scanProgress.elapsedSeconds", { seconds: sec.toFixed(0) });
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
-  return `${m}m ${s}s`;
+  return translate("settingsSections.scanProgress.elapsedMinutes", { minutes: m, seconds: s });
 }
 
 export default function ScanProgressModal({ open, onClose, onComplete, onBackground }) {
+  const { t } = useUiTranslation();
   const [run, setRun] = useState(null);
   const [liveEvent, setLiveEvent] = useState(null);
   const [pendingFixes, setPendingFixes] = useState([]);
@@ -175,7 +177,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         setPendingFixes(all);
       }
     } catch (err) {
-      setError(err?.message || "Poll failed");
+      setError(err?.message || t("settingsSections.scanProgress.pollFailed"));
     }
   }, [onComplete, stopTimers]);
 
@@ -241,7 +243,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         scanIdRef.current = resolveScanId(triggerDataRef.current, null);
         setDispatched(true);
       } catch (err) {
-        setError(err?.message || "Failed to dispatch self-check");
+        setError(err?.message || t("settingsSections.scanProgress.dispatchFailed"));
         return;
       }
       // Slight delay — Celery needs a heartbeat to write the run row.
@@ -266,7 +268,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
     const timeout = setTimeout(() => {
       if (run?.status === "running" || !run) {
         stopTimers();
-        setError("Self-check timed out after 3 minutes. Check backend logs.");
+        setError(t("settingsSections.scanProgress.timedOut"));
       }
     }, 180000);
     return () => clearTimeout(timeout);
@@ -316,7 +318,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
       cancelPostedRef.current = false;
       cancelRequestedRef.current = false;
       setCancelRequested(false);
-      setError(err?.message || "Could not cancel the scan");
+      setError(err?.message || t("settingsSections.scanProgress.cancelFailed"));
     }
   }, [run]);
 
@@ -330,7 +332,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
       cancelPostedRef.current = false;
       cancelRequestedRef.current = false;
       setCancelRequested(false);
-      setError(err?.message || "Could not cancel the scan");
+      setError(err?.message || t("settingsSections.scanProgress.cancelFailed"));
     });
   }, [cancelRequested, run]);
 
@@ -369,14 +371,14 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pr: 6 }}>
         {statusIcon}
         <Typography variant="h6" component="span">
-          Self-Check in Progress
+          {t("settingsSections.scanProgress.title")}
         </Typography>
         <Box sx={{ flex: 1 }} />
-        {isCancelling && <StatusPill tone="info" label="Cancelling" />}
-        {isCancelled && <StatusPill tone="neutral" label="Cancelled" />}
+        {isCancelling && <StatusPill tone="info" label={t("settingsSections.scanProgress.cancelling")} />}
+        {isCancelled && <StatusPill tone="neutral" label={t("settingsSections.scanProgress.cancelled")} />}
         <Chip
           size="small"
-          label={socketConnected ? "live" : "polling"}
+          label={socketConnected ? t("settingsSections.scanProgress.live") : t("settingsSections.scanProgress.polling")}
           color={socketConnected ? "success" : "default"}
           variant="outlined"
           sx={{ height: 20, fontSize: "0.65rem" }}
@@ -426,7 +428,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
             return (
               <Chip
                 key={p.key}
-                label={p.label}
+                label={p.label()}
                 size="small"
                 color={active ? "primary" : reached ? "success" : "default"}
                 variant={reached ? "filled" : "outlined"}
@@ -441,19 +443,19 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {/* Metadata */}
         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
           <Box>
-            <Typography variant="caption" color="text.secondary">Trigger</Typography>
+            <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.trigger")}</Typography>
             <Typography variant="body2">
-              {run?.trigger || liveEvent?.trigger || (dispatched ? "dispatching…" : "—")}
+              {run?.trigger || liveEvent?.trigger || (dispatched ? t("settingsSections.scanProgress.dispatching") : "—")}
             </Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">Run ID</Typography>
+            <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.runId")}</Typography>
             <Typography variant="body2">
               {run?.id ? `#${run.id}` : liveEvent?.run_id ? `#${liveEvent.run_id}` : "—"}
             </Typography>
           </Box>
           <Box>
-            <Typography variant="caption" color="text.secondary">Status</Typography>
+            <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.status")}</Typography>
             <Typography
               variant="body2"
               sx={{
@@ -467,12 +469,12 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
                   : "text.primary",
               }}
             >
-              {status || "pending"}
+              {status || t("settingsSections.scanProgress.pending")}
             </Typography>
           </Box>
           {liveEvent?.current_fix != null && liveEvent?.total_fixes != null && (
             <Box>
-              <Typography variant="caption" color="text.secondary">Fix</Typography>
+              <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.fix")}</Typography>
               <Typography variant="body2">
                 {liveEvent.current_fix} / {liveEvent.total_fixes}
               </Typography>
@@ -483,11 +485,11 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {/* Test baseline */}
         {testBefore && (
           <Box sx={{ mb: 2, p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
-            <Typography variant="caption" color="text.secondary">Test baseline</Typography>
+            <Typography variant="caption" color="text.secondary">{t("settingsSections.scanProgress.testBaseline")}</Typography>
             <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
               {testBefore.return_code === 0
-                ? "All tests passing"
-                : `${testBefore.total_failures || 0} failing tests`}
+                ? t("settingsSections.scanProgress.allPassing")
+                : t("settingsSections.scanProgress.failingTests", { count: testBefore.total_failures || 0 })}
             </Typography>
             {testBefore.failures?.length > 0 && (
               <Box sx={{ pl: 2, mt: 0.5 }}>
@@ -502,7 +504,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
                 ))}
                 {testBefore.failures.length > 5 && (
                   <Typography variant="caption" color="text.secondary">
-                    +{testBefore.failures.length - 5} more…
+                    {t("settingsSections.scanProgress.more", { count: testBefore.failures.length - 5 })}
                   </Typography>
                 )}
               </Box>
@@ -513,11 +515,11 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {/* Live fixes accumulating */}
         <Box sx={{ mb: 2 }}>
           <Typography variant="caption" color="text.secondary">
-            Fixes proposed so far ({runFixes.length})
+            {t("settingsSections.scanProgress.fixesSoFar", { count: runFixes.length })}
           </Typography>
           {runFixes.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
-              {isRunning ? "Waiting for the scanner to find something…" : "No fixes proposed."}
+              {isRunning ? t("settingsSections.scanProgress.waiting") : t("settingsSections.scanProgress.noFixes")}
             </Typography>
           ) : (
             <Stack spacing={0.5} sx={{ mt: 0.5 }}>
@@ -535,7 +537,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
               ))}
               {runFixes.length > 8 && (
                 <Typography variant="caption" color="text.secondary">
-                  +{runFixes.length - 8} more…
+                  {t("settingsSections.scanProgress.more", { count: runFixes.length - 8 })}
                 </Typography>
               )}
             </Stack>
@@ -546,7 +548,7 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
         {changes.length > 0 && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="caption" color="text.secondary">
-              Changes logged ({changes.length})
+              {t("settingsSections.scanProgress.changesLogged", { count: changes.length })}
             </Typography>
             <Stack spacing={0.25} sx={{ mt: 0.5 }}>
               {changes.slice(0, 5).map((c, i) => (
@@ -576,10 +578,10 @@ export default function ScanProgressModal({ open, onClose, onComplete, onBackgro
 
       <DialogActions>
         {isRunning && !isCancelling ? (
-          <ActionButton onClick={handleCancel}>Cancel</ActionButton>
+          <ActionButton onClick={handleCancel}>{t("settingsSections.scanProgress.cancel")}</ActionButton>
         ) : (
           <ActionButton onClick={onClose} disabled={isCancelling}>
-            {isCancelling ? "Cancelling…" : "Close"}
+            {isCancelling ? t("settingsSections.scanProgress.cancellingEllipsis") : t("settingsSections.scanProgress.close")}
           </ActionButton>
         )}
       </DialogActions>

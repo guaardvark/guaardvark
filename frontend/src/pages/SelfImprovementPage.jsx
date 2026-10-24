@@ -12,8 +12,10 @@ import SelfImprovementRuns from "../components/selfImprovement/SelfImprovementRu
 import CodeKeepsTable from "../components/selfImprovement/CodeKeepsTable";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
 import { selfImprovementService } from "../api/selfImprovementService";
+import { useUiTranslation } from "../i18n";
 
 const SelfImprovementPage = () => {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const { showMessage } = useSnackbar();
   const [codeKeeps, setCodeKeeps] = useState([]);
@@ -35,36 +37,40 @@ const SelfImprovementPage = () => {
     try {
       if (action === "approve") {
         await selfImprovementService.approveFix(fixId);
-        showMessage("Code keep approved. Apply it from Pending fixes.", "success");
+        showMessage(t("selfImprovement.codeKeeps.approved"), "success");
       } else {
         await selfImprovementService.rejectFix(fixId);
-        showMessage("Code keep rejected", "info");
+        showMessage(t("selfImprovement.codeKeeps.rejected"), "info");
       }
       fetchCodeKeeps();
     } catch (e) {
-      showMessage(`Failed to ${action} code keep: ${e.message}`, "error");
+      showMessage(
+        action === "approve"
+          ? t("selfImprovement.codeKeeps.approveFailed", { error: e.message })
+          : t("selfImprovement.codeKeeps.rejectFailed", { error: e.message }),
+        "error",
+      );
     }
   };
 
   return (
     <PageLayout
-      title="Self-improvement"
+      title={t("selfImprovement.page.title")}
       variant="standard"
       actions={
         <Stack direction="row" spacing={1} sx={{ display: { xs: "none", sm: "flex" } }}>
           <ActionButton kind="link" onClick={() => navigate("/system-map")}>
-            System Map
+            {t("selfImprovement.page.systemMap")}
           </ActionButton>
           <ActionButton kind="link" onClick={() => navigate("/settings")}>
-            Uncle Claude in Settings
+            {t("selfImprovement.page.uncleClaudeSettings")}
           </ActionButton>
         </Stack>
       }
     >
       <Stack spacing={2}>
         <Typography variant="body2" color="text.secondary">
-          Guaardvark runs its own tests, drafts fixes and stages them for your review. Nothing reaches the
-          code until you approve and apply it, and Codebase locked stops every change.
+          {t("selfImprovement.page.intro")}
         </Typography>
 
         <Paper variant="outlined" sx={{ p: 2 }}>
@@ -73,7 +79,7 @@ const SelfImprovementPage = () => {
 
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Typography variant="h6" sx={{ mb: 1 }}>
-            Recent runs
+            {t("selfImprovement.page.recentRuns")}
           </Typography>
           <SelfImprovementRuns />
         </Paper>
@@ -82,7 +88,7 @@ const SelfImprovementPage = () => {
           <CodeKeepsTable keeps={codeKeeps} onDecide={handleCodeKeep} />
         ) : (
           <Typography variant="body2" color="text.secondary">
-            No code keeps from Autoresearch.
+            {t("selfImprovement.page.noCodeKeeps")}
           </Typography>
         )}
       </Stack>

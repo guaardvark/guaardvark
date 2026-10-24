@@ -1,0 +1,59 @@
+{
+  "messages": {
+    "generatedImageAlt": "Generiertes Bild",
+    "error": "Fehler: {{error}}",
+    "bulkStarted": "Mehrfach-CSV-Erstellung gestartet! Erstellung von {{quantity}} Einträgen für \"{{filename}}\". Dies kann einige Minuten dauern.",
+    "bulkStartedNoQuantity": "Mehrfach-CSV-Erstellung gestartet! Erstellung mehrerer Einträge für \"{{filename}}\". Dies kann einige Minuten dauern.",
+    "fileGenerated": "Datei \"{{filename}}\" erfolgreich erstellt! Du kannst sie im Ordner Ausgaben herunterladen.",
+    "bulkFailed": "Mehrfach-CSV-Erstellung fehlgeschlagen: {{error}}",
+    "fileFailed": "Dateierstellung fehlgeschlagen: {{error}}",
+    "modes": {
+      "fileGeneration": "**Dateierstellungsmodus**: Deine Anfrage für die Code-/Dateierstellung wird analysiert...",
+      "coding": "**Coding-Modus**: Biete Programmierunterstützung an...",
+      "web": "**Web-Recherche-Modus**: Suche nach aktuellen Informationen...",
+      "data": "**Datenwerkzeuge-Modus**: Verarbeite Datenanfrage..."
+    },
+    "tooLong": "Nachricht zu lang: {{length}} Zeichen. Maximal erlaubt: 100.000 Zeichen.",
+    "planNotCreated": "Plan konnte nicht erstellt werden",
+    "planFailed": "Plan konnte nicht erstellt werden: {{error}}",
+    "agentWorking": "Der Agent denkt gerade aktiv nach und leitet deine Anfrage weiter...",
+    "agentFailedNoResponse": "Agenten-Ausführung fehlgeschlagen (keine Antwort vom Modell).",
+    "agentEmptyResponse": "Agenten-Ausführung abgeschlossen, aber ohne Antwort.",
+    "agentFailed": "Agenten-Ausführung fehlgeschlagen: {{error}}",
+    "fileGenerationBusy": "Die Dateigenerierung läuft bereits. Ich werde unser Gespräch fortsetzen, während die Verarbeitung läuft.",
+    "agentModeSocketDown": "Der Agentenmodus benötigt vereinheitlichte Chat-Tools, aber die Verbindung zum vereinheitlichten Chat-Socket ist unterbrochen (Wiederherstellung versucht). Verbinde neu (oder lade neu) oder gib `/chat` ein, um zum normalen Chat-Modus zurückzukehren.",
+    "agentModeUnifiedDisabled": "Der Agentenmodus benötigt vereinheitlichte Chat-Tools, aber der vereinheitlichte Chat ist deaktiviert. Verbinde neu (oder lade neu) oder gib `/chat` ein, um zum normalen Chat-Modus zurückzukehren.",
+    "technicalDifficulties": "Es tut mir leid, aber ich habe technische Schwierigkeiten bei der Verarbeitung deiner Nachricht: \"{{excerpt}}\"\n\nDas System hatte Verbindungsprobleme, aber deine Nachricht wurde in unserem Gesprächsverlauf gespeichert. Bitte versuche, deine Frage erneut zu stellen, oder formuliere sie um, falls du möchtest.",
+    "warning": "Warnung: {{warning}}",
+    "stopped": "Anfrage vom Benutzer abgebrochen",
+    "uploaded": "Datei erfolgreich hochgeladen! Die Indizierung wurde im Hintergrund gestartet. Überprüfe das Systemdashboard, um den Fortschritt zu verfolgen."
+  },
+  "errors": {
+    "agentModeNotSaved": "Der Agentenmodus wurde für den neuen Chat nicht gespeichert: {{reason}}. Sende /agent, um es erneut zu versuchen.",
+    "agentModeNotSavedRequestFailed": "Der Agentenmodus wurde für den neuen Chat nicht gespeichert: die Anfrage ist fehlgeschlagen. Sende /agent, um es erneut zu versuchen.",
+    "lessonNotSaved": "Die Lektion wurde beendet, aber nicht gespeichert: {{reason}}.",
+    "lessonNotSavedRequestFailed": "Die Lektion wurde beendet, aber nicht gespeichert: die Anfrage ist fehlgeschlagen.",
+    "lessonNotSavedHttp": "Die Lektion ist beendet, wurde aber nicht gespeichert: Das Backend antwortete mit HTTP {{status}}."
+  },
+  "header": {
+    "title": "Chat",
+    "messageCount_one": "{{count}} Nachricht",
+    "messageCount_other": "{{count}} Nachrichten",
+    "beginLesson": "Lektion beginnen — positive Bewertungen werden zu einer Lektionszusammenfassung",
+    "endLesson": "Lektion beenden — Erkenntnisse in einer bearbeitbaren Zusammenfassung sammeln",
+    "allChats": "Alle Chats",
+    "newChat": "Neue Chatsitzung beginnen",
+    "activeModel": "Aktives Modell: {{model}}",
+    "modelLoading": "Wird geladen …",
+    "modelFetchError": "Fehler beim Abrufen des Modells",
+    "modelUnknown": "Nicht verfügbar",
+    "model": "Modell: {{model}}",
+    "modelError": "Fehler",
+    "modelDefault": "Standard"
+  },
+  "status": {
+    "modelWarmingUp": "Modell wird in den Grafikspeicher geladen … Der Chat ist gleich bereit.",
+    "typing": "Assistent schreibt …",
+    "agentBudget": "Agentenmodus ist an: Jede Nachricht ist eine Aufgabe, die der Assistent mit seinen Werkzeugen ausführt, bis zu {{total}} Schritten pro Nachricht; die letzte Aufgabe hatte noch {{remaining}} Schritte übrig."
+  }
+}

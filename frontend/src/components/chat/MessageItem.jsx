@@ -41,6 +41,7 @@ import EntityContextMenu from "../common/EntityContextMenu";
 import useContextMenu from "../../hooks/useContextMenu";
 import copyText from "../../utils/copyText";
 import { agentNoteCaption } from "./agentNoteCaptions";
+import { useUiTranslation, uiLocale } from "../../i18n";
 
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
@@ -54,11 +55,11 @@ const formatTime = (timestamp) => {
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
     
-    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeStr = date.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' });
     if (isToday) {
       return timeStr;
     } else {
-      const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const dateStr = date.toLocaleDateString(uiLocale(), { month: 'short', day: 'numeric' });
       return `${dateStr}, ${timeStr}`;
     }
   } catch (e) {
@@ -67,6 +68,7 @@ const formatTime = (timestamp) => {
 };
 
 const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, onSearchWeb }) => {
+  const { t } = useUiTranslation();
   const isUser = message.role === "user";
   // Per-message sessionId takes precedence, fall through to the list-level
   // prop so feedback on assistant turns (which often lack message.sessionId)
@@ -278,7 +280,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <CircularProgress size={16} color="warning" />
                 <Typography variant="body2" color="text.secondary">
-                  {message.content || "Agent is reasoning..."}
+                  {message.content || t("chat.message.agentReasoning")}
                 </Typography>
               </Box>
             ) : (
@@ -357,7 +359,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
               <CircularProgress size={14} color="warning" />
               <Typography variant="body2" color="text.secondary">
-                {message.content || "Processing..."}
+                {message.content || t("chat.message.processing")}
               </Typography>
             </Box>
           </Paper>
@@ -419,12 +421,12 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
       {/* User messages get a hover-revealed copy button beside the bubble.
           AI messages already carry copy in their action row. */}
       {isUser && (
-        <Tooltip title={copied ? "Copied" : "Copy"}>
+        <Tooltip title={copied ? t("chat.message.copied") : t("chat.message.copy")}>
           <IconButton
             className="msg-user-copy"
             size="small"
             onClick={handleCopy}
-            aria-label="Copy message"
+            aria-label={t("chat.message.copyMessage")}
             sx={{ p: 0.25, alignSelf: "center", opacity: 0, transition: "opacity 0.15s" }}
           >
             {copied ? (
@@ -486,7 +488,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
       >
         {/* Command badge */}
         {isCommand && (
-          <Chip label="command" size="small" variant="outlined" color="info"
+          <Chip label={t("chat.message.commandBadge")} size="small" variant="outlined" color="info"
             sx={{ height: 18, fontSize: "0.65rem", mb: 0.5, fontFamily: "monospace" }} />
         )}
         {/* Display the attached pictures if present: all of them when the
@@ -508,7 +510,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                     objectFit: 'contain'
                   }}
                   image={guardedMediaSrc(url)}
-                  alt={message.imageFileNames?.[idx] || `Uploaded image ${idx + 1}`}
+                  alt={message.imageFileNames?.[idx] || t("chat.message.uploadedImageNumbered", { number: idx + 1 })}
                 />
                 {message.imageFileNames?.[idx] && (
                   <Chip
@@ -537,7 +539,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                 objectFit: 'contain'
               }}
               image={guardedMediaSrc(message.imageUrl || message.relatedImageUrl)}
-              alt={message.imageFileName || "Uploaded image"}
+              alt={message.imageFileName || t("chat.message.uploadedImage")}
             />
             {message.imageFileName && (
               <Chip
@@ -645,7 +647,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                       sx={{ fontStyle: "italic", whiteSpace: "pre-wrap", fontSize: "0.7rem" }}
                     >
                       <Box component="span" sx={{ color: "warning.main", fontWeight: 600, mr: 0.5 }}>
-                        Step {step.iteration ?? stepIdx + 1}:
+                        {t("chat.thinkingTrail.step", { step: step.iteration ?? stepIdx + 1 })}:
                       </Box>
                       {step.thoughts.trim()}
                     </Typography>
@@ -765,7 +767,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
             color="text.secondary"
             sx={{ display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
           >
-            Response reached the output limit.
+            {t("chat.message.outputLimit")}
           </Typography>
         )}
         {/* An agent answer the facts check could not match to its tool
@@ -777,7 +779,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
             data-testid="unverified-note"
             sx={{ display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
           >
-            Some of this answer was not checked against the tool results.
+            {t("chat.message.unverified")}
           </Typography>
         )}
         {!isCommand && webSearchOffer && (
@@ -788,7 +790,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
           <>
           <Box sx={{ mt: 0.5, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 0.25 }}>
             {message.toolCalls && message.toolCalls.some(tc => tc.tool_name === "search_memory") && (
-              <Tooltip title="Recalled from memory">
+              <Tooltip title={t("chat.message.recalledTooltip")}>
                 <Box sx={{ 
                   display: "flex", 
                   alignItems: "center", 
@@ -803,12 +805,12 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                 }}>
                   <MemoryIcon sx={{ fontSize: 12, color: "primary.main" }} />
                   <Typography variant="caption" sx={{ fontSize: "0.65rem", color: "text.secondary" }}>
-                    Recalled
+                    {t("chat.message.recalled")}
                   </Typography>
                 </Box>
               </Tooltip>
             )}
-            <Tooltip title={copied ? "Copied" : "Copy"}>
+            <Tooltip title={copied ? t("chat.message.copied") : t("chat.message.copy")}>
               <IconButton size="small" onClick={handleCopy} sx={{ p: 0.25 }}>
                 {copied ? (
                   <CheckIcon sx={{ fontSize: 14, color: "success.main" }} />
@@ -817,7 +819,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                 )}
               </IconButton>
             </Tooltip>
-            <Tooltip title="Good response">
+            <Tooltip title={t("chat.message.goodResponse")}>
               <IconButton size="small" onClick={() => handleFeedback(true)} sx={{ p: 0.25 }}>
                 {feedback === "up" ? (
                   <ThumbUpIcon sx={{ fontSize: 14, color: "success.main" }} />
@@ -826,7 +828,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                 )}
               </IconButton>
             </Tooltip>
-            <Tooltip title="Bad response">
+            <Tooltip title={t("chat.message.badResponse")}>
               <IconButton size="small" onClick={() => handleFeedback(false)} sx={{ p: 0.25 }}>
                 {feedback === "down" ? (
                   <ThumbDownIcon sx={{ fontSize: 14, color: "error.main" }} />
@@ -880,14 +882,14 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
       actions={
         bubbleMenu.isOpen
           ? [
-              { label: "Copy", onClick: handleCopy },
+              { label: t("chat.message.copy"), onClick: handleCopy },
               canRate && {
-                label: "Good response",
+                label: t("chat.message.goodResponse"),
                 checked: feedback === "up",
                 onClick: () => handleFeedback(true),
                 dividerBefore: true,
               },
-              canRate && { label: "Bad response", checked: feedback === "down", onClick: () => handleFeedback(false) },
+              canRate && { label: t("chat.message.badResponse"), checked: feedback === "down", onClick: () => handleFeedback(false) },
             ]
           : []
       }

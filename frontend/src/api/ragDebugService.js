@@ -2,6 +2,7 @@
 // RAG Debug API service wrapper for performance monitoring and debugging
 
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 /**
  * Get overall system health metrics including health score, uptime, and error rates
@@ -101,18 +102,18 @@ export const analyzeContextQuality = async (sessionId, contextChunks = [], query
  * Format uptime seconds into human-readable string
  */
 export const formatUptime = (seconds) => {
-  if (!seconds || seconds < 0) return "Unknown";
+  if (!seconds || seconds < 0) return translate("messages.ragDebug.uptimeUnknown");
   
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   
   if (days > 0) {
-    return `${days}d ${hours}h ${minutes}m`;
+    return translate("messages.ragDebug.uptimeDays", { days, hours, minutes });
   } else if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return translate("messages.ragDebug.uptimeHours", { hours, minutes });
   } else {
-    return `${minutes}m`;
+    return translate("messages.ragDebug.uptimeMinutes", { minutes });
   }
 };
 

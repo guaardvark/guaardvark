@@ -4,6 +4,7 @@ import { BASE_URL, handleResponse } from "./apiClient";
 import { validateChatInput, checkRateLimit, ValidationError } from "../utils/inputValidation";
 import { RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS } from "../config/constants";
 import { debugLog } from "../utils/debugLog";
+import { translate } from "../i18n";
 
 // The Code Editor's AI Assistant keeps its own chat session. Its prompts carry
 // whole files, and without a session id the backend files them under its
@@ -80,7 +81,7 @@ export const sendQuery = async (
       };
     }
 
-    return { error: err.message || "Failed to send query." };
+    return { error: err.message || translate("messages.chat.sendQueryFailed") };
   }
 };
 
@@ -116,7 +117,7 @@ export const sendCommandToQueryApi = async (
       err.message,
       err.data || ""
     );
-    throw new Error(err.message || "Failed to send command.");
+    throw new Error(err.message || translate("messages.chat.sendCommandFailed"));
   }
 };
 
@@ -155,7 +156,7 @@ class EnhancedChatService {
     const requestKey = `${sessionId}_${message}`;
     if (this.activeRequests.has(requestKey)) {
       debugLog('chatService: Duplicate request detected, blocking', { sessionId });
-      throw new Error('Duplicate request detected');
+      throw new Error(translate("messages.chat.duplicateRequest"));
     }
 
     // Check for recent identical request
@@ -391,7 +392,7 @@ class EnhancedChatService {
 
     if (!response.ok) {
       console.error('chatService: Basic chat API error:', response.status, response.statusText);
-      throw new Error(`Chat API error: ${response.status}`);
+      throw new Error(translate("messages.chat.apiError", { status: response.status }));
     }
 
     debugLog('chatService: Basic chat API response received, processing stream');
@@ -612,7 +613,7 @@ export const exportChatSessions = async () => {
   const response = await fetch(`${BASE_URL}/chat-sessions/export`, { method: "POST" });
   const data = await handleResponse(response);
   if (!data || data.success === false) {
-    throw new Error((data && data.error) || "Chat export failed");
+    throw new Error((data && data.error) || translate("messages.chat.exportFailed"));
   }
   return data;
 };

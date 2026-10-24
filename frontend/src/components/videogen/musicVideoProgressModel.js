@@ -4,6 +4,8 @@
  * what the page shows. No React, so it unit-tests with plain vitest.
  */
 
+import { translate } from "../../i18n";
+
 /** MUI colour per stage state. */
 export const STAGE_STATE_COLOR = {
   done: "success",
@@ -16,16 +18,17 @@ export const STAGE_STATE_COLOR = {
   skipped: "default",
 };
 
-export const STAGE_STATE_TEXT = {
-  done: "Done",
-  active: "Running",
-  queued: "Waiting for GPU",
-  waiting: "Waiting for you",
-  failed: "Failed",
-  cancelled: "Cancelled",
-  pending: "Not started",
-  skipped: "Skipped",
-};
+/** Stage state names, in the interface's language. */
+export const stageStateText = () => ({
+  done: translate("video.progress.state.done"),
+  active: translate("video.progress.state.active"),
+  queued: translate("video.progress.state.queued"),
+  waiting: translate("video.progress.state.waiting"),
+  failed: translate("video.progress.state.failed"),
+  cancelled: translate("video.progress.state.cancelled"),
+  pending: translate("video.progress.state.pending"),
+  skipped: translate("video.progress.state.skipped"),
+});
 
 /** "1h 04m", "12m 30s", "45s"; "" for null/negative. */
 export function formatDuration(seconds) {
@@ -42,8 +45,10 @@ export function formatDuration(seconds) {
 /** The ETA line: "~12m 30s left (measured)" / "" when unknown. */
 export function etaText(progress) {
   if (!progress || progress.eta_seconds == null) return "";
-  const basis = progress.eta_basis === "measured" ? "measured" : "estimate";
-  return `~${formatDuration(progress.eta_seconds)} left (${basis})`;
+  const duration = formatDuration(progress.eta_seconds);
+  return progress.eta_basis === "measured"
+    ? translate("video.progress.etaMeasured", { duration })
+    : translate("video.progress.etaEstimate", { duration });
 }
 
 /** State of one clip cell in the strip. */
@@ -67,16 +72,29 @@ export const CLIP_CELL_COLOR = {
   pending: "action.hover",
 };
 
+/** A clip cell state as its tooltip names it, in the interface's language. */
+export function clipCellStateText(state) {
+  const text = {
+    done: translate("video.progress.cell.done"),
+    held: translate("video.progress.cell.held"),
+    failed: translate("video.progress.cell.failed"),
+    rendering: translate("video.progress.cell.rendering"),
+    cancelled: translate("video.progress.cell.cancelled"),
+    pending: translate("video.progress.cell.pending"),
+  };
+  return text[state] || state;
+}
+
 /** One line describing the clip in flight: "Clip 6/12 · Animating (I2V) 14/30". */
 export function currentClipText(progress) {
   const cur = progress && progress.current_clip;
   const gen = progress && (progress.stages || []).find((s) => s.key === "generating");
   if (!cur || !gen || !gen.detail) return "";
   const total = gen.detail.clip_count || 0;
-  let text = `Clip ${cur.position || (cur.index ?? 0) + 1}/${total}`;
+  let text = translate("video.progress.clipOf", { position: cur.position || (cur.index ?? 0) + 1, total });
   if (cur.substage_label) text += ` · ${cur.substage_label}`;
   if (cur.steps) text += ` ${cur.step ?? 0}/${cur.steps}`;
-  if (cur.queued) text += " · waiting for GPU";
+  if (cur.queued) text += ` · ${translate("video.progress.waitingForGpu")}`;
   return text;
 }
 

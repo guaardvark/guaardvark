@@ -39,16 +39,17 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import WarningIcon from "@mui/icons-material/Warning";
 
 import { runAllTests, runSelfTest } from "../../api/settingsService";
+import { translate, useUiTranslation } from "../../i18n";
 
 // Diagnostics depth is one choice; "Full" is the API's "comprehensive" mode.
-const DEPTH_OPTIONS = [
-  { value: "basic", label: "Basic", running: "basic system checks" },
-  { value: "quick", label: "Quick", running: "quick validation" },
-  { value: "comprehensive", label: "Full", running: "comprehensive testing" },
+const depthOptions = () => [
+  { value: "basic", label: translate("dashboardDiagnostics.depths.basic"), running: translate("dashboardDiagnostics.running.basic") },
+  { value: "quick", label: translate("dashboardDiagnostics.depths.quick"), running: translate("dashboardDiagnostics.running.quick") },
+  { value: "comprehensive", label: translate("dashboardDiagnostics.depths.comprehensive"), running: translate("dashboardDiagnostics.running.comprehensive") },
 ];
 
 const depthLabel = (value) =>
-  DEPTH_OPTIONS.find((o) => o.value === value)?.label || value;
+  depthOptions().find((o) => o.value === value)?.label || value;
 
 // Helper function to get category icon
 const getCategoryIcon = (categoryKey) => {
@@ -66,16 +67,16 @@ const getCategoryIcon = (categoryKey) => {
 // Helper function to get status color and icon
 const getStatusDisplay = (status) => {
   const statusMap = {
-    pass: { color: "success", icon: <CheckCircleOutlineIcon />, label: "Pass" },
-    fail: { color: "error", icon: <ErrorOutlineIcon />, label: "Failed" },
-    warning: { color: "warning", icon: <WarningIcon />, label: "Warning" },
-    error: { color: "error", icon: <SyncProblemIcon />, label: "Error" },
-    critical: { color: "error", icon: <ErrorOutlineIcon />, label: "Critical" },
-    partial: { color: "warning", icon: <WarningIcon />, label: "Partial" },
-    skip: { color: "default", icon: <InfoOutlinedIcon />, label: "Skipped" },
+    pass: { color: "success", icon: <CheckCircleOutlineIcon />, label: translate("dashboardDiagnostics.status.pass") },
+    fail: { color: "error", icon: <ErrorOutlineIcon />, label: translate("dashboardDiagnostics.status.fail") },
+    warning: { color: "warning", icon: <WarningIcon />, label: translate("dashboardDiagnostics.status.warning") },
+    error: { color: "error", icon: <SyncProblemIcon />, label: translate("dashboardDiagnostics.status.error") },
+    critical: { color: "error", icon: <ErrorOutlineIcon />, label: translate("dashboardDiagnostics.status.critical") },
+    partial: { color: "warning", icon: <WarningIcon />, label: translate("dashboardDiagnostics.status.partial") },
+    skip: { color: "default", icon: <InfoOutlinedIcon />, label: translate("dashboardDiagnostics.status.skip") },
   };
   const key = typeof status === "string" ? status.toLowerCase() : "";
-  return statusMap[key] || { color: "default", icon: <InfoOutlinedIcon />, label: status || "Unknown" };
+  return statusMap[key] || { color: "default", icon: <InfoOutlinedIcon />, label: status || translate("dashboardDiagnostics.status.unknown") };
 };
 
 const renderStatusIcon = (value, detailsForKey = "") => {
@@ -202,116 +203,127 @@ const renderStatusIcon = (value, detailsForKey = "") => {
   );
 };
 
-const systemCheckItems = [
+// `t` is translate() for what is shown; the status icon reads the English
+// wording (renderStatusIcon matches English keywords), so it passes englishT.
+const systemCheckItems = (t = translate) => [
   {
     key: "ollama_reachable",
-    label: "Ollama Service Reachable",
+    label: t("dashboardDiagnostics.checks.ollama_reachable"),
     icon: <DnsIcon />,
-    format: (v) => (v ? "OK" : "Failed"),
+    format: (v) => (v ? t("dashboardDiagnostics.values.ok") : t("dashboardDiagnostics.values.failed")),
   },
   {
     key: "active_model_name",
-    label: "Active LLM Name",
+    label: t("dashboardDiagnostics.checks.active_model_name"),
     icon: <DnsIcon />,
-    format: (v) => v || "N/A",
+    format: (v) => v || t("layout.notAvailable"),
   },
   {
     key: "active_model_status",
-    label: "Active LLM Status",
+    label: t("dashboardDiagnostics.checks.active_model_status"),
     icon: <DnsIcon />,
-    format: (v) => v || "Unknown",
+    format: (v) => v || t("dashboardDiagnostics.values.unknown"),
   },
   {
     key: "active_model_health",
-    label: "Ollama Model Loaded",
+    label: t("dashboardDiagnostics.checks.active_model_health"),
     icon: <DnsIcon />,
-    format: (v) => v || "Unknown",
+    format: (v) => v || t("dashboardDiagnostics.values.unknown"),
   },
   {
     key: "llm_basic_response",
-    label: "LLM Basic Response Test",
+    label: t("dashboardDiagnostics.checks.llm_basic_response"),
     icon: <DnsIcon />,
-    format: (v) => (v ? "OK" : "Failed/Empty"),
+    format: (v) => (v ? t("dashboardDiagnostics.values.ok") : t("dashboardDiagnostics.values.failedEmpty")),
   },
   {
     key: "model_count",
-    label: "Discovered Ollama Models",
-    format: (v) => `${v ?? "N/A"} models found`,
+    label: t("dashboardDiagnostics.checks.model_count"),
+    format: (v) => t("dashboardDiagnostics.values.modelsFound", { count: v ?? t("layout.notAvailable") }),
   },
   {
     key: "db_connection",
-    label: "Database Connection",
+    label: t("dashboardDiagnostics.checks.db_connection"),
     icon: <StorageIcon />,
-    format: (v) => (v ? "OK" : "Failed"),
+    format: (v) => (v ? t("dashboardDiagnostics.values.ok") : t("dashboardDiagnostics.values.failed")),
   },
   {
     key: "document_count_db",
-    label: "Document Count (DB)",
-    format: (v) => `${v ?? "N/A"} documents in DB`,
+    label: t("dashboardDiagnostics.checks.document_count_db"),
+    format: (v) => t("dashboardDiagnostics.values.documentsInDb", { count: v ?? t("layout.notAvailable") }),
   },
   {
     key: "storage_dir_accessible",
-    label: "Storage Directory",
+    label: t("dashboardDiagnostics.checks.storage_dir_accessible"),
     icon: <StorageIcon />,
-    format: (v, r) =>
-      `${r.storage_dir_path || "N/A"} (${v ? "Accessible" : "Inaccessible"})`,
+    format: (v, r) => {
+      const path = r.storage_dir_path || t("layout.notAvailable");
+      return v ? t("dashboardDiagnostics.values.pathAccessible", { path }) : t("dashboardDiagnostics.values.pathInaccessible", { path });
+    },
   },
   {
     key: "upload_dir_accessible",
-    label: "Upload Directory",
+    label: t("dashboardDiagnostics.checks.upload_dir_accessible"),
     icon: <StorageIcon />,
-    format: (v, r) =>
-      `${r.upload_dir_path || "N/A"} (${v ? "Accessible" : "Inaccessible"})`,
+    format: (v, r) => {
+      const path = r.upload_dir_path || t("layout.notAvailable");
+      return v ? t("dashboardDiagnostics.values.pathAccessible", { path }) : t("dashboardDiagnostics.values.pathInaccessible", { path });
+    },
   },
   {
     key: "output_dir_accessible",
-    label: "Output Directory",
+    label: t("dashboardDiagnostics.checks.output_dir_accessible"),
     icon: <StorageIcon />,
-    format: (v, r) =>
-      `${r.output_dir_path || "N/A"} (${v ? "Accessible" : "Inaccessible"})`,
+    format: (v, r) => {
+      const path = r.output_dir_path || t("layout.notAvailable");
+      return v ? t("dashboardDiagnostics.values.pathAccessible", { path }) : t("dashboardDiagnostics.values.pathInaccessible", { path });
+    },
   },
   {
     key: "index_storage_exists",
-    label: "Index Storage Exists",
+    label: t("dashboardDiagnostics.checks.index_storage_exists"),
     icon: <SpeedIcon />,
-    format: (v) => (v ? "OK" : "Not Found/Empty"),
+    format: (v) => (v ? t("dashboardDiagnostics.values.ok") : t("dashboardDiagnostics.values.notFoundEmpty")),
   },
   {
     key: "qa_prompt_loadable",
-    label: "QA Default Prompt",
-    format: (v) => (v ? "Loadable" : "Not Found/Error"),
+    label: t("dashboardDiagnostics.checks.qa_prompt_loadable"),
+    format: (v) => (v ? t("dashboardDiagnostics.values.loadable") : t("dashboardDiagnostics.values.notFoundError")),
   },
   {
     key: "indexing_queue_status",
-    label: "Indexing Queue",
+    label: t("dashboardDiagnostics.checks.indexing_queue_status"),
     icon: <SpeedIcon />,
-    format: (v) => v || "N/A",
+    format: (v) => v || t("layout.notAvailable"),
   },
   {
     key: "recent_indexing_errors",
-    label: "Recent Indexing Errors",
+    label: t("dashboardDiagnostics.checks.recent_indexing_errors"),
     icon: <ErrorOutlineIcon />,
-    format: (v) => v || "N/A",
+    format: (v) => v || t("layout.notAvailable"),
   },
   {
     key: "backend_log_errors",
-    label: "Backend Log Criticals",
+    label: t("dashboardDiagnostics.checks.backend_log_errors"),
     icon: <ErrorOutlineIcon />,
-    format: (v) => v || "N/A",
+    format: (v) => v || t("layout.notAvailable"),
   },
   {
     key: "gpu_tools_available",
-    label: "GPU Monitor Available",
+    label: t("dashboardDiagnostics.checks.gpu_tools_available"),
     icon: <SpeedIcon />,
-    format: (v) => (v ? "Available" : "Unavailable"),
+    format: (v) => (v ? t("dashboardDiagnostics.values.available") : t("dashboardDiagnostics.values.unavailable")),
   },
   {
     key: "last_metrics_fetch_status",
-    label: "Last Metrics Fetch",
+    label: t("dashboardDiagnostics.checks.last_metrics_fetch_status"),
     icon: <SpeedIcon />,
-    format: (v) => v || "N/A",
+    format: (v) => v || t("layout.notAvailable"),
   },
 ];
+
+/** translate() pinned to English, for the keyword checks in renderStatusIcon. */
+const englishT = (key, options) => translate(key, { ...options, lng: "en" });
 
 const categoryStatusAccent = (statusColor) => {
   if (statusColor === "success") return "success.main";
@@ -329,9 +341,12 @@ const categorySummaryBg = (theme, statusColor) => {
 
 const renderLegacyDiagnosticsCards = (ds) => (
   <Stack spacing={1} sx={{ mt: 1.5 }}>
-    {systemCheckItems.map((item) => {
+    {systemCheckItems().map((item, index) => {
       const val = ds[item.key];
-      const details = val !== undefined ? item.format(val, ds) : "N/A";
+      const details = val !== undefined ? item.format(val, ds) : translate("layout.notAvailable");
+      // Only rows without an icon of their own read the wording, in English.
+      const englishDetails =
+        !item.icon && val !== undefined ? systemCheckItems(englishT)[index].format(val, ds) : "N/A";
       return (
         <Paper
           key={item.key}
@@ -345,7 +360,7 @@ const renderLegacyDiagnosticsCards = (ds) => (
         >
           <Box sx={{ display: "flex", gap: 1.25, alignItems: "flex-start", minWidth: 0 }}>
             <Box sx={{ color: "text.secondary", display: "flex", flexShrink: 0, pt: 0.25 }}>
-              {item.icon ? React.cloneElement(item.icon, { fontSize: "small" }) : renderStatusIcon(val, details)}
+              {item.icon ? React.cloneElement(item.icon, { fontSize: "small" }) : renderStatusIcon(val, englishDetails)}
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <Typography variant="body2" fontWeight={600} sx={{ wordBreak: "break-word" }}>
@@ -363,6 +378,7 @@ const renderLegacyDiagnosticsCards = (ds) => (
 );
 
 const DiagnosticsPanel = ({ showMessage }) => {
+  const { t } = useUiTranslation();
   const [depth, setDepth] = useState("basic");
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState(null);
@@ -387,8 +403,8 @@ const DiagnosticsPanel = ({ showMessage }) => {
     setTestMode(validatedMode);
     setExpandedCategories({}); // Reset expanded categories
 
-    const running = DEPTH_OPTIONS.find((o) => o.value === validatedMode)?.running;
-    notify(`Running ${running || "system checks"}...`, "info");
+    const running = depthOptions().find((o) => o.value === validatedMode)?.running;
+    notify(running || t("dashboardDiagnostics.running.default"), "info");
 
     try {
       // Call enhanced API with mode parameter
@@ -405,26 +421,26 @@ const DiagnosticsPanel = ({ showMessage }) => {
         // Enhanced success message with status
         const overallStatus = response.results.overall_status || "UNKNOWN";
         const statusDisplay = getStatusDisplay(overallStatus);
-        let msg = `System Check Complete - ${statusDisplay.label}`;
+        let msg = t("dashboardDiagnostics.checkComplete", { status: statusDisplay.label });
 
         if (response.results.categories) {
           const categoryCount = Object.keys(response.results.categories).length;
-          msg += ` (${categoryCount} categories tested)`;
+          msg = t("dashboardDiagnostics.checkCompleteCategories", { status: statusDisplay.label, count: categoryCount });
         }
 
         const severity = overallStatus === "PASS" ? "success" :
           overallStatus === "WARNING" ? "warning" : "error";
         notify(msg, severity);
       } else {
-        throw new Error("System check did not return valid results.");
+        throw new Error(t("dashboardDiagnostics.invalidResults"));
       }
     } catch (error) {
       notify(
-        `System Check Error: ${error.message || "Could not run system checks."}`,
+        t("dashboardDiagnostics.checkError", { message: error.message || t("dashboardDiagnostics.couldNotRun") }),
         "error",
       );
       setTestResults({
-        error: `Failed to run system checks: ${error.message}`,
+        error: t("dashboardDiagnostics.runFailed", { message: error.message }),
       });
     } finally {
       setIsTesting(false);
@@ -435,19 +451,19 @@ const DiagnosticsPanel = ({ showMessage }) => {
     setIsRunningTests(true);
     setTestSuiteResults(null);
     setTestSuiteOutputOpen(false);
-    notify("Running full test suite...", "info");
+    notify(t("dashboardDiagnostics.runningSuite"), "info");
     try {
       const response = await runAllTests();
       if (response?.results) {
         setTestSuiteResults(response.results);
         const rc = response.results.returncode;
         const sev = rc === 0 || rc === 4 || rc === 5 ? "success" : "error";
-        notify("Test suite finished.", sev);
+        notify(t("dashboardDiagnostics.suiteFinished"), sev);
       } else {
-        throw new Error("Invalid response");
+        throw new Error(t("dashboardDiagnostics.invalidResponse"));
       }
     } catch (err) {
-      notify(`Test suite error: ${err.message}`, "error");
+      notify(t("dashboardDiagnostics.suiteError", { message: err.message }), "error");
       setTestSuiteResults({ error: err.message });
     } finally {
       setIsRunningTests(false);
@@ -472,7 +488,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
           >
             <Chip
               icon={getStatusDisplay(results.overall_status).icon}
-              label={`Overall: ${getStatusDisplay(results.overall_status).label}`}
+              label={t("dashboardDiagnostics.overall", { status: getStatusDisplay(results.overall_status).label })}
               color={getStatusDisplay(results.overall_status).color}
               variant="outlined"
               size="small"
@@ -603,7 +619,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
                                   overflowWrap: "anywhere",
                                 }}
                               >
-                                {shortName || test.name || "Unnamed test"}
+                                {shortName || test.name || t("dashboardDiagnostics.unnamedTest")}
                               </Typography>
                               {test.duration != null && (
                                 <Typography variant="caption" color="text.secondary">
@@ -663,32 +679,32 @@ const DiagnosticsPanel = ({ showMessage }) => {
         }}
       >
         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, alignItems: "center" }}>
-          <Chip label={passed ? "Suite passed" : "Suite failed"} color={passed ? "success" : "error"} size="small" variant="outlined" />
-          <Chip label={`Exit ${rc ?? "?"}`} size="small" variant="outlined" />
+          <Chip label={passed ? t("dashboardDiagnostics.suitePassed") : t("dashboardDiagnostics.suiteFailed")} color={passed ? "success" : "error"} size="small" variant="outlined" />
+          <Chip label={t("dashboardDiagnostics.exitCode", { code: rc ?? "?" })} size="small" variant="outlined" />
           {typeof counts.passed === "number" && (
-            <Chip label={`${counts.passed} passed`} size="small" variant="outlined" />
+            <Chip label={t("dashboardDiagnostics.passedCount", { count: counts.passed })} size="small" variant="outlined" />
           )}
           {typeof counts.failed === "number" && counts.failed > 0 && (
-            <Chip label={`${counts.failed} failed`} size="small" color="error" variant="outlined" />
+            <Chip label={t("dashboardDiagnostics.failedCount", { count: counts.failed })} size="small" color="error" variant="outlined" />
           )}
           {typeof counts.errors === "number" && counts.errors > 0 && (
-            <Chip label={`${counts.errors} errors`} size="small" color="warning" variant="outlined" />
+            <Chip label={t("dashboardDiagnostics.errorCount", { count: counts.errors })} size="small" color="warning" variant="outlined" />
           )}
           {typeof counts.skipped === "number" && counts.skipped > 0 && (
-            <Chip label={`${counts.skipped} skipped`} size="small" variant="outlined" />
+            <Chip label={t("dashboardDiagnostics.skippedCount", { count: counts.skipped })} size="small" variant="outlined" />
           )}
         </Box>
 
         {suite.log_path && (
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1, wordBreak: "break-all" }}>
-            Log: {suite.log_path}
+            {t("dashboardDiagnostics.log", { path: suite.log_path })}
           </Typography>
         )}
 
         {failures.length > 0 && (
           <Box sx={{ mt: 1.5 }}>
             <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-              Failure details
+              {t("dashboardDiagnostics.failureDetails")}
             </Typography>
             <Stack spacing={1} sx={{ mt: 1 }}>
               {failures.map((block, i) => (
@@ -727,7 +743,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
           <>
             <Divider sx={{ my: 1.5 }} />
             <Button size="small" variant="text" onClick={() => setTestSuiteOutputOpen((o) => !o)} sx={{ textTransform: "none", p: 0, minWidth: 0 }}>
-              {testSuiteOutputOpen ? "Hide raw output" : "Show raw output"}
+              {testSuiteOutputOpen ? t("dashboardDiagnostics.hideRawOutput") : t("dashboardDiagnostics.showRawOutput")}
             </Button>
             <Collapse in={testSuiteOutputOpen}>
               {stderr ? (
@@ -795,7 +811,7 @@ const DiagnosticsPanel = ({ showMessage }) => {
     <Stack spacing={3} sx={{ width: "100%", minWidth: 0 }}>
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", minWidth: 0 }}>
         <Typography variant="subtitle2" color="text.secondary">
-          Depth
+          {t("dashboardDiagnostics.depth")}
         </Typography>
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", alignItems: "center" }}>
           <ToggleButtonGroup
@@ -806,9 +822,9 @@ const DiagnosticsPanel = ({ showMessage }) => {
               if (value) setDepth(value);
             }}
             disabled={isTesting}
-            aria-label="Diagnostics depth"
+            aria-label={t("dashboardDiagnostics.depthAria")}
           >
-            {DEPTH_OPTIONS.map((option) => (
+            {depthOptions().map((option) => (
               <ToggleButton key={option.value} value={option.value}>
                 {option.label}
               </ToggleButton>
@@ -820,10 +836,10 @@ const DiagnosticsPanel = ({ showMessage }) => {
             onClick={() => handleRunSystemCheck(depth)}
             disabled={isTesting}
           >
-            {isTesting ? "Running..." : "Run diagnostics"}
+            {isTesting ? t("dashboardDiagnostics.runningButton") : t("dashboardDiagnostics.runDiagnostics")}
           </Button>
           {testMode && !isTesting && (
-            <Chip label={`Depth: ${depthLabel(testMode)}`} size="small" variant="outlined" />
+            <Chip label={t("dashboardDiagnostics.depthChip", { depth: depthLabel(testMode) })} size="small" variant="outlined" />
           )}
         </Box>
         {testResults && (
@@ -857,10 +873,10 @@ const DiagnosticsPanel = ({ showMessage }) => {
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, width: "100%", minWidth: 0 }}>
         <Typography variant="subtitle2" color="text.secondary">
-          Test suite
+          {t("dashboardDiagnostics.testSuite")}
         </Typography>
         <Button variant="outlined" size="small" onClick={handleRunAllTests} disabled={isRunningTests} sx={{ alignSelf: "flex-start" }}>
-          {isRunningTests ? "Running..." : "Run Tests"}
+          {isRunningTests ? t("dashboardDiagnostics.runningButton") : t("dashboardDiagnostics.runTests")}
         </Button>
         {testSuiteResults && (
           <Box sx={{ width: "100%", minWidth: 0 }}>

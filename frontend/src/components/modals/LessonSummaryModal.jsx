@@ -22,6 +22,7 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import AddIcon from '@mui/icons-material/Add';
 import { BASE_URL } from '../../api/apiClient';
+import { translate, useUiTranslation, Trans } from '../../i18n';
 
 const renumber = (steps) =>
   steps.map((s, i) => ({ ...s, order: i + 1 }));
@@ -36,6 +37,7 @@ export default function LessonSummaryModal({
   onSaved,
   onDelete,
 }) {
+  const { t } = useUiTranslation();
   const [title, setTitle] = useState('');
   const [steps, setSteps] = useState([]);
   const [parameters, setParameters] = useState([]);
@@ -107,14 +109,14 @@ export default function LessonSummaryModal({
 
   const handleSave = useCallback(async () => {
     if (!memoryId) {
-      setError('Missing memory_id — cannot save.');
+      setError(translate('dialogs.lessonSummary.missingId'));
       return;
     }
     const cleanedSteps = steps
       .map((s) => ({ order: s.order, text: (s.text || '').trim() }))
       .filter((s) => s.text.length > 0);
     if (cleanedSteps.length === 0) {
-      setError('At least one step is required.');
+      setError(translate('dialogs.lessonSummary.stepRequired'));
       return;
     }
     // Only keep params with a name. Names get normalized to snake_case_lower
@@ -150,7 +152,7 @@ export default function LessonSummaryModal({
       if (onSaved) onSaved(data.memory);
       onClose && onClose();
     } catch (err) {
-      setError(`Save failed: ${err.message}`);
+      setError(translate('dialogs.lessonSummary.saveFailed', { error: err.message }));
     } finally {
       setSaving(false);
     }
@@ -159,14 +161,14 @@ export default function LessonSummaryModal({
   return (
     <Dialog open={!!open} onClose={saving ? undefined : onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ pb: 1 }}>
-        Lesson Summary
+        {t('dialogs.lessonSummary.title')}
         <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.75rem' }}>
-          Fix anything the automatic summary got wrong. This is what the agent reads the next time it does a task like this.
+          {t('dialogs.lessonSummary.subtitle')}
         </Typography>
       </DialogTitle>
       <DialogContent dividers>
         <TextField
-          label="Title"
+          label={t('dialogs.lessonSummary.titleLabel')}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           fullWidth
@@ -176,12 +178,12 @@ export default function LessonSummaryModal({
         />
 
         <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-          Steps
+          {t('dialogs.lessonSummary.steps')}
         </Typography>
 
         {steps.length === 0 && (
           <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', mb: 1 }}>
-            No steps yet — add one below.
+            {t('dialogs.lessonSummary.noSteps')}
           </Typography>
         )}
 
@@ -223,10 +225,10 @@ export default function LessonSummaryModal({
               maxRows={4}
               size="small"
               fullWidth
-              placeholder="Describe one action, imperative voice"
+              placeholder={t('dialogs.lessonSummary.stepPlaceholder')}
             />
             <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              <Tooltip title="Move up">
+              <Tooltip title={t('dialogs.lessonSummary.moveUp')}>
                 <span>
                   <IconButton
                     size="small"
@@ -238,7 +240,7 @@ export default function LessonSummaryModal({
                   </IconButton>
                 </span>
               </Tooltip>
-              <Tooltip title="Move down">
+              <Tooltip title={t('dialogs.lessonSummary.moveDown')}>
                 <span>
                   <IconButton
                     size="small"
@@ -251,7 +253,7 @@ export default function LessonSummaryModal({
                 </span>
               </Tooltip>
             </Box>
-            <Tooltip title="Remove step">
+            <Tooltip title={t('dialogs.lessonSummary.removeStep')}>
               <IconButton size="small" onClick={() => removeStep(idx)} sx={{ p: 0.25, mt: 0.5 }}>
                 <CloseIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
               </IconButton>
@@ -265,21 +267,21 @@ export default function LessonSummaryModal({
           onClick={addStep}
           sx={{ mt: 1, textTransform: 'none', fontSize: '0.8rem' }}
         >
-          Add step
+          {t('dialogs.lessonSummary.addStep')}
         </Button>
 
         {/* Parameters — the placeholder slots used inside steps like {channel},
             {search_term}. Makes the lesson reusable across different targets. */}
         <Typography variant="subtitle2" sx={{ mt: 3, mb: 0.5, color: 'text.secondary' }}>
-          Parameters
+          {t('dialogs.lessonSummary.parameters')}
         </Typography>
         <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 1, fontSize: '0.72rem' }}>
-          Placeholders used inside steps (e.g. <code>{'{channel}'}</code>). Keeps the lesson generic so it applies to any target.
+          <Trans i18nKey="dialogs.lessonSummary.parametersHelp" components={{ code: <code /> }} />
         </Typography>
 
         {parameters.length === 0 && (
           <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic', mb: 1, fontSize: '0.8rem' }}>
-            No parameters — this lesson is fully concrete. Add one if any step should become a reusable slot.
+            {t('dialogs.lessonSummary.noParameters')}
           </Typography>
         )}
 
@@ -300,7 +302,7 @@ export default function LessonSummaryModal({
               value={p.name}
               onChange={(e) => updateParam(idx, 'name', e.target.value)}
               size="small"
-              placeholder="name"
+              placeholder={t('dialogs.lessonSummary.paramName')}
               sx={{ width: 140 }}
               InputProps={{
                 startAdornment: <Typography variant="caption" sx={{ color: 'text.secondary', mr: 0.25 }}>{'{'}</Typography>,
@@ -312,16 +314,16 @@ export default function LessonSummaryModal({
               onChange={(e) => updateParam(idx, 'description', e.target.value)}
               size="small"
               fullWidth
-              placeholder="what this represents"
+              placeholder={t('dialogs.lessonSummary.paramDescription')}
             />
             <TextField
               value={p.example}
               onChange={(e) => updateParam(idx, 'example', e.target.value)}
               size="small"
-              placeholder="example"
+              placeholder={t('dialogs.lessonSummary.paramExample')}
               sx={{ width: 140 }}
             />
-            <Tooltip title="Remove parameter">
+            <Tooltip title={t('dialogs.lessonSummary.removeParameter')}>
               <IconButton size="small" onClick={() => removeParam(idx)} sx={{ p: 0.25, mt: 0.5 }}>
                 <CloseIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
               </IconButton>
@@ -335,7 +337,7 @@ export default function LessonSummaryModal({
           onClick={addParam}
           sx={{ mt: 0.5, textTransform: 'none', fontSize: '0.8rem' }}
         >
-          Add parameter
+          {t('dialogs.lessonSummary.addParameter')}
         </Button>
 
         {error && (
@@ -353,14 +355,14 @@ export default function LessonSummaryModal({
             sx={{ mr: 'auto' }}
             onClick={onDelete}
           >
-            Delete
+            {t('dialogs.shared.delete')}
           </Button>
         )}
         <Button onClick={onClose} disabled={saving}>
-          Cancel
+          {t('dialogs.shared.cancel')}
         </Button>
         <Button variant="contained" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? t('dialogs.lessonSummary.saving') : t('dialogs.shared.save')}
         </Button>
       </DialogActions>
     </Dialog>

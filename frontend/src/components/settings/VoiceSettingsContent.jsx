@@ -13,6 +13,7 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import VoiceListeningSettings from "../voice/VoiceListeningSettings";
 import SpeechModelSelect from "../voice/SpeechModelSelect";
+import { useUiTranslation } from "../../i18n";
 
 const VoiceSettingsContent = ({
   voiceSettings,
@@ -35,17 +36,18 @@ const VoiceSettingsContent = ({
   onManageVoiceModels,
   showMessage,
 }) => {
+  const { t } = useUiTranslation();
   const whisperCliMissing = voiceStatus && voiceStatus.whisper_installed === false;
   const pendingManual = whisperManualInstall
     || (whisperCliMissing && voiceStatus?.can_auto_install === false && voiceStatus?.manual_command
       ? {
         command: voiceStatus.manual_command,
-        reason: 'Building Whisper.cpp needs cmake and a compiler. This machine asks for a sudo password, and Guaardvark cannot type that from a web page. Run the command below in a terminal on this machine, then click Install Whisper again.',
+        reason: t("settingsSections.voice.manualReason"),
       }
       : null);
   const installTooltip = voiceStatus?.install_method === 'pkexec'
-    ? 'Your desktop will ask for your password, then the build starts.'
-    : 'Clones whisper.cpp and builds it. May take a minute or two.';
+    ? t("settingsSections.voice.installTooltipPkexec")
+    : t("settingsSections.voice.installTooltip");
 
   return (
     <>
@@ -76,13 +78,13 @@ const VoiceSettingsContent = ({
                     onClick={installWhisperCpp}
                     disabled={isInstallingWhisper}
                   >
-                    {isInstallingWhisper ? 'Building...' : 'Install Whisper'}
+                    {isInstallingWhisper ? t("settingsSections.voice.building") : t("settingsSections.voice.installWhisper")}
                   </Button>
                 </span>
               </Tooltip>
             }
           >
-            Speech recognition (Whisper.cpp) is not installed. Install it to enable voice input.
+            {t("settingsSections.voice.whisperMissing")}
           </MuiAlert>
           {pendingManual && (
             <MuiAlert severity="warning" sx={{ mb: 2 }}>
@@ -103,7 +105,7 @@ const VoiceSettingsContent = ({
                 <Box component="code" sx={{ flex: 1, whiteSpace: 'pre' }}>
                   {pendingManual.command}
                 </Box>
-                <Tooltip title="Copy command">
+                <Tooltip title={t("settingsSections.voice.copyCommand")}>
                   <Button
                     size="small"
                     color="inherit"
@@ -111,7 +113,7 @@ const VoiceSettingsContent = ({
                     onClick={() => onCopyWhisperCommand?.(pendingManual.command)}
                     sx={{ flexShrink: 0 }}
                   >
-                    Copy
+                    {t("settingsSections.voice.copy")}
                   </Button>
                 </Tooltip>
               </Box>
@@ -133,18 +135,18 @@ const VoiceSettingsContent = ({
               onClick={installWhisperSpeechModel}
               disabled={isInstallingWhisper}
             >
-              Install
+              {t("settingsSections.voice.install")}
             </Button>
           }
         >
-          Install the speech model to use voice
+          {t("settingsSections.voice.speechModelMissing")}
         </MuiAlert>
       )}
 
       {/* FFmpeg Warning */}
       {!isVoiceLoading && !voiceError && voiceStatus && voiceStatus.ffmpeg_available === false && (
         <MuiAlert severity="warning" sx={{ mb: 2 }}>
-          FFmpeg is not installed. Voice features require FFmpeg. Install it with: sudo apt install ffmpeg
+          {t("settingsSections.voice.ffmpegMissing")}
         </MuiAlert>
       )}
 
@@ -161,11 +163,11 @@ const VoiceSettingsContent = ({
               onClick={installDefaultVoiceModel}
               disabled={isInstallingVoice}
             >
-              {isInstallingVoice ? 'Installing...' : 'Install'}
+              {isInstallingVoice ? t("settingsSections.voice.installing") : t("settingsSections.voice.install")}
             </Button>
           }
         >
-          No voice models installed. Install LibriTTS (English US) to enable Text-to-Speech.
+          {t("settingsSections.voice.noVoiceModels")}
         </MuiAlert>
       )}
 
@@ -173,10 +175,10 @@ const VoiceSettingsContent = ({
       {!isVoiceLoading && !voiceError && voiceModelsStatus && voiceModelsStatus.installed_count > 0 && !voiceModelsStatus.models?.find(m => m.voice_id === 'libritts')?.installed && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            LibriTTS (recommended voice) is not installed.
+            {t("settingsSections.voice.libriTtsMissing")}
           </Typography>
           <Chip
-            label={isInstallingVoice ? 'Installing...' : 'Install LibriTTS'}
+            label={isInstallingVoice ? t("settingsSections.voice.installing") : t("settingsSections.voice.installLibriTts")}
             size="small"
             color="primary"
             variant="outlined"
@@ -193,7 +195,7 @@ const VoiceSettingsContent = ({
           {/* Main Controls */}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 3 }}>
             <Chip
-              label="Text-to-Speech"
+              label={t("settingsSections.voice.textToSpeech")}
               color={voiceSettings.ttsEnabled ? 'primary' : 'default'}
               onClick={() => handleVoiceSettingChange('ttsEnabled', !voiceSettings.ttsEnabled)}
               variant={voiceSettings.ttsEnabled ? 'filled' : 'outlined'}
@@ -205,7 +207,7 @@ const VoiceSettingsContent = ({
               }}
             />
             <Chip
-              label="Microphone"
+              label={t("settingsSections.voice.microphone")}
               color={voiceSettings.micEnabled ? 'primary' : 'default'}
               onClick={() => handleVoiceSettingChange('micEnabled', !voiceSettings.micEnabled)}
               variant={voiceSettings.micEnabled ? 'filled' : 'outlined'}
@@ -217,7 +219,7 @@ const VoiceSettingsContent = ({
               }}
             />
             <Chip
-              label="Narrate Buttons"
+              label={t("settingsSections.voice.narrateButtons")}
               color={voiceSettings.showNarrateButtons !== false ? 'primary' : 'default'}
               onClick={() => handleVoiceSettingChange('showNarrateButtons', voiceSettings.showNarrateButtons === false)}
               variant={voiceSettings.showNarrateButtons !== false ? 'filled' : 'outlined'}
@@ -234,7 +236,7 @@ const VoiceSettingsContent = ({
           <Grid container spacing={1.5} sx={{ mb: 3 }}>
             {/* Voice Selection */}
             <Grid item xs={12}>
-              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>Voice</Typography>
+              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("common.voice")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 {availableVoices.map((voice) => {
                   const isAvailable = voice.available !== false;
@@ -242,7 +244,7 @@ const VoiceSettingsContent = ({
                   return (
                     <Chip
                       key={voice.id}
-                      label={voice.name + (isAvailable ? '' : ' (not installed)')}
+                      label={isAvailable ? voice.name : t("settingsSections.voice.voiceNotInstalled", { name: voice.name })}
                       size="small"
                       color={isSelected ? 'primary' : 'default'}
                       onClick={() => isAvailable && handleVoiceSettingChange('voice', voice.id)}
@@ -258,7 +260,7 @@ const VoiceSettingsContent = ({
                   );
                 })}
                 <Chip
-                  label={isVoiceTestPlaying ? "..." : "Test"}
+                  label={isVoiceTestPlaying ? "..." : t("settingsSections.voice.test")}
                   onClick={() => testVoice(voiceSettings.voice)}
                   disabled={!voiceSettings.ttsEnabled || isVoiceTestPlaying}
                   size="small"
@@ -271,10 +273,10 @@ const VoiceSettingsContent = ({
 
             {/* Quality and Audio in same row */}
             <Grid item xs={6}>
-              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>Quality</Typography>
+              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("settingsSections.voice.quality")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 <Chip
-                  label="Low"
+                  label={t("settingsSections.voice.low")}
                   size="small"
                   color={voiceSettings.recordingQuality === 'low' ? 'primary' : 'default'}
                   onClick={() => handleVoiceSettingChange('recordingQuality', 'low')}
@@ -286,7 +288,7 @@ const VoiceSettingsContent = ({
                   }}
                 />
                 <Chip
-                  label="Med"
+                  label={t("settingsSections.voice.medium")}
                   size="small"
                   color={voiceSettings.recordingQuality === 'medium' ? 'primary' : 'default'}
                   onClick={() => handleVoiceSettingChange('recordingQuality', 'medium')}
@@ -298,7 +300,7 @@ const VoiceSettingsContent = ({
                   }}
                 />
                 <Chip
-                  label="High"
+                  label={t("settingsSections.voice.high")}
                   size="small"
                   color={voiceSettings.recordingQuality === 'high' ? 'primary' : 'default'}
                   onClick={() => handleVoiceSettingChange('recordingQuality', 'high')}
@@ -313,10 +315,10 @@ const VoiceSettingsContent = ({
             </Grid>
 
             <Grid item xs={6}>
-              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>Audio</Typography>
+              <Typography variant="body2" color="text.primary" sx={{ mb: 0.5, fontSize: '0.75rem' }}>{t("settingsSections.voice.audio")}</Typography>
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                 <Chip
-                  label="Gain"
+                  label={t("settingsSections.voice.gain")}
                   size="small"
                   color={voiceSettings.autoGainControl ? 'primary' : 'default'}
                   onClick={() => handleVoiceSettingChange('autoGainControl', !voiceSettings.autoGainControl)}
@@ -328,7 +330,7 @@ const VoiceSettingsContent = ({
                   }}
                 />
                 <Chip
-                  label="Noise"
+                  label={t("settingsSections.voice.noise")}
                   size="small"
                   color={voiceSettings.noiseSuppression ? 'primary' : 'default'}
                   onClick={() => handleVoiceSettingChange('noiseSuppression', !voiceSettings.noiseSuppression)}
@@ -340,7 +342,7 @@ const VoiceSettingsContent = ({
                   }}
                 />
                 <Chip
-                  label="Echo"
+                  label={t("settingsSections.voice.echo")}
                   size="small"
                   color={voiceSettings.echoCancellation ? 'primary' : 'default'}
                   onClick={() => handleVoiceSettingChange('echoCancellation', !voiceSettings.echoCancellation)}

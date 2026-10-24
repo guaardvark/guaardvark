@@ -38,6 +38,7 @@ import {
 import { onSessionChanged } from "../../api/apiAuth";
 import { ApiKeyRefusalAlert } from "../common/ApiKeyRefusalNotice";
 import { ActionButton, ConfirmActionDialog, SettingChip, StatusPill } from "./ui";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 const STATUS_TONE = {
   connected: "ok",
@@ -46,17 +47,17 @@ const STATUS_TONE = {
   disconnected: "neutral",
 };
 
-const POLICY_PILL = {
-  allow: { label: "runs freely", tone: "ok" },
-  confirm: { label: "asks first", tone: "warn" },
-  deny: { label: "blocked", tone: "error" },
-};
+const policyPill = () => ({
+  allow: { label: translate("settingsAccess.mcp.policy.allow"), tone: "ok" },
+  confirm: { label: translate("settingsAccess.mcp.policy.confirm"), tone: "warn" },
+  deny: { label: translate("settingsAccess.mcp.policy.deny"), tone: "error" },
+});
 
 const auditPill = (a) => {
-  if (a.success) return { label: "ok", tone: "ok" };
-  if (a.decision === "needs_approval") return { label: "needs approval", tone: "warn" };
-  if (a.decision === "deny") return { label: "blocked", tone: "error" };
-  return { label: "failed", tone: "error" };
+  if (a.success) return { label: translate("settingsAccess.mcp.audit.ok"), tone: "ok" };
+  if (a.decision === "needs_approval") return { label: translate("settingsAccess.mcp.audit.needsApproval"), tone: "warn" };
+  if (a.decision === "deny") return { label: translate("settingsAccess.mcp.audit.blocked"), tone: "error" };
+  return { label: translate("settingsAccess.mcp.audit.failed"), tone: "error" };
 };
 
 const splitList = (text) =>
@@ -97,6 +98,7 @@ const EMPTY_FORM = {
 };
 
 const ServerDialog = ({ open, initial, isEdit, onClose, onSaved }) => {
+  const { t } = useUiTranslation();
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -139,39 +141,39 @@ const ServerDialog = ({ open, initial, isEdit, onClose, onSaved }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{isEdit ? `Edit MCP server "${form.name}"` : "Add MCP server"}</DialogTitle>
+      <DialogTitle>{isEdit ? t("settingsAccess.mcp.dialog.editTitle", { name: form.name }) : t("settingsAccess.mcp.dialog.addTitle")}</DialogTitle>
       <DialogContent>
         <Stack spacing={1.5} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
-          <TextField label="Name" size="small" value={form.name} onChange={set("name")} disabled={isEdit}
-            helperText="Letters, digits, - and _ (tools appear as mcp__<name>__<tool>)" />
-          <TextField label="Command" size="small" value={form.command} onChange={set("command")}
-            placeholder="npx" helperText="A program on this machine; the server runs locally" />
-          <TextField label="Arguments (one per line)" size="small" multiline minRows={2}
+          <TextField label={t("settingsAccess.mcp.dialog.name")} size="small" value={form.name} onChange={set("name")} disabled={isEdit}
+            helperText={t("settingsAccess.mcp.dialog.nameHelp")} />
+          <TextField label={t("settingsAccess.mcp.dialog.command")} size="small" value={form.command} onChange={set("command")}
+            placeholder="npx" helperText={t("settingsAccess.mcp.dialog.commandHelp")} />
+          <TextField label={t("settingsAccess.mcp.dialog.args")} size="small" multiline minRows={2}
             value={form.args} onChange={set("args")}
             placeholder={"-y\n@modelcontextprotocol/server-filesystem\n/path/to/shared"} />
-          <TextField label="Environment (KEY=value per line)" size="small" multiline minRows={2}
+          <TextField label={t("settingsAccess.mcp.dialog.env")} size="small" multiline minRows={2}
             value={form.env} onChange={set("env")}
-            helperText="Only these and safe basics (PATH, HOME, locale) reach the server; ${ENV_VAR} references work" />
-          <TextField label="Fixed tool arguments (name=value per line)" size="small" multiline minRows={2}
+            helperText={t("settingsAccess.mcp.dialog.envHelp")} />
+          <TextField label={t("settingsAccess.mcp.dialog.fixedArgs")} size="small" multiline minRows={2}
             value={form.fixedArgs} onChange={set("fixedArgs")} placeholder="root=${GUAARDVARK_ROOT}"
-            helperText="Sent with every call to this server's tools that take that argument; the model never sees them" />
-          <TextField label="Description" size="small" value={form.description} onChange={set("description")} />
-          <TextField label="Chat keywords (comma separated)" size="small" value={form.keywords}
-            onChange={set("keywords")} helperText="Messages containing these offer this server's tools to the model" />
-          <TextField label="Deny tools (globs)" size="small" value={form.denyTools} onChange={set("denyTools")} />
-          <TextField label="Allow only (globs, empty = all)" size="small" value={form.allowTools}
+            helperText={t("settingsAccess.mcp.dialog.fixedArgsHelp")} />
+          <TextField label={t("settingsAccess.mcp.dialog.description")} size="small" value={form.description} onChange={set("description")} />
+          <TextField label={t("settingsAccess.mcp.dialog.keywords")} size="small" value={form.keywords}
+            onChange={set("keywords")} helperText={t("settingsAccess.mcp.dialog.keywordsHelp")} />
+          <TextField label={t("settingsAccess.mcp.dialog.denyTools")} size="small" value={form.denyTools} onChange={set("denyTools")} />
+          <TextField label={t("settingsAccess.mcp.dialog.allowTools")} size="small" value={form.allowTools}
             onChange={set("allowTools")} />
-          <TextField label="Always ask before (globs)" size="small" value={form.confirmTools}
+          <TextField label={t("settingsAccess.mcp.dialog.confirmTools")} size="small" value={form.confirmTools}
             onChange={set("confirmTools")} />
-          <TextField label="Never ask before (globs)" size="small" value={form.autoApproveTools}
+          <TextField label={t("settingsAccess.mcp.dialog.autoApproveTools")} size="small" value={form.autoApproveTools}
             onChange={set("autoApproveTools")}
-            helperText="Tools marked destructive or with write/delete/run-style names ask by default" />
-          <TextField label="Timeout (seconds)" size="small" type="number" value={form.timeout}
+            helperText={t("settingsAccess.mcp.dialog.autoApproveHelp")} />
+          <TextField label={t("settingsAccess.mcp.dialog.timeout")} size="small" type="number" value={form.timeout}
             onChange={set("timeout")} />
           <Box>
             <SettingChip
-              label="Connect when the backend starts"
+              label={t("settingsAccess.mcp.dialog.autoConnect")}
               on={form.autoConnect}
               onToggle={(next) => setForm((f) => ({ ...f, autoConnect: next }))}
             />
@@ -179,10 +181,10 @@ const ServerDialog = ({ open, initial, isEdit, onClose, onSaved }) => {
         </Stack>
       </DialogContent>
       <DialogActions>
-        <ActionButton onClick={onClose}>Cancel</ActionButton>
+        <ActionButton onClick={onClose}>{t("settingsAccess.mcp.dialog.cancel")}</ActionButton>
         <ActionButton kind="primary" loading={saving} onClick={handleSave}
           disabled={!form.name.trim() || !form.command.trim()}>
-          Save
+          {t("settingsAccess.mcp.dialog.save")}
         </ActionButton>
       </DialogActions>
     </Dialog>
@@ -198,6 +200,7 @@ ServerDialog.propTypes = {
 };
 
 const ServerDetail = ({ name }) => {
+  const { t } = useUiTranslation();
   const [detail, setDetail] = useState(null);
   const [error, setError] = useState(null);
 
@@ -219,21 +222,22 @@ const ServerDetail = ({ name }) => {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Tool</TableCell>
-              <TableCell>Policy</TableCell>
-              <TableCell>Description</TableCell>
+              <TableCell>{t("settingsAccess.mcp.detail.tool")}</TableCell>
+              <TableCell>{t("settingsAccess.mcp.detail.policy")}</TableCell>
+              <TableCell>{t("settingsAccess.mcp.detail.description")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {detail.tools.map((t) => {
-              const pill = POLICY_PILL[t.policy] || POLICY_PILL.allow;
+            {detail.tools.map((tool) => {
+              const pills = policyPill();
+              const pill = pills[tool.policy] || pills.allow;
               return (
-                <TableRow key={t.name}>
-                  <TableCell sx={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{t.name}</TableCell>
+                <TableRow key={tool.name}>
+                  <TableCell sx={{ fontFamily: "monospace", fontSize: "0.75rem" }}>{tool.name}</TableCell>
                   <TableCell>
-                    <StatusPill label={pill.label} tone={pill.tone} tooltip={t.policyReason || ""} />
+                    <StatusPill label={pill.label} tone={pill.tone} tooltip={tool.policyReason || ""} />
                   </TableCell>
-                  <TableCell sx={{ fontSize: "0.75rem" }}>{t.description}</TableCell>
+                  <TableCell sx={{ fontSize: "0.75rem" }}>{tool.description}</TableCell>
                 </TableRow>
               );
             })}
@@ -241,7 +245,7 @@ const ServerDetail = ({ name }) => {
         </Table>
       ) : (
         <Typography variant="body2" color="text.secondary">
-          {detail.connected ? "This server exposes no tools." : "Connect to see this server's tools."}
+          {detail.connected ? t("settingsAccess.mcp.detail.noTools") : t("settingsAccess.mcp.detail.connectToSee")}
         </Typography>
       )}
       {detail.stderr_tail && (
@@ -275,6 +279,7 @@ const toForm = (name, d) => ({
 });
 
 const MCPServersSection = () => {
+  const { t } = useUiTranslation();
   const [status, setStatus] = useState(null);
   const [servers, setServers] = useState([]);
   const [configErrors, setConfigErrors] = useState([]);
@@ -301,7 +306,7 @@ const MCPServersSection = () => {
       if (e.authRefused) {
         setRefused(e.message);
       } else {
-        setMessage({ severity: "error", text: `Could not load MCP status: ${e.message}` });
+        setMessage({ severity: "error", text: t("settingsAccess.mcp.loadFailed", { error: e.message }) });
       }
     }
   }, []);
@@ -322,8 +327,8 @@ const MCPServersSection = () => {
   useEffect(() => {
     if (refused) return undefined;
     refresh();
-    const t = setInterval(refresh, 15000);
-    return () => clearInterval(t);
+    const timer = setInterval(refresh, 15000);
+    return () => clearInterval(timer);
   }, [refresh, refused]);
 
   useEffect(() => {
@@ -356,14 +361,14 @@ const MCPServersSection = () => {
   const confirmRemove = async () => {
     const name = removing?.name;
     setRemoving(null);
-    if (name) await withBusy(name, () => deleteMcpServer(name), `Removed ${name}`);
+    if (name) await withBusy(name, () => deleteMcpServer(name), t("settingsAccess.mcp.removed", { name }));
   };
 
   if (refused) {
     return <ApiKeyRefusalAlert message={refused} />;
   }
   if (status && !status.mcp_enabled) {
-    return <Alert severity="info">MCP is disabled. Set GUAARDVARK_MCP_ENABLED=true and restart.</Alert>;
+    return <Alert severity="info">{t("settingsAccess.mcp.disabled")}</Alert>;
   }
 
   return (
@@ -374,23 +379,23 @@ const MCPServersSection = () => {
             <>
               <StatusPill
                 tone={status.servers_connected > 0 ? "ok" : "neutral"}
-                label={`${status.servers_connected}/${status.servers_configured} connected`}
+                label={t("settingsAccess.mcp.connectedCount", { connected: status.servers_connected, configured: status.servers_configured })}
               />
-              <StatusPill label={`${status.total_tools_available} tool${status.total_tools_available === 1 ? "" : "s"}`} />
-              <StatusPill label={`${status.total_calls} call${status.total_calls === 1 ? "" : "s"}`} />
-              {!status.sdk_available && <StatusPill tone="error" label="mcp package missing" />}
+              <StatusPill label={t("settingsAccess.mcp.tools", { count: status.total_tools_available })} />
+              <StatusPill label={t("settingsAccess.mcp.calls", { count: status.total_calls })} />
+              {!status.sdk_available && <StatusPill tone="error" label={t("settingsAccess.mcp.sdkMissing")} />}
             </>
           ) : (
-            <Typography variant="body2" color="text.secondary">Loading…</Typography>
+            <Typography variant="body2" color="text.secondary">{t("settingsAccess.mcp.loading")}</Typography>
           )}
         </Box>
-        <ActionButton onClick={refresh}>Refresh</ActionButton>
+        <ActionButton onClick={refresh}>{t("settingsAccess.mcp.refresh")}</ActionButton>
         <ActionButton loading={!!busy._reload}
-          onClick={() => withBusy("_reload", reloadMcpConfig, "Configuration reloaded")}>
-          Reload config
+          onClick={() => withBusy("_reload", reloadMcpConfig, t("settingsAccess.mcp.reloaded"))}>
+          {t("settingsAccess.mcp.reloadConfig")}
         </ActionButton>
         <ActionButton onClick={() => setDialog({ open: true, initial: null, isEdit: false })}>
-          Add server
+          {t("settingsAccess.mcp.addServer")}
         </ActionButton>
       </Stack>
 
@@ -403,17 +408,16 @@ const MCPServersSection = () => {
 
       {servers.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No MCP servers configured. Add one to give the assistant new tools (files, databases, other
-          local programs).
+          {t("settingsAccess.mcp.noServers")}
         </Typography>
       ) : (
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Server</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Tools</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>{t("settingsAccess.mcp.columns.server")}</TableCell>
+              <TableCell>{t("settingsAccess.mcp.columns.status")}</TableCell>
+              <TableCell align="right">{t("settingsAccess.mcp.columns.tools")}</TableCell>
+              <TableCell align="right">{t("settingsAccess.mcp.columns.actions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -424,8 +428,8 @@ const MCPServersSection = () => {
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{s.name}</Typography>
                     <Typography variant="caption" color="text.secondary">
                       {s.command}
-                      {s.auto_connect ? " · connects at start" : ""}
-                      {s.disabled ? " · disabled" : ""}
+                      {s.auto_connect ? ` · ${t("settingsAccess.mcp.connectsAtStart")}` : ""}
+                      {s.disabled ? ` · ${t("settingsAccess.mcp.serverDisabled")}` : ""}
                     </Typography>
                   </TableCell>
                   <TableCell>
@@ -436,22 +440,22 @@ const MCPServersSection = () => {
                   <TableCell align="right">
                     <Box sx={{ display: "inline-flex", gap: 0.75 }}>
                       <ActionButton onClick={() => setExpanded(expanded === s.name ? null : s.name)}>
-                        {expanded === s.name ? "Hide tools" : "Tools"}
+                        {expanded === s.name ? t("settingsAccess.mcp.hideTools") : t("settingsAccess.mcp.showTools")}
                       </ActionButton>
                       {s.connected ? (
                         <ActionButton loading={!!busy[s.name]}
                           onClick={() => withBusy(s.name, () => disconnectMcpServer(s.name))}>
-                          Disconnect
+                          {t("settingsAccess.mcp.disconnect")}
                         </ActionButton>
                       ) : (
                         <ActionButton loading={!!busy[s.name]} disabled={s.disabled}
                           onClick={() => withBusy(s.name, () => connectMcpServer(s.name),
-                            `Connected to ${s.name}`)}>
-                          Connect
+                            t("settingsAccess.mcp.connectedTo", { name: s.name }))}>
+                          {t("settingsAccess.mcp.connect")}
                         </ActionButton>
                       )}
-                      <ActionButton onClick={() => openEdit(s.name)}>Edit</ActionButton>
-                      <ActionButton kind="destructive" onClick={() => setRemoving(s)}>Remove</ActionButton>
+                      <ActionButton onClick={() => openEdit(s.name)}>{t("settingsAccess.mcp.edit")}</ActionButton>
+                      <ActionButton kind="destructive" onClick={() => setRemoving(s)}>{t("settingsAccess.mcp.remove")}</ActionButton>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -470,19 +474,19 @@ const MCPServersSection = () => {
 
       <Box sx={{ mt: 1.5 }}>
         <ActionButton onClick={() => setShowAudit((v) => !v)}>
-          {showAudit ? "Hide recent MCP activity" : "Recent MCP activity"}
+          {showAudit ? t("settingsAccess.mcp.hideActivity") : t("settingsAccess.mcp.showActivity")}
         </ActionButton>
         <Collapse in={showAudit} unmountOnExit>
           {audit.length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>No MCP calls yet.</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>{t("settingsAccess.mcp.noCalls")}</Typography>
           ) : (
             <Table size="small" sx={{ mt: 1 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell>Time</TableCell>
-                  <TableCell>Call</TableCell>
-                  <TableCell>By</TableCell>
-                  <TableCell>Result</TableCell>
+                  <TableCell>{t("settingsAccess.mcp.auditColumns.time")}</TableCell>
+                  <TableCell>{t("settingsAccess.mcp.auditColumns.call")}</TableCell>
+                  <TableCell>{t("settingsAccess.mcp.auditColumns.by")}</TableCell>
+                  <TableCell>{t("settingsAccess.mcp.auditColumns.result")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -491,7 +495,7 @@ const MCPServersSection = () => {
                   return (
                     <TableRow key={`${a.ts}-${i}`}>
                       <TableCell sx={{ fontSize: "0.7rem", whiteSpace: "nowrap" }}>
-                        {new Date(a.ts).toLocaleTimeString()}
+                        {new Date(a.ts).toLocaleTimeString(uiLocale())}
                       </TableCell>
                       <TableCell sx={{ fontSize: "0.7rem", fontFamily: "monospace" }}>
                         {a.server}/{a.tool}
@@ -517,21 +521,21 @@ const MCPServersSection = () => {
         onClose={() => setDialog({ open: false, initial: null, isEdit: false })}
         onSaved={(name) => {
           setDialog({ open: false, initial: null, isEdit: false });
-          setMessage({ severity: "success", text: `Saved ${name}` });
+          setMessage({ severity: "success", text: t("settingsAccess.mcp.saved", { name }) });
           refresh();
         }}
       />
 
       <ConfirmActionDialog
         open={!!removing}
-        title={`Remove MCP server "${removing?.name || ""}"`}
-        description="Disconnects the server and deletes its entry from the MCP configuration."
+        title={t("settingsAccess.mcp.removeTitle", { name: removing?.name || "" })}
+        description={t("settingsAccess.mcp.removeDescription")}
         facts={removing ? [
-          { label: "Command", value: removing.command || "–" },
-          { label: "Tools it offers", value: removing.connected ? removing.tool_count : "not connected" },
+          { label: t("settingsAccess.mcp.factCommand"), value: removing.command || "–" },
+          { label: t("settingsAccess.mcp.factTools"), value: removing.connected ? removing.tool_count : t("settingsAccess.mcp.notConnected") },
         ] : []}
-        keeps="the server program itself and anything it wrote"
-        confirmLabel="Remove"
+        keeps={t("settingsAccess.mcp.removeKeeps")}
+        confirmLabel={t("settingsAccess.mcp.remove")}
         onConfirm={confirmRemove}
         onClose={() => setRemoving(null)}
       />

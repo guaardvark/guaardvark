@@ -4,6 +4,7 @@
 import React, { useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import { BASE_URL } from "../../api/apiClient";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 import {
   Dialog,
   DialogTitle,
@@ -41,6 +42,7 @@ import CompressIcon from "@mui/icons-material/Compress";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 
 const ContextQualityModal = ({ open, onClose }) => {
+  const { t } = useUiTranslation();
   const [sessionId, setSessionId] = useState("");
   const [query, setQuery] = useState("");
   const [contextChunks, setContextChunks] = useState("");
@@ -50,12 +52,12 @@ const ContextQualityModal = ({ open, onClose }) => {
 
   const handleAnalyze = useCallback(async () => {
     if (!sessionId.trim()) {
-      setError("Please enter a session ID");
+      setError(translate("dialogs.contextQuality.sessionRequired"));
       return;
     }
 
     if (!contextChunks.trim()) {
-      setError("Please enter context chunks to analyze (one per line)");
+      setError(translate("dialogs.contextQuality.chunksRequired"));
       return;
     }
 
@@ -71,7 +73,7 @@ const ContextQualityModal = ({ open, onClose }) => {
         .filter(chunk => chunk.length > 0);
 
       if (chunks.length === 0) {
-        throw new Error("No valid context chunks found");
+        throw new Error(translate("dialogs.contextQuality.noValidChunks"));
       }
 
       const response = await fetch(`${BASE_URL}/rag-debug/context-quality`, {
@@ -93,7 +95,7 @@ const ContextQualityModal = ({ open, onClose }) => {
       const data = await response.json();
       
       if (!data.success) {
-        throw new Error(data.error || "Context quality analysis failed");
+        throw new Error(data.error || translate("dialogs.contextQuality.analysisFailed"));
       }
 
       setResults(data.data);
@@ -122,11 +124,11 @@ const ContextQualityModal = ({ open, onClose }) => {
 
   const getQualityLabel = (assessment) => {
     switch (assessment) {
-      case 'excellent': return { label: 'Excellent', color: 'success' };
-      case 'good': return { label: 'Good', color: 'info' };
-      case 'fair': return { label: 'Fair', color: 'warning' };
-      case 'poor': return { label: 'Poor', color: 'error' };
-      default: return { label: 'Unknown', color: 'default' };
+      case 'excellent': return { label: t("dialogs.contextQuality.excellent"), color: 'success' };
+      case 'good': return { label: t("dialogs.contextQuality.good"), color: 'info' };
+      case 'fair': return { label: t("dialogs.contextQuality.fair"), color: 'warning' };
+      case 'poor': return { label: t("dialogs.contextQuality.poor"), color: 'error' };
+      default: return { label: t("dialogs.contextQuality.unknown"), color: 'default' };
     }
   };
 
@@ -134,7 +136,7 @@ const ContextQualityModal = ({ open, onClose }) => {
     if (typeof score === 'number') {
       return (score * 100).toFixed(1) + '%';
     }
-    return 'N/A';
+    return t("dialogs.contextQuality.notAvailable");
   };
 
   return (
@@ -142,15 +144,15 @@ const ContextQualityModal = ({ open, onClose }) => {
       <DialogTitle>
         <Stack direction="row" alignItems="center" spacing={1}>
           <AssessmentIcon color="primary" />
-          <Typography variant="h6">Context Quality Analysis</Typography>
+          <Typography variant="h6">{t("dialogs.contextQuality.title")}</Typography>
         </Stack>
       </DialogTitle>
 
       <DialogContent>
         <Box sx={{ mb: 3 }}>
           <TextField
-            label="Session ID"
-            placeholder="e.g., session_1234567890"
+            label={t("dialogs.contextQuality.sessionId")}
+            placeholder={t("dialogs.contextQuality.sessionPlaceholder")}
             value={sessionId}
             onChange={(e) => setSessionId(e.target.value)}
             fullWidth
@@ -158,8 +160,8 @@ const ContextQualityModal = ({ open, onClose }) => {
           />
 
           <TextField
-            label="Query (optional)"
-            placeholder="Enter the query that was used with this context..."
+            label={t("dialogs.contextQuality.queryLabel")}
+            placeholder={t("dialogs.contextQuality.queryPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             fullWidth
@@ -167,15 +169,15 @@ const ContextQualityModal = ({ open, onClose }) => {
           />
 
           <TextField
-            label="Context Chunks"
-            placeholder="Enter context chunks, one per line..."
+            label={t("dialogs.contextQuality.chunksLabel")}
+            placeholder={t("dialogs.contextQuality.chunksPlaceholder")}
             value={contextChunks}
             onChange={(e) => setContextChunks(e.target.value)}
             fullWidth
             multiline
             rows={6}
             sx={{ mb: 2 }}
-            helperText="Enter each context chunk on a separate line"
+            helperText={t("dialogs.contextQuality.chunksHelp")}
           />
 
           <Button
@@ -185,7 +187,7 @@ const ContextQualityModal = ({ open, onClose }) => {
             startIcon={loading ? <CircularProgress size={20} /> : <AssessmentIcon />}
             sx={{ mb: 2 }}
           >
-            {loading ? "Analyzing..." : "Analyze Quality"}
+            {loading ? t("dialogs.contextQuality.analyzing") : t("dialogs.contextQuality.analyze")}
           </Button>
         </Box>
 
@@ -200,14 +202,14 @@ const ContextQualityModal = ({ open, onClose }) => {
             {/* Overall Quality Score */}
             <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
               <Typography variant="h6" gutterBottom>
-                Overall Quality Assessment
+                {t("dialogs.contextQuality.overall")}
               </Typography>
               
               <Grid container spacing={3} alignItems="center">
                 <Grid item xs={12} sm={6}>
                   <Box sx={{ mb: 2 }}>
                     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-                      <Typography variant="body2">Quality Score</Typography>
+                      <Typography variant="body2">{t("dialogs.contextQuality.qualityScore")}</Typography>
                       <Typography variant="h6" color={getQualityColor(results.overall_quality_score)}>
                         {formatScore(results.overall_quality_score)}
                       </Typography>
@@ -243,7 +245,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      Total Chunks
+                      {t("dialogs.contextQuality.totalChunks")}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -259,7 +261,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      Unique Sources
+                      {t("dialogs.contextQuality.uniqueSources")}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -275,7 +277,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      Compression Ratio
+                      {t("dialogs.contextQuality.compressionRatio")}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -291,7 +293,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                       </Typography>
                     </Stack>
                     <Typography variant="body2" color="text.secondary">
-                      Avg Chunk Length
+                      {t("dialogs.contextQuality.avgChunkLength")}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -301,58 +303,58 @@ const ContextQualityModal = ({ open, onClose }) => {
             {/* Quality Metrics Detail */}
             <Paper sx={{ mb: 3 }}>
               <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="h6">Quality Metrics</Typography>
+                <Typography variant="h6">{t("dialogs.contextQuality.qualityMetrics")}</Typography>
               </Box>
               <Grid container sx={{ p: 2 }}>
                 <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ p: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Redundancy Score
+                      {t("dialogs.contextQuality.redundancy")}
                     </Typography>
                     <Typography variant="h6" color={results.metrics?.redundancy_score > 0.7 ? "error" : "success"}>
                       {formatScore(results.metrics?.redundancy_score)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Lower is better
+                      {t("dialogs.contextQuality.lowerBetter")}
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ p: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Relevance Score
+                      {t("dialogs.contextQuality.relevance")}
                     </Typography>
                     <Typography variant="h6" color={getQualityColor(results.metrics?.relevance_score)}>
                       {formatScore(results.metrics?.relevance_score)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Higher is better
+                      {t("dialogs.contextQuality.higherBetter")}
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ p: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Freshness Score
+                      {t("dialogs.contextQuality.freshness")}
                     </Typography>
                     <Typography variant="h6" color={getQualityColor(results.metrics?.freshness_score)}>
                       {formatScore(results.metrics?.freshness_score)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Content recency
+                      {t("dialogs.contextQuality.recency")}
                     </Typography>
                   </Box>
                 </Grid>
                 <Grid item xs={12} sm={6} md={3}>
                   <Box sx={{ p: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Session ID
+                      {t("dialogs.contextQuality.sessionId")}
                     </Typography>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                       {results.metrics?.session_id}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {new Date(results.metrics?.timestamp).toLocaleString()}
+                      {new Date(results.metrics?.timestamp).toLocaleString(uiLocale())}
                     </Typography>
                   </Box>
                 </Grid>
@@ -365,7 +367,7 @@ const ContextQualityModal = ({ open, onClose }) => {
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <TipsAndUpdatesIcon color="warning" />
-                    <Typography variant="h6">Improvement Recommendations</Typography>
+                    <Typography variant="h6">{t("dialogs.contextQuality.recommendations")}</Typography>
                   </Stack>
                 </Box>
                 <List>
@@ -389,7 +391,7 @@ const ContextQualityModal = ({ open, onClose }) => {
 
             {results.recommendations && results.recommendations.length === 0 && (
               <Alert severity="success" icon={<CheckCircleIcon />}>
-                Great! No issues found with this context. The quality is good across all metrics.
+                {t("dialogs.contextQuality.noIssues")}
               </Alert>
             )}
           </Box>
@@ -398,7 +400,7 @@ const ContextQualityModal = ({ open, onClose }) => {
 
       <DialogActions>
         <Button onClick={handleClose} startIcon={<CloseIcon />}>
-          Close
+          {t("dialogs.shared.close")}
         </Button>
       </DialogActions>
     </Dialog>

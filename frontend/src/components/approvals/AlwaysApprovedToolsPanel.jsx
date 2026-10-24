@@ -7,8 +7,10 @@ import {
   getAlwaysApprovedTools,
   updateAlwaysApprovedTools,
 } from "../../api/settingsService";
+import { useUiTranslation } from "../../i18n";
 
 const AlwaysApprovedToolsPanel = ({ showMessage }) => {
+  const { t } = useUiTranslation();
   const [tools, setTools] = useState(null);
   const [busy, setBusy] = useState(null);
   const [error, setError] = useState(null);
@@ -18,7 +20,7 @@ const AlwaysApprovedToolsPanel = ({ showMessage }) => {
       setTools(await getAlwaysApprovedTools());
       setError(null);
     } catch (err) {
-      setError(err.message || "Could not load the list");
+      setError(err.message || t("approvals.chatTools.loadFailed"));
       setTools([]);
     }
   }, []);
@@ -31,9 +33,9 @@ const AlwaysApprovedToolsPanel = ({ showMessage }) => {
     setBusy(name);
     try {
       setTools(await updateAlwaysApprovedTools({ remove: [name] }));
-      showMessage?.(`${name} asks before it runs again`);
+      showMessage?.(t("approvals.chatTools.asksAgain", { name }));
     } catch (err) {
-      setError(err.message || "Could not update the list");
+      setError(err.message || t("approvals.chatTools.updateFailed"));
     } finally {
       setBusy(null);
     }
@@ -56,13 +58,12 @@ const AlwaysApprovedToolsPanel = ({ showMessage }) => {
       )}
       {tools.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          Chat asks before every tool that needs approval. Choosing "Always approve" on a
-          tool card, or "Always create" on a file card, lists the tool here.
+          {t("approvals.chatTools.empty")}
         </Typography>
       ) : (
         <Stack spacing={1}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Chat runs these without asking.
+            {t("approvals.chatTools.intro")}
           </Typography>
           {tools.map((name) => (
             <Box key={name} sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
@@ -70,7 +71,7 @@ const AlwaysApprovedToolsPanel = ({ showMessage }) => {
                 {name}
               </Typography>
               <ActionButton kind="neutral" loading={busy === name} onClick={() => askAgain(name)}>
-                Ask again
+                {t("approvals.chatTools.askAgain")}
               </ActionButton>
             </Box>
           ))}

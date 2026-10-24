@@ -4,37 +4,44 @@
 // queued / GPU-wait / keyframe / post stages only arrive there).
 
 import { videoGenStageLabel } from "../videogen/stageLabels";
+import { translate } from "../../i18n";
 
-export const PROCESS_TYPE_LABELS = {
-  production: "Production",
-  lora_train: "Training Subject",
-  indexing: "Indexing",
-  image_generation: "Image Gen",
-  video_gen: "Video Gen",
-  video_render: "Video Gen",
-  upscale: "Upscale",
-  csv_processing: "CSV Gen",
-  file_generation: "File Gen",
-  analysis: "Analysis",
-  upload: "Upload",
-  llm_processing: "LLM",
-  web_scraping: "Web Scrape",
-  backup: "Backup",
-  training: "Training",
-  task_processing: "Task",
-  voice_processing: "Voice",
-  document_processing: "Documents",
-  wordpress_pull: "WP Pull",
-  wordpress_push: "WP Push",
-  wordpress_processing: "WordPress",
-  outreach: "Outreach",
-  code: "Code",
-  processing: "Processing",
-  unknown: "Working",
-};
+/** Friendly names for process types, in the interface's language. */
+export const processTypeLabels = () => ({
+  production: translate("layout.progressFooter.types.production"),
+  lora_train: translate("layout.progressFooter.types.lora_train"),
+  indexing: translate("layout.progressFooter.types.indexing"),
+  image_generation: translate("layout.progressFooter.types.image_generation"),
+  video_gen: translate("layout.progressFooter.types.video_gen"),
+  video_render: translate("layout.progressFooter.types.video_render"),
+  upscale: translate("layout.progressFooter.types.upscale"),
+  csv_processing: translate("layout.progressFooter.types.csv_processing"),
+  file_generation: translate("layout.progressFooter.types.file_generation"),
+  analysis: translate("layout.progressFooter.types.analysis"),
+  upload: translate("layout.progressFooter.types.upload"),
+  llm_processing: translate("layout.progressFooter.types.llm_processing"),
+  web_scraping: translate("layout.progressFooter.types.web_scraping"),
+  backup: translate("layout.progressFooter.types.backup"),
+  training: translate("layout.progressFooter.types.training"),
+  task_processing: translate("layout.progressFooter.types.task_processing"),
+  voice_processing: translate("layout.progressFooter.types.voice_processing"),
+  document_processing: translate("layout.progressFooter.types.document_processing"),
+  wordpress_pull: translate("layout.progressFooter.types.wordpress_pull"),
+  wordpress_push: translate("layout.progressFooter.types.wordpress_push"),
+  wordpress_processing: translate("layout.progressFooter.types.wordpress_processing"),
+  outreach: translate("layout.progressFooter.types.outreach"),
+  code: translate("layout.progressFooter.types.code"),
+  processing: translate("layout.progressFooter.types.processing"),
+  unknown: translate("layout.progressFooter.types.unknown"),
+});
 
 // Chip prefixes for the generation kinds people queue side by side.
-const CHIP_LABELS = { image_generation: "Image", video_gen: "Video", video_render: "Video", upscale: "Upscale" };
+const chipLabels = () => ({
+  image_generation: translate("layout.progressFooter.chips.image"),
+  video_gen: translate("layout.progressFooter.chips.video"),
+  video_render: translate("layout.progressFooter.chips.video"),
+  upscale: translate("layout.progressFooter.chips.upscale"),
+});
 
 // Which running job leads when several run at once; waiting jobs always follow running ones.
 const PRIORITY = [
@@ -55,7 +62,7 @@ export function processType(p) {
 
 /** Friendly name for a process type. */
 export function typeLabel(type) {
-  return PROCESS_TYPE_LABELS[type] || type;
+  return processTypeLabels()[type] || type;
 }
 
 function values(collection) {
@@ -103,8 +110,8 @@ function videoJobEntry(job) {
   const waiting = Boolean(reason) || stage === "gpu_wait" || stage === "queued" || job.status === "pending";
   const done = (md.completed_videos || 0) + (md.failed_videos || 0);
   const total = md.total_videos || 0;
-  let text = videoGenStageLabel(stage) || "Rendering";
-  if (waiting) text = reason || (stage === "gpu_wait" ? "Waiting for GPU" : "Queued");
+  let text = videoGenStageLabel(stage) || translate("layout.progressFooter.rendering");
+  if (waiting) text = reason || (stage === "gpu_wait" ? translate("layout.progressFooter.waitingForGpu") : translate("layout.progressFooter.queued"));
   return {
     key: job.id,
     type: "video_gen",
@@ -130,7 +137,7 @@ function processEntry(p) {
     name: "",
     waiting,
     waitKind: waiting ? waitKind(reason, "queue") : null,
-    text: p.message || "Processing...",
+    text: p.message || translate("layout.progressFooter.processing"),
     progress: clampPct(p.progress) ?? 0,
     itemCount:
       ad.generated_count != null && ad.target_count != null
@@ -164,8 +171,8 @@ function foldIndexingEntries(entries) {
     waiting: running.length === 0,
     waitKind: running.length === 0 ? "queue" : null,
     text: running.length
-      ? `${lead.text} (${running.length} running, ${waitingCount} waiting)`
-      : `${indexing.length} documents waiting to start`,
+      ? translate("layout.progressFooter.indexingRunning", { text: lead.text, running: running.length, waiting: waitingCount })
+      : translate("layout.progressFooter.documentsWaiting", { count: indexing.length }),
     progress: running.length ? lead.progress : 0,
     itemCount: null,
     timestamp: indexing.reduce((max, e) => Math.max(max, e.timestamp || 0), 0),
@@ -217,19 +224,21 @@ export function statusLine(entry) {
   const label = typeLabel(entry.type);
   const lower = entry.text.toLowerCase();
   const named = lower.includes(entry.type.replace(/_/g, " ")) || lower.includes(label.toLowerCase());
-  return named ? entry.text : `${label}: ${entry.text}`;
+  return named ? entry.text : translate("layout.progressFooter.labelled", { label, text: entry.text });
 }
 
 /** Compact text for a job that is not the bar's: "Video: denoising 12/30 · 40%", "Image: waiting for GPU". */
 export function chipText(entry) {
-  const label = CHIP_LABELS[entry.type] || typeLabel(entry.type);
+  const label = chipLabels()[entry.type] || typeLabel(entry.type);
   if (entry.waiting) {
-    const why = { gpu: "waiting for GPU", system: "waiting for the system" }[entry.waitKind] || "queued";
-    return `${label}: ${why}`;
+    if (entry.waitKind === "gpu") return translate("layout.progressFooter.chipWaitingGpu", { label });
+    if (entry.waitKind === "system") return translate("layout.progressFooter.chipWaitingSystem", { label });
+    return translate("layout.progressFooter.chipQueued", { label });
   }
   const text = entry.text.length > CHIP_TEXT_MAX ? `${entry.text.slice(0, CHIP_TEXT_MAX - 1).trimEnd()}…` : entry.text;
-  const pct = entry.progress != null ? ` · ${Math.round(entry.progress)}%` : "";
-  return `${label}: ${text}${pct}`;
+  return entry.progress != null
+    ? translate("layout.progressFooter.chipProgress", { label, text, percent: Math.round(entry.progress) })
+    : translate("layout.progressFooter.labelled", { label, text });
 }
 
 /**

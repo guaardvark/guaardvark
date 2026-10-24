@@ -6,19 +6,21 @@
  * show the measured baseline against the latest result (which may be lower),
  * and pytest health-check rows are never shown as kept experiments.
  */
+import { translate } from "../i18n";
 
+// Getters, so each read follows the interface's language.
 const REASON_TEXT = {
-  ollama_unreachable: "Ollama is not running",
-  insufficient_corpus: "not enough indexed documents",
-  no_eval_pairs: "no eval questions",
-  eval_sources_not_indexed: "the eval questions come from documents that are not indexed",
-  judge_unset: "no separate judge model is set",
-  judge_same_as_answer_model: "the judge model is the answer model",
-  celery_unreachable: "the task queue is unreachable",
-  baseline_eval_failed: "the baseline could not be measured",
-  prerequisite_check_failed: "the start checks could not run",
-  codebase_locked: "the codebase is locked",
-  self_improvement_disabled: "self-improvement is off",
+  get ollama_unreachable() { return translate("messages.autoresearch.reasons.ollamaUnreachable"); },
+  get insufficient_corpus() { return translate("messages.autoresearch.reasons.insufficientCorpus"); },
+  get no_eval_pairs() { return translate("messages.autoresearch.reasons.noEvalPairs"); },
+  get eval_sources_not_indexed() { return translate("messages.autoresearch.reasons.evalSourcesNotIndexed"); },
+  get judge_unset() { return translate("messages.autoresearch.reasons.judgeUnset"); },
+  get judge_same_as_answer_model() { return translate("messages.autoresearch.reasons.judgeSameAsAnswerModel"); },
+  get celery_unreachable() { return translate("messages.autoresearch.reasons.celeryUnreachable"); },
+  get baseline_eval_failed() { return translate("messages.autoresearch.reasons.baselineEvalFailed"); },
+  get prerequisite_check_failed() { return translate("messages.autoresearch.reasons.prerequisiteCheckFailed"); },
+  get codebase_locked() { return translate("messages.autoresearch.reasons.codebaseLocked"); },
+  get self_improvement_disabled() { return translate("messages.autoresearch.reasons.selfImprovementDisabled"); },
 };
 
 const HEALTH_STATUS = { keep: "pass", discard: "fail" };
@@ -57,7 +59,7 @@ export function describeReasons(haltReason) {
     .split("; ")
     .map((p) => p.trim())
     .filter(Boolean);
-  if (parts.length === 0) return "no reason recorded";
+  if (parts.length === 0) return translate("messages.autoresearch.noReason");
   return parts.map((p) => REASON_TEXT[reasonCode(p)] || p).join("; ");
 }
 
@@ -71,7 +73,7 @@ export function runOutcome(run) {
   if (run.status === "failed_precondition") {
     return {
       kind: "not_run",
-      text: `Not run: ${describeReasons(run.halt_reason)}`,
+      text: translate("messages.autoresearch.notRun", { reasons: describeReasons(run.halt_reason) }),
       detail: run.halt_reason || "",
     };
   }
@@ -80,12 +82,13 @@ export function runOutcome(run) {
   const best = asNumber(run.best_tried_score);
   const kind = run.status === "running" || run.status === "pending" ? "active" : "done";
   if (base === null && latest === null) {
-    const text = run.status === "pending" ? "Starting…" : "No baseline measured";
+    const text = run.status === "pending" ? translate("messages.autoresearch.starting") : translate("messages.autoresearch.noBaseline");
     return { kind, text, detail: run.halt_reason || "" };
   }
-  let text = `${formatScore(base)} → ${formatScore(latest)}`;
-  if (best !== null) text += ` (best ${formatScore(best)})`;
-  return { kind, text, detail: run.halt_reason ? `Halt: ${run.halt_reason}` : "" };
+  const text = best !== null
+    ? translate("messages.autoresearch.scoresWithBest", { base: formatScore(base), latest: formatScore(latest), best: formatScore(best) })
+    : `${formatScore(base)} → ${formatScore(latest)}`;
+  return { kind, text, detail: run.halt_reason ? translate("messages.autoresearch.halt", { reason: run.halt_reason }) : "" };
 }
 
 /**
@@ -97,10 +100,15 @@ export function experimentLabel(exp) {
   const metrics = (exp && exp.retrieval_metrics) || {};
   if (exp && exp.proposal_source === "heal") {
     const outcome = HEALTH_STATUS[exp.status] || exp.status || "unknown";
+    const shownOutcome = outcome === "pass"
+      ? translate("messages.autoresearch.healthPass")
+      : outcome === "fail"
+        ? translate("messages.autoresearch.healthFail")
+        : outcome === "unknown" ? translate("messages.autoresearch.healthUnknown") : outcome;
     return {
       kind: "health",
-      status: `health check: ${outcome}`,
-      source: "health check",
+      status: translate("messages.autoresearch.healthStatus", { outcome: shownOutcome }),
+      source: translate("messages.autoresearch.healthCheck"),
       tone: outcome === "fail" ? "warning" : "default",
       selfReported: false,
     };
@@ -111,7 +119,7 @@ export function experimentLabel(exp) {
   return {
     kind: selfReported ? "self_reported" : "experiment",
     status,
-    source: selfReported ? "self-reported" : (exp && exp.proposal_source) || "—",
+    source: selfReported ? translate("messages.autoresearch.selfReported") : (exp && exp.proposal_source) || "—",
     tone: status === "keep" ? "success" : status === "crash" ? "error" : "default",
     selfReported,
   };
@@ -133,34 +141,36 @@ export function formatMeasuredAt(iso) {
 /** "Baseline: 2.394 (measured 2026-10-07 01:09)" or "Baseline: not measured". */
 export function baselineText(status) {
   const score = asNumber(status && status.baseline_score);
-  if (!score) return "Baseline: not measured";
+  if (!score) return translate("messages.autoresearch.baselineNotMeasured");
   const at = formatMeasuredAt(status.baseline_measured_at);
-  return `Baseline: ${score.toFixed(3)} (${at ? `measured ${at}` : "measurement time not recorded"})`;
+  return at
+    ? translate("messages.autoresearch.baselineMeasured", { score: score.toFixed(3), at })
+    : translate("messages.autoresearch.baselineNoTime", { score: score.toFixed(3) });
 }
 
 /** "11 active · 11 from unindexed docs", from /status.eval_pairs. */
 export function evalPairsText(status) {
   const pairs = status && status.eval_pairs;
   if (!pairs) return "—";
-  if (!pairs.active) return "none";
+  if (!pairs.active) return translate("messages.autoresearch.evalPairsNone");
   return pairs.not_indexed
-    ? `${pairs.active} active · ${pairs.not_indexed} from unindexed docs`
-    : `${pairs.active} active`;
+    ? translate("messages.autoresearch.evalPairsWithUnindexed", { active: pairs.active, unindexed: pairs.not_indexed })
+    : translate("messages.autoresearch.evalPairsActive", { active: pairs.active });
 }
 
 /** Why the judge setting makes scores self-graded, or null when it does not. */
 export function judgeWarning(judge) {
   if (!judge || judge.independent !== false) return null;
-  const model = judge.answer_model || "the active chat model";
+  const model = judge.answer_model || translate("messages.autoresearch.activeChatModel");
   if (judge.problem === "judge_same_as_answer_model") {
-    return `This is the answer model (${model}), so it grades its own answers. Nightly runs will not start.`;
+    return translate("messages.autoresearch.judgeIsAnswerModel", { model });
   }
-  return `Not set, so ${model} grades its own answers. Nightly runs will not start.`;
+  return translate("messages.autoresearch.judgeNotSet", { model });
 }
 
 /** "19 experiments · 0 promoted", health checks left out of both. */
 export function experimentsSummary(status) {
   const experiments = asNumber(status && status.total_experiments) ?? 0;
   const promoted = asNumber(status && status.total_improvements) ?? 0;
-  return `${experiments} experiment${experiments === 1 ? "" : "s"} · ${promoted} promoted`;
+  return translate("messages.autoresearch.experimentsSummary", { count: experiments, promoted });
 }

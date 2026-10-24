@@ -19,9 +19,11 @@ import {
 } from "@mui/material";
 import { Close as CloseIcon, FolderOutlined } from "@mui/icons-material";
 import { useTheme, alpha } from "@mui/material/styles";
+import { useUiTranslation } from "../../i18n";
 
 const FolderWindowWrapper = React.forwardRef(
   ({ title, children, isMinimized, onToggleMinimize, onClose, onTitleContextMenu, folderColor, onDrop, onDragOver, titleBarActions, isRepository, ...props }, ref) => {
+    const { t } = useUiTranslation();
     const [clickTimeout, setClickTimeout] = useState(null);
     const [_lastClickTime, setLastClickTime] = useState(0);
     const [_clickCount, setClickCount] = useState(0);
@@ -233,7 +235,7 @@ const FolderWindowWrapper = React.forwardRef(
 
           {isRepository && (
             <Chip
-              label="CODE REPO"
+              label={t("documents.folderWindow.codeRepoChip")}
               size="small"
               sx={{
                 height: 16,

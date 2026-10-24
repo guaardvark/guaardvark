@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "Salida {{jobId}} eliminada con éxito",
+    "deleteFailed": "Error al eliminar salida: {{message}}",
+    "retryStarting": "Iniciando reintento para {{count}} filas fallidas...",
+    "retryStarted": "¡Reintento iniciado con éxito! ID de tarea: {{jobId}}",
+    "retryFailed": "Error al iniciar reintento: {{message}}",
+    "nothingToClear": "No hay salidas para borrar",
+    "clearing": "Borrando todas las salidas...",
+    "cleared": "Se eliminaron {{count}} salidas con éxito",
+    "clearFailed": "Error al borrar salidas: {{message}}"
+  },
+  "clearConfirm": "¿Estás seguro de que quieres eliminar TODAS las {{count}} salidas? Esta acción no se puede deshacer.",
+  "pageTitle": "Salidas de contenido",
+  "stats": {
+    "total": "{{count}} Total",
+    "today": "{{count}} Hoy",
+    "thisWeek": "{{count}} Esta semana"
+  },
+  "clearAll": "Borrar todo",
+  "refresh": "Actualizar lista de salidas",
+  "loading": "Cargando salidas...",
+  "empty": {
+    "title": "No se encontraron salidas",
+    "description": "Genera contenido usando la función de generación masiva para ver las salidas aquí"
+  }
+}

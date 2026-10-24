@@ -52,6 +52,7 @@ import {
   splitChatFiles,
   uploadChatDocument,
 } from "../../utils/chatDocumentUpload";
+import { translate, useUiTranslation, uiLocale } from "../../i18n";
 
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 300;
@@ -88,12 +89,17 @@ const fitToViewport = (position, size, collapsed) => {
  * The reply kept when a turn ends without chat:complete: what had streamed,
  * pictures included. This card renders only the body, reasoning and pictures,
  * so agent-trail steps go into the text. Returns null when nothing had arrived.
+ * The framing is worded in the interface language when the turn ends.
  */
 const partialReplyMessage = (partial, status) => {
-  const ended = status === "aborted" ? "stopped" : "failed";
+  const stopped = status === "aborted";
   const steps = partial.agentThinkingSteps || [];
   const stepText = steps
-    .map((s) => `step ${s.iteration}: ${s.label}${s.reasoning ? ` — ${s.reasoning}` : ""}`)
+    .map((s) =>
+      s.reasoning
+        ? translate("chat.floating.trailStepWithReasoning", { iteration: s.iteration, label: s.label, reasoning: s.reasoning })
+        : translate("chat.floating.trailStep", { iteration: s.iteration, label: s.label }),
+    )
     .join("\n");
   const body = (partial.content || "").trim();
   const images = partial.images || [];
@@ -102,12 +108,20 @@ const partialReplyMessage = (partial, status) => {
   if (!hasAnything) return null;
   const composed = [
     body,
-    stepText ? `--- agent trail (${ended}) ---\n${stepText}` : "",
+    stepText
+      ? `${stopped ? translate("chat.floating.trailStopped") : translate("chat.floating.trailFailed")}\n${stepText}`
+      : "",
   ].filter(Boolean).join("\n\n");
   return {
     id: `asst_unified_${Date.now()}_partial`,
     role: "assistant",
-    content: composed || (images.length > 0 ? "" : `(${ended} before any output)`),
+    content:
+      composed ||
+      (images.length > 0
+        ? ""
+        : stopped
+        ? translate("chat.floating.stoppedBeforeOutput")
+        : translate("chat.floating.failedBeforeOutput")),
     toolCalls: partial.toolCalls || [],
     thinking: partial.thinking || "",
     generatedImages: images,
@@ -118,6 +132,7 @@ const partialReplyMessage = (partial, status) => {
 };
 
 const FloatingChatCard = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
 
   // Store state
@@ -224,7 +239,7 @@ const FloatingChatCard = () => {
   const [attachment, setAttachment] = useState(null);
   // Set when more images were offered than the one this chat can send.
   const [attachmentNote, setAttachmentNote] = useState(null);
-  const [docUpload, setDocUpload] = useState(null); // { fileName, progress } while uploading
+  const [docUpload, setDocUpload] = useState(null); // { fileName, indexing, progress } while uploading
   // Document notices wait here until the chat is free to send them.
   const [pendingNotices, setPendingNotices] = useState([]);
   // True while this chat's request is a live screen-agent run; the input
@@ -355,7 +370,7 @@ const FloatingChatCard = () => {
       });
       clearError();
     } catch (err) {
-      setError(err?.message || "Could not prepare this image");
+      setError(err?.message || { kind: "prepareFailed" });
     }
   }, [clearError, setError]);
 
@@ -431,27 +446,25 @@ const FloatingChatCard = () => {
         setIsStreamingMessage(false);
         setIsSending(false);
         finishVoiceReply();
-        const errorText = err.message || "Failed to send message";
         addMessage({
           id: `err_${Date.now()}`,
           role: "system",
-          content: `Error: ${errorText}`,
+          content: t("chat.floating.errorNotice", { error: err.message || t("chat.floating.sendFailed") }),
           timestamp: new Date().toISOString(),
         });
-        setError(errorText);
+        setError(err.message || { kind: "sendFailed" });
       }
     } else {
       // Fallback: no socket connection — show error
       setIsSending(false);
       finishVoiceReply();
-      const errorText = "Chat service not connected. Please wait for connection.";
       addMessage({
         id: `err_${Date.now()}`,
         role: "system",
-        content: errorText,
+        content: t("chat.floating.notConnected"),
         timestamp: new Date().toISOString(),
       });
-      setError(errorText);
+      setError({ kind: "notConnected" });
     }
   }, [inputText, attachment, attachmentMaxBytes, isSending, sessionId, pageContext, addMessage, setIsSending, clearError, setError, unifiedChatService, pushHistory, finishVoiceReply]);
 
@@ -476,9 +489,9 @@ const FloatingChatCard = () => {
       const result = await uploadChatDocument(file, {
         sessionId,
         onStage: ({ progress, indexing }) =>
-          setDocUpload({ fileName: indexing ? `${file.name} (indexing...)` : file.name, progress }),
+          setDocUpload({ fileName: file.name, indexing: Boolean(indexing), progress }),
       });
-      if (!result.ok) setError(`Upload failed: ${result.error}`);
+      if (!result.ok) setError({ kind: "uploadFailed", detail: result.error });
       notices.push(result.message);
     }
     setDocUpload(null);
@@ -491,7 +504,7 @@ const FloatingChatCard = () => {
     const { images, documents } = splitChatFiles(files);
     if (images.length) {
       handleAttachImage(images[0]);
-      setAttachmentNote(images.length > 1 ? "Only the first image is sent to the model" : null);
+      setAttachmentNote(images.length > 1 ? "firstImageOnly" : null);
     }
     if (documents.length) handleDocumentFiles(documents);
   }, [handleAttachImage, handleDocumentFiles]);
@@ -591,7 +604,7 @@ const FloatingChatCard = () => {
       addMessage({
         id: `stop_err_${Date.now()}`,
         role: "system",
-        content: `Error: ${result.error}`,
+        content: t("chat.floating.errorNotice", { error: result.error }),
         timestamp: new Date().toISOString(),
       });
     });
@@ -611,7 +624,7 @@ const FloatingChatCard = () => {
     addMessage({
       id: `err_${Date.now()}`,
       role: "system",
-      content: `Error: ${errorText}`,
+      content: t("chat.floating.errorNotice", { error: errorText }),
       timestamp: new Date().toISOString(),
     });
     setIsStreamingMessage(false);
@@ -770,11 +783,25 @@ const FloatingChatCard = () => {
 
   const formatTime = (timestamp) => {
     if (!timestamp) return "";
-    return new Date(timestamp).toLocaleTimeString([], {
+    return new Date(timestamp).toLocaleTimeString(uiLocale(), {
       hour: "2-digit",
       minute: "2-digit",
     });
   };
+
+  // Our own errors are kept as a kind and worded here; server and helper
+  // messages arrive as text.
+  const errorText = (err) => {
+    if (typeof err === "string") return err;
+    if (err.kind === "prepareFailed") return t("chat.input.prepareFailed");
+    if (err.kind === "sendFailed") return t("chat.floating.sendFailed");
+    if (err.kind === "notConnected") return t("chat.floating.notConnected");
+    if (err.kind === "uploadFailed") return t("chat.input.uploadFailed", { error: err.detail });
+    return "";
+  };
+
+  // The attachment note is kept as an id and worded here.
+  const attachmentNoteText = { firstImageOnly: t("chat.floating.firstImageOnly") };
 
   // Page context chip label
   const contextLabel = contextChipLabel(pageContext, entityLabel);
@@ -804,7 +831,7 @@ const FloatingChatCard = () => {
           boxShadow: `0 8px 32px rgba(0, 0, 0, 0.35)`,
         }}
       >
-        <FileDropOverlay active={chatDrop.isDragActive} compact label="Drop files to attach" />
+        <FileDropOverlay active={chatDrop.isDragActive} compact label={t("chat.fileDrop.floatingLabel")} />
 
         {/* Header */}
         <Box
@@ -832,7 +859,7 @@ const FloatingChatCard = () => {
               mr: 0.5,
             }}
           >
-            Chat
+            {t("chat.floating.title")}
           </Typography>
           {contextLabel && (
             <Chip
@@ -849,7 +876,7 @@ const FloatingChatCard = () => {
               className="floating-chat-btn"
               onClick={clearMessages}
               size="small"
-              title="New chat"
+              title={t("chat.sessions.newChat")}
               sx={{ p: 0.25, color: "text.secondary", "&:hover": { color: "primary.main" } }}
             >
               <AddIcon sx={{ fontSize: 16 }} />
@@ -858,7 +885,7 @@ const FloatingChatCard = () => {
               className="floating-chat-btn"
               onClick={toggleCollapsed}
               size="small"
-              title={collapsed ? "Expand" : "Collapse"}
+              title={collapsed ? t("chat.floating.expand") : t("common.collapse")}
               sx={{ p: 0.25, color: "text.secondary" }}
             >
               <MinimizeIcon sx={{ fontSize: 16 }} />
@@ -867,7 +894,7 @@ const FloatingChatCard = () => {
               className="floating-chat-btn"
               onClick={() => setIsOpen(false)}
               size="small"
-              title="Close"
+              title={t("chat.floating.close")}
               sx={{ p: 0.25, color: "text.secondary", "&:hover": { color: "error.main" } }}
             >
               <CloseIcon sx={{ fontSize: 16 }} />
@@ -899,7 +926,7 @@ const FloatingChatCard = () => {
                     fontSize: "0.85rem",
                   }}
                 >
-                  Ask anything about what you're working on.
+                  {t("chat.floating.empty")}
                 </Typography>
               )}
 
@@ -933,9 +960,7 @@ const FloatingChatCard = () => {
                 variant="caption"
                 sx={{ color: "text.secondary", px: 1.5, fontSize: "0.72rem" }}
               >
-                {voiceTurns.length === 1
-                  ? "1 voice message waits for this reply"
-                  : `${voiceTurns.length} voice messages wait for this reply`}
+                {t("chat.floating.voiceTurnsWaiting", { count: voiceTurns.length })}
               </Typography>
             )}
 
@@ -950,7 +975,7 @@ const FloatingChatCard = () => {
                   fontSize: "0.75rem",
                 }}
               >
-                {error}
+                {errorText(error)}
               </Typography>
             )}
 
@@ -968,7 +993,7 @@ const FloatingChatCard = () => {
                   tooltip={
                     attachmentExceedsLimit(attachment.byteLength, attachmentMaxBytes)
                       ? refuseAttachmentMessage(attachment.byteLength, attachmentMaxBytes)
-                      : "Size after resize, as it will be sent"
+                      : t("chat.input.sizeTooltip")
                   }
                 />
                 <IconButton
@@ -978,14 +1003,14 @@ const FloatingChatCard = () => {
                     setAttachment(null);
                     setAttachmentNote(null);
                   }}
-                  aria-label="Remove image"
+                  aria-label={t("chat.floating.removeImage")}
                   sx={{ p: 0.25 }}
                 >
                   <CloseIcon sx={{ fontSize: 14 }} />
                 </IconButton>
                 {attachmentNote && (
                   <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.72rem" }}>
-                    {attachmentNote}
+                    {attachmentNoteText[attachmentNote]}
                   </Typography>
                 )}
               </Box>
@@ -994,7 +1019,11 @@ const FloatingChatCard = () => {
             {docUpload && (
               <Box sx={{ px: 1.5, pb: 0.5 }} data-testid="floating-upload-progress">
                 <Typography variant="caption" sx={{ color: "text.secondary", fontSize: "0.72rem" }} noWrap>
-                  Uploading {docUpload.fileName}
+                  {t("chat.input.uploading", {
+                    name: docUpload.indexing
+                      ? t("chat.input.fileIndexing", { name: docUpload.fileName })
+                      : docUpload.fileName,
+                  })}
                 </Typography>
                 <LinearProgress
                   variant="determinate"
@@ -1018,7 +1047,7 @@ const FloatingChatCard = () => {
                     size="small"
                     className="floating-chat-btn"
                     onClick={clearSpeakError}
-                    aria-label="Dismiss voice message"
+                    aria-label={t("chat.floating.dismissVoiceMessage")}
                     sx={{ p: 0.25 }}
                   >
                     <CloseIcon sx={{ fontSize: 14 }} />
@@ -1043,7 +1072,7 @@ const FloatingChatCard = () => {
             >
               {/* The global mic: same state and microphone as the top-bar button */}
               <Box className="floating-chat-btn" sx={{ display: "flex", alignItems: "center" }}>
-                <GlobalMicButton variant="compact" label="Voice" />
+                <GlobalMicButton variant="compact" label={t("common.voice")} />
               </Box>
               <SlashCommandPopup
                 commands={slashCmds.filteredCommands}
@@ -1064,14 +1093,14 @@ const FloatingChatCard = () => {
                   if (file) addFiles([file]);
                 }}
               />
-              <Tooltip title="Attach file or image">
+              <Tooltip title={t("chat.input.attach")}>
                 <span>
                   <IconButton
                     className="floating-chat-btn"
                     onClick={() => fileRef.current?.click()}
                     disabled={isSending}
                     size="small"
-                    aria-label="Attach file or image"
+                    aria-label={t("chat.input.attach")}
                     sx={{ p: 0.25, color: "text.secondary" }}
                   >
                     <AttachFileIcon sx={{ fontSize: 16 }} />
@@ -1082,8 +1111,8 @@ const FloatingChatCard = () => {
                 size="small"
                 placeholder={
                   noteMode
-                    ? "Add a note for the agent — it keeps working"
-                    : "Type your message, paste an image, or use voice..."
+                    ? t("chat.floating.placeholderNote")
+                    : t("chat.input.placeholder")
                 }
                 value={inputText}
                 onChange={(e) => {
@@ -1118,7 +1147,7 @@ const FloatingChatCard = () => {
                 }}
               />
               {noteMode && (
-                <Tooltip title="Send note to the agent (it keeps working)">
+                <Tooltip title={t("chat.input.sendNote")}>
                   <span>
                     <IconButton
                       onClick={handleChimeIn}

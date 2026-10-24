@@ -19,6 +19,7 @@
 // (a JSON body whose code is local_only or api_key_required) from axios to
 // AUTH_REFUSED_EVENT; handleResponse does the same for fetch.
 /* eslint-env browser */
+import { translate } from "../i18n";
 
 export const API_KEY_SETTINGS_PATH = "/settings#settings-api-key";
 export const AUTH_REFUSED_EVENT = "guaardvark:auth-refused";
@@ -106,24 +107,24 @@ export function authRefusalCode(body) {
  * What to do about a refusal, in the words the UI shows. `rejected`: the
  * request carried a sign-in or key that is not accepted now.
  */
-export function describeAuthRefusal(code, rejected = false, machine = "the Guaardvark machine") {
+export function describeAuthRefusal(code, rejected = false, machine = translate("messages.access.defaultMachine")) {
   if (code === "outside_local_network") {
-    return `This works only on ${machine} and on devices on its local network, and this device is outside it. Create an API key in Settings → Access on ${machine}, then enter it in Settings → Access on this device.`;
+    return translate("messages.access.outsideLocalNetwork", { machine });
   }
   if (code === "runs_code_key_required") {
-    return `This runs a program on ${machine}, which works only on ${machine} itself or with its API key, even while Network access is on. Create an API key in Settings → Access on ${machine}, then enter it in Settings → Access on this device.`;
+    return translate("messages.access.runsCodeKeyRequired", { machine });
   }
   if (code === "fleet_key_required") {
-    return `This Interconnector action works only on ${machine} itself or with its API key, even while Network access is on. Create an API key in Settings → Access on ${machine}, then enter it in Settings → Access on this device.`;
+    return translate("messages.access.fleetKeyRequired", { machine });
   }
   if (code === "local_only") {
     return rejected
-      ? `${machine} no longer has an API key, so this works only on ${machine} itself. Turn on Settings → Access → Network access there, or create a new key there and enter it in Settings → Access on this device.`
-      : `This works only on ${machine} itself. To use it here, turn on Settings → Access → Network access on ${machine}, or create an API key there and enter it in Settings → Access on this device.`;
+      ? translate("messages.access.localOnlyKeyRemoved", { machine })
+      : translate("messages.access.localOnly", { machine });
   }
   return rejected
-    ? `This browser was signed in with a key ${machine} no longer uses. Enter the current key in Settings → Access.`
-    : `Enter ${machine}'s API key in Settings → Access. It is shown when it is created, and ${machine} keeps it in its .env file as GUAARDVARK_API_KEY.`;
+    ? translate("messages.access.keyOutOfDate", { machine })
+    : translate("messages.access.keyRequired", { machine });
 }
 
 function dispatch(name, detail) {

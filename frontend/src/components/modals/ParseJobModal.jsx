@@ -16,8 +16,10 @@ import {
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import DirectoryPicker from "../common/DirectoryPicker";
 import { startParseJob } from "../../api";
+import { useUiTranslation } from "../../i18n";
 
 const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState({
     name: "",
     input_path: "",
@@ -48,7 +50,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
 
   const handleSave = async () => {
     if (!formData.input_path.trim()) {
-      setFormError("Input path is required.");
+      setFormError(t("dialogs.parseJob.pathRequired"));
       return;
     }
     setFormError(null);
@@ -64,7 +66,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
       }
       onClose();
     } catch (err) {
-      setFormError(err.message || "Failed to start parse job");
+      setFormError(err.message || t("dialogs.parseJob.startFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -75,7 +77,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
   return (
     <>
       <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-        <DialogTitle>Parse Transcripts</DialogTitle>
+        <DialogTitle>{t("dialogs.parseJob.title")}</DialogTitle>
         <DialogContent dividers>
           {formError && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -88,12 +90,12 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
                 autoFocus
                 fullWidth
                 margin="dense"
-                label="Job Name (Optional)"
+                label={t("dialogs.parseJob.nameLabel")}
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
                 disabled={saving}
-                helperText="Leave empty to auto-generate from path"
+                helperText={t("dialogs.parseJob.nameHelp")}
               />
             </Grid>
 
@@ -102,7 +104,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
                 required
                 fullWidth
                 margin="dense"
-                label="Input Path"
+                label={t("dialogs.parseJob.pathLabel")}
                 name="input_path"
                 value={formData.input_path}
                 onChange={handleInputChange}
@@ -114,14 +116,14 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
                         onClick={() => setDirectoryPickerOpen(true)}
                         edge="end"
                         disabled={saving}
-                        title="Browse for directory"
+                        title={t("dialogs.parseJob.browse")}
                       >
                         <FolderOpenIcon />
                       </IconButton>
                     </InputAdornment>
                   ),
                 }}
-                helperText="Directory or file containing transcript files"
+                helperText={t("dialogs.parseJob.pathHelp")}
               />
             </Grid>
 
@@ -135,17 +137,17 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
                     disabled={saving}
                   />
                 }
-                label="Recursive (search subdirectories)"
+                label={t("dialogs.parseJob.recursive")}
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose} disabled={saving}>
-            Cancel
+            {t("dialogs.shared.cancel")}
           </Button>
           <Button onClick={handleSave} variant="contained" disabled={saving}>
-            Start Parsing
+            {t("dialogs.parseJob.start")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -158,7 +160,7 @@ const ParseJobModal = ({ open, onClose, onSuccess, isSaving: externalSaving }) =
           setDirectoryPickerOpen(false);
         }}
         initialPath={formData.input_path || "~"}
-        title="Select Transcript Directory"
+        title={t("dialogs.parseJob.pickerTitle")}
       />
     </>
   );

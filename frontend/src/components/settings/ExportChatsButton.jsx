@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { Button, CircularProgress, Tooltip } from "@mui/material";
 import { exportChatSessions } from "../../api/chatService";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * Button that exports all chat sessions through the backend.
@@ -14,6 +15,7 @@ import { exportChatSessions } from "../../api/chatService";
  * @param {boolean} [props.disabled] - Disable while the page is loading or another data job runs.
  */
 const ExportChatsButton = ({ showMessage, disabled = false }) => {
+  const { t } = useUiTranslation();
   const [isExporting, setIsExporting] = useState(false);
 
   const handleClick = async () => {
@@ -22,27 +24,27 @@ const ExportChatsButton = ({ showMessage, disabled = false }) => {
       const result = await exportChatSessions();
       const where = result.relative_directory || result.directory;
       showMessage(
-        `Exported ${result.sessions} chat${result.sessions === 1 ? "" : "s"} (${result.messages} messages) to outputs/${where}`,
+        t("settingsSections.exportChats.exported", { count: result.sessions, messages: result.messages, where }),
         "success",
       );
     } catch (err) {
-      showMessage(`Chat export failed: ${err.message}`, "error");
+      showMessage(t("settingsSections.exportChats.failed", { error: err.message }), "error");
     } finally {
       setIsExporting(false);
     }
   };
 
   return (
-    <Tooltip title={isExporting ? "Export in progress..." : "Write every chat session to data/outputs/chat-exports"}>
+    <Tooltip title={isExporting ? t("settingsSections.exportChats.inProgress") : t("settingsSections.exportChats.tooltip")}>
       <span>
         <Button
           variant="outlined"
           size="small"
           onClick={handleClick}
           disabled={disabled || isExporting}
-          aria-label="Export chats"
+          aria-label={t("settingsSections.exportChats.ariaLabel")}
         >
-          {isExporting ? <CircularProgress size={16} /> : "Export Chats"}
+          {isExporting ? <CircularProgress size={16} /> : t("settingsSections.exportChats.button")}
         </Button>
       </span>
     </Tooltip>

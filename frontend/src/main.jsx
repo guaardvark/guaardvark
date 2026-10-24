@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import axios from "axios";
+// The interface language loads before anything renders a string.
+import "./i18n";
 import App from "./App.jsx";
 import { installBackendCredentials } from "./api/apiAuth";
 import { installQueueMessages } from "./api/taskQueue";

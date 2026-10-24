@@ -1,6 +1,7 @@
 // frontend/src/api/addressService.js
 // Address suggestions: on-file addresses first, then an optional provider.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 /**
  * Suggest addresses matching `q`.
@@ -57,7 +58,7 @@ export const setAddressProvider = async (body) => {
   const data = await handleResponse(response);
   if (data?.error) {
     throw new Error(
-      typeof data.error === "string" ? data.error : data.error.message || "Request failed",
+      typeof data.error === "string" ? data.error : data.error.message || translate("messages.address.requestFailed"),
     );
   }
   return data?.data ?? data;

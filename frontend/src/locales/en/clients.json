@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "Failed to fetch clients.",
+    "loadError": "Error loading clients: {{error}}",
+    "updated": "Client updated successfully!",
+    "created": "Client created successfully!",
+    "updateError": "Error updateing client.",
+    "createError": "Error createing client.",
+    "deleteConfirm": "Are you sure you want to delete client \"{{name}}\" (ID: {{id}})? This may affect associated projects.",
+    "deleteConfirmUnnamed": "Are you sure you want to delete client \"this client\" (ID: {{id}})? This may affect associated projects.",
+    "deleted": "Client \"{{name}}\" deleted successfully!",
+    "deleteError": "Error deleting client.",
+    "missingClient": "Client data is missing. Cannot open linking modal.",
+    "linksUpdated": "Project links updated successfully!",
+    "projectsFetchError": "Error fetching projects: {{error}}",
+    "linksError": "Error updating links: {{error}}",
+    "unknownError": "An unknown error occurred.",
+    "columns": {
+      "logo": "Logo",
+      "name": "Client Name",
+      "email": "Email",
+      "phone": "Phone",
+      "projects": "Projects #",
+      "notes": "Notes",
+      "updated": "Last Updated",
+      "actions": "Actions"
+    },
+    "title": "Clients",
+    "new": "New",
+    "loading": "Loading clients...",
+    "empty": "No clients found. Add one to get started!",
+    "notAvailable": "N/A",
+    "email": "Email: {{email}}",
+    "phone": "Phone: {{phone}}",
+    "noNotesTooltip": "No notes.",
+    "noNotes": "No notes",
+    "projects": "Projects: {{projects}}",
+    "linkProjects": "Link Projects",
+    "deleteClient": "Delete Client",
+    "total": "Total Clients: {{total}}",
+    "menu": {
+      "edit": "Edit",
+      "delete": "Delete",
+      "newClient": "New Client"
+    },
+    "linkProject": "Project",
+    "linkProjectsPlural": "Projects"
+  }
+}

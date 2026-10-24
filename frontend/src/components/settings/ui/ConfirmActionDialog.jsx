@@ -9,6 +9,7 @@ import { Box, Dialog, DialogActions, DialogContent, DialogTitle, Typography } fr
 import { alpha } from "@mui/material/styles";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import ActionButton from "./ActionButton";
+import { translate, useUiTranslation } from "../../../i18n";
 
 /**
  * @param {boolean}  open
@@ -30,12 +31,14 @@ const ConfirmActionDialog = ({
   facts = [],
   keeps,
   extra,
-  confirmLabel = "Confirm",
+  confirmLabel = translate("settings.ui.confirmDialog.confirm"),
   busy = false,
   reversible = false,
   onConfirm,
   onClose,
-}) => (
+}) => {
+  const { t } = useUiTranslation();
+  return (
   <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
     <DialogTitle
       sx={{ display: "flex", alignItems: "center", gap: 1, color: reversible ? "text.primary" : "error.main", fontSize: "1rem" }}
@@ -77,24 +80,25 @@ const ConfirmActionDialog = ({
       {extra}
       {keeps && (
         <Typography variant="caption" color="text.secondary">
-          Not touched: {keeps}
+          {t("settings.ui.confirmDialog.notTouched", { keeps })}
         </Typography>
       )}
       {!reversible && (
         <Typography variant="caption" sx={{ color: "error.main" }}>
-          This cannot be undone.
+          {t("settings.ui.confirmDialog.cannotUndo")}
         </Typography>
       )}
     </DialogContent>
     <DialogActions>
       <ActionButton onClick={onClose} disabled={busy}>
-        Cancel
+        {t("settings.ui.confirmDialog.cancel")}
       </ActionButton>
       <ActionButton kind={reversible ? "neutral" : "destructive"} onClick={onConfirm} loading={busy}>
         {confirmLabel}
       </ActionButton>
     </DialogActions>
   </Dialog>
-);
+  );
+};
 
 export default ConfirmActionDialog;

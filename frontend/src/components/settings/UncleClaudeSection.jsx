@@ -15,8 +15,10 @@ import { UNCLE_GOLD } from "../../utils/familyColors";
 import { ActionButton, Cluster, Hint, Line, Sep, SettingChip, StatusPill } from "./ui";
 import { claudeAdvisorService } from "../../api/claudeAdvisorService";
 import { formatUiError } from "../../utils/uiError";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 export default function UncleClaudeSection() {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,7 @@ export default function UncleClaudeSection() {
       if (claudeRes.status === "fulfilled") {
         setStatus(claudeRes.value?.data);
       } else {
-        setFailure(`Uncle Claude's status could not be read: ${formatUiError(claudeRes.reason) || "the request failed"}.`);
+        setFailure(t("settingsAccess.uncleClaude.statusReadFailed", { error: formatUiError(claudeRes.reason) || t("settingsAccess.uncleClaude.requestFailed") }));
       }
     } catch (err) {
       console.error("Failed to fetch Uncle Claude status:", err);
@@ -50,9 +52,9 @@ export default function UncleClaudeSection() {
     setTestResult(null);
     try {
       const res = await claudeAdvisorService.testConnection();
-      setTestResult({ success: true, message: res?.data?.response || "Connected" });
+      setTestResult({ success: true, message: res?.data?.response || t("settingsAccess.uncleClaude.connected") });
     } catch (err) {
-      setTestResult({ success: false, message: err.message || "Connection failed" });
+      setTestResult({ success: false, message: err.message || t("settingsAccess.uncleClaude.connectionFailed") });
     } finally {
       setTesting(false);
     }
@@ -65,7 +67,7 @@ export default function UncleClaudeSection() {
       fetchStatus();
     } catch (err) {
       console.error("Failed to update escalation mode:", err);
-      setFailure(`Escalation was not changed: ${formatUiError(err) || "the request failed"}.`);
+      setFailure(t("settingsAccess.uncleClaude.escalationFailed", { error: formatUiError(err) || t("settingsAccess.uncleClaude.requestFailed") }));
     }
   };
 
@@ -76,7 +78,7 @@ export default function UncleClaudeSection() {
       fetchStatus();
     } catch (err) {
       console.error("Failed to update scheduled sends:", err);
-      setFailure(`Scheduled sends were not changed: ${formatUiError(err) || "the request failed"}.`);
+      setFailure(t("settingsAccess.uncleClaude.scheduledFailed", { error: formatUiError(err) || t("settingsAccess.uncleClaude.requestFailed") }));
     }
   };
 
@@ -87,20 +89,20 @@ export default function UncleClaudeSection() {
   const usage = status?.usage || {};
   const budgetPercent = usage.budget_used_percent || 0;
   const connection = !status && failure
-    ? { tone: "error", label: "Status unknown" }
+    ? { tone: "error", label: t("settingsAccess.uncleClaude.statusUnknown") }
     : !status?.available
-    ? { tone: "warn", label: "Not configured" }
+    ? { tone: "warn", label: t("settingsAccess.uncleClaude.notConfigured") }
     : testResult === null
-      ? { tone: "ok", label: "API key set" }
+      ? { tone: "ok", label: t("settingsAccess.uncleClaude.apiKeySet") }
       : testResult.success
-        ? { tone: "ok", label: "Verified" }
-        : { tone: "error", label: "Connection failed" };
+        ? { tone: "ok", label: t("settingsAccess.uncleClaude.verified") }
+        : { tone: "error", label: t("settingsAccess.uncleClaude.connectionFailed") };
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
       <Cluster
         label="Uncle Claude"
-        help="An optional mentor: Guaardvark asks Anthropic's Claude for help over the internet. It needs your own Anthropic API key, and every request counts against the monthly token budget below."
+        help={t("settingsAccess.uncleClaude.help")}
       >
         <Line>
           <StatusPill tone={connection.tone} label={connection.label} />
@@ -110,30 +112,30 @@ export default function UncleClaudeSection() {
             loading={testing}
             disabled={!status?.available}
             startIcon={<PlayIcon />}
-            tooltip="Sends one request to Anthropic. It counts against the token budget."
+            tooltip={t("settingsAccess.uncleClaude.testTooltip")}
           >
-            Test connection
+            {t("settingsAccess.uncleClaude.testConnection")}
           </ActionButton>
           <Sep />
           <FormControl size="small" sx={{ minWidth: 210 }}>
-            <InputLabel id="uncle-escalation-label">Escalation</InputLabel>
+            <InputLabel id="uncle-escalation-label">{t("settingsAccess.uncleClaude.escalation")}</InputLabel>
             <Select
               labelId="uncle-escalation-label"
-              label="Escalation"
+              label={t("settingsAccess.uncleClaude.escalation")}
               value={status?.escalation_mode || "manual"}
               onChange={handleEscalationModeChange}
             >
-              <MenuItem value="manual">Manual (user triggers)</MenuItem>
-              <MenuItem value="smart">Smart (auto when local fails)</MenuItem>
-              <MenuItem value="always">Always (every query, paid)</MenuItem>
+              <MenuItem value="manual">{t("settingsAccess.uncleClaude.escalationManual")}</MenuItem>
+              <MenuItem value="smart">{t("settingsAccess.uncleClaude.escalationSmart")}</MenuItem>
+              <MenuItem value="always">{t("settingsAccess.uncleClaude.escalationAlways")}</MenuItem>
             </Select>
           </FormControl>
           <SettingChip
-            label="Scheduled sends"
+            label={t("settingsAccess.uncleClaude.scheduledSends")}
             on={!!status?.scheduled_sends}
             onToggle={handleToggleScheduledSends}
             disabled={!status?.available}
-            tooltip="On: Uncle Claude contacts Anthropic on its own schedule — advice twice a day (time and GPU details) and reviews of servo changes (a source excerpt and the diff). Off: it only runs when you start it here."
+            tooltip={t("settingsAccess.uncleClaude.scheduledTooltip")}
           />
         </Line>
         {failure && (
@@ -148,8 +150,11 @@ export default function UncleClaudeSection() {
         )}
         <Line>
           <Hint>
-            {(usage.total_tokens || 0).toLocaleString()} / {(usage.monthly_budget || 0).toLocaleString()} tokens ·{" "}
-            {budgetPercent}% used
+            {t("settingsAccess.uncleClaude.usage", {
+              used: (usage.total_tokens || 0).toLocaleString(uiLocale()),
+              budget: (usage.monthly_budget || 0).toLocaleString(uiLocale()),
+              percent: budgetPercent,
+            })}
           </Hint>
           <LinearProgress
             variant="determinate"
@@ -168,12 +173,12 @@ export default function UncleClaudeSection() {
       </Cluster>
 
       <Cluster
-        label="Self-improvement"
-        help="Guaardvark checks its own code and proposes fixes for you to review. Its switches, the self-check, pending fixes and the run log have their own page."
+        label={t("settingsAccess.uncleClaude.selfImprovement")}
+        help={t("settingsAccess.uncleClaude.selfImprovementHelp")}
       >
         <Line>
           <ActionButton onClick={() => navigate("/self-improvement")}>
-            Open Self-improvement
+            {t("settingsAccess.uncleClaude.openSelfImprovement")}
           </ActionButton>
         </Line>
       </Cluster>

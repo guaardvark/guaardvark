@@ -2,11 +2,13 @@
  * Words for the voice session's state, shared by the mic buttons, their
  * popover and the Voice page.
  */
+import { translate } from "../i18n";
 
+// Getters, so each read follows the interface's language.
 const CLICK_HINT = {
-  handsfree: "Click to start hands-free listening",
-  toggle: "Click and speak; it sends when you pause",
-  push: "Hold to talk",
+  get handsfree() { return translate("messages.voicePhase.clickHint.handsfree"); },
+  get toggle() { return translate("messages.voicePhase.clickHint.toggle"); },
+  get push() { return translate("messages.voicePhase.clickHint.push"); },
 };
 
 /**
@@ -18,36 +20,36 @@ export function describeVoicePhase(state, { systemName = "Guaardvark", mode = "h
   const s = state || {};
   switch (s.phase) {
     case "requesting-permission":
-      return { title: "Waiting for microphone permission", hint: "Allow the microphone in the browser prompt." };
+      return { title: translate("messages.voicePhase.requestingPermission.title"), hint: translate("messages.voicePhase.requestingPermission.hint") };
     case "listening":
       return s.listenMode === "passive"
-        ? { title: `Waiting for “Hey ${systemName}”`, hint: "Say the wake phrase, then your request." }
-        : { title: "Listening", hint: "Speak; each pause sends a message. Click to stop." };
+        ? { title: translate("messages.voicePhase.waitingForWake.title", { systemName }), hint: translate("messages.voicePhase.waitingForWake.hint") }
+        : { title: translate("messages.voicePhase.listening.title"), hint: translate("messages.voicePhase.listening.hint") };
     case "capturing":
       return s.push
-        ? { title: "Recording", hint: "Release to send." }
-        : { title: "Hearing you", hint: "Pause to send." };
+        ? { title: translate("messages.voicePhase.recording.title"), hint: translate("messages.voicePhase.recording.hint") }
+        : { title: translate("messages.voicePhase.hearing.title"), hint: translate("messages.voicePhase.hearing.hint") };
     case "transcribing":
-      return { title: "Transcribing", hint: "" };
+      return { title: translate("messages.voicePhase.transcribing"), hint: "" };
     case "sending":
-      return { title: "Sending to chat", hint: "" };
+      return { title: translate("messages.voicePhase.sending"), hint: "" };
     case "responding":
-      return { title: "Waiting for the reply", hint: s.session ? "Still listening." : "" };
+      return { title: translate("messages.voicePhase.responding.title"), hint: s.session ? translate("messages.voicePhase.responding.hint") : "" };
     case "speaking":
-      return { title: "Speaking the reply", hint: "The mic is paused while it speaks." };
+      return { title: translate("messages.voicePhase.speaking.title"), hint: translate("messages.voicePhase.speaking.hint") };
     case "denied":
-      return { title: "Microphone blocked", hint: s.error || "" };
+      return { title: translate("messages.voicePhase.denied"), hint: s.error || "" };
     case "error":
-      return { title: "Voice is not working", hint: s.error || "" };
+      return { title: translate("messages.voicePhase.error"), hint: s.error || "" };
     default:
-      return { title: "Mic off", hint: CLICK_HINT[mode] || CLICK_HINT.handsfree };
+      return { title: translate("messages.voicePhase.micOff"), hint: CLICK_HINT[mode] || CLICK_HINT.handsfree };
   }
 }
 
 export const OUTCOME_LABELS = Object.freeze({
-  sent: "sent",
-  wake: "wake phrase",
-  ignored: "no wake phrase, not sent",
-  unsent: "no chat open, not sent",
-  failed: "send failed",
+  get sent() { return translate("messages.voicePhase.outcomes.sent"); },
+  get wake() { return translate("messages.voicePhase.outcomes.wake"); },
+  get ignored() { return translate("messages.voicePhase.outcomes.ignored"); },
+  get unsent() { return translate("messages.voicePhase.outcomes.unsent"); },
+  get failed() { return translate("messages.voicePhase.outcomes.failed"); },
 });

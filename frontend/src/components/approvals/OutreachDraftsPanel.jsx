@@ -29,6 +29,7 @@ import {
 import { Link as RouterLink } from "react-router-dom";
 import { approveDraft, fetchWatchedPost, postNow, rejectDraft } from "../../api/outreachService";
 import { useAppStore } from "../../stores/useAppStore";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 // While this panel is open it follows the Agent Screen and a running post
 // closely enough for the button to follow the viewer being opened or closed.
@@ -39,14 +40,29 @@ const formatWhen = (iso) => {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
   const mins = Math.round((Date.now() - then) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return translate("approvals.when.justNow");
+  if (mins < 60) return translate("approvals.when.minutesAgo", { minutes: mins });
   const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return new Date(iso).toLocaleDateString();
+  if (hours < 24) return translate("approvals.when.hoursAgo", { hours });
+  return new Date(iso).toLocaleDateString(uiLocale());
 };
 
+// A draft's status as shown; the value from the API stays the one compared.
+const draftStatusLabel = (status) =>
+  ({
+    candidate: translate("approvals.outreach.status.candidate"),
+    drafted: translate("approvals.outreach.status.drafted"),
+    approved: translate("approvals.outreach.status.approved"),
+    rejected: translate("approvals.outreach.status.rejected"),
+    processing: translate("approvals.outreach.status.processing"),
+    submitting: translate("approvals.outreach.status.submitting"),
+    posted: translate("approvals.outreach.status.posted"),
+    aborted: translate("approvals.outreach.status.aborted"),
+    unsupported: translate("approvals.outreach.status.unsupported"),
+  })[status] ?? status;
+
 const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChanged, showMessage }) => {
+  const { t } = useUiTranslation();
   const [selectedId, setSelectedId] = useState(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -87,10 +103,10 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     try {
       if (approve) {
         const row = await approveDraft(selected.id, text !== selected.draft_text ? text : null);
-        showMessage?.(`Approved. ${row?.next || ""}`.trim());
+        showMessage?.(t("approvals.outreach.approvedNext", { next: row?.next || "" }).trim());
       } else {
         await rejectDraft(selected.id);
-        showMessage?.("Rejected; it will not post");
+        showMessage?.(t("approvals.outreach.rejected"));
       }
       setSelectedId(null);
       await Promise.all([onChanged?.(), refreshWatched()]);
@@ -106,7 +122,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     setError(null);
     try {
       const out = await postNow(selected.id);
-      showMessage?.(out?.message || "Posting; watch the Agent Screen");
+      showMessage?.(out?.message || t("approvals.outreach.postingStarted"));
       await refreshWatched();
     } catch (err) {
       setError(err.message);
@@ -124,7 +140,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             <Typography variant="body2" noWrap sx={{ minWidth: 0 }}>
               {d.action}
             </Typography>
-            {watched?.running?.event_id === d.id && <Chip label="posting" size="small" color="info" />}
+            {watched?.running?.event_id === d.id && <Chip label={t("approvals.outreach.postingChip")} size="small" color="info" />}
           </Stack>
         }
         secondary={
@@ -133,7 +149,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             color="text.secondary"
             sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
           >
-            {d.draft_text || "(no text)"} · {formatWhen(d.created_at)}
+            {d.draft_text || t("approvals.noText")} · {formatWhen(d.created_at)}
           </Typography>
         }
       />
@@ -151,7 +167,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     if (!drafts?.length && !waiting.length) {
       return (
         <Alert severity="info" sx={{ m: 2 }}>
-          No outreach drafts are waiting.
+          {t("approvals.outreach.empty")}
         </Alert>
       );
     }
@@ -159,13 +175,13 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
       <List dense disablePadding sx={{ maxHeight: 520, overflowY: "auto" }}>
         {waiting.length > 0 && (
           <>
-            <ListSubheader disableSticky>Approved: ready for Post now ({waiting.length})</ListSubheader>
+            <ListSubheader disableSticky>{t("approvals.outreach.readyHeading", { count: waiting.length })}</ListSubheader>
             {waiting.map(renderItem)}
           </>
         )}
         {drafts?.length > 0 && (
           <>
-            <ListSubheader disableSticky>Waiting for approval ({drafts.length})</ListSubheader>
+            <ListSubheader disableSticky>{t("approvals.outreach.waitingHeading", { count: drafts.length })}</ListSubheader>
             {drafts.map(renderItem)}
           </>
         )}
@@ -181,12 +197,10 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     return (
       <>
         <Paper variant="outlined" sx={{ p: 2, mt: 2, whiteSpace: "pre-wrap" }}>
-          <Typography variant="body2">{selected.draft_text || "(no text)"}</Typography>
+          <Typography variant="body2">{selected.draft_text || t("approvals.noText")}</Typography>
         </Paper>
         <Alert severity="info" icon={<DesktopWindowsIcon />} sx={{ mt: 2 }}>
-          Post now drives the agent&apos;s browser on the Agent Screen: it opens the page above, types
-          this text and submits it, one post per click. Keep the Agent Screen open and watch until it
-          finishes; if the screen is closed before the submit step, nothing is posted.
+          {t("approvals.outreach.postNowNote")}
         </Alert>
         {!watching && (
           <Alert
@@ -194,16 +208,16 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             sx={{ mt: 1 }}
             action={
               <Button color="inherit" size="small" onClick={() => setAgentScreenOpen(true)}>
-                Open Agent Screen
+                {t("approvals.outreach.openAgentScreen")}
               </Button>
             }
           >
-            {watched?.watching_reason || "The Agent Screen is not open."}
+            {watched?.watching_reason || t("approvals.outreach.screenClosed")}
           </Alert>
         )}
         {runningThis && (
           <Alert severity="info" sx={{ mt: 1 }}>
-            Posting now. Watch the Agent Screen.
+            {t("approvals.outreach.postingNow")}
           </Alert>
         )}
         {last && !runningThis && (
@@ -223,15 +237,15 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             disabled={busy || !watching || Boolean(running)}
             onClick={startPost}
           >
-            {busy ? "Starting…" : "Post now, I'm watching"}
+            {busy ? t("approvals.outreach.starting") : t("approvals.outreach.postNow")}
           </Button>
           <Button color="error" startIcon={<CancelIcon />} disabled={busy || runningThis} onClick={() => act(false)}>
-            Reject
+            {t("approvals.outreach.reject")}
           </Button>
           <Box sx={{ flex: 1 }} />
           {running && !runningThis && (
             <Typography variant="caption" color="text.secondary">
-              Draft #{running.event_id} is posting; one at a time.
+              {t("approvals.outreach.otherPosting", { id: running.event_id })}
             </Typography>
           )}
         </Stack>
@@ -243,7 +257,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     if (!selected) {
       return (
         <Typography variant="body2" color="text.secondary" sx={{ p: 3 }}>
-          Select a draft to read and approve it.
+          {t("approvals.outreach.selectPrompt")}
         </Typography>
       );
     }
@@ -252,9 +266,9 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }} flexWrap="wrap">
           <Typography variant="h6">{selected.platform}</Typography>
           <Chip label={selected.action} size="small" variant="outlined" />
-          <Chip label={selected.status} size="small" color={isWaiting ? "success" : "default"} />
+          <Chip label={draftStatusLabel(selected.status)} size="small" color={isWaiting ? "success" : "default"} />
           {selected.grade_score != null && (
-            <Chip label={`grade ${Number(selected.grade_score).toFixed(2)}`} size="small" variant="outlined" />
+            <Chip label={t("approvals.outreach.grade", { score: Number(selected.grade_score).toFixed(2) })} size="small" variant="outlined" />
           )}
         </Stack>
         {selected.target_url && (
@@ -269,7 +283,7 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
         ) : (
           <>
             <TextField
-              label="What will be posted"
+              label={t("approvals.outreach.textLabel")}
               value={text}
               onChange={(e) => setText(e.target.value)}
               multiline
@@ -283,19 +297,18 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
             )}
             <Stack direction="row" spacing={1} sx={{ mt: 2 }} alignItems="center">
               <Button variant="contained" startIcon={<CheckCircleIcon />} disabled={busy || !text.trim()} onClick={() => act(true)}>
-                {busy ? "Working…" : "Approve"}
+                {busy ? t("approvals.working") : t("approvals.outreach.approve")}
               </Button>
               <Button color="error" startIcon={<CancelIcon />} disabled={busy} onClick={() => act(false)}>
-                Reject
+                {t("approvals.outreach.reject")}
               </Button>
               <Box sx={{ flex: 1 }} />
               <Link component={RouterLink} to="/outreach" variant="body2">
-                Outreach page
+                {t("approvals.outreach.outreachPage")}
               </Link>
             </Stack>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-              Approving posts nothing. A Reddit, YouTube or Facebook draft then waits here for Post now;
-              the Discord bot sends a Discord draft.
+              {t("approvals.outreach.approveNote")}
             </Typography>
           </>
         )}

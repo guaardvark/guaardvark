@@ -33,6 +33,7 @@ import _DeleteOutlineIcon from "@mui/icons-material/DeleteOutline"; // For the d
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import AddIcon from "@mui/icons-material/Add";
 import { getLogoUrl } from "../../config/logoConfig";
+import { useUiTranslation } from "../../i18n";
 
 // Common dropdown options for multi-select fields
 const CONTENT_GOALS_OPTIONS = [
@@ -97,6 +98,7 @@ const ClientActionModal = ({
   onOpenLinker, // This function will be called with clientData
   isSaving,
 }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState(initialFormState);
   const [formError, setFormError] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
@@ -206,11 +208,11 @@ const ClientActionModal = ({
     if (event) event.preventDefault();
 
     if (!formData.name.trim()) {
-      setFormError("Client Name is required.");
+      setFormError(t("dialogs.clientAction.nameRequired"));
       return;
     }
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      setFormError("Invalid email format. Please correct or leave empty.");
+      setFormError(t("dialogs.clientAction.invalidEmail"));
       return;
     }
     setFormError(null);
@@ -222,7 +224,7 @@ const ClientActionModal = ({
       // Consider using a more robust confirmation dialog for deletions
       if (
         window.confirm(
-          `Are you sure you want to delete client "${formData.name || "this client"}"? This action cannot be undone.`,
+          t("dialogs.clientAction.deleteConfirm", { name: formData.name || t("dialogs.clientAction.thisClient") }),
         )
       ) {
         onDelete(clientData.id);
@@ -234,9 +236,9 @@ const ClientActionModal = ({
 
   const getTitle = () => {
     if (isEditMode) {
-      return `Edit Client: ${clientData?.name || `ID: ${clientData?.id}`}`;
+      return t("dialogs.clientAction.editTitle", { name: clientData?.name || t("dialogs.clientAction.idFallback", { id: clientData?.id }) });
     }
-    return "Add New Client";
+    return t("dialogs.clientAction.addTitle");
   };
 
   // Correctly call onOpenLinker with the current clientData
@@ -249,7 +251,7 @@ const ClientActionModal = ({
       console.error(
         "ClientActionModal: clientData is missing for onOpenLinker call.",
       );
-      setFormError("Cannot manage links: Client data not available.");
+      setFormError(t("dialogs.clientAction.linksUnavailable"));
     }
   };
 
@@ -361,14 +363,14 @@ const ClientActionModal = ({
                 fullWidth
                 margin="dense"
                 id="client-name"
-                label="Client Name"
+                label={t("dialogs.clientAction.clientName")}
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
                 error={!!formError && !formData.name.trim()} // Specific error for name
                 helperText={
                   !!formError && !formData.name.trim()
-                    ? "Name cannot be empty"
+                    ? t("dialogs.clientAction.nameEmpty")
                     : ""
                 }
                 disabled={isSaving}
@@ -379,13 +381,13 @@ const ClientActionModal = ({
                 fullWidth
                 margin="dense"
                 id="client-email"
-                label="Email Address"
+                label={t("dialogs.clientAction.email")}
                 name="email"
                 type="email"
                 value={formData.email}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                helperText="Optional: Client's primary email."
+                helperText={t("dialogs.clientAction.emailHelp")}
               />
             </Grid>
             <Grid item xs={12} sm={6}>
@@ -393,12 +395,12 @@ const ClientActionModal = ({
                 fullWidth
                 margin="dense"
                 id="client-phone"
-                label="Phone Number"
+                label={t("dialogs.clientAction.phone")}
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                helperText="Optional: Client's contact phone."
+                helperText={t("dialogs.clientAction.phoneHelp")}
               />
             </Grid>
             <Grid item xs={12}>
@@ -406,13 +408,13 @@ const ClientActionModal = ({
                 fullWidth
                 margin="dense"
                 id="client-location"
-                label="Location"
+                label={t("dialogs.clientAction.location")}
                 name="location"
-                placeholder="City, State (e.g., Miami, FL)"
+                placeholder={t("dialogs.clientAction.locationPlaceholder")}
                 value={formData.location}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                helperText="Optional: Client's primary business location."
+                helperText={t("dialogs.clientAction.locationHelp")}
               />
             </Grid>
             <Grid item xs={12} sx={{ textAlign: "center" }}>
@@ -435,7 +437,7 @@ const ClientActionModal = ({
                 {previewUrl ? (
                   <img
                     src={previewUrl}
-                    alt="Client logo preview"
+                    alt={t("dialogs.clientAction.logoPreview")}
                     style={{
                       width: "100%",
                       height: "100%",
@@ -444,7 +446,7 @@ const ClientActionModal = ({
                   />
                 ) : (
                   <Box sx={{ color: "text.secondary", fontSize: "0.75rem" }}>
-                    Upload Logo
+                    {t("dialogs.clientAction.uploadLogo")}
                   </Box>
                 )}
               </Box>
@@ -462,14 +464,14 @@ const ClientActionModal = ({
                 fullWidth
                 margin="dense"
                 id="client-notes"
-                label="Notes"
+                label={t("dialogs.clientAction.notes")}
                 name="notes"
                 multiline
                 rows={3}
                 value={formData.notes}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                helperText="Any relevant notes about this client."
+                helperText={t("dialogs.clientAction.notesHelp")}
               />
             </Grid>
 
@@ -478,7 +480,7 @@ const ClientActionModal = ({
               <Accordion>
                 <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                   <Typography variant="subtitle1" fontWeight="bold">
-                    RAG Training Data (Optional)
+                    {t("dialogs.clientAction.ragSection")}
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
@@ -489,7 +491,7 @@ const ClientActionModal = ({
                         fullWidth
                         margin="dense"
                         id="industry-input"
-                        label="Add Industry/Category"
+                        label={t("dialogs.clientAction.addIndustry")}
                         value={industryInput}
                         onChange={(e) => setIndustryInput(e.target.value)}
                         onKeyPress={(e) => {
@@ -499,7 +501,7 @@ const ClientActionModal = ({
                           }
                         }}
                         disabled={isSaving}
-                        placeholder="e.g., Healthcare, Legal, E-commerce"
+                        placeholder={t("dialogs.clientAction.industryPlaceholder")}
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
@@ -513,7 +515,7 @@ const ClientActionModal = ({
                             </InputAdornment>
                           ),
                         }}
-                        helperText="Industry/market classification"
+                        helperText={t("dialogs.clientAction.industryHelp")}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.industry.map((item, index) => (
@@ -534,7 +536,7 @@ const ClientActionModal = ({
                         fullWidth
                         margin="dense"
                         id="geographic-input"
-                        label="Add Location"
+                        label={t("dialogs.clientAction.addLocation")}
                         value={geographicInput}
                         onChange={(e) => setGeographicInput(e.target.value)}
                         onKeyPress={(e) => {
@@ -544,7 +546,7 @@ const ClientActionModal = ({
                           }
                         }}
                         disabled={isSaving}
-                        placeholder="City, State, or Zip Code"
+                        placeholder={t("dialogs.clientAction.geoPlaceholder")}
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
@@ -558,7 +560,7 @@ const ClientActionModal = ({
                             </InputAdornment>
                           ),
                         }}
-                        helperText="Service areas (cities/states/zips)"
+                        helperText={t("dialogs.clientAction.geoHelp")}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.geographic_coverage.map((item, index) => (
@@ -600,9 +602,9 @@ const ClientActionModal = ({
                           <TextField
                             {...params}
                             margin="dense"
-                            label="Target Audience"
-                            placeholder="Select or type custom audience..."
-                            helperText="Who is this client's target customer?"
+                            label={t("dialogs.clientAction.targetAudience")}
+                            placeholder={t("dialogs.clientAction.audiencePlaceholder")}
+                            helperText={t("dialogs.clientAction.audienceHelp")}
                           />
                         )}
                       />
@@ -636,9 +638,9 @@ const ClientActionModal = ({
                           <TextField
                             {...params}
                             margin="dense"
-                            label="Unique Selling Points"
-                            placeholder="Select or type custom USPs..."
-                            helperText="Key differentiators and value propositions"
+                            label={t("dialogs.clientAction.usps")}
+                            placeholder={t("dialogs.clientAction.uspPlaceholder")}
+                            helperText={t("dialogs.clientAction.uspHelp")}
                           />
                         )}
                       />
@@ -672,9 +674,9 @@ const ClientActionModal = ({
                           <TextField
                             {...params}
                             margin="dense"
-                            label="Content Goals"
-                            placeholder="Select or type custom goals..."
-                            helperText="Content marketing objectives"
+                            label={t("dialogs.clientAction.contentGoals")}
+                            placeholder={t("dialogs.clientAction.goalsPlaceholder")}
+                            helperText={t("dialogs.clientAction.goalsHelp")}
                           />
                         )}
                       />
@@ -684,15 +686,15 @@ const ClientActionModal = ({
                         fullWidth
                         margin="dense"
                         id="client-brand-voice-examples"
-                        label="Brand Voice Examples"
+                        label={t("dialogs.clientAction.brandVoice")}
                         name="brand_voice_examples"
                         multiline
                         rows={3}
                         value={formData.brand_voice_examples}
                         onChange={handleInputChange}
                         disabled={isSaving}
-                        placeholder="Paste sample content showing desired tone/voice..."
-                        helperText="Example content that demonstrates the brand voice"
+                        placeholder={t("dialogs.clientAction.brandVoicePlaceholder")}
+                        helperText={t("dialogs.clientAction.brandVoiceHelp")}
                       />
                     </Grid>
                     <Grid item xs={12}>
@@ -700,15 +702,15 @@ const ClientActionModal = ({
                         fullWidth
                         margin="dense"
                         id="client-regulatory-constraints"
-                        label="Regulatory/Compliance Requirements"
+                        label={t("dialogs.clientAction.regulatory")}
                         name="regulatory_constraints"
                         multiline
                         rows={2}
                         value={formData.regulatory_constraints}
                         onChange={handleInputChange}
                         disabled={isSaving}
-                        placeholder="e.g., HIPAA, GDPR, FDA guidelines..."
-                        helperText="Industry-specific compliance requirements"
+                        placeholder={t("dialogs.clientAction.regulatoryPlaceholder")}
+                        helperText={t("dialogs.clientAction.regulatoryHelp")}
                       />
                     </Grid>
 
@@ -718,7 +720,7 @@ const ClientActionModal = ({
                         fullWidth
                         margin="dense"
                         id="keyword-input"
-                        label="Add Target Keyword"
+                        label={t("dialogs.clientAction.addKeyword")}
                         value={keywordInput}
                         onChange={(e) => setKeywordInput(e.target.value)}
                         onKeyPress={(e) => {
@@ -728,7 +730,7 @@ const ClientActionModal = ({
                           }
                         }}
                         disabled={isSaving}
-                        placeholder="Enter keyword and press Enter or click +"
+                        placeholder={t("dialogs.clientAction.keywordPlaceholder")}
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
@@ -742,7 +744,7 @@ const ClientActionModal = ({
                             </InputAdornment>
                           ),
                         }}
-                        helperText="SEO keywords for content generation"
+                        helperText={t("dialogs.clientAction.keywordHelp")}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.keywords.map((keyword, index) => (
@@ -763,7 +765,7 @@ const ClientActionModal = ({
                         fullWidth
                         margin="dense"
                         id="competitor-url-input"
-                        label="Add Competitor URL"
+                        label={t("dialogs.clientAction.addCompetitor")}
                         value={competitorUrlInput}
                         onChange={(e) => setCompetitorUrlInput(e.target.value)}
                         onKeyPress={(e) => {
@@ -773,7 +775,7 @@ const ClientActionModal = ({
                           }
                         }}
                         disabled={isSaving}
-                        placeholder="Enter competitor URL and press Enter or click +"
+                        placeholder={t("dialogs.clientAction.competitorPlaceholder")}
                         InputProps={{
                           endAdornment: (
                             <InputAdornment position="end">
@@ -787,7 +789,7 @@ const ClientActionModal = ({
                             </InputAdornment>
                           ),
                         }}
-                        helperText="Competitor websites for analysis"
+                        helperText={t("dialogs.clientAction.competitorHelp")}
                       />
                       <Box sx={{ mt: 1, display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                         {formData.competitor_urls.map((url, index) => (
@@ -815,7 +817,7 @@ const ClientActionModal = ({
         <Box sx={{ display: "flex", gap: 1 }}>
           {isEditMode && (
             // MODIFIED: Changed IconButton to Button for Delete
-            <Tooltip title="Delete this client">
+            <Tooltip title={t("dialogs.clientAction.deleteTooltip")}>
               <span>
                 <Button
                   variant="text"
@@ -824,14 +826,14 @@ const ClientActionModal = ({
                   disabled={isSaving}
                   size="small"
                 >
-                  Delete
+                  {t("dialogs.shared.delete")}
                 </Button>
               </span>
             </Tooltip>
           )}
           {isEditMode &&
             onOpenLinker && ( // Only show if in edit mode and handler exists
-              <Tooltip title="Manage Linked Items (e.g., Projects)">
+              <Tooltip title={t("dialogs.clientAction.manageLinksTooltip")}>
                 <Button
                   variant="contained"
                   size="small"
@@ -839,14 +841,14 @@ const ClientActionModal = ({
                   onClick={handleManageLinks} // Use the new handler
                   disabled={isSaving}
                 >
-                  Manage Links
+                  {t("dialogs.clientAction.manageLinks")}
                 </Button>
               </Tooltip>
             )}
         </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button onClick={onClose} disabled={isSaving} color="inherit">
-            Cancel
+            {t("dialogs.shared.cancel")}
           </Button>
           <Button
             type="submit" // To allow Enter key submission from the form
@@ -861,9 +863,9 @@ const ClientActionModal = ({
             {isSaving ? (
               <CircularProgress size={24} color="inherit" />
             ) : isEditMode ? (
-              "Save Changes"
+              t("dialogs.clientAction.saveChanges")
             ) : (
-              "Create Client"
+              t("dialogs.clientAction.createClient")
             )}
           </Button>
         </Box>

@@ -39,6 +39,7 @@ import VoiceSettingsModal from "../components/modals/VoiceSettingsModal";
 import ExportChatsButton from "../components/settings/ExportChatsButton";
 import ProfileSection from "../components/settings/ProfileSection";
 import TipsSetting from "../components/settings/TipsSetting";
+import LanguageSetting from "../components/settings/LanguageSetting";
 import JobOrderSetting from "../components/settings/JobOrderSetting";
 import { SOCKET_URL, handleResponse } from "../api/apiClient";
 import { SUPPORT_LINKS } from "../config/constants";
@@ -99,6 +100,7 @@ import { ragAutoresearchService } from "../api/ragAutoresearchService";
 import { getMcpStatus } from "../api/mcpService";
 import { NAV_CHROME } from "../config/navCatalog";
 import copyText from "../utils/copyText";
+import { uiLocale, useUiTranslation } from "../i18n";
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -135,6 +137,7 @@ const VOICE_SETTINGS_KEY = "guaardvark_voiceSettings";
 const VOICE_CHAT_ENABLED_KEY = "guaardvark_voiceChatEnabled";
 
 const SettingsPage = () => {
+  const { t } = useUiTranslation();
   const [availableModels, setAvailableModels] = useState([]);
   // Ollama did not answer the last model list; the list then holds only the
   // saved model.
@@ -296,7 +299,7 @@ const SettingsPage = () => {
       if (interconnectorApplying) return;
       if (
         !window.confirm(
-          "Apply all interconnector updates? Existing files will be backed up automatically.",
+          t("settings.interconnector.confirmApply"),
         )
       ) {
         return;
@@ -305,13 +308,12 @@ const SettingsPage = () => {
       try {
         const response = await interconnectorApi.applyUpdates([]);
         if (response?.error) {
-          showMessage?.(`Update failed: ${response.error}`, "error");
+          showMessage?.(t("settings.interconnector.updateFailed", { error: response.error }), "error");
         } else {
           const data = response?.data || response || {};
+          const counts = { applied: data.applied || 0, created: data.created || 0, updated: data.updated || 0 };
           showMessage?.(
-            `Updated ${data.applied || 0} files (${data.created || 0} new, ${data.updated || 0} modified)${
-              data.restart_required ? ". Restart Guaardvark to finish the update." : ""
-            }`,
+            data.restart_required ? t("settings.interconnector.updatedRestart", counts) : t("settings.interconnector.updated", counts),
             "success",
           );
           // Clear the banner; a follow-up checkForUpdates will repopulate if more remain.
@@ -329,7 +331,7 @@ const SettingsPage = () => {
           }, 1000);
         }
       } catch (err) {
-        showMessage?.(`Update failed: ${err.message}`, "error");
+        showMessage?.(t("settings.interconnector.updateFailed", { error: err.message }), "error");
       } finally {
         setInterconnectorApplying(false);
       }
@@ -365,7 +367,7 @@ const SettingsPage = () => {
     imageGenStatus?.service_available && imageGenStatus?.image_generator_available,
   );
   const imageGenUnavailableHint =
-    imageGenStatus?.error || "the image service did not load; see the backend log";
+    imageGenStatus?.error || t("settings.generation.imageServiceNotLoaded");
 
   // Resource monitor and embedding model state
   const [gpuResources, setGpuResources] = useState(null);
@@ -519,7 +521,7 @@ const SettingsPage = () => {
       }
     } catch (error) {
       console.error("Failed to load voice configuration:", error);
-      setVoiceError("Failed to load voice configuration");
+      setVoiceError(t("settings.voice.loadFailed"));
       // Reset voice to empty string on error to avoid MUI warnings
       setVoiceSettings((prev) => ({
         ...prev,
@@ -537,7 +539,7 @@ const SettingsPage = () => {
       const voice = availableVoices.find((v) => v.id === voiceId);
       if (voice && voice.available === false) {
         showMessage(
-          `Voice model "${voice.name}" is not installed. Please install it first.`,
+          t("settings.voice.voiceNotInstalled", { name: voice.name }),
           "warning",
         );
         setIsVoiceTestPlaying(false);
@@ -554,22 +556,22 @@ const SettingsPage = () => {
         audio.play();
         audio.onended = () => setIsVoiceTestPlaying(false);
       } else if (response.error) {
-        showMessage(`Voice test failed: ${response.error}`, "error");
+        showMessage(t("settings.voice.testFailed", { error: response.error }), "error");
         setIsVoiceTestPlaying(false);
       }
     } catch (error) {
       console.error("Voice test failed:", error);
-      const errorMessage = error.message || "Voice test failed";
+      const errorMessage = error.message || t("settings.voice.testFailedPlain");
       if (
         errorMessage.includes("not found") ||
         errorMessage.includes("not installed")
       ) {
         showMessage(
-          "Voice model is not installed. Please install voice models first.",
+          t("settings.voice.modelsNotInstalled"),
           "warning",
         );
       } else {
-        showMessage(`Voice test failed: ${errorMessage}`, "error");
+        showMessage(t("settings.voice.testFailed", { error: errorMessage }), "error");
       }
       setIsVoiceTestPlaying(false);
     }
@@ -587,17 +589,17 @@ const SettingsPage = () => {
       setSelectedVoice(value);
       const voiceName =
         availableVoices.find((v) => v.id === value)?.name || value;
-      showMessage(`Voice changed to ${voiceName}`, "success");
+      showMessage(t("settings.voice.voiceChanged", { name: voiceName }), "success");
     } else if (setting === "ttsEnabled") {
       if (voiceContext?.setTtsEnabled) {
         voiceContext.setTtsEnabled(value);
       }
       showMessage(
-        `Text-to-Speech ${value ? "enabled" : "disabled"}`,
+        value ? t("settings.voice.ttsEnabled") : t("settings.voice.ttsDisabled"),
         "success",
       );
     } else if (setting === "micEnabled") {
-      showMessage(`Microphone ${value ? "enabled" : "disabled"}`, "success");
+      showMessage(value ? t("settings.voice.micEnabled") : t("settings.voice.micDisabled"), "success");
     }
   };
 
@@ -605,28 +607,28 @@ const SettingsPage = () => {
     setIsInstallingVoice(true);
     try {
       showMessage(
-        "Installing LibriTTS voice model... This may take a moment.",
+        t("settings.voice.installingLibriTts"),
         "info",
       );
       const result = await voiceService.installVoiceModel("libritts");
 
       if (result.success) {
         if (result.already_installed) {
-          showMessage("LibriTTS voice model is already installed.", "info");
+          showMessage(t("settings.voice.libriTtsInstalledAlready"), "info");
         } else {
           showMessage(
-            `Successfully installed LibriTTS voice model (${result.model_size_mb} MB)`,
+            t("settings.voice.libriTtsInstalled", { size: result.model_size_mb }),
             "success",
           );
         }
         // Reload voice configuration to update the UI
         await loadVoiceConfiguration();
       } else {
-        showMessage(`Failed to install voice model: ${result.error}`, "error");
+        showMessage(t("settings.voice.installFailed", { error: result.error }), "error");
       }
     } catch (error) {
       console.error("Failed to install voice model:", error);
-      showMessage(`Failed to install voice model: ${error.message}`, "error");
+      showMessage(t("settings.voice.installFailed", { error: error.message }), "error");
     } finally {
       setIsInstallingVoice(false);
     }
@@ -638,18 +640,18 @@ const SettingsPage = () => {
     try {
       showMessage(
         voiceStatus?.install_method === "pkexec"
-          ? "Approve the password prompt on your desktop, then Whisper.cpp will build."
-          : "Installing Whisper.cpp... This will clone and build from source (may take 1-2 minutes).",
+          ? t("settings.voice.whisperApprovePassword")
+          : t("settings.voice.whisperInstalling"),
         "info",
       );
       const result = await voiceService.installWhisper();
 
       if (result.success) {
         if (result.already_installed) {
-          showMessage("Whisper.cpp is already installed.", "info");
+          showMessage(t("settings.voice.whisperInstalledAlready"), "info");
         } else {
           showMessage(
-            "Whisper.cpp installed successfully! You can now use speech recognition.",
+            t("settings.voice.whisperInstalled"),
             "success",
           );
         }
@@ -660,7 +662,7 @@ const SettingsPage = () => {
           reason: result.error,
         });
       } else {
-        showMessage(`Failed to install Whisper.cpp: ${result.error}`, "error");
+        showMessage(t("settings.voice.whisperFailed", { error: result.error }), "error");
       }
     } catch (error) {
       console.error("Failed to install Whisper.cpp:", error);
@@ -671,7 +673,7 @@ const SettingsPage = () => {
           reason: data.error || error.message,
         });
       } else {
-        showMessage(`Failed to install Whisper.cpp: ${error.message}`, "error");
+        showMessage(t("settings.voice.whisperFailed", { error: error.message }), "error");
       }
     } finally {
       setIsInstallingWhisper(false);
@@ -681,9 +683,9 @@ const SettingsPage = () => {
   const copyWhisperCommand = async (command) => {
     // copyText falls back to execCommand: navigator.clipboard is absent over plain http on the LAN.
     if (await copyText(command)) {
-      showMessage("Command copied to clipboard.", "success");
+      showMessage(t("settings.voice.commandCopied"), "success");
     } else {
-      showMessage("Could not copy — select the command and copy it manually.", "warning");
+      showMessage(t("settings.voice.copyFailed"), "warning");
     }
   };
 
@@ -701,7 +703,7 @@ const SettingsPage = () => {
       if (error.status !== 409) {
         console.error("Failed to start the speech model install:", error);
         showMessage(
-          `Could not start the speech model install: ${error.message}`,
+          t("settings.voice.speechModelFailed", { error: error.message }),
           "error",
         );
         return;
@@ -849,15 +851,15 @@ const SettingsPage = () => {
 
       if (data.status === "loading") {
         setModelSwitchStatus("loading");
-        setModelSwitchMessage(data.message || `Loading ${data.model}...`);
-        showMessage(data.message || `Loading ${data.model}...`, "info");
+        setModelSwitchMessage(data.message || t("settings.models.loading", { model: data.model }));
+        showMessage(data.message || t("settings.models.loading", { model: data.model }), "info");
       } else if (data.status === "complete") {
         setModelSwitchStatus("complete");
         setModelSwitchMessage(
-          data.message || `Model switched to ${data.model}`,
+          data.message || t("settings.models.switchedTo", { model: data.model }),
         );
         showMessage(
-          data.message || `Successfully switched to ${data.model}`,
+          data.message || t("settings.models.switchedSuccess", { model: data.model }),
           "success",
         );
         // Refresh the active model display
@@ -869,8 +871,8 @@ const SettingsPage = () => {
         }, 2000);
       } else if (data.status === "error") {
         setModelSwitchStatus("error");
-        setModelSwitchMessage(data.message || "Failed to switch model");
-        showMessage(data.message || "Failed to switch model", "error");
+        setModelSwitchMessage(data.message || t("settings.models.switchFailed"));
+        showMessage(data.message || t("settings.models.switchFailed"), "error");
         // Reset status after showing error
         setTimeout(() => {
           setModelSwitchStatus("idle");
@@ -896,7 +898,7 @@ const SettingsPage = () => {
     try {
       const modelsResult = await apiService.getChatModelList();
       if (modelsResult?.error)
-        throw new Error(`Available models fetch failed: ${modelsResult.error}`);
+        throw new Error(t("settings.models.listFetchFailed", { error: modelsResult.error }));
       setOllamaOffline(modelsResult.ollamaOffline);
       let modelsList = modelsResult.models.filter((m) => m && m.name);
       // Ensure the currently active model appears in the dropdown
@@ -911,7 +913,7 @@ const SettingsPage = () => {
       setAvailableModels(modelsList);
     } catch (err) {
       console.error("SettingsPage: Failed to load available models:", err);
-      showMessage(`Failed to load available models: ${err.message}`, "error");
+      showMessage(t("settings.models.listLoadFailed", { error: err.message }), "error");
       setAvailableModels([]);
     }
   }, [activeModel, showMessage]);
@@ -969,13 +971,13 @@ const SettingsPage = () => {
       const data = result?.data ?? result;
       if (data?.gated) {
         throw new Error(
-          `Ollama was started moments ago; try again in ${Math.ceil(data.cooldown_remaining || 0)} s`,
+          t("settings.models.ollamaCooldown", { seconds: Math.ceil(data.cooldown_remaining || 0) }),
         );
       }
-      showMessage("Ollama is running", "success");
+      showMessage(t("settings.models.ollamaRunning"), "success");
       await fetchAvailableModels();
     } catch (err) {
-      showMessage(`Could not start Ollama: ${err.message}`, "error");
+      showMessage(t("settings.models.ollamaStartFailed", { error: err.message }), "error");
     } finally {
       setStartingOllama(false);
     }
@@ -1004,7 +1006,7 @@ const SettingsPage = () => {
       const result = await setChatKeepReady(next);
       setKeepReady(result?.data ?? result);
     } catch (err) {
-      showMessage(`Could not change Keep ready: ${err.message}`, "error");
+      showMessage(t("settings.models.keepReadyFailed", { error: err.message }), "error");
     } finally {
       setSavingKeepReady(false);
     }
@@ -1081,7 +1083,7 @@ const SettingsPage = () => {
       console.error("Failed to update autoresearch setting:", e);
       setAutoresearchSettings(previous);
       showMessage(
-        "Could not save the autoresearch setting; it was not changed.",
+        t("settings.knowledge.autoresearchSaveFailed"),
         "error",
       );
     }
@@ -1130,7 +1132,7 @@ const SettingsPage = () => {
         } else {
           setImageGenStatus({
             service_available: false,
-            error: "Failed to get status",
+            error: t("settings.generation.imageStatusFailed"),
           });
         }
       } catch (err) {
@@ -1203,16 +1205,16 @@ const SettingsPage = () => {
       const result = await apiService.setImageKeepLoaded(minutes);
       if (result?.error) throw new Error(result.error.message || result.error);
       const saved = (result?.data ?? result)?.minutes;
-      if (typeof saved !== "number") throw new Error("Server did not confirm the setting");
+      if (typeof saved !== "number") throw new Error(t("settings.generation.keepNotConfirmed"));
       setImageKeepMinutes(saved);
       showMessage(
         saved
-          ? `The image model now stays loaded for ${saved} minutes after each batch.`
-          : "The image model now unloads as each batch ends.",
+          ? t("settings.generation.keepMinutes", { minutes: saved })
+          : t("settings.generation.unloadEachBatch"),
         "info",
       );
     } catch (err) {
-      showMessage(`Could not save: ${err.message}`, "error");
+      showMessage(t("settings.generation.saveFailed", { error: err.message }), "error");
     } finally {
       setImageKeepSaving(false);
     }
@@ -1427,7 +1429,7 @@ const SettingsPage = () => {
     if (confirmMessage && !window.confirm(confirmMessage)) return;
 
     setIsLoading(true); // Use general isLoading for these actions as well
-    showMessage(loadingMessage || "Processing...", "info");
+    showMessage(loadingMessage || t("settings.actions.processing"), "info");
     try {
       const result = await actionFunction(...actionArgs);
       if (result?.error && !result.warning && result.error !== "User aborted") {
@@ -1438,7 +1440,7 @@ const SettingsPage = () => {
         result?.warning ||
         result?.message ||
         successMessage ||
-        "Action completed successfully.";
+        t("settings.actions.done");
       const severity = result?.warning ? "warning" : "success";
 
       showMessage(message, severity);
@@ -1449,7 +1451,7 @@ const SettingsPage = () => {
     } catch (err) {
       if (err.message !== "User aborted") {
         // Don't show error if user cancelled file dialog
-        showMessage(`${failureMessagePrefix}: ${err.message}`, "error");
+        showMessage(t("settings.actions.failed", { action: failureMessagePrefix, error: err.message }), "error");
       }
     } finally {
       if (actionFunction !== apiService.triggerReboot) {
@@ -1460,14 +1462,14 @@ const SettingsPage = () => {
 
   const handleSetModelClick = async () => {
     if (!selectedModel) {
-      showMessage("Please select a model first.", "warning");
+      showMessage(t("settings.models.selectFirst"), "warning");
       return;
     }
 
     // Model switching is now async - the backend returns 202 immediately
     // and sends socket events for progress updates
     setModelSwitchStatus("loading");
-    setModelSwitchMessage(`Switching to ${selectedModel}...`);
+    setModelSwitchMessage(t("settings.models.switching", { model: selectedModel }));
 
     try {
       const result = await apiService.setModel(selectedModel);
@@ -1491,8 +1493,8 @@ const SettingsPage = () => {
     } catch (err) {
       console.error("Failed to initiate model switch:", err);
       setModelSwitchStatus("error");
-      setModelSwitchMessage(err.message || "Failed to switch model");
-      showMessage(err.message || "Failed to switch model", "error");
+      setModelSwitchMessage(err.message || t("settings.models.switchFailed"));
+      showMessage(err.message || t("settings.models.switchFailed"), "error");
       setTimeout(() => {
         setModelSwitchStatus("idle");
         setModelSwitchMessage("");
@@ -1536,9 +1538,9 @@ const SettingsPage = () => {
       apiService.purgeIndex,
       [options],
       null,
-      "Purging index...",
-      "Index purge completed.",
-      "Failed to purge index",
+      t("settings.index.purging"),
+      t("settings.index.purged"),
+      t("settings.index.purgeFailed"),
     );
     setIsPurging(false);
     setPurgeModalOpen(false);
@@ -1558,10 +1560,10 @@ const SettingsPage = () => {
   };
   const formatByteSize = (bytes) => {
     const n = Number(bytes) || 0;
-    if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(2)} GB`;
-    if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(1)} MB`;
-    if (n >= 1024) return `${Math.round(n / 1024)} KB`;
-    return `${n} B`;
+    if (n >= 1024 ** 3) return t("settingsSections.units.gb", { size: (n / 1024 ** 3).toFixed(2) });
+    if (n >= 1024 ** 2) return t("settingsSections.units.mb", { size: (n / 1024 ** 2).toFixed(1) });
+    if (n >= 1024) return t("settingsSections.units.kb", { size: Math.round(n / 1024) });
+    return t("settingsSections.units.b", { size: n });
   };
 
   // Delete History: batch image, batch video and audio generation history —
@@ -1586,39 +1588,39 @@ const SettingsPage = () => {
   const handleConfirmDeleteHistory = async () => {
     setDeleteHistoryInProgress(true);
     setIsLoading(true);
-    showMessage("Deleting generation history...", "info");
+    showMessage(t("settings.history.deleting"), "info");
     try {
       const result = await apiService.deleteGenerationHistory();
       const d = result?.deleted || {};
       const parts = [];
-      if (d.images?.batches) parts.push(`${d.images.batches} image batch(es)`);
-      if (d.videos?.batches) parts.push(`${d.videos.batches} video batch(es)`);
+      if (d.images?.batches) parts.push(t("settings.history.imageBatches", { count: d.images.batches }));
+      if (d.videos?.batches) parts.push(t("settings.history.videoBatches", { count: d.videos.batches }));
       if (d.audio?.files || d.audio?.jobs)
         parts.push(
-          `${d.audio.files || 0} audio file(s), ${d.audio.jobs || 0} audio job(s)`,
+          t("settings.history.audio", { files: d.audio.files || 0, jobs: d.audio.jobs || 0 }),
         );
       const comfyFiles =
         (d.comfyui?.output?.files || 0) + (d.comfyui?.input?.files || 0);
-      if (comfyFiles) parts.push(`${comfyFiles} ComfyUI scratch file(s)`);
+      if (comfyFiles) parts.push(t("settings.history.comfyFiles", { count: comfyFiles }));
       const dbRows =
         (d.documents || 0) + (d.folders || 0) + (d.job_history || 0);
-      if (dbRows) parts.push(`${dbRows} database row(s)`);
+      if (dbRows) parts.push(t("settings.history.dbRows", { count: dbRows }));
       let message = parts.length
-        ? `Deleted ${parts.join(", ")} (${formatByteSize(result?.bytes_freed)} freed).`
-        : "No generation history to delete.";
+        ? t("settings.history.deleted", { items: parts.join(", "), size: formatByteSize(result?.bytes_freed) })
+        : t("settings.history.nothing");
       const skipped = result?.skipped || {};
       const skippedCount =
         (skipped.images?.length || 0) +
         (skipped.videos?.length || 0) +
         (skipped.audio?.length || 0);
-      if (skippedCount) message += ` Skipped ${skippedCount} running job(s).`;
+      if (skippedCount) message += ` ${t("settings.history.skipped", { count: skippedCount })}`;
       if (skipped.comfyui?.length)
-        message += ` ComfyUI is still rendering ${skipped.comfyui.length} prompt(s); its output and input folders were left alone.`;
+        message += ` ${t("settings.history.comfyRendering", { count: skipped.comfyui.length })}`;
       if (result?.sidecar_available === false)
         message +=
-          " Audio service was not running; its job records were removed directly.";
+          ` ${t("settings.history.audioNotRunning")}`;
       if (result?.errors?.length)
-        message += ` ${result.errors.length} error(s): ${result.errors[0]}`;
+        message += ` ${t("settings.history.errors", { count: result.errors.length, error: result.errors[0] })}`;
       showMessage(
         message,
         skippedCount || result?.errors?.length ? "warning" : "success",
@@ -1626,7 +1628,7 @@ const SettingsPage = () => {
       setDeleteHistoryDialogOpen(false);
     } catch (err) {
       showMessage(
-        `Failed to delete generation history: ${err.message}`,
+        t("settings.history.failed", { error: err.message }),
         "error",
       );
     } finally {
@@ -1638,14 +1640,14 @@ const SettingsPage = () => {
   const handleClearPycacheFoldersClick = async () => {
     if (
       !window.confirm(
-        "Clear Python bytecode cache (__pycache__)? This can help apply code changes but does not affect data or memory.",
+        t("settings.pycache.confirm"),
       )
     ) {
       return;
     }
 
     setIsLoading(true);
-    showMessage("Clearing Python cache folders...", "info");
+    showMessage(t("settings.pycache.clearing"), "info");
     try {
       const result = await apiService.clearPycache();
       if (result?.error && !result.warning && result.error !== "User aborted") {
@@ -1654,46 +1656,46 @@ const SettingsPage = () => {
 
       // Build detailed success message with statistics
       let message =
-        result?.message || "Python cache folders cleared successfully.";
+        result?.message || t("settings.pycache.cleared");
 
       if (result?.statistics) {
         const stats = result.statistics;
         const details = [];
 
         if (stats.directories_cleaned > 0) {
-          details.push(`${stats.directories_cleaned} directory(ies) cleaned`);
+          details.push(t("settings.pycache.directories", { count: stats.directories_cleaned }));
         }
 
         if (stats.pyc_files_deleted > 0) {
-          details.push(`${stats.pyc_files_deleted} .pyc file(s) deleted`);
+          details.push(t("settings.pycache.pycFiles", { count: stats.pyc_files_deleted }));
         }
 
         if (stats.size_formatted) {
-          details.push(`${stats.size_formatted} freed`);
+          details.push(t("settings.pycache.freed", { size: stats.size_formatted }));
         }
 
         if (result?.modules_purged_count > 0) {
           details.push(
-            `${result.modules_purged_count} module(s) purged from memory`,
+            t("settings.pycache.modules", { count: result.modules_purged_count }),
           );
         }
 
         if (details.length > 0) {
-          message = `Cache cleared: ${details.join(", ")}.`;
+          message = t("settings.pycache.summary", { details: details.join(", ") });
         }
 
         if (result?.locations_cleaned && result.locations_cleaned.length > 0) {
           const locationCount = result.locations_cleaned.length;
           if (locationCount <= 5) {
-            message += ` Locations: ${result.locations_cleaned.join(", ")}.`;
+            message += ` ${t("settings.pycache.locations", { locations: result.locations_cleaned.join(", ") })}`;
           } else {
-            message += ` ${locationCount} locations cleaned.`;
+            message += ` ${t("settings.pycache.locationCount", { count: locationCount })}`;
           }
         }
       }
 
       if (result?.errors && result.errors.length > 0) {
-        message += ` Note: ${result.errors.length} error(s) encountered.`;
+        message += ` ${t("settings.pycache.errorsNote", { count: result.errors.length })}`;
       }
 
       const severity = result?.warning ? "warning" : "success";
@@ -1701,7 +1703,7 @@ const SettingsPage = () => {
     } catch (err) {
       if (err.message !== "User aborted") {
         showMessage(
-          `Failed to clear Python cache folders: ${err.message}`,
+          t("settings.pycache.failed", { error: err.message }),
           "error",
         );
       }
@@ -1722,13 +1724,15 @@ const SettingsPage = () => {
       setEnhancedContext(isEnabled);
 
       showMessage(
-        `Enhanced Context ${isEnabled ? "enabled" : "disabled"}. Advanced memory features are now ${isEnabled ? "active" : "inactive"}.`,
+        isEnabled ? t("settings.rag.enhancedOn") : t("settings.rag.enhancedOff"),
         "success",
       );
     } catch (err) {
       console.error("Failed to update Enhanced Context setting:", err);
       showMessage(
-        `Failed to ${isEnabled ? "enable" : "disable"} Enhanced Context: ${err.message}`,
+        isEnabled
+          ? t("settings.rag.enhancedEnableFailed", { error: err.message })
+          : t("settings.rag.enhancedDisableFailed", { error: err.message }),
         "error",
       );
     }
@@ -1747,13 +1751,15 @@ const SettingsPage = () => {
       setAdvancedRag(isEnabled);
 
       showMessage(
-        `Advanced RAG ${isEnabled ? "enabled" : "disabled"}. Enhanced retrieval and chunking are now ${isEnabled ? "active" : "inactive"}.`,
+        isEnabled ? t("settings.rag.advancedOn") : t("settings.rag.advancedOff"),
         "success",
       );
     } catch (err) {
       console.error("Failed to update Advanced RAG setting:", err);
       showMessage(
-        `Failed to ${isEnabled ? "enable" : "disable"} Advanced RAG: ${err.message}`,
+        isEnabled
+          ? t("settings.rag.advancedEnableFailed", { error: err.message })
+          : t("settings.rag.advancedDisableFailed", { error: err.message }),
         "error",
       );
     }
@@ -1787,7 +1793,9 @@ const SettingsPage = () => {
         console.warn("Failed to restore web search setting:", e);
       }
       showMessage(
-        `Could not save web access; the setting was not changed. ${err?.message || ""}`.trim(),
+        err?.message?.trim()
+          ? t("settings.web.saveFailedWithError", { error: err.message.trim() })
+          : t("settings.web.saveFailed"),
         "error",
       );
       return;
@@ -1795,8 +1803,8 @@ const SettingsPage = () => {
     debugLog("Web Search toggled", { isEnabled });
     showMessage(
       isEnabled
-        ? "Web access enabled: tools may fetch pages and search the web, and the agent's browser may open outside sites."
-        : "Web access disabled: web tools are blocked and the agent's browser opens local pages only (any running agent task was stopped).",
+        ? t("settings.web.enabled")
+        : t("settings.web.disabled"),
       "info",
     );
   };
@@ -1831,7 +1839,7 @@ const SettingsPage = () => {
         // non-fatal
       }
       showMessage(
-        `Could not save: ${err.message}. The setting was not changed.`,
+        t("settings.toggles.saveFailed", { error: err.message }),
         "error",
       );
     }
@@ -1844,14 +1852,14 @@ const SettingsPage = () => {
       setState: setAdvancedDebug,
       storageKey: ADV_DEBUG_ENABLED_KEY,
       save: apiService.setAdvancedDebug,
-      onText: "Verbose logging enabled.",
-      offText: "Verbose logging disabled.",
+      onText: t("settings.toggles.verboseOn"),
+      offText: t("settings.toggles.verboseOff"),
     });
   const handleVerbatimPromptsToggle = async (event) => {
     if (verbatimSaving) return;
     if (verbatimForcedByEnv) {
       showMessage(
-        "Verbatim prompts are forced on by VERBATIM_PROMPTS in the server environment. Remove that variable and restart to control it here.",
+        t("settings.toggles.verbatimForced"),
         "info",
       );
       return;
@@ -1863,18 +1871,18 @@ const SettingsPage = () => {
       if (result?.error) throw new Error(result.error.message || result.error);
       const payload = result?.data ?? result;
       if (typeof payload?.enabled !== "boolean") {
-        throw new Error("Server did not confirm the prompt setting");
+        throw new Error(t("settings.toggles.verbatimNotConfirmed"));
       }
       setVerbatimPromptsState(payload.enabled);
       setVerbatimForcedByEnv(Boolean(payload.forced_by_env));
       showMessage(
         payload.enabled
-          ? "Verbatim prompts ON — AI prompt rewriting is disabled."
-          : "Verbatim prompts OFF — prompts get AI enhancement again.",
+          ? t("settings.toggles.verbatimOn")
+          : t("settings.toggles.verbatimOff"),
         "info",
       );
     } catch (err) {
-      showMessage(`Could not save Verbatim prompts: ${err.message}`, "error");
+      showMessage(t("settings.toggles.verbatimFailed", { error: err.message }), "error");
     } finally {
       setVerbatimSaving(false);
     }
@@ -1886,8 +1894,8 @@ const SettingsPage = () => {
       setState: setLlmDebugState,
       storageKey: LLM_DEBUG_ENABLED_KEY,
       save: apiService.setLlmDebug,
-      onText: "LLM debug logging enabled.",
-      offText: "LLM debug logging disabled.",
+      onText: t("settings.toggles.llmDebugOn"),
+      offText: t("settings.toggles.llmDebugOff"),
     });
   const handleBehaviorLearningToggle = (event) =>
     persistToggle({
@@ -1896,19 +1904,19 @@ const SettingsPage = () => {
       setState: setBehaviorLearningEnabled,
       storageKey: BEHAVIOR_LEARNING_ENABLED_KEY,
       save: apiService.setBehaviorLearning,
-      onText: "Behaviour learning enabled.",
-      offText: "Behaviour learning disabled.",
+      onText: t("settings.toggles.behaviourOn"),
+      offText: t("settings.toggles.behaviourOff"),
     });
 
   // --- NEW HANDLERS FOR IMPORT/EXPORT ---
   const handleExportRulesClick = async () => {
     setIsExporting(true);
-    showMessage("Exporting rules...", "info");
+    showMessage(t("settings.rules.exporting"), "info");
     try {
       const result = await apiService.exportRules();
       if (result?.error) throw new Error(result.error);
       if (!result?.rules || !Array.isArray(result.rules))
-        throw new Error("Invalid export format received from server.");
+        throw new Error(t("settings.rules.invalidExport"));
 
       const jsonString = JSON.stringify(result, null, 2); // result already contains {"rules": []}
       const blob = new Blob([jsonString], { type: "application/json" });
@@ -1922,12 +1930,12 @@ const SettingsPage = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showMessage(
-        `Successfully exported ${result.rules.length} rules.`,
+        t("settings.rules.exported", { count: result.rules.length }),
         "success",
       );
     } catch (err) {
       console.error("Error exporting rules:", err);
-      showMessage(`Export failed: ${err.message}`, "error");
+      showMessage(t("settings.rules.exportFailed", { error: err.message }), "error");
     } finally {
       setIsExporting(false);
     }
@@ -1947,18 +1955,18 @@ const SettingsPage = () => {
 
   const handleImportRulesClick = async () => {
     if (!selectedFileForImport) {
-      showMessage("Please select a JSON file to import.", "warning");
+      showMessage(t("settings.rules.selectJson"), "warning");
       return;
     }
     setIsImporting(true);
-    showMessage(`Importing rules from ${selectedFileNameForImport}...`, "info");
+    showMessage(t("settings.rules.importing", { name: selectedFileNameForImport }), "info");
 
     try {
       const fileContent = await selectedFileForImport.text();
       const jsonData = JSON.parse(fileContent);
       if (!jsonData || !Array.isArray(jsonData.rules)) {
         throw new Error(
-          "Invalid JSON format. Expected an object with a 'rules' array.",
+          t("settings.rules.invalidJson"),
         );
       }
 
@@ -1970,21 +1978,21 @@ const SettingsPage = () => {
         );
       }
 
-      let importSummary = result.message || "Import process completed.";
-      if (result.created) importSummary += ` Created: ${result.created}.`;
-      if (result.updated) importSummary += ` Updated: ${result.updated}.`;
+      let importSummary = result.message || t("settings.rules.importCompleted");
+      if (result.created) importSummary += ` ${t("settings.rules.created", { count: result.created })}`;
+      if (result.updated) importSummary += ` ${t("settings.rules.updated", { count: result.updated })}`;
       if (result.skipped)
-        importSummary += ` Skipped/Errors: ${result.skipped}.`;
+        importSummary += ` ${t("settings.rules.skipped", { count: result.skipped })}`;
       if (result.errors && result.errors.length > 0) {
         console.error("Import errors:", result.errors);
-        importSummary += ` Details: ${result.errors.join("; ")}`;
+        importSummary += ` ${t("settings.rules.details", { details: result.errors.join("; ") })}`;
         showMessage(importSummary, "warning");
       } else {
         showMessage(importSummary, "success");
       }
     } catch (err) {
       console.error("Error importing rules:", err);
-      showMessage(`Import failed: ${err.message}`, "error");
+      showMessage(t("settings.rules.importFailed", { error: err.message }), "error");
     } finally {
       setIsImporting(false);
       setSelectedFileForImport(null);
@@ -2027,7 +2035,7 @@ const SettingsPage = () => {
         name,
         include_plugins,
       );
-      showMessage(`Backup created: ${res.file}`, "success");
+      showMessage(t("settings.backups.created", { file: res.file }), "success");
     } catch (e) {
       showMessage(e.message, "error");
     }
@@ -2039,7 +2047,7 @@ const SettingsPage = () => {
     setIsProcessingBackup(true);
     try {
       await apiService.restoreServerBackup(file);
-      showMessage("Restore complete", "success");
+      showMessage(t("settings.backups.restored"), "success");
     } catch (e) {
       showMessage(e.message, "error");
     }
@@ -2061,9 +2069,9 @@ const SettingsPage = () => {
       const latestName =
         refreshed?.system_name ?? trimmedName ?? persistedSystemName ?? "";
       setSystemInfo(latestName, systemLogo || persistedSystemLogo || null);
-      showMessage("Nickname saved", "success");
+      showMessage(t("settings.general.nicknameSaved"), "success");
     } catch (err) {
-      showMessage("Failed to update nickname: " + err.message, "error");
+      showMessage(t("settings.general.nicknameFailed", { error: err.message }), "error");
     }
   };
 
@@ -2073,12 +2081,12 @@ const SettingsPage = () => {
       if (result?.error) throw new Error(result.error);
       setMusicDirectorySaved(musicDirectory);
       showMessage(
-        `Media library path saved: ${musicDirectory || "(default)"}`,
+        t("settings.general.mediaPathSaved", { path: musicDirectory || t("settings.general.defaultPath") }),
         "success",
       );
     } catch (err) {
       showMessage(
-        "Failed to save media library path: " + (err.message || err),
+        t("settings.general.mediaPathFailed", { error: err.message || err }),
         "error",
       );
     }
@@ -2097,8 +2105,8 @@ const SettingsPage = () => {
       if (result?.error) throw new Error(result.error);
       showMessage(
         next
-          ? "Rules enabled: the active rules from the Rules page apply"
-          : "Rules disabled: chat uses the built-in prompt",
+          ? t("settings.rules.enabled")
+          : t("settings.rules.disabled"),
         "info",
       );
     } catch (err) {
@@ -2109,7 +2117,7 @@ const SettingsPage = () => {
       } catch {
         // non-fatal
       }
-      showMessage("Failed to update Rules setting", "error");
+      showMessage(t("settings.rules.toggleFailed"), "error");
     }
   };
 
@@ -2120,14 +2128,14 @@ const SettingsPage = () => {
       if (result?.error) throw new Error(result.error);
       showMessage(
         next
-          ? "Thinking on by default: thinking models reason step by step (slower). Use /thinking off per chat."
-          : "Thinking off by default: faster replies. Use /thinking on per chat.",
+          ? t("settings.chat.thinkingOn")
+          : t("settings.chat.thinkingOff"),
         "info",
       );
     } catch (err) {
       console.error("Failed to update chat_thinking_default:", err);
       setChatThinkingDefaultState(!next);
-      showMessage("Failed to update Chat thinking setting", "error");
+      showMessage(t("settings.chat.thinkingFailed"), "error");
     }
   };
 
@@ -2156,43 +2164,45 @@ const SettingsPage = () => {
         // and how to rebuild it.
         const notRebuilt = payload?.not_rebuilt || [];
         const notRebuiltText = notRebuilt.length
-          ? " Not rebuilt automatically: " +
-            notRebuilt.map((n) => `${n.rows} ${n.kind.replace(/_/g, " ")} row(s). ${n.how}`).join(" ")
+          ? ` ${t("settings.embedding.notRebuilt", {
+              items: notRebuilt
+                .map((n) => t("settings.embedding.notRebuiltItem", { rows: n.rows, kind: n.kind.replace(/_/g, " "), how: n.how }))
+                .join(" "),
+            })}`
           : "";
         showMessage(
           payload?.index_cleared
-            ? `Embedding switched to ${selectedEmbeddingModel} (${dims}d). The index was emptied and ${queued} ` +
-                `document(s) queued to be indexed again` +
-                (pending ? `; ${pending} wait for indexing to resume.` : ".") +
-                notRebuiltText
-            : `Embedding model is already ${selectedEmbeddingModel}; index kept.`,
+            ? (pending
+                ? t("settings.embedding.switchedPending", { model: selectedEmbeddingModel, dims, queued, pending })
+                : t("settings.embedding.switched", { model: selectedEmbeddingModel, dims, queued })) + notRebuiltText
+            : t("settings.embedding.already", { model: selectedEmbeddingModel }),
           payload?.index_cleared && (pending || notRebuilt.length) ? "warning" : "success",
         );
         fetchResources();
         setProfilesReloadKey((k) => k + 1);
       } else {
-        showMessage(formatUiError(d.error) || "Failed to switch embedding", "error");
+        showMessage(formatUiError(d.error) || t("settings.embedding.switchFailed"), "error");
       }
     } catch (e) {
-      showMessage(`The embedding model was not switched: ${formatUiError(e) || "the request failed"}`, "error");
+      showMessage(t("settings.embedding.notSwitched", { error: formatUiError(e) || t("settings.embedding.requestFailed") }), "error");
     } finally {
       setIsSwitchingEmbedding(false);
     }
   };
 
   // Media model selects: optimistic, rolled back when the server refuses.
-  const saveMediaModel = async (field, value, label) => {
+  const saveMediaModel = async (field, value, label, failedText) => {
     const previous = mediaModels[field];
     setMediaModelsState((p) => ({ ...p, [field]: value }));
     try {
       const res = await apiService.setMediaModels({ [field]: value });
       const data = res?.data ?? res;
       if (res?.error || data?.error) throw new Error(res?.error || data?.error);
-      showMessage(`${label}: ${value}`, "success");
+      showMessage(t("settings.media.saved", { label, model: value }), "success");
     } catch (err) {
       setMediaModelsState((p) => ({ ...p, [field]: previous }));
       showMessage(
-        err.message || `Failed to save ${label.toLowerCase()}`,
+        err.message || failedText,
         "error",
       );
     }
@@ -2219,10 +2229,10 @@ const SettingsPage = () => {
         lastSavedLoraRef.current = { ...lastSavedLoraRef.current, [key]: v };
       }
       setLoraSaveState((s) => ({ ...s, [key]: "saved" }));
-      showMessage(`${label} LoRA strength: ${v}`, "success");
+      showMessage(t("settings.media.loraSaved", { model: label, strength: v }), "success");
     } catch (err) {
       setLoraSaveState((s) => ({ ...s, [key]: "error" }));
-      showMessage(err.message || "Failed to save LoRA strength", "error");
+      showMessage(err.message || t("settings.media.loraFailed"), "error");
     }
   };
 
@@ -2232,17 +2242,17 @@ const SettingsPage = () => {
         await apiService.pauseIndexing();
         setIndexingPaused(true);
         showMessage(
-          "Indexing paused: new documents wait until you resume",
+          t("settings.indexing.paused"),
           "warning",
         );
       } else {
         await apiService.resumeIndexing();
         setIndexingPaused(false);
-        showMessage("Indexing resumed", "success");
+        showMessage(t("settings.indexing.resumed"), "success");
       }
     } catch (e) {
       showMessage(
-        "Failed to change indexing pause: " + (e.message || e),
+        t("settings.indexing.pauseFailed", { error: e.message || e }),
         "error",
       );
     }
@@ -2255,20 +2265,20 @@ const SettingsPage = () => {
       const currentConfig = await interconnectorApi.getInterconnectorConfig();
       const cfg = currentConfig?.data?.config || currentConfig?.config;
       if (!cfg)
-        throw new Error("could not read the current Interconnector config");
+        throw new Error(t("settings.interconnector.readConfigFailed"));
       await interconnectorApi.updateInterconnectorConfig({
         ...cfg,
         is_enabled: next,
       });
       setInterconnectorEnabled(next);
       showMessage(
-        next ? "Interconnector enabled" : "Interconnector disabled",
+        next ? t("settings.interconnector.enabled") : t("settings.interconnector.disabled"),
         "info",
       );
     } catch (err) {
       console.error("Failed to toggle Interconnector:", err);
       showMessage(
-        `Interconnector was not changed: ${err.message || err}`,
+        t("settings.interconnector.notChanged", { error: err.message || err }),
         "error",
       );
     }
@@ -2291,12 +2301,12 @@ const SettingsPage = () => {
       if (result?.error && !result.warning)
         throw new Error(result.error.message || result.error);
       showMessage(
-        result?.message || "Chat history cleared.",
+        result?.message || t("settings.data.chatCleared"),
         result?.warning ? "warning" : "success",
       );
       setClearChatOpen(false);
     } catch (err) {
-      showMessage(`Failed to clear chat history: ${err.message}`, "error");
+      showMessage(t("settings.data.chatClearFailed", { error: err.message }), "error");
     } finally {
       setClearChatBusy(false);
     }
@@ -2361,13 +2371,13 @@ const SettingsPage = () => {
     const result = await apiService.setConfineToolPaths(next);
     if (result?.error) {
       setConfineToolPaths(previous);
-      showMessage(`Could not save: ${result.error.message || result.error}. The setting was not changed.`, "error");
+      showMessage(t("settings.toggles.saveFailed", { error: result.error.message || result.error }), "error");
       return;
     }
     showMessage(
       next
-        ? "File tools now stay inside the project folder."
-        : "File tools can read outside the project folder again.",
+        ? t("settings.agents.confineOn")
+        : t("settings.agents.confineOff"),
       "info",
     );
   };
@@ -2383,13 +2393,13 @@ const SettingsPage = () => {
       showMessage(
         result?.message ||
           (learningClear === "rules"
-            ? "Learned rules cleared."
-            : "Behaviour log cleared."),
+            ? t("settings.learning.rulesCleared")
+            : t("settings.learning.logCleared")),
         "success",
       );
       setLearningClear(null);
     } catch (err) {
-      showMessage(`Failed to clear: ${err.message}`, "error");
+      showMessage(t("settings.learning.clearFailed", { error: err.message }), "error");
     } finally {
       setLearningBusy(false);
     }
@@ -2406,11 +2416,11 @@ const SettingsPage = () => {
       const body = await res.json().catch(() => ({}));
       if (!res.ok)
         throw new Error(body?.error || body?.message || `HTTP ${res.status}`);
-      showMessage("Agent memory cleared.", "success");
+      showMessage(t("settings.memory.cleared"), "success");
       setClearMemoriesOpen(false);
       fetchMemoryCount();
     } catch (err) {
-      showMessage(`Failed to clear agent memory: ${err.message}`, "error");
+      showMessage(t("settings.memory.clearFailed", { error: err.message }), "error");
     } finally {
       setClearMemoriesBusy(false);
     }
@@ -2463,10 +2473,10 @@ const SettingsPage = () => {
   const strip = (
     <DashboardStrip>
       <DashboardTile
-        label="Chat model"
-        help="The model answering in chat right now. Click to change it."
+        label={t("settings.strip.chatModel")}
+        help={t("settings.strip.chatModelHelp")}
         tone={isLoadingModel ? "warn" : activeModel ? "ok" : "off"}
-        value={activeModel || "none"}
+        value={activeModel || t("settings.strip.none")}
         sub={
           activeModelEntry?.details?.parameter_size
             ? `${activeModelEntry.details.parameter_size} · ${formatByteSize(activeModelEntry.size)}`
@@ -2479,8 +2489,8 @@ const SettingsPage = () => {
         }
       />
       <DashboardTile
-        label="Embedding"
-        help="The model that indexes your documents so chat can search them."
+        label={t("settings.strip.embedding")}
+        help={t("settings.strip.embeddingHelp")}
         tone={
           embeddingModel &&
           embeddingModel !== "Not Set" &&
@@ -2488,7 +2498,13 @@ const SettingsPage = () => {
             ? "ok"
             : "off"
         }
-        value={embeddingModel || "none"}
+        value={
+          embeddingModel === "Not Set"
+            ? t("settings.strip.notSet")
+            : embeddingModel === "Not Available"
+              ? t("settings.strip.notAvailable")
+              : embeddingModel || t("settings.strip.none")
+        }
         sub={
           activeEmbeddingEntry?.dimensions
             ? `${activeEmbeddingEntry.dimensions}d`
@@ -2497,35 +2513,38 @@ const SettingsPage = () => {
       />
       {gpu?.total_mb > 0 && (
         <DashboardTile
-          label="VRAM"
-          help="Graphics card memory in use by everything on this machine, out of the total."
-          value={`${(gpu.used_mb / 1024).toFixed(1)} / ${(gpu.total_mb / 1024).toFixed(1)} GB`}
+          label={t("settings.strip.vram")}
+          help={t("settings.strip.vramHelp")}
+          value={t("settings.strip.vramValue", { used: (gpu.used_mb / 1024).toFixed(1), total: (gpu.total_mb / 1024).toFixed(1) })}
           progress={gpu.utilization_pct}
         />
       )}
       {gpuResources && (
         <DashboardTile
-          label="Loaded in VRAM"
-          help="Models Ollama is holding in memory right now. Image and video models are not listed here."
+          label={t("settings.strip.loaded")}
+          help={t("settings.strip.loadedHelp")}
           tone={gpuResources?.loaded_models?.length ? "ok" : "off"}
           value={
             gpuResources?.loaded_models?.length
-              ? `${gpuResources.loaded_models.length} model${gpuResources.loaded_models.length === 1 ? "" : "s"}`
-              : "nothing"
+              ? t("settings.strip.modelsLoaded", { count: gpuResources.loaded_models.length })
+              : t("settings.strip.nothing")
           }
           sub={gpuResources?.loaded_models?.map((m) => m.name).join(", ")}
         />
       )}
       <DashboardTile
-        label="Index"
-        help="How much of your documents is indexed for search, and how many index profiles are on. Click for the index settings."
+        label={t("settings.strip.index")}
+        help={t("settings.strip.indexHelp")}
         tone={indexTotals.rows > 0 ? "ok" : "off"}
         value={
           indexTotals.rows > 0
-            ? `${indexTotals.rows.toLocaleString()} vectors · ${formatByteSize(indexTotals.bytes)}`
-            : "empty"
+            ? t("settings.strip.indexValue", { rows: indexTotals.rows.toLocaleString(uiLocale()), size: formatByteSize(indexTotals.bytes) })
+            : t("settings.strip.empty")
         }
-        sub={`${indexTotals.active} of ${indexProfiles.length} profiles active${indexingPaused ? " · paused" : ""}`}
+        sub={
+          t("settings.strip.profilesActive", { active: indexTotals.active, total: indexProfiles.length }) +
+          (indexingPaused ? ` · ${t("settings.strip.paused")}` : "")
+        }
         onClick={() =>
           document
             .getElementById("settings-knowledge")
@@ -2533,8 +2552,8 @@ const SettingsPage = () => {
         }
       />
       <DashboardTile
-        label="Image generation"
-        help="Whether images can be made right now. When they cannot, the line below says why."
+        label={t("settings.strip.imageGeneration")}
+        help={t("settings.strip.imageGenerationHelp")}
         tone={
           imageGenAvailable
             ? "ok"
@@ -2544,10 +2563,10 @@ const SettingsPage = () => {
         }
         value={
           imageGenStatus === null
-            ? "checking"
+            ? t("settings.strip.checking")
             : imageGenAvailable
-              ? "Available"
-              : "Unavailable"
+              ? t("settings.strip.available")
+              : t("settings.strip.unavailable")
         }
         sub={
           imageGenAvailable ? undefined : imageGenUnavailableHint
@@ -2555,8 +2574,8 @@ const SettingsPage = () => {
       />
       {interconnectorEnabled && (
         <DashboardTile
-          label="Interconnector"
-          help="Sync with your other Guaardvark machines. Click to open its settings."
+          label={t("settings.strip.interconnector")}
+          help={t("settings.strip.interconnectorHelp")}
           tone={
             interconnectorPendingCount > 0 ||
             interconnectorUpdateStatus?.summary?.total > 0
@@ -2565,10 +2584,10 @@ const SettingsPage = () => {
           }
           value={
             interconnectorUpdateStatus?.summary?.total > 0
-              ? `${interconnectorUpdateStatus.summary.total} code updates`
+              ? t("settings.strip.codeUpdates", { count: interconnectorUpdateStatus.summary.total })
               : interconnectorPendingCount > 0
-                ? `${interconnectorPendingCount} pending`
-                : "In sync"
+                ? t("settings.strip.pending", { count: interconnectorPendingCount })
+                : t("settings.strip.inSync")
           }
           onClick={() => setInterconnectorModalOpen(true)}
         />
@@ -2579,8 +2598,8 @@ const SettingsPage = () => {
   const generalPanel = (
     <SettingsPanel
       id="settings-general"
-      title="General"
-      help="Your name, picture and theme, how pages are listed, tips, job order, the music folder and the product profile."
+      title={t("settings.generalPanel.title")}
+      help={t("settings.generalPanel.help")}
     >
       <input
         type="file"
@@ -2608,9 +2627,9 @@ const SettingsPage = () => {
                   brandingName || persistedSystemName || "",
                   latestLogo,
                 );
-                showMessage("Profile image updated", "success");
+                showMessage(t("settings.generalPanel.imageUpdated"), "success");
               } catch (err) {
-                showMessage("Failed to update image: " + err.message, "error");
+                showMessage(t("settings.generalPanel.imageFailed", { error: err.message }), "error");
               }
             })();
           }
@@ -2619,7 +2638,7 @@ const SettingsPage = () => {
         id="logo-upload"
       />
       <Line nowrap>
-        <Tooltip title="Change profile image">
+        <Tooltip title={t("settings.generalPanel.changeImage")}>
           <label
             htmlFor="logo-upload"
             style={{ cursor: "pointer", display: "inline-flex" }}
@@ -2648,7 +2667,7 @@ const SettingsPage = () => {
           </label>
         </Tooltip>
         <TextField
-          label="Nickname"
+          label={t("settings.generalPanel.nickname")}
           value={brandingName}
           onChange={(e) => setBrandingName(e.target.value)}
           size="small"
@@ -2660,40 +2679,41 @@ const SettingsPage = () => {
         />
         <ActionButton
           onClick={() => setThemeModalOpen(true)}
-          tooltip={`Current theme: ${themeName}`}
+          tooltip={t("settings.generalPanel.currentTheme", { theme: themeName })}
         >
-          Theme
+          {t("settings.generalPanel.theme")}
         </ActionButton>
       </Line>
       <Cluster
-        label="Navigation"
-        help="How pages are listed: every page in one sidebar, or grouped by workspace in the top bar."
+        label={t("settings.generalPanel.navigation")}
+        help={t("settings.generalPanel.navigationHelp")}
       >
         <Line>
           <ChoiceChips
-            ariaLabel="Navigation mode"
+            ariaLabel={t("settings.generalPanel.navigationAria")}
             value={navChrome}
             onChange={setNavChrome}
             options={[
               {
                 value: NAV_CHROME.SIDEBAR,
-                label: "Sidebar",
-                tooltip: "Every page in one list",
+                label: t("settings.generalPanel.sidebar"),
+                tooltip: t("settings.generalPanel.sidebarTooltip"),
               },
               {
                 value: NAV_CHROME.SOFTWARE,
-                label: "Workspaces",
-                tooltip: "Pages grouped by workspace in the top bar",
+                label: t("settings.generalPanel.workspaces"),
+                tooltip: t("settings.generalPanel.workspacesTooltip"),
               },
             ]}
           />
         </Line>
       </Cluster>
+      <LanguageSetting />
       <TipsSetting />
       <JobOrderSetting showMessage={showMessage} />
       <Cluster
-        label="Media library"
-        help="The music folder the assistant searches when you ask it to play music. Left empty, it uses ~/Music."
+        label={t("settings.generalPanel.mediaLibrary")}
+        help={t("settings.generalPanel.mediaLibraryHelp")}
       >
         <Line nowrap>
           <TextField
@@ -2712,7 +2732,7 @@ const SettingsPage = () => {
             disabled={!musicDirectoryPending}
             onClick={saveMusicDirectory}
           >
-            Save
+            {t("settings.generalPanel.save")}
           </ActionButton>
         </Line>
       </Cluster>
@@ -2723,20 +2743,20 @@ const SettingsPage = () => {
   const modelsPanel = (
     <SettingsPanel
       id="settings-models"
-      title="Models"
-      help="The models that answer chat and index your documents."
+      title={t("settings.modelsPanel.title")}
+      help={t("settings.modelsPanel.help")}
     >
       <Cluster
-        label="Chat"
-        help="The model that writes chat replies. Pick one, then press Set active."
+        label={t("settings.modelsPanel.chat")}
+        help={t("settings.modelsPanel.chatHelp")}
       >
         {chatSizes.length > 1 && (
           <ChoiceChips
-            ariaLabel="Chat model size filter"
+            ariaLabel={t("settings.modelsPanel.sizeFilterAria")}
             value={chatSizeFilter || "all"}
             onChange={(v) => setChatSizeFilter(v === "all" ? null : v)}
             options={[
-              { value: "all", label: "All" },
+              { value: "all", label: t("settings.modelsPanel.all") },
               ...["small", "medium", "large"]
                 .filter((s) => chatSizes.includes(s))
                 .map((s) => ({
@@ -2752,10 +2772,10 @@ const SettingsPage = () => {
             className="grow"
             disabled={isLoading || isLoadingModel}
           >
-            <InputLabel>Chat model</InputLabel>
+            <InputLabel>{t("settings.modelsPanel.chatModel")}</InputLabel>
             <Select
               value={selectedModel}
-              label="Chat model"
+              label={t("settings.modelsPanel.chatModel")}
               onChange={(e) => setSelectedModel(e.target.value)}
               error={
                 availableModels.length > 0 &&
@@ -2789,9 +2809,9 @@ const SettingsPage = () => {
             onClick={handleSetModelClick}
             disabled={!chatModelPending || isLoading || isLoadingModel || ollamaOffline}
             loading={isLoadingModel}
-            tooltip="Loads the model, unloads the previous one and rebuilds the query engine. Can take minutes on a cold GPU."
+            tooltip={t("settings.modelsPanel.setActiveTooltip")}
           >
-            Set active
+            {t("settings.modelsPanel.setActive")}
           </ActionButton>
           <ActionButton
             onClick={async () => {
@@ -2800,26 +2820,26 @@ const SettingsPage = () => {
                 const result = await apiService.testLLM();
                 if (result?.error) throw new Error(result.error);
                 showMessage(
-                  `${activeModel || "Active model"} answered in ${result?.duration_sec ?? "?"}s`,
+                  t("settings.modelsPanel.answered", { model: activeModel || t("settings.modelsPanel.activeModel"), seconds: result?.duration_sec ?? "?" }),
                   "success",
                 );
               } catch (err) {
-                showMessage(`LLM test failed: ${err.message}`, "error");
+                showMessage(t("settings.modelsPanel.testFailed", { error: err.message }), "error");
               } finally {
                 setIsTestingLLM(false);
               }
             }}
             loading={isTestingLLM}
             disabled={isLoading || isLoadingModel}
-            tooltip="Sends one short prompt to the ACTIVE model, not the one selected above"
+            tooltip={t("settings.modelsPanel.testTooltip")}
           >
-            Test
+            {t("settings.modelsPanel.test")}
           </ActionButton>
           <ActionButton
             onClick={fetchAvailableModels}
             disabled={isLoading}
-            tooltip="Refresh the model list from Ollama"
-            aria-label="Refresh chat models"
+            tooltip={t("settings.modelsPanel.refreshTooltip")}
+            aria-label={t("settings.modelsPanel.refreshAria")}
             sx={{ px: 1, minWidth: 0 }}
           >
             <RefreshIcon sx={{ fontSize: 16 }} />
@@ -2828,34 +2848,34 @@ const SettingsPage = () => {
         {modelSwitchStatus === "loading" && (
           <Box>
             <LinearProgress sx={{ height: 4, borderRadius: 2 }} />
-            <Hint>{modelSwitchMessage || "Switching model…"}</Hint>
+            <Hint>{modelSwitchMessage || t("settings.modelsPanel.switching")}</Hint>
           </Box>
         )}
         {ollamaOffline && (
           <Line>
             <StatusPill
               tone="warn"
-              label="Ollama is off"
-              tooltip="Chat models run in Ollama. While it is off, the list shows only the saved model."
+              label={t("settings.modelsPanel.ollamaOff")}
+              tooltip={t("settings.modelsPanel.ollamaOffTooltip")}
             />
             <ActionButton
               kind="primary"
               onClick={handleStartOllama}
               loading={startingOllama}
-              tooltip="Starts the Ollama plugin, then reloads the list"
+              tooltip={t("settings.modelsPanel.startOllamaTooltip")}
             >
-              Start Ollama
+              {t("settings.modelsPanel.startOllama")}
             </ActionButton>
           </Line>
         )}
         {keepReady && (
           <Line>
             <SettingChip
-              label="Keep ready"
+              label={t("settings.modelsPanel.keepReady")}
               on={Boolean(keepReady.enabled)}
               onToggle={handleKeepReadyToggle}
               disabled={savingKeepReady || keepReady.env_writable === false}
-              tooltip="Keeps the chat model and voice input loaded with no idle timeout, so a reply after an hour is as fast as one after a minute. It steps aside for image, video and training work and loads again when that work is done. This machine only."
+              tooltip={t("settings.modelsPanel.keepReadyTooltip")}
             />
             {keepReady.enabled && (
               <StatusPill
@@ -2868,12 +2888,12 @@ const SettingsPage = () => {
                 }
                 label={
                   keepReady.state === "ready"
-                    ? "loaded"
+                    ? t("settings.modelsPanel.keepReadyLoaded")
                     : keepReady.state === "loading"
-                      ? "loading"
+                      ? t("settings.modelsPanel.keepReadyLoading")
                       : keepReady.state === "stepped aside"
-                        ? "stepped aside"
-                        : "waiting"
+                        ? t("settings.modelsPanel.keepReadySteppedAside")
+                        : t("settings.modelsPanel.keepReadyWaiting")
                 }
                 tooltip={keepReady.detail || ""}
               />
@@ -2886,16 +2906,16 @@ const SettingsPage = () => {
       </Cluster>
 
       <Cluster
-        label="Embedding"
-        help="The model that turns your documents into a search index. Chat uses it to find passages that match your question."
+        label={t("settings.modelsPanel.embedding")}
+        help={t("settings.modelsPanel.embeddingHelp")}
       >
         {embedDims.length > 1 && (
           <ChoiceChips
-            ariaLabel="Embedding dimension filter"
+            ariaLabel={t("settings.modelsPanel.dimFilterAria")}
             value={embedDimFilter === null ? "all" : String(embedDimFilter)}
             onChange={(v) => setEmbedDimFilter(v === "all" ? null : Number(v))}
             options={[
-              { value: "all", label: "All" },
+              { value: "all", label: t("settings.modelsPanel.all") },
               ...embedDims.map((d) => ({
                 value: String(d),
                 label: `${d}d · ${embeddingModels.filter((m) => m.dimensions === d).length}`,
@@ -2909,10 +2929,10 @@ const SettingsPage = () => {
             className="grow"
             disabled={isSwitchingEmbedding}
           >
-            <InputLabel>Embedding model</InputLabel>
+            <InputLabel>{t("settings.modelsPanel.embeddingModel")}</InputLabel>
             <Select
               value={selectedEmbeddingModel}
-              label="Embedding model"
+              label={t("settings.modelsPanel.embeddingModel")}
               onChange={(e) => setSelectedEmbeddingModel(e.target.value)}
             >
               {embeddingModels
@@ -2940,14 +2960,14 @@ const SettingsPage = () => {
             disabled={!embeddingPending}
             loading={isSwitchingEmbedding}
             onClick={handleSetEmbeddingClick}
-            tooltip="Same vector width keeps the index. A different width empties it and every document must be re-indexed."
+            tooltip={t("settings.modelsPanel.embeddingSetTooltip")}
           >
-            Set active
+            {t("settings.modelsPanel.setActive")}
           </ActionButton>
           <ActionButton
             onClick={fetchEmbeddingModels}
-            tooltip="Refresh embedding models (probes each one, can take a moment)"
-            aria-label="Refresh embedding models"
+            tooltip={t("settings.modelsPanel.embeddingRefreshTooltip")}
+            aria-label={t("settings.modelsPanel.embeddingRefreshAria")}
             sx={{ px: 1, minWidth: 0 }}
           >
             <RefreshIcon sx={{ fontSize: 16 }} />
@@ -2960,64 +2980,64 @@ const SettingsPage = () => {
   const chatPanel = (
     <SettingsPanel
       id="settings-chat"
-      title="Chat"
-      help="What every conversation can do by default."
+      title={t("settings.chatPanel.title")}
+      help={t("settings.chatPanel.help")}
     >
       <Cluster
-        label="Capabilities"
-        help="Features every chat can use. The gear on a chip opens that feature's settings."
+        label={t("settings.chatPanel.capabilities")}
+        help={t("settings.chatPanel.capabilitiesHelp")}
       >
         <Line>
           <SettingChip
-            label="Rules"
+            label={t("settings.chatPanel.rules")}
             on={rulesEnabled}
             onToggle={handleRulesToggle}
             onSettings={() => navigate("/rules")}
-            tooltip="Persona and behaviour rules from the Rules page. Off swaps them for a plain built-in prompt."
+            tooltip={t("settings.chatPanel.rulesTooltip")}
           />
           <SettingChip
-            label="Chat thinking"
+            label={t("settings.chatPanel.thinking")}
             on={chatThinkingDefault}
             onToggle={handleChatThinkingToggle}
-            tooltip="Default for thinking models. Per chat: /thinking on or off."
+            tooltip={t("settings.chatPanel.thinkingTooltip")}
           />
           <SettingChip
-            label="Web access"
+            label={t("settings.chatPanel.webAccess")}
             on={webSearchEnabled}
             onToggle={handleWebSearchToggle}
-            tooltip="Lets the web, browser and address tools reach the internet."
+            tooltip={t("settings.chatPanel.webAccessTooltip")}
           />
           <SettingChip
-            label="Voice chat"
+            label={t("settings.chatPanel.voiceChat")}
             on={voiceChatEnabled}
             onToggle={setVoiceChatEnabled}
             onSettings={() => setVoiceSettingsModalOpen(true)}
-            tooltip="Speak to the assistant and hear replies. Stored in this browser."
+            tooltip={t("settings.chatPanel.voiceChatTooltip")}
           />
         </Line>
       </Cluster>
       <Cluster
-        label="Retrieval"
-        help="How chat answers use your documents, and what the assistant learns from you."
+        label={t("settings.chatPanel.retrieval")}
+        help={t("settings.chatPanel.retrievalHelp")}
       >
         <Line>
           <SettingChip
-            label="Enhanced context"
+            label={t("settings.chatPanel.enhancedContext")}
             on={enhancedContext}
             onToggle={(next) => handleEnhancedContextChange(next)}
-            tooltip="Adds conversation and document context to every prompt. Applies from the next message."
+            tooltip={t("settings.chatPanel.enhancedContextTooltip")}
           />
           <SettingChip
-            label="Advanced RAG"
+            label={t("settings.chatPanel.advancedRag")}
             on={advancedRag}
             onToggle={(next) => handleAdvancedRagChange(next)}
-            tooltip="Query rewriting and reranking before retrieval. Applies from the next message."
+            tooltip={t("settings.chatPanel.advancedRagTooltip")}
           />
           <SettingChip
-            label="Behaviour learning"
+            label={t("settings.chatPanel.behaviourLearning")}
             on={behaviorLearningEnabled}
             onToggle={(next) => handleBehaviorLearningToggle(next)}
-            tooltip="Learns from corrections and preferences across chats."
+            tooltip={t("settings.chatPanel.behaviourLearningTooltip")}
           />
         </Line>
       </Cluster>
@@ -3027,47 +3047,52 @@ const SettingsPage = () => {
   const generationPanel = (
     <SettingsPanel
       id="settings-generation"
-      title="Generation"
-      help="Default models and settings for images and video, and the model downloads for each studio."
+      title={t("settings.generationPanel.title")}
+      help={t("settings.generationPanel.help")}
     >
       <Cluster
-        label="Prompts"
-        help="How your image and video prompts reach the model."
+        label={t("settings.generationPanel.prompts")}
+        help={t("settings.generationPanel.promptsHelp")}
       >
         <Line>
           <SettingChip
-            label="Verbatim prompts"
+            label={t("settings.generationPanel.verbatim")}
             on={verbatimPrompts}
             onToggle={() => handleVerbatimPromptsToggle()}
             disabled={verbatimForcedByEnv || verbatimSaving}
-            note={verbatimForcedByEnv ? "forced by environment" : undefined}
+            note={verbatimForcedByEnv ? t("settings.generationPanel.forcedByEnv") : undefined}
             tooltip={
               verbatimForcedByEnv
-                ? "VERBATIM_PROMPTS is set in the server environment. Remove it and restart to control this here."
-                : "On: disables AI prompt rewriting and automatic style additions. Model prompt limits and instruction-following still apply. Off: allows prompt enhancement."
+                ? t("settings.generationPanel.verbatimForcedTooltip")
+                : t("settings.generationPanel.verbatimTooltip")
             }
           />
         </Line>
       </Cluster>
       <Cluster
-        label="Stills models"
-        help="The image models Guaardvark defaults to. Cast LoRA base is the model new character LoRAs are trained on; a LoRA only works with models of the same family."
+        label={t("settings.generationPanel.stillsModels")}
+        help={t("settings.generationPanel.stillsModelsHelp")}
       >
         <Line>
           <FormControl size="small" className="grow">
-            <InputLabel id="media-stills-label">Stills</InputLabel>
+            <InputLabel id="media-stills-label">{t("settings.generationPanel.stills")}</InputLabel>
             <Select
               labelId="media-stills-label"
-              label="Stills"
+              label={t("settings.generationPanel.stills")}
               value={mediaModels.stills_model || "auto"}
               onChange={(e) =>
-                saveMediaModel("stills_model", e.target.value, "Stills model")
+                saveMediaModel(
+                  "stills_model",
+                  e.target.value,
+                  t("settings.generationPanel.stillsModel"),
+                  t("settings.generationPanel.stillsModelFailed"),
+                )
               }
             >
               {[
                 // Saves "auto": Auto picks render by card size again, the way
                 // back once a model has been chosen.
-                { id: "auto", name: "Auto (best for this card)" },
+                { id: "auto", name: t("settings.generationPanel.auto") },
                 ...(mediaModels.stills_profiles?.length
                   ? mediaModels.stills_profiles
                   : [
@@ -3080,22 +3105,23 @@ const SettingsPage = () => {
                 <MenuItem key={p.id} value={p.id}>
                   {p.name || p.id}
                   {p.recommended ? " ★" : ""}
-                  {p.deprecated ? " (legacy)" : ""}
+                  {p.deprecated ? ` ${t("settings.generationPanel.legacy")}` : ""}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
           <FormControl size="small" className="grow">
-            <InputLabel id="media-train-label">Cast LoRA base</InputLabel>
+            <InputLabel id="media-train-label">{t("settings.generationPanel.castLoraBase")}</InputLabel>
             <Select
               labelId="media-train-label"
-              label="Cast LoRA base"
+              label={t("settings.generationPanel.castLoraBase")}
               value={mediaModels.cast_train_base || "zimage-turbo"}
               onChange={(e) =>
                 saveMediaModel(
                   "cast_train_base",
                   e.target.value,
-                  "Cast train base",
+                  t("settings.generationPanel.castTrainBase"),
+                  t("settings.generationPanel.castTrainBaseFailed"),
                 )
               }
             >
@@ -3113,16 +3139,17 @@ const SettingsPage = () => {
             </Select>
           </FormControl>
           <FormControl size="small" className="grow">
-            <InputLabel id="media-max-label">Max quality</InputLabel>
+            <InputLabel id="media-max-label">{t("settings.generationPanel.maxQuality")}</InputLabel>
             <Select
               labelId="media-max-label"
-              label="Max quality"
+              label={t("settings.generationPanel.maxQuality")}
               value={mediaModels.max_quality_model || "flux-dev"}
               onChange={(e) =>
                 saveMediaModel(
                   "max_quality_model",
                   e.target.value,
-                  "Max quality model",
+                  t("settings.generationPanel.maxQualityModel"),
+                  t("settings.generationPanel.maxQualityModelFailed"),
                 )
               }
             >
@@ -3133,36 +3160,39 @@ const SettingsPage = () => {
         </Line>
       </Cluster>
       <Cluster
-        label="Between batches"
-        help="What happens to the image model when a batch ends. Keeping it loaded skips the reload if the next batch uses the same model."
+        label={t("settings.generationPanel.betweenBatches")}
+        help={t("settings.generationPanel.betweenBatchesHelp")}
       >
         <Line>
           <ChoiceChips
-            ariaLabel="Image model between batches"
+            ariaLabel={t("settings.generationPanel.betweenBatchesAria")}
             value={String(imageKeepMinutes)}
             onChange={handleImageKeepChange}
             disabled={imageKeepSaving}
             options={[
               {
                 value: "0",
-                label: "Unload",
-                tooltip: "Free the memory as soon as a batch ends",
+                label: t("settings.generationPanel.unload"),
+                tooltip: t("settings.generationPanel.unloadTooltip"),
               },
               ...[10, 30, 60].map((m) => ({
                 value: String(m),
-                label: m === 60 ? "Keep 1 h" : `Keep ${m} min`,
-                tooltip: `Keep the model loaded for ${m === 60 ? "an hour" : `${m} minutes`} after a batch. It holds system RAM while it waits (measured on a 16 GB card: about 21 GB for Z-Image Turbo, 31 GB for Krea 2 Turbo), and any other GPU job unloads it first.`,
+                label: m === 60 ? t("settings.generationPanel.keepHour") : t("settings.generationPanel.keepMinutes", { minutes: m }),
+                tooltip:
+                  m === 60
+                    ? t("settings.generationPanel.keepHourTooltip")
+                    : t("settings.generationPanel.keepMinutesTooltip", { minutes: m }),
               })),
               ...(![0, 10, 30, 60].includes(imageKeepMinutes)
-                ? [{ value: String(imageKeepMinutes), label: `Keep ${imageKeepMinutes} min` }]
+                ? [{ value: String(imageKeepMinutes), label: t("settings.generationPanel.keepMinutes", { minutes: imageKeepMinutes }) }]
                 : []),
             ]}
           />
         </Line>
       </Cluster>
       <Cluster
-        label="Character LoRA strength"
-        help="How strongly a Cast character's look is applied to stills and keyframes, per model family (0 to 1.5). Video models carry the look over from the still."
+        label={t("settings.generationPanel.loraStrength")}
+        help={t("settings.generationPanel.loraStrengthHelp")}
       >
         <Line>
           {[
@@ -3221,10 +3251,10 @@ const SettingsPage = () => {
                 }
                 label={
                   loraSaveState[key] === "saved"
-                    ? "saved"
+                    ? t("settings.generationPanel.saved")
                     : loraSaveState[key] === "error"
-                      ? "not saved"
-                      : "unsaved"
+                      ? t("settings.generationPanel.notSaved")
+                      : t("settings.generationPanel.unsaved")
                 }
               />
             </Box>
@@ -3232,14 +3262,14 @@ const SettingsPage = () => {
         </Line>
       </Cluster>
       <Cluster
-        label="Cast identity check"
-        help="An image encoder that compares a character's post-training test picture with its reference photos, and each cinematic clip's middle frame with its keyframe. Optional: without it there is no identity score and clips are compared by colour."
+        label={t("settings.generationPanel.identityCheck")}
+        help={t("settings.generationPanel.identityCheckHelp")}
       >
         <IdentityCheckControl showMessage={showMessage} />
       </Cluster>
       <Cluster
-        label="Model libraries"
-        help="Download and manage the models behind each studio."
+        label={t("settings.generationPanel.libraries")}
+        help={t("settings.generationPanel.librariesHelp")}
       >
         <Line>
           <StatusPill
@@ -3252,10 +3282,10 @@ const SettingsPage = () => {
             }
             label={
               imageGenStatus === null
-                ? "Image generation: checking"
+                ? t("settings.generationPanel.imageChecking")
                 : imageGenAvailable
-                  ? "Image generation available"
-                  : "Image generation unavailable"
+                  ? t("settings.generationPanel.imageAvailable")
+                  : t("settings.generationPanel.imageUnavailable")
             }
             tooltip={
               imageGenAvailable
@@ -3264,25 +3294,25 @@ const SettingsPage = () => {
             }
           />
           <ActionButton onClick={() => setImageModelsModalOpen(true)}>
-            Image
+            {t("settings.generationPanel.image")}
           </ActionButton>
           <ActionButton onClick={() => setInfographicModelsModalOpen(true)}>
-            Infographic
+            {t("settings.generationPanel.infographic")}
           </ActionButton>
           <ActionButton onClick={() => setVideoModelsModalOpen(true)}>
-            Video
+            {t("settings.generationPanel.video")}
           </ActionButton>
           <ActionButton onClick={() => setVoiceModelsModalOpen(true)}>
-            Voice
+            {t("settings.generationPanel.voice")}
           </ActionButton>
           <ActionButton onClick={() => setAudioModelsModalOpen(true)}>
-            Audio
+            {t("settings.generationPanel.audio")}
           </ActionButton>
           <ActionButton
             onClick={() => setTrainingLibrariesModalOpen(true)}
-            tooltip="Optional Python libraries the Training page needs for fine-tuning; installed only when you click Install"
+            tooltip={t("settings.generationPanel.trainingTooltip")}
           >
-            Training libraries
+            {t("settings.generationPanel.training")}
           </ActionButton>
         </Line>
       </Cluster>
@@ -3292,12 +3322,12 @@ const SettingsPage = () => {
   const knowledgePanel = (
     <SettingsPanel
       id="settings-knowledge"
-      title="Knowledge"
-      help="How your documents are indexed and searched, and the overnight search tuning."
+      title={t("settings.knowledgePanel.title")}
+      help={t("settings.knowledgePanel.help")}
     >
       <Cluster
-        label="Index profiles"
-        help="Different ways of indexing the same documents. A lit profile is kept up to date and used when chat searches; the gear edits it."
+        label={t("settings.knowledgePanel.profiles")}
+        help={t("settings.knowledgePanel.profilesHelp")}
       >
         <IndexProfileChips
           onLoaded={setIndexProfiles}
@@ -3307,15 +3337,15 @@ const SettingsPage = () => {
         />
       </Cluster>
       <Cluster
-        label="Indexing"
-        help="The queue that turns your uploaded documents into searchable data."
+        label={t("settings.knowledgePanel.indexing")}
+        help={t("settings.knowledgePanel.indexingHelp")}
       >
         <Line>
           <SettingChip
-            label="Indexing paused"
+            label={t("settings.knowledgePanel.paused")}
             on={indexingPaused}
             onToggle={handleIndexingPausedToggle}
-            tooltip="Paused: new documents wait instead of embedding. Useful during heavy GPU work."
+            tooltip={t("settings.knowledgePanel.pausedTooltip")}
           />
           <Sep />
           <ActionButton
@@ -3324,43 +3354,43 @@ const SettingsPage = () => {
                 apiService.optimizeIndex,
                 [],
                 null,
-                "Optimizing index...",
-                "Index optimized.",
-                "Failed to optimize index",
+                t("settings.knowledgePanel.optimizing"),
+                t("settings.knowledgePanel.optimized"),
+                t("settings.knowledgePanel.optimizeFailed"),
               )
             }
             disabled={isLoading}
-            tooltip="Removes vectors whose document is gone. Nothing else changes."
+            tooltip={t("settings.knowledgePanel.optimizeTooltip")}
           >
-            Optimize
+            {t("settings.knowledgePanel.optimize")}
           </ActionButton>
           <ActionButton
             onClick={() =>
               handleActionClick(
                 apiService.buildCorpusSummaries,
                 [{ replace: true }],
-                "Build corpus summaries? This replaces the previous summary tree and uses the GPU for several minutes.",
-                "Queuing summary build...",
-                "Summary build queued.",
-                "Failed to queue the summary build",
+                t("settings.knowledgePanel.summariesConfirm"),
+                t("settings.knowledgePanel.summariesQueuing"),
+                t("settings.knowledgePanel.summariesQueued"),
+                t("settings.knowledgePanel.summariesFailed"),
               )
             }
             disabled={isLoading}
-            tooltip="Builds the RAPTOR summary tree on the indexing queue. Several minutes of GPU."
+            tooltip={t("settings.knowledgePanel.summariesTooltip")}
           >
-            Build summaries
+            {t("settings.knowledgePanel.summaries")}
           </ActionButton>
           <ActionButton
             onClick={async () => {
               try {
                 const res = await apiService.resumePendingIndexing();
                 showMessage(
-                  res?.message || "Pending documents queued for indexing",
+                  res?.message || t("settings.knowledgePanel.pendingQueued"),
                   "success",
                 );
               } catch (e) {
                 showMessage(
-                  "Failed to resume pending: " + (e.message || e),
+                  t("settings.knowledgePanel.pendingFailed", { error: e.message || e }),
                   "error",
                 );
               }
@@ -3368,27 +3398,27 @@ const SettingsPage = () => {
             disabled={isLoading || indexingPaused}
             tooltip={
               indexingPaused
-                ? "Turn off Indexing paused first"
-                : "Queues every document still pending or in error"
+                ? t("settings.knowledgePanel.pendingPausedTooltip")
+                : t("settings.knowledgePanel.pendingTooltip")
             }
           >
-            Index pending
+            {t("settings.knowledgePanel.pending")}
           </ActionButton>
         </Line>
       </Cluster>
       <Cluster
-        label="Search reranker"
-        help="A second model that rereads the passages a search found and puts the most relevant first. Searches work without it."
+        label={t("settings.knowledgePanel.reranker")}
+        help={t("settings.knowledgePanel.rerankerHelp")}
       >
         <RerankerControl showMessage={showMessage} />
       </Cluster>
       <Cluster
-        label="Autoresearch"
-        help="Overnight tests that tune how chat searches your documents. Its settings and history are on the Autoresearch page."
+        label={t("settings.knowledgePanel.autoresearch")}
+        help={t("settings.knowledgePanel.autoresearchHelp")}
       >
         <Line>
           <SettingChip
-            label="Nightly auto-start"
+            label={t("settings.knowledgePanel.nightly")}
             on={autoresearchSettings?.rag_autoresearch_auto_enabled === "true"}
             onToggle={(next) =>
               handleAutoresearchSettingChange(
@@ -3399,21 +3429,21 @@ const SettingsPage = () => {
             note={
               autoresearchSettings?.autoresearch_nightly_window || undefined
             }
-            tooltip="Runs one research pass in the nightly window when the machine is idle."
+            tooltip={t("settings.knowledgePanel.nightlyTooltip")}
           />
           <ActionButton
             kind="link"
             startIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
             onClick={() => navigate("/autoresearch")}
           >
-            Autoresearch
+            {t("settings.knowledgePanel.autoresearchLink")}
           </ActionButton>
           <ActionButton
             kind="link"
             startIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
             onClick={() => navigate("/dev-tools")}
           >
-            Retrieval health
+            {t("settings.knowledgePanel.retrievalHealth")}
           </ActionButton>
         </Line>
       </Cluster>
@@ -3423,41 +3453,41 @@ const SettingsPage = () => {
   const agentsPanel = (
     <SettingsPanel
       id="settings-agents"
-      title="Agents"
-      help="The mentor, the code guard, what the agent remembers, and what it can reach."
+      title={t("settings.agentsPanel.title")}
+      help={t("settings.agentsPanel.help")}
     >
       <UncleClaudeSection />
       <InboundGuardSection />
       <Cluster
-        label="Memory"
-        help="Facts, preferences and lessons the agent has learned from your chats."
+        label={t("settings.agentsPanel.memory")}
+        help={t("settings.agentsPanel.memoryHelp")}
       >
         <Line>
           <StatusPill
             tone={memoryCount > 0 ? "ok" : "neutral"}
-            label={memoryCount === null ? "counting" : `${memoryCount} active`}
+            label={memoryCount === null ? t("settings.agentsPanel.counting") : t("settings.agentsPanel.memoryActive", { count: memoryCount })}
           />
           <ActionButton onClick={() => navigate("/agents/memory")}>
-            Manage memory
+            {t("settings.agentsPanel.manageMemory")}
           </ActionButton>
         </Line>
       </Cluster>
       <Cluster
-        label="File access"
-        help="Which folders the assistant's command and code tools may read."
+        label={t("settings.agentsPanel.fileAccess")}
+        help={t("settings.agentsPanel.fileAccessHelp")}
       >
         <Line>
           <SettingChip
-            label="Project folder only"
+            label={t("settings.agentsPanel.projectOnly")}
             on={confineToolPaths}
             onToggle={handleConfineToolPathsToggle}
-            tooltip="On: file tools read only inside the project, its data and uploads, and GUAARDVARK_ALLOWED_PATHS. Off: they can read anywhere this account can."
+            tooltip={t("settings.agentsPanel.projectOnlyTooltip")}
           />
         </Line>
       </Cluster>
       <Cluster
-        label="MCP servers"
-        help="Programs on this machine that give the agent more tools."
+        label={t("settings.agentsPanel.mcp")}
+        help={t("settings.agentsPanel.mcpHelp")}
       >
         <Line>
           <StatusPill
@@ -3470,10 +3500,10 @@ const SettingsPage = () => {
             }
             label={
               mcpStatus?.refused
-                ? "needs the API key"
+                ? t("settings.agentsPanel.needsKey")
                 : mcpStatus
-                  ? `${mcpStatus.servers_connected}/${mcpStatus.servers_configured} connected`
-                  : "checking"
+                  ? t("settings.agentsPanel.mcpConnected", { connected: mcpStatus.servers_connected, configured: mcpStatus.servers_configured })
+                  : t("settings.agentsPanel.checking")
             }
             tooltip={mcpStatus?.refused || ""}
           />
@@ -3486,18 +3516,18 @@ const SettingsPage = () => {
                   ?.scrollIntoView({ behavior: "smooth", block: "start" })
               }
             >
-              Settings → Access
+              {t("settings.agentsPanel.accessLink")}
             </ActionButton>
           ) : (
             <ActionButton onClick={() => navigate("/agents/mcp")}>
-              Manage MCP servers
+              {t("settings.agentsPanel.manageMcp")}
             </ActionButton>
           )}
         </Line>
       </Cluster>
       <Cluster
-        label="Display"
-        help="A virtual screen where agents open apps and click, separate from your own desktop."
+        label={t("settings.agentsPanel.display")}
+        help={t("settings.agentsPanel.displayHelp")}
       >
         <AgentDisplaySection showMessage={showMessage} />
       </Cluster>
@@ -3507,22 +3537,22 @@ const SettingsPage = () => {
   const syncPanel = (
     <SettingsPanel
       id="settings-sync"
-      title="Sync"
-      help="Keep code, projects and rules in step with your other Guaardvark machines. Agent memories stay on each machine."
+      title={t("settings.syncPanel.title")}
+      help={t("settings.syncPanel.help")}
     >
       <Line>
         <SettingChip
-          label="Interconnector"
+          label={t("settings.syncPanel.interconnector")}
           on={interconnectorEnabled}
           onToggle={handleInterconnectorToggle}
           onSettings={() => setInterconnectorModalOpen(true)}
-          tooltip="Sync code, projects, rules and other records with the machines you have connected. Agent memories are not synced."
+          tooltip={t("settings.syncPanel.interconnectorTooltip")}
         />
         {interconnectorEnabled && interconnectorPendingCount > 0 && (
           <StatusPill
             tone="warn"
-            label={`${interconnectorPendingCount} pending`}
-            tooltip="Changes waiting for review"
+            label={t("settings.syncPanel.pending", { count: interconnectorPendingCount })}
+            tooltip={t("settings.syncPanel.pendingTooltip")}
           />
         )}
         {interconnectorEnabled &&
@@ -3531,15 +3561,19 @@ const SettingsPage = () => {
             <>
               <StatusPill
                 tone="warn"
-                label={`${interconnectorUpdateStatus.summary.total} code updates`}
-                tooltip={`${interconnectorUpdateStatus.summary.backend || 0} backend · ${interconnectorUpdateStatus.summary.frontend || 0} frontend · ${interconnectorUpdateStatus.summary.other || 0} other`}
+                label={t("settings.syncPanel.codeUpdates", { count: interconnectorUpdateStatus.summary.total })}
+                tooltip={t("settings.syncPanel.updatesBreakdown", {
+                  backend: interconnectorUpdateStatus.summary.backend || 0,
+                  frontend: interconnectorUpdateStatus.summary.frontend || 0,
+                  other: interconnectorUpdateStatus.summary.other || 0,
+                })}
               />
               <ActionButton
                 onClick={handleApplyInterconnectorUpdates}
                 loading={interconnectorApplying}
-                tooltip="Pulls every pending file from the master. Existing files are backed up first; a frontend change needs a rebuild."
+                tooltip={t("settings.syncPanel.applyTooltip")}
               >
-                Apply updates
+                {t("settings.syncPanel.apply")}
               </ActionButton>
             </>
           )}
@@ -3550,40 +3584,40 @@ const SettingsPage = () => {
   const dataPanel = (
     <SettingsPanel
       id="settings-data"
-      title="Data"
-      help="Backups, chat exports, and moving rules in and out."
+      title={t("settings.dataPanel.title")}
+      help={t("settings.dataPanel.help")}
     >
       <Cluster
-        label="Backups"
-        help="Save a copy of your data, restore one, or remove old copies. Export Chats writes every chat to files."
+        label={t("settings.dataPanel.backups")}
+        help={t("settings.dataPanel.backupsHelp")}
       >
         <Line>
           <ActionButton
             onClick={openCreateBackup}
             disabled={isProcessingBackup || isLoading}
           >
-            Create
+            {t("settings.dataPanel.create")}
           </ActionButton>
           <ActionButton
             onClick={openRestoreBackup}
             disabled={isProcessingBackup || isLoading}
-            tooltip="Overwrites live data with a backup. Confirmed inside."
+            tooltip={t("settings.dataPanel.restoreTooltip")}
           >
-            Restore
+            {t("settings.dataPanel.restore")}
           </ActionButton>
           <ActionButton
             onClick={openManageBackups}
             disabled={isProcessingBackup || isLoading}
           >
-            Manage
+            {t("settings.dataPanel.manage")}
           </ActionButton>
           <Sep />
           <ExportChatsButton showMessage={showMessage} disabled={isLoading} />
         </Line>
       </Cluster>
       <Cluster
-        label="Rules"
-        help="Save your rules to a file, or load rules from one. Import adds new rules and updates those with the same name."
+        label={t("settings.dataPanel.rules")}
+        help={t("settings.dataPanel.rulesHelp")}
       >
         <Line>
           <ActionButton
@@ -3591,7 +3625,7 @@ const SettingsPage = () => {
             loading={isExporting}
             disabled={isLoading}
           >
-            Export rules
+            {t("settings.dataPanel.exportRules")}
           </ActionButton>
           <input
             type="file"
@@ -3602,7 +3636,7 @@ const SettingsPage = () => {
           />
           <label htmlFor="import-rules-input">
             <ActionButton component="span" disabled={isImporting}>
-              Choose file
+              {t("settings.dataPanel.chooseFile")}
             </ActionButton>
           </label>
           {selectedFileNameForImport && (
@@ -3613,9 +3647,9 @@ const SettingsPage = () => {
             onClick={handleImportRulesClick}
             loading={isImporting}
             disabled={!selectedFileForImport || isLoading}
-            tooltip="Creates new rules and updates existing ones with the same name"
+            tooltip={t("settings.dataPanel.importTooltip")}
           >
-            Import
+            {t("settings.dataPanel.import")}
           </ActionButton>
         </Line>
       </Cluster>
@@ -3625,8 +3659,8 @@ const SettingsPage = () => {
   const dangerPanel = (
     <SettingsPanel
       id="settings-danger"
-      title="Danger zone"
-      help="Actions that delete data, restart Guaardvark or stop running models. Each one asks first and says what it does."
+      title={t("settings.dangerPanel.title")}
+      help={t("settings.dangerPanel.help")}
       danger
     >
       <Line>
@@ -3635,44 +3669,44 @@ const SettingsPage = () => {
           onClick={openClearChatDialog}
           disabled={isLoading}
         >
-          Clear chat history
+          {t("settings.dangerPanel.clearChat")}
         </ActionButton>
         <ActionButton
           kind="destructive"
           onClick={handleDeleteGenerationHistoryClick}
           disabled={isLoading}
         >
-          Delete generation history
+          {t("settings.dangerPanel.deleteHistory")}
         </ActionButton>
         <ActionButton
           kind="destructive"
           onClick={() => setClearMemoriesOpen(true)}
           disabled={isLoading || !memoryCount}
         >
-          Clear agent memory
+          {t("settings.dangerPanel.clearMemory")}
         </ActionButton>
         <ActionButton
           kind="destructive"
           onClick={() => setRebuildDialogOpen(true)}
           disabled={isLoading}
         >
-          Rebuild index
+          {t("settings.dangerPanel.rebuildIndex")}
         </ActionButton>
         <ActionButton
           kind="destructive"
           onClick={() => setLearningClear("rules")}
           disabled={isLoading}
-          tooltip="Deletes every rule marked as learned; rules you wrote stay"
+          tooltip={t("settings.dangerPanel.clearLearnedTooltip")}
         >
-          Clear learned rules
+          {t("settings.dangerPanel.clearLearned")}
         </ActionButton>
         <ActionButton
           kind="destructive"
           onClick={() => setLearningClear("log")}
           disabled={isLoading}
-          tooltip="Empties the behaviour log that Behaviour learning reads from"
+          tooltip={t("settings.dangerPanel.clearLogTooltip")}
         >
-          Clear behaviour log
+          {t("settings.dangerPanel.clearLog")}
         </ActionButton>
         <Sep />
         <ActionButton
@@ -3680,14 +3714,14 @@ const SettingsPage = () => {
           onClick={handleRebootClick}
           disabled={isLoading || rebootInProgress}
         >
-          Reboot
+          {t("settings.dangerPanel.reboot")}
         </ActionButton>
         <ActionButton
           kind="destructive"
           onClick={() => setKillSwitchOpen(true)}
           disabled={isLoading}
         >
-          Kill switch
+          {t("settings.dangerPanel.killSwitch")}
         </ActionButton>
       </Line>
     </SettingsPanel>
@@ -3696,36 +3730,36 @@ const SettingsPage = () => {
   const developerPanel = (
     <SettingsPanel
       id="settings-developer"
-      title="Developer"
-      help="Extra logging and diagnostics for troubleshooting."
+      title={t("settings.developerPanel.title")}
+      help={t("settings.developerPanel.help")}
     >
       <Line>
         <SettingChip
-          label="Verbose logging"
+          label={t("settings.developerPanel.verbose")}
           on={advancedDebug}
           onToggle={(next) => handleAdvancedDebugToggle(next)}
-          tooltip="Adds a debug log sink live; no restart."
+          tooltip={t("settings.developerPanel.verboseTooltip")}
         />
         <SettingChip
-          label="LLM debug"
+          label={t("settings.developerPanel.llmDebug")}
           on={llmDebug}
           onToggle={(next) => handleLlmDebugToggle(next)}
-          tooltip="Logs every prompt and completion."
+          tooltip={t("settings.developerPanel.llmDebugTooltip")}
         />
         <Sep />
         <ActionButton
           onClick={handleClearPycacheFoldersClick}
           disabled={isLoading}
-          tooltip="Deletes Python bytecode caches. No data is touched."
+          tooltip={t("settings.developerPanel.clearCacheTooltip")}
         >
-          Clear cache
+          {t("settings.developerPanel.clearCache")}
         </ActionButton>
         <ActionButton
           kind="link"
           startIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
           onClick={() => navigate("/dev-tools")}
         >
-          Diagnostics and tests
+          {t("settings.developerPanel.diagnostics")}
         </ActionButton>
       </Line>
     </SettingsPanel>
@@ -3734,11 +3768,11 @@ const SettingsPage = () => {
   const aboutPanel = (
     <SettingsPanel
       id="settings-about"
-      title="About"
+      title={t("settings.aboutPanel.title")}
     >
       <Cluster
-        label="Support the project"
-        help="Built with love by a solo developer. Each link opens in a new tab."
+        label={t("settings.aboutPanel.support")}
+        help={t("settings.aboutPanel.supportHelp")}
       >
         <Line>
           <ActionButton
@@ -3762,7 +3796,7 @@ const SettingsPage = () => {
               )
             }
           >
-            Sponsors
+            {t("settings.aboutPanel.sponsors")}
           </ActionButton>
           <ActionButton
             startIcon={<CoffeeIcon sx={{ fontSize: 14 }} />}
@@ -3861,24 +3895,44 @@ const SettingsPage = () => {
   const deleteHistoryFacts = deleteHistoryCounts
     ? [
         {
-          label: "Images",
-          value: `${deleteHistoryCounts.images?.batches || 0} batches · ${deleteHistoryCounts.images?.files || 0} files · ${formatByteSize(deleteHistoryCounts.images?.bytes)}`,
+          label: t("settings.deleteHistory.images"),
+          value: t("settings.deleteHistory.imagesValue", {
+            batches: deleteHistoryCounts.images?.batches || 0,
+            files: deleteHistoryCounts.images?.files || 0,
+            size: formatByteSize(deleteHistoryCounts.images?.bytes),
+          }),
         },
         {
-          label: "Videos",
-          value: `${deleteHistoryCounts.videos?.batches || 0} batches · ${deleteHistoryCounts.videos?.files || 0} files · ${formatByteSize(deleteHistoryCounts.videos?.bytes)}`,
+          label: t("settings.deleteHistory.videos"),
+          value: t("settings.deleteHistory.imagesValue", {
+            batches: deleteHistoryCounts.videos?.batches || 0,
+            files: deleteHistoryCounts.videos?.files || 0,
+            size: formatByteSize(deleteHistoryCounts.videos?.bytes),
+          }),
         },
         {
-          label: "Audio",
-          value: `${deleteHistoryCounts.audio?.files || 0} files · ${deleteHistoryCounts.audio?.jobs || 0} job records · ${formatByteSize(deleteHistoryCounts.audio?.bytes)}`,
+          label: t("settings.deleteHistory.audio"),
+          value: t("settings.deleteHistory.audioValue", {
+            files: deleteHistoryCounts.audio?.files || 0,
+            jobs: deleteHistoryCounts.audio?.jobs || 0,
+            size: formatByteSize(deleteHistoryCounts.audio?.bytes),
+          }),
         },
         {
-          label: "ComfyUI scratch",
-          value: `${deleteHistoryCounts.comfyui?.output?.files || 0} output · ${deleteHistoryCounts.comfyui?.input?.files || 0} input files · ${formatByteSize(deleteHistoryCounts.comfyui?.bytes)}`,
+          label: t("settings.deleteHistory.comfy"),
+          value: t("settings.deleteHistory.comfyValue", {
+            output: deleteHistoryCounts.comfyui?.output?.files || 0,
+            input: deleteHistoryCounts.comfyui?.input?.files || 0,
+            size: formatByteSize(deleteHistoryCounts.comfyui?.bytes),
+          }),
         },
         {
-          label: "Database",
-          value: `${deleteHistoryCounts.db?.documents || 0} documents · ${deleteHistoryCounts.db?.folders || 0} folders · ${deleteHistoryCounts.db?.job_history || 0} job history rows`,
+          label: t("settings.deleteHistory.database"),
+          value: t("settings.deleteHistory.databaseValue", {
+            documents: deleteHistoryCounts.db?.documents || 0,
+            folders: deleteHistoryCounts.db?.folders || 0,
+            jobs: deleteHistoryCounts.db?.job_history || 0,
+          }),
         },
       ]
     : [];
@@ -3889,7 +3943,7 @@ const SettingsPage = () => {
 
   return (
     <PageLayout
-      title="Settings"
+      title={t("settings.pageTitle")}
       variant="standard"
       actions={
         appVersion ? (
@@ -3999,66 +4053,60 @@ const SettingsPage = () => {
         open={confirmEmbeddingOpen}
         onClose={() => setConfirmEmbeddingOpen(false)}
         onConfirm={switchEmbedding}
-        title="Switch the embedding model"
-        description={
-          "Another model's vectors cannot be searched alongside the old ones, even at the same width, " +
-          "so the index is emptied and every indexed document is queued to be indexed again with the new model. " +
-          "Searches find less until that finishes."
-        }
-        facts={[{ label: "New model", value: selectedEmbeddingModel || "—" }]}
-        keeps="your documents themselves; only their search index is rebuilt."
-        confirmLabel="Switch and re-index"
+        title={t("settings.dialogs.embeddingTitle")}
+        description={t("settings.dialogs.embeddingDescription")}
+        facts={[{ label: t("settings.dialogs.newModel"), value: selectedEmbeddingModel || "—" }]}
+        keeps={t("settings.dialogs.embeddingKeeps")}
+        confirmLabel={t("settings.dialogs.embeddingConfirm")}
         busy={isSwitchingEmbedding}
       />
       <ConfirmActionDialog
         open={rebootDialogOpen}
         onClose={handleCancelReboot}
         onConfirm={handleConfirmReboot}
-        title="Reboot Guaardvark"
-        description="Restarts the backend, the workers and ComfyUI. Every generation, index job and chat reply in flight is lost, and this page will disconnect until the services are back."
-        keeps="documents, chats, media, rules and settings."
-        confirmLabel="Reboot now"
+        title={t("settings.dialogs.rebootTitle")}
+        description={t("settings.dialogs.rebootDescription")}
+        keeps={t("settings.dialogs.rebootKeeps")}
+        confirmLabel={t("settings.dialogs.rebootConfirm")}
         busy={rebootInProgress}
       />
       <ConfirmActionDialog
         open={deleteHistoryDialogOpen}
         onClose={handleCancelDeleteHistory}
         onConfirm={handleConfirmDeleteHistory}
-        title="Delete generation history"
+        title={t("settings.deleteHistory.title")}
         description={
           <>
-            Permanently deletes every batch image, batch video and audio
-            generation: the files, their entries in Documents and Job History,
-            and ComfyUI&apos;s own output and input folders.
+            {t("settings.deleteHistory.description")}
             {deleteHistoryRunning
-              ? " Batches still generating are skipped and left in place."
+              ? ` ${t("settings.deleteHistory.runningSkipped")}`
               : ""}
             {deleteHistoryCounts?.comfyui?.running?.length
-              ? " ComfyUI is still rendering; its folders are left alone this time."
+              ? ` ${t("settings.deleteHistory.comfyRendering")}`
               : ""}
             {!deleteHistoryCounts
-              ? " Could not read the current counts; deletion still works."
+              ? ` ${t("settings.deleteHistory.countsUnavailable")}`
               : ""}
           </>
         }
         facts={deleteHistoryFacts}
-        keeps="Film Crew productions, video editor projects, the cast library, trained LoRAs and chat history."
-        confirmLabel="Delete history"
+        keeps={t("settings.deleteHistory.keeps")}
+        confirmLabel={t("settings.deleteHistory.confirm")}
         busy={deleteHistoryInProgress}
       />
       <ConfirmActionDialog
         open={clearChatOpen}
         onClose={() => !clearChatBusy && setClearChatOpen(false)}
         onConfirm={confirmClearChat}
-        title="Clear all chat history"
-        description="Deletes every conversation and message, the cached context files, and this browser's session ids."
+        title={t("settings.dialogs.clearChatTitle")}
+        description={t("settings.dialogs.clearChatDescription")}
         facts={
           chatHistoryCounts
             ? [
-                { label: "Messages", value: chatHistoryCounts.messages || 0 },
-                { label: "Sessions", value: chatHistoryCounts.sessions || 0 },
+                { label: t("settings.dialogs.messages"), value: chatHistoryCounts.messages || 0 },
+                { label: t("settings.dialogs.sessions"), value: chatHistoryCounts.sessions || 0 },
                 {
-                  label: "Cached files",
+                  label: t("settings.dialogs.cachedFiles"),
                   value:
                     (chatHistoryCounts.context_files || 0) +
                     (chatHistoryCounts.conversation_files || 0),
@@ -4066,23 +4114,23 @@ const SettingsPage = () => {
               ]
             : []
         }
-        keeps="documents, the index, generated media and rules."
-        confirmLabel="Clear chat history"
+        keeps={t("settings.dialogs.clearChatKeeps")}
+        confirmLabel={t("settings.dialogs.clearChatConfirm")}
         busy={clearChatBusy}
       />
       <ConfirmActionDialog
         open={clearMemoriesOpen}
         onClose={() => !clearMemoriesBusy && setClearMemoriesOpen(false)}
         onConfirm={confirmClearMemories}
-        title="Clear agent memory"
-        description="Deletes every memory the agent has stored: facts, preferences and lessons, whatever their status. The filters on the memory page do not narrow this."
+        title={t("settings.dialogs.clearMemoryTitle")}
+        description={t("settings.dialogs.clearMemoryDescription")}
         facts={
           memoryCount !== null
-            ? [{ label: "Active memories", value: memoryCount }]
+            ? [{ label: t("settings.dialogs.activeMemories"), value: memoryCount }]
             : []
         }
-        keeps="rules, chats and documents."
-        confirmLabel="Clear memory"
+        keeps={t("settings.dialogs.clearMemoryKeeps")}
+        confirmLabel={t("settings.dialogs.clearMemoryConfirm")}
         busy={clearMemoriesBusy}
       />
       <ConfirmActionDialog
@@ -4091,21 +4139,21 @@ const SettingsPage = () => {
         onConfirm={confirmClearLearning}
         title={
           learningClear === "rules"
-            ? "Clear learned rules"
-            : "Clear behaviour log"
+            ? t("settings.dialogs.clearRulesTitle")
+            : t("settings.dialogs.clearLogTitle")
         }
         description={
           learningClear === "rules"
-            ? "Deletes every rule marked as learned: the ones shipped in the rule bundle, and any saved by the /saverule command. The chat does not add rules on its own."
-            : "Empties the behaviour log file that Behaviour learning reads to adapt replies. Learning starts again from nothing."
+            ? t("settings.dialogs.clearRulesDescription")
+            : t("settings.dialogs.clearLogDescription")
         }
         keeps={
           learningClear === "rules"
-            ? "rules you wrote or imported, chats, memories."
-            : "learned rules, chats, memories."
+            ? t("settings.dialogs.clearRulesKeeps")
+            : t("settings.dialogs.clearLogKeeps")
         }
         confirmLabel={
-          learningClear === "rules" ? "Clear learned rules" : "Clear log"
+          learningClear === "rules" ? t("settings.dialogs.clearRulesConfirm") : t("settings.dialogs.clearLogConfirm")
         }
         busy={learningBusy}
       />

@@ -1,3 +1,5 @@
+import { translate } from "../i18n";
+
 /**
  * Coerce an API error payload to a string safe to render as a React child.
  *
@@ -21,7 +23,7 @@ export function formatUiError(err) {
     try {
       return JSON.stringify(err);
     } catch {
-      return "An error occurred";
+      return translate("messages.uiError.generic");
     }
   }
   return String(err);

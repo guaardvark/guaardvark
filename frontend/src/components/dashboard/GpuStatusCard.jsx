@@ -20,6 +20,7 @@ import MemoryIcon from "@mui/icons-material/Memory";
 import { io } from "socket.io-client";
 import { SOCKET_URL } from "../../api/apiClient";
 import { getGpuStatus, setGpuTier, evictGpuModel } from "../../api/gpuService";
+import { translate, useUiTranslation } from "../../i18n";
 
 // Color map for model types
 const MODEL_COLORS = {
@@ -30,18 +31,18 @@ const MODEL_COLORS = {
   whisper: "#ffd54f",
 };
 
-const TIERS = [
-  { value: "speed", label: "Speed" },
-  { value: "balanced", label: "Balanced" },
-  { value: "quality", label: "Quality" },
+const tierOptions = () => [
+  { value: "speed", menuLabel: translate("dashboard.gpu.tierMenu.speed") },
+  { value: "balanced", menuLabel: translate("dashboard.gpu.tierMenu.balanced") },
+  { value: "quality", menuLabel: translate("dashboard.gpu.tierMenu.quality") },
 ];
 
-const STATE_LABELS = {
-  loaded: "Loaded",
-  loading: "Loading...",
-  unloading: "Unloading...",
-  unloaded: "Idle",
-};
+const stateLabels = () => ({
+  loaded: translate("dashboard.gpu.states.loaded"),
+  loading: translate("dashboard.gpu.states.loading"),
+  unloading: translate("dashboard.gpu.states.unloading"),
+  unloaded: translate("dashboard.gpu.states.unloaded"),
+});
 
 const GpuStatusCard = React.forwardRef(
   (
@@ -55,6 +56,7 @@ const GpuStatusCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const theme = useTheme();
     const [status, setStatus] = useState(null);
     const [tier, setTier] = useState("balanced");
@@ -70,7 +72,7 @@ const GpuStatusCard = React.forwardRef(
         setTier(data.quality_tier || "balanced");
         setError(null);
       } catch (e) {
-        setError("GPU status unavailable");
+        setError(t("dashboard.gpu.unavailable"));
       }
     }, []);
 
@@ -141,15 +143,15 @@ const GpuStatusCard = React.forwardRef(
     const loadedModels = models.filter((m) => m.state === "loaded");
 
     const menuActions = [
-      { label: "Refresh", onClick: fetchStatus },
-      ...TIERS.map((t, idx) => ({
-        label: `${t.label} tier`,
-        checked: tier === t.value,
-        onClick: () => handleTierChange(null, t.value),
+      { label: t("common.refresh"), onClick: fetchStatus },
+      ...tierOptions().map((option, idx) => ({
+        label: option.menuLabel,
+        checked: tier === option.value,
+        onClick: () => handleTierChange(null, option.value),
         dividerBefore: idx === 0,
       })),
       ...loadedModels.map((m, idx) => ({
-        label: `Evict ${m.slot_id}`,
+        label: t("dashboard.gpu.evict", { model: m.slot_id }),
         onClick: () => handleEvict(m.slot_id),
         dividerBefore: idx === 0,
       })),
@@ -163,9 +165,9 @@ const GpuStatusCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="GPU Memory"
+        title={t("dashboard.gpu.title")}
         titleBarActions={
-          <Tooltip title="Refresh">
+          <Tooltip title={t("common.refresh")}>
             <IconButton size="small" onClick={fetchStatus} sx={{ color: "inherit" }}>
               <MemoryIcon fontSize="small" />
             </IconButton>
@@ -231,7 +233,7 @@ const GpuStatusCard = React.forwardRef(
                     })}
                   {/* Untracked / system */}
                   {vram && status?.untracked_vram_mb > 0 && (
-                    <Tooltip title={`System/Other: ${(status.untracked_vram_mb / 1024).toFixed(1)} GB`}>
+                    <Tooltip title={t("dashboard.gpu.systemOther", { size: (status.untracked_vram_mb / 1024).toFixed(1) })}>
                       <Box
                         sx={{
                           width: `${(status.untracked_vram_mb / vram.total_mb) * 100}%`,
@@ -249,7 +251,7 @@ const GpuStatusCard = React.forwardRef(
           {/* Quality Tier */}
           <Box sx={{ mb: 1.5 }}>
             <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: "block" }}>
-              Quality Tier
+              {t("dashboard.gpu.qualityTier")}
             </Typography>
             <ToggleButtonGroup
               value={tier}
@@ -260,13 +262,13 @@ const GpuStatusCard = React.forwardRef(
               sx={{ height: 28 }}
             >
               <ToggleButton value="speed" sx={{ fontSize: "0.7rem", py: 0 }}>
-                Speed
+                {t("dashboard.gpu.tiers.speed")}
               </ToggleButton>
               <ToggleButton value="balanced" sx={{ fontSize: "0.7rem", py: 0 }}>
-                Balanced
+                {t("dashboard.gpu.tiers.balanced")}
               </ToggleButton>
               <ToggleButton value="quality" sx={{ fontSize: "0.7rem", py: 0 }}>
-                Quality
+                {t("dashboard.gpu.tiers.quality")}
               </ToggleButton>
             </ToggleButtonGroup>
           </Box>
@@ -313,10 +315,10 @@ const GpuStatusCard = React.forwardRef(
                       sx={{ height: 18, fontSize: "0.65rem", bgcolor: "transparent" }}
                     />
                     <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.6rem" }}>
-                      {STATE_LABELS[m.state] || m.state}
+                      {stateLabels()[m.state] || m.state}
                     </Typography>
                     {m.state === "loaded" && (
-                      <Tooltip title="Evict from GPU">
+                      <Tooltip title={t("dashboard.gpu.evictFromGpu")}>
                         <IconButton
                           size="small"
                           onClick={() => handleEvict(m.slot_id)}
@@ -331,7 +333,7 @@ const GpuStatusCard = React.forwardRef(
               ))}
             {models.filter((m) => m.state !== "unloaded").length === 0 && (
               <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center", py: 1 }}>
-                No models loaded
+                {t("dashboard.gpu.noModels")}
               </Typography>
             )}
           </Stack>

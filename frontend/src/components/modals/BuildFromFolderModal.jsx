@@ -29,39 +29,42 @@ import {
   startFolderBuild,
 } from "../../api/trainingService";
 import { startBulkImport } from "../../api/bulkImportService";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
-const KINDS = [
-  { ext: ".md", label: "Markdown (.md)" },
-  { ext: ".txt", label: "Text (.txt)" },
-  { ext: ".html", label: "Web pages (.html)" },
-  { ext: ".docx", label: "Word (.docx)" },
-  { ext: ".pdf", label: "PDF (.pdf)" },
+const kindChoices = () => [
+  { ext: ".md", label: translate("dialogs.buildFromFolder.kinds.markdown") },
+  { ext: ".txt", label: translate("dialogs.buildFromFolder.kinds.text") },
+  { ext: ".html", label: translate("dialogs.buildFromFolder.kinds.html") },
+  { ext: ".docx", label: translate("dialogs.buildFromFolder.kinds.word") },
+  { ext: ".pdf", label: translate("dialogs.buildFromFolder.kinds.pdf") },
 ];
 // What the build aims for. "enough" is what a default fine-tune can use, with
 // headroom for the filter (the server says the number).
 const TARGETS = ["enough", 5000, 2000, "all"];
-const RULE_LABELS = {
-  private_key: "Private keys",
-  api_key: "API keys and tokens",
-  recovery_key: "Recovery keys",
-  recovery_code: "Recovery codes",
-  bearer_header: "Bearer tokens",
-  api_key_header: "X-API-Key headers",
-  secret_assignment: "Passwords and secrets",
-  email: "Email addresses",
-  private_ip: "Private network addresses",
-  lan_host: "Local machine names",
-  word_list: "Words from your list",
-};
+const ruleLabels = () => ({
+  private_key: translate("dialogs.buildFromFolder.rules.privateKey"),
+  api_key: translate("dialogs.buildFromFolder.rules.apiKey"),
+  recovery_key: translate("dialogs.buildFromFolder.rules.recoveryKey"),
+  recovery_code: translate("dialogs.buildFromFolder.rules.recoveryCode"),
+  bearer_header: translate("dialogs.buildFromFolder.rules.bearerHeader"),
+  api_key_header: translate("dialogs.buildFromFolder.rules.apiKeyHeader"),
+  secret_assignment: translate("dialogs.buildFromFolder.rules.secretAssignment"),
+  email: translate("dialogs.buildFromFolder.rules.email"),
+  private_ip: translate("dialogs.buildFromFolder.rules.privateIp"),
+  lan_host: translate("dialogs.buildFromFolder.rules.lanHost"),
+  word_list: translate("dialogs.buildFromFolder.rules.wordList"),
+});
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const fileCount = (count) => translate("dialogs.buildFromFolder.counts.file", { count });
+const passageCount = (count) => translate("dialogs.buildFromFolder.counts.passage", { count });
+const itemCount = (count) => translate("dialogs.buildFromFolder.counts.item", { count });
 const folderName = (path) => String(path || "").replace(/\/+$/, "").split("/").pop() || "Notes";
 
 const formatDuration = (seconds) => {
   if (seconds == null) return null;
-  if (seconds < 90) return `about ${Math.max(1, Math.round(seconds))} seconds`;
-  if (seconds < 5400) return `about ${Math.round(seconds / 60)} minutes`;
-  return `about ${(seconds / 3600).toFixed(1)} hours`;
+  if (seconds < 90) return translate("dialogs.buildFromFolder.duration.seconds", { count: Math.max(1, Math.round(seconds)) });
+  if (seconds < 5400) return translate("dialogs.buildFromFolder.duration.minutes", { count: Math.round(seconds / 60) });
+  return translate("dialogs.buildFromFolder.duration.hours", { hours: (seconds / 3600).toFixed(1) });
 };
 
 const skippedLine = (skipped) => {
@@ -69,29 +72,35 @@ const skippedLine = (skipped) => {
   const folders = (skipped.hidden_dirs || 0) + (skipped.internal_dirs || 0);
   const files = (skipped.hidden_files || 0) + (skipped.sensitive_files || 0) + (skipped.symlinks || 0);
   const parts = [];
-  if (folders) parts.push(plural(folders, "hidden or internal folder"));
-  if (files) parts.push(plural(files, "hidden or credential file"));
+  if (folders) parts.push(translate("dialogs.buildFromFolder.skipped.hiddenFolders", { count: folders }));
+  if (files) parts.push(translate("dialogs.buildFromFolder.skipped.hiddenFiles", { count: files }));
   if (skipped.package_files) {
-    parts.push(`${plural(skipped.package_files, "file")} in ${plural(skipped.package_dirs || 0, "copied software folder")}`);
+    parts.push(
+      translate("dialogs.buildFromFolder.skipped.packageFiles", {
+        count: skipped.package_files,
+        folders: translate("dialogs.buildFromFolder.skipped.copiedFolders", { count: skipped.package_dirs || 0 }),
+      }),
+    );
   }
-  if (skipped.not_notes) parts.push(plural(skipped.not_notes, "licence, dependency or tokenizer file"));
-  if (skipped.not_prose) parts.push(plural(skipped.not_prose, "file") + " that are not prose");
-  if (skipped.credential_names) parts.push(plural(skipped.credential_names, "file") + " named for a credential");
-  if (skipped.other_kinds) parts.push(plural(skipped.other_kinds, "file") + " of other kinds");
-  return parts.length ? `Skipped ${parts.join(", ")}.` : "";
+  if (skipped.not_notes) parts.push(translate("dialogs.buildFromFolder.skipped.notNotes", { count: skipped.not_notes }));
+  if (skipped.not_prose) parts.push(translate("dialogs.buildFromFolder.skipped.notProse", { count: skipped.not_prose }));
+  if (skipped.credential_names) parts.push(translate("dialogs.buildFromFolder.skipped.credentialNames", { count: skipped.credential_names }));
+  if (skipped.other_kinds) parts.push(translate("dialogs.buildFromFolder.skipped.otherKinds", { count: skipped.other_kinds }));
+  return parts.length ? translate("dialogs.buildFromFolder.skipped.line", { items: parts.join(", ") }) : "";
 };
 
 const targetLabel = (value, estimate) => {
   if (value === "enough") {
     return estimate?.enough_to_train
-      ? `Enough to train (≈${estimate.enough_to_train.toLocaleString()})`
-      : "Enough to train";
+      ? translate("dialogs.buildFromFolder.enoughCount", { count: estimate.enough_to_train.toLocaleString(uiLocale()) })
+      : translate("dialogs.buildFromFolder.enough");
   }
-  if (value === "all") return "All passages";
-  return Number(value).toLocaleString();
+  if (value === "all") return translate("dialogs.buildFromFolder.allPassages");
+  return Number(value).toLocaleString(uiLocale());
 };
 
 const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
+  const { t } = useUiTranslation();
   const [folder, setFolder] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [kinds, setKinds] = useState([".md", ".txt"]);
@@ -175,11 +184,11 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
           setProbe(timed.probe);
           setEstimate(timed.estimate);
         } catch (e) {
-          setProbeError(e.message || "Could not time the build");
+          setProbeError(e.message || t("dialogs.buildFromFolder.probeFailed"));
         }
       }
     } catch (e) {
-      setError(e.message || "The check failed");
+      setError(e.message || t("dialogs.buildFromFolder.checkFailed"));
     } finally {
       setBusy(null);
     }
@@ -200,15 +209,15 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
             reindex_missing: true,
             dry_run: false,
           });
-          indexNote = ` The folder is also being copied into Files › ${folderName(folder)} and indexed.`;
+          indexNote = " " + t("dialogs.buildFromFolder.alsoIndexing", { folder: folderName(folder) });
         } catch (e) {
-          indexNote = ` Adding it to Files did not start: ${e.message}`;
+          indexNote = " " + t("dialogs.buildFromFolder.indexFailed", { error: e.message });
         }
       }
       onStarted?.(job, indexNote);
       onClose();
     } catch (e) {
-      setError(e.message || "The build did not start");
+      setError(e.message || t("dialogs.buildFromFolder.buildFailed"));
     } finally {
       setBusy(null);
     }
@@ -218,43 +227,41 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
   const rulesHit = scrub ? Object.entries(scrub.by_rule || {}).filter(([, n]) => n > 0) : [];
   const nothingToRead = check && check.files === 0;
   const modelMissing = Boolean(probeError);
+  const labels = ruleLabels();
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="md" fullWidth>
-      <DialogTitle>Build a dataset from a folder of notes</DialogTitle>
+      <DialogTitle>{t("dialogs.buildFromFolder.title")}</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
           <Typography variant="body2" color="text.secondary">
-            Your notes are read, scrubbed of secrets and names, cut into passages, and the local model writes
-            questions and answers from each passage. Training on them teaches a small model how your notes talk:
-            their words, decisions and the kind of answer you expect. It does not reliably recall exact facts,
-            dates or numbers; searching your files does that, so adding the folder to Files is on.
+            {t("dialogs.buildFromFolder.intro")}
           </Typography>
 
           <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
             <TextField
               size="small"
-              label="Folder"
+              label={t("dialogs.buildFromFolder.folder")}
               value={folder}
               onChange={(e) => {
                 setFolder(e.target.value);
                 forgetLargeFiles();
                 invalidate();
               }}
-              placeholder="Choose a folder on the Guaardvark machine"
+              placeholder={t("dialogs.buildFromFolder.folderPlaceholder")}
               sx={{ flexGrow: 1 }}
               disabled={Boolean(busy)}
             />
             <ActionButton onClick={() => setPickerOpen(true)} disabled={Boolean(busy)}>
-              Browse…
+              {t("dialogs.buildFromFolder.browse")}
             </ActionButton>
           </Stack>
 
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
             <Typography variant="overline" color="text.secondary">
-              Read
+              {t("dialogs.buildFromFolder.read")}
             </Typography>
-            {KINDS.map((k) => (
+            {kindChoices().map((k) => (
               <SettingChip
                 key={k.ext}
                 label={k.label}
@@ -272,7 +279,7 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
             <TextField
               select
               size="small"
-              label="Pairs to generate"
+              label={t("dialogs.buildFromFolder.pairsToGenerate")}
               value={target}
               onChange={(e) => setTarget(e.target.value)}
               disabled={Boolean(busy)}
@@ -287,7 +294,7 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                       <Typography variant="body2">{targetLabel(value, estimate)}</Typography>
                       {choice && (
                         <Typography variant="caption" color="text.secondary">
-                          {plural(choice.passages, "passage")}
+                          {passageCount(choice.passages)}
                           {choice.seconds != null ? `, ${formatDuration(choice.seconds)}` : ""}
                         </Typography>
                       )}
@@ -297,20 +304,20 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
               })}
             </TextField>
             <SettingChip
-              label="Also add to Files and index it for search"
+              label={t("dialogs.buildFromFolder.alsoIndex")}
               on={alsoIndex}
               onToggle={setAlsoIndex}
               disabled={Boolean(busy)}
-              tooltip="Copies the whole folder into Files as it is (your originals stay where they are) and indexes it, so chat can answer from the notes themselves. The copy does not skip what the training build leaves out (files named like keys or passwords, copied packages, very large files) and is not scrubbed; only the training data is."
+              tooltip={t("dialogs.buildFromFolder.alsoIndexTooltip")}
             />
           </Stack>
 
           <TextField
-            label="Words to scrub (one per line)"
+            label={t("dialogs.buildFromFolder.scrubWords")}
             helperText={
               termsState === "failed" && !termsEdited
-                ? "Your saved list could not be loaded. It stays as it is (and the check uses it) unless you type a new one here."
-                : "Names of people, machines and clients. They become [name] in the training data. Saved on this machine when you press Check."
+                ? t("dialogs.buildFromFolder.scrubLoadFailed")
+                : t("dialogs.buildFromFolder.scrubHelp")
             }
             value={terms}
             onChange={(e) => {
@@ -325,15 +332,14 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
             disabled={Boolean(busy)}
           />
           <Typography variant="caption" color="text.secondary">
-            Always scrubbed as well: API keys and tokens, passwords and secret settings, email addresses, private
-            network addresses and local machine names.
+            {t("dialogs.buildFromFolder.alwaysScrubbed")}
           </Typography>
 
           {busy && (busy === "check" || busy === "probe") && (
             <Box>
               <LinearProgress />
               <Typography variant="caption" color="text.secondary">
-                {busy === "check" ? "Reading and scrubbing the folder…" : "Timing three passages with the local model…"}
+                {busy === "check" ? t("dialogs.buildFromFolder.reading") : t("dialogs.buildFromFolder.timing")}
               </Typography>
             </Box>
           )}
@@ -344,9 +350,9 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
               <Divider sx={{ mb: 1.5 }} />
               <Stack spacing={1}>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <StatusPill tone={nothingToRead ? "warn" : "ok"} label={nothingToRead ? "Nothing to read" : "Checked"} />
+                  <StatusPill tone={nothingToRead ? "warn" : "ok"} label={nothingToRead ? t("dialogs.buildFromFolder.nothingToRead") : t("dialogs.buildFromFolder.checked")} />
                   <Typography variant="body2">
-                    {plural(check.files, "file")}, {check.words.toLocaleString()} words
+                    {t("dialogs.buildFromFolder.filesAndWords", { files: fileCount(check.files), words: check.words.toLocaleString(uiLocale()) })}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {skippedLine(check.skipped)}
@@ -355,15 +361,14 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                 {Object.keys(largeFiles).length > 0 && (
                   <Box>
                     <Typography variant="body2">
-                      Left out as very large (tool output or word lists, not notes): include any that are notes, then
-                      Check again.
+                      {t("dialogs.buildFromFolder.largeFiles")}
                     </Typography>
                     <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
                       {Object.entries(largeFiles).map(([path, words]) => (
                         <SettingChip
                           key={path}
                           label={path.split("/").pop()}
-                          note={`${words.toLocaleString()} words`}
+                          note={t("dialogs.buildFromFolder.words", { words: words.toLocaleString(uiLocale()) })}
                           tooltip={path}
                           on={includeLarge.includes(path)}
                           disabled={Boolean(busy)}
@@ -378,32 +383,31 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                 )}
                 {check.skipped?.credential_files?.length > 0 && (
                   <Alert severity="info">
-                    Left out because their names say they hold a credential:{" "}
-                    {check.skipped.credential_files.join(", ")}
+                    {t("dialogs.buildFromFolder.credentialFiles", { files: check.skipped.credential_files.join(", ") })}
                   </Alert>
                 )}
                 {check.unreadable?.length > 0 && (
-                  <Alert severity="warning">Could not read {plural(check.unreadable.length, "file")}: {check.unreadable[0]}</Alert>
+                  <Alert severity="warning">{t("dialogs.buildFromFolder.unreadable", { files: fileCount(check.unreadable.length), first: check.unreadable[0] })}</Alert>
                 )}
-                <Typography variant="subtitle2">Scrubbed: {plural(scrub?.total || 0, "item")}</Typography>
+                <Typography variant="subtitle2">{t("dialogs.buildFromFolder.scrubbed", { items: itemCount(scrub?.total || 0) })}</Typography>
                 {rulesHit.length > 0 && (
                   <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
                     {rulesHit.map(([rule, n]) => (
-                      <StatusPill key={rule} tone="info" label={`${RULE_LABELS[rule] || rule}: ${n}`} />
+                      <StatusPill key={rule} tone="info" label={`${labels[rule] || rule}: ${n}`} />
                     ))}
                   </Stack>
                 )}
                 {scrub?.samples && Object.keys(scrub.samples).length > 0 && (
                   <Box>
                     <ActionButton kind="link" onClick={() => setShowSamples((v) => !v)}>
-                      {showSamples ? "Hide scrubbed examples" : "Show scrubbed examples"}
+                      {showSamples ? t("dialogs.buildFromFolder.hideExamples") : t("dialogs.buildFromFolder.showExamples")}
                     </ActionButton>
                     <Collapse in={showSamples} unmountOnExit>
                       <Box sx={{ mt: 0.5, pl: 1, borderLeft: 2, borderColor: "divider" }}>
                         {Object.entries(scrub.samples).map(([rule, lines]) => (
                           <Box key={rule} sx={{ mb: 1 }}>
                             <Typography variant="caption" color="text.secondary">
-                              {RULE_LABELS[rule] || rule}
+                              {labels[rule] || rule}
                             </Typography>
                             {lines.map((line, i) => (
                               <Typography key={i} variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.75rem", overflowWrap: "anywhere" }}>
@@ -422,26 +426,33 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
                   };
                   return (
                   <Typography variant="body2">
-                    Estimate for {targetLabel(target, estimate)}: {plural(choice.passages, "passage")} of{" "}
-                    {estimate.passages_available?.toLocaleString()}, about {choice.pairs_before_filter.toLocaleString()} pairs
-                    before filtering
                     {choice.seconds != null
-                      ? `, ${formatDuration(choice.seconds)} on ${probe?.model || "the local model"}`
-                      : ""}
-                    .
+                      ? t("dialogs.buildFromFolder.estimateTimed", {
+                          target: targetLabel(target, estimate),
+                          passages: passageCount(choice.passages),
+                          available: estimate.passages_available?.toLocaleString(uiLocale()),
+                          pairs: choice.pairs_before_filter.toLocaleString(uiLocale()),
+                          duration: formatDuration(choice.seconds),
+                          model: probe?.model || t("dialogs.buildFromFolder.localModel"),
+                        })
+                      : t("dialogs.buildFromFolder.estimate", {
+                          target: targetLabel(target, estimate),
+                          passages: passageCount(choice.passages),
+                          available: estimate.passages_available?.toLocaleString(uiLocale()),
+                          pairs: choice.pairs_before_filter.toLocaleString(uiLocale()),
+                        })}
                     <Typography component="span" variant="caption" color="text.secondary">
                       {" "}
                       {probe
-                        ? `Timed on ${plural(probe.chunks, "passage")} (${probe.seconds_per_chunk} s each); an estimate.`
-                        : `Chunk size ${estimate.basis}.`}
+                        ? t("dialogs.buildFromFolder.timedOn", { passages: passageCount(probe.chunks), seconds: probe.seconds_per_chunk })
+                        : t("dialogs.buildFromFolder.chunkSize", { basis: estimate.basis })}
                     </Typography>
                   </Typography>
                   );
                 })()}
                 {probeError && (
                   <Alert severity="warning">
-                    {probeError}. The build needs the local chat model; start it from the chat model list, then Check
-                    again.
+                    {t("dialogs.buildFromFolder.needsModel", { error: probeError })}
                   </Alert>
                 )}
               </Stack>
@@ -451,23 +462,23 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
       </DialogContent>
       <DialogActions>
         <ActionButton onClick={onClose} disabled={busy === "build"}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </ActionButton>
         <ActionButton
           onClick={runCheck}
           loading={busy === "check" || busy === "probe"}
           disabled={!folder.trim() || kinds.length === 0 || Boolean(busy)}
         >
-          Check
+          {t("dialogs.buildFromFolder.check")}
         </ActionButton>
         <ActionButton
           kind="primary"
           onClick={runBuild}
           loading={busy === "build"}
           disabled={!check || nothingToRead || modelMissing || Boolean(busy)}
-          tooltip={!check ? "Check the folder first" : ""}
+          tooltip={!check ? t("dialogs.buildFromFolder.checkFirst") : ""}
         >
-          Build
+          {t("dialogs.buildFromFolder.build")}
         </ActionButton>
       </DialogActions>
 
@@ -480,7 +491,7 @@ const BuildFromFolderModal = ({ open, onClose, onStarted }) => {
           invalidate();
         }}
         initialPath={folder || "~"}
-        title="Choose a folder of notes"
+        title={t("dialogs.buildFromFolder.pickerTitle")}
         purpose="training"
       />
     </Dialog>

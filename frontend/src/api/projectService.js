@@ -1,6 +1,7 @@
 // frontend/src/api/projectService.js
 // Version 1.0: Service for all project-related API calls.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 export const getProjects = async (queryParams = {}) => {
   try {
@@ -14,7 +15,7 @@ export const getProjects = async (queryParams = {}) => {
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("projectService: Error getting projects:", err.message);
-    return { error: err.message || "Failed to get projects." };
+    return { error: err.message || translate("messages.projects.listFailed") };
   }
 };
 
@@ -52,7 +53,7 @@ export const getProject = async (projectId) => {
       `projectService: Error getting project ${projectId}:`,
       err.message,
     );
-    return { error: err.message || `Failed to get project ${projectId}.` };
+    return { error: err.message || translate("messages.projects.getFailed", { projectId }) };
   }
 };
 

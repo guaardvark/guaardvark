@@ -3,6 +3,7 @@
 // The browser empties DataTransfer.items as soon as the drop handler yields, so
 // a handler that awaits between items only ever sees the first one. Take the
 // snapshot synchronously inside the event, then walk it asynchronously.
+import { translate } from "../i18n";
 
 /**
  * Capture every entry and file a drop carries, without awaiting.
@@ -150,10 +151,11 @@ export async function collectDroppedFiles(snapshot, { prune = null } = {}) {
 
 /** "left out 2 folders and 5 files (hidden, build output or credentials)" */
 export function prunedNote(prune) {
-  const parts = [];
-  if (prune?.folders) parts.push(`${prune.folders} folder${prune.folders === 1 ? '' : 's'}`);
-  if (prune?.files) parts.push(`${prune.files} file${prune.files === 1 ? '' : 's'}`);
-  return parts.length ? `left out ${parts.join(' and ')} (hidden, build output or credentials)` : '';
+  const folders = prune?.folders ? translate('messages.droppedFiles.folders', { count: prune.folders }) : '';
+  const files = prune?.files ? translate('messages.droppedFiles.files', { count: prune.files }) : '';
+  if (!folders && !files) return '';
+  const items = folders && files ? translate('messages.droppedFiles.foldersAndFiles', { folders, files }) : folders || files;
+  return translate('messages.droppedFiles.leftOut', { items });
 }
 
 /** True when a drag carries files from outside the page. */

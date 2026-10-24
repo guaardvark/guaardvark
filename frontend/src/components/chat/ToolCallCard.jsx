@@ -31,12 +31,12 @@ import { ActionButton } from "../settings/ui";
 import { guardedMediaSrc } from "../../utils/assetGuard";
 import ArtifactCard, { CSVTable, artifactShape } from "./ArtifactCard";
 import { consentImageSrc } from "./consentApproval";
+import { translate, useUiTranslation } from "../../i18n";
 
 // Tools that get thumbs up/down feedback — agent actions the user can judge
 const FEEDBACK_TOOLS = new Set(["agent_task_execute", "agent_screen_capture"]);
 
-const CONSENT_COPY =
-  "By approving, you confirm you have the right to use this person's likeness — your own photo, or a Cast subject you uploaded.";
+const consentCopy = () => translate("chat.toolCall.consentCopy");
 
 const ToolCallCard = ({
   toolName,
@@ -55,6 +55,7 @@ const ToolCallCard = ({
   requestId,
   cardKey,
 }) => {
+  const { t } = useUiTranslation();
   const artifact = result?.artifact || null;
   // A card that produced a file opens by default so the file is visible in the thread.
   const [expanded, setExpanded] = useState(Boolean(artifact));
@@ -183,7 +184,7 @@ const ToolCallCard = ({
             color: "text.primary"
           }}
         >
-          {toolName} {requiresApproval && !responded && "(Needs Approval)"}
+          {toolName} {requiresApproval && !responded && t("chat.toolCall.needsApproval")}
         </Typography>
 
         {paramSummary && (
@@ -242,7 +243,7 @@ const ToolCallCard = ({
                 sx={{ mb: 1, p: 1.25, bgcolor: "background.paper", borderRadius: 1, border: "1px solid", borderColor: "divider" }}
               >
                 <Typography variant="body2" sx={{ display: "block", mb: 1, lineHeight: 1.45 }}>
-                  {CONSENT_COPY}
+                  {consentCopy()}
                 </Typography>
                 {(consentImage || consentPrompt) && (
                   <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start", mb: 1 }}>
@@ -250,7 +251,7 @@ const ToolCallCard = ({
                       <Box
                         component="img"
                         src={guardedMediaSrc(consentImageSrc(consentImage))}
-                        alt="Reference likeness"
+                        alt={t("chat.toolCall.referenceAlt")}
                         sx={{
                           width: 72,
                           height: 72,
@@ -270,7 +271,7 @@ const ToolCallCard = ({
                       )}
                       {consentImage && !consentImageSrc(consentImage) && (
                         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
-                          Reference: {consentImage}
+                          {t("chat.toolCall.reference", { image: consentImage })}
                         </Typography>
                       )}
                     </Box>
@@ -278,10 +279,10 @@ const ToolCallCard = ({
                 )}
                 <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
                   <ActionButton kind="primary" onClick={() => handleApproval(true)}>
-                    I have the right to use this likeness
+                    {t("chat.toolCall.consentApprove")}
                   </ActionButton>
                   <ActionButton kind="link" onClick={() => handleApproval(false)}>
-                    Decline
+                    {t("chat.toolCall.decline")}
                   </ActionButton>
                 </Box>
               </Box>
@@ -291,21 +292,21 @@ const ToolCallCard = ({
                 sx={{ mb: 1, p: 1.25, bgcolor: "background.paper", borderRadius: 1, border: "1px solid", borderColor: "divider" }}
               >
                 <Typography variant="body2" sx={{ display: "block", mb: 1 }}>
-                  This action needs your approval. Go ahead?
+                  {t("chat.toolCall.approvalPrompt")}
                 </Typography>
                 <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
                   <ActionButton kind="primary" onClick={() => handleApproval(true)}>
-                    Approve
+                    {t("chat.toolCall.approve")}
                   </ActionButton>
                   <ActionButton
                     kind="neutral"
-                    tooltip={`Run ${toolName} without asking from now on. Undo it on the Approvals page.`}
+                    tooltip={t("chat.toolCall.alwaysApproveTooltip", { tool: toolName })}
                     onClick={() => handleApproval(true, "always")}
                   >
-                    Always approve
+                    {t("chat.toolCall.alwaysApprove")}
                   </ActionButton>
                   <ActionButton kind="link" onClick={() => handleApproval(false)}>
-                    Reject
+                    {t("chat.toolCall.reject")}
                   </ActionButton>
                 </Box>
               </Box>
@@ -319,7 +320,7 @@ const ToolCallCard = ({
                 variant="caption"
                 sx={{ fontWeight: 600, display: "block", mb: 0.25 }}
               >
-                Parameters:
+                {t("chat.toolCall.parameters")}:
               </Typography>
               <Box
                 component="pre"
@@ -348,7 +349,7 @@ const ToolCallCard = ({
                 variant="caption"
                 sx={{ fontWeight: 600, display: "block", mb: 0.25 }}
               >
-                {isPending ? "Output (streaming):" : "Result:"}
+                {isPending ? t("chat.toolCall.outputStreaming") : t("chat.toolCall.result")}:
               </Typography>
               
               {/* Specialized Renderers */}
@@ -381,10 +382,10 @@ const ToolCallCard = ({
                   }}
                 >
                   {isPending 
-                    ? (outputChunks || "Waiting for output...")
+                    ? (outputChunks || t("chat.toolCall.waitingForOutput"))
                     : isSuccess
-                    ? result.output || "Success (no output)"
-                    : result.error || "Unknown error"}
+                    ? result.output || t("chat.toolCall.successNoOutput")
+                    : result.error || t("chat.toolCall.unknownError")}
                 </Box>
               )}
             </Box>
@@ -396,9 +397,9 @@ const ToolCallCard = ({
           {showFeedback && (
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, justifyContent: "flex-end" }}>
               <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
-                Did this work?
+                {t("chat.toolCall.feedbackPrompt")}
               </Typography>
-              <Tooltip title="Yes, it worked">
+              <Tooltip title={t("chat.toolCall.feedbackUp")}>
                 <IconButton
                   size="small"
                   onClick={() => handleFeedback(true)}
@@ -411,7 +412,7 @@ const ToolCallCard = ({
                   )}
                 </IconButton>
               </Tooltip>
-              <Tooltip title="No, it missed">
+              <Tooltip title={t("chat.toolCall.feedbackDown")}>
                 <IconButton
                   size="small"
                   onClick={() => handleFeedback(false)}

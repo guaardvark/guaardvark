@@ -1,6 +1,7 @@
 // frontend/src/api/websiteService.js
 // Version 1.0: Service for website-related API calls.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 export const getWebsites = async (queryParams = {}) => {
   try {
@@ -14,7 +15,7 @@ export const getWebsites = async (queryParams = {}) => {
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("websiteService: Error getting websites:", err.message);
-    return { error: err.message || "Failed to get websites." };
+    return { error: err.message || translate("messages.websites.listFailed") };
   }
 };
 

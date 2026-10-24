@@ -32,6 +32,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { selfImprovementService } from "../../api/selfImprovementService";
 import { FindingList } from "./InboundGuardSection";
+import { translate, useUiTranslation } from "../../i18n";
 
 // severity → chip color. The backend uses critical/high/medium/low; anything else falls to default.
 const SEVERITY_COLOR = {
@@ -62,16 +63,17 @@ function formatRelative(iso) {
   if (!iso) return "";
   const then = new Date(iso).getTime();
   const diffSec = Math.floor((Date.now() - then) / 1000);
-  if (diffSec < 60) return `${diffSec}s ago`;
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
-  return `${Math.floor(diffSec / 86400)}d ago`;
+  if (diffSec < 60) return translate("settingsAccess.fixes.secondsAgo", { count: diffSec });
+  if (diffSec < 3600) return translate("settingsAccess.fixes.minutesAgo", { count: Math.floor(diffSec / 60) });
+  if (diffSec < 86400) return translate("settingsAccess.fixes.hoursAgo", { count: Math.floor(diffSec / 3600) });
+  return translate("settingsAccess.fixes.daysAgo", { count: Math.floor(diffSec / 86400) });
 }
 
 import { useSnackbar } from "../common/SnackbarProvider";
 import { ConfirmActionDialog } from "./ui";
 
 export default function FixesModal({ open, onClose, showMessage }) {
+  const { t } = useUiTranslation();
   const snackbar = useSnackbar();
   // Pending "apply" targets awaiting confirmation; null when the dialog is closed.
   const [confirmApply, setConfirmApply] = useState(null);
@@ -95,7 +97,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
       const data = Array.isArray(res?.data) ? res.data : [];
       setFixes(data);
     } catch (err) {
-      setError(err?.message || "Failed to load pending fixes");
+      setError(err?.message || t("settingsAccess.fixes.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -126,9 +128,24 @@ export default function FixesModal({ open, onClose, showMessage }) {
   };
 
   const ACTIONS = {
-    approve: { verb: "Approving", past: "approved", call: (id) => selfImprovementService.approveFix(id) },
-    reject: { verb: "Rejecting", past: "rejected", call: (id) => selfImprovementService.rejectFix(id) },
-    apply: { verb: "Applying", past: "applied to the filesystem", call: (id) => selfImprovementService.applyFix(id) },
+    approve: {
+      progress: (fix) => t("settingsAccess.fixes.actions.approve.progress", { id: fix.id, path: fix.file_path || "" }),
+      one: (id) => t("settingsAccess.fixes.actions.approve.one", { id }),
+      many: (ok, total) => t("settingsAccess.fixes.actions.approve.many", { ok, total }),
+      call: (id) => selfImprovementService.approveFix(id),
+    },
+    reject: {
+      progress: (fix) => t("settingsAccess.fixes.actions.reject.progress", { id: fix.id, path: fix.file_path || "" }),
+      one: (id) => t("settingsAccess.fixes.actions.reject.one", { id }),
+      many: (ok, total) => t("settingsAccess.fixes.actions.reject.many", { ok, total }),
+      call: (id) => selfImprovementService.rejectFix(id),
+    },
+    apply: {
+      progress: (fix) => t("settingsAccess.fixes.actions.apply.progress", { id: fix.id, path: fix.file_path || "" }),
+      one: (id) => t("settingsAccess.fixes.actions.apply.one", { id }),
+      many: (ok, total) => t("settingsAccess.fixes.actions.apply.many", { ok, total }),
+      call: (id) => selfImprovementService.applyFix(id),
+    },
   };
 
   // Run one action over one or many fixes, sequentially, reporting progress
@@ -143,14 +160,14 @@ export default function FixesModal({ open, onClose, showMessage }) {
     let done = 0;
     for (const fix of list) {
       setProgress({
-        label: `${action.verb} fix #${fix.id} — ${fix.file_path || ""}`,
+        label: action.progress(fix),
         done,
         total: list.length,
       });
       try {
         await action.call(fix.id);
       } catch (err) {
-        failures.push(`#${fix.id}: ${err?.message || "failed"}`);
+        failures.push(`#${fix.id}: ${err?.message || t("settingsAccess.fixes.failedFallback")}`);
       }
       done += 1;
     }
@@ -158,8 +175,10 @@ export default function FixesModal({ open, onClose, showMessage }) {
     await fetchFixes();
     const ok = list.length - failures.length;
     const summary = list.length === 1
-      ? (failures.length ? failures[0] : `Fix #${list[0].id} ${action.past}`)
-      : `${ok} of ${list.length} fixes ${action.past}` + (failures.length ? ` — failed: ${failures.join("; ")}` : "");
+      ? (failures.length ? failures[0] : action.one(list[0].id))
+      : failures.length
+        ? t("settingsAccess.fixes.withFailures", { summary: action.many(ok, list.length), failures: failures.join("; ") })
+        : action.many(ok, list.length);
     setLastResult({ severity: failures.length ? (ok ? "warning" : "error") : "success", text: summary });
     notify(summary, failures.length ? "error" : "success");
     setActionBusy(false);
@@ -180,13 +199,13 @@ export default function FixesModal({ open, onClose, showMessage }) {
       <DialogTitle sx={{ display: "flex", alignItems: "center", gap: 1, pr: 6 }}>
         <BugReportIcon fontSize="small" />
         <Typography variant="h6" component="span">
-          Self-improvement fixes
+          {t("settingsAccess.fixes.title")}
         </Typography>
         <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-          {fixes.length} total
+          {t("settingsAccess.fixes.total", { count: fixes.length })}
         </Typography>
         <Box sx={{ flex: 1 }} />
-        <Tooltip title="Refresh">
+        <Tooltip title={t("settingsAccess.fixes.refresh")}>
           <span>
             <IconButton size="small" onClick={fetchFixes} disabled={loading}>
               <RefreshIcon fontSize="small" />
@@ -207,7 +226,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
           {progress && (
             <Box>
               <Typography variant="caption" color="text.secondary">
-                {progress.label} ({progress.done + 1} of {progress.total})
+                {t("settingsAccess.fixes.progress", { label: progress.label, done: progress.done + 1, total: progress.total })}
               </Typography>
               <LinearProgress
                 variant={progress.total > 1 ? "determinate" : "indeterminate"}
@@ -231,7 +250,16 @@ export default function FixesModal({ open, onClose, showMessage }) {
             return (
               <Chip
                 key={s}
-                label={`${s} (${count})`}
+                label={t("settingsAccess.fixes.filterChip", {
+                  status: {
+                    all: t("settingsAccess.fixes.filters.all"),
+                    proposed: t("settingsAccess.fixes.filters.proposed"),
+                    approved: t("settingsAccess.fixes.filters.approved"),
+                    applied: t("settingsAccess.fixes.filters.applied"),
+                    rejected: t("settingsAccess.fixes.filters.rejected"),
+                  }[s],
+                  count,
+                })}
                 size="small"
                 color={statusFilter === s ? "primary" : "default"}
                 variant={statusFilter === s ? "filled" : "outlined"}
@@ -253,8 +281,13 @@ export default function FixesModal({ open, onClose, showMessage }) {
           <Box sx={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", p: 3 }}>
             <Typography variant="body2" color="text.secondary">
               {fixes.length === 0
-                ? "No fixes yet. Run a self-check to generate some."
-                : `No ${statusFilter} fixes.`}
+                ? t("settingsAccess.fixes.noFixesYet")
+                : {
+                    proposed: t("settingsAccess.fixes.noneWithStatus.proposed"),
+                    approved: t("settingsAccess.fixes.noneWithStatus.approved"),
+                    applied: t("settingsAccess.fixes.noneWithStatus.applied"),
+                    rejected: t("settingsAccess.fixes.noneWithStatus.rejected"),
+                  }[statusFilter]}
             </Typography>
           </Box>
         ) : (
@@ -308,12 +341,12 @@ export default function FixesModal({ open, onClose, showMessage }) {
             <Box sx={{ flex: 1, overflowY: "auto", p: 2 }}>
               {!selected ? (
                 <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center", mt: 4 }}>
-                  Pick a fix on the left to see the diff and what broke.
+                  {t("settingsAccess.fixes.pickFix")}
                 </Typography>
               ) : (
                 <Stack spacing={2}>
                   <Box>
-                    <Typography variant="caption" color="text.secondary">File</Typography>
+                    <Typography variant="caption" color="text.secondary">{t("settingsAccess.fixes.file")}</Typography>
                     <Typography variant="body2" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
                       {selected.file_path}
                     </Typography>
@@ -321,21 +354,21 @@ export default function FixesModal({ open, onClose, showMessage }) {
 
                   <Stack direction="row" spacing={1}>
                     <Chip
-                      label={`severity: ${selected.severity}`}
+                      label={t("settingsAccess.fixes.severity", { severity: selected.severity })}
                       size="small"
                       color={SEVERITY_COLOR[selected.severity] || "default"}
                     />
                     <Chip
-                      label={`status: ${selected.status}`}
+                      label={t("settingsAccess.fixes.status", { status: selected.status })}
                       size="small"
                       color={STATUS_COLOR[selected.status] || "default"}
                     />
                     {selected.run_id && (
-                      <Chip label={`run #${selected.run_id}`} size="small" variant="outlined" />
+                      <Chip label={t("settingsAccess.fixes.run", { id: selected.run_id })} size="small" variant="outlined" />
                     )}
                     {selected.inbound && (
                       <Chip
-                        label={`inbound guard: ${selected.inbound.verdict}`}
+                        label={t("settingsAccess.fixes.inboundVerdict", { verdict: selected.inbound.verdict })}
                         size="small"
                         color={selected.inbound.verdict === "block" ? "error" : selected.inbound.verdict === "hold" ? "warning" : "success"}
                         variant="outlined"
@@ -346,9 +379,9 @@ export default function FixesModal({ open, onClose, showMessage }) {
                   {selected.inbound && selected.inbound.findings?.length > 0 && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        What the inbound guard found
+                        {t("settingsAccess.fixes.inboundFound")}
                         {selected.inbound.verdict === "block"
-                          ? " (blocked: approving the fix is not enough; approve it under Inbound guard first)"
+                          ? ` ${t("settingsAccess.fixes.inboundBlocked")}`
                           : ""}
                       </Typography>
                       <FindingList findings={selected.inbound.findings} />
@@ -356,14 +389,14 @@ export default function FixesModal({ open, onClose, showMessage }) {
                   )}
 
                   <Box>
-                    <Typography variant="caption" color="text.secondary">What broke / why</Typography>
+                    <Typography variant="caption" color="text.secondary">{t("settingsAccess.fixes.whatBroke")}</Typography>
                     <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                      {selected.fix_description || "(no description)"}
+                      {selected.fix_description || t("settingsAccess.fixes.noDescription")}
                     </Typography>
                   </Box>
 
                   <Box>
-                    <Typography variant="caption" color="text.secondary">Proposed diff</Typography>
+                    <Typography variant="caption" color="text.secondary">{t("settingsAccess.fixes.proposedDiff")}</Typography>
                     <Box sx={{
                       border: 1, borderColor: "divider", borderRadius: 1, overflow: "hidden",
                       maxHeight: 340,
@@ -374,7 +407,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
                         customStyle={{ margin: 0, fontSize: "0.75rem", maxHeight: 340 }}
                         wrapLongLines
                       >
-                        {selected.proposed_diff || "(diff unavailable)"}
+                        {selected.proposed_diff || t("settingsAccess.fixes.diffUnavailable")}
                       </SyntaxHighlighter>
                     </Box>
                   </Box>
@@ -382,7 +415,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
                   {selected.reviewed_by && (
                     <Box>
                       <Typography variant="caption" color="text.secondary">
-                        Reviewed by {selected.reviewed_by}
+                        {t("settingsAccess.fixes.reviewedBy", { name: selected.reviewed_by })}
                         {selected.reviewed_at ? ` • ${formatRelative(selected.reviewed_at)}` : ""}
                       </Typography>
                       {selected.review_notes && (
@@ -395,7 +428,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
 
                   {selected.applied_at && (
                     <Alert severity="success" variant="outlined">
-                      Applied {formatRelative(selected.applied_at)}
+                      {t("settingsAccess.fixes.applied", { when: formatRelative(selected.applied_at) })}
                     </Alert>
                   )}
                 </Stack>
@@ -408,7 +441,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
       <DialogActions sx={{ justifyContent: "space-between", px: 2 }}>
         <Stack direction="row" spacing={1} alignItems="center">
           <Typography variant="caption" color="text.secondary">
-            {selected ? `Fix #${selected.id}` : "No fix selected"}
+            {selected ? t("settingsAccess.fixes.selectedFix", { id: selected.id }) : t("settingsAccess.fixes.noneSelected")}
           </Typography>
           {proposedFixes.length > 1 && (
             <>
@@ -419,7 +452,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
                 disabled={actionBusy}
                 onClick={() => runAction("reject", proposedFixes)}
               >
-                Reject all ({proposedFixes.length})
+                {t("settingsAccess.fixes.rejectAll", { count: proposedFixes.length })}
               </Button>
               <Button
                 size="small"
@@ -428,7 +461,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
                 disabled={actionBusy}
                 onClick={() => runAction("approve", proposedFixes)}
               >
-                Approve all ({proposedFixes.length})
+                {t("settingsAccess.fixes.approveAll", { count: proposedFixes.length })}
               </Button>
             </>
           )}
@@ -440,7 +473,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
               disabled={actionBusy}
               onClick={() => setConfirmApply(approvedFixes)}
             >
-              Apply all ({approvedFixes.length})
+              {t("settingsAccess.fixes.applyAllCount", { count: approvedFixes.length })}
             </Button>
           )}
         </Stack>
@@ -454,7 +487,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
                 disabled={actionBusy}
                 onClick={() => handleReject(selected)}
               >
-                Reject
+                {t("settingsAccess.fixes.reject")}
               </Button>
               <Button
                 size="small"
@@ -464,7 +497,7 @@ export default function FixesModal({ open, onClose, showMessage }) {
                 disabled={actionBusy}
                 onClick={() => handleApprove(selected)}
               >
-                Approve
+                {t("settingsAccess.fixes.approve")}
               </Button>
             </>
           )}
@@ -477,10 +510,10 @@ export default function FixesModal({ open, onClose, showMessage }) {
               disabled={actionBusy}
               onClick={() => handleApply(selected)}
             >
-              Apply to Filesystem
+              {t("settingsAccess.fixes.applyToFilesystem")}
             </Button>
           )}
-          <Button size="small" onClick={onClose}>Close</Button>
+          <Button size="small" onClick={onClose}>{t("settingsAccess.fixes.close")}</Button>
         </Stack>
       </DialogActions>
       <ConfirmActionDialog
@@ -491,11 +524,11 @@ export default function FixesModal({ open, onClose, showMessage }) {
           setConfirmApply(null);
           runAction("apply", targets);
         }}
-        title={confirmApply && confirmApply.length > 1 ? `Apply ${confirmApply.length} fixes to the filesystem` : "Apply this fix to the filesystem"}
-        description="Rewrites the source files named in the fix. A backup copy of each file is kept on disk, but there is no restore button; reverting means restoring that copy by hand or from git."
+        title={confirmApply && confirmApply.length > 1 ? t("settingsAccess.fixes.applyManyTitle", { count: confirmApply.length }) : t("settingsAccess.fixes.applyOneTitle")}
+        description={t("settingsAccess.fixes.applyDescription")}
         facts={(confirmApply || []).slice(0, 8).map((f) => ({ label: `#${f.id}`, value: f.file_path || "" }))}
-        keeps="every file the fix does not name."
-        confirmLabel={confirmApply && confirmApply.length > 1 ? "Apply all" : "Apply"}
+        keeps={t("settingsAccess.fixes.applyKeeps")}
+        confirmLabel={confirmApply && confirmApply.length > 1 ? t("settingsAccess.fixes.applyAll") : t("settingsAccess.fixes.apply")}
       />
     </Dialog>
   );

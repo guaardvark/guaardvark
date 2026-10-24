@@ -4,9 +4,9 @@ import { describe, it, expect, vi } from "vitest";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import MessageItem from "../MessageItem";
 import {
-  ENABLE_HINT,
-  ENABLE_LABEL,
-  SEARCH_LABEL,
+  enableHint,
+  enableLabel,
+  searchLabel,
   webSearchOfferOf,
   webSearchSend,
 } from "../webSearchOffer";
@@ -76,7 +76,7 @@ describe("MessageItem web search offer", () => {
     renderMsg(assistant({ web_search_offer: searchOffer }), onSearchWeb);
 
     const button = screen.getByTestId("web-search-offer");
-    expect(button).toHaveTextContent(SEARCH_LABEL);
+    expect(button).toHaveTextContent(searchLabel());
     expect(onSearchWeb).not.toHaveBeenCalled();
 
     fireEvent.click(button);
@@ -101,7 +101,7 @@ describe("MessageItem web search offer", () => {
 
   it("shows the offer saved with a reply from history", () => {
     renderMsg(assistant({ extra_data: { web_search_offer: searchOffer } }), vi.fn());
-    expect(screen.getByTestId("web-search-offer")).toHaveTextContent(SEARCH_LABEL);
+    expect(screen.getByTestId("web-search-offer")).toHaveTextContent(searchLabel());
   });
 
   it("shows no search offer where the chat cannot send", () => {
@@ -114,11 +114,11 @@ describe("MessageItem web search offer", () => {
     renderMsg(assistant({ web_search_offer: enableOffer }), onSearchWeb);
 
     const button = screen.getByTestId("web-search-offer");
-    expect(button).toHaveTextContent(ENABLE_LABEL);
+    expect(button).toHaveTextContent(enableLabel());
     expect(screen.queryByTestId("web-search-offer-hint")).not.toBeInTheDocument();
 
     fireEvent.click(button);
-    expect(screen.getByTestId("web-search-offer-hint")).toHaveTextContent(ENABLE_HINT);
+    expect(screen.getByTestId("web-search-offer-hint")).toHaveTextContent(enableHint());
     expect(onSearchWeb).not.toHaveBeenCalled();
   });
 

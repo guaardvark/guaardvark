@@ -25,6 +25,7 @@ import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
 import { formatTimestamp } from "../utils/fileTypeUtils";
 import useFileDropZone from "../hooks/useFileDropZone";
+import { translate, useUiTranslation } from "../i18n";
 
 // The picker's filter only. /api/docs/upload keeps no extension list of its
 // own (the loaders decide what gets indexed), so neither the picker nor the
@@ -46,9 +47,26 @@ const isInFlight = (doc) => ["INDEXING", "PENDING"].includes(statusOf(doc));
 // takes them), so it means "stored, waiting for the indexer".
 const WATCHED_SETTLED = new Set(["INDEXED", "ERROR", "STORAGE_FAILED", "STORED_TRUNCATED"]);
 
+// The index_status values a row can carry, worded for the chip. The value
+// itself is what the page compares; one missing here is shown as it is.
+const indexStatusLabels = () => ({
+  PENDING: translate("upload.page.indexStatus.pending"),
+  INDEXING: translate("upload.page.indexStatus.indexing"),
+  INDEXED: translate("upload.page.indexStatus.indexed"),
+  STORED: translate("upload.page.indexStatus.stored"),
+  STORED_TRUNCATED: translate("upload.page.indexStatus.storedTruncated"),
+  STORAGE_FAILED: translate("upload.page.indexStatus.storageFailed"),
+  NOT_INDEXED: translate("upload.page.indexStatus.notIndexed"),
+  ERROR: translate("upload.page.indexStatus.error"),
+  UPLOADED: translate("upload.page.indexStatus.uploaded"),
+});
+const indexStatusLabel = (status) =>
+  status ? indexStatusLabels()[status] ?? String(status) : translate("upload.page.indexStatus.unknown");
+
 const IndexStatusChip = ({ status }) => {
+  useUiTranslation();
   let color = "default";
-  let label = status || "Unknown";
+  let label = indexStatusLabel(status);
   switch (status?.toUpperCase()) {
     case "INDEXED":
       color = "success";
@@ -66,7 +84,7 @@ const IndexStatusChip = ({ status }) => {
       color = "default";
       break;
     default:
-      label = status ? String(status) : "Unknown";
+      label = indexStatusLabel(status);
       break;
   }
   return (
@@ -80,8 +98,12 @@ const IndexStatusChip = ({ status }) => {
 };
 
 const UploadPage = () => {
+  const { t } = useUiTranslation();
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState("idle"); // idle, uploading, indexing, success, error
+  // Our messages are kept as { note, ...values } and worded while rendering
+  // (messageText), so they follow a language change; a string is the server's
+  // own error text, shown as it is.
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [_uploadProgress, setUploadProgress] = useState(0); // Progress state if using XHR
@@ -120,11 +142,13 @@ const UploadPage = () => {
     if (!row || !WATCHED_SETTLED.has(statusOf(row))) return;
     setWatched(null);
     if (statusOf(row) === "INDEXED") {
-      setSuccessMessage(`File '${watched.name}' uploaded and indexed.`);
+      setSuccessMessage({ note: "indexed", name: watched.name });
       setUploadStatus("success");
     } else {
       setErrorMessage(
-        `File '${watched.name}' uploaded, but indexing failed${row.error_message ? `: ${row.error_message}` : "."}`,
+        row.error_message
+          ? { note: "indexFailedReason", name: watched.name, reason: row.error_message }
+          : { note: "indexFailed", name: watched.name },
       );
       setUploadStatus("error");
     }
@@ -146,9 +170,7 @@ const UploadPage = () => {
         refreshCountRef.current = 0;
         if (watched) {
           setWatched(null);
-          setSuccessMessage(
-            `File '${watched.name}' uploaded; indexing is still running. Recent Uploads shows the result on a reload.`,
-          );
+          setSuccessMessage({ note: "stillIndexing", name: watched.name });
           setUploadStatus("success");
         }
         return;
@@ -183,7 +205,7 @@ const UploadPage = () => {
 
   const handleUpload = useCallback(async () => {
     if (!selectedFile) {
-      setErrorMessage("Please select a file first.");
+      setErrorMessage({ note: "selectFirst" });
       return;
     }
 
@@ -217,15 +239,20 @@ const UploadPage = () => {
         // Uploads below follows the row until it is INDEXED.
         if (uploadResult.indexing_queued === false) {
           setErrorMessage(
-            `File '${selectedFile.name}' uploaded (ID: ${uploadResult.document_id}), but indexing could not be queued${uploadResult.indexing_error ? `: ${uploadResult.indexing_error}` : "."}`,
+            uploadResult.indexing_error
+              ? {
+                note: "notQueuedReason",
+                name: selectedFile.name,
+                id: uploadResult.document_id,
+                reason: uploadResult.indexing_error,
+              }
+              : { note: "notQueued", name: selectedFile.name, id: uploadResult.document_id },
           );
           setUploadStatus("error");
           fetchRecentDocs();
           return;
         }
-        setSuccessMessage(
-          `File '${selectedFile.name}' uploaded (ID: ${uploadResult.document_id}); indexing queued.`,
-        );
+        setSuccessMessage({ note: "queued", name: selectedFile.name, id: uploadResult.document_id });
         setUploadStatus("indexing");
         refreshCountRef.current = 0;
         setWatched({ id: uploadResult.document_id, name: selectedFile.name });
@@ -236,14 +263,15 @@ const UploadPage = () => {
           "Upload succeeded but response format unexpected:",
           uploadResult,
         );
-        throw new Error(
-          "Upload succeeded but received an unexpected response.",
+        throw Object.assign(
+          new Error("Upload succeeded but received an unexpected response."),
+          { note: "unexpectedResponse" },
         );
       }
     } catch (error) {
       console.error("Upload failed:", error);
       setErrorMessage(
-        error.message || "An unknown error occurred during upload.",
+        error.note ? { note: error.note } : error.message || { note: "unknownError" },
       );
       setUploadStatus("error");
       
@@ -256,16 +284,49 @@ const UploadPage = () => {
     }
   }, [selectedFile, fetchRecentDocs]);
 
+  const messageText = (message) => {
+    if (!message || typeof message !== "object") return message;
+    const { name, id, reason } = message;
+    switch (message.note) {
+      case "indexed":
+        return t("upload.page.messages.indexed", { name });
+      case "indexFailed":
+        return t("upload.page.messages.indexFailed", { name });
+      case "indexFailedReason":
+        return t("upload.page.messages.indexFailedReason", { name, reason });
+      case "stillIndexing":
+        return t("upload.page.messages.stillIndexing", { name });
+      case "selectFirst":
+        return t("upload.page.messages.selectFirst");
+      case "notQueued":
+        return t("upload.page.messages.notQueued", { name, id });
+      case "notQueuedReason":
+        return t("upload.page.messages.notQueuedReason", { name, id, reason });
+      case "queued":
+        return t("upload.page.messages.queued", { name, id });
+      case "unexpectedResponse":
+        return t("upload.page.messages.unexpectedResponse");
+      case "unknownError":
+        return t("upload.page.messages.unknownError");
+      default:
+        return "";
+    }
+  };
+
   // Note: Basic fetch doesn't support upload progress easily.
   // For progress, you'd typically use XMLHttpRequest directly.
   // This example doesn't implement visual progress tracking during upload.
 
   return (
     <PageLayout
-      title="Import Documents"
+      title={t("upload.page.title")}
       variant="standard"
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel || "Default"}
+      activeModel={isLoadingModel
+        ? t("upload.page.modelLoading")
+        : modelError
+          ? t("upload.page.modelError")
+          : activeModel || t("upload.page.modelDefault")}
     >
       <Paper elevation={2} sx={{ p: 3 }}>
         <Box
@@ -279,7 +340,7 @@ const UploadPage = () => {
           }}
           role="button"
           tabIndex={0}
-          aria-label="Select a file to import"
+          aria-label={t("upload.page.dropZoneLabel")}
           data-testid="upload-drop-zone"
           sx={{
             border: "2px dashed",
@@ -307,17 +368,16 @@ const UploadPage = () => {
               openPicker();
             }}
           >
-            Select File
+            {t("upload.page.selectFile")}
           </Button>
           {selectedFile && (
             <Typography variant="body1" sx={{ mt: 2 }}>
-              Selected: {selectedFile.name} (
-              {(selectedFile.size / 1024).toFixed(2)} KB)
+              {t("upload.page.selected", { name: selectedFile.name, size: (selectedFile.size / 1024).toFixed(2) })}
             </Typography>
           )}
           {!selectedFile && (
             <Typography variant="body2" sx={{ color: "text.secondary", mt: 1 }}>
-              Drag and drop or click to select a file.
+              {t("upload.page.dropHint")}
             </Typography>
           )}
         </Box>
@@ -338,10 +398,10 @@ const UploadPage = () => {
           }
         >
           {uploadStatus === "uploading"
-            ? "Importing..."
+            ? t("upload.page.importing")
             : uploadStatus === "indexing"
-              ? "Indexing..."
-              : "Import and Index"}
+              ? t("upload.page.indexing")
+              : t("upload.page.importAndIndex")}
         </Button>
 
         {/* Status Messages */}
@@ -351,7 +411,7 @@ const UploadPage = () => {
             sx={{ mt: 2 }}
             icon={<CheckCircleIcon fontSize="inherit" />}
           >
-            {successMessage}
+            {messageText(successMessage)}
           </Alert>
         )}
         {uploadStatus === "indexing" &&
@@ -361,7 +421,7 @@ const UploadPage = () => {
               sx={{ mt: 2 }}
               icon={<HourglassTopIcon fontSize="inherit" />}
             >
-              {successMessage}
+              {messageText(successMessage)}
             </Alert>
           )}
         {uploadStatus === "error" && errorMessage && (
@@ -370,12 +430,12 @@ const UploadPage = () => {
             sx={{ mt: 2 }}
             icon={<ErrorIcon fontSize="inherit" />}
           >
-            {errorMessage}
+            {messageText(errorMessage)}
           </Alert>
         )}
 
         <Typography variant="h6" sx={{ mt: 4 }}>
-          Recent Uploads
+          {t("upload.page.recentUploads")}
         </Typography>
         {isLoadingRecent ? (
           <Box sx={{ display: "flex", justifyContent: "center", my: 2 }}>
@@ -383,7 +443,7 @@ const UploadPage = () => {
           </Box>
         ) : recentDocs.length === 0 ? (
           <Typography variant="body2" sx={{ my: 2, fontStyle: "italic" }}>
-            No recent uploads.
+            {t("upload.page.noRecentUploads")}
           </Typography>
         ) : (
           <List dense>
@@ -404,11 +464,11 @@ const UploadPage = () => {
                 <ListItemText
                   primaryTypographyProps={{ variant: "body2" }}
                   secondaryTypographyProps={{ variant: "caption" }}
-                  primary={doc.filename || `Document ${doc.id}`}
+                  primary={doc.filename || t("upload.page.documentFallback", { id: doc.id })}
                   secondary={
                     <>
-                      <IndexStatusChip status={doc.index_status} /> Imported:{" "}
-                      {formatTimestamp(doc.uploaded_at)}
+                      <IndexStatusChip status={doc.index_status} />{" "}
+                      {t("upload.page.importedAt", { time: formatTimestamp(doc.uploaded_at) })}
                     </>
                   }
                 />

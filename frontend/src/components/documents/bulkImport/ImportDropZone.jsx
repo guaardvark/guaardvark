@@ -7,12 +7,14 @@ import { Box, Stack, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { ActionButton } from "../../settings/ui";
 import { dragCarriesFiles, snapshotDrop } from "../../../utils/droppedFiles";
+import { useUiTranslation } from "../../../i18n";
 
 // webkitdirectory is not in every browser; without it the folder button is hidden.
 const supportsFolderPicker = () =>
   typeof document !== "undefined" && "webkitdirectory" in document.createElement("input");
 
 const ImportDropZone = ({ onDrop, onPick, disabled = false, disabledReason = "", compact = false, children }) => {
+  const { t } = useUiTranslation();
   const [over, setOver] = useState(false);
   const folderInput = useRef(null);
   const filesInput = useRef(null);
@@ -64,19 +66,19 @@ const ImportDropZone = ({ onDrop, onPick, disabled = false, disabledReason = "",
       ) : (
         <Stack spacing={1} alignItems="center" textAlign="center">
           <Typography variant="body1">
-            {over ? "Release to add" : disabled && disabledReason ? disabledReason : "Drop a folder or files here"}
+            {over ? t("upload.bulk.dropZone.release") : disabled && disabledReason ? disabledReason : t("upload.bulk.dropZone.prompt")}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            Uploaded through this browser as copies; your originals stay where they are.
+            {t("upload.bulk.dropZone.note")}
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap justifyContent="center">
             {folderPicker && (
               <ActionButton disabled={disabled} onClick={() => folderInput.current?.click()}>
-                Choose folder…
+                {t("upload.bulk.dropZone.chooseFolder")}
               </ActionButton>
             )}
             <ActionButton disabled={disabled} onClick={() => filesInput.current?.click()}>
-              Choose files…
+              {t("upload.bulk.dropZone.chooseFiles")}
             </ActionButton>
           </Stack>
         </Stack>

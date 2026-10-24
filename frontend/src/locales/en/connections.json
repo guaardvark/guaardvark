@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "Chat drafted this post.",
+      "mcp": "An AI tool connected over MCP drafted this post.",
+      "schedule": "A schedule queued this post.",
+      "unknown": "This post came from a caller that did not say what it is."
+    },
+    "fields": {
+      "body": "text",
+      "title": "title",
+      "linkUrl": "link",
+      "tags": "tags",
+      "visibility": "visibility",
+      "postOptions": "post fields",
+      "aiDisclosure": "AI label",
+      "scheduledAt": "time"
+    }
+  },
+  "rejectDialog": {
+    "title": "Reject this publish?",
+    "body": "It will not be sent, and it cannot be approved afterwards — a new publish has to be queued instead. The reason below is kept on the record.",
+    "reasonLabel": "Reason (optional)",
+    "reasonPlaceholder": "Why is this not going out?",
+    "keep": "Keep it",
+    "rejecting": "Rejecting…",
+    "reject": "Reject"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} is not available in this install, so this post cannot be edited.",
+    "title": "Edit before approving",
+    "draftedNote": "{{drafted}} What you save here is what goes out once you approve it.",
+    "caption": "Caption",
+    "text": "Text",
+    "scheduleHelp": "Still waits for your approval.",
+    "goesOutAs": "Goes out as (with the lines {{platform}} or the media's license requires):",
+    "savingNote": "Saving keeps it waiting. Approve it afterwards.",
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "page": {
+    "families": {
+      "social": "Social",
+      "aiProviders": "AI Providers",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "connected",
+      "error": "error",
+      "expired": "expired",
+      "disabled": "disabled",
+      "unconfigured": "unconfigured"
+    },
+    "removed": "Connection removed.",
+    "publicOn": "{{label}}: on for this account. Every upload still waits for your approval.",
+    "publicOff": "{{label}}: off for this account.",
+    "withoutApprovalOn": "Publishes you start here to this channel now go out without approval.",
+    "withoutApprovalOff": "Publishes to this channel wait for approval again.",
+    "title": "Connections",
+    "intro": "Accounts and services this install can publish to or call out to. Credentials are stored outside the database.",
+    "postingStopped": "Public posting is stopped. Resume it on the Outreach page.",
+    "queuedHeld": "Queued publishes are held on the Approvals page.",
+    "publishingEnabled": "Publishing enabled",
+    "approvalNote": "Every publish waits for your approval on the Approvals page. A Discord webhook, which posts into a channel you manage, can be set to post without it on its own card. A YouTube account uploads as private until its card allows public uploads.",
+    "addConnection": "Add connection",
+    "appReview": "app review",
+    "noCredentials": "No credentials",
+    "withoutApprovalTooltip": "For a channel you manage. Publishes you start here go out without waiting on the Approvals page; requests from chat, MCP or a schedule still wait.",
+    "postWithoutApproval": "Post without approval",
+    "onThroughSetting": "On through the install-wide setting {{setting}}. Switching it here keeps a choice for this account instead.",
+    "testing": "Testing…",
+    "test": "Test",
+    "edit": "Edit",
+    "remove": "Remove",
+    "empty": "No connections in this category yet.",
+    "environment": "Environment",
+    "environmentNote": "Detected from the backend process environment. Managed outside the app and shown here read-only.",
+    "encrypted": "Encrypted",
+    "unencrypted": "Unencrypted",
+    "credentialCount": "{{count}} credential(s)"
+  }
+}

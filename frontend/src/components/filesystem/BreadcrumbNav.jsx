@@ -6,6 +6,7 @@ import { Box, Breadcrumbs, Link, Typography } from "@mui/material";
 import {
   NavigateNext as NavigateNextIcon,
 } from "@mui/icons-material";
+import { useUiTranslation } from "../../i18n";
 
 const normalizePath = (path) => {
   if (!path || path === "/") return "/";
@@ -13,6 +14,7 @@ const normalizePath = (path) => {
 };
 
 const BreadcrumbNav = ({ currentPath, onNavigate, rootPath = "/" }) => {
+  const { t } = useUiTranslation();
   const root = normalizePath(rootPath);
   const current = normalizePath(currentPath);
   const rootParts = root === "/" ? [] : root.split("/").filter(Boolean);
@@ -62,7 +64,7 @@ const BreadcrumbNav = ({ currentPath, onNavigate, rootPath = "/" }) => {
           }}
         >
           <Typography variant="body2" component="span">
-            Home
+            {t("files.breadcrumb.home")}
           </Typography>
         </Link>
 

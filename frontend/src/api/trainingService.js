@@ -1,6 +1,7 @@
 // frontend/src/api/trainingService.js
 // Version 1.0: Service for training dataset API calls.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 export const getTrainingDatasets = async () => {
   try {
@@ -14,7 +15,7 @@ export const getTrainingDatasets = async () => {
       "trainingService: Error getting training datasets:",
       err.message,
     );
-    return { error: err.message || "Failed to get training datasets." };
+    return { error: err.message || translate("messages.training.datasetsFailed") };
   }
 };
 

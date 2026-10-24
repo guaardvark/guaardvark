@@ -42,6 +42,7 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
 import { loadedTab } from "./tabOrigin";
 import * as wordpressService from "../../api/wordpressService";
+import { useUiTranslation } from "../../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -91,6 +92,7 @@ const ProcessStatusChip = ({ status }) => {
 };
 
 const SEOScoreBadge = ({ score, size = 'small' }) => {
+  const { t } = useUiTranslation();
   if (score === null || score === undefined) {
     return null;
   }
@@ -103,7 +105,7 @@ const SEOScoreBadge = ({ score, size = 'small' }) => {
   
   return (
     <Chip
-      label={`SEO: ${score}`}
+      label={t("codeWordPress.badges.seo", { score })}
       size={size}
       color={getColor(score)}
       sx={{ 
@@ -146,6 +148,7 @@ const PageSpeedBadge = ({ mobile, desktop, size = 'small' }) => {
 };
 
 const AnalyticsBadge = ({ analytics, size = 'small' }) => {
+  const { t } = useUiTranslation();
   if (!analytics || typeof analytics === 'string') {
     try {
       analytics = analytics ? JSON.parse(analytics) : null;
@@ -162,7 +165,13 @@ const AnalyticsBadge = ({ analytics, size = 'small' }) => {
   const position = analytics.avg_position;
   
   return (
-    <Tooltip title={`Clicks: ${clicks} | Impressions: ${analytics.impressions || 0} | Position: ${position ? position.toFixed(1) : 'N/A'}`}>
+    <Tooltip
+      title={t("codeWordPress.badges.analytics", {
+        clicks,
+        impressions: analytics.impressions || 0,
+        position: position ? position.toFixed(1) : t("codeWordPress.badges.notAvailable"),
+      })}
+    >
       <Chip
         icon={<TrendingUpIcon sx={{ fontSize: '0.7rem !important' }} />}
         label={clicks > 0 ? clicks : '—'}
@@ -193,6 +202,7 @@ const WordPressPagesCard = React.forwardRef(
     },
     ref
   ) => {
+    const { t } = useUiTranslation();
     const [pages, setPages] = useState([]);
     const [sites, setSites] = useState([]);
     const [selectedSite, setSelectedSite] = useState(null);
@@ -268,20 +278,20 @@ const WordPressPagesCard = React.forwardRef(
         if (response.success && response.data) {
           setPages(response.data.pages || []);
         } else {
-          throw new Error(response.error || "Failed to fetch pages");
+          throw new Error(response.error || t("codeWordPress.errors.fetchFailed"));
         }
       } catch (err) {
         console.error("Error fetching WordPress pages:", err);
-        setError(err.message || "Failed to load pages");
+        setError(err.message || t("codeWordPress.errors.loadFailed"));
         setFeedback({
           open: true,
-          message: err.message || "Failed to load pages",
+          message: err.message || t("codeWordPress.errors.loadFailed"),
           severity: "error",
         });
       } finally {
         setIsLoading(false);
       }
-    }, [selectedSite, filterStatus, filterProcessStatus]);
+    }, [selectedSite, filterStatus, filterProcessStatus, t]);
 
     useEffect(() => {
       fetchSites();
@@ -299,7 +309,7 @@ const WordPressPagesCard = React.forwardRef(
         if (response.success) {
           setFeedback({
             open: true,
-            message: `Pulled ${response.data.total_pulled || 0} pages`,
+            message: t("codeWordPress.feedback.pulled", { count: response.data.total_pulled || 0 }),
             severity: "success",
           });
           const timeoutId = setTimeout(() => {
@@ -307,12 +317,12 @@ const WordPressPagesCard = React.forwardRef(
           }, 500);
           timeoutRefs.current.push(timeoutId);
         } else {
-          throw new Error(response.error || "Failed to pull pages");
+          throw new Error(response.error || t("codeWordPress.errors.pullFailed"));
         }
       } catch (err) {
         setFeedback({
           open: true,
-          message: err.message || "Failed to pull pages",
+          message: err.message || t("codeWordPress.errors.pullFailed"),
           severity: "error",
         });
       } finally {
@@ -332,12 +342,12 @@ const WordPressPagesCard = React.forwardRef(
           }, 2000);
           timeoutRefs.current.push(timeoutId);
         } else {
-          throw new Error(response.error || "Failed to process page");
+          throw new Error(response.error || t("codeWordPress.errors.processFailed"));
         }
       } catch (err) {
         setFeedback({
           open: true,
-          message: err.message || "Failed to process page",
+          message: err.message || t("codeWordPress.errors.processFailed"),
           severity: "error",
         });
       } finally {
@@ -356,7 +366,7 @@ const WordPressPagesCard = React.forwardRef(
       if (pendingPages.length === 0) {
         setFeedback({
           open: true,
-          message: "No pages pending processing",
+          message: t("codeWordPress.feedback.nonePending"),
           severity: "info",
         });
         return;
@@ -371,7 +381,7 @@ const WordPressPagesCard = React.forwardRef(
         if (response.success) {
           setFeedback({
             open: true,
-            message: `Queued ${response.data?.queued || pendingPages.length} pages for processing`,
+            message: t("codeWordPress.feedback.queued", { count: response.data?.queued || pendingPages.length }),
             severity: "success",
           });
           const timeoutId = setTimeout(() => {
@@ -379,12 +389,12 @@ const WordPressPagesCard = React.forwardRef(
           }, 500);
           timeoutRefs.current.push(timeoutId);
         } else {
-          throw new Error(response.error || "Failed to queue pages");
+          throw new Error(response.error || t("codeWordPress.errors.queueFailed"));
         }
       } catch (err) {
         setFeedback({
           open: true,
-          message: err.message || "Failed to queue pages",
+          message: err.message || t("codeWordPress.errors.queueFailed"),
           severity: "error",
         });
       } finally {
@@ -406,7 +416,7 @@ const WordPressPagesCard = React.forwardRef(
           const total = response.data?.total ?? 0;
           setFeedback({
             open: true,
-            message: `Processed ${succeeded}/${total} pages`,
+            message: t("codeWordPress.feedback.processed", { succeeded, total }),
             severity: "success",
           });
           const timeoutId = setTimeout(() => {
@@ -414,12 +424,12 @@ const WordPressPagesCard = React.forwardRef(
           }, 2000);
           timeoutRefs.current.push(timeoutId);
         } else {
-          throw new Error(response.error || "Failed to execute queue");
+          throw new Error(response.error || t("codeWordPress.errors.executeFailed"));
         }
       } catch (err) {
         setFeedback({
           open: true,
-          message: err.message || "Failed to execute queue",
+          message: err.message || t("codeWordPress.errors.executeFailed"),
           severity: "error",
         });
       } finally {
@@ -449,25 +459,25 @@ const WordPressPagesCard = React.forwardRef(
         // setRecommendations(response.data);
         
         setRecommendations({
-          summary: "AI recommendations feature will analyze page content and provide intelligent suggestions for improvements.",
+          summary: t("codeWordPress.recommendations.summary"),
           recommendations: [
             {
               type: "content",
               priority: "high",
-              title: "Content Enhancement",
-              description: "Analyze content for SEO optimization, readability improvements, and engagement enhancements."
+              title: t("codeWordPress.recommendations.content.title"),
+              description: t("codeWordPress.recommendations.content.description")
             },
             {
               type: "seo",
               priority: "medium",
-              title: "SEO Optimization",
-              description: "Review meta tags, headings structure, and keyword optimization opportunities."
+              title: t("codeWordPress.recommendations.seo.title"),
+              description: t("codeWordPress.recommendations.seo.description")
             },
             {
               type: "structure",
               priority: "low",
-              title: "Content Structure",
-              description: "Evaluate content organization and suggest improvements for better user experience."
+              title: t("codeWordPress.recommendations.structure.title"),
+              description: t("codeWordPress.recommendations.structure.description")
             }
           ]
         });
@@ -475,13 +485,13 @@ const WordPressPagesCard = React.forwardRef(
         console.error("Error getting recommendations:", err);
         setFeedback({
           open: true,
-          message: "Failed to get recommendations. Feature coming soon.",
+          message: t("codeWordPress.errors.recommendationsFailed"),
           severity: "info",
         });
       } finally {
         setLoadingRecommendations(false);
       }
-    }, []);
+    }, [t]);
 
     // Determine if page needs AI improvement
     const needsAIImprovement = useCallback((page) => {
@@ -550,6 +560,13 @@ const WordPressPagesCard = React.forwardRef(
       ).length;
     }, [pages]);
 
+    // Priority values stay data (they pick the chip colour); only the label is worded.
+    const priorityLabel = (priority) => ({
+      high: t("codeWordPress.recommendations.priority.high"),
+      medium: t("codeWordPress.recommendations.priority.medium"),
+      low: t("codeWordPress.recommendations.priority.low"),
+    })[priority] || priority;
+
     const completedCount = useMemo(() => {
       return pages.filter(
         (p) => p.process_status === "completed" || p.process_status === "approved"
@@ -559,7 +576,7 @@ const WordPressPagesCard = React.forwardRef(
     return (
       <DashboardCardWrapper
         ref={ref}
-        title="WordPress Pages"
+        title={t("codeWordPress.title")}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
         isMinimized={isMinimized}
@@ -590,7 +607,7 @@ const WordPressPagesCard = React.forwardRef(
                       }
                     }}
                   >
-                    Pull
+                    {t("codeWordPress.actions.pull")}
                   </Button>
                   <Button
                     variant="outlined"
@@ -609,7 +626,7 @@ const WordPressPagesCard = React.forwardRef(
                       }
                     }}
                   >
-                    Queue ({pendingCount})
+                    {t("codeWordPress.actions.queue", { count: pendingCount })}
                   </Button>
                   <Button
                     variant="outlined"
@@ -628,7 +645,7 @@ const WordPressPagesCard = React.forwardRef(
                       }
                     }}
                   >
-                    Process
+                    {t("codeWordPress.actions.process")}
                   </Button>
                 </>
               )}
@@ -639,10 +656,10 @@ const WordPressPagesCard = React.forwardRef(
 
             {/* Site Selector */}
             <FormControl fullWidth size="small" sx={{ mb: 0.75 }}>
-              <InputLabel sx={{ fontSize: '0.7rem' }}>WordPress Site</InputLabel>
+              <InputLabel sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.site")}</InputLabel>
               <Select
                 value={selectedSite || ""}
-                label="WordPress Site"
+                label={t("codeWordPress.site")}
                 onChange={(e) => {
                   const value = e.target.value;
                   if (!value) {
@@ -669,32 +686,32 @@ const WordPressPagesCard = React.forwardRef(
             {/* Filters */}
             <Stack direction="row" spacing={0.5} sx={{ mb: 0.75 }}>
               <FormControl size="small" sx={{ minWidth: 90, flex: 1 }}>
-                <InputLabel sx={{ fontSize: '0.7rem' }}>Pull</InputLabel>
+                <InputLabel sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.pull")}</InputLabel>
                 <Select
                   value={filterStatus}
-                  label="Pull"
+                  label={t("codeWordPress.filters.pull")}
                   onChange={(e) => setFilterStatus(e.target.value)}
                   sx={{ fontSize: '0.7rem', '& .MuiSelect-select': { py: 0.75 } }}
                 >
-                  <MenuItem value="all" sx={{ fontSize: '0.7rem' }}>All</MenuItem>
-                  <MenuItem value="pulled" sx={{ fontSize: '0.7rem' }}>Pulled</MenuItem>
-                  <MenuItem value="pending" sx={{ fontSize: '0.7rem' }}>Pending</MenuItem>
-                  <MenuItem value="error" sx={{ fontSize: '0.7rem' }}>Error</MenuItem>
+                  <MenuItem value="all" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.all")}</MenuItem>
+                  <MenuItem value="pulled" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.pulled")}</MenuItem>
+                  <MenuItem value="pending" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.pending")}</MenuItem>
+                  <MenuItem value="error" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.error")}</MenuItem>
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 90, flex: 1 }}>
-                <InputLabel sx={{ fontSize: '0.7rem' }}>Process</InputLabel>
+                <InputLabel sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.process")}</InputLabel>
                 <Select
                   value={filterProcessStatus}
-                  label="Process"
+                  label={t("codeWordPress.filters.process")}
                   onChange={(e) => setFilterProcessStatus(e.target.value)}
                   sx={{ fontSize: '0.7rem', '& .MuiSelect-select': { py: 0.75 } }}
                 >
-                  <MenuItem value="all" sx={{ fontSize: '0.7rem' }}>All</MenuItem>
-                  <MenuItem value="pending" sx={{ fontSize: '0.7rem' }}>Pending</MenuItem>
-                  <MenuItem value="processing" sx={{ fontSize: '0.7rem' }}>Processing</MenuItem>
-                  <MenuItem value="completed" sx={{ fontSize: '0.7rem' }}>Completed</MenuItem>
-                  <MenuItem value="approved" sx={{ fontSize: '0.7rem' }}>Approved</MenuItem>
+                  <MenuItem value="all" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.all")}</MenuItem>
+                  <MenuItem value="pending" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.pending")}</MenuItem>
+                  <MenuItem value="processing" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.processing")}</MenuItem>
+                  <MenuItem value="completed" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.completed")}</MenuItem>
+                  <MenuItem value="approved" sx={{ fontSize: '0.7rem' }}>{t("codeWordPress.filters.approved")}</MenuItem>
                 </Select>
               </FormControl>
             </Stack>
@@ -702,20 +719,20 @@ const WordPressPagesCard = React.forwardRef(
             {/* Stats */}
             <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
               <Chip 
-                label={`Total: ${pages.length}`} 
+                label={t("codeWordPress.stats.total", { total: pages.length })} 
                 size="small" 
                 variant="outlined" 
                 sx={{ fontSize: '0.6rem', height: 20, '& .MuiChip-label': { px: 0.75 } }}
               />
               <Chip 
-                label={`Pending: ${pendingCount}`} 
+                label={t("codeWordPress.stats.pending", { pending: pendingCount })} 
                 size="small" 
                 color="warning" 
                 variant="outlined" 
                 sx={{ fontSize: '0.6rem', height: 20, '& .MuiChip-label': { px: 0.75 } }}
               />
               <Chip 
-                label={`Completed: ${completedCount}`} 
+                label={t("codeWordPress.stats.completed", { completed: completedCount })} 
                 size="small" 
                 color="success" 
                 variant="outlined" 
@@ -740,8 +757,8 @@ const WordPressPagesCard = React.forwardRef(
               <Box sx={{ textAlign: "center", py: 4 }}>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
                   {selectedSite
-                    ? "No pages found. Pull pages to get started."
-                    : "Select a WordPress site to view pages"}
+                    ? t("codeWordPress.empty.noPages")
+                    : t("codeWordPress.empty.selectSite")}
                 </Typography>
               </Box>
             ) : (
@@ -749,11 +766,11 @@ const WordPressPagesCard = React.forwardRef(
                 <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}>Title</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}>Type</TableCell>
-                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}>SEO</TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}>{t("codeWordPress.table.title")}</TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}>{t("codeWordPress.table.type")}</TableCell>
+                      <TableCell sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}>{t("codeWordPress.table.seo")}</TableCell>
                       <TableCell align="center" sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}></TableCell>
-                      <TableCell align="center" sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}>AI</TableCell>
+                      <TableCell align="center" sx={{ fontSize: '0.7rem', py: 0.5, fontWeight: 600 }}>{t("codeWordPress.table.ai")}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -766,7 +783,7 @@ const WordPressPagesCard = React.forwardRef(
                       >
                         <TableCell sx={{ py: 0.5 }}>
                           <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.7rem' }}>
-                            {page.title || "Untitled"}
+                            {page.title || t("codeWordPress.untitled")}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.6rem' }}>
                             {page.slug}
@@ -794,7 +811,7 @@ const WordPressPagesCard = React.forwardRef(
                             handleGetRecommendations(page);
                           }}
                         >
-                          <Tooltip title={needsAIImprovement(page) ? "Click for AI recommendations" : (page.improved_title || page.improved_content ? "Has improvements" : "No improvements")}>
+                          <Tooltip title={needsAIImprovement(page) ? t("codeWordPress.tooltips.getRecommendations") : (page.improved_title || page.improved_content ? t("codeWordPress.tooltips.hasImprovements") : t("codeWordPress.tooltips.noImprovements"))}>
                             <IconButton
                               size="small"
                               sx={{ p: 0.5 }}
@@ -819,10 +836,10 @@ const WordPressPagesCard = React.forwardRef(
             fullWidth
           >
             <DialogTitle sx={{ fontSize: '0.875rem', fontWeight: 600 }}>
-              AI Recommendations
+              {t("codeWordPress.recommendations.title")}
               {selectedPageForRecommendations && (
                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.5 }}>
-                  {selectedPageForRecommendations.title || 'Untitled'}
+                  {selectedPageForRecommendations.title || t("codeWordPress.untitled")}
                 </Typography>
               )}
             </DialogTitle>
@@ -844,7 +861,7 @@ const WordPressPagesCard = React.forwardRef(
                         <Paper key={index} sx={{ p: 1.5 }}>
                           <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
                             <Chip 
-                              label={rec.priority} 
+                              label={priorityLabel(rec.priority)} 
                               size="small" 
                               color={rec.priority === 'high' ? 'error' : rec.priority === 'medium' ? 'warning' : 'default'}
                               sx={{ fontSize: '0.6rem', height: 18, textTransform: 'capitalize' }}
@@ -863,13 +880,13 @@ const WordPressPagesCard = React.forwardRef(
                     </Stack>
                   ) : (
                     <Typography variant="body2" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
-                      No specific recommendations available at this time.
+                      {t("codeWordPress.recommendations.none")}
                     </Typography>
                   )}
                 </Box>
               ) : (
                 <Typography variant="body2" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>
-                  Loading recommendations...
+                  {t("codeWordPress.recommendations.loading")}
                 </Typography>
               )}
             </DialogContent>
@@ -879,7 +896,7 @@ const WordPressPagesCard = React.forwardRef(
                 size="small"
                 sx={{ fontSize: '0.7rem' }}
               >
-                Close
+                {t("codeWordPress.actions.close")}
               </Button>
               {selectedPageForRecommendations && needsAIImprovement(selectedPageForRecommendations) && (
                 <Button 
@@ -893,7 +910,7 @@ const WordPressPagesCard = React.forwardRef(
                   size="small"
                   sx={{ fontSize: '0.7rem' }}
                 >
-                  Process Now
+                  {t("codeWordPress.recommendations.processNow")}
                 </Button>
               )}
             </DialogActions>
@@ -910,26 +927,26 @@ const WordPressPagesCard = React.forwardRef(
             maxWidth="sm" 
             fullWidth
           >
-            <DialogTitle>Pull Pages from WordPress</DialogTitle>
+            <DialogTitle>{t("codeWordPress.pullDialog.title")}</DialogTitle>
             <DialogContent>
               <Stack spacing={2} sx={{ mt: 1 }}>
                 <FormControl fullWidth>
-                  <InputLabel>Post Type</InputLabel>
+                  <InputLabel>{t("codeWordPress.pullDialog.postType")}</InputLabel>
                   <Select
                     value={pullOptions.post_type}
-                    label="Post Type"
+                    label={t("codeWordPress.pullDialog.postType")}
                     onChange={(e) =>
                       setPullOptions({ ...pullOptions, post_type: e.target.value })
                     }
                   >
-                    <MenuItem value="post">Posts</MenuItem>
-                    <MenuItem value="page">Pages</MenuItem>
+                    <MenuItem value="post">{t("codeWordPress.pullDialog.posts")}</MenuItem>
+                    <MenuItem value="page">{t("codeWordPress.pullDialog.pages")}</MenuItem>
                   </Select>
                 </FormControl>
                 <TextField
                   fullWidth
                   type="number"
-                  label="Max Pages (Optional)"
+                  label={t("codeWordPress.pullDialog.maxPages")}
                   value={pullOptions.max_pages || ""}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -938,16 +955,16 @@ const WordPressPagesCard = React.forwardRef(
                       max_pages: value ? (parseInt(value, 10) || null) : null,
                     });
                   }}
-                  helperText="Leave empty to pull all pages"
+                  helperText={t("codeWordPress.pullDialog.maxPagesHelper")}
                   inputProps={{ min: 1 }}
                 />
                 {isPulling && <LinearProgress />}
               </Stack>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => setPullDialogOpen(false)}>Cancel</Button>
+              <Button onClick={() => setPullDialogOpen(false)}>{t("codeWordPress.actions.cancel")}</Button>
               <Button variant="contained" onClick={handlePull} disabled={isPulling}>
-                {isPulling ? "Pulling..." : "Pull Pages"}
+                {isPulling ? t("codeWordPress.pullDialog.pulling") : t("codeWordPress.pullDialog.submit")}
               </Button>
             </DialogActions>
           </Dialog>

@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "Abrufen der Kunden fehlgeschlagen.",
+    "loadError": "Fehler beim Laden der Kunden: {{error}}",
+    "updated": "Kunde erfolgreich aktualisiert!",
+    "created": "Kunde erfolgreich erstellt!",
+    "updateError": "Fehler beim Aktualisieren des Kunden.",
+    "createError": "Fehler beim Erstellen des Kunden.",
+    "deleteConfirm": "Bist du sicher, dass du den Kunden \"{{name}}\" (ID: {{id}}) löschen willst? Dies kann die zugehörigen Projekte beeinflussen.",
+    "deleteConfirmUnnamed": "Bist du sicher, dass du diesen Kunden (ID: {{id}}) löschen willst? Dies kann die zugehörigen Projekte beeinflussen.",
+    "deleted": "Kunde \"{{name}}\" erfolgreich gelöscht!",
+    "deleteError": "Fehler beim Löschen des Kunden.",
+    "missingClient": "Kundendaten fehlen. Verknüpfungsmodal kann nicht geöffnet werden.",
+    "linksUpdated": "Projektverknüpfungen erfolgreich aktualisiert!",
+    "projectsFetchError": "Fehler beim Abrufen der Projekte: {{error}}",
+    "linksError": "Fehler beim Aktualisieren der Verknüpfungen: {{error}}",
+    "unknownError": "Ein unbekannter Fehler ist aufgetreten.",
+    "columns": {
+      "logo": "Logo",
+      "name": "Kundenname",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "projects": "Projekte #",
+      "notes": "Notizen",
+      "updated": "Zuletzt aktualisiert",
+      "actions": "Aktionen"
+    },
+    "title": "Kunden",
+    "new": "Neu",
+    "loading": "Kunden werden geladen...",
+    "empty": "Keine Kunden gefunden. Füge einen hinzu, um zu beginnen!",
+    "notAvailable": "Nicht verfügbar",
+    "email": "E-Mail: {{email}}",
+    "phone": "Telefon: {{phone}}",
+    "noNotesTooltip": "Keine Notizen.",
+    "noNotes": "Keine Notizen",
+    "projects": "Projekte: {{projects}}",
+    "linkProjects": "Projekte verknüpfen",
+    "deleteClient": "Kunden löschen",
+    "total": "Gesamtanzahl Kunden: {{total}}",
+    "menu": {
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "newClient": "Neuer Kunde"
+    },
+    "linkProject": "Projekt",
+    "linkProjectsPlural": "Projekte"
+  }
+}

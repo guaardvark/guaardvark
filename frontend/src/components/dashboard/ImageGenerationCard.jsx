@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import RecentRunsList from "./RecentRunsList";
 import { loadImageBatchRows, useRecentRuns } from "./recentRuns";
+import { useUiTranslation } from "../../i18n";
 
 // The Image Gen tab; BatchImageGeneratorPage reads ?mode= to pick its input mode.
 export const IMAGE_GEN_PATH = "/batch-images";
@@ -25,6 +26,7 @@ const ImageGenerationCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const navigate = useNavigate();
     const recent = useRecentRuns(loadImageBatchRows);
 
@@ -36,11 +38,11 @@ const ImageGenerationCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="Image Generation"
+        title={t("dashboard.imggen.title")}
         {...props}
         contextMenuActions={[
-          { label: "New Images", onClick: () => navigate(IMAGE_GEN_PATH) },
-          { label: "Batch Mode", onClick: () => navigate(IMAGE_GEN_BATCH_PATH) },
+          { label: t("dashboard.imggen.newImages"), onClick: () => navigate(IMAGE_GEN_PATH) },
+          { label: t("dashboard.imggen.batchMode"), onClick: () => navigate(IMAGE_GEN_BATCH_PATH) },
         ]}
       >
         {/* Quick Actions */}
@@ -58,7 +60,7 @@ const ImageGenerationCard = React.forwardRef(
             }}
             className="non-draggable"
           >
-            New Images
+            {t("dashboard.imggen.newImages")}
           </Button>
           <Button
             variant="outlined"
@@ -73,9 +75,9 @@ const ImageGenerationCard = React.forwardRef(
             }}
             className="non-draggable"
           >
-            Batch Mode
+            {t("dashboard.imggen.batchMode")}
           </Button>
-          <Tooltip title="Refresh data">
+          <Tooltip title={t("dashboard.refreshData")}>
             <IconButton
               size="small"
               onClick={recent.refresh}
@@ -90,9 +92,9 @@ const ImageGenerationCard = React.forwardRef(
           rows={recent.rows}
           loading={recent.loading}
           error={recent.error}
-          emptyText="No image batches yet."
+          emptyText={t("dashboard.imggen.empty")}
           onOpen={navigate}
-          viewAll={{ label: "View all batches", path: IMAGE_GEN_PATH }}
+          viewAll={{ label: t("dashboard.imggen.viewAll"), path: IMAGE_GEN_PATH }}
         />
       </DashboardCardWrapper>
     );

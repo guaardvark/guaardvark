@@ -25,29 +25,31 @@ import axios from "axios";
 import { GENERATION_TYPES } from "../../constants/videoGeneratorPresets";
 import { ActionButton, ConfirmActionDialog, SettingChip } from "../settings/ui";
 import AddVideoModelDialog from "./AddVideoModelDialog";
+import { translate, useUiTranslation } from "../../i18n";
 
-const TYPE_LABELS = {
-  wan: "Video",
-  cogvideox: "Video",
-  ltx: "Video",
-  hunyuan: "Video",
-  minimax: "Video",
-  facerestore: "Face restore",
-  upscaler: "Upscale",
-  flux: "Keyframe image",
-  vae: "Dependency",
-  encoder: "Dependency",
-  clip_vision: "Dependency",
-  lora: "Speed / identity LoRA",
-  embedding: "Dependency",
-  audio: "Music",
-  "qwen-edit": "Image editing",
-  "qwen-image": "Image generation",
-  pulid: "Image editing",
-  editing: "Image editing",
-};
+const typeLabels = () => ({
+  wan: translate("models.videoModels.types.video"),
+  cogvideox: translate("models.videoModels.types.video"),
+  ltx: translate("models.videoModels.types.video"),
+  hunyuan: translate("models.videoModels.types.video"),
+  minimax: translate("models.videoModels.types.video"),
+  facerestore: translate("models.videoModels.types.faceRestore"),
+  upscaler: translate("models.videoModels.types.upscale"),
+  flux: translate("models.videoModels.types.keyframeImage"),
+  vae: translate("models.videoModels.types.dependency"),
+  encoder: translate("models.videoModels.types.dependency"),
+  clip_vision: translate("models.videoModels.types.dependency"),
+  lora: translate("models.videoModels.types.speedLora"),
+  embedding: translate("models.videoModels.types.dependency"),
+  audio: translate("models.videoModels.types.music"),
+  "qwen-edit": translate("models.videoModels.types.imageEditing"),
+  "qwen-image": translate("models.videoModels.types.imageGeneration"),
+  pulid: translate("models.videoModels.types.imageEditing"),
+  editing: translate("models.videoModels.types.imageEditing"),
+});
 
 const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
+  const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(true);
   // When the parent opens us pointed at a specific model (because the user tried
@@ -83,10 +85,10 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
       if (res.data.success) {
         setModels(res.data.data.models);
       } else {
-        setError("Failed to load video models");
+        setError(translate("models.videoModels.failedToLoad"));
       }
     } catch (err) {
-      setError(err.message || "Error fetching video models");
+      setError(err.message || translate("models.videoModels.errorFetching"));
     } finally {
       setLoading(false);
     }
@@ -99,14 +101,14 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
         const status = res.data.data;
         setDownloadStatus(status);
         if (!status.is_downloading && status.status === "completed") {
-          showMessageRef.current?.("Model download completed!", "success");
+          showMessageRef.current?.(translate("models.shared.downloadCompleted"), "success");
           fetchModels();
           setDownloadStatus((prev) => ({ ...prev, status: "idle", current_model: null }));
         } else if (!status.is_downloading && status.status === "failed") {
           // A stall, a backend restart, or a real error all land here now (issue
           // #36) — surface the reason and refresh so the model's true install
           // state shows and the Install button is live again for a retry.
-          showMessageRef.current?.(`Download failed: ${status.error || "unknown error"}`, "error");
+          showMessageRef.current?.(translate("models.shared.downloadFailed", { error: status.error || translate("models.shared.unknownError") }), "error");
           fetchModels();
           setDownloadStatus((prev) => ({ ...prev, status: "idle", current_model: null }));
         }
@@ -149,14 +151,14 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
         params: { delete_files: removeTarget.deleteFiles !== false },
       });
       if (res.data.success) {
-        showMessageRef.current?.(`Removed ${removeTarget.name}`, "success");
+        showMessageRef.current?.(t("models.videoModels.removed", { name: removeTarget.name }), "success");
         setRemoveTarget(null);
         fetchModels();
       } else {
-        showMessageRef.current?.(res.data.error?.message || res.data.message || "Could not remove", "error");
+        showMessageRef.current?.(res.data.error?.message || res.data.message || t("models.shared.couldNotRemove"), "error");
       }
     } catch (err) {
-      showMessageRef.current?.(err.response?.data?.error?.message || err.message || "Could not remove", "error");
+      showMessageRef.current?.(err.response?.data?.error?.message || err.message || t("models.shared.couldNotRemove"), "error");
     } finally {
       setRemoveBusy(false);
     }
@@ -167,7 +169,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
       const res = await axios.post("/api/batch-video/models/download", { model_id: modelId });
       if (res.data.success) {
         const model = models.find((m) => m.id === modelId);
-        showMessageRef.current?.(`Started downloading ${model?.name || modelId}...`, "info");
+        showMessageRef.current?.(t("models.shared.startedDownloadingDots", { name: model?.name || modelId }), "info");
         setDownloadStatus({
           is_downloading: true,
           current_model: modelId,
@@ -178,13 +180,13 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
           total_gb: model?.size_gb || 0,
         });
       } else {
-        showMessageRef.current?.(res.data.error || "Failed to start download", "error");
+        showMessageRef.current?.(res.data.error || t("models.shared.failedToStartDownload"), "error");
       }
     } catch (err) {
       if (err.response?.status === 409) {
-        showMessageRef.current?.("A download is already in progress.", "warning");
+        showMessageRef.current?.(t("models.shared.downloadInProgress"), "warning");
       } else {
-        showMessageRef.current?.(err.message || "Error starting download", "error");
+        showMessageRef.current?.(err.message || t("models.shared.errorStartingDownload"), "error");
       }
     }
   };
@@ -195,10 +197,12 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
   const generationModels = models.filter((m) => GENERATION_TYPES.has(m.type));
   const postModels = models.filter((m) => !GENERATION_TYPES.has(m.type));
 
+  const labels = typeLabels();
+
   const renderModelRow = (model) => {
     const isThis = isDownloading && currentModel === model.id;
     const isHighlight = !!highlightModelId && model.id === highlightModelId;
-    const typeLabel = model.user && model.type === "encoder" ? "Text encoder" : TYPE_LABELS[model.type] || model.type;
+    const typeLabel = model.user && model.type === "encoder" ? t("models.videoModels.types.textEncoder") : labels[model.type] || model.type;
     return (
       <ListItem
         key={model.id}
@@ -257,14 +261,14 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                   {model.license.note}{" "}
                   {model.license.form_url && (
                     <a href={model.license.form_url} target="_blank" rel="noreferrer noopener">
-                      Application form
+                      {t("models.videoModels.applicationForm")}
                     </a>
                   )}
                   {model.license.url && (
                     <>
                       {" · "}
                       <a href={model.license.url} target="_blank" rel="noreferrer noopener">
-                        License text
+                        {t("models.videoModels.licenseText")}
                       </a>
                     </>
                   )}
@@ -281,8 +285,8 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
             <Box sx={{ width: 130 }}>
               <Typography variant="caption" noWrap>
                 {downloadStatus.status === "starting"
-                  ? "Starting..."
-                  : `${downloadStatus.progress}% — ${downloadStatus.speed_mbps} MB/s`}
+                  ? t("models.shared.startingDots")
+                  : t("models.shared.progressSpeed", { progress: downloadStatus.progress, speed: downloadStatus.speed_mbps })}
               </Typography>
               <LinearProgress
                 variant={downloadStatus.progress > 0 ? "determinate" : "indeterminate"}
@@ -297,7 +301,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
             <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5 }}>
               <Chip
                 icon={<CheckCircleIcon />}
-                label="Installed"
+                label={t("models.shared.installed")}
                 color="success"
                 size="small"
                 variant="outlined"
@@ -308,7 +312,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                   onClick={() => setRemoveTarget({ ...model, deleteFiles: true })}
                   disabled={isDownloading}
                 >
-                  Remove
+                  {t("dialogs.shared.remove")}
                 </ActionButton>
               )}
             </Box>
@@ -321,7 +325,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                 onClick={() => handleDownload(model.id)}
                 disabled={isDownloading}
               >
-                {model.install_size_gb ? `Install (${model.install_size_gb} GB)` : "Install"}
+                {model.install_size_gb ? t("models.videoModels.installWithSize", { size: model.install_size_gb }) : t("dialogs.shared.install")}
               </Button>
               {model.user && (
                 <ActionButton
@@ -329,17 +333,17 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                   onClick={() => setRemoveTarget({ ...model, deleteFiles: true })}
                   disabled={isDownloading}
                 >
-                  Remove
+                  {t("dialogs.shared.remove")}
                 </ActionButton>
               )}
               {model.requires?.length > 0 && (
                 <Typography variant="caption" color="text.secondary" noWrap>
-                  includes {model.requires.length} required file{model.requires.length > 1 ? "s" : ""}
+                  {t("models.videoModels.includesRequired", { count: model.requires.length })}
                 </Typography>
               )}
               {model.is_downloaded && !(model.is_ready ?? true) && (
                 <Typography variant="caption" color="warning.main" noWrap>
-                  model present — missing dependencies
+                  {t("models.videoModels.missingDependencies")}
                 </Typography>
               )}
               {!(model.is_ready ?? model.is_downloaded) && model.missing_files?.length > 0 && (
@@ -349,7 +353,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
                   noWrap
                   title={model.missing_files.join("\n")}
                 >
-                  {model.missing_files.length} file{model.missing_files.length > 1 ? "s" : ""} missing
+                  {t("models.videoModels.filesMissing", { count: model.missing_files.length })}
                 </Typography>
               )}
             </Box>
@@ -361,7 +365,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
 
   return (
     <Dialog open={open} onClose={() => !isDownloading && onClose()} maxWidth="sm" fullWidth>
-      <DialogTitle>Manage Video Models</DialogTitle>
+      <DialogTitle>{t("models.videoModels.title")}</DialogTitle>
       <DialogContent dividers>
         {error && (
           <Box mb={2}>
@@ -375,8 +379,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
         {!loading && models.length > 0 && !models.some((m) => m.is_ready ?? m.is_downloaded) && (
           <Box sx={{ mb: 2, p: 1.5, border: 1, borderColor: "warning.main", borderRadius: 1 }}>
             <Typography variant="body2" color="warning.main">
-              No video model is installed yet. Install one below to enable video generation — each
-              model's download size and VRAM requirement is shown so you can pick what fits your machine.
+              {t("models.videoModels.noneInstalled")}
             </Typography>
           </Box>
         )}
@@ -390,7 +393,7 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
             {generationModels.length > 0 && (
               <>
                 <Typography variant="overline" color="text.secondary" sx={{ px: 2, pt: 1, display: "block" }}>
-                  Video generation
+                  {t("models.videoModels.generation")}
                 </Typography>
                 {generationModels.map(renderModelRow)}
               </>
@@ -398,14 +401,14 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
             {postModels.length > 0 && (
               <>
                 <Typography variant="overline" color="text.secondary" sx={{ px: 2, pt: 2, display: "block" }}>
-                  Post-processing &amp; dependencies
+                  {t("models.videoModels.postProcessing")}
                 </Typography>
                 {postModels.map(renderModelRow)}
               </>
             )}
             {models.length === 0 && !loading && (
               <Typography variant="body2" color="textSecondary" align="center" sx={{ py: 3 }}>
-                No video models configured.
+                {t("models.videoModels.noModels")}
               </Typography>
             )}
           </List>
@@ -413,10 +416,10 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
       </DialogContent>
       <DialogActions>
         <ActionButton onClick={() => setAddOpen(true)} disabled={isDownloading}>
-          Add new model
+          {t("models.shared.addNewModel")}
         </ActionButton>
         <Button onClick={onClose} disabled={isDownloading}>
-          {isDownloading ? "Downloading..." : "Close"}
+          {isDownloading ? t("models.shared.downloadingDots") : t("dialogs.shared.close")}
         </Button>
       </DialogActions>
       <AddVideoModelDialog
@@ -431,17 +434,17 @@ const VideoModelsModal = ({ open, onClose, showMessage, highlightModelId }) => {
       />
       <ConfirmActionDialog
         open={Boolean(removeTarget)}
-        title={`Remove ${removeTarget?.name || "this model"}?`}
-        description="Drops it from your catalog. Downloaded files under ComfyUI/models go away unless you turn that off."
+        title={t("models.shared.removeTitle", { name: removeTarget?.name || t("models.videoModels.thisModel") })}
+        description={t("models.videoModels.removeDescription")}
         extra={
           <SettingChip
-            label="Delete downloaded files"
+            label={t("models.shared.deleteDownloadedFiles")}
             on={removeTarget?.deleteFiles !== false}
             onToggle={(next) => setRemoveTarget((t) => (t ? { ...t, deleteFiles: next } : t))}
           />
         }
-        keeps="the shipped Video Models list"
-        confirmLabel="Remove"
+        keeps={t("models.videoModels.removeKeeps")}
+        confirmLabel={t("dialogs.shared.remove")}
         busy={removeBusy}
         onConfirm={handleRemove}
         onClose={() => !removeBusy && setRemoveTarget(null)}

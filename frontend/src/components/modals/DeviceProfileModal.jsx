@@ -15,6 +15,7 @@ import {
   FormControlLabel,
   Checkbox,
 } from "@mui/material";
+import { translate, useUiTranslation } from "../../i18n";
 
 /**
  * Form values for a new profile from GET /api/training/hardware: the card and
@@ -42,13 +43,12 @@ export function profileFromHardware(hw, takenNames = []) {
 /** The line above a form filled from this machine: what was read, and that nothing is saved yet. */
 export function hardwareNote(hw) {
   const hasGpu = Boolean(hw?.device_type) && hw.device_type !== "cpu";
-  const gpu = hasGpu
-    ? `${hw.gpu_name || "GPU"} with ${hw.vram_total_mb ? `${hw.vram_total_mb} MB usable GPU memory` : "GPU memory not detected (enter it below)"}`
-    : "no GPU";
-  return (
-    `Filled in from this machine: ${gpu}, ${hw?.ram_total_mb || "unknown"} MB system RAM, and the batch size and ` +
-    "sequence length recommended for that card. Check them, then Create; nothing is saved until you do."
-  );
+  const ram = hw?.ram_total_mb || translate("dialogs.deviceProfile.unknownRam");
+  if (!hasGpu) return translate("dialogs.deviceProfile.noteNoGpu", { ram });
+  const gpu = hw.gpu_name || "GPU";
+  return hw.vram_total_mb
+    ? translate("dialogs.deviceProfile.noteGpuWithMemory", { gpu, vram: hw.vram_total_mb, ram })
+    : translate("dialogs.deviceProfile.noteGpuNoMemory", { gpu, ram });
 }
 
 /**
@@ -64,6 +64,7 @@ const DeviceProfileModal = ({
   onSave,
   isSaving,
 }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState({
     name: "",
     device_type: "gpu",
@@ -134,23 +135,23 @@ const DeviceProfileModal = ({
 
   const handleSave = () => {
     if (!formData.name.trim()) {
-      setFormError("Profile name is required.");
+      setFormError(t("dialogs.deviceProfile.nameRequired"));
       return;
     }
     if (formData.device_type === "gpu" && !formData.gpu_vram_mb) {
-      setFormError("GPU VRAM is required for GPU devices.");
+      setFormError(t("dialogs.deviceProfile.vramRequired"));
       return;
     }
     if (!formData.system_ram_mb) {
-      setFormError("System RAM is required.");
+      setFormError(t("dialogs.deviceProfile.ramRequired"));
       return;
     }
     if (formData.max_batch_size < 1) {
-      setFormError("Batch size must be at least 1.");
+      setFormError(t("dialogs.deviceProfile.batchMin"));
       return;
     }
     if (formData.max_seq_length < 128) {
-      setFormError("Sequence length must be at least 128.");
+      setFormError(t("dialogs.deviceProfile.seqMin"));
       return;
     }
     setFormError(null);
@@ -161,10 +162,10 @@ const DeviceProfileModal = ({
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle>
         {profileData
-          ? `Edit Device Profile: ${profileData.name}`
+          ? t("dialogs.deviceProfile.editTitle", { name: profileData.name })
           : prefill
-            ? "New Device Profile from This Machine"
-            : "Add New Device Profile"}
+            ? t("dialogs.deviceProfile.fromMachineTitle")
+            : t("dialogs.deviceProfile.addTitle")}
       </DialogTitle>
       <DialogContent dividers>
         {!profileData && prefill && prefillNote && (
@@ -184,24 +185,24 @@ const DeviceProfileModal = ({
               required
               fullWidth
               margin="dense"
-              label="Profile Name"
+              label={t("dialogs.deviceProfile.nameLabel")}
               name="name"
               value={formData.name}
               onChange={handleInputChange}
               disabled={isSaving}
-              helperText="e.g., RTX 4070 Ti, Raspberry Pi"
+              helperText={t("dialogs.deviceProfile.nameHelp")}
             />
           </Grid>
 
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth margin="dense" required>
-              <InputLabel>Device Type</InputLabel>
+              <InputLabel>{t("dialogs.deviceProfile.deviceType")}</InputLabel>
               <Select
                 name="device_type"
                 value={formData.device_type}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                label="Device Type"
+                label={t("dialogs.deviceProfile.deviceType")}
               >
                 <MenuItem value="gpu">GPU</MenuItem>
                 <MenuItem value="cpu">CPU</MenuItem>
@@ -215,7 +216,7 @@ const DeviceProfileModal = ({
                 fullWidth
                 type="number"
                 margin="dense"
-                label="GPU VRAM (MB)"
+                label={t("dialogs.deviceProfile.vramLabel")}
                 name="gpu_vram_mb"
                 value={formData.gpu_vram_mb}
                 onChange={handleInputChange}
@@ -232,7 +233,7 @@ const DeviceProfileModal = ({
               fullWidth
               type="number"
               margin="dense"
-              label="System RAM (MB)"
+              label={t("dialogs.deviceProfile.ramLabel")}
               name="system_ram_mb"
               value={formData.system_ram_mb}
               onChange={handleInputChange}
@@ -248,14 +249,14 @@ const DeviceProfileModal = ({
               fullWidth
               type="number"
               margin="dense"
-              label="Max Batch Size"
+              label={t("dialogs.deviceProfile.batchLabel")}
               name="max_batch_size"
               value={formData.max_batch_size}
               onChange={handleInputChange}
               disabled={isSaving}
               required
               inputProps={{ min: 1 }}
-              helperText="Maximum batch size for training"
+              helperText={t("dialogs.deviceProfile.batchHelp")}
             />
           </Grid>
 
@@ -264,14 +265,14 @@ const DeviceProfileModal = ({
               fullWidth
               type="number"
               margin="dense"
-              label="Max Sequence Length"
+              label={t("dialogs.deviceProfile.seqLabel")}
               name="max_seq_length"
               value={formData.max_seq_length}
               onChange={handleInputChange}
               disabled={isSaving}
               required
               inputProps={{ min: 128 }}
-              helperText="Maximum sequence length (128-4096)"
+              helperText={t("dialogs.deviceProfile.seqHelp")}
             />
           </Grid>
 
@@ -285,7 +286,7 @@ const DeviceProfileModal = ({
                   disabled={isSaving}
                 />
               }
-              label="Supports 4-bit Quantization"
+              label={t("dialogs.deviceProfile.supports4bit")}
             />
           </Grid>
 
@@ -299,7 +300,7 @@ const DeviceProfileModal = ({
                   disabled={isSaving}
                 />
               }
-              label="Set as Default Profile"
+              label={t("dialogs.deviceProfile.setDefault")}
             />
           </Grid>
 
@@ -313,17 +314,17 @@ const DeviceProfileModal = ({
                   disabled={isSaving}
                 />
               }
-              label="Active (available for use)"
+              label={t("dialogs.deviceProfile.active")}
             />
           </Grid>
         </Grid>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={isSaving}>
-          Cancel
+          {t("dialogs.shared.cancel")}
         </Button>
         <Button onClick={handleSave} variant="contained" disabled={isSaving}>
-          {profileData ? "Update" : "Create"}
+          {profileData ? t("dialogs.shared.update") : t("dialogs.shared.create")}
         </Button>
       </DialogActions>
     </Dialog>

@@ -1,0 +1,59 @@
+{
+  "messages": {
+    "generatedImageAlt": "Generated image",
+    "error": "Error: {{error}}",
+    "bulkStarted": "Bulk CSV generation started! Generating {{quantity}} entries for \"{{filename}}\". This may take several minutes to complete.",
+    "bulkStartedNoQuantity": "Bulk CSV generation started! Generating multiple entries for \"{{filename}}\". This may take several minutes to complete.",
+    "fileGenerated": "File \"{{filename}}\" generated successfully! You can download it from the outputs folder.",
+    "bulkFailed": "Bulk CSV generation failed: {{error}}",
+    "fileFailed": "File generation failed: {{error}}",
+    "modes": {
+      "fileGeneration": "**File Generation Mode**: Analyzing your request for code/file generation...",
+      "coding": "**Coding Mode**: Providing programming assistance...",
+      "web": "**Web Research Mode**: Searching for current information...",
+      "data": "**Data Tools Mode**: Processing data request..."
+    },
+    "tooLong": "Message too long: {{length}} characters. Maximum allowed: 100,000 characters.",
+    "planNotCreated": "Failed to create plan",
+    "planFailed": "Failed to create plan: {{error}}",
+    "agentWorking": "Agent is actively reasoning and routing your request...",
+    "agentFailedNoResponse": "Agent execution failed (no response from the model).",
+    "agentEmptyResponse": "Agent execution completed with no response.",
+    "agentFailed": "Agent execution failed: {{error}}",
+    "fileGenerationBusy": "File generation is already in progress. I'll continue our conversation while that processes.",
+    "agentModeSocketDown": "Agent mode requires unified chat tools, but the unified chat socket is not connected (recovery attempted). Reconnect (or reload) or type `/chat` to return to normal chat mode.",
+    "agentModeUnifiedDisabled": "Agent mode requires unified chat tools, but unified chat is disabled. Reconnect (or reload) or type `/chat` to return to normal chat mode.",
+    "technicalDifficulties": "I apologize, but I'm experiencing technical difficulties processing your message: \"{{excerpt}}\"\n\nThe system encountered connectivity issues, but your message has been preserved in our conversation history. Please try asking your question again, or rephrase it if you'd like.",
+    "warning": "Warning: {{warning}}",
+    "stopped": "Request stopped by user",
+    "uploaded": "File uploaded successfully! Indexing has been started in the background. Check the System Dashboard to monitor progress."
+  },
+  "errors": {
+    "agentModeNotSaved": "Agent mode was not saved for the new chat: {{reason}}. Send /agent to try again.",
+    "agentModeNotSavedRequestFailed": "Agent mode was not saved for the new chat: the request failed. Send /agent to try again.",
+    "lessonNotSaved": "The lesson ended but was not saved: {{reason}}.",
+    "lessonNotSavedRequestFailed": "The lesson ended but was not saved: the request failed.",
+    "lessonNotSavedHttp": "The lesson ended but was not saved: the backend answered HTTP {{status}}."
+  },
+  "header": {
+    "title": "Chat",
+    "messageCount_one": "{{count}} msg",
+    "messageCount_other": "{{count}} msgs",
+    "beginLesson": "Begin Lesson — thumbs-ups will string into a lesson summary",
+    "endLesson": "End Lesson — distill pearls into an editable summary",
+    "allChats": "All chats",
+    "newChat": "Start a new chat session",
+    "activeModel": "Active Model: {{model}}",
+    "modelLoading": "Loading...",
+    "modelFetchError": "Error fetching model",
+    "modelUnknown": "N/A",
+    "model": "Model: {{model}}",
+    "modelError": "Error",
+    "modelDefault": "Default"
+  },
+  "status": {
+    "modelWarmingUp": "Model is loading into GPU memory... Chat will be ready in a moment.",
+    "typing": "Assistant is typing...",
+    "agentBudget": "Agent mode is on: each message is a task the assistant carries out with its tools, up to {{total}} steps per message; the last task had {{remaining}} steps left."
+  }
+}

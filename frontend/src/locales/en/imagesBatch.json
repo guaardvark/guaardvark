@@ -1,0 +1,307 @@
+{
+  "styles": {
+    "realistic": "Realistic",
+    "artistic": "Artistic",
+    "cartoon": "Cartoon",
+    "sketch": "Sketch",
+    "infographic": "Infographic",
+    "technical": "Technical"
+  },
+  "models": {
+    "autoLabel": "Auto — best per prompt ⭐",
+    "autoDescription": "Uses the Stills model chosen in Settings > Generation; with none chosen, the router picks the best downloaded model for each prompt"
+  },
+  "errors": {
+    "modelsLoadFailed": "Image models could not be loaded: {{error}}. Only Auto is offered until they load.",
+    "requestFailed": "the request failed",
+    "backendHttp": "the backend answered HTTP {{status}}",
+    "noBatchData": "the backend did not answer with batch data",
+    "queueStalled": "The batch queue is not updating: {{error}}.",
+    "loadBatchFailedHttp": "Failed to load batch: HTTP {{status}}",
+    "batchNotJson": "Batch response is not JSON",
+    "loadBatchFailed": "Failed to load batch: {{error}}",
+    "batchNotFound": "Batch not found",
+    "noPrompt": "Please provide a prompt",
+    "noPrompts": "Please provide at least one prompt or topic",
+    "startFailedHttp": "Failed to start generation: HTTP {{status}} {{statusText}}",
+    "startNotJson": "Generation response is not JSON. Response: {{response}}",
+    "noBatchId": "Batch generation started but no batch ID returned",
+    "startFailedPlain": "Failed to start generation",
+    "startFailed": "Failed to start generation: {{error}}",
+    "cancelFailedHttp": "Failed to cancel generation: HTTP {{status}}",
+    "cancelFailed": "Failed to cancel generation: {{error}}"
+  },
+  "cast": {
+    "lockedNote": "Set by the selected character’s base model while a character is picked.",
+    "title": "Cast (optional)",
+    "help": "Pick a trained character — identity (trigger + class + vision marks) and LoRA are applied automatically. Write scene/action only; do not re-describe the face or costume."
+  },
+  "workers": {
+    "oneAtATimeModel": "{{model}} renders one picture at a time.",
+    "oneAtATimeGpu": "One picture at a time on the graphics card.",
+    "max": "Max Workers: {{count}}"
+  },
+  "install": {
+    "button": "Install",
+    "notInstalledSized": "{{model}} is not installed. Install downloads it (about {{size}} GB); Start stays off until it finishes.",
+    "notInstalled": "{{model}} is not installed. Install downloads it; Start stays off until it finishes.",
+    "noModelSized": "No image model is installed yet. Install {{model}} (about {{size}} GB) for Auto to use.",
+    "noModel": "No image model is installed yet. Install {{model}} for Auto to use.",
+    "startOff": "Start is off: {{model}} is not installed.",
+    "noModelShort": "No image model is installed yet."
+  },
+  "dimensions": {
+    "square": "Square ({{width}}x{{height}})",
+    "portrait": "Portrait ({{width}}x{{height}})",
+    "landscape": "Landscape ({{width}}x{{height}})",
+    "largeSquare": "Large Square ({{width}}x{{height}})",
+    "hdPortrait": "HD Portrait ({{width}}x{{height}})",
+    "hdLandscape": "HD Landscape ({{width}}x{{height}})",
+    "oneKSquare": "1K Square ({{width}}x{{height}})",
+    "oneKPortrait": "1K Portrait ({{width}}x{{height}})",
+    "oneKLandscape": "1K Landscape ({{width}}x{{height}})",
+    "oneKWide": "1K Wide 16:9 ({{width}}x{{height}})",
+    "oneKTall": "1K Tall 9:16 ({{width}}x{{height}})",
+    "twoKSquare": "2K Square ({{width}}x{{height}})",
+    "twoKLandscapeWide": "2K Landscape 16:9 ({{width}}x{{height}})",
+    "twoKUltrawide": "2K Ultrawide 21:9 ({{width}}x{{height}})",
+    "twoKPortraitTall": "2K Portrait 9:16 ({{width}}x{{height}})",
+    "twoKLandscapeClassic": "2K Landscape 3:2 ({{width}}x{{height}})",
+    "twoKPortraitClassic": "2K Portrait 2:3 ({{width}}x{{height}})",
+    "fluxSquare": "Flux max square ({{width}}x{{height}})",
+    "fluxWide": "Flux max 16:9 ({{width}}x{{height}})",
+    "fluxTall": "Flux max 9:16 ({{width}}x{{height}})",
+    "fluxLandscape": "Flux max 3:2 ({{width}}x{{height}})",
+    "fluxPortrait": "Flux max 2:3 ({{width}}x{{height}})",
+    "qwenSquare": "Qwen 2K Square ({{width}}x{{height}})",
+    "qwenWide": "Qwen 2K 16:9 ({{width}}x{{height}})",
+    "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
+    "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
+    "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "title": "Dimensions",
+    "custom": "Custom ({{width}}x{{height}})",
+    "highResWarning": "High-res (>1MP): more VRAM; may OOM on 16GB cards."
+  },
+  "director": {
+    "needIdea": "Enter a high-level concept or look & feel first",
+    "expanded": "Your idea became {{count}} shots. Read them over, edit any line, then Start.",
+    "noShots": "The chat model gave no shots for this idea. Try a fuller description, or check that a chat model is running under Settings.",
+    "failed": "Could not turn the idea into shots. Check that a chat model is installed and running under Settings, then try again. ({{error}})",
+    "expandTooltip": "Turns the idea above into several different shots, one prompt each, written by the chat model. They replace the text above so you can read and edit them before you start.",
+    "expanding": "Writing shots…",
+    "expand": "Expand into shots",
+    "rewriteTooltip": "Has the chat model rewrite every prompt into a fuller description before rendering, instead of the quick tag phrasing. Prose models get this rewrite anyway when Enhance prompts is on.",
+    "rewrite": "Rewrite prompts with the chat model"
+  },
+  "service": {
+    "statusFailedHttp": "Service status check failed: HTTP {{status}}",
+    "statusNotJson": "Service status response is not JSON",
+    "unavailable": "Batch image generation service is not available",
+    "statusFailed": "Failed to check service status"
+  },
+  "history": {
+    "cleared": "Cleared batch history list.",
+    "clear": "Clear Batch List",
+    "title": "Recent Batches",
+    "refresh": "Refresh batches",
+    "retry": "Retry",
+    "loadFailed": "Recent batches could not be loaded: {{reason}}",
+    "empty": "No image batches found"
+  },
+  "messages": {
+    "batchFinished": "Batch generation {{status}}",
+    "blueprintQueued": "Blueprint batch queued. Results appear as generation completes.",
+    "queued": "Batch queued. Batches render one after another; you can queue more while this one runs.",
+    "cancelled": "Batch generation cancelled"
+  },
+  "csv": {
+    "invalidFile": "Please select a valid CSV file",
+    "templateFailedHttp": "Failed to download template: HTTP {{status}}",
+    "templateNotCsv": "Template response is not a valid CSV file",
+    "templateFailed": "Failed to download template: {{error}}",
+    "noFile": "Please select a CSV file for upload",
+    "title": "CSV File Upload",
+    "upload": "Upload CSV File",
+    "selected": "File selected: {{name}}",
+    "template": "Download CSV Template"
+  },
+  "blueprint": {
+    "invalidFile": "Please select a valid CSV file for blueprints",
+    "noFile": "Please select a CSV file for blueprint generation",
+    "title": "Offline Blueprint CSV Upload",
+    "help": "Upload a CSV file with 'city' and 'count' (or 'patents') columns to generate data blueprints (CPU-only). Large batches run in the background; poll for status until complete.",
+    "upload": "Upload Blueprint CSV",
+    "format": "Accepted format: .csv (columns like city/name and count/patents/value)"
+  },
+  "retry": {
+    "loadFailedHttp": "Couldn't load settings: HTTP {{status}}",
+    "noSettings": "This batch didn't store its settings.",
+    "loadedSettings": "Loaded \"{{name}}\" settings into control panel — adjust anything, then Start Generation.",
+    "loadedPrompts": "Loaded \"{{name}}\" prompts into panel.",
+    "loadedPromptsQty_one": "Loaded \"{{name}}\": {{count}} prompt x qty {{quantity}}.",
+    "loadedPromptsQty_other": "Loaded \"{{name}}\": {{count}} prompts x qty {{quantity}}.",
+    "loadFailed": "Couldn't load settings: {{error}}"
+  },
+  "download": {
+    "failedHttp": "Failed to download results: HTTP {{status}}",
+    "notZip": "Download response is not a valid ZIP file",
+    "failed": "Failed to download results: {{error}}"
+  },
+  "page": {
+    "title": "Image Generator",
+    "settingsTitle": "Generation Settings"
+  },
+  "contentType": {
+    "unusedAutoModel": "Content Type is not used: Auto renders with {{model}}, which reads the prompt as plain sentences.",
+    "unusedAuto": "Content Type is not used: Auto picks a model that reads the prompt as plain sentences.",
+    "unusedModel": "Content Type is not used by {{model}}: it reads the prompt as plain sentences.",
+    "describeHint": "Describe the scene in your own words. The content types only shape prompts for tag-style models.",
+    "title": "Content Type (for better quality)",
+    "auto": "Auto-detect (Recommended)",
+    "autoHelp": "Stuffs quality tags into the prompt from its content. Does not detect or change generation settings.",
+    "portrait": "Person - Portrait",
+    "portraitHelp": "Headshots, face close-ups, profile photos",
+    "fullBody": "Person - Full Body",
+    "fullBodyHelp": "Standing, sitting, or posed full-body shots",
+    "working": "Person - Working/Action",
+    "workingHelp": "People doing activities, using tools, interacting with objects",
+    "product": "Product Photo",
+    "productHelp": "Clean product shots, commercial photography",
+    "landscape": "Landscape/Scenery",
+    "landscapeHelp": "Nature, cityscapes, outdoor scenes",
+    "infographic": "Infographic/Diagram",
+    "infographicHelp": "Flat design, icons, vector graphics, charts",
+    "general": "General Purpose",
+    "generalHelp": "Default settings for any content"
+  },
+  "input": {
+    "title": "Input Method",
+    "single": "Single Prompt",
+    "bulk": "Bulk Input",
+    "csv": "CSV Upload",
+    "blueprint": "Offline Blueprints"
+  },
+  "single": {
+    "help": "Paste full prompt text (paragraphs and line breaks preserved as one prompt). Use \"Number of Images per Prompt\" below for multiples from this exact prompt.",
+    "placeholder": "Paste your complete prompt here, including paragraphs if needed. The entire text will be used as a single prompt for image generation.\n\nExample: A detailed scene description with multiple sentences and line breaks all for one image concept...",
+    "note": "Whole text = 1 prompt. Quantity duplicates it exactly for multiple images."
+  },
+  "bulk": {
+    "title": "Image Topics/Prompts",
+    "placeholder": "Enter image topics or prompts, one per line:\n\nA majestic mountain landscape at sunset\nA cat sitting on a windowsill\nAbstract geometric patterns in blue\nPortrait of a wise old wizard\nA futuristic city skyline\n...",
+    "ready": "{{count}} prompts ready for generation (bulk mode)",
+    "loadExamples": "Load Examples",
+    "tip": "Tip: Each line becomes a separate image prompt"
+  },
+  "look": {
+    "title": "Look & Feel (Optional)",
+    "placeholder": "Describe the visual style to apply to the prompt(s):\n\nExamples:\n• In shades of blue, no text, darker colors\n• Minimalist black and white, clean lines\n• Professional infographic style, flat design\n• Photorealistic, dramatic lighting",
+    "single": "Style will be appended to your single prompt",
+    "bulk": "This style will be applied to all {{count}} prompts above",
+    "preview": "Preview Prompts"
+  },
+  "negative": {
+    "label": "Negative prompt",
+    "unused": "This model does not use a negative prompt."
+  },
+  "anatomy": {
+    "label": "Enhance anatomy",
+    "unusedTooltip": "Not used here: this model reads the prompt as plain sentences, so anatomy tags would be drawn as scene content. Describe the pose in words instead.",
+    "tooltip": "Adds anatomy phrasing when the prompt is a person.",
+    "unusedBoth": "This model does not use a negative prompt or anatomy enhancement.",
+    "unused": "This model does not use anatomy enhancement."
+  },
+  "current": {
+    "title": "Current Settings",
+    "manageModels": "Manage models",
+    "modelNotInstalled": "Model: {{model}} (not installed)",
+    "model": "Model: {{model}}",
+    "style": "Style: {{style}}",
+    "quality": "Quality: {{quality}}",
+    "size": "Size: {{width}}x{{height}}",
+    "stepsCast": "Steps: from character",
+    "steps": "Steps: {{steps}}",
+    "oneAtATime": "One at a time",
+    "workers": "Workers: {{count}}"
+  },
+  "advanced": {
+    "title": "Advanced Settings",
+    "model": "Model",
+    "yourLoras": "Your LoRAs (off until you turn one on):",
+    "unavailable": "Not available on this machine:",
+    "qualityPreset": "Quality Preset",
+    "style": "Style",
+    "quantity": "Number of Images per Prompt",
+    "thumbnails": "Generate Thumbnails"
+  },
+  "enhance": {
+    "label": "Enhance prompts automatically",
+    "off": "Off — prompts are sent as written.",
+    "prose": "Rewrites each prompt into a fuller description with the chat model before rendering. If no chat model answers, the prompt goes as typed. Steps and guidance are not changed.",
+    "proseStyle": "Rewrites each prompt into a fuller description with the chat model before rendering. If no chat model answers, the prompt goes as typed plus one sentence asking for the {{style}} look. Steps and guidance are not changed.",
+    "tagsNoNegative": "Adds the content type’s quality and anatomy phrasing to each prompt. This model ignores negative prompts. Steps and guidance are not changed.",
+    "tags": "Adds the content type’s quality and anatomy phrasing (and negatives) to each prompt. Steps and guidance are not changed."
+  },
+  "steps": {
+    "cast": "Steps: set by the character",
+    "flux": "Steps: {{steps}} (FLUX quality ↑ with more steps)",
+    "value": "Steps: {{steps}}"
+  },
+  "guidance": {
+    "cast": "Guidance: set by the character",
+    "zimage": "Guidance Scale: 0 (CFG-free model)",
+    "flux": "FluxGuidance: {{guidance}}",
+    "scale": "Guidance Scale: {{guidance}}",
+    "zimageHelp": "Z-Image runs CFG-free — guidance is fixed at 0. Use Steps for quality.",
+    "qwenHelp": "Qwen-Image 2.1 runs at guidance 1 on the official path. Raise it only together with a negative prompt.",
+    "autoHelp": "Auto routes per prompt. The usual pick (Z-Image) is CFG-free — keep 0 unless you expect an SDXL route."
+  },
+  "seed": {
+    "label": "Seed",
+    "placeholder": "random",
+    "fixed": "The first image uses seed {{seed}}, each next image the next number. Same prompt and settings give the same picture.",
+    "tooLarge": "Seeds go up to {{max}}; this one is ignored.",
+    "blank": "Blank: every image gets its own random seed. Open an image and press the dice to reuse its seed."
+  },
+  "actions": {
+    "queuing": "Queuing…",
+    "addToQueue": "Add to Queue",
+    "start": "Start Generation",
+    "cancel": "Cancel"
+  },
+  "queue": {
+    "title": "Batch Queue",
+    "clearCompleted": "Clear Completed",
+    "active": "{{count}} active",
+    "progressFailed": "{{done}}/{{total}} images ({{failed}} failed)",
+    "progress": "{{done}}/{{total}} images",
+    "cancelRunning": "Cancel running batch",
+    "remove": "Remove from queue",
+    "cancelAria": "cancel batch"
+  },
+  "progress": {
+    "title": "Current Progress",
+    "batchId": "Batch ID: {{id}}",
+    "count": "Progress: {{done}}/{{total}}",
+    "download": "Download Results",
+    "adjustRetry": "Adjust & Retry"
+  },
+  "gallery": {
+    "title": "Generated Images ({{count}})",
+    "generatedImage": "Generated image",
+    "noPrompt": "No prompt",
+    "seed": "Seed {{seed}}",
+    "rewritten": "Rewritten before rendering; open to read it",
+    "viewFull": "View full image: {{name}}"
+  },
+  "lightbox": {
+    "sentToModel": "Sent to the model: {{prompt}}",
+    "seedUsed": "Seed {{seed}} is in the Seed box. Clear it to get random seeds again."
+  },
+  "preview": {
+    "titleQuantity": "Preview Generated Prompts ({{count}} × {{quantity}})",
+    "title": "Preview Generated Prompts ({{count}})",
+    "intro": "These are the final prompts that will be sent to the image generator:",
+    "close": "Close"
+  }
+}

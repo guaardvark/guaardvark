@@ -1,0 +1,189 @@
+{
+  "loading": {
+    "processing": "Wird verarbeitet …",
+    "thinking": "Die KI denkt nach...",
+    "analyzingSelection": "Ausgewählten Code analysieren...",
+    "sending": "An KI-Assistenten senden...",
+    "processingResponse": "KI-Antwort verarbeiten...",
+    "searchingProject": "Projektkontext suchen...",
+    "buildingContext": "Intelligenten Kontext erstellen..."
+  },
+  "commands": {
+    "explain": {
+      "label": "Erklären",
+      "description": "Ausgewählten Code erklären oder gesamte Dateistruktur analysieren"
+    },
+    "edit": {
+      "label": "Intelligent bearbeiten",
+      "description": "KI-gestütztes Codieren mit Kontextverständnis"
+    },
+    "optimize": {
+      "label": "Optimieren",
+      "description": "Leistungsoptimierung mit detaillierter Analyse"
+    },
+    "refactor": {
+      "label": "Refactoren",
+      "description": "Intelligente Code-Restrukturierung"
+    },
+    "test": {
+      "label": "Tests generieren",
+      "description": "Umfassende Unit-Tests erstellen"
+    },
+    "fix": {
+      "label": "Automatisch beheben",
+      "description": "Erkannte Fehler und Probleme automatisch beheben"
+    },
+    "document": {
+      "label": "Dokumentieren",
+      "description": "Dokumentation und Kommentare generieren"
+    },
+    "secure": {
+      "label": "Sicherheits-Scan",
+      "description": "Umfassende Analyse von Sicherheitslücken"
+    },
+    "suggest": {
+      "label": "Vorschläge",
+      "description": "Intelligente Code-Vorschläge erhalten"
+    }
+  },
+  "progress": {
+    "processingWithContext": "Verarbeitung mit vollem Kontext...",
+    "completed": "KI-Unterstützung abgeschlossen"
+  },
+  "errors": {
+    "noSelectionResponse": "Chat-Dienst hat keine Antwort für die Auswahlanalyse zurückgegeben",
+    "noResponse": "Chat-Dienst hat keine Antwort zurückgegeben",
+    "noGeneralResponse": "Chat-Dienst hat keine Antwort für das allgemeine Gespräch zurückgegeben"
+  },
+  "replies": {
+    "analysisFailed": "Analyse fehlgeschlagen",
+    "validationFailed": "Eingabevalidierung fehlgeschlagen: {{errors}}",
+    "rateLimited": "Rate-Limit überschritten. Bitte warte einen Moment, bevor du es erneut versuchst.",
+    "analysisFailedWithError": "Analyse fehlgeschlagen: {{error}}",
+    "explanationFailed": "Erklärung fehlgeschlagen: {{error}}",
+    "editHelp": "Bitte gib Bearbeitungsanweisungen an. Beispiel: '/edit Füge eine Fehlerbehandlung zu dieser Funktion hinzu'",
+    "editDescriptionSelection": "Bearbeiten: {{instructions}} (ersetzt den ausgewählten Text; Ctrl+Z im Editor macht es rückgängig)",
+    "editDescriptionFile": "Bearbeiten: {{instructions}} (ersetzt die gesamte Datei; Ctrl+Z im Editor macht es rückgängig)",
+    "editReadySelection": "Bearbeitung für den ausgewählten Text bereit. Die Vorschau zeigt das Diff; „Anwenden“ fügt es in den Editor ein.",
+    "editReadyFile": "Bearbeitung für die gesamte Datei bereit. Die Vorschau zeigt das Diff; „Anwenden“ fügt es in den Editor ein.",
+    "noReply": "Der Assistent hat keine Antwort gesendet.",
+    "editFailed": "Code-Bearbeitung fehlgeschlagen: {{error}}",
+    "fixAnalysis": "**Auto Fix Analyse:**\n\n{{analysis}}",
+    "fixFailed": "Fix-Analyse fehlgeschlagen: {{error}}",
+    "securityAnalysis": "**Sicherheitsanalyse:**\n\n{{analysis}}",
+    "securityFailed": "Sicherheitsanalyse fehlgeschlagen: {{error}}",
+    "commandNames": {
+      "optimize": "Optimieren",
+      "refactor": "Refaktorieren",
+      "test": "Test",
+      "document": "Dokumentieren"
+    },
+    "commandDescription": "{{command}}: ersetzt die gesamte Datei (Strg+Z im Codeeditor macht dies rückgängig)",
+    "commandReady": "{{command}} bereit. Die Vorschau zeigt den Diff; „Anwenden“ ersetzt die gesamte Datei.",
+    "commandNoReply": "{{command}} hat keine Antwort zurückgegeben.",
+    "commandFailed": "{{command}} fehlgeschlagen: {{error}}",
+    "requestTrouble": "Entschuldigung, ich habe Probleme bei der Bearbeitung deiner Anfrage. Fehler: {{error}}",
+    "error": "Entschuldigung, ich bin auf einen Fehler gestoßen: {{message}}",
+    "noActiveFile": "Keine aktive Datei\n\nBitte öffne zuerst eine Datei mit Code-Inhalt, um die KI-Unterstützung zu nutzen."
+  },
+  "apply": {
+    "defaultDescription": "KI-generierter Code",
+    "appliedToSelection": "Code erfolgreich angewendet (Auswahlbasierte Bearbeitung)\n\n{{description}}",
+    "applied": "Code erfolgreich angewendet\n\n{{description}}",
+    "failed": "Fehler beim Anwenden des Codes\n\n{{error}}"
+  },
+  "untitled": "unbenannt",
+  "multiFile": {
+    "confirm": "Änderungen an {{count}} Datei(en) anwenden?\n\nZu ändernde Dateien:\n{{files}}\n\nKlicke auf OK, um fortzufahren, oder Abbrechen, um abzubrechen.",
+    "applying": "Änderungen an {{count}} Dateien anwenden...",
+    "completedProgress": "Mehrfach-Bearbeitung abgeschlossen: {{succeeded}} erfolgreich, {{failed}} fehlgeschlagen",
+    "completeWithFailures": "Mehrfach-Bearbeitung abgeschlossen\n\n{{succeeded}} Datei(en) erfolgreich aktualisiert, {{failed}} fehlgeschlagen",
+    "complete": "Multi-File-Bearbeitung abgeschlossen\n\n{{succeeded}} Datei(en) erfolgreich aktualisiert",
+    "failedProgress": "Multi-File-Bearbeitung fehlgeschlagen: {{error}}",
+    "failed": "Multi-File-Bearbeitung fehlgeschlagen\n\n{{error}}"
+  },
+  "titleBar": {
+    "newChat": "Neuer Chat",
+    "startNewChat": "Neuen Chat starten",
+    "deleteChat": "Chat löschen",
+    "deleteChatLabel": "Chat löschen",
+    "aiCommands": "KI-Befehle",
+    "openCommandsMenu": "KI-Befehlsmenü öffnen"
+  },
+  "card": {
+    "title": "KI-Assistent"
+  },
+  "status": {
+    "selected": "Ausgewählt: {{count}} Zeichen",
+    "noFile": "Keine Datei",
+    "realTimeTooltip": "Echtzeit-Analyse: 2 Sekunden nach dem Aufhören zu tippen, wird die Datei auf Syntax geprüft und an das Modell für Vorschläge gesendet (ein Modell-Request pro Pause; Dateien über 5.000 Zeichen werden übersprungen)",
+    "toggleRealTime": "Echtzeit-Codeanalyse umschalten",
+    "contextInfo": "Kontext-Info",
+    "toggleContext": "Kontext-Informationspanel umschalten"
+  },
+  "recommendations": {
+    "title": "KI-Empfehlungen ({{count}})",
+    "defaultType": "Vorschlag",
+    "lines": "Zeilen {{start}}-{{end}}",
+    "noDescription": "Keine Beschreibung",
+    "applyDescription": "{{type}}-Empfehlung anwenden",
+    "more": "... und {{count}} weitere Empfehlungen"
+  },
+  "actions": {
+    "apply": "Anwenden"
+  },
+  "pending": {
+    "readyToApply": "Bereit zum Anwenden: {{command}}",
+    "preview": "Vorschau",
+    "discard": "Verwerfen"
+  },
+  "context": {
+    "title": "Code-Kontext & Analyse",
+    "currentFile": "Aktuelle Datei",
+    "noFileOpen": "Keine Datei geöffnet",
+    "unknownLanguage": "unbekannt",
+    "selectedCode": "Ausgewählter Code",
+    "analysisResults": "Analyseergebnisse",
+    "noIssues": "Keine Probleme erkannt",
+    "project": "Projektkontext",
+    "filesOpen": "{{count}} Dateien geöffnet",
+    "relatedDetected": "{{count}} verwandte Dateien erkannt",
+    "relatedFiles": "Verwandte Dateien",
+    "more": "... und {{count}} weitere"
+  },
+  "alerts": {
+    "errorsDetected_one": "{{count}} Fehler erkannt",
+    "errorsDetected_other": "{{count}} Fehler erkannt",
+    "warningsDetected_one": "{{count}} Warnung erkannt",
+    "warningsDetected_other": "{{count}} Warnungen erkannt"
+  },
+  "input": {
+    "placeholder": "Nachricht..."
+  },
+  "menu": {
+    "label": "KI-Befehlsmenü"
+  },
+  "palette": {
+    "title": "KI-Befehlspalette",
+    "searchPlaceholder": "Befehle suchen...",
+    "currentFile": "Aktuelle Datei: {{file}} ({{language}})",
+    "noMatches": "Keine Befehle gefunden, die zu \"{{search}}\" passen",
+    "keyboardHelp": "Nutze ↑↓ zum Navigieren, Enter zum Auswählen, Esc zum Schließen"
+  },
+  "hover": {
+    "unavailable": "KI-Erklärung nicht verfügbar"
+  },
+  "drop": {
+    "reasons": {
+      "folder": "ein Ordner; ziehe die Dateien hinein",
+      "tooMany": "nur {{max}} Dateien pro Drop möglich",
+      "tooLarge": "größer als {{size}} MB",
+      "unreadable": "konnte nicht gelesen werden",
+      "notText": "keine Textdatei"
+    },
+    "opened_one": "{{names}} wurde als nicht gespeicherte Kopie geöffnet. Das Speichern behält sie in diesem Browser mit deinen anderen Editor-Dateien; die Datei auf deinem Computer wird nicht geändert.",
+    "opened_other": "{{names}} wurden als nicht gespeicherte Kopien geöffnet. Speichern behält sie in diesem Browser mit deinen anderen Editor-Dateien; die Datei auf deinem Computer wird nicht geändert.",
+    "skippedFile": "{{name}} ({{reason}})",
+    "notOpened": "Nicht geöffnet: {{files}}."
+  }
+}

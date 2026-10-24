@@ -23,6 +23,7 @@ import {
   VOICE_LIMITS,
   updateVoiceSettings,
 } from "../../config/voiceDefaults";
+import { useUiTranslation } from "../../i18n";
 
 const METER_RANGE = VOICE_LIMITS.silenceThreshold.max;
 
@@ -32,6 +33,7 @@ const METER_RANGE = VOICE_LIMITS.silenceThreshold.max;
  * fights the mic buttons for the device.
  */
 export const MicLevelMeter = ({ threshold }) => {
+  const { t } = useUiTranslation();
   const voice = useVoiceSession();
   const { level, micOpen, error } = useVoiceSessionState(
     useShallow((s) => ({ level: s.level, micOpen: s.micOpen, error: s.error }))
@@ -58,15 +60,15 @@ export const MicLevelMeter = ({ threshold }) => {
     <Box sx={{ mt: 1, mb: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
         <Typography variant="caption" color="text.secondary">
-          Microphone level (red line: speech starts above it)
+          {t("voice.listening.meterCaption")}
         </Typography>
         <Button size="small" variant="outlined" onClick={toggleTest}>
-          {testing ? "Stop test" : "Test mic"}
+          {testing ? t("voice.listening.stopTest") : t("voice.listening.testMic")}
         </Button>
       </Box>
       <Box
         role="meter"
-        aria-label="Microphone level"
+        aria-label={t("voice.listening.meterLabel")}
         aria-valuemin={0}
         aria-valuemax={METER_RANGE}
         aria-valuenow={Number(shown.toFixed(3))}
@@ -109,24 +111,27 @@ export const MicLevelMeter = ({ threshold }) => {
 
 MicLevelMeter.propTypes = { threshold: PropTypes.number.isRequired };
 
-const SliderRow = ({ label, value, limits, format, onChange }) => (
-  <Box sx={{ mb: 1.5 }}>
-    <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.75rem", mb: 0.5 }}>
-      {label}: {format(value)}
-    </Typography>
-    <Slider
-      value={value}
-      min={limits.min}
-      max={limits.max}
-      step={limits.step}
-      onChange={(_e, v) => onChange(v)}
-      valueLabelDisplay="auto"
-      valueLabelFormat={format}
-      size="small"
-      aria-label={label}
-    />
-  </Box>
-);
+const SliderRow = ({ label, value, limits, format, onChange }) => {
+  const { t } = useUiTranslation();
+  return (
+    <Box sx={{ mb: 1.5 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.75rem", mb: 0.5 }}>
+        {t("voice.listening.sliderValue", { label, amount: format(value) })}
+      </Typography>
+      <Slider
+        value={value}
+        min={limits.min}
+        max={limits.max}
+        step={limits.step}
+        onChange={(_e, v) => onChange(v)}
+        valueLabelDisplay="auto"
+        valueLabelFormat={format}
+        size="small"
+        aria-label={label}
+      />
+    </Box>
+  );
+};
 
 SliderRow.propTypes = {
   label: PropTypes.string.isRequired,
@@ -147,6 +152,7 @@ const seconds = (ms) => `${(ms / 1000).toFixed(ms % 1000 ? 1 : 0)}s`;
  *   Without `settings`/`onChange` it reads and writes the stored voice settings itself.
  */
 const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: systemNameProp }) => {
+  const { t } = useUiTranslation();
   const stored = useVoiceSettings();
   const settings = settingsProp ? { ...stored, ...settingsProp } : stored;
   const change = onChange || ((key, value) => updateVoiceSettings({ [key]: value }));
@@ -158,14 +164,14 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
   return (
     <Box>
       <Typography variant="subtitle2" sx={{ mb: 1, fontSize: "0.85rem" }}>
-        Mic button
+        {t("voice.listening.micButton")}
       </Typography>
       <ToggleButtonGroup
         exclusive
         size="small"
         value={mode}
         onChange={(_e, next) => next && setMode(next)}
-        aria-label="What a click on the mic does"
+        aria-label={t("voice.listening.modeGroupLabel")}
       >
         {ACTIVATION_MODES.map((m) => (
           <ToggleButton key={m} value={m} sx={{ textTransform: "none", fontSize: "0.8rem" }}>
@@ -174,14 +180,14 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
         ))}
       </ToggleButtonGroup>
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, mb: 2 }}>
-        {ACTIVATION_MODE_HELP[mode]} Holding the mic always talks. Shortcut: Ctrl+Shift+Space.
+        {ACTIVATION_MODE_HELP[mode]} {t("voice.listening.holdHint")}
       </Typography>
 
       <Typography variant="subtitle2" sx={{ mb: 1, fontSize: "0.85rem" }}>
-        Speech detection
+        {t("voice.listening.speechDetection")}
       </Typography>
       <SliderRow
-        label="Speech threshold"
+        label={t("voice.listening.threshold")}
         value={settings.silenceThreshold}
         limits={VOICE_LIMITS.silenceThreshold}
         format={(v) => v.toFixed(2)}
@@ -189,14 +195,14 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
       />
       <MicLevelMeter threshold={settings.silenceThreshold} />
       <SliderRow
-        label="Pause that ends a message"
+        label={t("voice.listening.silenceTimeout")}
         value={settings.silenceTimeout}
         limits={VOICE_LIMITS.silenceTimeout}
         format={seconds}
         onChange={(v) => change("silenceTimeout", v)}
       />
       <SliderRow
-        label="Longest single message"
+        label={t("voice.listening.maxSegment")}
         value={settings.maxSegmentDuration}
         limits={VOICE_LIMITS.maxSegmentDuration}
         format={seconds}
@@ -204,7 +210,7 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
       />
 
       <Typography variant="subtitle2" sx={{ mt: 2, mb: 0.5, fontSize: "0.85rem" }}>
-        Wake phrase
+        {t("voice.listening.wakePhrase")}
       </Typography>
       <FormControlLabel
         control={
@@ -216,16 +222,16 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
         }
         label={
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8rem" }}>
-            In hands-free, wait for “Hey {systemName}” before sending
+            {t("voice.listening.wakeToggle", { systemName })}
           </Typography>
         }
       />
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-        The name follows Settings → Branding. Everything the mic hears is transcribed on this machine to look for it.
+        {t("voice.listening.wakeHelp")}
       </Typography>
       {settings.wakeWordEnabled && (
         <SliderRow
-          label="Stays awake after the phrase for"
+          label={t("voice.listening.awakeFor")}
           value={settings.activeListeningDuration}
           limits={VOICE_LIMITS.activeListeningDuration}
           format={seconds}
@@ -239,12 +245,12 @@ const VoiceListeningSettings = ({ settings: settingsProp, onChange, systemName: 
         }
         label={
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8rem" }}>
-            Talking over a spoken reply stops it
+            {t("voice.listening.bargeIn")}
           </Typography>
         }
       />
       <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-        Off: the mic pauses while a reply is spoken. On needs headphones or good echo cancellation, or the reply can interrupt itself.
+        {t("voice.listening.bargeInHelp")}
       </Typography>
     </Box>
   );

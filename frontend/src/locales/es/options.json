@@ -1,0 +1,374 @@
+{
+  "infographic": {
+    "styles": {
+      "editorial": "Ilustración editorial dramática",
+      "flatVector": "Vector plano / geométrico limpio",
+      "photoReal": "Fotorrealista",
+      "comic": "Cómic"
+    },
+    "aspects": {
+      "wide": "16:9  (1280×720)  — social / miniatura de video",
+      "square": "1:1   (1024×1024) — cuadrado / Instagram",
+      "vertical": "9:16  (720×1280)  — vertical / Reels",
+      "portrait": "4:5   (1024×1280) — retrato de Instagram",
+      "landscape": "3:2   (1216×832)  — paisaje"
+    }
+  },
+  "tips": {
+    "dashboardCardMenu": "Haz clic derecho en cualquier tarjeta del Panel de control para abrir su página, minimizarla, darle un color o esconderla.",
+    "shortcuts": "Pulsa ? en cualquier lugar fuera de un cuadro de texto para ver los atajos de teclado.",
+    "micHandsFree": "Haz clic en el micrófono para hablar sin manos: cada pausa envía lo que dijiste al chat. Haz clic de nuevo para detenerlo.",
+    "floatingChat": "Ctrl+Shift+C abre el chat flotante en cualquier página. Su etiqueta nombra la página en la que estás, y el chat recibe información sobre qué página y registro tienes abiertos.",
+    "dropIntoFiles": "Arrastra archivos o carpetas enteras desde tu ordenador a la página de Archivos. Se subirán donde los sueltes y se indexarán para el chat y la búsqueda.",
+    "dashboardHiddenCards": "¿Ocultaste una tarjeta del Panel de control por error? Haz clic derecho en una parte vacía del Panel de control para mostrarla de nuevo.",
+    "moveResizeCards": "Las tarjetas en el Panel de control, Editor de código y Editor de video se mueven por su barra de título y se redimensionan desde cualquier borde o esquina. Haz doble clic en una barra de título para contraer una tarjeta.",
+    "settingsHoverHelp": "En Ajustes, un título con un subrayado de puntos se explica solo: coloca el puntero sobre él.",
+    "navigationModes": "Ajustes → General → Navegación alterna entre la barra lateral y una barra de Espacios de trabajo que agrupa las páginas por tarea.",
+    "dropIntoChat": "Arrastra un documento o una imagen a cualquier chat para añadirlo: los documentos se indexan, una imagen se envía con tu próximo mensaje.",
+    "micPushToTalk": "Mantén presionado el micrófono, o mantén Ctrl+Shift+Espacio, para hablar solo mientras lo mantengas. Haz clic derecho en el micrófono para cambiar la acción de un clic.",
+    "dashboardLayouts": "Haz clic derecho en una parte vacía del Panel de control para ciclar su diseño: Normal, Compacto, Compacto en capas y Modo-X. Las tarjetas se pueden mover libremente en cada diseño.",
+    "footerJobs": "Mientras se ejecutan las tareas, la barra inferior las muestra una al lado de la otra. Coloca el puntero sobre ella para ver la lista de cada tarea; haz clic para mantener la lista abierta.",
+    "updateNotice": "Cuando Guaardvark se actualiza mientras está en ejecución, un aviso sobre la barra inferior indica si una recarga de página o un reinicio completa la actualización.",
+    "rightClickEverywhere": "El clic derecho funciona en toda la aplicación: archivos, notas, mensajes de chat, tareas, reglas, complementos y más tienen su propio menú."
+  },
+  "voiceActivation": {
+    "push": {
+      "label": "Mantener para hablar",
+      "help": "Mantén presionado el micrófono (o Ctrl+Shift+Espacio) mientras hablas; suéltalo para enviar."
+    },
+    "toggle": {
+      "label": "Toca para hablar",
+      "help": "Haz clic, habla y se enviará cuando hagas una pausa. El micrófono se cierra tras cada mensaje."
+    },
+    "handsfree": {
+      "label": "Manos libres",
+      "help": "Haz clic una vez y habla; cada pausa enviará un mensaje hasta que vuelvas a hacer clic."
+    }
+  },
+  "brandTones": {
+    "neutral": {
+      "label": "Neutral",
+      "description": "Tono profesional y equilibrado"
+    },
+    "friendly": {
+      "label": "Amigable",
+      "description": "Tono cálido y accesible"
+    },
+    "authoritative": {
+      "label": "Autoritario",
+      "description": "Tono experto y seguro"
+    },
+    "playful": {
+      "label": "Lúdico",
+      "description": "Tono creativo y atractivo"
+    },
+    "luxury": {
+      "label": "Lujo",
+      "description": "Tono premium y sofisticado"
+    }
+  },
+  "delimiters": {
+    "comma": {
+      "label": "Coma (,)",
+      "description": "Formato CSV estándar"
+    },
+    "semicolon": {
+      "label": "Punto y coma (;)",
+      "description": "Estándar europeo"
+    },
+    "tab": {
+      "label": "Tabulador",
+      "description": "Valores separados por tabulador"
+    }
+  },
+  "mediaTabs": {
+    "mediaLibrary": "Biblioteca de multimedia",
+    "imageGen": "Gen. de imagen",
+    "infographic": "Infografía",
+    "videoGen": "Gen. de video",
+    "upscaling": "Escalado"
+  },
+  "videoPresets": {
+    "quality": {
+      "fast": {
+        "label": "⚡ Rápido",
+        "description": "Vista previa en el nivel de pasos del modelo (nunca por debajo)"
+      },
+      "standard": {
+        "label": "✨ Estándar",
+        "description": "Buena calidad (30 pasos)"
+      },
+      "high": {
+        "label": "🎬 Alta calidad",
+        "description": "Mejores detalles (40 pasos)"
+      },
+      "maximum": {
+        "label": "🏆 Máxima",
+        "description": "Máxima calidad (50 pasos)"
+      }
+    },
+    "duration": {
+      "short": "Corto",
+      "medium": "Medio",
+      "long": "Largo",
+      "about_one": "~{{count}} segundo",
+      "about_other": "~{{count}} segundos",
+      "seconds": "{{seconds}} s",
+      "exact_one": "{{count}} segundo",
+      "exact_other": "{{count}} segundos"
+    },
+    "motion": {
+      "subtle": {
+        "label": "🌊 Sutil",
+        "description": "Movimiento suave"
+      },
+      "normal": {
+        "label": "🎯 Normal",
+        "description": "Movimiento equilibrado"
+      },
+      "dynamic": {
+        "label": "💨 Dinámico",
+        "description": "Más movimiento"
+      },
+      "intense": {
+        "label": "🔥 Intenso",
+        "description": "Máximo movimiento"
+      }
+    },
+    "outputTiers": {
+      "draft": {
+        "label": "Borrador",
+        "description": "Salida bruta del modelo — más rápido, menor pulido"
+      },
+      "standard": {
+        "label": "Estándar",
+        "description": "Interpolación de 2x FPS para un movimiento más fluido"
+      },
+      "cinema": {
+        "label": "Cine",
+        "description": "2x FPS + 2x escalado — recomendado para el resultado final"
+      }
+    },
+    "keyframeModels": {
+      "fromLora": {
+        "label": "Auto (base LoRA de personaje)",
+        "description": "Z-Image / SDXL / FLUX de la base de entrenamiento del miembro del reparto"
+      },
+      "fluxSchnell": {
+        "description": "Imágenes fijas rápidas y hermosas (por defecto sin reparto)"
+      },
+      "fluxDevLora": {
+        "description": "Imágenes fijas Comfy FLUX (sin reparto o explícito)"
+      },
+      "sdxl": {
+        "description": "Imágenes fijas de alta fidelidad sin LoRA"
+      },
+      "sdxlLora": {
+        "description": "Ruta de personaje SDXL heredada"
+      }
+    },
+    "samplerProfiles": {
+      "official": {
+        "label": "Oficial — uni_pc, shift 8 (por defecto)",
+        "description": "Ajustes de plantilla Wan 2.2 5B de ComfyUI"
+      },
+      "adaptive": {
+        "label": "Guaardvark — euler, shift adaptativo",
+        "description": "Experimental: el shift escala con la resolución, mínimo 3 por debajo de ~740px"
+      }
+    },
+    "aspectRatios": {
+      "widescreen": "Panorámico",
+      "portraitVertical": "Retrato/Vertical",
+      "square": "Cuadrado",
+      "standard": "Estándar",
+      "classic": "Clásico",
+      "ultraWide": "Ultraancho",
+      "portrait": "Retrato"
+    },
+    "promptStyles": {
+      "cinematic": {
+        "label": "Cinematográfico",
+        "description": "Iluminación y movimiento de calidad de cine"
+      },
+      "realistic": {
+        "label": "Realista",
+        "description": "Detalle fotorrealista"
+      },
+      "artistic": {
+        "label": "Artístico",
+        "description": "Estilizado y expresivo"
+      },
+      "anime": {
+        "label": "Anime (Japonés)",
+        "description": "Animación estilo cel-shaded japonesa"
+      },
+      "animation3d": {
+        "label": "Animación 3D (estilo Pixar)",
+        "description": "CGI pulido, personajes expresivos"
+      },
+      "stopMotion": {
+        "label": "Stop-motion / Claymation",
+        "description": "Arcilla táctil, sensación artesanal"
+      },
+      "handDrawn": {
+        "label": "Dibujado a mano 2D (estilo Ghibli)",
+        "description": "Fondos de acuarela pictóricos"
+      },
+      "westernCartoon": {
+        "label": "Dibujos animados occidentales",
+        "description": "Contornos marcados, sombreado plano, movimiento dinámico"
+      },
+      "none": {
+        "label": "Ninguno",
+        "description": "Sin mejora"
+      }
+    },
+    "sizes": {
+      "small": {
+        "label": "Pequeño",
+        "description": "512px (más rápido)"
+      },
+      "medium": {
+        "label": "Mediano"
+      },
+      "large": {
+        "label": "Grande",
+        "description": "720px (nativo de CogVideoX)"
+      },
+      "hd": {
+        "description": "1280px (descarga a CPU, más lento)"
+      },
+      "fullhd": {
+        "description": "1920px (descarga a CPU, mucho más lento)"
+      }
+    },
+    "models": {
+      "wan225b": {
+        "label": "Wan 2.2 5B TI2V (Recomendado)",
+        "description": "Clips rápidos de 5s, cabe en 16GB — sin descarga. Texto + imagen a video."
+      },
+      "wan2214b": {
+        "description": "Mejor calidad, videos de 5s (16GB VRAM)"
+      },
+      "wan2214bI2v": {
+        "description": "Imagen a video de primer nivel, clips de 5s (16GB VRAM)"
+      },
+      "cogvideox5b": {
+        "description": "Videos de 6s, diffusers en proceso — no requiere ComfyUI (~16GB VRAM)"
+      },
+      "cogvideox5bI2v": {
+        "description": "Imagen a video, 5 s a 1360x768 (~16GB VRAM)"
+      },
+      "ltx23": {
+        "description": "Lightricks LTX-2.3 — 8 pasos, hasta ~10s en 16GB Ada. T2V + I2V."
+      },
+      "minimaxH3Int8": {
+        "description": "MiniMax H3 — video con audio estéreo nativo en un pase. 24fps, ~5s. T2V, I2V de primer cuadro y de primer+último cuadro. ComfyUI ≥ 0.30."
+      },
+      "minimaxH3Int8Full": {
+        "description": "MiniMax H3 con los pesos de modulación completos y el codificador int8. Tarjetas de clase 24GB; sin medir."
+      },
+      "minimaxH3Reference": {
+        "description": "MiniMax H3 de referencia a video: hasta 9 imágenes, 3 clips y 3 archivos de audio para fijar identidad, movimiento y voz, o editar y continuar un clip. 24fps, audio nativo."
+      },
+      "minimaxH3Bf16": {
+        "description": "MiniMax H3 en precisión completa con el codificador bf16 (~110GB de pesos). Tarjetas de estación de trabajo; sin medir."
+      },
+      "hunyuanT2v": {
+        "description": "Tencent HunyuanVideo — movimiento cinematográfico, sin filtro de contenido. 24fps, clips de ~3s (16GB VRAM)"
+      },
+      "hunyuanI2v": {
+        "description": "HunyuanVideo de imagen a video (v2) — sigue el fotograma inicial de cerca. 24fps, ~3s (16GB VRAM)"
+      },
+      "ltx25": {
+        "description": "Lightricks LTX-2.5 — 8 pasos, hasta ~10s en 16GB Ada. T2V + I2V. Aceptación en HF + ComfyUI ≥ 0.32."
+      }
+    },
+    "unknownModel": "Modelo desconocido"
+  },
+  "imagePresets": {
+    "labels": {
+      "fast": "Rápido",
+      "standard": "Estándar",
+      "high2k": "Alta 2K (2048²)",
+      "fluxFast": "FLUX Rápido",
+      "fluxQuality": "FLUX Máxima Calidad",
+      "fluxUltra": "FLUX Ultra",
+      "high": "Alta Calidad",
+      "ultra": "Ultra"
+    },
+    "descriptions": {
+      "zimage": {
+        "fast": "Borrador rápido",
+        "standard": "Receta Turbo oficial (HF)",
+        "high2k": "Receta oficial en lienzo 2K — pesado; las tarjetas de 16GB pueden rechazarlo"
+      },
+      "flux": {
+        "fluxFast": "Imágenes FLUX.1-dev más rápidas",
+        "fluxQuality": "FLUX.1-dev con calidad máxima por defecto",
+        "fluxUltra": "Pasos máximos — lento, detalle máximo"
+      },
+      "kreaTurbo": {
+        "fast": "Krea turbo sin CFG",
+        "standard": "Turbo equilibrado",
+        "high": "Más pasos"
+      },
+      "kreaRaw": {
+        "standard": "Calidad Krea raw",
+        "high": "Raw por defecto",
+        "ultra": "Lento, detalle máximo"
+      },
+      "sdxlTurbo": {
+        "fast": "Vista previa de un paso",
+        "standard": "Receta Turbo (4 pasos, sin CFG)"
+      },
+      "sana": {
+        "fast": "Vista previa de un paso",
+        "standard": "Receta Sana Sprint (2 pasos)"
+      },
+      "qwenImage21": {
+        "standard": "Plantilla oficial de ComfyUI (25 pasos, cfg 1)",
+        "high": "Rango de pipeline oficial (40-50 pasos), más lento"
+      },
+      "sdxl": {
+        "fast": "SDXL rápido",
+        "standard": "SDXL equilibrado",
+        "high": "SDXL final"
+      },
+      "sd": {
+        "fast": "Generación rápida, ideal para pruebas",
+        "standard": "Calidad y velocidad equilibradas",
+        "high": "Alta calidad, generación más lenta"
+      }
+    }
+  },
+  "slashCommands": {
+    "imagine": "Genera una imagen a partir de un prompt de texto",
+    "removebg": "Elimina el fondo de la foto adjunta (PNG transparente)",
+    "inpaint": "Cambia o elimina algo en la foto adjunta",
+    "outpaint": "Extiende la foto adjunta y rellena el nuevo lienzo",
+    "video": "Encola un clip de video a partir de un prompt de texto",
+    "musicVideo": "Inicia un plan de video musical desde una canción (aprobar en Studio antes de renderizar los clips)",
+    "filmCrew": "Inicia una producción de Film Crew desde un guion (los renders esperan en Studio)",
+    "imagemodel": "Cambia el modelo de imagen del chat (generación + edición) o muestra el actual",
+    "model": "Cambia el modelo de chat LLM o muestra el actual",
+    "websearch": "Busca en la web, audita una página (site:<address>) o lista un sitemap (sitemap:<url>)",
+    "gpu": "Inspecciona el bloqueo de GPU en vivo, ranuras de VRAM y plugins en ejecución",
+    "logs": "Sigue un registro de Guaardvark (nombre de archivo opcional y grep)",
+    "sysmap": "Ejecuta el System Mapper (misma instantánea que /system-map)",
+    "swarm": "Estado del orquestador Swarm (el plugin debe estar en ejecución)",
+    "outreach": "Estado de Alcance, verbos cortos o búsqueda/borrador en lenguaje natural (ej. temas de YouTube)",
+    "plan": "Crea un plan de orquestador",
+    "training": "Ejecuta el agente en modo de Entrenamiento — ciclo completo de 1000 iteraciones, omite la descomposición del LLM de chat",
+    "agent": "Cambia este chat a modo agente: cada mensaje se convierte en una tarea de control de pantalla. <task> opcional se ejecuta inmediatamente.",
+    "chat": "Vuelve a cambiar este chat a modo chat (sale del modo agente)",
+    "thinking": "Activa el razonamiento paso a paso para modelos de pensamiento (gemma4:12b, qwen3) en este chat. Desactivado = más rápido. El comando /thinking muestra el estado actual.",
+    "exit": "Salir del modo agente (alias de /chat)",
+    "voice": "Activa/desactiva el chat por voz",
+    "vision": "Muestra el estado del plugin Vision Pipeline (iniciar/detener desde la página de Plugins)",
+    "clear": "Inicia un chat nuevo (el actual permanece en Todos los chats)",
+    "help": "Muestra los comandos disponibles",
+    "custom": "Comando personalizado"
+  }
+}

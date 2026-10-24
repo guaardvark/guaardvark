@@ -1,0 +1,599 @@
+{
+  "access": {
+    "defaultMachine": "la máquina de Guaardvark",
+    "outsideLocalNetwork": "Esto funciona solo en {{machine}} y en dispositivos en su red local, y este dispositivo está fuera de ella. Crea una clave API en Ajustes → Acceso en {{machine}}, luego introdúcela en Ajustes → Acceso en este dispositivo.",
+    "runsCodeKeyRequired": "Esto ejecuta un programa en {{machine}}, que funciona solo en {{machine}} mismo o con su clave API, incluso con el acceso a la red activado. Crea una clave API en Ajustes → Acceso en {{machine}}, luego introdúcela en Ajustes → Acceso en este dispositivo.",
+    "fleetKeyRequired": "Esta acción de Interconnector funciona solo en {{machine}} mismo o con su clave API, incluso con el acceso a la red activado. Crea una clave API en Ajustes → Acceso en {{machine}}, luego introdúcela en Ajustes → Acceso en este dispositivo.",
+    "localOnlyKeyRemoved": "{{machine}} ya no tiene una clave API, por lo que esto funciona solo en {{machine}} mismo. Activa Ajustes → Acceso → Acceso a la red allí, o crea una nueva clave allí e introdúcela en Ajustes → Acceso en este dispositivo.",
+    "localOnly": "Esto funciona solo en {{machine}} mismo. Para usarlo aquí, activa Ajustes → Acceso → Acceso a la red en {{machine}}, o crea una clave API allí e introdúcela en Ajustes → Acceso en este dispositivo.",
+    "keyOutOfDate": "Este navegador inició sesión con una clave que {{machine}} ya no usa. Introduce la clave actual en Ajustes → Acceso.",
+    "keyRequired": "Introduce la API key de {{machine}} en Ajustes → Acceso. Se muestra cuando se crea, y {{machine}} la guarda en su archivo .env como GUAARDVARK_API_KEY."
+  },
+  "taskQueue": {
+    "unreachable": "No iniciado: la cola en segundo plano de Guaardvark (Redis) no es accesible. Ejecuta ./start.sh en la máquina de Guaardvark para iniciar Redis y el trabajador en segundo plano, luego intenta de nuevo.",
+    "nextStepNotStarted": "El siguiente paso no se inició. Se iniciará cuando se reinicie Guaardvark (./start.sh)."
+  },
+  "api": {
+    "httpError": "Error HTTP {{status}} - {{statusText}}",
+    "unknownStatus": "Error desconocido",
+    "httpErrorStatus": "¡Error HTTP! Estado: {{status}}",
+    "invalidJson": "Error al analizar la respuesta JSON del servidor."
+  },
+  "chatStop": {
+    "backendUnreachable": "el backend no es accesible",
+    "notReachedBoth": "Detener no alcanzó el turno de chat ni la tarea del agente: {{reason}}. Es posible que aún esté en ejecución.",
+    "notReachedChatTurn": "Detener no alcanzó el turno de chat: {{reason}}. Es posible que aún esté en ejecución.",
+    "notReachedAgentTask": "Detener no alcanzó la tarea del agente: {{reason}}. Es posible que aún esté en ejecución."
+  },
+  "heldChanges": {
+    "gitRecordRejectRefused": "Un registro de git solo puede ser aprobado; deshace la fusión en git para rechazarlo."
+  },
+  "address": {
+    "requestFailed": "Error en la solicitud"
+  },
+  "backups": {
+    "downloadFailed": "Error en la descarga: {{status}}"
+  },
+  "bulkGeneration": {
+    "csvTimeout": "Tiempo de espera agotado - la generación masiva de CSV tardó demasiado",
+    "csvFailed": "La generación masiva de CSV falló",
+    "structuredCsvTimeout": "Tiempo de espera agotado - la generación de CSV estructurado tardó demasiado",
+    "structuredCsvFailed": "Error en la generación de CSV estructurado",
+    "statusFailed": "Error al obtener el estado de generación",
+    "estimateFailed": "Error al estimar el tiempo de generación",
+    "topicsFailed": "Error al generar temas",
+    "xmlTimeout": "Tiempo de espera agotado - la generación de XML masivo tardó demasiado",
+    "xmlFailed": "Error al generar contenido XML"
+  },
+  "chat": {
+    "sendQueryFailed": "Error al enviar la consulta.",
+    "sendCommandFailed": "Error al enviar el comando.",
+    "duplicateRequest": "Solicitud duplicada detectada",
+    "apiError": "Error de API de chat: {{status}}",
+    "exportFailed": "Error al exportar el chat",
+    "historyFailed": "Error al obtener el historial: {{status}}"
+  },
+  "codeExecution": {
+    "pythonFailed": "Error al ejecutar código Python",
+    "javascriptFailed": "Error al ejecutar código JavaScript",
+    "shellFailed": "Error al ejecutar comando de shell",
+    "formatFailed": "Error al formatear el código",
+    "lintFailed": "Error al analizar (lint) el código",
+    "buildFailed": "Error al compilar el proyecto"
+  },
+  "codeIntelligence": {
+    "noCode": "No se proporcionó contenido de código para el análisis",
+    "provideCode": "Por favor, proporciona contenido de código para analizar.",
+    "analysisDone": "Análisis completado con éxito.",
+    "analysisTimeout": "La solicitud de análisis expiró después de 2 minutos",
+    "analysisTimeoutHelp": "La solicitud de análisis tardó demasiado. Esto puede ocurrir con archivos muy grandes o código complejo. Por favor, intenta de nuevo con una selección de código más pequeña o una consulta más sencilla.",
+    "unknownError": "Ocurrió un error desconocido",
+    "analysisFailed": "El análisis falló. Por favor, comprueba la conexión con el backend e inténtalo de nuevo.",
+    "noDescription": "No se proporcionó descripción para la generación de código",
+    "codeGenerated": "Código generado con éxito",
+    "generationTimeout": "La solicitud de generación de código expiró después de 2 minutos. Por favor, intenta con una solicitud más sencilla.",
+    "generationUnknownError": "Ocurrió un error desconocido durante la generación de código",
+    "explanationFailed": "La explicación falló. Por favor, comprueba la conexión con el backend.",
+    "validationFailed": "La validación falló",
+    "readFileFailed": "Error al leer el archivo",
+    "readFilesFailed": "Error al leer los archivos"
+  },
+  "documents": {
+    "listFailed": "No se pudieron obtener los documentos.",
+    "notFound": "Documento no encontrado",
+    "invalidId": "ID de documento no válido",
+    "contentFailedStatus": "Error al obtener el contenido del documento ({{status}})",
+    "contentFailed": "Error al obtener el contenido del documento.",
+    "repoFileFailed": "Error al obtener el archivo del repositorio.",
+    "uploadNetworkError": "Error de red durante la subida del archivo",
+    "uploadCancelled": "Subida cancelada",
+    "uploadTimeout": "Tiempo de espera de subida"
+  },
+  "fileOperations": {
+    "readFailed": "Error al leer el archivo",
+    "saved": "Archivo guardado correctamente",
+    "writeFailed": "Error al escribir el archivo",
+    "created": "Archivo creado correctamente",
+    "createFailed": "Error al crear el archivo",
+    "deleted": "Archivo eliminado correctamente",
+    "deleteFailed": "Error al eliminar el archivo",
+    "listFailed": "Error al listar el directorio",
+    "directoryCreated": "Directorio creado correctamente",
+    "createDirectoryFailed": "Error al crear el directorio",
+    "renamed": "Archivo renombrado correctamente",
+    "renameFailed": "Error al renombrar el archivo"
+  },
+  "fileGeneration": {
+    "cancelledOrTimedOut": "La solicitud fue cancelada o expiró.",
+    "unknownError": "Ocurrió un error desconocido.",
+    "batchCsvFailed": "Error en la generación de CSV por lote"
+  },
+  "indexing": {
+    "cancelFailed": "Error al cancelar la tarea.",
+    "jobsFailed": "Error al obtener las tareas."
+  },
+  "interconnector": {
+    "timeout": "Tiempo de espera de la solicitud tras {{timeout}}ms",
+    "outputsIndexFailed": "Error al obtener el índice de salidas"
+  },
+  "models": {
+    "listFailed": "Error al obtener los modelos disponibles."
+  },
+  "musicVideo": {
+    "storyboardTimeout": "La generación del guion gráfico expiró"
+  },
+  "projects": {
+    "listFailed": "Error al obtener los proyectos.",
+    "getFailed": "Error al obtener el proyecto {{projectId}}."
+  },
+  "ragDebug": {
+    "uptimeUnknown": "Desconocido",
+    "uptimeDays": "{{days}}d {{hours}}h {{minutes}}m",
+    "uptimeHours": "{{hours}}h {{minutes}}m",
+    "uptimeMinutes": "{{minutes}}m"
+  },
+  "rules": {
+    "listFailed": "Error al obtener reglas/prompts."
+  },
+  "tasks": {
+    "listFailed": "Error al obtener tareas."
+  },
+  "training": {
+    "datasetsFailed": "Error al obtener conjuntos de datos de entrenamiento."
+  },
+  "upscaling": {
+    "previewFailed": "Error al generar vista previa"
+  },
+  "websites": {
+    "listFailed": "Error al obtener sitios web."
+  },
+  "settings": {
+    "testSuiteTimeout": "La suite de pruebas expiró después de 5 minutos",
+    "rebootStarted": "Reinicio iniciado.",
+    "rebootConnectionLost": "Reinicio iniciado, es posible que se haya perdido la conexión como se esperaba."
+  },
+  "links": {
+    "updated": "Enlaces de {{entityType}} actualizados con éxito",
+    "updateFailed": "Error al actualizar enlaces"
+  },
+  "videoEditor": {
+    "requestFailed": "La solicitud del Editor de video falló",
+    "loadRecipesFailed": "No se pudieron cargar las recetas de estilo",
+    "submitPlanFailed": "No se pudo enviar la tarea de Plan",
+    "reanalyzeFailed": "Error en el reanálisis",
+    "clipHashFailed": "Error en la búsqueda de la miniatura del clip",
+    "pollPlanFailed": "No se pudo consultar la tarea de Plan",
+    "renderFailed": "Error en el renderizado",
+    "loadFiltersFailed": "No se pudieron cargar los filtros",
+    "loadTransitionsFailed": "No se pudieron cargar las transiciones",
+    "launchShotcutFailed": "No se pudo iniciar Shotcut",
+    "listProjectsFailed": "No se pudieron listar los proyectos",
+    "loadCurrentProjectFailed": "No se pudo cargar el proyecto actual",
+    "openProjectFailed": "No se pudo abrir el proyecto",
+    "createProjectFailed": "No se pudo crear el proyecto",
+    "autosaveFailed": "Error en el guardado automático",
+    "saveProjectFailed": "No se pudo guardar el proyecto",
+    "saveProjectAsFailed": "No se pudo guardar el proyecto como",
+    "renameProjectFailed": "No se pudo cambiar el nombre del proyecto",
+    "deleteProjectFailed": "No se pudo eliminar el proyecto",
+    "validateProjectFailed": "No se pudo validar el proyecto"
+  },
+  "voice": {
+    "streamingError": "Error de streaming",
+    "noActiveRecording": "Sin grabación activa",
+    "micNeedsSecureContext": "El micro requiere HTTPS o localhost",
+    "micUnsupported": "Tu navegador no soporta el acceso al micrófono.",
+    "permissionCheckFailed": "Error al verificar permisos del micrófono.",
+    "permissionRequestFailed": "Error al solicitar permiso del micrófono.",
+    "micAccessDenied": "Acceso al micrófono denegado. Por favor, activa los permisos.",
+    "startFailedPermission": "Error al iniciar grabación. Permiso de micrófono denegado.",
+    "startFailedNoMic": "Error al iniciar grabación. No se encontró ningún micrófono.",
+    "startFailedRetry": "Error al iniciar grabación. Por favor, inténtalo de nuevo.",
+    "noSpeech": "No se detectó voz.",
+    "noAudio": "No se registraron datos de audio.",
+    "recordingFailed": "Error en la grabación."
+  },
+  "clients": {
+    "listFailed": "Error al obtener los clientes.",
+    "nameRequired": "El nombre del cliente es obligatorio."
+  },
+  "logo": {
+    "noFile": "No se proporcionó ningún archivo",
+    "tooLarge": "El tamaño del archivo es demasiado grande. El máximo es {{size}}MB",
+    "invalidType": "Tipo de archivo no válido. Tipos permitidos: {{types}}"
+  },
+  "voiceSession": {
+    "micBlocked": "El acceso al micrófono está bloqueado. Permítelo para este sitio en el navegador y vuelve a intentarlo.",
+    "noMic": "No se encontró ningún micrófono.",
+    "micBusy": "El micrófono está en uso por otra aplicación.",
+    "noMatchingMic": "Ningún micrófono coincide con los ajustes solicitados.",
+    "pushToTalkHint": "Mantén pulsado el botón del micro (o Ctrl+Shift+Espacio) mientras hablas.",
+    "micReady": "Micrófono listo. Mantén pulsado para hablar.",
+    "holdLonger": "Mantén pulsado el micro un poco más mientras hablas.",
+    "micOff": "El micrófono está desactivado en los Ajustes de Voz (Ajustes → Chat → Chat de voz).",
+    "micStartFailedReason": "No se pudo iniciar el micrófono: {{reason}}",
+    "micStartFailed": "No se pudo iniciar el micrófono.",
+    "audioStartFailed": "No se pudo iniciar el procesamiento de audio: {{reason}}",
+    "micEnded": "El micrófono se detuvo (desconectado o tomado por otra aplicación).",
+    "recorderUnsupported": "Este navegador no puede grabar audio: {{reason}}",
+    "recordingError": "Error de grabación: {{reason}}",
+    "unknownReason": "desconocido",
+    "recorderStartFailed": "No se pudo iniciar la grabación: {{reason}}",
+    "sttFailed": "Error en el reconocimiento de voz",
+    "rateLimited": "Demasiadas solicitudes de voz este minuto; esta se ha omitido.",
+    "busy": "El sistema está ocupado; ese se omitió.",
+    "backendOffline": "El backend no es accesible; ese no se transcribió.",
+    "transcribeFailed": "No se pudo transcribir: {{reason}}",
+    "noChatOpen": "No hay ningún chat abierto para enviar esto.",
+    "sendFailed": "No se pudo enviar: {{reason}}",
+    "noSpeechTimeout": "No se escuchó nada, así que el micrófono se apagó de nuevo."
+  },
+  "voicePhase": {
+    "clickHint": {
+      "handsfree": "Haz clic para iniciar la escucha manos libres",
+      "toggle": "Haz clic y habla; se envía cuando haces una pausa",
+      "push": "Mantén pulsado para hablar"
+    },
+    "requestingPermission": {
+      "title": "Esperando permiso del micrófono",
+      "hint": "Permite el uso del micrófono en el aviso del navegador."
+    },
+    "waitingForWake": {
+      "title": "Esperando \"Hey {{systemName}}\"",
+      "hint": "Di la frase de activación y luego tu petición."
+    },
+    "listening": {
+      "title": "Escuchando",
+      "hint": "Habla; cada pausa envía un mensaje. Haz clic para detener."
+    },
+    "recording": {
+      "title": "Grabando",
+      "hint": "Suelta para enviar."
+    },
+    "hearing": {
+      "title": "Escuchándote",
+      "hint": "Pausa para enviar."
+    },
+    "transcribing": "Transcribiendo",
+    "sending": "Enviando al chat",
+    "responding": {
+      "title": "Esperando la respuesta",
+      "hint": "Aún escuchando."
+    },
+    "speaking": {
+      "title": "Diciendo la respuesta",
+      "hint": "El micrófono está en pausa mientras habla."
+    },
+    "denied": "Micrófono bloqueado",
+    "error": "La voz no funciona",
+    "micOff": "Micrófono apagado",
+    "outcomes": {
+      "sent": "enviado",
+      "wake": "frase de activación",
+      "ignored": "sin frase de activación, no enviado",
+      "unsent": "sin chat abierto, no enviado",
+      "failed": "envío fallido"
+    }
+  },
+  "batchVideo": {
+    "requestFailed": "la solicitud falló",
+    "listFailed": "No se pudieron cargar los lotes de video: {{reason}}.",
+    "queueFailed": "La cola de video no se actualiza: {{reason}}.",
+    "clearFailedStatus": "Limpieza fallida: HTTP {{status}}",
+    "clearFailed": "Limpieza fallida: {{reason}}",
+    "combineFailed": "Error al combinar fotogramas: {{reason}}.",
+    "deleted": "Lote eliminado.",
+    "deleteFailedStatus": "Eliminación fallida: HTTP {{status}}",
+    "deleteFailed": "Eliminación fallida: {{reason}}",
+    "cancelFailed": "Cancelación fallida: {{reason}}. El lote podría seguir ejecutándose.",
+    "retryFailedStatus": "Reintento fallido: HTTP {{status}}",
+    "retried": "Reintentado como nuevo lote {{batchId}}. El lote fallido original se mantiene en el historial.",
+    "retryFailed": "Reintento fallido: {{reason}}",
+    "approveFailedStatus": "Aprobación fallida: HTTP {{status}}",
+    "clipApproved": "Clip aprobado y añadido a Archivos.",
+    "approveFailed": "Aprobación fallida: {{reason}}",
+    "rerenderFailedStatus": "Re-render fallido: HTTP {{status}}",
+    "rerendering": "Re-renderizando como {{newBatchId}}. El clip retenido permanece en {{batchId}}.",
+    "rerenderFailed": "Re-render fallido: {{reason}}"
+  },
+  "unsavedChanges": {
+    "leaveConfirm": "Tienes cambios sin guardar en esta página. ¿Quieres salir y descartarlos?"
+  },
+  "agentRouter": {
+    "routingFailed": "Error de enrutamiento",
+    "executionFailed": "Error de ejecución"
+  },
+  "hfLookup": {
+    "failed": "Búsqueda fallida"
+  },
+  "notifications": {
+    "operationFailed": "Operación fallida"
+  },
+  "errors": {
+    "unexpected": "Ocurrió un error inesperado",
+    "badRequest": "Solicitud incorrecta. Por favor, revisa tu entrada.",
+    "unauthorized": "Autenticación requerida. Por favor, inicia sesión.",
+    "forbidden": "No tienes permiso para realizar esta acción.",
+    "notFound": "El recurso solicitado no fue encontrado.",
+    "validation": "Error de validación. Por favor, revisa tu entrada.",
+    "tooManyRequests": "Demasiadas solicitudes. Por favor, intenta más tarde.",
+    "server": "Error de servidor. Por favor, intenta más tarde.",
+    "unavailable": "Servicio temporalmente no disponible. Por favor, intenta más tarde.",
+    "httpStatus": "Error HTTP {{status}}",
+    "network": "Error de red. Por favor, revisa tu conexión.",
+    "timeout": "Tiempo de espera agotado. Por favor, intenta de nuevo.",
+    "uploadFailed": "Error al subir el documento. Por favor, intenta de nuevo.",
+    "indexingFailed": "Error al indexar el documento. Por favor, intenta de nuevo.",
+    "chatFailed": "La solicitud de chat falló. Por favor, intenta de nuevo.",
+    "projectFailed": "La operación del proyecto falló. Por favor, inténtalo de nuevo."
+  },
+  "audioRecorder": {
+    "permissionDenied": "Permiso de micrófono denegado",
+    "resumeFailed": "Error al reanudar el contexto de audio: el acceso al micrófono puede estar bloqueado",
+    "volumeMonitoringFailed": "Error en el monitoreo de volumen: {{reason}}",
+    "unsupported": "La grabación de audio no es compatible en este navegador"
+  },
+  "approvals": {
+    "loadFailed": "No se pudieron cargar las aprobaciones pendientes",
+    "heldWaiting_one": "Cambio de código esperando aprobación",
+    "heldWaiting_other": "{{count}} cambios de código esperando aprobación",
+    "publishWaiting_one": "Publicación esperando aprobación",
+    "publishWaiting_other": "{{count}} publicaciones esperando aprobación"
+  },
+  "slash": {
+    "help": "## Comandos disponibles\n\n{{commands}}",
+    "helpLine": "**{{name}}** — {{description}}\n  Uso: `{{usage}}`",
+    "voiceDisabled": "Chat de voz desactivado.",
+    "voiceEnabled": "Chat de voz activado.",
+    "voiceUnavailable": "El chat de voz no está disponible en este contexto.",
+    "visionStatus": "**{{name}}:** {{status}}",
+    "unknownStatus": "desconocido",
+    "visionHint": "Inícialo o deténlo desde la página de Plugins.",
+    "visionNotInstalled": "El plugin Vision Pipeline no está instalado.",
+    "visionReadFailed": "No se pudo leer el estado de Vision Pipeline: {{reason}}",
+    "modelStatus": "**Modelo actual:** {{model}}\n\n**Modelos disponibles:**\n{{models}}",
+    "unknownModel": "Desconocido",
+    "modelsFailed": "Error al obtener modelos: {{reason}}",
+    "modelSwitched": "Modelo cambiado a **{{model}}**.",
+    "failed": "Error: {{reason}}",
+    "modelSwitchFailed": "Error al cambiar modelo: {{reason}}",
+    "installed": "instalado",
+    "notInstalled": "no instalado",
+    "comfyuiAutoBackend": "ComfyUI (backend automático)",
+    "editBackendsFailed": "_(no se pudieron cargar los backends de edición)_",
+    "imageModelStatus": "**Modelo de imagen actual:** `{{current}}`\n\nUsado para `/imagine` y **generate_image**. Las ediciones (`edit_image`, `/inpaint`) seleccionan automáticamente **Qwen-Image-Edit** si está instalado, de lo contrario, **FLUX Kontext**.\n\n**Paquetes de edición de imagen** (Instalar desde Gestionar modelos de imagen → Edición de imagen):\n{{editLines}}\n\n**Generación — descargado:**\n{{downloaded}}\n\n**Generación — no descargado:**\n{{notDownloaded}}\n\n_Consejo: `/imagemodel auto` usa Qwen-Image-Edit para ediciones por instrucción cuando ese paquete está instalado._",
+    "none": "_(ninguno)_",
+    "imageModelsFailed": "Error al obtener modelos de imagen: {{reason}}",
+    "imageModelAuto": "Modelo de imagen cambiado a **auto** (las ediciones usan Qwen-Image-Edit si está instalado, de lo contrario, Kontext; si no hay ninguno, la edición te pedirá que instales uno).",
+    "imageEditsQwen": "Las ediciones de imagen usarán **qwen-image-edit** cuando ese paquete esté instalado.",
+    "imageEditsKontext": "Las ediciones de imagen usarán **kontext** (FLUX.1 Kontext) cuando esté instalado.",
+    "imageModelComfyui": "Modelo de imagen cambiado a **comfyui** (backend automático de ComfyUI). La generación usará el motor Z-Image o FLUX instalado.",
+    "imageModelNotDownloaded": "El modelo `{{model}}` no está descargado. Descárgalo primero desde la página de Imágenes.",
+    "imageModelSwitched": "Modelo de imagen cambiado a **{{model}}** ({{name}}). Se usa para la generación en el chat y ediciones img2img.",
+    "imageModelNotFound": "Modelo `{{model}}` no encontrado. Disponibles: {{available}}",
+    "usage": {
+      "imagine": "Uso: `/imagine <prompt>`",
+      "inpaint": "Uso: `/inpaint <instruction>` — adjunta una foto, o usará la última imagen en este chat.",
+      "identity": "Uso: `/identity <prompt>` — adjunta una foto de un rostro que tengas derecho a usar (tu parecido o un sujeto de Reparto).",
+      "video": "Uso: `/video <prompt>`",
+      "musicVideo": "Uso: `/music-video <song-path-or-id> <style>` — inicia un plan; aprueba en Studio antes de que se rendericen los clips.",
+      "filmCrew": "Uso: `/film-crew <screenplay>` — inicia al guionista; el renderizado espera en Studio.",
+      "websearch": "Uso: `/websearch <query>`, `/websearch site:<address>` (auditar una página) o `/websearch sitemap:<url>` (listar las páginas de un sitemap)",
+      "plan": "Uso: `/plan <request>`",
+      "training": "Uso: `/training <task>` — ej. `/training Work the Comments Trainer — sigue el banner, haz clic en Start Over al terminar, no te detengas.`",
+      "thinking": "Uso: `/thinking on` o `/thinking off` (o `/thinking` para ver el estado actual)."
+    },
+    "musicVideoNeedsSong": "Necesitas una canción (ID de documento o ruta de audio) y un estilo visual. Ejemplo: `/music-video song.mp3 neon noir rain`",
+    "sitemapNotRead": "Sitemap no leído: {{reason}}",
+    "backendAnswered": "el backend respondió HTTP {{status}}",
+    "backendUnreachable": "el backend no es accesible",
+    "sitemap": {
+      "redirected": "{{url}} (redirigido a {{finalUrl}})",
+      "title": "**Sitemap:** {{url}}",
+      "index_one": "Un índice de sitemaps con {{count}} sitemaps; están listados, no abiertos.",
+      "index_other": "Un índice de sitemaps con {{count}} sitemaps; están listados, no abiertos.",
+      "numberedEntryModified": "{{number}}. {{url}} (última modificación {{lastmod}})",
+      "firstOf": "Primeros {{shown}}:\n{{items}}",
+      "pageUrls_one": "1 URL de página.",
+      "pageUrls_other": "{{count}} URLs de páginas.",
+      "depth": "profundidad {{depth}}: {{pages}}",
+      "byDepth": "Por profundidad de ruta: {{depths}}",
+      "landingPages": "Páginas de destino (nivel superior, prioridad superior a 0.5):",
+      "landingEntry": "{{number}}. {{url}} (prioridad {{priority}})",
+      "entryModified": "- {{url}} (última modificación {{lastmod}})",
+      "pagesList": "Páginas:\n{{items}}"
+    },
+    "outreach": {
+      "enabled": "Activado",
+      "disabled": "Desactivado",
+      "supervised": "supervisado",
+      "unsupervised": "no supervisado",
+      "redisOffline": "- {{platform}}: Redis fuera de línea",
+      "cadenceLast": "- {{platform}}: {{posts}}/{{cap}} hoy, hace {{minutes}}m",
+      "cadence": "- {{platform}}: {{posts}}/{{cap}} hoy",
+      "status": "**Alcance:** {{state}} ({{mode}})\n\n{{cadence}}",
+      "noCadence": "Sin datos de cadencia.",
+      "statusFailed": "Error en el estado de alcance: {{reason}}",
+      "refused": "Alcance: solicitud denegada.",
+      "intentFailed": "Error de intención de alcance: {{reason}}",
+      "queued": "Tarea de alcance en cola como tarea #{{taskId}}.",
+      "commandFailed": "Error en el comando de alcance: {{reason}}"
+    },
+    "training": {
+      "started": "Inicio de entrenamiento (hasta 1000 iteraciones / 1 hora). Mira VNC para el progreso; revisa `logs/backend.log` para eventos de servo. Tarea: _{{task}}_",
+      "rejectedBusy": "Ejecución de entrenamiento rechazada: {{reason}} — usa el interruptor de apagado o espera a que termine la ejecución actual.",
+      "rejected": "Ejecución de entrenamiento rechazada: {{reason}}",
+      "unknownError": "error desconocido",
+      "failed": "Ejecución de entrenamiento fallida: {{reason}}"
+    },
+    "rule": {
+      "failedDetails": "{{name}} falló: {{reason}} ({{details}})",
+      "failed": "{{name}} falló: {{reason}}",
+      "wroteSize": "{{name}} escribió {{file}} ({{bytes}} bytes) en la carpeta de salidas.",
+      "wrote": "{{name}} escribió {{file}} en la carpeta de salidas."
+    },
+    "agent": {
+      "needsSession": "/agent necesita una sesión — abre un chat primero.",
+      "switchFailed": "Error al cambiar al modo agente: {{reason}}",
+      "already": "Ya estás en **modo agente**. Escribe una tarea de control de pantalla o usa `/chat` para salir.",
+      "switched": "Cambiado a **modo agente** — los mensajes pasan por el agente (hablará y actuará). Escribe `/chat` para salir."
+    },
+    "thinking": {
+      "needsSession": "/thinking necesita una sesión — abre un chat primero.",
+      "statusDefault": "🧠 El pensamiento para este chat está **usando el valor por defecto (Ajustes → Chat)**.\nUsa `/thinking on` para activar el razonamiento paso a paso (más lento) o `/thinking off` para respuestas más rápidas.",
+      "statusOn": "🧠 El pensamiento para este chat está **ACTIVADO**.\nUsa `/thinking on` para activar el razonamiento paso a paso (más lento) o `/thinking off` para respuestas más rápidas.",
+      "statusOff": "🧠 El pensamiento para este chat está **DESACTIVADO**.\nUsa `/thinking on` para activar el razonamiento paso a paso (más lento) o `/thinking off` para respuestas más rápidas.",
+      "enabled": "🧠 Pensamiento **activado** para este chat — el modelo razonará paso a paso antes de responder (más lento, mejor para prompts complejos).",
+      "disabled": "⚡ Pensamiento **desactivado** para este chat — respuestas más rápidas."
+    },
+    "chatMode": {
+      "needsSession": "/chat necesita una sesión — abre un chat primero.",
+      "already": "Ya estás en modo chat.",
+      "switched": "Cambiado a **modo chat**. Los mensajes se enrutan a través del LLM de nuevo. Escribe `/agent` para volver.",
+      "exitFailed": "Error al salir del modo agente: {{reason}}"
+    },
+    "commandFailed": "Error en el comando: {{reason}}"
+  },
+  "autoresearch": {
+    "reasons": {
+      "ollamaUnreachable": "Ollama no está en ejecución",
+      "insufficientCorpus": "no hay suficientes documentos indexados",
+      "noEvalPairs": "sin preguntas de evaluación",
+      "evalSourcesNotIndexed": "las preguntas de evaluación provienen de documentos que no están indexados",
+      "judgeUnset": "no hay un modelo de juez separado configurado",
+      "judgeSameAsAnswerModel": "el modelo de juez es el mismo que el de respuesta",
+      "celeryUnreachable": "la cola de tareas no es accesible",
+      "baselineEvalFailed": "no se pudo medir la línea base",
+      "prerequisiteCheckFailed": "no se pudieron ejecutar las comprobaciones iniciales",
+      "codebaseLocked": "la base de código está bloqueada",
+      "selfImprovementDisabled": "la Auto-mejora está desactivada"
+    },
+    "noReason": "sin motivo registrado",
+    "notRun": "No ejecutado: {{reasons}}",
+    "starting": "Iniciando…",
+    "noBaseline": "Sin línea base medida",
+    "scoresWithBest": "{{base}} → {{latest}} (mejor {{best}})",
+    "halt": "Parada: {{reason}}",
+    "healthPass": "aprobado",
+    "healthFail": "fallido",
+    "healthUnknown": "desconocido",
+    "healthStatus": "verificación de estado: {{outcome}}",
+    "healthCheck": "verificación de estado",
+    "selfReported": "autoinformado",
+    "baselineNotMeasured": "Línea base: no medida",
+    "baselineMeasured": "Línea base: {{score}} (medida en {{at}})",
+    "baselineNoTime": "Línea base: {{score}} (tiempo de medición no registrado)",
+    "evalPairsNone": "ninguno",
+    "evalPairsWithUnindexed": "{{active}} activos · {{unindexed}} de documentos no indexados",
+    "evalPairsActive": "{{active}} activos",
+    "activeChatModel": "el modelo de chat activo",
+    "judgeIsAnswerModel": "Este es el modelo de respuesta ({{model}}), por lo que califica sus propias respuestas. Las ejecuciones nocturnas no se iniciarán.",
+    "judgeNotSet": "No establecido, por lo que {{model}} califica sus propias respuestas. Las ejecuciones nocturnas no se iniciarán.",
+    "experimentsSummary_one": "{{count}} experimento · {{promoted}} promovido",
+    "experimentsSummary_other": "{{count}} experimentos · {{promoted}} promovidos"
+  },
+  "imageModels": {
+    "notInstalledSize": "{{description}} (no instalado — Instalar descarga ~{{size}} GB)",
+    "notInstalled": "{{description}} (no instalado — Instalar)"
+  },
+  "attachment": {
+    "tooLarge": "Esta imagen mide {{size}} tras el redimensionamiento; el límite es {{limit}}. Elige una imagen más pequeña.",
+    "totalTooLarge_one": "Estas {{count}} imágenes suman {{size}} tras el redimensionamiento; el límite es {{limit}}. Elimina una o elige imágenes más pequeñas.",
+    "totalTooLarge_other": "Estas {{count}} imágenes suman {{size}} tras el redimensionado; el límite es {{limit}}. Elimina una o elige imágenes más pequeñas.",
+    "chatError": "Error en el chat",
+    "readFailed": "No se pudo leer esta imagen",
+    "encodeFailed": "No se pudo codificar la imagen",
+    "readResizedFailed": "No se pudo leer la imagen redimensionada",
+    "noImage": "Sin imagen para adjuntar",
+    "drawFailed": "No se pudo dibujar la imagen"
+  },
+  "fileTypes": {
+    "noTimestamp": "N/A"
+  },
+  "hfUrl": {
+    "empty": "Pega una URL de Hugging Face o el ID org/repo.",
+    "notHuggingFace": "Solo se aceptan URLs de Hugging Face o IDs de org/repo.",
+    "notModelRepo": "Eso es un dataset o Space de Hugging Face, no un repositorio de modelos. Pega una URL de modelo (huggingface.co/org/repo)."
+  },
+  "replySpeech": {
+    "noVoiceInstalled": "No hay ninguna voz instalada, por lo que las respuestas no pueden hablarse. Instala una en los Ajustes de Voz (Ajustes → Chat → Chat de voz), o inicia el plugin Audio Foundry con un paquete de voz Kokoro instalado.",
+    "stoppedPartwayReason": "Se habló la primera parte de la respuesta, luego el habla se detuvo: {{reason}}",
+    "stoppedPartway": "Se habló la primera parte de la respuesta, luego el habla se detuvo",
+    "failedReason": "Error al hablar la respuesta: {{reason}}",
+    "failed": "Error al hablar la respuesta"
+  },
+  "renderFailure": {
+    "withNext": "{{text}} Siguiente: {{action}}",
+    "retryable": "{{text}} (Reintentar más tarde puede funcionar.)"
+  },
+  "uiError": {
+    "generic": "Ocurrió un error"
+  },
+  "imageEdit": {
+    "cropAfterTransform": "Recortar antes de rotar o voltear: deshacer la rotación o el volteo, recortar y luego rotar o voltear de nuevo."
+  },
+  "paths": {
+    "home": "Inicio"
+  },
+  "droppedFiles": {
+    "folders_one": "{{count}} carpeta",
+    "folders_other": "{{count}} carpetas",
+    "files_one": "{{count}} archivo",
+    "files_other": "{{count}} archivos",
+    "foldersAndFiles": "{{folders}} y {{files}}",
+    "leftOut": "excluidos {{items}} (ocultos, salida de construcción o credenciales)"
+  },
+  "entityLinks": {
+    "files": "Archivos",
+    "scheduleTask": "Programar tarea"
+  },
+  "batches": {
+    "fallbackName": "Lote"
+  },
+  "family": {
+    "selfImprovement": "Auto-mejora"
+  },
+  "videoPromptControls": {
+    "enhanceOff": "sin efecto mientras Enhance prompt está desactivado",
+    "verbatim": "sin efecto mientras Verbatim prompts está activado en Ajustes",
+    "viaReferenceCompiler": "vía el compilador de referencia",
+    "viaPromptEnhancer": "vía el potenciador de prompts",
+    "styleVerbatim": "Estilo de prompt: sin efecto mientras Verbatim prompts está activado en Ajustes",
+    "styleEnhanceOff": "Estilo de prompt: sin efecto mientras Enhance prompt está desactivado",
+    "styleExactText": "Estilo de prompt: sin efecto mientras Exact text está activado"
+  },
+  "videoPreview": {
+    "conceptVerbatim": "Concepto tal como se escribió (Verbatim prompts está activado en Ajustes); el paso Storyboard sigue escribiendo las tomas",
+    "conceptEnhanceOff": "Concepto tal como se escribió (Enhance prompt está desactivado); el paso Storyboard sigue escribiendo las tomas",
+    "conceptEnhanced": "Concepto mejorado; el paso de Storyboard escribe las tomas a partir de él, por lo que los clips obtienen prompts diferentes",
+    "promptVerbatim": "Prompt tal como se escribió (Prompts verbatim está activado en Ajustes)",
+    "promptEnhanceOff": "Prompt tal como se escribió (Mejorar prompt está desactivado)",
+    "promptEnhanced": "Prompt mejorado (lo que se enviará)",
+    "promptsVerbatimFirst_one": "Prompts tal como se escribieron (Prompts verbatim está activado en Ajustes): primer {{shown}} de {{count}} clips",
+    "promptsVerbatimFirst_other": "Prompts tal como se escribieron (Prompts verbatim está activado en Ajustes): primer {{shown}} de {{count}} clips",
+    "promptsVerbatimAll_one": "Prompts tal como se escribieron (Prompts verbatim está activado en Ajustes): {{count}} clips, uno para cada uno",
+    "promptsVerbatimAll_other": "Prompts tal como se escribieron (Prompts verbatim está activado en Ajustes): {{count}} clips, uno para cada uno",
+    "promptsEnhanceOffFirst_one": "Prompts tal como se escribieron (Mejorar prompt está desactivado): primer {{shown}} de {{count}} clips",
+    "promptsEnhanceOffFirst_other": "Prompts tal como se escribieron (Mejorar prompt está desactivado): primer {{shown}} de {{count}} clips",
+    "promptsEnhanceOffAll_one": "Prompts tal como se escribieron (Mejorar prompt está desactivado): {{count}} clips, uno para cada uno",
+    "promptsEnhanceOffAll_other": "Prompts tal como se escribieron (Mejorar prompt está desactivado): {{count}} clips, uno para cada uno",
+    "promptsEnhancedFirst_one": "Prompts mejorados (lo que se enviará): primer {{shown}} de {{count}} clips",
+    "promptsEnhancedFirst_other": "Prompts mejorados (lo que se enviará): primeros {{shown}} de {{count}} clips",
+    "promptsEnhancedAll_one": "Prompts mejorados (lo que se enviará): {{count}} clips, uno cada uno",
+    "promptsEnhancedAll_other": "Prompts mejorados (lo que se enviará): {{count}} clips, uno cada uno"
+  },
+  "videoSteps": {
+    "profileSteps": "{{label}} ({{steps}} pasos)",
+    "speedProfile": "perfil de velocidad",
+    "lowVramClamp": "Límite de VRAM baja",
+    "setBy": "establecido por {{label}}",
+    "preset": "ajuste preestablecido"
+  },
+  "assetGuard": {
+    "blocked": "imagen remota bloqueada",
+    "offlineFirst": "(offline-first)"
+  },
+  "appStore": {
+    "brandingFailed": "Error al obtener branding: {{status}}"
+  }
+}

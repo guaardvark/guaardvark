@@ -24,12 +24,14 @@ import {
   CheckCircle,
   Error as ErrorIcon,
 } from "@mui/icons-material";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * Displays the results of an agent reasoning loop execution
  * Shows each step with thoughts, tool calls, and observations
  */
 const AgentResultDisplay = ({ result, isLoading = false }) => {
+  const { t } = useUiTranslation();
   const [expandedStep, setExpandedStep] = useState(null);
 
   if (isLoading) {
@@ -37,7 +39,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
       <Paper sx={{ p: 2, my: 1 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
           <Psychology color="primary" />
-          <Typography variant="subtitle2">Agent is thinking...</Typography>
+          <Typography variant="subtitle2">{t("chat.agentResult.thinking")}</Typography>
         </Box>
         <LinearProgress />
       </Paper>
@@ -61,7 +63,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
             <ErrorIcon color="error" />
           )}
           <Typography variant="subtitle1" fontWeight="bold">
-            Agent Result ({iterations} iteration{iterations !== 1 ? "s" : ""})
+            {t("chat.agentResult.title", { count: iterations })}
           </Typography>
         </Box>
       </Paper>
@@ -70,7 +72,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
       {steps.length > 0 && (
         <Box sx={{ mb: 2 }}>
           <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: "block" }}>
-            Reasoning Steps:
+            {t("chat.agentResult.reasoningSteps")}:
           </Typography>
           {steps.map((step, index) => (
             <Accordion
@@ -82,7 +84,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
               <AccordionSummary expandIcon={<ExpandMore />}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
                   <Chip
-                    label={`Step ${step.iteration || index + 1}`}
+                    label={t("chat.agentResult.step", { step: step.iteration || index + 1 })}
                     size="small"
                     color="primary"
                     variant="outlined"
@@ -90,7 +92,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                   {step.tool_calls?.length > 0 && (
                     <Chip
                       icon={<Build fontSize="small" />}
-                      label={`${step.tool_calls.length} tool${step.tool_calls.length > 1 ? "s" : ""}`}
+                      label={t("chat.agentResult.toolCount", { count: step.tool_calls.length })}
                       size="small"
                       variant="outlined"
                     />
@@ -105,7 +107,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                       whiteSpace: "nowrap",
                     }}
                   >
-                    {step.thoughts?.substring(0, 60) || "Processing..."}
+                    {step.thoughts?.substring(0, 60) || t("chat.agentResult.processing")}
                     {step.thoughts?.length > 60 ? "..." : ""}
                   </Typography>
                 </Box>
@@ -117,7 +119,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
                       <Psychology fontSize="small" color="primary" />
                       <Typography variant="caption" fontWeight="bold">
-                        Reasoning
+                        {t("chat.agentResult.reasoning")}
                       </Typography>
                     </Box>
                     <Typography variant="body2" sx={{ pl: 2.5, whiteSpace: "pre-wrap" }}>
@@ -132,13 +134,13 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
                       <Build fontSize="small" color="secondary" />
                       <Typography variant="caption" fontWeight="bold">
-                        Tool Calls
+                        {t("chat.agentResult.toolCalls")}
                       </Typography>
                     </Box>
                     {step.tool_calls.map((tc, tcIndex) => (
                       <Paper key={tcIndex} sx={{ p: 1, mb: 1, ml: 2.5, bgcolor: "action.hover", backgroundImage: 'none' }}>
                         <Typography variant="body2" fontWeight="medium">
-                          {tc.tool_name || tc.tool || "Unknown tool"}
+                          {tc.tool_name || tc.tool || t("chat.agentResult.unknownTool")}
                         </Typography>
                         {tc.parameters && (
                           <Typography
@@ -160,13 +162,13 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
                       <Visibility fontSize="small" color="info" />
                       <Typography variant="caption" fontWeight="bold">
-                        Observations
+                        {t("chat.agentResult.observations")}
                       </Typography>
                     </Box>
                     {step.observations.map((obs, obsIndex) => (
                       <Paper key={obsIndex} sx={{ p: 1, mb: 1, ml: 2.5, bgcolor: "info.dark", backgroundImage: 'none', color: '#fff' }}>
                         <Typography variant="body2" fontWeight="medium">
-                          {obs.tool}: {obs.result?.success ? "Success" : "Failed"}
+                          {obs.tool}: {obs.result?.success ? t("chat.agentResult.success") : t("chat.agentResult.failed")}
                         </Typography>
                         {obs.result?.output && (
                           <Typography
@@ -191,7 +193,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                           <Box sx={{ mt: 1 }}>
                             <img
                               src={`data:image/${obs.result.metadata.format || "png"};base64,${obs.result.metadata.image_base64}`}
-                              alt={`Screenshot from ${obs.tool}`}
+                              alt={t("chat.agentResult.screenshotAlt", { tool: obs.tool })}
                               style={{
                                 maxWidth: "100%",
                                 borderRadius: 4,
@@ -202,7 +204,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
                         )}
                         {obs.result?.error && (
                           <Typography variant="caption" color="error">
-                            Error: {obs.result.error}
+                            {t("chat.agentResult.error", { error: obs.result.error })}
                           </Typography>
                         )}
                       </Paper>
@@ -219,7 +221,7 @@ const AgentResultDisplay = ({ result, isLoading = false }) => {
       {final_answer && (
         <Paper sx={{ p: 2, bgcolor: "background.paper", border: 1, borderColor: "divider" }}>
           <Typography variant="subtitle2" color="primary" gutterBottom>
-            Final Answer
+            {t("chat.agentResult.finalAnswer")}
           </Typography>
           <Divider sx={{ mb: 1 }} />
           <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>

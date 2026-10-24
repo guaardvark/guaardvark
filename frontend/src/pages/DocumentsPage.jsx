@@ -43,6 +43,7 @@ import { reviewRepoScope } from "../api/documentService";
 import axios from 'axios';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import { useUiTranslation, translate } from '../i18n';
 
 const WindowsGridLayout = WidthProvider(ReactGridLayoutLib);
 const WINDOWS_STATE_ENDPOINT = '/api/state/documents-windows-v2';
@@ -77,8 +78,6 @@ const INDEX_POLL_MAX_TICKS = 40;
 // and their still-unindexed subfolders.
 const INDEX_POLL_MAX_LISTINGS = 12;
 
-const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-
 // The live repository mount and everything under it is read-only: the
 // server lists them with source_type "live_repo" and string ids ("repo:…"),
 // and delete, rename and index take integer ids. The context menu hides
@@ -92,18 +91,25 @@ const writableKeys = (keys) => Array.from(keys).filter((key) => !isLiveRepoKey(k
 // indexed, so "everything skipped" is the already-indexed case.
 export const indexingMessage = (queued, skipped, folderCount) => {
   if (queued === 0) {
-    if (skipped === 0) return 'Nothing to index';
+    if (skipped === 0) return translate('documents.indexing.nothing');
     return skipped === 1
-      ? 'Already indexed; the file has not changed'
-      : `Everything is already indexed (${skipped} files unchanged)`;
+      ? translate('documents.indexing.alreadyIndexedOne')
+      : translate('documents.indexing.alreadyIndexedAll', { count: skipped });
   }
-  let message = `Indexing ${plural(queued, 'document')}`;
-  if (folderCount > 0) message += ` from ${plural(folderCount, 'folder')}`;
-  if (skipped > 0) message += `, ${skipped} already indexed`;
-  return message;
+  const documents = translate('documents.indexing.documentCount', { count: queued });
+  const folders = translate('documents.indexing.folderCount', { count: folderCount });
+  if (folderCount > 0) {
+    return skipped > 0
+      ? translate('documents.indexing.startedFromFoldersSkipped', { documents, folders, skipped })
+      : translate('documents.indexing.startedFromFolders', { documents, folders });
+  }
+  return skipped > 0
+    ? translate('documents.indexing.startedSkipped', { documents, skipped })
+    : translate('documents.indexing.started', { documents });
 };
 
 const DocumentsPage = () => {
+  const { t } = useUiTranslation();
   const { gridSettings } = useLayout();
   const { RGL_WIDTH_PROP_PX, _CONTAINER_PADDING_PX } = gridSettings;
   const { showMessage } = useSnackbar();
@@ -420,7 +426,7 @@ const DocumentsPage = () => {
       return { folders, files };
     } catch (err) {
       if (isMountedRef.current) {
-        showMessage?.('Failed to refresh', 'error');
+        showMessage?.(t('documents.page.refreshFailed'), 'error');
       }
     }
     return null;
@@ -914,10 +920,11 @@ const DocumentsPage = () => {
         // Files with relative paths; dropped folders are walked recursively
         const prune = { folders: 0, files: 0 };
         const filesToUpload = await collectDroppedFiles(dropped, { prune });
-        const skippedNote = prune.folders || prune.files ? `; ${prunedNote(prune)}` : '';
+        // prunedNote() words what the walk left out; it fills {{skipped}} below.
+        const skippedNote = prune.folders || prune.files ? prunedNote(prune) : '';
 
         if (filesToUpload.length === 0) {
-          if (skippedNote) showMessage?.(`Nothing to import: ${prunedNote(prune)}`, 'info');
+          if (skippedNote) showMessage?.(t('documents.import.nothingToImport', { skipped: prunedNote(prune) }), 'info');
           setTimeout(() => { dragDropHandledRef.current = false; }, 100);
           return;
         }
@@ -949,7 +956,10 @@ const DocumentsPage = () => {
               });
               uploadedCount++;
             } catch (uploadErr) {
-              failures.push(`${relativePath}: ${uploadErr.response?.data?.message || uploadErr.message || 'upload failed'}`);
+              failures.push(t('documents.import.fileFailure', {
+                path: relativePath,
+                error: uploadErr.response?.data?.message || uploadErr.message || t('documents.import.uploadFailed'),
+              }));
             }
             setUploadProgress({ current: uploadedCount + failures.length, total: filesToUpload.length });
           }
@@ -959,11 +969,16 @@ const DocumentsPage = () => {
 
         const destination = folderLabel(uploadPath);
         if (failures.length === 0) {
-          showMessage?.(`Imported ${uploadedCount} file(s) into ${destination}${skippedNote}`, 'success');
+          showMessage?.(skippedNote
+            ? t('documents.import.importedSkipped', { count: uploadedCount, folder: destination, skipped: skippedNote })
+            : t('documents.import.imported', { count: uploadedCount, folder: destination }), 'success');
         } else if (uploadedCount > 0) {
-          showMessage?.(`Imported ${uploadedCount} file(s) into ${destination}; ${failures.length} failed (${failures[0]})${skippedNote}`, 'warning');
+          const partial = { count: uploadedCount, folder: destination, failed: failures.length, error: failures[0] };
+          showMessage?.(skippedNote
+            ? t('documents.import.importedPartlySkipped', { ...partial, skipped: skippedNote })
+            : t('documents.import.importedPartly', partial), 'warning');
         } else {
-          showMessage?.(`Import failed: ${failures[0]}`, 'error');
+          showMessage?.(t('documents.import.failed', { error: failures[0] }), 'error');
         }
 
         // Refresh data after upload
@@ -1055,7 +1070,7 @@ const DocumentsPage = () => {
             // Prevent moving folder into its own descendant
             if (destinationPath.startsWith(item.path + '/')) {
               moveResults.failed++;
-              moveResults.errors.push(`Cannot move "${item.name}" into its own subfolder`);
+              moveResults.errors.push(t('documents.move.intoOwnSubfolder', { name: item.name }));
               continue;
             }
 
@@ -1102,24 +1117,24 @@ const DocumentsPage = () => {
           }
         } catch (itemErr) {
           moveResults.failed++;
-          const itemErrorMsg = itemErr.response?.data?.message || itemErr.message || 'Unknown error';
-          moveResults.errors.push(`${item.name || item.filename}: ${itemErrorMsg}`);
+          const itemErrorMsg = itemErr.response?.data?.message || itemErr.message || t('documents.move.unknownError');
+          moveResults.errors.push(t('documents.move.itemFailure', { name: item.name || item.filename, error: itemErrorMsg }));
         }
       }
 
       // Show appropriate message based on results
       if (moveResults.failed === 0) {
-        showMessage?.(`Moved ${moveResults.success} item(s)`, 'success');
+        showMessage?.(t('documents.move.moved', { count: moveResults.success }), 'success');
       } else if (moveResults.success === 0) {
         // All failed - don't refresh, just show error
         const errorMsg = moveResults.errors.length > 0
           ? moveResults.errors[0]
-          : 'Failed to move items';
+          : t('documents.move.failed');
         showMessage?.(errorMsg, 'error');
         return; // Don't refresh if nothing moved
       } else {
         // Partial success
-        showMessage?.(`Moved ${moveResults.success} item(s), ${moveResults.failed} failed`, 'warning');
+        showMessage?.(t('documents.move.movedPartly', { count: moveResults.success, failed: moveResults.failed }), 'warning');
       }
 
       // Clear selection after move operation (even if partial failure).
@@ -1132,8 +1147,8 @@ const DocumentsPage = () => {
         refreshOpenWindows();
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to handle drop';
-      showMessage?.(`Operation failed: ${errorMsg}`, 'error');
+      const errorMsg = err.response?.data?.message || err.message || t('documents.move.dropFailed');
+      showMessage?.(t('documents.move.operationFailed', { error: errorMsg }), 'error');
     } finally {
       // Reset after a short delay to allow onDragEnd to check
       setTimeout(() => {
@@ -1312,7 +1327,7 @@ const DocumentsPage = () => {
         name: newFolderName,
         parent_path: newFolderParent,
       });
-      showMessage?.(`Folder "${newFolderName}" created`, 'success');
+      showMessage?.(t('documents.newFolder.created', { name: newFolderName }), 'success');
       setNewFolderOpen(false);
       setNewFolderName('');
 
@@ -1320,7 +1335,7 @@ const DocumentsPage = () => {
       await refreshData();
       refreshOpenWindows();
     } catch (err) {
-      showMessage?.('Failed to create folder', 'error');
+      showMessage?.(t('documents.newFolder.failed'), 'error');
     }
   }, [newFolderName, newFolderParent, showMessage, refreshData, refreshOpenWindows]);
 
@@ -1372,16 +1387,16 @@ const DocumentsPage = () => {
       const skipped = results.filter(r => r?.skipped).length;
       const destination = folderLabel(uploadPath);
       const msg = skipped > 0
-        ? `Imported ${uploaded} file(s) into ${destination} (${skipped} ignored by filter)`
-        : `Imported ${uploaded} file(s) into ${destination}`;
+        ? t('documents.import.importedFiltered', { count: uploaded, folder: destination, ignored: skipped })
+        : t('documents.import.imported', { count: uploaded, folder: destination });
       showMessage?.(msg, 'success');
 
       // Refresh data after upload
       await refreshData();
       refreshOpenWindows();
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Import failed';
-      showMessage?.(`Import failed: ${errorMsg}`, 'error');
+      const errorMsg = err.response?.data?.message || err.message || t('documents.import.failedPlain');
+      showMessage?.(t('documents.import.failed', { error: errorMsg }), 'error');
     } finally {
       // Reset file input
       if (e.target) {
@@ -1393,13 +1408,13 @@ const DocumentsPage = () => {
   const handleCopy = useCallback(() => {
     setClipboard({ items: Array.from(activeSelection), operation: 'copy' });
     setContextMenu(null);
-    showMessage?.(`Copied ${activeSelection.size} item(s)`, 'info');
+    showMessage?.(t('documents.clipboard.copied', { count: activeSelection.size }), 'info');
   }, [activeSelection, showMessage]);
 
   const handleCut = useCallback(() => {
     setClipboard({ items: Array.from(activeSelection), operation: 'cut' });
     setContextMenu(null);
-    showMessage?.(`Cut ${activeSelection.size} item(s)`, 'info');
+    showMessage?.(t('documents.clipboard.cut', { count: activeSelection.size }), 'info');
   }, [activeSelection, showMessage]);
 
   // The folder copy route takes a folder id; everything else on this page knows paths.
@@ -1410,7 +1425,7 @@ const DocumentsPage = () => {
     });
     const id = response.data?.data?.folder_id;
     if (id === undefined || id === null) {
-      throw new Error(`Folders cannot be pasted into ${folderLabel(path)}`);
+      throw new Error(t('documents.clipboard.foldersNotPastable', { folder: folderLabel(path) }));
     }
     return id;
   }, []);
@@ -1438,7 +1453,7 @@ const DocumentsPage = () => {
       const id = Number(key.slice(sep + 1));
       try {
         if (!Number.isInteger(id)) {
-          throw new Error('Items in the live repository are read-only here');
+          throw new Error(t('documents.clipboard.liveRepoReadOnly'));
         }
         if (type === 'folder') {
           if (isCopy) {
@@ -1454,18 +1469,24 @@ const DocumentsPage = () => {
         }
         done += 1;
       } catch (err) {
-        errors.push(err.response?.data?.message || err.message || 'failed');
+        errors.push(err.response?.data?.message || err.message || t('documents.clipboard.itemFailed'));
       }
     }
 
-    const verb = isCopy ? 'Pasted' : 'Moved';
     const destination = folderLabel(targetPath);
     if (errors.length === 0) {
-      showMessage?.(`${verb} ${done} item(s) into ${destination}`, 'success');
+      showMessage?.(isCopy
+        ? t('documents.clipboard.pasted', { count: done, folder: destination })
+        : t('documents.clipboard.moved', { count: done, folder: destination }), 'success');
     } else if (done > 0) {
-      showMessage?.(`${verb} ${done} item(s) into ${destination}; ${errors.length} failed: ${errors[0]}`, 'warning');
+      const partial = { count: done, folder: destination, failed: errors.length, error: errors[0] };
+      showMessage?.(isCopy
+        ? t('documents.clipboard.pastedPartly', partial)
+        : t('documents.clipboard.movedPartly', partial), 'warning');
     } else {
-      showMessage?.(`${isCopy ? 'Paste' : 'Move'} failed: ${errors[0]}`, 'error');
+      showMessage?.(isCopy
+        ? t('documents.clipboard.pasteFailed', { error: errors[0] })
+        : t('documents.clipboard.moveFailed', { error: errors[0] }), 'error');
       return;
     }
     setClipboard(null);
@@ -1481,7 +1502,7 @@ const DocumentsPage = () => {
     setContextMenu(null);
     if (activeSelection.size === 0) return;
     if (deletableSelection.length === 0) {
-      showMessage?.('The live code mount is read-only', 'info');
+      showMessage?.(t('documents.delete.liveRepoReadOnly'), 'info');
       return;
     }
     setDeleteConfirmOpen(true);
@@ -1571,12 +1592,12 @@ const DocumentsPage = () => {
             })
           );
         }
-        showMessage?.(`Deleted ${keysToDelete.length} item(s)`, 'success');
+        showMessage?.(t('documents.delete.deleted', { count: keysToDelete.length }), 'success');
         // No full refresh needed on success path (optimistic + server done); cross-tab uses announce via interceptor
         // Optional: we can still announce to be sure
         // announceDocumentsChange(); // interceptor will have fired per response or bulk
       } catch (err) {
-        showMessage?.('Some deletes may have failed — refreshing state', 'error');
+        showMessage?.(t('documents.delete.someFailed'), 'error');
         // On error, re-sync to restore any inconsistent UI
         await refreshData();
       }
@@ -1609,7 +1630,7 @@ const DocumentsPage = () => {
             setRenameName(file.filename || file.name || '');
             setRenameDialogOpen(true);
           } else {
-            showMessage?.('File not found', 'error');
+            showMessage?.(t('documents.properties.fileNotFound'), 'error');
           }
         } catch (err) {
           // Fallback: try browsing root
@@ -1622,10 +1643,10 @@ const DocumentsPage = () => {
               setRenameName(file.filename || file.name || '');
               setRenameDialogOpen(true);
             } else {
-              showMessage?.('File not found', 'error');
+              showMessage?.(t('documents.properties.fileNotFound'), 'error');
             }
           } catch (browseErr) {
-            showMessage?.('Failed to load file details', 'error');
+            showMessage?.(t('documents.properties.loadFailed'), 'error');
           }
         }
         return;
@@ -1645,12 +1666,12 @@ const DocumentsPage = () => {
         await axios.put(`${API_BASE}/folder/${renameItem.item.id}`, {
           name: renameName.trim(),
         });
-        showMessage?.(`Folder renamed to "${renameName.trim()}"`, 'success');
+        showMessage?.(t('documents.rename.folderRenamed', { name: renameName.trim() }), 'success');
       } else {
         await axios.put(`${API_BASE}/document/${renameItem.item.id}`, {
           filename: renameName.trim(),
         });
-        showMessage?.(`File renamed to "${renameName.trim()}"`, 'success');
+        showMessage?.(t('documents.rename.fileRenamed', { name: renameName.trim() }), 'success');
       }
       setRenameDialogOpen(false);
       setRenameItem(null);
@@ -1663,7 +1684,7 @@ const DocumentsPage = () => {
     } catch (err) {
       // The server says why a name is refused; show that over a bare "failed".
       const reason = err.response?.data?.message || err.response?.data?.error?.message;
-      showMessage?.(reason ? `Rename failed: ${reason}` : 'Rename failed', 'error');
+      showMessage?.(reason ? t('documents.rename.failedReason', { reason }) : t('documents.rename.failed'), 'error');
     }
   }, [renameItem, renameName, showMessage, refreshData, refreshOpenWindows]);
 
@@ -1695,7 +1716,7 @@ const DocumentsPage = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showMessage?.(`Downloading ${item.filename || item.name}`, 'info');
+    showMessage?.(t('documents.page.downloading', { name: item.filename || item.name }), 'info');
   }, [contextMenuItem, contextMenuType, showMessage]);
 
   const openFile = useCallback((file, { editMode = false, siblings } = {}) => {
@@ -1773,7 +1794,7 @@ const DocumentsPage = () => {
   const handleReviewWithAgent = useCallback(async () => {
     const item = contextMenuItem;
     if (!item || item.source_type !== 'live_repo') {
-      showMessage?.('Self-code review is only available for the live repo mount', 'warning');
+      showMessage?.(t('documents.review.liveRepoOnly'), 'warning');
       setContextMenu(null);
       return;
     }
@@ -1784,9 +1805,11 @@ const DocumentsPage = () => {
         prompt: 'Review this scope for concrete bugs or unsafe code. Propose only surgical fixes as pending fixes.',
       });
       const taskId = result?.data?.task_id || result?.task_id;
-      showMessage?.(`Self-code review dispatched${taskId ? ` (${taskId})` : ''}`, 'success');
+      showMessage?.(taskId
+        ? t('documents.review.dispatchedTask', { taskId })
+        : t('documents.review.dispatched'), 'success');
     } catch (err) {
-      showMessage?.(err?.message || 'Failed to dispatch self-code review', 'error');
+      showMessage?.(err?.message || t('documents.review.failed'), 'error');
     }
   }, [contextMenuItem, showMessage]);
 
@@ -1816,7 +1839,7 @@ const DocumentsPage = () => {
             setSelectedForProperties({ type: 'file', item: file });
             setPropertiesOpen(true);
           } else {
-            showMessage?.('File not found', 'error');
+            showMessage?.(t('documents.properties.fileNotFound'), 'error');
           }
         } catch (err) {
           // Fallback: try browsing root
@@ -1828,10 +1851,10 @@ const DocumentsPage = () => {
               setSelectedForProperties({ type: 'file', item: file });
               setPropertiesOpen(true);
             } else {
-              showMessage?.('File not found', 'error');
+              showMessage?.(t('documents.properties.fileNotFound'), 'error');
             }
           } catch (browseErr) {
-            showMessage?.('Failed to load file details', 'error');
+            showMessage?.(t('documents.properties.loadFailed'), 'error');
           }
         }
       }
@@ -1841,18 +1864,18 @@ const DocumentsPage = () => {
   const handleFilePropertiesSave = useCallback(async (fileId, payload) => {
     try {
       await axios.put(`${API_BASE}/document/${fileId}/link`, payload);
-      showMessage?.('File properties updated successfully', 'success');
+      showMessage?.(t('documents.properties.fileUpdated'), 'success');
       setPropertiesOpen(false);
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to update file properties';
-      showMessage?.(`Update failed: ${errorMsg}`, 'error');
+      const errorMsg = err.response?.data?.message || err.message || t('documents.properties.fileUpdateFailed');
+      showMessage?.(t('documents.properties.updateFailed', { error: errorMsg }), 'error');
     }
   }, [showMessage]);
 
   const handleFilePropertiesDelete = useCallback(async (fileId) => {
     try {
       await axios.delete(`${API_BASE}/document/${fileId}`);
-      showMessage?.('File deleted successfully', 'success');
+      showMessage?.(t('documents.properties.fileDeleted'), 'success');
       // Instant reflect + cross-surface: dispatch removal before/after close
       try {
         window.dispatchEvent(new CustomEvent('documents-items-removed', { detail: { keys: [`file-${fileId}`], contextKey: 'properties' } }));
@@ -1861,8 +1884,8 @@ const DocumentsPage = () => {
       }
       setPropertiesOpen(false);
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to delete file';
-      showMessage?.(`Delete failed: ${errorMsg}`, 'error');
+      const errorMsg = err.response?.data?.message || err.message || t('documents.properties.fileDeleteFailed');
+      showMessage?.(t('documents.properties.deleteFailed', { error: errorMsg }), 'error');
       throw err; // Re-throw so modal can handle it
     }
   }, [showMessage]);
@@ -1876,13 +1899,13 @@ const DocumentsPage = () => {
       }
 
       showMessage?.(
-        result?.message || 'Reindexing triggered successfully. Status will update shortly.',
+        result?.message || t('documents.properties.reindexStarted'),
         'success'
       );
       followIndexing();
     } catch (err) {
-      const errorMsg = err.response?.data?.message || err.message || 'Failed to trigger reindexing';
-      showMessage?.(`Reindexing failed: ${errorMsg}`, 'error');
+      const errorMsg = err.response?.data?.message || err.message || t('documents.properties.reindexStartFailed');
+      showMessage?.(t('documents.properties.reindexFailed', { error: errorMsg }), 'error');
       throw err;
     }
   }, [showMessage, followIndexing]);
@@ -1933,8 +1956,8 @@ const DocumentsPage = () => {
         });
       }
     } catch (err) {
-      const errorMsg = err.message || 'Failed to trigger indexing';
-      showMessage?.(`Indexing failed: ${errorMsg}`, 'error');
+      const errorMsg = err.message || t('documents.indexing.startFailed');
+      showMessage?.(t('documents.indexing.failed', { error: errorMsg }), 'error');
     }
   }, [contextMenuItem, contextMenuType, activeSelection, showMessage, followIndexing]);
 
@@ -2220,29 +2243,29 @@ const DocumentsPage = () => {
   if (loading) {
     return (
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2, height: "100%", p: 2 }}>
-        <Typography variant="h5">Files</Typography>
-        <Typography>Loading folders...</Typography>
+        <Typography variant="h5">{t('documents.page.title')}</Typography>
+        <Typography>{t('documents.page.loadingFolders')}</Typography>
       </Box>
     );
   }
 
   return (
     <PageLayout
-      title="Files"
+      title={t('documents.page.title')}
       variant="grid"
       actions={
         <>
-          <Tooltip title="Import Files">
+          <Tooltip title={t('documents.page.importFiles')}>
             <IconButton onClick={handleToolbarImport} size="small" sx={{ opacity: 0.6 }}>
               <UploadFileIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Arrange Icons">
+          <Tooltip title={t('documents.page.arrangeIcons')}>
             <IconButton onClick={handleArrangeIcons} size="small" sx={{ opacity: 0.6 }}>
               <GridViewIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Arrange Windows">
+          <Tooltip title={t('documents.page.arrangeWindows')}>
             <IconButton onClick={handleArrangeWindows} size="small" sx={{ opacity: 0.6 }}>
               <AppsIcon fontSize="small" />
             </IconButton>
@@ -2250,7 +2273,7 @@ const DocumentsPage = () => {
         </>
       }
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
+      activeModel={isLoadingModel ? t('documents.page.modelLoading') : modelError ? t('documents.page.modelError') : activeModel}
     >
       <Box ref={windowContainerRef} sx={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
         {entityFilter && (
@@ -2305,10 +2328,10 @@ const DocumentsPage = () => {
             >
               <BrandLogo size={64} sx={{ opacity: 0.4 }} />
               <Typography variant="h6" color="text.secondary">
-                No documents yet
+                {t('documents.page.emptyTitle')}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Drag files here or right-click to create a folder
+                {t('documents.page.emptyHint')}
               </Typography>
             </Box>
           )}
@@ -2443,7 +2466,7 @@ const DocumentsPage = () => {
                       </Box>
                       {window.folder.is_repository && (
                         <Box sx={{ position: 'absolute', top: 8, right: 8 }}>
-                          <Tooltip title="Code Repository">
+                          <Tooltip title={t('documents.folder.codeRepository')}>
                             <Code sx={{ fontSize: 16, color: theme.palette.primary.main }} />
                           </Tooltip>
                         </Box>
@@ -2455,7 +2478,7 @@ const DocumentsPage = () => {
                       </Tooltip>
                       {itemCount > 0 && (
                         <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.2 }}>
-                          {itemCount} item{itemCount !== 1 ? 's' : ''}
+                          {t('documents.page.folderItemCount', { count: itemCount })}
                         </Typography>
                       )}
                     </CardContent>
@@ -2684,9 +2707,9 @@ const DocumentsPage = () => {
         onOpenWindow={contextMenuFolderWindow
           ? (contextMenuFolderWindow.state === 'folded' ? () => handleFolderExpand(contextMenuFolderWindow.id) : undefined)
           : contextMenuType === 'folder' ? contextMenuExtras?.openInPlace : undefined}
-        openLabel={contextMenuFolderWindow ? 'Open in Window' : 'Open'}
+        openLabel={contextMenuFolderWindow ? t('documents.contextMenu.openInWindow') : t('documents.contextMenu.open')}
         onToggleMinimize={contextMenuTitleWindow ? () => handleToggleMinimize(contextMenuTitleWindow.id) : undefined}
-        minimizeLabel={contextMenuTitleWindow?.state === 'minimized' ? 'Restore' : 'Minimize'}
+        minimizeLabel={contextMenuTitleWindow?.state === 'minimized' ? t('documents.contextMenu.restore') : t('documents.contextMenu.minimize')}
         onCloseWindow={contextMenuTitleWindow ? () => handleWindowClose(contextMenuTitleWindow.id) : undefined}
         isImage={contextMenuItem && contextMenuType === 'file' && isImageFile(contextMenuItem.filename || contextMenuItem.name || '')}
         isCode={contextMenuItem && contextMenuType === 'file' && isCodeFile(contextMenuItem.filename || contextMenuItem.name || '')}
@@ -2712,12 +2735,12 @@ const DocumentsPage = () => {
           }
         }}
       >
-        <DialogTitle>Create New Folder</DialogTitle>
+        <DialogTitle>{t('documents.newFolder.title')}</DialogTitle>
         <DialogContent>
           <TextField
             inputRef={newFolderInputRef}
             autoFocus
-            label="Folder Name"
+            label={t('documents.newFolder.nameLabel')}
             fullWidth
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
@@ -2725,8 +2748,8 @@ const DocumentsPage = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setNewFolderOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateFolder} variant="contained">Create</Button>
+          <Button onClick={() => setNewFolderOpen(false)}>{t('documents.actions.cancel')}</Button>
+          <Button onClick={handleCreateFolder} variant="contained">{t('documents.newFolder.create')}</Button>
         </DialogActions>
       </Dialog>
 
@@ -2755,12 +2778,12 @@ const DocumentsPage = () => {
           }
         }}
       >
-        <DialogTitle>Rename {renameItem?.type === 'folder' ? 'Folder' : 'File'}</DialogTitle>
+        <DialogTitle>{renameItem?.type === 'folder' ? t('documents.rename.folderTitle') : t('documents.rename.fileTitle')}</DialogTitle>
         <DialogContent>
           <TextField
             inputRef={renameInputRef}
             autoFocus
-            label={renameItem?.type === 'folder' ? 'Folder Name' : 'File Name'}
+            label={renameItem?.type === 'folder' ? t('documents.newFolder.nameLabel') : t('documents.rename.fileNameLabel')}
             fullWidth
             value={renameName}
             onChange={(e) => setRenameName(e.target.value)}
@@ -2768,30 +2791,30 @@ const DocumentsPage = () => {
           />
           {renameItem?.type !== 'folder' && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              Changes the name shown in Guaardvark; the file on disk keeps its name.
+              {t('documents.rename.fileHint')}
             </Typography>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRenameDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setRenameDialogOpen(false)}>{t('documents.actions.cancel')}</Button>
           <Button onClick={handleRenameSubmit} variant="contained" disabled={!renameName.trim()}>
-            Rename
+            {t('documents.rename.submit')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle>{t('documents.delete.confirmTitle')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Delete {deletableSelection.length} item{deletableSelection.length !== 1 ? 's' : ''}? This action cannot be undone.
+            {t('documents.delete.confirmBody', { count: deletableSelection.length })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>{t('documents.actions.cancel')}</Button>
           <Button onClick={handleDeleteConfirm} variant="contained" color="error">
-            Delete
+            {t('documents.delete.confirm')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2810,22 +2833,22 @@ const DocumentsPage = () => {
               if (response.data?.data?.cascade_stats) {
                 const stats = response.data.data.cascade_stats;
                 showMessage?.(
-                  `Properties applied successfully! Files updated: ${stats.files_updated}, Subfolders processed: ${stats.folders_processed}`,
+                  t('documents.properties.folderApplied', { files: stats.files_updated, folders: stats.folders_processed }),
                   'success'
                 );
               } else {
-                showMessage?.('Folder properties updated successfully', 'success');
+                showMessage?.(t('documents.properties.folderUpdated'), 'success');
               }
 
               setPropertiesOpen(false);
             } catch (err) {
-              const errorMsg = err.response?.data?.message || err.message || 'Failed to update folder properties';
-              showMessage?.(`Update failed: ${errorMsg}`, 'error');
+              const errorMsg = err.response?.data?.message || err.message || t('documents.properties.folderUpdateFailed');
+              showMessage?.(t('documents.properties.updateFailed', { error: errorMsg }), 'error');
             }
           }}
           onDelete={async (folderId) => {
             await axios.delete(`${API_BASE}/folder/${folderId}`);
-            showMessage?.('Folder deleted', 'success');
+            showMessage?.(t('documents.properties.folderDeleted'), 'success');
             // Optimistic + cross update for instant removal from desktop/folders
             try {
               window.dispatchEvent(new CustomEvent('documents-items-removed', { detail: { keys: [`folder-${folderId}`], contextKey: 'properties' } }));
@@ -2925,7 +2948,7 @@ const DocumentsPage = () => {
         >
           <CircularProgress size={24} />
           <Typography variant="body2">
-            Uploading {uploadProgress.current}/{uploadProgress.total} file{uploadProgress.total !== 1 ? 's' : ''}...
+            {t('documents.page.uploadProgress', { current: uploadProgress.current, count: uploadProgress.total })}
           </Typography>
         </Box>
       )}

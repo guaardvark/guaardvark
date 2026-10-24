@@ -4,6 +4,7 @@ import { getProfile, setProfile as saveProfile } from "../../api/settingsService
 import { useAppStore } from "../../stores/useAppStore";
 import { useSnackbar } from "../common/SnackbarProvider";
 import { ActionButton, Cluster, Line } from "./ui";
+import { useUiTranslation, Trans } from "../../i18n";
 
 /**
  * Product Profile — one switch that sets the product shape.
@@ -14,6 +15,7 @@ import { ActionButton, Cluster, Line } from "./ui";
  * them back.
  */
 const ProfileSection = () => {
+  const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
   const activeProfile = useAppStore((s) => s.profile);
   const [info, setInfo] = useState(null);
@@ -51,43 +53,42 @@ const ProfileSection = () => {
       await saveProfile(selected);
       setRestartNeeded(true);
       setInfo((prev) => (prev ? { ...prev, configured: selected } : prev));
-      showMessage(`Profile set to ${chosen?.label || selected}. Restart to apply.`, "success");
+      showMessage(t("settingsSections.profile.setTo", { profile: chosen?.label || selected }), "success");
     } catch (err) {
-      showMessage(`Failed to set profile: ${err.message}`, "error");
+      showMessage(t("settingsSections.profile.setFailed", { error: err.message }), "error");
     } finally {
       setSaving(false);
     }
   };
 
   if (error) {
-    return <Alert severity="warning">Profiles unavailable: {error}</Alert>;
+    return <Alert severity="warning">{t("settingsSections.profile.unavailable", { error })}</Alert>;
   }
 
   return (
     <Cluster
-      label="Product profile"
+      label={t("settingsSections.profile.label")}
       help={
         <>
           {chosen?.description ? `${chosen.description} ` : ""}
-          A profile decides what is listed and what is on by default. Nothing is removed: hidden pages still
-          open by their address, and settings in <code>.env</code> always win.
+          <Trans i18nKey="settingsSections.profile.help" components={{ code: <code /> }} />
         </>
       }
-      note={locked ? "set by .env" : "applies after a restart"}
+      note={locked ? t("settingsSections.profile.noteLocked") : t("settingsSections.profile.noteRestart")}
     >
       <Line nowrap>
         <FormControl size="small" className="grow" disabled={!info || saving || locked}>
-          <InputLabel id="product-profile-label">Profile</InputLabel>
+          <InputLabel id="product-profile-label">{t("settingsSections.profile.profile")}</InputLabel>
           <Select
             labelId="product-profile-label"
-            label="Profile"
+            label={t("settingsSections.profile.profile")}
             value={available.some((p) => p.name === selected) ? selected : ""}
             onChange={(e) => setSelected(e.target.value)}
           >
             {available.map((p) => (
               <MenuItem key={p.name} value={p.name}>
                 {p.label}
-                {p.source === "extension" ? " (extension)" : ""}
+                {p.source === "extension" ? ` ${t("settingsSections.profile.extension")}` : ""}
               </MenuItem>
             ))}
           </Select>
@@ -98,15 +99,14 @@ const ProfileSection = () => {
           onClick={handleApply}
           loading={saving}
           disabled={!changed || locked}
-          tooltip={locked ? "Set by GUAARDVARK_PROFILE in .env" : ""}
+          tooltip={locked ? t("settingsSections.profile.lockedTooltip") : ""}
         >
-          Apply
+          {t("settingsSections.profile.apply")}
         </ActionButton>
       </Line>
       {locked && (
         <Alert severity="info" sx={{ py: 0.25 }}>
-          The profile is set by <code>GUAARDVARK_PROFILE</code> in <code>.env</code>, which this server
-          cannot write. Edit the file or start with <code>./start.sh --profile NAME</code>.
+          <Trans i18nKey="settingsSections.profile.locked" components={{ code: <code /> }} />
         </Alert>
       )}
       {info?.active?.fallback_reason && (
@@ -116,7 +116,7 @@ const ProfileSection = () => {
       )}
       {restartNeeded && (
         <Alert severity="warning" sx={{ py: 0.25 }}>
-          Restart Guaardvark to apply the new profile. Running now: {activeName}.
+          {t("settingsSections.profile.restartNeeded", { name: activeName })}
         </Alert>
       )}
     </Cluster>

@@ -1,0 +1,189 @@
+{
+  "loading": {
+    "processing": "Processing...",
+    "thinking": "AI is thinking...",
+    "analyzingSelection": "Analyzing selected code...",
+    "sending": "Sending to AI assistant...",
+    "processingResponse": "Processing AI response...",
+    "searchingProject": "Searching project context...",
+    "buildingContext": "Building smart context..."
+  },
+  "commands": {
+    "explain": {
+      "label": "Explain",
+      "description": "Explain selected code or analyze entire file structure"
+    },
+    "edit": {
+      "label": "Smart Edit",
+      "description": "AI-powered code editing with context understanding"
+    },
+    "optimize": {
+      "label": "Optimize",
+      "description": "Performance optimization with detailed analysis"
+    },
+    "refactor": {
+      "label": "Refactor",
+      "description": "Intelligent code restructuring"
+    },
+    "test": {
+      "label": "Generate Tests",
+      "description": "Create comprehensive unit tests"
+    },
+    "fix": {
+      "label": "Auto Fix",
+      "description": "Automatically fix detected errors and issues"
+    },
+    "document": {
+      "label": "Document",
+      "description": "Generate documentation and comments"
+    },
+    "secure": {
+      "label": "Security Scan",
+      "description": "Comprehensive security vulnerability analysis"
+    },
+    "suggest": {
+      "label": "Suggestions",
+      "description": "Get intelligent code suggestions"
+    }
+  },
+  "progress": {
+    "processingWithContext": "Processing with full context...",
+    "completed": "AI assistance completed"
+  },
+  "errors": {
+    "noSelectionResponse": "Chat service returned null or undefined response for selection analysis",
+    "noResponse": "Chat service returned null or undefined response",
+    "noGeneralResponse": "Chat service returned null or undefined response for general conversation"
+  },
+  "replies": {
+    "analysisFailed": "Analysis failed",
+    "validationFailed": "Input validation failed: {{errors}}",
+    "rateLimited": "Rate limit exceeded. Please wait a moment before trying again.",
+    "analysisFailedWithError": "Analysis failed: {{error}}",
+    "explanationFailed": "Explanation failed: {{error}}",
+    "editHelp": "Please provide editing instructions. Example: '/edit Add error handling to this function'",
+    "editDescriptionSelection": "Edit: {{instructions}} (replaces the selected text; Ctrl+Z in the editor undoes it)",
+    "editDescriptionFile": "Edit: {{instructions}} (replaces the whole file; Ctrl+Z in the editor undoes it)",
+    "editReadySelection": "Edit ready for the selected text. Preview shows the diff; Apply puts it in the editor.",
+    "editReadyFile": "Edit ready for the whole file. Preview shows the diff; Apply puts it in the editor.",
+    "noReply": "The assistant returned no reply.",
+    "editFailed": "Code editing failed: {{error}}",
+    "fixAnalysis": "**Auto Fix Analysis:**\n\n{{analysis}}",
+    "fixFailed": "Fix analysis failed: {{error}}",
+    "securityAnalysis": "**Security Analysis:**\n\n{{analysis}}",
+    "securityFailed": "Security analysis failed: {{error}}",
+    "commandNames": {
+      "optimize": "Optimize",
+      "refactor": "Refactor",
+      "test": "Test",
+      "document": "Document"
+    },
+    "commandDescription": "{{command}}: replaces the whole file (Ctrl+Z in the editor undoes it)",
+    "commandReady": "{{command}} ready. Preview shows the diff; Apply replaces the whole file.",
+    "commandNoReply": "{{command}} returned no reply.",
+    "commandFailed": "{{command}} failed: {{error}}",
+    "requestTrouble": "I apologize, but I'm having trouble processing your request. Error: {{error}}",
+    "error": "Sorry, I encountered an error: {{message}}",
+    "noActiveFile": "No Active File\n\nPlease open a file with code content first to use AI assistance."
+  },
+  "apply": {
+    "defaultDescription": "AI-generated code",
+    "appliedToSelection": "Code Applied Successfully (Selection-Based Edit)\n\n{{description}}",
+    "applied": "Code Applied Successfully\n\n{{description}}",
+    "failed": "Failed to Apply Code\n\n{{error}}"
+  },
+  "untitled": "untitled",
+  "multiFile": {
+    "confirm": "Apply edits to {{count}} file(s)?\n\nFiles to be modified:\n{{files}}\n\nClick OK to proceed or Cancel to abort.",
+    "applying": "Applying edits to {{count}} files...",
+    "completedProgress": "Multi-file edits completed: {{succeeded}} succeeded, {{failed}} failed",
+    "completeWithFailures": "Multi-File Edit Complete\n\n{{succeeded}} file(s) updated successfully, {{failed}} failed",
+    "complete": "Multi-File Edit Complete\n\n{{succeeded}} file(s) updated successfully",
+    "failedProgress": "Multi-file edit failed: {{error}}",
+    "failed": "Multi-File Edit Failed\n\n{{error}}"
+  },
+  "titleBar": {
+    "newChat": "New Chat",
+    "startNewChat": "Start new chat",
+    "deleteChat": "Delete Chat",
+    "deleteChatLabel": "Delete chat",
+    "aiCommands": "AI Commands",
+    "openCommandsMenu": "Open AI commands menu"
+  },
+  "card": {
+    "title": "AI Assistant"
+  },
+  "status": {
+    "selected": "Selected: {{count}} chars",
+    "noFile": "No file",
+    "realTimeTooltip": "Real-time analysis: 2 s after you stop typing, syntax-check the file and send it to the model for suggestions (one model request per pause; files over 5,000 characters are skipped)",
+    "toggleRealTime": "Toggle real-time code analysis",
+    "contextInfo": "Context Info",
+    "toggleContext": "Toggle context information panel"
+  },
+  "recommendations": {
+    "title": "AI Recommendations ({{count}})",
+    "defaultType": "suggestion",
+    "lines": "Lines {{start}}-{{end}}",
+    "noDescription": "No description",
+    "applyDescription": "Apply {{type}} recommendation",
+    "more": "... and {{count}} more recommendations"
+  },
+  "actions": {
+    "apply": "Apply"
+  },
+  "pending": {
+    "readyToApply": "Ready to Apply: {{command}}",
+    "preview": "Preview",
+    "discard": "Discard"
+  },
+  "context": {
+    "title": "Code Context & Analysis",
+    "currentFile": "Current File",
+    "noFileOpen": "No file open",
+    "unknownLanguage": "unknown",
+    "selectedCode": "Selected Code",
+    "analysisResults": "Analysis Results",
+    "noIssues": "No issues detected",
+    "project": "Project Context",
+    "filesOpen": "{{count}} files open",
+    "relatedDetected": "{{count}} related files detected",
+    "relatedFiles": "Related files",
+    "more": "... and {{count}} more"
+  },
+  "alerts": {
+    "errorsDetected_one": "{{count}} error detected",
+    "errorsDetected_other": "{{count}} errors detected",
+    "warningsDetected_one": "{{count}} warning detected",
+    "warningsDetected_other": "{{count}} warnings detected"
+  },
+  "input": {
+    "placeholder": "Message..."
+  },
+  "menu": {
+    "label": "AI Commands Menu"
+  },
+  "palette": {
+    "title": "AI Command Palette",
+    "searchPlaceholder": "Search commands...",
+    "currentFile": "Current file: {{file}} ({{language}})",
+    "noMatches": "No commands found matching \"{{search}}\"",
+    "keyboardHelp": "Use ↑↓ to navigate, Enter to select, Esc to close"
+  },
+  "hover": {
+    "unavailable": "AI explanation not available"
+  },
+  "drop": {
+    "reasons": {
+      "folder": "a folder; drop the files inside it",
+      "tooMany": "only {{max}} files open per drop",
+      "tooLarge": "larger than {{size}} MB",
+      "unreadable": "could not be read",
+      "notText": "not a text file"
+    },
+    "opened_one": "Opened {{names}} as an unsaved copy. Save keeps it in this browser with your other editor files; the file on your computer is not changed.",
+    "opened_other": "Opened {{names}} as unsaved copies. Save keeps it in this browser with your other editor files; the file on your computer is not changed.",
+    "skippedFile": "{{name}} ({{reason}})",
+    "notOpened": "Not opened: {{files}}."
+  }
+}

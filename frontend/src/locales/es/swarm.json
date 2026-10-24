@@ -1,0 +1,131 @@
+{
+  "taskStatus": {
+    "pending": "Pendiente",
+    "blocked": "Bloqueado",
+    "queued": "En cola",
+    "running": "Ejecutando",
+    "done": "Finalizado",
+    "failed": "Fallido",
+    "needsReview": "Requiere revisión",
+    "merged": "Fusionado",
+    "cancelled": "Cancelado",
+    "noChanges": "Sin cambios",
+    "timedOut": "Tiempo agotado"
+  },
+  "messages": {
+    "enterPlanPath": "Introduce la ruta del archivo del plan",
+    "launched": "Swarm lanzado: {{id}}",
+    "launchFailed": "Error en el lanzamiento",
+    "noSwarmId": "Sin ID de Swarm",
+    "cancelled": "Cancelado",
+    "cancelFailed": "Error al cancelar",
+    "merged": "Ramas fusionadas: {{merged}}, conflictos: {{conflicts}}",
+    "mergeFailed": "Error en la fusión",
+    "cleanedUp": "Limpiado",
+    "cleanupFailed": "Error en la limpieza",
+    "logsFailed": "No se pudieron obtener los registros",
+    "templateLoadFailed": "Error al cargar la plantilla",
+    "filenameAndContentRequired": "Se requieren el nombre del archivo y el contenido",
+    "planSaved": "Plan guardado en plantillas",
+    "saveFailed": "Error al guardar",
+    "enterGoal": "Introduce lo que quieres lograr",
+    "planGenerated": "¡Plan generado por IA!",
+    "aiGenerationFailed": "Error en la generación por IA"
+  },
+  "actions": {
+    "cancel": "Cancelar",
+    "mergeAll": "Fusionar todo",
+    "cleanUp": "Limpiar"
+  },
+  "menu": {
+    "collapse": "Contraer",
+    "expand": "Expandir",
+    "copySwarmId": "Copiar ID de Swarm",
+    "viewLogs": "Ver registros",
+    "viewDiff": "Ver diferencias",
+    "copyBranchName": "Copiar nombre de rama",
+    "copyTaskId": "Copiar ID de tarea",
+    "launch": "Lanzar…"
+  },
+  "title": "Swarm",
+  "header": {
+    "online": "En línea",
+    "offline": "Fuera de línea",
+    "serviceOffline": "Servicio fuera de línea",
+    "refresh": "Actualizar",
+    "createPlan": "Crear nuevo plan",
+    "launchSwarm": "Lanzar Swarm"
+  },
+  "sections": {
+    "activeSwarms": "Swarms activos",
+    "quickLaunchTemplates": "Plantillas de lanzamiento rápido",
+    "recentSwarms": "Swarms recientes"
+  },
+  "taskCount": "{{count}} tareas",
+  "flightMode": "Modo de vuelo",
+  "history": {
+    "freeLocal": "Libre (local)",
+    "cleanUp": "Limpiar"
+  },
+  "empty": {
+    "title": "No hay Swarms en ejecución",
+    "description": "Lanza un swarm de agentes de IA para trabajar en tu base de código en paralelo.",
+    "startPlugin": "Inicia el plugin de swarm primero.",
+    "launchFirst": "Lanza tu primer Swarm"
+  },
+  "launchDialog": {
+    "title": "Lanzar Swarm",
+    "template": "Plantilla (opcional)",
+    "customPlanFile": "Archivo de plan personalizado",
+    "templateOption": "{{title}} ({{count}} tareas)",
+    "planPath": "Ruta del archivo de plan",
+    "planPathPlaceholder": "path/to/plan.md o selecciona una plantilla arriba",
+    "planPathHelp": "Relativo a GUAARDVARK_ROOT o ruta absoluta",
+    "maxAgents": "Máximo de agentes concurrentes",
+    "autoMerge": "Auto-combinar",
+    "flightModeInfo": "Modo de vuelo: solo backends fuera de línea (Ollama). Los conflictos se serializarán automáticamente.",
+    "cancel": "Cancelar",
+    "launchFlightMode": "Lanzar (Modo de vuelo)",
+    "launch": "Lanzar"
+  },
+  "editor": {
+    "title": "Editor del plan de Swarm",
+    "aiHint": "Describe tu tarea y la IA generará la estructura de plan.md por ti.",
+    "aiPlaceholder": "ej., 'Refactorizar todos los endpoints de API para usar el nuevo modelo Response'",
+    "aiSuggest": "Sugerir plan con IA",
+    "filename": "Nombre del archivo (ej. migrate_api.md)",
+    "content": "Contenido del plan (Markdown)",
+    "formatHint": "Formato: Usa <bold>## Nombre de la tarea</bold> para cada tarea. Añade <bold>Deps: [1]</bold> para las dependencias.",
+    "cancel": "Cancelar",
+    "saveToTemplates": "Guardar en plantillas"
+  },
+  "taskView": {
+    "loadingLogs": "Cargando registros...",
+    "noLogs": "(sin registros)",
+    "noChanges": "(sin cambios en el árbol de trabajo)",
+    "diffFailed": "Error al obtener el diff",
+    "title": "Detalle de tarea: {{id}}",
+    "logsTab": "Registros",
+    "liveDiffTab": "Diff en vivo",
+    "noOutputYet": "(sin salida aún)",
+    "fetchingDiff": "Obteniendo el diff del árbol de trabajo...",
+    "refreshDiff": "Actualizar diff"
+  },
+  "swarmStatus": {
+    "failed": "Fallido",
+    "running": "En ejecución",
+    "completed": "Completado"
+  },
+  "card": {
+    "progress": "{{done}}/{{total}} tareas",
+    "free": "Libre",
+    "activeAgents": "{{count}} activos",
+    "diskUsage": "{{size}} MB",
+    "dependencyGraph": "GRÁFICO DE DEPENDENCIAS",
+    "viewTaskDetail": "Ver detalle de la tarea"
+  },
+  "elapsed": {
+    "minutesSeconds": "{{minutes}}m {{seconds}}s",
+    "seconds": "{{seconds}}s"
+  }
+}

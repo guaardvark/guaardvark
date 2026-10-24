@@ -30,6 +30,7 @@ import * as apiService from "../../api";
 import * as wordpressService from "../../api/wordpressService";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import { uiLocale, useUiTranslation, Trans } from "../../i18n";
 
 const WebsiteActionModal = ({
   open,
@@ -40,6 +41,7 @@ const WebsiteActionModal = ({
   isSaving,
   // projects prop removed as modal fetches its own
 }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState({
     id: null,
     url: "",
@@ -442,7 +444,7 @@ const WebsiteActionModal = ({
   
   const handleTestWpConnection = async () => {
     if (!wpFormData.url || !wpFormData.username || !wpFormData.api_key) {
-      setWpFormError("URL, username, and API key are required for testing");
+      setWpFormError(t("dialogs.websiteAction.testFieldsRequired"));
       return;
     }
     
@@ -461,17 +463,17 @@ const WebsiteActionModal = ({
         const response = await wordpressService.testWordPressConnection(wpSite.id);
         if (response.success) {
           setWpFormError(null);
-          alert("Connection test successful!");
+          alert(t("dialogs.websiteAction.testSuccess"));
         } else {
-          setWpFormError(response.error || "Connection test failed. Please check your credentials.");
+          setWpFormError(response.error || t("dialogs.websiteAction.testFailed"));
         }
       } else {
         // For new sites, we need to register first to test
         // The backend will test the connection during registration
-        setWpFormError("Please register the site first to test connection");
+        setWpFormError(t("dialogs.websiteAction.registerFirst"));
       }
     } catch (err) {
-      setWpFormError(`Connection test error: ${err.message}`);
+      setWpFormError(t("dialogs.websiteAction.testError", { error: err.message }));
     } finally {
       setIsTestingWpConnection(false);
     }
@@ -480,15 +482,15 @@ const WebsiteActionModal = ({
   const handleSaveWpSite = async () => {
     // Validate required fields
     if (!wpFormData.url || !wpFormData.url.trim()) {
-      setWpFormError("WordPress URL is required");
+      setWpFormError(t("dialogs.websiteAction.wpUrlRequired"));
       return;
     }
     if (!wpFormData.url.startsWith("http://") && !wpFormData.url.startsWith("https://")) {
-      setWpFormError("URL must start with http:// or https://");
+      setWpFormError(t("dialogs.websiteAction.urlScheme"));
       return;
     }
     if (!wpFormData.api_key && !wpSite) {
-      setWpFormError("LLAMANATOR2 API key is required for new WordPress sites");
+      setWpFormError(t("dialogs.websiteAction.apiKeyRequired"));
       return;
     }
     
@@ -516,12 +518,12 @@ const WebsiteActionModal = ({
       if (response.success) {
         setWpFormError(null);
         await fetchWordPressSite();
-        alert(wpSite ? "WordPress site updated successfully!" : "WordPress site registered successfully!");
+        alert(wpSite ? t("dialogs.websiteAction.wpUpdated") : t("dialogs.websiteAction.wpRegistered"));
       } else {
-        setWpFormError(response.error || "Failed to save WordPress site");
+        setWpFormError(response.error || t("dialogs.websiteAction.wpSaveFailed"));
       }
     } catch (err) {
-      setWpFormError(err.message || "Failed to save WordPress site");
+      setWpFormError(err.message || t("dialogs.websiteAction.wpSaveFailed"));
     } finally {
       setIsSavingWpSite(false);
     }
@@ -531,14 +533,14 @@ const WebsiteActionModal = ({
     setFormError(null);
     let currentFormError = null;
 
-    if (!formData.url.trim()) currentFormError = "Website URL is required.";
+    if (!formData.url.trim()) currentFormError = t("dialogs.websiteAction.urlRequired");
     else if (
       !formData.url.startsWith("http://") &&
       !formData.url.startsWith("https://")
     )
-      currentFormError = "URL must start with http:// or https://";
+      currentFormError = t("dialogs.websiteAction.urlScheme");
     else if (!formProjectValue)
-      currentFormError = "Project assignment is required.";
+      currentFormError = t("dialogs.websiteAction.projectRequired");
 
     if (currentFormError) {
       setFormError(currentFormError);
@@ -599,10 +601,10 @@ const WebsiteActionModal = ({
             finalClientId = newClient.id;
             fetchClientsForDropdown();
           } else {
-            throw new Error(newClient.error || "Failed to create new client.");
+            throw new Error(newClient.error || t("dialogs.websiteAction.createClientFailed"));
           }
         } catch (err) {
-          setFormError(`Client creation error: ${err.message}`);
+          setFormError(t("dialogs.websiteAction.clientCreationError", { error: err.message }));
           return;
         }
       }
@@ -625,11 +627,11 @@ const WebsiteActionModal = ({
             fetchProjectsForDropdown();
           } else {
             throw new Error(
-              newProject.error || "Failed to create new project.",
+              newProject.error || t("dialogs.websiteAction.createProjectFailed"),
             );
           }
         } catch (err) {
-          setFormError(`Project creation error: ${err.message}`);
+          setFormError(t("dialogs.websiteAction.projectCreationError", { error: err.message }));
           return;
         }
       }
@@ -658,7 +660,7 @@ const WebsiteActionModal = ({
   };
 
   const getTitle = () =>
-    isEditMode ? `Edit Website: ${formData.url || "N/A"}` : "Add New Website";
+    isEditMode ? t("dialogs.websiteAction.editTitle", { url: formData.url || t("dialogs.websiteAction.notAvailable") }) : t("dialogs.websiteAction.addTitle");
 
   return (
     <Dialog
@@ -671,8 +673,8 @@ const WebsiteActionModal = ({
       <DialogTitle id="website-action-modal-title">{getTitle()}</DialogTitle>
       <DialogContent dividers>
         <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 2 }}>
-          <Tab label="Website" />
-          <Tab label="WordPress Integration" disabled={!isEditMode} />
+          <Tab label={t("dialogs.websiteAction.websiteTab")} />
+          <Tab label={t("dialogs.websiteAction.wordPressTab")} disabled={!isEditMode} />
         </Tabs>
         
         {activeTab === 0 && (
@@ -692,7 +694,7 @@ const WebsiteActionModal = ({
                 margin="dense"
                 id="website-url-modal"
                 name="url"
-                label="Website URL"
+                label={t("dialogs.websiteAction.websiteUrl")}
                 type="url"
                 placeholder="https://example.com"
                 value={formData.url}
@@ -701,7 +703,7 @@ const WebsiteActionModal = ({
                 helperText={
                   formError && formError.toLowerCase().includes("url")
                     ? formError
-                    : "Must start with http:// or https://"
+                    : t("dialogs.websiteAction.urlHelp")
                 }
                 disabled={isSaving}
               />
@@ -712,7 +714,7 @@ const WebsiteActionModal = ({
                 margin="dense"
                 id="website-sitemap-modal"
                 name="sitemap_url"
-                label="Sitemap URL (Optional)"
+                label={t("dialogs.websiteAction.sitemapUrl")}
                 type="url"
                 placeholder="https://example.com/sitemap.xml"
                 value={formData.sitemap_url}
@@ -726,13 +728,13 @@ const WebsiteActionModal = ({
                 margin="dense"
                 id="website-competitor-modal"
                 name="competitor_url"
-                label="Competitor URL (Optional)"
+                label={t("dialogs.websiteAction.competitorUrl")}
                 type="url"
                 placeholder="https://competitor.com"
                 value={formData.competitor_url}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                helperText="Reference competitor for content generation and analysis"
+                helperText={t("dialogs.websiteAction.competitorHelp")}
               />
             </Grid>
             <Grid item xs={12}>
@@ -741,12 +743,12 @@ const WebsiteActionModal = ({
                 margin="dense"
                 id="website-local-path-modal"
                 name="local_path"
-                label="Local folder path (Optional)"
+                label={t("dialogs.websiteAction.localPath")}
                 placeholder="/path/to/your/site/outputs/example.com"
                 value={formData.local_path}
                 onChange={handleInputChange}
                 disabled={isSaving}
-                helperText="Local source folder for this site — the working dir for swarm/agent code runs"
+                helperText={t("dialogs.websiteAction.localPathHelp")}
               />
             </Grid>
             <Grid item xs={12}>
@@ -756,7 +758,7 @@ const WebsiteActionModal = ({
                 loading={isLoadingProjects}
                 getOptionLabel={(option) => {
                   if (typeof option === "string") return option;
-                  return option.name || `ID: ${option.id}`;
+                  return option.name || t("dialogs.websiteAction.idFallback", { id: option.id });
                 }}
                 value={formProjectValue}
                 onChange={handleProjectChange}
@@ -773,7 +775,7 @@ const WebsiteActionModal = ({
                   <TextField
                     {...params}
                     required
-                    label="Assign to Project"
+                    label={t("dialogs.websiteAction.assignProject")}
                     variant="outlined"
                     margin="dense"
                     name="project"
@@ -832,11 +834,11 @@ const WebsiteActionModal = ({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Assign to Client (Optional)"
+                    label={t("dialogs.websiteAction.assignClient")}
                     variant="outlined"
                     margin="dense"
                     name="client"
-                    helperText="Select existing client or type to create new."
+                    helperText={t("dialogs.websiteAction.clientHelp")}
                     error={
                       !!(
                         formError &&
@@ -880,19 +882,19 @@ const WebsiteActionModal = ({
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <Alert severity="info">
-                    Connect this website to WordPress via LLAMANATOR2 plugin for secure content management, SEO optimization, and automated publishing.
+                    {t("dialogs.websiteAction.wpIntro")}
                     <br />
-                    <strong>Note:</strong> The LLAMANATOR2 plugin must be installed and activated on your WordPress site. Get the API key from the plugin settings page.
+                    <Trans i18nKey="dialogs.websiteAction.wpNote" components={{ bold: <strong /> }} />
                   </Alert>
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="WordPress Site URL"
+                    label={t("dialogs.websiteAction.wpSiteUrl")}
                     value={wpFormData.url}
                     onChange={(e) => handleWpInputChange("url", e.target.value)}
                     error={!!(wpFormError && wpFormError.toLowerCase().includes("url"))}
-                    helperText="Full URL including https://"
+                    helperText={t("dialogs.websiteAction.wpUrlHelp")}
                     required
                     disabled={isSavingWpSite || isTestingWpConnection}
                   />
@@ -900,24 +902,24 @@ const WebsiteActionModal = ({
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="Site Name (Optional)"
+                    label={t("dialogs.websiteAction.siteName")}
                     value={wpFormData.site_name}
                     onChange={(e) => handleWpInputChange("site_name", e.target.value)}
-                    helperText="Display name for this WordPress site"
+                    helperText={t("dialogs.websiteAction.siteNameHelp")}
                     disabled={isSavingWpSite || isTestingWpConnection}
                   />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
                     fullWidth
-                    label="LLAMANATOR2 API Key"
+                    label={t("dialogs.websiteAction.apiKey")}
                     type="password"
                     value={wpFormData.api_key}
                     onChange={(e) => handleWpInputChange("api_key", e.target.value)}
                     helperText={
                       wpSite
-                        ? "Leave blank to keep existing API key"
-                        : "Get this from LLAMANATOR2 plugin settings page on your WordPress site"
+                        ? t("dialogs.websiteAction.apiKeyKeep")
+                        : t("dialogs.websiteAction.apiKeyHelp")
                     }
                     required={!wpSite}
                     disabled={isSavingWpSite || isTestingWpConnection}
@@ -925,22 +927,24 @@ const WebsiteActionModal = ({
                 </Grid>
                 <Grid item xs={12}>
                   <FormControl fullWidth>
-                    <InputLabel>Status</InputLabel>
+                    <InputLabel>{t("dialogs.websiteAction.status")}</InputLabel>
                     <Select
                       value={wpFormData.status}
-                      label="Status"
+                      label={t("dialogs.websiteAction.status")}
                       onChange={(e) => handleWpInputChange("status", e.target.value)}
                       disabled={isSavingWpSite || isTestingWpConnection}
                     >
-                      <MenuItem value="active">Active</MenuItem>
-                      <MenuItem value="inactive">Inactive</MenuItem>
+                      <MenuItem value="active">{t("dialogs.websiteAction.active")}</MenuItem>
+                      <MenuItem value="inactive">{t("dialogs.websiteAction.inactive")}</MenuItem>
                     </Select>
                   </FormControl>
                 </Grid>
                 {wpSite && (
                   <Grid item xs={12}>
                     <Alert severity="success" icon={<CheckCircleIcon />}>
-                      WordPress site registered. Last tested: {wpSite.last_test_at ? new Date(wpSite.last_test_at).toLocaleString() : "Never"}
+                      {t("dialogs.websiteAction.lastTested", {
+                        date: wpSite.last_test_at ? new Date(wpSite.last_test_at).toLocaleString(uiLocale()) : t("dialogs.websiteAction.never"),
+                      })}
                     </Alert>
                   </Grid>
                 )}
@@ -953,7 +957,7 @@ const WebsiteActionModal = ({
                         onClick={handleTestWpConnection}
                         disabled={isSavingWpSite || isTestingWpConnection}
                       >
-                        {isTestingWpConnection ? "Testing..." : "Test Connection"}
+                        {isTestingWpConnection ? t("dialogs.websiteAction.testing") : t("dialogs.websiteAction.testConnection")}
                       </Button>
                     )}
                     <Button
@@ -961,7 +965,7 @@ const WebsiteActionModal = ({
                       onClick={handleSaveWpSite}
                       disabled={isSavingWpSite || isTestingWpConnection}
                     >
-                      {isSavingWpSite ? "Saving..." : wpSite ? "Update WordPress Site" : "Register WordPress Site"}
+                      {isSavingWpSite ? t("dialogs.websiteAction.saving") : wpSite ? t("dialogs.websiteAction.updateWp") : t("dialogs.websiteAction.registerWp")}
                     </Button>
                   </Box>
                 </Grid>
@@ -986,13 +990,13 @@ const WebsiteActionModal = ({
               }
               sx={{ mr: "auto", color: "text.secondary" }}
             >
-              Delete
+              {t("dialogs.shared.delete")}
             </Button>
           )}
         </Box>
         <Box>
           <Button onClick={onClose} disabled={isSaving} color="inherit">
-            Cancel
+            {t("dialogs.shared.cancel")}
           </Button>
           <Button
             onClick={handleSaveClick}
@@ -1002,9 +1006,9 @@ const WebsiteActionModal = ({
             {isSaving ? (
               <CircularProgress size={24} color="inherit" />
             ) : isEditMode ? (
-              "Save Changes"
+              t("dialogs.websiteAction.saveChanges")
             ) : (
-              "Create Website"
+              t("dialogs.websiteAction.createWebsite")
             )}
           </Button>
         </Box>

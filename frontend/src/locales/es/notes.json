@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Normal",
+    "compact": "Compacto",
+    "collapsed": "Contraído"
+  },
+  "untitled": "Sin título",
+  "note": {
+    "changeColor": "Cambiar color",
+    "close": "Cerrar",
+    "closeNote": "Cerrar nota",
+    "bold": "Negrita (Ctrl+B)",
+    "italic": "Cursiva (Ctrl+I)",
+    "underline": "Subrayado (Ctrl+U)",
+    "insertLink": "Insertar enlace",
+    "bodyPlaceholder": "Escribe tu nota..."
+  },
+  "errors": {
+    "loadFailed": "Error al cargar notas: {{message}}. Usando valores por defecto.",
+    "saveFailed": "Error al guardar notas.",
+    "copyDenied": "No se pudo copiar: permiso de portapapeles denegado",
+    "pasteFailed": "No se pudo pegar: {{message}}",
+    "pasteDenied": "No se pudo pegar: permiso de portapapeles denegado"
+  },
+  "pageTitle": "Notas",
+  "loading": "Cargando notas...",
+  "toolbar": {
+    "searchPlaceholder": "Buscar notas...",
+    "dashboardCards": "Tarjetas del Panel de control",
+    "stickyNotes": "Notas adhesivas",
+    "addNoteTooltip": "Añadir nota",
+    "addNote": "Añadir nota",
+    "closedNotes": "Notas cerradas",
+    "layoutCycle": "Diseño: {{mode}} (haz clic para cambiar)",
+    "layoutMode": "Diseño: {{mode}}",
+    "saving": "Guardando...",
+    "allSaved": "Todos los cambios guardados",
+    "saveFailed": "Error al guardar"
+  },
+  "emptyNote": "Nota vacía",
+  "menu": {
+    "copy": "Copiar",
+    "selectAll": "Seleccionar todo",
+    "paste": "Pegar",
+    "duplicate": "Duplicar",
+    "rename": "Renombrar",
+    "unpin": "Desanclar",
+    "pinToTop": "Anclar arriba"
+  },
+  "actions": {
+    "delete": "Eliminar",
+    "cancel": "Cancelar",
+    "save": "Guardar"
+  },
+  "deleteDialog": {
+    "title": "¿Eliminar \"{{title}}\"? Ctrl+Z lo recupera hasta que salgas o recargues esta página."
+  },
+  "boardMenu": {
+    "newNote": "Nueva nota",
+    "cycleLayout": "Ciclar diseño",
+    "goToDashboard": "Ir al Panel de control"
+  },
+  "renameDialog": {
+    "title": "Renombrar nota",
+    "placeholder": "Título de la nota"
+  },
+  "linkDialog": {
+    "title": "Insertar enlace",
+    "url": "URL",
+    "insert": "Insertar"
+  },
+  "closed": {
+    "justNow": "Ahora mismo",
+    "minutesAgo": "hace {{count}}m",
+    "hoursAgo": "hace {{count}}h",
+    "yesterday": "Ayer",
+    "daysAgo": "hace {{count}}d",
+    "deleteNamed": "Eliminar {{title}}",
+    "heading": "Notas cerradas",
+    "searchPlaceholder": "Buscar notas cerradas...",
+    "empty": "Sin notas cerradas",
+    "noMatches": "Sin coincidencias",
+    "groups": {
+      "today": "Hoy",
+      "yesterday": "Ayer",
+      "thisWeek": "Esta semana",
+      "older": "Anteriores"
+    }
+  }
+}

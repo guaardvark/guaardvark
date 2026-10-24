@@ -23,6 +23,7 @@ import {
 } from "../../api/connectionsService";
 import { defaultVisibility, strictestLimit, visibilityChoices } from "../social/platformRules";
 import PostFields, { scheduledIsoOf, useDebounced } from "../social/PostFields";
+import { translate, useUiTranslation } from "../../i18n";
 
 /**
  * Compose a post and publish selected assets, or text alone when there are
@@ -38,6 +39,7 @@ import PostFields, { scheduledIsoOf, useDebounced } from "../social/PostFields";
 const NO_DOCUMENTS = [];
 
 const PublishModal = ({ open, onClose, documents = NO_DOCUMENTS, onFeedback }) => {
+  const { t } = useUiTranslation();
   const [connections, setConnections] = useState([]);
   const [specs, setSpecs] = useState({});
   const [selected, setSelected] = useState([]);
@@ -220,14 +222,16 @@ const PublishModal = ({ open, onClose, documents = NO_DOCUMENTS, onFeedback }) =
         ai_disclosure: aiDisclosure,
         post_options: postOptions,
       });
-      const verb = scheduledIso ? "Scheduled" : "Queued";
+      const count = result.count;
       onFeedback?.({
         open: true,
         message: result.requires_approval
-          ? `${verb} ${result.count} publish(es) — review them under Approvals.`
+          ? scheduledIso
+            ? translate("dialogs.publish.scheduledForApproval", { count })
+            : translate("dialogs.publish.queuedForApproval", { count })
           : scheduledIso
-            ? `Scheduled ${result.count} publish(es); see them under Social Posts.`
-            : `Publishing to ${result.count} destination(s).`,
+            ? translate("dialogs.publish.scheduled", { count })
+            : translate("dialogs.publish.publishing", { count }),
         severity: "success",
       });
       onClose?.();
@@ -253,8 +257,10 @@ const PublishModal = ({ open, onClose, documents = NO_DOCUMENTS, onFeedback }) =
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
         {documents.length
-          ? `Publish ${documents.length > 1 ? `${documents.length} items` : "asset"}`
-          : "New post"}
+          ? documents.length > 1
+            ? t("dialogs.publish.publishItems", { count: documents.length })
+            : t("dialogs.publish.publishAsset")
+          : t("dialogs.publish.newPost")}
       </DialogTitle>
       <DialogContent dividers>
         {loading ? (
@@ -267,13 +273,13 @@ const PublishModal = ({ open, onClose, documents = NO_DOCUMENTS, onFeedback }) =
 
             {!connections.length && (
               <Alert severity="info">
-                No social accounts yet. Add one on the Social Accounts page first.
+                {t("dialogs.publish.noAccounts")}
               </Alert>
             )}
 
             <Box>
               <Typography variant="subtitle2" gutterBottom>
-                Destinations
+                {t("dialogs.publish.destinations")}
               </Typography>
               <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
                 {connections.map((conn) => {
@@ -296,9 +302,9 @@ const PublishModal = ({ open, onClose, documents = NO_DOCUMENTS, onFeedback }) =
                     />
                   );
                   const reason = !conn.has_credentials
-                    ? "No credentials configured"
+                    ? t("dialogs.publish.noCredentials")
                     : !conn.enabled
-                      ? "Connection disabled"
+                      ? t("dialogs.publish.disabled")
                       : problems[0];
                   return reason ? (
                     <Tooltip key={conn.id} title={reason}>
@@ -320,7 +326,7 @@ const PublishModal = ({ open, onClose, documents = NO_DOCUMENTS, onFeedback }) =
               visibilityTargets={visibilityTargets}
               onVisibilityChange={handleVisibilityChange}
               preflight={preflight}
-              bodyLabel={documents.length ? "Caption" : "Text"}
+              bodyLabel={documents.length ? t("dialogs.publish.caption") : t("dialogs.publish.text")}
             />
 
             {allViolations.length > 0 && (
@@ -338,9 +344,9 @@ const PublishModal = ({ open, onClose, documents = NO_DOCUMENTS, onFeedback }) =
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("dialogs.shared.cancel")}</Button>
         <Button variant="contained" onClick={handlePublish} disabled={!canPublish}>
-          {submitting ? (scheduleOn ? "Scheduling…" : "Publishing…") : scheduleOn ? "Schedule" : "Publish"}
+          {submitting ? (scheduleOn ? t("dialogs.publish.schedulingButton") : t("dialogs.publish.publishingButton")) : scheduleOn ? t("dialogs.publish.schedule") : t("dialogs.publish.publish")}
         </Button>
       </DialogActions>
     </Dialog>

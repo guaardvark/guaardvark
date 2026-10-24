@@ -43,15 +43,16 @@ import { getWebsites } from "../../api/websiteService";
 import { formatUiError } from "../../utils/uiError";
 import { generateStructuredCSV } from "../../api/bulkGenerationService";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
+import { translate, useUiTranslation } from "../../i18n";
 
-const TASK_TYPES = [
-  { value: "file_generation", label: "File Generation (CSV)", description: "Generate CSV files with bulk content" },
-  { value: "code_generation", label: "Code Generation", description: "Generate .jsx, .py, .js, and other code files" },
-  { value: "content_generation", label: "Content Generation", description: "Generate individual content pieces" },
-  { value: "bulk_content_generation", label: "Bulk Content Generation", description: "Generate bulk content with multiple items" },
-  { value: "data_analysis", label: "Data Analysis", description: "Analyze and process data" },
-  { value: "website_analysis", label: "Website Analysis", description: "Analyze website content and structure" },
-  { value: "custom", label: "Custom Task", description: "Custom task configuration" },
+const taskTypes = () => [
+  { value: "file_generation", label: translate("dialogs.taskAction.types.fileGeneration"), description: translate("dialogs.taskAction.types.fileGenerationDescription") },
+  { value: "code_generation", label: translate("dialogs.taskAction.types.codeGeneration"), description: translate("dialogs.taskAction.types.codeGenerationDescription") },
+  { value: "content_generation", label: translate("dialogs.taskAction.types.contentGeneration"), description: translate("dialogs.taskAction.types.contentGenerationDescription") },
+  { value: "bulk_content_generation", label: translate("dialogs.taskAction.types.bulkContentGeneration"), description: translate("dialogs.taskAction.types.bulkContentGenerationDescription") },
+  { value: "data_analysis", label: translate("dialogs.taskAction.types.dataAnalysis"), description: translate("dialogs.taskAction.types.dataAnalysisDescription") },
+  { value: "website_analysis", label: translate("dialogs.taskAction.types.websiteAnalysis"), description: translate("dialogs.taskAction.types.websiteAnalysisDescription") },
+  { value: "custom", label: translate("dialogs.taskAction.types.custom"), description: translate("dialogs.taskAction.types.customDescription") },
 ];
 
 const TaskActionModal = ({
@@ -65,6 +66,7 @@ const TaskActionModal = ({
   onTaskDuplicated, // Callback for when task is duplicated
   defaults = null, // New task only: { project_id, client_id, client_name, website_id } to start from
 }) => {
+  const { t } = useUiTranslation();
   const [formData, setFormData] = useState({
     id: null,
     name: "",
@@ -156,7 +158,7 @@ const TaskActionModal = ({
     } catch (err) {
       console.error("Error fetching projects:", err);
       setProjects([]);
-      setFormError(`Failed to load projects: ${err.message}`);
+      setFormError(translate("dialogs.taskAction.errors.loadProjects", { error: err.message }));
     } finally {
       setIsLoadingProjects(false);
     }
@@ -174,7 +176,7 @@ const TaskActionModal = ({
     } catch (err) {
       console.error("Error fetching models:", err);
       setAvailableModels([]);
-      noteLookup("models", `Models could not be loaded: ${err.message}`);
+      noteLookup("models", translate("dialogs.taskAction.errors.loadModels", { error: err.message }));
     } finally {
       setIsLoadingModels(false);
     }
@@ -188,7 +190,7 @@ const TaskActionModal = ({
       if (rulesList.error) {
         console.error("Failed to fetch rules:", rulesList.error);
         setAvailableRules([]);
-        noteLookup("rules", `Rules could not be loaded: ${formatUiError(rulesList.error)}`);
+        noteLookup("rules", translate("dialogs.taskAction.errors.loadRules", { error: formatUiError(rulesList.error) }));
       } else {
         setAvailableRules(rulesList);
         noteLookup("rules", null);
@@ -196,7 +198,7 @@ const TaskActionModal = ({
     } catch (err) {
       console.error("Failed to fetch rules:", err);
       setAvailableRules([]);
-      noteLookup("rules", `Rules could not be loaded: ${formatUiError(err)}`);
+      noteLookup("rules", translate("dialogs.taskAction.errors.loadRules", { error: formatUiError(err) }));
     } finally {
       setIsLoadingRules(false);
     }
@@ -210,7 +212,7 @@ const TaskActionModal = ({
       if (websitesList.error) {
         console.error("Failed to fetch websites:", websitesList.error);
         setAvailableWebsites([]);
-        noteLookup("websites", `Websites could not be loaded: ${formatUiError(websitesList.error)}`);
+        noteLookup("websites", translate("dialogs.taskAction.errors.loadWebsites", { error: formatUiError(websitesList.error) }));
       } else {
         setAvailableWebsites(Array.isArray(websitesList) ? websitesList : []);
         noteLookup("websites", null);
@@ -218,7 +220,7 @@ const TaskActionModal = ({
     } catch (err) {
       console.error("Failed to fetch websites:", err);
       setAvailableWebsites([]);
-      noteLookup("websites", `Websites could not be loaded: ${formatUiError(err)}`);
+      noteLookup("websites", translate("dialogs.taskAction.errors.loadWebsites", { error: formatUiError(err) }));
     } finally {
       setIsLoadingWebsites(false);
     }
@@ -461,34 +463,34 @@ const TaskActionModal = ({
   // Validation function
   const validateForm = () => {
     if (!formData.name.trim()) {
-      return "Task name is required";
+      return t("dialogs.taskAction.errors.nameRequired");
     }
     
     if (isFileGeneration) {
       if (!formData.client_name.trim()) {
-        return "Client name is required for file generation";
+        return t("dialogs.taskAction.errors.clientRequired");
       }
       if (!formData.output_filename.trim()) {
-        return "Output filename is required for file generation";
+        return t("dialogs.taskAction.errors.fileOutputRequired");
       }
       if (formData.page_count < 1 || formData.page_count > 1000) {
-        return "Page count must be between 1 and 1000";
+        return t("dialogs.taskAction.errors.pageCountRange");
       }
     }
 
     if (isCodeGeneration) {
       if (!formData.output_filename.trim()) {
-        return "Output filename is required for code generation";
+        return t("dialogs.taskAction.errors.codeOutputRequired");
       }
       if (!formData.description.trim()) {
-        return "Description is required for code generation";
+        return t("dialogs.taskAction.errors.codeDescriptionRequired");
       }
       // Validate file extension for code generation
       const filename = formData.output_filename.toLowerCase();
       if (!filename.endsWith('.jsx') && !filename.endsWith('.py') && !filename.endsWith('.js') &&
           !filename.endsWith('.ts') && !filename.endsWith('.tsx') && !filename.endsWith('.html') &&
           !filename.endsWith('.css') && !filename.endsWith('.php')) {
-        return "Code generation requires a valid code file extension (.jsx, .py, .js, .ts, .tsx, .html, .css, .php)";
+        return t("dialogs.taskAction.errors.codeExtension");
       }
     }
     
@@ -518,10 +520,10 @@ const TaskActionModal = ({
             finalProjectId = newProject.id;
             await fetchProjects();
           } else {
-            throw new Error(newProject.error || "Failed to create new project");
+            throw new Error(newProject.error || t("dialogs.taskAction.errors.createProjectFailed"));
           }
         } catch (err) {
-          setFormError(`Project creation error: ${err.message}`);
+          setFormError(t("dialogs.taskAction.errors.projectCreation", { error: err.message }));
           return;
         }
       }
@@ -602,7 +604,7 @@ const TaskActionModal = ({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: "failed" }),
           }).catch(() => {});
-          setFormError(`Task created successfully, but failed to start job: ${jobError.message}`);
+          setFormError(t("dialogs.taskAction.errors.jobStartAfterCreate", { error: jobError.message }));
           setIsCreatingJob(false);
           return;
         }
@@ -616,7 +618,7 @@ const TaskActionModal = ({
 
       onClose();
     } catch (err) {
-      setFormError(`Failed to ${isEditMode ? 'update' : 'create'} task: ${err.message}`);
+      setFormError(isEditMode ? t("dialogs.taskAction.errors.updateFailed", { error: err.message }) : t("dialogs.taskAction.errors.createFailed", { error: err.message }));
     }
   };
 
@@ -633,7 +635,7 @@ const TaskActionModal = ({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to start code generation task');
+        throw new Error(error.error || t("dialogs.taskAction.errors.startCodeGeneration"));
       }
 
       const result = await response.json();
@@ -649,7 +651,7 @@ const TaskActionModal = ({
   const startFileGenerationJob = async (task) => {
     // BUG FIX #10: Validate page_count and other required fields
     if (!task || !task.id) {
-      throw new Error('Invalid task data');
+      throw new Error(t("dialogs.taskAction.errors.invalidTask"));
     }
 
     const pageCount = task.page_count && typeof task.page_count === 'number' && task.page_count > 0
@@ -715,7 +717,7 @@ const TaskActionModal = ({
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to start task');
+        throw new Error(errorData.error || t("dialogs.taskAction.errors.startTaskFallback"));
       }
       
       const result = await response.json();
@@ -727,7 +729,7 @@ const TaskActionModal = ({
       }
       
     } catch (err) {
-      setFormError(`Failed to start task: ${err.message}`);
+      setFormError(t("dialogs.taskAction.errors.startTask", { error: err.message }));
     } finally {
       setIsStartingJob(false);
     }
@@ -745,7 +747,7 @@ const TaskActionModal = ({
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to stop job');
+        throw new Error(errorData.error || t("dialogs.taskAction.errors.stopJobFallback"));
       }
       
       setFormError(null);
@@ -754,7 +756,7 @@ const TaskActionModal = ({
       setFormData(prev => ({ ...prev, status: 'cancelled' }));
       
     } catch (err) {
-      setFormError(`Failed to stop job: ${err.message}`);
+      setFormError(t("dialogs.taskAction.errors.stopJob", { error: err.message }));
     } finally {
       setIsStoppingJob(false);
     }
@@ -772,7 +774,7 @@ const TaskActionModal = ({
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to duplicate task');
+        throw new Error(errorData.error || t("dialogs.taskAction.errors.duplicateFallback"));
       }
       
       const result = await response.json();
@@ -783,7 +785,7 @@ const TaskActionModal = ({
       }
       
     } catch (err) {
-      setFormError(`Failed to duplicate task: ${err.message}`);
+      setFormError(t("dialogs.taskAction.errors.duplicate", { error: err.message }));
     } finally {
       setIsDuplicating(false);
     }
@@ -792,7 +794,7 @@ const TaskActionModal = ({
   const handleDeleteTask = async () => {
     if (!taskData?.id) return;
     
-    const confirmed = window.confirm(`Are you sure you want to delete task "${taskData.name}"? This action cannot be undone.`);
+    const confirmed = window.confirm(t("dialogs.taskAction.deleteConfirm", { name: taskData.name }));
     if (!confirmed) return;
     
     setIsDeleting(true);
@@ -804,7 +806,7 @@ const TaskActionModal = ({
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to delete task');
+        throw new Error(errorData.error || t("dialogs.taskAction.errors.deleteFallback"));
       }
       
       setFormError(null);
@@ -816,7 +818,7 @@ const TaskActionModal = ({
       onClose();
       
     } catch (err) {
-      setFormError(`Failed to delete task: ${err.message}`);
+      setFormError(t("dialogs.taskAction.errors.delete", { error: err.message }));
     } finally {
       setIsDeleting(false);
     }
@@ -830,7 +832,7 @@ const TaskActionModal = ({
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to download file');
+        throw new Error(errorData.error || t("dialogs.taskAction.errors.downloadFallback"));
       }
       
       // Create blob and download
@@ -845,15 +847,15 @@ const TaskActionModal = ({
       document.body.removeChild(a);
       
     } catch (err) {
-      setFormError(`Failed to download file: ${err.message}`);
+      setFormError(t("dialogs.taskAction.errors.download", { error: err.message }));
     }
   };
 
   const getTitleText = () => {
     if (isEditMode) {
-      return `Manage Task: ${formData.name || "N/A"}`;
+      return t("dialogs.taskAction.manageTitle", { name: formData.name || t("dialogs.taskAction.notAvailable") });
     }
-    return isFileGeneration ? "Create File Generation Task" : "Create New Task";
+    return isFileGeneration ? t("dialogs.taskAction.createFileTitle") : t("dialogs.taskAction.createTitle");
   };
 
   const anyActionInProgress = isSaving || isCreatingJob || isDeleting || isDuplicating || isStartingJob || isStoppingJob;
@@ -906,7 +908,7 @@ const TaskActionModal = ({
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <InfoIcon />
-                Task Management
+                {t("dialogs.taskAction.taskManagement")}
               </Typography>
               
               {/* Real-time Status and Progress */}
@@ -914,10 +916,10 @@ const TaskActionModal = ({
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Status:
+                      {t("dialogs.taskAction.status")}:
                     </Typography>
                     <Chip
-                      label={realTimeStatus || 'Unknown'}
+                      label={realTimeStatus || t("dialogs.taskAction.unknown")}
                       size="small"
                       color={
                         isCompleted ? 'success' :
@@ -929,7 +931,7 @@ const TaskActionModal = ({
                   </Box>
                   {taskData?.job_id && (
                     <Typography variant="caption" color="text.secondary">
-                      Job ID: {taskData.job_id}
+                      {t("dialogs.taskAction.jobId", { id: taskData.job_id })}
                     </Typography>
                   )}
                 </Box>
@@ -938,10 +940,10 @@ const TaskActionModal = ({
                   <Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Typography variant="body2" color="text.secondary">
-                        Progress: {realTimeProgress}%
+                        {t("dialogs.taskAction.progress", { progress: realTimeProgress })}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {processData?.message || 'Processing...'}
+                        {processData?.message || t("dialogs.taskAction.processing")}
                       </Typography>
                     </Box>
                     <LinearProgress 
@@ -957,16 +959,14 @@ const TaskActionModal = ({
               {taskData?.output_filename && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Output File: {taskData.output_filename}
+                    {t("dialogs.taskAction.outputFile", { name: taskData.output_filename })}
                   </Typography>
                   {isLoadingFileInfo ? (
                     <CircularProgress size={20} />
                   ) : fileInfo ? (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Typography variant="body2" color="text.secondary">
-                        Size: {fileInfo.file_size_mb} MB | 
-                        Type: {fileInfo.file_type} | 
-                        Status: {fileInfo.task_status}
+                        {t("dialogs.taskAction.fileDetails", { size: fileInfo.file_size_mb, type: fileInfo.file_type, status: fileInfo.task_status })}
                       </Typography>
                       {fileInfo.can_download && (
                         <Button
@@ -975,13 +975,13 @@ const TaskActionModal = ({
                           onClick={handleDownloadFile}
                           disabled={anyActionInProgress}
                         >
-                          Download
+                          {t("dialogs.shared.download")}
                         </Button>
                       )}
                     </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
-                      File not yet generated
+                      {t("dialogs.taskAction.notGenerated")}
                     </Typography>
                   )}
                 </Box>
@@ -1003,7 +1003,7 @@ const TaskActionModal = ({
                         disabled={anyActionInProgress}
                         size="small"
                       >
-                        {isStartingJob ? <CircularProgress size={16} /> : 'Start Job'}
+                        {isStartingJob ? <CircularProgress size={16} /> : t("dialogs.taskAction.startJob")}
                       </Button>
                     ) : (
                       <Button
@@ -1014,7 +1014,7 @@ const TaskActionModal = ({
                         disabled={anyActionInProgress}
                         size="small"
                       >
-                        {isStoppingJob ? <CircularProgress size={16} /> : 'Stop Job'}
+                        {isStoppingJob ? <CircularProgress size={16} /> : t("dialogs.taskAction.stopJob")}
                       </Button>
                     )}
                   </>
@@ -1028,7 +1028,7 @@ const TaskActionModal = ({
                   disabled={anyActionInProgress}
                   size="small"
                 >
-                  {isDuplicating ? <CircularProgress size={16} /> : 'Duplicate'}
+                  {isDuplicating ? <CircularProgress size={16} /> : t("dialogs.taskAction.duplicate")}
                 </Button>
 
                 <Button
@@ -1038,7 +1038,7 @@ const TaskActionModal = ({
                   disabled={anyActionInProgress}
                   size="small"
                 >
-                  {isDeleting ? <CircularProgress size={16} /> : 'Delete'}
+                  {isDeleting ? <CircularProgress size={16} /> : t("dialogs.shared.delete")}
                 </Button>
               </Box>
             </CardContent>
@@ -1052,7 +1052,7 @@ const TaskActionModal = ({
               <TextField
                 fullWidth
                 margin="dense"
-                label="Task Name"
+                label={t("dialogs.taskAction.taskName")}
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
@@ -1062,15 +1062,15 @@ const TaskActionModal = ({
             </Grid>
             <Grid item xs={12} md={4}>
               <FormControl fullWidth margin="dense">
-                <InputLabel>Task Type</InputLabel>
+                <InputLabel>{t("dialogs.taskAction.taskType")}</InputLabel>
                 <Select
                   name="type"
                   value={formData.type}
                   onChange={handleInputChange}
                   disabled={anyActionInProgress}
-                  label="Task Type"
+                  label={t("dialogs.taskAction.taskType")}
                 >
-                  {TASK_TYPES.map((type) => (
+                  {taskTypes().map((type) => (
                     <MenuItem key={type.value} value={type.value}>
                       <Box>
                         <Typography variant="body2">{type.label}</Typography>
@@ -1088,7 +1088,7 @@ const TaskActionModal = ({
               <TextField
                 fullWidth
                 margin="dense"
-                label={['code_generation', 'content_generation', 'data_analysis'].includes(formData.type) ? 'Prompt' : 'Description'}
+                label={['code_generation', 'content_generation', 'data_analysis'].includes(formData.type) ? t("dialogs.taskAction.prompt") : t("dialogs.taskAction.description")}
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
@@ -1105,7 +1105,7 @@ const TaskActionModal = ({
                 loading={isLoadingProjects}
                 getOptionLabel={(option) => {
                   if (typeof option === "string") return option;
-                  return option.name || `ID: ${option.id}`;
+                  return option.name || t("dialogs.taskAction.projectId", { id: option.id });
                 }}
                 value={formProjectValue}
                 onChange={handleProjectChange}
@@ -1113,7 +1113,7 @@ const TaskActionModal = ({
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Project (Optional)"
+                    label={t("dialogs.taskAction.project")}
                     margin="dense"
                     InputProps={{
                       ...params.InputProps,
@@ -1133,15 +1133,15 @@ const TaskActionModal = ({
               <Autocomplete
                 options={availableRules}
                 loading={isLoadingRules}
-                getOptionLabel={(option) => option.name || `Rule ${option.id}`}
+                getOptionLabel={(option) => option.name || t("dialogs.taskAction.ruleId", { id: option.id })}
                 value={formRuleValue}
                 onChange={handleRuleChange}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Prompt Rule (Optional)"
+                    label={t("dialogs.taskAction.promptRule")}
                     margin="dense"
-                    helperText="Select a rule from RulesPage for prompt-based tasks"
+                    helperText={t("dialogs.taskAction.promptRuleHelp")}
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -1172,7 +1172,7 @@ const TaskActionModal = ({
               <>
                 <Grid item xs={12}>
                   <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                    {isFileGeneration ? "File Generation Settings" : "Code Generation Settings"}
+                    {isFileGeneration ? t("dialogs.taskAction.fileSettings") : t("dialogs.taskAction.codeSettings")}
                   </Typography>
                 </Grid>
                 {isFileGeneration && (
@@ -1183,16 +1183,16 @@ const TaskActionModal = ({
                       loading={isLoadingWebsites}
                     getOptionLabel={(option) => {
                       if (typeof option === "string") return option;
-                      return option.url || `Website ${option.id}`;
+                      return option.url || t("dialogs.taskAction.websiteId", { id: option.id });
                     }}
                     value={selectedWebsite}
                     onChange={handleWebsiteSelection}
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Select Website (Auto-fills client & filename)"
+                        label={t("dialogs.taskAction.selectWebsite")}
                         margin="dense"
-                        helperText="Choose from existing websites to auto-populate client and filename"
+                        helperText={t("dialogs.taskAction.selectWebsiteHelp")}
                         InputProps={{
                           ...params.InputProps,
                           endAdornment: (
@@ -1209,7 +1209,7 @@ const TaskActionModal = ({
                         <Box>
                           <Typography variant="body2">{option.url}</Typography>
                           <Typography variant="caption" color="text.secondary">
-                            Client: {option.client?.name || 'Unknown'} | Project: {option.project?.name || 'Unknown'}
+                            {t("dialogs.taskAction.websiteOption", { client: option.client?.name || t("dialogs.taskAction.unknown"), project: option.project?.name || t("dialogs.taskAction.unknown") })}
                           </Typography>
                         </Box>
                       </Box>
@@ -1221,33 +1221,33 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Client Name"
+                    label={t("dialogs.taskAction.clientName")}
                     name="client_name"
                     value={formData.client_name}
                     onChange={handleInputChange}
                     disabled={anyActionInProgress}
                     required
-                    helperText="Auto-filled when website is selected"
+                    helperText={t("dialogs.taskAction.clientNameHelp")}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Target Website"
+                    label={t("dialogs.taskAction.targetWebsite")}
                     name="target_website"
                     value={formData.target_website}
                     onChange={handleInputChange}
                     disabled={anyActionInProgress}
                     placeholder="https://example.com"
-                    helperText="Auto-filled when website is selected, or enter manually"
+                    helperText={t("dialogs.taskAction.targetWebsiteHelp")}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Page Count"
+                    label={t("dialogs.taskAction.pageCount")}
                     name="page_count"
                     type="number"
                     value={formData.page_count}
@@ -1262,12 +1262,12 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Client Website"
+                    label={t("dialogs.taskAction.clientWebsite")}
                     value={clientWebsite}
                     onChange={(e) => setClientWebsite(e.target.value)}
                     disabled={anyActionInProgress}
                     placeholder="https://client-website.com"
-                    helperText="The client's own website"
+                    helperText={t("dialogs.taskAction.clientWebsiteHelp")}
                   />
                 </Grid>
 
@@ -1276,21 +1276,21 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Items/Topics (one per line)"
+                    label={t("dialogs.taskAction.items")}
                     multiline
                     rows={4}
                     value={batchItems}
                     onChange={(e) => setBatchItems(e.target.value)}
                     disabled={anyActionInProgress}
                     placeholder="Tampa\nOrlando\nMiami\nJacksonville"
-                    helperText="Enter each item/topic on a separate line"
+                    helperText={t("dialogs.taskAction.itemsHelp")}
                   />
                 </Grid>
 
                 {/* BUG FIX #2 & #3: Add Insert Content and Position fields */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Content Insertion
+                    {t("dialogs.taskAction.contentInsertion")}
                   </Typography>
                   <FormControl component="fieldset" disabled={anyActionInProgress}>
                     <RadioGroup
@@ -1298,9 +1298,9 @@ const TaskActionModal = ({
                       value={insertPosition}
                       onChange={(e) => setInsertPosition(e.target.value)}
                     >
-                      <FormControlLabel value="none" control={<Radio />} label="No Insert" />
-                      <FormControlLabel value="top" control={<Radio />} label="Top (Before AI Content)" />
-                      <FormControlLabel value="bottom" control={<Radio />} label="Bottom (After AI Content)" />
+                      <FormControlLabel value="none" control={<Radio />} label={t("dialogs.taskAction.noInsert")} />
+                      <FormControlLabel value="top" control={<Radio />} label={t("dialogs.taskAction.insertTop")} />
+                      <FormControlLabel value="bottom" control={<Radio />} label={t("dialogs.taskAction.insertBottom")} />
                     </RadioGroup>
                   </FormControl>
                 </Grid>
@@ -1310,14 +1310,14 @@ const TaskActionModal = ({
                     <TextField
                       fullWidth
                       margin="dense"
-                      label="Insert Content"
+                      label={t("dialogs.taskAction.insertContent")}
                       multiline
                       rows={3}
                       value={insertContent}
                       onChange={(e) => setInsertContent(e.target.value)}
                       disabled={anyActionInProgress}
-                      placeholder="Enter content to insert into each page"
-                      helperText="This content will be added to each generated page"
+                      placeholder={t("dialogs.taskAction.insertPlaceholder")}
+                      helperText={t("dialogs.taskAction.insertHelp")}
                     />
                   </Grid>
                 )}
@@ -1325,7 +1325,7 @@ const TaskActionModal = ({
                 {/* Enhanced CSV Generation Parameters (Phase 1) */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>
-                    Advanced Generation Settings
+                    {t("dialogs.taskAction.advancedSettings")}
                   </Typography>
                 </Grid>
 
@@ -1333,12 +1333,12 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Competitor URL"
+                    label={t("dialogs.taskAction.competitorUrl")}
                     value={competitorUrl}
                     onChange={(e) => setCompetitorUrl(e.target.value)}
                     disabled={anyActionInProgress}
                     placeholder="https://competitor-website.com"
-                    helperText="Optional competitor website for analysis"
+                    helperText={t("dialogs.taskAction.competitorHelp")}
                   />
                 </Grid>
 
@@ -1346,13 +1346,13 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Target Word Count"
+                    label={t("dialogs.taskAction.wordCount")}
                     type="number"
                     value={targetWordCount}
                     onChange={(e) => setTargetWordCount(parseInt(e.target.value) || 1000)}
                     disabled={anyActionInProgress}
                     inputProps={{ min: 100, max: 5000 }}
-                    helperText="Words per content item (100-5000)"
+                    helperText={t("dialogs.taskAction.wordCountHelp")}
                   />
                 </Grid>
 
@@ -1360,14 +1360,14 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Client Notes"
+                    label={t("dialogs.taskAction.clientNotes")}
                     multiline
                     rows={3}
                     value={clientNotes}
                     onChange={(e) => setClientNotes(e.target.value)}
                     disabled={anyActionInProgress}
-                    placeholder="Enter business description, keywords, target audience, etc."
-                    helperText="Additional context about the client's business for better content generation"
+                    placeholder={t("dialogs.taskAction.clientNotesPlaceholder")}
+                    helperText={t("dialogs.taskAction.clientNotesHelp")}
                   />
                 </Grid>
 
@@ -1375,13 +1375,13 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Concurrent Workers"
+                    label={t("dialogs.taskAction.workers")}
                     type="number"
                     value={concurrentWorkers}
                     onChange={(e) => setConcurrentWorkers(parseInt(e.target.value) || 3)}
                     disabled={anyActionInProgress}
                     inputProps={{ min: 1, max: 10 }}
-                    helperText="Parallel processing (1-10, higher = faster but more resource intensive)"
+                    helperText={t("dialogs.taskAction.workersHelp")}
                   />
                 </Grid>
 
@@ -1389,13 +1389,13 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Batch Size"
+                    label={t("dialogs.taskAction.batchSize")}
                     type="number"
                     value={batchSize}
                     onChange={(e) => setBatchSize(parseInt(e.target.value) || 10)}
                     disabled={anyActionInProgress}
                     inputProps={{ min: 1, max: 50 }}
-                    helperText="Items per batch (1-50)"
+                    helperText={t("dialogs.taskAction.batchSizeHelp")}
                   />
                 </Grid>
                   </>
@@ -1406,27 +1406,27 @@ const TaskActionModal = ({
                   <TextField
                     fullWidth
                     margin="dense"
-                    label="Output Filename"
+                    label={t("dialogs.taskAction.outputFilename")}
                     name="output_filename"
                     value={formData.output_filename}
                     onChange={handleInputChange}
                     disabled={anyActionInProgress}
                     required
-                    helperText={isCodeGeneration ? "Include file extension (.jsx, .py, .js, etc.)" : ""}
+                    helperText={isCodeGeneration ? t("dialogs.taskAction.outputFilenameHelp") : ""}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <FormControl fullWidth margin="dense">
-                    <InputLabel>Model (Optional)</InputLabel>
+                    <InputLabel>{t("dialogs.taskAction.model")}</InputLabel>
                     <Select
                       name="model_name"
                       value={formData.model_name}
                       onChange={handleInputChange}
                       disabled={anyActionInProgress || isLoadingModels}
-                      label="Model (Optional)"
+                      label={t("dialogs.taskAction.model")}
                     >
                       <MenuItem value="">
-                        <em>Use Default Model</em>
+                        <em>{t("dialogs.taskAction.defaultModel")}</em>
                       </MenuItem>
                       {availableModels.map((model) => (
                         <MenuItem key={model.name} value={model.name}>
@@ -1437,7 +1437,7 @@ const TaskActionModal = ({
                       {formData.model_name && 
                        !availableModels.find(m => m.name === formData.model_name) && (
                         <MenuItem value={formData.model_name}>
-                          {formData.model_name} (not available)
+                          {t("dialogs.taskAction.modelUnavailable", { model: formData.model_name })}
                         </MenuItem>
                       )}
                     </Select>
@@ -1452,7 +1452,7 @@ const TaskActionModal = ({
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <PlayArrowIcon fontSize="small" />
                   <Typography variant="body2">
-                    Auto-start job after creating task
+                    {t("dialogs.taskAction.autoStart")}
                   </Typography>
                 </Box>
               </Grid>
@@ -1465,27 +1465,27 @@ const TaskActionModal = ({
         <Box>
           {isCreatingJob && (
             <Typography variant="body2" color="text.secondary">
-              Creating task and starting job...
+              {t("dialogs.taskAction.creatingAndStarting")}
             </Typography>
           )}
           {isStartingJob && (
             <Typography variant="body2" color="text.secondary">
-              Starting job...
+              {t("dialogs.taskAction.startingJob")}
             </Typography>
           )}
           {isStoppingJob && (
             <Typography variant="body2" color="text.secondary">
-              Stopping job...
+              {t("dialogs.taskAction.stoppingJob")}
             </Typography>
           )}
           {isDuplicating && (
             <Typography variant="body2" color="text.secondary">
-              Duplicating task...
+              {t("dialogs.taskAction.duplicating")}
             </Typography>
           )}
           {isDeleting && (
             <Typography variant="body2" color="text.secondary">
-              Deleting task...
+              {t("dialogs.taskAction.deleting")}
             </Typography>
           )}
         </Box>
@@ -1495,7 +1495,7 @@ const TaskActionModal = ({
             disabled={anyActionInProgress}
             color="inherit"
           >
-            {isEditMode ? "Close" : "Cancel"}
+            {isEditMode ? t("dialogs.shared.close") : t("dialogs.shared.cancel")}
           </Button>
           {!isEditMode && (
             <Button
@@ -1504,7 +1504,7 @@ const TaskActionModal = ({
               disabled={anyActionInProgress}
               startIcon={anyActionInProgress ? <CircularProgress size={20} /> : null}
             >
-              {(isFileGeneration || isCodeGeneration) && formData.auto_start_job ? "Create & Start Job" : "Create Task"}
+              {(isFileGeneration || isCodeGeneration) && formData.auto_start_job ? t("dialogs.taskAction.createAndStart") : t("dialogs.taskAction.createTask")}
             </Button>
           )}
           {isEditMode && (
@@ -1514,7 +1514,7 @@ const TaskActionModal = ({
               disabled={anyActionInProgress}
               startIcon={anyActionInProgress ? <CircularProgress size={20} /> : null}
             >
-              Save Changes
+              {t("dialogs.taskAction.saveChanges")}
             </Button>
           )}
         </Box>

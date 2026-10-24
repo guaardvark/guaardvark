@@ -4,8 +4,10 @@ import { Box, IconButton, Tooltip } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import RemoveIcon from '@mui/icons-material/Remove';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
+import { useUiTranslation } from '../../i18n';
 
 const WindowControls = () => {
+  const { t } = useUiTranslation();
   const [isMinimized, setIsMinimized] = useState(false);
   const [isKioskMode, setIsKioskMode] = useState(false);
 
@@ -28,7 +30,7 @@ const WindowControls = () => {
       }
       // If still can't close, show alert
       setTimeout(() => {
-        alert('To close the application, press Alt+F4 or use your system window controls.');
+        alert(t('layout.windowControls.closeHint'));
       }, 100);
     }
   };
@@ -88,7 +90,7 @@ const WindowControls = () => {
           box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
           transition: all 0.2s ease;
         `;
-        indicator.textContent = 'Click to restore window';
+        indicator.textContent = t('layout.windowControls.restore');
         indicator.onmouseenter = () => {
           indicator.style.background = 'rgba(25, 118, 210, 1)';
           indicator.style.transform = 'scale(1.05)';
@@ -208,7 +210,7 @@ const WindowControls = () => {
       }}
     >
       {isKioskMode && (
-        <Tooltip title="Exit Kiosk Mode (F11)">
+        <Tooltip title={t('layout.windowControls.exitKiosk')}>
           <IconButton
             size="small"
             onClick={handleExitKiosk}
@@ -223,7 +225,7 @@ const WindowControls = () => {
           </IconButton>
         </Tooltip>
       )}
-      <Tooltip title="Minimize Window (Hide Content)">
+      <Tooltip title={t('layout.windowControls.minimize')}>
         <IconButton
           size="small"
           onClick={handleMinimize}
@@ -231,7 +233,7 @@ const WindowControls = () => {
           <RemoveIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      <Tooltip title="Close Application (Ctrl+Q or Alt+F4)">
+      <Tooltip title={t('layout.windowControls.close')}>
         <IconButton
           size="small"
           onClick={handleClose}

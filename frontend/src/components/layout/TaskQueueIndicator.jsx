@@ -28,10 +28,12 @@ import {
     Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
+import { uiLocale, useUiTranslation } from '../../i18n';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const TaskQueueIndicator = ({ compact = true }) => {
+    const { t } = useUiTranslation();
     const theme = useTheme();
     const { socketRef, activeProcesses, globalProgress } = useUnifiedProgress();
     const [anchorEl, setAnchorEl] = useState(null);
@@ -62,7 +64,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
             if (data.success) {
                 setQueueData(data.data);
             } else {
-                setError(data.message || 'Failed to fetch queue data');
+                setError(data.message || t('layout.taskQueue.fetchFailed'));
             }
         } catch (err) {
             console.error('TaskQueueIndicator: Failed to fetch queue summary:', err);
@@ -144,7 +146,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
     if (compact) {
         return (
             <>
-                <Tooltip title={`Task Queue: ${running} running, ${pending} pending`}>
+                <Tooltip title={t('layout.taskQueue.summary', { running, pending })}>
                     <Box
                         onClick={handleClick}
                         sx={{
@@ -188,7 +190,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                     color: theme.palette.info.main
                                 }}
                             >
-                                {running} running
+                                {t('layout.taskQueue.runningCount', { count: running })}
                             </Typography>
                         )}
                     </Box>
@@ -217,7 +219,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
                     <Box sx={{ p: 1.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                             <Typography variant="subtitle2" fontWeight="bold">
-                                Task Queue
+                                {t('layout.taskQueue.title')}
                             </Typography>
                             <IconButton size="small" onClick={fetchQueueSummary} disabled={loading}>
                                 <RefreshIcon sx={{ fontSize: '1rem' }} />
@@ -238,21 +240,21 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                 <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1.5 }}>
                                     <Chip
                                         icon={<RunningIcon sx={{ fontSize: '0.9rem' }} />}
-                                        label={`${running} Running`}
+                                        label={t('layout.taskQueue.runningChip', { count: running })}
                                         size="small"
                                         color={running > 0 ? "info" : "default"}
                                         variant={running > 0 ? "filled" : "outlined"}
                                     />
                                     <Chip
                                         icon={<ScheduledIcon sx={{ fontSize: '0.9rem' }} />}
-                                        label={`${pending} Pending`}
+                                        label={t('layout.taskQueue.pendingChip', { count: pending })}
                                         size="small"
                                         color={pending > 0 ? "warning" : "default"}
                                         variant={pending > 0 ? "filled" : "outlined"}
                                     />
                                     <Chip
                                         icon={<CompletedIcon sx={{ fontSize: '0.9rem' }} />}
-                                        label={`${queueData.queue_summary?.completed_today || 0} Today`}
+                                        label={t('layout.taskQueue.todayChip', { count: queueData.queue_summary?.completed_today || 0 })}
                                         size="small"
                                         color="success"
                                         variant="outlined"
@@ -260,7 +262,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                     {(queueData.queue_summary?.failed_today || 0) > 0 && (
                                         <Chip
                                             icon={<ErrorIcon sx={{ fontSize: '0.9rem' }} />}
-                                            label={`${queueData.queue_summary.failed_today} Failed`}
+                                            label={t('layout.taskQueue.failedChip', { count: queueData.queue_summary.failed_today })}
                                             size="small"
                                             color="error"
                                             variant="outlined"
@@ -274,7 +276,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                 {queueData.running_tasks && queueData.running_tasks.length > 0 && (
                                     <>
                                         <Typography variant="caption" color="text.secondary" fontWeight="bold">
-                                            Active Tasks
+                                            {t('layout.taskQueue.activeTasks')}
                                         </Typography>
                                         <List dense sx={{ py: 0 }}>
                                             {queueData.running_tasks.map((task) => (
@@ -321,8 +323,10 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                     <>
                                         <Divider sx={{ my: 1 }} />
                                         <Typography variant="caption" color="text.secondary">
-                                            Next scheduled: {queueData.next_scheduled.handler} at{' '}
-                                            {new Date(queueData.next_scheduled.next_run_at).toLocaleTimeString()}
+                                            {t('layout.taskQueue.nextScheduled', {
+                                                handler: queueData.next_scheduled.handler,
+                                                time: new Date(queueData.next_scheduled.next_run_at).toLocaleTimeString(uiLocale()),
+                                            })}
                                         </Typography>
                                     </>
                                 )}
@@ -332,7 +336,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                     <>
                                         <Divider sx={{ my: 1 }} />
                                         <Typography variant="caption" color="text.secondary" fontWeight="bold">
-                                            By Handler
+                                            {t('layout.taskQueue.byHandler')}
                                         </Typography>
                                         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                                             {Object.entries(queueData.handler_counts).map(([handler, count]) => (
@@ -351,7 +355,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
                                 {/* Empty state */}
                                 {totalActive === 0 && (
                                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', py: 2 }}>
-                                        No active tasks in queue
+                                        {t('layout.taskQueue.empty')}
                                     </Typography>
                                 )}
                             </>
@@ -366,7 +370,7 @@ const TaskQueueIndicator = ({ compact = true }) => {
     return (
         <Box sx={{ p: 2 }}>
             <Typography variant="h6" gutterBottom>
-                Task Queue
+                {t('layout.taskQueue.title')}
             </Typography>
             {/* Full view implementation would go here */}
         </Box>

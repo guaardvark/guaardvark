@@ -41,8 +41,10 @@ import { getWebsites } from "../api/websiteService"; // For website dropdown
 import { generateBulkXML, generateStructuredCSV } from "../api/bulkGenerationService"; // For XML generation
 import { useStatus } from "../contexts/StatusContext";
 import PageLayout from "../components/layout/PageLayout";
+import { useUiTranslation } from "../i18n";
 
 const FileGenerationPage = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const { activeModel, isLoadingModel, modelError } = useStatus();
 
@@ -107,7 +109,9 @@ const FileGenerationPage = () => {
       const rulesResponse = await apiService.getRules({ is_active: true }); // Fetch only active rules
       if (rulesResponse?.error)
         throw new Error(
-          `Rules: ${rulesResponse.error.message || rulesResponse.error}`,
+          t("fileGeneration.page.loadErrors.rules", {
+            error: rulesResponse.error.message || rulesResponse.error,
+          }),
         );
       // Filter for suitable rule types for batch generation
       const suitableRuleTypes = [
@@ -126,7 +130,9 @@ const FileGenerationPage = () => {
       const projectsData = await apiService.getProjects();
       if (projectsData?.error)
         throw new Error(
-          `Projects: ${projectsData.error.message || projectsData.error}`,
+          t("fileGeneration.page.loadErrors.projects", {
+            error: projectsData.error.message || projectsData.error,
+          }),
         );
       setAvailableProjects(Array.isArray(projectsData) ? projectsData : []);
 
@@ -134,7 +140,9 @@ const FileGenerationPage = () => {
       const clientsData = await apiService.getClients();
       if (clientsData?.error)
         throw new Error(
-          `Clients: ${clientsData.error.message || clientsData.error}`,
+          t("fileGeneration.page.loadErrors.clients", {
+            error: clientsData.error.message || clientsData.error,
+          }),
         );
       setAvailableClients(Array.isArray(clientsData) ? clientsData : []);
 
@@ -142,15 +150,18 @@ const FileGenerationPage = () => {
       const modelsData = await apiService.getAvailableModels();
       if (modelsData?.error)
         throw new Error(
-          `Models: ${modelsData.error.message || modelsData.error}`,
+          t("fileGeneration.page.loadErrors.models", {
+            error: modelsData.error.message || modelsData.error,
+          }),
         );
       setAvailableModels(Array.isArray(modelsData) ? modelsData : []);
 
       // Fetch Websites
       const websitesData = await getWebsites();
       if (websitesData?.error) {
-        const errorMessage = websitesData.error?.message || websitesData.error || 'Unknown error';
-        throw new Error(`Websites: ${errorMessage}`);
+        const errorMessage =
+          websitesData.error?.message || websitesData.error || t("fileGeneration.page.unknownError");
+        throw new Error(t("fileGeneration.page.loadErrors.websites", { error: errorMessage }));
       }
       setAvailableWebsites(Array.isArray(websitesData) ? websitesData : []);
     } catch (err) {
@@ -159,7 +170,9 @@ const FileGenerationPage = () => {
         err,
       );
       setBatchFeedback({
-        message: `Failed to load prerequisite data: ${err?.message || err || 'Unknown error'}`,
+        message: t("fileGeneration.page.prerequisitesFailed", {
+          error: err?.message || err || t("fileGeneration.page.unknownError"),
+        }),
         severity: "error",
         open: true,
       });
@@ -179,8 +192,7 @@ const FileGenerationPage = () => {
   const handleGenerateSingleFile = async () => {
     if (!outputFilenameSingle.trim() || !userInstructions.trim()) {
       setSingleFileFeedback({
-        message:
-          "Output filename and instructions are required for single file generation.",
+        message: t("fileGeneration.page.singleRequired"),
         severity: "warning",
         open: true,
       });
@@ -188,7 +200,7 @@ const FileGenerationPage = () => {
     }
     setIsGeneratingSingle(true);
     setSingleFileFeedback({
-      message: "Generating single file via code execution path...",
+      message: t("fileGeneration.page.singleGenerating"),
       severity: "info",
       open: true,
     });
@@ -209,8 +221,7 @@ const FileGenerationPage = () => {
         );
       setSingleFileFeedback({
         message:
-          response?.message ||
-          "File generation process completed for single file.",
+          response?.message || t("fileGeneration.page.singleDone"),
         severity: "success",
         open: true,
       });
@@ -221,7 +232,9 @@ const FileGenerationPage = () => {
     } catch (error) {
       console.error("Single file generation error:", error);
       setSingleFileFeedback({
-        message: `Single File Error: ${error.message || "Unknown error"}`,
+        message: t("fileGeneration.page.singleError", {
+          error: error.message || t("fileGeneration.page.unknownError"),
+        }),
         severity: "error",
         open: true,
       });
@@ -233,7 +246,7 @@ const FileGenerationPage = () => {
   const handleGenerateBatchCsv = async () => {
     if (!batchOutputFilename.trim() || !batchPromptRule) {
       setBatchFeedback({
-        message: "Please fill in required fields: filename and prompt rule.",
+        message: t("fileGeneration.page.batchRequired"),
         severity: "error",
         open: true,
       });
@@ -246,7 +259,7 @@ const FileGenerationPage = () => {
 
     if (!hasItems && !hasPageCount) {
       setBatchFeedback({
-        message: "Please either specify items to process OR set a page count greater than 0.",
+        message: t("fileGeneration.page.batchItemsOrCount"),
         severity: "error",
         open: true,
       });
@@ -315,14 +328,16 @@ const FileGenerationPage = () => {
       }
 
       setBatchFeedback({
-        message: response.message || "XML generation completed successfully!",
+        message: response.message || t("fileGeneration.page.xmlDone"),
         severity: "success",
         open: true,
       });
     } catch (error) {
       console.error("XML generation error:", error);
       setBatchFeedback({
-        message: `XML Generation Error: ${error.message || "Unknown error"}`,
+        message: t("fileGeneration.page.xmlError", {
+          error: error.message || t("fileGeneration.page.unknownError"),
+        }),
         severity: "error",
         open: true,
       });
@@ -366,8 +381,7 @@ const FileGenerationPage = () => {
         throw new Error(response.details || response.error);
 
       const successMsg =
-        response?.message ||
-        "Batch CSV generation process completed successfully.";
+        response?.message || t("fileGeneration.page.csvDone");
       const details = response?.details || "";
       const jobId = response?.job_id;
       const taskId = response?.task_id;
@@ -377,7 +391,7 @@ const FileGenerationPage = () => {
       }
 
       setBatchFeedback({
-        message: `${successMsg} ${details} Job ID: ${jobId}, Task ID: ${taskId}. Check Task Manager for progress.`,
+        message: t("fileGeneration.page.csvStarted", { message: successMsg, details, jobId, taskId }),
         severity: "success",
         open: true,
       });
@@ -387,9 +401,9 @@ const FileGenerationPage = () => {
         error.response?.data?.details ||
         formatUiError(error.response?.data?.error) ||
         error.message ||
-        "Unknown batch processing error.";
+        t("fileGeneration.page.csvUnknownError");
       setBatchFeedback({
-        message: `Batch CSV Error: ${errMsg}`,
+        message: t("fileGeneration.page.csvError", { error: errMsg }),
         severity: "error",
         open: true,
       });
@@ -403,7 +417,7 @@ const FileGenerationPage = () => {
   const handleSaveAsTask = async () => {
     if (!batchOutputFilename.trim() || !batchPromptRule) {
       setBatchFeedback({
-        message: "Please fill in filename and prompt rule before saving as task.",
+        message: t("fileGeneration.page.taskRequired"),
         severity: "warning",
         open: true,
       });
@@ -443,13 +457,13 @@ const FileGenerationPage = () => {
 
       await apiService.createTask(taskData);
       setBatchFeedback({
-        message: "Configuration saved as task successfully!",
+        message: t("fileGeneration.page.taskSaved"),
         severity: "success",
         open: true,
       });
     } catch (err) {
       setBatchFeedback({
-        message: `Failed to save as task: ${err.message}`,
+        message: t("fileGeneration.page.taskSaveFailed", { error: err.message }),
         severity: "error",
         open: true,
       });
@@ -461,7 +475,7 @@ const FileGenerationPage = () => {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     setBatchOutputFilename(`${batchOutputFilename.replace('.csv', '')}_copy_${timestamp}.csv`);
     setBatchFeedback({
-      message: "Configuration duplicated! Update filename and generate.",
+      message: t("fileGeneration.page.duplicated"),
       severity: "info",
       open: true,
     });
@@ -483,7 +497,7 @@ const FileGenerationPage = () => {
     setInsertContent("");
     setInsertPosition("none");
     setBatchFeedback({
-      message: "Form cleared successfully!",
+      message: t("fileGeneration.page.cleared"),
       severity: "info",
       open: true,
     });
@@ -574,10 +588,16 @@ const FileGenerationPage = () => {
 
   return (
     <PageLayout
-      title="File Generation"
+      title={t("fileGeneration.page.title")}
       variant="standard"
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
+      activeModel={
+        isLoadingModel
+          ? t("fileGeneration.page.modelLoading")
+          : modelError
+            ? t("fileGeneration.page.modelError")
+            : activeModel
+      }
     >
         {singleFileFeedback.open && (
           <Snackbar
@@ -614,12 +634,12 @@ const FileGenerationPage = () => {
 
         <Paper elevation={3} sx={{ p: { xs: 1.5, sm: 2, md: 3 }, mb: 3 }}>
           <Typography variant="h5" gutterBottom component="div">
-            Batch File Generation
+            {t("fileGeneration.page.batchTitle")}
           </Typography>
 
           {/* File Format Selector */}
           <FormControl component="fieldset" sx={{ mb: 2 }}>
-            <FormLabel component="legend">Output Format</FormLabel>
+            <FormLabel component="legend">{t("fileGeneration.page.outputFormat")}</FormLabel>
             <RadioGroup
               row
               value={fileFormat}
@@ -629,38 +649,32 @@ const FileGenerationPage = () => {
               <FormControlLabel
                 value="csv"
                 control={<Radio />}
-                label="CSV (Enfold WordPress Theme)"
+                label={t("fileGeneration.page.formatCsv")}
               />
               <FormControlLabel
                 value="xml"
                 control={<Radio />}
-                label="XML (WordPress Import via Llamanator)"
+                label={t("fileGeneration.page.formatXml")}
               />
             </RadioGroup>
           </FormControl>
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {fileFormat === "csv" ? (
-              <>
-                Generate multiple WordPress pages/posts as CSV rows using the Enfold theme format.
-                Output includes: ID, Title, Content, Excerpt, Category, Tags, slug, Image.
-              </>
+              <>{t("fileGeneration.page.csvDescription")}</>
             ) : (
-              <>
-                Generate XML file compatible with Llamanator WordPress import plugin.
-                Supports CDATA sections, custom metadata, and full WordPress post structure.
-              </>
+              <>{t("fileGeneration.page.xmlDescription")}</>
             )}
-            {" "}Requires a &apos;Single-Item Content Prompt&apos; Rule that generates fields for one item.
+            {" "}{t("fileGeneration.page.requiresRule")}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label={`Output ${fileFormat.toUpperCase()} Filename`}
+                label={t("fileGeneration.page.outputFilename", { format: fileFormat.toUpperCase() })}
                 value={batchOutputFilename}
                 onChange={(e) => setBatchOutputFilename(e.target.value)}
-                placeholder={`e.g., florida_seo_pages.${fileFormat}`}
+                placeholder={t("fileGeneration.page.outputFilenamePlaceholder", { extension: fileFormat })}
                 variant="outlined"
                 disabled={isGeneratingBatch}
               />
@@ -670,7 +684,7 @@ const FileGenerationPage = () => {
                 id="batch-prompt-rule-select"
                 options={availableRules}
                 getOptionLabel={(option) =>
-                  `${option.name} (ID: ${option.id}) - Type: ${option.type}`
+                  t("fileGeneration.page.ruleOption", { name: option.name, id: option.id, type: option.type })
                 }
                 value={batchPromptRule}
                 onChange={(event, newValue) => setBatchPromptRule(newValue)}
@@ -683,9 +697,9 @@ const FileGenerationPage = () => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Single-Item Content Prompt Rule"
+                    label={t("fileGeneration.page.promptRule")}
                     variant="outlined"
-                    helperText="Select a prompt that generates content for ONE item."
+                    helperText={t("fileGeneration.page.promptRuleHelp")}
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -708,7 +722,7 @@ const FileGenerationPage = () => {
                 options={availableProjects}
                 getOptionLabel={(option) => {
                   if (typeof option === "string") return option;
-                  return option.name || `ID: ${option.id}`;
+                  return option.name || t("fileGeneration.page.idOption", { id: option.id });
                 }}
                 value={batchProject}
                 onChange={(event, newValue) => setBatchProject(newValue)}
@@ -725,7 +739,7 @@ const FileGenerationPage = () => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Assign to Project (Optional)"
+                    label={t("fileGeneration.page.project")}
                     variant="outlined"
                     InputProps={{
                       ...params.InputProps,
@@ -749,7 +763,7 @@ const FileGenerationPage = () => {
                 loading={isLoadingWebsites}
                 getOptionLabel={(option) => {
                   if (typeof option === "string") return option;
-                  return option.url || `Website ${option.id}`;
+                  return option.url || t("fileGeneration.page.websiteOption", { id: option.id });
                 }}
                 value={selectedWebsite}
                 onChange={handleWebsiteSelection}
@@ -761,9 +775,9 @@ const FileGenerationPage = () => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Client Website"
+                    label={t("fileGeneration.page.clientWebsite")}
                     variant="outlined"
-                    helperText="Optional — auto-fills client and filename"
+                    helperText={t("fileGeneration.page.clientWebsiteHelp")}
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -782,7 +796,10 @@ const FileGenerationPage = () => {
                       <Box>
                         <Typography variant="body2">{option.url}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Client: {option.client?.name || 'Unknown'} | Project: {option.project?.name || 'Unknown'}
+                          {t("fileGeneration.page.websiteOptionDetails", {
+                            client: option.client?.name || t("fileGeneration.page.unknown"),
+                            project: option.project?.name || t("fileGeneration.page.unknown"),
+                          })}
                         </Typography>
                       </Box>
                     </Box>
@@ -794,7 +811,7 @@ const FileGenerationPage = () => {
             <Grid item xs={12} sm={6}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Typography variant="body2" sx={{ flexGrow: 1 }}>
-                  Target/Competitor Website
+                  {t("fileGeneration.page.competitorWebsite")}
                 </Typography>
                 <FormControlLabel
                   control={
@@ -806,9 +823,9 @@ const FileGenerationPage = () => {
                     />
                   }
                   label={
-                    <Tooltip title="When enabled, automatically use competitor URLs from the selected client's profile">
+                    <Tooltip title={t("fileGeneration.page.useCompetitorsTooltip")}>
                       <Typography variant="caption">
-                        Use Client Competitors
+                        {t("fileGeneration.page.useCompetitors")}
                       </Typography>
                     </Tooltip>
                   }
@@ -817,17 +834,25 @@ const FileGenerationPage = () => {
               </Box>
               <TextField
                 fullWidth
-                label={useClientCompetitors ? "Competitor URL (from client)" : "Competitor URL (manual)"}
+                label={
+                  useClientCompetitors
+                    ? t("fileGeneration.page.competitorFromClient")
+                    : t("fileGeneration.page.competitorManual")
+                }
                 value={batchTargetWebsite}
                 onChange={(e) => setBatchTargetWebsite(e.target.value)}
-                placeholder={useClientCompetitors ? "Auto-filled from client..." : "e.g., competitor-website.com"}
+                placeholder={
+                  useClientCompetitors
+                    ? t("fileGeneration.page.competitorAutoPlaceholder")
+                    : t("fileGeneration.page.competitorManualPlaceholder")
+                }
                 variant="outlined"
                 helperText={
                   useClientCompetitors
                     ? batchClient && batchClient.competitor_urls && batchClient.competitor_urls.length > 0
-                      ? `Using: ${batchClient.competitor_urls[0]}`
-                      : "No competitors defined for selected client"
-                    : "Manually enter competitor URL for analysis"
+                      ? t("fileGeneration.page.competitorUsing", { url: batchClient.competitor_urls[0] })
+                      : t("fileGeneration.page.competitorNone")
+                    : t("fileGeneration.page.competitorManualHelp")
                 }
                 disabled={isGeneratingBatch || (useClientCompetitors && (!batchClient || !batchClient.competitor_urls || batchClient.competitor_urls.length === 0))}
               />
@@ -836,11 +861,11 @@ const FileGenerationPage = () => {
               <TextField
                 fullWidth
                 type="number"
-                label="Page Count"
+                label={t("fileGeneration.page.pageCount")}
                 value={batchPageCount}
                 onChange={(e) => setBatchPageCount(parseInt(e.target.value) || 10)}
                 variant="outlined"
-                helperText="Number of CSV rows/pages to generate"
+                helperText={t("fileGeneration.page.pageCountHelp")}
                 disabled={isGeneratingBatch}
                 inputProps={{ min: 1, max: 1000 }}
               />
@@ -855,14 +880,14 @@ const FileGenerationPage = () => {
                     size="small"
                   />
                 }
-                label="Enhanced Context (entity/competitor/doc awareness)"
+                label={t("fileGeneration.page.enhancedContext")}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <Autocomplete
                 options={availableClients}
                 loading={isLoadingClients}
-                getOptionLabel={(option) => option.name || `ID: ${option.id}`}
+                getOptionLabel={(option) => option.name || t("fileGeneration.page.idOption", { id: option.id })}
                 value={batchClient}
                 onChange={handleClientSelection}
                 isOptionEqualToValue={(option, value) => {
@@ -873,9 +898,9 @@ const FileGenerationPage = () => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Client (Optional)"
+                    label={t("fileGeneration.page.client")}
                     variant="outlined"
-                    helperText="Select client for this generation"
+                    helperText={t("fileGeneration.page.clientHelp")}
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -894,15 +919,19 @@ const FileGenerationPage = () => {
             </Grid>
             <Grid item xs={12} sm={4}>
               <FormControl fullWidth variant="outlined">
-                <InputLabel>Model (Optional)</InputLabel>
+                <InputLabel>{t("fileGeneration.page.model")}</InputLabel>
                 <Select
                   value={batchModel}
                   onChange={(e) => setBatchModel(e.target.value)}
-                  label="Model (Optional)"
+                  label={t("fileGeneration.page.model")}
                   disabled={isGeneratingBatch || isLoadingModels}
                 >
                   <MenuItem value="">
-                    <em>Use Default Model ({activeModel?.name || 'None'})</em>
+                    <em>
+                      {t("fileGeneration.page.defaultModel", {
+                        model: activeModel?.name || t("fileGeneration.page.none"),
+                      })}
+                    </em>
                   </MenuItem>
                   {availableModels.map((model) => (
                     <MenuItem key={model.name} value={model.name}>
@@ -919,7 +948,7 @@ const FileGenerationPage = () => {
                 gutterBottom
                 sx={{ color: "text.secondary" }}
               >
-                Items to Process (optional - leave empty to use Page Count with generic topics):
+                {t("fileGeneration.page.itemsLabel")}
               </Typography>
               <TextareaAutosize
                 minRows={5}
@@ -947,27 +976,27 @@ const FileGenerationPage = () => {
                 gutterBottom
                 sx={{ mt: 2, mb: 1 }}
               >
-                Content Insert Options
+                {t("fileGeneration.page.insertTitle")}
               </Typography>
               <Typography
                 variant="body2"
                 color="text.secondary"
                 sx={{ mb: 2 }}
               >
-                Add custom content (contact info, shortcodes, embeds, etc.) to each generated page
+                {t("fileGeneration.page.insertDescription")}
               </Typography>
 
               <FormControl component="fieldset" sx={{ mb: 2 }}>
-                <FormLabel component="legend">Insert Position</FormLabel>
+                <FormLabel component="legend">{t("fileGeneration.page.insertPosition")}</FormLabel>
                 <RadioGroup
                   row
                   value={insertPosition}
                   onChange={(e) => setInsertPosition(e.target.value)}
                   disabled={isGeneratingBatch}
                 >
-                  <FormControlLabel value="none" control={<Radio />} label="No Insert" />
-                  <FormControlLabel value="top" control={<Radio />} label="Top (Before AI Content)" />
-                  <FormControlLabel value="bottom" control={<Radio />} label="Bottom (After AI Content)" />
+                  <FormControlLabel value="none" control={<Radio />} label={t("fileGeneration.page.insertNone")} />
+                  <FormControlLabel value="top" control={<Radio />} label={t("fileGeneration.page.insertTop")} />
+                  <FormControlLabel value="bottom" control={<Radio />} label={t("fileGeneration.page.insertBottom")} />
                 </RadioGroup>
               </FormControl>
 
@@ -975,7 +1004,7 @@ const FileGenerationPage = () => {
                 <TextareaAutosize
                   minRows={3}
                   maxRows={8}
-                  placeholder="Enter content to insert into each page&#10;&#10;Examples:&#10;- Contact information&#10;- Shortcodes: [contact_form]&#10;- Embed codes: <iframe>...&#10;- Call-to-action text"
+                  placeholder={t("fileGeneration.page.insertPlaceholder")}
                   value={insertContent}
                   onChange={(e) => setInsertContent(e.target.value)}
                   style={{
@@ -1002,7 +1031,7 @@ const FileGenerationPage = () => {
                   disabled={isGeneratingBatch || !batchOutputFilename.trim() || !batchPromptRule}
                   sx={{ flex: '1 1 auto', minWidth: '120px' }}
                 >
-                  Save as Task
+                  {t("fileGeneration.page.saveAsTask")}
                 </Button>
                 <Button
                   variant="outlined"
@@ -1011,7 +1040,7 @@ const FileGenerationPage = () => {
                   disabled={isGeneratingBatch || !batchOutputFilename.trim()}
                   sx={{ flex: '1 1 auto', minWidth: '120px' }}
                 >
-                  Duplicate
+                  {t("fileGeneration.page.duplicate")}
                 </Button>
                 <Button
                   variant="outlined"
@@ -1020,7 +1049,7 @@ const FileGenerationPage = () => {
                   disabled={isGeneratingBatch}
                   sx={{ flex: '1 1 auto', minWidth: '120px' }}
                 >
-                  Clear Form
+                  {t("fileGeneration.page.clearForm")}
                 </Button>
               </Box>
               <Button
@@ -1043,7 +1072,7 @@ const FileGenerationPage = () => {
                 {isGeneratingBatch ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
-                  "Start"
+                  t("fileGeneration.page.start")
                 )}
               </Button>
             </Grid>
@@ -1051,7 +1080,7 @@ const FileGenerationPage = () => {
         </Paper>
 
         <Divider sx={{ my: 4 }}>
-          <Chip label="Advanced: Single File (Code Generation)" />
+          <Chip label={t("fileGeneration.page.advancedChip")} />
         </Divider>
 
         <Paper
@@ -1059,17 +1088,16 @@ const FileGenerationPage = () => {
           sx={{ p: { xs: 1.5, sm: 2, md: 3 }, mb: 3, opacity: 0.7 }}
         >
           <Typography variant="h5" gutterBottom component="div">
-            Single File Generation (via Code)
+            {t("fileGeneration.page.singleTitle")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Generates a single file by having the LLM write and execute Python
-            code.
+            {t("fileGeneration.page.singleDescription")}
           </Typography>
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Output Filename (e.g., report.py, data.json)"
+                label={t("fileGeneration.page.singleFilename")}
                 value={outputFilenameSingle}
                 onChange={(e) => setOutputFilenameSingle(e.target.value)}
                 variant="outlined"
@@ -1086,7 +1114,11 @@ const FileGenerationPage = () => {
                    rule.name?.toLowerCase().includes('code'))
                 )}
                 getOptionLabel={(option) =>
-                  `${option.name} (${option.command_label || 'No command'}) - Type: ${option.type}`
+                  t("fileGeneration.page.codeRuleOption", {
+                    name: option.name,
+                    command: option.command_label || t("fileGeneration.page.noCommand"),
+                    type: option.type,
+                  })
                 }
                 value={codeGenRule}
                 onChange={(event, newValue) => setCodeGenRule(newValue)}
@@ -1099,9 +1131,9 @@ const FileGenerationPage = () => {
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label="Code Generation Rule (Optional)"
+                    label={t("fileGeneration.page.codeRule")}
                     variant="outlined"
-                    helperText="Select a rule for code generation, or leave empty to use direct instructions."
+                    helperText={t("fileGeneration.page.codeRuleHelp")}
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -1124,8 +1156,8 @@ const FileGenerationPage = () => {
                 fullWidth
                 multiline
                 rows={6}
-                label="User Instructions / Specifications for Code Generation"
-                placeholder="e.g., Write a python script to analyze data.csv (in uploads folder), calculate column averages, and save to output.txt..."
+                label={t("fileGeneration.page.instructions")}
+                placeholder={t("fileGeneration.page.instructionsPlaceholder")}
                 value={userInstructions}
                 onChange={(e) => setUserInstructions(e.target.value)}
                 variant="outlined"
@@ -1147,7 +1179,7 @@ const FileGenerationPage = () => {
                 {isGeneratingSingle ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
-                  "Generate Single File (Code Gen)"
+                  t("fileGeneration.page.generateSingle")
                 )}
               </Button>
             </Grid>

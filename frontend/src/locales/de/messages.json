@@ -1,0 +1,599 @@
+{
+  "access": {
+    "defaultMachine": "dem Guaardvark-Rechner",
+    "outsideLocalNetwork": "Dies funktioniert nur auf {{machine}} und auf Geräten in dessen lokalem Netzwerk, aber dieses Gerät befindet sich außerhalb davon. Erstelle einen API-Key unter Einstellungen → Zugriff auf {{machine}} und gib ihn dann unter Einstellungen → Zugriff auf diesem Gerät ein.",
+    "runsCodeKeyRequired": "Dies führt ein Programm auf {{machine}} aus, was nur auf {{machine}} selbst oder mit seinem API-Key funktioniert, selbst wenn der Netzwerkzugriff aktiviert ist. Erstelle einen API-Key unter Einstellungen → Zugriff auf {{machine}} und gib ihn dann unter Einstellungen → Zugriff auf diesem Gerät ein.",
+    "fleetKeyRequired": "Diese Interconnector-Aktion funktioniert nur auf {{machine}} selbst oder mit seinem API-Key, selbst wenn der Netzwerkzugriff aktiviert ist. Erstelle einen API-Key unter Einstellungen → Zugriff auf {{machine}} und gib ihn dann unter Einstellungen → Zugriff auf diesem Gerät ein.",
+    "localOnlyKeyRemoved": "{{machine}} hat keinen API-Key mehr, daher funktioniert dies nur auf {{machine}} selbst. Schalte dort unter Einstellungen → Zugriff → Netzwerkzugriff ein oder erstelle dort einen neuen Schlüssel und gib ihn unter Einstellungen → Zugriff auf diesem Gerät ein.",
+    "localOnly": "Dies funktioniert nur auf {{machine}} selbst. Um es hier zu nutzen, schalte unter Einstellungen → Zugriff → Netzwerkzugriff auf {{machine}} ein oder erstelle dort einen API-Key und gib ihn unter Einstellungen → Zugriff auf diesem Gerät ein.",
+    "keyOutOfDate": "Dieser Browser war mit einem Schlüssel angemeldet, den {{machine}} nicht mehr verwendet. Gib den aktuellen Schlüssel unter Einstellungen → Zugriff ein.",
+    "keyRequired": "Gib den API-Key von {{machine}} unter Einstellungen → Zugriff ein. Er wird beim Erstellen angezeigt, und {{machine}} speichert ihn in seiner .env-Datei als GUAARDVARK_API_KEY."
+  },
+  "taskQueue": {
+    "unreachable": "Nicht gestartet: Die Hintergrundwarteschlange von Guaardvark (Redis) ist nicht erreichbar. Führe ./start.sh auf der Guaardvark-Maschine aus, um Redis und den Hintergrundworker zu starten, und versuche es dann erneut.",
+    "nextStepNotStarted": "Der nächste Schritt wurde nicht gestartet. Er startet, wenn Guaardvark neu gestartet wird (./start.sh)."
+  },
+  "api": {
+    "httpError": "HTTP-Fehler {{status}} - {{statusText}}",
+    "unknownStatus": "Unbekannter Fehler",
+    "httpErrorStatus": "HTTP-Fehler! Status: {{status}}",
+    "invalidJson": "JSON-Antwort vom Server konnte nicht verarbeitet werden."
+  },
+  "chatStop": {
+    "backendUnreachable": "das Backend ist nicht erreichbar",
+    "notReachedBoth": "Stopp hat weder den Chat-Durchgang noch die Agentenaufgabe erreicht: {{reason}}. Es läuft möglicherweise noch.",
+    "notReachedChatTurn": "Stopp hat den Chat-Durchgang nicht erreicht: {{reason}}. Es läuft möglicherweise noch.",
+    "notReachedAgentTask": "Stopp hat die Agentenaufgabe nicht erreicht: {{reason}}. Es läuft möglicherweise noch."
+  },
+  "heldChanges": {
+    "gitRecordRejectRefused": "Ein Git-Eintrag kann nur genehmigt werden; rückgängig mache den Merge in Git, um ihn abzulehnen."
+  },
+  "address": {
+    "requestFailed": "Anfrage fehlgeschlagen"
+  },
+  "backups": {
+    "downloadFailed": "Download fehlgeschlagen: {{status}}"
+  },
+  "bulkGeneration": {
+    "csvTimeout": "Zeitüberschreitung – die CSV-Massenerstellung hat zu lange gedauert",
+    "csvFailed": "CSV-Massenerstellung fehlgeschlagen",
+    "structuredCsvTimeout": "Zeitüberschreitung – die Erstellung der strukturierten CSV dauerte zu lange",
+    "structuredCsvFailed": "Erstellung der strukturierten CSV fehlgeschlagen",
+    "statusFailed": "Status der Erstellung konnte nicht abgerufen werden",
+    "estimateFailed": "Schätzung der Erstellungszeit fehlgeschlagen",
+    "topicsFailed": "Erstellung der Themen fehlgeschlagen",
+    "xmlTimeout": "Zeitüberschreitung – die Erstellung des XL-Pakets dauerte zu lange",
+    "xmlFailed": "Erstellung des XML-Inhalts fehlgeschlagen"
+  },
+  "chat": {
+    "sendQueryFailed": "Abfrage konnte nicht gesendet werden.",
+    "sendCommandFailed": "Befehl konnte nicht gesendet werden.",
+    "duplicateRequest": "Doppelte Anfrage erkannt",
+    "apiError": "Chat-API-Fehler: {{status}}",
+    "exportFailed": "Chat-Export fehlgeschlagen",
+    "historyFailed": "Abrufen der Historie fehlgeschlagen: {{status}}"
+  },
+  "codeExecution": {
+    "pythonFailed": "Ausführung des Python-Codes fehlgeschlagen",
+    "javascriptFailed": "Ausführung des JavaScript-Codes fehlgeschlagen",
+    "shellFailed": "Ausführung des Shell-Befehls fehlgeschlagen",
+    "formatFailed": "Formatierung des Codes fehlgeschlagen",
+    "lintFailed": "Linting des Codes fehlgeschlagen",
+    "buildFailed": "Projektaufbau fehlgeschlagen"
+  },
+  "codeIntelligence": {
+    "noCode": "Kein Code-Inhalt für die Analyse bereitgestellt",
+    "provideCode": "Bitte gib Code-Inhalt zur Analyse an.",
+    "analysisDone": "Analyse erfolgreich abgeschlossen.",
+    "analysisTimeout": "Anfrage zur Analyse nach 2 Minuten abgelaufen",
+    "analysisTimeoutHelp": "Die Analyseanfrage hat zu lange gedauert. Dies kann bei sehr großen Dateien oder komplexem Code vorkommen. Bitte versuche es mit einer kleineren Codeauswahl oder einer einfacheren Abfrage erneut.",
+    "unknownError": "Ein unbekannter Fehler ist aufgetreten",
+    "analysisFailed": "Analyse fehlgeschlagen. Bitte überprüfe die Backend-Verbindung und versuche es erneut.",
+    "noDescription": "Keine Beschreibung für die Codegenerierung angegeben",
+    "codeGenerated": "Code erfolgreich generiert",
+    "generationTimeout": "Die Anfrage zur Codegenerierung ist nach 2 Minuten abgelaufen. Bitte versuche es mit einer einfacheren Anfrage.",
+    "generationUnknownError": "Ein unbekannter Fehler ist während der Codegenerierung aufgetreten",
+    "explanationFailed": "Erklärung fehlgeschlagen. Bitte überprüfe die Backend-Verbindung.",
+    "validationFailed": "Validierung fehlgeschlagen",
+    "readFileFailed": "Datei konnte nicht gelesen werden",
+    "readFilesFailed": "Dateien konnten nicht gelesen werden"
+  },
+  "documents": {
+    "listFailed": "Abrufen der Dokumente fehlgeschlagen.",
+    "notFound": "Dokument nicht gefunden",
+    "invalidId": "Ungültige Dokument-ID",
+    "contentFailedStatus": "Abrufen des Dokumentinhalts fehlgeschlagen ({{status}})",
+    "contentFailed": "Abrufen des Dokumentinhalts fehlgeschlagen.",
+    "repoFileFailed": "Abrufen der Repository-Datei fehlgeschlagen.",
+    "uploadNetworkError": "Netzwerkfehler beim Hochladen der Datei",
+    "uploadCancelled": "Upload abgebrochen",
+    "uploadTimeout": "Upload-Zeitüberschreitung"
+  },
+  "fileOperations": {
+    "readFailed": "Datei konnte nicht gelesen werden",
+    "saved": "Datei erfolgreich gespeichert",
+    "writeFailed": "Fehler beim Schreiben der Datei",
+    "created": "Datei erfolgreich erstellt",
+    "createFailed": "Fehler beim Erstellen der Datei",
+    "deleted": "Datei erfolgreich gelöscht",
+    "deleteFailed": "Fehler beim Löschen der Datei",
+    "listFailed": "Fehler beim Auflisten des Verzeichnisses",
+    "directoryCreated": "Verzeichnis erfolgreich erstellt",
+    "createDirectoryFailed": "Fehler beim Erstellen des Verzeichnisses",
+    "renamed": "Datei erfolgreich umbenannt",
+    "renameFailed": "Fehler beim Umbenennen der Datei"
+  },
+  "fileGeneration": {
+    "cancelledOrTimedOut": "Anfrage wurde abgebrochen oder Zeitüberschreitung.",
+    "unknownError": "Ein unbekannter Fehler ist aufgetreten.",
+    "batchCsvFailed": "Batch-CSV-Erstellung fehlgeschlagen"
+  },
+  "indexing": {
+    "cancelFailed": "Fehler beim Abbrechen des Auftrags.",
+    "jobsFailed": "Fehler beim Abrufen der Aufträge."
+  },
+  "interconnector": {
+    "timeout": "Anfrage nach {{timeout}}ms abgelaufen",
+    "outputsIndexFailed": "Fehler beim Abrufen des Outputs-Index"
+  },
+  "models": {
+    "listFailed": "Fehler beim Abrufen der verfügbaren Modelle."
+  },
+  "musicVideo": {
+    "storyboardTimeout": "Storyboard-Erstellung Zeitüberschreitung"
+  },
+  "projects": {
+    "listFailed": "Fehler beim Abrufen der Projekte.",
+    "getFailed": "Fehler beim Abrufen des Projekts {{projectId}}."
+  },
+  "ragDebug": {
+    "uptimeUnknown": "Unbekannt",
+    "uptimeDays": "{{days}}d {{hours}}h {{minutes}}m",
+    "uptimeHours": "{{hours}}h {{minutes}}m",
+    "uptimeMinutes": "{{minutes}}m"
+  },
+  "rules": {
+    "listFailed": "Fehler beim Abrufen der Regeln/Prompts."
+  },
+  "tasks": {
+    "listFailed": "Fehler beim Abrufen der Aufgaben."
+  },
+  "training": {
+    "datasetsFailed": "Fehler beim Abrufen der Trainingsdatensätze."
+  },
+  "upscaling": {
+    "previewFailed": "Fehler bei der Erstellung der Vorschau"
+  },
+  "websites": {
+    "listFailed": "Fehler beim Abrufen der Websites."
+  },
+  "settings": {
+    "testSuiteTimeout": "Testsuite nach 5 Minuten abgelaufen",
+    "rebootStarted": "Neustart gestartet.",
+    "rebootConnectionLost": "Neustart gestartet, die Verbindung wurde wie erwartet unterbrochen."
+  },
+  "links": {
+    "updated": "Links für {{entityType}} erfolgreich aktualisiert",
+    "updateFailed": "Fehler beim Aktualisieren der Links"
+  },
+  "videoEditor": {
+    "requestFailed": "Anfrage im Videoeditor fehlgeschlagen",
+    "loadRecipesFailed": "Stil-Rezepte konnten nicht geladen werden",
+    "submitPlanFailed": "Plan-Auftrag konnte nicht übermittelt werden",
+    "reanalyzeFailed": "Neuanalyse fehlgeschlagen",
+    "clipHashFailed": "Suche nach Clip-Miniaturansicht fehlgeschlagen",
+    "pollPlanFailed": "Abfrage des Plan-Auftrags fehlgeschlagen",
+    "renderFailed": "Rendering fehlgeschlagen",
+    "loadFiltersFailed": "Filter konnten nicht geladen werden",
+    "loadTransitionsFailed": "Übergänge konnten nicht geladen werden",
+    "launchShotcutFailed": "Shotcut konnte nicht gestartet werden",
+    "listProjectsFailed": "Projekte konnten nicht aufgelistet werden",
+    "loadCurrentProjectFailed": "Aktuelles Projekt konnte nicht geladen werden",
+    "openProjectFailed": "Projekt konnte nicht geöffnet werden",
+    "createProjectFailed": "Projekt konnte nicht erstellt werden",
+    "autosaveFailed": "Autospeicherung fehlgeschlagen",
+    "saveProjectFailed": "Projekt konnte nicht gespeichert werden",
+    "saveProjectAsFailed": "Projekt konnte nicht als gespeichert werden",
+    "renameProjectFailed": "Projekt konnte nicht umbenannt werden",
+    "deleteProjectFailed": "Projekt konnte nicht gelöscht werden",
+    "validateProjectFailed": "Projekt konnte nicht validiert werden"
+  },
+  "voice": {
+    "streamingError": "Streaming-Fehler",
+    "noActiveRecording": "Keine aktive Aufnahme",
+    "micNeedsSecureContext": "Mikrofon benötigt HTTPS oder localhost",
+    "micUnsupported": "Dein Browser unterstützt keinen Zugriff auf das Mikrofon.",
+    "permissionCheckFailed": "Überprüfung der Mikrofonberechtigungen fehlgeschlagen.",
+    "permissionRequestFailed": "Mikrofonberechtigung konnte nicht erteilt werden.",
+    "micAccessDenied": "Mikrofonzugriff verweigert. Bitte berechtige den Zugriff.",
+    "startFailedPermission": "Aufnahme konnte nicht gestartet werden. Mikrofonberechtigung verweigert.",
+    "startFailedNoMic": "Aufnahme konnte nicht gestartet werden. Kein Mikrofon gefunden.",
+    "startFailedRetry": "Aufnahme konnte nicht gestartet werden. Bitte versuche es erneut.",
+    "noSpeech": "Keine Sprache erkannt.",
+    "noAudio": "Keine Audiodaten aufgezeichnet.",
+    "recordingFailed": "Aufnahme fehlgeschlagen."
+  },
+  "clients": {
+    "listFailed": "Abrufen der Kunden fehlgeschlagen.",
+    "nameRequired": "Kundenname ist erforderlich."
+  },
+  "logo": {
+    "noFile": "Keine Datei bereitgestellt",
+    "tooLarge": "Dateigröße zu groß. Maximale Größe ist {{size}}MB",
+    "invalidType": "Ungültiger Dateityp. Erlaubte Typen: {{types}}"
+  },
+  "voiceSession": {
+    "micBlocked": "Der Zugriff auf das Mikrofon ist blockiert. Erlaube es im Browser für diese Seite und versuche es erneut.",
+    "noMic": "Kein Mikrofon gefunden.",
+    "micBusy": "Das Mikrofon wird von einer anderen Anwendung verwendet.",
+    "noMatchingMic": "Kein Mikrofon entspricht den angeforderten Einstellungen.",
+    "pushToTalkHint": "Halte die Mikrofon-Taste (oder Strg+Umschalt+Leertaste) gedrückt, während du sprichst.",
+    "micReady": "Mikrofon bereit. Halte gedrückt zum Sprechen.",
+    "holdLonger": "Halte das Mikrofon während des Sprechens etwas länger gedrückt.",
+    "micOff": "Das Mikrofon ist in den Spracheinstellungen ausgeschaltet (Einstellungen → Chat → Sprachchat).",
+    "micStartFailedReason": "Das Mikrofon konnte nicht gestartet werden: {{reason}}",
+    "micStartFailed": "Das Mikrofon konnte nicht gestartet werden.",
+    "audioStartFailed": "Die Audioverarbeitung konnte nicht gestartet werden: {{reason}}",
+    "micEnded": "Das Mikrofon wurde beendet (ausgesteckt oder von einer anderen Anwendung übernommen).",
+    "recorderUnsupported": "Dieser Browser kann kein Audio aufzeichnen: {{reason}}",
+    "recordingError": "Aufzeichnungsfehler: {{reason}}",
+    "unknownReason": "unbekannt",
+    "recorderStartFailed": "Aufzeichnung konnte nicht gestartet werden: {{reason}}",
+    "sttFailed": "Spracherkennung fehlgeschlagen",
+    "rateLimited": "Zu viele Sprachanfragen in dieser Minute; diese wurde übersprungen.",
+    "busy": "Das System ist beschäftigt; diese wurde übersprungen.",
+    "backendOffline": "Das Backend ist nicht erreichbar; dieser Teil wurde nicht transkribiert.",
+    "transcribeFailed": "Transkription fehlgeschlagen: {{reason}}",
+    "noChatOpen": "Kein Chat geöffnet, um dies zu senden.",
+    "sendFailed": "Senden fehlgeschlagen: {{reason}}",
+    "noSpeechTimeout": "Nichts gehört, daher ist das Mikrofon wieder ausgeschaltet."
+  },
+  "voicePhase": {
+    "clickHint": {
+      "handsfree": "Klicken, um die freihändige Wiedergabe zu starten",
+      "toggle": "Klicken und sprechen; wird gesendet, wenn du pausierst",
+      "push": "Halten zum Sprechen"
+    },
+    "requestingPermission": {
+      "title": "Warten auf Mikrofonberechtigung",
+      "hint": "Erlaube das Mikrofon im Browser-Prompt."
+    },
+    "waitingForWake": {
+      "title": "Warten auf „Hey {{systemName}}“",
+      "hint": "Sage den Aktivierungsbefehl, dann deine Anfrage."
+    },
+    "listening": {
+      "title": "Hören",
+      "hint": "Sprich; jede Pause sendet eine Nachricht. Klicken zum Stoppen."
+    },
+    "recording": {
+      "title": "Aufnahme",
+      "hint": "Loslassen zum Senden."
+    },
+    "hearing": {
+      "title": "Höre dich",
+      "hint": "Pausieren zum Senden."
+    },
+    "transcribing": "Transkribieren",
+    "sending": "An Chat senden",
+    "responding": {
+      "title": "Warten auf Antwort",
+      "hint": "Hört weiterhin zu."
+    },
+    "speaking": {
+      "title": "Antwort wird gesprochen",
+      "hint": "Das Mikrofon ist während des Sprechens pausiert."
+    },
+    "denied": "Mikrofon gesperrt",
+    "error": "Sprache funktioniert nicht",
+    "micOff": "Mikrofon aus",
+    "outcomes": {
+      "sent": "gesendet",
+      "wake": "Weckphrase",
+      "ignored": "keine Weckphrase, nicht gesendet",
+      "unsent": "kein Chat offen, nicht gesendet",
+      "failed": "Senden fehlgeschlagen"
+    }
+  },
+  "batchVideo": {
+    "requestFailed": "Die Anfrage ist fehlgeschlagen",
+    "listFailed": "Videobatcher konnten nicht geladen werden: {{reason}}.",
+    "queueFailed": "Die Videowarteschlange wird nicht aktualisiert: {{reason}}.",
+    "clearFailedStatus": "Löschen fehlgeschlagen: HTTP {{status}}",
+    "clearFailed": "Löschen fehlgeschlagen: {{reason}}",
+    "combineFailed": "Zusammenfügen der Frames fehlgeschlagen: {{reason}}.",
+    "deleted": "Batch gelöscht.",
+    "deleteFailedStatus": "Löschen fehlgeschlagen: HTTP {{status}}",
+    "deleteFailed": "Löschen fehlgeschlagen: {{reason}}",
+    "cancelFailed": "Abbrechen fehlgeschlagen: {{reason}}. Der Batch läuft möglicherweise noch.",
+    "retryFailedStatus": "Erneuter Versuch fehlgeschlagen: HTTP {{status}}",
+    "retried": "Als neuer Batch {{batchId}} wiederholt. Der ursprüngliche fehlgeschlagene Batch bleibt in der Historie erhalten.",
+    "retryFailed": "Erneuter Versuch fehlgeschlagen: {{reason}}",
+    "approveFailedStatus": "Freigabe fehlgeschlagen: HTTP {{status}}",
+    "clipApproved": "Clip freigegeben und zu Dateien hinzugefügt.",
+    "approveFailed": "Freigabe fehlgeschlagen: {{reason}}",
+    "rerenderFailedStatus": "Neues Rendering fehlgeschlagen: HTTP {{status}}",
+    "rerendering": "Wird als {{newBatchId}} neu gerendert. Der gehaltene Clip bleibt in {{batchId}}.",
+    "rerenderFailed": "Re-Rendering fehlgeschlagen: {{reason}}"
+  },
+  "unsavedChanges": {
+    "leaveConfirm": "Du hast auf dieser Seite nicht gespeicherte Änderungen. Seite verlassen und Änderungen verwerfen?"
+  },
+  "agentRouter": {
+    "routingFailed": "Routing fehlgeschlagen",
+    "executionFailed": "Ausführung fehlgeschlagen"
+  },
+  "hfLookup": {
+    "failed": "Suche fehlgeschlagen"
+  },
+  "notifications": {
+    "operationFailed": "Operation fehlgeschlagen"
+  },
+  "errors": {
+    "unexpected": "Ein unerwarteter Fehler ist aufgetreten",
+    "badRequest": "Ungültige Anfrage. Bitte überprüfe deine Eingabe.",
+    "unauthorized": "Authentifizierung erforderlich. Bitte melde dich an.",
+    "forbidden": "Du hast keine Berechtigung, diese Aktion auszuführen.",
+    "notFound": "Die angeforderte Ressource wurde nicht gefunden.",
+    "validation": "Validierungsfehler. Bitte überprüfe deine Eingabe.",
+    "tooManyRequests": "Zu viele Anfragen. Bitte versuche es später erneut.",
+    "server": "Serverfehler. Bitte versuche es später erneut.",
+    "unavailable": "Dienst vorübergehend nicht verfügbar. Bitte versuche es später erneut.",
+    "httpStatus": "HTTP-Fehler {{status}}",
+    "network": "Netzwerkfehler. Bitte überprüfe deine Verbindung.",
+    "timeout": "Zeitüberschreitung. Bitte versuche es erneut.",
+    "uploadFailed": "Hochladen des Dokuments fehlgeschlagen. Bitte versuche es erneut.",
+    "indexingFailed": "Indexierung des Dokuments fehlgeschlagen. Bitte versuche es erneut.",
+    "chatFailed": "Chat-Anfrage fehlgeschlagen. Bitte versuche es erneut.",
+    "projectFailed": "Projektoperation fehlgeschlagen. Bitte versuche es erneut."
+  },
+  "audioRecorder": {
+    "permissionDenied": "Mikrofonberechtigung verweigert",
+    "resumeFailed": "Audio-Kontext konnte nicht fortgesetzt werden – Mikrofonzugriff könnte blockiert sein",
+    "volumeMonitoringFailed": "Lautstärkemonitoring fehlgeschlagen: {{reason}}",
+    "unsupported": "Audioaufnahme wird in diesem Browser nicht unterstützt"
+  },
+  "approvals": {
+    "loadFailed": "Ausstehende Freigaben konnten nicht geladen werden",
+    "heldWaiting_one": "Codeänderung wartet auf Freigabe",
+    "heldWaiting_other": "{{count}} Codeänderungen warten auf Freigabe",
+    "publishWaiting_one": "Veröffentlichung wartet auf Freigabe",
+    "publishWaiting_other": "{{count}} Veröffentlichungen warten auf Freigabe"
+  },
+  "slash": {
+    "help": "## Verfügbare Befehle\n\n{{commands}}",
+    "helpLine": "**{{name}}** — {{description}}\n  Verwendung: `{{usage}}`",
+    "voiceDisabled": "Sprachchat deaktiviert.",
+    "voiceEnabled": "Sprachchat aktiviert.",
+    "voiceUnavailable": "Sprachchat ist in diesem Kontext nicht verfügbar.",
+    "visionStatus": "**{{name}}:** {{status}}",
+    "unknownStatus": "unbekannt",
+    "visionHint": "Starte oder stoppe es auf der Plugins-Seite.",
+    "visionNotInstalled": "Das Vision Pipeline Plugin ist nicht installiert.",
+    "visionReadFailed": "Status der Vision Pipeline konnte nicht gelesen werden: {{reason}}",
+    "modelStatus": "**Aktuelles Modell:** {{model}}\n\n**Verfügbare Modelle:**\n{{models}}",
+    "unknownModel": "Unbekannt",
+    "modelsFailed": "Abrufen der Modelle fehlgeschlagen: {{reason}}",
+    "modelSwitched": "Modell gewechselt zu **{{model}}**.",
+    "failed": "Fehlgeschlagen: {{reason}}",
+    "modelSwitchFailed": "Modellwechsel fehlgeschlagen: {{reason}}",
+    "installed": "installiert",
+    "notInstalled": "nicht installiert",
+    "comfyuiAutoBackend": "ComfyUI (automatisches Backend)",
+    "editBackendsFailed": "_(Bearbeitungs-Backends konnten nicht geladen werden)_",
+    "imageModelStatus": "**Aktuelles Bildmodell:** `{{current}}`\n\nWird für `/imagine` und **generate_image** verwendet. Bearbeitungen (`edit_image`, `/inpaint`) wählen automatisch **Qwen-Image-Edit** aus, wenn es installiert ist, ansonsten **FLUX Kontext**.\n\n**Bildbearbeitungs-Pakete** (Installieren unter Verwalten von Bildmodellen → Bildbearbeitung):\n{{editLines}}\n\n**Generierung — heruntergeladen:**\n{{downloaded}}\n\n**Generierung — nicht heruntergeladen:**\n{{notDownloaded}}\n\n_Tipp: `/imagemodel auto` verwendet Qwen-Image-Edit für Anweisungs-Bearbeitungen, wenn dieses Paket installiert ist._",
+    "none": "_(keines)_",
+    "imageModelsFailed": "Fehler beim Abrufen der Bildmodelle: {{reason}}",
+    "imageModelAuto": "Bildmodell auf **auto** umgeschaltet (Bearbeitungen nutzen Qwen-Image-Edit, wenn installiert, sonst Kontext; ohne beides fordert die Bearbeitung dich auf, eines zu installieren).",
+    "imageEditsQwen": "Bildbearbeitungen werden **qwen-image-edit** verwenden, wenn dieses Paket installiert ist.",
+    "imageEditsKontext": "Bildbearbeitungen werden **kontext** (FLUX.1 Kontext) verwenden, wenn es installiert ist.",
+    "imageModelComfyui": "Bildmodell auf **comfyui** umgeschaltet (ComfyUI automatisches Backend). Die Generierung wird die installierte Z-Image- oder FLUX-Engine verwenden.",
+    "imageModelNotDownloaded": "Modell `{{model}}` ist nicht heruntergeladen. Lade es zuerst auf der Seite „Bilder“ herunter.",
+    "imageModelSwitched": "Bildmodell auf **{{model}}** ({{name}}) umgeschaltet. Wird für Chat-Generierung und img2img-Bearbeitungen verwendet.",
+    "imageModelNotFound": "Modell `{{model}}` nicht gefunden. Verfügbar: {{available}}",
+    "usage": {
+      "imagine": "Verwendung: `/imagine <prompt>`",
+      "inpaint": "Verwendung: `/inpaint <instruction>` — füge ein Foto an, oder es wird das letzte Bild in diesem Chat verwendet.",
+      "identity": "Verwendung: `/identity <prompt>` — füge ein Porträtfoto hinzu, für das du die Nutzungsrechte hast (dein Abbild oder ein Cast-Subjekt).",
+      "video": "Verwendung: `/video <prompt>`",
+      "musicVideo": "Verwendung: `/music-video <song-path-or-id> <style>` — startet einen Plan; genehmige im Studio, bevor die Clips gerendert werden.",
+      "filmCrew": "Verwendung: `/film-crew <screenplay>` — startet den Drehbuchautor; das Rendering wartet im Studio.",
+      "websearch": "Verwendung: `/websearch <query>`, `/websearch site:<address>` (prüfe eine Seite) oder `/websearch sitemap:<url>` (liste die Seiten einer Sitemap auf)",
+      "plan": "Verwendung: `/plan <request>`",
+      "training": "Verwendung: `/training <task>` — z. B. `/training Work the Comments Trainer — folge dem Banner, klicke nach Abschluss auf Start Over, halte nicht an.`",
+      "thinking": "Verwendung: `/thinking on` oder `/thinking off` (oder `/thinking`, um den aktuellen Status anzuzeigen)."
+    },
+    "musicVideoNeedsSong": "Ein Song (Dokument-ID oder Audio-Pfad) und ein visueller Stil sind erforderlich. Beispiel: `/music-video song.mp3 neon noir rain`",
+    "sitemapNotRead": "Sitemap nicht gelesen: {{reason}}",
+    "backendAnswered": "das Backend antwortete mit HTTP {{status}}",
+    "backendUnreachable": "das Backend ist nicht erreichbar",
+    "sitemap": {
+      "redirected": "{{url}} (umgeleitet auf {{finalUrl}})",
+      "title": "**Sitemap:** {{url}}",
+      "index_one": "Ein Sitemap-Index mit {{count}} Sitemaps; diese werden aufgelistet, nicht geöffnet.",
+      "index_other": "Ein Sitemap-Index mit {{count}} Sitemaps; diese werden aufgelistet, nicht geöffnet.",
+      "numberedEntryModified": "{{number}}. {{url}} (zuletzt geändert am {{lastmod}})",
+      "firstOf": "Erste {{shown}}:\n{{items}}",
+      "pageUrls_one": "{{count}} Seiten-URL.",
+      "pageUrls_other": "{{count}} Seiten-URLs.",
+      "depth": "Tiefe {{depth}}: {{pages}}",
+      "byDepth": "Nach Pfadtiefe: {{depths}}",
+      "landingPages": "Landingpages (oberste Ebene, Priorität über 0,5):",
+      "landingEntry": "{{number}}. {{url}} (Priorität {{priority}})",
+      "entryModified": "- {{url}} (zuletzt geändert am {{lastmod}})",
+      "pagesList": "Seiten:\n{{items}}"
+    },
+    "outreach": {
+      "enabled": "Aktiviert",
+      "disabled": "Deaktiviert",
+      "supervised": "überwacht",
+      "unsupervised": "unüberwacht",
+      "redisOffline": "- {{platform}}: Redis offline",
+      "cadenceLast": "- {{platform}}: {{posts}}/{{cap}} heute, vor {{minutes}}m",
+      "cadence": "- {{platform}}: {{posts}}/{{cap}} heute",
+      "status": "**Kontaktaufnahme:** {{state}} ({{mode}})\n\n{{cadence}}",
+      "noCadence": "Keine Cadenz-Daten.",
+      "statusFailed": "Status der Kontaktaufnahme fehlgeschlagen: {{reason}}",
+      "refused": "Kontaktaufnahme: Anfrage abgelehnt.",
+      "intentFailed": "Kontaktaufnahme-Absicht fehlgeschlagen: {{reason}}",
+      "queued": "Kontaktaufnahme-Auftrag in die Warteschlange aufgenommen als Aufgabe #{{taskId}}.",
+      "commandFailed": "Kontaktaufnahme-Befehl fehlgeschlagen: {{reason}}"
+    },
+    "training": {
+      "started": "Trainingslauf gestartet (bis zu 1000 Iterationen / 1 Stunde). Beobachte VNC für den Fortschritt; nutze `tail `logs/backend.log`` für Servo-Ereignisse. Aufgabe: _{{task}}_",
+      "rejectedBusy": "Trainingslauf abgelehnt: {{reason}} — nutze Kill-Switch oder warte auf den aktuellen Lauf.",
+      "rejected": "Trainingslauf abgelehnt: {{reason}}",
+      "unknownError": "unbekannter Fehler",
+      "failed": "Trainingslauf fehlgeschlagen: {{reason}}"
+    },
+    "rule": {
+      "failedDetails": "{{name}} fehlgeschlagen: {{reason}} ({{details}})",
+      "failed": "{{name}} fehlgeschlagen: {{reason}}",
+      "wroteSize": "{{name}} hat {{file}} ({{bytes}} Bytes) in den Outputs-Ordner geschrieben.",
+      "wrote": "{{name}} hat {{file}} in den Outputs-Ordner geschrieben."
+    },
+    "agent": {
+      "needsSession": "/agent benötigt eine Sitzung – öffne zuerst einen Chat.",
+      "switchFailed": "Umschalten in den Agenten-Modus fehlgeschlagen: {{reason}}",
+      "already": "Bereits im **Agenten-Modus**. Gib eine Bildschirmsteuerungs-Aufgabe ein oder nutze `/chat`, um den Modus zu verlassen.",
+      "switched": "Weitgeschaltet auf **Agentenmodus** — Nachrichten werden über den Agenten geleitet (er wird sprechen und handeln). Gib `/chat` ein, um den Modus zu verlassen."
+    },
+    "thinking": {
+      "needsSession": "/thinking benötigt eine Sitzung – öffne zuerst einen Chat.",
+      "statusDefault": "🧠 Denken für diesen Chat nutzt den **globalen Standard (Einstellungen → Chat)**.\nVerwende `/thinking on`, um Schritt-für-Schritt-Schlussfolgerungen zu aktivieren (langsamer), oder `/thinking off` für schnellere Antworten.",
+      "statusOn": "🧠 Denken für diesen Chat ist **AN**.\nVerwende `/thinking on`, um Schritt-für-Schritt-Schlussfolgerungen zu aktivieren (langsamer), oder `/thinking off` für schnellere Antworten.",
+      "statusOff": "🧠 Denken für diesen Chat ist **AUS**.\nVerwende `/thinking on`, um Schritt-für-Schritt-Schlussfolgerungen zu aktivieren (langsamer), oder `/thinking off` für schnellere Antworten.",
+      "enabled": "🧠 Denken **aktiviert** für diesen Chat – das Modell wird Schritt-für-Schritt schlussfolgern, bevor es antwortet (langsamer, besser für komplexe Prompts).",
+      "disabled": "⚡ Denken **deaktiviert** für diesen Chat – schnellere Antworten."
+    },
+    "chatMode": {
+      "needsSession": "/chat benötigt eine Sitzung – öffne zuerst einen Chat.",
+      "already": "Bereits im Chat-Modus.",
+      "switched": "Weitgeschaltet auf **Chat-Modus**. Nachrichten werden wieder über das LLM geleitet. Gib `/agent` ein, um zurückzuwechseln.",
+      "exitFailed": "Ausstieg aus dem Agentenmodus fehlgeschlagen: {{reason}}"
+    },
+    "commandFailed": "Befehl fehlgeschlagen: {{reason}}"
+  },
+  "autoresearch": {
+    "reasons": {
+      "ollamaUnreachable": "Ollama wird nicht ausgeführt",
+      "insufficientCorpus": "nicht genügend indexierte Dokumente",
+      "noEvalPairs": "keine Bewertungsfragen",
+      "evalSourcesNotIndexed": "die Bewertungsfragen stammen aus Dokumenten, die nicht indexiert sind",
+      "judgeUnset": "kein separates Bewertungsmodell festgelegt",
+      "judgeSameAsAnswerModel": "das Bewertungsmodell ist identisch mit dem Antwortmodell",
+      "celeryUnreachable": "die Aufgabenwarteschlange ist nicht erreichbar",
+      "baselineEvalFailed": "die Basislinie konnte nicht gemessen werden",
+      "prerequisiteCheckFailed": "die Startprüfungen konnten nicht ausgeführt werden",
+      "codebaseLocked": "die Codebasis ist gesperrt",
+      "selfImprovementDisabled": "Selbstverbesserung ist deaktiviert"
+    },
+    "noReason": "kein Grund aufgezeichnet",
+    "notRun": "Nicht ausgeführt: {{reasons}}",
+    "starting": "Wird gestartet …",
+    "noBaseline": "Keine Basislinie gemessen",
+    "scoresWithBest": "{{base}} → {{latest}} (bestes {{best}})",
+    "halt": "Stopp: {{reason}}",
+    "healthPass": "bestanden",
+    "healthFail": "fehlgeschlagen",
+    "healthUnknown": "unbekannt",
+    "healthStatus": "Statusprüfung: {{outcome}}",
+    "healthCheck": "Statusprüfung",
+    "selfReported": "selbst gemeldet",
+    "baselineNotMeasured": "Basislinie: nicht gemessen",
+    "baselineMeasured": "Basislinie: {{score}} (gemessen am {{at}})",
+    "baselineNoTime": "Basislinie: {{score}} (Messzeitpunkt nicht erfasst)",
+    "evalPairsNone": "keine",
+    "evalPairsWithUnindexed": "{{active}} aktiv · {{unindexed}} aus nicht indexierten Dokumenten",
+    "evalPairsActive": "{{active}} aktiv",
+    "activeChatModel": "das aktive Chat-Modell",
+    "judgeIsAnswerModel": "Dies ist das Antwort-Modell ({{model}}), daher bewertet es seine eigenen Antworten. Nachtliche Durchläufe werden nicht gestartet.",
+    "judgeNotSet": "Nicht gesetzt, daher bewertet {{model}} seine eigenen Antworten. Nachtliche Durchläufe werden nicht gestartet.",
+    "experimentsSummary_one": "{{count}} Experiment · {{promoted}} beworben",
+    "experimentsSummary_other": "{{count}} Experimente · {{promoted}} beworben"
+  },
+  "imageModels": {
+    "notInstalledSize": "{{description}} (nicht installiert – Installation lädt ca. {{size}} GB)",
+    "notInstalled": "{{description}} (nicht installiert – Installation laden)"
+  },
+  "attachment": {
+    "tooLarge": "Dieses Bild ist nach der Skalierung {{size}} groß; das Limit ist {{limit}}. Wähle ein kleineres Bild.",
+    "totalTooLarge_one": "Diese {{count}} Bilder sind nach der Skalierung insgesamt {{size}} groß; das Limit ist {{limit}}. Entferne eines oder wähle kleinere Bilder.",
+    "totalTooLarge_other": "Diese {{count}} Bilder sind nach der Skalierung insgesamt {{size}} groß; das Limit ist {{limit}}. Entferne eines oder wähle kleinere Bilder.",
+    "chatError": "Chat-Fehler",
+    "readFailed": "Bild konnte nicht gelesen werden",
+    "encodeFailed": "Bild konnte nicht kodiert werden",
+    "readResizedFailed": "Skaliertes Bild konnte nicht gelesen werden",
+    "noImage": "Kein Bild zum Anhängen",
+    "drawFailed": "Bild konnte nicht erstellt werden"
+  },
+  "fileTypes": {
+    "noTimestamp": "Nicht verfügbar"
+  },
+  "hfUrl": {
+    "empty": "Füge eine Hugging Face URL oder org/repo ein.",
+    "notHuggingFace": "Nur Hugging Face URLs oder org/repo IDs werden akzeptiert.",
+    "notModelRepo": "Das ist ein Hugging Face Dataset oder Space, kein Modell-Repo. Füge eine Modell-URL (huggingface.co/org/repo) ein."
+  },
+  "replySpeech": {
+    "noVoiceInstalled": "Keine Stimme installiert, daher können Antworten nicht gesprochen werden. Installiere eine in den Sprach-Einstellungen (Einstellungen → Chat → Sprachchat) oder starte das Audio Foundry Plugin mit einem installierten Kokoro-Stimmpack.",
+    "stoppedPartwayReason": "Der erste Teil der Antwort wurde gesprochen, dann wurde das Sprechen abgebrochen: {{reason}}",
+    "stoppedPartway": "Der erste Teil der Antwort wurde gesprochen, dann wurde das Sprechen abgebrochen",
+    "failedReason": "Das Vorlesen der Antwort ist fehlgeschlagen: {{reason}}",
+    "failed": "Das Vorlesen der Antwort ist fehlgeschlagen"
+  },
+  "renderFailure": {
+    "withNext": "{{text}} Nächster Schritt: {{action}}",
+    "retryable": "{{text}} (Ein späterer Versuch könnte erfolgreich sein.)"
+  },
+  "uiError": {
+    "generic": "Ein Fehler ist aufgetreten"
+  },
+  "imageEdit": {
+    "cropAfterTransform": "Zuschneiden vor dem Drehen oder Spiegeln: Drehung oder Spiegelung rückgängig machen, zuschneiden, dann erneut drehen oder spiegeln."
+  },
+  "paths": {
+    "home": "Start"
+  },
+  "droppedFiles": {
+    "folders_one": "{{count}} Ordner",
+    "folders_other": "{{count}} Ordner",
+    "files_one": "{{count}} Datei",
+    "files_other": "{{count}} Dateien",
+    "foldersAndFiles": "{{folders}} und {{files}}",
+    "leftOut": "{{items}} ausgelassen (versteckt, Build-Ausgabe oder Anmeldedaten)"
+  },
+  "entityLinks": {
+    "files": "Dateien",
+    "scheduleTask": "Aufgabe planen"
+  },
+  "batches": {
+    "fallbackName": "Batch"
+  },
+  "family": {
+    "selfImprovement": "Selbstverbesserung"
+  },
+  "videoPromptControls": {
+    "enhanceOff": "kein Effekt, wenn „Prompt verbessern“ deaktiviert ist",
+    "verbatim": "kein Effekt, wenn „Wortwörtliche Prompts“ in den Einstellungen aktiviert ist",
+    "viaReferenceCompiler": "über den Referenz-Compiler",
+    "viaPromptEnhancer": "über den Prompt-Enhancer",
+    "styleVerbatim": "Prompt-Stil: kein Effekt, wenn „Wortwörtliche Prompts“ in den Einstellungen aktiviert ist",
+    "styleEnhanceOff": "Prompt-Stil: kein Effekt, wenn „Prompt verbessern“ deaktiviert ist",
+    "styleExactText": "Prompt-Stil: kein Effekt, wenn „Exakter Text“ aktiviert ist"
+  },
+  "videoPreview": {
+    "conceptVerbatim": "Konzept wie eingegeben („Wortwörtliche Prompts“ in den Einstellungen aktiv); der Storyboard-Schritt schreibt die Einstellungen dennoch",
+    "conceptEnhanceOff": "Konzept wie eingegeben („Prompt verbessern“ deaktiviert); der Storyboard-Schritt schreibt die Einstellungen dennoch",
+    "conceptEnhanced": "Verbessertes Konzept; der Storyboard-Schritt schreibt die Einstellungen daraus, sodass die Clips unterschiedliche Prompts erhalten",
+    "promptVerbatim": "Prompt wie eingegeben („Wortwörtliche Prompts“ in den Einstellungen aktiv)",
+    "promptEnhanceOff": "Prompt wie eingegeben („Prompt verbessern“ deaktiviert)",
+    "promptEnhanced": "Verbesserter Prompt (was gesendet wird)",
+    "promptsVerbatimFirst_one": "Eingetippte Prompts (Verbatim prompts ist in den Einstellungen aktiviert): erstes {{shown}} von {{count}} Clips",
+    "promptsVerbatimFirst_other": "Eingetippte Prompts (Verbatim prompts ist in den Einstellungen aktiviert): erste {{shown}} von {{count}} Clips",
+    "promptsVerbatimAll_one": "Eingetippte Prompts (Verbatim prompts ist in den Einstellungen aktiviert): {{count}} Clips, jeweils einer",
+    "promptsVerbatimAll_other": "Eingetippte Prompts (Verbatim prompts ist in den Einstellungen aktiviert): {{count}} Clips, jeweils einer",
+    "promptsEnhanceOffFirst_one": "Eingetippte Prompts (Enhance prompt ist deaktiviert): erstes {{shown}} von {{count}} Clips",
+    "promptsEnhanceOffFirst_other": "Eingetippte Prompts (Enhance prompt ist deaktiviert): erste {{shown}} von {{count}} Clips",
+    "promptsEnhanceOffAll_one": "Eingetippte Prompts (Enhance prompt ist deaktiviert): {{count}} Clips, jeweils einer",
+    "promptsEnhanceOffAll_other": "Eingetippte Prompts (Enhance prompt ist deaktiviert): {{count}} Clips, jeweils einer",
+    "promptsEnhancedFirst_one": "Optimierte Prompts (was gesendet wird): erstes {{shown}} von {{count}} Clips",
+    "promptsEnhancedFirst_other": "Optimierte Prompts (was gesendet wird): erste {{shown}} von {{count}} Clips",
+    "promptsEnhancedAll_one": "Optimierte Prompts (was gesendet wird): {{count}} Clips, jeweils einer",
+    "promptsEnhancedAll_other": "Optimierte Prompts (was gesendet wird): {{count}} Clips, jeweils einer"
+  },
+  "videoSteps": {
+    "profileSteps": "{{label}} ({{steps}} Schritte)",
+    "speedProfile": "Geschwindigkeitsprofil",
+    "lowVramClamp": "Niedriger VRAM-Limit",
+    "setBy": "festgelegt durch {{label}}",
+    "preset": "Preset"
+  },
+  "assetGuard": {
+    "blocked": "Remotes Bild blockiert",
+    "offlineFirst": "(offline-first)"
+  },
+  "appStore": {
+    "brandingFailed": "Branding abrufen fehlgeschlagen: {{status}}"
+  }
+}

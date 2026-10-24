@@ -21,6 +21,7 @@ import { ActionButton } from "../settings/ui";
 import PostFields, { useDebounced } from "../social/PostFields";
 import { defaultVisibility, describeRateLimit, visibilityChoices } from "../social/platformRules";
 import { draftedBy, editChanges, editableValues, withDisclosureLine } from "./publishEdit";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * @param {boolean}  open
@@ -41,6 +42,7 @@ const EditPublishDialog = ({
   onClose,
   onSaved,
 }) => {
+  const { t } = useUiTranslation();
   // Parents clear the record as they close the dialog; the closing fade
   // keeps showing the last one.
   const lastRecord = useRef(givenRecord);
@@ -80,7 +82,7 @@ const EditPublishDialog = ({
         if (cancelled) return;
         const found = specs.find((s) => s.provider === platform);
         if (found) setSpec(found);
-        else setError(`${platform} is not available in this install, so this post cannot be edited.`);
+        else setError(t("connections.editDialog.unavailable", { platform }));
       })
       .catch((e) => !cancelled && setError(e.message));
     return () => {
@@ -159,7 +161,7 @@ const EditPublishDialog = ({
 
   return (
     <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Edit before approving</DialogTitle>
+      <DialogTitle>{t("connections.editDialog.title")}</DialogTitle>
       <DialogContent dividers>
         {!ready ? (
           <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
@@ -173,7 +175,7 @@ const EditPublishDialog = ({
             </Typography>
             {drafted && (
               <Alert severity="info">
-                {drafted} What you save here is what goes out once you approve it.
+                {t("connections.editDialog.draftedNote", { drafted })}
               </Alert>
             )}
             {error && <Alert severity="error">{error}</Alert>}
@@ -185,17 +187,21 @@ const EditPublishDialog = ({
               visibilityTargets={visibilityTargets}
               onVisibilityChange={(_key, value) => handleChange({ visibility: value })}
               preflight={preflight}
-              bodyLabel={record?.media_refs?.length ? "Caption" : "Text"}
+              bodyLabel={
+                record?.media_refs?.length
+                  ? t("connections.editDialog.caption")
+                  : t("connections.editDialog.text")
+              }
               showLink={Boolean(spec.capabilities?.supports_link || record?.link_url)}
               disclosureLocked={disclosureLocked}
               scheduleRefusal={spec.capabilities?.schedule_refusal || ""}
-              scheduleHelp="Still waits for your approval."
+              scheduleHelp={t("connections.editDialog.scheduleHelp")}
             />
 
             {goesOutAs !== null && (
               <Box>
                 <Typography variant="caption" color="text.secondary">
-                  Goes out as (with the lines {platformLabel} or the media&apos;s license requires):
+                  {t("connections.editDialog.goesOutAs", { platform: platformLabel })}
                 </Typography>
                 <Paper variant="outlined" sx={{ p: 1.5, mt: 0.5, whiteSpace: "pre-wrap" }}>
                   <Typography variant="body2">{goesOutAs}</Typography>
@@ -225,10 +231,10 @@ const EditPublishDialog = ({
       </DialogContent>
       <DialogActions>
         <Typography variant="caption" color="text.secondary" sx={{ flex: 1, pl: 1 }}>
-          Saving keeps it waiting. Approve it afterwards.
+          {t("connections.editDialog.savingNote")}
         </Typography>
         <ActionButton onClick={onClose} disabled={saving}>
-          Cancel
+          {t("connections.editDialog.cancel")}
         </ActionButton>
         <ActionButton
           kind="primary"
@@ -236,7 +242,7 @@ const EditPublishDialog = ({
           disabled={!ready || !changed || violations.length > 0}
           onClick={handleSave}
         >
-          Save
+          {t("connections.editDialog.save")}
         </ActionButton>
       </DialogActions>
     </Dialog>

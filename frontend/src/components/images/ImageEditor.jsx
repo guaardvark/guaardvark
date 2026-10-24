@@ -41,9 +41,10 @@ import {
 } from '@mui/icons-material';
 
 import {
-  cropRectFromOperations, cropIsAvailable, fitScale, CROP_AFTER_TRANSFORM_REASON,
+  cropRectFromOperations, cropIsAvailable, fitScale, cropAfterTransformReason,
 } from '../../utils/imageEditOps';
 import { useSnackbar } from '../common/SnackbarProvider';
+import { useUiTranslation } from '../../i18n';
 
 const FlipVIcon = () => (
   <FlipHIcon sx={{ transform: 'rotate(90deg)' }} />
@@ -60,6 +61,7 @@ const ImageEditor = ({
   onClose,
   onSaved,
 }) => {
+  const { t } = useUiTranslation();
   // View state
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -272,7 +274,7 @@ const ImageEditor = ({
     setSaving(true);
     setSaveError(null);
     const fail = (reason) => {
-      const message = `Save failed: ${reason}`;
+      const message = t('images.editor.saveFailed', { reason });
       setSaveError(message);
       snackbar?.showMessage?.(message, 'error');
     };
@@ -300,7 +302,7 @@ const ImageEditor = ({
         setFlipV(false);
         onSaved?.(data.data);
       } else {
-        fail(data.message || data.error || 'Unknown error');
+        fail(data.message || data.error || t('images.editor.unknownError'));
       }
     } catch (err) {
       fail(err.message);
@@ -390,7 +392,7 @@ const ImageEditor = ({
         }}
       >
         {/* Back */}
-        <Tooltip title="Back to viewer (Esc)">
+        <Tooltip title={t('images.editor.back')}>
           <IconButton onClick={onClose} sx={{ color: 'white' }} size="small">
             <BackIcon />
           </IconButton>
@@ -403,7 +405,7 @@ const ImageEditor = ({
         <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.15)', mx: 0.5 }} />
 
         {/* Zoom controls */}
-        <Tooltip title="Zoom out (-)">
+        <Tooltip title={t('images.editor.zoomOut')}>
           <IconButton onClick={() => setZoom(z => Math.max(z - 0.25, 0.1))} sx={{ color: 'white' }} size="small">
             <ZoomOutIcon fontSize="small" />
           </IconButton>
@@ -417,7 +419,7 @@ const ImageEditor = ({
           sx={{ width: 100, color: 'white', mx: 0.5 }}
           size="small"
         />
-        <Tooltip title="Zoom in (+)">
+        <Tooltip title={t('images.editor.zoomIn')}>
           <IconButton onClick={() => setZoom(z => Math.min(z + 0.25, 5))} sx={{ color: 'white' }} size="small">
             <ZoomInIcon fontSize="small" />
           </IconButton>
@@ -425,7 +427,7 @@ const ImageEditor = ({
         <Typography variant="caption" sx={{ color: 'white', opacity: 0.6, minWidth: 35, textAlign: 'center' }}>
           {Math.round(zoom * 100)}%
         </Typography>
-        <Tooltip title="Fit to screen (0)">
+        <Tooltip title={t('images.editor.fit')}>
           <IconButton onClick={handleFitScreen} sx={{ color: 'white' }} size="small">
             <FitScreenIcon fontSize="small" />
           </IconButton>
@@ -434,22 +436,22 @@ const ImageEditor = ({
         <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.15)', mx: 0.5 }} />
 
         {/* Rotate & Flip */}
-        <Tooltip title="Rotate left (Ctrl+R)">
+        <Tooltip title={t('images.editor.rotateLeft')}>
           <IconButton onClick={handleRotateCCW} sx={{ color: 'white' }} size="small">
             <RotateLeftIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Rotate right (R)">
+        <Tooltip title={t('images.editor.rotateRight')}>
           <IconButton onClick={handleRotateCW} sx={{ color: 'white' }} size="small">
             <RotateRightIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Flip horizontal">
+        <Tooltip title={t('images.editor.flipHorizontal')}>
           <IconButton onClick={handleFlipH} sx={{ color: 'white' }} size="small">
             <FlipHIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Flip vertical">
+        <Tooltip title={t('images.editor.flipVertical')}>
           <IconButton onClick={handleFlipV} sx={{ color: 'white' }} size="small">
             <FlipVIcon />
           </IconButton>
@@ -458,7 +460,7 @@ const ImageEditor = ({
         <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.15)', mx: 0.5 }} />
 
         {/* Crop */}
-        <Tooltip title={!canCrop ? CROP_AFTER_TRANSFORM_REASON : cropMode ? "Cancel crop (Esc)" : "Crop (C)"}>
+        <Tooltip title={!canCrop ? cropAfterTransformReason() : cropMode ? t('images.editor.cancelCrop') : t('images.editor.crop')}>
           <span>
           <IconButton
             disabled={!canCrop}
@@ -491,14 +493,14 @@ const ImageEditor = ({
             onClick={handleApplyCrop}
             sx={{ ml: 0.5, textTransform: 'none', fontSize: '0.75rem', py: 0.25 }}
           >
-            Apply Crop
+            {t('images.editor.applyCrop')}
           </Button>
         )}
 
         <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.15)', mx: 0.5 }} />
 
         {/* Undo */}
-        <Tooltip title="Undo (Ctrl+Z)">
+        <Tooltip title={t('images.editor.undo')}>
           <span>
             <IconButton onClick={handleUndo} disabled={!hasEdits} sx={{ color: hasEdits ? 'white' : 'rgba(255,255,255,0.3)' }} size="small">
               <UndoIcon fontSize="small" />
@@ -516,7 +518,7 @@ const ImageEditor = ({
         )}
 
         {/* Save buttons */}
-        <Tooltip title="Save (Ctrl+S)">
+        <Tooltip title={t('images.editor.save')}>
           <span>
             <IconButton
               onClick={() => setSaveDialogOpen(true)}
@@ -573,7 +575,7 @@ const ImageEditor = ({
         flexShrink: 0,
       }}>
         <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>
-          Scroll to zoom &bull; Drag to pan &bull; R rotate &bull; C crop &bull; Ctrl+Z undo &bull; Ctrl+S save
+          {t('images.editor.hints')}
         </Typography>
       </Box>
 
@@ -586,7 +588,7 @@ const ImageEditor = ({
         sx={{ zIndex: EDITOR_Z + 1 }}
         PaperProps={{ sx: { backgroundColor: '#1e1e1e', color: 'white' } }}
       >
-        <DialogTitle>Save Image</DialogTitle>
+        <DialogTitle>{t('images.editor.saveTitle')}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <ToggleButtonGroup
@@ -601,33 +603,33 @@ const ImageEditor = ({
               }}
             >
               <ToggleButton value="copy">
-                <SaveAsIcon sx={{ mr: 0.5, fontSize: 18 }} /> Save as Copy
+                <SaveAsIcon sx={{ mr: 0.5, fontSize: 18 }} /> {t('images.editor.saveAsCopy')}
               </ToggleButton>
               <ToggleButton value="overwrite">
-                <SaveIcon sx={{ mr: 0.5, fontSize: 18 }} /> Overwrite
+                <SaveIcon sx={{ mr: 0.5, fontSize: 18 }} /> {t('images.editor.overwrite')}
               </ToggleButton>
             </ToggleButtonGroup>
 
             <FormControl size="small" fullWidth>
-              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>Format</InputLabel>
+              <InputLabel sx={{ color: 'rgba(255,255,255,0.5)' }}>{t('images.editor.format')}</InputLabel>
               <Select
                 value={saveFormat}
                 onChange={(e) => setSaveFormat(e.target.value)}
-                label="Format"
+                label={t('images.editor.format')}
                 MenuProps={{ sx: { zIndex: EDITOR_Z + 2 } }}
                 sx={{ color: 'white', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' } }}
               >
-                <MenuItem value="">Keep Original</MenuItem>
-                <MenuItem value="png">PNG (lossless)</MenuItem>
-                <MenuItem value="jpeg">JPEG (smaller)</MenuItem>
-                <MenuItem value="webp">WebP (modern)</MenuItem>
+                <MenuItem value="">{t('images.editor.keepOriginal')}</MenuItem>
+                <MenuItem value="png">{t('images.editor.png')}</MenuItem>
+                <MenuItem value="jpeg">{t('images.editor.jpeg')}</MenuItem>
+                <MenuItem value="webp">{t('images.editor.webp')}</MenuItem>
               </Select>
             </FormControl>
 
             {(saveFormat === 'jpeg' || saveFormat === 'webp') && (
               <Box>
                 <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mb: 0.5, display: 'block' }}>
-                  Quality: {saveQuality}%
+                  {t('images.editor.quality', { quality: saveQuality })}
                 </Typography>
                 <Slider
                   value={saveQuality}
@@ -642,8 +644,7 @@ const ImageEditor = ({
             )}
 
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)' }}>
-              {operations.length} edit{operations.length !== 1 ? 's' : ''} to apply:
-              {' '}{operations.map(op => op.type).join(', ') || 'none'}
+              {t('images.editor.editsToApply', { count: operations.length, edits: operations.map(op => op.type).join(', ') || t('images.editor.noEdits') })}
             </Typography>
 
             {saveError && (
@@ -655,7 +656,7 @@ const ImageEditor = ({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSaveDialogOpen(false)} disabled={saving} sx={{ color: 'rgba(255,255,255,0.7)' }}>
-            Cancel
+            {t('images.shared.cancel')}
           </Button>
           <Button
             onClick={handleSave}
@@ -664,7 +665,7 @@ const ImageEditor = ({
             disabled={saving || !hasEdits}
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
           >
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? t('images.editor.saving') : t('images.editor.saveButton')}
           </Button>
         </DialogActions>
       </Dialog>

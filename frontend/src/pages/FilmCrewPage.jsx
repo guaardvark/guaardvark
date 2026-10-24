@@ -29,8 +29,10 @@ import {
   deleteProduction,
   retryProduction,
 } from '../api/productionService';
+import { useUiTranslation } from '../i18n';
 
 const FilmCrewPage = () => {
+  const { t } = useUiTranslation();
   const [tab, setTab] = useState(0);
   const [productions, setProductions] = useState([]);
   const [selectedProdId, setSelectedProdId] = useState(null);
@@ -59,7 +61,7 @@ const FilmCrewPage = () => {
       setProductions(data.productions || []);
       setError(null);
     } catch (err) {
-      setError('Failed to load productions');
+      setError(t('filmCrew.page.loadFailed'));
     }
   }, []);
 
@@ -82,7 +84,7 @@ const FilmCrewPage = () => {
       setError(null);
     } catch (err) {
       if (myRequestId === detailRequestId.current) {
-        setError('Failed to fetch production details');
+        setError(t('filmCrew.page.detailFailed'));
       }
     } finally {
       if (myRequestId === detailRequestId.current) {
@@ -157,12 +159,9 @@ const FilmCrewPage = () => {
         // The curator flagged shots this page had not shown yet: reload the
         // cards so the next click asks about them.
         await fetchDetail(selectedProdId, { quiet: true });
-        setError(
-          `${flagged.length} ${flagged.length === 1 ? 'shot was' : 'shots were'} flagged by the curator. ` +
-          'Look at them, then press Approve & Render again.'
-        );
+        setError(t('filmCrew.page.flaggedOnApprove', { count: flagged.length }));
       } else {
-        setError(formatUiError(err?.response?.data?.error) || 'Failed to approve storyboard');
+        setError(formatUiError(err?.response?.data?.error) || t('filmCrew.page.approveFailed'));
       }
     } finally {
       setApproving(false);
@@ -191,14 +190,14 @@ const FilmCrewPage = () => {
       await fetchDetail(id);
       await fetchProductions();
     } catch (err) {
-      setError(formatUiError(err?.response?.data?.error) || 'Failed to retry production');
+      setError(formatUiError(err?.response?.data?.error) || t('filmCrew.page.retryFailed'));
     } finally {
       setRetrying(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this production? Shots will be removed; cast subjects stay in the library.')) {
+    if (!window.confirm(t('filmCrew.page.deleteConfirm'))) {
       return;
     }
     setDeleting(true);
@@ -211,7 +210,7 @@ const FilmCrewPage = () => {
       }
       await fetchProductions();
     } catch (err) {
-      setError(formatUiError(err?.response?.data?.error) || 'Failed to delete production');
+      setError(formatUiError(err?.response?.data?.error) || t('filmCrew.page.deleteFailed'));
     } finally {
       setDeleting(false);
     }
@@ -222,11 +221,11 @@ const FilmCrewPage = () => {
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar variant="dense">
           <Typography variant="h6" sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
-            <MovieFilterIcon sx={{ mr: 1 }} /> Film Crew
+            <MovieFilterIcon sx={{ mr: 1 }} /> {t('filmCrew.page.title')}
           </Typography>
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-            <Tab label="Productions" icon={<MovieFilterIcon />} iconPosition="start" />
-            <Tab label="Cast Library" icon={<GroupIcon />} iconPosition="start" />
+            <Tab label={t('filmCrew.page.productionsTab')} icon={<MovieFilterIcon />} iconPosition="start" />
+            <Tab label={t('filmCrew.page.castLibraryTab')} icon={<GroupIcon />} iconPosition="start" />
           </Tabs>
           <Box sx={{ ml: 2 }}>
             <Button 
@@ -235,7 +234,7 @@ const FilmCrewPage = () => {
               onClick={() => setCreateDialogOpen(true)}
               size="small"
             >
-              New Production
+              {t('filmCrew.page.newProduction')}
             </Button>
           </Box>
         </Toolbar>

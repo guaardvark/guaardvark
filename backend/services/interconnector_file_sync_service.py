@@ -51,6 +51,27 @@ SYNC_TEMP_SUFFIX = ".sync-tmp"
 _WRITE_LAST = "frontend/vite.config.js"
 
 
+def complete_frontend_sync_paths(sync_paths, include_patterns=None):
+    """Carry frontend dependency manifests and locale data with source profiles."""
+    paths = list(sync_paths)
+    patterns = list(include_patterns or [])
+    if not any(
+        p.replace("\\", "/").rstrip("/") in ("frontend", "frontend/src")
+        for p in paths
+    ):
+        return paths, patterns
+    manifests = ("frontend/package.json", "frontend/package-lock.json")
+    whole_frontend = any(p.replace("\\", "/").rstrip("/") == "frontend" for p in paths)
+    for manifest in manifests:
+        if not whole_frontend and manifest not in paths:
+            paths.append(manifest)
+    if patterns:
+        for pattern in (*manifests, "frontend/src/**/*.json"):
+            if pattern not in patterns:
+                patterns.append(pattern)
+    return paths, patterns
+
+
 def _apply_order(file_data: Dict) -> int:
     """Sort key: everything else, then frontend/ in one burst, then the Vite config."""
     path = (file_data.get("path") or "").replace("\\", "/")
@@ -340,6 +361,10 @@ class InterconnectorFileSyncService:
             logger.info(f"[FILE_SYNC] Using default sync paths: {sync_paths}")
         else:
             logger.info(f"[FILE_SYNC] Using custom sync paths: {sync_paths}")
+
+        sync_paths, include_patterns = complete_frontend_sync_paths(
+            sync_paths, include_patterns
+        )
         
         if since:
             logger.info(f"[FILE_SYNC] Filtering files modified after: {since}")
@@ -462,7 +487,14 @@ class InterconnectorFileSyncService:
             return files_list
 
         if include_patterns:
-            matched = any(fnmatch.fnmatch(file_str, pat) for pat in include_patterns)
+            try:
+                relative = file_path.relative_to(project_root).as_posix()
+            except ValueError:
+                return files_list
+            matched = any(
+                fnmatch.fnmatch(file_str, pat) or fnmatch.fnmatch(relative, pat)
+                for pat in include_patterns
+            )
             if not matched:
                 return files_list
         

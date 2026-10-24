@@ -4,6 +4,7 @@
 // reads the active tab and its handlers through getters at the moment it
 // fires, never from the closure that mounted the editor.
 
+import { translate } from "../../i18n";
 import { TAB_LOAD } from "./tabOrigin";
 
 const modelPath = (tab, loading) => {
@@ -40,10 +41,10 @@ export function disposeTabModels(monaco, tabs) {
 }
 
 const CHAT_ACTIONS = [
-  { id: "chat.ask", label: "Ask Chat", action: "ask", order: 1 },
-  { id: "chat.fix", label: "Fix This", action: "fix", order: 2 },
-  { id: "chat.explain", label: "Explain", action: "explain", order: 3, shortcut: true },
-  { id: "chat.addToChat", label: "Add to Chat", action: "add", order: 4 },
+  { id: "chat.ask", label: () => translate("codeEditor.contextMenu.ask"), action: "ask", order: 1 },
+  { id: "chat.fix", label: () => translate("codeEditor.contextMenu.fix"), action: "fix", order: 2 },
+  { id: "chat.explain", label: () => translate("codeEditor.contextMenu.explain"), action: "explain", order: 3, shortcut: true },
+  { id: "chat.addToChat", label: () => translate("codeEditor.contextMenu.addToChat"), action: "add", order: 4 },
 ];
 
 const selectedText = (ed) => {
@@ -73,7 +74,7 @@ export function bindEditorActions(editor, monaco, handlers) {
   for (const item of CHAT_ACTIONS) {
     editor.addAction({
       id: item.id,
-      label: item.label,
+      label: item.label(),
       contextMenuGroupId: "9_chat",
       contextMenuOrder: item.order,
       ...(item.shortcut ? { keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE] } : {}),

@@ -4,8 +4,9 @@
 import React from "react";
 import { Alert, Box, Button, Chip, CircularProgress, List, ListItemButton, ListItemText, Typography } from "@mui/material";
 import { RECENT_LIMIT, runStatus } from "./recentRuns";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
-const formatDate = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
+const formatDate = (iso) => (iso ? new Date(iso).toLocaleDateString(uiLocale()) : "");
 
 /**
  * @param {Array<{key, name, status, date, detail, path}>} rows
@@ -16,6 +17,8 @@ const formatDate = (iso) => (iso ? new Date(iso).toLocaleDateString() : "");
  * @param {{label: string, path: string}} viewAll  the full list, linked when there are more rows
  */
 const RecentRunsList = ({ rows, loading, error, emptyText, onOpen, viewAll }) => {
+  // Status chips come from runStatus(), which reads the interface language.
+  useUiTranslation();
   if (loading) return <CircularProgress size={22} sx={{ display: "block", mx: "auto", my: 2 }} />;
   if (error) {
     return (

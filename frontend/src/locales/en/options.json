@@ -1,0 +1,374 @@
+{
+  "infographic": {
+    "styles": {
+      "editorial": "Dramatic editorial illustration",
+      "flatVector": "Flat vector / clean geometric",
+      "photoReal": "Photorealistic",
+      "comic": "Comic book"
+    },
+    "aspects": {
+      "wide": "16:9  (1280×720)  — social / video thumbnail",
+      "square": "1:1   (1024×1024) — square / Instagram",
+      "vertical": "9:16  (720×1280)  — vertical / Reels",
+      "portrait": "4:5   (1024×1280) — Instagram portrait",
+      "landscape": "3:2   (1216×832)  — landscape"
+    }
+  },
+  "tips": {
+    "dashboardCardMenu": "Right-click any card on the Dashboard to open its page, minimize it, give it a colour or hide it.",
+    "shortcuts": "Press ? anywhere outside a text box to see the keyboard shortcuts.",
+    "micHandsFree": "Click the microphone to talk hands-free: each pause sends what you said to the chat. Click it again to stop.",
+    "floatingChat": "Ctrl+Shift+C opens the floating chat on any page. Its chip names the page you are on, and the chat is told which page and record you have open.",
+    "dropIntoFiles": "Drag files or whole folders from your computer onto the Files page. They are uploaded where you drop them and indexed for chat and search.",
+    "dashboardHiddenCards": "Hid a Dashboard card by mistake? Right-click an empty part of the Dashboard to show it again.",
+    "moveResizeCards": "Cards on the Dashboard, Code Editor and Video Editor move by their title bar and resize from any edge or corner. Double-click a title bar to fold a card away.",
+    "settingsHoverHelp": "In Settings, a title with a dotted underline explains itself: rest the pointer on it.",
+    "navigationModes": "Settings → General → Navigation switches between the sidebar and a Workspaces bar that groups pages by task.",
+    "dropIntoChat": "Drop a document or an image into any chat to add it: documents are indexed, an image goes with your next message.",
+    "micPushToTalk": "Hold the microphone, or hold Ctrl+Shift+Space, to talk only while you hold it. Right-click the mic to change what a click does.",
+    "dashboardLayouts": "Right-click an empty part of the Dashboard to cycle its layout: Normal, Compact, Compact Layered and Mode-X. Cards stay free to move in every layout.",
+    "footerJobs": "While jobs run, the bar at the bottom shows them side by side. Rest the pointer on it to list every job; click to keep the list open.",
+    "updateNotice": "When Guaardvark is updated while it runs, a notice above the bottom bar says whether a page reload or a restart finishes the update.",
+    "rightClickEverywhere": "Right-click works across the app: files, notes, chat messages, jobs, rules, plugins and more each have their own menu."
+  },
+  "voiceActivation": {
+    "push": {
+      "label": "Push to talk",
+      "help": "Hold the mic (or Ctrl+Shift+Space) while you speak; release to send."
+    },
+    "toggle": {
+      "label": "Tap to talk",
+      "help": "Click, speak, and it sends when you pause. The mic closes after each message."
+    },
+    "handsfree": {
+      "label": "Hands-free",
+      "help": "Click once and talk; every pause sends a message until you click again."
+    }
+  },
+  "brandTones": {
+    "neutral": {
+      "label": "Neutral",
+      "description": "Professional and balanced tone"
+    },
+    "friendly": {
+      "label": "Friendly",
+      "description": "Warm and approachable tone"
+    },
+    "authoritative": {
+      "label": "Authoritative",
+      "description": "Expert and confident tone"
+    },
+    "playful": {
+      "label": "Playful",
+      "description": "Creative and engaging tone"
+    },
+    "luxury": {
+      "label": "Luxury",
+      "description": "Premium and sophisticated tone"
+    }
+  },
+  "delimiters": {
+    "comma": {
+      "label": "Comma (,)",
+      "description": "Standard CSV format"
+    },
+    "semicolon": {
+      "label": "Semicolon (;)",
+      "description": "European standard"
+    },
+    "tab": {
+      "label": "Tab",
+      "description": "Tab-separated values"
+    }
+  },
+  "mediaTabs": {
+    "mediaLibrary": "Media Library",
+    "imageGen": "Image Gen",
+    "infographic": "Infographic",
+    "videoGen": "Video Gen",
+    "upscaling": "Upscaling"
+  },
+  "videoPresets": {
+    "quality": {
+      "fast": {
+        "label": "⚡ Fast",
+        "description": "Preview at the model's step floor (never below it)"
+      },
+      "standard": {
+        "label": "✨ Standard",
+        "description": "Good quality (30 steps)"
+      },
+      "high": {
+        "label": "🎬 High Quality",
+        "description": "Best details (40 steps)"
+      },
+      "maximum": {
+        "label": "🏆 Maximum",
+        "description": "Maximum quality (50 steps)"
+      }
+    },
+    "duration": {
+      "short": "Short",
+      "medium": "Medium",
+      "long": "Long",
+      "about_one": "~{{count}} second",
+      "about_other": "~{{count}} seconds",
+      "seconds": "{{seconds}} s",
+      "exact_one": "{{count}} second",
+      "exact_other": "{{count}} seconds"
+    },
+    "motion": {
+      "subtle": {
+        "label": "🌊 Subtle",
+        "description": "Gentle movement"
+      },
+      "normal": {
+        "label": "🎯 Normal",
+        "description": "Balanced motion"
+      },
+      "dynamic": {
+        "label": "💨 Dynamic",
+        "description": "More movement"
+      },
+      "intense": {
+        "label": "🔥 Intense",
+        "description": "Maximum motion"
+      }
+    },
+    "outputTiers": {
+      "draft": {
+        "label": "Draft",
+        "description": "Raw model output — fastest, lowest polish"
+      },
+      "standard": {
+        "label": "Standard",
+        "description": "2x FPS interpolation for smoother motion"
+      },
+      "cinema": {
+        "label": "Cinema",
+        "description": "2x FPS + 2x upscale — recommended for final output"
+      }
+    },
+    "keyframeModels": {
+      "fromLora": {
+        "label": "Auto (character LoRA base)",
+        "description": "Z-Image / SDXL / FLUX from the cast member’s training base"
+      },
+      "fluxSchnell": {
+        "description": "Fast, beautiful stills (default without cast)"
+      },
+      "fluxDevLora": {
+        "description": "Comfy FLUX stills (non-cast or explicit)"
+      },
+      "sdxl": {
+        "description": "High-fidelity stills without LoRA"
+      },
+      "sdxlLora": {
+        "description": "Legacy SDXL character path"
+      }
+    },
+    "samplerProfiles": {
+      "official": {
+        "label": "Official — uni_pc, shift 8 (default)",
+        "description": "ComfyUI's bundled Wan 2.2 5B template settings"
+      },
+      "adaptive": {
+        "label": "Guaardvark — euler, adaptive shift",
+        "description": "Experimental: shift scales with resolution, floors at 3 below ~740px"
+      }
+    },
+    "aspectRatios": {
+      "widescreen": "Widescreen",
+      "portraitVertical": "Portrait/Vertical",
+      "square": "Square",
+      "standard": "Standard",
+      "classic": "Classic",
+      "ultraWide": "Ultra-wide",
+      "portrait": "Portrait"
+    },
+    "promptStyles": {
+      "cinematic": {
+        "label": "Cinematic",
+        "description": "Film-quality lighting and motion"
+      },
+      "realistic": {
+        "label": "Realistic",
+        "description": "Photorealistic detail"
+      },
+      "artistic": {
+        "label": "Artistic",
+        "description": "Stylized and expressive"
+      },
+      "anime": {
+        "label": "Anime (Japanese)",
+        "description": "Japanese cel-shaded animation"
+      },
+      "animation3d": {
+        "label": "3D Animation (Pixar-style)",
+        "description": "Polished CGI, expressive characters"
+      },
+      "stopMotion": {
+        "label": "Stop-motion / Claymation",
+        "description": "Tactile clay, handcrafted feel"
+      },
+      "handDrawn": {
+        "label": "Hand-drawn 2D (Ghibli-style)",
+        "description": "Painterly watercolor backgrounds"
+      },
+      "westernCartoon": {
+        "label": "Western Cartoon",
+        "description": "Bold outlines, flat shading, snappy motion"
+      },
+      "none": {
+        "label": "None",
+        "description": "No enhancement"
+      }
+    },
+    "sizes": {
+      "small": {
+        "label": "Small",
+        "description": "512px (faster)"
+      },
+      "medium": {
+        "label": "Medium"
+      },
+      "large": {
+        "label": "Large",
+        "description": "720px (CogVideoX native)"
+      },
+      "hd": {
+        "description": "1280px (CPU offload, slower)"
+      },
+      "fullhd": {
+        "description": "1920px (CPU offload, much slower)"
+      }
+    },
+    "models": {
+      "wan225b": {
+        "label": "Wan 2.2 5B TI2V (Recommended)",
+        "description": "Fast 5s clips, fits 16GB — no offload. Text + image to video."
+      },
+      "wan2214b": {
+        "description": "Best quality, 5s videos (16GB VRAM)"
+      },
+      "wan2214bI2v": {
+        "description": "Top-tier image-to-video, 5s clips (16GB VRAM)"
+      },
+      "cogvideox5b": {
+        "description": "6s videos, in-process diffusers — no ComfyUI needed (~16GB VRAM)"
+      },
+      "cogvideox5bI2v": {
+        "description": "Image-to-video, 5 s at 1360x768 (~16GB VRAM)"
+      },
+      "ltx23": {
+        "description": "Lightricks LTX-2.3 — 8 steps, up to ~10s on 16GB Ada. T2V + I2V."
+      },
+      "minimaxH3Int8": {
+        "description": "MiniMax H3 — video with native stereo audio in one pass. 24fps, ~5s. T2V, first-frame and first+last-frame I2V. ComfyUI ≥ 0.30."
+      },
+      "minimaxH3Int8Full": {
+        "description": "MiniMax H3 with the full modulation weights and the int8 encoder. 24GB-class cards; unmeasured."
+      },
+      "minimaxH3Reference": {
+        "description": "MiniMax H3 reference-to-video: up to 9 pictures, 3 clips and 3 audio files lock identity, motion and voice, or edit and continue a clip. 24fps, native audio."
+      },
+      "minimaxH3Bf16": {
+        "description": "MiniMax H3 at full precision with the bf16 encoder (~110GB of weights). Workstation cards; unmeasured."
+      },
+      "hunyuanT2v": {
+        "description": "Tencent HunyuanVideo — cinematic motion, no content filter. 24fps, ~3s clips (16GB VRAM)"
+      },
+      "hunyuanI2v": {
+        "description": "HunyuanVideo image-to-video (v2) — follows the start frame closely. 24fps, ~3s (16GB VRAM)"
+      },
+      "ltx25": {
+        "description": "Lightricks LTX-2.5 — 8 steps, up to ~10s on 16GB Ada. T2V + I2V. Gated HF accept + ComfyUI ≥ 0.32."
+      }
+    },
+    "unknownModel": "Unknown model"
+  },
+  "imagePresets": {
+    "labels": {
+      "fast": "Fast",
+      "standard": "Standard",
+      "high2k": "High 2K (2048²)",
+      "fluxFast": "FLUX Fast",
+      "fluxQuality": "FLUX Max Quality",
+      "fluxUltra": "FLUX Ultra",
+      "high": "High Quality",
+      "ultra": "Ultra"
+    },
+    "descriptions": {
+      "zimage": {
+        "fast": "Quick draft",
+        "standard": "Official Turbo recipe (HF)",
+        "high2k": "Official recipe at 2K canvas — heavy; 16GB cards may refuse"
+      },
+      "flux": {
+        "fluxFast": "Faster FLUX.1-dev stills",
+        "fluxQuality": "Default max-quality FLUX.1-dev",
+        "fluxUltra": "Highest steps — slow, peak detail"
+      },
+      "kreaTurbo": {
+        "fast": "Krea turbo CFG-free",
+        "standard": "Balanced turbo",
+        "high": "More steps"
+      },
+      "kreaRaw": {
+        "standard": "Krea raw quality",
+        "high": "Default raw",
+        "ultra": "Slow, peak detail"
+      },
+      "sdxlTurbo": {
+        "fast": "Single-step preview",
+        "standard": "Turbo recipe (4 steps, CFG-free)"
+      },
+      "sana": {
+        "fast": "Single-step preview",
+        "standard": "Sana Sprint recipe (2 steps)"
+      },
+      "qwenImage21": {
+        "standard": "Official ComfyUI template (25 steps, cfg 1)",
+        "high": "Official pipeline range (40-50 steps), slower"
+      },
+      "sdxl": {
+        "fast": "Quick SDXL",
+        "standard": "Balanced SDXL",
+        "high": "Final SDXL"
+      },
+      "sd": {
+        "fast": "Quick generation, good for testing",
+        "standard": "Balanced quality and speed",
+        "high": "High quality, slower generation"
+      }
+    }
+  },
+  "slashCommands": {
+    "imagine": "Generate an image from a text prompt",
+    "removebg": "Remove the background from the attached photo (transparent PNG)",
+    "inpaint": "Change or remove something in the attached photo",
+    "outpaint": "Extend the attached photo and fill the new canvas",
+    "video": "Queue a video clip from a text prompt",
+    "musicVideo": "Start a music-video plan from a song (approve in Studio before clips render)",
+    "filmCrew": "Start a Film Crew production from a screenplay (renders wait in Studio)",
+    "imagemodel": "Switch chat image model (generation + editing) or show current",
+    "model": "Switch LLM chat model or show current",
+    "websearch": "Search the web, audit one page (site:<address>) or list a sitemap (sitemap:<url>)",
+    "gpu": "Inspect live GPU lock, VRAM slots, and running plugins",
+    "logs": "Tail a Guaardvark log (optional filename and grep)",
+    "sysmap": "Run the System Mapper (same snapshot as /system-map)",
+    "swarm": "Swarm orchestrator status (plugin must be running)",
+    "outreach": "Outreach status, short verbs, or natural-language scout/draft (e.g. YouTube topics)",
+    "plan": "Create an orchestrator plan",
+    "training": "Run the agent in training mode — full 1000-iteration loop, bypasses chat LLM decomposition",
+    "agent": "Switch this chat into agent mode — every message becomes a screen-control task. Optional <task> fires immediately.",
+    "chat": "Switch this chat back to chat mode (exits agent mode)",
+    "thinking": "Toggle step-by-step reasoning for thinking models (gemma4:12b, qwen3) in this chat. Off = faster. Bare /thinking shows current state.",
+    "exit": "Exit agent mode (alias for /chat)",
+    "voice": "Toggle voice chat on/off",
+    "vision": "Show Vision Pipeline plugin status (start/stop from the Plugins page)",
+    "clear": "Start a fresh chat (the current one stays under All chats)",
+    "help": "Show available commands",
+    "custom": "Custom command"
+  }
+}

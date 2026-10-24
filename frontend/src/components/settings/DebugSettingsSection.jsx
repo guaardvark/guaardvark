@@ -10,6 +10,7 @@ import {
   FormControlLabel,
   Box
 } from '@mui/material';
+import { useUiTranslation } from '../../i18n';
 
 const DebugSettingsSection = ({
   advancedDebug,
@@ -19,6 +20,7 @@ const DebugSettingsSection = ({
   webSearchEnabled,
   setWebSearchEnabled
 }) => {
+  const { t } = useUiTranslation();
   const WEB_SEARCH_ENABLED_KEY = 'web_search_enabled';
   const ADV_DEBUG_ENABLED_KEY = 'advanced_debug_enabled';
   const BEHAVIOR_LEARNING_ENABLED_KEY = 'behavior_learning_enabled';
@@ -44,7 +46,7 @@ const DebugSettingsSection = ({
   return (
     <Paper elevation={3} sx={{ p: 2 }}>
       <Typography variant="h6" gutterBottom>
-        Debug & Feature Settings
+        {t("settingsSections.debug.title")}
       </Typography>
       <Grid container spacing={2}>
         <Grid item xs={12}>
@@ -56,7 +58,7 @@ const DebugSettingsSection = ({
                   onChange={handleAdvancedDebugToggle}
                 />
               }
-              label="Enable Advanced Debug"
+              label={t("settingsSections.debug.advancedDebug")}
             />
             <FormControlLabel
               control={
@@ -65,7 +67,7 @@ const DebugSettingsSection = ({
                   onChange={handleBehaviorLearningToggle}
                 />
               }
-              label="Enable Behavior Learning"
+              label={t("settingsSections.debug.behaviorLearning")}
             />
             <FormControlLabel
               control={
@@ -74,7 +76,7 @@ const DebugSettingsSection = ({
                   onChange={handleWebSearchToggle}
                 />
               }
-              label="Enable Web Search"
+              label={t("settingsSections.debug.webSearch")}
             />
           </Box>
         </Grid>

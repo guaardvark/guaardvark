@@ -4,6 +4,7 @@
  */
 
 import { DELIMITERS } from '../utils/csv.js';
+import { translate } from '../i18n';
 
 // CSV Configuration Defaults
 export const CSV_DEFAULTS = {
@@ -13,20 +14,20 @@ export const CSV_DEFAULTS = {
   encoding: 'utf-8'
 };
 
-// Brand Tone Options
+// Brand Tone Options (labels are getters, read in the interface's language)
 export const BRAND_TONE_OPTIONS = [
-  { value: 'neutral', label: 'Neutral', description: 'Professional and balanced tone' },
-  { value: 'friendly', label: 'Friendly', description: 'Warm and approachable tone' },
-  { value: 'authoritative', label: 'Authoritative', description: 'Expert and confident tone' },
-  { value: 'playful', label: 'Playful', description: 'Creative and engaging tone' },
-  { value: 'luxury', label: 'Luxury', description: 'Premium and sophisticated tone' }
+  { value: 'neutral', get label() { return translate('options.brandTones.neutral.label'); }, get description() { return translate('options.brandTones.neutral.description'); } },
+  { value: 'friendly', get label() { return translate('options.brandTones.friendly.label'); }, get description() { return translate('options.brandTones.friendly.description'); } },
+  { value: 'authoritative', get label() { return translate('options.brandTones.authoritative.label'); }, get description() { return translate('options.brandTones.authoritative.description'); } },
+  { value: 'playful', get label() { return translate('options.brandTones.playful.label'); }, get description() { return translate('options.brandTones.playful.description'); } },
+  { value: 'luxury', get label() { return translate('options.brandTones.luxury.label'); }, get description() { return translate('options.brandTones.luxury.description'); } }
 ];
 
 // Delimiter Options for UI
 export const DELIMITER_OPTIONS = [
-  { value: DELIMITERS.COMMA, label: 'Comma (,)', description: 'Standard CSV format' },
-  { value: DELIMITERS.SEMICOLON, label: 'Semicolon (;)', description: 'European standard' },
-  { value: DELIMITERS.TAB, label: 'Tab', description: 'Tab-separated values' }
+  { value: DELIMITERS.COMMA, get label() { return translate('options.delimiters.comma.label'); }, get description() { return translate('options.delimiters.comma.description'); } },
+  { value: DELIMITERS.SEMICOLON, get label() { return translate('options.delimiters.semicolon.label'); }, get description() { return translate('options.delimiters.semicolon.description'); } },
+  { value: DELIMITERS.TAB, get label() { return translate('options.delimiters.tab.label'); }, get description() { return translate('options.delimiters.tab.description'); } }
 ];
 
 // Validation Limits

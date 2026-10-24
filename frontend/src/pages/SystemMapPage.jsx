@@ -50,19 +50,36 @@ import {
   dismissFinding,
 } from "../api/systemMapService";
 import { SOCKET_URL } from "../api/apiClient";
+import { useUiTranslation, translate, Trans } from "../i18n";
 
 // Mirror of the SECTION_HUE in SystemMapCanvas — keep these in sync.
 // `prefix` is what the canvas matches each node's section against
 // (startsWith). Click toggles the prefix in the highlightedPrefixes Set.
-const LEGEND = [
-  { label: "API", prefix: "backend/api", hue: 195 },
-  { label: "Services", prefix: "backend/services", hue: 207 },
-  { label: "Utils", prefix: "backend/utils", hue: 215 },
-  { label: "Tools", prefix: "backend/tools", hue: 187 },
-  { label: "Tasks", prefix: "backend/tasks", hue: 224 },
-  { label: "Frontend", prefix: "frontend/", hue: 209 },
-  { label: "Plugins", prefix: "plugins", hue: 230 },
+const legend = () => [
+  { label: translate("systemMap.legend.api"), prefix: "backend/api", hue: 195 },
+  { label: translate("systemMap.legend.services"), prefix: "backend/services", hue: 207 },
+  { label: translate("systemMap.legend.utils"), prefix: "backend/utils", hue: 215 },
+  { label: translate("systemMap.legend.tools"), prefix: "backend/tools", hue: 187 },
+  { label: translate("systemMap.legend.tasks"), prefix: "backend/tasks", hue: 224 },
+  { label: translate("systemMap.legend.frontend"), prefix: "frontend/", hue: 209 },
+  { label: translate("systemMap.legend.plugins"), prefix: "plugins", hue: 230 },
 ];
+
+// load() keeps the server's error text in state; this stands for "failed
+// without saying why" and is translated where the alert renders.
+const SNAPSHOT_FAILED = "__snapshot_failed__";
+
+// The dispatch toast is kept as { kind, reason } and worded at render time.
+function dispatchToastText(toast) {
+  if (toast.kind === "queued") return toast.reason || translate("systemMap.dispatch.queued");
+  if (toast.kind === "proposed") return toast.reason || translate("systemMap.dispatch.proposed");
+  if (toast.kind === "notRun") {
+    return toast.reason
+      ? translate("systemMap.dispatch.notRun", { reason: toast.reason })
+      : translate("systemMap.dispatch.notRunNoReason");
+  }
+  return translate("systemMap.dispatch.failed", { error: toast.reason });
+}
 
 function severityCounts(map) {
   const c = { high: 0, medium: 0, low: 0, info: 0 };
@@ -158,6 +175,7 @@ function OverlayChip({ label, active, activeColor, onToggle }) {
 }
 
 export default function SystemMapPage() {
+  const { t } = useUiTranslation();
   const P = useMapPalette();
   const SEVERITY_COLOR = P.severity;
   const [map, setMap] = useState(null);
@@ -207,7 +225,7 @@ export default function SystemMapPage() {
       if (data && data.file_count != null) {
         setMap(data);
       } else if (data && data.success === false) {
-        setError(data.error || "Snapshot failed");
+        setError(data.error || SNAPSHOT_FAILED);
       } else {
         setMap(data);
       }
@@ -246,14 +264,14 @@ export default function SystemMapPage() {
       // gated (locked/disabled/running), not-dispatchable, or enqueue failure.
       const reason = res?.reason || res?.result?.reason;
       if (res?.queued) {
-        setToast(reason || "Dispatched to the self-improvement agent — running in the background.");
+        setToast({ kind: "queued", reason });
       } else if (res?.success) {
-        setToast(reason || "Dispatched to the self-improvement agent — review the proposed fix in Settings.");
+        setToast({ kind: "proposed", reason });
       } else {
-        setToast(`Dispatch didn't run — ${reason || "no reason given"}`);
+        setToast({ kind: "notRun", reason });
       }
     } catch (e) {
-      setToast(`Dispatch failed: ${e?.message || e}`);
+      setToast({ kind: "failed", reason: String(e?.message || e) });
     } finally {
       setDispatchingId(null);
     }
@@ -448,18 +466,19 @@ export default function SystemMapPage() {
                 letterSpacing: 1.5,
               }}
             >
-              System Map
+              {t("systemMap.title")}
             </Typography>
             {map && (
               <Typography variant="caption" sx={{ color: P.ink(0.55), ml: 1 }}>
-                {map.file_count} modules ·{" "}
-                {map.dependency_graph
-                  ? Object.values(map.dependency_graph).reduce(
-                      (a, b) => a + (b?.length || 0),
-                      0,
-                    )
-                  : 0}{" "}
-                edges
+                {t("systemMap.stats", {
+                  modules: map.file_count,
+                  edges: map.dependency_graph
+                    ? Object.values(map.dependency_graph).reduce(
+                        (a, b) => a + (b?.length || 0),
+                        0,
+                      )
+                    : 0,
+                })}
               </Typography>
             )}
           </Stack>
@@ -470,7 +489,7 @@ export default function SystemMapPage() {
               {sev.high > 0 && (
                 <Chip
                   size="small"
-                  label={`${sev.high} critical`}
+                  label={t("systemMap.severity.critical", { count: sev.high })}
                   sx={{
                     bgcolor: P.danger(0.18),
                     color: SEVERITY_COLOR.high,
@@ -481,7 +500,7 @@ export default function SystemMapPage() {
               {sev.medium > 0 && (
                 <Chip
                   size="small"
-                  label={`${sev.medium} medium`}
+                  label={t("systemMap.severity.medium", { count: sev.medium })}
                   sx={{
                     bgcolor: P.warn(0.15),
                     color: SEVERITY_COLOR.medium,
@@ -491,7 +510,7 @@ export default function SystemMapPage() {
               )}
               <Chip
                 size="small"
-                label={`${sev.low} hygiene`}
+                label={t("systemMap.severity.hygiene", { count: sev.low })}
                 sx={{
                   bgcolor: P.ink(0.10),
                   color: SEVERITY_COLOR.low,
@@ -508,7 +527,7 @@ export default function SystemMapPage() {
           >
             <TextField
               size="small"
-              placeholder="Search ( / )"
+              placeholder={t("systemMap.searchPlaceholder")}
               fullWidth
               value={search}
               inputRef={searchRef}
@@ -538,7 +557,7 @@ export default function SystemMapPage() {
             />
           </Box>
           {/* Reset view (R) */}
-          <Tooltip title="Reset view (R)">
+          <Tooltip title={t("systemMap.resetView")}>
             <IconButton
               onClick={() => canvasRef.current?.resetView()}
               sx={{
@@ -554,8 +573,8 @@ export default function SystemMapPage() {
           <Tooltip
             title={
               cacheInfo?.hit
-                ? `Cached ${cacheInfo.age_seconds}s ago — click to re-compute`
-                : `Just computed in ${cacheInfo?.computed_in_seconds || "?"}s`
+                ? t("systemMap.refresh.cached", { seconds: cacheInfo.age_seconds })
+                : t("systemMap.refresh.computed", { seconds: cacheInfo?.computed_in_seconds || "?" })
             }
           >
             <span>
@@ -597,7 +616,7 @@ export default function SystemMapPage() {
             flexWrap: "wrap",
           }}
         >
-          {LEGEND.map((s) => {
+          {legend().map((s) => {
             const active = highlightedPrefixes.has(s.prefix);
             return (
               <Box
@@ -682,7 +701,7 @@ export default function SystemMapPage() {
                 "&:hover": { color: P.ink(0.9) },
               }}
             >
-              clear
+              {t("systemMap.legend.clear")}
             </Box>
           )}
 
@@ -700,13 +719,21 @@ export default function SystemMapPage() {
                 }}
               />
               <OverlayChip
-                label={`Ghost endpoints${ghostEndpointCount ? ` (${ghostEndpointCount})` : ""}`}
+                label={
+                  ghostEndpointCount
+                    ? t("systemMap.overlays.ghostEndpointsCount", { count: ghostEndpointCount })
+                    : t("systemMap.overlays.ghostEndpoints")
+                }
                 active={showGhostEndpoints}
                 activeColor={P.warnRGB}
                 onToggle={() => setShowGhostEndpoints((v) => !v)}
               />
               <OverlayChip
-                label={`Tool graph${toolCount ? ` (${toolCount})` : ""}`}
+                label={
+                  toolCount
+                    ? t("systemMap.overlays.toolGraphCount", { count: toolCount })
+                    : t("systemMap.overlays.toolGraph")
+                }
                 active={showToolGraph}
                 activeColor={P.ghostRGB}
                 onToggle={() => setShowToolGraph((v) => !v)}
@@ -729,7 +756,7 @@ export default function SystemMapPage() {
               border: `1px solid ${P.errorBorder}`,
             }}
           >
-            {error}
+            {error === SNAPSHOT_FAILED ? t("systemMap.errors.snapshotFailed") : error}
           </Alert>
         )}
 
@@ -764,7 +791,7 @@ export default function SystemMapPage() {
             pointerEvents: "none",
           }}
         >
-          drag · pan &nbsp;|&nbsp; wheel · zoom &nbsp;|&nbsp; / · search &nbsp;|&nbsp; r · reset &nbsp;|&nbsp; click chips · spotlight sections
+          {t("systemMap.controlsHint")}
         </Box>
 
         {/* Right side: detail panel OR activity log */}
@@ -798,7 +825,7 @@ export default function SystemMapPage() {
                     variant="overline"
                     sx={{ color: P.ink(0.5), letterSpacing: 1.2 }}
                   >
-                    {hovered ? "Hovered" : "Selected"}
+                    {hovered ? t("systemMap.detail.hovered") : t("systemMap.detail.selected")}
                   </Typography>
                   <Typography
                     variant="body2"
@@ -849,7 +876,7 @@ export default function SystemMapPage() {
                 {activeNode && activeNode.importers != null && (
                   <Chip
                     size="small"
-                    label={`${activeNode.importers} importer${activeNode.importers === 1 ? "" : "s"}`}
+                    label={t("systemMap.detail.importers", { count: activeNode.importers })}
                     sx={{
                       bgcolor: P.ink(0.06),
                       color: P.ink(0.7),
@@ -867,7 +894,7 @@ export default function SystemMapPage() {
                     variant="overline"
                     sx={{ color: P.ink(0.5), letterSpacing: 1.2 }}
                   >
-                    Findings ({activeFindings.length})
+                    {t("systemMap.detail.findings", { count: activeFindings.length })}
                   </Typography>
                   {activeFindings.slice(0, 8).map((f, i) => (
                     <Box
@@ -907,7 +934,7 @@ export default function SystemMapPage() {
                       variant="caption"
                       sx={{ color: P.ink(0.4), mt: 0.5, display: "block" }}
                     >
-                      … and {activeFindings.length - 8} more
+                      {t("systemMap.detail.moreFindings", { count: activeFindings.length - 8 })}
                     </Typography>
                   )}
                 </Box>
@@ -918,7 +945,7 @@ export default function SystemMapPage() {
                   variant="caption"
                   sx={{ color: P.ink(0.4), mt: 2, display: "block" }}
                 >
-                  Press <code>Esc</code> to clear
+                  <Trans i18nKey="systemMap.detail.escToClear" components={{ code: <code /> }} />
                 </Typography>
               )}
             </Box>
@@ -960,7 +987,7 @@ export default function SystemMapPage() {
               border: `1px solid ${P.ink(0.3)}`,
             }}
           >
-            {toast}
+            {dispatchToastText(toast)}
           </Alert>
         )}
 
@@ -986,7 +1013,7 @@ export default function SystemMapPage() {
                 textTransform: "uppercase",
               }}
             >
-              Mapping the system…
+              {t("systemMap.loading")}
             </Typography>
           </Box>
         )}
@@ -999,6 +1026,7 @@ export default function SystemMapPage() {
 
 // Shared tab header for the right-side panel base views.
 function PanelTabs({ activeTab, onTab, badge }) {
+  const { t } = useUiTranslation();
   const P = useMapPalette();
   const tab = (key, label) => (
     <Box
@@ -1049,8 +1077,8 @@ function PanelTabs({ activeTab, onTab, badge }) {
   );
   return (
     <Stack direction="row" spacing={1} sx={{ px: 1.5, pt: 1.5, pb: 0.5 }}>
-      {tab("findings", "Findings")}
-      {tab("activity", "Activity")}
+      {tab("findings", t("systemMap.panel.findings"))}
+      {tab("activity", t("systemMap.panel.activity"))}
     </Stack>
   );
 }
@@ -1067,12 +1095,13 @@ function FindingsView({
   activeTab,
   onTab,
 }) {
+  const { t } = useUiTranslation();
   const P = useMapPalette();
   const SEVERITY_COLOR = P.severity;
   const filters = [
-    { key: "high,medium", label: "Actionable" },
-    { key: "high", label: "Critical" },
-    { key: "high,medium,low", label: "All" },
+    { key: "high,medium", label: t("systemMap.findings.actionable") },
+    { key: "high", label: t("systemMap.findings.critical") },
+    { key: "high,medium,low", label: t("systemMap.findings.all") },
   ];
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -1081,7 +1110,7 @@ function FindingsView({
         <Stack direction="row" alignItems="center" spacing={1}>
           <WarningAmberIcon sx={{ color: P.warn(0.7), fontSize: 16 }} />
           <Typography variant="caption" sx={{ color: P.ink(0.55), fontSize: "0.7rem" }}>
-            Ranked findings · click to locate · dispatch to fix
+            {t("systemMap.findings.intro")}
           </Typography>
         </Stack>
         <Stack direction="row" spacing={0.5} sx={{ mt: 0.8 }}>
@@ -1134,7 +1163,7 @@ function FindingsView({
               textAlign: "center",
             }}
           >
-            No findings at this severity. 🎉
+            {t("systemMap.findings.empty")}
           </Typography>
         ) : (
           findings.map((f) => (
@@ -1192,7 +1221,7 @@ function FindingsView({
               </Box>
               <Stack direction="row" spacing={0.5} sx={{ mt: 0.6 }}>
                 {f.dispatchable && (
-                  <Tooltip title="Send to the self-improvement agent to propose a fix">
+                  <Tooltip title={t("systemMap.findings.dispatch")}>
                     <span>
                       <IconButton
                         size="small"
@@ -1209,7 +1238,7 @@ function FindingsView({
                     </span>
                   </Tooltip>
                 )}
-                <Tooltip title="Dismiss — acknowledge and stop showing this finding">
+                <Tooltip title={t("systemMap.findings.dismiss")}>
                   <IconButton
                     size="small"
                     onClick={() => onDismiss(f)}
@@ -1228,6 +1257,7 @@ function FindingsView({
 }
 
 function ActivityLogView({ activity, activeTab, onTab }) {
+  const { t } = useUiTranslation();
   const P = useMapPalette();
   return (
     <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
@@ -1239,7 +1269,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
             variant="overline"
             sx={{ color: P.ink(0.7), letterSpacing: 1.5 }}
           >
-            Live activity
+            {t("systemMap.activity.title")}
           </Typography>
           <Box sx={{ flex: 1 }} />
           <Typography
@@ -1262,7 +1292,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
             mt: 0.5,
           }}
         >
-          Tool calls flowing through the chat appear here. Matched modules pulse in the constellation.
+          {t("systemMap.activity.intro")}
         </Typography>
       </Box>
       <Divider sx={{ borderColor: P.ink(0.08) }} />
@@ -1278,7 +1308,7 @@ function ActivityLogView({ activity, activeTab, onTab }) {
               textAlign: "center",
             }}
           >
-            Idle. Ask the agent something to start the pulse.
+            {t("systemMap.activity.empty")}
           </Typography>
         ) : (
           activity.map((evt) => (
@@ -1346,8 +1376,8 @@ function ActivityLogView({ activity, activeTab, onTab }) {
 
 function timeAgo(ts) {
   const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  if (s < 1) return "now";
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  return `${Math.floor(s / 3600)}h`;
+  if (s < 1) return translate("systemMap.activity.now");
+  if (s < 60) return translate("systemMap.activity.seconds", { count: s });
+  if (s < 3600) return translate("systemMap.activity.minutes", { count: Math.floor(s / 60) });
+  return translate("systemMap.activity.hours", { count: Math.floor(s / 3600) });
 }

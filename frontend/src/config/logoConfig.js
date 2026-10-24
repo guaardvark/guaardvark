@@ -2,6 +2,7 @@
 // Version 1.0: Centralized logo path configuration for consistent logo handling
 
 import { BASE_URL } from '../api/apiClient';
+import { translate } from '../i18n';
 const API_BASE_URL = BASE_URL;
 
 // Centralized logo path configuration
@@ -42,14 +43,14 @@ export const getLogoUrl = (logoPath) => {
  */
 export const validateLogoFile = (file) => {
   if (!file) {
-    return { isValid: false, error: "No file provided" };
+    return { isValid: false, error: translate("messages.logo.noFile") };
   }
 
   // Check file size
   if (file.size > LOGO_CONFIG.MAX_FILE_SIZE) {
     return {
       isValid: false,
-      error: `File size too large. Maximum size is ${LOGO_CONFIG.MAX_FILE_SIZE / (1024 * 1024)}MB`
+      error: translate("messages.logo.tooLarge", { size: LOGO_CONFIG.MAX_FILE_SIZE / (1024 * 1024) })
     };
   }
 
@@ -58,7 +59,7 @@ export const validateLogoFile = (file) => {
   if (!LOGO_CONFIG.ALLOWED_EXTENSIONS.includes(extension)) {
     return {
       isValid: false,
-      error: `Invalid file type. Allowed types: ${LOGO_CONFIG.ALLOWED_EXTENSIONS.join(', ')}`
+      error: translate("messages.logo.invalidType", { types: LOGO_CONFIG.ALLOWED_EXTENSIONS.join(', ') })
     };
   }
 

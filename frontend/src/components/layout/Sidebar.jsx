@@ -1,3 +1,5 @@
+import { useUiTranslation } from "../../i18n";
+import { navigationLabel } from "../../i18n/navigation";
 
 import React, { useState, useEffect, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
@@ -43,6 +45,7 @@ const COLLAPSED_WIDTH = spacing.sidebarCollapsed;
 const EXPANDED_WIDTH = spacing.sidebarExpanded;
 
 const Sidebar = () => {
+  const { t } = useUiTranslation();
   const location = useLocation();
   const theme = useTheme();
   // Navigation layout is catalog-owned (config/navCatalog.jsx); brand.navGroups
@@ -225,7 +228,7 @@ const Sidebar = () => {
                       letterSpacing: "0.08em",
                     }}
                   >
-                    {group.label}
+                    {navigationLabel(group.label)}
                   </Typography>
                 )}
                 <List disablePadding>
@@ -258,7 +261,7 @@ const Sidebar = () => {
                         </ListItemIcon>
                         {isExpanded && (
                           <ListItemText
-                            primary={item.text}
+                            primary={navigationLabel(item.text, item)}
                             primaryTypographyProps={{
                               fontSize: "0.825rem",
                               fontWeight: isActive ? 600 : 400,
@@ -275,7 +278,7 @@ const Sidebar = () => {
                         {isExpanded ? (
                           button
                         ) : (
-                          <Tooltip title={item.text} placement="right" arrow>
+                          <Tooltip title={navigationLabel(item.text, item)} placement="right" arrow>
                             {button}
                           </Tooltip>
                         )}
@@ -290,7 +293,7 @@ const Sidebar = () => {
           {}
           <Box sx={{ borderTop: 1, borderColor: "divider", p: 0.75 }}>
             {}
-            <Tooltip title={isExpanded ? "" : "System Metrics"} placement="right" arrow>
+            <Tooltip title={isExpanded ? "" : t("navigation.systemMetrics")} placement="right" arrow>
               <IconButton
                 onClick={() => setMetricsModalOpen(!metricsModalOpen)}
                 sx={{
@@ -313,14 +316,14 @@ const Sidebar = () => {
                 <BarChartIcon sx={{ fontSize: 22 }} />
                 {isExpanded && (
                   <Typography variant="body2" sx={{ fontSize: "0.825rem" }}>
-                    System Metrics
+                    {t("navigation.systemMetrics")}
                   </Typography>
                 )}
               </IconButton>
             </Tooltip>
 
             {/* Agent Screen toggle */}
-            <Tooltip title={isExpanded ? "" : "Agent Screen"} placement="right" arrow>
+            <Tooltip title={isExpanded ? "" : t("navigation.agentScreen")} placement="right" arrow>
               <IconButton
                 onClick={() => setAgentScreenOpen(!agentScreenOpen)}
                 sx={{
@@ -343,13 +346,13 @@ const Sidebar = () => {
                 <DesktopWindowsIcon sx={{ fontSize: 22 }} />
                 {isExpanded && (
                   <Typography variant="body2" sx={{ fontSize: "0.825rem" }}>
-                    Agent Screen
+                    {t("navigation.agentScreen")}
                   </Typography>
                 )}
               </IconButton>
             </Tooltip>
 
-            <GlobalMicButton variant="rail" expanded={isExpanded} label="Voice" primary />
+            <GlobalMicButton variant="rail" expanded={isExpanded} label={t("common.voice")} primary />
 
             {}
             <IconButton
@@ -373,7 +376,7 @@ const Sidebar = () => {
                 <>
                   <ChevronLeftIcon sx={{ fontSize: 22 }} />
                   <Typography variant="body2" sx={{ fontSize: "0.825rem" }}>
-                    Collapse
+                    {t("common.collapse")}
                   </Typography>
                 </>
               ) : (

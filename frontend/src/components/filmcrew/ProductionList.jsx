@@ -9,6 +9,7 @@ import {
   Chip,
   Box
 } from '@mui/material';
+import { useUiTranslation, translate, uiLocale } from '../../i18n';
 
 const getStatusColor = (status, stage) => {
   if (status === 'complete' || stage === 'complete') return 'success';
@@ -21,16 +22,17 @@ const getStatusColor = (status, stage) => {
 
 const chipLabel = (p) => {
   if (p.status?.startsWith('failed')) {
-    return `failed: ${(p.current_stage || '').replace(/_/g, ' ')}`;
+    return translate('filmCrew.list.failedAt', { stage: (p.current_stage || '').replace(/_/g, ' ') });
   }
   return (p.current_stage || p.status || '').replace(/_/g, ' ');
 };
 
 const ProductionList = ({ productions, selectedId, onSelect }) => {
+  const { t } = useUiTranslation();
   return (
     <Paper sx={{ height: '100%', overflowY: 'auto', borderRight: 1, borderColor: 'divider' }}>
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="h6">Productions</Typography>
+        <Typography variant="h6">{t('filmCrew.list.title')}</Typography>
       </Box>
       <List>
         {productions.map((p) => (
@@ -51,7 +53,7 @@ const ProductionList = ({ productions, selectedId, onSelect }) => {
                       sx={{ height: 20, fontSize: '0.65rem' }}
                     />
                     <Typography component="span" variant="caption" sx={{ ml: 1 }}>
-                      {new Date(p.created_at).toLocaleDateString()}
+                      {new Date(p.created_at).toLocaleDateString(uiLocale())}
                     </Typography>
                   </Box>
                 }
@@ -62,7 +64,7 @@ const ProductionList = ({ productions, selectedId, onSelect }) => {
         {productions.length === 0 && (
           <Box sx={{ p: 3, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
-              No productions yet. Create one to get started!
+              {t('filmCrew.list.empty')}
             </Typography>
           </Box>
         )}

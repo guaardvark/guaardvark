@@ -1,6 +1,7 @@
 import React from "react";
 import { Box, Typography, CircularProgress } from "@mui/material";
 import { useHealth } from "../../contexts/HealthContext";
+import { useUiTranslation, Trans } from "../../i18n";
 
 /**
  * App-wide banner shown when the health poll confirms the Flask backend is
@@ -11,6 +12,7 @@ import { useHealth } from "../../contexts/HealthContext";
  * of misleading "HTTP 500" console errors with no user-facing signal.
  */
 const BackendOfflineBanner = () => {
+  useUiTranslation();
   const { isBackendOffline } = useHealth();
 
   if (!isBackendOffline) return null;
@@ -37,8 +39,7 @@ const BackendOfflineBanner = () => {
     >
       <CircularProgress size={14} color="inherit" />
       <Typography variant="body2" sx={{ fontWeight: 600 }}>
-        Backend offline — retrying… Run <code>guaardvark</code> in a terminal, or{" "}
-        <code>./start.sh</code> for the full stack.
+        <Trans i18nKey="layoutCommon.backendOffline.message" components={{ code: <code /> }} />
       </Typography>
     </Box>
   );
