@@ -84,6 +84,33 @@ _FATAL_CUDA_MARKERS = (
 )
 
 
+def _note_unload_during_batch(model_id) -> None:
+    """Log who unloads the image model while a batch is running. Between two of
+    its images the pipeline is idle and can be taken; this names the caller so a
+    mid-batch reload is traceable. Never blocks: the batch registry is read only
+    when its lock is free."""
+    import sys
+    import traceback
+
+    mod = sys.modules.get("backend.services.batch_image_generator")
+    batches = getattr(mod, "_batch_generator_instance", None) if mod else None
+    lock = getattr(batches, "batch_lock", None)
+    if lock is None or not lock.acquire(blocking=False):
+        return
+    try:
+        running = [bid for bid, st in batches.active_batches.items() if st.status == "running"]
+    finally:
+        lock.release()
+    if not running:
+        return
+    callers = " <- ".join(
+        f"{frame.name} ({os.path.basename(frame.filename)}:{frame.lineno})"
+        for frame in reversed(traceback.extract_stack()[-8:-2])
+    )
+    logger.warning("Unloading %s while batch %s is running; called from %s",
+                   model_id, ", ".join(running), callers)
+
+
 def forget_pipeline_slot() -> None:
     """Drop the orchestrator's ``sd:pipeline`` slot once the pipeline is unloaded.
 
@@ -3717,6 +3744,8 @@ Negative Prompt: {negative_prompt}""",
             )
             return False
         try:
+            if self._pipeline is not None:
+                _note_unload_during_batch(self._current_model)
             unloaded = self._unload_pipeline_unlocked()
             if unloaded and forget_slot:
                 forget_pipeline_slot()
