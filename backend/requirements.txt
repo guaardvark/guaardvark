@@ -57,7 +57,7 @@ google-auth==2.62.0
 # Interconnector machine keys and request signatures (backend/utils/node_auth.py,
 # Ed25519). google-auth installs it too; it is named here because the fleet's
 # signing depends on it. The floor is the version these signatures were built on.
-cryptography>=50.0.1
+cryptography>=50.0.2
 websocket-client==1.8.0
 duckduckgo-search==8.1.1
 
