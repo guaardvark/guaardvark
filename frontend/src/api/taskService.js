@@ -1,6 +1,7 @@
 // frontend/src/api/taskService.js
 // Version 1.1: Added default task model management functions.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 export const getTasks = async (
   projectId = null,
@@ -27,7 +28,7 @@ export const getTasks = async (
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("taskService: Error getting tasks:", err.message);
-    return { error: err.message || "Failed to get tasks." };
+    return { error: err.message || translate("messages.tasks.listFailed") };
   }
 };
 

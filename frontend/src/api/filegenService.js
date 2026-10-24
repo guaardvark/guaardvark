@@ -3,6 +3,7 @@
 
 import { BASE_URL } from './apiClient';
 import { API_TIMEOUT_GENERATION, API_TIMEOUT_PROVEN_JOB } from '../config/constants';
+import { translate } from '../i18n';
 const API_URL = BASE_URL;
 
 // MEMORY LEAK FIX: Track active requests to prevent accumulation
@@ -185,11 +186,11 @@ export const generateFileFromChat = async ({
     let errorData = {};
     
     if (error.name === 'AbortError') {
-      errorData = { error: 'Request was cancelled or timed out.' };
+      errorData = { error: translate('messages.fileGeneration.cancelledOrTimedOut') };
     } else {
       // Extract essential error info without keeping full error object
       errorData = {
-        error: error.message || "An unknown error occurred.",
+        error: error.message || translate("messages.fileGeneration.unknownError"),
         requestId, // Include for debugging
       };
     }
@@ -302,7 +303,7 @@ export const generateBatchCsvProven = async (data, options = {}) => {
     }
     
     // MEMORY LEAK FIX: Create clean error object without accumulating references
-    const cleanError = new Error(error.message || 'Batch CSV generation failed');
+    const cleanError = new Error(error.message || translate('messages.fileGeneration.batchCsvFailed'));
     
     // Add essential error properties without keeping full error object
     cleanError.status = error.response?.status;

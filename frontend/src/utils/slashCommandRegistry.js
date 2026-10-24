@@ -4,11 +4,14 @@
  * Built-in commands are always available. DB commands (COMMAND_RULE type)
  * are fetched from the backend and cached with a 60-second TTL.
  */
+import { translate } from "../i18n";
 
 const BUILT_IN_COMMANDS = [
     {
     name: "/imagine",
-    description: "Generate an image from a text prompt",
+    get description() {
+      return translate("options.slashCommands.imagine");
+    },
     usage: "/imagine <prompt>",
     category: "generation",
     args: "required",
@@ -17,7 +20,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/removebg",
-    description: "Remove the background from the attached photo (transparent PNG)",
+    get description() {
+      return translate("options.slashCommands.removebg");
+    },
     usage: "/removebg",
     category: "generation",
     args: "none",
@@ -26,7 +31,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/inpaint",
-    description: "Change or remove something in the attached photo",
+    get description() {
+      return translate("options.slashCommands.inpaint");
+    },
     usage: "/inpaint <instruction>",
     category: "generation",
     args: "required",
@@ -35,7 +42,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/outpaint",
-    description: "Extend the attached photo and fill the new canvas",
+    get description() {
+      return translate("options.slashCommands.outpaint");
+    },
     usage: "/outpaint [left|right|top|bottom|all] [instruction]",
     category: "generation",
     args: "optional",
@@ -44,7 +53,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/video",
-    description: "Queue a video clip from a text prompt",
+    get description() {
+      return translate("options.slashCommands.video");
+    },
     usage: "/video <prompt>",
     category: "generation",
     args: "required",
@@ -53,7 +64,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/music-video",
-    description: "Start a music-video plan from a song (approve in Studio before clips render)",
+    get description() {
+      return translate("options.slashCommands.musicVideo");
+    },
     usage: "/music-video <song-path-or-id> <style>",
     category: "generation",
     args: "required",
@@ -62,7 +75,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/film-crew",
-    description: "Start a Film Crew production from a screenplay (renders wait in Studio)",
+    get description() {
+      return translate("options.slashCommands.filmCrew");
+    },
     usage: "/film-crew <screenplay>",
     category: "generation",
     args: "required",
@@ -71,7 +86,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/imagemodel",
-    description: "Switch chat image model (generation + editing) or show current",
+    get description() {
+      return translate("options.slashCommands.imagemodel");
+    },
     usage: "/imagemodel [model-name]",
     category: "model",
     args: "optional",
@@ -80,7 +97,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/model",
-    description: "Switch LLM chat model or show current",
+    get description() {
+      return translate("options.slashCommands.model");
+    },
     usage: "/model [model-name]",
     category: "model",
     args: "optional",
@@ -89,7 +108,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/websearch",
-    description: "Search the web, audit one page (site:<address>) or list a sitemap (sitemap:<url>)",
+    get description() {
+      return translate("options.slashCommands.websearch");
+    },
     usage: "/websearch <query> | site:<address> | sitemap:<url>",
     category: "utility",
     args: "required",
@@ -98,7 +119,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/gpu",
-    description: "Inspect live GPU lock, VRAM slots, and running plugins",
+    get description() {
+      return translate("options.slashCommands.gpu");
+    },
     usage: "/gpu",
     category: "utility",
     args: "none",
@@ -107,7 +130,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/logs",
-    description: "Tail a Guaardvark log (optional filename and grep)",
+    get description() {
+      return translate("options.slashCommands.logs");
+    },
     usage: "/logs [backend.log] [query]",
     category: "utility",
     args: "optional",
@@ -116,7 +141,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/sysmap",
-    description: "Run the System Mapper (same snapshot as /system-map)",
+    get description() {
+      return translate("options.slashCommands.sysmap");
+    },
     usage: "/sysmap [refresh]",
     category: "utility",
     args: "optional",
@@ -125,7 +152,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/swarm",
-    description: "Swarm orchestrator status (plugin must be running)",
+    get description() {
+      return translate("options.slashCommands.swarm");
+    },
     usage: "/swarm [swarm-id]",
     category: "utility",
     args: "optional",
@@ -134,7 +163,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/outreach",
-    description: "Outreach status, short verbs, or natural-language scout/draft (e.g. YouTube topics)",
+    get description() {
+      return translate("options.slashCommands.outreach");
+    },
     usage: "/outreach [status|reddit|self_share|recon|draft|youtube| <natural language>]",
     category: "outreach",
     args: "optional",
@@ -143,7 +174,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/plan",
-    description: "Create an orchestrator plan",
+    get description() {
+      return translate("options.slashCommands.plan");
+    },
     usage: "/plan <request>",
     category: "utility",
     args: "required",
@@ -152,7 +185,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/training",
-    description: "Run the agent in training mode — full 1000-iteration loop, bypasses chat LLM decomposition",
+    get description() {
+      return translate("options.slashCommands.training");
+    },
     usage: "/training <task>",
     category: "agent",
     args: "required",
@@ -161,7 +196,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/agent",
-    description: "Switch this chat into agent mode — every message becomes a screen-control task. Optional <task> fires immediately.",
+    get description() {
+      return translate("options.slashCommands.agent");
+    },
     usage: "/agent [task]",
     category: "agent",
     args: "optional",
@@ -170,7 +207,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/chat",
-    description: "Switch this chat back to chat mode (exits agent mode)",
+    get description() {
+      return translate("options.slashCommands.chat");
+    },
     usage: "/chat",
     category: "agent",
     args: "none",
@@ -179,7 +218,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/thinking",
-    description: "Toggle step-by-step reasoning for thinking models (gemma4:12b, qwen3) in this chat. Off = faster. Bare /thinking shows current state.",
+    get description() {
+      return translate("options.slashCommands.thinking");
+    },
     usage: "/thinking [on|off]",
     category: "model",
     args: "optional",
@@ -188,7 +229,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/exit",
-    description: "Exit agent mode (alias for /chat)",
+    get description() {
+      return translate("options.slashCommands.exit");
+    },
     usage: "/exit",
     category: "agent",
     args: "none",
@@ -197,7 +240,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/voice",
-    description: "Toggle voice chat on/off",
+    get description() {
+      return translate("options.slashCommands.voice");
+    },
     usage: "/voice",
     category: "utility",
     args: "none",
@@ -206,7 +251,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/vision",
-    description: "Show Vision Pipeline plugin status (start/stop from the Plugins page)",
+    get description() {
+      return translate("options.slashCommands.vision");
+    },
     usage: "/vision",
     category: "utility",
     args: "none",
@@ -215,7 +262,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/clear",
-    description: "Start a fresh chat (the current one stays under All chats)",
+    get description() {
+      return translate("options.slashCommands.clear");
+    },
     usage: "/clear",
     category: "utility",
     args: "none",
@@ -224,7 +273,9 @@ const BUILT_IN_COMMANDS = [
   },
   {
     name: "/help",
-    description: "Show available commands",
+    get description() {
+      return translate("options.slashCommands.help");
+    },
     usage: "/help",
     category: "utility",
     args: "none",
@@ -273,7 +324,9 @@ async function fetchDbCommands() {
       .filter((r) => r.command_label)
       .map((r) => ({
         name: r.command_label.startsWith("/") ? r.command_label : `/${r.command_label}`,
-        description: r.description || r.name || "Custom command",
+        get description() {
+          return r.description || r.name || translate("options.slashCommands.custom");
+        },
         usage: r.command_label,
         category: "custom",
         args: "optional",

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { translate } from "../i18n";
 
 /**
  * Music Video Service for the Music Video page.
@@ -120,7 +121,7 @@ export const pollMusicVideoStoryboards = async (id, { intervalMs = 5000, maxAtte
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  throw new Error("Storyboard generation timed out");
+  throw new Error(translate("messages.musicVideo.storyboardTimeout"));
 };
 
 export const regenMusicVideoStoryboard = async (id, index, data = {}) => {

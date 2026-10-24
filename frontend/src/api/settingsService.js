@@ -1,5 +1,6 @@
 import { BASE_URL, handleResponse } from "./apiClient";
 import { API_TIMEOUT_GENERATION } from "../config/constants";
+import { translate } from "../i18n";
 
 export const getVersion = async () => {
   try {
@@ -372,7 +373,7 @@ export const runAllTests = async () => {
     return data;
   } catch (err) {
     if (err.name === 'AbortError') {
-      throw new Error('Test suite timed out after 5 minutes');
+      throw new Error(translate('messages.settings.testSuiteTimeout'));
     }
     console.error("settingsService: Error running test suite:", err.message);
     throw err;
@@ -677,7 +678,7 @@ export const triggerReboot = async () => {
   try {
     const response = await fetch(`${BASE_URL}/reboot`, { method: "POST" });
     if (response.status === 202) {
-      return { message: "Reboot initiated." };
+      return { message: translate("messages.settings.rebootStarted") };
     }
     const data = await handleResponse(response);
     if (typeof data === "object" && data !== null && data.error)
@@ -692,7 +693,7 @@ export const triggerReboot = async () => {
       err.message,
     );
     return {
-      warning: "Reboot initiated, connection may have been lost as expected.",
+      warning: translate("messages.settings.rebootConnectionLost"),
       error: err.message,
     };
   }

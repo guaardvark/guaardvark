@@ -7,6 +7,7 @@
 import { useState, useCallback } from "react";
 import { routeMessage, routeAndExecute } from "../api/toolsService";
 import { useAppStore } from "../stores/useAppStore";
+import { translate } from "../i18n";
 
 /**
  * Route types from the backend
@@ -103,11 +104,11 @@ export function useAgentRouter() {
         setLastRoute(response.route);
         return response.route;
       } else {
-        setError(response.error || "Routing failed");
+        setError(response.error || translate("messages.agentRouter.routingFailed"));
         return null;
       }
     } catch (err) {
-      setError(err.message || "Routing failed");
+      setError(err.message || translate("messages.agentRouter.routingFailed"));
       console.error("Agent routing error:", err);
       return null;
     } finally {
@@ -131,11 +132,11 @@ export function useAgentRouter() {
       if (response.success) {
         return response.result;
       } else {
-        setError(response.error || "Execution failed");
+        setError(response.error || translate("messages.agentRouter.executionFailed"));
         return null;
       }
     } catch (err) {
-      setError(err.message || "Execution failed");
+      setError(err.message || translate("messages.agentRouter.executionFailed"));
       console.error("Agent execution error:", err);
       return null;
     } finally {

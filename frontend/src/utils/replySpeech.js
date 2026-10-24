@@ -3,6 +3,7 @@
  * play soon, synthesize the next chunk while one plays, and turn a failure
  * into one plain sentence for the person.
  */
+import { translate } from "../i18n";
 
 const SENTENCE = /[^.!?]+[.!?]+["'’”)\]]*\s*|[^.!?]+$/g;
 
@@ -69,6 +70,7 @@ export async function speakInChunks(chunks, { synthesize, play, isCancelled = ()
 
 // Voice settings are a dialog opened from the Chat section of Settings.
 // Audio Foundry speaks a reply only with a Kokoro voice pack installed.
+// The English text; describeSpeakError words it in the interface's language.
 export const NO_VOICE_INSTALLED_MESSAGE =
   "No voice is installed, so replies can't be spoken. Install one in Voice Settings (Settings → Chat → Voice chat), or start the Audio Foundry plugin with a Kokoro voice pack installed.";
 
@@ -78,10 +80,14 @@ export const NO_VOICE_INSTALLED_MESSAGE =
  * also be a proxy or the task queue during a restart on a machine with voices.
  */
 export function describeSpeakError(error, { spoken = 0, total = 0 } = {}) {
-  if (error?.data?.code === "no_voice_installed") return NO_VOICE_INSTALLED_MESSAGE;
-  const detail = error?.message ? `: ${error.message}` : "";
+  if (error?.data?.code === "no_voice_installed") return translate("messages.replySpeech.noVoiceInstalled");
+  const reason = error?.message;
   if (spoken > 0 && total > spoken) {
-    return `Spoke the first part of the reply, then speaking stopped${detail}`;
+    return reason
+      ? translate("messages.replySpeech.stoppedPartwayReason", { reason })
+      : translate("messages.replySpeech.stoppedPartway");
   }
-  return `Speaking the reply failed${detail}`;
+  return reason
+    ? translate("messages.replySpeech.failedReason", { reason })
+    : translate("messages.replySpeech.failed");
 }

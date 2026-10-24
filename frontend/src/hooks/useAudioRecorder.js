@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import voiceService from '../api/voiceService';
+import { translate } from '../i18n';
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -56,7 +57,7 @@ const useAudioRecorder = (options = {}) => {
       setPermission(permissionState);
       
       if (permissionState === 'denied') {
-        throw new Error('Microphone permission denied');
+        throw new Error(translate('messages.audioRecorder.permissionDenied'));
       }
       
       if (permissionState === 'prompt') {
@@ -64,7 +65,7 @@ const useAudioRecorder = (options = {}) => {
         setPermission(requestResult);
         
         if (requestResult === 'denied') {
-          throw new Error('Microphone permission denied');
+          throw new Error(translate('messages.audioRecorder.permissionDenied'));
         }
       }
       
@@ -127,7 +128,7 @@ const useAudioRecorder = (options = {}) => {
       // Resume audio context first (required for user interaction)
       const resumed = await resumeAudioContext();
       if (!resumed) {
-        throw new Error('Failed to resume audio context - microphone access may be blocked');
+        throw new Error(translate('messages.audioRecorder.resumeFailed'));
       }
 
       // Use EXACT same approach as working VoiceSettingsModal
@@ -410,7 +411,7 @@ const useAudioRecorder = (options = {}) => {
           console.error('useAudioRecorder: Stopping volume monitoring due to too many errors');
           clearInterval(animationFrameRef.current);
           animationFrameRef.current = null;
-          setError(`Volume monitoring failed: ${err.message}`);
+          setError(translate('messages.audioRecorder.volumeMonitoringFailed', { reason: err.message }));
           return;
         }
         
@@ -481,7 +482,7 @@ const useAudioRecorder = (options = {}) => {
     if (isAvailable()) {
       initialize();
     } else {
-      setError('Audio recording not supported in this browser');
+      setError(translate('messages.audioRecorder.unsupported'));
     }
   }, [initialize, isAvailable]);
 

@@ -2,12 +2,15 @@
 // is linkable and reachable from the sidebar. Under software (workspace) chrome
 // the Studio tool strip is this strip, so ImagesPage hides the duplicate row.
 
+import { translate } from "../i18n";
+
+// Labels are getters, read in the interface's language when the strip renders.
 export const MEDIA_TABS = [
-  { path: "/images", label: "Media Library" },
-  { path: "/batch-images", label: "Image Gen" },
-  { path: "/infographic", label: "Infographic" },
-  { path: "/video", label: "Video Gen" },
-  { path: "/upscaling", label: "Upscaling" },
+  { path: "/images", get label() { return translate("options.mediaTabs.mediaLibrary"); } },
+  { path: "/batch-images", get label() { return translate("options.mediaTabs.imageGen"); } },
+  { path: "/infographic", get label() { return translate("options.mediaTabs.infographic"); } },
+  { path: "/video", get label() { return translate("options.mediaTabs.videoGen"); } },
+  { path: "/upscaling", get label() { return translate("options.mediaTabs.upscaling"); } },
 ];
 
 export const MEDIA_LIBRARY_TAB = 0;

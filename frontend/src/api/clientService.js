@@ -1,6 +1,7 @@
 // frontend/src/api/clientService.js
 // Version 1.0: Service for client-related API calls.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 export const getClients = async () => {
   try {
@@ -11,13 +12,13 @@ export const getClients = async () => {
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("clientService: Error getting clients:", err.message);
-    return { error: err.message || "Failed to get clients." };
+    return { error: err.message || translate("messages.clients.listFailed") };
   }
 };
 
 export const createClient = async (clientData) => {
   if (!clientData || !clientData.name || !clientData.name.trim()) {
-    return { error: "Client name is required." };
+    return { error: translate("messages.clients.nameRequired") };
   }
   try {
     const response = await fetch(`${BASE_URL}/clients/`, {

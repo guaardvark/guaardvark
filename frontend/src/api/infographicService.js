@@ -5,6 +5,7 @@
 // shows a spinner and renders the result when the promise resolves.
 
 import { BASE_URL } from './apiClient';
+import { translate } from '../i18n';
 
 const API = BASE_URL.replace(/\/api$/, '') + '/api/infographic';
 
@@ -40,16 +41,16 @@ export async function generateInfographic(spec) {
 }
 
 export const INFOGRAPHIC_STYLES = [
-  { value: 'editorial',   label: 'Dramatic editorial illustration' },
-  { value: 'flat_vector', label: 'Flat vector / clean geometric' },
-  { value: 'photo_real',  label: 'Photorealistic' },
-  { value: 'comic',       label: 'Comic book' },
+  { value: 'editorial',   get label() { return translate('options.infographic.styles.editorial'); } },
+  { value: 'flat_vector', get label() { return translate('options.infographic.styles.flatVector'); } },
+  { value: 'photo_real',  get label() { return translate('options.infographic.styles.photoReal'); } },
+  { value: 'comic',       get label() { return translate('options.infographic.styles.comic'); } },
 ];
 
 export const INFOGRAPHIC_ASPECTS = [
-  { value: '16:9', label: '16:9  (1280×720)  — social / video thumbnail' },
-  { value: '1:1',  label: '1:1   (1024×1024) — square / Instagram' },
-  { value: '9:16', label: '9:16  (720×1280)  — vertical / Reels' },
-  { value: '4:5',  label: '4:5   (1024×1280) — Instagram portrait' },
-  { value: '3:2',  label: '3:2   (1216×832)  — landscape' },
+  { value: '16:9', get label() { return translate('options.infographic.aspects.wide'); } },
+  { value: '1:1',  get label() { return translate('options.infographic.aspects.square'); } },
+  { value: '9:16', get label() { return translate('options.infographic.aspects.vertical'); } },
+  { value: '4:5',  get label() { return translate('options.infographic.aspects.portrait'); } },
+  { value: '3:2',  get label() { return translate('options.infographic.aspects.landscape'); } },
 ];

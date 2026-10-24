@@ -4,6 +4,7 @@
 import { BASE_URL, SOCKET_URL, handleResponse } from './apiClient';
 import { io } from 'socket.io-client';
 import { debugLog } from "../utils/debugLog";
+import { translate } from "../i18n";
 
 /**
  * Voice API Service - Handles all voice-related API interactions
@@ -67,7 +68,7 @@ class VoiceService {
         console.error('VoiceService: WebSocket error:', error);
         if (error?.session_id) this.transcriptCallbacks.delete(error.session_id);
         if (this.onErrorCallback) {
-          this.onErrorCallback(new Error(error.message || 'Streaming error'));
+          this.onErrorCallback(new Error(error.message || translate('messages.voice.streamingError')));
         }
       });
     }
@@ -438,7 +439,7 @@ class VoiceService {
   async stopRecording() {
     return new Promise((resolve, reject) => {
       if (!this.mediaRecorder || !this.isRecording) {
-        reject(new Error('No active recording'));
+        reject(new Error(translate('messages.voice.noActiveRecording')));
         return;
       }
 

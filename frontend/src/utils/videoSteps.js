@@ -8,6 +8,7 @@
 // its steps, and the quality preset's number is not used. The chips are then
 // disabled with that reason instead of staying live and labelling the tile.
 // A step count a person typed in Advanced still wins over the profile.
+import { translate } from "../i18n";
 
 /**
  * @param {object} args
@@ -22,7 +23,7 @@ export function stepsFromProfile({ profileSpec, stepsTyped = false } = {}) {
   }
   const label = String(profileSpec.label || "").trim();
   // Profile labels carry the count ("Turbo (8 steps)"); add it when one does not.
-  const shown = label && /\d+\s*steps?/i.test(label) ? label : `${label || "speed profile"} (${steps} steps)`;
+  const shown = label && /\d+\s*steps?/i.test(label) ? label : translate("messages.videoSteps.profileSteps", { label: label || translate("messages.videoSteps.speedProfile"), steps });
   return { fixed: true, steps, label: shown };
 }
 
@@ -35,7 +36,7 @@ export function stepsFromProfile({ profileSpec, stepsTyped = false } = {}) {
  * @param {string} [args.presetLabel]  the selected quality chip's label
  */
 export function stepsTileNote({ lowVramClamp, profile, presetLabel }) {
-  if (lowVramClamp) return "Low VRAM clamp";
-  if (profile?.fixed) return `set by ${profile.label}`;
-  return presetLabel || "preset";
+  if (lowVramClamp) return translate("messages.videoSteps.lowVramClamp");
+  if (profile?.fixed) return translate("messages.videoSteps.setBy", { label: profile.label });
+  return presetLabel || translate("messages.videoSteps.preset");
 }

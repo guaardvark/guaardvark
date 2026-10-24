@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { hfUrlClientError } from "../utils/hfUrl";
+import { translate } from "../i18n";
 
 /**
  * Shared Look-up state for Add Image/Video Model dialogs.
@@ -46,11 +47,11 @@ export default function useHfModelLookup({ endpoint, open }) {
         previewUrlRef.current = url.trim();
       } else {
         setPreview(null);
-        setError(res.data.error?.message || res.data.message || "Lookup failed");
+        setError(res.data.error?.message || res.data.message || translate("messages.hfLookup.failed"));
       }
     } catch (err) {
       setPreview(null);
-      setError(err.response?.data?.error?.message || err.message || "Lookup failed");
+      setError(err.response?.data?.error?.message || err.message || translate("messages.hfLookup.failed"));
     } finally {
       setLooking(false);
     }

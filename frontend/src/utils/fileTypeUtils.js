@@ -1,6 +1,7 @@
 // frontend/src/utils/fileTypeUtils.js
 // File Type Enhancement Utility - Phase 1
 // Provides intelligent file type categorization, human-readable labels, and icons
+import { translate, uiLocale } from "../i18n";
 
 /**
  * File Type Categories and Mappings
@@ -231,7 +232,7 @@ export const getFileTypeFilterOptions = () => {
 
 // Utility function to properly handle UTC timestamps from backend
 export const formatTimestamp = (timestamp) => {
-  if (!timestamp) return 'N/A';
+  if (!timestamp) return translate('messages.fileTypes.noTimestamp');
   
   // If the timestamp doesn't have timezone info, assume it's UTC
   const dateStr = timestamp.includes('Z') || timestamp.includes('+') || timestamp.includes('T') 
@@ -239,7 +240,7 @@ export const formatTimestamp = (timestamp) => {
     : timestamp.replace(' ', 'T') + 'Z';
   
   try {
-    return new Date(dateStr).toLocaleString();
+    return new Date(dateStr).toLocaleString(uiLocale());
   } catch (error) {
     console.warn('Invalid timestamp format:', timestamp);
     return timestamp;

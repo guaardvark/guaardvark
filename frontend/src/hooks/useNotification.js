@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { translate } from '../i18n';
 
 /**
  * Custom hook for managing notifications and user feedback
@@ -122,7 +123,7 @@ export const useNotification = () => {
           ? { 
               ...n, 
               severity: 'error',
-              message: errorMessage || 'Operation failed',
+              message: errorMessage || translate('messages.notifications.operationFailed'),
               showProgress: false,
               autoHide: true,
               duration: 6000

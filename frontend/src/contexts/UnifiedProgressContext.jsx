@@ -17,6 +17,7 @@ import { io } from "socket.io-client";
 import { useTheme } from "@mui/material/styles";
 import { BASE_URL as API_BASE, SOCKET_URL } from "../api/apiClient";
 import { debugLog } from "../utils/debugLog";
+import { translate, useUiTranslation } from "../i18n";
 import { UPDATE_APPLIED_EVENT } from "./HealthContext";
 import {
   applyPreviewFrame,
@@ -114,6 +115,7 @@ const progressReducer = (state, action) => {
 };
 
 export const UnifiedProgressProvider = ({ children }) => {
+  const { language } = useUiTranslation();
   const theme = useTheme();
   const [state, dispatch] = useReducer(progressReducer, {
     activeProcesses: new Map(),
@@ -247,7 +249,7 @@ export const UnifiedProgressProvider = ({ children }) => {
           const processData = {
             job_id: job.job_id,
             progress: job.progress || 0,
-            message: job.message || job.description || 'Processing...',
+            message: job.message || job.description || translate('progress.status.processing'),
             status: job.status || 'processing',
             process_type: job.process_type || 'unknown',
             timestamp: job.timestamp || job.last_update || Date.now(),
@@ -523,10 +525,10 @@ export const UnifiedProgressProvider = ({ children }) => {
                 existingProcess?.progress || 0
         ),
         message: message ||
-          (status === "complete" || status === "end" ? "Complete" :
-            status === "error" ? "Error" :
-              status === "cancelled" ? "Cancelled" :
-                existingProcess?.message || "Processing..."),
+          (status === "complete" || status === "end" ? translate("progress.status.complete") :
+            status === "error" ? translate("progress.status.error") :
+              status === "cancelled" ? translate("progress.status.cancelled") :
+                existingProcess?.message || translate("progress.status.processing")),
         status: status || "processing",
         timestamp: Date.now(),
         processType: process_type || existingProcess?.processType || detectProcessType(message || ""),
@@ -626,7 +628,7 @@ export const UnifiedProgressProvider = ({ children }) => {
       if (!isTerminal || mostRecentTime === 0) {
         if (process.timestamp > mostRecentTime) {
           mostRecentTime = process.timestamp;
-          mostRecentMessage = process.message || "Processing...";
+          mostRecentMessage = process.message || translate("progress.status.processing");
         }
       }
     });
@@ -640,7 +642,7 @@ export const UnifiedProgressProvider = ({ children }) => {
       processCount: activeProcesses.size,
       activeCount,
     };
-  }, [activeProcesses]);
+  }, [activeProcesses, language]);
 
   // Auto-cleanup old processes with optimized interval
   useEffect(() => {
@@ -751,7 +753,7 @@ export const UnifiedProgressProvider = ({ children }) => {
   );
 
   const completeProcess = useCallback(
-    (processId, message = "Complete") => {
+    (processId, message = translate("progress.status.complete")) => {
       handleJobProgress({
         job_id: processId,
         progress: 100,
@@ -763,7 +765,7 @@ export const UnifiedProgressProvider = ({ children }) => {
   );
 
   const errorProcess = useCallback(
-    (processId, message = "Error") => {
+    (processId, message = translate("progress.status.error")) => {
       handleJobProgress({
         job_id: processId,
         progress: 0,
@@ -775,7 +777,7 @@ export const UnifiedProgressProvider = ({ children }) => {
   );
 
   const cancelProcess = useCallback(
-    (processId, message = "Cancelled") => {
+    (processId, message = translate("progress.status.cancelled")) => {
       handleJobProgress({
         job_id: processId,
         progress: 0,

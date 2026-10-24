@@ -2,7 +2,7 @@
 // Bulk import jobs for Documents
 
 import { BASE_URL } from './apiClient';
-import { isQueueUnreachable, QUEUE_UNREACHABLE_MESSAGE } from './taskQueue';
+import { isQueueUnreachable, queueUnreachableMessage } from './taskQueue';
 const API_URL = BASE_URL;
 
 const debugLog = (...args) => {
@@ -34,7 +34,7 @@ export const startBulkImport = async (payload) => {
       });
 
       if (response.status === 503 && isQueueUnreachable(errorData)) {
-        throw new Error(QUEUE_UNREACHABLE_MESSAGE);
+        throw new Error(queueUnreachableMessage());
       }
       // Handle both string and object error formats
       const errorMessage =

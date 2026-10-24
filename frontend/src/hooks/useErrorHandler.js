@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useAppStore } from '../stores/useAppStore';
+import { translate } from '../i18n';
 
 /**
  * Custom hook for centralized error handling and user feedback
@@ -10,7 +11,7 @@ export const useErrorHandler = () => {
 
   // Generic error handler for API calls
   const handleApiError = useCallback((error, customMessage = null) => {
-    let errorMessage = customMessage || 'An unexpected error occurred';
+    let errorMessage = customMessage || translate('messages.errors.unexpected');
     
     if (error?.response) {
       // HTTP error response
@@ -19,38 +20,38 @@ export const useErrorHandler = () => {
       
       switch (status) {
         case 400:
-          errorMessage = data?.message || 'Bad request. Please check your input.';
+          errorMessage = data?.message || translate('messages.errors.badRequest');
           break;
         case 401:
-          errorMessage = 'Authentication required. Please log in.';
+          errorMessage = translate('messages.errors.unauthorized');
           break;
         case 403:
-          errorMessage = 'You do not have permission to perform this action.';
+          errorMessage = translate('messages.errors.forbidden');
           break;
         case 404:
-          errorMessage = 'The requested resource was not found.';
+          errorMessage = translate('messages.errors.notFound');
           break;
         case 422:
-          errorMessage = data?.message || 'Validation error. Please check your input.';
+          errorMessage = data?.message || translate('messages.errors.validation');
           break;
         case 429:
-          errorMessage = 'Too many requests. Please try again later.';
+          errorMessage = translate('messages.errors.tooManyRequests');
           break;
         case 500:
-          errorMessage = 'Server error. Please try again later.';
+          errorMessage = translate('messages.errors.server');
           break;
         case 503:
-          errorMessage = 'Service temporarily unavailable. Please try again later.';
+          errorMessage = translate('messages.errors.unavailable');
           break;
         default:
-          errorMessage = data?.message || `HTTP Error ${status}`;
+          errorMessage = data?.message || translate('messages.errors.httpStatus', { status });
       }
     } else if (error?.message) {
       // Network or other error
       if (error.message.includes('Network Error')) {
-        errorMessage = 'Network error. Please check your connection.';
+        errorMessage = translate('messages.errors.network');
       } else if (error.message.includes('timeout')) {
-        errorMessage = 'Request timed out. Please try again.';
+        errorMessage = translate('messages.errors.timeout');
       } else {
         errorMessage = error.message;
       }
@@ -105,19 +106,19 @@ export const useErrorHandler = () => {
 
   // Specialized handlers for common operations
   const handleDocumentUpload = useCallback((error) => {
-    return handleApiError(error, 'Failed to upload document. Please try again.');
+    return handleApiError(error, translate('messages.errors.uploadFailed'));
   }, [handleApiError]);
 
   const handleIndexingError = useCallback((error) => {
-    return handleApiError(error, 'Document indexing failed. Please try again.');
+    return handleApiError(error, translate('messages.errors.indexingFailed'));
   }, [handleApiError]);
 
   const handleChatError = useCallback((error) => {
-    return handleApiError(error, 'Chat request failed. Please try again.');
+    return handleApiError(error, translate('messages.errors.chatFailed'));
   }, [handleApiError]);
 
   const handleProjectError = useCallback((error) => {
-    return handleApiError(error, 'Project operation failed. Please try again.');
+    return handleApiError(error, translate('messages.errors.projectFailed'));
   }, [handleApiError]);
 
   return {

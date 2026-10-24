@@ -4,6 +4,7 @@ import brand from "../config/brand";
 import { DEFAULT_PROFILE } from "../config/profile";
 import { extensionStoreSlices } from "../extensions";
 import { DEFAULT_ACTIVATION_MODE, isActivationMode } from "../config/voiceDefaults";
+import { translate } from "../i18n";
 
 // Extensions may add state (extensions/<id>/frontend/index.jsx storeSlice);
 // their persisted keys join partialize below.
@@ -159,7 +160,7 @@ const createDataSlice = (set, get) => ({
       const res = await fetch("/api/settings/branding", { signal: controller.signal });
       clearTimeout(timer);
       if (!res.ok) {
-        throw new Error(`Failed to fetch branding: ${res.status}`);
+        throw new Error(translate("messages.appStore.brandingFailed", { status: res.status }));
       }
       
       const response = await res.json();

@@ -1,6 +1,7 @@
 // frontend/src/api/indexingService.js
 // Version 1.0: Service for indexing and job status related calls.
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 export const triggerIndexing = async (documentId, parentJobId = null) => {
   try {
@@ -81,7 +82,7 @@ export const cancelJob = async (jobId) => {
     return data;
   } catch (err) {
     console.error(`indexingService: Error cancelling job ${jobId}:`, err);
-    return { error: err.message || "Failed to cancel job." };
+    return { error: err.message || translate("messages.indexing.cancelFailed") };
   }
 };
 
@@ -97,7 +98,7 @@ export const getAllJobs = async (queryParams = {}) => {
     return Array.isArray(data) ? data : [];
   } catch (err) {
     console.error("indexingService: Error fetching all jobs:", err.message);
-    return { error: err.message || "Failed to fetch jobs." };
+    return { error: err.message || translate("messages.indexing.jobsFailed") };
   }
 };
 

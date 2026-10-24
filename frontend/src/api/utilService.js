@@ -3,6 +3,7 @@
 import { BASE_URL } from "./apiClient";
 import { getProjects, getProjectsForClient } from "./projectService";
 import { getClients } from "./clientService";
+import { translate } from "../i18n";
 
 export const getDownloadUrl = (filename) => {
   if (!filename) return null;
@@ -141,10 +142,10 @@ export const updateEntityLinks = async (
     if (data.success) {
       return {
         success: true,
-        message: data.message || `Successfully updated ${linkableEntityType} links`
+        message: data.message || translate("messages.links.updated", { entityType: linkableEntityType })
       };
     }
-    throw new Error(data.error || "Failed to update links");
+    throw new Error(data.error || translate("messages.links.updateFailed"));
   } catch (error) {
     // Rethrow: a caller that gets a value back must be able to trust it.
     // Returning { success: false } here let the Rules page announce

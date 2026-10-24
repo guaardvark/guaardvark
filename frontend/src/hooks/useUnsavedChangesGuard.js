@@ -11,7 +11,9 @@
 // without a prompt; moving the app to a data router would cover them.
 import { useContext, useEffect, useRef } from 'react';
 import { UNSAFE_NavigationContext } from 'react-router-dom';
+import { translate, useUiTranslation } from '../i18n';
 
+// The English text; the guard asks in the interface's language.
 export const DEFAULT_UNSAVED_MESSAGE = 'You have unsaved changes on this page. Leave and discard them?';
 
 const trimSlash = (path) => (path.length > 1 ? path.replace(/\/+$/, '') : path);
@@ -68,7 +70,9 @@ const holdNavigator = (navigator, messageRef) => {
   };
 };
 
-const useUnsavedChangesGuard = (when, message = DEFAULT_UNSAVED_MESSAGE) => {
+const useUnsavedChangesGuard = (when, message = translate('messages.unsavedChanges.leaveConfirm')) => {
+  // Re-render on a language change so the question below follows it.
+  useUiTranslation();
   const { navigator } = useContext(UNSAFE_NavigationContext);
   const messageRef = useRef(message);
   messageRef.current = message;

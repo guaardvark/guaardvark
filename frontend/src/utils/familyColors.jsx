@@ -14,6 +14,7 @@ import {
   Lock as LockIcon,
   Schedule as ScheduleIcon,
 } from "@mui/icons-material";
+import { translate, useUiTranslation } from "../i18n";
 
 // Uncle Claude: warm amber/gold — authoritative mentor
 // Nephew (Guaardvark): theme primary — the local AI
@@ -41,7 +42,8 @@ export const SOURCE_LABELS = {
   uncle_claude: "Uncle Claude",
   nephew: "Guaardvark",
   family: "Family Node",
-  self_improvement: "Self-improvement",
+  // A getter, so the chip reads it in the interface's language.
+  get self_improvement() { return translate("messages.family.selfImprovement"); },
 };
 
 const STATUS_MAP = {
@@ -76,6 +78,7 @@ const SOURCE_COLORS = {
  * @param {object} [sx] - Additional sx overrides
  */
 export const StatusChip = ({ source, status, label, sx, ...props }) => {
+  useUiTranslation();
   const Icon = SOURCE_ICONS[source];
   const statusInfo = STATUS_MAP[status] || STATUS_MAP.offline;
   const chipLabel = label || SOURCE_LABELS[source] || status;

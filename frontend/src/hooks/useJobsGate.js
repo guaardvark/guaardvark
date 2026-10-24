@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getJobsGate } from "../api/jobsService";
+import { translate, useUiTranslation } from "../i18n";
 
 const POLL_MS = 4000;
 
@@ -8,32 +9,36 @@ const POLL_MS = 4000;
 // kind alone does not say what is rendering; the native id does. Batch ids carry
 // their kind as a prefix (output_registration.BATES_PREFIXES); the other prefixes
 // are the ids each caller passes to gpu_session. Mirrors
-// job_operation_gate._HOLDER_ID_LABELS on the backend.
+// job_operation_gate._HOLDER_ID_LABELS on the backend. Each label is a
+// function so it is read in the interface's language.
+const videoRendering = () => translate("progress.gpu.videoRendering");
+const picturesRendering = () => translate("progress.gpu.picturesRendering");
+const pictureRendering = () => translate("progress.gpu.pictureRendering");
 const HOLDER_ID_LABELS = [
-  ["VideoBatch", "A video is rendering"],
-  ["ImageBatch", "Pictures are rendering"],
-  ["blueprint_", "Pictures are rendering"],
-  ["upload_", "Pictures are rendering"],
-  ["stills_", "A picture is rendering"],
-  ["gen_", "A picture is rendering"],
-  ["chat_edit_", "A picture is being edited"],
-  ["chat_anim_", "An animation is rendering"],
-  ["infographic_", "An infographic is rendering"],
-  ["char_", "Character pictures are rendering"],
-  ["storyboard_", "Storyboard pictures are rendering"],
-  ["prod_", "The Film Crew is rendering"],
-  ["mv_", "A music video is rendering"],
-  ["video:music3:", "A song is rendering"],
-  ["editor_", "A video is rendering"],
-  ["router:", "A video is rendering"],
+  ["VideoBatch", videoRendering],
+  ["ImageBatch", picturesRendering],
+  ["blueprint_", picturesRendering],
+  ["upload_", picturesRendering],
+  ["stills_", pictureRendering],
+  ["gen_", pictureRendering],
+  ["chat_edit_", () => translate("progress.gpu.pictureEditing")],
+  ["chat_anim_", () => translate("progress.gpu.animationRendering")],
+  ["infographic_", () => translate("progress.gpu.infographicRendering")],
+  ["char_", () => translate("progress.gpu.characterPicturesRendering")],
+  ["storyboard_", () => translate("progress.gpu.storyboardRendering")],
+  ["prod_", () => translate("progress.gpu.filmCrewRendering")],
+  ["mv_", () => translate("progress.gpu.musicVideoRendering")],
+  ["video:music3:", () => translate("progress.gpu.songRendering")],
+  ["editor_", videoRendering],
+  ["router:", videoRendering],
 ];
 // Only the kinds that can hold the card (job_operation_gate.GPU_EXCLUSIVE_KINDS)
 // and say what they are by themselves; video_render falls to the generic line.
 const HOLDER_KIND_LABELS = {
-  training: "A model is training",
-  lora_train: "A character is training",
+  training: () => translate("progress.gpu.modelTraining"),
+  lora_train: () => translate("progress.gpu.characterTraining"),
 };
-const GENERIC_HOLDER = "Something is using the graphics card";
+const genericHolder = () => translate("progress.gpu.generic");
 
 /**
  * Plain words for a gate holder ({kind, native_id}): what is using the card,
@@ -44,7 +49,7 @@ export function describeGpuHolder(holder) {
   const id = String(holder.native_id || "");
   const kind = String(holder.kind || "");
   const byId = HOLDER_ID_LABELS.find(([prefix]) => id.startsWith(prefix));
-  const reason = byId ? byId[1] : HOLDER_KIND_LABELS[kind] || GENERIC_HOLDER;
+  const reason = byId ? byId[1]() : (HOLDER_KIND_LABELS[kind] || genericHolder)();
   const detail = [kind, id].filter(Boolean).join(":") || null;
   return { reason, detail };
 }
@@ -64,6 +69,7 @@ export default function useJobsGate({
   pollMs = POLL_MS,
   submitMode = "immediate",
 } = {}) {
+  const { language } = useUiTranslation();
   const [gate, setGate] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -100,7 +106,7 @@ export default function useJobsGate({
     const cooldown = gate.gpu_cooldown_remaining_s ?? 0;
     if (cooldown > 0) {
       return {
-        blockReason: `The graphics card is clearing up after the last job (${Math.ceil(cooldown)} s)`,
+        blockReason: translate("progress.gpu.coolingDown", { seconds: Math.ceil(cooldown) }),
         blockDetail: null,
       };
     }
@@ -109,10 +115,10 @@ export default function useJobsGate({
       return { blockReason: reason, blockDetail: detail };
     }
     if (gate.gpu_busy) {
-      return { blockReason: GENERIC_HOLDER, blockDetail: null };
+      return { blockReason: genericHolder(), blockDetail: null };
     }
     return { blockReason: null, blockDetail: null };
-  }, [gate]);
+  }, [gate, language]);
 
   return {
     gate,

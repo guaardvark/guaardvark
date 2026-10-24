@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { io } from "socket.io-client";
 import { SOCKET_URL, handleResponse } from "../api/apiClient";
 import { formatUiError } from "../utils/uiError";
+import { translate } from "../i18n";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 const ACTIVE_STATUSES = new Set(["queued", "pending", "running"]);
@@ -56,7 +57,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       // refresh failing is said once.
       listFailuresRef.current += 1;
       if (listFailuresRef.current === 1 || listFailuresRef.current === POLL_FAILURES_BEFORE_NOTICE) {
-        setError?.(`Video batches could not be loaded: ${formatUiError(e) || "the request failed"}.`);
+        setError?.(translate("messages.batchVideo.listFailed", { reason: formatUiError(e) || translate("messages.batchVideo.requestFailed") }));
       }
     }
   }, []);
@@ -73,7 +74,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       // A poll: one miss stays quiet; a failure that persists is said once.
       queueFailuresRef.current += 1;
       if (queueFailuresRef.current === POLL_FAILURES_BEFORE_NOTICE) {
-        setError?.(`The video queue is not updating: ${formatUiError(e) || "the request failed"}.`);
+        setError?.(translate("messages.batchVideo.queueFailed", { reason: formatUiError(e) || translate("messages.batchVideo.requestFailed") }));
       }
     }
   }, []);
@@ -86,12 +87,12 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       const res = await fetch(`${API_BASE}/batch-video/queue/clear-finished`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        setError?.(data.error || `Clear failed: HTTP ${res.status}`);
+        setError?.(data.error || translate("messages.batchVideo.clearFailedStatus", { status: res.status }));
         return;
       }
       setQueue(data.data?.queue || []);
     } catch (e) {
-      setError?.(`Clear failed: ${e.message}`);
+      setError?.(translate("messages.batchVideo.clearFailed", { reason: e.message }));
     }
   }, [queue, setError]);
 
@@ -177,7 +178,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
         startPollingStatus(batchId);
       }
     } catch (e) {
-      setError?.(`Combining frames failed: ${formatUiError(e) || "the request failed"}.`);
+      setError?.(translate("messages.batchVideo.combineFailed", { reason: formatUiError(e) || translate("messages.batchVideo.requestFailed") }));
     }
   }, [activeBatchId, computedParams, fetchBatches, startPollingStatus, setError]);
 
@@ -192,13 +193,13 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
           setBatchStatus(null);
           stopPolling();
         }
-        setSuccess?.("Batch deleted.");
+        setSuccess?.(translate("messages.batchVideo.deleted"));
       } else {
         const data = await res.json().catch(() => ({}));
-        setError?.(data.error || `Delete failed: HTTP ${res.status}`);
+        setError?.(data.error || translate("messages.batchVideo.deleteFailedStatus", { status: res.status }));
       }
     } catch (e) {
-      setError?.(`Delete failed: ${e.message}`);
+      setError?.(translate("messages.batchVideo.deleteFailed", { reason: e.message }));
     }
   }, [activeBatchId, fetchBatches, fetchQueue, setError, setSuccess, stopPolling]);
 
@@ -212,7 +213,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
         startPollingStatus(batchId);
       }
     } catch (e) {
-      setError?.(`Cancel failed: ${formatUiError(e) || "the request failed"}. The batch may still be running.`);
+      setError?.(translate("messages.batchVideo.cancelFailed", { reason: formatUiError(e) || translate("messages.batchVideo.requestFailed") }));
     }
   }, [activeBatchId, fetchBatches, fetchQueue, startPollingStatus, setError]);
 
@@ -222,7 +223,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       const res = await fetch(`${API_BASE}/batch-video/retry/${batchId}`, { method: "POST" });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        setError?.(errData.error || `Retry failed: HTTP ${res.status}`);
+        setError?.(errData.error || translate("messages.batchVideo.retryFailedStatus", { status: res.status }));
         return;
       }
       const data = await res.json();
@@ -233,10 +234,10 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
         startPollingStatus(newBatchId);
         await fetchBatches();
         await fetchQueue();
-        setSuccess?.(`Retried as new batch ${newBatchId}. Original failed batch is preserved in history.`);
+        setSuccess?.(translate("messages.batchVideo.retried", { batchId: newBatchId }));
       }
     } catch (e) {
-      setError?.(`Retry failed: ${e.message}`);
+      setError?.(translate("messages.batchVideo.retryFailed", { reason: e.message }));
     }
   }, [fetchBatches, fetchQueue, setError, setSuccess, startPollingStatus]);
 
@@ -247,16 +248,16 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       const res = await fetch(`${API_BASE}/batch-video/review/${batchId}/${itemId}/approve`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        setError?.(data.error || `Approve failed: HTTP ${res.status}`);
+        setError?.(data.error || translate("messages.batchVideo.approveFailedStatus", { status: res.status }));
         return;
       }
       setBatchStatus((prev) => (prev && prev.batch_id === batchId
         ? { ...prev, results: (prev.results || []).map((r) => (
           r.item_id === itemId ? { ...r, review: data.data?.review } : r)) }
         : prev));
-      setSuccess?.("Clip approved and added to Files.");
+      setSuccess?.(translate("messages.batchVideo.clipApproved"));
     } catch (e) {
-      setError?.(`Approve failed: ${e.message}`);
+      setError?.(translate("messages.batchVideo.approveFailed", { reason: e.message }));
     }
   }, [setError, setSuccess]);
 
@@ -267,7 +268,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       const res = await fetch(`${API_BASE}/batch-video/review/${batchId}/${itemId}/rerender`, { method: "POST" });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success || !data.data?.batch_id) {
-        setError?.(data.error || `Re-render failed: HTTP ${res.status}`);
+        setError?.(data.error || translate("messages.batchVideo.rerenderFailedStatus", { status: res.status }));
         return;
       }
       const newBatchId = data.data.batch_id;
@@ -276,9 +277,9 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       startPollingStatus(newBatchId);
       await fetchBatches();
       await fetchQueue();
-      setSuccess?.(`Re-rendering as ${newBatchId}. The held clip stays in ${batchId}.`);
+      setSuccess?.(translate("messages.batchVideo.rerendering", { newBatchId, batchId }));
     } catch (e) {
-      setError?.(`Re-render failed: ${e.message}`);
+      setError?.(translate("messages.batchVideo.rerenderFailed", { reason: e.message }));
     }
   }, [fetchBatches, fetchQueue, setError, setSuccess, startPollingStatus]);
 

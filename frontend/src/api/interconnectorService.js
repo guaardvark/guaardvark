@@ -2,6 +2,7 @@
 // Interconnector Plugin API Service - handles network interconnection between Guaardvark instances
 
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 // Default timeout for interconnector API calls (30 seconds)
 const DEFAULT_TIMEOUT = 30000;
@@ -39,7 +40,7 @@ const fetchWithTimeout = async (url, options = {}, timeout = DEFAULT_TIMEOUT) =>
   } catch (err) {
     clearTimeout(timeoutId);
     if (err.name === 'AbortError') {
-      throw new Error(`Request timeout after ${timeout}ms`);
+      throw new Error(translate("messages.interconnector.timeout", { timeout }));
     }
     throw err;
   }
@@ -449,7 +450,7 @@ export const fetchOutputsIndex = async (limit = 200, path = null) => {
     return await handleResponse(response);
   } catch (err) {
     console.error("[INTERCONNECTOR API] Error fetching outputs index:", err);
-    return { error: err.message || "Failed to fetch outputs index" };
+    return { error: err.message || translate("messages.interconnector.outputsIndexFailed") };
   }
 };
 

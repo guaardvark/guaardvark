@@ -6,6 +6,7 @@
 import { BASE_URL } from "./apiClient";
 import { useAppStore } from "../stores/useAppStore";
 import { debugLog } from "../utils/debugLog";
+import { translate } from "../i18n";
 
 const API_BASE = BASE_URL.replace(/\/api$/, "");
 
@@ -209,7 +210,7 @@ class UnifiedChatService {
       `${API_BASE}/api/chat/unified/${sessionId}/history?limit=${limit}`
     );
     if (!response.ok) {
-      throw new Error(`Failed to fetch history: ${response.status}`);
+      throw new Error(translate("messages.chat.historyFailed", { status: response.status }));
     }
     return response.json();
   }

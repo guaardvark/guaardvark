@@ -4,6 +4,7 @@
 
 import { BASE_URL, handleResponse } from "./apiClient";
 import { API_TIMEOUT_CODE_INTEL } from "../config/constants";
+import { translate } from "../i18n";
 
 const CODE_INTELLIGENCE_BASE = "/code-intelligence";
 
@@ -19,8 +20,8 @@ export const analyzeCodeIntelligent = async (context, customPrompt = null, rules
     if (!context?.content) {
       return {
         success: false,
-        error: "No code content provided for analysis",
-        analysis: "Please provide code content to analyze."
+        error: translate("messages.codeIntelligence.noCode"),
+        analysis: translate("messages.codeIntelligence.provideCode")
       };
     }
 
@@ -51,7 +52,7 @@ export const analyzeCodeIntelligent = async (context, customPrompt = null, rules
     const result = await handleResponse(response);
     return {
       success: true,
-      analysis: result.data?.analysis || "Analysis completed successfully.",
+      analysis: result.data?.analysis || translate("messages.codeIntelligence.analysisDone"),
       suggestions: result.data?.suggestions || [],
       errors: result.data?.errors || [],
       warnings: result.data?.warnings || [],
@@ -64,15 +65,15 @@ export const analyzeCodeIntelligent = async (context, customPrompt = null, rules
     if (error.name === 'AbortError') {
       return {
         success: false,
-        error: "Analysis request timed out after 2 minutes",
-        analysis: "The analysis request took too long. This may happen with very large files or complex code. Please try again with a smaller code selection or simpler query."
+        error: translate("messages.codeIntelligence.analysisTimeout"),
+        analysis: translate("messages.codeIntelligence.analysisTimeoutHelp")
       };
     }
 
     return {
       success: false,
-      error: error.message || "Unknown error occurred",
-      analysis: "Analysis failed. Please check the backend connection and try again."
+      error: error.message || translate("messages.codeIntelligence.unknownError"),
+      analysis: translate("messages.codeIntelligence.analysisFailed")
     };
   }
 };
@@ -89,7 +90,7 @@ export const generateCodeIntelligent = async (description, context = {}, rulesCu
     if (!description || typeof description !== 'string' || description.trim().length === 0) {
       return {
         success: false,
-        error: "No description provided for code generation",
+        error: translate("messages.codeIntelligence.noDescription"),
         code: ""
       };
     }
@@ -120,7 +121,7 @@ export const generateCodeIntelligent = async (description, context = {}, rulesCu
       code: result.data?.code || "",
       language: result.data?.language || context.language || "javascript",
       description: result.data?.description || description,
-      explanation: result.data?.explanation || "Code generated successfully"
+      explanation: result.data?.explanation || translate("messages.codeIntelligence.codeGenerated")
     };
   } catch (error) {
     console.error("Code generation failed:", error);
@@ -128,14 +129,14 @@ export const generateCodeIntelligent = async (description, context = {}, rulesCu
     if (error.name === 'AbortError') {
       return {
         success: false,
-        error: "Code generation request timed out after 2 minutes. Please try a simpler request.",
+        error: translate("messages.codeIntelligence.generationTimeout"),
         code: ""
       };
     }
 
     return {
       success: false,
-      error: error.message || "Unknown error occurred during code generation",
+      error: error.message || translate("messages.codeIntelligence.generationUnknownError"),
       code: ""
     };
   }
@@ -216,7 +217,7 @@ export const explainCodeIntelligent = async (context, rulesCutoff = false) => {
     return {
       success: false,
       error: error.message,
-      explanation: "Explanation failed. Please check the backend connection."
+      explanation: translate("messages.codeIntelligence.explanationFailed")
     };
   }
 };
@@ -379,7 +380,7 @@ export const validateCodeIntelligent = async (context, rulesCutoff = false) => {
     return {
       success: false,
       error: error.message,
-      validation: "Validation failed",
+      validation: translate("messages.codeIntelligence.validationFailed"),
       errors: [],
       warnings: []
     };
@@ -470,7 +471,7 @@ export const readMultipleFiles = async (filePaths) => {
           success: false,
           content: "",
           language: "text",
-          error: result.reason?.message || "Failed to read file"
+          error: result.reason?.message || translate("messages.codeIntelligence.readFileFailed")
         };
       }
     });
@@ -481,7 +482,7 @@ export const readMultipleFiles = async (filePaths) => {
       success: false,
       content: "",
       language: "text",
-      error: error.message || "Failed to read files"
+      error: error.message || translate("messages.codeIntelligence.readFilesFailed")
     }));
   }
 };

@@ -3,6 +3,7 @@ import { fetchPublishes } from "../api/connectionsService";
 import { inboundGuardService } from "../api/inboundGuardService";
 import { isActionable } from "../api/heldChanges";
 import { fetchQueue as fetchOutreachQueue, fetchWatchedPost } from "../api/outreachService";
+import { translate } from "../i18n";
 
 // A pending publish has no Task row until it is approved, so it is invisible to
 // the jobs API. The queue and the sidebar badge both read the publish records
@@ -76,7 +77,7 @@ export const usePendingApprovals = ({ notify = false } = {}) => {
       setError(null);
       return rows;
     } catch (err) {
-      setError(err?.message || "Could not load pending approvals");
+      setError(err?.message || translate("messages.approvals.loadFailed"));
       return null;
     } finally {
       setLoading(false);
@@ -135,7 +136,7 @@ function raiseHeldNotification(added, rows) {
   if (Notification.permission !== "granted") return;
   try {
     new Notification(
-      added === 1 ? "Code change waiting for approval" : `${added} code changes waiting for approval`,
+      translate("messages.approvals.heldWaiting", { count: added }),
       { body: rows[0]?.subject || "", tag: "guaardvark-held-code" },
     );
   } catch {
@@ -153,7 +154,7 @@ function raiseDesktopNotification(added, rows) {
     : "";
   try {
     new Notification(
-      added === 1 ? "Publish awaiting approval" : `${added} publishes awaiting approval`,
+      translate("messages.approvals.publishWaiting", { count: added }),
       { body: detail, tag: "guaardvark-publish-approvals" },
     );
   } catch {

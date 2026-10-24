@@ -1,4 +1,5 @@
 import { BASE_URL, handleResponse } from "./apiClient";
+import { translate } from "../i18n";
 
 export const createServerBackup = async (type, components = [], name = null, include_plugins = false) => {
   const response = await fetch(`${BASE_URL}/backups/create`, {
@@ -42,7 +43,7 @@ export const downloadServerBackup = async (name) => {
   const res = await fetch(`${BASE_URL}/backups/${encodeURIComponent(name)}/download`);
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData.error || `Download failed: ${res.status}`);
+    throw new Error(errorData.error || translate("messages.backups.downloadFailed", { status: res.status }));
   }
   const blob = await res.blob();
   const url = window.URL.createObjectURL(blob);

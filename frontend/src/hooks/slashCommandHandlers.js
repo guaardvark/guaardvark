@@ -9,6 +9,7 @@ import { BASE_URL, handleResponse } from "../api/apiClient";
 import { stopChatTurn } from "../api/chatStopService";
 import { getChatImageModel, setChatImageModel as persistChatImageModel } from "../api/settingsService";
 import { getPlugin } from "../api/pluginsService";
+import { translate } from "../i18n";
 
 // ============================================================
 // Dispatcher
@@ -92,11 +93,11 @@ async function saveImageModelChoice(modelId) {
 
 function handleHelp(args, { addMessage, allCommands }) {
   const lines = allCommands.map(
-    (cmd) => `**${cmd.name}** — ${cmd.description}\n  Usage: \`${cmd.usage}\``
+    (cmd) => translate("messages.slash.helpLine", { name: cmd.name, description: cmd.description, usage: cmd.usage })
   );
   addMessage({
     role: "system",
-    content: `## Available Commands\n\n${lines.join("\n\n")}`,
+    content: translate("messages.slash.help", { commands: lines.join("\n\n") }),
     tempId: `help-${Date.now()}`,
     type: "command",
   });
@@ -128,14 +129,14 @@ function handleVoice(args, { addMessage, chatState }) {
     voice.toggleVoice();
     addMessage({
       role: "system",
-      content: `Voice chat ${voice.isVoiceActive ? "disabled" : "enabled"}.`,
+      content: voice.isVoiceActive ? translate("messages.slash.voiceDisabled") : translate("messages.slash.voiceEnabled"),
       tempId: `voice-${Date.now()}`,
       type: "command",
     });
   } else {
     addMessage({
       role: "system",
-      content: "Voice chat is not available in this context.",
+      content: translate("messages.slash.voiceUnavailable"),
       tempId: `voice-${Date.now()}`,
       type: "command",
     });
@@ -154,14 +155,14 @@ async function handleVision(args, { addMessage }) {
     const res = await getPlugin("vision_pipeline");
     const info = res?.data || res || {};
     const name = info.name || "Vision Pipeline";
-    const lines = [`**${name}:** ${info.status || "unknown"}`];
+    const lines = [translate("messages.slash.visionStatus", { name, status: info.status || translate("messages.slash.unknownStatus") })];
     if (info.status_message) lines.push(info.status_message);
-    lines.push("Start or stop it from the Plugins page.");
+    lines.push(translate("messages.slash.visionHint"));
     content = lines.join("\n\n");
   } catch (err) {
     content = err?.status === 404
-      ? "The Vision Pipeline plugin is not installed."
-      : `Could not read the Vision Pipeline status: ${err.message}`;
+      ? translate("messages.slash.visionNotInstalled")
+      : translate("messages.slash.visionReadFailed", { reason: err.message });
   }
   addMessage({
     role: "system",
@@ -192,12 +193,12 @@ async function handleModel(args, { addMessage }) {
       const modelNames = models.map((m) => m.name || m).slice(0, 20);
       addMessage({
         role: "system",
-        content: `**Current model:** ${active?.model || active?.data?.model || "Unknown"}\n\n**Available models:**\n${modelNames.map((n) => `- ${n}`).join("\n")}`,
+        content: translate("messages.slash.modelStatus", { model: active?.model || active?.data?.model || translate("messages.slash.unknownModel"), models: modelNames.map((n) => `- ${n}`).join("\n") }),
         tempId: `model-${Date.now()}`,
         type: "command",
       });
     } catch (err) {
-      addMessage({ role: "system", content: `Failed to get models: ${err.message}`, tempId: `model-${Date.now()}`, type: "command" });
+      addMessage({ role: "system", content: translate("messages.slash.modelsFailed", { reason: err.message }), tempId: `model-${Date.now()}`, type: "command" });
     }
     return { handled: true };
   }
@@ -212,12 +213,12 @@ async function handleModel(args, { addMessage }) {
     const data = await handleResponse(res);
     addMessage({
       role: "system",
-      content: data.success !== false ? `Model switched to **${args.trim()}**.` : `Failed: ${data.error || data.message}`,
+      content: data.success !== false ? translate("messages.slash.modelSwitched", { model: args.trim() }) : translate("messages.slash.failed", { reason: data.error || data.message }),
       tempId: `model-${Date.now()}`,
       type: "command",
     });
   } catch (err) {
-    addMessage({ role: "system", content: `Model switch failed: ${err.message}`, tempId: `model-${Date.now()}`, type: "command" });
+    addMessage({ role: "system", content: translate("messages.slash.modelSwitchFailed", { reason: err.message }), tempId: `model-${Date.now()}`, type: "command" });
   }
   return { handled: true };
 }
@@ -229,7 +230,7 @@ async function handleModel(args, { addMessage }) {
 // Image-editing packs (Qwen-Image-Edit, Kontext, PuLID, background removal)
 // come back with the image models list; each row names the chat tools it enables.
 function formatEditBackendLine(m) {
-  const flag = m.installed ? "installed" : "not installed";
+  const flag = m.installed ? translate("messages.slash.installed") : translate("messages.slash.notInstalled");
   const tools = (m.tools || []).join(", ");
   return `- \`${m.id}\` — ${m.name} (${flag})${tools ? ` · ${tools}` : ""}`;
 }
@@ -238,7 +239,7 @@ function formatEditBackendLine(m) {
 // assets are installed yet, since it routes to whatever engine ComfyUI has.
 const COMFYUI_MODEL_OPTION = {
   id: "comfyui",
-  name: "ComfyUI (auto backend)",
+  get name() { return translate("messages.slash.comfyuiAutoBackend"); },
   is_downloaded: true,
 };
 
@@ -254,24 +255,24 @@ async function handleImageModel(args, { addMessage }) {
       const editBackends = data?.data?.editing || data?.editing || [];
       const editLines = editBackends.length
         ? editBackends.map(formatEditBackendLine).join("\n")
-        : "_(could not load edit backends)_";
+        : translate("messages.slash.editBackendsFailed");
       const downloaded = [
         COMFYUI_MODEL_OPTION,
         ...models.filter((m) => m.is_downloaded),
       ];
       addMessage({
         role: "system",
-        content: `**Current image model:** \`${current}\`\n\n`
-          + `Used for \`/imagine\` and **generate_image**. Edits (\`edit_image\`, \`/inpaint\`) auto-pick **Qwen-Image-Edit** when installed, else **FLUX Kontext**.\n\n`
-          + `**Image editing packs** (Install from Manage Image Models → Image editing):\n${editLines}\n\n`
-          + `**Generation — downloaded:**\n${downloaded.map((m) => `- \`${m.id}\` — ${m.name}`).join("\n") || "_(none)_"}\n\n`
-          + `**Generation — not downloaded:**\n${models.filter((m) => !m.is_downloaded).map((m) => `- \`${m.id}\``).join("\n") || "_(none)_"}\n\n`
-          + `_Tip: \`/imagemodel auto\` uses Qwen-Image-Edit for instruction edits when that pack is installed._`,
+        content: translate("messages.slash.imageModelStatus", {
+          current,
+          editLines,
+          downloaded: downloaded.map((m) => `- \`${m.id}\` — ${m.name}`).join("\n") || translate("messages.slash.none"),
+          notDownloaded: models.filter((m) => !m.is_downloaded).map((m) => `- \`${m.id}\``).join("\n") || translate("messages.slash.none"),
+        }),
         tempId: `imgmodel-${Date.now()}`,
         type: "command",
       });
     } catch (err) {
-      addMessage({ role: "system", content: `Failed to get image models: ${err.message}`, tempId: `imgmodel-${Date.now()}`, type: "command" });
+      addMessage({ role: "system", content: translate("messages.slash.imageModelsFailed", { reason: err.message }), tempId: `imgmodel-${Date.now()}`, type: "command" });
     }
     return { handled: true };
   }
@@ -281,7 +282,7 @@ async function handleImageModel(args, { addMessage }) {
     await saveImageModelChoice("auto");
     addMessage({
       role: "system",
-      content: "Image model switched to **auto** (edits use Qwen-Image-Edit when installed, else Kontext; with neither, editing asks you to install one).",
+      content: translate("messages.slash.imageModelAuto"),
       tempId: `imgmodel-${Date.now()}`,
       type: "command",
     });
@@ -293,8 +294,8 @@ async function handleImageModel(args, { addMessage }) {
     addMessage({
       role: "system",
       content: id === "qwen-image-edit"
-        ? "Image edits will use **qwen-image-edit** when that pack is installed."
-        : "Image edits will use **kontext** (FLUX.1 Kontext) when installed.",
+        ? translate("messages.slash.imageEditsQwen")
+        : translate("messages.slash.imageEditsKontext"),
       tempId: `imgmodel-${Date.now()}`,
       type: "command",
     });
@@ -307,7 +308,7 @@ async function handleImageModel(args, { addMessage }) {
     await saveImageModelChoice("comfyui");
     addMessage({
       role: "system",
-      content: "Image model switched to **comfyui** (ComfyUI auto backend). Generation will use the installed Z-Image or FLUX engine.",
+      content: translate("messages.slash.imageModelComfyui"),
       tempId: `imgmodel-${Date.now()}`,
       type: "command",
     });
@@ -323,7 +324,7 @@ async function handleImageModel(args, { addMessage }) {
       if (!match.is_downloaded) {
         addMessage({
           role: "system",
-          content: `Model \`${match.id}\` is not downloaded. Download it from the Images page first.`,
+          content: translate("messages.slash.imageModelNotDownloaded", { model: match.id }),
           tempId: `imgmodel-${Date.now()}`,
           type: "command",
         });
@@ -331,7 +332,7 @@ async function handleImageModel(args, { addMessage }) {
         await saveImageModelChoice(match.id);
         addMessage({
           role: "system",
-          content: `Image model switched to **${match.id}** (${match.name}). Used for chat generation and img2img edits.`,
+          content: translate("messages.slash.imageModelSwitched", { model: match.id, name: match.name }),
           tempId: `imgmodel-${Date.now()}`,
           type: "command",
         });
@@ -340,13 +341,13 @@ async function handleImageModel(args, { addMessage }) {
       const available = ["auto", "qwen-image-edit", "kontext", "comfyui", ...models.filter((m) => m.is_downloaded).map((m) => m.id)].join(", ");
       addMessage({
         role: "system",
-        content: `Model \`${modelName}\` not found. Available: ${available}`,
+        content: translate("messages.slash.imageModelNotFound", { model: modelName, available }),
         tempId: `imgmodel-${Date.now()}`,
         type: "command",
       });
     }
   } catch (err) {
-    addMessage({ role: "system", content: `Failed: ${err.message}`, tempId: `imgmodel-${Date.now()}`, type: "command" });
+    addMessage({ role: "system", content: translate("messages.slash.failed", { reason: err.message }), tempId: `imgmodel-${Date.now()}`, type: "command" });
   }
   return { handled: true };
 }
@@ -359,7 +360,7 @@ async function handleImageModel(args, { addMessage }) {
 
 async function handleImagine(args, { addMessage, onSendMessage }) {
   if (!args) {
-    addMessage({ role: "system", content: "Usage: `/imagine <prompt>`", tempId: `img-${Date.now()}`, type: "command" });
+    addMessage({ role: "system", content: translate("messages.slash.usage.imagine"), tempId: `img-${Date.now()}`, type: "command" });
     return { handled: true };
   }
 
@@ -388,7 +389,7 @@ async function handleRemoveBg(args, { onSendMessage }) {
 
 async function handleInpaint(args, { addMessage, onSendMessage }) {
   if (!args) {
-    addMessage({ role: "system", content: "Usage: `/inpaint <instruction>` — attach a photo, or it uses the last image in this chat.", tempId: `img-${Date.now()}`, type: "command" });
+    addMessage({ role: "system", content: translate("messages.slash.usage.inpaint"), tempId: `img-${Date.now()}`, type: "command" });
     return { handled: true };
   }
   onSendMessage(`/inpaint ${args}`, null, {
@@ -435,7 +436,7 @@ async function handleIdentity(args, { addMessage, onSendMessage }) {
   if (!args) {
     addMessage({
       role: "system",
-      content: "Usage: `/identity <prompt>` — attach a face photo you have the right to use (your likeness or a Cast subject).",
+      content: translate("messages.slash.usage.identity"),
       tempId: `img-${Date.now()}`,
       type: "command",
     });
@@ -452,7 +453,7 @@ async function handleIdentity(args, { addMessage, onSendMessage }) {
 
 async function handleVideo(args, { addMessage, onSendMessage }) {
   if (!args) {
-    addMessage({ role: "system", content: "Usage: `/video <prompt>`", tempId: `vid-${Date.now()}`, type: "command" });
+    addMessage({ role: "system", content: translate("messages.slash.usage.video"), tempId: `vid-${Date.now()}`, type: "command" });
     return { handled: true };
   }
 
@@ -488,7 +489,7 @@ async function handleMusicVideo(args, { addMessage, onSendMessage }) {
   if (!args) {
     addMessage({
       role: "system",
-      content: "Usage: `/music-video <song-path-or-id> <style>` — starts a plan; approve in Studio before clips render.",
+      content: translate("messages.slash.usage.musicVideo"),
       tempId: `mv-${Date.now()}`,
       type: "command",
     });
@@ -498,7 +499,7 @@ async function handleMusicVideo(args, { addMessage, onSendMessage }) {
   if (!parsed.song || !parsed.style_prompt) {
     addMessage({
       role: "system",
-      content: "Need a song (document id or audio path) and a visual style. Example: `/music-video song.mp3 neon noir rain`",
+      content: translate("messages.slash.musicVideoNeedsSong"),
       tempId: `mv-${Date.now()}`,
       type: "command",
     });
@@ -517,7 +518,7 @@ async function handleFilmCrew(args, { addMessage, onSendMessage }) {
   if (!args) {
     addMessage({
       role: "system",
-      content: "Usage: `/film-crew <screenplay>` — starts the screenwriter; renders wait in Studio.",
+      content: translate("messages.slash.usage.filmCrew"),
       tempId: `fc-${Date.now()}`,
       type: "command",
     });
@@ -544,15 +545,13 @@ async function handleFilmCrew(args, { addMessage, onSendMessage }) {
 //   sitemap:<url>          POST /api/web-search/sitemap: what the sitemap lists
 //                          (public addresses only)
 
-const WEBSEARCH_USAGE =
-  "Usage: `/websearch <query>`, `/websearch site:<address>` (audit one page) or " +
-  "`/websearch sitemap:<url>` (list a sitemap's pages)";
+const websearchUsage = () => translate("messages.slash.usage.websearch");
 
 async function handleWebSearch(args, { addMessage, onSendMessage }) {
   const query = (args || "").trim();
   const bareForm = /^(site|sitemap):\s*$/i.test(query);
   if (!query || bareForm) {
-    addMessage({ role: "system", content: WEBSEARCH_USAGE, tempId: `ws-${Date.now()}` });
+    addMessage({ role: "system", content: websearchUsage(), tempId: `ws-${Date.now()}` });
     return { handled: true };
   }
 
@@ -595,9 +594,9 @@ async function reportSitemap(url, query, addMessage) {
     const body = await res.json().catch(() => ({}));
     content = res.ok && body.success
       ? formatSitemapReport(body.data || {})
-      : `Sitemap not read: ${body.message || `the backend answered HTTP ${res.status}`}`;
+      : translate("messages.slash.sitemapNotRead", { reason: body.message || translate("messages.slash.backendAnswered", { status: res.status }) });
   } catch (err) {
-    content = `Sitemap not read: ${err.message}`;
+    content = translate("messages.slash.sitemapNotRead", { reason: err.message });
   }
   addMessage({ role: "system", content, tempId: `sitemap-${stamp}`, type: "command" });
   return { handled: true };
@@ -607,30 +606,39 @@ async function reportSitemap(url, query, addMessage) {
 export function formatSitemapReport(report) {
   const entries = report.entries || [];
   const where = report.final_url && report.final_url !== report.url
-    ? `${report.url} (redirected to ${report.final_url})`
+    ? translate("messages.slash.sitemap.redirected", { url: report.url, finalUrl: report.final_url })
     : report.url;
-  const lines = [`**Sitemap:** ${where}`];
+  const lines = [translate("messages.slash.sitemap.title", { url: where })];
   if (report.type === "sitemapindex") {
-    lines.push(`A sitemap index naming ${report.total} sitemaps; they are listed, not opened.`);
-    if (entries.length < report.total) lines.push(`First ${entries.length}:`);
-    entries.forEach((e, i) => {
-      lines.push(`${i + 1}. ${e.loc}${e.lastmod ? ` (last modified ${e.lastmod})` : ""}`);
-    });
+    lines.push(translate("messages.slash.sitemap.index", { count: report.total }));
+    const items = entries.map((e, i) => (e.lastmod
+      ? translate("messages.slash.sitemap.numberedEntryModified", { number: i + 1, url: e.loc, lastmod: e.lastmod })
+      : `${i + 1}. ${e.loc}`));
+    // A heading and the list under it are one string, so it can be worded as a whole.
+    if (entries.length < report.total) {
+      const heading = translate("messages.slash.sitemap.firstOf", { shown: entries.length, items: items.join("\n") });
+      // With nothing listed the heading stands alone, without the line break.
+      lines.push(items.length ? heading : heading.trimEnd());
+    } else {
+      lines.push(...items);
+    }
   } else {
-    lines.push(`${report.total} page URL${report.total === 1 ? "" : "s"}.`);
+    lines.push(translate("messages.slash.sitemap.pageUrls", { count: report.total }));
     const depths = Object.entries(report.by_depth || {})
-      .map(([depth, count]) => `depth ${depth}: ${count}`);
-    if (depths.length) lines.push(`By path depth: ${depths.join(", ")}`);
+      .map(([depth, count]) => translate("messages.slash.sitemap.depth", { depth, pages: count }));
+    if (depths.length) lines.push(translate("messages.slash.sitemap.byDepth", { depths: depths.join(", ") }));
     const landing = report.landing_pages || [];
     if (landing.length) {
-      lines.push("Landing pages (top level, priority above 0.5):");
-      landing.forEach((e, i) => lines.push(`${i + 1}. ${e.loc} (priority ${e.priority})`));
+      lines.push(translate("messages.slash.sitemap.landingPages"));
+      landing.forEach((e, i) => lines.push(translate("messages.slash.sitemap.landingEntry", { number: i + 1, url: e.loc, priority: e.priority })));
     }
     if (entries.length) {
-      lines.push(entries.length < report.total ? `First ${entries.length}:` : "Pages:");
-      entries.forEach((e) => {
-        lines.push(`- ${e.loc}${e.lastmod ? ` (last modified ${e.lastmod})` : ""}`);
-      });
+      const items = entries
+        .map((e) => (e.lastmod ? translate("messages.slash.sitemap.entryModified", { url: e.loc, lastmod: e.lastmod }) : `- ${e.loc}`))
+        .join("\n");
+      lines.push(entries.length < report.total
+        ? translate("messages.slash.sitemap.firstOf", { shown: entries.length, items })
+        : translate("messages.slash.sitemap.pagesList", { items }));
     }
   }
   if (report.page_cut) lines.push(`_${report.page_cut}_`);
@@ -699,30 +707,29 @@ async function handleOutreach(args, { addMessage }) {
   if (!raw || verb === "status") {
     try {
       const data = await fetchStatus();
-      const enabled = data.enabled ? "Enabled" : "Disabled";
-      const supervised = data.supervised ? "supervised" : "unsupervised";
+      const enabled = data.enabled ? translate("messages.slash.outreach.enabled") : translate("messages.slash.outreach.disabled");
+      const supervised = data.supervised ? translate("messages.slash.outreach.supervised") : translate("messages.slash.outreach.unsupervised");
       const cadence = data.cadence || {};
       const cadenceLines = Object.entries(cadence).map(([platform, value]) => {
         if (value?.redis === "unavailable") {
-          return `- ${platform}: Redis offline`;
+          return translate("messages.slash.outreach.redisOffline", { platform });
         }
         const posts = value.posts_in_24h ?? 0;
         const cap = value.daily_cap ?? 0;
-        const last = value.last_post_seconds_ago != null
-          ? `, last ${Math.floor(value.last_post_seconds_ago / 60)}m ago`
-          : "";
-        return `- ${platform}: ${posts}/${cap} today${last}`;
+        return value.last_post_seconds_ago != null
+          ? translate("messages.slash.outreach.cadenceLast", { platform, posts, cap, minutes: Math.floor(value.last_post_seconds_ago / 60) })
+          : translate("messages.slash.outreach.cadence", { platform, posts, cap });
       });
       addMessage({
         role: "system",
-        content: `**Outreach:** ${enabled} (${supervised})\n\n${cadenceLines.join("\n") || "No cadence data."}`,
+        content: translate("messages.slash.outreach.status", { state: enabled, mode: supervised, cadence: cadenceLines.join("\n") || translate("messages.slash.outreach.noCadence") }),
         tempId: `outreach-status-${Date.now()}`,
         type: "command",
       });
     } catch (err) {
       addMessage({
         role: "system",
-        content: `Outreach status failed: ${err.message}`,
+        content: translate("messages.slash.outreach.statusFailed", { reason: err.message }),
         tempId: `outreach-status-err-${Date.now()}`,
         type: "command",
       });
@@ -748,7 +755,7 @@ async function handleOutreach(args, { addMessage }) {
       const intent = data.intent || data.classification?.intent;
       let content = data.message || data.error || JSON.stringify(data.plan || data);
       if (data.refused) {
-        content = data.message || data.error || "Outreach: request refused.";
+        content = data.message || data.error || translate("messages.slash.outreach.refused");
       } else if (data.ok && Array.isArray(data.task_ids) && data.task_ids.length) {
         // Keep server message (already says Queued …)
         content = data.message || content;
@@ -766,7 +773,7 @@ async function handleOutreach(args, { addMessage }) {
     } catch (err) {
       addMessage({
         role: "system",
-        content: `Outreach intent failed: ${err.message}`,
+        content: translate("messages.slash.outreach.intentFailed", { reason: err.message }),
         tempId: `outreach-intent-err-${Date.now()}`,
         type: "command",
       });
@@ -786,14 +793,14 @@ async function handleOutreach(args, { addMessage }) {
     });
     addMessage({
       role: "system",
-      content: data.message || `Outreach job queued as task #${data.task_id}.`,
+      content: data.message || translate("messages.slash.outreach.queued", { taskId: data.task_id }),
       tempId: `outreach-ok-${Date.now()}`,
       type: "command",
     });
   } catch (err) {
     addMessage({
       role: "system",
-      content: `Outreach command failed: ${err.message}`,
+      content: translate("messages.slash.outreach.commandFailed", { reason: err.message }),
       tempId: `outreach-err-${Date.now()}`,
       type: "command",
     });
@@ -807,7 +814,7 @@ async function handleOutreach(args, { addMessage }) {
 
 async function handlePlan(args, { addMessage }) {
   if (!args) {
-    addMessage({ role: "system", content: "Usage: `/plan <request>`", tempId: `plan-${Date.now()}` });
+    addMessage({ role: "system", content: translate("messages.slash.usage.plan"), tempId: `plan-${Date.now()}` });
     return { handled: true };
   }
   return { handled: false };
@@ -821,7 +828,7 @@ async function handleTraining(args, { addMessage }) {
   if (!args) {
     addMessage({
       role: "system",
-      content: "Usage: `/training <task>` — e.g. `/training Work the Comments Trainer — follow the banner, click Start Over when done, don't stop.`",
+      content: translate("messages.slash.usage.training"),
       tempId: `train-${Date.now()}`,
       type: "command",
     });
@@ -845,20 +852,22 @@ async function handleTraining(args, { addMessage }) {
     const data = await res.json().catch(() => ({
       success: false,
       error: res.status === 502 || res.status === 504
-        ? "the backend is not reachable"
-        : `the backend answered HTTP ${res.status}`,
+        ? translate("messages.slash.backendUnreachable")
+        : translate("messages.slash.backendAnswered", { status: res.status }),
     }));
     if (data.success) {
       addMessage({
         role: "system",
-        content: `Training run started (up to 1000 iterations / 1 hour). Watch VNC for progress; tail \`logs/backend.log\` for servo events. Task: _${args}_`,
+        content: translate("messages.slash.training.started", { task: args }),
         tempId: `train-ok-${Date.now()}`,
         type: "command",
       });
     } else {
       addMessage({
         role: "system",
-        content: `Training run rejected: ${data.error || "unknown error"}${data.error === "Agent already active" ? " — use kill switch or wait for current run." : ""}`,
+        content: data.error === "Agent already active"
+          ? translate("messages.slash.training.rejectedBusy", { reason: data.error })
+          : translate("messages.slash.training.rejected", { reason: data.error || translate("messages.slash.training.unknownError") }),
         tempId: `train-fail-${Date.now()}`,
         type: "command",
       });
@@ -866,7 +875,7 @@ async function handleTraining(args, { addMessage }) {
   } catch (err) {
     addMessage({
       role: "system",
-      content: `Training run failed: ${err.message}`,
+      content: translate("messages.slash.training.failed", { reason: err.message }),
       tempId: `train-err-${Date.now()}`,
       type: "command",
     });
@@ -914,26 +923,29 @@ async function handleDbRule(name, args, { addMessage }) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || data?.error) {
-      const detail = data?.details ? ` (${data.details})` : "";
+      const reason = data?.error || `HTTP ${res.status}`;
       addMessage({
         role: "system",
-        content: `${name} failed: ${data?.error || `HTTP ${res.status}`}${detail}`,
+        content: data?.details
+          ? translate("messages.slash.rule.failedDetails", { name, reason, details: data.details })
+          : translate("messages.slash.rule.failed", { name, reason }),
         tempId: `rule-err-${Date.now()}`,
         type: "command",
       });
       return { handled: true };
     }
     const file = data.output_file || outputFilename;
-    const size = Number.isFinite(data.file_size) ? ` (${data.file_size} bytes)` : "";
     addMessage({
       role: "assistant",
-      content: `${name} wrote ${file}${size} to the outputs folder.`,
+      content: Number.isFinite(data.file_size)
+        ? translate("messages.slash.rule.wroteSize", { name, file, bytes: data.file_size })
+        : translate("messages.slash.rule.wrote", { name, file }),
       tempId: `rule-asst-${Date.now()}`,
     });
   } catch (err) {
     addMessage({
       role: "system",
-      content: `${name} failed: ${err.message}`,
+      content: translate("messages.slash.rule.failed", { name, reason: err.message }),
       tempId: `rule-err-${Date.now()}`,
       type: "command",
     });
@@ -963,7 +975,7 @@ async function handleAgent(args, { addMessage, onSendMessage, chatState }) {
   if (!sessionId) {
     addMessage({
       role: "system",
-      content: "/agent needs a session — open a chat first.",
+      content: translate("messages.slash.agent.needsSession"),
       tempId: `agent-no-session-${Date.now()}`,
       type: "command",
     });
@@ -979,7 +991,7 @@ async function handleAgent(args, { addMessage, onSendMessage, chatState }) {
   } catch (err) {
     addMessage({
       role: "system",
-      content: `Failed to switch into agent mode: ${err.message}`,
+      content: translate("messages.slash.agent.switchFailed", { reason: err.message }),
       tempId: `agent-fail-${Date.now()}`,
       type: "command",
     });
@@ -995,8 +1007,8 @@ async function handleAgent(args, { addMessage, onSendMessage, chatState }) {
     addMessage({
       role: "system",
       content: previousMode === "agent"
-        ? "Already in **agent mode**. Type a screen-control task, or use `/chat` to exit."
-        : "Switched to **agent mode** — messages route through the agent (it'll speak and act). Type `/chat` to exit.",
+        ? translate("messages.slash.agent.already")
+        : translate("messages.slash.agent.switched"),
       tempId: `agent-ok-${Date.now()}`,
       type: "command",
     });
@@ -1025,7 +1037,7 @@ async function handleThinking(args, { addMessage, chatState }) {
   if (!sessionId) {
     addMessage({
       role: "system",
-      content: "/thinking needs a session — open a chat first.",
+      content: translate("messages.slash.thinking.needsSession"),
       tempId: `thinking-no-session-${Date.now()}`,
       type: "command",
     });
@@ -1037,15 +1049,14 @@ async function handleThinking(args, { addMessage, chatState }) {
 
   if (!arg) {
     const cur = store.getSessionThinking(sessionId);
-    const state =
-      cur === undefined
-        ? "using the global default (Settings → Chat)"
-        : cur
-        ? "ON"
-        : "OFF";
     addMessage({
       role: "system",
-      content: `🧠 Thinking for this chat is **${state}**.\nUse \`/thinking on\` to enable step-by-step reasoning (slower) or \`/thinking off\` for faster replies.`,
+      content:
+        cur === undefined
+          ? translate("messages.slash.thinking.statusDefault")
+          : cur
+          ? translate("messages.slash.thinking.statusOn")
+          : translate("messages.slash.thinking.statusOff"),
       tempId: `thinking-status-${Date.now()}`,
       type: "command",
     });
@@ -1057,7 +1068,7 @@ async function handleThinking(args, { addMessage, chatState }) {
   if (!on && !off) {
     addMessage({
       role: "system",
-      content: "Usage: `/thinking on` or `/thinking off` (or `/thinking` to show the current state).",
+      content: translate("messages.slash.usage.thinking"),
       tempId: `thinking-usage-${Date.now()}`,
       type: "command",
     });
@@ -1068,8 +1079,8 @@ async function handleThinking(args, { addMessage, chatState }) {
   addMessage({
     role: "system",
     content: on
-      ? "🧠 Thinking **enabled** for this chat — the model will reason step-by-step before answering (slower, better for complex prompts)."
-      : "⚡ Thinking **disabled** for this chat — faster replies.",
+      ? translate("messages.slash.thinking.enabled")
+      : translate("messages.slash.thinking.disabled"),
     tempId: `thinking-set-${Date.now()}`,
     type: "command",
   });
@@ -1081,7 +1092,7 @@ async function handleChatMode(_args, { addMessage, chatState }) {
   if (!sessionId) {
     addMessage({
       role: "system",
-      content: "/chat needs a session — open a chat first.",
+      content: translate("messages.slash.chatMode.needsSession"),
       tempId: `chat-no-session-${Date.now()}`,
       type: "command",
     });
@@ -1106,15 +1117,15 @@ async function handleChatMode(_args, { addMessage, chatState }) {
     addMessage({
       role: "system",
       content: previousMode === "chat"
-        ? "Already in chat mode."
-        : "Switched to **chat mode**. Messages route through the LLM again. Type `/agent` to switch back.",
+        ? translate("messages.slash.chatMode.already")
+        : translate("messages.slash.chatMode.switched"),
       tempId: `chat-ok-${Date.now()}`,
       type: "command",
     });
   } catch (err) {
     addMessage({
       role: "system",
-      content: `Failed to exit agent mode: ${err.message}`,
+      content: translate("messages.slash.chatMode.exitFailed", { reason: err.message }),
       tempId: `chat-fail-${Date.now()}`,
       type: "command",
     });
