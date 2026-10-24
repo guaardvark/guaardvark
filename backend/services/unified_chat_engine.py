@@ -2579,6 +2579,10 @@ class UnifiedChatEngine:
         # makes GUAARDVARK.md work in both CLI and GUI chats.
         project_root = options.get("project_root") or options.get("projectRoot")
         if project_root:
+            parts.append(
+                f"This chat works in the folder {project_root}. list_code_files, search_code and "
+                "read_code look there, with paths relative to it; read files there rather than guess."
+            )
             try:
                 root = Path(project_root).expanduser().resolve()
                 # GUAARDVARK.md first; a repository that only carries the common

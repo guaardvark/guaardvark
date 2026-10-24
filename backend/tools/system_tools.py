@@ -60,7 +60,7 @@ class SystemCommandTool(BaseTool):
             name="cwd",
             type="string",
             required=False,
-            description="Current working directory",
+            description="Working directory. Default: the chat's project folder when it has one, else Guaardvark's folder",
             default=None
         )
     }
@@ -79,10 +79,13 @@ class SystemCommandTool(BaseTool):
     NO_PATH_COMMANDS = {"pwd", "whoami", "date", "echo"}
 
     @staticmethod
-    def _allowed_roots():
+    def _allowed_roots(turn_root=None):
+        """Where "Project folder only" lets tools go: Guaardvark's folder,
+        GUAARDVARK_ALLOWED_PATHS, and the chat's project folder when it has one."""
         from backend import config
 
-        return [str(config.GUAARDVARK_ROOT)] + list(getattr(config, "ALLOWED_AUTOMATION_PATHS", []))
+        roots = [str(config.GUAARDVARK_ROOT)] + list(getattr(config, "ALLOWED_AUTOMATION_PATHS", []))
+        return roots + [turn_root] if turn_root else roots
 
     def _path_args(self, base_cmd, args):
         """The args that name files or directories (checked for credential files
@@ -181,6 +184,12 @@ class SystemCommandTool(BaseTool):
         except Exception as e:
             return ToolResult(success=False, error=f"Failed to parse command: {e}")
 
+        from backend.services.project_root import turn_project_root
+
+        turn_root = turn_project_root(self)
+        if not cwd and turn_root:
+            cwd = turn_root
+
         from backend.utils.settings_utils import get_confine_tool_paths
 
         if get_confine_tool_paths():
@@ -190,7 +199,7 @@ class SystemCommandTool(BaseTool):
             from backend import config
             from backend.utils.path_safety import is_within
 
-            roots = self._allowed_roots()
+            roots = self._allowed_roots(turn_root)
             cwd = cwd or str(config.GUAARDVARK_ROOT)
             if not is_within(cwd, roots):
                 return ToolResult(success=False, error=f"cwd '{cwd}' is outside the allowed directories")
@@ -215,12 +224,6 @@ class SystemCommandTool(BaseTool):
             parts = parts[:1] + [f"--exclude={p}" for p in SENSITIVE_PATTERNS] + ["--exclude-dir=.git"] + parts[1:]
 
         try:
-            # Use project root as default CWD if available in context
-            if not cwd and self._context:
-                # Try to get project path from context if available
-                # This is a placeholder for where we'd use the injected context
-                pass
-                
             # Execute
             result = subprocess.run(
                 parts, 
@@ -317,7 +320,9 @@ class FindFilesTool(BaseTool):
 
     def _roots(self, path: Optional[str]) -> List[str]:
         if not path or not str(path).strip():
-            return self._own_roots()
+            from backend.services.project_root import turn_project_root
+            turn_root = turn_project_root(self)
+            return ([turn_root] if turn_root else []) + self._own_roots()
         raw = os.path.expanduser(str(path).strip())
         if not os.path.isabs(raw):
             raw = os.path.join(os.path.expanduser("~"), raw)
@@ -327,7 +332,12 @@ class FindFilesTool(BaseTool):
         """Ask only when the search reaches past Guaardvark's own folders."""
         from backend.utils.path_safety import is_within
 
+        from backend.services.project_root import turn_project_root
+
         own = self._own_roots()
+        turn_root = turn_project_root(self)
+        if turn_root:
+            own = own + [turn_root]
         return not all(is_within(root, own) for root in self._roots(params.get("path")))
 
     def execute(self, name: str = None, path: str = None, kind: str = None, limit: int = None,
@@ -352,7 +362,8 @@ class FindFilesTool(BaseTool):
             return ToolResult(success=False, error=f"No folder at {_home_relative(missing[0])}.")
         roots = [r for r in roots if os.path.isdir(r)]
         if get_confine_tool_paths():
-            allowed = SystemCommandTool._allowed_roots()
+            from backend.services.project_root import turn_project_root
+            allowed = SystemCommandTool._allowed_roots(turn_project_root(self))
             outside = [r for r in roots if not is_within(r, allowed)]
             if outside:
                 return ToolResult(success=False, error=(

@@ -66,3 +66,14 @@ def project_root_for(project_id) -> Optional[str]:
     except Exception as e:  # noqa: BLE001 - a lookup failure means no root, never a failed turn
         logger.warning(f"Could not resolve the folder of project {project_id}: {e}")
         return None
+
+
+def turn_project_root(tool) -> Optional[str]:
+    """The folder of the chat turn a tool is running in, or None over MCP or in a
+    turn without one."""
+    from backend.utils.backend_http import is_mcp_transport
+
+    if is_mcp_transport(tool):
+        return None
+    root = (getattr(tool, "_context", None) or {}).get("project_root")
+    return root if root and os.path.isdir(root) else None

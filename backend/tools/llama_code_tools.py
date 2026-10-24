@@ -15,6 +15,9 @@ Milestone Goal: Enable LLM to remove "Snibbly Nips" button from SettingsPage.jsx
 
 import hashlib
 import os
+from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import lru_cache
 import logging
 import subprocess
 import time
@@ -36,12 +39,55 @@ from backend.services.guarded_code_service import (
     read_repo_file,
     resolve_repo_path,
 )
+from backend.utils.file_kinds import BUILD_DIR_NAMES, in_build_dir
 from backend.utils.path_safety import is_sensitive
 
 logger = logging.getLogger(__name__)
 
-# Define the project root - 2 levels up from backend/tools
+# Guaardvark's own checkout, 2 levels up from backend/tools. Relative paths are
+# read from here unless the caller roots the call at a project's folder.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+_turn_root: ContextVar[Optional[Path]] = ContextVar("code_tools_turn_root", default=None)
+
+
+def _root() -> Path:
+    """The folder relative paths resolve against for this call."""
+    return _turn_root.get() or PROJECT_ROOT
+
+
+@contextmanager
+def rooted_at(folder):
+    """Resolve relative paths against ``folder`` (a project's folder) inside the block."""
+    token = _turn_root.set(Path(folder).expanduser().resolve())
+    try:
+        yield
+    finally:
+        _turn_root.reset(token)
+
+
+@lru_cache(maxsize=64)
+def _is_own_git_checkout(root: Path) -> bool:
+    """True when ``root`` is the top of a git work tree. A folder inside another
+    checkout (a Library folder under Guaardvark's ignored data) is not: git would
+    answer for the outer checkout and call every file in it ignored."""
+    try:
+        proc = subprocess.run(["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+                              capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return proc.returncode == 0 and Path(proc.stdout.strip()).resolve() == root.resolve()
+
+
+def _private_reason(relative_path: str, root: Path) -> Optional[str]:
+    """Why a root-relative path is not source: git-ignored in a checkout, or a
+    hidden, dependency or build folder in any other folder."""
+    if _is_own_git_checkout(root):
+        return private_path_reason(relative_path, root)
+    parts = relative_path.replace("\\", "/").strip("/").split("/")
+    if any(p.startswith(".") for p in parts) or in_build_dir(relative_path + "/x"):
+        return f"'{relative_path}' is a hidden, dependency or build folder, not source code"
+    return None
 
 
 def _read_source_file(filepath: str, allow_external: bool = True) -> dict:
@@ -49,14 +95,15 @@ def _read_source_file(filepath: str, allow_external: bool = True) -> dict:
     anywhere, and git-ignored local data inside the checkout. Every refusal is
     decided from the path before the file is touched, so a refusal never tells the
     caller whether the file exists."""
-    resolved, relative_path = resolve_repo_path(filepath, PROJECT_ROOT, allow_external=allow_external)
+    root = _root()
+    resolved, relative_path = resolve_repo_path(filepath, root, allow_external=allow_external)
     if is_sensitive(str(resolved)):
         raise GuardedCodeError("Credential and key files are not read by the code tools", "SENSITIVE_PATH", 403)
     if not Path(relative_path).is_absolute():
-        reason = private_path_reason(relative_path, PROJECT_ROOT)
+        reason = _private_reason(relative_path, root)
         if reason:
             raise GuardedCodeError(reason, "PRIVATE_PATH", 403)
-    return read_repo_file(filepath, repo_root=PROJECT_ROOT, allow_external=allow_external)
+    return read_repo_file(filepath, repo_root=root, allow_external=allow_external)
 
 
 def read_code(filepath: str, allow_external: bool = True) -> str:
@@ -121,7 +168,7 @@ Lines: {line_count} | Characters: {char_count}
             mtime = file_data.get("on_disk_path") or filepath
             # resolve the actual path used
             from backend.services.guarded_code_service import resolve_repo_path
-            actual_path, _ = resolve_repo_path(filepath, PROJECT_ROOT, allow_external=True)
+            actual_path, _ = resolve_repo_path(filepath, _root(), allow_external=True)
             file_mtime = actual_path.stat().st_mtime if actual_path.exists() else None
         except Exception:
             file_mtime = None
@@ -171,14 +218,17 @@ def _source_files(subdir: str = "") -> List[str]:
     untracked ones git does not ignore. Falls back to a pruned walk when this is not
     a git checkout."""
     subdir = subdir.strip("/")
-    try:
-        proc = subprocess.run(
-            ["git", "-C", str(PROJECT_ROOT), "ls-files", "--cached", "--others", "--exclude-standard", "-z",
-             "--", subdir or "."],
-            capture_output=True, text=True, timeout=30,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        proc = None
+    root = _root()
+    proc = None
+    if _is_own_git_checkout(root):
+        try:
+            proc = subprocess.run(
+                ["git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z",
+                 "--", subdir or "."],
+                capture_output=True, text=True, timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            proc = None
     if proc is not None and proc.returncode == 0:
         files = [p for p in proc.stdout.split("\0") if p]
         # --cached also lists tracked files deleted from the working tree; a
@@ -190,17 +240,19 @@ def _source_files(subdir: str = "") -> List[str]:
             if not p.endswith("/")
             and not SKIP_DIR_NAMES.intersection(p.split("/")[:-1])
             and not _refused_source_name(p)
-            and not (PROJECT_ROOT / p).is_symlink()
-            and (PROJECT_ROOT / p).exists()
+            and not (root / p).is_symlink()
+            and (root / p).exists()
         ]
 
     files = []
-    for dirpath, dirnames, filenames in os.walk(PROJECT_ROOT / subdir):
-        rel_dir = Path(dirpath).relative_to(PROJECT_ROOT).as_posix()
+    own_checkout = root == PROJECT_ROOT
+    for dirpath, dirnames, filenames in os.walk(root / subdir):
+        rel_dir = Path(dirpath).relative_to(root).as_posix()
         rel_dir = "" if rel_dir == "." else rel_dir + "/"
         dirnames[:] = [
             d for d in dirnames
-            if d not in SKIP_DIR_NAMES and not (rel_dir + d + "/").startswith(FALLBACK_PRIVATE_PREFIXES)
+            if d not in SKIP_DIR_NAMES and d not in BUILD_DIR_NAMES and not d.startswith(".")
+            and not (own_checkout and (rel_dir + d + "/").startswith(FALLBACK_PRIVATE_PREFIXES))
             and not os.path.islink(os.path.join(dirpath, d))
         ]
         files.extend(
@@ -267,7 +319,7 @@ def _effective_glob(glob: str) -> str:
     """The glob a file_glob stands for. A wildcard-free name of a folder in the
     checkout means every file under it ('backend/utils' -> 'backend/utils/**')."""
     folder = glob.rstrip("/")
-    if folder and not any(c in glob for c in "*?[{") and (PROJECT_ROOT / folder).is_dir():
+    if folder and not any(c in glob for c in "*?[{") and (_root() / folder).is_dir():
         return folder + "/**"
     return glob
 
@@ -331,7 +383,7 @@ def search_code(pattern: str, file_glob: str = DEFAULT_SEARCH_GLOB, max_hits: in
         deadline = time.monotonic() + SEARCH_DEADLINE_S
         matches = []
         for scanned, rel in enumerate(files):
-            path = PROJECT_ROOT / rel
+            path = _root() / rel
             try:
                 with open(path, 'rb') as f:
                     if b"\0" in f.read(8192):
@@ -419,7 +471,7 @@ def edit_code(filepath: str, old_text: str, new_text: str, expected_hash: str = 
             filepath,
             old_text,
             new_text,
-            repo_root=PROJECT_ROOT,
+            repo_root=_root(),
             allow_external=True,
             expected_hash=expected_hash,
             expected_mtime=expected_mtime,
@@ -482,16 +534,18 @@ def list_files(directory: str = "frontend/src/pages", max_depth: int = 5) -> str
         structure = list_files("backend/api", max_depth=1)
     """
     try:
-        full_path = (PROJECT_ROOT / (directory or ".")).resolve()
-        if not full_path.is_relative_to(PROJECT_ROOT):
+        root = _root()
+        full_path = (root / (directory or ".")).resolve()
+        if not full_path.is_relative_to(root):
             return f"ERROR: Path '{directory}' is outside project root"
 
         # Decided from the path alone, before the folder is looked at: the same
         # answer for a private folder that exists and one that does not.
-        rel_dir = full_path.relative_to(PROJECT_ROOT).as_posix()
+        rel_dir = full_path.relative_to(root).as_posix()
         prefix = "" if rel_dir == "." else rel_dir + "/"
-        if prefix and private_relative_paths([prefix], PROJECT_ROOT):
-            return f"ERROR: '{directory}' is git-ignored local data, not source code"
+        reason = _private_reason(prefix.rstrip("/"), root) if prefix else None
+        if reason:
+            return f"ERROR: {reason}"
 
         if not full_path.exists():
             return f"ERROR: Path '{directory}' does not exist"
