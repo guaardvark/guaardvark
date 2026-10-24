@@ -96,17 +96,17 @@ def _doc(name, status):
 
 @pytest.fixture
 def dispatch(monkeypatch):
+    """Records what is handed to the one catch-up; nothing reaches Redis."""
     sent = []
-    monkeypatch.setitem(sys.modules, "backend.celery_tasks_isolated",
-                        types.SimpleNamespace(index_document_task=object()))
-    monkeypatch.setattr(indexing_api, "get_unified_progress", lambda: object())
+    from backend.tasks import index_resume_tasks
     monkeypatch.setattr(indexing_api, "_get_indexing_paused_setting", lambda: False)
+    monkeypatch.setattr(index_resume_tasks, "_job_is_live", lambda job_id: False)
 
-    def fake_dispatch(progress, task, doc):
-        sent.append(doc.id)
-        return None
+    def fake_start(ids):
+        sent.extend(ids)
+        return "job-1", None
 
-    monkeypatch.setattr(indexing_api, "_dispatch_document", fake_dispatch)
+    monkeypatch.setattr(index_resume_tasks, "start_manual_drain", fake_start)
     return sent
 
 
@@ -118,7 +118,7 @@ def test_indexed_documents_are_queued_again(app, dispatch):
 
     assert indexing_api.requeue_indexed_documents() == {"queued": 2, "pending": 0}
     assert dispatch == [a.id, b.id]
-    assert db.session.get(DBDocument, a.id).index_status == "INDEXING"
+    assert db.session.get(DBDocument, a.id).index_status == "PENDING"
     assert db.session.get(DBDocument, media.id).index_status == "STORED"
     assert db.session.get(DBDocument, backlog.id).index_status == "PENDING"
 
@@ -132,14 +132,15 @@ def test_while_paused_they_are_left_pending(app, dispatch, monkeypatch):
     assert db.session.get(DBDocument, a.id).index_status == "PENDING"
 
 
-def test_a_refused_task_stops_the_queueing(app, dispatch, monkeypatch):
+def test_a_catch_up_that_cannot_start_leaves_them_pending(app, dispatch, monkeypatch):
+    from backend.tasks import index_resume_tasks
     a = _doc("a.md", "INDEXED")
     b = _doc("b.md", "INDEXED")
-    monkeypatch.setattr(indexing_api, "_dispatch_document", lambda p, t, doc: RuntimeError("redis down"))
+    monkeypatch.setattr(index_resume_tasks, "start_manual_drain",
+                        lambda ids: ("job-1", RuntimeError("redis down")))
 
     assert indexing_api.requeue_indexed_documents() == {"queued": 0, "pending": 2}
-    assert db.session.get(DBDocument, a.id).index_status == "ERROR"
-    assert db.session.get(DBDocument, a.id).error_message == "redis down"
+    assert db.session.get(DBDocument, a.id).index_status == "PENDING"
     assert db.session.get(DBDocument, b.id).index_status == "PENDING"
 
 
@@ -156,9 +157,22 @@ def test_a_new_index_requeues_every_document_that_belongs_in_it(app, dispatch):
     assert out["queued"] == 3 and out["pending"] == 0
     assert out["by_status"] == {"INDEXED": 1, "ERROR": 1, "INDEXING": 1}
     assert dispatch == [d.id for d in keep]
+    assert all(db.session.get(DBDocument, d.id).index_status == "PENDING" for d in keep)
     assert db.session.get(DBDocument, waiting.id).index_status == "PENDING"
     assert db.session.get(DBDocument, media.id).index_status == "STORED"
     assert db.session.get(DBDocument, skipped.id).index_status == "NOT_INDEXED"
+
+
+def test_a_document_a_live_task_is_indexing_is_left_to_it(app, dispatch, monkeypatch):
+    from backend.tasks import index_resume_tasks
+    running = _doc("live.md", "INDEXING")
+    running.indexing_job_id = "live-job"
+    db.session.commit()
+    monkeypatch.setattr(index_resume_tasks, "_job_is_live", lambda job_id: job_id == "live-job")
+
+    out = indexing_api.requeue_documents_for_new_index()
+    assert out["queued"] == 0
+    assert db.session.get(DBDocument, running.id).index_status == "INDEXING"
 
 
 class _CountCursor(_Cursor):

@@ -401,6 +401,64 @@ def ping():
     logger.info("Ping task received")
     return "pong"
 
+def index_one_document(document_id, update_progress=None) -> dict:
+    """Index one document and leave its row in its final state.
+
+    The routine every indexing path shares: content, content hash and the
+    code-file flag are stored, media and binaries are kept without text, code is
+    read in place under code_retrieval=on_demand, and the rest is embedded.
+    Returns {"status", "message", "filename"}, status one of indexed, stored,
+    deferred (left PENDING for the vector store), unreadable or error.
+    """
+    update_progress = update_progress or (lambda *_args, **_kwargs: None)
+    document = get_document_by_id(document_id)
+    if not document:
+        return {"status": "error", "message": f"Document {document_id} not found", "filename": None}
+    filename = document["filename"]
+    update_progress(65, f'Document found: {filename}, starting indexing...')
+    upload_dir = os.environ.get('GUAARDVARK_UPLOAD_DIR', os.path.join(STORAGE_DIR, 'uploads'))
+    # document paths are uploads-relative; tolerate a stray leading slash,
+    # which os.path.join would otherwise treat as an absolute path
+    full_file_path = os.path.join(upload_dir, document['file_path'].lstrip('/'))
+
+    update_progress(70, f'Processing file content for {filename}')
+    fallback_reason = None
+    try:
+        outcome = enhanced_code_aware_indexing(full_file_path, document, document_id, update_progress)
+    except Exception as e:
+        logger.error(f"Enhanced indexing failed: {e}, falling back to simple indexing")
+        # The fallback records file metadata; it adds nothing to the vector
+        # index, so it never makes the document searchable.
+        simple_index_document(full_file_path, document_id)
+        outcome = False
+        fallback_reason = f"Indexing failed for {filename}: {e}"
+
+    if outcome == STORED_ONLY:
+        update_document_status(document_id, "STORED")
+        return {"status": "stored", "message": f"Stored {filename}", "filename": filename}
+    if outcome == UNREADABLE:
+        return {"status": "unreadable",
+                "message": f"{filename} is compiled or binary: there is no text to read",
+                "filename": filename}
+    if outcome == DEFERRED:
+        return {"status": "deferred",
+                "message": f"Indexing deferred for {filename}: vector store not in use; left PENDING",
+                "filename": filename}
+    if outcome:
+        update_progress(90, f'Finalizing indexing for {filename}')
+        update_document_status(document_id, "INDEXED")
+        return {"status": "indexed", "message": f"Indexed {filename}", "filename": filename}
+
+    try:
+        from backend.services.indexing_service import no_content_reason
+        reason = no_content_reason(document_id)
+    except Exception:
+        reason = None
+    error_msg = reason or fallback_reason or f"Indexing failed for document {document_id}"
+    update_document_status(document_id, "ERROR", error_msg)
+    return {"status": "error", "message": error_msg, "filename": filename, "no_content": bool(reason)}
+
+
 def index_document_task(document_id, process_id=None):
     """Index a document without any Flask dependencies"""
 
@@ -480,111 +538,38 @@ def index_document_task(document_id, process_id=None):
                 logger.warning(f"Failed to update progress: {e}")
 
     try:
-        # Update progress: Starting
         update_progress(55, f'Starting indexing for document {document_id}')
-        logger.info(f'Starting indexing for document {document_id}')
-        
-        # Get document from database
-        update_progress(60, f'Loading document metadata for {document_id}')
-        document = get_document_by_id(document_id)
-        if not document:
-            error_msg = f"Document {document_id} not found"
-            logger.error(error_msg)
+        outcome = index_one_document(document_id, update_progress)
+        filename = outcome.get("filename") or f"document {document_id}"
+        status = outcome["status"]
+
+        if status == "stored":
             if progress_system:
-                progress_system.error_process(process_id, error_msg)
-            return {'error': error_msg}
-
-        logger.info(f"Found document: {document['filename']}")
-
-        # Log progress
-        update_progress(65, f'Document found: {document["filename"]}, starting indexing...')
-        logger.info(f'Document found: {document["filename"]}, starting indexing...')
-        
-        # Construct full file path
-        upload_dir = os.environ.get('GUAARDVARK_UPLOAD_DIR', os.path.join(STORAGE_DIR, 'uploads'))
-        # document paths are uploads-relative; tolerate a stray leading slash,
-        # which os.path.join would otherwise treat as an absolute path
-        full_file_path = os.path.join(upload_dir, document['file_path'].lstrip('/'))
-        
-        # Index the document using enhanced code-aware processing
-        update_progress(70, f'Processing file content for {document["filename"]}')
-        fallback_reason = None
-        try:
-            # Use the enhanced indexing that works with the existing CodeChunker system
-            success = enhanced_code_aware_indexing(full_file_path, document, document_id, update_progress)
-        except Exception as e:
-            logger.error(f"Enhanced indexing failed: {e}, falling back to simple indexing")
-            update_progress(75, f'Using fallback indexing due to error for {document["filename"]}')
-            # The fallback records file metadata; it adds nothing to the vector
-            # index, so it never makes the document searchable.
-            simple_index_document(full_file_path, document_id)
-            success = False
-            fallback_reason = f"Indexing failed for {document['filename']}: {e}"
-
-        if success == STORED_ONLY:
-            update_document_status(document_id, "STORED")
-            if progress_system:
-                progress_system.complete_process(process_id, f'Stored {document["filename"]} (nothing to search)')
+                progress_system.complete_process(process_id, f'Stored {filename} (nothing to search)')
             return {'process_id': process_id, 'document_id': document_id,
-                    'filename': document['filename'], 'status': 'stored'}
+                    'filename': filename, 'status': 'stored'}
 
-        if success == UNREADABLE:
-            message = f"{document['filename']} is compiled or binary: there is no text to read"
+        if status == "deferred":
+            logger.warning(outcome["message"])
             if progress_system:
-                progress_system.error_process(process_id, message)
-            return {'error': message}
-
-        if success == DEFERRED:
-            message = f"Indexing deferred for {document['filename']}: vector store not in use; left PENDING"
-            logger.warning(message)
-            if progress_system:
-                progress_system.error_process(process_id, message)
+                progress_system.error_process(process_id, outcome["message"])
             return {'process_id': process_id, 'document_id': document_id,
-                    'filename': document['filename'], 'status': 'deferred'}
+                    'filename': filename, 'status': 'deferred'}
 
-        if success:
-            # Update progress: Finalizing
-            update_progress(90, f'Finalizing indexing for {document["filename"]}')
-            logger.info(f'Indexing completed for {document["filename"]}')
-
-            # Update document status in database
-            update_document_status(document_id, "INDEXED")
-
-            logger.info(f"Successfully indexed {document['filename']} for {process_id}")
-
-            # Complete the progress
-            update_progress(100, f'Indexing completed for {document["filename"]}', "complete")
+        if status == "indexed":
+            update_progress(100, f'Indexing completed for {filename}', "complete")
             if progress_system:
-                progress_system.complete_process(process_id, f'Successfully indexed {document["filename"]}')
+                progress_system.complete_process(process_id, f'Successfully indexed {filename}')
+            logger.info(f'Successfully indexed {filename}')
+            return {'process_id': process_id, 'document_id': document_id,
+                    'filename': filename, 'status': 'completed'}
 
-            logger.info(f'Successfully indexed {document["filename"]}')
+        error_msg = outcome["message"]
+        logger.error(f'Indexing failed: {error_msg}')
+        if progress_system:
+            progress_system.error_process(process_id, error_msg)
+        return {'error': error_msg}
 
-            return {
-                'process_id': process_id,
-                'document_id': document_id,
-                'filename': document['filename'],
-                'status': 'completed'
-            }
-        else:
-            try:
-                from backend.services.indexing_service import no_content_reason
-                reason = no_content_reason(document_id)
-            except Exception:
-                reason = None
-            error_msg = reason or fallback_reason or f"Indexing failed for document {document_id}"
-            logger.error(error_msg)
-
-            # Update document status
-            update_document_status(document_id, "ERROR", error_msg)
-
-            # Complete with error
-            if progress_system:
-                progress_system.error_process(process_id, error_msg)
-
-            logger.error(f'Indexing failed: {error_msg}')
-
-            return {'error': error_msg}
-            
     except Exception as e:
         error_msg = f"Unexpected error during indexing: {str(e)}"
         logger.error(error_msg, exc_info=True)

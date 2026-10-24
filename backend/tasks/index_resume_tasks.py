@@ -36,7 +36,6 @@ import os
 from datetime import datetime, timedelta
 
 from celery import shared_task
-from backend.services.code_retrieval import STORED_ON_DEMAND
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +53,24 @@ STUCK_INDEXING_NOTE = "Reset at startup: no indexing task was running this docum
 # Small enough that a tick cannot monopolise the GPU, and frequent enough that an
 # interrupted run finishes on its own within hours rather than never.
 DEFAULT_BATCH = int(os.environ.get("GUAARDVARK_INDEX_RESUME_BATCH", "5"))
+
+# A catch-up a person started (Reset, a model switch, Bulk index, Resume
+# pending): one at a time, one progress row, every named document tried once.
+# Its state lives in Redis so a second click adds documents to the run in
+# flight instead of starting a parallel one.
+DRAIN_JOB_KEY = "guaardvark:index_drain:job"
+DRAIN_IDS_KEY = "guaardvark:index_drain:ids"
+DRAIN_TRIED_KEY = "guaardvark:index_drain:tried"
+DRAIN_STATS_KEY = "guaardvark:index_drain:stats"
+DRAIN_KEYS = (DRAIN_JOB_KEY, DRAIN_IDS_KEY, DRAIN_TRIED_KEY, DRAIN_STATS_KEY)
+DRAIN_TTL_S = 900
+# Next batch: queued behind whatever else is waiting, not held back.
+DRAIN_NEXT_BATCH_S = 1
+# While indexing cannot run (GPU or RAM pressure, embedder unreachable), the
+# run checks again every DRAIN_WAIT_S, up to DRAIN_MAX_WAITS times, then hands
+# what is left to the 15-minute catch-up.
+DRAIN_WAIT_S = 30
+DRAIN_MAX_WAITS = 10
 
 
 # Connection-shaped failures mean "the service is down", not "this document is
@@ -150,6 +167,245 @@ def _is_indexable(doc, exts: set) -> bool:
     return bool(candidates & exts)
 
 
+def _redis():
+    import redis
+    url = os.environ.get("CELERY_BROKER_URL") or os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    return redis.Redis.from_url(url, decode_responses=True, socket_timeout=5)
+
+
+def _drain_touch(r) -> None:
+    for key in DRAIN_KEYS:
+        r.expire(key, DRAIN_TTL_S)
+
+
+def _drain_clear(r) -> None:
+    r.delete(*DRAIN_KEYS)
+
+
+def manual_drain_running() -> bool:
+    """True while a catch-up a person started is in flight. Never raises."""
+    try:
+        return bool(_redis().get(DRAIN_JOB_KEY))
+    except Exception:
+        return False
+
+
+def _report_index_job(job_id: str, message: str, progress: int, done: bool, failed: bool = False) -> None:
+    """Update the one progress record of a catch-up a person started."""
+    try:
+        from backend.utils.unified_progress_system import get_unified_progress
+        progress_system = get_unified_progress()
+        if done and failed:
+            progress_system.error_process(job_id, message)
+        elif done:
+            progress_system.complete_process(job_id, message)
+        else:
+            progress_system.update_process(job_id, int(progress), message)
+    except Exception as e:
+        logger.debug("index catch-up: progress update failed: %s", e)
+
+
+def start_manual_drain(document_ids) -> tuple:
+    """Index these documents in one catch-up. They must already be PENDING.
+
+    Returns (job_id, error). When a catch-up is already running, the documents
+    join it and its job id comes back; otherwise a progress row is created and
+    one task queued. error is the exception that kept the task from starting.
+    """
+    ids = sorted({int(i) for i in document_ids or []})
+    if not ids:
+        return None, None
+    from backend.utils.unified_progress_system import get_unified_progress, ProcessType
+
+    r = _redis()
+    existing = r.get(DRAIN_JOB_KEY)
+    if existing and _job_is_live(existing):
+        r.sadd(DRAIN_IDS_KEY, *ids)
+        r.srem(DRAIN_TRIED_KEY, *ids)
+        _drain_touch(r)
+        logger.info("index catch-up: %d document(s) joined the run in flight (%s)", len(ids), existing)
+        return existing, None
+
+    _drain_clear(r)
+    progress_system = get_unified_progress()
+    job_id = progress_system.create_process(
+        ProcessType.INDEXING,
+        f"Indexing {len(ids)} documents",
+        {"target_count": len(ids), "generated_count": 0},
+    )
+    progress_system.update_process(job_id, 0, f"{len(ids)} documents waiting to be indexed",
+                                   {"target_count": len(ids), "generated_count": 0})
+    r.set(DRAIN_JOB_KEY, job_id, ex=DRAIN_TTL_S)
+    r.sadd(DRAIN_IDS_KEY, *ids)
+    _drain_touch(r)
+    try:
+        resume_pending_tick.apply_async(kwargs={"job_id": job_id, "manual": True}, queue="indexing")
+    except Exception as exc:
+        _drain_clear(r)
+        _report_index_job(job_id, f"Indexing was not started: {exc}", 0, True, failed=True)
+        return job_id, exc
+    return job_id, None
+
+
+def _schedule_drain(job_id: str, countdown: int) -> None:
+    try:
+        resume_pending_tick.apply_async(kwargs={"job_id": job_id, "manual": True},
+                                        queue="indexing", countdown=countdown)
+    except Exception as e:
+        logger.warning("index catch-up: could not queue the next batch: %s", e)
+        _report_index_job(job_id, f"Indexing stopped: the next batch could not be queued ({e})",
+                          0, True, failed=True)
+        try:
+            _drain_clear(_redis())
+        except Exception:
+            pass
+
+
+def _drain_summary(stats: dict, left: int) -> str:
+    parts = []
+    for key, label in (("indexed", "indexed"), ("stored", "stored without text or read in place"),
+                       ("error", "failed"), ("unreadable", "compiled or binary"),
+                       ("missing", "missing on disk")):
+        n = int(stats.get(key) or 0)
+        if n:
+            parts.append(f"{n} {label}")
+    text = ", ".join(parts) or "nothing to do"
+    if left:
+        text += f"; {left} left for the 15-minute catch-up"
+    return f"Indexing finished: {text}"
+
+
+def _manual_drain(job_id, isvc, db, DBDocument, limit) -> dict:
+    """One batch of a catch-up a person started; queues the next one itself."""
+    r = _redis()
+    if r.get(DRAIN_JOB_KEY) != job_id:
+        return {"skipped": "this catch-up is no longer the one in flight"}
+    _drain_touch(r)
+
+    paused = False
+    try:
+        paused = isvc.is_indexing_paused()
+    except Exception:
+        pass
+    if paused:
+        left = len(r.smembers(DRAIN_IDS_KEY))
+        _report_index_job(job_id, f"Indexing is paused; {left} documents were left waiting.", 0, True)
+        _drain_clear(r)
+        return {"skipped": "indexing paused by operator"}
+
+    wait_reason = None
+    try:
+        if isvc._under_resource_pressure():
+            wait_reason = "the GPU or memory is busy"
+    except Exception:
+        pass
+    if wait_reason is None and not _embedding_service_reachable():
+        wait_reason = "the embedding model is not reachable"
+    if wait_reason:
+        waits = r.hincrby(DRAIN_STATS_KEY, "waits", 1)
+        if waits > DRAIN_MAX_WAITS:
+            stats = r.hgetall(DRAIN_STATS_KEY)
+            left = len(r.smembers(DRAIN_IDS_KEY) - r.smembers(DRAIN_TRIED_KEY))
+            _report_index_job(job_id, _drain_summary(stats, left) + f" ({wait_reason})", 100, True)
+            _drain_clear(r)
+            return {"skipped": f"gave up waiting: {wait_reason}"}
+        _report_index_job(job_id, f"Waiting: {wait_reason}", 0, False)
+        _schedule_drain(job_id, DRAIN_WAIT_S)
+        return {"skipped": f"waiting: {wait_reason}"}
+    r.hset(DRAIN_STATS_KEY, "waits", 0)
+
+    ids = {int(i) for i in r.smembers(DRAIN_IDS_KEY)}
+    tried = {int(i) for i in r.smembers(DRAIN_TRIED_KEY)}
+    untried = sorted(ids - tried)
+    batch = (DBDocument.query.filter(DBDocument.id.in_(untried), DBDocument.index_status == "PENDING")
+             .order_by(DBDocument.id).limit(limit).all()) if untried else []
+    if not batch:
+        stats = r.hgetall(DRAIN_STATS_KEY)
+        left = (DBDocument.query.filter(DBDocument.id.in_(sorted(ids)), DBDocument.index_status == "PENDING")
+                .count()) if ids else 0
+        _report_index_job(job_id, _drain_summary(stats, left), 100, True)
+        _drain_clear(r)
+        return {"done": True, "left": left}
+
+    from backend.celery_tasks_isolated import index_one_document
+    from backend.config import UPLOAD_DIR
+    from backend.services import job_arbiter
+
+    for doc in batch:
+        job_arbiter.yield_point("indexing", doc.id, label=f"Indexing document {doc.id}")
+        r.sadd(DRAIN_TRIED_KEY, doc.id)
+        rel = getattr(doc, "file_path", None) or doc.path
+        path = rel if os.path.isabs(rel) else os.path.join(UPLOAD_DIR, rel)
+        if not os.path.exists(path):
+            # The person asked for this document; say it is gone rather than
+            # leave it waiting for a file that will not come back.
+            doc.index_status = "ERROR"
+            doc.error_message = f"File not found: {rel}"[:500]
+            db.session.commit()
+            r.hincrby(DRAIN_STATS_KEY, "missing", 1)
+            continue
+        outcome = index_one_document(doc.id)
+        db.session.expire_all()
+        status = outcome["status"]
+        if status in ("error", "deferred") and not _embedding_service_reachable():
+            # The service went away, the document is fine: back to waiting,
+            # and this run waits with it.
+            fresh = db.session.get(DBDocument, doc.id)
+            if fresh is not None:
+                fresh.index_status = "PENDING"
+                fresh.error_message = None
+                db.session.commit()
+            r.srem(DRAIN_TRIED_KEY, doc.id)
+            _schedule_drain(job_id, DRAIN_WAIT_S)
+            return {"stopped": "embedding service went away mid-batch"}
+        r.hincrby(DRAIN_STATS_KEY, status, 1)
+
+    total = len(ids)
+    done = len({int(i) for i in r.smembers(DRAIN_TRIED_KEY)} & ids)
+    _report_index_job(job_id, f"{done} of {total} documents done", int(99 * done / max(1, total)), False)
+    _schedule_drain(job_id, DRAIN_NEXT_BATCH_S)
+    return {"batch": len(batch), "done": done, "total": total}
+
+
+REAPED_INDEXING_NOTE = "Indexing did not finish; returned to the queue"
+
+
+def release_reaped_indexing_job(metadata: dict):
+    """Return the document a reaped indexing job left INDEXING to the queue.
+
+    PENDING when this task can index its format, else NOT_INDEXED. A row now
+    held by another job is left alone. Returns the new status, or None when
+    nothing changed. Never raises.
+    """
+    if not isinstance(metadata, dict) or metadata.get("process_type") != "indexing":
+        return None
+    doc_id = (metadata.get("additional_data") or {}).get("document_id")
+    if doc_id is None:
+        return None
+    try:
+        from backend.models import db, Document as DBDocument
+        doc = db.session.get(DBDocument, int(doc_id))
+        if doc is None or doc.index_status != "INDEXING":
+            return None
+        job_id = metadata.get("job_id")
+        if doc.indexing_job_id and job_id and doc.indexing_job_id != job_id:
+            return None
+        doc.index_status = "PENDING" if _is_indexable(doc, _document_extensions()) else "NOT_INDEXED"
+        doc.indexing_job_id = None
+        doc.error_message = REAPED_INDEXING_NOTE
+        db.session.commit()
+        logger.warning("index reap: document %s returned to %s", doc.id, doc.index_status)
+        return doc.index_status
+    except Exception as e:
+        logger.error("index reap: could not return document %s: %s", doc_id, e)
+        try:
+            from backend.models import db
+            db.session.rollback()
+        except Exception:
+            pass
+        return None
+
+
 def reconcile_stuck_indexing() -> dict:
     """Move INDEXING rows that nothing is indexing to where they belong.
 
@@ -198,16 +454,22 @@ def reconcile_stuck_indexing() -> dict:
 
 
 @shared_task(name="indexing.resume_pending_tick")
-def resume_pending_tick(limit: int = None) -> dict:
+def resume_pending_tick(limit: int = None, job_id: str = None, manual: bool = False) -> dict:
     """Index a few PENDING documents, if conditions allow. Never raises.
 
     Skips entirely when: auto-resume is disabled, the operator's Pause Indexing
     toggle is on, or the machine is under GPU/RAM pressure. Each skip reports its
     reason — a catch-up job that silently does nothing is indistinguishable from
     one that has finished.
+
+    With ``manual`` it is one batch of a catch-up a person started
+    (start_manual_drain), which ignores GUAARDVARK_INDEX_AUTO_RESUME and queues
+    its own next batch.
     """
-    if not _enabled():
+    if not manual and not _enabled():
         return {"skipped": "disabled by GUAARDVARK_INDEX_AUTO_RESUME"}
+    if not manual and manual_drain_running():
+        return {"skipped": "a catch-up a person started is running"}
 
     limit = int(limit or DEFAULT_BATCH)
     try:
@@ -224,6 +486,18 @@ def resume_pending_tick(limit: int = None) -> dict:
             from sqlalchemy import or_, func
         except Exception as e:
             return {"skipped": f"imports unavailable: {e}"}
+
+        if manual:
+            try:
+                return _manual_drain(job_id, isvc, db, DBDocument, limit)
+            except Exception as e:
+                logger.error("index catch-up %s failed: %s", job_id, e, exc_info=True)
+                _report_index_job(job_id, f"Indexing stopped: {e}", 0, True, failed=True)
+                try:
+                    _drain_clear(_redis())
+                except Exception:
+                    pass
+                return {"error": str(e)[:200]}
 
         try:
             if isvc.is_indexing_paused():
@@ -286,38 +560,38 @@ def resume_pending_tick(limit: int = None) -> dict:
                 missing += 1
                 continue
             try:
-                ok = isvc.add_file_to_index(path, doc)
-                if ok == STORED_ON_DEMAND:
-                    indexed += 1  # code: the row is STORED, read in place
-                elif ok:
-                    doc.index_status = "INDEXED"
-                    doc.indexed_at = datetime.now()
-                    doc.error_message = None
+                from backend.celery_tasks_isolated import index_one_document
+                outcome = index_one_document(doc.id)
+                db.session.expire_all()
+                status = outcome["status"]
+                if status in ("indexed", "stored"):
                     indexed += 1
-                else:
-                    reason = isvc.no_content_reason(doc.id)
-                    if reason:
-                        doc.index_status = "ERROR"
-                        doc.error_message = reason[:500]
-                        doc.updated_at = datetime.now()
+                elif status == "unreadable":
+                    no_text += 1
+                elif status == "deferred" or not _embedding_service_reachable():
+                    # The vector store or the embedding service went away: the
+                    # document is fine, so it goes back to waiting and the batch
+                    # stops for the next tick.
+                    fresh = db.session.get(DBDocument, doc.id)
+                    if fresh is not None and fresh.index_status != "PENDING":
+                        fresh.index_status = "PENDING"
+                        fresh.error_message = None
                         db.session.commit()
-                        no_text += 1
-                        continue
-                    # A falsy return here is usually the embedding call failing
-                    # inside add_file_to_index. Re-check the service rather than
-                    # condemning the document: if it went away mid-batch, stop and
-                    # leave the rest PENDING for the next tick.
-                    if not _embedding_service_reachable():
-                        logger.warning(
-                            "index resume: embedding service went away mid-batch — "
-                            "stopping, %d document(s) left PENDING", len(pending) - indexed,
-                        )
-                        db.session.rollback()
-                        return {"indexed": indexed, "failed": failed, "missing": missing,
-                                "stopped": "embedding service went away mid-batch"}
-                    _defer(doc, db, "add_file_to_index returned falsy")
+                    logger.warning(
+                        "index resume: embedding service went away mid-batch — "
+                        "stopping, %d document(s) left PENDING", len(pending) - indexed,
+                    )
+                    return {"indexed": indexed, "failed": failed, "missing": missing,
+                            "stopped": "embedding service went away mid-batch"}
+                elif outcome.get("no_content"):
+                    no_text += 1
+                else:
+                    # Not this task's to condemn: back to waiting, behind the rest.
+                    fresh = db.session.get(DBDocument, doc.id)
+                    if fresh is not None:
+                        fresh.index_status = "PENDING"
+                        _defer(fresh, db, outcome["message"])
                     failed += 1
-                    continue
             except Exception as exc:
                 if _is_transient(exc):
                     # Leave it PENDING. The service is down, the document is fine.
