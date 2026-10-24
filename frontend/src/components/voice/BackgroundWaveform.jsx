@@ -7,6 +7,14 @@ import PropTypes from 'prop-types';
 import { Box } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import voiceService from '../../api/voiceService';
+import { useVoiceSessionStore } from '../../stores/useVoiceSessionStore';
+import { VOICE_LIMITS } from '../../config/voiceDefaults';
+
+// The shared mic reports one RMS level, not per-bar levels. Below the lowest
+// speech threshold Settings allows, it is room noise and the bars stay idle;
+// above it the gain is the mic button ring's, so both move together.
+const MIC_NOISE_FLOOR = VOICE_LIMITS.silenceThreshold.min;
+const MIC_LEVEL_GAIN = 6;
 
 const BackgroundWaveform = ({
   isVoiceChatActive = false,
@@ -32,9 +40,11 @@ const BackgroundWaveform = ({
   const smoothedLevelsRef = useRef(new Float32Array(numBars));
   const fadeRef = useRef(0); // 0 = hidden, 1 = fully visible
 
-  // Monitor TTS audio levels
+  // Monitor TTS audio levels. A reply can still be speaking after a tap-to-talk
+  // or push-to-talk turn has closed the mic, so this follows the reply too.
+  const monitorTTS = isVoiceChatActive || isAISpeaking;
   useEffect(() => {
-    if (!isVoiceChatActive) {
+    if (!monitorTTS) {
       setTtsAudioLevels([]);
       setTtsVolume(0);
       return;
@@ -64,16 +74,14 @@ const BackgroundWaveform = ({
         setTtsVolume(0);
       }
 
-      if (isVoiceChatActive) {
-        animationFrameRef.current = requestAnimationFrame(monitorTTSAudio);
-      }
+      animationFrameRef.current = requestAnimationFrame(monitorTTSAudio);
     };
 
     monitorTTSAudio();
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [isVoiceChatActive, numBars]);
+  }, [monitorTTS, numBars]);
 
   // Determine activity state
   useEffect(() => {
@@ -98,32 +106,35 @@ const BackgroundWaveform = ({
     return levels;
   }, [numBars]);
 
-  // Get current audio levels
-  const getCurrentLevels = useCallback(() => {
-    if (isAISpeaking) {
-      if (ttsAudioLevels.length > 0) return { levels: ttsAudioLevels, source: 'ai' };
-      if (ttsVolume > 0) return { levels: generateVolumeMeterLevels(ttsVolume), source: 'ai' };
-    }
-    if (isUserSpeaking && micAudioLevels.length > 0) {
-      const step = Math.max(1, Math.floor(micAudioLevels.length / numBars));
-      const sampled = [];
-      for (let i = 0; i < numBars; i++) {
-        sampled.push(micAudioLevels[Math.min(i * step, micAudioLevels.length - 1)] || 0);
-      }
-      return { levels: sampled, source: 'user' };
-    }
+  // Mic bars: the caller's per-bar levels when it has them, otherwise shaped
+  // from the voice session's live level. The level is read from the store on
+  // each frame, so the page does not re-render 20 times a second to pass it.
+  const getMicLevels = useCallback(() => {
     if (micAudioLevels.length > 0) {
       const step = Math.max(1, Math.floor(micAudioLevels.length / numBars));
       const sampled = [];
       for (let i = 0; i < numBars; i++) {
         sampled.push(micAudioLevels[Math.min(i * step, micAudioLevels.length - 1)] || 0);
       }
-      return { levels: sampled, source: 'user' };
+      return sampled;
     }
+    const level = useVoiceSessionStore.getState().level || 0;
+    const volume = Math.min(1, Math.max(0, level - MIC_NOISE_FLOOR) * MIC_LEVEL_GAIN);
+    return volume > 0 ? generateVolumeMeterLevels(volume) : null;
+  }, [micAudioLevels, numBars, generateVolumeMeterLevels]);
+
+  // Get current audio levels
+  const getCurrentLevels = useCallback(() => {
+    if (isAISpeaking) {
+      if (ttsAudioLevels.length > 0) return { levels: ttsAudioLevels, source: 'ai' };
+      if (ttsVolume > 0) return { levels: generateVolumeMeterLevels(ttsVolume), source: 'ai' };
+    }
+    const micLevels = getMicLevels();
+    if (micLevels) return { levels: micLevels, source: 'user' };
     if (ttsAudioLevels.length > 0) return { levels: ttsAudioLevels, source: 'ai' };
     if (ttsVolume > 0) return { levels: generateVolumeMeterLevels(ttsVolume), source: 'ai' };
     return { levels: new Array(numBars).fill(0), source: 'idle' };
-  }, [micAudioLevels, ttsAudioLevels, ttsVolume, isUserSpeaking, isAISpeaking, numBars, generateVolumeMeterLevels]);
+  }, [ttsAudioLevels, ttsVolume, isAISpeaking, numBars, getMicLevels, generateVolumeMeterLevels]);
 
   // Canvas-based rendering for full-window mode (smoother, no DOM thrashing)
   useEffect(() => {
