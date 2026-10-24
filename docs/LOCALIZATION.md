@@ -53,9 +53,10 @@ function SaveButton({ count }) {
 - **Only displayed text is translated.** Values sent to the API, compared in
   code, used as keys or stored stay in English.
 - **Names stay names.** Product, model and file names are not put through `t`.
-- **Dates and numbers** go through `formatDateTime` and `formatNumber` from
-  `src/i18n`. While the interface is English they follow the browser's own
-  locale, as they always have.
+- **Dates and numbers** take `uiLocale()` from `src/i18n` as their locale
+  (`date.toLocaleString(uiLocale(), options)`), or go through `formatDateTime`
+  and `formatNumber`. While the interface is English they follow the browser's
+  own locale, as they always have.
 
 ## Adding or updating a language
 
@@ -73,8 +74,10 @@ python3 scripts/translate_locales.py --check     # report on every language, cha
 - `--model` picks the Ollama model (default `gemma4:12b`); `--area settings`
   limits a run to one file.
 - Each translation is checked before it is written: it must keep the English
-  string's placeholders, tags and surrounding spaces. One that fails twice is
-  left out and listed, and the interface shows the English for it.
+  string's placeholders, tags, numbers and surrounding spaces, and must not
+  look cut off. One that fails twice is left out and listed, and the interface
+  shows the English for it. Where a language's singular means exactly one, its
+  `_one` form may write the number out instead of `{{count}}`.
 - When an English string changes, the next run translates it again.
 - Right-to-left languages (Arabic, Hebrew, Persian, Urdu) are not offered yet:
   the layout has to be mirrored first.

@@ -112,6 +112,21 @@ describe("locale files", () => {
       .map((mark) => mark.replace(/\s/g, ""))
       .sort();
   const pluralBase = (key) => key.replace(/_(zero|one|two|few|many|other)$/, "");
+  // Where "one" is the number 1 alone, that form may write the word out
+  // instead of {{count}}, as translate_locales.py allows.
+  const oneMeansOne = (language) => {
+    const rules = new Intl.PluralRules(language);
+    const ones = Array.from({ length: 1000 }, (_, n) => n).filter((n) => rules.select(n) === "one");
+    return ones.length === 1 && ones[0] === 1 && rules.select(1.5) !== "one";
+  };
+  const expectedMarks = (language, key, text, original) => {
+    const want = marks(original);
+    const at = want.indexOf("{{count}}");
+    if (at >= 0 && key.endsWith("_one") && oneMeansOne(language) && !marks(text).includes("{{count}}")) {
+      want.splice(at, 1);
+    }
+    return want;
+  };
 
   const english = {};
   const others = [];
@@ -123,7 +138,7 @@ describe("locale files", () => {
     else others.push([language, area, flatten(strings)]);
   }
 
-  it.each(others)("%s/%s.json has only English keys, with their placeholders and tags", (_language, area, entries) => {
+  it.each(others)("%s/%s.json has only English keys, with their placeholders and tags", (language, area, entries) => {
     const source = english[area];
     expect(source, `no English ${area}.json`).toBeDefined();
     const sourceByBase = Object.fromEntries(Object.entries(source).map(([key, text]) => [pluralBase(key), text]));
@@ -131,7 +146,7 @@ describe("locale files", () => {
       const original = source[key] ?? sourceByBase[pluralBase(key)];
       expect(original, `${area}.${key} is not in English`).toBeDefined();
       expect(String(text).trim(), `${area}.${key}`).not.toBe("");
-      expect(marks(text), `${area}.${key}`).toEqual(marks(original));
+      expect(marks(text), `${area}.${key}`).toEqual(expectedMarks(language, key, text, original));
     }
   });
 });

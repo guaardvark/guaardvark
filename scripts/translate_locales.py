@@ -19,12 +19,15 @@ next run knows what is stale. The app does not load that file.
 
 Every translation is checked before it is written: the same {{placeholders}},
 the same <tags>, the same $t() references and the same surrounding spaces as
-the English. One that fails twice is left out and listed, and the interface
-shows the English for it.
+the English, and nothing that looks cut off. One that fails twice is left out
+and listed, and the interface shows the English for it. A machine translation
+already on disk that fails a check added later is made again; one edited by
+hand is only reported.
 """
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import os
@@ -140,6 +143,25 @@ def plural_categories(language: str) -> dict[str, int]:
     return {"one": 1, "other": 2}
 
 
+@functools.lru_cache(maxsize=None)
+def one_means_one(language: str) -> bool:
+    """True when the language's "one" form is used for the number 1 alone.
+
+    Then a translation of that form may write the word for one instead of
+    {{count}} ("Ein Bild ausgewählt"). Where "one" also covers 21 or 0, it may not.
+    """
+    script = (
+        "const r=new Intl.PluralRules(process.argv[1]);let n=[];"
+        "for(let i=0;i<1000;i++){if(r.select(i)==='one')n.push(i)}"
+        "console.log(JSON.stringify(n.length===1&&n[0]===1&&r.select(1.5)!=='one'))"
+    )
+    node = shutil.which("node")
+    if not node:
+        return False
+    result = subprocess.run([node, "-e", script, language], capture_output=True, text=True)
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
+
 def plural_family(key: str) -> tuple[str, str] | None:
     base, _, suffix = key.rpartition("_")
     return (base, suffix) if base and suffix in PLURAL_SUFFIXES else None
@@ -171,17 +193,41 @@ def target_keys(english: dict[str, str], categories: dict[str, int]) -> dict[str
 # ---------------------------------------------------------------- checks
 
 
-def problems(source: str, translated: str) -> list[str]:
+def numbers(text: str) -> list[str]:
+    """The digits a person reads, outside placeholders, tags and $t() references."""
+    for pattern in (PLACEHOLDER, TAG, NESTING):
+        text = pattern.sub(" ", text)
+    return sorted(re.findall(r"\d+", text))
+
+
+def problems(source: str, translated: str, may_drop_count: bool = False) -> list[str]:
     found = []
     if not isinstance(translated, str) or not translated.strip():
         return ["empty"]
+    dropped_count = False
     for name, pattern in (("placeholders", PLACEHOLDER), ("tags", TAG), ("$t() references", NESTING)):
         want = sorted(m.replace(" ", "") for m in pattern.findall(source))
         got = sorted(m.replace(" ", "") for m in pattern.findall(translated))
+        if may_drop_count and "{{count}}" in want and "{{count}}" not in got:
+            want.remove("{{count}}")
+            dropped_count = True
         if want != got:
             found.append(f"{name} {want} became {got}")
+    # A singular that drops {{count}} may write the 1 out; any other number is
+    # one the English does not show ("1 {{count}} voz" reads "1 1 voz").
+    want, got = numbers(source), numbers(translated)
+    if dropped_count and "1" in got:
+        got.remove("1")
+    if want != got:
+        found.append(f"numbers {want} became {got}")
     if source.count("\n") != translated.count("\n"):
         found.append("line breaks changed")
+    # A straight quote inside the answer can end the JSON string early, so the
+    # translation stops mid-sentence and still parses.
+    if source.count('"') % 2 == 0 and translated.count('"') % 2:
+        found.append('unbalanced " (cut off at a quote mark?)')
+    if len(source) >= 40 and len(translated.strip()) < 0.35 * len(source):
+        found.append("much shorter than the English (cut off?)")
     return found
 
 
@@ -225,7 +271,8 @@ def ask_model(model: str, code: str, label: str, batch: dict[str, tuple[str, int
         f"keep sentences natural. {REGISTER.get(code, REGISTER.get(code.split('-')[0], 'Use the register modern software in this language uses.'))} "
         f"Keep these names as they are: {KEEP}. Keep every {{{{placeholder}}}}, <tag> and $t(...) "
         f"exactly as written, untranslated, and move it to where the {label} sentence needs it. "
-        f"The key before each string says where it appears. Answer with a JSON object mapping each "
+        f"Every other word is translated, labels and headings included. Quote with {label} "
+        f"quotation marks, never straight double quotes. The key before each string says where it appears. Answer with a JSON object mapping each "
         f"key to its translation, nothing else."
     )
     prompt = "Translate these strings:\n" + "\n".join(lines)
@@ -282,7 +329,7 @@ def translate_batch(model: str, code: str, label: str, batch: dict,
         answer = ask_model(model, code, label, pending, feedback, glossary)
         failed = {}
         for key, (source, _count) in pending.items():
-            issues = problems(source, answer.get(key, ""))
+            issues = problems(source, answer.get(key, ""), _count == 1 and key.endswith("_one") and one_means_one(code))
             if issues:
                 failed[key] = issues
             else:
@@ -312,6 +359,17 @@ def glossary_for(code: str, english: dict[str, dict[str, str]], limit: int = 80)
     return dict(list(terms.items())[:limit])
 
 
+def terms_in(terms: dict[str, str], batch: dict[str, tuple[str, int | None]]) -> dict[str, str]:
+    """The glossary entries whose English appears word for word in the batch.
+
+    Given the whole list, the model also applies a short label to longer
+    phrases: "Image Gen" became the title for "Image generation".
+    """
+    text = "\n".join(source for source, _count in batch.values())
+    return {en: tr for en, tr in terms.items()
+            if re.search(rf"(?<!\w){re.escape(en)}(?!\w)", text, re.IGNORECASE)}
+
+
 def plan_language(code: str, english: dict[str, dict[str, str]], areas: list[str] | None):
     """What each area of one language needs: missing, stale, edited, extra."""
     folder = LOCALES / code
@@ -333,7 +391,11 @@ def plan_language(code: str, english: dict[str, dict[str, str]], areas: list[str
             if have is None:
                 todo[key] = (text, count)
                 continue
-            if problems(text, have):
+            if problems(text, have, count == 1 and key.endswith("_one") and one_means_one(code)):
+                if seen is not None and seen.get("out") == digest(have):
+                    # Machine output that a newer check rejects: make it again.
+                    todo[key] = (text, count)
+                    continue
                 invalid.append(key)
             if seen is None:
                 # Written by hand, without a record: taken as made from today's English.
@@ -354,7 +416,7 @@ def plan_language(code: str, english: dict[str, dict[str, str]], areas: list[str
 
 
 def run_language(code: str, english, areas, model: str | None, dry_run: bool) -> tuple[int, int]:
-    """Returns (strings left in English, strings whose placeholders or tags are wrong)."""
+    """Returns (strings left in English, hand-edited strings that fail the checks)."""
     report, sources = plan_language(code, english, areas)
     label = language_label(code)
     left_out = 0
@@ -368,16 +430,16 @@ def run_language(code: str, english, areas, model: str | None, dry_run: bool) ->
         for key in plan["edited_stale"]:
             print(f"  edited by hand, English has changed since: {area}.{key}")
         for key in plan["invalid"]:
-            print(f"  placeholders or tags differ from the English: {area}.{key}")
+            print(f"  edited by hand, fails the checks against the English: {area}.{key}")
         if dry_run or model is None:
             continue
         current, record = plan["current"], {**plan["record"], **plan["adopted"]}
         for key in plan["extra"]:
             current.pop(key, None)
             record.pop(key, None)
+        terms = {} if area in GLOSSARY_AREAS else glossary_for(code, english)
         for batch in batches(todo):
-            glossary = None if area in GLOSSARY_AREAS else glossary_for(code, english)
-            done, failed = translate_batch(model, code, label, batch, glossary)
+            done, failed = translate_batch(model, code, label, batch, terms_in(terms, batch))
             for key, value in done.items():
                 current[key] = value
                 record[key] = {"en": digest(batch[key][0]), "out": digest(value)}
@@ -430,7 +492,7 @@ def main() -> int:
     if left_out:
         print(f"{left_out} strings stay in English; run again to retry them.")
     if invalid:
-        print(f"{invalid} translations do not keep their English placeholders or tags; fix them by hand.")
+        print(f"{invalid} hand-edited translations fail the checks (placeholders, tags, cut off); fix them by hand.")
     return 1 if invalid else 0
 
 
