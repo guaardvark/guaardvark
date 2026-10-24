@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "default": "Gris foncé",
+    "light": "Clair"
+  },
+  "descriptions": {
+    "guaardvark": "Thème monochrome ultra-minimaliste inspiré par guaardvark.com",
+    "default": "Thème sombre épuré avec des accents bleu sarcelle",
+    "musk": "Thème sombre futuriste avec des accents cyan néon et rouge",
+    "hacker": "Terminal de zone dévastée inspiré du Pip-Boy avec vert radioactif et ambre",
+    "vader": "Thème sombre imposant avec des accents noir et rouge inspiré par Darth Vader",
+    "light": "Thème clair épuré avec des accents bleu sarcelle — agréable pour les yeux"
+  }
+}

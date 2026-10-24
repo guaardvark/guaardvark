@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "Ce post a été rédigé par le Chat.",
+      "mcp": "Un outil IA connecté via MCP a rédigé ce post.",
+      "schedule": "Ce post a été mis en file d'attente par un planning.",
+      "unknown": "Ce post provient d'un émetteur non identifié."
+    },
+    "fields": {
+      "body": "texte",
+      "title": "titre",
+      "linkUrl": "lien",
+      "tags": "tags",
+      "visibility": "visibilité",
+      "postOptions": "champs du post",
+      "aiDisclosure": "étiquette IA",
+      "scheduledAt": "heure"
+    }
+  },
+  "rejectDialog": {
+    "title": "Rejeter cette publication ?",
+    "body": "Elle ne sera pas envoyée et ne pourra pas être approuvée par la suite — une nouvelle publication devra être mise en file d'attente à la place. Le motif ci-dessous sera conservé dans les archives.",
+    "reasonLabel": "Raison (facultatif)",
+    "reasonPlaceholder": "Pourquoi ce contenu n'est-il pas publié ?",
+    "keep": "Conserver",
+    "rejecting": "Rejet en cours…",
+    "reject": "Rejeter"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} n'est pas disponible dans cette installation, ce post ne peut donc pas être modifié.",
+    "title": "Modifier avant approbation",
+    "draftedNote": "{{drafted}} Ce que vous enregistrez ici est ce qui sera publié une fois approuvé.",
+    "caption": "Légende",
+    "text": "Texte",
+    "scheduleHelp": "En attente de votre approbation.",
+    "goesOutAs": "Sortie sous (avec les lignes {{platform}} ou la licence du média l'exige) :",
+    "savingNote": "L'enregistrement le met en attente. Approuvez-le ensuite.",
+    "cancel": "Annuler",
+    "save": "Enregistrer"
+  },
+  "page": {
+    "families": {
+      "social": "Social",
+      "aiProviders": "Fournisseurs IA",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "connecté",
+      "error": "erreur",
+      "expired": "expiré",
+      "disabled": "désactivé",
+      "unconfigured": "non configuré"
+    },
+    "removed": "Connexion supprimée.",
+    "publicOn": "{{label}} : activé pour ce compte. Chaque téléchargement attend toujours votre approbation.",
+    "publicOff": "{{label}} : désactivé pour ce compte.",
+    "withoutApprovalOn": "Les publications vers cette chaîne sont publiées immédiatement sans approbation.",
+    "withoutApprovalOff": "Les publications vers cette chaîne attendent approbation.",
+    "title": "Connexions",
+    "intro": "Comptes et services vers lesquels cette installation peut publier ou communiquer. Les identifiants sont stockés hors de la base de données.",
+    "postingStopped": "La publication publique est arrêtée. Reprenez-la sur la page Prospection.",
+    "queuedHeld": "Les publications en file d'attente sont retenues sur la page Approbations.",
+    "publishingEnabled": "Publication activée",
+    "approvalNote": "Chaque publication attend votre approbation sur la page Approbations. Un webhook Discord, posté dans un canal que vous gérez, peut être configuré pour être publié sans attente sur sa propre carte. Un compte YouTube est téléchargé en mode privé jusqu'à ce que sa carte autorise les téléchargements publics.",
+    "addConnection": "Ajouter une connexion",
+    "appReview": "examen de l'application",
+    "noCredentials": "Pas de paramètres",
+    "withoutApprovalTooltip": "Pour un canal que vous gérez. Les publications que vous lancez ici sont publiées sans attendre la page Approbations ; les demandes provenant du chat, du MCP ou d'un planning attendent toujours.",
+    "postWithoutApproval": "Publier sans approbation",
+    "onThroughSetting": "Activé via le paramètre global {{setting}}. Le modifier ici permet de conserver un choix spécifique pour ce compte.",
+    "testing": "Test en cours…",
+    "test": "Tester",
+    "edit": "Modifier",
+    "remove": "Supprimer",
+    "empty": "Aucune connexion dans cette catégorie pour le moment.",
+    "environment": "Environnement",
+    "environmentNote": "Détecté à partir de l'environnement du processus backend. Géré en dehors de l'application et affiché ici en lecture seule.",
+    "encrypted": "Chiffré",
+    "unencrypted": "Non chiffré",
+    "credentialCount": "{{count}} paramètre(s)"
+  }
+}

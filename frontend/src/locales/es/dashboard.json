@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "Gestor de proyectos",
+    "loadFailed": "Error al cargar los datos del proyecto.",
+    "empty": "No se encontraron proyectos.",
+    "unnamed": "Proyecto sin nombre",
+    "client": "Cliente: {{name}}"
+  },
+  "website": {
+    "title": "Datos del sitio web",
+    "loadFailed": "Error al cargar los datos del sitio web.",
+    "deleteConfirm": "¿Eliminar este sitio web?",
+    "empty": "No se encontraron sitios web.",
+    "unnamed": "Sitio sin nombre",
+    "details": "Proyecto: {{project}} | Docs: {{docs}}",
+    "openUrl": "Abrir URL en nueva pestaña",
+    "copyUrl": "Copiar URL"
+  },
+  "tasks": {
+    "title": "Tareas",
+    "unknownStatus": "Desconocido",
+    "loadFailed": "Error al cargar las tareas.",
+    "nameAndTypeRequired": "Se requieren el nombre y el tipo de tarea.",
+    "created": "¡Tarea '{{name}}' creada con éxito!",
+    "createFailed": "Error al crear la tarea: {{message}}",
+    "addTaskMenu": "Añadir tarea…",
+    "addTaskButton": "+ Añadir tarea",
+    "empty": "No se encontraron tareas.",
+    "unnamed": "Tarea sin nombre",
+    "viewAll": "Ver todas las tareas ({{count}})",
+    "addDialogTitle": "Añadir nueva tarea",
+    "taskName": "Nombre de la tarea",
+    "taskType": "Tipo de tarea",
+    "output": "Resultado/Descripción",
+    "outputPlaceholder": "Opcional: Describe el resultado esperado o detalles adicionales...",
+    "creating": "Creando...",
+    "create": "Crear tarea"
+  },
+  "chat": {
+    "title": "Chat",
+    "csvDescription": "Generar archivo CSV basado en: \"{{excerpt}}\"",
+    "historyFailed": "Error al cargar el historial del chat",
+    "fileGenerated": "¡Archivo \"{{filename}}\" generado con éxito! Puedes descargarlo desde la carpeta de salidas.",
+    "fileGenFailed": "Error en la generación del archivo: {{message}}",
+    "notConnected": "Servicio de chat no conectado. Por favor, espera e inténtalo de nuevo.",
+    "sendFailed": "Error al enviar mensaje",
+    "errorMessage": "Error: {{message}}",
+    "messageCount": "{{count}} mensajes",
+    "noMessages": "Sin mensajes",
+    "reloadHistory": "Recargar historial",
+    "stopGenerating": "Detener generación",
+    "roles": {
+      "user": "Tú",
+      "system": "Sistema",
+      "assistant": "Asistente"
+    },
+    "empty": "Aún no hay mensajes. ¡Inicia una conversación!",
+    "placeholder": "Escribe un mensaje..."
+  },
+  "clients": {
+    "title": "Clientes",
+    "loadFailed": "Error al cargar los datos del cliente.",
+    "empty": "No se encontraron clientes.",
+    "unnamed": "Cliente sin nombre",
+    "projectCount": "Proyectos: {{count}}"
+  },
+  "csvgen": {
+    "title": "Generación de CSV",
+    "newCsv": "Nuevo CSV",
+    "import": "Importar",
+    "empty": "Aún no hay tareas de CSV."
+  },
+  "codegen": {
+    "title": "Generación de Código",
+    "newCode": "Nuevo Código",
+    "debug": "Depurar",
+    "empty": "Aún no hay tareas de generación de código."
+  },
+  "imggen": {
+    "title": "Gen. de imagen",
+    "newImages": "Nuevas Imágenes",
+    "batchMode": "Modo por lotes",
+    "empty": "Aún no hay lotes de imágenes.",
+    "viewAll": "Ver todos los lotes"
+  },
+  "files": {
+    "title": "Gestor de Archivos"
+  },
+  "family": {
+    "title": "Familia y Auto-mejora",
+    "queuing": "En cola...",
+    "runCheck": "Ejecutar comprobación",
+    "uncleOnline": "Uncle Online",
+    "uncleOffline": "Uncle Offline",
+    "siOn": "SI: On",
+    "siOff": "SI: Off",
+    "locked": "Bloqueado",
+    "stages": {
+      "starting": "Iniciando...",
+      "testing": "Ejecutando pruebas",
+      "analyzed": "Analizando resultados",
+      "fixing": "Aplicando correcciones",
+      "complete": "Completado",
+      "error": "Error"
+    },
+    "tokens": "Tokens: {{percent}}%",
+    "totalFixes": "Total de correcciones aplicadas: {{count}}",
+    "recentActivity": "Actividad reciente",
+    "noRuns": "Aún no hay ejecuciones de auto-mejora",
+    "reviewed": "Revisado"
+  },
+  "autoresearch": {
+    "title": "Auto-investigación RAG",
+    "pauseRun": "Pausar ejecución",
+    "startRun": "Iniciar ejecución",
+    "unavailable": "Auto-investigación no disponible",
+    "running": "En ejecución",
+    "paused": "Pausado",
+    "idle": "Inactivo",
+    "phase": "Fase {{phase}}",
+    "pauseOptimization": "Pausar optimización",
+    "startBounded": "Iniciar ejecución de investigación limitada",
+    "healthChecksNotCounted": "Las {{count}} comprobaciones de estado de la suite de pruebas no se cuentan",
+    "latestRun": "Última ejecución",
+    "testSuite": "suite de pruebas",
+    "selfReported": "{{status}} (autoinformado)",
+    "noExperiments": "Aún no hay experimentos. Haz clic en reproducir para iniciar una ejecución limitada."
+  },
+  "gpu": {
+    "title": "Memoria GPU",
+    "tiers": {
+      "speed": "Velocidad",
+      "balanced": "Equilibrado",
+      "quality": "Calidad"
+    },
+    "tierMenu": {
+      "speed": "Nivel de velocidad",
+      "balanced": "Nivel equilibrado",
+      "quality": "Nivel de calidad"
+    },
+    "states": {
+      "loaded": "Cargado",
+      "loading": "Cargando...",
+      "unloading": "Descargando...",
+      "unloaded": "Inactivo"
+    },
+    "unavailable": "Estado de GPU no disponible",
+    "evict": "Expulsar {{model}}",
+    "systemOther": "Sistema/Otro: {{size}} GB",
+    "qualityTier": "Nivel de calidad",
+    "evictFromGpu": "Expulsar de GPU",
+    "noModels": "Sin modelos cargados"
+  },
+  "title": "Panel de control",
+  "layoutModes": {
+    "normal": "Normal",
+    "compact": "Compacto",
+    "layered": "Compacto en capas",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "Error al obtener el estado del panel: {{statusText}} (Estado: {{status}})",
+  "loadStateFailed": "Error al cargar el estado del panel: {{message}}. Usando valores por defecto.",
+  "saveStateFailed": "Error al guardar los cambios del panel.",
+  "menu": {
+    "cycleLayout": "Ciclar diseño (siguiente: {{mode}})",
+    "resetLayout": "Restablecer diseño…",
+    "noHiddenCards": "Sin tarjetas ocultas",
+    "showCard": "Mostrar {{card}}",
+    "showAllHidden": "Mostrar todas las tarjetas ocultas"
+  },
+  "stickyNotes": "Notas adhesivas",
+  "loadingDashboard": "Cargando panel...",
+  "dashboardCards": "Tarjetas del panel",
+  "layoutTooltip": "Diseño: {{mode}} (haz clic para ciclar)",
+  "missingCard": "Tarjeta faltante: {{id}}",
+  "resetConfirm": {
+    "title": "¿Restablecer el diseño del panel?",
+    "description": "Cada tarjeta volverá a su lugar y tamaño predeterminado, se borrarán los colores de las tarjetas y las tarjetas ocultas se mostrarán de nuevo.",
+    "keeps": "lo que muestran las tarjetas (proyectos, tareas, chats, archivos)",
+    "confirm": "Restablecer diseño"
+  },
+  "cardWrapper": {
+    "openPage": "Abrir página",
+    "expand": "Expandir",
+    "minimize": "Minimizar",
+    "changeColour": "Cambiar color…",
+    "resetColour": "Restablecer color",
+    "hideCard": "Ocultar tarjeta",
+    "changeColor": "Cambiar color de tarjeta"
+  },
+  "refreshData": "Actualizar datos",
+  "viewAllJobs": "Ver todas las tareas",
+  "edit": "Editar…",
+  "recentRuns": {
+    "status": {
+      "completed": "Completado",
+      "running": "En ejecución",
+      "queued": "En cola",
+      "pending": "Pendiente",
+      "paused": "Pausado",
+      "failed": "Fallido",
+      "cancelled": "Cancelado",
+      "unknown": "Desconocido"
+    },
+    "images": "{{done}}/{{total}} imágenes",
+    "jobNumber": "Tarea {{id}}",
+    "loadFailed": "No se pudieron cargar las ejecuciones recientes: {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "Error al obtener el estado del sistema.",
+    "noData": "No se devolvieron datos de estado.",
+    "title": "Diagnóstico del sistema",
+    "python": "Python: {{version}}",
+    "platform": "Plataforma: {{platform}}",
+    "dbPath": "Ruta de la DB: {{path}}",
+    "dbSize": "Tamaño de la DB: {{size}} KB",
+    "documents": "Documentos: {{count}}",
+    "models": "Modelos: {{count}}",
+    "indexStatus": "Estado del índice: {{status}}",
+    "runSelfTest": "Ejecutar autodiagnóstico",
+    "rebuildIndex": "Reconstruir índice",
+    "clearCache": "Limpiar caché"
+  }
+}

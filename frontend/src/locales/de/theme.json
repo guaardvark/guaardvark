@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "default": "Dunkelgrau",
+    "light": "Hell"
+  },
+  "descriptions": {
+    "guaardvark": "Ultra-minimales monochromes Thema inspiriert von guaardvark.com",
+    "default": "Sauberes dunkles Thema mit Teal-Akzenten",
+    "musk": "Futuristisches dunkles Thema mit Neon-Cyan- und Rot-Akzenten",
+    "hacker": "Vom Pip-Boy inspiriertes Wasteland-Terminal mit Strahlungsgrün und Bernstein",
+    "vader": "Dunkles, imposantes Thema mit Schwarz- und Rot-Akzenten inspiriert von Darth Vader",
+    "light": "Sauberes helles Thema mit Teal-Akzenten – angenehm für die Augen"
+  }
+}

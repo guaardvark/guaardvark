@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "Clics: {{clicks}} | Impresiones: {{impressions}} | Posición: {{position}}",
+    "notAvailable": "N/A"
+  },
+  "errors": {
+    "fetchFailed": "Error al obtener las páginas",
+    "loadFailed": "Error al cargar las páginas",
+    "pullFailed": "Error al extraer las páginas",
+    "processFailed": "Error al procesar la página",
+    "queueFailed": "Error al poner las páginas en cola",
+    "executeFailed": "Error al ejecutar la cola",
+    "recommendationsFailed": "Error al obtener recomendaciones. Función próximamente."
+  },
+  "feedback": {
+    "pulled": "Extrayendo {{count}} páginas",
+    "nonePending": "Sin páginas pendientes de procesamiento",
+    "queued": "Puestas en cola {{count}} páginas para procesar",
+    "processed": "Procesadas {{succeeded}}/{{total}} páginas"
+  },
+  "recommendations": {
+    "summary": "La función de recomendaciones de IA analizará el contenido de la página y ofrecerá sugerencias inteligentes para mejoras.",
+    "content": {
+      "title": "Mejora de contenido",
+      "description": "Analiza el contenido para optimización SEO, mejoras de legibilidad y aumento de interacción."
+    },
+    "seo": {
+      "title": "Optimización SEO",
+      "description": "Revisa las meta etiquetas, la estructura de encabezados y las oportunidades de optimización de palabras clave."
+    },
+    "structure": {
+      "title": "Estructura de contenido",
+      "description": "Evalúa la organización del contenido y sugiere mejoras para una mejor experiencia de usuario."
+    },
+    "priority": {
+      "high": "alta",
+      "medium": "media",
+      "low": "baja"
+    },
+    "title": "Recomendaciones de IA",
+    "none": "No hay recomendaciones específicas en este momento.",
+    "loading": "Cargando recomendaciones...",
+    "processNow": "Procesar ahora"
+  },
+  "title": "Páginas WordPress",
+  "actions": {
+    "pull": "Extraer",
+    "queue": "En cola ({{count}})",
+    "process": "Procesar",
+    "close": "Cerrar",
+    "cancel": "Cancelar"
+  },
+  "site": "Sitio WordPress",
+  "filters": {
+    "pull": "Extraer",
+    "all": "Todos",
+    "pulled": "Extraídas",
+    "pending": "Pendientes",
+    "error": "Error",
+    "process": "Procesar",
+    "processing": "Procesando",
+    "completed": "Completadas",
+    "approved": "Aprobadas"
+  },
+  "stats": {
+    "total": "Total: {{total}}",
+    "pending": "Pendientes: {{pending}}",
+    "completed": "Completadas: {{completed}}"
+  },
+  "empty": {
+    "noPages": "No se encontraron páginas. Extrae páginas para comenzar.",
+    "selectSite": "Selecciona un sitio WordPress para ver las páginas"
+  },
+  "table": {
+    "title": "Título",
+    "type": "Tipo",
+    "seo": "SEO",
+    "ai": "IA"
+  },
+  "untitled": "Sin título",
+  "tooltips": {
+    "getRecommendations": "Haz clic para ver recomendaciones de IA",
+    "hasImprovements": "Tiene mejoras",
+    "noImprovements": "Sin mejoras"
+  },
+  "pullDialog": {
+    "title": "Extraer páginas de WordPress",
+    "postType": "Tipo de publicación",
+    "posts": "Publicaciones",
+    "pages": "Páginas",
+    "maxPages": "Máx. páginas (Opcional)",
+    "maxPagesHelper": "Deja en blanco para traer todas las páginas",
+    "pulling": "Obteniendo...",
+    "submit": "Obtener páginas"
+  }
+}

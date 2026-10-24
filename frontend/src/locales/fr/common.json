@@ -1,4 +1,15 @@
 {
   "voice": "Voix",
-  "collapse": "Réduire"
+  "collapse": "Réduire",
+  "close": "Fermer",
+  "cancel": "Annuler",
+  "refresh": "Actualiser",
+  "loading": "Chargement...",
+  "retry": "Réessayer",
+  "ok": "OK",
+  "reload": "Recharger",
+  "dismiss": "Ignorer",
+  "error": "Erreur",
+  "open": "Ouvrir",
+  "delete": "Supprimer"
 }

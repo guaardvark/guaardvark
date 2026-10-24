@@ -1,0 +1,92 @@
+{
+  "page": {
+    "title": "Auto-amélioration",
+    "systemMap": "Carte système",
+    "uncleClaudeSettings": "Uncle Claude dans les Paramètres",
+    "intro": "Guaardvark effectue ses propres tests, rédige des correctifs et les soumet à votre examen. Rien n'atteint le code tant que vous ne l'avez pas approuvé et appliqué, et Codebase locked bloque tout changement.",
+    "recentRuns": "Exécutions récentes",
+    "noCodeKeeps": "Aucun code conservé pour l'Auto-recherche."
+  },
+  "codeKeeps": {
+    "approved": "Code conservé approuvé. Appliquez-le depuis les correctifs en attente.",
+    "rejected": "Code conservé rejeté",
+    "approveFailed": "Échec de l'approbation du code conservé : {{error}}",
+    "rejectFailed": "Échec du rejet du code conservé : {{error}}",
+    "title": "Codes conservés",
+    "intro": "Les bras de Swarm ayant passé le test de préservation et d'extension. Approuvez ici, puis appliquez depuis les Paramètres — rien n'est fusionné automatiquement vers le principal.",
+    "description": "Description",
+    "status": "Statut",
+    "created": "Créé",
+    "actions": "Actions",
+    "approve": "Approuver",
+    "reject": "Rejeter"
+  },
+  "fixStatus": {
+    "proposed": "proposé",
+    "triaged": "trié",
+    "approved": "approuvé",
+    "applied": "appliqué",
+    "rejected": "rejeté"
+  },
+  "controls": {
+    "title": "Auto-amélioration",
+    "help": "Guaardvark vérifie son propre code et propose des correctifs pour votre examen. Codebase locked bloque toute modification automatique.",
+    "enabledChip": "Auto-amélioration",
+    "enabledTooltip": "Permet au mentor d'analyser la base de code et de proposer des correctifs pour examen.",
+    "lockedChip": "Base de code verrouillée",
+    "lockedOnTooltip": "Les modifications autonomes sont bloquées. Désactivez pour les autoriser.",
+    "lockedOffTooltip": "Activez pour bloquer toute modification autonome de l'arborescence source.",
+    "turnOnFirst": "Activez d'abord l'Auto-amélioration",
+    "unlockFirst": "Déverrouillez d'abord la base de code",
+    "runTooltip": "Lance les vérifications maintenant. Annuler demande au serveur de s'arrêter ; fermer la vue laisse le scan en cours.",
+    "runSelfCheck": "Lancer l'auto-vérification",
+    "lastRun_one": "Dernain passage {{date}} ({{status}}) · {{count}} passage réussi.",
+    "lastRun_other": "Dernier passage {{date}} ({{status}})}}) · {{count}} passages réussis.",
+    "noRuns": "Aucun passage pour le moment.",
+    "readingStatus": "Lecture du statut…",
+    "lockedNote": "Base de code verrouillée : les modifications autonomes sont bloquées.",
+    "cancelled": "Annulé",
+    "scanInBackground": "Le scan continue en arrière-plan",
+    "pendingFixes": "Corrections en attente",
+    "pendingFixesHelp": "Corrections proposées par l'auto-vérification, en attente de votre examen ou application. Rien n'atteint le code tant que vous n'avez pas approuvé et appliqué.",
+    "waiting": "{{count}} en attente",
+    "reviewFixes": "Examiner les corrections"
+  },
+  "runStatus": {
+    "running": "en cours",
+    "success": "succès",
+    "failed": "échec",
+    "cancelled": "annulé",
+    "blocked_by_guardian": "bloqué par le gardien"
+  },
+  "trigger": {
+    "scheduled": "planifié",
+    "reactive": "réactif",
+    "directed": "dirigé",
+    "family_learning": "family_learning"
+  },
+  "runs": {
+    "filter": {
+      "all": "Tous",
+      "scheduled": "Planifiés",
+      "reactive": "Réactifs",
+      "directed": "Dirigés",
+      "success": "Succès",
+      "failed": "Échoués"
+    },
+    "empty": "Aucune session d'auto-amélioration enregistrée pour le moment.",
+    "status": "Statut",
+    "trigger": "Déclencheur",
+    "timestamp": "Horodatage",
+    "duration": "Durée",
+    "uncleReviewed": "Examiné par Uncle",
+    "details": "Détails",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "Examiné",
+    "notReviewed": "Non",
+    "expand": "Développer",
+    "uncleFeedback": "Feedback d'Uncle Claude",
+    "changesMade": "Modifications effectuées",
+    "testResults": "Résultats des tests"
+  }
+}

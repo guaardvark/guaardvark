@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "Projektmanager",
+    "loadFailed": "Fehler beim Laden der Projektdaten.",
+    "empty": "Keine Projekte gefunden.",
+    "unnamed": "Unbenanntes Projekt",
+    "client": "Kunde: {{name}}"
+  },
+  "website": {
+    "title": "Webseitendaten",
+    "loadFailed": "Fehler beim Laden der Webseitendaten.",
+    "deleteConfirm": "Diese Website löschen?",
+    "empty": "Keine Webseiten gefunden.",
+    "unnamed": "Unbenannte Seite",
+    "details": "Projekt: {{project}} | Dokumente: {{docs}}",
+    "openUrl": "URL in neuem Tab öffnen",
+    "copyUrl": "URL kopieren"
+  },
+  "tasks": {
+    "title": "Aufgaben",
+    "unknownStatus": "Unbekannt",
+    "loadFailed": "Fehler beim Laden der Aufgaben.",
+    "nameAndTypeRequired": "Aufgabenname und -typ sind erforderlich.",
+    "created": "Aufgabe '{{name}}' erfolgreich erstellt!",
+    "createFailed": "Fehler beim Erstellen der Aufgabe: {{message}}",
+    "addTaskMenu": "Aufgabe hinzufügen…",
+    "addTaskButton": "+ Aufgabe hinzufügen",
+    "empty": "Keine Aufgaben gefunden.",
+    "unnamed": "Unbenannte Aufgabe",
+    "viewAll": "Alle Aufgaben anzeigen ({{count}})",
+    "addDialogTitle": "Neue Aufgabe hinzufügen",
+    "taskName": "Aufgabenname",
+    "taskType": "Aufgabentyp",
+    "output": "Ausgabe/Beschreibung",
+    "outputPlaceholder": "Optional: Beschreibe die erwartete Ausgabe oder zusätzliche Details...",
+    "creating": "Wird erstellt …",
+    "create": "Aufgabe erstellen"
+  },
+  "chat": {
+    "title": "Chat",
+    "csvDescription": "CSV-Datei basierend auf: \"{{excerpt}}\" erstellen",
+    "historyFailed": "Chatverlauf konnte nicht geladen werden",
+    "fileGenerated": "Datei \"{{filename}}\" erfolgreich erstellt! Du kannst sie im Ordner „Outputs“ herunterladen.",
+    "fileGenFailed": "Fehler bei der Dateigenerierung: {{message}}",
+    "notConnected": "Chat-Dienst nicht verbunden. Bitte warte und versuche es erneut.",
+    "sendFailed": "Fehler beim Senden der Nachricht",
+    "errorMessage": "Fehler: {{message}}",
+    "messageCount": "{{count}} Nachrichten",
+    "noMessages": "Keine Nachrichten",
+    "reloadHistory": "Verlauf neu laden",
+    "stopGenerating": "Generierung stoppen",
+    "roles": {
+      "user": "Du",
+      "system": "System",
+      "assistant": "Assistent"
+    },
+    "empty": "Noch keine Nachrichten. Beginne ein Gespräch!",
+    "placeholder": "Schreibe eine Nachricht..."
+  },
+  "clients": {
+    "title": "Kunden",
+    "loadFailed": "Fehler beim Laden der Kundendaten.",
+    "empty": "Keine Kunden gefunden.",
+    "unnamed": "Unbenannter Kunde",
+    "projectCount": "Projekte: {{count}}"
+  },
+  "csvgen": {
+    "title": "CSV-Generierung",
+    "newCsv": "Neue CSV",
+    "import": "Importieren",
+    "empty": "Noch keine CSV-Aufträge."
+  },
+  "codegen": {
+    "title": "Codegenerierung",
+    "newCode": "Neuer Code",
+    "debug": "Debug",
+    "empty": "Noch keine Codegenerierungs-Aufträge."
+  },
+  "imggen": {
+    "title": "Bildgenerierung",
+    "newImages": "Neue Bilder",
+    "batchMode": "Batch-Modus",
+    "empty": "Noch keine Bild-Batches.",
+    "viewAll": "Alle Batches anzeigen"
+  },
+  "files": {
+    "title": "Dateimanager"
+  },
+  "family": {
+    "title": "Familie & Selbstverbesserung",
+    "queuing": "Wird eingereiht...",
+    "runCheck": "Check ausführen",
+    "uncleOnline": "Uncle Online",
+    "uncleOffline": "Uncle Offline",
+    "siOn": "SI: An",
+    "siOff": "SI: Aus",
+    "locked": "Gesperrt",
+    "stages": {
+      "starting": "Wird gestartet …",
+      "testing": "Tests werden ausgeführt",
+      "analyzed": "Ergebnisse werden analysiert",
+      "fixing": "Fixes anwenden",
+      "complete": "Abgeschlossen",
+      "error": "Fehler"
+    },
+    "tokens": "Tokens: {{percent}}%",
+    "totalFixes": "Angezahlte Fixes: {{count}}",
+    "recentActivity": "Letzte Aktivität",
+    "noRuns": "Noch keine Selbstverbesserungs-Läufe",
+    "reviewed": "Überprüft"
+  },
+  "autoresearch": {
+    "title": "RAG Autoresearch",
+    "pauseRun": "Lauf pausieren",
+    "startRun": "Lauf starten",
+    "unavailable": "Autoresearch nicht verfügbar",
+    "running": "Läuft",
+    "paused": "Pausiert",
+    "idle": "Inaktiv",
+    "phase": "Phase {{phase}}",
+    "pauseOptimization": "Optimierung pausieren",
+    "startBounded": "Begrenzten Forschungsdurchlauf starten",
+    "healthChecksNotCounted": "{{count}} Testsuite-Healthchecks werden nicht mitgezählt",
+    "latestRun": "Letzter Lauf",
+    "testSuite": "Testsuite",
+    "selfReported": "{{status}} (selbst gemeldet)",
+    "noExperiments": "Noch keine Experimente. Klicke auf Play, um einen begrenzten Lauf zu starten."
+  },
+  "gpu": {
+    "title": "GPU-Speicher",
+    "tiers": {
+      "speed": "Geschwindigkeit",
+      "balanced": "Ausgewogen",
+      "quality": "Qualität"
+    },
+    "tierMenu": {
+      "speed": "Geschwindigkeitsstufe",
+      "balanced": "Ausgewogene Stufe",
+      "quality": "Qualitätsstufe"
+    },
+    "states": {
+      "loaded": "Geladen",
+      "loading": "Wird geladen …",
+      "unloading": "Entladen...",
+      "unloaded": "Inaktiv"
+    },
+    "unavailable": "GPU-Status nicht verfügbar",
+    "evict": "{{model}} auslagern",
+    "systemOther": "System/Sonstiges: {{size}} GB",
+    "qualityTier": "Qualitätsstufe",
+    "evictFromGpu": "Aus GPU entfernen",
+    "noModels": "Keine Modelle geladen"
+  },
+  "title": "Dashboard",
+  "layoutModes": {
+    "normal": "Normal",
+    "compact": "Kompakt",
+    "layered": "Kompakt gestapelt",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "Fehler beim Abrufen des Dashboard-Status: {{statusText}} (Status: {{status}})",
+  "loadStateFailed": "Fehler beim Laden des Dashboard-Status: {{message}}. Standardwerte werden verwendet.",
+  "saveStateFailed": "Fehler beim Speichern der Dashboard-Statusänderungen.",
+  "menu": {
+    "cycleLayout": "Layout wechseln (nächstes: {{mode}})",
+    "resetLayout": "Layout zurücksetzen…",
+    "noHiddenCards": "Keine ausgeblendeten Karten",
+    "showCard": "{{card}} anzeigen",
+    "showAllHidden": "Alle ausgeblendeten Karten anzeigen"
+  },
+  "stickyNotes": "Notizen",
+  "loadingDashboard": "Dashboard wird geladen...",
+  "dashboardCards": "Dashboard-Karten",
+  "layoutTooltip": "Layout: {{mode}} (zum Wechseln klicken)",
+  "missingCard": "Fehlende Karte: {{id}}",
+  "resetConfirm": {
+    "title": "Dashboard-Layout zurücksetzen?",
+    "description": "Jede Karte kehrt zu ihrer Standardposition und -größe zurück, die Farben werden gelöscht und ausgeblendete Karten werden wieder angezeigt.",
+    "keeps": "was die Karten anzeigen (Projekte, Aufgaben, Chats, Dateien)",
+    "confirm": "Layout zurücksetzen"
+  },
+  "cardWrapper": {
+    "openPage": "Seite öffnen",
+    "expand": "Ausklappen",
+    "minimize": "Minimieren",
+    "changeColour": "Farbe ändern…",
+    "resetColour": "Farbe zurücksetzen",
+    "hideCard": "Karte ausblenden",
+    "changeColor": "Kartenfarbe ändern"
+  },
+  "refreshData": "Daten aktualisieren",
+  "viewAllJobs": "Alle Aufträge anzeigen",
+  "edit": "Bearbeiten …",
+  "recentRuns": {
+    "status": {
+      "completed": "Abgeschlossen",
+      "running": "Läuft",
+      "queued": "In Warteschlange",
+      "pending": "Ausstehend",
+      "paused": "Pausiert",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "unknown": "Unbekannt"
+    },
+    "images": "{{done}}/{{total}} Bilder",
+    "jobNumber": "Auftrag {{id}}",
+    "loadFailed": "Letzte Durchläufe konnten nicht geladen werden: {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "Systemstatus konnte nicht abgerufen werden.",
+    "noData": "Keine Statusdaten zurückgegeben.",
+    "title": "Systemdiagnose",
+    "python": "Python: {{version}}",
+    "platform": "Plattform: {{platform}}",
+    "dbPath": "DB-Pfad: {{path}}",
+    "dbSize": "DB-Größe: {{size}} KB",
+    "documents": "Dokumente: {{count}}",
+    "models": "Modelle: {{count}}",
+    "indexStatus": "Index-Status: {{status}}",
+    "runSelfTest": "Selbsttest ausführen",
+    "rebuildIndex": "Index neu aufbauen",
+    "clearCache": "Cache leeren"
+  }
+}

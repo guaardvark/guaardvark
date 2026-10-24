@@ -1,0 +1,200 @@
+{
+  "common": {
+    "upload": "Subir",
+    "addFromFiles": "Añadir desde Archivos"
+  },
+  "stage": {
+    "queued": "En cola",
+    "gpuWait": "Esperando GPU",
+    "storyboard": "Storyboard",
+    "director": "Director",
+    "keyframe": "Keyframe",
+    "generate": "Generando",
+    "post": "Post-procesado",
+    "register": "Registrando",
+    "done": "Hecho"
+  },
+  "keyframeMatch": {
+    "atFrame": "en el frame {{frame}} de {{frames}}",
+    "label": "Keyframe {{percent}}%",
+    "tooltip": "Coincidencia del codificador de imagen entre el keyframe y el clip{{where}}. Reacciona a lo que cambia en la toma, no solo a sus colores{{hold}}.",
+    "holdBelow": "; por debajo del {{percent}}% el clip se mantiene para un aspecto"
+  },
+  "colourMatch": {
+    "label": "Color {{percent}}%",
+    "tooltip": "Coincidencia de color con el keyframe{{where}}. Compara solo colores, no quién está en la toma."
+  },
+  "vlmReview": {
+    "score": "QA {{score}}/10",
+    "noScore": "la revisión de visión no dio puntuación",
+    "notReviewed": "No revisado",
+    "notReviewedWhy": "No revisado: {{reason}}"
+  },
+  "latentPreview": {
+    "alt": "Vista previa latente en vivo",
+    "caption": "Vista previa latente en vivo — no es calidad final"
+  },
+  "qualityFlags": {
+    "unreadable": "Ilegible",
+    "blackFrames": "Frames en negro",
+    "blackTiles": "Mosaicos en negro",
+    "clippedHighlights": "Sobreexpuesto",
+    "crushedShadows": "Sombras aplastadas",
+    "washedOut": "Lavado",
+    "desaturated": "Sin color",
+    "oversaturated": "Sobresaturado",
+    "frozen": "Congelado",
+    "flashes": "Destellos",
+    "wrongSize": "Tamaño incorrecto",
+    "wrongFrameCount": "Duración incorrecta",
+    "colourDrift": "Deriva de color",
+    "keyframeDrift": "Deriva de fotograma clave",
+    "lowReviewScore": "Baja puntuación de revisión",
+    "review": "Revisión",
+    "count": "{{count}} indicadores de calidad"
+  },
+  "clipReview": {
+    "needsReview": "Requiere revisión",
+    "approved": "Aprobado",
+    "rerendered": "Re-renderizado",
+    "newBatch": "Nuevo lote {{batch}}",
+    "heldUntilApproved": "No se añade a Archivos hasta que lo apruebes.",
+    "held": "Retenido para revisión{{reasons}}.",
+    "reasons": ": {{reasons}}",
+    "approve": "Aprobar",
+    "rerenderTooltip": "Renderiza este clip de nuevo como un nuevo lote, mismos ajustes, nueva semilla",
+    "rerender": "Re-renderizar"
+  },
+  "cutQuality": {
+    "title": "Calidad de corte",
+    "held": "{{count}} retenidos para revisión; el video se ensambla una vez que cada uno es aprobado o re-renderizado",
+    "cut": "Corte #{{index}}",
+    "noProblems": "sin problemas encontrados",
+    "heldUntilApproved": "No se usa en el video hasta que lo apruebes."
+  },
+  "effective": {
+    "title": "Ajustes efectivos",
+    "steps": "{{count}} pasos",
+    "nativeAudio": "audio nativo",
+    "styleEmbedding": "estilo: {{style}}",
+    "frames": "{{count}} fotogramas",
+    "fps": "{{fps}} FPS",
+    "seconds": "~{{seconds}}s",
+    "keyframeModel": "Keyframe: {{model}}",
+    "director": "Director",
+    "faceRestore": "Restaurar rostro",
+    "interpolation": "{{multiplier}}x FPS",
+    "upscale": "Escalado 2x",
+    "promptStyle": "Estilo {{style}}",
+    "cast": "Reparto ×{{count}}"
+  },
+  "frameSlot": {
+    "drop": "Suelta el {{frame}} aquí",
+    "remove": "Eliminar el {{frame}}",
+    "choose": "Elegir el {{frame}}"
+  },
+  "progress": {
+    "state": {
+      "done": "Finalizado",
+      "active": "Ejecutando",
+      "queued": "Esperando GPU",
+      "waiting": "Esperando por ti",
+      "failed": "Fallido",
+      "cancelled": "Cancelado",
+      "pending": "No iniciado",
+      "skipped": "Omitido"
+    },
+    "etaMeasured": "~{{duration}} restante (medido)",
+    "etaEstimate": "~{{duration}} restante (estimado)",
+    "cell": {
+      "done": "finalizado",
+      "held": "retenido",
+      "failed": "fallido",
+      "rendering": "renderizando",
+      "cancelled": "cancelado",
+      "pending": "pendiente"
+    },
+    "clipOf": "Clip {{position}}/{{total}}",
+    "waitingForGpu": "esperando GPU",
+    "working": "Trabajando…",
+    "elapsed": "{{duration}} transcurrido",
+    "cutTooltip": "Corte #{{index}} · {{state}}{{locked}}",
+    "locked": "bloqueado",
+    "cutAria": "Corte {{index}} {{state}}"
+  },
+  "referenceBoard": {
+    "rows": {
+      "images": "Imágenes",
+      "videos": "Clips",
+      "audios": "Audio"
+    },
+    "roles": {
+      "keep": "Mantener exactamente",
+      "loose": "Mantener el estilo libremente",
+      "detail": "Tomar un detalle",
+      "hint": "Pista ligera",
+      "firstFrame": "Usar como primer fotograma",
+      "subject": "Mantener al sujeto",
+      "motion": "Copiar movimiento y cámara",
+      "edit": "Editar este clip",
+      "continue": "Continuar este clip",
+      "voice": "Voz para un personaje",
+      "music": "Usar como música",
+      "sound": "Coincidir con este sonido"
+    },
+    "problems": {
+      "needVisual": "Añade al menos una imagen o clip; el audio no puede ser la única referencia.",
+      "tooManyImages": "Las imágenes ocupan como máximo {{count}}.",
+      "tooManyVideos": "Los clips ocupan como máximo {{count}}.",
+      "tooManyAudios": "Los audios ocupan como máximo {{count}}.",
+      "tooManyFiles": "Como máximo {{count}} archivos en total.",
+      "clipTooShort": "El clip {{clip}} dura {{seconds}} s; los clips necesitan al menos {{shortest}} s.",
+      "tooManyPictures": "En esta tarjeta, un clip de {{seconds}} s a {{width}}x{{height}} con un clip de referencia admite como máximo {{count}} imágenes.",
+      "clipShareTooShort": "En esta tarjeta, un clip de {{seconds}} s a {{width}}x{{height}} deja {{share}} s de video de referencia por clip, por debajo de los {{shortest}} s que necesita un clip. Elige una duración más corta, un tamaño menor, o usa menos clips o imágenes."
+    },
+    "help": {
+      "images": "Personas, lugares, productos o una apariencia para conservar. Da a las imágenes de la misma persona el mismo nombre.",
+      "videos": "Un clip para que alguien se aleje de, copie el movimiento de, edite o continúe. De 2 a 15 segundos.",
+      "audios": "Una voz para un personaje, música para usar tal cual, o un sonido para combinar."
+    },
+    "rowNames": {
+      "images": "imágenes",
+      "videos": "clips",
+      "audios": "audio"
+    },
+    "insertTag": "Insertar en el prompt",
+    "useItTo": "Usarlo para",
+    "whoOrWhat": "¿Quién o qué es esto?",
+    "whoOrWhatExample": "ej. Maya, el coche rojo",
+    "optional": "opcional",
+    "whichDetail": "¿Qué detalle?",
+    "whichDetailExample": "ej. solo la chaqueta de cuero",
+    "whoseVoice": "¿Cuya voz?",
+    "forExample": "ej. {{name}}",
+    "whoseVoiceHint": "un nombre de las imágenes",
+    "notOnBoard": "No es un nombre en el tablero ({{names}})",
+    "sound": "Sonido",
+    "ownSound": "Su propio sonido",
+    "noSound": "Sin sonido",
+    "track": "Pista: {{file}}",
+    "separateTrack": "Una pista separada…",
+    "lengthUnknown": "Longitud desconocida",
+    "clipHasNoSound": "este clip no tiene sonido",
+    "itsSoundIs": "su sonido es {{tag}}",
+    "modelReadsFirst": "el modelo lee sus primeros {{seconds}} s",
+    "clipsNeedAtLeast": "Los clips necesitan al menos {{shortest}} s.",
+    "earlier": "Anterior (renumera las etiquetas)",
+    "moveEarlier": "Mover antes",
+    "later": "Después (renumera las etiquetas)",
+    "moveLater": "Mover después",
+    "remove": "Eliminar",
+    "removeReference": "Eliminar referencia",
+    "onlyThisRow": "Solo {{rows}} van en esta fila.",
+    "dropHere": "Soltar {{rows}} aquí",
+    "dropHereOr": "Soltar {{rows}} aquí, o",
+    "couldNotRead": "No se pudo leer {{file}}.",
+    "uploadFailed": "Error en la subida.",
+    "fileCount": "{{used}} de {{total}} archivos. Cada pista separada de un clip cuenta como uno.",
+    "chooseSoundtrack": "Elegir la banda sonora del clip"
+  }
+}

@@ -1,0 +1,131 @@
+{
+  "taskStatus": {
+    "pending": "Ausstehend",
+    "blocked": "Blockiert",
+    "queued": "In der Warteschlange",
+    "running": "Läuft",
+    "done": "Fertig",
+    "failed": "Fehlgeschlagen",
+    "needsReview": "Überprüfung erforderlich",
+    "merged": "Zusammengeführt",
+    "cancelled": "Abgebrochen",
+    "noChanges": "Keine Änderungen",
+    "timedOut": "Zeitüberschreitung"
+  },
+  "messages": {
+    "enterPlanPath": "Pfad zur Plan-Datei eingeben",
+    "launched": "Swarm gestartet: {{id}}",
+    "launchFailed": "Start fehlgeschlagen",
+    "noSwarmId": "Keine Swarm-ID",
+    "cancelled": "Abgebrochen",
+    "cancelFailed": "Abbrechen fehlgeschlagen",
+    "merged": "{{merged}} Branches zusammengeführt, {{conflicts}} Konflikte",
+    "mergeFailed": "Zusammenführung fehlgeschlagen",
+    "cleanedUp": "Bereinigt",
+    "cleanupFailed": "Bereinigung fehlgeschlagen",
+    "logsFailed": "Logs konnten nicht abgerufen werden",
+    "templateLoadFailed": "Vorlage konnte nicht geladen werden",
+    "filenameAndContentRequired": "Dateiname und Inhalt sind erforderlich",
+    "planSaved": "Plan in Vorlagen gespeichert",
+    "saveFailed": "Speichern fehlgeschlagen",
+    "enterGoal": "Gib ein, was du erreichen willst",
+    "planGenerated": "Plan wurde von der KI erstellt!",
+    "aiGenerationFailed": "KI-Generierung fehlgeschlagen"
+  },
+  "actions": {
+    "cancel": "Abbrechen",
+    "mergeAll": "Alle zusammenführen",
+    "cleanUp": "Bereinigen"
+  },
+  "menu": {
+    "collapse": "Einklappen",
+    "expand": "Ausklappen",
+    "copySwarmId": "Swarm-ID kopieren",
+    "viewLogs": "Logs anzeigen",
+    "viewDiff": "Diff anzeigen",
+    "copyBranchName": "Branch-Name kopieren",
+    "copyTaskId": "Task-ID kopieren",
+    "launch": "Starten…"
+  },
+  "title": "Swarm",
+  "header": {
+    "online": "Online",
+    "offline": "Offline",
+    "serviceOffline": "Dienst offline",
+    "refresh": "Aktualisieren",
+    "createPlan": "Neuen Plan erstellen",
+    "launchSwarm": "Swarm starten"
+  },
+  "sections": {
+    "activeSwarms": "Aktive Swarms",
+    "quickLaunchTemplates": "Schnellstart-Vorlagen",
+    "recentSwarms": "Letzte Swarms"
+  },
+  "taskCount": "{{count}} Aufgaben",
+  "flightMode": "Flugmodus",
+  "history": {
+    "freeLocal": "Frei (lokal)",
+    "cleanUp": "Aufräumen"
+  },
+  "empty": {
+    "title": "Keine Swarms aktiv",
+    "description": "Starte ein Swarm aus KI-Agenten, um an deiner Codebasis parallel zu arbeiten.",
+    "startPlugin": "Starte zuerst das Swarm-Plugin.",
+    "launchFirst": "Starte dein erstes Swarm"
+  },
+  "launchDialog": {
+    "title": "Swarm starten",
+    "template": "Vorlage (optional)",
+    "customPlanFile": "Benutzerdefinierte Plan-Datei",
+    "templateOption": "{{title}} ({{count}} Aufgaben)",
+    "planPath": "Pfad zur Plan-Datei",
+    "planPathPlaceholder": "path/to/plan.md oder oben eine Vorlage auswählen",
+    "planPathHelp": "Relativ zu GUAARDVARK_ROOT oder absoluter Pfad",
+    "maxAgents": "Max. gleichzeitige Agenten",
+    "autoMerge": "Auto-Merge",
+    "flightModeInfo": "Flugmodus: Nur Offline-Backends (Ollama). Konflikte werden automatisch serialisiert.",
+    "cancel": "Abbrechen",
+    "launchFlightMode": "Starten (Flugmodus)",
+    "launch": "Starten"
+  },
+  "editor": {
+    "title": "Swarm-Plan-Editor",
+    "aiHint": "Beschreibe deine Aufgabe und die KI erstellt die plan.md-Struktur für dich.",
+    "aiPlaceholder": "z. B. 'Refaktoriere alle API-Endpunkte, um das neue Response-Modell zu verwenden'",
+    "aiSuggest": "KI-Plan vorschlagen",
+    "filename": "Dateiname (z. B. migrate_api.md)",
+    "content": "Planinhalt (Markdown)",
+    "formatHint": "Format: Verwende <bold>## Task Name</bold> für jede Aufgabe. Füge <bold>Deps: [1]</bold> für Abhängigkeiten hinzu.",
+    "cancel": "Abbrechen",
+    "saveToTemplates": "In Vorlagen speichern"
+  },
+  "taskView": {
+    "loadingLogs": "Logs werden geladen...",
+    "noLogs": "(keine Logs)",
+    "noChanges": "(keine Änderungen im Worktree)",
+    "diffFailed": "Abgleich konnte nicht abgerufen werden",
+    "title": "Aufgabendetail: {{id}}",
+    "logsTab": "Logs",
+    "liveDiffTab": "Live-Abgleich",
+    "noOutputYet": "(noch keine Ausgabe)",
+    "fetchingDiff": "Worktree-Abgleich wird abgerufen...",
+    "refreshDiff": "Abgleich aktualisieren"
+  },
+  "swarmStatus": {
+    "failed": "Fehlgeschlagen",
+    "running": "Läuft",
+    "completed": "Abgeschlossen"
+  },
+  "card": {
+    "progress": "{{done}}/{{total}} Aufgaben",
+    "free": "Frei",
+    "activeAgents": "{{count}} aktiv",
+    "diskUsage": "{{size}} MB",
+    "dependencyGraph": "ABHÄNGIGKEITSGRAF",
+    "viewTaskDetail": "Aufgabendetail anzeigen"
+  },
+  "elapsed": {
+    "minutesSeconds": "{{minutes}}m {{seconds}}s",
+    "seconds": "{{seconds}}s"
+  }
+}

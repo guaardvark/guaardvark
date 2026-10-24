@@ -1,0 +1,25 @@
+{
+  "status": {
+    "processing": "Traitement...",
+    "complete": "Terminé",
+    "error": "Erreur",
+    "cancelled": "Annulé"
+  },
+  "gpu": {
+    "videoRendering": "Une vidéo est en cours de rendu",
+    "picturesRendering": "Des images sont en cours de rendu",
+    "pictureRendering": "Une image est en cours de rendu",
+    "pictureEditing": "Une image est en cours de modification",
+    "animationRendering": "Une animation est en cours de rendu",
+    "infographicRendering": "Une infographie est en cours de rendu",
+    "characterPicturesRendering": "Des images de personnages sont en cours de rendu",
+    "storyboardRendering": "Des images de storyboard sont en cours de rendu",
+    "filmCrewRendering": "Film Crew est en cours de rendu",
+    "musicVideoRendering": "Une vidéo musicale est en cours de rendu",
+    "songRendering": "Une chanson est en cours de rendu",
+    "modelTraining": "Un modèle est en cours d'entraînement",
+    "characterTraining": "Un personnage est en cours d'entraînement",
+    "generic": "Quelque chose utilise la carte graphique",
+    "coolingDown": "La carte graphique se libère après le dernier emploi ({{seconds}} s)"
+  }
+}

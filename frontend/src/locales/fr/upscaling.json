@@ -1,0 +1,109 @@
+{
+  "settings": {
+    "modelDefaultScale": "Modèle par défaut",
+    "model": "Modèle",
+    "manageModels": "Gérer les modèles de mise à l'échelle",
+    "install": "Installer",
+    "noModelInstallSized": "Aucun modèle de mise à l'échelle n'est installé. Installez {{model}} ({{size}} Mo) pour mettre à l'échelle ; la mise à l'échelle n'en télécharge jamais un automatiquement.",
+    "noModelInstall": "Aucun modèle de mise à l'échelle n'est installé. Installez {{model}} pour mettre à l'échelle ; la mise à l'échelle n'en télécharge jamais un automatiquement.",
+    "noModel": "Aucun modèle de mise à l'échelle n'est installé. Ajoutez-en un dans Gérer les modèles de mise à l'échelle pour mettre à l'échelle.",
+    "outputScale": "Échelle de sortie",
+    "targetResolution": "Résolution cible",
+    "twoPass": "Mode à deux passages",
+    "twoPassHelp": "Exécute le modèle deux fois pour une meilleure qualité (plus lent)",
+    "faceEnhance": "Amélioration des visages",
+    "faceEnhanceHelp": "Restaure les visages à l'aide de GFPGAN",
+    "doubleFps": "Doublement du framerate",
+    "doubleFpsHelp": "Interpole les images pour un mouvement plus fluide (plus lent)",
+    "sharpening": "Netteté",
+    "denoise": "Pré-passage de débruitage"
+  },
+  "service": {
+    "startRefused": "Le service de mise à l'échelle n'a pas démarré : {{reason}}",
+    "tryAgainShortly": "réessayer sous peu",
+    "startTimeout": "Le service de mise à l'échelle n'a pas répondu dans la minute. Son journal se trouve sur la page des Plugins.",
+    "startFailed": "Impossible de démarrer le service de mise à l'échelle : {{error}}",
+    "starting": "Démarrage...",
+    "startNow": "Démarrer maintenant",
+    "stoppedAutostart": "Le service de suréchantillonnage est arrêté. Il démarre automatiquement lorsque vous suréchantillonnez quelque chose, ou vous pouvez le démarrer maintenant.",
+    "switchedOff": "Le suréchantillonnage est désactivé sur la page des Plugins. Démarrez-le ici pour suréchantillonner.",
+    "stopped": "Le service de suréchantillonnage est arrêté. Démarrez-le pour suréchantillonner."
+  },
+  "errors": {
+    "unknown": "erreur inconnue",
+    "modelsLoadFailed": "Les modèles de suréchantillonnage n'ont pas pu être chargés : {{error}}.",
+    "requestFailed": "la requête a échoué",
+    "unsupportedSkipped": "{{count}} fichier(s) non supporté(s) ignoré(s). Autorisé(s) : {{allowed}}",
+    "failedReason": "échec",
+    "submitFailed": "Échec de la soumission : {{details}}",
+    "skipped": "Ignoré : {{details}}",
+    "imageFailed": "Échec du suréchantillonnage de l'image",
+    "cancelFailed": "Échec de l'annulation : {{error}}. Le travail peut toujours être en cours.",
+    "clearFailed": "Échec de la suppression des tâches terminées : {{error}}.",
+    "previewFailed": "Échec de l'aperçu : {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "Tâche de suréchantillonnage soumise pour \"{{name}}\"",
+    "jobsSubmitted": "{{submitted}} sur {{total}} tâches de suréchantillonnage soumises",
+    "imageUpscaled": "Image \"{{name}}\" suréchantillonnée",
+    "imagesQueued": "{{count}} image(s) mises en file d'attente pour le suréchantillonnage"
+  },
+  "gpu": {
+    "unknown": "Inconnu",
+    "title": "État du GPU",
+    "activeModel": "Modèle actif",
+    "none": "Aucun",
+    "enabled": "Activé",
+    "disabled": "Désactivé"
+  },
+  "submit": {
+    "upscaleImages": "Suréchantillonner {{count}} Image(s)",
+    "upscaleVideos": "Suréchantillonner {{count}} Vidéo(s)",
+    "upscaleImage": "Améliorer l'image",
+    "upscaleVideo": "Améliorer la vidéo",
+    "startingService": "Démarrage du service d'amélioration...",
+    "uploadingProgress": "Téléchargement de {{current}}/{{total}}...",
+    "uploading": "Téléchargement...",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "Amélioration",
+    "videoGen": "Gén. Vidéo"
+  },
+  "upload": {
+    "imagesTitle": "Télécharger les images",
+    "videoTitle": "Télécharger la vidéo",
+    "video": "Vidéo",
+    "image": "Image",
+    "dropImages": "Glisser-déposer les images ici, ou cliquer pour parcourir",
+    "dropVideos": "Glisser-déposer les vidéos ici, ou cliquer pour parcourir",
+    "filesReady_one": "{{count}} fichier prêt",
+    "filesReady_other": "{{count}} fichiers prêts",
+    "clearAll": "Tout effacer"
+  },
+  "result": {
+    "original": "Original",
+    "upscaled": "Amélioré",
+    "openFullSize": "Ouvrir en taille réelle",
+    "download": "Télécharger"
+  },
+  "preview": {
+    "title": "Aperçu de l'amélioration",
+    "hint": "Allez à une image et cliquez sur \"Générer l'aperçu\" pour voir l'image améliorée.",
+    "generating": "Génération...",
+    "generate": "Générer l'aperçu",
+    "originalFrame": "Image originale",
+    "upscaledFrame": "Image améliorée",
+    "backToVideo": "Retour à la vidéo"
+  },
+  "jobs": {
+    "title": "Tâches d'amélioration",
+    "clearFinishedCount": "Effacer les terminées ({{count}})",
+    "clearFinished": "Effacer les terminées",
+    "empty": "Aucune tâche d'amélioration pour le moment. Téléchargez une vidéo ou un lot d'images pour commencer.",
+    "imageProgress": "Image {{done}} / {{total}}",
+    "frameProgress": "Image {{done}} / {{total}}",
+    "play": "Lire",
+    "cancel": "Annuler"
+  }
+}

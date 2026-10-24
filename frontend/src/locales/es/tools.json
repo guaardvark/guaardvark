@@ -1,0 +1,56 @@
+{
+  "title": "Herramientas de agente",
+  "loadFailed": "Error al cargar las herramientas",
+  "copied": "Copiado al portapapeles",
+  "copyFailed": "No se pudo copiar al portapapeles",
+  "parameters": "Parámetros",
+  "copyName": "Copiar nombre de la herramienta",
+  "card": {
+    "test": "Probar"
+  },
+  "table": {
+    "name": "Nombre",
+    "category": "Categoría",
+    "description": "Descripción",
+    "params": "Paráms",
+    "actions": "Acciones",
+    "requiredList": "Requerido: {{params}}",
+    "optionalList": "Opcional: {{params}}",
+    "requiredCount": "{{count}} req",
+    "optionalCount": "{{count}} opt",
+    "noParams": "Ninguno",
+    "testTool": "Herramienta de prueba"
+  },
+  "noMatch": "No se encontraron herramientas que coincidan con \"{{query}}\"",
+  "tabs": {
+    "tools": "Herramientas ({{count}})",
+    "schemas": "Esquemas",
+    "categories": "Categorías"
+  },
+  "searchPlaceholder": "Buscar herramientas...",
+  "view": {
+    "label": "modo de vista",
+    "cardLabel": "vista de tarjeta",
+    "card": "Vista de tarjeta",
+    "listLabel": "vista de lista",
+    "list": "Vista de lista"
+  },
+  "loading": "Cargando herramientas...",
+  "schemas": {
+    "copyAll": "Copiar todo",
+    "loading": "Cargando esquemas..."
+  },
+  "menu": {
+    "test": "Probar…"
+  },
+  "test": {
+    "succeeded": "Herramienta ejecutada con éxito",
+    "executionFailed": "Error en la ejecución de la herramienta",
+    "title": "Probar herramienta: {{name}}",
+    "noApprovalWarning": "Ejecutar ejecuta esta herramienta en tiempo real, sin el paso de aprobación que el chat solicita primero.",
+    "requiredHelper": "Requerido. {{description}} ({{type}})",
+    "result": "Resultado",
+    "failed": "Ejecución fallida",
+    "execute": "Ejecutar"
+  }
+}

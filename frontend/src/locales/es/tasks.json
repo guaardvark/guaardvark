@@ -1,0 +1,106 @@
+{
+  "filter": {
+    "all": "Todo",
+    "active": "Activo",
+    "completed": "Completado",
+    "failed": "Fallido",
+    "project": "Proyecto: {{name}}",
+    "client": "Cliente: {{name}}",
+    "website": "Sitio web: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "No se pudieron cargar los proyectos: {{error}}",
+    "modelsFailed": "No se pudieron cargar los modelos: {{error}}",
+    "requestFailed": "la solicitud falló"
+  },
+  "video": {
+    "loadFailed": "Error al cargar tareas de lote de video",
+    "cancelled": "Tarea de lote de video cancelada",
+    "cancelRefused": "No se pudo cancelar la tarea de VideoGen",
+    "cancelFailed": "Cancelación fallida",
+    "title": "Tareas de lote de video",
+    "intro": "Lotes en cola y en ejecución del pipeline unificado VIDEO_GEN (Batch Video / Video Generator). Esta página (Job Scheduler) también gestiona tareas programadas heredadas para código, contenido, CSV, análisis y tareas personalizadas a través del menú New Job.",
+    "refresh": "Actualizar tareas de lote de video",
+    "empty": "No hay tareas de lote de video pendientes.",
+    "label": "Etiqueta",
+    "status": "Estado",
+    "progress": "Progreso",
+    "actions": "Acciones",
+    "cancel": "Cancelar"
+  },
+  "notFound": "La tarea {{id}} no fue encontrada",
+  "queue": {
+    "started": "Iniciado el procesamiento de la cola de tareas",
+    "failed": "Error al procesar la cola: {{error}}"
+  },
+  "created": "Tarea creada con éxito",
+  "updated": "Tarea actualizada con éxito",
+  "saveFailed": "Error al guardar la tarea: {{error}}",
+  "deleted": "Tarea eliminada con éxito",
+  "duplicatedWithId": "Tarea duplicada con éxito (ID: {{id}})",
+  "duplicated": "Tarea duplicada con éxito",
+  "duplicateFailed": "Error al duplicar tarea: {{error}}",
+  "delete": {
+    "title": "Eliminar esta tarea",
+    "description": "\"{{name}}\" ha sido eliminada.",
+    "thisTask": "esta tarea",
+    "confirm": "Eliminar tarea"
+  },
+  "deleteFailed": "Error al eliminar tarea: {{error}}",
+  "start": {
+    "invalid": "Datos de tarea no válidos",
+    "starting": "Iniciando tarea: {{name}}",
+    "unnamed": "Tarea sin nombre",
+    "failed": "Error al iniciar tarea: {{error}}",
+    "started": "Tarea \"{{name}}\" iniciada con éxito"
+  },
+  "clear": {
+    "none": "No hay tareas para borrar",
+    "title": "Eliminar todas las tareas",
+    "description": "Se eliminarán todas las tareas de esta lista.",
+    "tasksFact": "Tareas",
+    "confirm": "Eliminar todo",
+    "clearing": "Borrando todas las tareas...",
+    "done": "Se han eliminado {{count}} tareas",
+    "failed": "Error al borrar tareas: {{error}}"
+  },
+  "title": "Programador de Tareas",
+  "counts": {
+    "pending": "{{count}} Pendiente",
+    "queued": "{{count}} En cola",
+    "running": "{{count}} Ejecutando"
+  },
+  "runQueue_one": "Ejecutar {{count}} Tarea",
+  "runQueue_other": "Ejecutar {{count}} Tareas",
+  "clearAll": "Limpiar todo",
+  "newJob": "Nueva Tarea",
+  "newMenu": {
+    "code": "Generación de Código",
+    "csv": "CSV / Contenido Masivo",
+    "content": "Generación de Contenido",
+    "analysis": "Análisis de Datos",
+    "custom": "Tarea Personalizada"
+  },
+  "typeFilter": {
+    "label": "Tipo",
+    "all": "Todos los tipos",
+    "code": "Gen. de Código",
+    "csv": "CSV / Masivo",
+    "content": "Contenido",
+    "analysis": "Análisis"
+  },
+  "loading": "Cargando tareas...",
+  "emptyTitle": "No se encontraron tareas",
+  "emptyDescription": "Usa las acciones rápidas de arriba para crear tu primera tarea",
+  "menu": {
+    "start": "Iniciar",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "duplicate": "Duplicar",
+    "newCode": "Nueva generación de código",
+    "newCsv": "Nuevo CSV / Contenido masivo",
+    "newContent": "Nueva generación de contenido",
+    "newAnalysis": "Nuevo análisis de datos",
+    "newCustom": "Nueva tarea personalizada"
+  }
+}

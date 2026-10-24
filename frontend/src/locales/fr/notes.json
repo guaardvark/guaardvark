@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Normal",
+    "compact": "Compact",
+    "collapsed": "Réduit"
+  },
+  "untitled": "Sans titre",
+  "note": {
+    "changeColor": "Changer la couleur",
+    "close": "Fermer",
+    "closeNote": "Fermer la note",
+    "bold": "Gras (Ctrl+B)",
+    "italic": "Italique (Ctrl+I)",
+    "underline": "Souligné (Ctrl+U)",
+    "insertLink": "Insérer un lien",
+    "bodyPlaceholder": "Tapez votre note..."
+  },
+  "errors": {
+    "loadFailed": "Échec du chargement des notes : {{message}}. Utilisation des paramètres par défaut.",
+    "saveFailed": "Échec de l'enregistrement des notes.",
+    "copyDenied": "Impossible de copier : permission du presse-papiers refusée",
+    "pasteFailed": "Impossible de coller : {{message}}",
+    "pasteDenied": "Impossible de coller : permission du presse-papiers refusée"
+  },
+  "pageTitle": "Notes",
+  "loading": "Chargement des notes...",
+  "toolbar": {
+    "searchPlaceholder": "Rechercher des notes...",
+    "dashboardCards": "Cartes du Tableau de bord",
+    "stickyNotes": "Notes autocollantes",
+    "addNoteTooltip": "Ajouter une note",
+    "addNote": "Ajouter une note",
+    "closedNotes": "Notes fermées",
+    "layoutCycle": "Mise en page : {{mode}} (cliquez pour changer)",
+    "layoutMode": "Mise en page : {{mode}}",
+    "saving": "Enregistrement...",
+    "allSaved": "Toutes les modifications sont enregistrées",
+    "saveFailed": "Échec de l'enregistrement"
+  },
+  "emptyNote": "Note vide",
+  "menu": {
+    "copy": "Copier",
+    "selectAll": "Tout sélectionner",
+    "paste": "Coller",
+    "duplicate": "Dupliquer",
+    "rename": "Renommer",
+    "unpin": "Détromper",
+    "pinToTop": "Épingler en haut"
+  },
+  "actions": {
+    "delete": "Supprimer",
+    "cancel": "Annuler",
+    "save": "Enregistrer"
+  },
+  "deleteDialog": {
+    "title": "Supprimer \"{{title}}\" ? Ctrl+Z permet de la récupérer jusqu'à ce que vous quittiez ou rechargiez cette page."
+  },
+  "boardMenu": {
+    "newNote": "Nouvelle note",
+    "cycleLayout": "Changer de mise en page",
+    "goToDashboard": "Aller au Tableau de bord"
+  },
+  "renameDialog": {
+    "title": "Renommer la note",
+    "placeholder": "Titre de la note"
+  },
+  "linkDialog": {
+    "title": "Insérer un lien",
+    "url": "URL",
+    "insert": "Insérer"
+  },
+  "closed": {
+    "justNow": "À l'instant",
+    "minutesAgo": "il y a {{count}}m",
+    "hoursAgo": "il y a {{count}}h",
+    "yesterday": "Hier",
+    "daysAgo": "il y a {{count}}j",
+    "deleteNamed": "Supprimer {{title}}",
+    "heading": "Notes fermées",
+    "searchPlaceholder": "Rechercher des notes fermées...",
+    "empty": "Aucune note fermée",
+    "noMatches": "Aucun résultat",
+    "groups": {
+      "today": "Aujourd'hui",
+      "yesterday": "Hier",
+      "thisWeek": "Cette semaine",
+      "older": "Plus anciennes"
+    }
+  }
+}

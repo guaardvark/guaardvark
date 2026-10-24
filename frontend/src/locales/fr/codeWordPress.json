@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO : {{score}}",
+    "analytics": "Clics : {{clicks}} | Impressions : {{impressions}} | Position : {{position}}",
+    "notAvailable": "N/A"
+  },
+  "errors": {
+    "fetchFailed": "Échec de la récupération des pages",
+    "loadFailed": "Échec du chargement des pages",
+    "pullFailed": "Échec de la récupération des pages",
+    "processFailed": "Échec du traitement de la page",
+    "queueFailed": "Échec de la mise en file d'attente des pages",
+    "executeFailed": "Échec de l'exécution de la file d'attente",
+    "recommendationsFailed": "Échec de l'obtention des recommandations. Fonction bientôt disponible."
+  },
+  "feedback": {
+    "pulled": "Récupéré {{count}} pages",
+    "nonePending": "Aucune page en attente de traitement",
+    "queued": "Mis en file d'attente {{count}} pages pour traitement",
+    "processed": "Traitées {{succeeded}}/{{total}} pages"
+  },
+  "recommendations": {
+    "summary": "La fonctionnalité de recommandations IA analysera le contenu de la page et proposera des suggestions intelligentes pour des améliorations.",
+    "content": {
+      "title": "Amélioration du contenu",
+      "description": "Analyser le contenu pour l'optimisation SEO, l'amélioration de la lisibilité et l'accroissement de l'engagement."
+    },
+    "seo": {
+      "title": "Optimisation SEO",
+      "description": "Examiner les balises méta, la structure des titres et les opportunités d'optimisation des mots-clés."
+    },
+    "structure": {
+      "title": "Structure du contenu",
+      "description": "Évaluer l'organisation du contenu et suggérer des améliorations pour une meilleure expérience utilisateur."
+    },
+    "priority": {
+      "high": "élevé",
+      "medium": "moyen",
+      "low": "faible"
+    },
+    "title": "Recommandations IA",
+    "none": "Aucune recommandation spécifique disponible pour le moment.",
+    "loading": "Chargement des recommandations...",
+    "processNow": "Traiter maintenant"
+  },
+  "title": "Pages WordPress",
+  "actions": {
+    "pull": "Extraire",
+    "queue": "File d'attente ({{count}})",
+    "process": "Traiter",
+    "close": "Fermer",
+    "cancel": "Annuler"
+  },
+  "site": "Site WordPress",
+  "filters": {
+    "pull": "Extraire",
+    "all": "Tous",
+    "pulled": "Extraits",
+    "pending": "En attente",
+    "error": "Erreur",
+    "process": "Traiter",
+    "processing": "Traitement",
+    "completed": "Terminé",
+    "approved": "Approuvé"
+  },
+  "stats": {
+    "total": "Total : {{total}}",
+    "pending": "En attente : {{pending}}",
+    "completed": "Terminé : {{completed}}"
+  },
+  "empty": {
+    "noPages": "Aucune page trouvée. Extrayez des pages pour commencer.",
+    "selectSite": "Sélectionnez un site WordPress pour voir les pages"
+  },
+  "table": {
+    "title": "Titre",
+    "type": "Type",
+    "seo": "SEO",
+    "ai": "IA"
+  },
+  "untitled": "Sans titre",
+  "tooltips": {
+    "getRecommendations": "Cliquez pour les recommandations IA",
+    "hasImprovements": "Améliorations disponibles",
+    "noImprovements": "Aucune amélioration"
+  },
+  "pullDialog": {
+    "title": "Extraire les pages de WordPress",
+    "postType": "Type de contenu",
+    "posts": "Articles",
+    "pages": "Pages",
+    "maxPages": "Max Pages (Optionnel)",
+    "maxPagesHelper": "Laissez vide pour extraire toutes les pages",
+    "pulling": "Extraction...",
+    "submit": "Extraire les pages"
+  }
+}

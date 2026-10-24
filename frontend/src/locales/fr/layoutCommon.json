@@ -1,0 +1,227 @@
+{
+  "addressAutocomplete": {
+    "label": "Adresse"
+  },
+  "apiKeyRefusal": {
+    "settingsLink": "Paramètres → Accès"
+  },
+  "backendOffline": {
+    "message": "Backend hors ligne — réessai en cours… Lancez <code>guaardvark</code> dans un terminal, ou <code>./start.sh</code> pour la pile complète."
+  },
+  "changedElsewhere": {
+    "keepMine": "Conserver la mienne",
+    "message": "{{names}} a été modifié ailleurs pendant votre édition. Rechargez pour prendre la version enregistrée, ou conservez votre modification et écrivez-la par-dessus."
+  },
+  "didYouKnow": {
+    "regionLabel": "Saviez-vous",
+    "title": "Saviez-vous ?",
+    "closeTip": "Fermer l'astuce",
+    "showMe": "Montrer",
+    "nextTip": "Astuce suivante",
+    "stopTips": "Ne plus afficher d'astuces"
+  },
+  "directoryPicker": {
+    "title": "Sélectionner le répertoire",
+    "loadFailed": "Échec du chargement du dossier",
+    "notFoundShowingHome": "{{path}} n'a pas été trouvé ; affichage de votre dossier personnel.",
+    "notFoundShowing": "{{path}} n'a pas été trouvé ; affichage de {{fallback}}.",
+    "folderNotFound": "Dossier non trouvé",
+    "root": "Racine",
+    "hideRecent": "Masquer les récents",
+    "showRecent": "Chemins récents",
+    "recentPaths": "Chemins récents",
+    "goHome": "Aller au dossier personnel",
+    "homeFolder": "Dossier personnel",
+    "path": "Chemin",
+    "openPathFirst": "Appuyez sur Entrée ou Allez pour ouvrir ce chemin avant de le sélectionner.",
+    "parentFolder": "Dossier parent",
+    "go": "Aller",
+    "searchPlaceholder": "Rechercher dans le répertoire actuel...",
+    "showFiles": "Afficher les fichiers",
+    "browse": "Parcourir",
+    "hiddenFolders": "Les dossiers cachés ne sont pas affichés.",
+    "noMatches": "Aucun élément correspondant trouvé.",
+    "emptyFolder": "Ce dossier est vide.",
+    "noSubdirectories": "Aucun sous-répertoire trouvé. Vous pouvez sélectionner ce répertoire.",
+    "itemCount": "{{count}} élément(s)",
+    "folderCount_one": "{{count}} dossier",
+    "folderCount_other": "{{count}} dossiers",
+    "fileCount_one": "{{count}} fichier",
+    "fileCount_other": "{{count}} fichiers",
+    "foldersAndFiles": "{{folders}}, {{files}}",
+    "summaryMatching": "{{summary}} correspondant à \"{{query}}\"",
+    "summaryPickable": "{{summary}} · {{extensions}} fichiers peuvent être sélectionnés",
+    "chooseFile": "Choisir un fichier",
+    "selectNamed": "Sélectionner : {{name}}"
+  },
+  "errorBoundary": {
+    "updatedTitle": "Guaardvark a été mis à jour",
+    "errorTitle": "Une erreur est survenue",
+    "updatedBody": "Le code de cette page a changé pendant qu'elle était ouverte. Rechargez pour charger la nouvelle version.",
+    "errorBody": "L'application a rencontré une erreur inattendue. Cela a été enregistré pour investigation.",
+    "reloadPage": "Recharger la page",
+    "tryAgain": "Réessayer",
+    "detailsHeading": "Détails de l'erreur (Mode développement uniquement)"
+  },
+  "errorDisplay": {
+    "unexpectedError": "Une erreur inattendue est survenue",
+    "genericError": "Une erreur est survenue",
+    "friendly": {
+      "network": "Impossible de se connecter au serveur. Veuillez vérifier votre connexion Internet.",
+      "timeout": "La requête a pris trop de temps. Veuillez réessayer.",
+      "unauthorized": "Authentification requise. Veuillez vous connecter.",
+      "forbidden": "Vous n'avez pas la permission d'effectuer cette action.",
+      "notFound": "La ressource demandée n'a pas été trouvée.",
+      "serverError": "Erreur serveur. Veuillez réessayer plus tard.",
+      "unavailable": "Service temporairement indisponible. Veuillez réessayer plus tard."
+    },
+    "toggleDetails": "basculer les détails",
+    "report": "Signaler",
+    "closeError": "fermer l'erreur",
+    "severity": {
+      "warning": "Avertissement",
+      "info": "Information"
+    },
+    "errorDetails": "Détails de l'erreur",
+    "code": "<bold>Code :</bold> {{code}}",
+    "time": "<bold>Heure :</bold> {{time}}",
+    "technicalDetails": "Détails techniques",
+    "cardTitle": "Un problème est survenu",
+    "cardDescription": "Une erreur inattendue est survenue. Veuillez essayer de rafraîchir la page.",
+    "tryAgain": "Réessayer",
+    "refreshPage": "Actualiser la page"
+  },
+  "errorProvider": {
+    "detailsTitle": "Détails de l'erreur"
+  },
+  "gpuGate": {
+    "queued": "{{reason}}. Les nouveaux emplois attendent en file et démarrent automatiquement dès que la carte graphique est libre.",
+    "blocked": "{{reason}}. Les boutons se déverrouillent quand la carte graphique est libre.",
+    "job": "Emploi : {{detail}}"
+  },
+  "shortcuts": {
+    "groups": {
+      "global": "Global",
+      "chat": "Chat",
+      "codeEditor": "Éditeur de code",
+      "systemMap": "Carte système",
+      "videoEditor": "Éditeur vidéo"
+    },
+    "keys": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "space": "Espace",
+      "enter": "Entrée",
+      "esc": "Esc",
+      "delete": "Supprimer"
+    },
+    "showShortcuts": "Afficher cette référence des raccourcis clavier",
+    "toggleFloatingChat": "Basculer le panneau de chat flottant",
+    "voiceMic": "Voix : appuyez pour démarrer ou arrêter le micro, maintenez pour parler",
+    "sendMessage": "Envoyer le message",
+    "newline": "Insérer un saut de ligne",
+    "previousMessage": "Rappeler le message précédent",
+    "nextMessage": "Rappeler le message suivant",
+    "saveFile": "Enregistrer le fichier",
+    "saveSession": "Enregistrer la session maintenant : onglets et chat",
+    "findSymbol": "Trouver une fonction ou classe et y accéder",
+    "jumpToPanel": "Aller vers Fichiers, Éditeur, Chat, Recherche, Sortie",
+    "explainSelection": "Expliquer le code sélectionné dans le chat",
+    "focusSearch": "Focaliser la recherche",
+    "resetView": "Réinitialiser la vue",
+    "clearSearch": "Effacer la recherche / sélection",
+    "playPause": "Lecture / pause de l'aperçu",
+    "undo": "Annuler la dernière modification de la timeline",
+    "removeOverlay": "Supprimer l'incrustation de texte sélectionnée",
+    "title": "Raccourcis clavier",
+    "close": "Fermer les raccourcis"
+  },
+  "loading": {
+    "remaining": "Il reste environ {{seconds}}s",
+    "processing": "Traitement en cours...",
+    "connected": "Connecté",
+    "offline": "Hors ligne",
+    "online": "En ligne",
+    "offlineTitle": "Vous êtes hors ligne",
+    "offlineBody": "Certaines fonctionnalités peuvent ne pas être disponibles. Vérifiez votre connexion.",
+    "success": "Succès !",
+    "processFailed": "Échec du processus",
+    "failed": "Échec",
+    "step": "Étape {{current}} sur {{total}}"
+  },
+  "mediaPicker": {
+    "listFailed": "Impossible de lister la bibliothèque.",
+    "uploadFailed": "Échec du téléchargement.",
+    "kinds": {
+      "image": {
+        "choose": "Choisir des images",
+        "onlyHere": "Seules les images vont ici ; les autres fichiers ont été ajoutés aux Fichiers.",
+        "empty": "Aucune image dans Fichiers pour le moment. Téléchargez-en une ou générez-en une dans le Studio.",
+        "emptyFiltered": "Aucune image dans Fichiers ne correspond à ce nom. Téléchargez-en une ou générez-en une dans le Studio."
+      },
+      "video": {
+        "choose": "Choisir des clips",
+        "onlyHere": "Seuls les clips vont ici ; les autres fichiers ont été ajoutés aux Fichiers.",
+        "empty": "Aucun clip dans Fichiers pour le moment. Téléchargez-en un ou générez-en un dans le Studio.",
+        "emptyFiltered": "Aucun clip dans Fichiers ne correspond à ce nom. Téléchargez-en un ou générez-en un dans le Studio."
+      },
+      "audio": {
+        "choose": "Choisir des fichiers audio",
+        "onlyHere": "Seuls les fichiers audio vont ici ; les autres fichiers ont été ajoutés à Fichiers.",
+        "empty": "Aucun fichier audio dans Fichiers. Téléchargez-en un ou générez-en un dans le Studio.",
+        "emptyFiltered": "Aucun fichier audio dans Fichiers ne correspond à ce nom. Téléchargez-en un ou générez-en un dans le Studio."
+      }
+    },
+    "filterPlaceholder": "Filtrer par nom",
+    "uploadFromDisk": "Télécharger depuis le disque",
+    "upToMore": "Jusqu'à {{count}} de plus.",
+    "pickOne": "En choisir un.",
+    "useCount": "Utiliser {{count}}",
+    "use": "Utiliser"
+  },
+  "narrate": {
+    "failed": "Échec de la narration",
+    "fast": "Rapide",
+    "expressive": "Expressif",
+    "download": "Télécharger la narration",
+    "summary_one": "{{seconds}}s · {{count}} section",
+    "summary_other": "{{seconds}}s · {{count}} sections",
+    "generatingSlow": "Génération (lent)...",
+    "narrating": "Narration en cours...",
+    "narrate": "Narrer",
+    "expressiveGenerating": "Génération TTS expressif (10-30s)...",
+    "generating": "Génération de la narration...",
+    "narrateText": "Narrer ce texte"
+  },
+  "projectState": {
+    "title": "Erreur d'état du projet",
+    "intro": "Une erreur est survenue lors de la gestion de l'état du projet. Cela peut être dû à :",
+    "causes": {
+      "network": "Problèmes de connectivité réseau",
+      "sync": "Problèmes de synchronisation des données",
+      "relationships": "Relations de projet invalides",
+      "corruption": "Corruption d'état"
+    },
+    "errorMessage": "Erreur : {{message}}",
+    "unknownError": "Erreur inconnue"
+  },
+  "sevenDayPicker": {
+    "time": "Heure"
+  },
+  "updateNotice": {
+    "gpuFaultAt": "Le GPU a cessé de répondre à {{time}}. La génération d'images échoue jusqu'au redémarrage de Guaardvark.",
+    "gpuFault": "Le GPU a cessé de répondre. La génération d'images échoue jusqu'au redémarrage de Guaardvark.",
+    "restartWithReason": "Guaardvark a été mis à jour. Redémarrez-le pour terminer ({{reason}}).",
+    "restart": "Guaardvark a été mis à jour. Redémarrez-le pour terminer.",
+    "restarted": "Guaardvark redémarré. Rechargez cette page pour utiliser la nouvelle version.",
+    "reloadFiles_one": "Guaardvark a été mis à jour ({{count}} fichier). Rechargez cette page pour utiliser la nouvelle version.",
+    "reloadFiles_other": "Guaardvark a été mis à jour ({{count}} fichiers). Rechargez cette page pour utiliser la nouvelle version.",
+    "reload": "Guaardvark a été mis à jour. Rechargez cette page pour utiliser la nouvelle version.",
+    "restartButton": "Redémarrer",
+    "confirmTitle": "Redémarrer Guaardvark",
+    "confirmGpu": "Redémarre le backend, les workers et ComfyUI pour que le GPU puisse être utilisé à nouveau. Chaque génération, tâche d'indexation et réponse de chat en cours est perdue, et cette page sera déconnectée jusqu'au retour des services.",
+    "confirmUpdate": "Redémarre le backend, les workers et ComfyUI pour que la mise à jour prenne effet. Chaque génération, tâche d'indexation et réponse de chat en cours est perdue, et cette page sera déconnectée jusqu'au retour des services.",
+    "keeps": "documents, chats, médias, règles et paramètres.",
+    "restartNow": "Redémarrer maintenant"
+  }
+}

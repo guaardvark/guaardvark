@@ -1,0 +1,74 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "Services",
+    "utils": "Utils",
+    "tools": "Outils",
+    "tasks": "Tâches",
+    "frontend": "Frontend",
+    "plugins": "Plugins",
+    "clear": "effacer"
+  },
+  "errors": {
+    "snapshotFailed": "Échec du snapshot"
+  },
+  "dispatch": {
+    "queued": "Envoyé à l'agent d'auto-amélioration — en cours en arrière-plan.",
+    "proposed": "Envoyé à l'agent d'auto-amélioration — examinez la correction proposée dans Paramètres.",
+    "notRun": "Envoi non exécuté — {{reason}}",
+    "notRunNoReason": "Envoi non exécuté — aucune raison donnée",
+    "failed": "Échec de l'envoi : {{error}}"
+  },
+  "title": "Carte système",
+  "stats": "{{modules}} modules · {{edges}} arêtes",
+  "severity": {
+    "critical": "{{count}} critique",
+    "medium": "{{count}} moyen",
+    "hygiene": "{{count}} hygiène"
+  },
+  "searchPlaceholder": "Rechercher ( / )",
+  "resetView": "Réinitialiser la vue (R)",
+  "refresh": {
+    "cached": "Mis en cache il y a {{seconds}}s — cliquez pour recalculer",
+    "computed": "Calculé il y a {{seconds}}s"
+  },
+  "overlays": {
+    "ghostEndpoints": "Points de terminaison fantômes",
+    "ghostEndpointsCount": "Points de terminaison fantômes ({{count}})",
+    "toolGraph": "Graphique des outils",
+    "toolGraphCount": "Graphique des outils ({{count}})"
+  },
+  "controlsHint": "glisser · déplacer | molette · zoomer | / · rechercher | r · réinitialiser | cliquer sur les puces · mettre en évidence les sections",
+  "detail": {
+    "hovered": "Survolé",
+    "selected": "Sélectionné",
+    "importers_one": "{{count}} importateur",
+    "importers_other": "{{count}} importateurs",
+    "findings": "Résultats ({{count}})",
+    "moreFindings": "… et {{count}} autres",
+    "escToClear": "Appuyez sur <code>Esc</code> pour effacer"
+  },
+  "loading": "Cartographie du système…",
+  "panel": {
+    "findings": "Résultats",
+    "activity": "Activité"
+  },
+  "findings": {
+    "actionable": "Actionnable",
+    "critical": "Critique",
+    "all": "Tous",
+    "intro": "Résultats classés · cliquez pour localiser · envoyer pour corriger",
+    "empty": "Aucun résultat à ce niveau de gravité. 🎉",
+    "dispatch": "Envoyer à l'agent d'auto-amélioration pour proposer une correction",
+    "dismiss": "Ignorer — accuser réception et masquer ce résultat"
+  },
+  "activity": {
+    "title": "Activité en direct",
+    "intro": "Les appels d'outils transitant par le chat apparaissent ici. Les modules correspondants s'animent dans la constellation.",
+    "empty": "Inactif. Posez une question à l'agent pour lancer l'activité.",
+    "now": "maintenant",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

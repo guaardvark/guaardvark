@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Normal",
+    "compact": "Kompakt",
+    "collapsed": "Eingeklappt"
+  },
+  "untitled": "Unbenannt",
+  "note": {
+    "changeColor": "Farbe ändern",
+    "close": "Schließen",
+    "closeNote": "Notiz schließen",
+    "bold": "Fett (Strg+B)",
+    "italic": "Kursiv (Strg+I)",
+    "underline": "Unterstrichen (Strg+U)",
+    "insertLink": "Link einfügen",
+    "bodyPlaceholder": "Notiz schreiben..."
+  },
+  "errors": {
+    "loadFailed": "Notizen konnten nicht geladen werden: {{message}}. Standardwerte werden verwendet.",
+    "saveFailed": "Speichern der Notizen fehlgeschlagen.",
+    "copyDenied": "Kopieren nicht möglich: Zwischenablage-Berechtigung verweigert",
+    "pasteFailed": "Einfügen nicht möglich: {{message}}",
+    "pasteDenied": "Einfügen nicht möglich: Zwischenablage-Berechtigung verweigert"
+  },
+  "pageTitle": "Notizen",
+  "loading": "Notizen werden geladen...",
+  "toolbar": {
+    "searchPlaceholder": "Notizen suchen...",
+    "dashboardCards": "Dashboard-Karten",
+    "stickyNotes": "Notizzettel",
+    "addNoteTooltip": "Notiz hinzufügen",
+    "addNote": "Notiz hinzufügen",
+    "closedNotes": "Geschlossene Notizen",
+    "layoutCycle": "Layout: {{mode}} (klicken zum Wechseln)",
+    "layoutMode": "Layout: {{mode}}",
+    "saving": "Wird gespeichert …",
+    "allSaved": "Alle Änderungen gespeichert",
+    "saveFailed": "Speichern fehlgeschlagen"
+  },
+  "emptyNote": "Leere Notiz",
+  "menu": {
+    "copy": "Kopieren",
+    "selectAll": "Alles auswählen",
+    "paste": "Einfügen",
+    "duplicate": "Duplizieren",
+    "rename": "Umbenennen",
+    "unpin": "Entpinnen",
+    "pinToTop": "Oben anheften"
+  },
+  "actions": {
+    "delete": "Löschen",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  },
+  "deleteDialog": {
+    "title": "„{{title}}“ löschen? Strg+Z stellt es wieder her, bis du die Seite verlässt oder neu lädst."
+  },
+  "boardMenu": {
+    "newNote": "Neue Notiz",
+    "cycleLayout": "Layout wechseln",
+    "goToDashboard": "Zum Systemdashboard"
+  },
+  "renameDialog": {
+    "title": "Notiz umbenennen",
+    "placeholder": "Notiztitel"
+  },
+  "linkDialog": {
+    "title": "Link einfügen",
+    "url": "URL",
+    "insert": "Einfügen"
+  },
+  "closed": {
+    "justNow": "Gerade eben",
+    "minutesAgo": "vor {{count}} Minute",
+    "hoursAgo": "vor {{count}} Stunde",
+    "yesterday": "Gestern",
+    "daysAgo": "vor {{count}} Tag",
+    "deleteNamed": "{{title}} löschen",
+    "heading": "Geschlossene Notizen",
+    "searchPlaceholder": "Geschlossene Notizen suchen...",
+    "empty": "Keine geschlossenen Notizen",
+    "noMatches": "Keine Treffer",
+    "groups": {
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "thisWeek": "Diese Woche",
+      "older": "Älter"
+    }
+  }
+}

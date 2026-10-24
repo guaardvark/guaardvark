@@ -1,0 +1,200 @@
+{
+  "common": {
+    "upload": "Hochladen",
+    "addFromFiles": "Aus Dateien hinzufügen"
+  },
+  "stage": {
+    "queued": "In Warteschlange",
+    "gpuWait": "Warten auf GPU",
+    "storyboard": "Storyboard",
+    "director": "Regie",
+    "keyframe": "Keyframe",
+    "generate": "Generierung",
+    "post": "Nachbearbeitung",
+    "register": "Registrierung",
+    "done": "Fertig"
+  },
+  "keyframeMatch": {
+    "atFrame": "bei Frame {{frame}} von {{frames}}",
+    "label": "Keyframe {{percent}}%",
+    "tooltip": "Bild-Encoder-Abgleich zwischen dem Keyframe und dem Clip{{where}}. Reagiert auf Änderungen im Bildinhalt, nicht nur auf die Farben{{hold}}.",
+    "holdBelow": "; unter {{percent}}% wird der Clip für einen Look gehalten"
+  },
+  "colourMatch": {
+    "label": "Farbe {{percent}}%",
+    "tooltip": "Farbabgleich mit dem Keyframe{{where}}. Vergleicht nur Farben, nicht die Personen im Bild."
+  },
+  "vlmReview": {
+    "score": "QA {{score}}/10",
+    "noScore": "die Vision-Prüfung ergab keine Bewertung",
+    "notReviewed": "Nicht geprüft",
+    "notReviewedWhy": "Nicht geprüft: {{reason}}"
+  },
+  "latentPreview": {
+    "alt": "Live-Latent-Vorschau",
+    "caption": "Live-Latent-Vorschau – keine finale Qualität"
+  },
+  "qualityFlags": {
+    "unreadable": "Unleserlich",
+    "blackFrames": "Schwarze Frames",
+    "blackTiles": "Schwarze Kacheln",
+    "clippedHighlights": "Überstrahlt",
+    "crushedShadows": "Zusammengebrochene Schatten",
+    "washedOut": "Ausgewaschen",
+    "desaturated": "Keine Farbe",
+    "oversaturated": "Übergesättigt",
+    "frozen": "Eingefroren",
+    "flashes": "Blitzen",
+    "wrongSize": "Falsche Größe",
+    "wrongFrameCount": "Falsche Länge",
+    "colourDrift": "Farbdrift",
+    "keyframeDrift": "Keyframe-Drift",
+    "lowReviewScore": "Niedrige Bewertung",
+    "review": "Überprüfung",
+    "count": "{{count}} Qualitätsflags"
+  },
+  "clipReview": {
+    "needsReview": "Überprüfung erforderlich",
+    "approved": "Freigegeben",
+    "rerendered": "Neu gerendert",
+    "newBatch": "Neue Batch {{batch}}",
+    "heldUntilApproved": "Es wird erst zu den Dateien hinzugefügt, wenn du es freigibst.",
+    "held": "Zur Überprüfung zurückgehalten{{reasons}}.",
+    "reasons": ": {{reasons}}",
+    "approve": "Freigeben",
+    "rerenderTooltip": "Render diesen Clip erneut als neue Batch, gleiche Einstellungen, neuer Seed",
+    "rerender": "Neu rendern"
+  },
+  "cutQuality": {
+    "title": "Schnittqualität",
+    "held": "{{count}} zur Überprüfung zurückgehalten; das Video wird zusammengesetzt, sobald jedes freigegeben oder neu gerendert wurde",
+    "cut": "Schnitt Nr. {{index}}",
+    "noProblems": "keine Probleme gefunden",
+    "heldUntilApproved": "Es wird erst im Video verwendet, wenn du es freigibst."
+  },
+  "effective": {
+    "title": "Effektive Einstellungen",
+    "steps": "{{count}} Schritte",
+    "nativeAudio": "natives Audio",
+    "styleEmbedding": "Stil: {{style}}",
+    "frames": "{{count}} Frames",
+    "fps": "{{fps}} FPS",
+    "seconds": "~{{seconds}}s",
+    "keyframeModel": "Keyframe: {{model}}",
+    "director": "Regisseur",
+    "faceRestore": "Gesichtwiederherstellung",
+    "interpolation": "{{multiplier}}x FPS",
+    "upscale": "2x Hochskalierung",
+    "promptStyle": "{{style}} Stil",
+    "cast": "Cast ×{{count}}"
+  },
+  "frameSlot": {
+    "drop": "Ziehe das {{frame}} hierher",
+    "remove": "Entferne das {{frame}}",
+    "choose": "Wähle das {{frame}}"
+  },
+  "progress": {
+    "state": {
+      "done": "Fertig",
+      "active": "Läuft",
+      "queued": "Wartet auf GPU",
+      "waiting": "Wartet auf dich",
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen",
+      "pending": "Nicht gestartet",
+      "skipped": "Übersprungen"
+    },
+    "etaMeasured": "~{{duration}} verbleibend (gemessen)",
+    "etaEstimate": "~{{duration}} verbleibend (geschätzt)",
+    "cell": {
+      "done": "fertig",
+      "held": "gehalten",
+      "failed": "fehlgeschlagen",
+      "rendering": "wird gerendert",
+      "cancelled": "abgebrochen",
+      "pending": "ausstehend"
+    },
+    "clipOf": "Clip {{position}}/{{total}}",
+    "waitingForGpu": "wartet auf GPU",
+    "working": "Arbeite …",
+    "elapsed": "{{duration}} vergangen",
+    "cutTooltip": "Schnitt #{{index}} · {{state}}{{locked}}",
+    "locked": "gesperrt",
+    "cutAria": "Schnitt {{index}} {{state}}"
+  },
+  "referenceBoard": {
+    "rows": {
+      "images": "Bilder",
+      "videos": "Clips",
+      "audios": "Audio"
+    },
+    "roles": {
+      "keep": "Exakt beibehalten",
+      "loose": "Look locker beibehalten",
+      "detail": "Ein Detail übernehmen",
+      "hint": "Leichter Hinweis",
+      "firstFrame": "Als erstes Frame verwenden",
+      "subject": "Behalte die Person bei",
+      "motion": "Kopiere Bewegung und Kamera",
+      "edit": "Diesen Clip bearbeiten",
+      "continue": "Diesen Clip fortsetzen",
+      "voice": "Sprache für einen Charakter",
+      "music": "Als Musik verwenden",
+      "sound": "Diesen Sound anpassen"
+    },
+    "problems": {
+      "needVisual": "Füge mindestens ein Bild oder einen Clip hinzu; Audio darf nicht die einzige Referenz sein.",
+      "tooManyImages": "Bilder sind maximal {{count}} erlaubt.",
+      "tooManyVideos": "Clips sind maximal {{count}} erlaubt.",
+      "tooManyAudios": "Audios sind maximal {{count}} erlaubt.",
+      "tooManyFiles": "Insgesamt maximal {{count}} Dateien.",
+      "clipTooShort": "Clip {{clip}} ist {{seconds}} s lang; Clips benötigen mindestens {{shortest}} s.",
+      "tooManyPictures": "Auf dieser Karte erlaubt ein {{seconds}} s langer Clip in {{width}}x{{height}} mit einem Referenzclip maximal {{count}} Bilder.",
+      "clipShareTooShort": "Auf dieser Karte lässt ein {{seconds}} s langer Clip in {{width}}x{{height}} nur {{share}} s Referenzvideo pro Clip übrig, was unter den benötigten {{shortest}} s liegt. Wähle eine kürzere Dauer, eine kleinere Größe oder verwende weniger Clips oder Bilder."
+    },
+    "help": {
+      "images": "Personen, Orte, Produkte oder ein Look, den du beibehalten willst. Gib Bildern derselben Person denselben Namen.",
+      "videos": "Ein Clip, um jemanden zu verhindern, die Bewegung zu kopieren, zu bearbeiten oder fortzusetzen. 2 bis 15 Sekunden.",
+      "audios": "Eine Stimme für einen Charakter, Musik zum direkten Verwenden oder ein passender Sound."
+    },
+    "rowNames": {
+      "images": "Bilder",
+      "videos": "Clips",
+      "audios": "Audio"
+    },
+    "insertTag": "In den Prompt einfügen",
+    "useItTo": "Verwende es zum",
+    "whoOrWhat": "Wer oder was ist das?",
+    "whoOrWhatExample": "z. B. Maya, das rote Auto",
+    "optional": "optional",
+    "whichDetail": "Welches Detail?",
+    "whichDetailExample": "z. B. nur die Lederjacke",
+    "whoseVoice": "Wessen Stimme?",
+    "forExample": "z. B. {{name}}",
+    "whoseVoiceHint": "ein Name aus den Bildern",
+    "notOnBoard": "Kein Name auf dem Board ({{names}})",
+    "sound": "Sound",
+    "ownSound": "Eigener Sound",
+    "noSound": "Kein Sound",
+    "track": "Track: {{file}}",
+    "separateTrack": "Ein separater Track…",
+    "lengthUnknown": "Länge unbekannt",
+    "clipHasNoSound": "dieser Clip hat keinen Sound",
+    "itsSoundIs": "sein Sound ist {{tag}}",
+    "modelReadsFirst": "das Modell liest seine ersten {{seconds}} s",
+    "clipsNeedAtLeast": "Clips benötigen mindestens {{shortest}} s.",
+    "earlier": "Früher (nummeriert die Tags neu)",
+    "moveEarlier": "Früher verschieben",
+    "later": "Später (nummeriert die Tags neu)",
+    "moveLater": "Später verschieben",
+    "remove": "Entfernen",
+    "removeReference": "Referenz entfernen",
+    "onlyThisRow": "Nur {{rows}} landen in dieser Zeile.",
+    "dropHere": "Ziehe {{rows}} hierher",
+    "dropHereOr": "Ziehe {{rows}} hierher oder",
+    "couldNotRead": "{{file}} konnte nicht gelesen werden.",
+    "uploadFailed": "Upload fehlgeschlagen.",
+    "fileCount": "{{used}} von {{total}} Dateien. Jede separate Spur eines Clips zählt als eine.",
+    "chooseSoundtrack": "Wähle den Soundtrack für den Clip"
+  }
+}

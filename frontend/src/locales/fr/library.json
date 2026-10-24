@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "Sortie {{jobId}} supprimée avec succès",
+    "deleteFailed": "Échec de la suppression de la sortie : {{message}}",
+    "retryStarting": "Lancement de la tentative pour {{count}} lignes échouées...",
+    "retryStarted": "Tentative de reprise lancée avec succès ! ID de tâche : {{jobId}}",
+    "retryFailed": "Échec du lancement de la tentative : {{message}}",
+    "nothingToClear": "Aucune sortie à effacer",
+    "clearing": "Effacement de toutes les sorties...",
+    "cleared": "Succès : {{count}} sorties supprimées",
+    "clearFailed": "Échec de l'effacement des sorties : {{message}}"
+  },
+  "clearConfirm": "Êtes-vous sûr de vouloir supprimer TOUTES les {{count}} sorties ? Cette action est irréversible.",
+  "pageTitle": "Sorties de contenu",
+  "stats": {
+    "total": "{{count}} Total",
+    "today": "{{count}} Aujourd'hui",
+    "thisWeek": "{{count}} Cette semaine"
+  },
+  "clearAll": "Tout effacer",
+  "refresh": "Actualiser la liste des sorties",
+  "loading": "Chargement des sorties...",
+  "empty": {
+    "title": "Aucune sortie trouvée",
+    "description": "Générez du contenu via la fonction de génération groupée pour voir les sorties ici"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "status": {
+    "processing": "Wird verarbeitet …",
+    "complete": "Abgeschlossen",
+    "error": "Fehler",
+    "cancelled": "Abgebrochen"
+  },
+  "gpu": {
+    "videoRendering": "Ein Video wird gerendert",
+    "picturesRendering": "Bilder werden gerendert",
+    "pictureRendering": "Ein Bild wird gerendert",
+    "pictureEditing": "Ein Bild wird bearbeitet",
+    "animationRendering": "Eine Animation wird gerendert",
+    "infographicRendering": "Eine Infografik wird gerendert",
+    "characterPicturesRendering": "Charakterbilder werden gerendert",
+    "storyboardRendering": "Storyboard-Bilder werden gerendert",
+    "filmCrewRendering": "Die Film Crew wird gerendert",
+    "musicVideoRendering": "Ein Musikvideo wird gerendert",
+    "songRendering": "Ein Song wird gerendert",
+    "modelTraining": "Ein Modell wird trainiert",
+    "characterTraining": "Ein Charakter wird trainiert",
+    "generic": "Etwas nutzt die GPU",
+    "coolingDown": "Die Grafikkarte wird nach dem letzten Auftrag bereinigt ({{seconds}} s)"
+  }
+}

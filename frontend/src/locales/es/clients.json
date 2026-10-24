@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "Error al obtener clientes.",
+    "loadError": "Error al cargar clientes: {{error}}",
+    "updated": "¡Cliente actualizado con éxito!",
+    "created": "¡Cliente creado con éxito!",
+    "updateError": "Error al actualizar el cliente.",
+    "createError": "Error al crear el cliente.",
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar al cliente \"{{name}}\" (ID: {{id}})? Esto puede afectar a los proyectos asociados.",
+    "deleteConfirmUnnamed": "¿Estás seguro de que quieres eliminar a \"este cliente\" (ID: {{id}})? Esto puede afectar a los proyectos asociados.",
+    "deleted": "¡Cliente \"{{name}}\" eliminado con éxito!",
+    "deleteError": "Error al eliminar el cliente.",
+    "missingClient": "Faltan datos del cliente. No se puede abrir el modal de enlace.",
+    "linksUpdated": "¡Enlaces del proyecto actualizados con éxito!",
+    "projectsFetchError": "Error al obtener proyectos: {{error}}",
+    "linksError": "Error al actualizar enlaces: {{error}}",
+    "unknownError": "Ocurrió un error desconocido.",
+    "columns": {
+      "logo": "Logo",
+      "name": "Nombre del cliente",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "projects": "Proyectos #",
+      "notes": "Notas",
+      "updated": "Última actualización",
+      "actions": "Acciones"
+    },
+    "title": "Clientes",
+    "new": "Nuevo",
+    "loading": "Cargando clientes...",
+    "empty": "No se encontraron clientes. ¡Añade uno para empezar!",
+    "notAvailable": "N/A",
+    "email": "Correo electrónico: {{email}}",
+    "phone": "Teléfono: {{phone}}",
+    "noNotesTooltip": "Sin notas.",
+    "noNotes": "Sin notas",
+    "projects": "Proyectos: {{projects}}",
+    "linkProjects": "Vincular proyectos",
+    "deleteClient": "Eliminar cliente",
+    "total": "Total de clientes: {{total}}",
+    "menu": {
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "newClient": "Nuevo cliente"
+    },
+    "linkProject": "Proyecto",
+    "linkProjectsPlural": "Proyectos"
+  }
+}

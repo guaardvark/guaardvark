@@ -1,0 +1,307 @@
+{
+  "styles": {
+    "realistic": "Réaliste",
+    "artistic": "Artistique",
+    "cartoon": "Cartoon",
+    "sketch": "Croquis",
+    "infographic": "Infographie",
+    "technical": "Technique"
+  },
+  "models": {
+    "autoLabel": "Auto — meilleur par prompt ⭐",
+    "autoDescription": "Utilise le modèle Stills choisi dans Paramètres > Génération ; si aucun n'est choisi, le routeur sélectionne le meilleur modèle téléchargé pour chaque prompt"
+  },
+  "errors": {
+    "modelsLoadFailed": "Les modèles d'image n'ont pas pu être chargés : {{error}}. Seul le mode Auto est proposé jusqu'au chargement.",
+    "requestFailed": "la requête a échoué",
+    "backendHttp": "le backend a répondu HTTP {{status}}",
+    "noBatchData": "le backend n'a pas répondu avec des données de lot",
+    "queueStalled": "La file d'attente des lots ne se met pas à jour : {{error}}.",
+    "loadBatchFailedHttp": "Échec du chargement du lot : HTTP {{status}}",
+    "batchNotJson": "La réponse du lot n'est pas au format JSON",
+    "loadBatchFailed": "Échec du chargement du lot : {{error}}",
+    "batchNotFound": "Lot non trouvé",
+    "noPrompt": "Veuillez fournir un prompt",
+    "noPrompts": "Veuillez fournir au moins un prompt ou un sujet",
+    "startFailedHttp": "Échec du démarrage de la génération : HTTP {{status}} {{statusText}}",
+    "startNotJson": "La réponse de génération n'est pas au format JSON. Réponse : {{response}}",
+    "noBatchId": "Génération de lot démarrée mais aucun ID de lot n'a été retourné",
+    "startFailedPlain": "Échec du démarrage de la génération",
+    "startFailed": "Échec du démarrage de la génération : {{error}}",
+    "cancelFailedHttp": "Échec de l'annulation de la génération : HTTP {{status}}",
+    "cancelFailed": "Échec de l'annulation de la génération : {{error}}"
+  },
+  "cast": {
+    "lockedNote": "Définie par le modèle de base du personnage sélectionné lorsqu'un personnage est choisi.",
+    "title": "Distribution (optionnel)",
+    "help": "Choisissez un personnage entraîné — l'identité (déclencheur + classe + marques de vision) et le LoRA sont appliqués automatiquement. Écrivez uniquement la scène/action ; ne décrivez pas à nouveau le visage ou le costume."
+  },
+  "workers": {
+    "oneAtATimeModel": "{{model}} génère une image à la fois.",
+    "oneAtATimeGpu": "Une image à la fois sur la carte graphique.",
+    "max": "Travailleurs max : {{count}}"
+  },
+  "install": {
+    "button": "Installer",
+    "notInstalledSized": "{{model}} n'est pas installé. Installer le télécharge (environ {{size}} Go) ; Démarrer reste désactivé jusqu'à la fin.",
+    "notInstalled": "{{model}} n'est pas installé. Installer le télécharge ; Démarrer reste désactivé jusqu'à la fin.",
+    "noModelSized": "Aucun modèle d'image n'est installé. Installez {{model}} (environ {{size}} Go) pour l'utilisation par Auto.",
+    "noModel": "Aucun modèle d'image n'est installé. Installez {{model}} pour l'utilisation par Auto.",
+    "startOff": "Démarrer est désactivé : {{model}} n'est pas installé.",
+    "noModelShort": "Aucun modèle d'image n'est installé."
+  },
+  "dimensions": {
+    "square": "Carré ({{width}}x{{height}})",
+    "portrait": "Portrait ({{width}}x{{height}})",
+    "landscape": "Paysage ({{width}}x{{height}})",
+    "largeSquare": "Grand Carré ({{width}}x{{height}})",
+    "hdPortrait": "Portrait HD ({{width}}x{{height}})",
+    "hdLandscape": "Paysage HD ({{width}}x{{height}})",
+    "oneKSquare": "Carré 1K ({{width}}x{{height}})",
+    "oneKPortrait": "Portrait 1K ({{width}}x{{height}})",
+    "oneKLandscape": "Paysage 1K ({{width}}x{{height}})",
+    "oneKWide": "Large 1K 16:9 ({{width}}x{{height}})",
+    "oneKTall": "Haut 1K 9:16 ({{width}}x{{height}})",
+    "twoKSquare": "Carré 2K ({{width}}x{{height}})",
+    "twoKLandscapeWide": "Paysage 2K 16:9 ({{width}}x{{height}})",
+    "twoKUltrawide": "Ultra-large 2K 21:9 ({{width}}x{{height}})",
+    "twoKPortraitTall": "Portrait 2K 9:16 ({{width}}x{{height}})",
+    "twoKLandscapeClassic": "Paysage 2K 3:2 ({{width}}x{{height}})",
+    "twoKPortraitClassic": "Portrait 2K 2:3 ({{width}}x{{height}})",
+    "fluxSquare": "Flux max carré ({{width}}x{{height}})",
+    "fluxWide": "Flux max 16:9 ({{width}}x{{height}})",
+    "fluxTall": "Flux max 9:16 ({{width}}x{{height}})",
+    "fluxLandscape": "Flux max 3:2 ({{width}}x{{height}})",
+    "fluxPortrait": "Flux max 2:3 ({{width}}x{{height}})",
+    "qwenSquare": "Qwen 2K Carré ({{width}}x{{height}})",
+    "qwenWide": "Qwen 2K 16:9 ({{width}}x{{height}})",
+    "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
+    "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
+    "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "title": "Dimensions",
+    "custom": "Personnalisé ({{width}}x{{height}})",
+    "highResWarning": "Haute résolution (>1MP) : plus de VRAM ; risque de dépassement de mémoire sur les cartes de 16 Go."
+  },
+  "director": {
+    "needIdea": "Saisissez d'abord un concept de haut niveau ou une ambiance",
+    "expanded": "Votre idée est devenue {{count}} plans. Relisez-les, modifiez toute ligne, puis cliquez sur Démarrer.",
+    "noShots": "Le modèle de chat n'a fourni aucun plan pour cette idée. Essayez une description plus complète ou vérifiez qu'un modèle de chat est actif dans les Paramètres.",
+    "failed": "Impossible de transformer l'idée en plans. Vérifiez qu'un modèle de chat est installé et actif dans les Paramètres, puis réessayez. ({{error}})",
+    "expandTooltip": "Transforme l'idée ci-dessus en plusieurs plans différents, un prompt par plan, rédigés par le modèle de chat. Ils remplacent le texte ci-dessus pour que vous puissiez les lire et les modifier avant de commencer.",
+    "expanding": "Rédaction des plans…",
+    "expand": "Développer en plans",
+    "rewriteTooltip": "Demande au modèle de chat de réécrire chaque prompt en une description plus complète avant le rendu, au lieu de la formulation courte par tags. Les modèles de prose effectuent cette réécriture de toute façon lorsque « Améliorer les prompts » est activé.",
+    "rewrite": "Réécrire les prompts avec le modèle de chat"
+  },
+  "service": {
+    "statusFailedHttp": "Échec de la vérification du statut du service : HTTP {{status}}",
+    "statusNotJson": "La réponse du statut du service n'est pas au format JSON",
+    "unavailable": "Le service de génération d'images en lot n'est pas disponible",
+    "statusFailed": "Échec de la vérification du statut du service"
+  },
+  "history": {
+    "cleared": "Liste de l'historique des lots effacée.",
+    "clear": "Effacer la liste des lots",
+    "title": "Lots récents",
+    "refresh": "Actualiser les lots",
+    "retry": "Réessayer",
+    "loadFailed": "Impossible de charger les lots récents : {{reason}}",
+    "empty": "Aucun lot d'images trouvé"
+  },
+  "messages": {
+    "batchFinished": "Génération de lot {{status}}",
+    "blueprintQueued": "Lot de blueprints mis en file d'attente. Les résultats s'afficheront à mesure que la génération se termine.",
+    "queued": "Lot mis en file d'attente. Les lots sont rendus les uns après les autres ; vous pouvez en mettre d'autres en file d'attente pendant que celui-ci s'exécute.",
+    "cancelled": "Génération de lot annulée"
+  },
+  "csv": {
+    "invalidFile": "Veuillez sélectionner un fichier CSV valide",
+    "templateFailedHttp": "Échec du téléchargement du modèle : HTTP {{status}}",
+    "templateNotCsv": "La réponse du modèle n'est pas un fichier CSV valide",
+    "templateFailed": "Échec du téléchargement du modèle : {{error}}",
+    "noFile": "Veuillez sélectionner un fichier CSV pour le téléchargement",
+    "title": "Téléchargement de fichier CSV",
+    "upload": "Télécharger le fichier CSV",
+    "selected": "Fichier sélectionné : {{name}}",
+    "template": "Télécharger le modèle CSV"
+  },
+  "blueprint": {
+    "invalidFile": "Veuillez sélectionner un fichier CSV valide pour les blueprints",
+    "noFile": "Veuillez sélectionner un fichier CSV pour la génération de blueprints",
+    "title": "Téléchargement CSV de blueprints hors ligne",
+    "help": "Téléchargez un fichier CSV avec des colonnes « city » et « count » (ou « patents ») pour générer des schémas de données (CPU uniquement). Les lots importants s'exécutent en arrière-plan ; consultez le statut jusqu'à la fin.",
+    "upload": "Télécharger le CSV de schéma",
+    "format": "Format accepté : .csv (colonnes type city/name et count/patents/value)"
+  },
+  "retry": {
+    "loadFailedHttp": "Impossible de charger les paramètres : HTTP {{status}}",
+    "noSettings": "Ce lot n'a pas stocké ses paramètres.",
+    "loadedSettings": "Paramètres de « {{name}} » chargés dans le panneau de contrôle — ajustez ce que vous voulez, puis cliquez sur Générer.",
+    "loadedPrompts": "Prompts de « {{name}} » chargés dans le panneau.",
+    "loadedPromptsQty_one": "Chargé « {{name}} » : {{count}} prompt x quantité {{quantity}}.",
+    "loadedPromptsQty_other": "Chargé « {{name}} » : {{count}} prompts x quantité {{quantity}}.",
+    "loadFailed": "Impossible de charger les paramètres : {{error}}"
+  },
+  "download": {
+    "failedHttp": "Échec du téléchargement des résultats : HTTP {{status}}",
+    "notZip": "La réponse de téléchargement n'est pas un fichier ZIP valide",
+    "failed": "Échec du téléchargement des résultats : {{error}}"
+  },
+  "page": {
+    "title": "Générateur d'images",
+    "settingsTitle": "Paramètres de génération"
+  },
+  "contentType": {
+    "unusedAutoModel": "Le type de contenu n'est pas utilisé : Auto utilise {{model}}, qui lit le prompt comme des phrases simples.",
+    "unusedAuto": "Le type de contenu n'est pas utilisé : Auto choisit un modèle qui lit le prompt comme des phrases simples.",
+    "unusedModel": "Le type de contenu n'est pas utilisé par {{model}} : il lit le prompt comme des phrases simples.",
+    "describeHint": "Décrivez la scène avec vos propres mots. Les types de contenu ne servent qu'à structurer les prompts pour les modèles de type tag.",
+    "title": "Type de contenu (pour une meilleure qualité)",
+    "auto": "Auto-détection (Recommandé)",
+    "autoHelp": "Ajoute des tags de qualité au prompt selon son contenu. Ne détecte ni ne modifie les paramètres de génération.",
+    "portrait": "Personne - Portrait",
+    "portraitHelp": "Portraits, gros plans sur le visage, photos de profil",
+    "fullBody": "Personne - Plein pied",
+    "fullBodyHelp": "Plans en pied, debout, assis ou en pose",
+    "working": "Personne - Travail/Action",
+    "workingHelp": "Personnes en activité, utilisant des outils, interagissant avec des objets",
+    "product": "Photo de produit",
+    "productHelp": "Photos de produits épurées, photographie commerciale",
+    "landscape": "Paysage/Décor",
+    "landscapeHelp": "Nature, paysages urbains, scènes extérieures",
+    "infographic": "Infographie/Diagramme",
+    "infographicHelp": "Flat design, icônes, graphismes vectoriels, graphiques",
+    "general": "Usage général",
+    "generalHelp": "Paramètres par défaut pour tout contenu"
+  },
+  "input": {
+    "title": "Méthode d'entrée",
+    "single": "Prompt unique",
+    "bulk": "Entrée groupée",
+    "csv": "Import CSV",
+    "blueprint": "Blueprints hors ligne"
+  },
+  "single": {
+    "help": "Collez le texte complet du prompt (paragraphes et sauts de ligne conservés comme un seul prompt). Utilisez « Nombre d'images par prompt » ci-dessous pour multiplier les images à partir de ce prompt précis.",
+    "placeholder": "Collez votre prompt complet ici, y compris les paragraphes si nécessaire. L'intégralité du texte sera utilisée comme un prompt unique pour la génération d'images.\n\nExemple : Une description de scène détaillée avec plusieurs phrases et sauts de ligne pour un seul concept d'image...",
+    "note": "Texte entier = 1 prompt. La quantité le duplique exactement pour plusieurs images."
+  },
+  "bulk": {
+    "title": "Sujets/Prompts d'images",
+    "placeholder": "Entrez les sujets ou prompts d'images, un par ligne :\n\nUn paysage de montagne majestueux au coucher du soleil\nUn chat assis sur un rebord de fenêtre\nMotifs géométriques abstraits en bleu\nPortrait d'un vieux magicien sage\nUne ligne d'horizon de ville futuriste\n...",
+    "ready": "{{count}} prompts prêts pour la génération (mode groupé)",
+    "loadExamples": "Charger les exemples",
+    "tip": "Astuce : Chaque ligne devient un prompt d'image distinct"
+  },
+  "look": {
+    "title": "Style & Ambiance (Optionnel)",
+    "placeholder": "Décrivez le style visuel à appliquer au(x) prompt(s) :\n\nExemples :\n• Nuances de bleu, sans texte, couleurs sombres\n• Noir et blanc minimaliste, lignes épurées\n• Style infographie professionnel, design plat\n• Photoréaliste, éclairage dramatique",
+    "single": "Le style sera ajouté à votre prompt unique",
+    "bulk": "Ce style sera appliqué à tous les {{count}} prompts ci-dessus",
+    "preview": "Aperçu des prompts"
+  },
+  "negative": {
+    "label": "Prompt négatif",
+    "unused": "Ce modèle n'utilise pas de prompt négatif."
+  },
+  "anatomy": {
+    "label": "Améliorer l'anatomie",
+    "unusedTooltip": "Non utilisé ici : ce modèle lit le prompt comme des phrases simples, les tags d'anatomie seraient donc interprétés comme du contenu de scène. Décrivez la pose avec des mots à la place.",
+    "tooltip": "Ajoute des formulations anatomiques quand le prompt concerne une personne.",
+    "unusedBoth": "Ce modèle n'utilise ni prompt négatif ni amélioration de l'anatomie.",
+    "unused": "Ce modèle n'utilise pas l'amélioration de l'anatomie."
+  },
+  "current": {
+    "title": "Paramètres actuels",
+    "manageModels": "Gérer les modèles",
+    "modelNotInstalled": "Modèle : {{model}} (non installé)",
+    "model": "Modèle : {{model}}",
+    "style": "Style : {{style}}",
+    "quality": "Qualité : {{quality}}",
+    "size": "Taille : {{width}}x{{height}}",
+    "stepsCast": "Étapes : selon le personnage",
+    "steps": "Étapes : {{steps}}",
+    "oneAtATime": "Un par un",
+    "workers": "Travailleurs : {{count}}"
+  },
+  "advanced": {
+    "title": "Paramètres avancés",
+    "model": "Modèle",
+    "yourLoras": "Vos LoRA (éteints jusqu'à ce que vous en activiez un) :",
+    "unavailable": "Non disponible sur cette machine :",
+    "qualityPreset": "Préréglage de qualité",
+    "style": "Style",
+    "quantity": "Nombre d'images par prompt",
+    "thumbnails": "Générer des vignettes"
+  },
+  "enhance": {
+    "label": "Améliorer les prompts automatiquement",
+    "off": "Désactivé — les prompts sont envoyés tels qu'écrits.",
+    "prose": "Réécrit chaque prompt en une description plus complète avec le modèle de chat avant le rendu. Si aucun modèle de chat ne répond, le prompt est envoyé tel quel. Les étapes et les directives ne sont pas modifiées.",
+    "proseStyle": "Réécrit chaque prompt en une description plus complète avec le modèle de chat avant le rendu. Si aucun modèle de chat ne répond, le prompt est envoyé tel quel plus une phrase demandant l'aspect {{style}}. Les étapes et les directives ne sont pas modifiées.",
+    "tagsNoNegative": "Ajoute les formulations de qualité et d'anatomie du type de contenu à chaque prompt. Ce modèle ignore les prompts négatifs. Les étapes et les directives ne sont pas modifiées.",
+    "tags": "Ajoute les formulations de qualité et d'anatomie (et les négatifs) du type de contenu à chaque prompt. Les étapes et les directives ne sont pas modifiées."
+  },
+  "steps": {
+    "cast": "Étapes : défini par le personnage",
+    "flux": "Étapes : {{steps}} (qualité FLUX ↑ avec plus d'étapes)",
+    "value": "Étapes : {{steps}}"
+  },
+  "guidance": {
+    "cast": "Guidance : défini par le personnage",
+    "zimage": "Échelle de Guidance : 0 (modèle sans CFG)",
+    "flux": "FluxGuidance : {{guidance}}",
+    "scale": "Échelle de Guidance : {{guidance}}",
+    "zimageHelp": "Z-Image fonctionne sans CFG — la guidance est fixée à 0. Utilisez les Étapes pour la qualité.",
+    "qwenHelp": "Qwen-Image 2.1 fonctionne à une guidance de 1 sur le chemin officiel. Augmentez-la uniquement avec un prompt négatif.",
+    "autoHelp": "Routes automatiques par prompt. Le choix habituel (Z-Image) est sans CFG — gardez 0 à moins d'attendre une route SDXL."
+  },
+  "seed": {
+    "label": "Graine",
+    "placeholder": "aléatoire",
+    "fixed": "La première image utilise la graine {{seed}}, chaque image suivante utilise le nombre suivant. Le même prompt et les mêmes paramètres donnent la même image.",
+    "tooLarge": "Les graines vont jusqu'à {{max}} ; celle-ci est ignorée.",
+    "blank": "Vide : chaque image reçoit sa propre graine aléatoire. Ouvrez une image et appuyez sur le dé pour réutiliser sa graine."
+  },
+  "actions": {
+    "queuing": "Mise en file d'attente…",
+    "addToQueue": "Ajouter à la file",
+    "start": "Démarrer la génération",
+    "cancel": "Annuler"
+  },
+  "queue": {
+    "title": "File de lot",
+    "clearCompleted": "Effacer les terminés",
+    "active": "{{count}} actif",
+    "progressFailed": "{{done}}/{{total}} images ({{failed}} échouées)",
+    "progress": "{{done}}/{{total}} images",
+    "cancelRunning": "Annuler le lot en cours",
+    "remove": "Supprimer de la file",
+    "cancelAria": "annuler le lot"
+  },
+  "progress": {
+    "title": "Progression actuelle",
+    "batchId": "ID du lot : {{id}}",
+    "count": "Progression : {{done}}/{{total}}",
+    "download": "Télécharger les résultats",
+    "adjustRetry": "Ajuster & Réessayer"
+  },
+  "gallery": {
+    "title": "Images générées ({{count}})",
+    "generatedImage": "Image générée",
+    "noPrompt": "Pas de prompt",
+    "seed": "Graine {{seed}}",
+    "rewritten": "Réécrit avant le rendu ; ouvrez pour le lire",
+    "viewFull": "Voir l'image complète : {{name}}"
+  },
+  "lightbox": {
+    "sentToModel": "Envoyé au modèle : {{prompt}}",
+    "seedUsed": "La graine {{seed}} est dans la case Seed. Effacez-la pour obtenir à nouveau des graines aléatoires."
+  },
+  "preview": {
+    "titleQuantity": "Aperçu des prompts générés ({{count}} × {{quantity}})",
+    "title": "Aperçu des prompts générés ({{count}})",
+    "intro": "Voici les prompts finaux qui seront envoyés au générateur d'images :",
+    "close": "Fermer"
+  }
+}

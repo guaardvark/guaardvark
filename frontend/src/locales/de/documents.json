@@ -1,0 +1,259 @@
+{
+  "rootFolderName": "Dateien",
+  "pdfViewer": {
+    "openInNewTab": "In neuem Tab öffnen",
+    "noFile": "Keine PDF-Datei ausgewählt"
+  },
+  "docxViewer": {
+    "fetchFailed": "Abruf fehlgeschlagen ({{status}})",
+    "renderFailed": "Dokument konnte nicht gerendert werden",
+    "downloadOriginal": "Original herunterladen"
+  },
+  "actions": {
+    "close": "Schließen",
+    "cancel": "Abbrechen"
+  },
+  "entityFiles": {
+    "regionLabel": "Dateien für dieses {{kind}}",
+    "regionLabel_client": "Dateien für diesen Kunden",
+    "regionLabel_website": "Dateien für diese Website",
+    "title": "Dateien für {{name}}",
+    "title_client": "Dateien für diesen Kunden",
+    "title_clientNamed": "Dateien für Kunden {{name}}",
+    "title_website": "Dateien für diese Website",
+    "title_websiteNamed": "Dateien für Website {{name}}",
+    "loadFailed": "Dateien konnten nicht geladen werden: {{error}}",
+    "empty": "Es sind keine Dateien mit diesem {{kind}} verknüpft. Verknüpfe eine Datei oder einen Ordner über die Eigenschaften.",
+    "empty_client": "Es sind keine Dateien mit diesem Kunden verknüpft. Verknüpfe eine Datei oder einen Ordner über die Eigenschaften.",
+    "empty_website": "Es sind keine Dateien mit dieser Website verknüpft. Verknüpfe eine Datei oder einen Ordner über die Eigenschaften.",
+    "filesRoot": "Dateien-Root"
+  },
+  "audioPlayer": {
+    "untitled": "audio",
+    "closeLabel": "schließen",
+    "seed": "seed: {{seed}}",
+    "openInNewTab": "In neuem Tab öffnen"
+  },
+  "folderWindow": {
+    "listView": "Listenansicht",
+    "gridView": "Rasteransicht",
+    "mediaView": "Medienansicht",
+    "codeRepoChip": "CODE REPO"
+  },
+  "contextMenu": {
+    "openInWindow": "Im Fenster öffnen",
+    "minimize": "Minimieren",
+    "newFolder": "Neuer Ordner",
+    "importFiles": "Dateien importieren",
+    "paste": "Einfügen",
+    "closeWindow": "Fenster schließen",
+    "reviewWithAgent": "Mit Agenten prüfen",
+    "cut": "Ausschneiden",
+    "copy": "Kopieren",
+    "rename": "Umbenennen",
+    "properties": "Eigenschaften",
+    "bulkImportHere": "Mehrfachimport in diesen Ordner…",
+    "indexContents": "Inhalte indexieren",
+    "delete": "Löschen",
+    "download": "Herunterladen",
+    "edit": "Bearbeiten",
+    "view": "Anzeigen",
+    "openInCodeEditor": "Im Codeeditor öffnen",
+    "index": "Index",
+    "open": "Öffnen",
+    "restore": "Wiederherstellen"
+  },
+  "codeRepo": {
+    "never": "Nie",
+    "unknown": "Unbekannt",
+    "buttonTooltip": "Code-Repository-Intelligenz: Sprachen, Frameworks, Repository-Map und Abhängigkeiten",
+    "buttonLabel": "Code-Repository-Intelligenz für {{name}}",
+    "button": "INTEL",
+    "title": "Code-Repository-Intelligenz",
+    "analyzed": "Analysiert: {{date}}",
+    "languagesFrameworks": "Sprachen & Frameworks",
+    "analysisPending": "Analyse ausstehend",
+    "statistics": "Statistiken",
+    "fileCount_one": "{{count}} Datei",
+    "fileCount_other": "{{count}} Dateien",
+    "mappedFileCount_one": "{{count}} gemappte Datei",
+    "mappedFileCount_other": "{{count}} gemappte Dateien",
+    "viewMap": "Repository-Map anzeigen",
+    "viewDependencies": "Abhängigkeiten anzeigen",
+    "mapTitle": "Repository-Map",
+    "noMap": "Keine Map verfügbar.",
+    "graphTitle": "Abhängigkeitsgraph"
+  },
+  "desktop": {
+    "loadFailed": "Fehler beim Laden der Desktop-Elemente",
+    "movedToFolder": "{{count}} Element(e) nach {{folder}} verschoben",
+    "movedToDesktop": "{{count}} Element(e) auf den Desktop verschoben"
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "Live-Repository-Dateien sind hier schreibgeschützt. Nutze stattdessen eine gestufte Selbst-Code-Bearbeitung.",
+    "saveFailed": "Speichern fehlgeschlagen: {{error}}",
+    "liveRepoReviewFirst": "Live-Repository-Dateien sind „Review-First“ und können in diesem Modal nicht direkt bearbeitet werden.",
+    "discardConfirm": "Du hast ungespeicherte Änderungen. Diese verwerfen?",
+    "liveRepoChip": "Live-Repo · schreibgeschützt",
+    "modified": "Geändert",
+    "viewMode": "Anzeigemodus",
+    "editMode": "Bearbeitungsmodus",
+    "openInCodeEditor": "Im Codeeditor öffnen",
+    "copy": "In die Zwischenablage kopieren",
+    "saving": "Wird gespeichert …",
+    "save": "Speichern"
+  },
+  "folder": {
+    "empty": "Dieser Ordner ist leer",
+    "loadFailed": "Fehler beim Laden des Ordnerinhalts",
+    "columnName": "Name",
+    "columnDate": "Datum",
+    "columnSize": "Größe",
+    "codeRepository": "Code-Repository",
+    "itemCount_one": "{{count}} Element(e)",
+    "itemCount_other": "{{count}} Element(e)"
+  },
+  "mediaView": {
+    "selectFile": "Datei auswählen",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "open": "Öffnen",
+    "download": "Herunterladen",
+    "closePreview": "Vorschau schließen"
+  },
+  "indexStatus": {
+    "indexed": "Indexiert",
+    "indexing": "Wird indexiert...",
+    "pending": "Ausstehend",
+    "error": "Fehler",
+    "folderFull": "Vollständig indexiert ({{indexed}}/{{total}})",
+    "folderPartial": "Teilweise indexiert ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "Ordnername darf nicht leer sein",
+    "emptyFileName": "Dateiname darf nicht leer sein",
+    "invalidFolderName": "Ordnername enthält ungültige Zeichen. Bitte verwende nur Buchstaben, Zahlen, Leerzeichen, Bindestriche und Unterstriche.",
+    "invalidFileName": "Dateiname enthält ungültige Zeichen. Bitte verwende nur Buchstaben, Zahlen, Leerzeichen, Bindestriche, Unterstriche und Punkte.",
+    "invalidName": "Name enthält ungültige Zeichen. Bitte verwende nur Buchstaben, Zahlen, Leerzeichen, Bindestriche und Unterstriche.",
+    "folderNameTooLong": "Ordnername ist zu lang. Maximale Länge sind {{max}} Zeichen.",
+    "fileNameTooLong": "Dateiname ist zu lang. Maximale Länge sind {{max}} Zeichen."
+  },
+  "indexing": {
+    "nothing": "Nichts zu indexieren",
+    "alreadyIndexedOne": "Bereits indexiert; die Datei hat sich nicht geändert",
+    "alreadyIndexedAll_one": "Alles ist bereits indexiert ({{count}} Datei unverändert)",
+    "alreadyIndexedAll_other": "Alles ist bereits indexiert ({{count}} Dateien unverändert)",
+    "documentCount_one": "{{count}} Dokument",
+    "documentCount_other": "{{count}} Dokumente",
+    "folderCount_one": "{{count}} Ordner",
+    "folderCount_other": "{{count}} Ordner",
+    "startedFromFoldersSkipped": "Indizierung von {{documents}} aus {{folders}}, {{skipped}} bereits indexiert",
+    "startedFromFolders": "Indizierung von {{documents}} aus {{folders}}",
+    "startedSkipped": "Indizierung von {{documents}}, {{skipped}} bereits indexiert",
+    "started": "Indizierung von {{documents}}",
+    "startFailed": "Indizierung konnte nicht gestartet werden",
+    "failed": "Indizierung fehlgeschlagen: {{error}}"
+  },
+  "page": {
+    "refreshFailed": "Aktualisieren fehlgeschlagen",
+    "downloading": "Lade {{name}} herunter",
+    "title": "Dateien",
+    "loadingFolders": "Lade Ordner...",
+    "importFiles": "Dateien importieren",
+    "arrangeIcons": "Icons anordnen",
+    "arrangeWindows": "Fenster anordnen",
+    "modelLoading": "Wird geladen …",
+    "modelError": "Fehler",
+    "emptyTitle": "Noch keine Dokumente",
+    "emptyHint": "Dateien hierher ziehen oder Rechtsklick zum Erstellen eines Ordners",
+    "folderItemCount_one": "{{count}} Element",
+    "folderItemCount_other": "{{count}} Elemente",
+    "uploadProgress_one": "Lade {{current}}/{{count}} Datei hoch...",
+    "uploadProgress_other": "Lade {{current}}/{{count}} Dateien hoch..."
+  },
+  "import": {
+    "nothingToImport": "Nichts zum Importieren: {{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "Upload fehlgeschlagen",
+    "importedSkipped": "Importiert {{count}} Datei(en) in {{folder}}; {{skipped}} übersprungen",
+    "imported": "Importiert {{count}} Datei(en) in {{folder}}",
+    "importedPartlySkipped": "Importiert {{count}} Datei(en) in {{folder}}; {{failed}} fehlgeschlagen ({{error}}); {{skipped}} übersprungen",
+    "importedPartly": "Importiert {{count}} Datei(en) in {{folder}}; {{failed}} fehlgeschlagen ({{error}})",
+    "failed": "Import fehlgeschlagen: {{error}}",
+    "importedFiltered": "Importiert {{count}} Datei(en) in {{folder}} ({{ignored}} durch Filter ignoriert)",
+    "failedPlain": "Import fehlgeschlagen"
+  },
+  "move": {
+    "intoOwnSubfolder": "Kann \"{{name}}\" nicht in seinen eigenen Unterordner verschieben",
+    "unknownError": "Unbekannter Fehler",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "{{count}} Element(e) verschoben",
+    "failed": "Verschieben der Elemente fehlgeschlagen",
+    "movedPartly": "{{count}} Element(e) verschoben, {{failed}} fehlgeschlagen",
+    "dropFailed": "Ablegen fehlgeschlagen",
+    "operationFailed": "Operation fehlgeschlagen: {{error}}"
+  },
+  "newFolder": {
+    "created": "Ordner \"{{name}}\" erstellt",
+    "failed": "Ordnererstellung fehlgeschlagen",
+    "title": "Neuen Ordner erstellen",
+    "nameLabel": "Ordnername",
+    "create": "Erstellen"
+  },
+  "clipboard": {
+    "copied": "{{count}} Element(e) kopiert",
+    "cut": "{{count}} Element(e) ausgeschnitten",
+    "foldersNotPastable": "Ordner können nicht in {{folder}} eingefügt werden",
+    "liveRepoReadOnly": "Elemente im Live-Repository sind hier schreibgeschützt",
+    "itemFailed": "fehlgeschlagen",
+    "pasted": "{{count}} Element(e) in {{folder}} eingefügt",
+    "moved": "{{count}} Element(e) in {{folder}} verschoben",
+    "pastedPartly": "{{count}} Element(e) in {{folder}} eingefügt; {{failed}} fehlgeschlagen: {{error}}",
+    "movedPartly": "{{count}} Element(e) in {{folder}} verschoben; {{failed}} fehlgeschlagen: {{error}}",
+    "pasteFailed": "Einfügen fehlgeschlagen: {{error}}",
+    "moveFailed": "Verschieben fehlgeschlagen: {{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "Die Live-Code-Mount ist schreibgeschützt",
+    "deleted": "{{count}} Element(e) gelöscht",
+    "someFailed": "Einige Löschungen könnten fehlgeschlagen sein – Status wird aktualisiert",
+    "confirmTitle": "Löschen bestätigen",
+    "confirmBody_one": "{{count}} Element(e) löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "confirmBody_other": "Lösche {{count}} Elemente? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "confirm": "Löschen"
+  },
+  "properties": {
+    "fileNotFound": "Datei nicht gefunden",
+    "loadFailed": "Fehler beim Laden der Dateidetails",
+    "fileUpdated": "Dateieigenschaften erfolgreich aktualisiert",
+    "fileUpdateFailed": "Fehler beim Aktualisieren der Dateieigenschaften",
+    "updateFailed": "Update fehlgeschlagen: {{error}}",
+    "fileDeleted": "Datei erfolgreich gelöscht",
+    "fileDeleteFailed": "Fehler beim Löschen der Datei",
+    "deleteFailed": "Löschen fehlgeschlagen: {{error}}",
+    "reindexStarted": "Neuer Indexierungsprozess gestartet. Der Status wird in Kürze aktualisiert.",
+    "reindexStartFailed": "Fehler beim Starten der Neuindexierung",
+    "reindexFailed": "Neuindexierung fehlgeschlagen: {{error}}",
+    "folderApplied": "Eigenschaften erfolgreich angewendet! Dateien aktualisiert: {{files}}, Unterordner verarbeitet: {{folders}}",
+    "folderUpdated": "Ordnereigenschaften erfolgreich aktualisiert",
+    "folderUpdateFailed": "Fehler beim Aktualisieren der Ordnereigenschaften",
+    "folderDeleted": "Ordner gelöscht"
+  },
+  "rename": {
+    "folderRenamed": "Ordner umbenannt in \"{{name}}\"",
+    "fileRenamed": "Datei umbenannt in \"{{name}}\"",
+    "failedReason": "Umbenennung fehlgeschlagen: {{reason}}",
+    "failed": "Umbenennung fehlgeschlagen",
+    "folderTitle": "Ordner umbenennen",
+    "fileTitle": "Datei umbenennen",
+    "fileNameLabel": "Dateiname",
+    "fileHint": "Ändert den Namen in Guaardvark; die Datei auf der Festplatte behält ihren Namen.",
+    "submit": "Umbenennen"
+  },
+  "review": {
+    "liveRepoOnly": "Die Selbst-Code-Überprüfung ist nur für die Live-Repo-Mount verfügbar",
+    "dispatchedTask": "Selbst-Code-Überprüfung versandt ({{taskId}})",
+    "dispatched": "Selbst-Code-Überprüfung versandt",
+    "failed": "Fehler beim Versenden der Selbst-Code-Überprüfung"
+  }
+}

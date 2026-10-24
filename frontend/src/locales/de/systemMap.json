@@ -1,0 +1,74 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "Services",
+    "utils": "Utils",
+    "tools": "Werkzeuge",
+    "tasks": "Tasks",
+    "frontend": "Frontend",
+    "plugins": "Plugins",
+    "clear": "löschen"
+  },
+  "errors": {
+    "snapshotFailed": "Snapshot fehlgeschlagen"
+  },
+  "dispatch": {
+    "queued": "An den Agenten für Selbstverbesserung übermittelt – läuft im Hintergrund.",
+    "proposed": "An den Agenten für Selbstverbesserung übermittelt – prüfe die vorgeschlagene Korrektur in den Einstellungen.",
+    "notRun": "Übermittlung nicht ausgeführt – {{reason}}",
+    "notRunNoReason": "Übermittlung nicht ausgeführt – kein Grund angegeben",
+    "failed": "Übermittlung fehlgeschlagen: {{error}}"
+  },
+  "title": "Systemübersicht",
+  "stats": "{{modules}} Module · {{edges}} Kanten",
+  "severity": {
+    "critical": "{{count}} kritisch",
+    "medium": "{{count}} mittel",
+    "hygiene": "{{count}} Hygiene"
+  },
+  "searchPlaceholder": "Suche ( / )",
+  "resetView": "Ansicht zurücksetzen (R)",
+  "refresh": {
+    "cached": "Vor {{seconds}}s gecacht – zum Neuberechnen klicken",
+    "computed": "Gerade in {{seconds}}s berechnet"
+  },
+  "overlays": {
+    "ghostEndpoints": "Ghost-Endpoints",
+    "ghostEndpointsCount": "Ghost-Endpoints ({{count}})",
+    "toolGraph": "Werkzeuggraph",
+    "toolGraphCount": "Werkzeuggraph ({{count}})"
+  },
+  "controlsHint": "ziehen · schwenken | Rad · zoomen | / · suchen | r · zurücksetzen | Chips anklicken · Bereiche hervorheben",
+  "detail": {
+    "hovered": "Markiert",
+    "selected": "Ausgewählt",
+    "importers_one": "{{count}} Importeur",
+    "importers_other": "{{count}} Importeure",
+    "findings": "Ergebnisse ({{count}})",
+    "moreFindings": "… und {{count}} weitere",
+    "escToClear": "Drücke <code>Esc</code>, um zu löschen"
+  },
+  "loading": "System wird abgebildet…",
+  "panel": {
+    "findings": "Ergebnisse",
+    "activity": "Aktivität"
+  },
+  "findings": {
+    "actionable": "Handlungsfähig",
+    "critical": "Kritisch",
+    "all": "Alle",
+    "intro": "Rangierte Ergebnisse · klicken zum Lokalisieren · an Agent zur Behebung senden",
+    "empty": "Keine Ergebnisse mit dieser Schweregrad. 🎉",
+    "dispatch": "An den Agenten für Selbstverbesserung senden, um eine Lösung vorzuschlagen",
+    "dismiss": "Abbrechen — bestätigen und diese Anzeige ausblenden"
+  },
+  "activity": {
+    "title": "Live-Aktivität",
+    "intro": "Tool-Aufrufe im Chat erscheinen hier. Abgestimmte Module pulsieren in der Konstellation.",
+    "empty": "Inaktiv. Frage den Agenten etwas, um den Puls zu starten.",
+    "now": "jetzt",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

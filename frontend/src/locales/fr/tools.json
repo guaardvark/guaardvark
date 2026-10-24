@@ -1,0 +1,56 @@
+{
+  "title": "Outils Agent",
+  "loadFailed": "Échec du chargement des outils",
+  "copied": "Copié dans le presse-papiers",
+  "copyFailed": "Impossible de copier dans le presse-papiers",
+  "parameters": "Paramètres",
+  "copyName": "Copier le nom de l'outil",
+  "card": {
+    "test": "Test"
+  },
+  "table": {
+    "name": "Nom",
+    "category": "Catégorie",
+    "description": "Description",
+    "params": "Param.",
+    "actions": "Actions",
+    "requiredList": "Requis : {{params}}",
+    "optionalList": "Optionnel : {{params}}",
+    "requiredCount": "{{count}} req",
+    "optionalCount": "{{count}} opt",
+    "noParams": "Aucun",
+    "testTool": "Outil de test"
+  },
+  "noMatch": "Aucun outil trouvé pour \"{{query}}\"",
+  "tabs": {
+    "tools": "Outils ({{count}})",
+    "schemas": "Schémas",
+    "categories": "Catégories"
+  },
+  "searchPlaceholder": "Rechercher des outils...",
+  "view": {
+    "label": "mode d'affichage",
+    "cardLabel": "vue carte",
+    "card": "Vue Carte",
+    "listLabel": "vue liste",
+    "list": "Vue Liste"
+  },
+  "loading": "Chargement des outils...",
+  "schemas": {
+    "copyAll": "Tout copier",
+    "loading": "Chargement des schémas..."
+  },
+  "menu": {
+    "test": "Tester…"
+  },
+  "test": {
+    "succeeded": "Outil exécuté avec succès",
+    "executionFailed": "Échec de l'exécution de l'outil",
+    "title": "Test Outil : {{name}}",
+    "noApprovalWarning": "L'exécution lance cet outil réellement, immédiatement, sans l'étape d'approbation demandée par le chat.",
+    "requiredHelper": "Requis. {{description}} ({{type}})",
+    "result": "Résultat",
+    "failed": "Échec de l'exécution",
+    "execute": "Exécuter"
+  }
+}

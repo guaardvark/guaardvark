@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "Dieser Chat hat diesen Beitrag entworfen.",
+      "mcp": "Ein KI-Tool, das über MCP verbunden ist, hat diesen Beitrag entworfen.",
+      "schedule": "Ein Zeitplan hat diesen Beitrag in die Warteschlange aufgenommen.",
+      "unknown": "Dieser Beitrag stammt von einem Aufrufer, der nicht angegeben hat, was er ist."
+    },
+    "fields": {
+      "body": "Text",
+      "title": "Titel",
+      "linkUrl": "Link",
+      "tags": "Tags",
+      "visibility": "Sichtbarkeit",
+      "postOptions": "Beitragsfelder",
+      "aiDisclosure": "KI-Label",
+      "scheduledAt": "Zeit"
+    }
+  },
+  "rejectDialog": {
+    "title": "Diese Veröffentlichung ablehnen?",
+    "body": "Es wird nicht gesendet und kann danach nicht mehr freigegeben werden – stattdessen muss eine neue Veröffentlichung in die Warteschlange aufgenommen werden. Der unten angegebene Grund wird im Protokoll gespeichert.",
+    "reasonLabel": "Grund (optional)",
+    "reasonPlaceholder": "Warum wird dies nicht veröffentlicht?",
+    "keep": "Beibehalten",
+    "rejecting": "Wird abgelehnt…",
+    "reject": "Ablehnen"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} ist in dieser Installation nicht verfügbar, daher kann dieser Beitrag nicht bearbeitet werden.",
+    "title": "Vor der Freigabe bearbeiten",
+    "draftedNote": "{{drafted}} Was du hier speicherst, wird veröffentlicht, sobald du es freigibst.",
+    "caption": "Bildunterschrift",
+    "text": "Text",
+    "scheduleHelp": "Wartet noch auf deine Freigabe.",
+    "goesOutAs": "Wird veröffentlicht als (unter Einhaltung der Anforderungen von {{platform}} oder der Lizenz des Mediums):",
+    "savingNote": "Speichern lässt es warten. Bestätige es danach.",
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  },
+  "page": {
+    "families": {
+      "social": "Social-Media-Konten",
+      "aiProviders": "KI-Anbieter",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "verbunden",
+      "error": "Fehler",
+      "expired": "abgelaufen",
+      "disabled": "deaktiviert",
+      "unconfigured": "nicht konfiguriert"
+    },
+    "removed": "Verbindung entfernt.",
+    "publicOn": "{{label}}: an für dieses Konto. Jeder Upload wartet weiterhin auf deine Freigabe.",
+    "publicOff": "{{label}}: aus für dieses Konto.",
+    "withoutApprovalOn": "Veröffentlichungen, die du hier startest, werden jetzt ohne Freigabe an diesen Kanal gesendet.",
+    "withoutApprovalOff": "Veröffentlichungen für diesen Kanal warten erneut auf Freigabe.",
+    "title": "Verbindungen",
+    "intro": "Konten und Dienste, auf die diese Installation veröffentlichen oder die sie anrufen kann. Anmeldedaten werden außerhalb der Datenbank gespeichert.",
+    "postingStopped": "Öffentliches Posten ist gestoppt. Aktiviere es auf der Seite Kontaktaufnahme.",
+    "queuedHeld": "Gezielte Veröffentlichungen werden auf der Seite Freigaben zurückgehalten.",
+    "publishingEnabled": "Veröffentlichung aktiviert",
+    "approvalNote": "Jede Veröffentlichung wartet auf deine Freigabe auf der Seite Freigaben. Ein Discord-Webhook, der in einen von dir verwalteten Kanal postet, kann auf seiner eigenen Karte so eingestellt werden, dass er ohne Freigabe gepostet wird. Ein YouTube-Konto wird als privat hochgeladen, bis seine Karte öffentliche Uploads zulässt.",
+    "addConnection": "Verbindung hinzufügen",
+    "appReview": "App-Überprüfung",
+    "noCredentials": "Keine Anmeldedaten",
+    "withoutApprovalTooltip": "Für einen Kanal, den du verwaltest. Beiträge, die du hier startest, werden ohne Wartezeit auf der Freigaben-Seite veröffentlicht; Anfragen aus dem Chat, MCP oder einem Zeitplan warten weiterhin.",
+    "postWithoutApproval": "Beitrag ohne Freigabe",
+    "onThroughSetting": "An durch die systemweiten Einstellungen {{setting}}. Wenn du es hier umschaltest, bleibt die Auswahl für dieses Konto bestehen.",
+    "testing": "Testen…",
+    "test": "Test",
+    "edit": "Bearbeiten",
+    "remove": "Entfernen",
+    "empty": "Noch keine Verbindungen in dieser Kategorie.",
+    "environment": "Umgebung",
+    "environmentNote": "Erkannt aus der Backend-Prozessumgebung. Wird außerhalb der App verwaltet und hier nur zum Lesen angezeigt.",
+    "encrypted": "Verschlüsselt",
+    "unencrypted": "Nicht verschlüsselt",
+    "credentialCount": "{{count}} Anmeldedaten"
+  }
+}

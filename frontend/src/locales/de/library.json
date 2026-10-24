@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "Ausgabe {{jobId}} erfolgreich gelöscht",
+    "deleteFailed": "Löschen der Ausgabe fehlgeschlagen: {{message}}",
+    "retryStarting": "Wiederholung für {{count}} fehlgeschlagene Zeilen wird gestartet...",
+    "retryStarted": "Wiederholung des Auftrags erfolgreich gestartet! Auftrags-ID: {{jobId}}",
+    "retryFailed": "Wiederholung fehlgeschlagen: {{message}}",
+    "nothingToClear": "Keine Ausgaben zum Löschen vorhanden",
+    "clearing": "Alle Ausgaben werden gelöscht...",
+    "cleared": "{{count}} Ausgaben erfolgreich gelöscht",
+    "clearFailed": "Ausgaben löschen fehlgeschlagen: {{message}}"
+  },
+  "clearConfirm": "Bist du sicher, dass du ALLE {{count}} Ausgaben löschen willst? Diese Aktion kann nicht rückgängig gemacht werden.",
+  "pageTitle": "Content-Ausgaben",
+  "stats": {
+    "total": "{{count}} Gesamt",
+    "today": "{{count}} Heute",
+    "thisWeek": "{{count}} Diese Woche"
+  },
+  "clearAll": "Alles leeren",
+  "refresh": "Ausgangsliste aktualisieren",
+  "loading": "Ausgaben werden geladen...",
+  "empty": {
+    "title": "Keine Ausgaben gefunden",
+    "description": "Erstelle Inhalte mit der Mehrfachgenerierung, um Ausgaben hier anzuzeigen"
+  }
+}

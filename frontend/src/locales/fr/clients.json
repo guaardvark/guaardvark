@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "Échec de la récupération des clients.",
+    "loadError": "Erreur lors du chargement des clients : {{error}}",
+    "updated": "Client mis à jour avec succès !",
+    "created": "Client créé avec succès !",
+    "updateError": "Erreur lors de la mise à jour du client.",
+    "createError": "Erreur lors de la création du client.",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer le client \"{{name}}\" (ID : {{id}}) ? Cela peut affecter les projets associés.",
+    "deleteConfirmUnnamed": "Êtes-vous sûr de vouloir supprimer le client \"ce client\" (ID : {{id}}) ? Cela peut affecter les projets associés.",
+    "deleted": "Client \"{{name}}\" supprimé avec succès !",
+    "deleteError": "Erreur lors de la suppression du client.",
+    "missingClient": "Les données du client sont manquantes. Impossible d'ouvrir la fenêtre de liaison.",
+    "linksUpdated": "Liens du projet mis à jour avec succès !",
+    "projectsFetchError": "Erreur lors de la récupération des projets : {{error}}",
+    "linksError": "Erreur lors de la mise à jour des liens : {{error}}",
+    "unknownError": "Une erreur inconnue est survenue.",
+    "columns": {
+      "logo": "Logo",
+      "name": "Nom du client",
+      "email": "E-mail",
+      "phone": "Téléphone",
+      "projects": "Projets #",
+      "notes": "Notes",
+      "updated": "Dernière mise à jour",
+      "actions": "Actions"
+    },
+    "title": "Clients",
+    "new": "Nouveau",
+    "loading": "Chargement des clients...",
+    "empty": "Aucun client trouvé. Ajoutez-en un pour commencer !",
+    "notAvailable": "N/A",
+    "email": "E-mail : {{email}}",
+    "phone": "Téléphone : {{phone}}",
+    "noNotesTooltip": "Aucune note.",
+    "noNotes": "Aucune note",
+    "projects": "Projets : {{projects}}",
+    "linkProjects": "Lier les projets",
+    "deleteClient": "Supprimer le client",
+    "total": "Total clients : {{total}}",
+    "menu": {
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "newClient": "Nouveau client"
+    },
+    "linkProject": "Projet",
+    "linkProjectsPlural": "Projets"
+  }
+}

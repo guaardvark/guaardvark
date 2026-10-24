@@ -1,0 +1,56 @@
+{
+  "title": "Agentenwerkzeuge",
+  "loadFailed": "Fehler beim Laden der Werkzeuge",
+  "copied": "In die Zwischenablage kopiert",
+  "copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen",
+  "parameters": "Parameter",
+  "copyName": "Werkzeugname kopieren",
+  "card": {
+    "test": "Test"
+  },
+  "table": {
+    "name": "Name",
+    "category": "Kategorie",
+    "description": "Beschreibung",
+    "params": "Params",
+    "actions": "Aktionen",
+    "requiredList": "Erforderlich: {{params}}",
+    "optionalList": "Optional: {{params}}",
+    "requiredCount": "{{count}} req",
+    "optionalCount": "{{count}} opt",
+    "noParams": "Keine",
+    "testTool": "Werkzeug testen"
+  },
+  "noMatch": "Keine passenden Werkzeuge für \"{{query}}\" gefunden",
+  "tabs": {
+    "tools": "Werkzeuge ({{count}})",
+    "schemas": "Schemas",
+    "categories": "Kategorien"
+  },
+  "searchPlaceholder": "Werkzeuge suchen...",
+  "view": {
+    "label": "Ansichtsmodus",
+    "cardLabel": "Kartenansicht",
+    "card": "Kartenansicht",
+    "listLabel": "Listenansicht",
+    "list": "Listenansicht"
+  },
+  "loading": "Werkzeuge werden geladen...",
+  "schemas": {
+    "copyAll": "Alle kopieren",
+    "loading": "Schemas werden geladen..."
+  },
+  "menu": {
+    "test": "Test…"
+  },
+  "test": {
+    "succeeded": "Werkzeug erfolgreich ausgeführt",
+    "executionFailed": "Werkzeugausführung fehlgeschlagen",
+    "title": "Werkzeugtest: {{name}}",
+    "noApprovalWarning": "Ausführen führt dieses Werkzeug sofort und ohne den von dem Chat angeforderten Freigabeschritt aus.",
+    "requiredHelper": "Erforderlich. {{description}} ({{type}})",
+    "result": "Ergebnis",
+    "failed": "Ausführung fehlgeschlagen",
+    "execute": "Ausführen"
+  }
+}
