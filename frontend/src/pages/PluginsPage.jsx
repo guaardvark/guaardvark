@@ -72,17 +72,35 @@ import {
 import { getGpuStatus } from '../api/gpuService';
 import OllamaLifecycleSection from '../components/settings/OllamaLifecycleSection';
 import { ComfyUpdateSection, useComfyUpdate } from '../components/plugins/ComfyUpdate';
+import { translate, useUiTranslation } from '../i18n';
 
 // ── Constants ──────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  running: { color: 'success', icon: HealthyIcon, label: 'Running' },
-  stopped: { color: 'default', icon: StopIcon, label: 'Stopped' },
-  starting: { color: 'warning', icon: CircularProgress, label: 'Starting' },
-  stopping: { color: 'warning', icon: CircularProgress, label: 'Stopping' },
-  error: { color: 'error', icon: ErrorIcon, label: 'Error' },
-  disabled: { color: 'default', icon: UnknownIcon, label: 'Disabled' },
-  unknown: { color: 'default', icon: UnknownIcon, label: 'Unknown' },
+  running: { color: 'success', icon: HealthyIcon, label: () => translate('plugins.status.running') },
+  stopped: { color: 'default', icon: StopIcon, label: () => translate('plugins.status.stopped') },
+  starting: { color: 'warning', icon: CircularProgress, label: () => translate('plugins.status.starting') },
+  stopping: { color: 'warning', icon: CircularProgress, label: () => translate('plugins.status.stopping') },
+  error: { color: 'error', icon: ErrorIcon, label: () => translate('plugins.status.error') },
+  disabled: { color: 'default', icon: UnknownIcon, label: () => translate('plugins.status.disabled') },
+  unknown: { color: 'default', icon: UnknownIcon, label: () => translate('plugins.status.unknown') },
 };
+
+// The message for each plugin action the page sends.
+const actionSucceeded = (action) =>
+  ({
+    start: translate('plugins.page.actionSucceeded.start'),
+    stop: translate('plugins.page.actionSucceeded.stop'),
+    enable: translate('plugins.page.actionSucceeded.enable'),
+    disable: translate('plugins.page.actionSucceeded.disable'),
+  })[action];
+
+const actionFailed = (action) =>
+  ({
+    start: translate('plugins.page.actionFailed.start'),
+    stop: translate('plugins.page.actionFailed.stop'),
+    enable: translate('plugins.page.actionFailed.enable'),
+    disable: translate('plugins.page.actionFailed.disable'),
+  })[action];
 
 const PLUGIN_COLORS = {
   ollama: '#7c4dff',
@@ -99,6 +117,7 @@ const isGpuHeavy = (plugin) => Boolean(plugin?.gpu_exclusive);
 
 // ── VRAM Budget Bar ────────────────────────────────────────────────────
 const VramBudgetBar = ({ plugins, gpuVram }) => {
+  const { t } = useUiTranslation();
   // The GPU query (/api/gpu/memory/status, then gpu:status pushes) is the only
   // source for these numbers. When it has not answered, or the backend
   // reports a failed query (null numbers), the card says "unknown" for the
@@ -120,22 +139,26 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <GpuIcon fontSize="small" />
           <Typography variant="subtitle2">
-            GPU VRAM {gpuVram?.gpu_name ? `— ${gpuVram.gpu_name}` : ''}
+            {t('plugins.vram.title')}{' '}
+            {gpuVram?.gpu_name ? `— ${gpuVram.gpu_name}` : ''}
           </Typography>
         </Box>
         <Stack direction="row" spacing={2} alignItems="center">
           {gpuVram?.utilization_percent != null && (
             <Chip
               size="small"
-              label={`${gpuVram.utilization_percent}% util`}
+              label={t('plugins.vram.utilization', { percent: gpuVram.utilization_percent })}
               color={gpuVram.utilization_percent > 80 ? 'warning' : 'default'}
               variant="outlined"
             />
           )}
           <Typography variant="body2" color="text.secondary" data-testid="vram-totals">
             {vramKnown
-              ? `${(usedMb / 1024).toFixed(1)} / ${(totalMb / 1024).toFixed(1)} GB`
-              : 'total unknown — no answer from the GPU query'}
+              ? t('plugins.vram.totals', {
+                  used: (usedMb / 1024).toFixed(1),
+                  total: (totalMb / 1024).toFixed(1),
+                })
+              : t('plugins.vram.totalUnknown')}
           </Typography>
         </Stack>
       </Box>
@@ -190,7 +213,9 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
       {/* Legend + free VRAM */}
       <Stack direction="row" spacing={2} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-          {freeMb != null ? `${(freeMb / 1024).toFixed(1)} GB free` : 'free VRAM unknown'}
+          {freeMb != null
+            ? t('plugins.vram.free', { size: (freeMb / 1024).toFixed(1) })
+            : t('plugins.vram.freeUnknown')}
         </Typography>
         {activePlugins.map((p) => (
           <Box key={p.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -203,7 +228,10 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
               }}
             />
             <Typography variant="caption" color="text.secondary">
-              {p.name} (~{(p.vram_estimate_mb / 1024).toFixed(1)}GB est.)
+              {t('plugins.vram.pluginEstimate', {
+                name: p.name,
+                size: (p.vram_estimate_mb / 1024).toFixed(1),
+              })}
             </Typography>
           </Box>
         ))}
@@ -211,7 +239,7 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
 
       {usedPct > 90 && (
         <Alert severity="warning" sx={{ mt: 1 }} variant="outlined">
-          VRAM usage is near capacity. Stop unused services from this page to free memory.
+          {t('plugins.vram.nearCapacity')}
         </Alert>
       )}
     </Paper>
@@ -220,6 +248,7 @@ const VramBudgetBar = ({ plugins, gpuVram }) => {
 
 // ── Log Viewer ─────────────────────────────────────────────────────────
 const LogViewer = ({ pluginId, open }) => {
+  const { t } = useUiTranslation();
   const [logs, setLogs] = useState('');
   const [loading, setLoading] = useState(false);
   const logRef = useRef(null);
@@ -230,10 +259,10 @@ const LogViewer = ({ pluginId, open }) => {
     try {
       const response = await getPluginLogs(pluginId, 200);
       if (response.success) {
-        setLogs(response.data.logs || '(no logs)');
+        setLogs(response.data.logs || t('plugins.logs.none'));
       }
     } catch {
-      setLogs('(failed to fetch logs)');
+      setLogs(t('plugins.logs.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -258,7 +287,7 @@ const LogViewer = ({ pluginId, open }) => {
     <Box sx={{ mt: 1 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
         <Typography variant="caption" color="text.secondary">
-          Logs (last 200 lines)
+          {t('plugins.logs.heading')}
         </Typography>
         <IconButton size="small" onClick={fetchLogs} disabled={loading}>
           <RefreshIcon fontSize="small" />
@@ -279,7 +308,7 @@ const LogViewer = ({ pluginId, open }) => {
           wordBreak: 'break-all',
         }}
       >
-        {loading && !logs ? 'Loading...' : logs}
+        {loading && !logs ? t('plugins.logs.loading') : logs}
       </Box>
     </Box>
   );
@@ -287,6 +316,7 @@ const LogViewer = ({ pluginId, open }) => {
 
 // ── Plugin Card ────────────────────────────────────────────────────────
 export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
+  const { t } = useUiTranslation();
   const [expanded, setExpanded] = useState(false);
   const [logsOpen, setLogsOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
@@ -322,14 +352,14 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
       if (cameraActive) {
         await stopVisionCamera();
         setCameraActive(false);
-        if (showMessage) showMessage('Camera stopped', 'info');
+        if (showMessage) showMessage(t('plugins.card.cameraStopped'), 'info');
       } else {
         await startVisionCamera(0);
         setCameraActive(true);
-        if (showMessage) showMessage('Camera started', 'success');
+        if (showMessage) showMessage(t('plugins.card.cameraStarted'), 'success');
       }
     } catch (err) {
-      if (showMessage) showMessage(err.message || 'Camera action failed', 'error');
+      if (showMessage) showMessage(err.message || t('plugins.card.cameraFailed'), 'error');
     } finally {
       setCameraLoading(false);
     }
@@ -378,7 +408,7 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
           </Box>
           <Chip
             size="small"
-            label={statusConfig.label}
+            label={statusConfig.label()}
             color={statusConfig.color}
             icon={
               plugin.status === 'starting' || plugin.status === 'stopping' ? (
@@ -391,7 +421,7 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         </Box>
 
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {plugin.description || 'No description available.'}
+          {plugin.description || t('plugins.card.noDescription')}
         </Typography>
 
         {/* Why the plugin is not (fully) ours to use: another install's copy
@@ -410,13 +440,13 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
           )}
           <Chip size="small" label={plugin.type} variant="outlined" />
           {plugin.port && (
-            <Chip size="small" label={`Port ${plugin.port}`} variant="outlined" />
+            <Chip size="small" label={t('plugins.card.port', { port: plugin.port })} variant="outlined" />
           )}
           {plugin.vram_estimate_mb > 0 && (
             <Chip
               size="small"
               icon={<GpuIcon />}
-              label={`~${(plugin.vram_estimate_mb / 1024).toFixed(1)} GB VRAM`}
+              label={t('plugins.card.vramEstimate', { size: (plugin.vram_estimate_mb / 1024).toFixed(1) })}
               variant="outlined"
               color={plugin.status === 'running' ? 'primary' : 'default'}
             />
@@ -428,14 +458,14 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         <Collapse in={expanded}>
           <Divider sx={{ my: 1.5 }} />
           <Typography variant="body2" color="text.secondary">
-            Category: {plugin.category}
+            {t('plugins.card.category', { category: plugin.category })}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            ID: {plugin.id}
+            {t('plugins.card.id', { id: plugin.id })}
           </Typography>
           {plugin.plugin_dir && (
             <Typography variant="body2" color="text.secondary" sx={{ wordBreak: 'break-all' }}>
-              Path: {plugin.plugin_dir}
+              {t('plugins.card.path', { path: plugin.plugin_dir })}
             </Typography>
           )}
         </Collapse>
@@ -451,10 +481,10 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         <Tooltip
           title={
             (plugin.cooldown_remaining || 0) > 0
-              ? `Cooling down — wait ${Math.ceil(plugin.cooldown_remaining)}s before toggling again`
+              ? t('plugins.card.coolingDownTooltip', { seconds: Math.ceil(plugin.cooldown_remaining) })
               : !plugin.enabled
-                ? 'Currently disabled. Toggling on will both start it AND re-enable it across restarts.'
-                : 'Preference saved across restarts'
+                ? t('plugins.card.disabledTooltip')
+                : t('plugins.card.savedTooltip')
           }
           arrow
         >
@@ -475,8 +505,11 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
             }
             label={
               (plugin.cooldown_remaining || 0) > 0
-                ? `${plugin.enabled ? 'On' : 'Off'} (cooling ${Math.ceil(plugin.cooldown_remaining)}s)`
-                : (plugin.enabled ? 'On' : 'Off')
+                ? t('plugins.card.cooling', {
+                    state: plugin.enabled ? t('plugins.card.on') : t('plugins.card.off'),
+                    seconds: Math.ceil(plugin.cooldown_remaining),
+                  })
+                : (plugin.enabled ? t('plugins.card.on') : t('plugins.card.off'))
             }
           />
         </Tooltip>
@@ -484,7 +517,7 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         <Box sx={{ display: 'flex', gap: 0.5 }}>
 
           {cameraAvailable && (
-            <Tooltip title={cameraActive ? 'Stop Camera' : 'Start Camera'}>
+            <Tooltip title={cameraActive ? t('plugins.card.stopCamera') : t('plugins.card.startCamera')}>
               <span>
                 <IconButton
                   size="small"
@@ -504,13 +537,13 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
             </Tooltip>
           )}
 
-          <Tooltip title="Logs">
+          <Tooltip title={t('plugins.card.logs')}>
             <IconButton size="small" onClick={() => setLogsOpen(!logsOpen)}>
               <LogIcon fontSize="small" color={logsOpen ? 'primary' : 'action'} />
             </IconButton>
           </Tooltip>
 
-          <Tooltip title="Settings">
+          <Tooltip title={t('plugins.card.settings')}>
             <span>
               <IconButton size="small" onClick={() => onConfigOpen(plugin)} disabled={isLoading}>
                 <SettingsIcon />
@@ -518,7 +551,7 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
             </span>
           </Tooltip>
 
-          <Tooltip title={expanded ? 'Less' : 'More'}>
+          <Tooltip title={expanded ? t('plugins.card.less') : t('plugins.card.more')}>
             <IconButton size="small" onClick={() => setExpanded(!expanded)}>
               {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
@@ -533,7 +566,7 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         <>
           <Divider />
           <Box sx={{ px: 2, pb: 2, pt: 0.5 }}>
-            <OllamaLifecycleSection title="Lifecycle" />
+            <OllamaLifecycleSection title={t('plugins.card.lifecycle')} />
           </Box>
         </>
       )}
@@ -543,23 +576,30 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         onClose={cardMenu.close}
         actions={[
           {
-            label: plugin.enabled ? 'Turn off' : 'Turn on',
+            label: plugin.enabled ? t('plugins.card.menu.turnOff') : t('plugins.card.menu.turnOn'),
             onClick: () => handleAction(plugin.enabled ? 'disable' : 'start'),
             disabled: toggleDisabled,
           },
           cameraAvailable && {
-            label: cameraActive ? 'Stop camera' : 'Start camera',
+            label: cameraActive ? t('plugins.card.menu.stopCamera') : t('plugins.card.menu.startCamera'),
             onClick: handleCameraToggle,
             disabled: cameraLoading,
           },
           comfy.available && {
-            label: `Update ComfyUI to ${comfy.check.target}…`,
+            label: t('plugins.card.menu.updateComfy', { version: comfy.check.target }),
             onClick: comfy.openUpdate,
             disabled: Boolean(comfy.blocked),
           },
-          { label: logsOpen ? 'Hide logs' : 'Show logs', onClick: () => setLogsOpen(!logsOpen), dividerBefore: true },
-          { label: 'Settings…', onClick: () => onConfigOpen(plugin), disabled: isLoading },
-          { label: expanded ? 'Fewer details' : 'More details', onClick: () => setExpanded(!expanded) },
+          {
+            label: logsOpen ? t('plugins.card.menu.hideLogs') : t('plugins.card.menu.showLogs'),
+            onClick: () => setLogsOpen(!logsOpen),
+            dividerBefore: true,
+          },
+          { label: t('plugins.card.menu.settings'), onClick: () => onConfigOpen(plugin), disabled: isLoading },
+          {
+            label: expanded ? t('plugins.card.menu.fewerDetails') : t('plugins.card.menu.moreDetails'),
+            onClick: () => setExpanded(!expanded),
+          },
         ]}
       />
     </Card>
@@ -568,6 +608,7 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
 
 // ── Config Dialog ──────────────────────────────────────────────────────
 const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
+  const { t } = useUiTranslation();
   const [config, setConfig] = useState({});
   const [loading, setLoading] = useState(false);
   const [botToken, setBotToken] = useState('');
@@ -597,17 +638,17 @@ const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
 
   const tokenStatus = plugin.secrets?.bot_token;
   const tokenHelper = tokenStatus?.configured
-    ? `Configured (${tokenStatus.hint || '••••'}). Leave blank to keep, or enter a new token.`
-    : 'Not configured — paste your Discord bot token.';
+    ? t('plugins.config.tokenConfigured', { hint: tokenStatus.hint || '••••' })
+    : t('plugins.config.tokenNotConfigured');
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Configure: {plugin.name}</DialogTitle>
+      <DialogTitle>{t('plugins.config.title', { name: plugin.name })}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {plugin.id === 'discord' && (
             <TextField
-              label="Bot Token"
+              label={t('plugins.config.botToken')}
               type={showToken ? 'text' : 'password'}
               value={botToken}
               onChange={(e) => setBotToken(e.target.value)}
@@ -620,7 +661,7 @@ const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      aria-label={showToken ? 'Hide bot token' : 'Show bot token'}
+                      aria-label={showToken ? t('plugins.config.hideToken') : t('plugins.config.showToken')}
                       onClick={() => setShowToken((v) => !v)}
                       edge="end"
                       size="small"
@@ -634,7 +675,7 @@ const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
           )}
           {plugin.config?.service_url !== undefined && (
             <TextField
-              label="Service URL"
+              label={t('plugins.config.serviceUrl')}
               value={config.service_url || ''}
               onChange={(e) => setConfig({ ...config, service_url: e.target.value })}
               fullWidth
@@ -643,7 +684,7 @@ const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
           )}
           {plugin.config?.timeout !== undefined && (
             <TextField
-              label="Timeout (seconds)"
+              label={t('plugins.config.timeout')}
               type="number"
               value={config.timeout || 30}
               onChange={(e) => setConfig({ ...config, timeout: parseInt(e.target.value) || 30 })}
@@ -659,15 +700,15 @@ const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
                   onChange={(e) => setConfig({ ...config, fallback_enabled: e.target.checked })}
                 />
               }
-              label="Enable fallback to CPU"
+              label={t('plugins.config.cpuFallback')}
             />
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button onClick={onClose} disabled={loading}>{t('plugins.config.cancel')}</Button>
         <Button onClick={handleSave} variant="contained" disabled={loading}>
-          {loading ? <CircularProgress size={20} /> : 'Save'}
+          {loading ? <CircularProgress size={20} /> : t('plugins.config.save')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -676,24 +717,24 @@ const ConfigDialog = ({ open, plugin, onClose, onSave }) => {
 
 // ── Restart Ollama Dialog ─────────────────────────────────────────────
 const RestartOllamaDialog = ({ open, onClose, onConfirm, loading }) => {
+  const { t } = useUiTranslation();
   return (
     <Dialog open={open} onClose={loading ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Restart Ollama?</DialogTitle>
+      <DialogTitle>{t('plugins.restartOllama.title')}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary">
-          ComfyUI has been stopped. Would you like to restart Ollama so that
-          chat, RAG, and other AI features are available again?
+          {t('plugins.restartOllama.body')}
         </Typography>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={loading}>No thanks</Button>
+        <Button onClick={onClose} disabled={loading}>{t('plugins.restartOllama.noThanks')}</Button>
         <Button
           onClick={onConfirm}
           variant="contained"
           disabled={loading}
           startIcon={loading ? <CircularProgress size={16} /> : <StartIcon />}
         >
-          {loading ? 'Starting...' : 'Start Ollama'}
+          {loading ? t('plugins.restartOllama.starting') : t('plugins.restartOllama.start')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -710,6 +751,7 @@ const applyPluginsPayload = (payload, setPlugins, setLoading, setError) => {
 };
 
 const PluginsPage = () => {
+  const { t } = useUiTranslation();
   const [plugins, setPlugins] = useState([]);
   const [gpuVram, setGpuVram] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -735,10 +777,10 @@ const PluginsPage = () => {
         // hand them the pre-refresh array via the closure).
         return list;
       } else {
-        setError(response.message || 'Failed to load plugins');
+        setError(response.message || t('plugins.page.loadFailed'));
       }
     } catch (err) {
-      setError(err.message || 'Failed to load plugins');
+      setError(err.message || t('plugins.page.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -843,7 +885,7 @@ const PluginsPage = () => {
           if (conflict) {
             const requestedName = plugins.find((p) => p.id === pluginId)?.name || pluginId;
             showMessage(
-              `${conflict.name} is also using the GPU — toggle it off if ${requestedName} runs low on VRAM.`,
+              t('plugins.page.gpuConflict', { other: conflict.name, requested: requestedName }),
               'info'
             );
           }
@@ -878,8 +920,8 @@ const PluginsPage = () => {
         if (data.gated) {
           // Friendly cooldown notice, not an error
           const cd = data.cooldown_remaining ? Math.ceil(data.cooldown_remaining) : null;
-          const suffix = cd ? ` (wait ${cd}s)` : '';
-          showMessage(`${data.error || 'Cooling down'}${suffix}`, 'warning');
+          const notice = data.error || t('plugins.page.coolingDown');
+          showMessage(cd ? t('plugins.page.gatedWait', { message: notice, seconds: cd }) : notice, 'warning');
           if (cd) {
             setPlugins((prev) => prev.map((p) => (
               p.id === pluginId ? { ...p, cooldown_remaining: cd } : p
@@ -887,7 +929,7 @@ const PluginsPage = () => {
           }
           return;
         }
-        showMessage(response.message || `Plugin ${action} successful`, 'success');
+        showMessage(response.message || actionSucceeded(action), 'success');
 
         // Optimistic update: flip the enabled preference and status immediately so
         // the toggle switch in the UI reflects the change without waiting for the
@@ -917,10 +959,10 @@ const PluginsPage = () => {
           }, 400);
         }
       } else {
-        showMessage(response.message || `Failed to ${action} plugin`, 'error');
+        showMessage(response.message || actionFailed(action), 'error');
       }
     } catch (err) {
-      showMessage(err.message || `Failed to ${action} plugin`, 'error');
+      showMessage(err.message || actionFailed(action), 'error');
     } finally {
       // Replace the 'starting'/'stopping' shown during the call with the
       // backend's settled status, whether the call worked, failed or was gated.
@@ -939,12 +981,12 @@ const PluginsPage = () => {
       }
       const response = await startPlugin('ollama');
       if (response.success) {
-        showMessage('Ollama started', 'success');
+        showMessage(t('plugins.page.ollamaStarted'), 'success');
       } else {
-        showMessage(response.message || 'Failed to start Ollama', 'error');
+        showMessage(response.message || t('plugins.page.ollamaStartFailed'), 'error');
       }
     } catch (err) {
-      showMessage(err.message || 'Failed to start Ollama', 'error');
+      showMessage(err.message || t('plugins.page.ollamaStartFailed'), 'error');
     } finally {
       setRestartOllamaLoading(false);
       setShowRestartOllama(false);
@@ -956,13 +998,13 @@ const PluginsPage = () => {
     try {
       const response = await refreshPlugins();
       if (response.success) {
-        showMessage(`Found ${response.data.count} plugins`, 'success');
+        showMessage(t('plugins.page.found', { count: response.data.count }), 'success');
         fetchPlugins();
       } else {
-        showMessage('Failed to refresh plugins', 'error');
+        showMessage(t('plugins.page.refreshFailed'), 'error');
       }
     } catch (err) {
-      showMessage(err.message || 'Failed to refresh plugins', 'error');
+      showMessage(err.message || t('plugins.page.refreshFailed'), 'error');
     }
   };
 
@@ -970,19 +1012,19 @@ const PluginsPage = () => {
     try {
       const response = await updatePluginConfig(pluginId, config);
       if (response.success) {
-        showMessage(response.message || 'Configuration saved', 'success');
+        showMessage(response.message || t('plugins.page.configSaved'), 'success');
         fetchPlugins();
       } else {
-        showMessage('Failed to save configuration', 'error');
+        showMessage(t('plugins.page.configSaveFailed'), 'error');
       }
     } catch (err) {
-      showMessage(err.message || 'Failed to save configuration', 'error');
+      showMessage(err.message || t('plugins.page.configSaveFailed'), 'error');
     }
   };
 
   return (
     <PageLayout
-      title="Plugins"
+      title={t('plugins.page.title')}
       variant="standard"
       actions={
         <Button
@@ -991,12 +1033,12 @@ const PluginsPage = () => {
           onClick={handleRefresh}
           disabled={loading}
         >
-          Refresh
+          {t('plugins.page.refresh')}
         </Button>
       }
     >
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Manage GPU services and optional features. Toggle plugins on/off to control VRAM usage.
+        {t('plugins.page.intro')}
       </Typography>
 
       {error && (
@@ -1008,14 +1050,14 @@ const PluginsPage = () => {
 
       {loading && plugins.length === 0 ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <ContextualLoader loading message="Loading plugins..." showProgress={false} inline />
+          <ContextualLoader loading message={t('plugins.page.loading')} showProgress={false} inline />
         </Box>
       ) : plugins.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <PluginIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>No Plugins Found</Typography>
+          <Typography variant="h6" gutterBottom>{t('plugins.page.emptyTitle')}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Add plugins to the /plugins/ directory and click Refresh.
+            {t('plugins.page.emptyBody')}
           </Typography>
         </Paper>
       ) : (

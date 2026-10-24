@@ -19,6 +19,7 @@ import { listProjectVideos, updateMusicVideo } from "../../api/musicVideoService
 import { formatUiError } from "../../utils/uiError";
 import ConfirmActionDialog from "../settings/ui/ConfirmActionDialog";
 import StatusPill from "../settings/ui/StatusPill";
+import { translate, useUiTranslation } from "../../i18n";
 
 const POLL_MS = 10000;
 
@@ -28,24 +29,29 @@ export function videoHref(row) {
   return "/film-crew";
 }
 
-const kindLabel = (kind) => (kind === "music_video" ? "Music video" : kind === "film" ? "Film Crew" : kind);
+const kindLabel = (kind) =>
+  kind === "music_video"
+    ? translate("projects.videos.kindMusicVideo")
+    : kind === "film"
+      ? translate("projects.videos.kindFilm")
+      : kind;
 
-const STAGE_TEXT = {
-  draft: ["Draft", "neutral"],
-  analyzing: ["Analyzing", "info"],
-  awaiting_approval: ["Waiting for approval", "warn"],
-  generating: ["Rendering", "info"],
-  assembling: ["Assembling", "info"],
-  complete: ["Done", "ok"],
-  cancelled: ["Cancelled", "neutral"],
-};
+const stageText = () => ({
+  draft: [translate("projects.videos.stage.draft"), "neutral"],
+  analyzing: [translate("projects.videos.stage.analyzing"), "info"],
+  awaiting_approval: [translate("projects.videos.stage.awaitingApproval"), "warn"],
+  generating: [translate("projects.videos.stage.generating"), "info"],
+  assembling: [translate("projects.videos.stage.assembling"), "info"],
+  complete: [translate("projects.videos.stage.complete"), "ok"],
+  cancelled: [translate("projects.videos.stage.cancelled"), "neutral"],
+});
 
 /** [label, tone] for a row's stage; a failed run says so whatever its stage. */
 export function stagePill(row) {
   const status = String(row.status || "");
-  if (status.startsWith("failed")) return ["Failed", "error"];
-  if (status.startsWith("cancelled")) return ["Cancelled", "neutral"];
-  const known = STAGE_TEXT[row.current_stage];
+  if (status.startsWith("failed")) return [translate("projects.videos.stage.failed"), "error"];
+  if (status.startsWith("cancelled")) return [translate("projects.videos.stage.cancelled"), "neutral"];
+  const known = stageText()[row.current_stage];
   if (known) return known;
   return [String(row.current_stage || "").replace(/_/g, " "), "neutral"];
 }
@@ -67,6 +73,7 @@ function Thumbnail({ row }) {
  * under it, with its stage and progress, and buttons to start a new one here.
  */
 export default function ProjectVideosPanel({ projectId }) {
+  const { t } = useUiTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -79,7 +86,7 @@ export default function ProjectVideosPanel({ projectId }) {
       setRows(data.videos || []);
       setError(null);
     } catch (e) {
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Could not load videos.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("projects.videos.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -87,8 +94,8 @@ export default function ProjectVideosPanel({ projectId }) {
 
   useEffect(() => {
     load();
-    const t = setInterval(load, POLL_MS);
-    return () => clearInterval(t);
+    const timer = setInterval(load, POLL_MS);
+    return () => clearInterval(timer);
   }, [load]);
 
   const unfile = async (row) => {
@@ -99,7 +106,7 @@ export default function ProjectVideosPanel({ projectId }) {
       await load();
     } catch (e) {
       setUnfiling(null);
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Could not remove it from the project.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("projects.videos.removeFailed"));
     } finally {
       setUnfileBusy(false);
     }
@@ -112,13 +119,13 @@ export default function ProjectVideosPanel({ projectId }) {
           variant="contained" size="small" startIcon={<MusicVideoIcon />}
           component={RouterLink} to={`/music-video?project_id=${projectId}`}
         >
-          New music video
+          {t("projects.videos.newMusicVideo")}
         </Button>
         <Button
           variant="outlined" size="small" startIcon={<MovieIcon />}
           component={RouterLink} to="/film-crew"
         >
-          Film Crew
+          {t("projects.videos.filmCrew")}
         </Button>
       </Stack>
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -126,8 +133,7 @@ export default function ProjectVideosPanel({ projectId }) {
         <CircularProgress size={24} />
       ) : rows.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No videos in this project yet. Start a music video here, or file an existing one under
-          this project from the Music Video page.
+          {t("projects.videos.empty")}
         </Typography>
       ) : (
         <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
@@ -149,7 +155,7 @@ export default function ProjectVideosPanel({ projectId }) {
               {row.kind === "music_video" && (
                 <Box sx={{ px: 1, pb: 1 }}>
                   <Button size="small" color="inherit" onClick={() => setUnfiling(row)}>
-                    Remove from project
+                    {t("projects.videos.removeFromProject")}
                   </Button>
                 </Box>
               )}
@@ -159,9 +165,9 @@ export default function ProjectVideosPanel({ projectId }) {
       )}
       <ConfirmActionDialog
         open={!!unfiling}
-        title={`Remove “${unfiling?.name || ""}” from this project?`}
-        description="The music video and its rendered files stay in the library; it is only no longer filed under this project."
-        confirmLabel="Remove from project"
+        title={t("projects.videos.removeTitle", { name: unfiling?.name || "" })}
+        description={t("projects.videos.removeDescription")}
+        confirmLabel={t("projects.videos.removeFromProject")}
         reversible
         busy={unfileBusy}
         onConfirm={() => unfiling && unfile(unfiling)}

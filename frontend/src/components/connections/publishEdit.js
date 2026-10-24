@@ -3,32 +3,35 @@
 // a person changed since, and the edit request built from the dialog's fields.
 // The backend (PATCH /api/connections/publishes/<id>) validates and stores it.
 import { scheduledIsoOf, toLocalInput } from "../social/PostFields";
+import { translate } from "../../i18n";
 
 // requested_by values whose text a person did not write in the composer.
-const DRAFTED_BY = {
-  chat: "Chat drafted this post.",
-  mcp: "An AI tool connected over MCP drafted this post.",
-  schedule: "A schedule queued this post.",
-  unknown: "This post came from a caller that did not say what it is.",
-};
+const draftedByText = () => ({
+  chat: translate("connections.publishEdit.draftedBy.chat"),
+  mcp: translate("connections.publishEdit.draftedBy.mcp"),
+  schedule: translate("connections.publishEdit.draftedBy.schedule"),
+  unknown: translate("connections.publishEdit.draftedBy.unknown"),
+});
 
 /** One sentence on who pre-filled this post, or null when a person composed it. */
-export const draftedBy = (record) => DRAFTED_BY[record?.requested_by] || null;
+export const draftedBy = (record) => draftedByText()[record?.requested_by] || null;
 
-const FIELD_WORDS = {
-  body: "text",
-  title: "title",
-  link_url: "link",
-  tags: "tags",
-  visibility: "visibility",
-  post_options: "post fields",
-  ai_disclosure: "AI label",
-  scheduled_at: "time",
-};
+const fieldWords = () => ({
+  body: translate("connections.publishEdit.fields.body"),
+  title: translate("connections.publishEdit.fields.title"),
+  link_url: translate("connections.publishEdit.fields.linkUrl"),
+  tags: translate("connections.publishEdit.fields.tags"),
+  visibility: translate("connections.publishEdit.fields.visibility"),
+  post_options: translate("connections.publishEdit.fields.postOptions"),
+  ai_disclosure: translate("connections.publishEdit.fields.aiDisclosure"),
+  scheduled_at: translate("connections.publishEdit.fields.scheduledAt"),
+});
 
 /** The edited fields of a record in plain words, e.g. "text, time". */
-export const editedFieldWords = (record) =>
-  (record?.edited_fields || []).map((name) => FIELD_WORDS[name] || name).join(", ");
+export const editedFieldWords = (record) => {
+  const words = fieldWords();
+  return (record?.edited_fields || []).map((name) => words[name] || name).join(", ");
+};
 
 /** The dialog's starting values for a record. */
 export const editableValues = (record) => {

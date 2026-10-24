@@ -44,6 +44,7 @@ import { entityLinkActions } from "../utils/entityLinks";
 import { useStatus } from "../contexts/StatusContext";
 import { getLogoUrl } from "../config/logoConfig";
 import { ContextualLoader } from "../components/common/LoadingStates";
+import { uiLocale, useUiTranslation } from "../i18n";
 
 const logger = {
   info: (message, ...args) =>
@@ -62,13 +63,14 @@ import { getComparator, stableSort } from "../utils/sortUtils";
 const formatDate = (dateString) => {
   if (!dateString) return "-";
   try {
-    return new Date(dateString).toLocaleDateString();
+    return new Date(dateString).toLocaleDateString(uiLocale());
   } catch (e) {
     return dateString;
   }
 };
 
 const ClientPage = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -109,12 +111,12 @@ const ClientPage = () => {
       setClients(Array.isArray(data) ? data : []);
     } catch (err) {
       const errorMessage =
-        err.data?.error || err.message || "Failed to fetch clients.";
+        err.data?.error || err.message || t("clients.page.fetchFailed");
       setError(errorMessage);
       logger.error("Error fetching clients:", err);
       setFeedback({
         open: true,
-        message: `Error loading clients: ${errorMessage}`,
+        message: t("clients.page.loadError", { error: errorMessage }),
         severity: "error",
       });
       setClients([]);
@@ -196,14 +198,16 @@ const ClientPage = () => {
         throw new Error(result.error.message || result.error);
       setFeedback({
         open: true,
-        message: `Client ${action}d successfully!`,
+        message: action === "update" ? t("clients.page.updated") : t("clients.page.created"),
         severity: "success",
       });
       handleCloseActionModal();
       await fetchClients();
     } catch (err) {
       const errorMessage =
-        err.data?.error || err.message || `Error ${action}ing client.`;
+        err.data?.error ||
+        err.message ||
+        (action === "update" ? t("clients.page.updateError") : t("clients.page.createError"));
       logger.error(`Error ${action}ing client:`, err);
       setFeedback({ open: true, message: errorMessage, severity: "error" });
     } finally {
@@ -215,7 +219,9 @@ const ClientPage = () => {
     if (event) event.stopPropagation(); // Prevent card/row click
     if (
       !window.confirm(
-        `Are you sure you want to delete client "${clientName || "this client"}" (ID: ${clientId})? This may affect associated projects.`,
+        clientName
+          ? t("clients.page.deleteConfirm", { name: clientName, id: clientId })
+          : t("clients.page.deleteConfirmUnnamed", { id: clientId }),
       )
     )
       return;
@@ -226,7 +232,7 @@ const ClientPage = () => {
       await apiService.deleteClient(clientId);
       setFeedback({
         open: true,
-        message: `Client "${clientName}" deleted successfully!`,
+        message: t("clients.page.deleted", { name: clientName }),
         severity: "info",
       });
       if (actionModalOpen && selectedClientForModal?.id === clientId) {
@@ -235,7 +241,7 @@ const ClientPage = () => {
       await fetchClients();
     } catch (err) {
       const errorMessage =
-        err.data?.error || err.message || "Error deleting client.";
+        err.data?.error || err.message || t("clients.page.deleteError");
       logger.error("Error deleting client:", err);
       setFeedback({ open: true, message: errorMessage, severity: "error" });
     } finally {
@@ -252,7 +258,7 @@ const ClientPage = () => {
     if (!client?.id) {
       setFeedback({
         open: true,
-        message: "Client data is missing. Cannot open linking modal.",
+        message: t("clients.page.missingClient"),
         severity: "warning",
       });
       logger.error("Client data or ID missing for LinkingModal", client);
@@ -269,7 +275,7 @@ const ClientPage = () => {
     fetchClients();
     setFeedback({
       open: true,
-      message: "Project links updated successfully!",
+      message: t("clients.page.linksUpdated"),
       severity: "success",
     });
     setIsLinkingModalOpen(false);
@@ -294,7 +300,7 @@ const ClientPage = () => {
       logger.error("Error fetching projects for linking:", error);
       setFeedback({
         open: true,
-        message: `Error fetching projects: ${error.message}`,
+        message: t("clients.page.projectsFetchError", { error: error.message }),
         severity: "error",
       });
       return [];
@@ -350,7 +356,9 @@ const ClientPage = () => {
         );
         setFeedback({
           open: true,
-          message: `Error updating links: ${error.message || "An unknown error occurred."}`,
+          message: t("clients.page.linksError", {
+            error: error.message || t("clients.page.unknownError"),
+          }),
           severity: "error",
         });
         throw error;
@@ -372,24 +380,24 @@ const ClientPage = () => {
   }, [clients, order, orderBy]);
 
   const headCells = [
-    { id: "logo", label: "Logo", sortable: false },
-    { id: "name", label: "Client Name", sortable: true },
-    { id: "email", label: "Email", sortable: true },
-    { id: "phone", label: "Phone", sortable: false },
+    { id: "logo", label: t("clients.page.columns.logo"), sortable: false },
+    { id: "name", label: t("clients.page.columns.name"), sortable: true },
+    { id: "email", label: t("clients.page.columns.email"), sortable: true },
+    { id: "phone", label: t("clients.page.columns.phone"), sortable: false },
     {
       id: "project_count",
-      label: "Projects #",
+      label: t("clients.page.columns.projects"),
       sortable: true,
       align: "right",
     },
-    { id: "notes", label: "Notes", sortable: false },
-    { id: "updated_at", label: "Last Updated", sortable: true },
-    { id: "actions", label: "Actions", sortable: false, align: "right" },
+    { id: "notes", label: t("clients.page.columns.notes"), sortable: false },
+    { id: "updated_at", label: t("clients.page.columns.updated"), sortable: true },
+    { id: "actions", label: t("clients.page.columns.actions"), sortable: false, align: "right" },
   ];
 
   return (
     <PageLayout
-      title="Clients"
+      title={t("clients.page.title")}
       variant="standard"
       viewToggle={{ mode: viewMode, onToggle: (val) => setViewMode(val) }}
       actions={
@@ -405,7 +413,7 @@ const ClientPage = () => {
             isModalSaving
           }
         >
-          New
+          {t("clients.page.new")}
         </Button>
       }
       modelStatus
@@ -440,12 +448,12 @@ const ClientPage = () => {
           </MuiAlert>
         )}
         {isLoading && (
-          <ContextualLoader loading message="Loading clients..." showProgress={false} inline />
+          <ContextualLoader loading message={t("clients.page.loading")} showProgress={false} inline />
         )}
 
         {!isLoading && sortedClients.length === 0 && !error && (
           <Typography sx={{ mt: 2, fontStyle: "italic", textAlign: "center" }}>
-            No clients found. Add one to get started!
+            {t("clients.page.empty")}
           </Typography>
         )}
 
@@ -493,20 +501,20 @@ const ClientPage = () => {
                             color="text.secondary"
                             sx={{ mb: 0.5 }}
                             noWrap
-                            title={client.email || "N/A"}
+                            title={client.email || t("clients.page.notAvailable")}
                           >
-                            Email: {client.email || "N/A"}
+                            {t("clients.page.email", { email: client.email || t("clients.page.notAvailable") })}
                           </Typography>
                           <Typography
                             variant="body2"
                             color="text.secondary"
                             sx={{ mb: 1 }}
                             noWrap
-                            title={client.phone || "N/A"}
+                            title={client.phone || t("clients.page.notAvailable")}
                           >
-                            Phone: {client.phone || "N/A"}
+                            {t("clients.page.phone", { phone: client.phone || t("clients.page.notAvailable") })}
                           </Typography>
-                          <Tooltip title={client.notes || "No notes."}>
+                          <Tooltip title={client.notes || t("clients.page.noNotesTooltip")}>
                             <Typography
                               variant="body2"
                               color="text.secondary"
@@ -521,14 +529,16 @@ const ClientPage = () => {
                                 WebkitBoxOrient: "vertical",
                               }}
                             >
-                              {client.notes || "No notes"}
+                              {client.notes || t("clients.page.noNotes")}
                             </Typography>
                           </Tooltip>
                           <Typography variant="body2" color="text.primary">
-                            Projects:{" "}
-                            {client.project_count !== undefined
-                              ? client.project_count
-                              : "N/A"}
+                            {t("clients.page.projects", {
+                              projects:
+                                client.project_count !== undefined
+                                  ? client.project_count
+                                  : t("clients.page.notAvailable"),
+                            })}
                           </Typography>
                         </Grid>
                         <Grid item xs={3} sx={{ textAlign: "right" }}>
@@ -641,7 +651,7 @@ const ClientPage = () => {
                       </TableCell>
                       <TableCell>{formatDate(client.updated_at)}</TableCell>
                       <TableCell align="right" sx={{ pr: 2 }}>
-                        <Tooltip title="Link Projects">
+                        <Tooltip title={t("clients.page.linkProjects")}>
                           <span>
                             <IconButton
                               size="small"
@@ -652,7 +662,7 @@ const ClientPage = () => {
                             </IconButton>
                           </span>
                         </Tooltip>
-                        <Tooltip title="Delete Client">
+                        <Tooltip title={t("clients.page.deleteClient")}>
                           <span>
                             <IconButton
                               size="small"
@@ -686,7 +696,7 @@ const ClientPage = () => {
                   borderColor: "divider",
                 }}
               >
-                Total Clients: {sortedClients.length}
+                {t("clients.page.total", { total: sortedClients.length })}
               </Typography>
             )}
           </Paper>
@@ -712,11 +722,19 @@ const ClientPage = () => {
         anchorPosition={pageMenu.anchorPosition}
         onClose={pageMenu.close}
         actions={contextItem ? [
-          { label: 'Edit', onClick: () => handleOpenActionModal(contextItem) },
-          { label: 'Delete', onClick: () => handleDeleteClient(contextItem.id, contextItem.name), color: 'error.main' },
+          { label: t("clients.page.menu.edit"), onClick: () => handleOpenActionModal(contextItem) },
+          {
+            label: t("clients.page.menu.delete"),
+            onClick: () => handleDeleteClient(contextItem.id, contextItem.name),
+            color: 'error.main',
+          },
           ...entityLinkActions('client', contextItem.id, navigate),
         ] : [
-          { label: 'New Client', icon: <AddIcon fontSize="small" />, onClick: () => handleOpenActionModal(null) },
+          {
+            label: t("clients.page.menu.newClient"),
+            icon: <AddIcon fontSize="small" />,
+            onClick: () => handleOpenActionModal(null),
+          },
         ]}
       />
 
@@ -731,8 +749,8 @@ const ClientPage = () => {
           linkableTypesConfig={[
             {
               entityType: "project",
-              singularLabel: "Project",
-              pluralLabel: "Projects",
+              singularLabel: t("clients.page.linkProject"),
+              pluralLabel: t("clients.page.linkProjectsPlural"),
               apiServiceFunction: getProjectsForLinking, // Provides list of all projects to link
             },
           ]}

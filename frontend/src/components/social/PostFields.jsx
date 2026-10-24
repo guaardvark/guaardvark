@@ -17,6 +17,7 @@ import {
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 
 import { fixedVisibilityNote, mergePostFields, strictestLimit } from "./platformRules";
+import { translate, useUiTranslation } from "../../i18n";
 
 /** Debounce so preflight doesn't fire on every keystroke. */
 export const useDebounced = (value, delay = 400) => {
@@ -77,12 +78,13 @@ const PostFields = ({
   visibilityTargets = [],
   onVisibilityChange,
   preflight = null,
-  bodyLabel = "Text",
+  bodyLabel = translate("social.postFields.text"),
   showLink = false,
   disclosureLocked = false,
   scheduleRefusal = "",
-  scheduleHelp = "Still waits for approval first when approval is required.",
+  scheduleHelp = translate("social.postFields.scheduleHelp"),
 }) => {
+  const { t } = useUiTranslation();
   const charLimit = strictestLimit(specs, "max_text_chars");
   const titleLimit = strictestLimit(specs, "max_title_chars");
   const supportsTitle = specs.some((s) => s.capabilities?.supports_title);
@@ -110,15 +112,19 @@ const PostFields = ({
     <>
       {supportsTitle && (
         <TextField
-          label="Title"
+          label={t("social.postFields.title")}
           value={title}
           onChange={(e) => onChange({ title: e.target.value })}
           size="small"
           error={titleLimit !== null && title.trim().length > titleLimit}
           helperText={
             [
-              titleRequiredBy.length ? `Required for ${titleRequiredBy.join(", ")}.` : "",
-              titleLimit !== null ? `${title.trim().length} / ${titleLimit} characters` : "",
+              titleRequiredBy.length
+                ? t("social.postFields.requiredFor", { targets: titleRequiredBy.join(", ") })
+                : "",
+              titleLimit !== null
+                ? t("social.postFields.charactersOfLimit", { count: title.trim().length, limit: titleLimit })
+                : "",
             ]
               .filter(Boolean)
               .join(" ") || undefined
@@ -134,7 +140,11 @@ const PostFields = ({
           onChange={(e) => onChange({ postOptions: { ...postOptions, [field.name]: e.target.value } })}
           placeholder={field.placeholder || undefined}
           size="small"
-          helperText={`${field.required ? "Required" : "Used"} for ${field.for.join(", ")}. ${field.help || ""}`.trim()}
+          helperText={`${
+            field.required
+              ? t("social.postFields.requiredFor", { targets: field.for.join(", ") })
+              : t("social.postFields.usedFor", { targets: field.for.join(", ") })
+          } ${field.help || ""}`.trim()}
         />
       ))}
 
@@ -147,27 +157,29 @@ const PostFields = ({
         size="small"
         error={overLimit}
         helperText={
-          charLimit !== null ? `${body.length} / ${charLimit} characters` : `${body.length} characters`
+          charLimit !== null
+            ? t("social.postFields.charactersOfLimit", { count: body.length, limit: charLimit })
+            : t("social.postFields.characters", { count: body.length })
         }
       />
 
       {showLink && (
         <TextField
-          label="Link"
+          label={t("social.postFields.link")}
           value={linkUrl || ""}
           onChange={(e) => onChange({ linkUrl: e.target.value })}
           size="small"
-          helperText="Sent with the text. Leave empty for none."
+          helperText={t("social.postFields.linkHelp")}
         />
       )}
 
       {supportsTags && (
         <TextField
-          label="Tags"
+          label={t("social.postFields.tags")}
           value={tags}
           onChange={(e) => onChange({ tags: e.target.value })}
           size="small"
-          helperText="Comma separated."
+          helperText={t("social.postFields.tagsHelp")}
         />
       )}
 
@@ -175,7 +187,11 @@ const PostFields = ({
         <TextField
           key={target.key}
           select
-          label={visibilityTargets.length > 1 ? `Visibility on ${target.label}` : "Visibility"}
+          label={
+            visibilityTargets.length > 1
+              ? t("social.postFields.visibilityOn", { target: target.label })
+              : t("social.postFields.visibility")
+          }
           value={target.value}
           onChange={(e) => onVisibilityChange?.(target.key, e.target.value)}
           size="small"
@@ -207,11 +223,11 @@ const PostFields = ({
               size="small"
             />
           }
-          label="Label as made with AI"
+          label={t("social.postFields.aiLabel")}
         />
         {requiredDisclosures.map((entry) => (
           <Typography key={entry.label} variant="caption" color="text.secondary" sx={{ display: "block" }}>
-            Always on for {entry.label}: {entry.rule}
+            {t("social.postFields.alwaysOn", { target: entry.label, rule: entry.rule })}
           </Typography>
         ))}
       </Box>
@@ -230,7 +246,7 @@ const PostFields = ({
               size="small"
             />
           }
-          label="Schedule for later"
+          label={t("social.postFields.schedule")}
         />
         {scheduleRefusal && (
           <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
@@ -241,7 +257,7 @@ const PostFields = ({
           <Stack spacing={0.5} sx={{ mt: 1 }}>
             <TextField
               type="datetime-local"
-              label="Goes out at"
+              label={t("social.postFields.goesOutAt")}
               value={scheduledAt}
               onChange={(e) => onChange({ scheduledAt: e.target.value })}
               size="small"

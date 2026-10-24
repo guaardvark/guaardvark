@@ -44,24 +44,26 @@ import {
   fetchPublishes,
 } from "../api/connectionsService";
 import { STATUS_TONE, deleteOnPlatform, statusLabel } from "../components/social/platformRules";
+import { translate, uiLocale, useUiTranslation } from "../i18n";
 
 // Filter choices; a value may name several statuses, comma separated.
-const STATUS_FILTERS = [
-  { value: "", label: "All" },
-  { value: "awaiting_approval", label: "Waiting for approval" },
-  { value: "scheduled", label: "Scheduled" },
-  { value: "queued,processing", label: "Sending" },
-  { value: "posted", label: "Posted" },
-  { value: "failed", label: "Failed" },
-  { value: "deleted", label: "Deleted on platform" },
-  { value: "rejected,cancelled", label: "Rejected or cancelled" },
+const statusFilters = () => [
+  { value: "", label: translate("social.posts.filters.all") },
+  { value: "awaiting_approval", label: translate("social.platformRules.status.awaitingApproval") },
+  { value: "scheduled", label: translate("social.platformRules.status.scheduled") },
+  { value: "queued,processing", label: translate("social.platformRules.status.processing") },
+  { value: "posted", label: translate("social.platformRules.status.posted") },
+  { value: "failed", label: translate("social.platformRules.status.failed") },
+  { value: "deleted", label: translate("social.platformRules.status.deleted") },
+  { value: "rejected,cancelled", label: translate("social.posts.filters.rejectedOrCancelled") },
 ];
 
 const CANCELLABLE = new Set(["awaiting_approval", "queued", "scheduled"]);
 
-const formatWhen = (iso) => (iso ? new Date(iso).toLocaleString() : "—");
+const formatWhen = (iso) => (iso ? new Date(iso).toLocaleString(uiLocale()) : "—");
 
 const SocialPostsPage = () => {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const { showMessage } = useSnackbar();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -111,7 +113,7 @@ const SocialPostsPage = () => {
   const accountName = useCallback(
     (record) => {
       const match = connections.find((c) => c.id === record.connection_id);
-      return match ? match.display_name || match.handle || match.account_slug : "(removed account)";
+      return match ? match.display_name || match.handle || match.account_slug : t("social.posts.removedAccount");
     },
     [connections],
   );
@@ -129,7 +131,7 @@ const SocialPostsPage = () => {
     setBusyId(record.id);
     try {
       await cancelPublish(record.id);
-      showMessage("Publish cancelled.", "success");
+      showMessage(t("social.posts.cancelled"), "success");
       await load();
     } catch (e) {
       showMessage(e.message, "error");
@@ -143,7 +145,7 @@ const SocialPostsPage = () => {
     setBusyId(deleting.id);
     try {
       const result = await deletePublishRemote(deleting.id);
-      showMessage(result.message || "Deleted on the platform.", "success");
+      showMessage(result.message || t("social.posts.deletedOnPlatform"), "success");
       setDeleting(null);
       await load();
     } catch (e) {
@@ -157,19 +159,19 @@ const SocialPostsPage = () => {
 
   return (
     <PageLayout
-      title="Social Posts"
+      title={t("social.posts.title")}
       actions={
         <Stack direction="row" spacing={1} alignItems="center">
           <ActionButton kind="link" onClick={() => navigate("/social/accounts")}>
-            Social Accounts
+            {t("social.posts.socialAccounts")}
           </ActionButton>
           <ActionButton kind="link" onClick={() => navigate("/approvals")}>
-            Approvals
+            {t("social.posts.approvals")}
           </ActionButton>
           <ActionButton startIcon={<AddIcon />} onClick={() => setComposing(true)}>
-            New post
+            {t("social.posts.newPost")}
           </ActionButton>
-          <Tooltip title="Refresh">
+          <Tooltip title={t("social.posts.refresh")}>
             <IconButton onClick={load} size="small">
               <RefreshIcon />
             </IconButton>
@@ -179,13 +181,13 @@ const SocialPostsPage = () => {
     >
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
         <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel>Account</InputLabel>
+          <InputLabel>{t("social.posts.account")}</InputLabel>
           <Select
-            label="Account"
+            label={t("social.posts.account")}
             value={connectionFilter}
             onChange={(e) => setFilter("connection_id", e.target.value)}
           >
-            <MenuItem value="">All accounts</MenuItem>
+            <MenuItem value="">{t("social.posts.allAccounts")}</MenuItem>
             {connections.map((conn) => (
               <MenuItem key={conn.id} value={String(conn.id)}>
                 {(specs[conn.provider]?.label || conn.provider) + " · " + (conn.display_name || conn.handle || conn.account_slug)}
@@ -194,9 +196,13 @@ const SocialPostsPage = () => {
           </Select>
         </FormControl>
         <FormControl size="small" sx={{ minWidth: 220 }}>
-          <InputLabel>Status</InputLabel>
-          <Select label="Status" value={statusFilter} onChange={(e) => setFilter("status", e.target.value)}>
-            {STATUS_FILTERS.map((option) => (
+          <InputLabel>{t("social.posts.status")}</InputLabel>
+          <Select
+            label={t("social.posts.status")}
+            value={statusFilter}
+            onChange={(e) => setFilter("status", e.target.value)}
+          >
+            {statusFilters().map((option) => (
               <MenuItem key={option.value || "all"} value={option.value}>
                 {option.label}
               </MenuItem>
@@ -214,11 +220,10 @@ const SocialPostsPage = () => {
       {!loading && !rows.length ? (
         <Box sx={{ textAlign: "center", py: 6 }}>
           <Typography variant="body1" color="text.secondary" gutterBottom>
-            No posts here yet.
+            {t("social.posts.emptyTitle")}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Write one with New post, or publish from Media or the Studio with the Publish action;
-            posts show here with their status.
+            {t("social.posts.emptyBody")}
           </Typography>
         </Box>
       ) : (
@@ -226,13 +231,13 @@ const SocialPostsPage = () => {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Account</TableCell>
-                <TableCell>Post</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Scheduled</TableCell>
-                <TableCell>Posted</TableCell>
-                <TableCell>AI label</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t("social.posts.columns.account")}</TableCell>
+                <TableCell>{t("social.posts.columns.post")}</TableCell>
+                <TableCell>{t("social.posts.columns.status")}</TableCell>
+                <TableCell>{t("social.posts.columns.scheduled")}</TableCell>
+                <TableCell>{t("social.posts.columns.posted")}</TableCell>
+                <TableCell>{t("social.posts.columns.aiLabel")}</TableCell>
+                <TableCell align="right">{t("social.posts.columns.actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -262,7 +267,10 @@ const SocialPostsPage = () => {
                         color="text.secondary"
                         sx={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}
                       >
-                        {record.body || (record.media_refs?.length ? `${record.media_refs.length} media item(s)` : "(no text)")}
+                        {record.body ||
+                          (record.media_refs?.length
+                            ? t("social.posts.mediaItems", { count: record.media_refs.length })
+                            : t("social.posts.noText"))}
                       </Typography>
                       {record.error_message && (
                         <Typography
@@ -280,7 +288,9 @@ const SocialPostsPage = () => {
                       <Typography variant="body2">{formatWhen(record.scheduled_at)}</Typography>
                       {record.scheduled_at && (
                         <Typography variant="caption" color="text.secondary">
-                          {record.scheduled_natively ? `by ${platformLabel}` : "by Guaardvark"}
+                          {record.scheduled_natively
+                            ? t("social.posts.byPlatform", { platform: platformLabel })
+                            : t("social.posts.byGuaardvark")}
                         </Typography>
                       )}
                     </TableCell>
@@ -290,20 +300,20 @@ const SocialPostsPage = () => {
                         <Tooltip
                           title={
                             disclosure?.mechanism === "platform_flag"
-                              ? `Set as ${disclosure.flag}`
-                              : `Line in the post: ${disclosure?.text || ""}`
+                              ? t("social.posts.setAsFlag", { flag: disclosure.flag })
+                              : t("social.posts.lineInPost", { text: disclosure?.text || "" })
                           }
                         >
-                          <span>Yes</span>
+                          <span>{t("social.posts.yes")}</span>
                         </Tooltip>
                       ) : (
-                        "No"
+                        t("social.posts.no")
                       )}
                     </TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end" alignItems="center">
                         {record.remote_url && (
-                          <Tooltip title={`Open on ${platformLabel}`}>
+                          <Tooltip title={t("social.posts.openOn", { platform: platformLabel })}>
                             <IconButton
                               size="small"
                               component="a"
@@ -317,15 +327,15 @@ const SocialPostsPage = () => {
                         )}
                         {record.status === "awaiting_approval" && (
                           <>
-                            <ActionButton onClick={() => setEditing(record)}>Edit</ActionButton>
+                            <ActionButton onClick={() => setEditing(record)}>{t("social.posts.edit")}</ActionButton>
                             <ActionButton kind="link" onClick={() => navigate("/approvals")}>
-                              Review
+                              {t("social.posts.review")}
                             </ActionButton>
                           </>
                         )}
                         {CANCELLABLE.has(record.status) && !record.scheduled_natively && (
                           <ActionButton loading={busyId === record.id} onClick={() => handleCancel(record)}>
-                            Cancel
+                            {t("social.posts.cancel")}
                           </ActionButton>
                         )}
                         {removal.show && (
@@ -335,7 +345,7 @@ const SocialPostsPage = () => {
                             tooltip={removal.reason}
                             onClick={() => setDeleting(record)}
                           >
-                            Delete on platform
+                            {t("social.posts.deleteOnPlatform")}
                           </ActionButton>
                         )}
                       </Stack>
@@ -366,29 +376,39 @@ const SocialPostsPage = () => {
         onClose={() => setEditing(null)}
         onSaved={async () => {
           setEditing(null);
-          showMessage("Saved. It still waits for approval on the Approvals page.", "success");
+          showMessage(t("social.posts.saved"), "success");
           await load();
         }}
       />
 
       <ConfirmActionDialog
         open={Boolean(deleting)}
-        title={`Delete this post on ${deletingSpec?.label || deleting?.platform || "the platform"}?`}
+        title={
+          deletingSpec?.label || deleting?.platform
+            ? t("social.posts.deleteTitle", { platform: deletingSpec?.label || deleting?.platform })
+            : t("social.posts.deleteTitleUnknown")
+        }
         description={
           deleting?.status === "scheduled"
-            ? "The platform still holds this post for its time. Deleting it there means it never goes out."
-            : "Removes the post from the platform. Its record stays here, marked deleted."
+            ? t("social.posts.deleteScheduled")
+            : t("social.posts.deletePosted")
         }
         facts={
           deleting
             ? [
-                { label: "Account", value: accountName(deleting) },
-                { label: deleting.status === "scheduled" ? "Scheduled" : "Posted", value: formatWhen(deleting.scheduled_at && deleting.status === "scheduled" ? deleting.scheduled_at : deleting.posted_at) },
-                { label: "Text", value: (deleting.title || deleting.body || "").slice(0, 120) || "(no text)" },
+                { label: t("social.posts.factAccount"), value: accountName(deleting) },
+                {
+                  label: deleting.status === "scheduled" ? t("social.posts.factScheduled") : t("social.posts.factPosted"),
+                  value: formatWhen(deleting.scheduled_at && deleting.status === "scheduled" ? deleting.scheduled_at : deleting.posted_at),
+                },
+                {
+                  label: t("social.posts.factText"),
+                  value: (deleting.title || deleting.body || "").slice(0, 120) || t("social.posts.noText"),
+                },
               ]
             : []
         }
-        confirmLabel="Delete on platform"
+        confirmLabel={t("social.posts.deleteOnPlatform")}
         busy={busyId === deleting?.id}
         onConfirm={handleDelete}
         onClose={() => setDeleting(null)}

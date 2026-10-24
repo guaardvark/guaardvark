@@ -6,23 +6,28 @@
 import React from "react";
 import { Box, Fade, Paper, Typography } from "@mui/material";
 import { ActionButton } from "./settings/ui";
+import { translate, useUiTranslation } from "../i18n";
 
-const KIND_LABELS = {
-  codegen: "code file",
-  generate_file: "file",
-  generate_csv: "CSV file",
-  generate_bulk_csv: "CSV file",
-  generate_wordpress_content: "WordPress CSV",
-  generate_enhanced_wordpress_content: "WordPress CSV",
-};
+// The whole question per kind of file, so a language can word each one.
+const kindTitles = () => ({
+  codegen: translate("fileGeneration.popup.titleCodeFile"),
+  generate_file: translate("fileGeneration.popup.titleFile"),
+  generate_csv: translate("fileGeneration.popup.titleCsvFile"),
+  generate_bulk_csv: translate("fileGeneration.popup.titleCsvFile"),
+  generate_wordpress_content: translate("fileGeneration.popup.titleWordPressCsv"),
+  generate_enhanced_wordpress_content: translate("fileGeneration.popup.titleWordPressCsv"),
+});
 
 const FileGenPopup = ({ open, fileData, onConfirm, onAlways, onDismiss }) => {
+  const { t } = useUiTranslation();
   if (!open || !fileData) return null;
 
   const { filename, isBulkRequest, quantity, toolName } = fileData;
-  const kind = KIND_LABELS[toolName] || "file";
+  const title = kindTitles()[toolName] || t("fileGeneration.popup.titleFile");
   const detail = isBulkRequest
-    ? `${quantity || "Several"} rows; this can take a few minutes.`
+    ? quantity
+      ? t("fileGeneration.popup.bulkRows", { quantity })
+      : t("fileGeneration.popup.bulkRowsSeveral")
     : null;
 
   return (
@@ -30,7 +35,7 @@ const FileGenPopup = ({ open, fileData, onConfirm, onAlways, onDismiss }) => {
       <Paper
         variant="outlined"
         role="dialog"
-        aria-label="Create a file"
+        aria-label={t("fileGeneration.popup.dialogLabel")}
         data-testid="file-gen-card"
         sx={{
           // Above the chat input bar, which would otherwise draw over the card.
@@ -47,7 +52,7 @@ const FileGenPopup = ({ open, fileData, onConfirm, onAlways, onDismiss }) => {
         }}
       >
         <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
-          Create a {kind} from this request?
+          {title}
         </Typography>
         <Typography
           variant="body2"
@@ -63,19 +68,19 @@ const FileGenPopup = ({ open, fileData, onConfirm, onAlways, onDismiss }) => {
         )}
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap", mt: 1.5 }}>
           <ActionButton kind="primary" onClick={onConfirm}>
-            Create
+            {t("fileGeneration.popup.create")}
           </ActionButton>
           {onAlways && (
             <ActionButton
               kind="neutral"
-              tooltip="Create files like this without asking from now on. Undo it on the Approvals page."
+              tooltip={t("fileGeneration.popup.alwaysCreateTooltip")}
               onClick={onAlways}
             >
-              Always create
+              {t("fileGeneration.popup.alwaysCreate")}
             </ActionButton>
           )}
           <ActionButton kind="link" onClick={onDismiss}>
-            Not now
+            {t("fileGeneration.popup.notNow")}
           </ActionButton>
         </Box>
       </Paper>

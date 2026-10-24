@@ -26,17 +26,24 @@ import {
 } from "@mui/material";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { getWebsitePages, getWebsitePage } from "../../api/websiteService";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
+
+const statusLabels = () => ({
+  crawled: translate("websites.crawledPages.status.crawled"),
+  error: translate("websites.crawledPages.status.error"),
+});
 
 const formatTime = (iso) => {
   if (!iso) return "—";
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString(uiLocale());
   } catch {
     return iso;
   }
 };
 
 const CrawledPagesPanel = ({ website, onFeedback }) => {
+  const { t } = useUiTranslation();
   const websiteId = website?.id;
 
   const [pages, setPages] = useState([]);
@@ -58,7 +65,9 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
     } catch (err) {
       onFeedback?.({
         open: true,
-        message: `Could not load pages: ${err.message || "Unknown error"}`,
+        message: t("websites.crawledPages.loadFailed", {
+          error: err.message || t("websites.crawledPages.unknownError"),
+        }),
         severity: "error",
       });
     } finally {
@@ -87,7 +96,8 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
     <Box>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
         <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>
-          Crawled pages {total ? `(${total})` : ""}
+          {t("websites.crawledPages.title")}{" "}
+          {total ? `(${total})` : ""}
         </Typography>
         <FormControl size="small" sx={{ minWidth: 130 }}>
           <Select
@@ -95,12 +105,12 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
             displayEmpty
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <MenuItem value="">All</MenuItem>
-            <MenuItem value="crawled">Crawled</MenuItem>
-            <MenuItem value="error">Error</MenuItem>
+            <MenuItem value="">{t("websites.crawledPages.filterAll")}</MenuItem>
+            <MenuItem value="crawled">{t("websites.crawledPages.filterCrawled")}</MenuItem>
+            <MenuItem value="error">{t("websites.crawledPages.filterError")}</MenuItem>
           </Select>
         </FormControl>
-        <Tooltip title="Refresh">
+        <Tooltip title={t("websites.crawledPages.refresh")}>
           <span>
             <IconButton size="small" onClick={loadPages} disabled={loading}>
               <RefreshIcon fontSize="small" />
@@ -114,10 +124,10 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: "bold" }}>Title</TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>URL</TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: "bold" }}>Crawled</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("websites.crawledPages.columns.title")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("websites.crawledPages.columns.url")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("websites.crawledPages.columns.status")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("websites.crawledPages.columns.crawled")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -130,8 +140,8 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
                       sx={{ py: 2, textAlign: "center", fontStyle: "italic" }}
                     >
                       {loading
-                        ? "Loading…"
-                        : "No pages yet. Run a crawl (Overview tab) to walk the sitemap and populate this list."}
+                        ? t("websites.crawledPages.loading")
+                        : t("websites.crawledPages.empty")}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -152,7 +162,7 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
                     </TableCell>
                     <TableCell>
                       <Chip
-                        label={row.status}
+                        label={statusLabels()[row.status] || row.status}
                         color={row.status === "error" ? "error" : "success"}
                         size="small"
                         sx={{ textTransform: "capitalize" }}
@@ -171,7 +181,7 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
         {selected && (
           <>
             <DialogTitle sx={{ pb: 0 }}>
-              {selected.title || "Crawled page"}
+              {selected.title || t("websites.crawledPages.pageFallback")}
               <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-all" }}>
                 <a href={selected.url} target="_blank" rel="noreferrer">
                   {selected.url}
@@ -185,7 +195,7 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
                 </Box>
               ) : selected.status === "error" ? (
                 <Typography color="error" variant="body2">
-                  {selected.error_message || "Crawl error."}
+                  {selected.error_message || t("websites.crawledPages.crawlError")}
                 </Typography>
               ) : (
                 <>
@@ -199,7 +209,7 @@ const CrawledPagesPanel = ({ website, onFeedback }) => {
                     component="pre"
                     sx={{ whiteSpace: "pre-wrap", fontFamily: "inherit", m: 0 }}
                   >
-                    {selected.content || "(no text content captured)"}
+                    {selected.content || t("websites.crawledPages.noContent")}
                   </Typography>
                 </>
               )}

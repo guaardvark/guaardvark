@@ -31,21 +31,33 @@ import IndexingPanel from "../components/website/IndexingPanel";
 import CrawledPagesPanel from "../components/website/CrawledPagesPanel";
 import PageLayout from "../components/layout/PageLayout";
 import { useStatus } from "../contexts/StatusContext";
+import { translate, uiLocale, useUiTranslation } from "../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
 });
 
 const formatDate = (iso) => {
-  if (!iso) return "Never";
+  if (!iso) return translate("websites.detail.never");
   try {
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString(uiLocale());
   } catch {
     return iso;
   }
 };
 
+const statusLabels = () => ({
+  active: translate("websites.status.active"),
+  online: translate("websites.status.online"),
+  indexed: translate("websites.status.indexed"),
+  error: translate("websites.status.error"),
+  offline: translate("websites.status.offline"),
+  crawling: translate("websites.status.crawling"),
+  indexing: translate("websites.status.indexing"),
+});
+
 const StatusChip = ({ status }) => {
+  useUiTranslation();
   if (!status) return null;
   const normalized = status.toLowerCase();
   let color = "default";
@@ -54,7 +66,7 @@ const StatusChip = ({ status }) => {
   else if (["crawling", "indexing"].includes(normalized)) color = "warning";
   return (
     <Chip
-      label={status}
+      label={statusLabels()[status] || status}
       color={color}
       size="small"
       sx={{ textTransform: "capitalize" }}
@@ -74,6 +86,7 @@ const Field = ({ label, children }) => (
 );
 
 const WebsiteDetailPage = () => {
+  const { t, language } = useUiTranslation();
   const { websiteId } = useParams();
   const navigate = useNavigate();
   const { activeModel } = useStatus();
@@ -102,7 +115,7 @@ const WebsiteDetailPage = () => {
       const wpList = wpResp?.success && Array.isArray(wpResp.data) ? wpResp.data : [];
       setWpSite(wpList.find((wp) => String(wp.website_id) === String(websiteId)) || null);
     } catch (err) {
-      setError(err.message || "Failed to load website.");
+      setError(err.message || t("websites.detail.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -119,18 +132,20 @@ const WebsiteDetailPage = () => {
 
   const handleCrawl = async () => {
     setCrawling(true);
-    setFeedback({ open: true, message: "Queuing crawl…", severity: "info" });
+    setFeedback({ open: true, message: t("websites.detail.crawlQueuing"), severity: "info" });
     try {
       const res = await scrapeWebsite(website.id);
       setFeedback({
         open: true,
-        message: res?.message || "Crawl queued — watch Activity for progress.",
+        message: res?.message || t("websites.detail.crawlQueued"),
         severity: "success",
       });
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Could not queue crawl: ${err.message || "Unknown error"}`,
+        message: t("websites.detail.crawlFailed", {
+          error: err.message || t("websites.detail.unknownError"),
+        }),
         severity: "error",
       });
     } finally {
@@ -144,13 +159,13 @@ const WebsiteDetailPage = () => {
     try {
       const resp = await updateWebsite(id, data);
       if (resp && resp.error) throw new Error(resp.error.message || resp.error);
-      setFeedback({ open: true, message: "Website updated successfully!", severity: "success" });
+      setFeedback({ open: true, message: t("websites.detail.updated"), severity: "success" });
       setSettingsOpen(false);
       loadWebsite();
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.message || "Error updating website.",
+        message: err.message || t("websites.detail.updateError"),
         severity: "error",
       });
     } finally {
@@ -161,7 +176,7 @@ const WebsiteDetailPage = () => {
   const handleDelete = async (id, url) => {
     if (
       !window.confirm(
-        `Are you sure you want to delete website "${url || "N/A"}" (ID: ${id})? This action cannot be undone.`,
+        t("websites.detail.deleteConfirm", { url: url || t("websites.detail.notAvailable"), id }),
       )
     )
       return;
@@ -172,7 +187,7 @@ const WebsiteDetailPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.message || "Failed to delete website.",
+        message: err.message || t("websites.detail.deleteFailed"),
         severity: "error",
       });
       setIsSaving(false);
@@ -184,17 +199,21 @@ const WebsiteDetailPage = () => {
       website ? (
         <Box sx={{ px: 2, pb: 0.5 }}>
           <Typography variant="caption" color="text.secondary">
-            ID: {website.id} | Project: {website.project?.name || "N/A"} | Client:{" "}
-            {website.client?.name || "N/A"} | Last crawled: {formatDate(website.last_crawled)}
+            {t("websites.detail.header", {
+              id: website.id,
+              project: website.project?.name || t("websites.detail.notAvailable"),
+              client: website.client?.name || t("websites.detail.notAvailable"),
+              lastCrawled: formatDate(website.last_crawled),
+            })}
           </Typography>
         </Box>
       ) : null,
-    [website],
+    [website, language],
   );
 
   return (
     <PageLayout
-      title={website ? `Website: ${website.url}` : "Website"}
+      title={website ? t("websites.detail.title", { url: website.url }) : t("websites.detail.titleFallback")}
       variant="standard"
       actions={
         <Stack direction="row" spacing={1}>
@@ -205,7 +224,7 @@ const WebsiteDetailPage = () => {
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate("/websites")}
           >
-            Back
+            {t("websites.detail.back")}
           </Button>
           <Button
             variant="outlined"
@@ -214,7 +233,7 @@ const WebsiteDetailPage = () => {
             onClick={() => setSettingsOpen(true)}
             disabled={!website}
           >
-            Settings
+            {t("websites.detail.settings")}
           </Button>
         </Stack>
       }
@@ -255,15 +274,15 @@ const WebsiteDetailPage = () => {
             <Tabs
               value={tabValue}
               onChange={(e, v) => setTabValue(v)}
-              aria-label="website detail tabs"
+              aria-label={t("websites.detail.tabsLabel")}
               sx={{
                 minHeight: "40px",
                 "& .MuiTab-root": { minHeight: "40px", fontSize: "0.875rem", py: 1 },
               }}
             >
-              <Tab label="Overview" id="website-tab-overview" />
-              <Tab label="Pages" id="website-tab-pages" />
-              <Tab label="Indexing" id="website-tab-indexing" />
+              <Tab label={t("websites.detail.tabs.overview")} id="website-tab-overview" />
+              <Tab label={t("websites.detail.tabs.pages")} id="website-tab-pages" />
+              <Tab label={t("websites.detail.tabs.indexing")} id="website-tab-indexing" />
             </Tabs>
           </Box>
 
@@ -273,29 +292,29 @@ const WebsiteDetailPage = () => {
                 <Grid item xs={12} md={6}>
                   <Paper variant="outlined" sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
-                      Details
+                      {t("websites.detail.details")}
                     </Typography>
-                    <Field label="URL">
+                    <Field label={t("websites.detail.fields.url")}>
                       <a href={website.url} target="_blank" rel="noreferrer">
                         {website.url}
                       </a>
                     </Field>
-                    <Field label="Status">
+                    <Field label={t("websites.detail.fields.status")}>
                       <StatusChip status={website.status} />
                     </Field>
-                    <Field label="Sitemap">{website.sitemap || "—"}</Field>
-                    <Field label="Competitor URL">{website.competitor_url || "—"}</Field>
-                    <Field label="Linked documents">
-                      {website.document_count ?? "N/A"}
+                    <Field label={t("websites.detail.fields.sitemap")}>{website.sitemap || "—"}</Field>
+                    <Field label={t("websites.detail.fields.competitorUrl")}>{website.competitor_url || "—"}</Field>
+                    <Field label={t("websites.detail.fields.linkedDocuments")}>
+                      {website.document_count ?? t("websites.detail.notAvailable")}
                     </Field>
-                    <Field label="Last crawled">{formatDate(website.last_crawled)}</Field>
+                    <Field label={t("websites.detail.fields.lastCrawled")}>{formatDate(website.last_crawled)}</Field>
                   </Paper>
                 </Grid>
 
                 <Grid item xs={12} md={6}>
                   <Paper variant="outlined" sx={{ p: 2 }}>
                     <Typography variant="subtitle2" gutterBottom>
-                      Actions
+                      {t("websites.detail.actions")}
                     </Typography>
                     <Stack spacing={1.5} sx={{ mt: 1 }}>
                       <Button
@@ -304,14 +323,14 @@ const WebsiteDetailPage = () => {
                         onClick={handleCrawl}
                         disabled={crawling}
                       >
-                        {crawling ? "Queuing…" : "Crawl now"}
+                        {crawling ? t("websites.detail.queuing") : t("websites.detail.crawlNow")}
                       </Button>
                       <Button
                         variant="outlined"
                         startIcon={<EventIcon />}
                         onClick={() => navigate(`/tasks?website_id=${website.id}`)}
                       >
-                        Schedule task
+                        {t("websites.detail.scheduleTask")}
                       </Button>
                       {wpSite && (
                         <Button
@@ -319,14 +338,14 @@ const WebsiteDetailPage = () => {
                           startIcon={<AutoAwesomeIcon />}
                           onClick={() => navigate(`/wordpress/pages?site_id=${wpSite.id}`)}
                         >
-                          Manage WordPress pages
+                          {t("websites.detail.manageWordPress")}
                         </Button>
                       )}
                     </Stack>
                     {wpSite && (
                       <Box sx={{ mt: 2 }}>
                         <Chip
-                          label="WordPress Connected"
+                          label={t("websites.detail.wordPressConnected")}
                           color="success"
                           size="small"
                           icon={<AutoAwesomeIcon />}

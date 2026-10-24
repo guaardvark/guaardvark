@@ -55,6 +55,7 @@ import {
   describeRateLimit,
   describeScheduling,
 } from "../components/social/platformRules";
+import { translate, uiLocale, useUiTranslation } from "../i18n";
 
 const STATUS_TONE = {
   connected: "ok",
@@ -64,12 +65,22 @@ const STATUS_TONE = {
   unconfigured: "neutral",
 };
 
-const formatWhen = (iso) => (iso ? new Date(iso).toLocaleString() : "never");
+const statusLabels = () => ({
+  connected: translate("social.accounts.status.connected"),
+  error: translate("social.accounts.status.error"),
+  expired: translate("social.accounts.status.expired"),
+  disabled: translate("social.accounts.status.disabled"),
+  unconfigured: translate("social.accounts.status.unconfigured"),
+});
+
+const formatWhen = (iso) =>
+  iso ? new Date(iso).toLocaleString(uiLocale()) : translate("social.accounts.never");
 
 const usageTone = (used, posts) => (used >= posts ? "error" : used >= posts * 0.8 ? "warn" : "ok");
 
 /** How the account declares automation: its state where the provider reads it. */
 const BotLabelLine = ({ label, connection }) => {
+  const { t } = useUiTranslation();
   if (!label || label.kind === "none") return null;
   if (label.kind === "automatic") return <Hint>{label.how}</Hint>;
   const state = connection.config?.bot_label_set;
@@ -78,10 +89,14 @@ const BotLabelLine = ({ label, connection }) => {
       {label.readable && (
         <StatusPill
           label={
-            state === true ? "Bot label set" : state === false ? "Bot label not set" : "Bot label not read yet"
+            state === true
+              ? t("social.accounts.botLabelSet")
+              : state === false
+                ? t("social.accounts.botLabelNotSet")
+                : t("social.accounts.botLabelUnread")
           }
           tone={state === true ? "ok" : state === false ? "warn" : "neutral"}
-          tooltip={state === undefined ? "Run Test to read it from the platform." : ""}
+          tooltip={state === undefined ? t("social.accounts.botLabelTooltip") : ""}
         />
       )}
       <Hint>{label.how}</Hint>
@@ -90,6 +105,7 @@ const BotLabelLine = ({ label, connection }) => {
 };
 
 const RulesBlock = ({ capabilities }) => {
+  const { t } = useUiTranslation();
   const rule = capabilities.ai_disclosure;
   const label = capabilities.bot_label;
   const optIn = capabilities.public_opt_in;
@@ -98,7 +114,7 @@ const RulesBlock = ({ capabilities }) => {
       <>
         {" "}
         <Link href={url} target="_blank" rel="noopener noreferrer">
-          Source
+          {t("social.accounts.source")}
         </Link>
       </>
     ) : null;
@@ -106,35 +122,35 @@ const RulesBlock = ({ capabilities }) => {
     <Stack spacing={0.75} sx={{ pt: 0.5 }}>
       {(capabilities.rate_limits || []).map((limit) => (
         <Hint key={`${limit.posts}-${limit.window_seconds}`}>
-          Rate limit: {describeRateLimit(limit)}
+          {t("social.accounts.rules.rateLimit", { rule: describeRateLimit(limit) })}
           {source(limit.source)}
         </Hint>
       ))}
       {rule && (
         <Hint>
-          AI disclosure: {describeDisclosure(rule)}
+          {t("social.accounts.rules.aiDisclosure", { rule: describeDisclosure(rule) })}
           {source(rule.source)}
         </Hint>
       )}
       {label && label.kind !== "none" && (
         <Hint>
-          Automation label: {label.how}
+          {t("social.accounts.rules.automationLabel", { how: label.how })}
           {source(label.source)}
         </Hint>
       )}
       {label && label.kind === "none" && (
         <Hint>
-          Automation: {label.how}
+          {t("social.accounts.rules.automation", { how: label.how })}
           {source(label.source)}
         </Hint>
       )}
       <Hint>
-        Scheduling: {describeScheduling(capabilities)}
+        {t("social.accounts.rules.scheduling", { rule: describeScheduling(capabilities) })}
         {source(capabilities.native_scheduling?.source)}
       </Hint>
       {optIn && (
         <Hint>
-          {optIn.label} (set per account on the Connections page): {optIn.explanation}
+          {t("social.accounts.rules.publicOptIn", { label: optIn.label, explanation: optIn.explanation })}
           {(optIn.sources || []).map((s) => (
             <React.Fragment key={s.url}>
               {" "}
@@ -145,12 +161,13 @@ const RulesBlock = ({ capabilities }) => {
           ))}
         </Hint>
       )}
-      <Hint>Delete: {describeDelete(capabilities)}</Hint>
+      <Hint>{t("social.accounts.rules.delete", { rule: describeDelete(capabilities) })}</Hint>
     </Stack>
   );
 };
 
 const SocialAccountsPage = () => {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const { showMessage } = useSnackbar();
 
@@ -224,7 +241,7 @@ const SocialAccountsPage = () => {
     setBusy(true);
     try {
       await deleteConnection(removing.id);
-      showMessage("Account removed.", "success");
+      showMessage(t("social.accounts.removed"), "success");
       setRemoving(null);
       await load();
     } catch (e) {
@@ -262,22 +279,25 @@ const SocialAccountsPage = () => {
                 {conn.handle}
               </Typography>
             )}
-            <StatusPill label={conn.status} tone={STATUS_TONE[conn.status] || "neutral"} />
+            <StatusPill
+              label={statusLabels()[conn.status] || conn.status}
+              tone={STATUS_TONE[conn.status] || "neutral"}
+            />
             <Typography variant="caption" color="text.secondary">
               {conn.has_credentials
                 ? `${conn.auth_kind.replace("_", " ")} · ${conn.credential_hint}`
-                : "No credentials"}
+                : t("social.accounts.noCredentials")}
             </Typography>
           </Line>
           <Line>
             <Hint>
-              {stats.posts || 0} posts · last {formatWhen(stats.last_posted_at)}
-              {stats.scheduled ? ` · ${stats.scheduled} scheduled` : ""}
+              {t("social.accounts.usage", { count: stats.posts || 0, when: formatWhen(stats.last_posted_at) })}
+              {stats.scheduled ? ` · ${t("social.accounts.scheduledCount", { count: stats.scheduled })}` : ""}
             </Hint>
             {(stats.rate_limits || []).map((limit) => (
               <StatusPill
                 key={limit.window_seconds}
-                label={`${limit.used}/${limit.posts} per ${limit.window}`}
+                label={t("social.accounts.rateUsage", { used: limit.used, posts: limit.posts, window: limit.window })}
                 tone={usageTone(limit.used, limit.posts)}
                 tooltip={describeRateLimit(limit)}
               />
@@ -286,20 +306,22 @@ const SocialAccountsPage = () => {
           {conn.token_expires_at && (
             <Hint>
               {new Date(conn.token_expires_at) < new Date()
-                ? `Authorization expired ${formatWhen(conn.token_expires_at)}; Edit, then authorize again.`
-                : `Authorization lasts until ${formatWhen(conn.token_expires_at)}.`}
+                ? t("social.accounts.authExpired", { when: formatWhen(conn.token_expires_at) })
+                : t("social.accounts.authLasts", { when: formatWhen(conn.token_expires_at) })}
             </Hint>
           )}
           <BotLabelLine label={spec?.capabilities?.bot_label} connection={conn} />
           {spec?.capabilities?.public_opt_in && conn.public_opt_in?.on === true && (
             <Line>
               <StatusPill
-                label={`${spec.capabilities.public_opt_in.label}: on`}
+                label={t("social.accounts.publicOn", { label: spec.capabilities.public_opt_in.label })}
                 tone="warn"
                 tooltip={
                   conn.public_opt_in.source === "setting"
-                    ? `On through the install-wide setting ${spec.capabilities.public_opt_in.legacy_setting}. Change it per account on the Connections page.`
-                    : "Set on this account's card on the Connections page. Every upload still waits for approval."
+                    ? t("social.accounts.publicOnSetting", {
+                        setting: spec.capabilities.public_opt_in.legacy_setting,
+                      })
+                    : t("social.accounts.publicOnAccount")
                 }
               />
             </Line>
@@ -307,9 +329,9 @@ const SocialAccountsPage = () => {
           {spec?.posts_to_owned_channel && conn.config?.post_without_approval === true && (
             <Line>
               <StatusPill
-                label="Posts without approval"
+                label={t("social.accounts.withoutApproval")}
                 tone="warn"
-                tooltip="Set on this account's card on the Connections page. Publishes you start in the app go out without waiting on Approvals; requests from chat, MCP or a schedule still wait."
+                tooltip={t("social.accounts.withoutApprovalTooltip")}
               />
             </Line>
           )}
@@ -320,14 +342,14 @@ const SocialAccountsPage = () => {
           )}
           <Line>
             <ActionButton loading={testingId === conn.id} onClick={() => handleTest(conn)}>
-              Test
+              {t("social.accounts.test")}
             </ActionButton>
             <ActionButton onClick={() => setModal({ open: true, connection: conn, spec })} disabled={!spec}>
-              Edit
+              {t("social.accounts.edit")}
             </ActionButton>
-            <ActionButton onClick={() => openPosts(conn)}>Posts</ActionButton>
+            <ActionButton onClick={() => openPosts(conn)}>{t("social.accounts.posts")}</ActionButton>
             <ActionButton kind="destructive" onClick={() => setRemoving(conn)}>
-              Remove
+              {t("social.accounts.remove")}
             </ActionButton>
           </Line>
         </Stack>
@@ -337,22 +359,22 @@ const SocialAccountsPage = () => {
 
   return (
     <PageLayout
-      title="Social Accounts"
+      title={t("social.accounts.title")}
       actions={
         <Stack direction="row" spacing={1} alignItems="center">
           <ActionButton kind="link" onClick={() => openPosts(null)}>
-            Social Posts
+            {t("social.accounts.socialPosts")}
           </ActionButton>
           <ActionButton kind="link" onClick={() => navigate("/approvals")}>
-            Approvals
+            {t("social.accounts.approvals")}
           </ActionButton>
           <ActionButton kind="link" onClick={() => navigate("/connections")}>
-            Connections
+            {t("social.accounts.connections")}
           </ActionButton>
           <ActionButton startIcon={<AddIcon />} onClick={(e) => setAddAnchor(e.currentTarget)} disabled={!providers.length}>
-            Add account
+            {t("social.accounts.addAccount")}
           </ActionButton>
-          <Tooltip title="Refresh">
+          <Tooltip title={t("social.accounts.refresh")}>
             <IconButton onClick={load} size="small">
               <RefreshIcon />
             </IconButton>
@@ -382,40 +404,35 @@ const SocialAccountsPage = () => {
 
       {settings?.posting_stopped && (
         <Alert severity="error" sx={{ mb: 2 }}>
-          {settings.posting_stop_reason || "Public posting is stopped. Resume it on the Outreach page."}{" "}
-          Queued publishes are held on the Approvals page; a scheduled post whose time comes
-          meanwhile is held there too.
+          {settings.posting_stop_reason || t("social.accounts.postingStopped")}{" "}
+          {t("social.accounts.queuedHeld")}
         </Alert>
       )}
 
       <Stack spacing={2}>
         {settings && (
           <SettingsPanel
-            title="Publishing"
-            description="Applies to every account on this page"
-            help="Publishing is posting your own content through these accounts. Outreach (replies on other people's threads) has its own switches on the Outreach page."
+            title={t("social.accounts.publishingTitle")}
+            description={t("social.accounts.publishingDescription")}
+            help={t("social.accounts.publishingHelp")}
           >
-            <Cluster label="Switches">
+            <Cluster label={t("social.accounts.switches")}>
               <Line>
                 <SettingChip
-                  label="Publishing"
+                  label={t("social.accounts.publishingSwitch")}
                   on={settings.publish_enabled}
                   onToggle={(value) => handleSetting("publish_enabled", value)}
                 />
               </Line>
               <Hint>
-                Every publish waits for your approval on the Approvals page, a scheduled one
-                included; once approved it goes out at its time, sent by the platform where it
-                schedules natively, otherwise by Guaardvark. The one exception, a Discord webhook
-                into a channel you manage, is set on the Connections page. So is whether a
-                YouTube account may upload publicly; it uploads as private until then.
+                {t("social.accounts.approvalNote")}
               </Hint>
             </Cluster>
           </SettingsPanel>
         )}
 
         {loading && !providers.length ? (
-          <Hint>Loading accounts…</Hint>
+          <Hint>{t("social.accounts.loading")}</Hint>
         ) : (
           providers.map((spec) => {
             const accounts = byProvider[spec.provider] || [];
@@ -426,8 +443,8 @@ const SocialAccountsPage = () => {
                 title={spec.label}
                 description={
                   accounts.length
-                    ? `${accounts.length} account${accounts.length === 1 ? "" : "s"}`
-                    : "Not connected"
+                    ? t("social.accounts.accountCount", { count: accounts.length })
+                    : t("social.accounts.notConnected")
                 }
                 actions={
                   <>
@@ -435,10 +452,10 @@ const SocialAccountsPage = () => {
                       kind="link"
                       onClick={() => setRulesOpen((prev) => ({ ...prev, [spec.provider]: !open }))}
                     >
-                      {open ? "Hide platform rules" : "Platform rules"}
+                      {open ? t("social.accounts.hideRules") : t("social.accounts.showRules")}
                     </ActionButton>
                     <ActionButton onClick={() => setModal({ open: true, connection: null, spec })}>
-                      {accounts.length ? "Add another" : "Connect"}
+                      {accounts.length ? t("social.accounts.addAnother") : t("social.accounts.connect")}
                     </ActionButton>
                   </>
                 }
@@ -457,16 +474,18 @@ const SocialAccountsPage = () => {
           .filter((conn) => !providers.some((spec) => spec.provider === conn.provider))
           .map((conn) => (
             <Alert key={conn.id} severity="warning">
-              {conn.display_name || conn.provider}: its provider ({conn.provider}) is not available
-              on this install.
+              {t("social.accounts.providerMissing", {
+                name: conn.display_name || conn.provider,
+                provider: conn.provider,
+              })}
             </Alert>
           ))}
       </Stack>
 
       {environment.length > 0 && (
         <Box sx={{ mt: 3 }}>
-          <Typography variant="subtitle2">From the environment</Typography>
-          <Hint>Detected in the backend process environment, managed outside the app and shown read-only.</Hint>
+          <Typography variant="subtitle2">{t("social.accounts.environment")}</Typography>
+          <Hint>{t("social.accounts.environmentNote")}</Hint>
           <Line sx={{ mt: 1 }}>
             {environment.map((entry) => (
               <StatusPill key={entry.env_key} label={`${entry.env_key} · ${entry.hint}`} />
@@ -477,8 +496,11 @@ const SocialAccountsPage = () => {
 
       {storeHealth && (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 3 }}>
-          Credentials are stored outside the database: {storeHealth.encrypted ? "encrypted" : "unencrypted"} ·{" "}
-          {storeHealth.record_count} credential(s) · {storeHealth.path}
+          {t("social.accounts.storedOutside", {
+            state: storeHealth.encrypted ? t("social.accounts.encrypted") : t("social.accounts.unencrypted"),
+          })}{" "}
+          ·{" "}
+          {t("social.accounts.credentialCount", { count: storeHealth.record_count })} · {storeHealth.path}
           {storeHealth.mode ? ` (${storeHealth.mode})` : ""}
         </Typography>
       )}
@@ -494,18 +516,21 @@ const SocialAccountsPage = () => {
 
       <ConfirmActionDialog
         open={Boolean(removing)}
-        title="Remove this account?"
-        description="Guaardvark forgets the account and its stored credentials. Nothing is deleted on the platform."
+        title={t("social.accounts.removeTitle")}
+        description={t("social.accounts.removeDescription")}
         facts={
           removing
             ? [
-                { label: "Account", value: removing.display_name || removing.handle || removing.account_slug },
-                { label: "Platform", value: removing.provider },
+                {
+                  label: t("social.accounts.factAccount"),
+                  value: removing.display_name || removing.handle || removing.account_slug,
+                },
+                { label: t("social.accounts.factPlatform"), value: removing.provider },
               ]
             : []
         }
-        keeps="the account itself and its posts on the platform; the post history here"
-        confirmLabel="Remove"
+        keeps={t("social.accounts.removeKeeps")}
+        confirmLabel={t("social.accounts.removeConfirm")}
         busy={busy}
         onConfirm={handleRemove}
         onClose={() => setRemoving(null)}

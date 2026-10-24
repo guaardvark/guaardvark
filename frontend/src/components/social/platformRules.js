@@ -2,68 +2,96 @@
 // Plain-words readings of a provider's declared capabilities (backend
 // services/connections/base.py), shared by Social Accounts, Social Posts and
 // the publish composer. Nothing here knows a platform by name.
+import { translate, uiLocale } from "../../i18n";
+
+// A list in the interface language's own words ("a, b and c" in English).
+const listOf = (words, type) => {
+  const locale = uiLocale();
+  if (locale && typeof Intl.ListFormat === "function") {
+    return new Intl.ListFormat(locale, { type }).format(words);
+  }
+  if (type === "disjunction") return words.join(" or ");
+  return words.length < 2 ? words.join("") : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+};
 
 export const describeWindow = (seconds) => {
   if (!seconds) return "";
-  if (seconds % 86400 === 0) return seconds === 86400 ? "day" : `${seconds / 86400} days`;
-  if (seconds % 3600 === 0) return seconds === 3600 ? "hour" : `${seconds / 3600} hours`;
-  return `${Math.max(1, Math.round(seconds / 60))} minutes`;
+  if (seconds % 86400 === 0) {
+    return seconds === 86400
+      ? translate("social.platformRules.window.day")
+      : translate("social.platformRules.window.days", { count: seconds / 86400 });
+  }
+  if (seconds % 3600 === 0) {
+    return seconds === 3600
+      ? translate("social.platformRules.window.hour")
+      : translate("social.platformRules.window.hours", { count: seconds / 3600 });
+  }
+  return translate("social.platformRules.window.minutes", { count: Math.max(1, Math.round(seconds / 60)) });
 };
 
-export const describeRateLimit = (limit) =>
-  `At most ${limit.posts} posts per ${describeWindow(limit.window_seconds)} from one account.` +
-  (limit.platform_limit ? ` The platform allows ${limit.platform_limit}.` : "");
+export const describeRateLimit = (limit) => {
+  const sentence = translate("social.platformRules.rateLimit", {
+    posts: limit.posts,
+    window: describeWindow(limit.window_seconds),
+  });
+  return limit.platform_limit
+    ? `${sentence} ${translate("social.platformRules.platformAllows", { limit: limit.platform_limit })}`
+    : sentence;
+};
 
 export const describeDisclosure = (rule) => {
   if (!rule) return "";
   const how =
     rule.mechanism === "platform_flag"
-      ? `It is set as the platform's own flag (${rule.flag}).`
-      : `It is a line at the end of the post: "${rule.text}"`;
+      ? translate("social.platformRules.disclosureFlag", { flag: rule.flag })
+      : translate("social.platformRules.disclosureLine", { text: rule.text });
   if (rule.required_when === "generated_media") {
-    return `Required when the post carries media Guaardvark generated. ${rule.rule} ${how}`.trim();
+    return `${translate("social.platformRules.requiredGeneratedMedia")} ${rule.rule} ${how}`.trim();
   }
   if (rule.required_when === "ai_assisted") {
-    return `Required when the post carries generated media or text an agent drafted. ${rule.rule} ${how}`.trim();
+    return `${translate("social.platformRules.requiredAiAssisted")} ${rule.rule} ${how}`.trim();
   }
-  return `No platform rule; the composer's switch adds it when you turn it on. ${how}`;
+  return `${translate("social.platformRules.noPlatformRule")} ${how}`;
 };
 
 export const describeScheduling = (capabilities) => {
   if (capabilities?.schedule_refusal) return capabilities.schedule_refusal;
   const native = capabilities?.native_scheduling;
   if (!native) {
-    return "Guaardvark publishes a scheduled post at its time, so Guaardvark must be running then.";
+    return translate("social.platformRules.scheduledByGuaardvark");
   }
-  const only = native.visibilities?.length ? ` ${native.visibilities.join(" or ")}` : "";
-  const lead = native.min_lead_seconds
-    ? ` when the time is more than ${describeWindow(native.min_lead_seconds)} away`
-    : "";
-  return (
-    `The platform holds a scheduled${only} post and publishes it itself (${native.field})${lead}. ` +
-    "Otherwise Guaardvark publishes it at its time, so Guaardvark must be running then."
-  );
+  const visibilities = native.visibilities?.length ? listOf(native.visibilities, "disjunction") : "";
+  const lead = native.min_lead_seconds ? describeWindow(native.min_lead_seconds) : "";
+  const options = { field: native.field, visibilities, window: lead };
+  const held = visibilities
+    ? lead
+      ? translate("social.platformRules.heldByPlatformVisibilityLead", options)
+      : translate("social.platformRules.heldByPlatformVisibility", options)
+    : lead
+      ? translate("social.platformRules.heldByPlatformLead", options)
+      : translate("social.platformRules.heldByPlatform", options);
+  return `${held} ${translate("social.platformRules.otherwiseGuaardvark")}`;
 };
 
 export const describeDelete = (capabilities) => {
-  if (!capabilities?.deletable) return "Posts cannot be deleted from Guaardvark.";
+  if (!capabilities?.deletable) return translate("social.platformRules.notDeletable");
   const windowSeconds = capabilities.delete_window_seconds;
   return windowSeconds
-    ? `Delete on platform works for ${describeWindow(windowSeconds)} after posting.`
-    : "Delete on platform is available for every post.";
+    ? translate("social.platformRules.deleteWindow", { window: describeWindow(windowSeconds) })
+    : translate("social.platformRules.deleteAlways");
 };
 
-const STATUS_LABELS = {
-  awaiting_approval: "Waiting for approval",
-  scheduled: "Scheduled",
-  queued: "Queued",
-  processing: "Sending",
-  posted: "Posted",
-  failed: "Failed",
-  rejected: "Rejected",
-  cancelled: "Cancelled",
-  deleted: "Deleted on platform",
-};
+const statusLabels = () => ({
+  awaiting_approval: translate("social.platformRules.status.awaitingApproval"),
+  scheduled: translate("social.platformRules.status.scheduled"),
+  queued: translate("social.platformRules.status.queued"),
+  processing: translate("social.platformRules.status.processing"),
+  posted: translate("social.platformRules.status.posted"),
+  failed: translate("social.platformRules.status.failed"),
+  rejected: translate("social.platformRules.status.rejected"),
+  cancelled: translate("social.platformRules.status.cancelled"),
+  deleted: translate("social.platformRules.status.deleted"),
+});
 
 export const STATUS_TONE = {
   awaiting_approval: "warn",
@@ -79,9 +107,9 @@ export const STATUS_TONE = {
 
 export const statusLabel = (record, platformLabel) => {
   if (record.status === "scheduled" && record.scheduled_natively) {
-    return `Held by ${platformLabel || record.platform}`;
+    return translate("social.platformRules.heldBy", { platform: platformLabel || record.platform });
   }
-  return STATUS_LABELS[record.status] || record.status;
+  return statusLabels()[record.status] || record.status;
 };
 
 /**
@@ -132,8 +160,6 @@ export const visibilityChoices = (spec, connection) => {
   });
 };
 
-const joinWords = (words) =>
-  words.length < 2 ? words.join("") : `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 
 /**
  * One line for the targets that offer a single visibility, which get no
@@ -148,8 +174,10 @@ export const fixedVisibilityNote = (targets) => {
   return [...byValue.entries()]
     .map(([value, labels]) => {
       const named = value ? `${value[0].toUpperCase()}${value.slice(1)}` : value;
-      const offer = labels.length === 1 ? "it offers" : "they offer";
-      return `${named} on ${joinWords(labels)}: the only visibility ${offer}.`;
+      const options = { visibility: named, targets: listOf(labels, "conjunction") };
+      return labels.length === 1
+        ? translate("social.platformRules.fixedVisibilityOne", options)
+        : translate("social.platformRules.fixedVisibilityMany", options);
     })
     .join(" ");
 };
@@ -188,7 +216,7 @@ export const deleteOnPlatform = (record, capabilities, now = Date.now()) => {
       return {
         show: true,
         ok: false,
-        reason: `The platform allows deleting only within ${describeWindow(windowSeconds)} of posting.`,
+        reason: translate("social.platformRules.deleteWindowClosed", { window: describeWindow(windowSeconds) }),
       };
     }
   }

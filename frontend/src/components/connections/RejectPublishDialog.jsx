@@ -8,6 +8,7 @@ import {
   DialogTitle,
   TextField,
 } from "@mui/material";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * Confirm rejecting a queued publish, capturing why.
@@ -16,6 +17,7 @@ import {
  * later, so it is worth asking for even though the backend defaults it.
  */
 const RejectPublishDialog = ({ open, record, busy = false, onCancel, onConfirm }) => {
+  const { t } = useUiTranslation();
   const [reason, setReason] = useState("");
 
   useEffect(() => {
@@ -28,22 +30,20 @@ const RejectPublishDialog = ({ open, record, busy = false, onCancel, onConfirm }
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>Reject this publish?</DialogTitle>
+      <DialogTitle>{t("connections.rejectDialog.title")}</DialogTitle>
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>
           {destination && <strong>{destination}</strong>}
           {destination && <br />}
-          It will not be sent, and it cannot be approved afterwards — a new
-          publish has to be queued instead. The reason below is kept on the
-          record.
+          {t("connections.rejectDialog.body")}
         </DialogContentText>
         <TextField
           autoFocus
           fullWidth
           multiline
           minRows={2}
-          label="Reason (optional)"
-          placeholder="Why is this not going out?"
+          label={t("connections.rejectDialog.reasonLabel")}
+          placeholder={t("connections.rejectDialog.reasonPlaceholder")}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           disabled={busy}
@@ -51,7 +51,7 @@ const RejectPublishDialog = ({ open, record, busy = false, onCancel, onConfirm }
       </DialogContent>
       <DialogActions>
         <Button onClick={onCancel} disabled={busy}>
-          Keep it
+          {t("connections.rejectDialog.keep")}
         </Button>
         <Button
           onClick={() => onConfirm(reason.trim())}
@@ -59,7 +59,7 @@ const RejectPublishDialog = ({ open, record, busy = false, onCancel, onConfirm }
           variant="contained"
           disabled={busy}
         >
-          {busy ? "Rejecting…" : "Reject"}
+          {busy ? t("connections.rejectDialog.rejecting") : t("connections.rejectDialog.reject")}
         </Button>
       </DialogActions>
     </Dialog>

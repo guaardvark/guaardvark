@@ -39,6 +39,7 @@ import { ContextualLoader } from "../components/common/LoadingStates";
 import EntityContextMenu from "../components/common/EntityContextMenu";
 import useContextMenu from "../hooks/useContextMenu";
 import copyText from "../utils/copyText";
+import { translate, uiLocale, useUiTranslation } from "../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -49,13 +50,20 @@ import { getComparator, stableSort } from "../utils/sortUtils";
 const formatDate = (dateString) => {
   if (!dateString) return "-";
   try {
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleString(uiLocale());
   } catch (e) {
     return dateString;
   }
 };
 
+const statusLabels = () => ({
+  active: translate("wordpress.sites.status.active"),
+  error: translate("wordpress.sites.status.error"),
+  inactive: translate("wordpress.sites.status.inactive"),
+});
+
 const StatusChip = ({ status }) => {
+  useUiTranslation();
   if (!status) return null;
   const normalized = status.toLowerCase();
   let color = "default";
@@ -71,11 +79,17 @@ const StatusChip = ({ status }) => {
       color = "warning";
   }
   return (
-    <Chip label={status} color={color} size="small" sx={{ textTransform: "capitalize" }} />
+    <Chip
+      label={statusLabels()[status] || status}
+      color={color}
+      size="small"
+      sx={{ textTransform: "capitalize" }}
+    />
   );
 };
 
 function WordPressSitesPage() {
+  const { t } = useUiTranslation();
   const { activeModel } = useStatus();
 
   const [sites, setSites] = useState([]);
@@ -107,14 +121,14 @@ function WordPressSitesPage() {
       if (response.success && response.data) {
         setSites(response.data);
       } else {
-        throw new Error(response.error || "Failed to fetch WordPress sites");
+        throw new Error(response.error || t("wordpress.sites.fetchFailed"));
       }
     } catch (err) {
       console.error("Error fetching WordPress sites:", err);
-      setError(err.message || "Failed to load WordPress sites");
+      setError(err.message || t("wordpress.sites.loadFailed"));
       setFeedback({
         open: true,
-        message: err.message || "Failed to load WordPress sites",
+        message: err.message || t("wordpress.sites.loadFailed"),
         severity: "error",
       });
     } finally {
@@ -166,21 +180,21 @@ function WordPressSitesPage() {
       if (response.success) {
         setFeedback({
           open: true,
-          message: "Connection test successful!",
+          message: t("wordpress.sites.testSucceeded"),
           severity: "success",
         });
         fetchSites(); // Refresh to get updated status
       } else {
         setFeedback({
           open: true,
-          message: `Connection test failed: ${response.error || response.message}`,
+          message: t("wordpress.sites.testFailed", { error: response.error || response.message }),
           severity: "error",
         });
       }
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Connection test error: ${err.message}`,
+        message: t("wordpress.sites.testError", { error: err.message }),
         severity: "error",
       });
     } finally {
@@ -196,17 +210,17 @@ function WordPressSitesPage() {
       if (response.success) {
         setFeedback({
           open: true,
-          message: "WordPress site deleted successfully",
+          message: t("wordpress.sites.deleted"),
           severity: "success",
         });
         fetchSites();
       } else {
-        throw new Error(response.error || "Failed to delete site");
+        throw new Error(response.error || t("wordpress.sites.deleteSiteFailed"));
       }
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.message || "Failed to delete WordPress site",
+        message: err.message || t("wordpress.sites.deleteFailed"),
         severity: "error",
       });
     } finally {
@@ -228,20 +242,20 @@ function WordPressSitesPage() {
         setFeedback({
           open: true,
           message: currentSite
-            ? "WordPress site updated successfully"
-            : "WordPress site registered successfully",
+            ? t("wordpress.sites.updated")
+            : t("wordpress.sites.registered"),
           severity: "success",
         });
         fetchSites();
         setEditDialogOpen(false);
         setCurrentSite(null);
       } else {
-        throw new Error(response.error || "Failed to save site");
+        throw new Error(response.error || t("wordpress.sites.saveSiteFailed"));
       }
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.message || "Failed to save WordPress site",
+        message: err.message || t("wordpress.sites.saveFailed"),
         severity: "error",
       });
     }
@@ -267,14 +281,14 @@ function WordPressSitesPage() {
           height: "100vh",
         }}
       >
-        <ContextualLoader loading message="Loading WordPress sites..." showProgress={false} inline />
+        <ContextualLoader loading message={t("wordpress.sites.loading")} showProgress={false} inline />
       </Box>
     );
   }
 
   return (
     <PageLayout
-      title="WordPress Sites"
+      title={t("wordpress.sites.title")}
       variant="standard"
       viewToggle={{
         mode: viewMode,
@@ -287,7 +301,7 @@ function WordPressSitesPage() {
           onClick={handleCreate}
           size="small"
         >
-          Register Site
+          {t("wordpress.sites.registerSite")}
         </Button>
       }
       modelStatus={!!activeModel}
@@ -326,31 +340,31 @@ function WordPressSitesPage() {
                     </Typography>
                     {site.client && (
                       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        Client: {site.client.name}
+                        {t("wordpress.sites.client", { name: site.client.name })}
                       </Typography>
                     )}
                     {site.last_pull_at && (
                       <Typography variant="caption" color="text.secondary">
-                        Last pulled: {formatDate(site.last_pull_at)}
+                        {t("wordpress.sites.lastPulled", { time: formatDate(site.last_pull_at) })}
                       </Typography>
                     )}
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-                      Pages: {site.page_count || 0}
+                      {t("wordpress.sites.pages", { count: site.page_count || 0 })}
                     </Typography>
                   </CardContent>
                 </CardActionArea>
                 <Box sx={{ p: 1, display: "flex", justifyContent: "flex-end", gap: 1 }}>
-                  <Tooltip title="Test Connection">
+                  <Tooltip title={t("wordpress.sites.testConnection")}>
                     <IconButton size="small" onClick={() => handleTestConnection(site)}>
                       <RefreshIcon />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Edit">
+                  <Tooltip title={t("wordpress.sites.edit")}>
                     <IconButton size="small" onClick={() => handleEdit(site)}>
                       <EditIcon />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete">
+                  <Tooltip title={t("wordpress.sites.delete")}>
                     <IconButton size="small" onClick={() => handleDelete(site)} color="error">
                       <DeleteIcon />
                     </IconButton>
@@ -374,7 +388,7 @@ function WordPressSitesPage() {
                     direction={orderBy === "url" ? order : "asc"}
                     onClick={() => handleRequestSort("url")}
                   >
-                    URL
+                    {t("wordpress.sites.columns.url")}
                   </TableSortLabel>
                 </TableCell>
                 <TableCell>
@@ -383,14 +397,14 @@ function WordPressSitesPage() {
                     direction={orderBy === "site_name" ? order : "asc"}
                     onClick={() => handleRequestSort("site_name")}
                   >
-                    Name
+                    {t("wordpress.sites.columns.name")}
                   </TableSortLabel>
                 </TableCell>
-                <TableCell>Client</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Pages</TableCell>
-                <TableCell>Last Pull</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t("wordpress.sites.columns.client")}</TableCell>
+                <TableCell>{t("wordpress.sites.columns.status")}</TableCell>
+                <TableCell>{t("wordpress.sites.columns.pages")}</TableCell>
+                <TableCell>{t("wordpress.sites.columns.lastPull")}</TableCell>
+                <TableCell align="right">{t("wordpress.sites.columns.actions")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -406,17 +420,17 @@ function WordPressSitesPage() {
                   <TableCell>{formatDate(site.last_pull_at)}</TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
-                      <Tooltip title="Test Connection">
+                      <Tooltip title={t("wordpress.sites.testConnection")}>
                         <IconButton size="small" onClick={() => handleTestConnection(site)}>
                           <RefreshIcon />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Edit">
+                      <Tooltip title={t("wordpress.sites.edit")}>
                         <IconButton size="small" onClick={() => handleEdit(site)}>
                           <EditIcon />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Delete">
+                      <Tooltip title={t("wordpress.sites.delete")}>
                         <IconButton size="small" onClick={() => handleDelete(site)} color="error">
                           <DeleteIcon />
                         </IconButton>
@@ -433,13 +447,13 @@ function WordPressSitesPage() {
       {sites.length === 0 && !isLoading && (
         <Box sx={{ textAlign: "center", py: 8 }}>
           <Typography variant="h6" color="text.secondary" gutterBottom>
-            No WordPress sites registered
+            {t("wordpress.sites.emptyTitle")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Register a WordPress site to start pulling and processing content
+            {t("wordpress.sites.emptyDescription")}
           </Typography>
           <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreate}>
-            Register First Site
+            {t("wordpress.sites.registerFirst")}
           </Button>
         </Box>
       )}
@@ -450,11 +464,17 @@ function WordPressSitesPage() {
         actions={
           siteMenu.payload
             ? [
-                { label: "Edit…", onClick: () => handleEdit(siteMenu.payload) },
-                { label: "Test Connection", onClick: () => handleTestConnection(siteMenu.payload) },
-                siteMenu.payload.url && { label: "Copy URL", onClick: () => copyText(siteMenu.payload.url) },
+                { label: t("wordpress.sites.menu.edit"), onClick: () => handleEdit(siteMenu.payload) },
                 {
-                  label: "Delete",
+                  label: t("wordpress.sites.menu.testConnection"),
+                  onClick: () => handleTestConnection(siteMenu.payload),
+                },
+                siteMenu.payload.url && {
+                  label: t("wordpress.sites.menu.copyUrl"),
+                  onClick: () => copyText(siteMenu.payload.url),
+                },
+                {
+                  label: t("wordpress.sites.menu.delete"),
                   onClick: () => handleDelete(siteMenu.payload),
                   color: "error.main",
                   dividerBefore: true,
@@ -499,15 +519,15 @@ function WordPressSitesPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <Typography variant="h6" gutterBottom>
-              Delete WordPress Site?
+              {t("wordpress.sites.deleteTitle")}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Are you sure you want to delete {currentSite.url}? This action cannot be undone.
+              {t("wordpress.sites.deleteConfirm", { url: currentSite.url })}
             </Typography>
             <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+              <Button onClick={() => setDeleteDialogOpen(false)}>{t("wordpress.sites.cancel")}</Button>
               <Button variant="contained" color="error" onClick={handleDeleteConfirm}>
-                Delete
+                {t("wordpress.sites.delete")}
               </Button>
             </Stack>
           </Paper>
@@ -522,7 +542,7 @@ function WordPressSitesPage() {
           anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
         >
           <AlertSnackbar severity={isTesting ? "info" : "success"}>
-            {isTesting ? "Testing connection..." : "Connection test completed"}
+            {isTesting ? t("wordpress.sites.testing") : t("wordpress.sites.testCompleted")}
           </AlertSnackbar>
         </Snackbar>
       )}

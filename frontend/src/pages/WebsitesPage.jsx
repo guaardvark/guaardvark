@@ -51,6 +51,7 @@ import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import IndexingDialog from "../components/modals/IndexingDialog";
+import { translate, uiLocale, useUiTranslation, Trans } from "../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -62,20 +63,31 @@ import { getComparator, stableSort } from "../utils/sortUtils";
 const formatDate = (dateString) => {
   if (!dateString) return "-";
   try {
-    return new Date(dateString).toLocaleString();
+    return new Date(dateString).toLocaleString(uiLocale());
   } catch (e) {
     console.warn("Error formatting date:", dateString, e);
     return dateString;
   }
 };
 
+const statusLabels = () => ({
+  active: translate("websites.status.active"),
+  online: translate("websites.status.online"),
+  indexed: translate("websites.status.indexed"),
+  error: translate("websites.status.error"),
+  offline: translate("websites.status.offline"),
+  crawling: translate("websites.status.crawling"),
+  indexing: translate("websites.status.indexing"),
+});
+
 const WebsiteStatusChip = ({ status }) => {
+  useUiTranslation();
   if (!status) return null;
   const normalized = status.toLowerCase();
   if (normalized === "pending" || normalized === "queued") return null;
 
   let color = "default";
-  let label = status;
+  let label = statusLabels()[status] || status;
   switch (normalized) {
     case "active":
     case "online":
@@ -105,6 +117,7 @@ const WebsiteStatusChip = ({ status }) => {
 };
 
 const WebsitesPage = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
 
@@ -175,7 +188,7 @@ const WebsitesPage = () => {
       }
     } catch (err) {
       const errorMessage =
-        err.data?.error || err.message || "Failed to fetch data.";
+        err.data?.error || err.message || t("websites.list.fetchFailed");
       setError(errorMessage);
       setWebsites([]);
       setProjects([]);
@@ -233,7 +246,7 @@ const WebsitesPage = () => {
     try {
       let response;
       if (action === "update") {
-        if (!idToUpdate) throw new Error("Website ID is missing for update.");
+        if (!idToUpdate) throw new Error(t("websites.list.missingId"));
         response = await apiService.updateWebsite(idToUpdate, dataPayload);
       } else {
         response = await apiService.createWebsite(dataPayload);
@@ -242,14 +255,16 @@ const WebsitesPage = () => {
         throw new Error(response.error.message || response.error);
       setFeedback({
         open: true,
-        message: `Website ${action}d successfully!`,
+        message: action === "update" ? t("websites.list.updated") : t("websites.list.created"),
         severity: "success",
       });
       handleCloseActionModal();
       fetchWebsitesAndProjects();
     } catch (err) {
       const errorMessage =
-        err.data?.error || err.message || `Error ${action}ing website.`;
+        err.data?.error ||
+        err.message ||
+        (action === "update" ? t("websites.list.updateError") : t("websites.list.createError"));
       setFeedback({ open: true, message: errorMessage, severity: "error" });
     } finally {
       setIsModalSaving(false);
@@ -259,21 +274,24 @@ const WebsitesPage = () => {
   const handleDeleteWebsite = async (websiteId, websiteUrl) => {
     if (
       !window.confirm(
-        `Are you sure you want to delete website "${websiteUrl || "N/A"}" (ID: ${websiteId})? This action cannot be undone.`,
+        t("websites.list.deleteConfirm", {
+          url: websiteUrl || t("websites.list.notAvailable"),
+          id: websiteId,
+        }),
       )
     )
       return;
     setIsModalSaving(true); // Or a specific isDeleting state
     setFeedback({
       open: true,
-      message: `Deleting website "${websiteUrl}"...`,
+      message: t("websites.list.deleting", { url: websiteUrl }),
       severity: "info",
     });
     try {
       await apiService.deleteWebsite(websiteId);
       setFeedback({
         open: true,
-        message: "Website deleted successfully!",
+        message: t("websites.list.deleted"),
         severity: "success",
       });
       if (actionModalOpen && currentWebsiteForModal?.id === websiteId) {
@@ -283,7 +301,7 @@ const WebsitesPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: err.data?.error || err.message || "Failed to delete website.",
+        message: err.data?.error || err.message || t("websites.list.deleteFailed"),
         severity: "error",
       });
     } finally {
@@ -297,7 +315,7 @@ const WebsitesPage = () => {
   };
 
   const getProjectName = (projectId) =>
-    projects.find((p) => p.id === projectId)?.name || "N/A";
+    projects.find((p) => p.id === projectId)?.name || t("websites.list.notAvailable");
   
   const getWpSiteForWebsite = (websiteId) => {
     return wpSites.find((wp) => wp.website_id === websiteId);
@@ -323,9 +341,13 @@ const WebsitesPage = () => {
     setCrawlingIds(prev => new Set([...prev, websiteId]));
     try {
       const res = await scrapeWebsite(websiteId);
-      setFeedback({ open: true, message: res?.message || "Crawl queued — watch Activity for progress.", severity: "success" });
+      setFeedback({ open: true, message: res?.message || t("websites.list.crawlQueued"), severity: "success" });
     } catch (err) {
-      setFeedback({ open: true, message: `Could not queue crawl: ${err.message || "Unknown error"}`, severity: "error" });
+      setFeedback({
+        open: true,
+        message: t("websites.list.crawlFailed", { error: err.message || t("websites.list.unknownError") }),
+        severity: "error",
+      });
     } finally {
       setCrawlingIds(prev => {
         const next = new Set(prev);
@@ -346,19 +368,19 @@ const WebsitesPage = () => {
   }, [websites, order, orderBy]);
 
   const headCells = [
-    { id: "url", label: "Website URL", sortable: true },
-    { id: "project.name", label: "Project", sortable: true },
-    { id: "sitemap", label: "Sitemap URL", sortable: true },
-    { id: "status", label: "Status", sortable: true },
-    { id: "document_count", label: "Docs", sortable: true, align: "right" },
-    { id: "last_crawled", label: "Last Crawled", sortable: true },
-    { id: "actions", label: "Actions", sortable: false },
+    { id: "url", label: t("websites.list.columns.url"), sortable: true },
+    { id: "project.name", label: t("websites.list.columns.project"), sortable: true },
+    { id: "sitemap", label: t("websites.list.columns.sitemap"), sortable: true },
+    { id: "status", label: t("websites.list.columns.status"), sortable: true },
+    { id: "document_count", label: t("websites.list.columns.docs"), sortable: true, align: "right" },
+    { id: "last_crawled", label: t("websites.list.columns.lastCrawled"), sortable: true },
+    { id: "actions", label: t("websites.list.columns.actions"), sortable: false },
   ];
 
   return (
     <ProjectStateErrorBoundary>
       <PageLayout
-        title="Websites"
+        title={t("websites.list.title")}
         variant="standard"
         viewToggle={{ mode: viewMode, onToggle: (val) => setViewMode(val) }}
         actions={
@@ -369,7 +391,7 @@ const WebsitesPage = () => {
             onClick={() => handleOpenActionModal(null)}
             disabled={isLoading || isModalSaving}
           >
-            Add Website
+            {t("websites.list.addWebsite")}
           </Button>
         }
         modelStatus
@@ -400,12 +422,12 @@ const WebsitesPage = () => {
           </MuiAlert>
         )}
         {isLoading && (
-          <ContextualLoader loading message="Loading websites..." showProgress={false} inline />
+          <ContextualLoader loading message={t("websites.list.loading")} showProgress={false} inline />
         )}
 
         {!isLoading && sortedWebsites.length === 0 && !error && (
           <Typography sx={{ mt: 2, textAlign: "center", fontStyle: "italic" }}>
-            No websites found. Add one to get started!
+            {t("websites.list.empty")}
           </Typography>
         )}
 
@@ -453,9 +475,9 @@ const WebsitesPage = () => {
                             color="text.secondary"
                             sx={{ mb: 0.5 }}
                           >
-                            Project: {getProjectName(site.project_id)}
+                            {t("websites.list.project", { name: getProjectName(site.project_id) })}
                           </Typography>
-                          <Tooltip title={site.sitemap || "No sitemap URL"}>
+                          <Tooltip title={site.sitemap || t("websites.list.noSitemap")}>
                             <Typography
                               variant="body2"
                               color="text.secondary"
@@ -465,7 +487,7 @@ const WebsitesPage = () => {
                                 fontStyle: site.sitemap ? "normal" : "italic",
                               }}
                             >
-                              Sitemap: {site.sitemap || "N/A"}
+                              {t("websites.list.sitemap", { sitemap: site.sitemap || t("websites.list.notAvailable") })}
                             </Typography>
                           </Tooltip>
                           <Typography
@@ -473,18 +495,23 @@ const WebsitesPage = () => {
                             color="text.secondary"
                             sx={{ mb: 0.5 }}
                           >
-                            Status: <WebsiteStatusChip status={site.status} />
+                            <Trans
+                              i18nKey="websites.list.statusLine"
+                              components={{ chip: <WebsiteStatusChip status={site.status} /> }}
+                            />
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Linked Docs:{" "}
-                            {site.document_count !== undefined
-                              ? site.document_count
-                              : "N/A"}
+                            {t("websites.list.linkedDocs", {
+                              docs:
+                                site.document_count !== undefined
+                                  ? site.document_count
+                                  : t("websites.list.notAvailable"),
+                            })}
                           </Typography>
                           {getWpSiteForWebsite(site.id) && (
                             <Box sx={{ mt: 1, display: "flex", gap: 1, alignItems: "center" }}>
                               <Chip
-                                label="WordPress Connected"
+                                label={t("websites.list.wordPressConnected")}
                                 color="success"
                                 size="small"
                                 icon={<AutoAwesomeIcon />}
@@ -497,10 +524,11 @@ const WebsitesPage = () => {
                             display="block"
                             sx={{ mt: 1 }}
                           >
-                            Last Crawled:{" "}
-                            {site.last_crawled
-                              ? formatDate(site.last_crawled)
-                              : "Never"}
+                            {t("websites.list.lastCrawled", {
+                              time: site.last_crawled
+                                ? formatDate(site.last_crawled)
+                                : t("websites.list.never"),
+                            })}
                           </Typography>
                         </Grid>
                         <Grid item xs={3} sx={{ textAlign: "right" }}>
@@ -524,7 +552,7 @@ const WebsitesPage = () => {
                       onClick={(e) => handleCrawlWebsite(site.id, e)}
                       sx={{ flex: 1 }}
                     >
-                      {crawlingIds.has(site.id) ? "Crawling..." : "Crawl"}
+                      {crawlingIds.has(site.id) ? t("websites.list.crawling") : t("websites.list.crawl")}
                     </Button>
                     <Button
                       size="small"
@@ -533,7 +561,7 @@ const WebsitesPage = () => {
                       onClick={(e) => handleOpenIndexing(site, e)}
                       sx={{ flex: 1 }}
                     >
-                      Index
+                      {t("websites.list.index")}
                     </Button>
                     {getWpSiteForWebsite(site.id) && (
                       <Button
@@ -546,7 +574,7 @@ const WebsitesPage = () => {
                         }}
                         sx={{ flex: 1 }}
                       >
-                        Manage Pages
+                        {t("websites.list.managePages")}
                       </Button>
                     )}
                   </Box>
@@ -638,7 +666,7 @@ const WebsitesPage = () => {
                         </Box>
                       </TableCell>
                       <TableCell align="right">
-                        {site.document_count ?? "N/A"}
+                        {site.document_count ?? t("websites.list.notAvailable")}
                       </TableCell>
                       <TableCell>{formatDate(site.last_crawled)}</TableCell>
                       <TableCell>
@@ -650,7 +678,7 @@ const WebsitesPage = () => {
                             disabled={crawlingIds.has(site.id)}
                             onClick={(e) => handleCrawlWebsite(site.id, e)}
                           >
-                            {crawlingIds.has(site.id) ? "..." : "Crawl"}
+                            {crawlingIds.has(site.id) ? "..." : t("websites.list.crawl")}
                           </Button>
                           <Button
                             size="small"
@@ -658,7 +686,7 @@ const WebsitesPage = () => {
                             startIcon={<CloudUploadIcon />}
                             onClick={(e) => handleOpenIndexing(site, e)}
                           >
-                            Index
+                            {t("websites.list.index")}
                           </Button>
                           {getWpSiteForWebsite(site.id) && (
                             <Button
@@ -670,7 +698,7 @@ const WebsitesPage = () => {
                                 handleManageWpPages(site.id);
                               }}
                             >
-                              Pages
+                              {t("websites.list.pages")}
                             </Button>
                           )}
                         </Box>
@@ -692,7 +720,7 @@ const WebsitesPage = () => {
                   borderColor: "divider",
                 }}
               >
-                Total Websites: {sortedWebsites.length}
+                {t("websites.list.total", { total: sortedWebsites.length })}
               </Typography>
             )}
           </Paper>
@@ -704,12 +732,20 @@ const WebsitesPage = () => {
         anchorPosition={pageMenu.anchorPosition}
         onClose={pageMenu.close}
         actions={contextItem ? [
-          { label: 'Edit', onClick: () => handleOpenActionModal(contextItem) },
-          { label: 'Crawl', onClick: () => handleCrawlWebsite(contextItem.id) },
-          { label: 'Delete', onClick: () => handleDeleteWebsite(contextItem.id, contextItem.url), color: 'error.main' },
+          { label: t("websites.list.menu.edit"), onClick: () => handleOpenActionModal(contextItem) },
+          { label: t("websites.list.menu.crawl"), onClick: () => handleCrawlWebsite(contextItem.id) },
+          {
+            label: t("websites.list.menu.delete"),
+            onClick: () => handleDeleteWebsite(contextItem.id, contextItem.url),
+            color: 'error.main',
+          },
           ...entityLinkActions('website', contextItem.id, navigate),
         ] : [
-          { label: 'New Website', icon: <AddIcon fontSize="small" />, onClick: () => handleOpenActionModal(null) },
+          {
+            label: t("websites.list.menu.newWebsite"),
+            icon: <AddIcon fontSize="small" />,
+            onClick: () => handleOpenActionModal(null),
+          },
         ]}
       />
 
