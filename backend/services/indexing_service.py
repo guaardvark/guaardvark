@@ -15,6 +15,8 @@ from typing import List, NamedTuple, Optional, Dict, Any
 logger = logging.getLogger(__name__)
 
 from backend.utils.experiment_context import get_experiment_config, get_active_rag_params
+from backend.utils.file_kinds import looks_binary
+from backend.services.code_retrieval import STORED_ON_DEMAND, reads_on_demand
 import backend.utils.llama_index_local_config
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
@@ -1142,6 +1144,45 @@ def purge_document_vectors(document_id, project_id=None, profile: Optional[str] 
     except Exception as e:
         logger.warning("Could not purge existing vectors for document %s: %s", document_id, e)
         return PurgeResult(0, f"error: {e.__class__.__name__}: {str(e)[:200]}")
+
+
+def retag_document_vectors(document_ids, project_id) -> int:
+    """Stamp ``project_id`` (None removes it) on the vectors of already-indexed
+    documents, as when their folder is linked to a project, so the project's chats
+    retrieve them. Shared-table mode only: in per_project mode the vectors live in
+    another table and the documents need a reindex. Returns the rows updated."""
+    if _vector_backend() != "pgvector" or not document_ids:
+        return 0
+    if _store_scope(-1) is not None:
+        logger.info("Vectors not re-tagged: per_project index mode keeps them in each project's table")
+        return 0
+    table = _pg_table_name(None)
+    if not table:
+        return 0
+    patterns = ["doc\\_{}\\_%".format(int(d)) for d in document_ids]
+    pid = None if project_id in (None, "") else str(project_id)
+    try:
+        conn = _pg_connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f'UPDATE "data_{table}" SET metadata_ = (CASE WHEN %(pid)s::text IS NULL '
+                    f"THEN metadata_::jsonb - 'project_id' "
+                    f"ELSE jsonb_set(metadata_::jsonb, '{{project_id}}', to_jsonb(%(pid)s::text)) END)::json "
+                    f"WHERE metadata_->>'document_id' LIKE ANY(%(patterns)s)",
+                    {"pid": pid, "patterns": patterns},
+                )
+                updated = cur.rowcount or 0
+            conn.commit()
+        finally:
+            conn.close()
+        if updated:
+            logger.info("Re-tagged %d vector(s) of %d document(s) with project %s",
+                        updated, len(document_ids), pid)
+        return updated
+    except Exception as e:  # noqa: BLE001 - the link itself stands
+        logger.warning("Could not re-tag vectors for %d document(s): %s", len(document_ids), e)
+        return 0
 
 
 def resolve_existing_vector_table(project_id=None, profile: Optional[str] = None) -> Optional[str]:
@@ -2663,7 +2704,8 @@ def add_file_to_index_by_id(file_path: str, document_id) -> bool:
         if doc is None:
             logger.warning("No document row %s to index", document_id)
             return False
-        return bool(add_file_to_index(file_path, doc))
+        result = add_file_to_index(file_path, doc)
+        return result if result == STORED_ON_DEMAND else bool(result)
 
 
 def add_text_to_index(text: str, metadata: Dict[str, Any], project_id: Optional[str] = None,
@@ -2823,13 +2865,8 @@ def _docling_load(file_path: str, filename: str, doc_cls):
         return None
 
 
-def _looks_binary(path: Path, sample_bytes: int = 8192) -> bool:
-    """A NUL byte in the first 8 KB, the test git and grep use for binary files."""
-    try:
-        with open(path, "rb") as f:
-            return b"\x00" in f.read(sample_bytes)
-    except OSError:
-        return False
+# Files the code loader branch below chunks as source (it maps each to a CodeSplitter language).
+_CODE_LOADER_EXTENSIONS = frozenset({'.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.htm', '.css', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.go', '.rs', '.rb', '.sql', '.json', '.xml', '.yml', '.yaml'})
 
 
 def _has_default_reader(file_extension: str) -> bool:
@@ -3145,7 +3182,7 @@ def get_documents_from_file(file_path: str, client: Optional[str] = None, upload
                 except Exception as doc_error:
                     logger.error(f"BUG FIX 9: Failed to create error document for {filename}: {doc_error}")
 
-        elif file_extension in {'.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.htm', '.css', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.go', '.rs', '.rb', '.sql', '.json', '.xml', '.yml', '.yaml'}:
+        elif file_extension in _CODE_LOADER_EXTENSIONS:
             try:
                 import hashlib
                 logger.info(f"Processing code file: {filename}")
@@ -3286,16 +3323,15 @@ def get_documents_from_file(file_path: str, client: Optional[str] = None, upload
                         "parsed_by": "SimpleDirectoryReader",
                     }
 
-                code_extensions = {'.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.htm', '.css', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.go', '.rs', '.rb', '.sql', '.json', '.xml', '.yml', '.yaml'}
                 if (file_extension not in [".csv", ".xml"] and
                     (file_extension != ".pdf" or not PDFReaderClass or not documents) and
                     file_extension not in image_extensions and
                     file_extension not in {'.xlsx', '.xls', '.xlsm', '.xlsb'} and
-                    file_extension not in code_extensions):
+                    file_extension not in _CODE_LOADER_EXTENSIONS):
                     # With no reader for the type, SimpleDirectoryReader decodes
                     # the bytes as text and drops what does not decode, so a
                     # binary file would index as noise.
-                    if not _has_default_reader(file_extension) and _looks_binary(path_obj):
+                    if not _has_default_reader(file_extension) and looks_binary(path_obj):
                         logger.warning(
                             f"{filename} is binary and no reader handles "
                             f"'{file_extension or 'no extension'}'; nothing to index"
@@ -3338,7 +3374,33 @@ def get_documents_from_file(file_path: str, client: Optional[str] = None, upload
     return documents
 
 
+def _store_code_on_demand(db_document: DBDocument) -> str:
+    """A code file under code_retrieval=on_demand: drop any vectors it had and keep
+    the row STORED; the code tools read it in place."""
+    from backend.models import db
+
+    try:
+        purge_document_vectors(db_document.id, db_document.project_id)
+    except Exception as e:  # noqa: BLE001 - stale vectors are a nuisance, not a failure
+        logger.warning(f"Could not purge old vectors of code document {db_document.id}: {e}")
+    try:
+        meta = json.loads(db_document.file_metadata) if db_document.file_metadata else {}
+    except (TypeError, ValueError):
+        meta = {}
+    if not isinstance(meta, dict):
+        meta = {}
+    meta["retrieval"] = "on_demand"
+    db_document.file_metadata = json.dumps(meta)
+    db_document.is_code_file = True
+    db_document.index_status = "STORED"
+    db_document.error_message = None
+    db.session.commit()
+    return STORED_ON_DEMAND
+
+
 def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback=None) -> bool:
+    if db_document is not None and reads_on_demand(file_path):
+        return _store_code_on_demand(db_document)
     try:
         from flask import current_app
         flask_available = True

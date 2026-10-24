@@ -2579,9 +2579,15 @@ class UnifiedChatEngine:
         # makes GUAARDVARK.md work in both CLI and GUI chats.
         project_root = options.get("project_root") or options.get("projectRoot")
         if project_root:
+            parts.append(
+                f"This chat works in the folder {project_root}. list_code_files, search_code and "
+                "read_code look there, with paths relative to it; read files there rather than guess."
+            )
             try:
                 root = Path(project_root).expanduser().resolve()
-                for md_name in ("GUAARDVARK.md", ".guaardvark.md"):
+                # GUAARDVARK.md first; a repository that only carries the common
+                # agent instruction files still gets its instructions.
+                for md_name in ("GUAARDVARK.md", ".guaardvark.md", "AGENTS.md", "CLAUDE.md"):
                     md_path = root / md_name
                     if md_path.exists() and md_path.is_file():
                         content = md_path.read_text(encoding="utf-8", errors="replace").strip()
@@ -2590,7 +2596,7 @@ class UnifiedChatEngine:
                             if len(content) > 8000:
                                 content = content[:7997] + "..."
                             parts.append(header + content)
-                            break  # prefer GUAARDVARK.md
+                            break
             except Exception as e:
                 logger.debug(f"Could not load GUAARDVARK.md from {project_root}: {e}")
 

@@ -25,6 +25,7 @@ import { menuTargetPath, folderLabel } from "../components/documents/menuTarget"
 import {
   snapshotDrop,
   collectDroppedFiles,
+  prunedNote,
   dragCarriesFiles,
   ensureFolderPath,
   filesFolderApi,
@@ -911,9 +912,12 @@ const DocumentsPage = () => {
         }
 
         // Files with relative paths; dropped folders are walked recursively
-        const filesToUpload = await collectDroppedFiles(dropped);
+        const prune = { folders: 0, files: 0 };
+        const filesToUpload = await collectDroppedFiles(dropped, { prune });
+        const skippedNote = prune.folders || prune.files ? `; ${prunedNote(prune)}` : '';
 
         if (filesToUpload.length === 0) {
+          if (skippedNote) showMessage?.(`Nothing to import: ${prunedNote(prune)}`, 'info');
           setTimeout(() => { dragDropHandledRef.current = false; }, 100);
           return;
         }
@@ -955,9 +959,9 @@ const DocumentsPage = () => {
 
         const destination = folderLabel(uploadPath);
         if (failures.length === 0) {
-          showMessage?.(`Imported ${uploadedCount} file(s) into ${destination}`, 'success');
+          showMessage?.(`Imported ${uploadedCount} file(s) into ${destination}${skippedNote}`, 'success');
         } else if (uploadedCount > 0) {
-          showMessage?.(`Imported ${uploadedCount} file(s) into ${destination}; ${failures.length} failed (${failures[0]})`, 'warning');
+          showMessage?.(`Imported ${uploadedCount} file(s) into ${destination}; ${failures.length} failed (${failures[0]})${skippedNote}`, 'warning');
         } else {
           showMessage?.(`Import failed: ${failures[0]}`, 'error');
         }

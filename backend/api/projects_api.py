@@ -30,6 +30,17 @@ projects_bp = Blueprint(
 logger = logging.getLogger(__name__)
 
 
+def _effective_root(project_id):
+    from backend.services.project_root import project_root_for
+    return project_root_for(project_id)
+
+
+def _root_path_from(data):
+    """``(path_or_None, error_or_None)`` for a ``root_path`` in a request body."""
+    from backend.services.project_root import validate_root_path
+    return validate_root_path(data.get("root_path"))
+
+
 def project_to_dict(project, counts=None):
     from backend.utils.serialization_utils import format_logo_path
     if not project:
@@ -102,6 +113,10 @@ def project_to_dict(project, counts=None):
         "rule_count": rule_count,
         "primary_rule_count": primary_rule_count,
         "video_count": video_count,
+        "root_path": project.root_path,
+        # The folder its chats read; resolved for the detail view only, since the
+        # fallback to a linked repository folder costs a query per project.
+        "effective_root": None if counts else _effective_root(project.id),
         "created_at": project.created_at.isoformat() if project.created_at else None,
         "updated_at": project.updated_at.isoformat() if project.updated_at else None,
     }
@@ -217,10 +232,15 @@ def create_project_route():
         )
         return jsonify({"error": "Database error validating client ID."}), 500
 
+    root_path, root_error = _root_path_from(data)
+    if root_error:
+        return jsonify({"error": root_error}), 400
+
     try:
         with DatabaseConnectionManager():
             new_project = Project(
-                name=name.strip(), description=description, client_id=client_id
+                name=name.strip(), description=description, client_id=client_id,
+                root_path=root_path,
             )
             db.session.add(new_project)
             db.session.commit()
@@ -338,6 +358,14 @@ def update_project_route(project_id):
                         updated_fields.append("client_id")
                 except (ValueError, TypeError):
                     return jsonify({"error": "Invalid client_id format."}), 400
+
+        if "root_path" in data:
+            root_path, root_error = _root_path_from(data)
+            if root_error:
+                return jsonify({"error": root_error}), 400
+            if project.root_path != root_path:
+                project.root_path = root_path
+                updated_fields.append("root_path")
 
         if not updated_fields:
             logger.info(f"No actual changes for project {project_id}")

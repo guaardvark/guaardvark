@@ -212,3 +212,27 @@ describe("dragCarriesFiles", () => {
     expect(dragCarriesFiles({})).toBe(false);
   });
 });
+
+describe("collectDroppedFiles with prune", () => {
+  it("leaves out hidden, dependency and build folders, credentials and compiled files", async () => {
+    const repo = dirEntry("repo", [
+      fileEntry("README.md"),
+      dirEntry("service", [fileEntry("app.py"), dirEntry("__pycache__", [fileEntry("app.cpython-312.pyc")])]),
+      dirEntry(".git", [fileEntry("HEAD")]),
+      dirEntry("node_modules", [fileEntry("index.js")]),
+      fileEntry(".env"),
+      fileEntry("server.pem"),
+      fileEntry("stray.pyc"),
+    ]);
+    const prune = { folders: 0, files: 0 };
+    const files = await collectDroppedFiles({ entries: [repo], looseFiles: [], fallbackFiles: [] }, { prune });
+    expect(files.map((f) => f.relativePath).sort()).toEqual(["repo/README.md", "repo/service/app.py"]);
+    expect(prune).toEqual({ folders: 3, files: 3 });
+  });
+
+  it("keeps everything without prune", async () => {
+    const repo = dirEntry("repo", [fileEntry(".env"), dirEntry("node_modules", [fileEntry("index.js")])]);
+    const files = await collectDroppedFiles({ entries: [repo], looseFiles: [], fallbackFiles: [] });
+    expect(files.map((f) => f.relativePath).sort()).toEqual(["repo/.env", "repo/node_modules/index.js"]);
+  });
+});

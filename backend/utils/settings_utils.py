@@ -142,6 +142,9 @@ SYSTEM_SETTING_KEYS = {
 
 # Maps DB keys to environment variable names for fallback.
 ENV_VAR_MAP = {
+    # "on_demand" (default): source files are stored and read by the code tools
+    # in place, never embedded; "embed" also puts them in the knowledge index.
+    "code_retrieval": "GUAARDVARK_CODE_RETRIEVAL",
     # Off by default: tell the user when chat could not search their documents
     # (unified_chat_engine, RAG_SEARCH_FAILED_NOTE).
     "chat_say_rag_failed": "GUAARDVARK_CHAT_SAY_RAG_FAILED",

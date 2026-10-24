@@ -19,6 +19,7 @@ from typing import Dict, Any
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult, register_tool
 from backend.tools.llama_code_tools import (
     read_code,
+    rooted_at,
     search_code,
     list_files,
     verify_change
@@ -28,6 +29,7 @@ from backend.utils.backend_http import is_mcp_transport
 from backend.utils.display_paths import display_text
 import json
 import ast
+from contextlib import contextmanager
 from datetime import datetime
 from backend.services.guarded_code_service import (
     GuardedCodeError,
@@ -241,6 +243,27 @@ def _page_of_file(result: str, filepath: str, start_line: int | None, end_line: 
     }
 
 
+IN_PROJECT_FOLDER = (
+    " In a chat inside a project that has a folder, relative paths are relative to that "
+    "folder instead of the checkout."
+)
+
+
+def _turn_project_root(tool):
+    from backend.services.project_root import turn_project_root
+    return turn_project_root(tool)
+
+
+@contextmanager
+def _in_turn_root(tool):
+    root = _turn_project_root(tool)
+    if root:
+        with rooted_at(root):
+            yield
+    else:
+        yield
+
+
 class ReadCodeTool(BaseTool):
     """Tool to read source code files"""
 
@@ -260,6 +283,7 @@ class ReadCodeTool(BaseTool):
         "dist, logs or __pycache__. In Guaardvark's own chat an absolute path outside the checkout also works, "
         "except system and key folders; over MCP it is refused. To find a file use search_code or "
         "search_codebase; for PDF or Office files process_file; for logs read_logs."
+        + IN_PROJECT_FOLDER
     )
     parameters = {
         "filepath": ToolParameter(
@@ -300,7 +324,8 @@ class ReadCodeTool(BaseTool):
             except ValueError as e:
                 return ToolResult(success=False, error=f"ERROR reading '{filepath}': {e}", metadata={"filepath": filepath})
 
-            result = read_code(filepath, allow_external=not is_mcp_transport(self))
+            with _in_turn_root(self):
+                result = read_code(filepath, allow_external=not is_mcp_transport(self))
 
             # Check if result indicates an error
             if result.startswith("ERROR"):
@@ -345,6 +370,7 @@ class SearchCodeTool(BaseTool):
         "takes over 1 s or the whole search over 20 s. Use it for exact names and patterns; "
         "search_codebase asks by meaning when the zvec_grep plugin is connected; read_code opens a hit "
         "that is UTF-8 text."
+        + IN_PROJECT_FOLDER
     )
     parameters = {
         "pattern": ToolParameter(
@@ -373,7 +399,8 @@ class SearchCodeTool(BaseTool):
             )
 
         try:
-            result = search_code(pattern, file_glob)
+            with _in_turn_root(self):
+                result = search_code(pattern, file_glob)
             if result.startswith("ERROR"):
                 return ToolResult(success=False, error=result, metadata={"pattern": pattern})
 
@@ -410,6 +437,7 @@ class EditCodeTool(BaseTool):
         "Use read_code first to get the exact text to replace. "
         "Use empty string for new_text to delete code. "
         "Accepts paths relative to the project root and explicit absolute paths for user-referenced external files."
+        + IN_PROJECT_FOLDER
     )
     parameters = {
         "filepath": ToolParameter(
@@ -464,9 +492,11 @@ class EditCodeTool(BaseTool):
                 success=False,
                 error="Missing required parameter: filepath"
             )
-        # Resolve relative paths against GUAARDVARK_ROOT for Celery worker compatibility
+        # Relative paths: the chat's project folder when it has one, so an edit
+        # names the same file read_code read; else GUAARDVARK_ROOT, for Celery
+        # workers and self-improvement.
         if not os.path.isabs(filepath):
-            root = os.environ.get("GUAARDVARK_ROOT", "")
+            root = _turn_project_root(self) or os.environ.get("GUAARDVARK_ROOT", "")
             if root:
                 filepath = os.path.join(root, filepath)
         if old_text is None:
@@ -664,6 +694,7 @@ class ListCodeFilesTool(BaseTool):
         "the folder's direct entries and each step adds a level; output stops at 1,500 entries with a "
         "note of how many more there are. Use read_code to open a file, search_code or search_codebase "
         "to find one by content, and list_code_repositories for repositories indexed in the Library."
+        + IN_PROJECT_FOLDER
     )
     parameters = {
         "directory": ToolParameter(
@@ -695,7 +726,8 @@ class ListCodeFilesTool(BaseTool):
                 max_depth = 2
 
         try:
-            result = list_files(directory, max_depth)
+            with _in_turn_root(self):
+                result = list_files(directory, max_depth)
 
             # Check if result indicates an error
             if result.startswith("ERROR"):
@@ -735,6 +767,7 @@ class VerifyChangeTool(BaseTool):
         "Returns a line starting '✓ VERIFIED' or '✗ VERIFICATION FAILED'; 'ERROR during verification' "
         "(file missing, refused, not UTF-8, or over 10 MB) comes back as an error result. Same path rules "
         "as read_code. To see the file use read_code; to find text across files, search_code."
+        + IN_PROJECT_FOLDER
     )
     parameters = {
         "filepath": ToolParameter(
@@ -779,7 +812,8 @@ class VerifyChangeTool(BaseTool):
             should_exist = should_exist.lower() in ('true', '1', 'yes')
 
         try:
-            result = verify_change(filepath, expected_text, should_exist, allow_external=not is_mcp_transport(self))
+            with _in_turn_root(self):
+                result = verify_change(filepath, expected_text, should_exist, allow_external=not is_mcp_transport(self))
 
             # A completed check is a result, pass or fail; only an unreadable file is an error.
             if result.startswith("ERROR"):

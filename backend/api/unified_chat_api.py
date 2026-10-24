@@ -241,6 +241,11 @@ def unified_chat():
         data.get("project_root") or data.get("projectRoot")
         or options_root or options_camel_root
     )
+    if not project_root and project_id:
+        # A chat in a project with a folder works in that folder: its
+        # instructions file is loaded and the code tools look there.
+        from backend.services.project_root import project_root_for
+        project_root = project_root_for(project_id)
     if project_root:
         options["project_root"] = project_root
     options = _merge_session_mode_options(session_id, options)
