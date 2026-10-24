@@ -15,6 +15,7 @@ from typing import List, NamedTuple, Optional, Dict, Any
 logger = logging.getLogger(__name__)
 
 from backend.utils.experiment_context import get_experiment_config, get_active_rag_params
+from backend.utils.file_kinds import looks_binary
 import backend.utils.llama_index_local_config
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
 
@@ -2823,13 +2824,8 @@ def _docling_load(file_path: str, filename: str, doc_cls):
         return None
 
 
-def _looks_binary(path: Path, sample_bytes: int = 8192) -> bool:
-    """A NUL byte in the first 8 KB, the test git and grep use for binary files."""
-    try:
-        with open(path, "rb") as f:
-            return b"\x00" in f.read(sample_bytes)
-    except OSError:
-        return False
+# Files the code loader branch below chunks as source (it maps each to a CodeSplitter language).
+_CODE_LOADER_EXTENSIONS = frozenset({'.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.htm', '.css', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.go', '.rs', '.rb', '.sql', '.json', '.xml', '.yml', '.yaml'})
 
 
 def _has_default_reader(file_extension: str) -> bool:
@@ -3145,7 +3141,7 @@ def get_documents_from_file(file_path: str, client: Optional[str] = None, upload
                 except Exception as doc_error:
                     logger.error(f"BUG FIX 9: Failed to create error document for {filename}: {doc_error}")
 
-        elif file_extension in {'.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.htm', '.css', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.go', '.rs', '.rb', '.sql', '.json', '.xml', '.yml', '.yaml'}:
+        elif file_extension in _CODE_LOADER_EXTENSIONS:
             try:
                 import hashlib
                 logger.info(f"Processing code file: {filename}")
@@ -3286,16 +3282,15 @@ def get_documents_from_file(file_path: str, client: Optional[str] = None, upload
                         "parsed_by": "SimpleDirectoryReader",
                     }
 
-                code_extensions = {'.py', '.js', '.jsx', '.ts', '.tsx', '.html', '.htm', '.css', '.php', '.java', '.c', '.cpp', '.h', '.hpp', '.go', '.rs', '.rb', '.sql', '.json', '.xml', '.yml', '.yaml'}
                 if (file_extension not in [".csv", ".xml"] and
                     (file_extension != ".pdf" or not PDFReaderClass or not documents) and
                     file_extension not in image_extensions and
                     file_extension not in {'.xlsx', '.xls', '.xlsm', '.xlsb'} and
-                    file_extension not in code_extensions):
+                    file_extension not in _CODE_LOADER_EXTENSIONS):
                     # With no reader for the type, SimpleDirectoryReader decodes
                     # the bytes as text and drops what does not decode, so a
                     # binary file would index as noise.
-                    if not _has_default_reader(file_extension) and _looks_binary(path_obj):
+                    if not _has_default_reader(file_extension) and looks_binary(path_obj):
                         logger.warning(
                             f"{filename} is binary and no reader handles "
                             f"'{file_extension or 'no extension'}'; nothing to index"

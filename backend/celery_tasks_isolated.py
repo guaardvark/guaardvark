@@ -14,6 +14,7 @@ from pathlib import Path
 from celery import current_task
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
+from backend.utils import file_kinds
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -119,8 +120,7 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
 
         # Determine file type and language
         file_ext = os.path.splitext(file_path)[1].lower()
-        code_extensions = {'.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.cpp', '.c', '.h', '.cs', '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala'}
-        is_code_file = file_ext in code_extensions
+        is_code_file = file_kinds.is_code(file_path)
 
         update_progress(80, f'Processing content using CodeChunker strategy for {document["filename"]}')
 
@@ -271,9 +271,7 @@ def simple_index_document(file_path, document_id):
         try:
             # Determine if this is a code file based on extension
             file_ext = os.path.splitext(file_path)[1].lower()
-            code_extensions = {'.js', '.jsx', '.ts', '.tsx', '.py', '.java', '.cpp', '.c', '.h', '.cs', '.php', '.rb', '.go', '.rs', '.swift', '.kt', '.scala'}
-
-            is_code_file = file_ext in code_extensions
+            is_code_file = file_kinds.is_code(file_path)
 
             if is_code_file:
                 logger.info(f"Processing as code file: {file_path}")

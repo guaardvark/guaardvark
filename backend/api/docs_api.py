@@ -14,6 +14,7 @@ from werkzeug.utils import secure_filename
 from backend.utils.db_utils import ensure_db_session_cleanup
 from backend.utils.response_utils import success_response, error_response
 from backend.utils.path_safety import is_within
+from backend.utils.file_kinds import flags_as_code_file
 
 try:
     from llama_index.core import VectorStoreIndex
@@ -44,41 +45,8 @@ logger = logging.getLogger(__name__)
 
 
 def _is_code_file(filename: str) -> bool:
-    """Detect if a file is a code file that should be stored for discussion."""
-    code_extensions = {
-        '.js', '.jsx', '.ts', '.tsx',  # JavaScript/TypeScript
-        '.py', '.pyx', '.pyi',          # Python
-        '.java', '.class',              # Java
-        '.cpp', '.cc', '.cxx', '.c',    # C/C++
-        '.h', '.hpp', '.hxx',           # C/C++ headers
-        '.cs',                          # C#
-        '.php',                         # PHP
-        '.rb',                          # Ruby
-        '.go',                          # Go
-        '.rs',                          # Rust
-        '.swift',                       # Swift
-        '.kt', '.kts',                  # Kotlin
-        '.scala',                       # Scala
-        '.sh', '.bash', '.zsh',         # Shell scripts
-        '.sql',                         # SQL
-        '.css', '.scss', '.sass',       # Stylesheets
-        '.html', '.htm', '.xml',        # Markup
-        '.json', '.yaml', '.yml',       # Configuration
-        '.dockerfile', '.Dockerfile',    # Docker
-        '.md', '.markdown',             # Markdown (often has code)
-        '.vue',                         # Vue.js
-        '.svelte',                      # Svelte
-        '.dart',                        # Dart
-        '.r', '.R',                     # R
-        '.matlab', '.m',                # MATLAB
-        '.pl', '.pm',                   # Perl
-        '.lua',                         # Lua
-        '.vim',                         # Vim script
-    }
-    
-    # Check file extension
-    _, ext = os.path.splitext(filename.lower())
-    return ext in code_extensions
+    """Whether the upload is flagged is_code_file (source, markup, config, markdown)."""
+    return flags_as_code_file(filename)
 
 
 def _is_text_file(filename: str) -> bool:

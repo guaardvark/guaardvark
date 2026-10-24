@@ -15,45 +15,14 @@ from flask import current_app
 from backend.models import Folder, Document as DBDocument, Client, Project, Website, db
 from backend.utils.unified_progress_system import get_unified_progress, ProcessType
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
+from backend.utils.file_kinds import flags_as_code_file
 
 logger = logging.getLogger(__name__)
 
 
 def _is_code_file(filename: str) -> bool:
-    """Detect if a file is a code file that should be stored for discussion."""
-    code_extensions = {
-        '.js', '.jsx', '.ts', '.tsx',  # JavaScript/TypeScript
-        '.py', '.pyx', '.pyi',          # Python
-        '.java', '.class',              # Java
-        '.cpp', '.cc', '.cxx', '.c',    # C/C++
-        '.h', '.hpp', '.hxx',           # C/C++ headers
-        '.cs',                          # C#
-        '.php',                         # PHP
-        '.rb',                          # Ruby
-        '.go',                          # Go
-        '.rs',                          # Rust
-        '.swift',                       # Swift
-        '.kt', '.kts',                  # Kotlin
-        '.scala',                       # Scala
-        '.sh', '.bash', '.zsh',         # Shell scripts
-        '.sql',                         # SQL
-        '.css', '.scss', '.sass',       # Stylesheets
-        '.html', '.htm', '.xml',        # Markup
-        '.json', '.yaml', '.yml',       # Configuration
-        '.dockerfile', '.Dockerfile',    # Docker
-        '.md', '.markdown',             # Markdown (often has code)
-        '.vue',                         # Vue.js
-        '.svelte',                      # Svelte
-        '.dart',                        # Dart
-        '.r', '.R',                     # R
-        '.matlab', '.m',                # MATLAB
-        '.pl', '.pm',                   # Perl
-        '.lua',                         # Lua
-        '.vim',                         # Vim script
-    }
-    
-    _, ext = os.path.splitext(filename.lower())
-    return ext in code_extensions
+    """Whether the upload is flagged is_code_file (source, markup, config, markdown)."""
+    return flags_as_code_file(filename)
 
 
 def _is_text_file(filename: str) -> bool:
