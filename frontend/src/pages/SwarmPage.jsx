@@ -61,6 +61,7 @@ import {
 } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 
+import { useUiTranslation, translate, Trans } from "../i18n";
 import PageLayout from "../components/layout/PageLayout";
 import { useSnackbar } from "../components/common/SnackbarProvider";
 import EntityContextMenu from "../components/common/EntityContextMenu";
@@ -86,22 +87,22 @@ import {
 // poll interval in ms — fallback if Socket.IO fails or for initial sync
 const POLL_INTERVAL = 10000;
 
-// status -> color/icon mapping
-const STATUS_CONFIG = {
-  pending: { color: "default", icon: <PendingIcon fontSize="small" />, label: "Pending" },
-  blocked: { color: "default", icon: <PendingIcon fontSize="small" />, label: "Blocked" },
-  queued: { color: "info", icon: <PendingIcon fontSize="small" />, label: "Queued" },
-  running: { color: "primary", icon: <RunningIcon fontSize="small" />, label: "Running" },
-  done: { color: "success", icon: <DoneIcon fontSize="small" />, label: "Done" },
-  failed: { color: "error", icon: <FailedIcon fontSize="small" />, label: "Failed" },
-  needs_review: { color: "warning", icon: <ReviewIcon fontSize="small" />, label: "Needs Review" },
-  merged: { color: "success", icon: <MergeIcon fontSize="small" />, label: "Merged" },
-  cancelled: { color: "default", icon: <CloseIcon fontSize="small" />, label: "Cancelled" },
+// status -> color/icon mapping; a function so the labels follow the language
+const statusConfig = () => ({
+  pending: { color: "default", icon: <PendingIcon fontSize="small" />, label: translate("swarm.taskStatus.pending") },
+  blocked: { color: "default", icon: <PendingIcon fontSize="small" />, label: translate("swarm.taskStatus.blocked") },
+  queued: { color: "info", icon: <PendingIcon fontSize="small" />, label: translate("swarm.taskStatus.queued") },
+  running: { color: "primary", icon: <RunningIcon fontSize="small" />, label: translate("swarm.taskStatus.running") },
+  done: { color: "success", icon: <DoneIcon fontSize="small" />, label: translate("swarm.taskStatus.done") },
+  failed: { color: "error", icon: <FailedIcon fontSize="small" />, label: translate("swarm.taskStatus.failed") },
+  needs_review: { color: "warning", icon: <ReviewIcon fontSize="small" />, label: translate("swarm.taskStatus.needsReview") },
+  merged: { color: "success", icon: <MergeIcon fontSize="small" />, label: translate("swarm.taskStatus.merged") },
+  cancelled: { color: "default", icon: <CloseIcon fontSize="small" />, label: translate("swarm.taskStatus.cancelled") },
   // The agent exited cleanly but committed and changed nothing.
-  no_changes: { color: "warning", icon: <ReviewIcon fontSize="small" />, label: "No changes" },
+  no_changes: { color: "warning", icon: <ReviewIcon fontSize="small" />, label: translate("swarm.taskStatus.noChanges") },
   // The agent ran past agent_timeout_minutes and was stopped.
-  timed_out: { color: "error", icon: <FailedIcon fontSize="small" />, label: "Timed out" },
-};
+  timed_out: { color: "error", icon: <FailedIcon fontSize="small" />, label: translate("swarm.taskStatus.timedOut") },
+});
 
 
 // Task states whose logs and diff are worth opening.
@@ -110,6 +111,7 @@ const VIEWABLE_TASK_STATUSES = ["running", "done", "failed", "needs_review", "no
 // ─── Main Page ───────────────────────────────────────────────────────
 
 const SwarmPage = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const { showMessage } = useSnackbar();
   const itemMenu = useContextMenu();
@@ -127,11 +129,15 @@ const SwarmPage = () => {
   const [launchOpen, setLaunchOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [taskViewOpen, setTaskViewOpen] = useState(false);
+  // logsNote/diffNote ("loading", "none", "failed") pick the placeholder shown
+  // instead of logs or a diff; its text is translated at render.
   const [taskViewData, setTaskViewData] = useState({ 
     taskId: "", 
     swarmId: "", 
     logs: "", 
+    logsNote: null, 
     diff: "", 
+    diffNote: null, 
     tab: 0 
   });
   const [isDiffLoading, setIsDiffLoading] = useState(false);
@@ -252,7 +258,7 @@ const SwarmPage = () => {
   const handleLaunch = async () => {
     const path = planPath.trim();
     if (!path) {
-      showMessage("Enter a plan file path", "warning");
+      showMessage(t("swarm.messages.enterPlanPath"), "warning");
       return;
     }
 
@@ -266,61 +272,61 @@ const SwarmPage = () => {
       });
       if (res.success !== false) {
         const data = res.data || res;
-        showMessage(`Swarm launched: ${data.swarm_id}`, "success");
+        showMessage(t("swarm.messages.launched", { id: data.swarm_id }), "success");
         setLaunchOpen(false);
         setPlanPath("");
         setSelectedTemplate("");
         await fetchStatus();
       } else {
-        showMessage(res.message || "Launch failed", "error");
+        showMessage(res.message || t("swarm.messages.launchFailed"), "error");
       }
     } catch (err) {
-      showMessage(err.message || "Launch failed", "error");
+      showMessage(err.message || t("swarm.messages.launchFailed"), "error");
     } finally {
       setLaunching(false);
     }
   };
 
   const handleCancel = async (swarmId) => {
-    if (!swarmId) { showMessage("No swarm ID", "warning"); return; }
+    if (!swarmId) { showMessage(t("swarm.messages.noSwarmId"), "warning"); return; }
     try {
       const res = await cancelSwarm(swarmId);
-      showMessage(res.message || "Cancelled", "success");
+      showMessage(res.message || t("swarm.messages.cancelled"), "success");
       await fetchStatus();
     } catch (err) {
-      showMessage(err.message || "Cancel failed", "error");
+      showMessage(err.message || t("swarm.messages.cancelFailed"), "error");
     }
   };
 
   const handleMerge = async (swarmId) => {
-    if (!swarmId) { showMessage("No swarm ID", "warning"); return; }
+    if (!swarmId) { showMessage(t("swarm.messages.noSwarmId"), "warning"); return; }
     try {
       const res = await mergeSwarm(swarmId);
       const data = res.data || res;
       showMessage(
-        `Merged ${data.merged || 0} branches, ${data.conflicts || 0} conflicts`,
+        t("swarm.messages.merged", { merged: data.merged || 0, conflicts: data.conflicts || 0 }),
         data.conflicts > 0 ? "warning" : "success"
       );
       await fetchStatus();
     } catch (err) {
-      showMessage(err.message || "Merge failed", "error");
+      showMessage(err.message || t("swarm.messages.mergeFailed"), "error");
     }
   };
 
   const handleCleanup = async (swarmId) => {
-    if (!swarmId) { showMessage("No swarm ID", "warning"); return; }
+    if (!swarmId) { showMessage(t("swarm.messages.noSwarmId"), "warning"); return; }
     try {
       const res = await cleanupSwarm(swarmId, { deleteBranches: true });
-      showMessage(res.message || "Cleaned up", "success");
+      showMessage(res.message || t("swarm.messages.cleanedUp"), "success");
       await fetchStatus();
       await fetchHistory();
     } catch (err) {
-      showMessage(err.message || "Cleanup failed", "error");
+      showMessage(err.message || t("swarm.messages.cleanupFailed"), "error");
     }
   };
 
   const handleViewTask = async (swarmId, taskId, initialTab = 0) => {
-    setTaskViewData({ taskId, swarmId, logs: "Loading logs...", diff: "", tab: initialTab });
+    setTaskViewData({ taskId, swarmId, logs: "", logsNote: "loading", diff: "", diffNote: null, tab: initialTab });
     setTaskViewOpen(true);
     
     try {
@@ -330,7 +336,8 @@ const SwarmPage = () => {
       
       setTaskViewData(prev => ({ 
         ...prev, 
-        logs: logsData.logs || "(no logs)" 
+        logs: logsData.logs || "", 
+        logsNote: logsData.logs ? null : "none" 
       }));
 
       // If opening diff tab, fetch it immediately
@@ -338,7 +345,7 @@ const SwarmPage = () => {
         fetchDiff(swarmId, taskId);
       }
     } catch (err) {
-      showMessage("Could not fetch logs", "error");
+      showMessage(t("swarm.messages.logsFailed"), "error");
     }
   };
 
@@ -349,10 +356,11 @@ const SwarmPage = () => {
       const data = res.data || res;
       setTaskViewData(prev => ({ 
         ...prev, 
-        diff: data.diff || "(no changes in worktree)" 
+        diff: data.diff || "", 
+        diffNote: data.diff ? null : "none" 
       }));
     } catch (err) {
-      setTaskViewData(prev => ({ ...prev, diff: "Failed to fetch diff" }));
+      setTaskViewData(prev => ({ ...prev, diff: "", diffNote: "failed" }));
     } finally {
       setIsDiffLoading(false);
     }
@@ -366,7 +374,7 @@ const SwarmPage = () => {
         setEditorFilename(filename);
         setEditorContent(data.content || "");
       } catch (err) {
-        showMessage("Failed to load template", "error");
+        showMessage(t("swarm.messages.templateLoadFailed"), "error");
         return;
       }
     } else {
@@ -378,7 +386,7 @@ const SwarmPage = () => {
 
   const handleSavePlan = async () => {
     if (!editorFilename.trim() || !editorContent.trim()) {
-      showMessage("Filename and content are required", "warning");
+      showMessage(t("swarm.messages.filenameAndContentRequired"), "warning");
       return;
     }
     
@@ -386,15 +394,15 @@ const SwarmPage = () => {
     try {
       const res = await saveTemplate(editorFilename, editorContent);
       if (res.success !== false) {
-        showMessage("Plan saved to templates", "success");
+        showMessage(t("swarm.messages.planSaved"), "success");
         await fetchTemplates();
         setPlanPath(`plugins/swarm/templates/${res.filename || editorFilename}`);
         setEditorOpen(false);
       } else {
-        showMessage(res.message || "Save failed", "error");
+        showMessage(res.message || t("swarm.messages.saveFailed"), "error");
       }
     } catch (err) {
-      showMessage(err.message || "Save failed", "error");
+      showMessage(err.message || t("swarm.messages.saveFailed"), "error");
     } finally {
       setIsSaving(false);
     }
@@ -410,44 +418,44 @@ const SwarmPage = () => {
       const isRunning = swarm.status === "running";
       const isExpanded = expandedSwarm === swarm.swarm_id;
       const actions = [
-        isRunning && { label: "Cancel", onClick: () => handleCancel(swarm.swarm_id), color: "error.main" },
-        !isRunning && (swarm.tasks || []).length > 0 && { label: "Merge All", onClick: () => handleMerge(swarm.swarm_id) },
-        !isRunning && { label: "Clean Up", onClick: () => handleCleanup(swarm.swarm_id) },
+        isRunning && { label: t("swarm.actions.cancel"), onClick: () => handleCancel(swarm.swarm_id), color: "error.main" },
+        !isRunning && (swarm.tasks || []).length > 0 && { label: t("swarm.actions.mergeAll"), onClick: () => handleMerge(swarm.swarm_id) },
+        !isRunning && { label: t("swarm.actions.cleanUp"), onClick: () => handleCleanup(swarm.swarm_id) },
       ].filter(Boolean);
       if (actions.length) actions[0] = { ...actions[0], dividerBefore: true };
       return [
         {
-          label: isExpanded ? "Collapse" : "Expand",
+          label: isExpanded ? t("swarm.menu.collapse") : t("swarm.menu.expand"),
           onClick: () => setExpandedSwarm(isExpanded ? null : swarm.swarm_id),
         },
         ...actions,
-        { label: "Copy swarm ID", onClick: () => copyText(swarm.swarm_id), dividerBefore: true },
+        { label: t("swarm.menu.copySwarmId"), onClick: () => copyText(swarm.swarm_id), dividerBefore: true },
       ];
     }
     if (p.kind === "task") {
       const { swarmId, task } = p;
       const canView = VIEWABLE_TASK_STATUSES.includes(task.status);
       return [
-        canView && { label: "View logs", onClick: () => handleViewTask(swarmId, task.id) },
-        canView && { label: "View diff", onClick: () => handleViewTask(swarmId, task.id, 1) },
+        canView && { label: t("swarm.menu.viewLogs"), onClick: () => handleViewTask(swarmId, task.id) },
+        canView && { label: t("swarm.menu.viewDiff"), onClick: () => handleViewTask(swarmId, task.id, 1) },
         task.branch_name && {
-          label: "Copy branch name",
+          label: t("swarm.menu.copyBranchName"),
           onClick: () => copyText(task.branch_name),
           dividerBefore: canView,
         },
-        { label: "Copy task ID", onClick: () => copyText(task.id), dividerBefore: canView && !task.branch_name },
+        { label: t("swarm.menu.copyTaskId"), onClick: () => copyText(task.id), dividerBefore: canView && !task.branch_name },
       ];
     }
     if (p.kind === "history") {
       return [
-        { label: "Clean Up", onClick: () => handleCleanup(p.h.swarm_id) },
-        { label: "Copy swarm ID", onClick: () => copyText(p.h.swarm_id), dividerBefore: true },
+        { label: t("swarm.actions.cleanUp"), onClick: () => handleCleanup(p.h.swarm_id) },
+        { label: t("swarm.menu.copySwarmId"), onClick: () => copyText(p.h.swarm_id), dividerBefore: true },
       ];
     }
     if (p.kind === "template") {
       return [
         {
-          label: "Launch…",
+          label: t("swarm.menu.launch"),
           onClick: () => {
             handleTemplateSelect(p.tmpl.filename);
             setLaunchOpen(true);
@@ -460,7 +468,7 @@ const SwarmPage = () => {
 
   const handleAiPlanBuilder = async () => {
     if (!aiPrompt.trim()) {
-      showMessage("Enter what you want to achieve", "warning");
+      showMessage(t("swarm.messages.enterGoal"), "warning");
       return;
     }
 
@@ -497,10 +505,10 @@ const SwarmPage = () => {
         else if (content.startsWith("```")) content = content.split("```")[1].split("```")[0];
         
         setEditorContent(content);
-        showMessage("Plan generated by AI!", "success");
+        showMessage(t("swarm.messages.planGenerated"), "success");
       }
     } catch (err) {
-      showMessage("AI generation failed", "error");
+      showMessage(t("swarm.messages.aiGenerationFailed"), "error");
     } finally {
       setIsAiGenerating(false);
     }
@@ -512,19 +520,19 @@ const SwarmPage = () => {
 
   return (
     <PageLayout
-      title="Swarm"
+      title={t("swarm.title")}
       variant="standard"
       actions={
         <Stack direction="row" spacing={1} alignItems="center">
           <Chip
             icon={isOnline ? <OnlineIcon /> : <OfflineIcon />}
-            label={isOnline ? "Online" : "Offline"}
+            label={isOnline ? t("swarm.header.online") : t("swarm.header.offline")}
             color={isOnline ? "success" : "default"}
             size="small"
             variant="outlined"
           />
           {!serviceOnline && (
-            <Chip label="Service Offline" color="error" size="small" variant="outlined" />
+            <Chip label={t("swarm.header.serviceOffline")} color="error" size="small" variant="outlined" />
           )}
           <Button
             variant="outlined"
@@ -536,7 +544,7 @@ const SwarmPage = () => {
               fetchHistory();
             }}
           >
-            Refresh
+            {t("swarm.header.refresh")}
           </Button>
           <Button
             variant="outlined"
@@ -545,7 +553,7 @@ const SwarmPage = () => {
             onClick={() => handleOpenEditor()}
             disabled={!serviceOnline}
           >
-            Create New Plan
+            {t("swarm.header.createPlan")}
           </Button>
           <Button
             variant="contained"
@@ -553,7 +561,7 @@ const SwarmPage = () => {
             onClick={() => setLaunchOpen(true)}
             disabled={!serviceOnline}
           >
-            Launch Swarm
+            {t("swarm.header.launchSwarm")}
           </Button>
         </Stack>
       }
@@ -568,7 +576,7 @@ const SwarmPage = () => {
       {swarms.length > 0 && (
         <Box sx={{ mb: 4 }}>
           <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-            Active Swarms
+            {t("swarm.sections.activeSwarms")}
           </Typography>
           <Stack spacing={2}>
             {swarms.map((swarm) => (
@@ -596,7 +604,7 @@ const SwarmPage = () => {
       {templates.length > 0 && swarms.length === 0 && (
         <Box sx={{ mb: 4 }}>
           <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-            Quick Launch Templates
+            {t("swarm.sections.quickLaunchTemplates")}
           </Typography>
           <Grid container spacing={2}>
             {templates.map((tmpl) => (
@@ -629,7 +637,7 @@ const SwarmPage = () => {
                       {tmpl.description}
                     </Typography>
                     <Chip
-                      label={`${tmpl.task_count} tasks`}
+                      label={t("swarm.taskCount", { count: tmpl.task_count })}
                       size="small"
                       variant="outlined"
                     />
@@ -645,7 +653,7 @@ const SwarmPage = () => {
       {history.length > 0 && (
         <Box sx={{ mb: 4 }}>
           <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 2 }}>
-            Recent Swarms
+            {t("swarm.sections.recentSwarms")}
           </Typography>
           <Stack spacing={1}>
             {history.map((h) => (
@@ -668,18 +676,18 @@ const SwarmPage = () => {
                       {h.swarm_id}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {h.task_count} tasks
-                      {h.flight_mode ? " | Flight Mode" : ""}
+                      {t("swarm.taskCount", { count: h.task_count })}
+                      {h.flight_mode ? ` | ${t("swarm.flightMode")}` : ""}
                       {h.total_cost_usd > 0
                         ? ` | $${h.total_cost_usd.toFixed(2)}`
-                        : " | Free (local)"}
+                        : ` | ${t("swarm.history.freeLocal")}`}
                     </Typography>
                   </Box>
                   <IconButton
                     size="small"
                     onClick={() => handleCleanup(h.swarm_id)}
                   >
-                    <Tooltip title="Clean up">
+                    <Tooltip title={t("swarm.history.cleanUp")}>
                       <CloseIcon fontSize="small" />
                     </Tooltip>
                   </IconButton>
@@ -704,11 +712,11 @@ const SwarmPage = () => {
             sx={{ fontSize: 64, color: "text.secondary", mb: 2 }}
           />
           <Typography variant="h6" sx={{ mb: 1 }}>
-            No Swarms Running
+            {t("swarm.empty.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Launch a swarm of AI agents to work on your codebase in parallel.
-            {!serviceOnline && " Start the swarm plugin first."}
+            {t("swarm.empty.description")}
+            {!serviceOnline && ` ${t("swarm.empty.startPlugin")}`}
           </Typography>
           <Button
             variant="contained"
@@ -716,7 +724,7 @@ const SwarmPage = () => {
             onClick={() => setLaunchOpen(true)}
             disabled={!serviceOnline}
           >
-            Launch Your First Swarm
+            {t("swarm.empty.launchFirst")}
           </Button>
         </Paper>
       )}
@@ -728,23 +736,23 @@ const SwarmPage = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Launch Swarm</DialogTitle>
+        <DialogTitle>{t("swarm.launchDialog.title")}</DialogTitle>
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             {templates.length > 0 && (
               <FormControl fullWidth size="small">
-                <InputLabel>Template (optional)</InputLabel>
+                <InputLabel>{t("swarm.launchDialog.template")}</InputLabel>
                 <Select
                   value={selectedTemplate}
-                  label="Template (optional)"
+                  label={t("swarm.launchDialog.template")}
                   onChange={(e) => handleTemplateSelect(e.target.value)}
                 >
                   <MenuItem value="">
-                    <em>Custom plan file</em>
+                    <em>{t("swarm.launchDialog.customPlanFile")}</em>
                   </MenuItem>
-                  {templates.map((t) => (
-                    <MenuItem key={t.filename} value={t.filename}>
-                      {t.title} ({t.task_count} tasks)
+                  {templates.map((tmpl) => (
+                    <MenuItem key={tmpl.filename} value={tmpl.filename}>
+                      {t("swarm.launchDialog.templateOption", { title: tmpl.title, count: tmpl.task_count })}
                     </MenuItem>
                   ))}
                 </Select>
@@ -752,17 +760,17 @@ const SwarmPage = () => {
             )}
 
             <TextField
-              label="Plan file path"
+              label={t("swarm.launchDialog.planPath")}
               value={planPath}
               onChange={(e) => setPlanPath(e.target.value)}
               fullWidth
               size="small"
-              placeholder="path/to/plan.md or select a template above"
-              helperText="Relative to GUAARDVARK_ROOT or absolute path"
+              placeholder={t("swarm.launchDialog.planPathPlaceholder")}
+              helperText={t("swarm.launchDialog.planPathHelp")}
             />
 
             <TextField
-              label="Max concurrent agents"
+              label={t("swarm.launchDialog.maxAgents")}
               type="number"
               value={maxAgents}
               onChange={(e) =>
@@ -784,7 +792,7 @@ const SwarmPage = () => {
                 label={
                   <Stack direction="row" spacing={0.5} alignItems="center">
                     <FlightIcon fontSize="small" />
-                    <span>Flight Mode</span>
+                    <span>{t("swarm.flightMode")}</span>
                   </Stack>
                 }
               />
@@ -795,21 +803,20 @@ const SwarmPage = () => {
                     onChange={(e) => setAutoMerge(e.target.checked)}
                   />
                 }
-                label="Auto-merge"
+                label={t("swarm.launchDialog.autoMerge")}
               />
             </Stack>
 
             {flightMode && (
               <Alert severity="info" variant="outlined">
-                Flight Mode: offline backends only (Ollama). Conflicts will be
-                auto-serialized.
+                {t("swarm.launchDialog.flightModeInfo")}
               </Alert>
             )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setLaunchOpen(false)} disabled={launching}>
-            Cancel
+            {t("swarm.launchDialog.cancel")}
           </Button>
           <Button
             onClick={handleLaunch}
@@ -825,7 +832,7 @@ const SwarmPage = () => {
               )
             }
           >
-            {flightMode ? "Launch (Flight Mode)" : "Launch"}
+            {flightMode ? t("swarm.launchDialog.launchFlightMode") : t("swarm.launchDialog.launch")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -838,19 +845,19 @@ const SwarmPage = () => {
         fullWidth
       >
         <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>Swarm Plan Editor</span>
+          <span>{t("swarm.editor.title")}</span>
           <Chip label={editorFilename} size="small" variant="outlined" />
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ mb: 3 }}>
             <Typography variant="body2" color="text.secondary">
-              Describe your task, and AI will generate the plan.md structure for you.
+              {t("swarm.editor.aiHint")}
             </Typography>
             <Stack direction="row" spacing={1}>
               <TextField
                 fullWidth
                 size="small"
-                placeholder="e.g., 'Refactor all API endpoints to use the new Response model'"
+                placeholder={t("swarm.editor.aiPlaceholder")}
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
                 disabled={isAiGenerating}
@@ -862,13 +869,13 @@ const SwarmPage = () => {
                 startIcon={isAiGenerating ? <CircularProgress size={16} /> : <SpeedIcon />}
                 sx={{ whiteSpace: "nowrap" }}
               >
-                AI Suggest Plan
+                {t("swarm.editor.aiSuggest")}
               </Button>
             </Stack>
           </Stack>
 
           <TextField
-            label="Filename (e.g. migrate_api.md)"
+            label={t("swarm.editor.filename")}
             value={editorFilename}
             onChange={(e) => setEditorFilename(e.target.value)}
             fullWidth
@@ -877,7 +884,7 @@ const SwarmPage = () => {
           />
           
           <TextField
-            label="Plan Content (Markdown)"
+            label={t("swarm.editor.content")}
             value={editorContent}
             onChange={(e) => setEditorContent(e.target.value)}
             fullWidth
@@ -892,13 +899,13 @@ const SwarmPage = () => {
           
           <Box sx={{ mt: 1 }}>
             <Typography variant="caption" color="text.secondary">
-              Format: Use <b>## Task Name</b> for each task. Add <b>Deps: [1]</b> for dependencies.
+              <Trans i18nKey="swarm.editor.formatHint" components={{ bold: <b /> }} />
             </Typography>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditorOpen(false)} disabled={isSaving}>
-            Cancel
+            {t("swarm.editor.cancel")}
           </Button>
           <Button
             onClick={handleSavePlan}
@@ -906,7 +913,7 @@ const SwarmPage = () => {
             disabled={isSaving || !editorContent.trim()}
             startIcon={isSaving ? <CircularProgress size={18} /> : <EditIcon />}
           >
-            Save to Templates
+            {t("swarm.editor.saveToTemplates")}
           </Button>
         </DialogActions>
       </Dialog>
@@ -920,7 +927,7 @@ const SwarmPage = () => {
       >
         <DialogTitle sx={{ pb: 0 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">Task Detail: {taskViewData.taskId}</Typography>
+            <Typography variant="h6">{t("swarm.taskView.title", { id: taskViewData.taskId })}</Typography>
             <IconButton onClick={() => setTaskViewOpen(false)}>
               <CloseIcon />
             </IconButton>
@@ -929,14 +936,14 @@ const SwarmPage = () => {
             value={taskViewData.tab} 
             onChange={(e, v) => {
               setTaskViewData(prev => ({ ...prev, tab: v }));
-              if (v === 1 && !taskViewData.diff) {
+              if (v === 1 && !taskViewData.diff && !taskViewData.diffNote) {
                 fetchDiff(taskViewData.swarmId, taskViewData.taskId);
               }
             }}
             sx={{ mt: 1 }}
           >
-            <Tab label="Logs" icon={<LogsIcon />} iconPosition="start" />
-            <Tab label="Live Diff" icon={<BranchIcon />} iconPosition="start" />
+            <Tab label={t("swarm.taskView.logsTab")} icon={<LogsIcon />} iconPosition="start" />
+            <Tab label={t("swarm.taskView.liveDiffTab")} icon={<BranchIcon />} iconPosition="start" />
           </Tabs>
         </DialogTitle>
         <DialogContent dividers>
@@ -955,7 +962,11 @@ const SwarmPage = () => {
                 borderColor: "divider",
               }}
             >
-              {taskViewData.logs || "(no output yet)"}
+              {taskViewData.logsNote === "loading"
+                ? t("swarm.taskView.loadingLogs")
+                : taskViewData.logsNote === "none"
+                  ? t("swarm.taskView.noLogs")
+                  : taskViewData.logs || t("swarm.taskView.noOutputYet")}
             </Box>
           )}
 
@@ -964,7 +975,7 @@ const SwarmPage = () => {
               {isDiffLoading ? (
                 <Stack alignItems="center" sx={{ py: 4 }}>
                   <CircularProgress size={24} sx={{ mb: 1 }} />
-                  <Typography variant="caption">Fetching worktree diff...</Typography>
+                  <Typography variant="caption">{t("swarm.taskView.fetchingDiff")}</Typography>
                 </Stack>
               ) : (
                 <Box
@@ -985,7 +996,13 @@ const SwarmPage = () => {
                     "& .diff-meta": { color: "info.main", fontWeight: "bold" },
                   }}
                 >
-                  {taskViewData.diff.split("\n").map((line, i) => {
+                  {taskViewData.diffNote ? (
+                    <div>
+                      {taskViewData.diffNote === "failed"
+                        ? t("swarm.taskView.diffFailed")
+                        : t("swarm.taskView.noChanges")}
+                    </div>
+                  ) : taskViewData.diff.split("\n").map((line, i) => {
                     let className = "";
                     if (line.startsWith("+") && !line.startsWith("+++")) className = "diff-add";
                     else if (line.startsWith("-") && !line.startsWith("---")) className = "diff-del";
@@ -1006,7 +1023,7 @@ const SwarmPage = () => {
                   onClick={() => fetchDiff(taskViewData.swarmId, taskViewData.taskId)}
                   disabled={isDiffLoading}
                 >
-                  Refresh Diff
+                  {t("swarm.taskView.refreshDiff")}
                 </Button>
               </Box>
             </Box>
@@ -1037,6 +1054,7 @@ const SwarmCard = ({
   onItemContextMenu,
   theme,
 }) => {
+  const { t } = useUiTranslation();
   const tasks = swarm.tasks || [];
   const isRunning = swarm.status === "running";
   const statusCounts = swarm.tasks_by_status || {};
@@ -1078,7 +1096,7 @@ const SwarmCard = ({
             {swarm.flight_mode && (
               <Chip
                 icon={<FlightIcon />}
-                label="Flight Mode"
+                label={t("swarm.flightMode")}
                 size="small"
                 color="info"
                 variant="outlined"
@@ -1086,8 +1104,8 @@ const SwarmCard = ({
             )}
             <Chip
               label={
-                swarm.status === "failed" ? "Failed" :
-                isRunning ? "Running" : "Completed"
+                swarm.status === "failed" ? t("swarm.swarmStatus.failed") :
+                isRunning ? t("swarm.swarmStatus.running") : t("swarm.swarmStatus.completed")
               }
               size="small"
               color={
@@ -1113,7 +1131,7 @@ const SwarmCard = ({
               sx={{ flex: 1, height: 6, borderRadius: 3 }}
             />
             <Typography variant="caption" color="text.secondary" sx={{ minWidth: 80 }}>
-              {doneCount}/{totalCount} tasks
+              {t("swarm.card.progress", { done: doneCount, total: totalCount })}
             </Typography>
           </Box>
 
@@ -1125,17 +1143,17 @@ const SwarmCard = ({
               label={
                 swarm.total_cost_usd > 0
                   ? `$${swarm.total_cost_usd.toFixed(2)}`
-                  : "Free"
+                  : t("swarm.card.free")
               }
             />
             <StatChip
               icon={<SpeedIcon />}
-              label={`${swarm.running_count || 0} active`}
+              label={t("swarm.card.activeAgents", { count: swarm.running_count || 0 })}
             />
             {swarm.disk_usage_mb > 0 && (
               <StatChip
                 icon={<BranchIcon />}
-                label={`${swarm.disk_usage_mb} MB`}
+                label={t("swarm.card.diskUsage", { size: swarm.disk_usage_mb })}
               />
             )}
           </Stack>
@@ -1153,7 +1171,7 @@ const SwarmCard = ({
           {/* Visual DAG: the graph keeps the browser's own right-click */}
           <Box sx={{ mb: 3 }} data-native-contextmenu>
             <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 1, display: "block" }}>
-              DEPENDENCY GRAPH
+              {t("swarm.card.dependencyGraph")}
             </Typography>
             <SwarmGraph tasks={tasks} height={300} />
           </Box>
@@ -1168,7 +1186,7 @@ const SwarmCard = ({
                 startIcon={<CancelIcon />}
                 onClick={() => onCancel(swarm.swarm_id)}
               >
-                Cancel
+                {t("swarm.actions.cancel")}
               </Button>
             )}
             {!isRunning && tasks.length > 0 && (
@@ -1178,7 +1196,7 @@ const SwarmCard = ({
                 startIcon={<MergeIcon />}
                 onClick={() => onMerge(swarm.swarm_id)}
               >
-                Merge All
+                {t("swarm.actions.mergeAll")}
               </Button>
             )}
             {!isRunning && (
@@ -1188,7 +1206,7 @@ const SwarmCard = ({
                 startIcon={<CloseIcon />}
                 onClick={() => onCleanup(swarm.swarm_id)}
               >
-                Clean Up
+                {t("swarm.actions.cleanUp")}
               </Button>
             )}
           </Stack>
@@ -1217,7 +1235,9 @@ const SwarmCard = ({
 // ─── Task Card Component ─────────────────────────────────────────────
 
 const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
-  const cfg = STATUS_CONFIG[task.status] || STATUS_CONFIG.pending;
+  const { t } = useUiTranslation();
+  const statuses = statusConfig();
+  const cfg = statuses[task.status] || statuses.pending;
 
   return (
     <Card
@@ -1268,7 +1288,7 @@ const TaskCard = ({ task, swarmId, onViewTask, onItemContextMenu, _theme }) => {
       </CardContent>
       <CardActions sx={{ pt: 0 }}>
         {VIEWABLE_TASK_STATUSES.includes(task.status) && (
-          <Tooltip title="View task detail">
+          <Tooltip title={t("swarm.card.viewTaskDetail")}>
             <IconButton
               size="small"
               onClick={() => onViewTask(swarmId, task.id)}
@@ -1311,8 +1331,8 @@ const formatElapsed = (seconds) => {
   if (!seconds || seconds < 0) return "-";
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
-  if (mins > 0) return `${mins}m ${secs}s`;
-  return `${secs}s`;
+  if (mins > 0) return translate("swarm.elapsed.minutesSeconds", { minutes: mins, seconds: secs });
+  return translate("swarm.elapsed.seconds", { seconds: secs });
 };
 
 

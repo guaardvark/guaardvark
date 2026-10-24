@@ -2,6 +2,8 @@
 // model. Off by default because every explanation is a model request (and a
 // chat session on the backend); when on, each word on a line is asked once.
 
+import { translate } from "../../i18n";
+
 export const AI_HOVER_STORAGE_KEY = "codeEditor_aiHover";
 
 export function readAiHoverPreference() {
@@ -73,7 +75,7 @@ export function createAiHoverProvider({ isEnabled, explain, getTab, cache = new 
       },
       contents: [
         { value: `**${word.word}**` },
-        { value: explanation.analysis || "AI explanation not available" },
+        { value: explanation.analysis || translate("codeAssistant.hover.unavailable") },
       ],
     };
   };

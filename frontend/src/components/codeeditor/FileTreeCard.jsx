@@ -41,6 +41,7 @@ import * as fileOperationsService from "../../api/fileOperationsService";
 import UnifiedUploadModal from "../modals/UnifiedUploadModal";
 import { getLanguageFromFilename } from "../../utils/languageDetector";
 import { loadingTab, loadedTab, failedTab } from "./tabOrigin";
+import { useUiTranslation } from "../../i18n";
 
 const FileTreeCard = React.forwardRef(
   (
@@ -61,6 +62,7 @@ const FileTreeCard = React.forwardRef(
     },
     ref
   ) => {
+    const { t } = useUiTranslation();
     // Remove activeTab - we'll show everything in one merged view
     const [expandedFolders, setExpandedFolders] = useState(new Set());
     const [contextMenu, setContextMenu] = useState(null);
@@ -259,7 +261,7 @@ const FileTreeCard = React.forwardRef(
         const isCodeFile = fileName.match(/\.(js|jsx|ts|tsx|py|php|java|cpp|c|h|css|html|json|xml|yaml|yml|md|txt|sql|sh|bash|go|rs|rb|swift|kt|dart|scala|r|m|mm|cs|vb|pl|lua|vim|conf|cfg|ini|toml|env)$/i);
         const pendingTab = isCodeFile
           ? loadingTab(baseTab)
-          : failedTab(baseTab, `only code files (JS, PY, PHP, ...) open in the editor; download ${fileName} from the Files page instead`);
+          : failedTab(baseTab, t("codeEditor.fileTree.notCodeFile", { name: fileName }));
 
         setOpenTabs(prev => {
           const existingIdx = prev.findIndex(tab =>
@@ -313,7 +315,7 @@ const FileTreeCard = React.forwardRef(
         setActiveTabIndex(newTabs.length - 1);
         return newTabs;
       });
-    }, [setOpenTabs, setActiveTabIndex]);
+    }, [setOpenTabs, setActiveTabIndex, t]);
 
     const handleFolderClick = useCallback((folderPath) => {
       setExpandedFolders(prev => {
@@ -356,19 +358,19 @@ const FileTreeCard = React.forwardRef(
         // eslint-disable-next-line no-control-regex -- intentional: matches OS-illegal filename control chars
         const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
         if (invalidChars.test(trimmedName)) {
-          alert('Filename contains invalid characters. Please use only letters, numbers, spaces, hyphens, and underscores.');
+          alert(t("codeEditor.rename.invalidChars"));
           return;
         }
 
         if (trimmedName.length > 255) {
-          alert('Filename is too long. Please use a shorter name.');
+          alert(t("codeEditor.rename.tooLong"));
           return;
         }
 
         // Reserved names check
         const reservedNames = ['CON', 'PRN', 'AUX', 'NUL', 'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9', 'LPT1', 'LPT2', 'LPT3', 'LPT4', 'LPT5', 'LPT6', 'LPT7', 'LPT8', 'LPT9'];
         if (reservedNames.includes(trimmedName.toUpperCase())) {
-          alert('This filename is reserved by the system. Please choose a different name.');
+          alert(t("codeEditor.fileTree.reservedName"));
           return;
         }
 
@@ -388,7 +390,7 @@ const FileTreeCard = React.forwardRef(
         }
 
         if (existingFiles[fullName]) {
-          alert(`File "${fullName}" already exists. Please choose a different name.`);
+          alert(t("codeEditor.fileTree.alreadyExists", { name: fullName }));
           return;
         }
 
@@ -419,15 +421,15 @@ const FileTreeCard = React.forwardRef(
         setNewItemName("");
       } catch (error) {
         console.error('Error creating file:', error);
-        alert('Failed to create file. Please try again.');
+        alert(t("codeEditor.fileTree.createFailed"));
       }
-    }, [newItemName, createDialog.type, setFileTree, handleFileClick]);
+    }, [newItemName, createDialog.type, setFileTree, handleFileClick, t]);
 
     const handleDelete = useCallback(async () => {
       if (!selectedItem) return;
 
       try {
-        if (!confirm(`Are you sure you want to delete "${selectedItem.name}"?`)) {
+        if (!confirm(t("codeEditor.fileTree.deleteConfirm", { name: selectedItem.name }))) {
           return;
         }
 
@@ -441,19 +443,19 @@ const FileTreeCard = React.forwardRef(
           // A library document is deleted by id. Its bare name must never reach
           // /api/files/delete, which resolves names under the repo root.
           if (!selectedItem.id) {
-            alert('This library document has no id, so it cannot be deleted here.');
+            alert(t("codeEditor.fileTree.deleteNoId"));
             return;
           }
           const result = await documentService.deleteDocument(selectedItem.id);
           if (result && result.error) {
-            alert(`Failed to delete document: ${result.error}`);
+            alert(t("codeEditor.fileTree.deleteDocumentFailed", { error: result.error }));
             return;
           }
         } else if (selectedItem.source === 'filesystem') {
           // Delete from filesystem
           const result = await fileOperationsService.deleteFile(selectedItem.path);
           if (!result.success) {
-            alert(`Failed to delete file: ${result.error}`);
+            alert(t("codeEditor.fileTree.deleteFileFailed", { error: result.error }));
             return;
           }
         }
@@ -480,9 +482,9 @@ const FileTreeCard = React.forwardRef(
         handleCloseContextMenu();
       } catch (error) {
         console.error('Error deleting file:', error);
-        alert('Failed to delete file. Please try again.');
+        alert(t("codeEditor.fileTree.deleteFailed"));
       }
-    }, [selectedItem, setFileTree, openTabs, activeTabIndex, setOpenTabs, setActiveTabIndex, handleCloseContextMenu]);
+    }, [selectedItem, setFileTree, openTabs, activeTabIndex, setOpenTabs, setActiveTabIndex, handleCloseContextMenu, t]);
 
     const handleRename = useCallback(() => {
       if (!selectedItem) return;
@@ -499,12 +501,12 @@ const FileTreeCard = React.forwardRef(
         // eslint-disable-next-line no-control-regex -- intentional: matches OS-illegal filename control chars
         const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
         if (invalidChars.test(trimmedName)) {
-          alert('Filename contains invalid characters. Please use only letters, numbers, spaces, hyphens, and underscores.');
+          alert(t("codeEditor.rename.invalidChars"));
           return;
         }
 
         if (trimmedName.length > 255) {
-          alert('Filename is too long. Please use a shorter name.');
+          alert(t("codeEditor.rename.tooLong"));
           return;
         }
 
@@ -528,19 +530,19 @@ const FileTreeCard = React.forwardRef(
         } else if (renameDialog.item.source === 'document') {
           // A library document is renamed by id, not by a path under the repo root.
           if (!renameDialog.item.id) {
-            alert('This library document has no id, so it cannot be renamed here.');
+            alert(t("codeEditor.fileTree.renameNoId"));
             return;
           }
           const result = await documentService.renameDocument(renameDialog.item.id, newPath);
           if (result && result.error) {
-            alert(`Failed to rename document: ${result.error}`);
+            alert(t("codeEditor.fileTree.renameDocumentFailed", { error: result.error }));
             return;
           }
         } else if (renameDialog.item.source === 'filesystem') {
           // Rename a repo file by its repo-relative path
           const result = await fileOperationsService.renameFile(oldPath, newPath);
           if (!result.success) {
-            alert(`Failed to rename file: ${result.error}`);
+            alert(t("codeEditor.fileTree.renameFileFailed", { error: result.error }));
             return;
           }
         }
@@ -563,9 +565,9 @@ const FileTreeCard = React.forwardRef(
         setRenameValue("");
       } catch (error) {
         console.error('Error renaming file:', error);
-        alert('Failed to rename file. Please try again.');
+        alert(t("codeEditor.rename.failed"));
       }
-    }, [renameDialog.item, renameValue, setFileTree, setOpenTabs]);
+    }, [renameDialog.item, renameValue, setFileTree, setOpenTabs, t]);
 
     const getFileIcon = (file) => {
       if (file.type === 'folder') {
@@ -646,7 +648,7 @@ const FileTreeCard = React.forwardRef(
     return (
       <DashboardCardWrapper
         ref={ref}
-        title="Files"
+        title={t("codeEditor.fileTree.title")}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
         isMinimized={isMinimized}
@@ -656,7 +658,7 @@ const FileTreeCard = React.forwardRef(
           <IconButton
             size="small"
             onClick={handleOpenUploadModal}
-            title="Upload files"
+            title={t("codeEditor.fileTree.upload")}
             sx={{
               color: 'text.secondary',
               '&:hover': { color: 'primary.main' }
@@ -677,7 +679,7 @@ const FileTreeCard = React.forwardRef(
               variant="outlined"
               sx={{ flex: 1 }}
             >
-              New File
+              {t("codeEditor.card.newFile")}
             </Button>
           </Box>
 
@@ -686,7 +688,7 @@ const FileTreeCard = React.forwardRef(
             {documentsLoading && (
               <Box sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  Loading documents...
+                  {t("codeEditor.fileTree.loadingDocuments")}
                 </Typography>
               </Box>
             )}
@@ -697,7 +699,7 @@ const FileTreeCard = React.forwardRef(
                   {documentsError}
                 </Typography>
                 <Button size="small" onClick={loadDocuments} sx={{ mt: 1 }}>
-                  Retry
+                  {t("codeEditor.actions.retry")}
                 </Button>
               </Box>
             )}
@@ -705,7 +707,7 @@ const FileTreeCard = React.forwardRef(
             {(fileTree.length === 0 && documents.length === 0 && !documentsLoading && !documentsError) ? (
               <Box sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
-                  No files yet. Create a new file or upload documents to get started.
+                  {t("codeEditor.fileTree.empty")}
                 </Typography>
               </Box>
             ) : (
@@ -715,7 +717,7 @@ const FileTreeCard = React.forwardRef(
                   <>
                     <ListItem sx={{ py: 0.5, bgcolor: 'action.hover' }}>
                       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                        LOCAL FILES
+                        {t("codeEditor.fileTree.localFiles")}
                       </Typography>
                     </ListItem>
                     {renderFileTree(fileTree)}
@@ -728,10 +730,10 @@ const FileTreeCard = React.forwardRef(
                     {fileTree.length > 0 && <Divider sx={{ my: 1 }} />}
                     <ListItem sx={{ py: 0.5, bgcolor: 'action.hover' }}>
                       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                        DOCUMENTS
+                        {t("codeEditor.fileTree.documents")}
                       </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                        {projectId ? `project ${projectId}` : 'whole library, every project'}
+                        {projectId ? t("codeEditor.fileTree.projectScope", { id: projectId }) : t("codeEditor.fileTree.libraryScope")}
                       </Typography>
                     </ListItem>
                     {renderFileTree(documents)}
@@ -758,14 +760,14 @@ const FileTreeCard = React.forwardRef(
             <ListItemIcon>
               <InsertDriveFile fontSize="small" />
             </ListItemIcon>
-            <ListItemText>New File</ListItemText>
+            <ListItemText>{t("codeEditor.card.newFile")}</ListItemText>
           </MenuItem>
           {/* Files here are a flat list (browser storage and the library), so a folder has nowhere to go. */}
           <MenuItem disabled>
             <ListItemIcon>
               <CreateNewFolder fontSize="small" />
             </ListItemIcon>
-            <ListItemText primary="New Folder" secondary="Not available: this list has no folders" />
+            <ListItemText primary={t("codeEditor.fileTree.newFolder")} secondary={t("codeEditor.fileTree.noFolders")} />
           </MenuItem>
 
           {/* Rename option - only for local files, not documents */}
@@ -774,7 +776,7 @@ const FileTreeCard = React.forwardRef(
               <ListItemIcon>
                 <DriveFileRenameOutline fontSize="small" />
               </ListItemIcon>
-              <ListItemText>Rename</ListItemText>
+              <ListItemText>{t("codeEditor.rename.confirm")}</ListItemText>
             </MenuItem>
           )}
 
@@ -784,7 +786,7 @@ const FileTreeCard = React.forwardRef(
               <ListItemIcon>
                 <Delete fontSize="small" />
               </ListItemIcon>
-              <ListItemText>Delete</ListItemText>
+              <ListItemText>{t("codeEditor.fileTree.delete")}</ListItemText>
             </MenuItem>
           )}
 
@@ -794,7 +796,7 @@ const FileTreeCard = React.forwardRef(
               <ListItemIcon>
                 <Storage fontSize="small" />
               </ListItemIcon>
-              <ListItemText>Document from backend</ListItemText>
+              <ListItemText>{t("codeEditor.fileTree.fromBackend")}</ListItemText>
             </MenuItem>
           )}
         </Menu>
@@ -808,14 +810,14 @@ const FileTreeCard = React.forwardRef(
           TransitionProps={{ onEntered: () => createInputRef.current?.focus() }}
         >
           <DialogTitle>
-            Create New {createDialog.type === 'file' ? 'File' : 'Folder'}
+            {createDialog.type === 'file' ? t("codeEditor.fileTree.createFileTitle") : t("codeEditor.fileTree.createFolderTitle")}
           </DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
               inputRef={createInputRef}
               margin="dense"
-              label={`${createDialog.type === 'file' ? 'File' : 'Folder'} Name`}
+              label={createDialog.type === 'file' ? t("codeEditor.fileTree.fileNameLabel") : t("codeEditor.fileTree.folderNameLabel")}
               fullWidth
               variant="outlined"
               value={newItemName}
@@ -829,10 +831,10 @@ const FileTreeCard = React.forwardRef(
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setCreateDialog({ open: false, type: null })}>
-              Cancel
+              {t("codeEditor.actions.cancel")}
             </Button>
             <Button onClick={handleCreateConfirm} variant="contained">
-              Create
+              {t("codeEditor.fileTree.create")}
             </Button>
           </DialogActions>
         </Dialog>
@@ -840,13 +842,13 @@ const FileTreeCard = React.forwardRef(
         {/* Rename Dialog */}
         <Dialog open={renameDialog.open} onClose={() => setRenameDialog({ open: false, item: null })}>
           <DialogTitle>
-            Rename {renameDialog.item?.type === 'file' ? 'File' : 'Folder'}
+            {renameDialog.item?.type === 'file' ? t("codeEditor.rename.title") : t("codeEditor.fileTree.renameFolderTitle")}
           </DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
               margin="dense"
-              label="New Name"
+              label={t("codeEditor.fileTree.newName")}
               fullWidth
               variant="outlined"
               value={renameValue}
@@ -856,15 +858,15 @@ const FileTreeCard = React.forwardRef(
                   handleRenameConfirm();
                 }
               }}
-              helperText="Enter the new name for this item"
+              helperText={t("codeEditor.fileTree.renameHelper")}
             />
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setRenameDialog({ open: false, item: null })}>
-              Cancel
+              {t("codeEditor.actions.cancel")}
             </Button>
             <Button onClick={handleRenameConfirm} variant="contained">
-              Rename
+              {t("codeEditor.rename.confirm")}
             </Button>
           </DialogActions>
         </Dialog>

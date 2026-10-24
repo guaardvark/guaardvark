@@ -25,6 +25,7 @@ import {
 } from "@mui/icons-material";
 
 import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
+import { useUiTranslation, uiLocale } from "../../i18n";
 
 const OUTPUT_COLORS = { error: "error.light", warning: "warning.light" };
 
@@ -44,6 +45,7 @@ const OutputCard = React.forwardRef(
     },
     ref
   ) => {
+    const { t, language } = useUiTranslation();
     const [activeTab, setActiveTab] = useState(0);
     const entries = Array.isArray(outputEntries) ? outputEntries : [];
 
@@ -65,17 +67,17 @@ const OutputCard = React.forwardRef(
         if (trimmed.startsWith('//') || trimmed.startsWith('#')) continue;
 
         if (line.includes('console.log')) {
-          results.push({ type: 'warning', message: 'console.log statement', line: i + 1, file: filePath });
+          results.push({ type: 'warning', message: t("codeEditor.output.consoleLog"), line: i + 1, file: filePath });
         }
         if (line.includes('debugger')) {
-          results.push({ type: 'warning', message: 'debugger statement', line: i + 1, file: filePath });
+          results.push({ type: 'warning', message: t("codeEditor.output.debugger"), line: i + 1, file: filePath });
         }
         if (line.includes('TODO') || line.includes('FIXME')) {
           results.push({ type: 'info', message: trimmed, line: i + 1, file: filePath });
         }
       }
       return results;
-    }, [currentTab?.content, currentTab?.filePath]);
+    }, [currentTab?.content, currentTab?.filePath, t, language]);
 
     const getIconForType = (type) => {
       switch (type) {
@@ -94,7 +96,7 @@ const OutputCard = React.forwardRef(
     return (
       <DashboardCardWrapper
         ref={ref}
-        title="Output"
+        title={t("codeEditor.output.title")}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
         isMinimized={isMinimized}
@@ -121,7 +123,7 @@ const OutputCard = React.forwardRef(
             <Tab
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  Problems
+                  {t("codeEditor.output.problems")}
                   {problems.length > 0 && (
                     <Chip
                       label={problems.length}
@@ -138,7 +140,7 @@ const OutputCard = React.forwardRef(
               iconPosition="start"
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  Output
+                  {t("codeEditor.output.title")}
                   {entries.length > 0 && (
                     <Chip
                       label={entries.length}
@@ -167,7 +169,7 @@ const OutputCard = React.forwardRef(
                   }}>
                     <Typography variant="body2" color="success.main" sx={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <SuccessIcon fontSize="small" />
-                      No problems detected
+                      {t("codeEditor.output.noProblems")}
                     </Typography>
                   </Box>
                 ) : (
@@ -195,7 +197,7 @@ const OutputCard = React.forwardRef(
                           }
                           secondary={
                             <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'text.secondary' }}>
-                              Ln {problem.line}
+                              {t("codeEditor.output.line", { line: problem.line })}
                             </Typography>
                           }
                         />
@@ -221,17 +223,17 @@ const OutputCard = React.forwardRef(
                 {entries.length === 0 ? (
                   <Box sx={{ p: 1, minHeight: 80, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <Typography variant="body2" sx={{ color: 'grey.500', fontSize: '0.7rem' }}>
-                      Run, Debug and Build print here
+                      {t("codeEditor.output.empty")}
                     </Typography>
                   </Box>
                 ) : (
                   <>
                     {onClearOutput && (
-                      <Tooltip title="Clear output">
+                      <Tooltip title={t("codeEditor.output.clear")}>
                         <IconButton
                           size="small"
                           onClick={onClearOutput}
-                          aria-label="Clear output"
+                          aria-label={t("codeEditor.output.clear")}
                           sx={{ position: 'absolute', top: 2, right: 2, color: 'grey.500' }}
                         >
                           <ClearIcon sx={{ fontSize: '0.9rem' }} />
@@ -245,7 +247,7 @@ const OutputCard = React.forwardRef(
                       >
                         <Typography component="div" sx={{ fontSize: '0.6rem', color: 'grey.500', fontFamily: 'inherit' }}>
                           {entry.label || entry.type}
-                          {entry.timestamp ? ` · ${new Date(entry.timestamp).toLocaleTimeString()}` : ''}
+                          {entry.timestamp ? ` · ${new Date(entry.timestamp).toLocaleTimeString(uiLocale())}` : ''}
                         </Typography>
                         <Box
                           component="pre"

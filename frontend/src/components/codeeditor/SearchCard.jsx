@@ -20,6 +20,7 @@ import {
 
 import DashboardCardWrapper from "../dashboard/DashboardCardWrapper";
 import { replaceInTabs } from "./searchReplace";
+import { useUiTranslation } from "../../i18n";
 
 const SearchCard = React.forwardRef(
   (
@@ -37,21 +38,23 @@ const SearchCard = React.forwardRef(
     },
     ref
   ) => {
+    const { t } = useUiTranslation();
     const [searchTerm, setSearchTerm] = useState("");
     const [replaceTerm, setReplaceTerm] = useState("");
-    const [replaceNote, setReplaceNote] = useState("");
+    // What the last Replace all did, worded at render: { term } or { replaced, files }.
+    const [replaceNote, setReplaceNote] = useState(null);
 
     // Replace every match of the search term in the open, editable tabs.
     const handleReplaceAll = useCallback(() => {
       if (!searchTerm.trim() || !setOpenTabs) return;
       const { tabs, replaced, files } = replaceInTabs(openTabs, searchTerm, replaceTerm);
       if (replaced === 0) {
-        setReplaceNote(`No matches for "${searchTerm}" in the open files`);
+        setReplaceNote({ term: searchTerm });
         return;
       }
       setOpenTabs(tabs);
       setSearchResults([]);
-      setReplaceNote(`Replaced ${replaced} match${replaced === 1 ? '' : 'es'} in ${files} file${files === 1 ? '' : 's'} (unsaved)`);
+      setReplaceNote({ replaced, files });
     }, [searchTerm, replaceTerm, openTabs, setOpenTabs, setSearchResults]);
 
     const handleSearch = useCallback(() => {
@@ -77,10 +80,19 @@ const SearchCard = React.forwardRef(
       setSearchResults(results);
     }, [searchTerm, openTabs, setSearchResults]);
 
+    const replaceNoteText = !replaceNote
+      ? ""
+      : "term" in replaceNote
+        ? t("codeEditor.search.noMatches", { term: replaceNote.term })
+        : t("codeEditor.search.replaced", {
+            matches: t("codeEditor.search.matchCount", { count: replaceNote.replaced }),
+            files: t("codeEditor.search.fileCount", { count: replaceNote.files }),
+          });
+
     return (
       <DashboardCardWrapper
         ref={ref}
-        title="Search"
+        title={t("codeEditor.search.title")}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
         isMinimized={isMinimized}
@@ -93,7 +105,7 @@ const SearchCard = React.forwardRef(
             <TextField
               fullWidth
               size="small"
-              placeholder="Search..."
+              placeholder={t("codeEditor.search.placeholder")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
@@ -109,15 +121,15 @@ const SearchCard = React.forwardRef(
             <TextField
               fullWidth
               size="small"
-              placeholder="Replace with..."
+              placeholder={t("codeEditor.search.replacePlaceholder")}
               value={replaceTerm}
               onChange={(e) => setReplaceTerm(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleReplaceAll()}
               InputProps={{
                 endAdornment: (
-                  <Tooltip title={searchTerm.trim() ? "Replace all in open files" : "Type a search term first"}>
+                  <Tooltip title={searchTerm.trim() ? t("codeEditor.search.replaceAll") : t("codeEditor.search.needTerm")}>
                     <span>
-                      <IconButton size="small" onClick={handleReplaceAll} disabled={!searchTerm.trim()} aria-label="Replace all in open files">
+                      <IconButton size="small" onClick={handleReplaceAll} disabled={!searchTerm.trim()} aria-label={t("codeEditor.search.replaceAll")}>
                         <FindReplace fontSize="small" />
                       </IconButton>
                     </span>
@@ -127,7 +139,7 @@ const SearchCard = React.forwardRef(
             />
             {replaceNote && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                {replaceNote}
+                {replaceNoteText}
               </Typography>
             )}
           </Box>
@@ -135,7 +147,7 @@ const SearchCard = React.forwardRef(
           <Box sx={{ flex: 1, overflow: 'auto' }}>
             {!searchResults || searchResults.length === 0 ? (
               <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
-                No search results
+                {t("codeEditor.search.noResults")}
               </Typography>
             ) : (
               <List dense>
@@ -146,7 +158,7 @@ const SearchCard = React.forwardRef(
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Chip label={result.fileName} size="small" variant="outlined" />
                           <Typography variant="caption" color="text.secondary">
-                            Line {result.lineNumber}
+                            {t("codeEditor.search.line", { line: result.lineNumber })}
                           </Typography>
                         </Box>
                       }

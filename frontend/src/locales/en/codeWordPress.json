@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "Clicks: {{clicks}} | Impressions: {{impressions}} | Position: {{position}}",
+    "notAvailable": "N/A"
+  },
+  "errors": {
+    "fetchFailed": "Failed to fetch pages",
+    "loadFailed": "Failed to load pages",
+    "pullFailed": "Failed to pull pages",
+    "processFailed": "Failed to process page",
+    "queueFailed": "Failed to queue pages",
+    "executeFailed": "Failed to execute queue",
+    "recommendationsFailed": "Failed to get recommendations. Feature coming soon."
+  },
+  "feedback": {
+    "pulled": "Pulled {{count}} pages",
+    "nonePending": "No pages pending processing",
+    "queued": "Queued {{count}} pages for processing",
+    "processed": "Processed {{succeeded}}/{{total}} pages"
+  },
+  "recommendations": {
+    "summary": "AI recommendations feature will analyze page content and provide intelligent suggestions for improvements.",
+    "content": {
+      "title": "Content Enhancement",
+      "description": "Analyze content for SEO optimization, readability improvements, and engagement enhancements."
+    },
+    "seo": {
+      "title": "SEO Optimization",
+      "description": "Review meta tags, headings structure, and keyword optimization opportunities."
+    },
+    "structure": {
+      "title": "Content Structure",
+      "description": "Evaluate content organization and suggest improvements for better user experience."
+    },
+    "priority": {
+      "high": "high",
+      "medium": "medium",
+      "low": "low"
+    },
+    "title": "AI Recommendations",
+    "none": "No specific recommendations available at this time.",
+    "loading": "Loading recommendations...",
+    "processNow": "Process Now"
+  },
+  "title": "WordPress Pages",
+  "actions": {
+    "pull": "Pull",
+    "queue": "Queue ({{count}})",
+    "process": "Process",
+    "close": "Close",
+    "cancel": "Cancel"
+  },
+  "site": "WordPress Site",
+  "filters": {
+    "pull": "Pull",
+    "all": "All",
+    "pulled": "Pulled",
+    "pending": "Pending",
+    "error": "Error",
+    "process": "Process",
+    "processing": "Processing",
+    "completed": "Completed",
+    "approved": "Approved"
+  },
+  "stats": {
+    "total": "Total: {{total}}",
+    "pending": "Pending: {{pending}}",
+    "completed": "Completed: {{completed}}"
+  },
+  "empty": {
+    "noPages": "No pages found. Pull pages to get started.",
+    "selectSite": "Select a WordPress site to view pages"
+  },
+  "table": {
+    "title": "Title",
+    "type": "Type",
+    "seo": "SEO",
+    "ai": "AI"
+  },
+  "untitled": "Untitled",
+  "tooltips": {
+    "getRecommendations": "Click for AI recommendations",
+    "hasImprovements": "Has improvements",
+    "noImprovements": "No improvements"
+  },
+  "pullDialog": {
+    "title": "Pull Pages from WordPress",
+    "postType": "Post Type",
+    "posts": "Posts",
+    "pages": "Pages",
+    "maxPages": "Max Pages (Optional)",
+    "maxPagesHelper": "Leave empty to pull all pages",
+    "pulling": "Pulling...",
+    "submit": "Pull Pages"
+  }
+}

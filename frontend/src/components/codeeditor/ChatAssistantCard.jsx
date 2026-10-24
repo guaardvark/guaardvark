@@ -68,6 +68,7 @@ import { CODE_EDITOR_SESSION_ID } from "../../api/chatService";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 import { buildSmartContext } from "../../utils/smartContextBuilder";
 import { parseCodeStructure, generateStructureSummary } from "../../utils/codeStructureParser";
+import { useUiTranslation } from "../../i18n";
 
 const ChatAssistantCard = React.forwardRef(
   (
@@ -91,6 +92,7 @@ const ChatAssistantCard = React.forwardRef(
     },
     ref
   ) => {
+    const { t, language } = useUiTranslation();
     // Core state
     const [message, setMessage] = useState("");
     const [pendingCodeEdit, setPendingCodeEdit] = useState(null);
@@ -137,7 +139,7 @@ const ChatAssistantCard = React.forwardRef(
     });
 
     // Loading state helpers
-    const startLoading = useCallback((message = 'Processing...', estimatedTime = null) => {
+    const startLoading = useCallback((message = t('codeAssistant.loading.processing'), estimatedTime = null) => {
       setLoadingState({
         isLoading: true,
         message,
@@ -173,69 +175,69 @@ const ChatAssistantCard = React.forwardRef(
     // Enhanced command system with context awareness
     const AI_COMMANDS = useMemo(() => ({
       explain: {
-        label: 'Explain',
+        label: t('codeAssistant.commands.explain.label'),
         icon: ExplainIcon,
-        description: 'Explain selected code or analyze entire file structure',
+        description: t('codeAssistant.commands.explain.description'),
         color: 'info',
         contextual: true
       },
       edit: {
-        label: 'Smart Edit',
+        label: t('codeAssistant.commands.edit.label'),
         icon: EditIcon,
-        description: 'AI-powered code editing with context understanding',
+        description: t('codeAssistant.commands.edit.description'),
         color: 'primary',
         contextual: true
       },
       optimize: {
-        label: 'Optimize',
+        label: t('codeAssistant.commands.optimize.label'),
         icon: OptimizeIcon,
-        description: 'Performance optimization with detailed analysis',
+        description: t('codeAssistant.commands.optimize.description'),
         color: 'success',
         contextual: true
       },
       refactor: {
-        label: 'Refactor',
+        label: t('codeAssistant.commands.refactor.label'),
         icon: RefactorIcon,
-        description: 'Intelligent code restructuring',
+        description: t('codeAssistant.commands.refactor.description'),
         color: 'warning',
         contextual: true
       },
       test: {
-        label: 'Generate Tests',
+        label: t('codeAssistant.commands.test.label'),
         icon: TestIcon,
-        description: 'Create comprehensive unit tests',
+        description: t('codeAssistant.commands.test.description'),
         color: 'secondary',
         contextual: true
       },
       fix: {
-        label: 'Auto Fix',
+        label: t('codeAssistant.commands.fix.label'),
         icon: FixIcon,
-        description: 'Automatically fix detected errors and issues',
+        description: t('codeAssistant.commands.fix.description'),
         color: 'error',
         contextual: true
       },
       document: {
-        label: 'Document',
+        label: t('codeAssistant.commands.document.label'),
         icon: DocumentIcon,
-        description: 'Generate documentation and comments',
+        description: t('codeAssistant.commands.document.description'),
         color: 'info',
         contextual: true
       },
       secure: {
-        label: 'Security Scan',
+        label: t('codeAssistant.commands.secure.label'),
         icon: SecurityIcon,
-        description: 'Comprehensive security vulnerability analysis',
+        description: t('codeAssistant.commands.secure.description'),
         color: 'error',
         contextual: true
       },
       suggest: {
-        label: 'Suggestions',
+        label: t('codeAssistant.commands.suggest.label'),
         icon: SuggestionIcon,
-        description: 'Get intelligent code suggestions',
+        description: t('codeAssistant.commands.suggest.description'),
         color: 'primary',
         contextual: true
       }
-    }), []);
+    }), [language]); // the labels are translated text
 
     // Memoized context for stable dependencies to prevent unnecessary re-renders
     const stableContext = useMemo(() => ({
@@ -428,10 +430,10 @@ const ChatAssistantCard = React.forwardRef(
       };
       setChatMessages(prev => [...prev, userMsg]);
       setMessage("");
-      startLoading("AI is thinking...", 15);
+      startLoading(t("codeAssistant.loading.thinking"), 15);
 
       try {
-        const processId = startProcess("ai-chat", "Processing with full context...", "llm_processing");
+        const processId = startProcess("ai-chat", t("codeAssistant.progress.processingWithContext"), "llm_processing");
 
         // Enhanced context with selection and real-time analysis
         // Build multi-file context including related files (reuse memoized relatedFiles)
@@ -467,7 +469,7 @@ const ChatAssistantCard = React.forwardRef(
 
         // Intelligent message routing with context awareness
         if (codeContext.selectedText && !lowerMessage.startsWith('/')) {
-          updateLoadingProgress(25, "Analyzing selected code...");
+          updateLoadingProgress(25, t("codeAssistant.loading.analyzingSelection"));
 
           // Use Smart Context Builder for intelligent context extraction
           const smartCtx = buildSmartContext(
@@ -511,12 +513,12 @@ USER QUESTION: ${userMessage}
 
 Please provide a helpful, specific response about the selected code. Analyze the code in context and answer the user's question in detail.`;
 
-          updateLoadingProgress(50, "Sending to AI assistant...");
+          updateLoadingProgress(50, t("codeAssistant.loading.sending"));
           const chatResult = await chatService.sendQuery(selectionPrompt, ['coding', 'selection', 'analysis', currentTab?.language || 'javascript'], null, CODE_EDITOR_SESSION_ID, rulesCutoffEnabled);
-          updateLoadingProgress(75, "Processing AI response...");
+          updateLoadingProgress(75, t("codeAssistant.loading.processingResponse"));
 
           if (!chatResult) {
-            throw new Error('Chat service returned null or undefined response for selection analysis');
+            throw new Error(t('codeAssistant.errors.noSelectionResponse'));
           }
 
           if (chatResult && !chatResult.error) {
@@ -541,14 +543,14 @@ Please provide a helpful, specific response about the selected code. Analyze the
             };
           } else {
             // Handle specific error types
-            let errorMessage = 'Analysis failed';
+            let errorMessage = t('codeAssistant.replies.analysisFailed');
 
             if (chatResult?.validationErrors) {
-              errorMessage = `Input validation failed: ${chatResult.validationErrors.map(e => e.message).join(', ')}`;
+              errorMessage = t('codeAssistant.replies.validationFailed', { errors: chatResult.validationErrors.map(e => e.message).join(', ') });
             } else if (chatResult?.code === 'RATE_LIMIT_EXCEEDED') {
-              errorMessage = 'Rate limit exceeded. Please wait a moment before trying again.';
+              errorMessage = t('codeAssistant.replies.rateLimited');
             } else if (chatResult?.error) {
-              errorMessage = `Analysis failed: ${chatResult.error}`;
+              errorMessage = t('codeAssistant.replies.analysisFailedWithError', { error: chatResult.error });
             }
 
             // Fallback to code intelligence
@@ -570,7 +572,7 @@ Please provide a helpful, specific response about the selected code. Analyze the
             selectedText: codeContext.selectedText
           }, rulesCutoffEnabled);
           response = {
-            message: explainResult.success ? explainResult.explanation : `Explanation failed: ${explainResult.error}`,
+            message: explainResult.success ? explainResult.explanation : t('codeAssistant.replies.explanationFailed', { error: explainResult.error }),
             success: explainResult.success,
             type: "explanation"
           };
@@ -578,7 +580,7 @@ Please provide a helpful, specific response about the selected code. Analyze the
           const instructions = userMessage.replace(/^\/edit\s*/, '').trim();
           if (!instructions) {
             response = {
-              message: "Please provide editing instructions. Example: '/edit Add error handling to this function'",
+              message: t("codeAssistant.replies.editHelp"),
               success: true,
               type: "help"
             };
@@ -590,30 +592,34 @@ Please provide a helpful, specific response about the selected code. Analyze the
               // applied. No block means the reply is shown and nothing is offered.
               const code = extractApplyableCode(editResult.editedCode, currentTab?.language);
               if (code) {
-                const scope = codeContext.selectedText ? 'the selected text' : 'the whole file';
+                const isSelection = Boolean(codeContext.selectedText);
                 setPendingCodeEdit({
                   newCode: code,
-                  description: `Edit: ${instructions} (replaces ${scope}; Ctrl+Z in the editor undoes it)`,
+                  description: isSelection
+                    ? t('codeAssistant.replies.editDescriptionSelection', { instructions })
+                    : t('codeAssistant.replies.editDescriptionFile', { instructions }),
                   command: 'edit',
                   targetText: codeContext.selectedText,
                   isSelection: Boolean(codeContext.selectedText),
                   editRange: codeContext.selectionRange // Include selection range for precise editing
                 });
                 response = {
-                  message: `Edit ready for ${scope}. Preview shows the diff; Apply puts it in the editor.`,
+                  message: isSelection
+                    ? t('codeAssistant.replies.editReadySelection')
+                    : t('codeAssistant.replies.editReadyFile'),
                   success: true,
                   type: "edit_ready"
                 };
               } else {
                 response = {
-                  message: editResult.editedCode || "The assistant returned no reply.",
+                  message: editResult.editedCode || t("codeAssistant.replies.noReply"),
                   success: true,
                   type: "edit_response"
                 };
               }
             } else {
               response = {
-                message: `Code editing failed: ${editResult.error}`,
+                message: t('codeAssistant.replies.editFailed', { error: editResult.error }),
                 success: false,
                 type: "error"
               };
@@ -626,7 +632,9 @@ Please provide a helpful, specific response about the selected code. Analyze the
 
           const analysisResult = await codeIntelligenceService.analyzeCodeIntelligent(enhancedContext, fixPrompt, rulesCutoffEnabled);
           response = {
-            message: analysisResult.success ? `**Auto Fix Analysis:**\n\n${analysisResult.analysis}` : `Fix analysis failed: ${analysisResult.error}`,
+            message: analysisResult.success
+              ? t('codeAssistant.replies.fixAnalysis', { analysis: analysisResult.analysis })
+              : t('codeAssistant.replies.fixFailed', { error: analysisResult.error }),
             success: analysisResult.success,
             type: "fix_analysis"
           };
@@ -654,7 +662,9 @@ Please provide a helpful, specific response about the selected code. Analyze the
             case 'secure':
               result = await codeIntelligenceService.analyzeCodeIntelligent(enhancedContext, "Perform comprehensive security analysis", rulesCutoffEnabled);
               response = {
-                message: result.success ? `**Security Analysis:**\n\n${result.analysis}` : `Security analysis failed: ${result.error}`,
+                message: result.success
+                  ? t('codeAssistant.replies.securityAnalysis', { analysis: result.analysis })
+                  : t('codeAssistant.replies.securityFailed', { error: result.error }),
                 success: result.success,
                 type: "security_analysis"
               };
@@ -662,7 +672,13 @@ Please provide a helpful, specific response about the selected code. Analyze the
           }
 
           if (commandType !== 'secure' && result) {
-            const label = commandType.charAt(0).toUpperCase() + commandType.slice(1);
+            const commandNames = {
+              optimize: t('codeAssistant.replies.commandNames.optimize'),
+              refactor: t('codeAssistant.replies.commandNames.refactor'),
+              test: t('codeAssistant.replies.commandNames.test'),
+              document: t('codeAssistant.replies.commandNames.document'),
+            };
+            const label = commandNames[commandType];
             const reply = result.refactoredCode || result.tests || '';
             // These commands send the whole file and Apply replaces the whole
             // file, so only a fenced code block from the reply may be applied.
@@ -670,23 +686,23 @@ Please provide a helpful, specific response about the selected code. Analyze the
             if (code) {
               setPendingCodeEdit({
                 newCode: code,
-                description: `${label}: replaces the whole file (Ctrl+Z in the editor undoes it)`,
+                description: t('codeAssistant.replies.commandDescription', { command: label }),
                 command: commandType
               });
               response = {
-                message: `${label} ready. Preview shows the diff; Apply replaces the whole file.`,
+                message: t('codeAssistant.replies.commandReady', { command: label }),
                 success: true,
                 type: "command_ready"
               };
             } else if (result.success) {
               response = {
-                message: reply || `${label} returned no reply.`,
+                message: reply || t('codeAssistant.replies.commandNoReply', { command: label }),
                 success: true,
                 type: "command_response"
               };
             } else {
               response = {
-                message: `${commandType.charAt(0).toUpperCase() + commandType.slice(1)} failed: ${result.error}`,
+                message: t('codeAssistant.replies.commandFailed', { command: label, error: result.error }),
                 success: false,
                 type: "error"
               };
@@ -699,7 +715,7 @@ Please provide a helpful, specific response about the selected code. Analyze the
             // Skip RAG for right-click editor actions (code already provided inline)
             let projectContextText = '';
             if (projectId && !skipRag) {
-              updateLoadingProgress(20, "Searching project context...");
+              updateLoadingProgress(20, t("codeAssistant.loading.searchingProject"));
               const ragResults = await codeIntelligenceService.searchProjectCode(projectId, userMessage, 5);
               if (ragResults.success && ragResults.sources && ragResults.sources.length > 0) {
                 projectContextText = '\n\nRELEVANT CODE FROM PROJECT (indexed files):\n';
@@ -713,7 +729,7 @@ Please provide a helpful, specific response about the selected code. Analyze the
               }
             }
 
-            updateLoadingProgress(40, "Building smart context...");
+            updateLoadingProgress(40, t("codeAssistant.loading.buildingContext"));
 
             const smartCtx = buildSmartContext(
               currentTab.content,
@@ -761,11 +777,11 @@ USER QUESTION: ${userMessage}
 
 Provide a helpful, specific response. Reference actual code when relevant. If modifications are requested, generate complete, working code.`;
 
-            updateLoadingProgress(60, "Sending to AI assistant...");
+            updateLoadingProgress(60, t("codeAssistant.loading.sending"));
             const chatResult = await chatService.sendQuery(contextPrompt, ['coding', 'assistance', currentTab.language || 'javascript'], null, CODE_EDITOR_SESSION_ID, rulesCutoffEnabled);
 
             if (!chatResult) {
-              throw new Error('Chat service returned null or undefined response');
+              throw new Error(t('codeAssistant.errors.noResponse'));
             }
 
             if (chatResult && !chatResult.error) {
@@ -802,7 +818,9 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
               }
               
               response = {
-                message: analysisResult.success ? analysisResult.analysis : `I apologize, but I'm having trouble processing your request. Error: ${chatResult?.error || analysisResult.error}`,
+                message: analysisResult.success
+                  ? analysisResult.analysis
+                  : t('codeAssistant.replies.requestTrouble', { error: chatResult?.error || analysisResult.error }),
                 success: analysisResult.success,
                 type: "contextual_chat"
               };
@@ -831,7 +849,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
             const chatResult = await chatService.sendQuery(noFilePrompt, ['coding', 'general'], null, CODE_EDITOR_SESSION_ID, rulesCutoffEnabled);
 
             if (!chatResult) {
-              throw new Error('Chat service returned null or undefined response for general conversation');
+              throw new Error(t('codeAssistant.errors.noGeneralResponse'));
             }
 
             if (chatResult && !chatResult.error) {
@@ -877,14 +895,14 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
         };
 
         setChatMessages(prev => [...prev, assistantMsg]);
-        completeProcess(processId, "AI assistance completed");
+        completeProcess(processId, t("codeAssistant.progress.completed"));
 
       } catch (error) {
         console.error("Chat error:", error);
         const errorMsg = {
           id: `error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: `Sorry, I encountered an error: ${error.message}`,
+          content: t('codeAssistant.replies.error', { message: error.message }),
           timestamp: new Date(),
           metadata: { type: "error" }
         };
@@ -912,7 +930,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
     }, [chatMessages, isLoading, handleSendMessage, setChatMessages]);
 
     // Function to apply code changes to the current tab with support for selection-based edits
-    const applyCodeToCurrentTab = useCallback((newCode, description = "AI-generated code", editRange = null) => {
+    const applyCodeToCurrentTab = useCallback((newCode, description = t("codeAssistant.apply.defaultDescription"), editRange = null) => {
       if (!currentTab || !setOpenTabs) {
         console.error('Cannot apply code: missing required props', { currentTab: !!currentTab, setOpenTabs: !!setOpenTabs });
         return;
@@ -966,7 +984,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
               const successMsg = {
                 id: `success-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 role: "assistant",
-                content: `Code Applied Successfully (Selection-Based Edit)\n\n${description}`,
+                content: t('codeAssistant.apply.appliedToSelection', { description }),
                 timestamp: new Date(),
                 metadata: { type: "code_applied", editType: "selection" }
               };
@@ -997,7 +1015,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
         const successMsg = {
           id: `success-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: `Code Applied Successfully\n\n${description}`,
+          content: t('codeAssistant.apply.applied', { description }),
           timestamp: new Date(),
           metadata: { type: "code_applied" }
         };
@@ -1007,7 +1025,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
         const errorMsg = {
           id: `apply-error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: `Failed to Apply Code\n\n${error.message}`,
+          content: t('codeAssistant.apply.failed', { error: error.message }),
           timestamp: new Date(),
           metadata: { type: "error" }
         };
@@ -1024,16 +1042,16 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
       }
 
       // Show confirmation dialog (simplified - could be enhanced with MUI Dialog)
-      const fileList = edits.map(e => `- ${e.filePath || 'untitled'}`).join('\n');
+      const fileList = edits.map(e => `- ${e.filePath || t('codeAssistant.untitled')}`).join('\n');
       const confirmed = window.confirm(
-        `Apply edits to ${edits.length} file(s)?\n\nFiles to be modified:\n${fileList}\n\nClick OK to proceed or Cancel to abort.`
+        t('codeAssistant.multiFile.confirm', { count: edits.length, files: fileList })
       );
 
       if (!confirmed) {
         return;
       }
 
-      const processId = startProcess("multi-file-edit", `Applying edits to ${edits.length} files...`, "llm_processing");
+      const processId = startProcess("multi-file-edit", t('codeAssistant.multiFile.applying', { count: edits.length }), "llm_processing");
       
       try {
         const results = [];
@@ -1067,13 +1085,15 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
           }
         }
 
-        completeProcess(processId, `Multi-file edits completed: ${successCount} succeeded, ${failureCount} failed`);
+        completeProcess(processId, t('codeAssistant.multiFile.completedProgress', { succeeded: successCount, failed: failureCount }));
 
         // Add summary message to chat
         const summaryMsg = {
           id: `multi-file-summary-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: `Multi-File Edit Complete\n\n${successCount} file(s) updated successfully${failureCount > 0 ? `, ${failureCount} failed` : ''}`,
+          content: failureCount > 0
+            ? t('codeAssistant.multiFile.completeWithFailures', { succeeded: successCount, failed: failureCount })
+            : t('codeAssistant.multiFile.complete', { succeeded: successCount }),
           timestamp: new Date(),
           metadata: { type: "multi_file_edit", results }
         };
@@ -1081,12 +1101,12 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
 
       } catch (error) {
         console.error('Multi-file edit failed:', error);
-        errorProcess(processId, `Multi-file edit failed: ${error.message}`);
+        errorProcess(processId, t('codeAssistant.multiFile.failedProgress', { error: error.message }));
         
         const errorMsg = {
           id: `multi-file-error-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: `Multi-File Edit Failed\n\n${error.message}`,
+          content: t('codeAssistant.multiFile.failed', { error: error.message }),
           timestamp: new Date(),
           metadata: { type: "error" }
         };
@@ -1100,7 +1120,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
         const errorMsg = {
           id: `no-file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: "No Active File\n\nPlease open a file with code content first to use AI assistance.",
+          content: t("codeAssistant.replies.noActiveFile"),
           timestamp: new Date(),
           metadata: { type: "error" }
         };
@@ -1232,11 +1252,11 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
     // Title bar actions
     const titleBarActions = (
       <>
-        <Tooltip title="New Chat" arrow>
+        <Tooltip title={t("codeAssistant.titleBar.newChat")} arrow>
           <IconButton
             size="small"
             onClick={handleNewChat}
-            aria-label="Start new chat"
+            aria-label={t("codeAssistant.titleBar.startNewChat")}
             sx={{
               color: 'inherit',
               '&:hover': {
@@ -1247,11 +1267,11 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
             <AddIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Delete Chat" arrow>
+        <Tooltip title={t("codeAssistant.titleBar.deleteChat")} arrow>
           <IconButton
             size="small"
             onClick={handleDeleteChat}
-            aria-label="Delete chat"
+            aria-label={t("codeAssistant.titleBar.deleteChatLabel")}
             sx={{
               color: 'inherit',
               '&:hover': {
@@ -1262,12 +1282,12 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
             <CloseIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="AI Commands" arrow>
+        <Tooltip title={t("codeAssistant.titleBar.aiCommands")} arrow>
           <IconButton
             id="grid-menu-button"
             size="small"
             onClick={handleGridMenuOpen}
-            aria-label="Open AI commands menu"
+            aria-label={t("codeAssistant.titleBar.openCommandsMenu")}
             aria-haspopup="menu"
             aria-expanded={Boolean(gridMenuAnchor)}
             sx={{
@@ -1287,7 +1307,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
       <>
         <DashboardCardWrapper
           ref={ref}
-          title="AI Assistant"
+          title={t("codeAssistant.card.title")}
           cardColor={cardColor}
           onCardColorChange={onCardColorChange}
           isMinimized={isMinimized}
@@ -1311,29 +1331,31 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                   <SuggestionIcon fontSize="small" color={realTimeAnalysis.suggestions.length > 0 ? "info" : "disabled"} />
                 </Badge>
                 <Typography variant="caption" color="text.secondary">
-                  {codeContext.selectedText ? `Selected: ${codeContext.selectedText.length} chars` : currentTab?.filePath || "No file"}
+                  {codeContext.selectedText
+                    ? t("codeAssistant.status.selected", { count: codeContext.selectedText.length })
+                    : currentTab?.filePath || t("codeAssistant.status.noFile")}
                 </Typography>
               </Stack>
               <Stack direction="row" spacing={0.5} alignItems="center">
-                <Tooltip title="Real-time analysis: 2 s after you stop typing, syntax-check the file and send it to the model for suggestions (one model request per pause; files over 5,000 characters are skipped)" arrow>
+                <Tooltip title={t("codeAssistant.status.realTimeTooltip")} arrow>
                   <FormControlLabel
                     control={
                       <Switch
                         size="small"
                         checked={realTimeAnalysis.enabled}
                         onChange={(e) => setRealTimeAnalysis(prev => ({ ...prev, enabled: e.target.checked }))}
-                        inputProps={{ 'aria-label': 'Toggle real-time code analysis' }}
+                        inputProps={{ 'aria-label': t('codeAssistant.status.toggleRealTime') }}
                       />
                     }
                     label=""
                     sx={{ m: 0 }}
                   />
                 </Tooltip>
-                <Tooltip title="Context Info" arrow>
+                <Tooltip title={t("codeAssistant.status.contextInfo")} arrow>
                   <IconButton
                     size="small"
                     onClick={() => setContextExpanded(!contextExpanded)}
-                    aria-label="Toggle context information panel"
+                    aria-label={t("codeAssistant.status.toggleContext")}
                   >
                     <ContextIcon fontSize="small" />
                   </IconButton>
@@ -1346,7 +1368,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
           {structuredRecommendations.length > 0 && (
             <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider', maxHeight: '250px', overflow: 'auto' }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', mb: 1, display: 'block' }}>
-                AI Recommendations ({structuredRecommendations.length})
+                {t("codeAssistant.recommendations.title", { count: structuredRecommendations.length })}
               </Typography>
               <Stack spacing={1}>
                 {structuredRecommendations.slice(0, 5).map((rec, index) => (
@@ -1356,7 +1378,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                         <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 0.5, flexWrap: 'wrap' }}>
                             <Chip
-                              label={rec.type || 'suggestion'}
+                              label={rec.type || t('codeAssistant.recommendations.defaultType')}
                               size="small"
                               color={
                                 rec.type === 'fix' ? 'error' :
@@ -1387,12 +1409,12 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                             )}
                             {rec.lineRange && (
                               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                                Lines {rec.lineRange.start}-{rec.lineRange.end}
+                                {t("codeAssistant.recommendations.lines", { start: rec.lineRange.start, end: rec.lineRange.end })}
                               </Typography>
                             )}
                           </Stack>
                           <Typography variant="caption" sx={{ fontSize: '0.7rem', display: 'block' }}>
-                            {rec.description || rec.rationale || 'No description'}
+                            {rec.description || rec.rationale || t('codeAssistant.recommendations.noDescription')}
                           </Typography>
                           {rec.rationale && rec.rationale !== rec.description && (
                             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', display: 'block', mt: 0.5 }}>
@@ -1411,7 +1433,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                                 // Apply this recommendation
                                 setPendingCodeEdit({
                                   newCode: rec.suggestedCode,
-                                  description: rec.description || `Apply ${rec.type} recommendation`,
+                                  description: rec.description || t('codeAssistant.recommendations.applyDescription', { type: rec.type }),
                                   command: rec.type,
                                   editRange: rec.lineRange ? {
                                     startLineNumber: rec.lineRange.start,
@@ -1423,7 +1445,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                               }}
                               sx={{ fontSize: '0.65rem', minWidth: 'auto', px: 1 }}
                             >
-                              Apply
+                              {t("codeAssistant.actions.apply")}
                             </Button>
                           </CardActions>
                         )}
@@ -1433,7 +1455,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                 ))}
                 {structuredRecommendations.length > 5 && (
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', textAlign: 'center', fontStyle: 'italic' }}>
-                    ... and {structuredRecommendations.length - 5} more recommendations
+                    {t("codeAssistant.recommendations.more", { count: structuredRecommendations.length - 5 })}
                   </Typography>
                 )}
               </Stack>
@@ -1454,7 +1476,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="caption" color="primary" sx={{ fontWeight: 'bold' }}>
-                    Ready to Apply: {pendingCodeEdit.command?.toUpperCase() || 'EDIT'}
+                    {t("codeAssistant.pending.readyToApply", { command: pendingCodeEdit.command?.toUpperCase() || 'EDIT' })}
                   </Typography>
                   <IconButton
                     size="small"
@@ -1476,7 +1498,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                     size="small"
                     sx={{ fontSize: '0.7rem' }}
                   >
-                    Apply
+                    {t("codeAssistant.actions.apply")}
                   </Button>
                   <Button
                     startIcon={<CodeIcon />}
@@ -1486,7 +1508,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                     size="small"
                     sx={{ fontSize: '0.7rem' }}
                   >
-                    Preview
+                    {t("codeAssistant.pending.preview")}
                   </Button>
                   <Button
                     startIcon={<CloseIcon />}
@@ -1496,7 +1518,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                     size="small"
                     sx={{ fontSize: '0.7rem' }}
                   >
-                    Discard
+                    {t("codeAssistant.pending.discard")}
                   </Button>
                 </Stack>
               </Paper>
@@ -1509,7 +1531,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
                   <ContextIcon fontSize="small" sx={{ mr: 1 }} />
-                  Code Context & Analysis
+                  {t("codeAssistant.context.title")}
                 </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 1 }}>
@@ -1517,10 +1539,10 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                   {/* File Context */}
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                      Current File:
+                      {t("codeAssistant.context.currentFile")}:
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                      {currentTab?.filePath || "No file open"} ({currentTab?.language || "unknown"})
+                      {currentTab?.filePath || t("codeAssistant.context.noFileOpen")} ({currentTab?.language || t("codeAssistant.context.unknownLanguage")})
                     </Typography>
                   </Box>
 
@@ -1528,7 +1550,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                   {codeContext.selectedText && (
                     <Box>
                       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                        Selected Code:
+                        {t("codeAssistant.context.selectedCode")}:
                       </Typography>
                       <Box sx={{ bgcolor: 'action.hover', p: 0.5, borderRadius: 1, fontSize: '0.7rem', fontFamily: 'monospace', maxHeight: 100, overflow: 'auto' }}>
                         {codeContext.selectedText.substring(0, 200)}{codeContext.selectedText.length > 200 ? '...' : ''}
@@ -1540,7 +1562,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                   {realTimeAnalysis.enabled && realTimeAnalysis.lastUpdate && (
                     <Box>
                       <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                        Analysis Results:
+                        {t("codeAssistant.context.analysisResults")}:
                       </Typography>
                       <List dense sx={{ p: 0 }}>
                         {realTimeAnalysis.errors.map((error, index) => (
@@ -1582,7 +1604,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                               <SuccessIcon fontSize="small" color="success" />
                             </ListItemIcon>
                             <ListItemText
-                              primary="No issues detected"
+                              primary={t("codeAssistant.context.noIssues")}
                               primaryTypographyProps={{ fontSize: '0.7rem', color: 'success.main' }}
                             />
                           </ListItem>
@@ -1594,27 +1616,27 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
                   {/* Project Context */}
                   <Box>
                     <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                      Project Context:
+                      {t("codeAssistant.context.project")}:
                     </Typography>
                     <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                      {openTabs?.length || 0} files open
+                      {t("codeAssistant.context.filesOpen", { count: openTabs?.length || 0 })}
                       {relatedFiles.length > 0 && (
-                        <span> • {relatedFiles.length} related files detected</span>
+                        <span> • {t("codeAssistant.context.relatedDetected", { count: relatedFiles.length })}</span>
                       )}
                     </Typography>
                     {relatedFiles.length > 0 && (
                       <Box sx={{ mt: 0.5 }}>
                         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          Related files:
+                          {t("codeAssistant.context.relatedFiles")}:
                         </Typography>
                         {relatedFiles.slice(0, 3).map((rf, idx) => (
                           <Typography key={idx} variant="caption" sx={{ fontSize: '0.65rem', display: 'block', ml: 1 }}>
-                            • {rf.filePath || 'untitled'} ({rf.language})
+                            • {rf.filePath || t('codeAssistant.untitled')} ({rf.language})
                           </Typography>
                         ))}
                         {relatedFiles.length > 3 && (
                           <Typography variant="caption" sx={{ fontSize: '0.65rem', ml: 1 }}>
-                            ... and {relatedFiles.length - 3} more
+                            {t("codeAssistant.context.more", { count: relatedFiles.length - 3 })}
                           </Typography>
                         )}
                       </Box>
@@ -1631,14 +1653,14 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
               severity={realTimeAnalysis.errors.length > 0 ? "error" : "warning"}
               action={
                 <Button size="small" onClick={() => handleSendMessage("/fix")}>
-                  Auto Fix
+                  {t("codeAssistant.commands.fix.label")}
                 </Button>
               }
               sx={{ m: 1, fontSize: '0.75rem' }}
             >
               {realTimeAnalysis.errors.length > 0
-                ? `${realTimeAnalysis.errors.length} error${realTimeAnalysis.errors.length > 1 ? 's' : ''} detected`
-                : `${realTimeAnalysis.warnings.length} warning${realTimeAnalysis.warnings.length > 1 ? 's' : ''} detected`
+                ? t("codeAssistant.alerts.errorsDetected", { count: realTimeAnalysis.errors.length })
+                : t("codeAssistant.alerts.warningsDetected", { count: realTimeAnalysis.warnings.length })
               }
             </Alert>
           )}
@@ -1685,7 +1707,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
               <TextField
                 fullWidth
                 size="small"
-                placeholder="Message..."
+                placeholder={t("codeAssistant.input.placeholder")}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
@@ -1740,7 +1762,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
           onClose={handleGridMenuClose}
           role="menu"
           aria-labelledby="grid-menu-button"
-          aria-label="AI Commands Menu"
+          aria-label={t("codeAssistant.menu.label")}
           PaperProps={{
             sx: {
               mt: 1,
@@ -1757,7 +1779,7 @@ Provide a helpful, specific response. Reference actual code when relevant. If mo
         >
           <Box sx={{ p: 1 }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold', color: 'text.secondary' }}>
-              AI Commands
+              {t("codeAssistant.titleBar.aiCommands")}
             </Typography>
             <Grid container spacing={1}>
               {Object.entries(AI_COMMANDS).map(([key, command]) => {

@@ -68,10 +68,11 @@ import {
   isSaveSessionShortcut,
 } from "../components/codeeditor/codeEditorNav";
 import { ContextualLoader } from "../components/common/LoadingStates";
+import { useUiTranslation, translate, uiLocale } from "../i18n";
 
 const FixedGridLayout = WidthProvider(ReactGridLayout);
 
-const BUILD_UNAVAILABLE_REASON = "Build needs a project folder on disk; projects here have none yet";
+const buildUnavailableReason = () => translate("code.page.buildUnavailable");
 
 const cardComponents = {
   filetree: FileTreeCard,
@@ -83,6 +84,7 @@ const cardComponents = {
 };
 
 const CodeEditorPage = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const { projectId } = useParams();
   const codeNavHistory = useNavigate();
@@ -156,7 +158,7 @@ const CodeEditorPage = () => {
           content = typeof result === "string" ? result : result.content ?? result.data ?? "";
         }
       } catch (err) {
-        loadError = err?.message || "fetch failed";
+        loadError = err?.message || t("code.page.fetchFailed");
       }
     }
     const { getLanguageFromFilename } = await import("../utils/languageDetector");
@@ -176,7 +178,7 @@ const CodeEditorPage = () => {
       return updated;
     });
     if (line) setRevealRequest({ tabId: newTab.id, line });
-  }, []);
+  }, [t]);
 
   // Handle file opened from Documents page via router state
   useEffect(() => {
@@ -260,7 +262,7 @@ const CodeEditorPage = () => {
     if (!modelName || modelName === activeModel) return;
 
     if (!availableModels || !Array.isArray(availableModels) || !availableModels.some(m => m.name === modelName)) {
-      errorProcess("model-change", `Model "${modelName}" not found in available models`);
+      errorProcess("model-change", t("code.page.modelNotFound", { model: modelName }));
       return;
     }
 
@@ -270,7 +272,7 @@ const CodeEditorPage = () => {
       setSelectedModel(modelName);
     } catch (err) {
       console.error('Failed to set model:', err);
-      errorProcess("model-change", `Failed to change model: ${err.message}`);
+      errorProcess("model-change", t("code.page.modelChangeFailed", { error: err.message }));
       setSelectedModel(activeModel || "");
     } finally {
       setIsModelLoading(false);
@@ -418,7 +420,7 @@ const CodeEditorPage = () => {
   }, [currentTab?.content, currentTab?.id]);
 
   // A folder the build API may run in. Projects carry no folder yet, so this
-  // is null and Build stays disabled with BUILD_UNAVAILABLE_REASON.
+  // is null and Build stays disabled with buildUnavailableReason().
   const buildTarget = null;
 
   const handleQuickAction = useCallback(async (action) => {
@@ -433,7 +435,7 @@ const CodeEditorPage = () => {
       /* eslint-disable no-case-declarations -- each case body is self-contained; wrapping every case in braces is noisier than this scoped suppression */
       switch (action) {
         case 'run':
-          startProcess(processId, 'Running code...', 'code');
+          startProcess(processId, t("code.page.running"), 'code');
           
           const language = currentTab.language || 'javascript';
           let result;
@@ -443,24 +445,24 @@ const CodeEditorPage = () => {
           } else if (language === 'javascript' || language === 'typescript') {
             result = await codeExecutionService.executeJavaScriptCode(currentTab.content);
           } else {
-            throw new Error(`Execution not supported for language: ${language}`);
+            throw new Error(t("code.page.runUnsupported", { language }));
           }
           
           if (result.success) {
-            completeProcess(processId, 'Code executed successfully');
+            completeProcess(processId, t("code.page.runDone"));
             appendOutput({
               type: result.exitCode ? 'error' : 'output',
-              label: `Run (${language})`,
-              message: result.output || result.error || '(no output)',
+              label: t("code.page.runLabel", { language }),
+              message: result.output || result.error || t("code.page.noOutput"),
             });
           } else {
-            errorProcess(processId, result.error || 'Code execution failed');
-            appendOutput({ type: 'error', label: `Run (${language})`, message: result.error || result.stderr });
+            errorProcess(processId, result.error || t("code.page.runFailed"));
+            appendOutput({ type: 'error', label: t("code.page.runLabel", { language }), message: result.error || result.stderr });
           }
           break;
 
         case 'format':
-          startProcess(processId, 'Formatting code...', 'code');
+          startProcess(processId, t("code.page.formatting"), 'code');
           
           const formatResult = await codeExecutionService.formatCode(
             currentTab.content,
@@ -476,14 +478,14 @@ const CodeEditorPage = () => {
             };
             setOpenTabs(updatedTabs);
             
-            completeProcess(processId, 'Code formatted successfully');
+            completeProcess(processId, t("code.page.formatDone"));
           } else {
-            errorProcess(processId, formatResult.error || 'Code formatting failed');
+            errorProcess(processId, formatResult.error || t("code.page.formatFailed"));
           }
           break;
 
         case 'debug':
-          startProcess(processId, 'Analyzing code...', 'code');
+          startProcess(processId, t("code.page.analyzing"), 'code');
           
           const lintResult = await codeExecutionService.lintCode(
             currentTab.content,
@@ -491,8 +493,9 @@ const CodeEditorPage = () => {
           );
           
           if (lintResult.success) {
-            const tool = lintResult.tool ? ` (${lintResult.tool})` : '';
-            completeProcess(processId, `Code analysis complete${tool} - Score: ${lintResult.score}`);
+            completeProcess(processId, lintResult.tool
+              ? t("code.page.analysisDoneTool", { tool: lintResult.tool, score: lintResult.score })
+              : t("code.page.analysisDone", { score: lintResult.score }));
 
             const issues = [
               ...lintResult.errors.map((issue) => ({ ...issue, kind: 'error' })),
@@ -502,12 +505,12 @@ const CodeEditorPage = () => {
             if (lintResult.note) lines.push(lintResult.note);
             appendOutput({
               type: issues.some((issue) => issue.kind === 'error') ? 'error' : issues.length ? 'warning' : 'output',
-              label: `Debug${tool}`,
-              message: lines.length ? lines.join('\n') : 'No problems found.',
+              label: lintResult.tool ? t("code.page.debugLabelTool", { tool: lintResult.tool }) : t("code.page.debugLabel"),
+              message: lines.length ? lines.join('\n') : t("code.page.noProblems"),
             });
           } else {
-            errorProcess(processId, lintResult.error || 'Code analysis failed');
-            appendOutput({ type: 'error', label: 'Debug', message: lintResult.error || 'Code analysis failed' });
+            errorProcess(processId, lintResult.error || t("code.page.analysisFailed"));
+            appendOutput({ type: 'error', label: t("code.page.debugLabel"), message: lintResult.error || t("code.page.analysisFailed") });
           }
           break;
 
@@ -515,18 +518,18 @@ const CodeEditorPage = () => {
           // Projects have no folder on disk yet, so there is nothing to build;
           // the toolbar keeps the button disabled with that reason.
           if (!buildTarget) {
-            errorProcess(processId, BUILD_UNAVAILABLE_REASON);
+            errorProcess(processId, buildUnavailableReason());
             break;
           }
-          startProcess(processId, 'Building project...', 'code');
+          startProcess(processId, t("code.page.building"), 'code');
           const buildResult = await codeExecutionService.buildProject(buildTarget);
 
           if (buildResult.success) {
-            completeProcess(processId, `Build completed in ${buildResult.buildTime.toFixed(2)}s`);
-            appendOutput({ type: 'output', label: 'Build', message: buildResult.output || '(no output)' });
+            completeProcess(processId, t("code.page.buildDone", { seconds: buildResult.buildTime.toFixed(2) }));
+            appendOutput({ type: 'output', label: t("code.page.buildLabel"), message: buildResult.output || t("code.page.noOutput") });
           } else {
-            errorProcess(processId, buildResult.error || 'Build failed');
-            appendOutput({ type: 'error', label: 'Build', message: buildResult.error || 'Build failed' });
+            errorProcess(processId, buildResult.error || t("code.page.buildFailed"));
+            appendOutput({ type: 'error', label: t("code.page.buildLabel"), message: buildResult.error || t("code.page.buildFailed") });
           }
           break;
         }
@@ -537,9 +540,9 @@ const CodeEditorPage = () => {
       }
     } catch (error) {
       console.error(`Failed to execute ${action}:`, error);
-      errorProcess(processId, `Failed to execute ${action}: ${error.message}`);
+      errorProcess(processId, t("code.page.actionFailed", { action, error: error.message }));
     }
-  }, [currentTab, openTabs, activeTabIndex, setOpenTabs, appendOutput, startProcess, completeProcess, errorProcess, buildTarget]);
+  }, [currentTab, openTabs, activeTabIndex, setOpenTabs, appendOutput, startProcess, completeProcess, errorProcess, buildTarget, t]);
 
   // Keyboard shortcuts for the toolbar actions, listened for on the editor
   // card only, so Ctrl+R anywhere else on the page still reloads the browser.
@@ -562,7 +565,7 @@ const CodeEditorPage = () => {
       default: {
         name: "Default",
         icon: Dashboard,
-        tooltip: "Balanced layout (20% / 60% / 20%)",
+        tooltip: () => t("code.page.layoutDefaultTooltip"),
         layout: [
           { i: "filetree", x: 0, y: 0, w: leftCols, h: halfRows },
           { i: "search", x: 0, y: halfRows, w: leftCols, h: halfRows },
@@ -572,7 +575,7 @@ const CodeEditorPage = () => {
         ]
       }
     };
-  }, [COLS_COUNT]);
+  }, [COLS_COUNT, t]);
 
   const defaultLayoutProfile = layoutProfiles.default;
   const DefaultLayoutIcon = defaultLayoutProfile?.icon || Dashboard;
@@ -777,9 +780,7 @@ const CodeEditorPage = () => {
 
       } catch (err) {
         console.error("Failed to load code editor state:", err);
-        setLayoutError(
-          "Failed to load saved code editor state. Using default layout.",
-        );
+        setLayoutError("LOAD_FAILED");
         setLayout(defaultCodeEditorLayout);
         setCardColors({});
         setMinimizedCards({});
@@ -831,7 +832,7 @@ const CodeEditorPage = () => {
         }
       } catch (err) {
         console.error("Failed to save code editor state:", err);
-        setLayoutError("Failed to save code editor state changes.");
+        setLayoutError("SAVE_FAILED");
       }
     },
     [layout, cardColors, minimizedCards, originalDimensions, initialStateLoaded],
@@ -1151,11 +1152,17 @@ const CodeEditorPage = () => {
             justifyContent: "center",
           }}
         >
-          <ContextualLoader loading message="Loading code editor..." showProgress={false} inline />
+          <ContextualLoader loading message={t("code.page.loading")} showProgress={false} inline />
         </Box>
       </PageLayout>
     );
   }
+
+  // The layout error holds LOAD_FAILED or SAVE_FAILED, worded here.
+  const layoutErrorText =
+    layoutError === "LOAD_FAILED" ? t("code.page.layoutLoadFailed")
+      : layoutError === "SAVE_FAILED" ? t("code.page.layoutSaveFailed")
+        : layoutError;
 
   return (
     <PageLayout variant="fullscreen" noPadding>
@@ -1196,14 +1203,14 @@ const CodeEditorPage = () => {
             </IconButton>
             <Typography variant="h6" sx={{ fontSize: '0.9rem', fontWeight: 'medium', display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <CodeIcon sx={{ fontSize: '1.1rem' }} />
-              Code Editor {projectId && `- Project: ${projectId}`}
+              {t("code.page.title")} {projectId && `- ${t("code.page.project", { id: projectId })}`}
             </Typography>
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
             {}
             <Box sx={{ display: "flex", alignItems: "center" }}>
-              <Tooltip title={rulesCutoffEnabled ? "Rules/Prompts are DISABLED for coding - AI models run freely" : "Rules/Prompts are ACTIVE - may constrain AI responses"}>
+              <Tooltip title={rulesCutoffEnabled ? t("code.page.rulesOffTooltip") : t("code.page.rulesOnTooltip")}>
                 <FormControlLabel
                   control={
                     <Switch
@@ -1220,7 +1227,7 @@ const CodeEditorPage = () => {
                         <CheckCircleOutlined sx={{ fontSize: '0.9rem', color: "success.main" }} />
                       )}
                       <Typography variant="caption" sx={{ fontSize: "0.7rem", fontWeight: 'medium' }}>
-                        {rulesCutoffEnabled ? "Rules OFF" : "Rules ON"}
+                        {rulesCutoffEnabled ? t("code.page.rulesOff") : t("code.page.rulesOn")}
                       </Typography>
                     </Box>
                   }
@@ -1235,11 +1242,11 @@ const CodeEditorPage = () => {
             {}
             <Box sx={{ minWidth: 130 }}>
               <FormControl size="small" fullWidth>
-                <InputLabel id="code-model-select-label" sx={{ fontSize: '0.7rem' }}>AI Model</InputLabel>
+                <InputLabel id="code-model-select-label" sx={{ fontSize: '0.7rem' }}>{t("code.page.aiModel")}</InputLabel>
                 <Select
                   labelId="code-model-select-label"
                   value={selectedModel || ""}
-                  label="AI Model"
+                  label={t("code.page.aiModel")}
                   onChange={(e) => handleModelChange(e.target.value)}
                   disabled={isModelLoading || isLoadingModel}
                   sx={{
@@ -1250,7 +1257,7 @@ const CodeEditorPage = () => {
                 >
                   {availableModels.length === 0 ? (
                     <MenuItem value="" disabled>
-                      <em style={{ fontSize: '0.7rem' }}>{isLoadingModel ? "Loading..." : "No models"}</em>
+                      <em style={{ fontSize: '0.7rem' }}>{isLoadingModel ? t("code.page.loadingShort") : t("code.page.noModels")}</em>
                     </MenuItem>
                   ) : (
                     availableModels.map((model) => (
@@ -1271,14 +1278,14 @@ const CodeEditorPage = () => {
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, px: 1.5, borderLeft: 1, borderRight: 1, borderColor: "divider" }}>
                 <Assessment sx={{ fontSize: '0.9rem', color: "text.secondary" }} />
                 <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.7rem' }}>
-                  {metrics.lines}L • {metrics.characters}C • {metrics.functions}F
+                  {t("code.page.metrics", { lines: metrics.lines, characters: metrics.characters, functions: metrics.functions })}
                 </Typography>
               </Box>
             )}
 
             {}
             <Box sx={{ display: "flex", alignItems: "center", gap: 0.25 }}>
-              <Tooltip title="Run Code (Ctrl+R in the editor)">
+              <Tooltip title={t("code.page.runTooltip")}>
                 <span>
                   <IconButton
                     onClick={() => handleQuickAction('run')}
@@ -1292,7 +1299,7 @@ const CodeEditorPage = () => {
                 </span>
               </Tooltip>
 
-              <Tooltip title="Format Code (Ctrl+Shift+F in the editor)">
+              <Tooltip title={t("code.page.formatTooltip")}>
                 <span>
                   <IconButton
                     onClick={() => handleQuickAction('format')}
@@ -1305,7 +1312,7 @@ const CodeEditorPage = () => {
                 </span>
               </Tooltip>
 
-              <Tooltip title="Debug: lint or syntax-check the file (F5 in the editor)">
+              <Tooltip title={t("code.page.debugTooltip")}>
                 <span>
                   <IconButton
                     onClick={() => handleQuickAction('debug')}
@@ -1318,13 +1325,13 @@ const CodeEditorPage = () => {
                 </span>
               </Tooltip>
 
-              <Tooltip title={buildTarget ? "Build (Ctrl+B)" : BUILD_UNAVAILABLE_REASON}>
+              <Tooltip title={buildTarget ? t("code.page.buildTooltip") : buildUnavailableReason()}>
                 <span>
                   <IconButton
                     onClick={() => handleQuickAction('build')}
                     size="small"
                     disabled={!buildTarget}
-                    aria-label="Build"
+                    aria-label={t("code.page.buildLabel")}
                     sx={{ p: 0.5 }}
                   >
                     <Build sx={{ fontSize: '1rem' }} />
@@ -1336,11 +1343,11 @@ const CodeEditorPage = () => {
             {}
             <Box sx={{ display: 'flex', gap: 0.25, borderLeft: 1, borderColor: 'divider', pl: 1 }}>
               {defaultLayoutProfile ? (
-                <Tooltip title={defaultLayoutProfile.tooltip}>
+                <Tooltip title={defaultLayoutProfile.tooltip()}>
                   <IconButton
                     onClick={() => applyLayoutProfile("default")}
                     size="small"
-                    aria-label="Apply default layout"
+                    aria-label={t("code.page.applyDefaultLayout")}
                     sx={{
                       p: 0.5,
                       opacity: 0.7,
@@ -1354,7 +1361,7 @@ const CodeEditorPage = () => {
                   </IconButton>
                 </Tooltip>
               ) : null}
-              <Tooltip title="Reset Layout">
+              <Tooltip title={t("code.page.resetLayout")}>
                 <IconButton onClick={handleResetLayout} size="small" sx={{ p: 0.5 }}>
                   <FormatAlignJustify sx={{ fontSize: '1rem' }} />
                 </IconButton>
@@ -1365,7 +1372,7 @@ const CodeEditorPage = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 1, borderLeft: 1, borderColor: 'divider' }}>
               {isSaving ? (
                 <Chip
-                  label="Saving..."
+                  label={t("code.page.saving")}
                   size="small"
                   color="primary"
                   sx={{
@@ -1375,9 +1382,9 @@ const CodeEditorPage = () => {
                   }}
                 />
               ) : lastSaveTime ? (
-                <Tooltip title={`Last saved: ${lastSaveTime.toLocaleTimeString()}`}>
+                <Tooltip title={t("code.page.lastSaved", { time: lastSaveTime.toLocaleTimeString(uiLocale()) })}>
                   <Chip
-                    label="Saved"
+                    label={t("code.page.saved")}
                     size="small"
                     color="success"
                     sx={{
@@ -1392,16 +1399,21 @@ const CodeEditorPage = () => {
 
             {}
             <Tooltip
-              title={`Active Model: ${isLoadingModel ? "Loading..." : modelError ? "Error fetching model" : activeModel || "N/A"}`}
+              title={t("code.page.activeModel", {
+                model: isLoadingModel
+                  ? t("code.page.loadingShort")
+                  : modelError ? t("code.page.modelFetchError") : activeModel || t("code.page.notAvailable"),
+              })}
             >
               <span>
                 <Typography variant="caption" sx={{ color: "text.secondary", fontSize: '0.7rem', ml: 1 }}>
-                  Model:{" "}
-                  {isLoadingModel
-                    ? "Loading..."
-                    : modelError
-                      ? "Error"
-                      : activeModel || "Default"}
+                  {t("code.page.model", {
+                    model: isLoadingModel
+                      ? t("code.page.loadingShort")
+                      : modelError
+                        ? t("code.page.modelError")
+                        : activeModel || t("code.page.defaultModel"),
+                  })}
                 </Typography>
               </span>
             </Tooltip>
@@ -1426,7 +1438,7 @@ const CodeEditorPage = () => {
             sx={{ mb: 1 }}
             onClose={() => setLayoutError(null)}
           >
-            {layoutError}
+            {layoutErrorText}
           </MuiAlert>
         )}
 
@@ -1558,7 +1570,7 @@ const CodeEditorPage = () => {
                       }}
                     >
                       <Typography color="warning.contrastText">
-                        Missing Card: {cardId}
+                        {t("code.page.missingCard", { card: cardId })}
                       </Typography>
                     </Paper>
                   )}
@@ -1571,7 +1583,7 @@ const CodeEditorPage = () => {
       {relatedFiles.length > 0 && (
         <Box sx={{ p: 1, borderTop: '1px solid', borderColor: 'divider' }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-            Related Files
+            {t("code.page.relatedFiles")}
           </Typography>
           <List dense disablePadding sx={{ maxHeight: 200, overflow: 'auto' }}>
             {relatedFiles.map(f => (
@@ -1594,12 +1606,12 @@ const CodeEditorPage = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Find Symbol (Ctrl+Shift+O)</DialogTitle>
+        <DialogTitle>{t("code.page.findSymbol")}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             fullWidth
-            placeholder="Search functions, classes, methods..."
+            placeholder={t("code.page.symbolPlaceholder")}
             value={symbolQuery}
             onChange={(e) => {
               setSymbolQuery(e.target.value);
@@ -1635,7 +1647,7 @@ const CodeEditorPage = () => {
               </ListItemButton>
             ))}
             {symbolResults.length === 0 && symbolQuery.length >= 2 && !symbolLoading && (
-              <ListItemText secondary="No symbols found" sx={{ textAlign: 'center', py: 2 }} />
+              <ListItemText secondary={t("code.page.noSymbols")} sx={{ textAlign: 'center', py: 2 }} />
             )}
           </List>
         </DialogContent>

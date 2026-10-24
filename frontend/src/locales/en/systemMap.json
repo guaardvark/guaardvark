@@ -1,0 +1,74 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "Services",
+    "utils": "Utils",
+    "tools": "Tools",
+    "tasks": "Tasks",
+    "frontend": "Frontend",
+    "plugins": "Plugins",
+    "clear": "clear"
+  },
+  "errors": {
+    "snapshotFailed": "Snapshot failed"
+  },
+  "dispatch": {
+    "queued": "Dispatched to the self-improvement agent — running in the background.",
+    "proposed": "Dispatched to the self-improvement agent — review the proposed fix in Settings.",
+    "notRun": "Dispatch didn't run — {{reason}}",
+    "notRunNoReason": "Dispatch didn't run — no reason given",
+    "failed": "Dispatch failed: {{error}}"
+  },
+  "title": "System Map",
+  "stats": "{{modules}} modules · {{edges}} edges",
+  "severity": {
+    "critical": "{{count}} critical",
+    "medium": "{{count}} medium",
+    "hygiene": "{{count}} hygiene"
+  },
+  "searchPlaceholder": "Search ( / )",
+  "resetView": "Reset view (R)",
+  "refresh": {
+    "cached": "Cached {{seconds}}s ago — click to re-compute",
+    "computed": "Just computed in {{seconds}}s"
+  },
+  "overlays": {
+    "ghostEndpoints": "Ghost endpoints",
+    "ghostEndpointsCount": "Ghost endpoints ({{count}})",
+    "toolGraph": "Tool graph",
+    "toolGraphCount": "Tool graph ({{count}})"
+  },
+  "controlsHint": "drag · pan  |  wheel · zoom  |  / · search  |  r · reset  |  click chips · spotlight sections",
+  "detail": {
+    "hovered": "Hovered",
+    "selected": "Selected",
+    "importers_one": "{{count}} importer",
+    "importers_other": "{{count}} importers",
+    "findings": "Findings ({{count}})",
+    "moreFindings": "… and {{count}} more",
+    "escToClear": "Press <code>Esc</code> to clear"
+  },
+  "loading": "Mapping the system…",
+  "panel": {
+    "findings": "Findings",
+    "activity": "Activity"
+  },
+  "findings": {
+    "actionable": "Actionable",
+    "critical": "Critical",
+    "all": "All",
+    "intro": "Ranked findings · click to locate · dispatch to fix",
+    "empty": "No findings at this severity. 🎉",
+    "dispatch": "Send to the self-improvement agent to propose a fix",
+    "dismiss": "Dismiss — acknowledge and stop showing this finding"
+  },
+  "activity": {
+    "title": "Live activity",
+    "intro": "Tool calls flowing through the chat appear here. Matched modules pulse in the constellation.",
+    "empty": "Idle. Ask the agent something to start the pulse.",
+    "now": "now",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

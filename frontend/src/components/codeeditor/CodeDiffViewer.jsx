@@ -23,6 +23,7 @@ import {
   SwapHoriz as DiffIcon,
 } from '@mui/icons-material';
 import Editor from '../../utils/monaco';
+import { useUiTranslation } from '../../i18n';
 
 const CodeDiffViewer = ({
   originalCode = '',
@@ -34,6 +35,7 @@ const CodeDiffViewer = ({
   onClose,
   files = null, // Multi-file support: [{filePath, originalCode, modifiedCode, language}]
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [activeTab, setActiveTab] = useState(0);
   
@@ -46,7 +48,7 @@ const CodeDiffViewer = ({
   const displayModifiedCode = isMultiFile ? (currentFile?.modifiedCode || '') : modifiedCode;
   const displayLanguage = isMultiFile ? (currentFile?.language || language) : language;
   const displayDescription = isMultiFile ? (currentFile?.description || description) : description;
-  const displayFilePath = isMultiFile ? (currentFile?.filePath || 'untitled') : null;
+  const displayFilePath = isMultiFile ? (currentFile?.filePath || t("codeEditor.diff.untitled")) : null;
 
   // Calculate basic diff statistics
   const diffStats = useMemo(() => {
@@ -124,7 +126,7 @@ const CodeDiffViewer = ({
         borderRadius: '4px 4px 0 0'
       }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-          Side-by-Side Comparison{displayFilePath ? ` - ${displayFilePath}` : ''}
+          {t("codeEditor.diff.comparison")}{displayFilePath ? ` - ${displayFilePath}` : ''}
         </Typography>
       </Box>
       <Box sx={{ display: 'flex', height: '270px' }}>
@@ -193,7 +195,7 @@ const CodeDiffViewer = ({
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
           <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CodeIcon color="primary" />
-            Code Changes Preview
+            {t("codeEditor.diff.title")}
           </Typography>
           <Button
             variant="outlined"
@@ -201,7 +203,7 @@ const CodeDiffViewer = ({
             onClick={onClose}
             startIcon={<RejectIcon />}
           >
-            Close
+            {t("codeEditor.actions.close")}
           </Button>
         </Box>
 
@@ -215,7 +217,7 @@ const CodeDiffViewer = ({
         {isMultiFile && multiFileStats && (
           <Alert severity="info" sx={{ mb: 2 }}>
             <Typography variant="body2">
-              {multiFileStats.totalFiles} file(s) with changes • {multiFileStats.totalChanges} total line changes
+              {t("codeEditor.diff.multiFileSummary", { files: multiFileStats.totalFiles, changes: multiFileStats.totalChanges })}
             </Typography>
           </Alert>
         )}
@@ -223,14 +225,14 @@ const CodeDiffViewer = ({
         {/* Diff Statistics */}
         <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
           <Chip
-            label={`${diffStats.originalLength} → ${diffStats.modifiedLength} lines`}
+            label={t("codeEditor.diff.lineCount", { from: diffStats.originalLength, to: diffStats.modifiedLength })}
             size="small"
             variant="outlined"
             color="info"
           />
           {diffStats.linesAdded > 0 && (
             <Chip
-              label={`+${diffStats.linesAdded} lines added`}
+              label={t("codeEditor.diff.linesAdded", { lines: diffStats.linesAdded })}
               size="small"
               variant="outlined"
               color="success"
@@ -238,7 +240,7 @@ const CodeDiffViewer = ({
           )}
           {diffStats.linesChanged > 0 && (
             <Chip
-              label={`${diffStats.linesChanged} lines modified`}
+              label={t("codeEditor.diff.linesModified", { lines: diffStats.linesChanged })}
               size="small"
               variant="outlined"
               color="warning"
@@ -254,7 +256,7 @@ const CodeDiffViewer = ({
             {files.map((file, index) => (
               <Tab
                 key={index}
-                label={file.filePath || `File ${index + 1}`}
+                label={file.filePath || t("codeEditor.diff.fileNumber", { number: index + 1 })}
                 icon={<CodeIcon />}
                 iconPosition="start"
                 sx={{ fontSize: '0.8rem' }}
@@ -264,19 +266,19 @@ const CodeDiffViewer = ({
         ) : (
         <Tabs value={activeTab} onChange={handleTabChange}>
           <Tab
-            label="Original"
+            label={t("codeEditor.diff.original")}
             icon={<CodeIcon />}
             iconPosition="start"
             sx={{ fontSize: '0.8rem' }}
           />
           <Tab
-            label="Modified"
+            label={t("codeEditor.diff.modified")}
             icon={<PreviewIcon />}
             iconPosition="start"
             sx={{ fontSize: '0.8rem' }}
           />
           <Tab
-            label="Side-by-Side"
+            label={t("codeEditor.diff.sideBySide")}
             icon={<DiffIcon />}
             iconPosition="start"
             sx={{ fontSize: '0.8rem' }}
@@ -290,15 +292,15 @@ const CodeDiffViewer = ({
         {isMultiFile ? (
           // Multi-file mode: show current file diff
           <>
-            {activeTab === 0 && renderEditor(displayOriginalCode, `Original: ${displayFilePath || 'File'}`)}
-            {activeTab === 1 && renderEditor(displayModifiedCode, `Modified: ${displayFilePath || 'File'}`)}
+            {activeTab === 0 && renderEditor(displayOriginalCode, t("codeEditor.diff.originalOf", { name: displayFilePath || t("codeEditor.diff.file") }))}
+            {activeTab === 1 && renderEditor(displayModifiedCode, t("codeEditor.diff.modifiedOf", { name: displayFilePath || t("codeEditor.diff.file") }))}
             {activeTab === 2 && renderDiffView()}
           </>
         ) : (
           // Single-file mode: show original, modified, or side-by-side
           <>
-            {activeTab === 0 && renderEditor(displayOriginalCode, 'Original Code')}
-            {activeTab === 1 && renderEditor(displayModifiedCode, 'Modified Code')}
+            {activeTab === 0 && renderEditor(displayOriginalCode, t("codeEditor.diff.originalCode"))}
+            {activeTab === 1 && renderEditor(displayModifiedCode, t("codeEditor.diff.modifiedCode"))}
         {activeTab === 2 && renderDiffView()}
           </>
         )}
@@ -313,7 +315,7 @@ const CodeDiffViewer = ({
             startIcon={<AcceptIcon />}
             sx={{ px: 4 }}
           >
-            Accept Changes
+            {t("codeEditor.diff.accept")}
           </Button>
           <Button
             onClick={onReject}
@@ -321,7 +323,7 @@ const CodeDiffViewer = ({
             startIcon={<RejectIcon />}
             sx={{ px: 4 }}
           >
-            Reject Changes
+            {t("codeEditor.diff.reject")}
           </Button>
         </ButtonGroup>
       </Box>
