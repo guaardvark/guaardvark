@@ -1418,8 +1418,10 @@ vader_step() {
 }
 
 # Ask for a sudo timestamp while the painter is paused, so the prompt is not
-# painted over. No-op when a timestamp is already valid.
+# painted over. No-op when a timestamp is already valid. An optional reason is
+# shown in the prompt ("Password for dean to install ffmpeg: ").
 _vader_sudo_v() {
+    local reason="${1:-}"
     command -v sudo >/dev/null 2>&1 || return 0
     sudo -n true 2>/dev/null && return 0
     if [ "${_VADER_BOARD:-0}" = 1 ] && [ -n "${_VADER_DIR:-}" ]; then
@@ -1427,7 +1429,11 @@ _vader_sudo_v() {
         sleep 0.2
         : > "$_VADER_DIR/boot.reset"
     fi
-    sudo -v
+    if [ -n "$reason" ]; then
+        sudo -v -p "  Password for %u to ${reason}: "
+    else
+        sudo -v
+    fi
     local rc=$?
     if [ -n "${_VADER_DIR:-}" ]; then
         printf '0\n' > "$_VADER_DIR/boot.hold"

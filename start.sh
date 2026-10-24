@@ -1442,7 +1442,7 @@ pip_install_requirements() {
             vader_warn "pip failed building a native wheel: Python dev headers missing (Python.h)."
             if command_exists apt-get; then
                 vader_info "Auto-fix: installing python3.12-dev via apt, then retrying $(basename "$req")..."
-                _vader_sudo_v || true
+                _vader_sudo_v "install the Python 3.12 headers" || true
                 _vader_run "$SETUP_LOG" -- sudo apt-get install -y python3.12-dev python3.12-venv || true
                 devheaders_fixed=1
                 continue
@@ -1455,7 +1455,7 @@ pip_install_requirements() {
             vader_warn "pip failed building a native wheel: no C compiler or kernel headers on this system."
             if command_exists apt-get; then
                 vader_info "Auto-fix: installing build-essential via apt, then retrying $(basename "$req")..."
-                _vader_sudo_v || true
+                _vader_sudo_v "install a C compiler" || true
                 _vader_run "$SETUP_LOG" -- sudo apt-get install -y build-essential || true
                 compiler_fixed=1
                 continue
@@ -1890,11 +1890,11 @@ if ! command_exists "ollama"; then
     vader_warn "ollama command line tool not found."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ] && [ "$OLLAMA_INSTALL_WANTED" -eq 1 ]; then
         # Ollama installer's tarball is zstd-compressed — extraction silently fails on minimal images without it.
+        _vader_sudo_v "install Ollama" || true
         if ! command_exists zstd; then
             vader_info "Installing zstd (required by ollama installer)..."
             sudo apt-get install -y zstd >/dev/null 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
         fi
-        _vader_sudo_v || true
         _vader_run "$SETUP_LOG" -- bash -c 'curl -fsSL https://ollama.com/install.sh | sh' || OLLAMA_AVAILABLE=0
         command_exists "ollama" || OLLAMA_AVAILABLE=0
     else
@@ -1909,7 +1909,7 @@ fi
 if ! command_exists ffmpeg; then
     vader_warn "FFmpeg not found. Voice features require FFmpeg."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
-        _vader_sudo_v || true
+        _vader_sudo_v "install ffmpeg" || true
         if _vader_run "$SETUP_LOG" -- sudo apt-get update && _vader_run "$SETUP_LOG" -- sudo apt-get install -y ffmpeg; then
             vader_success "FFmpeg installed successfully"
         else
@@ -1961,9 +1961,9 @@ mitigate_nic_quirks() {
         vader_info "Skipping NIC quirk mitigation (GUAARDVARK_SKIP_NIC_FIX=1)."
         return 0
     fi
-    local netdir iface drv _sudo="sudo"
-    # Never hang a non-interactive boot (systemd/cron) on a sudo password prompt.
-    [ -t 0 ] || _sudo="sudo -n"
+    # Always sudo -n: a password, when one is needed, is asked once below with the
+    # board paused, and a non-interactive boot (systemd/cron) never waits on one.
+    local netdir iface drv _sudo="sudo -n" _asked=0
     for netdir in /sys/class/net/*; do
         [ -e "$netdir/device" ] || continue   # skip lo/veth/docker/bridges
         drv="$(basename "$(readlink -f "$netdir/device/driver" 2>/dev/null)" 2>/dev/null)"
@@ -1975,6 +1975,10 @@ mitigate_nic_quirks() {
         fi
         vader_warn "NIC $iface is an Intel e1000e (I217/I218/I219 family) — known to hang under sustained download load."
         vader_info "Applying known fix: disabling TSO/GSO/GRO offloads + EEE on $iface (runtime-only, reapplied each start; skip with GUAARDVARK_SKIP_NIC_FIX=1)."
+        if [ "$_asked" -eq 0 ] && [ -t 0 ]; then
+            _vader_sudo_v "apply the network card fix" || true
+            _asked=1
+        fi
         if ! command_exists ethtool; then
             $_sudo apt-get install -y ethtool >> "$SETUP_LOG" 2>&1 \
                 || { vader_warn "ethtool unavailable — cannot apply NIC fix. Manual: sudo ethtool -K $iface tso off gso off gro off"; continue; }
@@ -2190,21 +2194,36 @@ vader_step 6 "Ensuring Ollama service is running..."
 OLLAMA_SUDOERS="/etc/sudoers.d/ollama-guaardvark"
 GPU_SUDOERS="/etc/sudoers.d/gpu-guaardvark"
 
-if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ ! -f "$OLLAMA_SUDOERS" ]; then
+# Ask once, with the reason in the prompt and the board paused, then use the
+# cached timestamp (sudo -n): a bare sudo here would prompt under the board,
+# where the prompt is painted over.
+_sudoers_setup_ready=0
+if { { [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ ! -f "$OLLAMA_SUDOERS" ] && [ -f "/etc/systemd/system/ollama.service" ]; } \
+     || { command_exists nvidia-smi && [ ! -f "$GPU_SUDOERS" ]; }; } && command_exists sudo; then
+    if sudo -n true 2>/dev/null; then
+        _sudoers_setup_ready=1
+    elif [ -t 0 ]; then
+        vader_info "One-time setup: your password lets Guaardvark start and stop Ollama and set GPU power without asking again."
+        _vader_sudo_v "set up Ollama and GPU control (one-time)" && _sudoers_setup_ready=1
+    fi
+    [ "$_sudoers_setup_ready" -eq 1 ] || vader_info "Skipped one-time Ollama/GPU control setup (no password given); it is offered again next start."
+fi
+
+if [ "$_sudoers_setup_ready" -eq 1 ] && [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ ! -f "$OLLAMA_SUDOERS" ]; then
     OLLAMA_BIN=$(command -v ollama 2>/dev/null)
     SYSTEMCTL_BIN=$(command -v systemctl 2>/dev/null)
     if [ -n "$SYSTEMCTL_BIN" ] && [ -f "/etc/systemd/system/ollama.service" ]; then
         vader_info "Setting up passwordless Ollama control (one-time)..."
         CURRENT_USER=$(whoami)
         SUDOERS_LINE="$CURRENT_USER ALL=(ALL) NOPASSWD: $SYSTEMCTL_BIN start ollama, $SYSTEMCTL_BIN stop ollama, $SYSTEMCTL_BIN restart ollama, $SYSTEMCTL_BIN status ollama, $SYSTEMCTL_BIN is-active ollama"
-        echo "$SUDOERS_LINE" | sudo tee "$OLLAMA_SUDOERS" > /dev/null 2>&1
+        echo "$SUDOERS_LINE" | sudo -n tee "$OLLAMA_SUDOERS" > /dev/null 2>&1
         if [ -f "$OLLAMA_SUDOERS" ]; then
-            sudo chmod 440 "$OLLAMA_SUDOERS" 2>/dev/null
-            if sudo visudo -c -f "$OLLAMA_SUDOERS" >/dev/null 2>&1; then
+            sudo -n chmod 440 "$OLLAMA_SUDOERS" 2>/dev/null
+            if sudo -n visudo -c -f "$OLLAMA_SUDOERS" >/dev/null 2>&1; then
                 vader_success "Ollama passwordless control configured"
             else
                 vader_warn "Sudoers syntax invalid, removing..."
-                sudo rm -f "$OLLAMA_SUDOERS" 2>/dev/null
+                sudo -n rm -f "$OLLAMA_SUDOERS" 2>/dev/null
             fi
         else
             vader_info "Could not set up passwordless Ollama (non-critical, will use direct process)"
@@ -2213,20 +2232,20 @@ if [ "$OLLAMA_AVAILABLE" -eq 1 ] && [ ! -f "$OLLAMA_SUDOERS" ]; then
 fi
 
 # Set up passwordless nvidia-smi for GPU power management (one-time)
-if command_exists nvidia-smi && [ ! -f "$GPU_SUDOERS" ]; then
+if [ "$_sudoers_setup_ready" -eq 1 ] && command_exists nvidia-smi && [ ! -f "$GPU_SUDOERS" ]; then
     NVIDIA_SMI_BIN=$(command -v nvidia-smi 2>/dev/null)
     if [ -n "$NVIDIA_SMI_BIN" ]; then
         vader_info "Setting up passwordless GPU power management (one-time)..."
         CURRENT_USER=$(whoami)
         GPU_SUDOERS_LINE="$CURRENT_USER ALL=(ALL) NOPASSWD: $NVIDIA_SMI_BIN -pl *, $NVIDIA_SMI_BIN -pm *"
-        echo "$GPU_SUDOERS_LINE" | sudo tee "$GPU_SUDOERS" > /dev/null 2>&1
+        echo "$GPU_SUDOERS_LINE" | sudo -n tee "$GPU_SUDOERS" > /dev/null 2>&1
         if [ -f "$GPU_SUDOERS" ]; then
-            sudo chmod 440 "$GPU_SUDOERS" 2>/dev/null
-            if sudo visudo -c -f "$GPU_SUDOERS" >/dev/null 2>&1; then
+            sudo -n chmod 440 "$GPU_SUDOERS" 2>/dev/null
+            if sudo -n visudo -c -f "$GPU_SUDOERS" >/dev/null 2>&1; then
                 vader_success "GPU passwordless power management configured"
             else
                 vader_warn "GPU sudoers syntax invalid, removing..."
-                sudo rm -f "$GPU_SUDOERS" 2>/dev/null
+                sudo -n rm -f "$GPU_SUDOERS" 2>/dev/null
             fi
         else
             vader_info "Could not set up passwordless GPU control (non-critical)"
