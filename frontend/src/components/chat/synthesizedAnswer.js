@@ -7,9 +7,10 @@
  * complete payload.
  */
 
-export const SYNTHESIZED_LABEL = "Assembled from tool results";
-export const SYNTHESIZED_TOOLTIP =
-  "The model used its full tool budget and answered from what it found.";
+import { translate } from "../../i18n";
+
+export const synthesizedLabel = () => translate("chat.synthesized.label");
+export const synthesizedTooltip = () => translate("chat.synthesized.tooltip");
 
 export function isSynthesizedStep(step) {
   return Boolean(step && step.synthesized === true);

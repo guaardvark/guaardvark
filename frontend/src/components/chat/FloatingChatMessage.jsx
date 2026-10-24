@@ -17,6 +17,7 @@ import GeneratedMedia from "./GeneratedMedia";
 import ImageLightbox from "../images/ImageLightbox";
 import { agentNoteCaption } from "./agentNoteCaptions";
 import copyText from "../../utils/copyText";
+import { useUiTranslation, uiLocale } from "../../i18n";
 
 /**
  * FloatingChatMessage - Renders an individual message item inside FloatingChatCard.
@@ -26,6 +27,7 @@ import copyText from "../../utils/copyText";
  * opens in the same lightbox.
  */
 const FloatingChatMessage = ({ message, msg, formatTime }) => {
+  const { t } = useUiTranslation();
   const m = message || msg || {};
   const theme = useTheme();
   const [copied, setCopied] = useState(false);
@@ -83,7 +85,7 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
   const formattedTime = formatTime
     ? formatTime(m.timestamp)
     : m.timestamp
-    ? new Date(m.timestamp).toLocaleTimeString([], {
+    ? new Date(m.timestamp).toLocaleTimeString(uiLocale(), {
         hour: "2-digit",
         minute: "2-digit",
       })
@@ -114,12 +116,12 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
           }}
         >
           {Boolean(m.content) && (
-            <Tooltip title={copied ? "Copied" : "Copy"}>
+            <Tooltip title={copied ? t("chat.message.copied") : t("chat.message.copy")}>
               <IconButton
                 className="msg-user-copy"
                 size="small"
                 onClick={handleCopy}
-                aria-label="Copy message"
+                aria-label={t("chat.message.copyMessage")}
                 sx={{
                   p: 0.25,
                   alignSelf: "center",
@@ -160,7 +162,7 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
             >
               {m.voice && (
                 <MicIcon
-                  titleAccess="Spoken"
+                  titleAccess={t("chat.message.spoken")}
                   data-testid="voice-message-badge"
                   sx={{ fontSize: 13, verticalAlign: "-2px", mr: 0.5, opacity: 0.85 }}
                 />
@@ -262,7 +264,7 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
               opacity: 0.8,
             }}
           >
-            Response reached the output limit.
+            {t("chat.message.outputLimit")}
           </Typography>
         )}
         {Boolean(m.content) && (
@@ -274,12 +276,12 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
               alignItems: "center",
             }}
           >
-            <Tooltip title={copied ? "Copied" : "Copy"}>
+            <Tooltip title={copied ? t("chat.message.copied") : t("chat.message.copy")}>
               <IconButton
                 className="msg-response-copy"
                 size="small"
                 onClick={handleCopy}
-                aria-label="Copy message"
+                aria-label={t("chat.message.copyMessage")}
                 sx={{
                   p: 0.25,
                   color: "inherit",

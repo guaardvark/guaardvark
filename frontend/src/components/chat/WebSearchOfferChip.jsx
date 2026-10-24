@@ -3,13 +3,14 @@ import PropTypes from "prop-types";
 import { Box, Typography } from "@mui/material";
 import { ActionButton } from "../settings/ui";
 import {
-  ENABLE_HINT,
-  ENABLE_LABEL,
-  SEARCH_LABEL,
-  SEARCH_SENT_TOOLTIP,
-  SEARCH_TOOLTIP,
+  enableHint,
+  enableLabel,
+  searchLabel,
+  searchSentTooltip,
+  searchTooltip,
   WEB_SEARCH_OFFER_SEARCH,
 } from "./webSearchOffer";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * The offer under a reply. Taking it is an action, so it is the kit's neutral
@@ -21,6 +22,7 @@ import {
  * "enable_web_access": sends nothing; a click says where the setting is.
  */
 const WebSearchOfferChip = ({ offer, onSearch }) => {
+  useUiTranslation();
   const [sent, setSent] = useState(false);
   const [hintShown, setHintShown] = useState(false);
 
@@ -31,13 +33,13 @@ const WebSearchOfferChip = ({ offer, onSearch }) => {
         <ActionButton
           data-testid="web-search-offer"
           disabled={sent}
-          tooltip={sent ? SEARCH_SENT_TOOLTIP : SEARCH_TOOLTIP}
+          tooltip={sent ? searchSentTooltip() : searchTooltip()}
           onClick={() => {
             if (sent) return;
             setSent(onSearch(offer.query) !== false);
           }}
         >
-          {SEARCH_LABEL}
+          {searchLabel()}
         </ActionButton>
       </Box>
     );
@@ -46,7 +48,7 @@ const WebSearchOfferChip = ({ offer, onSearch }) => {
   return (
     <Box sx={{ mt: 0.75 }}>
       <ActionButton data-testid="web-search-offer" onClick={() => setHintShown(true)}>
-        {ENABLE_LABEL}
+        {enableLabel()}
       </ActionButton>
       {hintShown && (
         <Typography
@@ -55,7 +57,7 @@ const WebSearchOfferChip = ({ offer, onSearch }) => {
           data-testid="web-search-offer-hint"
           sx={{ display: "block", mt: 0.5, fontSize: "0.7rem" }}
         >
-          {ENABLE_HINT}
+          {enableHint()}
         </Typography>
       )}
     </Box>

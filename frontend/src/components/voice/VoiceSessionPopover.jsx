@@ -30,6 +30,7 @@ import {
 } from "../../config/voiceDefaults";
 import { describeVoicePhase, OUTCOME_LABELS } from "../../utils/voicePhase";
 import brand from "../../config/brand";
+import { useUiTranslation, Trans } from "../../i18n";
 
 // The worklet's RMS for ordinary speech sits well under 0.3; scale it to the bar.
 const LEVEL_SCALE = 300;
@@ -54,6 +55,7 @@ const PLACEMENTS = {
 };
 
 const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) => {
+  const { t } = useUiTranslation();
   const voice = useVoiceSession();
   const state = useVoiceSessionState(
     useShallow((s) => ({
@@ -113,7 +115,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
       <LinearProgress
         variant="determinate"
         value={Math.min(100, level * LEVEL_SCALE)}
-        aria-label="Microphone level"
+        aria-label={t("voice.listening.meterLabel")}
         sx={{ my: 1.5, height: 6, borderRadius: 1 }}
       />
 
@@ -125,7 +127,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
           action={
             fixInSettings ? (
               <Button component={RouterLink} to="/settings#settings-voice" size="small" color="inherit" onClick={onClose}>
-                Settings
+                {t("voice.session.settings")}
               </Button>
             ) : undefined
           }
@@ -142,10 +144,12 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
       {state.lastTranscript && (
         <Box sx={{ mb: 1.5 }}>
           <Typography variant="caption" color="text.secondary">
-            Last heard ({OUTCOME_LABELS[state.lastTranscript.outcome] || state.lastTranscript.outcome})
+            {t("voice.session.lastHeard", {
+              outcome: OUTCOME_LABELS[state.lastTranscript.outcome] || state.lastTranscript.outcome,
+            })}
           </Typography>
           <Typography variant="body2" sx={{ fontStyle: "italic", wordBreak: "break-word" }}>
-            “{state.lastTranscript.text}”
+            {t("voice.session.heardText", { text: state.lastTranscript.text })}
           </Typography>
         </Box>
       )}
@@ -153,7 +157,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
       <Box sx={{ display: "flex", gap: 1, mb: 1.5 }}>
         {running ? (
           <Button variant="contained" color="error" size="small" onClick={() => voice.stop()}>
-            Stop listening
+            {t("voice.session.stopListening")}
           </Button>
         ) : (
           <Button
@@ -161,12 +165,12 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
             size="small"
             onClick={() => voice.start(mode === "handsfree" ? "handsfree" : "utterance")}
           >
-            {mode === "handsfree" ? "Start listening" : "Talk now"}
+            {mode === "handsfree" ? t("voice.session.startListening") : t("voice.session.talkNow")}
           </Button>
         )}
         {state.speaking && (
           <Button variant="outlined" size="small" onClick={() => voice.stopSpeaking()}>
-            Stop speaking
+            {t("voice.session.stopSpeaking")}
           </Button>
         )}
       </Box>
@@ -174,7 +178,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
       <Divider sx={{ mb: 1.5 }} />
 
       <Typography variant="caption" color="text.secondary">
-        Mic button
+        {t("voice.listening.micButton")}
       </Typography>
       <ToggleButtonGroup
         exclusive
@@ -204,7 +208,7 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
             onChange={(e) => updateVoiceSettings({ wakeWordEnabled: e.target.checked })}
           />
         }
-        label={<Typography variant="body2">Wait for “Hey {systemName}”</Typography>}
+        label={<Typography variant="body2">{t("voice.session.wakeToggle", { systemName })}</Typography>}
       />
       <FormControlLabel
         control={
@@ -214,20 +218,22 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
             onChange={(e) => updateVoiceSettings({ ttsEnabled: e.target.checked })}
           />
         }
-        label={<Typography variant="body2">Speak replies</Typography>}
+        label={<Typography variant="body2">{t("voice.session.speakReplies")}</Typography>}
       />
       {installedVoices.length > 0 && (
         <TextField
           select
           size="small"
           fullWidth
-          label={engineLabel ? `Reply voice (${engineLabel})` : "Reply voice"}
+          label={engineLabel ? t("voice.session.replyVoiceEngine", { engine: engineLabel }) : t("voice.session.replyVoice")}
           value={effectiveVoice}
           onChange={(e) => updateVoiceSettings({ voice: e.target.value })}
           disabled={!settings.ttsEnabled}
           helperText={
             !savedVoiceListed && effectiveVoice
-              ? `Your saved voice is not one of ${engineLabel || "this engine"}'s; replies use ${effectiveVoiceName} until you pick one.`
+              ? engineLabel
+                ? t("voice.session.savedVoiceMissing", { engine: engineLabel, voice: effectiveVoiceName })
+                : t("voice.session.savedVoiceMissingThisEngine", { voice: effectiveVoiceName })
               : undefined
           }
           sx={{ mt: 1 }}
@@ -242,11 +248,12 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
       )}
       {settings.ttsEnabled && installedVoices.length === 0 && (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-          No voice is installed: replies cannot be spoken until one is installed in{" "}
-          <Link component={RouterLink} to="/settings#settings-voice" onClick={onClose}>
-            Voice settings
-          </Link>
-          , or Audio Foundry runs with a Kokoro voice pack installed.
+          <Trans
+            i18nKey="voice.session.noVoiceInstalled"
+            components={{
+              settingsLink: <Link component={RouterLink} to="/settings#settings-voice" onClick={onClose} />,
+            }}
+          />
         </Typography>
       )}
       {speakError && (
@@ -257,15 +264,15 @@ const VoiceSessionPopover = ({ anchorEl, open, onClose, placement = "below" }) =
 
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1.5 }}>
         <Typography variant="caption" color="text.secondary">
-          Ctrl+Shift+Space: tap to start or stop, hold to talk
+          {t("voice.session.shortcutHint")}
         </Typography>
       </Box>
       <Box sx={{ display: "flex", gap: 2, mt: 0.5 }}>
         <Link component={RouterLink} to="/voice-chat" variant="body2" onClick={onClose}>
-          Voice page
+          {t("voice.session.voicePage")}
         </Link>
         <Link component={RouterLink} to="/settings#settings-voice" variant="body2" onClick={onClose}>
-          Voice settings
+          {t("voice.session.voiceSettings")}
         </Link>
       </Box>
     </Popover>

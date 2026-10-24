@@ -11,6 +11,7 @@ import PropTypes from "prop-types";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import voiceService from "../../api/voiceService";
 import AudioVisualizer from "./AudioVisualizer";
+import { translate, useUiTranslation } from "../../i18n";
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -168,6 +169,7 @@ const VoiceChatButton = ({
   compact = false,
   className = "",
 }) => {
+  const { t } = useUiTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [recordingVolume, setRecordingVolume] = useState(0);
   const [audioLevels, setAudioLevels] = useState([]);
@@ -235,7 +237,7 @@ const VoiceChatButton = ({
 
       if (!audioBlob || audioBlob.size < 1000) {
         throw new Error(
-          "Recording too short or empty. Please record for at least 1-2 seconds."
+          translate("voice.button.errors.tooShort")
         );
       }
 
@@ -253,7 +255,7 @@ const VoiceChatButton = ({
       });
 
       if (!result || typeof result !== 'object') {
-        throw new Error("Invalid API response format. Please try again.");
+        throw new Error(translate("voice.button.errors.invalidResponse"));
       }
 
       const transcription =
@@ -261,7 +263,7 @@ const VoiceChatButton = ({
       const llmResponse = result.llm_response || result.response;
 
       if (!transcription || typeof transcription !== 'string') {
-        throw new Error("No transcription received from API. Please try speaking again.");
+        throw new Error(translate("voice.button.errors.noTranscription"));
       }
 
       debugLog("VoiceChatButton: Extracted from API response", {
@@ -327,29 +329,29 @@ const VoiceChatButton = ({
         }
       } else {
         throw new Error(
-          "No speech detected in audio. Please try speaking louder or closer to the microphone."
+          translate("voice.button.errors.noSpeech")
         );
       }
     } catch (error) {
       console.error("VoiceChatButton: Error processing recording:", error);
       
-      let errorMessage = "Failed to process recording";
+      let errorMessage = translate("voice.button.errors.processFailed");
       if (error.message) {
         errorMessage = error.message;
       } else if (error instanceof TypeError && error.message.includes('fetch')) {
-        errorMessage = "Network error. Please check your connection and try again.";
+        errorMessage = translate("voice.button.errors.network");
       } else if (error.name === 'AbortError') {
-        errorMessage = "Request was cancelled. Please try again.";
+        errorMessage = translate("voice.button.errors.cancelled");
       } else if (error.response) {
         const status = error.response.status;
         if (status === 400) {
-          errorMessage = "Invalid audio format. Please try recording again.";
+          errorMessage = translate("voice.button.errors.invalidFormat");
         } else if (status === 413) {
-          errorMessage = "Audio file too large. Please record a shorter message.";
+          errorMessage = translate("voice.button.errors.tooLarge");
         } else if (status === 500) {
-          errorMessage = "Server error. Please try again in a moment.";
+          errorMessage = translate("voice.button.errors.server");
         } else {
-          errorMessage = `Server error (${status}). Please try again.`;
+          errorMessage = translate("voice.button.errors.serverStatus", { status });
         }
       }
       
@@ -528,7 +530,7 @@ const VoiceChatButton = ({
 
       const resumed = await voiceService.resumeAudioContext();
       if (!resumed) {
-        throw new Error("Failed to initialize audio. Please check your microphone permissions.");
+        throw new Error(translate("voice.button.errors.initFailed"));
       }
 
       await voiceService.startRecording();
@@ -539,13 +541,13 @@ const VoiceChatButton = ({
     } catch (error) {
       console.error("VoiceChatButton: Failed to start recording:", error);
       
-      let errorMessage = "Failed to start recording";
+      let errorMessage = translate("voice.button.errors.startFailed");
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        errorMessage = "Microphone permission denied. Please enable microphone access in your browser settings.";
+        errorMessage = translate("voice.button.errors.permissionDenied");
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        errorMessage = "No microphone found. Please connect a microphone and try again.";
+        errorMessage = translate("voice.button.errors.noMicrophone");
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        errorMessage = "Microphone is being used by another application. Please close other apps and try again.";
+        errorMessage = translate("voice.button.errors.micBusy");
       } else if (error.message) {
         errorMessage = error.message;
       }
@@ -584,13 +586,13 @@ const VoiceChatButton = ({
   };
 
   const getTooltip = () => {
-    if (!micEnabled) return "Voice input disabled in Settings";
-    if (disabled) return "Voice chat disabled";
-    if (isProcessing) return "Processing...";
+    if (!micEnabled) return t("voice.button.micDisabled");
+    if (disabled) return t("voice.button.disabled");
+    if (isProcessing) return t("voice.button.processing");
     if (isRecording)
-      return `Recording... (${formatDuration(duration)}) - Click to stop`;
-    if (permission === "denied") return "Microphone permission denied";
-    return "Click to start voice recording";
+      return t("voice.button.recordingTooltip", { duration: formatDuration(duration) });
+    if (permission === "denied") return t("voice.button.permissionDenied");
+    return t("voice.button.clickToStart");
   };
 
   // --- COMPACT: circular waveform button matching ContinuousVoiceChat style ---
@@ -600,7 +602,7 @@ const VoiceChatButton = ({
     const idleHeights = [0.22, 0.38, 0.28, 0.45, 0.28, 0.38, 0.22];
 
     return (
-      <Tooltip title={isProcessing ? 'Processing...' : isRecording ? 'Stop recording' : 'Hold to push-to-talk (or click toggle). Wake-word gates passive only; buttons always visible.'}>
+      <Tooltip title={isProcessing ? t("voice.button.processing") : isRecording ? t("voice.button.stopRecording") : t("voice.button.compactHint")}>
         <span>
           <IconButton
             onClick={handleClick}
@@ -739,7 +741,7 @@ const VoiceChatButton = ({
               isRecording={isRecording}
               volumeLevel={recordingVolume}
               aria-label={
-                isRecording ? "Stop voice recording" : "Start voice recording"
+                isRecording ? t("voice.button.stopVoiceRecording") : t("voice.button.startVoiceRecording")
               }
               aria-pressed={isRecording}
               aria-disabled={
@@ -785,7 +787,7 @@ const VoiceChatButton = ({
           color="primary"
           sx={{ fontWeight: "bold" }}
         >
-          Processing...
+          {t("voice.button.processing")}
         </Typography>
       )}
     </Box>

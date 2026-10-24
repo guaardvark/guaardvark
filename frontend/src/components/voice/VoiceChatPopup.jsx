@@ -19,6 +19,7 @@ import {
   GraphicEq as GraphicEqIcon,
 } from '@mui/icons-material';
 import { keyframes } from '@mui/material/styles';
+import { useUiTranslation } from '../../i18n';
 
 // Animations
 const pulseAnimation = keyframes`
@@ -61,6 +62,7 @@ const VoiceChatPopup = ({
   waveformActive = false,
   currentVolume = 0,
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
 
   // Dragging state
@@ -125,7 +127,7 @@ const VoiceChatPopup = ({
         levels: audioLevels.length > 0 ? audioLevels : new Array(40).fill(0),
         active: isListening && speechDetected,
         color: theme.palette.error.main,
-        label: 'Your Voice',
+        label: t('voice.popup.yourVoice'),
         icon: MicIcon,
         initializing: isListening && !waveformActive
       };
@@ -136,7 +138,7 @@ const VoiceChatPopup = ({
         levels: processingQueue > 0 ? simulatedLevels : new Array(40).fill(0),
         active: processingQueue > 0,
         color: theme.palette.success.main,
-        label: 'AI Speaking',
+        label: t('voice.popup.aiSpeaking'),
         icon: VolumeUpIcon,
         initializing: false
       };
@@ -182,7 +184,7 @@ const VoiceChatPopup = ({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <GraphicEqIcon />
           <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 'bold' }}>
-            Voice Chat Monitor
+            {t('voice.popup.title')}
           </Typography>
         </Box>
         <IconButton
@@ -210,14 +212,14 @@ const VoiceChatPopup = ({
           }}
         >
           <Chip
-            label={isListening ? 'LISTENING' : 'IDLE'}
+            label={isListening ? t('voice.popup.listeningChip') : t('voice.popup.idleChip')}
             size="small"
             color={isListening ? 'success' : 'default'}
             icon={isListening ? <MicIcon /> : <MicOffIcon />}
           />
           {speechDetected && (
             <Chip
-              label="SPEAKING"
+              label={t('voice.popup.speakingChip')}
               size="small"
               color="error"
               sx={{
@@ -227,7 +229,7 @@ const VoiceChatPopup = ({
           )}
           {segmentCount > 0 && (
             <Chip
-              label={`${segmentCount} sent`}
+              label={t('voice.popup.sent', { count: segmentCount })}
               size="small"
               color="primary"
               variant="outlined"
@@ -235,7 +237,7 @@ const VoiceChatPopup = ({
           )}
           {processingQueue > 0 && (
             <Chip
-              label={`${processingQueue} processing`}
+              label={t('voice.popup.processing', { count: processingQueue })}
               size="small"
               color="warning"
               icon={<CircularProgress size={12} sx={{ color: 'inherit' }} />}
@@ -267,7 +269,7 @@ const VoiceChatPopup = ({
             </Typography>
             {waveformState.active && (
               <Chip
-                label="ACTIVE"
+                label={t('voice.popup.activeChip')}
                 size="small"
                 sx={{
                   height: 16,
@@ -336,7 +338,7 @@ const VoiceChatPopup = ({
               >
                 <CircularProgress size={16} />
                 <Typography variant="caption" sx={{ fontSize: '0.7rem' }}>
-                  Initializing audio...
+                  {t('voice.popup.initializing')}
                 </Typography>
               </Box>
             )}
@@ -359,7 +361,7 @@ const VoiceChatPopup = ({
                     fontStyle: 'italic'
                   }}
                 >
-                  {isListening ? 'Listening...' : 'Click microphone to start'}
+                  {isListening ? t('voice.popup.listening') : t('voice.popup.clickToStart')}
                 </Typography>
               </Box>
             )}
@@ -370,7 +372,7 @@ const VoiceChatPopup = ({
 
         {/* Controls */}
         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-          <Tooltip title={isListening ? 'Stop listening' : 'Start listening'}>
+          <Tooltip title={isListening ? t('voice.popup.stopListening') : t('voice.popup.startListening')}>
             <IconButton
               onClick={onToggleListening}
               className="no-drag"
@@ -400,10 +402,14 @@ const VoiceChatPopup = ({
           }}
         >
           <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem', color: 'text.secondary' }}>
-            Volume: {(currentVolume * 100).toFixed(1)}%
+            {t('voice.popup.volume', { level: (currentVolume * 100).toFixed(1) })}
           </Typography>
           <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem', color: 'text.secondary' }}>
-            Status: {isListening ? (speechDetected ? 'Detecting speech' : 'Listening for speech') : 'Inactive'}
+            {t('voice.popup.status', {
+              status: isListening
+                ? (speechDetected ? t('voice.popup.detectingSpeech') : t('voice.popup.listeningForSpeech'))
+                : t('voice.popup.inactive'),
+            })}
           </Typography>
         </Box>
 
@@ -419,7 +425,7 @@ const VoiceChatPopup = ({
             textAlign: 'center'
           }}
         >
-          Drag this window anywhere • Hold Spacebar for quick activation
+          {t('voice.popup.help')}
         </Typography>
       </Box>
     </Paper>

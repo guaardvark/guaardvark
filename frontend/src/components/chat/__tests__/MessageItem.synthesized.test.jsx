@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
 import { ThemeProvider, createTheme } from "@mui/material/styles";
 import MessageItem from "../MessageItem";
-import { isSynthesizedMessage, SYNTHESIZED_LABEL } from "../synthesizedAnswer";
+import { isSynthesizedMessage, synthesizedLabel } from "../synthesizedAnswer";
 
 vi.mock("../../../stores/useAppStore", () => ({
   useAppStore: (sel) => {
@@ -51,7 +51,7 @@ describe("isSynthesizedMessage", () => {
 describe("MessageItem synthesized chip", () => {
   it("renders the chip when synthesized is set and not otherwise", () => {
     const { rerender } = renderMsg(assistant({ synthesized: true }));
-    expect(screen.getByTestId("synthesized-chip")).toHaveTextContent(SYNTHESIZED_LABEL);
+    expect(screen.getByTestId("synthesized-chip")).toHaveTextContent(synthesizedLabel());
 
     rerender(
       <ThemeProvider theme={createTheme()}>

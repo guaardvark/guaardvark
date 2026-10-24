@@ -5,15 +5,16 @@
  * extra_data.web_search_offer. Nothing is sent unless the person clicks.
  */
 
+import { translate } from "../../i18n";
+
 export const WEB_SEARCH_OFFER_SEARCH = "search";
 export const WEB_SEARCH_OFFER_ENABLE = "enable_web_access";
 
-export const SEARCH_LABEL = "Search the web for this";
-export const SEARCH_TOOLTIP = "Sends your question to the search engine, once.";
-export const SEARCH_SENT_TOOLTIP = "Search sent.";
-export const ENABLE_LABEL = "Turn on web access to search this";
-export const ENABLE_HINT =
-  "Web access is off, so nothing was sent. Turn it on in Settings > Chat > Web access, then ask again.";
+export const searchLabel = () => translate("chat.webSearchOffer.search");
+export const searchTooltip = () => translate("chat.webSearchOffer.searchTooltip");
+export const searchSentTooltip = () => translate("chat.webSearchOffer.searchSent");
+export const enableLabel = () => translate("chat.webSearchOffer.enable");
+export const enableHint = () => translate("chat.webSearchOffer.enableHint");
 
 /** The reply's offer as {action, query}, or null when it carries none. */
 export function webSearchOfferOf(message) {

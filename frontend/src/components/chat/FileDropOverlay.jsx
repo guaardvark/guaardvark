@@ -3,6 +3,7 @@ import React from "react";
 import { Box, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * Highlight drawn over a chat while files are dragged onto it. It ignores the
@@ -12,7 +13,8 @@ import UploadFileIcon from "@mui/icons-material/UploadFile";
  * @param {string}  [label] what a drop will do
  * @param {boolean} [compact] smaller text for the floating chat
  */
-const FileDropOverlay = ({ active, label = "Drop files to attach them to this chat", compact = false }) => {
+const FileDropOverlay = ({ active, label, compact = false }) => {
+  const { t } = useUiTranslation();
   if (!active) return null;
   return (
     <Box
@@ -36,10 +38,10 @@ const FileDropOverlay = ({ active, label = "Drop files to attach them to this ch
     >
       <UploadFileIcon color="primary" sx={{ fontSize: compact ? 28 : 40 }} />
       <Typography variant={compact ? "caption" : "subtitle1"} color="primary" sx={{ fontWeight: 600 }}>
-        {label}
+        {label === undefined ? t("chat.fileDrop.label") : label}
       </Typography>
       <Typography variant="caption" color="text.secondary">
-        Images attach to your next message; documents are uploaded and indexed
+        {t("chat.fileDrop.hint")}
       </Typography>
     </Box>
   );

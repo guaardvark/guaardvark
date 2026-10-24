@@ -27,6 +27,7 @@ import {
 } from "../../api/chatService";
 import ChatInput from "./ChatInput";
 import MessageList from "./MessageList";
+import { useUiTranslation } from "../../i18n";
 
 const EnhancedChatInterface = ({
   sessionId,
@@ -35,6 +36,7 @@ const EnhancedChatInterface = ({
   enableWebSearch = true,
   enableRAG = true,
 }) => {
+  const { t } = useUiTranslation();
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [enhancedStatus, setEnhancedStatus] = useState({
@@ -99,7 +101,7 @@ const EnhancedChatInterface = ({
       }));
     } catch (error) {
       console.error("Enhanced Chat: Failed to load history:", error);
-      setError("Failed to load chat history");
+      setError({ kind: "loadHistory" });
     } finally {
       setIsLoading(false);
     }
@@ -158,9 +160,9 @@ const EnhancedChatInterface = ({
         try {
           const { claudeAdvisorService } = await import("../../api/claudeAdvisorService");
           const res = await claudeAdvisorService.escalate(claudeMessage, messages.filter(m => m.role).slice(-10));
-          setMessages((prev) => [...prev, { id: `claude_${Date.now()}`, role: "assistant", content: res?.data?.response || "Uncle Claude unavailable", timestamp: new Date().toISOString(), source: "uncle_claude" }]);
+          setMessages((prev) => [...prev, { id: `claude_${Date.now()}`, role: "assistant", content: res?.data?.response || t("chat.enhanced.uncleClaudeUnavailable"), timestamp: new Date().toISOString(), source: "uncle_claude" }]);
         } catch (err) {
-          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: `Uncle Claude error: ${err.message}`, timestamp: new Date().toISOString() }]);
+          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: t("chat.enhanced.uncleClaudeError", { error: err.message }), timestamp: new Date().toISOString() }]);
         } finally { setIsLoading(false); }
         return;
       }
@@ -172,10 +174,10 @@ const EnhancedChatInterface = ({
           const { BASE_URL, handleResponse } = await import("../../api/apiClient");
           const res = await fetch(`${BASE_URL}/interconnector/ask-family`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: familyMessage }) });
           const data = await handleResponse(res);
-          const reply = data?.data?.handled_by ? `[${data.data.handled_by}]: ${JSON.stringify(data.data.response)}` : (data?.data?.message || "No family member available");
+          const reply = data?.data?.handled_by ? `[${data.data.handled_by}]: ${JSON.stringify(data.data.response)}` : (data?.data?.message || t("chat.enhanced.noFamilyMember"));
           setMessages((prev) => [...prev, { id: `family_${Date.now()}`, role: "assistant", content: reply, timestamp: new Date().toISOString(), source: "family" }]);
         } catch (err) {
-          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: `Family query error: ${err.message}`, timestamp: new Date().toISOString() }]);
+          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: t("chat.enhanced.familyError", { error: err.message }), timestamp: new Date().toISOString() }]);
         } finally { setIsLoading(false); }
         return;
       }
@@ -186,9 +188,9 @@ const EnhancedChatInterface = ({
         try {
           const { selfImprovementService } = await import("../../api/selfImprovementService");
           const res = await selfImprovementService.submitTask(improvementDesc);
-          setMessages((prev) => [...prev, { id: `imp_${Date.now()}`, role: "assistant", content: `Self-improvement task submitted: ${JSON.stringify(res?.data)}`, timestamp: new Date().toISOString(), source: "self_improvement" }]);
+          setMessages((prev) => [...prev, { id: `imp_${Date.now()}`, role: "assistant", content: t("chat.enhanced.improvementSubmitted", { result: JSON.stringify(res?.data) }), timestamp: new Date().toISOString(), source: "self_improvement" }]);
         } catch (err) {
-          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: `Improvement error: ${err.message}`, timestamp: new Date().toISOString() }]);
+          setMessages((prev) => [...prev, { id: `err_${Date.now()}`, role: "assistant", content: t("chat.enhanced.improvementError", { error: err.message }), timestamp: new Date().toISOString() }]);
         } finally { setIsLoading(false); }
         return;
       }
@@ -271,7 +273,7 @@ const EnhancedChatInterface = ({
             msg.id === assistantId
               ? {
                   ...msg,
-                  content: `Error: ${error.message}`,
+                  content: t("chat.enhanced.sendError", { error: error.message }),
                   loading: false,
                   error: true,
                 }
@@ -279,7 +281,7 @@ const EnhancedChatInterface = ({
           )
         );
 
-        setError(error.message);
+        setError({ detail: error.message });
       } finally {
         setIsLoading(false);
         if (chatInputRef.current) {
@@ -304,7 +306,7 @@ const EnhancedChatInterface = ({
       await loadContextStats();
     } catch (error) {
       console.error("Enhanced Chat: Failed to clear context:", error);
-      setError("Failed to clear context");
+      setError({ kind: "clearContext" });
     }
   }, [sessionId, loadContextStats]);
 
@@ -325,9 +327,18 @@ const EnhancedChatInterface = ({
       setError(null);
     } catch (error) {
       console.error("Enhanced Chat: Clear session error:", error);
-      setError("Failed to clear session");
+      setError({ kind: "clearSession" });
     }
   }, [sessionId]);
+
+  // Our own failures are kept as a kind and worded here; a send failure
+  // carries the server's message.
+  const errorText = (err) => {
+    if (err.kind === "loadHistory") return t("chat.enhanced.loadHistoryFailed");
+    if (err.kind === "clearContext") return t("chat.enhanced.clearContextFailed");
+    if (err.kind === "clearSession") return t("chat.enhanced.clearSessionFailed");
+    return err.detail;
+  };
 
   return (
     <Paper
@@ -351,13 +362,13 @@ const EnhancedChatInterface = ({
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
           <EnhancedIcon color="primary" fontSize="small" />
           <Typography variant="h6" component="h2">
-            Enhanced Chat
+            {t("chat.enhanced.title")}
           </Typography>
           <Box sx={{ ml: "auto", display: "flex", gap: 1 }}>
             <Chip
               icon={<MemoryIcon />}
               label={
-                enhancedStatus.memoryActive ? "Memory Active" : "No Memory"
+                enhancedStatus.memoryActive ? t("chat.enhanced.memoryActive") : t("chat.enhanced.noMemory")
               }
               color={enhancedStatus.memoryActive ? "success" : "default"}
               size="small"
@@ -365,13 +376,13 @@ const EnhancedChatInterface = ({
             <Chip
               icon={<SearchIcon />}
               label={
-                enhancedStatus.webSearchEnabled ? "Web Search" : "No Web Search"
+                enhancedStatus.webSearchEnabled ? t("chat.enhanced.webSearch") : t("chat.enhanced.noWebSearch")
               }
               color={enhancedStatus.webSearchEnabled ? "success" : "default"}
               size="small"
             />
             {enhancedStatus.enhanced && (
-              <Chip label="Enhanced Mode" color="primary" size="small" />
+              <Chip label={t("chat.enhanced.enhancedMode")} color="primary" size="small" />
             )}
           </Box>
         </Box>
@@ -380,9 +391,11 @@ const EnhancedChatInterface = ({
         {(contextStats || contextInfo) && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="caption" color="text.secondary">
-              Context: {contextStats?.context_stats?.total_sessions || contextStats?.context_manager_stats?.total_sessions || 0} sessions,{' '}
-              {contextStats?.chat_manager_stats?.total_messages || contextInfo?.chat_manager_stats?.total_messages || 0} messages,{' '}
-              {contextStats?.context_stats?.total_chunks || contextInfo?.context_stats?.total_chunks || 0} chunks in memory
+              {t("chat.enhanced.contextSummary", {
+                sessions: contextStats?.context_stats?.total_sessions || contextStats?.context_manager_stats?.total_sessions || 0,
+                messages: contextStats?.chat_manager_stats?.total_messages || contextInfo?.chat_manager_stats?.total_messages || 0,
+                chunks: contextStats?.context_stats?.total_chunks || contextInfo?.context_stats?.total_chunks || 0,
+              })}
             </Typography>
           </Box>
         )}
@@ -392,7 +405,7 @@ const EnhancedChatInterface = ({
           <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {systemHealth.context_manager_stats && (
               <Chip
-                label={`${systemHealth.context_manager_stats.total_sessions || 0} Context Sessions`}
+                label={t("chat.enhanced.contextSessions", { count: systemHealth.context_manager_stats.total_sessions || 0 })}
                 size="small"
                 variant="outlined"
                 color="info"
@@ -400,7 +413,7 @@ const EnhancedChatInterface = ({
             )}
             {systemHealth.index_manager_stats && (
               <Chip
-                label={`Index Cache: ${systemHealth.index_manager_stats.cache_hit_rate || 0}% hit rate`}
+                label={t("chat.enhanced.indexCache", { rate: systemHealth.index_manager_stats.cache_hit_rate || 0 })}
                 size="small"
                 variant="outlined"
                 color="success"
@@ -417,7 +430,7 @@ const EnhancedChatInterface = ({
             onClose={() => setError(null)}
             icon={<WarningIcon />}
           >
-            {error}
+            {errorText(error)}
           </Alert>
         )}
 
@@ -430,7 +443,7 @@ const EnhancedChatInterface = ({
             disabled={isLoading}
             color="warning"
           >
-            Clear Context
+            {t("chat.enhanced.clearContext")}
           </Button>
           <Button
             size="small"
@@ -439,7 +452,7 @@ const EnhancedChatInterface = ({
             disabled={isLoading}
             color="error"
           >
-            Clear All Memory
+            {t("chat.enhanced.clearAllMemory")}
           </Button>
           <Button
             size="small"
@@ -448,7 +461,7 @@ const EnhancedChatInterface = ({
             disabled={isLoading}
             color="primary"
           >
-            Refresh Stats
+            {t("chat.enhanced.refreshStats")}
           </Button>
           <Button
             size="small"
@@ -456,7 +469,7 @@ const EnhancedChatInterface = ({
             onClick={loadChatHistory}
             disabled={isLoading}
           >
-            Reload History
+            {t("chat.enhanced.reloadHistory")}
           </Button>
         </Box>
       </Box>
@@ -477,7 +490,7 @@ const EnhancedChatInterface = ({
           >
             <CircularProgress size={24} />
             <Typography variant="body2" color="text.secondary">
-              Loading enhanced chat...
+              {t("chat.enhanced.loading")}
             </Typography>
           </Box>
         )}
@@ -487,10 +500,10 @@ const EnhancedChatInterface = ({
             ...msg,
             // Add enhanced message indicators
             content: msg.webSearchUsed
-              ? `${msg.content}\n\n*Used web search for real-time information*`
+              ? t("chat.enhanced.contentWithWebSearch", { content: msg.content })
               : msg.content,
             // Claude badge for Uncle Claude responses
-            badge: msg.source === "uncle_claude" ? "Uncle Claude" : msg.source === "family" ? "Family Node" : msg.source === "self_improvement" ? "Self-improvement" : undefined,
+            badge: msg.source === "uncle_claude" ? "Uncle Claude" : msg.source === "family" ? t("chat.enhanced.familyNode") : msg.source === "self_improvement" ? t("chat.enhanced.selfImprovement") : undefined,
             source: msg.source,
           }))}
         />
@@ -505,8 +518,8 @@ const EnhancedChatInterface = ({
           sessionId={sessionId}
           placeholder={
             enhancedStatus.enhanced
-              ? "Ask anything... I have memory and web access!"
-              : "Ask anything... (enhanced features loading)"
+              ? t("chat.enhanced.placeholderReady")
+              : t("chat.enhanced.placeholderLoading")
           }
         />
       </Box>

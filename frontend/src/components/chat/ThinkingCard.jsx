@@ -9,6 +9,7 @@ import { Box, Typography, Collapse, IconButton, Chip, CircularProgress } from "@
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ExpandLessIcon from "@mui/icons-material/ExpandLess";
 import PsychologyIcon from "@mui/icons-material/Psychology";
+import { useUiTranslation } from "../../i18n";
 
 // Taller than ToolCallCard's 200px result block: reasoning runs longer than
 // tool output and the extra rows keep the tail readable while it streams.
@@ -17,6 +18,7 @@ const BODY_MAX_HEIGHT = 240;
 const formatElapsed = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
 const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultExpanded = false }) => {
+  const { t } = useUiTranslation();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const bodyRef = useRef(null);
 
@@ -71,7 +73,7 @@ const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultE
           variant="caption"
           sx={{ fontWeight: 600, fontFamily: "monospace", color: "text.primary" }}
         >
-          thinking
+          {t("chat.thinking.tag")}
         </Typography>
 
         <Typography
@@ -79,7 +81,7 @@ const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultE
           color="text.secondary"
           sx={{ flex: 1, fontSize: "0.65rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         >
-          {streaming ? "Thinking…" : "Reasoning"}
+          {streaming ? t("chat.thinking.streaming") : t("chat.thinking.done")}
         </Typography>
 
         {!streaming && elapsedMs != null && (
@@ -91,7 +93,7 @@ const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultE
           />
         )}
 
-        <IconButton size="small" sx={{ p: 0 }} aria-label={expanded ? "Collapse thinking" : "Expand thinking"}>
+        <IconButton size="small" sx={{ p: 0 }} aria-label={expanded ? t("chat.thinking.collapse") : t("chat.thinking.expand")}>
           {expanded ? (
             <ExpandLessIcon sx={{ fontSize: 16 }} />
           ) : (
@@ -120,7 +122,7 @@ const ThinkingCard = ({ text = "", streaming = false, elapsedMs = null, defaultE
               wordBreak: "break-word",
             }}
           >
-            {text || (streaming ? "" : "(no reasoning recorded)")}
+            {text || (streaming ? "" : t("chat.thinkingTrail.noReasoning"))}
           </Box>
         </Box>
       </Collapse>

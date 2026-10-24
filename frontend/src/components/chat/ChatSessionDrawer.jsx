@@ -28,6 +28,7 @@ import EntityContextMenu from "../common/EntityContextMenu";
 import ConfirmActionDialog from "../settings/ui/ConfirmActionDialog";
 import useContextMenu from "../../hooks/useContextMenu";
 import { formatUiError } from "../../utils/uiError";
+import { useUiTranslation, uiLocale } from "../../i18n";
 
 const DRAWER_WIDTH = 340;
 
@@ -39,6 +40,7 @@ const ChatSessionDrawer = ({
   onSelectSession,
   onNewChat,
 }) => {
+  const { t } = useUiTranslation();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(false);
   // Why the list could not be loaded; shown instead of "No chats yet".
@@ -54,7 +56,7 @@ const ChatSessionDrawer = ({
       setSessions(data.sessions || []);
     } catch (err) {
       console.error("Failed to load sessions:", err);
-      setLoadError(formatUiError(err) || "The chat list could not be loaded.");
+      setLoadError({ detail: formatUiError(err) });
     } finally {
       setLoading(false);
     }
@@ -91,7 +93,7 @@ const ChatSessionDrawer = ({
       setPendingDelete(null);
     } catch (err) {
       console.error("Failed to delete session:", err);
-      setDeleteError(`The chat was not deleted: ${formatUiError(err) || "the request failed"}.`);
+      setDeleteError({ detail: formatUiError(err) });
     } finally {
       setDeleting(false);
     }
@@ -104,8 +106,8 @@ const ChatSessionDrawer = ({
   const formatDateTime = (isoString) => {
     if (!isoString) return "";
     const date = new Date(isoString);
-    return date.toLocaleDateString([], { month: "short", day: "numeric" }) +
-      " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleDateString(uiLocale(), { month: "short", day: "numeric" }) +
+      " " + date.toLocaleTimeString(uiLocale(), { hour: "2-digit", minute: "2-digit" });
   };
 
   const formatRelative = (isoString) => {
@@ -117,17 +119,17 @@ const ChatSessionDrawer = ({
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString([], { month: "short", day: "numeric" });
+    if (diffMins < 1) return t("chat.sessions.justNow");
+    if (diffMins < 60) return t("chat.sessions.minutesAgo", { count: diffMins });
+    if (diffHours < 24) return t("chat.sessions.hoursAgo", { count: diffHours });
+    if (diffDays === 1) return t("chat.sessions.yesterdayRelative");
+    if (diffDays < 7) return t("chat.sessions.daysAgo", { count: diffDays });
+    return date.toLocaleDateString(uiLocale(), { month: "short", day: "numeric" });
   };
 
   const formatSize = (chars) => {
     if (!chars) return "";
-    if (chars < 1000) return `${chars} chars`;
+    if (chars < 1000) return t("chat.sessions.chars", { count: chars });
     if (chars < 100000) return `${(chars / 1000).toFixed(1)}K`;
     return `${(chars / 1000).toFixed(0)}K`;
   };
@@ -215,9 +217,9 @@ const ChatSessionDrawer = ({
                   color: isCurrent ? "text.primary" : "text.secondary",
                 }}
               >
-                {session.preview || "New chat"}
+                {session.preview || t("chat.sessions.newChat")}
               </Typography>
-              <Tooltip title="Delete">
+              <Tooltip title={t("chat.sessions.delete")}>
                 <IconButton
                   size="small"
                   onClick={(e) => askDelete(session, e)}
@@ -267,7 +269,7 @@ const ChatSessionDrawer = ({
 
               {/* Message count */}
               <Chip
-                label={`${session.message_count} msg${session.message_count !== 1 ? "s" : ""}`}
+                label={t("chat.sessions.messageCount", { count: session.message_count })}
                 size="small"
                 variant="outlined"
                 sx={{
@@ -295,7 +297,7 @@ const ChatSessionDrawer = ({
               {/* Agent badge */}
               {isAgent && (
                 <Chip
-                  label="Agent"
+                  label={t("chat.sessions.agent")}
                   size="small"
                   color="warning"
                   sx={{
@@ -309,7 +311,7 @@ const ChatSessionDrawer = ({
               {/* Active indicator */}
               {isCurrent && (
                 <Chip
-                  label="Active"
+                  label={t("chat.sessions.active")}
                   size="small"
                   color="primary"
                   sx={{
@@ -366,9 +368,9 @@ const ChatSessionDrawer = ({
       <Box sx={{ p: 2, pb: 1 }}>
         <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
           <Typography variant="h6" sx={{ fontWeight: 600 }}>
-            Chats
+            {t("chat.sessions.title")}
           </Typography>
-          <Tooltip title="New chat">
+          <Tooltip title={t("chat.sessions.newChat")}>
             <IconButton
               size="small"
               onClick={() => {
@@ -386,7 +388,7 @@ const ChatSessionDrawer = ({
         </Box>
         <TextField
           size="small"
-          placeholder="Search chats..."
+          placeholder={t("chat.sessions.search")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           fullWidth
@@ -418,24 +420,24 @@ const ChatSessionDrawer = ({
           <Box sx={{ px: 2, py: 2 }}>
             <Alert
               severity="error"
-              action={<Button color="inherit" size="small" onClick={loadSessions}>Retry</Button>}
+              action={<Button color="inherit" size="small" onClick={loadSessions}>{t("chat.sessions.retry")}</Button>}
             >
-              {loadError}
+              {loadError.detail || t("chat.sessions.loadFailed")}
             </Alert>
           </Box>
         ) : filteredSessions.length === 0 ? (
           <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", py: 4, px: 2 }}>
             <ChatBubbleOutlineIcon sx={{ fontSize: 40, color: "text.disabled", mb: 1 }} />
             <Typography color="text.secondary" variant="body2">
-              {searchQuery ? "No matching chats" : "No chats yet"}
+              {searchQuery ? t("chat.sessions.noMatches") : t("chat.sessions.empty")}
             </Typography>
           </Box>
         ) : (
           <List disablePadding sx={{ pt: 0.5 }}>
-            {renderGroup("Today", groups.today)}
-            {renderGroup("Yesterday", groups.yesterday)}
-            {renderGroup("This Week", groups.thisWeek)}
-            {renderGroup("Older", groups.older)}
+            {renderGroup(t("chat.sessions.today"), groups.today)}
+            {renderGroup(t("chat.sessions.yesterday"), groups.yesterday)}
+            {renderGroup(t("chat.sessions.thisWeek"), groups.thisWeek)}
+            {renderGroup(t("chat.sessions.older"), groups.older)}
           </List>
         )}
         <EntityContextMenu
@@ -445,14 +447,14 @@ const ChatSessionDrawer = ({
             rowMenu.payload
               ? [
                   {
-                    label: "Open",
+                    label: t("chat.sessions.open"),
                     onClick: () => {
                       onSelectSession(rowMenu.payload.session_id);
                       onClose();
                     },
                   },
                   {
-                    label: "Delete",
+                    label: t("chat.sessions.delete"),
                     onClick: () => askDelete(rowMenu.payload),
                     color: "error.main",
                     dividerBefore: true,
@@ -465,19 +467,31 @@ const ChatSessionDrawer = ({
 
       <ConfirmActionDialog
         open={Boolean(pendingDelete)}
-        title="Delete this chat"
-        description={pendingDelete ? `"${pendingDelete.preview || "New chat"}" and all of its messages are deleted.` : null}
+        title={t("chat.sessions.deleteTitle")}
+        description={
+          pendingDelete
+            ? t("chat.sessions.deleteDescription", { name: pendingDelete.preview || t("chat.sessions.newChat") })
+            : null
+        }
         facts={
           pendingDelete
             ? [
-                { label: "Messages", value: pendingDelete.message_count ?? 0 },
-                { label: "Last active", value: formatDateTime(pendingDelete.last_activity || pendingDelete.created_at) },
+                { label: t("chat.sessions.messages"), value: pendingDelete.message_count ?? 0 },
+                { label: t("chat.sessions.lastActive"), value: formatDateTime(pendingDelete.last_activity || pendingDelete.created_at) },
               ]
             : []
         }
-        confirmLabel="Delete chat"
+        confirmLabel={t("chat.sessions.deleteConfirm")}
         busy={deleting}
-        extra={deleteError ? <Alert severity="error" sx={{ mt: 1 }}>{deleteError}</Alert> : null}
+        extra={
+          deleteError ? (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {deleteError.detail
+                ? t("chat.sessions.deleteFailed", { reason: deleteError.detail })
+                : t("chat.sessions.deleteFailedUnknown")}
+            </Alert>
+          ) : null
+        }
         onConfirm={confirmDelete}
         onClose={() => { setPendingDelete(null); setDeleteError(null); }}
       />
@@ -486,10 +500,12 @@ const ChatSessionDrawer = ({
       <Divider />
       <Box sx={{ px: 2, py: 1, display: "flex", justifyContent: "space-between" }}>
         <Typography variant="caption" color="text.secondary">
-          {sessions.length} chat{sessions.length !== 1 ? "s" : ""}
+          {t("chat.sessions.chatCount", { count: sessions.length })}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          {sessions.reduce((sum, s) => sum + (s.message_count || 0), 0)} messages
+          {t("chat.sessions.totalMessages", {
+            count: sessions.reduce((sum, s) => sum + (s.message_count || 0), 0),
+          })}
         </Typography>
       </Box>
     </Drawer>

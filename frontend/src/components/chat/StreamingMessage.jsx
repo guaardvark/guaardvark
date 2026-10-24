@@ -28,6 +28,7 @@ import ThinkingCard from "./ThinkingCard";
 import AgentThinkingTrail from "./AgentThinkingTrail";
 import ImageLightbox from "../images/ImageLightbox";
 import { debugLog } from "../../utils/debugLog";
+import { useUiTranslation, uiLocale } from "../../i18n";
 
 const UPLOAD_BASE_URL = BASE_URL + "/uploads";
 
@@ -40,11 +41,11 @@ const formatTime = (timestamp) => {
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
     
-    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeStr = date.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' });
     if (isToday) {
       return timeStr;
     } else {
-      const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const dateStr = date.toLocaleDateString(uiLocale(), { month: 'short', day: 'numeric' });
       return `${dateStr}, ${timeStr}`;
     }
   } catch (e) {
@@ -56,9 +57,12 @@ const joinReasoning = (segments) =>
   segments.map((seg) => seg.text).filter(Boolean).join("\n\n");
 
 const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref) => {
+  const { t } = useUiTranslation();
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | complete | error
   const [startTime] = useState(() => new Date());
   const [thinkingText, setThinkingText] = useState("");
+  // The iteration the status line falls back to when the server sends no status.
+  const [thinkingIteration, setThinkingIteration] = useState(null);
   // agentThinkingSteps captures the agent loop's per-iteration reasoning
   // streamed via chat:thinking events from agent_control_service. Each entry:
   // {iteration, label, reasoning}. Distinct from `thinkingText` which is the
@@ -146,7 +150,8 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
       debugLog('[StreamingMessage] RECEIVED chat:thinking event: source=', data.source, 'iteration=', data.iteration, 'status=', data.status, 'has_reasoning=', !!data.reasoning, 'session=', data.session_id);
       setStatus("thinking");
       const text = data.status || `Iteration ${data.iteration}...`;
-      setThinkingText(text);
+      setThinkingText(data.status || "");
+      setThinkingIteration(data.iteration);
       thinkingTextRef.current = text;
       // Agent-loop reasoning gets appended as a step so the user sees the
       // full chain ("step 8: clear address bar... step 9: previous attempt
@@ -291,7 +296,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
         const socketImages = imagesRef.current || [];
         const backendImages = (data.generated_images || []).map((img) => ({
           url: img.url,
-          alt: img.alt || "Generated image",
+          alt: img.alt || t("chat.generatedMedia.image"),
           caption: img.caption || "",
         }));
         // Deduplicate by URL
@@ -357,14 +362,14 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
     chatService.onError((data) => {
       if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
       setStatus("error");
-      setErrorMsg(data.error || "Unknown error");
+      setErrorMsg(data.error || "");
     });
 
     chatService.onImage((data) => {
       if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
       const newImg = {
         url: data.image_url,
-        alt: data.alt || "Generated image",
+        alt: data.alt || t("chat.generatedMedia.image"),
         caption: data.caption || "",
       };
       setImages((prev) => {
@@ -378,7 +383,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
       if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
       const newVid = {
         url: data.video_url,
-        alt: data.alt || "Generated video",
+        alt: data.alt || t("chat.generatedMedia.video"),
         caption: data.caption || "",
         type: "video",
       };
@@ -432,7 +437,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <CircularProgress size={14} />
             <Typography variant="body2" color="text.secondary">
-              Processing...
+              {t("chat.message.processing")}
             </Typography>
           </Box>
         </Paper>
@@ -498,7 +503,9 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: toolCalls.length > 0 ? 1 : 0 }}>
             <CircularProgress size={14} color="primary" />
             <Typography variant="body2" color="text.secondary">
-              {pendingApproval ? "Waiting for your approval..." : thinkingText}
+              {pendingApproval
+                ? t("chat.streaming.waitingApproval")
+                : thinkingText || t("chat.streaming.iteration", { iteration: thinkingIteration })}
             </Typography>
           </Box>
         )}
@@ -526,7 +533,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
         {isActive && toolCalls.filter(tc => tc.isPending).length > 1 && (
           <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
             <Chip 
-              label={`Executing ${toolCalls.filter(tc => tc.isPending).length} tools in parallel`}
+              label={t("chat.streaming.parallelTools", { count: toolCalls.filter(tc => tc.isPending).length })}
               size="small"
               color="info"
               variant="outlined"
@@ -601,9 +608,9 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
                     image={guardedMediaSrc(img.url)}
                     alt={img.alt}
                     onClick={() => {
-                      const imgList = images.filter(i => i.type !== "video").map(i => ({ url: i.url, name: i.alt || i.caption || "Image" }));
+                      const imgList = images.filter(i => i.type !== "video").map(i => ({ url: i.url, name: i.alt || i.caption || t("chat.streaming.image") }));
                       const imgIdx = imgList.findIndex(i => i.url === img.url);
-                      setLightbox({ url: img.url, name: img.alt || "Image", images: imgList, index: Math.max(0, imgIdx) });
+                      setLightbox({ url: img.url, name: img.alt || t("chat.streaming.image"), images: imgList, index: Math.max(0, imgIdx) });
                     }}
                   />
                 )}
@@ -679,14 +686,14 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
             color="text.secondary"
             sx={{ display: "block", mt: 0.5, fontStyle: "italic", opacity: 0.8 }}
           >
-            Response reached the output limit.
+            {t("chat.message.outputLimit")}
           </Typography>
         )}
 
         {/* Error display */}
         {status === "error" && (
           <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
-            Error: {errorMsg}
+            {t("chat.streaming.error", { error: errorMsg || t("chat.toolCall.unknownError") })}
           </Typography>
         )}
 
@@ -694,13 +701,13 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
         {status === "complete" && tokenUsage && (
           <Box sx={{ mt: 0.75, display: "flex", gap: 0.5, flexWrap: "wrap" }}>
             <Chip
-              label={`↑ ${tokenUsage.input_tokens.toLocaleString()} in`}
+              label={t("chat.streaming.tokensIn", { tokens: tokenUsage.input_tokens.toLocaleString(uiLocale()) })}
               size="small"
               variant="outlined"
               sx={{ fontSize: "0.6rem", height: 18, color: "text.secondary", borderColor: "divider" }}
             />
             <Chip
-              label={`↓ ${tokenUsage.output_tokens.toLocaleString()} out`}
+              label={t("chat.streaming.tokensOut", { tokens: tokenUsage.output_tokens.toLocaleString(uiLocale()) })}
               size="small"
               variant="outlined"
               sx={{ fontSize: "0.6rem", height: 18, color: "text.secondary", borderColor: "divider" }}

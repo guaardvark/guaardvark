@@ -24,6 +24,7 @@ import { useVoiceSession, useVoiceSessionState } from "../contexts/VoiceSessionC
 import { useAppStore } from "../stores/useAppStore";
 import brand from "../config/brand";
 import { describeVoicePhase, OUTCOME_LABELS } from "../utils/voicePhase";
+import { translate, uiLocale, useUiTranslation } from "../i18n";
 
 /** Microphone permission as the browser reports it, without asking for it. */
 function useMicPermission() {
@@ -52,13 +53,13 @@ function useMicPermission() {
   return permission;
 }
 
-const PERMISSION_TEXT = {
-  granted: ["Allowed", "success"],
-  prompt: ["Asked on first use", "default"],
-  denied: ["Blocked in the browser", "error"],
-  insecure: ["Needs HTTPS or localhost", "error"],
-  unknown: ["Asked on first use", "default"],
-};
+const permissionText = () => ({
+  granted: [translate("voice.page.permission.granted"), "success"],
+  prompt: [translate("voice.page.permission.prompt"), "default"],
+  denied: [translate("voice.page.permission.denied"), "error"],
+  insecure: [translate("voice.page.permission.insecure"), "error"],
+  unknown: [translate("voice.page.permission.prompt"), "default"],
+});
 
 const StatusRow = ({ label, value, tone = "default", detail }) => (
   <Box sx={{ display: "flex", alignItems: "baseline", gap: 1.5, py: 0.75, flexWrap: "wrap" }}>
@@ -80,6 +81,7 @@ const StatusRow = ({ label, value, tone = "default", detail }) => (
  * sends to the floating chat or the Chat page.
  */
 const VoiceChatPage = () => {
+  const { t } = useUiTranslation();
   const voice = useVoiceSession();
   const systemName = useAppStore((s) => s.systemName) || brand.appName;
   const mode = useAppStore((s) => s.voiceActivationMode);
@@ -106,7 +108,7 @@ const VoiceChatPage = () => {
     try {
       setStatus(await voiceService.getStatus());
     } catch (err) {
-      setStatusError(err?.message || "Could not read the voice status");
+      setStatusError({ message: err?.message });
     } finally {
       setLoading(false);
     }
@@ -118,7 +120,8 @@ const VoiceChatPage = () => {
 
   const { title, hint } = describeVoicePhase(session, { systemName, mode });
   const piperVoices = status?.available_voices || [];
-  const [permissionText, permissionTone] = PERMISSION_TEXT[permission] || PERMISSION_TEXT.unknown;
+  const permissions = permissionText();
+  const [permissionLabel, permissionTone] = permissions[permission] || permissions.unknown;
 
   return (
     <Paper sx={{ display: "flex", flexDirection: "column", height: "calc(100vh - 104px)", overflow: "hidden" }}>
@@ -126,64 +129,63 @@ const VoiceChatPage = () => {
         <MicNoneIcon sx={{ fontSize: 32, color: "primary.main" }} />
         <Box sx={{ flexGrow: 1 }}>
           <Typography variant="h4" component="h1" fontWeight="bold">
-            Voice
+            {t("voice.page.title")}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Talk with the mic in the top bar (or the sidebar). What you say goes to the floating chat, or to the
-            Chat page when it is open, and replies are read aloud.
+            {t("voice.page.intro")}
           </Typography>
         </Box>
-        <GlobalMicButton variant="inline" label="Voice" showMenu={false} />
+        <GlobalMicButton variant="inline" label={t("common.voice")} showMenu={false} />
       </Box>
 
       <Box sx={{ flex: 1, overflow: "auto", p: 3, display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, alignContent: "start" }}>
         <Paper variant="outlined" sx={{ p: 2.5 }}>
           <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1 }}>
             <Typography variant="h6" component="h2">
-              This machine
+              {t("voice.page.thisMachine")}
             </Typography>
             <Button size="small" startIcon={loading ? <CircularProgress size={14} /> : <RefreshIcon />} onClick={loadStatus} disabled={loading}>
-              Refresh
+              {t("voice.page.refresh")}
             </Button>
           </Box>
           {statusError && (
             <Alert severity="error" sx={{ mb: 1 }}>
-              {statusError}
+              {statusError.message || t("voice.page.statusFailed")}
             </Alert>
           )}
-          <StatusRow label="Microphone" value={permissionText} tone={permissionTone} />
+          <StatusRow label={t("voice.page.microphone")} value={permissionLabel} tone={permissionTone} />
           {status && (
             <>
               <StatusRow
-                label="Speech recognition"
-                value={status.speech_model_installed ? "Ready" : "Model not installed"}
+                label={t("voice.page.speechRecognition")}
+                value={status.speech_model_installed ? t("voice.page.ready") : t("voice.page.modelNotInstalled")}
                 tone={status.speech_model_installed ? "success" : "warning"}
                 detail={
                   status.speech_model_installed
-                    ? `Whisper ${status.speech_model_id || ""} on this machine`
-                    : "Install it in Voice settings (below)"
+                    ? t("voice.page.whisperOnMachine", { model: status.speech_model_id || "" })
+                    : t("voice.page.installSpeechModel")
                 }
               />
               <StatusRow
-                label="Spoken replies"
-                value={piperVoices.length ? `${piperVoices.length} voice${piperVoices.length === 1 ? "" : "s"} installed` : "No voice installed"}
+                label={t("voice.page.spokenReplies")}
+                value={piperVoices.length ? t("voice.page.voicesInstalled", { count: piperVoices.length }) : t("voice.page.noVoiceInstalled")}
                 tone={piperVoices.length ? "success" : "warning"}
                 detail={
                   piperVoices.length
-                    ? `${piperVoices.join(", ")}. Kokoro is used first while Audio Foundry runs.`
-                    : "Install a voice in Voice settings (below), or start Audio Foundry with a Kokoro voice pack installed."
+                    ? t("voice.page.voicesDetail", { voices: piperVoices.join(", ") })
+                    : t("voice.page.installVoice")
                 }
               />
               <StatusRow
                 label="FFmpeg"
-                value={status.ffmpeg_available ? "Installed" : "Missing"}
+                value={status.ffmpeg_available ? t("voice.page.installed") : t("voice.page.missing")}
                 tone={status.ffmpeg_available ? "success" : "warning"}
               />
             </>
           )}
           {status && (!status.speech_model_installed || !piperVoices.length) && (
             <Button component={RouterLink} to="/settings#settings-voice" size="small" sx={{ mt: 1 }}>
-              Open voice settings
+              {t("voice.page.openVoiceSettings")}
             </Button>
           )}
           <Box sx={{ mt: 2 }}>
@@ -192,7 +194,7 @@ const VoiceChatPage = () => {
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-            Right now: {title}
+            {t("voice.page.rightNow", { state: title })}
           </Typography>
           {hint && (
             <Typography variant="body2" color="text.secondary">
@@ -212,19 +214,19 @@ const VoiceChatPage = () => {
 
           <Divider sx={{ my: 2 }} />
           <Typography variant="h6" component="h2" sx={{ mb: 1 }}>
-            Recently heard
+            {t("voice.page.recentlyHeard")}
           </Typography>
           {transcripts.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
-              Nothing yet. Click the mic and speak.
+              {t("voice.page.nothingHeard")}
             </Typography>
           ) : (
             <List dense disablePadding>
-              {transcripts.map((t, i) => (
-                <ListItem key={`${t.at}-${i}`} disableGutters divider>
+              {transcripts.map((heard, i) => (
+                <ListItem key={`${heard.at}-${i}`} disableGutters divider>
                   <ListItemText
-                    primary={`“${t.text}”`}
-                    secondary={`${new Date(t.at).toLocaleTimeString()} · ${OUTCOME_LABELS[t.outcome] || t.outcome}`}
+                    primary={t("voice.session.heardText", { text: heard.text })}
+                    secondary={`${new Date(heard.at).toLocaleTimeString(uiLocale())} · ${OUTCOME_LABELS[heard.outcome] || heard.outcome}`}
                   />
                 </ListItem>
               ))}
@@ -234,7 +236,7 @@ const VoiceChatPage = () => {
 
         <Paper variant="outlined" sx={{ p: 2.5 }}>
           <Typography variant="h6" component="h2" sx={{ mb: 1.5 }}>
-            How the mic listens
+            {t("voice.page.howMicListens")}
           </Typography>
           <VoiceListeningSettings />
         </Paper>

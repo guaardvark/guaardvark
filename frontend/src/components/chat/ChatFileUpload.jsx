@@ -4,8 +4,10 @@
 import * as apiService from "../../api";
 import React, { useRef, useState } from "react";
 import { useTheme } from "@mui/material/styles";
+import { useUiTranslation } from "../../i18n";
 
 const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
@@ -62,11 +64,10 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
     });
 
     if (validFiles.length !== files.length) {
-      setError(
-        `Some files were skipped. Supported types: ${Object.keys(
-          supportedFileTypes
-        ).join(", ")}`
-      );
+      setError({
+        kind: "skipped",
+        types: Object.keys(supportedFileTypes).join(", "),
+      });
     } else {
       setError(null);
     }
@@ -122,7 +123,7 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) {
-      setError("Please select at least one file to upload.");
+      setError({ kind: "noFiles" });
       return;
     }
 
@@ -142,9 +143,10 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
     // Check for any failed uploads
     const failedUploads = results.filter((r) => !r.success);
     if (failedUploads.length > 0) {
-      setError(
-        `Failed to upload: ${failedUploads.map((r) => r.file.name).join(", ")}`
-      );
+      setError({
+        kind: "failed",
+        names: failedUploads.map((r) => r.file.name).join(", "),
+      });
     }
 
     // Get successful uploads
@@ -202,7 +204,7 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
       }}
     >
       <h4 style={{ margin: "0 0 1rem 0", color: theme.palette.success.light }}>
-        Upload Files for Chat Analysis
+        {t("chat.fileUpload.title")}
       </h4>
 
       {/* File Input */}
@@ -223,8 +225,9 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
           }}
         />
         <small style={{ color: theme.palette.text.secondary, fontSize: "0.8rem" }}>
-          Supported: {Object.keys(supportedFileTypes).slice(0, 10).join(", ")}
-          ... and more
+          {t("chat.fileUpload.supported", {
+            types: Object.keys(supportedFileTypes).slice(0, 10).join(", "),
+          })}
         </small>
       </div>
 
@@ -232,7 +235,7 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
       {selectedFiles.length > 0 && (
         <div style={{ marginBottom: "1rem" }}>
           <h5 style={{ margin: "0 0 0.5rem 0" }}>
-            Selected Files ({selectedFiles.length}):
+            {t("chat.fileUpload.selected", { count: selectedFiles.length })}:
           </h5>
           {selectedFiles.map((file, index) => (
             <div
@@ -314,7 +317,7 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
             flex: "1",
           }}
         >
-          {uploading ? "Uploading..." : "Upload & Analyze"}
+          {uploading ? t("chat.fileUpload.uploading") : t("chat.fileUpload.upload")}
         </button>
 
         {selectedFiles.length > 0 && (
@@ -330,7 +333,7 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
               cursor: uploading ? "not-allowed" : "pointer",
             }}
           >
-            Clear All
+            {t("chat.fileUpload.clearAll")}
           </button>
         )}
       </div>
@@ -347,7 +350,11 @@ const ChatFileUpload = ({ onFileUploaded, sessionId, projectId }) => {
             color: theme.palette.error.light,
           }}
         >
-          {error}
+          {error.kind === "skipped"
+            ? t("chat.fileUpload.skipped", { types: error.types })
+            : error.kind === "failed"
+            ? t("chat.fileUpload.failed", { names: error.names })
+            : t("chat.fileUpload.noFiles")}
         </div>
       )}
     </div>

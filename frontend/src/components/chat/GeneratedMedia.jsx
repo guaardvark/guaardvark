@@ -2,6 +2,7 @@ import React from "react";
 import PropTypes from "prop-types";
 import { Box, CardMedia, Typography } from "@mui/material";
 import { guardedMediaSrc } from "../../utils/assetGuard";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * The pictures and videos a reply produced (`message.generatedImages`:
@@ -11,13 +12,14 @@ import { guardedMediaSrc } from "../../utils/assetGuard";
  * that one and step through the rest.
  */
 const GeneratedMedia = ({ items, onOpenPicture, maxWidth = 400, maxHeight = 400 }) => {
+  const { t } = useUiTranslation();
   if (!Array.isArray(items) || items.length === 0) return null;
 
   const openPicture = (img) => {
     if (!onOpenPicture) return;
     const pictures = items
       .filter((i) => i.type !== "video")
-      .map((i) => ({ url: i.url, name: i.alt || i.caption || "Generated image" }));
+      .map((i) => ({ url: i.url, name: i.alt || i.caption || t("chat.generatedMedia.image") }));
     const idx = pictures.findIndex((i) => i.url === img.url);
     onOpenPicture(pictures, Math.max(0, idx));
   };
@@ -61,7 +63,7 @@ const GeneratedMedia = ({ items, onOpenPicture, maxWidth = 400, maxHeight = 400 
                 cursor: "pointer",
               }}
               image={guardedMediaSrc(img.url)}
-              alt={img.alt || "Generated image"}
+              alt={img.alt || t("chat.generatedMedia.image")}
               onClick={() => openPicture(img)}
             />
           )}
