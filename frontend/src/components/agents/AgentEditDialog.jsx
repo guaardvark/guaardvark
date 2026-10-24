@@ -20,37 +20,42 @@ import { ActionButton, Cluster, ConfirmActionDialog, Hint, Line, SettingChip } f
 import { getAgent, resetAgent, updateAgent } from "../../api/agentsService";
 import { getAvailableModels } from "../../api/modelService";
 import { agentEdits } from "./AgentTile";
+import { translate, useUiTranslation } from "../../i18n";
 
 const MAX_ITERATIONS = 50;
 
-const FIELD_LABELS = {
-  system_prompt: "Instructions",
-  max_iterations: "Max iterations",
-  model: "Model",
-};
+const fieldLabel = (field) =>
+  ({
+    system_prompt: translate("agents.edit.instructions"),
+    max_iterations: translate("agents.edit.maxIterations"),
+    model: translate("agents.edit.model"),
+  })[field] || field;
 
 /** What Reset to default will put back, for the confirmation. */
 export function resetFacts(agent) {
   return agentEdits(agent).map((field) => ({
-    label: FIELD_LABELS[field] || field,
-    value: "back to the built-in default",
+    label: fieldLabel(field),
+    value: translate("agents.reset.backToDefault"),
   }));
 }
 
 /** The confirmation for Reset to default; the on/off switch is kept. */
-export const ResetAgentDialog = ({ agent, open, busy, onConfirm, onClose }) => (
-  <ConfirmActionDialog
-    open={open}
-    title={`Reset ${agent?.name || "agent"} to default`}
-    description="Your changes to these fields are replaced by the built-in values."
-    facts={agent ? resetFacts(agent) : []}
-    keeps="whether the agent is on or off"
-    confirmLabel="Reset"
-    busy={busy}
-    onConfirm={onConfirm}
-    onClose={onClose}
-  />
-);
+export const ResetAgentDialog = ({ agent, open, busy, onConfirm, onClose }) => {
+  const { t } = useUiTranslation();
+  return (
+    <ConfirmActionDialog
+      open={open}
+      title={t("agents.reset.title", { name: agent?.name || t("agents.reset.unnamedAgent") })}
+      description={t("agents.reset.description")}
+      facts={agent ? resetFacts(agent) : []}
+      keeps={t("agents.reset.keeps")}
+      confirmLabel={t("agents.reset.confirm")}
+      busy={busy}
+      onConfirm={onConfirm}
+      onClose={onClose}
+    />
+  );
+};
 
 const formFrom = (agent) => ({
   model: agent?.model || "",
@@ -67,6 +72,7 @@ const formFrom = (agent) => ({
  * @param {function}    onError   called with a message when a request fails
  */
 const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError }) => {
+  const { t } = useUiTranslation();
   const open = Boolean(agent);
   const [detail, setDetail] = useState(null);
   const [form, setForm] = useState(formFrom(null));
@@ -87,10 +93,10 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
           setDetail(res.agent);
           setForm(formFrom(res.agent));
         } else {
-          onError?.(res?.error || "Could not load the agent");
+          onError?.(res?.error || t("agents.edit.loadFailed"));
         }
       })
-      .catch((err) => live && onError?.(err?.message || "Could not load the agent"));
+      .catch((err) => live && onError?.(err?.message || t("agents.edit.loadFailed")));
     getAvailableModels().then((list) => live && setModels(Array.isArray(list) ? list : []));
     return () => {
       live = false;
@@ -137,10 +143,10 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
         onSaved?.(res.agent, { reset: false });
         onClose();
       } else {
-        onError?.(res?.error || "Save failed");
+        onError?.(res?.error || t("agents.edit.saveFailed"));
       }
     } catch (err) {
-      onError?.(err?.message || "Save failed");
+      onError?.(err?.message || t("agents.edit.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -156,10 +162,10 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
         onSaved?.(res.agent, { reset: true });
         setConfirmReset(false);
       } else {
-        onError?.(res?.error || "Reset failed");
+        onError?.(res?.error || t("agents.reset.failed"));
       }
     } catch (err) {
-      onError?.(err?.message || "Reset failed");
+      onError?.(err?.message || t("agents.reset.failed"));
     } finally {
       setResetting(false);
     }
@@ -188,10 +194,10 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
             <>
               <Line>
                 <SettingChip
-                  label="Enabled"
+                  label={t("agents.edit.enabled")}
                   on={Boolean(agent?.enabled)}
                   onToggle={() => onToggle?.(agent)}
-                  note={agent?.enabled ? undefined : "off"}
+                  note={agent?.enabled ? undefined : t("agents.edit.offNote")}
                 />
                 {detail.unavailable_reason && <Hint sx={{ color: "warning.main" }}>{detail.unavailable_reason}</Hint>}
                 {detail.unavailable_detail && <Hint>{detail.unavailable_detail}</Hint>}
@@ -203,18 +209,18 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                     <TextField
                       select
                       size="small"
-                      label="Model"
+                      label={t("agents.edit.model")}
                       value={form.model}
                       SelectProps={{ displayEmpty: true }}
                       InputLabelProps={{ shrink: true }}
                       onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))}
                       sx={{ minWidth: 260 }}
                     >
-                      <MenuItem value="">Active chat model (default)</MenuItem>
+                      <MenuItem value="">{t("agents.edit.activeChatModel")}</MenuItem>
                       {modelOptions.map((name) => (
                         <MenuItem key={name} value={name}>
                           {name}
-                          {models.some((m) => m?.name === name) ? "" : " (not installed)"}
+                          {models.some((m) => m?.name === name) ? "" : ` ${t("agents.edit.modelNotInstalled")}`}
                         </MenuItem>
                       ))}
                     </TextField>
@@ -223,11 +229,11 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                     <TextField
                       size="small"
                       type="number"
-                      label="Max iterations"
+                      label={t("agents.edit.maxIterations")}
                       value={form.max_iterations}
                       onChange={(e) => setForm((f) => ({ ...f, max_iterations: e.target.value }))}
                       error={iterationsError}
-                      helperText={iterationsError ? `1 to ${MAX_ITERATIONS}` : undefined}
+                      helperText={iterationsError ? t("agents.edit.iterationsRange", { max: MAX_ITERATIONS }) : undefined}
                       inputProps={{ min: 1, max: MAX_ITERATIONS, step: 1 }}
                       sx={{ width: 150 }}
                     />
@@ -235,7 +241,7 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                 </Line>
               )}
 
-              <Cluster label="Instructions" help="Sent to the model as this agent's part of the system prompt.">
+              <Cluster label={t("agents.edit.instructions")} help={t("agents.edit.instructionsHelp")}>
                 {editable.has("system_prompt") ? (
                   <TextField
                     fullWidth
@@ -245,8 +251,8 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                     value={form.system_prompt}
                     onChange={(e) => setForm((f) => ({ ...f, system_prompt: e.target.value }))}
                     error={promptError}
-                    helperText={promptError ? "Instructions cannot be empty; use Reset to default instead" : undefined}
-                    inputProps={{ "aria-label": "Instructions" }}
+                    helperText={promptError ? t("agents.edit.instructionsEmpty") : undefined}
+                    inputProps={{ "aria-label": t("agents.edit.instructions") }}
                   />
                 ) : (
                   <>
@@ -257,15 +263,15 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                         minRows={4}
                         value={detail.system_prompt}
                         InputProps={{ readOnly: true }}
-                        inputProps={{ "aria-label": "Instructions" }}
+                        inputProps={{ "aria-label": t("agents.edit.instructions") }}
                       />
                     )}
-                    <Hint>The planner writes its own prompt for each request, so there is nothing to edit here.</Hint>
+                    <Hint>{t("agents.edit.plannerPrompt")}</Hint>
                   </>
                 )}
               </Cluster>
 
-              <Cluster label={`Tools (${(detail.tools_detail || []).length})`}>
+              <Cluster label={t("agents.edit.toolsHeading", { count: (detail.tools_detail || []).length })}>
                 <Box component="ul" sx={{ m: 0, pl: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 0.5 }}>
                   {(detail.tools_detail || []).map((tool) => (
                     <Box component="li" key={tool.name} sx={{ fontSize: "0.8rem", lineHeight: 1.45 }}>
@@ -275,13 +281,13 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
                       {!tool.installed && (
                         <Box component="span" sx={{ color: "warning.main" }}>
                           {" "}
-                          · not installed
+                          · {t("agents.edit.toolNotInstalled")}
                         </Box>
                       )}
                       {tool.installed && tool.requires_approval && (
                         <Box component="span" sx={{ color: "warning.main" }}>
                           {" "}
-                          · needs approval (refused here)
+                          · {t("agents.edit.toolNeedsApproval")}
                         </Box>
                       )}
                       {tool.description && (
@@ -301,17 +307,17 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
           <ActionButton
             kind="destructive"
             disabled={!detail || agentEdits(detail).length === 0}
-            tooltip={detail && agentEdits(detail).length === 0 ? "Nothing changed from the built-in default" : ""}
+            tooltip={detail && agentEdits(detail).length === 0 ? t("agents.edit.nothingChanged") : ""}
             onClick={() => setConfirmReset(true)}
           >
-            Reset to default
+            {t("agents.actions.resetToDefault")}
           </ActionButton>
           <Box sx={{ display: "flex", gap: 1 }}>
             <ActionButton startIcon={<PlayArrow />} disabled={!detail} onClick={() => onTest?.(agent)}>
-              Test
+              {t("agents.actions.test")}
             </ActionButton>
             <ActionButton onClick={onClose} disabled={saving}>
-              Cancel
+              {t("common.cancel")}
             </ActionButton>
             <ActionButton
               kind={dirty ? "primary" : "neutral"}
@@ -319,7 +325,7 @@ const AgentEditDialog = ({ agent, onClose, onSaved, onToggle, onTest, onError })
               disabled={!detail || iterationsError || promptError}
               onClick={save}
             >
-              Save
+              {t("agents.edit.save")}
             </ActionButton>
           </Box>
         </DialogActions>

@@ -70,12 +70,34 @@ import EntityContextMenu from "../components/common/EntityContextMenu";
 import useContextMenu from "../hooks/useContextMenu";
 import EmptyState from "../components/common/EmptyState";
 import { ContextualLoader } from "../components/common/LoadingStates";
+import { translate, useUiTranslation } from "../i18n";
+
+// A video batch job's status as shown; the value from the API stays the one compared.
+const jobStatusLabel = (status) =>
+  ({
+    pending: translate("jobs.status.pending"),
+    running: translate("jobs.status.running"),
+    paused: translate("jobs.status.paused"),
+    completed: translate("jobs.status.completed"),
+    failed: translate("jobs.status.failed"),
+    cancelled: translate("jobs.status.cancelled"),
+  })[status] ?? status;
+
+// The status filter chips; the ids stay the ones filtered on.
+const statusFilterLabel = (filter) =>
+  ({
+    all: translate("tasks.filter.all"),
+    active: translate("tasks.filter.active"),
+    completed: translate("tasks.filter.completed"),
+    failed: translate("tasks.filter.failed"),
+  })[filter];
 
 // Removed TaskStatusChip - now handled in TaskCard component
 
 // Removed table-related functions and constants - now using card-based layout
 
 const TaskPage = () => {
+  const { t } = useUiTranslation();
   // Links from elsewhere (utils/entityLinks.js): show one project's, client's
   // or website's tasks, open one task, or start a new task for that entity.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -191,11 +213,14 @@ const TaskPage = () => {
         setAvailableProjects(result);
         noteLookup("projects", null);
       } else {
-        noteLookup("projects", `Projects could not be loaded: ${formatUiError(result.error)}`);
+        noteLookup("projects", t("tasks.lookup.projectsFailed", { error: formatUiError(result.error) }));
       }
     } catch (err) {
       console.error("Failed to fetch projects:", err);
-      noteLookup("projects", `Projects could not be loaded: ${formatUiError(err) || "the request failed"}`);
+      noteLookup(
+        "projects",
+        t("tasks.lookup.projectsFailed", { error: formatUiError(err) || t("tasks.lookup.requestFailed") }),
+      );
     }
   }, []);
 
@@ -207,11 +232,14 @@ const TaskPage = () => {
         setAvailableModels(result);
         noteLookup("models", null);
       } else {
-        noteLookup("models", `Models could not be loaded: ${formatUiError(result.error)}`);
+        noteLookup("models", t("tasks.lookup.modelsFailed", { error: formatUiError(result.error) }));
       }
     } catch (err) {
       console.error("Failed to fetch models:", err);
-      noteLookup("models", `Models could not be loaded: ${formatUiError(err) || "the request failed"}`);
+      noteLookup(
+        "models",
+        t("tasks.lookup.modelsFailed", { error: formatUiError(err) || t("tasks.lookup.requestFailed") }),
+      );
     }
   }, []);
 
@@ -226,7 +254,7 @@ const TaskPage = () => {
       });
       setVideoGenJobs(data?.jobs || []);
     } catch (err) {
-      setVideoGenError(formatUiError(err.response?.data?.error) || err.message || "Failed to load video batch jobs");
+      setVideoGenError(formatUiError(err.response?.data?.error) || err.message || t("tasks.video.loadFailed"));
     } finally {
       setVideoGenLoading(false);
     }
@@ -238,21 +266,21 @@ const TaskPage = () => {
       if (res?.cancelled) {
         setFeedback({
           open: true,
-          message: "Video batch job cancelled",
+          message: t("tasks.video.cancelled"),
           severity: "success",
         });
         fetchVideoGenJobs();
       } else {
         setFeedback({
           open: true,
-          message: res?.reason || "Could not cancel VideoGen job",
+          message: res?.reason || t("tasks.video.cancelRefused"),
           severity: "warning",
         });
       }
     } catch (err) {
       setFeedback({
         open: true,
-        message: formatUiError(err.response?.data?.error) || err.message || "Cancel failed",
+        message: formatUiError(err.response?.data?.error) || err.message || t("tasks.video.cancelFailed"),
         severity: "error",
       });
     }
@@ -327,7 +355,7 @@ const TaskPage = () => {
       setEditingTask(task);
       setShowTaskForm(true);
     } else {
-      setFeedback({ open: true, message: `Task ${taskIdParam} was not found`, severity: "warning" });
+      setFeedback({ open: true, message: t("tasks.notFound", { id: taskIdParam }), severity: "warning" });
     }
     dropParams(TASK_PARAMS.taskId);
   }, [taskIdParam, tasksLoaded, tasks, dropParams]);
@@ -357,7 +385,7 @@ const TaskPage = () => {
       await processTaskQueue();
       setFeedback({
         open: true,
-        message: "Task queue processing started",
+        message: t("tasks.queue.started"),
         severity: "success",
       });
       // Refresh tasks to show updated statuses
@@ -367,7 +395,7 @@ const TaskPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to process queue: ${err.message}`,
+        message: t("tasks.queue.failed", { error: err.message }),
         severity: "error",
       });
     } finally {
@@ -400,7 +428,7 @@ const TaskPage = () => {
     setEditingTask(null);
     setFeedback({
       open: true,
-      message: task.message || "Task created successfully",
+      message: task.message || t("tasks.created"),
       severity: "success",
     });
     fetchTasks();
@@ -418,7 +446,7 @@ const TaskPage = () => {
         }
         setFeedback({
           open: true,
-          message: "Task updated successfully",
+          message: t("tasks.updated"),
           severity: "success",
         });
       } else {
@@ -429,7 +457,7 @@ const TaskPage = () => {
         }
         setFeedback({
           open: true,
-          message: "Task created successfully",
+          message: t("tasks.created"),
           severity: "success",
         });
       }
@@ -439,7 +467,7 @@ const TaskPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to save task: ${err.message}`,
+        message: t("tasks.saveFailed", { error: err.message }),
         severity: "error",
       });
       throw err;
@@ -453,7 +481,7 @@ const TaskPage = () => {
     setEditingTask(null);
     setFeedback({
       open: true,
-      message: "Task deleted successfully",
+      message: t("tasks.deleted"),
       severity: "success",
     });
     fetchTasks();
@@ -464,7 +492,7 @@ const TaskPage = () => {
     setEditingTask(null);
     setFeedback({
       open: true,
-      message: `Task duplicated successfully (ID: ${result?.data?.new_task_id || result?.new_task_id})`,
+      message: t("tasks.duplicatedWithId", { id: result?.data?.new_task_id || result?.new_task_id }),
       severity: "success",
     });
     fetchTasks();
@@ -507,14 +535,14 @@ const TaskPage = () => {
       }
       setFeedback({
         open: true,
-        message: `Task duplicated successfully`,
+        message: t("tasks.duplicated"),
         severity: "success",
       });
       fetchTasks(); // Refresh task list
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to duplicate task: ${err.message}`,
+        message: t("tasks.duplicateFailed", { error: err.message }),
         severity: "error",
       });
     }
@@ -527,9 +555,9 @@ const TaskPage = () => {
       event.stopPropagation(); // Prevent row click
     }
     setPendingConfirm({
-      title: "Delete this task",
-      description: `"${taskName || "this task"}" is deleted.`,
-      confirmLabel: "Delete task",
+      title: t("tasks.delete.title"),
+      description: t("tasks.delete.description", { name: taskName || t("tasks.delete.thisTask") }),
+      confirmLabel: t("tasks.delete.confirm"),
       run: () => deleteTaskConfirmed(taskId),
     });
   };
@@ -542,14 +570,14 @@ const TaskPage = () => {
       }
       setFeedback({
         open: true,
-        message: "Task deleted successfully",
+        message: t("tasks.deleted"),
         severity: "success",
       });
       fetchTasks(); // Refresh task list
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to delete task: ${err.message}`,
+        message: t("tasks.deleteFailed", { error: err.message }),
         severity: "error",
       });
     }
@@ -559,7 +587,7 @@ const TaskPage = () => {
     if (!taskId || !task) {
       setFeedback({
         open: true,
-        message: "Invalid task data",
+        message: t("tasks.start.invalid"),
         severity: "error",
       });
       return;
@@ -568,7 +596,7 @@ const TaskPage = () => {
     try {
       setFeedback({
         open: true,
-        message: `Starting task: ${task.name || 'Unnamed Task'}`,
+        message: t("tasks.start.starting", { name: task.name || t("tasks.start.unnamed") }),
         severity: "info",
       });
 
@@ -584,12 +612,12 @@ const TaskPage = () => {
         }
       } catch (importError) {
         console.error('Failed to start task:', importError);
-        throw new Error(`Failed to start task: ${importError.message}`);
+        throw new Error(t("tasks.start.failed", { error: importError.message }));
       }
 
       setFeedback({
         open: true,
-        message: `Task "${task.name || 'Unnamed Task'}" started successfully`,
+        message: t("tasks.start.started", { name: task.name || t("tasks.start.unnamed") }),
         severity: "success",
       });
 
@@ -600,7 +628,7 @@ const TaskPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to start task: ${err.message}`,
+        message: t("tasks.start.failed", { error: err.message }),
         severity: "error",
       });
     }
@@ -610,17 +638,17 @@ const TaskPage = () => {
     if (tasks.length === 0) {
       setFeedback({
         open: true,
-        message: "No tasks to clear",
+        message: t("tasks.clear.none"),
         severity: "info",
       });
       return;
     }
 
     setPendingConfirm({
-      title: "Delete all tasks",
-      description: "Every task in this list is deleted.",
-      facts: [{ label: "Tasks", value: tasks.length }],
-      confirmLabel: "Delete all",
+      title: t("tasks.clear.title"),
+      description: t("tasks.clear.description"),
+      facts: [{ label: t("tasks.clear.tasksFact"), value: tasks.length }],
+      confirmLabel: t("tasks.clear.confirm"),
       run: clearAllTasksConfirmed,
     });
   };
@@ -630,7 +658,7 @@ const TaskPage = () => {
       setIsSaving(true);
       setFeedback({
         open: true,
-        message: "Clearing all tasks...",
+        message: t("tasks.clear.clearing"),
         severity: "info",
       });
 
@@ -640,7 +668,7 @@ const TaskPage = () => {
 
       setFeedback({
         open: true,
-        message: `Successfully deleted ${tasks.length} tasks`,
+        message: t("tasks.clear.done", { count: tasks.length }),
         severity: "success",
       });
       
@@ -649,7 +677,7 @@ const TaskPage = () => {
     } catch (err) {
       setFeedback({
         open: true,
-        message: `Failed to clear tasks: ${err.message}`,
+        message: t("tasks.clear.failed", { error: err.message }),
         severity: "error",
       });
     } finally {
@@ -725,29 +753,31 @@ const TaskPage = () => {
 
   const entityFilterLabel = [
     projectFilter &&
-      `Project: ${availableProjects.find((p) => String(p.id) === String(projectFilter))?.name || `#${projectFilter}`}`,
-    clientFilter && `Client: ${linkedClient?.name || `#${clientFilter}`}`,
-    websiteFilter && `Website: ${linkedWebsite?.url || `#${websiteFilter}`}`,
+      t("tasks.filter.project", {
+        name: availableProjects.find((p) => String(p.id) === String(projectFilter))?.name || `#${projectFilter}`,
+      }),
+    clientFilter && t("tasks.filter.client", { name: linkedClient?.name || `#${clientFilter}` }),
+    websiteFilter && t("tasks.filter.website", { url: linkedWebsite?.url || `#${websiteFilter}` }),
   ]
     .filter(Boolean)
     .join(" · ");
 
   return (
     <PageLayout
-      title="Job Scheduler"
+      title={t("tasks.title")}
       variant="standard"
       actions={
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Chip label={`${tasks.filter(t => t.status === "pending").length} Pending`} size="small" variant="outlined" />
-          <Chip label={`${tasks.filter(t => t.status === "queued").length} Queued`} size="small" variant="outlined" color="info" />
-          <Chip label={`${tasks.filter(t => t.status === "in-progress").length} Running`} size="small" variant="outlined" />
+          <Chip label={t("tasks.counts.pending", { count: tasks.filter((task) => task.status === "pending").length })} size="small" variant="outlined" />
+          <Chip label={t("tasks.counts.queued", { count: tasks.filter((task) => task.status === "queued").length })} size="small" variant="outlined" color="info" />
+          <Chip label={t("tasks.counts.running", { count: tasks.filter((task) => task.status === "in-progress").length })} size="small" variant="outlined" />
           {queueOrder.length > 0 && (
             <Button variant="contained" size="small" startIcon={<PlayArrowIcon />} onClick={processQueue} disabled={isProcessingQueue || isLoading}>
-              Run {queueOrder.length} Task{queueOrder.length !== 1 ? 's' : ''}
+              {t("tasks.runQueue", { count: queueOrder.length })}
             </Button>
           )}
           {tasks.length > 0 && (
-            <Button variant="outlined" size="small" startIcon={<ClearAllIcon />} onClick={handleClearAllTasks} disabled={isLoading || isSaving}>Clear All</Button>
+            <Button variant="outlined" size="small" startIcon={<ClearAllIcon />} onClick={handleClearAllTasks} disabled={isLoading || isSaving}>{t("tasks.clearAll")}</Button>
           )}
           <Button
             variant="contained"
@@ -756,7 +786,7 @@ const TaskPage = () => {
             onClick={(e) => setNewTaskMenuAnchor(e.currentTarget)}
             disabled={isLoading || isSaving}
           >
-            New Job
+            {t("tasks.newJob")}
           </Button>
           <Menu
             anchorEl={newTaskMenuAnchor}
@@ -765,30 +795,30 @@ const TaskPage = () => {
           >
             <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleQuickTaskAction("code_task"); }}>
               <ListItemIcon><CodeIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Code Generation</ListItemText>
+              <ListItemText>{t("tasks.newMenu.code")}</ListItemText>
             </MuiMenuItem>
             <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleQuickTaskAction("csv_generation"); }}>
               <ListItemIcon><TableChartIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>CSV / Bulk Content</ListItemText>
+              <ListItemText>{t("tasks.newMenu.csv")}</ListItemText>
             </MuiMenuItem>
             <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleQuickTaskAction("content_task"); }}>
               <ListItemIcon><DescriptionIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Content Generation</ListItemText>
+              <ListItemText>{t("tasks.newMenu.content")}</ListItemText>
             </MuiMenuItem>
             <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleQuickTaskAction("analysis_task"); }}>
               <ListItemIcon><AnalyticsIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Data Analysis</ListItemText>
+              <ListItemText>{t("tasks.newMenu.analysis")}</ListItemText>
             </MuiMenuItem>
             <Divider />
             <MuiMenuItem onClick={() => { setNewTaskMenuAnchor(null); handleOpenTaskForm(); }}>
               <ListItemIcon><AddIcon fontSize="small" /></ListItemIcon>
-              <ListItemText>Custom Job</ListItemText>
+              <ListItemText>{t("tasks.newMenu.custom")}</ListItemText>
             </MuiMenuItem>
           </Menu>
         </Box>
       }
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
+      activeModel={isLoadingModel ? t("common.loading") : modelError ? t("common.error") : activeModel}
     >
       <Box
         onContextMenu={(e) => handleContextMenu(e, null)}
@@ -821,7 +851,7 @@ const TaskPage = () => {
             sx={{ mb: 2 }}
             action={
               <Button color="inherit" size="small" onClick={() => { fetchProjects(); fetchAvailableModels(); }}>
-                Retry
+                {t("common.retry")}
               </Button>
             }
           >
@@ -862,13 +892,13 @@ const TaskPage = () => {
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
             <Box>
               <Typography variant="subtitle1" fontWeight={600}>
-                Video Batch Jobs
+                {t("tasks.video.title")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Queued and running batches from the unified VIDEO_GEN pipeline (Batch Video / Video Generator). This page (Job Scheduler) also handles legacy scheduled jobs for code, content, CSV, analysis, and custom tasks via the New Job menu.
+                {t("tasks.video.intro")}
               </Typography>
             </Box>
-            <IconButton size="small" onClick={fetchVideoGenJobs} title="Refresh Video Batch jobs">
+            <IconButton size="small" onClick={fetchVideoGenJobs} title={t("tasks.video.refresh")}>
               <RefreshIcon fontSize="small" />
             </IconButton>
           </Stack>
@@ -880,16 +910,16 @@ const TaskPage = () => {
 
           {videoGenJobs.length === 0 && !videoGenLoading ? (
             <Typography variant="body2" color="text.secondary">
-              No pending video batch jobs.
+              {t("tasks.video.empty")}
             </Typography>
           ) : (
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600 }}>Label</TableCell>
-                  <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 180 }}>Progress</TableCell>
-                  <TableCell sx={{ fontWeight: 600, width: 120 }} align="right">Actions</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{t("tasks.video.label")}</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{t("tasks.video.status")}</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: 180 }}>{t("tasks.video.progress")}</TableCell>
+                  <TableCell sx={{ fontWeight: 600, width: 120 }} align="right">{t("tasks.video.actions")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -897,7 +927,7 @@ const TaskPage = () => {
                   <TableRow key={job.id} hover>
                     <TableCell>{job.label}</TableCell>
                     <TableCell>
-                      <Chip label={job.status} size="small" color={job.status === "running" ? "info" : "default"} />
+                      <Chip label={jobStatusLabel(job.status)} size="small" color={job.status === "running" ? "info" : "default"} />
                     </TableCell>
                     <TableCell>
                       {job.progress != null ? (
@@ -924,7 +954,7 @@ const TaskPage = () => {
                           startIcon={<CancelIcon />}
                           onClick={() => handleCancelVideoGenJob(job.id)}
                         >
-                          Cancel
+                          {t("tasks.video.cancel")}
                         </Button>
                       )}
                     </TableCell>
@@ -951,7 +981,7 @@ const TaskPage = () => {
           {['all', 'active', 'completed', 'failed'].map(f => (
             <Chip
               key={f}
-              label={f.charAt(0).toUpperCase() + f.slice(1)}
+              label={statusFilterLabel(f)}
               size="small"
               variant={statusFilter === f ? 'filled' : 'outlined'}
               color={statusFilter === f ? 'primary' : 'default'}
@@ -960,13 +990,13 @@ const TaskPage = () => {
           ))}
           <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
           <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Type</InputLabel>
-            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} label="Type">
-              <MuiMenuItem value="all">All Types</MuiMenuItem>
-              <MuiMenuItem value="code_generation">Code Gen</MuiMenuItem>
-              <MuiMenuItem value="file_generation">CSV / Bulk</MuiMenuItem>
-              <MuiMenuItem value="content_generation">Content</MuiMenuItem>
-              <MuiMenuItem value="data_analysis">Analysis</MuiMenuItem>
+            <InputLabel>{t("tasks.typeFilter.label")}</InputLabel>
+            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} label={t("tasks.typeFilter.label")}>
+              <MuiMenuItem value="all">{t("tasks.typeFilter.all")}</MuiMenuItem>
+              <MuiMenuItem value="code_generation">{t("tasks.typeFilter.code")}</MuiMenuItem>
+              <MuiMenuItem value="file_generation">{t("tasks.typeFilter.csv")}</MuiMenuItem>
+              <MuiMenuItem value="content_generation">{t("tasks.typeFilter.content")}</MuiMenuItem>
+              <MuiMenuItem value="data_analysis">{t("tasks.typeFilter.analysis")}</MuiMenuItem>
             </Select>
           </FormControl>
         </Box>
@@ -974,14 +1004,14 @@ const TaskPage = () => {
         {/* Tasks Display */}
         {isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 6 }}>
-            <ContextualLoader loading message="Loading tasks..." showProgress={false} inline />
+            <ContextualLoader loading message={t("tasks.loading")} showProgress={false} inline />
           </Box>
         ) : sortedTasks.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
             <EmptyState
               icon={<AssignmentOutlined />}
-              title="No tasks found"
-              description="Use the quick actions above to create your first task"
+              title={t("tasks.emptyTitle")}
+              description={t("tasks.emptyDescription")}
             />
           </Paper>
         ) : (
@@ -1024,12 +1054,12 @@ const TaskPage = () => {
           onClose={pageMenu.close}
           actions={contextItem ? [
             {
-              label: 'Start',
+              label: t("tasks.menu.start"),
               onClick: () => handleStartSingleTask(contextItem.id, contextItem),
               disabled: ['in-progress', 'running', 'processing', 'completed', 'complete', 'queued'].includes(contextItem.status?.toLowerCase()),
             },
             {
-              label: 'Cancel',
+              label: t("tasks.menu.cancel"),
               onClick: () => {
                 if (contextItem.job_id) {
                   cancelJob(contextItem.job_id);
@@ -1038,15 +1068,15 @@ const TaskPage = () => {
               },
               disabled: !['in-progress', 'running', 'processing', 'queued'].includes(contextItem.status?.toLowerCase()),
             },
-            { label: 'Edit', onClick: () => handleEditTask(contextItem), dividerBefore: true },
-            { label: 'Duplicate', onClick: () => handleDuplicateTask(contextItem.id) },
-            { label: 'Delete', onClick: () => handleDeleteTask(contextItem.id, contextItem.name), dividerBefore: true, color: 'error.main' },
+            { label: t("tasks.menu.edit"), onClick: () => handleEditTask(contextItem), dividerBefore: true },
+            { label: t("tasks.menu.duplicate"), onClick: () => handleDuplicateTask(contextItem.id) },
+            { label: t("common.delete"), onClick: () => handleDeleteTask(contextItem.id, contextItem.name), dividerBefore: true, color: 'error.main' },
           ] : [
-            { label: 'New Code Generation', icon: <CodeIcon fontSize="small" />, onClick: () => handleQuickTaskAction("code_task") },
-            { label: 'New CSV / Bulk Content', icon: <TableChartIcon fontSize="small" />, onClick: () => handleQuickTaskAction("csv_generation") },
-            { label: 'New Content Generation', icon: <DescriptionIcon fontSize="small" />, onClick: () => handleQuickTaskAction("content_task") },
-            { label: 'New Data Analysis', icon: <AnalyticsIcon fontSize="small" />, onClick: () => handleQuickTaskAction("analysis_task") },
-            { label: 'New Custom Job', icon: <AddIcon fontSize="small" />, onClick: () => handleOpenTaskForm(), dividerBefore: true },
+            { label: t("tasks.menu.newCode"), icon: <CodeIcon fontSize="small" />, onClick: () => handleQuickTaskAction("code_task") },
+            { label: t("tasks.menu.newCsv"), icon: <TableChartIcon fontSize="small" />, onClick: () => handleQuickTaskAction("csv_generation") },
+            { label: t("tasks.menu.newContent"), icon: <DescriptionIcon fontSize="small" />, onClick: () => handleQuickTaskAction("content_task") },
+            { label: t("tasks.menu.newAnalysis"), icon: <AnalyticsIcon fontSize="small" />, onClick: () => handleQuickTaskAction("analysis_task") },
+            { label: t("tasks.menu.newCustom"), icon: <AddIcon fontSize="small" />, onClick: () => handleOpenTaskForm(), dividerBefore: true },
           ]}
         />
     </PageLayout>

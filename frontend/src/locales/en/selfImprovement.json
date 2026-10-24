@@ -1,0 +1,92 @@
+{
+  "page": {
+    "title": "Self-improvement",
+    "systemMap": "System Map",
+    "uncleClaudeSettings": "Uncle Claude in Settings",
+    "intro": "Guaardvark runs its own tests, drafts fixes and stages them for your review. Nothing reaches the code until you approve and apply it, and Codebase locked stops every change.",
+    "recentRuns": "Recent runs",
+    "noCodeKeeps": "No code keeps from Autoresearch."
+  },
+  "codeKeeps": {
+    "approved": "Code keep approved. Apply it from Pending fixes.",
+    "rejected": "Code keep rejected",
+    "approveFailed": "Failed to approve code keep: {{error}}",
+    "rejectFailed": "Failed to reject code keep: {{error}}",
+    "title": "Code keeps",
+    "intro": "Swarm arms that passed preserve-and-extend. Approve here, then apply from Settings — nothing auto-merges to main.",
+    "description": "Description",
+    "status": "Status",
+    "created": "Created",
+    "actions": "Actions",
+    "approve": "Approve",
+    "reject": "Reject"
+  },
+  "fixStatus": {
+    "proposed": "proposed",
+    "triaged": "triaged",
+    "approved": "approved",
+    "applied": "applied",
+    "rejected": "rejected"
+  },
+  "controls": {
+    "title": "Self-improvement",
+    "help": "Guaardvark checks its own code and proposes fixes for you to review. Codebase locked blocks every automatic edit.",
+    "enabledChip": "Self-improvement",
+    "enabledTooltip": "Lets the mentor scan the codebase and propose fixes for review.",
+    "lockedChip": "Codebase locked",
+    "lockedOnTooltip": "Autonomous edits are blocked. Turn off to allow them.",
+    "lockedOffTooltip": "Turn on to block every autonomous edit to the source tree.",
+    "turnOnFirst": "Turn on self-improvement first",
+    "unlockFirst": "Unlock the codebase first",
+    "runTooltip": "Runs the checks now. Cancel asks the server to stop; closing the view leaves the scan running.",
+    "runSelfCheck": "Run self-check",
+    "lastRun_one": "Last run {{date}} ({{status}}) · {{count}} successful run.",
+    "lastRun_other": "Last run {{date}} ({{status}}) · {{count}} successful runs.",
+    "noRuns": "No runs yet.",
+    "readingStatus": "Reading the status…",
+    "lockedNote": "Codebase is locked: autonomous edits are blocked.",
+    "cancelled": "Cancelled",
+    "scanInBackground": "Scan continues in the background",
+    "pendingFixes": "Pending fixes",
+    "pendingFixesHelp": "Fixes the self-check proposed, waiting for you to review or apply. Nothing reaches the code until you approve and apply it.",
+    "waiting": "{{count}} waiting",
+    "reviewFixes": "Review fixes"
+  },
+  "runStatus": {
+    "running": "running",
+    "success": "success",
+    "failed": "failed",
+    "cancelled": "cancelled",
+    "blocked_by_guardian": "blocked_by_guardian"
+  },
+  "trigger": {
+    "scheduled": "scheduled",
+    "reactive": "reactive",
+    "directed": "directed",
+    "family_learning": "family_learning"
+  },
+  "runs": {
+    "filter": {
+      "all": "All",
+      "scheduled": "Scheduled",
+      "reactive": "Reactive",
+      "directed": "Directed",
+      "success": "Success",
+      "failed": "Failed"
+    },
+    "empty": "No self-improvement runs recorded yet.",
+    "status": "Status",
+    "trigger": "Trigger",
+    "timestamp": "Timestamp",
+    "duration": "Duration",
+    "uncleReviewed": "Uncle Reviewed",
+    "details": "Details",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "Reviewed",
+    "notReviewed": "No",
+    "expand": "Expand",
+    "uncleFeedback": "Uncle Claude Feedback",
+    "changesMade": "Changes Made",
+    "testResults": "Test Results"
+  }
+}

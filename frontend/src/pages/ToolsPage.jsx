@@ -64,6 +64,7 @@ import copyText from "../utils/copyText";
 import { ApiKeyRefusalAlert } from "../components/common/ApiKeyRefusalNotice";
 import { useStatus } from "../contexts/StatusContext";
 import { ContextualLoader } from "../components/common/LoadingStates";
+import { useUiTranslation } from "../i18n";
 
 // A parameter the test dialog has no value for yet. A false checkbox or a
 // 0 counts as a value; only an empty field does not.
@@ -78,6 +79,7 @@ const missingRequiredParams = (tool, params) =>
     .map(([name]) => name);
 
 const ToolsPage = () => {
+  const { t } = useUiTranslation();
   const { activeModel, isLoadingModel, modelError } = useStatus();
   // State
   const [tools, setTools] = useState([]);
@@ -119,10 +121,10 @@ const ToolsPage = () => {
       if (response.success) {
         setTools(response.tools || []);
       } else {
-        setError(response.error || "Failed to load tools");
+        setError(response.error || t("tools.loadFailed"));
       }
     } catch (err) {
-      setError(err.message || "Failed to load tools");
+      setError(err.message || t("tools.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -202,13 +204,13 @@ const ToolsPage = () => {
       if (response.success && response.result?.success) {
         setSnackbar({
           open: true,
-          message: "Tool executed successfully",
+          message: t("tools.test.succeeded"),
           severity: "success",
         });
       } else {
         setSnackbar({
           open: true,
-          message: response.result?.error || "Tool execution failed",
+          message: response.result?.error || t("tools.test.executionFailed"),
           severity: "error",
         });
       }
@@ -219,7 +221,7 @@ const ToolsPage = () => {
       if (!err.authRefused) {
         setSnackbar({
           open: true,
-          message: err.message || "Tool execution failed",
+          message: err.message || t("tools.test.executionFailed"),
           severity: "error",
         });
       }
@@ -233,7 +235,7 @@ const ToolsPage = () => {
     const ok = await copyText(text);
     setSnackbar({
       open: true,
-      message: ok ? "Copied to clipboard" : "Could not copy to the clipboard",
+      message: ok ? t("tools.copied") : t("tools.copyFailed"),
       severity: ok ? "success" : "error",
     });
   };
@@ -345,7 +347,7 @@ const ToolsPage = () => {
           <Divider sx={{ my: 1 }} />
 
           <Typography variant="caption" color="text.secondary">
-            Parameters:
+            {t("tools.parameters")}:
           </Typography>
 
           <Box sx={{ mt: 1 }}>
@@ -386,9 +388,9 @@ const ToolsPage = () => {
             onClick={() => handleTestTool(tool)}
             variant="contained"
           >
-            Test
+            {t("tools.card.test")}
           </Button>
-          <Tooltip title="Copy tool name">
+          <Tooltip title={t("tools.copyName")}>
             <IconButton size="small" onClick={() => copyToClipboard(tool.name)}>
               <ContentCopy fontSize="small" />
             </IconButton>
@@ -411,7 +413,7 @@ const ToolsPage = () => {
                   direction={orderBy === "name" ? order : "asc"}
                   onClick={() => handleSortRequest("name")}
                 >
-                  Name
+                  {t("tools.table.name")}
                 </TableSortLabel>
               </TableCell>
               <TableCell sx={{ fontWeight: "bold", width: 120 }}>
@@ -420,21 +422,21 @@ const ToolsPage = () => {
                   direction={orderBy === "category" ? order : "asc"}
                   onClick={() => handleSortRequest("category")}
                 >
-                  Category
+                  {t("tools.table.category")}
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ fontWeight: "bold" }}>Description</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>{t("tools.table.description")}</TableCell>
               <TableCell sx={{ fontWeight: "bold", width: 100 }}>
                 <TableSortLabel
                   active={orderBy === "params"}
                   direction={orderBy === "params" ? order : "asc"}
                   onClick={() => handleSortRequest("params")}
                 >
-                  Params
+                  {t("tools.table.params")}
                 </TableSortLabel>
               </TableCell>
               <TableCell sx={{ fontWeight: "bold", width: 120 }} align="right">
-                Actions
+                {t("tools.table.actions")}
               </TableCell>
             </TableRow>
           </TableHead>
@@ -491,12 +493,12 @@ const ToolsPage = () => {
                         <Box>
                           {requiredParams.length > 0 && (
                             <Box>
-                              Required: {requiredParams.map(([n]) => n).join(", ")}
+                              {t("tools.table.requiredList", { params: requiredParams.map(([n]) => n).join(", ") })}
                             </Box>
                           )}
                           {optionalParams.length > 0 && (
                             <Box>
-                              Optional: {optionalParams.map(([n]) => n).join(", ")}
+                              {t("tools.table.optionalList", { params: optionalParams.map(([n]) => n).join(", ") })}
                             </Box>
                           )}
                         </Box>
@@ -505,7 +507,7 @@ const ToolsPage = () => {
                       <Box sx={{ display: "flex", gap: 0.5 }}>
                         {requiredParams.length > 0 && (
                           <Chip
-                            label={`${requiredParams.length} req`}
+                            label={t("tools.table.requiredCount", { count: requiredParams.length })}
                             size="small"
                             color="error"
                             variant="outlined"
@@ -513,14 +515,14 @@ const ToolsPage = () => {
                         )}
                         {optionalParams.length > 0 && (
                           <Chip
-                            label={`${optionalParams.length} opt`}
+                            label={t("tools.table.optionalCount", { count: optionalParams.length })}
                             size="small"
                             variant="outlined"
                           />
                         )}
                         {totalParams === 0 && (
                           <Typography variant="body2" color="text.secondary">
-                            None
+                            {t("tools.table.noParams")}
                           </Typography>
                         )}
                       </Box>
@@ -528,7 +530,7 @@ const ToolsPage = () => {
                   </TableCell>
                   <TableCell align="right">
                     <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 0.5 }}>
-                      <Tooltip title="Test tool">
+                      <Tooltip title={t("tools.table.testTool")}>
                         <IconButton
                           size="small"
                           color="primary"
@@ -537,7 +539,7 @@ const ToolsPage = () => {
                           <PlayArrow fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title="Copy tool name">
+                      <Tooltip title={t("tools.copyName")}>
                         <IconButton
                           size="small"
                           onClick={() => copyToClipboard(tool.name)}
@@ -554,7 +556,7 @@ const ToolsPage = () => {
               <TableRow>
                 <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
-                    No tools found matching &quot;{searchQuery}&quot;
+                    {t("tools.noMatch", { query: searchQuery })}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -567,7 +569,7 @@ const ToolsPage = () => {
 
   return (
     <PageLayout
-      title="Agent Tools"
+      title={t("tools.title")}
       variant="standard"
       actions={
         <Button
@@ -576,11 +578,11 @@ const ToolsPage = () => {
           onClick={loadTools}
           disabled={loading}
         >
-          Refresh
+          {t("common.refresh")}
         </Button>
       }
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
+      activeModel={isLoadingModel ? t("common.loading") : modelError ? t("common.error") : activeModel}
     >
       {/* Tabs */}
       <Tabs
@@ -588,9 +590,9 @@ const ToolsPage = () => {
         onChange={(e, v) => setActiveTab(v)}
         sx={{ mb: 3 }}
       >
-        <Tab label={`Tools (${tools.length})`} icon={<Build />} iconPosition="start" />
-        <Tab label="Schemas" icon={<Code />} iconPosition="start" />
-        <Tab label="Categories" icon={<Category />} iconPosition="start" />
+        <Tab label={t("tools.tabs.tools", { count: tools.length })} icon={<Build />} iconPosition="start" />
+        <Tab label={t("tools.tabs.schemas")} icon={<Code />} iconPosition="start" />
+        <Tab label={t("tools.tabs.categories")} icon={<Category />} iconPosition="start" />
       </Tabs>
 
       {/* Error Display */}
@@ -607,7 +609,7 @@ const ToolsPage = () => {
           <Box sx={{ display: "flex", gap: 2, mb: 3, alignItems: "center" }}>
             <TextField
               fullWidth
-              placeholder="Search tools..."
+              placeholder={t("tools.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               InputProps={{
@@ -623,15 +625,15 @@ const ToolsPage = () => {
               exclusive
               onChange={handleViewModeChange}
               size="small"
-              aria-label="view mode"
+              aria-label={t("tools.view.label")}
             >
-              <ToggleButton value="card" aria-label="card view">
-                <Tooltip title="Card View">
+              <ToggleButton value="card" aria-label={t("tools.view.cardLabel")}>
+                <Tooltip title={t("tools.view.card")}>
                   <ViewModule />
                 </Tooltip>
               </ToggleButton>
-              <ToggleButton value="list" aria-label="list view">
-                <Tooltip title="List View">
+              <ToggleButton value="list" aria-label={t("tools.view.listLabel")}>
+                <Tooltip title={t("tools.view.list")}>
                   <ViewList />
                 </Tooltip>
               </ToggleButton>
@@ -641,7 +643,7 @@ const ToolsPage = () => {
           {/* Tools Display */}
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
-              <ContextualLoader loading message="Loading tools..." showProgress={false} inline />
+              <ContextualLoader loading message={t("tools.loading")} showProgress={false} inline />
             </Box>
           ) : viewMode === "card" ? (
             <Grid container spacing={3}>
@@ -657,7 +659,7 @@ const ToolsPage = () => {
                     textAlign="center"
                     sx={{ py: 4 }}
                   >
-                    No tools found matching &quot;{searchQuery}&quot;
+                    {t("tools.noMatch", { query: searchQuery })}
                   </Typography>
                 </Grid>
               )}
@@ -688,7 +690,7 @@ const ToolsPage = () => {
               startIcon={<ContentCopy />}
               onClick={() => copyToClipboard(schemas)}
             >
-              Copy All
+              {t("tools.schemas.copyAll")}
             </Button>
           </Box>
           <Paper
@@ -703,7 +705,7 @@ const ToolsPage = () => {
               overflow: "auto",
             }}
           >
-            {schemas || "Loading schemas..."}
+            {schemas || t("tools.schemas.loading")}
           </Paper>
         </Box>
       )}
@@ -752,12 +754,12 @@ const ToolsPage = () => {
         actions={
           toolMenu.payload
             ? [
-                { label: "Test…", onClick: () => handleTestTool(toolMenu.payload) },
+                { label: t("tools.menu.test"), onClick: () => handleTestTool(toolMenu.payload) },
                 {
-                  label: "Copy tool name",
+                  label: t("tools.copyName"),
                   onClick: () =>
                     copyText(toolMenu.payload.name).then(
-                      (ok) => ok && setSnackbar({ open: true, message: "Copied to clipboard", severity: "success" }),
+                      (ok) => ok && setSnackbar({ open: true, message: t("tools.copied"), severity: "success" }),
                     ),
                 },
               ]
@@ -773,7 +775,7 @@ const ToolsPage = () => {
         fullWidth
       >
         <DialogTitle>
-          Test Tool: {selectedTool?.name}
+          {t("tools.test.title", { name: selectedTool?.name })}
         </DialogTitle>
         <DialogContent>
           {selectedTool && (
@@ -784,13 +786,12 @@ const ToolsPage = () => {
 
               {selectedTool.requires_approval && (
                 <Alert severity="warning" sx={{ mb: 3 }}>
-                  Execute runs this tool for real, right away, without the
-                  approval step chat asks for first.
+                  {t("tools.test.noApprovalWarning")}
                 </Alert>
               )}
 
               <Typography variant="subtitle2" sx={{ mb: 2 }}>
-                Parameters
+                {t("tools.parameters")}
               </Typography>
 
               {Object.entries(selectedTool.parameters || {}).map(
@@ -803,7 +804,7 @@ const ToolsPage = () => {
                       label={`${name}${param.required ? " *" : ""}`}
                       helperText={
                         missing
-                          ? `Required. ${param.description} (${param.type})`
+                          ? t("tools.test.requiredHelper", { description: param.description, type: param.type })
                           : `${param.description} (${param.type})`
                       }
                       error={missing}
@@ -830,7 +831,7 @@ const ToolsPage = () => {
               {testResult && !testResult.authRefused && (
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Result
+                    {t("tools.test.result")}
                   </Typography>
                   <Alert
                     severity={testResult.result?.success ? "success" : "error"}
@@ -844,8 +845,8 @@ const ToolsPage = () => {
                     sx={{ mb: 2 }}
                   >
                     {testResult.result?.success
-                      ? "Tool executed successfully"
-                      : testResult.result?.error || "Execution failed"}
+                      ? t("tools.test.succeeded")
+                      : testResult.result?.error || t("tools.test.failed")}
                   </Alert>
                   <Paper
                     sx={{
@@ -867,14 +868,14 @@ const ToolsPage = () => {
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setTestDialogOpen(false)}>Close</Button>
+          <Button onClick={() => setTestDialogOpen(false)}>{t("common.close")}</Button>
           <Button
             variant="contained"
             onClick={handleExecuteTest}
             disabled={testLoading || missingParams.length > 0}
             startIcon={testLoading ? <CircularProgress size={16} /> : <PlayArrow />}
           >
-            Execute
+            {t("tools.test.execute")}
           </Button>
         </DialogActions>
       </Dialog>

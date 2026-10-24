@@ -50,6 +50,7 @@ import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 import EntityContextMenu from "../common/EntityContextMenu";
 import useContextMenu from "../../hooks/useContextMenu";
 import copyText from "../../utils/copyText";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 const STATUS_COLORS = {
   pending: "default",
@@ -60,11 +61,27 @@ const STATUS_COLORS = {
   cancelled: "default",
 };
 
+// A job status as shown; the value from the API stays the one compared and filtered on.
+const jobStatusLabel = (status) =>
+  ({
+    pending: translate("jobs.status.pending"),
+    running: translate("jobs.status.running"),
+    paused: translate("jobs.status.paused"),
+    completed: translate("jobs.status.completed"),
+    failed: translate("jobs.status.failed"),
+    cancelled: translate("jobs.status.cancelled"),
+  })[status] ?? status;
+
 const _formatDuration = (seconds) => {
   if (seconds == null) return "—";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
-  return `${(seconds / 3600).toFixed(1)}h`;
+  if (seconds < 60) return translate("jobs.duration.seconds", { seconds: Math.round(seconds) });
+  if (seconds < 3600) {
+    return translate("jobs.duration.minutesSeconds", {
+      minutes: Math.floor(seconds / 60),
+      seconds: Math.round(seconds % 60),
+    });
+  }
+  return translate("jobs.duration.hours", { hours: (seconds / 3600).toFixed(1) });
 };
 
 // Indexing jobs that are pending, failed or paused can be re-queued.
@@ -81,16 +98,17 @@ const _formatRelative = (iso) => {
   try {
     const d = new Date(iso);
     const diff = (Date.now() - d.getTime()) / 1000;
-    if (diff < 60) return "just now";
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return d.toLocaleDateString();
+    if (diff < 60) return translate("jobs.when.justNow");
+    if (diff < 3600) return translate("jobs.when.minutesAgo", { minutes: Math.floor(diff / 60) });
+    if (diff < 86400) return translate("jobs.when.hoursAgo", { hours: Math.floor(diff / 3600) });
+    return d.toLocaleDateString(uiLocale());
   } catch {
     return iso;
   }
 };
 
 const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
+  const { t } = useUiTranslation();
   const { unifiedJobs } = useUnifiedProgress();
 
   const [tab, setTab] = useState(0);  // 0 = Active, 1 = History
@@ -117,7 +135,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
       await refreshHistory();
     } catch (e) {
       console.error("JobsList: clear history failed:", e);
-      setError(formatUiError(e.response?.data?.error) || e.message || "Failed to clear history");
+      setError(formatUiError(e.response?.data?.error) || e.message || t("jobs.list.clearHistoryFailed"));
       setLoading(false);
     }
     setClearMenuAnchorEl(null);
@@ -133,7 +151,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
       setActiveRows(data?.jobs || []);
     } catch (e) {
       console.error("JobsList: list failed:", e);
-      setError(formatUiError(e.response?.data?.error) || e.message || "Failed to load jobs");
+      setError(formatUiError(e.response?.data?.error) || e.message || t("jobs.list.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -156,7 +174,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
       setHistoryRows(all);
     } catch (e) {
       console.error("JobsList: history failed:", e);
-      setError(formatUiError(e.response?.data?.error) || e.message || "Failed to load history");
+      setError(formatUiError(e.response?.data?.error) || e.message || t("jobs.list.historyFailed"));
     } finally {
       setLoading(false);
     }
@@ -246,21 +264,21 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
         ));
         setSelected((cur) => (cur && cur.id === job.id ? { ...cur, status: "cancelled", cancellable: false } : cur));
       } else {
-        setError(res?.reason || "Cancel refused");
+        setError(res?.reason || t("jobs.list.cancelRefused"));
       }
     } catch (e) {
-      setError(formatUiError(e.response?.data?.error) || e.message || "Cancel failed");
+      setError(formatUiError(e.response?.data?.error) || e.message || t("jobs.list.cancelFailed"));
     }
   };
 
   const handleResumeIndexing = async () => {
     try {
       const res = await apiService.resumePendingIndexing();
-      alert(res?.message || "Resume pending indexing triggered (will re-queue matching docs)");
+      alert(res?.message || t("jobs.list.resumeTriggered"));
       await refreshActive();
       setSelected(null);
     } catch (e) {
-      alert("Resume failed: " + (e.message || e));
+      alert(t("jobs.list.resumeFailed", { error: e.message || e }));
     }
   };
 
@@ -287,7 +305,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
               return (
                 <Chip
                   key={s}
-                  label={`${s} (${count})`}
+                  label={t("jobs.list.statusChip", { status: jobStatusLabel(s), count })}
                   color={active ? STATUS_COLORS[s] : "default"}
                   variant={active ? "filled" : "outlined"}
                   onClick={() => toggleStatus(s)}
@@ -298,7 +316,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
             <Box sx={{ flexGrow: 1 }} />
             <TextField
               size="small"
-              placeholder="Search by label, kind, status..."
+              placeholder={t("jobs.list.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               InputProps={{
@@ -313,12 +331,12 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
             <IconButton
               size="small"
               onClick={() => (tab === 0 ? refreshActive() : refreshHistory())}
-              title="Refresh"
+              title={t("common.refresh")}
             >
               <RefreshIcon fontSize="small" />
             </IconButton>
             {/* Integrate with the global indexing pause + add 'resume all pending' */}
-            {indexingPaused && <Chip label="Indexing Paused" color="warning" size="small" />}
+            {indexingPaused && <Chip label={t("jobs.list.indexingPaused")} color="warning" size="small" />}
             <Button
               size="small"
               variant="outlined"
@@ -326,15 +344,15 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
               onClick={async () => {
                 try {
                   const res = await apiService.resumePendingIndexing();
-                  alert(res?.message || "Resume pending indexing started");
+                  alert(res?.message || t("jobs.list.resumeAllStarted"));
                   await refreshActive();
                 } catch (e) {
-                  alert("Failed to resume pending indexing: " + (e.message || e));
+                  alert(t("jobs.list.resumeAllFailed", { error: e.message || e }));
                 }
               }}
               disabled={loading}
             >
-              Resume All Pending Indexing
+              {t("jobs.list.resumeAll")}
             </Button>
           </Stack>
         </Paper>
@@ -343,8 +361,8 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
         <Paper elevation={2} sx={{ borderRadius: 2 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ borderBottom: 1, borderColor: "divider", pr: 2 }}>
             <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-              <Tab label={`Active (${activeRows.length})`} />
-              <Tab label={`History (${historyRows.length})`} />
+              <Tab label={t("jobs.list.activeTab", { count: activeRows.length })} />
+              <Tab label={t("jobs.list.historyTab", { count: historyRows.length })} />
             </Tabs>
             {tab === 1 && historyRows.length > 0 && (
               <Box>
@@ -354,7 +372,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
                   startIcon={<DeleteIcon />}
                   onClick={(e) => setClearMenuAnchorEl(e.currentTarget)}
                 >
-                  Clear History
+                  {t("jobs.list.clearHistory")}
                 </Button>
                 <Menu
                   anchorEl={clearMenuAnchorEl}
@@ -362,11 +380,11 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
                   onClose={() => setClearMenuAnchorEl(null)}
                 >
                   <MenuItem onClick={() => handleClearHistory(kinds)}>
-                    <Typography color="error">Clear all shown</Typography>
+                    <Typography color="error">{t("jobs.list.clearAllShown")}</Typography>
                   </MenuItem>
                   {kinds.map((k) => (
                     <MenuItem key={k} onClick={() => handleClearHistory([k])}>
-                      Clear {k}
+                      {t("jobs.list.clearKind", { kind: k })}
                     </MenuItem>
                   ))}
                 </Menu>
@@ -380,12 +398,12 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Label</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Kind</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600, width: 200 }}>Progress</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Duration</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>{tab === 0 ? "Started" : "Finished"}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("jobs.list.label")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("jobs.list.kind")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("jobs.list.status")}</TableCell>
+                <TableCell sx={{ fontWeight: 600, width: 200 }}>{t("jobs.list.progress")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("jobs.list.duration")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{tab === 0 ? t("jobs.list.started") : t("jobs.list.finished")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -393,7 +411,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
                 <TableRow>
                   <TableCell colSpan={6}>
                     <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: "center" }}>
-                      {tab === 0 ? "Nothing currently running." : "No history yet."}
+                      {tab === 0 ? t("jobs.list.emptyActive") : t("jobs.list.emptyHistory")}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -411,7 +429,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
                     <Chip label={j.kind} size="small" variant="outlined" />
                   </TableCell>
                   <TableCell>
-                    <Chip label={j.status} color={STATUS_COLORS[j.status] || "default"} size="small" />
+                    <Chip label={jobStatusLabel(j.status)} color={STATUS_COLORS[j.status] || "default"} size="small" />
                   </TableCell>
                   <TableCell>
                     {j.progress != null ? (
@@ -444,15 +462,15 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
         actions={
           rowMenu.payload
             ? [
-                { label: "Details", onClick: () => setSelected(rowMenu.payload) },
-                { label: "Copy ID", onClick: () => copyText(rowMenu.payload.id) },
+                { label: t("jobs.list.details"), onClick: () => setSelected(rowMenu.payload) },
+                { label: t("jobs.list.copyId"), onClick: () => copyText(rowMenu.payload.id) },
                 canResumeIndexing(rowMenu.payload) && {
-                  label: "Resume / Re-index",
+                  label: t("jobs.list.resumeReindex"),
                   onClick: handleResumeIndexing,
                   dividerBefore: true,
                 },
                 rowMenu.payload.cancellable && {
-                  label: "Cancel job",
+                  label: t("jobs.list.cancelJob"),
                   onClick: () => handleCancelJob(rowMenu.payload),
                   color: "error.main",
                   dividerBefore: !canResumeIndexing(rowMenu.payload),
@@ -466,7 +484,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
       <Drawer anchor="right" open={!!selected} onClose={() => setSelected(null)}>
         <Box sx={{ width: 420, p: 3 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-            <Typography variant="h6" fontWeight="bold">Job detail</Typography>
+            <Typography variant="h6" fontWeight="bold">{t("jobs.detail.title")}</Typography>
             <IconButton onClick={() => setSelected(null)} size="small">
               <CloseIcon />
             </IconButton>
@@ -474,52 +492,52 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
           {selected && (
             <Stack spacing={2}>
               <Box>
-                <Typography variant="caption" color="text.secondary">ID</Typography>
+                <Typography variant="caption" color="text.secondary">{t("jobs.detail.id")}</Typography>
                 <Typography variant="body2" sx={{ fontFamily: "monospace" }}>{selected.id}</Typography>
               </Box>
               <Box>
-                <Typography variant="caption" color="text.secondary">Label</Typography>
+                <Typography variant="caption" color="text.secondary">{t("jobs.list.label")}</Typography>
                 <Typography variant="body2">{selected.label}</Typography>
               </Box>
               <Stack direction="row" spacing={2}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Kind</Typography>
+                  <Typography variant="caption" color="text.secondary">{t("jobs.list.kind")}</Typography>
                   <Typography variant="body2">{selected.kind}</Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Status</Typography>
-                  <Chip label={selected.status} color={STATUS_COLORS[selected.status]} size="small" />
+                  <Typography variant="caption" color="text.secondary">{t("jobs.list.status")}</Typography>
+                  <Chip label={jobStatusLabel(selected.status)} color={STATUS_COLORS[selected.status]} size="small" />
                 </Box>
               </Stack>
               <Box>
-                <Typography variant="caption" color="text.secondary">Progress</Typography>
+                <Typography variant="caption" color="text.secondary">{t("jobs.list.progress")}</Typography>
                 <Typography variant="body2">{selected.progress != null ? `${Math.round(selected.progress)}%` : "—"}</Typography>
               </Box>
               <Stack direction="row" spacing={2}>
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Started</Typography>
+                  <Typography variant="caption" color="text.secondary">{t("jobs.list.started")}</Typography>
                   <Typography variant="body2">{_formatRelative(selected.started_at)}</Typography>
                 </Box>
                 {selected.finished_at && (
                   <Box>
-                    <Typography variant="caption" color="text.secondary">Finished</Typography>
+                    <Typography variant="caption" color="text.secondary">{t("jobs.list.finished")}</Typography>
                     <Typography variant="body2">{_formatRelative(selected.finished_at)}</Typography>
                   </Box>
                 )}
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Duration</Typography>
+                  <Typography variant="caption" color="text.secondary">{t("jobs.list.duration")}</Typography>
                   <Typography variant="body2">{_formatDuration(selected.duration_s)}</Typography>
                 </Box>
               </Stack>
               {selected.error_message && (
                 <Box>
-                  <Typography variant="caption" color="error.main">Error</Typography>
+                  <Typography variant="caption" color="error.main">{t("jobs.detail.error")}</Typography>
                   <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>{selected.error_message}</Typography>
                 </Box>
               )}
               {selected.metadata && Object.keys(selected.metadata).length > 0 && (
                 <Box>
-                  <Typography variant="caption" color="text.secondary">Metadata</Typography>
+                  <Typography variant="caption" color="text.secondary">{t("jobs.detail.metadata")}</Typography>
                   <Box
                     component="pre"
                     sx={{
@@ -542,7 +560,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
                   fullWidth
                   onClick={() => handleCancelJob(selected)}
                 >
-                  Cancel job
+                  {t("jobs.list.cancelJob")}
                 </Button>
               )}
               {/* Resume/retry for pending or failed indexing-related jobs */}
@@ -553,7 +571,7 @@ const JobsList = ({ title: _title, subtitle: _subtitle, kinds }) => {
                   fullWidth
                   onClick={handleResumeIndexing}
                 >
-                  Resume / Re-index
+                  {t("jobs.list.resumeReindex")}
                 </Button>
               )}
             </Stack>

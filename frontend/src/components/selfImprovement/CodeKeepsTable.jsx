@@ -14,13 +14,14 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import { translate, uiLocale, useUiTranslation } from "../../i18n";
 
 /** A server time as a local date; a time without a zone is UTC. */
 export const formatServerTime = (iso) => {
   if (!iso) return "—";
   try {
     const text = String(iso);
-    return new Date(/[zZ]|[+-]\d\d:\d\d$/.test(text) ? text : `${text}Z`).toLocaleString();
+    return new Date(/[zZ]|[+-]\d\d:\d\d$/.test(text) ? text : `${text}Z`).toLocaleString(uiLocale());
   } catch {
     return iso;
   }
@@ -28,7 +29,18 @@ export const formatServerTime = (iso) => {
 
 const formatDate = formatServerTime;
 
+// A pending fix's status as shown; the stored value stays the one compared.
+const fixStatusLabel = (status) =>
+  ({
+    proposed: translate("selfImprovement.fixStatus.proposed"),
+    triaged: translate("selfImprovement.fixStatus.triaged"),
+    approved: translate("selfImprovement.fixStatus.approved"),
+    applied: translate("selfImprovement.fixStatus.applied"),
+    rejected: translate("selfImprovement.fixStatus.rejected"),
+  })[status] ?? status;
+
 export default function CodeKeepsTable({ keeps, onDecide }) {
+  const { t } = useUiTranslation();
   if (!keeps || keeps.length === 0) return null;
   return (
     <Paper
@@ -36,20 +48,19 @@ export default function CodeKeepsTable({ keeps, onDecide }) {
       sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
     >
       <Typography variant="h6" sx={{ mb: 1 }}>
-        Code keeps
+        {t("selfImprovement.codeKeeps.title")}
       </Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-        Swarm arms that passed preserve-and-extend. Approve here, then apply
-        from Settings — nothing auto-merges to main.
+        {t("selfImprovement.codeKeeps.intro")}
       </Typography>
       <TableContainer>
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Description</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Created</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>{t("selfImprovement.codeKeeps.description")}</TableCell>
+              <TableCell>{t("selfImprovement.codeKeeps.status")}</TableCell>
+              <TableCell>{t("selfImprovement.codeKeeps.created")}</TableCell>
+              <TableCell align="right">{t("selfImprovement.codeKeeps.actions")}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -57,17 +68,17 @@ export default function CodeKeepsTable({ keeps, onDecide }) {
               <TableRow key={fix.id}>
                 <TableCell>{fix.fix_description}</TableCell>
                 <TableCell>
-                  <Chip label={fix.status} size="small" sx={{ height: 20, fontSize: "0.7rem" }} />
+                  <Chip label={fixStatusLabel(fix.status)} size="small" sx={{ height: 20, fontSize: "0.7rem" }} />
                 </TableCell>
                 <TableCell>{formatDate(fix.created_at)}</TableCell>
                 <TableCell align="right">
                   {fix.status === "proposed" && (
                     <>
                       <Button size="small" onClick={() => onDecide(fix.id, "approve")}>
-                        Approve
+                        {t("selfImprovement.codeKeeps.approve")}
                       </Button>
                       <Button size="small" color="warning" onClick={() => onDecide(fix.id, "reject")}>
-                        Reject
+                        {t("selfImprovement.codeKeeps.reject")}
                       </Button>
                     </>
                   )}

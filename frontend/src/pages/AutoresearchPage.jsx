@@ -57,6 +57,7 @@ import {
   judgeWarning,
   runOutcome,
 } from "../utils/autoresearchLabels";
+import { translate, useUiTranslation } from "../i18n";
 
 const RUN_STATUS_COLORS = {
   running: "success",
@@ -67,33 +68,50 @@ const RUN_STATUS_COLORS = {
   killed: "error",
 };
 
+// A run's status as shown; the value from the API stays the one compared.
+const runStatusLabel = (status) =>
+  ({
+    running: translate("autoresearch.runStatus.running"),
+    pending: translate("autoresearch.runStatus.pending"),
+    completed: translate("autoresearch.runStatus.completed"),
+    halted: translate("autoresearch.runStatus.halted"),
+    failed_precondition: translate("autoresearch.runStatus.failed_precondition"),
+    killed: translate("autoresearch.runStatus.killed"),
+  })[status] ?? status;
+
 const formatScore = (v) =>
   typeof v === "number" ? v.toFixed(3) : "—";
 
 const AUTO_START_ID = "autoresearch-auto-start";
 
-const SETTING_FIELDS = [
+// A function, so the labels are worded in the interface language at render.
+// `name` is the label as it reads inside a sentence ("Failed to save judge model: …").
+const settingFields = () => [
   {
     key: "autoresearch_proposer_model",
-    label: "Proposer model",
-    placeholder: "(active model)",
+    label: translate("autoresearch.settings.proposerModel"),
+    name: translate("autoresearch.settings.proposerModelName"),
+    placeholder: translate("autoresearch.settings.activeModelPlaceholder"),
     width: 200,
   },
   {
     key: "autoresearch_judge_model",
-    label: "Judge model",
-    placeholder: "(active model)",
+    label: translate("autoresearch.settings.judgeModel"),
+    name: translate("autoresearch.settings.judgeModelName"),
+    placeholder: translate("autoresearch.settings.activeModelPlaceholder"),
     width: 200,
   },
   {
     key: "autoresearch_nightly_window",
-    label: "Nightly window",
+    label: translate("autoresearch.settings.nightlyWindow"),
+    name: translate("autoresearch.settings.nightlyWindowName"),
     placeholder: "01:00-06:00",
     width: 170,
   },
 ];
 
 const ScoreSparkline = ({ points }) => {
+  const { t } = useUiTranslation();
   const vals = (points || []).filter((v) => typeof v === "number");
   if (vals.length < 2) return null;
   const w = 160;
@@ -109,13 +127,14 @@ const ScoreSparkline = ({ points }) => {
     })
     .join(" ");
   return (
-    <svg width={w} height={h} aria-label="score sparkline">
+    <svg width={w} height={h} aria-label={t("autoresearch.sparkline")}>
       <path d={d} fill="none" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 };
 
 const AutoresearchPage = () => {
+  const { t } = useUiTranslation();
   const [runs, setRuns] = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [metrics, setMetrics] = useState([]);
@@ -266,11 +285,11 @@ const AutoresearchPage = () => {
     setStopping(true);
     try {
       await ragAutoresearchService.stop();
-      showMessage("Stop requested — the run will halt at the next check", "info");
+      showMessage(t("autoresearch.run.stopRequested"), "info");
       fetchStatus();
       fetchRuns();
     } catch (e) {
-      showMessage(`Failed to stop: ${e.message}`, "error");
+      showMessage(t("autoresearch.run.stopFailed", { error: e.message }), "error");
     } finally {
       setStopping(false);
     }
@@ -310,7 +329,7 @@ const AutoresearchPage = () => {
           delete rest[key];
           return rest;
         });
-        showMessage(`Failed to save ${label}: ${e.message}`, "error");
+        showMessage(t("autoresearch.settings.saveFailed", { setting: label, error: e.message }), "error");
         return false;
       }
     },
@@ -342,11 +361,7 @@ const AutoresearchPage = () => {
   const handleSettingFieldChange = (key, value) =>
     setSettingDrafts((d) => ({ ...d, [key]: value }));
 
-  const RESET_CONFIRM =
-    "Reset autoresearch to defaults?\n\n" +
-    "This discards the tuned retrieval parameters, the baseline score and phase progress " +
-    "learned by previous nightly runs, and clears the proposer, judge, window and auto-start settings.\n\n" +
-    "Past experiment records are kept. This cannot be undone.";
+  const RESET_CONFIRM = t("autoresearch.settings.resetConfirm");
 
   const handleResetToDefaults = async () => {
     if (!window.confirm(RESET_CONFIRM)) return;
@@ -356,11 +371,11 @@ const AutoresearchPage = () => {
       setSettingDrafts({});
       await fetchAll();
       showMessage(
-        "Autoresearch reset: tuned parameters, baseline and settings are back to defaults",
+        t("autoresearch.settings.resetDone"),
         "success",
       );
     } catch (e) {
-      showMessage(`Failed to reset autoresearch: ${e.message}`, "error");
+      showMessage(t("autoresearch.settings.resetFailed", { error: e.message }), "error");
     } finally {
       setResettingConfig(false);
     }
@@ -370,10 +385,10 @@ const AutoresearchPage = () => {
     setRegenerating(true);
     try {
       const data = await ragAutoresearchService.regenerateEvalPairs();
-      showMessage(`Regenerated ${data.count ?? 0} eval pairs`, "success");
+      showMessage(t("autoresearch.evalPairs.regenerated", { count: data.count ?? 0 }), "success");
       fetchStatus();
     } catch (e) {
-      showMessage(`Failed to regenerate eval pairs: ${e.message}`, "error");
+      showMessage(t("autoresearch.evalPairs.regenerateFailed", { error: e.message }), "error");
     } finally {
       setRegenerating(false);
     }
@@ -389,24 +404,24 @@ const AutoresearchPage = () => {
       const warnings = result?.warnings || [];
       if (warnings.length) {
         showMessage(
-          `Research run started. Warning: ${describeReasons(warnings.join("; "))}`,
+          t("autoresearch.run.startedWithWarning", { warning: describeReasons(warnings.join("; ")) }),
           "warning",
         );
       } else {
-        showMessage("Research run started", "success");
+        showMessage(t("autoresearch.run.started"), "success");
       }
       fetchRuns();
       fetchStatus();
     } catch (e) {
       if (e.status === 422) {
         // Refused before anything was queued; the run row records why.
-        showMessage(`Not run: ${describeReasons(e.message)}`, "warning");
+        showMessage(t("autoresearch.run.notRun", { reason: describeReasons(e.message) }), "warning");
         fetchRuns();
         fetchStatus();
       } else if (e.status === 409) {
-        showMessage("A research run is already in progress", "warning");
+        showMessage(t("autoresearch.run.alreadyRunning"), "warning");
       } else {
-        showMessage(`Failed to start research run: ${e.message}`, "error");
+        showMessage(t("autoresearch.run.startFailed", { error: e.message }), "error");
       }
     } finally {
       setStarting(false);
@@ -421,8 +436,8 @@ const AutoresearchPage = () => {
   };
 
   const runMenuActions = (run) => [
-    { label: "View report", onClick: () => handleSelectRun(run.id) },
-    { label: "Download ledger (TSV)", onClick: () => downloadLedger(run) },
+    { label: t("autoresearch.runs.viewReport"), onClick: () => handleSelectRun(run.id) },
+    { label: t("autoresearch.runs.downloadLedger"), onClick: () => downloadLedger(run) },
   ];
 
   const handleSelectRun = async (runId) => {
@@ -431,7 +446,7 @@ const AutoresearchPage = () => {
       const run = await ragAutoresearchService.getRun(runId);
       setSelectedRun(run);
     } catch (e) {
-      showMessage(`Failed to load run: ${e.message}`, "error");
+      showMessage(t("autoresearch.runs.loadFailed", { error: e.message }), "error");
     } finally {
       setRunDetailLoading(false);
     }
@@ -440,10 +455,10 @@ const AutoresearchPage = () => {
   const handleActivatePromotion = async (configId) => {
     try {
       await ragAutoresearchService.activatePromotion(configId);
-      showMessage("Config activated", "success");
+      showMessage(t("autoresearch.promotions.activated"), "success");
       fetchPromotions();
     } catch (e) {
-      showMessage(`Failed to activate: ${e.message}`, "error");
+      showMessage(t("autoresearch.promotions.activateFailed", { error: e.message }), "error");
     }
   };
 
@@ -451,14 +466,19 @@ const AutoresearchPage = () => {
     try {
       if (action === "approve") {
         await selfImprovementService.approveFix(fixId);
-        showMessage("Code keep approved. Apply it from Self-improvement › Pending fixes.", "success");
+        showMessage(t("autoresearch.codeKeepApproved"), "success");
       } else {
         await selfImprovementService.rejectFix(fixId);
-        showMessage("Code keep rejected", "info");
+        showMessage(t("selfImprovement.codeKeeps.rejected"), "info");
       }
       fetchStatus();
     } catch (e) {
-      showMessage(`Failed to ${action} code keep: ${e.message}`, "error");
+      showMessage(
+        action === "approve"
+          ? t("selfImprovement.codeKeeps.approveFailed", { error: e.message })
+          : t("selfImprovement.codeKeeps.rejectFailed", { error: e.message }),
+        "error",
+      );
     }
   };
 
@@ -467,19 +487,19 @@ const AutoresearchPage = () => {
     try {
       const result = await ragAutoresearchService.revertPromotion();
       if (result.status === "nothing_active") {
-        showMessage("No active config to revert", "info");
+        showMessage(t("autoresearch.promotions.nothingToRevert"), "info");
       } else {
-        showMessage("Reverted to previous config", "success");
+        showMessage(t("autoresearch.promotions.reverted"), "success");
       }
       fetchPromotions();
     } catch (e) {
-      showMessage(`Failed to revert: ${e.message}`, "error");
+      showMessage(t("autoresearch.promotions.revertFailed", { error: e.message }), "error");
     }
   };
 
   return (
     <PageLayout
-      title="Autoresearch"
+      title={t("autoresearch.title")}
       variant="standard"
       actions={
         <Button
@@ -488,7 +508,7 @@ const AutoresearchPage = () => {
           onClick={fetchAll}
           disabled={loading}
         >
-          Refresh
+          {t("common.refresh")}
         </Button>
       }
     >
@@ -507,17 +527,16 @@ const AutoresearchPage = () => {
         >
           <NightIcon color="primary" />
           <Box sx={{ flex: 1, minWidth: 200 }}>
-            <Typography variant="subtitle1">Overnight research run</Typography>
+            <Typography variant="subtitle1">{t("autoresearch.run.title")}</Typography>
             <Typography variant="caption" color="text.secondary">
-              Runs a bounded experiment loop against the current RAG config and
-              writes a report when it finishes.
+              {t("autoresearch.run.intro")}
             </Typography>
           </Box>
           <Box sx={{ display: "flex", gap: 0.5 }}>
             {[
-              { id: "unified", label: "Unified" },
-              { id: "rag_tuning", label: "Retrieval" },
-              { id: "code_tuning", label: "Code" },
+              { id: "unified", label: t("autoresearch.run.modeUnified") },
+              { id: "rag_tuning", label: t("autoresearch.run.modeRetrieval") },
+              { id: "code_tuning", label: t("autoresearch.run.modeCode") },
             ].map((m) => (
               <Button
                 key={m.id}
@@ -531,7 +550,7 @@ const AutoresearchPage = () => {
             ))}
           </Box>
           <TextField
-            label="Budget (hours)"
+            label={t("autoresearch.run.budget")}
             type="number"
             size="small"
             value={budgetHours}
@@ -547,7 +566,7 @@ const AutoresearchPage = () => {
             onClick={handleResearchTonight}
             disabled={starting || Boolean(activeRun)}
           >
-            Research Tonight
+            {t("autoresearch.run.researchTonight")}
           </Button>
           <Button
             variant="outlined"
@@ -558,7 +577,7 @@ const AutoresearchPage = () => {
             onClick={handleStop}
             disabled={stopping || !activeRun}
           >
-            Stop
+            {t("autoresearch.run.stop")}
           </Button>
         </Box>
         <Box
@@ -571,7 +590,7 @@ const AutoresearchPage = () => {
           }}
         >
           <Typography variant="body2" color="text.secondary">
-            Eval pairs: {evalPairsText(status)}
+            {t("autoresearch.evalPairs.summary", { pairs: evalPairsText(status) })}
           </Typography>
           <Button
             size="small"
@@ -579,20 +598,22 @@ const AutoresearchPage = () => {
             onClick={handleRegeneratePairs}
             disabled={regenerating || Boolean(activeRun)}
           >
-            {regenerating ? "Regenerating…" : "Regenerate eval pairs"}
+            {regenerating ? t("autoresearch.evalPairs.regenerating") : t("autoresearch.evalPairs.regenerate")}
           </Button>
         </Box>
         {activeRun && (
           <Box sx={{ mt: 2 }}>
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
               <Chip
-                label={activeRun.status}
+                label={runStatusLabel(activeRun.status)}
                 size="small"
                 color={RUN_STATUS_COLORS[activeRun.status] || "default"}
               />
               <Typography variant="body2">
-                {activeRun.run_tag} — {activeRun.experiments_completed ?? 0}{" "}
-                experiments completed
+                {t("autoresearch.run.progress", {
+                  tag: activeRun.run_tag,
+                  count: activeRun.experiments_completed ?? 0,
+                })}
                 {status?.current_parameter
                   ? ` · ${status.current_parameter}`
                   : ""}
@@ -635,7 +656,7 @@ const AutoresearchPage = () => {
             />
             {typeof status?.active_run?.budget_remaining_s === "number" && (
               <Typography variant="caption" color="text.secondary">
-                {Math.ceil(status.active_run.budget_remaining_s / 60)} min remaining
+                {t("autoresearch.run.minutesRemaining", { minutes: Math.ceil(status.active_run.budget_remaining_s / 60) })}
               </Typography>
             )}
           </Box>
@@ -648,16 +669,14 @@ const AutoresearchPage = () => {
         sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
       >
         <Typography variant="h6" sx={{ mb: 1 }}>
-          Settings
+          {t("autoresearch.settings.title")}
         </Typography>
         <Typography
           variant="caption"
           color="text.secondary"
           sx={{ display: "block", mb: 2 }}
         >
-          Auto-start hands the nightly window to Beat, which starts at most one
-          run per night. Leave a model blank to use the active chat model. Each
-          field saves when you leave it or press Enter.
+          {t("autoresearch.settings.intro")}
         </Typography>
 
         <Box
@@ -678,19 +697,19 @@ const AutoresearchPage = () => {
             }}
           >
             <Typography variant="body2" component="label" htmlFor={AUTO_START_ID}>
-              Auto-start in nightly window
+              {t("autoresearch.settings.autoStart")}
             </Typography>
             <Switch
               size="small"
               id={AUTO_START_ID}
-              inputProps={{ "aria-label": "Auto-start in nightly window" }}
+              inputProps={{ "aria-label": t("autoresearch.settings.autoStart") }}
               checked={settings.rag_autoresearch_auto_enabled === "true"}
               disabled={resettingConfig}
               onChange={(e) =>
                 saveSetting(
                   "rag_autoresearch_auto_enabled",
                   e.target.checked,
-                  "auto-start",
+                  t("autoresearch.settings.autoStartName"),
                 )
               }
             />
@@ -704,12 +723,12 @@ const AutoresearchPage = () => {
                 }}
               >
                 <SavedIcon sx={{ fontSize: 16 }} />
-                <Typography variant="caption">Saved</Typography>
+                <Typography variant="caption">{t("autoresearch.settings.saved")}</Typography>
               </Box>
             )}
           </Box>
 
-          {SETTING_FIELDS.map((f) => {
+          {settingFields().map((f) => {
             const warning =
               f.key === "autoresearch_judge_model" ? judgeWarning(status?.judge) : null;
             return (
@@ -721,14 +740,14 @@ const AutoresearchPage = () => {
                 value={settingFieldValue(f.key)}
                 disabled={resettingConfig}
                 onChange={(e) => handleSettingFieldChange(f.key, e.target.value)}
-                onBlur={() => commitSettingField(f.key, f.label.toLowerCase())}
+                onBlur={() => commitSettingField(f.key, f.name)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     e.target.blur();
                   }
                 }}
-                helperText={savedKeys[f.key] ? "Saved" : warning || " "}
+                helperText={savedKeys[f.key] ? t("autoresearch.settings.saved") : warning || " "}
                 FormHelperTextProps={{
                   sx: {
                     color: savedKeys[f.key]
@@ -757,8 +776,7 @@ const AutoresearchPage = () => {
           }}
         >
           <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
-            Clears the tuned parameters, baseline and phase progress along with
-            these settings. Past experiment records are kept.
+            {t("autoresearch.settings.resetNote")}
           </Typography>
           <Button
             variant="outlined"
@@ -784,7 +802,7 @@ const AutoresearchPage = () => {
               },
             })}
           >
-            Reset to Defaults
+            {t("autoresearch.settings.reset")}
           </Button>
         </Box>
       </Paper>
@@ -798,26 +816,26 @@ const AutoresearchPage = () => {
         sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
       >
         <Typography variant="h6" sx={{ mb: 1 }}>
-          Runs
+          {t("autoresearch.runs.title")}
         </Typography>
         {runs.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No research runs yet.
+            {t("autoresearch.runs.empty")}
           </Typography>
         ) : (
           <TableContainer sx={{ maxHeight: 320 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>Run</TableCell>
-                  <TableCell>Mode</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Started</TableCell>
-                  <TableCell>Ended</TableCell>
-                  <TableCell align="right">Experiments</TableCell>
-                  <TableCell align="right">Baseline → latest (best)</TableCell>
-                  <TableCell>Halt reason</TableCell>
-                  <TableCell align="right">Ledger</TableCell>
+                  <TableCell>{t("autoresearch.runs.run")}</TableCell>
+                  <TableCell>{t("autoresearch.runs.mode")}</TableCell>
+                  <TableCell>{t("autoresearch.runs.status")}</TableCell>
+                  <TableCell>{t("autoresearch.runs.started")}</TableCell>
+                  <TableCell>{t("autoresearch.runs.ended")}</TableCell>
+                  <TableCell align="right">{t("autoresearch.runs.experiments")}</TableCell>
+                  <TableCell align="right">{t("autoresearch.runs.scores")}</TableCell>
+                  <TableCell>{t("autoresearch.runs.haltReason")}</TableCell>
+                  <TableCell align="right">{t("autoresearch.runs.ledger")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -836,7 +854,7 @@ const AutoresearchPage = () => {
                     <TableCell>{run.mode}</TableCell>
                     <TableCell>
                       <Chip
-                        label={run.status}
+                        label={runStatusLabel(run.status)}
                         size="small"
                         color={RUN_STATUS_COLORS[run.status] || "default"}
                         sx={{ height: 20, fontSize: "0.7rem" }}
@@ -862,7 +880,7 @@ const AutoresearchPage = () => {
                     </TableCell>
                     <TableCell>{run.halt_reason || "—"}</TableCell>
                     <TableCell align="right">
-                      <Tooltip title="Download experiment ledger (TSV)">
+                      <Tooltip title={t("autoresearch.runs.ledgerTooltip")}>
                         <Button
                           size="small"
                           component="a"
@@ -893,7 +911,7 @@ const AutoresearchPage = () => {
         {selectedRun && !runDetailLoading && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Report — {selectedRun.run_tag}
+              {t("autoresearch.runs.reportHeading", { tag: selectedRun.run_tag })}
             </Typography>
             {selectedRun.report_md ? (
               <Box
@@ -929,7 +947,7 @@ const AutoresearchPage = () => {
               </Box>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                No report yet — the run writes its report when it finishes.
+                {t("autoresearch.runs.noReport")}
               </Typography>
             )}
           </Box>
@@ -949,32 +967,32 @@ const AutoresearchPage = () => {
             mb: 1,
           }}
         >
-          <Typography variant="h6">Promotions</Typography>
+          <Typography variant="h6">{t("autoresearch.promotions.title")}</Typography>
           <Button
             size="small"
             color="warning"
             startIcon={<RevertIcon />}
             onClick={() => setRevertConfirmOpen(true)}
           >
-            Revert to previous
+            {t("autoresearch.promotions.revert")}
           </Button>
         </Box>
         {promotions.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No promoted configs yet.
+            {t("autoresearch.promotions.empty")}
           </Typography>
         ) : (
           <TableContainer sx={{ maxHeight: 320 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Active</TableCell>
-                  <TableCell align="right">Score</TableCell>
-                  <TableCell>Params</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t("autoresearch.promotions.created")}</TableCell>
+                  <TableCell>{t("autoresearch.promotions.source")}</TableCell>
+                  <TableCell>{t("autoresearch.promotions.status")}</TableCell>
+                  <TableCell>{t("autoresearch.promotions.active")}</TableCell>
+                  <TableCell align="right">{t("autoresearch.promotions.score")}</TableCell>
+                  <TableCell>{t("autoresearch.promotions.params")}</TableCell>
+                  <TableCell align="right">{t("autoresearch.promotions.actions")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -984,7 +1002,7 @@ const AutoresearchPage = () => {
                     <TableCell>{p.source || "—"}</TableCell>
                     <TableCell>
                       <Chip
-                        label={p.status || "—"}
+                        label={p.status === "promoted" ? t("autoresearch.promotions.promoted") : p.status || "—"}
                         size="small"
                         color={p.status === "promoted" ? "primary" : "default"}
                         sx={{ height: 20, fontSize: "0.7rem" }}
@@ -993,7 +1011,7 @@ const AutoresearchPage = () => {
                     <TableCell>
                       {p.is_active && (
                         <Chip
-                          label="active"
+                          label={t("autoresearch.promotions.activeChip")}
                           size="small"
                           color="success"
                           sx={{ height: 20, fontSize: "0.7rem" }}
@@ -1030,7 +1048,7 @@ const AutoresearchPage = () => {
                           startIcon={<ActivateIcon sx={{ fontSize: 14 }} />}
                           onClick={() => handleActivatePromotion(p.id)}
                         >
-                          Activate
+                          {t("autoresearch.promotions.activate")}
                         </Button>
                       )}
                     </TableCell>
@@ -1048,25 +1066,25 @@ const AutoresearchPage = () => {
         sx={{ p: 2, mb: 3, border: 1, borderColor: "divider" }}
       >
         <Typography variant="h6" sx={{ mb: 1 }}>
-          Experiments
+          {t("autoresearch.experiments.title")}
         </Typography>
         {metrics.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            No experiments recorded yet.
+            {t("autoresearch.experiments.empty")}
           </Typography>
         ) : (
           <TableContainer sx={{ maxHeight: 400 }}>
             <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
-                  <TableCell>Created</TableCell>
-                  <TableCell>Parameter</TableCell>
-                  <TableCell>New value</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Delta</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>Judge</TableCell>
-                  <TableCell align="right">Hit rate</TableCell>
+                  <TableCell>{t("autoresearch.experiments.created")}</TableCell>
+                  <TableCell>{t("autoresearch.experiments.parameter")}</TableCell>
+                  <TableCell>{t("autoresearch.experiments.newValue")}</TableCell>
+                  <TableCell>{t("autoresearch.experiments.status")}</TableCell>
+                  <TableCell align="right">{t("autoresearch.experiments.delta")}</TableCell>
+                  <TableCell>{t("autoresearch.experiments.source")}</TableCell>
+                  <TableCell>{t("autoresearch.experiments.judge")}</TableCell>
+                  <TableCell align="right">{t("autoresearch.experiments.hitRate")}</TableCell>
                   <TableCell align="right">MRR</TableCell>
                   <TableCell align="right">nDCG</TableCell>
                 </TableRow>
@@ -1102,7 +1120,7 @@ const AutoresearchPage = () => {
                         <Tooltip
                           title={
                             label.selfReported
-                              ? "Posted by a code-tuning arm; not measured by the eval harness"
+                              ? t("autoresearch.experiments.selfReported")
                               : ""
                           }
                         >
@@ -1150,18 +1168,16 @@ const AutoresearchPage = () => {
         open={revertConfirmOpen}
         onClose={() => setRevertConfirmOpen(false)}
       >
-        <DialogTitle>Revert to previous config?</DialogTitle>
+        <DialogTitle>{t("autoresearch.revertDialog.title")}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This deactivates the currently active RAG config and re-activates
-            the previously promoted one. With no predecessor, retrieval falls
-            back to the legacy defaults.
+            {t("autoresearch.revertDialog.body")}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRevertConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setRevertConfirmOpen(false)}>{t("common.cancel")}</Button>
           <Button color="warning" variant="contained" onClick={handleRevert}>
-            Revert
+            {t("autoresearch.revertDialog.confirm")}
           </Button>
         </DialogActions>
       </Dialog>

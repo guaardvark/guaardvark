@@ -7,8 +7,11 @@ import FixesModal from "../settings/FixesModal";
 import ScanProgressModal from "../settings/ScanProgressModal";
 import { ActionButton, Cluster, Hint, Line, Sep, SettingChip, StatusPill } from "../settings/ui";
 import { selfImprovementService } from "../../api/selfImprovementService";
+import { uiLocale, useUiTranslation } from "../../i18n";
+import { runStatusLabel } from "./SelfImprovementRuns";
 
 export default function SelfImprovementControls() {
+  const { t } = useUiTranslation();
   const [siStatus, setSiStatus] = useState(null);
   const [waitingFixes, setWaitingFixes] = useState(null);
   const [scanOpen, setScanOpen] = useState(false);
@@ -76,23 +79,23 @@ export default function SelfImprovementControls() {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>
       <Cluster
-        label="Self-improvement"
-        help="Guaardvark checks its own code and proposes fixes for you to review. Codebase locked blocks every automatic edit."
+        label={t("selfImprovement.controls.title")}
+        help={t("selfImprovement.controls.help")}
       >
         <Line>
           <SettingChip
-            label="Self-improvement"
+            label={t("selfImprovement.controls.enabledChip")}
             on={!!siStatus?.enabled}
             onToggle={handleToggleSelfImprovement}
             disabled={!siStatus}
-            tooltip="Lets the mentor scan the codebase and propose fixes for review."
+            tooltip={t("selfImprovement.controls.enabledTooltip")}
           />
           <SettingChip
-            label="Codebase locked"
+            label={t("selfImprovement.controls.lockedChip")}
             on={!!siStatus?.codebase_locked}
             onToggle={handleToggleCodebaseLock}
             disabled={!siStatus}
-            tooltip={siStatus?.codebase_locked ? "Autonomous edits are blocked. Turn off to allow them." : "Turn on to block every autonomous edit to the source tree."}
+            tooltip={siStatus?.codebase_locked ? t("selfImprovement.controls.lockedOnTooltip") : t("selfImprovement.controls.lockedOffTooltip")}
           />
           <Sep />
           <ActionButton
@@ -102,42 +105,46 @@ export default function SelfImprovementControls() {
             startIcon={<PlayIcon />}
             tooltip={
               !siStatus?.enabled
-                ? "Turn on self-improvement first"
+                ? t("selfImprovement.controls.turnOnFirst")
                 : siStatus?.codebase_locked
-                  ? "Unlock the codebase first"
-                  : "Runs the checks now. Cancel asks the server to stop; closing the view leaves the scan running."
+                  ? t("selfImprovement.controls.unlockFirst")
+                  : t("selfImprovement.controls.runTooltip")
             }
           >
-            Run self-check
+            {t("selfImprovement.controls.runSelfCheck")}
           </ActionButton>
         </Line>
         <Hint>
           {siStatus?.last_run
-            ? `Last run ${new Date(siStatus.last_run.timestamp).toLocaleString()} (${siStatus.last_run.status}) · ${runs} successful run${runs === 1 ? "" : "s"}.`
+            ? t("selfImprovement.controls.lastRun", {
+                date: new Date(siStatus.last_run.timestamp).toLocaleString(uiLocale()),
+                status: runStatusLabel(siStatus.last_run.status),
+                count: runs,
+              })
             : siStatus
-              ? "No runs yet."
-              : "Reading the status…"}
-          {siStatus?.codebase_locked ? " Codebase is locked: autonomous edits are blocked." : ""}
+              ? t("selfImprovement.controls.noRuns")
+              : t("selfImprovement.controls.readingStatus")}
+          {siStatus?.codebase_locked ? ` ${t("selfImprovement.controls.lockedNote")}` : ""}
         </Hint>
         {scanCancelled && (
-          <StatusPill tone="neutral" label="Cancelled" />
+          <StatusPill tone="neutral" label={t("selfImprovement.controls.cancelled")} />
         )}
         {scanInBackground && !scanCancelled && (
-          <StatusPill tone="info" label="Scan continues in the background" />
+          <StatusPill tone="info" label={t("selfImprovement.controls.scanInBackground")} />
         )}
       </Cluster>
 
       <Cluster
-        label="Pending fixes"
-        help="Fixes the self-check proposed, waiting for you to review or apply. Nothing reaches the code until you approve and apply it."
+        label={t("selfImprovement.controls.pendingFixes")}
+        help={t("selfImprovement.controls.pendingFixesHelp")}
       >
         <Line>
           <StatusPill
             tone={waitingFixes ? "warn" : "neutral"}
-            label={waitingFixes == null ? "…" : `${waitingFixes} waiting`}
+            label={waitingFixes == null ? "…" : t("selfImprovement.controls.waiting", { count: waitingFixes })}
           />
           <ActionButton onClick={() => setFixesOpen(true)}>
-            Review fixes
+            {t("selfImprovement.controls.reviewFixes")}
           </ActionButton>
         </Line>
       </Cluster>

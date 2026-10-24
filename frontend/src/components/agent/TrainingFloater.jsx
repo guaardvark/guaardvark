@@ -34,6 +34,7 @@ import {
   armDisplayIdle,
   cancelDisplayIdle,
 } from '../../api/agentDisplayService';
+import { translate, useUiTranslation } from '../../i18n';
 
 const API_BASE = '/api/agent-control/learn';
 const STORAGE_KEY = 'guaardvark_training_floater_state';
@@ -51,6 +52,14 @@ const STATE_COLORS = {
   attempting: 'info.main',
 };
 
+// An autonomy level as shown; the value from the API stays the one compared.
+const levelLabel = (level) =>
+  ({
+    guided: translate('agents.trainer.level.guided'),
+    supervised: translate('agents.trainer.level.supervised'),
+    autonomous: translate('agents.trainer.level.autonomous'),
+  })[level] ?? level;
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -67,6 +76,7 @@ function saveState(state) {
 }
 
 export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
+  const { t } = useUiTranslation();
   const navigate = useNavigate();
   const kbdForwarding = useAppStore((s) => s.keyboardForwardingEnabled);
   const toggleKbdForwarding = useAppStore((s) => s.toggleKeyboardForwarding);
@@ -389,7 +399,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {demonstrations.length === 0 ? (
         <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 3, px: 1 }}>
-          No demonstrations yet. Connect to VNC and click Start Recording.
+          {t('agents.trainer.noDemos')}
         </Typography>
       ) : (
         <Box sx={{ flex: 1, overflowY: 'auto', maxHeight: 220 }}>
@@ -409,22 +419,22 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
             >
               <Box sx={{ flex: 1, minWidth: 0, mr: 1 }}>
                 <Typography variant="body2" noWrap sx={{ fontSize: '0.8rem' }}>
-                  {demo.name || demo.description?.slice(0, 30) || 'Untitled'}
+                  {demo.name || demo.description?.slice(0, 30) || t('agents.trainer.untitled')}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mt: 0.25 }}>
                   <Chip
-                    label={demo.autonomy_level}
+                    label={levelLabel(demo.autonomy_level)}
                     size="small"
                     color={levelColor(demo.autonomy_level)}
                     sx={{ height: 18, fontSize: '0.65rem' }}
                   />
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
-                    {demo.attempt_count} attempts
+                    {t('agents.trainer.attempts', { count: demo.attempt_count })}
                   </Typography>
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', gap: 0.25, alignItems: 'center' }}>
-                <Tooltip title="Delete demo">
+                <Tooltip title={t('agents.trainer.deleteDemo')}>
                   <span>
                     <IconButton
                       size="small"
@@ -436,7 +446,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
                     </IconButton>
                   </span>
                 </Tooltip>
-                <Tooltip title="Save & edit in Training page">
+                <Tooltip title={t('agents.trainer.saveDemo')}>
                   <IconButton
                     size="small"
                     onClick={(e) => handleSaveDemo(demo, e)}
@@ -445,7 +455,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
                     <BookmarkBorderIcon sx={{ fontSize: 16, color: 'info.main' }} />
                   </IconButton>
                 </Tooltip>
-                <Tooltip title="Agent attempts this demo">
+                <Tooltip title={t('agents.trainer.attemptDemo')}>
                   <span>
                     <IconButton
                       size="small"
@@ -468,7 +478,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
           <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
             <TextField
               size="small"
-              placeholder="Demo name (optional)"
+              placeholder={t('agents.trainer.demoName')}
               value={demoName}
               onChange={(e) => setDemoName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleStartRecording()}
@@ -479,7 +489,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
         )}
         <Box sx={{ display: 'flex', gap: 1 }}>
           {!showNameInput && (
-            <Tooltip title="Name this demo">
+            <Tooltip title={t('agents.trainer.nameDemo')}>
               <IconButton size="small" onClick={() => setShowNameInput(true)} sx={{ p: 0.5 }}>
                 <EditIcon sx={{ fontSize: 16 }} />
               </IconButton>
@@ -495,7 +505,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
             disabled={loading}
             sx={{ fontSize: '0.75rem', py: 0.5 }}
           >
-            Start Recording
+            {t('agents.trainer.startRecording')}
           </Button>
         </Box>
       </Box>
@@ -516,10 +526,10 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
         }}
       />
       <Typography variant="body1" sx={{ mt: 1, fontWeight: 600 }}>
-        Recording...
+        {t('agents.trainer.recording')}
       </Typography>
       <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
-        {stepsRecorded} steps captured
+        {t('agents.trainer.stepsCaptured', { count: stepsRecorded })}
       </Typography>
       <Button
         variant="outlined"
@@ -530,7 +540,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
         disabled={loading}
         sx={{ mt: 3, fontSize: '0.75rem' }}
       >
-        Stop Recording
+        {t('agents.trainer.stopRecording')}
       </Button>
     </Box>
   );
@@ -541,18 +551,22 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4 }}>
           <CircularProgress size={20} sx={{ mr: 1 }} />
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-            Waiting for questions...
+            {t('agents.trainer.waitingForQuestions')}
           </Typography>
         </Box>
       );
     }
 
-    const typeLabel = { A: 'Clarification', B: 'Generalization', C: 'Confirmation' };
+    const typeLabel = {
+      A: t('agents.trainer.question.clarification'),
+      B: t('agents.trainer.question.generalization'),
+      C: t('agents.trainer.question.confirmation'),
+    };
 
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, py: 1 }}>
         <Chip
-          label={typeLabel[currentQuestion.question_type] || 'Question'}
+          label={typeLabel[currentQuestion.question_type] || t('agents.trainer.question.generic')}
           size="small"
           color="warning"
           sx={{ alignSelf: 'flex-start', height: 20, fontSize: '0.65rem' }}
@@ -578,7 +592,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
           <Box sx={{ display: 'flex', gap: 0.5 }}>
             <TextField
               size="small"
-              placeholder="Type your answer..."
+              placeholder={t('agents.trainer.answerPlaceholder')}
               fullWidth
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
@@ -596,7 +610,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
           onClick={() => handleAnswer('')}
           sx={{ alignSelf: 'flex-end', fontSize: '0.7rem', textTransform: 'none', color: 'text.secondary' }}
         >
-          Skip
+          {t('agents.trainer.skip')}
         </Button>
       </Box>
     );
@@ -615,7 +629,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
             {attemptInfo.demoName}
           </Typography>
           <Chip
-            label={attemptInfo.level}
+            label={levelLabel(attemptInfo.level)}
             size="small"
             color={levelColor(attemptInfo.level)}
             sx={{ height: 20, fontSize: '0.65rem', ml: 1 }}
@@ -628,10 +642,10 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
               variant="h6"
               sx={{ color: attemptInfo.success ? 'success.main' : 'error.main', fontSize: '1rem' }}
             >
-              {attemptInfo.success ? 'Success!' : 'Failed'}
+              {attemptInfo.success ? t('agents.trainer.success') : t('agents.trainer.failed')}
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-              {attemptInfo.stepsCompleted} of {attemptInfo.totalSteps} steps completed
+              {t('agents.trainer.stepsCompleted', { completed: attemptInfo.stepsCompleted, total: attemptInfo.totalSteps })}
             </Typography>
           </Box>
         ) : (
@@ -639,7 +653,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
             <Box>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Step {attemptInfo.stepIndex + 1} of {attemptInfo.totalSteps}
+                  {t('agents.trainer.stepOf', { step: attemptInfo.stepIndex + 1, total: attemptInfo.totalSteps })}
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   {Math.round(progress)}%
@@ -664,7 +678,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
                   onClick={handleConfirmStep}
                   sx={{ fontSize: '0.7rem' }}
                 >
-                  Confirm
+                  {t('agents.trainer.confirm')}
                 </Button>
                 <Button
                   variant="outlined"
@@ -674,7 +688,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
                   onClick={handleCorrectStep}
                   sx={{ fontSize: '0.7rem' }}
                 >
-                  Correct
+                  {t('agents.trainer.correct')}
                 </Button>
               </Box>
             )}
@@ -684,7 +698,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
         {!attemptInfo.complete && attemptInfo.level && (
           <Box sx={{ borderTop: 1, borderColor: 'divider', pt: 1, mt: 'auto' }}>
             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.65rem' }}>
-              {attemptInfo.level.toUpperCase()}
+              {levelLabel(attemptInfo.level).toUpperCase()}
             </Typography>
           </Box>
         )}
@@ -727,7 +741,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
       >
         <SchoolIcon sx={{ fontSize: 16, mr: 0.75, color: 'text.secondary' }} />
         <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem', flex: 1 }}>
-          Trainer
+          {t('agents.trainer.title')}
         </Typography>
         <Box
           sx={{
@@ -744,7 +758,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
         />
         {/* Stop button always visible in header when recording — even when collapsed */}
         {mode === 'recording' && (
-          <Tooltip title="Stop Recording">
+          <Tooltip title={t('agents.trainer.stopRecording')}>
             <span>
               <IconButton
                 className="header-btn"
@@ -758,7 +772,7 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
             </span>
           </Tooltip>
         )}
-        <Tooltip title={kbdForwarding ? 'Keyboard → Agent: ON (click to stop)' : 'Send keyboard to Agent Screen'}>
+        <Tooltip title={kbdForwarding ? t('agents.keyboard.forwardingOn') : t('agents.keyboard.forwardingOff')}>
           <IconButton
             className="header-btn"
             size="small"

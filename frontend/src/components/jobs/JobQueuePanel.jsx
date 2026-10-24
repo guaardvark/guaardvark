@@ -27,6 +27,7 @@ import {
   KeyboardArrowUp as UpIcon,
 } from "@mui/icons-material";
 import { getJobQueue, moveQueuedJob, runQueuedJobNow } from "../../api/jobsService";
+import { translate, useUiTranslation } from "../../i18n";
 
 const POLL_ON_MS = 3000;
 // While job order is off the panel only checks now and then whether it was switched on.
@@ -36,9 +37,9 @@ const CLASS_COLORS = { interactive: "secondary", yours: "primary", background: "
 
 const formatWait = (seconds) => {
   if (seconds == null) return "—";
-  if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  return `${(seconds / 3600).toFixed(1)}h`;
+  if (seconds < 60) return translate("jobs.queue.waitSeconds", { seconds: Math.round(seconds) });
+  if (seconds < 3600) return translate("jobs.queue.waitMinutes", { minutes: Math.floor(seconds / 60) });
+  return translate("jobs.queue.waitHours", { hours: (seconds / 3600).toFixed(1) });
 };
 
 const ClassChip = ({ item, classes }) => {
@@ -56,6 +57,7 @@ const ClassChip = ({ item, classes }) => {
 };
 
 const JobQueuePanel = () => {
+  const { t } = useUiTranslation();
   const [queue, setQueue] = useState(null);
   const [error, setError] = useState(null);
   const [busyId, setBusyId] = useState(null);
@@ -94,7 +96,7 @@ const JobQueuePanel = () => {
       if (data) setQueue(data);
       setError(null);
     } catch (e) {
-      setError(e.response?.data?.error || e.message || "That did not work");
+      setError(e.response?.data?.error || e.message || t("jobs.queue.actionFailed"));
       refresh();
     } finally {
       setBusyId(null);
@@ -114,9 +116,9 @@ const JobQueuePanel = () => {
     <Box sx={{ maxWidth: 1400, mx: "auto", mt: 2, px: 2 }}>
       <Paper elevation={2} sx={{ p: 2, borderRadius: 2 }} data-testid="job-queue-panel">
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ gap: 1, mb: 1 }}>
-          <Typography variant="subtitle1" fontWeight={600}>Job order</Typography>
+          <Typography variant="subtitle1" fontWeight={600}>{t("jobs.queue.title")}</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
-            Waiting work goes in this order. A running job is never stopped.
+            {t("jobs.queue.intro")}
           </Typography>
           {classes.map((c) => (
             <Tooltip key={c.id} title={c.help} arrow>
@@ -133,32 +135,34 @@ const JobQueuePanel = () => {
         {error && <Alert severity="warning" sx={{ mb: 1 }} onClose={() => setError(null)}>{error}</Alert>}
         {queue.interactive_busy && (
           <Alert severity="info" sx={{ mb: 1 }}>
-            {queue.interactive_busy} in progress: background work waits until it is done.
+            {t("jobs.queue.interactiveBusy", { task: queue.interactive_busy })}
           </Alert>
         )}
         {holds.map((h) => (
           <Alert key={h.slot_id} severity="info" sx={{ mb: 1 }}>
-            {(h.holder || "A swarm agent")} is using {String(h.slot_id || "").replace(/^ollama:/, "")} on
-            the graphics card. Jobs that would unload it wait; Run now lets one go ahead.
+            {t("jobs.queue.hold", {
+              holder: h.holder || t("jobs.queue.swarmAgent"),
+              model: String(h.slot_id || "").replace(/^ollama:/, ""),
+            })}
           </Alert>
         ))}
 
         {empty && (
           <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-            Nothing is waiting.
+            {t("jobs.queue.empty")}
           </Typography>
         )}
 
         {queued.length > 0 && (
-          <Table size="small" aria-label="Waiting for the graphics card">
+          <Table size="small" aria-label={t("jobs.queue.waitingForGpu")}>
             <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600, width: 48 }}>#</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Waiting for the graphics card</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Class</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Waited</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">Order</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("jobs.queue.waitingForGpu")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("jobs.queue.class")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("jobs.queue.status")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t("jobs.queue.waited")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }} align="right">{t("jobs.queue.order")}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -168,12 +172,12 @@ const JobQueuePanel = () => {
                   <TableCell>
                     {item.label}
                     {item.moved && (
-                      <Typography component="span" variant="caption" color="text.secondary"> (moved)</Typography>
+                      <Typography component="span" variant="caption" color="text.secondary"> {t("jobs.queue.moved")}</Typography>
                     )}
                   </TableCell>
                   <TableCell><ClassChip item={item} classes={classes} /></TableCell>
                   <TableCell>
-                    <Typography variant="caption">{item.run_now ? "Going ahead" : item.reason || "Next"}</Typography>
+                    <Typography variant="caption">{item.run_now ? t("jobs.queue.goingAhead") : item.reason || t("jobs.queue.next")}</Typography>
                   </TableCell>
                   <TableCell>{formatWait(item.waited_s)}</TableCell>
                   <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
@@ -185,12 +189,12 @@ const JobQueuePanel = () => {
                         onClick={() => act(item.id, () => runQueuedJobNow(item.id))}
                         sx={{ mr: 1 }}
                       >
-                        Run now
+                        {t("jobs.queue.runNow")}
                       </Button>
                     )}
                     <IconButton
                       size="small"
-                      aria-label={`Move ${item.label} up`}
+                      aria-label={t("jobs.queue.moveUp", { label: item.label })}
                       disabled={i === 0 || busyId === item.id || item.run_now}
                       onClick={() => act(item.id, () => moveQueuedJob(item.id, "up"))}
                     >
@@ -198,7 +202,7 @@ const JobQueuePanel = () => {
                     </IconButton>
                     <IconButton
                       size="small"
-                      aria-label={`Move ${item.label} down`}
+                      aria-label={t("jobs.queue.moveDown", { label: item.label })}
                       disabled={i === queued.length - 1 || busyId === item.id || item.run_now}
                       onClick={() => act(item.id, () => moveQueuedJob(item.id, "down"))}
                     >
@@ -215,7 +219,7 @@ const JobQueuePanel = () => {
           <Stack spacing={0.5} sx={{ mt: queued.length ? 2 : 0 }}>
             {paused.map((item) => (
               <Stack key={item.id} direction="row" spacing={1} alignItems="center">
-                <Chip size="small" label="Paused" color="warning" variant="outlined" />
+                <Chip size="small" label={t("jobs.queue.paused")} color="warning" variant="outlined" />
                 <ClassChip item={item} classes={classes} />
                 <Typography variant="body2">{item.label}</Typography>
                 <Typography variant="caption" color="text.secondary">{item.reason}</Typography>
@@ -223,7 +227,7 @@ const JobQueuePanel = () => {
             ))}
             {running.map((item) => (
               <Stack key={item.id} direction="row" spacing={1} alignItems="center">
-                <Chip size="small" label="Running" color="info" variant="outlined" />
+                <Chip size="small" label={t("jobs.queue.running")} color="info" variant="outlined" />
                 <ClassChip item={item} classes={classes} />
                 <Typography variant="body2">{item.label}</Typography>
               </Stack>
