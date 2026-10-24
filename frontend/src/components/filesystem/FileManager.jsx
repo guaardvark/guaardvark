@@ -72,6 +72,7 @@ import axios from 'axios';
 import {
   snapshotDrop,
   collectDroppedFiles,
+  prunedNote,
   ensureFolderPath,
   filesFolderApi,
 } from '../../utils/droppedFiles';
@@ -940,7 +941,7 @@ const FileManager = () => {
   };
 
   // Upload files with folder structure preservation
-  const handleFileSelectWithPaths = async (filesWithPaths) => {
+  const handleFileSelectWithPaths = async (filesWithPaths, prune = null) => {
     if (!filesWithPaths || filesWithPaths.length === 0) return;
 
     // Validate file sizes
@@ -1032,11 +1033,12 @@ const FileManager = () => {
     setIsOperationInProgress(false);
     setUploadProgress({ files: [], current: 0, total: 0 });
 
+    const skippedNote = prune && (prune.folders || prune.files) ? `; ${prunedNote(prune)}` : '';
     if (results.success.length > 0 && results.failed.length === 0) {
-      showMessage(`Successfully uploaded ${results.success.length} file(s) with folder structure preserved`, 'success');
+      showMessage(`Successfully uploaded ${results.success.length} file(s) with folder structure preserved${skippedNote}`, 'success');
     } else if (results.success.length > 0) {
       showMessage(
-        `Uploaded ${results.success.length} file(s), but ${results.failed.length} failed`,
+        `Uploaded ${results.success.length} file(s), but ${results.failed.length} failed${skippedNote}`,
         'warning'
       );
     }
@@ -1195,10 +1197,13 @@ const FileManager = () => {
     if (hasInternalDrag) return;
 
     // Before any await: the browser empties the item list once this handler yields.
-    const filesToUpload = await collectDroppedFiles(snapshotDrop(e.dataTransfer));
+    const prune = { folders: 0, files: 0 };
+    const filesToUpload = await collectDroppedFiles(snapshotDrop(e.dataTransfer), { prune });
 
     if (filesToUpload.length > 0) {
-      handleFileSelectWithPaths(filesToUpload);
+      handleFileSelectWithPaths(filesToUpload, prune);
+    } else if (prune.folders || prune.files) {
+      showMessage(`Nothing to upload: ${prunedNote(prune)}`, 'info');
     }
   }, [draggedItem, draggedItems]);
 

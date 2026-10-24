@@ -154,7 +154,10 @@ class UnifiedUploadService:
         # (timestamped) that broke path resolution for any consumer assuming
         # the two agreed.
         from backend.utils.filename_resolver import resolve_filename
-        original_filename = secure_filename(file.filename)
+        # A folder drop names each file by its path inside the dropped folder
+        # ("service/app.py"); the folder arrives as folder_path, so keep the base
+        # name. secure_filename alone would flatten it to "service_app.py".
+        original_filename = secure_filename(os.path.basename((file.filename or "").replace("\\", "/")))
         chosen_filename = resolve_filename(
             folder_id, original_filename, db.session, DBDocument,
         )

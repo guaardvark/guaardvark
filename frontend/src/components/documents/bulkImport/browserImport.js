@@ -9,27 +9,11 @@
 // dropped, and each upload sends import_rules=bulk so the server applies them
 // again before secure_filename turns ".env" into "env".
 
-import { ensureFolderPath, filesFolderApi, storedFolderName } from "../../../utils/droppedFiles";
+import {
+  ensureFolderPath, filesFolderApi, isSensitiveName, SENSITIVE_PATTERNS, storedFolderName,
+} from "../../../utils/droppedFiles";
 
-// Mirrors SENSITIVE_PATTERNS in backend/utils/path_safety.py; matched against
-// the lower-cased file name.
-export const SENSITIVE_PATTERNS = [
-  ".env", ".env.*", "*.env", "*.pem", "*.key", "*.p12", "*.pfx", "*.kdbx",
-  "*.ppk", "*.jks", "*.keystore",
-  "id_rsa*", "id_dsa*", "id_ed25519*", "id_ecdsa*",
-  ".netrc", ".pgpass", ".npmrc", ".pypirc",
-  "credentials", "credentials.*", "mcp_servers.json", ".git-credentials",
-  ".*secret*", "*.secret", "client_secret*.json",
-];
-
-const globToRegExp = (glob) =>
-  new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
-const SENSITIVE_RES = SENSITIVE_PATTERNS.map(globToRegExp);
-
-export const isSensitiveName = (name) => {
-  const lower = String(name || "").toLowerCase();
-  return SENSITIVE_RES.some((re) => re.test(lower));
-};
+export { isSensitiveName, SENSITIVE_PATTERNS };
 
 // The upload route's own limit (MAX_CONTENT_LENGTH, 100 MB for the whole
 // request), less room for the form fields around the file.

@@ -34,6 +34,49 @@ export function snapshotDrop(dataTransfer) {
   return { entries, looseFiles, fallbackFiles };
 }
 
+// Mirrors SENSITIVE_PATTERNS in backend/utils/path_safety.py; matched against
+// the lower-cased file name.
+export const SENSITIVE_PATTERNS = [
+  ".env", ".env.*", "*.env", "*.pem", "*.key", "*.p12", "*.pfx", "*.kdbx",
+  "*.ppk", "*.jks", "*.keystore",
+  "id_rsa*", "id_dsa*", "id_ed25519*", "id_ecdsa*",
+  ".netrc", ".pgpass", ".npmrc", ".pypirc",
+  "credentials", "credentials.*", "mcp_servers.json", ".git-credentials",
+  ".*secret*", "*.secret", "client_secret*.json",
+];
+
+const globToRegExp = (glob) =>
+  new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
+const SENSITIVE_RES = SENSITIVE_PATTERNS.map(globToRegExp);
+
+export const isSensitiveName = (name) => {
+  const lower = String(name || "").toLowerCase();
+  return SENSITIVE_RES.some((re) => re.test(lower));
+};
+
+// Mirror BUILD_DIR_NAMES and BUILD_ARTIFACT_EXTENSIONS in backend/utils/file_kinds.py.
+export const BUILD_DIR_NAMES = new Set([
+  "__pycache__", "node_modules", "venv", ".venv", "dist", ".git",
+  ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox", ".next",
+]);
+const BUILD_ARTIFACT_EXTENSIONS = new Set([
+  ".pyc", ".pyo", ".class", ".o", ".obj", ".so", ".dll", ".dylib", ".a", ".lib", ".exe",
+]);
+
+/** A folder a folder import never enters: hidden, or generated or installed. */
+export const isPrunedFolder = (name) => {
+  const n = String(name || "");
+  return n.startsWith(".") || BUILD_DIR_NAMES.has(n);
+};
+
+/** A file a folder import never takes: hidden, a credential, or compiled output. */
+export const isPrunedFile = (name) => {
+  const n = String(name || "");
+  const dot = n.lastIndexOf(".");
+  const ext = dot > 0 ? n.slice(dot).toLowerCase() : "";
+  return n.startsWith(".") || isSensitiveName(n) || BUILD_ARTIFACT_EXTENSIONS.has(ext);
+};
+
 async function readAllDirectoryEntries(dirEntry) {
   const reader = dirEntry.createReader();
   const all = [];
@@ -55,16 +98,24 @@ async function readAllDirectoryEntries(dirEntry) {
  * @param {string} [basePath]
  * @returns {Promise<Array<{file: File, relativePath: string}>>}
  */
-export async function readEntryFiles(entry, basePath = '') {
+export async function readEntryFiles(entry, basePath = '', prune = null) {
   if (entry.isFile) {
     const file = await new Promise((resolve, reject) => entry.file(resolve, reject));
+    if (prune && isPrunedFile(file.name)) {
+      prune.files += 1;
+      return [];
+    }
     return [{ file, relativePath: basePath ? `${basePath}/${file.name}` : file.name }];
   }
   if (!entry.isDirectory) return [];
+  if (prune && isPrunedFolder(entry.name)) {
+    prune.folders += 1;
+    return [];
+  }
   const dirPath = basePath ? `${basePath}/${entry.name}` : entry.name;
   const out = [];
   for (const child of await readAllDirectoryEntries(entry)) {
-    out.push(...(await readEntryFiles(child, dirPath)));
+    out.push(...(await readEntryFiles(child, dirPath, prune)));
   }
   return out;
 }
@@ -72,18 +123,37 @@ export async function readEntryFiles(entry, basePath = '') {
 /**
  * Resolve a snapshot from {@link snapshotDrop} into files with relative paths.
  *
+ * With `prune` (an object `{folders: 0, files: 0}` that is counted into), the
+ * walk leaves out what a folder import never takes: hidden and dependency or
+ * build folders (`.git`, `node_modules`, `__pycache__`, `venv`, `dist`, ...),
+ * hidden files, credential files and compiled output. A pruned folder is never
+ * entered.
+ *
  * @param {ReturnType<typeof snapshotDrop>} snapshot
+ * @param {{prune?: {folders: number, files: number}}} [options]
  * @returns {Promise<Array<{file: File, relativePath: string}>>}
  */
-export async function collectDroppedFiles(snapshot) {
-  const out = snapshot.looseFiles.map((file) => ({ file, relativePath: file.name }));
-  for (const entry of snapshot.entries) {
-    out.push(...(await readEntryFiles(entry)));
+export async function collectDroppedFiles(snapshot, { prune = null } = {}) {
+  const out = [];
+  for (const file of snapshot.looseFiles) {
+    if (prune && isPrunedFile(file.name)) prune.files += 1;
+    else out.push({ file, relativePath: file.name });
   }
-  if (out.length === 0) {
+  for (const entry of snapshot.entries) {
+    out.push(...(await readEntryFiles(entry, '', prune)));
+  }
+  if (out.length === 0 && !(prune && (prune.folders || prune.files))) {
     return snapshot.fallbackFiles.map((file) => ({ file, relativePath: file.name }));
   }
   return out;
+}
+
+/** "left out 2 folders and 5 files (hidden, build output or credentials)" */
+export function prunedNote(prune) {
+  const parts = [];
+  if (prune?.folders) parts.push(`${prune.folders} folder${prune.folders === 1 ? '' : 's'}`);
+  if (prune?.files) parts.push(`${prune.files} file${prune.files === 1 ? '' : 's'}`);
+  return parts.length ? `left out ${parts.join(' and ')} (hidden, build output or credentials)` : '';
 }
 
 /** True when a drag carries files from outside the page. */
