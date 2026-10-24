@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, Callable, List
 
 from .base_handler import BaseTaskHandler, TaskResult, TaskResultStatus
+from backend.services.code_retrieval import STORED_ON_DEMAND
 
 logger = logging.getLogger(__name__)
 
@@ -295,7 +296,9 @@ class DocumentIndexingHandler(BaseTaskHandler):
 
                     success = add_file_to_index(file_path, document, doc_progress)
 
-                    if success:
+                    if success == STORED_ON_DEMAND:
+                        indexed_count += 1  # code: the row is STORED, read in place
+                    elif success:
                         indexed_count += 1
                         # Update document status
                         document.index_status = "INDEXED"

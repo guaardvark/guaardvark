@@ -36,6 +36,7 @@ import os
 from datetime import datetime, timedelta
 
 from celery import shared_task
+from backend.services.code_retrieval import STORED_ON_DEMAND
 
 logger = logging.getLogger(__name__)
 
@@ -286,7 +287,9 @@ def resume_pending_tick(limit: int = None) -> dict:
                 continue
             try:
                 ok = isvc.add_file_to_index(path, doc)
-                if ok:
+                if ok == STORED_ON_DEMAND:
+                    indexed += 1  # code: the row is STORED, read in place
+                elif ok:
                     doc.index_status = "INDEXED"
                     doc.indexed_at = datetime.now()
                     doc.error_message = None

@@ -15,6 +15,7 @@ from celery import current_task
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from backend.utils import file_kinds
+from backend.services.code_retrieval import STORED_ON_DEMAND
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -251,7 +252,10 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
                 if not (content or "").strip():
                     vector_outcome = "empty"
                     logger.info(f"Document {document_id} stored but had no content — nothing to vector-index")
-                elif add_file_to_index_by_id(file_path, document_id):
+                elif (added := add_file_to_index_by_id(file_path, document_id)) == STORED_ON_DEMAND:
+                    vector_outcome = "on_demand"
+                    logger.info(f"Document {document_id} is code: stored for reading in place, not embedded")
+                elif added:
                     vector_outcome = "indexed"
                     logger.info(f"Successfully added document {document_id} to vector index")
                     update_progress(95, f'Vector indexing complete for {document["filename"]}')
@@ -278,6 +282,8 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
             if vector_outcome == "failed":
                 logger.error(f"Document {document_id}: content stored but vector indexing FAILED — not searchable")
                 return False
+            if vector_outcome == "on_demand":
+                return STORED_ONLY
             if vector_outcome == "deferred":
                 # Nothing is wrong with the document: the persisted vector store is
                 # not in use in this worker (embedding backend unreachable at start).

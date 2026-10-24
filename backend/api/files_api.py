@@ -707,6 +707,7 @@ def _cascade_properties_to_folder(folder: Folder, properties: dict, stats: dict)
             updated = True
         if 'project_id' in properties:
             doc.project_id = properties['project_id']
+            stats.setdefault('document_ids', []).append(doc.id)
             updated = True
         if 'website_id' in properties:
             doc.website_id = properties['website_id']
@@ -803,7 +804,14 @@ def link_folder_to_entities(folder_id):
         folder.updated_at = datetime.datetime.now()
         
         db.session.commit()
-        
+
+        # Indexed documents keep the project they were indexed under in their
+        # vectors; stamp the new one so the project's chats retrieve them.
+        document_ids = stats.pop('document_ids', [])
+        if document_ids:
+            from backend.services.indexing_service import retag_document_vectors
+            stats['vectors_retagged'] = retag_document_vectors(document_ids, properties['project_id'])
+
         logger.info(f"Updated entity links for folder {folder_id} and cascaded to {stats['files_updated']} files in {stats['folders_processed']} subfolders")
         
         return success_response({
