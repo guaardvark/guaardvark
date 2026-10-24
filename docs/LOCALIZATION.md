@@ -44,9 +44,12 @@ function SaveButton({ count }) {
 - **Named placeholders.** `{{name}}`, `{{count}}`, `{{model}}`, not `{{value1}}`.
 - **Plurals through `count`.** Give `_one` and `_other` in English; each
   language gets the forms it needs (Polish and Russian have more than two).
-- **Markup inside a sentence** uses `<Trans>` from `react-i18next` with
-  numbered tags (`"Open <1>Settings</1> to change it."`), so the link moves with
-  the words.
+- **Markup inside a sentence** uses `<Trans>` from `react-i18next` with named
+  tags, so the link moves with the words:
+  `<Trans i18nKey="settings.openHint" components={{ settingsLink: <Link to="/settings" /> }} />`
+  with `"Open <settingsLink>Settings</settingsLink> to change it."`. Do not name a
+  tag after an HTML void element (`link`, `img`, `br`, `input`, …): its text
+  would be dropped from the element.
 - **Only displayed text is translated.** Values sent to the API, compared in
   code, used as keys or stored stay in English.
 - **Names stay names.** Product, model and file names are not put through `t`.

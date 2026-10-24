@@ -1,5 +1,6 @@
 import React, { memo, useState } from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
+import { Trans } from "react-i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as muiLocales from "@mui/material/locale";
 import i18n, {
@@ -122,6 +123,28 @@ describe("locale files", () => {
       expect(String(text).trim(), `${area}.${key}`).not.toBe("");
       expect(marks(text), `${area}.${key}`).toEqual(marks(original));
     }
+  });
+});
+
+describe("markup inside a sentence", () => {
+  it("renders named tags from the English and follows a language change", async () => {
+    i18n.addResource("en", "translation", "transTest.open", "Open <settingsLink>Settings</settingsLink> to change it, {{name}}.");
+    i18n.addResource("de", "translation", "transTest.open", "Öffne <settingsLink>Einstellungen</settingsLink>, {{name}}.");
+    // Trans re-renders with its component; the component subscribes to the
+    // language through useUiTranslation, as every translated screen does.
+    function Sentence() {
+      useUiTranslation();
+      return (
+        <p data-testid="sentence">
+          <Trans i18nKey="transTest.open" components={{ settingsLink: <a href="/settings" /> }} values={{ name: "Ada" }} />
+        </p>
+      );
+    }
+    render(<Sentence />);
+    expect(screen.getByTestId("sentence")).toHaveTextContent("Open Settings to change it, Ada.");
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+    await act(() => setLanguage("de"));
+    expect(screen.getByRole("link", { name: "Einstellungen" })).toBeInTheDocument();
   });
 });
 
