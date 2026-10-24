@@ -5,6 +5,7 @@
 
 import React from "react";
 import { StatusPill } from "../settings/ui";
+import { useUiTranslation } from "../../i18n";
 
 /** The colour match record of a clip, or null. Older batches stored the same
  *  histogram score under quality.identity with method "hist". */
@@ -17,15 +18,16 @@ const matchOf = (quality) => {
  * @param {object} quality  a result's metadata.quality
  */
 const ColourMatchPill = ({ quality }) => {
+  const { t } = useUiTranslation();
   const match = matchOf(quality);
   if (typeof match?.score !== "number") return null;
   const where = typeof match.frame_index === "number"
-    ? ` at frame ${match.frame_index} of ${match.frames}`
+    ? ` ${t("video.keyframeMatch.atFrame", { frame: match.frame_index, frames: match.frames })}`
     : "";
   return (
     <StatusPill
-      label={`Colour ${Math.round(match.score * 100)}%`}
-      tooltip={`Colour match with the keyframe${where}. Compares colours only, not who is in the shot.`}
+      label={t("video.colourMatch.label", { percent: Math.round(match.score * 100) })}
+      tooltip={t("video.colourMatch.tooltip", { where })}
     />
   );
 };

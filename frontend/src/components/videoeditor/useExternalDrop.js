@@ -6,6 +6,7 @@
 import { useCallback, useState } from "react";
 import axios from "axios";
 import { ensureFolderPath, filesFolderApi } from "../../utils/droppedFiles";
+import { translate } from "../../i18n";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -84,7 +85,7 @@ export function useExternalDrop({ folderName = "Videos", onUploaded }) {
       if (onUploaded) onUploaded(uploaded);
     } catch (e) {
       console.error("useExternalDrop: upload failed:", e);
-      setError(e.response?.data?.error?.message || e.message || "Upload failed");
+      setError(e.response?.data?.error?.message || e.message || translate("videoEditor.drop.uploadFailed"));
     } finally {
       setUploading(false);
       setProgress(0);

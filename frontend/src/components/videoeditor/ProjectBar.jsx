@@ -36,6 +36,7 @@ import {
   SaveAs as SaveAsIcon,
   DriveFileRenameOutline as RenameIcon,
 } from "@mui/icons-material";
+import { useUiTranslation } from "../../i18n";
 
 const ProjectBar = ({
   projectName = "Untitled",
@@ -47,6 +48,7 @@ const ProjectBar = ({
   onSaveAs,
   onRename,
 }) => {
+  const { t } = useUiTranslation();
   const [menuAnchor, setMenuAnchor] = useState(null);
   // dialog state: { mode: "saveAs" | "rename" } | null
   const [dialog, setDialog] = useState(null);
@@ -112,7 +114,9 @@ const ProjectBar = ({
     }
   };
 
-  const savingCaption = isSaving ? "Saving…" : isDirty ? "Unsaved" : "Saved";
+  const savingCaption = isSaving
+    ? t("videoEditor.project.saving")
+    : isDirty ? t("videoEditor.project.unsaved") : t("videoEditor.project.saved");
 
   return (
     <>
@@ -140,7 +144,7 @@ const ProjectBar = ({
           onClick={openMenu}
           sx={{ textTransform: "none", fontSize: "0.8rem" }}
         >
-          File
+          {t("videoEditor.project.file")}
         </Button>
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -148,7 +152,7 @@ const ProjectBar = ({
             {isDirty && (
               <Box
                 component="span"
-                aria-label="Unsaved changes"
+                aria-label={t("videoEditor.project.unsavedChanges")}
                 sx={{ color: "warning.main", fontSize: "1rem", lineHeight: 1 }}
               >
                 •
@@ -182,20 +186,20 @@ const ProjectBar = ({
           <ListItemIcon>
             <NewIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>New Project</ListItemText>
+          <ListItemText>{t("videoEditor.project.new")}</ListItemText>
         </MenuItem>
         <MenuItem onClick={handleOpen}>
           <ListItemIcon>
             <OpenIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Open…</ListItemText>
+          <ListItemText>{t("videoEditor.project.open")}</ListItemText>
         </MenuItem>
         <Divider />
         <MenuItem onClick={handleSave} disabled={!isDirty}>
           <ListItemIcon>
             <SaveIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Save</ListItemText>
+          <ListItemText>{t("videoEditor.project.save")}</ListItemText>
           <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
             Ctrl+S
           </Typography>
@@ -204,19 +208,19 @@ const ProjectBar = ({
           <ListItemIcon>
             <SaveAsIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Save As…</ListItemText>
+          <ListItemText>{t("videoEditor.project.saveAsMenu")}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => openDialog("rename")}>
           <ListItemIcon>
             <RenameIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Rename…</ListItemText>
+          <ListItemText>{t("videoEditor.project.renameMenu")}</ListItemText>
         </MenuItem>
       </Menu>
 
       <Dialog open={Boolean(dialog)} onClose={closeDialog} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ pb: 1 }}>
-          {dialog?.mode === "saveAs" ? "Save project as" : "Rename project"}
+          {dialog?.mode === "saveAs" ? t("videoEditor.project.saveAsTitle") : t("videoEditor.project.renameTitle")}
         </DialogTitle>
         <DialogContent>
           <TextField
@@ -224,7 +228,7 @@ const ProjectBar = ({
             fullWidth
             size="small"
             margin="dense"
-            label="Project name"
+            label={t("videoEditor.project.name")}
             value={draftName}
             onChange={(e) => setDraftName(e.target.value)}
             onKeyDown={handleDialogKeyDown}
@@ -232,10 +236,10 @@ const ProjectBar = ({
         </DialogContent>
         <DialogActions>
           <Button onClick={closeDialog} color="inherit">
-            Cancel
+            {t("videoEditor.project.cancel")}
           </Button>
           <Button onClick={submitDialog} variant="contained" disabled={!draftName.trim()}>
-            {dialog?.mode === "saveAs" ? "Save As" : "Rename"}
+            {dialog?.mode === "saveAs" ? t("videoEditor.project.saveAs") : t("videoEditor.project.rename")}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Box, Chip, LinearProgress, Stack, Typography } from "@mui/material";
+import { useUiTranslation, translate } from "../../i18n";
 
 const ACTIVE_STATUSES = new Set(["submitting", "queued", "running"]);
 
@@ -11,12 +12,12 @@ const statusColor = (status) => {
 };
 
 const statusLabel = (status) => {
-  if (status === "submitting") return "Submitting";
-  if (status === "queued") return "Queued";
-  if (status === "running") return "Running";
-  if (status === "done") return "Ready";
-  if (status === "failed") return "Failed";
-  return "Idle";
+  if (status === "submitting") return translate("videoEditor.plan.status.submitting");
+  if (status === "queued") return translate("videoEditor.plan.status.queued");
+  if (status === "running") return translate("videoEditor.plan.status.running");
+  if (status === "done") return translate("videoEditor.plan.status.done");
+  if (status === "failed") return translate("videoEditor.plan.status.failed");
+  return translate("videoEditor.plan.status.idle");
 };
 
 const formatElapsed = (ms) => {
@@ -35,6 +36,7 @@ const PlanStatusPanel = ({
   warnings = [],
   compact = false,
 }) => {
+  const { t, language } = useUiTranslation();
   const [now, setNow] = useState(Date.now());
   const isActive = ACTIVE_STATUSES.has(planJob.status);
   const progressPercent = Math.round((planJob.progress || 0) * 100);
@@ -52,11 +54,11 @@ const PlanStatusPanel = ({
 
   const readiness = useMemo(() => {
     if (canPlan || isActive || planJob.result) return null;
-    if (!videoCount && !hasMasterSong) return "Add video clips and choose a master soundtrack to enable Plan.";
-    if (!videoCount) return "Add at least one video clip to enable Plan.";
-    if (!hasMasterSong) return "Choose one audio clip as the master soundtrack to enable Plan.";
+    if (!videoCount && !hasMasterSong) return t("videoEditor.plan.needClipsAndSong");
+    if (!videoCount) return t("videoEditor.plan.needClip");
+    if (!hasMasterSong) return t("videoEditor.plan.needSong");
     return null;
-  }, [canPlan, hasMasterSong, isActive, planJob.result, videoCount]);
+  }, [canPlan, hasMasterSong, isActive, planJob.result, videoCount, t, language]);
 
   return (
     <Stack spacing={compact ? 0.75 : 1} className="non-draggable">
@@ -64,11 +66,11 @@ const PlanStatusPanel = ({
         <Chip
           size="small"
           color={statusColor(planJob.status)}
-          label={`Plan: ${statusLabel(planJob.status)}`}
+          label={t("videoEditor.plan.chip", { status: statusLabel(planJob.status) })}
           sx={{ height: 22 }}
         />
         <Typography variant="caption" color="text.secondary">
-          {planJob.stageLabel || "Idle"}
+          {planJob.stageLabel || t("videoEditor.plan.status.idle")}
         </Typography>
         {elapsed && (
           <Typography variant="caption" color="text.secondary">

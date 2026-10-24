@@ -7,12 +7,15 @@ import React from "react";
 import { Typography } from "@mui/material";
 import { formatUiError } from "../../utils/uiError";
 import { failureText } from "../../utils/renderFailure";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * @param {object} failure  a result's failure record
  * @param {*} error         the raw error, for results without a record
  */
 const RenderFailureNote = ({ failure, error }) => {
+  // failureText and formatUiError are written in the interface's language.
+  useUiTranslation();
   const text = failureText(failure) || formatUiError(error);
   if (!text) return null;
   return (

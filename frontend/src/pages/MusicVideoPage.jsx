@@ -77,6 +77,7 @@ import { dispatchWarning } from "../api/taskQueue";
 import ChangedElsewhereNotice from "../components/common/ChangedElsewhereNotice";
 import useServerSyncedForm from "../hooks/useServerSyncedForm";
 import useUnsavedChangesGuard from "../hooks/useUnsavedChangesGuard";
+import { useUiTranslation, translate, uiLocale, Trans } from "../i18n";
 
 const POLL_MS = 5000;
 const DEFAULT_KEYFRAME_MODEL = "flux-schnell";
@@ -103,12 +104,15 @@ const writeAutosavePref = (on) => {
   }
 };
 
-const planFieldLabel = (key) => (key === "treatment" ? "The treatment" : `Cut #${key.slice(CUT_PREFIX.length)}`);
+const planFieldLabel = (key) => (key === "treatment"
+  ? translate("musicVideo.plan.treatmentField")
+  : translate("musicVideo.plan.cutField", { index: key.slice(CUT_PREFIX.length) }));
 
 // Local presentational + interactive component for the cut plan + Director prompts.
 // Keeps the main page component from exploding in size.
 // onDirtyChange(bool) tells the page whether the plan has unsaved edits.
 function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, onGenerateStoryboards, onRegenStoryboard, onEditCut, onDirtyChange, onRegisterFlush, comfyReady = true, comfyDisabled = false, comfyInfo = null, gpuBlocked = false }) {
+  const { t } = useUiTranslation();
   const cutPlan = detail.cut_plan || [];
   const clips = detail.clips || [];
   const isEditable = detail.current_stage === "awaiting_approval";
@@ -121,7 +125,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
       start: c.start_s ?? c.start ?? 0,
       end: c.end_s ?? c.end ?? 0,
       energy: typeof c.energy === "number" ? c.energy : 0,
-      section: c.section_label || c.section || "unlabeled",
+      section: c.section_label || c.section || t("musicVideo.plan.unlabeled"),
       prompt: clip.prompt || "",
       storyboard_path: clip.storyboard_path || null,
       locked: !!clip.locked,
@@ -238,7 +242,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
         return next;
       });
     } catch (e) {
-      const msg = formatUiError(e?.response?.data?.error) || e?.message || 'Regen failed';
+      const msg = formatUiError(e?.response?.data?.error) || e?.message || t('musicVideo.plan.regenFailed');
       setRegenErrors(prev => ({ ...prev, [index]: msg }));
       // do not re-throw; parent already surfaced global error
     }
@@ -337,9 +341,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
   }, [onRegisterFlush, flushPlanEdits]);
 
   const handleRegen = async () => {
-    if (planForm.isDirty && !window.confirm(
-      "Regenerating rewrites the treatment and every cut's prompt. Discard your unsaved plan edits?",
-    )) {
+    if (planForm.isDirty && !window.confirm(t("musicVideo.plan.regenDiscardConfirm"))) {
       return;
     }
     planForm.reset(serverPlan);
@@ -360,22 +362,22 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
   return (
     <Box sx={{ mb: 1 }}>
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-        <Typography variant="subtitle2">Video Plan</Typography>
-        <Chip size="small" label={`${rows.length} cuts`} />
+        <Typography variant="subtitle2">{t("musicVideo.plan.title")}</Typography>
+        <Chip size="small" label={t("musicVideo.plan.cutCount", { count: rows.length })} />
         {detail.song_analysis?.tempo_bpm > 0 && (
           <Chip
             size="small"
             variant="outlined"
             label={[
-              `${Math.round(detail.song_analysis.tempo_bpm)} BPM`,
-              `${detail.song_analysis.beat_count} beats`,
-              detail.song_analysis.bar_count ? `${detail.song_analysis.bar_count} bars` : null,
+              t("musicVideo.plan.bpm", { bpm: Math.round(detail.song_analysis.tempo_bpm) }),
+              t("musicVideo.plan.beats", { count: detail.song_analysis.beat_count }),
+              detail.song_analysis.bar_count ? t("musicVideo.plan.bars", { count: detail.song_analysis.bar_count }) : null,
             ].filter(Boolean).join(" · ")}
           />
         )}
         {sections.length > 0 && (
           <Typography variant="caption" color="text.secondary">
-            sections: {sections.join(" → ")}
+            {t("musicVideo.plan.sections", { sections: sections.join(" → ") })}
           </Typography>
         )}
         {totalDuration > 0 && (
@@ -384,40 +386,44 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
           </Typography>
         )}
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5, fontSize: "0.65rem" }}>
-          Clip stretch (max_stretch / fill_method from settings) scales Director-suggested source motion into exact timeline slots — higher stretch = longer atmospheric holds or slower peaks for the visual arc.
+          {t("musicVideo.plan.stretchHint")}
         </Typography>
         {detail.planning_mode && (
-          <Chip size="small" variant="outlined" label={`dir: ${detail.planning_mode}`} />
+          <Chip size="small" variant="outlined" label={t("musicVideo.plan.dirChip", { mode: detail.planning_mode })} />
         )}
         {detail.director_model && (
           <Chip
             size="small"
             variant="outlined"
             color={isLikelyEmbeddingModel(detail.director_model) ? "warning" : "default"}
-            label={`model: ${isLikelyEmbeddingModel(detail.director_model) ? "gemma4:e4b (was bad)" : detail.director_model}`}
+            label={t("musicVideo.plan.modelChip", {
+              model: isLikelyEmbeddingModel(detail.director_model)
+                ? t("musicVideo.plan.modelWasBad", { model: "gemma4:e4b" })
+                : detail.director_model,
+            })}
           />
         )}
         {detail.director_enabled === false && (
-          <Chip size="small" color="warning" label="Director disabled" />
+          <Chip size="small" color="warning" label={t("musicVideo.plan.directorDisabled")} />
         )}
         {detail.director_diagnostics && (() => {
           const d = detail.director_diagnostics || {};
           const r = (d.reason || '').toLowerCase();
           const label = (r.includes('empty') || r.includes('no usable') || r.includes('cardinality'))
-            ? 'Director: LLM no shots (energy cues used)'
+            ? t('musicVideo.plan.diagNoShots')
             : (r.includes('llm') || r.includes('exception'))
-              ? 'Director: LLM error (cued fallback)'
-              : 'Director fallback (prompts may not be unique)';
+              ? t('musicVideo.plan.diagLlmError')
+              : t('musicVideo.plan.diagFallback');
           const rh = (d.raw_head || '').trim();
           const looksPolluted = /INFO |WARNING |backend\.|PID:|Restoring plugin|health check/.test(rh);
           const rhDisplay = !rh || looksPolluted
-            ? '(no clean model reply captured — Ollama connection failed or plugin unavailable before reply)'
+            ? t('musicVideo.plan.diagNoReply')
             : rh.slice(0, 400) + (rh.length > 400 ? '...' : '');
           const tipLines = [
-            `reason: ${d.reason || 'fallback'}`,
-            d.note ? `note: ${d.note}` : null,
-            d.error ? `error: ${d.error}` : null,
-            `raw_head (model reply or error context):\n${rhDisplay}`,
+            t('musicVideo.plan.diagReason', { reason: d.reason || 'fallback' }),
+            d.note ? t('musicVideo.plan.diagNote', { note: d.note }) : null,
+            d.error ? t('musicVideo.plan.diagError', { error: d.error }) : null,
+            t('musicVideo.plan.diagRawHead', { text: rhDisplay }),
           ].filter(Boolean).join('\n\n');
           return (
             <Tooltip
@@ -436,9 +442,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
       </Stack>
       {detail.director_diagnostics && isEditable && (
         <Alert severity="info" sx={{ mb: 1, py: 0.25, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
-          Director LLM did not produce distinct per-cut visual prompts (hover the chip for the raw model output head + reason, e.g. ``` or echoed style).
-          Automatic energy cue variations were injected instead of pure repeats. Edit the boxes above or use the <b>Regenerate</b> form below with more specific guidance.
-          For very long songs (75+ cuts) the small local model often struggles — shorter guidance or a stronger pulled gemma helps.
+          <Trans i18nKey="musicVideo.plan.diagAlert" components={{ bold: <b /> }} />
         </Alert>
       )}
       {isEditable && (
@@ -452,20 +456,19 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
       )}
       {hasLocalEdits && (
         <Typography variant="caption" color="info.main" sx={{ display: 'block', mb: 1 }}>
-          Unsaved plan edits — Save plan changes so Generate Storyboards and the video use them.
-          Regen this storyboard already uses the cut&apos;s edited prompt.
+          {t("musicVideo.plan.unsavedHint")}
         </Typography>
       )}
 
       {/* Pipeline / Model summary (the new controls) */}
       <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: "wrap" }}>
         {detail.use_lora_consistency ? (
-          <Chip size="small" color="secondary" label="LoRA consistency ON (cast identity stills)" />
+          <Chip size="small" color="secondary" label={t("musicVideo.plan.loraOn")} />
         ) : (
-          <Chip size="small" label="LoRA consistency OFF (flexible models)" />
+          <Chip size="small" label={t("musicVideo.plan.loraOff")} />
         )}
         {detail.keyframe_model && (
-          <Chip size="small" variant="outlined" label={`keyframe: ${detail.keyframe_model}`} />
+          <Chip size="small" variant="outlined" label={t("musicVideo.plan.keyframeChip", { model: detail.keyframe_model })} />
         )}
         {detail.i2v_model && (
           <Chip size="small" variant="outlined" color="primary" label={`I2V: ${detail.i2v_model}`} />
@@ -476,8 +479,8 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
           This is treated as the screenplay. Per-cut prompts should advance this story. */}
       <Box sx={{ mb: 1.5 }}>
         <Typography variant="caption" sx={{ fontWeight: 600 }}>
-          {detail.user_treatment ? "Your story" : "Visual Treatment / Story"}{" "}
-          {isEditable ? "(edit and save to use as screenplay)" : ""}
+          {detail.user_treatment ? t("musicVideo.plan.yourStory") : t("musicVideo.plan.treatmentTitle")}{" "}
+          {isEditable ? t("musicVideo.plan.editToUse") : ""}
         </Typography>
         {isEditable ? (
           <TextField
@@ -488,12 +491,12 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
             maxRows={10}
             value={treatmentEdit}
             onChange={(e) => setTreatmentEdit(e.target.value)}
-            placeholder="Paste or edit the full narrative/treatment the Director should follow for this video..."
+            placeholder={t("musicVideo.plan.treatmentPlaceholder")}
             sx={{ mt: 0.5 }}
           />
         ) : (
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", mt: 0.5, fontSize: "0.875rem", opacity: 0.9 }}>
-            {detail.user_treatment || detail.director_treatment || detail.director_storyline || "(no treatment — prompts were generated from style only)"}
+            {detail.user_treatment || detail.director_treatment || detail.director_storyline || t("musicVideo.plan.noTreatment")}
           </Typography>
         )}
       </Box>
@@ -504,25 +507,25 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
       {rows.some(r => r.storyboard_path) && (
         <Box sx={{ mb: 1.5, p: 1, border: "1px solid", borderColor: "divider", borderRadius: 1 }}>
           <Typography variant="caption" sx={{ fontWeight: 600, display: "block", mb: 0.5 }}>
-            Reviewed Storyboards / Thumbnails (click Regen per cut if needed)
-            {hasLocalEdits && " — arc updated; per-cut Regen applies new prompts"}
+            {t("musicVideo.plan.reviewedStoryboards")}
+            {hasLocalEdits && ` — ${t("musicVideo.plan.arcUpdated")}`}
           </Typography>
           <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
             {rows.filter(r => r.storyboard_path).map(r => (
               <Box key={r.index} sx={{ textAlign: "center" }}>
                 <img
                   src={`/api/music-video/${detail.id}/storyboard/${r.index}?v=${storyboardVersions[r.index] || 0}`}
-                  alt={`SB ${r.index}`}
+                  alt={t("musicVideo.plan.sbAlt", { index: r.index })}
                   style={{ width: 120, height: 68, objectFit: "cover", borderRadius: 4, border: "1px solid #444" }}
                   onError={(e) => { e.target.style.display = "none"; }}
                 />
                 <Typography variant="caption" display="block">#{r.index} {r.section}</Typography>
                 <Typography variant="caption" sx={{ fontSize: "0.55rem", opacity: 0.65, display: "block" }}>
-                  advances {r.section} (energy {r.energy.toFixed(1)}) of the visual treatment arc
+                  {t("musicVideo.plan.advancesArc", { section: r.section, energy: r.energy.toFixed(1) })}
                 </Typography>
                 {isEditable && onRegenStoryboard && (
                   <Button size="small" onClick={() => handleRegenStoryboard(r.index)} disabled={busy || gpuBlocked || !comfyReady} sx={{ fontSize: "0.65rem", py: 0 }}>
-                    Regen
+                    {t("musicVideo.plan.regen")}
                   </Button>
                 )}
                 {regenErrors[r.index] && (
@@ -545,7 +548,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
         && (detail.director_treatment || detail.director_storyline) !== detail.user_treatment && (
         <Box sx={{ mb: 1.5, p: 1.25, backgroundColor: "rgba(255,215,0,0.07)", borderRadius: 1, border: "1px solid rgba(255,215,0,0.25)" }}>
           <Typography variant="caption" sx={{ fontWeight: 600, color: "#ffd700", display: "block", mb: 0.5 }}>
-            {detail.user_treatment ? "THE DIRECTOR'S TREATMENT (written from your story)" : "VISUAL TREATMENT (screenwriter-style story arc)"}
+            {detail.user_treatment ? t("musicVideo.plan.directorTreatment") : t("musicVideo.plan.visualTreatment")}
           </Typography>
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", fontSize: "0.875rem", lineHeight: 1.4 }}>
             {detail.director_treatment || detail.director_storyline}
@@ -565,12 +568,18 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
             overflow: "hidden",
             backgroundColor: "rgba(255,255,255,0.08)",
           }}
-          title="The song left to right: one segment per cut, as wide as the cut is long, coloured by energy (cool blue = calm, warm red = loud). Matches the song analysis the Director uses."
+          title={t("musicVideo.plan.arcTitle")}
         >
           {rows.map((r, i) => (
             <Box
               key={i}
-              title={`cut ${r.index}: ${r.start.toFixed(1)}–${r.end.toFixed(1)}s, ${r.section}, energy ${(r.energy || 0).toFixed(2)}`}
+              title={t("musicVideo.plan.segmentTitle", {
+                index: r.index,
+                start: r.start.toFixed(1),
+                end: r.end.toFixed(1),
+                section: r.section,
+                energy: (r.energy || 0).toFixed(2),
+              })}
               sx={{
                 flex: Math.max(0.01, r.end - r.start),
                 height: "100%",
@@ -609,7 +618,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                     </Typography>
                     <Chip size="small" variant="outlined" label={row.section} />
                     <Typography variant="caption" color="text.secondary">
-                      energy {(row.energy || 0).toFixed(2)}
+                      {t("musicVideo.plan.energy", { energy: (row.energy || 0).toFixed(2) })}
                     </Typography>
                     <Box sx={{ flex: 1 }} />
                     {onEditCut && isEditable && (
@@ -617,8 +626,8 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                         <TextField
                           size="small"
                           type="number"
-                          label="Seed"
-                          placeholder="auto"
+                          label={t("musicVideo.plan.seed")}
+                          placeholder={t("musicVideo.plan.seedAuto")}
                           defaultValue={row.seed ?? ""}
                           key={`seed-${detail.id}-${row.index}-${row.seed ?? "auto"}`}
                           onBlur={(e) => {
@@ -637,13 +646,13 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                           sx={{ "& .MuiInputBase-root": { fontSize: "0.75rem" } }}
                         />
                         <Tooltip title={row.locked
-                          ? "Locked: Regenerate Plan keeps this cut's prompt and storyboard. Click to unlock."
-                          : "Lock this cut so Regenerate Plan does not rewrite it."}
+                          ? t("musicVideo.plan.lockedTooltip")
+                          : t("musicVideo.plan.lockTooltip")}
                         >
                           <span>
                             <IconButton
                               size="small"
-                              aria-label={row.locked ? `Unlock cut ${row.index}` : `Lock cut ${row.index}`}
+                              aria-label={row.locked ? t("musicVideo.plan.unlockAria", { index: row.index }) : t("musicVideo.plan.lockAria", { index: row.index })}
                               onClick={() => onEditCut(row.index, { locked: !row.locked })}
                               disabled={busy}
                               color={row.locked ? "warning" : "default"}
@@ -666,20 +675,20 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                       maxRows={4}
                       value={displayed}
                       onChange={(e) => handlePromptChange(row.index, e.target.value)}
-                      placeholder="Visual description for this cut (Director will have filled this)..."
+                      placeholder={t("musicVideo.plan.cutPlaceholder")}
                       sx={{ fontSize: "0.875rem" }}
                     />
                   ) : (
                     <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", opacity: 0.9, pl: 0.5 }}>
-                      {displayed || "(no prompt — global style used)"}
+                      {displayed || t("musicVideo.plan.noPrompt")}
                     </Typography>
                   )}
                   <Typography variant="caption" sx={{ fontSize: "0.55rem", opacity: 0.65, mt: 0.25, display: "block" }}>
-                    advances {row.section} (energy {row.energy.toFixed(1)}) of the visual treatment arc above
+                    {t("musicVideo.plan.advancesArcAbove", { section: row.section, energy: row.energy.toFixed(1) })}
                   </Typography>
                   {detail.director_diagnostics && displayed && (displayed.length < ((detail.style_prompt || '').length + 80)) && (
                     <Typography variant="caption" color="warning.main" sx={{ fontSize: '0.6rem', display: 'block', mt: 0.25 }}>
-                      ⚡ energy-cued only (LLM supplied no unique scene description for this cut — edit or regenerate for richer shots)
+                      {t("musicVideo.plan.energyCuedOnly")}
                     </Typography>
                   )}
 
@@ -688,7 +697,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                     <Box sx={{ mt: 0.75 }}>
                       <img
                         src={`/api/music-video/${detail.id}/storyboard/${row.index}?v=${storyboardVersions[row.index] || 0}`}
-                        alt={`Storyboard for cut ${row.index}`}
+                        alt={t("musicVideo.plan.storyboardAlt", { index: row.index })}
                         style={{ maxWidth: "100%", maxHeight: 110, borderRadius: 4, border: "1px solid #444", display: "block" }}
                         onError={(e) => { e.target.style.display = "none"; }}
                       />
@@ -700,7 +709,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                           disabled={busy || gpuBlocked || !comfyReady}
                           sx={{ mt: 0.5 }}
                         >
-                          Regen this storyboard
+                          {t("musicVideo.plan.regenStoryboard")}
                         </Button>
                       )}
                       {regenErrors[row.index] && (
@@ -727,9 +736,9 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               disabled={!hasLocalEdits || busy}
               onClick={() => handleSave()}
             >
-              Save plan changes
+              {t("musicVideo.plan.save")}
             </Button>
-            <Tooltip title="Save plan edits automatically a moment after you stop typing">
+            <Tooltip title={t("musicVideo.plan.autosaveTooltip")}>
               <Stack direction="row" alignItems="center" spacing={0.5}>
                 <input
                   type="checkbox"
@@ -737,23 +746,23 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                   checked={autosave}
                   onChange={(e) => setAutosave(e.target.checked)}
                 />
-                <label htmlFor="mv-autosave" style={{ fontSize: "0.75rem" }}>Autosave</label>
+                <label htmlFor="mv-autosave" style={{ fontSize: "0.75rem" }}>{t("musicVideo.plan.autosave")}</label>
               </Stack>
             </Tooltip>
             <Typography variant="caption" color={saveState === "error" ? "error" : "text.secondary"} data-testid="mv-save-state">
               {saveState === "saving"
-                ? "Saving…"
+                ? t("musicVideo.plan.saving")
                 : saveState === "error"
-                  ? "Not saved"
+                  ? t("musicVideo.plan.notSaved")
                   : hasLocalEdits
-                    ? "Unsaved edits"
+                    ? t("musicVideo.plan.unsavedEdits")
                     : savedAt
-                      ? `Saved ${savedAt.toLocaleTimeString()}`
+                      ? t("musicVideo.plan.savedAt", { time: savedAt.toLocaleTimeString(uiLocale()) })
                       : ""}
             </Typography>
             {hasLocalEdits && (
               <Link component="button" variant="caption" onClick={() => planForm.reset(serverPlan)}>
-                discard local edits
+                {t("musicVideo.plan.discardLocal")}
               </Link>
             )}
             {onGenerateStoryboards && (
@@ -764,23 +773,23 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
                 disabled={busy || gpuBlocked || comfyDisabled}
                 onClick={onGenerateStoryboards}
               >
-                Generate Storyboards (thumbnails first)
+                {t("musicVideo.plan.generateStoryboards")}
               </Button>
             )}
             {comfyDisabled && onGenerateStoryboards && (
               <Typography variant="caption" color="warning.main" sx={{ ml: 1 }}>
-                ComfyUI plugin must be enabled for storyboards (keyframe_model: {detail?.keyframe_model || 'flux-schnell'})
+                {t("musicVideo.plan.comfyDisabled", { model: detail?.keyframe_model || 'flux-schnell' })}
               </Typography>
             )}
             {!comfyDisabled && comfyInfo && comfyInfo.status !== 'running' && onGenerateStoryboards && (
               <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                ComfyUI will start on demand for storyboards (keyframe_model: {detail?.keyframe_model || 'flux-schnell'})
+                {t("musicVideo.plan.comfyOnDemand", { model: detail?.keyframe_model || 'flux-schnell' })}
               </Typography>
             )}
           </Stack>
 
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-            Regenerate all prompts with the Director (uses current song cut plan + your guidance)
+            {t("musicVideo.plan.regenAllHint")}
           </Typography>
           <Stack direction="row" spacing={1} alignItems="flex-start">
             <TextField
@@ -789,7 +798,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               multiline
               minRows={1}
               maxRows={3}
-              placeholder="Optional guidance (e.g. 'abstract mood arc, slow light play and textures in the intro, sharp pulsing geometry at the drop, ethereal and dissolving in the outro')"
+              placeholder={t("musicVideo.plan.guidancePlaceholder")}
               value={guidance}
               onChange={(e) => setGuidance(e.target.value)}
             />
@@ -799,10 +808,10 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               sx={{ minWidth: 140 }}
               value={regenMode}
               onChange={(e) => setRegenMode(e.target.value)}
-              label="mode for regen"
+              label={t("musicVideo.plan.regenMode")}
             >
-              <MenuItem value="narrative">narrative</MenuItem>
-              <MenuItem value="visual">visual / mood arc</MenuItem>
+              <MenuItem value="narrative">{t("musicVideo.plan.modeNarrative")}</MenuItem>
+              <MenuItem value="visual">{t("musicVideo.plan.modeVisual")}</MenuItem>
             </TextField>
             <TextField
               select
@@ -810,11 +819,11 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               sx={{ minWidth: 170 }}
               value={isLikelyEmbeddingModel(directorModel) ? "gemma4:e4b" : directorModel}
               onChange={(e) => setDirectorModel(e.target.value)}
-              label="director model"
+              label={t("musicVideo.plan.directorModel")}
             >
               {directorModelOptions.map((m) => (
                 <MenuItem key={m} value={m}>
-                  {m === "gemma4:e4b" ? "gemma4:e4b (default small)" : m}
+                  {m === "gemma4:e4b" ? t("musicVideo.plan.defaultSmall", { model: "gemma4:e4b" }) : m}
                 </MenuItem>
               ))}
             </TextField>
@@ -824,20 +833,18 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
               disabled={busy || gpuBlocked}
               onClick={handleRegen}
             >
-              Regenerate
+              {t("musicVideo.plan.regenerate")}
             </Button>
           </Stack>
           <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-            Tip: Guidance shapes the VISUAL TREATMENT first (the creative story arc in your exact style), then the per-cut prompts are derived from it. Example: “a lone vampire gunslinger seeks revenge; the town awakens with undead in the drop; tragic quiet beauty in the outro”.
-            The Director uses a dedicated small/fast model (gemma4:e4b by default, overridable via director_model in settings) — separate from your main chat/brain model — for reliable structured JSON output.
-            Manual "Regen this storyboard" now adds a random variation to the seed so the same prompt usually produces a visibly different image.
+            {t("musicVideo.plan.tip")}
           </Typography>
         </Box>
       )}
 
       {!isEditable && rows.length > 0 && (
         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-          Plan is locked (generation started or complete). The prompts above are what the Director produced and what was used for the stills + motion.
+          {t("musicVideo.plan.locked")}
         </Typography>
       )}
     </Box>
@@ -847,6 +854,7 @@ function PlanViewer({ detail, busy, models = [], onSavePlan, onRegeneratePlan, o
 
 // Saved versions of one music video: list, save the current state, restore one.
 function VersionsDialog({ open, video, onClose, onRestored }) {
+  const { t } = useUiTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -863,7 +871,7 @@ function VersionsDialog({ open, video, onClose, onRestored }) {
       setDialogError(null);
     } catch (e) {
       setLoaded(false);
-      setDialogError(formatUiError(e?.response?.data?.error) || e.message || "Could not load versions");
+      setDialogError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.versions.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -875,11 +883,11 @@ function VersionsDialog({ open, video, onClose, onRestored }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Versions of “{video?.name}”</DialogTitle>
+      <DialogTitle>{t("musicVideo.versions.title", { name: video?.name })}</DialogTitle>
       <DialogContent dividers>
         <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
           <TextField
-            size="small" fullWidth label="Name this version" value={label}
+            size="small" fullWidth label={t("musicVideo.versions.nameLabel")} value={label}
             onChange={(e) => setLabel(e.target.value)}
           />
           <Button
@@ -890,18 +898,18 @@ function VersionsDialog({ open, video, onClose, onRestored }) {
                 setLabel("");
                 await load();
               } catch (e) {
-                showError(e, "Save failed");
+                showError(e, t("musicVideo.versions.saveFailed"));
               }
             }}
           >
-            Save
+            {t("musicVideo.versions.save")}
           </Button>
         </Stack>
         {dialogError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setDialogError(null)}>{dialogError}</Alert>}
         {loading && <LinearProgress />}
         {!loading && loaded && rows.length === 0 && (
           <Typography variant="body2" color="text.secondary">
-            No versions yet. One is saved automatically when you approve, re-assemble, revise or restore.
+            {t("musicVideo.versions.none")}
           </Typography>
         )}
         <List dense>
@@ -913,35 +921,40 @@ function VersionsDialog({ open, video, onClose, onRestored }) {
                   size="small"
                   disabled={busyStage || !r.cut_count}
                   onClick={async () => {
-                    if (!window.confirm("Restore this version? The current state is saved as a version first, and the video goes back to plan review. Clips whose prompt and settings still match are kept.")) return;
+                    if (!window.confirm(t("musicVideo.versions.restoreConfirm"))) return;
                     try {
                       const updated = await restoreMusicVideoRevision(video.id, r.id);
                       onRestored(updated);
                       onClose();
                     } catch (e) {
-                      showError(e, "Restore failed");
+                      showError(e, t("musicVideo.versions.restoreFailed"));
                     }
                   }}
                 >
-                  Restore
+                  {t("musicVideo.versions.restore")}
                 </Button>
               }
             >
               <ListItemText
                 primary={r.label || r.reason}
-                secondary={`${new Date(r.created_at).toLocaleString()} · ${r.reason} · ${r.cut_count} cuts · ${r.clips_done} rendered`}
+                secondary={t("musicVideo.versions.summary", {
+                  date: new Date(r.created_at).toLocaleString(uiLocale()),
+                  reason: r.reason,
+                  cuts: r.cut_count,
+                  rendered: r.clips_done,
+                })}
               />
             </ListItem>
           ))}
         </List>
         {busyStage && (
           <Typography variant="caption" color="text.secondary">
-            Cancel the running stage to restore a version.
+            {t("musicVideo.versions.cancelFirst")}
           </Typography>
         )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Close</Button>
+        <Button onClick={onClose}>{t("musicVideo.versions.close")}</Button>
       </DialogActions>
     </Dialog>
   );
@@ -970,30 +983,32 @@ const isRunning = (mv) =>
 
 const stageLabel = (mv) => {
   if (!mv) return "";
-  if (needsAnalysis(mv) && mv.current_stage === "awaiting_approval") return "needs analysis";
-  if (needsAnalysis(mv) && (mv.status || "").startsWith("failed")) return "analysis failed";
+  if (needsAnalysis(mv) && mv.current_stage === "awaiting_approval") return translate("musicVideo.stage.needsAnalysis");
+  if (needsAnalysis(mv) && (mv.status || "").startsWith("failed")) return translate("musicVideo.stage.analysisFailed");
   if (needsAnalysis(mv) && ((mv.status || "").startsWith("cancelled") || mv.current_stage === "cancelled")) {
-    return "cancelled (no plan)";
+    return translate("musicVideo.stage.cancelledNoPlan");
   }
-  return mv.current_stage || mv.status || "unknown";
+  return mv.current_stage || mv.status || translate("musicVideo.stage.unknown");
 };
 
 const MusicVideoPage = () => {
+  const { t, language } = useUiTranslation();
   const { gpuBusy, gpuSubmitBlocked, blockReason, blockDetail } = useJobsGate({ submitMode: "queue" });
   const { getProcessesByType, activeProcesses, getPreviewUrl } = useUnifiedProgress();
   const [videos, setVideos] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   // The open plan has edits not yet saved (reported by PlanViewer).
   const [planDirty, setPlanDirty] = useState(false);
-  const confirmDropPlanEdits = (what, dirty = planDirty) =>
-    !dirty || window.confirm(`The plan has unsaved edits. ${what} without them?`);
+  // `question` is the whole "The plan has unsaved edits. … without them?" sentence.
+  const confirmDropPlanEdits = (question, dirty = planDirty) =>
+    !dirty || window.confirm(question);
   // The plan editor's "save what is pending now", registered while it is open.
   const planFlushRef = useRef(null);
   const registerPlanFlush = useCallback((fn) => { planFlushRef.current = fn; }, []);
   // Saves pending plan edits (autosave on), then asks about any that remain.
-  const settlePlanEdits = async (what) => {
+  const settlePlanEdits = async (question) => {
     const clean = planFlushRef.current ? await planFlushRef.current() : !planDirty;
-    return confirmDropPlanEdits(what, !clean);
+    return confirmDropPlanEdits(question, !clean);
   };
   const [detail, setDetail] = useState(null);
 
@@ -1026,7 +1041,7 @@ const MusicVideoPage = () => {
     getProjects().then((res) => {
       if (alive && Array.isArray(res)) setProjects(res);
     }).catch((e) => {
-      if (alive) setError(`Projects could not be loaded, so the project picker is empty: ${formatUiError(e?.response?.data?.error) || e.message}`);
+      if (alive) setError(t("musicVideo.page.projectsFailed", { reason: formatUiError(e?.response?.data?.error) || e.message }));
     });
     return () => { alive = false; };
   }, []);
@@ -1154,17 +1169,17 @@ const MusicVideoPage = () => {
         ? [
             {
               value: "from-lora",
-              label: "Auto (character LoRA base — Z-Image / SDXL / FLUX)",
+              label: t("musicVideo.create.keyframeFromLora"),
             },
           ]
         : [
-            ...(zimageInstalled ? [{ value: "zimage-turbo", label: "Z-Image Turbo — default" }] : []),
-            { value: "flux-schnell", label: zimageInstalled ? "FLUX.1-schnell (fast stills)" : "FLUX.1-schnell (fast, beautiful stills) — default" },
+            ...(zimageInstalled ? [{ value: "zimage-turbo", label: t("musicVideo.create.keyframeZimageDefault") }] : []),
+            { value: "flux-schnell", label: zimageInstalled ? t("musicVideo.create.keyframeFluxFast") : t("musicVideo.create.keyframeFluxDefault") },
             { value: "flux-dev-lora", label: "FLUX-dev + LoRA" },
-            { value: "sdxl", label: "SDXL (no LoRA)" },
+            { value: "sdxl", label: t("musicVideo.create.keyframeSdxlNoLora") },
             { value: "sdxl-lora", label: "SDXL + LoRAs" },
           ],
-    [useLoraConsistency, zimageInstalled],
+    [useLoraConsistency, zimageInstalled, t, language],
   );
 
   useEffect(() => {
@@ -1192,33 +1207,45 @@ const MusicVideoPage = () => {
         setCastSubjects(trained);
       })
       .catch((e) => {
-        if (alive) setCastError(formatUiError(e) || "the request failed");
+        if (alive) setCastError(formatUiError(e) || t("musicVideo.page.requestFailed"));
       });
     return () => { alive = false; };
   }, [castReload]);
 
   // I2V-capable models. The registry decides which models animate a keyframe
   // (capabilities.supports_i2v); this static list only stands in until the
-  // API answers or when it is down.
+  // API answers or when it is down. The registry rows are kept as data and
+  // labelled when shown.
   const FALLBACK_I2V_MODEL_OPTIONS = {
     "wan22-5b": {
-      label: "Wan 2.2 5B TI2V — default",
-      description: "Text + image to video, ~5s, fits 16GB",
+      label: t("musicVideo.create.i2vWan5bLabel"),
+      description: t("musicVideo.create.i2vWan5bDescription"),
     },
     "wan22-14b-i2v": {
       label: "Wan 2.2 14B I2V (GGUF Q5)",
-      description: "Cinematic motion, ~5s clips",
+      description: t("musicVideo.create.i2vWan14bDescription"),
     },
     "cogvideox-5b-i2v": {
       label: "CogVideoX 1.5 5B I2V",
-      description: "5 s clips at 1360x768, 16fps",
+      description: t("musicVideo.create.i2vCogDescription"),
     },
     "hunyuan-i2v": {
       label: "HunyuanVideo 13B I2V (GGUF Q5)",
-      description: "Follows the keyframe closely, 24fps, ~3s clips",
+      description: t("musicVideo.create.i2vHunyuanDescription"),
     },
   };
-  const [i2vModelOptions, setI2vModelOptions] = useState(FALLBACK_I2V_MODEL_OPTIONS);
+  const [i2vModelRows, setI2vModelRows] = useState(null);
+  const i2vModelOptions = i2vModelRows
+    ? Object.fromEntries(Object.entries(i2vModelRows).map(([id, m]) => [id, {
+      label: m.ready ? m.name : t("musicVideo.create.notInstalledName", { name: m.name }),
+      description: [
+        m.audioOut ? t("musicVideo.create.i2vAudioOut") : t("musicVideo.create.i2vSilent"),
+        m.seconds ? t("musicVideo.create.i2vUpTo", { seconds: m.seconds }) : null,
+        m.attribution || null,
+      ].filter(Boolean).join(" · "),
+      ready: m.ready,
+    }]))
+    : FALLBACK_I2V_MODEL_OPTIONS;
   useEffect(() => {
     let alive = true;
     fetch("/api/batch-image/models")
@@ -1251,16 +1278,14 @@ const MusicVideoPage = () => {
           const caps = m.capabilities;
           const seconds = caps.max_frames && caps.native_fps ? Math.round(caps.max_frames / caps.native_fps) : null;
           opts[m.id] = {
-            label: `${m.name}${m.is_ready ? "" : " (not installed)"}`,
-            description: [
-              caps.audio_out ? "renders each cut in one pass with the song slice as its beat anchor" : "keyframe → silent clip",
-              seconds ? `up to ~${seconds}s per clip` : null,
-              m.license?.attribution || null,
-            ].filter(Boolean).join(" · "),
+            name: m.name,
+            audioOut: !!caps.audio_out,
+            seconds,
+            attribution: m.license?.attribution || null,
             ready: !!m.is_ready,
           };
         });
-        setI2vModelOptions(opts);
+        setI2vModelRows(opts);
         const active = payload.active_i2v;
         if (active && opts[active]) setI2vModel(active);
       })
@@ -1278,7 +1303,7 @@ const MusicVideoPage = () => {
       setListError(null);
     } catch (e) {
       // keep the last list; say why it is not updating
-      setListError(formatUiError(e?.response?.data) || formatUiError(e) || "the request failed");
+      setListError(formatUiError(e?.response?.data) || formatUiError(e) || t("musicVideo.page.requestFailed"));
     }
   }, []);
 
@@ -1328,7 +1353,7 @@ const MusicVideoPage = () => {
   const handleCreate = async () => {
     setError(null);
     if (!name.trim() || !stylePrompt.trim() || !file) {
-      setError("Name, a song file, and a style prompt are all required.");
+      setError(t("musicVideo.page.createRequired"));
       return;
     }
     setBusy(true);
@@ -1337,7 +1362,7 @@ const MusicVideoPage = () => {
       // {document_id, filename, job_id, ...}; tolerate a couple of shapes.
       const up = await uploadFile(file, null, "music-video-song", {});
       const songDocId = up?.document_id ?? up?.data?.id ?? up?.id;
-      if (!songDocId) throw new Error("Song upload failed (no document id returned).");
+      if (!songDocId) throw new Error(t("musicVideo.page.songUploadFailed"));
       // 2) create the music video (kicks off analysis)
       const settings = {
         fill_method: fillMethod,
@@ -1379,7 +1404,7 @@ const MusicVideoPage = () => {
       setSelectedId(mv.id);
       noteDispatch(mv.id, mv);
     } catch (e) {
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Failed to create music video.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.page.createFailed"));
     } finally {
       setBusy(false);
     }
@@ -1395,7 +1420,7 @@ const MusicVideoPage = () => {
       setDetail(updated);
       await refreshList();
     } catch (e) {
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Failed to start analysis.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.page.analysisStartFailed"));
     } finally {
       setBusy(false);
     }
@@ -1404,7 +1429,7 @@ const MusicVideoPage = () => {
   const handleApprove = async () => {
     if (!detail) return;
     // Approving locks the plan, so unsaved edits could never be saved after.
-    if (!(await settlePlanEdits("Approve and lock the plan"))) return;
+    if (!(await settlePlanEdits(t("musicVideo.page.dropEditsApprove")))) return;
     setBusy(true);
     setError(null);
     try {
@@ -1413,7 +1438,7 @@ const MusicVideoPage = () => {
       setDetail(updated);
       await refreshList();
     } catch (e) {
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Approve failed.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.page.approveFailed"));
     } finally {
       setBusy(false);
     }
@@ -1432,7 +1457,7 @@ const MusicVideoPage = () => {
       setDetail(updated);
     } catch (e) {
       setError(formatUiError(e?.response?.data?.error) || e.message
-        || (action === "approve" ? "Approve failed." : "Re-render failed."));
+        || (action === "approve" ? t("musicVideo.page.approveFailed") : t("musicVideo.page.rerenderFailed")));
     } finally {
       setBusy(false);
     }
@@ -1447,7 +1472,7 @@ const MusicVideoPage = () => {
       noteDispatch(detail.id, updated);
       setDetail(updated);
     } catch (e) {
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Assemble again failed.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.page.reassembleFailed"));
     } finally {
       setBusy(false);
     }
@@ -1478,20 +1503,20 @@ const MusicVideoPage = () => {
     const next = (renaming || "").trim();
     setRenaming(null);
     if (!next || next === detail.name) return;
-    const updated = await runUpdate(() => updateMusicVideo(detail.id, { name: next }), "Rename failed.");
+    const updated = await runUpdate(() => updateMusicVideo(detail.id, { name: next }), t("musicVideo.page.renameFailed"));
     if (updated) { setDetail(updated); await refreshList(); }
   };
 
   const handleMoveProject = async (value) => {
     const updated = await runUpdate(
       () => updateMusicVideo(detail.id, { project_id: value === "" ? null : Number(value) }),
-      "Could not file the video under that project.",
+      t("musicVideo.page.moveFailed"),
     );
     if (updated) { setDetail(updated); await refreshList(); }
   };
 
   const handleDuplicate = async () => {
-    if (!(await settlePlanEdits("Duplicate"))) return;
+    if (!(await settlePlanEdits(t("musicVideo.page.dropEditsDuplicate")))) return;
     if ((detail.clips_done || 0) > 0) {
       setDuplicateAsk(true);  // reuse the rendered clips, render fresh, or cancel
       return;
@@ -1503,19 +1528,19 @@ const MusicVideoPage = () => {
     setDuplicateAsk(false);
     const copy = await runUpdate(
       () => duplicateMusicVideo(detail.id, { keep_clips: keepClips }),
-      "Duplicate failed.",
+      t("musicVideo.page.duplicateFailed"),
     );
     if (copy) { await refreshList(); setSelectedId(copy.id); }
   };
 
   const handleRevise = async () => {
-    if (!window.confirm("Reopen this video for editing? Rendered clips are kept; after you edit, approving renders only the cuts whose prompt, seed or settings changed, then assembles again. The current state is saved as a version.")) return;
-    const updated = await runUpdate(() => reviseMusicVideo(detail.id), "Could not reopen the video.");
+    if (!window.confirm(t("musicVideo.page.reviseConfirm"))) return;
+    const updated = await runUpdate(() => reviseMusicVideo(detail.id), t("musicVideo.page.reviseFailed"));
     if (updated) { setDetail(updated); await refreshList(); }
   };
 
   const handleEditCut = async (index, data) => {
-    const updated = await runUpdate(() => editMusicVideoCut(detail.id, index, data), "Cut edit failed.");
+    const updated = await runUpdate(() => editMusicVideoCut(detail.id, index, data), t("musicVideo.page.cutEditFailed"));
     if (updated) setDetail(updated);
   };
 
@@ -1523,8 +1548,8 @@ const MusicVideoPage = () => {
     if (!detail) return;
     const analyzing = detail.current_stage === "analyzing";
     const msg = analyzing
-      ? "Cancel song analysis? You can retry later with Continue & Analyze — your song and settings are kept."
-      : "Cancel this music video generation? Any pending clips will be skipped (current clip may finish).";
+      ? t("musicVideo.page.cancelAnalysisConfirm")
+      : t("musicVideo.page.cancelGenerationConfirm");
     if (!window.confirm(msg)) return;
     setBusy(true);
     setError(null);
@@ -1533,14 +1558,14 @@ const MusicVideoPage = () => {
       setDetail(updated);
       await refreshList();
     } catch (e) {
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Cancel failed.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.page.cancelFailed"));
     } finally {
       setBusy(false);
     }
   };
 
   const handleDelete = async (id, label) => {
-    if (!window.confirm(`Remove "${label}" from the log? The entry is cleared; any rendered output file is left on disk.`)) {
+    if (!window.confirm(t("musicVideo.page.removeConfirm", { name: label }))) {
       return;
     }
     setError(null);
@@ -1552,7 +1577,7 @@ const MusicVideoPage = () => {
       }
       await refreshList();
     } catch (e) {
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Delete failed.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.page.deleteFailed"));
     }
   };
 
@@ -1565,7 +1590,7 @@ const MusicVideoPage = () => {
         v.current_stage === "cancelled",
     );
     if (finished.length === 0) return;
-    if (!window.confirm(`Clear ${finished.length} finished generation(s) from the log?`)) {
+    if (!window.confirm(t("musicVideo.page.clearConfirm", { count: finished.length }))) {
       return;
     }
     setError(null);
@@ -1577,7 +1602,7 @@ const MusicVideoPage = () => {
       }
       await refreshList();
     } catch (e) {
-      setError(formatUiError(e?.response?.data?.error) || e.message || "Clear failed.");
+      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.page.clearFailed"));
     }
   };
 
@@ -1606,10 +1631,9 @@ const MusicVideoPage = () => {
       <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
         <MusicVideoIcon fontSize="large" />
         <Box>
-          <Typography variant="h5">Music Video</Typography>
+          <Typography variant="h5">{t("musicVideo.page.title")}</Typography>
           <Typography variant="body2" color="text.secondary">
-            Upload a song and a visual style. The beats and energy drive the edits;
-            a unique clip is generated per cut and assembled in sync with your song.
+            {t("musicVideo.page.subtitle")}
           </Typography>
         </Box>
       </Stack>
@@ -1618,38 +1642,38 @@ const MusicVideoPage = () => {
         {/* Create + list */}
         <Stack spacing={2} sx={{ flex: "1 1 360px", minWidth: 320 }}>
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1.5 }}>New music video</Typography>
+            <Typography variant="subtitle1" sx={{ mb: 1.5 }}>{t("musicVideo.create.title")}</Typography>
             {videoEditorDisabled && (
               <Typography variant="caption" color="warning.main" sx={{ display: "block", mb: 1 }}>
-                Enable Video Editor in Plugins to assemble the final cut. Analysis and clip generation can still run.
+                {t("musicVideo.create.enableVideoEditor")}
               </Typography>
             )}
             <Stack spacing={1.5}>
               <TextField
-                label="Name" size="small" fullWidth value={name}
+                label={t("musicVideo.create.name")} size="small" fullWidth value={name}
                 onChange={(e) => setName(e.target.value)}
               />
               <TextField
-                select size="small" fullWidth label="Project (optional)"
+                select size="small" fullWidth label={t("musicVideo.create.project")}
                 value={createProjectId}
                 onChange={(e) => setCreateProjectId(e.target.value)}
-                helperText="File it under a Guaardvark project: the finished video shows in that project's Videos and Documents."
+                helperText={t("musicVideo.create.projectHelp")}
               >
-                <MenuItem value="">No project</MenuItem>
+                <MenuItem value="">{t("musicVideo.create.noProject")}</MenuItem>
                 {projects.map((p) => (
                   <MenuItem key={p.id} value={String(p.id)}>{p.name}</MenuItem>
                 ))}
               </TextField>
               <TextField
-                label="Visual style / prompt" size="small" fullWidth multiline minRows={3}
-                placeholder="animation style, deep blue colors, loss and heartache, slow movement"
+                label={t("musicVideo.create.style")} size="small" fullWidth multiline minRows={3}
+                placeholder={t("musicVideo.create.stylePlaceholder")}
                 value={stylePrompt}
                 onChange={(e) => setStylePrompt(e.target.value)}
               />
               <TextField
-                label="Visual Treatment / Short Story (optional — paste or write the full narrative the Director should follow)"
+                label={t("musicVideo.create.treatment")}
                 size="small" fullWidth multiline minRows={5}
-                placeholder="Paste a detailed story or treatment here (e.g. the 1000-word gothic western vignette). The Director will use this as the screenplay and map it to the song's energy arc and cuts. Leave blank to let the AI invent one from the style prompt."
+                placeholder={t("musicVideo.create.treatmentPlaceholder")}
                 value={userTreatment}
                 onChange={(e) => setUserTreatment(e.target.value)}
               />
@@ -1657,7 +1681,7 @@ const MusicVideoPage = () => {
                 component="label" variant="outlined" startIcon={<UploadFileIcon />}
                 sx={{ justifyContent: "flex-start" }}
               >
-                {file ? file.name : "Choose song (mp3 / wav)"}
+                {file ? file.name : t("musicVideo.create.chooseSong")}
                 <input
                   ref={fileInputRef} type="file" hidden accept="audio/*,.mp3,.wav,.flac"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -1669,40 +1693,40 @@ const MusicVideoPage = () => {
                 sx={{ alignSelf: "flex-start" }}
                 onClick={() => setShowAdvanced((v) => !v)}
               >
-                {showAdvanced ? "▾ Advanced render options" : "▸ Advanced render options"}
+                {showAdvanced ? `▾ ${t("musicVideo.create.advanced")}` : `▸ ${t("musicVideo.create.advanced")}`}
               </Link>
               <Collapse in={showAdvanced}>
                 <Stack spacing={1.5} sx={{ pt: 0.5 }}>
                   <TextField
-                    select size="small" fullWidth label="Clip motion fill"
+                    select size="small" fullWidth label={t("musicVideo.create.fill")}
                     value={fillMethod} onChange={(e) => setFillMethod(e.target.value)}
-                    helperText="How a clip is stretched to fill its cut. Forward = no reverse (fixes the moonwalk)."
+                    helperText={t("musicVideo.create.fillHelp")}
                   >
-                    <MenuItem value="forward">Forward (no reverse) — recommended</MenuItem>
-                    <MenuItem value="boomerang">Boomerang (forward + reverse)</MenuItem>
-                    <MenuItem value="loop">Loop (forward repeat)</MenuItem>
+                    <MenuItem value="forward">{t("musicVideo.create.fillForward")}</MenuItem>
+                    <MenuItem value="boomerang">{t("musicVideo.create.fillBoomerang")}</MenuItem>
+                    <MenuItem value="loop">{t("musicVideo.create.fillLoop")}</MenuItem>
                   </TextField>
                   <TextField
-                    type="number" size="small" fullWidth label="Clip stretch (×)"
+                    type="number" size="small" fullWidth label={t("musicVideo.create.stretch")}
                     value={maxStretch} onChange={(e) => setMaxStretch(e.target.value)}
                     inputProps={{ min: 1, max: 4, step: 0.5 }}
-                    helperText="Higher = fewer clips, more slow-mo. 2 = natural. Raise to trade GPU for slowdown."
+                    helperText={t("musicVideo.create.stretchHelp")}
                   />
                   <TextField
-                    select size="small" fullWidth label="Frame interpolation (RIFE)"
+                    select size="small" fullWidth label={t("musicVideo.create.interp")}
                     value={interp} onChange={(e) => setInterp(e.target.value)}
-                    helperText="More frames for smoother slow-mo. Cheap (no extra diffusion)."
+                    helperText={t("musicVideo.create.interpHelp")}
                   >
-                    <MenuItem value="1">Off</MenuItem>
-                    <MenuItem value="2">2× (smooth)</MenuItem>
+                    <MenuItem value="1">{t("musicVideo.create.interpOff")}</MenuItem>
+                    <MenuItem value="2">{t("musicVideo.create.interpSmooth")}</MenuItem>
                     <MenuItem value="4">4×</MenuItem>
                   </TextField>
                   <TextField
-                    type="number" size="small" fullWidth label="Denoising steps (optional)"
+                    type="number" size="small" fullWidth label={t("musicVideo.create.steps")}
                     value={i2vSteps} onChange={(e) => setI2vSteps(e.target.value)}
                     inputProps={{ min: 8, max: 60, step: 1 }}
-                    placeholder="engine default (25)"
-                    helperText="Bump a hair for crisper frames when slowing clips down more."
+                    placeholder={t("musicVideo.create.stepsPlaceholder")}
+                    helperText={t("musicVideo.create.stepsHelp")}
                   />
 
                   {/* Director / storyboarding controls */}
@@ -1710,13 +1734,13 @@ const MusicVideoPage = () => {
                     select
                     size="small"
                     fullWidth
-                    label="Director planning mode"
+                    label={t("musicVideo.create.planningMode")}
                     value={planningMode}
                     onChange={(e) => setPlanningMode(e.target.value)}
-                    helperText="Narrative = consistent world + characters. Visual = abstract mood arc / energy-driven visuals (great for instrumental, ambient, soundtrack)."
+                    helperText={t("musicVideo.create.planningModeHelp")}
                   >
-                    <MenuItem value="narrative">Narrative continuity (default)</MenuItem>
-                    <MenuItem value="visual">Visual / mood arc (abstract, textures, energy poem)</MenuItem>
+                    <MenuItem value="narrative">{t("musicVideo.create.planningNarrative")}</MenuItem>
+                    <MenuItem value="visual">{t("musicVideo.create.planningVisual")}</MenuItem>
                   </TextField>
 
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: 0.5 }}>
@@ -1727,14 +1751,14 @@ const MusicVideoPage = () => {
                       id="director-enabled"
                     />
                     <label htmlFor="director-enabled" style={{ fontSize: "0.875rem", color: "rgba(255,255,255,0.7)" }}>
-                      Use Director for distinct per-cut prompts (recommended)
+                      {t("musicVideo.create.useDirector")}
                     </label>
                   </Stack>
 
                   {/* === Storyboard / Keyframe + I2V Pipeline (modeled after VideoGeneratorPage) === */}
                   <Divider sx={{ my: 1 }} />
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                    Storyboard Keyframe &amp; Animation (I2V)
+                    {t("musicVideo.create.keyframeSection")}
                   </Typography>
 
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: 0.5, mt: 0.5 }}>
@@ -1757,11 +1781,11 @@ const MusicVideoPage = () => {
                       id="lora-consistency"
                     />
                     <label htmlFor="lora-consistency" style={{ fontSize: "0.875rem", color: "rgba(255,255,255,0.7)" }}>
-                      Use LoRA consistency (bake cast identity into keyframes — Z-Image/SDXL/FLUX by train base; i2v does not reload face LoRAs)
+                      {t("musicVideo.create.useLora")}
                     </label>
                   </Stack>
                   <Typography variant="caption" color="text.secondary" sx={{ pl: 2.5, display: "block" }}>
-                    Checked = lock a trained character into every cut (LoRA + identity core). Pick cast below; keyframes are generated on demand from each cut prompt. Unchecked = free stills without identity lock.
+                    {t("musicVideo.create.loraHint")}
                   </Typography>
 
                   {useLoraConsistency && (
@@ -1769,7 +1793,7 @@ const MusicVideoPage = () => {
                       select
                       size="small"
                       fullWidth
-                      label="Cast (trained characters to lock)"
+                      label={t("musicVideo.create.cast")}
                       value={selectedSubjectIds}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -1781,20 +1805,21 @@ const MusicVideoPage = () => {
                           castSubjects
                             .filter((s) => sel.includes(s.id))
                             .map((s) => s.name)
-                            .join(", ") || "Select cast…",
+                            .join(", ") || t("musicVideo.create.selectCast"),
                       }}
                       error={Boolean(castError)}
                       helperText={
                         castError ? (
                           <>
-                            Cast Library could not be loaded: {castError}.{" "}
-                            <Link component="button" type="button" onClick={() => setCastReload((n) => n + 1)}>
-                              Retry
-                            </Link>
+                            <Trans
+                              i18nKey="musicVideo.create.castLoadFailed"
+                              values={{ reason: castError }}
+                              components={{ retry: <Link component="button" type="button" onClick={() => setCastReload((n) => n + 1)} /> }}
+                            />
                           </>
                         ) : castSubjects.length === 0
-                          ? "No trained characters found. Train one in the Cast Library first."
-                          : "Their trigger word + appearance bible are injected into every keyframe."
+                          ? t("musicVideo.create.noCast")
+                          : t("musicVideo.create.castHelp")
                       }
                       sx={{ mt: 1 }}
                     >
@@ -1811,10 +1836,10 @@ const MusicVideoPage = () => {
                     select
                     size="small"
                     fullWidth
-                    label="I2V / Animation Model"
+                    label={t("musicVideo.create.i2vModel")}
                     value={i2vModel}
                     onChange={(e) => setI2vModel(e.target.value)}
-                    helperText="Default follows the active video model. Pick any installed I2V family your card can hold."
+                    helperText={t("musicVideo.create.i2vModelHelp")}
                     sx={{ mt: 1 }}
                   >
                     {Object.entries(i2vModelOptions).map(([key, cfg]) => (
@@ -1831,21 +1856,20 @@ const MusicVideoPage = () => {
 
                   {useLoraConsistency || keyframeModelOptions.length <= 1 ? (
                     <Alert severity="info" sx={{ mt: 1 }}>
-                      Keyframe still model is automatic from the cast character&apos;s training base
-                      (Z-Image / SDXL / FLUX). Storyboard frames are generated on demand from each cut prompt + LoRA.
+                      {t("musicVideo.create.keyframeAuto")}
                     </Alert>
                   ) : (
                     <TextField
                       select
                       size="small"
                       fullWidth
-                      label="Keyframe / Storyboard Image Model"
+                      label={t("musicVideo.create.keyframeModel")}
                       value={keyframeModel}
                       onChange={(e) => {
                         keyframeTouched.current = true;
                         setKeyframeModel(e.target.value);
                       }}
-                      helperText="Z-Image Turbo renders the stills offline with the Images page's model; FLUX-schnell and SDXL render through ComfyUI."
+                      helperText={t("musicVideo.create.keyframeModelHelp")}
                       sx={{ mt: 1 }}
                     >
                       {keyframeModelOptions.map((opt) => (
@@ -1859,11 +1883,11 @@ const MusicVideoPage = () => {
               {error && <Alert severity="error" onClose={() => setError(null)}>{formatUiError(error)}</Alert>}
               <GpuGateBanner gpuBusy={gpuBusy} blockReason={blockReason} blockDetail={blockDetail} queueMode />
               <Button variant="contained" onClick={handleCreate} disabled={busy || gpuSubmitBlocked}>
-                {busy ? <CircularProgress size={20} /> : (hasActiveGeneration ? "Add another to queue" : "Create & Analyze")}
+                {busy ? <CircularProgress size={20} /> : (hasActiveGeneration ? t("musicVideo.create.addToQueue") : t("musicVideo.create.submit"))}
               </Button>
               {hasActiveGeneration && (
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                  A generation is in progress — additional creations will queue (GPU work serializes automatically).
+                  {t("musicVideo.create.queueHint")}
                 </Typography>
               )}
             </Stack>
@@ -1871,25 +1895,25 @@ const MusicVideoPage = () => {
 
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-              <Typography variant="subtitle1">Your music videos</Typography>
+              <Typography variant="subtitle1">{t("musicVideo.list.title")}</Typography>
               {finishedCount > 0 && (
                 <Link
                   component="button" type="button" variant="caption" underline="hover"
                   color="text.secondary" onClick={handleClearFinished}
                 >
-                  Clear finished ({finishedCount})
+                  {t("musicVideo.list.clearFinished", { count: finishedCount })}
                 </Link>
               )}
             </Stack>
             {projects.length > 0 && (
               <TextField
-                select size="small" fullWidth label="Show" sx={{ mb: 1 }}
+                select size="small" fullWidth label={t("musicVideo.list.show")} sx={{ mb: 1 }}
                 value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}
               >
-                <MenuItem value="all">All music videos</MenuItem>
-                <MenuItem value="none">Not in a project</MenuItem>
+                <MenuItem value="all">{t("musicVideo.list.all")}</MenuItem>
+                <MenuItem value="none">{t("musicVideo.list.noProject")}</MenuItem>
                 {projects.map((p) => (
-                  <MenuItem key={p.id} value={String(p.id)}>Project: {p.name}</MenuItem>
+                  <MenuItem key={p.id} value={String(p.id)}>{t("musicVideo.list.project", { name: p.name })}</MenuItem>
                 ))}
               </TextField>
             )}
@@ -1897,14 +1921,14 @@ const MusicVideoPage = () => {
               <Alert
                 severity="error"
                 sx={{ mb: 1 }}
-                action={<Button color="inherit" size="small" onClick={refreshList}>Retry</Button>}
+                action={<Button color="inherit" size="small" onClick={refreshList}>{t("musicVideo.list.retry")}</Button>}
               >
-                Music videos could not be loaded: {listError}
+                {t("musicVideo.list.loadFailed", { reason: listError })}
               </Alert>
             )}
             {shownVideos.length === 0 && !listError && (
               <Typography variant="body2" color="text.secondary">
-                {videos.length === 0 ? "None yet." : "None in this project."}
+                {videos.length === 0 ? t("musicVideo.list.none") : t("musicVideo.list.noneInProject")}
               </Typography>
             )}
             <Stack spacing={1}>
@@ -1913,7 +1937,7 @@ const MusicVideoPage = () => {
                   key={v.id}
                   variant="outlined"
                   onClick={async () => {
-                    if (v.id !== selectedId && !(await settlePlanEdits("Open another video"))) return;
+                    if (v.id !== selectedId && !(await settlePlanEdits(t("musicVideo.page.dropEditsOpen")))) return;
                     setSelectedId(v.id);
                   }}
                   sx={{
@@ -1927,7 +1951,7 @@ const MusicVideoPage = () => {
                       size="small" label={stageLabel(v)}
                       color={stageColor(v.current_stage, v.status, v.cut_count)}
                     />
-                    <Tooltip title="Remove from log">
+                    <Tooltip title={t("musicVideo.list.remove")}>
                       <IconButton
                         size="small"
                         onClick={(e) => { e.stopPropagation(); handleDelete(v.id, v.name); }}
@@ -1960,7 +1984,7 @@ const MusicVideoPage = () => {
           {!detail ? (
             <Paper variant="outlined" sx={{ p: 3 }}>
               <Typography variant="body2" color="text.secondary">
-                Select a music video to see its progress.
+                {t("musicVideo.detail.selectVideo")}
               </Typography>
             </Paper>
           ) : (
@@ -1978,28 +2002,28 @@ const MusicVideoPage = () => {
                         setRenaming(null);
                       }
                     }}
-                    inputProps={{ "aria-label": "Music video name" }}
+                    inputProps={{ "aria-label": t("musicVideo.detail.nameAria") }}
                   />
                 ) : (
                   <Stack direction="row" alignItems="center" spacing={0.5} sx={{ minWidth: 0 }}>
                     <Typography variant="h6" noWrap>{detail.name}</Typography>
-                    <Tooltip title="Rename">
-                      <IconButton size="small" aria-label="Rename" onClick={() => setRenaming(detail.name)}>
+                    <Tooltip title={t("musicVideo.detail.rename")}>
+                      <IconButton size="small" aria-label={t("musicVideo.detail.rename")} onClick={() => setRenaming(detail.name)}>
                         <EditIcon fontSize="inherit" />
                       </IconButton>
                     </Tooltip>
                   </Stack>
                 )}
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <Tooltip title="Duplicate into a new music video (same song, story, plan and settings)">
+                  <Tooltip title={t("musicVideo.detail.duplicateTooltip")}>
                     <span>
-                      <IconButton size="small" aria-label="Duplicate" onClick={handleDuplicate} disabled={busy}>
+                      <IconButton size="small" aria-label={t("musicVideo.detail.duplicate")} onClick={handleDuplicate} disabled={busy}>
                         <ContentCopyIcon fontSize="small" />
                       </IconButton>
                     </span>
                   </Tooltip>
-                  <Tooltip title="Versions: save, compare and restore">
-                    <IconButton size="small" aria-label="Versions" onClick={() => setVersionsOpen(true)}>
+                  <Tooltip title={t("musicVideo.detail.versionsTooltip")}>
+                    <IconButton size="small" aria-label={t("musicVideo.detail.versions")} onClick={() => setVersionsOpen(true)}>
                       <HistoryIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
@@ -2012,14 +2036,14 @@ const MusicVideoPage = () => {
                       onClick={handleContinueAnalyze}
                       disabled={busy}
                     >
-                      {busy ? <CircularProgress size={18} /> : "Continue & Analyze"}
+                      {busy ? <CircularProgress size={18} /> : t("musicVideo.detail.continueAnalyze")}
                     </Button>
                   )}
                   {hasCutPlan(detail) && (detail.current_stage === "complete" || (detail.status || "").match(/^(failed|cancelled)/) || detail.current_stage === "cancelled") && (
-                    <Tooltip title="Back to plan review, keeping rendered clips: only cuts you change render again">
+                    <Tooltip title={t("musicVideo.detail.reviseTooltip")}>
                       <span>
                         <Button size="small" variant="contained" onClick={handleRevise} disabled={busy}>
-                          Edit & Re-render Changes
+                          {t("musicVideo.detail.revise")}
                         </Button>
                       </span>
                     </Tooltip>
@@ -2029,7 +2053,7 @@ const MusicVideoPage = () => {
                       size="small"
                       variant="outlined"
                       onClick={async () => {
-                        const msg = "Reset this video back to plan review so you can re-edit the treatment/prompts or re-render? The previous output will be cleared.";
+                        const msg = t("musicVideo.detail.replanConfirm");
                         if (!window.confirm(msg)) return;
                         try {
                           setBusy(true);
@@ -2037,14 +2061,14 @@ const MusicVideoPage = () => {
                           noteDispatch(detail.id, replanned);
                           await refreshDetail(detail.id);
                         } catch (e) {
-                          setError(formatUiError(e?.response?.data?.error) || e.message || "Failed to re-plan");
+                          setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.detail.replanFailed"));
                         } finally {
                           setBusy(false);
                         }
                       }}
                       disabled={busy}
                     >
-                      Re-render Everything
+                      {t("musicVideo.detail.rerenderAll")}
                     </Button>
                   )}
                   {needsAnalysis(detail) && ((detail.status || "").match(/^(failed|cancelled)/) || detail.current_stage === "cancelled") && (
@@ -2054,7 +2078,7 @@ const MusicVideoPage = () => {
                       onClick={handleContinueAnalyze}
                       disabled={busy}
                     >
-                      Retry Analysis
+                      {t("musicVideo.detail.retryAnalysis")}
                     </Button>
                   )}
                 </Stack>
@@ -2064,19 +2088,19 @@ const MusicVideoPage = () => {
               </Typography>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                 <TextField
-                  select size="small" label="Project" sx={{ minWidth: 220 }}
+                  select size="small" label={t("musicVideo.detail.project")} sx={{ minWidth: 220 }}
                   value={detail.project_id ? String(detail.project_id) : ""}
                   onChange={(e) => handleMoveProject(e.target.value)}
                   disabled={busy}
                 >
-                  <MenuItem value="">No project</MenuItem>
+                  <MenuItem value="">{t("musicVideo.create.noProject")}</MenuItem>
                   {projects.map((p) => (
                     <MenuItem key={p.id} value={String(p.id)}>{p.name}</MenuItem>
                   ))}
                 </TextField>
                 {detail.project_id && (
                   <Link component={RouterLink} to={`/projects/${detail.project_id}?tab=videos`} variant="caption">
-                    Open project
+                    {t("musicVideo.detail.openProject")}
                   </Link>
                 )}
               </Stack>
@@ -2105,21 +2129,27 @@ const MusicVideoPage = () => {
                   <Alert severity={(detail.status || "").startsWith("failed") ? "error" : "info"}>
                     {(detail.status || "").startsWith("failed") ? (
                       <>
-                        Analysis failed
-                        {detail.error_blob?.error ? `: ${String(detail.error_blob.error)}` : ""}.
-                        {" "}Your song and settings are saved — click <b>Continue &amp; Analyze</b> to retry.
+                        <Trans
+                          i18nKey="musicVideo.detail.analysisFailed"
+                          values={{ error: detail.error_blob?.error ? `: ${String(detail.error_blob.error)}` : "" }}
+                          components={{ bold: <b /> }}
+                        />
                       </>
                     ) : (
                       <>
-                        This job was created but the song has not been analyzed yet
-                        {(detail.current_stage === "awaiting_approval") ? " (stuck at approval gate with no cut plan)" : ""}.
-                        {" "}Click <b>Continue &amp; Analyze</b> to build the beat map and Director plan — no need to re-upload.
+                        <Trans
+                          i18nKey="musicVideo.detail.notAnalyzed"
+                          values={{
+                            stuck: (detail.current_stage === "awaiting_approval") ? ` ${t("musicVideo.detail.stuckAtGate")}` : "",
+                          }}
+                          components={{ bold: <b /> }}
+                        />
                       </>
                     )}
                   </Alert>
                   <Box>
                     <Button variant="contained" onClick={handleContinueAnalyze} disabled={busy}>
-                      {busy ? <CircularProgress size={20} /> : "Continue & Analyze"}
+                      {busy ? <CircularProgress size={20} /> : t("musicVideo.detail.continueAnalyze")}
                     </Button>
                     {(detail.current_stage === "analyzing" || detail.current_stage === "awaiting_approval") && (
                       <Button
@@ -2130,7 +2160,7 @@ const MusicVideoPage = () => {
                         disabled={busy}
                         sx={{ ml: 1 }}
                       >
-                        Cancel
+                        {t("musicVideo.detail.cancel")}
                       </Button>
                     )}
                   </Box>
@@ -2169,7 +2199,7 @@ const MusicVideoPage = () => {
                       if (videoId === detail.id) await refreshDetail(videoId);
                       return true;
                     } catch (e) {
-                      setError(formatUiError(e?.response?.data?.error) || e.message || "Failed to save plan edits");
+                      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.detail.savePlanFailed"));
                       return false;
                     } finally {
                       if (!quiet) setBusy(false);
@@ -2186,7 +2216,7 @@ const MusicVideoPage = () => {
                         await refreshDetail(detail.id);
                       }
                     } catch (e) {
-                      setError(formatUiError(e?.response?.data?.error) || e.message || "Failed to generate storyboards");
+                      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.detail.storyboardsFailed"));
                     } finally {
                       setBusy(false);
                     }
@@ -2197,7 +2227,7 @@ const MusicVideoPage = () => {
                       await regenMusicVideoStoryboard(detail.id, index, data);
                       await refreshDetail(detail.id);
                     } catch (e) {
-                      setError(formatUiError(e?.response?.data?.error) || e.message || "Failed to regen storyboard");
+                      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.detail.regenStoryboardFailed"));
                       throw e;  // re-throw so local handler in PlanViewer can show per-cut error and still bump version for re-fetch
                     } finally {
                       setBusy(false);
@@ -2213,7 +2243,7 @@ const MusicVideoPage = () => {
                       await regenerateMusicVideoPlan(detail.id, payload);
                       await refreshDetail(detail.id);
                     } catch (e) {
-                      setError(formatUiError(e?.response?.data?.error) || e.message || "Failed to regenerate plan");
+                      setError(formatUiError(e?.response?.data?.error) || e.message || t("musicVideo.detail.regenPlanFailed"));
                     } finally {
                       setBusy(false);
                     }
@@ -2225,7 +2255,7 @@ const MusicVideoPage = () => {
 
               {isAnalysisRunning(detail) && (
                 <Stack spacing={1} sx={{ mb: 2 }}>
-                  <Typography variant="body2">Analyzing the song for beats &amp; energy…</Typography>
+                  <Typography variant="body2">{t("musicVideo.detail.analyzing")}</Typography>
                   <Button
                     size="small"
                     variant="outlined"
@@ -2234,7 +2264,7 @@ const MusicVideoPage = () => {
                     disabled={busy}
                     sx={{ alignSelf: "flex-start" }}
                   >
-                    Cancel Analysis
+                    {t("musicVideo.detail.cancelAnalysis")}
                   </Button>
                 </Stack>
               )}
@@ -2242,14 +2272,21 @@ const MusicVideoPage = () => {
               {detail.current_stage === "awaiting_approval" && hasCutPlan(detail) && detail.estimate && (
                 <Stack spacing={1.5}>
                   <Alert severity="warning">
-                    Plan ready for review. { (detail.clips || []).some(c => c.storyboard_path) 
-                      ? "Storyboards generated — review/regen individuals below, then Approve & Generate the full video (i2v)." 
-                      : "Use the 'Generate Storyboards' button in the plan below to create thumbnails first for review." }
-                    <br />Estimated full video time after storyboards: <b>{detail.estimate.estimated_human}</b>.
+                    {t("musicVideo.detail.planReady")}{" "}{(detail.clips || []).some(c => c.storyboard_path)
+                      ? t("musicVideo.detail.storyboardsReady")
+                      : t("musicVideo.detail.storyboardsFirst")}
+                    <br /><Trans
+                      i18nKey="musicVideo.detail.estimate"
+                      values={{ time: detail.estimate.estimated_human }}
+                      components={{ bold: <b /> }}
+                    />
                     {detail.cuts_to_render != null && detail.cuts_to_render < detail.cut_count && (
                       <>
-                        <br />Only <b>{detail.cuts_to_render}</b> of {detail.cut_count} cuts will render: the rest
-                        are already rendered with the same prompt and settings and are kept.
+                        <br /><Trans
+                          i18nKey="musicVideo.detail.onlySomeRender"
+                          values={{ count: detail.cuts_to_render, total: detail.cut_count }}
+                          components={{ bold: <b /> }}
+                        />
                       </>
                     )}
                   </Alert>
@@ -2257,7 +2294,7 @@ const MusicVideoPage = () => {
                     <GpuGateBanner gpuBusy={gpuBusy} blockReason={blockReason} blockDetail={blockDetail} queueMode />
                     <Stack direction="row" spacing={1} alignItems="center">
                       <Button variant="contained" color="warning" onClick={handleApprove} disabled={busy || gpuSubmitBlocked}>
-                        {busy ? <CircularProgress size={20} /> : "Approve & Generate Video"}
+                        {busy ? <CircularProgress size={20} /> : t("musicVideo.detail.approve")}
                       </Button>
                       <Button
                         size="small"
@@ -2266,7 +2303,7 @@ const MusicVideoPage = () => {
                         onClick={handleCancel}
                         disabled={busy}
                       >
-                        Cancel
+                        {t("musicVideo.detail.cancel")}
                       </Button>
                     </Stack>
                   </Box>
@@ -2276,7 +2313,7 @@ const MusicVideoPage = () => {
               {detail.current_stage === "generating" && (
                 <Stack spacing={1}>
                   <Typography variant="body2">
-                    Generating clips: {detail.clips_done} / {detail.clip_count}
+                    {t("musicVideo.detail.generatingClips", { done: detail.clips_done, total: detail.clip_count })}
                   </Typography>
                   {activeClipStep && (
                     <Box>
@@ -2287,7 +2324,7 @@ const MusicVideoPage = () => {
                         sx={{ height: 6, borderRadius: 1 }}
                       />
                       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-                        {activeClipStep.message || "Rendering current clip…"}
+                        {activeClipStep.message || t("musicVideo.detail.renderingClip")}
                       </Typography>
                     </Box>
                   )}
@@ -2298,7 +2335,7 @@ const MusicVideoPage = () => {
                     onClick={handleCancel}
                     disabled={busy}
                   >
-                    Cancel Generation
+                    {t("musicVideo.detail.cancelGeneration")}
                   </Button>
                 </Stack>
               )}
@@ -2315,7 +2352,7 @@ const MusicVideoPage = () => {
 
               {detail.current_stage === "assembling" && !(detail.status || "").startsWith("failed") && (
                 <Stack spacing={1}>
-                  <Typography variant="body2">Assembling the final cut in sync with your song…</Typography>
+                  <Typography variant="body2">{t("musicVideo.detail.assembling")}</Typography>
                   <Button
                     size="small"
                     variant="outlined"
@@ -2323,14 +2360,14 @@ const MusicVideoPage = () => {
                     onClick={handleCancel}
                     disabled={busy}
                   >
-                    Cancel Assembly
+                    {t("musicVideo.detail.cancelAssembly")}
                   </Button>
                 </Stack>
               )}
 
               {detail.current_stage === "complete" && detail.output_document_id && (
                 <Stack spacing={1}>
-                  <Typography variant="subtitle2">Done — your music video:</Typography>
+                  <Typography variant="subtitle2">{t("musicVideo.detail.done")}:</Typography>
                   <video
                     controls
                     style={{ width: "100%", borderRadius: 8, background: "#000" }}
@@ -2344,12 +2381,11 @@ const MusicVideoPage = () => {
                   severity="warning"
                   action={
                     <Button color="inherit" size="small" onClick={handleReassemble} disabled={busy}>
-                      Assemble again
+                      {t("musicVideo.detail.reassemble")}
                     </Button>
                   }
                 >
-                  The clips are rendered but the finished video was not added to the library, so it
-                  cannot play here. Assemble again builds it from the same clips; nothing is re-rendered.
+                  {t("musicVideo.detail.notInLibrary")}
                 </Alert>
               )}
 
@@ -2358,35 +2394,40 @@ const MusicVideoPage = () => {
                   severity="error"
                   action={detail.status === "failed_assembling" ? (
                     <Button color="inherit" size="small" onClick={handleReassemble} disabled={busy}>
-                      Assemble again
+                      {t("musicVideo.detail.reassemble")}
                     </Button>
                   ) : undefined}
                 >
-                  Failed at stage <b>{detail.error_blob?.stage || detail.status}</b>:{" "}
-                  {String(detail.error_blob?.error || "unknown error")}
+                  <Trans
+                    i18nKey="musicVideo.detail.failedAtStage"
+                    values={{
+                      stage: detail.error_blob?.stage || detail.status,
+                      error: String(detail.error_blob?.error || t("musicVideo.detail.unknownError")),
+                    }}
+                    components={{ bold: <b /> }}
+                  />
                 </Alert>
               )}
 
               <Divider sx={{ my: 2 }} />
               <Typography variant="caption" color="text.secondary">
-                {detail.cut_count} cuts · {detail.clips_done}/{detail.clip_count} clips rendered
+                {t("musicVideo.detail.footer", { cuts: detail.cut_count, done: detail.clips_done, total: detail.clip_count })}
               </Typography>
             </Paper>
           )}
         </Box>
       </Box>
       <Dialog open={duplicateAsk} onClose={() => setDuplicateAsk(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Duplicate “{detail?.name}”</DialogTitle>
+        <DialogTitle>{t("musicVideo.duplicate.title", { name: detail?.name })}</DialogTitle>
         <DialogContent>
           <Typography variant="body2">
-            The copy can reuse the clips already rendered, so only the cuts you change render again,
-            or render every cut fresh.
+            {t("musicVideo.duplicate.text")}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDuplicateAsk(false)}>Cancel</Button>
-          <Button onClick={() => runDuplicate(false)}>Render every cut fresh</Button>
-          <Button variant="contained" onClick={() => runDuplicate(true)}>Reuse rendered clips</Button>
+          <Button onClick={() => setDuplicateAsk(false)}>{t("musicVideo.duplicate.cancel")}</Button>
+          <Button onClick={() => runDuplicate(false)}>{t("musicVideo.duplicate.fresh")}</Button>
+          <Button variant="contained" onClick={() => runDuplicate(true)}>{t("musicVideo.duplicate.reuse")}</Button>
         </DialogActions>
       </Dialog>
       <VersionsDialog

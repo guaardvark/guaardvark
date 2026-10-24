@@ -8,6 +8,8 @@ import {
   useTheme
 } from '@mui/material';
 import { listCastLibrary } from '../../api/productionService';
+import { trainingStatusLabel } from './CastLibraryView';
+import { useUiTranslation } from '../../i18n';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -27,6 +29,7 @@ const CharacterPicker = ({
   kind = 'character',
   onlyTrained = false
 }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +98,7 @@ const CharacterPicker = ({
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
         <Typography variant="body2" color="text.secondary">
-          No characters yet — train one in the Cast Library.
+          {t('filmCrew.characterPicker.empty')}
         </Typography>
       </Box>
     );
@@ -190,7 +193,7 @@ const CharacterPicker = ({
               )}
 
               <Chip 
-                label={s.training_status || 'untrained'} 
+                label={trainingStatusLabel(s.training_status || 'untrained')} 
                 size="small" 
                 variant="filled"
                 color={

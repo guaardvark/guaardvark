@@ -47,6 +47,7 @@ import VoiceClipManager from "../components/audio/VoiceClipManager";
 import { confirmVoiceClipConsent, voiceClipAudioUrl } from "../api/audioFoundryService";
 import SettingsIcon from "@mui/icons-material/Settings";
 import lazyWithReload from "../utils/lazyWithReload";
+import { useUiTranslation, translate, Trans } from "../i18n";
 
 const AudioFoundryModelsModal = lazyWithReload(() => import("../components/modals/AudioFoundryModelsModal"));
 
@@ -119,6 +120,41 @@ const MUSIC_INSTRUMENTS = [
   "Acoustic guitar", "Drums", "Strings", "Brass", "Choir",
 ];
 
+// The tags above go to the rewriter in English; this is how a chip shows them.
+const musicTagLabel = (tag) => ({
+  Cinematic: translate("audio.musicTags.cinematic"),
+  Synthwave: translate("audio.musicTags.synthwave"),
+  "Lo-fi": translate("audio.musicTags.lofi"),
+  Ambient: translate("audio.musicTags.ambient"),
+  Classical: translate("audio.musicTags.classical"),
+  Orchestral: translate("audio.musicTags.orchestral"),
+  Jazz: translate("audio.musicTags.jazz"),
+  Electronic: translate("audio.musicTags.electronic"),
+  "Hip-hop": translate("audio.musicTags.hipHop"),
+  Rock: translate("audio.musicTags.rock"),
+  Folk: translate("audio.musicTags.folk"),
+  Cyberpunk: translate("audio.musicTags.cyberpunk"),
+  Dark: translate("audio.musicTags.dark"),
+  Uplifting: translate("audio.musicTags.uplifting"),
+  Melancholy: translate("audio.musicTags.melancholy"),
+  Energetic: translate("audio.musicTags.energetic"),
+  Calm: translate("audio.musicTags.calm"),
+  Epic: translate("audio.musicTags.epic"),
+  Romantic: translate("audio.musicTags.romantic"),
+  Tense: translate("audio.musicTags.tense"),
+  Dreamy: translate("audio.musicTags.dreamy"),
+  Piano: translate("audio.musicTags.piano"),
+  Cello: translate("audio.musicTags.cello"),
+  Violin: translate("audio.musicTags.violin"),
+  Synth: translate("audio.musicTags.synth"),
+  "Electric guitar": translate("audio.musicTags.electricGuitar"),
+  "Acoustic guitar": translate("audio.musicTags.acousticGuitar"),
+  Drums: translate("audio.musicTags.drums"),
+  Strings: translate("audio.musicTags.strings"),
+  Brass: translate("audio.musicTags.brass"),
+  Choir: translate("audio.musicTags.choir"),
+})[tag] || tag;
+
 // "Default" in the voice picker: send no voice_id and let Audio Foundry pick
 // (Chatterbox's stock voice in auto, Kokoro's default voice in kokoro).
 const DEFAULT_VOICE = "default";
@@ -181,29 +217,30 @@ const METERS = [
   { value: "2", label: "2/4" },
 ];
 
-const VOCAL_LANGUAGES = [
-  ["", "Auto"],
-  ["en", "English"],
-  ["es", "Spanish"],
-  ["fr", "French"],
-  ["de", "German"],
-  ["it", "Italian"],
-  ["pt", "Portuguese"],
-  ["ja", "Japanese"],
-  ["ko", "Korean"],
-  ["zh", "Chinese"],
-  ["yue", "Cantonese"],
-  ["hi", "Hindi"],
-  ["bn", "Bengali"],
-  ["ar", "Arabic"],
-  ["ru", "Russian"],
+// [code sent to ACE-Step, name as shown].
+const vocalLanguages = () => [
+  ["", translate("audio.languages.auto")],
+  ["en", translate("audio.languages.en")],
+  ["es", translate("audio.languages.es")],
+  ["fr", translate("audio.languages.fr")],
+  ["de", translate("audio.languages.de")],
+  ["it", translate("audio.languages.it")],
+  ["pt", translate("audio.languages.pt")],
+  ["ja", translate("audio.languages.ja")],
+  ["ko", translate("audio.languages.ko")],
+  ["zh", translate("audio.languages.zh")],
+  ["yue", translate("audio.languages.yue")],
+  ["hi", translate("audio.languages.hi")],
+  ["bn", translate("audio.languages.bn")],
+  ["ar", translate("audio.languages.ar")],
+  ["ru", translate("audio.languages.ru")],
 ];
 
 const meterLabel = (value) => METERS.find((m) => m.value === String(value))?.label || value || "";
 
 const languageLabel = (code) => {
   if (!code || code === "unknown") return "";
-  const row = VOCAL_LANGUAGES.find(([value]) => value === code);
+  const row = vocalLanguages().find(([value]) => value === code);
   return row ? row[1] : code;
 };
 
@@ -218,6 +255,7 @@ const lockSummary = (locks) => {
 };
 
 const AudioFoundryPage = () => {
+  const { t } = useUiTranslation();
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -351,7 +389,7 @@ const AudioFoundryPage = () => {
           { headers: { "Content-Type": "multipart/form-data" } },
         );
         if (!res.data?.consented) {
-          throw new Error("The clip was imported but consent could not be saved, so it cannot be cloned.");
+          throw new Error(t("audio.page.consentNotSaved"));
         }
         setReferenceClip(res.data);
       } else {
@@ -362,7 +400,7 @@ const AudioFoundryPage = () => {
       refreshVoiceClips();
     } catch (err) {
       console.error("Voice clip consent failed:", err);
-      setError(formatUiError(err.response?.data?.error) || err.message || "Import failed.");
+      setError(formatUiError(err.response?.data?.error) || err.message || t("audio.page.importFailed"));
       setConsentRequest(null);
     } finally {
       setUploadingClip(false);
@@ -408,7 +446,7 @@ const AudioFoundryPage = () => {
         const fx = res.data?.backends?.fx;
         if (fx && fx.available === false) {
           setFxUnavailableReason(
-            fx.unavailable_reason || "Sound FX generation is unavailable on this machine."
+            fx.unavailable_reason || t("audio.page.fxUnavailable")
           );
         }
       })
@@ -442,8 +480,7 @@ const AudioFoundryPage = () => {
     if (!docId) {
       setError(
         data.registration_error ||
-        "Audio was generated but couldn't be registered as a Document. " +
-        "Check audio_foundry.log — the POST to /api/outputs/register may have failed."
+        t("audio.page.notRegistered")
       );
     } else {
       setResult({ ...data, full_url: `${API_BASE}/files/document/${docId}/download` });
@@ -467,7 +504,7 @@ const AudioFoundryPage = () => {
           setProgress(null); setJobId(null); setLoading(false);
         } else if (data.status === "error") {
           stopPolling();
-          setError(data.error || "Generation failed in the background job.");
+          setError(data.error || t("audio.page.jobFailed"));
           setProgress(null); setJobId(null); setLoading(false);
         } else if (data.status === "cancelled") {
           stopPolling();
@@ -478,7 +515,7 @@ const AudioFoundryPage = () => {
         // network blips just retry on the next tick.
         if (err.response?.status === 404) {
           stopPolling();
-          setError("Generation job was lost (the audio service may have restarted). Please retry.");
+          setError(t("audio.page.jobLost"));
           setProgress(null); setJobId(null); setLoading(false);
         }
       }
@@ -501,12 +538,12 @@ const AudioFoundryPage = () => {
 
   const generateAudio = async (type) => {
     if (!pluginRunning) {
-      setError("Audio Foundry is not running. Start it from Manage models.");
+      setError(t("audio.page.notRunning"));
       openModels();
       return;
     }
     if (missingRows.length) {
-      setError(`${missingRows[0].name} is not installed. Install it first.`);
+      setError(t("audio.page.notInstalled", { name: missingRows[0].name }));
       openModels(missingRows[0].id);
       return;
     }
@@ -548,7 +585,7 @@ const AudioFoundryPage = () => {
       console.error("Audio generation failed:", err);
       setError(
         formatUiError(err.response?.data?.detail || err.response?.data?.error) ||
-        "Generation failed. Please check backend logs.",
+        t("audio.page.generationFailed"),
       );
       setLoading(false);
     } finally {
@@ -610,7 +647,7 @@ const AudioFoundryPage = () => {
   const polishMusicPrompt = async () => {
     const intent = composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra);
     if (!intent) {
-      setError("Pick at least one genre/mood/instrument or add a description first.");
+      setError(t("audio.page.needMusicInput"));
       return;
     }
     setMusicPolishing(true);
@@ -634,7 +671,7 @@ const AudioFoundryPage = () => {
       // still generate without the LLM in the loop.
       setMusicPreview({
         fallback: true,
-        reason: formatUiError(err.response?.data?.error) || "Polish service unreachable",
+        reason: formatUiError(err.response?.data?.error) || t("audio.page.polishUnreachable"),
         style_prompt: intent,
         negative_prompt: "",
         tags_used: [],
@@ -651,7 +688,7 @@ const AudioFoundryPage = () => {
   const arrangeMusic = async () => {
     const query = composeAce15Query(musicGenres, musicMoods, musicInstruments, musicExtra);
     if (!query) {
-      setError("Describe the song, or pick a genre, mood or instrument.");
+      setError(t("audio.page.needSongDescription"));
       return;
     }
     setArranging(true);
@@ -666,7 +703,7 @@ const AudioFoundryPage = () => {
       });
       const next = res.data?.arrangement;
       if (!next?.caption) {
-        setError("The planner did not return a caption.");
+        setError(t("audio.page.noCaption"));
         return;
       }
       setArrangement(next);
@@ -676,7 +713,7 @@ const AudioFoundryPage = () => {
       setError(
         (typeof detail === "string" && detail) ||
         formatUiError(err.response?.data?.error) ||
-        "Arrange failed. Audio Foundry has to be running with ACE-Step 1.5 loaded."
+        t("audio.page.arrangeFailed")
       );
     } finally {
       setArranging(false);
@@ -696,11 +733,11 @@ const AudioFoundryPage = () => {
       ? composeAce15Query(musicGenres, musicMoods, musicInstruments, musicExtra)
       : composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra);
     if (!intent && !musicPreview && !arrangement) {
-      setError("Pick at least one genre/mood/instrument or add a description first.");
+      setError(t("audio.page.needMusicInput"));
       return;
     }
     if (isAce15 && !arrangement?.caption?.trim()) {
-      setError("Arrange the song first, then compose.");
+      setError(t("audio.page.arrangeFirst"));
       return;
     }
 
@@ -714,19 +751,19 @@ const AudioFoundryPage = () => {
     }
 
     if (musicModel !== "minimax-music3-int8" && !pluginRunning) {
-      setError("Audio Foundry is not running. Start it from Manage models.");
+      setError(t("audio.page.notRunning"));
       openModels();
       return;
     }
     if (missingRows.length) {
-      setError(`${missingRows[0].name} is not installed. Install it first.`);
+      setError(t("audio.page.notInstalled", { name: missingRows[0].name }));
       openModels(missingRows[0].id);
       return;
     }
     if (isAce15 && arrangement?.bpm) {
       const bpm = Number(arrangement.bpm);
       if (!Number.isInteger(bpm) || bpm < 30 || bpm > 300) {
-        setError("Tempo must be a whole number between 30 and 300 bpm.");
+        setError(t("audio.page.badTempo"));
         return;
       }
     }
@@ -768,7 +805,7 @@ const AudioFoundryPage = () => {
       finishWithResult(res.data);  // inline (short song) — unchanged behavior
     } catch (err) {
       console.error("Music generation failed:", err);
-      setError(err.response?.data?.detail || formatUiError(err.response?.data?.error) || "Generation failed. Please check backend logs.");
+      setError(err.response?.data?.detail || formatUiError(err.response?.data?.error) || t("audio.page.generationFailed"));
       setLoading(false);
     } finally {
       if (!pollRef.current) setLoading(false);
@@ -786,25 +823,25 @@ const AudioFoundryPage = () => {
 
   return (
     <PageLayout
-      title="Audio Studio"
-      subtitle="Professional AI Audio Production"
+      title={t("audio.page.title")}
+      subtitle={t("audio.page.subtitle")}
       actions={
-        <ActionButton onClick={() => openModels()}>Manage models</ActionButton>
+        <ActionButton onClick={() => openModels()}>{t("audio.page.manageModels")}</ActionButton>
       }
     >
       <Box sx={{ maxWidth: 1200, mx: "auto", mt: 2, px: 2 }}>
         <DashboardStrip>
           <DashboardTile
-            label="Plugin"
-            value={pluginRunning ? "Running" : (pluginInfo.status || "Stopped")}
-            sub={pluginRunning ? "Audio Foundry" : "Start from Manage models"}
+            label={t("audio.page.plugin")}
+            value={pluginRunning ? t("audio.page.running") : (pluginInfo.status || t("audio.page.stopped"))}
+            sub={pluginRunning ? "Audio Foundry" : t("audio.page.startFromModels")}
             tone={pluginRunning ? "ok" : "error"}
             onClick={() => openModels()}
           />
           <DashboardTile
-            label="Weights"
-            value={catalog.length ? `${installedCount} installed` : "Checking"}
-            sub={missingCount ? `${missingCount} missing` : (catalog.length ? "ready" : "")}
+            label={t("audio.page.weights")}
+            value={catalog.length ? t("audio.page.installedCount", { count: installedCount }) : t("audio.page.checking")}
+            sub={missingCount ? t("audio.page.missingCount", { count: missingCount }) : (catalog.length ? t("audio.page.ready") : "")}
             tone={missingCount ? "warn" : catalog.length ? "ok" : "off"}
             onClick={() => openModels()}
           />
@@ -816,11 +853,11 @@ const AudioFoundryPage = () => {
             sx={{ mt: 2, mb: 1 }}
             action={
               <Button color="inherit" size="small" startIcon={<SettingsIcon />} onClick={() => openModels()}>
-                Manage models
+                {t("audio.page.manageModels")}
               </Button>
             }
           >
-            Audio Foundry is not running. Start the plugin, then install any missing weights.
+            {t("audio.page.notRunningAlert")}
           </Alert>
         )}
 
@@ -835,12 +872,15 @@ const AudioFoundryPage = () => {
                 startIcon={<SettingsIcon />}
                 onClick={() => openModels(missingRows[0].id)}
               >
-                Download {missingRows[0].name}
+                {t("audio.page.downloadModel", { name: missingRows[0].name })}
               </Button>
             }
           >
-            <strong>{missingRows[0].name} is not installed.</strong> Generate will not
-            download it in the background — install it first.
+            <Trans
+              i18nKey="audio.page.notInstalledAlert"
+              values={{ name: missingRows[0].name }}
+              components={{ bold: <strong /> }}
+            />
           </Alert>
         )}
 
@@ -858,21 +898,21 @@ const AudioFoundryPage = () => {
                   "& .MuiTabs-indicator": { backgroundColor: getTabColor() }
                 }}
               >
-                <Tab icon={<VoiceIcon />} label="Voice" sx={{ "&.Mui-selected": { color: "#9c27b0" } }} />
-                <Tab icon={<MusicIcon />} label="Music" sx={{ "&.Mui-selected": { color: "#2196f3" } }} />
-                <Tab icon={<FxIcon />} label="FX Lab" sx={{ "&.Mui-selected": { color: "#ff9800" } }} />
+                <Tab icon={<VoiceIcon />} label={t("audio.page.voiceTab")} sx={{ "&.Mui-selected": { color: "#9c27b0" } }} />
+                <Tab icon={<MusicIcon />} label={t("audio.page.musicTab")} sx={{ "&.Mui-selected": { color: "#2196f3" } }} />
+                <Tab icon={<FxIcon />} label={t("audio.page.fxTab")} sx={{ "&.Mui-selected": { color: "#ff9800" } }} />
               </Tabs>
 
               <Box sx={{ p: 4, minHeight: 450 }}>
                 {activeTab === 0 && (
                   <Stack spacing={3}>
-                    <Typography variant="h6" fontWeight="bold">Neural Voiceover</Typography>
+                    <Typography variant="h6" fontWeight="bold">{t("audio.voice.title")}</Typography>
                     <TextField
                       multiline
                       rows={8}
                       fullWidth
                       variant="filled"
-                      placeholder="Enter script for narration..."
+                      placeholder={t("audio.voice.scriptPlaceholder")}
                       value={voiceText}
                       onChange={(e) => setVoiceText(e.target.value)}
                       sx={{ "& .MuiFilledInput-root": { borderRadius: 2 } }}
@@ -895,7 +935,7 @@ const AudioFoundryPage = () => {
                     </Stack>
                     {voiceBackend !== "chatterbox" && !(voiceBackend === "auto" && referenceClip) && (
                       <FormControl variant="filled" fullWidth size="small">
-                        <InputLabel>Voice</InputLabel>
+                        <InputLabel>{t("audio.voice.voice")}</InputLabel>
                         <Select
                           value={voiceId}
                           onChange={(e) => setVoiceId(e.target.value)}
@@ -904,8 +944,8 @@ const AudioFoundryPage = () => {
                         >
                           <MenuItem value={DEFAULT_VOICE}>
                             {voiceBackend === "auto"
-                              ? "Automatic: Chatterbox's stock voice (Kokoro Heart if Chatterbox cannot run)"
-                              : "Default (Heart)"}
+                              ? t("audio.voice.automatic")
+                              : t("audio.voice.defaultHeart")}
                           </MenuItem>
                           {voiceGroups.flatMap((group) => [
                             <ListSubheader key={group.label}>{group.label}</ListSubheader>,
@@ -922,8 +962,8 @@ const AudioFoundryPage = () => {
                       <Stack spacing={1.5}>
                         <Typography variant="body2" sx={{ opacity: 0.85 }}>
                           {voiceBackend === "chatterbox"
-                            ? "Reference clip (5–10s of clean speech in the voice you want to clone). Optional — leave empty to use Chatterbox's default voice."
-                            : "Optional reference clip to clone (Chatterbox). A clip decides the voice; without one, the voice above is used."}
+                            ? t("audio.voice.referenceHintChatterbox")
+                            : t("audio.voice.referenceHintAuto")}
                         </Typography>
 
                         {referenceClip ? (
@@ -945,7 +985,7 @@ const AudioFoundryPage = () => {
                                 startIcon={<CloseIcon />}
                                 sx={{ flexShrink: 0 }}
                               >
-                                Clear
+                                {t("audio.voice.clear")}
                               </Button>
                             </Stack>
                           </Card>
@@ -957,7 +997,7 @@ const AudioFoundryPage = () => {
                             disabled={uploadingClip}
                             sx={{ borderRadius: 2, justifyContent: "flex-start" }}
                           >
-                            {uploadingClip ? "Importing..." : "Import reference clip"}
+                            {uploadingClip ? t("audio.voice.importing") : t("audio.voice.importClip")}
                             <input
                               hidden
                               type="file"
@@ -973,7 +1013,7 @@ const AudioFoundryPage = () => {
 
                         {voiceClipLibrary.length > 0 && !referenceClip && (
                           <FormControl variant="filled" size="small" fullWidth>
-                            <InputLabel>...or pick a previously imported clip</InputLabel>
+                            <InputLabel>{t("audio.voice.pickPrevious")}</InputLabel>
                             <Select
                               value=""
                               onChange={(e) => {
@@ -987,7 +1027,7 @@ const AudioFoundryPage = () => {
                                   <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
                                     <span>{c.filename}</span>
                                     <Typography component="span" variant="caption" sx={{ opacity: 0.5, ml: 2 }}>
-                                      {c.consented ? "" : "needs consent · "}{(c.size_bytes / 1024).toFixed(0)} KB
+                                      {c.consented ? "" : `${t("audio.voice.needsConsent")} · `}{(c.size_bytes / 1024).toFixed(0)} KB
                                     </Typography>
                                   </Box>
                                 </MenuItem>
@@ -1011,7 +1051,7 @@ const AudioFoundryPage = () => {
                       onClick={() => generateAudio("voice")}
                       sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#9c27b0", "&:hover": { backgroundColor: "#7b1fa2" } }}
                     >
-                      {loading ? "Synthesizing..." : "Generate Voiceover"}
+                      {loading ? t("audio.voice.synthesizing") : t("audio.voice.generate")}
                     </Button>
                   </Stack>
                 )}
@@ -1019,7 +1059,7 @@ const AudioFoundryPage = () => {
                 {activeTab === 1 && (
                   <Stack spacing={2.5}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <Typography variant="h6" fontWeight="bold">Music Composer</Typography>
+                      <Typography variant="h6" fontWeight="bold">{t("audio.music.title")}</Typography>
                       {!isAce15 && (
                         <FormControlLabel
                           control={
@@ -1029,7 +1069,7 @@ const AudioFoundryPage = () => {
                               size="small"
                             />
                           }
-                          label={<Typography variant="caption">Polish with AI</Typography>}
+                          label={<Typography variant="caption">{t("audio.music.polishWithAi")}</Typography>}
                           sx={{ m: 0 }}
                         />
                       )}
@@ -1038,12 +1078,12 @@ const AudioFoundryPage = () => {
                     {/* Genre row — pick the anchor that keeps ACE-Step v1 from drifting to country.
                         On 1.5 these are hints; the description is what the planner reads. */}
                     <Box>
-                      <Typography variant="caption" fontWeight="bold" color="text.secondary">Genre</Typography>
+                      <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.genre")}</Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
                         {MUSIC_GENRES.map((g) => (
                           <Chip
                             key={g}
-                            label={g}
+                            label={musicTagLabel(g)}
                             size="small"
                             color={musicGenres.includes(g) ? "primary" : "default"}
                             variant={musicGenres.includes(g) ? "filled" : "outlined"}
@@ -1056,12 +1096,12 @@ const AudioFoundryPage = () => {
 
                     {/* Mood row */}
                     <Box>
-                      <Typography variant="caption" fontWeight="bold" color="text.secondary">Mood</Typography>
+                      <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.mood")}</Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
                         {MUSIC_MOODS.map((m) => (
                           <Chip
                             key={m}
-                            label={m}
+                            label={musicTagLabel(m)}
                             size="small"
                             color={musicMoods.includes(m) ? "secondary" : "default"}
                             variant={musicMoods.includes(m) ? "filled" : "outlined"}
@@ -1074,12 +1114,12 @@ const AudioFoundryPage = () => {
 
                     {/* Instrument row */}
                     <Box>
-                      <Typography variant="caption" fontWeight="bold" color="text.secondary">Instruments</Typography>
+                      <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.instruments")}</Typography>
                       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
                         {MUSIC_INSTRUMENTS.map((i) => (
                           <Chip
                             key={i}
-                            label={i}
+                            label={musicTagLabel(i)}
                             size="small"
                             color={musicInstruments.includes(i) ? "info" : "default"}
                             variant={musicInstruments.includes(i) ? "filled" : "outlined"}
@@ -1093,7 +1133,7 @@ const AudioFoundryPage = () => {
                     {/* Free-text "additional details" — anything the chips don't cover */}
                     {isAce15 && (
                       <Typography variant="caption" color="text.secondary">
-                        Describe the song in a sentence. Name a bpm or a key if you want them kept.
+                        {t("audio.music.describeHint")}
                       </Typography>
                     )}
                     <TextField
@@ -1102,8 +1142,8 @@ const AudioFoundryPage = () => {
                       multiline
                       minRows={isAce15 ? 3 : 2}
                       placeholder={isAce15
-                        ? "A quiet song about missing a train, male vocal, 84 bpm"
-                        : "Additional details (optional): 'driving rhythm for a chase scene', 'with rain', etc."}
+                        ? t("audio.music.describePlaceholder")
+                        : t("audio.music.detailsPlaceholder")}
                       value={musicExtra}
                       onChange={(e) => handleMusicExtraChange(e.target.value)}
                       sx={{ "& .MuiFilledInput-root": { borderRadius: 2 } }}
@@ -1118,12 +1158,12 @@ const AudioFoundryPage = () => {
                             size="small"
                           />
                         }
-                        label={<Typography variant="caption">Instrumental only</Typography>}
+                        label={<Typography variant="caption">{t("audio.music.instrumentalOnly")}</Typography>}
                       />
                       <TextField
                         select
                         size="small"
-                        label="Music model"
+                        label={t("audio.music.model")}
                         value={musicModel}
                         onChange={(e) => {
                           setMusicModel(e.target.value);
@@ -1135,30 +1175,30 @@ const AudioFoundryPage = () => {
                       >
                         <option value="ace-step">ACE-Step v1 (Audio Foundry)</option>
                         <option value="ace-step-1.5" disabled={ace15Ready === false}>
-                          {ace15Ready === false ? "ACE-Step 1.5 (install in Manage models)" : "ACE-Step 1.5 (Audio Foundry)"}
+                          {ace15Ready === false ? t("audio.music.installInModels", { model: "ACE-Step 1.5" }) : "ACE-Step 1.5 (Audio Foundry)"}
                         </option>
                         <option value="minimax-music3-int8" disabled={music3Ready === false}>
-                          {music3Ready === false ? "MiniMax Music 3 (install in Manage models)" : "MiniMax Music 3 (sings lyrics)"}
+                          {music3Ready === false ? t("audio.music.installInModels", { model: "MiniMax Music 3" }) : t("audio.music.music3SingsLyrics")}
                         </option>
                       </TextField>
                     </Box>
                     {!musicInstrumental && (
                       <TextField
-                        label="Lyrics (optional)"
+                        label={t("audio.music.lyricsOptional")}
                         multiline
                         minRows={3}
                         maxRows={8}
                         size="small"
                         value={musicLyrics}
                         onChange={(e) => { setMusicLyrics(e.target.value); setArrangement(null); }}
-                        placeholder={"[Verse]\nwe drove all night under a paper moon\n[Chorus]\n..."}
-                        helperText="Section tags like [Verse], [Chorus], [Bridge] shape the song; MiniMax Music 3 sings them, ACE-Step follows them where it can."
+                        placeholder={t("audio.music.lyricsPlaceholder")}
+                        helperText={t("audio.music.lyricsHelp")}
                         fullWidth
                       />
                     )}
 
                     <Box>
-                      <Typography variant="caption" fontWeight="bold">Duration: {duration} seconds</Typography>
+                      <Typography variant="caption" fontWeight="bold">{t("audio.music.duration", { seconds: duration })}</Typography>
                       <Slider
                         value={duration}
                         min={10}
@@ -1175,14 +1215,14 @@ const AudioFoundryPage = () => {
                         <Stack spacing={1.25}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Typography variant="caption" fontWeight="bold" color="primary">
-                              {musicPreview.fallback ? "Polished prompt (fallback — Ollama unavailable)" : "Polished prompt"}
+                              {musicPreview.fallback ? t("audio.music.polishedFallback") : t("audio.music.polished")}
                             </Typography>
                             <Button
                               size="small"
                               onClick={() => setMusicPreview(null)}
                               sx={{ minWidth: 0, textTransform: "none" }}
                             >
-                              Discard
+                              {t("audio.music.discard")}
                             </Button>
                           </Box>
                           {musicPreview.fallback && musicPreview.reason && (
@@ -1191,12 +1231,12 @@ const AudioFoundryPage = () => {
                             </Alert>
                           )}
                           <Box>
-                            <Typography variant="caption" color="text.secondary">Style</Typography>
+                            <Typography variant="caption" color="text.secondary">{t("audio.music.style")}</Typography>
                             <Typography variant="body2">{musicPreview.style_prompt}</Typography>
                           </Box>
                           {musicPreview.negative_prompt && (
                             <Box>
-                              <Typography variant="caption" color="text.secondary">Avoid</Typography>
+                              <Typography variant="caption" color="text.secondary">{t("audio.music.avoid")}</Typography>
                               <Typography variant="body2" sx={{ opacity: 0.75 }}>
                                 {musicPreview.negative_prompt}
                               </Typography>
@@ -1211,26 +1251,26 @@ const AudioFoundryPage = () => {
                         <Stack spacing={1.25}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                             <Typography variant="caption" fontWeight="bold" color="primary">
-                              Arrangement
+                              {t("audio.music.arrangement")}
                             </Typography>
                             <Button
                               size="small"
                               onClick={() => setArrangement(null)}
                               sx={{ minWidth: 0, textTransform: "none" }}
                             >
-                              Discard
+                              {t("audio.music.discard")}
                             </Button>
                           </Box>
                           <Typography variant="caption" color="text.secondary">
-                            Edit this, then compose. The song uses this caption.
+                            {t("audio.music.arrangementHint")}
                           </Typography>
                           {lockSummary(arrangement.locks) && (
                             <Typography variant="caption" color="text.secondary">
-                              Kept from your description: {lockSummary(arrangement.locks)}.
+                              {t("audio.music.keptFromDescription", { summary: lockSummary(arrangement.locks) })}
                             </Typography>
                           )}
                           <TextField
-                            label="Caption"
+                            label={t("audio.music.caption")}
                             multiline
                             minRows={3}
                             size="small"
@@ -1240,7 +1280,7 @@ const AudioFoundryPage = () => {
                           />
                           {!musicInstrumental && (
                             <TextField
-                              label="Lyrics"
+                              label={t("audio.music.lyrics")}
                               multiline
                               minRows={4}
                               maxRows={10}
@@ -1252,7 +1292,7 @@ const AudioFoundryPage = () => {
                           )}
                           <Stack direction="row" spacing={1}>
                             <TextField
-                              label="BPM"
+                              label={t("audio.music.bpm")}
                               size="small"
                               type="number"
                               value={arrangement.bpm ?? ""}
@@ -1261,7 +1301,7 @@ const AudioFoundryPage = () => {
                               sx={{ width: 100 }}
                             />
                             <TextField
-                              label="Key"
+                              label={t("audio.music.key")}
                               size="small"
                               value={arrangement.keyscale || ""}
                               onChange={(e) => updateArrangement({ keyscale: e.target.value })}
@@ -1272,40 +1312,40 @@ const AudioFoundryPage = () => {
                           <Stack direction="row" spacing={1}>
                             <TextField
                               select
-                              label="Meter"
+                              label={t("audio.music.meter")}
                               size="small"
                               value={arrangement.timesignature || ""}
                               onChange={(e) => updateArrangement({ timesignature: e.target.value })}
                               sx={{ flex: 1 }}
                               SelectProps={{ native: true }}
                             >
-                              <option value="">Auto</option>
+                              <option value="">{t("audio.languages.auto")}</option>
                               {METERS.map((m) => (
                                 <option key={m.value} value={m.value}>{m.label}</option>
                               ))}
                             </TextField>
                             <TextField
                               select
-                              label="Language"
+                              label={t("audio.music.language")}
                               size="small"
                               value={arrangement.vocal_language && arrangement.vocal_language !== "unknown" ? arrangement.vocal_language : ""}
                               onChange={(e) => updateArrangement({ vocal_language: e.target.value })}
                               sx={{ flex: 1 }}
                               SelectProps={{ native: true }}
                             >
-                              {VOCAL_LANGUAGES.map(([code, label]) => (
+                              {vocalLanguages().map(([code, label]) => (
                                 <option key={code || "auto"} value={code}>{label}</option>
                               ))}
                               {arrangement.vocal_language
                                 && arrangement.vocal_language !== "unknown"
-                                && !VOCAL_LANGUAGES.some(([code]) => code === arrangement.vocal_language) && (
+                                && !vocalLanguages().some(([code]) => code === arrangement.vocal_language) && (
                                 <option value={arrangement.vocal_language}>{arrangement.vocal_language}</option>
                               )}
                             </TextField>
                           </Stack>
                           {arrangement.genres && (
                             <Typography variant="caption" color="text.secondary">
-                              Genres: {arrangement.genres}
+                              {t("audio.music.genres", { genres: arrangement.genres })}
                             </Typography>
                           )}
                         </Stack>
@@ -1322,7 +1362,7 @@ const AudioFoundryPage = () => {
                         onClick={arrangeMusic}
                         sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#2196f3", "&:hover": { backgroundColor: "#1976d2" } }}
                       >
-                        {arranging ? "Arranging..." : "Arrange"}
+                        {arranging ? t("audio.music.arranging") : t("audio.music.arrange")}
                       </Button>
                     ) : !isAce15 && musicPolish && !musicPreview ? (
                       <Button
@@ -1333,7 +1373,7 @@ const AudioFoundryPage = () => {
                         onClick={polishMusicPrompt}
                         sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#2196f3", "&:hover": { backgroundColor: "#1976d2" } }}
                       >
-                        {musicPolishing ? "Polishing..." : "Polish & Preview"}
+                        {musicPolishing ? t("audio.music.polishing") : t("audio.music.polishPreview")}
                       </Button>
                     ) : (
                       <Button
@@ -1349,7 +1389,7 @@ const AudioFoundryPage = () => {
                         onClick={generateMusic}
                         sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#2196f3", "&:hover": { backgroundColor: "#1976d2" } }}
                       >
-                        {loading ? "Composing..." : "Compose Music"}
+                        {loading ? t("audio.music.composing") : t("audio.music.compose")}
                       </Button>
                     )}
                   </Stack>
@@ -1357,7 +1397,7 @@ const AudioFoundryPage = () => {
 
                 {activeTab === 2 && (
                   <Stack spacing={3}>
-                    <Typography variant="h6" fontWeight="bold">FX & Foley Generator</Typography>
+                    <Typography variant="h6" fontWeight="bold">{t("audio.fx.title")}</Typography>
                     {fxUnavailableReason && (
                       <Alert severity="info" sx={{ borderRadius: 2 }}>
                         {fxUnavailableReason}
@@ -1366,13 +1406,13 @@ const AudioFoundryPage = () => {
                     <TextField
                       fullWidth
                       variant="filled"
-                      placeholder="Sound: 'A lightsaber igniting in a vacuum'..."
+                      placeholder={t("audio.fx.placeholder")}
                       value={fxPrompt}
                       onChange={(e) => setFxPrompt(e.target.value)}
                       sx={{ "& .MuiFilledInput-root": { borderRadius: 2 } }}
                     />
                     <Box>
-                      <Typography variant="caption" fontWeight="bold">Duration: {fxDuration}s (Max 47s)</Typography>
+                      <Typography variant="caption" fontWeight="bold">{t("audio.fx.duration", { seconds: fxDuration })}</Typography>
                       <Slider
                         value={fxDuration}
                         min={1}
@@ -1389,7 +1429,7 @@ const AudioFoundryPage = () => {
                       onClick={() => generateAudio("fx")}
                       sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#ff9800", "&:hover": { backgroundColor: "#e68a00" } }}
                     >
-                      {loading ? "Generating..." : "Generate Sound FX"}
+                      {loading ? t("audio.fx.generating") : t("audio.fx.generate")}
                     </Button>
                   </Stack>
                 )}
@@ -1410,13 +1450,13 @@ const AudioFoundryPage = () => {
               display: "flex",
               flexDirection: "column"
             }}>
-              <Typography variant="h6" fontWeight="bold" gutterBottom color="text.secondary">Studio Monitor</Typography>
+              <Typography variant="h6" fontWeight="bold" gutterBottom color="text.secondary">{t("audio.monitor.title")}</Typography>
               
               {!result && !loading && (
                 <Box sx={{ flexGrow: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: 0.3 }}>
                   <PlayIcon sx={{ fontSize: 120, mb: 2 }} />
-                  <Typography variant="h5">Ready for Production</Typography>
-                  <Typography>Select a tool and enter a prompt to begin.</Typography>
+                  <Typography variant="h5">{t("audio.monitor.ready")}</Typography>
+                  <Typography>{t("audio.monitor.readyHint")}</Typography>
                 </Box>
               )}
 
@@ -1428,13 +1468,17 @@ const AudioFoundryPage = () => {
                     variant={progress && progress.total > 0 ? "determinate" : "indeterminate"}
                     value={progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : undefined}
                   />
-                  <Typography variant="h5" fontWeight="bold">Synthesizing Waves...</Typography>
+                  <Typography variant="h5" fontWeight="bold">{t("audio.monitor.synthesizing")}</Typography>
                   <Typography color="text.secondary">
                     {progress && progress.total > 0
-                      ? `Chunk ${progress.current}/${progress.total} (~${Math.round((progress.current / progress.total) * 100)}%)`
+                      ? t("audio.monitor.chunk", {
+                        current: progress.current,
+                        total: progress.total,
+                        percent: Math.round((progress.current / progress.total) * 100),
+                      })
                       : progress && progress.status === "queued"
-                        ? "Queued… waiting for the GPU."
-                        : "Generating high-fidelity audio on local GPU."}
+                        ? t("audio.monitor.queued")
+                        : t("audio.monitor.generating")}
                   </Typography>
                   {jobId && (
                     <Button
@@ -1444,7 +1488,7 @@ const AudioFoundryPage = () => {
                       onClick={handleCancelJob}
                       sx={{ mt: 2 }}
                     >
-                      Cancel
+                      {t("audio.monitor.cancel")}
                     </Button>
                   )}
                 </Box>
@@ -1454,7 +1498,7 @@ const AudioFoundryPage = () => {
                 <Stack spacing={4}>
                   <WaveformPlayer
                     src={result.full_url}
-                    title={activeTab === 0 ? "Voiceover Master" : activeTab === 1 ? "Music Master" : "SFX Master"}
+                    title={activeTab === 0 ? t("audio.monitor.voiceMaster") : activeTab === 1 ? t("audio.monitor.musicMaster") : t("audio.monitor.sfxMaster")}
                     duration={result.duration_s}
                     onDownload={handleDownload}
                     color={getTabColor()}
@@ -1462,33 +1506,33 @@ const AudioFoundryPage = () => {
 
                   <Card variant="outlined" sx={{ borderRadius: 3, backgroundColor: "rgba(0,0,0,0.2)" }}>
                     <CardContent>
-                      <Typography variant="overline" color="text.secondary" fontWeight="bold">Technical Specs</Typography>
+                      <Typography variant="overline" color="text.secondary" fontWeight="bold">{t("audio.monitor.specs")}</Typography>
                       <Grid container spacing={2} sx={{ mt: 1 }}>
                         <Grid item xs={6}>
-                          <Typography variant="caption" display="block" color="text.secondary">BACKEND</Typography>
+                          <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.backend")}</Typography>
                           <Typography variant="body2" fontWeight="bold">{result.meta?.backend}</Typography>
                         </Grid>
                         <Grid item xs={6}>
-                          <Typography variant="caption" display="block" color="text.secondary">FIDELITY</Typography>
+                          <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.fidelity")}</Typography>
                           <Typography variant="body2" fontWeight="bold">{result.sample_rate} Hz</Typography>
                         </Grid>
                         {result.meta?.seed != null && result.meta.seed !== "" && (
                           <Grid item xs={6}>
-                            <Typography variant="caption" display="block" color="text.secondary">SEED</Typography>
+                            <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.seed")}</Typography>
                             <Typography variant="body2" fontWeight="bold">{String(result.meta.seed)}</Typography>
                           </Grid>
                         )}
                         <Grid item xs={12}>
                           {/* The file's name only: the server path carries the account name, and
                               the file is reached through the Audio library, not the path. */}
-                          <Typography variant="caption" display="block" color="text.secondary">FILE</Typography>
+                          <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.file")}</Typography>
                           <Typography variant="body2" sx={{ fontFamily: "monospace", fontSize: "0.7rem", opacity: 0.7 }}>
                             {fileNameOf(result.path) || "—"}
                           </Typography>
                         </Grid>
                         {result.meta?.arrangement && (
                           <Grid item xs={12}>
-                            <Typography variant="caption" display="block" color="text.secondary">CAPTION SENT</Typography>
+                            <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.captionSent")}</Typography>
                             <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                               {result.meta.arrangement.caption || "—"}
                             </Typography>
@@ -1508,7 +1552,7 @@ const AudioFoundryPage = () => {
                             </Stack>
                             {result.meta.arrangement.lyrics && (
                               <Box sx={{ mt: 1, maxHeight: 160, overflow: "auto" }}>
-                                <Typography variant="caption" display="block" color="text.secondary">LYRICS SENT</Typography>
+                                <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.lyricsSent")}</Typography>
                                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", opacity: 0.9 }}>
                                   {result.meta.arrangement.lyrics}
                                 </Typography>
@@ -1521,7 +1565,7 @@ const AudioFoundryPage = () => {
                   </Card>
 
                   <Alert severity="success" icon={<SaveIcon />} sx={{ borderRadius: 2 }}>
-                    Asset successfully registered in your <b>Audio</b> library.
+                    <Trans i18nKey="audio.monitor.registered" components={{ bold: <b /> }} />
                   </Alert>
                 </Stack>
               )}

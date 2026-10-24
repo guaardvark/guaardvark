@@ -26,9 +26,10 @@ import DragDropImageUpload from './DragDropImageUpload';
 import EntityContextMenu from '../common/EntityContextMenu';
 import useContextMenu from '../../hooks/useContextMenu';
 import { formatUiError } from '../../utils/uiError';
+import { useUiTranslation, translate } from '../../i18n';
 
 // The server's reason from an axios error, else the error's own message.
-const reason = (err) => formatUiError(err?.response?.data) || formatUiError(err) || 'the request failed';
+const reason = (err) => formatUiError(err?.response?.data) || formatUiError(err) || translate('filmCrew.castLibrary.requestFailed');
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -52,11 +53,27 @@ export const SubjectThumb = ({ subject }) => {
 
 const KINDS = ['character', 'environment', 'prop'];
 
+/** A subject kind as shown; the value itself is what the backend stores. */
+export const kindLabel = (kind) => ({
+  character: translate('filmCrew.kinds.character'),
+  environment: translate('filmCrew.kinds.environment'),
+  prop: translate('filmCrew.kinds.prop'),
+})[kind] || kind;
+
+/** A LoRA training status as shown; unknown statuses show as they came. */
+export const trainingStatusLabel = (status) => ({
+  untrained: translate('filmCrew.trainingStatus.untrained'),
+  training: translate('filmCrew.trainingStatus.training'),
+  trained: translate('filmCrew.trainingStatus.trained'),
+  failed: translate('filmCrew.trainingStatus.failed'),
+})[status] || status;
+
 // `onOpenSubject` lets a host page (the Cast & LoRA Studio) intercept a card
 // click. When omitted (e.g. the Film Crew tab), clicking opens the studio detail
 // route directly — so cast management always lands in the dedicated studio, never
 // the old dead /images link.
 const CastLibraryView = ({ onOpenSubject } = {}) => {
+  const { t } = useUiTranslation();
   const [subjects, setSubjects] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -82,7 +99,7 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
       const data = await listCastLibrary();
       setSubjects(data.subjects || []);
     } catch (err) {
-      setLoadError(`The cast library could not be loaded: ${reason(err)}`);
+      setLoadError(t('filmCrew.castLibrary.loadFailed', { reason: reason(err) }));
     } finally {
       setLoading(false);
     }
@@ -101,19 +118,19 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
       setForm({ name: '', kind: 'character', description: '', trigger_word: '' });
       loadLibrary();
     } catch (err) {
-      setError(`Failed to create subject: ${reason(err)}`);
+      setError(t('filmCrew.castLibrary.createFailed', { reason: reason(err) }));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this subject?')) {
+    if (window.confirm(t('filmCrew.castLibrary.deleteConfirm'))) {
       try {
         await deleteCastSubject(id);
         loadLibrary();
       } catch (err) {
-        setError(`Failed to delete subject: ${reason(err)}`);
+        setError(t('filmCrew.castLibrary.deleteFailed', { reason: reason(err) }));
       }
     }
   };
@@ -121,13 +138,13 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5">Cast Library</Typography>
+        <Typography variant="h5">{t('filmCrew.castLibrary.title')}</Typography>
         <Button 
           variant="contained" 
           startIcon={<AddIcon />}
           onClick={() => setOpen(true)}
         >
-          New Subject
+          {t('filmCrew.castLibrary.newSubject')}
         </Button>
       </Box>
 
@@ -140,13 +157,13 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
       ) : loadError ? (
         <Alert
           severity="error"
-          action={<Button color="inherit" size="small" onClick={loadLibrary}>Retry</Button>}
+          action={<Button color="inherit" size="small" onClick={loadLibrary}>{t('filmCrew.castLibrary.retry')}</Button>}
         >
           {loadError}
         </Alert>
       ) : subjects.length === 0 ? (
         <Typography color="text.secondary" sx={{ textAlign: 'center', p: 5 }}>
-          No subjects in the library yet. Click "New Subject" to add one.
+          {t('filmCrew.castLibrary.empty')}
         </Typography>
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 2 }}>
@@ -162,13 +179,13 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
                   <Typography variant="subtitle1" noWrap sx={{ fontWeight: 'bold' }}>{s.name}</Typography>
                   <IconButton size="small"
                               onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
-                              color="inherit" aria-label="remove from cast library">
+                              color="inherit" aria-label={t('filmCrew.castLibrary.removeAria')}>
                     <CloseIcon fontSize="small" />
                   </IconButton>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                  <Chip label={s.kind} size="small" variant="outlined" color={s.kind === 'character' ? 'primary' : 'secondary'} />
-                  <Chip label={s.training_status} size="small" color={s.training_status === 'trained' ? 'success' : (s.training_status === 'training' ? 'warning' : 'default')} />
+                  <Chip label={kindLabel(s.kind)} size="small" variant="outlined" color={s.kind === 'character' ? 'primary' : 'secondary'} />
+                  <Chip label={trainingStatusLabel(s.training_status)} size="small" color={s.training_status === 'trained' ? 'success' : (s.training_status === 'training' ? 'warning' : 'default')} />
                 </Box>
                 {s.trigger_word && (
                   <Typography variant="caption" sx={{ display: 'block', mt: 0.5, fontFamily: 'monospace' }} color="text.secondary">
@@ -182,7 +199,7 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
                   startIcon={<AutoAwesomeIcon />}
                   onClick={(e) => { e.stopPropagation(); openDetail(s); }}
                 >
-                  Open studio
+                  {t('filmCrew.castLibrary.openStudio')}
                 </Button>
               </CardActions>
             </Card>
@@ -196,9 +213,9 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
         actions={
           cardMenu.payload
             ? [
-                { label: 'Open studio', onClick: () => openDetail(cardMenu.payload) },
+                { label: t('filmCrew.castLibrary.openStudio'), onClick: () => openDetail(cardMenu.payload) },
                 {
-                  label: 'Remove from cast library',
+                  label: t('filmCrew.castLibrary.remove'),
                   onClick: () => handleDelete(cardMenu.payload.id),
                   color: 'error.main',
                   dividerBefore: true,
@@ -209,39 +226,39 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
       />
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add to Cast Library</DialogTitle>
+        <DialogTitle>{t('filmCrew.castLibrary.addTitle')}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <TextField 
-              label="Name" 
+              label={t('filmCrew.castLibrary.name')} 
               fullWidth 
               value={form.name} 
               onChange={e => setForm({...form, name: e.target.value})}
             />
             {form.kind === 'character' && (
               <TextField
-                label="Trigger word (LoRA token)"
+                label={t('filmCrew.castLibrary.triggerWord')}
                 fullWidth
                 value={form.trigger_word}
                 onChange={e => setForm({...form, trigger_word: e.target.value})}
-                helperText="Rare token the LoRA trains on and every prompt must use (e.g. sage_harlow). Defaults to the name if blank."
+                helperText={t('filmCrew.castLibrary.triggerWordHelp')}
               />
             )}
             <TextField
               select
-              label="Kind"
+              label={t('filmCrew.castLibrary.kind')}
               value={form.kind}
               onChange={e => setForm({...form, kind: e.target.value})}
               fullWidth
             >
               {KINDS.map((option) => (
                 <MenuItem key={option} value={option}>
-                  {option}
+                  {kindLabel(option)}
                 </MenuItem>
               ))}
             </TextField>
             <TextField
-              label="Description"
+              label={t('filmCrew.castLibrary.description')}
               fullWidth
               multiline
               rows={2}
@@ -250,21 +267,21 @@ const CastLibraryView = ({ onOpenSubject } = {}) => {
             />
             <Box>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                Reference images (optional — drop them here, no path-typing)
+                {t('filmCrew.castLibrary.referenceImages')}
               </Typography>
               <DragDropImageUpload
                 ref={uploaderRef}
-                helperText="Will upload after the subject is saved."
+                helperText={t('filmCrew.castLibrary.uploadAfterSave')}
               />
             </Box>
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setOpen(false); setForm({ name: '', kind: 'character', description: '', trigger_word: '' }); }}>
-            Cancel
+            {t('filmCrew.castLibrary.cancel')}
           </Button>
           <Button onClick={handleCreate} variant="contained" disabled={submitting || !form.name}>
-            {submitting ? 'Saving...' : 'Save'}
+            {submitting ? t('filmCrew.castLibrary.saving') : t('filmCrew.castLibrary.save')}
           </Button>
         </DialogActions>
       </Dialog>

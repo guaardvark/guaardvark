@@ -13,6 +13,7 @@ import StageProgress from './StageProgress';
 import CastingPanel from './CastingPanel';
 import StoryboardGrid from './StoryboardGrid';
 import VoiceFallbackNotice from './VoiceFallbackNotice';
+import { useUiTranslation, uiLocale } from '../../i18n';
 
 const ProductionDetail = ({
   production,
@@ -29,6 +30,7 @@ const ProductionDetail = ({
   retrying,
   deleting,
 }) => {
+  const { t } = useUiTranslation();
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
@@ -49,7 +51,7 @@ const ProductionDetail = ({
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
         <Typography variant="body1" color="text.secondary">
-          Select a production to view details.
+          {t('filmCrew.detail.selectProduction')}
         </Typography>
       </Box>
     );
@@ -60,7 +62,7 @@ const ProductionDetail = ({
     production.error_blob?.error
     || production.error_blob?.message
     || (typeof production.error_blob === 'string' ? production.error_blob : null)
-    || (isFailed ? `Pipeline failed at stage: ${production.current_stage}` : null);
+    || (isFailed ? t('filmCrew.detail.failedAtStage', { stage: production.current_stage }) : null);
 
   return (
     <Box sx={{ p: 3, height: '100%', overflowY: 'auto' }}>
@@ -74,8 +76,8 @@ const ProductionDetail = ({
         <Box>
           <Typography variant="h4" gutterBottom>{production.name}</Typography>
           <Typography variant="body2" color="text.secondary">
-            ID: {production.id}
-            {production.created_at ? ` | Created: ${new Date(production.created_at).toLocaleString()}` : ''}
+            {t('filmCrew.detail.id', { id: production.id })}
+            {production.created_at ? ` | ${t('filmCrew.detail.created', { date: new Date(production.created_at).toLocaleString(uiLocale()) })}` : ''}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -86,7 +88,7 @@ const ProductionDetail = ({
             disabled={deleting}
             onClick={() => onDelete?.(production.id)}
           >
-            {deleting ? 'Deleting…' : 'Delete'}
+            {deleting ? t('filmCrew.detail.deleting') : t('filmCrew.detail.delete')}
           </Button>
         </Stack>
       </Box>
@@ -97,11 +99,11 @@ const ProductionDetail = ({
           sx={{ mb: 2 }}
           action={
             <Button color="inherit" size="small" disabled={retrying} onClick={() => onRetry?.(production.id)}>
-              {retrying ? 'Retrying…' : 'Retry stage'}
+              {retrying ? t('filmCrew.detail.retrying') : t('filmCrew.detail.retry')}
             </Button>
           }
         >
-          <Typography variant="subtitle2" gutterBottom>Production failed</Typography>
+          <Typography variant="subtitle2" gutterBottom>{t('filmCrew.detail.failed')}</Typography>
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
             {errText}
           </Typography>
@@ -114,25 +116,25 @@ const ProductionDetail = ({
           sx={{ mb: 2 }}
           action={
             <Button color="inherit" size="small" disabled={retrying} onClick={() => onRetry?.(production.id)}>
-              {retrying ? '…' : 'Re-dispatch'}
+              {retrying ? '…' : t('filmCrew.detail.redispatch')}
             </Button>
           }
         >
-          Screenwriting in progress (or stuck). Use Re-dispatch if nothing happens after a few minutes.
+          {t('filmCrew.detail.screenwritingHint')}
         </Alert>
       )}
 
       {production.final_video && (
         <Paper sx={{ p: 2, mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h6">Finished film</Typography>
+            <Typography variant="h6">{t('filmCrew.detail.finishedFilm')}</Typography>
             <Button
               size="small"
               variant="outlined"
               href={production.final_video.url}
               download={production.final_video.filename}
             >
-              Download
+              {t('filmCrew.detail.download')}
             </Button>
           </Box>
           <Box
@@ -141,7 +143,7 @@ const ProductionDetail = ({
             src={production.final_video.url}
             controls
             preload="metadata"
-            aria-label={`${production.name}, finished film`}
+            aria-label={t('filmCrew.detail.filmAria', { name: production.name })}
             sx={{ width: '100%', maxHeight: 480, borderRadius: 1, bgcolor: 'common.black' }}
           />
         </Paper>
@@ -150,7 +152,7 @@ const ProductionDetail = ({
       <VoiceFallbackNotice shots={production.shots} />
 
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>Pipeline Progress</Typography>
+        <Typography variant="h6" gutterBottom>{t('filmCrew.detail.pipeline')}</Typography>
         <StageProgress
           currentStage={production.current_stage}
           status={production.status}
@@ -180,7 +182,7 @@ const ProductionDetail = ({
       )}
 
       <Paper sx={{ p: 2 }}>
-        <Typography variant="h6" gutterBottom>Script</Typography>
+        <Typography variant="h6" gutterBottom>{t('filmCrew.detail.script')}</Typography>
         <Divider sx={{ my: 1 }} />
         <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.9rem' }}>
           {production.script_text}

@@ -5,6 +5,7 @@ import {
   modelChipLabel,
   PROMPT_STYLES,
 } from "../../constants/videoGeneratorPresets";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * Compact "what will actually run" summary derived from computedParams.
@@ -20,6 +21,7 @@ export default function VideoGenEffectiveSettings({
   faceRestore,
   capabilities = null,
 }) {
+  const { t } = useUiTranslation();
   if (!computedParams) return null;
   const runningId = computedParams.model || model;
   const family = MODEL_OPTIONS[runningId]?.type;
@@ -37,7 +39,7 @@ export default function VideoGenEffectiveSettings({
         color="text.secondary"
         sx={{ mb: 1, display: "block", fontWeight: 500 }}
       >
-        Effective settings
+        {t("video.effective.title")}
       </Typography>
       <Box
         sx={{
@@ -59,7 +61,7 @@ export default function VideoGenEffectiveSettings({
           title={MODEL_OPTIONS[runningId]?.label || runningId}
           sx={{ fontWeight: 600 }}
         />
-        <Chip size="small" variant="outlined" label={`${computedParams.num_inference_steps} steps`} />
+        <Chip size="small" variant="outlined" label={t("video.effective.steps", { count: computedParams.num_inference_steps })} />
         {computedParams.speed_profile && computedParams.speed_profile !== "standard" && (
           <Chip
             size="small"
@@ -69,17 +71,17 @@ export default function VideoGenEffectiveSettings({
           />
         )}
         {capabilities?.audio_out && (
-          <Chip size="small" variant="outlined" color="success" label="native audio" />
+          <Chip size="small" variant="outlined" color="success" label={t("video.effective.nativeAudio")} />
         )}
         {computedParams.style_embedding && (
-          <Chip size="small" variant="outlined" label={`style: ${computedParams.style_embedding}`} />
+          <Chip size="small" variant="outlined" label={t("video.effective.styleEmbedding", { style: computedParams.style_embedding })} />
         )}
-        <Chip size="small" variant="outlined" label={`${computedParams.duration_frames} frames`} />
-        <Chip size="small" variant="outlined" label={`${computedParams.fps} FPS`} />
+        <Chip size="small" variant="outlined" label={t("video.effective.frames", { count: computedParams.duration_frames })} />
+        <Chip size="small" variant="outlined" label={t("video.effective.fps", { fps: computedParams.fps })} />
         <Chip
           size="small"
           variant="outlined"
-          label={`~${(computedParams.duration_frames / computedParams.fps).toFixed(1)}s`}
+          label={t("video.effective.seconds", { seconds: (computedParams.duration_frames / computedParams.fps).toFixed(1) })}
         />
         <Chip
           size="small"
@@ -87,31 +89,31 @@ export default function VideoGenEffectiveSettings({
           label={`${computedParams.width}×${computedParams.height}`}
         />
         {(cinematicKeyframe || selectedSubjectIds.length > 0) && (
-          <Chip size="small" variant="outlined" color="secondary" label={`Keyframe: ${keyframeModel}`} />
+          <Chip size="small" variant="outlined" color="secondary" label={t("video.effective.keyframeModel", { model: keyframeModel })} />
         )}
         {directorMode && (
-          <Chip size="small" variant="outlined" color="secondary" label="Director" />
+          <Chip size="small" variant="outlined" color="secondary" label={t("video.effective.director")} />
         )}
         {faceRestore && (
-          <Chip size="small" variant="outlined" color="success" label="Face restore" />
+          <Chip size="small" variant="outlined" color="success" label={t("video.effective.faceRestore")} />
         )}
         {computedParams.interpolation_multiplier > 1 && (
           <Chip
             size="small"
             variant="outlined"
             color="info"
-            label={`${computedParams.interpolation_multiplier}x FPS`}
+            label={t("video.effective.interpolation", { multiplier: computedParams.interpolation_multiplier })}
           />
         )}
         {computedParams.upscale && (
-          <Chip size="small" variant="outlined" color="secondary" label="2x Upscale" />
+          <Chip size="small" variant="outlined" color="secondary" label={t("video.effective.upscale")} />
         )}
         {computedParams.enhance_prompt && computedParams.prompt_style !== "none" && (
           <Chip
             size="small"
             variant="outlined"
             color="warning"
-            label={`${PROMPT_STYLES[computedParams.prompt_style]?.label || computedParams.prompt_style} style`}
+            label={t("video.effective.promptStyle", { style: PROMPT_STYLES[computedParams.prompt_style]?.label || computedParams.prompt_style })}
           />
         )}
         {computedParams.feta_weight && (
@@ -127,7 +129,7 @@ export default function VideoGenEffectiveSettings({
             size="small"
             variant="outlined"
             color="secondary"
-            label={`Cast ×${computedParams.subject_ids.length}`}
+            label={t("video.effective.cast", { count: computedParams.subject_ids.length })}
           />
         )}
       </Box>

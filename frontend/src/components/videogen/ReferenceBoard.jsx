@@ -35,11 +35,12 @@ import MediaPickerDialog from "../common/MediaPickerDialog";
 import FileDropOverlay from "../chat/FileDropOverlay";
 import useFileDropZone from "../../hooks/useFileDropZone";
 import { kindForFile, uploadDroppedMedia } from "../videoeditor/useExternalDrop";
+import { useUiTranslation, translate } from "../../i18n";
 import {
   KIND_OF_ROW,
   REF_KINDS,
-  ROLE_OPTIONS,
-  ROW_LABELS,
+  roleOptions,
+  rowLabel,
   boardFileCount,
   boardNames,
   boardTags,
@@ -51,36 +52,46 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
-const ROW_HELP = {
-  images: "People, places, products or a look to keep. Give pictures of the same person the same name.",
-  videos: "A clip to keep someone from, copy the motion of, edit, or continue. 2 to 15 seconds.",
-  audios: "A voice for a character, music to use as is, or a sound to match.",
-};
+const rowHelp = () => ({
+  images: translate("video.referenceBoard.help.images"),
+  videos: translate("video.referenceBoard.help.videos"),
+  audios: translate("video.referenceBoard.help.audios"),
+});
 
-const TagChip = ({ tag, onInsert }) => (
-  <Tooltip title="Insert into the prompt">
-    <Box
-      component="button"
-      type="button"
-      onClick={() => onInsert?.(tag)}
-      sx={(theme) => ({
-        border: 0,
-        cursor: "pointer",
-        font: "inherit",
-        fontSize: "0.7rem",
-        fontFamily: "monospace",
-        px: 0.75,
-        py: 0.25,
-        borderRadius: "6px",
-        color: theme.palette.primary.light,
-        bgcolor: theme.palette.action.hover,
-        "&:hover": { bgcolor: theme.palette.action.selected },
-      })}
-    >
-      {tag}
-    </Box>
-  </Tooltip>
-);
+/** A row's contents in a sentence: "pictures", "clips", "audio". */
+const rowNames = (row) => ({
+  images: translate("video.referenceBoard.rowNames.images"),
+  videos: translate("video.referenceBoard.rowNames.videos"),
+  audios: translate("video.referenceBoard.rowNames.audios"),
+})[row];
+
+const TagChip = ({ tag, onInsert }) => {
+  const { t } = useUiTranslation();
+  return (
+    <Tooltip title={t("video.referenceBoard.insertTag")}>
+      <Box
+        component="button"
+        type="button"
+        onClick={() => onInsert?.(tag)}
+        sx={(theme) => ({
+          border: 0,
+          cursor: "pointer",
+          font: "inherit",
+          fontSize: "0.7rem",
+          fontFamily: "monospace",
+          px: 0.75,
+          py: 0.25,
+          borderRadius: "6px",
+          color: theme.palette.primary.light,
+          bgcolor: theme.palette.action.hover,
+          "&:hover": { bgcolor: theme.palette.action.selected },
+        })}
+      >
+        {tag}
+      </Box>
+    </Tooltip>
+  );
+};
 
 const Preview = ({ entry, row }) => {
   const sx = { width: "100%", height: 96, objectFit: "cover", display: "block", bgcolor: "action.hover" };
@@ -109,6 +120,7 @@ const Preview = ({ entry, row }) => {
 };
 
 const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, onPatch, onMove, onRemove, onInsertTag, onPickSoundtrack }) => {
+  const { t } = useUiTranslation();
   const tag = tags[entry.key];
   const soundTag = tags[`${entry.key}:audio`];
   const shortest = limits?.video_seconds?.[0];
@@ -125,15 +137,15 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, o
           </Typography>
         </Box>
         <FormControl size="small" fullWidth>
-          <InputLabel>Use it to</InputLabel>
+          <InputLabel>{t("video.referenceBoard.useItTo")}</InputLabel>
           <Select
             value={entry.role}
-            label="Use it to"
+            label={t("video.referenceBoard.useItTo")}
             onChange={(e) => onPatch(row === "videos" && !entry.audioPicked
               ? { role: e.target.value, audio: defaultClipAudio(e.target.value) }
               : { role: e.target.value })}
           >
-            {ROLE_OPTIONS[row].map((o) => (
+            {roleOptions()[row].map((o) => (
               <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
             ))}
           </Select>
@@ -141,8 +153,8 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, o
         {row !== "audios" && entry.role !== "first_frame" && (
           <TextField
             size="small"
-            label="Who or what is this?"
-            placeholder={row === "images" ? "e.g. Maya, the red car" : "optional"}
+            label={t("video.referenceBoard.whoOrWhat")}
+            placeholder={row === "images" ? t("video.referenceBoard.whoOrWhatExample") : t("video.referenceBoard.optional")}
             value={entry.name}
             onChange={(e) => onPatch({ name: e.target.value })}
           />
@@ -150,8 +162,8 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, o
         {row === "images" && entry.role === "detail" && (
           <TextField
             size="small"
-            label="Which detail?"
-            placeholder="e.g. only the leather jacket"
+            label={t("video.referenceBoard.whichDetail")}
+            placeholder={t("video.referenceBoard.whichDetailExample")}
             value={entry.note}
             onChange={(e) => onPatch({ note: e.target.value })}
           />
@@ -159,59 +171,59 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, o
         {row === "audios" && entry.role === "voice" && (
           <TextField
             size="small"
-            label="Whose voice?"
-            placeholder={names[0] ? `e.g. ${names[0]}` : "a name from the pictures"}
+            label={t("video.referenceBoard.whoseVoice")}
+            placeholder={names[0] ? t("video.referenceBoard.forExample", { name: names[0] }) : t("video.referenceBoard.whoseVoiceHint")}
             value={entry.speaker}
             onChange={(e) => onPatch({ speaker: e.target.value })}
             helperText={names.length && entry.speaker && !names.some((n) => n.toLowerCase() === entry.speaker.trim().toLowerCase())
-              ? `Not a name on the board (${names.join(", ")})` : undefined}
+              ? t("video.referenceBoard.notOnBoard", { names: names.join(", ") }) : undefined}
           />
         )}
         {row === "videos" && (
           <>
             <FormControl size="small" fullWidth>
-              <InputLabel>Sound</InputLabel>
+              <InputLabel>{t("video.referenceBoard.sound")}</InputLabel>
               <Select
-                label="Sound"
+                label={t("video.referenceBoard.sound")}
                 value={separate ? "separate" : entry.audio || "own"}
                 onChange={(e) => {
                   if (e.target.value === "separate") onPickSoundtrack();
                   else onPatch({ audio: e.target.value, audioPicked: true });
                 }}
               >
-                <MenuItem value="own">Its own sound</MenuItem>
-                <MenuItem value="none">No sound</MenuItem>
-                <MenuItem value="separate">{separate ? `Track: ${entry.audio.fileName}` : "A separate track…"}</MenuItem>
+                <MenuItem value="own">{t("video.referenceBoard.ownSound")}</MenuItem>
+                <MenuItem value="none">{t("video.referenceBoard.noSound")}</MenuItem>
+                <MenuItem value="separate">{separate ? t("video.referenceBoard.track", { file: entry.audio.fileName }) : t("video.referenceBoard.separateTrack")}</MenuItem>
               </Select>
             </FormControl>
             <Hint>
-              {entry.durationS != null ? `${entry.durationS.toFixed(1)} s` : "Length unknown"}
-              {entry.audio === "own" && entry.hasAudio === false ? " · this clip has no sound" : ""}
-              {soundTag ? ` · its sound is ${soundTag}` : ""}
+              {entry.durationS != null ? `${entry.durationS.toFixed(1)} s` : t("video.referenceBoard.lengthUnknown")}
+              {entry.audio === "own" && entry.hasAudio === false ? ` · ${t("video.referenceBoard.clipHasNoSound")}` : ""}
+              {soundTag ? ` · ${t("video.referenceBoard.itsSoundIs", { tag: soundTag })}` : ""}
               {readS && entry.durationS != null && entry.durationS > readS + 0.05
-                ? ` · the model reads its first ${readS.toFixed(1)} s` : ""}
+                ? ` · ${t("video.referenceBoard.modelReadsFirst", { seconds: readS.toFixed(1) })}` : ""}
             </Hint>
-            {tooShort && <Typography variant="caption" color="error">Clips need at least {shortest} s.</Typography>}
+            {tooShort && <Typography variant="caption" color="error">{t("video.referenceBoard.clipsNeedAtLeast", { shortest })}</Typography>}
           </>
         )}
         <Box sx={{ display: "flex", alignItems: "center" }}>
-          <Tooltip title="Earlier (renumbers the tags)">
+          <Tooltip title={t("video.referenceBoard.earlier")}>
             <span>
-              <IconButton size="small" disabled={index === 0} onClick={() => onMove(-1)} aria-label="Move earlier">
+              <IconButton size="small" disabled={index === 0} onClick={() => onMove(-1)} aria-label={t("video.referenceBoard.moveEarlier")}>
                 <ChevronLeftIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
-          <Tooltip title="Later (renumbers the tags)">
+          <Tooltip title={t("video.referenceBoard.later")}>
             <span>
-              <IconButton size="small" disabled={index === count - 1} onClick={() => onMove(1)} aria-label="Move later">
+              <IconButton size="small" disabled={index === count - 1} onClick={() => onMove(1)} aria-label={t("video.referenceBoard.moveLater")}>
                 <ChevronRightIcon fontSize="small" />
               </IconButton>
             </span>
           </Tooltip>
           <Box sx={{ flex: 1 }} />
-          <Tooltip title="Remove">
-            <IconButton size="small" onClick={onRemove} aria-label="Remove reference">
+          <Tooltip title={t("video.referenceBoard.remove")}>
+            <IconButton size="small" onClick={onRemove} aria-label={t("video.referenceBoard.removeReference")}>
               <CloseIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -222,6 +234,7 @@ const ReferenceTile = ({ row, entry, index, count, tags, names, limits, readS, o
 };
 
 const ReferenceRow = ({ row, board, limits, readS, tags, names, onAdd, onUpdate, onOpenPicker, onInsertTag, onError, uploading }) => {
+  const { t } = useUiTranslation();
   const kind = KIND_OF_ROW[row];
   const entries = board[row] || [];
   const cap = limits?.[row];
@@ -230,7 +243,7 @@ const ReferenceRow = ({ row, board, limits, readS, tags, names, onAdd, onUpdate,
     enabled: room > 0 && !uploading,
     onFiles: (files) => {
       const fit = files.filter((f) => kindForFile(f.name, "") === kind);
-      if (fit.length < files.length) onError?.(`Only ${ROW_LABELS[row].toLowerCase()} go in this row.`);
+      if (fit.length < files.length) onError?.(t("video.referenceBoard.onlyThisRow", { rows: rowNames(row) }));
       if (fit.length) onAdd(row, fit.slice(0, room));
     },
   });
@@ -244,9 +257,9 @@ const ReferenceRow = ({ row, board, limits, readS, tags, names, onAdd, onUpdate,
   const remove = (key) => onUpdate((b) => ({ ...b, [row]: b[row].filter((e) => e.key !== key) }));
 
   return (
-    <Cluster label={`${ROW_LABELS[row]} ${entries.length}${cap != null ? `/${cap}` : ""}`} help={ROW_HELP[row]}>
+    <Cluster label={`${rowLabel(row)} ${entries.length}${cap != null ? `/${cap}` : ""}`} help={rowHelp()[row]}>
       <Box {...drop.dropProps} sx={{ position: "relative", display: "flex", gap: 1, flexWrap: "wrap", alignItems: "stretch" }}>
-        <FileDropOverlay active={drop.isDragActive} label={`Drop ${ROW_LABELS[row].toLowerCase()} here`} compact />
+        <FileDropOverlay active={drop.isDragActive} label={t("video.referenceBoard.dropHere", { rows: rowNames(row) })} compact />
         {entries.map((entry, i) => (
           <ReferenceTile
             key={entry.key}
@@ -280,10 +293,10 @@ const ReferenceRow = ({ row, board, limits, readS, tags, names, onAdd, onUpdate,
               gap: 1,
             }}
           >
-            <Hint>Drop {ROW_LABELS[row].toLowerCase()} here, or</Hint>
+            <Hint>{t("video.referenceBoard.dropHereOr", { rows: rowNames(row) })}</Hint>
             <Line>
               <ActionButton loading={uploading} onClick={() => onOpenPicker({ row, max: room })}>
-                Add from Files
+                {t("video.common.addFromFiles")}
               </ActionButton>
             </Line>
           </Box>
@@ -299,6 +312,7 @@ const ReferenceRow = ({ row, board, limits, readS, tags, names, onAdd, onUpdate,
  *   length and size, so each clip shows how much of it the model reads.
  */
 const ReferenceBoard = ({ value, onChange, limits, fit, onInsertTag, onError }) => {
+  const { t } = useUiTranslation();
   const [picker, setPicker] = useState(null); // {row, max, soundtrackFor?}
   const [uploadingRow, setUploadingRow] = useState(null);
   const board = value || { images: [], videos: [], audios: [] };
@@ -324,7 +338,7 @@ const ReferenceBoard = ({ value, onChange, limits, fit, onInsertTag, onError }) 
             : v)),
         }));
       } catch (e) {
-        onError?.(e.response?.data?.error?.message || e.response?.data?.message || `Could not read ${entry.fileName}.`);
+        onError?.(e.response?.data?.error?.message || e.response?.data?.message || t("video.referenceBoard.couldNotRead", { file: entry.fileName }));
       }
     });
   }, [onChange, onError]);
@@ -341,7 +355,7 @@ const ReferenceBoard = ({ value, onChange, limits, fit, onInsertTag, onError }) 
       const docs = await uploadDroppedMedia(files, { http: axios });
       addDocuments(row, docs.filter((d) => d.kind === KIND_OF_ROW[row]));
     } catch (e) {
-      onError?.(e.response?.data?.error?.message || e.message || "Upload failed.");
+      onError?.(e.response?.data?.error?.message || e.message || t("video.referenceBoard.uploadFailed"));
     } finally {
       setUploadingRow(null);
     }
@@ -382,13 +396,13 @@ const ReferenceBoard = ({ value, onChange, limits, fit, onInsertTag, onError }) 
         />
       ))}
       {limits?.files != null && (
-        <Hint>{boardFileCount(board)} of {limits.files} files. Each clip&apos;s separate track counts as one.</Hint>
+        <Hint>{t("video.referenceBoard.fileCount", { used: boardFileCount(board), total: limits.files })}</Hint>
       )}
       <MediaPickerDialog
         open={!!picker}
         kind={picker ? KIND_OF_ROW[picker.row] : "image"}
         max={picker?.max || 1}
-        title={picker?.soundtrackFor ? "Choose the clip's soundtrack" : undefined}
+        title={picker?.soundtrackFor ? t("video.referenceBoard.chooseSoundtrack") : undefined}
         onPick={handlePick}
         onClose={() => setPicker(null)}
       />

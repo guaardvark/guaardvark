@@ -5,27 +5,29 @@
 
 import React from "react";
 import { ToggleButton, ToggleButtonGroup, Stack, Typography, Tooltip } from "@mui/material";
+import { useUiTranslation, translate } from "../../i18n";
 
-const MODES = [
-  { value: "audio", label: "Audio", tip: "Cut silence based on audio loudness." },
-  { value: "motion", label: "Motion", tip: "Cut still / motionless sections." },
-  { value: "both-and", label: "Both (strict)", tip: "Keep only frames where BOTH detectors fire. Fewer kept frames, tighter edits." },
-  { value: "both-or", label: "Both (loose)", tip: "Keep frames where EITHER detector fires. More kept frames, looser edits." },
+const modes = () => [
+  { value: "audio", label: translate("videoEditor.scanMode.audio"), tip: translate("videoEditor.scanMode.audioTip") },
+  { value: "motion", label: translate("videoEditor.scanMode.motion"), tip: translate("videoEditor.scanMode.motionTip") },
+  { value: "both-and", label: translate("videoEditor.scanMode.bothAnd"), tip: translate("videoEditor.scanMode.bothAndTip") },
+  { value: "both-or", label: translate("videoEditor.scanMode.bothOr"), tip: translate("videoEditor.scanMode.bothOrTip") },
 ];
 
 const ScanModeSelector = ({ value, onChange, disabled }) => {
+  const { t } = useUiTranslation();
   return (
     <Stack spacing={0.5}>
-      <Typography variant="caption" color="text.secondary">Detection mode</Typography>
+      <Typography variant="caption" color="text.secondary">{t("videoEditor.scanMode.title")}</Typography>
       <ToggleButtonGroup
         size="small"
         value={value}
         exclusive
         onChange={(_, v) => v && onChange(v)}
         disabled={disabled}
-        aria-label="Detection mode"
+        aria-label={t("videoEditor.scanMode.title")}
       >
-        {MODES.map((m) => (
+        {modes().map((m) => (
           <Tooltip key={m.value} title={m.tip}>
             <ToggleButton value={m.value} sx={{ textTransform: "none", px: 1, fontSize: "0.75rem" }}>
               {m.label}

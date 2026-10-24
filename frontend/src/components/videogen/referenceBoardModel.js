@@ -9,32 +9,40 @@
 // and <Video N> count their own row; <Audio N> counts each clip's soundtrack
 // first, in clip order, then the standalone tracks.
 
+import { translate } from "../../i18n";
+
 export const REF_KINDS = ["images", "videos", "audios"];
 
 export const KIND_OF_ROW = { images: "image", videos: "video", audios: "audio" };
 
-export const ROW_LABELS = { images: "Pictures", videos: "Clips", audios: "Audio" };
+/** A row's title: "Pictures", "Clips", "Audio". */
+export const rowLabel = (row) => ({
+  images: translate("video.referenceBoard.rows.images"),
+  videos: translate("video.referenceBoard.rows.videos"),
+  audios: translate("video.referenceBoard.rows.audios"),
+})[row];
 
-export const ROLE_OPTIONS = {
+/** The roles a row offers; each value is what the backend reads. */
+export const roleOptions = () => ({
   images: [
-    { value: "keep", label: "Keep exactly" },
-    { value: "loose", label: "Keep the look loosely" },
-    { value: "detail", label: "Borrow one detail" },
-    { value: "hint", label: "Light hint" },
-    { value: "first_frame", label: "Use as the first frame" },
+    { value: "keep", label: translate("video.referenceBoard.roles.keep") },
+    { value: "loose", label: translate("video.referenceBoard.roles.loose") },
+    { value: "detail", label: translate("video.referenceBoard.roles.detail") },
+    { value: "hint", label: translate("video.referenceBoard.roles.hint") },
+    { value: "first_frame", label: translate("video.referenceBoard.roles.firstFrame") },
   ],
   videos: [
-    { value: "subject", label: "Keep who is in it" },
-    { value: "motion", label: "Copy its motion and camera" },
-    { value: "edit", label: "Edit this clip" },
-    { value: "continue", label: "Continue this clip" },
+    { value: "subject", label: translate("video.referenceBoard.roles.subject") },
+    { value: "motion", label: translate("video.referenceBoard.roles.motion") },
+    { value: "edit", label: translate("video.referenceBoard.roles.edit") },
+    { value: "continue", label: translate("video.referenceBoard.roles.continue") },
   ],
   audios: [
-    { value: "voice", label: "Voice for a character" },
-    { value: "music", label: "Use as the music" },
-    { value: "sound", label: "Match this sound" },
+    { value: "voice", label: translate("video.referenceBoard.roles.voice") },
+    { value: "music", label: translate("video.referenceBoard.roles.music") },
+    { value: "sound", label: translate("video.referenceBoard.roles.sound") },
   ],
-};
+});
 
 export const DEFAULT_ROLE = { images: "keep", videos: "subject", audios: "voice" };
 
@@ -148,21 +156,29 @@ export function clipFramesAllowed(budget, renderFrames, width, height, pictures,
 export function boardProblems(board, limits, fit = {}) {
   const problems = [];
   if (!board?.images?.length && !board?.videos?.length) {
-    problems.push("Add at least one picture or clip; audio cannot be the only reference.");
+    problems.push(translate("video.referenceBoard.problems.needVisual"));
   }
   REF_KINDS.forEach((row) => {
     const cap = limits?.[row];
     if (cap != null && (board?.[row]?.length || 0) > cap) {
-      problems.push(`${ROW_LABELS[row]} take at most ${cap}.`);
+      problems.push({
+        images: translate("video.referenceBoard.problems.tooManyImages", { count: cap }),
+        videos: translate("video.referenceBoard.problems.tooManyVideos", { count: cap }),
+        audios: translate("video.referenceBoard.problems.tooManyAudios", { count: cap }),
+      }[row]);
     }
   });
   if (limits?.files != null && boardFileCount(board) > limits.files) {
-    problems.push(`At most ${limits.files} files in all.`);
+    problems.push(translate("video.referenceBoard.problems.tooManyFiles", { count: limits.files }));
   }
   const shortest = limits?.video_seconds?.[0];
   (board?.videos || []).forEach((v, i) => {
     if (shortest && v.durationS != null && v.durationS < shortest) {
-      problems.push(`Clip ${i + 1} is ${v.durationS.toFixed(1)} s; clips need at least ${shortest} s.`);
+      problems.push(translate("video.referenceBoard.problems.clipTooShort", {
+        clip: i + 1,
+        seconds: v.durationS.toFixed(1),
+        shortest,
+      }));
     }
   });
   // The budget was measured for boards with clips; pictures alone cost one
@@ -175,11 +191,22 @@ export function boardProblems(board, limits, fit = {}) {
     const patches = Math.max(1, Math.floor(width / 16) * Math.floor(height / 16));
     const room = Math.floor(budget / patches) - h3LatentFrames(renderFrames);
     if (pictures > room) {
-      problems.push(`On this card a ${seconds} s clip at ${width}x${height} with a reference clip takes at most ${Math.max(0, room)} pictures.`);
+      problems.push(translate("video.referenceBoard.problems.tooManyPictures", {
+        seconds,
+        width,
+        height,
+        count: Math.max(0, room),
+      }));
     } else {
       const each = clipFramesAllowed(budget, renderFrames, width, height, pictures, clips);
       if (each != null && shortest && each < h3GridFloor(shortest * fps)) {
-        problems.push(`On this card a ${seconds} s clip at ${width}x${height} leaves ${(each / fps).toFixed(1)} s of reference video per clip, under the ${shortest} s a clip needs. Choose a shorter duration or a smaller size, or use fewer clips or pictures.`);
+        problems.push(translate("video.referenceBoard.problems.clipShareTooShort", {
+          seconds,
+          width,
+          height,
+          share: (each / fps).toFixed(1),
+          shortest,
+        }));
       }
     }
   }

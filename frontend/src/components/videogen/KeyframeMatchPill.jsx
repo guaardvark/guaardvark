@@ -6,22 +6,29 @@
 
 import React from "react";
 import { StatusPill } from "../settings/ui";
+import { useUiTranslation } from "../../i18n";
 
 /**
  * @param {object} quality  a result's metadata.quality
  */
 const KeyframeMatchPill = ({ quality }) => {
+  const { t } = useUiTranslation();
   const match = quality?.keyframe_match;
   if (typeof match?.score !== "number") return null;
   const where = typeof match.frame_index === "number"
-    ? ` at frame ${match.frame_index} of ${match.frames}`
+    ? ` ${t("video.keyframeMatch.atFrame", { frame: match.frame_index, frames: match.frames })}`
     : "";
   const low = typeof match.threshold === "number" && match.score < match.threshold;
   return (
     <StatusPill
       tone={low ? "warn" : "neutral"}
-      label={`Keyframe ${Math.round(match.score * 100)}%`}
-      tooltip={`Image-encoder match between the keyframe and the clip${where}. Reacts to what is in the shot changing, not only its colours${typeof match.threshold === "number" ? `; under ${Math.round(match.threshold * 100)}% the clip is held for a look` : ""}.`}
+      label={t("video.keyframeMatch.label", { percent: Math.round(match.score * 100) })}
+      tooltip={t("video.keyframeMatch.tooltip", {
+        where,
+        hold: typeof match.threshold === "number"
+          ? t("video.keyframeMatch.holdBelow", { percent: Math.round(match.threshold * 100) })
+          : "",
+      })}
     />
   );
 };

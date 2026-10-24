@@ -26,6 +26,7 @@ import { deleteVoiceClip, withdrawVoiceClipConsent } from "../../api/audioFoundr
 import { formatUiError } from "../../utils/uiError";
 import { ApiKeyRefusalAlert } from "../common/ApiKeyRefusalNotice";
 import { ActionButton, ConfirmActionDialog, StatusPill } from "../settings/ui";
+import { useUiTranslation } from "../../i18n";
 
 const sizeLabel = (bytes) => `${Math.max(1, Math.round((bytes || 0) / 1024))} KB`;
 
@@ -39,6 +40,7 @@ const failure = (err, fallback) => ({
 });
 
 const VoiceClipManager = ({ clips, onChanged, onRemoved, defaultOpen = false }) => {
+  const { t } = useUiTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const [withdrawing, setWithdrawing] = useState(null);
   const [deleting, setDeleting] = useState(null);
@@ -68,7 +70,7 @@ const VoiceClipManager = ({ clips, onChanged, onRemoved, defaultOpen = false }) 
   return (
     <Box>
       <ActionButton kind="link" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        {open ? "Hide imported clips" : `Manage imported clips (${clips.length})`}
+        {open ? t("audio.clips.hide") : t("audio.clips.manage", { count: clips.length })}
       </ActionButton>
       <Collapse in={open} unmountOnExit>
         <Stack spacing={0.75} sx={{ mt: 1 }}>
@@ -105,21 +107,21 @@ const VoiceClipManager = ({ clips, onChanged, onRemoved, defaultOpen = false }) 
                 </Typography>
               </Box>
               <StatusPill
-                label={clip.consented ? "Consent recorded" : "No consent"}
+                label={clip.consented ? t("audio.clips.consentRecorded") : t("audio.clips.noConsent")}
                 tone={clip.consented ? "ok" : "neutral"}
                 tooltip={
                   clip.consented
-                    ? "Can be used to clone a voice."
-                    : "Cannot be used to clone a voice until consent is confirmed; the Studio asks when you pick it."
+                    ? t("audio.clips.canClone")
+                    : t("audio.clips.cannotClone")
                 }
               />
               {clip.consented && (
                 <ActionButton onClick={() => setWithdrawing(clip)} disabled={busy}>
-                  Withdraw consent
+                  {t("audio.clips.withdraw")}
                 </ActionButton>
               )}
               <ActionButton kind="destructive" onClick={() => setDeleting(clip)} disabled={busy}>
-                Delete clip
+                {t("audio.clips.delete")}
               </ActionButton>
             </Box>
           ))}
@@ -132,53 +134,49 @@ const VoiceClipManager = ({ clips, onChanged, onRemoved, defaultOpen = false }) 
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ fontSize: "1rem" }}>Withdraw consent for this clip?</DialogTitle>
+        <DialogTitle sx={{ fontSize: "1rem" }}>{t("audio.clips.withdrawTitle")}</DialogTitle>
         <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
           <Typography variant="body2" fontWeight="bold" sx={{ wordBreak: "break-word" }}>
             {withdrawing?.filename}
           </Typography>
           <Typography variant="body2">
-            The clip stays in your library, but it cannot be used to clone a voice until you confirm
-            consent again.
+            {t("audio.clips.withdrawText")}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            A voiceover already being cloned from it finishes; one still waiting to start is refused.
+            {t("audio.clips.withdrawRunning")}
           </Typography>
         </DialogContent>
         <DialogActions>
           <ActionButton onClick={() => setWithdrawing(null)} disabled={busy}>
-            Cancel
+            {t("audio.clips.cancel")}
           </ActionButton>
           <ActionButton
             kind="primary"
             loading={busy}
-            onClick={() => run(withdrawVoiceClipConsent, withdrawing, "Consent could not be withdrawn.", "withdrawn")}
+            onClick={() => run(withdrawVoiceClipConsent, withdrawing, t("audio.clips.withdrawFailed"), "withdrawn")}
           >
-            Withdraw consent
+            {t("audio.clips.withdraw")}
           </ActionButton>
         </DialogActions>
       </Dialog>
 
       <ConfirmActionDialog
         open={Boolean(deleting)}
-        title="Delete this voice clip?"
-        description={
-          "Removes the recording and its consent record from this machine, and from the Video page's " +
-          "audio guide list. A voiceover already being cloned from it finishes; one still waiting to start fails."
-        }
+        title={t("audio.clips.deleteTitle")}
+        description={t("audio.clips.deleteText")}
         facts={
           deleting
             ? [
-                { label: "Clip", value: deleting.filename },
-                { label: "Size", value: sizeLabel(deleting.size_bytes) },
-                { label: "Consent", value: deleting.consented ? "recorded" : "none" },
+                { label: t("audio.clips.factClip"), value: deleting.filename },
+                { label: t("audio.clips.factSize"), value: sizeLabel(deleting.size_bytes) },
+                { label: t("audio.clips.factConsent"), value: deleting.consented ? t("audio.clips.recorded") : t("audio.clips.none") },
               ]
             : []
         }
-        keeps="voiceovers already made from it, which stay in your Audio library."
-        confirmLabel="Delete clip"
+        keeps={t("audio.clips.keeps")}
+        confirmLabel={t("audio.clips.delete")}
         busy={busy}
-        onConfirm={() => run(deleteVoiceClip, deleting, "The clip could not be deleted.", "deleted")}
+        onConfirm={() => run(deleteVoiceClip, deleting, t("audio.clips.deleteFailed"), "deleted")}
         onClose={() => setDeleting(null)}
       />
     </Box>

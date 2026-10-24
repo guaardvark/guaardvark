@@ -33,34 +33,36 @@ import {
 import PageLayout from "../components/layout/PageLayout";
 import { listVideoDocuments, overlayText } from "../api/videoOverlayService";
 import { formatUiError } from "../utils/uiError";
+import { useUiTranslation, translate } from "../i18n";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
 // Same nine positions the backend supports. Labels are friendlier than the
 // raw enum values; the value strings match _VALID_POSITIONS server-side.
-const POSITION_OPTIONS = [
-  { value: "top-left",      label: "Top Left" },
-  { value: "top-center",    label: "Top Center" },
-  { value: "top-right",     label: "Top Right" },
-  { value: "middle-left",   label: "Middle Left" },
-  { value: "center",        label: "Center" },
-  { value: "middle-right",  label: "Middle Right" },
-  { value: "bottom-left",   label: "Bottom Left" },
-  { value: "bottom-center", label: "Bottom Center" },
-  { value: "bottom-right",  label: "Bottom Right" },
+const positionOptions = () => [
+  { value: "top-left",      label: translate("videoTextOverlay.positions.topLeft") },
+  { value: "top-center",    label: translate("videoTextOverlay.positions.topCenter") },
+  { value: "top-right",     label: translate("videoTextOverlay.positions.topRight") },
+  { value: "middle-left",   label: translate("videoTextOverlay.positions.middleLeft") },
+  { value: "center",        label: translate("videoTextOverlay.positions.center") },
+  { value: "middle-right",  label: translate("videoTextOverlay.positions.middleRight") },
+  { value: "bottom-left",   label: translate("videoTextOverlay.positions.bottomLeft") },
+  { value: "bottom-center", label: translate("videoTextOverlay.positions.bottomCenter") },
+  { value: "bottom-right",  label: translate("videoTextOverlay.positions.bottomRight") },
 ];
 
-const COLOR_PRESETS = [
-  { value: "white",   label: "White" },
-  { value: "black",   label: "Black" },
-  { value: "yellow",  label: "Yellow" },
-  { value: "red",     label: "Red" },
-  { value: "#22c55e", label: "Green" },
-  { value: "#3b82f6", label: "Blue" },
-  { value: "#f97316", label: "Orange" },
+const colorPresets = () => [
+  { value: "white",   label: translate("videoTextOverlay.colors.white") },
+  { value: "black",   label: translate("videoTextOverlay.colors.black") },
+  { value: "yellow",  label: translate("videoTextOverlay.colors.yellow") },
+  { value: "red",     label: translate("videoTextOverlay.colors.red") },
+  { value: "#22c55e", label: translate("videoTextOverlay.colors.green") },
+  { value: "#3b82f6", label: translate("videoTextOverlay.colors.blue") },
+  { value: "#f97316", label: translate("videoTextOverlay.colors.orange") },
 ];
 
 const VideoTextOverlayPage = () => {
+  const { t } = useUiTranslation();
   const [videos, setVideos] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(false);
   const [selectedDocId, setSelectedDocId] = useState("");
@@ -82,7 +84,7 @@ const VideoTextOverlayPage = () => {
       setVideos(list);
     } catch (e) {
       console.error("Could not list videos:", e);
-      setError("Could not load video list. Backend may be offline.");
+      setError(t("videoTextOverlay.loadFailed"));
     } finally {
       setLoadingVideos(false);
     }
@@ -102,11 +104,11 @@ const VideoTextOverlayPage = () => {
 
   const handleRender = async () => {
     if (!selectedDocId) {
-      setError("Pick a video first.");
+      setError(t("videoTextOverlay.pickFirst"));
       return;
     }
     if (!text.trim()) {
-      setError("Type something to render.");
+      setError(t("videoTextOverlay.typeSomething"));
       return;
     }
 
@@ -134,7 +136,7 @@ const VideoTextOverlayPage = () => {
         e.response?.data?.error?.message ||
         e.response?.data?.message ||
         e.message ||
-        "Render failed",
+        t("videoTextOverlay.renderFailed"),
       );
     } finally {
       setRendering(false);
@@ -142,7 +144,7 @@ const VideoTextOverlayPage = () => {
   };
 
   return (
-    <PageLayout title="Video Text Overlay" subtitle="Burn captions, titles, and watermarks into existing videos">
+    <PageLayout title={t("videoTextOverlay.title")} subtitle={t("videoTextOverlay.subtitle")}>
       <Box sx={{ maxWidth: 1200, mx: "auto", mt: 2, px: 2 }}>
         <Grid container spacing={3}>
           {/* Left: controls */}
@@ -151,11 +153,11 @@ const VideoTextOverlayPage = () => {
               <Stack spacing={2.5}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <TextFieldsIcon color="primary" />
-                  <Typography variant="h6" fontWeight="bold">Source video</Typography>
+                  <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.sourceVideo")}</Typography>
                 </Box>
 
                 <FormControl variant="filled" fullWidth size="small">
-                  <InputLabel>Pick a video</InputLabel>
+                  <InputLabel>{t("videoTextOverlay.pickVideo")}</InputLabel>
                   <Select
                     value={selectedDocId}
                     onChange={(e) => { setSelectedDocId(e.target.value); setResult(null); }}
@@ -165,7 +167,7 @@ const VideoTextOverlayPage = () => {
                   >
                     {videos.length === 0 && (
                       <MenuItem value="" disabled>
-                        {loadingVideos ? "Loading..." : "No videos found — generate one first"}
+                        {loadingVideos ? t("videoTextOverlay.loading") : t("videoTextOverlay.noVideos")}
                       </MenuItem>
                     )}
                     {videos.map((v) => (
@@ -183,13 +185,13 @@ const VideoTextOverlayPage = () => {
                   </Select>
                 </FormControl>
 
-                <Typography variant="h6" fontWeight="bold">Text</Typography>
+                <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.text")}</Typography>
                 <TextField
                   fullWidth
                   variant="filled"
                   multiline
                   minRows={2}
-                  placeholder="Hello, world"
+                  placeholder={t("videoTextOverlay.textPlaceholder")}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   inputProps={{ maxLength: 500 }}
@@ -197,10 +199,10 @@ const VideoTextOverlayPage = () => {
                   sx={{ "& .MuiFilledInput-root": { borderRadius: 2 } }}
                 />
 
-                <Typography variant="h6" fontWeight="bold">Style</Typography>
+                <Typography variant="h6" fontWeight="bold">{t("videoTextOverlay.style")}</Typography>
 
                 <Box>
-                  <Typography variant="caption" fontWeight="bold">Font size: {fontSize}px</Typography>
+                  <Typography variant="caption" fontWeight="bold">{t("videoTextOverlay.fontSize", { size: fontSize })}</Typography>
                   <Slider
                     value={fontSize}
                     min={16}
@@ -211,9 +213,9 @@ const VideoTextOverlayPage = () => {
                 </Box>
 
                 <FormControl variant="filled" fullWidth size="small">
-                  <InputLabel>Color</InputLabel>
+                  <InputLabel>{t("videoTextOverlay.color")}</InputLabel>
                   <Select value={fontColor} onChange={(e) => setFontColor(e.target.value)} sx={{ borderRadius: 2 }}>
-                    {COLOR_PRESETS.map((c) => (
+                    {colorPresets().map((c) => (
                       <MenuItem key={c.value} value={c.value}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                           <Box
@@ -230,9 +232,9 @@ const VideoTextOverlayPage = () => {
                 </FormControl>
 
                 <FormControl variant="filled" fullWidth size="small">
-                  <InputLabel>Position</InputLabel>
+                  <InputLabel>{t("videoTextOverlay.position")}</InputLabel>
                   <Select value={position} onChange={(e) => setPosition(e.target.value)} sx={{ borderRadius: 2 }}>
-                    {POSITION_OPTIONS.map((p) => (
+                    {positionOptions().map((p) => (
                       <MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>
                     ))}
                   </Select>
@@ -241,11 +243,11 @@ const VideoTextOverlayPage = () => {
                 <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                   <FormControlLabel
                     control={<Switch checked={border} onChange={(e) => setBorder(e.target.checked)} size="small" />}
-                    label={<Typography variant="caption">Outline</Typography>}
+                    label={<Typography variant="caption">{t("videoTextOverlay.outline")}</Typography>}
                   />
                   <FormControlLabel
                     control={<Switch checked={boxBackground} onChange={(e) => setBoxBackground(e.target.checked)} size="small" />}
-                    label={<Typography variant="caption">Background box</Typography>}
+                    label={<Typography variant="caption">{t("videoTextOverlay.backgroundBox")}</Typography>}
                   />
                 </Box>
 
@@ -259,7 +261,7 @@ const VideoTextOverlayPage = () => {
                   onClick={handleRender}
                   sx={{ py: 1.5, borderRadius: 2 }}
                 >
-                  {rendering ? "Rendering..." : "Render"}
+                  {rendering ? t("videoTextOverlay.rendering") : t("videoTextOverlay.render")}
                 </Button>
               </Stack>
             </Paper>
@@ -269,7 +271,7 @@ const VideoTextOverlayPage = () => {
           <Grid item xs={12} md={6}>
             <Paper elevation={4} sx={{ p: 3, borderRadius: 3, minHeight: 360 }}>
               <Typography variant="h6" fontWeight="bold" mb={2}>
-                {result ? "Result" : selectedVideo ? "Source" : "Preview"}
+                {result ? t("videoTextOverlay.result") : selectedVideo ? t("videoTextOverlay.source") : t("videoTextOverlay.preview")}
               </Typography>
 
               {result ? (
@@ -290,14 +292,14 @@ const VideoTextOverlayPage = () => {
                       size="small"
                       onClick={() => window.open(result.full_url, "_blank")}
                     >
-                      Download
+                      {t("videoTextOverlay.download")}
                     </Button>
                     <Button
                       variant="text"
                       size="small"
                       onClick={() => { setResult(null); }}
                     >
-                      Render again
+                      {t("videoTextOverlay.renderAgain")}
                     </Button>
                   </Box>
                 </Stack>
@@ -313,12 +315,12 @@ const VideoTextOverlayPage = () => {
                     />
                   </Box>
                   <Typography variant="caption" sx={{ opacity: 0.6 }}>
-                    Original is preserved — Render writes a new file.
+                    {t("videoTextOverlay.originalPreserved")}
                   </Typography>
                 </Stack>
               ) : (
                 <Typography variant="body2" sx={{ opacity: 0.5 }}>
-                  Pick a video on the left to preview it here. The result will appear here after Render.
+                  {t("videoTextOverlay.previewHint")}
                 </Typography>
               )}
             </Paper>

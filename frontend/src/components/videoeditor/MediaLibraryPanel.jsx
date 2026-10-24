@@ -33,6 +33,7 @@ import {
 import groupByFolder from "./groupByFolder";
 import MediaLibraryGrid from "./MediaLibraryGrid";
 import MediaLibraryList from "./MediaLibraryList";
+import { useUiTranslation } from "../../i18n";
 
 const STORAGE_KEY = "videoEditor.mediaLibraryView";
 
@@ -64,6 +65,7 @@ const MediaLibraryPanel = ({
   onItemClick,
   onItemDragStart,
 }) => {
+  const { t } = useUiTranslation();
   const [tabIndex, setTabIndex] = useState(0); // 0=video, 1=audio, 2=image
   const [viewMode, setViewMode] = useState(_readPersistedView);
   // currentFolderId is per-tab; switching tabs resets the drill-in.
@@ -135,17 +137,17 @@ const MediaLibraryPanel = ({
       >
         <Tab
           icon={<VideoIcon fontSize="small" />}
-          label={`Video (${videos.length})`}
+          label={t("videoEditor.media.videoTab", { count: videos.length })}
           sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }}
         />
         <Tab
           icon={<AudioIcon fontSize="small" />}
-          label={`Audio (${audios.length})`}
+          label={t("videoEditor.media.audioTab", { count: audios.length })}
           sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }}
         />
         <Tab
           icon={<ImageIcon fontSize="small" />}
-          label={`Images (${images.length})`}
+          label={t("videoEditor.media.imageTab", { count: images.length })}
           sx={{ minHeight: 40, textTransform: "none", fontSize: "0.75rem" }}
         />
       </Tabs>
@@ -166,7 +168,7 @@ const MediaLibraryPanel = ({
                 sx={{ fontSize: "0.7rem", display: "flex", alignItems: "center", gap: 0.25 }}
               >
                 <ArrowBackIcon sx={{ fontSize: 14 }} />
-                Library
+                {t("videoEditor.media.library")}
               </MuiLink>
               <Typography
                 variant="caption"
@@ -185,26 +187,26 @@ const MediaLibraryPanel = ({
             </Breadcrumbs>
           ) : (
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: "0.7rem" }}>
-              Drag items to the timeline
+              {t("videoEditor.media.dragHint")}
             </Typography>
           )}
         </Box>
-        <Tooltip title="Grid view">
+        <Tooltip title={t("videoEditor.media.gridView")}>
           <IconButton
             size="small"
             color={viewMode === "grid" ? "primary" : "default"}
             onClick={() => setViewMode("grid")}
-            aria-label="Grid view"
+            aria-label={t("videoEditor.media.gridView")}
           >
             <GridIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="List view">
+        <Tooltip title={t("videoEditor.media.listView")}>
           <IconButton
             size="small"
             color={viewMode === "list" ? "primary" : "default"}
             onClick={() => setViewMode("list")}
-            aria-label="List view"
+            aria-label={t("videoEditor.media.listView")}
           >
             <ListIcon fontSize="small" />
           </IconButton>

@@ -16,6 +16,7 @@ import {
 import { Delete as DeleteIcon, Star as StarIcon } from "@mui/icons-material";
 import ScanModeSelector from "./ScanModeSelector";
 import DirectorsNotesPanel from "./DirectorsNotesPanel";
+import { useUiTranslation } from "../../i18n";
 
 const OptionsPanel = ({
   selectedItem,
@@ -33,6 +34,7 @@ const OptionsPanel = ({
   // errors
   error, planError,
 }) => {
+  const { t } = useUiTranslation();
   const isBin = selectedItem?.type === "bin";
   const kind = selectedClip?.kind || "video";
 
@@ -53,13 +55,13 @@ const OptionsPanel = ({
           label={
             <Stack direction="row" alignItems="center" spacing={0.5}>
               <StarIcon sx={{ fontSize: 16, color: "warning.main" }} />
-              <Typography variant="body2">Use as master soundtrack</Typography>
+              <Typography variant="body2">{t("videoEditor.options.useAsMaster")}</Typography>
             </Stack>
           }
         />
         <Box>
           <Typography variant="caption" color="text.secondary">
-            Volume: {Math.round((selectedClip.volume ?? 1.0) * 100)}%
+            {t("videoEditor.options.volume", { percent: Math.round((selectedClip.volume ?? 1.0) * 100) })}
           </Typography>
           <Slider
             value={selectedClip.volume ?? 1.0}
@@ -70,7 +72,7 @@ const OptionsPanel = ({
           />
         </Box>
         <Typography variant="caption" color="text.secondary">
-          The master soundtrack drives the beat/section analysis when you Plan.
+          {t("videoEditor.options.masterHint")}
         </Typography>
       </Stack>
     );
@@ -99,7 +101,7 @@ const OptionsPanel = ({
           {selectedClip.filename}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Image options (duration, Ken-Burns) coming soon.
+          {t("videoEditor.options.imageSoon")}
         </Typography>
       </Stack>
     );
@@ -109,36 +111,36 @@ const OptionsPanel = ({
   if (selectedText) {
     return (
       <Stack spacing={2} sx={{ p: 1, height: "100%", overflow: "auto" }} className="non-draggable">
-        <Typography variant="subtitle2" fontWeight="bold">Text properties</Typography>
+        <Typography variant="subtitle2" fontWeight="bold">{t("videoEditor.options.textProperties")}</Typography>
         <TextField
-          size="small" fullWidth label="Text"
+          size="small" fullWidth label={t("videoEditor.options.text")}
           value={selectedText.text}
           onChange={(e) => onUpdateText(selectedText.id, { text: e.target.value })}
         />
         <Box>
-          <Typography variant="caption">Font size: {selectedText.fontSize}</Typography>
+          <Typography variant="caption">{t("videoEditor.options.fontSize", { size: selectedText.fontSize })}</Typography>
           <Slider value={selectedText.fontSize} min={12} max={144}
             onChange={(_e, v) => onUpdateText(selectedText.id, { fontSize: v })} />
         </Box>
         <TextField
-          size="small" fullWidth label="Color"
+          size="small" fullWidth label={t("videoEditor.options.color")}
           value={selectedText.fontColor}
           onChange={(e) => onUpdateText(selectedText.id, { fontColor: e.target.value })}
         />
         <Box>
-          <Typography variant="caption">Rotation: {selectedText.rotation}°</Typography>
+          <Typography variant="caption">{t("videoEditor.options.rotation", { rotation: selectedText.rotation })}</Typography>
           <Slider value={selectedText.rotation} min={-180} max={180}
             onChange={(_e, v) => onUpdateText(selectedText.id, { rotation: v })} />
         </Box>
         <Stack direction="row" spacing={1}>
-          <TextField size="small" label="X (px)" type="number" value={selectedText.x}
+          <TextField size="small" label={t("videoEditor.options.x")} type="number" value={selectedText.x}
             onChange={(e) => onUpdateText(selectedText.id, { x: Number(e.target.value) || 0 })} />
-          <TextField size="small" label="Y (px)" type="number" value={selectedText.y}
+          <TextField size="small" label={t("videoEditor.options.y")} type="number" value={selectedText.y}
             onChange={(e) => onUpdateText(selectedText.id, { y: Number(e.target.value) || 0 })} />
         </Stack>
         <Button variant="outlined" color="error" size="small" startIcon={<DeleteIcon />}
           onClick={() => onDeleteText(selectedText.id)}>
-          Delete element
+          {t("videoEditor.options.deleteElement")}
         </Button>
       </Stack>
     );
@@ -147,10 +149,10 @@ const OptionsPanel = ({
   // ── Nothing selected: Project / Plan settings ──────────────────────
   return (
     <Stack spacing={1.5} sx={{ p: 1, height: "100%", overflow: "auto" }} className="non-draggable">
-      <Typography variant="subtitle2" fontWeight="bold">Plan settings</Typography>
+      <Typography variant="subtitle2" fontWeight="bold">{t("videoEditor.options.planSettings")}</Typography>
       <ScanModeSelector value={scanMode} onChange={setScanMode} disabled={planning} />
       <Box>
-        <Typography variant="caption" color="text.secondary">Style recipe</Typography>
+        <Typography variant="caption" color="text.secondary">{t("videoEditor.options.styleRecipe")}</Typography>
         <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
           {(recipes.length === 0 ? [{ name: "Default" }] : recipes).map((r) => (
             <Chip
@@ -165,7 +167,7 @@ const OptionsPanel = ({
       </Box>
       <Divider />
       <Typography variant="caption" color="text.secondary">
-        Select a bin clip or text overlay to edit its options.
+        {t("videoEditor.options.selectHint")}
       </Typography>
       {error && <Alert severity="error" sx={{ py: 0 }}>{error}</Alert>}
       {planError && <Alert severity="error" sx={{ py: 0 }}>{planError}</Alert>}

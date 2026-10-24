@@ -41,6 +41,7 @@ import {
   deleteProject,
   getVideoEditorErrorMessage,
 } from "../../api/videoEditorService";
+import { useUiTranslation, translate, uiLocale } from "../../i18n";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -51,22 +52,23 @@ const posterUrl = (posterDocumentId) =>
 
 // Short, friendly "edited" label. Falls back to a locale date for older edits.
 const formatEdited = (value) => {
-  if (!value) return "never";
+  if (!value) return translate("videoEditor.openProject.never");
   const then = new Date(value);
-  if (Number.isNaN(then.getTime())) return "unknown";
+  if (Number.isNaN(then.getTime())) return translate("videoEditor.openProject.unknown");
   const diffMs = Date.now() - then.getTime();
   const sec = Math.floor(diffMs / 1000);
-  if (sec < 60) return "just now";
+  if (sec < 60) return translate("videoEditor.openProject.justNow");
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return translate("videoEditor.openProject.minutesAgo", { minutes: min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return translate("videoEditor.openProject.hoursAgo", { hours: hr });
   const days = Math.floor(hr / 24);
-  if (days < 7) return `${days}d ago`;
-  return then.toLocaleDateString();
+  if (days < 7) return translate("videoEditor.openProject.daysAgo", { days });
+  return then.toLocaleDateString(uiLocale());
 };
 
 const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
+  const { t } = useUiTranslation();
   const [loading, setLoading] = useState(false);
   const [projects, setProjects] = useState([]);
   const [search, setSearch] = useState("");
@@ -82,7 +84,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
       const data = await listProjects();
       setProjects(Array.isArray(data?.projects) ? data.projects : []);
     } catch (err) {
-      setError(getVideoEditorErrorMessage(err, "Could not list projects"));
+      setError(getVideoEditorErrorMessage(err, t("videoEditor.openProject.listFailed")));
       setProjects([]);
     } finally {
       setLoading(false);
@@ -118,7 +120,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
       setConfirmingId(null);
       await refresh();
     } catch (err) {
-      setError(getVideoEditorErrorMessage(err, "Could not delete project"));
+      setError(getVideoEditorErrorMessage(err, t("videoEditor.openProject.deleteFailed")));
     } finally {
       setDeletingId(null);
     }
@@ -126,12 +128,12 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ pb: 1 }}>Open project</DialogTitle>
+      <DialogTitle sx={{ pb: 1 }}>{t("videoEditor.openProject.title")}</DialogTitle>
       <DialogContent dividers>
         <TextField
           fullWidth
           size="small"
-          placeholder="Search projects…"
+          placeholder={t("videoEditor.openProject.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ mb: 2 }}
@@ -159,8 +161,8 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
             <PosterPlaceholderIcon sx={{ fontSize: 48, color: "text.disabled", mb: 1 }} />
             <Typography variant="body2" color="text.secondary">
               {projects.length === 0
-                ? "No saved projects yet"
-                : "No projects match your search"}
+                ? t("videoEditor.openProject.none")
+                : t("videoEditor.openProject.noMatch")}
             </Typography>
           </Box>
         ) : (
@@ -224,7 +226,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
                               color="primary"
                               sx={{ ml: 0.75 }}
                             >
-                              (current)
+                              {t("videoEditor.openProject.current")}
                             </Typography>
                           )}
                         </Typography>
@@ -236,13 +238,11 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
                           sx={{ mt: 0.5 }}
                         >
                           <Typography variant="caption" color="text.secondary" noWrap>
-                            edited {formatEdited(project.updatedAt)}
+                            {t("videoEditor.openProject.edited", { when: formatEdited(project.updatedAt) })}
                           </Typography>
                           <Chip
                             size="small"
-                            label={`${project.clipCount ?? 0} clip${
-                              project.clipCount === 1 ? "" : "s"
-                            }`}
+                            label={t("videoEditor.openProject.clipCount", { count: project.clipCount ?? 0 })}
                             sx={{ height: 20, fontSize: "0.7rem" }}
                           />
                         </Stack>
@@ -253,7 +253,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
                     <Box sx={{ position: "absolute", top: 4, right: 4 }}>
                       {isConfirming ? (
                         <Stack direction="row" spacing={0.25}>
-                          <Tooltip title="Confirm delete">
+                          <Tooltip title={t("videoEditor.openProject.confirmDelete")}>
                             <span>
                               <IconButton
                                 size="small"
@@ -261,7 +261,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
                                 disabled={isDeleting}
                                 onClick={() => handleDelete(project.id)}
                                 sx={{ bgcolor: "background.paper" }}
-                                aria-label="Confirm delete"
+                                aria-label={t("videoEditor.openProject.confirmDelete")}
                               >
                                 {isDeleting ? (
                                   <CircularProgress size={16} />
@@ -271,14 +271,14 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
                               </IconButton>
                             </span>
                           </Tooltip>
-                          <Tooltip title="Cancel">
+                          <Tooltip title={t("videoEditor.openProject.cancel")}>
                             <span>
                               <IconButton
                                 size="small"
                                 disabled={isDeleting}
                                 onClick={() => setConfirmingId(null)}
                                 sx={{ bgcolor: "background.paper" }}
-                                aria-label="Cancel delete"
+                                aria-label={t("videoEditor.openProject.cancelDelete")}
                               >
                                 <CancelIcon fontSize="small" />
                               </IconButton>
@@ -286,12 +286,12 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
                           </Tooltip>
                         </Stack>
                       ) : (
-                        <Tooltip title="Delete project">
+                        <Tooltip title={t("videoEditor.openProject.delete")}>
                           <IconButton
                             size="small"
                             onClick={() => setConfirmingId(project.id)}
                             sx={{ bgcolor: "background.paper" }}
-                            aria-label="Delete project"
+                            aria-label={t("videoEditor.openProject.delete")}
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
@@ -307,7 +307,7 @@ const OpenProjectDialog = ({ open, onClose, onOpenProject, currentId }) => {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} color="inherit">
-          Close
+          {t("videoEditor.openProject.close")}
         </Button>
       </DialogActions>
     </Dialog>

@@ -59,6 +59,7 @@ import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import DashboardCardWrapper from "../components/dashboard/DashboardCardWrapper";
 import { useLayout, useDashboardWidth } from "../contexts/LayoutContext";
+import { useUiTranslation, translate, uiLocale } from "../i18n";
 
 const GridLayout = WidthProvider(ReactGridLayout);
 
@@ -79,13 +80,13 @@ const DEFAULT_VE_LAYOUT = [
   { i: "bin",         x: 0,   y: 46, w: 70,  h: 46, minW: 26, minH: 12 },
   { i: "arrangement", x: 70,  y: 46, w: 105, h: 46, minW: 26, minH: 12 },
 ];
-const VE_CARD_TITLES = {
-  media: "Media Library",
-  preview: "Preview",
-  options: "Options",
-  bin: "Bin",
-  arrangement: "Arrangement",
-};
+const veCardTitles = () => ({
+  media: translate("videoEditor.cards.media"),
+  preview: translate("videoEditor.cards.preview"),
+  options: translate("videoEditor.cards.options"),
+  bin: translate("videoEditor.cards.bin"),
+  arrangement: translate("videoEditor.cards.arrangement"),
+});
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
@@ -101,6 +102,7 @@ const _emptyTimeline = () => ({
 });
 
 const VideoEditorPage = () => {
+  const { t } = useUiTranslation();
   const { gpuBlocked, blockReason, blockDetail } = useJobsGate();
   const { timeline, commitTimeline, handleUndo } = useTimelineHistory(_emptyTimeline());
   const videoElRef = useRef(null);
@@ -295,7 +297,7 @@ const VideoEditorPage = () => {
 
   // --- File-menu handlers (driven by ProjectBar) --------------------------
   const confirmDiscardIfDirty = useCallback(
-    () => !isDirty || window.confirm("Discard unsaved changes in the current project?"),
+    () => !isDirty || window.confirm(t("videoEditor.page.discardConfirm")),
     [isDirty],
   );
 
@@ -308,7 +310,7 @@ const VideoEditorPage = () => {
       if (loadTokenRef.current === myToken) {
         loadProjectPayload({ ...p, _meta: { id: p.id, name: p.name, isDirty: false } });
       }
-    } catch (e) { applyServerError(e, "Could not create project"); }
+    } catch (e) { applyServerError(e, t("videoEditor.page.createFailed")); }
   }, [confirmDiscardIfDirty, loadProjectPayload, applyServerError]);
 
   const handleOpenProjectById = useCallback(async (id) => {
@@ -319,7 +321,7 @@ const VideoEditorPage = () => {
       const p = await openProject(id);
       if (loadTokenRef.current === myToken) loadProjectPayload(p);
       setOpenProjectDialog(false);
-    } catch (e) { applyServerError(e, "Could not open project"); }
+    } catch (e) { applyServerError(e, t("videoEditor.page.openFailed")); }
   }, [confirmDiscardIfDirty, loadProjectPayload, applyServerError]);
 
   const handleProjectSave = useCallback(async () => {
@@ -332,7 +334,7 @@ const VideoEditorPage = () => {
       setIsDirty(false);
       lastSavedSessionRef.current = JSON.stringify(editable);
       setLastSaveTime(new Date());
-    } catch (e) { applyServerError(e, "Could not save project"); }
+    } catch (e) { applyServerError(e, t("videoEditor.page.saveFailed")); }
     finally { setIsSaving(false); }
   }, [currentProjectId, buildEditable, projectName, applyServerError]);
 
@@ -347,7 +349,7 @@ const VideoEditorPage = () => {
       setIsDirty(false);
       lastSavedSessionRef.current = JSON.stringify(editable);
       setLastSaveTime(new Date());
-    } catch (e) { applyServerError(e, "Could not save project as"); }
+    } catch (e) { applyServerError(e, t("videoEditor.page.saveAsFailed")); }
   }, [currentProjectId, buildEditable, applyServerError]);
 
   const handleProjectRename = useCallback(async (name) => {
@@ -355,7 +357,7 @@ const VideoEditorPage = () => {
     try {
       const r = await renameProject(currentProjectId, name);
       setProjectName(r.name || name);
-    } catch (e) { applyServerError(e, "Could not rename project"); }
+    } catch (e) { applyServerError(e, t("videoEditor.page.renameFailed")); }
   }, [currentProjectId, applyServerError]);
 
   const onLayoutChange = useCallback((next) => {
@@ -398,7 +400,7 @@ const VideoEditorPage = () => {
       .catch((e) => {
         if (!cancelled) {
           console.error("VideoEditorPage: media list failed:", e);
-          setError("Could not load media library.");
+          setError(t("videoEditor.page.mediaLoadFailed"));
         }
       })
       .finally(() => {
@@ -651,7 +653,7 @@ const VideoEditorPage = () => {
       });
     } catch (e) {
       console.error("rescan failed:", e);
-      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, "Re-analyze failed"));
+      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, t("videoEditor.page.reanalyzeFailed")));
     } finally {
       setRescanInFlight(null);
     }
@@ -678,7 +680,7 @@ const VideoEditorPage = () => {
   const handleRender = useCallback(async () => {
     const arr = planJob.result?.arrangement;
     if (!arr || arr.clips.length === 0) {
-      setError("Hit Plan first — no arrangement to render yet.");
+      setError(t("videoEditor.page.noArrangement"));
       return;
     }
     setRendering(true);
@@ -694,7 +696,7 @@ const VideoEditorPage = () => {
       setRenderResult(res);
     } catch (e) {
       console.error("render failed:", e);
-      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, "Render failed"));
+      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, t("videoEditor.page.renderFailed")));
     } finally {
       setRendering(false);
     }
@@ -717,7 +719,7 @@ const VideoEditorPage = () => {
       await openInShotcut(renderResult.mlt_path);
     } catch (e) {
       console.error("openInShotcut failed:", e);
-      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, "Could not launch Shotcut"));
+      setError(e.videoEditorMessage || getVideoEditorErrorMessage(e, t("videoEditor.page.shotcutFailed")));
     }
   }, [renderResult]);
 
@@ -760,7 +762,7 @@ const VideoEditorPage = () => {
               ) : (
                 <Stack spacing={1} alignItems="center" sx={{ color: "rgba(255,255,255,0.5)" }}>
                   <VideoIcon sx={{ fontSize: 48 }} />
-                  <Typography variant="caption">Drop clips into the Bin to begin</Typography>
+                  <Typography variant="caption">{t("videoEditor.page.previewEmpty")}</Typography>
                 </Stack>
               )}
 
@@ -795,9 +797,9 @@ const VideoEditorPage = () => {
                 {previewPlaying ? <PauseIcon /> : <PlayIcon />}
               </IconButton>
               {(isSaving || lastSaveTime) && (
-                <Tooltip title={isSaving ? "Saving…" : `Last saved: ${lastSaveTime?.toLocaleTimeString?.() || ""}`}>
+                <Tooltip title={isSaving ? t("videoEditor.project.saving") : t("videoEditor.page.lastSaved", { time: lastSaveTime?.toLocaleTimeString?.(uiLocale()) || "" })}>
                   <Chip
-                    label={isSaving ? "Saving…" : "Saved"}
+                    label={isSaving ? t("videoEditor.project.saving") : t("videoEditor.project.saved")}
                     size="small"
                     color={isSaving ? "primary" : "success"}
                     className="non-draggable"
@@ -806,7 +808,7 @@ const VideoEditorPage = () => {
                 </Tooltip>
               )}
               <Box sx={{ flexGrow: 1 }} />
-              <Tooltip title="Run the auto-edit + Art Director pipeline. Cheap to re-run (vision is cached).">
+              <Tooltip title={t("videoEditor.page.planTooltip")}>
                 <span>
                   <Button
                     size="small"
@@ -816,12 +818,12 @@ const VideoEditorPage = () => {
                     disabled={!canPlan}
                   >
                     {planJob.planning && !quickRenderPending
-                      ? `Planning... ${Math.round((planJob.progress || 0) * 100)}%`
-                      : "Plan"}
+                      ? t("videoEditor.page.planning", { percent: Math.round((planJob.progress || 0) * 100) })
+                      : t("videoEditor.page.plan")}
                   </Button>
                 </span>
               </Tooltip>
-              <Tooltip title={planJob.result ? "Render the arrangement to .mlt + .mp4" : "Hit Plan first"}>
+              <Tooltip title={planJob.result ? t("videoEditor.page.renderTooltip") : t("videoEditor.page.planFirst")}>
                 <span>
                   <Button
                     size="small"
@@ -830,11 +832,11 @@ const VideoEditorPage = () => {
                     onClick={handleRender}
                     disabled={!planJob.result || rendering || quickRenderPending || gpuBlocked}
                   >
-                    {rendering ? "Rendering..." : "Render"}
+                    {rendering ? t("videoEditor.page.rendering") : t("videoEditor.page.render")}
                   </Button>
                 </span>
               </Tooltip>
-              <Tooltip title="Plan + Render in one click. The Batch Video Generator pattern — set it and forget it.">
+              <Tooltip title={t("videoEditor.page.quickRenderTooltip")}>
                 <span>
                   <Button
                     size="small"
@@ -849,13 +851,13 @@ const VideoEditorPage = () => {
                     disabled={!canPlan || rendering || quickRenderPending || gpuBlocked}
                   >
                     {quickRenderPending
-                      ? (rendering ? "Rendering..." : `Planning... ${Math.round((planJob.progress || 0) * 100)}%`)
-                      : "Quick Render"}
+                      ? (rendering ? t("videoEditor.page.rendering") : t("videoEditor.page.planning", { percent: Math.round((planJob.progress || 0) * 100) }))
+                      : t("videoEditor.page.quickRender")}
                   </Button>
                 </span>
               </Tooltip>
               {renderResult?.mlt_path && (
-                <Tooltip title="Open the rendered project in Shotcut for refinement">
+                <Tooltip title={t("videoEditor.page.shotcutTooltip")}>
                   <Button size="small" variant="text" startIcon={<ShotcutIcon />} onClick={handleOpenInShotcut}>
                     Shotcut
                   </Button>
@@ -931,7 +933,7 @@ const VideoEditorPage = () => {
   };
 
   return (
-    <PageLayout title="Video Editor" subtitle="Compose videos with overlays, audio, and text">
+    <PageLayout title={t("videoEditor.page.title")} subtitle={t("videoEditor.page.subtitle")}>
       {/* Project File menu (New/Open/Save/Save As/Rename) + dirty indicator.
           Named projects persist per-project; the card layout below stays global. */}
       <ProjectBar
@@ -983,7 +985,7 @@ const VideoEditorPage = () => {
               <div key={cardId} data-grid={dataGrid}>
                 <DashboardCardWrapper
                   id={cardId}
-                  title={VE_CARD_TITLES[cardId] || cardId}
+                  title={veCardTitles()[cardId] || cardId}
                   cardColor={cardColors[cardId]}
                   onCardColorChange={(c) => handleCardColorChange(cardId, c)}
                   isMinimized={isMin}
