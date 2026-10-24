@@ -66,6 +66,7 @@ class ModelSlot:
     preloaded_for: Optional[str] = None # Route hint that triggered preload
     in_use: int = 0                     # Active inference pins; >0 blocks idle/forced yank
     idle_timeout_s: Optional[int] = None  # Overrides the orchestrator's idle timeout for this slot
+    exclusive: bool = False             # Asked for the whole card (ACE-Step); the chat model keeps away
 
     def to_dict(self) -> dict:
         return {
@@ -81,6 +82,7 @@ class ModelSlot:
             "preloaded_for": self.preloaded_for,
             "in_use": self.in_use,
             "idle_timeout_s": self.idle_timeout_s,
+            "exclusive": self.exclusive,
         }
 
 
@@ -310,6 +312,11 @@ class GPUMemoryOrchestrator:
                 existing.last_used = time.time()
                 existing.use_count += 1
                 existing.priority = max(existing.priority, priority)
+                if exclusive:
+                    # A warm request that needs the whole card claims it again:
+                    # something may have loaded beside it since its first load.
+                    existing.exclusive = True
+                    self._evict_all(exclude=[slot_id])
                 logger.debug(f"Model {slot_id} already loaded, use_count={existing.use_count}")
                 return existing
 
@@ -387,11 +394,22 @@ class GPUMemoryOrchestrator:
                 use_count=1,
                 priority=priority,
                 state=SlotState.LOADING,
+                exclusive=bool(exclusive),
             )
             self._registry[slot_id] = slot
             logger.info(f"Model {slot_id} registered (type={model_type.value}, ~{vram_estimate_mb}MB, priority={priority})")
 
             return slot
+
+    def exclusive_holder(self) -> Optional[str]:
+        """The slot that asked for the whole card and is loading or loaded, if any.
+        Ollama slots never hold such a claim."""
+        with self._lock:
+            for slot in self._registry.values():
+                if (slot.exclusive and slot.state in (SlotState.LOADED, SlotState.LOADING)
+                        and not slot.slot_id.startswith("ollama:")):
+                    return slot.slot_id
+        return None
 
     def mark_model_loaded(self, slot_id: str):
         """Mark a model as fully loaded (call after the actual load completes)."""

@@ -140,6 +140,7 @@ _orch_client = OrchestratorClient(
 )
 
 _dispatcher = Dispatcher(orchestrator=_orch_client)
+_dispatcher.start_idle_unloader(int(_gpu_cfg.get("idle_unload_s", 0) or 0))
 bootstrap(_dispatcher, _config)
 
 
