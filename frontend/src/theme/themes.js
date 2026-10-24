@@ -1,4 +1,5 @@
 import { extensionThemes } from "../extensions";
+import { translate } from "../i18n";
 import { createFullTheme } from "./createTheme";
 
 // ─── Default: Clean dark with teal accent ────────────────────────────────────
@@ -623,45 +624,63 @@ guaardvarkTheme.typography.subtitle2 = {
 
 // ─── Exported themes map ─────────────────────────────────────────────────────
 // Shape: { [key]: { label, description, previewGradient, theme } }
-// Used by App.jsx, ThemeSelectorModal, SettingsPage.
+// Used by App.jsx, ThemeSelectorModal, SettingsPage. Descriptions (and the
+// labels that describe rather than name) are getters, read in the interface's
+// language when shown; brand-like names stay as written.
 
 const coreThemes = {
   guaardvark: {
     label: "Guaardvark",
-    description: "Ultra-minimal monochrome theme inspired by guaardvark.com",
+    get description() {
+      return translate("theme.descriptions.guaardvark");
+    },
     previewGradient: "linear-gradient(135deg, #8a9bae, #000000)",
     theme: guaardvarkTheme,
   },
   default: {
-    label: "Dark Gray",
-    description: "Clean dark theme with teal accents",
+    get label() {
+      return translate("theme.labels.default");
+    },
+    get description() {
+      return translate("theme.descriptions.default");
+    },
     previewGradient: "linear-gradient(135deg, #008080, #006666)",
     theme: defaultTheme,
   },
   musk: {
     label: "Elon's Musk",
-    description: "Futuristic dark theme with neon cyan and red accents",
+    get description() {
+      return translate("theme.descriptions.musk");
+    },
     previewGradient: "linear-gradient(45deg, #00e5ff, #ff1744)",
     icon: "cologne",
     theme: muskTheme,
   },
   hacker: {
     label: "Fallout",
-    description: "Pip-Boy inspired wasteland terminal with radiation green and amber",
+    get description() {
+      return translate("theme.descriptions.hacker");
+    },
     previewGradient: "linear-gradient(135deg, #18ff6d, #0a0e0a, #f0c040)",
     icon: "radioactive",
     theme: hackerTheme,
   },
   vader: {
     label: "Vader",
-    description: "Dark imposing theme with black and red accents inspired by Darth Vader",
+    get description() {
+      return translate("theme.descriptions.vader");
+    },
     previewGradient: "linear-gradient(135deg, #d32f2f, #000000)",
     icon: "sith",
     theme: vaderTheme,
   },
   light: {
-    label: "Light",
-    description: "Clean light theme with teal accents — easy on the eyes",
+    get label() {
+      return translate("theme.labels.light");
+    },
+    get description() {
+      return translate("theme.descriptions.light");
+    },
     previewGradient: "linear-gradient(135deg, #e0f7fa, #00897b)",
     theme: lightTheme,
   },

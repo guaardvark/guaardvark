@@ -8,10 +8,12 @@ import {
   DialogActions,
   Button,
 } from "@mui/material";
+import { useUiTranslation } from "../../i18n";
 
 const ErrorContext = createContext(null);
 
 export const ErrorProvider = ({ children }) => {
+  const { t } = useUiTranslation();
   const [error, setError] = useState({ open: false, message: "", details: "" });
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -68,14 +70,14 @@ export const ErrorProvider = ({ children }) => {
         </Alert>
       </Snackbar>
       <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
-        <DialogTitle>Error Details</DialogTitle>
+        <DialogTitle>{t("layoutCommon.errorProvider.detailsTitle")}</DialogTitle>
         <DialogContent dividers>
           <pre style={{ whiteSpace: "pre-wrap" }}>
             {error.details || error.message}
           </pre>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeDialog}>Close</Button>
+          <Button onClick={closeDialog}>{t("common.close")}</Button>
         </DialogActions>
       </Dialog>
     </ErrorContext.Provider>

@@ -24,14 +24,16 @@ import {
   describeAuthRefusal,
   onSessionChanged,
 } from "../../api/apiAuth";
+import { useUiTranslation } from "../../i18n";
 
-const LINK_LABEL = "Settings → Access";
 // How many ApiKeyRefusalAlerts are on screen. The notice waits a moment and
 // stays quiet when a page already shows the advice where the action was.
 let inlineAlerts = 0;
 const INLINE_GRACE_MS = 400;
 
 export function ApiKeyRefusalAlert({ message, severity = "info", sx, onFollow }) {
+  const { t } = useUiTranslation();
+  const linkLabel = t("layoutCommon.apiKeyRefusal.settingsLink");
   const navigate = useNavigate();
   useEffect(() => {
     inlineAlerts += 1;
@@ -53,7 +55,7 @@ export function ApiKeyRefusalAlert({ message, severity = "info", sx, onFollow })
           }}
           sx={{ whiteSpace: "nowrap" }}
         >
-          {LINK_LABEL}
+          {linkLabel}
         </Button>
       }
     >
@@ -71,6 +73,8 @@ ApiKeyRefusalAlert.propTypes = {
 };
 
 export default function ApiKeyRefusalNotice() {
+  const { t } = useUiTranslation();
+  const linkLabel = t("layoutCommon.apiKeyRefusal.settingsLink");
   const navigate = useNavigate();
   const [notice, setNotice] = useState(null);
   const shown = useRef(new Set());
@@ -128,9 +132,9 @@ export default function ApiKeyRefusalNotice() {
                 navigate(API_KEY_SETTINGS_PATH);
               }}
             >
-              {LINK_LABEL}
+              {linkLabel}
             </Button>
-            <IconButton color="inherit" size="small" aria-label="Close" onClick={() => setNotice(null)}>
+            <IconButton color="inherit" size="small" aria-label={t("common.close")} onClick={() => setNotice(null)}>
               <CloseIcon fontSize="small" />
             </IconButton>
           </>

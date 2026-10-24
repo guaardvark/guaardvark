@@ -28,11 +28,13 @@ import { taskPath } from "../../utils/entityLinks";
 import useContextMenu from "../../hooks/useContextMenu";
 // Import API functions - getTasks (functional), createTask (now functional)
 import { getTasks, createTask } from "../../api";
+import { uiLocale, useUiTranslation } from "../../i18n";
 
 // Helper component to render task status chip
 const TaskStatusChip = ({ status }) => {
+  const { t } = useUiTranslation();
   let color = "default";
-  let label = status || "Unknown";
+  let label = status || t("dashboard.tasks.unknownStatus");
   switch (status?.toLowerCase()) {
     case "pending":
       color = "info";
@@ -51,7 +53,7 @@ const TaskStatusChip = ({ status }) => {
     default:
       label = status
         ? status.charAt(0).toUpperCase() + status.slice(1)
-        : "Unknown";
+        : t("dashboard.tasks.unknownStatus");
       break;
   }
   return (
@@ -89,6 +91,7 @@ const TaskManagerCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const [tasks, setTasks] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -119,7 +122,7 @@ const TaskManagerCard = React.forwardRef(
         );
         setTasks(taskList);
       } catch (err) {
-        setError("Failed to load tasks.");
+        setError(t("dashboard.tasks.loadFailed"));
         console.error("Error fetching tasks:", err);
         setTasks([]);
       } finally {
@@ -156,7 +159,7 @@ const TaskManagerCard = React.forwardRef(
       if (!newTaskData.name || !newTaskData.type) {
         setFeedback({
           open: true,
-          message: "Task Name and Type are required.",
+          message: t("dashboard.tasks.nameAndTypeRequired"),
           severity: "warning",
         });
         setIsSaving(false);
@@ -172,7 +175,7 @@ const TaskManagerCard = React.forwardRef(
         const taskName = result?.name || newTaskData.name;
         setFeedback({
           open: true,
-          message: `Task '${taskName}' created successfully!`,
+          message: t("dashboard.tasks.created", { name: taskName }),
           severity: "success",
         });
         handleCloseAddDialog();
@@ -181,7 +184,7 @@ const TaskManagerCard = React.forwardRef(
         console.error("Error creating task:", err);
         setFeedback({
           open: true,
-          message: `Error creating task: ${err.message}`,
+          message: t("dashboard.tasks.createFailed", { message: err.message }),
           severity: "error",
         });
       } finally {
@@ -201,7 +204,7 @@ const TaskManagerCard = React.forwardRef(
         {" "}
         {/* Fragment */}
         <DashboardCardWrapper
-          title="Tasks"
+          title={t("dashboard.tasks.title")}
           ref={ref}
           style={style}
           isMinimized={isMinimized}
@@ -210,8 +213,8 @@ const TaskManagerCard = React.forwardRef(
           onCardColorChange={onCardColorChange}
           {...props}
           contextMenuActions={[
-            { label: "Refresh", onClick: fetchTasksAndCounts },
-            { label: "Add Task…", onClick: handleOpenAddDialog },
+            { label: t("common.refresh"), onClick: fetchTasksAndCounts },
+            { label: t("dashboard.tasks.addTaskMenu"), onClick: handleOpenAddDialog },
           ]}
         >
           {isLoading ? (
@@ -244,13 +247,13 @@ const TaskManagerCard = React.forwardRef(
                     padding: "4px 8px",
                   }}
                 >
-                  + Add Task
+                  {t("dashboard.tasks.addTaskButton")}
                 </Button>
               </Box>
 
               {tasks.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
-                  No tasks found.
+                  {t("dashboard.tasks.empty")}
                 </Typography>
               ) : (
                 <List dense sx={{ p: 0 }}>
@@ -281,7 +284,7 @@ const TaskManagerCard = React.forwardRef(
                               mb: 0.5,
                             }}
                           >
-                            {task.name || task.task_name || "Unnamed Task"}
+                            {task.name || task.task_name || t("dashboard.tasks.unnamed")}
                           </Typography>
                         }
                         secondary={
@@ -301,7 +304,7 @@ const TaskManagerCard = React.forwardRef(
                               }}
                             >
                               {task.created_at
-                                ? new Date(task.created_at).toLocaleDateString()
+                                ? new Date(task.created_at).toLocaleDateString(uiLocale())
                                 : ""}
                             </Typography>
                           </Box>
@@ -331,7 +334,7 @@ const TaskManagerCard = React.forwardRef(
                       },
                     }}
                   >
-                    View All Tasks ({tasks.length})
+                    {t("dashboard.tasks.viewAll", { count: tasks.length })}
                   </Link>
                 </Box>
               )}
@@ -344,7 +347,7 @@ const TaskManagerCard = React.forwardRef(
               rowMenu.payload
                 ? [
                     {
-                      label: "Open",
+                      label: t("common.open"),
                       onClick: () => navigate(taskPath(rowMenu.payload.id || rowMenu.payload.task_id)),
                     },
                   ]
@@ -359,13 +362,13 @@ const TaskManagerCard = React.forwardRef(
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Add New Task</DialogTitle>
+          <DialogTitle>{t("dashboard.tasks.addDialogTitle")}</DialogTitle>
           <DialogContent>
             <TextField
               autoFocus
               margin="dense"
               name="name"
-              label="Task Name"
+              label={t("dashboard.tasks.taskName")}
               type="text"
               fullWidth
               variant="outlined"
@@ -376,7 +379,7 @@ const TaskManagerCard = React.forwardRef(
             <TextField
               margin="dense"
               name="type"
-              label="Task Type"
+              label={t("dashboard.tasks.taskType")}
               type="text"
               fullWidth
               variant="outlined"
@@ -387,7 +390,7 @@ const TaskManagerCard = React.forwardRef(
             <TextField
               margin="dense"
               name="output"
-              label="Output/Description"
+              label={t("dashboard.tasks.output")}
               type="text"
               fullWidth
               variant="outlined"
@@ -395,19 +398,19 @@ const TaskManagerCard = React.forwardRef(
               rows={3}
               value={newTaskData.output}
               onChange={handleNewTaskChange}
-              placeholder="Optional: Describe the expected output or additional details..."
+              placeholder={t("dashboard.tasks.outputPlaceholder")}
             />
           </DialogContent>
           <DialogActions>
             <Button onClick={handleCloseAddDialog} disabled={isSaving}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               onClick={handleCreateTask}
               variant="contained"
               disabled={isSaving}
             >
-              {isSaving ? "Creating..." : "Create Task"}
+              {isSaving ? t("dashboard.tasks.creating") : t("dashboard.tasks.create")}
             </Button>
           </DialogActions>
         </Dialog>

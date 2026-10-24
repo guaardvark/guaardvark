@@ -4,9 +4,11 @@ import React, { useState, useEffect } from "react";
 import { Button, CircularProgress, Typography, Box, Grid } from "@mui/material";
 import AlertSnackbar from "../common/AlertSnackbar";
 import DashboardCardWrapper from "./DashboardCardWrapper";
+import { useUiTranslation } from "../../i18n";
 
 const SystemStatusCard = React.forwardRef(
   ({ style, isMinimized, onToggleMinimize, cardColor, onCardColorChange, ...props }, ref) => {
+    const { t } = useUiTranslation();
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(false);
     const [_error, setError] = useState(null);
@@ -25,9 +27,9 @@ const SystemStatusCard = React.forwardRef(
       setError(null);
       try {
         const res = await fetch("/api/meta/status");
-        if (!res.ok) throw new Error("Failed to fetch system status.");
+        if (!res.ok) throw new Error(t("dashboard.systemStatus.fetchFailed"));
         const data = await res.json();
-        if (!data) throw new Error("No status data returned.");
+        if (!data) throw new Error(t("dashboard.systemStatus.noData"));
         setStatus(data);
       } catch (err) {
         setError(err.message);
@@ -63,28 +65,28 @@ const SystemStatusCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="System Diagnostics"
+        title={t("dashboard.systemStatus.title")}
         {...props}
       >
         {loading && <CircularProgress sx={{ my: 2 }} />}
         {status && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2">
-              Python: {status.python_version}
+              {t("dashboard.systemStatus.python", { version: status.python_version })}
             </Typography>
-            <Typography variant="body2">Platform: {status.platform}</Typography>
-            <Typography variant="body2">DB Path: {status.db_path}</Typography>
+            <Typography variant="body2">{t("dashboard.systemStatus.platform", { platform: status.platform })}</Typography>
+            <Typography variant="body2">{t("dashboard.systemStatus.dbPath", { path: status.db_path })}</Typography>
             <Typography variant="body2">
-              DB Size: {status.db_size_kb} KB
-            </Typography>
-            <Typography variant="body2">
-              Documents: {status.document_count}
+              {t("dashboard.systemStatus.dbSize", { size: status.db_size_kb })}
             </Typography>
             <Typography variant="body2">
-              Models: {status.model_count}
+              {t("dashboard.systemStatus.documents", { count: status.document_count })}
             </Typography>
             <Typography variant="body2">
-              Index Status: {status.index_status}
+              {t("dashboard.systemStatus.models", { count: status.model_count })}
+            </Typography>
+            <Typography variant="body2">
+              {t("dashboard.systemStatus.indexStatus", { status: status.index_status })}
             </Typography>
           </Box>
         )}
@@ -96,7 +98,7 @@ const SystemStatusCard = React.forwardRef(
               variant="contained"
               className="non-draggable"
             >
-              Run Self-Test
+              {t("dashboard.systemStatus.runSelfTest")}
             </Button>
           </Grid>
           <Grid item>
@@ -106,7 +108,7 @@ const SystemStatusCard = React.forwardRef(
               color="warning"
               className="non-draggable"
             >
-              Rebuild Index
+              {t("dashboard.systemStatus.rebuildIndex")}
             </Button>
           </Grid>
           <Grid item>
@@ -116,7 +118,7 @@ const SystemStatusCard = React.forwardRef(
               color="secondary"
               className="non-draggable"
             >
-              Clear Cache
+              {t("dashboard.systemStatus.clearCache")}
             </Button>
           </Grid>
         </Grid>

@@ -5,6 +5,7 @@ import { useHealth } from "../../contexts/HealthContext";
 import RebootProgressModal from "../modals/RebootProgressModal";
 import { ConfirmActionDialog } from "../settings/ui";
 import { useAppStore } from "../../stores/useAppStore";
+import { translate, useUiTranslation } from "../../i18n";
 
 const DISMISSED_KEY = "guaardvark:update-banner-dismissed";
 
@@ -42,7 +43,9 @@ export function describeUpdate(health, baseline) {
       kind: "restart",
       reason: "gpu_fault",
       key: `gpufault:${health.boot_id}:${at}`,
-      message: `The GPU stopped responding${time ? ` at ${time}` : ""}. Image generation fails until Guaardvark restarts.`,
+      message: time
+        ? translate("layoutCommon.updateNotice.gpuFaultAt", { time })
+        : translate("layoutCommon.updateNotice.gpuFault"),
     };
   }
 
@@ -50,9 +53,9 @@ export function describeUpdate(health, baseline) {
     return {
       kind: "restart",
       key: `restart:${health.boot_id}:${update?.ts ?? health.disk_version ?? ""}`,
-      message: `Guaardvark was updated. Restart it to finish${
-        health.restart_reason ? ` (${health.restart_reason})` : ""
-      }.`,
+      message: health.restart_reason
+        ? translate("layoutCommon.updateNotice.restartWithReason", { reason: health.restart_reason })
+        : translate("layoutCommon.updateNotice.restart"),
     };
   }
   if (!baseline) return null;
@@ -60,16 +63,17 @@ export function describeUpdate(health, baseline) {
     return {
       kind: "restarted",
       key: `restarted:${health.boot_id}`,
-      message: "Guaardvark restarted. Reload this page to use the new version.",
+      message: translate("layoutCommon.updateNotice.restarted"),
     };
   }
   // An update this page loaded after is already in it.
   if (update?.frontend_changed && update.ts !== baseline.updateTs) {
-    const files = update.files ? ` (${update.files} file${update.files === 1 ? "" : "s"})` : "";
     return {
       kind: "reload",
       key: `reload:${health.boot_id}:${update.ts}`,
-      message: `Guaardvark was updated${files}. Reload this page to use the new version.`,
+      message: update.files
+        ? translate("layoutCommon.updateNotice.reloadFiles", { count: update.files })
+        : translate("layoutCommon.updateNotice.reload"),
     };
   }
   return null;
@@ -81,6 +85,7 @@ export function describeUpdate(health, baseline) {
  * is still running the old code. Dismissing hides that notice for this boot.
  */
 const UpdateAppliedBanner = () => {
+  const { t } = useUiTranslation();
   const { healthData } = useHealth();
   const health = healthData?.backend || null;
   const [baseline, setBaseline] = useState(null);
@@ -135,17 +140,17 @@ const UpdateAppliedBanner = () => {
           </Typography>
           {notice.kind === "restart" ? (
             <Button size="small" variant="outlined" color="inherit" onClick={() => setConfirmOpen(true)}>
-              Restart
+              {t("layoutCommon.updateNotice.restartButton")}
             </Button>
           ) : (
             <Button size="small" variant="outlined" color="inherit" onClick={() => window.location.reload()}>
-              Reload
+              {t("common.reload")}
             </Button>
           )}
           <IconButton
             size="small"
             color="inherit"
-            aria-label="Dismiss"
+            aria-label={t("common.dismiss")}
             onClick={() => {
               writeDismissed(notice.key);
               setDismissed(notice.key);
@@ -162,12 +167,12 @@ const UpdateAppliedBanner = () => {
           setConfirmOpen(false);
           setRebootOpen(true);
         }}
-        title="Restart Guaardvark"
-        description={`Restarts the backend, the workers and ComfyUI ${
-          notice?.reason === "gpu_fault" ? "so the GPU can be used again" : "so the update takes effect"
-        }. Every generation, index job and chat reply in flight is lost, and this page will disconnect until the services are back.`}
-        keeps="documents, chats, media, rules and settings."
-        confirmLabel="Restart now"
+        title={t("layoutCommon.updateNotice.confirmTitle")}
+        description={
+          notice?.reason === "gpu_fault" ? t("layoutCommon.updateNotice.confirmGpu") : t("layoutCommon.updateNotice.confirmUpdate")
+        }
+        keeps={t("layoutCommon.updateNotice.keeps")}
+        confirmLabel={t("layoutCommon.updateNotice.restartNow")}
       />
       <RebootProgressModal open={rebootOpen} onClose={() => setRebootOpen(false)} />
     </>

@@ -19,6 +19,7 @@ import { entityLinkActions } from "../../utils/entityLinks";
 import useContextMenu from "../../hooks/useContextMenu";
 import { getProjects } from "../../api";
 import { getLogoUrl } from "../../config/logoConfig";
+import { useUiTranslation } from "../../i18n";
 
 const ProjectManagerCard = React.forwardRef(
   (
@@ -32,6 +33,7 @@ const ProjectManagerCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const [projects, setProjects] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -49,7 +51,7 @@ const ProjectManagerCard = React.forwardRef(
         setProjects(Array.isArray(result) ? result : []);
       } catch (err) {
         console.error("ProjectManagerCard fetch error:", err);
-        setError(err.message || "Error loading project data.");
+        setError(err.message || t("dashboard.project.loadFailed"));
         setProjects([]);
       } finally {
         setIsLoading(false);
@@ -68,9 +70,9 @@ const ProjectManagerCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="Project Manager"
+        title={t("dashboard.project.title")}
         {...props}
-        contextMenuActions={[{ label: "Refresh", onClick: fetchProjects }]}
+        contextMenuActions={[{ label: t("common.refresh"), onClick: fetchProjects }]}
       >
         {isLoading && (
           <CircularProgress
@@ -89,7 +91,7 @@ const ProjectManagerCard = React.forwardRef(
             sx={{ color: "text.secondary", mt: 2, textAlign: "center" }}
           >
             {" "}
-            No projects found.{" "}
+            {t("dashboard.project.empty")}{" "}
           </Typography>
         )}
 
@@ -126,8 +128,8 @@ const ProjectManagerCard = React.forwardRef(
                   </ListItemAvatar>
                 )}
                 <ListItemText
-                  primary={project.name || "Unnamed Project"}
-                  secondary={`Client: ${project.client?.name || "N/A"}`}
+                  primary={project.name || t("dashboard.project.unnamed")}
+                  secondary={t("dashboard.project.client", { name: project.client?.name || t("layout.notAvailable") })}
                   primaryTypographyProps={{
                     style: {
                       whiteSpace: "nowrap",
@@ -155,8 +157,8 @@ const ProjectManagerCard = React.forwardRef(
           actions={
             rowMenu.payload
               ? [
-                  { label: "Open", onClick: () => navigate(`/projects/${rowMenu.payload.id}`) },
-                  { label: "Edit…", onClick: () => navigate(`/projects?projectId=${rowMenu.payload.id}`) },
+                  { label: t("common.open"), onClick: () => navigate(`/projects/${rowMenu.payload.id}`) },
+                  { label: t("dashboard.edit"), onClick: () => navigate(`/projects?projectId=${rowMenu.payload.id}`) },
                   ...entityLinkActions("project", rowMenu.payload.id, navigate),
                 ]
               : []

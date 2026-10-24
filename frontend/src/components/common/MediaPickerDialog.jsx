@@ -24,12 +24,39 @@ import { ActionButton, Hint } from "../settings/ui";
 import MediaTile from "../videoeditor/MediaTile";
 import { uploadDroppedMedia } from "../videoeditor/useExternalDrop";
 import { listAudioDocuments, listImageDocuments, listVideoDocuments } from "../../api/videoOverlayService";
+import { translate, useUiTranslation } from "../../i18n";
 
 const LISTERS = { image: listImageDocuments, video: listVideoDocuments, audio: listAudioDocuments };
-const NOUNS = { image: "pictures", video: "clips", audio: "audio files" };
 const ACCEPT = { image: "image/*", video: "video/*", audio: "audio/*" };
 
+/** The dialog's sentences for one kind of media, each written whole. */
+const kindText = (kind) => {
+  if (kind === "video") {
+    return {
+      choose: translate("layoutCommon.mediaPicker.kinds.video.choose"),
+      onlyHere: translate("layoutCommon.mediaPicker.kinds.video.onlyHere"),
+      empty: translate("layoutCommon.mediaPicker.kinds.video.empty"),
+      emptyFiltered: translate("layoutCommon.mediaPicker.kinds.video.emptyFiltered"),
+    };
+  }
+  if (kind === "audio") {
+    return {
+      choose: translate("layoutCommon.mediaPicker.kinds.audio.choose"),
+      onlyHere: translate("layoutCommon.mediaPicker.kinds.audio.onlyHere"),
+      empty: translate("layoutCommon.mediaPicker.kinds.audio.empty"),
+      emptyFiltered: translate("layoutCommon.mediaPicker.kinds.audio.emptyFiltered"),
+    };
+  }
+  return {
+    choose: translate("layoutCommon.mediaPicker.kinds.image.choose"),
+    onlyHere: translate("layoutCommon.mediaPicker.kinds.image.onlyHere"),
+    empty: translate("layoutCommon.mediaPicker.kinds.image.empty"),
+    emptyFiltered: translate("layoutCommon.mediaPicker.kinds.image.emptyFiltered"),
+  };
+};
+
 const MediaPickerDialog = ({ open, kind = "image", max = 1, title, onPick, onClose }) => {
+  const { t } = useUiTranslation();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -47,7 +74,7 @@ const MediaPickerDialog = ({ open, kind = "image", max = 1, title, onPick, onClo
     setLoading(true);
     (LISTERS[kind] || listImageDocuments)()
       .then((docs) => { if (alive) setItems(docs || []); })
-      .catch((e) => { if (alive) setError(e.message || "Could not list the library."); })
+      .catch((e) => { if (alive) setError(e.message || t("layoutCommon.mediaPicker.listFailed")); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [open, kind]);
@@ -73,34 +100,35 @@ const MediaPickerDialog = ({ open, kind = "image", max = 1, title, onPick, onClo
     try {
       const docs = await uploadDroppedMedia(list, { http: axios });
       const ofKind = docs.filter((d) => d.kind === kind);
-      if (ofKind.length < docs.length) setError(`Only ${NOUNS[kind]} go here; the other files were added to Files.`);
+      if (ofKind.length < docs.length) setError(kindText(kind).onlyHere);
       if (ofKind.length) {
         onPick?.(ofKind);
         onClose?.();
       }
     } catch (e) {
-      setError(e.response?.data?.error?.message || e.message || "Upload failed.");
+      setError(e.response?.data?.error?.message || e.message || t("layoutCommon.mediaPicker.uploadFailed"));
     } finally {
       setUploading(false);
     }
   };
 
   const pickedIds = new Set(picked.map((d) => d.id));
+  const text = kindText(kind);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{title || `Choose ${NOUNS[kind]}`}</DialogTitle>
+      <DialogTitle>{title || text.choose}</DialogTitle>
       <DialogContent dividers>
         <Box sx={{ display: "flex", gap: 1, alignItems: "center", mb: 1.5, flexWrap: "wrap" }}>
           <TextField
             size="small"
-            placeholder="Filter by name"
+            placeholder={t("layoutCommon.mediaPicker.filterPlaceholder")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             sx={{ flex: 1, minWidth: 180 }}
           />
           <ActionButton loading={uploading} onClick={() => inputRef.current?.click()}>
-            Upload from disk
+            {t("layoutCommon.mediaPicker.uploadFromDisk")}
           </ActionButton>
           <input
             ref={inputRef}
@@ -123,7 +151,7 @@ const MediaPickerDialog = ({ open, kind = "image", max = 1, title, onPick, onClo
           <CircularProgress size={24} />
         ) : shown.length === 0 ? (
           <Hint>
-            No {NOUNS[kind]} in Files yet{filter ? " match that name" : ""}. Upload one, or generate one in the Studio.
+            {filter ? text.emptyFiltered : text.empty}
           </Hint>
         ) : (
           <Grid container spacing={1}>
@@ -137,9 +165,9 @@ const MediaPickerDialog = ({ open, kind = "image", max = 1, title, onPick, onClo
       </DialogContent>
       <DialogActions>
         <Hint sx={{ mr: "auto", pl: 1 }}>
-          {max > 1 ? `Up to ${max} more.` : "Pick one."}
+          {max > 1 ? t("layoutCommon.mediaPicker.upToMore", { count: max }) : t("layoutCommon.mediaPicker.pickOne")}
         </Hint>
-        <ActionButton onClick={onClose}>Cancel</ActionButton>
+        <ActionButton onClick={onClose}>{t("common.cancel")}</ActionButton>
         <ActionButton
           kind={picked.length ? "primary" : "neutral"}
           disabled={!picked.length}
@@ -148,7 +176,7 @@ const MediaPickerDialog = ({ open, kind = "image", max = 1, title, onPick, onClo
             onClose?.();
           }}
         >
-          {picked.length > 1 ? `Use ${picked.length}` : "Use"}
+          {picked.length > 1 ? t("layoutCommon.mediaPicker.useCount", { count: picked.length }) : t("layoutCommon.mediaPicker.use")}
         </ActionButton>
       </DialogActions>
     </Dialog>

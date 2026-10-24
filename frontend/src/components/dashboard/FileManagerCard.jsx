@@ -5,6 +5,7 @@
 import React from "react";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import FileManager from "../filesystem/FileManager";
+import { useUiTranslation } from "../../i18n";
 
 const FileManagerCard = React.forwardRef(
   (
@@ -18,6 +19,7 @@ const FileManagerCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     return (
       <DashboardCardWrapper
         ref={ref}
@@ -26,7 +28,7 @@ const FileManagerCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="File Manager"
+        title={t("dashboard.files.title")}
         {...props}
         contextMenuArea="header"
       >

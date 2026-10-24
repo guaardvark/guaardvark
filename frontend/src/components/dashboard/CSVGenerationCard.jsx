@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import RecentRunsList from "./RecentRunsList";
 import { isCsvJob, loadJobRows, useRecentRuns } from "./recentRuns";
+import { useUiTranslation } from "../../i18n";
 
 // CSV runs are file-generation jobs that write a .csv (File Generation page, Jobs page).
 const loadCsvJobs = () => loadJobRows("file_generation", isCsvJob);
@@ -24,6 +25,7 @@ const CSVGenerationCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const navigate = useNavigate();
     const recent = useRecentRuns(loadCsvJobs);
 
@@ -35,10 +37,10 @@ const CSVGenerationCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="CSV Generation"
+        title={t("dashboard.csvgen.title")}
         {...props}
         contextMenuActions={[
-          { label: "New CSV", onClick: () => navigate("/file-generation") },
+          { label: t("dashboard.csvgen.newCsv"), onClick: () => navigate("/file-generation") },
         ]}
       >
         {/* Quick Actions */}
@@ -56,7 +58,7 @@ const CSVGenerationCard = React.forwardRef(
             }}
             className="non-draggable"
           >
-            New CSV
+            {t("dashboard.csvgen.newCsv")}
           </Button>
           <Button
             variant="outlined"
@@ -71,9 +73,9 @@ const CSVGenerationCard = React.forwardRef(
             }}
             className="non-draggable"
           >
-            Import
+            {t("dashboard.csvgen.import")}
           </Button>
-          <Tooltip title="Refresh data">
+          <Tooltip title={t("dashboard.refreshData")}>
             <IconButton
               size="small"
               onClick={recent.refresh}
@@ -88,9 +90,9 @@ const CSVGenerationCard = React.forwardRef(
           rows={recent.rows}
           loading={recent.loading}
           error={recent.error}
-          emptyText="No CSV jobs yet."
+          emptyText={t("dashboard.csvgen.empty")}
           onOpen={navigate}
-          viewAll={{ label: "View all jobs", path: "/tasks" }}
+          viewAll={{ label: t("dashboard.viewAllJobs"), path: "/tasks" }}
         />
       </DashboardCardWrapper>
     );

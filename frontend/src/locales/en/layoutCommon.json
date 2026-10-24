@@ -1,0 +1,227 @@
+{
+  "addressAutocomplete": {
+    "label": "Address"
+  },
+  "apiKeyRefusal": {
+    "settingsLink": "Settings → Access"
+  },
+  "backendOffline": {
+    "message": "Backend offline — retrying… Run <code>guaardvark</code> in a terminal, or <code>./start.sh</code> for the full stack."
+  },
+  "changedElsewhere": {
+    "keepMine": "Keep mine",
+    "message": "{{names}} changed elsewhere while you were editing. Reload to take the saved version, or keep your edit and save it over that change."
+  },
+  "didYouKnow": {
+    "regionLabel": "Did you know",
+    "title": "Did you know?",
+    "closeTip": "Close tip",
+    "showMe": "Show me",
+    "nextTip": "Next tip",
+    "stopTips": "Don't show tips"
+  },
+  "directoryPicker": {
+    "title": "Select Directory",
+    "loadFailed": "Failed to load the folder",
+    "notFoundShowingHome": "{{path}} was not found; showing your home folder.",
+    "notFoundShowing": "{{path}} was not found; showing {{fallback}}.",
+    "folderNotFound": "Folder not found",
+    "root": "Root",
+    "hideRecent": "Hide recent",
+    "showRecent": "Recent paths",
+    "recentPaths": "Recent Paths",
+    "goHome": "Go to home folder",
+    "homeFolder": "Home folder",
+    "path": "Path",
+    "openPathFirst": "Press Enter or Go to open this path before selecting.",
+    "parentFolder": "Parent folder",
+    "go": "Go",
+    "searchPlaceholder": "Search in current directory...",
+    "showFiles": "Show files",
+    "browse": "Browse",
+    "hiddenFolders": "Hidden folders are not shown.",
+    "noMatches": "No matching items found.",
+    "emptyFolder": "This folder is empty.",
+    "noSubdirectories": "No subdirectories found. You can select this directory.",
+    "itemCount": "{{count}} items",
+    "folderCount_one": "{{count}} folder",
+    "folderCount_other": "{{count}} folders",
+    "fileCount_one": "{{count}} file",
+    "fileCount_other": "{{count}} files",
+    "foldersAndFiles": "{{folders}}, {{files}}",
+    "summaryMatching": "{{summary}} matching \"{{query}}\"",
+    "summaryPickable": "{{summary}} · {{extensions}} files can be picked",
+    "chooseFile": "Choose a file",
+    "selectNamed": "Select: {{name}}"
+  },
+  "errorBoundary": {
+    "updatedTitle": "Guaardvark was updated",
+    "errorTitle": "Something went wrong",
+    "updatedBody": "This page's code changed while it was open. Reload to load the new version.",
+    "errorBody": "The application encountered an unexpected error. This has been logged for investigation.",
+    "reloadPage": "Reload Page",
+    "tryAgain": "Try Again",
+    "detailsHeading": "Error Details (Development Mode Only)"
+  },
+  "errorDisplay": {
+    "unexpectedError": "An unexpected error occurred",
+    "genericError": "An error occurred",
+    "friendly": {
+      "network": "Unable to connect to the server. Please check your internet connection.",
+      "timeout": "The request took too long to complete. Please try again.",
+      "unauthorized": "Authentication required. Please log in.",
+      "forbidden": "You do not have permission to perform this action.",
+      "notFound": "The requested resource was not found.",
+      "serverError": "Server error. Please try again later.",
+      "unavailable": "Service temporarily unavailable. Please try again later."
+    },
+    "toggleDetails": "toggle details",
+    "report": "Report",
+    "closeError": "close error",
+    "severity": {
+      "warning": "Warning",
+      "info": "Information"
+    },
+    "errorDetails": "Error Details",
+    "code": "<bold>Code:</bold> {{code}}",
+    "time": "<bold>Time:</bold> {{time}}",
+    "technicalDetails": "Technical Details",
+    "cardTitle": "Something went wrong",
+    "cardDescription": "An unexpected error occurred. Please try refreshing the page.",
+    "tryAgain": "Try Again",
+    "refreshPage": "Refresh Page"
+  },
+  "errorProvider": {
+    "detailsTitle": "Error Details"
+  },
+  "gpuGate": {
+    "queued": "{{reason}}. New jobs wait in line and start on their own when the graphics card is free.",
+    "blocked": "{{reason}}. Buttons unlock when the graphics card is free.",
+    "job": "Job: {{detail}}"
+  },
+  "shortcuts": {
+    "groups": {
+      "global": "Global",
+      "chat": "Chat",
+      "codeEditor": "Code Editor",
+      "systemMap": "System Map",
+      "videoEditor": "Video Editor"
+    },
+    "keys": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "space": "Space",
+      "enter": "Enter",
+      "esc": "Esc",
+      "delete": "Delete"
+    },
+    "showShortcuts": "Show this keyboard shortcuts reference",
+    "toggleFloatingChat": "Toggle the floating chat panel",
+    "voiceMic": "Voice: tap to start or stop the mic, hold to talk",
+    "sendMessage": "Send message",
+    "newline": "Insert a newline",
+    "previousMessage": "Recall previous message",
+    "nextMessage": "Recall next message",
+    "saveFile": "Save the file",
+    "saveSession": "Save the session now: open tabs and chat",
+    "findSymbol": "Find a function or class and jump to it",
+    "jumpToPanel": "Jump to Files, Editor, Chat, Search, Output",
+    "explainSelection": "Explain the selected code in the chat",
+    "focusSearch": "Focus search",
+    "resetView": "Reset the view",
+    "clearSearch": "Clear search / selection",
+    "playPause": "Play / pause the preview",
+    "undo": "Undo the last timeline change",
+    "removeOverlay": "Remove the selected text overlay",
+    "title": "Keyboard shortcuts",
+    "close": "Close shortcuts"
+  },
+  "loading": {
+    "remaining": "~{{seconds}}s remaining",
+    "processing": "Processing...",
+    "connected": "Connected",
+    "offline": "Offline",
+    "online": "Online",
+    "offlineTitle": "You're offline",
+    "offlineBody": "Some features may not be available. Check your connection.",
+    "success": "Success!",
+    "processFailed": "Process Failed",
+    "failed": "Failed",
+    "step": "Step {{current}} of {{total}}"
+  },
+  "mediaPicker": {
+    "listFailed": "Could not list the library.",
+    "uploadFailed": "Upload failed.",
+    "kinds": {
+      "image": {
+        "choose": "Choose pictures",
+        "onlyHere": "Only pictures go here; the other files were added to Files.",
+        "empty": "No pictures in Files yet. Upload one, or generate one in the Studio.",
+        "emptyFiltered": "No pictures in Files yet match that name. Upload one, or generate one in the Studio."
+      },
+      "video": {
+        "choose": "Choose clips",
+        "onlyHere": "Only clips go here; the other files were added to Files.",
+        "empty": "No clips in Files yet. Upload one, or generate one in the Studio.",
+        "emptyFiltered": "No clips in Files yet match that name. Upload one, or generate one in the Studio."
+      },
+      "audio": {
+        "choose": "Choose audio files",
+        "onlyHere": "Only audio files go here; the other files were added to Files.",
+        "empty": "No audio files in Files yet. Upload one, or generate one in the Studio.",
+        "emptyFiltered": "No audio files in Files yet match that name. Upload one, or generate one in the Studio."
+      }
+    },
+    "filterPlaceholder": "Filter by name",
+    "uploadFromDisk": "Upload from disk",
+    "upToMore": "Up to {{count}} more.",
+    "pickOne": "Pick one.",
+    "useCount": "Use {{count}}",
+    "use": "Use"
+  },
+  "narrate": {
+    "failed": "Narration failed",
+    "fast": "Fast",
+    "expressive": "Expressive",
+    "download": "Download narration",
+    "summary_one": "{{seconds}}s · {{count}} section",
+    "summary_other": "{{seconds}}s · {{count}} sections",
+    "generatingSlow": "Generating (slow)...",
+    "narrating": "Narrating...",
+    "narrate": "Narrate",
+    "expressiveGenerating": "Expressive TTS generating (10-30s)...",
+    "generating": "Generating narration...",
+    "narrateText": "Narrate this text"
+  },
+  "projectState": {
+    "title": "Project State Error",
+    "intro": "There was an error with the project state management. This could be due to:",
+    "causes": {
+      "network": "Network connectivity issues",
+      "sync": "Data synchronization problems",
+      "relationships": "Invalid project relationships",
+      "corruption": "State corruption"
+    },
+    "errorMessage": "Error: {{message}}",
+    "unknownError": "Unknown error"
+  },
+  "sevenDayPicker": {
+    "time": "Time"
+  },
+  "updateNotice": {
+    "gpuFaultAt": "The GPU stopped responding at {{time}}. Image generation fails until Guaardvark restarts.",
+    "gpuFault": "The GPU stopped responding. Image generation fails until Guaardvark restarts.",
+    "restartWithReason": "Guaardvark was updated. Restart it to finish ({{reason}}).",
+    "restart": "Guaardvark was updated. Restart it to finish.",
+    "restarted": "Guaardvark restarted. Reload this page to use the new version.",
+    "reloadFiles_one": "Guaardvark was updated ({{count}} file). Reload this page to use the new version.",
+    "reloadFiles_other": "Guaardvark was updated ({{count}} files). Reload this page to use the new version.",
+    "reload": "Guaardvark was updated. Reload this page to use the new version.",
+    "restartButton": "Restart",
+    "confirmTitle": "Restart Guaardvark",
+    "confirmGpu": "Restarts the backend, the workers and ComfyUI so the GPU can be used again. Every generation, index job and chat reply in flight is lost, and this page will disconnect until the services are back.",
+    "confirmUpdate": "Restarts the backend, the workers and ComfyUI so the update takes effect. Every generation, index job and chat reply in flight is lost, and this page will disconnect until the services are back.",
+    "keeps": "documents, chats, media, rules and settings.",
+    "restartNow": "Restart now"
+  }
+}

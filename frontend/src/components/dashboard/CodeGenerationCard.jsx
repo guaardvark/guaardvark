@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import DashboardCardWrapper from "./DashboardCardWrapper";
 import RecentRunsList from "./RecentRunsList";
 import { loadJobRows, useRecentRuns } from "./recentRuns";
+import { useUiTranslation } from "../../i18n";
 
 const loadCodeJobs = () => loadJobRows("code_generation");
 
@@ -23,6 +24,7 @@ const CodeGenerationCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const navigate = useNavigate();
     const recent = useRecentRuns(loadCodeJobs);
 
@@ -34,10 +36,10 @@ const CodeGenerationCard = React.forwardRef(
         onToggleMinimize={onToggleMinimize}
         cardColor={cardColor}
         onCardColorChange={onCardColorChange}
-        title="Code Generation"
+        title={t("dashboard.codegen.title")}
         {...props}
         contextMenuActions={[
-          { label: "New Code", onClick: () => navigate("/code-editor") },
+          { label: t("dashboard.codegen.newCode"), onClick: () => navigate("/code-editor") },
         ]}
       >
         {/* Quick Actions */}
@@ -55,7 +57,7 @@ const CodeGenerationCard = React.forwardRef(
             }}
             className="non-draggable"
           >
-            New Code
+            {t("dashboard.codegen.newCode")}
           </Button>
           <Button
             variant="outlined"
@@ -70,9 +72,9 @@ const CodeGenerationCard = React.forwardRef(
             }}
             className="non-draggable"
           >
-            Debug
+            {t("dashboard.codegen.debug")}
           </Button>
-          <Tooltip title="Refresh data">
+          <Tooltip title={t("dashboard.refreshData")}>
             <IconButton
               size="small"
               onClick={recent.refresh}
@@ -87,9 +89,9 @@ const CodeGenerationCard = React.forwardRef(
           rows={recent.rows}
           loading={recent.loading}
           error={recent.error}
-          emptyText="No code generation jobs yet."
+          emptyText={t("dashboard.codegen.empty")}
           onOpen={navigate}
-          viewAll={{ label: "View all jobs", path: "/tasks" }}
+          viewAll={{ label: t("dashboard.viewAllJobs"), path: "/tasks" }}
         />
       </DashboardCardWrapper>
     );

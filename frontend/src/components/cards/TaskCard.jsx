@@ -18,30 +18,32 @@ import StopIcon from "@mui/icons-material/Stop";
 import CloseIcon from "@mui/icons-material/Close";
 import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
 import { processTaskQueue } from "../../api/taskService";
+import { useUiTranslation } from "../../i18n";
 
 const TaskStatusChip = ({ status, retryCount }) => {
+  const { t } = useUiTranslation();
   const getStatusConfig = (status) => {
     const cleanStatus = status?.replace('CSV Gen', '').trim().toLowerCase() || "unknown";
 
     switch (cleanStatus) {
       case "pending":
-        return { color: "info", label: "Pending", variant: "outlined" };
+        return { color: "info", label: t("layoutCards.task.status.pending"), variant: "outlined" };
       case "queued":
-        return { color: "info", label: "Queued", variant: "filled" };
+        return { color: "info", label: t("layoutCards.task.status.queued"), variant: "filled" };
       case "in-progress":
       case "running":
-        return { color: "warning", label: "Running", variant: "filled" };
+        return { color: "warning", label: t("layoutCards.task.status.running"), variant: "filled" };
       case "paused":
-        return { color: "secondary", label: "Paused", variant: "outlined" };
+        return { color: "secondary", label: t("layoutCards.task.status.paused"), variant: "outlined" };
       case "completed":
-        return { color: "success", label: "Completed", variant: "filled" };
+        return { color: "success", label: t("layoutCards.task.status.completed"), variant: "filled" };
       case "failed":
       case "error":
-        return { color: "error", label: "Failed", variant: "filled" };
+        return { color: "error", label: t("layoutCards.task.status.failed"), variant: "filled" };
       case "cancelled":
-        return { color: "warning", label: "Cancelled", variant: "outlined" };
+        return { color: "warning", label: t("layoutCards.task.status.cancelled"), variant: "outlined" };
       default:
-        return { color: "default", label: status || "Unknown", variant: "outlined" };
+        return { color: "default", label: status || t("layoutCards.task.status.unknown"), variant: "outlined" };
     }
   };
 
@@ -49,7 +51,7 @@ const TaskStatusChip = ({ status, retryCount }) => {
 
   // Show retry count if task has retried
   const label = retryCount && retryCount > 0
-    ? `${config.label} (${retryCount}x)`
+    ? t("layoutCards.task.statusWithRetries", { status: config.label, retries: retryCount })
     : config.label;
 
   return (
@@ -71,6 +73,7 @@ const TaskCard = ({
   onStartJob,
   availableProjects = [] 
 }) => {
+  const { t } = useUiTranslation();
   // Guard clause for null/undefined task
   if (!task) {
     return null;
@@ -174,9 +177,9 @@ const TaskCard = ({
     if (task.project?.name) return task.project.name;
     if (task.project_id && availableProjects.length > 0) {
       const project = availableProjects.find(p => p.id === task.project_id);
-      return project?.name || `Project ${task.project_id}`;
+      return project?.name || t("layoutCards.task.projectNumber", { id: task.project_id });
     }
-    return task.project_id ? `Project ${task.project_id}` : "No Project";
+    return task.project_id ? t("layoutCards.task.projectNumber", { id: task.project_id }) : t("layoutCards.task.noProject");
   };
 
   return (
@@ -221,10 +224,10 @@ const TaskCard = ({
                 component="div"
                 gutterBottom
                 noWrap
-                title={task.name || "Untitled Task"}
+                title={task.name || t("layoutCards.task.untitled")}
                 sx={{ fontSize: "1rem", fontWeight: "medium" }}
               >
-                {task.name || "Untitled Task"}
+                {task.name || t("layoutCards.task.untitled")}
               </Typography>
               
               <Typography
@@ -232,28 +235,28 @@ const TaskCard = ({
                 color="text.secondary"
                 sx={{ mb: 1 }}
                 noWrap
-                title={`${getProjectName()} • ${task?.client_name || "No Client"}`}
+                title={`${getProjectName()} • ${task?.client_name || t("layoutCards.task.noClient")}`}
               >
-                {getProjectName()} • {task?.client_name || "No Client"}
+                {getProjectName()} • {task?.client_name || t("layoutCards.task.noClient")}
               </Typography>
 
               {/* Progress info for running/queued tasks - progress bar moved to ProgressFooterBar */}
               {isQueued && (
                 <Box sx={{ mb: 1 }}>
                   <Typography variant="caption" color="info.main" noWrap>
-                    Queued for execution...
+                    {t("layoutCards.task.queuedForExecution")}
                   </Typography>
                 </Box>
               )}
               {isRunning && (
                 <Box sx={{ mb: 1 }}>
                   <Typography variant="caption" color="info.main" noWrap>
-                    {processData?.message || "Processing..."} ({realTimeProgress}%)
+                    {processData?.message || t("layoutCards.task.processing")} ({realTimeProgress}%)
                   </Typography>
                 </Box>
               )}
 
-              <Tooltip title={task.description || "No description available."}>
+              <Tooltip title={task.description || t("layoutCards.task.noDescriptionAvailable")}>
                 <Typography
                   variant="body2"
                   color="text.secondary"
@@ -268,7 +271,7 @@ const TaskCard = ({
                     WebkitBoxOrient: "vertical",
                   }}
                 >
-                  {task.description || "No description"}
+                  {task.description || t("layoutCards.task.noDescription")}
                 </Typography>
               </Tooltip>
 
@@ -301,7 +304,7 @@ const TaskCard = ({
 
             <Grid item xs={3} sx={{ position: "relative" }}>
               {/* Quick Delete Button - Top Right */}
-              <Tooltip title="Delete Task">
+              <Tooltip title={t("layoutCards.task.deleteTask")}>
                 <IconButton
                   size="small"
                   onClick={(e) => {
@@ -338,7 +341,7 @@ const TaskCard = ({
           zIndex: 2
         }}>
           {!isRunning && !isQueued ? (
-            <Tooltip title={task.status === 'pending' ? "Run Task" : "Start Job"}>
+            <Tooltip title={task.status === 'pending' ? t("layoutCards.task.runTask") : t("layoutCards.task.startJob")}>
               <IconButton
                 size="small"
                 color="success"
@@ -355,7 +358,7 @@ const TaskCard = ({
               </IconButton>
             </Tooltip>
           ) : (
-            <Tooltip title={isQueued ? "Cancel Queued Task" : "Stop Job"}>
+            <Tooltip title={isQueued ? t("layoutCards.task.cancelQueuedTask") : t("layoutCards.task.stopJob")}>
               <IconButton
                 size="small"
                 onClick={(e) => handleJobAction('stop', e)}

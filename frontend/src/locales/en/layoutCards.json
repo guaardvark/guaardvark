@@ -1,0 +1,41 @@
+{
+  "output": {
+    "status": {
+      "failed": "Failed",
+      "replaced": "Replaced",
+      "complete": "Complete"
+    },
+    "retryFailedRows": "Retry {{count}} failed rows",
+    "deleteOutput": "Delete output",
+    "generated": "Generated",
+    "replaced": "Replaced",
+    "successRate": "Success Rate",
+    "rows": "{{count}} rows"
+  },
+  "task": {
+    "status": {
+      "pending": "Pending",
+      "queued": "Queued",
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "unknown": "Unknown"
+    },
+    "statusWithRetries": "{{status}} ({{retries}}x)",
+    "projectNumber": "Project {{id}}",
+    "noProject": "No Project",
+    "untitled": "Untitled Task",
+    "noClient": "No Client",
+    "queuedForExecution": "Queued for execution...",
+    "processing": "Processing...",
+    "noDescriptionAvailable": "No description available.",
+    "noDescription": "No description",
+    "deleteTask": "Delete Task",
+    "runTask": "Run Task",
+    "startJob": "Start Job",
+    "cancelQueuedTask": "Cancel Queued Task",
+    "stopJob": "Stop Job"
+  }
+}

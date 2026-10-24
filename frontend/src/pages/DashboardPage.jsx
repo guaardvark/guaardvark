@@ -56,6 +56,7 @@ import { ContextualLoader } from "../components/common/LoadingStates";
 import EntityContextMenu from "../components/common/EntityContextMenu";
 import ConfirmActionDialog from "../components/settings/ui/ConfirmActionDialog";
 import useContextMenu from "../hooks/useContextMenu";
+import { translate, useUiTranslation } from "../i18n";
 import {
   ensureLayoutItem,
   hiddenCardIds,
@@ -80,32 +81,32 @@ const cardComponents = {
 };
 
 // Names for the "Show <card>" items of the background menu; match each card's title.
-const CARD_TITLES = {
-  project: "Project Manager",
-  website: "Website Data",
-  tasks: "Tasks",
-  chat: "Chat",
-  clients: "Clients",
-  csvgen: "CSV Generation",
-  codegen: "Code Generation",
-  imggen: "Image Generation",
-  files: "File Manager",
-  family: "Family & Self-improvement",
-  autoresearch: "RAG Autoresearch",
-  gpu: "GPU Memory",
-};
+const cardTitles = () => ({
+  project: translate("dashboard.project.title"),
+  website: translate("dashboard.website.title"),
+  tasks: translate("dashboard.tasks.title"),
+  chat: translate("dashboard.chat.title"),
+  clients: translate("dashboard.clients.title"),
+  csvgen: translate("dashboard.csvgen.title"),
+  codegen: translate("dashboard.codegen.title"),
+  imggen: translate("dashboard.imggen.title"),
+  files: translate("dashboard.files.title"),
+  family: translate("dashboard.family.title"),
+  autoresearch: translate("dashboard.autoresearch.title"),
+  gpu: translate("dashboard.gpu.title"),
+});
 
 // Turns on each card's right-click menu; a card adds its own items over this.
 const NO_CARD_ACTIONS = [];
 
 // Layout mode cycle: normal -> compact -> layered -> modex -> normal
 const LAYOUT_MODES = ["normal", "compact", "layered", "modex"];
-const LAYOUT_MODE_LABELS = {
-  normal: "Normal",
-  compact: "Compact",
-  layered: "Compact Layered",
-  modex: "Mode-X",
-};
+const layoutModeLabels = () => ({
+  normal: translate("dashboard.layoutModes.normal"),
+  compact: translate("dashboard.layoutModes.compact"),
+  layered: translate("dashboard.layoutModes.layered"),
+  modex: translate("dashboard.layoutModes.modex"),
+});
 const LAYOUT_MODE_ICONS = {
   normal: ViewModule,
   compact: ViewComfy,
@@ -114,6 +115,7 @@ const LAYOUT_MODE_ICONS = {
 };
 
 const DashboardPage = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const navigate = useNavigate();
   const { gridSettings } = useLayout();
@@ -261,7 +263,7 @@ const DashboardPage = () => {
             setLayoutMode("normal");
           } else {
             throw new Error(
-              `Failed to fetch dashboard state: ${res.statusText} (Status: ${res.status})`,
+              t("dashboard.fetchStateFailed", { statusText: res.statusText, status: res.status }),
             );
           }
         } else {
@@ -364,7 +366,7 @@ const DashboardPage = () => {
       } catch (e) {
         console.error("Dashboard: Error fetching or processing state:", e);
         setLayoutError(
-          `Failed to load dashboard state: ${e.message}. Using defaults.`,
+          t("dashboard.loadStateFailed", { message: e.message }),
         );
         normalLayoutRef.current = defaultFixedLayout;
         setLayout(defaultFixedLayout);
@@ -455,7 +457,7 @@ const DashboardPage = () => {
         setLayoutError(null);
       } catch (err) {
         console.error("Failed to save dashboard state:", err);
-        setLayoutError("Failed to save dashboard state changes.");
+        setLayoutError(t("dashboard.saveStateFailed"));
       }
     },
     [layout, cardColors, minimizedCards, originalDimensions, layoutMode, hiddenCards],
@@ -794,22 +796,22 @@ const DashboardPage = () => {
   const hiddenIds = hiddenCardIds(hiddenCards);
   const backgroundActions = backgroundMenu.isOpen
     ? [
-        { label: `Cycle layout (next: ${LAYOUT_MODE_LABELS[nextLayoutMode]})`, onClick: handleCycleLayoutMode },
-        { label: "Reset layout…", onClick: () => setResetConfirmOpen(true) },
-        hiddenIds.length === 0 && { label: "No hidden cards", disabled: true, dividerBefore: true },
+        { label: t("dashboard.menu.cycleLayout", { mode: layoutModeLabels()[nextLayoutMode] }), onClick: handleCycleLayoutMode },
+        { label: t("dashboard.menu.resetLayout"), onClick: () => setResetConfirmOpen(true) },
+        hiddenIds.length === 0 && { label: t("dashboard.menu.noHiddenCards"), disabled: true, dividerBefore: true },
         ...hiddenIds.map((id, idx) => ({
-          label: `Show ${CARD_TITLES[id] || id}`,
+          label: t("dashboard.menu.showCard", { card: cardTitles()[id] || id }),
           onClick: () => handleShowCards(id),
           dividerBefore: idx === 0,
         })),
-        hiddenIds.length > 1 && { label: "Show all hidden cards", onClick: () => handleShowCards() },
-        { label: "Sticky Notes", onClick: () => navigate("/notes"), dividerBefore: true },
+        hiddenIds.length > 1 && { label: t("dashboard.menu.showAllHidden"), onClick: () => handleShowCards() },
+        { label: t("dashboard.stickyNotes"), onClick: () => navigate("/notes"), dividerBefore: true },
       ]
     : [];
 
   if (!initialStateLoaded) {
     return (
-      <PageLayout title={systemName || "Dashboard"} variant="grid">
+      <PageLayout title={systemName || t("dashboard.title")} variant="grid">
         <Box
           sx={{
             display: "flex",
@@ -818,7 +820,7 @@ const DashboardPage = () => {
             flex: 1,
           }}
         >
-          <ContextualLoader loading message="Loading dashboard..." showProgress={false} inline />
+          <ContextualLoader loading message={t("dashboard.loadingDashboard")} showProgress={false} inline />
         </Box>
       </PageLayout>
     );
@@ -826,11 +828,11 @@ const DashboardPage = () => {
 
   return (
     <PageLayout
-      title={systemName || "Dashboard"}
+      title={systemName || t("dashboard.title")}
       variant="grid"
       actions={
         <>
-          <Tooltip title="Dashboard Cards">
+          <Tooltip title={t("dashboard.dashboardCards")}>
             <IconButton
               size="small"
               sx={{ color: "primary.main" }}
@@ -840,12 +842,12 @@ const DashboardPage = () => {
               <DashboardIcon fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Sticky Notes">
+          <Tooltip title={t("dashboard.stickyNotes")}>
             <IconButton onClick={() => navigate("/notes")} size="small" sx={{ opacity: 0.5 }}>
               <StickyNote2 fontSize="small" />
             </IconButton>
           </Tooltip>
-          <Tooltip title={`Layout: ${LAYOUT_MODE_LABELS[layoutMode]} (click to cycle)`}>
+          <Tooltip title={t("dashboard.layoutTooltip", { mode: layoutModeLabels()[layoutMode] })}>
             <IconButton onClick={handleCycleLayoutMode} size="small" sx={{ opacity: 0.6 }}>
               <LayoutModeIcon fontSize="small" />
             </IconButton>
@@ -853,7 +855,7 @@ const DashboardPage = () => {
         </>
       }
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel}
+      activeModel={isLoadingModel ? t("common.loading") : modelError ? t("common.error") : activeModel}
     >
 
         <Box
@@ -963,7 +965,7 @@ const DashboardPage = () => {
                       }}
                     >
                       <Typography color="warning.contrastText">
-                        Missing Card: {cardId}
+                        {t("dashboard.missingCard", { id: cardId })}
                       </Typography>
                     </Paper>
                   )}
@@ -981,10 +983,10 @@ const DashboardPage = () => {
       />
       <ConfirmActionDialog
         open={resetConfirmOpen}
-        title="Reset the dashboard layout?"
-        description="Every card goes back to its default place and size, card colours are cleared and hidden cards are shown again."
-        keeps="what the cards show (projects, tasks, chats, files)"
-        confirmLabel="Reset layout"
+        title={t("dashboard.resetConfirm.title")}
+        description={t("dashboard.resetConfirm.description")}
+        keeps={t("dashboard.resetConfirm.keeps")}
+        confirmLabel={t("dashboard.resetConfirm.confirm")}
         onConfirm={() => {
           setResetConfirmOpen(false);
           handleResetLayout();

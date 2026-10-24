@@ -47,6 +47,7 @@ import {
 } from "@mui/icons-material";
 import { BASE_URL, handleResponse } from "../../api/apiClient";
 import { rootLabel } from "../../utils/displayPath";
+import { translate, useUiTranslation } from "../../i18n";
 
 const RECENT_PATHS_KEY = "guaardvark_recentDirectoryPaths";
 const MAX_RECENT_PATHS = 5;
@@ -113,12 +114,13 @@ const DirectoryPicker = ({
   onSelect,
   initialPath = "~",
   fallbackPath = "~",
-  title = "Select Directory",
+  title = translate("layoutCommon.directoryPicker.title"),
   showFiles = false,
   mode = "folder",
   fileExtensions = null,
   purpose = null,
 }) => {
+  const { t, language } = useUiTranslation();
   const pickFiles = mode !== "folder";
   const [currentPath, setCurrentPath] = useState("");
   const [parentPath, setParentPath] = useState(null);
@@ -206,7 +208,7 @@ const DirectoryPicker = ({
         if (Array.isArray(err.data?.roots)) setRoots(err.data.roots);
         if (err.data?.home) setHome(err.data.home);
         if (err.status === 400 || err.status === 404) return err;
-        setError(err.message || "Failed to load the folder");
+        setError(err.message || t("layoutCommon.directoryPicker.loadFailed"));
         setDirectories([]);
         setFiles([]);
         return "failed";
@@ -230,12 +232,16 @@ const DirectoryPicker = ({
         if (typeof inFolder === "string") return;
       }
       if (fallback && fallback !== path) {
-        setNotice(`${path} was not found; showing ${fallback === "~" ? "your home folder" : fallback}.`);
+        setNotice(
+          fallback === "~"
+            ? t("layoutCommon.directoryPicker.notFoundShowingHome", { path })
+            : t("layoutCommon.directoryPicker.notFoundShowing", { path, fallback }),
+        );
         const again = await load(fallback);
-        if (typeof again !== "string") setError(again.message || "Folder not found");
+        if (typeof again !== "string") setError(again.message || t("layoutCommon.directoryPicker.folderNotFound"));
         return;
       }
-      setError(result.message || "Folder not found");
+      setError(result.message || t("layoutCommon.directoryPicker.folderNotFound"));
     },
     [load, pickFiles],
   );
@@ -304,13 +310,13 @@ const DirectoryPicker = ({
       .filter((r) => r && (currentPath === r || currentPath.startsWith(`${r}/`)))
       .sort((a, b) => b.length - a.length)[0];
     const base = root || "";
-    const rootName = base ? rootLabel(base, home).split("/").pop() : "Root";
+    const rootName = base ? rootLabel(base, home).split("/").pop() : t("layoutCommon.directoryPicker.root");
     const crumbs = [{ path: base || "/", name: rootName }];
     currentPath.slice(base.length).split("/").filter(Boolean).forEach((part, i, parts) => {
       crumbs.push({ path: `${base}/${parts.slice(0, i + 1).join("/")}`, name: part });
     });
     return crumbs;
-  }, [currentPath, roots, home]);
+  }, [currentPath, roots, home, language]);
 
   const filteredDirectories = useMemo(() => {
     if (!searchQuery) return directories;
@@ -324,7 +330,20 @@ const DirectoryPicker = ({
     return files.filter(file => file.name.toLowerCase().includes(query));
   }, [files, searchQuery]);
 
-  const selectLabel = selectedFile || currentPath.split('/').pop() || 'Root';
+  const selectLabel = selectedFile || currentPath.split('/').pop() || t("layoutCommon.directoryPicker.root");
+
+  // "3 folders, 2 files matching "x" · .jsonl files can be picked"
+  const folderCount = t("layoutCommon.directoryPicker.folderCount", { count: filteredDirectories.length });
+  let countSummary = includeFiles
+    ? t("layoutCommon.directoryPicker.foldersAndFiles", {
+        folders: folderCount,
+        files: t("layoutCommon.directoryPicker.fileCount", { count: filteredFiles.length }),
+      })
+    : folderCount;
+  if (searchQuery) countSummary = t("layoutCommon.directoryPicker.summaryMatching", { summary: countSummary, query: searchQuery });
+  if (pickFiles && fileExtensions?.length > 0) {
+    countSummary = t("layoutCommon.directoryPicker.summaryPickable", { summary: countSummary, extensions: fileExtensions.join(", ") });
+  }
 
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
@@ -335,14 +354,14 @@ const DirectoryPicker = ({
             <Typography variant="h6">{title}</Typography>
           </Stack>
           <Stack direction="row" spacing={1} alignItems="center">
-            <Tooltip title="Refresh">
+            <Tooltip title={t("common.refresh")}>
               <span>
                 <IconButton size="small" onClick={() => reload()} disabled={loading || !currentPath}>
                   <RefreshIcon fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
-            <Tooltip title={showRecentPaths ? "Hide recent" : "Recent paths"}>
+            <Tooltip title={showRecentPaths ? t("layoutCommon.directoryPicker.hideRecent") : t("layoutCommon.directoryPicker.showRecent")}>
               <IconButton size="small" onClick={() => setShowRecentPaths(!showRecentPaths)}>
                 <HistoryIcon fontSize="small" color={showRecentPaths ? "primary" : "inherit"} />
               </IconButton>
@@ -355,13 +374,13 @@ const DirectoryPicker = ({
           <Collapse in={showRecentPaths && recentPaths.length > 0}>
             <Box sx={{ p: 1.5, bgcolor: 'action.hover', borderRadius: 1, mb: 1 }}>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                Recent Paths
+                {t("layoutCommon.directoryPicker.recentPaths")}
               </Typography>
               <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                 {recentPaths.map((path, index) => (
                   <Chip
                     key={index}
-                    label={path.split('/').pop() || 'Root'}
+                    label={path.split('/').pop() || t("layoutCommon.directoryPicker.root")}
                     size="small"
                     onClick={() => handleRecentPathClick(path)}
                     onDelete={() => {
@@ -378,8 +397,8 @@ const DirectoryPicker = ({
           </Collapse>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Tooltip title="Go to home folder">
-              <IconButton size="small" aria-label="Home folder" onClick={() => handleNavigate("~")}>
+            <Tooltip title={t("layoutCommon.directoryPicker.goHome")}>
+              <IconButton size="small" aria-label={t("layoutCommon.directoryPicker.homeFolder")} onClick={() => handleNavigate("~")}>
                 <HomeIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -410,17 +429,17 @@ const DirectoryPicker = ({
           </Box>
 
           <TextField
-            label="Path"
+            label={t("layoutCommon.directoryPicker.path")}
             value={inputPath}
             onChange={(e) => setInputPath(e.target.value)}
             onKeyPress={handleKeyPress}
             fullWidth
             size="small"
-            helperText={!typedPathOpen ? "Press Enter or Go to open this path before selecting." : " "}
+            helperText={!typedPathOpen ? t("layoutCommon.directoryPicker.openPathFirst") : " "}
             InputProps={{
               startAdornment: parentPath && (
                 <InputAdornment position="start">
-                  <IconButton size="small" aria-label="Parent folder" onClick={() => handleNavigate(parentPath)}>
+                  <IconButton size="small" aria-label={t("layoutCommon.directoryPicker.parentFolder")} onClick={() => handleNavigate(parentPath)}>
                     <ArrowBackIcon fontSize="small" />
                   </IconButton>
                 </InputAdornment>
@@ -428,7 +447,7 @@ const DirectoryPicker = ({
               endAdornment: (
                 <InputAdornment position="end">
                   <Button size="small" onClick={handleGoToPath} disabled={typedPathOpen}>
-                    Go
+                    {t("layoutCommon.directoryPicker.go")}
                   </Button>
                 </InputAdornment>
               ),
@@ -437,7 +456,7 @@ const DirectoryPicker = ({
 
           <Stack direction="row" spacing={2} alignItems="center">
             <TextField
-              placeholder="Search in current directory..."
+              placeholder={t("layoutCommon.directoryPicker.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
@@ -469,7 +488,7 @@ const DirectoryPicker = ({
                     }}
                   />
                 }
-                label={<Typography variant="body2">Show files</Typography>}
+                label={<Typography variant="body2">{t("layoutCommon.directoryPicker.showFiles")}</Typography>}
               />
             )}
           </Stack>
@@ -477,7 +496,7 @@ const DirectoryPicker = ({
           {roots.length > 0 && (
             <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap alignItems="center">
               <Typography variant="caption" color="text.secondary">
-                Browse:
+                {t("layoutCommon.directoryPicker.browse")}:
               </Typography>
               {roots.map((root) => (
                 <Chip
@@ -489,7 +508,7 @@ const DirectoryPicker = ({
                 />
               ))}
               <Typography variant="caption" color="text.secondary">
-                Hidden folders are not shown.
+                {t("layoutCommon.directoryPicker.hiddenFolders")}
               </Typography>
             </Stack>
           )}
@@ -500,7 +519,7 @@ const DirectoryPicker = ({
             <Box sx={{ p: 3, textAlign: "center" }}>
               <CircularProgress size={28} />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                Loading...
+                {t("common.loading")}
               </Typography>
             </Box>
           ) : error ? (
@@ -508,10 +527,10 @@ const DirectoryPicker = ({
           ) : filteredDirectories.length === 0 && filteredFiles.length === 0 ? (
             <Alert severity="info">
               {searchQuery
-                ? "No matching items found."
+                ? t("layoutCommon.directoryPicker.noMatches")
                 : pickFiles
-                  ? "This folder is empty."
-                  : "No subdirectories found. You can select this directory."}
+                  ? t("layoutCommon.directoryPicker.emptyFolder")
+                  : t("layoutCommon.directoryPicker.noSubdirectories")}
             </Alert>
           ) : (
             <List
@@ -540,7 +559,7 @@ const DirectoryPicker = ({
                   </ListItemIcon>
                   <ListItemText
                     primary={dir.name}
-                    secondary={dir.item_count >= 0 ? `${dir.item_count} items` : null}
+                    secondary={dir.item_count >= 0 ? t("layoutCommon.directoryPicker.itemCount", { count: dir.item_count }) : null}
                     primaryTypographyProps={{ variant: 'body2' }}
                     secondaryTypographyProps={{ variant: 'caption' }}
                   />
@@ -580,23 +599,20 @@ const DirectoryPicker = ({
 
           {!loading && !error && (
             <Typography variant="caption" color="text.secondary">
-              {filteredDirectories.length} folder{filteredDirectories.length !== 1 ? 's' : ''}
-              {includeFiles && `, ${filteredFiles.length} file${filteredFiles.length !== 1 ? 's' : ''}`}
-              {searchQuery && ` matching "${searchQuery}"`}
-              {pickFiles && fileExtensions?.length > 0 && ` · ${fileExtensions.join(", ")} files can be picked`}
+              {countSummary}
             </Typography>
           )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2 }}>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{t("common.cancel")}</Button>
         <Button
           onClick={() => handleSelect()}
           variant="contained"
           startIcon={selectedFile ? <FileIcon /> : <FolderOpenIcon />}
           disabled={!canSelect}
         >
-          {mode === "file" && !selectedFile ? "Choose a file" : `Select: ${selectLabel}`}
+          {mode === "file" && !selectedFile ? t("layoutCommon.directoryPicker.chooseFile") : t("layoutCommon.directoryPicker.selectNamed", { name: selectLabel })}
         </Button>
       </DialogActions>
     </Dialog>

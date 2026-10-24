@@ -6,8 +6,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Alert, Box, Button } from '@mui/material';
+import { useUiTranslation } from '../../i18n';
 
 const ChangedElsewhereNotice = ({ conflicts, labels = {}, onReload, onKeep, sx }) => {
+  const { t } = useUiTranslation();
   const keys = Object.keys(conflicts || {});
   if (!keys.length) return null;
   const names = [...new Set(keys.map((k) => labels[k] || k))].join(', ');
@@ -17,13 +19,12 @@ const ChangedElsewhereNotice = ({ conflicts, labels = {}, onReload, onKeep, sx }
       sx={sx}
       action={(
         <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Button color="inherit" size="small" onClick={onReload}>Reload</Button>
-          <Button color="inherit" size="small" onClick={onKeep}>Keep mine</Button>
+          <Button color="inherit" size="small" onClick={onReload}>{t('common.reload')}</Button>
+          <Button color="inherit" size="small" onClick={onKeep}>{t('layoutCommon.changedElsewhere.keepMine')}</Button>
         </Box>
       )}
     >
-      {names} changed elsewhere while you were editing. Reload to take the saved
-      version, or keep your edit and save it over that change.
+      {t('layoutCommon.changedElsewhere.message', { names })}
     </Alert>
   );
 };

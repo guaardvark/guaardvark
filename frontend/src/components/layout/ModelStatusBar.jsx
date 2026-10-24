@@ -2,12 +2,15 @@ import React from "react";
 import { Box, Typography, Tooltip, useTheme } from "@mui/material";
 import FiberManualRecordIcon from "@mui/icons-material/FiberManualRecord";
 import { useStatus } from "../../contexts/StatusContext";
+import { translate, useUiTranslation } from "../../i18n";
 
 const statusColor = (loaded, theme) =>
   loaded ? theme.palette.success.main : theme.palette.error.main;
-const statusText = (loaded) => (loaded ? "Loaded" : "Not loaded");
+const statusText = (loaded) =>
+  loaded ? translate("layout.modelStatus.loaded") : translate("layout.modelStatus.notLoaded");
 
 const ModelStatusBar = () => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const { modelStatus } = useStatus();
 
@@ -16,17 +19,20 @@ const ModelStatusBar = () => {
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
       {/* Text Model */}
-      <Tooltip title={`Text Model: ${modelStatus.text_model || "N/A"}`}>
+      <Tooltip title={t("layout.modelStatus.textModel", { model: modelStatus.text_model || t("layout.notAvailable") })}>
         <Typography
           variant="caption"
           sx={{ color: "text.secondary", fontWeight: 500 }}
         >
-          {modelStatus.text_model || "Text: N/A"}
+          {modelStatus.text_model || t("layout.modelStatus.textNotAvailable")}
         </Typography>
       </Tooltip>
       {/* Vision Model */}
       <Tooltip
-        title={`Vision Model: ${modelStatus.vision_model || "N/A"} (${statusText(modelStatus.vision_loaded)})`}
+        title={t("layout.modelStatus.visionModel", {
+          model: modelStatus.vision_model || t("layout.notAvailable"),
+          status: statusText(modelStatus.vision_loaded),
+        })}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <FiberManualRecordIcon
@@ -36,13 +42,16 @@ const ModelStatusBar = () => {
             }}
           />
           <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            {modelStatus.vision_model || "Vision"}
+            {modelStatus.vision_model || t("layout.modelStatus.vision")}
           </Typography>
         </Box>
       </Tooltip>
       {/* Image Gen Model */}
       <Tooltip
-        title={`Image Gen Model: ${modelStatus.image_gen_model || "N/A"} (${statusText(modelStatus.image_gen_loaded)})`}
+        title={t("layout.modelStatus.imageGenModel", {
+          model: modelStatus.image_gen_model || t("layout.notAvailable"),
+          status: statusText(modelStatus.image_gen_loaded),
+        })}
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
           <FiberManualRecordIcon
@@ -52,7 +61,7 @@ const ModelStatusBar = () => {
             }}
           />
           <Typography variant="caption" sx={{ color: "text.secondary" }}>
-            {modelStatus.image_gen_model || "ImageGen"}
+            {modelStatus.image_gen_model || t("layout.modelStatus.imageGen")}
           </Typography>
         </Box>
       </Tooltip>

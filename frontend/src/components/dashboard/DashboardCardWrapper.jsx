@@ -21,6 +21,7 @@ import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
 import { useNavigate } from "react-router-dom";
 import useContextMenu from "../../hooks/useContextMenu";
 import EntityContextMenu from "../common/EntityContextMenu";
+import { useUiTranslation } from "../../i18n";
 
 // Page each dashboard card's title opens.
 const CARD_ROUTES = {
@@ -68,6 +69,7 @@ const DashboardCardWrapper = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const routerNavigate = useNavigate();
     const clickState = useRef({ timeout: null, lastTime: 0, count: 0 });
     const menu = useContextMenu();
@@ -215,11 +217,11 @@ const DashboardCardWrapper = React.forwardRef(
       const route = getCardRoute(cardId);
       const own = contextMenuActions.filter(Boolean);
       return [
-        route !== "/" && { label: "Open page", onClick: () => routerNavigate(route) },
-        onToggleMinimize && { label: isMinimized ? "Expand" : "Minimize", onClick: onToggleMinimize },
-        onCardColorChange && { label: "Change colour…", onClick: openPicker },
-        onCardColorChange && cardColor && { label: "Reset colour", onClick: () => onCardColorChange(null) },
-        onHideCard && { label: "Hide card", onClick: onHideCard },
+        route !== "/" && { label: t("dashboard.cardWrapper.openPage"), onClick: () => routerNavigate(route) },
+        onToggleMinimize && { label: isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize"), onClick: onToggleMinimize },
+        onCardColorChange && { label: t("dashboard.cardWrapper.changeColour"), onClick: openPicker },
+        onCardColorChange && cardColor && { label: t("dashboard.cardWrapper.resetColour"), onClick: () => onCardColorChange(null) },
+        onHideCard && { label: t("dashboard.cardWrapper.hideCard"), onClick: onHideCard },
         ...own.map((action, idx) => (idx === 0 ? { ...action, dividerBefore: true } : action)),
       ];
     };
@@ -361,7 +363,7 @@ const DashboardCardWrapper = React.forwardRef(
 
             <Box sx={{ position: "relative" }}>
               {/* Color Picker Button - smaller */}
-              <Tooltip title="Change card color">
+              <Tooltip title={t("dashboard.cardWrapper.changeColor")}>
                 <IconButton
                   onClick={openPicker}
                   sx={{

@@ -27,6 +27,7 @@ import {
   deleteWebsite,
 } from "../../api";
 import { getLogoUrl } from "../../config/logoConfig";
+import { useUiTranslation } from "../../i18n";
 
 const WebsiteDataCard = React.forwardRef(
   (
@@ -40,6 +41,7 @@ const WebsiteDataCard = React.forwardRef(
     },
     ref,
   ) => {
+    const { t } = useUiTranslation();
     const [websites, setWebsites] = useState([]);
     const navigate = useNavigate();
     const [isLoading, setIsLoading] = useState(false);
@@ -60,7 +62,7 @@ const WebsiteDataCard = React.forwardRef(
         setWebsites(Array.isArray(result) ? result : []);
       } catch (err) {
         console.error("WebsiteDataCard fetch error:", err);
-        setError(err.message || "Error loading website data.");
+        setError(err.message || t("dashboard.website.loadFailed"));
         setWebsites([]);
       } finally {
         setIsLoading(false);
@@ -102,7 +104,7 @@ const WebsiteDataCard = React.forwardRef(
     };
 
     const handleDelete = async (id) => {
-      if (!window.confirm("Delete this website?")) return;
+      if (!window.confirm(t("dashboard.website.deleteConfirm"))) return;
       setIsSaving(true);
       try {
         await deleteWebsite(id);
@@ -124,9 +126,9 @@ const WebsiteDataCard = React.forwardRef(
           onToggleMinimize={onToggleMinimize}
           cardColor={cardColor}
           onCardColorChange={onCardColorChange}
-          title="Website Data"
+          title={t("dashboard.website.title")}
           {...props}
-          contextMenuActions={[{ label: "Refresh", onClick: fetchWebsites }]}
+          contextMenuActions={[{ label: t("common.refresh"), onClick: fetchWebsites }]}
         >
           {isLoading && (
             <CircularProgress
@@ -145,7 +147,7 @@ const WebsiteDataCard = React.forwardRef(
               sx={{ color: "text.secondary", mt: 2, textAlign: "center" }}
             >
               {" "}
-              No websites found.{" "}
+              {t("dashboard.website.empty")}{" "}
             </Typography>
           )}
 
@@ -197,10 +199,13 @@ const WebsiteDataCard = React.forwardRef(
                         }}
                       >
                         {" "}
-                        {site.url || "Unnamed Site"}{" "}
+                        {site.url || t("dashboard.website.unnamed")}{" "}
                       </Link>
                     }
-                    secondary={`Project: ${site.project?.name || "N/A"} | Docs: ${site.document_count ?? "N/A"}`}
+                    secondary={t("dashboard.website.details", {
+                      project: site.project?.name || t("layout.notAvailable"),
+                      docs: site.document_count ?? t("layout.notAvailable"),
+                    })}
                     secondaryTypographyProps={{
                       style: {
                         whiteSpace: "nowrap",
@@ -221,14 +226,14 @@ const WebsiteDataCard = React.forwardRef(
             actions={
               rowMenu.payload
                 ? [
-                    { label: "Open", onClick: () => navigate(`/websites?websiteId=${rowMenu.payload.id}`) },
+                    { label: t("common.open"), onClick: () => navigate(`/websites?websiteId=${rowMenu.payload.id}`) },
                     rowMenu.payload.url && {
-                      label: "Open URL in new tab",
+                      label: t("dashboard.website.openUrl"),
                       onClick: () => window.open(rowMenu.payload.url, "_blank", "noopener,noreferrer"),
                     },
-                    rowMenu.payload.url && { label: "Copy URL", onClick: () => copyText(rowMenu.payload.url) },
-                    { label: "Edit…", onClick: () => handleOpenModal(rowMenu.payload), dividerBefore: true },
-                    { label: "Delete", onClick: () => handleDelete(rowMenu.payload.id), color: "error.main" },
+                    rowMenu.payload.url && { label: t("dashboard.website.copyUrl"), onClick: () => copyText(rowMenu.payload.url) },
+                    { label: t("dashboard.edit"), onClick: () => handleOpenModal(rowMenu.payload), dividerBefore: true },
+                    { label: t("common.delete"), onClick: () => handleDelete(rowMenu.payload.id), color: "error.main" },
                     ...entityLinkActions("website", rowMenu.payload.id, navigate),
                   ]
                 : []

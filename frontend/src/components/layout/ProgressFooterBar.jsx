@@ -17,6 +17,7 @@ import {
     statusLine,
     typeLabel,
 } from './progressFooterModel';
+import { useUiTranslation } from '../../i18n';
 
 const VIDEO_SEED_REFRESH_MS = 30000;
 
@@ -48,6 +49,7 @@ function useVideoJobSeed(connectionState, refreshWhile) {
 }
 
 const ProgressFooterBar = () => {
+    const { t, language } = useUiTranslation();
     const theme = useTheme();
     const { activeProcesses, unifiedJobs, connectionState } = useUnifiedProgress();
 
@@ -58,7 +60,7 @@ const ProgressFooterBar = () => {
 
     const entries = useMemo(
         () => buildFooterEntries(activeProcesses.values(), videoJobs),
-        [activeProcesses, videoJobs],
+        [activeProcesses, videoJobs, language],
     );
     const view = footerView(entries);
 
@@ -95,16 +97,18 @@ const ProgressFooterBar = () => {
 
         let grace = 3000;
         const last = lastViewRef.current;
-        let next = { progress: last?.progress ?? 0, text: last?.statusText || 'Idle', failed: false };
+        let next = { progress: last?.progress ?? 0, text: last?.statusText || t('layout.progressFooter.idle'), failed: false };
         if (errored) {
             next = {
                 progress: 0,
                 failed: true,
-                text: `${typeLabel(processType(errored))}: Failed — ${errored.message || 'no reason given'}`,
+                text: errored.message
+                    ? t('layout.progressFooter.failedWithReason', { label: typeLabel(processType(errored)), reason: errored.message })
+                    : t('layout.progressFooter.failedNoReason', { label: typeLabel(processType(errored)) }),
             };
             grace = 15000;
         } else if (completed) {
-            next = { progress: 100, failed: false, text: `${typeLabel(processType(completed))}: Complete` };
+            next = { progress: 100, failed: false, text: t('layout.progressFooter.complete', { label: typeLabel(processType(completed)) }) };
         }
         setLingering(next);
 
@@ -150,6 +154,13 @@ const ProgressFooterBar = () => {
     const itemCount = view ? view.itemCount : null;
     const chips = view ? view.chips : [];
 
+    // "Video Gen · batch name — waiting"
+    const entryHeading = (entry) => {
+        const label = typeLabel(entry.type);
+        const named = entry.name ? t('layout.progressFooter.entryNamed', { label, name: entry.name }) : label;
+        return entry.waiting ? t('layout.progressFooter.entryWaiting', { entry: named }) : named;
+    };
+
     try {
         return (
             <Box
@@ -194,7 +205,7 @@ const ProgressFooterBar = () => {
                     }}
                 >
                     {itemCount
-                        ? `${itemCount.current} of ${itemCount.total} (${Math.round(progress)}%)`
+                        ? t('layout.progressFooter.itemCount', { current: itemCount.current, total: itemCount.total, percent: Math.round(progress) })
                         : `${Math.round(progress)}%`}
                 </Typography>
                 <Box
@@ -202,7 +213,7 @@ const ProgressFooterBar = () => {
                     data-testid="footer-jobs"
                     role={view ? 'button' : undefined}
                     tabIndex={view ? 0 : undefined}
-                    aria-label={view ? 'Show every job in progress' : undefined}
+                    aria-label={view ? t('layout.progressFooter.showJobs') : undefined}
                     onMouseEnter={() => { if (view) setListOpen(true); }}
                     onMouseLeave={() => { if (!listPinned) setListOpen(false); }}
                     onClick={() => {
@@ -272,8 +283,7 @@ const ProgressFooterBar = () => {
                         {(view?.entries || []).map((entry) => (
                             <Box key={entry.key} sx={{ mb: 1, '&:last-child': { mb: 0 } }}>
                                 <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
-                                    {typeLabel(entry.type)}{entry.name ? ` · ${entry.name}` : ''}
-                                    {entry.waiting ? ' — waiting' : ''}
+                                    {entryHeading(entry)}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                                     {statusLine(entry)}
@@ -303,7 +313,7 @@ const ProgressFooterBar = () => {
                 }}
             >
                 <Typography variant="caption" color="white">
-                    Progress bar error - check console
+                    {t('layout.progressFooter.renderError')}
                 </Typography>
             </Box>
         );

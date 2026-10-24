@@ -20,6 +20,7 @@ import ErrorIcon from "@mui/icons-material/Error";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CloseIcon from "@mui/icons-material/Close";
+import { useUiTranslation } from "../../i18n";
 
 const OutputCard = ({ 
   output, 
@@ -27,6 +28,7 @@ const OutputCard = ({
   onDelete,
   onRetry
 }) => {
+  const { t } = useUiTranslation();
   // Guard clause for null/undefined output
   if (!output) {
     return null;
@@ -39,21 +41,21 @@ const OutputCard = ({
     if (output.failed_rows > 0) {
       return { 
         color: "error", 
-        label: "Failed", 
+        label: t("layoutCards.output.status.failed"), 
         icon: <ErrorIcon fontSize="small" />,
         variant: "filled" 
       };
     } else if (output.replaced_rows > 0) {
       return { 
         color: "warning", 
-        label: "Replaced", 
+        label: t("layoutCards.output.status.replaced"), 
         icon: <WarningIcon fontSize="small" />,
         variant: "filled" 
       };
     } else {
       return { 
         color: "success", 
-        label: "Complete", 
+        label: t("layoutCards.output.status.complete"), 
         icon: <CheckCircleIcon fontSize="small" />,
         variant: "filled" 
       };
@@ -123,7 +125,7 @@ const OutputCard = ({
     >
       {/* Retry button positioned in top left */}
       {output.inactive_rows > 0 && (
-        <Tooltip title={`Retry ${output.inactive_rows} failed rows`}>
+        <Tooltip title={t("layoutCards.output.retryFailedRows", { count: output.inactive_rows })}>
           <IconButton
             size="small"
             onClick={handleRetryClick}
@@ -140,7 +142,7 @@ const OutputCard = ({
       )}
 
       {/* Delete button positioned in top right */}
-      <Tooltip title="Delete output">
+      <Tooltip title={t("layoutCards.output.deleteOutput")}>
         <IconButton
           size="small"
           onClick={handleDeleteClick}
@@ -206,7 +208,7 @@ const OutputCard = ({
                   {output.active_rows}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Generated
+                  {t("layoutCards.output.generated")}
                 </Typography>
               </Box>
             </Grid>
@@ -216,7 +218,7 @@ const OutputCard = ({
                   {output.replaced_rows}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Replaced
+                  {t("layoutCards.output.replaced")}
                 </Typography>
               </Box>
             </Grid>
@@ -225,7 +227,7 @@ const OutputCard = ({
           {/* Success Rate */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              Success Rate
+              {t("layoutCards.output.successRate")}
             </Typography>
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <Box
@@ -259,7 +261,7 @@ const OutputCard = ({
               {formatFileSize(output.file_size)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {output.total_rows} rows
+              {t("layoutCards.output.rows", { count: output.total_rows })}
             </Typography>
           </Box>
         </CardContent>

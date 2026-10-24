@@ -6,25 +6,29 @@ import { useCallback, useEffect, useState } from "react";
 import { taskPath } from "../../utils/entityLinks";
 import { BASE_URL, handleResponse } from "../../api/apiClient";
 import { getTasks } from "../../api/taskService";
+import { translate } from "../../i18n";
 
 /** How many rows a card shows before its "View all" link. */
 export const RECENT_LIMIT = 5;
 
-const STATUS = {
-  completed: ["Completed", "success"],
-  running: ["Running", "primary"],
-  "in-progress": ["Running", "primary"],
-  queued: ["Queued", "warning"],
-  pending: ["Pending", "warning"],
-  paused: ["Paused", "default"],
-  error: ["Failed", "error"],
-  failed: ["Failed", "error"],
-  cancelled: ["Cancelled", "default"],
-};
+const statuses = () => ({
+  completed: [translate("dashboard.recentRuns.status.completed"), "success"],
+  running: [translate("dashboard.recentRuns.status.running"), "primary"],
+  "in-progress": [translate("dashboard.recentRuns.status.running"), "primary"],
+  queued: [translate("dashboard.recentRuns.status.queued"), "warning"],
+  pending: [translate("dashboard.recentRuns.status.pending"), "warning"],
+  paused: [translate("dashboard.recentRuns.status.paused"), "default"],
+  error: [translate("dashboard.recentRuns.status.failed"), "error"],
+  failed: [translate("dashboard.recentRuns.status.failed"), "error"],
+  cancelled: [translate("dashboard.recentRuns.status.cancelled"), "default"],
+});
 
 /** Chip label and colour for a batch or job status. */
 export function runStatus(status) {
-  const [label, color] = STATUS[String(status || "").toLowerCase()] || [status || "Unknown", "default"];
+  const [label, color] = statuses()[String(status || "").toLowerCase()] || [
+    status || translate("dashboard.recentRuns.status.unknown"),
+    "default",
+  ];
   return { label, color };
 }
 
@@ -39,7 +43,9 @@ export function imageBatchRows(batches) {
       name: b.display_name || b.batch_id,
       status: b.status,
       date: b.start_time,
-      detail: b.total_images ? `${b.completed_images || 0}/${b.total_images} images` : null,
+      detail: b.total_images
+        ? translate("dashboard.recentRuns.images", { done: b.completed_images || 0, total: b.total_images })
+        : null,
       path: `/batch-images?batch=${encodeURIComponent(b.batch_id)}`,
     }));
 }
@@ -51,7 +57,7 @@ export function jobRows(tasks, keep = () => true) {
     .sort(newestFirst((t) => t.created_at))
     .map((t) => ({
       key: t.id,
-      name: t.name || `Job ${t.id}`,
+      name: t.name || translate("dashboard.recentRuns.jobNumber", { id: t.id }),
       status: t.status,
       date: t.created_at,
       detail: t.output_filename || null,
@@ -88,7 +94,11 @@ export function useRecentRuns(load) {
     try {
       setState({ rows: await load(), loading: false, error: null });
     } catch (err) {
-      setState({ rows: [], loading: false, error: `Could not load recent runs: ${err?.message || err}` });
+      setState({
+        rows: [],
+        loading: false,
+        error: translate("dashboard.recentRuns.loadFailed", { message: err?.message || err }),
+      });
     }
   }, [load]);
   useEffect(() => {
