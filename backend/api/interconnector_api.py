@@ -482,7 +482,7 @@ def _seed_default_profiles():
             "profile_type": "full",
             "description": "Full sync: code, scripts, and system-wide config (rules).",
             "entity_config": {"entities": ["rules"]},
-            "file_config": {"paths": ["backend/api/", "backend/services/", "backend/middleware/", "backend/utils/", "backend/routes/", "frontend/src/", "scripts/", "start.sh", "stop.sh", "start_redis.sh", "start_celery.sh"], "include_patterns": ["**/*.py", "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.sh"]},
+            "file_config": {"paths": ["backend/api/", "backend/services/", "backend/middleware/", "backend/utils/", "backend/routes/", "frontend/src/", "frontend/package.json", "frontend/package-lock.json", "scripts/", "start.sh", "stop.sh", "start_redis.sh", "start_celery.sh"], "include_patterns": ["**/*.py", "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.sh", "frontend/package.json", "frontend/package-lock.json", "frontend/src/**/*.json"]},
             "is_default": True,
         },
         {
@@ -490,7 +490,7 @@ def _seed_default_profiles():
             "profile_type": "code_only",
             "description": "Only code and scripts, no config data.",
             "entity_config": {"entities": []},
-            "file_config": {"paths": ["backend/api/", "backend/services/", "backend/middleware/", "backend/utils/", "frontend/src/", "scripts/", "start.sh", "stop.sh", "start_redis.sh", "start_celery.sh"], "include_patterns": ["**/*.py", "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.sh"]},
+            "file_config": {"paths": ["backend/api/", "backend/services/", "backend/middleware/", "backend/utils/", "frontend/src/", "frontend/package.json", "frontend/package-lock.json", "scripts/", "start.sh", "stop.sh", "start_redis.sh", "start_celery.sh"], "include_patterns": ["**/*.py", "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.sh", "frontend/package.json", "frontend/package-lock.json", "frontend/src/**/*.json"]},
             "is_default": False,
         },
         {
