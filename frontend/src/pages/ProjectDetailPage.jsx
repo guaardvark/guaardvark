@@ -74,6 +74,7 @@ const ProjectEditModal = ({
 }) => {
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
+  const [formRootPath, setFormRootPath] = useState("");
   const [formClientValue, setFormClientValue] = useState(null);
   const [modalError, setModalError] = useState("");
 
@@ -81,11 +82,13 @@ const ProjectEditModal = ({
     if (project) {
       setFormName(project.name || "");
       setFormDescription(project.description || "");
+      setFormRootPath(project.root_path || "");
       const clientObj = clients.find((c) => c.id === project.client_id) || null;
       setFormClientValue(clientObj);
     } else {
       setFormName("");
       setFormDescription("");
+      setFormRootPath("");
       setFormClientValue(null);
     }
     setModalError("");
@@ -106,6 +109,7 @@ const ProjectEditModal = ({
       name: formName,
       description: formDescription,
       client_id: formClientValue.id,
+      root_path: formRootPath.trim(),
     });
   };
 
@@ -160,6 +164,19 @@ const ProjectEditModal = ({
           variant="outlined"
           value={formDescription}
           onChange={(e) => setFormDescription(e.target.value)}
+          disabled={isSaving}
+        />
+        <TextField
+          margin="dense"
+          label="Project folder"
+          type="text"
+          fullWidth
+          variant="outlined"
+          placeholder="~/projects/my-app"
+          value={formRootPath}
+          onChange={(e) => setFormRootPath(e.target.value)}
+          helperText="A folder on this machine. This project's chats search and read its code in place, and its GUAARDVARK.md (or AGENTS.md, CLAUDE.md) is their instructions. Leave empty for none."
+          sx={{ mt: 2 }}
           disabled={isSaving}
         />
       </DialogContent>
@@ -712,6 +729,16 @@ const ProjectDetailPage = () => {
           {feedback.message}
         </AlertSnackbar>
       </Snackbar>
+
+      {project.effective_root && (
+        <Typography
+          variant="body2"
+          sx={{ mx: 1.5, mt: 1.5, color: "text.secondary", fontFamily: "monospace" }}
+          title="This project's chats search and read code in this folder"
+        >
+          Project folder: {project.effective_root}
+        </Typography>
+      )}
 
       {project.description && (
         <Paper

@@ -1371,6 +1371,8 @@ try:
                 ("production_subjects", "cast_required", "ALTER TABLE production_subjects ADD COLUMN IF NOT EXISTS cast_required BOOLEAN"),
                 # Local source folder for swarm/agent code runs (added Phase 2).
                 ("websites", "local_path", "ALTER TABLE websites ADD COLUMN IF NOT EXISTS local_path VARCHAR(2048)"),
+                # A project's folder on disk, read in place by its chats.
+                ("projects", "root_path", "ALTER TABLE projects ADD COLUMN IF NOT EXISTS root_path VARCHAR(2048)"),
                 # Autoresearch 2.0 (2026-08-10): honest eval pairs + experiment
                 # provenance + candidate/promoted config lifecycle.
                 ("eval_pairs", "is_active", "ALTER TABLE eval_pairs ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"),

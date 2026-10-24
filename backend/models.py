@@ -580,6 +580,10 @@ class Project(db.Model):
     content_strategy = db.Column(db.Text, nullable=True)  # Overall content approach
     deliverables = db.Column(db.Text, nullable=True)  # Expected outputs
     seo_strategy = db.Column(db.Text, nullable=True)  # SEO approach
+    # The project's folder on disk. Its code is listed, searched and read in
+    # place during the project's chats, and its GUAARDVARK.md is the project's
+    # instructions (backend/services/project_root.py).
+    root_path = db.Column(db.String(2048), nullable=True)
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now())
     updated_at = db.Column(
@@ -639,6 +643,7 @@ class Project(db.Model):
             "content_strategy": self.content_strategy,
             "deliverables": self.deliverables,
             "seo_strategy": self.seo_strategy,
+            "root_path": self.root_path,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "document_count": doc_count,

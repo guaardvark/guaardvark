@@ -47,5 +47,7 @@ class ProjectResponse(BaseModel):
     rule_count: int
     primary_rule_count: int
     video_count: int = 0
+    root_path: Optional[str] = None
+    effective_root: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
