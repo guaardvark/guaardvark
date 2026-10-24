@@ -160,7 +160,14 @@ def _proxy_get(path: str, timeout: int = QUICK_TIMEOUT):
 def _proxy_post(path: str, json_data: dict, timeout: int):
     try:
         resp = requests.post(f"{AUDIO_FOUNDRY_URL}{path}", json=json_data, timeout=timeout)
-        return jsonify(resp.json()), resp.status_code
+        try:
+            body = resp.json()
+        except ValueError:
+            explanation = " ".join(resp.text.split())[:500] or "empty response"
+            return jsonify({"detail": f"Audio Foundry HTTP {resp.status_code}: {explanation}"}), (
+                resp.status_code if resp.status_code >= 400 else 502
+            )
+        return jsonify(body), resp.status_code
     except requests.ConnectionError:
         return _not_running()
     except requests.Timeout:

@@ -436,6 +436,10 @@ def plan_music(req: MusicRequest) -> Any:
         raise HTTPException(status_code=501, detail=str(e)) from e
     except BackendUnavailable as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Music arrangement failed")
+        detail = str(e).split("Traceback (most recent call last)")[0]
+        raise HTTPException(status_code=500, detail=" ".join(detail.split())[:1000]) from e
     return {"arrangement": arrangement}
 
 
