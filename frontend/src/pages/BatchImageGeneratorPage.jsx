@@ -92,6 +92,7 @@ import {
   imageProcessEvents,
   overlayLiveCounts,
 } from '../utils/batchImageQueueWatch';
+import { uiLocale, useUiTranslation } from '../i18n';
 
 const ImageModelsModal = lazyWithReload(() => import('../components/modals/ImageModelsModal'));
 
@@ -144,6 +145,7 @@ const debugLog = (...args) => {
 const errorMessageFrom = (payload, fallback) => formatUiError(payload) || fallback;
 
 const BatchImageGeneratorPage = ({ embedded = false }) => {
+  const { t, language } = useUiTranslation();
   const theme = useTheme();
   const [searchParams] = useSearchParams();
   const isXs = useMediaQuery(theme.breakpoints.down('sm'));
@@ -249,12 +251,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
   // Style options
   const styleOptions = [
-    { value: 'realistic', label: 'Realistic' },
-    { value: 'artistic', label: 'Artistic' },
-    { value: 'cartoon', label: 'Cartoon' },
-    { value: 'sketch', label: 'Sketch' },
-    { value: 'infographic', label: 'Infographic' },
-    { value: 'technical', label: 'Technical' }
+    { value: 'realistic', label: t('imagesBatch.styles.realistic') },
+    { value: 'artistic', label: t('imagesBatch.styles.artistic') },
+    { value: 'cartoon', label: t('imagesBatch.styles.cartoon') },
+    { value: 'sketch', label: t('imagesBatch.styles.sketch') },
+    { value: 'infographic', label: t('imagesBatch.styles.infographic') },
+    { value: 'technical', label: t('imagesBatch.styles.technical') }
   ];
 
   // Model options — fetched from the backend (/batch-image/models) so the list
@@ -262,10 +264,16 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // chosen in Settings > Generation; with none chosen it routes per prompt.
   const AUTO_MODEL_OPTION = {
     value: 'auto',
-    label: 'Auto — best per prompt ⭐',
-    description: 'Uses the Stills model chosen in Settings > Generation; with none chosen, the router picks the best downloaded model for each prompt',
+    label: t('imagesBatch.models.autoLabel'),
+    description: t('imagesBatch.models.autoDescription'),
   };
-  const [modelOptions, setModelOptions] = useState([AUTO_MODEL_OPTION]);
+  // Only the API's rows are state; the options, Auto included, are built at
+  // render so their labels and notes follow the interface language.
+  const [fetchedModelRows, setFetchedModelRows] = useState([]);
+  const modelOptions = useMemo(
+    () => [AUTO_MODEL_OPTION, ...fetchedModelRows.map(imageModelOption)],
+    [fetchedModelRows, language],
+  );
   // What Auto renders with today and how that model reads a prompt ('natural'
   // or 'tags'), from /batch-image/models: the same selection the batch uses.
   const [autoPromptStyle, setAutoPromptStyle] = useState(null);
@@ -299,8 +307,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       const response = await fetch(`${API_BASE}/batch-image/models`);
       const data = await handleResponse(response, { quiet: true });
       if (data.success && data.data?.models) {
-        const fetched = data.data.models.map(imageModelOption);
-        setModelOptions([AUTO_MODEL_OPTION, ...fetched]);
+        setFetchedModelRows(data.data.models);
         if (data.data.auto_prompt_style) setAutoPromptStyle(data.data.auto_prompt_style);
         setAutoModel(data.data.auto_model || null);
         setUnavailableModels(data.data.unavailable_models || []);
@@ -309,7 +316,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     } catch (e) {
       debugLog('Failed to load image models', e);
       // Only "Auto" is left to pick from; say why instead of a near-empty list.
-      setError(`Image models could not be loaded: ${formatUiError(e) || 'the request failed'}. Only Auto is offered until they load.`);
+      setError(t('imagesBatch.errors.modelsLoadFailed', { error: formatUiError(e) || t('imagesBatch.errors.requestFailed') }));
     }
   }, []);
 
@@ -347,14 +354,14 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // backend ignores the page's values), so those controls are locked while one is
   // picked. Every mode but CSV sends the cast.
   const castLocked = castSubjectIds.length > 0 && inputMode !== 'csv';
-  const castLockedNote = 'Set by the selected character\u2019s base model while a character is picked.';
+  const castLockedNote = t('imagesBatch.cast.lockedNote');
   // The worker renders one picture at a time on a CUDA card (one pipeline, one
   // card), so Max Workers only applies elsewhere; the chip shows the real count.
   const oneAtATime = generatorDevice === 'cuda' || comfyStills;
   const effectiveWorkers = oneAtATime ? 1 : params.max_workers;
   const oneAtATimeNote = comfyStills && generatorDevice !== 'cuda'
-    ? `${isFlux ? 'FLUX' : 'Qwen-Image 2.1'} renders one picture at a time.`
-    : 'One picture at a time on the graphics card.';
+    ? t('imagesBatch.workers.oneAtATimeModel', { model: isFlux ? 'FLUX' : 'Qwen-Image 2.1' })
+    : t('imagesBatch.workers.oneAtATimeGpu');
 
   // Generating never downloads a model. A picked model that is not installed
   // holds Start until Install finishes. A character renders with its own base
@@ -369,7 +376,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     setImageModelsModalOpen(true);
   };
   const installName = installNeed?.option.name;
-  const installSize = installNeed?.option.sizeGb ? ` (about ${installNeed.option.sizeGb} GB)` : '';
+  const installSizeGb = installNeed?.option.sizeGb;
   const installButton = installNeed && (
     <Button
       color="inherit"
@@ -378,45 +385,45 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       onClick={() => openModels(installNeed.option.value)}
       sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}
     >
-      Install
+      {t('imagesBatch.install.button')}
     </Button>
   );
 
   // Dimension presets — base + model-family 2K / Flux~2MP packs (filtered below)
   const dimensionPresetsBase = [
     // SD 1.5 / Standard presets
-    { label: 'Square (512x512)', width: 512, height: 512, pack: 'legacy' },
-    { label: 'Portrait (512x768)', width: 512, height: 768, pack: 'legacy' },
-    { label: 'Landscape (768x512)', width: 768, height: 512, pack: 'legacy' },
-    { label: 'Large Square (768x768)', width: 768, height: 768, pack: 'legacy' },
-    { label: 'HD Portrait (512x1024)', width: 512, height: 1024, pack: 'legacy' },
-    { label: 'HD Landscape (1024x512)', width: 1024, height: 512, pack: 'legacy' },
+    { label: t('imagesBatch.dimensions.square', { width: 512, height: 512 }), width: 512, height: 512, pack: 'legacy' },
+    { label: t('imagesBatch.dimensions.portrait', { width: 512, height: 768 }), width: 512, height: 768, pack: 'legacy' },
+    { label: t('imagesBatch.dimensions.landscape', { width: 768, height: 512 }), width: 768, height: 512, pack: 'legacy' },
+    { label: t('imagesBatch.dimensions.largeSquare', { width: 768, height: 768 }), width: 768, height: 768, pack: 'legacy' },
+    { label: t('imagesBatch.dimensions.hdPortrait', { width: 512, height: 1024 }), width: 512, height: 1024, pack: 'legacy' },
+    { label: t('imagesBatch.dimensions.hdLandscape', { width: 1024, height: 512 }), width: 1024, height: 512, pack: 'legacy' },
     // 1K / SDXL-class (default daily driver for modern models)
-    { label: '1K Square (1024x1024)', width: 1024, height: 1024, pack: '1k' },
-    { label: '1K Portrait (832x1216)', width: 832, height: 1216, pack: '1k' },
-    { label: '1K Landscape (1216x832)', width: 1216, height: 832, pack: '1k' },
-    { label: '1K Wide 16:9 (1344x768)', width: 1344, height: 768, pack: '1k' },
-    { label: '1K Tall 9:16 (768x1344)', width: 768, height: 1344, pack: '1k' },
+    { label: t('imagesBatch.dimensions.oneKSquare', { width: 1024, height: 1024 }), width: 1024, height: 1024, pack: '1k' },
+    { label: t('imagesBatch.dimensions.oneKPortrait', { width: 832, height: 1216 }), width: 832, height: 1216, pack: '1k' },
+    { label: t('imagesBatch.dimensions.oneKLandscape', { width: 1216, height: 832 }), width: 1216, height: 832, pack: '1k' },
+    { label: t('imagesBatch.dimensions.oneKWide', { width: 1344, height: 768 }), width: 1344, height: 768, pack: '1k' },
+    { label: t('imagesBatch.dimensions.oneKTall', { width: 768, height: 1344 }), width: 768, height: 1344, pack: '1k' },
     // Z-Image / Krea 2K pack (area ≤ ~2048²; long side up to 2688)
-    { label: '2K Square (2048x2048)', width: 2048, height: 2048, pack: '2k' },
-    { label: '2K Landscape 16:9 (2688x1472)', width: 2688, height: 1472, pack: '2k' },
-    { label: '2K Ultrawide 21:9 (2688x1152)', width: 2688, height: 1152, pack: '2k' },
-    { label: '2K Portrait 9:16 (1472x2688)', width: 1472, height: 2688, pack: '2k' },
-    { label: '2K Landscape 3:2 (2496x1664)', width: 2496, height: 1664, pack: '2k' },
-    { label: '2K Portrait 2:3 (1664x2496)', width: 1664, height: 2496, pack: '2k' },
+    { label: t('imagesBatch.dimensions.twoKSquare', { width: 2048, height: 2048 }), width: 2048, height: 2048, pack: '2k' },
+    { label: t('imagesBatch.dimensions.twoKLandscapeWide', { width: 2688, height: 1472 }), width: 2688, height: 1472, pack: '2k' },
+    { label: t('imagesBatch.dimensions.twoKUltrawide', { width: 2688, height: 1152 }), width: 2688, height: 1152, pack: '2k' },
+    { label: t('imagesBatch.dimensions.twoKPortraitTall', { width: 1472, height: 2688 }), width: 1472, height: 2688, pack: '2k' },
+    { label: t('imagesBatch.dimensions.twoKLandscapeClassic', { width: 2496, height: 1664 }), width: 2496, height: 1664, pack: '2k' },
+    { label: t('imagesBatch.dimensions.twoKPortraitClassic', { width: 1664, height: 2496 }), width: 1664, height: 2496, pack: '2k' },
     // FLUX.1-dev max (~2.0 MP design range — NOT 2048²)
-    { label: 'Flux max square (1408x1408)', width: 1408, height: 1408, pack: 'flux2mp' },
-    { label: 'Flux max 16:9 (1920x1088)', width: 1920, height: 1088, pack: 'flux2mp' },
-    { label: 'Flux max 9:16 (1088x1920)', width: 1088, height: 1920, pack: 'flux2mp' },
-    { label: 'Flux max 3:2 (1728x1152)', width: 1728, height: 1152, pack: 'flux2mp' },
-    { label: 'Flux max 2:3 (1152x1728)', width: 1152, height: 1728, pack: 'flux2mp' },
+    { label: t('imagesBatch.dimensions.fluxSquare', { width: 1408, height: 1408 }), width: 1408, height: 1408, pack: 'flux2mp' },
+    { label: t('imagesBatch.dimensions.fluxWide', { width: 1920, height: 1088 }), width: 1920, height: 1088, pack: 'flux2mp' },
+    { label: t('imagesBatch.dimensions.fluxTall', { width: 1088, height: 1920 }), width: 1088, height: 1920, pack: 'flux2mp' },
+    { label: t('imagesBatch.dimensions.fluxLandscape', { width: 1728, height: 1152 }), width: 1728, height: 1152, pack: 'flux2mp' },
+    { label: t('imagesBatch.dimensions.fluxPortrait', { width: 1152, height: 1728 }), width: 1152, height: 1728, pack: 'flux2mp' },
     // Qwen-Image 2.1 2K pack: the official ComfyUI template notes native 2K
     // (2048x2048) output and sides in multiples of 32; no side above 2048.
-    { label: 'Qwen 2K Square (2048x2048)', width: 2048, height: 2048, pack: 'qwen2k' },
-    { label: 'Qwen 2K 16:9 (2048x1152)', width: 2048, height: 1152, pack: 'qwen2k' },
-    { label: 'Qwen 2K 9:16 (1152x2048)', width: 1152, height: 2048, pack: 'qwen2k' },
-    { label: 'Qwen 2K 3:2 (2048x1376)', width: 2048, height: 1376, pack: 'qwen2k' },
-    { label: 'Qwen 2K 2:3 (1376x2048)', width: 1376, height: 2048, pack: 'qwen2k' },
+    { label: t('imagesBatch.dimensions.qwenSquare', { width: 2048, height: 2048 }), width: 2048, height: 2048, pack: 'qwen2k' },
+    { label: t('imagesBatch.dimensions.qwenWide', { width: 2048, height: 1152 }), width: 2048, height: 1152, pack: 'qwen2k' },
+    { label: t('imagesBatch.dimensions.qwenTall', { width: 1152, height: 2048 }), width: 1152, height: 2048, pack: 'qwen2k' },
+    { label: t('imagesBatch.dimensions.qwenLandscape', { width: 2048, height: 1376 }), width: 2048, height: 1376, pack: 'qwen2k' },
+    { label: t('imagesBatch.dimensions.qwenPortrait', { width: 1376, height: 2048 }), width: 1376, height: 2048, pack: 'qwen2k' },
   ];
 
   const dimensionPresetsForModel = (modelValue) => {
@@ -438,8 +445,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
   const dimensionPresets = useMemo(
     () => dimensionPresetsForModel(params.model),
-    // params.model only — forModel is pure over modelValue
-    [params.model],
+    // params.model only — forModel is pure over modelValue (language: the labels)
+    [params.model, language],
   );
 
   // Content detection runs server-side at render time (auto_enhance /
@@ -455,7 +462,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       idea = (batchItems || lookAndFeel || '').split('\n').find(l => l.trim()) || lookAndFeel;
     }
     if (!idea) {
-      setError('Enter a high-level concept or look & feel first');
+      setError(t('imagesBatch.director.needIdea'));
       return;
     }
     setIsExpanding(true);
@@ -487,15 +494,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         const lines = shots.map(s => (s.prompt || '').trim()).filter(Boolean);
         setBatchItems(lines.join('\n'));
         setInputMode('bulk'); // Director produces multiple -> switch to bulk
-        setSuccess(`Your idea became ${lines.length} shots. Read them over, edit any line, then Start.`);
+        setSuccess(t('imagesBatch.director.expanded', { count: lines.length }));
       } else {
-        setError('The chat model gave no shots for this idea. Try a fuller description, or check that a chat model is running under Settings.');
+        setError(t('imagesBatch.director.noShots'));
       }
     } catch (e) {
-      setError(
-        'Could not turn the idea into shots. Check that a chat model is installed and running '
-        + `under Settings, then try again. (${e.message || e})`,
-      );
+      setError(t('imagesBatch.director.failed', { error: e.message || e }));
     } finally {
       setIsExpanding(false);
     }
@@ -507,25 +511,25 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
       // Check if response is ok before parsing JSON
       if (!response.ok) {
-        setError(`Service status check failed: HTTP ${response.status}`);
+        setError(t('imagesBatch.service.statusFailedHttp', { status: response.status }));
         return;
       }
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        setError('Service status response is not JSON');
+        setError(t('imagesBatch.service.statusNotJson'));
         return;
       }
 
       const data = await response.json();
 
       if (!data.success) {
-        setError('Batch image generation service is not available');
+        setError(t('imagesBatch.service.unavailable'));
       }
       const device = data.data?.image_generator?.device;
       if (typeof device === 'string') setGeneratorDevice(device);
     } catch (err) {
-      setError('Failed to check service status');
+      setError(t('imagesBatch.service.statusFailed'));
     }
   }, []);
 
@@ -542,14 +546,14 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
       if (!response.ok) {
         console.error(`Failed to load batch history: HTTP ${response.status}`);
-        setHistoryError(`the backend answered HTTP ${response.status}`);
+        setHistoryError(t('imagesBatch.errors.backendHttp', { status: response.status }));
         return;
       }
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         console.error('Response is not JSON:', contentType);
-        setHistoryError('the backend did not answer with batch data');
+        setHistoryError(t('imagesBatch.errors.noBatchData'));
         return;
       }
 
@@ -569,7 +573,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       }
     } catch (err) {
       console.error('Failed to load batch history:', err);
-      setHistoryError(formatUiError(err) || 'the request failed');
+      setHistoryError(formatUiError(err) || t('imagesBatch.errors.requestFailed'));
     }
   }, []);
 
@@ -589,7 +593,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const fetchQueue = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/batch-image/queue`);
-      if (!response.ok) throw new Error(`the backend answered HTTP ${response.status}`);
+      if (!response.ok) throw new Error(t('imagesBatch.errors.backendHttp', { status: response.status }));
       const data = await response.json();
       const rows = data?.data?.queue ?? data?.queue ?? [];
       // Frontend-only dismissal: hide terminal rows the user cleared. Only
@@ -619,7 +623,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       // A poll: one miss stays quiet; a failure that persists is said once.
       queueFailuresRef.current += 1;
       if (queueFailuresRef.current === QUEUE_FAILURES_BEFORE_NOTICE) {
-        setError(`The batch queue is not updating: ${formatUiError(err) || 'the request failed'}.`);
+        setError(t('imagesBatch.errors.queueStalled', { error: formatUiError(err) || t('imagesBatch.errors.requestFailed') }));
       }
     }
   }, []);
@@ -648,7 +652,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       console.error('Failed to save cleared batches to localStorage:', e);
     }
     setBatchHistory([]);
-    setSuccess('Cleared batch history list.');
+    setSuccess(t('imagesBatch.history.cleared'));
   }, [batchHistory, clearedBatchIds]);
 
   const hideBatch = useCallback((batchId) => {
@@ -667,7 +671,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     try {
       const d = new Date(dStr);
       if (isNaN(d.getTime())) return dStr;
-      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return d.toLocaleDateString(uiLocale(), { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' });
     } catch (e) {
       return dStr;
     }
@@ -701,13 +705,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       const response = await fetch(`${API_BASE}/batch-image/status/${batchId}?include_results=true`);
 
       if (!response.ok) {
-        setError(`Failed to load batch: HTTP ${response.status}`);
+        setError(t('imagesBatch.errors.loadBatchFailedHttp', { status: response.status }));
         return;
       }
 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
-        setError('Batch response is not JSON');
+        setError(t('imagesBatch.errors.batchNotJson'));
         return;
       }
 
@@ -723,7 +727,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         // Polling for a still-running batch is started by the activeBatch effect.
       }
     } catch (err) {
-      setError(`Failed to load batch: ${err.message}`);
+      setError(t('imagesBatch.errors.loadBatchFailed', { error: err.message }));
     }
   }, []);
 
@@ -747,7 +751,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           console.error('Polling error: HTTP', response.status);
           if (response.status === 404) {
             stopPolling();
-            setError('Batch not found');
+            setError(t('imagesBatch.errors.batchNotFound'));
           }
           return;
         }
@@ -770,7 +774,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           // don't double the request rate for the life of the batch.
           if (TERMINAL_BATCH_STATUSES.has(batchStatus.status)) {
             stopPolling();
-            setSuccess(`Batch generation ${batchStatus.status}`);
+            setSuccess(t('imagesBatch.messages.batchFinished', { status: batchStatus.status }));
             loadBatchHistory();
             fetchQueue();
           }
@@ -986,7 +990,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       setCsvFile(file);
       setError('');
     } else {
-      setError('Please select a valid CSV file');
+      setError(t('imagesBatch.csv.invalidFile'));
       setCsvFile(null);
     }
   };
@@ -997,7 +1001,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       setBlueprintFile(file);
       setError('');
     } else {
-      setError('Please select a valid CSV file for blueprints');
+      setError(t('imagesBatch.blueprint.invalidFile'));
       setBlueprintFile(null);
     }
   };
@@ -1007,13 +1011,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       const response = await fetch(`${API_BASE}/batch-image/template`);
 
       if (!response.ok) {
-        setError(`Failed to download template: HTTP ${response.status}`);
+        setError(t('imagesBatch.csv.templateFailedHttp', { status: response.status }));
         return;
       }
 
       const contentType = response.headers.get('content-type');
       if (contentType && !contentType.includes('text/csv') && !contentType.includes('application/octet-stream')) {
-        setError('Template response is not a valid CSV file');
+        setError(t('imagesBatch.csv.templateNotCsv'));
         return;
       }
 
@@ -1028,7 +1032,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      setError('Failed to download template: ' + err.message);
+      setError(t('imagesBatch.csv.templateFailed', { error: err.message }));
     }
   };
 
@@ -1043,7 +1047,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
       if (inputMode === 'blueprint') {
         if (!blueprintFile) {
-          setError('Please select a CSV file for blueprint generation');
+          setError(t('imagesBatch.blueprint.noFile'));
           setLoading(false);
           return;
         }
@@ -1070,7 +1074,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           body: formData
         });
       } else if (inputMode === 'csv' && !csvFile) {
-        setError('Please select a CSV file for upload');
+        setError(t('imagesBatch.csv.noFile'));
         setLoading(false);
         return;
       } else {
@@ -1080,7 +1084,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         // (prompt_id=prompt_N) and the text encoder read the counter as content.
         const promptsToGenerate = finalPrompts;
         if (promptsToGenerate.length === 0) {
-          setError(inputMode === 'single' ? 'Please provide a prompt' : 'Please provide at least one prompt or topic');
+          setError(inputMode === 'single' ? t('imagesBatch.errors.noPrompt') : t('imagesBatch.errors.noPrompts'));
           setLoading(false);
           return;
         }
@@ -1136,7 +1140,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
       // Check if response is ok before parsing JSON
       if (!response.ok) {
-        let errorMessage = `Failed to start generation: HTTP ${response.status} ${response.statusText}`;
+        let errorMessage = t('imagesBatch.errors.startFailedHttp', { status: response.status, statusText: response.statusText });
         try {
           errorMessage = errorMessageFrom(await response.json(), errorMessage);
         } catch (e) {
@@ -1150,7 +1154,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        setError(`Generation response is not JSON. Response: ${text.substring(0, 200)}`);
+        setError(t('imagesBatch.errors.startNotJson', { response: text.substring(0, 200) }));
         setLoading(false);
         return;
       }
@@ -1160,7 +1164,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       if (data.success) {
         const batchId = data.data?.batch_id;
         if (!batchId) {
-          setError('Batch generation started but no batch ID returned');
+          setError(t('imagesBatch.errors.noBatchId'));
           setLoading(false);
           return;
         }
@@ -1176,8 +1180,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         });
         setSuccess(
           inputMode === 'blueprint'
-            ? (data.data?.message || 'Blueprint batch queued. Results appear as generation completes.')
-            : 'Batch queued. Batches render one after another; you can queue more while this one runs.',
+            ? (data.data?.message || t('imagesBatch.messages.blueprintQueued'))
+            : t('imagesBatch.messages.queued'),
         );
         // Free the form so the next job can be composed immediately (like Video Gen).
         if (inputMode === 'single' || inputMode === 'bulk') {
@@ -1186,11 +1190,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         fetchQueue();
         loadBatchHistory();
       } else {
-        setError(errorMessageFrom(data, 'Failed to start generation'));
+        setError(errorMessageFrom(data, t('imagesBatch.errors.startFailedPlain')));
       }
     } catch (err) {
       console.error('Generation error:', err);
-      setError('Failed to start generation: ' + (err.message || String(err)));
+      setError(t('imagesBatch.errors.startFailed', { error: err.message || String(err) }));
     } finally {
       setLoading(false);
     }
@@ -1208,12 +1212,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         data = null;
       }
       if (!response.ok || !data?.success) {
-        setError(errorMessageFrom(data, `Failed to cancel generation: HTTP ${response.status}`));
+        setError(errorMessageFrom(data, t('imagesBatch.errors.cancelFailedHttp', { status: response.status })));
         return false;
       }
       return true;
     } catch (err) {
-      setError('Failed to cancel generation: ' + err.message);
+      setError(t('imagesBatch.errors.cancelFailed', { error: err.message }));
       return false;
     }
   }, []);
@@ -1222,7 +1226,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     if (!activeBatch) return;
     const ok = await requestCancel(activeBatch.batch_id);
     if (!ok) return;
-    setSuccess('Batch generation cancelled');
+    setSuccess(t('imagesBatch.messages.cancelled'));
     stopPolling();
     setActiveBatch(prev => prev ? { ...prev, status: 'cancelled' } : null);
     fetchQueue();
@@ -1233,13 +1237,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const handleAdjustRetry = useCallback(async (batchId) => {
     try {
       const res = await fetch(`${API_BASE}/batch-image/status/${batchId}?include_results=true`);
-      if (!res.ok) { setError(`Couldn't load settings: HTTP ${res.status}`); return; }
+      if (!res.ok) { setError(t('imagesBatch.retry.loadFailedHttp', { status: res.status })); return; }
       const data = await res.json();
       const statusObj = data?.data || data;
       const rd = statusObj?.retry_data;
       const name = statusObj?.display_name || batchId.slice(0, 8);
 
-      if (!rd) { setError("This batch didn't store its settings."); return; }
+      if (!rd) { setError(t('imagesBatch.retry.noSettings')); return; }
 
       const cfg = rd.params?.ui_config;
       if (cfg) {
@@ -1260,7 +1264,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         if (typeof cfg.directorEnabled === 'boolean') setDirectorEnabled(cfg.directorEnabled);
         if (typeof cfg.directorGuidance === 'string') setDirectorGuidance(cfg.directorGuidance);
         setSeedText(typeof cfg.seedText === 'string' ? cfg.seedText : '');
-        setSuccess(`Loaded "${name}" settings into control panel — adjust anything, then Start Generation.`);
+        setSuccess(t('imagesBatch.retry.loadedSettings', { name }));
       } else if (Array.isArray(rd.prompts)) {
         // rd.prompts is the EXPANDED list - one entry per generated image. A batch of
         // 1 prompt x quantity 7 comes back as 7 identical lines, so pasting it straight
@@ -1304,14 +1308,14 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         }
         setSuccess(
           uniquePrompts.length === rd.prompts.length
-            ? `Loaded "${name}" prompts into panel.`
-            : `Loaded "${name}": ${uniquePrompts.length} prompt${uniquePrompts.length === 1 ? '' : 's'} x qty ${repeats[0]}.`
+            ? t('imagesBatch.retry.loadedPrompts', { name })
+            : t('imagesBatch.retry.loadedPromptsQty', { name, count: uniquePrompts.length, quantity: repeats[0] })
         );
       }
       setError('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
-      setError(`Couldn't load settings: ${e.message}`);
+      setError(t('imagesBatch.retry.loadFailed', { error: e.message }));
     }
   }, []);
 
@@ -1320,13 +1324,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       const response = await fetch(`${API_BASE}/batch-image/download/${batchId}`);
 
       if (!response.ok) {
-        setError(`Failed to download results: HTTP ${response.status}`);
+        setError(t('imagesBatch.download.failedHttp', { status: response.status }));
         return;
       }
 
       const contentType = response.headers.get('content-type');
       if (contentType && !contentType.includes('application/zip') && !contentType.includes('application/octet-stream')) {
-        setError('Download response is not a valid ZIP file');
+        setError(t('imagesBatch.download.notZip'));
         return;
       }
 
@@ -1340,7 +1344,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (err) {
-      setError('Failed to download results: ' + err.message);
+      setError(t('imagesBatch.download.failed', { error: err.message }));
     }
   }, []);
 
@@ -1358,7 +1362,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     setLightboxImage({
       url,
       name: img.prompt || img.imageFilename || '',
-      caption: img.rewrittenPrompt ? `Sent to the model: ${img.rewrittenPrompt}` : '',
+      rewrittenPrompt: img.rewrittenPrompt || '',
       seed: img.metadata?.seed_used ?? null,
       fileIndex: index,
     });
@@ -1374,7 +1378,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     try {
       const response = await fetch(`${API_BASE}/batch-image/status/${batch.batch_id}?include_results=true`);
       if (!response.ok) {
-        setError(`Failed to load batch: HTTP ${response.status}`);
+        setError(t('imagesBatch.errors.loadBatchFailedHttp', { status: response.status }));
         return;
       }
       const data = await response.json();
@@ -1390,7 +1394,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         openLightboxAt(images, idx);
       }
     } catch (err) {
-      setError(`Failed to load batch: ${err.message}`);
+      setError(t('imagesBatch.errors.loadBatchFailed', { error: err.message }));
     }
   }, [openLightboxAt]);
 
@@ -1421,7 +1425,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
   return (
     <PageLayout
-      title={embedded ? undefined : "Image Generator"}
+      title={embedded ? undefined : t('imagesBatch.page.title')}
       variant={embedded ? "fullscreen" : "standard"}
       noPadding={embedded}
       actions={
@@ -1433,7 +1437,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
             onClick={handleClearBatchList}
             sx={{ textTransform: 'none', borderRadius: 1 }}
           >
-            Clear Batch List
+            {t('imagesBatch.history.clear')}
           </Button>
         ) : null
       }
@@ -1469,7 +1473,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   color: 'text.primary'
                 }}
               >
-                Generation Settings
+                {t('imagesBatch.page.settingsTitle')}
               </Typography>
 
               {/* Content Preset Selector. Only tag-style models take it; a prose
@@ -1479,16 +1483,16 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Hint>
                     {family === 'auto'
                       ? (autoModelLabel
-                        ? `Content Type is not used: Auto renders with ${autoModelLabel}, which reads the prompt as plain sentences.`
-                        : 'Content Type is not used: Auto picks a model that reads the prompt as plain sentences.')
-                      : `Content Type is not used by ${modelLabel}: it reads the prompt as plain sentences.`}
-                    {' '}Describe the scene in your own words. The content types only shape prompts for tag-style models.
+                        ? t('imagesBatch.contentType.unusedAutoModel', { model: autoModelLabel })
+                        : t('imagesBatch.contentType.unusedAuto'))
+                      : t('imagesBatch.contentType.unusedModel', { model: modelLabel })}
+                    {' '}{t('imagesBatch.contentType.describeHint')}
                   </Hint>
                 </Box>
               ) : (
               <Box sx={{ mb: 3, p: 2, bgcolor: 'primary.50', borderRadius: 2, border: '1px solid', borderColor: 'primary.200' }}>
                 <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600, color: 'primary.main' }}>
-                  Content Type (for better quality)
+                  {t('imagesBatch.contentType.title')}
                 </Typography>
                 <FormControl fullWidth size="small">
                   <Select
@@ -1498,65 +1502,65 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   >
                     <MenuItem value="auto">
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Auto-detect (Recommended)</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.auto')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Stuffs quality tags into the prompt from its content. Does not detect or change generation settings.
+                          {t('imagesBatch.contentType.autoHelp')}
                         </Typography>
                       </Box>
                     </MenuItem>
                     <MenuItem value="person_portrait">
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Person - Portrait</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.portrait')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Headshots, face close-ups, profile photos
+                          {t('imagesBatch.contentType.portraitHelp')}
                         </Typography>
                       </Box>
                     </MenuItem>
                     <MenuItem value="person_full_body">
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Person - Full Body</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.fullBody')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Standing, sitting, or posed full-body shots
+                          {t('imagesBatch.contentType.fullBodyHelp')}
                         </Typography>
                       </Box>
                     </MenuItem>
                     <MenuItem value="person_working">
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Person - Working/Action</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.working')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          People doing activities, using tools, interacting with objects
+                          {t('imagesBatch.contentType.workingHelp')}
                         </Typography>
                       </Box>
                     </MenuItem>
                     <MenuItem value="product_photo">
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Product Photo</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.product')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Clean product shots, commercial photography
+                          {t('imagesBatch.contentType.productHelp')}
                         </Typography>
                       </Box>
                     </MenuItem>
                     <MenuItem value="landscape">
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Landscape/Scenery</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.landscape')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Nature, cityscapes, outdoor scenes
+                          {t('imagesBatch.contentType.landscapeHelp')}
                         </Typography>
                       </Box>
                     </MenuItem>
                     <MenuItem value="infographic_preset">
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>Infographic/Diagram</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.infographic')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Flat design, icons, vector graphics, charts
+                          {t('imagesBatch.contentType.infographicHelp')}
                         </Typography>
                       </Box>
                     </MenuItem>
                     <MenuItem value="general">
                       <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>General Purpose</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{t('imagesBatch.contentType.general')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Default settings for any content
+                          {t('imagesBatch.contentType.generalHelp')}
                         </Typography>
                       </Box>
                     </MenuItem>
@@ -1568,7 +1572,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               {/* Input Mode Selection */}
               <Box sx={{ mb: 3 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
-                  Input Method
+                  {t('imagesBatch.input.title')}
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button
@@ -1581,7 +1585,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       fontWeight: inputMode === 'single' ? 600 : 400
                     }}
                   >
-                    Single Prompt
+                    {t('imagesBatch.input.single')}
                   </Button>
                   <Button
                     variant={inputMode === 'bulk' ? 'contained' : 'outlined'}
@@ -1593,7 +1597,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       fontWeight: inputMode === 'bulk' ? 600 : 400
                     }}
                   >
-                    Bulk Input
+                    {t('imagesBatch.input.bulk')}
                   </Button>
                   <Button
                     variant={inputMode === 'csv' ? 'contained' : 'outlined'}
@@ -1605,7 +1609,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       fontWeight: inputMode === 'csv' ? 600 : 400
                     }}
                   >
-                    CSV Upload
+                    {t('imagesBatch.input.csv')}
                   </Button>
                   <Button
                     variant={inputMode === 'blueprint' ? 'contained' : 'outlined'}
@@ -1617,7 +1621,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       fontWeight: inputMode === 'blueprint' ? 600 : 400
                     }}
                   >
-                    Offline Blueprints
+                    {t('imagesBatch.input.blueprint')}
                   </Button>
                 </Box>
               </Box>
@@ -1626,11 +1630,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               {(inputMode === 'single' || inputMode === 'bulk') && (
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
-                    Cast (optional)
+                    {t('imagesBatch.cast.title')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                    Pick a trained character — identity (trigger + class + vision marks) and LoRA are applied automatically.
-                    Write scene/action only; do not re-describe the face or costume.
+                    {t('imagesBatch.cast.help')}
                   </Typography>
                   <CharacterPicker
                     value={castSubjectIds}
@@ -1644,17 +1647,16 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               {inputMode === 'single' && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
-                    Single Prompt
+                    {t('imagesBatch.input.single')}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                    Paste full prompt text (paragraphs and line breaks preserved as one prompt).
-                    Use "Number of Images per Prompt" below for multiples from this exact prompt.
+                    {t('imagesBatch.single.help')}
                   </Typography>
                   <TextField
                     fullWidth
                     multiline
                     rows={8}
-                    placeholder="Paste your complete prompt here, including paragraphs if needed. The entire text will be used as a single prompt for image generation.&#10;&#10;Example: A detailed scene description with multiple sentences and line breaks all for one image concept..."
+                    placeholder={t('imagesBatch.single.placeholder')}
                     value={batchItems}
                     onChange={handleBatchItemsChange}
                     variant="outlined"
@@ -1669,7 +1671,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   />
                   <PromptTokenCounter prompts={finalPrompts} model={params.model} sx={{ mt: -1.5, mb: 1 }} />
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    Whole text = 1 prompt. Quantity duplicates it exactly for multiple images.
+                    {t('imagesBatch.single.note')}
                   </Typography>
                 </Box>
               )}
@@ -1678,13 +1680,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               {inputMode === 'bulk' && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
-                    Image Topics/Prompts
+                    {t('imagesBatch.bulk.title')}
                   </Typography>
                   <TextField
                     fullWidth
                     multiline
                     rows={8}
-                    placeholder="Enter image topics or prompts, one per line:&#10;&#10;A majestic mountain landscape at sunset&#10;A cat sitting on a windowsill&#10;Abstract geometric patterns in blue&#10;Portrait of a wise old wizard&#10;A futuristic city skyline&#10;..."
+                    placeholder={t('imagesBatch.bulk.placeholder')}
                     value={batchItems}
                     onChange={handleBatchItemsChange}
                     variant="outlined"
@@ -1700,7 +1702,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <PromptTokenCounter prompts={finalPrompts} model={params.model} sx={{ mt: -1.5, mb: 1 }} />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                     <Typography variant="caption" color="text.secondary">
-                      {uniquePromptCount} prompts ready for generation (bulk mode)
+                      {t('imagesBatch.bulk.ready', { count: uniquePromptCount })}
                     </Typography>
                     <Button
                       variant="text"
@@ -1723,11 +1725,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         py: 0.25
                       }}
                     >
-                      Load Examples
+                      {t('imagesBatch.bulk.loadExamples')}
                     </Button>
                   </Box>
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    Tip: Each line becomes a separate image prompt
+                    {t('imagesBatch.bulk.tip')}
                   </Typography>
                 </Box>
               )}
@@ -1736,13 +1738,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               {(inputMode === 'single' || inputMode === 'bulk') && (
                 <Box sx={{ mt: 3 }}>
                   <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 500 }}>
-                    Look & Feel (Optional)
+                    {t('imagesBatch.look.title')}
                   </Typography>
                   <TextField
                     fullWidth
                     multiline
                     rows={3}
-                    placeholder="Describe the visual style to apply to the prompt(s):&#10;&#10;Examples:&#10;• In shades of blue, no text, darker colors&#10;• Minimalist black and white, clean lines&#10;• Professional infographic style, flat design&#10;• Photorealistic, dramatic lighting"
+                    placeholder={t('imagesBatch.look.placeholder')}
                     value={lookAndFeel}
                     onChange={(e) => setLookAndFeel(e.target.value)}
                     variant="outlined"
@@ -1755,7 +1757,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="caption" color="text.secondary">
-                      {inputMode === 'single' ? 'Style will be appended to your single prompt' : `This style will be applied to all ${uniquePromptCount} prompts above`}
+                      {inputMode === 'single' ? t('imagesBatch.look.single') : t('imagesBatch.look.bulk', { count: uniquePromptCount })}
                     </Typography>
                     <Button
                       variant="outlined"
@@ -1769,7 +1771,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         py: 0.5
                       }}
                     >
-                      Preview Prompts
+                      {t('imagesBatch.look.preview')}
                     </Button>
                   </Box>
                   <TextField
@@ -1777,14 +1779,14 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     multiline
                     minRows={2}
                     maxRows={4}
-                    label="Negative prompt"
+                    label={t('imagesBatch.negative.label')}
                     placeholder="blurry, distorted hands, extra fingers"
                     value={negativePrompt}
                     disabled={unusedNegAnat}
                     onChange={(e) => setNegativePrompt(e.target.value)}
                     helperText={
                       unusedNegAnat
-                        ? 'This model does not use a negative prompt.'
+                        ? t('imagesBatch.negative.unused')
                         : undefined
                     }
                     sx={{ mt: 2 }}
@@ -1794,23 +1796,23 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         (offline_image_generator.enhance_prompt_for_quality); a prose
                         model, and Auto while it resolves to one, skips it. */}
                     <SettingChip
-                      label="Enhance anatomy"
+                      label={t('imagesBatch.anatomy.label')}
                       on={enhanceAnatomy}
                       disabled={prosePrompts}
                       tooltip={
                         prosePrompts
-                          ? 'Not used here: this model reads the prompt as plain sentences, so anatomy tags would be drawn as scene content. Describe the pose in words instead.'
-                          : 'Adds anatomy phrasing when the prompt is a person.'
+                          ? t('imagesBatch.anatomy.unusedTooltip')
+                          : t('imagesBatch.anatomy.tooltip')
                       }
                       onToggle={setEnhanceAnatomy}
                     />
                     {(prosePrompts || unusedNegAnat) && (
                       <Hint>
                         {prosePrompts && unusedNegAnat
-                          ? 'This model does not use a negative prompt or anatomy enhancement.'
+                          ? t('imagesBatch.anatomy.unusedBoth')
                           : prosePrompts
-                            ? 'This model does not use anatomy enhancement.'
-                            : 'This model does not use a negative prompt.'}
+                            ? t('imagesBatch.anatomy.unused')
+                            : t('imagesBatch.negative.unused')}
                       </Hint>
                     )}
                   </Box>
@@ -1821,7 +1823,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               {inputMode === 'csv' && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
-                    CSV File Upload
+                    {t('imagesBatch.csv.title')}
                   </Typography>
                   <input
                     type="file"
@@ -1843,12 +1845,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       py: 1.5
                     }}
                   >
-                    Upload CSV File
+                    {t('imagesBatch.csv.upload')}
                   </Button>
 
                   {csvFile && (
                     <Alert severity="info" sx={{ mb: 2, borderRadius: 1 }}>
-                      File selected: {csvFile.name}
+                      {t('imagesBatch.csv.selected', { name: csvFile.name })}
                     </Alert>
                   )}
 
@@ -1862,7 +1864,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       borderRadius: 1
                     }}
                   >
-                    Download CSV Template
+                    {t('imagesBatch.csv.template')}
                   </Button>
                 </Box>
               )}
@@ -1871,10 +1873,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               {inputMode === 'blueprint' && (
                 <Box>
                   <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
-                    Offline Blueprint CSV Upload
+                    {t('imagesBatch.blueprint.title')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    Upload a CSV file with 'city' and 'count' (or 'patents') columns to generate data blueprints (CPU-only). Large batches run in the background; poll for status until complete.
+                    {t('imagesBatch.blueprint.help')}
                   </Typography>
                   <input
                     type="file"
@@ -1896,17 +1898,17 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       py: 1.5
                     }}
                   >
-                    Upload Blueprint CSV
+                    {t('imagesBatch.blueprint.upload')}
                   </Button>
 
                   {blueprintFile && (
                     <Alert severity="info" sx={{ mb: 2, borderRadius: 1 }}>
-                      File selected: {blueprintFile.name}
+                      {t('imagesBatch.csv.selected', { name: blueprintFile.name })}
                     </Alert>
                   )}
 
                   <Typography variant="caption" color="text.secondary">
-                    Accepted format: .csv (columns like city/name and count/patents/value)
+                    {t('imagesBatch.blueprint.format')}
                   </Typography>
                 </Box>
               )}
@@ -1917,38 +1919,38 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   {/* Current Settings Display */}
                   <Box sx={{ mt: 3, p: 2, backgroundColor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>Current Settings</Typography>
-                      <ActionButton onClick={() => openModels()}>Manage models</ActionButton>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 500 }}>{t('imagesBatch.current.title')}</Typography>
+                      <ActionButton onClick={() => openModels()}>{t('imagesBatch.current.manageModels')}</ActionButton>
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                       <Chip
-                        label={`Model: ${modelLabel}${installBlocksStart ? ' (not installed)' : ''}`}
+                        label={installBlocksStart ? t('imagesBatch.current.modelNotInstalled', { model: modelLabel }) : t('imagesBatch.current.model', { model: modelLabel })}
                         size="small"
                         variant="outlined"
                         color={installBlocksStart ? 'warning' : 'default'}
                       />
                       <Chip
-                        label={`Style: ${params.style}`}
+                        label={t('imagesBatch.current.style', { style: params.style })}
                         size="small"
                         variant="outlined"
                       />
                       <Chip
-                        label={`Quality: ${params.quality_preset}`}
+                        label={t('imagesBatch.current.quality', { quality: params.quality_preset })}
                         size="small"
                         variant="outlined"
                       />
                       <Chip
-                        label={`Size: ${params.width}x${params.height}`}
+                        label={t('imagesBatch.current.size', { width: params.width, height: params.height })}
                         size="small"
                         variant="outlined"
                       />
                       <Chip
-                        label={castLocked ? 'Steps: from character' : `Steps: ${params.steps}`}
+                        label={castLocked ? t('imagesBatch.current.stepsCast') : t('imagesBatch.current.steps', { steps: params.steps })}
                         size="small"
                         variant="outlined"
                       />
                       <Chip
-                        label={oneAtATime ? 'One at a time' : `Workers: ${effectiveWorkers}`}
+                        label={oneAtATime ? t('imagesBatch.current.oneAtATime') : t('imagesBatch.current.workers', { count: effectiveWorkers })}
                         size="small"
                         variant="outlined"
                         title={oneAtATime ? oneAtATimeNote : undefined}
@@ -1967,13 +1969,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         }
                       }}
                     >
-                      <Typography sx={{ fontWeight: 500 }}>Advanced Settings</Typography>
+                      <Typography sx={{ fontWeight: 500 }}>{t('imagesBatch.advanced.title')}</Typography>
                     </AccordionSummary>
                     <AccordionDetails sx={{ pt: 2 }}>
                       <Grid container spacing={2}>
                         <Grid item xs={12} sm={6} md={4}>
                           <FormControl fullWidth>
-                            <InputLabel>Model</InputLabel>
+                            <InputLabel>{t('imagesBatch.advanced.model')}</InputLabel>
                             <Select
                               value={params.model}
                               onChange={(e) => handleModelChange(e.target.value)}
@@ -1993,14 +1995,18 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           {installNeed && (
                             <Alert severity={installNeed.blocks ? 'warning' : 'info'} action={installButton} sx={{ mt: 1, borderRadius: 1 }}>
                               {installNeed.blocks
-                                ? `${installName} is not installed. Install downloads it${installSize}; Start stays off until it finishes.`
-                                : `No image model is installed yet. Install ${installName}${installSize} for Auto to use.`}
+                                ? installSizeGb
+                                  ? t('imagesBatch.install.notInstalledSized', { model: installName, size: installSizeGb })
+                                  : t('imagesBatch.install.notInstalled', { model: installName })
+                                : installSizeGb
+                                  ? t('imagesBatch.install.noModelSized', { model: installName, size: installSizeGb })
+                                  : t('imagesBatch.install.noModel', { model: installName })}
                             </Alert>
                           )}
                           {applicableAdapters.length > 0 && (
                             <Box sx={{ mt: 1 }}>
                               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                Your LoRAs (off until you turn one on):
+                                {t('imagesBatch.advanced.yourLoras')}
                               </Typography>
                               <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
                                 {applicableAdapters.map((a) => {
@@ -2026,7 +2032,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           {unavailableModels.length > 0 && (
                             <Box sx={{ mt: 1 }}>
                               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                Not available on this machine:
+                                {t('imagesBatch.advanced.unavailable')}
                               </Typography>
                               {unavailableModels.map((m) => (
                                 <Tooltip key={m.id} title={m.reason || ''}>
@@ -2045,7 +2051,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
                         <Grid item xs={12} sm={6} md={4}>
                           <FormControl fullWidth>
-                            <InputLabel>Quality Preset</InputLabel>
+                            <InputLabel>{t('imagesBatch.advanced.qualityPreset')}</InputLabel>
                             <Select
                               value={params.quality_preset}
                               onChange={(e) => handleQualityPresetChange(e.target.value)}
@@ -2086,19 +2092,17 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             }
                             label={
                               <Box>
-                                <Typography variant="body2">Enhance prompts automatically</Typography>
+                                <Typography variant="body2">{t('imagesBatch.enhance.label')}</Typography>
                                 <Typography variant="caption" color="text.secondary">
                                   {!autoEnhance
-                                    ? 'Off — prompts are sent as written.'
+                                    ? t('imagesBatch.enhance.off')
                                     : prosePrompts
-                                      ? ('Rewrites each prompt into a fuller description with the chat model before rendering. '
-                                        + (params.style === 'realistic'
-                                          ? 'If no chat model answers, the prompt goes as typed. '
-                                          : `If no chat model answers, the prompt goes as typed plus one sentence asking for the ${params.style} look. `)
-                                        + 'Steps and guidance are not changed.')
+                                      ? (params.style === 'realistic'
+                                        ? t('imagesBatch.enhance.prose')
+                                        : t('imagesBatch.enhance.proseStyle', { style: params.style }))
                                       : unusedNegAnat
-                                        ? 'Adds the content type\u2019s quality and anatomy phrasing to each prompt. This model ignores negative prompts. Steps and guidance are not changed.'
-                                        : 'Adds the content type\u2019s quality and anatomy phrasing (and negatives) to each prompt. Steps and guidance are not changed.'}
+                                        ? t('imagesBatch.enhance.tagsNoNegative')
+                                        : t('imagesBatch.enhance.tags')}
                                 </Typography>
                               </Box>
                             }
@@ -2107,7 +2111,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
                         <Grid item xs={12} sm={6} md={4}>
                           <FormControl fullWidth>
-                            <InputLabel>Style</InputLabel>
+                            <InputLabel>{t('imagesBatch.advanced.style')}</InputLabel>
                             <Select
                               value={params.style}
                               onChange={(e) => setParams({ ...params, style: e.target.value })}
@@ -2124,7 +2128,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         <Grid item xs={12} sm={6} md={4}>
                           <TextField
                             fullWidth
-                            label="Number of Images per Prompt"
+                            label={t('imagesBatch.advanced.quantity')}
                             type="number"
                             value={quantity}
                             onChange={(e) => setQuantity(clampQuantity(e.target.value))}
@@ -2134,7 +2138,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                               into one prompt per shot and fills the prompt box with them. */}
                           <Tooltip
                             arrow
-                            title="Turns the idea above into several different shots, one prompt each, written by the chat model. They replace the text above so you can read and edit them before you start."
+                            title={t('imagesBatch.director.expandTooltip')}
                           >
                             <span>
                               <Button
@@ -2143,7 +2147,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                 onClick={handleDirectorExpand}
                                 disabled={isExpanding || !(batchItems || lookAndFeel).trim()}
                               >
-                                {isExpanding ? 'Writing shots…' : 'Expand into shots'}
+                                {isExpanding ? t('imagesBatch.director.expanding') : t('imagesBatch.director.expand')}
                               </Button>
                             </span>
                           </Tooltip>
@@ -2151,18 +2155,18 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                               prompt, whatever the model's default enhancement would be. */}
                           <Tooltip
                             arrow
-                            title="Has the chat model rewrite every prompt into a fuller description before rendering, instead of the quick tag phrasing. Prose models get this rewrite anyway when Enhance prompts is on."
+                            title={t('imagesBatch.director.rewriteTooltip')}
                           >
                             <FormControlLabel
                               control={<Switch size="small" checked={directorEnabled} onChange={(e) => setDirectorEnabled(e.target.checked)} />}
-                              label="Rewrite prompts with the chat model"
+                              label={t('imagesBatch.director.rewrite')}
                             />
                           </Tooltip>
                         </Grid>
 
                         <Grid item xs={12} sm={6} md={4}>
                           <FormControl fullWidth>
-                            <InputLabel>Dimensions</InputLabel>
+                            <InputLabel>{t('imagesBatch.dimensions.title')}</InputLabel>
                             <Select
                               value={`${params.width}x${params.height}`}
                               onChange={(e) => {
@@ -2180,7 +2184,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                 (p) => p.width === params.width && p.height === params.height,
                               ) && (
                                 <MenuItem value={`${params.width}x${params.height}`}>
-                                  Custom ({params.width}x{params.height})
+                                  {t('imagesBatch.dimensions.custom', { width: params.width, height: params.height })}
                                 </MenuItem>
                               )}
                               {dimensionPresets.map(preset => (
@@ -2192,7 +2196,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             {(comfyStills || isModernDit)
                               && (params.width * params.height > 1024 * 1024) && (
                               <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
-                                High-res (&gt;1MP): more VRAM; may OOM on 16GB cards.
+                                {t('imagesBatch.dimensions.highResWarning')}
                               </Typography>
                             )}
                           </FormControl>
@@ -2200,8 +2204,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
                         <Grid item xs={12}>
                           <Typography gutterBottom>
-                            Steps: {castLocked ? 'set by the character' : params.steps}
-                            {isFlux && !castLocked ? ' (FLUX quality ↑ with more steps)' : ''}
+                            {castLocked
+                              ? t('imagesBatch.steps.cast')
+                              : isFlux
+                                ? t('imagesBatch.steps.flux', { steps: params.steps })
+                                : t('imagesBatch.steps.value', { steps: params.steps })}
                           </Typography>
                           <Slider
                             value={params.steps}
@@ -2223,12 +2230,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         <Grid item xs={12}>
                           <Typography gutterBottom>
                             {castLocked
-                              ? 'Guidance: set by the character'
+                              ? t('imagesBatch.guidance.cast')
                               : isZimage
-                              ? 'Guidance Scale: 0 (CFG-free model)'
+                              ? t('imagesBatch.guidance.zimage')
                               : isFlux
-                                ? `FluxGuidance: ${params.guidance}`
-                                : `Guidance Scale: ${params.guidance}`}
+                                ? t('imagesBatch.guidance.flux', { guidance: params.guidance })
+                                : t('imagesBatch.guidance.scale', { guidance: params.guidance })}
                           </Typography>
                           {/* Z-Image is CFG-free: there is NO valid non-zero guidance. Any other value
                               produces washed-out, over-cooked output, so the control is disabled rather
@@ -2250,17 +2257,17 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           )}
                           {isZimage && !castLocked && (
                             <Typography variant="caption" color="text.secondary">
-                              Z-Image runs CFG-free — guidance is fixed at 0. Use Steps for quality.
+                              {t('imagesBatch.guidance.zimageHelp')}
                             </Typography>
                           )}
                           {isQwenImage21 && !castLocked && (
                             <Typography variant="caption" color="text.secondary">
-                              Qwen-Image 2.1 runs at guidance 1 on the official path. Raise it only together with a negative prompt.
+                              {t('imagesBatch.guidance.qwenHelp')}
                             </Typography>
                           )}
                           {family === 'auto' && (
                             <Typography variant="caption" color="text.secondary">
-                              Auto routes per prompt. The usual pick (Z-Image) is CFG-free — keep 0 unless you expect an SDXL route.
+                              {t('imagesBatch.guidance.autoHelp')}
                             </Typography>
                           )}
                         </Grid>
@@ -2268,8 +2275,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         <Grid item xs={12}>
                           <TextField
                             size="small"
-                            label="Seed"
-                            placeholder="random"
+                            label={t('imagesBatch.seed.label')}
+                            placeholder={t('imagesBatch.seed.placeholder')}
                             value={seedText}
                             inputProps={{ inputMode: 'numeric' }}
                             onChange={(e) => setSeedText(e.target.value.replace(/\D/g, '').slice(0, String(IMAGE_MAX_SEED).length))}
@@ -2277,16 +2284,16 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           />
                           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                             {parseImageSeed(seedText) != null
-                              ? `The first image uses seed ${parseImageSeed(seedText)}, each next image the next number. Same prompt and settings give the same picture.`
+                              ? t('imagesBatch.seed.fixed', { seed: parseImageSeed(seedText) })
                               : seedText.trim()
-                                ? `Seeds go up to ${IMAGE_MAX_SEED}; this one is ignored.`
-                                : 'Blank: every image gets its own random seed. Open an image and press the dice to reuse its seed.'}
+                                ? t('imagesBatch.seed.tooLarge', { max: IMAGE_MAX_SEED })
+                                : t('imagesBatch.seed.blank')}
                           </Typography>
                         </Grid>
 
                         <Grid item xs={12}>
                           <Typography gutterBottom>
-                            Max Workers: {effectiveWorkers}
+                            {t('imagesBatch.workers.max', { count: effectiveWorkers })}
                           </Typography>
                           <Slider
                             value={effectiveWorkers}
@@ -2312,7 +2319,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                 onChange={(e) => setParams({ ...params, generate_thumbnails: e.target.checked })}
                               />
                             }
-                            label="Generate Thumbnails"
+                            label={t('imagesBatch.advanced.thumbnails')}
                           />
                         </Grid>
                       </Grid>
@@ -2328,8 +2335,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
                     <Hint>
                       {installNeed.blocks
-                        ? `Start is off: ${installName} is not installed.`
-                        : 'No image model is installed yet.'}
+                        ? t('imagesBatch.install.startOff', { model: installName })
+                        : t('imagesBatch.install.noModelShort')}
                     </Hint>
                     {installButton}
                   </Box>
@@ -2350,10 +2357,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     }}
                   >
                     {loading
-                      ? 'Queuing…'
+                      ? t('imagesBatch.actions.queuing')
                       : (queue.some((q) => POLLABLE_STATUSES.has(q.status))
-                        ? 'Add to Queue'
-                        : 'Start Generation')}
+                        ? t('imagesBatch.actions.addToQueue')
+                        : t('imagesBatch.actions.start'))}
                   </Button>
 
                   {activeBatch && POLLABLE_STATUSES.has(activeBatch.status) && (
@@ -2370,7 +2377,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         fontWeight: 600
                       }}
                     >
-                      Cancel
+                      {t('imagesBatch.actions.cancel')}
                     </Button>
                   )}
                 </Box>
@@ -2387,7 +2394,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Batch Queue
+                    {t('imagesBatch.queue.title')}
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center">
                     {queue.some((q) => TERMINAL_BATCH_STATUSES.has(q.status)) && (
@@ -2398,11 +2405,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         onClick={handleClearCompletedQueue}
                         sx={{ textTransform: 'none', borderRadius: 1 }}
                       >
-                        Clear Completed
+                        {t('imagesBatch.queue.clearCompleted')}
                       </Button>
                     )}
                     <Chip
-                      label={`${queue.filter((q) => POLLABLE_STATUSES.has(q.status)).length} active`}
+                      label={t('imagesBatch.queue.active', { count: queue.filter((q) => POLLABLE_STATUSES.has(q.status)).length })}
                       size="small"
                       color="primary"
                       variant="outlined"
@@ -2445,14 +2452,15 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                               {q.display_name || q.batch_id}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {done}/{total} images
-                              {q.failed_images > 0 ? ` (${q.failed_images} failed)` : ''}
+                              {q.failed_images > 0
+                                ? t('imagesBatch.queue.progressFailed', { done, total, failed: q.failed_images })
+                                : t('imagesBatch.queue.progress', { done, total })}
                             </Typography>
                           </Box>
                           <Chip label={(q.status || '').toUpperCase()} size="small" color={chipColor} />
                           {cancellable && (
                             <Tooltip
-                              title={q.status === 'running' ? 'Cancel running batch' : 'Remove from queue'}
+                              title={q.status === 'running' ? t('imagesBatch.queue.cancelRunning') : t('imagesBatch.queue.remove')}
                               arrow
                             >
                               <IconButton
@@ -2464,7 +2472,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                     setActiveBatch((prev) => (prev ? { ...prev, status: 'cancelled' } : prev));
                                   }
                                 }}
-                                aria-label="cancel batch"
+                                aria-label={t('imagesBatch.queue.cancelAria')}
                               >
                                 <CloseIcon fontSize="small" />
                               </IconButton>
@@ -2503,12 +2511,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       color: 'text.primary'
                     }}
                   >
-                    Current Progress
+                    {t('imagesBatch.progress.title')}
                   </Typography>
 
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="body2" color="text.secondary">
-                      Batch ID: {activeBatch.batch_id}
+                      {t('imagesBatch.progress.batchId', { id: activeBatch.batch_id })}
                     </Typography>
                     <Chip
                       label={activeBatch.status.toUpperCase()}
@@ -2522,7 +2530,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Box sx={{ mb: 2 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                       <Typography variant="body2">
-                        Progress: {activeBatch.completed_images || 0}/{activeBatch.total_images || 0}
+                        {t('imagesBatch.progress.count', { done: activeBatch.completed_images || 0, total: activeBatch.total_images || 0 })}
                       </Typography>
                       <Typography variant="body2">
                         {activeBatch.progress_percentage || 0}%
@@ -2542,7 +2550,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         variant="outlined"
                         size="small"
                       >
-                        Download Results
+                        {t('imagesBatch.progress.download')}
                       </Button>
                     )}
                     {['completed', 'error', 'cancelled'].includes(activeBatch.status) && (
@@ -2552,7 +2560,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         variant="outlined"
                         size="small"
                       >
-                        Adjust &amp; Retry
+                        {t('imagesBatch.progress.adjustRetry')}
                       </Button>
                     )}
                   </Box>
@@ -2577,7 +2585,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       color: 'text.primary'
                     }}
                   >
-                    Generated Images ({generatedImages.length || (activeBatch?.results?.filter(r => r.success && r.image_path).length || 0)})
+                    {t('imagesBatch.gallery.title', { count: generatedImages.length || (activeBatch?.results?.filter(r => r.success && r.image_path).length || 0) })}
                   </Typography>
 
                   <ImageList
@@ -2609,7 +2617,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                         <ImageListItem key={image.id}>
                           <img
                             src={thumbnailUrl}
-                            alt={image.prompt || 'Generated image'}
+                            alt={image.prompt || t('imagesBatch.gallery.generatedImage')}
                             loading="lazy"
                             decoding="async"
                             style={{ cursor: 'pointer' }}
@@ -2638,16 +2646,16 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             }}
                           />
                           <ImageListItemBar
-                            title={image.prompt ? image.prompt.substring(0, 30) + '...' : 'No prompt'}
+                            title={image.prompt ? image.prompt.substring(0, 30) + '...' : t('imagesBatch.gallery.noPrompt')}
                             subtitle={[
-                              image.metadata?.seed_used != null ? `Seed ${image.metadata.seed_used}` : null,
-                              image.rewrittenPrompt ? 'Rewritten before rendering; open to read it' : null,
+                              image.metadata?.seed_used != null ? t('imagesBatch.gallery.seed', { seed: image.metadata.seed_used }) : null,
+                              image.rewrittenPrompt ? t('imagesBatch.gallery.rewritten') : null,
                             ].filter(Boolean).join(' · ') || undefined}
                             actionIcon={
                               <IconButton
                                 sx={{ color: 'rgba(255, 255, 255, 0.54)' }}
                                 onClick={() => openImageViewer(image)}
-                                aria-label={`View full image: ${image.prompt || 'Generated image'}`}
+                                aria-label={t('imagesBatch.gallery.viewFull', { name: image.prompt || t('imagesBatch.gallery.generatedImage') })}
                               >
                                 <Visibility />
                               </IconButton>
@@ -2670,7 +2678,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  Recent Batches
+                  {t('imagesBatch.history.title')}
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center">
                   {batchHistory.length > 0 && (
@@ -2681,10 +2689,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                       onClick={handleClearBatchList}
                       sx={{ textTransform: 'none', borderRadius: 1 }}
                     >
-                      Clear Batch List
+                      {t('imagesBatch.history.clear')}
                     </Button>
                   )}
-                  <IconButton size="small" onClick={loadBatchHistory} title="Refresh batches">
+                  <IconButton size="small" onClick={loadBatchHistory} title={t('imagesBatch.history.refresh')}>
                     <RefreshIcon />
                   </IconButton>
                 </Stack>
@@ -2711,16 +2719,16 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Alert
                     severity="error"
                     sx={{ mb: 1 }}
-                    action={<Button color="inherit" size="small" onClick={loadBatchHistory}>Retry</Button>}
+                    action={<Button color="inherit" size="small" onClick={loadBatchHistory}>{t('imagesBatch.history.retry')}</Button>}
                   >
-                    Recent batches could not be loaded: {historyError}
+                    {t('imagesBatch.history.loadFailed', { reason: historyError })}
                   </Alert>
                 )}
                 {batchHistory.length === 0 && !historyError && (
                   <Box sx={{ textAlign: 'center', py: 4 }}>
                     <ImageIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
                     <Typography variant="body2" color="text.secondary">
-                      No image batches found
+                      {t('imagesBatch.history.empty')}
                     </Typography>
                   </Box>
                 )}
@@ -2735,11 +2743,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         <ImageLightbox
           imageUrl={lightboxImage.url}
           imageName={lightboxImage.name}
-          caption={lightboxImage.caption}
+          caption={lightboxImage.rewrittenPrompt ? t('imagesBatch.lightbox.sentToModel', { prompt: lightboxImage.rewrittenPrompt }) : ''}
           seed={lightboxImage.seed}
           onUseSeed={(s) => {
             setSeedText(String(s));
-            setSuccess(`Seed ${s} is in the Seed box. Clear it to get random seeds again.`);
+            setSuccess(t('imagesBatch.lightbox.seedUsed', { seed: s }));
           }}
           onClose={closeLightbox}
           onPrev={handleLightboxPrev}
@@ -2758,11 +2766,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         fullWidth
       >
         <DialogTitle>
-          Preview Generated Prompts ({uniquePromptCount}{quantity > 1 ? ` × ${quantity}` : ''})
+          {quantity > 1
+            ? t('imagesBatch.preview.titleQuantity', { count: uniquePromptCount, quantity })
+            : t('imagesBatch.preview.title', { count: uniquePromptCount })}
         </DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            These are the final prompts that will be sent to the image generator:
+            {t('imagesBatch.preview.intro')}
           </Typography>
           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
             {/* Same list startGeneration submits (Look & Feel appended, quantity applied). */}
@@ -2786,7 +2796,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowPromptPreview(false)}>Close</Button>
+          <Button onClick={() => setShowPromptPreview(false)}>{t('imagesBatch.preview.close')}</Button>
         </DialogActions>
       </Dialog>
       <React.Suspense fallback={null}>

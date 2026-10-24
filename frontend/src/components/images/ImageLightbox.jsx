@@ -14,6 +14,7 @@ import {
 } from '@mui/icons-material';
 import ImageEditor from './ImageEditor';
 import { guardedMediaSrc } from '../../utils/assetGuard';
+import { useUiTranslation } from '../../i18n';
 
 const ImageLightbox = ({
   imageUrl,
@@ -34,6 +35,7 @@ const ImageLightbox = ({
   hasNext = false,
   initialEditMode = false,
 }) => {
+  const { t } = useUiTranslation();
   const [editMode, setEditMode] = useState(initialEditMode);
 
   const handleKeyDown = useCallback((e) => {
@@ -122,22 +124,22 @@ const ImageLightbox = ({
         </Box>
         <Box sx={{ flexShrink: 0 }}>
           {documentId && (
-            <Tooltip title="Edit image (E)">
+            <Tooltip title={t('images.lightbox.edit')}>
               <IconButton onClick={() => setEditMode(true)} sx={{ color: 'white' }} size="small">
                 <EditIcon />
               </IconButton>
             </Tooltip>
           )}
           {onPublish && (
-            <Tooltip title="Share / Publish (S)">
+            <Tooltip title={t('images.lightbox.publish')}>
               <IconButton onClick={onPublish} sx={{ color: 'white' }} size="small">
                 <ShareIcon />
               </IconButton>
             </Tooltip>
           )}
           {seed != null && onUseSeed && (
-            <Tooltip title={`Use this image's seed (${seed})`}>
-              <IconButton onClick={() => onUseSeed(seed)} sx={{ color: 'white' }} size="small" aria-label={`Use seed ${seed}`}>
+            <Tooltip title={t('images.lightbox.useSeedTooltip', { seed })}>
+              <IconButton onClick={() => onUseSeed(seed)} sx={{ color: 'white' }} size="small" aria-label={t('images.lightbox.useSeed', { seed })}>
                 <SeedIcon />
               </IconButton>
             </Tooltip>

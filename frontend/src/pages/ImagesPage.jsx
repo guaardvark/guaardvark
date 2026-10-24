@@ -70,6 +70,7 @@ import { useSnackbar } from '../components/common/SnackbarProvider';
 import { formatUiError } from '../utils/uiError';
 import { ContextualLoader } from '../components/common/LoadingStates';
 import { useStatus } from '../contexts/StatusContext';
+import { uiLocale, useUiTranslation } from '../i18n';
 import axios from 'axios';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -99,6 +100,7 @@ const ICON_GRID_H = 100;
 const ICON_GRID_PAD = 20;
 
 const ImagesPage = () => {
+  const { t } = useUiTranslation();
   const { gridSettings } = useLayout();
   const { RGL_WIDTH_PROP_PX } = gridSettings;
   const { showMessage } = useSnackbar();
@@ -246,7 +248,7 @@ const ImagesPage = () => {
       setRootFolders([]);
       setRootFiles([]);
       if (err?.response?.status !== 404) {
-        showMessage?.(`Images could not be loaded: ${formatUiError(err?.response?.data) || formatUiError(err) || 'the request failed'}`, 'error');
+        showMessage?.(t('images.library.loadFailed', { error: formatUiError(err?.response?.data) || formatUiError(err) || t('images.library.requestFailed') }), 'error');
       }
       return { folders: [], files: [] };
     } finally {
@@ -384,7 +386,7 @@ const ImagesPage = () => {
       });
     } catch (err) {
       if (isMountedRef.current) {
-        showMessage?.('Failed to refresh images', 'error');
+        showMessage?.(t('images.library.refreshFailed'), 'error');
       }
     }
   }, [showMessage]);
@@ -505,7 +507,7 @@ const ImagesPage = () => {
     const target = playlist[Math.max(0, idx)] || { video_path: videoPath };
     setVideoPlayer({
       url: `${VIDEO_API_BASE}/video/${batchId}/${target.video_path}`,
-      title: target.video_path?.split('/').pop() || 'Video',
+      title: target.video_path?.split('/').pop() || null,
       batchId,
       playlist,
       currentIndex: Math.max(0, idx),
@@ -553,12 +555,12 @@ const ImagesPage = () => {
           delete next[batchId];
           return next;
         });
-        showMessage?.('Video batch deleted', 'success');
+        showMessage?.(t('images.video.batchDeleted'), 'success');
       } else {
-        showMessage?.('Failed to delete batch', 'error');
+        showMessage?.(t('images.video.deleteFailed'), 'error');
       }
     } catch (err) {
-      showMessage?.('Failed to delete batch', 'error');
+      showMessage?.(t('images.video.deleteFailed'), 'error');
     }
     setVideoDeleteConfirm(null);
   }, [showMessage]);
@@ -577,7 +579,7 @@ const ImagesPage = () => {
     if (!isoString) return '';
     try {
       const d = new Date(isoString);
-      return d.toLocaleString(undefined, {
+      return d.toLocaleString(uiLocale(), {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
       });
     } catch { return ''; }
@@ -932,13 +934,13 @@ const ImagesPage = () => {
         name: newFolderName,
         parent_path: newFolderParent,
       });
-      showMessage?.(`Folder "${newFolderName}" created`, 'success');
+      showMessage?.(t('images.library.folderCreated', { name: newFolderName }), 'success');
       setNewFolderOpen(false);
       setNewFolderName('');
       await refreshData();
       refreshOpenWindows();
     } catch (err) {
-      showMessage?.('Failed to create folder', 'error');
+      showMessage?.(t('images.library.createFolderFailed'), 'error');
     }
   }, [newFolderName, newFolderParent, showMessage, refreshData, refreshOpenWindows]);
 
@@ -947,13 +949,13 @@ const ImagesPage = () => {
   const handleCopy = useCallback(() => {
     setClipboard({ items: Array.from(selectedItems), operation: 'copy' });
     setContextMenu(null);
-    showMessage?.(`Copied ${selectedItems.size} item(s)`, 'info');
+    showMessage?.(t('images.library.copied', { count: selectedItems.size }), 'info');
   }, [selectedItems, showMessage]);
 
   const handleCut = useCallback(() => {
     setClipboard({ items: Array.from(selectedItems), operation: 'cut' });
     setContextMenu(null);
-    showMessage?.(`Cut ${selectedItems.size} item(s)`, 'info');
+    showMessage?.(t('images.library.cut', { count: selectedItems.size }), 'info');
   }, [selectedItems, showMessage]);
 
   const handlePaste = useCallback(async (targetOverride = null) => {
@@ -997,7 +999,7 @@ const ImagesPage = () => {
           }
         }
       }
-      showMessage?.(`${clipboard.operation === 'copy' ? 'Pasted' : 'Moved'} ${clipboard.items.length} item(s)`, 'success');
+      showMessage?.(clipboard.operation === 'copy' ? t('images.library.pasted', { count: clipboard.items.length }) : t('images.library.moved', { count: clipboard.items.length }), 'success');
       setClipboard(null);
 
       await refreshData();
@@ -1009,7 +1011,7 @@ const ImagesPage = () => {
         return updated;
       });
     } catch (err) {
-      showMessage?.(`${clipboard.operation === 'copy' ? 'Paste' : 'Move'} failed`, 'error');
+      showMessage?.(clipboard.operation === 'copy' ? t('images.library.pasteFailed') : t('images.library.moveFailed'), 'error');
     }
   }, [clipboard, windows, showMessage, contextMenuType, contextMenuItem, refreshData]);
 
@@ -1034,11 +1036,11 @@ const ImagesPage = () => {
           await axios.delete(`${API_BASE}/document/${id}`);
         }
       }
-      showMessage?.(`Deleted ${selectedItems.size} item(s)`, 'success');
+      showMessage?.(t('images.library.deleted', { count: selectedItems.size }), 'success');
       setSelectedItems(new Set());
       await refreshData();
     } catch (err) {
-      showMessage?.('Delete failed', 'error');
+      showMessage?.(t('images.library.deleteFailed'), 'error');
     }
   }, [selectedItems, showMessage, refreshData]);
 
@@ -1081,19 +1083,19 @@ const ImagesPage = () => {
         await axios.put(`${API_BASE}/folder/${renameItem.item.id}`, {
           name: renameName.trim(),
         });
-        showMessage?.(`Folder renamed to "${renameName.trim()}"`, 'success');
+        showMessage?.(t('images.library.folderRenamed', { name: renameName.trim() }), 'success');
       } else {
         await axios.put(`${API_BASE}/document/${renameItem.item.id}`, {
           filename: renameName.trim(),
         });
-        showMessage?.(`File renamed to "${renameName.trim()}"`, 'success');
+        showMessage?.(t('images.library.fileRenamed', { name: renameName.trim() }), 'success');
       }
       setRenameDialogOpen(false);
       setRenameItem(null);
       setRenameName('');
       await refreshData();
     } catch (err) {
-      showMessage?.('Rename failed', 'error');
+      showMessage?.(t('images.library.renameFailed'), 'error');
     }
   }, [renameItem, renameName, showMessage, refreshData]);
 
@@ -1122,7 +1124,7 @@ const ImagesPage = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showMessage?.(`Downloading ${item.filename || item.name}`, 'info');
+    showMessage?.(t('images.library.downloading', { name: item.filename || item.name }), 'info');
   }, [contextMenuItem, contextMenuType, showMessage]);
 
   // ──────────────────── Lightbox ────────────────────
@@ -1341,7 +1343,7 @@ const ImagesPage = () => {
       }
 
       if (successCount > 0) {
-        showMessage?.(`Moved ${successCount} item(s)`, 'success');
+        showMessage?.(t('images.library.moved', { count: successCount }), 'success');
         setSelectedItems(new Set());
         await refreshData();
         setFolderRefreshKeys(prev => {
@@ -1354,12 +1356,12 @@ const ImagesPage = () => {
       }
       if (moveFailures.length) {
         showMessage?.(
-          `${moveFailures.length} item(s) could not be moved — ${moveFailures.slice(0, 3).join('; ')}`,
+          t('images.library.moveFailures', { count: moveFailures.length, details: moveFailures.slice(0, 3).join('; ') }),
           'error',
         );
       }
     } catch (err) {
-      showMessage?.('Move failed', 'error');
+      showMessage?.(t('images.library.moveFailed'), 'error');
     } finally {
       setTimeout(() => { dragDropHandledRef.current = false; }, 100);
     }
@@ -1608,9 +1610,9 @@ const ImagesPage = () => {
 
   if (loading && activeTab === MEDIA_LIBRARY_TAB) {
     return (
-      <PageLayout title="Media">
+      <PageLayout title={t('images.library.pageTitle')}>
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
-          <ContextualLoader loading message="Loading images..." showProgress={false} inline />
+          <ContextualLoader loading message={t('images.shared.loadingImages')} showProgress={false} inline />
         </Box>
       </PageLayout>
     );
@@ -1618,12 +1620,12 @@ const ImagesPage = () => {
 
   return (
     <PageLayout
-      title="Media"
+      title={t('images.library.pageTitle')}
       variant="grid"
       noPadding
       actions={activeTab === MEDIA_LIBRARY_TAB ? (
         <>
-          <Tooltip title={desktopViewMode === 'icons' ? 'List View' : 'Icon View'}>
+          <Tooltip title={desktopViewMode === 'icons' ? t('images.library.listView') : t('images.library.iconView')}>
             <IconButton
               size="small"
               sx={{ opacity: 0.6 }}
@@ -1633,14 +1635,14 @@ const ImagesPage = () => {
             </IconButton>
           </Tooltip>
           {desktopViewMode === 'icons' && (
-            <Tooltip title="Arrange Icons">
+            <Tooltip title={t('images.shared.arrangeIcons')}>
               <IconButton size="small" sx={{ opacity: 0.6 }} onClick={handleArrangeIcons}>
                 <GridViewIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
           {activeWindows.length > 0 && (
-            <Tooltip title="Arrange Windows">
+            <Tooltip title={t('images.shared.arrangeWindows')}>
               <IconButton size="small" sx={{ opacity: 0.6 }} onClick={handleArrangeWindows}>
                 <AppsIcon fontSize="small" />
               </IconButton>
@@ -1674,7 +1676,7 @@ const ImagesPage = () => {
             zIndex: 10, position: 'relative', bgcolor: 'background.paper',
           }}>
             <Typography variant="subtitle2" sx={{ mr: 1 }}>
-              {rootFolders.length} folder{rootFolders.length !== 1 ? 's' : ''}, {rootFiles.length} image{rootFiles.length !== 1 ? 's' : ''}
+              {t('images.library.summary', { folders: t('images.library.folderCount', { count: rootFolders.length }), images: t('images.shared.imageCount', { count: rootFiles.length }) })}
             </Typography>
             <Box sx={{ flexGrow: 1 }} />
           </Box>
@@ -1701,10 +1703,10 @@ const ImagesPage = () => {
                 }}>
                   <BrandLogo size={64} sx={{ opacity: 0.4 }} />
                   <Typography variant="h6" color="text.secondary">
-                    No images yet
+                    {t('images.library.emptyTitle')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Generate images from the Image Gen tab or right-click to create a folder
+                    {t('images.library.emptyHint')}
                   </Typography>
                 </Box>
               )}
@@ -1760,7 +1762,7 @@ const ImagesPage = () => {
                         </Typography>
                         {itemCount > 0 && (
                           <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                            {itemCount} item{itemCount !== 1 ? 's' : ''}
+                            {t('images.library.itemCount', { count: itemCount })}
                           </Typography>
                         )}
                       </Box>
@@ -1924,7 +1926,7 @@ const ImagesPage = () => {
                           </Tooltip>
                           {itemCount > 0 && (
                             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', lineHeight: 1.2 }}>
-                              {itemCount} item{itemCount !== 1 ? 's' : ''}
+                              {t('images.library.itemCount', { count: itemCount })}
                             </Typography>
                           )}
                         </CardContent>
@@ -2165,12 +2167,12 @@ const ImagesPage = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <VideocamIcon sx={{ fontSize: 20 }} />
-                Videos
+                {t('images.video.heading')}
                 <Chip label={videoCards.length} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5 }}>
                 <Button size="small" variant="outlined" startIcon={<VideoIcon />} onClick={() => window.open('/video', '_self')}>
-                  Generate
+                  {t('images.shared.generate')}
                 </Button>
                 <IconButton size="small" onClick={refreshVideos} disabled={videoLoading}>
                   <RefreshIcon fontSize="small" />
@@ -2415,12 +2417,12 @@ const ImagesPage = () => {
           onEntered: () => { newFolderInputRef.current?.focus(); },
         }}
       >
-        <DialogTitle>Create New Folder</DialogTitle>
+        <DialogTitle>{t('images.library.newFolderTitle')}</DialogTitle>
         <DialogContent>
           <TextField
             inputRef={newFolderInputRef}
             autoFocus
-            label="Folder Name"
+            label={t('images.library.folderName')}
             fullWidth
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
@@ -2428,8 +2430,8 @@ const ImagesPage = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setNewFolderOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateFolder} variant="contained">Create</Button>
+          <Button onClick={() => setNewFolderOpen(false)}>{t('images.shared.cancel')}</Button>
+          <Button onClick={handleCreateFolder} variant="contained">{t('images.library.create')}</Button>
         </DialogActions>
       </Dialog>
 
@@ -2457,12 +2459,12 @@ const ImagesPage = () => {
           },
         }}
       >
-        <DialogTitle>Rename {renameItem?.type === 'folder' ? 'Folder' : 'Image'}</DialogTitle>
+        <DialogTitle>{renameItem?.type === 'folder' ? t('images.library.renameFolder') : t('images.shared.renameImage')}</DialogTitle>
         <DialogContent>
           <TextField
             inputRef={renameInputRef}
             autoFocus
-            label={renameItem?.type === 'folder' ? 'Folder Name' : 'File Name'}
+            label={renameItem?.type === 'folder' ? t('images.library.folderName') : t('images.library.fileName')}
             fullWidth
             value={renameName}
             onChange={(e) => setRenameName(e.target.value)}
@@ -2470,25 +2472,25 @@ const ImagesPage = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRenameDialogOpen(false)}>Cancel</Button>
+          <Button onClick={() => setRenameDialogOpen(false)}>{t('images.shared.cancel')}</Button>
           <Button onClick={handleRenameSubmit} variant="contained" disabled={!renameName.trim()}>
-            Rename
+            {t('images.shared.rename')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+        <DialogTitle>{t('images.library.confirmDeleteTitle')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Delete {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''}? This action cannot be undone.
+            {t('images.library.confirmDelete', { count: selectedItems.size })}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>{t('images.shared.cancel')}</Button>
           <Button onClick={handleDeleteConfirm} variant="contained" color="error">
-            Delete
+            {t('images.shared.delete')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2520,6 +2522,8 @@ const ImagesPage = () => {
       >
         {videoPlayer && (() => {
           const { playlist, currentIndex, batchId } = videoPlayer;
+          const title = videoPlayer.title
+            || (videoPlayer.titleNumber ? t('images.video.numbered', { number: videoPlayer.titleNumber }) : t('images.video.untitled'));
           const hasPrev = currentIndex > 0;
           const hasNext = currentIndex < playlist.length - 1;
           const navigateTo = (idx) => {
@@ -2528,7 +2532,8 @@ const ImagesPage = () => {
               ...prev,
               url: r.url || `${VIDEO_API_BASE}/video/${batchId}/${r.video_path}`,
               currentIndex: idx,
-              title: r.title || r.video_path?.split('/').pop() || `Video ${idx + 1}`,
+              title: r.title || r.video_path?.split('/').pop() || null,
+              titleNumber: idx + 1,
               downloadName: r.download_name,
             }));
           };
@@ -2536,7 +2541,7 @@ const ImagesPage = () => {
             <>
               <DialogTitle sx={{ color: 'grey.300', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2 }}>
                 <Typography variant="subtitle2" noWrap sx={{ flex: 1, mr: 2, color: 'grey.400' }}>
-                  {videoPlayer.title}
+                  {title}
                   <Typography component="span" variant="caption" sx={{ ml: 1, color: 'grey.600' }}>
                     {currentIndex + 1} / {playlist.length}
                   </Typography>
@@ -2608,7 +2613,7 @@ const ImagesPage = () => {
                           }}
                         >
                           {thumbUrl ? (
-                            <Box component="img" src={thumbUrl} alt={`Video ${idx + 1}`}
+                            <Box component="img" src={thumbUrl} alt={t('images.video.numbered', { number: idx + 1 })}
                               sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                               onError={(e) => { e.target.style.display = 'none'; }}
                             />
@@ -2626,23 +2631,23 @@ const ImagesPage = () => {
               <DialogActions sx={{ justifyContent: 'space-between', px: 2, py: 1 }}>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button size="small" disabled={!hasPrev} onClick={() => navigateTo(currentIndex - 1)}>
-                    Previous
+                    {t('images.video.previous')}
                   </Button>
                   <Button size="small" disabled={!hasNext} onClick={() => navigateTo(currentIndex + 1)}>
-                    Next
+                    {t('images.video.next')}
                   </Button>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <Button size="small" onClick={() => window.open(videoPlayer.url, '_blank')} startIcon={<OpenInNewIcon />}>
-                    Open
+                    {t('images.video.open')}
                   </Button>
                   <Button size="small" onClick={() => {
                     const a = document.createElement('a');
                     a.href = videoPlayer.url;
-                    a.download = videoPlayer.downloadName || videoPlayer.title;
+                    a.download = videoPlayer.downloadName || title;
                     a.click();
                   }} startIcon={<DownloadIcon />}>
-                    Download
+                    {t('images.shared.download')}
                   </Button>
                 </Box>
               </DialogActions>
@@ -2653,20 +2658,20 @@ const ImagesPage = () => {
 
       {/* Video Delete Confirmation Dialog */}
       <Dialog open={Boolean(videoDeleteConfirm)} onClose={() => setVideoDeleteConfirm(null)}>
-        <DialogTitle>Delete Video Batch</DialogTitle>
+        <DialogTitle>{t('images.video.deleteTitle')}</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to delete this video batch? This action cannot be undone.
+            {t('images.video.deleteConfirm')}
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setVideoDeleteConfirm(null)}>Cancel</Button>
+          <Button onClick={() => setVideoDeleteConfirm(null)}>{t('images.shared.cancel')}</Button>
           <Button
             onClick={() => handleDeleteVideoBatch(videoDeleteConfirm)}
             variant="contained"
             color="error"
           >
-            Delete
+            {t('images.shared.delete')}
           </Button>
         </DialogActions>
       </Dialog>

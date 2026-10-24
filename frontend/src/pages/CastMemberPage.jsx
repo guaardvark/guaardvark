@@ -28,6 +28,7 @@ import EntityContextMenu from '../components/common/EntityContextMenu';
 import useContextMenu from '../hooks/useContextMenu';
 import useServerSyncedForm from '../hooks/useServerSyncedForm';
 import useUnsavedChangesGuard from '../hooks/useUnsavedChangesGuard';
+import { translate, useUiTranslation, Trans } from '../i18n';
 
 const POLL_MS = 5000;
 const POLL_CAP = 180; // 15 min safety cap on a generate/train poll loop
@@ -55,22 +56,22 @@ const overviewFromSubject = (subject) => ({
   bible: subject.bible || '',
 });
 
-const OVERVIEW_LABELS = {
-  name: 'Name',
-  trigger_word: 'Trigger word',
-  voice_id: 'Voice',
-  description: 'Description',
-  bible: 'Identity bible',
-};
+const overviewLabels = () => ({
+  name: translate('cast.fields.name'),
+  trigger_word: translate('cast.fields.triggerWord'),
+  voice_id: translate('cast.fields.voice'),
+  description: translate('cast.fields.description'),
+  bible: translate('cast.fields.bible'),
+});
 
-const TRAINING_LABELS = {
-  base_model_id: 'Train base',
-  resolution: 'Resolution',
-  rank: 'LoRA rank',
-  alpha: 'LoRA alpha',
-  learning_rate: 'Learning rate',
-  steps: 'Steps',
-};
+const trainingLabels = () => ({
+  base_model_id: translate('cast.fields.trainBase'),
+  resolution: translate('cast.fields.resolution'),
+  rank: translate('cast.fields.rank'),
+  alpha: translate('cast.fields.alpha'),
+  learning_rate: translate('cast.fields.learningRate'),
+  steps: translate('cast.fields.steps'),
+});
 
 const DEFAULT_TRAINING_SETTINGS = {
   resolution: 768,
@@ -110,18 +111,18 @@ const StatusChip = ({ status }) => {
 
 /** Training-lifecycle chip for a generated sample (approved / training / trained). */
 const sampleTrainStatus = (sample, subject) => {
-  if (sample.promoted_to_training) return { label: 'trained', color: 'success' };
+  if (sample.promoted_to_training) return { label: translate('cast.trainStatus.trained'), color: 'success' };
   if (!sample.approved || sample.status !== 'done') return null;
-  if (subject?.training_status === 'training') return { label: 'training', color: 'warning' };
-  return { label: 'approved', color: 'info' };
+  if (subject?.training_status === 'training') return { label: translate('cast.trainStatus.training'), color: 'warning' };
+  return { label: translate('cast.trainStatus.approved'), color: 'info' };
 };
 
 /** Training-lifecycle chip for a durable ref path on Training Data. */
 const refTrainStatus = (path, subject) => {
   const last = subject?.last_trained_image_paths || [];
-  if (path && last.includes(path)) return { label: 'trained', color: 'success' };
-  if (subject?.training_status === 'training') return { label: 'training', color: 'warning' };
-  return { label: 'ref', color: 'default' };
+  if (path && last.includes(path)) return { label: translate('cast.trainStatus.trained'), color: 'success' };
+  if (subject?.training_status === 'training') return { label: translate('cast.trainStatus.training'), color: 'warning' };
+  return { label: translate('cast.trainStatus.ref'), color: 'default' };
 };
 
 const TrainStatusChip = ({ status }) => {
@@ -138,6 +139,7 @@ const TrainStatusChip = ({ status }) => {
 };
 
 const CastMemberPage = () => {
+  const { t } = useUiTranslation();
   const { subjectId } = useParams();
   const navigate = useNavigate();
 
@@ -191,7 +193,7 @@ const CastMemberPage = () => {
       setImportFile(null);
       setImportTrigger('');
     } catch (e) {
-      setImportError(formatUiError(e.response?.data?.error) || 'Import failed.');
+      setImportError(formatUiError(e.response?.data?.error) || t('cast.errors.importFailed'));
     } finally {
       setImportBusy(false);
     }
@@ -209,7 +211,7 @@ const CastMemberPage = () => {
       const res = await makeDefaultSubjectLora(subject.id, baseModelId);
       setSubject(res.subject);
     } catch (e) {
-      setMakeDefaultError(formatUiError(e.response?.data?.error) || 'Could not make this the default.');
+      setMakeDefaultError(formatUiError(e.response?.data?.error) || t('cast.errors.makeDefaultFailed'));
     } finally {
       setMakingDefaultBase(null);
     }
@@ -328,7 +330,7 @@ const CastMemberPage = () => {
       try {
         const { subject: s, samples: rows, stale } = await refreshAll({ reset: true });
         if (!alive || stale) return;
-        if (!s) setError('Subject not found.');
+        if (!s) setError(t('cast.errors.notFound'));
         // If a generation/regeneration is already in flight when we land on the
         // page (e.g. after a refresh), auto-resume polling so finished images
         // appear without a manual reload.
@@ -340,7 +342,7 @@ const CastMemberPage = () => {
           setPolling(true);
         }
       } catch (e) {
-        if (alive) setError('Failed to load this cast member.');
+        if (alive) setError(t('cast.errors.loadFailed'));
       } finally {
         if (alive) setLoading(false);
       }
@@ -509,7 +511,7 @@ const CastMemberPage = () => {
       await loadSubject();
       setSavedNote(true);
     } catch (e) {
-      setError(formatUiError(e.response?.data?.error) || 'Failed to save changes.');
+      setError(formatUiError(e.response?.data?.error) || t('cast.errors.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -518,11 +520,11 @@ const CastMemberPage = () => {
   const handleRebuildBible = async () => {
     const refs = subject?.ref_image_paths || [];
     if (!refs.length) {
-      setError('Upload reference photos on Training Data first, then sync identity from photos.');
+      setError(t('cast.errors.noRefsForSync'));
       return;
     }
     if (overview.dirty.includes('bible') && !window.confirm(
-      'Sync identity from photos rewrites the identity bible, replacing your unsaved edits to it. Continue?',
+      t('cast.overview.syncConfirm'),
     )) {
       return;
     }
@@ -542,7 +544,7 @@ const CastMemberPage = () => {
       setError(
         e.response?.data?.message
         || formatUiError(e.response?.data?.error)
-        || 'Sync identity from photos failed (is Ollama up?).',
+        || t('cast.errors.syncFailed'),
       );
     } finally {
       setRebuildingBible(false);
@@ -554,11 +556,7 @@ const CastMemberPage = () => {
     // approved keepers. Guard against accidental loss (the append flow exists
     // precisely so users don't have to wipe to add more).
     if (approvedCount > 0) {
-      const ok = window.confirm(
-        `Re-plan will discard the current sheet, including your ${approvedCount} approved ` +
-        `sample${approvedCount > 1 ? 's' : ''}. To ADD more without losing these, use ` +
-        `"Generate additional" instead.\n\nRe-plan from scratch anyway?`
-      );
+      const ok = window.confirm(t('cast.generate.replanConfirm', { count: approvedCount }));
       if (!ok) return;
     }
     setPlanning(true); setError(null);
@@ -571,7 +569,7 @@ const CastMemberPage = () => {
       // Training Data keepers.
       await refreshAll();
     } catch (e) {
-      setError(formatUiError(e.response?.data?.error) || 'Planning failed (the LLM may be offline).');
+      setError(formatUiError(e.response?.data?.error) || t('cast.errors.planFailed'));
     } finally {
       setPlanning(false);
     }
@@ -593,7 +591,7 @@ const CastMemberPage = () => {
       startPolling();
     } catch (e) {
       setGenerateActive(false);
-      setError(formatUiError(e.response?.data?.error) || 'Failed to start sample generation.');
+      setError(formatUiError(e.response?.data?.error) || t('cast.errors.generateFailed'));
     } finally {
       setBusy(false);
     }
@@ -612,7 +610,7 @@ const CastMemberPage = () => {
       startPolling();
     } catch (e) {
       setGenerateActive(false);
-      setError(formatUiError(e.response?.data?.error) || 'Failed to regenerate sample.');
+      setError(formatUiError(e.response?.data?.error) || t('cast.errors.regenerateFailed'));
     }
   };
 
@@ -621,7 +619,7 @@ const CastMemberPage = () => {
       await approveSamples(subjectId, [sample.id], !sample.approved);
       await loadSamples();
     } catch (e) {
-      setError(formatUiError(e.response?.data?.error) || 'Failed to update approval.');
+      setError(formatUiError(e.response?.data?.error) || t('cast.errors.approvalFailed'));
     }
   };
 
@@ -636,7 +634,7 @@ const CastMemberPage = () => {
       });
       await loadSamples();
     } catch (e) {
-      setError(formatUiError(e.response?.data?.error) || 'Failed to delete sample.');
+      setError(formatUiError(e.response?.data?.error) || t('cast.errors.deleteSampleFailed'));
     }
   };
 
@@ -650,7 +648,7 @@ const CastMemberPage = () => {
       await approveSamples(subjectId, ids, true);
       await loadSamples();
     } catch (e) {
-      setError(formatUiError(e.response?.data?.error) || 'Failed to approve set.');
+      setError(formatUiError(e.response?.data?.error) || t('cast.errors.approveAllFailed'));
     }
   };
 
@@ -680,7 +678,7 @@ const CastMemberPage = () => {
       await loadSubject();
       setTrainingSettingsSaved(true);
     } catch (e) {
-      setError(formatUiError(e.response?.data?.error) || 'Failed to save training settings.');
+      setError(formatUiError(e.response?.data?.error) || t('cast.errors.saveTrainingFailed'));
     } finally {
       setSavingTrainingSettings(false);
     }
@@ -688,10 +686,7 @@ const CastMemberPage = () => {
 
   const handleTrainClick = () => {
     if (subject?.training_settings_json?.imported) {
-      const ok = window.confirm(
-        'This character currently uses an imported LoRA. Training will replace it '
-        + 'with a new one trained from Cast reference images. Continue?'
-      );
+      const ok = window.confirm(t('cast.trainingData.replaceImportedConfirm'));
       if (!ok) return;
     }
     handleTrain();
@@ -714,12 +709,12 @@ const CastMemberPage = () => {
     } catch (e) {
       const data = e.response?.data;
       if (data?.error === 'train_base_not_ready') {
-        setError(data.message || data.train_status_note || 'Train base not ready for this model.');
+        setError(data.message || data.train_status_note || t('cast.errors.trainBaseNotReady'));
       } else {
         setError(
           (typeof data?.error === 'string' ? data.error : null)
           || data?.message
-          || (e.response?.status === 409 ? 'Already training.' : 'Failed to start training.'),
+          || (e.response?.status === 409 ? t('cast.errors.alreadyTraining') : t('cast.errors.trainFailed')),
         );
       }
     } finally {
@@ -734,7 +729,7 @@ const CastMemberPage = () => {
       setTrainingJob(null);
       await loadSubject();
     } catch (e) {
-      setError(e.response?.data?.reason || formatUiError(e.response?.data?.error) || 'Failed to cancel training.');
+      setError(e.response?.data?.reason || formatUiError(e.response?.data?.error) || t('cast.errors.cancelTrainFailed'));
     } finally {
       setBusy(false);
     }
@@ -754,7 +749,7 @@ const CastMemberPage = () => {
         await loadSamples();
         setPolling(false);
       } else {
-        setError(data?.reason || data?.error || 'Failed to cancel generation.');
+        setError(data?.reason || data?.error || t('cast.errors.cancelGenerateFailed'));
       }
     } finally {
       setBusy(false);
@@ -767,8 +762,8 @@ const CastMemberPage = () => {
   if (!subject) {
     return (
       <Box sx={{ p: 3 }}>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/cast')}>Back to studio</Button>
-        <Alert severity="error" sx={{ mt: 2 }}>{error || 'Subject not found.'}</Alert>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/cast')}>{t('cast.page.backToStudio')}</Button>
+        <Alert severity="error" sx={{ mt: 2 }}>{error || t('cast.errors.notFound')}</Alert>
       </Box>
     );
   }
@@ -799,7 +794,7 @@ const CastMemberPage = () => {
   const currentPoolSize = refCount + approvedCount;
   const hasPendingAmend = lastTrainedCount > 0 && currentPoolSize > lastTrainedCount;
   const trainingStatusLabel = hasPendingAmend && subject.training_status === 'trained'
-    ? 'trained (pending amend)'
+    ? t('cast.trainingData.trainedPendingAmend')
     : subject.training_status;
 
   // Approved generated samples still awaiting promotion — shown on Training Data
@@ -809,7 +804,7 @@ const CastMemberPage = () => {
     .map((s) => ({
       key: `sample-${s.id}`,
       src: s.image_url,
-      name: s.angle || `Sample ${s.index + 1}`,
+      name: s.angle || t('cast.generate.sampleName', { number: s.index + 1 }),
       status: sampleTrainStatus(s, subject),
     }));
 
@@ -826,7 +821,7 @@ const CastMemberPage = () => {
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <IconButton onClick={() => navigate('/cast')} aria-label="back to studio"><ArrowBackIcon /></IconButton>
+        <IconButton onClick={() => navigate('/cast')} aria-label={t('cast.page.backAria')}><ArrowBackIcon /></IconButton>
         <Typography variant="h5" sx={{ fontWeight: 600 }}>{subject.name}</Typography>
         <Chip label={subject.kind} size="small" variant="outlined" />
         <Chip label={subject.training_status} size="small"
@@ -838,11 +833,11 @@ const CastMemberPage = () => {
         <Tooltip
           title={
             subject.train_status_note ||
-            'LoRA train/inference base from Settings → Media models. Must match family at generate time.'
+            t('cast.page.baseTooltip')
           }
         >
           <Chip
-            label={subject.base_model_name || subject.base_model_id || 'base ?'}
+            label={subject.base_model_name || subject.base_model_id || t('cast.page.baseUnknown')}
             size="small"
             color={subject.train_ready === false ? 'warning' : 'primary'}
             variant="outlined"
@@ -854,10 +849,10 @@ const CastMemberPage = () => {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Tab label="Overview" />
-        <Tab label="Training Data" />
-        <Tab label="Generate Character" />
-        <Tab label="Versions" />
+        <Tab label={t('cast.tabs.overview')} />
+        <Tab label={t('cast.tabs.trainingData')} />
+        <Tab label={t('cast.tabs.generate')} />
+        <Tab label={t('cast.tabs.versions')} />
       </Tabs>
 
       {/* ── Overview ───────────────────────────────────────────────────────── */}
@@ -870,16 +865,16 @@ const CastMemberPage = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 560 }}>
               <ChangedElsewhereNotice
                 conflicts={overview.conflicts}
-                labels={OVERVIEW_LABELS}
+                labels={overviewLabels()}
                 onReload={() => overview.resolve('server')}
                 onKeep={() => overview.resolve('mine')}
               />
-              <TextField label="Name" value={form.name}
+              <TextField label={t('cast.fields.name')} value={form.name}
                          onChange={(e) => editOverview('name', e.target.value)} fullWidth />
               {subject.kind === 'character' && (
-                <TextField label="Trigger word (LoRA token)" value={form.trigger_word}
+                <TextField label={t('cast.overview.triggerLabel')} value={form.trigger_word}
                            onChange={(e) => editOverview('trigger_word', e.target.value)} fullWidth
-                           helperText="Rare token the LoRA trains on; every prompt must include it. Blank → uses the name." />
+                           helperText={t('cast.overview.triggerHelp')} />
               )}
               <CastVoicePicker
                 value={form.voice_id}
@@ -887,30 +882,28 @@ const CastMemberPage = () => {
                 disabled={saving}
               />
               <TextField
-                label="Description"
+                label={t('cast.fields.description')}
                 value={form.description}
                 multiline
                 rows={3}
                 onChange={(e) => editOverview('description', e.target.value)}
                 fullWidth
-                helperText="Optional brief for FilmCrew / script invent only. Not used for Cast generate when reference photos exist."
+                helperText={t('cast.overview.descriptionHelp')}
               />
               <Divider sx={{ my: 1 }} />
-              <Typography variant="overline" color="text.secondary">Identity bible</Typography>
+              <Typography variant="overline" color="text.secondary">{t('cast.fields.bible')}</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Appearance from your photos — vision describes what it sees (human, animal, costume, …)
-                and keeps the consistent details. Used for base (no-LoRA) generates; with a trained LoRA,
-                generate uses trigger + short marks only. Train does not rewrite this.
+                {t('cast.overview.bibleHelp')}
               </Typography>
               {(subject.ref_image_paths || []).length > 0 && !subject.bible_vision_grounded && (
                 <Alert severity="warning" sx={{ mb: 1 }}>
                   {subject.bible_manual_override
-                    ? <>Manual edit — use <strong>Sync identity from photos</strong> to re-ground from refs.</>
-                    : <>Bible may not match your photos — use <strong>Sync identity from photos</strong> so Generate / captions stop inventing a different look.</>}
+                    ? <Trans i18nKey="cast.overview.manualEditWarning" components={{ bold: <strong /> }} />
+                    : <Trans i18nKey="cast.overview.mismatchWarning" components={{ bold: <strong /> }} />}
                 </Alert>
               )}
               <TextField
-                label="Identity bible"
+                label={t('cast.fields.bible')}
                 value={form.bible}
                 onChange={(e) => editOverview('bible', e.target.value)}
                 multiline
@@ -918,27 +911,27 @@ const CastMemberPage = () => {
                 fullWidth
                 helperText={
                   subject.bible_vision_grounded
-                    ? 'Vision-grounded from reference photos'
+                    ? t('cast.overview.bibleGrounded')
                     : subject.bible_manual_override
-                      ? 'Manual edit — Sync identity from photos to re-ground'
-                      : 'Not yet synced from photos'
+                      ? t('cast.overview.bibleManual')
+                      : t('cast.overview.bibleNotSynced')
                 }
               />
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Button variant="contained" onClick={handleSave}
                         disabled={saving || !form.name || !overview.isDirty}>
-                  {saving ? 'Saving…' : 'Save changes'}
+                  {saving ? t('cast.common.saving') : t('cast.overview.save')}
                 </Button>
                 <Button
                   variant="outlined"
                   onClick={handleRebuildBible}
                   disabled={rebuildingBible || busy || !(subject.ref_image_paths || []).length}
                 >
-                  {rebuildingBible ? 'Scanning photos…' : 'Sync identity from photos'}
+                  {rebuildingBible ? t('cast.overview.scanning') : t('cast.overview.sync')}
                 </Button>
-                {savedNote && !overview.isDirty && <Typography variant="caption" color="success.main">Saved</Typography>}
+                {savedNote && !overview.isDirty && <Typography variant="caption" color="success.main">{t('cast.common.saved')}</Typography>}
                 {overview.isDirty && !saving && (
-                  <Typography variant="caption" color="text.secondary">Unsaved changes</Typography>
+                  <Typography variant="caption" color="text.secondary">{t('cast.common.unsaved')}</Typography>
                 )}
               </Box>
             </Box>
@@ -951,52 +944,49 @@ const CastMemberPage = () => {
         <Box sx={{ maxWidth: 1100, mx: 'auto', pb: 6, width: '100%' }}>
           {/* Intro and status info stay at top */}
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Images for the *next* training run: uploaded references plus approved generated samples.
-            After a successful train, generated keepers promote here permanently and leave the Generate Character sheet.
-            Add new outfits / details then click Train to amend.
+            {t('cast.trainingData.intro')}
           </Typography>
 
           {/* Prominent display of last-trained count and amend status */}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
             <Chip 
               size="small" 
-              label={`Current pool: ${currentPoolSize} image${currentPoolSize === 1 ? '' : 's'}`} 
+              label={t('cast.trainingData.currentPool', { count: currentPoolSize })} 
               variant="outlined" 
             />
             {lastTrainedCount > 0 && (
               <Chip 
                 size="small" 
-                label={`Last trained (real, verified): ${lastTrainedCount}`} 
+                label={t('cast.trainingData.lastTrained', { count: lastTrainedCount })} 
                 color="success" 
                 variant="outlined" 
               />
             )}
             {hasPendingAmend && (
-              <Chip size="small" label="Pending amend / catch-up" color="warning" />
+              <Chip size="small" label={t('cast.trainingData.pendingAmend')} color="warning" />
             )}
             {lastTrainedCount === 0 && subject.training_status === 'trained' && (
-              <Chip size="small" label="Trained (image list not recorded)" color="default" />
+              <Chip size="small" label={t('cast.trainingData.trainedNoList')} color="default" />
             )}
           </Box>
           <DragDropImageUpload
             subjectId={subject.id}
             existingPaths={subject.ref_image_paths || []}
             onUploaded={() => loadSubject()}
-            helperText="Uploads immediately to this cast member."
+            helperText={t('cast.trainingData.uploadHelp')}
             extraItems={pendingPromoteThumbs}
             getPathStatus={(path) => refTrainStatus(path, subject)}
           />
 
           <Divider sx={{ my: 3 }} />
-          <Typography variant="subtitle2" gutterBottom>Training hyperparameters</Typography>
+          <Typography variant="subtitle2" gutterBottom>{t('cast.trainingData.hyperparameters')}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-            Train base must match generate base. Z-Image Turbo is the product default and
-            trains + generates; SDXL Legacy is the older path. Steps blank = auto from image count.
+            {t('cast.trainingData.hyperparametersHelp')}
           </Typography>
           <Box sx={{ maxWidth: 720, mb: 1.5 }}>
             <ChangedElsewhereNotice
               conflicts={trainingForm.conflicts}
-              labels={TRAINING_LABELS}
+              labels={trainingLabels()}
               onReload={() => trainingForm.resolve('server')}
               onKeep={() => trainingForm.resolve('mine')}
             />
@@ -1005,101 +995,109 @@ const CastMemberPage = () => {
             <Grid item xs={12} sm={8}>
               <TextField
                 select
-                label="Train base"
+                label={t('cast.fields.trainBase')}
                 size="small"
                 fullWidth
                 value={trainingSettings.base_model_id || 'zimage-turbo'}
                 onChange={(e) => editTraining('base_model_id', e.target.value)}
                 SelectProps={{ native: true }}
-                helperText="Global default: Settings → Media models"
+                helperText={t('cast.trainingData.trainBaseHelp')}
               >
-                <option value="zimage-turbo">Z-Image Turbo (default — trains + generates)</option>
-                <option value="flux-dev">FLUX.1 Dev (max quality — train soon)</option>
-                <option value="sdxl-legacy">SDXL Legacy (legacy path)</option>
+                <option value="zimage-turbo">{t('cast.trainingData.baseZimage')}</option>
+                <option value="flux-dev">{t('cast.trainingData.baseFlux')}</option>
+                <option value="sdxl-legacy">{t('cast.trainingData.baseSdxl')}</option>
               </TextField>
             </Grid>
             <Grid item xs={6} sm={4}>
-              <TextField label="Resolution" type="number" size="small" fullWidth
+              <TextField label={t('cast.fields.resolution')} type="number" size="small" fullWidth
                 value={trainingSettings.resolution}
                 onChange={(e) => editTraining('resolution', e.target.value)}
-                helperText="Snapped to 64px (512–1024)" />
+                helperText={t('cast.trainingData.resolutionHelp')} />
             </Grid>
             <Grid item xs={6} sm={4}>
-              <TextField label="LoRA rank" type="number" size="small" fullWidth
+              <TextField label={t('cast.fields.rank')} type="number" size="small" fullWidth
                 value={trainingSettings.rank}
                 onChange={(e) => editTraining('rank', e.target.value)}
                 helperText="4–64" />
             </Grid>
             <Grid item xs={6} sm={4}>
-              <TextField label="LoRA alpha" type="number" size="small" fullWidth
+              <TextField label={t('cast.fields.alpha')} type="number" size="small" fullWidth
                 value={trainingSettings.alpha}
                 onChange={(e) => editTraining('alpha', e.target.value)}
-                helperText="Usually matches rank" />
+                helperText={t('cast.trainingData.alphaHelp')} />
             </Grid>
             <Grid item xs={6} sm={4}>
-              <TextField label="Learning rate" type="number" size="small" fullWidth
+              <TextField label={t('cast.fields.learningRate')} type="number" size="small" fullWidth
                 value={trainingSettings.learning_rate}
                 onChange={(e) => editTraining('learning_rate', e.target.value)}
                 inputProps={{ step: '0.00001' }} />
             </Grid>
             <Grid item xs={6} sm={4}>
-              <TextField label="Steps (optional)" type="number" size="small" fullWidth
+              <TextField label={t('cast.trainingData.stepsOptional')} type="number" size="small" fullWidth
                 value={trainingSettings.steps}
                 onChange={(e) => editTraining('steps', e.target.value)}
-                helperText="Blank = auto from image count" />
+                helperText={t('cast.trainingData.stepsHelp')} />
             </Grid>
             <Grid item xs={12}>
               <Button variant="outlined" size="small" onClick={handleSaveTrainingSettings}
                 disabled={savingTrainingSettings || training || !trainingForm.isDirty}>
-                {savingTrainingSettings ? 'Saving…' : 'Save training settings'}
+                {savingTrainingSettings ? t('cast.common.saving') : t('cast.trainingData.saveSettings')}
               </Button>
               {trainingSettingsSaved && !trainingForm.isDirty && (
-                <Typography variant="caption" color="success.main" sx={{ ml: 2 }}>Saved</Typography>
+                <Typography variant="caption" color="success.main" sx={{ ml: 2 }}>{t('cast.common.saved')}</Typography>
               )}
               {trainingForm.isDirty && !savingTrainingSettings && (
                 <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-                  Unsaved changes (Train LoRA also uses and saves them)
+                  {t('cast.trainingData.unsavedSettings')}
                 </Typography>
               )}
             </Grid>
           </Grid>
 
           <Divider sx={{ my: 3 }} />
-          <Typography variant="subtitle2" gutterBottom>Train the LoRA</Typography>
+          <Typography variant="subtitle2" gutterBottom>{t('cast.trainingData.trainTitle')}</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {refCount > 0
-              ? `${refCount} training-set image${refCount > 1 ? 's' : ''} (uploads + previously trained)${approvedCount > 0 ? ` + ${approvedCount} approved generated pending promotion` : ''}.`
+              ? approvedCount > 0
+                ? t('cast.trainingData.poolPending', { images: t('cast.trainingSetImages', { count: refCount }), count: approvedCount })
+                : t('cast.trainingData.pool', { images: t('cast.trainingSetImages', { count: refCount }) })
               : approvedCount > 0
-                ? `No uploads yet — will train on ${approvedCount} approved generated sample${approvedCount > 1 ? 's' : ''}; they promote here after train success.`
-                : 'Drop in reference images above (or generate + approve some in the Generate Character tab) to enable training.'}
-            {' '}Training incorporates the current set. Add new data (outfits, details) later and Train again to amend/evolve.
+                ? t('cast.trainingData.noUploads', { count: approvedCount })
+                : t('cast.trainingData.nothingToTrain')}
+            {' '}{t('cast.trainingData.incorporates')}
           </Typography>
           {subject.caption_coverage && subject.caption_coverage.images > 0 && (
             <Typography variant="caption" color={
               (subject.caption_coverage.bare_captions || 0) > (subject.caption_coverage.images / 2)
                 ? 'warning.main' : 'text.secondary'
             } sx={{ display: 'block', mb: 1 }}>
-              Captions: {subject.caption_coverage.rich_captions || 0} rich / {subject.caption_coverage.bare_captions || 0} bare
-              of {subject.caption_coverage.images} images
               {(subject.caption_coverage.bare_captions || 0) > (subject.caption_coverage.images / 2)
-                ? ' — train will VLM-caption bare uploads first'
-                : ''}
+                ? t('cast.trainingData.captionsMostlyBare', {
+                  rich: subject.caption_coverage.rich_captions || 0,
+                  bare: subject.caption_coverage.bare_captions || 0,
+                  images: subject.caption_coverage.images,
+                })
+                : t('cast.trainingData.captions', {
+                  rich: subject.caption_coverage.rich_captions || 0,
+                  bare: subject.caption_coverage.bare_captions || 0,
+                  images: subject.caption_coverage.images,
+                })}
             </Typography>
           )}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
             <Button variant="contained" color="secondary" onClick={handleTrainClick}
                     disabled={busy || training || !trainable}>
-              {training ? 'Training…' : hasPendingAmend ? 'Train LoRA (catch-up/amend)' : 'Train LoRA'}
+              {training ? t('cast.trainingData.training') : hasPendingAmend ? t('cast.trainingData.trainAmend') : t('cast.trainingData.train')}
             </Button>
             {(training || trainingJob) && (
               <Button variant="outlined" color="error" onClick={handleCancelTrain} disabled={busy}>
-                Cancel training
+                {t('cast.trainingData.cancelTraining')}
               </Button>
             )}
           </Box>
           {subject.training_status && subject.training_status !== 'untrained' && (
             <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-              status: {trainingStatusLabel} {lastTrainedCount > 0 ? `(last real verified trained on ${lastTrainedCount} images)` : ''}
+              {t('cast.trainingData.status', { status: trainingStatusLabel })} {lastTrainedCount > 0 ? t('cast.trainingData.lastVerified', { count: lastTrainedCount }) : ''}
             </Typography>
           )}
 
@@ -1115,9 +1113,9 @@ const CastMemberPage = () => {
                 value={trainingJob?.progress || 0}
               />
               <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                {trainingJob?.message || 'LoRA training running — GPU active'}
-                {trainingJob?.id && ` · job ${String(trainingJob.id).slice(0, 12)}...`}
-                {' · (health/celery may report busy/503; this is expected for long GPU tasks)'}
+                {trainingJob?.message || t('cast.trainingData.running')}
+                {trainingJob?.id && ` · ${t('cast.trainingData.jobRef', { id: String(trainingJob.id).slice(0, 12) })}`}
+                {` · ${t('cast.trainingData.busyNote')}`}
               </Typography>
             </Box>
           )}
@@ -1128,7 +1126,7 @@ const CastMemberPage = () => {
           {subject.training_status === 'failed' && subject.training_error && (
             <Alert severity="error" sx={{ mt: 1.5 }}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                Training failed
+                {t('cast.trainingData.failed')}
               </Typography>
               <Typography
                 variant="body2"
@@ -1144,7 +1142,7 @@ const CastMemberPage = () => {
                 {subject.training_error}
               </Typography>
               <Typography variant="caption">
-                Fix the problem, then click “Train LoRA” again. New training data (additional outfits etc.) will be incorporated on the next run (amend).
+                {t('cast.trainingData.failedHelp')}
               </Typography>
             </Alert>
           )}
@@ -1156,52 +1154,50 @@ const CastMemberPage = () => {
         <Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             <Button variant="outlined" startIcon={<AutoAwesomeIcon />} onClick={handlePlan} disabled={planning || busy}>
-              {planning ? 'Planning…' : subject.bible ? 'Re-plan sheet' : 'Plan reference sheet'}
+              {planning ? t('cast.generate.planning') : subject.bible ? t('cast.generate.replan') : t('cast.generate.plan')}
             </Button>
             <Button variant="contained" startIcon={<AutoAwesomeIcon />} onClick={handleGenerate}
                     disabled={busy || planning || generateActive || sheetSamples.some(isPending)
                       || !(sheetSamples.length || subject.lora_path || subject.bible || samples.length)}>
-              {subject.lora_path ? 'Generate with trained LoRA' : 'Generate base sheet (no LoRA)'}
+              {subject.lora_path ? t('cast.generate.withLora') : t('cast.generate.baseSheet')}
             </Button>
             {(generateActive || sheetSamples.some(isPending)) && (
               <Button variant="outlined" color="error" onClick={handleCancelGenerate} disabled={busy}>
-                Cancel generation
+                {t('cast.generate.cancel')}
               </Button>
             )}
             <Button size="small" onClick={approveAllDone} disabled={!sheetSamples.some((s) => s.status === 'done')}>
-              Approve all generated
+              {t('cast.generate.approveAll')}
             </Button>
             <Box sx={{ flexGrow: 1 }} />
-            <Chip label={`${approvedCount}/${total} approved`} size="small"
+            <Chip label={t('cast.generate.approvedCount', { approved: approvedCount, total })} size="small"
                   color={approvedCount > 0 ? 'success' : 'default'} variant="outlined" />
           </Box>
 
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
             {subject.lora_path ? (
-              <>
-                <strong>Generate with trained LoRA</strong> — trigger + shot variation only
-                (no full bible dump); identity from the adapter
-                (<code>{subject.trigger_word || subject.name}</code>
-                {subject.base_model_name ? <> · {subject.base_model_name}</> : null}
-                ). <strong>Re-plan sheet</strong> refreshes angles only (keeps vision bible when
-                refs exist). <strong>Train LoRA</strong> trains weights — it does not rewrite the bible.
-                Use Overview → <strong>Sync identity from photos</strong> to rescan appearance.
-              </>
+              subject.base_model_name ? (
+                <Trans
+                  i18nKey="cast.generate.loraHelpWithBase"
+                  components={{ bold: <strong />, code: <code /> }}
+                  values={{ trigger: subject.trigger_word || subject.name, base: subject.base_model_name }}
+                />
+              ) : (
+                <Trans
+                  i18nKey="cast.generate.loraHelp"
+                  components={{ bold: <strong />, code: <code /> }}
+                  values={{ trigger: subject.trigger_word || subject.name }}
+                />
+              )
             ) : (
-              <>
-                <strong>Generate base sheet (no LoRA)</strong> — uses the identity bible in prompts.
-                Sync identity from photos on Overview first if you uploaded refs.
-                <strong> Train LoRA</strong> trains the adapter; it does not invent or rewrite the bible.
-                <strong> Re-plan sheet</strong> refreshes shot angles (keeps vision bible when refs exist).
-              </>
+              <Trans i18nKey="cast.generate.baseHelp" components={{ bold: <strong /> }} />
             )}
           </Typography>
           {(subject.ref_image_paths || []).length > 0 && !subject.bible_vision_grounded && (
             <Alert severity="warning" sx={{ mb: 2 }}>
               {subject.bible_manual_override
-                ? <>Manual bible edit — go to Overview and <strong>Sync identity from photos</strong> before training or generating.</>
-                : <>Bible may not match your photos — go to Overview and click{' '}
-                  <strong>Sync identity from photos</strong> before training or generating.</>}
+                ? <Trans i18nKey="cast.generate.manualEditWarning" components={{ bold: <strong /> }} />
+                : <Trans i18nKey="cast.generate.mismatchWarning" components={{ bold: <strong /> }} />}
             </Alert>
           )}
           {subject.smoke_identity?.ok && (
@@ -1214,17 +1210,24 @@ const CastMemberPage = () => {
                 }
                 sx={{ mb: 2 }}
               >
-                Post-train smoke identity score:{' '}
-                {Number(subject.smoke_identity.score).toFixed(2)}{' '}
-                ({subject.smoke_identity.method}
-                {subject.smoke_identity.family ? ` · ${subject.smoke_identity.family}` : ''})
+                {subject.smoke_identity.family
+                  ? t('cast.generate.smokeScoreFamily', {
+                    score: Number(subject.smoke_identity.score).toFixed(2),
+                    method: subject.smoke_identity.method,
+                    family: subject.smoke_identity.family,
+                  })
+                  : t('cast.generate.smokeScore', {
+                    score: Number(subject.smoke_identity.score).toFixed(2),
+                    method: subject.smoke_identity.method,
+                  })}
               </Alert>
             ) : (
               /* No badge and no number: the score is withheld until the method is
                  proven on labelled pairs, and a colour would be a verdict. */
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-                Identity: not measured
-                {subject.smoke_identity.reason ? ` — ${subject.smoke_identity.reason}` : ''}
+                {subject.smoke_identity.reason
+                  ? t('cast.generate.identityNotMeasuredReason', { reason: subject.smoke_identity.reason })
+                  : t('cast.generate.identityNotMeasured')}
               </Typography>
             )
           )}
@@ -1236,14 +1239,18 @@ const CastMemberPage = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                 <Typography variant="caption" color="text.secondary">
                   {active
-                    ? `Generating… ${doneCount}/${total} done`
+                    ? t('cast.generate.progressGenerating', { done: doneCount, total })
                     : samples.some((s) => s.status === 'cancelled') && doneCount < total
-                      ? `Cancelled — ${doneCount}/${total} kept${failedCount ? ` · ${failedCount} failed` : ''}.`
+                      ? failedCount
+                        ? t('cast.generate.progressCancelledFailed', { done: doneCount, total, failed: failedCount })
+                        : t('cast.generate.progressCancelled', { done: doneCount, total })
                     : doneCount === 0
-                      ? `Planned ${total} shots — click "Generate images" to render them.`
+                      ? t('cast.generate.progressPlanned', { total })
                       : doneCount < total
-                        ? `${doneCount}/${total} rendered${failedCount ? ` · ${failedCount} failed` : ''} — click "Generate images" to finish.`
-                        : `All ${total} rendered.`}
+                        ? failedCount
+                          ? t('cast.generate.progressPartialFailed', { done: doneCount, total, failed: failedCount })
+                          : t('cast.generate.progressPartial', { done: doneCount, total })
+                        : t('cast.generate.progressDone', { total })}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">{doneCount}/{total}</Typography>
               </Box>
@@ -1257,9 +1264,8 @@ const CastMemberPage = () => {
           {!sheetSamples.length ? (
             <Typography color="text.secondary" sx={{ p: 4, textAlign: 'center' }}>
               {samples.some((s) => s.promoted_to_training)
-                ? <>All generated keepers are on the <b>Training Data</b> tab (promoted after train). Plan or generate a new batch here when you want more variety.</>
-                : <>No reference sheet yet. Click <b>Plan reference sheet</b> to plan shot angles (identity from photos / LoRA). The planner will write a
-                  frozen identity bible + ~32 varied shot prompts, then <b>Generate images</b>.</>}
+                ? <Trans i18nKey="cast.generate.allPromoted" components={{ bold: <b /> }} />
+                : <Trans i18nKey="cast.generate.emptySheet" components={{ bold: <b /> }} />}
             </Typography>
           ) : (
             <Box sx={{ maxHeight: '60vh', overflowY: 'auto', pr: 1, mx: -0.5, px: 0.5 }}>
@@ -1271,7 +1277,7 @@ const CastMemberPage = () => {
                   <Card variant="outlined" onContextMenu={(e) => sampleMenu.open(e, { sample: s, idx })}>
                     {s.image_url ? (
                       <Box sx={{ position: 'relative' }}>
-                        <CardMedia component="img" height="160" image={s.image_url} alt={s.angle || `sample ${s.index}`}
+                        <CardMedia component="img" height="160" image={s.image_url} alt={s.angle || t('cast.generate.sampleAlt', { number: s.index })}
                                    onClick={() => setLightboxIdx(idx)}
                                    sx={{ objectFit: 'cover', cursor: 'zoom-in' }} />
                         {trainSt && (
@@ -1284,42 +1290,42 @@ const CastMemberPage = () => {
                       <Box sx={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                  bgcolor: 'action.hover' }}>
                         {s.status === 'generating' ? <CircularProgress size={22} />
-                          : s.status === 'pending' ? <Typography variant="caption" color="text.secondary">queued</Typography>
-                          : s.status === 'failed' ? <Typography variant="caption" color="error">failed</Typography>
+                          : s.status === 'pending' ? <Typography variant="caption" color="text.secondary">{t('cast.generate.queued')}</Typography>
+                          : s.status === 'failed' ? <Typography variant="caption" color="error">{t('cast.generate.failedSample')}</Typography>
                           : <Typography variant="caption" color="text.secondary">{s.status}</Typography>}
                       </Box>
                     )}
                     <CardContent sx={{ py: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 0.5 }}>
                         <Tooltip title={s.image_prompt || ''}>
-                          <Typography variant="caption" noWrap>{s.angle || `Shot ${s.index + 1}`}</Typography>
+                          <Typography variant="caption" noWrap>{s.angle || t('cast.generate.shot', { number: s.index + 1 })}</Typography>
                         </Tooltip>
                         <StatusChip status={s.status} />
                       </Box>
                       {s.angle_state === 'unverified' && (
-                        <Tooltip title="The vision check could not read this image, so the angle is the planned one and does not count toward framing coverage.">
-                          <Chip size="small" variant="outlined" color="warning" label="angle unverified" sx={{ mt: 0.5 }} />
+                        <Tooltip title={t('cast.generate.angleUnverifiedHelp')}>
+                          <Chip size="small" variant="outlined" color="warning" label={t('cast.generate.angleUnverified')} sx={{ mt: 0.5 }} />
                         </Tooltip>
                       )}
                     </CardContent>
                     <CardActions sx={{ pt: 0, justifyContent: 'space-between' }}>
-                      <Tooltip title={s.approved ? 'Approved — click to un-approve' : 'Approve this sample'}>
+                      <Tooltip title={s.approved ? t('cast.generate.approvedTooltip') : t('cast.generate.approveTooltip')}>
                         <IconButton size="small" color={s.approved ? 'success' : 'default'}
-                                    onClick={() => toggleApprove(s)} aria-label="toggle approval">
+                                    onClick={() => toggleApprove(s)} aria-label={t('cast.generate.toggleApprovalAria')}>
                           {s.approved ? <CheckCircleIcon fontSize="small" /> : <RadioButtonUncheckedIcon fontSize="small" />}
                         </IconButton>
                       </Tooltip>
                       <Box>
-                        <Tooltip title="Regenerate this sample">
+                        <Tooltip title={t('cast.generate.regenerateTooltip')}>
                           <span>
                             <IconButton size="small" onClick={() => { setRegenTarget(s); setRegenPrompt(s.image_prompt || ''); }}
-                                        disabled={isPending(s)} aria-label="regenerate sample">
+                                        disabled={isPending(s)} aria-label={t('cast.generate.regenerateAria')}>
                               <RefreshIcon fontSize="small" />
                             </IconButton>
                           </span>
                         </Tooltip>
-                        <Tooltip title="Remove this generation">
-                          <IconButton size="small" onClick={() => handleDeleteSample(s)} aria-label="remove sample">
+                        <Tooltip title={t('cast.generate.remove')}>
+                          <IconButton size="small" onClick={() => handleDeleteSample(s)} aria-label={t('cast.generate.removeAria')}>
                             <CloseIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -1339,15 +1345,15 @@ const CastMemberPage = () => {
               sampleMenu.payload
                 ? [
                     sampleMenu.payload.sample.image_url && {
-                      label: 'View larger',
+                      label: t('cast.generate.viewLarger'),
                       onClick: () => setLightboxIdx(sampleMenu.payload.idx),
                     },
                     {
-                      label: sampleMenu.payload.sample.approved ? 'Un-approve' : 'Approve',
+                      label: sampleMenu.payload.sample.approved ? t('cast.generate.unapprove') : t('cast.generate.approve'),
                       onClick: () => toggleApprove(sampleMenu.payload.sample),
                     },
                     {
-                      label: 'Regenerate…',
+                      label: t('cast.generate.regenerateMenu'),
                       onClick: () => {
                         setRegenTarget(sampleMenu.payload.sample);
                         setRegenPrompt(sampleMenu.payload.sample.image_prompt || '');
@@ -1355,7 +1361,7 @@ const CastMemberPage = () => {
                       disabled: isPending(sampleMenu.payload.sample),
                     },
                     {
-                      label: 'Remove this generation',
+                      label: t('cast.generate.remove'),
                       onClick: () => handleDeleteSample(sampleMenu.payload.sample),
                       color: 'error.main',
                       dividerBefore: true,
@@ -1369,12 +1375,12 @@ const CastMemberPage = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button variant="contained" color="secondary" onClick={handleTrainClick}
                     disabled={busy || training || approvedCount === 0}>
-              {training ? 'Training…' : hasPendingAmend ? 'Train LoRA (catch-up/amend)' : 'Train LoRA'}
+              {training ? t('cast.trainingData.training') : hasPendingAmend ? t('cast.trainingData.trainAmend') : t('cast.trainingData.train')}
             </Button>
             <Typography variant="caption" color="text.secondary">
               {approvedCount === 0
-                ? 'Approve at least one sample to train from this sheet (or train from Training Data if you already have refs).'
-                : `Trains on your ${refCount} training-set image${refCount === 1 ? '' : 's'} + ${approvedCount} approved sample${approvedCount > 1 ? 's' : ''}. On success, approved gens promote to Training Data. ~hours on a 16GB GPU; runs in the background.`}
+                ? t('cast.generate.approveToTrain')
+                : t('cast.generate.trainsOn', { images: t('cast.trainingSetImages', { count: refCount }), samples: t('cast.generate.approvedSamples', { count: approvedCount }) })}
             </Typography>
           </Box>
         </Box>
@@ -1383,34 +1389,34 @@ const CastMemberPage = () => {
       {/* ── Versions ───────────────────────────────────────────────────────── */}
       {tab === 3 && (
         <Box sx={{ maxWidth: 560 }}>
-          <Typography variant="subtitle2" gutterBottom>Trained LoRA</Typography>
-          <Typography variant="body2">Status: <b>{subject.training_status}</b></Typography>
+          <Typography variant="subtitle2" gutterBottom>{t('cast.versions.title')}</Typography>
+          <Typography variant="body2"><Trans i18nKey="cast.versions.status" components={{ bold: <b /> }} values={{ status: subject.training_status }} /></Typography>
           <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
-            Default path: {subject.lora_path || <em>none yet</em>}
+            {subject.lora_path
+              ? t('cast.versions.defaultPath', { path: subject.lora_path })
+              : <Trans i18nKey="cast.versions.defaultPathNone" components={{ italic: <em /> }} />}
           </Typography>
           <Box sx={{ mt: 1.5 }}>
-            <Tooltip title={training ? 'Training is in progress — wait for it to finish before importing.' : ''}>
+            <Tooltip title={training ? t('cast.versions.importBlocked') : ''}>
               <span>
                 <Button size="small" variant="outlined" onClick={() => setImportOpen(true)} disabled={training}>
-                  Import LoRA
+                  {t('cast.versions.import')}
                 </Button>
               </span>
             </Tooltip>
             {subject.lora_path && (
               <Typography variant="caption" color="text.secondary" sx={{ ml: 1.5 }}>
-                Importing adds a new version for that base; a base the member has
-                none for yet becomes the default. Pick a base's current LoRA
-                default below with "Make default".
+                {t('cast.versions.importHelp')}
               </Typography>
             )}
           </Box>
 
           {/* One card per base the member holds a LoRA for (trained or imported). */}
           <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle2" gutterBottom>LoRAs by base model</Typography>
+            <Typography variant="subtitle2" gutterBottom>{t('cast.versions.byBase')}</Typography>
             {makeDefaultError && <Alert severity="error" sx={{ mb: 1 }}>{makeDefaultError}</Alert>}
             {loraBaseGroups.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">Nothing trained or imported yet.</Typography>
+              <Typography variant="body2" color="text.secondary">{t('cast.versions.empty')}</Typography>
             ) : (
               loraBaseGroups.map(({ base, current, isDefault }) => (
                 <Box key={base} sx={{
@@ -1419,18 +1425,26 @@ const CastMemberPage = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <Typography variant="body2">
                       <b>{BASE_MODEL_LABELS[base] || base}</b>
-                      {isDefault && <Chip label="default" size="small" color="primary" sx={{ ml: 1 }} />}
+                      {isDefault && <Chip label={t('cast.versions.defaultChip')} size="small" color="primary" sx={{ ml: 1 }} />}
                     </Typography>
                     {!isDefault && (
                       <Button size="small" onClick={() => submitMakeDefault(base)}
                               disabled={makingDefaultBase === base}>
-                        {makingDefaultBase === base ? 'Setting…' : 'Make default'}
+                        {makingDefaultBase === base ? t('cast.versions.setting') : t('cast.versions.makeDefault')}
                       </Button>
                     )}
                   </Box>
                   <Typography variant="caption" color="text.secondary" display="block">
-                    v{current.version} · {current.source === 'imported' ? 'imported' : 'trained'}
-                    {current.trigger_word ? ` · trigger: ${current.trigger_word}` : ' · trigger: (member default)'}
+                    {current.trigger_word
+                      ? t('cast.versions.versionLine', {
+                        version: current.version,
+                        source: current.source === 'imported' ? t('cast.versions.imported') : t('cast.versions.trained'),
+                        trigger: current.trigger_word,
+                      })
+                      : t('cast.versions.versionLineDefaultTrigger', {
+                        version: current.version,
+                        source: current.source === 'imported' ? t('cast.versions.imported') : t('cast.versions.trained'),
+                      })}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" display="block" sx={{ wordBreak: 'break-all' }}>
                     {current.lora_path}
@@ -1442,11 +1456,11 @@ const CastMemberPage = () => {
 
           {subject.training_status === 'trained' && (
             <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">Use this character in:</Typography>
+              <Typography variant="body2" color="text.secondary">{t('cast.versions.useIn')}</Typography>
               <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
-                <Link component="button" onClick={() => navigate(`/images?character=${subject.id}`)}>Images →</Link>
-                <Link component="button" onClick={() => navigate('/music-video')}>Music Video →</Link>
-                <Link component="button" onClick={() => navigate('/video')}>Video Gen →</Link>
+                <Link component="button" onClick={() => navigate(`/images?character=${subject.id}`)}>{t('cast.versions.useInImages')}</Link>
+                <Link component="button" onClick={() => navigate('/music-video')}>{t('cast.versions.useInMusicVideo')}</Link>
+                <Link component="button" onClick={() => navigate('/video')}>{t('cast.versions.useInVideo')}</Link>
               </Box>
             </Box>
           )}
@@ -1455,50 +1469,49 @@ const CastMemberPage = () => {
 
       {/* Regenerate dialog */}
       <Dialog open={!!regenTarget} onClose={() => setRegenTarget(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Regenerate sample</DialogTitle>
+        <DialogTitle>{t('cast.regen.title')}</DialogTitle>
         <DialogContent>
-          <TextField label="Prompt override (optional)" value={regenPrompt}
+          <TextField label={t('cast.regen.promptLabel')} value={regenPrompt}
                      onChange={(e) => setRegenPrompt(e.target.value)} fullWidth multiline rows={4} sx={{ mt: 1 }}
-                     helperText="This is the frozen shot prompt; Sync identity / Re-plan updates it. Leave as-is to re-roll the seed." />
+                     helperText={t('cast.regen.promptHelp')} />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRegenTarget(null)}>Cancel</Button>
-          <Button variant="contained" onClick={submitRegen}>Regenerate</Button>
+          <Button onClick={() => setRegenTarget(null)}>{t('cast.common.cancel')}</Button>
+          <Button variant="contained" onClick={submitRegen}>{t('cast.regen.submit')}</Button>
         </DialogActions>
       </Dialog>
 
       {/* Import LoRA dialog */}
       <Dialog open={importOpen} onClose={() => !importBusy && setImportOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Import LoRA</DialogTitle>
+        <DialogTitle>{t('cast.versions.import')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Attach a LoRA checkpoint trained outside Guaardvark (Ostris AI-Toolkit, kohya,
-            or diffusers/PEFT). Only Z-Image Turbo and FLUX.1 Dev layouts are supported.
+            {t('cast.import.intro')}
           </Typography>
           {importError && <Alert severity="error" sx={{ mb: 2 }}>{importError}</Alert>}
           <TextField
-            select fullWidth label="Base model" value={importBaseModel} sx={{ mb: 2 }}
+            select fullWidth label={t('cast.import.baseModel')} value={importBaseModel} sx={{ mb: 2 }}
             onChange={(e) => setImportBaseModel(e.target.value)}
           >
             <MenuItem value="zimage-turbo">Z-Image Turbo</MenuItem>
             <MenuItem value="flux-dev">FLUX.1 Dev</MenuItem>
           </TextField>
           <TextField
-            fullWidth label="Trigger word" value={importTrigger} sx={{ mb: 2 }}
+            fullWidth label={t('cast.fields.triggerWord')} value={importTrigger} sx={{ mb: 2 }}
             onChange={(e) => setImportTrigger(e.target.value)}
-            helperText="The token this LoRA was trained on (e.g. caroline_1)."
+            helperText={t('cast.import.triggerHelp')}
           />
           <Button variant="outlined" component="label">
-            {importFile ? importFile.name : 'Choose .safetensors file'}
+            {importFile ? importFile.name : t('cast.import.chooseFile')}
             <input type="file" hidden accept=".safetensors"
                    onChange={(e) => setImportFile(e.target.files?.[0] || null)} />
           </Button>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setImportOpen(false)} disabled={importBusy}>Cancel</Button>
+          <Button onClick={() => setImportOpen(false)} disabled={importBusy}>{t('cast.common.cancel')}</Button>
           <Button variant="contained" onClick={submitImportLora}
                   disabled={importBusy || !importFile || !importTrigger.trim()}>
-            {importBusy ? 'Importing…' : 'Import'}
+            {importBusy ? t('cast.import.importing') : t('cast.import.submit')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1512,32 +1525,32 @@ const CastMemberPage = () => {
                                 justifyContent: 'center', minHeight: '70vh', bgcolor: 'black' }}>
             {sheetSamples[lightboxIdx].image_url ? (
               <Box component="img" src={sheetSamples[lightboxIdx].image_url}
-                   alt={sheetSamples[lightboxIdx].angle || `sample ${lightboxIdx + 1}`}
+                   alt={sheetSamples[lightboxIdx].angle || t('cast.generate.sampleAlt', { number: lightboxIdx + 1 })}
                    sx={{ maxWidth: '100%', maxHeight: '82vh', objectFit: 'contain', display: 'block' }} />
             ) : (
               <Typography color="grey.500">{sheetSamples[lightboxIdx].status}</Typography>
             )}
             <IconButton onClick={() => setLightboxIdx((i) => Math.max(0, i - 1))} disabled={lightboxIdx === 0}
                         sx={{ position: 'absolute', left: 8, color: 'white', bgcolor: 'rgba(0,0,0,0.45)',
-                              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }} aria-label="previous">
+                              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }} aria-label={t('cast.lightbox.previous')}>
               <ChevronLeftIcon />
             </IconButton>
             <IconButton onClick={() => setLightboxIdx((i) => Math.min(sheetSamples.length - 1, i + 1))}
                         disabled={lightboxIdx === sheetSamples.length - 1}
                         sx={{ position: 'absolute', right: 8, color: 'white', bgcolor: 'rgba(0,0,0,0.45)',
-                              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }} aria-label="next">
+                              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }} aria-label={t('cast.lightbox.next')}>
               <ChevronRightIcon />
             </IconButton>
             <IconButton onClick={() => setLightboxIdx(null)}
                         sx={{ position: 'absolute', top: 8, right: 8, color: 'white', bgcolor: 'rgba(0,0,0,0.45)',
-                              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }} aria-label="close">
+                              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' } }} aria-label={t('cast.lightbox.close')}>
               <CloseIcon />
             </IconButton>
           </DialogContent>
           <DialogActions sx={{ justifyContent: 'space-between', bgcolor: 'grey.900' }}>
             <Tooltip title={sheetSamples[lightboxIdx].image_prompt || ''}>
               <Typography variant="caption" color="grey.400" noWrap sx={{ px: 1, maxWidth: '70%' }}>
-                {lightboxIdx + 1}/{sheetSamples.length} · {sheetSamples[lightboxIdx].angle || `Shot ${lightboxIdx + 1}`}
+                {lightboxIdx + 1}/{sheetSamples.length} · {sheetSamples[lightboxIdx].angle || t('cast.generate.shot', { number: lightboxIdx + 1 })}
                 {sampleTrainStatus(sheetSamples[lightboxIdx], subject)
                   ? ` · ${sampleTrainStatus(sheetSamples[lightboxIdx], subject).label}`
                   : ''}
@@ -1546,12 +1559,12 @@ const CastMemberPage = () => {
             <Box>
               <Button size="small" startIcon={<CloseIcon />} color="inherit"
                       onClick={() => handleDeleteSample(sheetSamples[lightboxIdx])}>
-                Remove
+                {t('cast.lightbox.remove')}
               </Button>
               <Button size="small" startIcon={sheetSamples[lightboxIdx].approved ? <CheckCircleIcon /> : <RadioButtonUncheckedIcon />}
                       onClick={() => toggleApprove(sheetSamples[lightboxIdx])}
                       color={sheetSamples[lightboxIdx].approved ? 'success' : 'inherit'}>
-                {sheetSamples[lightboxIdx].approved ? 'Approved' : 'Approve'}
+                {sheetSamples[lightboxIdx].approved ? t('cast.lightbox.approved') : t('cast.generate.approve')}
               </Button>
             </Box>
           </DialogActions>

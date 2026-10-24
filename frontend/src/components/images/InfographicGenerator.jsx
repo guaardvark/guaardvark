@@ -30,8 +30,10 @@ import {
   INFOGRAPHIC_STYLES,
   INFOGRAPHIC_ASPECTS,
 } from '../../api/infographicService';
+import { useUiTranslation, Trans } from '../../i18n';
 
 const InfographicGenerator = () => {
+  const { t } = useUiTranslation();
   const [mode, setMode] = useState('structured'); // structured | freeform
 
   // Structured fields
@@ -79,7 +81,7 @@ const InfographicGenerator = () => {
       const data = await generateInfographic(payload);
       setResult(data);
     } catch (e) {
-      setError(e.message || 'Generation failed');
+      setError(e.message || t('images.infographic.failed'));
     } finally {
       setGenerating(false);
     }
@@ -97,7 +99,7 @@ const InfographicGenerator = () => {
       const data = await generateInfographic(payload);
       setResult(data);
     } catch (e) {
-      setError(e.message || 'Generation failed');
+      setError(e.message || t('images.infographic.failed'));
     } finally {
       setGenerating(false);
     }
@@ -111,9 +113,8 @@ const InfographicGenerator = () => {
     if (!status.comfyui_reachable) {
       return (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          ComfyUI isn't running. Enable the <strong>comfyui</strong> plugin
-          on /plugins (or start it manually) and refresh.
-          <Button size="small" onClick={refreshStatus} sx={{ ml: 1 }}>Refresh</Button>
+          <Trans i18nKey="images.infographic.comfyuiStopped" components={{ bold: <strong /> }} />
+          <Button size="small" onClick={refreshStatus} sx={{ ml: 1 }}>{t('images.infographic.refresh')}</Button>
         </Alert>
       );
     }
@@ -123,7 +124,7 @@ const InfographicGenerator = () => {
     if (missing.length) {
       return (
         <Alert severity="error" sx={{ mb: 2 }}>
-          Missing Flux model assets: {missing.join(', ')}.
+          {t('images.infographic.missingAssets', { assets: missing.join(', ') })}
         </Alert>
       );
     }
@@ -134,11 +135,10 @@ const InfographicGenerator = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, p: 2, maxWidth: 1600 }}>
       <Box>
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          Infographic Generator
+          {t('images.infographic.title')}
         </Typography>
         <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-          Flux schnell with integrated text. Title, footer and short labels
-          render legibly — keep them brief for best results.
+          {t('images.infographic.intro')}
         </Typography>
       </Box>
 
@@ -151,8 +151,8 @@ const InfographicGenerator = () => {
         size="small"
         sx={{ alignSelf: 'flex-start' }}
       >
-        <ToggleButton value="structured">Structured</ToggleButton>
-        <ToggleButton value="freeform">Freeform</ToggleButton>
+        <ToggleButton value="structured">{t('images.infographic.structured')}</ToggleButton>
+        <ToggleButton value="freeform">{t('images.infographic.freeform')}</ToggleButton>
       </ToggleButtonGroup>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
@@ -161,8 +161,8 @@ const InfographicGenerator = () => {
           {mode === 'structured' ? (
             <>
               <TextField
-                label="Title (top headline)"
-                placeholder="POST 2: THE GRID SOLUTION"
+                label={t('images.infographic.titleLabel')}
+                placeholder={t('images.infographic.titlePlaceholder')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 size="small"
@@ -170,8 +170,8 @@ const InfographicGenerator = () => {
                 inputProps={{ maxLength: 90 }}
               />
               <TextField
-                label="Scene description"
-                placeholder="Transmission towers under a red heatwave sky, a hand flipping a breaker switch, a Tesla Megapack array, an Imperial Valley data center, flow arrows between them..."
+                label={t('images.infographic.sceneLabel')}
+                placeholder={t('images.infographic.scenePlaceholder')}
                 value={scene}
                 onChange={(e) => setScene(e.target.value)}
                 multiline
@@ -180,19 +180,19 @@ const InfographicGenerator = () => {
                 fullWidth
               />
               <TextField
-                label="Callout labels (one per line, optional)"
-                placeholder={'SUMMER HEATWAVE\n220 TESLA MEGAPACKS\nIMPERIAL VALLEY DATA CENTER'}
+                label={t('images.infographic.calloutsLabel')}
+                placeholder={t('images.infographic.calloutsPlaceholder')}
                 value={callouts}
                 onChange={(e) => setCallouts(e.target.value)}
                 multiline
                 minRows={3}
                 size="small"
                 fullWidth
-                helperText="Each line becomes a separate text label in the image. Keep short — Flux gets shaky past ~5 words."
+                helperText={t('images.infographic.calloutsHelp')}
               />
               <TextField
-                label="Footer banner (optional)"
-                placeholder="THE DATA CENTER DOESN'T DRAIN OUR GRID, IT PROTECTS IT."
+                label={t('images.infographic.footerLabel')}
+                placeholder={t('images.infographic.footerPlaceholder')}
                 value={footer}
                 onChange={(e) => setFooter(e.target.value)}
                 size="small"
@@ -200,19 +200,19 @@ const InfographicGenerator = () => {
                 inputProps={{ maxLength: 140 }}
               />
               <TextField
-                label="Hashtags (optional)"
-                placeholder="#GridResilience #TeslaMegapack #ImperialValley"
+                label={t('images.infographic.hashtagsLabel')}
+                placeholder={t('images.infographic.hashtagsPlaceholder')}
                 value={hashtags}
                 onChange={(e) => setHashtags(e.target.value)}
                 size="small"
                 fullWidth
-                helperText="Space or comma separated. # is optional — added if missing."
+                helperText={t('images.infographic.hashtagsHelp')}
               />
             </>
           ) : (
             <TextField
-              label="Freeform prompt"
-              placeholder="Type or paste a full prompt. Use quotes for literal text. Example: Infographic poster, dramatic editorial illustration. Transmission towers under heat haze. Title at top reads: 'GRID SOLUTION'. Bottom banner reads: 'INNOVATION OVER FEAR'."
+              label={t('images.infographic.freeformLabel')}
+              placeholder={t('images.infographic.freeformPlaceholder')}
               value={rawPrompt}
               onChange={(e) => setRawPrompt(e.target.value)}
               multiline
@@ -225,7 +225,7 @@ const InfographicGenerator = () => {
           <Stack direction="row" spacing={2}>
             <TextField
               select
-              label="Style"
+              label={t('images.infographic.style')}
               value={style}
               onChange={(e) => setStyle(e.target.value)}
               size="small"
@@ -237,7 +237,7 @@ const InfographicGenerator = () => {
             </TextField>
             <TextField
               select
-              label="Aspect"
+              label={t('images.infographic.aspect')}
               value={aspect}
               onChange={(e) => setAspect(e.target.value)}
               size="small"
@@ -257,7 +257,7 @@ const InfographicGenerator = () => {
               disabled={!canGenerate}
               size="medium"
             >
-              {generating ? 'Generating…' : 'Generate'}
+              {generating ? t('images.infographic.generating') : t('images.shared.generate')}
             </Button>
             {result && (
               <Button
@@ -266,7 +266,7 @@ const InfographicGenerator = () => {
                 disabled={generating}
                 size="medium"
               >
-                Re-roll
+                {t('images.infographic.reroll')}
               </Button>
             )}
             {error && (
@@ -293,13 +293,13 @@ const InfographicGenerator = () => {
             <Stack alignItems="center" spacing={1.5}>
               <CircularProgress size={36} />
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Flux schnell, 4 steps. Usually ~5s.
+                {t('images.infographic.generatingHint')}
               </Typography>
             </Stack>
           )}
           {!generating && !result && (
             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Preview appears here
+              {t('images.infographic.previewEmpty')}
             </Typography>
           )}
           {!generating && result && (
@@ -307,7 +307,7 @@ const InfographicGenerator = () => {
               <Box
                 component="img"
                 src={result.image_url}
-                alt="generated infographic"
+                alt={t('images.infographic.resultAlt')}
                 sx={{
                   width: '100%',
                   height: 'auto',
@@ -325,7 +325,7 @@ const InfographicGenerator = () => {
                 />
                 <Chip
                   size="small"
-                  label={`seed ${result.seed}`}
+                  label={t('images.infographic.seed', { seed: result.seed })}
                   variant="outlined"
                 />
                 <Chip
@@ -341,7 +341,7 @@ const InfographicGenerator = () => {
                   href={result.image_url}
                   download={result.filename}
                 >
-                  Download
+                  {t('images.shared.download')}
                 </Button>
               </Stack>
               <Typography

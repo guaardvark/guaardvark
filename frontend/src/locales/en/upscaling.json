@@ -1,0 +1,109 @@
+{
+  "settings": {
+    "modelDefaultScale": "Model default",
+    "model": "Model",
+    "manageModels": "Manage Upscaling Models",
+    "install": "Install",
+    "noModelInstallSized": "No upscaling model is installed. Install {{model}} ({{size}} MB) to upscale; upscaling never downloads one on its own.",
+    "noModelInstall": "No upscaling model is installed. Install {{model}} to upscale; upscaling never downloads one on its own.",
+    "noModel": "No upscaling model is installed. Add one in Manage Upscaling Models to upscale.",
+    "outputScale": "Output Scale",
+    "targetResolution": "Target Resolution",
+    "twoPass": "Two-Pass Mode",
+    "twoPassHelp": "Runs model twice for higher quality (slower)",
+    "faceEnhance": "Face Enhancement",
+    "faceEnhanceHelp": "Restores faces using GFPGAN",
+    "doubleFps": "Double Framerate",
+    "doubleFpsHelp": "Interpolates frames for smoother motion (slower)",
+    "sharpening": "Sharpening",
+    "denoise": "Denoising Pre-pass"
+  },
+  "service": {
+    "startRefused": "The upscaling service did not start: {{reason}}",
+    "tryAgainShortly": "try again shortly",
+    "startTimeout": "The upscaling service did not answer within a minute. Its log is on the Plugins page.",
+    "startFailed": "Could not start the upscaling service: {{error}}",
+    "starting": "Starting...",
+    "startNow": "Start now",
+    "stoppedAutostart": "The upscaling service is stopped. It starts by itself when you upscale something, or you can start it now.",
+    "switchedOff": "Upscaling is switched off on the Plugins page. Start it here to upscale.",
+    "stopped": "The upscaling service is stopped. Start it to upscale."
+  },
+  "errors": {
+    "unknown": "unknown error",
+    "modelsLoadFailed": "Upscaling models could not be loaded: {{error}}.",
+    "requestFailed": "the request failed",
+    "unsupportedSkipped": "Skipped {{count}} unsupported file(s). Allowed: {{allowed}}",
+    "failedReason": "failed",
+    "submitFailed": "Failed to submit: {{details}}",
+    "skipped": "Skipped: {{details}}",
+    "imageFailed": "Image upscale failed",
+    "cancelFailed": "Cancel failed: {{error}}. The job may still be running.",
+    "clearFailed": "Clearing finished jobs failed: {{error}}.",
+    "previewFailed": "Preview failed: {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "Upscale job submitted for \"{{name}}\"",
+    "jobsSubmitted": "Submitted {{submitted}} of {{total}} upscale jobs",
+    "imageUpscaled": "Upscaled \"{{name}}\"",
+    "imagesQueued": "Queued {{count}} images for upscaling"
+  },
+  "gpu": {
+    "unknown": "Unknown",
+    "title": "GPU Status",
+    "activeModel": "Active Model",
+    "none": "None",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "submit": {
+    "upscaleImages": "Upscale {{count}} Images",
+    "upscaleVideos": "Upscale {{count}} Videos",
+    "upscaleImage": "Upscale Image",
+    "upscaleVideo": "Upscale Video",
+    "startingService": "Starting the upscaling service...",
+    "uploadingProgress": "Uploading {{current}}/{{total}}...",
+    "uploading": "Uploading...",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "Upscaling",
+    "videoGen": "Video Gen"
+  },
+  "upload": {
+    "imagesTitle": "Upload Images",
+    "videoTitle": "Upload Video",
+    "video": "Video",
+    "image": "Image",
+    "dropImages": "Drag & drop images here, or click to browse",
+    "dropVideos": "Drag & drop videos here, or click to browse",
+    "filesReady_one": "{{count}} file ready",
+    "filesReady_other": "{{count}} files ready",
+    "clearAll": "Clear all"
+  },
+  "result": {
+    "original": "Original",
+    "upscaled": "Upscaled",
+    "openFullSize": "Open full size",
+    "download": "Download"
+  },
+  "preview": {
+    "title": "Preview Upscale",
+    "hint": "Seek to a frame and click \"Generate Preview\" to see the upscaled frame.",
+    "generating": "Generating...",
+    "generate": "Generate Preview",
+    "originalFrame": "Original Frame",
+    "upscaledFrame": "Upscaled Frame",
+    "backToVideo": "Back to Video"
+  },
+  "jobs": {
+    "title": "Upscale Jobs",
+    "clearFinishedCount": "Clear finished ({{count}})",
+    "clearFinished": "Clear finished",
+    "empty": "No upscale jobs yet. Upload a video or a batch of images to get started.",
+    "imageProgress": "Image {{done}} / {{total}}",
+    "frameProgress": "Frame {{done}} / {{total}}",
+    "play": "Play",
+    "cancel": "Cancel"
+  }
+}

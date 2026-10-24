@@ -35,6 +35,7 @@ import {
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import ImageLightbox from './ImageLightbox';
+import { useUiTranslation } from '../../i18n';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -44,6 +45,7 @@ const encodeFilename = (filename) => {
 };
 
 const ImageBatchContents = ({ batch, onFeedback }) => {
+  const { t } = useUiTranslation();
   const theme = useTheme();
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -86,7 +88,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
         setImages(imgs);
       }
     } catch (err) {
-      onFeedback?.(`Failed to load images: ${err.message}`, 'error');
+      onFeedback?.(t('images.batchContents.loadFailed', { error: err.message }), 'error');
     } finally {
       setLoading(false);
     }
@@ -181,22 +183,22 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
   // Delete
   const deleteImage = async (image) => {
     if (!batch || !image) return;
-    if (!window.confirm('Delete this image?')) return;
+    if (!window.confirm(t('images.batchContents.deleteConfirm'))) return;
     try {
       const filename = image.imageFilename || image.thumbnailFilename;
-      if (!filename) throw new Error('No filename');
+      if (!filename) throw new Error(t('images.batchContents.noFilename'));
       const resp = await fetch(`${API_BASE}/batch-image/image/${batch.batch_id}/${encodeFilename(filename)}`, { method: 'DELETE' });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       setImages(prev => prev.filter(img => img.id !== image.id));
-      onFeedback?.('Image deleted', 'success');
+      onFeedback?.(t('images.batchContents.deleted'), 'success');
     } catch (err) {
-      onFeedback?.(`Delete failed: ${err.message}`, 'error');
+      onFeedback?.(t('images.batchContents.deleteFailed', { error: err.message }), 'error');
     }
   };
 
   const bulkDelete = async () => {
     if (selectedImages.size === 0) return;
-    if (!window.confirm(`Delete ${selectedImages.size} image(s)?`)) return;
+    if (!window.confirm(t('images.batchContents.bulkDeleteConfirm', { count: selectedImages.size }))) return;
     const toDelete = images.filter(img => selectedImages.has(img.id));
     let ok = 0, fail = 0;
     for (const img of toDelete) {
@@ -210,7 +212,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
     await fetchImages();
     setSelectedImages(new Set());
     setImageSelectMode(false);
-    onFeedback?.(fail === 0 ? `Deleted ${ok} image(s)` : `Deleted ${ok}, ${fail} failed`, fail === 0 ? 'success' : 'warning');
+    onFeedback?.(fail === 0 ? t('images.batchContents.bulkDeleted', { count: ok }) : t('images.batchContents.bulkDeletedPartial', { deleted: ok, failed: fail }), fail === 0 ? 'success' : 'warning');
   };
 
   // Context menu
@@ -243,7 +245,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
     if (!renameTarget || !newImageName.trim() || !batch) return;
     try {
       const oldName = renameTarget.imageFilename || renameTarget.thumbnailFilename;
-      if (!oldName) throw new Error('No filename');
+      if (!oldName) throw new Error(t('images.batchContents.noFilename'));
       const resp = await fetch(`${API_BASE}/batch-image/image/${batch.batch_id}/${encodeFilename(oldName)}/rename`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -251,10 +253,10 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
       });
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       setRenameOpen(false);
-      onFeedback?.('Image renamed', 'success');
+      onFeedback?.(t('images.batchContents.renamed'), 'success');
       await fetchImages();
     } catch (err) {
-      onFeedback?.(`Rename failed: ${err.message}`, 'error');
+      onFeedback?.(t('images.batchContents.renameFailed', { error: err.message }), 'error');
     }
   };
 
@@ -262,7 +264,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
         <CircularProgress size={32} />
-        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>Loading images...</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>{t('images.shared.loadingImages')}</Typography>
       </Box>
     );
   }
@@ -271,7 +273,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
         <ImageIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-        <Typography variant="body2" color="text.secondary">No images in this batch</Typography>
+        <Typography variant="body2" color="text.secondary">{t('images.batchContents.empty')}</Typography>
       </Box>
     );
   }
@@ -281,15 +283,15 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
       {/* Toolbar */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1, py: 0.5, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
         <Typography variant="caption" color="text.secondary">
-          {images.length} image{images.length !== 1 ? 's' : ''}
+          {t('images.shared.imageCount', { count: images.length })}
         </Typography>
         <Box sx={{ flexGrow: 1 }} />
         {imageSelectMode && selectedImages.size > 0 && (
           <Button size="small" color="error" startIcon={<DeleteIcon />} onClick={bulkDelete} sx={{ textTransform: 'none', fontSize: '0.7rem' }}>
-            Delete ({selectedImages.size})
+            {t('images.batchContents.deleteSelected', { count: selectedImages.size })}
           </Button>
         )}
-        <Tooltip title={imageSelectMode ? "Exit select mode" : "Select mode"}>
+        <Tooltip title={imageSelectMode ? t('images.batchContents.exitSelectMode') : t('images.batchContents.selectMode')}>
           <IconButton size="small" onClick={toggleSelectMode} color={imageSelectMode ? "primary" : "default"}>
             <CheckBoxIcon fontSize="small" />
           </IconButton>
@@ -306,7 +308,7 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
             onChange={selectAll}
           />
           <Typography variant="caption">
-            {selectedImages.size > 0 ? `${selectedImages.size} of ${images.length}` : `Select all (${images.length})`}
+            {selectedImages.size > 0 ? t('images.batchContents.selectedOf', { selected: selectedImages.size, total: images.length }) : t('images.batchContents.selectAll', { count: images.length })}
           </Typography>
         </Box>
       )}
@@ -401,37 +403,37 @@ const ImageBatchContents = ({ batch, onFeedback }) => {
       >
         <MenuItem onClick={() => handleMenuAction('view')}>
           <ListItemIcon><ViewIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>View</ListItemText>
+          <ListItemText>{t('images.batchContents.view')}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleMenuAction('rename')}>
           <ListItemIcon><RenameIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Rename</ListItemText>
+          <ListItemText>{t('images.shared.rename')}</ListItemText>
         </MenuItem>
         <MenuItem onClick={() => handleMenuAction('delete')} sx={{ color: 'error.main' }}>
           <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText>Delete</ListItemText>
+          <ListItemText>{t('images.shared.delete')}</ListItemText>
         </MenuItem>
       </Menu>
 
       {/* Rename Dialog */}
       <Dialog open={renameOpen} onClose={() => setRenameOpen(false)}>
-        <DialogTitle>Rename Image</DialogTitle>
+        <DialogTitle>{t('images.shared.renameImage')}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="New Name"
+            label={t('images.batchContents.newName')}
             fullWidth
             variant="outlined"
             value={newImageName}
             onChange={(e) => setNewImageName(e.target.value)}
             onKeyPress={(e) => { if (e.key === 'Enter') handleRename(); }}
-            helperText="Extension will be preserved"
+            helperText={t('images.batchContents.extensionKept')}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRenameOpen(false)}>Cancel</Button>
-          <Button onClick={handleRename} variant="contained">Rename</Button>
+          <Button onClick={() => setRenameOpen(false)}>{t('images.shared.cancel')}</Button>
+          <Button onClick={handleRename} variant="contained">{t('images.shared.rename')}</Button>
         </DialogActions>
       </Dialog>
 

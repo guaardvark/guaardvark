@@ -5,12 +5,14 @@ import {
   Movie as MovieIcon,
   PlayArrow as PlayArrowIcon,
 } from '@mui/icons-material';
+import { useUiTranslation } from '../../i18n';
 
 /**
  * A Film Crew film in the Media Library's Videos grid, styled like the Video Gen
  * batch cards beside it. The poster is the film's first storyboard frame.
  */
 const FilmCard = React.memo(function FilmCard({ film, index, dateStr, onPlay, onDownload }) {
+  const { t } = useUiTranslation();
   return (
     <Box
       onClick={() => onPlay(index)}
@@ -55,7 +57,7 @@ const FilmCard = React.memo(function FilmCard({ film, index, dateStr, onPlay, on
         </Box>
         <Chip
           icon={<MovieIcon sx={{ fontSize: '0.75rem !important', color: 'white !important' }} />}
-          label="Film Crew"
+          label={t('images.film.badge')}
           size="small"
           sx={{
             position: 'absolute', top: 4, right: 4,
@@ -81,7 +83,7 @@ const FilmCard = React.memo(function FilmCard({ film, index, dateStr, onPlay, on
         opacity: 0, transition: 'opacity 0.2s',
         '.MuiBox-root:hover > &': { opacity: 1 },
       }}>
-        <IconButton size="small" aria-label="Download film" onClick={(e) => { e.stopPropagation(); onDownload(film); }}
+        <IconButton size="small" aria-label={t('images.film.download')} onClick={(e) => { e.stopPropagation(); onDownload(film); }}
           sx={{ bgcolor: 'background.paper', boxShadow: 2, p: 0.25, '&:hover': { bgcolor: 'primary.dark' } }}>
           <DownloadIcon sx={{ fontSize: 14 }} />
         </IconButton>

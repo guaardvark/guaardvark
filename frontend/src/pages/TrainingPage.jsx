@@ -85,6 +85,7 @@ import {
   mergeServerValues,
   setFieldValue,
 } from "../utils/serverFormSync";
+import { uiLocale, useUiTranslation, Trans } from "../i18n";
 
 const AlertSnackbar = React.forwardRef(function Alert(props, ref) {
   return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -104,6 +105,7 @@ const stepsJson = (steps) =>
 // reloading the list does not drop it; null when there is no edit.
 // updateDraft(id, fn) replaces it with fn(current form).
 const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateDraft, onSaved, showMessage, theme }) => {
+  const { t } = useUiTranslation();
   const [saving, setSaving] = useState(false);
   const serverSteps = stepsJson(demo.steps);
   const editorValue = draft ? draft.values.steps : serverSteps;
@@ -116,7 +118,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
   useEffect(() => {
     if (conflict !== undefined) {
       showMessage(
-        `Steps of "${demo.name || "Untitled"}" were changed elsewhere. Your unsaved edit is kept; Save Steps replaces that change.`,
+        t("training.demos.stepsConflict", { name: demo.name || t("training.demos.untitled") }),
         "warning",
       );
     }
@@ -130,15 +132,15 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
     setSaving(true);
     try {
       const parsed = JSON.parse(sent);
-      if (!Array.isArray(parsed)) throw new Error("Steps must be a JSON array");
+      if (!Array.isArray(parsed)) throw new Error(t("training.demos.stepsNotArray"));
       const res = await axios.put(`${LEARN_API}/demonstrations/${demo.id}/steps`, { steps: parsed });
       updateDraft(demo.id, (form) => (form ? markFieldsSaved(form, { steps: sent }) : form));
       // The list's copy now matches what was saved, so the step count is right
       // and re-opening the row shows the saved steps.
       onSaved(res.data?.demonstration || { ...demo, steps: parsed });
-      showMessage("Steps saved", "success");
+      showMessage(t("training.demos.stepsSaved"), "success");
     } catch (err) {
-      showMessage(`Save failed: ${err.message}`, "error");
+      showMessage(t("training.common.saveFailed", { error: err.message }), "error");
     } finally {
       setSaving(false);
     }
@@ -154,7 +156,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
         </TableCell>
         <TableCell>
           <Typography variant="body2" fontWeight="medium">
-            {demo.name || "Untitled"}
+            {demo.name || t("training.demos.untitled")}
           </Typography>
         </TableCell>
         <TableCell align="center">{demo.steps?.length ?? 0}</TableCell>
@@ -175,17 +177,17 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
         </TableCell>
         <TableCell>
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: "0.8rem" }}>
-            {demo.created_at ? new Date(demo.created_at).toLocaleDateString() : "-"}
+            {demo.created_at ? new Date(demo.created_at).toLocaleDateString(uiLocale()) : "-"}
           </Typography>
         </TableCell>
         <TableCell align="right">
           <Box sx={{ display: "flex", gap: 0.5, justifyContent: "flex-end" }}>
-            <Tooltip title="Agent attempts this demo">
+            <Tooltip title={t("training.demos.attempt")}>
               <IconButton size="small" onClick={(e) => { e.stopPropagation(); onAttempt(demo); }} color="primary">
                 <PlayArrowIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Delete demonstration">
+            <Tooltip title={t("training.demos.delete")}>
               <IconButton size="small" onClick={(e) => { e.stopPropagation(); onDelete(demo); }} color="error">
                 <CloseIcon fontSize="small" />
               </IconButton>
@@ -198,7 +200,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <Box sx={{ p: 2, bgcolor: "action.hover" }}>
               <Typography variant="subtitle2" gutterBottom>
-                Steps (JSON) — edit, reorder, or paste new instructions
+                {t("training.demos.stepsEditor")}
               </Typography>
               <Editor
                 height="300px"
@@ -223,7 +225,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
                   onClick={handleSaveSteps}
                   disabled={saving || !dirty}
                 >
-                  {saving ? "Saving..." : "Save Steps"}
+                  {saving ? t("training.demos.saving") : t("training.demos.saveSteps")}
                 </Button>
               </Box>
             </Box>
@@ -235,6 +237,7 @@ const DemoRow = ({ demo, expanded, onToggle, onDelete, onAttempt, draft, updateD
 };
 
 const TrainingPage = () => {
+  const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
   const { activeProcesses } = useUnifiedProgress();
   const { activeModel, isLoadingModel, modelError } = useStatus();
@@ -325,7 +328,7 @@ const TrainingPage = () => {
       setDatasets(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching training datasets:", err);
-      showMessage(err.message || "Failed to fetch datasets.", "error");
+      showMessage(err.message || t("training.errors.fetchDatasets"), "error");
       setDatasets([]);
     } finally {
       setDatasetsLoading(false);
@@ -340,7 +343,7 @@ const TrainingPage = () => {
       setJobs(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching training jobs:", err);
-      showMessage(err.message || "Failed to fetch jobs.", "error");
+      showMessage(err.message || t("training.errors.fetchJobs"), "error");
       setJobs([]);
     } finally {
       setJobsLoading(false);
@@ -355,7 +358,7 @@ const TrainingPage = () => {
       setDeviceProfiles(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Error fetching device profiles:", err);
-      showMessage(err.message || "Failed to fetch device profiles.", "error");
+      showMessage(err.message || t("training.errors.fetchProfiles"), "error");
       setDeviceProfiles([]);
     } finally {
       setProfilesLoading(false);
@@ -378,7 +381,7 @@ const TrainingPage = () => {
       setDemonstrations(res.data.demonstrations || []);
     } catch (err) {
       console.error("Error fetching demonstrations:", err);
-      showMessage("Failed to fetch demonstrations", "error");
+      showMessage(t("training.errors.fetchDemos"), "error");
       setDemonstrations([]);
     } finally {
       setDemosLoading(false);
@@ -388,11 +391,11 @@ const TrainingPage = () => {
   const handleDeleteDemo = async (demo) => {
     try {
       await axios.delete(`${LEARN_API}/demonstrations/${demo.id}`);
-      showMessage(`Demonstration "${demo.name || "Untitled"}" deleted`, "success");
+      showMessage(t("training.demos.deleted", { name: demo.name || t("training.demos.untitled") }), "success");
       setDemonstrations((prev) => prev.filter((d) => d.id !== demo.id));
       if (expandedDemoId === demo.id) setExpandedDemoId(null);
     } catch (err) {
-      showMessage(`Failed to delete: ${err.message}`, "error");
+      showMessage(t("training.demos.deleteFailed", { error: err.message }), "error");
     }
   };
 
@@ -400,10 +403,10 @@ const TrainingPage = () => {
     try {
       const res = await axios.post(`${LEARN_API}/demonstrations/${demo.id}/attempt`);
       if (res.data.success) {
-        showMessage(`Attempt started (${res.data.autonomy_level} mode)`, "info");
+        showMessage(t("training.demos.attemptStarted", { mode: res.data.autonomy_level }), "info");
       }
     } catch (err) {
-      showMessage(`Failed to start attempt: ${err.message}`, "error");
+      showMessage(t("training.demos.attemptFailed", { error: err.message }), "error");
     }
   };
 
@@ -473,14 +476,14 @@ const TrainingPage = () => {
       if (result?.error) throw new Error(result.error.message || result.error);
       setFeedback({
         open: true,
-        message: "Dataset saved successfully.",
+        message: t("training.datasets.saved"),
         severity: "success",
       });
       await fetchDatasets();
       handleCloseEditModal();
     } catch (err) {
       console.error("Error saving dataset:", err);
-      showMessage(`Save failed: ${err.message}`, "error");
+      showMessage(t("training.common.saveFailed", { error: err.message }), "error");
     } finally {
       setIsSaving(false);
     }
@@ -491,54 +494,54 @@ const TrainingPage = () => {
   };
 
   const handleDeleteDataset = async (dataset) => {
-    if (!window.confirm(`Are you sure you want to delete the dataset "${dataset.name}"? This action cannot be undone.`)) return;
+    if (!window.confirm(t("training.datasets.deleteConfirm", { name: dataset.name }))) return;
     try {
       await deleteTrainingDataset(dataset.id);
-      showMessage(`Dataset "${dataset.name}" deleted successfully`, "success");
+      showMessage(t("training.datasets.deleted", { name: dataset.name }), "success");
       fetchDatasets();
     } catch (err) {
-      showMessage(`Failed to delete dataset: ${err.message}`, "error");
+      showMessage(t("training.datasets.deleteFailed", { error: err.message }), "error");
     }
   };
 
   const handleCancelJob = async (jobId) => {
     try {
       await cancelTrainingJob(jobId);
-      showMessage("Job cancelled", "success");
+      showMessage(t("training.jobs.cancelled"), "success");
       fetchJobs();
     } catch (err) {
-      showMessage(`Failed to cancel job: ${err.message}`, "error");
+      showMessage(t("training.jobs.cancelFailed", { error: err.message }), "error");
     }
   };
 
   const handleStartJob = async (jobId) => {
     try {
       await startTrainingJob(jobId);
-      showMessage("Training started", "success");
+      showMessage(t("training.jobs.started"), "success");
       fetchJobs();
     } catch (err) {
-      showMessage(`Failed to start job: ${err.message}`, "error");
+      showMessage(t("training.jobs.startFailed", { error: err.message }), "error");
     }
   };
 
   const handleResumeJob = async (jobId) => {
     try {
       await resumeTrainingJob(jobId);
-      showMessage("Job resumed - training continuing from checkpoint", "success");
+      showMessage(t("training.jobs.resumed"), "success");
       fetchJobs();
     } catch (err) {
-      showMessage(`Failed to resume job: ${err.message}`, "error");
+      showMessage(t("training.jobs.resumeFailed", { error: err.message }), "error");
     }
   };
 
   const handleDeleteJob = async (jobId) => {
-    if (!window.confirm("Are you sure you want to delete this job?")) return;
+    if (!window.confirm(t("training.jobs.deleteConfirm"))) return;
     try {
       await deleteTrainingJob(jobId);
-      showMessage("Job deleted", "success");
+      showMessage(t("training.jobs.deleted"), "success");
       fetchJobs();
     } catch (err) {
-      showMessage(`Failed to delete job: ${err.message}`, "error");
+      showMessage(t("training.jobs.deleteFailed", { error: err.message }), "error");
     }
   };
 
@@ -570,17 +573,14 @@ const TrainingPage = () => {
   // explicit choice; the backend records it, then the usual export dialog opens.
   const handleExportAnyway = async (job) => {
     if (exportBlocked(job)) return;
-    const ok = window.confirm(
-      `This run was held because it measured worse than its base model:\n\n${job.error_message || ""}\n\n` +
-        "Export it anyway? Your choice is recorded on the job.",
-    );
+    const ok = window.confirm(t("training.jobs.exportAnywayConfirm", { reason: job.error_message || "" }));
     if (!ok) return;
     try {
       const released = await exportTrainingJobAnyway(job.id, { by: "person", via: "training_page" });
       fetchJobs();
       handleExportToOllama(released, false);
     } catch (err) {
-      showMessage(`Failed to release the run for export: ${err.message}`, "error");
+      showMessage(t("training.jobs.releaseFailed", { error: err.message }), "error");
     }
   };
 
@@ -594,13 +594,13 @@ const TrainingPage = () => {
         quantization: quantization,
       });
       showMessage(
-        result.message || `Export started for ${modelName} (${quantization.toUpperCase()})`,
+        result.message || t("training.jobs.exportStarted", { model: modelName, quantization: quantization.toUpperCase() }),
         "info"
       );
       setExportModalOpen(false);
       fetchJobs(); // Refresh to show updated status
     } catch (err) {
-      showMessage(`Failed to export: ${err.message}`, "error");
+      showMessage(t("training.jobs.exportFailed", { error: err.message }), "error");
     } finally {
       setExportingJobs((prev) => {
         const next = new Set(prev);
@@ -614,11 +614,11 @@ const TrainingPage = () => {
     setIsSaving(true);
     try {
       await createTrainingJob(jobData);
-      showMessage("Training job created successfully", "success");
+      showMessage(t("training.jobs.created"), "success");
       setJobModalOpen(false);
       fetchJobs();
     } catch (err) {
-      showMessage(`Failed to create job: ${err.message}`, "error");
+      showMessage(t("training.jobs.createFailed", { error: err.message }), "error");
     } finally {
       setIsSaving(false);
     }
@@ -643,7 +643,7 @@ const TrainingPage = () => {
       });
       setDeviceModalOpen(true);
     } catch (err) {
-      showMessage(`Could not read this machine's hardware: ${err.message}`, "error");
+      showMessage(t("training.devices.hardwareFailed", { error: err.message }), "error");
     } finally {
       setDetectingHardware(false);
     }
@@ -661,28 +661,28 @@ const TrainingPage = () => {
     try {
       if (currentItem) {
         await updateDeviceProfile(currentItem.id, profileData);
-        showMessage("Device profile updated successfully", "success");
+        showMessage(t("training.devices.updated"), "success");
       } else {
         await createDeviceProfile(profileData);
-        showMessage("Device profile created successfully", "success");
+        showMessage(t("training.devices.created"), "success");
       }
       handleCloseDeviceModal();
       fetchDeviceProfiles();
     } catch (err) {
-      showMessage(`Failed to save profile: ${err.message}`, "error");
+      showMessage(t("training.devices.saveFailed", { error: err.message }), "error");
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleDeleteDeviceProfile = async (profileId) => {
-    if (!window.confirm("Are you sure you want to delete this device profile?")) return;
+    if (!window.confirm(t("training.devices.deleteConfirm"))) return;
     try {
       await deleteDeviceProfile(profileId);
-      showMessage("Device profile deleted", "success");
+      showMessage(t("training.devices.deleted"), "success");
       fetchDeviceProfiles();
     } catch (err) {
-      showMessage(`Failed to delete profile: ${err.message}`, "error");
+      showMessage(t("training.devices.deleteFailed", { error: err.message }), "error");
     }
   };
 
@@ -699,36 +699,36 @@ const TrainingPage = () => {
     const { kind, item } = payload;
     if (kind === "dataset") {
       return [
-        { label: "Edit", icon: <EditIcon fontSize="small" />, onClick: () => handleOpenEditModal(item) },
-        { label: "Delete", icon: <CloseIcon fontSize="small" />, onClick: () => handleDeleteDataset(item), color: "error.main", dividerBefore: true },
+        { label: t("training.common.edit"), icon: <EditIcon fontSize="small" />, onClick: () => handleOpenEditModal(item) },
+        { label: t("training.common.delete"), icon: <CloseIcon fontSize="small" />, onClick: () => handleDeleteDataset(item), color: "error.main", dividerBefore: true },
       ];
     }
     if (kind === "profile") {
       return [
-        { label: "Edit", icon: <EditIcon fontSize="small" />, onClick: () => handleOpenDeviceModal(item) },
-        { label: "Delete", icon: <CloseIcon fontSize="small" />, onClick: () => handleDeleteDeviceProfile(item.id), color: "error.main", dividerBefore: true },
+        { label: t("training.common.edit"), icon: <EditIcon fontSize="small" />, onClick: () => handleOpenDeviceModal(item) },
+        { label: t("training.common.delete"), icon: <CloseIcon fontSize="small" />, onClick: () => handleDeleteDeviceProfile(item.id), color: "error.main", dividerBefore: true },
       ];
     }
     if (kind === "job") {
       const job = item;
       const exporting = exportingJobs.has(job.id);
       return [
-        canStart(job) && { label: "Start", icon: <PlayArrowIcon fontSize="small" />, onClick: () => handleStartJob(job.id) },
-        job.status === "running" && { label: "Cancel", icon: <CancelIcon fontSize="small" />, onClick: () => handleCancelJob(job.id) },
-        canResume(job) && { label: "Resume from checkpoint", icon: <PlayArrowIcon fontSize="small" />, onClick: () => handleResumeJob(job.id) },
+        canStart(job) && { label: t("training.jobs.start"), icon: <PlayArrowIcon fontSize="small" />, onClick: () => handleStartJob(job.id) },
+        job.status === "running" && { label: t("training.common.cancel"), icon: <CancelIcon fontSize="small" />, onClick: () => handleCancelJob(job.id) },
+        canResume(job) && { label: t("training.jobs.resume"), icon: <PlayArrowIcon fontSize="small" />, onClick: () => handleResumeJob(job.id) },
         job.export_verified && job.status === "completed" && job.lora_path && !job.ollama_model_name && {
-          label: "Export to Ollama", icon: <CloudUploadIcon fontSize="small" />, onClick: () => handleExportToOllama(job, false), disabled: exporting,
+          label: t("training.jobs.exportToOllama"), icon: <CloudUploadIcon fontSize="small" />, onClick: () => handleExportToOllama(job, false), disabled: exporting,
         },
         job.export_verified && job.status === "completed" && job.lora_path && job.ollama_model_name && {
-          label: "Re-quantize", icon: <RefreshIcon fontSize="small" />, onClick: () => handleExportToOllama(job, true), disabled: exporting,
+          label: t("training.jobs.requantize"), icon: <RefreshIcon fontSize="small" />, onClick: () => handleExportToOllama(job, true), disabled: exporting,
         },
         job.export_verified && job.status === "failed: worse than base" && job.lora_path && {
-          label: "Export anyway", icon: <CloudUploadIcon fontSize="small" />, onClick: () => handleExportAnyway(job), disabled: exporting,
+          label: t("training.jobs.exportAnyway"), icon: <CloudUploadIcon fontSize="small" />, onClick: () => handleExportAnyway(job), disabled: exporting,
         },
         isDatasetJob(job) && job.status === "completed" && job.config?.pairs_count > 0 && {
-          label: "Add as dataset", icon: <AddIcon fontSize="small" />, onClick: () => handleAddParsedDataset(job),
+          label: t("training.jobs.addAsDataset"), icon: <AddIcon fontSize="small" />, onClick: () => handleAddParsedDataset(job),
         },
-        { label: "Delete", icon: <CloseIcon fontSize="small" />, onClick: () => handleDeleteJob(job.id), color: "error.main", dividerBefore: true },
+        { label: t("training.common.delete"), icon: <CloseIcon fontSize="small" />, onClick: () => handleDeleteJob(job.id), color: "error.main", dividerBefore: true },
       ];
     }
     return [];
@@ -757,26 +757,27 @@ const TrainingPage = () => {
 
   return (
     <PageLayout
-      title="Training Manager"
+      title={t("training.page.title")}
       variant="standard"
       modelStatus
-      activeModel={isLoadingModel ? "Loading..." : modelError ? "Error" : activeModel || "Default"}
+      activeModel={isLoadingModel ? t("training.page.modelLoading") : modelError ? t("training.page.modelError") : activeModel || t("training.page.modelDefault")}
     >
       <Alert severity="info" sx={{ mb: 2 }}>
-        This page fine-tunes <strong>LLM chat models</strong> (Ollama/GGUF export).
-        To train a <strong>character LoRA</strong> for video and images, use{" "}
-        <Button component={RouterLink} to="/cast" size="small" variant="outlined" sx={{ ml: 0.5, verticalAlign: "baseline" }}>
-          Cast Studio
-        </Button>
-        {" "}— upload reference shots, approve samples, then Train LoRA on the Training Data tab.
+        <Trans
+          i18nKey="training.page.intro"
+          components={{
+            bold: <strong />,
+            castLink: <Button component={RouterLink} to="/cast" size="small" variant="outlined" sx={{ ml: 0.5, verticalAlign: "baseline" }} />,
+          }}
+        />
       </Alert>
       <Paper elevation={2}>
         <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-            <Tab icon={<SchoolIcon />} iconPosition="start" label="Demonstrations" />
-            <Tab icon={<StorageIcon />} iconPosition="start" label="Datasets" />
-            <Tab icon={<WorkIcon />} iconPosition="start" label="Jobs" />
-            <Tab icon={<ComputerIcon />} iconPosition="start" label="Devices" />
+            <Tab icon={<SchoolIcon />} iconPosition="start" label={t("training.tabs.demonstrations")} />
+            <Tab icon={<StorageIcon />} iconPosition="start" label={t("training.tabs.datasets")} />
+            <Tab icon={<WorkIcon />} iconPosition="start" label={t("training.tabs.jobs")} />
+            <Tab icon={<ComputerIcon />} iconPosition="start" label={t("training.tabs.devices")} />
           </Tabs>
         </Box>
 
@@ -785,12 +786,12 @@ const TrainingPage = () => {
           <Box sx={{ p: 2 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
               <Typography variant="h6">
-                Demonstrations
+                {t("training.demos.title")}
                 {demonstrations.length > 0 && (
                   <Chip label={demonstrations.length} size="small" sx={{ ml: 1, height: 20, fontSize: "0.75rem" }} />
                 )}
               </Typography>
-              <Tooltip title="Refresh">
+              <Tooltip title={t("training.common.refresh")}>
                 <span>
                   <IconButton onClick={fetchDemonstrations} disabled={demosLoading}>
                     <RefreshIcon />
@@ -808,12 +809,12 @@ const TrainingPage = () => {
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ width: 40 }} />
-                      <TableCell>Name</TableCell>
-                      <TableCell align="center">Steps</TableCell>
-                      <TableCell>Autonomy</TableCell>
-                      <TableCell align="center">Attempts</TableCell>
-                      <TableCell>Created</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell>{t("training.common.name")}</TableCell>
+                      <TableCell align="center">{t("training.demos.steps")}</TableCell>
+                      <TableCell>{t("training.demos.autonomy")}</TableCell>
+                      <TableCell align="center">{t("training.demos.attempts")}</TableCell>
+                      <TableCell>{t("training.demos.created")}</TableCell>
+                      <TableCell align="right">{t("training.common.actions")}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -821,8 +822,7 @@ const TrainingPage = () => {
                       <TableRow>
                         <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                            No demonstrations yet. Record one with the Interactive Trainer: show the agent a task on
-                            its screen and the steps are saved here.
+                            {t("training.demos.empty")}
                           </Typography>
                           <Button
                             variant="contained"
@@ -830,7 +830,7 @@ const TrainingPage = () => {
                             startIcon={<SchoolIcon />}
                             onClick={() => setTrainerOpen(true)}
                           >
-                            Open Interactive Trainer
+                            {t("training.demos.openTrainer")}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -867,28 +867,28 @@ const TrainingPage = () => {
               alignItems="center"
               mb={2}
             >
-              <Typography variant="h6">Training Datasets</Typography>
+              <Typography variant="h6">{t("training.datasets.title")}</Typography>
               <Box display="flex" gap={1}>
                 <Button
                   variant="outlined"
                   startIcon={<PlayArrowIcon />}
                   onClick={() => setParseModalOpen(true)}
                 >
-                  Parse Transcripts
+                  {t("training.datasets.parseTranscripts")}
                 </Button>
                 <Button
                   variant="outlined"
                   startIcon={<PlayArrowIcon />}
                   onClick={() => setBuildModalOpen(true)}
                 >
-                  Build from folder
+                  {t("training.datasets.buildFromFolder")}
                 </Button>
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={() => handleOpenEditModal(null)}
                 >
-                  Add Dataset
+                  {t("training.datasets.add")}
                 </Button>
               </Box>
             </Box>
@@ -901,10 +901,10 @@ const TrainingPage = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Description</TableCell>
-                      <TableCell>Path</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell>{t("training.common.name")}</TableCell>
+                      <TableCell>{t("training.datasets.description")}</TableCell>
+                      <TableCell>{t("training.datasets.path")}</TableCell>
+                      <TableCell align="right">{t("training.common.actions")}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -912,7 +912,7 @@ const TrainingPage = () => {
                       <TableRow>
                         <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
                           <Typography variant="body2" color="text.secondary">
-                            No datasets found. Click "Add Dataset" to create one.
+                            {t("training.datasets.empty")}
                           </Typography>
                         </TableCell>
                       </TableRow>
@@ -938,7 +938,7 @@ const TrainingPage = () => {
                           </TableCell>
                           <TableCell align="right">
                             <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                              <Tooltip title="Edit / Rename">
+                              <Tooltip title={t("training.datasets.editRename")}>
                                 <IconButton
                                   size="small"
                                   onClick={() => handleOpenEditModal(ds)}
@@ -947,7 +947,7 @@ const TrainingPage = () => {
                                   <EditIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="Delete Dataset">
+                              <Tooltip title={t("training.datasets.deleteTooltip")}>
                                 <IconButton
                                   size="small"
                                   onClick={() => handleDeleteDataset(ds)}
@@ -977,13 +977,13 @@ const TrainingPage = () => {
               alignItems="center"
               mb={2}
             >
-              <Typography variant="h6">Training Jobs</Typography>
+              <Typography variant="h6">{t("training.jobs.title")}</Typography>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => setJobModalOpen(true)}
               >
-                New Training Job
+                {t("training.jobs.new")}
               </Button>
             </Box>
             {jobsLoading ? (
@@ -1002,7 +1002,7 @@ const TrainingPage = () => {
                             <Typography variant="h6">{job.name || job.job_id}</Typography>
                             <Typography variant="caption" color="text.secondary">
                               {job.base_model
-                                ? `${job.base_model} → ${job.output_model_name || "N/A"}`
+                                ? `${job.base_model} → ${job.output_model_name || t("training.common.notAvailable")}`
                                 : job.config?.input_path || ""}
                             </Typography>
                           </Box>
@@ -1021,7 +1021,7 @@ const TrainingPage = () => {
                             )}
                             {/* Export is offered only once it has been verified for the job's base model. */}
                             {job.export_verified && job.status === "completed" && job.lora_path && !job.ollama_model_name && (
-                              <Tooltip title="Export to Ollama">
+                              <Tooltip title={t("training.jobs.exportToOllama")}>
                                 <span>
                                   <IconButton
                                     size="small"
@@ -1040,7 +1040,7 @@ const TrainingPage = () => {
                             )}
                             {/* Re-quantize button - show for completed exports */}
                             {job.export_verified && job.status === "completed" && job.lora_path && job.ollama_model_name && (
-                              <Tooltip title="Re-quantize (change quantization level)">
+                              <Tooltip title={t("training.jobs.requantizeTooltip")}>
                                 <span>
                                   <IconButton
                                     size="small"
@@ -1058,7 +1058,7 @@ const TrainingPage = () => {
                               </Tooltip>
                             )}
                             {job.export_verified && job.status === "failed: worse than base" && job.lora_path && (
-                              <Tooltip title="Export anyway (the run measured worse than its base model)">
+                              <Tooltip title={t("training.jobs.exportAnywayTooltip")}>
                                 <span>
                                   <IconButton
                                     size="small"
@@ -1072,27 +1072,27 @@ const TrainingPage = () => {
                               </Tooltip>
                             )}
                             {canStart(job) && (
-                              <Tooltip title="Start training">
+                              <Tooltip title={t("training.jobs.startTooltip")}>
                                 <IconButton size="small" color="primary" onClick={() => handleStartJob(job.id)}>
                                   <PlayArrowIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
                             {job.status === "running" && (
-                              <Tooltip title="Cancel">
+                              <Tooltip title={t("training.common.cancel")}>
                                 <IconButton size="small" onClick={() => handleCancelJob(job.id)}>
                                   <CancelIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
                             {canResume(job) && (
-                              <Tooltip title="Resume from checkpoint">
+                              <Tooltip title={t("training.jobs.resume")}>
                                 <IconButton size="small" color="success" onClick={() => handleResumeJob(job.id)}>
                                   <PlayArrowIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
-                            <Tooltip title="Delete">
+                            <Tooltip title={t("training.common.delete")}>
                               <IconButton size="small" onClick={() => handleDeleteJob(job.id)}>
                                 <CloseIcon fontSize="small" />
                               </IconButton>
@@ -1103,33 +1103,43 @@ const TrainingPage = () => {
                           <Box sx={{ mt: 1 }}>
                             <LinearProgress variant="determinate" value={progress} />
                             <Typography variant="caption" color="text.secondary">
-                              {progress}% - {job.pipeline_stage || "processing"}
+                              {t("training.jobs.progress", { progress, stage: job.pipeline_stage || t("training.jobs.processing") })}
                             </Typography>
                           </Box>
                         )}
                         {isDatasetJob(job) && job.status === "completed" && job.config?.output_path && (
                           <Box sx={{ mt: 1, display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
                             <Typography variant="body2">
-                              {job.pipeline_stage === "building" ? "Built" : "Parsed"} {job.config.pairs_count ?? 0} pair{job.config.pairs_count === 1 ? "" : "s"}
-                              {job.pipeline_stage === "building" && job.config.files != null &&
-                                ` from ${job.config.files} file${job.config.files === 1 ? "" : "s"}, ${job.config.scrubbed ?? 0} item${job.config.scrubbed === 1 ? "" : "s"} scrubbed`}
+                              {job.pipeline_stage === "building"
+                                ? job.config.files != null
+                                  ? t("training.jobs.builtFrom", {
+                                    built: t("training.jobs.builtPairs", { count: job.config.pairs_count ?? 0 }),
+                                    files: t("training.jobs.fileCount", { count: job.config.files }),
+                                    scrubbed: t("training.jobs.itemCount", { count: job.config.scrubbed ?? 0 }),
+                                  })
+                                  : t("training.jobs.builtPairs", { count: job.config.pairs_count ?? 0 })
+                                : t("training.jobs.parsedPairs", { count: job.config.pairs_count ?? 0 })}
                             </Typography>
                             {job.config.pairs_count > 0 && (
                               <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => handleAddParsedDataset(job)}>
-                                Add as dataset
+                                {t("training.jobs.addAsDataset")}
                               </Button>
                             )}
                           </Box>
                         )}
                         {job.error_message && (
                           <Typography variant="caption" color="error" sx={{ mt: 1, display: "block" }}>
-                            Error: {job.error_message}
+                            {t("training.jobs.error", { error: job.error_message })}
                           </Typography>
                         )}
                         {job.config?.export_override && (
                           <Typography variant="caption" color="warning.main" sx={{ mt: 1, display: "block" }}>
-                            Export gate overridden by {job.config.export_override.by} ({job.config.export_override.via})
-                            {" "}at {job.config.export_override.at}. {job.config.export_override.gate_note}
+                            {t("training.jobs.exportOverride", {
+                              by: job.config.export_override.by,
+                              via: job.config.export_override.via,
+                              at: job.config.export_override.at,
+                              note: job.config.export_override.gate_note,
+                            })}
                           </Typography>
                         )}
                         {/* Show export results when available */}
@@ -1158,7 +1168,7 @@ const TrainingPage = () => {
                 })}
                 {jobs.length === 0 && (
                   <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
-                    No training jobs found
+                    {t("training.jobs.empty")}
                   </Typography>
                 )}
               </Box>
@@ -1175,7 +1185,7 @@ const TrainingPage = () => {
               alignItems="center"
               mb={2}
             >
-              <Typography variant="h6">Device Profiles</Typography>
+              <Typography variant="h6">{t("training.devices.title")}</Typography>
               <Box display="flex" gap={1}>
                 <Button
                   variant="outlined"
@@ -1183,21 +1193,19 @@ const TrainingPage = () => {
                   onClick={handleCreateFromThisMachine}
                   disabled={detectingHardware}
                 >
-                  Create from this machine
+                  {t("training.devices.fromThisMachine")}
                 </Button>
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={() => handleOpenDeviceModal(null)}
                 >
-                  Add Profile
+                  {t("training.devices.add")}
                 </Button>
               </Box>
             </Box>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              A profile is optional on a training job. A job that uses one is refused at start if its batch size or
-              sequence length is above the profile&apos;s, or its base model needs more GPU memory than the profile has;
-              a job that does not set batch size or sequence length trains with the profile&apos;s.
+              {t("training.devices.help")}
             </Typography>
             {profilesLoading ? (
               <Box display="flex" justifyContent="center" my={3}>
@@ -1208,13 +1216,13 @@ const TrainingPage = () => {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Name</TableCell>
-                      <TableCell>Type</TableCell>
+                      <TableCell>{t("training.common.name")}</TableCell>
+                      <TableCell>{t("training.devices.type")}</TableCell>
                       <TableCell>VRAM</TableCell>
-                      <TableCell>Batch Size</TableCell>
-                      <TableCell>Seq Length</TableCell>
-                      <TableCell>Default</TableCell>
-                      <TableCell align="right">Actions</TableCell>
+                      <TableCell>{t("training.devices.batchSize")}</TableCell>
+                      <TableCell>{t("training.devices.seqLength")}</TableCell>
+                      <TableCell>{t("training.devices.default")}</TableCell>
+                      <TableCell align="right">{t("training.common.actions")}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1222,8 +1230,7 @@ const TrainingPage = () => {
                       <TableRow>
                         <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                            No device profiles yet. Start from this machine&apos;s detected GPU and memory, then review
-                            the numbers before saving.
+                            {t("training.devices.empty")}
                           </Typography>
                           <Button
                             variant="contained"
@@ -1232,7 +1239,7 @@ const TrainingPage = () => {
                             onClick={handleCreateFromThisMachine}
                             disabled={detectingHardware}
                           >
-                            Create from this machine
+                            {t("training.devices.fromThisMachine")}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -1241,12 +1248,12 @@ const TrainingPage = () => {
                       <TableRow key={profile.id} hover onContextMenu={(e) => rowMenu.open(e, { kind: "profile", item: profile })}>
                         <TableCell>{profile.name}</TableCell>
                         <TableCell>{profile.device_type || "-"}</TableCell>
-                        <TableCell>{profile.gpu_vram_mb ? `${(profile.gpu_vram_mb / 1024).toFixed(1)} GB` : "N/A"}</TableCell>
+                        <TableCell>{profile.gpu_vram_mb ? `${(profile.gpu_vram_mb / 1024).toFixed(1)} GB` : t("training.common.notAvailable")}</TableCell>
                         <TableCell>{profile.max_batch_size}</TableCell>
                         <TableCell>{profile.max_seq_length}</TableCell>
-                        <TableCell>{profile.is_default ? <Chip label="Default" size="small" color="primary" /> : "-"}</TableCell>
+                        <TableCell>{profile.is_default ? <Chip label={t("training.devices.default")} size="small" color="primary" /> : "-"}</TableCell>
                         <TableCell align="right">
-                          <Tooltip title="Edit">
+                          <Tooltip title={t("training.common.edit")}>
                             <span>
                               <IconButton
                                 size="small"
@@ -1256,7 +1263,7 @@ const TrainingPage = () => {
                               </IconButton>
                             </span>
                           </Tooltip>
-                          <Tooltip title="Delete">
+                          <Tooltip title={t("training.common.delete")}>
                             <span>
                               <IconButton
                                 size="small"
@@ -1315,7 +1322,7 @@ const TrainingPage = () => {
           open={parseModalOpen}
           onClose={() => setParseModalOpen(false)}
           onSuccess={(_result) => {
-            showMessage("Parse job started successfully", "success");
+            showMessage(t("training.datasets.parseStarted"), "success");
             fetchJobs();
           }}
         />
@@ -1326,7 +1333,7 @@ const TrainingPage = () => {
           open={buildModalOpen}
           onClose={() => setBuildModalOpen(false)}
           onStarted={(_job, indexNote) => {
-            showMessage(`Building the dataset; follow it in Jobs.${indexNote || ""}`, "success");
+            showMessage(t("training.datasets.buildStarted", { note: indexNote || "" }), "success");
             fetchJobs();
           }}
         />

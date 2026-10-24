@@ -20,17 +20,18 @@ import {
   Check as CheckIcon,
   IosShare as ShareIcon,
 } from '@mui/icons-material';
+import { translate, useUiTranslation } from '../../i18n';
 
 // The stored value is the hex; the name is what the swatch tooltip says.
-const FOLDER_COLORS = [
-  { hex: '#90CAF9', name: 'Blue' },
-  { hex: '#A5D6A7', name: 'Green' },
-  { hex: '#FFCC80', name: 'Orange' },
-  { hex: '#EF9A9A', name: 'Red' },
-  { hex: '#CE93D8', name: 'Purple' },
-  { hex: '#80DEEA', name: 'Cyan' },
-  { hex: '#FFAB91', name: 'Coral' },
-  { hex: '#B0BEC5', name: 'Grey' },
+const folderColors = () => [
+  { hex: '#90CAF9', name: translate('images.contextMenu.colors.blue') },
+  { hex: '#A5D6A7', name: translate('images.contextMenu.colors.green') },
+  { hex: '#FFCC80', name: translate('images.contextMenu.colors.orange') },
+  { hex: '#EF9A9A', name: translate('images.contextMenu.colors.red') },
+  { hex: '#CE93D8', name: translate('images.contextMenu.colors.purple') },
+  { hex: '#80DEEA', name: translate('images.contextMenu.colors.cyan') },
+  { hex: '#FFAB91', name: translate('images.contextMenu.colors.coral') },
+  { hex: '#B0BEC5', name: translate('images.contextMenu.colors.grey') },
 ];
 
 const ImagesContextMenu = ({
@@ -58,6 +59,7 @@ const ImagesContextMenu = ({
   _selectedItem = null,
   folderColor = null,
 }) => {
+  const { t } = useUiTranslation();
   if (!anchorPosition) return null;
 
   const handleSortBy = (field) => {
@@ -77,41 +79,41 @@ const ImagesContextMenu = ({
       {contextType === 'desktop' && [
         <MenuItem key="new-folder" onClick={() => { onNewFolder?.(); onClose(); }}>
           <ListItemIcon><NewFolderIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>New Folder</ListItemText>
+          <ListItemText>{t('images.contextMenu.newFolder')}</ListItemText>
         </MenuItem>,
         <MenuItem key="select-all" onClick={() => { onSelectAll?.(); onClose(); }}>
           <ListItemIcon><SelectAllIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Select All</ListItemText>
+          <ListItemText>{t('images.contextMenu.selectAll')}</ListItemText>
         </MenuItem>,
         <Divider key="d1" />,
         <MenuItem key="sort-name" onClick={() => handleSortBy('name')}>
           <ListItemIcon><SortIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Sort by Name</ListItemText>
+          <ListItemText>{t('images.contextMenu.sortByName')}</ListItemText>
         </MenuItem>,
         <MenuItem key="sort-date" onClick={() => handleSortBy('date')}>
           <ListItemIcon><SortIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Sort by Date</ListItemText>
+          <ListItemText>{t('images.contextMenu.sortByDate')}</ListItemText>
         </MenuItem>,
         <MenuItem key="sort-size" onClick={() => handleSortBy('size')}>
           <ListItemIcon><SortIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Sort by Size</ListItemText>
+          <ListItemText>{t('images.contextMenu.sortBySize')}</ListItemText>
         </MenuItem>,
         <Divider key="d2" />,
         <MenuItem key="arrange-icons" onClick={() => { onArrangeIcons?.(); onClose(); }}>
           <ListItemIcon><ArrangeIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Arrange Icons</ListItemText>
+          <ListItemText>{t('images.shared.arrangeIcons')}</ListItemText>
         </MenuItem>,
         hasOpenWindows && (
           <MenuItem key="arrange-windows" onClick={() => { onArrangeWindows?.(); onClose(); }}>
             <ListItemIcon><ArrangeIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Arrange Windows</ListItemText>
+            <ListItemText>{t('images.shared.arrangeWindows')}</ListItemText>
           </MenuItem>
         ),
         hasClipboard ? [
           <Divider key="paste-div" />,
           <MenuItem key="paste" onClick={() => { onPaste?.(); onClose(); }}>
             <ListItemIcon><PasteIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Paste</ListItemText>
+            <ListItemText>{t('images.contextMenu.paste')}</ListItemText>
           </MenuItem>,
         ] : null,
       ]}
@@ -120,30 +122,30 @@ const ImagesContextMenu = ({
       {contextType === 'folder-background' && [
         <MenuItem key="new-folder" onClick={() => { onNewFolder?.(); onClose(); }}>
           <ListItemIcon><NewFolderIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>New Folder</ListItemText>
+          <ListItemText>{t('images.contextMenu.newFolder')}</ListItemText>
         </MenuItem>,
         hasClipboard && (
           <MenuItem key="paste" onClick={() => { onPaste?.(); onClose(); }}>
             <ListItemIcon><PasteIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Paste into this folder</ListItemText>
+            <ListItemText>{t('images.contextMenu.pasteIntoFolder')}</ListItemText>
           </MenuItem>
         ),
         <MenuItem key="select-all" onClick={() => { onSelectAll?.(); onClose(); }}>
           <ListItemIcon><SelectAllIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Select All</ListItemText>
+          <ListItemText>{t('images.contextMenu.selectAll')}</ListItemText>
         </MenuItem>,
         <Divider key="d1" />,
         <MenuItem key="sort-name" onClick={() => handleSortBy('name')}>
           <ListItemIcon><SortIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Sort by Name</ListItemText>
+          <ListItemText>{t('images.contextMenu.sortByName')}</ListItemText>
         </MenuItem>,
         <MenuItem key="sort-date" onClick={() => handleSortBy('date')}>
           <ListItemIcon><SortIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Sort by Date</ListItemText>
+          <ListItemText>{t('images.contextMenu.sortByDate')}</ListItemText>
         </MenuItem>,
         <MenuItem key="sort-size" onClick={() => handleSortBy('size')}>
           <ListItemIcon><SortIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Sort by Size</ListItemText>
+          <ListItemText>{t('images.contextMenu.sortBySize')}</ListItemText>
         </MenuItem>,
       ]}
 
@@ -151,23 +153,23 @@ const ImagesContextMenu = ({
       {(contextType === 'folder' || contextType === 'folder-window') && [
         <MenuItem key="cut" onClick={() => { onCut?.(); onClose(); }}>
           <ListItemIcon><CutIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Cut</ListItemText>
+          <ListItemText>{t('images.contextMenu.cut')}</ListItemText>
         </MenuItem>,
         <MenuItem key="copy" onClick={() => { onCopy?.(); onClose(); }}>
           <ListItemIcon><CopyIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Copy</ListItemText>
+          <ListItemText>{t('images.contextMenu.copy')}</ListItemText>
         </MenuItem>,
         hasClipboard && (
           <MenuItem key="paste" onClick={() => { onPaste?.(); onClose(); }}>
             <ListItemIcon><PasteIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Paste</ListItemText>
+            <ListItemText>{t('images.contextMenu.paste')}</ListItemText>
           </MenuItem>
         ),
         <Divider key="d1" />,
         <MenuItem key="color" disableRipple disableGutters sx={{ px: 1.5, py: 0.6 }}>
-          <ListItemText sx={{ mr: 1 }}>Color</ListItemText>
+          <ListItemText sx={{ mr: 1 }}>{t('images.contextMenu.color')}</ListItemText>
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-            {FOLDER_COLORS.map(({ hex, name }) => (
+            {folderColors().map(({ hex, name }) => (
               <Tooltip key={hex} title={name}>
                 <Box
                   onClick={(e) => { e.stopPropagation(); onColorChange?.(hex); onClose(); }}
@@ -188,11 +190,11 @@ const ImagesContextMenu = ({
         <Divider key="d2" />,
         <MenuItem key="rename" onClick={() => { onRename?.(); onClose(); }}>
           <ListItemIcon><RenameIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Rename</ListItemText>
+          <ListItemText>{t('images.shared.rename')}</ListItemText>
         </MenuItem>,
         <MenuItem key="delete" onClick={() => { onDelete?.(); onClose(); }}>
           <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText sx={{ color: 'error.main' }}>Delete</ListItemText>
+          <ListItemText sx={{ color: 'error.main' }}>{t('images.shared.delete')}</ListItemText>
         </MenuItem>,
       ]}
 
@@ -200,43 +202,43 @@ const ImagesContextMenu = ({
       {contextType === 'image' && [
         <MenuItem key="view" onClick={() => { onViewFullSize?.(); onClose(); }}>
           <ListItemIcon><ViewIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>View Full Size</ListItemText>
+          <ListItemText>{t('images.contextMenu.viewFullSize')}</ListItemText>
         </MenuItem>,
         <MenuItem key="edit" onClick={() => { onEdit?.(); onClose(); }}>
           <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Edit</ListItemText>
+          <ListItemText>{t('images.contextMenu.edit')}</ListItemText>
         </MenuItem>,
         <MenuItem key="publish" onClick={() => { onPublish?.(); onClose(); }}>
           <ListItemIcon><ShareIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Share / Publish…</ListItemText>
+          <ListItemText>{t('images.contextMenu.publish')}</ListItemText>
         </MenuItem>,
         <Divider key="d0" />,
         <MenuItem key="cut" onClick={() => { onCut?.(); onClose(); }}>
           <ListItemIcon><CutIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Cut</ListItemText>
+          <ListItemText>{t('images.contextMenu.cut')}</ListItemText>
         </MenuItem>,
         <MenuItem key="copy" onClick={() => { onCopy?.(); onClose(); }}>
           <ListItemIcon><CopyIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Copy</ListItemText>
+          <ListItemText>{t('images.contextMenu.copy')}</ListItemText>
         </MenuItem>,
         hasClipboard && (
           <MenuItem key="paste" onClick={() => { onPaste?.(); onClose(); }}>
             <ListItemIcon><PasteIcon fontSize="small" /></ListItemIcon>
-            <ListItemText>Paste</ListItemText>
+            <ListItemText>{t('images.contextMenu.paste')}</ListItemText>
           </MenuItem>
         ),
         <Divider key="d1" />,
         <MenuItem key="download" onClick={() => { onDownload?.(); onClose(); }}>
           <ListItemIcon><DownloadIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Download</ListItemText>
+          <ListItemText>{t('images.shared.download')}</ListItemText>
         </MenuItem>,
         <MenuItem key="rename" onClick={() => { onRename?.(); onClose(); }}>
           <ListItemIcon><RenameIcon fontSize="small" /></ListItemIcon>
-          <ListItemText>Rename</ListItemText>
+          <ListItemText>{t('images.shared.rename')}</ListItemText>
         </MenuItem>,
         <MenuItem key="delete" onClick={() => { onDelete?.(); onClose(); }}>
           <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
-          <ListItemText sx={{ color: 'error.main' }}>Delete</ListItemText>
+          <ListItemText sx={{ color: 'error.main' }}>{t('images.shared.delete')}</ListItemText>
         </MenuItem>,
       ]}
     </Menu>

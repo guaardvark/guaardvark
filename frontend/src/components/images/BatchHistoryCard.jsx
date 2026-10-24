@@ -9,6 +9,7 @@ import {
 } from '@mui/icons-material';
 import EntityContextMenu from '../common/EntityContextMenu';
 import useContextMenu from '../../hooks/useContextMenu';
+import { useUiTranslation } from '../../i18n';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -30,8 +31,9 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
   onDownload,
   onAdjustRetry,
 }) {
+  const { t } = useUiTranslation();
   const imgCount = batch.completed_images ?? batch.total_images ?? 0;
-  const rawName = batch.display_name || `Batch ${batch.batch_id.slice(0, 8)}`;
+  const rawName = batch.display_name || t('images.batchCard.fallbackName', { id: batch.batch_id.slice(0, 8) });
   const label = rawName.length > 36 ? rawName.slice(0, 35).trimEnd() + '…' : rawName;
   const isCompleted = batch.status === 'completed';
   const menu = useContextMenu();
@@ -93,7 +95,7 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
           {imgCount > 0 ? (
             <img
               src={`${API_BASE}/batch-image/preview/${batch.batch_id}`}
-              alt="Preview"
+              alt={t('images.batchCard.previewAlt')}
               loading="lazy"
               decoding="async"
               width={256}
@@ -115,7 +117,7 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
             <Visibility sx={{ fontSize: 32, color: 'white' }} />
           </Box>
           <Chip
-            label={`${imgCount} image${imgCount !== 1 ? 's' : ''}`}
+            label={t('images.shared.imageCount', { count: imgCount })}
             size="small"
             sx={{
               position: 'absolute', top: 6, right: 6,
@@ -135,7 +137,7 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
               }}
             />
           )}
-          <Tooltip title="Clear batch from list">
+          <Tooltip title={t('images.batchCard.clearTooltip')}>
             <IconButton
               size="small"
               className="batch-delete"
@@ -174,7 +176,7 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
                 onClick={(e) => { e.stopPropagation(); onOpen(batch, 0); }}
                 sx={{ textTransform: 'none', borderRadius: 1, fontSize: '0.75rem', py: 0.2, px: 1 }}
               >
-                Browse
+                {t('images.batchCard.browse')}
               </Button>
               <Button
                 size="small"
@@ -183,7 +185,7 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
                 onClick={(e) => { e.stopPropagation(); onDownload(batch.batch_id); }}
                 sx={{ textTransform: 'none', borderRadius: 1, fontSize: '0.75rem', py: 0.2, px: 1 }}
               >
-                Download
+                {t('images.shared.download')}
               </Button>
             </>
           )}
@@ -194,7 +196,7 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
             onClick={(e) => { e.stopPropagation(); onAdjustRetry(batch.batch_id); }}
             sx={{ textTransform: 'none', borderRadius: 1, fontSize: '0.75rem', py: 0.2, px: 1 }}
           >
-            Adjust &amp; Retry
+            {t('images.batchCard.adjustRetry')}
           </Button>
         </Box>
       </Box>
@@ -205,12 +207,12 @@ const BatchHistoryCard = React.memo(function BatchHistoryCard({
       actions={
         menu.payload
           ? [
-              isCompleted && { label: 'Browse', onClick: () => onOpen(batch, 0) },
-              isCompleted && { label: 'Download', onClick: () => onDownload(batch.batch_id) },
-              !isCompleted && { label: 'Load batch', onClick: () => onLoad(batch.batch_id) },
-              { label: 'Adjust & Retry', onClick: () => onAdjustRetry(batch.batch_id) },
+              isCompleted && { label: t('images.batchCard.browse'), onClick: () => onOpen(batch, 0) },
+              isCompleted && { label: t('images.shared.download'), onClick: () => onDownload(batch.batch_id) },
+              !isCompleted && { label: t('images.batchCard.loadBatch'), onClick: () => onLoad(batch.batch_id) },
+              { label: t('images.batchCard.adjustRetry'), onClick: () => onAdjustRetry(batch.batch_id) },
               {
-                label: 'Clear from list',
+                label: t('images.batchCard.clearFromList'),
                 onClick: () => onHide(batch.batch_id),
                 color: 'error.main',
                 dividerBefore: true,
