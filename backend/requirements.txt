@@ -151,7 +151,7 @@ playwright==1.52.0
 
 # Desktop Automation Dependencies
 pyautogui>=0.9.54      # GUI automation (mouse, keyboard)
-pynput>=1.7.6          # Keyboard/mouse monitoring
+pynput>=1.8.2          # Keyboard/mouse monitoring
 watchdog>=6.0.0        # File system monitoring
 pyperclip>=1.8.2       # Cross-platform clipboard
 plyer>=2.1.0           # Native notifications
