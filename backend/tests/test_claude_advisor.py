@@ -42,7 +42,7 @@ class TestClaudeAdvisorService:
         service = ClaudeAdvisorService.__new__(ClaudeAdvisorService)
         service._api_key = "test-key"
         service._client = MagicMock()
-        service._model = "claude-sonnet-4-20250514"
+        service._model = "claude-sonnet-5-5"
         service._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
         service._usage_reset_date = datetime.now().replace(day=1)
         service._monthly_budget = 1000000
@@ -77,7 +77,7 @@ class TestClaudeAdvisorService:
         service = ClaudeAdvisorService.__new__(ClaudeAdvisorService)
         service._api_key = "test-key"
         service._client = MagicMock()
-        service._model = "claude-sonnet-4-20250514"
+        service._model = "claude-sonnet-5-5"
         service._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
         service._usage_reset_date = datetime.now().replace(day=1)
         service._monthly_budget = 1000000
@@ -112,7 +112,7 @@ class TestClaudeAdvisorService:
         service = ClaudeAdvisorService.__new__(ClaudeAdvisorService)
         service._api_key = "test-key"
         service._client = MagicMock()
-        service._model = "claude-sonnet-4-20250514"
+        service._model = "claude-sonnet-5-5"
         service._usage = {"input_tokens": 0, "output_tokens": 0, "total_tokens": total_tokens}
         service._usage_reset_date = datetime.now().replace(day=1)
         service._monthly_budget = monthly_budget

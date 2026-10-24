@@ -152,7 +152,7 @@ MCP_AUTOCONNECT = os.environ.get("GUAARDVARK_MCP_AUTOCONNECT", "true").lower() =
 
 # Uncle Claude configuration
 CLAUDE_API_ENABLED = os.environ.get("GUAARDVARK_CLAUDE_API_ENABLED", "true").lower() == "true"
-CLAUDE_DEFAULT_MODEL = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
+CLAUDE_DEFAULT_MODEL = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-5-5")
 CLAUDE_MAX_OUTPUT_TOKENS = int(os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096"))
 CLAUDE_MONTHLY_TOKEN_BUDGET = int(os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000"))
 CLAUDE_ESCALATION_MODE = os.environ.get("GUAARDVARK_CLAUDE_ESCALATION_MODE", "manual")  # manual, smart, always

@@ -62,7 +62,7 @@ class ClaudeAdvisorService:
 
         self._api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip() or None
         self._client = None
-        self._model = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-4-20250514")
+        self._model = os.environ.get("GUAARDVARK_CLAUDE_MODEL", "claude-sonnet-5-5")
         self._max_output_tokens = int(os.environ.get("GUAARDVARK_CLAUDE_MAX_TOKENS", "4096"))
         self._monthly_budget = int(os.environ.get("GUAARDVARK_CLAUDE_TOKEN_BUDGET", "1000000"))
         self._escalation_mode = get_setting("claude_escalation_mode", default="manual")
