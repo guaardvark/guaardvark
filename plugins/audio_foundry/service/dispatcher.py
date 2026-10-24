@@ -173,6 +173,8 @@ class Dispatcher:
 
                 if not backend.is_loaded:
                     self._load_with_orchestrator(intent, backend)
+                else:
+                    self._claim_card_again(intent, backend)
 
             # 3. Release state_lock but KEEP intent_lock during the slow generate()
             import time
@@ -182,6 +184,7 @@ class Dispatcher:
                 result = backend.generate(
                     progress_cb=progress_cb, cancel_event=cancel_event, **params,
                 )
+                self._last_used[intent] = time.monotonic()
                 # Signal success to orchestrator so eviction timer can reset
                 self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
                 
@@ -226,11 +229,14 @@ class Dispatcher:
                     self._orch.evict(f"{_SLOT_PREFIX}:{intent.value}")
                 if not backend.is_loaded:
                     self._load_with_orchestrator(intent, backend)
+                else:
+                    self._claim_card_again(intent, backend)
 
             import time
             self._last_used[intent] = time.monotonic()
             try:
                 result = backend.plan(**params)
+                self._last_used[intent] = time.monotonic()
                 self._orch.release(f"{_SLOT_PREFIX}:{intent.value}")
                 return result
             except Exception:
@@ -336,6 +342,40 @@ class Dispatcher:
                     "Unloaded %s to make room for %s (%d MB free, %d MB wanted)",
                     other.value, intent.value, free, vram_req,
                 )
+
+    def _claim_card_again(self, intent: Intent, backend: AudioBackend) -> None:
+        """For a loaded backend that needs the whole card (ACE-Step): ask for it
+        again before running. A chat model loaded between two songs would
+        otherwise leave this one out of memory. Voice and effects share."""
+        if not getattr(backend, "requires_exclusive_vram", False):
+            return
+        slot_id = f"{_SLOT_PREFIX}:{intent.value}"
+        vram_req = max(backend.vram_mb_estimate, backend.last_vram_mb)
+        self._orch.request_vram(slot_id, vram_req, _DEFAULT_PRIORITY, exclusive=True)
+        # The orchestrator may have forgotten an idle slot; a re-registered one
+        # starts as loading, and the model is already in memory.
+        self._orch.mark_loaded(slot_id)
+
+    def start_idle_unloader(self, idle_s: int) -> None:
+        """Unload a backend idle for ``idle_s`` seconds (runtime.gpu.idle_unload_s),
+        so its memory returns to other work. 0 keeps backends loaded."""
+        if idle_s <= 0:
+            return
+
+        def loop() -> None:
+            import time
+            while True:
+                time.sleep(max(5, min(30, idle_s // 4)))
+                now = time.monotonic()
+                for intent in list(self._backends):
+                    backend = self._backends.get(intent)
+                    last = self._last_used.get(intent)
+                    if backend is None or not backend.is_loaded or last is None:
+                        continue
+                    if now - last >= idle_s and self.unload(intent):
+                        logger.info("Unloaded %s after %ds idle", intent.value, idle_s)
+
+        threading.Thread(target=loop, name="audio-idle-unload", daemon=True).start()
 
     def _load_with_orchestrator(self, intent: Intent, backend: AudioBackend) -> None:
         """Request VRAM, run load(), report load completion. Cleans up on failure."""

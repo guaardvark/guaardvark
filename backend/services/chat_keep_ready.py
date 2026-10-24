@@ -1,5 +1,5 @@
 """Keep ready, for Settings → Models → Chat: the active chat model stays loaded
-with no idle timeout, steps aside for image, video and training work, and is
+with no idle timeout, steps aside for image, video, music and training work, and is
 loaded again once that work has released the card.
 
 The switch is ``GUAARDVARK_CHAT_KEEP_READY`` in ``.env`` and in this process's
@@ -124,6 +124,17 @@ def _ollama_url() -> str:
 
 def _gpu_busy_reason() -> Optional[str]:
     """Why the card is not free for the chat model now, or None."""
+    try:
+        from backend.services.gpu_memory_orchestrator import get_orchestrator_if_created
+        orch = get_orchestrator_if_created()
+        holder = orch.exclusive_holder() if orch is not None else None
+        if holder:
+            # Music (ACE-Step) asks for the whole card. Loading the chat model
+            # into the gap between its eviction and its load, or beside it,
+            # leaves the next song or arrangement out of memory.
+            return f"{holder} needs the whole card"
+    except Exception:
+        pass
     try:
         from backend.services.gpu_resource_coordinator import get_gpu_coordinator
         lock = get_gpu_coordinator().get_gpu_status()
