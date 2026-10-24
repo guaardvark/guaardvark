@@ -60,16 +60,26 @@ _LANGUAGE_RE = re.compile(
 )
 _LANGUAGE_BY_NAME = {name: code for name, code in _LANGUAGE_NAMES}
 
+# In prose a language name is also an adjective: "Spanish guitar", "French
+# horn", "German techno". It names the sung language only when it stands as its
+# own item ("..., English", "sung in Japanese.") or comes before a vocal word.
+_LANGUAGE_ALONE_RE = re.compile(r"\s*(?:$|[,;.!?)/|\n])")
+_LANGUAGE_VOCAL_RE = re.compile(
+    r"[\s-]*(?:lyrics|vocals?|singing|sung|rap(?:s|ped|ping)?|verses?|language)\b",
+    re.IGNORECASE,
+)
+# English words spelled like a language; they count only when capitalised.
+_LANGUAGE_NEEDS_CAPITAL = frozenset({"polish"})
+
 # "84 bpm". Two or three digits so a year or a 4-digit number is not a tempo.
 _BPM_RE = re.compile(r"\b(\d{2,3})\s*bpm\b", re.IGNORECASE)
 
 # "A minor", "F# major", "Bb min". The bare word "am" is English, so a minor
 # suffix of one letter only counts as a key when the note is uppercase ("Am")
-# or the accidental is written ("F#m").
-_KEY_WORD_RE = re.compile(
-    r"\b([A-Ga-g])\s*([#b♯♭]?)\s*(major|minor|maj|min)\b",
-    re.IGNORECASE,
-)
+# or the accidental is written ("F#m"). The accidental is case-sensitive and
+# touches its note, so "a B minor" is B minor, not A-flat. A lowercase "a"
+# with no accidental is the article ("a major hit", "a minor change").
+_KEY_WORD_RE = re.compile(r"\b([A-Ga-g])([#b♯♭]?)\s*((?i:major|minor|maj|min))\b")
 _KEY_SHORT_ACC_RE = re.compile(r"\b([A-Ga-g])([#b♯♭])m\b")
 _KEY_SHORT_PLAIN_RE = re.compile(r"\b([A-G])m\b")
 
@@ -113,6 +123,8 @@ def canonical_key(value: str, *, exact: bool = False) -> str:
     ):
         for match in pattern.finditer(text):
             if kind == "word":
+                if match.group(1) == "a" and not match.group(2):
+                    continue
                 key = _format_key(match.group(1), match.group(2) or "", match.group(3))
             elif kind == "acc":
                 key = _format_key(match.group(1), match.group(2), "m")
@@ -157,17 +169,22 @@ def require_meter(value: str) -> str:
 
 def canonical_language(value: str, *, exact: bool = False) -> str:
     """A language code. Names are matched in prose; a field may be the code."""
-    text = (value or "").strip().lower()
+    raw = (value or "").strip()
+    text = raw.lower()
     if not text or text == "unknown":
         return ""
     if exact:
         if text in LANGUAGE_CODES:
             return text
         return _LANGUAGE_BY_NAME.get(text, "")
-    match = _LANGUAGE_RE.search(text)
-    if match is None:
-        return ""
-    return _LANGUAGE_BY_NAME.get(match.group(1).lower(), "")
+    for match in _LANGUAGE_RE.finditer(raw):
+        name = match.group(1)
+        if name.lower() in _LANGUAGE_NEEDS_CAPITAL and not name[0].isupper():
+            continue
+        after = raw[match.end():]
+        if _LANGUAGE_ALONE_RE.match(after) or _LANGUAGE_VOCAL_RE.match(after):
+            return _LANGUAGE_BY_NAME.get(name.lower(), "")
+    return ""
 
 
 def require_language(value: str) -> str:

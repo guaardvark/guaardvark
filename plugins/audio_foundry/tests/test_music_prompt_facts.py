@@ -39,6 +39,20 @@ def test_short_keys_and_words_that_are_not_keys():
     assert "timesignature" not in extract_music_facts("played in 5/4")
 
 
+def test_language_adjectives_and_articles_are_not_locked():
+    assert extract_music_facts("Spanish guitar, English vocals")["vocal_language"] == "en"
+    assert "vocal_language" not in extract_music_facts("French horn and strings")
+    assert "vocal_language" not in extract_music_facts("German techno at 130 bpm")
+    assert "vocal_language" not in extract_music_facts("add some polish")
+    assert extract_music_facts("Polish lyrics, slow")["vocal_language"] == "pl"
+    assert extract_music_facts("a love song sung in Japanese")["vocal_language"] == "ja"
+    assert "keyscale" not in extract_music_facts("a major hit")
+    assert "keyscale" not in extract_music_facts("a minor change of plan")
+    assert extract_music_facts("in a B minor ballad")["keyscale"] == "B minor"
+    assert extract_music_facts("a b minor tune")["keyscale"] == "B minor"
+    assert extract_music_facts("ab minor drone")["keyscale"] == "Ab minor"
+
+
 def test_explicit_field_wins_over_the_description():
     resolved, locks = resolve_plan_params({
         "style_prompt": "train song, 84 bpm, A minor",
