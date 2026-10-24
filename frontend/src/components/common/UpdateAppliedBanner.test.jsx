@@ -36,6 +36,22 @@ describe("describeUpdate", () => {
     expect(describeUpdate({ status: "ok" }, null)).toBeNull();
   });
 
+  it("offers a restart when the GPU faulted, ahead of any update notice", () => {
+    const notice = describeUpdate(
+      health({
+        gpu_fault: { at: "2026-10-23T23:19:52", where: "inference", error: "launch timed out" },
+        restart_required: true,
+        restart_reason: "backend code changed",
+      }),
+      { bootId: "boot-a", updateTs: null },
+    );
+    expect(notice.kind).toBe("restart");
+    expect(notice.reason).toBe("gpu_fault");
+    expect(notice.message).toBe(
+      "The GPU stopped responding at 23:19. Image generation fails until Guaardvark restarts.",
+    );
+  });
+
   it("asks for a restart as soon as the backend says so", () => {
     const notice = describeUpdate(
       health({ restart_required: true, restart_reason: "backend code changed" }),

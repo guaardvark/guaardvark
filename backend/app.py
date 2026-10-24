@@ -2048,6 +2048,16 @@ def health_check():
         payload.update(update_state.restart_state(project_root, __version__))
     except Exception:
         app.logger.debug("restart state unavailable for /health", exc_info=True)
+    # A GPU fault kills this process's CUDA context: image work fails until a
+    # restart, so the page offers one. Read from the generator only if it exists.
+    try:
+        _img_mod = sys.modules.get("backend.services.offline_image_generator")
+        _img_gen = getattr(_img_mod, "_generator_instance", None) if _img_mod else None
+        _fault = getattr(_img_gen, "_gpu_fault", None) if _img_gen is not None else None
+        if _fault:
+            payload["gpu_fault"] = {k: _fault.get(k) for k in ("at", "where", "error")}
+    except Exception:
+        app.logger.debug("gpu fault state unavailable for /health", exc_info=True)
     return jsonify(payload), 200
 
 @app.route("/api/health/db")
