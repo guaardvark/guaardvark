@@ -101,7 +101,7 @@ imageio==2.34.0
 imageio-ffmpeg==0.6.0
 
 # Voice Processing Dependencies
-piper-tts==1.7.0
+piper-tts==1.8.0
 onnxruntime==1.30.0
 
 # Testing Dependencies
