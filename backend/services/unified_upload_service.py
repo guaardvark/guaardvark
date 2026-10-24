@@ -15,7 +15,7 @@ from flask import current_app
 from backend.models import Folder, Document as DBDocument, Client, Project, Website, db
 from backend.utils.unified_progress_system import get_unified_progress, ProcessType
 from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
-from backend.utils.file_kinds import flags_as_code_file
+from backend.utils.file_kinds import flags_as_code_file, never_read_as_text
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +225,7 @@ class UnifiedUploadService:
             progress_system.update_process(job_id, 20, f"Uploading {chosen_filename}")
         
         # Store content in database if requested and file is text/code
-        if store_content and (is_text or is_code):
+        if store_content and (is_text or is_code) and not never_read_as_text(file_path):
             try:
                 file_content = _read_file_content(file_path)
                 if file_content:

@@ -94,6 +94,63 @@ def update_document_status(document_id, status, error_message=None):
 # Returned by enhanced_code_aware_indexing when the document was left PENDING
 # for a later attempt: not a success, and not the document's fault.
 DEFERRED = "deferred"
+# Audio and video: kept and shown, with nothing to search.
+STORED_ONLY = "stored_only"
+# Compiled or binary: the row is already marked ERROR with the reason.
+UNREADABLE = "unreadable"
+
+
+def _file_sha256(file_path):
+    digest = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        for block in iter(lambda: f.read(1 << 20), b''):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _index_without_text(file_path, document, document_id, update_progress):
+    """Media, build output and binary files have no text to store. Images still go
+    to the vector index, whose image reader describes them; audio and video are
+    stored only; compiled and binary files are refused with the reason."""
+    kind = file_kinds.kind_of(file_path)
+    if kind not in (file_kinds.MEDIA, file_kinds.BUILD_ARTIFACT):
+        kind = 'binary'
+    metadata = {
+        'file_type': kind,
+        'language': 'unknown',
+        'content_hash': _file_sha256(file_path),
+        'processed_at': datetime.datetime.now().isoformat(),
+        'indexing_method': 'no_text',
+    }
+    session = get_db_session()
+    try:
+        session.execute(text("""
+            UPDATE documents
+            SET content = NULL, is_code_file = FALSE, file_metadata = :file_metadata, error_message = NULL
+            WHERE id = :document_id
+        """), {"file_metadata": json.dumps(metadata), "document_id": document_id})
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+    if file_kinds.is_image(file_path):
+        update_progress(90, f'Describing image for search: {document["filename"]}')
+        from backend.services.indexing_service import add_file_to_index_by_id, vector_store_fallback_reason
+        if add_file_to_index_by_id(file_path, document_id):
+            return True
+        reason = vector_store_fallback_reason()
+        if reason:
+            update_document_status(document_id, "PENDING", f"Waiting for the vector store: {reason}")
+            return DEFERRED
+        return False
+    if kind == file_kinds.MEDIA:
+        logger.info(f"Stored media document {document_id} ('{document['filename']}'): nothing to read as text")
+        return STORED_ONLY
+    update_document_status(document_id, "ERROR", "Compiled or binary file: there is no text to read")
+    return UNREADABLE
 
 
 def enhanced_code_aware_indexing(file_path, document, document_id, update_progress):
@@ -106,6 +163,9 @@ def enhanced_code_aware_indexing(file_path, document, document_id, update_progre
         if not os.path.exists(file_path):
             logger.error(f"File not found: {file_path}")
             return False
+
+        if file_kinds.never_read_as_text(file_path):
+            return _index_without_text(file_path, document, document_id, update_progress)
 
         with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
             content = f.read()
@@ -454,6 +514,19 @@ def index_document_task(document_id, process_id=None):
             simple_index_document(full_file_path, document_id)
             success = False
             fallback_reason = f"Indexing failed for {document['filename']}: {e}"
+
+        if success == STORED_ONLY:
+            update_document_status(document_id, "STORED")
+            if progress_system:
+                progress_system.complete_process(process_id, f'Stored {document["filename"]} (nothing to search)')
+            return {'process_id': process_id, 'document_id': document_id,
+                    'filename': document['filename'], 'status': 'stored'}
+
+        if success == UNREADABLE:
+            message = f"{document['filename']} is compiled or binary: there is no text to read"
+            if progress_system:
+                progress_system.error_process(process_id, message)
+            return {'error': message}
 
         if success == DEFERRED:
             message = f"Indexing deferred for {document['filename']}: vector store not in use; left PENDING"

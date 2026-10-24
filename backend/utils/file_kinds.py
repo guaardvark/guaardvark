@@ -46,11 +46,12 @@ MARKUP_CONFIG_EXTENSIONS = frozenset({
 
 MARKDOWN_EXTENSIONS = frozenset({".md", ".markdown", ".mdx"})
 
-MEDIA_EXTENSIONS = frozenset({
+IMAGE_EXTENSIONS = frozenset({
     ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".ico", ".heic", ".avif",
-    ".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".opus",
-    ".mp4", ".webm", ".mov", ".mkv", ".avi",
 })
+AUDIO_EXTENSIONS = frozenset({".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac", ".opus"})
+VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mov", ".mkv", ".avi"})
+MEDIA_EXTENSIONS = IMAGE_EXTENSIONS | AUDIO_EXTENSIONS | VIDEO_EXTENSIONS
 
 BUILD_ARTIFACT_EXTENSIONS = frozenset({
     ".pyc", ".pyo", ".class", ".o", ".obj", ".so", ".dll", ".dylib", ".a", ".lib", ".exe",
@@ -94,6 +95,10 @@ def is_code(path: PathLike) -> bool:
 
 def is_media(path: PathLike) -> bool:
     return kind_of(path) == MEDIA
+
+
+def is_image(path: PathLike) -> bool:
+    return is_media(path) and _ext(path) in IMAGE_EXTENSIONS
 
 
 def is_build_artifact(path: PathLike) -> bool:
