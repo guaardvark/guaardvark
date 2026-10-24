@@ -96,10 +96,15 @@ function updateDocumentLanguage(language) {
 i18n.on("languageChanged", updateDocumentLanguage);
 updateDocumentLanguage("en");
 
+let requested = "en";
+
 async function applyLanguage(language) {
   const next = normalizeLanguage(language);
+  requested = next;
   await loadLanguage(next);
-  return i18n.changeLanguage(next);
+  // A pick made while this one loaded wins, however the loads finish.
+  if (requested !== next) return;
+  await i18n.changeLanguage(next);
 }
 
 /** Switch the interface language and remember it in this browser. */

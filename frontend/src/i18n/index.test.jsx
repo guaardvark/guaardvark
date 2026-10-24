@@ -50,6 +50,16 @@ describe("choosing a language", () => {
     expect(i18n.resolvedLanguage).toBe("en");
   });
 
+  it("keeps the last pick when an earlier one is still loading", async () => {
+    await setLanguage("de");
+    await setLanguage("en");
+    const slower = setLanguage("es"); // its files load first
+    const later = setLanguage("de"); // already loaded
+    await Promise.all([slower, later]);
+    expect(i18n.resolvedLanguage).toBe("de");
+    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe("de");
+  });
+
   it("still switches when storage is blocked", async () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("blocked");
