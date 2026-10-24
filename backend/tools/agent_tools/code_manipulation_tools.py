@@ -1008,6 +1008,28 @@ class GetRepositoryMapTool(BaseTool):
             return ToolResult(success=False, error=display_text(f"Failed to get repository map: {str(e)}"))
 
 
+def _graph_result(head: dict, graph: dict, file, metadata: dict) -> ToolResult:
+    """The whole graph, or with ``file`` that file's imports and importers. A file
+    is matched by its listed path, or by the end of it ('firewall.py')."""
+    if not file:
+        return ToolResult(success=True, output=json.dumps({**head, "graph": graph}, indent=2), metadata=metadata)
+    wanted = str(file).strip().lstrip("./")
+    known = set(graph) | {t for targets in graph.values() for t in targets}
+    matches = [p for p in known if p == wanted] or [p for p in known if p.endswith("/" + wanted)]
+    if not matches:
+        return ToolResult(success=True, output=json.dumps({
+            **head, "file": wanted, "imports": [], "imported_by": [],
+            "note": "This file neither imports nor is imported by any file in the folder."}, indent=2),
+            metadata=metadata)
+    target = sorted(matches)[0]
+    return ToolResult(success=True, output=json.dumps({
+        **head,
+        "file": target,
+        "imports": graph.get(target, []),
+        "imported_by": sorted(src for src, targets in graph.items() if target in targets),
+    }, indent=2), metadata=metadata)
+
+
 class GetDependencyGraphTool(BaseTool):
     """Tool to get the import dependency graph of a Code Repository folder."""
 
@@ -1023,7 +1045,7 @@ class GetDependencyGraphTool(BaseTool):
         "reflects the last analysis (analyzed_at is when it ran, in server local time; later edits are "
         "not in the graph), and fails with a message if the folder is not analysed. For a "
         "ranked symbol overview use get_repository_map; for import cycles in Guaardvark's own checkout, "
-        "map_codebase."
+        "map_codebase. With file, returns {file, imports, imported_by} for that one file."
         + PROJECT_FOLDER_MAP_NOTE
     )
     parameters = {
@@ -1032,7 +1054,13 @@ class GetDependencyGraphTool(BaseTool):
             type="int",
             required=False,
             description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id. In a chat inside a project that has a folder, leave it empty to use that folder."
-        )
+        ),
+        "file": ToolParameter(
+            name="file",
+            type="string",
+            required=False,
+            description="Optional path of one file, as the graph lists it (e.g. 'service/firewall.py'). Returns only that file's imports and the files that import it, instead of the whole graph. Use it for 'what imports X' and 'what does X import'."
+        ),
     }
 
     def execute(self, **kwargs) -> ToolResult:
@@ -1043,16 +1071,10 @@ class GetDependencyGraphTool(BaseTool):
                 return ToolResult(success=False, error=err)
             if data is None:
                 return ToolResult(success=False, error=NO_FOLDER_ID)
-            return ToolResult(
-                success=True,
-                output=json.dumps({
-                    "root": display_text(data["root"]),
-                    "analyzed_at": data["analyzed_at"],
-                    "file_count": data["file_count"],
-                    "graph": data["dependency_graph"],
-                }, indent=2),
-                metadata={"root": data["root"], "node_count": len(data["dependency_graph"])},
-            )
+            head = {"root": display_text(data["root"]), "analyzed_at": data["analyzed_at"],
+                    "file_count": data["file_count"]}
+            return _graph_result(head, data["dependency_graph"], kwargs.get("file"),
+                                 {"root": data["root"], "node_count": len(data["dependency_graph"])})
 
         try:
             folder, err = _repository_folder(self, folder_id)
@@ -1071,15 +1093,10 @@ class GetDependencyGraphTool(BaseTool):
             if dep_graph is None:
                 return ToolResult(success=False, error="No dependency graph found in the metadata.")
 
-            return ToolResult(
-                success=True,
-                output=json.dumps({
-                    "analyzed_at": folder["metadata"].get("analyzed_at"),
-                    "file_count": folder["metadata"].get("file_count"),
-                    "graph": dep_graph,
-                }, indent=2),
-                metadata={"folder_id": folder_id, "node_count": len(dep_graph)}
-            )
+            head = {"analyzed_at": folder["metadata"].get("analyzed_at"),
+                    "file_count": folder["metadata"].get("file_count")}
+            return _graph_result(head, dep_graph, kwargs.get("file"),
+                                 {"folder_id": folder_id, "node_count": len(dep_graph)})
         except Exception as e:
             logger.error(f"GetDependencyGraphTool failed: {e}", exc_info=True)
             return ToolResult(success=False, error=display_text(f"Failed to get dependency graph: {str(e)}"))
