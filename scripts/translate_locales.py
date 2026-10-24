@@ -35,6 +35,7 @@ import re
 import shutil
 import subprocess
 import sys
+import unicodedata
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -200,6 +201,13 @@ def numbers(text: str) -> list[str]:
     return sorted(re.findall(r"\d+", text))
 
 
+def width(text: str) -> int:
+    """Columns the text takes: a Chinese, Japanese or Korean character is as
+    wide as two Latin ones, so a complete sentence in those scripts is not
+    mistaken for a cut-off one by its character count."""
+    return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in text)
+
+
 def problems(source: str, translated: str, may_drop_count: bool = False) -> list[str]:
     found = []
     if not isinstance(translated, str) or not translated.strip():
@@ -226,7 +234,10 @@ def problems(source: str, translated: str, may_drop_count: bool = False) -> list
     # translation stops mid-sentence and still parses.
     if source.count('"') % 2 == 0 and translated.count('"') % 2:
         found.append('unbalanced " (cut off at a quote mark?)')
-    if len(source) >= 40 and len(translated.strip()) < 0.35 * len(source):
+    # Against GNOME's human translations of sentences of 40+ characters, 0.2-0.6%
+    # of it/pt-BR/nl/pl/ru fall under 0.35, and by width 1.8% of zh-CN and 0.5%
+    # of ja/ko (by character count it was half of zh-CN).
+    if len(source) >= 40 and width(translated.strip()) < 0.35 * width(source):
         found.append("much shorter than the English (cut off?)")
     return found
 
