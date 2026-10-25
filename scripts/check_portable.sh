@@ -125,26 +125,79 @@ scan_tracked() {
     done < <(git ls-files -z)
 }
 
+# The added lines of the commit or the push, read out of git once: their text in
+# one file and, line for line, where each came from in another ("<commit><TAB>
+# <path>", the commit empty for staged lines, the path empty for a line of a
+# commit message). Each rule is then one grep over all of the text; a grep per
+# added line costs a process per line, hours on a commit of a few hundred
+# thousand lines.
+TAB=$'\t'
+ADDED=""
+collect_added() {
+    local commit
+    ADDED=$(mktemp -d "${TMPDIR:-/tmp}/check_portable.XXXXXX") || exit 2
+    trap 'rm -rf "$ADDED"' EXIT
+    : > "$ADDED/text"
+    : > "$ADDED/where"
+    # Fixed prefixes: a user's diff.noprefix or diff.mnemonicPrefix would change
+    # the "+++ b/" headers the parser reads files from.
+    local diff_opts=(--unified=0 --no-color --no-ext-diff --src-prefix=a/ --dst-prefix=b/)
+    if [ "$MODE" = "--staged" ]; then
+        git diff --cached "${diff_opts[@]}" | split_patch ""
+        return
+    fi
+    for commit in $(git rev-list $TARGET 2>/dev/null); do
+        git log -1 --format=%B "$commit" | split_message "$commit"
+        git show --format= "${diff_opts[@]}" "$commit" | split_patch "$commit"
+    done
+}
+
+# Added lines of a patch, each beside the file it adds to. Headers are only read
+# outside a hunk: an added line whose text starts with "++ b/" looks exactly like
+# a "+++ b/" header otherwise. Git ends a header with a tab when the path holds a
+# space, and quotes a path holding other unusual characters (+++ "b/...").
+split_patch() {
+    LC_ALL=C awk -v label="$1" -v text="$ADDED/text" -v where="$ADDED/where" '
+        /^diff --/ { hunk = 0; file = ""; next }
+        /^@@/      { hunk = 1; next }
+        !hunk && /^\+\+\+ / {
+            name = substr($0, 5); sub(/\t$/, "", name); file = ""
+            if (name ~ /^b\//) file = substr(name, 3)
+            else if (name ~ /^"b\//) file = substr(name, 4, length(name) - 4)
+            next
+        }
+        hunk && /^\+/ && file != "" { print substr($0, 2) >> text; print label "\t" file >> where }
+    '
+}
+
+split_message() {
+    LC_ALL=C awk -v label="$1" -v text="$ADDED/text" -v where="$ADDED/where" '
+        { print >> text; print label "\t" >> where }
+    '
+}
+
+# The added lines a pattern matches, as "<commit><TAB><path><TAB><text>".
+added_matches() {
+    grep -anE -- "$1" "$ADDED/text" | LC_ALL=C awk -v where="$ADDED/where" '{
+        n = index($0, ":"); want = substr($0, 1, n - 1) + 0
+        while (at < want && (getline from < where) > 0) at++
+        print from "\t" substr($0, n + 1)
+    }'
+}
+
 # Scan only the lines this commit adds. This is the gate that actually prevents
 # a leak, so it runs against content that has never left the machine.
 scan_staged() {
-    local pattern="$1" explanation="$2" file="" line content
-    while IFS= read -r line; do
-        case "$line" in
-            '+++ /dev/null') file="" ;;
-            '+++ b/'*)       file="${line#+++ b/}" ;;
-            '+'*)
-                [ -z "$file" ] && continue
-                [ "$USE_ALLOW" = 1 ] && [[ "$file" =~ $ALLOW ]] && continue
-                content="${line#+}"
-                if printf '%s' "$content" | grep -qE -- "$pattern"; then
-                    echo "✗ ${file} — ${explanation}"
-                    echo "    ${content:0:120}"
-                    status=1
-                fi
-                ;;
-        esac
-    done < <(git diff --cached --unified=0 --no-color)
+    local pattern="$1" explanation="$2" hit file content
+    while IFS= read -r hit; do
+        hit="${hit#*"$TAB"}"
+        file="${hit%%"$TAB"*}"
+        content="${hit#*"$TAB"}"
+        [ "$USE_ALLOW" = 1 ] && [[ "$file" =~ $ALLOW ]] && continue
+        echo "✗ ${file} — ${explanation}"
+        echo "    ${content:0:120}"
+        status=1
+    done < <(added_matches "$pattern")
 }
 
 # Refuse whole files by path. .git/info/exclude already keeps these out of a
@@ -165,11 +218,9 @@ scan_paths() {
         [ -z "$pattern" ] && continue
         while IFS= read -r file; do
             [ -z "$file" ] && continue
-            if printf '%s' "$file" | grep -qE -- "$pattern"; then
-                echo "✗ ${file} — ${explanation}"
-                status=1
-            fi
-        done <<< "$listing"
+            echo "✗ ${file} — ${explanation}"
+            status=1
+        done < <(printf '%s\n' "$listing" | grep -aE -- "$pattern")
     done < <(grep -vE '^\s*(#|$)' "$LOCAL_PATHS")
 }
 
@@ -203,35 +254,30 @@ scan_file() {
 # commit REVS selects. The last gate before content leaves the machine, and the
 # only one that sees commits made with --no-verify or before the hooks existed.
 scan_range() {
-    local pattern="$1" explanation="$2" commit subject hit file="" line content
-    for commit in $(git rev-list $TARGET 2>/dev/null); do
-        subject=$(git log -1 --format=%s "$commit")
-        if hit=$(git log -1 --format=%B "$commit" | grep -nE -- "$pattern" | head -1); then
+    local pattern="$1" explanation="$2" hit commit file content subject shown=""
+    while IFS= read -r hit; do
+        commit="${hit%%"$TAB"*}"
+        hit="${hit#*"$TAB"}"
+        file="${hit%%"$TAB"*}"
+        content="${hit#*"$TAB"}"
+        if [ -z "$file" ]; then
+            # One line is enough to refuse a message.
+            [ "$commit" = "$shown" ] && continue
+            shown="$commit"
             echo "✗ ${commit:0:7} message — ${explanation}"
-            echo "    ${hit#*:}"
-            status=1
+            echo "    ${content}"
+        else
+            [ "$USE_ALLOW" = 1 ] && [[ "$file" =~ $ALLOW ]] && continue
+            subject=$(git log -1 --format=%s "$commit")
+            echo "✗ ${commit:0:7} ${file} — ${explanation}  (${subject:0:50})"
+            echo "    ${content:0:120}"
         fi
-        file=""
-        while IFS= read -r line; do
-            case "$line" in
-                '+++ /dev/null') file="" ;;
-                '+++ b/'*)       file="${line#+++ b/}" ;;
-                '+'*)
-                    [ -z "$file" ] && continue
-                    [ "$USE_ALLOW" = 1 ] && [[ "$file" =~ $ALLOW ]] && continue
-                    content="${line#+}"
-                    if printf '%s' "$content" | grep -qE -- "$pattern"; then
-                        echo "✗ ${commit:0:7} ${file} — ${explanation}  (${subject:0:50})"
-                        echo "    ${content:0:120}"
-                        status=1
-                    fi
-                    ;;
-            esac
-        done < <(git show --format= --unified=0 --no-color "$commit")
-    done
+        status=1
+    done < <(added_matches "$pattern")
 }
 
 [ "$MODE" = "--file" ] || scan_paths
+case "$MODE" in --staged|--range) collect_added ;; esac
 
 # The generic rules honour ALLOW; the local ones apply to every file, because a
 # box nickname or a client's name has no legitimate place in a test or README.
