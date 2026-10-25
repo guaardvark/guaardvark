@@ -1,0 +1,41 @@
+{
+  "output": {
+    "status": {
+      "failed": "Mislukt",
+      "replaced": "Vervangen",
+      "complete": "Voltooid"
+    },
+    "retryFailedRows": "Probeer {{count}} mislukte rijen opnieuw",
+    "deleteOutput": "Output verwijderen",
+    "generated": "Gegenereerd",
+    "replaced": "Vervangen",
+    "successRate": "Succespercentage",
+    "rows": "{{count}} rijen"
+  },
+  "task": {
+    "status": {
+      "pending": "In afwachting",
+      "queued": "In wachtrij",
+      "running": "Bezig",
+      "paused": "Pauze",
+      "completed": "Voltooid",
+      "failed": "Mislukt",
+      "cancelled": "Geannuleerd",
+      "unknown": "Onbekend"
+    },
+    "statusWithRetries": "{{status}} ({{retries}}x)",
+    "projectNumber": "Project {{id}}",
+    "noProject": "Geen project",
+    "untitled": "Ongetitelde taak",
+    "noClient": "Geen klant",
+    "queuedForExecution": "In wachtrij voor uitvoering...",
+    "processing": "Bezig met verwerken...",
+    "noDescriptionAvailable": "Geen beschrijving beschikbaar.",
+    "noDescription": "Geen beschrijving",
+    "deleteTask": "Taak verwijderen",
+    "runTask": "Taak uitvoeren",
+    "startJob": "Job starten",
+    "cancelQueuedTask": "Wachtrijtaak annuleren",
+    "stopJob": "Job stoppen"
+  }
+}

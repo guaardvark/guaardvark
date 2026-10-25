@@ -1,0 +1,190 @@
+{
+  "memoryPage": {
+    "title": "智能体记忆"
+  },
+  "groups": {
+    "create": "创建",
+    "createHelp": "负责编写页面、代码和数据文件的智能体。",
+    "web": "网络",
+    "webHelp": "能够搜索、阅读并操作网页的智能体。需要在设置中开启网络访问。",
+    "computer": "本设备",
+    "computerHelp": "在本地机器上执行操作的智能体：包括智能体自身的屏幕、桌面和媒体播放。",
+    "routing": "路由",
+    "routingHelp": "通用助手处理无特定领域匹配的任务；任务编排器将多步骤请求分配给不同的智能体。",
+    "other": "其他"
+  },
+  "table": {
+    "label": "智能体",
+    "agent": "智能体",
+    "group": "分组",
+    "whatItDoes": "功能描述",
+    "status": "状态",
+    "tools": "工具",
+    "maxSteps": "最大步骤",
+    "model": "模型",
+    "edited": "已编辑",
+    "chatModel": "对话模型"
+  },
+  "page": {
+    "loadFailed": "加载智能体失败",
+    "enabled": "{{name}} 已启用",
+    "disabled": "{{name}} 已禁用",
+    "toggleFailed": "切换失败",
+    "copied": "已复制 {{id}}",
+    "copyFailed": "无法复制到剪贴板",
+    "title": "智能体",
+    "viewLabel": "智能体视图",
+    "tileView": "磁贴视图",
+    "tableView": "表格视图",
+    "loading": "正在加载智能体...",
+    "emptyTitle": "未找到智能体",
+    "emptyDescription": "配置完成后，智能体将显示在此处",
+    "unnamedAgent": "智能体",
+    "updated": "智能体已更新"
+  },
+  "actions": {
+    "edit": "编辑",
+    "test": "测试",
+    "enable": "启用",
+    "disable": "禁用",
+    "copyId": "复制 ID",
+    "resetToDefault": "重置为默认"
+  },
+  "reset": {
+    "backToDefault": "恢复为内置默认值",
+    "title": "将 {{name}} 重置为默认",
+    "unnamedAgent": "智能体",
+    "description": "您对这些字段的更改将被替换为内置值。",
+    "keeps": "智能体是否开启",
+    "confirm": "重置",
+    "failed": "重置失败",
+    "done": "{{name}} 已重置为默认"
+  },
+  "edit": {
+    "instructions": "指令",
+    "maxIterations": "最大迭代次数",
+    "model": "模型",
+    "loadFailed": "无法加载智能体",
+    "saveFailed": "保存失败",
+    "enabled": "已启用",
+    "offNote": "关闭",
+    "activeChatModel": "当前对话模型 (默认)",
+    "modelNotInstalled": "(未安装)",
+    "iterationsRange": "1 到 {{max}}",
+    "instructionsHelp": "作为该智能体系统提示词的一部分发送给模型。",
+    "instructionsEmpty": "指令不能为空；请使用“重置为默认”",
+    "plannerPrompt": "规划器为每个请求编写自己的提示词，因此此处无需编辑。",
+    "toolsHeading": "工具 ({{count}})",
+    "toolNotInstalled": "未安装",
+    "toolNeedsApproval": "需要批准 (此处被拒绝)",
+    "nothingChanged": "与内置默认值无任何变化",
+    "save": "保存"
+  },
+  "tile": {
+    "off": "关闭",
+    "toolsMissing_other": "缺少 {{count}} 个工具",
+    "ready": "就绪",
+    "handsSteps": "传递给其他智能体的步骤",
+    "toolCount_other": "{{count}} 个工具",
+    "missingCount": "缺失 {{count}} 个",
+    "maxSteps": "最大 {{max}}",
+    "edited": "已编辑"
+  },
+  "test": {
+    "invalidContext": "上下文必须是有效的 JSON",
+    "executionFailedError": "智能体执行失败",
+    "title": "测试 {{name}}",
+    "planOnly": "仅显示编排者为此消息制定的计划；不会执行这些步骤。",
+    "realRun": "实际运行将真正运行带有此消息的智能体，与在对话中提问相同：它将使用其工具并可能在 Guaardvark 的输出文件夹中创建文件。",
+    "message": "消息",
+    "context": "上下文 (JSON)",
+    "planMade": "计划已生成",
+    "complete": "执行完成 ({{iterations}} 次迭代)",
+    "failed": "执行失败",
+    "run": "运行"
+  },
+  "screen": {
+    "chipTooltip": "智能体虚拟屏幕",
+    "popup": "弹出窗口",
+    "live": "实时",
+    "screen": "屏幕",
+    "emptyFrame": "收到空帧",
+    "displayNotRunning": "智能体显示未运行",
+    "captureFailed": "捕获失败 ({{status}})",
+    "connectionLost": "连接已断开",
+    "startFailed": "启动智能体显示失败",
+    "popupTitle": "Guaardvark 智能体界面",
+    "title": "智能体界面",
+    "training": "训练",
+    "fpsValue": "{{fps}}fps",
+    "inPopup": "在弹出窗口中",
+    "imageAlt": "智能体屏幕",
+    "starting": "正在启动智能体显示……",
+    "connecting": "正在连接...",
+    "paused": "已暂停",
+    "fps": "FPS"
+  },
+  "keyboard": {
+    "forwardingOn": "键盘 → 智能体界面：开启 (点击停止)",
+    "forwardingOff": "将键盘发送至智能体界面"
+  },
+  "lesson": {
+    "heading_other": "课程 — {{count}} 个要点",
+    "hide": "隐藏 (课程仍在运行 — 请在对话页眉中使用“结束课程”来停止)",
+    "waiting": "等待第一个要点。对任何正确的回复点赞。",
+    "noTaskText": "(无任务文本)",
+    "finalizing": "正在完成课程 — 正在将要点提炼为摘要……"
+  },
+  "trainer": {
+    "level": {
+      "guided": "引导式",
+      "supervised": "监督式",
+      "autonomous": "自主式"
+    },
+    "noDemos": "暂无演示。连接到 VNC 并点击“开始录制”。",
+    "untitled": "未命名",
+    "attempts": "{{count}} 次尝试",
+    "deleteDemo": "删除演示",
+    "saveDemo": "保存并编辑至训练页面",
+    "attemptDemo": "智能体尝试此演示",
+    "demoName": "演示名称 (可选)",
+    "nameDemo": "为此演示命名",
+    "startRecording": "开始录制",
+    "recording": "录制中...",
+    "stepsCaptured": "已捕获 {{count}} 个步骤",
+    "stopRecording": "停止录制",
+    "waitingForQuestions": "等待提问...",
+    "question": {
+      "clarification": "澄清",
+      "generalization": "泛化",
+      "confirmation": "确认",
+      "generic": "问题"
+    },
+    "answerPlaceholder": "输入您的回答...",
+    "skip": "跳过",
+    "success": "成功！",
+    "failed": "失败",
+    "stepsCompleted": "已完成 {{completed}} / {{total}} 步",
+    "stepOf": "第 {{step}} / {{total}} 步",
+    "confirm": "确认",
+    "correct": "正确",
+    "title": "训练器"
+  },
+  "plan": {
+    "status": {
+      "pending": "等待中",
+      "running": "运行中",
+      "completed": "已完成",
+      "failed": "失败",
+      "planning": "规划中",
+      "executing": "执行中"
+    },
+    "step": "步骤 {{id}}: {{description}}",
+    "stepStatus": "状态：{{status}}",
+    "viewResult": "查看结果",
+    "stepError": "错误：{{error}}",
+    "heading_other": "编排计划 — {{count}} 个步骤",
+    "executing": "执行中...",
+    "execute": "执行计划"
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "Servizi",
+    "utils": "Utils",
+    "tools": "Strumenti",
+    "tasks": "Task",
+    "frontend": "Frontend",
+    "plugins": "Plugin",
+    "clear": "cancella"
+  },
+  "errors": {
+    "snapshotFailed": "Snapshot fallito"
+  },
+  "dispatch": {
+    "queued": "Inviato all'agente di Auto-miglioramento — in esecuzione in background.",
+    "proposed": "Inviato all'agente di Auto-miglioramento — controlla la correzione proposta nelle Impostazioni.",
+    "notRun": "Invio non eseguito — {{reason}}",
+    "notRunNoReason": "Invio non eseguito — nessun motivo fornito",
+    "failed": "Invio fallito: {{error}}"
+  },
+  "title": "Mappa di Sistema",
+  "stats": "{{modules}} moduli · {{edges}} collegamenti",
+  "severity": {
+    "critical": "{{count}} critici",
+    "medium": "{{count}} medi",
+    "hygiene": "{{count}} igiene"
+  },
+  "searchPlaceholder": "Cerca ( / )",
+  "resetView": "Ripristina visualizzazione (R)",
+  "refresh": {
+    "cached": "In cache {{seconds}}s fa — clicca per ricalcolare",
+    "computed": "Appena calcolato in {{seconds}}s"
+  },
+  "overlays": {
+    "ghostEndpoints": "Endpoint fantasma",
+    "ghostEndpointsCount": "Endpoint fantasma ({{count}})",
+    "toolGraph": "Grafico strumenti",
+    "toolGraphCount": "Grafico strumenti ({{count}})"
+  },
+  "controlsHint": "trascina · sposta  |  rotella · zoom  |  / · cerca  |  r · ripristina  |  clicca chip · evidenzia sezioni",
+  "detail": {
+    "hovered": "Passaggio sopra",
+    "selected": "Selezionato",
+    "importers_one": "{{count}} importatore",
+    "importers_other": "{{count}} importatori",
+    "findings": "Risultati ({{count}})",
+    "moreFindings": "… e altri {{count}}",
+    "escToClear": "Premi <code>Esc</code> per cancellare"
+  },
+  "loading": "Mappatura del Sistema…",
+  "panel": {
+    "findings": "Risultati",
+    "activity": "Attività"
+  },
+  "findings": {
+    "actionable": "Azione",
+    "critical": "Critico",
+    "all": "Tutti",
+    "intro": "Risultati in classifica · clicca per localizzare · invia per correggere",
+    "empty": "Nessun risultato a questo livello di gravità. 🎉",
+    "dispatch": "Invia all'agente di Auto-miglioramento per proporre una correzione",
+    "dismiss": "Ignora — conferma e smetti di mostrare questo risultato"
+  },
+  "activity": {
+    "title": "Attività in tempo reale",
+    "intro": "Le chiamate degli strumenti che passano attraverso la chat appaiono qui. I moduli corrispondenti pulsano nella costellazione.",
+    "empty": "Inattivo. Chiedi qualcosa all'agente per avviare il battito.",
+    "now": "ora",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

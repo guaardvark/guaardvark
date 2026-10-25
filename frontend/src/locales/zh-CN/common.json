@@ -1,0 +1,15 @@
+{
+  "voice": "语音",
+  "collapse": "折叠",
+  "close": "关闭",
+  "cancel": "取消",
+  "refresh": "刷新",
+  "loading": "加载中...",
+  "retry": "重试",
+  "ok": "确定",
+  "reload": "重新加载",
+  "dismiss": "忽略",
+  "error": "错误",
+  "open": "打开",
+  "delete": "删除"
+}

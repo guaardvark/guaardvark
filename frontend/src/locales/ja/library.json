@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "出力 {{jobId}} を正常に削除しました",
+    "deleteFailed": "出力の削除に失敗しました: {{message}}",
+    "retryStarting": "失敗した {{count}} 件の行の再試行を開始しています...",
+    "retryStarted": "再試行ジョブが正常に開始されました！ジョブID: {{jobId}}",
+    "retryFailed": "再試行の開始に失敗しました: {{message}}",
+    "nothingToClear": "削除する出力はありません",
+    "clearing": "すべての出力を削除中...",
+    "cleared": "{{count}} 件の出力を正常に削除しました",
+    "clearFailed": "出力の削除に失敗しました: {{message}}"
+  },
+  "clearConfirm": "すべての {{count}} 件の出力を削除してもよろしいですか？この操作は取り消すことができません。",
+  "pageTitle": "コンテンツ出力",
+  "stats": {
+    "total": "合計 {{count}}",
+    "today": "本日 {{count}}",
+    "thisWeek": "今週 {{count}}"
+  },
+  "clearAll": "すべて削除",
+  "refresh": "出力リストを更新",
+  "loading": "出力を読み込み中...",
+  "empty": {
+    "title": "出力が見つかりません",
+    "description": "一括生成機能を使用してコンテンツを生成すると、ここに表示されます"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "Nie udało się pobrać klientów.",
+    "loadError": "Błąd ładowania klientów: {{error}}",
+    "updated": "Klienta zaktualizowano pomyślnie!",
+    "created": "Klienta utworzono pomyślnie!",
+    "updateError": "Błąd podczas aktualizacji klienta.",
+    "createError": "Błąd podczas tworzenia klienta.",
+    "deleteConfirm": "Czy na pewno chcesz usunąć klienta \"{{name}}\" (ID: {{id}})? Może to wpłynąć na powiązane projekty.",
+    "deleteConfirmUnnamed": "Czy na pewno chcesz usunąć klienta \"tego klienta\" (ID: {{id}})? Może to wpłynąć na powiązane projekty.",
+    "deleted": "Klienta \"{{name}}\" usunięto pomyślnie!",
+    "deleteError": "Błąd podczas usuwania klienta.",
+    "missingClient": "Brak danych klienta. Nie można otworzyć modalu powiązań.",
+    "linksUpdated": "Powiązania projektu zaktualizowane pomyślnie!",
+    "projectsFetchError": "Błąd pobierania projektów: {{error}}",
+    "linksError": "Błąd aktualizacji powiązań: {{error}}",
+    "unknownError": "Wystąpił nieznany błąd.",
+    "columns": {
+      "logo": "Logo",
+      "name": "Nazwa klienta",
+      "email": "E-mail",
+      "phone": "Telefon",
+      "projects": "Projekty #",
+      "notes": "Notatki",
+      "updated": "Ostatnio zaktualizowano",
+      "actions": "Akcje"
+    },
+    "title": "Klienci",
+    "new": "Nowy",
+    "loading": "Ładowanie klientów...",
+    "empty": "Nie znaleziono klientów. Dodaj jednego, aby zacząć!",
+    "notAvailable": "N/D",
+    "email": "E-mail: {{email}}",
+    "phone": "Telefon: {{phone}}",
+    "noNotesTooltip": "Brak notatek.",
+    "noNotes": "Brak notatek",
+    "projects": "Projekty: {{projects}}",
+    "linkProjects": "Połącz Projekty",
+    "deleteClient": "Usuń Klienta",
+    "total": "Łączna liczba Klientów: {{total}}",
+    "menu": {
+      "edit": "Edytuj",
+      "delete": "Usuń",
+      "newClient": "Nowy Klient"
+    },
+    "linkProject": "Projekt",
+    "linkProjectsPlural": "Projekty"
+  }
+}

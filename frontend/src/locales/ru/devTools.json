@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "Сервис недоступен",
+    "unknown": "Ошибка"
+  },
+  "cleanup": {
+    "running": "Очистка выполняемых Задач...",
+    "result": "{{message}}: Очищены зависшие задачи ({{cleaned}} из {{found}} найденных)",
+    "failed": "Ошибка очистки: {{error}}"
+  },
+  "entityIndexing": {
+    "running": "Индексация сущностей для универсального доступа RAG...",
+    "completed": "Индексация сущностей завершена: проиндексировано {{total}} сущностей ({{clients}} Клиентов, {{projects}} Проектов, {{websites}} Сайтов, {{tasks}} Задач)",
+    "completedWithErrors": "Индексация сущностей завершена: проиндексировано {{total}} сущностей ({{clients}} Клиентов, {{projects}} Проектов, {{websites}} Сайтов, {{tasks}} Задач), {{errors}} Ошибок",
+    "failed": "Ошибка индексации сущностей",
+    "failedWithError": "Ошибка индексации сущностей: {{error}}"
+  },
+  "restart": {
+    "starting": "Запуск перезагрузки сервиса...",
+    "started": "Перезагрузка сервиса успешно запущена",
+    "restarting": "Перезагрузка сервисов. Страница может временно отключиться.",
+    "failed": "Ошибка перезагрузки сервиса: {{error}}"
+  },
+  "selfTest": {
+    "complete": "Самодиагностика завершена",
+    "failed": "Ошибка самодиагностики: {{error}}",
+    "resultsHeading": "Результаты самодиагностики",
+    "resultsEmpty": "Запустите самодиагностику, чтобы увидеть подробную диагностику Системы"
+  },
+  "logs": {
+    "fetchFailed": "Не удалось получить логи ({{status}})",
+    "heading": "Логи бэкенда (последние 100 строк)",
+    "loadFailed": "Не удалось загрузить логи: {{error}}",
+    "empty": "Логи отсутствуют."
+  },
+  "title": "Панель системы",
+  "loading": "Загрузка...",
+  "status": {
+    "error": "Ошибка",
+    "healthy": "Исправно"
+  },
+  "model": {
+    "default": "По умолчанию"
+  },
+  "summary": {
+    "heading": "Сводка состояния системы",
+    "backend": "Backend: {{state}}",
+    "database": "База данных: {{state}}",
+    "celery": "Celery: {{state}}",
+    "redis": "Redis: {{state}}"
+  },
+  "actions": {
+    "refresh": "Обновить",
+    "retry": "Повторить"
+  },
+  "checking": "Проверка...",
+  "backend": {
+    "heading": "Backend",
+    "version": "Версия: {{version}}",
+    "uptime": "Время работы: {{seconds}}с",
+    "indexLoaded": "✓ Индекс загружен"
+  },
+  "database": {
+    "heading": "База данных / Миграции",
+    "upToDate": "Актуально",
+    "needsUpdate": "Требуется обновление",
+    "current": "Текущая: {{revision}}",
+    "noRevision": "нет",
+    "heads": "Головки: {{heads}}",
+    "multipleHeads": "Обнаружено несколько головок"
+  },
+  "celery": {
+    "heading": "Celery Worker",
+    "ping": "✓ Пинг: {{result}}",
+    "active": "Активные: {{count}}",
+    "queued": "В очереди: {{count}}",
+    "debug": "Отладка: {{tasks}}"
+  },
+  "redis": {
+    "heading": "Redis кэш",
+    "connected": "✓ Соединение установлено"
+  },
+  "failedTasks": {
+    "heading": "Недавние ошибки задач",
+    "none": "Недавних сбоев нет."
+  },
+  "controls": {
+    "heading": "Управление системой",
+    "refreshAll": "Обновить всё",
+    "running": "Запуск...",
+    "selfTest": "Самодиагностика",
+    "restartServices": "Перезапустить службы",
+    "autoRefresh": "Автообновление каждые 5 секунд"
+  },
+  "jobs": {
+    "heading": "Управление прогрессом Задач",
+    "activeCount": "{{count}} Активных",
+    "completedCount": "{{count}} Завершенных",
+    "stuckCount": "{{count}} Застрявших",
+    "systemUnhealthy": "Система неисправна",
+    "cleaning": "Очистка...",
+    "cleanStuck": "Очистить застрявшие Задачи",
+    "cleanStuckCount": "Очистить застрявшие Задачи ({{count}})",
+    "indexing": "Индексация...",
+    "indexEntities": "Индексировать сущности",
+    "stuckWarning": "Похоже, {{count}} задач застряли (нет активных задач Celery или устаревшие метки времени). Рекомендуется запустить очистку.",
+    "systemIssues": "В системе прогресса обнаружены проблемы. Некоторые Задачи могут работать некорректно.",
+    "details": "Детали Задач (всего {{count}})",
+    "noActive": "Нет активных задач",
+    "columns": {
+      "jobId": "ID задачи",
+      "type": "Тип",
+      "status": "Статус",
+      "progress": "Прогресс",
+      "lastUpdate": "Последнее обновление",
+      "message": "Сообщение"
+    },
+    "staleTooltip": "Устаревшая задача (>1 часа без обновлений)",
+    "unknownType": "Неизвестно",
+    "complete": "Завершено",
+    "processing": "В процессе",
+    "invalidDate": "Некорректная дата",
+    "noTimestamp": "Нет метки времени",
+    "hoursAgo": "({{hours}}ч назад)",
+    "noMessage": "Нет сообщения",
+    "moreJobs": "... и еще {{count}} задач"
+  },
+  "selfImprovement": {
+    "heading": "Журнал Самосовершенствования",
+    "runs": "{{count}} запусков"
+  },
+  "family": {
+    "heading": "Сеть семьи",
+    "notConfigured": "Не настроено",
+    "online": "В сети",
+    "offline": "Оффлайн",
+    "noNodes": "Нет подключенных узлов семейства. Настройте Interconnector в Настройках.",
+    "vram": "VRAM: {{free}} / {{total}} МБ",
+    "unknownStatus": "неизвестно"
+  },
+  "performance": {
+    "heading": "Обзор производительности",
+    "notAvailable": "Н/Д",
+    "backendUptime": "Время работы бэкенда: {{seconds}}с",
+    "celeryTasks": "Задачи Celery: {{tasks}} активных",
+    "activeJobs": "Активные задачи: {{count}}",
+    "failedTasks": "Неудачные задачи: {{count}}"
+  },
+  "metrics": {
+    "heading": "Системные показатели"
+  },
+  "diagnostics": {
+    "heading": "Диагностика"
+  },
+  "retrievalDebug": {
+    "heading": "Отладка извлечения"
+  }
+}

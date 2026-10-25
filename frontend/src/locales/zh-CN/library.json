@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "输出 {{jobId}} 已成功删除",
+    "deleteFailed": "删除输出失败：{{message}}",
+    "retryStarting": "正在重试 {{count}} 条失败的行...",
+    "retryStarted": "重试任务已成功启动！任务 ID：{{jobId}}",
+    "retryFailed": "启动重试失败：{{message}}",
+    "nothingToClear": "没有可清除的输出",
+    "clearing": "正在清除所有输出...",
+    "cleared": "成功删除 {{count}} 个输出",
+    "clearFailed": "清除输出失败：{{message}}"
+  },
+  "clearConfirm": "确定要删除所有 {{count}} 个输出吗？此操作无法撤销。",
+  "pageTitle": "内容输出",
+  "stats": {
+    "total": "{{count}} 总计",
+    "today": "{{count}} 今日",
+    "thisWeek": "{{count}} 本周"
+  },
+  "clearAll": "全部清除",
+  "refresh": "刷新输出列表",
+  "loading": "正在加载输出...",
+  "empty": {
+    "title": "未找到输出",
+    "description": "使用批量生成功能生成一些内容，即可在此处查看输出"
+  }
+}

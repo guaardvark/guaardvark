@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "クリック数: {{clicks}} | インプレッション: {{impressions}} | 順位: {{position}}",
+    "notAvailable": "N/A"
+  },
+  "errors": {
+    "fetchFailed": "ページの取得に失敗しました",
+    "loadFailed": "ページの読み込みに失敗しました",
+    "pullFailed": "ページのプルに失敗しました",
+    "processFailed": "ページの処理に失敗しました",
+    "queueFailed": "ページのキュー登録に失敗しました",
+    "executeFailed": "キューの実行に失敗しました",
+    "recommendationsFailed": "推奨事項の取得に失敗しました。この機能は近日公開予定です。"
+  },
+  "feedback": {
+    "pulled": "{{count}} ページをプルしました",
+    "nonePending": "処理待ちのページはありません",
+    "queued": "処理待ちのキューに {{count}} ページを追加しました",
+    "processed": "処理済み: {{succeeded}}/{{total}} ページ"
+  },
+  "recommendations": {
+    "summary": "AI推奨機能は、ページ内容を分析し、改善のためのインテリジェントな提案を行います。",
+    "content": {
+      "title": "コンテンツの強化",
+      "description": "SEO最適化、可読性の向上、エンゲージメントの強化のためにコンテンツを分析します。"
+    },
+    "seo": {
+      "title": "SEOの最適化",
+      "description": "メタタグ、見出し構造、キーワードの最適化の機会をレビューします。"
+    },
+    "structure": {
+      "title": "コンテンツ構造",
+      "description": "コンテンツの構成を評価し、より良いユーザー体験のための改善案を提示します。"
+    },
+    "priority": {
+      "high": "高",
+      "medium": "中",
+      "low": "低"
+    },
+    "title": "AI推奨事項",
+    "none": "現在、特定の推奨事項はありません。",
+    "loading": "推奨事項を読み込み中...",
+    "processNow": "今すぐ処理"
+  },
+  "title": "WordPressページ",
+  "actions": {
+    "pull": "プル",
+    "queue": "キューに追加 ({{count}})",
+    "process": "処理",
+    "close": "閉じる",
+    "cancel": "キャンセル"
+  },
+  "site": "WordPressサイト",
+  "filters": {
+    "pull": "プル",
+    "all": "すべて",
+    "pulled": "プル済み",
+    "pending": "保留中",
+    "error": "エラー",
+    "process": "処理中",
+    "processing": "処理中",
+    "completed": "完了",
+    "approved": "承認済み"
+  },
+  "stats": {
+    "total": "合計: {{total}}",
+    "pending": "保留中: {{pending}}",
+    "completed": "完了: {{completed}}"
+  },
+  "empty": {
+    "noPages": "ページが見つかりません。開始するにはページをプルしてください。",
+    "selectSite": "ページを表示するにはWordPressサイトを選択してください"
+  },
+  "table": {
+    "title": "タイトル",
+    "type": "タイプ",
+    "seo": "SEO",
+    "ai": "AI"
+  },
+  "untitled": "無題",
+  "tooltips": {
+    "getRecommendations": "クリックしてAI推奨事項を表示",
+    "hasImprovements": "改善あり",
+    "noImprovements": "改善なし"
+  },
+  "pullDialog": {
+    "title": "WordPressからページをプル",
+    "postType": "投稿タイプ",
+    "posts": "投稿",
+    "pages": "ページ",
+    "maxPages": "最大ページ数（任意）",
+    "maxPagesHelper": "空欄のままにすると全ページを取得します",
+    "pulling": "取得中...",
+    "submit": "ページを取得"
+  }
+}

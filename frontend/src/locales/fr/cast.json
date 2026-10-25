@@ -106,7 +106,7 @@
     "approve": "Approuver",
     "regenerateMenu": "Régénérer…",
     "approveToTrain": "Approuvez au moins un échantillon pour l'entraînement à partir de cette feuille (ou utilisez les Données d'entraînement si vous avez déjà des références).",
-    "trainsOn": "S'entraîne sur vos {{images}} + {{samples}}. En cas de succès, les générations approuvées passent aux Données d'entraînement. ~heures sur un GPU de 16 Go ; s'exécute en arrière-plan.",
+    "trainsOn": "S'entraîne sur vos {{images}} + {{samples}}. En cas de succès, les générations approuvées passent en Données d'Entraînement. Prend des heures sur un GPU de 16 Go ; s'exécute en arrière-plan.",
     "approvedSamples_one": "{{count}} échantillon approuvé",
     "approvedSamples_other": "{{count}} échantillons approuvés"
   },

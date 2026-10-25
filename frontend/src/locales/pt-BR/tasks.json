@@ -1,0 +1,106 @@
+{
+  "filter": {
+    "all": "Todos",
+    "active": "Ativos",
+    "completed": "Concluídos",
+    "failed": "Falhas",
+    "project": "Projeto: {{name}}",
+    "client": "Cliente: {{name}}",
+    "website": "Site: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "Os Projetos não puderam ser carregados: {{error}}",
+    "modelsFailed": "Os modelos não puderam ser carregados: {{error}}",
+    "requestFailed": "a requisição falhou"
+  },
+  "video": {
+    "loadFailed": "Falha ao carregar os Trabalhos de lote de vídeo",
+    "cancelled": "Trabalho de lote de vídeo cancelado",
+    "cancelRefused": "Não foi possível cancelar o trabalho VideoGen",
+    "cancelFailed": "Falha ao cancelar",
+    "title": "Trabalhos de Lote de Vídeo",
+    "intro": "Lotes na fila e em execução do pipeline unificado VIDEO_GEN (Batch Video / Video Generator). Esta página (Agendador de Trabalhos) também gerencia trabalhos agendados legados para código, conteúdo, CSV, análise e tarefas personalizadas através do menu Novo Trabalho.",
+    "refresh": "Atualizar trabalhos de lote de vídeo",
+    "empty": "Nenhum trabalho de lote de vídeo pendente.",
+    "label": "Rótulo",
+    "status": "Status",
+    "progress": "Progresso",
+    "actions": "Ações",
+    "cancel": "Cancelar"
+  },
+  "notFound": "A tarefa {{id}} não foi encontrada",
+  "queue": {
+    "started": "Processamento da fila de tarefas iniciado",
+    "failed": "Falha ao processar a fila: {{error}}"
+  },
+  "created": "Tarefa criada com sucesso",
+  "updated": "Tarefa atualizada com sucesso",
+  "saveFailed": "Falha ao salvar a tarefa: {{error}}",
+  "deleted": "Tarefa excluída com sucesso",
+  "duplicatedWithId": "Tarefa duplicada com sucesso (ID: {{id}})",
+  "duplicated": "Tarefa duplicada com sucesso",
+  "duplicateFailed": "Falha ao duplicar tarefa: {{error}}",
+  "delete": {
+    "title": "Excluir esta tarefa",
+    "description": "\"{{name}}\" foi excluída.",
+    "thisTask": "esta tarefa",
+    "confirm": "Excluir tarefa"
+  },
+  "deleteFailed": "Falha ao excluir tarefa: {{error}}",
+  "start": {
+    "invalid": "Dados de tarefa inválidos",
+    "starting": "Iniciando tarefa: {{name}}",
+    "unnamed": "Tarefa sem nome",
+    "failed": "Falha ao iniciar tarefa: {{error}}",
+    "started": "Tarefa \"{{name}}\" iniciada com sucesso"
+  },
+  "clear": {
+    "none": "Nenhuma tarefa para limpar",
+    "title": "Excluir todas as tarefas",
+    "description": "Cada tarefa nesta lista será excluída.",
+    "tasksFact": "Tarefas",
+    "confirm": "Excluir tudo",
+    "clearing": "Limpando todas as tarefas...",
+    "done": "Sucesso ao excluir {{count}} tarefas",
+    "failed": "Falha ao limpar tarefas: {{error}}"
+  },
+  "title": "Agendador de Tarefas",
+  "counts": {
+    "pending": "{{count}} Pendentes",
+    "queued": "{{count}} Na fila",
+    "running": "{{count}} Executando"
+  },
+  "runQueue_one": "Executar {{count}} Tarefa",
+  "runQueue_other": "Executar {{count}} Tarefas",
+  "clearAll": "Limpar Tudo",
+  "newJob": "Nova Tarefa",
+  "newMenu": {
+    "code": "Geração de Código",
+    "csv": "CSV / Conteúdo em Massa",
+    "content": "Geração de Conteúdo",
+    "analysis": "Análise de Dados",
+    "custom": "Tarefa Personalizada"
+  },
+  "typeFilter": {
+    "label": "Tipo",
+    "all": "Todos os Tipos",
+    "code": "Gen. de Código",
+    "csv": "CSV / Massa",
+    "content": "Conteúdo",
+    "analysis": "Análise"
+  },
+  "loading": "Carregando tarefas...",
+  "emptyTitle": "Nenhuma tarefa encontrada",
+  "emptyDescription": "Use as ações rápidas acima para criar sua primeira tarefa",
+  "menu": {
+    "start": "Iniciar",
+    "cancel": "Cancelar",
+    "edit": "Editar",
+    "duplicate": "Duplicar",
+    "newCode": "Nova Geração de Código",
+    "newCsv": "Novo CSV / Conteúdo em Lote",
+    "newContent": "Nova Geração de Conteúdo",
+    "newAnalysis": "Nova Análise de Dados",
+    "newCustom": "Novo Trabalho Personalizado"
+  }
+}

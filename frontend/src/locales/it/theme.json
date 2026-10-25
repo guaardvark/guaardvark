@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "default": "Grigio Scuro",
+    "light": "Chiaro"
+  },
+  "descriptions": {
+    "guaardvark": "Tema monocromatico ultra-minimal ispirato da guaardvark.com",
+    "default": "Tema scuro pulito con accenti verde acqua",
+    "musk": "Tema scuro futuristico con accenti ciano neon e rosso",
+    "hacker": "Terminale della zona di guerra ispirato a Pip-Boy con verde radiazione e ambra",
+    "vader": "Tema scuro e imponente con accenti neri e rossi ispirato a Darth Vader",
+    "light": "Tema chiaro pulito con accenti verde acqua — riposante per gli occhi"
+  }
+}

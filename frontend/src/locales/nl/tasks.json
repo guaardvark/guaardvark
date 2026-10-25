@@ -1,0 +1,106 @@
+{
+  "filter": {
+    "all": "Alles",
+    "active": "Actief",
+    "completed": "Voltooid",
+    "failed": "Mislukt",
+    "project": "Project: {{name}}",
+    "client": "Client: {{name}}",
+    "website": "Website: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "Projecten konden niet worden geladen: {{error}}",
+    "modelsFailed": "Modellen konden niet worden geladen: {{error}}",
+    "requestFailed": "de aanvraag is mislukt"
+  },
+  "video": {
+    "loadFailed": "Fout bij laden van video batch taken",
+    "cancelled": "Video batch taak geannuleerd",
+    "cancelRefused": "Kon VideoGen taak niet annuleren",
+    "cancelFailed": "Annuleren mislukt",
+    "title": "Video Batch Taken",
+    "intro": "Wachtrijen en draaiende batches uit de vereenvoudigde VIDEO_GEN pipeline (Batch Video / Video Generator). Deze pagina (Job Scheduler) beheert ook oudere geplande taken voor code, inhoud, CSV, analyse en aangepaste taken via het New Job menu.",
+    "refresh": "Vernieuw Video Batch taken",
+    "empty": "Geen openstaande video batch taken.",
+    "label": "Label",
+    "status": "Status",
+    "progress": "Voortgang",
+    "actions": "Acties",
+    "cancel": "Annuleren"
+  },
+  "notFound": "Taak {{id}} is niet gevonden",
+  "queue": {
+    "started": "Verwerking van taakwachtrij gestart",
+    "failed": "Fout bij verwerken van wachtrij: {{error}}"
+  },
+  "created": "Taak succesvol aangemaakt",
+  "updated": "Taak succesvol bijgewerkt",
+  "saveFailed": "Fout bij opslaan van taak: {{error}}",
+  "deleted": "Taak succesvol verwijderd",
+  "duplicatedWithId": "Taak succesvol gedupliceerd (ID: {{id}})",
+  "duplicated": "Taak succesvol gedupliceerd",
+  "duplicateFailed": "Fout bij dupliceren van taak: {{error}}",
+  "delete": {
+    "title": "Verwijder deze taak",
+    "description": "\"{{name}}\" wordt verwijderd.",
+    "thisTask": "deze taak",
+    "confirm": "Taak verwijderen"
+  },
+  "deleteFailed": "Fout bij verwijderen van taak: {{error}}",
+  "start": {
+    "invalid": "Ongeldige taakgegevens",
+    "starting": "Starten taak: {{name}}",
+    "unnamed": "Naamloze taak",
+    "failed": "Fout bij starten van taak: {{error}}",
+    "started": "Taak \"{{name}}\" succesvol gestart"
+  },
+  "clear": {
+    "none": "Geen taken om te wissen",
+    "title": "Alle taken verwijderen",
+    "description": "Elke taak in deze lijst wordt verwijderd.",
+    "tasksFact": "Taken",
+    "confirm": "Alles verwijderen",
+    "clearing": "Alle taken wissen...",
+    "done": "Succesvol {{count}} taken verwijderd",
+    "failed": "Fout bij wissen van taken: {{error}}"
+  },
+  "title": "Takenplanner",
+  "counts": {
+    "pending": "{{count}} Wachtend",
+    "queued": "{{count}} In wachtrij",
+    "running": "{{count}} Draaiende"
+  },
+  "runQueue_one": "Voer {{count}} Taak uit",
+  "runQueue_other": "Voer {{count}} Taken uit",
+  "clearAll": "Alles wissen",
+  "newJob": "Nieuwe Job",
+  "newMenu": {
+    "code": "Code Generatie",
+    "csv": "CSV / Bulk Content",
+    "content": "Content Generatie",
+    "analysis": "Data Analyse",
+    "custom": "Aangepaste Job"
+  },
+  "typeFilter": {
+    "label": "Type",
+    "all": "Alle Typen",
+    "code": "Code Gen",
+    "csv": "CSV / Bulk",
+    "content": "Content",
+    "analysis": "Analyse"
+  },
+  "loading": "Taken worden geladen...",
+  "emptyTitle": "Geen taken gevonden",
+  "emptyDescription": "Gebruik de acties bovenaan om je eerste taak aan te maken",
+  "menu": {
+    "start": "Start",
+    "cancel": "Annuleren",
+    "edit": "Bewerken",
+    "duplicate": "Dupliceren",
+    "newCode": "Nieuwe Code Generatie",
+    "newCsv": "Nieuwe CSV / Bulk Content",
+    "newContent": "Nieuwe Content Generatie",
+    "newAnalysis": "Nieuwe Data-analyse",
+    "newCustom": "Nieuwe Aangepaste Taak"
+  }
+}

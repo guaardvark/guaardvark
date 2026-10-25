@@ -1,0 +1,189 @@
+{
+  "loading": {
+    "processing": "Bezig met verwerken...",
+    "thinking": "AI denkt na...",
+    "analyzingSelection": "Geselecteerde code analyseren...",
+    "sending": "Verzenden naar AI-assistent...",
+    "processingResponse": "AI-antwoord verwerken...",
+    "searchingProject": "Projectcontext zoeken...",
+    "buildingContext": "Slimme context opbouwen..."
+  },
+  "commands": {
+    "explain": {
+      "label": "Uitleg",
+      "description": "Leg geselecteerde code uit of analyseer de volledige bestandsstructuur"
+    },
+    "edit": {
+      "label": "Slimme bewerking",
+      "description": "AI-gestuurde codebewerking met contextbegrip"
+    },
+    "optimize": {
+      "label": "Optimaliseer",
+      "description": "Prestatingsoptimalisatie met gedetailleerde analyse"
+    },
+    "refactor": {
+      "label": "Refactor",
+      "description": "Intelligente herstructurering van code"
+    },
+    "test": {
+      "label": "Genereer tests",
+      "description": "Maak uitgebreide unit-tests"
+    },
+    "fix": {
+      "label": "Automatisch herstellen",
+      "description": "Herstel automatisch gedetecteerde fouten en problemen"
+    },
+    "document": {
+      "label": "Documenteer",
+      "description": "Genereer documentatie en opmerkingen"
+    },
+    "secure": {
+      "label": "Beveiligingsscan",
+      "description": "Uitgebreide analyse van beveiligingskwetsbaarheden"
+    },
+    "suggest": {
+      "label": "Suggesties",
+      "description": "Ontvang intelligente codesuggesties"
+    }
+  },
+  "progress": {
+    "processingWithContext": "Verwerken met volledige context...",
+    "completed": "AI-ondersteuning voltooid"
+  },
+  "errors": {
+    "noSelectionResponse": "Chatservice gaf een null- of ongedefinieerde reactie voor de selectieanalyse",
+    "noResponse": "Chatservice gaf een null- of ongedefinieerde reactie",
+    "noGeneralResponse": "Chatservice gaf een null- of ongedefinieerde reactie voor het algemene gesprek"
+  },
+  "replies": {
+    "analysisFailed": "Analyse mislukt",
+    "validationFailed": "Invoervalidatie mislukt: {{errors}}",
+    "rateLimited": "Rate limit overschreden. Wacht even voordat je het opnieuw probeert.",
+    "analysisFailedWithError": "Analyse mislukt: {{error}}",
+    "explanationFailed": "Uitleg mislukt: {{error}}",
+    "editHelp": "Geef instructies voor bewerking. Voorbeeld: ‘/edit Voeg foutafhandeling toe aan deze functie’",
+    "editDescriptionSelection": "Bewerken: {{instructions}} (vervangt de geselecteerde tekst; Ctrl+Z in de editor herstelt dit)",
+    "editDescriptionFile": "Bewerken: {{instructions}} (vervangt het hele bestand; Ctrl+Z in de editor herstelt dit)",
+    "editReadySelection": "Bewerking klaar voor de geselecteerde tekst. Preview toont het verschil; Apply plaatst het in de editor.",
+    "editReadyFile": "Bewerking klaar voor het hele bestand. Preview toont het verschil; Apply plaatst het in de editor.",
+    "noReply": "De assistent gaf geen reactie.",
+    "editFailed": "Codebewerking mislukt: {{error}}",
+    "fixAnalysis": "**Auto Fix Analyse:**\n\n{{analysis}}",
+    "fixFailed": "Fix-analyse mislukt: {{error}}",
+    "securityAnalysis": "**Beveiligingsanalyse:**\n\n{{analysis}}",
+    "securityFailed": "Beveiligingsanalyse mislukt: {{error}}",
+    "commandNames": {
+      "optimize": "Optimaliseer",
+      "refactor": "Refactor",
+      "test": "Test",
+      "document": "Documenteer"
+    },
+    "commandDescription": "{{command}}: vervangt het hele bestand (Ctrl+Z in de editor herstelt dit)",
+    "commandReady": "{{command}} klaar. Preview toont het verschil; Apply vervangt het hele bestand.",
+    "commandNoReply": "{{command}} gaf geen antwoord.",
+    "commandFailed": "{{command}} mislukt: {{error}}",
+    "requestTrouble": "Excuses, maar ik heb problemen met het verwerken van je verzoek. Fout: {{error}}",
+    "error": "Sorry, ik kreeg een fout: {{message}}",
+    "noActiveFile": "Geen actief bestand\n\nOpen eerst een bestand met code-inhoud om AI-ondersteuning te gebruiken."
+  },
+  "apply": {
+    "defaultDescription": "Door AI gegenereerde code",
+    "appliedToSelection": "Code succesvol toegepast (Selectie-gebaseerde bewerking)\n\n{{description}}",
+    "applied": "Code succesvol toegepast\n\n{{description}}",
+    "failed": "Mislukt om code toe te passen\n\n{{error}}"
+  },
+  "untitled": "ongetiteld",
+  "multiFile": {
+    "confirm": "Wijzigingen toepassen op {{count}} bestand(en)?\n\nBestanden die worden aangepast:\n{{files}}\n\nKlik op OK om door te gaan of Annuleren om te annuleren.",
+    "applying": "Wijzigingen aanbrengen op {{count}} bestanden...",
+    "completedProgress": "Multi-bestand bewerkingen voltooid: {{succeeded}} geslaagd, {{failed}} mislukt",
+    "completeWithFailures": "Multi-Bestanden bewerking voltooid\n\n{{succeeded}} bestand(en) succesvol bijgewerkt, {{failed}} mislukt",
+    "complete": "Multi-Bestanden bewerking voltooid\n\n{{succeeded}} bestand(en) succesvol bijgewerkt",
+    "failedProgress": "Multi-bestanden bewerking mislukt: {{error}}",
+    "failed": "Multi-Bestanden bewerking mislukt\n\n{{error}}"
+  },
+  "titleBar": {
+    "newChat": "Nieuwe Chat",
+    "startNewChat": "Start nieuwe chat",
+    "deleteChat": "Chat Verwijderen",
+    "deleteChatLabel": "Chat verwijderen",
+    "aiCommands": "AI-opdrachten",
+    "openCommandsMenu": "Open AI-opdrachten menu"
+  },
+  "card": {
+    "title": "AI-assistent"
+  },
+  "status": {
+    "selected": "Geselecteerd: {{count}} tekens",
+    "noFile": "Geen bestand",
+    "realTimeTooltip": "Real-time analyse: 2 seconden nadat je stopt met typen, wordt het bestand gecontroleerd op syntaxis en naar het model gestuurd voor suggesties (één modelverzoek per pauze; bestanden van meer dan 5.000 tekens worden overgeslagen)",
+    "toggleRealTime": "Schakel real-time code-analyse in of uit",
+    "contextInfo": "Contextinformatie",
+    "toggleContext": "Schakel contextinformatiepaneel in of uit"
+  },
+  "recommendations": {
+    "title": "AI-aanbevelingen ({{count}})",
+    "defaultType": "suggestie",
+    "lines": "Regels {{start}}-{{end}}",
+    "noDescription": "Geen beschrijving",
+    "applyDescription": "Pas {{type}} aanbeveling toe",
+    "more": "... en {{count}} andere aanbevelingen"
+  },
+  "actions": {
+    "apply": "Toepassen"
+  },
+  "pending": {
+    "readyToApply": "Klaar om toe te passen: {{command}}",
+    "preview": "Voorbeeld",
+    "discard": "Verwijderen"
+  },
+  "context": {
+    "title": "Code Context & Analyse",
+    "currentFile": "Huidig bestand",
+    "noFileOpen": "Geen bestand geopend",
+    "unknownLanguage": "onbekend",
+    "selectedCode": "Geselecteerde code",
+    "analysisResults": "Analyseresultaten",
+    "noIssues": "Geen problemen gedetecteerd",
+    "project": "Projectcontext",
+    "filesOpen": "{{count}} bestanden geopend",
+    "relatedDetected": "{{count}} gerelateerde bestanden gedetecteerd",
+    "relatedFiles": "Gerelateerde bestanden",
+    "more": "... en {{count}} meer"
+  },
+  "alerts": {
+    "errorsDetected_one": "{{count}} fout gedetecteerd",
+    "errorsDetected_other": "{{count}} fouten gedetecteerd",
+    "warningsDetected_one": "{{count}} waarschuwing gedetecteerd",
+    "warningsDetected_other": "{{count}} waarschuwingen gedetecteerd"
+  },
+  "input": {
+    "placeholder": "Bericht..."
+  },
+  "menu": {
+    "label": "AI-opdrachtenmenu"
+  },
+  "palette": {
+    "title": "AI-opdrachtpalet",
+    "searchPlaceholder": "Zoek opdrachten...",
+    "currentFile": "Huidig bestand: {{file}} ({{language}})",
+    "noMatches": "Geen opdrachten gevonden die overeenkomen met \"{{search}}\"",
+    "keyboardHelp": "Gebruik ↑↓ om te navigeren, Enter om te selecteren, Esc om te sluiten"
+  },
+  "hover": {
+    "unavailable": "AI-uitleg niet beschikbaar"
+  },
+  "drop": {
+    "reasons": {
+      "folder": "een map; sleep de bestanden erin",
+      "tooMany": "slechts {{max}} bestanden per drop",
+      "tooLarge": "groter dan {{size}} MB",
+      "unreadable": "kon niet worden gelezen",
+      "notText": "geen tekstbestand"
+    },
+    "opened_one": "{{names}} is geopend als een nietbewaarde kopie. Opslaan houdt het in deze browser bij je andere editorbestanden; het bestand op je computer wordt niet gewijzigd.",
+    "opened_other": "{{names}} zijn geopend als nietbewaarde kopieën. Opslaan houdt ze in deze browser bij je andere editorbestanden; de bestanden op je computer worden niet gewijzigd.",
+    "skippedFile": "{{name}} ({{reason}})",
+    "notOpened": "Niet geopend: {{files}}."
+  }
+}

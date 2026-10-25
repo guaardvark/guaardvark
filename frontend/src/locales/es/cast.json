@@ -106,7 +106,7 @@
     "approve": "Aprobar",
     "regenerateMenu": "Regenerar…",
     "approveToTrain": "Aprobar al menos una muestra para entrenar desde esta hoja (o entrenar desde Datos de Entrenamiento si ya tienes referencias).",
-    "trainsOn": "Entrena con tus {{images}} + {{samples}}. Tras el éxito, las gen. aprobadas pasan a Datos de Entrenamiento. ~horas en una GPU de 16GB; se ejecuta en segundo plano.",
+    "trainsOn": "Entrena con tus {{images}} + {{samples}}. Al tener éxito, las gen aprobadas pasan a Datos de Entrenamiento. Tarda horas en una GPU de 16GB; se ejecuta en segundo plano.",
     "approvedSamples_one": "{{count}} muestra aprobada",
     "approvedSamples_other": "{{count}} muestras aprobadas"
   },

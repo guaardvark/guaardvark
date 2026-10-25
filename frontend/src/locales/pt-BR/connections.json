@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "O Chat redigiu este post.",
+      "mcp": "Uma ferramenta de IA conectada via MCP redigiu este post.",
+      "schedule": "Um agendamento colocou este post na fila.",
+      "unknown": "Este post veio de um remetente que não identificou o que é."
+    },
+    "fields": {
+      "body": "texto",
+      "title": "título",
+      "linkUrl": "link",
+      "tags": "tags",
+      "visibility": "visibilidade",
+      "postOptions": "campos do post",
+      "aiDisclosure": "rótulo de IA",
+      "scheduledAt": "horário"
+    }
+  },
+  "rejectDialog": {
+    "title": "Rejeitar esta publicação?",
+    "body": "Ela não será enviada e não poderá ser aprovada depois — um novo post precisará ser colocado na fila. O motivo abaixo ficará registrado.",
+    "reasonLabel": "Motivo (opcional)",
+    "reasonPlaceholder": "Por que este post não será enviado?",
+    "keep": "Manter",
+    "rejecting": "Rejeitando…",
+    "reject": "Rejeitar"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} não está disponível nesta instalação, então este post não pode ser editado.",
+    "title": "Editar antes de aprovar",
+    "draftedNote": "{{drafted}} O que você salva aqui é o que será publicado após a sua aprovação.",
+    "caption": "Legenda",
+    "text": "Texto",
+    "scheduleHelp": "Ainda aguarda sua aprovação.",
+    "goesOutAs": "Sai como (com as linhas {{platform}} ou a licença da Mídia exige):",
+    "savingNote": "Salvar mantém em espera. Aprove depois.",
+    "cancel": "Cancelar",
+    "save": "Salvar"
+  },
+  "page": {
+    "families": {
+      "social": "Social",
+      "aiProviders": "Provedores de IA",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "conectado",
+      "error": "erro",
+      "expired": "expirado",
+      "disabled": "desativado",
+      "unconfigured": "não configurado"
+    },
+    "removed": "Conexão removida.",
+    "publicOn": "{{label}}: ligado para esta conta. Cada upload ainda aguarda sua Aprovação.",
+    "publicOff": "{{label}}: desligado para esta conta.",
+    "withoutApprovalOn": "Publicações que você inicia aqui para este canal saem sem Aprovação.",
+    "withoutApprovalOff": "Publicações para este canal aguardam Aprovação novamente.",
+    "title": "Conexões",
+    "intro": "Contas e serviços para os quais esta instalação pode publicar ou chamar. As credenciais são armazenadas fora do banco de dados.",
+    "postingStopped": "Postagem pública está interrompida. Retome na página de Alcance.",
+    "queuedHeld": "Publicações na fila estão retidas na página de Aprovações.",
+    "publishingEnabled": "Publicação ativada",
+    "approvalNote": "Cada publicação aguarda sua aprovação na página de Aprovações. Um webhook do Discord, que posta em um canal que você gerencia, pode ser configurado para postar sem isso em seu próprio cartão. Uma conta do YouTube faz o upload como privado até que seu cartão permita uploads públicos.",
+    "addConnection": "Adicionar conexão",
+    "appReview": "análise do app",
+    "noCredentials": "Sem credenciais",
+    "withoutApprovalTooltip": "Para um canal que você gerencia. Publicações que você inicia aqui saem sem esperar na página de Aprovações; solicitações do chat, MCP ou de um agendamento ainda aguardam.",
+    "postWithoutApproval": "Postar sem aprovação",
+    "onThroughSetting": "Ativado por meio da configuração global {{setting}}. Alterá-lo aqui mantém uma escolha específica para esta conta em vez disso.",
+    "testing": "Testando…",
+    "test": "Testar",
+    "edit": "Editar",
+    "remove": "Remover",
+    "empty": "Nenhuma conexão nesta categoria ainda.",
+    "environment": "Ambiente",
+    "environmentNote": "Detectado a partir do ambiente do processo de backend. Gerenciado fora do app e exibido aqui apenas para leitura.",
+    "encrypted": "Criptografado",
+    "unencrypted": "Não criptografado",
+    "credentialCount": "{{count}} credencial(ões)"
+  }
+}

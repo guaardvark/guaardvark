@@ -1,0 +1,91 @@
+{
+  "page": {
+    "title": "自我优化",
+    "systemMap": "系统地图",
+    "uncleClaudeSettings": "在设置中找到 Uncle Claude",
+    "intro": "Guaardvark 会运行自己的测试、起草修复方案并提交供您审核。只有在您批准并应用后，更改才会进入代码，且 Codebase locked 会阻止任何自动更改。",
+    "recentRuns": "最近运行",
+    "noCodeKeeps": "没有来自自动研究的代码保留。"
+  },
+  "codeKeeps": {
+    "approved": "代码保留已批准。请从“待处理修复”中应用。",
+    "rejected": "代码保留已拒绝",
+    "approveFailed": "批准代码保留失败：{{error}}",
+    "rejectFailed": "拒绝代码保留失败：{{error}}",
+    "title": "代码保留",
+    "intro": "通过了“保留并扩展”检查的 Swarm 臂。在此处批准，然后在设置中应用——没有任何内容会自动合并到主菜单。",
+    "description": "描述",
+    "status": "状态",
+    "created": "创建时间",
+    "actions": "操作",
+    "approve": "批准",
+    "reject": "拒绝"
+  },
+  "fixStatus": {
+    "proposed": "已提议",
+    "triaged": "已分类",
+    "approved": "已批准",
+    "applied": "已应用",
+    "rejected": "已拒绝"
+  },
+  "controls": {
+    "title": "自我优化",
+    "help": "Guaardvark 会检查自己的代码并为您提供修复建议。Codebase locked 会阻止所有自动编辑。",
+    "enabledChip": "自我优化",
+    "enabledTooltip": "允许导师扫描代码库并提出待审核的修复建议。",
+    "lockedChip": "代码库已锁定",
+    "lockedOnTooltip": "已禁用自主编辑。关闭此项以允许编辑。",
+    "lockedOffTooltip": "开启此项以阻止对源码树的所有自主编辑。",
+    "turnOnFirst": "先开启自我优化",
+    "unlockFirst": "先解锁代码库",
+    "runTooltip": "立即运行检查。点击“取消”将请求服务器停止；关闭视图时，扫描将继续运行。",
+    "runSelfCheck": "运行自检",
+    "lastRun_other": "上次运行于 {{date}} ({{status}}) · 已成功运行 {{count}} 次。",
+    "noRuns": "尚未运行。",
+    "readingStatus": "正在读取状态……",
+    "lockedNote": "代码库已锁定：已阻止自主编辑。",
+    "cancelled": "已取消",
+    "scanInBackground": "扫描将在后台继续",
+    "pendingFixes": "待处理修复",
+    "pendingFixesHelp": "自检建议的修复项，等待您审核或应用。在您批准并应用之前，任何更改都不会进入代码。",
+    "waiting": "有 {{count}} 个正在等待",
+    "reviewFixes": "审核修复"
+  },
+  "runStatus": {
+    "running": "运行中",
+    "success": "成功",
+    "failed": "失败",
+    "cancelled": "已取消",
+    "blocked_by_guardian": "被守护者拦截"
+  },
+  "trigger": {
+    "scheduled": "计划触发",
+    "reactive": "反应式触发",
+    "directed": "定向触发",
+    "family_learning": "家族学习"
+  },
+  "runs": {
+    "filter": {
+      "all": "全部",
+      "scheduled": "计划中",
+      "reactive": "响应式",
+      "directed": "定向",
+      "success": "成功",
+      "failed": "失败"
+    },
+    "empty": "尚未记录任何“自我优化”运行。",
+    "status": "状态",
+    "trigger": "触发",
+    "timestamp": "时间戳",
+    "duration": "耗时",
+    "uncleReviewed": "Uncle 已审核",
+    "details": "详情",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "已审核",
+    "notReviewed": "否",
+    "expand": "展开",
+    "uncleFeedback": "Uncle Claude 反馈",
+    "changesMade": "已执行更改",
+    "testResults": "测试结果"
+  }
+}

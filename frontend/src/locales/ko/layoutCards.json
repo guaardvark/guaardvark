@@ -1,0 +1,41 @@
+{
+  "output": {
+    "status": {
+      "failed": "실패",
+      "replaced": "교체됨",
+      "complete": "완료"
+    },
+    "retryFailedRows": "실패한 {{count}}개 행 재시도",
+    "deleteOutput": "출력 삭제",
+    "generated": "생성됨",
+    "replaced": "교체됨",
+    "successRate": "성공률",
+    "rows": "{{count}}개 행"
+  },
+  "task": {
+    "status": {
+      "pending": "대기 중",
+      "queued": "대기열 추가",
+      "running": "실행 중",
+      "paused": "일시 정지",
+      "completed": "완료됨",
+      "failed": "실패",
+      "cancelled": "취소됨",
+      "unknown": "알 수 없음"
+    },
+    "statusWithRetries": "{{status}} ({{retries}}회)",
+    "projectNumber": "프로젝트 {{id}}",
+    "noProject": "프로젝트 없음",
+    "untitled": "제목 없는 작업",
+    "noClient": "클라이언트 없음",
+    "queuedForExecution": "실행을 위해 대기열에 추가됨...",
+    "processing": "처리 중...",
+    "noDescriptionAvailable": "설명이 없습니다.",
+    "noDescription": "설명 없음",
+    "deleteTask": "작업 삭제",
+    "runTask": "작업 실행",
+    "startJob": "작업 시작",
+    "cancelQueuedTask": "대기 중인 작업 취소",
+    "stopJob": "작업 중지"
+  }
+}

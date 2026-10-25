@@ -1,0 +1,60 @@
+{
+  "messages": {
+    "generatedImageAlt": "Wygenerowane zdjęcie",
+    "error": "Błąd: {{error}}",
+    "bulkStarted": "Rozpoczęto masowe generowanie CSV! Generowanie {{quantity}} wpisów dla \"{{filename}}\". Może to potrwać kilka minut.",
+    "bulkStartedNoQuantity": "Rozpoczęto masowe generowanie CSV! Generowanie wielu wpisów dla \"{{filename}}\". Może to potrwać kilka minut.",
+    "fileGenerated": "Plik \"{{filename}}\" został pomyślnie wygenerowany! Możesz go pobrać z folderu wyjścia.",
+    "bulkFailed": "Błąd masowego generowania CSV: {{error}}",
+    "fileFailed": "Błąd generowania pliku: {{error}}",
+    "modes": {
+      "fileGeneration": "**Tryb generowania plików**: Analizowanie Twojego zapytania o generowanie kodu/pliku...",
+      "coding": "**Tryb Kodowania**: Dostarczanie wsparcia w programowaniu...",
+      "web": "**Tryb badań internetowych**: Szukanie aktualnych informacji...",
+      "data": "**Tryb narzędzi danych**: Przetwarzanie zapytania o dane..."
+    },
+    "tooLong": "Wiadomość zbyt długa: {{length}} znaków. Maksymalnie dozwolone: 100 000 znaków.",
+    "planNotCreated": "Nie udało się utworzyć planu",
+    "planFailed": "Nie udało się utworzyć planu: {{error}}",
+    "agentWorking": "Agent aktywnie analizuje i kieruje Twoje zapytanie...",
+    "agentFailedNoResponse": "Wykonanie agenta nie powiodło się (brak odpowiedzi od modelu).",
+    "agentEmptyResponse": "Wykonanie agenta zakończone bez odpowiedzi.",
+    "agentFailed": "Wykonanie agenta nie powiodło się: {{error}}",
+    "fileGenerationBusy": "Generowanie pliku jest już w toku. Kontynuuję naszą rozmowę podczas przetwarzania.",
+    "agentModeSocketDown": "Tryb agenta wymaga ujednoliconych narzędzi czatu, ale gniazdo ujednoliconego czatu nie jest połączone (podjęto próbę naprawy). Połącz ponownie (lub Przeładuj) lub wpisz `/chat`, aby wrócić do normalnego trybu czatu.",
+    "agentModeUnifiedDisabled": "Tryb agenta wymaga ujednoliconych narzędzi czatu, ale ujednolicony czat jest wyłączony. Połącz ponownie (lub Przeładuj) lub wpisz `/chat`, aby wrócić do normalnego trybu czatu.",
+    "technicalDifficulties": "Przepraszam, ale wystąpiły trudności techniczne podczas przetwarzania Twojej wiadomości: \"{{excerpt}}\"\n\nSystem napotkał problemy z połączeniem, ale Twoja wiadomość została zachowana w historii naszej rozmowy. Spróbuj zadać pytanie ponownie lub sformułuj je inaczej, jeśli chcesz.",
+    "warning": "Ostrzeżenie: {{warning}}",
+    "stopped": "Zapytanie zatrzymane przez użytkownika",
+    "uploaded": "Plik został pomyślnie przesłany! Indeksowanie zostało uruchomione w tle. Sprawdź Panel systemu, aby monitorować postępy."
+  },
+  "errors": {
+    "agentModeNotSaved": "Tryb agenta nie został zapisany dla nowego czatu: {{reason}}. Wyślij /agent, aby spróbować ponownie.",
+    "agentModeNotSavedRequestFailed": "Tryb agenta nie został zapisany dla nowego czatu: żądanie nie powiodło się. Wyślij /agent, aby spróbować ponownie.",
+    "lessonNotSaved": "Lekcja się zakończyła, ale nie została zapisana: {{reason}}.",
+    "lessonNotSavedRequestFailed": "Lekcja się zakończyła, ale nie została zapisana: żądanie nie powiodło się.",
+    "lessonNotSavedHttp": "Lekcja się zakończyła, ale nie została zapisana: backend odpowiedział HTTP {{status}}."
+  },
+  "header": {
+    "title": "Czat",
+    "messageCount_few": "{{count}} wiadomości",
+    "messageCount_many": "{{count}} wiadomości",
+    "messageCount_one": "{{count}} wiadomość",
+    "beginLesson": "Rozpocznij lekcję — kciuki w górę zostaną zestawione w podsumowanie lekcji",
+    "endLesson": "Zakończ lekcję — wydobądź kluczowe wnioski do edytowalnego podsumowania",
+    "allChats": "Wszystkie czaty",
+    "newChat": "Rozpocznij nową sesję czatu",
+    "activeModel": "Aktywny model: {{model}}",
+    "modelLoading": "Ładowanie...",
+    "modelFetchError": "Błąd pobierania modelu",
+    "modelUnknown": "N/D",
+    "model": "Model: {{model}}",
+    "modelError": "Błąd",
+    "modelDefault": "Domyślny"
+  },
+  "status": {
+    "modelWarmingUp": "Model jest ładowany do pamięci GPU... Czat będzie gotowy za chwilę.",
+    "typing": "Asystent pisze...",
+    "agentBudget": "Tryb agenta jest włączony: każda wiadomość to zadanie, które asystent wykonuje za pomocą swoich narzędzi, do {{total}} kroków na wiadomość; ostatnie zadanie miało {{remaining}} kroków pozostałych."
+  }
+}

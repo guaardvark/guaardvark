@@ -1,0 +1,92 @@
+{
+  "page": {
+    "title": "Zelfverbetering",
+    "systemMap": "Systeemkaart",
+    "uncleClaudeSettings": "Uncle Claude in Instellingen",
+    "intro": "Guaardvark voert zijn eigen tests uit, maakt concepten voor reparaties en zet deze klaar voor jouw beoordeling. Niets bereikt de code voordat jij het goedkeurt en toepast, en Codebase locked stopt elke wijziging.",
+    "recentRuns": "Recente runs",
+    "noCodeKeeps": "Geen code keeps van Autoresearch."
+  },
+  "codeKeeps": {
+    "approved": "Code keep goedgekeurd. Pas het toe vanuit Pending fixes.",
+    "rejected": "Code keep afgewezen",
+    "approveFailed": "Fout bij goedkeuren van code keep: {{error}}",
+    "rejectFailed": "Fout bij afwijzen van code keep: {{error}}",
+    "title": "Code-bewaar",
+    "intro": "Swarm-armen die preserve-and-extend hebben doorstaan. Keur hier goed, en pas het daarna toe vanuit Instellingen — niets wordt automatisch gemerged naar Hoofd.",
+    "description": "Beschrijving",
+    "status": "Status",
+    "created": "Aangemaakt",
+    "actions": "Acties",
+    "approve": "Goedkeuren",
+    "reject": "Afwijzen"
+  },
+  "fixStatus": {
+    "proposed": "voorgesteld",
+    "triaged": "getriegd",
+    "approved": "goedgekeurd",
+    "applied": "toegepast",
+    "rejected": "afgewezen"
+  },
+  "controls": {
+    "title": "Zelfverbetering",
+    "help": "Guaardvark controleert zijn eigen code en stelt reparaties voor die jij kunt beoordelen. Codebase locked blokkeert elke automatische bewerking.",
+    "enabledChip": "Zelfverbetering",
+    "enabledTooltip": "Laat de mentor de codebase scannen en reparaties voorstellen voor beoordeling.",
+    "lockedChip": "Codebase vergrendeld",
+    "lockedOnTooltip": "Autonome bewerkingen zijn geblokkeerd. Zet uit om ze toe te staan.",
+    "lockedOffTooltip": "Zet aan om elke autonome bewerking aan de bronboom te blokkeren.",
+    "turnOnFirst": "Zet eerst Zelfverbetering aan",
+    "unlockFirst": "Ontgrendel de codebase eerst",
+    "runTooltip": "Voert de controles nu uit. Annuleren vraagt de server om te stoppen; het sluiten van het overzicht laat de scan doorlopen.",
+    "runSelfCheck": "Voer zelf-check uit",
+    "lastRun_one": "Laatste keer uitgevoerd {{date}} ({{status}}) · {{count}} succesvolle uitvoering.",
+    "lastRun_other": "Laatste keer uitgevoerd {{date}} ({{status}}) · {{count}} succesvolle uitvoeringen.",
+    "noRuns": "Nog geen uitvoeringen.",
+    "readingStatus": "Status wordt gelezen…",
+    "lockedNote": "Codebase is vergrendeld: autonome bewerkingen zijn geblokkeerd.",
+    "cancelled": "Geannuleerd",
+    "scanInBackground": "Scan gaat door op de achtergrond",
+    "pendingFixes": "Wachtende reparaties",
+    "pendingFixesHelp": "Reparaties voorgesteld door de zelf-check, wachtend op jouw beoordeling of toepassing. Niets bereikt de code totdat je het goedkeurt en toepast.",
+    "waiting": "{{count}} wachtend",
+    "reviewFixes": "Bekijk reparaties"
+  },
+  "runStatus": {
+    "running": "bezig",
+    "success": "succes",
+    "failed": "mislukt",
+    "cancelled": "geannuleerd",
+    "blocked_by_guardian": "geblokkeerd door guardian"
+  },
+  "trigger": {
+    "scheduled": "gepland",
+    "reactive": "reactief",
+    "directed": "gestuurd",
+    "family_learning": "family_learning"
+  },
+  "runs": {
+    "filter": {
+      "all": "Alle",
+      "scheduled": "Gepland",
+      "reactive": "Reactief",
+      "directed": "Gericht",
+      "success": "Succes",
+      "failed": "Mislukt"
+    },
+    "empty": "Nog geen runs voor Zelfverbetering geregistreerd.",
+    "status": "Status",
+    "trigger": "Trigger",
+    "timestamp": "Tijdstempel",
+    "duration": "Duur",
+    "uncleReviewed": "Uncle Bekeken",
+    "details": "Details",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "Bekeken",
+    "notReviewed": "Nee",
+    "expand": "Uitvouwen",
+    "uncleFeedback": "Uncle Claude Feedback",
+    "changesMade": "Aangebrachte wijzigingen",
+    "testResults": "Testresultaten"
+  }
+}

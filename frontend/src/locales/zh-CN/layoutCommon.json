@@ -1,0 +1,223 @@
+{
+  "addressAutocomplete": {
+    "label": "地址"
+  },
+  "apiKeyRefusal": {
+    "settingsLink": "设置 → 访问"
+  },
+  "backendOffline": {
+    "message": "后端离线 — 正在重试… 在终端中运行 <code>guaardvark</code>，或运行 <code>./start.sh</code> 以启动完整堆栈。"
+  },
+  "changedElsewhere": {
+    "keepMine": "保留我的",
+    "message": "{{names}} 在您编辑期间在其他地方被更改。重新加载以采用保存的版本，或保留您的编辑并覆盖该更改。"
+  },
+  "didYouKnow": {
+    "regionLabel": "您知道吗",
+    "title": "您知道吗？",
+    "closeTip": "关闭提示",
+    "showMe": "显示给我",
+    "nextTip": "下一个提示",
+    "stopTips": "不再显示提示"
+  },
+  "directoryPicker": {
+    "title": "选择目录",
+    "loadFailed": "加载文件夹失败",
+    "notFoundShowingHome": "未找到 {{path}}；正在显示您的主页文件夹。",
+    "notFoundShowing": "未找到 {{path}}；正在显示 {{fallback}}。",
+    "folderNotFound": "找不到文件夹",
+    "root": "根目录",
+    "hideRecent": "隐藏最近记录",
+    "showRecent": "最近路径",
+    "recentPaths": "最近路径",
+    "goHome": "前往主页文件夹",
+    "homeFolder": "主页文件夹",
+    "path": "路径",
+    "openPathFirst": "在选择之前，按 Enter 或点击“前往”以打开此路径。",
+    "parentFolder": "上级文件夹",
+    "go": "前往",
+    "searchPlaceholder": "在当前目录中搜索...",
+    "showFiles": "显示文件",
+    "browse": "浏览",
+    "hiddenFolders": "不显示隐藏文件夹。",
+    "noMatches": "未找到匹配的项目。",
+    "emptyFolder": "此文件夹为空。",
+    "noSubdirectories": "未找到子目录。您可以选择此目录。",
+    "itemCount": "{{count}} 个项目",
+    "folderCount_other": "{{count}} 个文件夹",
+    "fileCount_other": "{{count}} 个文件",
+    "foldersAndFiles": "{{folders}} 个文件夹，{{files}} 个文件",
+    "summaryMatching": "匹配 \"{{query}}\" 的结果有 {{summary}} 个",
+    "summaryPickable": "可选择的 {{summary}} 个 · {{extensions}} 文件",
+    "chooseFile": "选择文件",
+    "selectNamed": "选择：{{name}}"
+  },
+  "errorBoundary": {
+    "updatedTitle": "Guaardvark 已更新",
+    "errorTitle": "出错了",
+    "updatedBody": "此页面的代码在打开期间已更改。请重新加载以加载新版本。",
+    "errorBody": "应用程序遇到意外错误。此错误已记录以供调查。",
+    "reloadPage": "重新加载页面",
+    "tryAgain": "重试",
+    "detailsHeading": "错误详情（仅限开发模式）"
+  },
+  "errorDisplay": {
+    "unexpectedError": "发生意外错误",
+    "genericError": "发生错误",
+    "friendly": {
+      "network": "无法连接到服务器。请检查您的网络连接。",
+      "timeout": "请求处理时间过长。请重试。",
+      "unauthorized": "需要身份验证。请登录。",
+      "forbidden": "您没有权限执行此操作。",
+      "notFound": "未找到请求的资源。",
+      "serverError": "服务器错误。请稍后再试。",
+      "unavailable": "服务暂时不可用。请稍后再试。"
+    },
+    "toggleDetails": "切换详情",
+    "report": "报告",
+    "closeError": "关闭错误",
+    "severity": {
+      "warning": "警告",
+      "info": "信息"
+    },
+    "errorDetails": "错误详情",
+    "code": "<bold>代码：</bold> {{code}}",
+    "time": "<bold>时间：</bold> {{time}}",
+    "technicalDetails": "技术详情",
+    "cardTitle": "出错了",
+    "cardDescription": "发生意外错误。请尝试刷新页面。",
+    "tryAgain": "重试",
+    "refreshPage": "刷新页面"
+  },
+  "errorProvider": {
+    "detailsTitle": "错误详情"
+  },
+  "gpuGate": {
+    "queued": "{{reason}}。新的任务将排队，并在 GPU 空闲时自动开始。",
+    "blocked": "{{reason}}。当显卡空闲时，按钮将解锁。",
+    "job": "任务：{{detail}}"
+  },
+  "shortcuts": {
+    "groups": {
+      "global": "全局",
+      "chat": "对话",
+      "codeEditor": "代码编辑器",
+      "systemMap": "系统地图",
+      "videoEditor": "视频编辑器"
+    },
+    "keys": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "space": "Space",
+      "enter": "Enter",
+      "esc": "Esc",
+      "delete": "Delete"
+    },
+    "showShortcuts": "显示此键盘快捷键参考",
+    "toggleFloatingChat": "切换悬浮聊天面板",
+    "voiceMic": "语音：点击开始或停止麦克风，按住说话",
+    "sendMessage": "发送消息",
+    "newline": "插入换行符",
+    "previousMessage": "回顾上一条消息",
+    "nextMessage": "回顾下一条消息",
+    "saveFile": "保存文件",
+    "saveSession": "立即保存会话：打开标签页和对话",
+    "findSymbol": "查找函数或类并跳转到对应位置",
+    "jumpToPanel": "跳转到文件、编辑器、对话、搜索、输出",
+    "explainSelection": "在对话中解释选中的代码",
+    "focusSearch": "聚焦搜索",
+    "resetView": "重置视图",
+    "clearSearch": "清除搜索 / 选中内容",
+    "playPause": "播放 / 暂停预览",
+    "undo": "撤销上一次时间轴更改",
+    "removeOverlay": "移除选中的文本覆盖层",
+    "title": "键盘快捷键",
+    "close": "关闭快捷键"
+  },
+  "loading": {
+    "remaining": "还剩 ~{{seconds}}s",
+    "processing": "处理中...",
+    "connected": "已连接",
+    "offline": "离线",
+    "online": "在线",
+    "offlineTitle": "您处于离线状态",
+    "offlineBody": "某些功能可能不可用。请检查您的网络连接。",
+    "success": "成功！",
+    "processFailed": "处理失败",
+    "failed": "失败",
+    "step": "第 {{current}} 步，共 {{total}} 步"
+  },
+  "mediaPicker": {
+    "listFailed": "无法列出库。",
+    "uploadFailed": "上传失败。",
+    "kinds": {
+      "image": {
+        "choose": "选择图片",
+        "onlyHere": "只有图片会放入此处；其他文件已添加到文件。",
+        "empty": "文件库中暂无图片。请上传一张，或在工作室中生成一张。",
+        "emptyFiltered": "文件库中暂无匹配该名称的图片。请上传一张，或在工作室中生成一张。"
+      },
+      "video": {
+        "choose": "选择片段",
+        "onlyHere": "只有片段会放入此处；其他文件已添加到文件。",
+        "empty": "文件库中暂无片段。请上传一个，或在工作室中生成一个。",
+        "emptyFiltered": "文件库中暂无匹配该名称的片段。请上传一个，或在工作室中生成一个。"
+      },
+      "audio": {
+        "choose": "选择音频文件",
+        "onlyHere": "此处仅放置音频文件；其他文件已添加到文件。",
+        "empty": "文件里还没有音频文件。请上传一个，或在工作室中生成一个。",
+        "emptyFiltered": "文件里还没有匹配该名称的音频文件。请上传一个，或在工作室中生成一个。"
+      }
+    },
+    "filterPlaceholder": "按名称筛选",
+    "uploadFromDisk": "从磁盘上传",
+    "upToMore": "还有多达 {{count}} 个。",
+    "pickOne": "选择一个。",
+    "useCount": "使用 {{count}} 个",
+    "use": "使用"
+  },
+  "narrate": {
+    "failed": "朗读失败",
+    "fast": "快速",
+    "expressive": "富有表现力",
+    "download": "下载朗读内容",
+    "summary_other": "{{seconds}}秒 · {{count}} 个片段",
+    "generatingSlow": "正在生成（较慢）...",
+    "narrating": "正在朗读...",
+    "narrate": "朗读",
+    "expressiveGenerating": "富有表现力的 TTS 正在生成 (10-30秒)...",
+    "generating": "正在生成朗读内容...",
+    "narrateText": "朗读此文本"
+  },
+  "projectState": {
+    "title": "项目状态错误",
+    "intro": "项目状态管理出现错误。可能是由于：",
+    "causes": {
+      "network": "网络连接问题",
+      "sync": "数据同步问题",
+      "relationships": "无效的项目关系",
+      "corruption": "状态损坏"
+    },
+    "errorMessage": "错误：{{message}}",
+    "unknownError": "未知错误"
+  },
+  "sevenDayPicker": {
+    "time": "时间"
+  },
+  "updateNotice": {
+    "gpuFaultAt": "GPU 在 {{time}} 停止响应。在 Guaardvark 重启前，图像生成将失败。",
+    "gpuFault": "GPU 停止响应。在 Guaardvark 重启前，图像生成将失败。",
+    "restartWithReason": "Guaardvark 已更新。重新启动以完成（{{reason}}）。",
+    "restart": "Guaardvark 已更新。重新启动以完成。",
+    "restarted": "Guaardvark 已重启。重新加载此页面以使用新版本。",
+    "reloadFiles_other": "Guaardvark 已更新（{{count}} 个文件）。重新加载此页面以使用新版本。",
+    "reload": "Guaardvark 已更新。重新加载此页面以使用新版本。",
+    "restartButton": "重启",
+    "confirmTitle": "重启 Guaardvark",
+    "confirmGpu": "重启后端、工作进程和 ComfyUI 以恢复 GPU 使用。所有正在进行的生成、索引任务和对话回复将丢失，且此页面将在服务恢复前断开连接。",
+    "confirmUpdate": "重启后端、工作进程和 ComfyUI 以使更新生效。所有正在进行的生成、索引任务和对话回复将丢失，且此页面将在服务恢复前断开连接。",
+    "keeps": "文档、对话、媒体、规则和设置。",
+    "restartNow": "立即重启"
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO：{{score}}",
+    "analytics": "点击量：{{clicks}} | 展示量：{{impressions}} | 排名：{{position}}",
+    "notAvailable": "无"
+  },
+  "errors": {
+    "fetchFailed": "获取页面失败",
+    "loadFailed": "加载页面失败",
+    "pullFailed": "拉取页面失败",
+    "processFailed": "处理页面失败",
+    "queueFailed": "加入队列失败",
+    "executeFailed": "执行队列失败",
+    "recommendationsFailed": "获取建议失败。该功能即将推出。"
+  },
+  "feedback": {
+    "pulled": "已拉取 {{count}} 个页面",
+    "nonePending": "没有待处理的页面",
+    "queued": "已将 {{count}} 个页面加入处理队列",
+    "processed": "已处理 {{succeeded}}/{{total}} 个页面"
+  },
+  "recommendations": {
+    "summary": "AI 建议功能将分析页面内容，并提供智能的改进建议。",
+    "content": {
+      "title": "内容增强",
+      "description": "分析内容以进行 SEO 优化、提高可读性并增强互动性。"
+    },
+    "seo": {
+      "title": "SEO 优化",
+      "description": "检查元标签、标题结构和关键词优化机会。"
+    },
+    "structure": {
+      "title": "内容结构",
+      "description": "评估内容组织结构，并提供优化用户体验的建议。"
+    },
+    "priority": {
+      "high": "高",
+      "medium": "中等",
+      "low": "低"
+    },
+    "title": "AI 推荐",
+    "none": "当前暂无特定推荐。",
+    "loading": "正在加载推荐...",
+    "processNow": "立即处理"
+  },
+  "title": "WordPress 页面",
+  "actions": {
+    "pull": "拉取",
+    "queue": "入队 ({{count}})",
+    "process": "处理",
+    "close": "关闭",
+    "cancel": "取消"
+  },
+  "site": "WordPress 站点",
+  "filters": {
+    "pull": "拉取",
+    "all": "全部",
+    "pulled": "已拉取",
+    "pending": "待处理",
+    "error": "错误",
+    "process": "处理中",
+    "processing": "处理中",
+    "completed": "已完成",
+    "approved": "已通过"
+  },
+  "stats": {
+    "total": "总计: {{total}}",
+    "pending": "待处理: {{pending}}",
+    "completed": "已完成: {{completed}}"
+  },
+  "empty": {
+    "noPages": "未找到页面。请拉取页面以开始。",
+    "selectSite": "请选择一个 WordPress 站点以查看页面"
+  },
+  "table": {
+    "title": "标题",
+    "type": "类型",
+    "seo": "SEO",
+    "ai": "AI"
+  },
+  "untitled": "无标题",
+  "tooltips": {
+    "getRecommendations": "点击获取 AI 推荐",
+    "hasImprovements": "有优化建议",
+    "noImprovements": "无优化建议"
+  },
+  "pullDialog": {
+    "title": "从 WordPress 拉取页面",
+    "postType": "文章类型",
+    "posts": "文章",
+    "pages": "页面",
+    "maxPages": "最大页面数 (可选)",
+    "maxPagesHelper": "留空以获取所有页面",
+    "pulling": "正在获取...",
+    "submit": "获取页面"
+  }
+}

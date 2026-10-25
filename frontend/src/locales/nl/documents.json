@@ -1,0 +1,259 @@
+{
+  "rootFolderName": "Bestanden",
+  "pdfViewer": {
+    "openInNewTab": "Openen in nieuw tabblad",
+    "noFile": "Geen PDF-bestand geselecteerd"
+  },
+  "docxViewer": {
+    "fetchFailed": "Ophalen mislukt ({{status}})",
+    "renderFailed": "Document kon niet worden weergegeven",
+    "downloadOriginal": "Origineel downloaden"
+  },
+  "actions": {
+    "close": "Sluiten",
+    "cancel": "Annuleren"
+  },
+  "entityFiles": {
+    "regionLabel": "Bestanden voor deze {{kind}}",
+    "regionLabel_client": "Bestanden voor deze klant",
+    "regionLabel_website": "Bestanden voor deze website",
+    "title": "Bestanden voor {{name}}",
+    "title_client": "Bestanden voor deze klant",
+    "title_clientNamed": "Bestanden voor klant {{name}}",
+    "title_website": "Bestanden voor deze website",
+    "title_websiteNamed": "Bestanden voor website {{name}}",
+    "loadFailed": "Kon de bestanden niet laden: {{error}}",
+    "empty": "Er zijn geen bestanden gekoppeld aan deze {{kind}}. Koppel een bestand of map via de eigenschappen.",
+    "empty_client": "Er zijn geen bestanden gekoppeld aan deze klant. Koppel een bestand of map via de eigenschappen.",
+    "empty_website": "Er zijn geen bestanden gekoppeld aan deze website. Koppel een bestand of map via de eigenschappen.",
+    "filesRoot": "Bestanden hoofdmap"
+  },
+  "audioPlayer": {
+    "untitled": "audio",
+    "closeLabel": "sluiten",
+    "seed": "seed: {{seed}}",
+    "openInNewTab": "Openen in nieuw tabblad"
+  },
+  "folderWindow": {
+    "listView": "Lijstweergave",
+    "gridView": "Rasterweergave",
+    "mediaView": "Mediaweergave",
+    "codeRepoChip": "CODE REPO"
+  },
+  "contextMenu": {
+    "openInWindow": "Openen in venster",
+    "minimize": "Minimaliseren",
+    "newFolder": "Nieuwe map",
+    "importFiles": "Bestanden importeren",
+    "paste": "Plakken",
+    "closeWindow": "Venster sluiten",
+    "reviewWithAgent": "Beoordelen met Agent",
+    "cut": "Knippen",
+    "copy": "Kopiëren",
+    "rename": "Hernoemen",
+    "properties": "Eigenschappen",
+    "bulkImportHere": "Bulkimport naar deze map…",
+    "indexContents": "Inhoud indexeren",
+    "delete": "Verwijderen",
+    "download": "Downloaden",
+    "edit": "Bewerken",
+    "view": "Bekijken",
+    "openInCodeEditor": "Openen in Code-editor",
+    "index": "Indexeren",
+    "open": "Openen",
+    "restore": "Herstellen"
+  },
+  "codeRepo": {
+    "never": "Nooit",
+    "unknown": "Onbekend",
+    "buttonTooltip": "Code Repository Intelligentie: talen, frameworks, repositorykaart en afhankelijkheden",
+    "buttonLabel": "Code Repository Intelligentie voor {{name}}",
+    "button": "INTEL",
+    "title": "Code Repository Intelligentie",
+    "analyzed": "Geanalyseerd: {{date}}",
+    "languagesFrameworks": "Talen & Frameworks",
+    "analysisPending": "Analyse in afwachting",
+    "statistics": "Statistieken",
+    "fileCount_one": "{{count}} bestanden",
+    "fileCount_other": "{{count}} bestanden",
+    "mappedFileCount_one": "{{count}} gemapte bestanden",
+    "mappedFileCount_other": "{{count}} gemapte bestanden",
+    "viewMap": "Bekijk Repository Map",
+    "viewDependencies": "Bekijk Afhankelijkheden",
+    "mapTitle": "Repository Map",
+    "noMap": "Geen map beschikbaar.",
+    "graphTitle": "Afhankelijkheidsgraaf"
+  },
+  "desktop": {
+    "loadFailed": "Fout bij laden van desktop-items",
+    "movedToFolder": "{{count}} item(s) verplaatst naar {{folder}}",
+    "movedToDesktop": "{{count}} item(s) verplaatst naar desktop"
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "Live repository bestanden zijn hier alleen voor lezen. Gebruik een gestage zelf-code bewerking.",
+    "saveFailed": "Opslaan mislukt: {{error}}",
+    "liveRepoReviewFirst": "Live repository bestanden zijn review-first en kunnen niet rechtstreeks in dit venster worden bewerkt.",
+    "discardConfirm": "Je hebt niet opgeslagen wijzigingen. Deze weggooien?",
+    "liveRepoChip": "Live repo · alleen voor lezen",
+    "modified": "Gewijzigd",
+    "viewMode": "Weergavemodus",
+    "editMode": "Bewerkingsmodus",
+    "openInCodeEditor": "Openen in Code-editor",
+    "copy": "Kopiëren naar klembord",
+    "saving": "Opslaan...",
+    "save": "Opslaan"
+  },
+  "folder": {
+    "empty": "Deze map is leeg",
+    "loadFailed": "Fout bij laden van mapinhoud",
+    "columnName": "Naam",
+    "columnDate": "Datum",
+    "columnSize": "Grootte",
+    "codeRepository": "Code Repository",
+    "itemCount_one": "{{count}} item(s)",
+    "itemCount_other": "{{count}} items"
+  },
+  "mediaView": {
+    "selectFile": "Selecteer een bestand",
+    "previous": "Vorige",
+    "next": "Volgende",
+    "open": "Openen",
+    "download": "Downloaden",
+    "closePreview": "Preview sluiten"
+  },
+  "indexStatus": {
+    "indexed": "Geïndexeerd",
+    "indexing": "Indexeren...",
+    "pending": "In afwachting",
+    "error": "Fout",
+    "folderFull": "Volledig geïndexeerd ({{indexed}}/{{total}})",
+    "folderPartial": "Gedeeltelijk geïndexeerd ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "Mapnaam mag niet leeg zijn",
+    "emptyFileName": "Bestandsnaam mag niet leeg zijn",
+    "invalidFolderName": "Mapnaam bevat ongeldige tekens. Gebruik alleen letters, cijfers, spaties, koppeltekens en underscores.",
+    "invalidFileName": "Bestandsnaam bevat ongeldige tekens. Gebruik alleen letters, cijfers, spaties, koppeltekens, underscores en punten.",
+    "invalidName": "Bestandsnaam bevat ongeldige tekens. Gebruik alleen letters, cijfers, spaties, koppeltekens en underscores.",
+    "folderNameTooLong": "Mapnaam is te lang. Maximale lengte is {{max}} tekens.",
+    "fileNameTooLong": "Bestandsnaam is te lang. Maximale lengte is {{max}} tekens."
+  },
+  "indexing": {
+    "nothing": "Niets om te indexeren",
+    "alreadyIndexedOne": "Al geïndexeerd; het bestand is niet veranderd",
+    "alreadyIndexedAll_one": "Alles is al geïndexeerd ({{count}} bestanden onveranderd)",
+    "alreadyIndexedAll_other": "Alles is al geïndexeerd ({{count}} bestanden onveranderd)",
+    "documentCount_one": "{{count}} document",
+    "documentCount_other": "{{count}} documenten",
+    "folderCount_one": "{{count}} map",
+    "folderCount_other": "{{count}} mappen",
+    "startedFromFoldersSkipped": "Indexeren van {{documents}} uit {{folders}}, {{skipped}} al geïndexeerd",
+    "startedFromFolders": "Indexeren van {{documents}} uit {{folders}}",
+    "startedSkipped": "Indexeren van {{documents}}, {{skipped}} al geïndexeerd",
+    "started": "Indexeren van {{documents}}",
+    "startFailed": "Indexeren niet gestart",
+    "failed": "Indexeren mislukt: {{error}}"
+  },
+  "page": {
+    "refreshFailed": "Vernieuwen mislukt",
+    "downloading": "Downloaden van {{name}}",
+    "title": "Bestanden",
+    "loadingFolders": "Mappen laden...",
+    "importFiles": "Bestanden importeren",
+    "arrangeIcons": "Pictogrammen ordenen",
+    "arrangeWindows": "Vensters ordenen",
+    "modelLoading": "Laden...",
+    "modelError": "Fout",
+    "emptyTitle": "Nog geen documenten",
+    "emptyHint": "Sleep bestanden hierheen of klik met de rechtermuisknop om een map aan te maken",
+    "folderItemCount_one": "{{count}} item",
+    "folderItemCount_other": "{{count}} items",
+    "uploadProgress_one": "Uploaden van {{current}}/{{count}} bestand...",
+    "uploadProgress_other": "Uploaden van {{current}}/{{count}} bestanden..."
+  },
+  "import": {
+    "nothingToImport": "Niets om te importeren: {{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "upload mislukt",
+    "importedSkipped": "{{count}} bestand(en) geïmporteerd naar {{folder}}; {{skipped}} overgeslagen",
+    "imported": "{{count}} bestand(en) geïmporteerd naar {{folder}}",
+    "importedPartlySkipped": "{{count}} bestand(en) geïmporteerd naar {{folder}}; {{failed}} mislukt ({{error}}); {{skipped}} overgeslagen",
+    "importedPartly": "{{count}} bestand(en) geïmporteerd naar {{folder}}; {{failed}} mislukt ({{error}})",
+    "failed": "Import mislukt: {{error}}",
+    "importedFiltered": "{{count}} bestand(en) geïmporteerd naar {{folder}} ({{ignored}} genegeerd door filter)",
+    "failedPlain": "Import mislukt"
+  },
+  "move": {
+    "intoOwnSubfolder": "Kan \"{{name}}\" niet verplaatsen naar zijn eigen submap",
+    "unknownError": "Onbekende fout",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "{{count}} item(s) verplaatst",
+    "failed": "Mislukt om items te verplaatsen",
+    "movedPartly": "{{count}} item(s) verplaatst, {{failed}} mislukt",
+    "dropFailed": "Mislukte verwerking van drop",
+    "operationFailed": "Operatie mislukt: {{error}}"
+  },
+  "newFolder": {
+    "created": "Map \"{{name}}\" aangemaakt",
+    "failed": "Mislukt om map aan te maken",
+    "title": "Maak nieuwe map",
+    "nameLabel": "Mapnaam",
+    "create": "Aanmaken"
+  },
+  "clipboard": {
+    "copied": "{{count}} item(s) gekopieerd",
+    "cut": "{{count}} item(s) geknipt",
+    "foldersNotPastable": "Mappen kunnen niet worden geplakt in {{folder}}",
+    "liveRepoReadOnly": "Items in de live repository zijn hier alleen voor lezen",
+    "itemFailed": "mislukt",
+    "pasted": "{{count}} item(s) geplakt in {{folder}}",
+    "moved": "{{count}} item(s) verplaatst naar {{folder}}",
+    "pastedPartly": "{{count}} item(s) geplakt in {{folder}}; {{failed}} mislukt: {{error}}",
+    "movedPartly": "{{count}} item(s) verplaatst naar {{folder}}; {{failed}} mislukt: {{error}}",
+    "pasteFailed": "Plakken mislukt: {{error}}",
+    "moveFailed": "Verplaatsen mislukt: {{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "De live code-mount is alleen voor lezen",
+    "deleted": "{{count}} item(s) verwijderd",
+    "someFailed": "Sommige verwijderingen zijn mogelijk mislukt — status wordt vernieuwd",
+    "confirmTitle": "Verwijderen bevestigen",
+    "confirmBody_one": "Verwijder {{count}} item? Deze actie kan niet worden ongedaan gemaakt.",
+    "confirmBody_other": "Verwijder {{count}} items? Deze actie kan niet worden ongedaan gemaakt.",
+    "confirm": "Verwijderen"
+  },
+  "properties": {
+    "fileNotFound": "Bestand niet gevonden",
+    "loadFailed": "Fout bij laden van bestandgegevens",
+    "fileUpdated": "Bestandseigenschappen succesvol bijgewerkt",
+    "fileUpdateFailed": "Fout bij bijwerken van bestandseigenschappen",
+    "updateFailed": "Update mislukt: {{error}}",
+    "fileDeleted": "Bestand succesvol verwijderd",
+    "fileDeleteFailed": "Fout bij verwijderen van bestand",
+    "deleteFailed": "Verwijderen mislukt: {{error}}",
+    "reindexStarted": "Herindexering gestart. Status wordt binnenkort bijgewerkt.",
+    "reindexStartFailed": "Fout bij starten van herindexering",
+    "reindexFailed": "Herindexering mislukt: {{error}}",
+    "folderApplied": "Eigenschappen succesvol toegepast! Bestanden bijgewerkt: {{files}}, Submappen verwerkt: {{folders}}",
+    "folderUpdated": "Mapeigenschappen succesvol bijgewerkt",
+    "folderUpdateFailed": "Mislukt om mapeigenschappen bij te werken",
+    "folderDeleted": "Map verwijderd"
+  },
+  "rename": {
+    "folderRenamed": "Map hernoemd naar \"{{name}}\"",
+    "fileRenamed": "Bestand hernoemd naar \"{{name}}\"",
+    "failedReason": "Hernoemen mislukt: {{reason}}",
+    "failed": "Hernoemen mislukt",
+    "folderTitle": "Map hernoemen",
+    "fileTitle": "Bestand hernoemen",
+    "fileNameLabel": "Bestandsnaam",
+    "fileHint": "Wijzigt de naam die in Guaardvark wordt getoond; het bestand op de schijf behoudt zijn naam.",
+    "submit": "Hernoem"
+  },
+  "review": {
+    "liveRepoOnly": "Zelf-code review is alleen beschikbaar voor de live repo mount",
+    "dispatchedTask": "Zelf-code review verzonden ({{taskId}})",
+    "dispatched": "Zelf-code review verzonden",
+    "failed": "Mislukt om zelf-code review te verzenden"
+  }
+}

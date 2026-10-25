@@ -1,0 +1,176 @@
+{
+  "page": {
+    "indexStatus": {
+      "pending": "待处理",
+      "indexing": "索引中",
+      "indexed": "已索引",
+      "stored": "已存储",
+      "storedTruncated": "存储截断",
+      "storageFailed": "存储失败",
+      "notIndexed": "未索引",
+      "error": "错误",
+      "uploaded": "已上传",
+      "unknown": "未知"
+    },
+    "messages": {
+      "indexed": "文件 '{{name}}' 已上传并完成索引。",
+      "indexFailed": "文件 '{{name}}' 已上传，但索引失败。",
+      "indexFailedReason": "文件 '{{name}}' 已上传，但索引失败：{{reason}}",
+      "stillIndexing": "文件 '{{name}}' 已上传；索引仍在运行。重新加载后，在“最近上传”中查看结果。",
+      "selectFirst": "请先选择一个文件。",
+      "notQueued": "文件 '{{name}}' 已上传 (ID: {{id}})，但无法加入索引队列。",
+      "notQueuedReason": "文件 '{{name}}' 已上传 (ID: {{id}})，但无法加入索引队列：{{reason}}",
+      "queued": "文件 '{{name}}' 已上传 (ID: {{id}})；已加入索引队列。",
+      "unexpectedResponse": "上传成功，但收到意外响应。",
+      "unknownError": "上传过程中发生未知错误。"
+    },
+    "title": "导入文档",
+    "modelLoading": "加载中...",
+    "modelError": "错误",
+    "modelDefault": "默认",
+    "dropZoneLabel": "选择要导入的文件",
+    "selectFile": "选择文件",
+    "selected": "已选择：{{name}} ({{size}} KB)",
+    "dropHint": "拖放或点击以选择文件。",
+    "importing": "正在导入...",
+    "indexing": "正在建立索引...",
+    "importAndIndex": "导入并建立索引",
+    "recentUploads": "最近上传",
+    "noRecentUploads": "暂无最近上传记录。",
+    "documentFallback": "文档 {{id}}",
+    "importedAt": "导入时间：{{time}}"
+  },
+  "bulk": {
+    "title": "批量导入",
+    "skipped": {
+      "folders_other": "{{count}} 个隐藏或内部文件夹",
+      "files_other": "{{count}} 个隐藏或私有文件",
+      "foldersAndFiles": "{{folders}} 个文件夹和 {{files}} 个文件"
+    },
+    "pill": {
+      "previewReady": "预览就绪",
+      "finishedWithErrors_other": "完成但有错误（{{count}} 个失败）",
+      "imported": "已导入",
+      "failed": "失败",
+      "stopped": "已停止",
+      "cancelled": "已取消",
+      "uploading": "正在上传",
+      "queued": "已入队",
+      "counting": "正在统计文件",
+      "importing": "正在导入"
+    },
+    "result": {
+      "wouldImport_other": "将导入 {{count}} 个文件",
+      "imported_other": "已导入 {{count}} 个",
+      "alreadyThere_other": "已有 {{count}} 个",
+      "failed_other": "失败 {{count}} 个",
+      "queued_other": "已入队等待索引 {{count}} 个",
+      "skipped": "跳过 {{what}}"
+    },
+    "job": {
+      "finishedAway": "您离开期间任务已完成。",
+      "unreachable": "当前无法连接到服务器；仍在检查此导入……",
+      "expired": "此导入的状态不再保留（服务器保留时间为一小时）。相关文件在“文件”中。",
+      "counting": "正在统计文件……",
+      "started": "导入已开始",
+      "fromServer": "来自 {{path}}",
+      "nothingToMove": "无内容可移动：没有文件进入。",
+      "uploadStarting": "开始上传……",
+      "fromBrowserFolder": "来自 {{name}}（本电脑）",
+      "fromBrowserFiles_other": "来自 {{count}} 个文件（本电脑）",
+      "uploadingFile": "正在上传 {{number}} / {{total}} · {{name}}",
+      "uploadStopped_other": "在 {{count}} / {{total}} 个文件后停止",
+      "uploadFinished": "上传完成",
+      "uploadFailed": "上传失败"
+    },
+    "fileCount_other": "{{count}} 个文件",
+    "uploadFailedReason": "上传失败",
+    "notStarted": "导入未开始",
+    "startFailed": "启动导入失败",
+    "readDropFailed": "无法读取拖入的内容：{{reason}}",
+    "unknownError": "未知错误",
+    "tooLargeCount_other": "有 {{count}} 个文件超过 100 MB",
+    "nothingToImport": "无内容可导入",
+    "nothingToImportSkipped": "无内容可导入：已跳过 {{why}}",
+    "action": {
+      "import": "导入",
+      "importFiles_other": "导入 {{count}} 个文件",
+      "moreWays": "更多导入方式",
+      "importHint": "复制文件；源文件保留不变",
+      "previewOnly": "仅预览",
+      "previewHint": "统计即将导入的内容；不进行任何更改",
+      "previewCounted": "已在上方统计放入的“文件”",
+      "importAndMove": "导入并移动…",
+      "moveHint": "文件进入“文件”后从源位置移除；操作前会提示",
+      "moveServerOnly": "仅限 Guaardvark 机器上的文件夹"
+    },
+    "chooseFirst": "首先选择要导入的内容",
+    "waitForImport": "等待当前导入完成",
+    "links": {
+      "client": "客户端",
+      "project": "项目",
+      "website": "网站",
+      "linkTo": "链接至",
+      "none": "无"
+    },
+    "from": {
+      "label": "来源",
+      "serverNote": "Guaardvark 机器上的文件夹；在后台运行",
+      "filesAndSize_other": "{{count}} 个文件，{{size}}",
+      "browserNote": "来自此电脑，作为副本上传",
+      "tooLargeLeftOut_other": "有 {{count}} 个文件超过 100 MB，已排除",
+      "change": "更改",
+      "clear": "清除"
+    },
+    "startOver": "重新开始",
+    "filesPage": "文件",
+    "intro": "将文件夹导入到“文件”中并建立搜索索引。",
+    "dropZone": {
+      "release": "松开以添加",
+      "prompt": "将文件夹或文件拖放到此处",
+      "note": "通过此浏览器作为副本上传；您的原始文件将保留在原处。",
+      "chooseFolder": "选择文件夹…",
+      "chooseFiles": "选择文件…"
+    },
+    "orServerFolder": "或选择 Guaardvark 机器上的文件夹",
+    "browseServer": "浏览 Guaardvark 机器…",
+    "bigDrop": "这是一个大文件。如果此文件夹位于 Guaardvark 机器上，请选择该位置：它将在后台运行，并支持移动而非复制。",
+    "into": {
+      "label": "放入",
+      "newFolder": "{{name}} (新建)",
+      "foldersInFiles": "文件中的文件夹",
+      "newFolderOption": "新文件夹…"
+    },
+    "fewerOptions": "更少选项 ▾",
+    "moreOptions": "更多选项 ▸",
+    "reindexMissing": "索引之前导入但未索引的文件",
+    "reindexMissingTooltip": "之前导入的文件若未跳过则保持原样；开启此项后，若之前未完成索引的文件将被加入队列。已索引的文件不会重复索引。",
+    "status": {
+      "jobTooltip": "任务 {{id}}",
+      "stopTooltip": "完成当前正在处理的文件，然后停止",
+      "stop": "停止",
+      "tooLargeFailure": "{{path}}: 超过 100 MB，未上传",
+      "hideList": "隐藏列表",
+      "showFiles_other": "显示 {{count}} 个文件",
+      "showFailed_other": "显示 {{count}} 个失败项",
+      "andMore": "还有 {{count}} 个更多",
+      "openFiles": "打开文件",
+      "importAnother": "导入另一个"
+    },
+    "pickerTitle": "选择 Guaardvark 机器上的文件夹",
+    "newFolder": {
+      "title": "在文件中创建新文件夹",
+      "description": "导入后，它将创建在“文件”的顶层目录。",
+      "label": "文件夹名称",
+      "submit": "使用此文件夹"
+    },
+    "move": {
+      "title": "将文件移动到“文件”中？",
+      "description": "所有尚未进入“文件”的文件，在安全移入“文件”后将从源文件夹中移除。",
+      "filesFound": "找到的“文件”数量",
+      "keeps": "已提前导入的“文件”（保留在原位）",
+      "keepsWithSkipped": "已提前导入的“文件”（保留在原位），以及 {{skipped}} 个跳过的文件",
+      "confirm": "移动"
+    }
+  }
+}

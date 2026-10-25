@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "Menedżer Projektów",
+    "loadFailed": "Błąd podczas ładowania danych projektu.",
+    "empty": "Nie znaleziono projektów.",
+    "unnamed": "Nieoznaczony Projekt",
+    "client": "Klient: {{name}}"
+  },
+  "website": {
+    "title": "Dane Witryny",
+    "loadFailed": "Błąd podczas ładowania danych witryny.",
+    "deleteConfirm": "Czy usunąć tę witrynę?",
+    "empty": "Nie znaleziono witryn.",
+    "unnamed": "Nieoznaczona Witryna",
+    "details": "Projekt: {{project}} | Dokumenty: {{docs}}",
+    "openUrl": "Otwórz URL w nowej karcie",
+    "copyUrl": "Kopiuj URL"
+  },
+  "tasks": {
+    "title": "Zadania",
+    "unknownStatus": "Nieznany",
+    "loadFailed": "Nie udało się załadować zadań.",
+    "nameAndTypeRequired": "Nazwa i typ zadania są wymagane.",
+    "created": "Zadanie „{{name}}” zostało utworzone!",
+    "createFailed": "Błąd podczas tworzenia zadania: {{message}}",
+    "addTaskMenu": "Dodaj zadanie…",
+    "addTaskButton": "+ Dodaj zadanie",
+    "empty": "Nie znaleziono zadań.",
+    "unnamed": "Nieoznaczone Zadanie",
+    "viewAll": "Pokaż wszystkie zadania ({{count}})",
+    "addDialogTitle": "Dodaj nowe zadanie",
+    "taskName": "Nazwa zadania",
+    "taskType": "Typ zadania",
+    "output": "Wynik/Opis",
+    "outputPlaceholder": "Opcjonalnie: Opisz oczekiwany wynik lub dodatkowe szczegóły...",
+    "creating": "Tworzenie...",
+    "create": "Utwórz zadanie"
+  },
+  "chat": {
+    "title": "Czat",
+    "csvDescription": "Wygeneruj plik CSV na podstawie: „{{excerpt}}”",
+    "historyFailed": "Nie udało się załadować historii czatu",
+    "fileGenerated": "Plik \"{{filename}}\" został pomyślnie wygenerowany! Możesz go pobrać z folderu wyjścia.",
+    "fileGenFailed": "Błąd generowania pliku: {{message}}",
+    "notConnected": "Usługa Czat nie jest połączona. Proszę poczekać i spróbować ponownie.",
+    "sendFailed": "Nie udało się wysłać wiadomości",
+    "errorMessage": "Błąd: {{message}}",
+    "messageCount": "{{count}} wiadomości",
+    "noMessages": "Brak wiadomości",
+    "reloadHistory": "Przeładuj historię",
+    "stopGenerating": "Zatrzymaj generowanie",
+    "roles": {
+      "user": "Ty",
+      "system": "System",
+      "assistant": "Asystent"
+    },
+    "empty": "Brak wiadomości. Zacznij rozmowę!",
+    "placeholder": "Wpisz wiadomość..."
+  },
+  "clients": {
+    "title": "Klienci",
+    "loadFailed": "Błąd ładowania danych klienta.",
+    "empty": "Nie znaleziono klientów.",
+    "unnamed": "Nieoznakowany Klient",
+    "projectCount": "Projekty: {{count}}"
+  },
+  "csvgen": {
+    "title": "Generowanie CSV",
+    "newCsv": "Nowe CSV",
+    "import": "Import",
+    "empty": "Brak zleceń CSV."
+  },
+  "codegen": {
+    "title": "Generowanie Kodu",
+    "newCode": "Nowy Kod",
+    "debug": "Debug",
+    "empty": "Brak zleceń generowania kodu."
+  },
+  "imggen": {
+    "title": "Generowanie obrazów",
+    "newImages": "Nowe obrazy",
+    "batchMode": "Tryb wsadowy",
+    "empty": "Brak serii obrazów.",
+    "viewAll": "Pokaż wszystkie serie"
+  },
+  "files": {
+    "title": "Menedżer plików"
+  },
+  "family": {
+    "title": "Rodzina i Samodoskonalenie",
+    "queuing": "W kolejce...",
+    "runCheck": "Uruchom sprawdzenie",
+    "uncleOnline": "Uncle Online",
+    "uncleOffline": "Uncle Offline",
+    "siOn": "SI: Włączone",
+    "siOff": "SI: Wyłączone",
+    "locked": "Zablokowane",
+    "stages": {
+      "starting": "Rozpoczynanie...",
+      "testing": "Uruchamianie testów",
+      "analyzed": "Analiza wyników",
+      "fixing": "Nakładanie poprawek",
+      "complete": "Zakończono",
+      "error": "Błąd"
+    },
+    "tokens": "Tokeny: {{percent}}%",
+    "totalFixes": "Łączna liczba poprawek: {{count}}",
+    "recentActivity": "Ostatnia Aktywność",
+    "noRuns": "Brak uruchomień Samodoskonalenia",
+    "reviewed": "Zweryfikowane"
+  },
+  "autoresearch": {
+    "title": "RAG Autodobadania",
+    "pauseRun": "Wstrzymaj uruchomienie",
+    "startRun": "Uruchom",
+    "unavailable": "Autodobadania niedostępne",
+    "running": "Uruchamianie",
+    "paused": "Wstrzymane",
+    "idle": "Bezczynne",
+    "phase": "Faza {{phase}}",
+    "pauseOptimization": "Wstrzymaj optymalizację",
+    "startBounded": "Uruchom ograniczone Autodobadania",
+    "healthChecksNotCounted": "{{count}} test-suite health checks nie są liczone",
+    "latestRun": "Ostatnie uruchomienie",
+    "testSuite": "zbiór testów",
+    "selfReported": "{{status}} (zgłoszone automatycznie)",
+    "noExperiments": "Brak eksperymentów. Kliknij odtwarzaj, aby rozpocząć ograniczone uruchomienie."
+  },
+  "gpu": {
+    "title": "Pamięć GPU",
+    "tiers": {
+      "speed": "Szybkość",
+      "balanced": "Zbalansowane",
+      "quality": "Jakość"
+    },
+    "tierMenu": {
+      "speed": "Poziom prędkości",
+      "balanced": "Poziom zbalansowany",
+      "quality": "Poziom jakości"
+    },
+    "states": {
+      "loaded": "Załadowane",
+      "loading": "Ładowanie...",
+      "unloading": "Wyładowywanie...",
+      "unloaded": "Bierne"
+    },
+    "unavailable": "Status GPU niedostępny",
+    "evict": "Usuń {{model}}",
+    "systemOther": "System/Inne: {{size}} GB",
+    "qualityTier": "Poziom jakości",
+    "evictFromGpu": "Usuń z GPU",
+    "noModels": "Brak załadowanych modeli"
+  },
+  "title": "Panel",
+  "layoutModes": {
+    "normal": "Normalny",
+    "compact": "Kompaktowy",
+    "layered": "Kompaktowy warstwowy",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "Błąd pobierania stanu panelu: {{statusText}} (Status: {{status}})",
+  "loadStateFailed": "Błąd ładowania stanu panelu: {{message}}. Użyto ustawień domyślnych.",
+  "saveStateFailed": "Błąd zapisu zmian w panelu.",
+  "menu": {
+    "cycleLayout": "Przełącz układ (następny: {{mode}})",
+    "resetLayout": "Resetuj układ…",
+    "noHiddenCards": "Brak ukrytych kart",
+    "showCard": "Pokaż {{card}}",
+    "showAllHidden": "Pokaż wszystkie ukryte karty"
+  },
+  "stickyNotes": "Notatki",
+  "loadingDashboard": "Ładowanie panelu...",
+  "dashboardCards": "Karty panelu",
+  "layoutTooltip": "Układ: {{mode}} (kliknij, aby przełączyć)",
+  "missingCard": "Brakującej karty: {{id}}",
+  "resetConfirm": {
+    "title": "Czy zresetować układ panelu?",
+    "description": "Każda karta powróci do swojego domyślnego miejsca i rozmiaru, kolory kart zostaną wyczyszczone, a ukryte karty zostaną ponownie wyświetlone.",
+    "keeps": "to, co pokazują karty (Projekty, zadania, czaty, Pliki)",
+    "confirm": "Resetuj układ"
+  },
+  "cardWrapper": {
+    "openPage": "Otwórz stronę",
+    "expand": "Rozwiń",
+    "minimize": "Zminimalizuj",
+    "changeColour": "Zmień kolor…",
+    "resetColour": "Resetuj kolor",
+    "hideCard": "Ukryj kartę",
+    "changeColor": "Zmień kolor karty"
+  },
+  "refreshData": "Odśwież dane",
+  "viewAllJobs": "Zobacz wszystkie Zlecenia",
+  "edit": "Edytuj…",
+  "recentRuns": {
+    "status": {
+      "completed": "Zakończone",
+      "running": "W trakcie",
+      "queued": "W kolejce",
+      "pending": "Oczekujące",
+      "paused": "Wstrzymane",
+      "failed": "Błąd",
+      "cancelled": "Anulowane",
+      "unknown": "Nieznane"
+    },
+    "images": "{{done}}/{{total}} obrazów",
+    "jobNumber": "Zlecenie {{id}}",
+    "loadFailed": "Nie można załadować ostatnich uruchomień: {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "Nie udało się pobrać statusu systemu.",
+    "noData": "Nie zwrócono danych o statusie.",
+    "title": "Diagnostyka systemu",
+    "python": "Python: {{version}}",
+    "platform": "Platforma: {{platform}}",
+    "dbPath": "Ścieżka DB: {{path}}",
+    "dbSize": "Rozmiar DB: {{size}} KB",
+    "documents": "Dokumenty: {{count}}",
+    "models": "Modele: {{count}}",
+    "indexStatus": "Status indeksowania: {{status}}",
+    "runSelfTest": "Uruchom autotest",
+    "rebuildIndex": "Przebuduj indeks",
+    "clearCache": "Wyczyść pamięć podręczną"
+  }
+}

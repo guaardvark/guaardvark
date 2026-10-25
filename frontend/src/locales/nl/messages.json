@@ -1,0 +1,599 @@
+{
+  "access": {
+    "defaultMachine": "de Guaardvark-machine",
+    "outsideLocalNetwork": "Dit werkt alleen op {{machine}} en op apparaten op het lokale netwerk, en dit apparaat bevindt zich daarbuiten. Maak een API-sleutel aan in Instellingen → Toegang op {{machine}}, en voer deze vervolgens in bij Instellingen → Toegang op dit apparaat.",
+    "runsCodeKeyRequired": "Dit voert een programma uit op {{machine}}, wat alleen op {{machine}} zelf of met de API-sleutel werkt, zelfs wanneer Netwerktoegang is ingeschakeld. Maak een API-sleutel aan in Instellingen → Toegang op {{machine}}, en voer deze vervolgens in bij Instellingen → Toegang op dit apparaat.",
+    "fleetKeyRequired": "Deze Interconnector-actie werkt alleen op {{machine}} zelf of met de API-sleutel, zelfs wanneer Netwerktoegang is ingeschakeld. Maak een API-sleutel aan in Instellingen → Toegang op {{machine}}, en voer deze vervolgens in bij Instellingen → Toegang op dit apparaat.",
+    "localOnlyKeyRemoved": "{{machine}} heeft geen API-sleutel meer, dus dit werkt alleen op {{machine}} zelf. Schakel daar Instellingen → Toegang → Netwerktoegang in, of maak daar een nieuwe sleutel aan en voer deze in bij Instellingen → Toegang op dit apparaat.",
+    "localOnly": "Dit werkt alleen op {{machine}} zelf. Om het hier te gebruiken, schakel dan Instellingen → Toegang → Netwerktoegang in op {{machine}}, of maak daar een API-sleutel aan en voer deze in bij Instellingen → Toegang op dit apparaat.",
+    "keyOutOfDate": "Deze browser was ingelogd met een sleutel die {{machine}} niet meer gebruikt. Voer de huidige sleutel in bij Instellingen → Toegang.",
+    "keyRequired": "Voer de API-sleutel van {{machine}} in bij Instellingen → Access. Deze wordt getoond bij aanmaak en {{machine}} bewaart deze in het .env-bestand als GUAARDVARK_API_KEY."
+  },
+  "taskQueue": {
+    "unreachable": "Niet gestart: De achtergrondwachtrij van Guaardvark (Redis) is niet bereikbaar. Voer ./start.sh uit op de Guaardvark-machine om Redis en de achtergrondwerker te starten, en probeer het opnieuw.",
+    "nextStepNotStarted": "De volgende stap is niet gestart. Deze start wanneer Guaardvark wordt herstart (./start.sh)."
+  },
+  "api": {
+    "httpError": "HTTP-fout {{status}} - {{statusText}}",
+    "unknownStatus": "Onbekende Fout",
+    "httpErrorStatus": "HTTP-fout! Status: {{status}}",
+    "invalidJson": "JSON-antwoord van de server kon niet worden geanalyseerd."
+  },
+  "chatStop": {
+    "backendUnreachable": "de backend is niet bereikbaar",
+    "notReachedBoth": "Stop bereikte niet de chatbeurt en de agenttaak: {{reason}}. Het kan nog steeds draaien.",
+    "notReachedChatTurn": "Stop bereikte niet de chatbeurt: {{reason}}. Het kan nog steeds draaien.",
+    "notReachedAgentTask": "Stop bereikte niet de agenttaak: {{reason}}. Het kan nog steeds draaien."
+  },
+  "heldChanges": {
+    "gitRecordRejectRefused": "Een git-record kan alleen worden goedgekeurd; ongedaan maak de merge in git om het te weigeren."
+  },
+  "address": {
+    "requestFailed": "Verzoek mislukt"
+  },
+  "backups": {
+    "downloadFailed": "Download mislukt: {{status}}"
+  },
+  "bulkGeneration": {
+    "csvTimeout": "Verzoektimeout - bulk CSV-generatie duurde te lang",
+    "csvFailed": "Bulk CSV-generatie mislukt",
+    "structuredCsvTimeout": "Verzoektimeout - genereren van gestructureerd CSV duurde te lang",
+    "structuredCsvFailed": "Genereren van gestructureerd CSV mislukt",
+    "statusFailed": "Fout bij ophalen van generatiestatus",
+    "estimateFailed": "Fout bij schatten van generatietijd",
+    "topicsFailed": "Fout bij genereren van onderwerpen",
+    "xmlTimeout": "Verzoektimeout - bulk XML-generatie duurde te lang",
+    "xmlFailed": "Fout bij genereren van XML-inhoud"
+  },
+  "chat": {
+    "sendQueryFailed": "Fout bij verzenden van query.",
+    "sendCommandFailed": "Fout bij verzenden van opdracht.",
+    "duplicateRequest": "Dubbel aangepaste aanvraag gedetecteerd",
+    "apiError": "Chat API-fout: {{status}}",
+    "exportFailed": "Chat-export mislukt",
+    "historyFailed": "Fout bij ophalen geschiedenis: {{status}}"
+  },
+  "codeExecution": {
+    "pythonFailed": "Fout bij uitvoeren van Python-code",
+    "javascriptFailed": "Fout bij uitvoeren van JavaScript-code",
+    "shellFailed": "Fout bij uitvoeren van shell-opdracht",
+    "formatFailed": "Fout bij formatteren van code",
+    "lintFailed": "Fout bij linten van code",
+    "buildFailed": "Fout bij bouwen van project"
+  },
+  "codeIntelligence": {
+    "noCode": "Geen code-inhoud verstrekt voor analyse",
+    "provideCode": "Geef a.u.b. de code aan om te analyseren.",
+    "analysisDone": "Analyse succesvol voltooid.",
+    "analysisTimeout": "Analyseverzoek tijdverlopen na 2 minuten",
+    "analysisTimeoutHelp": "De analysieverzoek duurde te lang. Dit kan gebeuren bij zeer grote Bestanden of complexe code. Probeer het opnieuw met een kleinere code-selectie of een eenvoudigere vraag.",
+    "unknownError": "Onbekende Fout opgetreden",
+    "analysisFailed": "Analyse mislukt. Controleer de backend-verbinding en probeer het opnieuw.",
+    "noDescription": "Geen beschrijving gegeven voor codegeneratie",
+    "codeGenerated": "Code succesvol gegenereerd",
+    "generationTimeout": "Codegeneratieverzoek is na 2 minuten verlopen. Probeer een eenvoudiger verzoek.",
+    "generationUnknownError": "Onbekende Fout tijdens codegeneratie",
+    "explanationFailed": "Uitleg mislukt. Controleer de backend-verbinding.",
+    "validationFailed": "Validatie mislukt",
+    "readFileFailed": "Mislukt om bestand te lezen",
+    "readFilesFailed": "Mislukt om Bestanden te lezen"
+  },
+  "documents": {
+    "listFailed": "Mislukt om documenten op te halen.",
+    "notFound": "Document niet gevonden",
+    "invalidId": "Ongeldige document-ID",
+    "contentFailedStatus": "Mislukt om documentinhoud op te halen ({{status}})",
+    "contentFailed": "Mislukt om documentinhoud op te halen.",
+    "repoFileFailed": "Mislukt om repositorybestand op te halen.",
+    "uploadNetworkError": "Netwerkfout tijdens bestandsupload",
+    "uploadCancelled": "Upload geannuleerd",
+    "uploadTimeout": "Uploadtimeout"
+  },
+  "fileOperations": {
+    "readFailed": "Fout bij lezen van bestand",
+    "saved": "Bestand succesvol opgeslagen",
+    "writeFailed": "Fout bij schrijven van bestand",
+    "created": "Bestand succesvol aangemaakt",
+    "createFailed": "Fout bij aanmaken van bestand",
+    "deleted": "Bestand succesvol verwijderd",
+    "deleteFailed": "Fout bij verwijderen van bestand",
+    "listFailed": "Fout bij ophalen van lijst",
+    "directoryCreated": "Map succesvol aangemaakt",
+    "createDirectoryFailed": "Fout bij aanmaken van map",
+    "renamed": "Bestand succesvol hernoemd",
+    "renameFailed": "Fout bij hernoemen van bestand"
+  },
+  "fileGeneration": {
+    "cancelledOrTimedOut": "Verzoek werd geannuleerd of tijdslimiet bereikt.",
+    "unknownError": "Er is een onbekende fout opgetreden.",
+    "batchCsvFailed": "Batch CSV-generatie mislukt"
+  },
+  "indexing": {
+    "cancelFailed": "Fout bij annuleren van taak.",
+    "jobsFailed": "Fout bij ophalen van taken."
+  },
+  "interconnector": {
+    "timeout": "Verzoektimeout na {{timeout}}ms",
+    "outputsIndexFailed": "Fout bij ophalen van outputs index"
+  },
+  "models": {
+    "listFailed": "Fout bij ophalen van beschikbare modellen."
+  },
+  "musicVideo": {
+    "storyboardTimeout": "Storyboardgeneratie tijdslimiet bereikt"
+  },
+  "projects": {
+    "listFailed": "Fout bij ophalen van Projecten.",
+    "getFailed": "Fout bij ophalen van project {{projectId}}."
+  },
+  "ragDebug": {
+    "uptimeUnknown": "Onbekend",
+    "uptimeDays": "{{days}}d {{hours}}u {{minutes}}m",
+    "uptimeHours": "{{hours}}u {{minutes}}m",
+    "uptimeMinutes": "{{minutes}}m"
+  },
+  "rules": {
+    "listFailed": "Fout bij ophalen van regels/prompts."
+  },
+  "tasks": {
+    "listFailed": "Fout bij ophalen van taken."
+  },
+  "training": {
+    "datasetsFailed": "Fout bij ophalen van trainingsdatasets."
+  },
+  "upscaling": {
+    "previewFailed": "Preview kon niet worden gegenereerd"
+  },
+  "websites": {
+    "listFailed": "Fout bij ophalen van websites."
+  },
+  "settings": {
+    "testSuiteTimeout": "Testsuite tijdslimiet bereikt na 5 minuten",
+    "rebootStarted": "Herstart gestart.",
+    "rebootConnectionLost": "Herstart gestart, verbinding is mogelijk verbroken zoals verwacht."
+  },
+  "links": {
+    "updated": "Links voor {{entityType}} succesvol bijgewerkt",
+    "updateFailed": "Fout bij bijwerken van links"
+  },
+  "videoEditor": {
+    "requestFailed": "Video-editor verzoek mislukt",
+    "loadRecipesFailed": "Stijlrecepten konden niet worden geladen",
+    "submitPlanFailed": "Plan-taak kon niet worden verzonden",
+    "reanalyzeFailed": "Heranalyse mislukt",
+    "clipHashFailed": "Zoekopdracht voor clip-thumbnail mislukt",
+    "pollPlanFailed": "Plan-taak kon niet worden opgehaald",
+    "renderFailed": "Rendering mislukt",
+    "loadFiltersFailed": "Filters konden niet worden geladen",
+    "loadTransitionsFailed": "Overgangen konden niet worden geladen",
+    "launchShotcutFailed": "Shotcut kon niet worden gestart",
+    "listProjectsFailed": "Projecten konden niet worden opgelijst",
+    "loadCurrentProjectFailed": "Huidig project kon niet worden geladen",
+    "openProjectFailed": "Project kon niet worden geopend",
+    "createProjectFailed": "Project kon niet worden aangemaakt",
+    "autosaveFailed": "Automatisch opslaan mislukt",
+    "saveProjectFailed": "Project kon niet worden opgeslagen",
+    "saveProjectAsFailed": "Project kon niet worden opgeslagen als",
+    "renameProjectFailed": "Project kon niet worden hernoemd",
+    "deleteProjectFailed": "Project kon niet worden verwijderd",
+    "validateProjectFailed": "Project kon niet worden geverifieerd"
+  },
+  "voice": {
+    "streamingError": "Streamingfout",
+    "noActiveRecording": "Geen actieve opname",
+    "micNeedsSecureContext": "Microfoon vereist HTTPS of localhost",
+    "micUnsupported": "Je browser ondersteunt geen toegang tot de microfoon.",
+    "permissionCheckFailed": "Mislukte controle van microfoonrechten.",
+    "permissionRequestFailed": "Mislukte aanvraag voor microfoonrechten.",
+    "micAccessDenied": "Toegang tot microfoon geweigerd. Schakel permissies in.",
+    "startFailedPermission": "Opname mislukt. Toegang tot microfoon geweigerd.",
+    "startFailedNoMic": "Opname mislukt. Geen microfoon gevonden.",
+    "startFailedRetry": "Opname mislukt. Probeer het opnieuw.",
+    "noSpeech": "Geen spraak gedetecteerd.",
+    "noAudio": "Geen audiogegevens opgenomen.",
+    "recordingFailed": "Opname mislukt."
+  },
+  "clients": {
+    "listFailed": "Mislukt om Cliënten op te halen.",
+    "nameRequired": "Cliëntnaam is vereist."
+  },
+  "logo": {
+    "noFile": "Geen bestand opgegeven",
+    "tooLarge": "Bestandsgrootte te groot. Maximale grootte is {{size}}MB",
+    "invalidType": "Ongeldig bestandtype. Toegestane typen: {{types}}"
+  },
+  "voiceSession": {
+    "micBlocked": "Toegang tot de microfoon is geblokkeerd. Sta het toe voor deze site in je browser en probeer het opnieuw.",
+    "noMic": "Er is geen microfoon gevonden.",
+    "micBusy": "De microfoon wordt gebruikt door een andere applicatie.",
+    "noMatchingMic": "Geen microfoon komt overeen met de gevraagde Instellingen.",
+    "pushToTalkHint": "Houd de microfoonknop ingedrukt (of Ctrl+Shift+Space) terwijl je praat.",
+    "micReady": "Microfoon klaar. Houd ingedrukt om te praten.",
+    "holdLonger": "Houd de microfoon iets langer ingedrukt terwijl je praat.",
+    "micOff": "De microfoon staat uit in de Stem Instellingen (Instellingen → Chat → Stemchat).",
+    "micStartFailedReason": "De microfoon kon niet worden gestart: {{reason}}",
+    "micStartFailed": "De microfoon kon niet worden gestart.",
+    "audioStartFailed": "Audioverwerking kon niet worden gestart: {{reason}}",
+    "micEnded": "De microfoon is gestopt (ontkoppeld of ingenomen door een andere applicatie).",
+    "recorderUnsupported": "Deze browser kan geen audio opnemen: {{reason}}",
+    "recordingError": "Opnamefout: {{reason}}",
+    "unknownReason": "onbekend",
+    "recorderStartFailed": "Opname kon niet worden gestart: {{reason}}",
+    "sttFailed": "Spraakherkenning mislukt",
+    "rateLimited": "Te veel stemverzoeken deze minuut; deze is overgeslagen.",
+    "busy": "Het Systeem is bezet; deze is overgeslagen.",
+    "backendOffline": "De backend is niet bereikbaar; deze is niet getranscribeerd.",
+    "transcribeFailed": "Niet kunnen transcriberen: {{reason}}",
+    "noChatOpen": "Er is geen chat geopend om dit naar te verzenden.",
+    "sendFailed": "Niet kunnen verzenden: {{reason}}",
+    "noSpeechTimeout": "Niets gehoord, de microfoon is weer uit."
+  },
+  "voicePhase": {
+    "clickHint": {
+      "handsfree": "Klik om handsfree te luisteren",
+      "toggle": "Klik en spreek; het wordt verzonden wanneer je pauzeert",
+      "push": "Houd vast om te praten"
+    },
+    "requestingPermission": {
+      "title": "Wachten op microfoontoestemming",
+      "hint": "Sta de microfoon toe in de browserprompt."
+    },
+    "waitingForWake": {
+      "title": "Wachten op „Hey {{systemName}}“",
+      "hint": "Zeg de activeringszin, gevolgd door je verzoek."
+    },
+    "listening": {
+      "title": "Luisteren",
+      "hint": "Spreek; elke pauze verzendt een bericht. Klik om te stoppen."
+    },
+    "recording": {
+      "title": "Opnemen",
+      "hint": "Laat los om te verzenden."
+    },
+    "hearing": {
+      "title": "Ik hoor je",
+      "hint": "Pauzeer om te verzenden."
+    },
+    "transcribing": "Transcriberen",
+    "sending": "Verzenden naar chat",
+    "responding": {
+      "title": "Wachten op antwoord",
+      "hint": "Nog steeds aan het luisteren."
+    },
+    "speaking": {
+      "title": "Antwoord voorlezen",
+      "hint": "De microfoon staat op pauze terwijl hij spreekt."
+    },
+    "denied": "Microfoon geblokkeerd",
+    "error": "Stem werkt niet",
+    "micOff": "Mic uit",
+    "outcomes": {
+      "sent": "verzonden",
+      "wake": "wekwoord",
+      "ignored": "geen wekwoord, niet verzonden",
+      "unsent": "geen chat open, niet verzonden",
+      "failed": "verzenden mislukt"
+    }
+  },
+  "batchVideo": {
+    "requestFailed": "de aanvraag is mislukt",
+    "listFailed": "Video-batches konden niet worden geladen: {{reason}}.",
+    "queueFailed": "De videoweergeeflijst wordt niet bijgewerkt: {{reason}}.",
+    "clearFailedStatus": "Wissen mislukt: HTTP {{status}}",
+    "clearFailed": "Wissen mislukt: {{reason}}",
+    "combineFailed": "Combineren van frames mislukt: {{reason}}.",
+    "deleted": "Batch verwijderd.",
+    "deleteFailedStatus": "Verwijderen mislukt: HTTP {{status}}",
+    "deleteFailed": "Verwijderen mislukt: {{reason}}",
+    "cancelFailed": "Annuleren mislukt: {{reason}}. De batch kan nog steeds bezig zijn.",
+    "retryFailedStatus": "Opnieuw proberen mislukt: HTTP {{status}}",
+    "retried": "Opnieuw geprobeerd als nieuwe batch {{batchId}}. De oorspronkelijke mislukte batch is bewaard in de geschiedenis.",
+    "retryFailed": "Opnieuw proberen mislukt: {{reason}}",
+    "approveFailedStatus": "Goedkeuren mislukt: HTTP {{status}}",
+    "clipApproved": "Clip goedgekeurd en toegevoegd aan Bestanden.",
+    "approveFailed": "Goedkeuren mislukt: {{reason}}",
+    "rerenderFailedStatus": "Herrenderen mislukt: HTTP {{status}}",
+    "rerendering": "Herrenderen als {{newBatchId}}. Het vastgehouden fragment blijft in {{batchId}}.",
+    "rerenderFailed": "Herrenderen mislukt: {{reason}}"
+  },
+  "unsavedChanges": {
+    "leaveConfirm": "Je hebt niet opgeslagen wijzigingen op deze pagina. Weggaan en deze weggooien?"
+  },
+  "agentRouter": {
+    "routingFailed": "Routing mislukt",
+    "executionFailed": "Uitvoering mislukt"
+  },
+  "hfLookup": {
+    "failed": "Zoekopdracht mislukt"
+  },
+  "notifications": {
+    "operationFailed": "Operatie mislukt"
+  },
+  "errors": {
+    "unexpected": "Er is een onverwachte Fout opgetreden",
+    "badRequest": "Fout verzoek. Controleer je invoer.",
+    "unauthorized": "Authenticatie vereist. Log in a.u.b.",
+    "forbidden": "Je hebt geen toestemming om deze actie uit te voeren.",
+    "notFound": "De gevraagde bron is niet gevonden.",
+    "validation": "Validatiefout. Controleer je invoer.",
+    "tooManyRequests": "Te veel verzoeken. Probeer het later opnieuw.",
+    "server": "Serverfout. Probeer het later opnieuw.",
+    "unavailable": "Service tijdelijk niet beschikbaar. Probeer het later opnieuw.",
+    "httpStatus": "HTTP Fout {{status}}",
+    "network": "Netwerkfout. Controleer je verbinding.",
+    "timeout": "Verzoek is tijdlimiet overschreden. Probeer het opnieuw.",
+    "uploadFailed": "Document uploaden mislukt. Probeer het opnieuw.",
+    "indexingFailed": "Indexeren van document mislukt. Probeer het opnieuw.",
+    "chatFailed": "Chatverzoek mislukt. Probeer het opnieuw.",
+    "projectFailed": "Projectoperatie mislukt. Probeer het opnieuw."
+  },
+  "audioRecorder": {
+    "permissionDenied": "Toegang tot microfoon geweigerd",
+    "resumeFailed": "Audiocontext niet kunnen hervatten - toegang tot microfoon kan geblokkeerd zijn",
+    "volumeMonitoringFailed": "Volumebewaking mislukt: {{reason}}",
+    "unsupported": "Audiopopname wordt niet ondersteund in deze browser"
+  },
+  "approvals": {
+    "loadFailed": "Wachtende Goedkeuringen konden niet worden geladen",
+    "heldWaiting_one": "Code wijziging wacht op goedkeuring",
+    "heldWaiting_other": "{{count}} code wijzigingen wachten op goedkeuring",
+    "publishWaiting_one": "Publicatie wacht op goedkeuring",
+    "publishWaiting_other": "{{count}} publicaties wachten op goedkeuring"
+  },
+  "slash": {
+    "help": "## Beschikbare opdrachten\n\n{{commands}}",
+    "helpLine": "**{{name}}** — {{description}}\n  Gebruik: `{{usage}}`",
+    "voiceDisabled": "Stemchat uitgeschakeld.",
+    "voiceEnabled": "Stemchat ingeschakeld.",
+    "voiceUnavailable": "Stemchat is niet beschikbaar in deze context.",
+    "visionStatus": "**{{name}}:** {{status}}",
+    "unknownStatus": "onbekend",
+    "visionHint": "Start of stop het vanaf de Plugins-pagina.",
+    "visionNotInstalled": "De Vision Pipeline-plugin is niet geïnstalleerd.",
+    "visionReadFailed": "Status van de Vision Pipeline kon niet worden gelezen: {{reason}}",
+    "modelStatus": "**Huidig model:** {{model}}\n\n**Beschikbare modellen:**\n{{models}}",
+    "unknownModel": "Onbekend",
+    "modelsFailed": "Fout bij ophalen van modellen: {{reason}}",
+    "modelSwitched": "Model gewisseld naar **{{model}}**.",
+    "failed": "Fout: {{reason}}",
+    "modelSwitchFailed": "Modelwisseling mislukt: {{reason}}",
+    "installed": "geïnstalleerd",
+    "notInstalled": "niet geïnstalleerd",
+    "comfyuiAutoBackend": "ComfyUI (automatisch backend)",
+    "editBackendsFailed": "_(konst niet laden van bewerkingsbackends_)",
+    "imageModelStatus": "**Huidig beeldmodel:** `{{current}}`\n\nWordt gebruikt voor `/imagine` en **generate_image**. Bewerkingen (`edit_image`, `/inpaint`) kiezen automatisch **Qwen-Image-Edit** als deze geïnstalleerd is, anders **FLUX Kontext**.\n\n**Beeldbewerkingspakketten** (Installeer via Beeldmodellen beheren $\rightarrow$ Beeldbewerking):\n{{editLines}}\n\n**Generatie — gedownload:**\n{{downloaded}}\n\n**Generatie — niet gedownload:**\n{{notDownloaded}}\n\n_Tip: `/imagemodel auto` gebruikt Qwen-Image-Edit voor instructie-bewerkingen wanneer dat pakket is geïnstalleerd._",
+    "none": "_(geen_)",
+    "imageModelsFailed": "Fout bij ophalen van beeldmodellen: {{reason}}",
+    "imageModelAuto": "Beeldmodel gewisseld naar **auto** (bewerkingen gebruiken Qwen-Image-Edit als geïnstalleerd, anders Kontext; bij geen van beide vraagt bewerking om een installatie).",
+    "imageEditsQwen": "Beeldbewerkingen gebruiken **qwen-image-edit** wanneer dat pakket is geïnstalleerd.",
+    "imageEditsKontext": "Beeldbewerkingen gebruiken **kontext** (FLUX.1 Kontext) wanneer geïnstalleerd.",
+    "imageModelComfyui": "Beeldmodel gewisseld naar **ComfyUI** (ComfyUI auto backend). Generatie zal de geïnstalleerde Z-Image of FLUX engine gebruiken.",
+    "imageModelNotDownloaded": "Model `{{model}}` is niet gedownload. Download het eerst vanaf de pagina Afbeeldingen.",
+    "imageModelSwitched": "Beeldmodel gewisseld naar **{{model}}** ({{name}}). Gebruikt voor chatgeneratie en img2img-bewerkingen.",
+    "imageModelNotFound": "Model `{{model}}` niet gevonden. Beschikbaar: {{available}}",
+    "usage": {
+      "imagine": "Gebruik: `/imagine <prompt>`",
+      "inpaint": "Gebruik: `/inpaint <instruction>` — voeg een foto toe, of het gebruikt de laatste afbeelding in deze chat.",
+      "identity": "Gebruik: `/identity <prompt>` — voeg een gezichtsfoto toe waarvoor je toestemming hebt (je eigen beeltenis of een Cast-onderwerp).",
+      "video": "Gebruik: `/video <prompt>`",
+      "musicVideo": "Gebruik: `/music-video <song-path-or-id> <style>` — start een plan; keur goed in Studio voordat de clips worden gerenderd.",
+      "filmCrew": "Gebruik: `/film-crew <screenplay>` — start de scenarist; rendering wacht in Studio.",
+      "websearch": "Gebruik: `/websearch <query>`, `/websearch site:<address>` (audit één pagina) of `/websearch sitemap:<url>` (lijst de pagina's van een sitemap op)",
+      "plan": "Gebruik: `/plan <request>`",
+      "training": "Gebruik: `/training <task>` — bijv. `/training Werk de Comments Trainer — volg de banner, klik op Start Over als klaar, stop niet.`",
+      "thinking": "Gebruik: \u0011/thinking on\u0011 of \u0011/thinking off\u0011 (of \u0011/thinking\u0011 om de huidige status te tonen)."
+    },
+    "musicVideoNeedsSong": "Een nummer (document-id of audiopath) en een visuele stijl nodig. Voorbeeld: \u0011/music-video song.mp3 neon noir rain\u0011",
+    "sitemapNotRead": "Sitemap niet gelezen: {{reason}}",
+    "backendAnswered": "de backend antwoordde met HTTP {{status}}",
+    "backendUnreachable": "de backend is niet bereikbaar",
+    "sitemap": {
+      "redirected": "{{url}} (omgeleid naar {{finalUrl}})",
+      "title": "**Sitemap:** {{url}}",
+      "index_one": "Een sitemap-index met {{count}} sitemaps; deze worden vermeld, niet geopend.",
+      "index_other": "Een sitemap-index met {{count}} sitemaps; deze worden vermeld, niet geopend.",
+      "numberedEntryModified": "{{number}}. {{url}} (laatst gewijzigd {{lastmod}})",
+      "firstOf": "Eerste {{shown}}:\n{{items}}",
+      "pageUrls_one": "{{count}} paginap-URL.",
+      "pageUrls_other": "{{count}} paginap-URL's.",
+      "depth": "diepte {{depth}}: {{pages}}",
+      "byDepth": "Op paddiepte: {{depths}}",
+      "landingPages": "Landingspagina's (topniveau, prioriteit boven 0.5):",
+      "landingEntry": "{{number}}. {{url}} (prioriteit {{priority}})",
+      "entryModified": "- {{url}} (laatst gewijzigd {{lastmod}})",
+      "pagesList": "Pagina's:\n{{items}}"
+    },
+    "outreach": {
+      "enabled": "Ingeschakeld",
+      "disabled": "Uitgeschakeld",
+      "supervised": "aangeleid",
+      "unsupervised": "niet-aangeleid",
+      "redisOffline": "- {{platform}}: Redis is offline",
+      "cadenceLast": "- {{platform}}: {{posts}}/{{cap}} vandaag, {{minutes}}m geleden",
+      "cadence": "- {{platform}}: {{posts}}/{{cap}} vandaag",
+      "status": "**Outreach:** {{state}} ({{mode}})\n\n{{cadence}}",
+      "noCadence": "Geen cadencegegevens.",
+      "statusFailed": "Outreach-status mislukt: {{reason}}",
+      "refused": "Outreach: verzoek geweigerd.",
+      "intentFailed": "Outreach-intent mislukt: {{reason}}",
+      "queued": "Outreach-taak in wachtrij geplaatst als taak #{{taskId}}.",
+      "commandFailed": "Outreach-commando mislukt: {{reason}}"
+    },
+    "training": {
+      "started": "Trainingssessie gestart (tot 1000 iteraties / 1 uur). Bekijk VNC voor voortgang; volg `logs/backend.log` voor servo-gebeurtenissen. Taak: _{{task}}_",
+      "rejectedBusy": "Trainingssessie geweigerd: {{reason}} — gebruik de kill switch of wacht op de huidige sessie.",
+      "rejected": "Trainingssessie geweigerd: {{reason}}",
+      "unknownError": "onbekende fout",
+      "failed": "Trainingssessie mislukt: {{reason}}"
+    },
+    "rule": {
+      "failedDetails": "{{name}} mislukt: {{reason}} ({{details}})",
+      "failed": "{{name}} mislukt: {{reason}}",
+      "wroteSize": "{{name}} schreef {{file}} ({{bytes}} bytes) naar de outputs-map.",
+      "wrote": "{{name}} schreef {{file}} naar de outputs-map."
+    },
+    "agent": {
+      "needsSession": "/agent heeft een sessie nodig — open eerst een chat.",
+      "switchFailed": "Mislukte overstap naar agent-modus: {{reason}}",
+      "already": "Je bent al in de **agent-modus**. Typ een schermcontrole-taak of gebruik `/chat` om te verlaten.",
+      "switched": "Overgeschakeld naar **agent-modus** — berichten gaan via de agent (hij zal spreken en handelen). Typ `/chat` om te verlaten."
+    },
+    "thinking": {
+      "needsSession": "/thinking heeft een sessie nodig — open eerst een chat.",
+      "statusDefault": "🧠 Denken voor deze chat gebruikt de **globale standaard (Instellingen $\rightarrow$ Chat)**.\nGebruik `/thinking on` om stapsgewijze redenering in te schakelen (trager) of `/thinking off` voor snellere reacties.",
+      "statusOn": "🧠 Denken voor deze chat staat **AAN**.\nGebruik `/thinking on` om stapsgewijze redenering in te schakelen (trager) of `/thinking off` voor snellere reacties.",
+      "statusOff": "🧠 Denken voor deze chat staat **UIT**.\nGebruik `/thinking on` om stapsgewijze redenering in te schakelen (trager) of `/thinking off` voor snellere reacties.",
+      "enabled": "🧠 Denken **ingeschakeld** voor deze chat — het model zal stapsgewijs redeneren voordat het antwoordt (trager, beter voor complexe prompts).",
+      "disabled": "⚡ Denken **uitgeschakeld** voor deze chat — snellere reacties."
+    },
+    "chatMode": {
+      "needsSession": "/chat heeft een sessie nodig — open eerst een chat.",
+      "already": "Je bent al in de chatmodus.",
+      "switched": "Gewisseld naar **chatmodus**. Berichten gaan weer via het LLM. Typ `/agent` om terug te schakelen.",
+      "exitFailed": "Mislukt om agentmodus te verlaten: {{reason}}"
+    },
+    "commandFailed": "Opdracht mislukt: {{reason}}"
+  },
+  "autoresearch": {
+    "reasons": {
+      "ollamaUnreachable": "Ollama draait niet",
+      "insufficientCorpus": "niet genoeg geïndexeerde documenten",
+      "noEvalPairs": "geen evaluatievragen",
+      "evalSourcesNotIndexed": "de evaluatievragen komen uit documenten die niet zijn geïndexeerd",
+      "judgeUnset": "geen apart beoordelingsmodel ingesteld",
+      "judgeSameAsAnswerModel": "het beoordelingsmodel is hetzelfde als het antwoordmodel",
+      "celeryUnreachable": "de taakwachtrij is niet bereikbaar",
+      "baselineEvalFailed": "de basislijn kon niet worden gemeten",
+      "prerequisiteCheckFailed": "de startchecks konden niet worden uitgevoerd",
+      "codebaseLocked": "de codebase is vergrenderd",
+      "selfImprovementDisabled": "Zelfverbetering staat uit"
+    },
+    "noReason": "geen reden geregistreerd",
+    "notRun": "Niet uitgevoerd: {{reasons}}",
+    "starting": "Starten…",
+    "noBaseline": "Geen basislijn gemeten",
+    "scoresWithBest": "{{base}} → {{latest}} (best {{best}})",
+    "halt": "Stop: {{reason}}",
+    "healthPass": "geslaagd",
+    "healthFail": "mislukt",
+    "healthUnknown": "onbekend",
+    "healthStatus": "statuscontrole: {{outcome}}",
+    "healthCheck": "statuscontrole",
+    "selfReported": "zelfgerapporteerd",
+    "baselineNotMeasured": "Basislijn: niet gemeten",
+    "baselineMeasured": "Basislijn: {{score}} (gemeten op {{at}})",
+    "baselineNoTime": "Basislijn: {{score}} (metingstijd niet geregistreerd)",
+    "evalPairsNone": "geen",
+    "evalPairsWithUnindexed": "{{active}} actief · {{unindexed}} uit niet geïndexeerde documenten",
+    "evalPairsActive": "{{active}} actief",
+    "activeChatModel": "het actieve chatmodel",
+    "judgeIsAnswerModel": "Dit is het antwoordmodel ({{model}}), dus het beoordeelt zijn eigen antwoorden. Nightly-runs zullen niet starten.",
+    "judgeNotSet": "Niet ingesteld, dus {{model}} beoordeelt zijn eigen antwoorden. Nightly-runs zullen niet starten.",
+    "experimentsSummary_one": "{{count}} experiment · {{promoted}} gepromoot",
+    "experimentsSummary_other": "{{count}} experimenten · {{promoted}} gepromoot"
+  },
+  "imageModels": {
+    "notInstalledSize": "{{description}} (niet geïnstalleerd — Install downloadt ~{{size}} GB)",
+    "notInstalled": "{{description}} (niet geïnstalleerd — Install download)"
+  },
+  "attachment": {
+    "tooLarge": "Deze afbeelding is {{size}} na hergroten; de limiet is {{limit}}. Kies een kleinere afbeelding.",
+    "totalTooLarge_one": "Deze {{count}} afbeeldingen zijn samen {{size}} na hergroten; de limiet is {{limit}}. Verwijder er een of kies kleinere afbeeldingen.",
+    "totalTooLarge_other": "Deze {{count}} afbeeldingen zijn samen {{size}} na herformaten; de limiet is {{limit}}. Verwijder er een of kies kleinere afbeeldingen.",
+    "chatError": "Chat-fout",
+    "readFailed": "Kon deze afbeelding niet lezen",
+    "encodeFailed": "Kon de afbeelding niet coderen",
+    "readResizedFailed": "Kon de herformateerde afbeelding niet lezen",
+    "noImage": "Geen afbeelding om toe te voegen",
+    "drawFailed": "Kon de afbeelding niet tekenen"
+  },
+  "fileTypes": {
+    "noTimestamp": "N.v.t."
+  },
+  "hfUrl": {
+    "empty": "Plak een Hugging Face URL of org/repo.",
+    "notHuggingFace": "Alleen Hugging Face URL's of org/repo-id's worden geaccepteerd.",
+    "notModelRepo": "Dat is een Hugging Face dataset of Space, geen modelrepo. Plak een model-URL (huggingface.co/org/repo)."
+  },
+  "replySpeech": {
+    "noVoiceInstalled": "Er is geen Stem geïnstalleerd, dus antwoorden kunnen niet worden uitgesproken. Installeer er een in de Stem Instellingen (Instellingen → Chat → Stemchat), of start de Audio Foundry-plugin met een geïnstalleerd Kokoro-stempakket.",
+    "stoppedPartwayReason": "Het eerste deel van het antwoord is uitgesproken, daarna stopte de spraak: {{reason}}",
+    "stoppedPartway": "Het eerste deel van het antwoord is uitgesproken, daarna stopte de spraak",
+    "failedReason": "Het uitspreken van het antwoord is mislukt: {{reason}}",
+    "failed": "Het uitspreken van het antwoord is mislukt"
+  },
+  "renderFailure": {
+    "withNext": "{{text}} Volgende: {{action}}",
+    "retryable": "{{text}} (Een latere poging kan slagen.)"
+  },
+  "uiError": {
+    "generic": "Er is een fout opgetreden"
+  },
+  "imageEdit": {
+    "cropAfterTransform": "Bijsnijden voor rotatie of spiegelen: herstel de rotatie of spiegeling, snijd bij, en herhaal de rotatie of spiegeling."
+  },
+  "paths": {
+    "home": "Home"
+  },
+  "droppedFiles": {
+    "folders_one": "{{count}} map",
+    "folders_other": "{{count}} mappen",
+    "files_one": "{{count}} bestand",
+    "files_other": "{{count}} bestanden",
+    "foldersAndFiles": "{{folders}} en {{files}}",
+    "leftOut": "overgeslagen {{items}} (verborgen, build-output of inloggegevens)"
+  },
+  "entityLinks": {
+    "files": "Bestanden",
+    "scheduleTask": "Taak plannen"
+  },
+  "batches": {
+    "fallbackName": "Batch"
+  },
+  "family": {
+    "selfImprovement": "Zelfverbetering"
+  },
+  "videoPromptControls": {
+    "enhanceOff": "geen effect wanneer Enhance prompt uit staat",
+    "verbatim": "geen effect wanneer Verbatim prompts aan staat in Instellingen",
+    "viaReferenceCompiler": "via de reference compiler",
+    "viaPromptEnhancer": "via prompt enhancer",
+    "styleVerbatim": "Promptstijl: geen effect wanneer Verbatim prompts aan staat in Instellingen",
+    "styleEnhanceOff": "Promptstijl: geen effect wanneer Enhance prompt uit staat",
+    "styleExactText": "Promptstijl: geen effect wanneer Exact text aan staat"
+  },
+  "videoPreview": {
+    "conceptVerbatim": "Concept zoals getypt (Verbatim prompts staat aan in Instellingen); de Storyboard-stap schrijft de shots nog steeds",
+    "conceptEnhanceOff": "Concept zoals getypt (Enhance prompt staat uit); de Storyboard-stap schrijft de shots nog steeds",
+    "conceptEnhanced": "Verbeterd concept; de Storyboard-stap schrijft de shots hieruit, zodat de clips verschillende prompts krijgen",
+    "promptVerbatim": "Prompt zoals getypt (Verbatim prompts staat aan in Instellingen)",
+    "promptEnhanceOff": "Prompt zoals getypt (Enhance prompt staat uit)",
+    "promptEnhanced": "Verbeterde prompt (wat verzonden zal worden)",
+    "promptsVerbatimFirst_one": "Prompts zoals getypt (Verbatim prompts staat aan in Instellingen): eerste {{shown}} van {{count}} clips",
+    "promptsVerbatimFirst_other": "Prompts zoals getypt (Verbatim prompts staat aan in Instellingen): eerste {{shown}} van {{count}} clips",
+    "promptsVerbatimAll_one": "Prompts zoals getypt (Verbatim prompts staat aan in Instellingen): {{count}} clips, één voor elk",
+    "promptsVerbatimAll_other": "Prompts zoals getypt (Verbatim prompts staat aan in Instellingen): {{count}} clips, één voor elk",
+    "promptsEnhanceOffFirst_one": "Prompts zoals getypt (Enhance prompt staat uit): eerste {{shown}} van {{count}} clips",
+    "promptsEnhanceOffFirst_other": "Prompts zoals getypt (Enhance prompt staat uit): eerste {{shown}} van {{count}} clips",
+    "promptsEnhanceOffAll_one": "Prompts zoals getypt (Enhance prompt staat uit): {{count}} clips, één voor elk",
+    "promptsEnhanceOffAll_other": "Prompts zoals getypt (Enhance prompt staat uit): {{count}} clips, één voor elk",
+    "promptsEnhancedFirst_one": "Verbeterde prompts (wat verzonden zal worden): eerste {{shown}} van {{count}} clips",
+    "promptsEnhancedFirst_other": "Verbeterde prompts (wat wordt verzonden): eerste {{shown}} van {{count}} clips",
+    "promptsEnhancedAll_one": "Verbeterde prompts (wat wordt verzonden): {{count}} clips, elk één",
+    "promptsEnhancedAll_other": "Verbeterde prompts (wat wordt verzonden): {{count}} clips, elk één"
+  },
+  "videoSteps": {
+    "profileSteps": "{{label}} ({{steps}} stappen)",
+    "speedProfile": "snelheidsprofiel",
+    "lowVramClamp": "Lage VRAM-beperking",
+    "setBy": "ingesteld door {{label}}",
+    "preset": "preset"
+  },
+  "assetGuard": {
+    "blocked": "externe afbeelding geblokkeerd",
+    "offlineFirst": "(offline-first)"
+  },
+  "appStore": {
+    "brandingFailed": "Branding ophalen mislukt: {{status}}"
+  }
+}

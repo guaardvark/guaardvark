@@ -1,0 +1,585 @@
+{
+  "access": {
+    "defaultMachine": "Guaardvark 머신",
+    "outsideLocalNetwork": "이 기능은 {{machine}} 및 해당 로컬 네트워크 내의 기기에서만 작동하며, 현재 기기는 네트워크 외부에 있습니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
+    "runsCodeKeyRequired": "이 기능은 {{machine}}에서 프로그램을 실행하며, 네트워크 접속이 활성화된 상태라도 {{machine}} 자체 또는 API 키가 있는 경우에만 작동합니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
+    "fleetKeyRequired": "이 Interconnector 작업은 네트워크 접속이 활성화된 상태라도 {{machine}} 자체 또는 API 키가 있는 경우에만 작동합니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
+    "localOnlyKeyRemoved": "{{machine}}에 더 이상 API 키가 없으므로, 이 기능은 {{machine}} 본체에서만 작동합니다. 설정 → 액세스 → 네트워크 액세스에서 기능을 켜거나, 해당 위치에서 새 키를 생성하여 이 기기의 설정 → 액세스에 입력하세요.",
+    "localOnly": "이 기능은 {{machine}} 자체에서만 작동합니다. 여기서 사용하려면 {{machine}}의 설정 → Access → Network access를 켜거나, 거기에서 API 키를 생성하여 이 기기의 설정 → Access에 입력하십시오.",
+    "keyOutOfDate": "이 브라우저는 {{machine}}이 더 이상 사용하지 않는 키로 로그인되었습니다. 설정 → Access에서 현재 키를 입력하십시오.",
+    "keyRequired": "설정 → Access에서 {{machine}}의 API 키를 입력하세요. 키는 생성 시 표시되며, {{machine}}은 이를 .env 파일에 GUAARDVARK_API_KEY로 저장합니다."
+  },
+  "taskQueue": {
+    "unreachable": "시작되지 않음: Guaardvark의 백그라운드 큐(Redis)에 연결할 수 없습니다. Guaardvark 머신에서 ./start.sh를 실행하여 Redis와 백그라운드 워커를 시작한 후 다시 시도하십시오.",
+    "nextStepNotStarted": "다음 단계가 시작되지 않았습니다. Guaardvark를 재시작하면(./start.sh) 시작됩니다."
+  },
+  "api": {
+    "httpError": "HTTP 오류 {{status}} - {{statusText}}",
+    "unknownStatus": "알 수 없는 오류",
+    "httpErrorStatus": "HTTP 오류! 상태: {{status}}",
+    "invalidJson": "서버의 JSON 응답을 파싱하는 데 실패했습니다."
+  },
+  "chatStop": {
+    "backendUnreachable": "백엔드에 연결할 수 없습니다.",
+    "notReachedBoth": "중단 명령이 채팅 턴과 에이전트 작업에 도달하지 못했습니다: {{reason}}. 여전히 실행 중일 수 있습니다.",
+    "notReachedChatTurn": "중단 명령이 채팅 턴에 도달하지 못했습니다: {{reason}}. 여전히 실행 중일 수 있습니다.",
+    "notReachedAgentTask": "중단 명령이 에이전트 작업에 도달하지 못했습니다: {{reason}}. 여전히 실행 중일 수 있습니다."
+  },
+  "heldChanges": {
+    "gitRecordRejectRefused": "git 기록은 승인만 가능합니다. 거부하려면 git에서 병합을 취소하십시오."
+  },
+  "address": {
+    "requestFailed": "요청 실패"
+  },
+  "backups": {
+    "downloadFailed": "다운로드 실패: {{status}}"
+  },
+  "bulkGeneration": {
+    "csvTimeout": "요청 시간 초과 - 대량 CSV 생성에 시간이 너무 오래 걸렸습니다.",
+    "csvFailed": "대량 CSV 생성 실패",
+    "structuredCsvTimeout": "요청 시간 초과 - 구조화된 CSV 생성에 시간이 너무 오래 걸렸습니다.",
+    "structuredCsvFailed": "구조화된 CSV 생성 실패",
+    "statusFailed": "생성 상태를 가져오지 못했습니다.",
+    "estimateFailed": "생성 예상 시간을 계산하지 못했습니다.",
+    "topicsFailed": "주제 생성이 실패했습니다.",
+    "xmlTimeout": "요청 시간 초과 - 대량 XML 생성에 시간이 너무 오래 걸렸습니다.",
+    "xmlFailed": "XML 콘텐츠 생성 실패"
+  },
+  "chat": {
+    "sendQueryFailed": "쿼리 전송 실패.",
+    "sendCommandFailed": "명령어 전송 실패.",
+    "duplicateRequest": "중복된 요청이 감지되었습니다.",
+    "apiError": "채팅 API 오류: {{status}}",
+    "exportFailed": "채팅 내보내기 실패",
+    "historyFailed": "기록을 가져오지 못했습니다: {{status}}"
+  },
+  "codeExecution": {
+    "pythonFailed": "Python 코드 실행 실패",
+    "javascriptFailed": "JavaScript 코드 실행 실패",
+    "shellFailed": "셸 명령 실행 실패",
+    "formatFailed": "코드 형식 지정 실패",
+    "lintFailed": "코드 린트 실패",
+    "buildFailed": "프로젝트 빌드 실패"
+  },
+  "codeIntelligence": {
+    "noCode": "분석할 코드 내용이 없습니다.",
+    "provideCode": "분석할 코드 내용을 입력해 주세요.",
+    "analysisDone": "분석이 성공적으로 완료되었습니다.",
+    "analysisTimeout": "2분 후 분석 요청 시간 초과",
+    "analysisTimeoutHelp": "분석 요청에 시간이 너무 오래 걸렸습니다. 매우 큰 파일이나 복잡한 코드의 경우 발생할 수 있습니다. 더 적은 양의 코드 선택이나 간단한 쿼리로 다시 시도해 주세요.",
+    "unknownError": "알 수 없는 오류가 발생했습니다.",
+    "analysisFailed": "분석에 실패했습니다. 백엔드 연결을 확인하고 다시 시도해 주세요.",
+    "noDescription": "코드 생성을 위한 설명이 제공되지 않았습니다.",
+    "codeGenerated": "코드가 성공적으로 생성되었습니다.",
+    "generationTimeout": "코드 생성 요청이 2분 후 타임아웃되었습니다. 더 간단한 요청을 시도해 주세요.",
+    "generationUnknownError": "코드 생성 중 알 수 없는 오류가 발생했습니다.",
+    "explanationFailed": "설명 생성에 실패했습니다. 백엔드 연결을 확인해 주세요.",
+    "validationFailed": "검증에 실패했습니다.",
+    "readFileFailed": "파일을 읽는 데 실패했습니다.",
+    "readFilesFailed": "파일들을 읽는 데 실패했습니다."
+  },
+  "documents": {
+    "listFailed": "문서 목록을 가져오는 데 실패했습니다.",
+    "notFound": "문서를 찾을 수 없습니다.",
+    "invalidId": "유효하지 않은 문서 ID입니다.",
+    "contentFailedStatus": "문서 내용을 가져오는 데 실패했습니다 ({{status}})",
+    "contentFailed": "문서 내용을 가져오는 데 실패했습니다.",
+    "repoFileFailed": "저장소 파일을 가져오는 데 실패했습니다.",
+    "uploadNetworkError": "파일 업로드 중 네트워크 오류가 발생했습니다.",
+    "uploadCancelled": "업로드가 취소되었습니다.",
+    "uploadTimeout": "업로드 시간 초과"
+  },
+  "fileOperations": {
+    "readFailed": "파일 읽기 실패",
+    "saved": "파일이 성공적으로 저장되었습니다",
+    "writeFailed": "파일 쓰기 실패",
+    "created": "파일이 성공적으로 생성되었습니다",
+    "createFailed": "파일 생성 실패",
+    "deleted": "파일이 성공적으로 삭제되었습니다",
+    "deleteFailed": "파일 삭제 실패",
+    "listFailed": "디렉토리 목록을 가져오지 못했습니다",
+    "directoryCreated": "디렉터리가 성공적으로 생성되었습니다",
+    "createDirectoryFailed": "디렉터리 생성 실패",
+    "renamed": "파일 이름이 성공적으로 변경되었습니다",
+    "renameFailed": "파일 이름 변경 실패"
+  },
+  "fileGeneration": {
+    "cancelledOrTimedOut": "요청이 취소되었거나 시간 초과되었습니다.",
+    "unknownError": "알 수 없는 오류가 발생했습니다.",
+    "batchCsvFailed": "Batch CSV 생성 실패"
+  },
+  "indexing": {
+    "cancelFailed": "작업 취소 실패",
+    "jobsFailed": "작업을 가져오지 못했습니다."
+  },
+  "interconnector": {
+    "timeout": "{{timeout}}ms 후 요청 시간 초과",
+    "outputsIndexFailed": "출력 인덱스를 가져오지 못했습니다"
+  },
+  "models": {
+    "listFailed": "사용 가능한 모델을 가져오지 못했습니다."
+  },
+  "musicVideo": {
+    "storyboardTimeout": "스토리보드 생성 시간 초과"
+  },
+  "projects": {
+    "listFailed": "프로젝트를 가져오지 못했습니다.",
+    "getFailed": "프로젝트 {{projectId}}를 가져오지 못했습니다."
+  },
+  "ragDebug": {
+    "uptimeUnknown": "알 수 없음",
+    "uptimeDays": "{{days}}d {{hours}}h {{minutes}}m",
+    "uptimeHours": "{{hours}}h {{minutes}}m",
+    "uptimeMinutes": "{{minutes}}m"
+  },
+  "rules": {
+    "listFailed": "규칙/프롬프트를 가져오지 못했습니다."
+  },
+  "tasks": {
+    "listFailed": "작업을 가져오지 못했습니다."
+  },
+  "training": {
+    "datasetsFailed": "학습 데이터셋을 가져오지 못했습니다."
+  },
+  "upscaling": {
+    "previewFailed": "미리보기를 생성하지 못했습니다."
+  },
+  "websites": {
+    "listFailed": "웹사이트를 가져오지 못했습니다."
+  },
+  "settings": {
+    "testSuiteTimeout": "테스트 세트가 5분 후 시간 초과되었습니다.",
+    "rebootStarted": "재부팅이 시작되었습니다.",
+    "rebootConnectionLost": "재부팅이 시작되었으며, 예상대로 연결이 끊겼을 수 있습니다."
+  },
+  "links": {
+    "updated": "{{entityType}} 링크가 성공적으로 업데이트되었습니다.",
+    "updateFailed": "링크를 업데이트하지 못했습니다."
+  },
+  "videoEditor": {
+    "requestFailed": "비디오 에디터 요청에 실패했습니다.",
+    "loadRecipesFailed": "스타일 레시피를 불러올 수 없습니다.",
+    "submitPlanFailed": "Plan 작업을 제출할 수 없습니다.",
+    "reanalyzeFailed": "재분석에 실패했습니다.",
+    "clipHashFailed": "클립 썸네일 조회가 실패했습니다.",
+    "pollPlanFailed": "Plan 작업을 폴링할 수 없습니다.",
+    "renderFailed": "렌더링에 실패했습니다.",
+    "loadFiltersFailed": "필터를 불러올 수 없습니다.",
+    "loadTransitionsFailed": "트랜지션을 불러올 수 없습니다.",
+    "launchShotcutFailed": "Shotcut을 실행할 수 없습니다.",
+    "listProjectsFailed": "프로젝트 목록을 불러올 수 없습니다.",
+    "loadCurrentProjectFailed": "현재 프로젝트를 불러올 수 없습니다.",
+    "openProjectFailed": "프로젝트를 열 수 없습니다.",
+    "createProjectFailed": "프로젝트를 생성할 수 없습니다",
+    "autosaveFailed": "자동 저장 실패",
+    "saveProjectFailed": "프로젝트를 저장할 수 없습니다",
+    "saveProjectAsFailed": "다른 이름으로 프로젝트를 저장할 수 없습니다",
+    "renameProjectFailed": "프로젝트 이름을 변경할 수 없습니다",
+    "deleteProjectFailed": "프로젝트를 삭제할 수 없습니다",
+    "validateProjectFailed": "프로젝트를 검증할 수 없습니다"
+  },
+  "voice": {
+    "streamingError": "스트리밍 오류",
+    "noActiveRecording": "활성화된 녹음이 없습니다",
+    "micNeedsSecureContext": "마이크 사용을 위해 HTTPS 또는 localhost가 필요합니다",
+    "micUnsupported": "브라우저에서 마이크 접근을 지원하지 않습니다.",
+    "permissionCheckFailed": "마이크 권한 확인에 실패했습니다.",
+    "permissionRequestFailed": "마이크 권한을 가져오는데 실패했습니다.",
+    "micAccessDenied": "마이크 접근이 거부되었습니다. 권한을 허용해 주세요.",
+    "startFailedPermission": "녹음을 시작할 수 없습니다. 마이크 권한이 거부되었습니다.",
+    "startFailedNoMic": "녹음을 시작할 수 없습니다. 마이크를 찾을 수 없습니다.",
+    "startFailedRetry": "녹음 시작에 실패했습니다. 다시 시도해 주세요.",
+    "noSpeech": "음성을 감지하지 못했습니다.",
+    "noAudio": "녹음된 오디오 데이터가 없습니다.",
+    "recordingFailed": "녹음 실패."
+  },
+  "clients": {
+    "listFailed": "클라이언트 목록을 가져오는데 실패했습니다.",
+    "nameRequired": "클라이언트 이름이 필요합니다."
+  },
+  "logo": {
+    "noFile": "파일이 제공되지 않음",
+    "tooLarge": "파일 크기가 너무 큽니다. 최대 크기는 {{size}}MB입니다",
+    "invalidType": "유효하지 않은 파일 유형입니다. 허용되는 유형: {{types}}"
+  },
+  "voiceSession": {
+    "micBlocked": "마이크 접근이 차단되었습니다. 브라우저에서 이 사이트에 대한 접근을 허용한 후 다시 시도하세요.",
+    "noMic": "마이크를 찾을 수 없습니다.",
+    "micBusy": "마이크가 다른 애플리케이션에서 사용 중입니다.",
+    "noMatchingMic": "요청된 설정과 일치하는 마이크가 없습니다.",
+    "pushToTalkHint": "말하는 동안 마이크 버튼(또는 Ctrl+Shift+Space)을 길게 누르세요.",
+    "micReady": "마이크 준비 완료. 말하려면 길게 누르세요.",
+    "holdLonger": "말하는 동안 마이크를 조금 더 길게 누르세요.",
+    "micOff": "음성 설정에서 마이크가 꺼져 있습니다. (설정 → 채팅 → 음성 채팅)",
+    "micStartFailedReason": "마이크를 시작할 수 없습니다: {{reason}}",
+    "micStartFailed": "마이크를 시작할 수 없습니다.",
+    "audioStartFailed": "오디오 처리를 시작할 수 없습니다: {{reason}}",
+    "micEnded": "마이크가 중단되었습니다 (연결 해제 또는 다른 애플리케이션에서 사용 중).",
+    "recorderUnsupported": "이 브라우저에서는 오디오를 녹음할 수 없습니다: {{reason}}",
+    "recordingError": "녹음 오류: {{reason}}",
+    "unknownReason": "알 수 없음",
+    "recorderStartFailed": "녹음을 시작할 수 없습니다: {{reason}}",
+    "sttFailed": "음성 인식 실패",
+    "rateLimited": "이번 분에 음성 요청이 너무 많습니다. 해당 요청은 건너뛰었습니다.",
+    "busy": "시스템이 바쁩니다. 해당 항목은 건너뛰었습니다.",
+    "backendOffline": "백엔드에 연결할 수 없습니다. 해당 항목은 전사되지 않았습니다.",
+    "transcribeFailed": "전사 실패: {{reason}}",
+    "noChatOpen": "보낼 수 있는 채팅이 열려 있지 않습니다.",
+    "sendFailed": "전송 실패: {{reason}}",
+    "noSpeechTimeout": "소리가 감지되지 않아 마이크가 다시 꺼졌습니다."
+  },
+  "voicePhase": {
+    "clickHint": {
+      "handsfree": "클릭하여 핸즈프리 듣기 시작",
+      "toggle": "클릭 후 말하기; 멈추면 전송됩니다",
+      "push": "누른 채로 말하기"
+    },
+    "requestingPermission": {
+      "title": "마이크 권한 대기 중",
+      "hint": "브라우저 팝업에서 마이크 사용을 허용해 주세요."
+    },
+    "waitingForWake": {
+      "title": "“Hey {{systemName}}” 대기 중",
+      "hint": "호출어(wake phrase)를 말한 뒤 요청을 말씀해 주세요."
+    },
+    "listening": {
+      "title": "듣는 중",
+      "hint": "말씀해 주세요. 멈출 때마다 메시지가 전송됩니다. 클릭하면 중지됩니다."
+    },
+    "recording": {
+      "title": "녹음 중",
+      "hint": "떼면 전송됩니다."
+    },
+    "hearing": {
+      "title": "듣는 중",
+      "hint": "멈추면 전송됩니다."
+    },
+    "transcribing": "전사 중",
+    "sending": "채팅으로 전송 중",
+    "responding": {
+      "title": "답변 대기 중",
+      "hint": "계속 듣는 중입니다."
+    },
+    "speaking": {
+      "title": "답변 읽어주는 중",
+      "hint": "말하는 동안 마이크가 일시 중지됩니다."
+    },
+    "denied": "마이크가 차단됨",
+    "error": "음성이 작동하지 않습니다",
+    "micOff": "마이크 꺼짐",
+    "outcomes": {
+      "sent": "전송됨",
+      "wake": "웨이크 문구",
+      "ignored": "웨이크 문구 없음, 전송되지 않음",
+      "unsent": "채팅이 열려 있지 않음, 전송되지 않음",
+      "failed": "전송 실패"
+    }
+  },
+  "batchVideo": {
+    "requestFailed": "요청이 실패했습니다",
+    "listFailed": "비디오 배치를 불러올 수 없습니다: {{reason}}.",
+    "queueFailed": "비디오 대기열이 업데이트되지 않습니다: {{reason}}.",
+    "clearFailedStatus": "삭제 실패: HTTP {{status}}",
+    "clearFailed": "삭제 실패: {{reason}}",
+    "combineFailed": "프레임 결합 실패: {{reason}}.",
+    "deleted": "배치 삭제됨.",
+    "deleteFailedStatus": "삭제 실패: HTTP {{status}}",
+    "deleteFailed": "삭제 실패: {{reason}}",
+    "cancelFailed": "취소 실패: {{reason}}. 배치가 여전히 실행 중일 수 있습니다.",
+    "retryFailedStatus": "재시도 실패: HTTP {{status}}",
+    "retried": "새 배치 {{batchId}}로 재시도됨. 기존 실패한 배치는 기록에 보존됩니다.",
+    "retryFailed": "재시도 실패: {{reason}}",
+    "approveFailedStatus": "승인 실패: HTTP {{status}}",
+    "clipApproved": "클립이 승인되어 파일에 추가되었습니다.",
+    "approveFailed": "승인 실패: {{reason}}",
+    "rerenderFailedStatus": "재렌더링 실패: HTTP {{status}}",
+    "rerendering": "{{newBatchId}}로 재렌더링 중입니다. 보류된 클립은 {{batchId}}에 유지됩니다.",
+    "rerenderFailed": "재렌더링 실패: {{reason}}"
+  },
+  "unsavedChanges": {
+    "leaveConfirm": "이 페이지에 저장되지 않은 변경 사항이 있습니다. 페이지를 나가고 변경 사항을 버리시겠습니까?"
+  },
+  "agentRouter": {
+    "routingFailed": "라우팅 실패",
+    "executionFailed": "실행 실패"
+  },
+  "hfLookup": {
+    "failed": "조회 실패"
+  },
+  "notifications": {
+    "operationFailed": "작업 실패"
+  },
+  "errors": {
+    "unexpected": "예기치 않은 오류가 발생했습니다.",
+    "badRequest": "잘못된 요청입니다. 입력을 확인해 주세요.",
+    "unauthorized": "인증이 필요합니다. 로그인해 주세요.",
+    "forbidden": "이 동작을 수행할 권한이 없습니다.",
+    "notFound": "요청한 리소스를 찾을 수 없습니다.",
+    "validation": "검증 오류입니다. 입력을 확인해 주세요.",
+    "tooManyRequests": "요청이 너무 많습니다. 나중에 다시 시도해 주세요.",
+    "server": "서버 오류입니다. 나중에 다시 시도해 주세요.",
+    "unavailable": "서비스를 일시적으로 이용할 수 없습니다. 나중에 다시 시도해 주세요.",
+    "httpStatus": "HTTP 오류 {{status}}",
+    "network": "네트워크 오류입니다. 연결 상태를 확인해 주세요.",
+    "timeout": "요청 시간이 초과되었습니다. 다시 시도해 주세요.",
+    "uploadFailed": "문서 업로드에 실패했습니다. 다시 시도해 주세요.",
+    "indexingFailed": "문서 인덱싱에 실패했습니다. 다시 시도해 주세요.",
+    "chatFailed": "채팅 요청에 실패했습니다. 다시 시도해 주세요.",
+    "projectFailed": "프로젝트 작업에 실패했습니다. 다시 시도해 주세요."
+  },
+  "audioRecorder": {
+    "permissionDenied": "마이크 권한이 거부되었습니다",
+    "resumeFailed": "오디오 컨텍스트를 재개하지 못했습니다. 마이크 접근이 차단되었을 수 있습니다.",
+    "volumeMonitoringFailed": "볼륨 모니터링 실패: {{reason}}",
+    "unsupported": "이 브라우저에서는 오디오 녹음을 지원하지 않습니다."
+  },
+  "approvals": {
+    "loadFailed": "대기 중인 승인을 불러올 수 없습니다.",
+    "heldWaiting_other": "승인 대기 중인 코드 변경 사항이 {{count}}개 있습니다.",
+    "publishWaiting_other": "승인 대기 중인 게시물이 {{count}}개 있습니다."
+  },
+  "slash": {
+    "help": "## 사용 가능한 명령\n\n{{commands}}",
+    "helpLine": "**{{name}}** — {{description}}\n  사용법: `{{usage}}`",
+    "voiceDisabled": "음성 채팅이 비활성화되었습니다.",
+    "voiceEnabled": "음성 채팅이 활성화되었습니다.",
+    "voiceUnavailable": "이 환경에서는 음성 채팅을 사용할 수 없습니다.",
+    "visionStatus": "**{{name}}:** {{status}}",
+    "unknownStatus": "알 수 없음",
+    "visionHint": "플러그인 페이지에서 시작하거나 중지할 수 있습니다.",
+    "visionNotInstalled": "Vision Pipeline 플러그인이 설치되지 않았습니다.",
+    "visionReadFailed": "Vision Pipeline 상태를 읽을 수 없습니다: {{reason}}",
+    "modelStatus": "**현재 모델:** {{model}}\n\n**사용 가능한 모델:**\n{{models}}",
+    "unknownModel": "알 수 없음",
+    "modelsFailed": "모델을 가져오지 못했습니다: {{reason}}",
+    "modelSwitched": "모델이 **{{model}}**로 전환되었습니다.",
+    "failed": "실패: {{reason}}",
+    "modelSwitchFailed": "모델 전환 실패: {{reason}}",
+    "installed": "설치됨",
+    "notInstalled": "설치되지 않음",
+    "comfyuiAutoBackend": "ComfyUI (자동 백엔드)",
+    "editBackendsFailed": "_(편집 백엔드를 불러올 수 없습니다)_",
+    "imageModelStatus": "**현재 이미지 모델:** `{{current}}`\n\n`/imagine` 및 **generate_image**에 사용됩니다. 편집(`edit_image`, `/inpaint`)은 설치된 경우 **Qwen-Image-Edit**를, 그렇지 않은 경우 **FLUX Kontext**를 자동으로 선택합니다.\n\n**이미지 편집 팩** (이미지 모델 관리 → 이미지 편집에서 설치 가능):\n{{editLines}}\n\n**생성 — 다운로드됨:**\n{{downloaded}}\n\n**생성 — 다운로드되지 않음:**\n{{notDownloaded}}\n\n_팁: `/imagemodel auto`는 해당 팩이 설치된 경우 지시 기반 편집에 Qwen-Image-Edit을 사용합니다._",
+    "none": "_(없음)_",
+    "imageModelsFailed": "이미지 모델을 가져오지 못했습니다: {{reason}}",
+    "imageModelAuto": "이미지 모델이 **auto**로 전환되었습니다 (편집 시 설치된 경우 Qwen-Image-Edit, 아니면 Kontext 사용; 둘 다 없는 경우 편집 시 설치를 요청합니다).",
+    "imageEditsQwen": "해당 팩이 설치된 경우 이미지 편집에 **qwen-image-edit**이 사용됩니다.",
+    "imageEditsKontext": "설치된 경우 이미지 편집에 **kontext** (FLUX.1 Kontext)가 사용됩니다.",
+    "imageModelComfyui": "이미지 모델이 **comfyui** (ComfyUI 자동 백엔드)로 전환되었습니다. 생성 시 설치된 Z-Image 또는 FLUX 엔진을 사용합니다.",
+    "imageModelNotDownloaded": "모델 `{{model}}`이 다운로드되지 않았습니다. 먼저 이미지 페이지에서 다운로드하세요.",
+    "imageModelSwitched": "이미지 모델이 **{{model}}** ({{name}})로 전환되었습니다. 채팅 생성 및 img2img 편집에 사용됩니다.",
+    "imageModelNotFound": "모델 `{{model}}`을(를) 찾을 수 없습니다. 사용 가능한 모델: {{available}}",
+    "usage": {
+      "imagine": "사용법: `/imagine <prompt>`",
+      "inpaint": "사용법: `/inpaint <instruction>` — 사진을 첨부하거나, 이 채팅의 마지막 이미지를 사용합니다.",
+      "identity": "사용법: `/identity <prompt>` — 사용 권한이 있는 얼굴 사진(본인 또는 출연 대상)을 첨부하세요.",
+      "video": "사용법: `/video <prompt>`",
+      "musicVideo": "사용법: `/music--video <song-path-or-id> <style>` — 계획을 시작합니다. 클립이 렌더링되기 전에 Studio에서 승인하세요.",
+      "filmCrew": "사용법: `/film-crew <screenplay>` — 시나리오 작가를 시작합니다. 렌더링은 Studio에서 대기합니다.",
+      "websearch": "사용법: `/websearch <query>`, `/websearch site:<address>` (한 페이지 검토) 또는 `/websearch sitemap:<url>` (사이트맵 페이지 목록)",
+      "plan": "사용법: `/plan <request>`",
+      "training": "사용법: `/training <task>` — 예: `/training Work의 Comments Trainer — 배너를 따라가고, 완료 시 Start Over를 클릭하며, 중단하지 마세요.`",
+      "thinking": "사용법: `/thinking on` 또는 `/thinking off` (또는 `/thinking`으로 현재 상태 표시)"
+    },
+    "musicVideoNeedsSong": "노래(문서 ID 또는 오디오 경로)와 시각적 스타일이 필요합니다. 예: `/music-video song.mp3 neon noir rain`",
+    "sitemapNotRead": "사이트맵을 읽지 못함: {{reason}}",
+    "backendAnswered": "백엔드 응답: HTTP {{status}}",
+    "backendUnreachable": "백엔드에 연결할 수 없습니다",
+    "sitemap": {
+      "redirected": "{{url}} ({{finalUrl}}로 리디렉션됨)",
+      "title": "**사이트맵:** {{url}}",
+      "index_other": "{{count}}개의 사이트맵이 포함된 사이트맵 인덱스입니다. 목록에 표시되며 열리지 않습니다.",
+      "numberedEntryModified": "{{number}}. {{url}} (최종 수정일: {{lastmod}})",
+      "firstOf": "첫 {{shown}}개:\n{{items}}",
+      "pageUrls_other": "{{count}}개의 페이지 URL.",
+      "depth": "깊이 {{depth}}: {{pages}}",
+      "byDepth": "경로 깊이별: {{depths}}",
+      "landingPages": "랜딩 페이지 (최상위 레벨, 우선순위 0.5 초과):",
+      "landingEntry": "{{number}}. {{url}} (우선순위 {{priority}})",
+      "entryModified": "- {{url}} (최종 수정일: {{lastmod}})",
+      "pagesList": "페이지:\n{{items}}"
+    },
+    "outreach": {
+      "enabled": "활성화됨",
+      "disabled": "비활성화됨",
+      "supervised": "감독됨",
+      "unsupervised": "감독되지 않음",
+      "redisOffline": "- {{platform}}: Redis 오프라인",
+      "cadenceLast": "- {{platform}}: 오늘 {{posts}}/{{cap}} 완료, 마지막 {{minutes}}분 전",
+      "cadence": "- {{platform}}: 오늘 {{posts}}/{{cap}}",
+      "status": "**아웃리치:** {{state}} ({{mode}})\n\n{{cadence}}",
+      "noCadence": "주기 데이터 없음.",
+      "statusFailed": "아웃리치 상태 실패: {{reason}}",
+      "refused": "아웃리치: 요청이 거부되었습니다.",
+      "intentFailed": "아웃리치 의도 실패: {{reason}}",
+      "queued": "아웃리치 작업이 작업 #{{taskId}}로 큐에 추가되었습니다.",
+      "commandFailed": "아웃리치 명령 실패: {{reason}}"
+    },
+    "training": {
+      "started": "학습 시작 (최대 1000회 반복 / 1시간). 진행 상황은 VNC를 확인하고, servo 이벤트는 `logs/backend.log`를 확인하세요. 작업: _{{task}}_",
+      "rejectedBusy": "학습 실행 거부: {{reason}} — 킬 스위치를 사용하거나 현재 실행이 끝날 때까지 기다리세요.",
+      "rejected": "학습 실행 거부: {{reason}}",
+      "unknownError": "알 수 없는 오류",
+      "failed": "학습 실행 실패: {{reason}}"
+    },
+    "rule": {
+      "failedDetails": "{{name}} 실패: {{reason}} ({{details}})",
+      "failed": "{{name}} 실패: {{reason}}",
+      "wroteSize": "{{name}}이(가) {{file}} ({{bytes}} 바이트)를 출력 폴더에 저장했습니다.",
+      "wrote": "{{name}}이(가) {{file}}을(를) 출력 폴더에 저장했습니다."
+    },
+    "agent": {
+      "needsSession": "/agent는 세션이 필요합니다 — 먼저 채팅을 열어주세요.",
+      "switchFailed": "에이전트 모드로 전환 실패: {{reason}}",
+      "already": "이미 **에이전트 모드**입니다. 화면 제어 작업을 입력하거나, 나가려면 `/chat`을(를) 입력하세요.",
+      "switched": "**에이전트 모드**로 전환되었습니다 — 메시지가 에이전트를 통해 전달됩니다(에이전트가 말하고 행동합니다). 나가려면 `/chat`을(를) 입력하세요."
+    },
+    "thinking": {
+      "needsSession": "/thinking은 세션이 필요합니다 — 먼저 채팅을 열어주세요.",
+      "statusDefault": "🧠 이 채팅의 Thinking은 **전역 기본값(설정 → 채팅)을 사용합니다.**\n단계별 추론을 활성화하려면 `/thinking on`을, 더 빠른 응답을 원하면 `/thinking off`를 사용하세요.",
+      "statusOn": "🧠 이 채팅의 Thinking이 **켜져 있습니다.**\n단계별 추론을 활성화하려면 `/thinking on`을, 더 빠른 응답을 원하면 `/thinking off`를 사용하세요.",
+      "statusOff": "🧠 이 채팅의 Thinking이 **꺼져 있습니다.**\n단계별 추론을 활성화하려면 `/thinking on`을, 더 빠른 응답을 원하면 `/thinking off`를 사용하세요.",
+      "enabled": "🧠 이 채팅의 Thinking이 **활성화되었습니다** — 모델이 답변하기 전에 단계별로 추론합니다 (속도는 느리지만 복잡한 프롬프트에 적합합니다).",
+      "disabled": "⚡ 이 채팅의 Thinking이 **비활성화되었습니다** — 더 빠른 응답을 제공합니다."
+    },
+    "chatMode": {
+      "needsSession": "/chat은 세션이 필요합니다 — 먼저 채팅을 열어주세요.",
+      "already": "이미 채팅 모드입니다.",
+      "switched": "**채팅 모드**로 전환되었습니다. 메시지가 다시 LLM을 통해 전달됩니다. 다시 전환하려면 `/agent`를 입력하세요.",
+      "exitFailed": "에이전트 모드 종료 실패: {{reason}}"
+    },
+    "commandFailed": "명령어 실행 실패: {{reason}}"
+  },
+  "autoresearch": {
+    "reasons": {
+      "ollamaUnreachable": "Ollama가 실행 중이 아닙니다.",
+      "insufficientCorpus": "색인된 문서가 부족합니다.",
+      "noEvalPairs": "평가 질문이 없습니다.",
+      "evalSourcesNotIndexed": "평가 질문이 인덱싱되지 않은 문서에서 가져옴",
+      "judgeUnset": "별도의 판정 모델이 설정되지 않음",
+      "judgeSameAsAnswerModel": "판정 모델이 답변 모델과 동일함",
+      "celeryUnreachable": "작업 큐에 연결할 수 없음",
+      "baselineEvalFailed": "기준점 측정이 실패함",
+      "prerequisiteCheckFailed": "시작 확인을 실행할 수 없음",
+      "codebaseLocked": "코드베이스가 잠겨 있음",
+      "selfImprovementDisabled": "자기 개선이 꺼져 있음"
+    },
+    "noReason": "기록된 사유 없음",
+    "notRun": "실행되지 않음: {{reasons}}",
+    "starting": "시작 중…",
+    "noBaseline": "측정된 기준점 없음",
+    "scoresWithBest": "{{base}} → {{latest}} (최고 {{best}})",
+    "halt": "중단: {{reason}}",
+    "healthPass": "통과",
+    "healthFail": "실패",
+    "healthUnknown": "알 수 없음",
+    "healthStatus": "상태 확인: {{outcome}}",
+    "healthCheck": "상태 확인",
+    "selfReported": "자가 보고됨",
+    "baselineNotMeasured": "기준점: 측정되지 않음",
+    "baselineMeasured": "기준점: {{score}} (측정 시간: {{at}})",
+    "baselineNoTime": "기준점: {{score}} (측정 시간 기록 없음)",
+    "evalPairsNone": "없음",
+    "evalPairsWithUnindexed": "{{active}} 활성 · {{unindexed}} 미인덱싱 문서 포함",
+    "evalPairsActive": "{{active}} 활성",
+    "activeChatModel": "활성 채팅 모델",
+    "judgeIsAnswerModel": "이것은 답변 모델({{model}})이므로 자체 답변을 채점합니다. Nightly 실행은 시작되지 않습니다.",
+    "judgeNotSet": "설정되지 않았으므로 {{model}}이 자체 답변을 채점합니다. Nightly 실행은 시작되지 않습니다.",
+    "experimentsSummary_other": "{{count}} 실험 · {{promoted}} 프로모션"
+  },
+  "imageModels": {
+    "notInstalledSize": "{{description}} (설치되지 않음 — 설치 시 약 {{size}} GB 다운로드)",
+    "notInstalled": "{{description}} (설치되지 않음 — 설치 필요)"
+  },
+  "attachment": {
+    "tooLarge": "이 이미지의 크기는 조정 후 {{size}}이며, 제한은 {{limit}}입니다. 더 작은 이미지를 선택해 주세요.",
+    "totalTooLarge_other": "이 {{count}}개 이미지의 크기는 조정 후 총 {{size}}이며, 제한은 {{limit}}입니다. 하나를 삭제하거나 더 작은 이미지를 선택해 주세요.",
+    "chatError": "채팅 오류",
+    "readFailed": "이미지를 읽을 수 없습니다",
+    "encodeFailed": "이미지를 인코딩할 수 없습니다",
+    "readResizedFailed": "크기가 조정된 이미지를 읽을 수 없습니다",
+    "noImage": "첨부할 이미지가 없습니다",
+    "drawFailed": "이미지를 그릴 수 없습니다"
+  },
+  "fileTypes": {
+    "noTimestamp": "해당 없음"
+  },
+  "hfUrl": {
+    "empty": "Hugging Face URL 또는 org/repo를 붙여넣으세요.",
+    "notHuggingFace": "Hugging Face URL 또는 org/repo ID만 허용됩니다.",
+    "notModelRepo": "해당 항목은 Hugging Face 데이터셋 또는 Space이며, 모델 저장소가 아닙니다. 모델 URL(huggingface.co/org/repo)을 붙여넣어 주세요."
+  },
+  "replySpeech": {
+    "noVoiceInstalled": "설치된 음성이 없어 답변을 읽어줄 수 없습니다. 음성 설정(설정 → 채팅 → 음성 채팅)에서 하나를 설치하거나, Kokoro 음성 팩이 설치된 상태에서 Audio Foundry 플러그인을 실행하세요.",
+    "stoppedPartwayReason": "답변의 첫 부분만 읽은 후 중단됨: {{reason}}",
+    "stoppedPartway": "답변의 첫 부분만 읽은 후 중단됨",
+    "failedReason": "답변 읽기 실패: {{reason}}",
+    "failed": "답변 읽기 실패"
+  },
+  "renderFailure": {
+    "withNext": "{{text}} 다음: {{action}}",
+    "retryable": "{{text}} (나중에 다시 시도하면 성공할 수 있습니다.)"
+  },
+  "uiError": {
+    "generic": "오류가 발생했습니다"
+  },
+  "imageEdit": {
+    "cropAfterTransform": "회전 또는 반전 전에 자르기: 회전 또는 반전을 취소하고, 자른 다음, 다시 회전 또는 반전을 적용하세요."
+  },
+  "paths": {
+    "home": "홈"
+  },
+  "droppedFiles": {
+    "folders_other": "{{count}} 폴더",
+    "files_other": "{{count}} 파일",
+    "foldersAndFiles": "{{folders}} 및 {{files}}",
+    "leftOut": "제외된 항목 {{items}} (숨김, 빌드 결과물 또는 자격 증명)"
+  },
+  "entityLinks": {
+    "files": "파일",
+    "scheduleTask": "작업 예약"
+  },
+  "batches": {
+    "fallbackName": "배치"
+  },
+  "family": {
+    "selfImprovement": "자기 개선"
+  },
+  "videoPromptControls": {
+    "enhanceOff": "프롬프트 강화가 꺼져 있는 동안 효과 없음",
+    "verbatim": "설정에서 Verbatim 프롬프트가 켜져 있는 동안에는 효과가 없습니다",
+    "viaReferenceCompiler": "참조 컴파일러를 통해",
+    "viaPromptEnhancer": "프롬프트 강화기를 통해",
+    "styleVerbatim": "프롬프트 스타일: 설정에서 Verbatim 프롬프트가 켜져 있는 동안에는 효과가 없습니다",
+    "styleEnhanceOff": "프롬프트 스타일: 프롬프트 강화가 꺼져 있는 동안에는 효과가 없습니다",
+    "styleExactText": "프롬프트 스타일: 정확한 텍스트가 켜져 있는 동안에는 효과가 없습니다"
+  },
+  "videoPreview": {
+    "conceptVerbatim": "입력한 대로의 컨셉 (설정에서 Verbatim 프롬프트가 켜져 있음); 스토리보드 단계에서 여전히 샷을 작성합니다",
+    "conceptEnhanceOff": "입력한 대로의 컨셉 (프롬트 강화가 꺼져 있음); 스토리보드 단계에서 여전히 샷을 작성합니다",
+    "conceptEnhanced": "강화된 컨셉; 스토리보드 단계에서 이를 바탕으로 샷을 작성하므로 클립마다 다른 프롬프트가 생성됩니다",
+    "promptVerbatim": "입력한 그대로의 프롬프트 (설정에서 Verbatim 프롬프트가 켜져 있음)",
+    "promptEnhanceOff": "입력한 그대로의 프롬프트 (프롬프트 강화가 꺼져 있음)",
+    "promptEnhanced": "강화된 프롬프트 (전송될 내용)",
+    "promptsVerbatimFirst_other": "입력한 그대로의 프롬프트 (설정에서 Verbatim 프롬프트가 켜져 있음): {{count}}개 클립 중 첫 번째 {{shown}}",
+    "promptsVerbatimAll_other": "입력한 그대로의 프롬프트 (설정에서 Verbatim 프롬프트가 켜져 있음): {{count}}개 클립, 각각 하나씩",
+    "promptsEnhanceOffFirst_other": "입력한 프롬프트 (프롬프트 강화 비활성): {{count}}개 중 첫 {{shown}}개 클립",
+    "promptsEnhanceOffAll_other": "입력한 프롬프트 (프롬프트 강화 비활성): {{count}}개 클립, 각각 하나씩",
+    "promptsEnhancedFirst_other": "강화된 프롬프트 (전송될 내용): {{count}}개 중 첫 {{shown}}개 클립",
+    "promptsEnhancedAll_other": "강화된 프롬프트 (전송될 내용): {{count}}개 클립, 각각 하나씩"
+  },
+  "videoSteps": {
+    "profileSteps": "{{label}} ({{steps}} 단계)",
+    "speedProfile": "속도 프로필",
+    "lowVramClamp": "낮은 VRAM 제한",
+    "setBy": "{{label}}에 의해 설정됨",
+    "preset": "프리셋"
+  },
+  "assetGuard": {
+    "blocked": "원격 이미지 차단됨",
+    "offlineFirst": "(오프라인 우선)"
+  },
+  "appStore": {
+    "brandingFailed": "브랜딩을 가져오지 못함: {{status}}"
+  }
+}

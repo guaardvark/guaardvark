@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Normal",
+    "compact": "Compacto",
+    "collapsed": "Recolhido"
+  },
+  "untitled": "Sem título",
+  "note": {
+    "changeColor": "Alterar cor",
+    "close": "Fechar",
+    "closeNote": "Fechar nota",
+    "bold": "Negrito (Ctrl+B)",
+    "italic": "Itálico (Ctrl+I)",
+    "underline": "Sublinhado (Ctrl+U)",
+    "insertLink": "Inserir Link",
+    "bodyPlaceholder": "Digite sua nota..."
+  },
+  "errors": {
+    "loadFailed": "Falha ao carregar notas: {{message}}. Usando padrões.",
+    "saveFailed": "Falha ao salvar notas.",
+    "copyDenied": "Não foi possível copiar: permissão de área de transferência negada",
+    "pasteFailed": "Não foi possível colar: {{message}}",
+    "pasteDenied": "Não foi possível colar: permissão de área de transferência negada"
+  },
+  "pageTitle": "Notas",
+  "loading": "Carregando notas...",
+  "toolbar": {
+    "searchPlaceholder": "Buscar notas...",
+    "dashboardCards": "Cartões do Painel",
+    "stickyNotes": "Notas Adesivas",
+    "addNoteTooltip": "Adicionar Nota",
+    "addNote": "Adicionar nota",
+    "closedNotes": "Notas fechadas",
+    "layoutCycle": "Layout: {{mode}} (clique para alternar)",
+    "layoutMode": "Layout: {{mode}}",
+    "saving": "Salvando...",
+    "allSaved": "Todas as alterações salvas",
+    "saveFailed": "Falha ao salvar"
+  },
+  "emptyNote": "Nota vazia",
+  "menu": {
+    "copy": "Copiar",
+    "selectAll": "Selecionar tudo",
+    "paste": "Colar",
+    "duplicate": "Duplicar",
+    "rename": "Renomear",
+    "unpin": "Desafixar",
+    "pinToTop": "Fixar no topo"
+  },
+  "actions": {
+    "delete": "Excluir",
+    "cancel": "Cancelar",
+    "save": "Salvar"
+  },
+  "deleteDialog": {
+    "title": "Excluir \"{{title}}\"? Ctrl+Z recupera até que você saia ou recarregue esta página."
+  },
+  "boardMenu": {
+    "newNote": "Nova Nota",
+    "cycleLayout": "Alternar Layout",
+    "goToDashboard": "Ir para o Painel"
+  },
+  "renameDialog": {
+    "title": "Renomear Nota",
+    "placeholder": "Título da nota"
+  },
+  "linkDialog": {
+    "title": "Inserir Link",
+    "url": "URL",
+    "insert": "Inserir"
+  },
+  "closed": {
+    "justNow": "Agora mesmo",
+    "minutesAgo": "há {{count}}m",
+    "hoursAgo": "há {{count}}h",
+    "yesterday": "Ontem",
+    "daysAgo": "há {{count}}d",
+    "deleteNamed": "Excluir {{title}}",
+    "heading": "Notas fechadas",
+    "searchPlaceholder": "Buscar notas fechadas...",
+    "empty": "Nenhuma nota fechada",
+    "noMatches": "Sem resultados",
+    "groups": {
+      "today": "Hoje",
+      "yesterday": "Ontem",
+      "thisWeek": "Esta semana",
+      "older": "Anteriores"
+    }
+  }
+}

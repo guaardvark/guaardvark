@@ -1,0 +1,200 @@
+{
+  "common": {
+    "upload": "アップロード",
+    "addFromFiles": "ファイルから追加"
+  },
+  "stage": {
+    "queued": "待機中",
+    "gpuWait": "GPU待機中",
+    "storyboard": "絵コンテ",
+    "director": "ディレクター",
+    "keyframe": "キーフレーム",
+    "generate": "生成中",
+    "post": "後処理",
+    "register": "登録中",
+    "done": "完了"
+  },
+  "keyframeMatch": {
+    "atFrame": "{{frames}}のフレーム{{frame}}にて",
+    "label": "キーフレーム {{percent}}%",
+    "tooltip": "キーフレームとクリップ{{where}}の間の画像エンコーダー一致。色{{hold}}だけでなく、ショット内の変化に反応します。",
+    "holdBelow": "; {{percent}}%未満で、ルックのためにクリップを保持"
+  },
+  "colourMatch": {
+    "label": "色 {{percent}}%",
+    "tooltip": "キーフレーム{{where}}との色の一致。人物ではなく、色のみを比較します。"
+  },
+  "vlmReview": {
+    "score": "QA {{score}}/10",
+    "noScore": "ビジョンレビューのスコアなし",
+    "notReviewed": "未レビュー",
+    "notReviewedWhy": "未レビュー: {{reason}}"
+  },
+  "latentPreview": {
+    "alt": "ライブ潜在プレビュー",
+    "caption": "ライブ潜在プレビュー — 最終品質ではありません"
+  },
+  "qualityFlags": {
+    "unreadable": "判読不能",
+    "blackFrames": "黒いフレーム",
+    "blackTiles": "黒いタイル",
+    "clippedHighlights": "白飛び",
+    "crushedShadows": "黒潰れ",
+    "washedOut": "色あせ",
+    "desaturated": "無彩色",
+    "oversaturated": "彩度過多",
+    "frozen": "静止",
+    "flashes": "点滅",
+    "wrongSize": "サイズ不備",
+    "wrongFrameCount": "長さ不備",
+    "colourDrift": "色被り",
+    "keyframeDrift": "キーフレームのズレ",
+    "lowReviewScore": "評価スコア低",
+    "review": "レビュー",
+    "count": "{{count}} 個の品質フラグ"
+  },
+  "clipReview": {
+    "needsReview": "レビューが必要",
+    "approved": "承認済み",
+    "rerendered": "再レンダリング済み",
+    "newBatch": "新しいバッチ {{batch}}",
+    "heldUntilApproved": "承認されるまでファイルに追加されません。",
+    "held": "レビュー保留中{{reasons}}。",
+    "reasons": ": {{reasons}}",
+    "approve": "承認",
+    "rerenderTooltip": "同じ設定、新しいシードでこのクリップを新しいバッチとして再レンダリングします",
+    "rerender": "再レンダリング"
+  },
+  "cutQuality": {
+    "title": "カットの品質",
+    "held": "{{count}} 件がレビュー待ちです。各カットが承認または再レンダリングされると動画が組み立てられます",
+    "cut": "カット #{{index}}",
+    "noProblems": "問題なし",
+    "heldUntilApproved": "承認されるまで動画に使用されません。"
+  },
+  "effective": {
+    "title": "適用設定",
+    "steps": "{{count}} ステップ",
+    "nativeAudio": "ネイティブオーディオ",
+    "styleEmbedding": "スタイル: {{style}}",
+    "frames": "{{count}} フレーム",
+    "fps": "{{fps}} FPS",
+    "seconds": "~{{seconds}}秒",
+    "keyframeModel": "キーフレーム: {{model}}",
+    "director": "ディレクター",
+    "faceRestore": "顔の修復",
+    "interpolation": "{{multiplier}}x FPS",
+    "upscale": "2x アップスケール",
+    "promptStyle": "{{style}} スタイル",
+    "cast": "キャスト ×{{count}}"
+  },
+  "frameSlot": {
+    "drop": "ここに{{frame}}をドロップ",
+    "remove": "{{frame}}を削除",
+    "choose": "{{frame}}を選択"
+  },
+  "progress": {
+    "state": {
+      "done": "完了",
+      "active": "実行中",
+      "queued": "GPU待機中",
+      "waiting": "待機中",
+      "failed": "失敗",
+      "cancelled": "キャンセル",
+      "pending": "未開始",
+      "skipped": "スキップ"
+    },
+    "etaMeasured": "残り約{{duration}}（計測値）",
+    "etaEstimate": "残り約{{duration}}（予測）",
+    "cell": {
+      "done": "完了",
+      "held": "保持",
+      "failed": "失敗",
+      "rendering": "レンダリング中",
+      "cancelled": "キャンセル",
+      "pending": "保留"
+    },
+    "clipOf": "クリップ {{position}}/{{total}}",
+    "waitingForGpu": "GPU待機中",
+    "working": "処理中…",
+    "elapsed": "経過時間: {{duration}}",
+    "cutTooltip": "カット #{{index}} ・ {{state}}{{locked}}",
+    "locked": "ロック",
+    "cutAria": "カット {{index}} {{state}}"
+  },
+  "referenceBoard": {
+    "rows": {
+      "images": "画像",
+      "videos": "クリップ",
+      "audios": "音声"
+    },
+    "roles": {
+      "keep": "完全に維持",
+      "loose": "外観を緩やかに維持",
+      "detail": "詳細を1つ借りる",
+      "hint": "軽いヒント",
+      "firstFrame": "最初のフレームとして使用",
+      "subject": "登場人物を維持",
+      "motion": "動きとカメラをコピー",
+      "edit": "このクリップを編集",
+      "continue": "このクリップを継続",
+      "voice": "キャラクターの音声",
+      "music": "音楽として使用",
+      "sound": "この音に合わせる"
+    },
+    "problems": {
+      "needVisual": "少なくとも1枚の画像またはクリップを追加してください。音声のみの参照は不可です。",
+      "tooManyImages": "画像は最大{{count}}までです。",
+      "tooManyVideos": "クリップは最大{{count}}までです。",
+      "tooManyAudios": "音声は最大{{count}}までです。",
+      "tooManyFiles": "合計で最大{{count}}のファイルまでです。",
+      "clipTooShort": "クリップ{{clip}}は{{seconds}}秒です。クリップは少なくとも{{shortest}}秒必要です。",
+      "tooManyPictures": "このカードでは、参照クリップを含む{{width}}x{{height}}の{{seconds}}秒のクリップに対し、画像は最大{{count}}までです。",
+      "clipShareTooShort": "このカードでは、{{width}}x{{height}}の{{seconds}}秒のクリップにより、1クリップあたりの参照動画が{{share}}秒となります。これは必要最小限の{{shortest}}秒を下回っています。より短い時間、またはより小さいサイズを選択するか、クリップや画像の数を減らしてください。"
+    },
+    "help": {
+      "images": "人物、場所、製品、または維持したい外観。同じ人物の画像には同じ名前を付けてください。",
+      "videos": "誰かを避ける、動きをコピーする、編集する、または継続させるためのクリップ。2〜15秒。",
+      "audios": "キャラクターの音声、そのまま使用する音楽、または一致する音。"
+    },
+    "rowNames": {
+      "images": "画像",
+      "videos": "クリップ",
+      "audios": "オーディオ"
+    },
+    "insertTag": "プロンプトに挿入",
+    "useItTo": "これを使用して",
+    "whoOrWhat": "これは誰、または何ですか？",
+    "whoOrWhatExample": "例：Maya、赤い車",
+    "optional": "任意",
+    "whichDetail": "どの詳細？",
+    "whichDetailExample": "例：革のジャケットのみ",
+    "whoseVoice": "誰の音声？",
+    "forExample": "例：{{name}}",
+    "whoseVoiceHint": "画像から選んだ名前",
+    "notOnBoard": "ボード上の名前ではありません（{{names}}）",
+    "sound": "音",
+    "ownSound": "独自の音",
+    "noSound": "音なし",
+    "track": "トラック：{{file}}",
+    "separateTrack": "別のトラック…",
+    "lengthUnknown": "長さ不明",
+    "clipHasNoSound": "このクリップには音が含まれていません",
+    "itsSoundIs": "その音は{{tag}}です",
+    "modelReadsFirst": "モデルは最初の{{seconds}}秒を読み取ります",
+    "clipsNeedAtLeast": "クリップには少なくとも{{shortest}}秒必要です。",
+    "earlier": "前へ（タグを振り直します）",
+    "moveEarlier": "前へ移動",
+    "later": "後ろへ（タグを振り直します）",
+    "moveLater": "後ろへ移動",
+    "remove": "削除",
+    "removeReference": "参照を削除",
+    "onlyThisRow": "この行には{{rows}}のみが入ります。",
+    "dropHere": "ここに{{rows}}をドロップ",
+    "dropHereOr": "ここに{{rows}}をドロップ、または",
+    "couldNotRead": "{{file}} を読み取れませんでした。",
+    "uploadFailed": "アップロードに失敗しました。",
+    "fileCount": "{{total}}個中{{used}}個のファイル。各クリップの個別のトラックは1つとしてカウントされます。",
+    "chooseSoundtrack": "クリップのサウンドトラックを選択"
+  }
+}

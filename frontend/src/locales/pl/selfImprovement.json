@@ -1,0 +1,93 @@
+{
+  "page": {
+    "title": "Samodoskonalenie",
+    "systemMap": "Mapa systemu",
+    "uncleClaudeSettings": "Uncle Claude w Ustawieniach",
+    "intro": "Guaardvark przeprowadza własne testy, przygotowuje poprawki i wystawia je do Twojej weryfikacji. Nic nie trafia do kodu, dopóki nie zatwierdzisz i nie zastosujesz tego, a Codebase locked blokuje każdą automatyczną zmianę.",
+    "recentRuns": "Ostatnie uruchomienia",
+    "noCodeKeeps": "Brak zachowań kodu w Autodobadaniach."
+  },
+  "codeKeeps": {
+    "approved": "Zachowanie kodu zatwierdzone. Zastosuj je z Pendency fixes.",
+    "rejected": "Zachowanie kodu odrzucone",
+    "approveFailed": "Błąd zatwierdzania zachowania kodu: {{error}}",
+    "rejectFailed": "Błąd odrzucania zachowania kodu: {{error}}",
+    "title": "Zachowania kodu",
+    "intro": "Swarm arms, które przeszły preserve-and-extend. Zatwierdź tutaj, a następnie zastosuj w Ustawieniach — nic nie jest automatycznie scalane z Główne.",
+    "description": "Opis",
+    "status": "Status",
+    "created": "Utworzono",
+    "actions": "Akcje",
+    "approve": "Zatwierdź",
+    "reject": "Odrzuć"
+  },
+  "fixStatus": {
+    "proposed": "proponowane",
+    "triaged": "segregowane",
+    "approved": "zatwierdzone",
+    "applied": "zastosowane",
+    "rejected": "odrzucone"
+  },
+  "controls": {
+    "title": "Samodoskonalenie",
+    "help": "Guaardvark sprawdza własny kod i proponuje poprawki do Twojej weryfikacji. Codebase locked blokuje każdą automatyczną edycję.",
+    "enabledChip": "Samodoskonalenie",
+    "enabledTooltip": "Pozwala mentorowi przeskanować bazę kodu i zaproponować poprawki do weryfikacji.",
+    "lockedChip": "Kod zablokowany",
+    "lockedOnTooltip": "Autonomiczne edycje są zablokowane. Wyłącz, aby je umożliwić.",
+    "lockedOffTooltip": "Włącz, aby zablokować każdą autonomiczną edycję drzewa źródłowego.",
+    "turnOnFirst": "Włącz najpierw Samodoskonalenie",
+    "unlockFirst": "Odblokuj najpierw Kod",
+    "runTooltip": "Uruchamia sprawdzenia teraz. Anuluj prosi serwer o zatrzymanie; zamknięcie widoku pozostawia skanowanie w toku.",
+    "runSelfCheck": "Uruchom autoskontrolę",
+    "lastRun_few": "Ostatnie uruchomienie {{date}} ({{status}}) · {{count}} udanych uruchomień.",
+    "lastRun_many": "Ostatnie uruchomienie {{date}} ({{status}}) · {{count}} udanych uruchomień.",
+    "lastRun_one": "Ostatnie uruchomienie {{date}} ({{status}}) · {{count}} udane uruchomienie.",
+    "noRuns": "Brak uruchomień.",
+    "readingStatus": "Odczytywanie statusu…",
+    "lockedNote": "Kod jest zablokowany: autonomiczne edycje są zablokowane.",
+    "cancelled": "Anulowano",
+    "scanInBackground": "Skanowanie trwa w tle",
+    "pendingFixes": "Oczekujące poprawki",
+    "pendingFixesHelp": "Poprawki zaproponowane przez autoskontrolę, czekające na Twoją weryfikację lub zastosowanie. Nic nie trafi do kodu, dopóki nie zatwierdzisz i nie zastosujesz ich.",
+    "waiting": "{{count}} oczekujących",
+    "reviewFixes": "Przejrzyj poprawki"
+  },
+  "runStatus": {
+    "running": "w trakcie",
+    "success": "sukces",
+    "failed": "błąd",
+    "cancelled": "anulowano",
+    "blocked_by_guardian": "zablokowane przez strażnika"
+  },
+  "trigger": {
+    "scheduled": "zaplanowane",
+    "reactive": "reaktywne",
+    "directed": "ukierunkowane",
+    "family_learning": "family_learning"
+  },
+  "runs": {
+    "filter": {
+      "all": "Wszystkie",
+      "scheduled": "Zaplanowane",
+      "reactive": "Reaktywne",
+      "directed": "Ukierunkowane",
+      "success": "Sukces",
+      "failed": "Błąd"
+    },
+    "empty": "Nie zarejestrowano jeszcze żadnych przebiegów Samodoskonalenia.",
+    "status": "Status",
+    "trigger": "Wyzwalacz",
+    "timestamp": "Znacznik czasu",
+    "duration": "Czas trwania",
+    "uncleReviewed": "Sprawdzone przez Uncle",
+    "details": "Szczegóły",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "Sprawdzone",
+    "notReviewed": "Nie",
+    "expand": "Rozwiń",
+    "uncleFeedback": "Opinia Uncle Claude",
+    "changesMade": "Wprowadzone zmiany",
+    "testResults": "Wyniki testów"
+  }
+}

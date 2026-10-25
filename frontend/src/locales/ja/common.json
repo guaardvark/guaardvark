@@ -1,0 +1,15 @@
+{
+  "voice": "音声",
+  "collapse": "折りたたむ",
+  "close": "閉じる",
+  "cancel": "キャンセル",
+  "refresh": "更新",
+  "loading": "読み込み中...",
+  "retry": "再試行",
+  "ok": "OK",
+  "reload": "再読み込み",
+  "dismiss": "閉じる",
+  "error": "エラー",
+  "open": "開く",
+  "delete": "削除"
+}

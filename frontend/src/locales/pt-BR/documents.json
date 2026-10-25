@@ -1,0 +1,259 @@
+{
+  "rootFolderName": "Arquivos",
+  "pdfViewer": {
+    "openInNewTab": "Abrir em nova aba",
+    "noFile": "Nenhum arquivo PDF selecionado"
+  },
+  "docxViewer": {
+    "fetchFailed": "Falha ao buscar ({{status}})",
+    "renderFailed": "Não foi possível renderizar o documento",
+    "downloadOriginal": "Baixar original"
+  },
+  "actions": {
+    "close": "Fechar",
+    "cancel": "Cancelar"
+  },
+  "entityFiles": {
+    "regionLabel": "Arquivos para este {{kind}}",
+    "regionLabel_client": "Arquivos para este cliente",
+    "regionLabel_website": "Arquivos para este site",
+    "title": "Arquivos para {{name}}",
+    "title_client": "Arquivos para este cliente",
+    "title_clientNamed": "Arquivos para o cliente {{name}}",
+    "title_website": "Arquivos para este site",
+    "title_websiteNamed": "Arquivos para o site {{name}}",
+    "loadFailed": "Não foi possível carregar os arquivos: {{error}}",
+    "empty": "Nenhum arquivo está vinculado a este {{kind}}. Vincule um arquivo ou pasta a ele em suas Propriedades.",
+    "empty_client": "Nenhum arquivo está vinculado a este cliente. Vincule um arquivo ou pasta a ele em suas Propriedades.",
+    "empty_website": "Nenhum arquivo está vinculado a este site. Vincule um arquivo ou pasta a ele em suas Propriedades.",
+    "filesRoot": "Raiz de arquivos"
+  },
+  "audioPlayer": {
+    "untitled": "áudio",
+    "closeLabel": "fechar",
+    "seed": "semente: {{seed}}",
+    "openInNewTab": "Abrir em nova aba"
+  },
+  "folderWindow": {
+    "listView": "Visualização em Lista",
+    "gridView": "Visualização em Grade",
+    "mediaView": "Visualização de Mídia",
+    "codeRepoChip": "REPO DE CÓDIGO"
+  },
+  "contextMenu": {
+    "openInWindow": "Abrir na Janela",
+    "minimize": "Minimizar",
+    "newFolder": "Nova Pasta",
+    "importFiles": "Importar Arquivos",
+    "paste": "Colar",
+    "closeWindow": "Fechar Janela",
+    "reviewWithAgent": "Revisar com Agente",
+    "cut": "Recortar",
+    "copy": "Copiar",
+    "rename": "Renomear",
+    "properties": "Propriedades",
+    "bulkImportHere": "Importação em Massa para esta pasta…",
+    "indexContents": "Indexar Conteúdo",
+    "delete": "Excluir",
+    "download": "Baixar",
+    "edit": "Editar",
+    "view": "Visualizar",
+    "openInCodeEditor": "Abrir no Editor de Código",
+    "index": "Indexar",
+    "open": "Abrir",
+    "restore": "Restaurar"
+  },
+  "codeRepo": {
+    "never": "Nunca",
+    "unknown": "Desconhecido",
+    "buttonTooltip": "Inteligência de Repositório de Código: linguagens, frameworks, mapa de repositório e dependências",
+    "buttonLabel": "Inteligência de Repositório de Código para {{name}}",
+    "button": "INTEL",
+    "title": "Inteligência de Repositório de Código",
+    "analyzed": "Analisado: {{date}}",
+    "languagesFrameworks": "Linguagens e Frameworks",
+    "analysisPending": "Análise pendente",
+    "statistics": "Estatísticas",
+    "fileCount_one": "{{count}} Arquivos",
+    "fileCount_other": "{{count}} Arquivos",
+    "mappedFileCount_one": "{{count}} arquivos mapeados",
+    "mappedFileCount_other": "{{count}} arquivos mapeados",
+    "viewMap": "Ver Mapa do Repositório",
+    "viewDependencies": "Ver Dependências",
+    "mapTitle": "Mapa do Repositório",
+    "noMap": "Nenhum mapa disponível.",
+    "graphTitle": "Grafo de Dependências"
+  },
+  "desktop": {
+    "loadFailed": "Falha ao carregar itens da área de trabalho",
+    "movedToFolder": "Movido(s) {{count}} item(ns) para {{folder}}",
+    "movedToDesktop": "Movido(s) {{count}} item(ns) para a área de trabalho"
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "Arquivos do repositório ao vivo são apenas para leitura aqui. Use uma edição de código próprio em estágio em vez disso.",
+    "saveFailed": "Falha ao salvar: {{error}}",
+    "liveRepoReviewFirst": "Arquivos do repositório ao vivo são revisados primeiro e não podem ser editados diretamente neste modal.",
+    "discardConfirm": "Você tem alterações não salvas. Descartá-las?",
+    "liveRepoChip": "Repositório ao vivo · apenas leitura",
+    "modified": "Modificado",
+    "viewMode": "Modo de visualização",
+    "editMode": "Modo de edição",
+    "openInCodeEditor": "Abrir no Editor de Código",
+    "copy": "Copiar para a área de transferência",
+    "saving": "Salvando...",
+    "save": "Salvar"
+  },
+  "folder": {
+    "empty": "Esta pasta está vazia",
+    "loadFailed": "Falha ao carregar o conteúdo da pasta",
+    "columnName": "Nome",
+    "columnDate": "Data",
+    "columnSize": "Tamanho",
+    "codeRepository": "Repositório de Código",
+    "itemCount_one": "{{count}} itens",
+    "itemCount_other": "{{count}} itens"
+  },
+  "mediaView": {
+    "selectFile": "Selecionar um arquivo",
+    "previous": "Anterior",
+    "next": "Próximo",
+    "open": "Abrir",
+    "download": "Download",
+    "closePreview": "Fechar visualização"
+  },
+  "indexStatus": {
+    "indexed": "Indexado",
+    "indexing": "Indexando...",
+    "pending": "Pendente",
+    "error": "Erro",
+    "folderFull": "Totalmente indexado ({{indexed}}/{{total}})",
+    "folderPartial": "Parcialmente indexado ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "O nome da pasta não pode estar vazio",
+    "emptyFileName": "O nome do arquivo não pode estar vazio",
+    "invalidFolderName": "O nome da pasta contém caracteres inválidos. Por favor, use apenas letras, números, espaços, hifens e sublinhados.",
+    "invalidFileName": "O nome do arquivo contém caracteres inválidos. Por favor, use apenas letras, números, espaços, hifens, sublinhados e pontos.",
+    "invalidName": "O nome do arquivo contém caracteres inválidos. Por favor, use apenas letras, números, espaços, hifens e sublinhados.",
+    "folderNameTooLong": "O nome da pasta é muito longo. O comprimento máximo é de {{max}} caracteres.",
+    "fileNameTooLong": "O nome do arquivo é muito longo. O comprimento máximo é de {{max}} caracteres."
+  },
+  "indexing": {
+    "nothing": "Nada para indexar",
+    "alreadyIndexedOne": "Já indexado; o arquivo não foi alterado",
+    "alreadyIndexedAll_one": "Tudo já está indexado ({{count}} arquivos sem alterações)",
+    "alreadyIndexedAll_other": "Tudo já foi indexado ({{count}} arquivos inalterados)",
+    "documentCount_one": "{{count}} documento",
+    "documentCount_other": "{{count}} documentos",
+    "folderCount_one": "{{count}} pasta",
+    "folderCount_other": "{{count}} pastas",
+    "startedFromFoldersSkipped": "Indexando {{documents}} de {{folders}}, {{skipped}} já indexados",
+    "startedFromFolders": "Indexando {{documents}} de {{folders}}",
+    "startedSkipped": "Indexando {{documents}}, {{skipped}} já indexados",
+    "started": "Indexando {{documents}}",
+    "startFailed": "Falha ao iniciar indexação",
+    "failed": "Falha na indexação: {{error}}"
+  },
+  "page": {
+    "refreshFailed": "Falha ao atualizar",
+    "downloading": "Baixando {{name}}",
+    "title": "Arquivos",
+    "loadingFolders": "Carregando pastas...",
+    "importFiles": "Importar Arquivos",
+    "arrangeIcons": "Organizar Ícones",
+    "arrangeWindows": "Organizar Janelas",
+    "modelLoading": "Carregando...",
+    "modelError": "Erro",
+    "emptyTitle": "Nenhum documento ainda",
+    "emptyHint": "Arraste arquivos para cá ou clique com o botão direito para criar uma pasta",
+    "folderItemCount_one": "{{count}} item",
+    "folderItemCount_other": "{{count}} itens",
+    "uploadProgress_one": "Enviando {{current}}/{{count}} arquivo...",
+    "uploadProgress_other": "Enviando {{current}}/{{count}} arquivos..."
+  },
+  "import": {
+    "nothingToImport": "Nada para importar: {{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "falha no upload",
+    "importedSkipped": "Importado(s) {{count}} arquivo(s) em {{folder}}; {{skipped}}",
+    "imported": "Importado(s) {{count}} arquivo(s) em {{folder}}",
+    "importedPartlySkipped": "Importado(s) {{count}} arquivo(s) em {{folder}}; {{failed}} falhou ({{error}}); {{skipped}}",
+    "importedPartly": "Importado(s) {{count}} arquivo(s) em {{folder}}; {{failed}} falhou ({{error}})",
+    "failed": "Falha na importação: {{error}}",
+    "importedFiltered": "Importado(s) {{count}} arquivo(s) em {{folder}} ({{ignored}} ignorado(s) pelo filtro)",
+    "failedPlain": "Falha na importação"
+  },
+  "move": {
+    "intoOwnSubfolder": "Não é possível mover \"{{name}}\" para sua própria subpasta",
+    "unknownError": "Erro desconhecido",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "Movido(s) {{count}} item(ns)",
+    "failed": "Falha ao mover itens",
+    "movedPartly": "Movido(s) {{count}} item(ns), {{failed}} falhou",
+    "dropFailed": "Falha ao processar a soltura",
+    "operationFailed": "Operação falhou: {{error}}"
+  },
+  "newFolder": {
+    "created": "Pasta \"{{name}}\" criada",
+    "failed": "Falha ao criar pasta",
+    "title": "Criar Nova Pasta",
+    "nameLabel": "Nome da Pasta",
+    "create": "Criar"
+  },
+  "clipboard": {
+    "copied": "Copiado(s) {{count}} item(ns)",
+    "cut": "Recortado(s) {{count}} item(ns)",
+    "foldersNotPastable": "Pastas não podem ser coladas em {{folder}}",
+    "liveRepoReadOnly": "Itens no repositório ao vivo são apenas leitura aqui",
+    "itemFailed": "falhou",
+    "pasted": "Item(ns) {{count}} colado(s) em {{folder}}",
+    "moved": "Item(ns) {{count}} movido(s) para {{folder}}",
+    "pastedPartly": "Item(ns) {{count}} colado(s) em {{folder}}; {{failed}} falhou(aram): {{error}}",
+    "movedPartly": "Item(ns) {{count}} movido(s) para {{folder}}; {{failed}} falhou(aram): {{error}}",
+    "pasteFailed": "Falha ao colar: {{error}}",
+    "moveFailed": "Falha ao mover: {{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "A montagem do Código ao vivo é apenas leitura",
+    "deleted": "Item(ns) {{count}} excluído(s)",
+    "someFailed": "Algumas exclusões podem ter falhado — atualizando estado",
+    "confirmTitle": "Confirmar Excluir",
+    "confirmBody_one": "Excluir {{count}} item? Esta ação não pode ser desfeita.",
+    "confirmBody_other": "Excluir {{count}} itens? Esta ação não pode ser desfeita.",
+    "confirm": "Excluir"
+  },
+  "properties": {
+    "fileNotFound": "Arquivo não encontrado",
+    "loadFailed": "Falha ao carregar detalhes do arquivo",
+    "fileUpdated": "Propriedades do arquivo atualizadas com sucesso",
+    "fileUpdateFailed": "Falha ao atualizar propriedades do arquivo",
+    "updateFailed": "Falha na atualização: {{error}}",
+    "fileDeleted": "Arquivo excluído com sucesso",
+    "fileDeleteFailed": "Falha ao excluir arquivo",
+    "deleteFailed": "Falha ao excluir: {{error}}",
+    "reindexStarted": "Reindexação iniciada com sucesso. O status será atualizado em breve.",
+    "reindexStartFailed": "Falha ao iniciar reindexação",
+    "reindexFailed": "Reindex falhou: {{error}}",
+    "folderApplied": "Propriedades aplicadas com sucesso! Arquivos atualizados: {{files}}, Subpastas processadas: {{folders}}",
+    "folderUpdated": "Propriedades da pasta atualizadas com sucesso",
+    "folderUpdateFailed": "Falha ao atualizar propriedades da pasta",
+    "folderDeleted": "Pasta excluída"
+  },
+  "rename": {
+    "folderRenamed": "Pasta renomeada para \"{{name}}\"",
+    "fileRenamed": "Arquivo renomeado para \"{{name}}\"",
+    "failedReason": "Falha no renomear: {{reason}}",
+    "failed": "Falha no renomear",
+    "folderTitle": "Renomear Pasta",
+    "fileTitle": "Renomear Arquivo",
+    "fileNameLabel": "Nome do Arquivo",
+    "fileHint": "Altera o nome exibido no Guaardvark; o arquivo no disco mantém seu nome.",
+    "submit": "Renomear"
+  },
+  "review": {
+    "liveRepoOnly": "A revisão de código própria só está disponível para a montagem do repositório ao vivo",
+    "dispatchedTask": "Revisão de código própria enviada ({{taskId}})",
+    "dispatched": "Revisão de código própria enviada",
+    "failed": "Falha ao enviar revisão de código própria"
+  }
+}

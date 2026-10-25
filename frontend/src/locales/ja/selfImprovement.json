@@ -1,0 +1,91 @@
+{
+  "page": {
+    "title": "自己改善",
+    "systemMap": "システムマップ",
+    "uncleClaudeSettings": "設定内のUncle Claude",
+    "intro": "Guaardvarkは独自のテストを実行し、修正案を作成してあなたの確認を待ちます。あなたが承認して適用するまで、何もCodeには反映されません。また、Codebase lockedはすべての自動変更を停止します。",
+    "recentRuns": "最近の実行",
+    "noCodeKeeps": "自動リサーチによるCode keepはありません。"
+  },
+  "codeKeeps": {
+    "approved": "Code keepが承認されました。保留中の修正から適用してください。",
+    "rejected": "Code keepが拒否されました",
+    "approveFailed": "Code keepの承認に失敗しました: {{error}}",
+    "rejectFailed": "Code keepの拒否に失敗しました: {{error}}",
+    "title": "Code keeps",
+    "intro": "preserve-and-extendを通過したSwarmアームです。ここで承認し、その後設定から適用してください。メインへ自動マージされることはありません。",
+    "description": "説明",
+    "status": "ステータス",
+    "created": "作成日時",
+    "actions": "アクション",
+    "approve": "承認",
+    "reject": "拒否"
+  },
+  "fixStatus": {
+    "proposed": "提案済み",
+    "triaged": "仕分け済み",
+    "approved": "承認済み",
+    "applied": "適用済み",
+    "rejected": "拒否済み"
+  },
+  "controls": {
+    "title": "自己改善",
+    "help": "Guaardvarkは自身のコードをチェックし、確認用の修正案を提示します。Codebase lockedはすべての自動編集をブロックします。",
+    "enabledChip": "自己改善",
+    "enabledTooltip": "メンターがコードベースをスキャンし、確認用の修正案を提案できるようにします。",
+    "lockedChip": "コードのロック",
+    "lockedOnTooltip": "自律的な編集がブロックされています。許可するにはオフにしてください。",
+    "lockedOffTooltip": "オンにすると、ソースツリーへのすべての自律的な編集をブロックします。",
+    "turnOnFirst": "最初に「自己改善」をオンにする",
+    "unlockFirst": "最初にコードをアンロックする",
+    "runTooltip": "今すぐチェックを実行します。キャンセルを押すとサーバーに停止を要求します。ビューを閉じてもスキャンは継続します。",
+    "runSelfCheck": "セルフチェックを実行",
+    "lastRun_other": "最終実行 {{date}} ({{status}}) ・ {{count}} 回成功",
+    "noRuns": "まだ実行されていません。",
+    "readingStatus": "ステータスを読み取り中…",
+    "lockedNote": "コードがロックされています：自律的な編集はブロックされています。",
+    "cancelled": "キャンセル",
+    "scanInBackground": "バックグラウンドでスキャンを継続",
+    "pendingFixes": "保留中の修正",
+    "pendingFixesHelp": "セルフチェックで提案された修正です。確認または適用をお待ちしています。承認して適用するまで、コードには反映されません。",
+    "waiting": "{{count}} 件待機中",
+    "reviewFixes": "修正を確認"
+  },
+  "runStatus": {
+    "running": "実行中",
+    "success": "成功",
+    "failed": "失敗",
+    "cancelled": "キャンセル",
+    "blocked_by_guardian": "guardianによりブロック"
+  },
+  "trigger": {
+    "scheduled": "スケジュール済み",
+    "reactive": "リアクティブ",
+    "directed": "指示済み",
+    "family_learning": "family_learning"
+  },
+  "runs": {
+    "filter": {
+      "all": "すべて",
+      "scheduled": "スケジュール済み",
+      "reactive": "反応型",
+      "directed": "指示型",
+      "success": "成功",
+      "failed": "失敗"
+    },
+    "empty": "まだ自己改善の実行記録はありません。",
+    "status": "ステータス",
+    "trigger": "トリガー",
+    "timestamp": "タイムスタンプ",
+    "duration": "実行時間",
+    "uncleReviewed": "Uncle Reviewed",
+    "details": "詳細",
+    "durationSeconds": "{{seconds}}秒",
+    "reviewed": "確認済み",
+    "notReviewed": "未確認",
+    "expand": "展開",
+    "uncleFeedback": "Uncle Claude フィードバック",
+    "changesMade": "変更内容",
+    "testResults": "テスト結果"
+  }
+}

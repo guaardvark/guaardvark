@@ -1,0 +1,190 @@
+{
+  "memoryPage": {
+    "title": "エージェントメモリ"
+  },
+  "groups": {
+    "create": "作成",
+    "createHelp": "ページ、コード、データファイルを書き込むエージェント。",
+    "web": "Web",
+    "webHelp": "Webページを検索、読み取り、操作するエージェント。設定でWebアクセスをオンにする必要があります。",
+    "computer": "このコンピュータ",
+    "computerHelp": "このマシン上で動作するエージェント：エージェント自身の画面、デスクトップ、およびメディア再生。",
+    "routing": "ルーティング",
+    "routingHelp": "汎用アシスタントは専門エージェントが対応できないタスクを担当し、タスクオーケストレーターは多段階の要求を複数のエージェントに振り分けます。",
+    "other": "その他"
+  },
+  "table": {
+    "label": "エージェント",
+    "agent": "エージェント",
+    "group": "グループ",
+    "whatItDoes": "機能",
+    "status": "ステータス",
+    "tools": "ツール",
+    "maxSteps": "最大ステップ",
+    "model": "モデル",
+    "edited": "編集済み",
+    "chatModel": "チャットモデル"
+  },
+  "page": {
+    "loadFailed": "エージェントの読み込みに失敗しました",
+    "enabled": "{{name}} 有効",
+    "disabled": "{{name}} 無効",
+    "toggleFailed": "切り替えに失敗しました",
+    "copied": "{{id}} をコピーしました",
+    "copyFailed": "クリップボードへのコピーに失敗しました",
+    "title": "エージェント",
+    "viewLabel": "エージェント表示",
+    "tileView": "タイル表示",
+    "tableView": "テーブル表示",
+    "loading": "エージェントを読み込み中...",
+    "emptyTitle": "エージェントが見つかりません",
+    "emptyDescription": "設定完了後にエージェントがここに表示されます",
+    "unnamedAgent": "エージェント",
+    "updated": "エージェントを更新しました"
+  },
+  "actions": {
+    "edit": "編集",
+    "test": "テスト",
+    "enable": "有効にする",
+    "disable": "無効にする",
+    "copyId": "IDをコピー",
+    "resetToDefault": "デフォルトに戻す"
+  },
+  "reset": {
+    "backToDefault": "組み込みのデフォルトに戻す",
+    "title": "{{name}}をデフォルトにリセット",
+    "unnamedAgent": "エージェント",
+    "description": "これらのフィールドの変更内容は、組み込みの値に置き換えられます。",
+    "keeps": "エージェントのオン/オフの状態",
+    "confirm": "リセット",
+    "failed": "リセットに失敗しました",
+    "done": "{{name}}をデフォルトにリセットしました"
+  },
+  "edit": {
+    "instructions": "指示",
+    "maxIterations": "最大反復回数",
+    "model": "モデル",
+    "loadFailed": "エージェントを読み込めませんでした",
+    "saveFailed": "保存に失敗しました",
+    "enabled": "有効",
+    "offNote": "オフ",
+    "activeChatModel": "アクティブなチャットモデル（デフォルト）",
+    "modelNotInstalled": "（未インストール）",
+    "iterationsRange": "1から{{max}}",
+    "instructionsHelp": "このエージェントのシステムプロンプトの一部としてモデルに送信されます。",
+    "instructionsEmpty": "指示は空にできません。代わりに「デフォルトに戻す」を使用してください。",
+    "plannerPrompt": "プランナーは各リクエストに対して独自のプロンプトを書き込むため、編集する項目はありません。",
+    "toolsHeading": "ツール（{{count}}）",
+    "toolNotInstalled": "未インストール",
+    "toolNeedsApproval": "承認が必要（ここで拒否）",
+    "nothingChanged": "組み込みのデフォルトから変更はありません",
+    "save": "保存"
+  },
+  "tile": {
+    "off": "オフ",
+    "toolsMissing_other": "{{count}}個のツールが不足しています",
+    "ready": "準備完了",
+    "handsSteps": "他のエージェントへのステップ",
+    "toolCount_other": "{{count}} 個のツール",
+    "missingCount": "{{count}} 個不足",
+    "maxSteps": "最大 {{max}}",
+    "edited": "編集済み"
+  },
+  "test": {
+    "invalidContext": "コンテキストは有効なJSONである必要があります",
+    "executionFailedError": "エージェントの実行に失敗しました",
+    "title": "{{name}} をテスト",
+    "planOnly": "オーケストレーターがこのメッセージに対して作成するプランを表示します。ステップは実行されません。",
+    "realRun": "実行（Run）は、チャットで質問するのと同じように、このメッセージで実際にエージェントを実行します。ツールを使用し、Guaardvarkの出力フォルダ内にファイルを作成する可能性があります。",
+    "message": "メッセージ",
+    "context": "コンテキスト (JSON)",
+    "planMade": "プラン作成済み",
+    "complete": "実行完了 ({{iterations}} 回の反復)",
+    "failed": "実行失敗",
+    "run": "実行"
+  },
+  "screen": {
+    "chipTooltip": "エージェントの仮想画面",
+    "popup": "ポップアップ",
+    "live": "ライブ",
+    "screen": "画面",
+    "emptyFrame": "空のフレームを受信",
+    "displayNotRunning": "エージェントのディスプレイが動作していません",
+    "captureFailed": "キャプチャに失敗しました ({{status}})",
+    "connectionLost": "接続が切れました",
+    "startFailed": "エージェントのディスプレイの起動に失敗しました",
+    "popupTitle": "Guaardvark エージェント画面",
+    "title": "エージェント画面",
+    "training": "トレーニング",
+    "fpsValue": "{{fps}}fps",
+    "inPopup": "ポップアップ内",
+    "imageAlt": "エージェントの画面",
+    "starting": "エージェントのディスプレイを起動中…",
+    "connecting": "接続中...",
+    "paused": "一時停止中",
+    "fps": "FPS"
+  },
+  "keyboard": {
+    "forwardingOn": "キーボード → エージェント画面: ON (クリックで停止)",
+    "forwardingOff": "キーボードをエージェント画面に送信"
+  },
+  "lesson": {
+    "heading_other": "レッスン — {{count}} 個のパール",
+    "hide": "非表示（レッスンは継続中 — チャットヘッダーの「レッスン終了」で停止してください）",
+    "waiting": "最初のパールを待機中。正解の回答には「いいね」を押してください。",
+    "noTaskText": "（タスクテキストなし）",
+    "finalizing": "レッスンを確定中 — パールを要約に抽出中…"
+  },
+  "trainer": {
+    "level": {
+      "guided": "ガイド付き",
+      "supervised": "監視下",
+      "autonomous": "自律型"
+    },
+    "noDemos": "デモはまだありません。VNCに接続して「録画開始」をクリックしてください。",
+    "untitled": "無題",
+    "attempts": "{{count}} 回の試行",
+    "deleteDemo": "デモを削除",
+    "saveDemo": "トレーニングページで保存＆編集",
+    "attemptDemo": "エージェントがこのデモを試行",
+    "demoName": "デモ名（任意）",
+    "nameDemo": "このデモに名前を付ける",
+    "startRecording": "録画開始",
+    "recording": "録画中...",
+    "stepsCaptured": "{{count}} ステップをキャプチャ",
+    "stopRecording": "録画停止",
+    "waitingForQuestions": "質問を待機中...",
+    "question": {
+      "clarification": "詳細確認",
+      "generalization": "一般化",
+      "confirmation": "確認",
+      "generic": "質問"
+    },
+    "answerPlaceholder": "回答を入力してください...",
+    "skip": "スキップ",
+    "success": "成功！",
+    "failed": "失敗",
+    "stepsCompleted": "完了済み: {{completed}} / {{total}} ステップ",
+    "stepOf": "ステップ {{step}} / {{total}}",
+    "confirm": "確認",
+    "correct": "正解",
+    "title": "トレーナー"
+  },
+  "plan": {
+    "status": {
+      "pending": "保留中",
+      "running": "実行中",
+      "completed": "完了",
+      "failed": "失敗",
+      "planning": "計画中",
+      "executing": "実行中"
+    },
+    "step": "ステップ {{id}}: {{description}}",
+    "stepStatus": "ステータス: {{status}}",
+    "viewResult": "結果を表示",
+    "stepError": "エラー: {{error}}",
+    "heading_other": "オーケストレーション計画 — {{count}} ステップ",
+    "executing": "実行中...",
+    "execute": "計画を実行"
+  }
+}

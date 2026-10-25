@@ -1,0 +1,186 @@
+{
+  "loading": {
+    "processing": "処理中...",
+    "thinking": "AIが思考中...",
+    "analyzingSelection": "選択されたコードを解析中...",
+    "sending": "AIアシスタントに送信中...",
+    "processingResponse": "AIの回答を処理中...",
+    "searchingProject": "プロジェクトのコンテキストを検索中...",
+    "buildingContext": "スマートコンテキストを構築中..."
+  },
+  "commands": {
+    "explain": {
+      "label": "解説",
+      "description": "選択したコードを解説、またはファイル構造全体を分析します"
+    },
+    "edit": {
+      "label": "スマート編集",
+      "description": "コンテキストを理解したAIによるコード編集"
+    },
+    "optimize": {
+      "label": "最適化",
+      "description": "詳細な分析によるパフォーマンスの最適化"
+    },
+    "refactor": {
+      "label": "リファクタリング",
+      "description": "インテリジェントなコードの再構築"
+    },
+    "test": {
+      "label": "テスト生成",
+      "description": "包括的なユニットテストを作成"
+    },
+    "fix": {
+      "label": "自動修正",
+      "description": "検出されたエラーや問題を自動的に修正"
+    },
+    "document": {
+      "label": "ドキュメント化",
+      "description": "ドキュメントとコメントを生成"
+    },
+    "secure": {
+      "label": "セキュリティスキャン",
+      "description": "包括的なセキュリティ脆弱性分析"
+    },
+    "suggest": {
+      "label": "提案",
+      "description": "インテリジェントなコードの提案を取得"
+    }
+  },
+  "progress": {
+    "processingWithContext": "フルコンテキストで処理中...",
+    "completed": "AIアシスタンスが完了しました"
+  },
+  "errors": {
+    "noSelectionResponse": "選択内容の解析において、チャットサービスがnullまたは未定義のレスポンスを返しました",
+    "noResponse": "チャットサービスがnullまたは未定義のレスポンスを返しました",
+    "noGeneralResponse": "一般的な会話において、チャットサービスがnullまたは未定義のレスポンスを返しました"
+  },
+  "replies": {
+    "analysisFailed": "解析に失敗しました",
+    "validationFailed": "入力の検証に失敗しました: {{errors}}",
+    "rateLimited": "レート制限を超過しました。しばらく待ってから再度お試しください。",
+    "analysisFailedWithError": "解析に失敗しました: {{error}}",
+    "explanationFailed": "説明に失敗しました: {{error}}",
+    "editHelp": "編集指示を入力してください。例: 「/edit この関数にエラーハンドリングを追加して」",
+    "editDescriptionSelection": "編集: {{instructions}}（選択したテキストを置換します。エディタでCtrl+Zを押すと元に戻ります）",
+    "editDescriptionFile": "編集: {{instructions}}（ファイル全体を置換します。エディタでCtrl+Zを押すと元に戻ります）",
+    "editReadySelection": "選択したテキストの編集準備が完了しました。プレビューで差分を確認し、適用ボタンでエディタに反映します。",
+    "editReadyFile": "ファイル全体の編集準備が完了しました。プレビューで差分を確認し、適用ボタンでエディタに反映します。",
+    "noReply": "アシスタントから返答がありませんでした。",
+    "editFailed": "コードの編集に失敗しました: {{error}}",
+    "fixAnalysis": "**自動修正解析:**\n\n{{analysis}}",
+    "fixFailed": "修正解析に失敗しました: {{error}}",
+    "securityAnalysis": "**セキュリティ分析:**\n\n{{analysis}}",
+    "securityFailed": "セキュリティ分析に失敗しました: {{error}}",
+    "commandNames": {
+      "optimize": "最適化",
+      "refactor": "リファクタリング",
+      "test": "テスト",
+      "document": "ドキュメント化"
+    },
+    "commandDescription": "{{command}}: ファイル全体を置換します（エディタでCtrl+Zを押すと元に戻ります）",
+    "commandReady": "{{command}} の準備ができました。プレビューで差分を表示し、適用でファイル全体を置換します。",
+    "commandNoReply": "{{command}} から応答がありませんでした。",
+    "commandFailed": "{{command}} に失敗しました: {{error}}",
+    "requestTrouble": "申し訳ありませんが、リクエストの処理中に問題が発生しました。エラー: {{error}}",
+    "error": "申し訳ありません、エラーが発生しました: {{message}}",
+    "noActiveFile": "アクティブなファイルがありません\n\nAIの支援を受けるには、まずコードが含まれるファイルを開いてください。"
+  },
+  "apply": {
+    "defaultDescription": "AIが生成したコード",
+    "appliedToSelection": "コードを適用しました（選択範囲の編集）\n\n{{description}}",
+    "applied": "コードを適用しました\n\n{{description}}",
+    "failed": "コードの適用に失敗しました\n\n{{error}}"
+  },
+  "untitled": "無題",
+  "multiFile": {
+    "confirm": "{{count}} 個のファイルに変更を適用しますか？\n\n変更対象のファイル:\n{{files}}\n\n続行する場合はOKをクリックし、中止する場合はキャンセルをクリックしてください。",
+    "applying": "{{count}} 個のファイルに変更を適用中...",
+    "completedProgress": "複数ファイルの編集が完了しました：{{succeeded}} 件成功、{{failed}} 件失敗",
+    "completeWithFailures": "マルチファイル編集完了\n\n{{succeeded}} 個のファイルが正常に更新されました。{{failed}} 個が失敗しました",
+    "complete": "マルチファイル編集完了\n\n{{succeeded}} 個のファイルが正常に更新されました",
+    "failedProgress": "マルチファイル編集に失敗しました: {{error}}",
+    "failed": "マルチファイル編集に失敗しました\n\n{{error}}"
+  },
+  "titleBar": {
+    "newChat": "新規チャット",
+    "startNewChat": "新しいチャットを開始",
+    "deleteChat": "チャットを削除",
+    "deleteChatLabel": "チャットを削除",
+    "aiCommands": "AIコマンド",
+    "openCommandsMenu": "AIコマンドメニューを開く"
+  },
+  "card": {
+    "title": "AIアシスタント"
+  },
+  "status": {
+    "selected": "選択中: {{count}} 文字",
+    "noFile": "ファイルなし",
+    "realTimeTooltip": "リアルタイム解析：入力停止から2秒後に、ファイルの構文チェックを行い、提案のためにモデルへ送信します（一時停止ごとに1回のリクエスト。5,000文字を超えるファイルはスキップされます）",
+    "toggleRealTime": "リアルタイムコード解析を切り替え",
+    "contextInfo": "コンテキスト情報",
+    "toggleContext": "コンテキスト情報パネルを切り替え"
+  },
+  "recommendations": {
+    "title": "AIの推奨事項 ({{count}})",
+    "defaultType": "提案",
+    "lines": "行 {{start}}-{{end}}",
+    "noDescription": "説明なし",
+    "applyDescription": "{{type}} の推奨を適用",
+    "more": "... および {{count}} 件の追加の推奨"
+  },
+  "actions": {
+    "apply": "適用"
+  },
+  "pending": {
+    "readyToApply": "適用準備完了: {{command}}",
+    "preview": "プレビュー",
+    "discard": "破棄"
+  },
+  "context": {
+    "title": "コードのコンテキストと分析",
+    "currentFile": "現在のファイル",
+    "noFileOpen": "ファイルが開かれていません",
+    "unknownLanguage": "不明",
+    "selectedCode": "選択されたコード",
+    "analysisResults": "分析結果",
+    "noIssues": "問題は検出されませんでした",
+    "project": "プロジェクトのコンテキスト",
+    "filesOpen": "{{count}} 個のファイルが開いています",
+    "relatedDetected": "{{count}} 個の関連ファイルが検出されました",
+    "relatedFiles": "関連ファイル",
+    "more": "および {{count}} 件以上"
+  },
+  "alerts": {
+    "errorsDetected_other": "{{count}} 個のエラーを検出",
+    "warningsDetected_other": "{{count}} 件の警告を検出"
+  },
+  "input": {
+    "placeholder": "メッセージ..."
+  },
+  "menu": {
+    "label": "AIコマンドメニュー"
+  },
+  "palette": {
+    "title": "AIコマンドパレット",
+    "searchPlaceholder": "コマンドを検索...",
+    "currentFile": "現在のファイル: {{file}} ({{language}})",
+    "noMatches": "\"{{search}}\" に一致するコマンドは見つかりません",
+    "keyboardHelp": "↑↓ で移動、Enter で選択、Esc で閉じる"
+  },
+  "hover": {
+    "unavailable": "AIによる説明は利用できません"
+  },
+  "drop": {
+    "reasons": {
+      "folder": "フォルダです。中のファイルを選択してください",
+      "tooMany": "ドロップできるのは{{max}}ファイルまでです",
+      "tooLarge": "{{size}} MB を超えています",
+      "unreadable": "読み取れません",
+      "notText": "テキストファイルではありません"
+    },
+    "opened_other": "{{names}} を未保存のコピーとして開きました。保存すると、他のエディタのファイルと同様にこのブラウザ内に保持されます。コンピュータ上の元のファイルは変更されません。",
+    "skippedFile": "{{name}} ({{reason}})",
+    "notOpened": "開けませんでした: {{files}}。"
+  }
+}

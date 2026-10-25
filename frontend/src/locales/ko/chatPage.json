@@ -1,0 +1,58 @@
+{
+  "messages": {
+    "generatedImageAlt": "생성된 이미지",
+    "error": "오류: {{error}}",
+    "bulkStarted": "대량 CSV 생성 시작! \"{{filename}}\"에 대한 {{quantity}}개 항목을 생성 중입니다. 완료까지 몇 분 정도 소요될 수 있습니다.",
+    "bulkStartedNoQuantity": "대량 CSV 생성 시작! \"{{filename}}\"에 대한 여러 항목을 생성 중입니다. 완료까지 몇 분 정도 소요될 수 있습니다.",
+    "fileGenerated": "\"{{filename}}\" 파일이 성공적으로 생성되었습니다! 출력 폴더에서 다운로드할 수 있습니다.",
+    "bulkFailed": "대량 CSV 생성 실패: {{error}}",
+    "fileFailed": "파일 생성 실패: {{error}}",
+    "modes": {
+      "fileGeneration": "**파일 생성 모드**: 코드/파일 생성을 위한 요청 분석 중...",
+      "coding": "**코딩 모드**: 프로그래밍 지원 제공 중...",
+      "web": "**웹 리서치 모드**: 최신 정보 검색 중...",
+      "data": "**데이터 도구 모드**: 데이터 요청 처리 중..."
+    },
+    "tooLong": "메시지가 너무 깁니다: {{length}}자. 최대 허용량: 100,000자.",
+    "planNotCreated": "계획 생성 실패",
+    "planFailed": "계획 생성 실패: {{error}}",
+    "agentWorking": "에이전트가 요청을 분석하고 경로를 설정하는 중입니다...",
+    "agentFailedNoResponse": "에이전트 실행 실패 (모델로부터 응답 없음).",
+    "agentEmptyResponse": "에이전트 실행이 완료되었으나 응답이 없습니다.",
+    "agentFailed": "에이전트 실행 실패: {{error}}",
+    "fileGenerationBusy": "파일 생성이 이미 진행 중입니다. 처리가 완료될 때까지 대화를 계속하겠습니다.",
+    "agentModeSocketDown": "에이전트 모드는 통합 채팅 도구가 필요하지만, 통합 채팅 소켓이 연결되지 않았습니다(복구 시도 중). 다시 연결(또는 다시 불러오기)하거나 `/chat`을 입력하여 일반 채팅 모드로 돌아가세요.",
+    "agentModeUnifiedDisabled": "에이전트 모드는 통합 채팅 도구가 필요하지만, 통합 채팅이 비활성화되어 있습니다. 다시 연결(또는 다시 불러오기)하거나 `/chat`을 입력하여 일반 채팅 모드로 돌아가세요.",
+    "technicalDifficulties": "죄송합니다. 메시지 처리 중 기술적 문제가 발생했습니다: \"{{excerpt}}\"\n\n시스템에 연결 문제가 발생했으나, 귀하의 메시지는 대화 기록에 보관되었습니다. 질문을 다시 시도하거나 내용을 수정하여 입력해 주세요.",
+    "warning": "경고: {{warning}}",
+    "stopped": "사용자에 의해 요청이 중단됨",
+    "uploaded": "파일이 성공적으로 업로드되었습니다! 백그라운드에서 인덱싱이 시작되었습니다. 진행 상황은 시스템 대시보드에서 확인하세요."
+  },
+  "errors": {
+    "agentModeNotSaved": "새 채팅에 대한 에이전트 모드가 저장되지 않았습니다: {{reason}}. 다시 시도하려면 /agent를 입력하세요.",
+    "agentModeNotSavedRequestFailed": "새 채팅에 대한 에이전트 모드가 저장되지 않았습니다: 요청 실패. 다시 시도하려면 /agent를 입력하세요.",
+    "lessonNotSaved": "학습이 종료되었으나 저장되지 않았습니다: {{reason}}.",
+    "lessonNotSavedRequestFailed": "학습이 종료되었으나 저장되지 않았습니다: 요청에 실패했습니다.",
+    "lessonNotSavedHttp": "학량 종료되었으나 저장되지 않았습니다: 백엔드에서 HTTP {{status}} 응답을 반환했습니다."
+  },
+  "header": {
+    "title": "채팅",
+    "messageCount_other": "{{count}} 메시지",
+    "beginLesson": "학습 시작 — 따봉(thumbs-up)이 모여 학습 요약으로 변환됩니다",
+    "endLesson": "학습 종료 — 핵심 내용을 편집 가능한 요약으로 추출",
+    "allChats": "모든 채팅",
+    "newChat": "새 채팅 세션 시작",
+    "activeModel": "활성 모델: {{model}}",
+    "modelLoading": "로딩 중...",
+    "modelFetchError": "모델을 가져오는 중 오류 발생",
+    "modelUnknown": "N/A",
+    "model": "모델: {{model}}",
+    "modelError": "오류",
+    "modelDefault": "기본값"
+  },
+  "status": {
+    "modelWarmingUp": "모델을 GPU 메모리에 로드하는 중입니다... 잠시 후 채팅이 가능해집니다.",
+    "typing": "어시스턴트가 입력 중입니다...",
+    "agentBudget": "에이전트 모드 활성: 각 메시지는 어시스턴트가 도구를 사용하여 수행하는 작업이며, 메시지당 최대 {{total}}단계까지 수행 가능합니다. 마지막 작업은 {{remaining}}단계가 남았습니다."
+  }
+}

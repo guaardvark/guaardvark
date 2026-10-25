@@ -1,0 +1,186 @@
+{
+  "loading": {
+    "processing": "处理中...",
+    "thinking": "AI 正在思考...",
+    "analyzingSelection": "正在分析选中的代码...",
+    "sending": "正在发送至 AI 助手...",
+    "processingResponse": "正在处理 AI 回复...",
+    "searchingProject": "正在检索项目上下文...",
+    "buildingContext": "正在构建智能上下文..."
+  },
+  "commands": {
+    "explain": {
+      "label": "解释",
+      "description": "解释选中的代码或分析整个文件结构"
+    },
+    "edit": {
+      "label": "智能编辑",
+      "description": "具备上下文理解能力的 AI 驱动代码编辑"
+    },
+    "optimize": {
+      "label": "优化",
+      "description": "带有详细分析的性能优化"
+    },
+    "refactor": {
+      "label": "重构",
+      "description": "智能代码重构"
+    },
+    "test": {
+      "label": "生成测试",
+      "description": "创建全面的单元测试"
+    },
+    "fix": {
+      "label": "自动修复",
+      "description": "自动修复检测到的错误和问题"
+    },
+    "document": {
+      "label": "文档化",
+      "description": "生成文档和注释"
+    },
+    "secure": {
+      "label": "安全扫描",
+      "description": "全面的安全漏洞分析"
+    },
+    "suggest": {
+      "label": "建议",
+      "description": "获取智能代码建议"
+    }
+  },
+  "progress": {
+    "processingWithContext": "正在带入完整上下文处理...",
+    "completed": "AI 辅助已完成"
+  },
+  "errors": {
+    "noSelectionResponse": "对话服务针对选择内容的分析返回了空或未定义响应",
+    "noResponse": "对话服务返回了空或未定义响应",
+    "noGeneralResponse": "对话服务针对通用对话返回了空或未定义响应"
+  },
+  "replies": {
+    "analysisFailed": "分析失败",
+    "validationFailed": "输入验证失败：{{errors}}",
+    "rateLimited": "超过频率限制。请稍候再试。",
+    "analysisFailedWithError": "分析失败：{{error}}",
+    "explanationFailed": "解释失败：{{error}}",
+    "editHelp": "请输入编辑指令。示例：\"'/edit 为此函数添加错误处理'\"",
+    "editDescriptionSelection": "编辑：{{instructions}}（替换所选文本；在编辑器中按 Ctrl+Z 可撤销）",
+    "editDescriptionFile": "编辑：{{instructions}}（替换整个文件；在编辑器中按 Ctrl+Z 可撤销）",
+    "editReadySelection": "已准备好对所选文本进行编辑。预览显示差异；点击“应用”将其放入编辑器。",
+    "editReadyFile": "已准备好对整个文件进行编辑。预览显示差异；点击“应用”将其放入编辑器。",
+    "noReply": "助手未返回任何回复。",
+    "editFailed": "代码编辑失败：{{error}}",
+    "fixAnalysis": "**自动修复分析：**\n\n{{analysis}}",
+    "fixFailed": "修复分析失败：{{error}}",
+    "securityAnalysis": "**安全分析：**\n\n{{analysis}}",
+    "securityFailed": "安全分析失败：{{error}}",
+    "commandNames": {
+      "optimize": "优化",
+      "refactor": "重构",
+      "test": "测试",
+      "document": "文档化"
+    },
+    "commandDescription": "{{command}}: 替换整个文件（在编辑器中按 Ctrl+Z 可撤销）",
+    "commandReady": "{{command}} 已就绪。预览显示差异；点击“应用”将替换整个文件。",
+    "commandNoReply": "{{command}} 未返回任何响应。",
+    "commandFailed": "{{command}} 失败：{{error}}",
+    "requestTrouble": "抱歉，我处理您的请求时遇到问题。错误：{{error}}",
+    "error": "抱歉，我遇到了一个错误：{{message}}",
+    "noActiveFile": "无活动文件\n\n请先打开包含代码内容的文件以使用 AI 辅助。"
+  },
+  "apply": {
+    "defaultDescription": "AI 生成的代码",
+    "appliedToSelection": "代码应用成功（基于选区的编辑）\n\n{{description}}",
+    "applied": "代码应用成功\n\n{{description}}",
+    "failed": "代码应用失败\n\n{{error}}"
+  },
+  "untitled": "未命名",
+  "multiFile": {
+    "confirm": "要对 {{count}} 个文件应用修改吗？\n\n待修改的“文件”：\n{{files}}\n\n点击“确定”继续或点击“取消”中止。",
+    "applying": "正在对 {{count}} 个文件应用修改...",
+    "completedProgress": "多文件编辑完成：{{succeeded}} 成功，{{failed}} 失败",
+    "completeWithFailures": "多文件编辑完成\n\n成功更新 {{succeeded}} 个文件，{{failed}} 个失败",
+    "complete": "多文件编辑完成\n\n成功更新 {{succeeded}} 个文件",
+    "failedProgress": "多文件编辑失败：{{error}}",
+    "failed": "多文件编辑失败\n\n{{error}}"
+  },
+  "titleBar": {
+    "newChat": "新对话",
+    "startNewChat": "开始新对话",
+    "deleteChat": "删除对话",
+    "deleteChatLabel": "删除对话",
+    "aiCommands": "AI 命令",
+    "openCommandsMenu": "打开 AI 命令菜单"
+  },
+  "card": {
+    "title": "AI 助手"
+  },
+  "status": {
+    "selected": "已选：{{count}} 个字符",
+    "noFile": "无文件",
+    "realTimeTooltip": "实时分析：停止输入 2 秒后，系统将对文件进行语法检查并发送至模型以获取建议（每次暂停仅发送一个模型请求；超过 5,000 个字符的文件将跳过）",
+    "toggleRealTime": "切换实时代码分析",
+    "contextInfo": "上下文信息",
+    "toggleContext": "切换上下文信息面板"
+  },
+  "recommendations": {
+    "title": "AI 建议 ({{count}})",
+    "defaultType": "建议",
+    "lines": "行 {{start}}-{{end}}",
+    "noDescription": "无描述",
+    "applyDescription": "应用 {{type}} 建议",
+    "more": "... 以及另外 {{count}} 个建议"
+  },
+  "actions": {
+    "apply": "应用"
+  },
+  "pending": {
+    "readyToApply": "准备好应用：{{command}}",
+    "preview": "预览",
+    "discard": "丢弃"
+  },
+  "context": {
+    "title": "代码上下文与分析",
+    "currentFile": "当前文件",
+    "noFileOpen": "未打开文件",
+    "unknownLanguage": "未知",
+    "selectedCode": "选中的代码",
+    "analysisResults": "分析结果",
+    "noIssues": "未检测到问题",
+    "project": "项目上下文",
+    "filesOpen": "已打开 {{count}} 个文件",
+    "relatedDetected": "检测到 {{count}} 个相关文件",
+    "relatedFiles": "相关文件",
+    "more": "... 以及还有 {{count}} 个"
+  },
+  "alerts": {
+    "errorsDetected_other": "检测到 {{count}} 个错误",
+    "warningsDetected_other": "检测到 {{count}} 个警告"
+  },
+  "input": {
+    "placeholder": "消息..."
+  },
+  "menu": {
+    "label": "AI 命令菜单"
+  },
+  "palette": {
+    "title": "AI 命令面板",
+    "searchPlaceholder": "搜索命令...",
+    "currentFile": "当前文件：{{file}} ({{language}})",
+    "noMatches": "未找到匹配 \"{{search}}\" 的命令",
+    "keyboardHelp": "使用 ↑↓ 导航，Enter 选择，Esc 关闭"
+  },
+  "hover": {
+    "unavailable": "暂无 AI 解析"
+  },
+  "drop": {
+    "reasons": {
+      "folder": "一个文件夹；请拖入其中的文件",
+      "tooMany": "每次拖入最多只能包含 {{max}} 个文件",
+      "tooLarge": "大于 {{size}} MB",
+      "unreadable": "无法读取",
+      "notText": "不是文本文件"
+    },
+    "opened_other": "作为未保存的副本打开了 {{names}}。保存操作会将其保留在当前浏览器中与其他编辑器文件一起；您电脑上的原始文件不会被更改。",
+    "skippedFile": "{{name}} ({{reason}})",
+    "notOpened": "未打开：{{files}}。"
+  }
+}

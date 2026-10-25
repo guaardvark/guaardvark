@@ -1,0 +1,25 @@
+{
+  "status": {
+    "processing": "处理中...",
+    "complete": "已完成",
+    "error": "错误",
+    "cancelled": "已取消"
+  },
+  "gpu": {
+    "videoRendering": "正在渲染视频",
+    "picturesRendering": "正在渲染图片",
+    "pictureRendering": "正在渲染一张图片",
+    "pictureEditing": "正在编辑图片",
+    "animationRendering": "正在渲染动画",
+    "infographicRendering": "正在渲染信息图",
+    "characterPicturesRendering": "正在渲染角色图片",
+    "storyboardRendering": "正在渲染分镜图片",
+    "filmCrewRendering": "Film Crew 正在渲染",
+    "musicVideoRendering": "正在渲染音乐视频",
+    "songRendering": "正在渲染歌曲",
+    "modelTraining": "模型正在训练",
+    "characterTraining": "角色正在训练",
+    "generic": "有程序正在使用 GPU",
+    "coolingDown": "显卡正在完成上一个任务后的清理 ({{seconds}} s)"
+  }
+}

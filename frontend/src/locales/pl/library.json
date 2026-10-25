@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "Wynik {{jobId}} został pomyślnie usunięty",
+    "deleteFailed": "Nie udało się usunąć wyniku: {{message}}",
+    "retryStarting": "Rozpoczynanie ponowienia dla {{count}} nieudanych wierszy...",
+    "retryStarted": "Zadanie ponowienia zostało pomyślnie rozpoczęte! ID zadania: {{jobId}}",
+    "retryFailed": "Nie udało się rozpocząć ponowienia: {{message}}",
+    "nothingToClear": "Brak wyników do wyczyszczenia",
+    "clearing": "Czyszczenie wszystkich wyników...",
+    "cleared": "Pomyślnie usunięto {{count}} wyników",
+    "clearFailed": "Nie udało się wyczyścić wyników: {{message}}"
+  },
+  "clearConfirm": "Czy na pewno chcesz usunąć WSZYSTKIE {{count}} wyników? Ta akcja jest nieodwracalna.",
+  "pageTitle": "Wyniki treści",
+  "stats": {
+    "total": "{{count}} Razem",
+    "today": "{{count}} Dzisiaj",
+    "thisWeek": "{{count}} W tym tygodniu"
+  },
+  "clearAll": "Wyczyść wszystko",
+  "refresh": "Odśwież listę wyników",
+  "loading": "Ładowanie wyników...",
+  "empty": {
+    "title": "Nie znaleziono wyników",
+    "description": "Wygeneruj treść, korzystając z funkcji generowania masowego, aby zobaczyć wyniki tutaj"
+  }
+}

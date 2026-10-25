@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Обычный",
+    "compact": "Компактный",
+    "collapsed": "Свернутый"
+  },
+  "untitled": "Без названия",
+  "note": {
+    "changeColor": "Изменить цвет",
+    "close": "Закрыть",
+    "closeNote": "Закрыть заметку",
+    "bold": "Жирный (Ctrl+B)",
+    "italic": "Курсив (Ctrl+I)",
+    "underline": "Подчеркнутый (Ctrl+U)",
+    "insertLink": "Вставить ссылку",
+    "bodyPlaceholder": "Введите вашу заметку..."
+  },
+  "errors": {
+    "loadFailed": "Не удалось загрузить заметки: {{message}}. Используются настройки по умолчанию.",
+    "saveFailed": "Не удалось сохранить заметки.",
+    "copyDenied": "Не удалось скопировать: доступ к буферу обмена запрещен",
+    "pasteFailed": "Не удалось вставить: {{message}}",
+    "pasteDenied": "Не удалось вставить: доступ к буферу обмена запрещен"
+  },
+  "pageTitle": "Заметки",
+  "loading": "Загрузка заметок...",
+  "toolbar": {
+    "searchPlaceholder": "Поиск заметок...",
+    "dashboardCards": "Карточки Панели управления",
+    "stickyNotes": "Стикеры",
+    "addNoteTooltip": "Добавить заметку",
+    "addNote": "Добавить заметку",
+    "closedNotes": "Закрытые заметки",
+    "layoutCycle": "Макет: {{mode}} (нажмите для смены)",
+    "layoutMode": "Макет: {{mode}}",
+    "saving": "Сохранение...",
+    "allSaved": "Все изменения сохранены",
+    "saveFailed": "Ошибка сохранения"
+  },
+  "emptyNote": "Пустая заметка",
+  "menu": {
+    "copy": "Копировать",
+    "selectAll": "Выделить все",
+    "paste": "Вставить",
+    "duplicate": "Дублировать",
+    "rename": "Переименовать",
+    "unpin": "Открепить",
+    "pinToTop": "Закрепить сверху"
+  },
+  "actions": {
+    "delete": "Удалить",
+    "cancel": "Отмена",
+    "save": "Сохранить"
+  },
+  "deleteDialog": {
+    "title": "Удалить \"{{title}}\"? Ctrl+Z восстановит его, пока вы не покинете страницу или не нажмете Перезагрузить."
+  },
+  "boardMenu": {
+    "newNote": "Новая заметка",
+    "cycleLayout": "Сменить макет",
+    "goToDashboard": "Перейти на Панель управления"
+  },
+  "renameDialog": {
+    "title": "Переименовать заметку",
+    "placeholder": "Название заметки"
+  },
+  "linkDialog": {
+    "title": "Вставить ссылку",
+    "url": "URL",
+    "insert": "Вставить"
+  },
+  "closed": {
+    "justNow": "Только что",
+    "minutesAgo": "{{count}}м назад",
+    "hoursAgo": "{{count}}ч назад",
+    "yesterday": "Вчера",
+    "daysAgo": "{{count}}дн. назад",
+    "deleteNamed": "Удалить {{title}}",
+    "heading": "Закрытые заметки",
+    "searchPlaceholder": "Поиск среди закрытых заметок...",
+    "empty": "Нет закрытых заметок",
+    "noMatches": "Ничего не найдено",
+    "groups": {
+      "today": "Сегодня",
+      "yesterday": "Вчера",
+      "thisWeek": "На этой неделе",
+      "older": "Старше"
+    }
+  }
+}

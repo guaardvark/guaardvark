@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "Chat ha preparato questo post.",
+      "mcp": "Uno strumento AI collegato tramite MCP ha preparato questo post.",
+      "schedule": "Una pianificazione ha messo in coda questo post.",
+      "unknown": "Questo post proviene da un chiamante che non ha specificato la propria identità."
+    },
+    "fields": {
+      "body": "testo",
+      "title": "titolo",
+      "linkUrl": "link",
+      "tags": "tag",
+      "visibility": "visibilità",
+      "postOptions": "campi del post",
+      "aiDisclosure": "etichetta AI",
+      "scheduledAt": "ora"
+    }
+  },
+  "rejectDialog": {
+    "title": "Rifiutare questa pubblicazione?",
+    "body": "Non verrà inviato e non potrà essere approvato in seguito — dovrà essere messa in coda una nuova pubblicazione. Il motivo riportato sotto rimarrà registrato.",
+    "reasonLabel": "Motivo (opzionale)",
+    "reasonPlaceholder": "Perché non viene inviato?",
+    "keep": "Mantienilo",
+    "rejecting": "Rifiuto in corso…",
+    "reject": "Rifiuta"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} non è disponibile in questa installazione, quindi questo post non può essere modificato.",
+    "title": "Modifica prima di approvare",
+    "draftedNote": "{{drafted}} Quello che salvi qui è ciò che verrà inviato una volta approvato.",
+    "caption": "Didascalia",
+    "text": "Testo",
+    "scheduleHelp": "Attende ancora la tua approvazione.",
+    "goesOutAs": "Esce come (con le linee {{platform}} o la licenza del media lo richiede):",
+    "savingNote": "Il salvataggio lo tiene in attesa. Approvalo in seguito.",
+    "cancel": "Annulla",
+    "save": "Salva"
+  },
+  "page": {
+    "families": {
+      "social": "Social",
+      "aiProviders": "Fornitori AI",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "connesso",
+      "error": "Errore",
+      "expired": "scaduto",
+      "disabled": "disabilitato",
+      "unconfigured": "non configurato"
+    },
+    "removed": "Connessione rimossa.",
+    "publicOn": "{{label}}: attivo per questo account. Ogni Caricamento attende ancora la tua Approvazione.",
+    "publicOff": "{{label}}: disattivato per questo account.",
+    "withoutApprovalOn": "Le pubblicazioni che inizi qui per questo canale ora escono senza Approvazione.",
+    "withoutApprovalOff": "Le pubblicazioni per questo canale attendono nuovamente l'Approvazione.",
+    "title": "Connessioni",
+    "intro": "Account e servizi verso cui questa installazione può pubblicare o contattare. Le credenziali sono memorizzate fuori dal database.",
+    "postingStopped": "La pubblicazione pubblica è interrotta. Ricollegala nella pagina Outreach.",
+    "queuedHeld": "Le pubblicazioni in coda sono trattenute nella pagina Approvazioni.",
+    "publishingEnabled": "Pubblicazione abilitata",
+    "approvalNote": "Ogni pubblicazione attende la tua approvazione nella pagina Approvals. Un webhook di Discord, che pubblica in un canale che gestisci, può essere impostato per pubblicare senza attendere sulla sua scheda. Un account YouTube carica come privato finché la sua scheda non consente caricamenti pubblici.",
+    "addConnection": "Aggiungi connessione",
+    "appReview": "revisione app",
+    "noCredentials": "Nessenziali mancanti",
+    "withoutApprovalTooltip": "Per un canale che gestisci. Le pubblicazioni che inizi qui vengono fuori senza attendere sulla pagina Approvals; le richieste da chat, MCP o da una pianificazione attendono ancora.",
+    "postWithoutApproval": "Pubblica senza approvazione",
+    "onThroughSetting": "Attivo tramite l'impostazione globale {{setting}}. Attivarlo qui mantiene una scelta specifica per questo account.",
+    "testing": "Test in corso…",
+    "test": "Testa",
+    "edit": "Modifica",
+    "remove": "Rimuovi",
+    "empty": "Nessuna connessione in questa categoria ancora.",
+    "environment": "Ambiente",
+    "environmentNote": "Rilevato dall'ambiente del processo backend. Gestito all'esterno dell'app e visualizzato qui in sola lettura.",
+    "encrypted": "Crittografato",
+    "unencrypted": "Non crittografato",
+    "credentialCount": "{{count}} credenziale(i)"
+  }
+}

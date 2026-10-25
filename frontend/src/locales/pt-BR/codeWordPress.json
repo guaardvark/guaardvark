@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "Cliques: {{clicks}} | Impressões: {{impressions}} | Posição: {{position}}",
+    "notAvailable": "N/A"
+  },
+  "errors": {
+    "fetchFailed": "Falha ao buscar páginas",
+    "loadFailed": "Falha ao carregar páginas",
+    "pullFailed": "Falha ao puxar páginas",
+    "processFailed": "Falha ao processar página",
+    "queueFailed": "Falha ao enfileirar páginas",
+    "executeFailed": "Falha ao executar fila",
+    "recommendationsFailed": "Falha ao obter recomendações. Recurso em breve."
+  },
+  "feedback": {
+    "pulled": "Puxadas {{count}} páginas",
+    "nonePending": "Nenhuma página pendente de processamento",
+    "queued": "Enfileiradas {{count}} páginas para processamento",
+    "processed": "Processadas {{succeeded}}/{{total}} páginas"
+  },
+  "recommendations": {
+    "summary": "O recurso de recomendações de IA analisará o conteúdo da página e fornecerá sugestões inteligentes para melhorias.",
+    "content": {
+      "title": "Melhoria de Conteúdo",
+      "description": "Analise o conteúdo para otimização de SEO, melhorias de legibilidade e aumento de engajamento."
+    },
+    "seo": {
+      "title": "Otimização de SEO",
+      "description": "Revise meta tags, estrutura de cabeçalhos e oportunidades de otimização de palavras-chave."
+    },
+    "structure": {
+      "title": "Estrutura de Conteúdo",
+      "description": "Avalie a organização do conteúdo e sugira melhorias para uma melhor experiência do usuário."
+    },
+    "priority": {
+      "high": "alta",
+      "medium": "médio",
+      "low": "baixo"
+    },
+    "title": "Recomendações de IA",
+    "none": "Nenhuma recomendação específica disponível no momento.",
+    "loading": "Carregando recomendações...",
+    "processNow": "Processar Agora"
+  },
+  "title": "Páginas WordPress",
+  "actions": {
+    "pull": "Puxar",
+    "queue": "Fila ({{count}})",
+    "process": "Processar",
+    "close": "Fechar",
+    "cancel": "Cancelar"
+  },
+  "site": "Site WordPress",
+  "filters": {
+    "pull": "Puxar",
+    "all": "Todos",
+    "pulled": "Puxados",
+    "pending": "Pendentes",
+    "error": "Erro",
+    "process": "Processar",
+    "processing": "Processando",
+    "completed": "Concluídos",
+    "approved": "Aprovados"
+  },
+  "stats": {
+    "total": "Total: {{total}}",
+    "pending": "Pendentes: {{pending}}",
+    "completed": "Concluídos: {{completed}}"
+  },
+  "empty": {
+    "noPages": "Nenhuma página encontrada. Puxe as páginas para começar.",
+    "selectSite": "Selecione um site WordPress para ver as páginas"
+  },
+  "table": {
+    "title": "Título",
+    "type": "Tipo",
+    "seo": "SEO",
+    "ai": "IA"
+  },
+  "untitled": "Sem título",
+  "tooltips": {
+    "getRecommendations": "Clique para recomendações de IA",
+    "hasImprovements": "Possui melhorias",
+    "noImprovements": "Sem melhorias"
+  },
+  "pullDialog": {
+    "title": "Puxar Páginas do WordPress",
+    "postType": "Tipo de Post",
+    "posts": "Posts",
+    "pages": "Páginas",
+    "maxPages": "Máx. Páginas (Opcional)",
+    "maxPagesHelper": "Deixe em branco para baixar todas as páginas",
+    "pulling": "Baixando...",
+    "submit": "Baixar Páginas"
+  }
+}

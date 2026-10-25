@@ -1,0 +1,131 @@
+{
+  "taskStatus": {
+    "pending": "In afwachting",
+    "blocked": "Geblokkeerd",
+    "queued": "In wachtrij",
+    "running": "Bezig",
+    "done": "Klaar",
+    "failed": "Mislukt",
+    "needsReview": "Review nodig",
+    "merged": "Samengevoegd",
+    "cancelled": "Geannuleerd",
+    "noChanges": "Geen wijzigingen",
+    "timedOut": "Tijdslimiet bereikt"
+  },
+  "messages": {
+    "enterPlanPath": "Voer een pad naar het planbestand in",
+    "launched": "Swarm gestart: {{id}}",
+    "launchFailed": "Opstart mislukt",
+    "noSwarmId": "Geen swarm ID",
+    "cancelled": "Geannuleerd",
+    "cancelFailed": "Annuleren mislukt",
+    "merged": "{{merged}} vertakkingen samengevoegd, {{conflicts}} conflicten",
+    "mergeFailed": "Samengevoegen mislukt",
+    "cleanedUp": "Opgeruimd",
+    "cleanupFailed": "Opruimen mislukt",
+    "logsFailed": "Logs konden niet worden opgehaald",
+    "templateLoadFailed": "Template laden mislukt",
+    "filenameAndContentRequired": "Bestandsnaam en inhoud zijn vereist",
+    "planSaved": "Plan opgeslagen in templates",
+    "saveFailed": "Opslaan mislukt",
+    "enterGoal": "Voer in wat je wilt bereiken",
+    "planGenerated": "Plan gegenereerd door AI!",
+    "aiGenerationFailed": "AI-generatie mislukt"
+  },
+  "actions": {
+    "cancel": "Annuleren",
+    "mergeAll": "Alles samengevoegd",
+    "cleanUp": "Opruimen"
+  },
+  "menu": {
+    "collapse": "Inklappen",
+    "expand": "Uitvouwen",
+    "copySwarmId": "Swarm ID kopiëren",
+    "viewLogs": "Logs bekijken",
+    "viewDiff": "Diff bekijken",
+    "copyBranchName": "Branchnaam kopiëren",
+    "copyTaskId": "Taak-ID kopiëren",
+    "launch": "Starten…"
+  },
+  "title": "Swarm",
+  "header": {
+    "online": "Online",
+    "offline": "Offline",
+    "serviceOffline": "Service Offline",
+    "refresh": "Vernieuwen",
+    "createPlan": "Nieuw plan aanmaken",
+    "launchSwarm": "Swarm starten"
+  },
+  "sections": {
+    "activeSwarms": "Actieve Swarms",
+    "quickLaunchTemplates": "Snelstart-templates",
+    "recentSwarms": "Recente Swarms"
+  },
+  "taskCount": "{{count}} taken",
+  "flightMode": "Vliegtuigmodus",
+  "history": {
+    "freeLocal": "Gratis (lokaal)",
+    "cleanUp": "Opruimen"
+  },
+  "empty": {
+    "title": "Geen actieve Swarms",
+    "description": "Start een swarm van AI-agenten om parallel aan je codebase te werken.",
+    "startPlugin": "Start eerst de swarm-plugin.",
+    "launchFirst": "Start je eerste Swarm"
+  },
+  "launchDialog": {
+    "title": "Swarm starten",
+    "template": "Template (optioneel)",
+    "customPlanFile": "Aangepast planbestand",
+    "templateOption": "{{title}} ({{count}} taken)",
+    "planPath": "Pad naar planbestand",
+    "planPathPlaceholder": "pad/naar/plan.md of selecteer een template hierboven",
+    "planPathHelp": "Relatief aan GUAARDVARK_ROOT of absoluut pad",
+    "maxAgents": "Max. gelijktijdige agenten",
+    "autoMerge": "Automatisch samenvoegen",
+    "flightModeInfo": "Vliegtuigmodus: alleen offline backends (Ollama). Conflicten worden automatisch geserialiseerd.",
+    "cancel": "Annuleren",
+    "launchFlightMode": "Lanceren (Vluchtmodus)",
+    "launch": "Lanceren"
+  },
+  "editor": {
+    "title": "Swarm Plan Editor",
+    "aiHint": "Beschrijf je taak, en de AI genereert de plan.md-structuur voor je.",
+    "aiPlaceholder": "bijv. 'Refactor alle API-endpoints om het nieuwe Response-model te gebruiken'",
+    "aiSuggest": "AI Advies Plan",
+    "filename": "Bestandsnaam (bijv. migrate_api.md)",
+    "content": "Planinhoud (Markdown)",
+    "formatHint": "Formaat: Gebruik <bold>## Taaknaam</bold> voor elke taak. Voeg <bold>Deps: [1]</bold> toe voor afhankelijkheden.",
+    "cancel": "Annuleren",
+    "saveToTemplates": "Opslaan in sjablonen"
+  },
+  "taskView": {
+    "loadingLogs": "Logs laden...",
+    "noLogs": "(geen logs)",
+    "noChanges": "(geen wijzigingen in werkboom)",
+    "diffFailed": "Fout bij ophalen van diff",
+    "title": "Taakdetails: {{id}}",
+    "logsTab": "Logs",
+    "liveDiffTab": "Live Diff",
+    "noOutputYet": "(nog geen uitvoer)",
+    "fetchingDiff": "Ophalen van werkboom diff...",
+    "refreshDiff": "Vernieuwen Diff"
+  },
+  "swarmStatus": {
+    "failed": "Mislukt",
+    "running": "Bezig",
+    "completed": "Voltooid"
+  },
+  "card": {
+    "progress": "{{done}}/{{total}} taken",
+    "free": "Vrij",
+    "activeAgents": "{{count}} actief",
+    "diskUsage": "{{size}} MB",
+    "dependencyGraph": "AFHANKELIJKHEIDSGRAF",
+    "viewTaskDetail": "Bekijk taakdetails"
+  },
+  "elapsed": {
+    "minutesSeconds": "{{minutes}}m {{seconds}}s",
+    "seconds": "{{seconds}}s"
+  }
+}

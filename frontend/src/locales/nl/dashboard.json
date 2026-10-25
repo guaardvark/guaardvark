@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "Projectbeheerder",
+    "loadFailed": "Fout bij laden van projectgegevens.",
+    "empty": "Geen projecten gevonden.",
+    "unnamed": "Onbenoemd Project",
+    "client": "Client: {{name}}"
+  },
+  "website": {
+    "title": "Websitegegevens",
+    "loadFailed": "Fout bij laden van websitegegevens.",
+    "deleteConfirm": "Deze website verwijderen?",
+    "empty": "Geen websites gevonden.",
+    "unnamed": "Onbenoemde Site",
+    "details": "Project: {{project}} | Docs: {{docs}}",
+    "openUrl": "Open URL in nieuw tabblad",
+    "copyUrl": "URL kopiëren"
+  },
+  "tasks": {
+    "title": "Taken",
+    "unknownStatus": "Onbekend",
+    "loadFailed": "Fout bij laden van taken.",
+    "nameAndTypeRequired": "Taaknaam en Type zijn verplicht.",
+    "created": "Taak '{{name}}' succesvol aangemaakt!",
+    "createFailed": "Fout bij aanmaken taak: {{message}}",
+    "addTaskMenu": "Taak toevoegen…",
+    "addTaskButton": "+ Taak toevoegen",
+    "empty": "Geen taken gevonden.",
+    "unnamed": "Onbenoemde Taak",
+    "viewAll": "Bekijk alle taken ({{count}})",
+    "addDialogTitle": "Nieuwe Taak Toevoegen",
+    "taskName": "Taaknaam",
+    "taskType": "Taaktype",
+    "output": "Output/Beschrijving",
+    "outputPlaceholder": "Optioneel: Beschrijf de verwachte output of extra details...",
+    "creating": "Aanmaken...",
+    "create": "Taak aanmaken"
+  },
+  "chat": {
+    "title": "Chat",
+    "csvDescription": "Genereer CSV-bestand op basis van: \"{{excerpt}}\"",
+    "historyFailed": "Fout bij laden van chatgeschiedenis",
+    "fileGenerated": "Bestand \"{{filename}}\" succesvol gegenereerd! Je kunt het downloaden vanuit de outputs-map.",
+    "fileGenFailed": "Bestandsgeneratie mislukt: {{message}}",
+    "notConnected": "Chatservice niet verbonden. Wacht even en probeer het opnieuw.",
+    "sendFailed": "Verzenden van bericht mislukt",
+    "errorMessage": "Fout: {{message}}",
+    "messageCount": "{{count}} berichten",
+    "noMessages": "Geen berichten",
+    "reloadHistory": "Geschiedenis herladen",
+    "stopGenerating": "Genereren stoppen",
+    "roles": {
+      "user": "Jij",
+      "system": "Systeem",
+      "assistant": "Assistent"
+    },
+    "empty": "Nog geen berichten. Start een gesprek!",
+    "placeholder": "Typ een bericht..."
+  },
+  "clients": {
+    "title": "Cliënten",
+    "loadFailed": "Fout bij laden van cliëntgegevens.",
+    "empty": "Geen cliënten gevonden.",
+    "unnamed": "Onbenoemde Cliënt",
+    "projectCount": "Projecten: {{count}}"
+  },
+  "csvgen": {
+    "title": "CSV-generatie",
+    "newCsv": "Nieuwe CSV",
+    "import": "Importeren",
+    "empty": "Nog geen CSV-taken."
+  },
+  "codegen": {
+    "title": "Codegeneratie",
+    "newCode": "Nieuwe Code",
+    "debug": "Debuggen",
+    "empty": "Nog geen codegeneratie-taken."
+  },
+  "imggen": {
+    "title": "Afbeeldinggeneratie",
+    "newImages": "Nieuwe Afbeeldingen",
+    "batchMode": "Batchmodus",
+    "empty": "Nog geen afbeeldingbatches.",
+    "viewAll": "Bekijk alle batches"
+  },
+  "files": {
+    "title": "Bestandsbeheerder"
+  },
+  "family": {
+    "title": "Familie & Zelfverbetering",
+    "queuing": "In de wachtrij...",
+    "runCheck": "Check uitvoeren",
+    "uncleOnline": "Uncle Online",
+    "uncleOffline": "Uncle Offline",
+    "siOn": "SI: Aan",
+    "siOff": "SI: Uit",
+    "locked": "Vergrendeld",
+    "stages": {
+      "starting": "Starten...",
+      "testing": "Tests uitvoeren",
+      "analyzed": "Resultaten analyseren",
+      "fixing": "Correcties toepassen",
+      "complete": "Voltooid",
+      "error": "Fout"
+    },
+    "tokens": "Tokens: {{percent}}%",
+    "totalFixes": "Totaal toegepaste correcties: {{count}}",
+    "recentActivity": "Recente Activiteit",
+    "noRuns": "Nog geen Zelfverbetering runs",
+    "reviewed": "Beoordeeld"
+  },
+  "autoresearch": {
+    "title": "RAG Autoresearch",
+    "pauseRun": "Run pauzeren",
+    "startRun": "Run starten",
+    "unavailable": "Autoresearch niet beschikbaar",
+    "running": "Bezig",
+    "paused": "Pauze",
+    "idle": "Inactief",
+    "phase": "Fase {{phase}}",
+    "pauseOptimization": "Optimalisatie pauzeren",
+    "startBounded": "Start beperkte onderzoekssessie",
+    "healthChecksNotCounted": "{{count}} test-suite gezondheidscontroles worden niet meegeteld",
+    "latestRun": "Laatste run",
+    "testSuite": "test suite",
+    "selfReported": "{{status}} (zelfsgemelden)",
+    "noExperiments": "Nog geen experimenten. Klik op play om een beperkte run te starten."
+  },
+  "gpu": {
+    "title": "GPU Geheugen",
+    "tiers": {
+      "speed": "Snelheid",
+      "balanced": "Gebalanceerd",
+      "quality": "Kwaliteit"
+    },
+    "tierMenu": {
+      "speed": "Snelheidstier",
+      "balanced": "Gebalanceerde tier",
+      "quality": "Kwaliteitstier"
+    },
+    "states": {
+      "loaded": "Geladen",
+      "loading": "Laden...",
+      "unloading": "Ontladen...",
+      "unloaded": "In rust"
+    },
+    "unavailable": "GPU-status niet beschikbaar",
+    "evict": "{{model}} verwijderen",
+    "systemOther": "Systeem/Overig: {{size}} GB",
+    "qualityTier": "Kwaliteitstier",
+    "evictFromGpu": "Verwijderen van GPU",
+    "noModels": "Geen modellen geladen"
+  },
+  "title": "Dashboard",
+  "layoutModes": {
+    "normal": "Normaal",
+    "compact": "Compact",
+    "layered": "Compact Gelaagd",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "Fout bij ophalen van dashboardstatus: {{statusText}} (Status: {{status}})",
+  "loadStateFailed": "Fout bij laden van dashboardstatus: {{message}}. Gebruikt standaardwaarden.",
+  "saveStateFailed": "Fout bij opslaan van dashboardwijzigingen.",
+  "menu": {
+    "cycleLayout": "Layout wisselen (volgende: {{mode}})",
+    "resetLayout": "Layout resetten…",
+    "noHiddenCards": "Geen verborgen kaarten",
+    "showCard": "Toon {{card}}",
+    "showAllHidden": "Toon alle verborgen kaarten"
+  },
+  "stickyNotes": "Notities",
+  "loadingDashboard": "Dashboard laden...",
+  "dashboardCards": "Dashboardkaarten",
+  "layoutTooltip": "Layout: {{mode}} (klik om wisselen)",
+  "missingCard": "Ontbrekende kaart: {{id}}",
+  "resetConfirm": {
+    "title": "Dashboardlayout resetten?",
+    "description": "Elke kaart keert terug naar zijn standaardpositie en grootte, kaartkleuren worden gewist en verborgen kaarten worden weer getoond.",
+    "keeps": "wat de kaarten tonen (projecten, taken, chats, bestanden)",
+    "confirm": "Indeling herstellen"
+  },
+  "cardWrapper": {
+    "openPage": "Pagina openen",
+    "expand": "Uitvouwen",
+    "minimize": "Minimaliseren",
+    "changeColour": "Kleur wijzigen…",
+    "resetColour": "Kleur herstellen",
+    "hideCard": "Kaart verbergen",
+    "changeColor": "Kaartkleur wijzigen"
+  },
+  "refreshData": "Gegevens vernieuwen",
+  "viewAllJobs": "Bekijk alle taken",
+  "edit": "Bewerken…",
+  "recentRuns": {
+    "status": {
+      "completed": "Voltooid",
+      "running": "Bezig",
+      "queued": "In wachtrij",
+      "pending": "In afwachting",
+      "paused": "Pauze",
+      "failed": "Mislukt",
+      "cancelled": "Geannuleerd",
+      "unknown": "Onbekend"
+    },
+    "images": "{{done}}/{{total}} afbeeldingen",
+    "jobNumber": "Taak {{id}}",
+    "loadFailed": "Recente uitvoeringen konden niet worden geladen: {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "Systeemstatus kon niet worden opgehaald.",
+    "noData": "Geen statusgegevens ontvangen.",
+    "title": "Systeemdiagnose",
+    "python": "Python: {{version}}",
+    "platform": "Platform: {{platform}}",
+    "dbPath": "DB Pad: {{path}}",
+    "dbSize": "DB Grootte: {{size}} KB",
+    "documents": "Documenten: {{count}}",
+    "models": "Modellen: {{count}}",
+    "indexStatus": "Indexstatus: {{status}}",
+    "runSelfTest": "Zelftest uitvoeren",
+    "rebuildIndex": "Index herbouwen",
+    "clearCache": "Cache wissen"
+  }
+}

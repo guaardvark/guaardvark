@@ -1,0 +1,41 @@
+{
+  "output": {
+    "status": {
+      "failed": "失敗",
+      "replaced": "置換済み",
+      "complete": "完了"
+    },
+    "retryFailedRows": "失敗した {{count}} 行を再試行",
+    "deleteOutput": "出力を削除",
+    "generated": "生成済み",
+    "replaced": "置換済み",
+    "successRate": "成功率",
+    "rows": "{{count}} 件の行"
+  },
+  "task": {
+    "status": {
+      "pending": "保留中",
+      "queued": "待機中",
+      "running": "実行中",
+      "paused": "一時停止中",
+      "completed": "完了",
+      "failed": "失敗",
+      "cancelled": "キャンセル",
+      "unknown": "不明"
+    },
+    "statusWithRetries": "{{status}} ({{retries}}回)",
+    "projectNumber": "プロジェクト {{id}}",
+    "noProject": "プロジェクトなし",
+    "untitled": "無題のタスク",
+    "noClient": "クライアントなし",
+    "queuedForExecution": "実行待ち...",
+    "processing": "処理中...",
+    "noDescriptionAvailable": "説明なし",
+    "noDescription": "説明なし",
+    "deleteTask": "タスクを削除",
+    "runTask": "タスクを実行",
+    "startJob": "ジョブを開始",
+    "cancelQueuedTask": "待機中のタスクをキャンセル",
+    "stopJob": "ジョブを停止"
+  }
+}

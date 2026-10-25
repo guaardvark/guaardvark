@@ -1,0 +1,56 @@
+{
+  "title": "Ferramentas do Agente",
+  "loadFailed": "Falha ao carregar ferramentas",
+  "copied": "Copiado para a área de transferência",
+  "copyFailed": "Não foi possível copiar para a área de transferência",
+  "parameters": "Parâmetros",
+  "copyName": "Copiar nome da ferramenta",
+  "card": {
+    "test": "Teste"
+  },
+  "table": {
+    "name": "Nome",
+    "category": "Categoria",
+    "description": "Descrição",
+    "params": "Parâmetros",
+    "actions": "Ações",
+    "requiredList": "Obrigatório: {{params}}",
+    "optionalList": "Opcional: {{params}}",
+    "requiredCount": "{{count}} obr.",
+    "optionalCount": "{{count}} opc.",
+    "noParams": "Nenhum",
+    "testTool": "Ferramenta de teste"
+  },
+  "noMatch": "Nenhuma ferramenta encontrada para \"{{query}}\"",
+  "tabs": {
+    "tools": "Ferramentas ({{count}})",
+    "schemas": "Schemas",
+    "categories": "Categorias"
+  },
+  "searchPlaceholder": "Buscar ferramentas...",
+  "view": {
+    "label": "modo de visualização",
+    "cardLabel": "visualização em cartão",
+    "card": "Visualização em Cartão",
+    "listLabel": "visualização em lista",
+    "list": "Visualização em Lista"
+  },
+  "loading": "Carregando ferramentas...",
+  "schemas": {
+    "copyAll": "Copiar Tudo",
+    "loading": "Carregando schemas..."
+  },
+  "menu": {
+    "test": "Testar…"
+  },
+  "test": {
+    "succeeded": "Ferramenta executada com sucesso",
+    "executionFailed": "Falha na execução da ferramenta",
+    "title": "Teste de Ferramenta: {{name}}",
+    "noApprovalWarning": "Executar executa esta ferramenta de verdade, imediatamente, sem a etapa de aprovação que o chat solicita primeiro.",
+    "requiredHelper": "Obrigatório. {{description}} ({{type}})",
+    "result": "Resultado",
+    "failed": "Falha na execução",
+    "execute": "Executar"
+  }
+}

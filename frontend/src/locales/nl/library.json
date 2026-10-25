@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "Output {{jobId}} succesvol verwijderd",
+    "deleteFailed": "Fout bij verwijderen van output: {{message}}",
+    "retryStarting": "Opnieuw proberen starten voor {{count}} mislukte rijen...",
+    "retryStarted": "Opnieuw proberen-job succesvol gestart! Job-ID: {{jobId}}",
+    "retryFailed": "Fout bij starten van herproef: {{message}}",
+    "nothingToClear": "Geen outputs om te wissen",
+    "clearing": "Alle outputs wissen...",
+    "cleared": "Succesvol {{count}} outputs verwijderd",
+    "clearFailed": "Fout bij wissen van outputs: {{message}}"
+  },
+  "clearConfirm": "Sta je voorbereid om ALLE {{count}} outputs te verwijderen? Deze actie kan niet worden ongedaan gemaakt.",
+  "pageTitle": "Contentuitvoer",
+  "stats": {
+    "total": "{{count}} Totaal",
+    "today": "{{count}} Vandaag",
+    "thisWeek": "{{count}} Deze week"
+  },
+  "clearAll": "Alles wissen",
+  "refresh": "Vernieuwen Outputlijst",
+  "loading": "Outputs laden...",
+  "empty": {
+    "title": "Geen outputs gevonden",
+    "description": "Genereer wat content met de bulk-generatiefunctie om outputs hier te zien"
+  }
+}

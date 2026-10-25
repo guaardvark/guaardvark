@@ -1,0 +1,306 @@
+{
+  "styles": {
+    "realistic": "写实",
+    "artistic": "艺术",
+    "cartoon": "卡通",
+    "sketch": "素描",
+    "infographic": "信息图",
+    "technical": "技术"
+  },
+  "models": {
+    "autoLabel": "自动 — 根据提示词选择最佳模型 ⭐",
+    "autoDescription": "使用在 设置 > 生成 中选择的 Stills 模型；若未选择，路由将为每个提示词选择最佳的已下载模型"
+  },
+  "errors": {
+    "modelsLoadFailed": "无法加载图像模型：{{error}}。在加载完成前仅提供“自动”选项。",
+    "requestFailed": "请求失败",
+    "backendHttp": "后端返回 HTTP {{status}}",
+    "noBatchData": "后端未返回批处理数据",
+    "queueStalled": "批处理队列未更新：{{error}}。",
+    "loadBatchFailedHttp": "加载批处理失败：HTTP {{status}}",
+    "batchNotJson": "批处理响应不是 JSON 格式",
+    "loadBatchFailed": "加载批处理失败：{{error}}",
+    "batchNotFound": "未找到批处理",
+    "noPrompt": "请输入提示词",
+    "noPrompts": "请提供至少一个提示词或主题",
+    "startFailedHttp": "启动生成失败：HTTP {{status}} {{statusText}}",
+    "startNotJson": "生成响应不是 JSON。响应内容：{{response}}",
+    "noBatchId": "批处理生成已启动，但未返回批处理 ID",
+    "startFailedPlain": "启动生成失败",
+    "startFailed": "启动生成失败：{{error}}",
+    "cancelFailedHttp": "取消生成失败：HTTP {{status}}",
+    "cancelFailed": "取消生成失败：{{error}}"
+  },
+  "cast": {
+    "lockedNote": "当选中角色时，由所选角色的基础模型设定。",
+    "title": "角色（可选）",
+    "help": "选择一个已训练的角色——身份（触发词 + 职业 + 视觉标记）和 LoRA 将自动应用。仅编写场景/动作；请勿重新描述面部或服装。"
+  },
+  "workers": {
+    "oneAtATimeModel": "{{model}} 一次渲染一张图片。",
+    "oneAtATimeGpu": "显卡上一次渲染一张图片。",
+    "max": "最大工作线程：{{count}}"
+  },
+  "install": {
+    "button": "安装",
+    "notInstalledSized": "{{model}} 未安装。点击安装将下载它（约 {{size}} GB）；在下载完成前，开始按钮将保持禁用状态。",
+    "notInstalled": "{{model}} 未安装。点击安装将下载它；在下载完成前，开始按钮将保持禁用状态。",
+    "noModelSized": "尚未安装图像模型。安装 {{model}}（约 {{size}} GB）供自动模式使用。",
+    "noModel": "尚未安装图像模型。安装 {{model}} 以供自动模式使用。",
+    "startOff": "开始按钮已关闭：{{model}} 未安装。",
+    "noModelShort": "尚未安装图像模型。"
+  },
+  "dimensions": {
+    "square": "正方形 ({{width}}x{{height}})",
+    "portrait": "纵向 ({{width}}x{{height}})",
+    "landscape": "横向 ({{width}}x{{height}})",
+    "largeSquare": "大尺寸正方形 ({{width}}x{{height}})",
+    "hdPortrait": "高清人像 ({{width}}x{{height}})",
+    "hdLandscape": "高清横屏 ({{width}}x{{height}})",
+    "oneKSquare": "1K 正方形 ({{width}}x{{height}})",
+    "oneKPortrait": "1K 人像 ({{width}}x{{height}})",
+    "oneKLandscape": "1K 横屏 ({{width}}x{{height}})",
+    "oneKWide": "1K 宽屏 16:9 ({{width}}x{{height}})",
+    "oneKTall": "1K 竖屏 9:16 ({{width}}x{{height}})",
+    "twoKSquare": "2K 正方形 ({{width}}x{{height}})",
+    "twoKLandscapeWide": "2K 横屏 16:9 ({{width}}x{{height}})",
+    "twoKUltrawide": "2K 超宽屏 21:9 ({{width}}x{{height}})",
+    "twoKPortraitTall": "2K 竖屏 9:16 ({{width}}x{{height}})",
+    "twoKLandscapeClassic": "2K 横屏 3:2 ({{width}}x{{height}})",
+    "twoKPortraitClassic": "2K 人像 2:3 ({{width}}x{{height}})",
+    "fluxSquare": "FLUX 最大正方形 ({{width}}x{{height}})",
+    "fluxWide": "FLUX 最大 16:9 ({{width}}x{{height}})",
+    "fluxTall": "FLUX 最大 9:16 ({{width}}x{{height}})",
+    "fluxLandscape": "FLUX 最大 3:2 ({{width}}x{{height}})",
+    "fluxPortrait": "FLUX 最大 2:3 ({{width}}x{{height}})",
+    "qwenSquare": "Qwen 2K 正方形 ({{width}}x{{height}})",
+    "qwenWide": "Qwen 2K 16:9 ({{width}}x{{height}})",
+    "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
+    "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
+    "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "title": "尺寸",
+    "custom": "自定义 ({{width}}x{{height}})",
+    "highResWarning": "高分辨率 (>1MP)：需更多 VRAM；16GB 显存卡可能会出现 OOM。"
+  },
+  "director": {
+    "needIdea": "请先输入一个高层级的概念或风格",
+    "expanded": "您的想法已转化为 {{count}} 个镜头。请通读并修改任何行，然后点击“开始”。",
+    "noShots": "对话模型未为该想法生成镜头。请尝试更详细的描述，或在“设置”中检查对话模型是否正在运行。",
+    "failed": "无法将想法转换为镜头。请在“设置”中确认已安装并运行对话模型，然后重试。({{error}})",
+    "expandTooltip": "由对话模型将上述想法转换为多个不同的镜头，每个镜头对应一个提示词。它们将替换上方文本，以便您在开始前阅读和编辑。",
+    "expanding": "正在生成镜头……",
+    "expand": "展开为镜头",
+    "rewriteTooltip": "在渲染前，让对话模型将每个提示词重写为更完整的描述，而非简短的标签式表述。当开启“增强提示词”时，散文模型会自动执行此重写。",
+    "rewrite": "使用对话模型重写提示词"
+  },
+  "service": {
+    "statusFailedHttp": "服务状态检查失败：HTTP {{status}}",
+    "statusNotJson": "服务状态响应不是 JSON 格式",
+    "unavailable": "批量图像生成服务不可用",
+    "statusFailed": "检查服务状态失败"
+  },
+  "history": {
+    "cleared": "已清除批次历史列表。",
+    "clear": "清除批次列表",
+    "title": "最近批次",
+    "refresh": "刷新批次",
+    "retry": "重试",
+    "loadFailed": "无法加载最近批次：{{reason}}",
+    "empty": "未找到图像批次"
+  },
+  "messages": {
+    "batchFinished": "批次生成 {{status}}",
+    "blueprintQueued": "蓝图批次已入队。结果将在生成完成后显示。",
+    "queued": "批次已入队。批次将按顺序渲染；在当前批次运行期间，您可以继续添加更多任务。",
+    "cancelled": "批次生成已取消"
+  },
+  "csv": {
+    "invalidFile": "请选择有效的 CSV 文件",
+    "templateFailedHttp": "下载模板失败：HTTP {{status}}",
+    "templateNotCsv": "模板响应不是有效的 CSV 文件",
+    "templateFailed": "下载模板失败：{{error}}",
+    "noFile": "请选择要上传的 CSV 文件",
+    "title": "CSV 文件上传",
+    "upload": "上传 CSV 文件",
+    "selected": "已选择文件：{{name}}",
+    "template": "下载 CSV 模板"
+  },
+  "blueprint": {
+    "invalidFile": "请选择有效的 CSV 文件用于蓝图",
+    "noFile": "请选择用于蓝图生成的 CSV 文件",
+    "title": "离线蓝图 CSV 上传",
+    "help": "上传包含“city”和“count”（或“patents”）列的 CSV 文件以生成数据蓝图（仅限 CPU）。大批量任务将在后台运行；请持续查询状态直至完成。",
+    "upload": "上传蓝图 CSV",
+    "format": "支持格式：.csv（包含 city/name 和 count/patents/value 等列）"
+  },
+  "retry": {
+    "loadFailedHttp": "无法加载设置：HTTP {{status}}",
+    "noSettings": "此批次未存储其设置。",
+    "loadedSettings": "已将“{{name}}”设置加载到控制面板 —— 可进行任何调整，然后点击“开始生成”。",
+    "loadedPrompts": "已将“{{name}}”提示词加载到面板。",
+    "loadedPromptsQty_other": "已加载“{{name}}”：{{count}} 个提示词 x 数量 {{quantity}}。",
+    "loadFailed": "无法加载设置：{{error}}"
+  },
+  "download": {
+    "failedHttp": "下载结果失败：HTTP {{status}}",
+    "notZip": "下载响应不是有效的 ZIP 文件",
+    "failed": "下载结果失败：{{error}}"
+  },
+  "page": {
+    "title": "图像生成器",
+    "settingsTitle": "生成设置"
+  },
+  "contentType": {
+    "unusedAutoModel": "内容类型未被使用：自动使用 {{model}} 进行渲染，它将提示词视为普通句子。",
+    "unusedAuto": "内容类型未被使用：自动选择一个将提示词视为普通句子的模型。",
+    "unusedModel": "内容类型未被 {{model}} 使用：它将提示词视为普通句子。",
+    "describeHint": "用你自己的话描述场景。内容类型仅为标签式模型优化提示词。",
+    "title": "内容类型（提升质量）",
+    "auto": "自动检测（推荐）",
+    "autoHelp": "根据内容在提示词中加入质量标签。不会检测或更改生成设置。",
+    "portrait": "人物 - 肖像",
+    "portraitHelp": "头像、面部特写、侧面照",
+    "fullBody": "人物 - 全身照",
+    "fullBodyHelp": "站立、坐姿或摆拍的全身照",
+    "working": "人物 - 工作/动作",
+    "workingHelp": "正在进行活动、使用工具或与物体互动的场景",
+    "product": "产品照",
+    "productHelp": "干净的产品照、商业摄影",
+    "landscape": "风景/景色",
+    "landscapeHelp": "自然景观、城市景观、户外场景",
+    "infographic": "信息图/图表",
+    "infographicHelp": "扁平化设计、图标、矢量图形、图表",
+    "general": "通用",
+    "generalHelp": "适用于任何内容的默认设置"
+  },
+  "input": {
+    "title": "输入方式",
+    "single": "单条提示词",
+    "bulk": "批量输入",
+    "csv": "CSV 上传",
+    "blueprint": "离线蓝图"
+  },
+  "single": {
+    "help": "粘贴完整的提示词文本（保留段落和换行作为一个提示词）。如需基于此提示词生成多张图片，请在下方使用“每条提示词生成数量”。",
+    "placeholder": "在此粘贴您的完整提示词，如有需要可包含段落。整段文本将作为生成单张图像的提示词。\n\n示例：包含多个句子和换行符的详细场景描述，用于一个图像概念...",
+    "note": "整段文本 = 1 个提示词。数量字段用于精确复制该提示词以生成多张图像。"
+  },
+  "bulk": {
+    "title": "图像主题/提示词",
+    "placeholder": "输入图像主题或提示词，每行一个：\n\n落日下的雄伟山脉景观\n坐在窗台上的猫\n蓝色的抽象几何图案\n一位睿智老巫师的肖像\n未来派城市天际线\n...",
+    "ready": "已有 {{count}} 个提示词准备好生成（批量模式）",
+    "loadExamples": "加载示例",
+    "tip": "提示：每一行都将成为一个独立的图像提示词"
+  },
+  "look": {
+    "title": "外观与风格（可选）",
+    "placeholder": "描述要应用于提示词的视觉风格：\n\n示例：\n• 蓝色调，无文字，深色系\n• 极简黑白，线条简洁\n• 专业信息图风格，扁平化设计\n• 写实摄影，戏剧性光影",
+    "single": "该风格将附加到您的单条提示词中",
+    "bulk": "此风格将应用于上方所有的 {{count}} 条提示词",
+    "preview": "预览提示词"
+  },
+  "negative": {
+    "label": "反向提示词",
+    "unused": "此模型不使用负面提示词。"
+  },
+  "anatomy": {
+    "label": "增强人体结构",
+    "unusedTooltip": "此处不使用：此模型将提示词作为纯文本句子读取，因此人体结构标签会被作为场景内容绘制。请改用文字描述姿势。",
+    "tooltip": "当提示词包含人物时，添加人体结构描述。",
+    "unusedBoth": "此模型不使用负面提示词或人体结构增强。",
+    "unused": "此模型不使用人体结构增强。"
+  },
+  "current": {
+    "title": "当前设置",
+    "manageModels": "管理模型",
+    "modelNotInstalled": "模型：{{model}}（未安装）",
+    "model": "模型：{{model}}",
+    "style": "风格：{{style}}",
+    "quality": "质量：{{quality}}",
+    "size": "尺寸：{{width}}x{{height}}",
+    "stepsCast": "步数：源自角色",
+    "steps": "步数：{{steps}}",
+    "oneAtATime": "逐个生成",
+    "workers": "工作线程：{{count}}"
+  },
+  "advanced": {
+    "title": "高级设置",
+    "model": "模型",
+    "yourLoras": "您的 LoRA（在开启前处于关闭状态）：",
+    "unavailable": "此机器上不可用的：",
+    "qualityPreset": "质量预设",
+    "style": "风格",
+    "quantity": "每个提示词生成的图像数量",
+    "thumbnails": "生成缩略图"
+  },
+  "enhance": {
+    "label": "自动增强提示词",
+    "off": "关闭 — 提示词按原样发送。",
+    "prose": "在渲染前，使用对话模型将每个提示词重写为更完整的描述。如果对话模型未响应，则按原样发送提示词。步骤和指导不会改变。",
+    "proseStyle": "在渲染前，使用对话模型将每个提示词重写为更完整的描述。如果对话模型未响应，则在原提示词基础上增加一句要求 {{style}} 风格的描述。步骤和指导不会改变。",
+    "tagsNoNegative": "在每个提示词中添加内容类型的质量和解剖学措辞。此模型忽略负面提示词。步骤和指导不会改变。",
+    "tags": "在每个提示词中添加内容类型的质量、解剖学措辞（及负面词）。步骤和指导不会改变。"
+  },
+  "steps": {
+    "cast": "步数：由角色设定",
+    "flux": "步数：{{steps}} (增加步数可提升 FLUX 质量 ↑)",
+    "value": "步数：{{steps}}"
+  },
+  "guidance": {
+    "cast": "引导：由角色设定",
+    "zimage": "引导比例：0 (无 CFG 模型)",
+    "flux": "FluxGuidance：{{guidance}}",
+    "scale": "引导比例：{{guidance}}",
+    "zimageHelp": "Z-Image 运行在无 CFG 模式下——引导固定为 0。请使用步数来提升质量。",
+    "qwenHelp": "Qwen-Image 2.1 在官方路径下运行于引导 1。仅在同时使用负面提示词时才调高此数值。",
+    "autoHelp": "根据提示词自动路由。默认选择（Z-Image）是无 CFG 的——除非你预期走 SDXL 路由，否则请保持为 0。"
+  },
+  "seed": {
+    "label": "种子",
+    "placeholder": "随机",
+    "fixed": "第一张图像使用种子 {{seed}}，后续每张图像使用下一个数字。相同的提示词和设置将生成相同的图片。",
+    "tooLarge": "种子上限为 {{max}}；此数值将被忽略。",
+    "blank": "空白：每张图像都获得独立的随机种子。打开一张图片并点击骰子图标可重新使用其种子。"
+  },
+  "actions": {
+    "queuing": "正在排队…",
+    "addToQueue": "加入队列",
+    "start": "开始生成",
+    "cancel": "取消"
+  },
+  "queue": {
+    "title": "批量队列",
+    "clearCompleted": "清除已完成",
+    "active": "有 {{count}} 个正在运行",
+    "progressFailed": "已完成 {{done}}/{{total}} 张图片（{{failed}} 个失败）",
+    "progress": "进度：{{done}}/{{total}} 张图片",
+    "cancelRunning": "取消正在运行的批次",
+    "remove": "从队列中移除",
+    "cancelAria": "取消批次"
+  },
+  "progress": {
+    "title": "当前进度",
+    "batchId": "批次 ID：{{id}}",
+    "count": "进度：{{done}}/{{total}}",
+    "download": "下载结果",
+    "adjustRetry": "调整并重试"
+  },
+  "gallery": {
+    "title": "已生成的图像 ({{count}})",
+    "generatedImage": "生成的图像",
+    "noPrompt": "无提示词",
+    "seed": "种子 {{seed}}",
+    "rewritten": "渲染前已重写；点击打开以阅读",
+    "viewFull": "查看完整图像：{{name}}"
+  },
+  "lightbox": {
+    "sentToModel": "已发送至模型：{{prompt}}",
+    "seedUsed": "种子 {{seed}} 已在种子框中。清除它以重新获取随机种子。"
+  },
+  "preview": {
+    "titleQuantity": "预览生成的提示词 ({{count}} × {{quantity}})",
+    "title": "预览生成的提示词 ({{count}})",
+    "intro": "这些是即将发送给图像生成器的最终提示词：",
+    "close": "关闭"
+  }
+}

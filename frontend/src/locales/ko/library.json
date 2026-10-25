@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "출력 {{jobId}}이(가) 성공적으로 삭제되었습니다.",
+    "deleteFailed": "출력 삭제 실패: {{message}}",
+    "retryStarting": "실패한 {{count}}개 행에 대한 재시도를 시작합니다...",
+    "retryStarted": "재시도 작업이 성공적으로 시작되었습니다! 작업 ID: {{jobId}}",
+    "retryFailed": "재시도 시작 실패: {{message}}",
+    "nothingToClear": "삭제할 출력이 없습니다.",
+    "clearing": "모든 출력을 삭제하는 중...",
+    "cleared": "{{count}}개의 출력이 성공적으로 삭제되었습니다.",
+    "clearFailed": "출력 삭제 실패: {{message}}"
+  },
+  "clearConfirm": "정말로 모든 {{count}}개의 출력을 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
+  "pageTitle": "콘텐츠 출력",
+  "stats": {
+    "total": "총 {{count}}개",
+    "today": "오늘 {{count}}개",
+    "thisWeek": "이번 주 {{count}}개"
+  },
+  "clearAll": "모두 삭제",
+  "refresh": "출력 목록 새로고침",
+  "loading": "출력 불러오는 중...",
+  "empty": {
+    "title": "출력 결과가 없습니다",
+    "description": "대량 생성 기능을 사용하여 콘텐츠를 생성하면 여기에 출력이 표시됩니다."
+  }
+}

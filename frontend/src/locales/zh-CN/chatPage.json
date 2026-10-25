@@ -1,0 +1,58 @@
+{
+  "messages": {
+    "generatedImageAlt": "生成的图像",
+    "error": "错误：{{error}}",
+    "bulkStarted": "批量 CSV 生成已开始！正在为 \"{{filename}}\" 生成 {{quantity}} 条记录。这可能需要几分钟时间完成。",
+    "bulkStartedNoQuantity": "批量 CSV 生成已开始！正在为 \"{{filename}}\" 生成多条记录。这可能需要几分钟时间完成。",
+    "fileGenerated": "文件 \"{{filename}}\" 生成成功！您可以从输出文件夹中下载它。",
+    "bulkFailed": "批量 CSV 生成失败：{{error}}",
+    "fileFailed": "文件生成失败：{{error}}",
+    "modes": {
+      "fileGeneration": "**文件生成模式**：正在分析您的请求以生成代码/文件...",
+      "coding": "**代码模式**：正在提供编程辅助...",
+      "web": "**网络搜索模式**：正在搜索最新信息...",
+      "data": "**数据工具模式**：正在处理数据请求..."
+    },
+    "tooLong": "消息过长：{{length}} 个字符。最大允许长度为 100,000 个字符。",
+    "planNotCreated": "创建计划失败",
+    "planFailed": "创建计划失败：{{error}}",
+    "agentWorking": "智能体正在积极推理并路由您的请求...",
+    "agentFailedNoResponse": "智能体执行失败（模型无响应）。",
+    "agentEmptyResponse": "智能体执行完成，但没有返回内容。",
+    "agentFailed": "Agent 执行失败：{{error}}",
+    "fileGenerationBusy": "文件生成正在进行中。我将继续我们的对话，同时等待处理完成。",
+    "agentModeSocketDown": "Agent 模式需要统一对话工具，但统一对话套接字未连接（已尝试恢复）。请重新连接（或重新加载）或输入 `/chat` 返回普通对话模式。",
+    "agentModeUnifiedDisabled": "Agent 模式需要统一对话工具，但统一对话已禁用。请重新连接（或重新加载）或输入 `/chat` 返回普通对话模式。",
+    "technicalDifficulties": "抱歉，我在处理您的消息时遇到技术困难：\"{{excerpt}}\"\n\n系统遇到连接问题，但您的消息已保留在我们的对话历史中。请尝试重新提问，或者换种方式表述。",
+    "warning": "警告：{{warning}}",
+    "stopped": "请求已被用户停止",
+    "uploaded": "文件上传成功！后台索引已开始。请查看系统仪表板以监控进度。"
+  },
+  "errors": {
+    "agentModeNotSaved": "新对话的 Agent 模式未保存：{{reason}}。发送 /agent 尝试重新保存。",
+    "agentModeNotSavedRequestFailed": "新对话的 Agent 模式未保存：请求失败。发送 /agent 尝试重新保存。",
+    "lessonNotSaved": "课程已结束但未保存：{{reason}}。",
+    "lessonNotSavedRequestFailed": "课程已结束但未保存：请求失败。",
+    "lessonNotSavedHttp": "课程已结束但未保存：后端返回 HTTP {{status}}。"
+  },
+  "header": {
+    "title": "对话",
+    "messageCount_other": "{{count}} 条消息",
+    "beginLesson": "开始课程 — 点赞将汇总为课程总结",
+    "endLesson": "结束课程 — 将精华内容提炼为可编辑的总结",
+    "allChats": "所有对话",
+    "newChat": "开始新对话",
+    "activeModel": "当前模型：{{model}}",
+    "modelLoading": "加载中...",
+    "modelFetchError": "获取模型错误",
+    "modelUnknown": "无",
+    "model": "模型：{{model}}",
+    "modelError": "错误",
+    "modelDefault": "默认"
+  },
+  "status": {
+    "modelWarmingUp": "模型正在加载到 GPU 显存中... 稍后即可开始对话。",
+    "typing": "助手正在输入...",
+    "agentBudget": "代理模式已开启：每条消息都是助手使用其工具执行的任务，每条消息最多 {{total}} 步；上一个任务还剩 {{remaining}} 步。"
+  }
+}

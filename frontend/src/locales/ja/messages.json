@@ -1,0 +1,585 @@
+{
+  "access": {
+    "defaultMachine": "Guaardvarkマシン",
+    "outsideLocalNetwork": "これは{{machine}}およびそのローカルネットワーク内のデバイスでのみ動作しますが、このデバイスはネットワーク外にあります。{{machine}}の「設定 → アクセス」でAPIキーを作成し、このデバイスの「設定 → アクセス」に入力してください。",
+    "runsCodeKeyRequired": "これは{{machine}}上でプログラムを実行します。ネットワークアクセスがオンの状態でも、{{machine}}自体またはそのAPIキーがある場合のみ動作します。{{machine}}の「設定 → アクセス」でAPIキーを作成し、このデバイスの「設定 → アクセス」に入力してください。",
+    "fleetKeyRequired": "このInterconnectorアクションは、ネットワークアクセスがオンの状態でも、{{machine}}自体またはそのAPIキーがある場合のみ動作します。{{machine}}の「設定 → アクセス」でAPIキーを作成し、このデバイスの「設定 → アクセス」に入力してください。",
+    "localOnlyKeyRemoved": "{{machine}} にAPIキーがないため、この機能は{{machine}}自体でのみ動作します。設定 → アクセス → ネットワークアクセスをオンにするか、そこで新しいキーを作成して、このデバイスの設定 → アクセスに入力してください。",
+    "localOnly": "これは{{machine}}自体でのみ動作します。ここで使用するには、{{machine}}の「設定 → アクセス → ネットワークアクセス」をオンにするか、そこでAPIキーを作成してこのデバイスの「設定 → アクセス」に入力してください。",
+    "keyOutOfDate": "このブラウザは、{{machine}}が現在使用していないキーでサインインされています。現在のキーを「設定 → アクセス」に入力してください。",
+    "keyRequired": "設定 → Access で {{machine}} の API キーを入力してください。作成時に表示され、{{machine}} はそれを .env ファイル内の GUAARDVARK_API_KEY として保持します。"
+  },
+  "taskQueue": {
+    "unreachable": "開始されていません：Guaardvark のバックグラウンドキュー (Redis) に接続できません。Guaardvark マシンで ./start.sh を実行して Redis とバックグラウンドワーカーを起動してから、再度お試しください。",
+    "nextStepNotStarted": "次のステップが開始されていません。Guaardvark を再起動（./start.sh）すると開始されます。"
+  },
+  "api": {
+    "httpError": "HTTP エラー {{status}} - {{statusText}}",
+    "unknownStatus": "不明なエラー",
+    "httpErrorStatus": "HTTP エラー！ステータス: {{status}}",
+    "invalidJson": "サーバーからの JSON レスポンスの解析に失敗しました。"
+  },
+  "chatStop": {
+    "backendUnreachable": "バックエンドに接続できません",
+    "notReachedBoth": "停止命令がチャットのターンとエージェントのタスクの両方に届きませんでした：{{reason}}。まだ実行中である可能性があります。",
+    "notReachedChatTurn": "停止命令がチャットのターンに届きませんでした：{{reason}}。まだ実行中である可能性があります。",
+    "notReachedAgentTask": "停止命令がエージェントのタスクに届きませんでした：{{reason}}。まだ実行中である可能性があります。"
+  },
+  "heldChanges": {
+    "gitRecordRejectRefused": "git レコードは承認のみ可能です。拒否する場合は git でマージを取り消してください。"
+  },
+  "address": {
+    "requestFailed": "リクエストに失敗しました"
+  },
+  "backups": {
+    "downloadFailed": "ダウンロードに失敗しました：{{status}}"
+  },
+  "bulkGeneration": {
+    "csvTimeout": "リクエストのタイムアウト - 一括 CSV 生成に時間がかかりすぎました",
+    "csvFailed": "一括 CSV 生成に失敗しました",
+    "structuredCsvTimeout": "リクエストのタイムアウト - 構造化CSVの生成に時間がかかりすぎました",
+    "structuredCsvFailed": "構造化CSVの生成に失敗しました",
+    "statusFailed": "生成ステータスの取得に失敗しました",
+    "estimateFailed": "生成時間の予測に失敗しました",
+    "topicsFailed": "トピックの生成に失敗しました",
+    "xmlTimeout": "リクエストのタイムアウト - 一括XML生成に時間がかかりすぎました",
+    "xmlFailed": "XMLコンテンツの生成に失敗しました"
+  },
+  "chat": {
+    "sendQueryFailed": "クエリの送信に失敗しました。",
+    "sendCommandFailed": "コマンドの送信に失敗しました。",
+    "duplicateRequest": "重複したリクエストを検出しました",
+    "apiError": "チャットAPIエラー: {{status}}",
+    "exportFailed": "チャットの書き出しに失敗しました",
+    "historyFailed": "履歴の取得に失敗しました: {{status}}"
+  },
+  "codeExecution": {
+    "pythonFailed": "Pythonコードの実行に失敗しました",
+    "javascriptFailed": "JavaScriptコードの実行に失敗しました",
+    "shellFailed": "シェルコマンドの実行に失敗しました",
+    "formatFailed": "コードの整形に失敗しました",
+    "lintFailed": "コードのLintに失敗しました",
+    "buildFailed": "プロジェクトのビルドに失敗しました"
+  },
+  "codeIntelligence": {
+    "noCode": "分析用のコードが含まれていません",
+    "provideCode": "分析するコードを入力してください。",
+    "analysisDone": "分析が正常に完了しました。",
+    "analysisTimeout": "分析リクエストが2分経過したためタイムアウトしました",
+    "analysisTimeoutHelp": "解析リクエストに時間がかかりすぎました。非常に大きなファイルや複雑なコードの場合に発生することがあります。より少ない範囲のコードを選択するか、より単純なクエリで再度お試しください。",
+    "unknownError": "不明なエラーが発生しました",
+    "analysisFailed": "解析に失敗しました。バックエンドの接続を確認して、再度お試しください。",
+    "noDescription": "コード生成のための説明が提供されていません",
+    "codeGenerated": "コードが正常に生成されました",
+    "generationTimeout": "コード生成リクエストが2分経過しても完了しませんでした。より単純なリクエストをお試しください。",
+    "generationUnknownError": "コード生成中に不明なエラーが発生しました",
+    "explanationFailed": "解説に失敗しました。バックエンドの接続を確認してください。",
+    "validationFailed": "検証に失敗しました",
+    "readFileFailed": "ファイルの読み取りに失敗しました",
+    "readFilesFailed": "ファイルの読み取りに失敗しました"
+  },
+  "documents": {
+    "listFailed": "ドキュメントの取得に失敗しました。",
+    "notFound": "ドキュメントが見つかりません",
+    "invalidId": "無効なドキュメントIDです",
+    "contentFailedStatus": "ドキュメント内容の取得に失敗しました（{{status}}）",
+    "contentFailed": "ドキュメント内容の取得に失敗しました。",
+    "repoFileFailed": "リポジトリファイルの取得に失敗しました。",
+    "uploadNetworkError": "ファイルのアップロード中にネットワークエラーが発生しました",
+    "uploadCancelled": "アップロードがキャンセルされました",
+    "uploadTimeout": "アップロードのタイムアウト"
+  },
+  "fileOperations": {
+    "readFailed": "ファイルの読み込みに失敗しました",
+    "saved": "ファイルを正常に保存しました",
+    "writeFailed": "ファイルの書き込みに失敗しました",
+    "created": "ファイルを正常に作成しました",
+    "createFailed": "ファイルの作成に失敗しました",
+    "deleted": "ファイルを正常に削除しました",
+    "deleteFailed": "ファイルの削除に失敗しました",
+    "listFailed": "ディレクトリのリスト取得に失敗しました",
+    "directoryCreated": "ディレクトリを正常に作成しました",
+    "createDirectoryFailed": "ディレクトリの作成に失敗しました",
+    "renamed": "ファイル名を変更しました",
+    "renameFailed": "ファイル名の変更に失敗しました"
+  },
+  "fileGeneration": {
+    "cancelledOrTimedOut": "リクエストがキャンセルされたか、タイムアウトしました。",
+    "unknownError": "不明なエラーが発生しました。",
+    "batchCsvFailed": "バッチCSVの生成に失敗しました"
+  },
+  "indexing": {
+    "cancelFailed": "ジョブのキャンセルに失敗しました。",
+    "jobsFailed": "ジョブの取得に失敗しました。"
+  },
+  "interconnector": {
+    "timeout": "{{timeout}}ms後にリクエストがタイムアウトしました",
+    "outputsIndexFailed": "出力インデックスの取得に失敗しました"
+  },
+  "models": {
+    "listFailed": "利用可能なモデルの取得に失敗しました。"
+  },
+  "musicVideo": {
+    "storyboardTimeout": "絵コンテの生成がタイムアウトしました"
+  },
+  "projects": {
+    "listFailed": "プロジェクトの取得に失敗しました。",
+    "getFailed": "プロジェクト {{projectId}}の取得に失敗しました。"
+  },
+  "ragDebug": {
+    "uptimeUnknown": "不明",
+    "uptimeDays": "{{days}}d {{hours}}h {{minutes}}m",
+    "uptimeHours": "{{hours}}h {{minutes}}m",
+    "uptimeMinutes": "{{minutes}}m"
+  },
+  "rules": {
+    "listFailed": "ルール/プロンプトの取得に失敗しました。"
+  },
+  "tasks": {
+    "listFailed": "タスクの取得に失敗しました。"
+  },
+  "training": {
+    "datasetsFailed": "トレーニング用データセットの取得に失敗しました。"
+  },
+  "upscaling": {
+    "previewFailed": "プレビューの生成に失敗しました。"
+  },
+  "websites": {
+    "listFailed": "ウェブサイトの取得に失敗しました。"
+  },
+  "settings": {
+    "testSuiteTimeout": "テストスイートが5分経過したためタイムアウトしました",
+    "rebootStarted": "再起動を開始しました。",
+    "rebootConnectionLost": "再起動を開始しました。切断された可能性があります。"
+  },
+  "links": {
+    "updated": "{{entityType}}のリンクを更新しました",
+    "updateFailed": "リンクの更新に失敗しました"
+  },
+  "videoEditor": {
+    "requestFailed": "ビデオエディタのリクエストに失敗しました",
+    "loadRecipesFailed": "スタイルのレシピを読み込めませんでした",
+    "submitPlanFailed": "Planジョブを送信できませんでした",
+    "reanalyzeFailed": "再解析に失敗しました",
+    "clipHashFailed": "クリップのサムネイル照会に失敗しました",
+    "pollPlanFailed": "Planジョブのポーリングに失敗しました",
+    "renderFailed": "レンダリングに失敗しました",
+    "loadFiltersFailed": "フィルターを読み込めませんでした",
+    "loadTransitionsFailed": "トランジションを読み込めませんでした",
+    "launchShotcutFailed": "Shotcutを起動できませんでした",
+    "listProjectsFailed": "プロジェクトの一覧を取得できませんでした",
+    "loadCurrentProjectFailed": "現在のプロジェクトを読み込めませんでした",
+    "openProjectFailed": "プロジェクトを開くことができませんでした",
+    "createProjectFailed": "プロジェクトを作成できませんでした",
+    "autosaveFailed": "自動保存に失敗しました",
+    "saveProjectFailed": "プロジェクトを保存できませんでした",
+    "saveProjectAsFailed": "名前を付けて保存できませんでした",
+    "renameProjectFailed": "プロジェクト名を変更できませんでした",
+    "deleteProjectFailed": "プロジェクトを削除できませんでした",
+    "validateProjectFailed": "プロジェクトを検証できませんでした"
+  },
+  "voice": {
+    "streamingError": "ストリーミングエラー",
+    "noActiveRecording": "録音がアクティブではありません",
+    "micNeedsSecureContext": "マイクの利用にはHTTPSまたはlocalhostが必要です",
+    "micUnsupported": "お使いのブラウザはマイクへのアクセスに対応していません。",
+    "permissionCheckFailed": "マイクの権限確認に失敗しました。",
+    "permissionRequestFailed": "マイクの権限取得に失敗しました。",
+    "micAccessDenied": "マイクへのアクセスが拒否されました。権限を有効にしてください。",
+    "startFailedPermission": "録音を開始できません。マイクの権限が拒否されています。",
+    "startFailedNoMic": "録音を開始できません。マイクが見つかりません。",
+    "startFailedRetry": "録音を開始できません。もう一度お試しください。",
+    "noSpeech": "音声が検出されませんでした。",
+    "noAudio": "オーディオデータが記録されませんでした。",
+    "recordingFailed": "録音に失敗しました。"
+  },
+  "clients": {
+    "listFailed": "クライアントの取得に失敗しました。",
+    "nameRequired": "クライアント名を入力してください。"
+  },
+  "logo": {
+    "noFile": "ファイルが指定されていません",
+    "tooLarge": "ファイルサイズが大きすぎます。最大サイズは {{size}}MB です",
+    "invalidType": "無効なファイル形式です。許可されている型: {{types}}"
+  },
+  "voiceSession": {
+    "micBlocked": "マイクへのアクセスがブロックされています。ブラウザでこのサイトへのアクセスを許可してから、もう一度お試しください。",
+    "noMic": "マイクが見つかりません。",
+    "micBusy": "マイクは他のアプリケーションで使用中です。",
+    "noMatchingMic": "要求された設定に一致するマイクがありません。",
+    "pushToTalkHint": "話している間、マイクボタン（または Ctrl+Shift+Space）を押し続けてください。",
+    "micReady": "マイクの準備が完了しました。話す間、ボタンを押し続けてください。",
+    "holdLonger": "話している間、マイクボタンをもう少し長く押し続けてください。",
+    "micOff": "音声設定（設定 → チャット → 音声チャット）でマイクがオフになっています。",
+    "micStartFailedReason": "マイクを開始できませんでした: {{reason}}",
+    "micStartFailed": "マイクを開始できませんでした。",
+    "audioStartFailed": "オーディオ処理を開始できませんでした: {{reason}}",
+    "micEnded": "マイクが停止しました（取り外されたか、他のアプリケーションに占有されました）。",
+    "recorderUnsupported": "このブラウザは音声を録音できません: {{reason}}",
+    "recordingError": "録音エラー: {{reason}}",
+    "unknownReason": "不明",
+    "recorderStartFailed": "録音を開始できませんでした: {{reason}}",
+    "sttFailed": "音声認識に失敗しました",
+    "rateLimited": "この1分間に音声リクエストが多すぎます。このリクエストはスキップされました。",
+    "busy": "システムが混み合っています。この回はスキップされました。",
+    "backendOffline": "バックエンドに接続できません。書き起こしが行われませんでした。",
+    "transcribeFailed": "書き起こしに失敗しました：{{reason}}",
+    "noChatOpen": "送信先のチャットが開かれていません。",
+    "sendFailed": "送信に失敗しました：{{reason}}",
+    "noSpeechTimeout": "反応がないため、マイクをオフにしました。"
+  },
+  "voicePhase": {
+    "clickHint": {
+      "handsfree": "クリックしてハンズフリー聴取を開始",
+      "toggle": "クリックして話してください。一時停止すると送信されます",
+      "push": "長押しで話す"
+    },
+    "requestingPermission": {
+      "title": "マイクの権限を待機中",
+      "hint": "ブラウザのプロンプトでマイクを許可してください。"
+    },
+    "waitingForWake": {
+      "title": "「Hey {{systemName}}」を待機中",
+      "hint": "ウェイクワードを言った後に、リクエストを伝えてください。"
+    },
+    "listening": {
+      "title": "聴取中",
+      "hint": "話してください。一時停止するたびにメッセージが送信されます。クリックで停止。"
+    },
+    "recording": {
+      "title": "録音中",
+      "hint": "離して送信。"
+    },
+    "hearing": {
+      "title": "聞き取り中",
+      "hint": "一時停止で送信。"
+    },
+    "transcribing": "書き起こし中",
+    "sending": "チャットへ送信中",
+    "responding": {
+      "title": "返信を待機中",
+      "hint": "引き続き聴取中。"
+    },
+    "speaking": {
+      "title": "返信を読み上げ中",
+      "hint": "発話中はマイクが一時停止しています。"
+    },
+    "denied": "マイクがブロックされています",
+    "error": "音声が機能していません",
+    "micOff": "マイクオフ",
+    "outcomes": {
+      "sent": "送信済み",
+      "wake": "ウェイクフレーズ",
+      "ignored": "ウェイクフレーズなし、送信されず",
+      "unsent": "チャットが開かれていないため、送信されず",
+      "failed": "送信失敗"
+    }
+  },
+  "batchVideo": {
+    "requestFailed": "リクエストに失敗しました",
+    "listFailed": "ビデオバッチを読み込めませんでした: {{reason}}。",
+    "queueFailed": "ビデオキューが更新されません: {{reason}}。",
+    "clearFailedStatus": "クリア失敗: HTTP {{status}}",
+    "clearFailed": "クリア失敗: {{reason}}",
+    "combineFailed": "フレームの結合に失敗しました: {{reason}}。",
+    "deleted": "バッチを削除しました。",
+    "deleteFailedStatus": "削除失敗: HTTP {{status}}",
+    "deleteFailed": "削除失敗: {{reason}}",
+    "cancelFailed": "キャンセル失敗: {{reason}}。バッチはまだ実行中である可能性があります。",
+    "retryFailedStatus": "再試行失敗: HTTP {{status}}",
+    "retried": "新しいバッチ {{batchId}}として再試行しました。元の失敗したバッチは履歴に保持されます。",
+    "retryFailed": "再試行失敗: {{reason}}",
+    "approveFailedStatus": "承認失敗: HTTP {{status}}",
+    "clipApproved": "クリップが承認され、ファイルに追加されました。",
+    "approveFailed": "承認失敗: {{reason}}",
+    "rerenderFailedStatus": "再レンダリング失敗: HTTP {{status}}",
+    "rerendering": "{{newBatchId}}として再レンダリング中。保留中のクリップは{{batchId}}に残ります。",
+    "rerenderFailed": "再レンダリング失敗: {{reason}}"
+  },
+  "unsavedChanges": {
+    "leaveConfirm": "このページには保存されていない変更があります。このまま離脱して破棄しますか？"
+  },
+  "agentRouter": {
+    "routingFailed": "ルーティングに失敗しました",
+    "executionFailed": "実行に失敗しました"
+  },
+  "hfLookup": {
+    "failed": "検索に失敗しました"
+  },
+  "notifications": {
+    "operationFailed": "操作に失敗しました"
+  },
+  "errors": {
+    "unexpected": "予期しないエラーが発生しました",
+    "badRequest": "不正なリクエストです。入力を確認してください。",
+    "unauthorized": "認証が必要です。ログインしてください。",
+    "forbidden": "この操作を行う権限がありません。",
+    "notFound": "リクエストされたリソースが見つかりません。",
+    "validation": "バリデーションエラーです。入力を確認してください。",
+    "tooManyRequests": "リクエストが多すぎます。しばらく時間をおいてから再度お試しください。",
+    "server": "サーバーエラーが発生しました。しばらく時間をおいてから再度お試しください。",
+    "unavailable": "サービスが一時的に利用できません。しばらく時間をおいてから再度お試しください。",
+    "httpStatus": "HTTPエラー {{status}}",
+    "network": "ネットワークエラーが発生しました。接続を確認してください。",
+    "timeout": "リクエストがタイムアウトしました。もう一度お試しください。",
+    "uploadFailed": "ドキュメントのアップロードに失敗しました。もう一度お試しください。",
+    "indexingFailed": "ドキュメントのインデックス作成に失敗しました。もう一度お試しください。",
+    "chatFailed": "チャットのリクエストに失敗しました。もう一度お試しください。",
+    "projectFailed": "プロジェクトの操作に失敗しました。もう一度お試しください。"
+  },
+  "audioRecorder": {
+    "permissionDenied": "マイクの権限が拒否されました",
+    "resumeFailed": "オーディオコンテキストの再開に失敗しました。マイクへのアクセスがブロックされている可能性があります。",
+    "volumeMonitoringFailed": "音量モニタリングに失敗しました: {{reason}}",
+    "unsupported": "このブラウザでは音声録音がサポートされていません"
+  },
+  "approvals": {
+    "loadFailed": "保留中の承認を読み込めませんでした",
+    "heldWaiting_other": "承認待ちのコード変更が{{count}}件あります",
+    "publishWaiting_other": "承認待ちの公開が{{count}}件あります"
+  },
+  "slash": {
+    "help": "## 利用可能なコマンド\n\n{{commands}}",
+    "helpLine": "**{{name}}** — {{description}}\n  使用法: `{{usage}}`",
+    "voiceDisabled": "音声チャットが無効です。",
+    "voiceEnabled": "音声チャットが有効です。",
+    "voiceUnavailable": "このコンテキストでは音声チャットは利用できません。",
+    "visionStatus": "**{{name}}:** {{status}}",
+    "unknownStatus": "不明",
+    "visionHint": "Pluginsページから開始または停止できます。",
+    "visionNotInstalled": "Vision Pipelineプラグインがインストールされていません。",
+    "visionReadFailed": "Vision Pipelineのステータスを読み込めませんでした: {{reason}}",
+    "modelStatus": "**現在のモデル:** {{model}}\n\n**利用可能なモデル:**\n{{models}}",
+    "unknownModel": "不明",
+    "modelsFailed": "モデルの取得に失敗しました: {{reason}}",
+    "modelSwitched": "モデルが **{{model}}** に切り替わりました。",
+    "failed": "失敗: {{reason}}",
+    "modelSwitchFailed": "モデルの切り替えに失敗しました: {{reason}}",
+    "installed": "インストール済み",
+    "notInstalled": "未インストール",
+    "comfyuiAutoBackend": "ComfyUI (自動バックエンド)",
+    "editBackendsFailed": "_(編集バックエンドを読み込めませんでした_)",
+    "imageModelStatus": "**現在の画像モデル:** `{{current}}`\n\n`/imagine` および **generate_image** で使用されます。編集（`edit_image`、`/inpaint`）は、インストールされている場合は **Qwen-Image-Edit** を、それ以外の場合は **FLUX Kontext** を自動的に選択します。\n\n**画像編集パック**（「モデル管理」→「画像編集」からインストール）:\n{{editLines}}\n\n**生成 — ダウンロード済み:**\n{{downloaded}}\n\n**生成 — 未ダウンロード:**\n{{notDownloaded}}\n\n_ヒント: `/imagemodel auto` を使用すると、該当のパックがインストールされている場合に指示による編集に Qwen-Image-Edit を使用します。_",
+    "none": "_(なし_)",
+    "imageModelsFailed": "画像モデルの取得に失敗しました: {{reason}}",
+    "imageModelAuto": "画像モデルが **auto** に切り替わりました（編集は、インストールされている場合は Qwen-Image-Edit を、それ以外は Kontext を使用します。どちらもない場合、編集時にインストールを促されます）。",
+    "imageEditsQwen": "画像編集では、該当のパックがインストールされている場合に **qwen-image-edit** を使用します。",
+    "imageEditsKontext": "画像編集では、インストールされている場合に **kontext** (FLUX.1 Kontext) を使用します。",
+    "imageModelComfyui": "画像モデルが **comfyui** (ComfyUI 自動バックエンド) に切り替わりました。生成には、インストールされている Z-Image または FLUX エンジンが使用されます。",
+    "imageModelNotDownloaded": "モデル `{{model}}` はダウンロードされていません。まず「画像」ページからダウンロードしてください。",
+    "imageModelSwitched": "画像モデルが **{{model}}** ({{name}}) に切り替わりました。チャット生成およびimg2img編集に使用されます。",
+    "imageModelNotFound": "モデル `{{model}}` が見つかりません。利用可能: {{available}}",
+    "usage": {
+      "imagine": "使い方: `/imagine <prompt>`",
+      "inpaint": "使い方: `/inpaint <instruction>` — 写真を添付するか、このチャット内の最後の画像が使用されます。",
+      "identity": "使い方: `/identity <prompt>` — 使用権限のある顔写真（ご自身の肖像またはCastの対象）を添付してください。",
+      "video": "使い方: `/video <prompt>`",
+      "musicVideo": "使い方: `/music-video <song-path-or-id> <style>` — プランを開始します。クリップのレンダリング前にスタジオで承認してください。",
+      "filmCrew": "使い方: `/film-crew <screenplay>` — 脚本家を開始します。レンダリングはスタジオで待機します。",
+      "websearch": "使い方: `/websearch <query>`, `/websearch site:<address>` (1ページを調査) または `/websearch sitemap: <url>` (サイトマップのページをリスト表示)",
+      "plan": "使い方: `/plan <request>`",
+      "training": "使い方: `/training <task>` — 例: `/training WorkのComments Trainer — バナーに従い、完了時にStart Overをクリックしてください。中断しないでください。`",
+      "thinking": "使い方: `/thinking on` または `/thinking off` (または `/thinking` で現在の状態を表示)"
+    },
+    "musicVideoNeedsSong": "曲（ドキュメントIDまたはオーディオパス）と視覚スタイルが必要です。例: `/music-video song.mp3 neon noir rain`",
+    "sitemapNotRead": "サイトマップが読み込めませんでした: {{reason}}",
+    "backendAnswered": "バックエンドがHTTP {{status}}で応答しました",
+    "backendUnreachable": "バックエンドに到達できません",
+    "sitemap": {
+      "redirected": "{{url}} ({{finalUrl}}へリダイレクト済み)",
+      "title": "**サイトマップ:** {{url}}",
+      "index_other": "{{count}}個のサイトマップを含むサイトマップインデックス。これらはリスト表示され、開かれていません。",
+      "numberedEntryModified": "{{number}}. {{url}} (最終更新: {{lastmod}})",
+      "firstOf": "最初の{{shown}}件:\n{{items}}",
+      "pageUrls_other": "ページURLが{{count}}件あります。",
+      "depth": "深さ {{depth}}: {{pages}}",
+      "byDepth": "パスの深さ別: {{depths}}",
+      "landingPages": "ランディングページ（トップレベル、優先度0.5以上）:",
+      "landingEntry": "{{number}}. {{url}} (優先度 {{priority}})",
+      "entryModified": "- {{url}} (最終更新: {{lastmod}})",
+      "pagesList": "ページ:\n{{items}}"
+    },
+    "outreach": {
+      "enabled": "有効",
+      "disabled": "無効",
+      "supervised": "監視あり",
+      "unsupervised": "監視なし",
+      "redisOffline": "- {{platform}}: Redisオフライン",
+      "cadenceLast": "- {{platform}}: 本日の投稿 {{posts}}/{{cap}}、最終 {{minutes}}分前",
+      "cadence": "- {{platform}}: 本日の投稿 {{posts}}/{{cap}}",
+      "status": "**アウトリーチ:** {{state}} ({{mode}})\n\n{{cadence}}",
+      "noCadence": "ケイデンスデータなし。",
+      "statusFailed": "アウトリーチのステータスに失敗しました: {{reason}}",
+      "refused": "アウトリーチ: リクエストが拒否されました。",
+      "intentFailed": "アウトリーチの意図の解析に失敗しました: {{reason}}",
+      "queued": "アウトリーチジョブがタスク #{{taskId}} としてキューに追加されました。",
+      "commandFailed": "アウトリーチコマンドに失敗しました: {{reason}}"
+    },
+    "training": {
+      "started": "トレーニングの実行を開始しました（最大1000イテレーション / 1時間）。進捗はVNCで確認し、servoのイベントは `logs/backend.log` を確認してください。タスク: _{{task}}_",
+      "rejectedBusy": "トレーニングの実行が拒否されました: {{reason}} — キルスイッチを使用するか、現在の実行が終わるまでお待ちください。",
+      "rejected": "トレーニングの実行が拒否されました: {{reason}}",
+      "unknownError": "不明なエラー",
+      "failed": "トレーニングの実行に失敗しました: {{reason}}"
+    },
+    "rule": {
+      "failedDetails": "{{name}} が失敗しました: {{reason}} ({{details}})",
+      "failed": "{{name}} が失敗しました: {{reason}}",
+      "wroteSize": "{{name}} が {{file}} ({{bytes}} バイト) を出力フォルダに書き込みました。",
+      "wrote": "{{name}} が {{file}} を出力フォルダに書き込みました。"
+    },
+    "agent": {
+      "needsSession": "/agent を実行するにはセッションが必要です。先にチャットを開いてください。",
+      "switchFailed": "エージェントモードへの切り替えに失敗しました: {{reason}}",
+      "already": "すでに **エージェントモード** です。画面制御タスクを入力するか、`/chat` を入力して終了してください。",
+      "switched": "**エージェントモード** に切り替わりました。メッセージはエージェント経由で送信されます（エージェントが発言し、動作します）。`/chat` を入力すると終了します。"
+    },
+    "thinking": {
+      "needsSession": "/thinking にはセッションが必要です。先にチャットを開いてください。",
+      "statusDefault": "🧠 このチャットの思考機能は**グローバルデフォルト（設定 → チャット）を使用しています**。\nステップバイステップの推論を有効にするには `/thinking on`、より速い回答を得るには `/thinking off` を使用してください。",
+      "statusOn": "🧠 このチャットの思考機能は**ON**です。\nステップバイステップの推論を有効にするには `/thinking on`、より速い回答を得るには `/thinking off` を使用してください。",
+      "statusOff": "🧠 このチャットの思考機能は**OFF**です。\nステップバイステップの推論を有効にするには `/thinking on`、より速い回答を得るには `/thinking off` を使用してください。",
+      "enabled": "🧠 このチャットの思考機能が**有効**です。モデルは回答の前にステップバイステップで推論します（低速ですが、複雑なプロンプトに適しています）。",
+      "disabled": "⚡ このチャットの思考機能は**無効**です。より速い回答が得られます。"
+    },
+    "chatMode": {
+      "needsSession": "/chat にはセッションが必要です。先にチャットを開いてください。",
+      "already": "すでにチャットモードです。",
+      "switched": "**チャットモード**に切り替わりました。メッセージは再度LLM経由で送信されます。元のモードに戻すには `/agent` と入力してください。",
+      "exitFailed": "エージェントモードの終了に失敗しました: {{reason}}"
+    },
+    "commandFailed": "コマンドに失敗しました: {{reason}}"
+  },
+  "autoresearch": {
+    "reasons": {
+      "ollamaUnreachable": "Ollamaが実行されていません",
+      "insufficientCorpus": "インデックス化されたドキュメントが不足しています",
+      "noEvalPairs": "評価用質問がありません",
+      "evalSourcesNotIndexed": "評価問題のソースがインデックスされていません",
+      "judgeUnset": "個別の判定モデルが設定されていません",
+      "judgeSameAsAnswerModel": "判定モデルが回答モデルと同じです",
+      "celeryUnreachable": "タスクキューに到達できません",
+      "baselineEvalFailed": "ベースラインを測定できませんでした",
+      "prerequisiteCheckFailed": "開始前チェックを実行できませんでした",
+      "codebaseLocked": "コードベースがロックされています",
+      "selfImprovementDisabled": "自己改善が無効です"
+    },
+    "noReason": "理由なし",
+    "notRun": "未実行: {{reasons}}",
+    "starting": "開始中…",
+    "noBaseline": "ベースライン未測定",
+    "scoresWithBest": "{{base}} → {{latest}} (最高 {{best}})",
+    "halt": "停止: {{reason}}",
+    "healthPass": "合格",
+    "healthFail": "不合格",
+    "healthUnknown": "不明",
+    "healthStatus": "ヘルスチェック: {{outcome}}",
+    "healthCheck": "ヘルスチェック",
+    "selfReported": "自己報告",
+    "baselineNotMeasured": "ベースライン: 未測定",
+    "baselineMeasured": "ベースライン: {{score}} ({{at}}に測定)",
+    "baselineNoTime": "ベースライン: {{score}} (測定時間が記録されていません)",
+    "evalPairsNone": "なし",
+    "evalPairsWithUnindexed": "{{active}} 有効 ・ {{unindexed}} 未インデックス済みドキュメントから",
+    "evalPairsActive": "{{active}} 有効",
+    "activeChatModel": "アクティブなチャットモデル",
+    "judgeIsAnswerModel": "これは回答モデル（{{model}}）であるため、自身の回答を採点します。Nightly実行は開始されません。",
+    "judgeNotSet": "設定されていないため、{{model}}が自身の回答を採点します。Nightly実行は開始されません。",
+    "experimentsSummary_other": "{{count}} 実験 ・ {{promoted}} 昇格済み"
+  },
+  "imageModels": {
+    "notInstalledSize": "{{description}} (未インストール — インストールで約{{size}} GBをダウンロード)",
+    "notInstalled": "{{description}} (未インストール — インストールが必要)"
+  },
+  "attachment": {
+    "tooLarge": "この画像はリサイズ後に{{size}}です。制限は{{limit}}です。より小さい画像を選択してください。",
+    "totalTooLarge_other": "リサイズ後のこれらの{{count}}枚の画像は合計で{{size}}です。制限は{{limit}}です。1つ削除するか、より小さい画像を選択してください。",
+    "chatError": "チャットエラー",
+    "readFailed": "この画像を読み込めませんでした",
+    "encodeFailed": "画像をエンコードできませんでした",
+    "readResizedFailed": "リサイズされた画像を読み込めませんでした",
+    "noImage": "添付する画像がありません",
+    "drawFailed": "画像を描画できませんでした"
+  },
+  "fileTypes": {
+    "noTimestamp": "N/A"
+  },
+  "hfUrl": {
+    "empty": "Hugging FaceのURLまたはorg/repoを貼り付けてください。",
+    "notHuggingFace": "Hugging FaceのURLまたはorg/repo IDのみ受け付けられます。",
+    "notModelRepo": "それはHugging FaceのデータセットまたはSpaceであり、モデルリポジトリではありません。モデルのURL（huggingface.co/org/repo）を貼り付けてください。"
+  },
+  "replySpeech": {
+    "noVoiceInstalled": "音声がインストールされていないため、返答を読み上げることができません。音声設定（設定 → チャット → 音声チャット）からインストールするか、Kokoroの音声パックをインストールした状態でAudio Foundryプラグインを起動してください。",
+    "stoppedPartwayReason": "返答の最初の部分を読み上げた後、読み上げが停止しました：{{reason}}",
+    "stoppedPartway": "返答の最初の部分を読み上げた後、読み上げが停止しました",
+    "failedReason": "返答の読み上げに失敗しました：{{reason}}",
+    "failed": "返答の読み上げに失敗しました"
+  },
+  "renderFailure": {
+    "withNext": "{{text}} 次の操作：{{action}}",
+    "retryable": "{{text}}（後ほど再試行すれば成功する可能性があります。）"
+  },
+  "uiError": {
+    "generic": "エラーが発生しました"
+  },
+  "imageEdit": {
+    "cropAfterTransform": "回転または反転の前にクロップしてください：回転または反転を取り消し、クロップしてから再度回転または反転を行ってください。"
+  },
+  "paths": {
+    "home": "ホーム"
+  },
+  "droppedFiles": {
+    "folders_other": "{{count}} 個のフォルダ",
+    "files_other": "{{count}} 個のファイル",
+    "foldersAndFiles": "{{folders}} と {{files}}",
+    "leftOut": "除外された {{items}}（非表示、ビルド出力、または資格情報）"
+  },
+  "entityLinks": {
+    "files": "ファイル",
+    "scheduleTask": "タスクのスケジュール"
+  },
+  "batches": {
+    "fallbackName": "バッチ"
+  },
+  "family": {
+    "selfImprovement": "自己改善"
+  },
+  "videoPromptControls": {
+    "enhanceOff": "Enhance promptがオフの時は効果なし",
+    "verbatim": "「設定」でVerbatimプロンプトがオンの時、効果はありません",
+    "viaReferenceCompiler": "リファレンスコンパイラ経由",
+    "viaPromptEnhancer": "プロンプト拡張経由",
+    "styleVerbatim": "プロンプトスタイル： 「設定」でVerbatimプロンプトがオンの時、効果はありません",
+    "styleEnhanceOff": "プロンプトスタイル：プロンプト拡張がオフの時、効果はありません",
+    "styleExactText": "プロンプトスタイル：Exact textがオンの時、効果はありません"
+  },
+  "videoPreview": {
+    "conceptVerbatim": "入力通り（「設定」でVerbatimプロンプトがオン）：Storyboardステップでショットが書き込まれます",
+    "conceptEnhanceOff": "入力通り（プロンプト拡張がオフ）：Storyboardステップでショットが書き込まれます",
+    "conceptEnhanced": "拡張されたコンセプト：Storyboardステップがこれからショットを書き出すため、各クリップに異なるプロンプトが割り当てられます",
+    "promptVerbatim": "入力通り（「設定」でVerbatimプロンプトがオン）",
+    "promptEnhanceOff": "入力通り（プロンプト拡張がオフ）",
+    "promptEnhanced": "拡張されたプロンプト（送信される内容）",
+    "promptsVerbatimFirst_other": "入力通り（「設定」でVerbatimプロンプトがオン）：{{count}}個のクリップのうち最初の{{shown}}個",
+    "promptsVerbatimAll_other": "入力通り（「設定」でVerbatimプロンプトがオン）：{{count}}個のクリップ、それぞれに一つずつ",
+    "promptsEnhanceOffFirst_other": "入力されたプロンプト（プロンプト強化オフ）: {{count}}個のうち最初の{{shown}}個のクリップ",
+    "promptsEnhanceOffAll_other": "入力通りのプロンプト（プロンプトの強化はオフ）: {{count}}個のクリップ、各1つ",
+    "promptsEnhancedFirst_other": "強化されたプロンプト（送信内容）: {{count}}個のうち最初の{{shown}}個のクリップ",
+    "promptsEnhancedAll_other": "強化されたプロンプト（送信される内容）: {{count}}個のクリップ、各1つ"
+  },
+  "videoSteps": {
+    "profileSteps": "「{{label}}」（{{steps}}ステップ）",
+    "speedProfile": "スピードプロファイル",
+    "lowVramClamp": "低VRAMクランプ",
+    "setBy": "「{{label}}」により設定",
+    "preset": "プリセット"
+  },
+  "assetGuard": {
+    "blocked": "リモート画像がブロックされました",
+    "offlineFirst": "（オフライン優先）"
+  },
+  "appStore": {
+    "brandingFailed": "ブランディングの取得に失敗しました: {{status}}"
+  }
+}

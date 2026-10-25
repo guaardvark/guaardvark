@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Normale",
+    "compact": "Compatto",
+    "collapsed": "Ridotto"
+  },
+  "untitled": "Senza titolo",
+  "note": {
+    "changeColor": "Cambia colore",
+    "close": "Chiudi",
+    "closeNote": "Chiudi nota",
+    "bold": "Grassetto (Ctrl+B)",
+    "italic": "Corsivo (Ctrl+I)",
+    "underline": "Sottolineato (Ctrl+U)",
+    "insertLink": "Inserisci link",
+    "bodyPlaceholder": "Scrivi la tua nota..."
+  },
+  "errors": {
+    "loadFailed": "Errore nel caricamento delle note: {{message}}. Utilizzo dei valori predefiniti.",
+    "saveFailed": "Errore nel salvataggio delle note.",
+    "copyDenied": "Impossibile copiare: permesso della cartella di sistema negato",
+    "pasteFailed": "Impossibile incollare: {{message}}",
+    "pasteDenied": "Impossillo incollare: permesso della cartella di sistema negato"
+  },
+  "pageTitle": "Note",
+  "loading": "Caricamento note...",
+  "toolbar": {
+    "searchPlaceholder": "Cerca note...",
+    "dashboardCards": "Schede Dashboard",
+    "stickyNotes": "Note adesive",
+    "addNoteTooltip": "Aggiungi nota",
+    "addNote": "Aggiungi nota",
+    "closedNotes": "Note chiuse",
+    "layoutCycle": "Layout: {{mode}} (clicca per cambiare)",
+    "layoutMode": "Layout: {{mode}}",
+    "saving": "Salvataggio...",
+    "allSaved": "Tutte le modifiche salvate",
+    "saveFailed": "Errore nel salvataggio"
+  },
+  "emptyNote": "Nota vuota",
+  "menu": {
+    "copy": "Copia",
+    "selectAll": "Seleziona tutto",
+    "paste": "Incolla",
+    "duplicate": "Duplica",
+    "rename": "Rinomina",
+    "unpin": "Rimuovi dalla testata",
+    "pinToTop": "Fissa in alto"
+  },
+  "actions": {
+    "delete": "Elimina",
+    "cancel": "Annulla",
+    "save": "Salva"
+  },
+  "deleteDialog": {
+    "title": "Elimina \"{{title}}\"? Ctrl+Z lo ripristina finché non esci o ricarichi questa pagina."
+  },
+  "boardMenu": {
+    "newNote": "Nuova Nota",
+    "cycleLayout": "Cambia Layout",
+    "goToDashboard": "Vai alla Dashboard"
+  },
+  "renameDialog": {
+    "title": "Rinomina Nota",
+    "placeholder": "Titolo della nota"
+  },
+  "linkDialog": {
+    "title": "Inserisci Link",
+    "url": "URL",
+    "insert": "Inserisci"
+  },
+  "closed": {
+    "justNow": "Proprio ora",
+    "minutesAgo": "{{count}}m fa",
+    "hoursAgo": "{{count}}h fa",
+    "yesterday": "Ieri",
+    "daysAgo": "{{count}}g fa",
+    "deleteNamed": "Elimina {{title}}",
+    "heading": "Note chiuse",
+    "searchPlaceholder": "Cerca note chiuse...",
+    "empty": "Nessuna nota chiusa",
+    "noMatches": "Nessun risultato",
+    "groups": {
+      "today": "Oggi",
+      "yesterday": "Ieri",
+      "thisWeek": "Questa settimana",
+      "older": "Più vecchie"
+    }
+  }
+}

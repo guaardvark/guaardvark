@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "项目管理器",
+    "loadFailed": "加载项目数据失败。",
+    "empty": "未找到项目。",
+    "unnamed": "未命名项目",
+    "client": "客户端：{{name}}"
+  },
+  "website": {
+    "title": "网站数据",
+    "loadFailed": "加载网站数据失败。",
+    "deleteConfirm": "确定要删除此网站吗？",
+    "empty": "未找到网站。",
+    "unnamed": "未命名站点",
+    "details": "项目：{{project}} | 文档：{{docs}}",
+    "openUrl": "在新标签页中打开 URL",
+    "copyUrl": "复制 URL"
+  },
+  "tasks": {
+    "title": "任务",
+    "unknownStatus": "未知",
+    "loadFailed": "加载任务失败。",
+    "nameAndTypeRequired": "任务名称和类型是必填项。",
+    "created": "任务“{{name}}”创建成功！",
+    "createFailed": "创建任务失败：{{message}}",
+    "addTaskMenu": "添加任务…",
+    "addTaskButton": "+ 添加任务",
+    "empty": "未找到任务。",
+    "unnamed": "未命名任务",
+    "viewAll": "查看所有任务 ({{count}})",
+    "addDialogTitle": "添加新任务",
+    "taskName": "任务名称",
+    "taskType": "任务类型",
+    "output": "输出/描述",
+    "outputPlaceholder": "可选：描述预期的输出或更多详情……",
+    "creating": "正在创建……",
+    "create": "创建任务"
+  },
+  "chat": {
+    "title": "对话",
+    "csvDescription": "基于“{{excerpt}}”生成 CSV 文件",
+    "historyFailed": "加载对话历史失败",
+    "fileGenerated": "文件 \"{{filename}}\" 已成功生成！您可以从输出文件夹中下载它。",
+    "fileGenFailed": "文件生成失败：{{message}}",
+    "notConnected": "对话服务未连接。请稍候再试。",
+    "sendFailed": "发送消息失败",
+    "errorMessage": "错误：{{message}}",
+    "messageCount": "{{count}} 条消息",
+    "noMessages": "无消息",
+    "reloadHistory": "重新加载历史记录",
+    "stopGenerating": "停止生成",
+    "roles": {
+      "user": "你",
+      "system": "系统",
+      "assistant": "助手"
+    },
+    "empty": "暂无消息。开始对话吧！",
+    "placeholder": "输入消息..."
+  },
+  "clients": {
+    "title": "客户",
+    "loadFailed": "加载客户数据错误。",
+    "empty": "未找到客户。",
+    "unnamed": "未命名客户",
+    "projectCount": "项目：{{count}}"
+  },
+  "csvgen": {
+    "title": "CSV 生成",
+    "newCsv": "新 CSV",
+    "import": "导入",
+    "empty": "暂无 CSV 任务。"
+  },
+  "codegen": {
+    "title": "代码生成",
+    "newCode": "新代码",
+    "debug": "调试",
+    "empty": "暂无代码生成任务。"
+  },
+  "imggen": {
+    "title": "图像生成",
+    "newImages": "新图像",
+    "batchMode": "批量模式",
+    "empty": "暂无图像批次。",
+    "viewAll": "查看所有批次"
+  },
+  "files": {
+    "title": "文件管理器"
+  },
+  "family": {
+    "title": "家族与自我优化",
+    "queuing": "排队中...",
+    "runCheck": "运行检查",
+    "uncleOnline": "Uncle 在线",
+    "uncleOffline": "Uncle 离线",
+    "siOn": "SI: 开启",
+    "siOff": "SI: 关闭",
+    "locked": "已锁定",
+    "stages": {
+      "starting": "启动中...",
+      "testing": "运行测试",
+      "analyzed": "分析结果",
+      "fixing": "应用修复",
+      "complete": "已完成",
+      "error": "错误"
+    },
+    "tokens": "Token: {{percent}}%",
+    "totalFixes": "已应用修复总数: {{count}}",
+    "recentActivity": "近期活动",
+    "noRuns": "尚未进行过自我优化运行",
+    "reviewed": "已审核"
+  },
+  "autoresearch": {
+    "title": "RAG 自动研究",
+    "pauseRun": "暂停运行",
+    "startRun": "开始运行",
+    "unavailable": "自动研究不可用",
+    "running": "运行中",
+    "paused": "已暂停",
+    "idle": "空闲",
+    "phase": "阶段 {{phase}}",
+    "pauseOptimization": "暂停优化",
+    "startBounded": "开始受限研究运行",
+    "healthChecksNotCounted": "有 {{count}} 个测试套件健康检查不计入统计",
+    "latestRun": "最近运行",
+    "testSuite": "测试套件",
+    "selfReported": "{{status}}（自我报告）",
+    "noExperiments": "暂无实验。点击播放按钮开始受限运行。"
+  },
+  "gpu": {
+    "title": "GPU 显存",
+    "tiers": {
+      "speed": "速度",
+      "balanced": "平衡",
+      "quality": "质量"
+    },
+    "tierMenu": {
+      "speed": "速度等级",
+      "balanced": "平衡等级",
+      "quality": "质量等级"
+    },
+    "states": {
+      "loaded": "已加载",
+      "loading": "加载中...",
+      "unloading": "正在卸载...",
+      "unloaded": "空闲"
+    },
+    "unavailable": "GPU 状态不可用",
+    "evict": "移除 {{model}}",
+    "systemOther": "系统/其他：{{size}} GB",
+    "qualityTier": "质量等级",
+    "evictFromGpu": "从 GPU 中移除",
+    "noModels": "未加载模型"
+  },
+  "title": "仪表盘",
+  "layoutModes": {
+    "normal": "普通",
+    "compact": "紧凑",
+    "layered": "紧凑分层",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "获取仪表盘状态失败：{{statusText}} (状态：{{status}})",
+  "loadStateFailed": "加载仪表盘状态失败：{{message}}。正在使用默认设置。",
+  "saveStateFailed": "保存仪表盘状态更改失败。",
+  "menu": {
+    "cycleLayout": "循环布局（下一个：{{mode}}）",
+    "resetLayout": "重置布局…",
+    "noHiddenCards": "无隐藏卡片",
+    "showCard": "显示 {{card}}",
+    "showAllHidden": "显示所有隐藏卡片"
+  },
+  "stickyNotes": "便签",
+  "loadingDashboard": "加载中仪表盘...",
+  "dashboardCards": "仪表盘卡片",
+  "layoutTooltip": "布局：{{mode}}（点击切换）",
+  "missingCard": "缺失卡片：{{id}}",
+  "resetConfirm": {
+    "title": "重置仪表盘布局？",
+    "description": "所有卡片将恢复到默认位置和尺寸，清除卡片颜色，并重新显示隐藏卡片。",
+    "keeps": "卡片显示的内容（项目、任务、聊天、文件）",
+    "confirm": "重置布局"
+  },
+  "cardWrapper": {
+    "openPage": "打开页面",
+    "expand": "展开",
+    "minimize": "最小化",
+    "changeColour": "更改颜色…",
+    "resetColour": "重置颜色",
+    "hideCard": "隐藏卡片",
+    "changeColor": "更改卡片颜色"
+  },
+  "refreshData": "刷新数据",
+  "viewAllJobs": "查看所有任务",
+  "edit": "编辑…",
+  "recentRuns": {
+    "status": {
+      "completed": "已完成",
+      "running": "运行中",
+      "queued": "排队中",
+      "pending": "等待中",
+      "paused": "已暂停",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    },
+    "images": "{{done}}/{{total}} 张图像",
+    "jobNumber": "任务 {{id}}",
+    "loadFailed": "无法加载最近运行记录：{{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "获取系统状态失败。",
+    "noData": "未返回状态数据。",
+    "title": "系统诊断",
+    "python": "Python: {{version}}",
+    "platform": "平台: {{platform}}",
+    "dbPath": "数据库路径: {{path}}",
+    "dbSize": "数据库大小: {{size}} KB",
+    "documents": "文档数量: {{count}}",
+    "models": "模型数量: {{count}}",
+    "indexStatus": "索引状态: {{status}}",
+    "runSelfTest": "运行自检",
+    "rebuildIndex": "重建索引",
+    "clearCache": "清除缓存"
+  }
+}

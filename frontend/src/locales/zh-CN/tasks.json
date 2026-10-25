@@ -1,0 +1,105 @@
+{
+  "filter": {
+    "all": "全部",
+    "active": "进行中",
+    "completed": "已完成",
+    "failed": "失败",
+    "project": "项目：{{name}}",
+    "client": "客户端：{{name}}",
+    "website": "网站：{{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "无法加载项目：{{error}}",
+    "modelsFailed": "无法加载模型：{{error}}",
+    "requestFailed": "请求失败"
+  },
+  "video": {
+    "loadFailed": "加载视频批处理任务失败",
+    "cancelled": "视频批处理任务已取消",
+    "cancelRefused": "无法取消 VideoGen 任务",
+    "cancelFailed": "取消失败",
+    "title": "视频批处理任务",
+    "intro": "来自统一 VIDEO_GEN 流水线（批处理视频 / 视频生成器）的排队和运行中的批次。此页面（任务调度器）还通过“新任务”菜单处理代码、内容、CSV、分析和自定义任务的旧版计划任务。",
+    "refresh": "刷新视频批处理任务",
+    "empty": "暂无待处理的视频批处理任务。",
+    "label": "标签",
+    "status": "状态",
+    "progress": "进度",
+    "actions": "操作",
+    "cancel": "取消"
+  },
+  "notFound": "未找到任务 {{id}}",
+  "queue": {
+    "started": "任务队列处理已开始",
+    "failed": "处理队列失败：{{error}}"
+  },
+  "created": "任务创建成功",
+  "updated": "任务更新成功",
+  "saveFailed": "保存任务失败：{{error}}",
+  "deleted": "任务删除成功",
+  "duplicatedWithId": "任务复制成功（ID：{{id}}）",
+  "duplicated": "任务复制成功",
+  "duplicateFailed": "复制任务失败：{{error}}",
+  "delete": {
+    "title": "删除此任务",
+    "description": "“{{name}}”已删除。",
+    "thisTask": "此任务",
+    "confirm": "删除任务"
+  },
+  "deleteFailed": "删除任务失败：{{error}}",
+  "start": {
+    "invalid": "无效的任务数据",
+    "starting": "正在启动任务：{{name}}",
+    "unnamed": "未命名任务",
+    "failed": "启动任务失败：{{error}}",
+    "started": "任务“{{name}}”已成功启动"
+  },
+  "clear": {
+    "none": "无可清除的任务",
+    "title": "删除所有任务",
+    "description": "将删除此列表中的所有任务。",
+    "tasksFact": "任务",
+    "confirm": "全部删除",
+    "clearing": "正在清除所有任务...",
+    "done": "成功删除 {{count}} 个任务",
+    "failed": "清除任务失败：{{error}}"
+  },
+  "title": "任务调度器",
+  "counts": {
+    "pending": "待处理：{{count}}",
+    "queued": "排队中：{{count}}",
+    "running": "运行中：{{count}}"
+  },
+  "runQueue_other": "运行 {{count}} 个任务",
+  "clearAll": "全部清除",
+  "newJob": "新任务",
+  "newMenu": {
+    "code": "代码生成",
+    "csv": "CSV / 批量内容",
+    "content": "内容生成",
+    "analysis": "数据分析",
+    "custom": "自定义任务"
+  },
+  "typeFilter": {
+    "label": "类型",
+    "all": "所有类型",
+    "code": "代码生成",
+    "csv": "CSV / 批量",
+    "content": "内容",
+    "analysis": "分析"
+  },
+  "loading": "正在加载任务...",
+  "emptyTitle": "未找到任务",
+  "emptyDescription": "使用上方的快速操作来创建您的第一个任务",
+  "menu": {
+    "start": "开始",
+    "cancel": "取消",
+    "edit": "编辑",
+    "duplicate": "复制",
+    "newCode": "新建代码生成",
+    "newCsv": "新建 CSV / 批量内容",
+    "newContent": "新建内容生成",
+    "newAnalysis": "新建数据分析",
+    "newCustom": "新建自定义任务"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "page": {
+    "title": "자기 개선",
+    "systemMap": "시스템 맵",
+    "uncleClaudeSettings": "설정 내 Uncle Claude",
+    "intro": "Guaardvark가 자체 테스트를 수행하고, 수정안을 초안으로 작성하여 검토를 위해 대기시킵니다. 사용자가 승인하고 적용하기 전까지는 코드에 반영되지 않으며, Codebase locked 기능이 모든 자동 변경을 차단합니다.",
+    "recentRuns": "최근 실행",
+    "noCodeKeeps": "자동 조사에서 코드 유지 항목이 없습니다."
+  },
+  "codeKeeps": {
+    "approved": "코드 유지 승인됨. 대기 중인 수정 사항에서 적용하세요.",
+    "rejected": "코드 유지 거부됨",
+    "approveFailed": "코드 유지 승인 실패: {{error}}",
+    "rejectFailed": "코드 유지 거부 실패: {{error}}",
+    "title": "코드 유지",
+    "intro": "preserve-and-extend를 통과한 Swarm 팔(arms)입니다. 여기서 승인한 후 설정에서 적용하세요. 메인으로 자동 병합되지 않습니다.",
+    "description": "설명",
+    "status": "상태",
+    "created": "생성됨",
+    "actions": "작업",
+    "approve": "승인",
+    "reject": "거부"
+  },
+  "fixStatus": {
+    "proposed": "제안됨",
+    "triaged": "분류됨",
+    "approved": "승인됨",
+    "applied": "적용됨",
+    "rejected": "거부됨"
+  },
+  "controls": {
+    "title": "자기 개선",
+    "help": "Guaardvark가 자체 코드를 점검하고 검토를 위한 수정안을 제안합니다. Codebase locked 기능이 모든 자동 편집을 차단합니다.",
+    "enabledChip": "자기 개선",
+    "enabledTooltip": "멘토가 코드베이스를 스캔하고 검토를 위한 수정안을 제안하도록 허용합니다.",
+    "lockedChip": "코드 기반 잠금",
+    "lockedOnTooltip": "자율 편집이 차단되었습니다. 허용하려면 꺼주세요.",
+    "lockedOffTooltip": "소스 트리에 대한 모든 자율 편집을 차단하려면 켜주세요.",
+    "turnOnFirst": "먼저 자기 개선을 켜기",
+    "unlockFirst": "먼저 코드 기반 잠금 해제",
+    "runTooltip": "지금 검사를 실행합니다. 취소는 서버에 중지를 요청하며, 뷰를 닫아도 스캔은 계속 실행됩니다.",
+    "runSelfCheck": "자가 점검 실행",
+    "lastRun_other": "마지막 실행 {{date}} ({{status}}) · {{count}}성공.",
+    "noRuns": "아직 실행 기록이 없습니다.",
+    "readingStatus": "상태 읽는 중…",
+    "lockedNote": "코드 기반이 잠겨 있습니다: 자율 편집이 차단됨.",
+    "cancelled": "취소됨",
+    "scanInBackground": "백그라운드에서 스캔 계속 진행",
+    "pendingFixes": "대기 중인 수정 사항",
+    "pendingFixesHelp": "자가 점검에서 제안된 수정 사항으로, 검토 또는 적용을 기다리는 중입니다. 승인하고 적용하기 전까지는 코드에 반영되지 않습니다.",
+    "waiting": "대기 중: {{count}}",
+    "reviewFixes": "수정 사항 검토"
+  },
+  "runStatus": {
+    "running": "실행 중",
+    "success": "성공",
+    "failed": "실패",
+    "cancelled": "취소됨",
+    "blocked_by_guardian": "가디언에 의해 차단됨"
+  },
+  "trigger": {
+    "scheduled": "예약됨",
+    "reactive": "반응형",
+    "directed": "지시형",
+    "family_learning": "가족 학습"
+  },
+  "runs": {
+    "filter": {
+      "all": "전체",
+      "scheduled": "예약됨",
+      "reactive": "반응형",
+      "directed": "지시형",
+      "success": "성공",
+      "failed": "실패"
+    },
+    "empty": "기록된 자기 개선 실행이 없습니다.",
+    "status": "상태",
+    "trigger": "트리거",
+    "timestamp": "타임스탬프",
+    "duration": "소요 시간",
+    "uncleReviewed": "Uncle 검토됨",
+    "details": "상세 정보",
+    "durationSeconds": "{{seconds}}초",
+    "reviewed": "검토됨",
+    "notReviewed": "아니요",
+    "expand": "펼치기",
+    "uncleFeedback": "Uncle Claude 피드백",
+    "changesMade": "변경 사항",
+    "testResults": "테스트 결과"
+  }
+}

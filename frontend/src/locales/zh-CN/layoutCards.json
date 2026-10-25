@@ -1,0 +1,41 @@
+{
+  "output": {
+    "status": {
+      "failed": "失败",
+      "replaced": "已替换",
+      "complete": "已完成"
+    },
+    "retryFailedRows": "重试 {{count}} 条失败的行",
+    "deleteOutput": "删除输出",
+    "generated": "已生成",
+    "replaced": "已替换",
+    "successRate": "成功率",
+    "rows": "{{count}} 条记录"
+  },
+  "task": {
+    "status": {
+      "pending": "等待中",
+      "queued": "已入队",
+      "running": "运行中",
+      "paused": "已暂停",
+      "completed": "已完成",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "unknown": "未知"
+    },
+    "statusWithRetries": "{{status}} ({{retries}}x)",
+    "projectNumber": "项目 {{id}}",
+    "noProject": "无项目",
+    "untitled": "未命名任务",
+    "noClient": "无客户端",
+    "queuedForExecution": "等待执行...",
+    "processing": "处理中...",
+    "noDescriptionAvailable": "暂无描述。",
+    "noDescription": "无描述",
+    "deleteTask": "删除任务",
+    "runTask": "运行任务",
+    "startJob": "开始任务",
+    "cancelQueuedTask": "取消已入队的任务",
+    "stopJob": "停止任务"
+  }
+}

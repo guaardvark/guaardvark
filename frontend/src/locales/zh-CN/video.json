@@ -1,0 +1,200 @@
+{
+  "common": {
+    "upload": "上传",
+    "addFromFiles": "从文件添加"
+  },
+  "stage": {
+    "queued": "已入队",
+    "gpuWait": "等待 GPU",
+    "storyboard": "分镜",
+    "director": "导演",
+    "keyframe": "关键帧",
+    "generate": "生成中",
+    "post": "后处理",
+    "register": "注册中",
+    "done": "已完成"
+  },
+  "keyframeMatch": {
+    "atFrame": "在 {{frames}} 帧中的第 {{frame}} 帧",
+    "label": "关键帧 {{percent}}%",
+    "tooltip": "关键帧与片段{{where}}之间的图像编码器匹配。响应镜头内容的变化，而不仅仅是颜色的变化{{hold}}。",
+    "holdBelow": "；在低于 {{percent}}% 时，片段将保持为该外观"
+  },
+  "colourMatch": {
+    "label": "色彩 {{percent}}%",
+    "tooltip": "与关键帧{{where}}的颜色匹配。仅比较颜色，不判断镜头中出现的角色。"
+  },
+  "vlmReview": {
+    "score": "QA {{score}}/10",
+    "noScore": "视觉审查未给出评分",
+    "notReviewed": "未审核",
+    "notReviewedWhy": "未审核：{{reason}}"
+  },
+  "latentPreview": {
+    "alt": "实时潜空间预览",
+    "caption": "实时潜空间预览 — 非最终质量"
+  },
+  "qualityFlags": {
+    "unreadable": "无法辨认",
+    "blackFrames": "黑帧",
+    "blackTiles": "黑块",
+    "clippedHighlights": "高光溢出",
+    "crushedShadows": "阴影过深",
+    "washedOut": "色彩泛白",
+    "desaturated": "无色彩",
+    "oversaturated": "过度饱和",
+    "frozen": "画面冻结",
+    "flashes": "闪烁",
+    "wrongSize": "尺寸错误",
+    "wrongFrameCount": "长度错误",
+    "colourDrift": "色彩偏移",
+    "keyframeDrift": "关键帧偏移",
+    "lowReviewScore": "评分过低",
+    "review": "审核",
+    "count": "{{count}} 个质量标记"
+  },
+  "clipReview": {
+    "needsReview": "待审核",
+    "approved": "已通过",
+    "rerendered": "已重新渲染",
+    "newBatch": "新批次 {{batch}}",
+    "heldUntilApproved": "在您批准之前，它不会添加到文件。",
+    "held": "保留待审核{{reasons}}。",
+    "reasons": ": {{reasons}}",
+    "approve": "批准",
+    "rerenderTooltip": "作为新批次重新渲染此片段，保持相同设置，更换新种子",
+    "rerender": "重新渲染"
+  },
+  "cutQuality": {
+    "title": "剪辑质量",
+    "held": "有 {{count}} 个片段保留待审核；每当片段被批准或重新渲染后，视频将进行组装",
+    "cut": "片段 #{{index}}",
+    "noProblems": "未发现问题",
+    "heldUntilApproved": "在您批准之前，它不会被用于视频中。"
+  },
+  "effective": {
+    "title": "有效设置",
+    "steps": "{{count}} 步",
+    "nativeAudio": "原生音频",
+    "styleEmbedding": "风格：{{style}}",
+    "frames": "{{count}} 帧",
+    "fps": "{{fps}} FPS",
+    "seconds": "~{{seconds}}秒",
+    "keyframeModel": "关键帧：{{model}}",
+    "director": "导演",
+    "faceRestore": "面部修复",
+    "interpolation": "{{multiplier}}x FPS",
+    "upscale": "2x 超分辨率",
+    "promptStyle": "{{style}} 风格",
+    "cast": "角色 ×{{count}}"
+  },
+  "frameSlot": {
+    "drop": "将 {{frame}} 拖放到此处",
+    "remove": "移除 {{frame}}",
+    "choose": "选择 {{frame}}"
+  },
+  "progress": {
+    "state": {
+      "done": "已完成",
+      "active": "运行中",
+      "queued": "等待 GPU",
+      "waiting": "等待中",
+      "failed": "失败",
+      "cancelled": "已取消",
+      "pending": "未开始",
+      "skipped": "已跳过"
+    },
+    "etaMeasured": "剩余约 {{duration}}（已测量）",
+    "etaEstimate": "预计剩余约 {{duration}}",
+    "cell": {
+      "done": "已完成",
+      "held": "已保留",
+      "failed": "失败",
+      "rendering": "渲染中",
+      "cancelled": "已取消",
+      "pending": "等待中"
+    },
+    "clipOf": "片段 {{position}}/{{total}}",
+    "waitingForGpu": "等待 GPU",
+    "working": "处理中…",
+    "elapsed": "已耗时 {{duration}}",
+    "cutTooltip": "剪辑 #{{index}} · {{state}}{{locked}}",
+    "locked": "已锁定",
+    "cutAria": "剪辑 {{index}} {{state}}"
+  },
+  "referenceBoard": {
+    "rows": {
+      "images": "图片",
+      "videos": "片段",
+      "audios": "音频"
+    },
+    "roles": {
+      "keep": "完全保留",
+      "loose": "模糊保留外观",
+      "detail": "借鉴一个细节",
+      "hint": "轻微提示",
+      "firstFrame": "作为首帧",
+      "subject": "保留主体",
+      "motion": "复制动作与镜头",
+      "edit": "编辑此片段",
+      "continue": "续写此片段",
+      "voice": "角色的语音",
+      "music": "作为背景音乐",
+      "sound": "匹配此音效"
+    },
+    "problems": {
+      "needVisual": "至少添加一张图片或一个片段；不能只有音频作为参考。",
+      "tooManyImages": "图片最多可包含 {{count}} 张。",
+      "tooManyVideos": "片段最多可包含 {{count}} 个。",
+      "tooManyAudios": "音频最多可包含 {{count}} 个。",
+      "tooManyFiles": "所有文件总数最多为 {{count}} 个。",
+      "clipTooShort": "片段 {{clip}} 长度为 {{seconds}} 秒；片段至少需要 {{shortest}} 秒。",
+      "tooManyPictures": "在此卡片上，一个 {{seconds}} 秒、分辨率为 {{width}}x{{height}} 且带有参考片段的片段最多可包含 {{count}} 张图片。",
+      "clipShareTooShort": "在此卡片上，一段 {{seconds}} s、分辨率为 {{width}}x{{height}} 的片段仅剩下 {{share}} s 的参考视频，低于片段所需的 {{shortest}} s。请选择更短的时长、更小的尺寸，或减少片段或图片的数量。"
+    },
+    "help": {
+      "images": "人物、地点、产品或需要保留的外观。给同一人物的图片赋予相同的名称。",
+      "videos": "用于防止某人出现、复制动作、编辑或延续的片段。时长为 2 到 15 秒。",
+      "audios": "角色的语音、可直接使用的音乐或匹配的音效。"
+    },
+    "rowNames": {
+      "images": "图片",
+      "videos": "片段",
+      "audios": "音频"
+    },
+    "insertTag": "插入到提示词中",
+    "useItTo": "用于",
+    "whoOrWhat": "这是谁或什么？",
+    "whoOrWhatExample": "例如：Maya，红色的汽车",
+    "optional": "可选",
+    "whichDetail": "哪个细节？",
+    "whichDetailExample": "例如：仅限皮夹克",
+    "whoseVoice": "谁的语音？",
+    "forExample": "例如：{{name}}",
+    "whoseVoiceHint": "来自图片的名称",
+    "notOnBoard": "不在卡片上的名称 ({{names}})",
+    "sound": "声音",
+    "ownSound": "自带声音",
+    "noSound": "无声音",
+    "track": "轨道：{{file}}",
+    "separateTrack": "独立轨道……",
+    "lengthUnknown": "长度未知",
+    "clipHasNoSound": "此片段没有声音",
+    "itsSoundIs": "它的声音是 {{tag}}",
+    "modelReadsFirst": "模型读取前 {{seconds}} 秒",
+    "clipsNeedAtLeast": "片段至少需要 {{shortest}} 秒。",
+    "earlier": "更早（重新编号标签）",
+    "moveEarlier": "移至更早",
+    "later": "更晚（重新编号标签）",
+    "moveLater": "移至更晚",
+    "remove": "移除",
+    "removeReference": "移除引用",
+    "onlyThisRow": "仅有 {{rows}} 个进入此行。",
+    "dropHere": "将 {{rows}} 拖放到此处",
+    "dropHereOr": "将 {{rows}} 拖放到此处，或者",
+    "couldNotRead": "无法读取 {{file}}。",
+    "uploadFailed": "上传失败。",
+    "fileCount": "共有 {{total}} 个文件，其中 {{used}} 个已使用。每个片段的独立轨道计为一个。",
+    "chooseSoundtrack": "选择片段的配乐"
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "common": {
+    "upload": "Prześlij",
+    "addFromFiles": "Dodaj z Plików"
+  },
+  "stage": {
+    "queued": "W kolejce",
+    "gpuWait": "Oczekiwanie na GPU",
+    "storyboard": "Storyboard",
+    "director": "Reżyseria",
+    "keyframe": "Klatka kluczowa",
+    "generate": "Generowanie",
+    "post": "Postprodukcja",
+    "register": "Rejestrowanie",
+    "done": "Zakończono"
+  },
+  "keyframeMatch": {
+    "atFrame": "w klatce {{frame}} z {{frames}}",
+    "label": "Klatka kluczowa {{percent}}%",
+    "tooltip": "Dopasowanie kodera obrazu między klatką kluczową a klipem{{where}}. Reaguje na zmiany w ujęciu, a nie tylko na jego kolory{{hold}}.",
+    "holdBelow": "; poniżej {{percent}}% klip jest zatrzymywany dla zachowania wyglądu"
+  },
+  "colourMatch": {
+    "label": "Kolor {{percent}}%",
+    "tooltip": "Dopasowanie kolorystyczne z klatką kluczową{{where}}. Porównuje tylko kolory, nie osoby w ujęciu."
+  },
+  "vlmReview": {
+    "score": "QA {{score}}/10",
+    "noScore": "recenzja wizualna nie nadała punktów",
+    "notReviewed": "Niezweryfikowane",
+    "notReviewedWhy": "Niezweryfikowane: {{reason}}"
+  },
+  "latentPreview": {
+    "alt": "Podgląd latent na żywo",
+    "caption": "Podgląd latent na żywo — nie jest to jakość końcowa"
+  },
+  "qualityFlags": {
+    "unreadable": "Nieczytelne",
+    "blackFrames": "Czarne klatki",
+    "blackTiles": "Czarne kafelki",
+    "clippedHighlights": "Przepalone",
+    "crushedShadows": "Zgniecione cienie",
+    "washedOut": "Wyprane",
+    "desaturated": "Brak koloru",
+    "oversaturated": "Przesycone",
+    "frozen": "Zamarznięte",
+    "flashes": "Miganie",
+    "wrongSize": "Błędny rozmiar",
+    "wrongFrameCount": "Błędny czas trwania",
+    "colourDrift": "Dryf kolorów",
+    "keyframeDrift": "Dryf kluczowych klatek",
+    "lowReviewScore": "Niski wynik recenzji",
+    "review": "Recenzja",
+    "count": "{{count}} flagi jakości"
+  },
+  "clipReview": {
+    "needsReview": "Wymaga recenzji",
+    "approved": "Zatwierdzono",
+    "rerendered": "Ponownie wyrenderowane",
+    "newBatch": "Nowa partia {{batch}}",
+    "heldUntilApproved": "Nie zostanie dodane do Plików, dopóki nie zatwierdzisz go.",
+    "held": "Wstrzymane do recenzji{{reasons}}.",
+    "reasons": ": {{reasons}}",
+    "approve": "Zatwierdź",
+    "rerenderTooltip": "Wyrenderuj ten klip ponownie jako nową partię, te same ustawienia, nowe ziarno",
+    "rerender": "Ponowne renderowanie"
+  },
+  "cutQuality": {
+    "title": "Jakość cięcia",
+    "held": "{{count}} wstrzymanych do recenzji; wideo zostanie złożone, gdy każde zostanie zatwierdzone lub ponowie wyrenderowane",
+    "cut": "Cięcie nr {{index}}",
+    "noProblems": "nie znaleziono problemów",
+    "heldUntilApproved": "Nie zostanie użyte w wideo, dopóki nie zatwierdzisz go."
+  },
+  "effective": {
+    "title": "Ustawienia efektywne",
+    "steps": "{{count}} kroków",
+    "nativeAudio": "natywne audio",
+    "styleEmbedding": "styl: {{style}}",
+    "frames": "{{count}} klatek",
+    "fps": "{{fps}} FPS",
+    "seconds": "~{{seconds}}s",
+    "keyframeModel": "Klatka kluczowa: {{model}}",
+    "director": "Reżyser",
+    "faceRestore": "Przywracanie twarzy",
+    "interpolation": "{{multiplier}}x FPS",
+    "upscale": "2x Upscale",
+    "promptStyle": "styl {{style}}",
+    "cast": "Obsada ×{{count}}"
+  },
+  "frameSlot": {
+    "drop": "Upuść {{frame}} tutaj",
+    "remove": "Usuń {{frame}}",
+    "choose": "Wybierz {{frame}}"
+  },
+  "progress": {
+    "state": {
+      "done": "Zakończono",
+      "active": "W trakcie",
+      "queued": "Oczekiwanie na GPU",
+      "waiting": "Oczekiwanie",
+      "failed": "Błąd",
+      "cancelled": "Anulowano",
+      "pending": "Nieuruchomiono",
+      "skipped": "Pominięto"
+    },
+    "etaMeasured": "~{{duration}} zostało (zmierzone)",
+    "etaEstimate": "~{{duration}} zostało (szacowane)",
+    "cell": {
+      "done": "zakończono",
+      "held": "zatrzymane",
+      "failed": "błąd",
+      "rendering": "renderowanie",
+      "cancelled": "anulowano",
+      "pending": "oczekujące"
+    },
+    "clipOf": "Klip {{position}}/{{total}}",
+    "waitingForGpu": "oczekiwanie na GPU",
+    "working": "Przetwarzanie…",
+    "elapsed": "minęło {{duration}}",
+    "cutTooltip": "Cięcie nr {{index}} · {{state}}{{locked}}",
+    "locked": "zablokowane",
+    "cutAria": "Cięcie {{index}} {{state}}"
+  },
+  "referenceBoard": {
+    "rows": {
+      "images": "Obrazy",
+      "videos": "Klipy",
+      "audios": "Audio"
+    },
+    "roles": {
+      "keep": "Zachowaj dokładnie",
+      "loose": "Zachowaj wygląd luźno",
+      "detail": "Pożycz jeden detal",
+      "hint": "Lekka wskazówka",
+      "firstFrame": "Użyj jako pierwszego kadru",
+      "subject": "Zachowaj postać",
+      "motion": "Skopiuj ruch i kamerę",
+      "edit": "Edytuj ten klip",
+      "continue": "Kontynuuj ten klip",
+      "voice": "Głos dla postaci",
+      "music": "Użyj jako muzykę",
+      "sound": "Dopasuj ten dźwięk"
+    },
+    "problems": {
+      "needVisual": "Dodaj przynajmniej jedno zdjęcie lub klip; audio nie może być jedynym punktem odniesienia.",
+      "tooManyImages": "Zdjęcia mogą zajmować maksymalnie {{count}}.",
+      "tooManyVideos": "Klipy mogą zajmować maksymalnie {{count}}.",
+      "tooManyAudios": "Audio mogą zajmować maksymalnie {{count}}.",
+      "tooManyFiles": "Maksymalnie {{count}} plików łącznie.",
+      "clipTooShort": "Klip {{clip}} trwa {{seconds}} s; klipy muszą trwać co najmniej {{shortest}} s.",
+      "tooManyPictures": "Na tej karcie klip trwający {{seconds}} s o wymiarach {{width}}x{{height}} z klipem referencyjnym może zawierać maksymalnie {{count}} zdjęć.",
+      "clipShareTooShort": "Na tej karcie klip o długości {{seconds}} s w rozdzielczości {{width}}x{{height}} pozostawia {{share}} s materiału referencyjnego na klip, co jest poniżej wymaganych {{shortest}} s. Wybierz krótszy czas trwania, mniejszy rozmiar, użyj mniej klipów lub obrazów."
+    },
+    "help": {
+      "images": "Ludzie, miejsca, produkty lub wygląd do zachowania. Nadaj obrazom tej samej osoby tę samą nazwę.",
+      "videos": "Klip, aby powstrzymać kogoś przed czymś, skopiować ruch, zmontować lub kontynuować. Od 2 do 15 sekund.",
+      "audios": "Głos dla postaci, muzyka do użycia w oryginalnej formie lub dźwięk do dopasowania."
+    },
+    "rowNames": {
+      "images": "obrazy",
+      "videos": "klipy",
+      "audios": "audio"
+    },
+    "insertTag": "Wstaw do promptu",
+    "useItTo": "Użyj go do",
+    "whoOrWhat": "Kto lub co to jest?",
+    "whoOrWhatExample": "np. Maya, czerwony samochód",
+    "optional": "opcjonalnie",
+    "whichDetail": "Który szczegół?",
+    "whichDetailExample": "np. tylko skórzana kurtka",
+    "whoseVoice": "Czyj Głos?",
+    "forExample": "np. {{name}}",
+    "whoseVoiceHint": "nazwa z obrazów",
+    "notOnBoard": "Brak nazwy na tablicy ({{names}})",
+    "sound": "Dźwięk",
+    "ownSound": "Własny dźwięk",
+    "noSound": "Brak dźwięku",
+    "track": "Ścieżka: {{file}}",
+    "separateTrack": "Osobny tor…",
+    "lengthUnknown": "Długość nieznana",
+    "clipHasNoSound": "ten klip nie ma dźwięku",
+    "itsSoundIs": "jego dźwięk to {{tag}}",
+    "modelReadsFirst": "model czyta pierwsze {{seconds}} s",
+    "clipsNeedAtLeast": "Klipy wymagają co najmniej {{shortest}} s.",
+    "earlier": "Wcześniej (numeruje ponownie tagi)",
+    "moveEarlier": "Przenieś wcześniej",
+    "later": "Później (numeruje ponownie tagi)",
+    "moveLater": "Przenieś później",
+    "remove": "Usuń",
+    "removeReference": "Usuń referencję",
+    "onlyThisRow": "Tylko {{rows}} trafia do tego wiersza.",
+    "dropHere": "Upuść {{rows}} tutaj",
+    "dropHereOr": "Upuść {{rows}} tutaj lub",
+    "couldNotRead": "Nie można było odczytać {{file}}.",
+    "uploadFailed": "Błąd przesyłania.",
+    "fileCount": "{{used}} z {{total}} plików. Każdy osobny tor klipu liczy się jako jeden.",
+    "chooseSoundtrack": "Wybierz ścieżkę dźwiękową klipu"
+  }
+}

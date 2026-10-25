@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "Cliënten ophalen mislukt.",
+    "loadError": "Fout bij laden van cliënten: {{error}}",
+    "updated": "Cliënt succesvol bijgewerkt!",
+    "created": "Cliënt succesvol aangemaakt!",
+    "updateError": "Fout bij bijwerken van cliënt.",
+    "createError": "Fout bij aanmaken van cliënt.",
+    "deleteConfirm": "Sta je voorbereid om cliënt \"{{name}}\" (ID: {{id}}) te Verwijderen? Dit kan gevolgen hebben voor de bijbehorende Projecten.",
+    "deleteConfirmUnnamed": "Sta je voorbereid om cliënt \"deze cliënt\" (ID: {{id}}) te Verwijderen? Dit kan gevolgen hebben voor de bijbehorende Projecten.",
+    "deleted": "Cliënt \"{{name}}\" succesvol verwijderd!",
+    "deleteError": "Fout bij Verwijderen van cliënt.",
+    "missingClient": "Cliëntgegevens ontbreken. Kan niet koppelingsvenster Openen.",
+    "linksUpdated": "Projectkoppelingen succesvol bijgewerkt!",
+    "projectsFetchError": "Fout bij ophalen van Projecten: {{error}}",
+    "linksError": "Fout bij bijwerken van koppelingen: {{error}}",
+    "unknownError": "Er is een onbekende Fout opgetreden.",
+    "columns": {
+      "logo": "Logo",
+      "name": "Cliëntnaam",
+      "email": "E-mail",
+      "phone": "Telefoon",
+      "projects": "Projecten #",
+      "notes": "Notities",
+      "updated": "Laatst bijgewerkt",
+      "actions": "Acties"
+    },
+    "title": "Cliënten",
+    "new": "Nieuw",
+    "loading": "Cliënten laden...",
+    "empty": "Geen cliënten gevonden. Voeg er een toe om te beginnen!",
+    "notAvailable": "N.v.t.",
+    "email": "E-mail: {{email}}",
+    "phone": "Telefoon: {{phone}}",
+    "noNotesTooltip": "Geen notities.",
+    "noNotes": "Geen notities",
+    "projects": "Projecten: {{projects}}",
+    "linkProjects": "Projecten koppelen",
+    "deleteClient": "Cliënt verwijderen",
+    "total": "Totaal Cliënten: {{total}}",
+    "menu": {
+      "edit": "Bewerken",
+      "delete": "Verwijderen",
+      "newClient": "Nieuwe Cliënt"
+    },
+    "linkProject": "Project",
+    "linkProjectsPlural": "Projecten"
+  }
+}

@@ -1,0 +1,176 @@
+{
+  "page": {
+    "indexStatus": {
+      "pending": "保留中",
+      "indexing": "インデックス作成中",
+      "indexed": "インデックス済み",
+      "stored": "保存済み",
+      "storedTruncated": "保存済み（切断）",
+      "storageFailed": "保存失敗",
+      "notIndexed": "未インデックス",
+      "error": "エラー",
+      "uploaded": "アップロード済み",
+      "unknown": "不明"
+    },
+    "messages": {
+      "indexed": "ファイル「{{name}}」をアップロードし、インデックスを作成しました。",
+      "indexFailed": "ファイル「{{name}}」をアップロードしましたが、インデックス作成に失敗しました。",
+      "indexFailedReason": "ファイル「{{name}}」をアップロードしましたが、インデックス作成に失敗しました：{{reason}}",
+      "stillIndexing": "ファイル「{{name}}」をアップロードしました。現在インデックスを作成中です。再読み込み後に「最近のアップロード」で結果を確認できます。",
+      "selectFirst": "まずファイルを選択してください。",
+      "notQueued": "ファイル「{{name}}」をアップロードしましたが（ID: {{id}}）、インデックスへの登録に失敗しました。",
+      "notQueuedReason": "ファイル「{{name}}」をアップロードしましたが（ID: {{id}}）、インデックスへの登録に失敗しました：{{reason}}",
+      "queued": "ファイル「{{name}}」をアップロードしました（ID: {{id}}）。インデックスへの登録を待機中です。",
+      "unexpectedResponse": "アップロードは成功しましたが、予期しないレスポンスを受け取りました。",
+      "unknownError": "アップロード中に不明なエラーが発生しました。"
+    },
+    "title": "ドキュメントのインポート",
+    "modelLoading": "読み込み中...",
+    "modelError": "エラー",
+    "modelDefault": "デフォルト",
+    "dropZoneLabel": "インポートするファイルを選択してください",
+    "selectFile": "ファイルを選択",
+    "selected": "選択中: {{name}} ({{size}} KB)",
+    "dropHint": "ドラッグ＆ドロップ、またはクリックしてファイルを選択してください。",
+    "importing": "インポート中...",
+    "indexing": "インデックス作成中...",
+    "importAndIndex": "インポートとインデックス作成",
+    "recentUploads": "最近のアップロード",
+    "noRecentUploads": "最近のアップロードはありません。",
+    "documentFallback": "ドキュメント {{id}}",
+    "importedAt": "インポート日時: {{time}}"
+  },
+  "bulk": {
+    "title": "一括インポート",
+    "skipped": {
+      "folders_other": "{{count}} 個の隠しまたは内部フォルダ",
+      "files_other": "{{count}} 個の隠しまたはプライベートなファイル",
+      "foldersAndFiles": "{{folders}} と {{files}}"
+    },
+    "pill": {
+      "previewReady": "プレビュー準備完了",
+      "finishedWithErrors_other": "エラーで終了（{{count}} 件失敗）",
+      "imported": "インポート済み",
+      "failed": "失敗",
+      "stopped": "停止",
+      "cancelled": "キャンセル",
+      "uploading": "アップロード中",
+      "queued": "キューに追加",
+      "counting": "ファイルをカウント中",
+      "importing": "インポート中"
+    },
+    "result": {
+      "wouldImport_other": "{{count}} 個のファイルがインポートされます",
+      "imported_other": "{{count}} 件インポート済み",
+      "alreadyThere_other": "{{count}} 件は既に存在します",
+      "failed_other": "{{count}} 件失敗",
+      "queued_other": "{{count}} 件がインデックス作成待ち",
+      "skipped": "スキップ: {{what}}"
+    },
+    "job": {
+      "finishedAway": "離席中に完了しました。",
+      "unreachable": "現在サーバーに接続できません。インポートの確認を継続しています…",
+      "expired": "このインポートのステータスは保持されません（サーバーは1時間のみ保持します）。ファイルは「ファイル」内にあります。",
+      "counting": "ファイルをカウント中…",
+      "started": "インポートを開始しました",
+      "fromServer": "{{path}} から",
+      "nothingToMove": "移動するものがありません：対象のファイルがありません。",
+      "uploadStarting": "アップロードを開始します…",
+      "fromBrowserFolder": "{{name}} から（このコンピュータ）",
+      "fromBrowserFiles_other": "{{count}} 個のファイルから（このコンピュータ）",
+      "uploadingFile": "{{number}} / {{total}} をアップロード中 ・ {{name}}",
+      "uploadStopped_other": "{{total}} 個中 {{count}} 個のファイルで停止しました",
+      "uploadFinished": "アップロードが完了しました",
+      "uploadFailed": "アップロードに失敗しました"
+    },
+    "fileCount_other": "{{count}} 個のファイル",
+    "uploadFailedReason": "アップロードに失敗しました",
+    "notStarted": "インポートが開始されませんでした",
+    "startFailed": "インポートの開始に失敗しました",
+    "readDropFailed": "ドロップした内容を読み取れませんでした：{{reason}}",
+    "unknownError": "不明なエラー",
+    "tooLargeCount_other": "100 MBを超えるファイルが {{count}} 個あります",
+    "nothingToImport": "インポートするものがありません",
+    "nothingToImportSkipped": "インポートするものがありません：{{why}} をスキップしました",
+    "action": {
+      "import": "インポート",
+      "importFiles_other": "{{count}} 個のファイルをインポート",
+      "moreWays": "その他のインポート方法",
+      "importHint": "ファイルをコピーします。元の場所にはそのまま残ります。",
+      "previewOnly": "プレビューのみ",
+      "previewHint": "取り込まれる数をカウントします。変更は行われません。",
+      "previewCounted": "ドロップされたファイルは上記ですでにカウント済みです",
+      "importAndMove": "取り込んで移動…",
+      "moveHint": "ファイルが「ファイル」に入った後、元の場所から削除します。削除前に確認を求められます。",
+      "moveServerOnly": "Guaardvarkマシン上のフォルダのみ対象"
+    },
+    "chooseFirst": "最初に取り込むものを選択",
+    "waitForImport": "現在の取り込みが完了するまで待機",
+    "links": {
+      "client": "クライアント",
+      "project": "プロジェクト",
+      "website": "ウェブサイト",
+      "linkTo": "リンク先",
+      "none": "なし"
+    },
+    "from": {
+      "label": "場所",
+      "serverNote": "Guaardvarkマシン上のフォルダ。バックグラウンドで実行されます。",
+      "filesAndSize_other": "{{count}} ファイル、{{size}}",
+      "browserNote": "このコンピュータから、コピーとしてアップロードされます。元のファイルはそのまま残ります。",
+      "tooLargeLeftOut_other": "100 MBを超える{{count}}個のファイルが除外されました",
+      "change": "変更",
+      "clear": "クリア"
+    },
+    "startOver": "やり直す",
+    "filesPage": "ファイル",
+    "intro": "フォルダを「ファイル」に取り込み、検索用にインデックスを作成します。",
+    "dropZone": {
+      "release": "離して追加",
+      "prompt": "ここにフォルダまたはファイルをドロップ",
+      "note": "このブラウザを通じてコピーとしてアップロードされます。元のファイルは元の場所に残ります。",
+      "chooseFolder": "フォルダを選択…",
+      "chooseFiles": "ファイルを選択…"
+    },
+    "orServerFolder": "またはGuaardvarkマシンのフォルダ",
+    "browseServer": "Guaardvarkマシン内を閲覧…",
+    "bigDrop": "大きなデータです。このフォルダがGuaardvarkマシン上にある場合は、そちらで選択してください。バックグラウンドで実行され、コピーの代わりに移動が行われます。",
+    "into": {
+      "label": "移動先",
+      "newFolder": "{{name}} (新規)",
+      "foldersInFiles": "ファイル内のフォルダ",
+      "newFolderOption": "新しいフォルダ…"
+    },
+    "fewerOptions": "オプションを減らす ▾",
+    "moreOptions": "オプションを増やす ▸",
+    "reindexMissing": "以前のインポートでインデックス未完了のファイルをインデックスする",
+    "reindexMissingTooltip": "以前のインポートですでに取り込まれたがインデックスが完了していないファイルがある場合、このオプションをオンにするとインデックス待ちに登録されます。すでにインデックス済みのファイルは再処理されません。",
+    "status": {
+      "jobTooltip": "ジョブ {{id}}",
+      "stopTooltip": "進行中の処理を完了してから停止します",
+      "stop": "停止",
+      "tooLargeFailure": "{{path}}: 100 MBを超えているため、アップロードされませんでした",
+      "hideList": "リストを非表示",
+      "showFiles_other": "{{count}} 個のファイルを表示",
+      "showFailed_other": "{{count}} 件の失敗を表示",
+      "andMore": "および {{count}} 件以上",
+      "openFiles": "ファイルを開く",
+      "importAnother": "別のものをインポート"
+    },
+    "pickerTitle": "Guaardvarkマシン上のフォルダを選択",
+    "newFolder": {
+      "title": "ファイル内の新しいフォルダ",
+      "description": "インポート時に「ファイル」のルートに作成されます。",
+      "label": "フォルダ名",
+      "submit": "このフォルダを使用する"
+    },
+    "move": {
+      "title": "ファイルを「ファイル」に移動しますか？",
+      "description": "「ファイル」にまだ存在しない各ファイルは、安全に「ファイル」へ移動された後、元のフォルダから削除されます。",
+      "filesFound": "検出されたファイル",
+      "keeps": "既にインポート済みのファイル（元の場所に保持）",
+      "keepsWithSkipped": "既にインポート済みのファイル（元の場所に保持）、およびスキップされた {{skipped}} 件",
+      "confirm": "移動"
+    }
+  }
+}

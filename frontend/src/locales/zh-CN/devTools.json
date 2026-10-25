@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "服务离线",
+    "unknown": "错误"
+  },
+  "cleanup": {
+    "running": "正在清理运行中的任务...",
+    "result": "{{message}}: 已清理 {{cleaned}} 个卡住的任务（共发现 {{found}} 个）",
+    "failed": "清理失败：{{error}}"
+  },
+  "entityIndexing": {
+    "running": "正在为通用 RAG 访问建立实体索引...",
+    "completed": "实体索引完成：已索引 {{total}} 个实体（{{clients}} 个客户，{{projects}} 个项目，{{websites}} 个网站，{{tasks}} 个任务）",
+    "completedWithErrors": "实体索引完成：已索引 {{total}} 个实体（{{clients}} 个客户，{{projects}} 个项目，{{websites}} 个网站，{{tasks}} 个任务），共 {{errors}} 个错误",
+    "failed": "实体索引失败",
+    "failedWithError": "实体索引失败：{{error}}"
+  },
+  "restart": {
+    "starting": "正在启动服务重启...",
+    "started": "服务重启已成功启动",
+    "restarting": "服务正在重启。页面可能会暂时断开连接。",
+    "failed": "服务重启失败：{{error}}"
+  },
+  "selfTest": {
+    "complete": "自检完成",
+    "failed": "自检失败：{{error}}",
+    "resultsHeading": "自检结果",
+    "resultsEmpty": "运行自检以查看详细的系统诊断"
+  },
+  "logs": {
+    "fetchFailed": "获取日志失败 ({{status}})",
+    "heading": "后端日志（最后 100 行）",
+    "loadFailed": "加载日志失败：{{error}}",
+    "empty": "无日志输出。"
+  },
+  "title": "系统仪表板",
+  "loading": "加载中...",
+  "status": {
+    "error": "错误",
+    "healthy": "健康"
+  },
+  "model": {
+    "default": "默认"
+  },
+  "summary": {
+    "heading": "系统状态摘要",
+    "backend": "后端：{{state}}",
+    "database": "数据库：{{state}}",
+    "celery": "Celery：{{state}}",
+    "redis": "Redis：{{state}}"
+  },
+  "actions": {
+    "refresh": "刷新",
+    "retry": "重试"
+  },
+  "checking": "检查中...",
+  "backend": {
+    "heading": "后端",
+    "version": "版本：{{version}}",
+    "uptime": "运行时间：{{seconds}}s",
+    "indexLoaded": "✓ 索引已加载"
+  },
+  "database": {
+    "heading": "数据库 / 迁移",
+    "upToDate": "已是最新",
+    "needsUpdate": "需要更新",
+    "current": "当前：{{revision}}",
+    "noRevision": "无",
+    "heads": "头：{{heads}}",
+    "multipleHeads": "检测到多个头"
+  },
+  "celery": {
+    "heading": "Celery Worker",
+    "ping": "✓ Ping：{{result}}",
+    "active": "活跃：{{count}}",
+    "queued": "排队：{{count}}",
+    "debug": "调试：{{tasks}}"
+  },
+  "redis": {
+    "heading": "Redis 缓存",
+    "connected": "✓ 已建立连接"
+  },
+  "failedTasks": {
+    "heading": "最近失败的任务",
+    "none": "无近期失败记录。"
+  },
+  "controls": {
+    "heading": "系统控制",
+    "refreshAll": "全部刷新",
+    "running": "运行中...",
+    "selfTest": "自检",
+    "restartServices": "重启服务",
+    "autoRefresh": "每 5 秒自动刷新"
+  },
+  "jobs": {
+    "heading": "进度任务管理",
+    "activeCount": "{{count}} 个正在运行",
+    "completedCount": "{{count}} 个已完成",
+    "stuckCount": "{{count}} 个卡滞",
+    "systemUnhealthy": "系统状态异常",
+    "cleaning": "正在清理...",
+    "cleanStuck": "清理卡滞任务",
+    "cleanStuckCount": "清理卡滞任务 ({{count}})",
+    "indexing": "正在建立索引...",
+    "indexEntities": "索引实体",
+    "stuckWarning": "似乎有 {{count}} 个任务卡滞（无活跃的 Celery 任务或时间戳已过期）。建议运行清理。",
+    "systemIssues": "进度系统检测到问题。部分任务可能无法正常运行。",
+    "details": "任务详情（共 {{count}} 个）",
+    "noActive": "无活动任务",
+    "columns": {
+      "jobId": "任务 ID",
+      "type": "类型",
+      "status": "状态",
+      "progress": "进度",
+      "lastUpdate": "最后更新",
+      "message": "消息"
+    },
+    "staleTooltip": "陈旧任务（超过 1 小时未更新）",
+    "unknownType": "未知",
+    "complete": "完成",
+    "processing": "处理中",
+    "invalidDate": "无效日期",
+    "noTimestamp": "无时间戳",
+    "hoursAgo": "（{{hours}} 小时前）",
+    "noMessage": "无消息",
+    "moreJobs": "... 以及另外 {{count}} 个任务"
+  },
+  "selfImprovement": {
+    "heading": "自我优化日志",
+    "runs": "{{count}} 次运行"
+  },
+  "family": {
+    "heading": "家族网络",
+    "notConfigured": "未配置",
+    "online": "在线",
+    "offline": "离线",
+    "noNodes": "未连接到任何家族节点。请在“设置”中配置 Interconnector。",
+    "vram": "VRAM: {{free}} / {{total}} MB",
+    "unknownStatus": "未知"
+  },
+  "performance": {
+    "heading": "性能概览",
+    "notAvailable": "N/A",
+    "backendUptime": "后端运行时间：{{seconds}}s",
+    "celeryTasks": "Celery 任务：{{tasks}} 个正在运行",
+    "activeJobs": "活跃任务：{{count}}",
+    "failedTasks": "失败任务：{{count}}"
+  },
+  "metrics": {
+    "heading": "系统指标"
+  },
+  "diagnostics": {
+    "heading": "诊断"
+  },
+  "retrievalDebug": {
+    "heading": "检索调试"
+  }
+}

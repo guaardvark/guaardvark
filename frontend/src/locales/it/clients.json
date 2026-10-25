@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "Impossibile recuperare i Clienti.",
+    "loadError": "Errore nel caricamento dei Clienti: {{error}}",
+    "updated": "Cliente aggiornato con successo!",
+    "created": "Cliente creato con successo!",
+    "updateError": "Errore durante l'aggiornamento del cliente.",
+    "createError": "Errore durante la creazione del cliente.",
+    "deleteConfirm": "Sei sicuro di voler eliminare il cliente \"{{name}}\" (ID: {{id}})? Questo potrebbe influire sui Progetti associati.",
+    "deleteConfirmUnnamed": "Sei sicuro di voler eliminare il cliente \"questo cliente\" (ID: {{id}})? Questo potrebbe influire sui Progetti associati.",
+    "deleted": "Cliente \"{{name}}\" eliminato con successo!",
+    "deleteError": "Errore durante l'eliminazione del cliente.",
+    "missingClient": "I dati del cliente mancano. Impossibile aprire la modale di collegamento.",
+    "linksUpdated": "Collegamenti del progetto aggiornati con successo!",
+    "projectsFetchError": "Errore nel recupero dei Progetti: {{error}}",
+    "linksError": "Errore nell'aggiornamento dei collegamenti: {{error}}",
+    "unknownError": "Si è verificato un errore sconosciuto.",
+    "columns": {
+      "logo": "Logo",
+      "name": "Nome Cliente",
+      "email": "Email",
+      "phone": "Telefono",
+      "projects": "Progetti #",
+      "notes": "Note",
+      "updated": "Ultimo aggiornamento",
+      "actions": "Azioni"
+    },
+    "title": "Clienti",
+    "new": "Nuovo",
+    "loading": "Caricamento Clienti...",
+    "empty": "Nessun cliente trovato. Aggiungine uno per iniziare!",
+    "notAvailable": "N/D",
+    "email": "Email: {{email}}",
+    "phone": "Telefono: {{phone}}",
+    "noNotesTooltip": "Nessuna nota.",
+    "noNotes": "Nessuna nota",
+    "projects": "Progetti: {{projects}}",
+    "linkProjects": "Collega Progetti",
+    "deleteClient": "Elimina Cliente",
+    "total": "Clienti totali: {{total}}",
+    "menu": {
+      "edit": "Modifica",
+      "delete": "Elimina",
+      "newClient": "Nuovo Cliente"
+    },
+    "linkProject": "Progetto",
+    "linkProjectsPlural": "Progetti"
+  }
+}

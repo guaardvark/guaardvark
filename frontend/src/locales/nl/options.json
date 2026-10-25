@@ -1,0 +1,374 @@
+{
+  "infographic": {
+    "styles": {
+      "editorial": "Dramatische redactionele illustratie",
+      "flatVector": "Vlakke vector / strak geometrisch",
+      "photoReal": "Fotorealistisch",
+      "comic": "Stripboek"
+    },
+    "aspects": {
+      "wide": "16:9  (1280×720)  — sociaal / video thumbnail",
+      "square": "1:1   (1024×1024) — vierkant / Instagram",
+      "vertical": "9:16  (720×1280)  — verticaal / Reels",
+      "portrait": "4:5   (1024×1280) — Instagram portret",
+      "landscape": "3:2   (1216×832)  — landschap"
+    }
+  },
+  "tips": {
+    "dashboardCardMenu": "Klik met de rechtermuisknop op een kaart op het Dashboard om de pagina te openen, deze te verkleinen, een kleur te geven of te verbergen.",
+    "shortcuts": "Druk op ? buiten een tekstvak om de toetsenbordkoppelingen te zien.",
+    "micHandsFree": "Klik op de microfoon om handsfree te praten: elke pauze verzendt wat je zei naar de chat. Klik er nogmaals op om te stoppen.",
+    "floatingChat": "Ctrl+Shift+C opent de Zwevende chat op elke pagina. De chip geeft de naam van de pagina waarop je bent, en de chat krijgt te horen welke pagina en welk bestand je open hebt.",
+    "dropIntoFiles": "Sleep Bestanden of hele mappen van je computer naar de Bestanden-pagina. Ze worden geüpload waar je ze neerzet en geïndexeerd voor chat en zoeken.",
+    "dashboardHiddenCards": "Een Dashboard-kaart per ongeluk verborgen? Klik met de rechtermuisknop op een leeg gedeelte van het Dashboard om deze weer te tonen.",
+    "moveResizeCards": "Kaarten op het Dashboard, in de Code-editor en de Video-editor kunnen worden verplaatst via de titelbalk en worden aangepast aan de grootte vanaf elke rand of hoek. Dubbelklik op een titelbalk om een kaart in te klappen.",
+    "settingsHoverHelp": "In Instellingen legt een titel met een gestippelde onderstreping zichzelf uit: houd de aanwijzer erop.",
+    "navigationModes": "Instellingen → Algemeen → Navigatie schakelt tussen de zijbalk en een Workspaces-balk die pagina's groepeert per taak.",
+    "dropIntoChat": "Sleep een document of een afbeelding naar een chat om het toe te voegen: documenten worden geïndexeerd, een afbeelding wordt bij je volgende bericht gevoegd.",
+    "micPushToTalk": "Houd de microfoon ingedrukt, of houd Ctrl+Shift+Space ingedrukt, om alleen te praten terwijl je het vasthoudt. Klik met de rechtermuisknop op de microfoon om te wijzigen wat een klik doet.",
+    "dashboardLayouts": "Klik met de rechtermuisknop op een leeg deel van het Dashboard om de indeling te wisselen: Normaal, Compact, Compact Layered en Mode-X. Kaarten blijven in elke indeling vrij verplaatsbaar.",
+    "footerJobs": "Terwijl taken draaien, toont de balk onderaan deze naast elkaar. Houd de aanwijzer erop om elke taak te zien; klik om de lijst open te houden.",
+    "updateNotice": "Wanneer Guaardvark wordt bijgewerkt terwijl het draait, geeft een melding boven de onderste balk aan of een herladen van de pagina of een herstart de update voltooit.",
+    "rightClickEverywhere": "Rechtermuisklik werkt in de hele app: bestanden, notities, chatberichten, taken, regels, plugins en meer hebben elk hun eigen menu."
+  },
+  "voiceActivation": {
+    "push": {
+      "label": "Houd ingedrukt om te praten",
+      "help": "Houd de microfoon ingedrukt (of Ctrl+Shift+Space) terwijl je spreekt; laat los om te verzenden."
+    },
+    "toggle": {
+      "label": "Tik om te praten",
+      "help": "Klik, spreek, en het wordt verzonden wanneer je pauzeert. De microfoon sluit na elk bericht."
+    },
+    "handsfree": {
+      "label": "Handsfree",
+      "help": "Klik één keer en praat; elke pauze verzendt een bericht totdat je weer klikt."
+    }
+  },
+  "brandTones": {
+    "neutral": {
+      "label": "Neutraal",
+      "description": "Professionele en gebalanceerde toon"
+    },
+    "friendly": {
+      "label": "Vriendelijk",
+      "description": "Warme en toegankelijke toon"
+    },
+    "authoritative": {
+      "label": "Autoritair",
+      "description": "Expert en zelfverzekerde toon"
+    },
+    "playful": {
+      "label": "Speels",
+      "description": "Creatieve en boeiende toon"
+    },
+    "luxury": {
+      "label": "Luxe",
+      "description": "Premium en verfijnde toon"
+    }
+  },
+  "delimiters": {
+    "comma": {
+      "label": "Komma (,)",
+      "description": "Standaard CSV-formaat"
+    },
+    "semicolon": {
+      "label": "Semikolon (;)",
+      "description": "Europese standaard"
+    },
+    "tab": {
+      "label": "Tab",
+      "description": "Tab-gescheiden waarden"
+    }
+  },
+  "mediaTabs": {
+    "mediaLibrary": "Media Bibliotheek",
+    "imageGen": "Afbeelding Gen",
+    "infographic": "Infographic",
+    "videoGen": "Video Gen",
+    "upscaling": "Upscaling"
+  },
+  "videoPresets": {
+    "quality": {
+      "fast": {
+        "label": "⚡ Snel",
+        "description": "Preview op de stap-ondergrens van het model (nooit daaronder)"
+      },
+      "standard": {
+        "label": "✨ Standaard",
+        "description": "Goede kwaliteit (30 stappen)"
+      },
+      "high": {
+        "label": "🎬 Hoge kwaliteit",
+        "description": "Beste details (40 stappen)"
+      },
+      "maximum": {
+        "label": "🏆 Maximaal",
+        "description": "Maximale kwaliteit (50 stappen)"
+      }
+    },
+    "duration": {
+      "short": "Kort",
+      "medium": "Gemiddeld",
+      "long": "Lang",
+      "about_one": "~{{count}} seconde",
+      "about_other": "~{{count}} seconden",
+      "seconds": "{{seconds}} s",
+      "exact_one": "{{count}} seconde",
+      "exact_other": "{{count}} seconden"
+    },
+    "motion": {
+      "subtle": {
+        "label": "🌊 Subtiel",
+        "description": "Zachte beweging"
+      },
+      "normal": {
+        "label": "🎯 Normaal",
+        "description": "Gebalanceerde beweging"
+      },
+      "dynamic": {
+        "label": "💨 Dynamisch",
+        "description": "Meer beweging"
+      },
+      "intense": {
+        "label": "🔥 Intens",
+        "description": "Maximale beweging"
+      }
+    },
+    "outputTiers": {
+      "draft": {
+        "label": "Concept",
+        "description": "Ruwe model-output — snelst, minste afwerking"
+      },
+      "standard": {
+        "label": "Standaard",
+        "description": "2x FPS interpolatie voor vloeiendere beweging"
+      },
+      "cinema": {
+        "label": "Cinema",
+        "description": "2x FPS + 2x upscale — aanbevolen voor de uiteindelijke output"
+      }
+    },
+    "keyframeModels": {
+      "fromLora": {
+        "label": "Auto (personage LoRA basis)",
+        "description": "Z-Image / SDXL / FLUX uit de trainingsbasis van het castlid"
+      },
+      "fluxSchnell": {
+        "description": "Snelle, mooie stilstaande beelden (standaard zonder cast)"
+      },
+      "fluxDevLora": {
+        "description": "Comfy FLUX stilstaande beelden (geen cast of expliciet)"
+      },
+      "sdxl": {
+        "description": "Hoge-kwaliteit stilstaande beelden zonder LoRA"
+      },
+      "sdxlLora": {
+        "description": "Legacy SDXL personagepad"
+      }
+    },
+    "samplerProfiles": {
+      "official": {
+        "label": "Officieel — uni_pc, shift 8 (standaard)",
+        "description": "Ingebouwde Wan 2.2 5B sjablooninstellingen van ComfyUI"
+      },
+      "adaptive": {
+        "label": "Guaardvark — euler, adaptieve shift",
+        "description": "Experimenteel: shift schaalt mee met resolutie, minimaal 3 onder ~740px"
+      }
+    },
+    "aspectRatios": {
+      "widescreen": "Breedbeeld",
+      "portraitVertical": "Portret/Verticaal",
+      "square": "Vierkant",
+      "standard": "Standaard",
+      "classic": "Klassiek",
+      "ultraWide": "Ultra-breed",
+      "portrait": "Portret"
+    },
+    "promptStyles": {
+      "cinematic": {
+        "label": "Cinematisch",
+        "description": "Filmkwaliteit belichting en beweging"
+      },
+      "realistic": {
+        "label": "Realistisch",
+        "description": "Fotorealistische details"
+      },
+      "artistic": {
+        "label": "Artistiek",
+        "description": "Gestileerd en expressief"
+      },
+      "anime": {
+        "label": "Anime (Japans)",
+        "description": "Japanse cel-shaded animatie"
+      },
+      "animation3d": {
+        "label": "3D Animatie (Pixar-stijl)",
+        "description": "Gepolijste CGI, expressieve personages"
+      },
+      "stopMotion": {
+        "label": "Stop-motion / Claymation",
+        "description": "Tastbare klei, handgemaakt gevoel"
+      },
+      "handDrawn": {
+        "label": "Handgetekend 2D (Ghibli-stijl)",
+        "description": "Schilderachtige aquarelachtergronden"
+      },
+      "westernCartoon": {
+        "label": "Westerse Tekenfilm",
+        "description": "Duidelijke lijnen, vlakke schaduw, vlotte beweging"
+      },
+      "none": {
+        "label": "Geen",
+        "description": "Geen verbetering"
+      }
+    },
+    "sizes": {
+      "small": {
+        "label": "Klein",
+        "description": "512px (sneller)"
+      },
+      "medium": {
+        "label": "Gemiddeld"
+      },
+      "large": {
+        "label": "Groot",
+        "description": "720px (CogVideoX native)"
+      },
+      "hd": {
+        "description": "1280px (CPU offload, trager)"
+      },
+      "fullhd": {
+        "description": "1920px (CPU offload, veel trager)"
+      }
+    },
+    "models": {
+      "wan225b": {
+        "label": "Wan 2.2 5B TI2V (Aanbevolen)",
+        "description": "Snelle clips van 5s, past in 16GB — geen offload. Tekst + afbeelding naar video."
+      },
+      "wan2214b": {
+        "description": "Beste kwaliteit, 5s video's (16GB VRAM)"
+      },
+      "wan2214bI2v": {
+        "description": "Topkwaliteit afbeelding-naar-video, 5s clips (16GB VRAM)"
+      },
+      "cogvideox5b": {
+        "description": "6s video's, in-process diffusers — geen ComfyUI nodig (~16GB VRAM)"
+      },
+      "cogvideox5bI2v": {
+        "description": "Afbeelding-naar-video, 5 s bij 1360x768 (~16GB VRAM)"
+      },
+      "ltx23": {
+        "description": "Lightricks LTX-2.3 — 8 stappen, tot ~10s op 16GB Ada. T2V + I2V."
+      },
+      "minimaxH3Int8": {
+        "description": "MiniMax H3 — video met native stereo audio in één pass. 24fps, ~5s. T2V, eerste frame en eerste+laatste frame I2V. ComfyUI ≥ 0.30."
+      },
+      "minimaxH3Int8Full": {
+        "description": "MiniMax H3 met de volledige modulatieweights en de int8 encoder. 24GB-klasse kaarten; niet gemeten."
+      },
+      "minimaxH3Reference": {
+        "description": "MiniMax H3 reference-naar-video: tot 9 afbeeldingen, 3 clips en 3 audiobestanden vergrendelen identiteit, beweging en Stem, of bewerk en vervolg een clip. 24fps, native audio."
+      },
+      "minimaxH3Bf16": {
+        "description": "MiniMax H3 met volledige precisie met de bf16 encoder (~110GB aan gewichten). Workstation-kaarten; ongemeten."
+      },
+      "hunyuanT2v": {
+        "description": "Tencent HunyuanVideo — cinematische beweging, geen contentfilter. 24fps, ~3s clips (16GB VRAM)"
+      },
+      "hunyuanI2v": {
+        "description": "HunyuanVideo image-to-video (v2) — volgt het startframe nauwkeurig. 24fps, ~3s (16GB VRAM)"
+      },
+      "ltx25": {
+        "description": "Lightricks LTX-2.5 — 8 stappen, tot ~10s op 16GB Ada. T2V + I2V. Gated HF accept + ComfyUI ≥ 0.32."
+      }
+    },
+    "unknownModel": "Onbekend model"
+  },
+  "imagePresets": {
+    "labels": {
+      "fast": "Snel",
+      "standard": "Standaard",
+      "high2k": "Hoog 2K (2048²)",
+      "fluxFast": "FLUX Snel",
+      "fluxQuality": "FLUX Maximale Kwaliteit",
+      "fluxUltra": "FLUX Ultra",
+      "high": "Hoge Kwaliteit",
+      "ultra": "Ultra"
+    },
+    "descriptions": {
+      "zimage": {
+        "fast": "Snelle opzet",
+        "standard": "Officiële Turbo-receptuur (HF)",
+        "high2k": "Officieel recept op 2K canvas — zwaar; 16GB kaarten kunnen weigeren"
+      },
+      "flux": {
+        "fluxFast": "Snellere FLUX.1-dev stillevelden",
+        "fluxQuality": "Standaard FLUX.1-dev met maximale kwaliteit",
+        "fluxUltra": "Meeste stappen — traag, piekdetails"
+      },
+      "kreaTurbo": {
+        "fast": "Krea turbo zonder CFG",
+        "standard": "Gebalanceerde turbo",
+        "high": "Meer stappen"
+      },
+      "kreaRaw": {
+        "standard": "Krea raw kwaliteit",
+        "high": "Standaard raw",
+        "ultra": "Traag, piekdetails"
+      },
+      "sdxlTurbo": {
+        "fast": "Preview in één stap",
+        "standard": "Turbo recept (4 stappen, zonder CFG)"
+      },
+      "sana": {
+        "fast": "Preview in één stap",
+        "standard": "Sana Sprint recept (2 stappen)"
+      },
+      "qwenImage21": {
+        "standard": "Officieel ComfyUI sjabloon (25 stappen, cfg 1)",
+        "high": "Officiële pipeline reeks (40-50 stappen), trager"
+      },
+      "sdxl": {
+        "fast": "Snelle SDXL",
+        "standard": "Gebalanceerde SDXL",
+        "high": "Definitieve SDXL"
+      },
+      "sd": {
+        "fast": "Snelle generatie, goed voor testen",
+        "standard": "Gebalanceerde kwaliteit en snelheid",
+        "high": "Hoge kwaliteit, tragere generatie"
+      }
+    }
+  },
+  "slashCommands": {
+    "imagine": "Genereer een afbeelding uit een tekstprompt",
+    "removebg": "Verwijder de achtergrond van de bijgevoegde foto (transparante PNG)",
+    "inpaint": "Pas iets aan of verwijder iets in de bijgevoegde foto",
+    "outpaint": "Breid de bijgevoegde foto uit en vul het nieuwe canvas",
+    "video": "Voeg een videoclip toe aan de wachtrij vanuit een tekstprompt",
+    "musicVideo": "Start een muziekvideo-plan vanuit een nummer (goedkeuren in Studio voordat clips worden gerenderd)",
+    "filmCrew": "Start een Film Crew-productie vanuit een script (renders wachten in Studio)",
+    "imagemodel": "Wissel het chat-afbeeldingsmodel (generatie + bewerking) of toon het huidige",
+    "model": "Wissel het LLM-chatmodel of toon het huidige",
+    "websearch": "Zoek op het web, controleer één pagina (site:<address>) of toon een sitemap (sitemap:<url>)",
+    "gpu": "Inspecteer de live GPU-lock, VRAM-slots en draaiende plugins",
+    "logs": "Bekijk een Guaardvark-log (optionele bestandsnaam en grep)",
+    "sysmap": "Voer de Systeem Mapper uit (dezelfde snapshot als /system-map)",
+    "swarm": "Status van de Swarm-orchestrator (plugin moet draaien)",
+    "outreach": "Outreach-status, korte werkwoorden of scout/concept in natuurlijke taal (bijv. YouTube-onderwerpen)",
+    "plan": "Maak een orchestrator-plan",
+    "training": "Voer de agent uit in de trainingsmodus — volledige 1000-iteratie lus, omzeilt chat LLM-decompositie",
+    "agent": "Schakel deze chat om naar agent-modus — elke bericht wordt een taak voor schermbeheer. Optioneel vuurt <task> direct af.",
+    "chat": "Schakel deze chat terug naar chatmodus (verlaat agent-modus)",
+    "thinking": "Schakel stap-voor-stap redeneren in voor denkmodellen (gemma4:12b, qwen3) in deze chat. Uit = sneller. Bare /thinking toont de huidige status.",
+    "exit": "Verlaat agent-modus (alias voor /chat)",
+    "voice": "Schakel Stem-chat aan/uit",
+    "vision": "Toon status van Vision Pipeline plugin (start/stop via de Plugins-pagina)",
+    "clear": "Start een nieuwe chat (de huidige blijft staan onder Alle chats)",
+    "help": "Toon beschikbare commando's",
+    "custom": "Aangepast commando"
+  }
+}

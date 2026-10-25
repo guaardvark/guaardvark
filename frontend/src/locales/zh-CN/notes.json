@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "普通",
+    "compact": "紧凑",
+    "collapsed": "折叠"
+  },
+  "untitled": "未命名",
+  "note": {
+    "changeColor": "更改颜色",
+    "close": "关闭",
+    "closeNote": "关闭笔记",
+    "bold": "加粗 (Ctrl+B)",
+    "italic": "斜体 (Ctrl+I)",
+    "underline": "下划线 (Ctrl+U)",
+    "insertLink": "插入链接",
+    "bodyPlaceholder": "输入您的笔记..."
+  },
+  "errors": {
+    "loadFailed": "加载笔记失败：{{message}}。正在使用默认设置。",
+    "saveFailed": "保存笔记失败。",
+    "copyDenied": "无法复制：剪贴板权限被拒绝",
+    "pasteFailed": "无法粘贴：{{message}}",
+    "pasteDenied": "无法粘贴：剪贴板权限被拒绝"
+  },
+  "pageTitle": "笔记",
+  "loading": "正在加载笔记...",
+  "toolbar": {
+    "searchPlaceholder": "搜索笔记...",
+    "dashboardCards": "仪表盘卡片",
+    "stickyNotes": "便签",
+    "addNoteTooltip": "添加笔记",
+    "addNote": "添加笔记",
+    "closedNotes": "已关闭的笔记",
+    "layoutCycle": "布局：{{mode}}（点击切换）",
+    "layoutMode": "布局：{{mode}}",
+    "saving": "正在保存...",
+    "allSaved": "所有更改已保存",
+    "saveFailed": "保存失败"
+  },
+  "emptyNote": "空笔记",
+  "menu": {
+    "copy": "复制",
+    "selectAll": "全选",
+    "paste": "粘贴",
+    "duplicate": "复制",
+    "rename": "重命名",
+    "unpin": "取消置顶",
+    "pinToTop": "置顶"
+  },
+  "actions": {
+    "delete": "删除",
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "deleteDialog": {
+    "title": "删除 \"{{title}}\"？在您离开或重新加载此页面之前，按 Ctrl+Z 可撤销操作。"
+  },
+  "boardMenu": {
+    "newNote": "新建笔记",
+    "cycleLayout": "循环布局",
+    "goToDashboard": "前往仪表盘"
+  },
+  "renameDialog": {
+    "title": "重命名笔记",
+    "placeholder": "笔记标题"
+  },
+  "linkDialog": {
+    "title": "插入链接",
+    "url": "URL",
+    "insert": "插入"
+  },
+  "closed": {
+    "justNow": "刚刚",
+    "minutesAgo": "{{count}}分钟前",
+    "hoursAgo": "{{count}}小时前",
+    "yesterday": "昨天",
+    "daysAgo": "{{count}}天前",
+    "deleteNamed": "删除 {{title}}",
+    "heading": "已关闭的笔记",
+    "searchPlaceholder": "搜索已关闭的笔记...",
+    "empty": "没有已关闭的笔记",
+    "noMatches": "无匹配项",
+    "groups": {
+      "today": "今天",
+      "yesterday": "昨天",
+      "thisWeek": "本周",
+      "older": "更早之前"
+    }
+  }
+}

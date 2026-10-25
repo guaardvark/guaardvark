@@ -1,0 +1,56 @@
+{
+  "title": "Agent-tools",
+  "loadFailed": "Fout bij laden van tools",
+  "copied": "Gekopieerd naar klembord",
+  "copyFailed": "Kopiëren naar klembord mislukt",
+  "parameters": "Parameters",
+  "copyName": "Toolnaam kopiëren",
+  "card": {
+    "test": "Test"
+  },
+  "table": {
+    "name": "Naam",
+    "category": "Categorie",
+    "description": "Beschrijving",
+    "params": "Params",
+    "actions": "Acties",
+    "requiredList": "Verplicht: {{params}}",
+    "optionalList": "Optioneel: {{params}}",
+    "requiredCount": "{{count}} vereist",
+    "optionalCount": "{{count}} opt",
+    "noParams": "Geen",
+    "testTool": "Testtool"
+  },
+  "noMatch": "Geen tools gevonden die overeenkomen met \"{{query}}\"",
+  "tabs": {
+    "tools": "Tools ({{count}})",
+    "schemas": "Schema's",
+    "categories": "Categorieën"
+  },
+  "searchPlaceholder": "Zoek tools...",
+  "view": {
+    "label": "weergavemodus",
+    "cardLabel": "kaartweergave",
+    "card": "Kaartweergave",
+    "listLabel": "lijstweergave",
+    "list": "Lijstweergave"
+  },
+  "loading": "Tools laden...",
+  "schemas": {
+    "copyAll": "Alles kopiëren",
+    "loading": "Schema's laden..."
+  },
+  "menu": {
+    "test": "Test…"
+  },
+  "test": {
+    "succeeded": "Tool succesvol uitgevoerd",
+    "executionFailed": "Uitvoering van tool mislukt",
+    "title": "Testtool: {{name}}",
+    "noApprovalWarning": "Uitvoeren draait deze tool echt, direct, zonder de goedkeuringsstap waar de chat eerst om vraagt.",
+    "requiredHelper": "Vereist. {{description}} ({{type}})",
+    "result": "Resultaat",
+    "failed": "Uitvoering mislukt",
+    "execute": "Uitvoeren"
+  }
+}
