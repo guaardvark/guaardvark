@@ -293,11 +293,14 @@ const StickyNote = React.memo(
                     cancelTitle();
                   }
                 }}
-                // The drag handle clears the page selection one frame after
-                // the press ends, so select the title after that frame.
+                // The caret goes after the name. The drag handle clears the page
+                // selection one frame after the press ends, so place it after that frame.
                 onFocus={(e) => {
                   const input = e.target;
-                  requestAnimationFrame(() => input.select());
+                  requestAnimationFrame(() => {
+                    const end = input.value.length;
+                    input.setSelectionRange(end, end);
+                  });
                 }}
                 sx={{
                   flex: 1,
