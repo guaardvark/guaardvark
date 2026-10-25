@@ -1,0 +1,192 @@
+{
+  "loading": {
+    "processing": "Przetwarzanie...",
+    "thinking": "AI myśli...",
+    "analyzingSelection": "Analizowanie wybranego kodu...",
+    "sending": "Wysyłanie do asystenta AI...",
+    "processingResponse": "Przetwarzanie odpowiedzi AI...",
+    "searchingProject": "Szukanie kontekstu projektu...",
+    "buildingContext": "Budowanie inteligentnego kontekstu..."
+  },
+  "commands": {
+    "explain": {
+      "label": "Wyjaśnij",
+      "description": "Wyjaśnij wybrany kod lub przeanalizuj całą strukturę pliku"
+    },
+    "edit": {
+      "label": "Inteligentna edycja",
+      "description": "Edycja kodu wspierana przez AI z rozumieniem kontekstu"
+    },
+    "optimize": {
+      "label": "Optymalizuj",
+      "description": "Optymalizacja wydajności zi szczegółową analizą"
+    },
+    "refactor": {
+      "label": "Refaktoryzuj",
+      "description": "Inteligentne restrukturyzowanie kodu"
+    },
+    "test": {
+      "label": "Generuj testy",
+      "description": "Twórz kompleksowe testy jednostkowe"
+    },
+    "fix": {
+      "label": "Auto naprawa",
+      "description": "Automatyczna naprawa wykrytych błędów i problemów"
+    },
+    "document": {
+      "label": "Dokumentuj",
+      "description": "Generuj dokumentację i komentarze"
+    },
+    "secure": {
+      "label": "Skanowanie bezpieczeństwa",
+      "description": "Kompleksowa analiza podatności bezpieczeństwa"
+    },
+    "suggest": {
+      "label": "Sugestie",
+      "description": "Otrzymaj inteligentne sugestie dotyczące kodu"
+    }
+  },
+  "progress": {
+    "processingWithContext": "Przetwarzanie z pełnym kontekstem...",
+    "completed": "Asysta AI zakończona"
+  },
+  "errors": {
+    "noSelectionResponse": "Usługa Czat zwróciła pustą lub nieokreśloną odpowiedź dla analizy zaznaczenia",
+    "noResponse": "Usługa Czat zwróciła pustą lub nieokreśloną odpowiedź",
+    "noGeneralResponse": "Usługa Czat zwróciła pustą lub nieokreśloną odpowiedź dla ogólnej rozmowy"
+  },
+  "replies": {
+    "analysisFailed": "Analiza nieudana",
+    "validationFailed": "Walidacja danych wejściowych nieudana: {{errors}}",
+    "rateLimited": "Przekoczono limit zapytań. Proszę poczekać chwilę przed ponowną próbą.",
+    "analysisFailedWithError": "Analiza nieudana: {{error}}",
+    "explanationFailed": "Wyjaśnienie nieudane: {{error}}",
+    "editHelp": "Proszę podaj instrukcje edycji. Przykład: '/edit Dodaj obsługę błędów do tej funkcji'",
+    "editDescriptionSelection": "Edycja: {{instructions}} (zastępuje zaznaczony tekst; Ctrl+Z w edytorze cofa zmianę)",
+    "editDescriptionFile": "Edycja: {{instructions}} (zastępuje cały plik; Ctrl+Z w edytorze cofa zmianę)",
+    "editReadySelection": "Edycja gotowa dla zaznaczonego tekstu. Podgląd pokazuje różnicę; Zastosuj wprowadza zmiany do edytora.",
+    "editReadyFile": "Edycja gotowa dla całego pliku. Podgląd pokazuje różnicę; Zastosuj wprowadza zmiany do edytora.",
+    "noReply": "Asystent nie zwrócił odpowiedzi.",
+    "editFailed": "Edycja kodu nieudana: {{error}}",
+    "fixAnalysis": "**Analiza Auto Fix:**\n\n{{analysis}}",
+    "fixFailed": "Analiza poprawki nieudana: {{error}}",
+    "securityAnalysis": "**Analiza bezpieczeństwa:**\n\n{{analysis}}",
+    "securityFailed": "Analiza bezpieczeństwa nieudana: {{error}}",
+    "commandNames": {
+      "optimize": "Optymalizuj",
+      "refactor": "Refaktoryzuj",
+      "test": "Testuj",
+      "document": "Dokumentuj"
+    },
+    "commandDescription": "{{command}}: zastępuje cały plik (Ctrl+Z w edytorze cofnie tę akcję)",
+    "commandReady": "{{command}} gotowe. Podgląd pokazuje różnicę; Zastosuj zastąpi cały plik.",
+    "commandNoReply": "{{command}} nie zwróciło odpowiedzi.",
+    "commandFailed": "{{command}} nieudane: {{error}}",
+    "requestTrouble": "Przepraszam, ale mam problem z przetwarzaniem Twojego zapytania. Błąd: {{error}}",
+    "error": "Przepraszam, wystąpił błąd: {{message}}",
+    "noActiveFile": "Brak aktywnego pliku\n\nProszę najpierw otworzyć plik z treścią kodu, aby korzystać z pomocy AI."
+  },
+  "apply": {
+    "defaultDescription": "Kod wygenerowany przez AI",
+    "appliedToSelection": "Kod pomyślnie zastosowany (edycja na podstawie zaznaczenia)\n\n{{description}}",
+    "applied": "Kod pomyślnie zastosowany\n\n{{description}}",
+    "failed": "Błąd zastosowania kodu\n\n{{error}}"
+  },
+  "untitled": "bez tytułu",
+  "multiFile": {
+    "confirm": "Zastosować zmiany w {{count}} pliku(ach)?\n\nPliki do modyfikacji:\n{{files}}\n\nKliknij OK, aby kontynuować, lub Anuluj, aby przerwać.",
+    "applying": "Zastosowywanie zmian w {{count}} plikach...",
+    "completedProgress": "Zakończono edycję wielu plików: {{succeeded}} zakończono sukcesem, {{failed}} nieudanych",
+    "completeWithFailures": "Edycja wielu plików zakończona\n\n{{succeeded}} pliku(ów) zaktualizowano pomyślnie, {{failed}} nie udało się",
+    "complete": "Edycja wielu plików zakończona\n\n{{succeeded}} plik(ów) zaktualizowano pomyślnie",
+    "failedProgress": "Edycja wielu plików nieudana: {{error}}",
+    "failed": "Edycja wielu plików nieudana\n\n{{error}}"
+  },
+  "titleBar": {
+    "newChat": "Nowy Czat",
+    "startNewChat": "Rozpocznij nowy Czat",
+    "deleteChat": "Usuń Czat",
+    "deleteChatLabel": "Usuń Czat",
+    "aiCommands": "Polecenia AI",
+    "openCommandsMenu": "Otwórz menu poleceń AI"
+  },
+  "card": {
+    "title": "Asystent AI"
+  },
+  "status": {
+    "selected": "Wybrano: {{count}} znaków",
+    "noFile": "Brak pliku",
+    "realTimeTooltip": "Analiza w czasie rzeczywistym: 2 s po zakończeniu pisania, sprawdź składnię pliku i wyślij go do modelu w celu uzyskania sugestii (jedno zapytanie do modelu na każdą pauzę; pliki powyżej 5,000 znaków są pomijane)",
+    "toggleRealTime": "Przełącz analizę kodu w czasie rzeczywistym",
+    "contextInfo": "Info o kontekście",
+    "toggleContext": "Przełącz panel informacji o kontekście"
+  },
+  "recommendations": {
+    "title": "Rekomendacje AI ({{count}})",
+    "defaultType": "sugestia",
+    "lines": "Linie {{start}}-{{end}}",
+    "noDescription": "Brak opisu",
+    "applyDescription": "Zastosuj rekomendację typu {{type}}",
+    "more": "... oraz {{count}} innych rekomendacji"
+  },
+  "actions": {
+    "apply": "Zastosuj"
+  },
+  "pending": {
+    "readyToApply": "Gotowe do zastosowania: {{command}}",
+    "preview": "Podgląd",
+    "discard": "Odrzuć"
+  },
+  "context": {
+    "title": "Kontekst i analiza kodu",
+    "currentFile": "Aktualny plik",
+    "noFileOpen": "Brak otwartego pliku",
+    "unknownLanguage": "nieznany",
+    "selectedCode": "Wybrany kod",
+    "analysisResults": "Wyniki analizy",
+    "noIssues": "Nie wykryto problemów",
+    "project": "Kontekst projektu",
+    "filesOpen": "Otwarto {{count}} plików",
+    "relatedDetected": "Wykryto {{count}} powiązanych plików",
+    "relatedFiles": "Powiązane pliki",
+    "more": "... i jeszcze {{count}}"
+  },
+  "alerts": {
+    "errorsDetected_few": "Wykryto {{count}} błędów",
+    "errorsDetected_many": "Wykryto {{count}} błędów",
+    "errorsDetected_one": "Wykryto {{count}} błąd",
+    "warningsDetected_few": "Wykryto {{count}} ostrzeżeń",
+    "warningsDetected_many": "Wykryto {{count}} ostrzeżeń",
+    "warningsDetected_one": "Wykryto {{count}} ostrzeżenie"
+  },
+  "input": {
+    "placeholder": "Wiadomość..."
+  },
+  "menu": {
+    "label": "Menu komend AI"
+  },
+  "palette": {
+    "title": "Paleta komend AI",
+    "searchPlaceholder": "Szukaj komend...",
+    "currentFile": "Aktualny plik: {{file}} ({{language}})",
+    "noMatches": "Nie znaleziono komend pasujących do \"{{search}}\"",
+    "keyboardHelp": "Użyj ↑↓ do nawigacji, Enter aby wybrać, Esc aby Zamknij"
+  },
+  "hover": {
+    "unavailable": "Wyjaśnienie AI niedostępne"
+  },
+  "drop": {
+    "reasons": {
+      "folder": "folder; upuść pliki wewnątrz niego",
+      "tooMany": "tylko {{max}} plików na raz",
+      "tooLarge": "większy niż {{size}} MB",
+      "unreadable": "nie można odczytać",
+      "notText": "nie jest to plik tekstowy"
+    },
+    "opened_few": "Otwarto {{names}} jako kopie niezapisane. Zapisanie zachowa je w tej przeglądarce wraz z innymi plikami edytora; plik na Twoim komputerze nie zostanie zmieniony.",
+    "opened_many": "Otwarto {{names}} jako kopie niezapisane. Zapisanie zachowa je w tej przeglądarce wraz z innymi plikami edytora; plik na Twoim komputerze nie zostanie zmieniony.",
+    "opened_one": "Otwarto {{names}} jako kopię niezapiisaną. Zapisanie zachowa ją w tej przeglądarce wraz z innymi plikami edytora; plik na Twoim komputerze nie zostanie zmieniony.",
+    "skippedFile": "{{name}} ({{reason}})",
+    "notOpened": "Nie otwarto: {{files}}."
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "settings": {
+    "modelDefaultScale": "Padrão do modelo",
+    "model": "Modelo",
+    "manageModels": "Gerenciar Modelos de Upscale",
+    "install": "Instalar",
+    "noModelInstallSized": "Nenhum modelo de upscale está instalado. Instale {{model}} ({{size}} MB) para fazer o upscale; o upscale nunca baixa um por conta própria.",
+    "noModelInstall": "Nenhum modelo de upscale está instalado. Instale {{model}} para fazer o upscale; o upscale nunca baixa um por conta própria.",
+    "noModel": "Nenhum modelo de upscale está instalado. Adicione um em Gerenciar Modelos de Upscale para fazer o upscale.",
+    "outputScale": "Escala de Saída",
+    "targetResolution": "Resolução Alvo",
+    "twoPass": "Modo de Duas Passagens",
+    "twoPassHelp": "Executa o modelo duas vezes para maior qualidade (mais lento)",
+    "faceEnhance": "Melhoria de Rosto",
+    "faceEnhanceHelp": "Restaura rostos usando GFPGAN",
+    "doubleFps": "Dobrar Taxa de Quadros",
+    "doubleFpsHelp": "Interpola quadros para movimento mais suave (mais lento)",
+    "sharpening": "Nitidez",
+    "denoise": "Pré-passagem de Redução de Ruído"
+  },
+  "service": {
+    "startRefused": "O serviço de upscale não iniciou: {{reason}}",
+    "tryAgainShortly": "tente novamente em breve",
+    "startTimeout": "O serviço de upscale não respondeu em um minuto. O log está na página de Plugins.",
+    "startFailed": "Não foi possível iniciar o serviço de upscale: {{error}}",
+    "starting": "Iniciando...",
+    "startNow": "Iniciar agora",
+    "stoppedAutostart": "O serviço de upscale está parado. Ele inicia automaticamente quando você faz o upscale de algo, ou você pode iniciá-lo agora.",
+    "switchedOff": "O upscale está desligado na página de Plugins. Inicie aqui para fazer o upscale.",
+    "stopped": "O serviço de upscale está parado. Inicie para fazer o upscale."
+  },
+  "errors": {
+    "unknown": "Erro desconhecido",
+    "modelsLoadFailed": "Os modelos de upscale não puderam ser carregados: {{error}}.",
+    "requestFailed": "a requisição falhou",
+    "unsupportedSkipped": "Pulados {{count}} arquivo(s) não suportado(s). Permitidos: {{allowed}}",
+    "failedReason": "falhou",
+    "submitFailed": "Falha ao enviar: {{details}}",
+    "skipped": "Pulado: {{details}}",
+    "imageFailed": "Falha no upscale da imagem",
+    "cancelFailed": "Falha ao Cancelar: {{error}}. O Trabalho pode ainda estar em execução.",
+    "clearFailed": "Falha ao limpar Trabalhos finalizados: {{error}}.",
+    "previewFailed": "Falha na visualização: {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "Trabalho de upscale enviado para \"{{name}}\"",
+    "jobsSubmitted": "Enviados {{submitted}} de {{total}} Trabalhos de upscale",
+    "imageUpscaled": "Upscale de \"{{name}}\" concluído",
+    "imagesQueued": "Colocadas na fila {{count}} imagens para upscale"
+  },
+  "gpu": {
+    "unknown": "Desconhecido",
+    "title": "Status da GPU",
+    "activeModel": "Modelo Ativo",
+    "none": "Nenhum",
+    "enabled": "Ativado",
+    "disabled": "Desativado"
+  },
+  "submit": {
+    "upscaleImages": "Fazer upscale de {{count}} Imagens",
+    "upscaleVideos": "Fazer upscale de {{count}} Vídeos",
+    "upscaleImage": "Aumentar Resolução da Imagem",
+    "upscaleVideo": "Aumentar Resolução do Vídeo",
+    "startingService": "Iniciando o serviço de aumento de resolução...",
+    "uploadingProgress": "Carregando {{current}}/{{total}}...",
+    "uploading": "Carregando...",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "Aumento de Resolução",
+    "videoGen": "Geração de Vídeo"
+  },
+  "upload": {
+    "imagesTitle": "Carregar Imagens",
+    "videoTitle": "Carregar Vídeo",
+    "video": "Vídeo",
+    "image": "Imagem",
+    "dropImages": "Arraste e solte as imagens aqui, ou clique para navegar",
+    "dropVideos": "Arraste e solte os vídeos aqui, ou clique para navegar",
+    "filesReady_one": "{{count}} arquivo pronto",
+    "filesReady_other": "{{count}} arquivos prontos",
+    "clearAll": "Limpar tudo"
+  },
+  "result": {
+    "original": "Original",
+    "upscaled": "Aumentado",
+    "openFullSize": "Abrir em tamanho total",
+    "download": "Baixar"
+  },
+  "preview": {
+    "title": "Prévia do Aumento",
+    "hint": "Vá para um quadro e clique em \"Gerar Prévia\" para ver o quadro com resolução aumentada.",
+    "generating": "Gerando...",
+    "generate": "Gerar Prévia",
+    "originalFrame": "Quadro Original",
+    "upscaledFrame": "Quadro Aumentado",
+    "backToVideo": "Voltar para o Vídeo"
+  },
+  "jobs": {
+    "title": "Trabalhos de Aumento",
+    "clearFinishedCount": "Limpar finalizados ({{count}})",
+    "clearFinished": "Limpar finalizados",
+    "empty": "Nenhum trabalho de aumento ainda. Carregue um vídeo ou um lote de imagens para começar.",
+    "imageProgress": "Imagem {{done}} / {{total}}",
+    "frameProgress": "Quadro {{done}} / {{total}}",
+    "play": "Reproduzir",
+    "cancel": "Cancelar"
+  }
+}

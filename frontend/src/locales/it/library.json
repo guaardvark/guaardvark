@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "Output {{jobId}} eliminato con successo",
+    "deleteFailed": "Impossibile eliminare l'output: {{message}}",
+    "retryStarting": "Avvio del riprovvamento per {{count}} righe fallite...",
+    "retryStarted": "Riprova avviata con successo! ID lavoro: {{jobId}}",
+    "retryFailed": "Impossibile avviare la riprova: {{message}}",
+    "nothingToClear": "Nessun output da cancellare",
+    "clearing": "Pulizia di tutti gli output in corso...",
+    "cleared": "Eliminati con successo {{count}} output",
+    "clearFailed": "Impossibile cancellare gli output: {{message}}"
+  },
+  "clearConfirm": "Sei sicuro di voler eliminare TUTTI i {{count}} output? Questa azione non può essere annullata.",
+  "pageTitle": "Output dei Contenuti",
+  "stats": {
+    "total": "Totale: {{count}}",
+    "today": "Oggi: {{count}}",
+    "thisWeek": "Questa Settimana: {{count}}"
+  },
+  "clearAll": "Cancella Tutto",
+  "refresh": "Aggiorna Elenco Output",
+  "loading": "Caricamento output...",
+  "empty": {
+    "title": "Nessun output trovato",
+    "description": "Genera del contenuto usando la funzione di generazione di massa per visualizzare gli output qui"
+  }
+}

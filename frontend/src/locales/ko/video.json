@@ -1,0 +1,200 @@
+{
+  "common": {
+    "upload": "업로드",
+    "addFromFiles": "파일에서 추가"
+  },
+  "stage": {
+    "queued": "대기 중",
+    "gpuWait": "GPU 대기 중",
+    "storyboard": "스토리보드",
+    "director": "디렉터",
+    "keyframe": "키프레임",
+    "generate": "생성 중",
+    "post": "후처리",
+    "register": "등록 중",
+    "done": "완료"
+  },
+  "keyframeMatch": {
+    "atFrame": "{{frames}} 프레임 중 {{frame}} 프레임",
+    "label": "키프레임 {{percent}}%",
+    "tooltip": "키프레임과 클립{{where}} 사이의 이미지 인코더 일치도. 색상{{hold}}뿐만 아니라 장면의 변화에 반응합니다.",
+    "holdBelow": "; {{percent}}% 미만에서 룩을 위해 클립 유지"
+  },
+  "colourMatch": {
+    "label": "색상 {{percent}}%",
+    "tooltip": "키프레임{{where}}과의 색상 일치도. 인물이 아닌 색상만 비교합니다."
+  },
+  "vlmReview": {
+    "score": "QA {{score}}/10",
+    "noScore": "비전 검토 점수가 없습니다",
+    "notReviewed": "검토되지 않음",
+    "notReviewedWhy": "검토되지 않음: {{reason}}"
+  },
+  "latentPreview": {
+    "alt": "실시간 잠재 공간 미리보기",
+    "caption": "실시간 잠재 공간 미리보기 — 최종 품질 아님"
+  },
+  "qualityFlags": {
+    "unreadable": "읽을 수 없음",
+    "blackFrames": "검은색 프레임",
+    "blackTiles": "검은색 타일",
+    "clippedHighlights": "하이라이트 날림",
+    "crushedShadows": "어두운 영역 뭉침",
+    "washedOut": "물 빠진 색상",
+    "desaturated": "무채색",
+    "oversaturated": "과포화",
+    "frozen": "정지",
+    "flashes": "플래싱",
+    "wrongSize": "잘못된 크기",
+    "wrongFrameCount": "잘못된 길이",
+    "colourDrift": "색상 드리프트",
+    "keyframeDrift": "키프레임 드리프트",
+    "lowReviewScore": "낮은 리뷰 점수",
+    "review": "리뷰",
+    "count": "{{count}} 품질 플래그"
+  },
+  "clipReview": {
+    "needsReview": "검토 필요",
+    "approved": "승인됨",
+    "rerendered": "재렌더링됨",
+    "newBatch": "새 배치 {{batch}}",
+    "heldUntilApproved": "승인할 때까지 파일에 추가되지 않습니다.",
+    "held": "검토를 위해 보류됨{{reasons}}.",
+    "reasons": ": {{reasons}}",
+    "approve": "승인",
+    "rerenderTooltip": "동일한 설정과 새로운 시드로 이 클립을 새 배치로 다시 렌더링합니다.",
+    "rerender": "재렌더링"
+  },
+  "cutQuality": {
+    "title": "컷 품질",
+    "held": "검토를 위해 {{count}}개 보류됨; 각 항목이 승인되거나 재렌더링되면 비디오가 조립됩니다.",
+    "cut": "컷 #{{index}}",
+    "noProblems": "문제가 발견되지 않음",
+    "heldUntilApproved": "승인할 때까지 비디오에 사용되지 않습니다."
+  },
+  "effective": {
+    "title": "적용된 설정",
+    "steps": "{{count}} 단계",
+    "nativeAudio": "원본 오디오",
+    "styleEmbedding": "스타일: {{style}}",
+    "frames": "{{count}} 프레임",
+    "fps": "{{fps}} FPS",
+    "seconds": "~{{seconds}}초",
+    "keyframeModel": "키프레임: {{model}}",
+    "director": "감독",
+    "faceRestore": "얼굴 복원",
+    "interpolation": "{{multiplier}}x FPS",
+    "upscale": "2배 업스케일",
+    "promptStyle": "{{style}} 스타일",
+    "cast": "출연진 ×{{count}}"
+  },
+  "frameSlot": {
+    "drop": "여기에 {{frame}}을(를) 드롭",
+    "remove": "{{frame}} 제거",
+    "choose": "{{frame}} 선택"
+  },
+  "progress": {
+    "state": {
+      "done": "완료",
+      "active": "실행 중",
+      "queued": "GPU 대기 중",
+      "waiting": "대기 중",
+      "failed": "실패",
+      "cancelled": "취소됨",
+      "pending": "시작 전",
+      "skipped": "건너뜀"
+    },
+    "etaMeasured": "남은 시간: 약 {{duration}} (측정됨)",
+    "etaEstimate": "남은 시간: 약 {{duration}} (예상)",
+    "cell": {
+      "done": "완료",
+      "held": "보류",
+      "failed": "실패",
+      "rendering": "렌더링 중",
+      "cancelled": "취소됨",
+      "pending": "대기 중"
+    },
+    "clipOf": "클립 {{position}}/{{total}}",
+    "waitingForGpu": "GPU 대기 중",
+    "working": "작업 중…",
+    "elapsed": "경과 시간: {{duration}}",
+    "cutTooltip": "컷 #{{index}} · {{state}}{{locked}}",
+    "locked": "잠금",
+    "cutAria": "컷 {{index}} {{state}}"
+  },
+  "referenceBoard": {
+    "rows": {
+      "images": "이미지",
+      "videos": "클립",
+      "audios": "음성"
+    },
+    "roles": {
+      "keep": "그대로 유지",
+      "loose": "느슨하게 유지",
+      "detail": "세부 사항 참조",
+      "hint": "가벼운 힌트",
+      "firstFrame": "첫 프레임으로 사용",
+      "subject": "등장인물 유지",
+      "motion": "동작 및 카메라 복제",
+      "edit": "이 클립 편집",
+      "continue": "이 클립 이어가기",
+      "voice": "캐릭터용 음성",
+      "music": "음악으로 사용",
+      "sound": "이 소리와 매칭"
+    },
+    "problems": {
+      "needVisual": "최소 하나의 이미지나 클립을 추가하세요. 음성만으로는 참조할 수 없습니다.",
+      "tooManyImages": "이미지는 최대 {{count}}개까지 가능합니다.",
+      "tooManyVideos": "클립은 최대 {{count}}개까지 가능합니다.",
+      "tooManyAudios": "음성은 최대 {{count}}개까지 가능합니다.",
+      "tooManyFiles": "전체 파일은 최대 {{count}}개까지 가능합니다.",
+      "clipTooShort": "클립 {{clip}}이 {{seconds}}초입니다. 클립은 최소 {{shortest}}초 이상이어야 합니다.",
+      "tooManyPictures": "이 카드에서 참조 클립이 포함된 {{width}}x{{height}} 해상도의 {{seconds}}초 클립은 최대 {{count}}개의 이미지만 포함할 수 있습니다.",
+      "clipShareTooShort": "이 카드에서 {{seconds}}초 길이의 {{width}}x{{height}} 클립은 클립당 {{share}}초의 참조 비디오만 남기며, 이는 최소 {{shortest}}초 미만입니다. 더 짧은 길이나 더 작은 크기를 선택하거나, 클립 또는 이미지 수를 줄이세요."
+    },
+    "help": {
+      "images": "기억해야 할 인물, 장소, 제품 또는 스타일. 동일한 인물의 사진에는 동일한 이름을 부여하세요.",
+      "videos": "특정 동작을 방지하거나, 동작을 복제하거나, 편집하거나, 이어갈 클립. 2~15초.",
+      "audios": "캐릭터를 위한 음성, 그대로 사용할 음악, 또는 어울리는 효과음."
+    },
+    "rowNames": {
+      "images": "이미지",
+      "videos": "클립",
+      "audios": "오디오"
+    },
+    "insertTag": "프롬프트에 삽입",
+    "useItTo": "용도",
+    "whoOrWhat": "이것은 누구 또는 무엇인가요?",
+    "whoOrWhatExample": "예: 마야, 빨간 자동차",
+    "optional": "선택 사항",
+    "whichDetail": "어떤 세부 요소?",
+    "whichDetailExample": "예: 가죽 재킷만",
+    "whoseVoice": "누구의 음성?",
+    "forExample": "예: {{name}}",
+    "whoseVoiceHint": "이미지에 등장하는 이름",
+    "notOnBoard": "보드에 없는 이름 ({{names}})",
+    "sound": "소리",
+    "ownSound": "고유 소리",
+    "noSound": "소리 없음",
+    "track": "트랙: {{file}}",
+    "separateTrack": "별도의 트랙…",
+    "lengthUnknown": "길이 알 수 없음",
+    "clipHasNoSound": "이 클립에 소리가 없습니다",
+    "itsSoundIs": "소리가 {{tag}}입니다",
+    "modelReadsFirst": "모델이 처음 {{seconds}}초를 읽습니다",
+    "clipsNeedAtLeast": "클립은 최소 {{shortest}}초가 필요합니다.",
+    "earlier": "앞으로 (태그 번호 재지정)",
+    "moveEarlier": "앞으로 이동",
+    "later": "뒤로 (태그 번호 재지정)",
+    "moveLater": "뒤로 이동",
+    "remove": "삭제",
+    "removeReference": "참조 삭제",
+    "onlyThisRow": "이 행에는 {{rows}}만 들어갑니다.",
+    "dropHere": "여기에 {{rows}}를 드롭",
+    "dropHereOr": "여기에 {{rows}}를 드롭하거나",
+    "couldNotRead": "{{file}}을(를) 읽을 수 없습니다.",
+    "uploadFailed": "업로드 실패.",
+    "fileCount": "총 {{total}}개의 파일 중 {{used}}개. 각 클립의 별도 트랙은 하나로 계산됩니다.",
+    "chooseSoundtrack": "클립의 사운드트랙 선택"
+  }
+}

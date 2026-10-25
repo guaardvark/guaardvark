@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "default": "Cinza Escuro",
+    "light": "Claro"
+  },
+  "descriptions": {
+    "guaardvark": "Tema monocromático ultra-minimalista inspirado por guaardvark.com",
+    "default": "Tema escuro e limpo com detalhes em azul-petróleo",
+    "musk": "Tema escuro futurista com detalhes em ciano neon e vermelho",
+    "hacker": "Terminal de deserto inspirado no Pip-Boy com verde radiação e âmbar",
+    "vader": "Tema escuro e imponente com detalhes em preto e vermelho inspirado por Darth Vader",
+    "light": "Tema claro e limpo com detalhes em azul-petróleo — confortável para os olhos"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "status": {
+    "processing": "Обработка...",
+    "complete": "Завершено",
+    "error": "Ошибка",
+    "cancelled": "Отменено"
+  },
+  "gpu": {
+    "videoRendering": "Идет рендеринг видео",
+    "picturesRendering": "Идет рендеринг изображений",
+    "pictureRendering": "Идет рендеринг изображения",
+    "pictureEditing": "Идет редактирование изображения",
+    "animationRendering": "Идет рендеринг анимации",
+    "infographicRendering": "Идет рендеринг инфографики",
+    "characterPicturesRendering": "Идет рендеринг изображений персонажей",
+    "storyboardRendering": "Идет рендеринг кадров сценария",
+    "filmCrewRendering": "Film Crew выполняет рендеринг",
+    "musicVideoRendering": "Идет рендеринг Муз. видео",
+    "songRendering": "Идет рендеринг песни",
+    "modelTraining": "Идет Обучение модели",
+    "characterTraining": "Идет Обучение персонажа",
+    "generic": "Графическая карта занята",
+    "coolingDown": "Графическая карта освобождается после предыдущей задачи ({{seconds}} с)"
+  }
+}

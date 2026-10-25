@@ -1,0 +1,189 @@
+{
+  "loading": {
+    "processing": "Elaborazione...",
+    "thinking": "L'IA sta pensando...",
+    "analyzingSelection": "Analisi del Codice selezionato...",
+    "sending": "Invio all'assistente AI...",
+    "processingResponse": "Elaborazione della risposta dell'IA...",
+    "searchingProject": "Ricerca del contesto del progetto...",
+    "buildingContext": "Creazione del contesto intelligente..."
+  },
+  "commands": {
+    "explain": {
+      "label": "Spiega",
+      "description": "Spiega il Codice selezionato o analizza l'intera struttura del file"
+    },
+    "edit": {
+      "label": "Modifica Intelligente",
+      "description": "Modifica del Codice potenziata dall'IA con comprensione del contesto"
+    },
+    "optimize": {
+      "label": "Ottimizza",
+      "description": "Ottimizzazione delle prestazioni con analisi dettagliata"
+    },
+    "refactor": {
+      "label": "Rifattorizza",
+      "description": "Ristrutturazione intelligente del Codice"
+    },
+    "test": {
+      "label": "Genera Test",
+      "description": "Crea test unitari completi"
+    },
+    "fix": {
+      "label": "Correzione Automatica",
+      "description": "Correggi automaticamente errori e problemi rilevati"
+    },
+    "document": {
+      "label": "Documenta",
+      "description": "Genera documentazione e commenti"
+    },
+    "secure": {
+      "label": "Scansione Sicurezza",
+      "description": "Analisi completa delle vulnerabilità di sicurezza"
+    },
+    "suggest": {
+      "label": "Suggerimenti",
+      "description": "Ottieni suggerimenti intelligenti per il Codice"
+    }
+  },
+  "progress": {
+    "processingWithContext": "Elaborazione con contesto completo...",
+    "completed": "Assistenza AI completata"
+  },
+  "errors": {
+    "noSelectionResponse": "Il servizio di chat ha restituito una risposta nulla o indefinita per l'analisi della selezione",
+    "noResponse": "Il servizio di chat ha restituito una risposta nulla o indefinita",
+    "noGeneralResponse": "Il servizio di chat ha restituito una risposta nulla o indefinita per la conversazione generale"
+  },
+  "replies": {
+    "analysisFailed": "Analisi fallita",
+    "validationFailed": "La validazione dell'input è fallita: {{errors}}",
+    "rateLimited": "Limite di velocità superato. Attendi un momento prima di riprovare.",
+    "analysisFailedWithError": "Analisi fallita: {{error}}",
+    "explanationFailed": "Spiegazione fallita: {{error}}",
+    "editHelp": "Fornisci istruzioni di modifica. Esempio: '/edit Aggiungi la gestione dell'Errore a questa funzione'",
+    "editDescriptionSelection": "Modifica: {{instructions}} (sostituisce il testo selezionato; Ctrl+Z nell'editor annulla l'operazione)",
+    "editDescriptionFile": "Modifica: {{instructions}} (sostituisce l'intero file; Ctrl+Z nell'editor annulla l'operazione)",
+    "editReadySelection": "Modifica pronta per il testo selezionato. L'anteprima mostra la differenza; Applica la inserisce nell'editor.",
+    "editReadyFile": "Modifica pronta per l'intero file. L'anteprima mostra la differenza; Applica la inserisce nell'editor.",
+    "noReply": "L'assistente non ha restituito alcuna risposta.",
+    "editFailed": "Modifica del Codice fallita: {{error}}",
+    "fixAnalysis": "**Analisi Auto Fix:**\n\n{{analysis}}",
+    "fixFailed": "Analisi Fix fallita: {{error}}",
+    "securityAnalysis": "**Analisi di sicurezza:**\n\n{{analysis}}",
+    "securityFailed": "Analisi di sicurezza fallita: {{error}}",
+    "commandNames": {
+      "optimize": "Ottimizza",
+      "refactor": "Rifattorizza",
+      "test": "Test",
+      "document": "Documenta"
+    },
+    "commandDescription": "{{command}}: sostituisce l'intero file (Ctrl+Z nell'editor lo annulla)",
+    "commandReady": "{{command}} pronto. L'anteprima mostra la differenza; Applica sostituisce l'intero file.",
+    "commandNoReply": "{{command}} non ha restituito alcuna risposta.",
+    "commandFailed": "{{command}} fallito: {{error}}",
+    "requestTrouble": "Mi scuso, ma sto riscontrando problemi nell'elaborare la tua richiesta. Errore: {{error}}",
+    "error": "Scusa, ho riscontrato un Errore: {{message}}",
+    "noActiveFile": "Nessun File Attivo\n\nApri prima un file con contenuto di Codice per usare l'assistenza AI."
+  },
+  "apply": {
+    "defaultDescription": "Codice generato da AI",
+    "appliedToSelection": "Codice Applicato con Successo (Modifica basata su selezione)\n\n{{description}}",
+    "applied": "Codice Applicato con Successo\n\n{{description}}",
+    "failed": "Errore nell'Applicare il Codice\n\n{{error}}"
+  },
+  "untitled": "senza titolo",
+  "multiFile": {
+    "confirm": "Applicare le modifiche a {{count}} file?\n\nFile da modificare:\n{{files}}\n\nClicca OK per procedere o Annulla per interrompere.",
+    "applying": "Applicazione delle modifiche a {{count}} file...",
+    "completedProgress": "Modifiche multi-file completate: {{succeeded}} riuscite, {{failed}} fallite",
+    "completeWithFailures": "Modifica Multi-File Completata\n\n{{succeeded}} file aggiornati con successo, {{failed}} falliti",
+    "complete": "Modifica Multi-File Completata\n\n{{succeeded}} file aggiornati con successo",
+    "failedProgress": "Modifica multi-file fallita: {{error}}",
+    "failed": "Modifica Multi-File Fallita\n\n{{error}}"
+  },
+  "titleBar": {
+    "newChat": "Nuova Chat",
+    "startNewChat": "Avvia nuova chat",
+    "deleteChat": "Elimina Chat",
+    "deleteChatLabel": "Elimina chat",
+    "aiCommands": "Comandi AI",
+    "openCommandsMenu": "Apri menu comandi AI"
+  },
+  "card": {
+    "title": "Assistente AI"
+  },
+  "status": {
+    "selected": "Selezionato: {{count}} caratteri",
+    "noFile": "Nessun file",
+    "realTimeTooltip": "Analisi in tempo reale: 2 s dopo che smetti di scrivere, controlla la sintassi del file e invialo al modello per suggerimenti (una richiesta per modello per pausa; i file oltre i 5.000 caratteri vengono saltati)",
+    "toggleRealTime": "Attiva/disattiva analisi Codice in tempo reale",
+    "contextInfo": "Info Contesto",
+    "toggleContext": "Attiva/disattiva pannello informazioni contesto"
+  },
+  "recommendations": {
+    "title": "Suggerimenti AI ({{count}})",
+    "defaultType": "suggerimento",
+    "lines": "Righe {{start}}-{{end}}",
+    "noDescription": "Nessuna descrizione",
+    "applyDescription": "Applica suggerimento {{type}}",
+    "more": "... e altri {{count}} suggerimenti"
+  },
+  "actions": {
+    "apply": "Applica"
+  },
+  "pending": {
+    "readyToApply": "Pronto per applicare: {{command}}",
+    "preview": "Anteprima",
+    "discard": "Scarta"
+  },
+  "context": {
+    "title": "Contesto del Codice e Analisi",
+    "currentFile": "File corrente",
+    "noFileOpen": "Nessun file aperto",
+    "unknownLanguage": "sconosciuto",
+    "selectedCode": "Codice selezionato",
+    "analysisResults": "Risultati dell'analisi",
+    "noIssues": "Nessun problema rilevato",
+    "project": "Contesto del progetto",
+    "filesOpen": "{{count}} file aperti",
+    "relatedDetected": "Trovati {{count}} file correlati",
+    "relatedFiles": "File correlati",
+    "more": "... e altri {{count}}"
+  },
+  "alerts": {
+    "errorsDetected_one": "1 errore rilevato",
+    "errorsDetected_other": "{{count}} errori rilevati",
+    "warningsDetected_one": "1 avviso rilevato",
+    "warningsDetected_other": "{{count}} avvisi rilevati"
+  },
+  "input": {
+    "placeholder": "Messaggio..."
+  },
+  "menu": {
+    "label": "Menu Comandi AI"
+  },
+  "palette": {
+    "title": "Palette Comandi AI",
+    "searchPlaceholder": "Cerca comandi...",
+    "currentFile": "File corrente: {{file}} ({{language}})",
+    "noMatches": "Nessun comando trovato per \"{{search}}\"",
+    "keyboardHelp": "Usa ↑↓ per navigare, Invio per selezionare, Esc per Chiudi"
+  },
+  "hover": {
+    "unavailable": "Spiegazione AI non disponibile"
+  },
+  "drop": {
+    "reasons": {
+      "folder": "una cartella; trascina i file al suo interno",
+      "tooMany": "solo {{max}} file aperti per ogni rilascio",
+      "tooLarge": "più grande di {{size}} MB",
+      "unreadable": "non è stato possibile leggere",
+      "notText": "non è un file di testo"
+    },
+    "opened_one": "Aperto {{names}} come copia non salvata. Salvare lo mantiene in questo browser con gli altri tuoi File dell'editor; il file sul tuo computer non viene modificato.",
+    "opened_other": "Aperti {{names}} come copie non salvate. Salvare li mantiene in questo browser con gli altri tuoi File dell'editor; i file sul tuo computer non vengono modificati.",
+    "skippedFile": "{{name}} ({{reason}})",
+    "notOpened": "Non aperti: {{files}}."
+  }
+}

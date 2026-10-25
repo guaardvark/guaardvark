@@ -1,0 +1,73 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "サービス",
+    "utils": "ユーティリティ",
+    "tools": "ツール",
+    "tasks": "タスク",
+    "frontend": "フロントエンド",
+    "plugins": "プラグイン",
+    "clear": "クリア"
+  },
+  "errors": {
+    "snapshotFailed": "スナップショットに失敗しました"
+  },
+  "dispatch": {
+    "queued": "自己改善エージェントに送信されました — バックグラウンドで実行中です。",
+    "proposed": "自己改善エージェントに送信されました — 設定で提案された修正を確認してください。",
+    "notRun": "送信に失敗しました — {{reason}}",
+    "notRunNoReason": "送信に失敗しました — 理由なし",
+    "failed": "送信に失敗しました: {{error}}"
+  },
+  "title": "システムマップ",
+  "stats": "{{modules}} モジュール · {{edges}} エッジ",
+  "severity": {
+    "critical": "致命的なもの: {{count}}",
+    "medium": "中程度のもの: {{count}}",
+    "hygiene": "衛生に関するもの: {{count}}"
+  },
+  "searchPlaceholder": "検索 ( / )",
+  "resetView": "ビューをリセット (R)",
+  "refresh": {
+    "cached": "{{seconds}}秒前にキャッシュ済み — クリックして再計算",
+    "computed": "{{seconds}}秒前に計算済み"
+  },
+  "overlays": {
+    "ghostEndpoints": "ゴーストエンドポイント",
+    "ghostEndpointsCount": "ゴーストエンドポイント ({{count}})",
+    "toolGraph": "ツールグラフ",
+    "toolGraphCount": "ツールグラフ ({{count}})"
+  },
+  "controlsHint": "ドラッグ · パン | ホイール · ズーム | / · 検索 | r · リセット | チップをクリック · セクションを強調",
+  "detail": {
+    "hovered": "ホバー中",
+    "selected": "選択中",
+    "importers_other": "{{count}} インポーター",
+    "findings": "検出結果 ({{count}})",
+    "moreFindings": "…と、{{count}}件のその他",
+    "escToClear": "<code>Esc</code>を押して消去"
+  },
+  "loading": "システムをマッピング中…",
+  "panel": {
+    "findings": "検出事項",
+    "activity": "アクティビティ"
+  },
+  "findings": {
+    "actionable": "対応可能",
+    "critical": "致命的",
+    "all": "すべて",
+    "intro": "ランク付けされた検出事項 ・ クリックで場所を特定 ・ 修正のためにディスパッチ",
+    "empty": "この重要度の検出事項はありません。🎉",
+    "dispatch": "自己改善エージェントに送信して修正案を提案",
+    "dismiss": "閉じる — 確認済みとしてこの検出事項の表示を停止"
+  },
+  "activity": {
+    "title": "ライブアクティビティ",
+    "intro": "チャットを流れるツール呼び出しがここに表示されます。一致したモジュールは星座内で脈動します。",
+    "empty": "待機中。エージェントに何か質問して脈動を開始してください。",
+    "now": "現在",
+    "seconds": "{{count}}秒",
+    "minutes": "{{count}}分",
+    "hours": "{{count}}時間"
+  }
+}

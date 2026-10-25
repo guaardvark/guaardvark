@@ -1,0 +1,108 @@
+{
+  "settings": {
+    "modelDefaultScale": "模型默认",
+    "model": "模型",
+    "manageModels": "管理超分辨率模型",
+    "install": "安装",
+    "noModelInstallSized": "未安装超分辨率模型。安装 {{model}} ({{size}} MB) 以进行超分辨率；超分辨率功能不会自动下载模型。",
+    "noModelInstall": "未安装超分辨率模型。安装 {{model}} 以进行超分辨率；超分辨率功能不会自动下载模型。",
+    "noModel": "未安装超分辨率模型。请在“管理超分辨率模型”中添加一个以进行超分辨率。",
+    "outputScale": "输出比例",
+    "targetResolution": "目标分辨率",
+    "twoPass": "双重处理模式",
+    "twoPassHelp": "运行两次模型以获得更高质量（速度较慢）",
+    "faceEnhance": "面部增强",
+    "faceEnhanceHelp": "使用 GFPGAN 修复面部",
+    "doubleFps": "双倍帧率",
+    "doubleFpsHelp": "插帧以获得更平滑的动作（速度较慢）",
+    "sharpening": "锐化",
+    "denoise": "降噪预处理"
+  },
+  "service": {
+    "startRefused": "超分辨率服务未启动：{{reason}}",
+    "tryAgainShortly": "稍后重试",
+    "startTimeout": "超分辨率服务在一分钟内未响应。其日志位于插件页面。",
+    "startFailed": "无法启动超分辨率服务：{{error}}",
+    "starting": "正在启动...",
+    "startNow": "立即启动",
+    "stoppedAutostart": "超分辨率服务已停止。当您进行超分辨率处理时，它会自动启动，或者您也可以现在手动启动。",
+    "switchedOff": "在插件页面中已关闭超分辨率。在此处启动以进行超分辨率处理。",
+    "stopped": "超分辨率服务已停止。启动服务以进行超分辨率处理。"
+  },
+  "errors": {
+    "unknown": "未知错误",
+    "modelsLoadFailed": "无法加载超分辨率模型：{{error}}。",
+    "requestFailed": "请求失败",
+    "unsupportedSkipped": "跳过 {{count}} 个不支持的文件。允许数量：{{allowed}}",
+    "failedReason": "失败",
+    "submitFailed": "提交失败：{{details}}",
+    "skipped": "已跳过：{{details}}",
+    "imageFailed": "图像超分辨率失败",
+    "cancelFailed": "取消失败：{{error}}。任务可能仍在运行。",
+    "clearFailed": "清除已完成的任务失败：{{error}}。",
+    "previewFailed": "预览失败：{{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "已提交 \"{{name}}\" 的超分辨率任务",
+    "jobsSubmitted": "已提交 {{submitted}} / {{total}} 个超分辨率任务",
+    "imageUpscaled": "已完成 \"{{name}}\" 的超分辨率处理",
+    "imagesQueued": "已将 {{count}} 张图像加入超分辨率队列"
+  },
+  "gpu": {
+    "unknown": "未知",
+    "title": "GPU 状态",
+    "activeModel": "当前模型",
+    "none": "无",
+    "enabled": "已启用",
+    "disabled": "已禁用"
+  },
+  "submit": {
+    "upscaleImages": "超分辨率 {{count}} 张图像",
+    "upscaleVideos": "超分辨率 {{count}} 个视频",
+    "upscaleImage": "超分辨率图像",
+    "upscaleVideo": "超分辨率视频",
+    "startingService": "正在启动超分辨率服务...",
+    "uploadingProgress": "正在上传 {{current}}/{{total}}...",
+    "uploading": "正在上传...",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "超分辨率",
+    "videoGen": "视频生成"
+  },
+  "upload": {
+    "imagesTitle": "上传图像",
+    "videoTitle": "上传视频",
+    "video": "视频",
+    "image": "图像",
+    "dropImages": "将图像拖放至此处，或点击浏览",
+    "dropVideos": "将视频拖放至此处，或点击浏览",
+    "filesReady_other": "已有 {{count}} 个文件就绪",
+    "clearAll": "清空全部"
+  },
+  "result": {
+    "original": "原始",
+    "upscaled": "超分辨率",
+    "openFullSize": "打开全尺寸",
+    "download": "下载"
+  },
+  "preview": {
+    "title": "预览超分辨率",
+    "hint": "定位到某一帧并点击“生成预览”以查看超分辨率后的帧。",
+    "generating": "生成中...",
+    "generate": "生成预览",
+    "originalFrame": "原始帧",
+    "upscaledFrame": "超分辨率帧",
+    "backToVideo": "返回视频"
+  },
+  "jobs": {
+    "title": "超分辨率任务",
+    "clearFinishedCount": "清除已完成 ({{count}})",
+    "clearFinished": "清除已完成",
+    "empty": "暂无超分辨率任务。上传视频或一批图像开始任务。",
+    "imageProgress": "图像 {{done}} / {{total}}",
+    "frameProgress": "帧 {{done}} / {{total}}",
+    "play": "播放",
+    "cancel": "取消"
+  }
+}

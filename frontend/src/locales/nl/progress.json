@@ -1,0 +1,25 @@
+{
+  "status": {
+    "processing": "Bezig met verwerken...",
+    "complete": "Voltooid",
+    "error": "Fout",
+    "cancelled": "Geannuleerd"
+  },
+  "gpu": {
+    "videoRendering": "Een video wordt gerenderd",
+    "picturesRendering": "Afbeeldingen worden gerenderd",
+    "pictureRendering": "Een afbeelding wordt gerenderd",
+    "pictureEditing": "Een afbeelding wordt bewerkt",
+    "animationRendering": "Een animatie wordt gerenderd",
+    "infographicRendering": "Een infographic wordt gerenderd",
+    "characterPicturesRendering": "Personageafbeeldingen worden gerenderd",
+    "storyboardRendering": "Storyboardafbeeldingen worden gerenderd",
+    "filmCrewRendering": "De Film Crew wordt gerenderd",
+    "musicVideoRendering": "Een Muziekvideo wordt gerenderd",
+    "songRendering": "Een nummer wordt gerenderd",
+    "modelTraining": "Een model wordt getraind",
+    "characterTraining": "Een personage wordt getraind",
+    "generic": "Iets gebruikt de GPU",
+    "coolingDown": "De videokaart herstelt na de laatste taak ({{seconds}} s)"
+  }
+}

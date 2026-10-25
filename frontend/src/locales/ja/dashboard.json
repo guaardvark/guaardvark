@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "プロジェクトマネージャー",
+    "loadFailed": "プロジェクトデータの読み込みエラー。",
+    "empty": "プロジェクトが見つかりません。",
+    "unnamed": "無題のプロジェクト",
+    "client": "クライアント: {{name}}"
+  },
+  "website": {
+    "title": "ウェブサイトデータ",
+    "loadFailed": "ウェブサイトデータの読み込みエラー。",
+    "deleteConfirm": "このウェブサイトを削除しますか？",
+    "empty": "ウェブサイトが見つかりません。",
+    "unnamed": "無題のサイト",
+    "details": "プロジェクト: {{project}} | ドキュメント: {{docs}}",
+    "openUrl": "URLを新しいタブで開く",
+    "copyUrl": "URLをコピー"
+  },
+  "tasks": {
+    "title": "タスク",
+    "unknownStatus": "不明",
+    "loadFailed": "タスクの読み込みに失敗しました。",
+    "nameAndTypeRequired": "タスク名とタイプは必須項目です。",
+    "created": "タスク「{{name}}」を作成しました！",
+    "createFailed": "タスク作成エラー: {{message}}",
+    "addTaskMenu": "タスクを追加…",
+    "addTaskButton": "+ タスクを追加",
+    "empty": "タスクが見つかりません。",
+    "unnamed": "無題のタスク",
+    "viewAll": "すべてのタスクを表示 ({{count}})",
+    "addDialogTitle": "新しいタスクを追加",
+    "taskName": "タスク名",
+    "taskType": "タスクタイプ",
+    "output": "出力/説明",
+    "outputPlaceholder": "任意：期待される出力や詳細情報を入力してください…",
+    "creating": "作成中…",
+    "create": "タスクを作成"
+  },
+  "chat": {
+    "title": "チャット",
+    "csvDescription": "「{{excerpt}}」に基づいたCSVファイルを生成",
+    "historyFailed": "チャット履歴の読み込みに失敗しました",
+    "fileGenerated": "ファイル \"{{filename}}\" が正常に生成されました。出力フォルダからダウンロードできます。",
+    "fileGenFailed": "ファイルの生成に失敗しました: {{message}}",
+    "notConnected": "チャットサービスに接続されていません。しばらく待ってから再試行してください。",
+    "sendFailed": "メッセージの送信に失敗しました",
+    "errorMessage": "エラー: {{message}}",
+    "messageCount": "{{count}} 件のメッセージ",
+    "noMessages": "メッセージなし",
+    "reloadHistory": "履歴を再読み込み",
+    "stopGenerating": "生成を停止",
+    "roles": {
+      "user": "あなた",
+      "system": "システム",
+      "assistant": "アシスタント"
+    },
+    "empty": "まだメッセージはありません。会話を始めましょう！",
+    "placeholder": "メッセージを入力..."
+  },
+  "clients": {
+    "title": "クライアント",
+    "loadFailed": "クライアントデータの読み込みエラー。",
+    "empty": "クライアントが見つかりません。",
+    "unnamed": "名前のないクライアント",
+    "projectCount": "プロジェクト: {{count}}"
+  },
+  "csvgen": {
+    "title": "CSV生成",
+    "newCsv": "新規CSV",
+    "import": "インポート",
+    "empty": "CSVジョブはまだありません。"
+  },
+  "codegen": {
+    "title": "コード生成",
+    "newCode": "新規コード",
+    "debug": "デバッグ",
+    "empty": "コード生成ジョブはまだありません。"
+  },
+  "imggen": {
+    "title": "画像生成",
+    "newImages": "新規画像",
+    "batchMode": "バッチモード",
+    "empty": "バッチはまだありません。",
+    "viewAll": "すべてのバッチを表示"
+  },
+  "files": {
+    "title": "ファイルマネージャー"
+  },
+  "family": {
+    "title": "ファミリーと自己改善",
+    "queuing": "キューに追加中...",
+    "runCheck": "チェックを実行",
+    "uncleOnline": "Uncle Online",
+    "uncleOffline": "Uncle Offline",
+    "siOn": "SI: On",
+    "siOff": "SI: Off",
+    "locked": "ロック済み",
+    "stages": {
+      "starting": "開始中...",
+      "testing": "テスト実行中",
+      "analyzed": "結果を分析中",
+      "fixing": "修正を適用中",
+      "complete": "完了",
+      "error": "エラー"
+    },
+    "tokens": "トークン: {{percent}}%",
+    "totalFixes": "適用された修正の総数: {{count}}",
+    "recentActivity": "最近のアクティビティ",
+    "noRuns": "まだ自己改善の実行はありません",
+    "reviewed": "確認済み"
+  },
+  "autoresearch": {
+    "title": "RAG 自動リサーチ",
+    "pauseRun": "実行を一時停止",
+    "startRun": "実行を開始",
+    "unavailable": "自動リサーチは利用不可です",
+    "running": "実行中",
+    "paused": "一時停止中",
+    "idle": "待機中",
+    "phase": "フェーズ {{phase}}",
+    "pauseOptimization": "最適化を一時停止",
+    "startBounded": "制限付きリサーチを実行",
+    "healthChecksNotCounted": "{{count}} 件のテストスイートのヘルスチェックはカウントされません",
+    "latestRun": "最新の実行",
+    "testSuite": "テストスイート",
+    "selfReported": "{{status}} (自己報告)",
+    "noExperiments": "まだ実験はありません。再生ボタンをクリックして制限付きの実行を開始してください。"
+  },
+  "gpu": {
+    "title": "GPUメモリ",
+    "tiers": {
+      "speed": "スピード",
+      "balanced": "バランス",
+      "quality": "クオリティ"
+    },
+    "tierMenu": {
+      "speed": "速度ティア",
+      "balanced": "バランス重視ティア",
+      "quality": "品質重視ティア"
+    },
+    "states": {
+      "loaded": "ロード済み",
+      "loading": "読み込み中...",
+      "unloading": "アンロード中...",
+      "unloaded": "待機中"
+    },
+    "unavailable": "GPUステータス利用不可",
+    "evict": "{{model}} を破棄",
+    "systemOther": "システム/その他: {{size}} GB",
+    "qualityTier": "品質ティア",
+    "evictFromGpu": "GPUから破棄",
+    "noModels": "ロードされたモデルなし"
+  },
+  "title": "ダッシュボード",
+  "layoutModes": {
+    "normal": "通常",
+    "compact": "コンパクト",
+    "layered": "コンパクトレイヤー",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "ダッシュボード状態の取得に失敗しました: {{statusText}} (ステータス: {{status}})",
+  "loadStateFailed": "ダッシュボード状態の読み込みに失敗しました: {{message}}。デフォルトを使用します。",
+  "saveStateFailed": "ダッシュボード状態の保存に失敗しました。",
+  "menu": {
+    "cycleLayout": "レイアウトを切り替え（次: {{mode}}）",
+    "resetLayout": "レイアウトをリセット…",
+    "noHiddenCards": "非表示のカードなし",
+    "showCard": "{{card}} を表示",
+    "showAllHidden": "すべての非表示カードを表示"
+  },
+  "stickyNotes": "付箋",
+  "loadingDashboard": "ダッシュボードを読み込み中...",
+  "dashboardCards": "ダッシュボードカード",
+  "layoutTooltip": "レイアウト: {{mode}}（クリックで切り替え）",
+  "missingCard": "欠落したカード: {{id}}",
+  "resetConfirm": {
+    "title": "ダッシュボードのレイアウトをリセットしますか？",
+    "description": "すべてのカードがデフォルトの位置とサイズに戻り、カードの色がリセットされ、非表示のカードが再表示されます。",
+    "keeps": "カードに表示される内容（プロジェクト、タスク、チャット、ファイル）",
+    "confirm": "レイアウトをリセット"
+  },
+  "cardWrapper": {
+    "openPage": "ページを開く",
+    "expand": "展開",
+    "minimize": "最小化",
+    "changeColour": "色を変更…",
+    "resetColour": "色をリセット",
+    "hideCard": "カードを隠す",
+    "changeColor": "カードの色を変更"
+  },
+  "refreshData": "データを更新",
+  "viewAllJobs": "すべてのジョブを表示",
+  "edit": "編集…",
+  "recentRuns": {
+    "status": {
+      "completed": "完了",
+      "running": "実行中",
+      "queued": "待機中",
+      "pending": "保留中",
+      "paused": "一時停止中",
+      "failed": "失敗",
+      "cancelled": "キャンセル済み",
+      "unknown": "不明"
+    },
+    "images": "{{done}}/{{total}} 画像",
+    "jobNumber": "ジョブ {{id}}",
+    "loadFailed": "最近の実行を読み込めませんでした: {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "システムステータスの取得に失敗しました。",
+    "noData": "ステータスデータが返されませんでした。",
+    "title": "システム診断",
+    "python": "Python: {{version}}",
+    "platform": "プラットフォーム: {{platform}}",
+    "dbPath": "DBパス: {{path}}",
+    "dbSize": "DBサイズ: {{size}} KB",
+    "documents": "ドキュメント: {{count}}",
+    "models": "モデル: {{count}}",
+    "indexStatus": "インデックス状態: {{status}}",
+    "runSelfTest": "セルフテストを実行",
+    "rebuildIndex": "インデックスの再構築",
+    "clearCache": "キャッシュをクリア"
+  }
+}

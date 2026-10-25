@@ -1,0 +1,74 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "Services",
+    "utils": "Utils",
+    "tools": "Tools",
+    "tasks": "Taken",
+    "frontend": "Frontend",
+    "plugins": "Plugins",
+    "clear": "wissen"
+  },
+  "errors": {
+    "snapshotFailed": "Snapshot mislukt"
+  },
+  "dispatch": {
+    "queued": "Verstuurd naar de agent voor Zelfverbetering — wordt op de achtergrond uitgevoerd.",
+    "proposed": "Verstuurd naar de agent voor Zelfverbetering — bekijk de voorgestelde fix in Instellingen.",
+    "notRun": "Verzending uitgevoerd niet — {{reason}}",
+    "notRunNoReason": "Verzending uitgevoerd niet — geen reden opgegeven",
+    "failed": "Verzending mislukt: {{error}}"
+  },
+  "title": "Systeemkaart",
+  "stats": "{{modules}} modules · {{edges}} verbindingen",
+  "severity": {
+    "critical": "{{count}} kritiek",
+    "medium": "{{count}} gemiddeld",
+    "hygiene": "{{count}} hygiëne"
+  },
+  "searchPlaceholder": "Zoeken ( / )",
+  "resetView": "Weergave resetten (R)",
+  "refresh": {
+    "cached": "Gecached {{seconds}}s geleden — klik om opnieuw te berekenen",
+    "computed": "Net berekend in {{seconds}}s"
+  },
+  "overlays": {
+    "ghostEndpoints": "Ghost-endpoints",
+    "ghostEndpointsCount": "Ghost-endpoints ({{count}})",
+    "toolGraph": "Tool grafiek",
+    "toolGraphCount": "Tool grafiek ({{count}})"
+  },
+  "controlsHint": "slepen · pan  |  wiel · zoom  |  / · zoeken  |  r · reset  |  klik op chips · secties markeren",
+  "detail": {
+    "hovered": "Geselecteerd",
+    "selected": "Geselecteerd",
+    "importers_one": "{{count}} importer",
+    "importers_other": "{{count}} importers",
+    "findings": "Bevindingen ({{count}})",
+    "moreFindings": "… en nog {{count}} meer",
+    "escToClear": "Druk op <code>Esc</code> om te wissen"
+  },
+  "loading": "Systeem in kaart brengen…",
+  "panel": {
+    "findings": "Bevindingen",
+    "activity": "Activiteit"
+  },
+  "findings": {
+    "actionable": "Actiegericht",
+    "critical": "Kritiek",
+    "all": "Alle",
+    "intro": "Gerangschikte bevindingen · klik om te lokaliseren · verstuur om te herstellen",
+    "empty": "Geen bevindingen bij deze ernst. 🎉",
+    "dispatch": "Verstuur naar de Zelfverbetering-agent om een oplossing voor te stellen",
+    "dismiss": "Negeer — erken en stop met het tonen van deze bevinding"
+  },
+  "activity": {
+    "title": "Live activiteit",
+    "intro": "Tool-aanroepen die door de chat stromen, verschijnen hier. Gematchede modules pulseren in de constellatie.",
+    "empty": "Inactief. Stel de agent een vraag om de puls te starten.",
+    "now": "nu",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

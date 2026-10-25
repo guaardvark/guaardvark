@@ -1,0 +1,110 @@
+{
+  "settings": {
+    "modelDefaultScale": "Domyślna skala modelu",
+    "model": "Model",
+    "manageModels": "Zarządzaj modelami skalowania",
+    "install": "Zainstaluj",
+    "noModelInstallSized": "Nie jest zainstalowany żaden model skalowania. Zainstaluj {{model}} ({{size}} MB), aby skalować; skalowanie nigdy nie pobiera modelu automatycznie.",
+    "noModelInstall": "Nie jest zainstalowany żaden model skalowania. Zainstaluj {{model}}, aby skalować; skalowanie nigdy nie pobiera modelu automatycznie.",
+    "noModel": "Nie jest zainstalowany żaden model skalowania. Dodaj jeden w Zarządzaj modelami skalowania, aby skalować.",
+    "outputScale": "Skala wyjściowa",
+    "targetResolution": "Docelowa rozdzielczość",
+    "twoPass": "Tryb dwuprzejściowy",
+    "twoPassHelp": "Uruchamia model dwa razy dla wyższej jakości (wolniej)",
+    "faceEnhance": "Ulepszanie twarzy",
+    "faceEnhanceHelp": "Odtwarza twarze za pomocą GFPGAN",
+    "doubleFps": "Podwojenie klatek na sekundę",
+    "doubleFpsHelp": "Interpoluje klatki dla płynniejszego ruchu (wolniej)",
+    "sharpening": "Ostrzenie",
+    "denoise": "Przejście odszumiające"
+  },
+  "service": {
+    "startRefused": "Usługa skalowania nie wystartowała: {{reason}}",
+    "tryAgainShortly": "spróbuj ponownie za chwilę",
+    "startTimeout": "Usługa skalowania nie odpowiedziała w ciągu minuty. Jej log znajduje się na stronie Wtyczki.",
+    "startFailed": "Nie można uruchomić usługi skalowania: {{error}}",
+    "starting": "Uruchamianie...",
+    "startNow": "Uruchom teraz",
+    "stoppedAutostart": "Usługa powiększania jest zatrzymana. Uruchomi się automatycznie, gdy powiększysz coś, lub możesz ją uruchomić teraz.",
+    "switchedOff": "Powikszanie jest wyłączone na stronie Wtyczki. Uruchom je tutaj, aby powiększyć.",
+    "stopped": "Usługa powiększania jest zatrzymana. Uruchom ją, aby powiększyć."
+  },
+  "errors": {
+    "unknown": "nieznany błąd",
+    "modelsLoadFailed": "Nie można załadować modeli powiększania: {{error}}.",
+    "requestFailed": "żądanie nie powiodło",
+    "unsupportedSkipped": "Pominięto {{count}} nieobsługiwanych plików. Dozwolone: {{allowed}}",
+    "failedReason": "nie udało się",
+    "submitFailed": "Błąd wysłania: {{details}}",
+    "skipped": "Pominięto: {{details}}",
+    "imageFailed": "Błąd powiększania obrazu",
+    "cancelFailed": "Anulowanie nie powiodło: {{error}}. Zlecenie może nadal być w trakcie.",
+    "clearFailed": "Nie udało się wyczyścić zakończonych zleceń: {{error}}.",
+    "previewFailed": "Błąd podglądu: {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "Zlecenie powiększenia dla \"{{name}}\" zostało wysłane",
+    "jobsSubmitted": "Wysłano {{submitted}} z {{total}} zleceń powiększania",
+    "imageUpscaled": "Powiększono \"{{name}}\"",
+    "imagesQueued": "Do kolejki powiększania dodano {{count}} obrazów"
+  },
+  "gpu": {
+    "unknown": "Nieznany",
+    "title": "Status GPU",
+    "activeModel": "Aktywny Model",
+    "none": "Brak",
+    "enabled": "Włączone",
+    "disabled": "Wyłączone"
+  },
+  "submit": {
+    "upscaleImages": "Powiększaj {{count}} Obrazy",
+    "upscaleVideos": "Powiększaj {{count}} Wideo",
+    "upscaleImage": "Powiększ obraz",
+    "upscaleVideo": "Powiększ wideo",
+    "startingService": "Uruchamianie usługi powiększania...",
+    "uploadingProgress": "Przesyłanie {{current}}/{{total}}...",
+    "uploading": "Przesyłanie...",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "Powikszanie",
+    "videoGen": "Generowanie wideo"
+  },
+  "upload": {
+    "imagesTitle": "Prześlij obrazy",
+    "videoTitle": "Prześlij wideo",
+    "video": "Wideo",
+    "image": "Obraz",
+    "dropImages": "Przeciągnij i upuść obrazy tutaj lub kliknij, aby przeglądać",
+    "dropVideos": "Przeciągnij i upuść filmy tutaj lub kliknij, aby przeglądać",
+    "filesReady_few": "{{count}} plików gotowych",
+    "filesReady_many": "{{count}} plików gotowych",
+    "filesReady_one": "1 plik gotowy",
+    "clearAll": "Wyczyść wszystko"
+  },
+  "result": {
+    "original": "Oryginał",
+    "upscaled": "Powikszony",
+    "openFullSize": "Otwórz w pełnym rozmiarze",
+    "download": "Pobierz"
+  },
+  "preview": {
+    "title": "Podgląd powiększenia",
+    "hint": "Przejdź do klatki i kliknij „Wygeneruj podgląd”, aby zobaczyć powiększoną klatkę.",
+    "generating": "Generowanie...",
+    "generate": "Wygeneruj podgląd",
+    "originalFrame": "Oryginalna klatka",
+    "upscaledFrame": "Powikszona klatka",
+    "backToVideo": "Powrót do wideo"
+  },
+  "jobs": {
+    "title": "Zlecenia powiększania",
+    "clearFinishedCount": "Wyczyść zakończone ({{count}})",
+    "clearFinished": "Wyczyść zakończone",
+    "empty": "Brak zleceń powiększania. Prześlij wideo lub zestaw obrazów, aby zacząć.",
+    "imageProgress": "Obraz {{done}} / {{total}}",
+    "frameProgress": "Klatka {{done}} / {{total}}",
+    "play": "Odtwórz",
+    "cancel": "Anuluj"
+  }
+}

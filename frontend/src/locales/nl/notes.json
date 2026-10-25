@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Normaal",
+    "compact": "Compact",
+    "collapsed": "Ingeklapt"
+  },
+  "untitled": "Zonder titel",
+  "note": {
+    "changeColor": "Kleur wijzigen",
+    "close": "Sluiten",
+    "closeNote": "Notitie sluiten",
+    "bold": "Vet (Ctrl+B)",
+    "italic": "Cursief (Ctrl+I)",
+    "underline": "Onderstreept (Ctrl+U)",
+    "insertLink": "Link invoegen",
+    "bodyPlaceholder": "Typ je notitie..."
+  },
+  "errors": {
+    "loadFailed": "Fout bij laden van notities: {{message}}. Gebruikt standaardwaarden.",
+    "saveFailed": "Fout bij opslaan van notities.",
+    "copyDenied": "Kopiëren niet mogelijk: toegang tot klembord geweigerd",
+    "pasteFailed": "Plakken niet mogelijk: {{message}}",
+    "pasteDenied": "Plakken niet mogelijk: toegang tot klembord geweigerd"
+  },
+  "pageTitle": "Notities",
+  "loading": "Notities laden...",
+  "toolbar": {
+    "searchPlaceholder": "Zoek in notities...",
+    "dashboardCards": "Dashboard Kaarten",
+    "stickyNotes": "Notities",
+    "addNoteTooltip": "Notitie toevoegen",
+    "addNote": "Notitie toevoegen",
+    "closedNotes": "Gesloten notities",
+    "layoutCycle": "Layout: {{mode}} (klik om wisselen)",
+    "layoutMode": "Layout: {{mode}}",
+    "saving": "Opslaan...",
+    "allSaved": "Alle wijzigingen opgeslagen",
+    "saveFailed": "Opslaan mislukt"
+  },
+  "emptyNote": "Lege notitie",
+  "menu": {
+    "copy": "Kopiëren",
+    "selectAll": "Alles selecteren",
+    "paste": "Plakken",
+    "duplicate": "Dupliceren",
+    "rename": "Hernamen",
+    "unpin": "Ontpinnen",
+    "pinToTop": "Bovenaan vastzetten"
+  },
+  "actions": {
+    "delete": "Verwijderen",
+    "cancel": "Annuleren",
+    "save": "Opslaan"
+  },
+  "deleteDialog": {
+    "title": "Verwijderen \"{{title}}\"? Ctrl+Z brengt het terug totdat je de pagina verlaat of herlaadt."
+  },
+  "boardMenu": {
+    "newNote": "Nieuwe Notitie",
+    "cycleLayout": "Layout wisselen",
+    "goToDashboard": "Ga naar Dashboard"
+  },
+  "renameDialog": {
+    "title": "Notitie hernoemen",
+    "placeholder": "Titel van de notitie"
+  },
+  "linkDialog": {
+    "title": "Link invoegen",
+    "url": "URL",
+    "insert": "Invoegen"
+  },
+  "closed": {
+    "justNow": "Net nu",
+    "minutesAgo": "{{count}}m geleden",
+    "hoursAgo": "{{count}}u geleden",
+    "yesterday": "Gisteren",
+    "daysAgo": "{{count}}d geleden",
+    "deleteNamed": "Verwijderen {{title}}",
+    "heading": "Gesloten notities",
+    "searchPlaceholder": "Zoek gesloten notities...",
+    "empty": "Geen gesloten notities",
+    "noMatches": "Geen resultaten",
+    "groups": {
+      "today": "Vandaag",
+      "yesterday": "Gisteren",
+      "thisWeek": "Deze week",
+      "older": "Ouder"
+    }
+  }
+}

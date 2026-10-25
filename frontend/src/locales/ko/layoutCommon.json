@@ -1,0 +1,223 @@
+{
+  "addressAutocomplete": {
+    "label": "주소"
+  },
+  "apiKeyRefusal": {
+    "settingsLink": "설정 → 액세스"
+  },
+  "backendOffline": {
+    "message": "백엔드 오프라인 — 재시도 중… 터미널에서 <code>guaardvark</code>를 실행하거나, 전체 스택을 위해 <code>./start.sh</code>를 실행하세요."
+  },
+  "changedElsewhere": {
+    "keepMine": "내 것 유지",
+    "message": "편집하는 동안 {{names}}가 다른 곳에서 변경되었습니다. 다시 불러오기를 눌러 저장된 버전을 가져오거나, 현재 편집 내용을 유지하고 해당 변경 사항 위에 덮어쓰기 하세요."
+  },
+  "didYouKnow": {
+    "regionLabel": "알고 계셨나요",
+    "title": "알고 계셨나요?",
+    "closeTip": "팁 닫기",
+    "showMe": "보기",
+    "nextTip": "다음 팁",
+    "stopTips": "팁 표시 안 함"
+  },
+  "directoryPicker": {
+    "title": "디렉터리 선택",
+    "loadFailed": "폴더를 불러오지 못했습니다",
+    "notFoundShowingHome": "{{path}}를 찾을 수 없어 홈 폴더를 표시합니다.",
+    "notFoundShowing": "{{path}}를 찾을 수 없어 {{fallback}}을(를) 표시합니다.",
+    "folderNotFound": "폴더를 찾을 수 없음",
+    "root": "루트",
+    "hideRecent": "최근 항목 숨기기",
+    "showRecent": "최근 경로",
+    "recentPaths": "최근 경로",
+    "goHome": "홈 폴더로 이동",
+    "homeFolder": "홈 폴더",
+    "path": "경로",
+    "openPathFirst": "선택하기 전에 Enter를 누르거나 '열기'를 눌러 이 경로를 여세요.",
+    "parentFolder": "상위 폴더",
+    "go": "이동",
+    "searchPlaceholder": "현재 폴더에서 검색...",
+    "showFiles": "파일 표시",
+    "browse": "찾아보기",
+    "hiddenFolders": "숨겨진 폴더는 표시되지 않습니다.",
+    "noMatches": "일치하는 항목이 없습니다.",
+    "emptyFolder": "이 폴더는 비어 있습니다.",
+    "noSubdirectories": "하위 디렉터리가 없습니다. 이 디렉터리를 선택할 수 있습니다.",
+    "itemCount": "{{count}}개 항목",
+    "folderCount_other": "{{count}}개 폴더",
+    "fileCount_other": "{{count}}개 파일",
+    "foldersAndFiles": "{{folders}}, {{files}}",
+    "summaryMatching": "\"{{query}}\"와(과) 일치하는 {{summary}}",
+    "summaryPickable": "{{summary}} · {{extensions}} 파일 선택 가능",
+    "chooseFile": "파일 선택",
+    "selectNamed": "선택됨: {{name}}"
+  },
+  "errorBoundary": {
+    "updatedTitle": "Guaardvark이(가) 업데이트되었습니다",
+    "errorTitle": "문제가 발생했습니다",
+    "updatedBody": "페이지가 열려 있는 동안 코드이(가) 변경되었습니다. 다시 불러오기를 눌러 새 버전을 불러오세요.",
+    "errorBody": "애플리케이션에 예기치 않은 오류가 발생했습니다. 해당 내용은 조사를 위해 기록되었습니다.",
+    "reloadPage": "페이지 다시 불러오기",
+    "tryAgain": "다시 시도",
+    "detailsHeading": "오류 상세 정보 (개발 모드 전용)"
+  },
+  "errorDisplay": {
+    "unexpectedError": "예기치 않은 오류가 발생했습니다",
+    "genericError": "오류가 발생했습니다.",
+    "friendly": {
+      "network": "서버에 연결할 수 없습니다. 인터넷 연결을 확인해 주세요.",
+      "timeout": "요청 처리에 시간이 너무 오래 걸렸습니다. 다시 시도해 주세요.",
+      "unauthorized": "인증이 필요합니다. 로그인해 주세요.",
+      "forbidden": "이 동작을 수행할 권한이 없습니다.",
+      "notFound": "요청한 리소스를 찾을 수 없습니다.",
+      "serverError": "서버 오류입니다. 나중에 다시 시도해 주세요.",
+      "unavailable": "서비스를 일시적으로 이용할 수 없습니다. 나중에 다시 시도해 주세요."
+    },
+    "toggleDetails": "상세 정보 보기",
+    "report": "보고",
+    "closeError": "오류 닫기",
+    "severity": {
+      "warning": "경고",
+      "info": "정보"
+    },
+    "errorDetails": "오류 상세 정보",
+    "code": "<bold>코드:</bold> {{code}}",
+    "time": "<bold>시간:</bold> {{time}}",
+    "technicalDetails": "기술적 상세 정보",
+    "cardTitle": "문제가 발생했습니다",
+    "cardDescription": "예기치 않은 오류가 발생했습니다. 페이지를 새로고침해 주세요.",
+    "tryAgain": "다시 시도",
+    "refreshPage": "페이지 새로고침"
+  },
+  "errorProvider": {
+    "detailsTitle": "오류 상세 정보"
+  },
+  "gpuGate": {
+    "queued": "{{reason}}. 새로운 작업은 대기열에 추가되며, GPU가 사용 가능해지면 자동으로 시작됩니다.",
+    "blocked": "{{reason}}. 그래픽 카드가 사용 가능해지면 버튼이 해제됩니다.",
+    "job": "작업: {{detail}}"
+  },
+  "shortcuts": {
+    "groups": {
+      "global": "전체",
+      "chat": "채팅",
+      "codeEditor": "코드 에디터",
+      "systemMap": "시스템 맵",
+      "videoEditor": "비디오 에디터"
+    },
+    "keys": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "space": "Space",
+      "enter": "Enter",
+      "esc": "Esc",
+      "delete": "삭제"
+    },
+    "showShortcuts": "이 키보드 단축키 안내 보기",
+    "toggleFloatingChat": "플로팅 채팅 패널 토글",
+    "voiceMic": "음성: 탭하여 마이크 시작 또는 중지, 길게 눌러 말하기",
+    "sendMessage": "메시지 전송",
+    "newline": "줄 바꿈 삽입",
+    "previousMessage": "이전 메시지 불러오기",
+    "nextMessage": "다음 메시지 불러오기",
+    "saveFile": "파일 저장",
+    "saveSession": "현재 세션 저장: 탭 및 채팅",
+    "findSymbol": "함수 또는 클래스 찾기 및 이동",
+    "jumpToPanel": "파일, 에디터, 채팅, 검색, 출력으로 이동",
+    "explainSelection": "선택한 코드를 채팅에서 설명",
+    "focusSearch": "검색에 집중",
+    "resetView": "뷰 초기화",
+    "clearSearch": "검색 / 선택 지우기",
+    "playPause": "미리보기 재생 / 일시정지",
+    "undo": "마지막 타임라인 변경 취소",
+    "removeOverlay": "선택한 텍스트 오버레이 제거",
+    "title": "키보드 단축키",
+    "close": "단축키 닫기"
+  },
+  "loading": {
+    "remaining": "남은 시간: ~{{seconds}}초",
+    "processing": "처리 중...",
+    "connected": "연결됨",
+    "offline": "오프라인",
+    "online": "온라인",
+    "offlineTitle": "오프라인 상태입니다",
+    "offlineBody": "일부 기능을 사용할 수 없습니다. 연결 상태를 확인하세요.",
+    "success": "성공!",
+    "processFailed": "처리 실패",
+    "failed": "실패",
+    "step": "단계 {{current}} / {{total}}"
+  },
+  "mediaPicker": {
+    "listFailed": "라이브러리를 불러올 수 없습니다.",
+    "uploadFailed": "업로드 실패.",
+    "kinds": {
+      "image": {
+        "choose": "사진 선택",
+        "onlyHere": "여기에만 사진이 추가됩니다. 다른 파일은 파일에 추가되었습니다.",
+        "empty": "아직 파일에 사진이 없습니다. 하나를 업로드하거나 스튜디오에서 생성하세요.",
+        "emptyFiltered": "해당 이름과 일치하는 사진이 파일에 없습니다. 하나를 업로드하거나 스튜디오에서 생성하세요."
+      },
+      "video": {
+        "choose": "영상 선택",
+        "onlyHere": "여기에만 영상이 추가됩니다. 다른 파일은 파일에 추가되었습니다.",
+        "empty": "아직 파일에 영상이 없습니다. 하나를 업로드하거나 스튜디오에서 생성하세요.",
+        "emptyFiltered": "해당 이름과 일치하는 영상이 파일에 없습니다. 하나를 업로드하거나 스튜디오에서 생성하세요."
+      },
+      "audio": {
+        "choose": "오디오 파일 선택",
+        "onlyHere": "여기에는 오디오 파일만 들어갑니다. 다른 파일은 파일에 추가되었습니다.",
+        "empty": "아직 파일에 오디오 파일이 없습니다. 하나를 업로드하거나 스튜디오에서 생성하세요.",
+        "emptyFiltered": "해당 이름과 일치하는 오디오 파일이 아직 없습니다. 하나를 업로드하거나 스튜디오에서 생성하세요."
+      }
+    },
+    "filterPlaceholder": "이름으로 필터링",
+    "uploadFromDisk": "디스크에서 업로드",
+    "upToMore": "최대 {{count}}개 더.",
+    "pickOne": "하나 선택.",
+    "useCount": "{{count}}개 사용",
+    "use": "사용"
+  },
+  "narrate": {
+    "failed": "내레이션 실패",
+    "fast": "빠르게",
+    "expressive": "표현력 있게",
+    "download": "내레이션 다운로드",
+    "summary_other": "{{seconds}}초 · {{count}}개 섹션",
+    "generatingSlow": "생성 중 (느림)...",
+    "narrating": "내레이션 중...",
+    "narrate": "내레이션",
+    "expressiveGenerating": "표현력 있는 TTS 생성 중 (10-30초)...",
+    "generating": "내레이션 생성 중...",
+    "narrateText": "이 텍스트 내레이션"
+  },
+  "projectState": {
+    "title": "프로젝트 상태 오류",
+    "intro": "프로젝트 상태 관리 중 오류가 발생했습니다. 원인은 다음과 같을 수 있습니다:",
+    "causes": {
+      "network": "네트워크 연결 문제",
+      "sync": "데이터 동기화 문제",
+      "relationships": "유효하지 않은 프로젝트 관계",
+      "corruption": "상태 손상"
+    },
+    "errorMessage": "오류: {{message}}",
+    "unknownError": "알 수 없는 오류"
+  },
+  "sevenDayPicker": {
+    "time": "시간"
+  },
+  "updateNotice": {
+    "gpuFaultAt": "GPU가 {{time}}에 응답을 중지했습니다. Guaardvark를 다시 시작할 때까지 이미지 생성이 실패합니다.",
+    "gpuFault": "GPU가 응답을 중지했습니다. Guaardvark를 다시 시작할 때까지 이미지 생성이 실패합니다.",
+    "restartWithReason": "Guaardvark가 업데이트되었습니다. 완료하려면 다시 시작하십시오 ({{reason}}).",
+    "restart": "Guaardvark가 업데이트되었습니다. 완료하려면 다시 시작하십시오.",
+    "restarted": "Guaardvark가 다시 시작되었습니다. 새 버전을 사용하려면 이 페이지를 다시 불러오기 하세요.",
+    "reloadFiles_other": "Guaardvark가 업데이트되었습니다 ({{count}}개의 파일). 새 버전을 사용하려면 이 페이지를 다시 불러오기 하세요.",
+    "reload": "Guaardvark가 업데이트되었습니다. 새 버전을 사용하려면 이 페이지를 다시 불러오기 하세요.",
+    "restartButton": "다시 시작",
+    "confirmTitle": "Guaardvark 다시 시작",
+    "confirmGpu": "GPU를 다시 사용할 수 있도록 백엔드, 워커 및 ComfyUI를 다시 시작합니다. 진행 중인 모든 생성, 인덱싱 작업 및 채팅 응답이 손실되며, 서비스가 복구될 때까지 이 페이지의 연결이 끊어집니다.",
+    "confirmUpdate": "업데이트를 적용하기 위해 백엔드, 워커 및 ComfyUI를 다시 시작합니다. 진행 중인 모든 생성, 인덱싱 작업 및 채팅 응답이 손실되며, 서비스가 복구될 때까지 이 페이지의 연결이 끊어집니다.",
+    "keeps": "문서, 채팅, 미디어, 규칙 및 설정.",
+    "restartNow": "지금 다시 시작"
+  }
+}

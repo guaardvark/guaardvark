@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "Gestore Progetti",
+    "loadFailed": "Errore nel caricamento dei dati del progetto.",
+    "empty": "Nessun progetto trovato.",
+    "unnamed": "Progetto senza nome",
+    "client": "Cliente: {{name}}"
+  },
+  "website": {
+    "title": "Dati Sito Web",
+    "loadFailed": "Errore nel caricamento dei dati del sito web.",
+    "deleteConfirm": "Vuoi eliminare questo sito web?",
+    "empty": "Nessun sito web trovato.",
+    "unnamed": "Sito senza nome",
+    "details": "Progetto: {{project}} | Doc: {{docs}}",
+    "openUrl": "Apri URL in una nuova scheda",
+    "copyUrl": "Copia URL"
+  },
+  "tasks": {
+    "title": "Attività",
+    "unknownStatus": "Sconosciuto",
+    "loadFailed": "Impossibile caricare le attività.",
+    "nameAndTypeRequired": "Nome e Tipo dell'attività sono obbligatori.",
+    "created": "Attività '{{name}}' creata con successo!",
+    "createFailed": "Errore durante la creazione dell'attività: {{message}}",
+    "addTaskMenu": "Aggiungi attività…",
+    "addTaskButton": "+ Aggiungi attività",
+    "empty": "Nessuna attività trovata.",
+    "unnamed": "Attività senza nome",
+    "viewAll": "Visualizza tutte le attività ({{count}})",
+    "addDialogTitle": "Aggiungi nuova attività",
+    "taskName": "Nome attività",
+    "taskType": "Tipo attività",
+    "output": "Output/Descrizione",
+    "outputPlaceholder": "Opzionale: Descrivi l'output previsto o dettagli aggiuntivi...",
+    "creating": "Creazione in corso...",
+    "create": "Crea attività"
+  },
+  "chat": {
+    "title": "Chat",
+    "csvDescription": "Genera file CSV basato su: \"{{excerpt}}\"",
+    "historyFailed": "Impossibile caricare la cronologia della chat",
+    "fileGenerated": "File \"{{filename}}\" generato con successo! Puoi scaricarlo dalla cartella delle uscite.",
+    "fileGenFailed": "Generazione file fallita: {{message}}",
+    "notConnected": "Servizio chat non connesso. Attendi e riprova.",
+    "sendFailed": "Invio messaggio fallito",
+    "errorMessage": "Errore: {{message}}",
+    "messageCount": "{{count}} messaggi",
+    "noMessages": "Nessun messaggio",
+    "reloadHistory": "Ricarica cronologia",
+    "stopGenerating": "Interrompi generazione",
+    "roles": {
+      "user": "Tu",
+      "system": "Sistema",
+      "assistant": "Assistente"
+    },
+    "empty": "Nessun messaggio ancora. Inizia una conversazione!",
+    "placeholder": "Scrivi un messaggio..."
+  },
+  "clients": {
+    "title": "Clienti",
+    "loadFailed": "Errore nel caricamento dei dati del cliente.",
+    "empty": "Nessun client trovato.",
+    "unnamed": "Cliente senza nome",
+    "projectCount": "Progetti: {{count}}"
+  },
+  "csvgen": {
+    "title": "Generazione CSV",
+    "newCsv": "Nuovo CSV",
+    "import": "Importa",
+    "empty": "Nessun lavoro CSV ancora."
+  },
+  "codegen": {
+    "title": "Generazione Codice",
+    "newCode": "Nuovo Codice",
+    "debug": "Debug",
+    "empty": "Nessun lavoro di generazione Codice ancora."
+  },
+  "imggen": {
+    "title": "Generazione Immagini",
+    "newImages": "Nuove Immagini",
+    "batchMode": "Modalità Batch",
+    "empty": "Nessun batch di immagini ancora.",
+    "viewAll": "Visualizza tutti i batch"
+  },
+  "files": {
+    "title": "Gestore File"
+  },
+  "family": {
+    "title": "Famiglia e Auto-miglioramento",
+    "queuing": "In coda...",
+    "runCheck": "Esegui Controllo",
+    "uncleOnline": "Uncle Online",
+    "uncleOffline": "Uncle Offline",
+    "siOn": "SI: On",
+    "siOff": "SI: Off",
+    "locked": "Bloccato",
+    "stages": {
+      "starting": "Avvio...",
+      "testing": "Esecuzione Test",
+      "analyzed": "Analisi Risultati",
+      "fixing": "Applicazione Correzioni",
+      "complete": "Completato",
+      "error": "Errore"
+    },
+    "tokens": "Token: {{percent}}%",
+    "totalFixes": "Correzioni totali applicate: {{count}}",
+    "recentActivity": "Attività Recente",
+    "noRuns": "Nessuna esecuzione di Auto-miglioramento ancora",
+    "reviewed": "Revisionato"
+  },
+  "autoresearch": {
+    "title": "Ricerca Automatica RAG",
+    "pauseRun": "Pausa esecuzione",
+    "startRun": "Avvia esecuzione",
+    "unavailable": "Ricerca Automatica non disponibile",
+    "running": "In esecuzione",
+    "paused": "In pausa",
+    "idle": "Inattivo",
+    "phase": "Fase {{phase}}",
+    "pauseOptimization": "Pausa ottimizzazione",
+    "startBounded": "Avvia esecuzione di ricerca limitata",
+    "healthChecksNotCounted": "I controlli di salute della suite di test {{count}} non vengono conteggiati",
+    "latestRun": "Ultima esecuzione",
+    "testSuite": "suite di test",
+    "selfReported": "{{status}} (auto-segnalato)",
+    "noExperiments": "Nessun esperimento ancora. Clicca su play per avviare un'esecuzione limitata."
+  },
+  "gpu": {
+    "title": "Memoria GPU",
+    "tiers": {
+      "speed": "Velocità",
+      "balanced": "Bilanciato",
+      "quality": "Qualità"
+    },
+    "tierMenu": {
+      "speed": "Livello velocità",
+      "balanced": "Livello bilanciato",
+      "quality": "Livello qualità"
+    },
+    "states": {
+      "loaded": "Caricata",
+      "loading": "Caricamento...",
+      "unloading": "Scarico in corso...",
+      "unloaded": "Inattiva"
+    },
+    "unavailable": "Stato GPU non disponibile",
+    "evict": "Espelli {{model}}",
+    "systemOther": "Sistema/Altro: {{size}} GB",
+    "qualityTier": "Livello qualità",
+    "evictFromGpu": "Espelli dalla GPU",
+    "noModels": "Nessun modello caricato"
+  },
+  "title": "Dashboard",
+  "layoutModes": {
+    "normal": "Normale",
+    "compact": "Compatta",
+    "layered": "Compatta stratificata",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "Impossibile recuperare lo stato della dashboard: {{statusText}} (Stato: {{status}})",
+  "loadStateFailed": "Impossibile caricare lo stato della dashboard: {{message}}. Utilizzo dei valori predefiniti.",
+  "saveStateFailed": "Impossibile salvare le modifiche della dashboard.",
+  "menu": {
+    "cycleLayout": "Cambia layout (prossimo: {{mode}})",
+    "resetLayout": "Ripristina layout…",
+    "noHiddenCards": "Nessuna scheda nascosta",
+    "showCard": "Mostra {{card}}",
+    "showAllHidden": "Mostra tutte le schede nascoste"
+  },
+  "stickyNotes": "Note",
+  "loadingDashboard": "Caricamento della dashboard...",
+  "dashboardCards": "Schede della dashboard",
+  "layoutTooltip": "Layout: {{mode}} (clicca per cambiare)",
+  "missingCard": "Scheda mancante: {{id}}",
+  "resetConfirm": {
+    "title": "Ripristinare il layout della dashboard?",
+    "description": "Ogni scheda tornerà alla sua posizione e dimensione predefinite, i colori delle schede verranno azzerati e le schede nascoste verranno mostrate nuovamente.",
+    "keeps": "ciò che mostrano le schede (progetti, attività, chat, file)",
+    "confirm": "Ripristina layout"
+  },
+  "cardWrapper": {
+    "openPage": "Apri pagina",
+    "expand": "Espandi",
+    "minimize": "Minimizza",
+    "changeColour": "Cambia colore…",
+    "resetColour": "Ripristina colore",
+    "hideCard": "Nascondi scheda",
+    "changeColor": "Cambia colore scheda"
+  },
+  "refreshData": "Aggiorna dati",
+  "viewAllJobs": "Visualizza tutti i lavori",
+  "edit": "Modifica…",
+  "recentRuns": {
+    "status": {
+      "completed": "Completato",
+      "running": "In corso",
+      "queued": "In coda",
+      "pending": "In attesa",
+      "paused": "In pausa",
+      "failed": "Fallito",
+      "cancelled": "Annullato",
+      "unknown": "Sconosciuto"
+    },
+    "images": "{{done}}/{{total}} immagini",
+    "jobNumber": "Lavoro {{id}}",
+    "loadFailed": "Impossibile caricare le esecuzioni recenti: {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "Impossibile recuperare lo stato del Sistema.",
+    "noData": "Nessun dato di stato restituito.",
+    "title": "Diagnostica Sistema",
+    "python": "Python: {{version}}",
+    "platform": "Piattaforma: {{platform}}",
+    "dbPath": "Percorso DB: {{path}}",
+    "dbSize": "Dimensione DB: {{size}} KB",
+    "documents": "Documenti: {{count}}",
+    "models": "Modelli: {{count}}",
+    "indexStatus": "Stato indice: {{status}}",
+    "runSelfTest": "Esegui Autotest",
+    "rebuildIndex": "Ricostruisci indice",
+    "clearCache": "Svuota cache"
+  }
+}

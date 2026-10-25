@@ -1,0 +1,92 @@
+{
+  "page": {
+    "title": "Auto-miglioramento",
+    "systemMap": "Mappa di Sistema",
+    "uncleClaudeSettings": "Uncle Claude in Impostazioni",
+    "intro": "Guaardvark esegue i propri test, prepara le correzioni e le mette in attesa per la tua revisione. Nulla raggiunge il Codice finché non lo approvi e lo applichi, e Codebase locked blocca ogni modifica.",
+    "recentRuns": "Esecuzioni recenti",
+    "noCodeKeeps": "Nessun codice conservato dalla Ricerca Automatica."
+  },
+  "codeKeeps": {
+    "approved": "Codice conservato approvato. Applicalo da Correzioni in attesa.",
+    "rejected": "Codice conservato rifiutato",
+    "approveFailed": "Impossibile approvare il codice conservato: {{error}}",
+    "rejectFailed": "Impossibile rifiutare il codice conservato: {{error}}",
+    "title": "Codici conservati",
+    "intro": "Gli strumenti Swarm che hanno superato preserve-and-extend. Approvali qui, poi applicali da Impostazioni — nulla viene unito automaticamente al Principale.",
+    "description": "Descrizione",
+    "status": "Stato",
+    "created": "Creato",
+    "actions": "Azioni",
+    "approve": "Approva",
+    "reject": "Rifiuta"
+  },
+  "fixStatus": {
+    "proposed": "proposto",
+    "triaged": "smistato",
+    "approved": "approvato",
+    "applied": "applicato",
+    "rejected": "rifiutato"
+  },
+  "controls": {
+    "title": "Auto-miglioramento",
+    "help": "Guaardvark controlla il proprio Codice e propone correzioni per la tua revisione. Codebase locked blocca ogni modifica automatica.",
+    "enabledChip": "Auto-miglioramento",
+    "enabledTooltip": "Permette al mentore di scansionare la codebase e proporre correzioni per la revisione.",
+    "lockedChip": "Codice bloccato",
+    "lockedOnTooltip": "Le modifiche autonome sono bloccate. Disattiva per consentirle.",
+    "lockedOffTooltip": "Attiva per bloccare ogni modifica autonoma all'albero sorgente.",
+    "turnOnFirst": "Attiva prima l'Auto-miglioramento",
+    "unlockFirst": "Sblocca prima il Codice",
+    "runTooltip": "Esegue le verifiche ora. Annulla chiede al server di fermarsi; chiudere la visualizzazione lascia la scansione in esecuzione.",
+    "runSelfCheck": "Esegui auto-verifica",
+    "lastRun_one": "Ultima esecuzione {{date}} ({{status}}) · {{count}} esecuzione riuscita.",
+    "lastRun_other": "Ultima esecuzione {{date}} ({{status}}) · {{count}} esecuzioni riuscite.",
+    "noRuns": "Nessuna esecuzione ancora.",
+    "readingStatus": "Lettura dello stato…",
+    "lockedNote": "Il Codice è bloccato: le modifiche autonome sono bloccate.",
+    "cancelled": "Annullato",
+    "scanInBackground": "La scansione continua in background",
+    "pendingFixes": "Correzioni in attesa",
+    "pendingFixesHelp": "Correzioni proposte dall'auto-verifica, in attesa che tu le esamini o le applichi. Nulla raggiunge il Codice finché non le approvi e le applichi.",
+    "waiting": "{{count}} in attesa",
+    "reviewFixes": "Revisiona correzioni"
+  },
+  "runStatus": {
+    "running": "in corso",
+    "success": "successo",
+    "failed": "fallito",
+    "cancelled": "annullato",
+    "blocked_by_guardian": "bloccato_da_guardian"
+  },
+  "trigger": {
+    "scheduled": "programmato",
+    "reactive": "reattivo",
+    "directed": "diretto",
+    "family_learning": "family_learning"
+  },
+  "runs": {
+    "filter": {
+      "all": "Tutti",
+      "scheduled": "Pianificati",
+      "reactive": "Reattivi",
+      "directed": "Diretti",
+      "success": "Successo",
+      "failed": "Falliti"
+    },
+    "empty": "Nessuna esecuzione di Auto-miglioramento registrata ancora.",
+    "status": "Stato",
+    "trigger": "Trigger",
+    "timestamp": "Timestamp",
+    "duration": "Durata",
+    "uncleReviewed": "Revisionato da Uncle",
+    "details": "Dettagli",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "Revisionato",
+    "notReviewed": "No",
+    "expand": "Espandi",
+    "uncleFeedback": "Feedback di Uncle Claude",
+    "changesMade": "Modifiche apportate",
+    "testResults": "Risultati test"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "status": {
+    "processing": "처리 중...",
+    "complete": "완료",
+    "error": "오류",
+    "cancelled": "취소됨"
+  },
+  "gpu": {
+    "videoRendering": "비디오를 렌더링하는 중",
+    "picturesRendering": "이미지들을 렌더링하는 중",
+    "pictureRendering": "이미지를 렌더링하는 중",
+    "pictureEditing": "이미지를 편집하는 중",
+    "animationRendering": "애니메이션을 렌더링하는 중",
+    "infographicRendering": "인포그래픽을 렌더링하는 중",
+    "characterPicturesRendering": "캐릭터 이미지들을 렌더링하는 중",
+    "storyboardRendering": "스토리보드 이미지들을 렌더링하는 중",
+    "filmCrewRendering": "Film Crew를 렌더링하는 중",
+    "musicVideoRendering": "뮤직비디오를 렌더링하는 중",
+    "songRendering": "곡을 렌더링하는 중",
+    "modelTraining": "모델을 학습하는 중",
+    "characterTraining": "캐릭터를 학습하는 중",
+    "generic": "그래픽 카드를 사용하는 중",
+    "coolingDown": "이전 작업 후 그래픽 카드를 정리하는 중 ({{seconds}}초)"
+  }
+}

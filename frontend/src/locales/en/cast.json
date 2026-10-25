@@ -106,7 +106,7 @@
     "approve": "Approve",
     "regenerateMenu": "Regenerate…",
     "approveToTrain": "Approve at least one sample to train from this sheet (or train from Training Data if you already have refs).",
-    "trainsOn": "Trains on your {{images}} + {{samples}}. On success, approved gens promote to Training Data. ~hours on a 16GB GPU; runs in the background.",
+    "trainsOn": "Trains on your {{images}} + {{samples}}. On success, approved gens promote to Training Data. Takes hours on a 16GB GPU; runs in the background.",
     "approvedSamples_one": "{{count}} approved sample",
     "approvedSamples_other": "{{count}} approved samples"
   },

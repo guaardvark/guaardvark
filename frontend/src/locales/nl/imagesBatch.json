@@ -1,0 +1,307 @@
+{
+  "styles": {
+    "realistic": "Realistisch",
+    "artistic": "Artistiek",
+    "cartoon": "Cartoon",
+    "sketch": "Schets",
+    "infographic": "Infographic",
+    "technical": "Technisch"
+  },
+  "models": {
+    "autoLabel": "Auto — beste per prompt ⭐",
+    "autoDescription": "Gebruikt het Stills-model geselecteerd in Instellingen > Generatie; als er geen is gekozen, kiest de router het beste gedownload model voor elke prompt"
+  },
+  "errors": {
+    "modelsLoadFailed": "Beeldenmodellen konden niet worden geladen: {{error}}. Alleen Auto wordt aangeboden totdat ze geladen zijn.",
+    "requestFailed": "de aanvraag mislukte",
+    "backendHttp": "de backend antwoordde met HTTP {{status}}",
+    "noBatchData": "de backend antwoordde niet met batchgegevens",
+    "queueStalled": "De batchwachtrij wordt niet bijgewerkt: {{error}}.",
+    "loadBatchFailedHttp": "Mislukt om batch te laden: HTTP {{status}}",
+    "batchNotJson": "Batch-antwoord is geen JSON",
+    "loadBatchFailed": "Mislukt om batch te laden: {{error}}",
+    "batchNotFound": "Batch niet gevonden",
+    "noPrompt": "Voer een prompt in",
+    "noPrompts": "Voer ten minste één prompt of onderwerp in",
+    "startFailedHttp": "Mislukt om generatie te starten: HTTP {{status}} {{statusText}}",
+    "startNotJson": "Generatieantwoord is geen JSON. Antwoord: {{response}}",
+    "noBatchId": "Batchgeneratie gestart, maar geen batch-ID ontvangen",
+    "startFailedPlain": "Mislukt om generatie te starten",
+    "startFailed": "Mislukt om generatie te starten: {{error}}",
+    "cancelFailedHttp": "Generatie annuleren mislukt: HTTP {{status}}",
+    "cancelFailed": "Generatie annuleren mislukt: {{error}}"
+  },
+  "cast": {
+    "lockedNote": "ingesteld door het basismodel van het geselecteerde personage wanneer een personage is gekozen.",
+    "title": "Cast (optioneel)",
+    "help": "Kies een getraind personage — identiteit (trigger + klasse + vision marks) en LoRA worden automatisch toegepast. Schrijf alleen de scène/actie; beschrijf het gezicht of kostuum niet opnieuw."
+  },
+  "workers": {
+    "oneAtATimeModel": "{{model}} rendert één afbeelding tegelijk.",
+    "oneAtATimeGpu": "Eén afbeelding tegelijk op de GPU.",
+    "max": "Max. werkers: {{count}}"
+  },
+  "install": {
+    "button": "Installeren",
+    "notInstalledSized": "{{model}} is niet geïnstalleerd. Installeren downloadt het (ongeveer {{size}} GB); Start blijft uit tot het klaar is.",
+    "notInstalled": "{{model}} is niet geïnstalleerd. Installeren downloadt het; Start blijft uit tot het klaar is.",
+    "noModelSized": "Er is nog geen beeldmodel geïnstalleerd. Installeer {{model}} (ongeveer {{size}} GB) voor gebruik door Auto.",
+    "noModel": "Er is nog geen beeldmodel geïnstalleerd. Installeer {{model}} voor gebruik door Auto.",
+    "startOff": "Start is uit: {{model}} is niet geïnstalleerd.",
+    "noModelShort": "Er is nog geen beeldmodel geïnställen."
+  },
+  "dimensions": {
+    "square": "Vierkant ({{width}}x{{height}})",
+    "portrait": "Portret ({{width}}x{{height}})",
+    "landscape": "Landschap ({{width}}x{{height}})",
+    "largeSquare": "Groot Vierkant ({{width}}x{{height}})",
+    "hdPortrait": "HD Portret ({{width}}x{{height}})",
+    "hdLandscape": "HD Landschap ({{width}}x{{height}})",
+    "oneKSquare": "1K Vierkant ({{width}}x{{height}})",
+    "oneKPortrait": "1K Portret ({{width}}x{{height}})",
+    "oneKLandscape": "1K Landschap ({{width}}x{{height}})",
+    "oneKWide": "1K Breed 16:9 ({{width}}x{{height}})",
+    "oneKTall": "1K Hoog 9:16 ({{width}}x{{height}})",
+    "twoKSquare": "2K Vierkant ({{width}}x{{height}})",
+    "twoKLandscapeWide": "2K Landschap 16:9 ({{width}}x{{height}})",
+    "twoKUltrawide": "2K Ultrawide 21:9 ({{width}}x{{height}})",
+    "twoKPortraitTall": "2K Portret 9:16 ({{width}}x{{height}})",
+    "twoKLandscapeClassic": "2K Landschap 3:2 ({{width}}x{{height}})",
+    "twoKPortraitClassic": "2K Portret 2:3 ({{width}}x{{height}})",
+    "fluxSquare": "FLUX max vierkant ({{width}}x{{height}})",
+    "fluxWide": "FLUX max 16:9 ({{width}}x{{height}})",
+    "fluxTall": "FLUX max 9:16 ({{width}}x{{height}})",
+    "fluxLandscape": "FLUX max 3:2 ({{width}}x{{height}})",
+    "fluxPortrait": "FLUX max 2:3 ({{width}}x{{height}})",
+    "qwenSquare": "Qwen 2K Vierkant ({{width}}x{{height}})",
+    "qwenWide": "Qwen 2K 16:9 ({{width}}x{{height}})",
+    "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
+    "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
+    "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "title": "Afmetingen",
+    "custom": "Aangepast ({{width}}x{{height}})",
+    "highResWarning": "Hoge resolutie (>1MP): meer VRAM vereist; kan OOM zijn op kaarten met 16GB."
+  },
+  "director": {
+    "needIdea": "Voer eerst een algemeen concept of look & feel in",
+    "expanded": "Je idee is omgezet in {{count}} shots. Lees ze door, bewerk elke regel en klik dan op Start.",
+    "noShots": "Het chatmodel gaf geen shots voor dit idee. Probeer een uitgebreidere beschrijving of controleer of een chatmodel draait onder Instellingen.",
+    "failed": "Kon het idee niet omzetten naar shots. Controleer of een chatmodel is geïnstalleerd en draait onder Instellingen, en probeer het opnieuw. ({{error}})",
+    "expandTooltip": "Zet het idee hierboven om in verschillende shots, elk met een eigen prompt, geschreven door het chatmodel. Deze vervangen de tekst hierboven zodat je ze kunt lezen en bewerken voordat je begint.",
+    "expanding": "Schrijven van shots…",
+    "expand": "Uitbreiden naar shots",
+    "rewriteTooltip": "Laat het chatmodel elke prompt herschrijven naar een uitgebreidere beschrijving voor het renderen, in plaats van de korte tag-formulering. Proza-modellen doen dit sowieso als 'Enhance prompts' aan staat.",
+    "rewrite": "Prompts herschrijven met het chatmodel"
+  },
+  "service": {
+    "statusFailedHttp": "Service statuscontrole mislukt: HTTP {{status}}",
+    "statusNotJson": "Service statusrespons is geen JSON",
+    "unavailable": "Batch-afbeeldinggeneratiedienst is niet beschikbaar",
+    "statusFailed": "Fout bij het controleren van de servicedoeleis"
+  },
+  "history": {
+    "cleared": "Batchgeschiedenis gewist.",
+    "clear": "Batchlijst wissen",
+    "title": "Recente batches",
+    "refresh": "Batches vernieuwen",
+    "retry": "Opnieuw proberen",
+    "loadFailed": "Recente batches konden niet worden geladen: {{reason}}",
+    "empty": "Geen afbeeldingbatches gevonden"
+  },
+  "messages": {
+    "batchFinished": "Batchgeneratie {{status}}",
+    "blueprintQueued": "Blueprintbatch in de wachtrij. Resultaten verschijnen zodra de generatie is voltooid.",
+    "queued": "Batch in de wachtrij. Batches worden één voor één gerenderd; je kunt er meer toevoegen terwijl deze draait.",
+    "cancelled": "Batchgeneratie geannuleerd"
+  },
+  "csv": {
+    "invalidFile": "Selecteer een geldig CSV-bestand",
+    "templateFailedHttp": "Fout bij downloaden van sjabloon: HTTP {{status}}",
+    "templateNotCsv": "De sjabloonrespons is geen geldig CSV-bestand",
+    "templateFailed": "Fout bij downloaden van sjabloon: {{error}}",
+    "noFile": "Selecteer een CSV-bestand voor upload",
+    "title": "CSV-bestand uploaden",
+    "upload": "Upload CSV-bestand",
+    "selected": "Bestand geselecteerd: {{name}}",
+    "template": "Download CSV-sjabloon"
+  },
+  "blueprint": {
+    "invalidFile": "Selecteer een geldig CSV-bestand voor blueprints",
+    "noFile": "Selecteer een CSV-bestand voor blueprintgeneratie",
+    "title": "Offline Blueprint CSV Upload",
+    "help": "Upload een CSV-bestand met 'city' en 'count' (of 'patents') kolommen om datablueprints te genereren (alleen CPU). Grote batches worden op de achtergrond uitgevoerd; controleer de status tot voltooiing.",
+    "upload": "Upload Blueprint CSV",
+    "format": "Geaccepteerd formaat: .csv (kolommen zoals city/name en count/patents/value)"
+  },
+  "retry": {
+    "loadFailedHttp": "Instellingen niet geladen: HTTP {{status}}",
+    "noSettings": "Deze batch heeft zijn instellingen niet opgeslagen.",
+    "loadedSettings": "Instellingen van \"{{name}}\" geladen in het bedieningspaneel — pas alles aan en klik daarna op Start Generation.",
+    "loadedPrompts": "Prompts van \"{{name}}\" geladen in het paneel.",
+    "loadedPromptsQty_one": "Geladen \"{{name}}\": {{count}} prompt x qty {{quantity}}.",
+    "loadedPromptsQty_other": "Geladen \"{{name}}\": {{count}} prompts x qty {{quantity}}.",
+    "loadFailed": "Instellingen niet geladen: {{error}}"
+  },
+  "download": {
+    "failedHttp": "Download van resultaten mislukt: HTTP {{status}}",
+    "notZip": "Downloadrespons is geen geldig ZIP-bestand",
+    "failed": "Download van resultaten mislukt: {{error}}"
+  },
+  "page": {
+    "title": "Afbeeldinggenerator",
+    "settingsTitle": "Generatie-instellingen"
+  },
+  "contentType": {
+    "unusedAutoModel": "Content Type wordt niet gebruikt: Auto rendert met {{model}}, die de prompt als gewone zinnen leest.",
+    "unusedAuto": "Content Type wordt niet gebruikt: Auto kiest een model dat de prompt als gewone zinnen leest.",
+    "unusedModel": "Content Type wordt niet gebruikt door {{model}}: het leest de prompt als gewone zinnen.",
+    "describeHint": "Beschrijf de scène in je eigen woorden. De contenttypes vormen alleen prompts voor tag-stijl modellen.",
+    "title": "Content Type (voor betere kwaliteit)",
+    "auto": "Automatisch detecteren (Aanbevolen)",
+    "autoHelp": "Voegt kwaliteitslabels toe aan de prompt op basis van de inhoud. Detecteert of wijzigt geen generatie-instellingen.",
+    "portrait": "Persoon - Portret",
+    "portraitHelp": "Hoofdshots, gezichtsbissen, profielfoto's",
+    "fullBody": "Persoon - Volledig Lichaam",
+    "fullBodyHelp": "Staande, zittende of geposeerde full-body shots",
+    "working": "Persoon - Werken/Actie",
+    "workingHelp": "Mensen die activiteiten uitvoeren, gereedschappen gebruiken, interageren met objecten",
+    "product": "Productfoto",
+    "productHelp": "Strakke productshots, commerciële fotografie",
+    "landscape": "Landschap/Landschap",
+    "landscapeHelp": "Natuur, stadsgezichten, buitenscènes",
+    "infographic": "Infographic/Diagram",
+    "infographicHelp": "Flat design, iconen, vector graphics, grafieken",
+    "general": "Algemeen Doel",
+    "generalHelp": "Standaardinstellingen voor alle inhoud"
+  },
+  "input": {
+    "title": "Invoermethode",
+    "single": "Enkele Prompt",
+    "bulk": "Bulk invoer",
+    "csv": "CSV Upload",
+    "blueprint": "Offline Blueprints"
+  },
+  "single": {
+    "help": "Plak de volledige prompttekst (alinea's en regelovergangen behouden als één prompt). Gebruik \"Aantal afbeeldingen per prompt\" hieronder voor meerdere afbeeldingen van deze specifieke prompt.",
+    "placeholder": "Plak hier je volledige prompt, inclusief alinea's indien nodig. De gehele tekst wordt gebruikt als een enkele prompt voor de beeldgeneratie.\n\nVoorbeeld: Een gedetailleerde scèneschets met meerdere zinnen en regelovergangen voor één beeldconcept...",
+    "note": "Hele tekst = 1 prompt. Aantal dupliceert deze exact voor meerdere afbeeldingen."
+  },
+  "bulk": {
+    "title": "Afbeeldingsonderwerpen/Prompts",
+    "placeholder": "Voer afbeeldingsonderwerpen of prompts in, één per regel:\n\nEen majesteiek berglandschap bij zonsondergang\nEen kat die op een vensterbank zit\nAbstracte geometrische patronen in blauw\nPortret van een wijze oude tovenaar\nEen futuristische skyline van een stad\n...",
+    "ready": "{{count}} prompts klaar voor generatie (bulkmodus)",
+    "loadExamples": "Voorbeelden laden",
+    "tip": "Tip: Elke regel wordt een aparte beeldprompt"
+  },
+  "look": {
+    "title": "Look & Feel (Optioneel)",
+    "placeholder": "Beschrijf de visuele stijl die moet worden toegepast op de prompt(s):\n\nVoorbeelden:\n• In tinten blauw, geen tekst, donkere kleuren\n• Minimalistisch zwart-wit, strakke lijnen\n• Professionele infographicstijl, flat design\n• Fotorealistisch, dramatische belichting",
+    "single": "De stijl wordt toegevoegd aan je enkele prompt",
+    "bulk": "Deze stijl wordt toegepast op alle {{count}} prompts hierboven",
+    "preview": "Prompts voorvertonen"
+  },
+  "negative": {
+    "label": "Negatieve prompt",
+    "unused": "Dit model maakt geen gebruik van een negatieve prompt."
+  },
+  "anatomy": {
+    "label": "Anatomie verbeteren",
+    "unusedTooltip": "Niet gebruikt hier: dit model leest de prompt als gewone zinnen, dus zouden anatomietags worden getekend als scène-inhoud. Beschrijf de houding in woorden.",
+    "tooltip": "Voegt anatomische formuleringen toe wanneer de prompt een persoon is.",
+    "unusedBoth": "Dit model gebruikt geen negatieve prompt of anatomische verbetering.",
+    "unused": "Dit model gebruikt geen anatomische verbetering."
+  },
+  "current": {
+    "title": "Huidige Instellingen",
+    "manageModels": "Modellen beheren",
+    "modelNotInstalled": "Model: {{model}} (niet geïnstalleerd)",
+    "model": "Model: {{model}}",
+    "style": "Stijl: {{style}}",
+    "quality": "Kwaliteit: {{quality}}",
+    "size": "Formaat: {{width}}x{{height}}",
+    "stepsCast": "Stappen: van personage",
+    "steps": "Stappen: {{steps}}",
+    "oneAtATime": "Eén voor één",
+    "workers": "Workers: {{count}}"
+  },
+  "advanced": {
+    "title": "Geavanceerde Instellingen",
+    "model": "Model",
+    "yourLoras": "Jouw LoRA's (uit tot je er een inschakelt):",
+    "unavailable": "Niet beschikbaar op deze machine:",
+    "qualityPreset": "Kwaliteit Preset",
+    "style": "Stijl",
+    "quantity": "Aantal afbeeldingen per prompt",
+    "thumbnails": "Thumbnails genereren"
+  },
+  "enhance": {
+    "label": "Prompts automatisch verbeteren",
+    "off": "Uit — prompts worden verzonden zoals geschreven.",
+    "prose": "Herschrijft elke prompt naar een uitgebreidere beschrijving met het chatmodel voordat het wordt gerenderd. Als het chatmodel niet antwoordt, wordt de prompt zoals getypt verzonden. Stappen en richtlijnen worden niet gewijzigd.",
+    "proseStyle": "Herschrijft elke prompt naar een uitgebreidere beschrijving met het chatmodel voordat het wordt gerenderd. Als het chatmodel niet antwoordt, wordt de prompt zoals getypt verzonden plus één zin die vraagt om de {{style}} look. Stappen en richtlijnen worden niet gewijzigd.",
+    "tagsNoNegative": "Voegt de kwaliteits- en anatomie-formuleringen van het contenttype toe aan elke prompt. Dit model negeert negatieve prompts. Stappen en richtlijnen worden niet gewijzigd.",
+    "tags": "Voegt de kwaliteits- en anatomie-formuleringen (en negatieven) van het contenttype toe aan elke prompt. Stappen en richtlijnen worden niet gewijzigd."
+  },
+  "steps": {
+    "cast": "Stappen: ingesteld door het personage",
+    "flux": "Stappen: {{steps}} (FLUX kwaliteit ↑ met meer stappen)",
+    "value": "Stappen: {{steps}}"
+  },
+  "guidance": {
+    "cast": "Guidance: ingesteld door het personage",
+    "zimage": "Guidance Schaal: 0 (CFG-vrij model)",
+    "flux": "FluxGuidance: {{guidance}}",
+    "scale": "Guidance Schaal: {{guidance}}",
+    "zimageHelp": "Z-Image draait CFG-vrij — guidance is vastgezet op 0. Gebruik Stappen voor de kwaliteit.",
+    "qwenHelp": "Qwen-Image 2.1 draait op guidance 1 op het officiële pad. Verhoog dit alleen in combinatie met een negatieve prompt.",
+    "autoHelp": "Automatische routes per prompt. De gebruikelijke keuze (Z-Image) is CFG-vrij — houd het op 0, tenzij je een SDXL-route verwacht."
+  },
+  "seed": {
+    "label": "Seed",
+    "placeholder": "willekeurig",
+    "fixed": "De eerste afbeelding gebruikt seed {{seed}}, elke volgende afbeelding het volgende nummer. Dezelfde prompt en Instellingen geven dezelfde afbeelding.",
+    "tooLarge": "Seeds gaan tot {{max}}; deze wordt genegeerd.",
+    "blank": "Leeg: elke afbeelding krijgt een eigen willekeurige seed. Open een afbeelding en druk op de dobbelsteen om de seed opnieuw te gebruiken."
+  },
+  "actions": {
+    "queuing": "In de wachtrij plaatsen…",
+    "addToQueue": "Toevoegen aan wachtrij",
+    "start": "Generatie starten",
+    "cancel": "Annuleren"
+  },
+  "queue": {
+    "title": "Batchwachtrij",
+    "clearCompleted": "Voltooide wissen",
+    "active": "{{count}} actief",
+    "progressFailed": "{{done}}/{{total}} afbeeldingen ({{failed}} mislukt)",
+    "progress": "{{done}}/{{total}} afbeeldingen",
+    "cancelRunning": "Lopende batch annuleren",
+    "remove": "Verwijderen uit wachtrij",
+    "cancelAria": "batch annuleren"
+  },
+  "progress": {
+    "title": "Huidige voortgang",
+    "batchId": "Batch-ID: {{id}}",
+    "count": "Voortgang: {{done}}/{{total}}",
+    "download": "Resultaten downloaden",
+    "adjustRetry": "Aanpassen & Opnieuw proberen"
+  },
+  "gallery": {
+    "title": "Gegenereerde afbeeldingen ({{count}})",
+    "generatedImage": "Gegenereerde afbeelding",
+    "noPrompt": "Geen prompt",
+    "seed": "Seed {{seed}}",
+    "rewritten": "Herschreven voor rendering; open om te lezen",
+    "viewFull": "Bekijk volledige afbeelding: {{name}}"
+  },
+  "lightbox": {
+    "sentToModel": "Verzonden naar het model: {{prompt}}",
+    "seedUsed": "Seed {{seed}} staat in het Seed-vak. Wis het om weer willekeurige seeds te krijgen."
+  },
+  "preview": {
+    "titleQuantity": "Voorbeeld van gegenereerde prompts ({{count}} × {{quantity}})",
+    "title": "Voorbeeld van gegenereerde prompts ({{count}})",
+    "intro": "Dit zijn de definitieve prompts die naar de image generator worden verzonden:",
+    "close": "Sluiten"
+  }
+}

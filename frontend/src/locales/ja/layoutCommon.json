@@ -1,0 +1,223 @@
+{
+  "addressAutocomplete": {
+    "label": "アドレス"
+  },
+  "apiKeyRefusal": {
+    "settingsLink": "設定 → アクセス"
+  },
+  "backendOffline": {
+    "message": "バックエンドがオフラインです。再試行中… ターミナルで <code>guaardvark</code> を実行するか、フルスタックの場合は <code>./start.sh</code> を実行してください。"
+  },
+  "changedElsewhere": {
+    "keepMine": "自分のものを保持",
+    "message": "編集中に {{names}} が他の場所で変更されました。再読み込みして保存されたバージョンを読み込むか、現在の編集内容を保持して上書き保存してください。"
+  },
+  "didYouKnow": {
+    "regionLabel": "知っていましたか",
+    "title": "知っていましたか？",
+    "closeTip": "ヒントを閉じる",
+    "showMe": "表示する",
+    "nextTip": "次のヒント",
+    "stopTips": "ヒントを表示しない"
+  },
+  "directoryPicker": {
+    "title": "ディレクトリを選択",
+    "loadFailed": "フォルダの読み込みに失敗しました",
+    "notFoundShowingHome": "{{path}} が見つかりません。ホームフォルダを表示します。",
+    "notFoundShowing": "{{path}} が見つかりません。{{fallback}} を表示します。",
+    "folderNotFound": "フォルダが見つかりません",
+    "root": "ルート",
+    "hideRecent": "最近の履歴を隠す",
+    "showRecent": "最近のパス",
+    "recentPaths": "最近のパス",
+    "goHome": "ホームフォルダへ移動",
+    "homeFolder": "ホームフォルダ",
+    "path": "パス",
+    "openPathFirst": "選択する前に、Enterキーを押すか「移動」を選択してこのパスを開いてください。",
+    "parentFolder": "親フォルダ",
+    "go": "移動",
+    "searchPlaceholder": "現在のディレクトリ内を検索...",
+    "showFiles": "ファイルを表示",
+    "browse": "参照",
+    "hiddenFolders": "隠しフォルダは表示されません。",
+    "noMatches": "一致するアイテムが見つかりません。",
+    "emptyFolder": "このフォルダは空です。",
+    "noSubdirectories": "サブディレクトリが見つかりません。このディレクトリを選択できます。",
+    "itemCount": "{{count}} 個のアイテム",
+    "folderCount_other": "{{count}} 個のフォルダ",
+    "fileCount_other": "{{count}} 個のファイル",
+    "foldersAndFiles": "{{folders}}、{{files}}",
+    "summaryMatching": "「{{query}}」に一致する{{summary}}",
+    "summaryPickable": "{{summary}} · {{extensions}} ファイルを選択可能",
+    "chooseFile": "ファイルを選択",
+    "selectNamed": "選択中: {{name}}"
+  },
+  "errorBoundary": {
+    "updatedTitle": "Guaardvarkが更新されました",
+    "errorTitle": "問題が発生しました",
+    "updatedBody": "このページのコードが開いている間に変更されました。再読み込みして新しいバージョンを読み込んでください。",
+    "errorBody": "アプリケーションに予期しないエラーが発生しました。調査のためログを記録しました。",
+    "reloadPage": "ページを再読み込み",
+    "tryAgain": "再試行",
+    "detailsHeading": "エラーの詳細（開発モードのみ）"
+  },
+  "errorDisplay": {
+    "unexpectedError": "予期しないエラーが発生しました",
+    "genericError": "エラーが発生しました",
+    "friendly": {
+      "network": "サーバーに接続できません。インターネット接続を確認してください。",
+      "timeout": "リクエストの処理に時間がかかりすぎました。もう一度お試しください。",
+      "unauthorized": "認証が必要です。ログインしてください。",
+      "forbidden": "この操作を行う権限がありません。",
+      "notFound": "リクエストされたリソースが見つかりません。",
+      "serverError": "サーバーエラーが発生しました。後でもう一度お試しください。",
+      "unavailable": "サービスが一時的に利用できません。後でもう一度お試しください。"
+    },
+    "toggleDetails": "詳細の切り替え",
+    "report": "報告",
+    "closeError": "エラーを閉じる",
+    "severity": {
+      "warning": "警告",
+      "info": "情報"
+    },
+    "errorDetails": "エラーの詳細",
+    "code": "<bold>Code:</bold> {{code}}",
+    "time": "<bold>Time:</bold> {{time}}",
+    "technicalDetails": "技術的な詳細",
+    "cardTitle": "問題が発生しました",
+    "cardDescription": "予期しないエラーが発生しました。ページを更新してください。",
+    "tryAgain": "再試行",
+    "refreshPage": "ページを更新"
+  },
+  "errorProvider": {
+    "detailsTitle": "エラーの詳細"
+  },
+  "gpuGate": {
+    "queued": "{{reason}}。新しいジョブは待機列に入れられ、GPUが空き次第自動的に開始されます。",
+    "blocked": "{{reason}}。グラフィックカードが空き次第、ボタンのロックが解除されます。",
+    "job": "ジョブ: {{detail}}"
+  },
+  "shortcuts": {
+    "groups": {
+      "global": "共通",
+      "chat": "チャット",
+      "codeEditor": "コードエディタ",
+      "systemMap": "システムマップ",
+      "videoEditor": "ビデオエディタ"
+    },
+    "keys": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "space": "Space",
+      "enter": "Enter",
+      "esc": "Esc",
+      "delete": "Delete"
+    },
+    "showShortcuts": "このキーボードショートカットの参照を表示",
+    "toggleFloatingChat": "フローティングチャットパネルの切り替え",
+    "voiceMic": "音声: タップでマイクの開始/停止、長押しで発話",
+    "sendMessage": "メッセージを送信",
+    "newline": "改行を挿入",
+    "previousMessage": "前のメッセージを呼び出し",
+    "nextMessage": "次のメッセージを呼び出し",
+    "saveFile": "ファイルを保存",
+    "saveSession": "セッションを今すぐ保存: タブとチャットを開く",
+    "findSymbol": "関数またはクラスを見つけてジャンプ",
+    "jumpToPanel": "ファイル、エディタ、チャット、検索、出力へジャンプ",
+    "explainSelection": "選択したコードをチャットで説明",
+    "focusSearch": "検索にフォーカス",
+    "resetView": "ビューをリセット",
+    "clearSearch": "検索 / 選択をクリア",
+    "playPause": "プレビューの再生 / 一時停止",
+    "undo": "最後のタイムラインの変更を取り消す",
+    "removeOverlay": "選択したテキストのオーバーレイを削除",
+    "title": "キーボードショートカット",
+    "close": "ショートカットを閉じる"
+  },
+  "loading": {
+    "remaining": "残り {{seconds}}秒",
+    "processing": "処理中...",
+    "connected": "接続済み",
+    "offline": "オフライン",
+    "online": "オンライン",
+    "offlineTitle": "オフライン状態です",
+    "offlineBody": "一部の機能が利用できない可能性があります。接続を確認してください。",
+    "success": "成功！",
+    "processFailed": "処理に失敗しました",
+    "failed": "失敗",
+    "step": "ステップ {{current}} / {{total}}"
+  },
+  "mediaPicker": {
+    "listFailed": "ライブラリの一覧を取得できませんでした。",
+    "uploadFailed": "アップロードに失敗しました。",
+    "kinds": {
+      "image": {
+        "choose": "画像を選択",
+        "onlyHere": "ここには画像のみが入ります。その他のファイルはファイルに追加されました。",
+        "empty": "まだファイルに画像はありません。アップロードするか、スタジオで生成してください。",
+        "emptyFiltered": "一致する名前の画像がファイル内にありません。アップロードするか、スタジオで生成してください。"
+      },
+      "video": {
+        "choose": "動画を選択",
+        "onlyHere": "ここには動画のみが入ります。その他のファイルはファイルに追加されました。",
+        "empty": "まだファイルに動画はありません。アップロードするか、スタジオで生成してください。",
+        "emptyFiltered": "一致する名前の動画がファイル内にありません。アップロードするか、スタジオで生成してください。"
+      },
+      "audio": {
+        "choose": "オーディオファイルを選択",
+        "onlyHere": "ここにはオーディオファイルのみを配置します。その他のファイルは「ファイル」に追加されました。",
+        "empty": "「ファイル」内にオーディオファイルがまだありません。アップロードするか、スタジオで生成してください。",
+        "emptyFiltered": "一致する名前のオーディオファイルが「ファイル」内にありません。アップロードするか、スタジオで生成してください。"
+      }
+    },
+    "filterPlaceholder": "名前でフィルタリング",
+    "uploadFromDisk": "ディスクからアップロード",
+    "upToMore": "最大 {{count}} 件追加可能",
+    "pickOne": "1つ選択",
+    "useCount": "{{count}} を使用",
+    "use": "使用"
+  },
+  "narrate": {
+    "failed": "ナレーションに失敗しました",
+    "fast": "高速",
+    "expressive": "表現豊か",
+    "download": "ナレーションをダウンロード",
+    "summary_other": "{{seconds}}秒 ・ {{count}} セクション",
+    "generatingSlow": "生成中（低速）...",
+    "narrating": "ナレーション中...",
+    "narrate": "ナレーション",
+    "expressiveGenerating": "表現豊かなTTSを生成中 (10-30秒)...",
+    "generating": "ナレーションを生成中...",
+    "narrateText": "このテキストをナレーション"
+  },
+  "projectState": {
+    "title": "プロジェクト状態エラー",
+    "intro": "プロジェクト状態の管理にエラーが発生しました。原因として以下が考えられます：",
+    "causes": {
+      "network": "ネットワーク接続の問題",
+      "sync": "データの同期の問題",
+      "relationships": "無効なプロジェクト関係",
+      "corruption": "状態の破損"
+    },
+    "errorMessage": "エラー: {{message}}",
+    "unknownError": "不明なエラー"
+  },
+  "sevenDayPicker": {
+    "time": "時刻"
+  },
+  "updateNotice": {
+    "gpuFaultAt": "GPUが{{time}}に反応を停止しました。Guaardvarkを再起動するまで画像生成は失敗します。",
+    "gpuFault": "GPUが反応を停止しました。Guaardvarkを再起動するまで画像生成は失敗します。",
+    "restartWithReason": "Guaardvarkが更新されました。完了するために再起動してください（{{reason}}）。",
+    "restart": "Guaardvarkが更新されました。完了するために再起動してください。",
+    "restarted": "Guaardvarkを再起動しました。新バージョンを使用するにはこのページを再読み込みしてください。",
+    "reloadFiles_other": "Guaardvarkが更新されました（{{count}}個のファイル）。新バージョンを使用するにはこのページを再読み込みしてください。",
+    "reload": "Guaardvarkが更新されました。新バージョンを使用するにはこのページを再読み込みしてください。",
+    "restartButton": "再起動",
+    "confirmTitle": "Guaardvarkを再起動",
+    "confirmGpu": "バックエンド、ワーカー、およびComfyUIを再起動してGPUを再度使用可能にします。実行中のすべての生成、インデックス作業、およびチャットの返信は失われ、サービスが復旧するまでこのページは切断されます。",
+    "confirmUpdate": "バックエンド、ワーカー、およびComfyUIを再起動して更新を適用します。実行中のすべての生成、インデックス作業、およびチャットの返信は失われ、サービスが復旧するまでこのページは切断されます。",
+    "keeps": "ドキュメント、チャット、メディア、ルール、および設定。",
+    "restartNow": "今すぐ再起動"
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "Service is uit",
+    "unknown": "Fout"
+  },
+  "cleanup": {
+    "running": "Opruimen van lopende Taken...",
+    "result": "{{message}}: {{cleaned}} vastgelopen taken opgeruimd ({{found}} gevonden)",
+    "failed": "Opruimen mislukt: {{error}}"
+  },
+  "entityIndexing": {
+    "running": "Entiteiten indexeren voor universele RAG-toegang...",
+    "completed": "Entiteit-indexering voltooid: {{total}} entiteiten geïndexeerd ({{clients}} Cliënten, {{projects}} Projecten, {{websites}} websites, {{tasks}} Taken)",
+    "completedWithErrors": "Entiteit-indexering voltooid: {{total}} entiteiten geïndexeerd ({{clients}} Cliënten, {{projects}} Projecten, {{websites}} websites, {{tasks}} Taken), {{errors}} fouten",
+    "failed": "Entiteit-indexering mislukt",
+    "failedWithError": "Entiteit-indexering mislukt: {{error}}"
+  },
+  "restart": {
+    "starting": "Opstarten van herstart service...",
+    "started": "Herstart van service succesvol gestart",
+    "restarting": "Services worden herstart. De pagina kan tijdelijk verbreken.",
+    "failed": "Herstart van service mislukt: {{error}}"
+  },
+  "selfTest": {
+    "complete": "Zelftest voltooid",
+    "failed": "Zelftest mislukt: {{error}}",
+    "resultsHeading": "Zelf-test resultaten",
+    "resultsEmpty": "Voer een zelf-test uit om gedetailleerde Systeemdiagnostiek te zien"
+  },
+  "logs": {
+    "fetchFailed": "Logboeken ophalen mislukt ({{status}})",
+    "heading": "Backend Logboeken (laatste 100 regels)",
+    "loadFailed": "Logboeken laden mislukt: {{error}}",
+    "empty": "Geen log-output."
+  },
+  "title": "Systeemdashboard",
+  "loading": "Laden...",
+  "status": {
+    "error": "Fout",
+    "healthy": "Gezond"
+  },
+  "model": {
+    "default": "Standaard"
+  },
+  "summary": {
+    "heading": "Overzicht Systeemstatus",
+    "backend": "Backend: {{state}}",
+    "database": "Database: {{state}}",
+    "celery": "Celery: {{state}}",
+    "redis": "Redis: {{state}}"
+  },
+  "actions": {
+    "refresh": "Vernieuwen",
+    "retry": "Opnieuw proberen"
+  },
+  "checking": "Controleren...",
+  "backend": {
+    "heading": "Backend",
+    "version": "Versie: {{version}}",
+    "uptime": "Uptime: {{seconds}}s",
+    "indexLoaded": "✓ Index geladen"
+  },
+  "database": {
+    "heading": "Database / Migraties",
+    "upToDate": "Bijgewerkt",
+    "needsUpdate": "Update nodig",
+    "current": "Huidig: {{revision}}",
+    "noRevision": "geen",
+    "heads": "Heads: {{heads}}",
+    "multipleHeads": "Meerdere heads gedetecteerd"
+  },
+  "celery": {
+    "heading": "Celery Worker",
+    "ping": "✓ Ping: {{result}}",
+    "active": "Actief: {{count}}",
+    "queued": "In wachtrij: {{count}}",
+    "debug": "Debug: {{tasks}}"
+  },
+  "redis": {
+    "heading": "Redis Cache",
+    "connected": "✓ Verbinding tot stand gebracht"
+  },
+  "failedTasks": {
+    "heading": "Recent mislukte taken",
+    "none": "Geen recente fouten."
+  },
+  "controls": {
+    "heading": "Systeembediening",
+    "refreshAll": "Alles vernieuwen",
+    "running": "Aan het draaien...",
+    "selfTest": "Zelftest",
+    "restartServices": "Services herstarten",
+    "autoRefresh": "Automatisch vernieuwen elke 5 seconden"
+  },
+  "jobs": {
+    "heading": "Voortgang Beheer van Taken",
+    "activeCount": "{{count}} Actief",
+    "completedCount": "{{count}} Voltooid",
+    "stuckCount": "{{count}} Vastgelopen",
+    "systemUnhealthy": "Systeem ongezond",
+    "cleaning": "Schoonmaken...",
+    "cleanStuck": "Vastgelopen taken opschonen",
+    "cleanStuckCount": "Vastgelopen taken opschonen ({{count}})",
+    "indexing": "Indexeren...",
+    "indexEntities": "Entiteiten indexeren",
+    "stuckWarning": "Het lijkt erop dat {{count}} taken zijn vastgelopen (geen actieve Celery-taken of verouderde tijdstempels). Overweeg om een opschoning uit te voeren.",
+    "systemIssues": "Problemen gedetecteerd in het voortgangssysteem. Sommige taken werken mogelijk niet goed.",
+    "details": "Tailedetails ({{count}} in totaal)",
+    "noActive": "Geen actieve taken",
+    "columns": {
+      "jobId": "Taak-ID",
+      "type": "Type",
+      "status": "Status",
+      "progress": "Voortgang",
+      "lastUpdate": "Laatste update",
+      "message": "Bericht"
+    },
+    "staleTooltip": "Verouderde taak (>1 uur zonder update)",
+    "unknownType": "Onbekend",
+    "complete": "Voltooid",
+    "processing": "Bezig",
+    "invalidDate": "Ongeldige datum",
+    "noTimestamp": "Geen tijdstempel",
+    "hoursAgo": "({{hours}}u geleden)",
+    "noMessage": "Geen bericht",
+    "moreJobs": "... en nog {{count}} taken"
+  },
+  "selfImprovement": {
+    "heading": "Logboek Zelfverbetering",
+    "runs": "{{count}} uitvoeringen"
+  },
+  "family": {
+    "heading": "Familienetwerk",
+    "notConfigured": "Niet geconfigureerd",
+    "online": "Online",
+    "offline": "Offline",
+    "noNodes": "Geen family-nodes verbonden. Configureer de Interconnector in Instellingen.",
+    "vram": "VRAM: {{free}} / {{total}} MB",
+    "unknownStatus": "onbekend"
+  },
+  "performance": {
+    "heading": "Prestatieoverzicht",
+    "notAvailable": "N.v.",
+    "backendUptime": "Backend uptime: {{seconds}}s",
+    "celeryTasks": "Celery Taken: {{tasks}} actief",
+    "activeJobs": "Actieve Taken: {{count}}",
+    "failedTasks": "Mislukte Taken: {{count}}"
+  },
+  "metrics": {
+    "heading": "Systeememetrics"
+  },
+  "diagnostics": {
+    "heading": "Diagnostiek"
+  },
+  "retrievalDebug": {
+    "heading": "Retrieval debug"
+  }
+}

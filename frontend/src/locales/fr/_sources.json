@@ -1438,6 +1438,9 @@
       "en": "dcde929ce3ea",
       "out": "dad915aeef4d"
     },
+    "page.notInstalledAlert": {
+      "en": "2528fda2958a"
+    },
     "page.voiceTab": {
       "en": "3091c8446f8d",
       "out": "44ca9d3507fe"
@@ -3093,8 +3096,8 @@
       "out": "31ec7fdeaa69"
     },
     "generate.trainsOn": {
-      "en": "fd94364d18f8",
-      "out": "2dca1c74b06b"
+      "en": "5e4a4561ad25",
+      "out": "9c3a2b3c28a3"
     },
     "generate.approvedSamples_one": {
       "en": "f97786aeffdd",

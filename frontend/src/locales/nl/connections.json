@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "Chat heeft deze post opgesteld.",
+      "mcp": "Een AI-tool verbonden via MCP heeft deze post opgesteld.",
+      "schedule": "Een planning heeft deze post in de wachtrij geplaatst.",
+      "unknown": "Deze post kwam van een aanroeper die niet aangaf wat het is."
+    },
+    "fields": {
+      "body": "tekst",
+      "title": "titel",
+      "linkUrl": "link",
+      "tags": "tags",
+      "visibility": "zichtbaarheid",
+      "postOptions": "postvelden",
+      "aiDisclosure": "AI-label",
+      "scheduledAt": "tijd"
+    }
+  },
+  "rejectDialog": {
+    "title": "Deze publicatie weigeren?",
+    "body": "Deze zal niet worden verzonden en kan daarna niet meer worden goedgekeurd — er moet een nieuwe publicatie worden ingepland. De reden hieronder wordt bewaard.",
+    "reasonLabel": "Reden (optioneel)",
+    "reasonPlaceholder": "Waarom wordt dit niet verzonden?",
+    "keep": "Bewaren",
+    "rejecting": "Weigeren…",
+    "reject": "Weigeren"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} is niet beschikbaar in deze installatie, dus deze post kan niet worden bewerkt.",
+    "title": "Bewerken voor goedkeuring",
+    "draftedNote": "{{drafted}} Wat je hier opslaat, wordt verzonden zodra je het goedkeurt.",
+    "caption": "Bijschrift",
+    "text": "Tekst",
+    "scheduleHelp": "Wacht nog op je goedkeuring.",
+    "goesOutAs": "Wordt verzonden als (met de regels van {{platform}} of de licentie van de media vereist):",
+    "savingNote": "Opslaan houdt het in de wacht. Keur het daarna goed.",
+    "cancel": "Annuleren",
+    "save": "Opslaan"
+  },
+  "page": {
+    "families": {
+      "social": "Sociaal",
+      "aiProviders": "AI Providers",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "verbonden",
+      "error": "Fout",
+      "expired": "verlopen",
+      "disabled": "uitgeschakeld",
+      "unconfigured": "niet geconfigureerd"
+    },
+    "removed": "Verbinding verwijderd.",
+    "publicOn": "{{label}}: aan voor dit account. Elke upload wacht nog steeds op jouw Goedkeuringen.",
+    "publicOff": "{{label}}: uit voor dit account.",
+    "withoutApprovalOn": "Publicaties die je hier naar deze kanaal start, worden nu verzonden zonder Goedkeuringen.",
+    "withoutApprovalOff": "Publicaties naar dit kanaal wachten opnieuw op Goedkeuringen.",
+    "title": "Verbindingen",
+    "intro": "Accounts en diensten waarnaar deze installatie kan publiceren of contact kan opnemen. Inloggegevens worden buiten de database opgeslagen.",
+    "postingStopped": "Openbaar plaatsen is gestopt. Start het opnieuw op de Outreach-pagina.",
+    "queuedHeld": "In de wachtrij staande publicaties worden vastgehouden op de Goedkeuringen-pagina.",
+    "publishingEnabled": "Publiceren ingeschakeld",
+    "approvalNote": "Elke publicatie wacht op jouw goedkeuring op de pagina Goedkeuringen. Een Discord webhook, die in een kanaal dat je beheert wordt geplaatst, kan worden ingesteld om zonder deze goedkeuring op zijn eigen kaart te worden geplaatst. Een YouTube-account uploadt als privé totdat zijn kaart publieke uploads toestaat.",
+    "addConnection": "Verbinding toevoegen",
+    "appReview": "app-beoordeling",
+    "noCredentials": "Geen inloggegevens",
+    "withoutApprovalTooltip": "Voor een kanaal dat je beheert. Publicaties die je hier start, gaan live zonder te wachten op de pagina Goedkeuringen; verzoeken vanuit chat, MCP of een planning wachten nog wel.",
+    "postWithoutApproval": "Plaats zonder goedkeuring",
+    "onThroughSetting": "Aan via de installatiebrede instelling {{setting}}. Als je deze hier aanpast, blijft er een keuze voor dit account behouden.",
+    "testing": "Testen…",
+    "test": "Test",
+    "edit": "Bewerken",
+    "remove": "Verwijderen",
+    "empty": "Nog geen Verbindingen in deze categorie.",
+    "environment": "Omgeving",
+    "environmentNote": "Gedetecteerd uit de backend-procesomgeving. Beheerd buiten de app en hier alleen leesbaar weergegeven.",
+    "encrypted": "Versleuteld",
+    "unencrypted": "Niet versleuteld",
+    "credentialCount": "{{count}} inloggegevens"
+  }
+}

@@ -1,0 +1,250 @@
+{
+  "rootFolderName": "ファイル",
+  "pdfViewer": {
+    "openInNewTab": "新しいタブで開く",
+    "noFile": "PDFファイルが選択されていません"
+  },
+  "docxViewer": {
+    "fetchFailed": "取得に失敗しました（{{status}}）",
+    "renderFailed": "ドキュメントをレンダリングできませんでした",
+    "downloadOriginal": "オリジナルをダウンロード"
+  },
+  "actions": {
+    "close": "閉じる",
+    "cancel": "キャンセル"
+  },
+  "entityFiles": {
+    "regionLabel": "この{{kind}}のファイル",
+    "regionLabel_client": "このクライアントのファイル",
+    "regionLabel_website": "このウェブサイトのファイル",
+    "title": "{{name}}のファイル",
+    "title_client": "このクライアントのファイル",
+    "title_clientNamed": "クライアント {{name}}のファイル",
+    "title_website": "このウェブサイトのファイル",
+    "title_websiteNamed": "ウェブサイト {{name}}のファイル",
+    "loadFailed": "ファイルを読み込めませんでした: {{error}}",
+    "empty": "この{{kind}}にリンクされたファイルはありません。プロパティからファイルまたはフォルダをリンクしてください。",
+    "empty_client": "このクライアントにリンクされたファイルはありません。プロパティからファイルまたはフォルダをリンクしてください。",
+    "empty_website": "このウェブサイトにリンクされたファイルはありません。プロパティからファイルまたはフォルダをリンクしてください。",
+    "filesRoot": "ファイルのルート"
+  },
+  "audioPlayer": {
+    "untitled": "audio",
+    "closeLabel": "閉じる",
+    "seed": "seed: {{seed}}",
+    "openInNewTab": "新しいタブで開く"
+  },
+  "folderWindow": {
+    "listView": "リスト表示",
+    "gridView": "グリッド表示",
+    "mediaView": "メディア表示",
+    "codeRepoChip": "CODE REPO"
+  },
+  "contextMenu": {
+    "openInWindow": "ウィンドウで開く",
+    "minimize": "最小化",
+    "newFolder": "新規フォルダ",
+    "importFiles": "ファイルをインポート",
+    "paste": "貼り付け",
+    "closeWindow": "ウィンドウを閉じる",
+    "reviewWithAgent": "Agentで確認",
+    "cut": "切り取り",
+    "copy": "コピー",
+    "rename": "名前の変更",
+    "properties": "プロパティ",
+    "bulkImportHere": "このフォルダに一括インポート…",
+    "indexContents": "内容をインデックス",
+    "delete": "削除",
+    "download": "ダウンロード",
+    "edit": "編集",
+    "view": "表示",
+    "openInCodeEditor": "コードエディタで開く",
+    "index": "インデックス",
+    "open": "開く",
+    "restore": "復元"
+  },
+  "codeRepo": {
+    "never": "なし",
+    "unknown": "不明",
+    "buttonTooltip": "コードリポジトリのインテリジェンス：言語、フレームワーク、リポジトリマップ、および依存関係",
+    "buttonLabel": "{{name}}のコードリポジトリのインテリジェンス",
+    "button": "INTEL",
+    "title": "コードリポジトリのインテリジェンス",
+    "analyzed": "解析済み: {{date}}",
+    "languagesFrameworks": "言語とフレームワーク",
+    "analysisPending": "解析待ち",
+    "statistics": "統計",
+    "fileCount_other": "{{count}} ファイル",
+    "mappedFileCount_other": "{{count}} マップ済みファイル",
+    "viewMap": "リポジトリマップを表示",
+    "viewDependencies": "依存関係を表示",
+    "mapTitle": "リポジトリマップ",
+    "noMap": "マップは利用できません。",
+    "graphTitle": "依存関係グラフ"
+  },
+  "desktop": {
+    "loadFailed": "デスクトップ項目の読み込みに失敗しました",
+    "movedToFolder": "{{count}} 個のアイテムを {{folder}} に移動しました",
+    "movedToDesktop": "{{count}} 個のアイテムをデスクトップに移動しました"
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "ライブリポジトリのファイルはここでは読み取り専用です。ステージングされたセルフコード編集を使用してください。",
+    "saveFailed": "保存に失敗しました: {{error}}",
+    "liveRepoReviewFirst": "ライブリポジトリのファイルはレビュー優先のため、このモーダル内では直接編集できません。",
+    "discardConfirm": "保存されていない変更があります。破棄しますか？",
+    "liveRepoChip": "ライブリポジトリ ・ 読み取り専用",
+    "modified": "変更済み",
+    "viewMode": "表示モード",
+    "editMode": "編集モード",
+    "openInCodeEditor": "コードエディタで開く",
+    "copy": "クリップボードにコピー",
+    "saving": "保存中...",
+    "save": "保存"
+  },
+  "folder": {
+    "empty": "このフォルダは空です",
+    "loadFailed": "フォルダの内容の読み込みに失敗しました",
+    "columnName": "名前",
+    "columnDate": "日付",
+    "columnSize": "サイズ",
+    "codeRepository": "コードリポジトリ",
+    "itemCount_other": "{{count}} 個のアイテム"
+  },
+  "mediaView": {
+    "selectFile": "ファイルを選択",
+    "previous": "前へ",
+    "next": "次へ",
+    "open": "開く",
+    "download": "ダウンロード",
+    "closePreview": "プレビューを閉じる"
+  },
+  "indexStatus": {
+    "indexed": "インデックス済み",
+    "indexing": "インデックス中...",
+    "pending": "保留中",
+    "error": "エラー",
+    "folderFull": "すべてインデックス済み ({{indexed}}/{{total}})",
+    "folderPartial": "一部インデックス済み ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "フォルダ名は空にできません",
+    "emptyFileName": "ファイル名は空にできません",
+    "invalidFolderName": "フォルダ名に無効な文字が含まれています。英数字、スペース、ハイフン、アンダースコアのみを使用してください。",
+    "invalidFileName": "ファイル名に無効な文字が含まれています。英数字、スペース、ハイフン、アンダースコア、ドットのみを使用してください。",
+    "invalidName": "ファイル名に無効な文字が含まれています。英数字、スペース、ハイフン、アンダースコアのみを使用してください。",
+    "folderNameTooLong": "フォルダ名が長すぎます。最大長は{{max}}文字です。",
+    "fileNameTooLong": "ファイル名が長すぎます。最大長は{{max}}文字です。"
+  },
+  "indexing": {
+    "nothing": "インデックスする項目はありません",
+    "alreadyIndexedOne": "すでにインデックス済み。ファイルに変更はありません",
+    "alreadyIndexedAll_other": "すべてインデックス済み ({{count}}個のファイルに変更はありません)",
+    "documentCount_other": "{{count}}個のドキュメント",
+    "folderCount_other": "{{count}}個のフォルダ",
+    "startedFromFoldersSkipped": "{{folders}}から{{documents}}をインデックス中、{{skipped}}は既にインデックス済みです",
+    "startedFromFolders": "{{folders}}から{{documents}}をインデックス中",
+    "startedSkipped": "{{documents}}をインデックス中、{{skipped}}は既にインデックス済みです",
+    "started": "{{documents}}をインデックス中",
+    "startFailed": "インデックスの開始に失敗しました",
+    "failed": "インデックスに失敗しました: {{error}}"
+  },
+  "page": {
+    "refreshFailed": "更新に失敗しました",
+    "downloading": "{{name}}をダウンロード中",
+    "title": "ファイル",
+    "loadingFolders": "フォルダを読み込み中...",
+    "importFiles": "ファイルをインポート",
+    "arrangeIcons": "アイコンを整列",
+    "arrangeWindows": "ウィンドウを整列",
+    "modelLoading": "読み込み中...",
+    "modelError": "エラー",
+    "emptyTitle": "ドキュメントはまだありません",
+    "emptyHint": "ここにファイルをドラッグするか、右クリックしてフォルダを作成してください",
+    "folderItemCount_other": "{{count}} 個のアイテム",
+    "uploadProgress_other": "{{current}}/{{count}} 個のファイルをアップロード中..."
+  },
+  "import": {
+    "nothingToImport": "インポートするものがありません: {{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "アップロードに失敗しました",
+    "importedSkipped": "{{folder}}に{{count}}個のファイルをインポートしました。{{skipped}}はスキップされました",
+    "imported": "{{folder}}に{{count}}個のファイルをインポートしました",
+    "importedPartlySkipped": "{{folder}}に{{count}}個のファイルをインポートしました。{{failed}}個は失敗しました（{{error}}）、{{skipped}}はスキップされました",
+    "importedPartly": "{{folder}}に{{count}}個のファイルをインポートしました。{{failed}}個は失敗しました（{{error}}）",
+    "failed": "インポート失敗: {{error}}",
+    "importedFiltered": "{{folder}} に {{count}} 個のファイルをインポートしました（フィルタにより {{ignored}} 個が除外されました）",
+    "failedPlain": "インポート失敗"
+  },
+  "move": {
+    "intoOwnSubfolder": "\"{{name}}\" を自身のサブフォルダに移動することはできません",
+    "unknownError": "不明なエラー",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "{{count}} 個のアイテムを移動しました",
+    "failed": "アイテムの移動に失敗しました",
+    "movedPartly": "{{count}} 個のアイテムを移動しました。{{failed}} 個は失敗しました",
+    "dropFailed": "ドロップの処理に失敗しました",
+    "operationFailed": "操作に失敗しました: {{error}}"
+  },
+  "newFolder": {
+    "created": "フォルダ \"{{name}}\" を作成しました",
+    "failed": "フォルダの作成に失敗しました",
+    "title": "新規フォルダ作成",
+    "nameLabel": "フォルダ名",
+    "create": "作成"
+  },
+  "clipboard": {
+    "copied": "{{count}} 個のアイテムをコピーしました",
+    "cut": "{{count}} 個のアイテムを切り取りました",
+    "foldersNotPastable": "フォルダを {{folder}} に貼り付けることはできません",
+    "liveRepoReadOnly": "ライブリポジトリ内のアイテムは、ここでは読み取り専用です",
+    "itemFailed": "失敗",
+    "pasted": "{{folder}} に {{count}} 個のアイテムを貼り付けました",
+    "moved": "{{folder}} に {{count}} 個のアイテムを移動しました",
+    "pastedPartly": "{{folder}} に {{count}} 個のアイテムを貼り付けました。{{failed}} 個は失敗しました: {{error}}",
+    "movedPartly": "{{folder}} に {{count}} 個のアイテムを移動しました。{{failed}} 個は失敗しました: {{error}}",
+    "pasteFailed": "貼り付けに失敗しました: {{error}}",
+    "moveFailed": "移動に失敗しました: {{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "ライブコードのマウントは読み取り専用です",
+    "deleted": "{{count}} 個の項目を削除しました",
+    "someFailed": "一部の削除に失敗した可能性があります。状態を更新しています",
+    "confirmTitle": "削除の確認",
+    "confirmBody_other": "{{count}} 個の項目を削除しますか？この操作は取り消せません。",
+    "confirm": "削除"
+  },
+  "properties": {
+    "fileNotFound": "ファイルが見つかりません",
+    "loadFailed": "ファイルの詳細の読み込みに失敗しました",
+    "fileUpdated": "ファイルのプロパティを更新しました",
+    "fileUpdateFailed": "ファイルのプロパティの更新に失敗しました",
+    "updateFailed": "更新に失敗しました: {{error}}",
+    "fileDeleted": "ファイルを削除しました",
+    "fileDeleteFailed": "ファイルの削除に失敗しました",
+    "deleteFailed": "削除に失敗しました: {{error}}",
+    "reindexStarted": "再インデックスの実行に成功しました。まもなくステータスが更新されます。",
+    "reindexStartFailed": "再インデックスの実行に失敗しました",
+    "reindexFailed": "再インデックスに失敗しました: {{error}}",
+    "folderApplied": "プロパティを適用しました。更新されたファイル: {{files}}、処理されたサブフォルダ: {{folders}}",
+    "folderUpdated": "フォルダのプロパティを更新しました",
+    "folderUpdateFailed": "フォルダのプロパティの更新に失敗しました",
+    "folderDeleted": "フォルダを削除しました"
+  },
+  "rename": {
+    "folderRenamed": "フォルダを「{{name}}」に変更しました",
+    "fileRenamed": "ファイルを「{{name}}」に変更しました",
+    "failedReason": "名前の変更に失敗しました: {{reason}}",
+    "failed": "名前の変更に失敗しました",
+    "folderTitle": "フォルダ名の変更",
+    "fileTitle": "ファイル名の変更",
+    "fileNameLabel": "ファイル名",
+    "fileHint": "Guaardvark上での表示名を変更します。ディスク上のファイル名は変更されません。",
+    "submit": "変更"
+  },
+  "review": {
+    "liveRepoOnly": "セルフコードレビューはライブリポジトリのマウントでのみ利用可能です",
+    "dispatchedTask": "セルフコードレビューを送信しました ({{taskId}})",
+    "dispatched": "セルフコードレビューを送信しました",
+    "failed": "セルフコードレビューの送信に失敗しました"
+  }
+}

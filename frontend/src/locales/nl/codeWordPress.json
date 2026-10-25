@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "Kliks: {{clicks}} | Impressies: {{impressions}} | Positie: {{position}}",
+    "notAvailable": "N.v.t."
+  },
+  "errors": {
+    "fetchFailed": "Pagina's ophalen mislukt",
+    "loadFailed": "Pagina's laden mislukt",
+    "pullFailed": "Pagina's ophalen mislukt",
+    "processFailed": "Pagina verwerken mislukt",
+    "queueFailed": "Pagina's toevoegen aan wachtrij mislukt",
+    "executeFailed": "Wachtrij uitvoeren mislukt",
+    "recommendationsFailed": "Aanbevelingen ophalen mislukt. Functie binnenkort beschikbaar."
+  },
+  "feedback": {
+    "pulled": "{{count}} pagina's opgehaald",
+    "nonePending": "Geen pagina's in afwachting",
+    "queued": "{{count}} pagina's toegevoegd aan wachtrij",
+    "processed": "{{succeeded}}/{{total}} pagina's verwerkt"
+  },
+  "recommendations": {
+    "summary": "De AI-aanbevelingen functie analyseert de paginainhoud en geeft slimme suggesties voor verbeteringen.",
+    "content": {
+      "title": "Inhoudverbetering",
+      "description": "Analyseer inhoud voor SEO-optimalisatie, leesbaarheid en betrokkenheid."
+    },
+    "seo": {
+      "title": "SEO-optimalisatie",
+      "description": "Controleer meta-tags, kopstructuur en kansen voor trefwoordoptimalisatie."
+    },
+    "structure": {
+      "title": "Inhoudsstructuur",
+      "description": "Evalueer de organisatie van de inhoud en stel verbeteringen voor een betere gebruikerservaring voor."
+    },
+    "priority": {
+      "high": "hoog",
+      "medium": "gemiddeld",
+      "low": "laag"
+    },
+    "title": "AI Aanbevelingen",
+    "none": "Er zijn momenteel geen specifieke aanbevelingen beschikbaar.",
+    "loading": "Aanbevelingen laden...",
+    "processNow": "Nu Verwerken"
+  },
+  "title": "WordPress Pagina's",
+  "actions": {
+    "pull": "Ophalen",
+    "queue": "Wachtrij ({{count}})",
+    "process": "Verwerken",
+    "close": "Sluiten",
+    "cancel": "Annuleren"
+  },
+  "site": "WordPress-site",
+  "filters": {
+    "pull": "Ophalen",
+    "all": "Alle",
+    "pulled": "Opegehaald",
+    "pending": "In afwachting",
+    "error": "Fout",
+    "process": "Verwerken",
+    "processing": "Bezig met verwerken",
+    "completed": "Voltooid",
+    "approved": "Goedgekeurd"
+  },
+  "stats": {
+    "total": "Totaal: {{total}}",
+    "pending": "In afwachting: {{pending}}",
+    "completed": "Voltooid: {{completed}}"
+  },
+  "empty": {
+    "noPages": "Geen pagina's gevonden. Haal pagina's op om te beginnen.",
+    "selectSite": "Selecteer een WordPress site om pagina's te bekijken"
+  },
+  "table": {
+    "title": "Titel",
+    "type": "Type",
+    "seo": "SEO",
+    "ai": "AI"
+  },
+  "untitled": "Zonder titel",
+  "tooltips": {
+    "getRecommendations": "Klik voor AI-aanbevelingen",
+    "hasImprovements": "Heeft verbeteringen",
+    "noImprovements": "Geen verbeteringen"
+  },
+  "pullDialog": {
+    "title": "Pagina's ophalen van WordPress",
+    "postType": "Berichttype",
+    "posts": "Berichten",
+    "pages": "Pagina's",
+    "maxPages": "Max. Pagina's (Optioneel)",
+    "maxPagesHelper": "Laat leeg om alle pagina's te ophalen",
+    "pulling": "Ophalen...",
+    "submit": "Pagina's ophalen"
+  }
+}

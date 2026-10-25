@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "“对话”草拟了此内容。",
+      "mcp": "通过 MCP 连接的 AI 工具草拟了此内容。",
+      "schedule": "计划任务排队了此内容。",
+      "unknown": "此内容来自未注明类型的调用者。"
+    },
+    "fields": {
+      "body": "正文",
+      "title": "标题",
+      "linkUrl": "链接",
+      "tags": "标签",
+      "visibility": "可见性",
+      "postOptions": "发布字段",
+      "aiDisclosure": "AI 标识",
+      "scheduledAt": "时间"
+    }
+  },
+  "rejectDialog": {
+    "title": "拒绝此发布？",
+    "body": "内容将不会发出，且之后无法批准——必须重新排队一个新的发布任务。下方的原因将保留在记录中。",
+    "reasonLabel": "原因（选填）",
+    "reasonPlaceholder": "为什么不发布此内容？",
+    "keep": "保留",
+    "rejecting": "正在拒绝……",
+    "reject": "拒绝"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} 在此安装中不可用，因此无法编辑此内容。",
+    "title": "批准前编辑",
+    "draftedNote": "{{drafted}} 您在此处保存的内容将在您批准后发布。",
+    "caption": "说明",
+    "text": "文本",
+    "scheduleHelp": "仍等待您的批准。",
+    "goesOutAs": "作为（受 {{platform}} 或媒体授权限制）发布:",
+    "savingNote": "保存后将处于等待状态。随后进行审批。",
+    "cancel": "取消",
+    "save": "保存"
+  },
+  "page": {
+    "families": {
+      "social": "社交",
+      "aiProviders": "AI 提供商",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "已连接",
+      "error": "错误",
+      "expired": "已过期",
+      "disabled": "已禁用",
+      "unconfigured": "未配置"
+    },
+    "removed": "连接已移除。",
+    "publicOn": "{{label}}: 此账号已开启。每次上传仍需您的审批。",
+    "publicOff": "{{label}}: 此账号已关闭。",
+    "withoutApprovalOn": "发布到此频道的内容将跳过审批直接发布。",
+    "withoutApprovalOff": "发布到此频道的内容仍需等待审批。",
+    "title": "连接",
+    "intro": "此安装程序可发布到或调用相关账号及服务。凭据存储在数据库之外。",
+    "postingStopped": "公开发布已停止。请在“外联”页面恢复。",
+    "queuedHeld": "排队的发布内容保存在“审批”页面。",
+    "publishingEnabled": "已启用发布",
+    "approvalNote": "每一次发布都需在“审批”页面等待您的审批。对于您管理的频道，可以设置 Discord webhook 在其卡片上自动发布，无需等待。YouTube 账号将作为私有内容上传，直到其卡片允许公开上传。",
+    "addConnection": "添加连接",
+    "appReview": "应用审核",
+    "noCredentials": "无凭据",
+    "withoutApprovalTooltip": "适用于您管理的频道。从此处开始的发布将跳过“审批”页面的等待；来自对话、MCP 或计划的请求仍需等待。",
+    "postWithoutApproval": "无需审批发布",
+    "onThroughSetting": "通过全局设置 {{setting}} 开启。在此处切换可为此账户保留独立选项。",
+    "testing": "测试中…",
+    "test": "测试",
+    "edit": "编辑",
+    "remove": "移除",
+    "empty": "此类别暂无连接。",
+    "environment": "环境",
+    "environmentNote": "从后端进程环境检测得出。在应用外部管理，此处仅供只读显示。",
+    "encrypted": "已加密",
+    "unencrypted": "未加密",
+    "credentialCount": "{{count}} 个凭据"
+  }
+}

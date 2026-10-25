@@ -1,0 +1,106 @@
+{
+  "filter": {
+    "all": "Tutti",
+    "active": "Attivi",
+    "completed": "Completati",
+    "failed": "Falliti",
+    "project": "Progetto: {{name}}",
+    "client": "Cliente: {{name}}",
+    "website": "Sito web: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "Impossibile caricare i Progetti: {{error}}",
+    "modelsFailed": "Impossibile caricare i modelli: {{error}}",
+    "requestFailed": "la richiesta è fallita"
+  },
+  "video": {
+    "loadFailed": "Impossibile caricare i Lavori batch video",
+    "cancelled": "Lavoro batch video annullato",
+    "cancelRefused": "Impossibile annullare il lavoro VideoGen",
+    "cancelFailed": "Annullamento fallito",
+    "title": "Lavori Batch Video",
+    "intro": "Batch in coda ed in esecuzione dalla pipeline unificata VIDEO_GEN (Batch Video / Video Generator). Questa pagina (Job Scheduler) gestisce anche i vecchi lavori pianificati per codice, contenuti, CSV, analisi e attività personalizzate tramite il menu New Job.",
+    "refresh": "Aggiorna i Lavori batch video",
+    "empty": "Nessun lavoro batch video in sospeso.",
+    "label": "Etichetta",
+    "status": "Stato",
+    "progress": "Progresso",
+    "actions": "Azioni",
+    "cancel": "Annulla"
+  },
+  "notFound": "Il compito {{id}} non è stato trovato",
+  "queue": {
+    "started": "Inizio elaborazione coda compiti",
+    "failed": "Errore nell'elaborare la coda: {{error}}"
+  },
+  "created": "Compito creato con successo",
+  "updated": "Compito aggiornato con successo",
+  "saveFailed": "Errore nel salvataggio del compito: {{error}}",
+  "deleted": "Compito eliminato con successo",
+  "duplicatedWithId": "Compito duplicato con successo (ID: {{id}})",
+  "duplicated": "Attività duplicata con successo",
+  "duplicateFailed": "Impossibile duplicare l'attività: {{error}}",
+  "delete": {
+    "title": "Elimina questa attività",
+    "description": "\"{{name}}\" è stato eliminato.",
+    "thisTask": "questa attività",
+    "confirm": "Elimina attività"
+  },
+  "deleteFailed": "Impossibile eliminare l'attività: {{error}}",
+  "start": {
+    "invalid": "Dati attività non validi",
+    "starting": "Avvio attività: {{name}}",
+    "unnamed": "Attività senza nome",
+    "failed": "Impossimo avviare l'attività: {{error}}",
+    "started": "Attività \"{{name}}\" avviata con successo"
+  },
+  "clear": {
+    "none": "Nessuna attività da eliminare",
+    "title": "Elimina tutte le attività",
+    "description": "Ogni attività in questa lista viene eliminata.",
+    "tasksFact": "Attività",
+    "confirm": "Elimina tutto",
+    "clearing": "Eliminazione di tutte le attività...",
+    "done": "Eliminate con successo {{count}} attività",
+    "failed": "Impossibile eliminare le attività: {{error}}"
+  },
+  "title": "Pianificatore di Lavoro",
+  "counts": {
+    "pending": "{{count}} In attesa",
+    "queued": "{{count}} In coda",
+    "running": "{{count}} In esecuzione"
+  },
+  "runQueue_one": "Esegui {{count}} Attività",
+  "runQueue_other": "Esegui {{count}} Attività",
+  "clearAll": "Elimina Tutto",
+  "newJob": "Nuovo Lavoro",
+  "newMenu": {
+    "code": "Generazione Codice",
+    "csv": "CSV / Contenuto in blocco",
+    "content": "Generazione Contenuti",
+    "analysis": "Analisi Dati",
+    "custom": "Lavoro Personalizzato"
+  },
+  "typeFilter": {
+    "label": "Tipo",
+    "all": "Tutti i tipi",
+    "code": "Gen. Codice",
+    "csv": "CSV / Blocco",
+    "content": "Contenuto",
+    "analysis": "Analisi"
+  },
+  "loading": "Caricamento attività...",
+  "emptyTitle": "Nessuna attività trovata",
+  "emptyDescription": "Usa le azioni rapide sopra per creare la tua prima attività",
+  "menu": {
+    "start": "Avvia",
+    "cancel": "Annulla",
+    "edit": "Modifica",
+    "duplicate": "Duplica",
+    "newCode": "Nuova Generazione Codice",
+    "newCsv": "Nuovo CSV / Contenuto in serie",
+    "newContent": "Nuova Generazione Contenuti",
+    "newAnalysis": "Nuova Analisi Dati",
+    "newCustom": "Nuovo Lavoro Personalizzato"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "voice": "음성",
+  "collapse": "접기",
+  "close": "닫기",
+  "cancel": "취소",
+  "refresh": "새로고침",
+  "loading": "로딩 중...",
+  "retry": "재시도",
+  "ok": "확인",
+  "reload": "다시 불러오기",
+  "dismiss": "닫기",
+  "error": "오류",
+  "open": "열기",
+  "delete": "삭제"
+}

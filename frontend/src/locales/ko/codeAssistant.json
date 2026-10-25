@@ -1,0 +1,186 @@
+{
+  "loading": {
+    "processing": "처리 중...",
+    "thinking": "AI가 생각 중...",
+    "analyzingSelection": "선택한 코드 분석 중...",
+    "sending": "AI 어시스턴트로 전송 중...",
+    "processingResponse": "AI 응답 처리 중...",
+    "searchingProject": "프로젝트 컨텍스트 검색 중...",
+    "buildingContext": "스마트 컨텍스트 구축 중..."
+  },
+  "commands": {
+    "explain": {
+      "label": "설명",
+      "description": "선택한 코드 설명 또는 전체 파일 구조 분석"
+    },
+    "edit": {
+      "label": "스마트 편집",
+      "description": "컨텍스트 이해 기반의 AI 코드 편집"
+    },
+    "optimize": {
+      "label": "최적화",
+      "description": "상세 분석을 통한 성능 최적화"
+    },
+    "refactor": {
+      "label": "리팩터링",
+      "description": "지능형 코드 구조 재구성"
+    },
+    "test": {
+      "label": "테스트 생성",
+      "description": "포괄적인 단위 테스트 생성"
+    },
+    "fix": {
+      "label": "자동 수정",
+      "description": "감지된 오류 및 문제 자동 수정"
+    },
+    "document": {
+      "label": "문서화",
+      "description": "문서 및 주석 생성"
+    },
+    "secure": {
+      "label": "보안 스캔",
+      "description": "포괄적인 보안 취약점 분석"
+    },
+    "suggest": {
+      "label": "제안",
+      "description": "지능형 코드 제안 받기"
+    }
+  },
+  "progress": {
+    "processingWithContext": "전체 컨텍스트를 포함하여 처리 중...",
+    "completed": "AI 지원 완료"
+  },
+  "errors": {
+    "noSelectionResponse": "선택 항목 분석에 대해 채팅 서비스가 null 또는 undefined 응답을 반환했습니다.",
+    "noResponse": "채팅 서비스가 null 또는 undefined 응답을 반환했습니다.",
+    "noGeneralResponse": "일반 대화에 대해 채팅 서비스가 null 또는 undefined 응답을 반환했습니다."
+  },
+  "replies": {
+    "analysisFailed": "분석 실패",
+    "validationFailed": "입력 검증 실패: {{errors}}",
+    "rateLimited": "요청 제한 초과. 잠시 후 다시 시도해 주세요.",
+    "analysisFailedWithError": "분석 실패: {{error}}",
+    "explanationFailed": "설명 실패: {{error}}",
+    "editHelp": "수정 지침을 입력해 주세요. 예시: '/edit 이 함수에 오류 처리 추가'",
+    "editDescriptionSelection": "수정: {{instructions}} (선택한 텍스트를 교체합니다. 편집기에서 Ctrl+Z를 누르면 취소됩니다)",
+    "editDescriptionFile": "수정: {{instructions}} (파일 전체를 교체합니다. 편집기에서 Ctrl+Z를 누르면 취소됩니다)",
+    "editReadySelection": "선택한 텍스트에 대한 수정 준비 완료. 미리보기에서 차이점을 확인하고, 적용을 누르면 편집기에 반영됩니다.",
+    "editReadyFile": "파일 전체에 대한 수정 준비 완료. 미리보기에서 차이점을 확인하고, 적용을 누르면 편집기에 반영됩니다.",
+    "noReply": "어시스턴트가 응답을 반환하지 않았습니다.",
+    "editFailed": "코드 수정 실패: {{error}}",
+    "fixAnalysis": "**자동 수정 분석:**\n\n{{analysis}}",
+    "fixFailed": "수정 분석 실패: {{error}}",
+    "securityAnalysis": "**보안 분석:**\n\n{{analysis}}",
+    "securityFailed": "보안 분석 실패: {{error}}",
+    "commandNames": {
+      "optimize": "최적화",
+      "refactor": "리팩터링",
+      "test": "테스트",
+      "document": "문서화"
+    },
+    "commandDescription": "{{command}}: 파일 전체를 교체합니다 (편집기에서 Ctrl+Z로 실행 취소 가능)",
+    "commandReady": "{{command}} 준비 완료. 미리보기에서 차이점을 확인하고, 적용을 클릭하면 파일 전체가 교체됩니다.",
+    "commandNoReply": "{{command}}의 응답이 없습니다.",
+    "commandFailed": "{{command}} 실패: {{error}}",
+    "requestTrouble": "죄송합니다. 요청을 처리하는 중에 문제가 발생했습니다. 오류: {{error}}",
+    "error": "죄송합니다, 오류가 발생했습니다: {{message}}",
+    "noActiveFile": "활성화된 파일 없음\n\nAI 도움을 받으려면 먼저 코드 내용이 포함된 파일을 열어주세요."
+  },
+  "apply": {
+    "defaultDescription": "AI 생성 코드",
+    "appliedToSelection": "코드가 성공적으로 적용되었습니다 (선택 영역 기반 편집)\n\n{{description}}",
+    "applied": "코드가 성공적으로 적용되었습니다\n\n{{description}}",
+    "failed": "코드 적용 실패\n\n{{error}}"
+  },
+  "untitled": "제목 없음",
+  "multiFile": {
+    "confirm": "{{count}}개의 파일에 변경 사항을 적용하시겠습니까?\n\n수정될 파일 목록:\n{{files}}\n\n계속하려면 확인을, 중단하려면 취소를 클릭하세요.",
+    "applying": "{{count}}개 파일에 변경 사항을 적용하는 중...",
+    "completedProgress": "다중 파일 편집 완료: {{succeeded}} 성공, {{failed}} 실패",
+    "completeWithFailures": "다중 파일 편집 완료\n\n{{succeeded}}개의 파일이 성공적으로 업데이트되었으며, {{failed}}건이 실패했습니다.",
+    "complete": "다중 파일 편집 완료\n\n{{succeeded}}개의 파일이 성공적으로 업데이트되었습니다.",
+    "failedProgress": "다중 파일 편집 실패: {{error}}",
+    "failed": "다중 파일 편집 실패\n\n{{error}}"
+  },
+  "titleBar": {
+    "newChat": "새 채팅",
+    "startNewChat": "새 채팅 시작",
+    "deleteChat": "채팅 삭제",
+    "deleteChatLabel": "채팅 삭제",
+    "aiCommands": "AI 명령",
+    "openCommandsMenu": "AI 명령 메뉴 열기"
+  },
+  "card": {
+    "title": "AI 어시스턴트"
+  },
+  "status": {
+    "selected": "선택됨: {{count}}자",
+    "noFile": "파일 없음",
+    "realTimeTooltip": "실시간 분석: 타이핑을 멈춘 후 2초 후에 파일의 구문을 확인하고 모델에 전송하여 제안을 받습니다 (일시 중지당 한 번의 모델 요청; 5,000자가 넘는 파일은 제외됩니다)",
+    "toggleRealTime": "실시간 코드 분석 전환",
+    "contextInfo": "컨텍스트 정보",
+    "toggleContext": "컨텍스트 정보 패널 전환"
+  },
+  "recommendations": {
+    "title": "AI 추천 ({{count}})",
+    "defaultType": "제안",
+    "lines": "라인 {{start}}-{{end}}",
+    "noDescription": "설명 없음",
+    "applyDescription": "{{type}} 추천 적용",
+    "more": "... 및 {{count}}개의 추가 추천"
+  },
+  "actions": {
+    "apply": "적용"
+  },
+  "pending": {
+    "readyToApply": "적용 준비 완료: {{command}}",
+    "preview": "미리보기",
+    "discard": "버리기"
+  },
+  "context": {
+    "title": "코드 문맥 및 분석",
+    "currentFile": "현재 파일",
+    "noFileOpen": "열린 파일 없음",
+    "unknownLanguage": "알 수 없음",
+    "selectedCode": "선택된 코드",
+    "analysisResults": "분석 결과",
+    "noIssues": "감지된 문제 없음",
+    "project": "프로젝트 문맥",
+    "filesOpen": "열려 있는 파일 {{count}}개",
+    "relatedDetected": "관련 파일 {{count}}개 감지됨",
+    "relatedFiles": "관련 파일",
+    "more": "및 추가 {{count}}개"
+  },
+  "alerts": {
+    "errorsDetected_other": "감지된 오류 {{count}}개",
+    "warningsDetected_other": "감지된 경고 {{count}}개"
+  },
+  "input": {
+    "placeholder": "메시지..."
+  },
+  "menu": {
+    "label": "AI 명령 메뉴"
+  },
+  "palette": {
+    "title": "AI 명령 팔레트",
+    "searchPlaceholder": "명령 검색...",
+    "currentFile": "현재 파일: {{file}} ({{language}})",
+    "noMatches": "\"{{search}}\"와 일치하는 명령을 찾을 수 없음",
+    "keyboardHelp": "↑↓로 이동, Enter로 선택, Esc를 눌러 닫기"
+  },
+  "hover": {
+    "unavailable": "AI 설명을 사용할 수 없음"
+  },
+  "drop": {
+    "reasons": {
+      "folder": "폴더; 폴더 안의 파일들을 드롭하세요",
+      "tooMany": "한 번에 최대 {{max}}개의 파일만 드롭 가능",
+      "tooLarge": "{{size}} MB보다 큼",
+      "unreadable": "읽을 수 없음",
+      "notText": "텍스트 파일이 아님"
+    },
+    "opened_other": "{{names}}을(를) 저장되지 않은 복사본으로 열었습니다. 저장 시 이 브라우저 내의 다른 편집기 파일들과 함께 유지되며, 컴퓨터에 있는 원본 파일은 변경되지 않습니다.",
+    "skippedFile": "{{name}} ({{reason}})",
+    "notOpened": "열리지 않음: {{files}}."
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "messages": {
+    "generatedImageAlt": "生成された画像",
+    "error": "エラー: {{error}}",
+    "bulkStarted": "一括CSV生成を開始しました！「{{filename}}」用に{{quantity}}件の項目を生成中です。完了まで数分かかる場合があります。",
+    "bulkStartedNoQuantity": "一括CSV生成を開始しました！「{{filename}}」用に複数の項目を生成中です。完了まで数分かかる場合があります。",
+    "fileGenerated": "ファイル「{{filename}}」の生成に成功しました！出力フォルダからダウンロードできます。",
+    "bulkFailed": "一括CSV生成に失敗しました: {{error}}",
+    "fileFailed": "ファイルの生成に失敗しました: {{error}}",
+    "modes": {
+      "fileGeneration": "**ファイル生成モード**: コード/ファイルの生成に向けたリクエストを解析中...",
+      "coding": "**コーディングモード**: プログラミングの支援を提供中...",
+      "web": "**Webリサーチモード**: 最新情報を検索中...",
+      "data": "**データツールモード**: データリクエストを処理中..."
+    },
+    "tooLong": "メッセージが長すぎます: {{length}}文字。最大許容数: 100,000文字。",
+    "planNotCreated": "プランの作成に失敗しました",
+    "planFailed": "プランの作成に失敗しました: {{error}}",
+    "agentWorking": "エージェントがリクエストの推論とルーティングを実行中です...",
+    "agentFailedNoResponse": "エージェントの実行に失敗しました（モデルから応答がありません）。",
+    "agentEmptyResponse": "エージェントの実行が完了しましたが、応答はありませんでした。",
+    "agentFailed": "エージェントの実行に失敗しました: {{error}}",
+    "fileGenerationBusy": "ファイルの生成は現在進行中です。処理の間に会話を続行します。",
+    "agentModeSocketDown": "エージェントモードには統合チャットツールが必要ですが、統合チャットのソケットが接続されていません（復旧を試行中）。再接続（または再読み込み）を行うか、`/chat` と入力して通常のチャットモードに戻してください。",
+    "agentModeUnifiedDisabled": "エージェントモードには統合チャットツールが必要ですが、統合チャットが無効になっています。再接続（または再読み込み）を行うか、`/chat` と入力して通常のチャットモードに戻してください。",
+    "technicalDifficulties": "申し訳ありませんが、メッセージ「{{excerpt}}」の処理中に技術的な問題が発生しました。\n\nシステムに接続の問題が発生しましたが、メッセージは会話履歴に保存されています。もう一度質問するか、言い方を変えて入力してください。",
+    "warning": "警告: {{warning}}",
+    "stopped": "ユーザーによりリクエストが停止されました",
+    "uploaded": "ファイルのアップロードに成功しました！バックグラウンドでインデックス作成を開始しました。進捗状況はシステムダッシュボードで確認できます。"
+  },
+  "errors": {
+    "agentModeNotSaved": "新しいチャットに対してエージェントモードを保存できませんでした: {{reason}}。再度試すには /agent を送信してください。",
+    "agentModeNotSavedRequestFailed": "新しいチャットに対してエージェントモードを保存できませんでした：リクエストに失敗しました。再度試すには /agent を送信してください。",
+    "lessonNotSaved": "レッスンは終了しましたが、保存されませんでした: {{reason}}。",
+    "lessonNotSavedRequestFailed": "レッスンは終了しましたが、保存に失敗しました：リクエストに失敗しました。",
+    "lessonNotSavedHttp": "レッスンは終了しましたが、保存されませんでした：バックエンドがHTTP {{status}}を返しました。"
+  },
+  "header": {
+    "title": "チャット",
+    "messageCount_other": "{{count}} 件のメッセージ",
+    "beginLesson": "レッスンを開始 — 挙手（thumbs-ups）をレッスン要約にまとめます",
+    "endLesson": "レッスンを終了 — 要点を編集可能な要約にまとめます",
+    "allChats": "すべてのチャット",
+    "newChat": "新しいチャットセッションを開始",
+    "activeModel": "アクティブなモデル: {{model}}",
+    "modelLoading": "読み込み中...",
+    "modelFetchError": "モデルの取得にエラーが発生しました",
+    "modelUnknown": "N/A",
+    "model": "モデル: {{model}}",
+    "modelError": "エラー",
+    "modelDefault": "デフォルト"
+  },
+  "status": {
+    "modelWarmingUp": "モデルをGPUメモリに読み込んでいます... まもなくチャットの準備が整います。",
+    "typing": "アシスタントが入力中...",
+    "agentBudget": "エージェントモードがオンです：各メッセージはアシスタントがツールを使用して実行するタスクとなり、1メッセージあたり最大{{total}}ステップまで実行可能です。前回のタスクは{{remaining}}ステップ残っていました。"
+  }
+}

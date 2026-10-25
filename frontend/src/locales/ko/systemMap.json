@@ -1,0 +1,73 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "서비스",
+    "utils": "유틸리티",
+    "tools": "도구",
+    "tasks": "작업",
+    "frontend": "프론트엔드",
+    "plugins": "플러그인",
+    "clear": "지우기"
+  },
+  "errors": {
+    "snapshotFailed": "스냅샷 실패"
+  },
+  "dispatch": {
+    "queued": "자기 개선 에이전트로 전달됨 — 백그라운드에서 실행 중.",
+    "proposed": "자기 개선 에이전트로 전달됨 — 설정에서 제안된 수정 사항을 확인하세요.",
+    "notRun": "전송 실행 안 됨 — {{reason}}",
+    "notRunNoReason": "전송 실행 안 됨 — 사유 없음",
+    "failed": "전송 실패: {{error}}"
+  },
+  "title": "시스템 맵",
+  "stats": "{{modules}} 모듈 · {{edges}} 엣지",
+  "severity": {
+    "critical": "{{count}} 치명적",
+    "medium": "{{count}} 중간",
+    "hygiene": "{{count}} 위생"
+  },
+  "searchPlaceholder": "검색 ( / )",
+  "resetView": "뷰 초기화 (R)",
+  "refresh": {
+    "cached": "{{seconds}}초 전 캐시됨 — 클릭하여 다시 계산",
+    "computed": "{{seconds}}초 전 계산됨"
+  },
+  "overlays": {
+    "ghostEndpoints": "고스트 엔드포인트",
+    "ghostEndpointsCount": "고스트 엔드포인트 ({{count}})",
+    "toolGraph": "도구 그래프",
+    "toolGraphCount": "도구 그래프 ({{count}})"
+  },
+  "controlsHint": "드래그 · 이동 | 휠 · 확대 | / · 검색 | r · 초기화 | 칩 클릭 · 섹션 강조",
+  "detail": {
+    "hovered": "호버됨",
+    "selected": "선택됨",
+    "importers_other": "{{count}} 임포터",
+    "findings": "발견 사항 ({{count}})",
+    "moreFindings": "… 및 {{count}}개 더",
+    "escToClear": "<code>Esc</code>를 눌러 지우기"
+  },
+  "loading": "시스템 매핑 중…",
+  "panel": {
+    "findings": "발견 사항",
+    "activity": "활동"
+  },
+  "findings": {
+    "actionable": "조치 가능",
+    "critical": "심각",
+    "all": "전체",
+    "intro": "순위별 결과 · 클릭하여 위치 확인 · 수정을 위해 할당",
+    "empty": "이 심각도에 해당하는 결과가 없습니다. 🎉",
+    "dispatch": "자기 개선 에이전트에게 보내어 수정 제안 받기",
+    "dismiss": "닫기 — 확인 및 해당 결과 표시 중단"
+  },
+  "activity": {
+    "title": "실시간 활동",
+    "intro": "채팅을 통해 흐르는 도구 호출이 여기에 표시됩니다. 일치하는 모듈은 성단에서 점멸합니다.",
+    "empty": "대기 중. 에이전트에게 질문하여 활동을 시작하세요.",
+    "now": "방금",
+    "seconds": "{{count}}초",
+    "minutes": "{{count}}분",
+    "hours": "{{count}}시간"
+  }
+}

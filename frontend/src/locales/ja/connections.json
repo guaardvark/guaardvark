@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "チャットがこの投稿を作成しました。",
+      "mcp": "MCP経由で接続されたAIツールがこの投稿を作成しました。",
+      "schedule": "スケジュールによってこの投稿がキューに追加されました。",
+      "unknown": "この投稿は、識別情報のない呼び出し元から送信されました。"
+    },
+    "fields": {
+      "body": "本文",
+      "title": "タイトル",
+      "linkUrl": "リンク",
+      "tags": "タグ",
+      "visibility": "公開範囲",
+      "postOptions": "投稿項目",
+      "aiDisclosure": "AIラベル",
+      "scheduledAt": "時間"
+    }
+  },
+  "rejectDialog": {
+    "title": "この公開を拒否しますか？",
+    "body": "拒否すると送信されず、後から承認することもできません。代わりに新しい公開をキューに追加する必要があります。以下の理由は記録として残ります。",
+    "reasonLabel": "理由（任意）",
+    "reasonPlaceholder": "なぜこの投稿は公開されませんか？",
+    "keep": "保持する",
+    "rejecting": "拒否中…",
+    "reject": "拒否"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} はこのインストールでは利用できないため、この投稿を編集できません。",
+    "title": "承認前に編集",
+    "draftedNote": "{{drafted}} ここに保存した内容が、承認後に公開されます。",
+    "caption": "キャプション",
+    "text": "テキスト",
+    "scheduleHelp": "承認を待機したままになります。",
+    "goesOutAs": "（{{platform}}の行、またはメディアのライセンスの要件に従って）次として公開されます：",
+    "savingNote": "保存すると保留状態になります。後で承認してください。",
+    "cancel": "キャンセル",
+    "save": "保存"
+  },
+  "page": {
+    "families": {
+      "social": "ソーシャル",
+      "aiProviders": "AIプロバイダー",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "接続済み",
+      "error": "エラー",
+      "expired": "期限切れ",
+      "disabled": "無効",
+      "unconfigured": "未設定"
+    },
+    "removed": "接続が削除されました。",
+    "publicOn": "{{label}}: このアカウントでオン。すべてのアップロードは引き続き承認を待ちます。",
+    "publicOff": "{{label}}: このアカウントでオフ。",
+    "withoutApprovalOn": "このチャンネルへの公開は、ここから開始し、承認なしで配信されます。",
+    "withoutApprovalOff": "このチャンネルへの公開は、再度承認を待ちます。",
+    "title": "接続",
+    "intro": "このインストールが公開または呼び出しを行うことができるアカウントとサービス。認証情報はデータベース外に保存されます。",
+    "postingStopped": "公開が停止されています。アウトリーチページで再開してください。",
+    "queuedHeld": "キュー内の公開は承認ページで保留されます。",
+    "publishingEnabled": "公開を有効化",
+    "approvalNote": "すべての公開は「承認」ページでの承認を待機します。あなたが管理するチャンネルに投稿するDiscord webhookは、独自のカードで承認なしに投稿するように設定できます。YouTubeアカウントは、そのカードが公開アップロードを許可するまで、非公開としてアップロードされます。",
+    "addConnection": "接続を追加",
+    "appReview": "アプリレビュー",
+    "noCredentials": "資格情報なし",
+    "withoutApprovalTooltip": "あなたが管理するチャンネル用。ここから開始する公開は「承認」ページを待たずに送信されます。チャット、MCP、またはスケジュールからのリクエストは引き続き待機します。",
+    "postWithoutApproval": "承認なしで投稿",
+    "onThroughSetting": "インストール全体の設定 {{setting}} を通じて有効。ここを切り替えると、このアカウント専用の選択が適用されます。",
+    "testing": "テスト中…",
+    "test": "テスト",
+    "edit": "編集",
+    "remove": "削除",
+    "empty": "このカテゴリにはまだ接続がありません。",
+    "environment": "環境",
+    "environmentNote": "バックエンドのプロセス環境から検出されました。アプリ外で管理され、ここでは読み取り専用で表示されます。",
+    "encrypted": "暗号化済み",
+    "unencrypted": "未暗号化",
+    "credentialCount": "資格情報 {{count}}"
+  }
+}

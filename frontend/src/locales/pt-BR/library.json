@@ -1,0 +1,27 @@
+{
+  "feedback": {
+    "deleted": "Saída {{jobId}} excluída com sucesso",
+    "deleteFailed": "Falha ao excluir saída: {{message}}",
+    "retryStarting": "Iniciando tentativa para {{count}} linhas que falharam...",
+    "retryStarted": "Tarefa de tentativa iniciada com sucesso! ID da Tarefa: {{jobId}}",
+    "retryFailed": "Falha ao iniciar tentativa: {{message}}",
+    "nothingToClear": "Nenhuma saída para limpar",
+    "clearing": "Limpando todas as saídas...",
+    "cleared": "Excluídas com sucesso {{count}} saídas",
+    "clearFailed": "Falha ao limpar saídas: {{message}}"
+  },
+  "clearConfirm": "Você tem certeza de que deseja excluir TODAS as {{count}} saídas? Esta ação não pode ser desfeita.",
+  "pageTitle": "Saídas de Conteúdo",
+  "stats": {
+    "total": "{{count}} Total",
+    "today": "{{count}} Hoje",
+    "thisWeek": "{{count}} Esta Semana"
+  },
+  "clearAll": "Limpar Tudo",
+  "refresh": "Atualizar Lista de Saídas",
+  "loading": "Carregando saídas...",
+  "empty": {
+    "title": "Nenhuma saída encontrada",
+    "description": "Gere algum conteúdo usando o recurso de geração em lote para ver as saídas aqui"
+  }
+}

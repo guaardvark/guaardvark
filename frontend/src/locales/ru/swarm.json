@@ -1,0 +1,131 @@
+{
+  "taskStatus": {
+    "pending": "В ожидании",
+    "blocked": "Заблокировано",
+    "queued": "В очереди",
+    "running": "Выполняется",
+    "done": "Готово",
+    "failed": "Ошибка",
+    "needsReview": "Требуется проверка",
+    "merged": "Слияние выполнено",
+    "cancelled": "Отменено",
+    "noChanges": "Без изменений",
+    "timedOut": "Время истекло"
+  },
+  "messages": {
+    "enterPlanPath": "Введите путь к файлу плана",
+    "launched": "Swarm запущен: {{id}}",
+    "launchFailed": "Ошибка запуска",
+    "noSwarmId": "Нет ID Swarm",
+    "cancelled": "Отменено",
+    "cancelFailed": "Ошибка отмены",
+    "merged": "Слияно {{merged}} веток, {{conflicts}} конфликтов",
+    "mergeFailed": "Ошибка слияния",
+    "cleanedUp": "Очищено",
+    "cleanupFailed": "Ошибка очистки",
+    "logsFailed": "Не удалось получить логи",
+    "templateLoadFailed": "Не удалось загрузить шаблон",
+    "filenameAndContentRequired": "Требуются имя файла и содержимое",
+    "planSaved": "План сохранен в шаблонах",
+    "saveFailed": "Ошибка сохранения",
+    "enterGoal": "Введите цель, которую хотите достичь",
+    "planGenerated": "План создан ИИ!",
+    "aiGenerationFailed": "Ошибка генерации ИИ"
+  },
+  "actions": {
+    "cancel": "Отмена",
+    "mergeAll": "Слить все",
+    "cleanUp": "Очистить"
+  },
+  "menu": {
+    "collapse": "Свернуть",
+    "expand": "Развернуть",
+    "copySwarmId": "Копировать ID Swarm",
+    "viewLogs": "Просмотреть логи",
+    "viewDiff": "Просмотреть разницу",
+    "copyBranchName": "Копировать имя ветки",
+    "copyTaskId": "Копировать ID задачи",
+    "launch": "Запустить…"
+  },
+  "title": "Swarm",
+  "header": {
+    "online": "В сети",
+    "offline": "Вне сети",
+    "serviceOffline": "Сервис не в сети",
+    "refresh": "Обновить",
+    "createPlan": "Создать новый план",
+    "launchSwarm": "Запустить Swarm"
+  },
+  "sections": {
+    "activeSwarms": "Активные Swarm",
+    "quickLaunchTemplates": "Шаблоны быстрого запуска",
+    "recentSwarms": "Недавние Swarm"
+  },
+  "taskCount": "{{count}} задач",
+  "flightMode": "Авиарежим",
+  "history": {
+    "freeLocal": "Свободен (локально)",
+    "cleanUp": "Очистить"
+  },
+  "empty": {
+    "title": "Нет запущенных Swarm",
+    "description": "Запустите группу Агентов ИИ для параллельной работы над вашей кодовой базой.",
+    "startPlugin": "Сначала запустите плагин swarm.",
+    "launchFirst": "Запустите свой первый Swarm"
+  },
+  "launchDialog": {
+    "title": "Запуск Swarm",
+    "template": "Шаблон (необязательно)",
+    "customPlanFile": "Пользовательский файл плана",
+    "templateOption": "{{title}} ({{count}} задач)",
+    "planPath": "Путь к файлу плана",
+    "planPathPlaceholder": "path/to/plan.md или выберите шаблон выше",
+    "planPathHelp": "Относительно GUAARDVARK_ROOT или абсолютный путь",
+    "maxAgents": "Макс. одновременных Агентов",
+    "autoMerge": "Авто-слияние",
+    "flightModeInfo": "Авиарежим: только локальные бэкенды (Ollama). Конфликты будут сериализованы автоматически.",
+    "cancel": "Отмена",
+    "launchFlightMode": "Запуск (Flight Mode)",
+    "launch": "Запуск"
+  },
+  "editor": {
+    "title": "Редактор плана Swarm",
+    "aiHint": "Опишите задачу, и ИИ создаст структуру plan.md для вас.",
+    "aiPlaceholder": "например, «Рефакторинг всех API эндпоинтов для использования новой модели Response»",
+    "aiSuggest": "Предложить план ИИ",
+    "filename": "Имя файла (напр., migrate_api.md)",
+    "content": "Содержимое плана (Markdown)",
+    "formatHint": "Формат: используйте <bold>## Название задачи</bold> для каждой задачи. Добавьте <bold>Deps: [1]</bold> для зависимостей.",
+    "cancel": "Отмена",
+    "saveToTemplates": "Сохранить в шаблоны"
+  },
+  "taskView": {
+    "loadingLogs": "Загрузка логов...",
+    "noLogs": "(нет логов)",
+    "noChanges": "(нет изменений в рабочей директории)",
+    "diffFailed": "Ошибка получения diff",
+    "title": "Детали задачи: {{id}}",
+    "logsTab": "Логи",
+    "liveDiffTab": "Live Diff",
+    "noOutputYet": "(вывода пока нет)",
+    "fetchingDiff": "Получение diff рабочей директории...",
+    "refreshDiff": "Обновить Diff"
+  },
+  "swarmStatus": {
+    "failed": "Ошибка",
+    "running": "Выполняется",
+    "completed": "Завершено"
+  },
+  "card": {
+    "progress": "{{done}}/{{total}} задач",
+    "free": "Свободен",
+    "activeAgents": "{{count}} активных",
+    "diskUsage": "{{size}} МБ",
+    "dependencyGraph": "ГРАФИК ЗАВИСИМОСТЕЙ",
+    "viewTaskDetail": "Посмотреть детали задачи"
+  },
+  "elapsed": {
+    "minutesSeconds": "{{minutes}}м {{seconds}}с",
+    "seconds": "{{seconds}}с"
+  }
+}

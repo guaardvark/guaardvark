@@ -1,0 +1,56 @@
+{
+  "title": "エージェントツール",
+  "loadFailed": "ツールの読み込みに失敗しました",
+  "copied": "クリップボードにコピーしました",
+  "copyFailed": "クリップボードへのコピーに失敗しました",
+  "parameters": "パラメータ",
+  "copyName": "ツール名をコピー",
+  "card": {
+    "test": "テスト"
+  },
+  "table": {
+    "name": "名前",
+    "category": "カテゴリ",
+    "description": "説明",
+    "params": "パラメータ",
+    "actions": "アクション",
+    "requiredList": "必須: {{params}}",
+    "optionalList": "任意: {{params}}",
+    "requiredCount": "{{count}} 必須",
+    "optionalCount": "{{count}} 任意",
+    "noParams": "なし",
+    "testTool": "テストツール"
+  },
+  "noMatch": "\"{{query}}\"に一致するツールは見つかりませんでした",
+  "tabs": {
+    "tools": "ツール ({{count}})",
+    "schemas": "スキーマ",
+    "categories": "カテゴリ"
+  },
+  "searchPlaceholder": "ツールを検索...",
+  "view": {
+    "label": "表示モード",
+    "cardLabel": "カード表示",
+    "card": "カード表示",
+    "listLabel": "リスト表示",
+    "list": "リスト表示"
+  },
+  "loading": "ツールを読み込み中...",
+  "schemas": {
+    "copyAll": "すべてコピー",
+    "loading": "スキーマを読み込み中..."
+  },
+  "menu": {
+    "test": "テスト…"
+  },
+  "test": {
+    "succeeded": "ツールの実行に成功しました",
+    "executionFailed": "ツールの実行に失敗しました",
+    "title": "ツールテスト: {{name}}",
+    "noApprovalWarning": "「実行」を押すと、チャットが求める承認ステップをスキップして、このツールを即座に実行します。",
+    "requiredHelper": "必須。{{description}} ({{type}})",
+    "result": "結果",
+    "failed": "実行失敗",
+    "execute": "実行"
+  }
+}

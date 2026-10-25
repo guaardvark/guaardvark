@@ -1,0 +1,107 @@
+{
+  "filter": {
+    "all": "Wszystkie",
+    "active": "Aktywne",
+    "completed": "Zakończone",
+    "failed": "Nieudane",
+    "project": "Projekt: {{name}}",
+    "client": "Klient: {{name}}",
+    "website": "Strona internetowa: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "Nie można załadować Projektów: {{error}}",
+    "modelsFailed": "Nie można załadować modeli: {{error}}",
+    "requestFailed": "żądanie zakończyło się niepowodzeniem"
+  },
+  "video": {
+    "loadFailed": "Nie udało się załadować zleceń wsadowych wideo",
+    "cancelled": "Zlecenie wsadowe wideo anulowane",
+    "cancelRefused": "Nie można anulować zadania VideoGen",
+    "cancelFailed": "Anulowanie nieudane",
+    "title": "Zlecenia wsadowe wideo",
+    "intro": "Kolejkowane i uruchamiane serie z ujednoliczonego potoku VIDEO_GEN (Batch Video / Video Generator). Ta strona (Planer zadań) obsługuje również starsze zaplanowane zadania dla kodu, treści, CSV, analizy i zadań niestandardowych za pomocą menu Nowe zlecenie.",
+    "refresh": "Odśwież zadania wsadowe wideo",
+    "empty": "Brak oczekujących zadań wsadowych wideo.",
+    "label": "Etykieta",
+    "status": "Status",
+    "progress": "Postęp",
+    "actions": "Akcje",
+    "cancel": "Anuluj"
+  },
+  "notFound": "Zadanie {{id}} nie zostało znalezione",
+  "queue": {
+    "started": "Rozpoczęto przetwarzanie kolejki zadań",
+    "failed": "Błąd przetwarzania kolejki: {{error}}"
+  },
+  "created": "Zadanie utworzone pomyślnie",
+  "updated": "Zadanie zaktualizowane pomyślnie",
+  "saveFailed": "Nie udało się zapisać zadania: {{error}}",
+  "deleted": "Zadanie usunięte pomyślnie",
+  "duplicatedWithId": "Zadanie powielone pomyślnie (ID: {{id}})",
+  "duplicated": "Zadanie zostało pomyślnie zduplikowane",
+  "duplicateFailed": "Nie udało się zduplikować zadania: {{error}}",
+  "delete": {
+    "title": "Usuń to zadanie",
+    "description": "\"{{name}}\" zostało usunięte.",
+    "thisTask": "to zadanie",
+    "confirm": "Usuń zadanie"
+  },
+  "deleteFailed": "Nie udało się usunąć zadania: {{error}}",
+  "start": {
+    "invalid": "Nieprawidłowe dane zadania",
+    "starting": "Uruchamianie zadania: {{name}}",
+    "unnamed": "Zadanie bez nazwy",
+    "failed": "Nie udało się uruchomić zadania: {{error}}",
+    "started": "Zadanie \"{{name}}\" zostało pomyślnie uruchomione"
+  },
+  "clear": {
+    "none": "Brak zadań do usunięcia",
+    "title": "Usuń wszystkie zadania",
+    "description": "Każde zadanie na tej liście zostanie usunięte.",
+    "tasksFact": "Zadania",
+    "confirm": "Usuń wszystko",
+    "clearing": "Usuwanie wszystkich zadań...",
+    "done": "Pomyślnie usunięto {{count}} zadań",
+    "failed": "Nie udało się usunąć zadań: {{error}}"
+  },
+  "title": "Planer zadań",
+  "counts": {
+    "pending": "{{count}} Oczekujące",
+    "queued": "{{count}} W kolejce",
+    "running": "{{count}} W trakcie"
+  },
+  "runQueue_few": "Uruchom {{count}} zadań",
+  "runQueue_many": "Uruchom {{count}} zadań",
+  "runQueue_one": "Uruchom {{count}} zadanie",
+  "clearAll": "Wyczyść wszystko",
+  "newJob": "Nowe zadanie",
+  "newMenu": {
+    "code": "Generowanie Kodu",
+    "csv": "CSV / Treść masowa",
+    "content": "Generowanie treści",
+    "analysis": "Analiza danych",
+    "custom": "Zadanie niestandardowe"
+  },
+  "typeFilter": {
+    "label": "Typ",
+    "all": "Wszystkie typy",
+    "code": "Gen. Kodu",
+    "csv": "CSV / Masowe",
+    "content": "Treść",
+    "analysis": "Analiza"
+  },
+  "loading": "Ładowanie zadań...",
+  "emptyTitle": "Nie znaleziono zadań",
+  "emptyDescription": "Użyj szybkich akcji powyżej, aby utworzyć swoje pierwsze zadanie",
+  "menu": {
+    "start": "Start",
+    "cancel": "Anuluj",
+    "edit": "Edytuj",
+    "duplicate": "Duplikuj",
+    "newCode": "Nowa Generacja Kodu",
+    "newCsv": "Nowy CSV / Treść zbiorcza",
+    "newContent": "Nowa Generacja Treści",
+    "newAnalysis": "Nowa Analiza Danych",
+    "newCustom": "Nowe Zadanie Własne"
+  }
+}

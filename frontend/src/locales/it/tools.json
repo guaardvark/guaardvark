@@ -1,0 +1,56 @@
+{
+  "title": "Strumenti Agente",
+  "loadFailed": "Caricamento strumenti fallito",
+  "copied": "Copiato negli appunti",
+  "copyFailed": "Impossibile copiare negli appunti",
+  "parameters": "Parametri",
+  "copyName": "Copia nome strumento",
+  "card": {
+    "test": "Test"
+  },
+  "table": {
+    "name": "Nome",
+    "category": "Categoria",
+    "description": "Descrizione",
+    "params": "Param.",
+    "actions": "Azioni",
+    "requiredList": "Richiesti: {{params}}",
+    "optionalList": "Opzionali: {{params}}",
+    "requiredCount": "{{count}} rich.",
+    "optionalCount": "{{count}} opt.",
+    "noParams": "Nessuno",
+    "testTool": "Strumento di test"
+  },
+  "noMatch": "Nessun strumento trovato per \"{{query}}\"",
+  "tabs": {
+    "tools": "Strumenti ({{count}})",
+    "schemas": "Schemi",
+    "categories": "Categorie"
+  },
+  "searchPlaceholder": "Cerca strumenti...",
+  "view": {
+    "label": "modalità visualizzazione",
+    "cardLabel": "visualizzazione a schede",
+    "card": "Visualizzazione a schede",
+    "listLabel": "visualizzazione a elenco",
+    "list": "Visualizzazione a elenco"
+  },
+  "loading": "Caricamento strumenti...",
+  "schemas": {
+    "copyAll": "Copia tutto",
+    "loading": "Caricamento schemi..."
+  },
+  "menu": {
+    "test": "Test…"
+  },
+  "test": {
+    "succeeded": "Strumento eseguito con successo",
+    "executionFailed": "Esecuzione strumento fallita",
+    "title": "Test Strumento: {{name}}",
+    "noApprovalWarning": "Esegui avvia questo strumento per davvero, subito, senza il passaggio di approvazione che la chat richiede inizialmente.",
+    "requiredHelper": "Richiesto. {{description}} ({{type}})",
+    "result": "Risultato",
+    "failed": "Esecuzione fallita",
+    "execute": "Esegui"
+  }
+}

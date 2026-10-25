@@ -1,0 +1,73 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "服务",
+    "utils": "工具类",
+    "tools": "工具",
+    "tasks": "任务",
+    "frontend": "前端",
+    "plugins": "插件",
+    "clear": "清除"
+  },
+  "errors": {
+    "snapshotFailed": "快照失败"
+  },
+  "dispatch": {
+    "queued": "已分发至自我优化代理 — 正在后台运行。",
+    "proposed": "已分发至自我优化代理 — 请在设置中查看建议的修复。",
+    "notRun": "分发未运行 — {{reason}}",
+    "notRunNoReason": "分发未运行 — 未提供原因",
+    "failed": "分发失败：{{error}}"
+  },
+  "title": "系统地图",
+  "stats": "{{modules}} 个模块 · {{edges}} 条边",
+  "severity": {
+    "critical": "{{count}} 个严重",
+    "medium": "{{count}} 个中等",
+    "hygiene": "{{count}} 个规范"
+  },
+  "searchPlaceholder": "搜索 ( / )",
+  "resetView": "重置视图 (R)",
+  "refresh": {
+    "cached": "缓存于 {{seconds}} 秒前 — 点击重新计算",
+    "computed": "在 {{seconds}} 秒前计算完成"
+  },
+  "overlays": {
+    "ghostEndpoints": "幽灵端点",
+    "ghostEndpointsCount": "幽灵端点 ({{count}})",
+    "toolGraph": "工具图谱",
+    "toolGraphCount": "工具图谱 ({{count}})"
+  },
+  "controlsHint": "拖拽 · 平移 | 滚轮 · 缩放 | / · 搜索 | r · 重置 | 点击标签 · 高亮区域",
+  "detail": {
+    "hovered": "悬停",
+    "selected": "已选中",
+    "importers_other": "{{count}} 个导入器",
+    "findings": "发现 ({{count}})",
+    "moreFindings": "… 以及还有 {{count}} 个",
+    "escToClear": "按 <code>Esc</code> 键清除"
+  },
+  "loading": "正在映射系统……",
+  "panel": {
+    "findings": "发现项",
+    "activity": "活动"
+  },
+  "findings": {
+    "actionable": "可操作",
+    "critical": "严重",
+    "all": "全部",
+    "intro": "按等级排序 · 点击定位 · 分派修复",
+    "empty": "此严重程度下无发现项。🎉",
+    "dispatch": "发送至自我优化代理以建议修复方案",
+    "dismiss": "忽略 — 确认并不再显示此项"
+  },
+  "activity": {
+    "title": "实时活动",
+    "intro": "流经对话的工具调用将显示在此。匹配的模块将在星座中闪烁。",
+    "empty": "空闲。向代理提问以开始脉动。",
+    "now": "现在",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

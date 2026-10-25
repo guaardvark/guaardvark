@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "서비스 중단",
+    "unknown": "오류"
+  },
+  "cleanup": {
+    "running": "진행 중인 작업 정리 중...",
+    "result": "{{message}}: {{cleaned}}개의 멈춘 작업이 정리되었습니다 ({{found}}개 발견)",
+    "failed": "정리 실패: {{error}}"
+  },
+  "entityIndexing": {
+    "running": "범용 RAG 접근을 위한 엔티티 인덱싱 중...",
+    "completed": "엔티티 인덱싱 완료: {{total}}개의 엔티티가 인덱싱되었습니다 ({{clients}} 클라이언트, {{projects}} 프로젝트, {{websites}} 웹사이트, {{tasks}} 작업)",
+    "completedWithErrors": "엔티티 인덱싱 완료: {{total}}개의 엔티티가 인덱싱되었습니다 ({{clients}} 클라이언트, {{projects}} 프로젝트, {{websites}} 웹사이트, {{tasks}} 작업), {{errors}} 오류",
+    "failed": "엔티티 인덱싱 실패",
+    "failedWithError": "엔티티 인덱싱 실패: {{error}}"
+  },
+  "restart": {
+    "starting": "서비스 재시작 시작...",
+    "started": "서비스 재시작이 성공적으로 시작되었습니다",
+    "restarting": "서비스를 재시작하는 중입니다. 페이지 연결이 일시적으로 끊길 수 있습니다.",
+    "failed": "서비스 재시작 실패: {{error}}"
+  },
+  "selfTest": {
+    "complete": "자가 진단 완료",
+    "failed": "자가 진단 실패: {{error}}",
+    "resultsHeading": "자가 진단 결과",
+    "resultsEmpty": "상세한 시스템 진단을 확인하려면 자가 진단을 실행하세요"
+  },
+  "logs": {
+    "fetchFailed": "로그를 가져오지 못했습니다 ({{status}})",
+    "heading": "백엔드 로그 (최근 100줄)",
+    "loadFailed": "로그를 불러오지 못했습니다: {{error}}",
+    "empty": "로그 출력이 없습니다."
+  },
+  "title": "시스템 대시보드",
+  "loading": "로딩 중...",
+  "status": {
+    "error": "오류",
+    "healthy": "정상"
+  },
+  "model": {
+    "default": "기본값"
+  },
+  "summary": {
+    "heading": "시스템 상태 요약",
+    "backend": "백엔드: {{state}}",
+    "database": "데이터베이스: {{state}}",
+    "celery": "Celery: {{state}}",
+    "redis": "Redis: {{state}}"
+  },
+  "actions": {
+    "refresh": "새로고침",
+    "retry": "재시도"
+  },
+  "checking": "확인 중...",
+  "backend": {
+    "heading": "백엔드",
+    "version": "버전: {{version}}",
+    "uptime": "가동 시간: {{seconds}}s",
+    "indexLoaded": "✓ 인덱스 로드됨"
+  },
+  "database": {
+    "heading": "데이터베이스 / 마이그레이션",
+    "upToDate": "최신 상태",
+    "needsUpdate": "업데이트 필요",
+    "current": "현재: {{revision}}",
+    "noRevision": "없음",
+    "heads": "헤드: {{heads}}",
+    "multipleHeads": "다중 헤드 감지됨"
+  },
+  "celery": {
+    "heading": "Celery 워커",
+    "ping": "✓ 핑: {{result}}",
+    "active": "활성: {{count}}",
+    "queued": "대기 중: {{count}}",
+    "debug": "디버그: {{tasks}}"
+  },
+  "redis": {
+    "heading": "Redis 캐시",
+    "connected": "✓ 연결됨"
+  },
+  "failedTasks": {
+    "heading": "최근 실패한 작업",
+    "none": "최근 실패 내역 없음."
+  },
+  "controls": {
+    "heading": "시스템 제어",
+    "refreshAll": "전체 새로고침",
+    "running": "실행 중...",
+    "selfTest": "자가 진단",
+    "restartServices": "서비스 재시작",
+    "autoRefresh": "5초마다 자동 새로고침"
+  },
+  "jobs": {
+    "heading": "진행 작업 관리",
+    "activeCount": "{{count}} 활성",
+    "completedCount": "{{count}} 완료",
+    "stuckCount": "{{count}} 멈춤",
+    "systemUnhealthy": "시스템 상태 이상",
+    "cleaning": "정리 중...",
+    "cleanStuck": "멈춘 작업 정리",
+    "cleanStuckCount": "멈춘 작업 정리 ({{count}})",
+    "indexing": "인덱싱 중...",
+    "indexEntities": "엔티티 인덱싱",
+    "stuckWarning": "{{count}}개의 작업이 멈춘 것으로 보입니다 (활성 Celery 작업이 없거나 타임스탬프가 오래됨). 정리를 실행해 보세요.",
+    "systemIssues": "진행 시스템에서 문제를 감지했습니다. 일부 작업이 제대로 작동하지 않을 수 있습니다.",
+    "details": "작업 상세 정보 (총 {{count}})",
+    "noActive": "활성 작업 없음",
+    "columns": {
+      "jobId": "작업 ID",
+      "type": "유형",
+      "status": "상태",
+      "progress": "진행률",
+      "lastUpdate": "최종 업데이트",
+      "message": "메시지"
+    },
+    "staleTooltip": "오래된 작업 (>1시간 동안 업데이트 없음)",
+    "unknownType": "알 수 없음",
+    "complete": "완료",
+    "processing": "처리 중",
+    "invalidDate": "유효하지 않은 날짜",
+    "noTimestamp": "타임스탬프 없음",
+    "hoursAgo": "({{hours}}시간 전)",
+    "noMessage": "메시지 없음",
+    "moreJobs": "... 및 추가 {{count}}개 작업"
+  },
+  "selfImprovement": {
+    "heading": "자기 개선 로그",
+    "runs": "{{count}}회 실행"
+  },
+  "family": {
+    "heading": "패밀리 네트워크",
+    "notConfigured": "설정되지 않음",
+    "online": "온라인",
+    "offline": "오프라인",
+    "noNodes": "연결된 패밀리 노드가 없습니다. 설정에서 Interconnector를 구성하십시오.",
+    "vram": "VRAM: {{free}} / {{total}} MB",
+    "unknownStatus": "알 수 없음"
+  },
+  "performance": {
+    "heading": "성능 개요",
+    "notAvailable": "N/A",
+    "backendUptime": "백엔드 가동 시간: {{seconds}}s",
+    "celeryTasks": "Celery 작업: {{tasks}} 활성",
+    "activeJobs": "활성 작업: {{count}}",
+    "failedTasks": "실패한 작업: {{count}}"
+  },
+  "metrics": {
+    "heading": "시스템 메트릭"
+  },
+  "diagnostics": {
+    "heading": "진단"
+  },
+  "retrievalDebug": {
+    "heading": "검색 디버그"
+  }
+}

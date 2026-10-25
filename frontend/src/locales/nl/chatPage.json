@@ -1,0 +1,59 @@
+{
+  "messages": {
+    "generatedImageAlt": "Gegenereerde afbeelding",
+    "error": "Fout: {{error}}",
+    "bulkStarted": "Batch CSV-generatie gestart! Genereert {{quantity}} items voor \"{{filename}}\". Dit kan enkele minuten duren.",
+    "bulkStartedNoQuantity": "Batch CSV-generatie gestart! Genereert meerdere items voor \"{{filename}}\". Dit kan enkele minuten duren.",
+    "fileGenerated": "Bestand \"{{filename}}\" succesvol gegenereerd! Je kunt het downloaden uit de outputs-map.",
+    "bulkFailed": "Batch CSV-generatie mislukt: {{error}}",
+    "fileFailed": "Bestandsgeneratie mislukt: {{error}}",
+    "modes": {
+      "fileGeneration": "**Bestandsgeneratiemodus**: Analyseert je verzoek voor code-/bestandgeneratie...",
+      "coding": "**Coderingsmodus**: Biedt programmeerhulp...",
+      "web": "**Webonderzoekmodus**: Zoekt naar actuele informatie...",
+      "data": "**Datatoolsmodus**: Verwerkt dataverzoek..."
+    },
+    "tooLong": "Bericht te lang: {{length}} tekens. Maximum toegestaan: 100.000 tekens.",
+    "planNotCreated": "Plannen aanmaken mislukt",
+    "planFailed": "Plannen aanmaken mislukt: {{error}}",
+    "agentWorking": "Agent is actief bezig met redeneren en het routeren van je verzoek...",
+    "agentFailedNoResponse": "Agent-uitvoering mislukt (geen reactie van het model).",
+    "agentEmptyResponse": "Agent-uitvoering voltooid zonder reactie.",
+    "agentFailed": "Uitvoering van agent mislukt: {{error}}",
+    "fileGenerationBusy": "Bestandsgeneratie is al bezig. Ik ga ons gesprek verder terwijl dit wordt verwerkt.",
+    "agentModeSocketDown": "Agentmodus vereist samengevoegde chattools, maar de samengevoegde chat-socket is niet verbonden (herstel geprobeerd). Verbind opnieuw (of herlaad) of typ \"/chat\" om terug te keren naar de normale chatmodus.",
+    "agentModeUnifiedDisabled": "Agentmodus vereist samengevoegde chattools, maar samengevoegde chat is uitgeschakeld. Verbind opnieuw (of herlaad) of typ \"/chat\" om terug te keren naar de normale chatmodus.",
+    "technicalDifficulties": "Excuses, maar ik ervaar technische problemen bij het verwerken van je bericht: \"{{excerpt}}\"\n\nHet Systeem ondervond verbindingsproblemen, maar je bericht is bewaard gebleven in onze gespreksgeschiedenis. Probeer je vraag opnieuw te stellen, of herformuleer deze als je dat wilt.",
+    "warning": "Waarschuwing: {{warning}}",
+    "stopped": "Verzoek gestopt door gebruiker",
+    "uploaded": "Bestand succesvol geüpload! Indexering is gestart op de achtergrond. Controleer het Systeemdashboard om de voortgang te volgen."
+  },
+  "errors": {
+    "agentModeNotSaved": "Agentmodus is niet opgeslagen voor de nieuwe chat: {{reason}}. Stuur /agent om het opnieuw te proberen.",
+    "agentModeNotSavedRequestFailed": "Agentmodus is niet opgeslagen voor de nieuwe chat: de aanvraag is mislukt. Stuur /agent om het opnieuw te proberen.",
+    "lessonNotSaved": "De les is beëindigd maar niet opgeslagen: {{reason}}.",
+    "lessonNotSavedRequestFailed": "De les is afgelopen maar is niet opgeslagen: de aanvraag is mislukt.",
+    "lessonNotSavedHttp": "De les is afgelopen maar is niet opgeslagen: de backend antwoordde met HTTP {{status}}."
+  },
+  "header": {
+    "title": "Chat",
+    "messageCount_one": "{{count}} bericht",
+    "messageCount_other": "{{count}} berichten",
+    "beginLesson": "Begin Les — duimpjes worden samengevoegd tot een lesoverzicht",
+    "endLesson": "Eindig Les — condenseer de kernpunten tot een bewerkbaar overzicht",
+    "allChats": "Alle chats",
+    "newChat": "Start een nieuwe chatsessie",
+    "activeModel": "Actief Model: {{model}}",
+    "modelLoading": "Laden...",
+    "modelFetchError": "Fout bij ophalen van model",
+    "modelUnknown": "N.v.t.",
+    "model": "Model: {{model}}",
+    "modelError": "Fout",
+    "modelDefault": "Standaard"
+  },
+  "status": {
+    "modelWarmingUp": "Model wordt geladen in het GPU-geheugen... De chat is over een moment klaar.",
+    "typing": "Assistent is aan het typen...",
+    "agentBudget": "Agent-modus is aan: elk bericht is een taak die de assistent uitvoert met zijn tools, tot {{total}} stappen per bericht; de laatste taak had nog {{remaining}} stappen over."
+  }
+}

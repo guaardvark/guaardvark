@@ -1,0 +1,41 @@
+{
+  "output": {
+    "status": {
+      "failed": "Ошибка",
+      "replaced": "Заменено",
+      "complete": "Завершено"
+    },
+    "retryFailedRows": "Повторить {{count}} строк с ошибкой",
+    "deleteOutput": "Удалить результат",
+    "generated": "Сгенерировано",
+    "replaced": "Заменено",
+    "successRate": "Процент успеха",
+    "rows": "{{count}} строк"
+  },
+  "task": {
+    "status": {
+      "pending": "Ожидание",
+      "queued": "В очереди",
+      "running": "Выполняется",
+      "paused": "Пауза",
+      "completed": "Завершено",
+      "failed": "Ошибка",
+      "cancelled": "Отменено",
+      "unknown": "Неизвестно"
+    },
+    "statusWithRetries": "{{status}} ({{retries}}x)",
+    "projectNumber": "Проект {{id}}",
+    "noProject": "Нет проекта",
+    "untitled": "Задача без названия",
+    "noClient": "Нет клиента",
+    "queuedForExecution": "В очереди на выполнение...",
+    "processing": "Обработка...",
+    "noDescriptionAvailable": "Описание отсутствует.",
+    "noDescription": "Нет описания",
+    "deleteTask": "Удалить задачу",
+    "runTask": "Запустить задачу",
+    "startJob": "Начать задание",
+    "cancelQueuedTask": "Отмена задачи в очереди",
+    "stopJob": "Остановить задание"
+  }
+}

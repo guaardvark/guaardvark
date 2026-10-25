@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "Servizio non disponibile",
+    "unknown": "Errore"
+  },
+  "cleanup": {
+    "running": "Pulizia in corso dei Lavori in sospeso...",
+    "result": "{{message}}: {{cleaned}} Lavori bloccati puliti ({{found}} trovati)",
+    "failed": "Pulizia fallita: {{error}}"
+  },
+  "entityIndexing": {
+    "running": "Indicizzazione delle entità per l'accesso RAG universale...",
+    "completed": "Indicizzazione entità completata: {{total}} entità indicizzate ({{clients}} Clienti, {{projects}} Progetti, {{websites}} Siti Web, {{tasks}} attività)",
+    "completedWithErrors": "Indicizzazione entità completata: {{total}} entità indicizzate ({{clients}} Clienti, {{projects}} Progetti, {{websites}} Siti Web, {{tasks}} attività), {{errors}} Errori",
+    "failed": "Indicizzazione entità fallita",
+    "failedWithError": "Indicizzazione entità fallita: {{error}}"
+  },
+  "restart": {
+    "starting": "Avvio del riavvio del servizio...",
+    "started": "Riavvio del servizio avviato con successo",
+    "restarting": "I servizi si stanno riavviando. La pagina potrebbe disconnettersi temporaneamente.",
+    "failed": "Riavvio del servizio fallito: {{error}}"
+  },
+  "selfTest": {
+    "complete": "Autotest completato",
+    "failed": "Autotest fallito: {{error}}",
+    "resultsHeading": "Risultati Autotest",
+    "resultsEmpty": "Esegui un autotest per vedere la diagnostica dettagliata del Sistema"
+  },
+  "logs": {
+    "fetchFailed": "Impossibile recuperare i log ({{status}})",
+    "heading": "Log Backend (ultime 100 righe)",
+    "loadFailed": "Impossibile caricare i log: {{error}}",
+    "empty": "Nessun output nei log."
+  },
+  "title": "Pannello di sistema",
+  "loading": "Caricamento...",
+  "status": {
+    "error": "Errore",
+    "healthy": "In salute"
+  },
+  "model": {
+    "default": "Predefinito"
+  },
+  "summary": {
+    "heading": "Riepilogo Stato Sistema",
+    "backend": "Backend: {{state}}",
+    "database": "Database: {{state}}",
+    "celery": "Celery: {{state}}",
+    "redis": "Redis: {{state}}"
+  },
+  "actions": {
+    "refresh": "Aggiorna",
+    "retry": "Riprova"
+  },
+  "checking": "Verifica in corso...",
+  "backend": {
+    "heading": "Backend",
+    "version": "Versione: {{version}}",
+    "uptime": "Uptime: {{seconds}}s",
+    "indexLoaded": "✓ Indice caricato"
+  },
+  "database": {
+    "heading": "Database / Migrazioni",
+    "upToDate": "Aggiornato",
+    "needsUpdate": "Aggiornamento necessario",
+    "current": "Corrente: {{revision}}",
+    "noRevision": "nessuno",
+    "heads": "Testate: {{heads}}",
+    "multipleHeads": "Più testate rilevate"
+  },
+  "celery": {
+    "heading": "Worker Celery",
+    "ping": "✓ Ping: {{result}}",
+    "active": "Attivi: {{count}}",
+    "queued": "In coda: {{count}}",
+    "debug": "Debug: {{tasks}}"
+  },
+  "redis": {
+    "heading": "Cache Redis",
+    "connected": "✓ Connessione stabilita"
+  },
+  "failedTasks": {
+    "heading": "Task Falliti Recenti",
+    "none": "Nessun fallimento recente."
+  },
+  "controls": {
+    "heading": "Controlli Sistema",
+    "refreshAll": "Aggiorna Tutto",
+    "running": "In esecuzione...",
+    "selfTest": "Autotest",
+    "restartServices": "Riavvia Servizi",
+    "autoRefresh": "Aggiornamento automatico ogni 5 secondi"
+  },
+  "jobs": {
+    "heading": "Gestione Lavori di Progresso",
+    "activeCount": "{{count}} Attivi",
+    "completedCount": "{{count}} Completati",
+    "stuckCount": "{{count}} Bloccati",
+    "systemUnhealthy": "Sistema non in salute",
+    "cleaning": "Pulizia in corso...",
+    "cleanStuck": "Pulisci Lavori Bloccati",
+    "cleanStuckCount": "Pulisci Lavori Bloccati ({{count}})",
+    "indexing": "Indicizzazione...",
+    "indexEntities": "Indicizza Entità",
+    "stuckWarning": "Sembrano esserci {{count}} lavori bloccati (nessuna attività Celery attiva o timestamp obsoleti). Considera di eseguire la pulizia.",
+    "systemIssues": "Il sistema di progresso ha rilevato problemi. Alcuni lavori potrebbero non funzionare correttamente.",
+    "details": "Dettagli Lavoro (totale {{count}})",
+    "noActive": "Nessun lavoro attivo",
+    "columns": {
+      "jobId": "ID Lavoro",
+      "type": "Tipo",
+      "status": "Stato",
+      "progress": "Progresso",
+      "lastUpdate": "Ultimo aggiornamento",
+      "message": "Messaggio"
+    },
+    "staleTooltip": "Lavoro obsoleto (>1 ora senza aggiornamenti)",
+    "unknownType": "Sconosciuto",
+    "complete": "Completato",
+    "processing": "In elaborazione",
+    "invalidDate": "Data non valida",
+    "noTimestamp": "Nessun timestamp",
+    "hoursAgo": "({{hours}}h fa)",
+    "noMessage": "Nessun messaggio",
+    "moreJobs": "... e altri {{count}} lavori"
+  },
+  "selfImprovement": {
+    "heading": "Registro Auto-miglioramento",
+    "runs": "{{count}} esecuzioni"
+  },
+  "family": {
+    "heading": "Rete Famiglia",
+    "notConfigured": "Non configurato",
+    "online": "Online",
+    "offline": "Offline",
+    "noNodes": "Nessun nodo della famiglia connesso. Configura l'Interconnector nelle Impostazioni.",
+    "vram": "VRAM: {{free}} / {{total}} MB",
+    "unknownStatus": "sconosciuto"
+  },
+  "performance": {
+    "heading": "Panoramica Prestazioni",
+    "notAvailable": "N/A",
+    "backendUptime": "Uptime Backend: {{seconds}}s",
+    "celeryTasks": "Task Celery: {{tasks}} attivi",
+    "activeJobs": "Lavori attivi: {{count}}",
+    "failedTasks": "Task falliti: {{count}}"
+  },
+  "metrics": {
+    "heading": "Metriche di Sistema"
+  },
+  "diagnostics": {
+    "heading": "Diagnostica"
+  },
+  "retrievalDebug": {
+    "heading": "Debug recupero"
+  }
+}

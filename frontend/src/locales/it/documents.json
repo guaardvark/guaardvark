@@ -1,0 +1,259 @@
+{
+  "rootFolderName": "File",
+  "pdfViewer": {
+    "openInNewTab": "Apri in nuova scheda",
+    "noFile": "Nessun file PDF selezionato"
+  },
+  "docxViewer": {
+    "fetchFailed": "Recupero fallito ({{status}})",
+    "renderFailed": "Impossibile renderizzare il documento",
+    "downloadOriginal": "Scarica originale"
+  },
+  "actions": {
+    "close": "Chiudi",
+    "cancel": "Annulla"
+  },
+  "entityFiles": {
+    "regionLabel": "File per questo {{kind}}",
+    "regionLabel_client": "File per questo client",
+    "regionLabel_website": "File per questo sito web",
+    "title": "File per {{name}}",
+    "title_client": "File per questo client",
+    "title_clientNamed": "File per il client {{name}}",
+    "title_website": "File per questo sito web",
+    "title_websiteNamed": "File per il sito web {{name}}",
+    "loadFailed": "Impossibile caricare i file: {{error}}",
+    "empty": "Nessun file è collegato a questo {{kind}}. Collega un file o una cartella tramite le sue Proprietà.",
+    "empty_client": "Nessun file è collegato a questo client. Collega un file o una cartella tramite le sue Proprietà.",
+    "empty_website": "Nessun file è collegato a questo sito web. Collega un file o una cartella tramite le sue Proprietà.",
+    "filesRoot": "Radice file"
+  },
+  "audioPlayer": {
+    "untitled": "audio",
+    "closeLabel": "chiudi",
+    "seed": "seed: {{seed}}",
+    "openInNewTab": "Apri in nuova scheda"
+  },
+  "folderWindow": {
+    "listView": "Vista elenco",
+    "gridView": "Vista griglia",
+    "mediaView": "Visualizzazione Media",
+    "codeRepoChip": "CODE REPO"
+  },
+  "contextMenu": {
+    "openInWindow": "Apri in finestra",
+    "minimize": "Minimizza",
+    "newFolder": "Nuova cartella",
+    "importFiles": "Importa File",
+    "paste": "Incolla",
+    "closeWindow": "Chiudi finestra",
+    "reviewWithAgent": "Revisione con Agente",
+    "cut": "Taglia",
+    "copy": "Copia",
+    "rename": "Rinomina",
+    "properties": "Proprietà",
+    "bulkImportHere": "Importazione di massa in questa cartella…",
+    "indexContents": "Indicizza contenuti",
+    "delete": "Elimina",
+    "download": "Scarica",
+    "edit": "Modifica",
+    "view": "Visualizza",
+    "openInCodeEditor": "Apri in Editor di Codice",
+    "index": "Indice",
+    "open": "Apri",
+    "restore": "Ripristina"
+  },
+  "codeRepo": {
+    "never": "Mai",
+    "unknown": "Sconosciuto",
+    "buttonTooltip": "Intelligenza del Repository di Codice: linguaggi, framework, mappa del repository e dipendenze",
+    "buttonLabel": "Intelligenza del Repository di Codice per {{name}}",
+    "button": "INTEL",
+    "title": "Intelligenza del Repository di Codice",
+    "analyzed": "Analizzato: {{date}}",
+    "languagesFrameworks": "Linguaggi e Framework",
+    "analysisPending": "Analisi in sospeso",
+    "statistics": "Statistiche",
+    "fileCount_one": "{{count}} File",
+    "fileCount_other": "{{count}} File",
+    "mappedFileCount_one": "{{count}} file mappato",
+    "mappedFileCount_other": "{{count}} file mappati",
+    "viewMap": "Visualizza Mappa Repository",
+    "viewDependencies": "Visualizza Dipendenze",
+    "mapTitle": "Mappa Repository",
+    "noMap": "Nessuna mappa disponibile.",
+    "graphTitle": "Grafico Dipendenze"
+  },
+  "desktop": {
+    "loadFailed": "Impossibile caricare gli elementi della scrivania",
+    "movedToFolder": "Spostati {{count}} elemento/i in {{folder}}",
+    "movedToDesktop": "Spostati {{count}} elemento/i sulla scrivania"
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "I file del repository live sono in sola lettura qui. Usa invece un'edizione di codice proprio in fase di staging.",
+    "saveFailed": "Salvataggio fallito: {{error}}",
+    "liveRepoReviewFirst": "I file del repository live sono in modalità revisione e non possono essere modificati direttamente in questa modale.",
+    "discardConfirm": "Hai modifiche non salvate. Vuoi scartarle?",
+    "liveRepoChip": "Repo live · sola lettura",
+    "modified": "Modificato",
+    "viewMode": "Modalità visualizzazione",
+    "editMode": "Modalità modifica",
+    "openInCodeEditor": "Apri in Editor di Codice",
+    "copy": "Copia negli appunti",
+    "saving": "Salvataggio in corso...",
+    "save": "Salva"
+  },
+  "folder": {
+    "empty": "Questa cartella è vuota",
+    "loadFailed": "Impossibile caricare il contenuto della cartella",
+    "columnName": "Nome",
+    "columnDate": "Data",
+    "columnSize": "Dimensione",
+    "codeRepository": "Repository di Codice",
+    "itemCount_one": "{{count}} elemento",
+    "itemCount_other": "{{count}} elementi"
+  },
+  "mediaView": {
+    "selectFile": "Seleziona un file",
+    "previous": "Precedente",
+    "next": "Successivo",
+    "open": "Apri",
+    "download": "Scarica",
+    "closePreview": "Chiudi anteprima"
+  },
+  "indexStatus": {
+    "indexed": "Indicizzato",
+    "indexing": "Indicizzazione in corso...",
+    "pending": "In attesa",
+    "error": "Errore",
+    "folderFull": "Interamente indicizzato ({{indexed}}/{{total}})",
+    "folderPartial": "Parzialmente indicizzato ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "Il nome della cartella non può essere vuoto",
+    "emptyFileName": "Il nome del file non può essere vuoto",
+    "invalidFolderName": "Il nome della cartella contiene caratteri non validi. Usa solo lettere, numeri, spazi, trattini e sottolineature.",
+    "invalidFileName": "Il nome del file contiene caratteri non validi. Usa solo lettere, numeri, spazi, trattini, sottolineature e punti.",
+    "invalidName": "Il nome contiene caratteri non validi. Usa solo lettere, numeri, spazi, trattini e sottolineature.",
+    "folderNameTooLong": "Il nome della cartella è troppo lungo. La lunghezza massima è di {{max}} caratteri.",
+    "fileNameTooLong": "Il nome del file è troppo lungo. La lunghezza massima è di {{max}} caratteri."
+  },
+  "indexing": {
+    "nothing": "Nulla da indicizzare",
+    "alreadyIndexedOne": "Già indicizzato; il file non è cambiato",
+    "alreadyIndexedAll_one": "Tutto è già indicizzato ({{count}} file invariati)",
+    "alreadyIndexedAll_other": "Tutto è già indicizzato ({{count}} file invariati)",
+    "documentCount_one": "1 documento",
+    "documentCount_other": "{{count}} documenti",
+    "folderCount_one": "1 cartella",
+    "folderCount_other": "{{count}} cartelle",
+    "startedFromFoldersSkipped": "Indicizzazione di {{documents}} da {{folders}}, {{skipped}} già indicizzati",
+    "startedFromFolders": "Indicizzazione di {{documents}} da {{folders}}",
+    "startedSkipped": "Indicizzazione di {{documents}}, {{skipped}} già indicizzati",
+    "started": "Indicizzazione di {{documents}}",
+    "startFailed": "Impossibile avviare l'indicizzazione",
+    "failed": "Indicizzazione fallita: {{error}}"
+  },
+  "page": {
+    "refreshFailed": "Aggiornamento fallito",
+    "downloading": "Download di {{name}}",
+    "title": "File",
+    "loadingFolders": "Caricamento cartelle...",
+    "importFiles": "Importa File",
+    "arrangeIcons": "Ordina icone",
+    "arrangeWindows": "Ordina finestre",
+    "modelLoading": "Caricamento...",
+    "modelError": "Errore",
+    "emptyTitle": "Nessun documento ancora",
+    "emptyHint": "Trascina i file qui o clicca con il tasto destro per creare una cartella",
+    "folderItemCount_one": "1 elemento",
+    "folderItemCount_other": "{{count}} elementi",
+    "uploadProgress_one": "Caricamento di {{current}}/{{count}} file...",
+    "uploadProgress_other": "Caricamento di {{current}}/{{count}} file..."
+  },
+  "import": {
+    "nothingToImport": "Nulla da importare: {{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "Caricamento fallito",
+    "importedSkipped": "Importati {{count}} file in {{folder}}; {{skipped}} saltati",
+    "imported": "Importati {{count}} file in {{folder}}",
+    "importedPartlySkipped": "Importati {{count}} file in {{folder}}; {{failed}} falliti ({{error}}); {{skipped}} saltati",
+    "importedPartly": "Importati {{count}} file in {{folder}}; {{failed}} falliti ({{error}})",
+    "failed": "Import fallito: {{error}}",
+    "importedFiltered": "Importati {{count}} file in {{folder}} ({{ignored}} ignorati dal filtro)",
+    "failedPlain": "Import fallito"
+  },
+  "move": {
+    "intoOwnSubfolder": "Impossibile spostare \"{{name}}\" nella propria sottocartella",
+    "unknownError": "Errore sconosciuto",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "Spostati {{count}} elemento(i)",
+    "failed": "Errore nello spostamento degli elementi",
+    "movedPartly": "Spostati {{count}} elemento(i), {{failed}} falliti",
+    "dropFailed": "Errore durante il rilascio",
+    "operationFailed": "Operazione fallita: {{error}}"
+  },
+  "newFolder": {
+    "created": "Cartella \"{{name}}\" creata",
+    "failed": "Errore nella creazione della cartella",
+    "title": "Crea Nuova Cartella",
+    "nameLabel": "Nome Cartella",
+    "create": "Crea"
+  },
+  "clipboard": {
+    "copied": "Copiati {{count}} elemento(i)",
+    "cut": "Tagliati {{count}} elemento(i)",
+    "foldersNotPastable": "Le cartelle non possono essere incollate in {{folder}}",
+    "liveRepoReadOnly": "Gli elementi nel repository live sono in sola lettura qui",
+    "itemFailed": "fallito",
+    "pasted": "Incollati {{count}} elemento(i) in {{folder}}",
+    "moved": "Spostati {{count}} elemento(i) in {{folder}}",
+    "pastedPartly": "Incollati {{count}} elemento(i) in {{folder}}; {{failed}} falliti: {{error}}",
+    "movedPartly": "Spostati {{count}} elemento(i) in {{folder}}; {{failed}} falliti: {{error}}",
+    "pasteFailed": "Incollatura fallita: {{error}}",
+    "moveFailed": "Spostamento fallito: {{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "Il mount del Codice live è in sola lettura",
+    "deleted": "Eliminati {{count}} elemento(i)",
+    "someFailed": "Alcune eliminazioni potrebbero essere fallite — aggiornamento stato",
+    "confirmTitle": "Conferma Eliminazione",
+    "confirmBody_one": "Elimina {{count}} elemento? Questa azione non può essere annullata.",
+    "confirmBody_other": "Elimina {{count}} elementi? Questa azione non può essere annullata.",
+    "confirm": "Elimina"
+  },
+  "properties": {
+    "fileNotFound": "File non trovato",
+    "loadFailed": "Caricamento dettagli file fallito",
+    "fileUpdated": "Proprietà del file aggiornate con successo",
+    "fileUpdateFailed": "Aggiornamento proprietà file fallito",
+    "updateFailed": "Aggiornamento fallito: {{error}}",
+    "fileDeleted": "File eliminato con successo",
+    "fileDeleteFailed": "Eliminazione file fallita",
+    "deleteFailed": "Eliminazione fallita: {{error}}",
+    "reindexStarted": "Riesecuzione indice avviata con successo. Lo stato si aggiornerà a breve.",
+    "reindexStartFailed": "Avvio riesecuzione indice fallito",
+    "reindexFailed": "Riescindezione fallita: {{error}}",
+    "folderApplied": "Proprietà applicate con successo! File aggiornati: {{files}}, Sottocartelle elaborate: {{folders}}",
+    "folderUpdated": "Proprietà della cartella aggiornate con successo",
+    "folderUpdateFailed": "Impossibile aggiornare le proprietà della cartella",
+    "folderDeleted": "Cartella eliminata"
+  },
+  "rename": {
+    "folderRenamed": "Cartella rinominata in \"{{name}}\"",
+    "fileRenamed": "File rinominato in \"{{name}}\"",
+    "failedReason": "Rinomina fallita: {{reason}}",
+    "failed": "Rinomina fallita",
+    "folderTitle": "Rinomina Cartella",
+    "fileTitle": "Rinomina File",
+    "fileNameLabel": "Nome File",
+    "fileHint": "Cambia il nome visualizzato in Guaardvark; il file su disco mantiene il suo nome.",
+    "submit": "Rinomina"
+  },
+  "review": {
+    "liveRepoOnly": "La revisione del Codice è disponibile solo per il mount del repository live",
+    "dispatchedTask": "Revisione del Codice inviata ({{taskId}})",
+    "dispatched": "Revisione del Codice inviata",
+    "failed": "Impossibile inviare la revisione del Codice"
+  }
+}

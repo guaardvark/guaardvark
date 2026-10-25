@@ -1,0 +1,82 @@
+{
+  "publishEdit": {
+    "draftedBy": {
+      "chat": "Czat przygotował ten wpis.",
+      "mcp": "Narzędzie AI połączone przez MCP przygotowało ten wpis.",
+      "schedule": "Harmonogram dodał ten wpis do kolejki.",
+      "unknown": "Ten wpis pochodzi od nadawcy, który nie określił swojej roli."
+    },
+    "fields": {
+      "body": "tekst",
+      "title": "tytuł",
+      "linkUrl": "link",
+      "tags": "tagi",
+      "visibility": "widoczność",
+      "postOptions": "pola wpisu",
+      "aiDisclosure": "etykieta AI",
+      "scheduledAt": "czas"
+    }
+  },
+  "rejectDialog": {
+    "title": "Odrzucić publikację?",
+    "body": "Nie zostanie wysłana i nie będzie można jej zatwierdzić później – zamiast niej należy dodać nowy wpis do kolejki. Podany poniżej powód zostanie zapisany w historii.",
+    "reasonLabel": "Powód (opcjonalnie)",
+    "reasonPlaceholder": "Dlaczego ten wpis nie zostanie wysłany?",
+    "keep": "Zachowaj",
+    "rejecting": "Odrzucanie…",
+    "reject": "Odrzuć"
+  },
+  "editDialog": {
+    "unavailable": "{{platform}} nie jest dostępne w tej instalacji, więc ten wpis nie może zostać edytowany.",
+    "title": "Edytuj przed zatwierdzeniem",
+    "draftedNote": "{{drafted}} To, co tutaj zapiszesz, zostanie opublikowane po zatwierdzeniu.",
+    "caption": "Podpis",
+    "text": "Tekst",
+    "scheduleHelp": "Nadal czeka na Twoje zatwierdzenie.",
+    "goesOutAs": "Występuje jako (ze względu na linie {{platform}} lub licencję mediów):",
+    "savingNote": "Zapisanie powoduje oczekiwanie. Zatwierdź to później.",
+    "cancel": "Anuluj",
+    "save": "Zapisz"
+  },
+  "page": {
+    "families": {
+      "social": "Społecznościowe",
+      "aiProviders": "Dostawcy AI",
+      "mcp": "MCP"
+    },
+    "status": {
+      "connected": "połączone",
+      "error": "błąd",
+      "expired": "wygasło",
+      "disabled": "wyłączone",
+      "unconfigured": "niekonfigurowane"
+    },
+    "removed": "Połączenie usunięte.",
+    "publicOn": "{{label}}: włączone dla tego konta. Każde Prześlij nadal czeka na Twoje Zatwierdzenia.",
+    "publicOff": "{{label}}: wyłączone dla tego konta.",
+    "withoutApprovalOn": "Publikacje, które tutaj zaczynasz, trafią do tego kanału bez konieczności Zatwierdzenia.",
+    "withoutApprovalOff": "Publikacje do tego kanału ponownie czekają na Zatwierdzenie.",
+    "title": "Połączenia",
+    "intro": "Konta i usługi, do których ta instalacja może publikować lub do których może się odwoływać. Dane uwierzytelniające są przechowywane poza bazą danych.",
+    "postingStopped": "Publiczne publikowanie jest zatrzymane. Wznów je na stronie Outreach.",
+    "queuedHeld": "Publikacje w kolejce są zatrzymane na stronie Zatwierdzenia.",
+    "publishingEnabled": "Publikowanie włączone",
+    "approvalNote": "Każda publikacja oczekuje na Twoje Zatwierdzenie na stronie Zatwierdzenia. Webhook Discord, który publikuje na kanale, którym zarządzasz, może być skonfigurowany tak, aby publikował bez czekania na własnej karcie. Konto YouTube przesyła materiały jako prywatne, dopóki jego karta nie pozwoli na publiczne przesyłanie.",
+    "addConnection": "Dodaj połączenie",
+    "appReview": "recenzja aplikacji",
+    "noCredentials": "Brak poświadczeń",
+    "withoutApprovalTooltip": "Dla kanału, którym zarządzasz. Publikacje rozpoczęte tutaj wychodzą bez czekania na stronie Zatwierdzenia; żądania z Czat, MCP lub harmonogramu nadal czekają.",
+    "postWithoutApproval": "Publikuj bez zatwierdzenia",
+    "onThroughSetting": "Włączone przez ustawienie ogólne {{setting}}. Zmiana tutaj wprowadza wybór tylko dla tego konta.",
+    "testing": "Testowanie…",
+    "test": "Testuj",
+    "edit": "Edytuj",
+    "remove": "Usuń",
+    "empty": "Brak połączeń w tej kategorii.",
+    "environment": "Środowisko",
+    "environmentNote": "Wykryte z środowiska procesu backendu. Zarządzane poza aplikacją i wyświetlane tutaj w trybie tylko do odczytu.",
+    "encrypted": "Szyfrowane",
+    "unencrypted": "Nieszyfrowane",
+    "credentialCount": "{{count}} poświadczenie(ów)"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "default": "深灰色",
+    "light": "浅色"
+  },
+  "descriptions": {
+    "guaardvark": "受 guaardvark.com 启发的极简单色主题",
+    "default": "带有青色点缀的简洁深色主题",
+    "musk": "带有霓虹青和红色点缀的未来派深色主题",
+    "hacker": "受 Pip-Boy 启发的废土终端，采用辐射绿和琥珀色",
+    "vader": "受达斯·维达启发的深色庄重主题，带有黑色和红色点缀",
+    "light": "带有青色点缀的简洁浅色主题 —— 护眼舒适"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "获取客户失败。",
+    "loadError": "加载客户时出现错误：{{error}}",
+    "updated": "客户更新成功！",
+    "created": "客户创建成功！",
+    "updateError": "更新客户时出错。",
+    "createError": "创建客户时出错。",
+    "deleteConfirm": "您确定要删除客户 \"{{name}}\" (ID: {{id}})? 这可能会影响相关的项目。",
+    "deleteConfirmUnnamed": "您确定要删除客户 \"此客户\" (ID: {{id}})? 这可能会影响相关的项目。",
+    "deleted": "客户 \"{{name}}\" 已成功删除！",
+    "deleteError": "删除客户时出错。",
+    "missingClient": "缺少客户数据。无法打开关联模态框。",
+    "linksUpdated": "项目链接更新成功！",
+    "projectsFetchError": "获取项目时出错：{{error}}",
+    "linksError": "更新链接时出错：{{error}}",
+    "unknownError": "发生未知错误。",
+    "columns": {
+      "logo": "Logo",
+      "name": "客户名称",
+      "email": "电子邮件",
+      "phone": "电话",
+      "projects": "项目数量",
+      "notes": "笔记",
+      "updated": "最后更新",
+      "actions": "操作"
+    },
+    "title": "客户",
+    "new": "新建",
+    "loading": "正在加载客户...",
+    "empty": "未找到客户。添加一个以开始使用！",
+    "notAvailable": "N/A",
+    "email": "电子邮件：{{email}}",
+    "phone": "电话：{{phone}}",
+    "noNotesTooltip": "无笔记。",
+    "noNotes": "无笔记",
+    "projects": "项目：{{projects}}",
+    "linkProjects": "关联项目",
+    "deleteClient": "删除客户",
+    "total": "客户总数：{{total}}",
+    "menu": {
+      "edit": "编辑",
+      "delete": "删除",
+      "newClient": "新客户"
+    },
+    "linkProject": "项目",
+    "linkProjectsPlural": "项目"
+  }
+}

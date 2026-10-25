@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "Clicchi: {{clicks}} | Impressioni: {{impressions}} | Posizione: {{position}}",
+    "notAvailable": "N/D"
+  },
+  "errors": {
+    "fetchFailed": "Errore nel recupero delle pagine",
+    "loadFailed": "Errore nel caricamento delle pagine",
+    "pullFailed": "Errore nel pull delle pagine",
+    "processFailed": "Errore nell'elaborazione della pagina",
+    "queueFailed": "Errore nell'inserimento delle pagine in coda",
+    "executeFailed": "Errore nell'esecuzione della coda",
+    "recommendationsFailed": "Impossibile ottenere i suggerimenti. Funzionalità in arrivo."
+  },
+  "feedback": {
+    "pulled": "Pagine scaricate: {{count}}",
+    "nonePending": "Nessuna pagina in attesa di elaborazione",
+    "queued": "Pagine in coda per elaborazione: {{count}}",
+    "processed": "Pagine elaborate: {{succeeded}}/{{total}}"
+  },
+  "recommendations": {
+    "summary": "La funzione di suggerimenti AI analizzerà il contenuto della pagina e fornirà suggerimenti intelligenti per miglioramenti.",
+    "content": {
+      "title": "Miglioramento Contenuti",
+      "description": "Analizza il contenuto per l'ottimizzazione SEO, il miglioramento della leggibilità e l'aumento del coinvolgimento."
+    },
+    "seo": {
+      "title": "Ottimizzazione SEO",
+      "description": "Revisiona i meta tag, la struttura delle intestazioni e le opportunità di ottimizzazione delle parole chiave."
+    },
+    "structure": {
+      "title": "Struttura Contenuti",
+      "description": "Valuta l'organizzazione dei contenuti e suggerisci miglioramenti per una migliore esperienza utente."
+    },
+    "priority": {
+      "high": "alta",
+      "medium": "media",
+      "low": "bassa"
+    },
+    "title": "Suggerimenti AI",
+    "none": "Nessun suggerimento specifico disponibile al momento.",
+    "loading": "Caricamento suggerimenti...",
+    "processNow": "Elabora ora"
+  },
+  "title": "Pagine WordPress",
+  "actions": {
+    "pull": "Scarica",
+    "queue": "In coda ({{count}})",
+    "process": "Elabora",
+    "close": "Chiudi",
+    "cancel": "Annulla"
+  },
+  "site": "Sito WordPress",
+  "filters": {
+    "pull": "Scaricate",
+    "all": "Tutti",
+    "pulled": "Scaricate",
+    "pending": "In attesa",
+    "error": "Errore",
+    "process": "In elaborazione",
+    "processing": "In elaborazione",
+    "completed": "Completati",
+    "approved": "Approvati"
+  },
+  "stats": {
+    "total": "Totale: {{total}}",
+    "pending": "In attesa: {{pending}}",
+    "completed": "Completati: {{completed}}"
+  },
+  "empty": {
+    "noPages": "Nessuna pagina trovata. Scarica le pagine per iniziare.",
+    "selectSite": "Seleziona un sito WordPress per visualizzare le pagine"
+  },
+  "table": {
+    "title": "Titolo",
+    "type": "Tipo",
+    "seo": "SEO",
+    "ai": "AI"
+  },
+  "untitled": "Senza titolo",
+  "tooltips": {
+    "getRecommendations": "Clicca per i suggerimenti AI",
+    "hasImprovements": "Ha miglioramenti",
+    "noImprovements": "Nessun miglioramento"
+  },
+  "pullDialog": {
+    "title": "Scarica Pagine da WordPress",
+    "postType": "Tipo di post",
+    "posts": "Post",
+    "pages": "Pagine",
+    "maxPages": "Max Pagine (Opzionale)",
+    "maxPagesHelper": "Lascia vuoto per scaricare tutte le pagine",
+    "pulling": "Download in corso...",
+    "submit": "Scarica Pagine"
+  }
+}

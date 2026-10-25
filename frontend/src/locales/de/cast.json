@@ -106,7 +106,7 @@
     "approve": "Freigeben",
     "regenerateMenu": "Regenerieren…",
     "approveToTrain": "Bestätige mindestens ein Beispiel, um aus diesem Blatt zu trainieren (oder trainiere aus den Trainingsdaten, falls du bereits Referenzen hast).",
-    "trainsOn": "Trainiert auf deinen {{images}} + {{samples}}. Bei Erfolg werden bestätigte Generierungen zu den Trainingsdaten hinzugefügt. ~Stunden auf einer 16GB GPU; läuft im Hintergrund.",
+    "trainsOn": "Trainiert auf deinen {{images}} + {{samples}}. Bei Erfolg werden bestätigte Generierungen zu den Trainingsdaten hinzugefügt. Dauert auf einer 16GB GPU Stunden; läuft im Hintergrund.",
     "approvedSamples_one": "{{count}} genehmigtes Muster",
     "approvedSamples_other": "{{count}} bestätigte Beispiele"
   },

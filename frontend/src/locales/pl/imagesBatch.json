@@ -1,0 +1,308 @@
+{
+  "styles": {
+    "realistic": "Realistyczny",
+    "artistic": "Artystyczny",
+    "cartoon": "Kreskówkowy",
+    "sketch": "Szkic",
+    "infographic": "Infografika",
+    "technical": "Techniczny"
+  },
+  "models": {
+    "autoLabel": "Auto — najlepszy dla promptu ⭐",
+    "autoDescription": "Używa modelu Stills wybranego w Ustawienia > Generowanie; jeśli nie wybrano żadnego, router wybiera najlepszy pobrany model dla każdego promptu"
+  },
+  "errors": {
+    "modelsLoadFailed": "Nie można załadować modeli obrazów: {{error}}. Do czasu załadowania dostępna jest tylko opcja Auto.",
+    "requestFailed": "żądanie nie powiodło",
+    "backendHttp": "backend odpowiedział HTTP {{status}}",
+    "noBatchData": "backend nie odpowiedział danymiami wsadowymi",
+    "queueStalled": "Kolejka wsadowa nie jest aktualizowana: {{error}}.",
+    "loadBatchFailedHttp": "Błąd ładowania partii: HTTP {{status}}",
+    "batchNotJson": "Odpowiedź wsadowa nie jest w formacie JSON",
+    "loadBatchFailed": "Błąd ładowania partii: {{error}}",
+    "batchNotFound": "Partia nie została znaleziona",
+    "noPrompt": "Podaj prompt",
+    "noPrompts": "Podaj przynajmniej jeden prompt lub temat",
+    "startFailedHttp": "Błąd rozpoczęcia generowania: HTTP {{status}} {{statusText}}",
+    "startNotJson": "Odpowiedź generowania nie jest w formacie JSON. Odpowiedź: {{response}}",
+    "noBatchId": "Rozpoczęto generowanie wsadowe, ale nie zwrócono ID partii",
+    "startFailedPlain": "Błąd rozpoczęcia generowania",
+    "startFailed": "Błąd rozpoczęcia generowania: {{error}}",
+    "cancelFailedHttp": "Nie udało się anulować generowania: HTTP {{status}}",
+    "cancelFailed": "Nie udało się anulować generowania: {{error}}"
+  },
+  "cast": {
+    "lockedNote": "Ustawione przez podstawowy model wybranego bohatera podczas wyboru postaci.",
+    "title": "Obsada (opcjonalnie)",
+    "help": "Wybierz wytrenowanego bohatera — tożsamość (wyzwalacz + klasa + znaki wizji) oraz LoRA zostaną zastosowane automatycznie. Opisz tylko scenę/akcję; nie opisuj ponownie twarzy ani kostiumu."
+  },
+  "workers": {
+    "oneAtATimeModel": "{{model}} renderuje jedno zdjęcie na raz.",
+    "oneAtATimeGpu": "Jedno zdjęcie na raz na karcie graficznej.",
+    "max": "Max Workerów: {{count}}"
+  },
+  "install": {
+    "button": "Zainstaluj",
+    "notInstalledSized": "{{model}} nie jest zainstalowany. Instalacja pobierze go (około {{size}} GB); Przycisk Start pozostanie nieaktywny, dopóki proces nie zostanie zakończony.",
+    "notInstalled": "{{model}} nie jest zainstalowany. Instalacja pobierze go; Przycisk Start pozostanie nieaktywny, dopóki proces nie zostanie zakończony.",
+    "noModelSized": "Nie zainstalowano jeszcze modelu obrazu. Zainstaluj {{model}} (około {{size}} GB) dla trybu Auto.",
+    "noModel": "Nie zainstalowano jeszcze modelu obrazu. Zainstaluj {{model}} dla trybu Auto.",
+    "startOff": "Start jest wyłączony: {{model}} nie jest zainstalowany.",
+    "noModelShort": "Nie zainstalowano jeszcze modelu obrazu."
+  },
+  "dimensions": {
+    "square": "Kwadrat ({{width}}x{{height}})",
+    "portrait": "Portret ({{width}}x{{height}})",
+    "landscape": "Krajobraz ({{width}}x{{height}})",
+    "largeSquare": "Duży Kwadrat ({{width}}x{{height}})",
+    "hdPortrait": "Portret HD ({{width}}x{{height}})",
+    "hdLandscape": "Pojazd HD ({{width}}x{{height}})",
+    "oneKSquare": "Kwadrat 1K ({{width}}x{{height}})",
+    "oneKPortrait": "Portret 1K ({{width}}x{{height}})",
+    "oneKLandscape": "Pojazd 1K ({{width}}x{{height}})",
+    "oneKWide": "Szeroki 1K 16:9 ({{width}}x{{height}})",
+    "oneKTall": "Wysoki 1K 9:16 ({{width}}x{{height}})",
+    "twoKSquare": "Kwadrat 2K ({{width}}x{{height}})",
+    "twoKLandscapeWide": "Szeroki 2K 16:9 ({{width}}x{{height}})",
+    "twoKUltrawide": "Ultrawide 2K 21:9 ({{width}}x{{height}})",
+    "twoKPortraitTall": "Wysoki 2K 9:16 ({{width}}x{{height}})",
+    "twoKLandscapeClassic": "Pojazd 2K 3:2 ({{width}}x{{height}})",
+    "twoKPortraitClassic": "Portret 2K 2:3 ({{width}}x{{height}})",
+    "fluxSquare": "FLUX max kwadrat ({{width}}x{{height}})",
+    "fluxWide": "FLUX max 16:9 ({{width}}x{{height}})",
+    "fluxTall": "FLUX max 9:16 ({{width}}x{{height}})",
+    "fluxLandscape": "FLUX max 3:2 ({{width}}x{{height}})",
+    "fluxPortrait": "FLUX max 2:3 ({{width}}x{{height}})",
+    "qwenSquare": "Qwen Kwadrat 2K ({{width}}x{{height}})",
+    "qwenWide": "Qwen Szeroki 2K 16:9 ({{width}}x{{height}})",
+    "qwenTall": "Qwen Wysoki 2K 9:16 ({{width}}x{{height}})",
+    "qwenLandscape": "Qwen Pojazd 2K 3:2 ({{width}}x{{height}})",
+    "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "title": "Wymiary",
+    "custom": "Własne ({{width}}x{{height}})",
+    "highResWarning": "Wysoka rozdzielczość (>1MP): wymaga więcej VRAM; może wystąpić błąd OOM na kartach 16GB."
+  },
+  "director": {
+    "needIdea": "Najpierw wprowadź ogólny koncept lub styl wizualny",
+    "expanded": "Twój pomysł został przekształcony w {{count}} ujęć. Przeczytaj je, popraw dowolną linię, a następnie kliknij Start.",
+    "noShots": "Model Czat nie wygenerował ujęć dla tego pomysłu. Spróbuj bardziej szczegółowego opisu lub sprawdź w Ustawieniach, czy model Czat jest uruchomiony.",
+    "failed": "Nie udało się przekształcić pomysłu w ujęcia. Sprawdź, czy model Czat jest zainstalowany i uruchomiony w Ustawieniach, a następnie spróbuj ponownie. ({{error}})",
+    "expandTooltip": "Zamienia powyższy pomysł na kilka różnych ujęć (każde z własnym promptem) wygenerowanych przez model Czat. Zastępują one tekst powyżej, abyś mógł je przeczytać i edytować przed rozpoczęciem.",
+    "expanding": "Pisanie ujęć…",
+    "expand": "Rozwiń na ujęcia",
+    "rewriteTooltip": "Zmuś model Czat do przeredagowania każdego promptu na pełniejszy opis przed renderowaniem, zamiast używania krótkich tagów. Modele prozajowe i tak wykonują to przeredagowanie, gdy opcja Ulepszaj prompty jest włączona.",
+    "rewrite": "Przeredaguj prompty za pomocą modelu Czat"
+  },
+  "service": {
+    "statusFailedHttp": "Błąd sprawdzenia statusu usługi: HTTP {{status}}",
+    "statusNotJson": "Odpowiedź statusu usługi nie jest w formacie JSON",
+    "unavailable": "Usługa generowania obrazów seryjnych jest niedostępna",
+    "statusFailed": "Nie udało się sprawdzić statusu usługi"
+  },
+  "history": {
+    "cleared": "Wykaszowano listę historii partii.",
+    "clear": "Wyczyść listę partii",
+    "title": "Ostatnie partie",
+    "refresh": "Odśwież partie",
+    "retry": "Powtórz",
+    "loadFailed": "Nie można załadować ostatnich partii: {{reason}}",
+    "empty": "Nie znaleziono partii obrazów"
+  },
+  "messages": {
+    "batchFinished": "Generowanie partii zakończone: {{status}}",
+    "blueprintQueued": "Partię blueprintów dodano do kolejki. Wyniki pojawią się po zakończeniu generowania.",
+    "queued": "Partię dodano do kolejki. Partie są renderowane jedna po drugiej; możesz dodać więcej, gdy ta aktualnie trwa.",
+    "cancelled": "Generowanie partii anulowane"
+  },
+  "csv": {
+    "invalidFile": "Wybierz poprawny plik CSV",
+    "templateFailedHttp": "Nie udało się pobrać szablonu: HTTP {{status}}",
+    "templateNotCsv": "Odpowiedź szablonu nie jest poprawnym plikiem CSV",
+    "templateFailed": "Nie udało się pobrać szablonu: {{error}}",
+    "noFile": "Wybierz plik CSV do przesłania",
+    "title": "Przesłanie pliku CSV",
+    "upload": "Prześlij plik CSV",
+    "selected": "Wybrano plik: {{name}}",
+    "template": "Pobierz szablon CSV"
+  },
+  "blueprint": {
+    "invalidFile": "Wybierz poprawny plik CSV dla blueprintów",
+    "noFile": "Wybierz plik CSV do generowania blueprintów",
+    "title": "Przesłanie pliku CSV dla blueprintów offline",
+    "help": "Prześlij plik CSV z kolumnami „city” i „count” (lub „patents”), aby wygenerować schematy danych (tylko CPU). Duże paczki są przetwarzane w tle; sprawdzaj status, aż do zakończenia.",
+    "upload": "Prześlij Blueprint CSV",
+    "format": "Akceptowany format: .csv (kolumny takie jak city/name i count/patents/value)"
+  },
+  "retry": {
+    "loadFailedHttp": "Nie można załadować ustawień: HTTP {{status}}",
+    "noSettings": "Ta paczka nie zapisała swoich ustawień.",
+    "loadedSettings": "Załadowano ustawienia \"{{name}}\" do panelu sterowania — dostosuj dowolne parametry, a następnie kliknij Generuj.",
+    "loadedPrompts": "Załadowano prompty \"{{name}}\" do panelu.",
+    "loadedPromptsQty_few": "Załadowano \"{{name}}\": {{count}} promptów x ilość {{quantity}}.",
+    "loadedPromptsQty_many": "Załadowano \"{{name}}\": {{count}} promptów x ilość {{quantity}}.",
+    "loadedPromptsQty_one": "Załadowano \"{{name}}\": {{count}} prompt x ilość {{quantity}}.",
+    "loadFailed": "Nie można załadować ustawień: {{error}}"
+  },
+  "download": {
+    "failedHttp": "Błąd pobierania wyników: HTTP {{status}}",
+    "notZip": "Odpowiedź pobierania nie jest poprawnym plikiem ZIP",
+    "failed": "Błąd pobierania wyników: {{error}}"
+  },
+  "page": {
+    "title": "Generator obrazów",
+    "settingsTitle": "Ustawienia generowania"
+  },
+  "contentType": {
+    "unusedAutoModel": "Typ treści nie jest używany: Auto renderuje za pomocą {{model}}, który interpretuje prompt jako zwykłe zdania.",
+    "unusedAuto": "Typ treści nie jest używany: Auto wybiera model, który interpretuje prompt jako zwykłe zdania.",
+    "unusedModel": "Typ treści nie jest używany przez {{model}}: odczytuje prompt jako zwykłe zdania.",
+    "describeHint": "Opisz scenę własnymi słowami. Typy treści kształtują prompty tylko dla modeli opartych na tagach.",
+    "title": "Typ treści (dla lepszej jakości)",
+    "auto": "Auto-detekcja (Zalecane)",
+    "autoHelp": "Dodaje tagi jakości do promptu na podstawie treści. Nie wykrywa ani nie zmienia ustawień generowania.",
+    "portrait": "Osoba – Portret",
+    "portraitHelp": "Portrety, zbliżenia twarzy, zdjęcia profilowe",
+    "fullBody": "Osoba – Całe ciało",
+    "fullBodyHelp": "Zdjęcia całej sylwetki – stojącej, siedzącej lub w pozach",
+    "working": "Osoba – Praca/Akcja",
+    "workingHelp": "Ludzie wykonujący czynności, używający narzędzi, wchodzący w interakcje z obiektami",
+    "product": "Zdjęcie produktu",
+    "productHelp": "Czyste ujęcia produktów, fotografia komercyjna",
+    "landscape": "Krajobraz/Sceneria",
+    "landscapeHelp": "Natura, panoramy miast, sceny zewnętrzne",
+    "infographic": "Infografika/Diagram",
+    "infographicHelp": "Flat design, ikony, grafika wektorowa, wykresy",
+    "general": "Ogólne",
+    "generalHelp": "Ustawienia domyślne dla dowolnej treści"
+  },
+  "input": {
+    "title": "Metoda wprowadzania",
+    "single": "Pojedynczy prompt",
+    "bulk": "Wieloelementowe wprowadzanie",
+    "csv": "Prześlij CSV",
+    "blueprint": "Niemaciete schematy"
+  },
+  "single": {
+    "help": "Wklej pełny tekst promptu (zachowując akapity i znaki nowej linii jako jeden prompt). Użyj opcji \"Liczba obrazów na prompt\" poniżej, aby wygenerować wiele kopii z tego konkretnego promptu.",
+    "placeholder": "Wklej tutaj swój pełny prompt, wliczając akapity jeśli są potrzebne. Cały tekst zostanie użyty jako pojedynczy prompt do generowania obrazów.\n\nPrzykład: Szczegółowy opis sceny z wieloma zdaniami ii nowymi liniami dla jednego konceptu obrazu...",
+    "note": "Cały tekst = 1 prompt. Ilość powiela go dokładnie dla wielu obrazów."
+  },
+  "bulk": {
+    "title": "Tematy/Prompty obrazów",
+    "placeholder": "Wprowadź tematy lub prompty obrazów, jeden na linijkę:\n\nA majestic mountain landscape at sunset\nA cat sitting on a windowsill\nAbstract geometric patterns in blue\nPortrait of a wise old wizard\nA futuristic city skyline\n...",
+    "ready": "{{count}} promptów gotowych do generowania (tryb masowy)",
+    "loadExamples": "Załaduj przykłady",
+    "tip": "Wskazówka: Każda linijka stanie się oddzielnym promptem obrazu"
+  },
+  "look": {
+    "title": "Wygląd i styl (opcjonalnie)",
+    "placeholder": "Opisz styl wizualny do zastosowania w prompt(ach):\n\nPrzykłady:\n• W odcieniach niebieskiego, bez tekstu, ciemne kolory\n• Minimalistyczny czarno-biały, czyste linie\n• Profesjonalny styl Infografika, płaski design\n• Fotorealistyczny, dramatyczne oświetlenie",
+    "single": "Styl zostanie dodany do Twojego pojedynczego promptu",
+    "bulk": "Ten styl zostanie zastosowany do wszystkich {{count}} promptów powyżej",
+    "preview": "Podgląd promptów"
+  },
+  "negative": {
+    "label": "Negatywny prompt",
+    "unused": "Ten model nie wykorzystuje negatywnego promptu."
+  },
+  "anatomy": {
+    "label": "Ulepsz anatomię",
+    "unusedTooltip": "Nieużywane tutaj: ten model interpretuje prompt jako zwykłe zdania, więc tagi anatomiczne zostałyby narysowane jako elementy sceny. Opisz pozę słowami.",
+    "tooltip": "Dodaje sformułowania anatomiczne, gdy prompt dotyczy osoby.",
+    "unusedBoth": "Ten model nie wykorzystuje negatywnego promptu ani ulepszania anatomii.",
+    "unused": "Ten model nie wykorzystuje ulepszania anatomii."
+  },
+  "current": {
+    "title": "Aktualne Ustawienia",
+    "manageModels": "Zarządzaj modelami",
+    "modelNotInstalled": "Model: {{model}} (nie zainstalowany)",
+    "model": "Model: {{model}}",
+    "style": "Styl: {{style}}",
+    "quality": "Jakość: {{quality}}",
+    "size": "Rozmiar: {{width}}x{{height}}",
+    "stepsCast": "Kroki: z postaci",
+    "steps": "Kroki: {{steps}}",
+    "oneAtATime": "Jeden po drugim",
+    "workers": "Pracownicy: {{count}}"
+  },
+  "advanced": {
+    "title": "Zaawansowane Ustawienia",
+    "model": "Model",
+    "yourLoras": "Twoje LoRA (wyłączone, dopóki nie włączysz jednego):",
+    "unavailable": "Niedostępne na tej maszynie:",
+    "qualityPreset": "Preset Jakości",
+    "style": "Styl",
+    "quantity": "Liczba obrazów na prompt",
+    "thumbnails": "Generuj miniatury"
+  },
+  "enhance": {
+    "label": "Ulepszaj prompty automatycznie",
+    "off": "Wyłączone — prompty są wysyłane w oryginalnej formie.",
+    "prose": "Przepisuje każdy prompt na pełniejszy opis za pomocą modelu Czat przed renderowaniem. Jeśli model Czat nie odpowie, prompt zostanie wysłany w oryginalnej formie. Kroki i wytyczne nie są zmieniane.",
+    "proseStyle": "Przepisuje każdy prompt na pełniejszy opis za pomocą modelu Czat przed renderowaniem. Jeśli model Czat nie odpowie, prompt zostanie wysłany w oryginalnej formie z dodatkiem jednego zdania o wyglądzie {{style}}. Kroki i wytyczne nie są zmieniane.",
+    "tagsNoNegative": "Dodaje frazy dotyczące jakości i anatomii dla danego typu treści do każdego promptu. Ten model ignoruje prompty negatywne. Kroki i wytyczne nie są zmieniane.",
+    "tags": "Dodaje frazy dotyczące jakości i anatomii (oraz negatywy) dla danego typu treści do każdego promptu. Kroki i wytyczne nie są zmieniane."
+  },
+  "steps": {
+    "cast": "Kroki: ustawione przez postać",
+    "flux": "Kroki: {{steps}} (jakość FLUX ↑ przy większej liczbie kroków)",
+    "value": "Kroki: {{steps}}"
+  },
+  "guidance": {
+    "cast": "Guidance: ustawione przez postać",
+    "zimage": "Skala Guidance: 0 (model bez CFG)",
+    "flux": "FluxGuidance: {{guidance}}",
+    "scale": "Skala Guidance: {{guidance}}",
+    "zimageHelp": "Z-Image działa bez CFG — guidance jest stałe na 0. Używaj Kroków do poprawy jakości.",
+    "qwenHelp": "Qwen-Image 2.1 działa na guidance 1 na oficjalnej ścieżce. Zwiększaj go tylko w połączeniu z promptem negatywnym.",
+    "autoHelp": "Automatyczne kierowanie na podstawie promptu. Standardowy wybór (Z-Image) jest bez CFG — zachowaj 0, chyba że spodziewasz się ścieżki SDXL."
+  },
+  "seed": {
+    "label": "Ziarno",
+    "placeholder": "losowy",
+    "fixed": "Pierwszy obraz używa ziarna {{seed}}, każdy kolejny obraz kolejnego numeru. Ten sam prompt i Ustawienia dają ten sam obraz.",
+    "tooLarge": "Ziarna sięgają do {{max}}; to zostało zignorowane.",
+    "blank": "Puste: każdy obraz otrzymuje własne losowe ziarno. Otwórz obraz i naciśnij kostkę, aby ponownie użyć jego ziarna."
+  },
+  "actions": {
+    "queuing": "Włączanie do kolejki…",
+    "addToQueue": "Dodaj do kolejki",
+    "start": "Rozpocznij generowanie",
+    "cancel": "Anuluj"
+  },
+  "queue": {
+    "title": "Kolejka wsadowa",
+    "clearCompleted": "Wyczyść ukończone",
+    "active": "{{count}} aktywnych",
+    "progressFailed": "{{done}}/{{total}} obrazów ({{failed}} nieudanych)",
+    "progress": "{{done}}/{{total}} obrazów",
+    "cancelRunning": "Anuluj uruchomioną partię",
+    "remove": "Usuń z kolejki",
+    "cancelAria": "anuluj partię"
+  },
+  "progress": {
+    "title": "Aktualny postęp",
+    "batchId": "ID partii: {{id}}",
+    "count": "Postęp: {{done}}/{{total}}",
+    "download": "Pobierz wyniki",
+    "adjustRetry": "Dostosuj i Powtórz"
+  },
+  "gallery": {
+    "title": "Wygenerowane obrazy ({{count}})",
+    "generatedImage": "Wygenerowany obraz",
+    "noPrompt": "Brak promptu",
+    "seed": "Ziarno {{seed}}",
+    "rewritten": "Przeredagowane przed renderowaniem; otwórz, aby przeczytać",
+    "viewFull": "Wyświetl pełny obraz: {{name}}"
+  },
+  "lightbox": {
+    "sentToModel": "Przesłano do modelu: {{prompt}}",
+    "seedUsed": "Ziarno {{seed}} znajduje się w polu Seed. Wyczyść je, aby ponownie otrzymywać losowe ziarna."
+  },
+  "preview": {
+    "titleQuantity": "Podgląd wygenerowanych promptów ({{count}} × {{quantity}})",
+    "title": "Podgląd wygenerowanych promptów ({{count}})",
+    "intro": "To są ostateczne prompty, które zostaną wysłane do generatora obrazów:",
+    "close": "Zamknij"
+  }
+}

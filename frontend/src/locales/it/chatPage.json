@@ -1,0 +1,59 @@
+{
+  "messages": {
+    "generatedImageAlt": "Immagine generata",
+    "error": "Errore: {{error}}",
+    "bulkStarted": "Generazione CSV di massa avviata! Generazione di {{quantity}} voci per \"{{filename}}\". Potrebbe volerci qualche minuto per completare.",
+    "bulkStartedNoQuantity": "Generazione CSV di massa avviata! Generazione di più voci per \"{{filename}}\". Potrebbe volerci qualche minuto per completare.",
+    "fileGenerated": "File \"{{filename}}\" generato con successo! Puoi scaricarlo dalla cartella output.",
+    "bulkFailed": "Generazione CSV di massa fallita: {{error}}",
+    "fileFailed": "Generazione file fallita: {{error}}",
+    "modes": {
+      "fileGeneration": "**Modalità Generazione File**: Analisi della tua richiesta per la generazione di Codice/file...",
+      "coding": "**Modalità Codice**: Fornitura di assistenza alla programmazione...",
+      "web": "**Modalità Ricerca Web**: Ricerca di informazioni aggiornate...",
+      "data": "**Modalità Strumenti Dati**: Elaborazione della richiesta dati..."
+    },
+    "tooLong": "Messaggio troppo lungo: {{length}} caratteri. Massimo consentito: 100.000 caratteri.",
+    "planNotCreated": "Impossibile creare il piano",
+    "planFailed": "Impossibile creare il piano: {{error}}",
+    "agentWorking": "L'agente sta ragionando e instradando la tua richiesta...",
+    "agentFailedNoResponse": "Esecuzione dell'agente fallita (nessuna risposta dal modello).",
+    "agentEmptyResponse": "Esecuzione dell'agente completata senza risposta.",
+    "agentFailed": "Esecuzione dell'agente fallita: {{error}}",
+    "fileGenerationBusy": "La generazione del file è già in corso. Continuerò la nostra conversazione mentre il processo procede.",
+    "agentModeSocketDown": "La modalità agente richiede strumenti di chat unificati, ma il socket della chat unificata non è connesso (ripristino tentato). Riconnetti (o Ricarica) oppure digita `/chat` per tornare alla modalità chat normale.",
+    "agentModeUnifiedDisabled": "La modalità agente richiede strumenti di chat unificati, ma la chat unificata è disabilitata. Riconnetti (o Ricarica) oppure digita `/chat` per tornare alla modalità chat normale.",
+    "technicalDifficulties": "Mi scuso, ma sto riscontrando difficoltà tecniche nell'elaborare il tuo messaggio: \"{{excerpt}}\"\n\nIl Sistema ha riscontrato problemi di connessione, ma il tuo messaggio è stato salvato nella nostra cronologia. Prova a inviare di nuovo la tua domanda, oppure riformulala se preferisci.",
+    "warning": "Avviso: {{warning}}",
+    "stopped": "Richiesta interrotta dall'utente",
+    "uploaded": "File caricato con successo! L'indicizzazione è stata avviata in background. Controlla il Pannello di sistema per monitorare i progressi."
+  },
+  "errors": {
+    "agentModeNotSaved": "La modalità agente non è stata salvata per la nuova chat: {{reason}}. Invia /agent per riprovare.",
+    "agentModeNotSavedRequestFailed": "La modalità agente non è stata salvata per la nuova chat: la richiesta è fallita. Invia /agent per riprovare.",
+    "lessonNotSaved": "La lezione è terminata ma non è stata salvata: {{reason}}.",
+    "lessonNotSavedRequestFailed": "La lezione è terminata ma non è stata salvata: la richiesta è fallita.",
+    "lessonNotSavedHttp": "La lezione è terminata ma non è stata salvata: il backend ha risposto con HTTP {{status}}."
+  },
+  "header": {
+    "title": "Chat",
+    "messageCount_one": "{{count}} msg",
+    "messageCount_other": "{{count}} msgs",
+    "beginLesson": "Inizia lezione — i pollici in su saranno uniti in un riassunto della lezione",
+    "endLesson": "Termina lezione — sintetizza i punti chiave in un riassunto modificabile",
+    "allChats": "Tutte le chat",
+    "newChat": "Inizia una nuova sessione di chat",
+    "activeModel": "Modello attivo: {{model}}",
+    "modelLoading": "Caricamento...",
+    "modelFetchError": "Errore nel recupero del modello",
+    "modelUnknown": "N/D",
+    "model": "Modello: {{model}}",
+    "modelError": "Errore",
+    "modelDefault": "Predefinito"
+  },
+  "status": {
+    "modelWarmingUp": "Il modello si sta caricando nella memoria GPU... La chat sarà pronta tra un momento.",
+    "typing": "L'assistente sta scrivendo...",
+    "agentBudget": "La modalità agente è attiva: ogni messaggio è un compito che l'assistente esegue con i suoi strumenti, fino a {{total}} passaggi per messaggio; l'ultimo compito aveva ancora {{remaining}} passaggi disponibili."
+  }
+}

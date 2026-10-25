@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "Kliknięcia: {{clicks}} | Wyświetlenia: {{impressions}} | Pozycja: {{position}}",
+    "notAvailable": "N/A"
+  },
+  "errors": {
+    "fetchFailed": "Błąd pobierania stron",
+    "loadFailed": "Błąd ładowania stron",
+    "pullFailed": "Błąd pobierania stron",
+    "processFailed": "Błąd przetwarzania strony",
+    "queueFailed": "Błąd dodawania stron do kolejki",
+    "executeFailed": "Błąd wykonywania kolejki",
+    "recommendationsFailed": "Nie udało się pobrać rekomendacji. Funkcja zostanie dodana wkrótce."
+  },
+  "feedback": {
+    "pulled": "Pobrano {{count}} stron",
+    "nonePending": "Brak stron oczekujących na przetwarzanie",
+    "queued": "Dodano {{count}} stron do kolejki przetwarzania",
+    "processed": "Przetworzono {{succeeded}}/{{total}} stron"
+  },
+  "recommendations": {
+    "summary": "Funkcja rekomendacji AI przeanalizuje treść strony i dostarczy inteligentnych sugestii dotyczących ulepszeń.",
+    "content": {
+      "title": "Ulepszenie treści",
+      "description": "Analiza treści pod kątem optymalizacji SEO, poprawy czytelności i zwiększenia zaangażowania."
+    },
+    "seo": {
+      "title": "Optymalizacja SEO",
+      "description": "Przegląd tagów meta, struktury nagłówków i możliwości optymalizacji słów kluczowych."
+    },
+    "structure": {
+      "title": "Struktura treści",
+      "description": "Ocena organizacji treści i sugerowanie ulepszeń dla lepszego doświadczenia użytkownika."
+    },
+    "priority": {
+      "high": "wysoka",
+      "medium": "średni",
+      "low": "niski"
+    },
+    "title": "Rekomendacje AI",
+    "none": "Obecnie brak konkretnych rekomendacji.",
+    "loading": "Ładowanie rekomendacji...",
+    "processNow": "Przetwórz teraz"
+  },
+  "title": "Strony WordPress",
+  "actions": {
+    "pull": "Pobierz",
+    "queue": "Kolejka ({{count}})",
+    "process": "Przetwórz",
+    "close": "Zamknij",
+    "cancel": "Anuluj"
+  },
+  "site": "Witryna WordPress",
+  "filters": {
+    "pull": "Pobrane",
+    "all": "Wszystkie",
+    "pulled": "Pobrane",
+    "pending": "Oczekujące",
+    "error": "Błąd",
+    "process": "Przetwarzanie",
+    "processing": "W trakcie",
+    "completed": "Zakończone",
+    "approved": "Zatwierdzone"
+  },
+  "stats": {
+    "total": "Razem: {{total}}",
+    "pending": "Oczekujące: {{pending}}",
+    "completed": "Zakończone: {{completed}}"
+  },
+  "empty": {
+    "noPages": "Nie znaleziono stron. Pobierz strony, aby zacząć.",
+    "selectSite": "Wybierz witrynę WordPress, aby wyświetlić strony"
+  },
+  "table": {
+    "title": "Tytuł",
+    "type": "Typ",
+    "seo": "SEO",
+    "ai": "AI"
+  },
+  "untitled": "Bez tytułu",
+  "tooltips": {
+    "getRecommendations": "Kliknij, aby otrzymać rekomendacje AI",
+    "hasImprovements": "Ma poprawki",
+    "noImprovements": "Brak poprawek"
+  },
+  "pullDialog": {
+    "title": "Pobieranie stron z WordPress",
+    "postType": "Typ wpisu",
+    "posts": "Wpisy",
+    "pages": "Strony",
+    "maxPages": "Max. stron (opcjonalnie)",
+    "maxPagesHelper": "Zostaw puste, aby pobrać wszystkie strony",
+    "pulling": "Pobieranie...",
+    "submit": "Pobierz strony"
+  }
+}

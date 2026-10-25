@@ -1,0 +1,158 @@
+{
+  "errors": {
+    "serviceDown": "Usługa niedostępna",
+    "unknown": "Błąd"
+  },
+  "cleanup": {
+    "running": "Czyszczenie Zleceń w toku...",
+    "result": "{{message}}: oczyszczono {{cleaned}} zablokowanych Zleceń (znaleziono {{found}})",
+    "failed": "Błąd czyszczenia: {{error}}"
+  },
+  "entityIndexing": {
+    "running": "Indeksowanie encji dla uniwersalnego dostępu RAG...",
+    "completed": "Indeksowanie encji zakończone: zaindeksowano {{total}} encji ({{clients}} Klienci, {{projects}} Projekty, {{websites}} Witryny, {{tasks}} Zlecenia)",
+    "completedWithErrors": "Indeksowanie encji zakończone: zaindeksowano {{total}} encji ({{clients}} Klienci, {{projects}} Projekty, {{websites}} Witryny, {{tasks}} Zlecenia), {{errors}} Błąd",
+    "failed": "Indeksowanie encarych nie powiodło się",
+    "failedWithError": "Indeksowanie encarych nie powiodło się: {{error}}"
+  },
+  "restart": {
+    "starting": "Inicjowanie restartu usługi...",
+    "started": "Restart usługi został pomyślnie zainicjowany",
+    "restarting": "Usługi są w trakcie restartu. Strona może zostać tymczasowo rozłączona.",
+    "failed": "Restart usługi nie powiódł się: {{error}}"
+  },
+  "selfTest": {
+    "complete": "Autotest zakończony",
+    "failed": "Autotest nie powiódł się: {{error}}",
+    "resultsHeading": "Wyniki autotestu",
+    "resultsEmpty": "Uruchom autotest, aby wyświetlić szczegółową diagnostykę systemu"
+  },
+  "logs": {
+    "fetchFailed": "Nie udało się pobrać logów ({{status}})",
+    "heading": "Logi backendu (ostatnie 100 linii)",
+    "loadFailed": "Nie udało się załadować logów: {{error}}",
+    "empty": "Brak wpisów w logach."
+  },
+  "title": "Panel systemu",
+  "loading": "Ładowanie...",
+  "status": {
+    "error": "Błąd",
+    "healthy": "Sprawny"
+  },
+  "model": {
+    "default": "Domyślny"
+  },
+  "summary": {
+    "heading": "Podsumowanie statusu systemu",
+    "backend": "Backend: {{state}}",
+    "database": "Baza danych: {{state}}",
+    "celery": "Celery: {{state}}",
+    "redis": "Redis: {{state}}"
+  },
+  "actions": {
+    "refresh": "Odśwież",
+    "retry": "Powtórz"
+  },
+  "checking": "Sprawdzanie...",
+  "backend": {
+    "heading": "Backend",
+    "version": "Wersja: {{version}}",
+    "uptime": "Czas pracy: {{seconds}}s",
+    "indexLoaded": "✓ Indeks załadowany"
+  },
+  "database": {
+    "heading": "Baza danych / Migracje",
+    "upToDate": "Zaktualizowane",
+    "needsUpdate": "Wymaga aktualizacji",
+    "current": "Aktualna: {{revision}}",
+    "noRevision": "brak",
+    "heads": "Głowice: {{heads}}",
+    "multipleHeads": "Wykryto wiele głowic"
+  },
+  "celery": {
+    "heading": "Worker Celery",
+    "ping": "✓ Ping: {{result}}",
+    "active": "Aktywne: {{count}}",
+    "queued": "W kolejce: {{count}}",
+    "debug": "Debug: {{tasks}}"
+  },
+  "redis": {
+    "heading": "Cache Redis",
+    "connected": "✓ Połączono"
+  },
+  "failedTasks": {
+    "heading": "Ostatnie nieudane zadania",
+    "none": "Brak ostatnich błędów."
+  },
+  "controls": {
+    "heading": "Sterowanie systemem",
+    "refreshAll": "Odśwież wszystko",
+    "running": "Uruchamianie...",
+    "selfTest": "Samotest",
+    "restartServices": "Restartuj usługi",
+    "autoRefresh": "Automatyczne odświeżanie co 5 sekund"
+  },
+  "jobs": {
+    "heading": "Zarządzanie postępem Zleceń",
+    "activeCount": "{{count}} Aktywne",
+    "completedCount": "{{count}} Zakończone",
+    "stuckCount": "{{count}} Zablokowane",
+    "systemUnhealthy": "System nieprawidłowy",
+    "cleaning": "Czyszczenie...",
+    "cleanStuck": "Czyść zablokowane Zlecenia",
+    "cleanStuckCount": "Czyść zablokowane Zlecenia ({{count}})",
+    "indexing": "Indeksowanie...",
+    "indexEntities": "Indeksuj encje",
+    "stuckWarning": "{{count}} Zlecenia wydają się być zablokowane (brak aktywnych zadań Celery lub nieaktualne znaczniki czasu). Rozważ uruchomienie czyszczenia.",
+    "systemIssues": "W systemie postępu wykryto problemy. Niektóre Zlecenia mogą nie działać prawidłowo.",
+    "details": "Szczegóły Zlecenia (łącznie {{count}})",
+    "noActive": "Brak aktywnych Zleceń",
+    "columns": {
+      "jobId": "ID Zlecenia",
+      "type": "Typ",
+      "status": "Status",
+      "progress": "Postęp",
+      "lastUpdate": "Ostatnia aktualizacja",
+      "message": "Wiadomość"
+    },
+    "staleTooltip": "Nieaktualne zlecenie (>1h bez aktualizacji)",
+    "unknownType": "Nieznany",
+    "complete": "Zakończone",
+    "processing": "Przetwarzanie",
+    "invalidDate": "Nieprawidłowa data",
+    "noTimestamp": "Brak znacznika czasu",
+    "hoursAgo": "({{hours}}h temu)",
+    "noMessage": "Brak wiadomości",
+    "moreJobs": "... i {{count}} innych Zleceń"
+  },
+  "selfImprovement": {
+    "heading": "Dziennik Samodoskonalenia",
+    "runs": "{{count}} uruchomień"
+  },
+  "family": {
+    "heading": "Sieć Rodzinna",
+    "notConfigured": "Nie skonfigurowano",
+    "online": "Online",
+    "offline": "Tryb offline",
+    "noNodes": "Brak połączonych węzłów rodziny. Skonfiguruj Interconnector w Ustawieniach.",
+    "vram": "VRAM: {{free}} / {{total}} MB",
+    "unknownStatus": "nieznany"
+  },
+  "performance": {
+    "heading": "Przegląd wydajności",
+    "notAvailable": "N/D",
+    "backendUptime": "Czas pracy backendu: {{seconds}}s",
+    "celeryTasks": "Zadania Celery: {{tasks}} aktywnych",
+    "activeJobs": "Aktywne Zlecenia: {{count}}",
+    "failedTasks": "Nieudane zadania: {{count}}"
+  },
+  "metrics": {
+    "heading": "Metryki systemu"
+  },
+  "diagnostics": {
+    "heading": "Diagnostyka"
+  },
+  "retrievalDebug": {
+    "heading": "Debugowanie pobierania"
+  }
+}

@@ -1,0 +1,372 @@
+{
+  "infographic": {
+    "styles": {
+      "editorial": "戏剧性的社论插图",
+      "flatVector": "扁平矢量 / 简洁几何",
+      "photoReal": "写实摄影",
+      "comic": "漫画书"
+    },
+    "aspects": {
+      "wide": "16:9  (1280×720)  — 社交媒体 / 视频缩略图",
+      "square": "1:1   (1024×1024) — 正方形 / Instagram",
+      "vertical": "9:16  (720×1280)  — 竖屏 / Reels",
+      "portrait": "4:5   (1024×1280) — Instagram 纵幕",
+      "landscape": "3:2   (1216×832)  — 横屏"
+    }
+  },
+  "tips": {
+    "dashboardCardMenu": "在“仪表盘”上右键点击任何卡片，即可打开其页面、最小化、更改颜色或隐藏它。",
+    "shortcuts": "在任何非文本框区域按下 ? 即可查看键盘快捷键。",
+    "micHandsFree": "点击麦克风即可进行免提通话：每次停顿都会将您说的话发送到“对话”。再次点击可停止。",
+    "floatingChat": "在任何页面按 Ctrl+Shift+C 可打开“悬浮聊天”。其标签显示您当前的页面，且系统会获知您当前打开的页面和记录。",
+    "dropIntoFiles": "将电脑中的文件或整个文件夹拖放到“文件”页面。它们将被上传到您放置的位置，并被索引用于“对话”和搜索。",
+    "dashboardHiddenCards": "不小心隐藏了“仪表盘”卡片？右键点击“仪表盘”的空白区域即可重新显示。",
+    "moveResizeCards": "在仪表盘、代码编辑器和视频编辑器中的卡片可以通过标题栏移动，并从任何边缘或角落调整大小。双击标题栏可折叠卡片。",
+    "settingsHoverHelp": "在设置中，带有虚线下划线的标题会提供说明：将指针悬停在其上方。",
+    "navigationModes": "设置 → 常规 → 导航可在侧边栏和按任务分组的“工作区”栏之间切换。",
+    "dropIntoChat": "将文档或图像拖入任何对话中即可添加：文档将被索引，图像将随您的下一条消息发送。",
+    "micPushToTalk": "按住麦克风或按住 Ctrl+Shift+Space，仅在按住时进行通话。右键点击麦克风可更改点击操作的内容。",
+    "dashboardLayouts": "右键点击仪表盘的空白区域可循环切换布局：常规、紧凑、紧凑分层和 Mode-X。在所有布局中，卡片均可自由移动。",
+    "footerJobs": "在任务运行时，底部栏会并排显示它们。将指针悬停在上面可列出所有任务；点击可保持列表展开。",
+    "updateNotice": "当 Guaardvark 在运行过程中更新时，底部栏上方的通知会提示是需要重新加载页面还是重启以完成更新。",
+    "rightClickEverywhere": "右键点击在整个应用中有效：文件、笔记、对话消息、任务、规则、插件等各功能都有各自的菜单。"
+  },
+  "voiceActivation": {
+    "push": {
+      "label": "按住说话",
+      "help": "说话时按住麦克风（或 Ctrl+Shift+Space），松开即发送。"
+    },
+    "toggle": {
+      "label": "点击通话",
+      "help": "点击后开始说话，暂停时自动发送。每条消息后麦克风将自动关闭。"
+    },
+    "handsfree": {
+      "label": "免提模式",
+      "help": "点击一次后即可通话；每次停顿都会发送一条消息，直到您再次点击。"
+    }
+  },
+  "brandTones": {
+    "neutral": {
+      "label": "中性",
+      "description": "专业且平衡的语气"
+    },
+    "friendly": {
+      "label": "友好",
+      "description": "温暖且平易近人的语气"
+    },
+    "authoritative": {
+      "label": "权威",
+      "description": "专业且自信的语气"
+    },
+    "playful": {
+      "label": "趣味",
+      "description": "富有创意且引人入胜的语气"
+    },
+    "luxury": {
+      "label": "奢华",
+      "description": "高端且精致的语气"
+    }
+  },
+  "delimiters": {
+    "comma": {
+      "label": "逗号 (,)",
+      "description": "标准 CSV 格式"
+    },
+    "semicolon": {
+      "label": "分号 (;)",
+      "description": "欧洲标准"
+    },
+    "tab": {
+      "label": "制表符",
+      "description": "制表符分隔的值"
+    }
+  },
+  "mediaTabs": {
+    "mediaLibrary": "媒体库",
+    "imageGen": "图像生成",
+    "infographic": "信息图",
+    "videoGen": "视频生成",
+    "upscaling": "超分辨率"
+  },
+  "videoPresets": {
+    "quality": {
+      "fast": {
+        "label": "⚡ 快速",
+        "description": "在模型的步数底线处预览（绝不低于该数值）"
+      },
+      "standard": {
+        "label": "✨ 标准",
+        "description": "良好质量（30 步）"
+      },
+      "high": {
+        "label": "🎬 高质量",
+        "description": "最佳细节（40 步）"
+      },
+      "maximum": {
+        "label": "🏆 最高",
+        "description": "最高质量（50 步）"
+      }
+    },
+    "duration": {
+      "short": "短",
+      "medium": "中",
+      "long": "长",
+      "about_other": "约 {{count}} 秒",
+      "seconds": "{{seconds}} s",
+      "exact_other": "{{count}} 秒"
+    },
+    "motion": {
+      "subtle": {
+        "label": "🌊 微妙",
+        "description": "轻微动作"
+      },
+      "normal": {
+        "label": "🎯 普通",
+        "description": "平衡的动作"
+      },
+      "dynamic": {
+        "label": "💨 动态",
+        "description": "更多动作"
+      },
+      "intense": {
+        "label": "🔥 强烈",
+        "description": "最大动作"
+      }
+    },
+    "outputTiers": {
+      "draft": {
+        "label": "草稿",
+        "description": "原始模型输出 — 速度最快，打磨程度最低"
+      },
+      "standard": {
+        "label": "标准",
+        "description": "2 倍 FPS 插帧，使动作更平滑"
+      },
+      "cinema": {
+        "label": "电影",
+        "description": "2x FPS + 2x 放大 — 推荐用于最终输出"
+      }
+    },
+    "keyframeModels": {
+      "fromLora": {
+        "label": "自动 (角色 LoRA 基础)",
+        "description": "来自演员训练基础的 Z-Image / SDXL / FLUX"
+      },
+      "fluxSchnell": {
+        "description": "快速且精美的静态图 (默认不含角色)"
+      },
+      "fluxDevLora": {
+        "description": "Comfy FLUX 静态图 (非角色或显式内容)"
+      },
+      "sdxl": {
+        "description": "无 LoRA 的高保真静态图"
+      },
+      "sdxlLora": {
+        "description": "传统 SDXL 角色路径"
+      }
+    },
+    "samplerProfiles": {
+      "official": {
+        "label": "官方 — uni_pc, shift 8 (默认)",
+        "description": "ComfyUI 内置的 Wan 2.2 5B 模板设置"
+      },
+      "adaptive": {
+        "label": "Guaardvark — euler, 自适应 shift",
+        "description": "实验性：shift 随分辨率缩放，在低于约 740px 时下限为 3"
+      }
+    },
+    "aspectRatios": {
+      "widescreen": "宽屏",
+      "portraitVertical": "纵向/竖屏",
+      "square": "正方形",
+      "standard": "标准",
+      "classic": "经典",
+      "ultraWide": "超宽屏",
+      "portrait": "人像"
+    },
+    "promptStyles": {
+      "cinematic": {
+        "label": "电影感",
+        "description": "电影级光影与动态"
+      },
+      "realistic": {
+        "label": "写实",
+        "description": "照片级细节"
+      },
+      "artistic": {
+        "label": "艺术",
+        "description": "风格化且富有表现力"
+      },
+      "anime": {
+        "label": "动漫 (日本)",
+        "description": "日式赛璐璐风格动画"
+      },
+      "animation3d": {
+        "label": "3D 动画 (皮克斯风格)",
+        "description": "精致的 CGI，生动的角色"
+      },
+      "stopMotion": {
+        "label": "定格动画 / 黏土动画",
+        "description": "触感黏土，手工质感"
+      },
+      "handDrawn": {
+        "label": "手绘 2D (吉卜力风格)",
+        "description": "如画般的淡彩背景"
+      },
+      "westernCartoon": {
+        "label": "美式卡通",
+        "description": "粗线条，平涂阴影，灵动的动作"
+      },
+      "none": {
+        "label": "无",
+        "description": "不进行增强"
+      }
+    },
+    "sizes": {
+      "small": {
+        "label": "小",
+        "description": "512px (速度更快)"
+      },
+      "medium": {
+        "label": "中"
+      },
+      "large": {
+        "label": "大尺寸",
+        "description": "720px (CogVideoX 原生)"
+      },
+      "hd": {
+        "description": "1280px (CPU 卸载，速度较慢)"
+      },
+      "fullhd": {
+        "description": "1920px (CPU 卸载，速度极慢)"
+      }
+    },
+    "models": {
+      "wan225b": {
+        "label": "Wan 2.2 5B TI2V (推荐)",
+        "description": "快速生成 5 秒片段，适配 16GB 显存 — 无需卸载。支持文本 + 图像转视频。"
+      },
+      "wan2214b": {
+        "description": "最佳质量，5 秒视频 (16GB VRAM)"
+      },
+      "wan2214bI2v": {
+        "description": "顶级图像转视频，5 秒片段 (16GB VRAM)"
+      },
+      "cogvideox5b": {
+        "description": "6 秒视频，内置 diffusers 处理 — 无需 ComfyUI (~16GB VRAM)"
+      },
+      "cogvideox5bI2v": {
+        "description": "图像转视频，1360x768 分辨率下生成 5 秒 (~16GB VRAM)"
+      },
+      "ltx23": {
+        "description": "Lightricks LTX-2.3 — 8 步，在 16GB Ada 上可达约 10 秒。支持 T2V + I2V。"
+      },
+      "minimaxH3Int8": {
+        "description": "MiniMax H3 — 单次处理生成带原生立体声的视频。24fps，约 5 秒。支持 T2V，以及首帧和首尾帧 I2V。要求 ComfyUI ≥ 0.30。"
+      },
+      "minimaxH3Int8Full": {
+        "description": "带有完整调制权重和 int8 编码器的 MiniMax H3。适用于 24GB 级别显卡；性能未测。"
+      },
+      "minimaxH3Reference": {
+        "description": "MiniMax H3 参考转视频：最多 9 张图片，3 个片段和 3 个 语音 文件可锁定身份、动作和 语音，或编辑并延续片段。24fps，原生音频。"
+      },
+      "minimaxH3Bf16": {
+        "description": "全精度 MiniMax H3，配备 bf16 编码器（约 110GB 权重）。适用于工作站显卡；显存需求未测。"
+      },
+      "hunyuanT2v": {
+        "description": "腾讯 HunyuanVideo — 电影级动态，无内容过滤。24fps，约 3s 片段（16GB VRAM）"
+      },
+      "hunyuanI2v": {
+        "description": "HunyuanVideo 图生视频 (v2) — 紧贴首帧内容。24fps，约 3s (16GB VRAM)"
+      },
+      "ltx25": {
+        "description": "Lightricks LTX-2.5 — 8 步，在 16GB Ada 上可达约 10s。支持 T2V + I2V。需接受 HF 权限并使用 ComfyUI ≥ 0.32。"
+      }
+    },
+    "unknownModel": "未知模型"
+  },
+  "imagePresets": {
+    "labels": {
+      "fast": "快速",
+      "standard": "标准",
+      "high2k": "高 2K (2048²)",
+      "fluxFast": "FLUX 快速",
+      "fluxQuality": "FLUX 高质量",
+      "fluxUltra": "FLUX 极速",
+      "high": "高质量",
+      "ultra": "超高"
+    },
+    "descriptions": {
+      "zimage": {
+        "fast": "快速草图",
+        "standard": "官方 Turbo 配方 (HF)",
+        "high2k": "2K 画布官方配方 — 负载高；16GB 显卡可能会报错"
+      },
+      "flux": {
+        "fluxFast": "更快的 FLUX.1-dev 静止图像",
+        "fluxQuality": "默认最大质量的 FLUX.1-dev",
+        "fluxUltra": "最高步数 — 速度慢，细节巅峰"
+      },
+      "kreaTurbo": {
+        "fast": "Krea turbo 免CFG",
+        "standard": "平衡型 turbo",
+        "high": "更多步数"
+      },
+      "kreaRaw": {
+        "standard": "Krea raw 质量",
+        "high": "默认 raw",
+        "ultra": "慢速，极高细节"
+      },
+      "sdxlTurbo": {
+        "fast": "单步预览",
+        "standard": "Turbo 配方 (4步，免CFG)"
+      },
+      "sana": {
+        "fast": "单步预览",
+        "standard": "Sana Sprint 配方 (2步)"
+      },
+      "qwenImage21": {
+        "standard": "官方 ComfyUI 模板 (25步, cfg 1)",
+        "high": "官方流水线范围 (40-50步)，较慢"
+      },
+      "sdxl": {
+        "fast": "快速 SDXL",
+        "standard": "平衡 SDXL",
+        "high": "最终 SDXL"
+      },
+      "sd": {
+        "fast": "快速生成，适合测试",
+        "standard": "平衡的质量与速度",
+        "high": "高质量，生成较慢"
+      }
+    }
+  },
+  "slashCommands": {
+    "imagine": "根据文本提示词生成图像",
+    "removebg": "移除附带照片的背景 (透明 PNG)",
+    "inpaint": "修改或移除附带照片中的内容",
+    "outpaint": "扩展附带的照片并填充新画布",
+    "video": "根据文本提示词排队生成视频片段",
+    "musicVideo": "从歌曲开始音乐视频计划（在片段渲染前于 Studio 中确认）",
+    "filmCrew": "从剧本开始 Film Crew 制作（渲染将在 Studio 中排队）",
+    "imagemodel": "切换对话图像模型（生成 + 编辑）或显示当前模型",
+    "model": "切换 LLM 对话模型或显示当前模型",
+    "websearch": "搜索网络，审计单页 (site:<address>) 或列出站点地图 (sitemap:<url>)",
+    "gpu": "检查实时的 GPU 占用、VRAM 插槽和运行中的插件",
+    "logs": "查看 Guaardvark 日志（可选文件名和 grep）",
+    "sysmap": "运行 System Mapper（与 /system-map 相同的快照）",
+    "swarm": "Swarm 编排器状态（插件必须处于运行状态）",
+    "outreach": "外联状态、简短动词或自然语言侦查/草拟（例如 YouTube 主题）",
+    "plan": "创建编排器计划",
+    "training": "以训练模式运行代理程序 —— 全量 1000 次迭代循环，跳过对话 LLM 解析",
+    "agent": "将此对话切换至代理模式 —— 每条消息都变为屏幕控制任务。可选的 <task> 将立即触发。",
+    "chat": "将此对话切换回对话模式（退出代理模式）",
+    "thinking": "在此对话中为思考模型 (gemma4:12b, qwen3) 开启或关闭分步推理。关闭 = 速度更快。输入 /thinking 可查看当前状态。",
+    "exit": "退出智能体模式 (为 /chat 的别名)",
+    "voice": "开启/关闭语音对话",
+    "vision": "显示 Vision Pipeline 插件状态 (可在插件页面启动/停止)",
+    "clear": "开启新对话 (当前对话将保留在“所有对话”中)",
+    "help": "显示可用命令",
+    "custom": "自定义命令"
+  }
+}

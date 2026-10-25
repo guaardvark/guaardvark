@@ -1,0 +1,224 @@
+{
+  "project": {
+    "title": "프로젝트 관리자",
+    "loadFailed": "프로젝트 데이터를 불러오는 중 오류가 발생했습니다.",
+    "empty": "검색된 프로젝트가 없습니다.",
+    "unnamed": "이름 없는 프로젝트",
+    "client": "클라이언트: {{name}}"
+  },
+  "website": {
+    "title": "웹사이트 데이터",
+    "loadFailed": "웹사이트 데이터를 불러오는 중 오류가 발생했습니다.",
+    "deleteConfirm": "이 웹사이트를 삭제하시겠습니까?",
+    "empty": "검색된 웹사이트가 없습니다.",
+    "unnamed": "이름 없는 사이트",
+    "details": "프로젝트: {{project}} | 문서: {{docs}}",
+    "openUrl": "새 탭에서 URL 열기",
+    "copyUrl": "URL 복사"
+  },
+  "tasks": {
+    "title": "작업",
+    "unknownStatus": "알 수 없음",
+    "loadFailed": "작업을 불러오지 못했습니다.",
+    "nameAndTypeRequired": "작업 이름과 유형을 입력해 주세요.",
+    "created": "작업 '{{name}}'이(가) 성공적으로 생성되었습니다!",
+    "createFailed": "작업 생성 오류: {{message}}",
+    "addTaskMenu": "작업 추가…",
+    "addTaskButton": "+ 작업 추가",
+    "empty": "검색된 작업이 없습니다.",
+    "unnamed": "이름 없는 작업",
+    "viewAll": "모든 작업 보기 ({{count}})",
+    "addDialogTitle": "새 작업 추가",
+    "taskName": "작업 이름",
+    "taskType": "작업 유형",
+    "output": "결과/설명",
+    "outputPlaceholder": "선택 사항: 예상되는 결과나 추가 세부 정보를 입력하세요...",
+    "creating": "생성 중...",
+    "create": "작업 생성"
+  },
+  "chat": {
+    "title": "채팅",
+    "csvDescription": "\"{{excerpt}}\"를 기반으로 CSV 파일 생성",
+    "historyFailed": "채팅 기록을 불러오지 못했습니다",
+    "fileGenerated": "\"{{filename}}\" 파일이 성공적으로 생성되었습니다! 출력 폴더에서 다운로드할 수 있습니다.",
+    "fileGenFailed": "파일 생성 실패: {{message}}",
+    "notConnected": "채팅 서비스에 연결되지 않았습니다. 잠시 기다린 후 다시 시도해 주세요.",
+    "sendFailed": "메시지 전송 실패",
+    "errorMessage": "오류: {{message}}",
+    "messageCount": "{{count}}개의 메시지",
+    "noMessages": "메시지 없음",
+    "reloadHistory": "기록 다시 불러오기",
+    "stopGenerating": "생성 중단",
+    "roles": {
+      "user": "사용자",
+      "system": "시스템",
+      "assistant": "어시스턴트"
+    },
+    "empty": "아직 메시지가 없습니다. 대화를 시작해 보세요!",
+    "placeholder": "메시지 입력..."
+  },
+  "clients": {
+    "title": "클라이언트",
+    "loadFailed": "클라이언트 데이터를 불러오는 중 오류가 발생했습니다.",
+    "empty": "클라이언트를 찾을 수 없습니다.",
+    "unnamed": "이름 없는 클라이언트",
+    "projectCount": "프로젝트: {{count}}"
+  },
+  "csvgen": {
+    "title": "CSV 생성",
+    "newCsv": "새 CSV",
+    "import": "가져오기",
+    "empty": "아직 CSV 작업이 없습니다."
+  },
+  "codegen": {
+    "title": "코드 생성",
+    "newCode": "새 코드",
+    "debug": "디버그",
+    "empty": "아직 코드 생성 작업이 없습니다."
+  },
+  "imggen": {
+    "title": "이미지 생성",
+    "newImages": "새 이미지",
+    "batchMode": "배치 모드",
+    "empty": "아직 이미지 배치가 없습니다.",
+    "viewAll": "모든 배치 보기"
+  },
+  "files": {
+    "title": "파일 관리자"
+  },
+  "family": {
+    "title": "가족 및 자기 개선",
+    "queuing": "대기 중...",
+    "runCheck": "체크 실행",
+    "uncleOnline": "Uncle Online",
+    "uncleOffline": "Uncle Offline",
+    "siOn": "SI: On",
+    "siOff": "SI: Off",
+    "locked": "잠금",
+    "stages": {
+      "starting": "시작 중...",
+      "testing": "테스트 실행 중",
+      "analyzed": "결과 분석 중",
+      "fixing": "수정 적용 중",
+      "complete": "완료",
+      "error": "오류"
+    },
+    "tokens": "토큰: {{percent}}%",
+    "totalFixes": "적용된 총 수정 횟수: {{count}}",
+    "recentActivity": "최근 활동",
+    "noRuns": "아직 실행된 자기 개선 기록이 없습니다",
+    "reviewed": "검토됨"
+  },
+  "autoresearch": {
+    "title": "RAG 자동 조사",
+    "pauseRun": "실행 일시 중지",
+    "startRun": "실행 시작",
+    "unavailable": "자동 조사를 사용할 수 없음",
+    "running": "실행 중",
+    "paused": "일시 중지됨",
+    "idle": "대기 중",
+    "phase": "단계 {{phase}}",
+    "pauseOptimization": "최적화 일시 중지",
+    "startBounded": "제한된 범위 내 조사 실행",
+    "healthChecksNotCounted": "{{count}}개의 테스트 세트 상태 확인은 카운트되지 않습니다",
+    "latestRun": "최근 실행",
+    "testSuite": "테스트 세트",
+    "selfReported": "{{status}} (자가 보고)",
+    "noExperiments": "아직 실험이 없습니다. 재생 버튼을 눌러 제한된 범위 내 실행을 시작하세요."
+  },
+  "gpu": {
+    "title": "GPU 메모리",
+    "tiers": {
+      "speed": "속도",
+      "balanced": "균형",
+      "quality": "품질"
+    },
+    "tierMenu": {
+      "speed": "속도 등급",
+      "balanced": "균형 등급",
+      "quality": "품질 등급"
+    },
+    "states": {
+      "loaded": "로드됨",
+      "loading": "로딩 중...",
+      "unloading": "언로딩 중...",
+      "unloaded": "대기 중"
+    },
+    "unavailable": "GPU 상태를 사용할 수 없음",
+    "evict": "{{model}} 내보내기",
+    "systemOther": "시스템/기타: {{size}} GB",
+    "qualityTier": "품질 등급",
+    "evictFromGpu": "GPU에서 내보내기",
+    "noModels": "로드된 모델 없음"
+  },
+  "title": "대시보드",
+  "layoutModes": {
+    "normal": "일반",
+    "compact": "컴팩트",
+    "layered": "컴팩트 레이어드",
+    "modex": "Mode-X"
+  },
+  "fetchStateFailed": "대시보드 상태를 가져오지 못했습니다: {{statusText}} (상태: {{status}})",
+  "loadStateFailed": "대시보드 상태를 로드하지 못했습니다: {{message}}. 기본값을 사용합니다.",
+  "saveStateFailed": "대시보드 상태 변경 사항을 저장하지 못했습니다.",
+  "menu": {
+    "cycleLayout": "레이아웃 순환 (다음: {{mode}})",
+    "resetLayout": "레이아웃 초기화…",
+    "noHiddenCards": "숨겨진 카드 없음",
+    "showCard": "{{card}} 표시",
+    "showAllHidden": "모든 숨겨진 카드 표시"
+  },
+  "stickyNotes": "노트",
+  "loadingDashboard": "대시보드 로딩 중...",
+  "dashboardCards": "대시보드 카드",
+  "layoutTooltip": "레이아웃: {{mode}} (클릭하여 순환)",
+  "missingCard": "누락된 카드: {{id}}",
+  "resetConfirm": {
+    "title": "대시보드 레이아웃을 초기화하시겠습니까?",
+    "description": "모든 카드가 기본 위치와 크기로 돌아가며, 카드 색상이 초기화되고 숨겨진 카드가 다시 표시됩니다.",
+    "keeps": "카드가 표시하는 항목 (프로젝트, 작업, 채팅, 파일)",
+    "confirm": "레이아웃 초기화"
+  },
+  "cardWrapper": {
+    "openPage": "페이지 열기",
+    "expand": "확대",
+    "minimize": "축소",
+    "changeColour": "색상 변경…",
+    "resetColour": "색상 초기화",
+    "hideCard": "카드 숨기기",
+    "changeColor": "카드 색상 변경"
+  },
+  "refreshData": "데이터 새로고침",
+  "viewAllJobs": "모든 작업 보기",
+  "edit": "편집…",
+  "recentRuns": {
+    "status": {
+      "completed": "완료됨",
+      "running": "실행 중",
+      "queued": "대기 중",
+      "pending": "대기 중",
+      "paused": "일시 중지",
+      "failed": "실패",
+      "cancelled": "취소됨",
+      "unknown": "알 수 없음"
+    },
+    "images": "{{done}}/{{total}} 이미지",
+    "jobNumber": "작업 {{id}}",
+    "loadFailed": "최근 실행 내역을 불러올 수 없음: {{message}}"
+  },
+  "systemStatus": {
+    "fetchFailed": "시스템 상태를 가져오는데 실패했습니다.",
+    "noData": "반환된 상태 데이터가 없습니다.",
+    "title": "시스템 진단",
+    "python": "Python: {{version}}",
+    "platform": "플랫폼: {{platform}}",
+    "dbPath": "DB 경로: {{path}}",
+    "dbSize": "DB 크기: {{size}} KB",
+    "documents": "문서: {{count}}",
+    "models": "모델: {{count}}",
+    "indexStatus": "인덱스 상태: {{status}}",
+    "runSelfTest": "자가 진단 실행",
+    "rebuildIndex": "인덱스 재구축",
+    "clearCache": "캐시 삭제"
+  }
+}

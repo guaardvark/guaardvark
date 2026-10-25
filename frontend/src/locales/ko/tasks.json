@@ -1,0 +1,105 @@
+{
+  "filter": {
+    "all": "전체",
+    "active": "활성",
+    "completed": "완료",
+    "failed": "실패",
+    "project": "프로젝트: {{name}}",
+    "client": "클라이언트: {{name}}",
+    "website": "웹사이트: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "프로젝트를 불러올 수 없습니다: {{error}}",
+    "modelsFailed": "모델을 불러올 수 없습니다: {{error}}",
+    "requestFailed": "요청에 실패했습니다"
+  },
+  "video": {
+    "loadFailed": "비디오 배치 작업 로드 실패",
+    "cancelled": "비디오 배치 작업 취소됨",
+    "cancelRefused": "VideoGen 작업을 취소할 수 없습니다",
+    "cancelFailed": "취소 실패",
+    "title": "비디오 배치 작업",
+    "intro": "통합 VIDEO_GEN 파이프라인(Batch Video / Video Generator)에서 대기 및 실행 중인 배치 작업입니다. 이 페이지(작업 스케줄러)는 New Job 메뉴를 통해 코드, 콘텐츠, CSV, 분석 및 사용자 정의 작업에 대한 기존 예약 작업도 처리합니다.",
+    "refresh": "비디오 배치 작업 새로고침",
+    "empty": "대기 중인 비디오 배치 작업이 없습니다.",
+    "label": "라벨",
+    "status": "상태",
+    "progress": "진행률",
+    "actions": "작업",
+    "cancel": "취소"
+  },
+  "notFound": "작업 {{id}}를 찾을 수 없습니다",
+  "queue": {
+    "started": "작업 큐 처리 시작",
+    "failed": "큐 처리 실패: {{error}}"
+  },
+  "created": "작업이 성공적으로 생성되었습니다",
+  "updated": "작업이 성공적으로 업데이트되었습니다",
+  "saveFailed": "작업 저장 실패: {{error}}",
+  "deleted": "작업이 성공적으로 삭제되었습니다",
+  "duplicatedWithId": "작업이 성공적으로 복제되었습니다 (ID: {{id}})",
+  "duplicated": "작업이 성공적으로 복제되었습니다.",
+  "duplicateFailed": "작업 복제 실패: {{error}}",
+  "delete": {
+    "title": "이 작업 삭제",
+    "description": "\"{{name}}\"이(가) 삭제됩니다.",
+    "thisTask": "이 작업",
+    "confirm": "작업 삭제"
+  },
+  "deleteFailed": "작업 삭제 실패: {{error}}",
+  "start": {
+    "invalid": "유효하지 않은 작업 데이터",
+    "starting": "작업 시작 중: {{name}}",
+    "unnamed": "이름 없는 작업",
+    "failed": "작업 시작 실패: {{error}}",
+    "started": "작업 \"{{name}}\"이(가) 성공적으로 시작되었습니다."
+  },
+  "clear": {
+    "none": "삭제할 작업이 없습니다",
+    "title": "모든 작업 삭제",
+    "description": "이 목록의 모든 작업이 삭제됩니다.",
+    "tasksFact": "작업",
+    "confirm": "모두 삭제",
+    "clearing": "모든 작업 삭제 중...",
+    "done": "작업 {{count}}개가 성공적으로 삭제되었습니다",
+    "failed": "작업 삭제 실패: {{error}}"
+  },
+  "title": "작업 스케줄러",
+  "counts": {
+    "pending": "{{count}} 대기 중",
+    "queued": "{{count}} 대기열",
+    "running": "{{count}} 실행 중"
+  },
+  "runQueue_other": "작업 {{count}}개 실행",
+  "clearAll": "모두 삭제",
+  "newJob": "새 작업",
+  "newMenu": {
+    "code": "코드 생성",
+    "csv": "CSV / 대량 콘텐츠",
+    "content": "콘텐츠 생성",
+    "analysis": "데이터 분석",
+    "custom": "사용자 정의 작업"
+  },
+  "typeFilter": {
+    "label": "유형",
+    "all": "모든 유형",
+    "code": "코드 생성",
+    "csv": "CSV / 대량",
+    "content": "콘텐츠",
+    "analysis": "분석"
+  },
+  "loading": "작업 로딩 중...",
+  "emptyTitle": "검색 결과 없음",
+  "emptyDescription": "위의 빠른 동작을 사용하여 첫 번째 작업을 생성하세요",
+  "menu": {
+    "start": "시작",
+    "cancel": "취소",
+    "edit": "편집",
+    "duplicate": "복제",
+    "newCode": "새 코드 생성",
+    "newCsv": "새 CSV / 일괄 콘텐츠",
+    "newContent": "새 콘텐츠 생성",
+    "newAnalysis": "새 데이터 분석",
+    "newCustom": "새 맞춤 작업"
+  }
+}

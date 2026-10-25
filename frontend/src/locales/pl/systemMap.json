@@ -1,0 +1,75 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "Usługi",
+    "utils": "Narzędzia pomocnicze",
+    "tools": "Narzędzia",
+    "tasks": "Zadania",
+    "frontend": "Frontend",
+    "plugins": "Wtyczki",
+    "clear": "wyczyść"
+  },
+  "errors": {
+    "snapshotFailed": "Błąd zapisu snapshotu"
+  },
+  "dispatch": {
+    "queued": "Przekazano do agenta Samodoskonalenie — uruchamiane w tle.",
+    "proposed": "Przekazano do agenta Samodoskonalenie — sprawdź zaproponowaną poprawkę w Ustawieniach.",
+    "notRun": "Przesłanie nie zostało uruchomione — {{reason}}",
+    "notRunNoReason": "Przesłanie nie zostało uruchomione — brak podanego powodu",
+    "failed": "Błąd przesyłania: {{error}}"
+  },
+  "title": "Mapa systemu",
+  "stats": "{{modules}} modułów · {{edges}} krawędzi",
+  "severity": {
+    "critical": "{{count}} krytycznych",
+    "medium": "{{count}} średnich",
+    "hygiene": "{{count}} higienicznych"
+  },
+  "searchPlaceholder": "Szukaj ( / )",
+  "resetView": "Resetuj widok (R)",
+  "refresh": {
+    "cached": "Sko-cache'owane {{seconds}}s temu — kliknij, aby przeliczyć",
+    "computed": "Właśnie obliczone {{seconds}}s temu"
+  },
+  "overlays": {
+    "ghostEndpoints": "Endpointy-duchy",
+    "ghostEndpointsCount": "Endpointy-duchy ({{count}})",
+    "toolGraph": "Graf narzędzi",
+    "toolGraphCount": "Graf narzędzi ({{count}})"
+  },
+  "controlsHint": "przeciągnij · przesuń | koło · powiększ | / · szukaj | r · reset | kliknij czipy · podświetl sekcje",
+  "detail": {
+    "hovered": "Najechanie",
+    "selected": "Wybrane",
+    "importers_few": "{{count}} importerów",
+    "importers_many": "{{count}} importerów",
+    "importers_one": "{{count}} importer",
+    "findings": "Wyniki ({{count}})",
+    "moreFindings": "… i jeszcze {{count}}",
+    "escToClear": "Naciśnij <code>Esc</code>, aby wyczyścić"
+  },
+  "loading": "Mapowanie systemu…",
+  "panel": {
+    "findings": "Wyniki",
+    "activity": "Aktywność"
+  },
+  "findings": {
+    "actionable": "Możliwe do naprawy",
+    "critical": "Krytyczne",
+    "all": "Wszystkie",
+    "intro": "Wyniki uszeregowane · kliknij, aby zlokalizować · wyślij do naprawy",
+    "empty": "Brak wyników o tym poziomie krytyczności. 🎉",
+    "dispatch": "Wyślij do agenta Samodoskonalenia, aby zaproponował poprawkę",
+    "dismiss": "Zamknij — potwierdź i przestań wyświetlać to znalezisko"
+  },
+  "activity": {
+    "title": "Aktywność na żywo",
+    "intro": "Wywołania narzędzi w Czatcie pojawiają się tutaj. Dopasowane moduły pulsują w konstelacji.",
+    "empty": "Brak aktywności. Zapytaj agenta o coś, aby uruchomić puls.",
+    "now": "teraz",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

@@ -1,0 +1,190 @@
+{
+  "memoryPage": {
+    "title": "에이전트 메모리"
+  },
+  "groups": {
+    "create": "생성",
+    "createHelp": "페이지, 코드 및 데이터 파일을 작성하는 에이전트.",
+    "web": "웹",
+    "webHelp": "웹 페이지를 검색, 읽고 제어하는 에이전트. 설정에서 웹 액세스가 활성화되어야 합니다.",
+    "computer": "이 컴퓨터",
+    "computerHelp": "이 기기에서 동작하는 에이전트: 에이전트 자체 화면, 데스크톱 및 미디어 재생.",
+    "routing": "라우팅",
+    "routingHelp": "일반 비서(General Assistant)는 전문 에이전트가 처리할 수 없는 작업을 수행하며, 작업 오케스트레이터(Task Orchestrator)는 다단계 요청을 여러 에이전트에 분산합니다.",
+    "other": "기타"
+  },
+  "table": {
+    "label": "에이전트",
+    "agent": "에이전트",
+    "group": "그룹",
+    "whatItDoes": "수행 작업",
+    "status": "상태",
+    "tools": "도구",
+    "maxSteps": "최대 단계",
+    "model": "모델",
+    "edited": "수정됨",
+    "chatModel": "채팅 모델"
+  },
+  "page": {
+    "loadFailed": "에이전트 로드 실패",
+    "enabled": "{{name}} 활성화됨",
+    "disabled": "{{name}} 비활성화됨",
+    "toggleFailed": "토글 실패",
+    "copied": "{{id}} 복사됨",
+    "copyFailed": "클립보드로 복사할 수 없음",
+    "title": "에이전트",
+    "viewLabel": "에이전트 보기",
+    "tileView": "타일 보기",
+    "tableView": "표 보기",
+    "loading": "에이전트 로딩 중...",
+    "emptyTitle": "에이전트를 찾을 수 없음",
+    "emptyDescription": "설정이 완료되면 에이전트가 여기에 표시됩니다",
+    "unnamedAgent": "에이전트",
+    "updated": "에이전트 업데이트됨"
+  },
+  "actions": {
+    "edit": "편집",
+    "test": "테스트",
+    "enable": "활성화",
+    "disable": "비활성화",
+    "copyId": "ID 복사",
+    "resetToDefault": "기본값으로 초기화"
+  },
+  "reset": {
+    "backToDefault": "기본값으로 복구",
+    "title": "{{name}}을(를) 기본값으로 초기화",
+    "unnamedAgent": "에이전트",
+    "description": "이 필드들에 대한 변경 사항이 기본값으로 대체됩니다.",
+    "keeps": "에이전트의 온/오프 상태",
+    "confirm": "초기화",
+    "failed": "초기화 실패",
+    "done": "{{name}}이(가) 기본값으로 초기화됨"
+  },
+  "edit": {
+    "instructions": "지침",
+    "maxIterations": "최대 반복 횟수",
+    "model": "모델",
+    "loadFailed": "에이전트를 불러올 수 없습니다",
+    "saveFailed": "저장 실패",
+    "enabled": "활성화됨",
+    "offNote": "꺼짐",
+    "activeChatModel": "활성 채팅 모델 (기본값)",
+    "modelNotInstalled": "(설치되지 않음)",
+    "iterationsRange": "1에서 {{max}}까지",
+    "instructionsHelp": "이 에이전트의 시스템 프롬프트의 일부로 모델에 전송됩니다.",
+    "instructionsEmpty": "지침은 비어 있을 수 없습니다. 대신 '기본값으로 초기화'를 사용하세요.",
+    "plannerPrompt": "플래너는 각 요청에 대해 자체 프롬프트를 작성하므로, 여기에서 수정할 내용이 없습니다.",
+    "toolsHeading": "도구 ({{count}})",
+    "toolNotInstalled": "설치되지 않음",
+    "toolNeedsApproval": "승인 필요 (여기서 거부됨)",
+    "nothingChanged": "기본값에서 변경된 사항이 없습니다",
+    "save": "저장"
+  },
+  "tile": {
+    "off": "꺼짐",
+    "toolsMissing_other": "누락된 도구 {{count}}개",
+    "ready": "준비됨",
+    "handsSteps": "다른 에이전트에게 전달되는 단계",
+    "toolCount_other": "{{count}} 도구",
+    "missingCount": "누락됨: {{count}}",
+    "maxSteps": "최대 {{max}}",
+    "edited": "수정됨"
+  },
+  "test": {
+    "invalidContext": "컨텍스트는 유효한 JSON이어야 합니다",
+    "executionFailedError": "에이전트 실행 실패",
+    "title": "테스트 {{name}}",
+    "planOnly": "이 메시지에 대해 오케스트레이터가 생성한 계획을 표시합니다. 단계는 실행되지 않습니다.",
+    "realRun": "실제로 이 메시지를 사용하여 에이전트를 실행합니다. 채팅에서 질문하는 것과 동일하게, 도구를 사용하고 Guaardvark 출력 폴더에 파일을 생성할 수 있습니다.",
+    "message": "메시지",
+    "context": "컨텍스트 (JSON)",
+    "planMade": "계획 생성됨",
+    "complete": "실행 완료 ({{iterations}}회 반복)",
+    "failed": "실행 실패",
+    "run": "실행"
+  },
+  "screen": {
+    "chipTooltip": "에이전트 가상 화면",
+    "popup": "팝업",
+    "live": "라이브",
+    "screen": "화면",
+    "emptyFrame": "빈 프레임 수신됨",
+    "displayNotRunning": "에이전트 디스플레이가 실행 중이 아닙니다",
+    "captureFailed": "캡처 실패 ({{status}})",
+    "connectionLost": "연결 끊김",
+    "startFailed": "에이전트 디스플레이 시작 실패",
+    "popupTitle": "Guaardvark 에이전트 화면",
+    "title": "에이전트 화면",
+    "training": "학습",
+    "fpsValue": "{{fps}}fps",
+    "inPopup": "팝업 내",
+    "imageAlt": "에이전트 화면",
+    "starting": "에이전트 디스플레이 시작 중…",
+    "connecting": "연결 중...",
+    "paused": "일시정지",
+    "fps": "FPS"
+  },
+  "keyboard": {
+    "forwardingOn": "키보드 → 에이전트 화면: 켜짐 (클릭하여 중지)",
+    "forwardingOff": "키보드를 에이전트 화면으로 전송"
+  },
+  "lesson": {
+    "heading_other": "레슨 — {{count}}개의 진주",
+    "hide": "숨기기 (레슨은 계속 실행됨 — 채팅 헤더에서 '레슨 종료'를 선택하여 중지)",
+    "waiting": "첫 번째 진주를 기다리는 중입니다. 정답인 답변에 따봉을 눌러주세요.",
+    "noTaskText": "(작업 텍스트 없음)",
+    "finalizing": "레슨 마무리 중 — 진주를 요약으로 추출하는 중..."
+  },
+  "trainer": {
+    "level": {
+      "guided": "가이드형",
+      "supervised": "감독형",
+      "autonomous": "자율형"
+    },
+    "noDemos": "아직 데모가 없습니다. VNC에 연결하고 '녹화 시작'을 클릭하세요.",
+    "untitled": "제목 없음",
+    "attempts": "{{count}}회 시도",
+    "deleteDemo": "데모 삭제",
+    "saveDemo": "저장 및 학습 페이지에서 편집",
+    "attemptDemo": "에이전트가 이 데모를 시도합니다",
+    "demoName": "데모 이름 (선택 사항)",
+    "nameDemo": "데모 이름 지정",
+    "startRecording": "녹화 시작",
+    "recording": "녹화 중...",
+    "stepsCaptured": "{{count}}단계 캡처됨",
+    "stopRecording": "녹화 중지",
+    "waitingForQuestions": "질문을 기다리는 중...",
+    "question": {
+      "clarification": "명확화",
+      "generalization": "일반화",
+      "confirmation": "확인",
+      "generic": "질문"
+    },
+    "answerPlaceholder": "답변을 입력하세요...",
+    "skip": "건너뛰기",
+    "success": "성공!",
+    "failed": "실패",
+    "stepsCompleted": "완료된 단계: {{completed}} / {{total}}",
+    "stepOf": "{{total}}단계 중 {{step}}단계",
+    "confirm": "확인",
+    "correct": "정답",
+    "title": "트레이너"
+  },
+  "plan": {
+    "status": {
+      "pending": "대기 중",
+      "running": "실행 중",
+      "completed": "완료됨",
+      "failed": "실패",
+      "planning": "계획 중",
+      "executing": "실행 중"
+    },
+    "step": "단계 {{id}}: {{description}}",
+    "stepStatus": "상태: {{status}}",
+    "viewResult": "결과 보기",
+    "stepError": "오류: {{error}}",
+    "heading_other": "오케스트레이션 계획 — {{count}}단계",
+    "executing": "실행 중...",
+    "execute": "계획 실행"
+  }
+}

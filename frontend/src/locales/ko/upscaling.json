@@ -1,0 +1,108 @@
+{
+  "settings": {
+    "modelDefaultScale": "모델 기본값",
+    "model": "모델",
+    "manageModels": "업스케일링 모델 관리",
+    "install": "설치",
+    "noModelInstallSized": "설치된 업스케일링 모델이 없습니다. 업스케일링을 위해 {{model}} ({{size}} MB)을(를) 설치하세요. 업스케일링 기능은 자동으로 모델을 다운로드하지 않습니다.",
+    "noModelInstall": "설치된 업스케일링 모델이 없습니다. 업스케일링을 위해 {{model}}을(를) 설치하세요. 업스케일링 기능은 자동으로 모델을 다운로드하지 않습니다.",
+    "noModel": "설치된 업스케일링 모델이 없습니다. 업스케일링을 위해 '업스케일링 모델 관리'에서 하나를 추가하세요.",
+    "outputScale": "출력 스케일",
+    "targetResolution": "대상 해상도",
+    "twoPass": "2단계 모드",
+    "twoPassHelp": "더 높은 품질을 위해 모델을 두 번 실행합니다 (속도 저하)",
+    "faceEnhance": "얼굴 개선",
+    "faceEnhanceHelp": "GFPGAN을 사용하여 얼굴을 복원합니다",
+    "doubleFps": "프레임레이트 두 배",
+    "doubleFpsHelp": "더 부드러운 움직임을 위해 프레임을 보간합니다 (속도 저하)",
+    "sharpening": "선명도",
+    "denoise": "디노이징 프리패스"
+  },
+  "service": {
+    "startRefused": "업스케일링 서비스가 시작되지 않았습니다: {{reason}}",
+    "tryAgainShortly": "잠시 후 다시 시도",
+    "startTimeout": "업스케일링 서비스가 1분 이내에 응답하지 않았습니다. 로그는 플러그인 페이지에서 확인할 수 있습니다.",
+    "startFailed": "업스케일링 서비스를 시작할 수 없습니다: {{error}}",
+    "starting": "시작 중...",
+    "startNow": "지금 시작",
+    "stoppedAutostart": "업스케일링 서비스가 중지되었습니다. 무언가를 업스케일링할 때 자동으로 시작되거나, 지금 바로 시작할 수 있습니다.",
+    "switchedOff": "플러그인 페이지에서 업스케일링이 꺼져 있습니다. 여기서 시작하여 업스케일링을 진행하세요.",
+    "stopped": "업스케일링 서비스가 중지되었습니다. 업스케일링을 위해 서비스를 시작하세요."
+  },
+  "errors": {
+    "unknown": "알 수 없는 오류",
+    "modelsLoadFailed": "업스케일링 모델을 불러올 수 없습니다: {{error}}.",
+    "requestFailed": "요청에 실패했습니다",
+    "unsupportedSkipped": "지원되지 않는 파일 {{count}}개가 건너뛰어졌습니다. 허용됨: {{allowed}}",
+    "failedReason": "실패",
+    "submitFailed": "제출 실패: {{details}}",
+    "skipped": "건너뜀: {{details}}",
+    "imageFailed": "이미지 업스케일링 실패",
+    "cancelFailed": "취소 실패: {{error}}. 작업이 여전히 실행 중일 수 있습니다.",
+    "clearFailed": "완료된 작업 삭제 실패: {{error}}.",
+    "previewFailed": "미리보기 실패: {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "\"{{name}}\"에 대한 업스케일링 작업이 제출되었습니다",
+    "jobsSubmitted": "총 {{total}}개의 업스케일링 작업 중 {{submitted}}개가 제출되었습니다",
+    "imageUpscaled": "\"{{name}}\" 업스케일링 완료",
+    "imagesQueued": "업스케일링을 위해 {{count}}개의 이미지가 대기열에 추가되었습니다"
+  },
+  "gpu": {
+    "unknown": "알 수 없음",
+    "title": "GPU 상태",
+    "activeModel": "활성 모델",
+    "none": "없음",
+    "enabled": "활성화됨",
+    "disabled": "비활성화됨"
+  },
+  "submit": {
+    "upscaleImages": "이미지 {{count}}개 업스케일링",
+    "upscaleVideos": "동영상 {{count}}개 업스케일링",
+    "upscaleImage": "이미지 업스케일링",
+    "upscaleVideo": "비디오 업스케일링",
+    "startingService": "업스케일링 서비스 시작 중...",
+    "uploadingProgress": "{{current}}/{{total}} 업로드 중...",
+    "uploading": "업로드 중...",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "업스케일링",
+    "videoGen": "비디오 생성"
+  },
+  "upload": {
+    "imagesTitle": "이미지 업로드",
+    "videoTitle": "비디오 업로드",
+    "video": "비디오",
+    "image": "이미지",
+    "dropImages": "여기에 이미지를 드래그 앤 드롭하거나 클릭하여 찾아보기",
+    "dropVideos": "여기에 비디오를 드래그 앤 드롭하거나 클릭하여 찾아보기",
+    "filesReady_other": "준비된 파일 {{count}}개",
+    "clearAll": "모두 지우기"
+  },
+  "result": {
+    "original": "원본",
+    "upscaled": "업스케일링됨",
+    "openFullSize": "전체 크기로 열기",
+    "download": "다운로드"
+  },
+  "preview": {
+    "title": "업스케일링 미리보기",
+    "hint": "프레임을 찾아 이동한 후 \"미리보기 생성\"을 클릭하여 업스케일링된 프레임을 확인하세요.",
+    "generating": "생성 중...",
+    "generate": "미리보기 생성",
+    "originalFrame": "원본 프레임",
+    "upscaledFrame": "업스케일링된 프레임",
+    "backToVideo": "비디오로 돌아가기"
+  },
+  "jobs": {
+    "title": "업스케일링 작업",
+    "clearFinishedCount": "완료된 항목 지우기 ({{count}})",
+    "clearFinished": "완료된 항목 지우기",
+    "empty": "아직 업스케일링 작업이 없습니다. 비디오나 이미지 묶음을 업로드하여 시작하세요.",
+    "imageProgress": "이미지 {{done}} / {{total}}",
+    "frameProgress": "프레임 {{done}} / {{total}}",
+    "play": "재생",
+    "cancel": "취소"
+  }
+}

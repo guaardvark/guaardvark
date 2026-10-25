@@ -1,0 +1,25 @@
+{
+  "status": {
+    "processing": "処理中...",
+    "complete": "完了",
+    "error": "エラー",
+    "cancelled": "キャンセル済み"
+  },
+  "gpu": {
+    "videoRendering": "動画をレンダリング中",
+    "picturesRendering": "画像をレンダリング中",
+    "pictureRendering": "画像をレンダリング中",
+    "pictureEditing": "画像を編集中",
+    "animationRendering": "アニメーションをレンダリング中",
+    "infographicRendering": "インフォグラフィックをレンダリング中",
+    "characterPicturesRendering": "キャラクター画像をレンダリング中",
+    "storyboardRendering": "絵コンテをレンダリング中",
+    "filmCrewRendering": "Film Crewをレンダリング中",
+    "musicVideoRendering": "ミュージックビデオをレンダリング中",
+    "songRendering": "楽曲をレンダリング中",
+    "modelTraining": "モデルをトレーニング中",
+    "characterTraining": "キャラクターをトレーニング中",
+    "generic": "何かがGPUを使用中",
+    "coolingDown": "前回の処理後、GPUを待機中（{{seconds}} 秒）"
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "page": {
+    "title": "Autoaperfeiçoamento",
+    "systemMap": "Mapa do Sistema",
+    "uncleClaudeSettings": "Uncle Claude nas Configurações",
+    "intro": "O Guaardvark executa seus próprios testes, elabora correções e as prepara para sua revisão. Nada chega ao Código até que você aprove e aplique, e o Codebase locked interrompe qualquer alteração.",
+    "recentRuns": "Execuções recentes",
+    "noCodeKeeps": "Nenhuma manutenção de código da Pesquisa Automática."
+  },
+  "codeKeeps": {
+    "approved": "Manutenção de código aprovada. Aplique em Correções pendentes.",
+    "rejected": "Manutenção de código rejeitada",
+    "approveFailed": "Falha ao aprovar manutenção de código: {{error}}",
+    "rejectFailed": "Falha ao rejeitar manutenção de código: {{error}}",
+    "title": "Manutenções de código",
+    "intro": "Braços do Swarm que passaram por preserve-and-extend. Aprovam aqui e depois aplique em Configurações — nada é mesclado automaticamente ao Principal.",
+    "description": "Descrição",
+    "status": "Status",
+    "created": "Criado",
+    "actions": "Ações",
+    "approve": "Aprovar",
+    "reject": "Rejeitar"
+  },
+  "fixStatus": {
+    "proposed": "proposto",
+    "triaged": "triado",
+    "approved": "aprovado",
+    "applied": "aplicado",
+    "rejected": "rejeitado"
+  },
+  "controls": {
+    "title": "Autoaperfeiçoamento",
+    "help": "O Guaardvark verifica seu próprio Código e propõe correções para você revisar. O Codebase locked bloqueia toda edição automática.",
+    "enabledChip": "Autoaperfeiçoamento",
+    "enabledTooltip": "Permite que o mentor examine a base de código e proponha correções para revisão.",
+    "lockedChip": "Base de Código bloqueada",
+    "lockedOnTooltip": "Edições autônomas estão bloqueadas. Desative para permiti-las.",
+    "lockedOffTooltip": "Ative para bloquear toda edição autônoma na árvore de origem.",
+    "turnOnFirst": "Ative o Autoaperfeiçoamento primeiro",
+    "unlockFirst": "Desbloqueie a base de Código primeiro",
+    "runTooltip": "Executa as verificações agora. Cancelar pede ao servidor para parar; fechar a visualização mantém a verificação em execução.",
+    "runSelfCheck": "Executar auto-verificação",
+    "lastRun_one": "Última execução {{date}} ({{status}}) · {{count}} execução bem-sucedida.",
+    "lastRun_other": "Última execução {{date}} ({{status}}) · {{count}} execuções bem-sucedidas.",
+    "noRuns": "Nenhuma execução ainda.",
+    "readingStatus": "Lendo o status…",
+    "lockedNote": "Base de Código está bloqueada: edições autônomas estão bloqueadas.",
+    "cancelled": "Cancelado",
+    "scanInBackground": "A verificação continua em segundo plano",
+    "pendingFixes": "Correções pendentes",
+    "pendingFixesHelp": "Correções propostas pela auto-verificação, aguardando sua revisão ou aplicação. Nada chega ao Código até que você aprove e aplique.",
+    "waiting": "{{count}} aguardando",
+    "reviewFixes": "Revisar correções"
+  },
+  "runStatus": {
+    "running": "executando",
+    "success": "sucesso",
+    "failed": "falhou",
+    "cancelled": "cancelado",
+    "blocked_by_guardian": "bloqueado_pelo_guardian"
+  },
+  "trigger": {
+    "scheduled": "agendado",
+    "reactive": "reativo",
+    "directed": "direcionado",
+    "family_learning": "family_learning"
+  },
+  "runs": {
+    "filter": {
+      "all": "Todos",
+      "scheduled": "Agendados",
+      "reactive": "Reativos",
+      "directed": "Direcionados",
+      "success": "Sucesso",
+      "failed": "Falha"
+    },
+    "empty": "Nenhuma execução de Autoaperfeiçoamento registrada ainda.",
+    "status": "Status",
+    "trigger": "Gatilho",
+    "timestamp": "Carimbo de data/hora",
+    "duration": "Duração",
+    "uncleReviewed": "Uncle Reviewed",
+    "details": "Detalhes",
+    "durationSeconds": "{{seconds}}s",
+    "reviewed": "Revisado",
+    "notReviewed": "Não",
+    "expand": "Expandir",
+    "uncleFeedback": "Uncle Claude Feedback",
+    "changesMade": "Mudanças Feitas",
+    "testResults": "Resultados do Teste"
+  }
+}

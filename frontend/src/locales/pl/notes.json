@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "Normalny",
+    "compact": "Kompaktowy",
+    "collapsed": "Zminiony"
+  },
+  "untitled": "Bez tytułu",
+  "note": {
+    "changeColor": "Zmień kolor",
+    "close": "Zamknij",
+    "closeNote": "Zamknij notatkę",
+    "bold": "Pogrubienie (Ctrl+B)",
+    "italic": "Kursywa (Ctrl+I)",
+    "underline": "Podkreślenie (Ctrl+U)",
+    "insertLink": "Wstaw link",
+    "bodyPlaceholder": "Wpisz notatkę..."
+  },
+  "errors": {
+    "loadFailed": "Błąd ładowania notatek: {{message}}. Użyto ustawień domyślnych.",
+    "saveFailed": "Błąd zapisu notatek.",
+    "copyDenied": "Nie można skopiować: brak uprawnień do schowka",
+    "pasteFailed": "Nie można wkleić: {{message}}",
+    "pasteDenied": "Nie można wkleić: brak uprawnień do schowka"
+  },
+  "pageTitle": "Notatki",
+  "loading": "Ładowanie notatek...",
+  "toolbar": {
+    "searchPlaceholder": "Szukaj w notatkach...",
+    "dashboardCards": "Karty na Panelu",
+    "stickyNotes": "Notatki samoprzylepne",
+    "addNoteTooltip": "Dodaj notatkę",
+    "addNote": "Dodaj notatkę",
+    "closedNotes": "Zamknięte notatki",
+    "layoutCycle": "Układ: {{mode}} (kliknij, aby zmienić)",
+    "layoutMode": "Układ: {{mode}}",
+    "saving": "Zapisywanie...",
+    "allSaved": "Wszystkie zmiany zapisane",
+    "saveFailed": "Błąd zapisu"
+  },
+  "emptyNote": "Pusta notatka",
+  "menu": {
+    "copy": "Kopiuj",
+    "selectAll": "Zaznacz wszystko",
+    "paste": "Wklej",
+    "duplicate": "Duplikuj",
+    "rename": "Zmień nazwę",
+    "unpin": "Odepnij",
+    "pinToTop": "Przypnij na górze"
+  },
+  "actions": {
+    "delete": "Usuń",
+    "cancel": "Anuluj",
+    "save": "Zapisz"
+  },
+  "deleteDialog": {
+    "title": "Usuń \"{{title}}\"? Ctrl+Z przywróci je, dopóki nie opuścisz lub nie przeładujesz tej strony."
+  },
+  "boardMenu": {
+    "newNote": "Nowa Notatka",
+    "cycleLayout": "Zmień układ",
+    "goToDashboard": "Przejdź do Panelu"
+  },
+  "renameDialog": {
+    "title": "Zmień nazwę notatki",
+    "placeholder": "Tytuł notatki"
+  },
+  "linkDialog": {
+    "title": "Wstaw link",
+    "url": "URL",
+    "insert": "Wstaw"
+  },
+  "closed": {
+    "justNow": "Właśnie teraz",
+    "minutesAgo": "{{count}}m temu",
+    "hoursAgo": "{{count}}h temu",
+    "yesterday": "Wczoraj",
+    "daysAgo": "{{count}}d temu",
+    "deleteNamed": "Usuń {{title}}",
+    "heading": "Zamknięte notatki",
+    "searchPlaceholder": "Szukaj w zamkniętych notatkach...",
+    "empty": "Brak zamkniętych notatek",
+    "noMatches": "Brak wyników",
+    "groups": {
+      "today": "Dzisiaj",
+      "yesterday": "Wczoraj",
+      "thisWeek": "Ten tydzień",
+      "older": "Starsze"
+    }
+  }
+}

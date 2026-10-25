@@ -1,0 +1,56 @@
+{
+  "title": "智能体工具",
+  "loadFailed": "加载工具失败",
+  "copied": "已复制到剪贴板",
+  "copyFailed": "复制到剪贴板失败",
+  "parameters": "参数",
+  "copyName": "复制工具名称",
+  "card": {
+    "test": "测试"
+  },
+  "table": {
+    "name": "名称",
+    "category": "类别",
+    "description": "描述",
+    "params": "参数",
+    "actions": "操作",
+    "requiredList": "必填：{{params}}",
+    "optionalList": "选填：{{params}}",
+    "requiredCount": "{{count}} 必填",
+    "optionalCount": "{{count}} 选填",
+    "noParams": "无",
+    "testTool": "测试工具"
+  },
+  "noMatch": "未找到匹配 \"{{query}}\" 的工具",
+  "tabs": {
+    "tools": "工具 ({{count}})",
+    "schemas": "架构",
+    "categories": "类别"
+  },
+  "searchPlaceholder": "搜索工具...",
+  "view": {
+    "label": "查看模式",
+    "cardLabel": "卡片视图",
+    "card": "卡片视图",
+    "listLabel": "列表视图",
+    "list": "列表视图"
+  },
+  "loading": "正在加载工具...",
+  "schemas": {
+    "copyAll": "复制全部",
+    "loading": "正在加载架构..."
+  },
+  "menu": {
+    "test": "测试…"
+  },
+  "test": {
+    "succeeded": "工具执行成功",
+    "executionFailed": "工具执行失败",
+    "title": "测试工具：{{name}}",
+    "noApprovalWarning": "执行将立即运行此工具，不会先进行对话要求的确认步骤。",
+    "requiredHelper": "必填。{{description}} ({{type}})",
+    "result": "结果",
+    "failed": "执行失败",
+    "execute": "执行"
+  }
+}

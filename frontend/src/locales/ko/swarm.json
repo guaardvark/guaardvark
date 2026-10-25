@@ -1,0 +1,131 @@
+{
+  "taskStatus": {
+    "pending": "대기 중",
+    "blocked": "차단됨",
+    "queued": "대기열에 추가됨",
+    "running": "실행 중",
+    "done": "완료",
+    "failed": "실패",
+    "needsReview": "검토 필요",
+    "merged": "병합됨",
+    "cancelled": "취소됨",
+    "noChanges": "변경 사항 없음",
+    "timedOut": "시간 초과"
+  },
+  "messages": {
+    "enterPlanPath": "계획 파일 경로 입력",
+    "launched": "Swarm 실행됨: {{id}}",
+    "launchFailed": "실행 실패",
+    "noSwarmId": "Swarm ID 없음",
+    "cancelled": "취소됨",
+    "cancelFailed": "취소 실패",
+    "merged": "{{merged}}개 브랜치 병합됨, {{conflicts}}개 충돌 발생",
+    "mergeFailed": "병합 실패",
+    "cleanedUp": "정리됨",
+    "cleanupFailed": "정리 실패",
+    "logsFailed": "로그를 가져올 수 없음",
+    "templateLoadFailed": "템플릿 로드 실패",
+    "filenameAndContentRequired": "파일명과 내용이 필요합니다",
+    "planSaved": "템플릿에 계획이 저장되었습니다",
+    "saveFailed": "저장 실패",
+    "enterGoal": "달성하고자 하는 목표를 입력하세요",
+    "planGenerated": "AI에 의해 계획이 생성되었습니다!",
+    "aiGenerationFailed": "AI 생성 실패"
+  },
+  "actions": {
+    "cancel": "취소",
+    "mergeAll": "모두 병합",
+    "cleanUp": "정리"
+  },
+  "menu": {
+    "collapse": "접기",
+    "expand": "펼치기",
+    "copySwarmId": "Swarm ID 복사",
+    "viewLogs": "로그 보기",
+    "viewDiff": "차이점 보기",
+    "copyBranchName": "브랜치 이름 복사",
+    "copyTaskId": "작업 ID 복사",
+    "launch": "실행…"
+  },
+  "title": "Swarm",
+  "header": {
+    "online": "온라인",
+    "offline": "오프라인",
+    "serviceOffline": "서비스 오프라인",
+    "refresh": "새로고침",
+    "createPlan": "새 계획 생성",
+    "launchSwarm": "Swarm 실행"
+  },
+  "sections": {
+    "activeSwarms": "활성 Swarm",
+    "quickLaunchTemplates": "빠른 실행 템플릿",
+    "recentSwarms": "최근 Swarm"
+  },
+  "taskCount": "{{count}} 작업",
+  "flightMode": "비행 모드",
+  "history": {
+    "freeLocal": "무료 (로컬)",
+    "cleanUp": "정리"
+  },
+  "empty": {
+    "title": "실행 중인 Swarm 없음",
+    "description": "코드베이스에서 병렬로 작업할 AI 에이전트 Swarm을 실행하세요.",
+    "startPlugin": "먼저 Swarm 플러그인을 시작하세요.",
+    "launchFirst": "첫 번째 Swarm 실행"
+  },
+  "launchDialog": {
+    "title": "Swarm 실행",
+    "template": "템플릿 (선택 사항)",
+    "customPlanFile": "사용자 정의 계획 파일",
+    "templateOption": "{{title}} ({{count}} 작업)",
+    "planPath": "계획 파일 경로",
+    "planPathPlaceholder": "path/to/plan.md 또는 위에서 템플릿 선택",
+    "planPathHelp": "GUAARDVARK_ROOT 기준 상대 경로 또는 절대 경로",
+    "maxAgents": "최대 동시 에이전트",
+    "autoMerge": "자동 병합",
+    "flightModeInfo": "비행 모드: 오프라인 백엔드 전용 (Ollama). 충돌 시 자동 직렬화됩니다.",
+    "cancel": "취소",
+    "launchFlightMode": "실행 (비행 모드)",
+    "launch": "실행"
+  },
+  "editor": {
+    "title": "Swarm 계획 편집기",
+    "aiHint": "작업을 설명하면 AI가 plan.md 구조를 생성합니다.",
+    "aiPlaceholder": "예: '모든 API 엔드포인트가 새 Response 모델을 사용하도록 리팩토링'",
+    "aiSuggest": "AI 계획 제안",
+    "filename": "파일명 (예: migrate_api.md)",
+    "content": "계획 내용 (Markdown)",
+    "formatHint": "형식: 각 작업에 <bold>## 작업 이름</bold>을 사용하세요. 의존성에는 <bold>Deps: [1]</bold>을 추가하세요.",
+    "cancel": "취소",
+    "saveToTemplates": "템플릿에 저장"
+  },
+  "taskView": {
+    "loadingLogs": "로그를 불러오는 중...",
+    "noLogs": "(로그 없음)",
+    "noChanges": "(작업 트리 내 변경 사항 없음)",
+    "diffFailed": "차이점(diff)을 가져오지 못했습니다",
+    "title": "작업 상세 정보: {{id}}",
+    "logsTab": "로그",
+    "liveDiffTab": "실시간 차이점",
+    "noOutputYet": "(아직 출력 없음)",
+    "fetchingDiff": "작업 트리 차이점 가져오는 중...",
+    "refreshDiff": "차이점 새로고침"
+  },
+  "swarmStatus": {
+    "failed": "실패",
+    "running": "실행 중",
+    "completed": "완료"
+  },
+  "card": {
+    "progress": "{{done}}/{{total}} 작업 완료",
+    "free": "여유",
+    "activeAgents": "{{count}}개 활성",
+    "diskUsage": "{{size}} MB",
+    "dependencyGraph": "의존성 그래프",
+    "viewTaskDetail": "작업 상세 정보 보기"
+  },
+  "elapsed": {
+    "minutesSeconds": "{{minutes}}분 {{seconds}}초",
+    "seconds": "{{seconds}}초"
+  }
+}

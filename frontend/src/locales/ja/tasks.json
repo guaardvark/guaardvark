@@ -1,0 +1,105 @@
+{
+  "filter": {
+    "all": "すべて",
+    "active": "アクティブ",
+    "completed": "完了",
+    "failed": "失敗",
+    "project": "プロジェクト: {{name}}",
+    "client": "クライアント: {{name}}",
+    "website": "ウェブサイト: {{url}}"
+  },
+  "lookup": {
+    "projectsFailed": "プロジェクトを読み込めませんでした: {{error}}",
+    "modelsFailed": "モデルを読み込めませんでした: {{error}}",
+    "requestFailed": "リクエストに失敗しました"
+  },
+  "video": {
+    "loadFailed": "ビデオバッチジョブの読み込みに失敗しました",
+    "cancelled": "ビデオバッチジョブがキャンセルされました",
+    "cancelRefused": "VideoGenジョブをキャンセルできませんでした",
+    "cancelFailed": "キャンセルに失敗しました",
+    "title": "ビデオバッチジョブ",
+    "intro": "統合されたVIDEO_GENパイプライン（Batch Video / Video Generator）からのキューおよび実行中のバッチを表示します。このページ（ジョブスケジューラー）は、New Jobメニューを介したコード、コンテンツ、CSV、分析、およびカスタムタスクのレガシーなスケジュール済みジョブも処理します。",
+    "refresh": "ビデオバッチジョブを更新",
+    "empty": "保留中のビデオバッチジョブはありません。",
+    "label": "ラベル",
+    "status": "ステータス",
+    "progress": "進捗",
+    "actions": "アクション",
+    "cancel": "キャンセル"
+  },
+  "notFound": "タスク {{id}} が見つかりませんでした",
+  "queue": {
+    "started": "タスクキューの処理を開始しました",
+    "failed": "キューの処理に失敗しました: {{error}}"
+  },
+  "created": "タスクを作成しました",
+  "updated": "タスクを更新しました",
+  "saveFailed": "タスクの保存に失敗しました: {{error}}",
+  "deleted": "タスクを削除しました",
+  "duplicatedWithId": "タスクを複製しました（ID: {{id}}）",
+  "duplicated": "タスクを複製しました",
+  "duplicateFailed": "タスクの複製に失敗しました: {{error}}",
+  "delete": {
+    "title": "このタスクを削除",
+    "description": "「{{name}}」を削除します。",
+    "thisTask": "このタスク",
+    "confirm": "タスクを削除"
+  },
+  "deleteFailed": "タスクの削除に失敗しました: {{error}}",
+  "start": {
+    "invalid": "無効なタスクデータです",
+    "starting": "タスクを開始中: {{name}}",
+    "unnamed": "名前のないタスク",
+    "failed": "タスクの開始に失敗しました: {{error}}",
+    "started": "タスク「{{name}}」を開始しました"
+  },
+  "clear": {
+    "none": "削除するタスクはありません",
+    "title": "すべてのタスクを削除",
+    "description": "このリスト内のすべてのタスクを削除します。",
+    "tasksFact": "タスク",
+    "confirm": "すべて削除",
+    "clearing": "すべてのタスクを削除中...",
+    "done": "タスクを{{count}}件削除しました",
+    "failed": "タスクの削除に失敗しました: {{error}}"
+  },
+  "title": "ジョブスケジューラ",
+  "counts": {
+    "pending": "保留: {{count}}",
+    "queued": "待機中: {{count}}",
+    "running": "実行中: {{count}}"
+  },
+  "runQueue_other": "タスクを{{count}}件実行",
+  "clearAll": "すべてクリア",
+  "newJob": "新規ジョブ",
+  "newMenu": {
+    "code": "コード生成",
+    "csv": "CSV / 一括コンテンツ",
+    "content": "コンテンツ生成",
+    "analysis": "データ分析",
+    "custom": "カスタムジョブ"
+  },
+  "typeFilter": {
+    "label": "タイプ",
+    "all": "すべてのタイプ",
+    "code": "コード生成",
+    "csv": "CSV / 一括",
+    "content": "コンテンツ",
+    "analysis": "分析"
+  },
+  "loading": "タスクを読み込み中...",
+  "emptyTitle": "タスクが見つかりません",
+  "emptyDescription": "上のクイックアクションを使用して、最初のタスクを作成してください",
+  "menu": {
+    "start": "開始",
+    "cancel": "キャンセル",
+    "edit": "編集",
+    "duplicate": "複製",
+    "newCode": "新規コード生成",
+    "newCsv": "新規CSV / 一括コンテンツ",
+    "newContent": "新規コンテンツ生成",
+    "newAnalysis": "新規データ分析",
+    "newCustom": "新規カスタムジョブ"
+  }
+}

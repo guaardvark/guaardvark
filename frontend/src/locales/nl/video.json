@@ -1,0 +1,200 @@
+{
+  "common": {
+    "upload": "Upload",
+    "addFromFiles": "Toevoegen vanuit Bestanden"
+  },
+  "stage": {
+    "queued": "In wachtrij",
+    "gpuWait": "Wachten op GPU",
+    "storyboard": "Storyboard",
+    "director": "Regisseur",
+    "keyframe": "Keyframe",
+    "generate": "Genereren",
+    "post": "Post-processing",
+    "register": "Registreren",
+    "done": "Klaar"
+  },
+  "keyframeMatch": {
+    "atFrame": "bij frame {{frame}} van {{frames}}",
+    "label": "Keyframe {{percent}}%",
+    "tooltip": "Match van de image-encoder tussen de keyframe en de clip{{where}}. Reageert op wat er in het shot verandert, niet alleen op de kleuren{{hold}}.",
+    "holdBelow": "; onder {{percent}}% wordt de clip vastgehouden voor een look"
+  },
+  "colourMatch": {
+    "label": "Kleur {{percent}}%",
+    "tooltip": "Kleurmatch met de keyframe{{where}}. Vergelijkt alleen kleuren, niet wie er in het shot staat."
+  },
+  "vlmReview": {
+    "score": "QA {{score}}/10",
+    "noScore": "de vision review gaf geen score",
+    "notReviewed": "Niet beoordeeld",
+    "notReviewedWhy": "Niet beoordeeld: {{reason}}"
+  },
+  "latentPreview": {
+    "alt": "Live latent preview",
+    "caption": "Live latent preview — geen uiteindelijke kwaliteit"
+  },
+  "qualityFlags": {
+    "unreadable": "Onleesbaar",
+    "blackFrames": "Zwarte frames",
+    "blackTiles": "Zwarte tegels",
+    "clippedHighlights": "Overbelicht",
+    "crushedShadows": "Verzadigde schaduwen",
+    "washedOut": "Uitgewassen",
+    "desaturated": "Geen kleur",
+    "oversaturated": "Oververzadigd",
+    "frozen": "Bevroren",
+    "flashes": "Flitsend",
+    "wrongSize": "Verkeerde grootte",
+    "wrongFrameCount": "Verkeerde lengte",
+    "colourDrift": "Kleurdrift",
+    "keyframeDrift": "Keyframedrift",
+    "lowReviewScore": "Lage beoordelingsscore",
+    "review": "Beoordeling",
+    "count": "{{count}} kwaliteitsvlaggen"
+  },
+  "clipReview": {
+    "needsReview": "Beoordeling nodig",
+    "approved": "Goedgekeurd",
+    "rerendered": "Opnieuw gerenderd",
+    "newBatch": "Nieuwe batch {{batch}}",
+    "heldUntilApproved": "Het wordt niet toegevoegd aan Bestanden totdat je het goedkeurt.",
+    "held": "Ingehouden voor beoordeling{{reasons}}.",
+    "reasons": ": {{reasons}}",
+    "approve": "Goedkeuren",
+    "rerenderTooltip": "Render deze clip opnieuw als een nieuwe batch, met dezelfde instellingen en een nieuwe seed",
+    "rerender": "Opnieuw renderen"
+  },
+  "cutQuality": {
+    "title": "Kwaliteit van de cut",
+    "held": "{{count}} ingehouden voor beoordeling; de video wordt samengesteld zodra elke cut is goedgekeurd of opnieuw gerenderd",
+    "cut": "Cut #{{index}}",
+    "noProblems": "geen problemen gevonden",
+    "heldUntilApproved": "Het wordt niet gebruikt in de video totdat je het goedkeurt."
+  },
+  "effective": {
+    "title": "Effectieve instellingen",
+    "steps": "{{count}} stappen",
+    "nativeAudio": "origineel audio",
+    "styleEmbedding": "stijl: {{style}}",
+    "frames": "{{count}} frames",
+    "fps": "{{fps}} FPS",
+    "seconds": "~{{seconds}}s",
+    "keyframeModel": "Keyframe: {{model}}",
+    "director": "Regisseur",
+    "faceRestore": "Gezichtsherstel",
+    "interpolation": "{{multiplier}}x FPS",
+    "upscale": "2x Upscale",
+    "promptStyle": "{{style}} stijl",
+    "cast": "Cast ×{{count}}"
+  },
+  "frameSlot": {
+    "drop": "Sleep de {{frame}} hier",
+    "remove": "Verwijder de {{frame}}",
+    "choose": "Kies de {{frame}}"
+  },
+  "progress": {
+    "state": {
+      "done": "Klaar",
+      "active": "Bezig",
+      "queued": "Wachten op GPU",
+      "waiting": "Wachten op jou",
+      "failed": "Mislukt",
+      "cancelled": "Geannuleerd",
+      "pending": "Niet gestart",
+      "skipped": "Overgeslagen"
+    },
+    "etaMeasured": "~{{duration}} over (gemeten)",
+    "etaEstimate": "~{{duration}} over (schatting)",
+    "cell": {
+      "done": "klaar",
+      "held": "vastgehouden",
+      "failed": "mislukt",
+      "rendering": "renderen",
+      "cancelled": "geannuleerd",
+      "pending": "in afwachting"
+    },
+    "clipOf": "Clip {{position}}/{{total}}",
+    "waitingForGpu": "wachten op GPU",
+    "working": "Bezig...",
+    "elapsed": "{{duration}} verstreken",
+    "cutTooltip": "Cut #{{index}} · {{state}}{{locked}}",
+    "locked": "vergrendeld",
+    "cutAria": "Cut {{index}} {{state}}"
+  },
+  "referenceBoard": {
+    "rows": {
+      "images": "Afbeeldingen",
+      "videos": "Clips",
+      "audios": "Audio"
+    },
+    "roles": {
+      "keep": "Houd exact aan",
+      "loose": "Houd de look losjes aan",
+      "detail": "Leen één detail",
+      "hint": "Lichte hint",
+      "firstFrame": "Gebruik als eerste frame",
+      "subject": "Houd de persoon erin",
+      "motion": "Kopieer beweging en camera",
+      "edit": "Bewerk deze clip",
+      "continue": "Vervolg deze clip",
+      "voice": "Stem voor een personage",
+      "music": "Gebruik als muziek",
+      "sound": "Match deze geluid"
+    },
+    "problems": {
+      "needVisual": "Voeg ten minste één afbeelding of clip toe; audio kan niet de enige referentie zijn.",
+      "tooManyImages": "Afbeeldingen zijn maximaal {{count}}.",
+      "tooManyVideos": "Clips zijn maximaal {{count}}.",
+      "tooManyAudios": "Audio zijn maximaal {{count}}.",
+      "tooManyFiles": "Maximaal {{count}} Bestanden in totaal.",
+      "clipTooShort": "Clip {{clip}} is {{seconds}} s; clips hebben ten minste {{shortest}} s nodig.",
+      "tooManyPictures": "Op deze kaart neemt een {{seconds}} s clip op {{width}}x{{height}} met een referentieclip maximaal {{count}} afbeeldingen in beslag.",
+      "clipShareTooShort": "Op deze kaart laat een {{seconds}} s clip bij {{width}}x{{height}} een rest van {{share}} s aan referentievideo per clip over, wat minder is dan de {{shortest}} s die een clip nodig heeft. Kies een kortere duur of een kleinere grootte, of gebruik minder clips of afbeeldingen."
+    },
+    "help": {
+      "images": "Personen, plaatsen, producten of een uitstraling om vast te houden. Geef afbeeldingen van dezelfde persoon dezelfde naam.",
+      "videos": "Een clip om iemand te voorkomen, de beweging van te kopiëren, te bewerken of voort te zetten. 2 tot 15 seconden.",
+      "audios": "Een Stem voor een personage, muziek om direct te gebruiken, of een geluid dat past."
+    },
+    "rowNames": {
+      "images": "afbeeldingen",
+      "videos": "clips",
+      "audios": "audio"
+    },
+    "insertTag": "Voeg toe aan de prompt",
+    "useItTo": "Gebruik het om",
+    "whoOrWhat": "Wie of wat is dit?",
+    "whoOrWhatExample": "bijv. Maya, de rode auto",
+    "optional": "optioneel",
+    "whichDetail": "Welk detail?",
+    "whichDetailExample": "bijv. alleen het leren jasje",
+    "whoseVoice": "Wiens Stem?",
+    "forExample": "bijv. {{name}}",
+    "whoseVoiceHint": "een naam uit de afbeeldingen",
+    "notOnBoard": "Geen naam op het bord ({{names}})",
+    "sound": "Geluid",
+    "ownSound": "Eigen geluid",
+    "noSound": "Geen geluid",
+    "track": "Track: {{file}}",
+    "separateTrack": "Een aparte track…",
+    "lengthUnknown": "Lengte onbekend",
+    "clipHasNoSound": "dit fragment heeft geen geluid",
+    "itsSoundIs": "zijn geluid is {{tag}}",
+    "modelReadsFirst": "het model leest de eerste {{seconds}} s",
+    "clipsNeedAtLeast": "Fragmenten hebben minstens {{shortest}} s nodig.",
+    "earlier": "Eerder (nummereert de tags opnieuw)",
+    "moveEarlier": "Verplaats naar eerder",
+    "later": "Later (nummereert de tags opnieuw)",
+    "moveLater": "Verplaats naar later",
+    "remove": "Verwijderen",
+    "removeReference": "Referentie verwijderen",
+    "onlyThisRow": "Alleen {{rows}} gaan in deze rij.",
+    "dropHere": "Sleep {{rows}} hierheen",
+    "dropHereOr": "Sleep {{rows}} hierheen, of",
+    "couldNotRead": "Kon {{file}} niet lezen.",
+    "uploadFailed": "Upload mislukt.",
+    "fileCount": "{{used}} van de {{total}} Bestanden. Elke aparte track van een fragment telt als één.",
+    "chooseSoundtrack": "Kies de soundtrack van het fragment"
+  }
+}

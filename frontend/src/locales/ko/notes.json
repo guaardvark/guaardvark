@@ -1,0 +1,90 @@
+{
+  "layoutMode": {
+    "normal": "일반",
+    "compact": "컴팩트",
+    "collapsed": "축소"
+  },
+  "untitled": "제목 없음",
+  "note": {
+    "changeColor": "색상 변경",
+    "close": "닫기",
+    "closeNote": "노트 닫기",
+    "bold": "굵게 (Ctrl+B)",
+    "italic": "기울임꼴 (Ctrl+I)",
+    "underline": "밑줄 (Ctrl+U)",
+    "insertLink": "링크 삽입",
+    "bodyPlaceholder": "노트를 입력하세요..."
+  },
+  "errors": {
+    "loadFailed": "노트 로드 실패: {{message}}. 기본 설정을 사용합니다.",
+    "saveFailed": "노트 저장 실패.",
+    "copyDenied": "복사 불가: 클립보드 권한 거부됨",
+    "pasteFailed": "붙여넣기 불가: {{message}}",
+    "pasteDenied": "붙여넣기 불가: 클립보드 권한 거부됨"
+  },
+  "pageTitle": "노트",
+  "loading": "노트 불러오는 중...",
+  "toolbar": {
+    "searchPlaceholder": "노트 검색...",
+    "dashboardCards": "대시보드 카드",
+    "stickyNotes": "스티커 메모",
+    "addNoteTooltip": "노트 추가",
+    "addNote": "노트 추가",
+    "closedNotes": "닫힌 노트",
+    "layoutCycle": "레이아웃: {{mode}} (클릭하여 변경)",
+    "layoutMode": "레이아웃: {{mode}}",
+    "saving": "저장 중...",
+    "allSaved": "모든 변경 사항이 저장됨",
+    "saveFailed": "저장 실패"
+  },
+  "emptyNote": "빈 노트",
+  "menu": {
+    "copy": "복사",
+    "selectAll": "전체 선택",
+    "paste": "붙여넣기",
+    "duplicate": "복제",
+    "rename": "이름 변경",
+    "unpin": "고정 해제",
+    "pinToTop": "상단 고정"
+  },
+  "actions": {
+    "delete": "삭제",
+    "cancel": "취소",
+    "save": "저장"
+  },
+  "deleteDialog": {
+    "title": "\"{{title}}\"을(를) 삭제하시겠습니까? 페이지를 나가거나 다시 불러오기 전까지 Ctrl+Z로 복구할 수 있습니다."
+  },
+  "boardMenu": {
+    "newNote": "새 노트",
+    "cycleLayout": "레이아웃 순환",
+    "goToDashboard": "대시보드로 이동"
+  },
+  "renameDialog": {
+    "title": "노트 이름 변경",
+    "placeholder": "노트 제목"
+  },
+  "linkDialog": {
+    "title": "링크 삽입",
+    "url": "URL",
+    "insert": "삽입"
+  },
+  "closed": {
+    "justNow": "방금 전",
+    "minutesAgo": "{{count}}분 전",
+    "hoursAgo": "{{count}}시간 전",
+    "yesterday": "어제",
+    "daysAgo": "{{count}}일 전",
+    "deleteNamed": "{{title}} 삭제",
+    "heading": "닫힌 노트",
+    "searchPlaceholder": "닫힌 노트 검색...",
+    "empty": "닫힌 노트 없음",
+    "noMatches": "일치하는 항목 없음",
+    "groups": {
+      "today": "오늘",
+      "yesterday": "어제",
+      "thisWeek": "이번 주",
+      "older": "이전"
+    }
+  }
+}

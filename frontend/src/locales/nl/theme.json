@@ -1,0 +1,14 @@
+{
+  "labels": {
+    "default": "Donkergrijs",
+    "light": "Licht"
+  },
+  "descriptions": {
+    "guaardvark": "Ultra-minimaal monochroom thema geïnspireerd door guaardvark.com",
+    "default": "Strak donker thema met teal accenten",
+    "musk": "Futuristisch donker thema met neon cyaan en rode accenten",
+    "hacker": "Pip-Boy geïnspireerde wasteland terminal met stralingsgroen en amber",
+    "vader": "Donker imposant thema met zwart en rode accenten geïnspireerd door Darth Vader",
+    "light": "Strak licht thema met teal accenten — rustig voor de ogen"
+  }
+}

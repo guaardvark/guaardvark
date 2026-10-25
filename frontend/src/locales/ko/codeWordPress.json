@@ -1,0 +1,97 @@
+{
+  "badges": {
+    "seo": "SEO: {{score}}",
+    "analytics": "클릭: {{clicks}} | 노출: {{impressions}} | 순위: {{position}}",
+    "notAvailable": "N/A"
+  },
+  "errors": {
+    "fetchFailed": "페이지를 가져오지 못했습니다",
+    "loadFailed": "페이지를 불러오지 못했습니다",
+    "pullFailed": "페이지를 가져오기 실패",
+    "processFailed": "페이지 처리에 실패했습니다",
+    "queueFailed": "페이지를 대기열에 추가하지 못했습니다",
+    "executeFailed": "대기열 실행에 실패했습니다",
+    "recommendationsFailed": "추천을 가져오지 못했습니다. 곧 추가될 기능입니다."
+  },
+  "feedback": {
+    "pulled": "페이지 {{count}}개 가져옴",
+    "nonePending": "처리 대기 중인 페이지 없음",
+    "queued": "처리 대기열에 페이지 {{count}}개 추가됨",
+    "processed": "페이지 {{succeeded}}/{{total}} 처리 완료"
+  },
+  "recommendations": {
+    "summary": "AI 추천 기능은 페이지 콘텐츠를 분석하여 개선을 위한 지능형 제안을 제공합니다.",
+    "content": {
+      "title": "콘텐츠 강화",
+      "description": "SEO 최적화, 가독성 개선 및 참여도 향상을 위해 콘텐츠를 분석합니다."
+    },
+    "seo": {
+      "title": "SEO 최적화",
+      "description": "메타 태그, 헤딩 구조 및 키워드 최적화 기회를 검토합니다."
+    },
+    "structure": {
+      "title": "콘텐츠 구조",
+      "description": "콘텐츠 구성을 평가하고 더 나은 사용자 경험을 위한 개선 사항을 제안합니다."
+    },
+    "priority": {
+      "high": "높음",
+      "medium": "중간",
+      "low": "낮음"
+    },
+    "title": "AI 추천",
+    "none": "현재 제공 가능한 특정 추천이 없습니다.",
+    "loading": "추천 불러오는 중...",
+    "processNow": "지금 처리"
+  },
+  "title": "WordPress 페이지",
+  "actions": {
+    "pull": "가져오기",
+    "queue": "대기열 ({{count}})",
+    "process": "처리",
+    "close": "닫기",
+    "cancel": "취소"
+  },
+  "site": "WordPress 사이트",
+  "filters": {
+    "pull": "가져오기",
+    "all": "전체",
+    "pulled": "가져옴",
+    "pending": "대기 중",
+    "error": "오류",
+    "process": "처리",
+    "processing": "처리 중",
+    "completed": "완료",
+    "approved": "승인됨"
+  },
+  "stats": {
+    "total": "전체: {{total}}",
+    "pending": "대기 중: {{pending}}",
+    "completed": "완료: {{completed}}"
+  },
+  "empty": {
+    "noPages": "페이지를 찾을 수 없습니다. 시작하려면 페이지를 가져오세요.",
+    "selectSite": "페이지를 보려면 WordPress 사이트를 선택하세요"
+  },
+  "table": {
+    "title": "제목",
+    "type": "유형",
+    "seo": "SEO",
+    "ai": "AI"
+  },
+  "untitled": "제목 없음",
+  "tooltips": {
+    "getRecommendations": "AI 추천을 보려면 클릭하세요",
+    "hasImprovements": "개선 사항 있음",
+    "noImprovements": "개선 사항 없음"
+  },
+  "pullDialog": {
+    "title": "WordPress에서 페이지 가져오기",
+    "postType": "포스트 유형",
+    "posts": "포스트",
+    "pages": "페이지",
+    "maxPages": "최대 페이지 (선택 사항)",
+    "maxPagesHelper": "비워 두면 모든 페이지를 가져옵니다",
+    "pulling": "가져오는 중...",
+    "submit": "페이지 가져오기"
+  }
+}

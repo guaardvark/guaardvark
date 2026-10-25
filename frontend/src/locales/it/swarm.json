@@ -1,0 +1,131 @@
+{
+  "taskStatus": {
+    "pending": "In attesa",
+    "blocked": "Bloccato",
+    "queued": "In coda",
+    "running": "In esecuzione",
+    "done": "Fatto",
+    "failed": "Fallito",
+    "needsReview": "Richiede revisione",
+    "merged": "Unito",
+    "cancelled": "Annullato",
+    "noChanges": "Nessuna modifica",
+    "timedOut": "Tempo scaduto"
+  },
+  "messages": {
+    "enterPlanPath": "Inserisci il percorso del file del piano",
+    "launched": "Swarm avviato: {{id}}",
+    "launchFailed": "Avvio fallito",
+    "noSwarmId": "Nessun ID Swarm",
+    "cancelled": "Annullato",
+    "cancelFailed": "Annullamento fallito",
+    "merged": "Uniti {{merged}} rami, {{conflicts}} conflitti",
+    "mergeFailed": "Unione fallita",
+    "cleanedUp": "Pulito",
+    "cleanupFailed": "Pulizia fallita",
+    "logsFailed": "Impossibile recuperare i log",
+    "templateLoadFailed": "Caricamento modello fallito",
+    "filenameAndContentRequired": "Nome file e contenuto sono richiesti",
+    "planSaved": "Piano salvato nei modelli",
+    "saveFailed": "Salvataggio fallito",
+    "enterGoal": "Inserisci cosa vuoi ottenere",
+    "planGenerated": "Piano generato dall'IA!",
+    "aiGenerationFailed": "Generazione IA fallita"
+  },
+  "actions": {
+    "cancel": "Annulla",
+    "mergeAll": "Unisci tutto",
+    "cleanUp": "Pulisci"
+  },
+  "menu": {
+    "collapse": "Riduci",
+    "expand": "Espandi",
+    "copySwarmId": "Copia ID Swarm",
+    "viewLogs": "Visualizza log",
+    "viewDiff": "Visualizza diff",
+    "copyBranchName": "Copia nome branch",
+    "copyTaskId": "Copia ID task",
+    "launch": "Avvia…"
+  },
+  "title": "Swarm",
+  "header": {
+    "online": "Online",
+    "offline": "Offline",
+    "serviceOffline": "Servizio Offline",
+    "refresh": "Aggiorna",
+    "createPlan": "Crea Nuovo Piano",
+    "launchSwarm": "Avvia Swarm"
+  },
+  "sections": {
+    "activeSwarms": "Swarm Attivi",
+    "quickLaunchTemplates": "Modelli Avvio Rapido",
+    "recentSwarms": "Swarm Recenti"
+  },
+  "taskCount": "{{count}} task",
+  "flightMode": "Modalità Volo",
+  "history": {
+    "freeLocal": "Libero (locale)",
+    "cleanUp": "Pulisci"
+  },
+  "empty": {
+    "title": "Nessun Swarm in Esecuzione",
+    "description": "Avvia uno Swarm di Agenti AI per lavorare sulla tua codebase in parallelo.",
+    "startPlugin": "Avvia prima il plugin swarm.",
+    "launchFirst": "Avvia il tuo primo Swarm"
+  },
+  "launchDialog": {
+    "title": "Avvia Swarm",
+    "template": "Modello (opzionale)",
+    "customPlanFile": "File piano personalizzato",
+    "templateOption": "{{title}} ({{count}} task)",
+    "planPath": "Percorso file piano",
+    "planPathPlaceholder": "path/to/plan.md o seleziona un modello sopra",
+    "planPathHelp": "Relativo a GUAARDVARK_ROOT o percorso assoluto",
+    "maxAgents": "Max Agenti concorrenti",
+    "autoMerge": "Auto-merge",
+    "flightModeInfo": "Modalità Volo: solo backend offline (Ollama). I conflitti saranno serializzati automaticamente.",
+    "cancel": "Annulla",
+    "launchFlightMode": "Lancia (Modalità Volo)",
+    "launch": "Lancia"
+  },
+  "editor": {
+    "title": "Editor Piano Swarm",
+    "aiHint": "Descrivi il tuo compito e l'IA genererà la struttura di plan.md per te.",
+    "aiPlaceholder": "es. 'Rifattorizza tutti gli endpoint API per usare il nuovo modello Response'",
+    "aiSuggest": "Suggerisci Piano AI",
+    "filename": "Nome file (es. migrate_api.md)",
+    "content": "Contenuto Piano (Markdown)",
+    "formatHint": "Formato: Usa <bold>## Nome Task</bold> per ogni task. Aggiungi <bold>Deps: [1]</bold> per le dipendenze.",
+    "cancel": "Annulla",
+    "saveToTemplates": "Salva nei Modelli"
+  },
+  "taskView": {
+    "loadingLogs": "Caricamento log...",
+    "noLogs": "(nessun log)",
+    "noChanges": "(nessuna modifica nella worktree)",
+    "diffFailed": "Impossibile recuperare la diff",
+    "title": "Dettaglio Task: {{id}}",
+    "logsTab": "Log",
+    "liveDiffTab": "Diff in tempo reale",
+    "noOutputYet": "(nessun output ancora)",
+    "fetchingDiff": "Recupero diff della worktree...",
+    "refreshDiff": "Aggiorna Diff"
+  },
+  "swarmStatus": {
+    "failed": "Fallito",
+    "running": "In corso",
+    "completed": "Completato"
+  },
+  "card": {
+    "progress": "{{done}}/{{total}} task",
+    "free": "Libero",
+    "activeAgents": "{{count}} attivi",
+    "diskUsage": "{{size}} MB",
+    "dependencyGraph": "GRAFO DELLE DIPENDENZE",
+    "viewTaskDetail": "Visualizza dettaglio task"
+  },
+  "elapsed": {
+    "minutesSeconds": "{{minutes}}m {{seconds}}s",
+    "seconds": "{{seconds}}s"
+  }
+}

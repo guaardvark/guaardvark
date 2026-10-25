@@ -1,0 +1,250 @@
+{
+  "rootFolderName": "文件",
+  "pdfViewer": {
+    "openInNewTab": "在新标签页中打开",
+    "noFile": "未选择 PDF 文件"
+  },
+  "docxViewer": {
+    "fetchFailed": "获取失败 ({{status}})",
+    "renderFailed": "无法渲染文档",
+    "downloadOriginal": "下载原文件"
+  },
+  "actions": {
+    "close": "关闭",
+    "cancel": "取消"
+  },
+  "entityFiles": {
+    "regionLabel": "此 {{kind}} 的文件",
+    "regionLabel_client": "此客户端的文件",
+    "regionLabel_website": "此网站的文件",
+    "title": "{{name}} 的文件",
+    "title_client": "此客户端的文件",
+    "title_clientNamed": "客户端 {{name}} 的文件",
+    "title_website": "此网站的文件",
+    "title_websiteNamed": "网站 {{name}} 的文件",
+    "loadFailed": "无法加载文件：{{error}}",
+    "empty": "没有文件链接到此 {{kind}}。请在“属性”中为其链接文件或文件夹。",
+    "empty_client": "没有文件链接到此客户端。请在“属性”中为其链接文件或文件夹。",
+    "empty_website": "没有文件链接到此网站。请在“属性”中为其链接文件或文件夹。",
+    "filesRoot": "文件根目录"
+  },
+  "audioPlayer": {
+    "untitled": "音频",
+    "closeLabel": "关闭",
+    "seed": "种子：{{seed}}",
+    "openInNewTab": "在新标签页中打开"
+  },
+  "folderWindow": {
+    "listView": "列表视图",
+    "gridView": "网格视图",
+    "mediaView": "媒体视图",
+    "codeRepoChip": "代码仓库"
+  },
+  "contextMenu": {
+    "openInWindow": "在窗口中打开",
+    "minimize": "最小化",
+    "newFolder": "新建文件夹",
+    "importFiles": "导入文件",
+    "paste": "粘贴",
+    "closeWindow": "关闭窗口",
+    "reviewWithAgent": "使用智能体审查",
+    "cut": "剪切",
+    "copy": "复制",
+    "rename": "重命名",
+    "properties": "属性",
+    "bulkImportHere": "批量导入到此文件夹…",
+    "indexContents": "索引内容",
+    "delete": "删除",
+    "download": "下载",
+    "edit": "编辑",
+    "view": "查看",
+    "openInCodeEditor": "在代码编辑器中打开",
+    "index": "索引",
+    "open": "打开",
+    "restore": "还原"
+  },
+  "codeRepo": {
+    "never": "从不",
+    "unknown": "未知",
+    "buttonTooltip": "代码仓库智能分析：语言、框架、仓库映射及依赖关系",
+    "buttonLabel": "针对 {{name}} 的代码仓库智能分析",
+    "button": "智能分析",
+    "title": "代码仓库智能分析",
+    "analyzed": "已分析：{{date}}",
+    "languagesFrameworks": "语言与框架",
+    "analysisPending": "分析中",
+    "statistics": "统计数据",
+    "fileCount_other": "{{count}} 个文件",
+    "mappedFileCount_other": "{{count}} 个已映射文件",
+    "viewMap": "查看仓库地图",
+    "viewDependencies": "查看依赖关系",
+    "mapTitle": "仓库地图",
+    "noMap": "暂无可用地图。",
+    "graphTitle": "依赖关系图"
+  },
+  "desktop": {
+    "loadFailed": "加载桌面项目失败",
+    "movedToFolder": "已将 {{count}} 个项目移动到 {{folder}}",
+    "movedToDesktop": "已将 {{count}} 个项目移动到桌面"
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "实时仓库文件在此处为只读。请使用暂存的自代码编辑。",
+    "saveFailed": "保存失败：{{error}}",
+    "liveRepoReviewFirst": "实时仓库文件为先审后改，无法在此模态框中直接编辑。",
+    "discardConfirm": "您有未保存的更改。是否丢弃？",
+    "liveRepoChip": "实时仓库 · 只读",
+    "modified": "已修改",
+    "viewMode": "查看模式",
+    "editMode": "编辑模式",
+    "openInCodeEditor": "在代码编辑器中打开",
+    "copy": "复制到剪贴板",
+    "saving": "正在保存...",
+    "save": "保存"
+  },
+  "folder": {
+    "empty": "此文件夹为空",
+    "loadFailed": "加载文件夹内容失败",
+    "columnName": "名称",
+    "columnDate": "日期",
+    "columnSize": "大小",
+    "codeRepository": "代码仓库",
+    "itemCount_other": "{{count}} 个项目"
+  },
+  "mediaView": {
+    "selectFile": "选择文件",
+    "previous": "上一项",
+    "next": "下一项",
+    "open": "打开",
+    "download": "下载",
+    "closePreview": "关闭预览"
+  },
+  "indexStatus": {
+    "indexed": "已索引",
+    "indexing": "正在索引...",
+    "pending": "等待中",
+    "error": "错误",
+    "folderFull": "已全部索引 ({{indexed}}/{{total}})",
+    "folderPartial": "部分已索引 ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "文件夹名称不能为空",
+    "emptyFileName": "文件名不能为空",
+    "invalidFolderName": "文件夹名称包含非法字符。请仅使用字母、数字、空格、连字符、下划线。",
+    "invalidFileName": "文件名包含非法字符。请仅使用字母、数字、空格、连字符、下划线和点。",
+    "invalidName": "名称包含非法字符。请仅使用字母、数字、空格、连字符、下划线。",
+    "folderNameTooLong": "文件夹名称过长。最大长度为 {{max}} 个字符。",
+    "fileNameTooLong": "文件名过长。最大长度为 {{max}} 个字符。"
+  },
+  "indexing": {
+    "nothing": "无内容可索引",
+    "alreadyIndexedOne": "已索引；文件未更改",
+    "alreadyIndexedAll_other": "所有内容均已索引 ({{count}} 个文件未更改)",
+    "documentCount_other": "{{count}} 个文档",
+    "folderCount_other": "{{count}} 个文件夹",
+    "startedFromFoldersSkipped": "正在从 {{folders}} 索引 {{documents}}，其中 {{skipped}} 已被索引",
+    "startedFromFolders": "正在从 {{folders}} 索引 {{documents}}",
+    "startedSkipped": "正在索引 {{documents}}，其中 {{skipped}} 已被索引",
+    "started": "正在索引 {{documents}}",
+    "startFailed": "启动索引失败",
+    "failed": "索引失败：{{error}}"
+  },
+  "page": {
+    "refreshFailed": "刷新失败",
+    "downloading": "正在下载 {{name}}",
+    "title": "文件",
+    "loadingFolders": "加载中...",
+    "importFiles": "导入文件",
+    "arrangeIcons": "排列图标",
+    "arrangeWindows": "排列窗口",
+    "modelLoading": "加载中...",
+    "modelError": "错误",
+    "emptyTitle": "暂无文档",
+    "emptyHint": "将文件拖到此处或右键点击以创建文件夹",
+    "folderItemCount_other": "有 {{count}} 个项目",
+    "uploadProgress_other": "正在上传 {{current}}/{{count}} 个文件..."
+  },
+  "import": {
+    "nothingToImport": "无内容可导入：{{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "上传失败",
+    "importedSkipped": "已将 {{count}} 个文件导入到 {{folder}}；{{skipped}}",
+    "imported": "已将 {{count}} 个文件导入到 {{folder}}",
+    "importedPartlySkipped": "已将 {{count}} 个文件导入到 {{folder}}；{{failed}} 失败 ({{error}})；{{skipped}}",
+    "importedPartly": "已将 {{count}} 个文件导入到 {{folder}}；{{failed}} 失败 ({{error}})",
+    "failed": "导入失败：{{error}}",
+    "importedFiltered": "已将 {{count}} 个文件导入到 {{folder}}（有 {{ignored}} 个被过滤器忽略）",
+    "failedPlain": "导入失败"
+  },
+  "move": {
+    "intoOwnSubfolder": "无法将 \"{{name}}\" 移动到其自身的子文件夹中",
+    "unknownError": "未知错误",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "已移动 {{count}} 个项目",
+    "failed": "移动项目失败",
+    "movedPartly": "已移动 {{count}} 个项目，{{failed}} 个失败",
+    "dropFailed": "放置操作失败",
+    "operationFailed": "操作失败：{{error}}"
+  },
+  "newFolder": {
+    "created": "已创建文件夹 \"{{name}}\"",
+    "failed": "创建文件夹失败",
+    "title": "创建新文件夹",
+    "nameLabel": "文件夹名称",
+    "create": "创建"
+  },
+  "clipboard": {
+    "copied": "已复制 {{count}} 个项目",
+    "cut": "已剪切 {{count}} 个项目",
+    "foldersNotPastable": "无法将文件夹粘贴到 {{folder}}",
+    "liveRepoReadOnly": "实时仓库中的项目在此处为只读",
+    "itemFailed": "失败",
+    "pasted": "已将 {{count}} 个项目粘贴到 {{folder}}",
+    "moved": "已将 {{count}} 个项目移动到 {{folder}}",
+    "pastedPartly": "已将 {{count}} 个项目粘贴到 {{folder}}；{{failed}} 个失败：{{error}}",
+    "movedPartly": "已将 {{count}} 个项目移动到 {{folder}}；{{failed}} 个失败：{{error}}",
+    "pasteFailed": "粘贴失败：{{error}}",
+    "moveFailed": "移动失败：{{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "实时代码挂载为只读",
+    "deleted": "已删除 {{count}} 个项目",
+    "someFailed": "部分删除可能失败 — 正在刷新状态",
+    "confirmTitle": "确认删除",
+    "confirmBody_other": "确定删除 {{count}} 个项目？此操作无法撤销。",
+    "confirm": "删除"
+  },
+  "properties": {
+    "fileNotFound": "未找到文件",
+    "loadFailed": "加载文件详情失败",
+    "fileUpdated": "文件属性更新成功",
+    "fileUpdateFailed": "更新文件属性失败",
+    "updateFailed": "更新失败：{{error}}",
+    "fileDeleted": "文件已成功删除",
+    "fileDeleteFailed": "删除文件失败",
+    "deleteFailed": "删除失败：{{error}}",
+    "reindexStarted": "已成功触发重新索引。状态将很快更新。",
+    "reindexStartFailed": "触发重新索引失败",
+    "reindexFailed": "重新索引失败：{{error}}",
+    "folderApplied": "属性应用成功！已更新文件：{{files}}，已处理子文件夹：{{folders}}",
+    "folderUpdated": "文件夹属性更新成功",
+    "folderUpdateFailed": "更新文件夹属性失败",
+    "folderDeleted": "文件夹已删除"
+  },
+  "rename": {
+    "folderRenamed": "文件夹已重命名为 \"{{name}}\"",
+    "fileRenamed": "文件已重命名为 \"{{name}}\"",
+    "failedReason": "重命名失败：{{reason}}",
+    "failed": "重命名失败",
+    "folderTitle": "重命名文件夹",
+    "fileTitle": "重命名文件",
+    "fileNameLabel": "文件名",
+    "fileHint": "更改在 Guaardvark 中显示的名称；磁盘上的文件名称保持不变。",
+    "submit": "重命名"
+  },
+  "review": {
+    "liveRepoOnly": "仅在挂载的实时仓库中可用自代码审查",
+    "dispatchedTask": "自代码审查已派发 ({{taskId}})",
+    "dispatched": "自代码审查已派发",
+    "failed": "派送自代码审查失败"
+  }
+}

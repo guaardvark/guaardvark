@@ -1,0 +1,25 @@
+{
+  "status": {
+    "processing": "Processando...",
+    "complete": "Concluído",
+    "error": "Erro",
+    "cancelled": "Cancelado"
+  },
+  "gpu": {
+    "videoRendering": "Um vídeo está sendo renderizado",
+    "picturesRendering": "Imagens estão sendo renderizadas",
+    "pictureRendering": "Uma imagem está sendo renderizada",
+    "pictureEditing": "Uma imagem está sendo editada",
+    "animationRendering": "Uma animação está sendo renderizada",
+    "infographicRendering": "Um Infográfico está sendo renderizado",
+    "characterPicturesRendering": "Imagens de personagens estão sendo renderizadas",
+    "storyboardRendering": "Imagens de storyboard estão sendo renderizadas",
+    "filmCrewRendering": "O Film Crew está renderizando",
+    "musicVideoRendering": "Um Vídeo Musical está sendo renderizado",
+    "songRendering": "Uma música está sendo renderizada",
+    "modelTraining": "Um modelo está em Treinamento",
+    "characterTraining": "Um personagem está em Treinamento",
+    "generic": "Algo está usando a placa de vídeo",
+    "coolingDown": "A placa de vídeo está liberando após o último trabalho ({{seconds}} s)"
+  }
+}

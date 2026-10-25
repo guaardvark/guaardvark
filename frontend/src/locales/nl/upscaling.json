@@ -1,0 +1,109 @@
+{
+  "settings": {
+    "modelDefaultScale": "Model standaard",
+    "model": "Model",
+    "manageModels": "Beheer Upscaling Modellen",
+    "install": "Installeren",
+    "noModelInstallSized": "Er is geen upscaling model geïnstalleerd. Installeer {{model}} ({{size}} MB) om te upscalen; upscaling downloadt nooit zelfstandig een model.",
+    "noModelInstall": "Er is geen upscaling model geïnstalleerd. Installeer {{model}} om te upscalen; upscaling downloadt nooit zelfstandig een model.",
+    "noModel": "Er is geen upscaling model geïnstalleerd. Voeg een model toe in Beheer Upscaling Modellen om te upscalen.",
+    "outputScale": "Output Schaal",
+    "targetResolution": "Doelresolutie",
+    "twoPass": "Two-Pass Modus",
+    "twoPassHelp": "Draait het model twee keer voor hogere kwaliteit (trager)",
+    "faceEnhance": "Gezichtsverbetering",
+    "faceEnhanceHelp": "Herstelt gezichten met GFPGAN",
+    "doubleFps": "Dubbele Framerate",
+    "doubleFpsHelp": "Interpoleert frames voor vloeiendere beweging (trager)",
+    "sharpening": "Scherpstellen",
+    "denoise": "Denoising Pre-pass"
+  },
+  "service": {
+    "startRefused": "De upscaling service is niet gestart: {{reason}}",
+    "tryAgainShortly": "probeer het over een moment opnieuw",
+    "startTimeout": "De upscaling service gaf geen antwoord binnen een minuut. De log staat op de Plugins-pagina.",
+    "startFailed": "Kon de upscaling service niet starten: {{error}}",
+    "starting": "Opstarten...",
+    "startNow": "Nu starten",
+    "stoppedAutostart": "De upscaling-service is gestopt. Hij start automatisch wanneer je iets opschaalt, of je kunt hem nu handmatig starten.",
+    "switchedOff": "Upscaling staat uit op de Plugins-pagina. Start het hier om te upscalen.",
+    "stopped": "De upscaling-service is gestopt. Start het om te upscalen."
+  },
+  "errors": {
+    "unknown": "onbekende Fout",
+    "modelsLoadFailed": "Upscaling-modellen konden niet worden geladen: {{error}}.",
+    "requestFailed": "de aanvraag mislukte",
+    "unsupportedSkipped": "{{count}} niet ondersteunde bestand(en) overgeslagen. Toegestaan: {{allowed}}",
+    "failedReason": "mislukt",
+    "submitFailed": "Verzenden mislukt: {{details}}",
+    "skipped": "Overgeslagen: {{details}}",
+    "imageFailed": "Afbeeldings-upscale mislukt",
+    "cancelFailed": "Annuleren mislukt: {{error}}. De Taak kan nog steeds draaien.",
+    "clearFailed": "Opschonen van voltooide Taken mislukt: {{error}}.",
+    "previewFailed": "Preview mislukt: {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "Upscale-Taak ingediend voor \"{{name}}\"",
+    "jobsSubmitted": "{{submitted}} van de {{total}} upscale-Taken ingediend",
+    "imageUpscaled": "\"{{name}}\" is opgeschaald",
+    "imagesQueued": "{{count}} afbeeldingen in de wachtrij voor upscaling"
+  },
+  "gpu": {
+    "unknown": "Onbekend",
+    "title": "GPU-status",
+    "activeModel": "Actief Model",
+    "none": "Geen",
+    "enabled": "Ingeschakeld",
+    "disabled": "Uitgeschakeld"
+  },
+  "submit": {
+    "upscaleImages": "{{count}} Afbeeldingen opschalen",
+    "upscaleVideos": "{{count}} Video's opschalen",
+    "upscaleImage": "Beeld opschalen",
+    "upscaleVideo": "Video opschalen",
+    "startingService": "Starten van de opschalingsservice...",
+    "uploadingProgress": "Uploaden {{current}}/{{total}}...",
+    "uploading": "Uploaden...",
+    "twoPass": "{{action}} (2-Pass)"
+  },
+  "page": {
+    "title": "Opschalen",
+    "videoGen": "Video Gen"
+  },
+  "upload": {
+    "imagesTitle": "Bestanden uploaden",
+    "videoTitle": "Video uploaden",
+    "video": "Video",
+    "image": "Afbeelding",
+    "dropImages": "Sleep & zet afbeeldingen hierheen, of klik om te zoeken",
+    "dropVideos": "Sleep & zet video's hierheen, of klik om te zoeken",
+    "filesReady_one": "1 bestand klaar",
+    "filesReady_other": "{{count}} bestanden klaar",
+    "clearAll": "Alles wissen"
+  },
+  "result": {
+    "original": "Origineel",
+    "upscaled": "Opgeschaald",
+    "openFullSize": "Openen in volledige grootte",
+    "download": "Downloaden"
+  },
+  "preview": {
+    "title": "Preview Opschalen",
+    "hint": "Ga naar een frame en klik op \"Genereer preview\" om het opgeschaalde frame te zien.",
+    "generating": "Genereren...",
+    "generate": "Genereer preview",
+    "originalFrame": "Origineel frame",
+    "upscaledFrame": "Opgeschaald frame",
+    "backToVideo": "Terug naar video"
+  },
+  "jobs": {
+    "title": "Opschalingstaken",
+    "clearFinishedCount": "Voltooide wissen ({{count}})",
+    "clearFinished": "Voltooide wissen",
+    "empty": "Nog geen opschalingstaken. Upload een video of een reeks afbeeldingen om te beginnen.",
+    "imageProgress": "Afbeelding {{done}} / {{total}}",
+    "frameProgress": "Frame {{done}} / {{total}}",
+    "play": "Afspelen",
+    "cancel": "Annuleren"
+  }
+}

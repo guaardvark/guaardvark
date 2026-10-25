@@ -1,0 +1,227 @@
+{
+  "addressAutocomplete": {
+    "label": "Adres"
+  },
+  "apiKeyRefusal": {
+    "settingsLink": "Instellingen → Toegang"
+  },
+  "backendOffline": {
+    "message": "Backend offline — opnieuw proberen… Voer <code>guaardvark</code> uit in een terminal, of <code>./start.sh</code> voor de volledige stack."
+  },
+  "changedElsewhere": {
+    "keepMine": "Houd de mijne",
+    "message": "{{names}} is elders gewijzigd terwijl je bewerkte. Herladen om de opgeslagen versie te gebruiken, of houd je bewerking en sla deze over die wijziging heen."
+  },
+  "didYouKnow": {
+    "regionLabel": "Wist je dat",
+    "title": "Wist je dat?",
+    "closeTip": "Tip sluiten",
+    "showMe": "Laat me zien",
+    "nextTip": "Volgende tip",
+    "stopTips": "Geen tips meer tonen"
+  },
+  "directoryPicker": {
+    "title": "Selecteer map",
+    "loadFailed": "Map laden mislukt",
+    "notFoundShowingHome": "{{path}} is niet gevonden; je home-map wordt getoond.",
+    "notFoundShowing": "{{path}} is niet gevonden; {{fallback}} wordt getoond.",
+    "folderNotFound": "Map niet gevonden",
+    "root": "Root",
+    "hideRecent": "Recente verbergen",
+    "showRecent": "Recente paden",
+    "recentPaths": "Recente paden",
+    "goHome": "Ga naar home-map",
+    "homeFolder": "Home-map",
+    "path": "Pad",
+    "openPathFirst": "Druk op Enter of Ga om dit pad te openen voordat je selecteert.",
+    "parentFolder": "Ouder map",
+    "go": "Ga",
+    "searchPlaceholder": "Zoek in huidige map...",
+    "showFiles": "Bestanden tonen",
+    "browse": "Bladeren",
+    "hiddenFolders": "Verborgen mappen worden niet getoond.",
+    "noMatches": "Geen overeenkomstige items gevonden.",
+    "emptyFolder": "Deze map is leeg.",
+    "noSubdirectories": "Geen submappen gevonden. Je kunt deze map selecteren.",
+    "itemCount": "{{count}} items",
+    "folderCount_one": "{{count}} map",
+    "folderCount_other": "{{count}} mappen",
+    "fileCount_one": "{{count}} bestand",
+    "fileCount_other": "{{count}} Bestanden",
+    "foldersAndFiles": "{{folders}}, {{files}}",
+    "summaryMatching": "{{summary}} komt overeen met \"{{query}}\"",
+    "summaryPickable": "{{summary}} · {{extensions}} Bestanden kunnen worden geselecteerd",
+    "chooseFile": "Kies een bestand",
+    "selectNamed": "Selecteer: {{name}}"
+  },
+  "errorBoundary": {
+    "updatedTitle": "Guaardvark is bijgewerkt",
+    "errorTitle": "Er is iets misgegaan",
+    "updatedBody": "De code van deze pagina is veranderd terwijl deze open was. Herladen om de nieuwe versie te laden.",
+    "errorBody": "De applicatie heeft een onverwachte Fout tegengekomen. Dit is geregistreerd voor onderzoek.",
+    "reloadPage": "Pagina Herladen",
+    "tryAgain": "Opnieuw Proberen",
+    "detailsHeading": "Fout Details (Alleen voor Ontwikkelmodus)"
+  },
+  "errorDisplay": {
+    "unexpectedError": "Er is een onverwachte Fout opgetreden",
+    "genericError": "Er is een Fout opgetreden",
+    "friendly": {
+      "network": "Kunnen niet verbinden met de server. Controleer je internetverbinding.",
+      "timeout": "De aanvraag duurde te lang. Probeer het opnieuw.",
+      "unauthorized": "Authenticatie vereist. Log in alsseeblieft.",
+      "forbidden": "Je hebt geen toestemming om deze actie uit te voeren.",
+      "notFound": "De gevraagde bron is niet gevonden.",
+      "serverError": "Serverfout. Probeer het later opnieuw.",
+      "unavailable": "Service tijdelijk niet beschikbaar. Probeer het later opnieuw."
+    },
+    "toggleDetails": "details tonen",
+    "report": "Rapport",
+    "closeError": "Fout Sluiten",
+    "severity": {
+      "warning": "Waarschuwing",
+      "info": "Informatie"
+    },
+    "errorDetails": "Foutdetails",
+    "code": "<bold>Code:</bold> {{code}}",
+    "time": "<bold>Tijd:</bold> {{time}}",
+    "technicalDetails": "Technische details",
+    "cardTitle": "Er is iets misgegaan",
+    "cardDescription": "Er is een onverwachte Fout opgetreden. Probeer de pagina te Vernieuwen.",
+    "tryAgain": "Opnieuw Proberen",
+    "refreshPage": "Pagina Vernieuwen"
+  },
+  "errorProvider": {
+    "detailsTitle": "Foutdetails"
+  },
+  "gpuGate": {
+    "queued": "{{reason}}. Nieuwe taken wachten in de wachtrij en starten automatisch wanneer de GPU vrij is.",
+    "blocked": "{{reason}}. Knoppen worden ontgrendigd wanneer de GPU vrij is.",
+    "job": "Taak: {{detail}}"
+  },
+  "shortcuts": {
+    "groups": {
+      "global": "Globaal",
+      "chat": "Chat",
+      "codeEditor": "Code-editor",
+      "systemMap": "Systeemkaart",
+      "videoEditor": "Video-editor"
+    },
+    "keys": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "space": "Space",
+      "enter": "Enter",
+      "esc": "Esc",
+      "delete": "Verwijderen"
+    },
+    "showShortcuts": "Toon deze referentie voor toetsencombinaties",
+    "toggleFloatingChat": "Schakel het paneel voor de Zwevende chat in of uit",
+    "voiceMic": "Stem: tik om de microfoon te starten of te stoppen, houd vast om te praten",
+    "sendMessage": "Bericht verzenden",
+    "newline": "Nieuwe regel invoegen",
+    "previousMessage": "Vorige bericht ophalen",
+    "nextMessage": "Volgende bericht ophalen",
+    "saveFile": "Sla het bestand op",
+    "saveSession": "Sla de sessie nu op: tabbladen en chat",
+    "findSymbol": "Zoek een functie of klasse en spring ernaartoe",
+    "jumpToPanel": "Spring naar Bestanden, Editor, Chat, Zoeken, Output",
+    "explainSelection": "Leg de geselecteerde code uit in de chat",
+    "focusSearch": "Focus op zoeken",
+    "resetView": "Zicht herstellen",
+    "clearSearch": "Zoekopdracht / selectie wissen",
+    "playPause": "Voorspelling afspelen / pauzeren",
+    "undo": "Laatste wijziging in de tijdlijn ongedaan maken",
+    "removeOverlay": "Geselecteerde tekstoverlay verwijderen",
+    "title": "Sneltoetsen",
+    "close": "Sneltoetsen Sluiten"
+  },
+  "loading": {
+    "remaining": "~{{seconds}}s over",
+    "processing": "Bezig met verwerken...",
+    "connected": "Verbonden",
+    "offline": "Offline",
+    "online": "Online",
+    "offlineTitle": "Je bent offline",
+    "offlineBody": "Sommige functies zijn mogelijk niet beschikbaar. Controleer je verbinding.",
+    "success": "Succes!",
+    "processFailed": "Verwerking mislukt",
+    "failed": "Mislukt",
+    "step": "Stap {{current}} van {{total}}"
+  },
+  "mediaPicker": {
+    "listFailed": "Kon de Bibliotheek niet ophalen.",
+    "uploadFailed": "Upload mislukt.",
+    "kinds": {
+      "image": {
+        "choose": "Afbeeldingen kiezen",
+        "onlyHere": "Alleen afbeeldingen komen hier; de andere Bestanden zijn toegevoegd aan Bestanden.",
+        "empty": "Nog geen afbeeldingen in Bestanden. Upload er een of genereer er een in de Studio.",
+        "emptyFiltered": "Er zijn nog geen afbeeldingen in Bestanden die overeenkomen met die naam. Upload er een of genereer er een in de Studio."
+      },
+      "video": {
+        "choose": "Clipjes kiezen",
+        "onlyHere": "Alleen clipjes komen hier; de andere Bestanden zijn toegevoegd aan Bestanden.",
+        "empty": "Nog geen clipjes in Bestanden. Upload er een of genereer er een in de Studio.",
+        "emptyFiltered": "Er zijn nog geen clips in Bestanden die aan die naam voldoen. Upload er een, of genereer er een in de Studio."
+      },
+      "audio": {
+        "choose": "Kies audiobestanden",
+        "onlyHere": "Alleen audiobestanden mogen hier; de andere bestanden zijn toegevoegd aan Bestanden.",
+        "empty": "Nog geen audiobestanden in Bestanden. Upload er een, of genereer er een in de Studio.",
+        "emptyFiltered": "Er zijn nog geen audiobestanden in Bestanden die aan die naam voldoen. Upload er een, of genereer er een in de Studio."
+      }
+    },
+    "filterPlaceholder": "Filteren op naam",
+    "uploadFromDisk": "Uploaden vanaf schijf",
+    "upToMore": "Tot {{count}} meer.",
+    "pickOne": "Kies er een.",
+    "useCount": "Gebruik {{count}}",
+    "use": "Gebruik"
+  },
+  "narrate": {
+    "failed": "Narratie mislukt",
+    "fast": "Snel",
+    "expressive": "Expressief",
+    "download": "Download narratie",
+    "summary_one": "{{seconds}}s · {{count}} sectie",
+    "summary_other": "{{seconds}}s · {{count}} secties",
+    "generatingSlow": "Genereren (traag)...",
+    "narrating": "Narreren...",
+    "narrate": "Narreren",
+    "expressiveGenerating": "Expressieve TTS genereren (10-30s)...",
+    "generating": "Narratie genereren...",
+    "narrateText": "Narrateer deze tekst"
+  },
+  "projectState": {
+    "title": "Projectstatus Fout",
+    "intro": "Er is een Fout opgetreden bij het Beheer van de projectstatus. Dit kan komen door:",
+    "causes": {
+      "network": "Problemen met netwerkverbinding",
+      "sync": "Problemen met datasynchronisatie",
+      "relationships": "Ongeldige projectrelaties",
+      "corruption": "Statuscorruptie"
+    },
+    "errorMessage": "Fout: {{message}}",
+    "unknownError": "Onbekende fout"
+  },
+  "sevenDayPicker": {
+    "time": "Tijd"
+  },
+  "updateNotice": {
+    "gpuFaultAt": "De GPU reageerde niet meer op {{time}}. Beeldgeneratie mislukt totdat Guaardvark wordt herstart.",
+    "gpuFault": "De GPU reageerde niet meer. Beeldgeneratie mislukt totdat Guaardvark wordt herstart.",
+    "restartWithReason": "Guaardvark is bijgewerkt. Start het opnieuw om te voltooien ({{reason}}).",
+    "restart": "Guaardvark is bijgewerkt. Start het opnieuw om te voltooien.",
+    "restarted": "Guaardvark is herstart. Herlaad deze pagina om de nieuwe versie te gebruiken.",
+    "reloadFiles_one": "Guaardvark is bijgewerkt ({{count}} bestand). Herlaad deze pagina om de nieuwe versie te gebruiken.",
+    "reloadFiles_other": "Guaardvark is bijgewerkt ({{count}} bestanden). Herlaad deze pagina om de nieuwe versie te gebruiken.",
+    "reload": "Guaardvark is bijgewerkt. Herlaad deze pagina om de nieuwe versie te gebruiken.",
+    "restartButton": "Herstart",
+    "confirmTitle": "Herstart Guaardvark",
+    "confirmGpu": "Start het backend, de workers en ComfyUI opnieuw zodat de GPU weer gebruikt kan worden. Elke lopende generatie, indexaanvraag en chatreactie gaat verloren, en deze pagina verbreekt de verbinding totdat de diensten weer actief zijn.",
+    "confirmUpdate": "Start het backend, de workers en ComfyUI opnieuw zodat de update van kracht wordt. Elke lopende generatie, indexaanvraag en chatreactie gaat verloren, en deze pagina verbreekt de verbinding totdat de diensten weer actief zijn.",
+    "keeps": "documenten, chats, media, regels en Instellingen.",
+    "restartNow": "Nu herstarten"
+  }
+}

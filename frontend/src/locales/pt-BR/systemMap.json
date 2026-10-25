@@ -1,0 +1,74 @@
+{
+  "legend": {
+    "api": "API",
+    "services": "Serviços",
+    "utils": "Utils",
+    "tools": "Ferramentas",
+    "tasks": "Tarefas",
+    "frontend": "Frontend",
+    "plugins": "Plugins",
+    "clear": "limpar"
+  },
+  "errors": {
+    "snapshotFailed": "Falha no snapshot"
+  },
+  "dispatch": {
+    "queued": "Enviado para o agente de Autoaperfeiçoamento — executando em segundo plano.",
+    "proposed": "Enviado para o agente de Autoaperfeiçoamento — revise a correção proposta em Configurações.",
+    "notRun": "Envio não executado — {{reason}}",
+    "notRunNoReason": "Envio não executado — nenhum motivo informado",
+    "failed": "Falha no envio: {{error}}"
+  },
+  "title": "Mapa do Sistema",
+  "stats": "{{modules}} módulos · {{edges}} arestas",
+  "severity": {
+    "critical": "{{count}} crítico",
+    "medium": "{{count}} médio",
+    "hygiene": "{{count}} higiene"
+  },
+  "searchPlaceholder": "Buscar ( / )",
+  "resetView": "Redefinir visualização (R)",
+  "refresh": {
+    "cached": "Cache de {{seconds}}s atrás — clique para recalcular",
+    "computed": "Acabado de calcular em {{seconds}}s"
+  },
+  "overlays": {
+    "ghostEndpoints": "Endpoints fantasma",
+    "ghostEndpointsCount": "Endpoints fantasma ({{count}})",
+    "toolGraph": "Grafo de ferramentas",
+    "toolGraphCount": "Grafo de ferramentas ({{count}})"
+  },
+  "controlsHint": "arrastar · mover  |  roda · zoom  |  / · buscar  |  r · reset  |  clicar em chips · destaque de seções",
+  "detail": {
+    "hovered": "Passando o mouse",
+    "selected": "Selecionado",
+    "importers_one": "{{count}} importador",
+    "importers_other": "{{count}} importadores",
+    "findings": "Descobertas ({{count}})",
+    "moreFindings": "… e mais {{count}}",
+    "escToClear": "Pressione <code>Esc</code> para limpar"
+  },
+  "loading": "Mapeando o Sistema…",
+  "panel": {
+    "findings": "Descobertas",
+    "activity": "Atividade"
+  },
+  "findings": {
+    "actionable": "Ação",
+    "critical": "Crítico",
+    "all": "Todas",
+    "intro": "Descobertas classificadas · clique para localizar · envie para corrigir",
+    "empty": "Nenhuma descoberta neste nível de gravidade. 🎉",
+    "dispatch": "Enviar para o agente de Autoaperfeiçoamento para propor uma correção",
+    "dismiss": "Descartar — reconhecer e parar de mostrar esta descoberta"
+  },
+  "activity": {
+    "title": "Atividade em tempo real",
+    "intro": "Chamadas de ferramentas no chat aparecem aqui. Módulos correspondentes pulsam na constelação.",
+    "empty": "Ocioso. Pergunte algo ao agente para iniciar o pulso.",
+    "now": "agora",
+    "seconds": "{{count}}s",
+    "minutes": "{{count}}m",
+    "hours": "{{count}}h"
+  }
+}

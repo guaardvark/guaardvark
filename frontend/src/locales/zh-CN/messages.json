@@ -1,0 +1,585 @@
+{
+  "access": {
+    "defaultMachine": "Guaardvark 机器",
+    "outsideLocalNetwork": "此功能仅在 {{machine}} 及其本地网络设备上可用，而当前设备处于网络之外。请在 {{machine}} 的“设置 → 访问”中创建 API 密钥，然后在当前设备的“设置 → 访问”中输入该密钥。",
+    "runsCodeKeyRequired": "此操作将在 {{machine}} 上运行程序，即使开启了网络访问，也仅在 {{machine}} 本身或使用其 API 密钥时有效。请在 {{machine}} 的“设置 → 访问”中创建 API 密钥，然后在当前设备的“设置 → 访问”中输入该密钥。",
+    "fleetKeyRequired": "此 Interconnector 操作仅在 {{machine}} 本身或使用其 API 密钥时有效，即使开启了网络访问。请在 {{machine}} 的“设置 → 访问”中创建 API 密钥，然后在当前设备的“设置 → 访问”中输入该密钥。",
+    "localOnlyKeyRemoved": "{{machine}} 不再拥有 API 密钥，因此此功能仅在 {{machine}} 本机上可用。请在“设置”→“访问”→“网络访问”中开启，或在该处创建新密钥并在本设备的“设置”→“访问”中输入。",
+    "localOnly": "此功能仅在 {{machine}} 本身上可用。若要在当前设备上使用，请在 {{machine}} 上开启“设置 → 访问 → 网络访问”，或在其中创建 API 密钥并在当前设备的“设置 → 访问”中输入。",
+    "keyOutOfDate": "此浏览器使用的密钥 {{machine}} 已不再使用。请在“设置 → 访问”中输入当前密钥。",
+    "keyRequired": "请在“设置”→“访问”中输入 {{machine}} 的 API 密钥。创建时会显示该密钥，且 {{machine}} 会将其保存在 .env 文件中的 GUAARDVARK_API_KEY 中。"
+  },
+  "taskQueue": {
+    "unreachable": "未启动：无法连接到 Guaardvark 的后台队列 (Redis)。请在 Guaardvark 机器上运行 ./start.sh 以启动 Redis 和后台工作进程，然后重试。",
+    "nextStepNotStarted": "下一步尚未启动。当 Guaardvark 重启（./start.sh）时将开始。"
+  },
+  "api": {
+    "httpError": "HTTP 错误 {{status}} - {{statusText}}",
+    "unknownStatus": "未知错误",
+    "httpErrorStatus": "HTTP 错误！状态：{{status}}",
+    "invalidJson": "无法解析来自服务器的 JSON 响应。"
+  },
+  "chatStop": {
+    "backendUnreachable": "后端不可达",
+    "notReachedBoth": "停止指令未触达对话轮次和智能体任务：{{reason}}。任务可能仍在运行。",
+    "notReachedChatTurn": "停止指令未触达对话轮次：{{reason}}。任务可能仍在运行。",
+    "notReachedAgentTask": "停止指令未触达智能体任务：{{reason}}。任务可能仍在运行。"
+  },
+  "heldChanges": {
+    "gitRecordRejectRefused": "Git 记录只能被批准；若要拒绝，请在 git 中撤销合并。"
+  },
+  "address": {
+    "requestFailed": "请求失败"
+  },
+  "backups": {
+    "downloadFailed": "下载失败：{{status}}"
+  },
+  "bulkGeneration": {
+    "csvTimeout": "请求超时 - 批量 CSV 生成耗时过长",
+    "csvFailed": "批量 CSV 生成失败",
+    "structuredCsvTimeout": "请求超时 - 生成结构化 CSV 耗时过长",
+    "structuredCsvFailed": "结构化 CSV 生成失败",
+    "statusFailed": "获取生成状态失败",
+    "estimateFailed": "估算生成时间失败",
+    "topicsFailed": "生成主题失败",
+    "xmlTimeout": "请求超时 - 批量生成 XML 耗时过长",
+    "xmlFailed": "生成 XML 内容失败"
+  },
+  "chat": {
+    "sendQueryFailed": "发送查询失败。",
+    "sendCommandFailed": "发送命令失败。",
+    "duplicateRequest": "检测到重复请求",
+    "apiError": "对话 API 错误：{{status}}",
+    "exportFailed": "对话导出失败",
+    "historyFailed": "获取历史记录失败：{{status}}"
+  },
+  "codeExecution": {
+    "pythonFailed": "执行 Python 代码失败",
+    "javascriptFailed": "执行 JavaScript 代码失败",
+    "shellFailed": "执行 shell 命令失败",
+    "formatFailed": "格式化代码失败",
+    "lintFailed": "Lint 代码失败",
+    "buildFailed": "构建项目失败"
+  },
+  "codeIntelligence": {
+    "noCode": "未提供用于分析的代码内容",
+    "provideCode": "请提供代码内容以供分析。",
+    "analysisDone": "分析成功完成。",
+    "analysisTimeout": "分析请求在 2 分钟后超时",
+    "analysisTimeoutHelp": "分析请求耗时过长。这可能会发生在处理非常大的文件或复杂的代码时。请尝试缩小代码范围或简化查询。",
+    "unknownError": "发生未知错误",
+    "analysisFailed": "分析失败。请检查后端连接并重试。",
+    "noDescription": "未提供代码生成的描述",
+    "codeGenerated": "代码生成成功",
+    "generationTimeout": "代码生成请求在 2 分钟后超时。请尝试更简单的请求。",
+    "generationUnknownError": "代码生成过程中发生未知错误",
+    "explanationFailed": "解释失败。请检查后端连接。",
+    "validationFailed": "验证失败",
+    "readFileFailed": "读取文件失败",
+    "readFilesFailed": "读取文件失败"
+  },
+  "documents": {
+    "listFailed": "获取文档失败。",
+    "notFound": "未找到文档",
+    "invalidId": "无效的文档 ID",
+    "contentFailedStatus": "获取文档内容失败 ({{status}})",
+    "contentFailed": "获取文档内容失败。",
+    "repoFileFailed": "获取仓库文件失败。",
+    "uploadNetworkError": "文件上传时出现网络错误",
+    "uploadCancelled": "上传已取消",
+    "uploadTimeout": "上传超时"
+  },
+  "fileOperations": {
+    "readFailed": "读取文件失败",
+    "saved": "文件保存成功",
+    "writeFailed": "写入文件失败",
+    "created": "文件创建成功",
+    "createFailed": "创建文件失败",
+    "deleted": "文件删除成功",
+    "deleteFailed": "删除文件失败",
+    "listFailed": "列出目录失败",
+    "directoryCreated": "目录创建成功",
+    "createDirectoryFailed": "创建目录失败",
+    "renamed": "文件重命名成功",
+    "renameFailed": "重命名文件失败"
+  },
+  "fileGeneration": {
+    "cancelledOrTimedOut": "请求已取消或超时。",
+    "unknownError": "发生未知错误。",
+    "batchCsvFailed": "批量 CSV 生成失败"
+  },
+  "indexing": {
+    "cancelFailed": "取消任务失败。",
+    "jobsFailed": "获取任务失败。"
+  },
+  "interconnector": {
+    "timeout": "请求在 {{timeout}}ms 后超时",
+    "outputsIndexFailed": "获取输出索引失败"
+  },
+  "models": {
+    "listFailed": "获取可用模型失败。"
+  },
+  "musicVideo": {
+    "storyboardTimeout": "分镜生成超时"
+  },
+  "projects": {
+    "listFailed": "获取项目失败。",
+    "getFailed": "获取项目 {{projectId}} 失败。"
+  },
+  "ragDebug": {
+    "uptimeUnknown": "未知",
+    "uptimeDays": "{{days}}d {{hours}}h {{minutes}}m",
+    "uptimeHours": "{{hours}}h {{minutes}}m",
+    "uptimeMinutes": "{{minutes}}m"
+  },
+  "rules": {
+    "listFailed": "获取规则/提示词失败。"
+  },
+  "tasks": {
+    "listFailed": "获取任务失败。"
+  },
+  "training": {
+    "datasetsFailed": "获取训练数据集失败。"
+  },
+  "upscaling": {
+    "previewFailed": "生成预览失败"
+  },
+  "websites": {
+    "listFailed": "获取网站失败。"
+  },
+  "settings": {
+    "testSuiteTimeout": "测试套件在 5 分钟后超时",
+    "rebootStarted": "重启已启动。",
+    "rebootConnectionLost": "重启已启动，连接可能已如预期般断开。"
+  },
+  "links": {
+    "updated": "成功更新 {{entityType}} 链接",
+    "updateFailed": "更新链接失败"
+  },
+  "videoEditor": {
+    "requestFailed": "视频编辑器请求失败",
+    "loadRecipesFailed": "无法加载风格配方",
+    "submitPlanFailed": "无法提交计划任务",
+    "reanalyzeFailed": "重新分析失败",
+    "clipHashFailed": "片段缩略图查询失败",
+    "pollPlanFailed": "无法轮询计划任务",
+    "renderFailed": "渲染失败",
+    "loadFiltersFailed": "无法加载滤镜",
+    "loadTransitionsFailed": "无法加载转场",
+    "launchShotcutFailed": "无法启动 Shotcut",
+    "listProjectsFailed": "无法列出项目",
+    "loadCurrentProjectFailed": "无法加载当前项目",
+    "openProjectFailed": "无法打开项目",
+    "createProjectFailed": "无法创建项目",
+    "autosaveFailed": "自动保存失败",
+    "saveProjectFailed": "无法保存项目",
+    "saveProjectAsFailed": "无法另存项目",
+    "renameProjectFailed": "无法重命名项目",
+    "deleteProjectFailed": "无法删除项目",
+    "validateProjectFailed": "无法验证项目"
+  },
+  "voice": {
+    "streamingError": "流传输错误",
+    "noActiveRecording": "无正在进行的录制",
+    "micNeedsSecureContext": "麦克风需要 HTTPS 或 localhost 环境",
+    "micUnsupported": "您的浏览器不支持麦克风访问。",
+    "permissionCheckFailed": "检查麦克风权限失败。",
+    "permissionRequestFailed": "获取麦克风权限失败。",
+    "micAccessDenied": "麦克风访问被拒绝。请启用权限。",
+    "startFailedPermission": "启动录制失败。麦克风权限被拒绝。",
+    "startFailedNoMic": "启动录制失败。未找到麦克风。",
+    "startFailedRetry": "启动录制失败。请重试。",
+    "noSpeech": "未检测到语音。",
+    "noAudio": "未录制到音频数据。",
+    "recordingFailed": "录制失败。"
+  },
+  "clients": {
+    "listFailed": "获取客户列表失败。",
+    "nameRequired": "必填客户名称。"
+  },
+  "logo": {
+    "noFile": "未提供文件",
+    "tooLarge": "文件过大。最大限制为 {{size}}MB",
+    "invalidType": "文件类型无效。允许的类型为：{{types}}"
+  },
+  "voiceSession": {
+    "micBlocked": "麦克风访问被拦截。请在浏览器中允许此网站访问麦克风，然后重试。",
+    "noMic": "未找到麦克风。",
+    "micBusy": "麦克风正被其他应用程序占用。",
+    "noMatchingMic": "没有符合请求设置的麦克风。",
+    "pushToTalkHint": "说话时按住麦克风按钮（或 Ctrl+Shift+Space）。",
+    "micReady": "麦克风就绪。按住即可通话。",
+    "holdLonger": "说话时请按住麦克风稍久一些。",
+    "micOff": "麦克风在语音设置中已关闭（设置 → 对话 → 语音通话）。",
+    "micStartFailedReason": "麦克风无法启动：{{reason}}",
+    "micStartFailed": "麦克风无法启动。",
+    "audioStartFailed": "音频处理无法启动：{{reason}}",
+    "micEnded": "麦克风已停止（已拔出或被其他应用占用）。",
+    "recorderUnsupported": "此浏览器无法录制音频：{{reason}}",
+    "recordingError": "录制错误：{{reason}}",
+    "unknownReason": "未知",
+    "recorderStartFailed": "录制无法启动：{{reason}}",
+    "sttFailed": "语音识别失败",
+    "rateLimited": "本分钟内的语音请求过多；该请求已被跳过。",
+    "busy": "系统正忙；该次请求已跳过。",
+    "backendOffline": "后端不可达；该段内容未被转录。",
+    "transcribeFailed": "转录失败：{{reason}}",
+    "noChatOpen": "没有打开的对话可发送此内容。",
+    "sendFailed": "发送失败：{{reason}}",
+    "noSpeechTimeout": "未检测到声音，麦克风已关闭。"
+  },
+  "voicePhase": {
+    "clickHint": {
+      "handsfree": "点击开启免提聆听",
+      "toggle": "点击并说话；暂停时自动发送",
+      "push": "按住说话"
+    },
+    "requestingPermission": {
+      "title": "等待麦克风权限",
+      "hint": "在浏览器提示中允许使用麦克风。"
+    },
+    "waitingForWake": {
+      "title": "等待“Hey {{systemName}}”",
+      "hint": "先说唤醒词，再说您的请求。"
+    },
+    "listening": {
+      "title": "正在聆听",
+      "hint": "请说话；每次停顿都会发送一条消息。点击可停止。"
+    },
+    "recording": {
+      "title": "正在录制",
+      "hint": "松开按键发送。"
+    },
+    "hearing": {
+      "title": "正在接收",
+      "hint": "暂停以发送。"
+    },
+    "transcribing": "正在转录",
+    "sending": "正在发送至对话",
+    "responding": {
+      "title": "等待回复",
+      "hint": "仍在聆听。"
+    },
+    "speaking": {
+      "title": "正在播报回复",
+      "hint": "在说话时麦克风已暂停。"
+    },
+    "denied": "麦克风被禁用",
+    "error": "语音功能不可用",
+    "micOff": "麦克风已关闭",
+    "outcomes": {
+      "sent": "已发送",
+      "wake": "唤醒词",
+      "ignored": "无唤醒词，未发送",
+      "unsent": "未打开对话，未发送",
+      "failed": "发送失败"
+    }
+  },
+  "batchVideo": {
+    "requestFailed": "请求失败",
+    "listFailed": "无法加载视频批次：{{reason}}。",
+    "queueFailed": "视频队列未更新：{{reason}}。",
+    "clearFailedStatus": "清除失败：HTTP {{status}}",
+    "clearFailed": "清除失败：{{reason}}",
+    "combineFailed": "帧合并失败：{{reason}}。",
+    "deleted": "批次已删除。",
+    "deleteFailedStatus": "删除失败：HTTP {{status}}",
+    "deleteFailed": "删除失败：{{reason}}",
+    "cancelFailed": "取消失败：{{reason}}。批次可能仍在运行。",
+    "retryFailedStatus": "重试失败：HTTP {{status}}",
+    "retried": "已作为新批次 {{batchId}} 重试。原始失败批次保留在历史记录中。",
+    "retryFailed": "重试失败：{{reason}}",
+    "approveFailedStatus": "批准失败：HTTP {{status}}",
+    "clipApproved": "片段已批准并添加到文件。",
+    "approveFailed": "批准失败：{{reason}}",
+    "rerenderFailedStatus": "重新渲染失败：HTTP {{status}}",
+    "rerendering": "正在作为 {{newBatchId}} 重新渲染。保留的片段仍保留在 {{batchId}} 中。",
+    "rerenderFailed": "重新渲染失败：{{reason}}"
+  },
+  "unsavedChanges": {
+    "leaveConfirm": "此页面有未保存的更改。离开并丢弃这些更改？"
+  },
+  "agentRouter": {
+    "routingFailed": "路由失败",
+    "executionFailed": "执行失败"
+  },
+  "hfLookup": {
+    "failed": "查询失败"
+  },
+  "notifications": {
+    "operationFailed": "操作失败"
+  },
+  "errors": {
+    "unexpected": "发生意外错误",
+    "badRequest": "请求无效。请检查您的输入。",
+    "unauthorized": "需要身份验证。请登录。",
+    "forbidden": "您没有权限执行此操作。",
+    "notFound": "未找到请求的资源。",
+    "validation": "验证错误。请检查您的输入。",
+    "tooManyRequests": "请求过于频繁。请稍后再试。",
+    "server": "服务器错误。请稍后再试。",
+    "unavailable": "服务暂时不可用。请稍后再试。",
+    "httpStatus": "HTTP 错误 {{status}}",
+    "network": "网络错误。请检查您的连接。",
+    "timeout": "请求超时。请重试。",
+    "uploadFailed": "文档上传失败。请重试。",
+    "indexingFailed": "文档索引失败。请重试。",
+    "chatFailed": "对话请求失败。请重试。",
+    "projectFailed": "项目操作失败。请重试。"
+  },
+  "audioRecorder": {
+    "permissionDenied": "麦克风权限被拒绝",
+    "resumeFailed": "无法恢复音频上下文 - 麦克风访问可能被拦截",
+    "volumeMonitoringFailed": "音量监控失败：{{reason}}",
+    "unsupported": "此浏览器不支持音频录制"
+  },
+  "approvals": {
+    "loadFailed": "无法加载待审批项",
+    "heldWaiting_other": "有 {{count}} 项代码更改等待审批",
+    "publishWaiting_other": "有 {{count}} 项发布等待审批"
+  },
+  "slash": {
+    "help": "## 可用命令\n\n{{commands}}",
+    "helpLine": "**{{name}}** — {{description}}\n  用法：`{{usage}}`",
+    "voiceDisabled": "语音对话已禁用。",
+    "voiceEnabled": "语音对话已启用。",
+    "voiceUnavailable": "在此上下文中无法使用语音对话。",
+    "visionStatus": "**{{name}}:** {{status}}",
+    "unknownStatus": "未知",
+    "visionHint": "可在插件页面开启或关闭。",
+    "visionNotInstalled": "未安装 Vision Pipeline 插件。",
+    "visionReadFailed": "无法读取 Vision Pipeline 状态：{{reason}}",
+    "modelStatus": "**当前模型：** {{model}}\n\n**可用模型：**\n{{models}}",
+    "unknownModel": "未知",
+    "modelsFailed": "获取模型失败：{{reason}}",
+    "modelSwitched": "模型已切换至 **{{model}}**。",
+    "failed": "失败：{{reason}}",
+    "modelSwitchFailed": "模型切换失败：{{reason}}",
+    "installed": "已安装",
+    "notInstalled": "未安装",
+    "comfyuiAutoBackend": "ComfyUI (自动后端)",
+    "editBackendsFailed": "_(无法加载编辑后端)_",
+    "imageModelStatus": "**当前图像模型：** `{{current}}`\n\n用于 `/imagine` 和 **generate_image**。编辑操作（`edit_image`，`/inpaint`）在安装时自动选择 **Qwen-Image-Edit**，否则使用 **FLUX Kontext**。\n\n**图像编辑包**（从“管理图像模型”→“图像编辑”中安装）：\n{{editLines}}\n\n**生成 — 已下载：**\n{{downloaded}}\n\n**生成 — 未下载：**\n{{notDownloaded}}\n\n_提示：当安装了相关包时，`/imagemodel auto` 在指令编辑时将使用 Qwen-Image-Edit。_",
+    "none": "_(无)_",
+    "imageModelsFailed": "获取图像模型失败：{{reason}}",
+    "imageModelAuto": "图像模型已切换至 **auto**（若已安装，编辑将使用 Qwen-Image-Edit，否则使用 Kontext；若两者均未安装，编辑时将提示您安装其中之一）。",
+    "imageEditsQwen": "若已安装该包，图像编辑将使用 **qwen-image-edit**。",
+    "imageEditsKontext": "若已安装，图像编辑将使用 **kontext** (FLUX.1 Kontext)。",
+    "imageModelComfyui": "图像模型已切换至 **comfyui** (ComfyUI 自动后端)。生成将使用已安装的 Z-Image 或 FLUX 引擎。",
+    "imageModelNotDownloaded": "模型 `{{model}}` 未下载。请先从“图像”页面下载。",
+    "imageModelSwitched": "图像模型已切换至 **{{model}}** ({{name}})。用于对话生成和 img2img 编辑。",
+    "imageModelNotFound": "未找到模型 `{{model}}`。可用模型：{{available}}",
+    "usage": {
+      "imagine": "用法：`/imagine <prompt>`",
+      "inpaint": "用法：`/inpaint <instruction>` — 请上传照片，否则将使用本次对话中的最后一张图片。",
+      "identity": "用法：`/identity <prompt>` — 请上传您有权使用的面部照片（您的肖像或 Cast 主体）。",
+      "video": "用法：`/video <prompt>`",
+      "musicVideo": "用法：`/music-video <song-path-or-id> <style>` — 开始制定计划；在片段渲染前请在工作室中确认。",
+      "filmCrew": "用法：`/film-crew <screenplay>` — 启动编剧；渲染将在工作室中等待。",
+      "websearch": "用法：`/websearch <query>`，`/websearch site:<address>`（审计单页）或 `/websearch sitemap:<url>`（列出站点地图的页面）",
+      "plan": "用法：`/plan <request>`",
+      "training": "用法：`/training <task>` — 例如：`/training Work 的评论训练师 — 按照横幅指示，完成后点击 Start Over，不要停止。`",
+      "thinking": "用法：`/thinking on` 或 `/thinking off`（或使用 `/thinking` 查看当前状态）。"
+    },
+    "musicVideoNeedsSong": "需要一首歌曲（文档 ID 或音频路径）和一个视觉风格。示例：`/music-video song.mp3 neon noir rain`",
+    "sitemapNotRead": "未读取站点地图：{{reason}}",
+    "backendAnswered": "后端响应 HTTP {{status}}",
+    "backendUnreachable": "后端无法连接",
+    "sitemap": {
+      "redirected": "{{url}} (重定向至 {{finalUrl}})",
+      "title": "**站点地图：** {{url}}",
+      "index_other": "包含 {{count}} 个站点地图的索引；已列出，未打开。",
+      "numberedEntryModified": "{{number}}. {{url}} (最后修改于 {{lastmod}})",
+      "firstOf": "前 {{shown}} 个：\n{{items}}",
+      "pageUrls_other": "有 {{count}} 个页面 URL。",
+      "depth": "深度 {{depth}}: {{pages}}",
+      "byDepth": "按路径深度排序：{{depths}}",
+      "landingPages": "落地页（顶层，优先级高于 0.5）：",
+      "landingEntry": "{{number}}. {{url}} (优先级 {{priority}})",
+      "entryModified": "- {{url}} (最后修改于 {{lastmod}})",
+      "pagesList": "页面：\n{{items}}"
+    },
+    "outreach": {
+      "enabled": "已启用",
+      "disabled": "已禁用",
+      "supervised": "受监督",
+      "unsupervised": "非受监督",
+      "redisOffline": "- {{platform}}: Redis 离线",
+      "cadenceLast": "- {{platform}}: 今日 {{posts}}/{{cap}}，最后一次在 {{minutes}}分钟前",
+      "cadence": "- {{platform}}: 今日 {{posts}}/{{cap}}",
+      "status": "**外联：** {{state}} ({{mode}})\n\n{{cadence}}",
+      "noCadence": "无频率数据。",
+      "statusFailed": "外联状态失败：{{reason}}",
+      "refused": "外联：请求被拒绝。",
+      "intentFailed": "外联意图失败：{{reason}}",
+      "queued": "外联任务已排入队列，任务编号为 #{{taskId}}。",
+      "commandFailed": "外联命令失败：{{reason}}"
+    },
+    "training": {
+      "started": "训练任务已启动（最多 1000 次迭代 / 1 小时）。请通过 VNC 查看进度；查看 `logs/backend.log` 以获取 servo 事件。任务：_{{task}}_",
+      "rejectedBusy": "训练任务被拒绝：{{reason}} — 请使用紧急停止开关或等待当前任务完成。",
+      "rejected": "训练任务被拒绝：{{reason}}",
+      "unknownError": "未知错误",
+      "failed": "训练任务失败：{{reason}}"
+    },
+    "rule": {
+      "failedDetails": "{{name}} 失败：{{reason}} ({{details}})",
+      "failed": "{{name}} 失败：{{reason}}",
+      "wroteSize": "{{name}} 已将 {{file}} ({{bytes}} 字节) 写入输出文件夹。",
+      "wrote": "{{name}} 已将 {{file}} 写入输出文件夹。"
+    },
+    "agent": {
+      "needsSession": "/agent 需要会话 — 请先打开一个对话。",
+      "switchFailed": "切换到代理模式失败：{{reason}}",
+      "already": "已处于 **代理模式**。请输入屏幕控制任务，或使用 `/chat` 退出。",
+      "switched": "已切换至 **代理模式** — 消息将通过代理转发（它将进行对话并执行操作）。输入 `/chat` 可退出。"
+    },
+    "thinking": {
+      "needsSession": "/thinking 需要会话 — 请先打开一个对话。",
+      "statusDefault": "🧠 此对话的思考功能正在**使用全局默认值（设置 → 对话）**。\n使用 `/thinking on` 开启逐步推理（速度较慢）或使用 `/thinking off` 获取更快的回复。",
+      "statusOn": "🧠 此对话的思考功能已**开启**。\n使用 `/thinking on` 开启逐步推理（速度较慢）或使用 `/thinking off` 获取更快的回复。",
+      "statusOff": "⚠️ 此对话的思考功能已**关闭**。\n使用 `/thinking on` 开启逐步推理（速度较慢）或使用 `/thinking off` 获取更快的回复。",
+      "enabled": "🧠 已为此对话**启用**思考功能 — 模型将在回答前进行逐步推理（速度较慢，更适合复杂的提示词）。",
+      "disabled": "⚡ 已为此对话**禁用**思考功能 — 获取更快的回复。"
+    },
+    "chatMode": {
+      "needsSession": "/chat 需要会话 — 请先打开一个对话。",
+      "already": "已处于对话模式。",
+      "switched": "已切换至**对话模式**。消息将再次通过 LLM 路由。输入 `/agent` 切换回代理模式。",
+      "exitFailed": "退出代理模式失败：{{reason}}"
+    },
+    "commandFailed": "命令失败：{{reason}}"
+  },
+  "autoresearch": {
+    "reasons": {
+      "ollamaUnreachable": "Ollama 未运行",
+      "insufficientCorpus": "索引文档不足",
+      "noEvalPairs": "无评估问题",
+      "evalSourcesNotIndexed": "评估问题源自未建立索引的文档",
+      "judgeUnset": "未设置独立的判定模型",
+      "judgeSameAsAnswerModel": "判定模型与回答模型相同",
+      "celeryUnreachable": "任务队列无法连接",
+      "baselineEvalFailed": "无法衡量基准",
+      "prerequisiteCheckFailed": "无法运行启动检查",
+      "codebaseLocked": "代码库已锁定",
+      "selfImprovementDisabled": "自我优化已关闭"
+    },
+    "noReason": "未记录原因",
+    "notRun": "未运行：{{reasons}}",
+    "starting": "正在启动……",
+    "noBaseline": "未测量到基准",
+    "scoresWithBest": "{{base}} → {{latest}} (最佳 {{best}})",
+    "halt": "停止：{{reason}}",
+    "healthPass": "通过",
+    "healthFail": "失败",
+    "healthUnknown": "未知",
+    "healthStatus": "健康检查：{{outcome}}",
+    "healthCheck": "健康检查",
+    "selfReported": "自我报告",
+    "baselineNotMeasured": "基准：未测量",
+    "baselineMeasured": "基准：{{score}} (测量于 {{at}})",
+    "baselineNoTime": "基准：{{score}} (未记录测量时间)",
+    "evalPairsNone": "无",
+    "evalPairsWithUnindexed": "{{active}} 已激活 · {{unindexed}} 来自未索引文档",
+    "evalPairsActive": "{{active}} 已激活",
+    "activeChatModel": "当前活跃的对话模型",
+    "judgeIsAnswerModel": "这是回答模型（{{model}}），因此它将对自己的回答进行评分。夜间运行将不会启动。",
+    "judgeNotSet": "未设置，因此 {{model}} 将对自己的答案进行评分。夜间运行将不会启动。",
+    "experimentsSummary_other": "{{count}} 个实验 · {{promoted}} 个已推广"
+  },
+  "imageModels": {
+    "notInstalledSize": "{{description}}（未安装 — 安装下载约 {{size}} GB）",
+    "notInstalled": "{{description}}（未安装 — 安装下载）"
+  },
+  "attachment": {
+    "tooLarge": "调整大小后的图像为 {{size}}；限制为 {{limit}}。请选择较小的图像。",
+    "totalTooLarge_other": "这些 {{count}} 张图像调整大小后总计为 {{size}}；限制为 {{limit}}。请移除其中一个或选择更小的图像。",
+    "chatError": "对话错误",
+    "readFailed": "无法读取此图像",
+    "encodeFailed": "无法编码图像",
+    "readResizedFailed": "无法读取调整大小后的图像",
+    "noImage": "无可附加的图像",
+    "drawFailed": "无法绘制图像"
+  },
+  "fileTypes": {
+    "noTimestamp": "无"
+  },
+  "hfUrl": {
+    "empty": "粘贴 Hugging Face URL 或 org/repo。",
+    "notHuggingFace": "仅接受 Hugging Face URL 或 org/repo ID。",
+    "notModelRepo": "那是 Hugging Face 数据集或 Space，不是模型仓库。请粘贴模型 URL (huggingface.co/org/repo)。"
+  },
+  "replySpeech": {
+    "noVoiceInstalled": "未安装语音，无法播放回复。请在语音设置中安装（设置 → 对话 → 语音对话），或在安装了 Kokoro 语音包的情况下启动 Audio Foundry 插件。",
+    "stoppedPartwayReason": "已播放回复的第一部分，随后停止：{{reason}}",
+    "stoppedPartway": "已播放回复的第一部分，随后停止",
+    "failedReason": "播放回复失败：{{reason}}",
+    "failed": "播放回复失败"
+  },
+  "renderFailure": {
+    "withNext": "{{text}} 下一步：{{action}}",
+    "retryable": "{{text}}（稍后重试可能会成功。）"
+  },
+  "uiError": {
+    "generic": "发生错误"
+  },
+  "imageEdit": {
+    "cropAfterTransform": "在旋转或翻转前裁剪：撤销旋转或翻转，进行裁剪，然后再旋转或翻转。"
+  },
+  "paths": {
+    "home": "主页"
+  },
+  "droppedFiles": {
+    "folders_other": "{{count}} 个文件夹",
+    "files_other": "{{count}} 个文件",
+    "foldersAndFiles": "{{folders}} 和 {{files}}",
+    "leftOut": "排除 {{items}}（隐藏、构建输出或凭据）"
+  },
+  "entityLinks": {
+    "files": "文件",
+    "scheduleTask": "计划任务"
+  },
+  "batches": {
+    "fallbackName": "批次"
+  },
+  "family": {
+    "selfImprovement": "自我优化"
+  },
+  "videoPromptControls": {
+    "enhanceOff": "当“增强提示词”关闭时，无效果",
+    "verbatim": "当在“设置”中开启“Verbatim 提示词”时，此项无效",
+    "viaReferenceCompiler": "通过引用编译器",
+    "viaPromptEnhancer": "通过提示词增强器",
+    "styleVerbatim": "提示词样式：当在“设置”中开启“Verbatim 提示词”时，此项无效",
+    "styleEnhanceOff": "提示词样式：当“增强提示词”关闭时，此项无效",
+    "styleExactText": "提示词样式：当“精确文本”开启时，此项无效"
+  },
+  "videoPreview": {
+    "conceptVerbatim": "按输入内容显示（“设置”中开启了“Verbatim 提示词”）；Storyboard 步骤仍将生成镜头",
+    "conceptEnhanceOff": "按输入内容显示（“增强提示词”已关闭）；Storyboard 步骤仍将生成镜头",
+    "conceptEnhanced": "增强后的概念；Storyboard 步骤将从中生成镜头，因此片段将获得不同的提示词",
+    "promptVerbatim": "按输入内容显示（“设置”中开启了“Verbatim 提示词”）",
+    "promptEnhanceOff": "按输入内容显示（“增强提示词”已关闭）",
+    "promptEnhanced": "增强后的提示词（将发送的内容）",
+    "promptsVerbatimFirst_other": "按输入内容显示（“设置”中开启了“Verbatim 提示词”）：{{count}} 个片段中的第 {{shown}} 个",
+    "promptsVerbatimAll_other": "按输入内容显示（“设置”中开启了“Verbatim 提示词”）：{{count}} 个片段，每个对应一个",
+    "promptsEnhanceOffFirst_other": "按输入内容显示（已关闭增强）：前 {{shown}} 个（共 {{count}} 个）片段",
+    "promptsEnhanceOffAll_other": "按输入内容显示（已关闭增强）：{{count}} 个片段，各对应一个",
+    "promptsEnhancedFirst_other": "增强后的提示词（将发送的内容）：前 {{shown}} 个（共 {{count}} 个）片段",
+    "promptsEnhancedAll_other": "增强后的提示词（将发送的内容）：{{count}} 个片段，各对应一个"
+  },
+  "videoSteps": {
+    "profileSteps": "{{label}}（{{steps}} 步）",
+    "speedProfile": "速度配置",
+    "lowVramClamp": "低 VRAM 限制",
+    "setBy": "由 {{label}} 设置",
+    "preset": "预设"
+  },
+  "assetGuard": {
+    "blocked": "远程图像已拦截",
+    "offlineFirst": "（离线优先）"
+  },
+  "appStore": {
+    "brandingFailed": "获取品牌信息失败：{{status}}"
+  }
+}

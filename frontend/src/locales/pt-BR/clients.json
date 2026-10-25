@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "Falha ao buscar Clientes.",
+    "loadError": "Erro ao carregar Clientes: {{error}}",
+    "updated": "Cliente atualizado com sucesso!",
+    "created": "Cliente criado com sucesso!",
+    "updateError": "Erro ao atualizar cliente.",
+    "createError": "Erro ao criar cliente.",
+    "deleteConfirm": "Você tem certeza de que deseja excluir o cliente \"{{name}}\" (ID: {{id}})? Isso pode afetar os projetos associados.",
+    "deleteConfirmUnnamed": "Você tem certeza de que deseja excluir o cliente \"este cliente\" (ID: {{id}})? Isso pode afetar os Projetos associados.",
+    "deleted": "Cliente \"{{name}}\" excluído com sucesso!",
+    "deleteError": "Erro ao excluir cliente.",
+    "missingClient": "Dados do cliente estão ausentes. Não é possível abrir o modal de vínculo.",
+    "linksUpdated": "Links do Projeto atualizados com sucesso!",
+    "projectsFetchError": "Erro ao buscar Projetos: {{error}}",
+    "linksError": "Erro ao atualizar links: {{error}}",
+    "unknownError": "Ocorreu um erro desconhecido.",
+    "columns": {
+      "logo": "Logo",
+      "name": "Nome do Cliente",
+      "email": "E-mail",
+      "phone": "Telefone",
+      "projects": "Projetos #",
+      "notes": "Notas",
+      "updated": "Última Atualização",
+      "actions": "Ações"
+    },
+    "title": "Clientes",
+    "new": "Novo",
+    "loading": "Carregando Clientes...",
+    "empty": "Nenhum cliente encontrado. Adicione um para começar!",
+    "notAvailable": "N/D",
+    "email": "E-mail: {{email}}",
+    "phone": "Telefone: {{phone}}",
+    "noNotesTooltip": "Sem notas.",
+    "noNotes": "Sem notas",
+    "projects": "Projetos: {{projects}}",
+    "linkProjects": "Vincular Projetos",
+    "deleteClient": "Excluir Cliente",
+    "total": "Total de Clientes: {{total}}",
+    "menu": {
+      "edit": "Editar",
+      "delete": "Excluir",
+      "newClient": "Novo Cliente"
+    },
+    "linkProject": "Projeto",
+    "linkProjectsPlural": "Projetos"
+  }
+}

@@ -75,9 +75,14 @@ python3 scripts/translate_locales.py --check     # report on every language, cha
   limits a run to one file.
 - Each translation is checked before it is written: it must keep the English
   string's placeholders, tags, numbers and surrounding spaces, and must not
-  look cut off. One that fails twice is left out and listed, and the interface
-  shows the English for it. Where a language's singular means exactly one, its
-  `_one` form may write the number out instead of `{{count}}`.
+  look cut off, sit inside quotation marks the English does not have, use a
+  single-brace `{name}`, or mix Latin and Cyrillic letters in one word. One
+  that fails twice is left out and listed, and the interface shows the English
+  for it. Where a language's singular means exactly one, its `_one` form may
+  write the number out instead of `{{count}}`, and a number the English spells
+  as a word may appear as a digit ("a minute" is 1分 in Japanese).
+- A check added later applies to what is already on disk: the next run makes
+  again any machine translation that fails it.
 - When an English string changes, the next run translates it again.
 - Right-to-left languages (Arabic, Hebrew, Persian, Urdu) are not offered yet:
   the layout has to be mirrored first.

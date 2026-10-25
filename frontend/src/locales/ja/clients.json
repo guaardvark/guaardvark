@@ -1,0 +1,49 @@
+{
+  "page": {
+    "fetchFailed": "クライアントの取得に失敗しました。",
+    "loadError": "クライアントの読み込みエラー: {{error}}",
+    "updated": "クライアントを更新しました！",
+    "created": "クライアントを作成しました！",
+    "updateError": "クライアントの更新中にエラーが発生しました。",
+    "createError": "クライアントの作成中にエラーが発生しました。",
+    "deleteConfirm": "クライアント \"{{name}}\" (ID: {{id}}) を削除してもよろしいですか？関連するプロジェクトに影響が出る可能性があります。",
+    "deleteConfirmUnnamed": "クライアント「このクライアント」 (ID: {{id}}) を削除してもよろしいですか？関連するプロジェクトに影響が出る可能性があります。",
+    "deleted": "クライアント \"{{name}}\" を削除しました！",
+    "deleteError": "クライアントの削除中にエラーが発生しました。",
+    "missingClient": "クライアントデータが見つかりません。リンク用モーダルを開くことができません。",
+    "linksUpdated": "プロジェクトのリンクを更新しました！",
+    "projectsFetchError": "プロジェクトの取得エラー: {{error}}",
+    "linksError": "リンクの更新エラー: {{error}}",
+    "unknownError": "不明なエラーが発生しました。",
+    "columns": {
+      "logo": "ロゴ",
+      "name": "クライアント名",
+      "email": "メール",
+      "phone": "電話番号",
+      "projects": "プロジェクト数",
+      "notes": "ノート",
+      "updated": "最終更新",
+      "actions": "アクション"
+    },
+    "title": "クライアント",
+    "new": "新規",
+    "loading": "クライアントを読み込み中...",
+    "empty": "クライアントが見つかりません。開始するには追加してください。",
+    "notAvailable": "N/A",
+    "email": "メール: {{email}}",
+    "phone": "電話番号: {{phone}}",
+    "noNotesTooltip": "ノートはありません。",
+    "noNotes": "ノートなし",
+    "projects": "プロジェクト: {{projects}}",
+    "linkProjects": "プロジェクトをリンク",
+    "deleteClient": "クライアントを削除",
+    "total": "合計クライアント: {{total}}",
+    "menu": {
+      "edit": "編集",
+      "delete": "削除",
+      "newClient": "新規クライアント"
+    },
+    "linkProject": "プロジェクト",
+    "linkProjectsPlural": "プロジェクト"
+  }
+}

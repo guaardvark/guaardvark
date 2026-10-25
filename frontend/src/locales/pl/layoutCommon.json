@@ -1,0 +1,231 @@
+{
+  "addressAutocomplete": {
+    "label": "Adres"
+  },
+  "apiKeyRefusal": {
+    "settingsLink": "Ustawienia → Dostęp"
+  },
+  "backendOffline": {
+    "message": "Backend offline — próba ponownego połączenia… Uruchom <code>guaardvark</code> w terminalu lub <code>./start.sh</code> dla pełnego stosu."
+  },
+  "changedElsewhere": {
+    "keepMine": "Zachowaj mój",
+    "message": "{{names}} zostało zmienione gdzieś indziej podczas edycji. Przeładuj, aby przyjąć zapisaną wersję, lub zachowaj swoją edycję i zapisz ją nad tą zmianą."
+  },
+  "didYouKnow": {
+    "regionLabel": "Czy wiedziałeś",
+    "title": "Czy wiedziałeś?",
+    "closeTip": "Zamknij wskazówkę",
+    "showMe": "Pokaż mi",
+    "nextTip": "Następna wskazówka",
+    "stopTips": "Nie pokazuj wskazówek"
+  },
+  "directoryPicker": {
+    "title": "Wybierz katalog",
+    "loadFailed": "Nie udało się załadować folderu",
+    "notFoundShowingHome": "{{path}} nie zostało znalezione; wyświetlanie folderu domowego.",
+    "notFoundShowing": "{{path}} nie zostało znalezione; wyświetlanie {{fallback}}.",
+    "folderNotFound": "Folder nie istnieje",
+    "root": "Root",
+    "hideRecent": "Ukryj ostatnie",
+    "showRecent": "Ostatnie ścieżki",
+    "recentPaths": "Ostatnie ścieżki",
+    "goHome": "Przejdź do folderu domowego",
+    "homeFolder": "Folder domowy",
+    "path": "Ścieżka",
+    "openPathFirst": "Naciśnij Enter lub Przejdź, aby otworzyć tę ścieżkę przed wyborem.",
+    "parentFolder": "Folder nadrzędny",
+    "go": "Przejdź",
+    "searchPlaceholder": "Szukaj w bieżącym folderze...",
+    "showFiles": "Pokaż Pliki",
+    "browse": "Przeglądaj",
+    "hiddenFolders": "Ukryte foldery nie są wyświetlane.",
+    "noMatches": "Nie znaleziono pasujących elementów.",
+    "emptyFolder": "Ten folder jest pusty.",
+    "noSubdirectories": "Nie znaleziono podfolderów. Możesz wybrać ten folder.",
+    "itemCount": "{{count}} elementów",
+    "folderCount_few": "{{count}} folderów",
+    "folderCount_many": "{{count}} folderów",
+    "folderCount_one": "{{count}} folder",
+    "fileCount_few": "{{count}} plików",
+    "fileCount_many": "{{count}} plików",
+    "fileCount_one": "{{count}} plik",
+    "foldersAndFiles": "{{folders}}, {{files}}",
+    "summaryMatching": "{{summary}} pasujących do \"{{query}}\"",
+    "summaryPickable": "{{summary}} · {{extensions}} plików można wybrać",
+    "chooseFile": "Wybierz plik",
+    "selectNamed": "Wybierz: {{name}}"
+  },
+  "errorBoundary": {
+    "updatedTitle": "Guaardvark został zaktualizowany",
+    "errorTitle": "Coś poszło nie tak",
+    "updatedBody": "Kod tej strony zmienił się podczas jej otwarcia. Przeładuj, aby załadować nową wersję.",
+    "errorBody": "Aplikacja napotkała nieoczekiwany Błąd. Został on zapisany w celu analizy.",
+    "reloadPage": "Przeładuj stronę",
+    "tryAgain": "Spróbuj ponownie",
+    "detailsHeading": "Szczegóły Błędu (Tylko tryb deweloperski)"
+  },
+  "errorDisplay": {
+    "unexpectedError": "Wystąpił nieoczekiwany błąd",
+    "genericError": "Wystąpił błąd",
+    "friendly": {
+      "network": "Nie można połączyć się z serwerem. Sprawdź połączenie internetowe.",
+      "timeout": "Zapytanie trwało zbyt długo. Spróbuj ponownie.",
+      "unauthorized": "Wymagane uwierzytelnienie. Zaloguj się.",
+      "forbidden": "Nie masz uprawnień do wykonania tej akcji.",
+      "notFound": "Nie odnaleziono żądanego zasobu.",
+      "serverError": "Błąd serwera. Spróbuj ponownie później.",
+      "unavailable": "Usługa jest chwilowo niedostępna. Spróbuj ponownie później."
+    },
+    "toggleDetails": "przełącz szczegóły",
+    "report": "Zgłoś",
+    "closeError": "Zamknij błąd",
+    "severity": {
+      "warning": "Ostrzeżenie",
+      "info": "Informacja"
+    },
+    "errorDetails": "Szczegóły Błędu",
+    "code": "<bold>Kod:</bold> {{code}}",
+    "time": "<bold>Czas:</bold> {{time}}",
+    "technicalDetails": "Szczegóły techniczne",
+    "cardTitle": "Coś poszło nie tak",
+    "cardDescription": "Wystąpił nieoczekiwany błąd. Spróbuj odświeżyć stronę.",
+    "tryAgain": "Spróbuj ponownie",
+    "refreshPage": "Odśwież stronę"
+  },
+  "errorProvider": {
+    "detailsTitle": "Szczegóły błędu"
+  },
+  "gpuGate": {
+    "queued": "{{reason}}. Nowe Zlecenia czekają w kolejce i rozpoczną się automatycznie, gdy karta graficzna będzie wolna.",
+    "blocked": "{{reason}}. Przyciski zostaną odblokowane, gdy karta graficzna będzie wolna.",
+    "job": "Zlecenie: {{detail}}"
+  },
+  "shortcuts": {
+    "groups": {
+      "global": "Globalne",
+      "chat": "Czat",
+      "codeEditor": "Edytor kodu",
+      "systemMap": "Mapa systemu",
+      "videoEditor": "Edytor wideo"
+    },
+    "keys": {
+      "ctrl": "Ctrl",
+      "shift": "Shift",
+      "space": "Spacja",
+      "enter": "Enter",
+      "esc": "Esc",
+      "delete": "Usuń"
+    },
+    "showShortcuts": "Pokaż tę pomoc dla skrótów klawiszowych",
+    "toggleFloatingChat": "Przełącz panel Pływający czat",
+    "voiceMic": "Głos: dotknij, aby włączyć lub wyłączyć mikrofon, przytrzymaj, aby mówić",
+    "sendMessage": "Wyślij wiadomość",
+    "newline": "Wstaw nową linię",
+    "previousMessage": "Pobierz poprzednią wiadomość",
+    "nextMessage": "Pobierz następną wiadomość",
+    "saveFile": "Zapisz plik",
+    "saveSession": "Zapisz sesję teraz: otwórz karty i Czat",
+    "findSymbol": "Znajdź funkcję lub klasę i przejdź do niej",
+    "jumpToPanel": "Przejdź do Pliki, Edytor, Czat, Szukaj, Wynik",
+    "explainSelection": "Wyjaśnij wybrany kod w Czat",
+    "focusSearch": "Skupienie na wyszukiwarce",
+    "resetView": "Resetuj widok",
+    "clearSearch": "Wyczyść wyszukiwanie / zaznaczenie",
+    "playPause": "Uruchom / zatrzymaj podgląd",
+    "undo": "Cofnij ostatnią zmianę na osi czasu",
+    "removeOverlay": "Usuń zaznaczone nakładające się na tekst",
+    "title": "Skróty klawiszowe",
+    "close": "Zamknij skróty"
+  },
+  "loading": {
+    "remaining": "Pozostało ok. {{seconds}}s",
+    "processing": "Przetwarzanie...",
+    "connected": "Połączono",
+    "offline": "Tryb offline",
+    "online": "Tryb online",
+    "offlineTitle": "Brak połączenia",
+    "offlineBody": "Niektóre funkcje mogą być niedostępne. Sprawdź swoje połączenie.",
+    "success": "Sukces!",
+    "processFailed": "Błąd przetwarzania",
+    "failed": "Błąd",
+    "step": "Krok {{current}} z {{total}}"
+  },
+  "mediaPicker": {
+    "listFailed": "Nie można wyświetlić Biblioteki.",
+    "uploadFailed": "Błąd przesyłania.",
+    "kinds": {
+      "image": {
+        "choose": "Wybierz obrazy",
+        "onlyHere": "Tylko obrazy trafiają tutaj; pozostałe Pliki zostały dodane do Plików.",
+        "empty": "Brak obrazów w Plikach. Prześlij jeden lub wygeneruj w Studio.",
+        "emptyFiltered": "Brak obrazów w Plikach o takiej nazwie. Prześlij jeden lub wygeneruj w Studio."
+      },
+      "video": {
+        "choose": "Wybierz klipy",
+        "onlyHere": "Tylko klipy trafiają tutaj; pozostałe Pliki zostały dodane do Plików.",
+        "empty": "Brak klipów w Plikach. Prześlij jeden lub wygeneruj w Studio.",
+        "emptyFiltered": "Żaden klip w Plikach nie pasuje do tej nazwy. Prześlij jeden lub wygeneruj w Studio."
+      },
+      "audio": {
+        "choose": "Wybierz pliki audio",
+        "onlyHere": "Tutaj trafiają tylko pliki audio; pozostałe pliki zostały dodane do Plików.",
+        "empty": "Brak plików audio w Plikach. Prześlij jeden lub wygeneruj w Studio.",
+        "emptyFiltered": "Żaden plik audio w Plikach nie pasuje do tej nazwy. Prześlij jeden lub wygeneruj w Studio."
+      }
+    },
+    "filterPlaceholder": "Filtruj po nazwie",
+    "uploadFromDisk": "Prześlij z dysku",
+    "upToMore": "Do {{count}} więcej.",
+    "pickOne": "Wybierz jeden.",
+    "useCount": "Użyj {{count}}",
+    "use": "Użyj"
+  },
+  "narrate": {
+    "failed": "Błąd narracji",
+    "fast": "Szybka",
+    "expressive": "Ekspresyjna",
+    "download": "Pobierz narrację",
+    "summary_few": "{{seconds}}s · {{count}} sekcji",
+    "summary_many": "{{seconds}}s · {{count}} sekcji",
+    "summary_one": "{{seconds}}s · {{count}} sekcja",
+    "generatingSlow": "Generowanie (wolno)...",
+    "narrating": "Narracja...",
+    "narrate": "Narruj",
+    "expressiveGenerating": "Generowanie ekspresyjnego TTS (10-30s)...",
+    "generating": "Generowanie narracji...",
+    "narrateText": "Narruj ten tekst"
+  },
+  "projectState": {
+    "title": "Błąd stanu projektu",
+    "intro": "Wystąpił Błąd w zarządzaniu stanem projektu. Może to być spowodowane:",
+    "causes": {
+      "network": "Problemy z łącznością sieciową",
+      "sync": "Problemy z synchronizacją danych",
+      "relationships": "Nieprawidłowe relacje projektu",
+      "corruption": "Uszkodzenie stanu"
+    },
+    "errorMessage": "Błąd: {{message}}",
+    "unknownError": "Nieznany błąd"
+  },
+  "sevenDayPicker": {
+    "time": "Czas"
+  },
+  "updateNotice": {
+    "gpuFaultAt": "GPU przestało odpowiadać o godzinie {{time}}. Generowanie obrazów nie będzie działać, dopóki Guaardvark nie zostanie uruchomiony ponownie.",
+    "gpuFault": "GPU przestało odpowiadać. Generowanie obrazów nie będzie działać, dopóki Guaardvark nie zostanie uruchomiony ponownie.",
+    "restartWithReason": "Guaardvark został zaktualizowany. Uruchom go ponownie, aby zakończyć proces ({{reason}}).",
+    "restart": "Guaardvark został zaktualizowany. Uruchom go ponownie, aby zakończyć.",
+    "restarted": "Guaardvark został uruchomiony ponownie. Przeładuj tę stronę, aby użyć nowej wersji.",
+    "reloadFiles_few": "Guaardvark został zaktualizowany ({{count}} plików). Przeładuj tę stronę, aby użyć nowej wersji.",
+    "reloadFiles_many": "Guaardvark został zaktualizowany ({{count}} plików). Przeładuj tę stronę, aby użyć nowej wersji.",
+    "reloadFiles_one": "Guaardvark został zaktualizowany ({{count}} pliku). Przeładuj tę stronę, aby użyć nowej wersji.",
+    "reload": "Guaardvark został zaktualizowany. Przeładuj tę stronę, aby użyć nowej wersji.",
+    "restartButton": "Uruchom ponownie",
+    "confirmTitle": "Uruchom ponownie Guaardvark",
+    "confirmGpu": "Restartuje backend, workerów i ComfyUI, aby GPU mogło być ponownie użyte. Każda trwająca generacja, praca indeksująca i odpowiedź w Czat będą utracone, a ta strona zostanie rozłączona, dopóki usługi nie wrócą.",
+    "confirmUpdate": "Restartuje backend, workerów i ComfyUI, aby aktualizacja weszła w życie. Każda trwająca generacja, praca indeksująca i odpowiedź w Czat będą utracone, a ta strona zostanie rozłączona, dopóki usługi nie wrócą.",
+    "keeps": "dokumenty, czaty, multimedia, reguły i Ustawienia.",
+    "restartNow": "Zrestartuj teraz"
+  }
+}

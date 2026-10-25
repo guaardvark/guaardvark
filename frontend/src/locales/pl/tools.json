@@ -1,0 +1,56 @@
+{
+  "title": "Narzędzia agenta",
+  "loadFailed": "Nie udało się załadować narzędzi",
+  "copied": "Skopiowano do schowka",
+  "copyFailed": "Nie udało się skopiować do schowka",
+  "parameters": "Parametry",
+  "copyName": "Kopiuj nazwę narzędzia",
+  "card": {
+    "test": "Test"
+  },
+  "table": {
+    "name": "Nazwa",
+    "category": "Kategoria",
+    "description": "Opis",
+    "params": "Param.",
+    "actions": "Akcje",
+    "requiredList": "Wymagane: {{params}}",
+    "optionalList": "Opcjonalne: {{params}}",
+    "requiredCount": "{{count}} wym.",
+    "optionalCount": "{{count}} opc.",
+    "noParams": "Brak",
+    "testTool": "Narzędzie testowe"
+  },
+  "noMatch": "Nie znaleziono narzędzi pasujących do \"{{query}}\"",
+  "tabs": {
+    "tools": "Narzędzia ({{count}})",
+    "schemas": "Schematy",
+    "categories": "Kategorie"
+  },
+  "searchPlaceholder": "Szukaj narzędzi...",
+  "view": {
+    "label": "tryb widoku",
+    "cardLabel": "widok karty",
+    "card": "Widok karty",
+    "listLabel": "widok listy",
+    "list": "Widok listy"
+  },
+  "loading": "Ładowanie narzędzi...",
+  "schemas": {
+    "copyAll": "Kopiuj wszystko",
+    "loading": "Ładowanie schematów..."
+  },
+  "menu": {
+    "test": "Test…"
+  },
+  "test": {
+    "succeeded": "Narzędzie wykonane pomyślnie",
+    "executionFailed": "Błąd wykonania narzędzia",
+    "title": "Test narzędzia: {{name}}",
+    "noApprovalWarning": "Uruchomienie wykonuje to narzędzie naprawdę, natychmiast, bez kroku zatwierdzania, o który najpierw pyta Czat.",
+    "requiredHelper": "Wymagane. {{description}} ({{type}})",
+    "result": "Wynik",
+    "failed": "Błąd wykonania",
+    "execute": "Uruchom"
+  }
+}

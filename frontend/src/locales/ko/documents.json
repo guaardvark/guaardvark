@@ -1,0 +1,250 @@
+{
+  "rootFolderName": "파일",
+  "pdfViewer": {
+    "openInNewTab": "새 탭에서 열기",
+    "noFile": "선택된 PDF 파일 없음"
+  },
+  "docxViewer": {
+    "fetchFailed": "가져오기 실패 ({{status}})",
+    "renderFailed": "문서를 렌더링할 수 없습니다",
+    "downloadOriginal": "원본 다운로드"
+  },
+  "actions": {
+    "close": "닫기",
+    "cancel": "취소"
+  },
+  "entityFiles": {
+    "regionLabel": "이 {{kind}}를 위한 파일",
+    "regionLabel_client": "이 클라이언트를 위한 파일",
+    "regionLabel_website": "이 웹사이트를 위한 파일",
+    "title": "{{name}}를 위한 파일",
+    "title_client": "이 클라이언트를 위한 파일",
+    "title_clientNamed": "클라이언트 {{name}}를 위한 파일",
+    "title_website": "이 웹사이트를 위한 파일",
+    "title_websiteNamed": "웹사이트 {{name}}를 위한 파일",
+    "loadFailed": "파일을 불러올 수 없습니다: {{error}}",
+    "empty": "이 {{kind}}에 연결된 파일이 없습니다. 속성에서 파일이나 폴더를 연결하세요.",
+    "empty_client": "이 클라이언트에 연결된 파일이 없습니다. 속성에서 파일이나 폴더를 연결하세요.",
+    "empty_website": "이 웹사이트에 연결된 파일이 없습니다. 속성에서 파일이나 폴더를 연결하세요.",
+    "filesRoot": "파일 루트"
+  },
+  "audioPlayer": {
+    "untitled": "오디오",
+    "closeLabel": "닫기",
+    "seed": "시드: {{seed}}",
+    "openInNewTab": "새 탭에서 열기"
+  },
+  "folderWindow": {
+    "listView": "목록 보기",
+    "gridView": "그리드 보기",
+    "mediaView": "미디어 보기",
+    "codeRepoChip": "코드 저장소"
+  },
+  "contextMenu": {
+    "openInWindow": "창에서 열기",
+    "minimize": "최소화",
+    "newFolder": "새 폴더",
+    "importFiles": "파일 가져오기",
+    "paste": "붙여넣기",
+    "closeWindow": "창 닫기",
+    "reviewWithAgent": "에이전트로 검토",
+    "cut": "잘라내기",
+    "copy": "복사",
+    "rename": "이름 변경",
+    "properties": "속성",
+    "bulkImportHere": "이 폴더로 대량 가져오기…",
+    "indexContents": "콘텐츠 색인",
+    "delete": "삭제",
+    "download": "다운로드",
+    "edit": "편집",
+    "view": "보기",
+    "openInCodeEditor": "코드 에디터에서 열기",
+    "index": "색인",
+    "open": "열기",
+    "restore": "복구"
+  },
+  "codeRepo": {
+    "never": "안 함",
+    "unknown": "알 수 없음",
+    "buttonTooltip": "코드 저장소 지능: 언어, 프레임워크, 저장소 맵 및 종속성",
+    "buttonLabel": "{{name}}을(를) 위한 코드 저장소 지능",
+    "button": "지능",
+    "title": "코드 저장소 지능",
+    "analyzed": "분석됨: {{date}}",
+    "languagesFrameworks": "언어 및 프레임워크",
+    "analysisPending": "분석 대기 중",
+    "statistics": "통계",
+    "fileCount_other": "{{count}} 파일",
+    "mappedFileCount_other": "{{count}} 매핑된 파일",
+    "viewMap": "저장소 맵 보기",
+    "viewDependencies": "의존성 보기",
+    "mapTitle": "저장소 맵",
+    "noMap": "사용 가능한 맵이 없습니다.",
+    "graphTitle": "의존성 그래프"
+  },
+  "desktop": {
+    "loadFailed": "데스크톱 항목을 불러오지 못했습니다.",
+    "movedToFolder": "{{count}}개의 항목을 {{folder}}로 이동했습니다.",
+    "movedToDesktop": "{{count}}개의 항목을 데스크톱으로 이동했습니다."
+  },
+  "codeViewer": {
+    "liveRepoReadOnly": "라이브 저장소 파일은 여기서 읽기 전용입니다. 대신 스테이징된 자체 코드 편집을 사용하세요.",
+    "saveFailed": "저장 실패: {{error}}",
+    "liveRepoReviewFirst": "라이브 저장소 파일은 검토 우선 방식이므로 이 모달에서 직접 편집할 수 없습니다.",
+    "discardConfirm": "저장되지 않은 변경 사항이 있습니다. 버리시겠습니까?",
+    "liveRepoChip": "라이브 저장소 · 읽기 전용",
+    "modified": "수정됨",
+    "viewMode": "보기 모드",
+    "editMode": "편집 모드",
+    "openInCodeEditor": "코드 에디터에서 열기",
+    "copy": "클립보드에 복사",
+    "saving": "저장 중...",
+    "save": "저장"
+  },
+  "folder": {
+    "empty": "이 폴더가 비어 있습니다.",
+    "loadFailed": "폴더 내용을 불러오지 못했습니다.",
+    "columnName": "이름",
+    "columnDate": "날짜",
+    "columnSize": "크기",
+    "codeRepository": "코드 저장소",
+    "itemCount_other": "{{count}}개 항목"
+  },
+  "mediaView": {
+    "selectFile": "파일 선택",
+    "previous": "이전",
+    "next": "다음",
+    "open": "열기",
+    "download": "다운로드",
+    "closePreview": "미리보기 닫기"
+  },
+  "indexStatus": {
+    "indexed": "색인됨",
+    "indexing": "색인 중...",
+    "pending": "대기 중",
+    "error": "오류",
+    "folderFull": "모두 색인됨 ({{indexed}}/{{total}})",
+    "folderPartial": "일부 색인됨 ({{indexed}}/{{total}})"
+  },
+  "validation": {
+    "emptyFolderName": "폴더 이름이 비어 있을 수 없습니다",
+    "emptyFileName": "파일 이름이 비어 있을 수 없습니다",
+    "invalidFolderName": "폴더 이름에 허용되지 않는 문자가 포함되어 있습니다. 문자, 숫자, 공백, 하이픈, 밑줄만 사용해 주세요.",
+    "invalidFileName": "파일 이름에 허용되지 않는 문자가 포함되어 있습니다. 문자, 숫자, 공백, 하이픈, 밑줄, 마침표만 사용해 주세요.",
+    "invalidName": "이름에 허용되지 않는 문자가 포함되어 있습니다. 문자, 숫자, 공백, 하이픈, 밑줄만 사용해 주세요.",
+    "folderNameTooLong": "폴더 이름이 너무 깁니다. 최대 길이는 {{max}}자입니다.",
+    "fileNameTooLong": "파일 이름이 너무 깁니다. 최대 길이는 {{max}}자입니다."
+  },
+  "indexing": {
+    "nothing": "색인할 항목이 없습니다",
+    "alreadyIndexedOne": "이미 색인됨; 파일이 변경되지 않았습니다",
+    "alreadyIndexedAll_other": "모두 이미 색인됨 ({{count}}개의 파일이 변경되지 않음)",
+    "documentCount_other": "{{count}}개의 문서",
+    "folderCount_other": "{{count}}개의 폴더",
+    "startedFromFoldersSkipped": "{{folders}}에서 {{documents}} 인덱싱 중, {{skipped}}는 이미 인덱싱됨",
+    "startedFromFolders": "{{folders}}에서 {{documents}} 인덱싱 중",
+    "startedSkipped": "{{documents}} 인덱싱 중, {{skipped}}는 이미 인덱싱됨",
+    "started": "{{documents}} 인덱싱 중",
+    "startFailed": "인덱싱 시작 실패",
+    "failed": "인덱싱 실패: {{error}}"
+  },
+  "page": {
+    "refreshFailed": "새로고침 실패",
+    "downloading": "{{name}} 다운로드 중",
+    "title": "파일",
+    "loadingFolders": "폴더 로딩 중...",
+    "importFiles": "파일 가져오기",
+    "arrangeIcons": "아이콘 정렬",
+    "arrangeWindows": "창 정렬",
+    "modelLoading": "로딩 중...",
+    "modelError": "오류",
+    "emptyTitle": "아직 문서가 없습니다",
+    "emptyHint": "파일을 여기에 끌어다 놓거나 마우스 오른쪽 버튼을 클릭하여 폴더를 생성하세요",
+    "folderItemCount_other": "{{count}}개 항목",
+    "uploadProgress_other": "{{current}}/{{count}} 파일 업로드 중..."
+  },
+  "import": {
+    "nothingToImport": "가져올 항목 없음: {{skipped}}",
+    "fileFailure": "{{path}}: {{error}}",
+    "uploadFailed": "업로드 실패",
+    "importedSkipped": "{{folder}}에 {{count}}개 파일 가져오기 완료; {{skipped}}",
+    "imported": "{{folder}}에 {{count}}개 파일 가져오기 완료",
+    "importedPartlySkipped": "{{folder}}에 {{count}}개 파일 가져오기 완료; {{failed}} 실패 ({{error}}); {{skipped}}",
+    "importedPartly": "{{folder}}에 {{count}}개 파일 가져오기 완료; {{failed}} 실패 ({{error}})",
+    "failed": "가져오기 실패: {{error}}",
+    "importedFiltered": "{{folder}}에 {{count}}개의 파일을 가져왔습니다 (필터에 의해 {{ignored}}개 제외)",
+    "failedPlain": "가져오기 실패"
+  },
+  "move": {
+    "intoOwnSubfolder": "\"{{name}}\"을(를) 자체 하위 폴더로 이동할 수 없습니다",
+    "unknownError": "알 수 없는 오류",
+    "itemFailure": "{{name}}: {{error}}",
+    "moved": "{{count}}개 항목 이동됨",
+    "failed": "항목 이동 실패",
+    "movedPartly": "{{count}}개 항목 이동됨, {{failed}}개 실패",
+    "dropFailed": "드롭 처리 실패",
+    "operationFailed": "작업 실패: {{error}}"
+  },
+  "newFolder": {
+    "created": "폴더 \"{{name}}\" 생성됨",
+    "failed": "폴더 생성 실패",
+    "title": "새 폴더 만들기",
+    "nameLabel": "폴더 이름",
+    "create": "생성"
+  },
+  "clipboard": {
+    "copied": "{{count}}개 항목 복사됨",
+    "cut": "{{count}}개 항목 잘라내기",
+    "foldersNotPastable": "폴더를 {{folder}}에 붙여넣을 수 없습니다",
+    "liveRepoReadOnly": "라이브 저장소의 항목은 여기서 읽기 전용입니다",
+    "itemFailed": "실패",
+    "pasted": "{{folder}}에 {{count}}개 항목 붙여넣기 완료",
+    "moved": "{{folder}}로 {{count}}개 항목 이동 완료",
+    "pastedPartly": "{{folder}}에 {{count}}개 항목 붙여넣기 완료; {{failed}}개 실패: {{error}}",
+    "movedPartly": "{{folder}}로 {{count}}개 항목 이동 완료; {{failed}}개 실패: {{error}}",
+    "pasteFailed": "붙여넣기 실패: {{error}}",
+    "moveFailed": "이동 실패: {{error}}"
+  },
+  "delete": {
+    "liveRepoReadOnly": "라이브 코드 마운트가 읽기 전용입니다",
+    "deleted": "항목 {{count}}개 삭제됨",
+    "someFailed": "일부 삭제에 실패했을 수 있습니다 — 상태를 새로 고칩니다",
+    "confirmTitle": "삭제 확인",
+    "confirmBody_other": "항목 {{count}}개를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
+    "confirm": "삭제"
+  },
+  "properties": {
+    "fileNotFound": "파일을 찾을 수 없음",
+    "loadFailed": "파일 상세 정보 로드 실패",
+    "fileUpdated": "파일 속성이 성공적으로 업데이트되었습니다",
+    "fileUpdateFailed": "파일 속성 업데이트 실패",
+    "updateFailed": "업데이트 실패: {{error}}",
+    "fileDeleted": "파일이 성공적으로 삭제되었습니다",
+    "fileDeleteFailed": "파일 삭제 실패",
+    "deleteFailed": "삭제 실패: {{error}}",
+    "reindexStarted": "재색인이 성공적으로 시작되었습니다. 곧 상태가 업데이트됩니다.",
+    "reindexStartFailed": "재색인 시작 실패",
+    "reindexFailed": "재색인 실패: {{error}}",
+    "folderApplied": "속성이 성공적으로 적용되었습니다! 업데이트된 파일: {{files}}, 처리된 하위 폴더: {{folders}}",
+    "folderUpdated": "폴더 속성이 성공적으로 업데이트되었습니다",
+    "folderUpdateFailed": "폴더 속성 업데이트 실패",
+    "folderDeleted": "폴더 삭제됨"
+  },
+  "rename": {
+    "folderRenamed": "폴더 이름이 \"{{name}}\"으로 변경되었습니다",
+    "fileRenamed": "파일 이름이 \"{{name}}\"으로 변경되었습니다",
+    "failedReason": "이름 변경 실패: {{reason}}",
+    "failed": "이름 변경 실패",
+    "folderTitle": "폴더 이름 변경",
+    "fileTitle": "파일 이름 변경",
+    "fileNameLabel": "파일 이름",
+    "fileHint": "Guaardvark에 표시되는 이름을 변경합니다. 디스크에 있는 실제 파일 이름은 유지됩니다.",
+    "submit": "이름 변경"
+  },
+  "review": {
+    "liveRepoOnly": "셀프 코드 리뷰는 라이브 저장소 마운트에서만 가능합니다",
+    "dispatchedTask": "셀프 코드 리뷰 전송됨 ({{taskId}})",
+    "dispatched": "셀프 코드 리뷰 전송됨",
+    "failed": "셀프 코드 리뷰 전송 실패"
+  }
+}

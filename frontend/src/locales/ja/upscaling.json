@@ -1,0 +1,108 @@
+{
+  "settings": {
+    "modelDefaultScale": "モデルのデフォルト",
+    "model": "モデル",
+    "manageModels": "アップスケーリングモデルの管理",
+    "install": "インストール",
+    "noModelInstallSized": "アップスケーリングモデルがインストールされていません。アップスケーリングを行うには {{model}} ({{size}} MB) をインストールしてください。アップスケーリング機能自体が自動でダウンロードすることはありません。",
+    "noModelInstall": "アップスケーリングモデルがインストールされていません。アップスケーリングを行うには {{model}} をインストールしてください。アップスケーリング機能自体が自動でダウンロードすることはありません。",
+    "noModel": "アップスケーリングモデルがインストールされていません。アップスケーリングを行うには「アップスケーリングモデルの管理」から追加してください。",
+    "outputScale": "出力スケール",
+    "targetResolution": "ターゲット解像度",
+    "twoPass": "2パスモード",
+    "twoPassHelp": "品質向上のためモデルを2回実行します（処理時間は長くなります）",
+    "faceEnhance": "顔の補正",
+    "faceEnhanceHelp": "GFPGANを使用して顔を復元します",
+    "doubleFps": "フレームレート倍増",
+    "doubleFpsHelp": "動きを滑らかにするためにフレームを補間します（低速）",
+    "sharpening": "シャープネス",
+    "denoise": "デノイジング・プリパス"
+  },
+  "service": {
+    "startRefused": "アップスケーリングサービスが起動できませんでした: {{reason}}",
+    "tryAgainShortly": "間もなく再試行",
+    "startTimeout": "アップスケーリングサービスが1分以内に応答しませんでした。ログは「プラグイン」ページで確認できます。",
+    "startFailed": "アップスケーリングサービスを開始できませんでした: {{error}}",
+    "starting": "起動中...",
+    "startNow": "今すぐ開始",
+    "stoppedAutostart": "アップスケーリングサービスは停止しています。アップスケーリングの際に自動的に開始されるか、今すぐ手動で開始することもできます。",
+    "switchedOff": "Pluginsページでアップスケーリングがオフになっています。ここで開始してアップスケーリングを行ってください。",
+    "stopped": "アップスケーリングサービスは停止しています。アップスケーリングを行うには開始してください。"
+  },
+  "errors": {
+    "unknown": "不明なエラー",
+    "modelsLoadFailed": "アップスケーリングモデルの読み込みに失敗しました: {{error}}。",
+    "requestFailed": "リクエストに失敗しました",
+    "unsupportedSkipped": "サポートされていないファイル {{count}} 件をスキップしました。許可されている数: {{allowed}}",
+    "failedReason": "失敗",
+    "submitFailed": "送信に失敗しました: {{details}}",
+    "skipped": "スキップされました: {{details}}",
+    "imageFailed": "画像のアップスケーリングに失敗しました",
+    "cancelFailed": "キャンセルに失敗しました: {{error}}。ジョブがまだ実行中である可能性があります。",
+    "clearFailed": "完了したジョブの削除に失敗しました: {{error}}。",
+    "previewFailed": "プレビューに失敗しました: {{error}}"
+  },
+  "messages": {
+    "jobSubmitted": "\"{{name}}\"のアップスケーリングジョブを送信しました",
+    "jobsSubmitted": "全 {{total}} 件のアップスケーリングジョブのうち、{{submitted}} 件を送信しました",
+    "imageUpscaled": "\"{{name}}\"をアップスケーリングしました",
+    "imagesQueued": "アップスケーリング待ちの画像を {{count}} 件追加しました"
+  },
+  "gpu": {
+    "unknown": "不明",
+    "title": "GPUステータス",
+    "activeModel": "アクティブなモデル",
+    "none": "なし",
+    "enabled": "有効",
+    "disabled": "無効"
+  },
+  "submit": {
+    "upscaleImages": "画像を {{count}} 枚アップスケーリング",
+    "upscaleVideos": "動画を {{count}} 本アップスケーリング",
+    "upscaleImage": "画像をアップスケーリング",
+    "upscaleVideo": "ビデオをアップスケーリング",
+    "startingService": "アップスケーリングサービスを起動中...",
+    "uploadingProgress": "{{current}}/{{total}} をアップロード中...",
+    "uploading": "アップロード中...",
+    "twoPass": "{{action}} (2パス)"
+  },
+  "page": {
+    "title": "アップスケーリング",
+    "videoGen": "ビデオ生成"
+  },
+  "upload": {
+    "imagesTitle": "画像をアップロード",
+    "videoTitle": "ビデオをアップロード",
+    "video": "ビデオ",
+    "image": "画像",
+    "dropImages": "ここに画像をドラッグ＆ドロップするか、クリックして選択",
+    "dropVideos": "ここにビデオをドラッグ＆ドロップするか、クリックして選択",
+    "filesReady_other": "ファイルが {{count}} 件準備完了",
+    "clearAll": "すべてクリア"
+  },
+  "result": {
+    "original": "オリジナル",
+    "upscaled": "アップスケーリング済み",
+    "openFullSize": "フルサイズで開く",
+    "download": "ダウンロード"
+  },
+  "preview": {
+    "title": "アップスケーリングプレビュー",
+    "hint": "フレームを選択して「プレビューを生成」をクリックすると、アップスケーリングされたフレームが表示されます。",
+    "generating": "生成中...",
+    "generate": "プレビューを生成",
+    "originalFrame": "元のフレーム",
+    "upscaledFrame": "アップスケーリング済みフレーム",
+    "backToVideo": "ビデオに戻る"
+  },
+  "jobs": {
+    "title": "アップスケーリングのジョブ",
+    "clearFinishedCount": "完了済みをクリア ({{count}})",
+    "clearFinished": "完了済みをクリア",
+    "empty": "まだアップスケーリングのジョブはありません。ビデオまたは複数の画像をアップロードして開始してください。",
+    "imageProgress": "画像 {{done}} / {{total}}",
+    "frameProgress": "フレーム {{done}} / {{total}}",
+    "play": "再生",
+    "cancel": "キャンセル"
+  }
+}

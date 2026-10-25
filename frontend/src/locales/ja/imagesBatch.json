@@ -1,0 +1,306 @@
+{
+  "styles": {
+    "realistic": "写実的",
+    "artistic": "芸術的",
+    "cartoon": "カートゥーン",
+    "sketch": "スケッチ",
+    "infographic": "インフォグラフィック",
+    "technical": "テクニカル"
+  },
+  "models": {
+    "autoLabel": "自動 — プロンプトに最適なものを選択 ⭐",
+    "autoDescription": "設定 > 生成 で選択されたStillsモデルを使用します。選択されていない場合は、ルーターが各プロンプトに最適なダウンロード済みモデルを選択します。"
+  },
+  "errors": {
+    "modelsLoadFailed": "画像モデルを読み込めませんでした: {{error}}。読み込みが完了するまで「自動」のみが提供されます。",
+    "requestFailed": "リクエストに失敗しました",
+    "backendHttp": "バックエンドがHTTP {{status}}を返しました",
+    "noBatchData": "バックエンドからバッチデータが返されませんでした",
+    "queueStalled": "バッチキューが更新されません: {{error}}。",
+    "loadBatchFailedHttp": "バッチの読み込みに失敗しました: HTTP {{status}}",
+    "batchNotJson": "バッチのレスポンスがJSONではありません",
+    "loadBatchFailed": "バッチの読み込みに失敗しました: {{error}}",
+    "batchNotFound": "バッチが見つかりません",
+    "noPrompt": "プロンプトを入力してください",
+    "noPrompts": "プロンプトまたはトピックを少なくとも1つ入力してください",
+    "startFailedHttp": "生成の開始に失敗しました: HTTP {{status}} {{statusText}}",
+    "startNotJson": "生成のレスポンスがJSONではありません。レスポンス: {{response}}",
+    "noBatchId": "バッチ生成は開始されましたが、バッチIDが返されませんでした",
+    "startFailedPlain": "生成の開始に失敗しました",
+    "startFailed": "生成の開始に失敗しました: {{error}}",
+    "cancelFailedHttp": "生成のキャンセルに失敗しました: HTTP {{status}}",
+    "cancelFailed": "生成のキャンセルに失敗しました: {{error}}"
+  },
+  "cast": {
+    "lockedNote": "キャラクター選択時、選択されたキャラクターのベースモデルによって設定されます。",
+    "title": "キャスト（任意）",
+    "help": "学習済みキャラクターを選択してください。アイデンティティ（トリガー + クラス + ビジョンマーク）とLoRAが自動的に適用されます。シーンや動作のみを記述し、顔や衣装の再描写は行わないでください。"
+  },
+  "workers": {
+    "oneAtATimeModel": "{{model}}は一度に1枚の画像を生成します。",
+    "oneAtATimeGpu": "グラフィックカード上で一度に1枚ずつ処理します。",
+    "max": "最大ワーカー数: {{count}}"
+  },
+  "install": {
+    "button": "インストール",
+    "notInstalledSized": "{{model}}がインストールされていません。インストールをクリックするとダウンロードされます（約{{size}} GB）。完了するまで「開始」は無効のままです。",
+    "notInstalled": "{{model}}がインストールされていません。インストールをクリックするとダウンロードされます。完了するまで「開始」は無効のままです。",
+    "noModelSized": "画像モデルがまだインストールされていません。Autoで使用するには{{model}}をインストールしてください（約{{size}} GB）。",
+    "noModel": "画像モデルがまだインストールされていません。Autoで使用するには{{model}}をインストールしてください。",
+    "startOff": "「開始」はオフです: {{model}}がインストールされていません。",
+    "noModelShort": "画像モデルがまだインストールされていません。"
+  },
+  "dimensions": {
+    "square": "正方形 ({{width}}x{{height}})",
+    "portrait": "縦長 ({{width}}x{{height}})",
+    "landscape": "横長 ({{width}}x{{height}})",
+    "largeSquare": "大サイズ正方形 ({{width}}x{{height}})",
+    "hdPortrait": "HD ポートレート ({{width}}x{{height}})",
+    "hdLandscape": "HD ランスケープ ({{width}}x{{height}})",
+    "oneKSquare": "1K スクエア ({{width}}x{{height}})",
+    "oneKPortrait": "1K ポートレート ({{width}}x{{height}})",
+    "oneKLandscape": "1K ランスケープ ({{width}}x{{height}})",
+    "oneKWide": "1K ワイド 16:9 ({{width}}x{{height}})",
+    "oneKTall": "1K トール 9:16 ({{width}}x{{height}})",
+    "twoKSquare": "2K スクエア ({{width}}x{{height}})",
+    "twoKLandscapeWide": "2K ランスケープ 16:9 ({{width}}x{{height}})",
+    "twoKUltrawide": "2K ウルトラワイド 21:9 ({{width}}x{{height}})",
+    "twoKPortraitTall": "2K ポートレート 9:16 ({{width}}x{{height}})",
+    "twoKLandscapeClassic": "2K ランスケープ 3:2 ({{width}}x{{height}})",
+    "twoKPortraitClassic": "2K ポートレート 2:3 ({{width}}x{{height}})",
+    "fluxSquare": "FLUX max スクエア ({{width}}x{{height}})",
+    "fluxWide": "FLUX max 16:9 ({{width}}x{{height}})",
+    "fluxTall": "FLUX max 9:16 ({{width}}x{{height}})",
+    "fluxLandscape": "FLUX max 3:2 ({{width}}x{{height}})",
+    "fluxPortrait": "FLUX max 2:3 ({{width}}x{{height}})",
+    "qwenSquare": "Qwen 2K スクエア ({{width}}x{{height}})",
+    "qwenWide": "Qwen 2K 16:9 ({{width}}x{{height}})",
+    "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
+    "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
+    "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "title": "サイズ",
+    "custom": "カスタム ({{width}}x{{height}})",
+    "highResWarning": "高解像度 (>1MP): より多くのVRAMが必要です。16GBのカードではメモリ不足（OOM）になる可能性があります。"
+  },
+  "director": {
+    "needIdea": "まず、ハイレベルなコンセプトやルック＆フィールを入力してください",
+    "expanded": "あなたのアイデアが{{count}}のショットに展開されました。内容を確認し、必要に応じて編集してから「開始」を押してください。",
+    "noShots": "チャットモデルがこのアイデアに対してショットを生成しませんでした。より詳細な説明を試すか、設定でチャットモデルが動作しているか確認してください。",
+    "failed": "アイデアをショットに変換できませんでした。設定でチャットモデルがインストールされ、実行されているか確認してから、もう一度お試しください。 ({{error}})",
+    "expandTooltip": "上のアイデアを、チャットモデルによって書かれた複数の異なるショット（各プロンプト）に展開します。これらは開始前に確認・編集できるよう、上のテキストを置き換えます。",
+    "expanding": "ショットを生成中…",
+    "expand": "ショットに展開",
+    "rewriteTooltip": "レンダリング前に、チャットモデルが簡略なタグ表現をより詳細な説明に書き換えます。「プロンプトを強化」がオンの場合、文章系モデルでは自動的にこの書き換えが行われます。",
+    "rewrite": "チャットモデルでプロンプトを書き換える"
+  },
+  "service": {
+    "statusFailedHttp": "サービスステータスの確認に失敗しました: HTTP {{status}}",
+    "statusNotJson": "サービスステータスのレスポンスがJSONではありません",
+    "unavailable": "バッチ画像生成サービスが利用できません",
+    "statusFailed": "サービス状態の確認に失敗しました"
+  },
+  "history": {
+    "cleared": "バッチ履歴を消去しました。",
+    "clear": "バッチリストを消去",
+    "title": "最近のバッチ",
+    "refresh": "バッチを更新",
+    "retry": "再試行",
+    "loadFailed": "最近のバッチを読み込めませんでした: {{reason}}",
+    "empty": "画像バッチが見つかりません"
+  },
+  "messages": {
+    "batchFinished": "バッチ生成 {{status}}",
+    "blueprintQueued": "Blueprintバッチがキューに追加されました。生成が完了次第、結果が表示されます。",
+    "queued": "バッチがキューに追加されました。バッチは順次レンダリングされます。実行中にさらに追加することも可能です。",
+    "cancelled": "バッチ生成がキャンセルされました"
+  },
+  "csv": {
+    "invalidFile": "有効なCSVファイルを選択してください",
+    "templateFailedHttp": "テンプレートのダウンロードに失敗しました: HTTP {{status}}",
+    "templateNotCsv": "テンプレートのレスポンスが有効なCSVファイルではありません",
+    "templateFailed": "テンプレートのダウンロードに失敗しました: {{error}}",
+    "noFile": "アップロード用のCSVファイルを選択してください",
+    "title": "CSVファイルのアップロード",
+    "upload": "CSVファイルをアップロード",
+    "selected": "ファイルを選択済み: {{name}}",
+    "template": "CSVテンプレートをダウンロード"
+  },
+  "blueprint": {
+    "invalidFile": "blueprint用の有効なCSVファイルを選択してください",
+    "noFile": "blueprint生成用のCSVファイルを選択してください",
+    "title": "オフラインBlueprint CSVアップロード",
+    "help": "'city'と'count'（または'patents'）の列を含むCSVファイルをアップロードしてデータブループリントを生成します（CPUのみ）。大量のバッチはバックグラウンドで実行され、完了するまでステータスを確認してください。",
+    "upload": "ブループリントCSVをアップロード",
+    "format": "対応フォーマット: .csv (city/name および count/patents/value などの列)"
+  },
+  "retry": {
+    "loadFailedHttp": "設定を読み込めませんでした: HTTP {{status}}",
+    "noSettings": "このバッチは設定を保存していません。",
+    "loadedSettings": "「{{name}}」の設定をコントロールパネルに読み込みました。必要に応じて調整し、「生成開始」を押してください。",
+    "loadedPrompts": "「{{name}}」のプロンプトをパネルに読み込みました。",
+    "loadedPromptsQty_other": "「{{name}}」を読み込みました: {{count}} プロンプト × 数量 {{quantity}}。",
+    "loadFailed": "設定を読み込めませんでした: {{error}}"
+  },
+  "download": {
+    "failedHttp": "結果のダウンロードに失敗しました: HTTP {{status}}",
+    "notZip": "ダウンロードされたレスポンスは有効なZIPファイルではありません",
+    "failed": "結果のダウンロードに失敗しました: {{error}}"
+  },
+  "page": {
+    "title": "画像生成",
+    "settingsTitle": "生成設定"
+  },
+  "contentType": {
+    "unusedAutoModel": "コンテンツタイプは使用されていません。{{model}}で自動レンダリングされ、プロンプトを通常の文章として読み取ります。",
+    "unusedAuto": "コンテンツタイプは使用されていません。プロンプトを通常の文章として読み取るモデルが自動的に選択されます。",
+    "unusedModel": "コンテンツタイプは{{model}}では使用されていません。プロンプトを通常の文章として読み取ります。",
+    "describeHint": "シーンを自分の言葉で説明してください。コンテンツタイプは、タグ形式のモデル向けのプロンプトを調整するものです。",
+    "title": "コンテンツタイプ（品質向上のため）",
+    "auto": "自動検出（推奨）",
+    "autoHelp": "コンテンツ内容から品質タグをプロンプトに追加します。生成設定自体を検知または変更することはありません。",
+    "portrait": "人物 - ポートレート",
+    "portraitHelp": "ヘッドショット、顔のアップ、プロフィール写真",
+    "fullBody": "人物 - 全身",
+    "fullBodyHelp": "立ち、座り、またはポーズをとった全身ショット",
+    "working": "人物 - 作業/アクション",
+    "workingHelp": "活動中の人物、道具の使用、物体との相互作用",
+    "product": "製品写真",
+    "productHelp": "クリーンな製品ショット、商業写真",
+    "landscape": "風景/景色",
+    "landscapeHelp": "自然、街並み、屋外のシーン",
+    "infographic": "インフォグラフィック/図解",
+    "infographicHelp": "フラットデザイン、アイコン、ベクターグラフィックス、チャート",
+    "general": "汎用",
+    "generalHelp": "あらゆるコンテンツ向けのデフォルト設定"
+  },
+  "input": {
+    "title": "入力方法",
+    "single": "単一プロンプト",
+    "bulk": "一括入力",
+    "csv": "CSV アップロード",
+    "blueprint": "オフライン設計図"
+  },
+  "single": {
+    "help": "プロンプトの全文を貼り付けてください（段落や改行は1つのプロンプトとして保持されます）。このプロンプトから複数の画像を生成する場合は、下の「Number of Images per Prompt」を使用してください。",
+    "placeholder": "段落を含むプロンプトの全文をここに貼り付けてください。テキスト全体が画像生成のための1つのプロンプトとして使用されます。\n\n例：複数の文章と改行を含む、詳細なシーンの描写（すべて1つの画像コンセプト用）...",
+    "note": "テキスト全体＝1プロンプト。数量は、このプロンプトから生成する画像の枚数を指定します。"
+  },
+  "bulk": {
+    "title": "画像のテーマ／プロンプト",
+    "placeholder": "画像のトピックまたはプロンプトを入力してください（1行につき1つ）：\n\n夕日の Majestic な山岳風景\n窓辺に座る猫\n青色の抽象的な幾何学模様\n賢い老いた魔法使いの肖像画\n未来的な都市のスカイライン\n...",
+    "ready": "生成準備完了：{{count}} 件のプロンプト（一括モード）",
+    "loadExamples": "例を読み込む",
+    "tip": "ヒント：各行が個別の画像プロンプトになります"
+  },
+  "look": {
+    "title": "ルック＆フィール（任意）",
+    "placeholder": "プロンプトに適用する視覚スタイルを記述してください：\n\n例：\n• 青系の色調、テキストなし、暗めの色使い\n• ミニマルな白黒、クリーンなライン\n• プロフェッショナルなインフォグラフィックスタイル、フラットデザイン\n• フォトリアル、ドラマチックな照明",
+    "single": "スタイルが単一のプロンプトの末尾に追加されます",
+    "bulk": "このスタイルが上記のすべての {{count}} 件のプロンプトに適用されます",
+    "preview": "プロンプトをプレビュー"
+  },
+  "negative": {
+    "label": "ネガティブプロンプト",
+    "unused": "このモデルはネガティブプロンプトを使用しません。"
+  },
+  "anatomy": {
+    "label": "解剖学的表現の強化",
+    "unusedTooltip": "ここでは使用されません：このモデルはプロンプトを通常の文章として読み取るため、解剖学タグはシーンの内容として描画されます。代わりに言葉でポーズを説明してください。",
+    "tooltip": "プロンプトが人物の場合、解剖学的表現を追加します。",
+    "unusedBoth": "このモデルはネガティブプロンプトおよび解剖学的強化を使用しません。",
+    "unused": "このモデルは解剖学的強化を使用しません。"
+  },
+  "current": {
+    "title": "現在の設定",
+    "manageModels": "モデルの管理",
+    "modelNotInstalled": "モデル: {{model}} (未インストール)",
+    "model": "モデル: {{model}}",
+    "style": "スタイル: {{style}}",
+    "quality": "品質: {{quality}}",
+    "size": "サイズ: {{width}}x{{height}}",
+    "stepsCast": "ステップ: キャラクターから",
+    "steps": "ステップ: {{steps}}",
+    "oneAtATime": "1つずつ",
+    "workers": "ワーカー: {{count}}"
+  },
+  "advanced": {
+    "title": "詳細設定",
+    "model": "モデル",
+    "yourLoras": "お使いのLoRA（いずれかを選択するまでオフ）:",
+    "unavailable": "このマシンでは利用不可:",
+    "qualityPreset": "品質プリセット",
+    "style": "スタイル",
+    "quantity": "プロンプトあたりの画像枚数",
+    "thumbnails": "サムネイルを生成"
+  },
+  "enhance": {
+    "label": "プロンプトを自動的に強化",
+    "off": "オフ — プロンプトは入力された通りに送信されます。",
+    "prose": "レンダリング前に、チャットモデルを使用して各プロンプトをより詳細な描写に書き換えます。チャットモデルからの回答がない場合は、入力されたプロンプトのまま送信されます。ステップとガイダンスは変更されません。",
+    "proseStyle": "レンダリング前に、チャットモデルを使用して各プロンプトをより詳細な描写に書き換えます。チャットモデルからの回答がない場合は、入力されたプロンプトに「{{style}}」の外観を求める一文を追加して送信されます。ステップとガイダンスは変更されません。",
+    "tagsNoNegative": "各プロンプトにコンテンツタイプの品質と解剖学的表現を追加します。このモデルはネガティブプロンプトを無視します。ステップとガイダンスは変更されません。",
+    "tags": "各プロンプトにコンテンツタイプの品質、解剖学的表現（およびネガティブ）を追加します。ステップとガイダンスは変更されません。"
+  },
+  "steps": {
+    "cast": "ステップ：キャラクター設定による",
+    "flux": "ステップ：{{steps}} (ステップを増やすとFLUXの品質が向上します)",
+    "value": "ステップ：{{steps}}"
+  },
+  "guidance": {
+    "cast": "ガイダンス：キャラクター設定による",
+    "zimage": "ガイダンススケール：0 (CFGフリーモデル)",
+    "flux": "FluxGuidance: {{guidance}}",
+    "scale": "ガイダンススケール: {{guidance}}",
+    "zimageHelp": "Z-ImageはCFGフリーで動作するため、ガイダンスは0に固定されています。品質の調整にはStepsを使用してください。",
+    "qwenHelp": "Qwen-Image 2.1は公式パスでガイダンス1で動作します。ネガティブプロンプトを併用する場合のみ数値を上げてください。",
+    "autoHelp": "プロンプトごとに自動ルートを振り分けます。通常選択される（Z-Image）はCFGフリーのため、SDXLルートを想定する場合を除き0のままにしてください。"
+  },
+  "seed": {
+    "label": "シード",
+    "placeholder": "ランダム",
+    "fixed": "最初の画像はシード値 {{seed}} を使用し、次以降の画像は次の番号を使用します。同じプロンプトと設定を使用すると、同じ画像が生成されます。",
+    "tooLarge": "シード値は {{max}} までです。この値は無視されます。",
+    "blank": "空欄：各画像に独自のランダムなシードが割り当てられます。画像を開いてダイスボタンを押すと、そのシードを再利用できます。"
+  },
+  "actions": {
+    "queuing": "キューに追加中…",
+    "addToQueue": "キューに追加",
+    "start": "生成を開始",
+    "cancel": "キャンセル"
+  },
+  "queue": {
+    "title": "バッチキュー",
+    "clearCompleted": "完了済みをクリア",
+    "active": "{{count}} 件実行中",
+    "progressFailed": "画像 {{done}}/{{total}}（{{failed}} 失敗）",
+    "progress": "画像 {{done}}/{{total}}",
+    "cancelRunning": "実行中のバッチをキャンセル",
+    "remove": "キューから削除",
+    "cancelAria": "バッチをキャンセル"
+  },
+  "progress": {
+    "title": "現在の進捗",
+    "batchId": "バッチID: {{id}}",
+    "count": "進捗: {{done}}/{{total}}",
+    "download": "結果をダウンロード",
+    "adjustRetry": "調整して再試行"
+  },
+  "gallery": {
+    "title": "生成された画像 ({{count}})",
+    "generatedImage": "生成された画像",
+    "noPrompt": "プロンプトなし",
+    "seed": "シード {{seed}}",
+    "rewritten": "レンダリング前に書き換えられました。内容を読むには開いてください。",
+    "viewFull": "画像全体を表示: {{name}}"
+  },
+  "lightbox": {
+    "sentToModel": "モデルに送信された内容: {{prompt}}",
+    "seedUsed": "シード {{seed}} がシードボックスに入っています。ランダムなシードを再度使用するには、ここをクリアしてください。"
+  },
+  "preview": {
+    "titleQuantity": "生成されたプロンプトのプレビュー ({{count}} × {{quantity}})",
+    "title": "生成されたプロンプトのプレビュー ({{count}})",
+    "intro": "これらは画像生成に送信される最終的なプロンプトです：",
+    "close": "閉じる"
+  }
+}

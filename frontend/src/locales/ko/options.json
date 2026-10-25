@@ -1,0 +1,372 @@
+{
+  "infographic": {
+    "styles": {
+      "editorial": "극적인 에디토리얼 일러스트레이션",
+      "flatVector": "플랫 벡터 / 깔끔한 기하학적",
+      "photoReal": "실사 같은",
+      "comic": "만화책"
+    },
+    "aspects": {
+      "wide": "16:9  (1280×720)  — 소셜 / 비디오 썸네일",
+      "square": "1:1   (1024×1024) — 정사각형 / Instagram",
+      "vertical": "9:16  (720×1280)  — 세로형 / Reels",
+      "portrait": "4:5   (1024×1280) — Instagram 세로형",
+      "landscape": "3:2   (1216×832)  — 가로형"
+    }
+  },
+  "tips": {
+    "dashboardCardMenu": "대시보드에서 카드를 우클릭하여 해당 페이지를 열거나, 최소화하거나, 색상을 지정하거나, 숨길 수 있습니다.",
+    "shortcuts": "텍스트 상자 외부 아무 곳에서나 ?를 누르면 키보드 단축키를 확인할 수 있습니다.",
+    "micHandsFree": "마이크를 클릭하여 핸즈프리로 대화하세요. 일시 정지할 때마다 말한 내용이 채팅으로 전송됩니다. 다시 클릭하면 중지됩니다.",
+    "floatingChat": "Ctrl+Shift+C를 누르면 어떤 페이지에서든 플로팅 채팅이 열립니다. 칩에는 현재 페이지 이름이 표시되며, 채팅은 현재 열려 있는 페이지와 기록 정보를 인식합니다.",
+    "dropIntoFiles": "컴퓨터에서 파일이나 폴더 전체를 파일 페이지로 드래그하세요. 드롭한 위치에 업로드되며 채팅 및 검색을 위해 인덱싱됩니다.",
+    "dashboardHiddenCards": "대시보드 카드를 실수로 숨겼나요? 대시보드의 빈 공간을 우클릭하면 다시 표시됩니다.",
+    "moveResizeCards": "대시보드, 코드 에디터 및 비디오 에디터의 카드는 제목 표시줄을 통해 이동하고 모든 가장자리나 모서리에서 크기를 조정할 수 있습니다. 제목 표시줄을 더블 클릭하면 카드를 접을 수 있습니다.",
+    "settingsHoverHelp": "설정에서 점선 밑줄이 있는 제목은 마우스를 올리면 설명을 표시합니다.",
+    "navigationModes": "설정 → 일반 → 탐색에서 사이드바와 작업별로 페이지를 그룹화하는 작업 공간 바 사이를 전환할 수 있습니다.",
+    "dropIntoChat": "문서나 이미지를 채팅에 드롭하여 추가하세요. 문서는 인덱싱되며, 이미지는 다음 메시지와 함께 전송됩니다.",
+    "micPushToTalk": "마이크를 누르고 있거나 Ctrl+Shift+Space를 누르고 있으면 누르고 있는 동안에만 말할 수 있습니다. 마이크를 우클릭하여 클릭 시 동작을 변경할 수 있습니다.",
+    "dashboardLayouts": "대시보드의 빈 공간을 우클릭하여 레이아웃을 전환하세요: 일반, 콤팩트, 콤팩트 레이어드, Mode-X. 모든 레이아웃에서 카드는 자유롭게 이동할 수 있습니다.",
+    "footerJobs": "작업이 실행되는 동안 하단 바에 작업이 나란히 표시됩니다. 마우스를 올리면 모든 작업 목록이 표시되며, 클릭하면 목록이 고정됩니다.",
+    "updateNotice": "Guaardvark가 실행 중인 상태에서 업데이트될 때, 하단 바 위에 페이지 다시 불러오기 또는 재시작 중 어떤 방법으로 업데이트를 완료할지 알리는 알림이 표시됩니다.",
+    "rightClickEverywhere": "우클릭은 앱 전체에서 작동합니다. 파일, 노트, 채팅 메시지, 작업, 규칙, 플러그인 등 각각의 고유한 메뉴가 제공됩니다."
+  },
+  "voiceActivation": {
+    "push": {
+      "label": "누르고 말하기",
+      "help": "말하는 동안 마이크를 누르고(또는 Ctrl+Shift+Space) 있다가, 떼면 전송됩니다."
+    },
+    "toggle": {
+      "label": "터치하여 말하기",
+      "help": "클릭 후 말하면 멈출 때 전송됩니다. 메시지 전송 후 마이크가 꺼집니다."
+    },
+    "handsfree": {
+      "label": "핸즈프리",
+      "help": "한 번 클릭하고 말하면, 다시 클릭할 때까지 멈출 때마다 메시지가 전송됩니다."
+    }
+  },
+  "brandTones": {
+    "neutral": {
+      "label": "중립",
+      "description": "전문적이고 균형 잡힌 어조"
+    },
+    "friendly": {
+      "label": "친근함",
+      "description": "따뜻하고 접근하기 쉬운 어조"
+    },
+    "authoritative": {
+      "label": "권위적",
+      "description": "전문적이고 자신감 있는 어조"
+    },
+    "playful": {
+      "label": "재치 있는",
+      "description": "창의적이고 매력적인 어조"
+    },
+    "luxury": {
+      "label": "럭셔리",
+      "description": "고급스럽고 세련된 어조"
+    }
+  },
+  "delimiters": {
+    "comma": {
+      "label": "쉼표 (,)",
+      "description": "표준 CSV 형식"
+    },
+    "semicolon": {
+      "label": "세미콜론 (;)",
+      "description": "유럽 표준"
+    },
+    "tab": {
+      "label": "탭",
+      "description": "탭으로 구분된 값"
+    }
+  },
+  "mediaTabs": {
+    "mediaLibrary": "미디어 라이브러리",
+    "imageGen": "이미지 생성",
+    "infographic": "인포그래픽",
+    "videoGen": "비디오 생성",
+    "upscaling": "업스케일링"
+  },
+  "videoPresets": {
+    "quality": {
+      "fast": {
+        "label": "⚡ 빠름",
+        "description": "모델의 최소 단계에서 미리보기 (그 이하로 내려가지 않음)"
+      },
+      "standard": {
+        "label": "✨ 표준",
+        "description": "양호한 품질 (30단계)"
+      },
+      "high": {
+        "label": "🎬 고화질",
+        "description": "최상의 디테일 (40단계)"
+      },
+      "maximum": {
+        "label": "🏆 최고화질",
+        "description": "최고 품질 (50단계)"
+      }
+    },
+    "duration": {
+      "short": "짧게",
+      "medium": "중간",
+      "long": "길게",
+      "about_other": "~{{count}}초",
+      "seconds": "{{seconds}}초",
+      "exact_other": "{{count}}초"
+    },
+    "motion": {
+      "subtle": {
+        "label": "🌊 미세하게",
+        "description": "부드러운 움직임"
+      },
+      "normal": {
+        "label": "🎯 보통",
+        "description": "균형 잡힌 움직임"
+      },
+      "dynamic": {
+        "label": "💨 역동적",
+        "description": "더 많은 움직임"
+      },
+      "intense": {
+        "label": "🔥 강렬하게",
+        "description": "최대 움직임"
+      }
+    },
+    "outputTiers": {
+      "draft": {
+        "label": "초안",
+        "description": "가공되지 않은 모델 출력 — 가장 빠르지만 품질이 낮음"
+      },
+      "standard": {
+        "label": "표준",
+        "description": "더 부드러운 움직임을 위한 2배 FPS 보간"
+      },
+      "cinema": {
+        "label": "시네마",
+        "description": "2x FPS + 2x 업스케일 — 최종 출력용 권장"
+      }
+    },
+    "keyframeModels": {
+      "fromLora": {
+        "label": "자동 (캐릭터 LoRA 기반)",
+        "description": "출연진의 학습 기반에서 가져온 Z-Image / SDXL / FLUX"
+      },
+      "fluxSchnell": {
+        "description": "빠르고 아름다운 정지 화면 (캐릭터 제외 기본값)"
+      },
+      "fluxDevLora": {
+        "description": "Comfy FLUX 정지 화면 (캐릭터 미포함 또는 노골적)"
+      },
+      "sdxl": {
+        "description": "LoRA 없는 고충실도 정지 화면"
+      },
+      "sdxlLora": {
+        "description": "기존 SDXL 캐릭터 경로"
+      }
+    },
+    "samplerProfiles": {
+      "official": {
+        "label": "공식 — uni_pc, shift 8 (기본)",
+        "description": "ComfyUI 번들 Wan 2.2 5B 템플릿 설정"
+      },
+      "adaptive": {
+        "label": "Guaardvark — euler, 적응형 shift",
+        "description": "실험적: 해상도에 따라 shift가 조정되며, 740px 미만에서 3으로 고정"
+      }
+    },
+    "aspectRatios": {
+      "widescreen": "와이드스크린",
+      "portraitVertical": "세로형",
+      "square": "정사각형",
+      "standard": "표준",
+      "classic": "클래식",
+      "ultraWide": "울트라 와이드",
+      "portrait": "인물형"
+    },
+    "promptStyles": {
+      "cinematic": {
+        "label": "시네마틱",
+        "description": "영화 수준의 조명과 움직임"
+      },
+      "realistic": {
+        "label": "실사",
+        "description": "사실적인 디테일"
+      },
+      "artistic": {
+        "label": "예술적",
+        "description": "스타일화되고 표현력이 풍부한"
+      },
+      "anime": {
+        "label": "애니메이션 (일본)",
+        "description": "일본 셀 애니메이션 스타일"
+      },
+      "animation3d": {
+        "label": "3D 애니메이션 (Pixar 스타일)",
+        "description": "세련된 CGI, 표현력이 풍부한 캐릭터"
+      },
+      "stopMotion": {
+        "label": "스톱모션 / 클레이메이션",
+        "description": "질감이 느껴지는 점토, 수공예 느낌"
+      },
+      "handDrawn": {
+        "label": "손그림 2D (지브리 스타일)",
+        "description": "회화적인 수채화 배경"
+      },
+      "westernCartoon": {
+        "label": "서양 카툰",
+        "description": "굵은 외곽선, 평면적 음영, 역동적인 움직임"
+      },
+      "none": {
+        "label": "없음",
+        "description": "강화 없음"
+      }
+    },
+    "sizes": {
+      "small": {
+        "label": "작음",
+        "description": "512px (더 빠름)"
+      },
+      "medium": {
+        "label": "중간"
+      },
+      "large": {
+        "label": "대형",
+        "description": "720px (CogVideoX 네이티브)"
+      },
+      "hd": {
+        "description": "1280px (CPU 오프로드, 속도 느림)"
+      },
+      "fullhd": {
+        "description": "1920px (CPU 오프로드, 훨씬 느림)"
+      }
+    },
+    "models": {
+      "wan225b": {
+        "label": "Wan 2.2 5B TI2V (권장)",
+        "description": "빠른 5초 클립, 16GB에 적합 — 오프로드 없음. 텍스트 + 이미지 기반 비디오 생성."
+      },
+      "wan2214b": {
+        "description": "최고 품질, 5초 비디오 (16GB VRAM)"
+      },
+      "wan2214bI2v": {
+        "description": "최고 수준의 이미지-비디오, 5초 클립 (16GB VRAM)"
+      },
+      "cogvideox5b": {
+        "description": "6초 비디오, 인프로세스 디퓨저 — ComfyUI 불필요 (~16GB VRAM)"
+      },
+      "cogvideox5bI2v": {
+        "description": "이미지-비디오, 1360x768 해상도에서 5초 (~16GB VRAM)"
+      },
+      "ltx23": {
+        "description": "Lightricks LTX-2.3 — 8단계, 16GB Ada에서 최대 약 10초. T2V + I2V."
+      },
+      "minimaxH3Int8": {
+        "description": "MiniMax H3 — 한 번의 프로세스로 네이티브 스테레오 음성이 포함된 비디오 생성. 24fps, 약 5초. T2V, 첫 프레임 및 첫+마지막 프레임 I2V. ComfyUI ≥ 0.30."
+      },
+      "minimaxH3Int8Full": {
+        "description": "전체 모듈레이션 가중치와 int8 인코더가 포함된 MiniMax H3. 24GB급 카드용; 성능 측정 불가."
+      },
+      "minimaxH3Reference": {
+        "description": "MiniMax H3 레퍼런스-비디오: 최대 9개의 이미지, 3개의 클립 및 3개의 음성 파일로 정체성, 움직임 및 음성을 고정하거나 클립을 편집 및 이어가기. 24fps, 네이티브 오디오."
+      },
+      "minimaxH3Bf16": {
+        "description": "bf16 인코더를 사용한 전체 정밀도의 MiniMax H3 (가중치 약 110GB). 워크스테이션급 카드 권장; 측정되지 않음."
+      },
+      "hunyuanT2v": {
+        "description": "Tencent HunyuanVideo — 영화 같은 움직임, 콘텐츠 필터 없음. 24fps, 약 3초 클립 (16GB VRAM)"
+      },
+      "hunyuanI2v": {
+        "description": "HunyuanVideo 이미지-투-비디오 (v2) — 시작 프레임을 밀접하게 따름. 24fps, 약 3초 (16GB VRAM)"
+      },
+      "ltx25": {
+        "description": "Lightricks LTX-2.5 — 8단계, 16GB Ada에서 최대 약 10초. T2V + I2V. Hugging Face 승인 및 ComfyUI ≥ 0.32 필요."
+      }
+    },
+    "unknownModel": "알 수 없는 모델"
+  },
+  "imagePresets": {
+    "labels": {
+      "fast": "빠름",
+      "standard": "표준",
+      "high2k": "고화질 2K (2048²)",
+      "fluxFast": "FLUX Fast",
+      "fluxQuality": "FLUX 최대 품질",
+      "fluxUltra": "FLUX Ultra",
+      "high": "고화질",
+      "ultra": "초고화질"
+    },
+    "descriptions": {
+      "zimage": {
+        "fast": "빠른 초안",
+        "standard": "공식 Turbo 레시피 (HF)",
+        "high2k": "2K 캔버스 공식 레시피 — 고부하; 16GB 카드는 거부될 수 있음"
+      },
+      "flux": {
+        "fluxFast": "더 빠른 FLUX.1-dev 정지 이미지",
+        "fluxQuality": "기본 최대 품질 FLUX.1-dev",
+        "fluxUltra": "최고 단계 — 느림, 최고 수준의 디테일"
+      },
+      "kreaTurbo": {
+        "fast": "Krea turbo CFG-free",
+        "standard": "균형 잡힌 turbo",
+        "high": "더 많은 단계"
+      },
+      "kreaRaw": {
+        "standard": "Krea raw 품질",
+        "high": "기본 raw",
+        "ultra": "느리지만 정교한 디테일"
+      },
+      "sdxlTurbo": {
+        "fast": "단일 단계 미리보기",
+        "standard": "Turbo 레시피 (4단계, CFG-free)"
+      },
+      "sana": {
+        "fast": "단일 단계 미리보기",
+        "standard": "Sana Sprint 레시피 (2단계)"
+      },
+      "qwenImage21": {
+        "standard": "공식 ComfyUI 템플릿 (25단계, cfg 1)",
+        "high": "공식 파이프라인 범위 (40-50단계), 더 느림"
+      },
+      "sdxl": {
+        "fast": "빠른 SDXL",
+        "standard": "균형 잡힌 SDXL",
+        "high": "최종 SDXL"
+      },
+      "sd": {
+        "fast": "빠른 생성, 테스트용으로 적합",
+        "standard": "균형 잡힌 품질과 속도",
+        "high": "고품질, 느린 생성"
+      }
+    }
+  },
+  "slashCommands": {
+    "imagine": "텍스트 프롬프트로 이미지 생성",
+    "removebg": "첨부된 사진의 배경 제거 (투명 PNG)",
+    "inpaint": "첨부된 사진의 특정 부분 변경 또는 제거",
+    "outpaint": "첨부된 사진을 확장하고 새 캔버스를 채웁니다",
+    "video": "텍스트 프롬프트로 비디오 클립을 큐에 추가합니다",
+    "musicVideo": "노래로 뮤직비디오 계획을 시작합니다 (클립 렌더링 전 Studio에서 승인)",
+    "filmCrew": "시나리오로 Film Crew 제작을 시작합니다 (렌더링은 Studio에서 대기)",
+    "imagemodel": "채팅 이미지 모델을 전환하거나 현재 모델을 표시합니다",
+    "model": "LLM 채팅 모델을 전환하거나 현재 모델을 표시합니다",
+    "websearch": "웹 검색, 페이지 감사(site:<address>), 또는 사이트맵 목록(sitemap: <url>)",
+    "gpu": "실시간 GPU 잠금, VRAM 슬롯 및 실행 중인 플러그인 점검",
+    "logs": "Guaardvark 로그 확인 (선택적 파일명 및 grep)",
+    "sysmap": "System Mapper 실행 ( /system-map과 동일한 스냅샷)",
+    "swarm": "Swarm 오케스트레이터 상태 (플러그인이 실행 중이어야 함)",
+    "outreach": "아웃리치 상태, 짧은 동사 또는 자연어 스카우트/초안 (예: YouTube 주제)",
+    "plan": "오케스트레이터 계획 생성",
+    "training": "에이전트를 학습 모드로 실행 — 1000회 반복 루프 전체 실행, 채팅 LLM 분해 건너뛰기",
+    "agent": "이 채팅을 에이전트 모드로 전환 — 모든 메시지가 화면 제어 작업이 됩니다. 선택 사항인 <task>가 즉시 실행됩니다.",
+    "chat": "이 채팅을 다시 채팅 모드로 전환 (에이전트 모드 종료)",
+    "thinking": "이 채팅에서 사고 모델(gemma4:12b, qwen3)을 위한 단계별 추론 기능을 켜고 끕니다. 꺼짐 = 더 빠름. \"/thinking\"을 입력하면 현재 상태를 표시합니다.",
+    "exit": "에이전트 모드 종료 ( /chat 의 별칭)",
+    "voice": "음성 채팅 켜기/끄기",
+    "vision": "Vision Pipeline 플러그인 상태 표시 (플러그인 페이지에서 시작/중지 가능)",
+    "clear": "새 채팅 시작 (현재 채팅은 '모든 채팅'에 유지됨)",
+    "help": "사용 가능한 명령어 보기",
+    "custom": "사용자 정의 명령"
+  }
+}

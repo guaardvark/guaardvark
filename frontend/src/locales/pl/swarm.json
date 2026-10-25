@@ -1,0 +1,131 @@
+{
+  "taskStatus": {
+    "pending": "W oczekiwaniu",
+    "blocked": "Zablokowane",
+    "queued": "W kolejce",
+    "running": "W trakcie",
+    "done": "Zakończone",
+    "failed": "Błąd",
+    "needsReview": "Wymaga przeglądu",
+    "merged": "Połączone",
+    "cancelled": "Anulowane",
+    "noChanges": "Brak zmian",
+    "timedOut": "Upłynął czas"
+  },
+  "messages": {
+    "enterPlanPath": "Wprowadź ścieżkę do pliku planu",
+    "launched": "Swarm uruchomiony: {{id}}",
+    "launchFailed": "Błąd uruchomienia",
+    "noSwarmId": "Brak ID Swarm",
+    "cancelled": "Anulowane",
+    "cancelFailed": "Błąd anulowania",
+    "merged": "Połączono {{merged}} gałęzi, {{conflicts}} konfliktów",
+    "mergeFailed": "Błąd łączenia",
+    "cleanedUp": "Wyczyzczono",
+    "cleanupFailed": "Błąd czyszczenia",
+    "logsFailed": "Nie można pobrać logów",
+    "templateLoadFailed": "Błąd ładowania szablonu",
+    "filenameAndContentRequired": "Wymagane są nazwa pliku i zawartość",
+    "planSaved": "Plan zapisany w szablonach",
+    "saveFailed": "Błąd zapisu",
+    "enterGoal": "Wprowadź cel, który chcesz osiągnąć",
+    "planGenerated": "Plan wygenerowany przez AI!",
+    "aiGenerationFailed": "Błąd generowania przez AI"
+  },
+  "actions": {
+    "cancel": "Anuluj",
+    "mergeAll": "Połącz Wszystkie",
+    "cleanUp": "Wyczyść"
+  },
+  "menu": {
+    "collapse": "Zwiń",
+    "expand": "Rozwiń",
+    "copySwarmId": "Kopiuj ID Swarm",
+    "viewLogs": "Pokaż logi",
+    "viewDiff": "Pokaż różnice",
+    "copyBranchName": "Kopiuj nazwę gałęzi",
+    "copyTaskId": "Kopiuj ID zadania",
+    "launch": "Uruchom…"
+  },
+  "title": "Swarm",
+  "header": {
+    "online": "Online",
+    "offline": "Offline",
+    "serviceOffline": "Usługa Offline",
+    "refresh": "Odśwież",
+    "createPlan": "Utwórz nowy plan",
+    "launchSwarm": "Uruchom Swarm"
+  },
+  "sections": {
+    "activeSwarms": "Aktywne Swarmy",
+    "quickLaunchTemplates": "Szablony szybkiego uruchamiania",
+    "recentSwarms": "Ostatnie Swarmy"
+  },
+  "taskCount": "{{count}} zadań",
+  "flightMode": "Tryb lotu",
+  "history": {
+    "freeLocal": "Wolne (lokalne)",
+    "cleanUp": "Sprzątnij"
+  },
+  "empty": {
+    "title": "Brak uruchomionych Swarmów",
+    "description": "Uruchom Swarm Agenców AI, aby pracowały nad Twoim kodem równolegle.",
+    "startPlugin": "Najpierw uruchom wtyczkę Swarm.",
+    "launchFirst": "Uruchom swój pierwszy Swarm"
+  },
+  "launchDialog": {
+    "title": "Uruchom Swarm",
+    "template": "Szablon (opcjonalnie)",
+    "customPlanFile": "Własny plik planu",
+    "templateOption": "{{title}} ({{count}} zadań)",
+    "planPath": "Ścieżka do pliku planu",
+    "planPathPlaceholder": "path/to/plan.md lub wybierz szablon powyżej",
+    "planPathHelp": "Względna do GUAARDVARK_ROOT lub ścieżka absolutna",
+    "maxAgents": "Max. jednoczesnych Agenców",
+    "autoMerge": "Automatyczne łączenie",
+    "flightModeInfo": "Tryb lotu: tylko lokalne backendy (Ollama). Konflikty zostaną automatycznie szeregowane.",
+    "cancel": "Anuluj",
+    "launchFlightMode": "Uruchom (Tryb lotu)",
+    "launch": "Uruchom"
+  },
+  "editor": {
+    "title": "Edytor planu Swarm",
+    "aiHint": "Opisz swoje zadanie, a AI wygeneruje strukturę planu.md dla Ciebie.",
+    "aiPlaceholder": "np. „Refaktoryzacja wszystkich punktów końcowych API w celu użycia nowego modelu Response”",
+    "aiSuggest": "Sugeruj plan AI",
+    "filename": "Nazwa pliku (np. migrate_api.md)",
+    "content": "Treść planu (Markdown)",
+    "formatHint": "Format: Użyj <bold>## Nazwa zadania</bold> dla każdego zadania. Dodaj <bold>Deps: [1]</bold> dla zależności.",
+    "cancel": "Anuluj",
+    "saveToTemplates": "Zapisz w szablonach"
+  },
+  "taskView": {
+    "loadingLogs": "Ładowanie logów...",
+    "noLogs": "(brak logów)",
+    "noChanges": "(brak zmian w drzewie roboczym)",
+    "diffFailed": "Błąd pobierania różnic",
+    "title": "Szczegóły zadania: {{id}}",
+    "logsTab": "Logi",
+    "liveDiffTab": "Live Diff",
+    "noOutputYet": "(brak wyników)",
+    "fetchingDiff": "Pobieranie różnic drzewa roboczego...",
+    "refreshDiff": "Odśwież różnice"
+  },
+  "swarmStatus": {
+    "failed": "Nieudane",
+    "running": "W trakcie",
+    "completed": "Zakończone"
+  },
+  "card": {
+    "progress": "{{done}}/{{total}} zadań",
+    "free": "Wolne",
+    "activeAgents": "{{count}} aktywnych",
+    "diskUsage": "{{size}} MB",
+    "dependencyGraph": "GRAF ZALEJNOŚCI",
+    "viewTaskDetail": "Zobacz szczegóły zadania"
+  },
+  "elapsed": {
+    "minutesSeconds": "{{minutes}}m {{seconds}}s",
+    "seconds": "{{seconds}}s"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "title": "에이전트 도구",
+  "loadFailed": "도구 로드 실패",
+  "copied": "클립보드에 복사됨",
+  "copyFailed": "클립보드에 복사 실패",
+  "parameters": "매개변수",
+  "copyName": "도구 이름 복사",
+  "card": {
+    "test": "테스트"
+  },
+  "table": {
+    "name": "이름",
+    "category": "카테고리",
+    "description": "설명",
+    "params": "매개변수",
+    "actions": "동작",
+    "requiredList": "필수: {{params}}",
+    "optionalList": "선택: {{params}}",
+    "requiredCount": "{{count}} 필수",
+    "optionalCount": "{{count}} 선택",
+    "noParams": "없음",
+    "testTool": "테스트 도구"
+  },
+  "noMatch": "\"{{query}}\"와 일치하는 도구 없음",
+  "tabs": {
+    "tools": "도구 ({{count}})",
+    "schemas": "스키마",
+    "categories": "카테고리"
+  },
+  "searchPlaceholder": "도구 검색...",
+  "view": {
+    "label": "보기 모드",
+    "cardLabel": "카드 보기",
+    "card": "카드 보기",
+    "listLabel": "목록 보기",
+    "list": "목록 보기"
+  },
+  "loading": "도구 로딩 중...",
+  "schemas": {
+    "copyAll": "모두 복사",
+    "loading": "스키마 로딩 중..."
+  },
+  "menu": {
+    "test": "테스트…"
+  },
+  "test": {
+    "succeeded": "도구 실행 성공",
+    "executionFailed": "도구 실행 실패",
+    "title": "도구 테스트: {{name}}",
+    "noApprovalWarning": "실행을 누르면 채팅에서 요청하는 승인 단계 없이 즉시 도구가 실행됩니다.",
+    "requiredHelper": "필수. {{description}} ({{type}})",
+    "result": "결과",
+    "failed": "실행 실패",
+    "execute": "실행"
+  }
+}
