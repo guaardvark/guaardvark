@@ -53,6 +53,8 @@ import {
   CloudDone,
   CloudOff,
   History as HistoryIcon,
+  UnfoldLess,
+  UnfoldMore,
 } from "@mui/icons-material";
 
 import { useNavigate } from "react-router-dom";
@@ -155,9 +157,6 @@ const StickyNote = React.memo(
     const contentRef = useRef(null);
     const contentPropRef = useRef(content);
     const titleCancelRef = useRef(false);
-    const [lastClickTime, setLastClickTime] = useState(0);
-    const [clickCount, setClickCount] = useState(0);
-    const clickTimeoutRef = useRef(null);
     const [editingTitle, setEditingTitle] = useState(false);
     const [titleDraft, setTitleDraft] = useState(title || "");
     contentPropRef.current = content;
@@ -179,37 +178,17 @@ const StickyNote = React.memo(
       if (!editingTitle) setTitleDraft(title || "");
     }, [title, editingTitle]);
 
-    useEffect(() => {
-      return () => {
-        if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
-      };
-    }, []);
-
-    // Double-click detection on header (same pattern as DashboardCardWrapper)
-    const handleMouseDown = useCallback(
-      (_e) => {
-        const now = Date.now();
-        const diff = now - lastClickTime;
-
-        if (clickTimeoutRef.current) {
-          clearTimeout(clickTimeoutRef.current);
-          clickTimeoutRef.current = null;
-        }
-
-        if (diff < 500 && clickCount === 1) {
-          setClickCount(0);
-          setLastClickTime(0);
-          if (onToggleMinimize) onToggleMinimize();
-        } else {
-          setLastClickTime(now);
-          setClickCount(1);
-          clickTimeoutRef.current = setTimeout(() => {
-            setClickCount(0);
-            setLastClickTime(0);
-          }, 500);
-        }
+    // A double-click anywhere on the bar names the note, except on its buttons.
+    const startRename = useCallback(
+      (e) => {
+        if (editingTitle || e.target.closest("button, input")) return;
+        e.preventDefault();
+        // An Escape that unmounted the last input may have left this set.
+        titleCancelRef.current = false;
+        setTitleDraft(title || "");
+        setEditingTitle(true);
       },
-      [lastClickTime, clickCount, onToggleMinimize],
+      [editingTitle, title],
     );
 
     // Ignore a disconnected node, and ignore an unfocused editor that just
@@ -265,7 +244,7 @@ const StickyNote = React.memo(
         {/* ── Header — drag handle + title (always visible) ──────── */}
         <Box
           className="note-header"
-          onMouseDown={handleMouseDown}
+          onDoubleClick={startRename}
           sx={{
             display: "flex",
             alignItems: "center",
@@ -286,8 +265,8 @@ const StickyNote = React.memo(
             <PushPin sx={{ fontSize: 14, color: textColor, opacity: 0.5, mr: 0.5 }} />
           )}
 
-          {/* Title fills the bar; only the text itself renames. The empty
-              stretch of the bar still drags and double-clicks to minimize. */}
+          {/* The title is part of the drag handle; the whole bar renames on
+              double-click. */}
           <Box sx={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center" }}>
             {editingTitle ? (
               <InputBase
@@ -314,7 +293,12 @@ const StickyNote = React.memo(
                     cancelTitle();
                   }
                 }}
-                onFocus={(e) => e.target.select()}
+                // The drag handle clears the page selection one frame after
+                // the press ends, so select the title after that frame.
+                onFocus={(e) => {
+                  const input = e.target;
+                  requestAnimationFrame(() => input.select());
+                }}
                 sx={{
                   flex: 1,
                   fontSize: "0.77rem",
@@ -325,15 +309,7 @@ const StickyNote = React.memo(
               />
             ) : (
               <Typography
-                className="non-draggable"
                 data-note-title=""
-                onMouseDown={(e) => e.stopPropagation()}
-                onDoubleClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setTitleDraft(title || "");
-                  setEditingTitle(true);
-                }}
                 sx={{
                   maxWidth: "100%",
                   fontWeight: 600,
@@ -342,7 +318,6 @@ const StickyNote = React.memo(
                   overflow: "hidden",
                   whiteSpace: "nowrap",
                   textOverflow: "ellipsis",
-                  cursor: "text",
                   opacity: title ? 1 : 0.3,
                   fontStyle: title ? "normal" : "italic",
                 }}
@@ -398,6 +373,30 @@ const StickyNote = React.memo(
               }}
             />
           </Box>
+
+          <Tooltip title={isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}>
+            <IconButton
+              aria-label={isMinimized ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleMinimize();
+              }}
+              className="non-draggable"
+              size="small"
+              sx={{
+                width: 20,
+                height: 20,
+                p: 0,
+                ml: 0.5,
+                color: textColor,
+                opacity: 0.4,
+                "&:hover": { opacity: 1 },
+              }}
+            >
+              {isMinimized ? <UnfoldMore sx={{ fontSize: 16 }} /> : <UnfoldLess sx={{ fontSize: 16 }} />}
+            </IconButton>
+          </Tooltip>
 
           {/* Close parks the note. The button sits clear of the corner resize handle. */}
           <Tooltip title={t("notes.note.close")}>
@@ -575,10 +574,9 @@ const StickyNotesPage = () => {
   const gridContainerRef = useRef(null);
   const [gridWidth, setGridWidth] = useState(dashboardWidth);
   const isTogglingRef = useRef(false);
-  // Minimized flags at drag start. The header double-click toggles the flag
-  // on the second mousedown, which can land before or after onDragStart, and
-  // the drag reports the bar height. Pre-flip bits are merged in so expand
-  // still stores the full height.
+  // Minimized flags at drag start: the drag reports the bar height of a
+  // minimized note. Pre-flip bits from a toggle during the press are merged in
+  // so expand still stores the full height.
   const dragMinRef = useRef(null);
   const draggingRef = useRef(false);
   const noteRefs = useRef({});
@@ -1842,6 +1840,21 @@ const StickyNotesPage = () => {
           <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
           <ListItemText>{t("notes.menu.rename")}</ListItemText>
         </MenuItem>
+        {layoutMode === "normal" && (
+          <MenuItem onClick={() => {
+            if (contextMenu) handleToggleMinimize(contextMenu.noteId);
+            setContextMenu(null);
+          }}>
+            <ListItemIcon>
+              {minimizedCards[contextMenu?.noteId]
+                ? <UnfoldMore fontSize="small" />
+                : <UnfoldLess fontSize="small" />}
+            </ListItemIcon>
+            <ListItemText>
+              {minimizedCards[contextMenu?.noteId] ? t("dashboard.cardWrapper.expand") : t("dashboard.cardWrapper.minimize")}
+            </ListItemText>
+          </MenuItem>
+        )}
         <MenuItem onClick={() => {
           if (contextMenu) handleTogglePin(contextMenu.noteId);
           setContextMenu(null);
