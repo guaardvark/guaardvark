@@ -15,6 +15,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -82,6 +83,35 @@ def _reexec_with_venv_python(repo: Path) -> None:
     os.execv(str(venv_py), [str(venv_py), str(Path(__file__).resolve()), *sys.argv[1:]])
 
 
+# No sync batch takes this long; an older marker belongs to a process that died.
+_SYNC_MARKER_MAX_AGE_S = 3600
+
+
+def _sync_still_running(sentinel: Path) -> bool:
+    """True while the process that wrote the sync marker is alive.
+
+    The marker holds that process's pid. A sync killed mid-batch never removes
+    it, and every later boot would skip dependency installs. Markers without a
+    pid (older releases) count as live for an hour.
+    """
+    try:
+        age = time.time() - sentinel.stat().st_mtime
+        text = sentinel.read_text().strip()
+    except OSError:
+        return False
+    if age > _SYNC_MARKER_MAX_AGE_S:
+        return False
+    if not text.isdigit():
+        return True
+    try:
+        os.kill(int(text), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv if argv is not None else sys.argv[1:])
     log = _setup_logging(args.quiet)
@@ -96,11 +126,14 @@ def main(argv: list[str] | None = None) -> int:
         # its process replaced (and sys.argv wouldn't be ours to replay anyway).
         _reexec_with_venv_python(repo)
 
-    # Sync-in-progress sentinel: refuse to run.
+    # Sync-in-progress sentinel: refuse to run while a sync is writing files.
     sentinel = repo / "data" / "dep_reconciler" / ".sync_in_progress"
     if sentinel.exists():
-        log.error("sync in progress; refusing to reconcile (retry on next boot)")
-        return 2
+        if _sync_still_running(sentinel):
+            log.error("sync in progress; refusing to reconcile (retry on next boot)")
+            return 2
+        log.warning("removing a sync marker left by a process that is gone")
+        sentinel.unlink(missing_ok=True)
 
     state_path = Path(args.state_file) if args.state_file else default_state_path(repo)
     lock_path = state_path.with_suffix(".lock")
