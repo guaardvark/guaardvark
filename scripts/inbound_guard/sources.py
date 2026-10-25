@@ -140,7 +140,7 @@ def _fill_from_patch(changes: List[Change], patch: str, max_added: int) -> int:
     return total
 
 
-def changes_from_diff(repo: Path, diff_args: Sequence[str], max_added: int = 20000) -> Tuple[List[Change], int]:
+def changes_from_diff(repo: Path, diff_args: Sequence[str], max_added: int = 1000000) -> Tuple[List[Change], int]:
     """Changes for ``git diff <diff_args>``, e.g. ``["A...B"]`` or ``["--cached", "HEAD"]``."""
     raw = git(repo, "diff", "--raw", "-z", "--no-abbrev", "-M", *diff_args)
     changes = _parse_raw(raw)

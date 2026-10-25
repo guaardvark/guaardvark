@@ -11,7 +11,8 @@
   },
 
   "caps": {
-    "max_added_lines": 20000,
+    "_doc": "max_added_lines bounds memory, not time (hook_seconds and --budget bound time): reading 430,000 added lines of mixed code took 3 s and 250 MB, so a cap far below that only held large changes unread.",
+    "max_added_lines": 1000000,
     "hook_seconds": 2.0,
     "findings_per_rule_per_file": 5,
     "blob_min_length": 120,

@@ -106,6 +106,6 @@ def scan(
 def scan_diff(repo: Path, diff_args: Sequence[str], **kwargs) -> Verdict:
     """Scan ``git diff <diff_args>`` in ``repo``."""
     rules = kwargs.pop("rules", None) or RuleSet.load()
-    max_added = kwargs.pop("max_added_lines", None) or int(rules.caps.get("max_added_lines", 20000))
+    max_added = kwargs.pop("max_added_lines", None) or int(rules.caps.get("max_added_lines", 1000000))
     changes, _ = changes_from_diff(repo, diff_args, max_added)
     return scan(changes, rules=rules, repo=repo, **kwargs)
