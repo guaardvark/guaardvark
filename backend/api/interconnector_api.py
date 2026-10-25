@@ -282,6 +282,9 @@ def _check_api_key(config, provided_key=None):
 # until the operator approves or removes some.
 MAX_PENDING_ENROLMENTS = 2000
 
+# Paths per GET when Update Now pulls file contents from the master.
+UPDATE_PULL_BATCH = 200
+
 NOT_ENROLLED_MESSAGE = (
     "This machine has not joined the fleet yet. Approve it on the master "
     "(Settings → Interconnector, Machines joining the fleet), then try again."
@@ -473,24 +476,44 @@ def _load_profile(profile_name: Optional[str] = None, profile_id: Optional[int] 
         return None
 
 
+# Profiles of these types carry every file the sync covers (default_sync_paths,
+# no include filter). A stored path list goes stale with each new backend package,
+# and a client given part of the tree cannot boot.
+WHOLE_TREE_PROFILE_TYPES = frozenset({"full", "code_only"})
+
+
+def _profile_file_filters(profile, file_paths, include_patterns, exclude_patterns):
+    """(paths, include_patterns, exclude_patterns) for a sync run under ``profile``.
+
+    Explicit values from the request win; ``None`` paths mean the default set.
+    """
+    file_cfg = json.loads(profile.file_config) if profile.file_config else {}
+    exclude_patterns = exclude_patterns or file_cfg.get("exclude_patterns")
+    if profile.profile_type in WHOLE_TREE_PROFILE_TYPES:
+        return file_paths, include_patterns, exclude_patterns
+    if file_cfg.get("paths"):
+        file_paths = file_cfg.get("paths")
+    return file_paths, include_patterns or file_cfg.get("include_patterns"), exclude_patterns
+
+
 def _seed_default_profiles():
     """Ensure a few default sync profiles exist."""
-    existing = {p.name for p in InterconnectorSyncProfile.query.all()}
+    existing = {p.name: p for p in InterconnectorSyncProfile.query.all()}
     defaults = [
         {
             "name": "full",
             "profile_type": "full",
-            "description": "Full sync: code, scripts, and system-wide config (rules).",
+            "description": "Full sync: all code the sync carries, and system-wide config (rules).",
             "entity_config": {"entities": ["rules"]},
-            "file_config": {"paths": ["backend/api/", "backend/services/", "backend/middleware/", "backend/utils/", "backend/routes/", "frontend/src/", "frontend/package.json", "frontend/package-lock.json", "scripts/", "start.sh", "stop.sh", "start_redis.sh", "start_celery.sh"], "include_patterns": ["**/*.py", "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.sh", "frontend/package.json", "frontend/package-lock.json", "frontend/src/**/*.json"]},
+            "file_config": {},
             "is_default": True,
         },
         {
             "name": "code_only",
             "profile_type": "code_only",
-            "description": "Only code and scripts, no config data.",
+            "description": "All code the sync carries, no config data.",
             "entity_config": {"entities": []},
-            "file_config": {"paths": ["backend/api/", "backend/services/", "backend/middleware/", "backend/utils/", "frontend/src/", "frontend/package.json", "frontend/package-lock.json", "scripts/", "start.sh", "stop.sh", "start_redis.sh", "start_celery.sh"], "include_patterns": ["**/*.py", "**/*.js", "**/*.jsx", "**/*.ts", "**/*.tsx", "**/*.sh", "frontend/package.json", "frontend/package-lock.json", "frontend/src/**/*.json"]},
+            "file_config": {},
             "is_default": False,
         },
         {
@@ -503,8 +526,16 @@ def _seed_default_profiles():
         },
     ]
     created = []
+    refreshed = []
     for profile in defaults:
         if profile["name"] in existing:
+            # Rows seeded by older releases hold a path list that predates later
+            # backend packages; whole-tree profiles drop it (nothing else edits them).
+            row = existing[profile["name"]]
+            if row.profile_type in WHOLE_TREE_PROFILE_TYPES and row.file_config != json.dumps(profile["file_config"]):
+                row.file_config = json.dumps(profile["file_config"])
+                row.description = profile["description"]
+                refreshed.append(profile["name"])
             continue
         rec = InterconnectorSyncProfile(
             name=profile["name"],
@@ -516,9 +547,9 @@ def _seed_default_profiles():
         )
         db.session.add(rec)
         created.append(profile["name"])
-    if created:
+    if created or refreshed:
         db.session.commit()
-        logger.info(f"[SYNC PROFILE] Seeded default profiles: {created}")
+        logger.info(f"[SYNC PROFILE] Seeded default profiles: {created}; refreshed: {refreshed}")
 
 
 def _list_output_files(sub_path: Optional[str], limit: int = 200, offset: int = 0):
@@ -2418,13 +2449,11 @@ def broadcast_push():
         if profile:
             try:
                 entity_cfg = json.loads(profile.entity_config) if profile.entity_config else {}
-                file_cfg = json.loads(profile.file_config) if profile.file_config else {}
                 if entity_cfg.get("entities") is not None:
                     entities = entity_cfg.get("entities") or []
-                if file_cfg.get("paths"):
-                    file_paths = file_cfg.get("paths")
-                include_patterns = include_patterns or file_cfg.get("include_patterns")
-                exclude_patterns = exclude_patterns or file_cfg.get("exclude_patterns")
+                file_paths, include_patterns, exclude_patterns = _profile_file_filters(
+                    profile, file_paths, include_patterns, exclude_patterns
+                )
             except Exception as e:
                 logger.error(f"[BROADCAST] Failed to apply profile {profile.name}: {e}", exc_info=True)
 
@@ -2723,6 +2752,11 @@ def fetch_output_content():
         return error_response(f"Failed to fetch output content: {str(e)}", 500)
 
 
+def _is_migration_version_path(path: str) -> bool:
+    norm = (path or "").replace("\\", "/")
+    return norm.startswith("backend/migrations/versions/") and norm.endswith(".py")
+
+
 @interconnector_bp.route("/sync/files/pull", methods=["GET"])
 def pull_files():
     """Pull code files from master (for client nodes to call)."""
@@ -2767,6 +2801,13 @@ def pull_files():
             files_list = []
         elif requested_files:
             logger.info(f"[SYNC] File pull: Fetching {len(requested_files)} requested path(s)")
+            # Clients up to 3.3.0 prune their migration folder to the version
+            # modules in this response, so a pull that brings one migration
+            # carries the whole folder; the revisions it builds on stay on disk.
+            if any(_is_migration_version_path(p) for p in requested_files):
+                requested_files = list(dict.fromkeys(
+                    list(requested_files) + file_sync_service.migration_version_paths()
+                ))
             files_list = file_sync_service.fetch_files_by_paths(
                 requested_files, include_content=True
             )
@@ -2960,13 +3001,11 @@ def trigger_manual_sync():
         if profile:
             try:
                 entity_cfg = json.loads(profile.entity_config) if profile.entity_config else {}
-                file_cfg = json.loads(profile.file_config) if profile.file_config else {}
                 if entity_cfg.get("entities") is not None:
                     entities = entity_cfg.get("entities") or []
-                if file_cfg.get("paths"):
-                    file_paths = file_cfg.get("paths")
-                include_patterns = include_patterns or file_cfg.get("include_patterns")
-                exclude_patterns = exclude_patterns or file_cfg.get("exclude_patterns")
+                file_paths, include_patterns, exclude_patterns = _profile_file_filters(
+                    profile, file_paths, include_patterns, exclude_patterns
+                )
                 logger.info(f"[SYNC] Applying profile '{profile.name}' to manual sync")
             except Exception as e:
                 logger.error(f"[SYNC] Failed to apply profile {profile.name}: {e}", exc_info=True)
@@ -4248,28 +4287,38 @@ def apply_updates():
         # fresh client can download gated models without a manual .env copy.
         if files_to_update:
             logger.info(f"[UPDATES] Fetching {len(files_to_update)} files from master...")
-            pull_params = [("file", path) for path in files_to_update]
+            # The paths ride in the GET's request line, which servers cap (64 KiB
+            # on werkzeug); a whole-tree catch-up would pass it, so pull in batches.
+            pull_batches = [
+                [("file", path) for path in files_to_update[i:i + UPDATE_PULL_BATCH]]
+                for i in range(0, len(files_to_update), UPDATE_PULL_BATCH)
+            ]
         else:
             logger.info("[UPDATES] Code current — fetching portable credentials only")
-            pull_params = [("credentials_only", "1")]
+            pull_batches = [[("credentials_only", "1")]]
 
         try:
-            pull_response = requests.get(
-                f"{master_url}/api/interconnector/sync/files/pull",
-                headers=headers,
-                params=pull_params,
-                timeout=120,  # Longer timeout for file transfer
-                verify=False,
-                auth=fleet_auth,
-            )
-            
-            if pull_response.status_code != 200:
-                return error_response(f"Failed to pull files: HTTP {pull_response.status_code}", 502)
-            
-            pull_data = pull_response.json()
-            all_master_files = pull_data.get("data", {}).get("files", [])
-            portable_env = pull_data.get("data", {}).get("portable_env") or {}
-            pulled_paths = {f.get("path") for f in all_master_files}
+            pulled_by_path: Dict[str, Dict] = {}
+            portable_env = {}
+            for pull_params in pull_batches:
+                pull_response = requests.get(
+                    f"{master_url}/api/interconnector/sync/files/pull",
+                    headers=headers,
+                    params=pull_params,
+                    timeout=120,  # Longer timeout for file transfer
+                    verify=False,
+                    auth=fleet_auth,
+                )
+
+                if pull_response.status_code != 200:
+                    return error_response(f"Failed to pull files: HTTP {pull_response.status_code}", 502)
+
+                pull_data = pull_response.json().get("data", {})
+                for f in pull_data.get("files", []):
+                    pulled_by_path[f.get("path")] = f
+                portable_env = pull_data.get("portable_env") or portable_env
+            all_master_files = list(pulled_by_path.values())
+            pulled_paths = set(pulled_by_path)
             missing_pull = [p for p in files_to_update if p not in pulled_paths]
             if missing_pull:
                 logger.warning(
@@ -4377,35 +4426,6 @@ def apply_updates():
             backup_path = str(backup_dir)
         
         logger.info(f"[UPDATES] Update complete: {summary}")
-
-        # Master schema is authoritative — delete stale Alembic version modules the
-        # additive-only sync left behind (e.g. pre-v2.6.1 squash chain on clients).
-        if success and not summary.get("rolled_back"):
-            try:
-                master_version_paths = [
-                    f["path"]
-                    for f in all_master_files
-                    if (f.get("path") or "").replace("\\", "/").startswith(
-                        "backend/migrations/versions/"
-                    )
-                    and (f.get("path") or "").endswith(".py")
-                ]
-                if master_version_paths:
-                    from backend.utils.migration_utils import prune_stale_migration_versions
-                    migrations_dir = file_sync_service.get_project_root() / "backend" / "migrations"
-                    if migrations_dir.is_dir():
-                        prune_result = prune_stale_migration_versions(
-                            str(migrations_dir),
-                            authoritative_paths=master_version_paths,
-                        )
-                        if prune_result.get("removed"):
-                            logger.info(
-                                "[UPDATES] Pruned %d stale migration version file(s): %s",
-                                len(prune_result["removed"]),
-                                ", ".join(prune_result["removed"]),
-                            )
-            except Exception as prune_err:
-                logger.warning("[UPDATES] Migration version prune skipped: %s", prune_err)
 
         # Post-apply convergence check (master manifest is authoritative — no client registry).
         rolled_back = bool(summary.get("rolled_back"))

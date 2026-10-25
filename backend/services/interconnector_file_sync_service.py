@@ -87,7 +87,9 @@ def _sync_in_progress_sentinel():
     Tells the dep_reconciler to refuse to run while we're mid-sync.
     """
     _SENTINEL_DIR.mkdir(parents=True, exist_ok=True)
-    _SENTINEL_FILE.write_text("syncing")
+    # The owner's pid lets dep_reconciler tell a live sync from one whose
+    # process died mid-batch and never cleared the file.
+    _SENTINEL_FILE.write_text(str(os.getpid()))
     try:
         yield
     finally:
@@ -220,6 +222,9 @@ class InterconnectorFileSyncService:
             # runtime artifacts, not code — shipping them bloated the sync and they never
             # converge (the master regenerates them). No git-tracked source lives under outputs/.
             "outputs/",
+            # Runtime caches (plugins/zvec_grep/cache/ holds its index and a
+            # private request key); no source lives in a folder of this name.
+            "cache/",
             "*.pth",
             "*.gguf",
             "*.onnx",
@@ -259,7 +264,28 @@ class InterconnectorFileSyncService:
             or segment.startswith(".venv")
         )
 
+    @staticmethod
+    def _path_inside_install(file_path: str) -> str:
+        """The part of ``file_path`` below the install root, when it is under one.
+
+        Exclude patterns describe the tree. Matched against an absolute path,
+        an install under /data, ~/build or ~/venv would exclude every file.
+        """
+        norm = file_path.replace("\\", "/")
+        if not os.path.isabs(norm):
+            return norm
+        roots = [str(_REPO_ROOT)]
+        env_root = os.environ.get("GUAARDVARK_ROOT")
+        if env_root:
+            roots.insert(0, str(Path(env_root).resolve()))
+        for root in roots:
+            prefix = root.replace("\\", "/").rstrip("/") + "/"
+            if norm.startswith(prefix):
+                return norm[len(prefix):]
+        return norm
+
     def should_exclude_file(self, file_path: str, patterns: Optional[List[str]] = None) -> bool:
+        file_path = self._path_inside_install(file_path)
         file_path_lower = file_path.lower()
         file_name = Path(file_path).name.lower()
         active_patterns = patterns or self.exclude_patterns
@@ -456,6 +482,17 @@ class InterconnectorFileSyncService:
             )
         return files_list
 
+    def migration_version_paths(self) -> List[str]:
+        """Every Alembic version module this install has, as sync paths."""
+        versions = self.get_project_root() / "backend" / "migrations" / "versions"
+        if not versions.is_dir():
+            return []
+        return sorted(
+            f"backend/migrations/versions/{p.name}"
+            for p in versions.glob("*.py")
+            if p.is_file() and not self.should_exclude_file(str(p))
+        )
+
     def resolve_local_file(self, relative_path: str) -> Optional[Dict]:
         """Hash a single local path (fallback when a batch scan omitted it)."""
         project_root = self.get_project_root()
@@ -522,62 +559,32 @@ class InterconnectorFileSyncService:
                 return files_list
             
             if include_content:
+                # Bytes, not text: a text read would drop non-UTF-8 bytes (icons,
+                # fonts, keys) and normalise CRLF, so the client would write a
+                # different file and the update would never converge. UTF-8 files
+                # travel as text, the rest as binary; the client writes these bytes.
                 try:
-                    with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
-                    if content is None:
-                        logger.warning(f"[FILE_SYNC] File content is None: {file_path}")
-                        return files_list
-                    # Empty files (e.g. __init__.py) are valid — compress empty bytes
-                    if not content:
-                        compressed = gzip.compress(b"")
-                        files_list.append({
-                            "path": str(rel_path),
-                            "hash": file_hash,
-                            "size": 0,
-                            "modified_at": modified_time.isoformat(),
-                            "content_compressed": base64.b64encode(compressed).decode('ascii'),
-                            "compression": "gzip",
-                            "original_size": 0,
-                            "compressed_size": len(compressed),
-                        })
-                        return files_list
-
-                    compressed = gzip.compress(content.encode('utf-8'))
-                    files_list.append({
-                        "path": str(rel_path),
-                        "hash": file_hash,
-                        "size": stat.st_size,
-                        "modified_at": modified_time.isoformat(),
-                        "content_compressed": base64.b64encode(compressed).decode('ascii'),
-                        "compression": "gzip",
-                        "original_size": len(content.encode('utf-8')),
-                        "compressed_size": len(compressed),
-                    })
-                except (UnicodeDecodeError, TypeError):
-                    # Binary file — encode with base64 instead of skipping
-                    try:
-                        with open(file_path, 'rb') as f:
-                            raw = f.read()
-                        compressed = gzip.compress(raw)
-                        files_list.append({
-                            "path": str(rel_path),
-                            "hash": file_hash,
-                            "size": stat.st_size,
-                            "modified_at": modified_time.isoformat(),
-                            "content_compressed": base64.b64encode(compressed).decode('ascii'),
-                            "compression": "gzip",
-                            "content_type": "binary",
-                            "original_size": len(raw),
-                            "compressed_size": len(compressed),
-                        })
-                        logger.info(f"[FILE_SYNC] Binary file encoded: {file_path} ({len(raw)} bytes)")
-                    except Exception as e:
-                        logger.warning(f"[FILE_SYNC] Could not read binary file {file_path}: {e}")
-                    return files_list
+                    with open(file_path, 'rb') as f:
+                        raw = f.read()
                 except Exception as e:
                     logger.warning(f"[FILE_SYNC] Could not read file {file_path}: {e}")
                     return files_list
+                compressed = gzip.compress(raw)
+                entry = {
+                    "path": str(rel_path),
+                    "hash": file_hash,
+                    "size": stat.st_size,
+                    "modified_at": modified_time.isoformat(),
+                    "content_compressed": base64.b64encode(compressed).decode('ascii'),
+                    "compression": "gzip",
+                    "original_size": len(raw),
+                    "compressed_size": len(compressed),
+                }
+                try:
+                    raw.decode('utf-8')
+                except UnicodeDecodeError:
+                    entry["content_type"] = "binary"
+                files_list.append(entry)
             else:
                 files_list.append({
                     "path": str(rel_path),
