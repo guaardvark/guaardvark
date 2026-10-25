@@ -18,8 +18,10 @@ _sources.json, which records the English each string was made from so the
 next run knows what is stale. The app does not load that file.
 
 Every translation is checked before it is written: the same {{placeholders}},
-the same <tags>, the same $t() references and the same surrounding spaces as
-the English, and nothing that looks cut off. One that fails twice is left out
+the same <tags>, the same $t() references, numbers and surrounding spaces as
+the English, nothing that looks cut off or sits inside quotation marks the
+English does not have, no single-brace {name} and no word that mixes Latin
+and Cyrillic letters. One that fails twice is left out
 and listed, and the interface shows the English for it. A machine translation
 already on disk that fails a check added later is made again; one edited by
 hand is only reported.
@@ -73,6 +75,25 @@ REGISTER = {
 PLACEHOLDER = re.compile(r"\{\{\s*[^{}]+?\s*\}\}")
 TAG = re.compile(r"</?[A-Za-z0-9]+\s*/?>")
 NESTING = re.compile(r"\$t\([^)]*\)")
+
+# English words a translation may write as a digit: Japanese, Korean and Chinese
+# count with numerals, so "a minute" is 1分, "one per line" is 1行に1つ and
+# "twice a day" is 1日2回.
+NUMBER_WORDS = {
+    "zero": "0", "none": "0", "no": "0", "a": "1", "an": "1", "one": "1", "once": "1", "single": "1", "solo": "1", "per": "1",
+    "each": "1", "every": "1", "daily": "1", "nightly": "1", "hourly": "1",
+    "two": "2", "twice": "2", "second": "2", "couple": "2", "both": "2", "pair": "2",
+    "three": "3", "third": "3", "four": "4", "five": "5", "six": "6", "seven": "7",
+    "eight": "8", "nine": "9", "ten": "10",
+}
+DIGIT_BY_PLACEHOLDER = re.compile(r"\d\s?\{\{|\}\}\s?\d")
+# Opening and closing marks of the quotation styles a translation may use.
+QUOTE_PAIRS = {'"': '"', "'": "'", "“": "”", "„": "“", "«": "»", "‹": "›", "‘": "’", "「": "」", "『": "』"}
+QUOTE_MARKS = set(QUOTE_PAIRS) | set(QUOTE_PAIRS.values())
+# i18next fills {{name}}; a lone {name} is shown to the reader as written.
+SINGLE_BRACE = re.compile(r"(?<!\{)\{[^{}]+\}(?!\})")
+# Alphabets whose look-alike letters a model sometimes mixes inside one word ("Wznowь").
+ALPHABETS = ("LATIN", "CYRILLIC", "GREEK")
 
 
 # ---------------------------------------------------------------- files
@@ -201,6 +222,46 @@ def numbers(text: str) -> list[str]:
     return sorted(re.findall(r"\d+", text))
 
 
+def spelled_numbers(text: str) -> list[str]:
+    """The digits the English writes as words, outside placeholders, tags and $t() references."""
+    for pattern in (PLACEHOLDER, TAG, NESTING):
+        text = pattern.sub(" ", text)
+    return [NUMBER_WORDS[w] for w in re.findall(r"[a-z]+", text.lower()) if w in NUMBER_WORDS]
+
+
+def only_spelled_added(source: str, translated: str, want: list[str], got: list[str]) -> bool:
+    """Every English number is kept and each added one is a word the English
+    spells out; a digit beside a placeholder ("1 {{count}}") is never one."""
+    added = list(got)
+    for digit in want:
+        if digit not in added:
+            return False
+        added.remove(digit)
+    spelled = spelled_numbers(source)
+    for digit in added:
+        if digit not in spelled:
+            return False
+        spelled.remove(digit)
+    return not (DIGIT_BY_PLACEHOLDER.search(translated) and not DIGIT_BY_PLACEHOLDER.search(source))
+
+
+def quoted_whole(text: str) -> bool:
+    """The text is one quotation from end to end: 「ファイル生成」."""
+    text = text.strip()
+    return (len(text) > 2 and QUOTE_PAIRS.get(text[0]) == text[-1]
+            and not any(c in QUOTE_MARKS for c in text[1:-1]))
+
+
+def mixed_alphabet_words(text: str) -> list[str]:
+    """Words that switch between Latin, Cyrillic and Greek letters partway through."""
+    mixed = []
+    for word in re.findall(r"[^\W\d_]+", text):
+        alphabets = {unicodedata.name(c, "").split(" ")[0] for c in word}
+        if len(alphabets & set(ALPHABETS)) > 1:
+            mixed.append(word)
+    return mixed
+
+
 def width(text: str) -> int:
     """Columns the text takes: a Chinese, Japanese or Korean character is as
     wide as two Latin ones, so a complete sentence in those scripts is not
@@ -226,7 +287,7 @@ def problems(source: str, translated: str, may_drop_count: bool = False) -> list
     want, got = numbers(source), numbers(translated)
     if dropped_count and "1" in got:
         got.remove("1")
-    if want != got:
+    if want != got and not only_spelled_added(source, translated, want, got):
         found.append(f"numbers {want} became {got}")
     if source.count("\n") != translated.count("\n"):
         found.append("line breaks changed")
@@ -234,6 +295,14 @@ def problems(source: str, translated: str, may_drop_count: bool = False) -> list
     # translation stops mid-sentence and still parses.
     if source.count('"') % 2 == 0 and translated.count('"') % 2:
         found.append('unbalanced " (cut off at a quote mark?)')
+    if quoted_whole(translated) and not quoted_whole(source):
+        found.append("wrapped in quotation marks the English does not have")
+    braces = sorted(SINGLE_BRACE.findall(translated))
+    if braces != sorted(SINGLE_BRACE.findall(source)):
+        found.append(f"single-brace {braces} (i18next shows it as written; placeholders are {{{{name}}}})")
+    mixed = [w for w in mixed_alphabet_words(translated) if w not in mixed_alphabet_words(source)]
+    if mixed:
+        found.append(f"letters of two alphabets in one word: {mixed}")
     # Against GNOME's human translations of sentences of 40+ characters, 0.2-0.6%
     # of it/pt-BR/nl/pl/ru fall under 0.35, and by width 1.8% of zh-CN and 0.5%
     # of ja/ko (by character count it was half of zh-CN).
