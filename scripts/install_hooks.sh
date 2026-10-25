@@ -69,7 +69,8 @@ fi
 
 for h in "${inbound[@]}"; do
     target="$hooks/$h"
-    if [ -e "$target" ] && ! grep -q "inbound guard" "$target" 2>/dev/null; then
+    # Every version of these hooks runs the pinned engine; any other hook there is kept.
+    if [ -e "$target" ] && ! grep -q "inbound-guard/engine" "$target" 2>/dev/null; then
         mv "$target" "$target.before-inbound-guard"
         echo "! kept the previous $h as $h.before-inbound-guard"
     fi
