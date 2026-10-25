@@ -270,7 +270,7 @@ const ProjectDetailPage = () => {
           : [],
       );
     } catch (err) {
-      console.error(`Error fetching project ${projectId}:`, err);
+      console.error("Error fetching project %s:", projectId, err);
       const errMsg =
         err.message || t("projects.detail.loadFailed", { id: projectId });
       setProjectError(errMsg);

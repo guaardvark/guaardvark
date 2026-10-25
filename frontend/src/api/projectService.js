@@ -50,7 +50,8 @@ export const getProject = async (projectId) => {
     return data;
   } catch (err) {
     console.error(
-      `projectService: Error getting project ${projectId}:`,
+      "projectService: Error getting project %s:",
+      projectId,
       err.message,
     );
     return { error: err.message || translate("messages.projects.getFailed", { projectId }) };
