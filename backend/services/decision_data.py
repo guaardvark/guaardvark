@@ -585,7 +585,7 @@ DECISIONS: dict = {
      'choices': None,
      'state': {'message': ('user', 600)},
      'anchor': 'backend/services/unified_chat_engine.py _asks_about_code, _pin_code_search_tools, '
-               '_CODE_SEARCH_NUDGE, hold_rag_for_code',
+               '_code_search_nudge, hold_rag_for_code',
      'precheck': 'a CODE_SEARCH_KEYWORDS substring matches and search_codebase is registered',
      'fallback': '_asks_about_code(message)',
      'safe_side': False,

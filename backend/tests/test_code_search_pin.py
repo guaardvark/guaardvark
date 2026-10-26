@@ -59,7 +59,7 @@ def test_asks_about_code_matches_source_questions_only():
     assert uce._asks_about_code("Which module enforces that paths stay inside their directory?")
     assert uce._asks_about_code("how does the backend pick a video model")
     assert not uce._asks_about_code("make me a CSV of the eight workspaces")
-    assert "search_codebase" in uce._CODE_SEARCH_NUDGE
+    assert "search_codebase" in uce._code_search_nudge()
 
 
 def test_a_keyword_inside_another_word_pins_nothing():

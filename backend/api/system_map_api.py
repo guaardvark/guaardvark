@@ -11,14 +11,20 @@ Endpoints
 ---------
 GET  /api/system-map/snapshot            stored map (?root=, ?refresh=1 starts a rebuild)
 GET  /api/system-map/findings            ranked findings only (?severity=, ?kind=, ?include_dismissed=1)
+GET  /api/system-map/query               ?mode=where|module|symbol|route|tool|subsystem|impact|findings&q=
 POST /api/system-map/refresh             start a rebuild now
 POST /api/system-map/findings/<id>/dispatch
 POST /api/system-map/findings/<id>/dismiss
+GET  /api/system-map/code-index          is there a code search index for the checkout?
+POST /api/system-map/code-index          build or refresh it with the zvec_grep plugin, in the background
 GET  /api/system-map/health
 """
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -184,6 +190,32 @@ def findings():
     })
 
 
+@system_map_bp.route("/query", methods=["GET"])
+def query():
+    """A focused question about the map, answered as text: ?mode=&q= (or
+    ?q= alone, e.g. "what calls run_chat_turn")."""
+    from backend.services.system_mapper import query as query_mod
+    from backend.services.system_mapper import store
+
+    root, err = _resolve_root(request.args.get("root"))
+    if err:
+        return err
+    mode = (request.args.get("mode") or "").strip().lower()
+    q = (request.args.get("q") or "").strip()
+    if not mode:
+        mode, q = query_mod.parse(q)
+    payload, err = _stored(root)
+    if err:
+        return err
+    index = store.load_index(root, payload)
+    if index is None:
+        store.start(root)
+        return jsonify({"success": False, "status": "computing",
+                        "reason": "The map's query index is being built. Ask again in a few seconds."}), 202
+    text = query_mod.answer(root, payload, index, mode, q)
+    return jsonify({"success": True, "mode": mode, "q": q, "answer": text, "_cache": payload.get("_cache")})
+
+
 @system_map_bp.route("/findings/<finding_id>/dispatch", methods=["POST"])
 def dispatch(finding_id):
     """Send a finding to the self-improvement agent as a directed task."""
@@ -286,6 +318,95 @@ def dismiss(finding_id):
     undo = body.get("undo") is True
     ids = (actions.undismiss if undo else actions.dismiss)(root, finding_id)
     return jsonify({"success": True, "dismissed": sorted(ids), "undo": undo})
+
+
+# ── Code search index (zvec_grep plugin) ────────────────────────────────────
+#
+# The index lives in <checkout>/.zvec-grep and is built by the plugin's own
+# scripts/index.sh with the embedding model its Install step downloaded into
+# plugins/zvec_grep/cache/models. Nothing here downloads: without the
+# installed plugin and its model the request is refused.
+
+_index_job: dict = {}
+_index_lock = threading.Lock()
+
+
+def _zvec_paths(root: Path) -> dict:
+    plugin = root / "plugins" / "zvec_grep"
+    return {
+        "plugin": plugin,
+        "script": plugin / "scripts" / "index.sh",
+        "zg": plugin / "node_modules" / ".bin" / "zg",
+        "models": plugin / "cache" / "models",
+        "index": root / ".zvec-grep",
+    }
+
+
+def _code_index_status(root: Path) -> dict:
+    p = _zvec_paths(root)
+    models_ready = p["models"].is_dir() and any(p["models"].iterdir())
+    with _index_lock:
+        job = dict(_index_job.get(str(root)) or {})
+    proc = job.pop("proc", None)
+    running = proc is not None and proc.poll() is None
+    if proc is not None and not running and "exit_code" not in job:
+        job["exit_code"] = proc.returncode
+    return {
+        "indexed": p["index"].is_dir(),
+        "installed": p["zg"].exists() and models_ready,
+        "running": running,
+        "started_at": job.get("started_at"),
+        "exit_code": job.get("exit_code"),
+        "log_tail": _tail(job.get("log")),
+    }
+
+
+def _tail(path, n: int = 15) -> str:
+    if not path:
+        return ""
+    try:
+        return "\n".join(Path(path).read_text(errors="replace").splitlines()[-n:])
+    except OSError:
+        return ""
+
+
+@system_map_bp.route("/code-index", methods=["GET"])
+def code_index_status():
+    root = _default_root()
+    return jsonify({"success": True, **_code_index_status(root)})
+
+
+@system_map_bp.route("/code-index", methods=["POST"])
+def code_index_build():
+    """Build or refresh the code search index of the checkout in the background."""
+    root = _default_root()
+    p = _zvec_paths(root)
+    if not p["script"].is_file():
+        return jsonify({"success": False, "reason": "The zvec_grep plugin is not part of this install."}), 400
+    if not p["zg"].exists():
+        return jsonify({"success": False, "reason": (
+            "The zvec_grep plugin is not installed. Install it from the Plugins page first; "
+            "building the index downloads nothing.")}), 400
+    if not (p["models"].is_dir() and any(p["models"].iterdir())):
+        return jsonify({"success": False, "reason": (
+            "The zvec_grep plugin's embedding model is missing from plugins/zvec_grep/cache/models. "
+            "Run the plugin's Install from the Plugins page; this button does not download it.")}), 400
+    with _index_lock:
+        job = _index_job.get(str(root))
+        if job and job.get("proc") is not None and job["proc"].poll() is None:
+            return jsonify({"success": True, "status": "running",
+                            "started_at": job.get("started_at")}), 202
+        from backend.config import LOG_DIR
+        log_path = Path(LOG_DIR) / "zvec_grep_index.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log = open(log_path, "ab")
+        env = {k: v for k, v in os.environ.items() if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")}
+        proc = subprocess.Popen(["bash", str(p["script"]), str(root)], cwd=str(root),
+                                stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                env=env, start_new_session=True)
+        log.close()
+        _index_job[str(root)] = {"proc": proc, "started_at": time.time(), "log": str(log_path)}
+    return jsonify({"success": True, "status": "started", "started_at": time.time()}), 202
 
 
 @system_map_bp.route("/health", methods=["GET"])

@@ -90,6 +90,7 @@ def test_findings_come_before_the_numbers(mapper):
     _store_map(mapper, cache_key=dict(KEY))
     text = wt.MapCodebaseTool().execute().output
     assert text.index("Findings:") < text.index("Stats:")
+    assert "system_map_query" in text
 
 
 def test_a_stale_map_is_served_at_once_and_rebuilt_in_the_background(mapper, monkeypatch):

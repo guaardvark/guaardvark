@@ -42,10 +42,13 @@ def resolve_slash_direct_tool(
     if not isinstance(params, dict):
         params = {}
 
-    if tool:
+    slash = (options.get("slash_command") or "").strip().lstrip("/").lower()
+    # The browser names the slash command's tool but leaves its arguments in
+    # slash_args; parse them here rather than run the tool without them.
+    if tool and not (slash and not params and SLASH_COMMAND_TOOL_MAP.get(slash) == tool
+                     and (options.get("slash_args") or options.get("slash_prompt"))):
         return tool, dict(params)
 
-    slash = (options.get("slash_command") or "").strip().lstrip("/").lower()
     if not slash:
         return None, {}
 
@@ -121,7 +124,12 @@ def resolve_slash_direct_tool(
             out["query"] = args
         return mapped, out
     if slash == "sysmap":
-        return mapped, {"refresh": args.lower() in ("refresh", "--refresh", "1", "true")}
+        # /sysmap and /sysmap refresh report the map; anything else is a
+        # question for the query tool: /sysmap module backend/app.py,
+        # /sysmap what calls run_chat_turn, /sysmap where is the seed box.
+        if not args or args.lower() in ("refresh", "--refresh", "1", "true"):
+            return mapped, {"refresh": bool(args)}
+        return "system_map_query", {"q": args}
     if slash == "swarm":
         return mapped, {"swarm_id": args} if args else {}
     if slash == "removebg":

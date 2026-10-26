@@ -722,8 +722,9 @@ REPO_INTEL_TOOLS = ["get_repository_map", "get_dependency_graph", "read_ast_node
 # "which function does Y", "callers of Z". The semantic selector offered only
 # search_knowledge_base for six of eight such questions in the 2026-09-08 trial,
 # so the model answered from documents or said it was unsure. Pinned alongside
-# read_code so the model can open what the search found.
-CODE_SEARCH_TOOLS = ["search_codebase", "read_code"]
+# read_code so the model can open what the search found, and system_map_query,
+# which answers "what calls", "what depends on" and "where is" from the map.
+CODE_SEARCH_TOOLS = ["search_codebase", "system_map_query", "read_code"]
 CODE_SEARCH_KEYWORDS = [
     "in the code", "in the codebase", "in the source", "source code", "the backend",
     "the frontend", "which file", "which files", "which function", "which module",
@@ -737,12 +738,13 @@ CODE_SEARCH_KEYWORDS = [
     # consumes", "where are ... declared", "where is the ... decision made".
     "which code", "which worker", "where are", "where is the", "declared",
     "decision made", "the caller", "implementation", "the module",
+    "what calls", "call graph", "imported by", "what imports", "which subsystem",
 ]
 # Knowledge-base navigation. search_knowledge_base is a CORE tool and always present,
 # which makes the selector treat "what documents do you have" as already served and
 # drop the tools that actually answer it. Same deterministic pin as the repo trio.
 WORKSTATION_TOOLS = [
-    "map_codebase", "dispatch_map_finding",
+    "map_codebase", "system_map_query", "dispatch_map_finding",
     "inspect_gpu", "read_logs",
     "swarm_status", "launch_swarm",
     "self_improvement_status", "submit_improvement",
@@ -1332,11 +1334,31 @@ def _pin_repo_intel_tools(message: str, selected: List[str], all_tool_names: Lis
 # ask for a folder path before indexing, and in the 2026-09-08 trial it obeyed
 # that for source questions too: search_codebase sat in the prompt for seven of
 # eight questions and it asked the user for a path instead of calling it.
-_CODE_SEARCH_NUDGE = (
-    "This project's source code is already indexed. For questions about the code, "
-    "call search_codebase first; never ask the user for a path, a file, or to load "
-    "the project, and never say the code is unavailable before searching it."
+_CODE_SEARCH_NUDGE_INDEXED = (
+    "This project's source code is indexed for search by meaning (search_codebase) and "
+    "mapped (system_map_query: where, module, symbol, route, tool, subsystem, impact). For "
+    "questions about the code, call one of them first; never ask the user for a path, a file, "
+    "or to load the project, and never say the code is unavailable before searching it."
 )
+_CODE_SEARCH_NUDGE_LITERAL = (
+    "This project's source code is mapped (system_map_query: where, module, symbol, route, "
+    "tool, subsystem, impact) and searchable by its words and names (search_codebase; search "
+    "by meaning is not set up on this machine). For questions about the code, call one of them "
+    "first; never ask the user for a path, a file, or to load the project, and never say the "
+    "code is unavailable before searching it."
+)
+
+
+def _code_search_nudge() -> str:
+    """The system line for a code question. It says "indexed" only when the
+    checkout has a code search index (<root>/.zvec-grep, built by the zvec_grep
+    plugin); otherwise it says the search is literal."""
+    try:
+        from backend.config import GUAARDVARK_ROOT
+        indexed = (Path(GUAARDVARK_ROOT) / ".zvec-grep").is_dir()
+    except Exception:
+        indexed = False
+    return _CODE_SEARCH_NUDGE_INDEXED if indexed else _CODE_SEARCH_NUDGE_LITERAL
 
 # With document RAG on, the 2026-09-08 trial answered code questions from the
 # indexed docs and made no search_codebase calls (with RAG off: 8/8 calls,
@@ -1360,10 +1382,11 @@ def _web_search_succeeded(steps: List[Dict[str, Any]]) -> bool:
 
 
 def _held_rag_ready(step_info: Dict[str, Any]) -> bool:
-    """True once this iteration ran search_codebase, with hits or without."""
+    """True once this iteration ran a code search (search_codebase or
+    system_map_query), with hits or without."""
     return any(
         (tc.get("tool_name") if isinstance(tc, dict) else getattr(tc, "tool_name", None))
-        == "search_codebase"
+        in ("search_codebase", "system_map_query")
         for tc in (step_info.get("tool_calls") or [])
     )
 
@@ -1437,7 +1460,7 @@ _WORKSTATION_DIRECT = (
 # was a dict dump with machine paths in it (observed 2026-09-05). The raw
 # result still rides the tool card.
 _WORKSTATION_PROSE_TOOLS = frozenset(
-    {"map_codebase", "inspect_gpu", "read_logs", "swarm_status", "self_improvement_status"})
+    {"inspect_gpu", "read_logs", "swarm_status", "self_improvement_status"})
 
 _TOOL_PROSE_SYSTEM = (
     "You are Guaardvark's assistant. Answer the user's message from the tool "
@@ -2981,7 +3004,7 @@ class UnifiedChatEngine:
         ollama_messages = [{"role": "system", "content": system_prompt}]
         hold_rag_for_code = False
         if "search_codebase" in (selected_tools or []) and _asks_about_code(message):
-            ollama_messages.append({"role": "system", "content": _CODE_SEARCH_NUDGE})
+            ollama_messages.append({"role": "system", "content": _code_search_nudge()})
             hold_rag_for_code = bool(rag_context)
         # Held back for a code question's first prompt; attached after a code
         # search has run (see _KB_SECONDARY_LABEL).

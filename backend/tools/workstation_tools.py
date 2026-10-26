@@ -58,6 +58,7 @@ _LOG_WRITERS: Dict[str, str] = {
     "reboot.log": "backend/api/reboot_api.py",
     "heal_backend_venv.log": "scripts/heal_backend_venv.sh",
     "video_generation.log": "backend/services/batch_video_generator.py",
+    "zvec_grep_index.log": "backend/api/system_map_api.py",
     "lora_trainer_daemon.log": "plugins/lora_trainer/real_trainer.py",
     # Agent display.
     "xfce_agent.log": "scripts/start_agent_display.sh",
@@ -266,6 +267,8 @@ def _map_text(root: Path, snapshot: dict, findings: List[dict], limit: int, note
         f"{_num(len(snapshot.get('celery_tasks') or []))} Celery tasks; {_num(subs.get('subsystems'))} subsystems "
         f"({_num(subs.get('unclaimed'))} files in none)."
     )
+    lines.append("For focused questions use system_map_query: where <feature>, module <path>, symbol <name>, "
+                 "route <path>, tool <name>, subsystem <name>, impact <path or symbol>, findings <scope>.")
     lines.append(
         "To hand a dispatchable finding to self-improvement, open the System Map page (/system-map) in Guaardvark."
         if over_mcp else
@@ -315,7 +318,8 @@ class MapCodebaseTool(BaseTool):
     observation_chars = 5000
     chat_summary = (
         "Health report of Guaardvark's own code: the most severe System Mapper findings (unreachable "
-        "tools, frontend calls with no route, dormant modules, import cycles) and the numbers."
+        "tools, frontend calls with no route, dormant modules, import cycles) and the numbers. For a "
+        "focused question use system_map_query."
     )
     description = (
         "Run the System Mapper over Guaardvark's own source checkout, or a folder inside it, and "
@@ -326,8 +330,9 @@ class MapCodebaseTool(BaseTool):
         "and no backend, network or GPU is needed. Never blocks for long: a map that still describes "
         "the files on disk comes back as is; when the source has changed the last map comes back at "
         "once with a note while one background build replaces it. When no map exists yet, or "
-        "refresh=true, it waits up to 60 s for the new map. For an uploaded Code Repository folder "
-        "use get_repository_map or get_dependency_graph; to find code by meaning, search_codebase."
+        "refresh=true, it waits up to 60 s for the new map. For a focused question (where is X, "
+        "what calls F, what depends on M, what is in a subsystem) use system_map_query; for an "
+        "uploaded Code Repository folder use get_repository_map or get_dependency_graph."
     )
     parameters = {
         "refresh": ToolParameter(
@@ -376,6 +381,95 @@ class MapCodebaseTool(BaseTool):
             return ToolResult(success=True, output=text, metadata=meta)
         except Exception as e:
             logger.exception("map_codebase failed")
+            return ToolResult(success=False, error=str(e))
+
+
+def _query_inputs(root: Path, wait_seconds: float) -> Tuple[Optional[dict], Optional[dict], Optional[str]]:
+    """(snapshot, index, note) for answering a question about root. A map
+    whose source changed is still used, with a note, while one background
+    build replaces it; with no usable map the call waits up to wait_seconds."""
+    from backend.services.system_mapper import store
+
+    payload, info = store.state(root)
+    index = store.load_index(root, payload) if payload is not None else None
+    note = None
+    if payload is None or index is None:
+        job = store.running_job(root) or store.start(root)
+        job.done.wait(wait_seconds)
+        if job.error:
+            raise RuntimeError(f"system map failed for {_root_label(root)}: {job.error}")
+        payload, info = store.state(root, refresh_if_stale=False)
+        index = store.load_index(root, payload) if payload is not None else None
+        if payload is None or index is None:
+            running = int(time.time() - job.started)
+            return None, None, (f"The map is still building ({running} s so far). Ask again in a moment; "
+                                "asking again does not start a second build.")
+    elif info.get("stale"):
+        note = (f"(The source changed since this map was built {_age_text(info.get('age_seconds') or 0)} ago; "
+                "a new one is building. Lines may have moved.)")
+    return payload, index, note
+
+
+class SystemMapQueryTool(BaseTool):
+    name = "system_map_query"
+    read_only = True
+    plan_research = True
+    idempotent = True
+    observation_chars = 5000
+    chat_summary = (
+        "Ask the System Mapper about Guaardvark's own code: where <feature>, module <path>, "
+        "symbol <name> (callers, callees), route <path>, tool <name>, subsystem <name>, "
+        "impact <path|symbol> (dependents, tests to run), findings <scope>."
+    )
+    description = (
+        "Answer a focused question about Guaardvark's own source from its System Map, as short text "
+        "with file:line references. Modes: where <feature text> (files and lines that implement it, "
+        "ranked from definitions, docstrings, interface text, routes, tool names, subsystem "
+        "descriptions and, when the checkout has a code search index, semantic hits, each with why "
+        "it matched); module <path or dotted name> (imports, importers at load time and inside "
+        "functions, test importers, routes, tools, Celery tasks, definitions, findings); symbol "
+        "<name> (definitions with line ranges, callers resolved through imports, calls matching by "
+        "name only, callees); route <path> (handler, frontend callers, pages that reach it); tool "
+        "<name> (class, registration, how the chat reaches it, MCP exposure); subsystem <name> (what "
+        "it holds and depends on); impact <path or symbol> (what depends on it and which tests to "
+        "run); findings <folder, file, subsystem or kind>. Call resolution is static and best "
+        "effort, and the answer says when a match is by name only. Read-only; uses the stored map "
+        "and starts one background rebuild when the source has changed."
+    )
+    parameters = {
+        "mode": ToolParameter(
+            name="mode", type="string", required=False, default="",
+            enum=["where", "module", "symbol", "route", "tool", "subsystem", "impact", "findings"],
+            description="What kind of question. Leave empty to have it read from q (e.g. q='what calls run_chat_turn').",
+        ),
+        "q": ToolParameter(
+            name="q", type="string", required=False, default="",
+            description="The thing to look up: feature words for where, a path or dotted module for module and impact, a function or Class.method for symbol, /api/... for route, a tool name, a subsystem name, or a folder/kind for findings.",
+        ),
+    }
+
+    def execute(self, **kwargs) -> ToolResult:
+        from backend.services.system_mapper import query as query_mod
+
+        mode = (kwargs.get("mode") or "").strip().lower()
+        q = (kwargs.get("q") or kwargs.get("question") or kwargs.get("query") or "").strip()
+        if not mode:
+            mode, q = query_mod.parse(q)
+        if not mode or (not q and mode != "findings"):
+            return ToolResult(success=False, error=(
+                "Say what to look up, e.g. mode='where' q='image seed box', or q='what calls run_chat_turn'."))
+        try:
+            root = _repo_root()
+            snapshot, index, note = _query_inputs(root, _map_wait_seconds(is_mcp_transport(self)))
+            if snapshot is None:
+                return ToolResult(success=True, output=f"Status: computing. {note}",
+                                  metadata={"computing": True, "mode": mode, "q": q})
+            text = query_mod.answer(root, snapshot, index, mode, q)
+            if note:
+                text = f"{text}\n{note}"
+            return ToolResult(success=True, output=text, metadata={"mode": mode, "q": q})
+        except Exception as e:
+            logger.exception("system_map_query failed")
             return ToolResult(success=False, error=str(e))
 
 
@@ -909,6 +1003,7 @@ class SubmitImprovementTool(BaseTool):
 
 WORKSTATION_TOOLS: List[BaseTool] = [
     MapCodebaseTool(),
+    SystemMapQueryTool(),
     DispatchMapFindingTool(),
     InspectGpuTool(),
     ReadLogsTool(),
