@@ -1010,9 +1010,13 @@ def _initialize_app_components(app):
                 module = getattr(view, "__module__", "") or ""
             except Exception:
                 module = ""
-            get_tracker().record_hit(
+            tracker = get_tracker()
+            tracker.record_hit(
                 symbol_id, "route", endpoint, module, MODE_FLASK_ROUTE,
             )
+            # Nothing else drains this process's buffer; write it out once a
+            # minute on a background thread.
+            tracker.maybe_flush_async(app, interval_s=60.0)
         except Exception:  # never fail a request over an audit record
             logger_module.warning("Failed to record route liveness (non-fatal)", exc_info=True)
             pass

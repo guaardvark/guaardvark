@@ -197,15 +197,16 @@ class TestMapAndDispatch:
 
         result = wt.MapCodebaseTool().execute()
         assert result.success
-        assert result.output["file_count"] == 3
-        assert result.output["findings"][0]["id"] == "abc123"
-        assert result.output["findings"][0]["dispatchable"] is True
+        assert "abc123" in result.output and "(dispatchable)" in result.output
+        assert result.metadata["file_count"] == 3
+        assert result.metadata["findings"][0]["id"] == "abc123"
+        assert result.metadata["findings"][0]["dispatchable"] is True
 
     def test_dispatch_refuses_when_precheck_fails(self, monkeypatch):
         from backend.tools import workstation_tools as wt
 
         monkeypatch.setattr(wt, "_safe_root", lambda _arg: "/repo")
-        monkeypatch.setattr(wt, "_load_snapshot", lambda root, refresh: {
+        monkeypatch.setattr(wt, "_load_snapshot", lambda root, refresh=False: {
             "findings": [{"id": "abc123", "kind": "unwired-tool", "summary": "x", "paths": []}],
         })
 
@@ -233,7 +234,7 @@ class TestMapAndDispatch:
         from backend.tools import workstation_tools as wt
 
         monkeypatch.setattr(wt, "_safe_root", lambda _arg: "/repo")
-        monkeypatch.setattr(wt, "_load_snapshot", lambda root, refresh: {
+        monkeypatch.setattr(wt, "_load_snapshot", lambda root, refresh=False: {
             "findings": [{"id": "abc123", "kind": "unwired-tool", "summary": "x", "paths": ["a.py"]}],
         })
 
@@ -247,7 +248,7 @@ class TestMapAndDispatch:
         )
         monkeypatch.setattr(
             "backend.services.system_mapper.actions.dispatch_finding",
-            lambda finding, priority="medium": {"success": True, "change": {"file": finding["paths"][0]}},
+            lambda finding, priority="medium", root=None: {"success": True, "change": {"file": finding["paths"][0]}},
         )
         result = wt.DispatchMapFindingTool().execute(finding_id="abc123")
         assert result.success

@@ -202,3 +202,33 @@ def test_a_local_checkout_is_read_the_same_way(monkeypatch, tmp_path):
     result = tool_graph.analyze(_guaardvark_shaped(tmp_path / "checkout"))
     assert result["stats"]["tool_registry_source"] == "static"
 
+
+def test_a_stale_system_map_is_served_without_building(monkeypatch, tmp_path):
+    """GET /api/system-map/snapshot returns the stored map at once; a stale one
+    is rebuilt on a background thread, never in the request."""
+    import threading
+
+    from backend.api import system_map_api
+    from backend.services.system_mapper import store
+
+    root = tmp_path / "checkout"
+    (root / "backend").mkdir(parents=True)
+    (root / "backend" / "app.py").write_text("x = 1\n")
+    monkeypatch.setenv("GUAARDVARK_STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setattr(backend_config, "GUAARDVARK_ROOT", str(root))
+    store.write_json_atomic(store.snapshot_path(root), {
+        "file_count": 1, "findings": [], "stats": {},
+        "cache_key": {"head": None, "listing": "old", "newest_mtime": 0, "mapper": "old"},
+    })
+    started = []
+    monkeypatch.setattr(store, "start", lambda r: started.append(threading.current_thread().name) or
+                        type("J", (), {"done": threading.Event(), "started": 0.0})())
+    monkeypatch.setattr(store, "build", _fail("building a map in the request"))
+
+    client = _client(system_map_api.system_map_bp)
+    response = client.get("/api/system-map/snapshot")
+    assert response.status_code == 200
+    body = response.get_json()
+    assert body["file_count"] == 1
+    assert body["_cache"]["stale"] is True
+    assert started, "a stale map asks for a background rebuild"

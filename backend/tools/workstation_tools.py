@@ -12,7 +12,6 @@ import logging
 import os
 import re
 import subprocess
-import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -130,24 +129,33 @@ def _safe_root(root_arg: Optional[str]) -> Path:
     return candidate
 
 
-def _load_snapshot(root: Path, refresh: bool) -> dict:
-    from backend.api.system_map_api import _load_or_compute
+def _load_snapshot(root: Path, refresh: bool = False) -> dict:
+    """The stored map of root, for looking a finding up by id. Raises when
+    there is none yet."""
+    from backend.services.system_mapper import store
 
-    payload, err = _load_or_compute(root, refresh)
-    if err:
-        # err is (jsonify_response, status) — unwrap for the tool
-        raise RuntimeError(f"system map failed for {root}")
+    payload, _age = store.read_snapshot(root)
+    if refresh or payload is None:
+        store.start(root)
+    if payload is None:
+        raise RuntimeError(f"No map of {_root_label(root)} yet; call map_codebase first")
     return payload
 
 
-# How long map_codebase waits for a map being computed before answering with
-# what it has. Measured 2026-09-30 on one workstation: a clean checkout
-# (1,454 source files) maps in about 15 s, 7 s of it the tool-registry
-# subprocess; files git ignores are not mapped, so local copies beside the
-# source add nothing. A tree that has to be walked instead (see
-# core.source_files), holding about 49,000 .py files of scratch and worktree
-# copies, took 296 s before that subprocess. MCP clients are cut off at 120 s
-# by default. 60 s is four times the clean-checkout time and half that cutoff.
+def _root_label(root: Path) -> str:
+    """root as answers name it: relative to the checkout, never absolute."""
+    try:
+        rel = Path(root).resolve().relative_to(_repo_root()).as_posix()
+    except ValueError:
+        return Path(root).name
+    return "Guaardvark's checkout" if rel in ("", ".") else f"{rel}/ in Guaardvark's checkout"
+
+
+# How long a map tool waits for a map being built before answering with what
+# it has. Measured 2026-10-26 on one workstation: the whole checkout (2,608
+# Python and JavaScript files) maps in about 7 s in a fresh process and 1.5 s
+# when its files were read before; nothing is imported or run. MCP clients are
+# cut off at 120 s by default. 60 s is many times the build and half that cutoff.
 _MAP_WAIT_SECONDS = 60.0
 
 
@@ -161,45 +169,6 @@ def _map_wait_seconds(over_mcp: bool) -> float:
         return min(_MAP_WAIT_SECONDS, max(1.0, load_config().timeout_seconds / 2))
     except Exception:
         return _MAP_WAIT_SECONDS
-
-
-class _MapJob:
-    """One background map computation for one root."""
-
-    def __init__(self) -> None:
-        self.started = time.time()
-        self.done = threading.Event()
-        self.payload: Optional[dict] = None
-        self.error: Optional[str] = None
-
-
-_map_jobs: Dict[str, _MapJob] = {}
-_map_jobs_lock = threading.Lock()
-
-
-def _run_map_job(root: Path, job: _MapJob) -> None:
-    try:
-        from backend.api.system_map_api import compute_and_cache
-        job.payload = compute_and_cache(root)
-    except Exception as exc:
-        logger.exception("map_codebase: background map of %s failed", root)
-        job.error = str(exc) or type(exc).__name__
-    finally:
-        job.done.set()
-
-
-def _map_job(root: Path) -> _MapJob:
-    """The computation running for root, or a new one started in the
-    background. A root never has two at once, so a retry joins the first."""
-    key = str(root)
-    with _map_jobs_lock:
-        job = _map_jobs.get(key)
-        if job is not None and not job.done.is_set():
-            return job
-        job = _MapJob()
-        _map_jobs[key] = job
-    threading.Thread(target=_run_map_job, args=(root, job), name="map_codebase", daemon=True).start()
-    return job
 
 
 def _age_text(seconds: float) -> str:
@@ -216,57 +185,93 @@ def _age_text(seconds: float) -> str:
 def _map_snapshot(root: Path, refresh: bool, wait_seconds: float) -> Tuple[Optional[dict], Optional[str]]:
     """(snapshot, note), never blocking longer than wait_seconds.
 
-    A map under the cache TTL is returned as is. Otherwise a background
-    computation is started, or the running one joined: an older map is
-    returned at once with its age, and when there is none, or refresh was
+    A map that still describes the files on disk is returned as is. Otherwise
+    the one background build for root is started, or joined: an older map is
+    returned at once with a note, and when there is none, or refresh was
     asked, the call first waits up to wait_seconds for the new one.
     (None, note) means there is nothing to show yet.
     """
-    from backend.api.system_map_api import CACHE_TTL_SECONDS, read_cached
+    from backend.services.system_mapper import store
 
-    cached, age = read_cached(root)
-    if cached is not None and age < CACHE_TTL_SECONDS and not refresh:
-        cached["_cache"] = {"hit": True, "age_seconds": int(age), "ttl_seconds": CACHE_TTL_SECONDS}
-        return cached, None
+    payload, info = store.state(root)
+    if payload is not None and not info["stale"] and not refresh:
+        payload["_cache"] = info
+        return payload, None
 
-    job = _map_job(root)
-    if cached is None or refresh:
+    job = store.running_job(root) or store.start(root)
+    if payload is None or refresh:
         job.done.wait(wait_seconds)
 
     if job.done.is_set() and job.error is None and job.payload is not None:
         return job.payload, None
 
     if job.done.is_set():
-        if cached is None:
-            raise RuntimeError(f"system map failed for {root}: {job.error}")
-        cached["_cache"] = {
-            "hit": True, "stale": age >= CACHE_TTL_SECONDS, "age_seconds": int(age),
-            "ttl_seconds": CACHE_TTL_SECONDS, "refresh_error": job.error,
-        }
-        return cached, (
-            f"Computing a new map failed ({job.error}). This is the last map, "
-            f"{_age_text(age)} old."
-        )
+        if payload is None:
+            raise RuntimeError(f"system map failed for {_root_label(root)}: {job.error}")
+        payload["_cache"] = {**info, "refresh_error": job.error}
+        return payload, f"Building a new map failed ({job.error}). This is the last map, {_age_text(info['age_seconds'] or 0)} old."
 
     running = int(time.time() - job.started)
-    if cached is not None:
-        cached["_cache"] = {
-            "hit": True, "stale": age >= CACHE_TTL_SECONDS, "age_seconds": int(age),
-            "ttl_seconds": CACHE_TTL_SECONDS, "refreshing": True,
-            "refresh_running_seconds": running,
-        }
-        return cached, (
-            f"This map is {_age_text(age)} old. A new one has been computing in the "
-            f"background for {running} s; call map_codebase again later to get it, or "
-            "with refresh=true to wait for it. Calling again never starts a second "
-            "computation."
+    if payload is not None:
+        payload["_cache"] = {**info, "refreshing": True, "refresh_running_seconds": running}
+        return payload, (
+            f"The source changed since this map was built ({_age_text(info['age_seconds'] or 0)} ago). "
+            f"A new one has been building for {running} s; ask again shortly, or pass refresh=true "
+            "to wait for it. Asking again never starts a second build."
         )
     return None, (
-        f"No map of this folder exists yet. It has been computing in the background "
-        f"for {running} s (seconds on a typical checkout, minutes on a very large "
-        "one). Call map_codebase again with the same root in a minute or two to get "
-        "it; calling again does not start a second computation."
+        f"No map of this folder exists yet. It has been building in the background for {running} s "
+        "(seconds on this checkout). Ask again in a moment; asking again does not start a second build."
     )
+
+
+def _num(n: Any) -> str:
+    try:
+        return f"{int(n):,}"
+    except (TypeError, ValueError):
+        return "?"
+
+
+def _map_text(root: Path, snapshot: dict, findings: List[dict], limit: int, note: Optional[str],
+              over_mcp: bool) -> str:
+    """map_codebase's answer: the findings first, most severe first, then the
+    numbers. Paths are relative to the checkout."""
+    st = snapshot.get("stats") or {}
+    dep, reach, tool = st.get("dependency") or {}, st.get("reachability") or {}, st.get("tool") or {}
+    subs = st.get("subsystems") or {}
+    cache = snapshot.get("_cache") or {}
+    counts: Dict[str, int] = {}
+    for f in findings:
+        counts[f.get("severity")] = counts.get(f.get("severity"), 0) + 1
+    lines = [
+        f"System map of {_root_label(root)}: {_num(snapshot.get('file_count'))} source files "
+        f"({_num(dep.get('python_modules'))} Python, {_num(dep.get('js_modules'))} JavaScript)"
+        + (", rebuilding because the source changed" if cache.get("stale") else ""),
+    ]
+    if note:
+        lines.append(note)
+    sev = ", ".join(f"{k} {counts[k]}" for k in ("high", "medium", "low", "info") if counts.get(k))
+    shown = findings[:limit]
+    lines.append(f"Findings: {len(findings)} open ({sev or 'none'}); the {len(shown)} most severe:")
+    for f in shown:
+        paths = f.get("paths") or []
+        where = f" [{', '.join(paths[:3])}{' …' if len(paths) > 3 else ''}]" if paths else ""
+        mark = " (dispatchable)" if f.get("dispatchable") else ""
+        lines.append(f"  {f.get('severity')} {f.get('kind')} {f.get('id')}: {f.get('summary')}{where}{mark}")
+    lines.append(
+        f"Stats: {_num(dep.get('internal_edges'))} load-time import edges and {_num(dep.get('lazy_edges'))} inside "
+        f"functions; {_num(dep.get('cycles'))} import cycles; {_num(reach.get('backend_routes'))} routes and "
+        f"{_num(reach.get('frontend_callers'))} frontend API calls ({_num(reach.get('ghost_callers'))} with no route); "
+        f"{_num(tool.get('registered_count'))} tools ({_num(tool.get('unwired_count'))} unreachable); "
+        f"{_num(len(snapshot.get('celery_tasks') or []))} Celery tasks; {_num(subs.get('subsystems'))} subsystems "
+        f"({_num(subs.get('unclaimed'))} files in none)."
+    )
+    lines.append(
+        "To hand a dispatchable finding to self-improvement, open the System Map page (/system-map) in Guaardvark."
+        if over_mcp else
+        "dispatch_map_finding with a finding id hands a dispatchable finding to self-improvement (PendingFix)."
+    )
+    return "\n".join(lines)
 
 
 def _nvidia_smi() -> Dict[str, Any]:
@@ -306,25 +311,28 @@ def _nvidia_smi() -> Dict[str, Any]:
 class MapCodebaseTool(BaseTool):
     name = "map_codebase"
     read_only = True
-    observation_chars = 4000
+    plan_research = True
+    observation_chars = 5000
+    chat_summary = (
+        "Health report of Guaardvark's own code: the most severe System Mapper findings (unreachable "
+        "tools, frontend calls with no route, dormant modules, import cycles) and the numbers."
+    )
     description = (
         "Run the System Mapper over Guaardvark's own source checkout, or a folder inside it, and "
-        "return JSON: file_count, languages, per-analyzer stats, finding_count and the top findings, "
-        "most severe first, each with id, kind (e.g. import-cycle, ghost-endpoint, dead-symbol, "
-        "untested-module), severity, summary and up to 6 paths; dismissed findings are left out. "
-        "Mostly static analysis of the files; mapping the whole checkout also loads its tool registry "
-        "in an offline subprocess. Needs no backend, network or GPU. Never blocks for long: a map under "
-        "5 minutes old comes back as is; an older one comes back at once with its age (cache.age_seconds "
-        "and a note) while a new one is computed in the background, one per folder at a time. When no "
-        "map exists yet, or refresh=true, it waits up to 60 s for the new map; if that is not enough it "
-        "answers with status 'computing' (or the last map and a note), and calling again later returns "
-        "the result without starting a second computation. For an uploaded Code Repository folder use "
-        "get_repository_map or get_dependency_graph; to find code by meaning, search_codebase."
+        "return a short text report: the top findings first, most severe first (each with severity, "
+        "kind, id, summary, up to three paths and whether it is dispatchable; dismissed findings are "
+        "left out), then the numbers (files, import edges, cycles, routes, frontend calls, tools, "
+        "Celery tasks, subsystems). Static analysis of the files only: nothing is imported or run, "
+        "and no backend, network or GPU is needed. Never blocks for long: a map that still describes "
+        "the files on disk comes back as is; when the source has changed the last map comes back at "
+        "once with a note while one background build replaces it. When no map exists yet, or "
+        "refresh=true, it waits up to 60 s for the new map. For an uploaded Code Repository folder "
+        "use get_repository_map or get_dependency_graph; to find code by meaning, search_codebase."
     )
     parameters = {
         "refresh": ToolParameter(
             name="refresh", type="bool", required=False, default=False,
-            description="true: compute a new map now, rescanning every source file under root, and wait up to 60 s for it (otherwise the last map, or status 'computing', comes back and the new map lands in the background). false (default): return the last map, refreshing one older than 5 minutes in the background.",
+            description="true: build a new map now, rereading changed files, and wait up to 60 s for it. false (default): return the stored map; one that no longer matches the files is rebuilt in the background.",
         ),
         "root": ToolParameter(
             name="root", type="string", required=False, default="",
@@ -332,7 +340,7 @@ class MapCodebaseTool(BaseTool):
         ),
         "limit": ToolParameter(
             name="limit", type="int", required=False, default=15, minimum=1, maximum=40,
-            description="How many findings to return, most severe first, 1-40 (default 15). finding_count still gives the total.",
+            description="How many findings to list, most severe first, 1-40 (default 15). The report still gives the total.",
         ),
     }
 
@@ -340,46 +348,32 @@ class MapCodebaseTool(BaseTool):
         try:
             root = _safe_root(kwargs.get("root") or None)
             refresh = bool(kwargs.get("refresh", False))
-            limit = int(kwargs.get("limit") or 15)
-            snapshot, note = _map_snapshot(root, refresh, _map_wait_seconds(is_mcp_transport(self)))
+            limit = max(1, min(int(kwargs.get("limit") or 15), 40))
+            over_mcp = is_mcp_transport(self)
+            snapshot, note = _map_snapshot(root, refresh, _map_wait_seconds(over_mcp))
             if snapshot is None:
                 return ToolResult(
                     success=True,
-                    output={"status": "computing", "root": str(root), "note": note},
-                    metadata={"root": str(root), "computing": True},
+                    output=f"Status: computing. {note}",
+                    metadata={"root": _root_label(root), "computing": True},
                 )
             from backend.services.system_mapper.actions import ranked_findings
 
             findings = ranked_findings(snapshot, root)
-            slim = []
-            for f in findings[: max(1, min(limit, 40))]:
-                slim.append({
-                    "id": f.get("id"),
-                    "kind": f.get("kind"),
-                    "severity": f.get("severity"),
-                    "summary": f.get("summary"),
-                    "paths": (f.get("paths") or [])[:6],
-                    "dispatchable": bool(f.get("dispatchable")),
-                })
-            payload = {
-                "root": str(root),
+            text = _map_text(root, snapshot, findings, limit, note, over_mcp)
+            meta = {
+                "root": _root_label(root),
                 "file_count": snapshot.get("file_count"),
-                "languages": snapshot.get("languages"),
-                "stats": snapshot.get("stats"),
                 "finding_count": len(findings),
-                "findings": slim,
+                "findings": [{
+                    "id": f.get("id"), "kind": f.get("kind"), "severity": f.get("severity"),
+                    "summary": f.get("summary"), "paths": (f.get("paths") or [])[:6],
+                    "dispatchable": bool(f.get("dispatchable")),
+                } for f in findings[:limit]],
                 "cache": snapshot.get("_cache"),
                 "note": note,
-                # dispatch_map_finding needs a person's approval and is not offered over MCP.
-                "hint": (
-                    "To hand a dispatchable finding to self-improvement, open the System Map page "
-                    "(/system-map) in Guaardvark."
-                    if is_mcp_transport(self) else
-                    "Call dispatch_map_finding with a finding id to hand a "
-                    "dispatchable finding to self-improvement (PendingFix)."
-                ),
             }
-            return ToolResult(success=True, output=payload, metadata={"root": str(root)})
+            return ToolResult(success=True, output=text, metadata=meta)
         except Exception as e:
             logger.exception("map_codebase failed")
             return ToolResult(success=False, error=str(e))
@@ -415,7 +409,7 @@ class DispatchMapFindingTool(BaseTool):
             return ToolResult(success=False, error="finding_id is required")
         try:
             root = _safe_root(kwargs.get("root") or None)
-            snapshot = _load_snapshot(root, refresh=False)
+            snapshot = _load_snapshot(root)
             from backend.services.system_mapper.actions import (
                 DISPATCHABLE_KINDS,
                 dispatch_finding,
@@ -425,7 +419,7 @@ class DispatchMapFindingTool(BaseTool):
 
             finding = find_finding(snapshot, finding_id)
             if not finding:
-                return ToolResult(success=False, error=f"No finding {finding_id} in the cached map. Run map_codebase first.")
+                return ToolResult(success=False, error=f"No finding {finding_id} in the stored map. Run map_codebase first.")
             if finding.get("kind") not in DISPATCHABLE_KINDS:
                 return ToolResult(
                     success=False,
@@ -438,7 +432,7 @@ class DispatchMapFindingTool(BaseTool):
             pre = get_self_improvement_service().dispatch_precheck()
             if not pre.get("ok"):
                 return ToolResult(success=False, error=pre.get("reason") or "self-improvement cannot run", metadata=pre)
-            result = dispatch_finding(finding, priority=str(kwargs.get("priority") or "medium"))
+            result = dispatch_finding(finding, priority=str(kwargs.get("priority") or "medium"), root=root)
             return ToolResult(success=bool(result.get("success")), output=result, error=result.get("reason"))
         except Exception as e:
             logger.exception("dispatch_map_finding failed")

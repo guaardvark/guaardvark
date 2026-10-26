@@ -13,8 +13,6 @@ API already holds (findings carry a stable `id` from Finding.fingerprint()).
 from __future__ import annotations
 
 import json
-import re
-import os
 from pathlib import Path
 from typing import Any
 
@@ -39,18 +37,13 @@ DISPATCHABLE_KINDS = frozenset({
 
 
 def _store_dir() -> Path:
-    storage = Path(
-        os.environ.get("GUAARDVARK_STORAGE_DIR")
-        or os.path.join(os.environ.get("GUAARDVARK_ROOT", "."), "data")
-    )
-    d = storage / "cache" / "system_map"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    from .store import cache_dir
+    return cache_dir()
 
 
 def _slug(root: str | Path) -> str:
-    parts = [p for p in Path(root).resolve().parts if p not in ("", "/", "\\")]
-    return "_".join(parts[-3:]).replace("/", "_") or "default"
+    from .store import slug
+    return slug(root)
 
 
 def _dismissed_path(root: str | Path) -> Path:
@@ -68,17 +61,84 @@ def load_dismissed(root: str | Path) -> set[str]:
 
 
 def dismiss(root: str | Path, finding_id: str) -> set[str]:
+    from .store import write_json_atomic
     ids = load_dismissed(root)
     ids.add(finding_id)
-    _dismissed_path(root).write_text(json.dumps(sorted(ids)))
+    write_json_atomic(_dismissed_path(root), sorted(ids))
     return ids
 
 
 def undismiss(root: str | Path, finding_id: str) -> set[str]:
+    from .store import write_json_atomic
     ids = load_dismissed(root)
     ids.discard(finding_id)
-    _dismissed_path(root).write_text(json.dumps(sorted(ids)))
+    write_json_atomic(_dismissed_path(root), sorted(ids))
     return ids
+
+
+# ── Dispatch ledger: a finding is handed to self-improvement once ────────────
+#
+# PendingFix rows do not carry the finding they came from, so the ledger
+# records each dispatch (finding id, time, paths). A finding counts as open
+# while a PendingFix created after its dispatch, for one of its files, is still
+# proposed, triaged or approved, and for DISPATCH_GRACE_S after the dispatch
+# while the run that will stage it may still be going.
+DISPATCH_GRACE_S = 30 * 60
+_OPEN_FIX_STATUSES = ("proposed", "triaged", "approved")
+
+
+def _dispatched_path(root: str | Path) -> Path:
+    return _store_dir() / f"{_slug(root)}.dispatched.json"
+
+
+def _load_ledger(root: str | Path) -> dict:
+    p = _dispatched_path(root)
+    try:
+        data = json.loads(p.read_text())
+        return data if isinstance(data, dict) else {}
+    except (FileNotFoundError, ValueError, OSError):
+        return {}
+
+
+def record_dispatch(root: str | Path, finding: dict, info: dict | None = None) -> None:
+    from .store import write_json_atomic
+    import time as _time
+    ledger = _load_ledger(root)
+    ledger[finding.get("id")] = {"at": _time.time(), "paths": list(finding.get("paths") or [])[:10],
+                                 **(info or {})}
+    write_json_atomic(_dispatched_path(root), ledger)
+
+
+def open_dispatch(root: str | Path, finding: dict) -> dict | None:
+    """Why ``finding`` must not be dispatched again, or None when it may be:
+    {"pending_fix_ids": [...]} for open PendingFix rows from its dispatch, or
+    {"in_progress": seconds} while the dispatch is recent."""
+    import time as _time
+    from datetime import datetime
+
+    entry = _load_ledger(root).get(finding.get("id"))
+    if not entry:
+        return None
+    at = float(entry.get("at") or 0)
+    paths = [p for p in (entry.get("paths") or finding.get("paths") or []) if p]
+    try:
+        from backend.models import PendingFix
+        rows = PendingFix.query.filter(
+            PendingFix.status.in_(_OPEN_FIX_STATUSES),
+            PendingFix.created_at >= datetime.fromtimestamp(at),
+        ).all()
+        fid = str(finding.get("id"))
+        ids = [r.id for r in rows
+               if fid in (r.fix_description or "")
+               or any((r.file_path or "").replace("\\", "/").endswith("/" + p) or r.file_path == p for p in paths)]
+        if ids:
+            return {"pending_fix_ids": ids}
+    except Exception:
+        pass  # no database here: fall back to the time window alone
+    age = _time.time() - at
+    if age < DISPATCH_GRACE_S:
+        return {"in_progress": int(age)}
+    return None
 
 
 def ranked_findings(snapshot: dict, root: str | Path,
@@ -107,64 +167,37 @@ def find_finding(snapshot: dict, finding_id: str) -> dict | None:
     return None
 
 
-# The file whose module-level *_TOOLS lists are the agent's wiring, and the
-# list a newly wired tool goes into. tool_graph.py reads the same file.
-WIRING_FILE = "backend/services/unified_chat_engine.py"
-WIRING_LIST = "CORE_TOOLS"
-
-_LIST_BLOCK = re.compile(r"^%s\s*=\s*\[\n(?P<body>(?:.*\n)*?)\]" % WIRING_LIST, re.M)
-
-
 def mechanical_proposal(finding: dict, root: str | Path | None = None) -> dict[str, Any] | None:
-    """A proposal derived from the finding's own evidence, for kinds whose
-    remedy is fully determined by it. Today: unwired-tool, which is one line
-    in one list. Returned as the exact old/new text stage_pending_fix takes,
-    so the queue holds a real diff and no model is asked to invent one.
-    Kinds that need judgment return None and go to the agent."""
-    if finding.get("kind") != "unwired-tool":
-        return None
-    tool = ((finding.get("evidence") or {}).get("tool") or "").strip()
-    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", tool):
-        return None
-    base = Path(root) if root else Path(__file__).resolve().parents[3]
-    path = base / WIRING_FILE
-    if not path.is_file():
-        return None
-    text = path.read_text(encoding="utf-8")
-    m = _LIST_BLOCK.search(text)
-    if not m:
-        return None
-    old_text = m.group(0)
-    if re.search(r'^\s*"%s"\s*,' % re.escape(tool), m.group("body"), re.M):
-        return None  # already wired; the finding is stale, let the map refresh
-    body = m.group("body").rstrip("\n")
-    new_text = (
-        f"{WIRING_LIST} = [\n{body}\n"
-        f'    "{tool}",  # wired by system-map finding {finding.get("id")}\n]'
-    )
-    ev = finding.get("evidence") or {}
-    where = f"{ev.get('registry_line')}" if ev.get("registry_line") else "?"
-    return {
-        "path": WIRING_FILE,
-        "old_text": old_text,
-        "new_text": new_text,
-        "description": (
-            f"Add '{tool}' to {WIRING_LIST} in {WIRING_FILE} so the agent can reach it. "
-            f"The tool is registered (tool_registry_init.py line {where}) but absent from "
-            f"every *_TOOLS list, so no agent could call it. Mechanical proposal built from "
-            f"system-map finding {finding.get('id')}; no model involved. Review whether "
-            f"{WIRING_LIST} is the right list before applying."
-        ),
-        "severity": finding.get("severity") or "medium",
-    }
+    """An exact old/new text change derived from the finding's own evidence,
+    for kinds whose remedy needs no judgment; staged as-is by
+    submit_directed_task so no model is asked to invent it. None sends the
+    finding to the agent.
+
+    No kind qualifies today. The one that did, unwired-tool, appended the tool
+    to CORE_TOOLS, which puts it in the prompt of every chat turn; a tool the
+    chat cannot reach needs a person to choose the list, pin or route it
+    belongs in."""
+    return None
 
 
 def dispatch_finding(finding: dict, priority: str = "medium", root: str | Path | None = None) -> dict[str, Any]:
     """Hand a finding to the self-improvement service as a directed task. A
     finding whose remedy is mechanical is staged as a PendingFix directly;
-    the rest go to the agent, which investigates and proposes a fix."""
+    the rest go to the agent, which investigates and proposes a fix. A
+    finding already dispatched whose fix is still open is not sent again."""
     from backend.services.self_improvement_service import get_self_improvement_service
+    if root is None:
+        try:
+            from backend.config import GUAARDVARK_ROOT
+            root = GUAARDVARK_ROOT
+        except Exception:
+            root = Path(__file__).resolve().parents[3]
+    held = open_dispatch(root, finding)
+    if held:
+        return {"success": False, "skipped": True, **held,
+                "reason": _held_reason(finding, held)}
     svc = get_self_improvement_service()
+    record_dispatch(root, finding)
     return svc.submit_directed_task(
         description=describe(finding),
         target_files=list(finding.get("paths") or []),
@@ -173,11 +206,20 @@ def dispatch_finding(finding: dict, priority: str = "medium", root: str | Path |
     )
 
 
+def _held_reason(finding: dict, held: dict) -> str:
+    if held.get("pending_fix_ids"):
+        ids = ", ".join(f"#{i}" for i in held["pending_fix_ids"])
+        return (f"Finding {finding.get('id')} was already dispatched and PendingFix {ids} "
+                "is still open; review it in Settings instead of dispatching again.")
+    return (f"Finding {finding.get('id')} was dispatched {held.get('in_progress', 0)} s ago and its "
+            "run may still be staging a fix.")
+
+
 def describe(finding: dict) -> str:
     """Human/agent-readable task description from a finding dict."""
     ev = finding.get("evidence") or {}
     lines = [
-        f"System-map finding [{finding.get('kind')} · {finding.get('severity')}]: "
+        f"System-map finding {finding.get('id')} [{finding.get('kind')} · {finding.get('severity')}]: "
         f"{finding.get('summary')}"
     ]
     paths = finding.get("paths") or []

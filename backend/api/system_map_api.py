@@ -1,39 +1,34 @@
 """HTTP surface for the system_mapper SystemMap.
 
-Frontend (`/system-map` route) hits this endpoint to fetch the JSON the
-constellation canvas renders. The map computation takes seconds on a clean
-checkout and minutes on a very large one; we serve a disk-cached snapshot and
-only re-run when the cache ages out (or the caller passes ?refresh=1). The
-map_codebase tool reads the same cache through read_cached/compute_and_cache
-and computes in the background instead of blocking.
+The System Map page (`/system-map`), the map tools and MCP clients read the
+same stored map (backend/services/system_mapper/store.py). A read never
+builds: it returns the last map with a ``_cache`` note saying whether the map
+still describes the files on disk (``stale``) and whether a rebuild is
+running (``refreshing``). A stale or missing map starts one background
+rebuild per root; POST /refresh starts one on demand.
 
-Endpoint
---------
-GET  /api/system-map/snapshot           — cached snapshot (re-computed if stale)
-GET  /api/system-map/snapshot?refresh=1 — force re-compute
-GET  /api/system-map/snapshot?root=<path> — map the running codebase or an uploaded repository
-                                            (DocumentsPage "Analyze codebase"
-                                            wires to this)
+Endpoints
+---------
+GET  /api/system-map/snapshot            stored map (?root=, ?refresh=1 starts a rebuild)
+GET  /api/system-map/findings            ranked findings only (?severity=, ?kind=, ?include_dismissed=1)
+POST /api/system-map/refresh             start a rebuild now
+POST /api/system-map/findings/<id>/dispatch
+POST /api/system-map/findings/<id>/dismiss
+GET  /api/system-map/health
 """
 from __future__ import annotations
 
-import json
 import logging
-import os
 import time
 from pathlib import Path
 
 from flask import Blueprint, jsonify, request
-from backend.utils.path_guard import PathEscapesRoot, contained, contained_path
+from backend.utils.path_guard import PathEscapesRoot, contained
 
 logger = logging.getLogger(__name__)
 
 system_map_bp = Blueprint("system_map", __name__, url_prefix="/api/system-map")
 
-# Cache freshness: re-compute if the snapshot on disk is older than this.
-# 5 minutes is the sweet spot for an interactive map — users hit refresh once
-# while exploring, and the compute cost is masked by the cache for follow-ups.
-CACHE_TTL_SECONDS = 300
 
 # Default root = the running Guaardvark repo. config.py always sets GUAARDVARK_ROOT
 # (resolving it to a real, writable path), so import from there rather than baking
@@ -43,28 +38,10 @@ def _default_root() -> Path:
     return Path(GUAARDVARK_ROOT).resolve()
 
 
-def _storage_dir() -> Path:
-    from backend.config import GUAARDVARK_ROOT
-    return Path(os.environ.get("GUAARDVARK_STORAGE_DIR")
-                or os.path.join(str(GUAARDVARK_ROOT), "data"))
-
-
 def _cache_path_for(root: Path) -> Path:
-    """Per-root cache file. Uses the path's last 3 segments as the key so multiple
-    code folders (DocumentsPage future use case) each get their own snapshot."""
-    cache_dir = _storage_dir() / "cache" / "system_map"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    # Slug = last few path segments, sanitized
-    parts = [p for p in root.parts if p not in ("", "/", "\\")]
-    slug = "_".join(parts[-3:]).replace("/", "_") or "default"
-    return cache_dir / f"{slug}.json"
-
-
-def _is_fresh(cache_file: Path) -> bool:
-    if not cache_file.is_file():
-        return False
-    age = time.time() - cache_file.stat().st_mtime
-    return age < CACHE_TTL_SECONDS
+    """The stored snapshot for root (store.snapshot_path)."""
+    from backend.services.system_mapper import store
+    return store.snapshot_path(root)
 
 
 def _allowed_root(root_arg: str) -> Path | None:
@@ -96,83 +73,59 @@ def _resolve_root(root_arg: str | None):
 
 
 def read_cached(root: Path):
-    """(payload, age_seconds) for the last map written for root, whatever its
+    """(payload, age_seconds) for the last map stored for root, whatever its
     age, or (None, None) when there is none or it cannot be read."""
-    cache_file = _cache_path_for(root)
-    try:
-        age = time.time() - cache_file.stat().st_mtime
-        return json.loads(cache_file.read_text()), age
-    except FileNotFoundError:
-        return None, None
-    except Exception as exc:
-        logger.warning(f"Cache read failed for {cache_file}: {exc}")
-        return None, None
+    from backend.services.system_mapper import store
+    return store.read_snapshot(root)
 
 
 def compute_and_cache(root: Path) -> dict:
-    """Map root now, write the disk cache, and return the payload with its
+    """Map root now in this thread, store it, and return the payload with its
     ``_cache`` note. Raises when the map cannot be computed."""
-    from backend.services.system_mapper import codebase_map
-    t0 = time.time()
-    smap = codebase_map(root)
-    elapsed = time.time() - t0
-    logger.info(f"Generated system map for {root} in {elapsed:.2f}s "
-                f"({smap.file_count} files, {len(smap.findings)} findings)")
-
-    payload = smap.to_dict()
-    cache_file = _cache_path_for(root)
-    # Written aside and renamed, so a reader never sees half a file.
-    tmp = cache_file.with_name(f"{cache_file.name}.{os.getpid()}.tmp")
-    try:
-        tmp.write_text(json.dumps(payload))
-        os.replace(tmp, cache_file)
-    except Exception as exc:
-        logger.warning(f"Failed to write cache {cache_file}: {exc}")
-        try:
-            tmp.unlink(missing_ok=True)
-        except OSError:
-            pass
-    payload["_cache"] = {
-        "hit": False,
-        "computed_in_seconds": round(elapsed, 2),
-        "ttl_seconds": CACHE_TTL_SECONDS,
-    }
-    return payload
+    from backend.services.system_mapper import store
+    return store.build(root)
 
 
-def _load_or_compute(root: Path, refresh: bool):
-    """Return (payload_dict, None) or (None, (json_error, status)). Serves the
-    disk-cached snapshot unless stale or refresh=1."""
-    cache_file = _cache_path_for(root)
-    if not refresh and _is_fresh(cache_file):
-        try:
-            data = json.loads(cache_file.read_text())
-            data["_cache"] = {
-                "hit": True,
-                "age_seconds": int(time.time() - cache_file.stat().st_mtime),
-                "ttl_seconds": CACHE_TTL_SECONDS,
-            }
-            return data, None
-        except Exception as exc:
-            logger.warning(f"Cache read failed for {cache_file}: {exc}; re-computing")
-
-    try:
-        return compute_and_cache(root), None
-    except Exception as exc:
-        logger.exception("system map computation failed")
-        return None, (jsonify({"success": False, "error": f"map failed: {exc}"}), 500)
+def _stored(root: Path, refresh: bool = False):
+    """(payload, None) from the store, or (None, (json, status)) while the
+    first map of root is still being built. Never builds in this thread."""
+    from backend.services.system_mapper import store
+    payload, note = store.state(root)
+    if refresh and not note.get("refreshing"):
+        store.start(root)
+        note["refreshing"] = True
+    if payload is None:
+        return None, (jsonify({
+            "success": False, "status": "computing", "_cache": note,
+            "reason": "No map of this folder exists yet; it is being built. Ask again in a few seconds.",
+        }), 202)
+    payload["_cache"] = note
+    return payload, None
 
 
 @system_map_bp.route("/snapshot", methods=["GET"])
 def snapshot():
-    """Return the SystemMap JSON for the requested root (default: Guaardvark itself)."""
+    """The stored SystemMap for the requested root (default: Guaardvark itself)."""
     root, err = _resolve_root(request.args.get("root"))
     if err:
         return err
-    payload, err = _load_or_compute(root, request.args.get("refresh") == "1")
+    payload, err = _stored(root, refresh=request.args.get("refresh") == "1")
     if err:
         return err
     return jsonify(payload)
+
+
+@system_map_bp.route("/refresh", methods=["POST"])
+def refresh():
+    """Start rebuilding the map of root in the background (one build per root)."""
+    from backend.services.system_mapper import store
+    body = request.get_json(silent=True) or {}
+    root, err = _resolve_root(body.get("root"))
+    if err:
+        return err
+    job = store.start(root)
+    return jsonify({"success": True, "status": "computing",
+                    "running_seconds": int(time.time() - job.started)}), 202
 
 
 @system_map_bp.route("/findings", methods=["GET"])
@@ -188,7 +141,7 @@ def findings():
     root, err = _resolve_root(request.args.get("root"))
     if err:
         return err
-    payload, err = _load_or_compute(root, request.args.get("refresh") == "1")
+    payload, err = _stored(root)
     if err:
         return err
 
@@ -234,15 +187,16 @@ def findings():
 @system_map_bp.route("/findings/<finding_id>/dispatch", methods=["POST"])
 def dispatch(finding_id):
     """Send a finding to the self-improvement agent as a directed task."""
-    from backend.services.system_mapper import actions
+    from backend.services.system_mapper import actions, store
 
     body = request.get_json(silent=True) or {}
     root, err = _resolve_root(body.get("root"))
     if err:
         return err
-    payload, err = _load_or_compute(root, refresh=False)
-    if err:
-        return err
+    payload, _age = store.read_snapshot(root)
+    if payload is None:
+        return jsonify({"success": False, "reason": "No map yet; open the System Map page first.",
+                        "finding_id": finding_id}), 404
 
     finding = actions.find_finding(payload, finding_id)
     if finding is None:
@@ -259,6 +213,13 @@ def dispatch(finding_id):
             "reason": (f"Finding kind '{kind}' is advisory-only and is not "
                        f"auto-dispatchable — review it manually."),
         }), 200
+
+    # One open fix per finding: a second dispatch while the first one's
+    # PendingFix waits for review would stage the same change again.
+    held = actions.open_dispatch(root, finding)
+    if held:
+        return jsonify({"success": False, "finding_id": finding_id, "skipped": True, **held,
+                        "reason": actions._held_reason(finding, held)}), 200
 
     # Synchronous precheck so the user gets the REAL reason immediately when the
     # self-improvement agent can't run (locked / disabled / already running),
@@ -290,6 +251,7 @@ def dispatch(finding_id):
                     "target_files": target_files, "priority": priority,
                     "proposal": proposal},
         )
+        actions.record_dispatch(root, finding, {"task_id": getattr(async_res, "id", None)})
         reason = (
             "Dispatched — the fix is mechanical, so the exact change is being "
             "staged as a PendingFix for your review in Settings."
