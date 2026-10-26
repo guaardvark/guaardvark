@@ -1,0 +1,183 @@
+{
+ "_doc": "Self-analysis yardstick (scripts/eval_self_analysis.py): questions about Guaardvark's own code in plain words; gold = files where the answer lives (any one counts), confirmed by grep on 2026-10-26.",
+ "items": [
+  {
+   "id": "turn-thread",
+   "question": "In your own code, which file starts the background thread that runs one chat turn and refuses a second one on the same chat?",
+   "gold": [
+    "backend/api/unified_chat_api.py"
+   ]
+  },
+  {
+   "id": "approval-wait",
+   "question": "Where in your code does a chat turn wait for the person to approve a tool call?",
+   "gold": [
+    "backend/services/unified_chat_engine.py"
+   ]
+  },
+  {
+   "id": "plan-research-tool",
+   "question": "Which of your files decides whether plan mode may run a tool while it researches?",
+   "gold": [
+    "backend/services/agent_tools.py"
+   ]
+  },
+  {
+   "id": "repo-map",
+   "question": "Where in your code is the ranked map of a code folder's files built?",
+   "gold": [
+    "backend/services/repository_analysis_service.py"
+   ]
+  },
+  {
+   "id": "backup-ignores",
+   "question": "Which of your files lists the patterns a code backup leaves out?",
+   "gold": [
+    "backend/services/backup_service.py"
+   ]
+  },
+  {
+   "id": "reflex-lookup",
+   "question": "Where in your code are the instant reflexes (answers without a model) matched to a message?",
+   "gold": [
+    "backend/services/brain_state.py"
+   ]
+  },
+  {
+   "id": "stale-runs",
+   "question": "Which of your files closes self-improvement runs that a dead worker left running?",
+   "gold": [
+    "backend/services/self_improvement_service.py"
+   ]
+  },
+  {
+   "id": "exact-replace",
+   "question": "Where is your code that writes one exact text replacement into a source file, keeping a backup?",
+   "gold": [
+    "backend/services/guarded_code_service.py"
+   ]
+  },
+  {
+   "id": "self-edit-live",
+   "question": "Which of your files marks changes you made to your own code as live after a good start?",
+   "gold": [
+    "backend/services/self_edit.py"
+   ]
+  },
+  {
+   "id": "early-done",
+   "question": "Where does your desktop agent decide a task is already done before it starts working?",
+   "gold": [
+    "backend/services/agent_control_service.py"
+   ]
+  },
+  {
+   "id": "restart-record",
+   "question": "Which of your files records that a restart is needed after files were updated?",
+   "gold": [
+    "backend/utils/update_state.py"
+   ]
+  },
+  {
+   "id": "keep-alive",
+   "question": "Where in your code is the chat model's keep-alive time decided?",
+   "gold": [
+    "backend/config.py"
+   ]
+  },
+  {
+   "id": "num-ctx",
+   "question": "Which of your files sizes the context window for an Ollama model?",
+   "gold": [
+    "backend/utils/ollama_resource_manager.py"
+   ]
+  },
+  {
+   "id": "slash-tools",
+   "question": "Where in your code are slash commands like /imagine turned into a tool call?",
+   "gold": [
+    "backend/services/slash_command_executor.py"
+   ]
+  },
+  {
+   "id": "session-mode",
+   "question": "Which of your files puts a chat's saved mode into each request's options?",
+   "gold": [
+    "backend/api/unified_chat_api.py"
+   ]
+  },
+  {
+   "id": "plan-sweep",
+   "question": "Where are plan runs that a restart interrupted paused when you start up?",
+   "gold": [
+    "backend/services/plan_executor.py",
+    "backend/app.py"
+   ]
+  },
+  {
+   "id": "mapper-core",
+   "question": "Which of your files builds the System Mapper's whole-repository map?",
+   "gold": [
+    "backend/services/system_mapper/core.py"
+   ]
+  },
+  {
+   "id": "plan-gate",
+   "question": "Where does plan mode take over a chat turn before anything can act?",
+   "gold": [
+    "backend/services/chat_turn.py",
+    "backend/services/plan_mode.py"
+   ]
+  },
+  {
+   "id": "route-preview",
+   "question": "Which of your files works out the route a message would take without running it?",
+   "gold": [
+    "backend/services/turn_router.py"
+   ]
+  },
+  {
+   "id": "remember",
+   "question": "Where in your code are 'remember that ...' facts saved from a chat message?",
+   "gold": [
+    "backend/services/memory_capture.py"
+   ]
+  },
+  {
+   "id": "syntax-check",
+   "question": "Which of your files checks the syntax of Python, JSON and JavaScript for the Code Editor?",
+   "gold": [
+    "backend/services/code_syntax_check.py"
+   ]
+  },
+  {
+   "id": "active-model",
+   "question": "Where is the name of the active chat model read back from the database?",
+   "gold": [
+    "backend/utils/llm_service.py"
+   ]
+  },
+  {
+   "id": "stage-fix",
+   "question": "Which of your files stages a fix for review instead of writing it to disk?",
+   "gold": [
+    "backend/services/guarded_code_service.py"
+   ]
+  },
+  {
+   "id": "registry",
+   "question": "Where is your tool registry class defined?",
+   "gold": [
+    "backend/services/agent_tools.py"
+   ]
+  },
+  {
+   "id": "restore-zip",
+   "question": "Which of your files restores a backup zip onto the install?",
+   "gold": [
+    "backend/services/backup_service.py",
+    "backend/api/backup_api.py"
+   ]
+  }
+ ]
+}
