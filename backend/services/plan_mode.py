@@ -336,7 +336,8 @@ class PlanModeRunner:
             for s in steps for call in (s.get("tool_calls") or []) if isinstance(call, dict)
         )
         fields, warnings = validate(result.data, registry=self.full, haystack=haystack, web_used=web_used,
-                                    session_id=session_id, state=self.state)
+                                    session_id=session_id, state=self.state,
+                                    project_root=(options or {}).get("project_root"))
         if current is not None and current.status == "paused":
             # A replan after a failed step keeps the steps that already ran.
             finished = [s for s in (current.steps or []) if s.get("status") in ("done", "skipped")]
@@ -534,7 +535,8 @@ def _strings(value, limit: int = 8) -> List[str]:
 
 
 def validate(data: Dict[str, Any], *, registry, haystack: str, web_used: bool = False,
-             session_id: Optional[str] = None, state=None) -> Tuple[Dict[str, Any], List[str]]:
+             session_id: Optional[str] = None, state=None,
+             project_root: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
     """The plan's fields cleaned up, and the warnings a person should read.
 
     Checked by code, not by the model: step count, known kinds and tools,
@@ -548,6 +550,7 @@ def validate(data: Dict[str, Any], *, registry, haystack: str, web_used: bool = 
         raw_steps = raw_steps[:pmd.PLAN_MAX_STEPS]
     known = set(registry.list_tools()) if registry is not None else set()
     lowered = (haystack or "").lower()
+    roots = _code_roots(project_root)
     steps = []
     for i, raw in enumerate(raw_steps, start=1):
         kind = raw.get("kind") if raw.get("kind") in pmd.STEP_KINDS else "other"
@@ -573,7 +576,8 @@ def validate(data: Dict[str, Any], *, registry, haystack: str, web_used: bool = 
                 # run exactly that call.
                 step["direct"] = {"direct_tool": call[0], "direct_tool_params": params}
         for target in sorted(set(_PATH_LIKE.findall(action))):
-            if target.lower().rstrip(".,") not in lowered:
+            target = target.rstrip(".,;:")
+            if _invented(target, lowered, roots):
                 warnings.append(f"Step {i} names {target}, which the research did not find.")
         if web_used and set(tools) & _SENSITIVE_TOOLS:
             warnings.append(f"Step {i} acts after reading web pages; check it asks for what you asked for.")
@@ -592,6 +596,31 @@ def validate(data: Dict[str, Any], *, registry, haystack: str, web_used: bool = 
         "questions": _strings(data.get("questions")),
     }
     return fields, warnings
+
+
+def _code_roots(project_root: Optional[str]) -> List[str]:
+    roots = [project_root] if project_root else []
+    try:
+        from backend.tools.llama_code_tools import PROJECT_ROOT
+        roots.append(str(PROJECT_ROOT))
+    except Exception:
+        pass
+    return roots
+
+
+def _invented(target: str, lowered_haystack: str, roots: List[str]) -> bool:
+    """A URL or a path with a folder that appears nowhere in the request, the
+    conversation or the research, and is not on disk. A bare file name is
+    usually one the plan will create, so it is never flagged."""
+    import os
+    if target.lower() in lowered_haystack:
+        return False
+    if target.startswith(("http://", "https://")):
+        return True
+    if "/" not in target:
+        return False
+    rel = target.lstrip("./")
+    return not any(os.path.exists(os.path.join(root, rel)) for root in roots)
 
 
 _SCREEN_TOOL = re.compile(r"^(agent_|gui_|app_|browser_|clipboard_)")
