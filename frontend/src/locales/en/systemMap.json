@@ -65,7 +65,9 @@
     "intro": "Ranked findings · click to locate · dispatch to fix",
     "empty": "No findings at this severity. 🎉",
     "dispatch": "Send to the self-improvement agent to propose a fix",
-    "dismiss": "Dismiss — acknowledge and stop showing this finding"
+    "dismiss": "Dismiss — acknowledge and stop showing this finding",
+    "planFix": "Plan a fix: opens the chat in plan mode with this finding; nothing changes until you approve the plan",
+    "planFixPrompt": "Plan a fix for this System Map finding: {{summary}} ({{kind}}; files: {{files}}). First check in the code that the finding is real; if it is not, say so instead of planning."
   },
   "activity": {
     "title": "Live activity",
