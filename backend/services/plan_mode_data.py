@@ -10,7 +10,8 @@ token context; change one only with the measurement behind it
 
 import hashlib
 import json
-from typing import Any, Dict, FrozenSet
+import re
+from typing import Any, Dict, FrozenSet, Iterable, Optional
 
 # Research turns before the plan is written. Each turn is one model call
 # that may run research tools; a plan's research rarely needs more than a
@@ -28,6 +29,17 @@ COMPOSE_RESEARCH_CHARS = 6000
 COMPOSE_HISTORY_CHARS = 1500
 COMPOSE_REPLY_CHARS = 2500
 
+# Most tokens one compose call may write. The largest plan in the 2026-10-26
+# yardstick runs (gemma4:12b, 96 objectives) was 2,318 characters of JSON,
+# about 700 tokens; without a cap a structured-output call that loops runs
+# until the context is full (one took ten minutes that day).
+COMPOSE_MAX_TOKENS = 2048
+
+# Seconds before a compose call is abandoned. A backstop for a stalled
+# Ollama; COMPOSE_MAX_TOKENS is what bounds a normal call (5-30 s on
+# gemma4:12b here).
+COMPOSE_TIMEOUT_S = 300
+
 # Summary of a finished step handed to the steps after it.
 STEP_SUMMARY_CHARS = 600
 
@@ -36,61 +48,123 @@ STEP_SUMMARY_CHARS = 600
 # measurement is offered with a "not measured yet" note.
 PLAN_MODE_FLOOR = 0.8
 
-# Kinds of step a plan may contain. Each says what the step does, which turn
+# Kinds of step a plan may contain. Each says what the step does; the tools
+# that do it, each with when to use it (shown to the model that writes the
+# plan when the tool is registered, and used to correct a step filed under
+# the wrong kind); what the research note calls the ability; which turn
 # routes are expected to carry it (a route outside the set is shown as a
-# warning on the card), and options the executor adds when it runs the step.
+# warning on the card); and options the executor adds when it runs the step.
+# A kind with tools listed is left out of the prompts when none of them is
+# registered: chat registers no music or speech tool (backend/tools/
+# tool_registry_init.py register_audio_tools is MCP-only), so chat plans
+# cannot promise audio.
 STEP_KINDS: Dict[str, Dict[str, Any]] = {
     "write": {
         "description": "Write text for the person in the reply: an answer, a summary, a draft, a list.",
+        "tools": {},
+        "ability": "",
         "routes": {"chat", "social"},
         "options": {},
     },
     "file": {
         "description": "Create a file (document, spreadsheet, CSV, code file) in Guaardvark's outputs.",
+        "tools": {"generate_file": "", "generate_csv": "a CSV", "generate_bulk_csv": "many CSV rows",
+                  "codegen": "a code file"},
+        "ability": "files",
         "routes": {"chat", "file_generation", "direct_tool"},
         "options": {},
     },
     "code_change": {
         "description": "Change code in the project folder or in Guaardvark's own source.",
+        "tools": {"edit_code": ""},
+        "ability": "code",
         "routes": {"chat", "direct_tool"},
         "options": {},
     },
     "image": {
         "description": "Make a picture, or edit one.",
+        "tools": {"generate_image": "a new picture", "edit_image": "change a picture",
+                  "inpaint_image": "", "outpaint_image": "", "remove_background": ""},
+        "ability": "pictures",
         "routes": {"new_image", "edit_image", "named_image", "image_retry", "edit_retry", "chat", "direct_tool"},
         "options": {},
     },
     "video": {
-        "description": "Make a video clip, a music video or a Film Crew short.",
+        "description": "Make a video.",
+        "tools": {"generate_video": "a clip", "generate_animation": "a short loop",
+                  "generate_music_video": "a music video for a song", "start_film_crew": "a short film"},
+        "ability": "video",
         "routes": {"video", "music_video", "film_crew", "chat", "direct_tool"},
         "options": {},
     },
     "audio": {
-        "description": "Make music, a sound effect or spoken narration.",
+        "description": "Make music or a sound effect, or speak words aloud.",
+        "tools": {"generate_music": "music or a sound effect", "generate_speech": "spoken words"},
+        "ability": "music and speech",
         "routes": {"chat", "direct_tool"},
         "options": {},
     },
     "desktop": {
         "description": "Do something on the agent's screen: open, click, type, browse.",
+        "tools": {"agent_task_execute": "a whole task", "app_launch": "", "browser_navigate": "",
+                  "gui_click": "", "gui_type": ""},
+        "ability": "the agent's screen",
         "routes": {"screen_task", "chat"},
         "options": {"agent_screen_active": True},
     },
     "lookup": {
         "description": "Look something up (documents, the web, the system) and use what was found.",
+        "tools": {},
+        "ability": "",
         "routes": {"chat", "workstation", "direct_tool"},
         "options": {},
     },
     "memory": {
         "description": "Save, change or forget something in Guaardvark's memory.",
+        "tools": {"save_memory": "", "update_memory": "", "delete_memory": ""},
+        "ability": "memory",
         "routes": {"chat", "direct_tool"},
         "options": {},
     },
     "other": {
         "description": "Any other action, with the tool it uses named.",
+        "tools": {},
+        "ability": "",
         "routes": None,  # any route
         "options": {},
     },
 }
+
+# Screen-control tools beyond the ones listed under "desktop" belong to it too.
+_SCREEN_TOOL = re.compile(r"^(agent_|gui_|app_|browser_|clipboard_)")
+
+# Kinds whose steps only read and write text; a plan made of nothing else
+# changes nothing and needs no approval.
+TEXT_KINDS: FrozenSet[str] = frozenset({"write", "lookup"})
+
+
+def tool_kind(tool_name: str) -> Optional[str]:
+    """The step kind a tool belongs to, or None."""
+    for kind, spec in STEP_KINDS.items():
+        if tool_name in spec["tools"]:
+            return kind
+    if _SCREEN_TOOL.match(tool_name or ""):
+        return "desktop"
+    return None
+
+
+def offered_kinds(available: Optional[Iterable[str]] = None) -> Dict[str, Dict[str, str]]:
+    """{kind: {tool: when}} for the kinds a plan can use, given the registered
+    tool names (None: all). A kind whose listed tools are all missing is left out."""
+    names = None if available is None else set(available)
+    out = {}
+    for kind, spec in STEP_KINDS.items():
+        tools = {t: w for t, w in spec["tools"].items() if names is None or t in names}
+        if spec["tools"] and not tools:
+            continue
+        out[kind] = tools
+    return out
+
 
 PLAN_KINDS: FrozenSet[str] = frozenset({"answer", "question", "plan"})
 
@@ -123,10 +197,13 @@ COMPOSE_SCHEMA: Dict[str, Any] = {
     "required": ["kind"],
 }
 
-# Added to the research turn's context, next to the user's message.
+# Added to the research turn's context, next to the user's message;
+# {abilities} lists what the registered action tools can do.
 PLAN_MODE_RESEARCH_NOTE = (
     "Plan mode is on: you may only look things up now. Nothing that changes anything runs "
-    "until the person approves a plan. Use the tools you have to find out what the request "
+    "until the person approves a plan. The tools that change or make things ({abilities}) "
+    "are hidden from you now and the plan will use them, so do not say you cannot do those "
+    "because you do not see their tools. Use the tools you have to find out what the request "
     "needs (read the files, search the documents, check the system). If the request is a "
     "question, answer it. If it is unclear, ask one short question. If it asks for something "
     "to be done, made or changed, say in a few sentences what you found that the work "
@@ -134,14 +211,20 @@ PLAN_MODE_RESEARCH_NOTE = (
     "not say it is done, because nothing has been done yet."
 )
 
+
+def research_note(available: Optional[Iterable[str]] = None) -> str:
+    abilities = [STEP_KINDS[k]["ability"] for k in offered_kinds(available) if STEP_KINDS[k]["ability"]]
+    return PLAN_MODE_RESEARCH_NOTE.format(abilities=", ".join(abilities))
+
+
 COMPOSE_SYSTEM = (
     "You turn a request and the research done for it into JSON for plan mode.\n"
     "kind: \"plan\" whenever the request asks for something a tool does: remembering or "
-    "saving something, making a picture, video, sound or speech, writing or changing a file "
+    "saving something, making a picture, a video or other media, writing or changing a file "
     "or code, using the screen, posting, sending or running something, even when it is one "
-    "simple step. \"answer\" only when a reply in words is all the person asked for and the "
-    "research reply gives it. \"question\" when you need something from the person before "
-    "you can plan (put it in question).\n"
+    "simple step. \"answer\" when a reply in words is all the person asked for and the "
+    "research reply gives it, or when no step kind below can do what is asked. \"question\" "
+    "when you need something from the person before you can plan (put it in question).\n"
     "For a plan: goal is one sentence of what the person gets. steps are in the order they "
     "run, at most {max_steps}; each has a short title, an action written in plain words (not "
     "code, not a function call) as the instruction you would follow to do that step on its "
@@ -156,16 +239,28 @@ COMPOSE_SYSTEM = (
 )
 
 
-def kinds_text() -> str:
-    return "\n".join(f"- {name}: {spec['description']}" for name, spec in STEP_KINDS.items())
+def kinds_text(available: Optional[Iterable[str]] = None) -> str:
+    lines = []
+    for kind, tools in offered_kinds(available).items():
+        line = f"- {kind}: {STEP_KINDS[kind]['description']}"
+        if tools:
+            line += " Tools: " + ", ".join(f"{t} ({w})" if w else t for t, w in tools.items()) + "."
+        lines.append(line)
+    return "\n".join(lines)
+
+
+def compose_schema(available: Optional[Iterable[str]] = None) -> Dict[str, Any]:
+    """COMPOSE_SCHEMA with the step kinds limited to the ones offered."""
+    schema = json.loads(json.dumps(COMPOSE_SCHEMA))
+    schema["properties"]["steps"]["items"]["properties"]["kind"]["enum"] = sorted(offered_kinds(available))
+    return schema
 
 
 def wording_sha() -> str:
     """A short hash of everything the model reads in plan mode, so a measured
     pass rate is tied to the wording it was measured with."""
     blob = json.dumps(
-        [PLAN_MODE_RESEARCH_NOTE, COMPOSE_SYSTEM, COMPOSE_SCHEMA,
-         {k: v["description"] for k, v in STEP_KINDS.items()}],
+        [PLAN_MODE_RESEARCH_NOTE, COMPOSE_SYSTEM, COMPOSE_SCHEMA, kinds_text()],
         sort_keys=True,
     )
     return hashlib.sha1(blob.encode()).hexdigest()[:12]

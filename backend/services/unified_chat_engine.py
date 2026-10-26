@@ -3101,8 +3101,11 @@ class UnifiedChatEngine:
         if provider_context:
             context_parts.append(f"Current context:\n{provider_context}")
         if _opts.get("plan_mode_research"):
-            from backend.services.plan_mode_data import PLAN_MODE_RESEARCH_NOTE
-            context_parts.append(PLAN_MODE_RESEARCH_NOTE)
+            from backend.services.plan_mode_data import research_note
+            # The research registry hides the action tools; the note names
+            # what they can do from the full registry behind it.
+            _full = getattr(self.registry, "full", self.registry)
+            context_parts.append(research_note(_full.list_tools()))
         # A question about Guaardvark's own code starts from the System
         # Mapper's notes on where the answer is; the reply's references are
         # checked against the checkout afterwards.

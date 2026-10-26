@@ -299,6 +299,12 @@ class PlanModeRunner:
             extra["plan_kind"] = result.kind or "none"
             if result.kind == "question" and result.data.get("question"):
                 return str(result.data["question"]).strip()
+            if result.kind == "plan" and _QUESTION.search(message or "") and not changes_something(
+                    result.data, self.full):
+                # Steps that only look things up and write text, for a
+                # question: the research reply is the answer.
+                result = ComposeResult("answer", result.data, result.path)
+                extra["plan_kind"] = "answer"
             if result.kind != "plan" and research.attempted:
                 # It tried to act while researching: what it tried is the plan.
                 result = plan_from_attempts(research.attempted, objective=message)
@@ -346,11 +352,13 @@ class PlanModeRunner:
             num_ctx = refresh_context_window(self.llm)
         except Exception:
             num_ctx = None
+        available = sorted(self.full.list_tools())
         system = pmd.COMPOSE_SYSTEM.format(
-            max_steps=pmd.PLAN_MAX_STEPS, kinds=pmd.kinds_text(), tools=", ".join(sorted(self.full.list_tools())))
+            max_steps=pmd.PLAN_MAX_STEPS, kinds=pmd.kinds_text(available), tools=", ".join(available))
         user = compose_input(objective=objective, reply=reply, steps=steps, attempted=attempted,
                              current=current, history=_history_text(session_id))
-        return compose_plan(model, system, user, num_ctx=num_ctx, reply=reply)
+        return compose_plan(model, system, user, num_ctx=num_ctx, reply=reply,
+                            schema=pmd.compose_schema(available))
 
     # -- save ---------------------------------------------------------------
 
@@ -385,12 +393,23 @@ class PlanModeRunner:
         )
 
 
-_TOOL_KIND = {"generate_image": "image", "edit_image": "image", "remove_background": "image",
-              "outpaint_image": "image", "inpaint_image": "image", "generate_video": "video",
-              "generate_music_video": "video", "start_film_crew": "video", "generate_music": "audio",
-              "generate_speech": "audio", "save_memory": "memory", "update_memory": "memory",
-              "delete_memory": "memory", "generate_file": "file", "codegen": "file",
-              "generate_csv": "file", "edit_code": "code_change"}
+_QUESTION = re.compile(r"^\s*(where|which|how|why|what|who|when|is|are|does|do|can|could)\b|\?\s*$", re.I)
+
+
+def changes_something(data: Dict[str, Any], registry) -> bool:
+    """Whether a composed plan has a step that does more than look things up
+    and write text."""
+    for step in data.get("steps") or []:
+        if not isinstance(step, dict):
+            continue
+        if step.get("kind") not in pmd.TEXT_KINDS:
+            return True
+        call = _tool_call(str(step.get("action") or ""))
+        for name in _strings(step.get("tools"), 6) + ([call[0]] if call else []):
+            tool = registry.get_tool(name) if registry is not None else None
+            if tool is not None and not is_plan_research_tool(tool):
+                return True
+    return False
 
 
 def plan_from_attempts(attempted: List[Dict[str, Any]], *, objective: str) -> "ComposeResult":
@@ -400,7 +419,7 @@ def plan_from_attempts(attempted: List[Dict[str, Any]], *, objective: str) -> "C
     for a in attempted[:pmd.PLAN_MAX_STEPS]:
         args = ", ".join(f"{k}={v!r}" for k, v in (a.get("args") or {}).items())
         steps.append({"title": f"Run {a['tool']}", "action": f"{a['tool']}({args})",
-                      "kind": _TOOL_KIND.get(a["tool"], "other"), "tools": [a["tool"]]})
+                      "kind": pmd.tool_kind(a["tool"]) or "other", "tools": [a["tool"]]})
     return ComposeResult("plan", {"kind": "plan", "goal": objective[:200], "steps": steps}, "attempted")
 
 
@@ -450,18 +469,22 @@ def _history_text(session_id: str) -> str:
         return ""
 
 
-def compose_plan(model: str, system: str, user: str, *, num_ctx=None, reply: str = "") -> ComposeResult:
+def compose_plan(model: str, system: str, user: str, *, num_ctx=None, reply: str = "",
+                 schema: Optional[Dict[str, Any]] = None) -> ComposeResult:
     """Ask for the plan as JSON, falling back step by step; never raises."""
-    data, err = _chat_json(model, system, user, pmd.COMPOSE_SCHEMA, num_ctx)
+    schema = schema or pmd.COMPOSE_SCHEMA
+    data, err = _chat_json(model, system, user, schema, num_ctx)
     path = "schema"
-    if data is None:
+    # A call that failed or timed out would fail the same way again; only the
+    # reply's own numbered list is left to try.
+    if data is None and not err.startswith(_CALL_FAILED):
         data, err = _chat_json(model, system, user, "json", num_ctx)
         path = "json"
     problem = shape_problem(data) if data is not None else err
     if data is not None and problem:
         repair = (f"{user}\n\nYour last answer was not usable: {problem}. "
                   f"Answer again with JSON that fits the schema.")
-        fixed, err2 = _chat_json(model, system, repair, pmd.COMPOSE_SCHEMA, num_ctx)
+        fixed, err2 = _chat_json(model, system, repair, schema, num_ctx)
         if fixed is not None and not shape_problem(fixed):
             return ComposeResult(fixed.get("kind"), fixed, "repair")
         problem = shape_problem(fixed) if fixed is not None else err2
@@ -543,24 +566,27 @@ def _tool_call(action: str) -> Optional[Tuple[str, Dict[str, Any]]]:
     return m.group(1), params
 
 
+_CALL_FAILED = "the model call failed"
+
+
 def _chat_json(model, system, user, fmt, num_ctx) -> Tuple[Optional[dict], str]:
     try:
-        import ollama
         from backend.config import get_chat_keep_alive
-        from backend.services.nl_control_plane import parse_json_reply
+        from backend.services.nl_control_plane import _client_for, parse_json_reply
         from backend.utils.ollama_resource_manager import request_options, think_payload
 
-        response = ollama.chat(
+        response = _client_for(pmd.COMPOSE_TIMEOUT_S).chat(
             model=model,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
             format=fmt,
-            options=request_options(model, temperature=0.2, num_ctx=num_ctx),
+            options=request_options(model, temperature=0.2, num_ctx=num_ctx,
+                                    num_predict=pmd.COMPOSE_MAX_TOKENS),
             keep_alive=get_chat_keep_alive(),
             **think_payload(model),
         )
-    except Exception as e:  # noqa: BLE001 - every failure falls to the next path
+    except Exception as e:  # noqa: BLE001 - a failed call ends the compose
         logger.warning("plan compose call failed (%s): %s", fmt if isinstance(fmt, str) else "schema", e)
-        return None, f"the model call failed: {e}"
+        return None, f"{_CALL_FAILED}: {e}"
     msg = getattr(response, "message", None) or (response.get("message") if isinstance(response, dict) else None)
     content = getattr(msg, "content", None)
     if content is None and isinstance(msg, dict):
@@ -598,13 +624,32 @@ def validate(data: Dict[str, Any], *, registry, haystack: str, web_used: bool = 
         warnings.append(f"The plan had {len(raw_steps)} steps; only the first {pmd.PLAN_MAX_STEPS} are kept.")
         raw_steps = raw_steps[:pmd.PLAN_MAX_STEPS]
     known = set(registry.list_tools()) if registry is not None else set()
+    offered = pmd.offered_kinds(known if registry is not None else None)
     lowered = (haystack or "").lower()
     roots = _code_roots(project_root)
     steps = []
     for i, raw in enumerate(raw_steps, start=1):
-        kind = raw.get("kind") if raw.get("kind") in pmd.STEP_KINDS else "other"
-        tools = [t for t in _strings(raw.get("tools"), 6) if t in known and _fits_kind(t, kind, registry)]
         action = str(raw.get("action") or "").strip()[:1200]
+        call = _tool_call(action)
+        named = [t for t in _strings(raw.get("tools"), 6) if t in known]
+        if call and call[0] in known:
+            named = [call[0]]
+        elif not named:
+            # "Use the agent_task_execute tool to ..." with the tools left
+            # empty. Only tools a step kind lists count, so "without using
+            # system_command" grants nothing.
+            named = list(dict.fromkeys(w for w in re.findall(r"\b[a-z][a-z0-9_]+\b", action)
+                                       if w in known and pmd.tool_kind(w)))[:6]
+        kind = raw.get("kind") if raw.get("kind") in offered else "other"
+        # The kind decides how the step runs (a screen step gets the agent's
+        # screen), so an "other" step whose tools all belong to one kind is
+        # filed there. A step given a kind keeps it, and _fits_kind drops
+        # tools that kind may not carry: a writing step that names a screen
+        # tool must not take it into the grants.
+        owners = {pmd.tool_kind(t) for t in named}
+        if kind == "other" and len(owners) == 1 and None not in owners:
+            kind = owners.pop()
+        tools = [t for t in named if _fits_kind(t, kind, registry)]
         step = {
             "index": i,
             "title": (str(raw.get("title") or "").strip() or action[:60])[:120],
@@ -616,7 +661,6 @@ def validate(data: Dict[str, Any], *, registry, haystack: str, web_used: bool = 
         }
         if raw.get("status") in ("done", "skipped"):
             step.update({k: raw[k] for k in ("status", "summary") if k in raw})
-        call = _tool_call(action)
         if call and call[0] in known:
             step["tools"] = [call[0]]
             params = _fit_params(registry.get_tool(call[0]), call[1])
@@ -673,16 +717,13 @@ def _invented(target: str, lowered_haystack: str, roots: List[str]) -> bool:
     return not any(os.path.exists(os.path.join(root, rel)) for root in roots)
 
 
-_SCREEN_TOOL = re.compile(r"^(agent_|gui_|app_|browser_|clipboard_)")
-
-
 def _fits_kind(tool_name: str, kind: str, registry) -> bool:
     """Whether a step of ``kind`` may name ``tool_name``. The tools a plan
     names are what "allow these actions" grants, so a writing step cannot
     carry a screen-control tool into the run."""
-    if kind in ("write", "lookup"):
+    if kind in pmd.TEXT_KINDS:
         return is_plan_research_tool(registry.get_tool(tool_name)) if registry is not None else False
-    if kind != "desktop" and _SCREEN_TOOL.match(tool_name):
+    if kind != "desktop" and pmd.tool_kind(tool_name) == "desktop":
         return False
     return True
 
