@@ -527,9 +527,8 @@ def emit_swarm_event(event_type: str, task_id: str, data: dict):
 def _handle_chat_send_local(payload):
     """Process a chat:send payload on this node — same path as POST /api/chat/unified
     but entered via Socket.IO (used when the cluster bridge forwards here)."""
-    import threading
     import uuid
-    from flask import current_app, request as _req
+    from flask import current_app
     from backend.socketio_instance import socketio as _sio
 
     if not isinstance(payload, dict):
@@ -561,6 +560,9 @@ def _handle_chat_send_local(payload):
         options["attached_images"] = attached_images
         if any(image_urls):
             options["attached_image_urls"] = image_urls
+    # The session's saved mode applies here exactly as on POST /api/chat/unified.
+    from backend.api.unified_chat_api import _merge_session_mode_options
+    options = _merge_session_mode_options(session_id, options)
     # Named here so the brain's turn decision and its telemetry row say where
     # the turn came from; AgentBrain reuses an id it is given.
     options["surface"] = "cluster"
@@ -574,9 +576,7 @@ def _handle_chat_send_local(payload):
             project_id = None
 
     # Abort any already-running generation for this session
-    from backend.services.unified_chat_engine import (
-        begin_new_turn, begin_turn, end_turn, turn_replaced,
-    )
+    from backend.services.unified_chat_engine import begin_new_turn, turn_replaced
     turn_mark = begin_new_turn(session_id)
 
     def emit_fn(event, data_payload):
@@ -591,82 +591,29 @@ def _handle_chat_send_local(payload):
 
     app = current_app._get_current_object()
 
-    # Phase 2.2 tighten: AgentBrain sole canonical router here too (socket local bridge).
-    # Legacy only if AGENT_BRAIN_ENABLED=false or brain not ready. No silent dual path when enabled.
-    use_agent_brain = False
-    agent_brain = None
-    agent_brain_enabled = False
-    engine = None
-    try:
-        from backend.config import AGENT_BRAIN_ENABLED
-        agent_brain_enabled = AGENT_BRAIN_ENABLED
-        brain_state = getattr(app, "brain_state", None)
-        if AGENT_BRAIN_ENABLED and brain_state and brain_state.is_ready:
-            from backend.services.agent_brain import AgentBrain
-            agent_brain = AgentBrain(state=brain_state)
-            use_agent_brain = True
-    except Exception:
-        pass
-
-    if not use_agent_brain:
-        if agent_brain_enabled:
-            logger.error("[BRIDGE-LOCAL] AGENT_BRAIN_ENABLED=true but not ready; sole router enforced, no legacy")
-            emit_fn("chat:error", {"error": "AgentBrain enabled but not ready"})
-            return
-        try:
-            llm = app.config.get("LLAMA_INDEX_LLM")
-            if not llm:
-                from backend.utils.llm_service import get_llm_for_startup
-                llm = get_llm_for_startup()
-                app.config["LLAMA_INDEX_LLM"] = llm
-            from backend.tools.tool_registry_init import initialize_all_tools
-            registry = initialize_all_tools()
-            from backend.services.unified_chat_engine import UnifiedChatEngine
-            engine = UnifiedChatEngine(registry, llm)
-        except Exception as _e:
-            logger.error("[BRIDGE-LOCAL] engine init failed: %s", _e)
-            emit_fn("chat:error", {"error": "LLM not available"})
-            return
+    # AgentBrain routes the turn whenever it is enabled; never a silent fallback.
+    from backend.services.chat_turn import build_router, route_turn, run_chat_turn
+    agent_brain, engine, router_error = build_router(app)
+    if router_error:
+        logger.error("[BRIDGE-LOCAL] %s", router_error)
+        emit_fn("chat:error", {"error": router_error})
+        return
 
     def _run():
-        import contextlib
-        from backend.services import job_arbiter
-        begin_turn(session_id, turn_mark)
-        # Job order on: background work holds while this turn runs.
-        interactive_turn = contextlib.ExitStack()
-        interactive_turn.enter_context(
-            job_arbiter.interactive("voice_chat" if is_voice_message else "chat", session_id)
+        run_chat_turn(
+            session_id=session_id,
+            turn_mark=turn_mark,
+            emit_fn=emit_fn,
+            is_voice_message=is_voice_message,
+            log_tag="SOCKET-BRIDGE",
+            body=lambda: route_turn(
+                session_id=session_id, message=message,
+                options=options, emit_fn=emit_fn, app=app,
+                project_id=project_id, image_data=image_data,
+                image_url=image_url, is_voice_message=is_voice_message,
+                agent_brain=agent_brain, engine=engine, log_tag="SOCKET-BRIDGE",
+            ),
         )
-        try:
-            logger.info(f"[SOCKET-CHAT][BRIDGE-LOCAL] BACKEND THREAD START session={session_id}")
-
-            # Direct tool / slash intercept ( /imagine etc ) — do this BEFORE routing
-            # to brain or legacy. Guarantees bypass for slash commands in socket path too.
-            try:
-                from backend.services.slash_command_executor import run_direct_tool_turn
-                if run_direct_tool_turn(options, message, session_id, emit_fn, app,
-                                        project_id=project_id, log_tag="SOCKET-BRIDGE"):
-                    return  # direct path handled
-            except Exception as _dir_e:
-                logger.debug(f"Direct intercept (bridge) skipped: {_dir_e}")
-
-            if use_agent_brain:
-                agent_brain.process(
-                    session_id=session_id, message=message,
-                    options=options, emit_fn=emit_fn, app=app,
-                    project_id=project_id, image_data=image_data,
-                    image_url=image_url, is_voice_message=is_voice_message,
-                )
-            else:
-                engine.chat(session_id, message, options, emit_fn, app=app,
-                            project_id=project_id, image_data=image_data,
-                            image_url=image_url, is_voice_message=is_voice_message)
-        except Exception as _e:
-            logger.error("[BRIDGE-LOCAL] engine error: %s", _e, exc_info=True)
-            emit_fn("chat:error", {"error": str(_e)})
-        finally:
-            interactive_turn.close()
-            end_turn(session_id)
 
     # One turn per session, shared with POST /api/chat/unified: the previous
     # turn (stopped by begin_new_turn above) gets a moment to exit first.
