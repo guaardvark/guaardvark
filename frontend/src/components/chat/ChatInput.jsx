@@ -892,19 +892,34 @@ Please try a different image or check if the vision model is properly loaded.`;
             )}
           </Tooltip>
 
-          {/* Plan mode toggle; /plan does the same. */}
+          {/* Plan mode toggle; /plan does the same. On, it reads as a labelled
+              chip in the row so the mode is never missed. */}
           <Tooltip title={planModeNote || (planModeActive ? t("chat.input.planModeOff") : t("chat.input.planModeOn"))}>
-            <span>
-              <IconButton
-                onClick={togglePlanMode}
-                disabled={!sessionId}
-                aria-pressed={planModeActive}
-                aria-label={t("chat.input.planModeToggle")}
-                data-testid="plan-mode-toggle"
-                sx={{ color: planModeActive ? "info.main" : "text.secondary" }}
-              >
-                <ChecklistIcon />
-              </IconButton>
+            <span style={{ alignSelf: "center" }}>
+              {planModeActive ? (
+                <Chip
+                  icon={<ChecklistIcon />}
+                  label={t("chat.input.planModeBadge")}
+                  color="primary"
+                  size="small"
+                  onClick={togglePlanMode}
+                  aria-pressed
+                  aria-label={t("chat.input.planModeToggle")}
+                  data-testid="plan-mode-toggle"
+                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                />
+              ) : (
+                <IconButton
+                  onClick={togglePlanMode}
+                  disabled={!sessionId}
+                  aria-pressed={false}
+                  aria-label={t("chat.input.planModeToggle")}
+                  data-testid="plan-mode-toggle"
+                  sx={{ color: "text.secondary" }}
+                >
+                  <ChecklistIcon />
+                </IconButton>
+              )}
             </span>
           </Tooltip>
 
@@ -921,24 +936,6 @@ Please try a different image or check if the vision model is properly loaded.`;
             anchorEl={inputRef?.current}
             open={slashCmds.popupVisible}
           />
-
-          {/* Plan mode badge — above the input, after the agent badge when both are on */}
-          {planModeActive && (
-            <Chip
-              label={t("chat.input.planModeBadge")}
-              color="info"
-              size="small"
-              onDelete={togglePlanMode}
-              sx={{
-                position: "absolute",
-                top: -28,
-                left: agentModeActive ? 120 : 8,
-                fontWeight: 600,
-                letterSpacing: 0.5,
-                zIndex: 2,
-              }}
-            />
-          )}
 
           {/* Agent mode badge — sits above the input when active */}
           {agentModeActive && (
@@ -995,9 +992,9 @@ Please try a different image or check if the vision model is properly loaded.`;
               minHeight: "40px",
               ...(planModeActive && !agentModeActive && {
                 '& .MuiOutlinedInput-root': {
-                  '& fieldset': { borderColor: 'info.main', borderWidth: 2 },
-                  '&:hover fieldset': { borderColor: 'info.main' },
-                  '&.Mui-focused fieldset': { borderColor: 'info.main' },
+                  '& fieldset': { borderColor: 'primary.main', borderWidth: 2 },
+                  '&:hover fieldset': { borderColor: 'primary.main' },
+                  '&.Mui-focused fieldset': { borderColor: 'primary.main' },
                 }
               }),
               ...(agentModeActive && {
