@@ -4,6 +4,8 @@ The research registry must make action tools impossible to run, not merely
 unlisted; the compose fallbacks and the validator are code a small model
 leans on, so their behaviour is pinned here.
 """
+import types
+
 import pytest
 
 from backend.services import plan_mode as pm
@@ -206,8 +208,7 @@ def test_only_kinds_with_registered_tools_are_offered(registry):
     assert "generate_music" not in pmd.kinds_text(names)
     kinds = pmd.compose_schema(names)["properties"]["steps"]["items"]["properties"]["kind"]["enum"]
     assert kinds == sorted(offered)
-    note = pmd.research_note(names)
-    assert "the agent's screen" in note and "music" not in note
+    assert "the agent's screen" in pmd.abilities(names) and "music" not in pmd.abilities(names)
 
 
 def test_an_other_step_takes_the_kind_of_its_tools(registry, monkeypatch):
@@ -264,3 +265,60 @@ def test_compose_calls_are_bounded(monkeypatch):
     assert value == {"kind": "answer"} and err == ""
     assert seen["timeout"] == pmd.COMPOSE_TIMEOUT_S
     assert seen["options"]["num_predict"] == pmd.COMPOSE_MAX_TOKENS
+
+
+def test_what_is_not_possible_here_is_named(registry):
+    names = registry.list_tools()
+    missing = pmd.unavailable(names, web=False)
+    assert "music and speech (that is done on the Audio Studio page)" in missing
+    assert "web access is off" in missing
+    assert "the agent's screen" not in missing
+    assert pmd.unavailable(None, web=True) == "" and pmd.compose_unavailable(None, web=True) == ""
+    assert pmd.compose_unavailable(names, web=False).strip().startswith("Not possible here:")
+    note = pmd.research_note(names, web=False)
+    assert "Not possible from this chat:" in note and "Audio Studio" in note
+    assert "Not possible" not in pmd.research_note(None, web=True)
+
+
+@pytest.mark.parametrize("reply", [
+    # gemma4:e2b research replies in plan mode, 2026-10-26.
+    "I have remembered that your favorite color is green.",
+    "I can only generate text; I am unable to create pictures.",
+    "I am a text-based model and do not have the capability to generate videos.",
+    "I do not have a tool available that allows me to save new notes into memory.",
+    "I can process text and answer questions, but I cannot generate images.",
+])
+def test_replies_that_say_it_cannot_be_done_or_is_done_are_caught(reply):
+    assert pm.misreports(reply)
+
+
+@pytest.mark.parametrize("reply", [
+    "The seed box is in frontend/src/components/image/SeedField.jsx; the plan can change it there.",
+    "Found planets.csv in outputs/files; it has four rows.",
+    "",
+    None,
+])
+def test_findings_are_not_misreports(reply):
+    assert not pm.misreports(reply)
+
+
+def test_a_second_compose_is_told_what_the_research_reply_got_wrong(registry, monkeypatch):
+    seen = []
+
+    def fake_compose(model, system, user, **kw):
+        seen.append((system, user))
+        return pm.ComposeResult("answer", {}, "schema")
+
+    monkeypatch.setattr(pm, "compose_plan", fake_compose)
+    monkeypatch.setattr(pm, "web_access_on", lambda: False)
+    monkeypatch.setattr(pm, "_history_text", lambda session_id: "")
+    monkeypatch.setattr("backend.utils.ollama_resource_manager.refresh_context_window", lambda llm: None)
+    runner = pm.PlanModeRunner(registry, llm=types.SimpleNamespace(model="m"))
+    args = dict(objective="Make a picture of a lighthouse.", reply="I cannot make pictures.",
+                steps=[], attempted=[], current=None, session_id="s")
+    runner.compose(**args)
+    runner.compose(**args, correction=True)
+    (system, first), (_, second) = seen
+    assert "Not possible here:" in system and "web access is off" in system
+    assert "nothing is done yet" not in first
+    assert "nothing is done yet" in second and "the agent's screen" in second

@@ -57,7 +57,8 @@ PLAN_MODE_FLOOR = 0.8
 # A kind with tools listed is left out of the prompts when none of them is
 # registered: chat registers no music or speech tool (backend/tools/
 # tool_registry_init.py register_audio_tools is MCP-only), so chat plans
-# cannot promise audio.
+# cannot promise audio. Such a kind is named to the model as not possible
+# here instead, with "elsewhere", where in Guaardvark it can be done.
 STEP_KINDS: Dict[str, Dict[str, Any]] = {
     "write": {
         "description": "Write text for the person in the reply: an answer, a summary, a draft, a list.",
@@ -101,6 +102,7 @@ STEP_KINDS: Dict[str, Dict[str, Any]] = {
         "description": "Make music or a sound effect, or speak words aloud.",
         "tools": {"generate_music": "music or a sound effect", "generate_speech": "spoken words"},
         "ability": "music and speech",
+        "elsewhere": "the Audio Studio page",
         "routes": {"chat", "direct_tool"},
         "options": {},
     },
@@ -212,9 +214,36 @@ PLAN_MODE_RESEARCH_NOTE = (
 )
 
 
-def research_note(available: Optional[Iterable[str]] = None) -> str:
-    abilities = [STEP_KINDS[k]["ability"] for k in offered_kinds(available) if STEP_KINDS[k]["ability"]]
-    return PLAN_MODE_RESEARCH_NOTE.format(abilities=", ".join(abilities))
+def abilities(available: Optional[Iterable[str]] = None) -> str:
+    """What the registered action tools can do, as the notes name it."""
+    return ", ".join(STEP_KINDS[k]["ability"] for k in offered_kinds(available) if STEP_KINDS[k]["ability"])
+
+
+def unavailable(available: Optional[Iterable[str]] = None, *, web: bool = True) -> str:
+    """What a plan cannot do on this install: kinds none of whose tools are
+    registered, and web lookups while web access is off (its default)."""
+    offered = offered_kinds(available)
+    out = []
+    for kind, spec in STEP_KINDS.items():
+        if spec["tools"] and kind not in offered and spec["ability"]:
+            out.append(f"{spec['ability']} (that is done on {spec['elsewhere']})"
+                       if spec.get("elsewhere") else spec["ability"])
+    if not web:
+        out.append("looking things up on the web (web access is off in Settings)")
+    return "; ".join(out)
+
+
+# Appended to the research note when something is not possible here.
+UNAVAILABLE_NOTE = (
+    " Not possible from this chat: {missing}. If the request needs one of these, say so "
+    "plainly and say where it can be done, instead of looking for another way."
+)
+
+
+def research_note(available: Optional[Iterable[str]] = None, *, web: bool = True) -> str:
+    note = PLAN_MODE_RESEARCH_NOTE.format(abilities=abilities(available))
+    missing = unavailable(available, web=web)
+    return note + (UNAVAILABLE_NOTE.format(missing=missing) if missing else "")
 
 
 COMPOSE_SYSTEM = (
@@ -236,7 +265,28 @@ COMPOSE_SYSTEM = (
     "should confirm.\n"
     "Step kinds:\n{kinds}\n"
     "Tools a step may use:\n{tools}"
+    "{missing}"
 )
+
+# The {missing} line of COMPOSE_SYSTEM, when something is not possible here.
+COMPOSE_UNAVAILABLE = (
+    "\nNot possible here: {missing}. A request that needs one of these is \"answer\", not a "
+    "plan built from other tools."
+)
+
+# Added to the compose input for a second try when the research reply says
+# the work cannot be done or is already done, which small models say while
+# the action tools are hidden from them.
+COMPOSE_CORRECTION = (
+    "Note: your research reply said this cannot be done, or that it is already done. Nothing "
+    "runs while planning, so nothing is done yet, and the plan can use these: {abilities}. "
+    "Unless the request needs something listed as not possible here, write the plan."
+)
+
+
+def compose_unavailable(available: Optional[Iterable[str]] = None, *, web: bool = True) -> str:
+    missing = unavailable(available, web=web)
+    return COMPOSE_UNAVAILABLE.format(missing=missing) if missing else ""
 
 
 def kinds_text(available: Optional[Iterable[str]] = None) -> str:
@@ -260,7 +310,8 @@ def wording_sha() -> str:
     """A short hash of everything the model reads in plan mode, so a measured
     pass rate is tied to the wording it was measured with."""
     blob = json.dumps(
-        [PLAN_MODE_RESEARCH_NOTE, COMPOSE_SYSTEM, COMPOSE_SCHEMA, kinds_text()],
+        [PLAN_MODE_RESEARCH_NOTE, UNAVAILABLE_NOTE, COMPOSE_SYSTEM, COMPOSE_UNAVAILABLE,
+         COMPOSE_CORRECTION, COMPOSE_SCHEMA, kinds_text()],
         sort_keys=True,
     )
     return hashlib.sha1(blob.encode()).hexdigest()[:12]
