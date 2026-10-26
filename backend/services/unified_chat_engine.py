@@ -4036,7 +4036,7 @@ class UnifiedChatEngine:
             "truncated": final_truncated,
             "synthesized": synthesized,
             "web_search_offer": web_search_offer,
-            **{k: v for k, v in complete_extra.items() if k in ("plan", "findings")},
+            **{k: v for k, v in complete_extra.items() if k in ("plan", "findings", "plan_kind")},
         })
 
         # 8. Save assistant message (only if we have actual content)

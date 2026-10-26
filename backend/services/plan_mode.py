@@ -264,12 +264,14 @@ class PlanModeRunner:
 
         def finalize(reply: str, steps: List[Dict[str, Any]]) -> Optional[str]:
             if social or is_aborted(session_id):
+                extra["plan_kind"] = "answer"
                 return None
             current = latest_open_plan(session_id)
             result = self.compose(
                 objective=message, reply=reply, steps=steps, attempted=research.attempted,
                 current=current, session_id=session_id,
             )
+            extra["plan_kind"] = result.kind or "none"
             if result.kind == "question" and result.data.get("question"):
                 return str(result.data["question"]).strip()
             if result.kind != "plan":
