@@ -11,6 +11,13 @@ import backend.tools.llama_code_tools as lct
 from backend.tools import code_search_tools as cst
 
 
+@pytest.fixture(autouse=True)
+def _indexed(monkeypatch):
+    """These tests are about the hybrid path, which runs only for a checkout
+    with a code search index; test_system_map_query.py covers the one without."""
+    monkeypatch.setattr(cst, "has_code_index", lambda root: True)
+
+
 @pytest.fixture
 def checkout(tmp_path, monkeypatch):
     root = tmp_path / "checkout"

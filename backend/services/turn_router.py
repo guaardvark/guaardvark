@@ -120,6 +120,7 @@ DIRECT_TOOL_SIDE_EFFECT: Dict[str, str] = {
     "inspect_gpu": "none",
     "read_logs": "none",
     "map_codebase": "none",
+    "system_map_query": "none",
     "swarm_status": "none",
     "self_improvement_status": "none",
 }

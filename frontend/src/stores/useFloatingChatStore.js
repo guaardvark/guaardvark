@@ -55,6 +55,19 @@ export const useFloatingChatStore = create(
       removeVoiceTurn: (id) =>
         set((s) => ({ voiceTurns: s.voiceTurns.filter((t) => t.id !== id) })),
 
+      // Turns another page asks the card to send ("Ask about this" on the
+      // System Map): { id, text, options }, sent in order like voice turns.
+      // Not persisted.
+      pendingTurns: [],
+      enqueueTurn: (turn) =>
+        set((s) => ({
+          pendingTurns: [...s.pendingTurns, { id: `turn_${Date.now()}_${s.pendingTurns.length}`, ...turn }],
+          isOpen: true,
+          collapsed: false,
+        })),
+      removePendingTurn: (id) =>
+        set((s) => ({ pendingTurns: s.pendingTurns.filter((t) => t.id !== id) })),
+
       error: null,
       setError: (error) => set({ error }),
       clearError: () => set({ error: null }),

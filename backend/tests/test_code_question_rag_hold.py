@@ -139,7 +139,7 @@ class TestCodeQuestion:
         e = _engine(monkeypatch, [_tool_call("search_codebase", "route handler"), "Final answer."])
         _run(e, CODE_QUESTION)
         first = e.calls["llm_messages"][0]
-        assert uce._CODE_SEARCH_NUDGE in _text(first)
+        assert uce._code_search_nudge() in _text(first)
         assert KB not in _text(first)
         assert CHAT_KB_CONTEXT_HEADER not in _text(first)
         assert uce._KB_SECONDARY_LABEL not in _text(first)
@@ -197,7 +197,7 @@ class TestNonCodeQuestion:
         user = [m for m in first if m["role"] == "user"][-1]["content"]
         assert f"{CHAT_KB_CONTEXT_HEADER}\n{KB}" in user
         assert "answer from your own knowledge" in user
-        assert uce._CODE_SEARCH_NUDGE not in _text(first)
+        assert uce._code_search_nudge() not in _text(first)
 
     def test_no_passages_means_no_kb_block(self, monkeypatch):
         e = _engine(monkeypatch, ["Canberra."])
@@ -213,4 +213,4 @@ class TestNonCodeQuestion:
         _run(e, CODE_QUESTION)
         first = e.calls["llm_messages"][0]
         assert KB in _text(first)
-        assert uce._CODE_SEARCH_NUDGE not in _text(first)
+        assert uce._code_search_nudge() not in _text(first)

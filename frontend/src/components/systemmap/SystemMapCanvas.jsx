@@ -136,10 +136,19 @@ function buildGraph(systemMap) {
   }
 
   const dep = systemMap.dependency_graph || {};
-  const moduleNames = Object.keys(dep);
-  // Real per-module metadata from the backend (lifecycle, importers). Falls back
-  // to defaults for older snapshots that predate node_meta.
+  const lazy = systemMap.lazy_imports || {};
+  // Every surveyed module is a node, including the ones that import nothing
+  // (node_meta covers the whole tree). Older snapshots without node_meta fall
+  // back to the modules the import graph names.
   const backendMeta = systemMap.node_meta || {};
+  const moduleNames = Object.keys(backendMeta).length
+    ? Object.keys(backendMeta)
+    : [...new Set([...Object.keys(dep), ...Object.values(dep).flat()])];
+  const byPath = {};
+  for (const name of moduleNames) {
+    if (backendMeta[name]?.path) byPath[backendMeta[name].path] = name;
+  }
+  const pathToModuleName = (path) => byPath[path] || pyPathToModuleName(path);
 
   const nodeMeta = {};
   for (const name of moduleNames) {
@@ -228,13 +237,18 @@ function buildGraph(systemMap) {
     nodeIndex[name] = node;
   }
 
+  // Load-time imports, then imports made inside functions (drawn fainter).
   const links = [];
-  for (const [src, targets] of Object.entries(dep)) {
-    if (!nodeIndex[src]) continue;
-    for (const t of targets || []) {
-      if (!nodeIndex[t]) continue;
-      const isCycle = cycleEdges.has(`${src}||${t}`);
-      links.push({ source: src, target: t, cycle: isCycle });
+  const seenLink = new Set();
+  for (const [graph, isLazy] of [[dep, false], [lazy, true]]) {
+    for (const [src, targets] of Object.entries(graph)) {
+      if (!nodeIndex[src]) continue;
+      for (const t of targets || []) {
+        if (!nodeIndex[t] || seenLink.has(`${src}||${t}`)) continue;
+        seenLink.add(`${src}||${t}`);
+        const isCycle = !isLazy && cycleEdges.has(`${src}||${t}`);
+        links.push({ source: src, target: t, cycle: isCycle, lazy: isLazy });
+      }
     }
   }
 
@@ -265,7 +279,7 @@ function buildGraph(systemMap) {
   return { nodes, links, nodeIndex, severityCounts: counts, toolEdges };
 }
 
-function pathToModuleName(path) {
+function pyPathToModuleName(path) {
   if (!path) return null;
   if (!path.endsWith(".py")) return null;
   return path.slice(0, -3).replace(/\//g, ".");
@@ -652,6 +666,7 @@ const SystemMapCanvas = forwardRef(function SystemMapCanvas(
           const bIn = isInHighlight(b, hl);
           if (!aIn && !bIn) alpha *= 0.18;
         }
+        if (l.lazy) alpha *= 0.45;
         if (l.cycle) {
           ctx.strokeStyle = pal.danger(Math.max(0.18, alpha * 1.2));
         } else {

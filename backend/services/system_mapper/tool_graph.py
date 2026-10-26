@@ -1,283 +1,220 @@
-"""LLM tool registry × invocation map.
+"""LLM tool inventory and how the chat reaches each tool. Read, never run.
 
 For Guaardvark specifically, but designed to skip gracefully on other codebases:
 
-  * Discovers tool registrations in `backend/tools/tool_registry_init.py`
-    (any `*_registry.register(...)` call or `register_all_tools()` body).
-  * Reads `CORE_TOOLS` (or equivalent constant list) from
-    `backend/services/unified_chat_engine.py` to see which registered tools
-    the LLM is actually allowed to call.
-  * Reports:
-      - UNWIRED_TOOL — registered, not in CORE_TOOLS (the April 14 hazard
-        about disconnected memory tools)
-      - UNREGISTERED_TOOL — listed in CORE_TOOLS but no registration found
-        (likely a typo or a refactor leftover)
+  * Every tool class is found statically: a class whose ``name`` attribute is
+    a string literal, with its file, class and line (facts.tool_classes).
+  * ``backend/tools/tool_registry_init.py`` says which of those classes are
+    registered and by which ``register_*`` function: direct
+    ``register_tool(X())`` calls, classes the function imports and registers
+    in a loop, lists imported from another module (``for tool in
+    CODE_MANIPULATION_TOOLS``) and class names looked up with getattr. A
+    function that returns early unless ``in_mcp_process()`` registers its tools
+    for MCP clients only.
+  * How the chat can reach a registered tool, from the source: the ``*_TOOLS``
+    lists and pins in ``backend/services/unified_chat_engine.py`` (CORE_TOOLS
+    on every turn, the others on keyword matches), names the chat engine or
+    ``backend/services/turn_router.py`` route to directly, slash commands in
+    ``backend/services/slash_command_executor.py``, and the semantic selector,
+    which ranks every registered tool against each message when the chat
+    engine defines one.
+  * MCP exposure from ``backend/mcp/config.py``'s default policy.
 
-If neither file exists, returns empty results without raising.
+Findings:
+  - UNWIRED_TOOL — registered for chat, but no list, pin, route, slash command
+    or selector can offer it.
+  - UNREGISTERED_TOOL — a list names a tool that no registration provides.
+
+Nothing here imports the mapped tree or starts a process: the map of a
+checkout, or of a repository someone uploaded, never runs its code.
 """
 from __future__ import annotations
 
 import ast
-import json
-import re
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
+from . import facts as facts_mod
 from .core import Finding, FindingKind, Severity, source_files
 
+REGISTRY_INIT = "backend/tools/tool_registry_init.py"
+CHAT_ENGINE = "backend/services/unified_chat_engine.py"
+TURN_ROUTER = "backend/services/turn_router.py"
+SLASH_EXECUTOR = "backend/services/slash_command_executor.py"
+MCP_CONFIG = "backend/mcp/config.py"
 
-# Subprocess probe: import the real registry in a sanitized, offline, no-GPU
-# environment and emit the actual registered tool names as JSON on stdout.
-# This makes loop-registration (for tool in CODE_MANIPULATION_TOOLS: ...) visible,
-# which the AST pass cannot reliably see.
-_PROBE = r"""
-import os, sys, json
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-os.environ["OLLAMA_HOST"] = "127.0.0.1:1"
-os.environ["HF_HUB_OFFLINE"] = "1"
-os.environ["TRANSFORMERS_OFFLINE"] = "1"
-os.environ["SYSTEM_MAPPER_PROBE"] = "1"
-sys.path.insert(0, sys.argv[1])
-try:
-    from backend.tools.tool_registry_init import get_registered_tools
-    names = list(get_registered_tools())
-    print(json.dumps({"ok": True, "tools": names}))
-except Exception as exc:
-    print(json.dumps({"ok": False, "error": repr(exc)}))
-"""
+# Lists a connected MCP server fills at runtime; empty in the source.
+_RUNTIME_LISTS = frozenset({"MCP_NATIVE_TOOLS"})
 
 
-def _is_uploaded(root: Path) -> bool:
-    """True when root lies in Guaardvark's uploads directory, where Code
-    Repository folders people upload are kept."""
+def _parse(path: Path) -> ast.Module | None:
+    if not path.is_file():
+        return None
     try:
-        from backend.config import UPLOAD_DIR
-    except Exception:
-        return False
-    try:
-        Path(root).resolve().relative_to(Path(UPLOAD_DIR).resolve())
-        return True
-    except ValueError:
-        return False
-
-
-def _probe_runtime_registry(root: Path, timeout: float = 20.0) -> tuple[set[str], dict]:
-    """Run the real tool registry in a subprocess and return its registered names.
-
-    Returns (names, info). On any failure (timeout / nonzero exit / non-JSON /
-    {"ok": False}) returns (set(), {"error": ...}) so the caller can fall back to
-    the AST extraction. Never raises.
-    """
-    try:
-        proc = subprocess.run(
-            [sys.executable, "-c", _PROBE, str(root)],
-            cwd=str(root),
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        return set(), {"error": "probe timed out"}
-    except Exception as exc:  # pragma: no cover - defensive
-        return set(), {"error": f"probe spawn failed: {exc!r}"}
-
-    if proc.returncode != 0:
-        return set(), {"error": f"probe exit {proc.returncode}: {proc.stderr.strip()[-400:]}"}
-
-    stdout = (proc.stdout or "").strip()
-    # The probe may emit log lines before the JSON; take the last JSON object line.
-    payload = None
-    for line in reversed(stdout.splitlines()):
-        line = line.strip()
-        if line.startswith("{") and line.endswith("}"):
-            try:
-                payload = json.loads(line)
-                break
-            except json.JSONDecodeError:
-                continue
-    if payload is None:
-        return set(), {"error": "probe produced no JSON"}
-    if not payload.get("ok"):
-        return set(), {"error": payload.get("error", "probe reported failure")}
-    names = {n for n in payload.get("tools", []) if isinstance(n, str)}
-    return names, {"count": len(names)}
-
-
-def _extract_registered_tools(registry_init: Path) -> dict[str, dict]:
-    """Parse tool_registry_init.py-shaped file and pull out tool registrations.
-
-    Handles three Guaardvark-style patterns:
-      1. `register_tool(WordPressContentTool())`           — top-level function call
-      2. `<something>.register(WordPressContentTool())`     — method call
-      3. `<something>.register("name", ToolClass(...))`     — name-first variant
-
-    Pattern 1+2: the tool's canonical name is whatever the very next
-    `<list>.append("<name>")` statement in the same function adds. We walk the
-    function body in order and pair `register_tool(...)` calls with the
-    immediately-following `registered.append(...)` call.
-    """
-    out: dict[str, dict] = {}
-    if not registry_init.is_file():
-        return out
-    try:
-        text = registry_init.read_text(encoding="utf-8", errors="ignore")
-        tree = ast.parse(text)
-    except Exception:
-        return out
-
-    def _is_register_call(call: ast.Call) -> tuple[bool, str | None]:
-        """Returns (is_register_call, class_name_if_inferable)."""
-        func = call.func
-        # Pattern 1: register_tool(...)
-        if isinstance(func, ast.Name) and func.id in ("register_tool", "add_tool"):
-            for arg in call.args:
-                if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name):
-                    return True, arg.func.id
-                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    return True, None  # name-first variant
-            return True, None
-        # Pattern 2/3: <obj>.register(...)
-        if isinstance(func, ast.Attribute) and func.attr in ("register", "register_tool", "add_tool"):
-            for arg in call.args:
-                if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Name):
-                    return True, arg.func.id
-                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    return True, None
-            return True, None
-        return False, None
-
-    # Map imported names -> source dotted module, so loop registration like
-    # `for tool in CODE_MANIPULATION_TOOLS:` can be resolved to the list's
-    # element classes (and thence their `name` attributes).
-    imported_from: dict[str, str] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module:
-            for alias in node.names:
-                imported_from[alias.asname or alias.name] = node.module
-
-    def _class_name_attr(sub_tree: ast.Module, class_name: str) -> str | None:
-        """Find a class's `name = "..."` class-level attribute in a parsed module."""
-        for sub in ast.walk(sub_tree):
-            if isinstance(sub, ast.ClassDef) and sub.name == class_name:
-                for stmt in sub.body:
-                    if isinstance(stmt, ast.Assign):
-                        for tgt in stmt.targets:
-                            if isinstance(tgt, ast.Name) and tgt.id == "name" and \
-                               isinstance(stmt.value, ast.Constant) and \
-                               isinstance(stmt.value.value, str):
-                                return stmt.value.value
+        return ast.parse(path.read_text(encoding="utf-8", errors="ignore"))
+    except (SyntaxError, ValueError):
         return None
 
-    def _resolve_imported_list(list_name: str) -> list[str] | None:
-        """Resolve a module-level list referenced in a for-loop to tool names.
 
-        Lists like CODE_MANIPULATION_TOOLS are imported from another module.
-        We follow the import to the source file, read the list's element class
-        names, and resolve each class's `name = "..."` class attribute. Returns
-        a list of resolved tool-name strings (best-effort), else None.
-        """
-        src_mod = imported_from.get(list_name)
-        if not src_mod:
-            return None
-        rel = Path(*src_mod.split(".")).with_suffix(".py")
-        # registry_init is <root>/backend/tools/tool_registry_init.py — walk up
-        # to find the repo root where the dotted-module path resolves to a file.
-        root_guess = registry_init
-        for _ in range(8):
-            root_guess = root_guess.parent
-            cand = root_guess / rel
-            if not cand.is_file():
-                continue
-            try:
-                sub_tree = ast.parse(cand.read_text(encoding="utf-8", errors="ignore"))
-            except Exception:
-                return None
-            class_names: list[str] | None = None
-            for sub in ast.walk(sub_tree):
-                if isinstance(sub, ast.Assign):
-                    for tgt in sub.targets:
-                        if isinstance(tgt, ast.Name) and tgt.id == list_name and \
-                           isinstance(sub.value, (ast.List, ast.Tuple)):
-                            class_names = [
-                                e.func.id for e in sub.value.elts
-                                if isinstance(e, ast.Call) and isinstance(e.func, ast.Name)
-                            ]
-            if class_names is None:
-                return None
-            resolved = [n for c in class_names if (n := _class_name_attr(sub_tree, c))]
-            return resolved
-        return None
+def _str_list(node) -> list[str] | None:
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        return [e.value for e in node.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+    return None
 
-    def _handle_for_loop(stmt: ast.For) -> bool:
-        """Detect `for <v> in <NAME>: register_tool(<v>); registered.append(<v>.name)`.
 
-        On a match, resolve <NAME> to the list's element classes and their `name`
-        attributes and record each as registered. Returns True if handled as a
-        registration loop (so the normal pairing logic can skip this stmt)."""
-        if not isinstance(stmt.target, ast.Name):
-            return False
-        if not isinstance(stmt.iter, ast.Name):
-            return False
-        loop_var = stmt.target.id
-        iter_name = stmt.iter.id
-        has_register = False
-        for n in ast.walk(stmt):
-            if isinstance(n, ast.Call):
-                f = n.func
-                fname = (f.id if isinstance(f, ast.Name)
-                         else f.attr if isinstance(f, ast.Attribute) else None)
-                if fname in ("register_tool", "add_tool", "register") and any(
-                    isinstance(a, ast.Name) and a.id == loop_var for a in n.args
-                ):
-                    has_register = True
-        if not has_register:
-            return False
-        names = _resolve_imported_list(iter_name)
-        if not names:
-            # Couldn't resolve, but it IS a registration loop — return True so we
-            # don't mis-handle it, even though we add nothing.
-            return True
-        for nm in names:
-            out.setdefault(nm, {"name": nm, "class": None, "line": stmt.lineno})
-        return True
+# ── Tool classes ─────────────────────────────────────────────────────────────
 
-    def _walk_for_registrations(body: list[ast.stmt]) -> None:
-        """Walk a function body; pair register_tool calls with subsequent append(name)."""
-        pending_class: list[tuple[str | None, int]] = []  # (class_name, line)
-        for stmt in body:
-            if isinstance(stmt, ast.For) and _handle_for_loop(stmt):
-                continue
-            # Inspect the statement for register_tool calls
-            for node in ast.walk(stmt):
-                if isinstance(node, ast.Call):
-                    is_reg, cls = _is_register_call(node)
-                    if is_reg:
-                        pending_class.append((cls, node.lineno))
-                    # Pattern 3: <obj>.register("name", X())
-                    elif (isinstance(node.func, ast.Attribute) and
-                          node.func.attr in ("register", "register_tool", "add_tool") and
-                          node.args and isinstance(node.args[0], ast.Constant)):
-                        nm = node.args[0].value
-                        out[nm] = {"name": nm, "class": None, "line": node.lineno}
-                # Look for `<list>.append("<name>")`
-                if (isinstance(node, ast.Call) and
-                    isinstance(node.func, ast.Attribute) and node.func.attr == "append" and
-                    node.args and isinstance(node.args[0], ast.Constant) and
-                    isinstance(node.args[0].value, str) and pending_class):
-                    nm = node.args[0].value
-                    cls, line = pending_class.pop(0)
-                    out[nm] = {"name": nm, "class": cls, "line": line}
-
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            _walk_for_registrations(node.body)
-    # Also catch any module-level register calls
-    _walk_for_registrations(tree.body)
-
+def tool_classes(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=None) -> dict[str, list[dict]]:
+    """{module dotted name: [tool class facts + file]} for backend/ Python."""
+    out: dict[str, list[dict]] = {}
+    if corpus is not None:
+        items = ((rel, corpus.facts[rel]) for rel in corpus.python_files() if rel.startswith("backend/"))
+    else:
+        backend = root / "backend"
+        items = []
+        if backend.is_dir():
+            for py in source_files(root, extra_excludes, pattern="*.py", under=backend):
+                rel = py.relative_to(root).as_posix()
+                f = facts_mod.file_facts(py, rel)
+                if f is not None:
+                    items.append((rel, f))
+    from .corpus import is_test_path, module_name
+    for rel, f in items:
+        if is_test_path(rel) or not f.get("tool_classes"):
+            continue
+        out[module_name(rel)] = [{**t, "file": rel} for t in f["tool_classes"]]
     return out
 
+
+# ── Registration ─────────────────────────────────────────────────────────────
+
+def _module_list(root: Path, module: str, list_name: str) -> list[str]:
+    """Class names in ``list_name = [A(), B, ...]`` of a module, by file."""
+    tree = _parse(root / (module.replace(".", "/") + ".py"))
+    if tree is None:
+        return []
+    for node in ast.walk(tree):
+        targets = node.targets if isinstance(node, ast.Assign) else \
+            [node.target] if isinstance(node, ast.AnnAssign) else []
+        if any(isinstance(t, ast.Name) and t.id == list_name for t in targets):
+            if isinstance(node.value, (ast.List, ast.Tuple)):
+                names = []
+                for e in node.value.elts:
+                    if isinstance(e, ast.Call) and isinstance(e.func, ast.Name):
+                        names.append(e.func.id)
+                    elif isinstance(e, ast.Name):
+                        names.append(e.id)
+                return names
+    return []
+
+
+def _guards(fn: ast.FunctionDef) -> list[str]:
+    """Conditions under which a register function returns before registering
+    anything: ``if not in_mcp_process(): return``."""
+    out = []
+    for stmt in fn.body:
+        if isinstance(stmt, ast.If) and any(isinstance(s, ast.Return) for s in stmt.body):
+            try:
+                out.append(ast.unparse(stmt.test))
+            except Exception:
+                out.append("?")
+        if isinstance(stmt, (ast.Try, ast.For)):
+            break
+    return out
+
+
+def _category(fn: ast.FunctionDef) -> str | None:
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id == "category" and isinstance(node.value, ast.Constant):
+                    return node.value.value
+    for node in ast.walk(fn):
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            for t in node.targets:
+                if isinstance(t, ast.Subscript) and isinstance(t.value, ast.Name) and t.value.id == "_tool_categories":
+                    return node.value.value
+    return None
+
+
+def registrations(root: Path) -> list[dict]:
+    """One entry per class the registry init registers:
+    {class, module, function, line, guards, category}."""
+    tree = _parse(root / REGISTRY_INIT)
+    if tree is None:
+        return []
+    out: list[dict] = []
+    for fn in tree.body:
+        if not isinstance(fn, ast.FunctionDef):
+            continue
+        calls_register = any(
+            isinstance(n, ast.Call) and (
+                (isinstance(n.func, ast.Name) and n.func.id in ("register_tool", "add_tool"))
+                or (isinstance(n.func, ast.Attribute) and n.func.attr in ("register", "register_tool", "add_tool")))
+            for n in ast.walk(fn))
+        if not calls_register:
+            continue
+        imported: dict[str, tuple[str, int]] = {}   # local name -> (module, line)
+        module_alias: dict[str, str] = {}
+        for node in ast.walk(fn):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                for a in node.names:
+                    if a.name[:1].isupper():
+                        imported[a.asname or a.name] = (node.module, node.lineno)
+                    else:
+                        module_alias[a.asname or a.name] = f"{node.module}.{a.name}"
+        guards = _guards(fn)
+        category = _category(fn)
+        found: dict[tuple[str, str], int] = {}
+
+        def add(cls: str, module: str, line: int) -> None:
+            found.setdefault((cls, module), line)
+
+        for node in ast.walk(fn):
+            if isinstance(node, ast.For):
+                it = node.iter
+                if isinstance(it, ast.Name) and it.id in imported:
+                    module, line = imported[it.id]
+                    for cls in _module_list(root, module, it.id):
+                        add(cls, module, node.lineno)
+                elif isinstance(it, (ast.Tuple, ast.List)):
+                    for e in it.elts:
+                        if isinstance(e, ast.Name) and e.id in imported:
+                            add(e.id, imported[e.id][0], node.lineno)
+                        elif isinstance(e, (ast.Tuple, ast.List)) and e.elts and isinstance(e.elts[0], ast.Constant):
+                            # ("RemoveBackgroundTool", "remove_background"): the class is
+                            # looked up with getattr on a module imported in the loop.
+                            for sub in ast.walk(node):
+                                if (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
+                                        and sub.func.id == "getattr" and sub.args
+                                        and isinstance(sub.args[0], ast.Name)
+                                        and sub.args[0].id in module_alias):
+                                    add(e.elts[0].value, module_alias[sub.args[0].id], node.lineno)
+                elif isinstance(it, ast.Name):
+                    # A local list of (class name, tool name) pairs.
+                    for stmt in fn.body:
+                        if (isinstance(stmt, ast.Assign) and any(isinstance(t, ast.Name) and t.id == it.id
+                                                                for t in stmt.targets)
+                                and isinstance(stmt.value, (ast.List, ast.Tuple))):
+                            for e in stmt.value.elts:
+                                if isinstance(e, (ast.Tuple, ast.List)) and e.elts and \
+                                        isinstance(e.elts[0], ast.Constant):
+                                    for sub in ast.walk(node):
+                                        if (isinstance(sub, ast.Call) and isinstance(sub.func, ast.Name)
+                                                and sub.func.id == "getattr" and sub.args
+                                                and isinstance(sub.args[0], ast.Name)
+                                                and sub.args[0].id in module_alias):
+                                            add(e.elts[0].value, module_alias[sub.args[0].id], node.lineno)
+            elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in imported:
+                add(node.func.id, imported[node.func.id][0], node.lineno)
+
+        for (cls, module), line in found.items():
+            out.append({"class": cls, "module": module, "function": fn.name, "line": line,
+                        "guards": guards, "category": category})
+    return out
+
+
+# ── Wiring: how the chat reaches a tool ───────────────────────────────────────
 
 def _extract_core_tools(chat_engine: Path) -> tuple[list[str], dict[str, list[str]]]:
     """Pull every `*_TOOLS` constant from a Python file.
@@ -285,13 +222,10 @@ def _extract_core_tools(chat_engine: Path) -> tuple[list[str], dict[str, list[st
     Returns (union_of_all_tool_names, breakdown_by_constant_name). The agent's
     "wired" set is the union — Guaardvark splits tools across multiple lists
     (CORE_TOOLS, BROWSER_TOOLS, CODE_TOOLS, ...) and any of them counts as wired.
+    Lists of pinned tools (KNOWLEDGE_NAV_TOOLS_PINNED) count too.
     """
-    if not chat_engine.is_file():
-        return [], {}
-    try:
-        text = chat_engine.read_text(encoding="utf-8", errors="ignore")
-        tree = ast.parse(text)
-    except Exception:
+    tree = _parse(chat_engine)
+    if tree is None:
         return [], {}
 
     breakdown: dict[str, list[str]] = {}
@@ -303,15 +237,13 @@ def _extract_core_tools(chat_engine: Path) -> tuple[list[str], dict[str, list[st
             for tgt in node.targets:
                 if not isinstance(tgt, ast.Name):
                     continue
-                # Catch CORE_TOOLS, BROWSER_TOOLS, AGENT_TOOLS, etc. — any *_TOOLS
-                if not (tgt.id.endswith("_TOOLS") or tgt.id == "CORE_TOOLS"):
+                if not (tgt.id.endswith("_TOOLS") or tgt.id.endswith("_TOOLS_PINNED")):
                     continue
-                if not isinstance(node.value, (ast.List, ast.Tuple, ast.Set)):
-                    continue
-                names = [
-                    e.value for e in node.value.elts
-                    if isinstance(e, ast.Constant) and isinstance(e.value, str)
-                ]
+                if isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name) \
+                        and node.value.func.id == "frozenset" and node.value.args:
+                    names = _str_list(node.value.args[0])
+                else:
+                    names = _str_list(node.value)
                 if names and (overwrite or tgt.id not in breakdown):
                     breakdown[tgt.id] = names
 
@@ -334,38 +266,122 @@ def _extract_core_tools(chat_engine: Path) -> tuple[list[str], dict[str, list[st
     return union, breakdown
 
 
-def _find_invocations(root: Path, tool_names: set[str]) -> dict[str, list[str]]:
-    """Where does each tool name show up as a quoted string in backend code?
-
-    Cheap text grep — captures references in `execute_tool("foo")`,
-    `tool_name == "foo"`, prompts, schemas, etc. Fewer false positives than
-    full AST analysis would give us, since tools are most often referenced as
-    plain strings.
-    """
-    out: dict[str, list[str]] = {name: [] for name in tool_names}
-    backend = root / "backend"
-    if not backend.is_dir():
+def _offering_lists(path: Path) -> set[str]:
+    """Names of the tool lists the chat engine offers from: those in its
+    keyword table (TOOL_CONTEXT_KEYWORDS), those its _pin_* functions add,
+    and CORE_TOOLS. Other *_TOOLS sets classify tools (serial, GPU-heavy)
+    and offer nothing."""
+    tree = _parse(path)
+    out: set[str] = {"CORE_TOOLS"}
+    if tree is None:
         return out
-    name_re = {name: re.compile(rf"""['"]\b{re.escape(name)}\b['"]""") for name in tool_names}
-    # Only these two folders are skipped here, so a tool named in tests or
-    # migrations still counts as referenced.
-    for py in source_files(root, pattern="*.py", under=backend,
-                           exclude_dirs=frozenset({"__pycache__", "venv"})):
-        rel = str(py.relative_to(root))
-        try:
-            text = py.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
-            continue
-        for name, rx in name_re.items():
-            if rx.search(text):
-                out[name].append(rel)
+    for node in ast.walk(tree):
+        scope = None
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "TOOL_CONTEXT_KEYWORDS"
+                                                for t in node.targets):
+            scope = node.value
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+                node.name.startswith("_pin_") or node.name == "select_tools_for_context"):
+            scope = node
+        if scope is not None:
+            out |= {n.id for n in ast.walk(scope) if isinstance(n, ast.Name)}
     return out
 
 
-def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[str, Any]:
+def _string_constants(path: Path) -> set[str]:
+    tree = _parse(path)
+    if tree is None:
+        return set()
+    return {n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+
+
+def _slash_commands(path: Path) -> dict[str, str]:
+    """{tool: "/command"} from SLASH_COMMAND_TOOL_MAP."""
+    tree = _parse(path)
+    out: dict[str, str] = {}
+    if tree is None:
+        return out
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            if any(isinstance(t, ast.Name) and t.id == "SLASH_COMMAND_TOOL_MAP" for t in targets) \
+                    and isinstance(node.value, ast.Dict):
+                for k, v in zip(node.value.keys, node.value.values):
+                    if isinstance(k, ast.Constant) and isinstance(v, ast.Constant):
+                        out.setdefault(v.value, f"/{k.value}")
+    return out
+
+
+def _has_selector(path: Path) -> bool:
+    tree = _parse(path)
+    if tree is None:
+        return False
+    return any(isinstance(n, ast.ClassDef) and n.name == "SemanticToolSelector" for n in tree.body)
+
+
+def _mcp_policy(path: Path) -> dict[str, list[str]]:
+    """The default MCP tool policy lists from backend/mcp/config.py."""
+    tree = _parse(path)
+    out = {"deny_categories": [], "allow": [], "deny": []}
+    if tree is None:
+        return out
+    names = {"DEFAULT_DENY_CATEGORIES": "deny_categories", "DEFAULT_ALLOW_TOOLS": "allow",
+             "DEFAULT_DENY_TOOLS": "deny"}
+    for node in tree.body:
+        target = None
+        if isinstance(node, ast.Assign) and node.targets and isinstance(node.targets[0], ast.Name):
+            target = node.targets[0].id
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            target = node.target.id
+        if target in names:
+            out[names[target]] = _str_list(node.value) or []
+    return out
+
+
+def _mcp_exposure(name: str, category: str | None, attrs: dict, policy: dict) -> tuple[bool, str]:
+    """Mirror of backend.mcp.config.tool_is_exposed over the default policy."""
+    if name in policy["deny"]:
+        return False, "in the default deny list"
+    if name in policy["allow"]:
+        return True, "in the default allow list"
+    if attrs.get("is_dangerous"):
+        return False, "marked dangerous"
+    if attrs.get("requires_approval"):
+        return False, "requires approval"
+    if category and category in policy["deny_categories"]:
+        return False, f"category '{category}' is denied by default"
+    return True, ""
+
+
+def _find_invocations(root: Path, tool_names: set[str], corpus=None) -> dict[str, list[str]]:
+    """Files under backend/ that name each tool as a quoted string (tests and
+    migrations included), from the per-file string facts."""
+    out: dict[str, list[str]] = {name: [] for name in tool_names}
+    if corpus is not None:
+        items = [(rel, corpus.facts[rel]) for rel in corpus.python_files() if rel.startswith("backend/")]
+    else:
+        backend = root / "backend"
+        items = []
+        if backend.is_dir():
+            for py in source_files(root, pattern="*.py", under=backend,
+                                   exclude_dirs=frozenset({"__pycache__", "venv"})):
+                rel = py.relative_to(root).as_posix()
+                f = facts_mod.file_facts(py, rel)
+                if f is not None:
+                    items.append((rel, f))
+    for rel, f in items:
+        hits = tool_names & f.get("strings", set())
+        for name in hits:
+            out[name].append(rel)
+    return out
+
+
+# ── Analysis ─────────────────────────────────────────────────────────────────
+
+def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=None) -> dict[str, Any]:
     """Never raises — returns an empty/INFO result on any internal failure."""
     try:
-        return _analyze(root, extra_excludes)
+        return _analyze(Path(root).resolve(), extra_excludes, corpus)
     except Exception as exc:  # pragma: no cover - last-resort guard
         return {
             "graph": {"registered_tools": [], "core_tools": [],
@@ -374,117 +390,163 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[st
                 kind=FindingKind.UNWIRED_TOOL,
                 severity=Severity.INFO,
                 summary=f"tool_graph.analyze failed internally: {exc!r}",
+                evidence={"key": "analyzer-error"},
             )],
-            "stats": {"applicable": False, "tool_registry_source": "ast_fallback",
-                      "error": repr(exc)},
+            "stats": {"applicable": False, "error": repr(exc)},
         }
 
 
-def _analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[str, Any]:
-    registry_path = root / "backend" / "tools" / "tool_registry_init.py"
-    chat_path = root / "backend" / "services" / "unified_chat_engine.py"
-
-    registered = _extract_registered_tools(registry_path)
+def _analyze(root: Path, extra_excludes: frozenset[str], corpus) -> dict[str, Any]:
+    registry_path = root / REGISTRY_INIT
+    chat_path = root / CHAT_ENGINE
+    classes_by_module = tool_classes(root, extra_excludes, corpus)
+    regs = registrations(root)
     core_tools, breakdown = _extract_core_tools(chat_path)
 
-    # No Guaardvark-shaped tool layer? Empty graph, no findings.
-    if not registered and not core_tools:
+    if not regs and not core_tools:
         return {
-            "graph": {
-                "registered_tools": [],
-                "core_tools": [],
-                "wired": [],
-                "unwired": [],
-                "unregistered": [],
-            },
+            "graph": {"registered_tools": [], "core_tools": [], "wired": [],
+                      "unwired": [], "unregistered": []},
             "findings": [],
-            "stats": {"applicable": False, "tool_registry_source": "ast_fallback"},
+            "stats": {"applicable": False, "tool_registry_source": "static"},
         }
 
-    # Prefer the live registry when it can be probed: it sees loop-registered
-    # tools the AST pass may miss. Fall back to AST-only when the probe fails.
-    # The probe imports the mapped tree's own code, so a repository someone
-    # uploaded is read, never run.
-    if _is_uploaded(root):
-        runtime_names, probe_info = set(), {"error": "uploaded code is not run"}
-    else:
-        runtime_names, probe_info = _probe_runtime_registry(root)
-    if runtime_names:
-        tool_registry_source = "runtime"
-        # Synthesize graph entries for runtime-only names not seen by the AST.
-        for nm in runtime_names:
-            registered.setdefault(nm, {"name": nm, "class": None, "line": None})
-        registered_names = set(registered.keys()) | runtime_names
-    else:
-        tool_registry_source = "ast_fallback"
-        registered_names = set(registered.keys())
+    # Registered tools: each registration's class resolved to its `name`.
+    registered: dict[str, dict] = {}
+    unresolved: list[dict] = []
+    for reg in regs:
+        candidates = classes_by_module.get(reg["module"], [])
+        cls = next((c for c in candidates if c["class"].split(".")[-1] == reg["class"]), None)
+        if cls is None:
+            # Re-exported from another module: find the class by name anywhere.
+            cls = next((c for cs in classes_by_module.values() for c in cs
+                        if c["class"].split(".")[-1] == reg["class"]), None)
+        if cls is None:
+            unresolved.append(reg)
+            continue
+        mcp_only = any("in_mcp_process" in g and g.strip().startswith("not ") for g in reg["guards"])
+        entry = registered.setdefault(cls["name"], {
+            "name": cls["name"],
+            "class": cls["class"],
+            "file": cls["file"],
+            "line": cls["line"],
+            "end": cls["end"],
+            "registered_in": reg["function"],
+            "registry_line": reg["line"],
+            "category": reg["category"],
+            "conditions": reg["guards"],
+            "surface": "mcp" if mcp_only else "chat+mcp",
+            "attrs": cls.get("attrs", {}),
+            "description": cls.get("description", ""),
+        })
+        entry.setdefault("also_registered_in", [])
+        if reg["function"] != entry["registered_in"]:
+            entry["also_registered_in"].append(reg["function"])
 
-    core_set = set(core_tools)
-    wired = sorted(registered_names & core_set)
-    unwired = sorted(registered_names - core_set)
-    unregistered = sorted(core_set - registered_names)
+    defined = {c["name"]: c for cs in classes_by_module.values() for c in cs}
+    tools_root = "backend/tools/"
+    not_registered = sorted(
+        ({"name": n, "class": c["class"], "file": c["file"], "line": c["line"]}
+         for n, c in defined.items()
+         if n not in registered and c["file"].startswith(tools_root)
+         and any(b.endswith("Tool") for b in c.get("bases", []))),
+        key=lambda d: d["name"])
 
-    # Where is each tool referenced?
-    invocations = _find_invocations(root, registered_names | core_set)
+    # Reach.
+    list_of: dict[str, list[str]] = {}
+    for list_name, names in breakdown.items():
+        for n in names:
+            list_of.setdefault(n, []).append(list_name)
+    engine_strings = _string_constants(chat_path)
+    router_strings = _string_constants(root / TURN_ROUTER)
+    slash = _slash_commands(root / SLASH_EXECUTOR)
+    selector = _has_selector(chat_path)
+    policy = _mcp_policy(root / MCP_CONFIG)
+    listed_strings = {n for names in breakdown.values() for n in names}
 
+    offering = _offering_lists(chat_path)
+    for name, entry in registered.items():
+        reach: list[str] = []
+        for list_name in list_of.get(name, []):
+            if list_name not in offering:
+                continue
+            reach.append("every turn (CORE_TOOLS)" if list_name == "CORE_TOOLS" else f"list {list_name}")
+        if name in router_strings:
+            reach.append("turn router")
+        if name in slash:
+            reach.append(f"slash {slash[name]}")
+        if name in engine_strings and name not in listed_strings:
+            reach.append("named by the chat engine")
+        if entry["surface"] == "mcp":
+            reach_chat = False
+        else:
+            if selector:
+                reach.append("semantic selector")
+            reach_chat = bool(reach)
+        exposed, why = _mcp_exposure(name, entry["category"], entry["attrs"], policy)
+        entry["reach"] = reach
+        entry["listed_in"] = list_of.get(name, [])
+        entry["wired"] = reach_chat or entry["surface"] == "mcp"
+        entry["mcp"] = {"exposed": exposed, "reason": why}
+
+    registered_names = set(registered)
+    wired = sorted(n for n, e in registered.items() if e["wired"])
+    unwired = sorted(n for n, e in registered.items() if not e["wired"])
+    runtime_filled = {n for list_name in _RUNTIME_LISTS for n in breakdown.get(list_name, [])}
+    unregistered = sorted(listed_strings - registered_names - runtime_filled)
+
+    invocations = _find_invocations(root, registered_names | listed_strings, corpus)
     findings: list[Finding] = []
-
     for name in unwired:
-        # If it's referenced in only the registry init file itself, it's truly
-        # disconnected. If multiple files reference it, the agent might still
-        # reach it via some other path — soften severity.
-        invocation_files = [f for f in invocations.get(name, []) if "tool_registry_init" not in f]
-        sev = Severity.HIGH if not invocation_files else Severity.MEDIUM
+        e = registered[name]
+        others = [f for f in invocations.get(name, []) if "tool_registry_init" not in f]
         findings.append(Finding(
             kind=FindingKind.UNWIRED_TOOL,
-            severity=sev,
-            summary=f"Tool '{name}' is registered but not in CORE_TOOLS — agent cannot call it",
-            paths=[str(registry_path.relative_to(root))],
-            evidence={
-                "tool": name,
-                "class": registered[name].get("class"),
-                "registry_line": registered[name].get("line"),
-                "other_references": invocation_files[:5],
-            },
+            severity=Severity.HIGH,
+            summary=f"Tool '{name}' is registered for chat but no list, pin, route, slash command or selector offers it",
+            paths=[e["file"], REGISTRY_INIT],
+            evidence={"tool": name, "class": e["class"], "registry_line": e["registry_line"],
+                      "other_references": others[:5], "key": name},
         ))
-
     for name in unregistered:
-        # Find which constant lists this tool
-        in_lists = [k for k, v in breakdown.items() if name in v]
+        in_lists = sorted(k for k, v in breakdown.items() if name in v)
         findings.append(Finding(
             kind=FindingKind.UNREGISTERED_TOOL,
             severity=Severity.HIGH,
             summary=f"{', '.join(in_lists) or 'CORE_TOOLS'} lists '{name}' but no registration found",
-            paths=[str(chat_path.relative_to(root))] if chat_path.is_file() else [],
-            evidence={"tool": name, "in_constants": in_lists},
+            paths=[CHAT_ENGINE] if chat_path.is_file() else [],
+            evidence={"tool": name, "in_constants": in_lists, "key": name},
         ))
+
+    registered_list = []
+    for name, e in sorted(registered.items()):
+        registered_list.append({**e, "reference_count": len(invocations.get(name, []))})
 
     return {
         "graph": {
-            "registered_tools": [
-                {"name": k, **{kk: vv for kk, vv in v.items() if kk != "name"},
-                 "wired": k in core_set,
-                 "reference_count": len(invocations.get(k, [])),
-                 }
-                for k, v in registered.items()
-            ],
-            "core_tools": core_tools,
+            "registered_tools": registered_list,
+            "core_tools": breakdown.get("CORE_TOOLS", []),
             "tool_lists": breakdown,
+            "offering_lists": sorted(offering & set(breakdown)),
             "wired": wired,
             "unwired": unwired,
             "unregistered": unregistered,
+            "defined_not_registered": not_registered,
+            "unresolved_registrations": [f"{r['module']}.{r['class']}" for r in unresolved],
+            "selector": selector,
         },
         "findings": findings,
         "stats": {
             "applicable": True,
             "registered_count": len(registered_names),
-            "core_tool_count": len(core_tools),
+            "mcp_only_count": sum(1 for e in registered.values() if e["surface"] == "mcp"),
+            "core_tool_count": len(breakdown.get("CORE_TOOLS", [])),
+            "listed_count": len(listed_strings),
             "tool_lists_found": list(breakdown.keys()),
             "wired_count": len(wired),
             "unwired_count": len(unwired),
             "unregistered_count": len(unregistered),
-            "tool_registry_source": tool_registry_source,
-            "runtime_probe": probe_info,
-            "runtime_tool_count": len(runtime_names),
+            "tool_registry_source": "static",
+            "semantic_selector": selector,
         },
     }

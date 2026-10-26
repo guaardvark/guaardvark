@@ -1,46 +1,38 @@
-"""Module dependency graph + cycle detection.
+"""Module dependency graph, import cycles and module lifecycle.
 
-Walks every .py file under the root, parses imports via AST, builds a directed
-graph of module → set(modules-it-imports), and reports strongly-connected
-components (cycles) via Tarjan's algorithm. Modules that participate in many
-cycles get an OVER_COUPLED finding — these are the architecturally interesting
-"hub" nodes.
+Covers Python and JavaScript (see corpus.py for how imports resolve). Edges
+come in three kinds:
+
+  * top   runs when the module is imported: module-level imports, and every
+          JavaScript static import, re-export and require;
+  * lazy  runs only when a function runs: imports inside a def, dynamic
+          import() and import.meta.glob;
+  * type  under ``if TYPE_CHECKING:``, which never runs.
+
+Only top edges can deadlock an import, so cycles and over-coupling are
+computed on them. Lifecycle counts top and lazy importers alike, but not test
+files: a module only a test imports is not part of the running product.
 """
 from __future__ import annotations
 
-import ast
+import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
-from .core import Finding, FindingKind, Severity, source_files
+from .core import Finding, FindingKind, Severity
+from .corpus import Corpus, module_name, node_id
+
+# A module on this many short import cycles is reported as a hub.
+HUB_MIN_CYCLES = 5
+# Longest cycle counted for hubs, and a cap on the search per module.
+_HUB_CYCLE_LEN = 4
+_HUB_SEARCH_CAP = 200
 
 
 def _module_name(rel: Path) -> str:
     """Convert a path like backend/services/foo.py to backend.services.foo."""
-    parts = list(rel.with_suffix("").parts)
-    if parts[-1] == "__init__":
-        parts = parts[:-1]
-    return ".".join(parts)
-
-
-def _parse_imports(py_path: Path) -> list[str]:
-    """Return the module-strings imported by py_path (best effort, never raises)."""
-    try:
-        tree = ast.parse(py_path.read_text(encoding="utf-8", errors="ignore"))
-    except Exception:
-        return []
-    out: list[str] = []
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            for alias in node.names:
-                out.append(alias.name)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module:
-                out.append(node.module)
-                for alias in node.names:
-                    out.append(f"{node.module}.{alias.name}")
-    return out
+    return module_name(Path(rel).as_posix())
 
 
 def _tarjan_scc(graph: dict[str, set[str]]) -> list[list[str]]:
@@ -72,11 +64,9 @@ def _tarjan_scc(graph: dict[str, set[str]]) -> list[list[str]]:
                 scc.append(w)
                 if w == node:
                     break
-            # keep only real cycles: SCCs with >1 member OR a self-loop
             if len(scc) > 1 or (len(scc) == 1 and scc[0] in graph.get(scc[0], set())):
                 cycles.append(sorted(scc))
 
-    import sys
     old_limit = sys.getrecursionlimit()
     sys.setrecursionlimit(max(old_limit, 10000))
     try:
@@ -88,188 +78,233 @@ def _tarjan_scc(graph: dict[str, set[str]]) -> list[list[str]]:
     return cycles
 
 
-def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(),
-            dynamic_modules: frozenset[str] | set[str] | None = None) -> dict[str, Any]:
-    """Build dep graph and detect cycles. Returns dict with graph, findings, stats.
-
-    `dynamic_modules` (B3): module names known to be reached via dynamic dispatch
-    (Celery task names, blueprint auto-registration, plugin.json, tool tables).
-    Such modules have no *static* importer but are very much alive at runtime, so
-    they are suppressed from the DORMANT_MODULE finding rather than flagged.
-    """
-    dynamic_modules = set(dynamic_modules or ())
-    # 1. Discover all internal modules (those we own and can analyze)
-    modules: dict[str, Path] = {}  # module_name -> path
-    for py in source_files(root, extra_excludes, pattern="*.py"):
-        try:
-            rel = py.relative_to(root)
-        except ValueError:
+def _hub_counts(graph: dict[str, set[str]], cycles: list[list[str]]) -> dict[str, int]:
+    """Short cycles each module sits on, counted inside its cycle group."""
+    hits: dict[str, int] = defaultdict(int)
+    for group in cycles:
+        if len(group) < 3:
             continue
-        modules[_module_name(rel)] = py
+        members = set(group)
+        for start in group:
+            # Enumerate cycles whose smallest member is ``start``.
+            found: list[list[str]] = []
+            stack = [(start, [start])]
+            while stack and len(found) < _HUB_SEARCH_CAP:
+                node, path = stack.pop()
+                for succ in graph.get(node, ()):
+                    if succ not in members:
+                        continue
+                    if succ == start and len(path) > 1:
+                        found.append(path)
+                    elif succ not in path and succ > start and len(path) < _HUB_CYCLE_LEN:
+                        stack.append((succ, path + [succ]))
+            for cyc in found:
+                for m in cyc:
+                    hits[m] += 1
+    return dict(hits)
 
-    internal_names = set(modules.keys())
 
-    # 2. Parse imports and filter to internal-only edges
+def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(),
+            dynamic_modules: frozenset[str] | set[str] | None = None,
+            corpus: Corpus | None = None) -> dict[str, Any]:
+    """Build the import graph and its findings.
+
+    ``dynamic_modules``: dotted names reached by string-keyed dispatch (Celery
+    task names, blueprint auto-registration, plugin.json, tool tables). They
+    have no importer and are alive, so they are never reported dormant.
+    """
+    corpus = corpus or Corpus.build(root, extra_excludes)
+    root = corpus.root
+    dynamic_modules = set(dynamic_modules or ())
+
+    ids = {rel: node_id(rel) for rel in corpus.files}
     graph: dict[str, set[str]] = defaultdict(set)
-    external_count = 0
-    for mod_name, path in modules.items():
-        for imp in _parse_imports(path):
-            if imp == mod_name:
-                continue  # don't count self-references from `from . import x`
-            # Match the import to an internal module — try full name first,
-            # then prefix matches (from x.y import z → check if x.y.z is internal).
-            if imp in internal_names:
-                graph[mod_name].add(imp)
-            else:
-                # Try matching against a known module by walking up the dotted parts
-                parts = imp.split(".")
-                matched = False
-                for n in range(len(parts), 0, -1):
-                    cand = ".".join(parts[:n])
-                    if cand in internal_names and cand != mod_name:
-                        graph[mod_name].add(cand)
-                        matched = True
-                        break
-                if not matched:
-                    external_count += 1
+    lazy: dict[str, set[str]] = defaultdict(set)
+    type_only: dict[str, set[str]] = defaultdict(set)
+    importers: dict[str, set[str]] = defaultdict(set)        # non-test, top + lazy
+    test_importers: dict[str, set[str]] = defaultdict(set)
+    lazy_importers: dict[str, set[str]] = defaultdict(set)
 
-    # 3. Cycle detection via Tarjan
+    edge_counts = {"top": 0, "lazy": 0, "type": 0}
+    for e in corpus.edges():
+        src, dst = ids[e.src], ids[e.dst]
+        if src == dst:
+            continue
+        edge_counts[e.kind] += 1
+        if e.kind == "top":
+            graph[src].add(dst)
+        elif e.kind == "lazy":
+            lazy[src].add(dst)
+        else:
+            type_only[src].add(dst)
+            continue
+        if corpus.is_test(e.src):
+            test_importers[dst].add(src)
+        else:
+            importers[dst].add(src)
+            if e.kind == "lazy":
+                lazy_importers[dst].add(src)
+
+    rel_of = {v: k for k, v in ids.items()}
+    entries = corpus.entry_points()
     cycles = _tarjan_scc(dict(graph))
+    hubs = _hub_counts(graph, cycles)
 
-    # 4. Findings
     findings: list[Finding] = []
-
-    # Over-coupled hubs: modules that appear in many cycles
-    cycle_membership: dict[str, int] = defaultdict(int)
     for cyc in cycles:
-        for m in cyc:
-            cycle_membership[m] += 1
-
-    for cyc in cycles:
-        # Severity: short cycles = medium (more localized), long = low (more diffuse)
         sev = Severity.MEDIUM if len(cyc) <= 5 else Severity.LOW
         findings.append(Finding(
             kind=FindingKind.IMPORT_CYCLE,
             severity=sev,
             summary=f"Import cycle ({len(cyc)} modules): {' → '.join(cyc[:6])}{'…' if len(cyc) > 6 else ''}",
-            paths=[str(modules[m].relative_to(root)) for m in cyc if m in modules],
-            evidence={"cycle": cyc, "size": len(cyc)},
+            paths=[rel_of[m] for m in cyc if m in rel_of],
+            evidence={"cycle": cyc, "size": len(cyc), "key": "|".join(cyc)},
         ))
 
-    for module, hits in sorted(cycle_membership.items(), key=lambda x: -x[1])[:8]:
-        if hits >= 5:
+    for module, count in sorted(hubs.items(), key=lambda x: -x[1])[:8]:
+        if count >= HUB_MIN_CYCLES:
             findings.append(Finding(
                 kind=FindingKind.OVER_COUPLED,
                 severity=Severity.MEDIUM,
-                summary=f"{module} participates in {hits} import cycles — refactor candidate",
-                paths=[str(modules[module].relative_to(root))] if module in modules else [],
-                evidence={"cycle_count": hits},
+                summary=f"{module} sits on {count} short import cycles (≤{_HUB_CYCLE_LEN} modules) — refactor candidate",
+                paths=[rel_of[module]] if module in rel_of else [],
+                evidence={"cycle_count": count, "max_cycle_len": _HUB_CYCLE_LEN, "key": module},
             ))
 
-    # Dormant: modules that nothing internal imports. But careful — pytest-discovered
-    # tests, scripts, app entry points, and Flask blueprints are all "dormant" in the
-    # static-import sense yet very much alive at runtime. Tag conservatively.
-    importers: dict[str, set[str]] = defaultdict(set)
-    for src, targets in graph.items():
-        for t in targets:
-            importers[t].add(src)
-
     dormant_suppressed_dynamic = 0
-    for mod_name, path in modules.items():
-        if importers.get(mod_name):
+    for rel in corpus.files:
+        mod = ids[rel]
+        if importers.get(mod):
             continue
-        # B3: reached only via dynamic dispatch (task name / blueprint / plugin /
-        # tool table) → alive at runtime, not dormant. Suppress the finding.
-        if mod_name in dynamic_modules:
+        if mod in dynamic_modules or rel in entries:
             dormant_suppressed_dynamic += 1
             continue
-        rel = path.relative_to(root)
-        rel_str = str(rel)
-        # Skip the obvious not-imported-but-loaded patterns
-        if rel.name == "__init__.py":
+        if not _dormant_candidate(rel):
             continue
-        if any(s in rel_str for s in ("/tests/", "tests/", "/test_", "/_archive/", "/backs/")):
-            continue
-        if any(rel_str.startswith(s) for s in ("scripts/", "cli/", "training/")):
-            continue
-        # api blueprints are auto-discovered
-        if "/api/" in rel_str and rel_str.endswith("_api.py"):
-            continue
+        tests = sorted(test_importers.get(mod, ()))
+        summary = f"Module has no importer outside tests: {rel}" if tests else \
+            f"Module has no static importer: {rel}"
         findings.append(Finding(
             kind=FindingKind.DORMANT_MODULE,
             severity=Severity.LOW,
-            summary=f"Module has no static importer: {rel_str}",
-            paths=[rel_str],
-            evidence={},
+            summary=summary,
+            paths=[rel],
+            evidence={"key": rel, "test_importers": tests[:5]},
         ))
 
-    # Backup-artifact findings (files that look like accidental commits)
-    for mod_name, path in modules.items():
-        rel = str(path.relative_to(root))
+    for rel in corpus.files:
         if _is_backup_artifact(rel):
             findings.append(Finding(
                 kind=FindingKind.BACKUP_ARTIFACT,
                 severity=Severity.LOW,
                 summary=f"Backup/archived artifact in source tree: {rel}",
                 paths=[rel],
-                evidence={},
+                evidence={"key": rel},
+            ))
+    # Non-code backups (x.py.BACK) are listed too: they are not modules.
+    for rel in corpus.all_files:
+        if rel not in corpus.facts and _is_backup_artifact(rel):
+            findings.append(Finding(
+                kind=FindingKind.BACKUP_ARTIFACT,
+                severity=Severity.LOW,
+                summary=f"Backup/archived artifact in source tree: {rel}",
+                paths=[rel],
+                evidence={"key": rel},
             ))
 
-    # Untested modules: a source module under backend/ with no sibling test file.
-    # Conservative — only flags real logic modules (skips tests, scripts, blueprints,
-    # __init__, config), so the signal stays actionable rather than noisy.
-    test_basenames = _collect_test_basenames(root, extra_excludes)
-    for mod_name, path in modules.items():
-        rel = path.relative_to(root)
-        rel_str = str(rel)
-        if not rel_str.startswith("backend/"):
+    test_basenames = {Path(r).stem[len("test_"):] for r in corpus.files
+                      if Path(r).name.startswith("test_") and r.endswith(".py")}
+    for rel in corpus.python_files():
+        if not rel.startswith("backend/"):
             continue
-        if _lifecycle_for(rel_str, importers.get(mod_name)) not in ("active", "auto-loaded"):
+        mod = ids[rel]
+        if _lifecycle_for(rel, importers.get(mod)) not in ("active", "auto-loaded"):
             continue
-        if rel.name == "__init__.py" or rel_str.endswith("_api.py"):
+        name = Path(rel).name
+        if name == "__init__.py" or rel.endswith("_api.py"):
             continue
-        if rel.stem in test_basenames:
+        stem = Path(rel).stem
+        if stem in test_basenames or test_importers.get(mod):
             continue
         findings.append(Finding(
             kind=FindingKind.UNTESTED_MODULE,
             severity=Severity.INFO,
-            summary=f"No test found for module: {rel_str}",
-            paths=[rel_str],
-            evidence={"expected_test": f"test_{rel.stem}.py"},
+            summary=f"No test found for module: {rel}",
+            paths=[rel],
+            evidence={"expected_test": f"test_{stem}.py", "key": rel},
         ))
 
-    # 5. Serialize graph (JSON-friendly: lists, not sets)
-    graph_serializable = {k: sorted(v) for k, v in graph.items()}
-
-    # Per-module metadata the visualization consumes (lifecycle drives node alpha,
-    # importer count drives node size). Emitted so the frontend renders real signal
-    # instead of assuming every node is "active".
-    node_meta = {
-        mod_name: {
-            "importers": len(importers.get(mod_name, ())),
-            "lifecycle": _lifecycle_for(str(path.relative_to(root)),
-                                        importers.get(mod_name)),
-            "path": str(path.relative_to(root)),
+    node_meta = {}
+    for rel in corpus.files:
+        mod = ids[rel]
+        f = corpus.facts[rel]
+        lifecycle = _lifecycle_for(rel, importers.get(mod))
+        if lifecycle == "dormant" and (mod in dynamic_modules or rel in entries):
+            lifecycle = "auto-loaded"
+        node_meta[mod] = {
+            "path": rel,
+            "lang": f["lang"],
+            "lifecycle": lifecycle,
+            "importers": len(importers.get(mod, ())),
+            "lazy_importers": len(lazy_importers.get(mod, ())),
+            "test_importers": len(test_importers.get(mod, ())),
+            "imports": len(graph.get(mod, ())) + len(lazy.get(mod, ())),
+            "lines": f.get("lines", 0),
         }
-        for mod_name, path in modules.items()
-    }
+        if rel in entries:
+            node_meta[mod]["started_by"] = entries[rel][:5]
 
     return {
-        "graph": graph_serializable,
+        "graph": {k: sorted(v) for k, v in graph.items()},
+        "lazy_graph": {k: sorted(v) for k, v in lazy.items()},
+        "type_graph": {k: sorted(v) for k, v in type_only.items()},
         "node_meta": node_meta,
         "findings": findings,
-        "file_count": len(modules),
+        "file_count": len(corpus.files),
         "stats": {
-            "modules": len(modules),
+            "modules": len(corpus.files),
+            "python_modules": len(corpus.python_files()),
+            "js_modules": len(corpus.js_files()),
             "internal_edges": sum(len(v) for v in graph.values()),
-            "external_imports": external_count,
+            "lazy_edges": sum(len(v) for v in lazy.values()),
+            "type_only_edges": sum(len(v) for v in type_only.values()),
             "cycles": len(cycles),
-            "over_coupled_hubs": [m for m, h in cycle_membership.items() if h >= 5],
-            "untested_modules": sum(1 for f in findings
-                                    if f.kind == FindingKind.UNTESTED_MODULE),
+            "largest_cycle": max((len(c) for c in cycles), default=0),
+            "over_coupled_hubs": [m for m, h in hubs.items() if h >= HUB_MIN_CYCLES],
+            "untested_modules": sum(1 for f in findings if f.kind == FindingKind.UNTESTED_MODULE),
             "dormant_suppressed_dynamic": dormant_suppressed_dynamic,
+            "entry_points": len(entries),
+            "import_roots": sorted(corpus.import_roots),
+            "parse_errors": sorted(r for r in corpus.files if corpus.facts[r].get("error"))[:20],
         },
     }
+
+
+def _dormant_candidate(rel: str) -> bool:
+    """Whether a module with no importer is worth reporting: not a test, a
+    script, an entry point, a package init, an auto-registered blueprint, or
+    a frontend build/config file."""
+    from .corpus import is_test_path
+
+    name = rel.rsplit("/", 1)[-1]
+    if name in ("__init__.py", "__main__.py", "conftest.py") or is_test_path(rel):
+        return False
+    if _is_backup_artifact(rel) or "/_template/" in rel:
+        return False  # scaffolding copied to make a new extension
+    if any(rel.startswith(s) for s in ("scripts/", "cli/", "training/", "docker/")):
+        return False
+    if "/api/" in rel and rel.endswith("_api.py"):
+        return False
+    if "/" not in rel:
+        return False  # top-level entry scripts (run_tests.py, conftest.py)
+    if not rel.endswith(".py"):
+        if not rel.startswith("frontend/src/"):
+            return False  # bundler config, public/ assets, plugin UIs loaded by URL
+        if name in ("main.jsx", "main.js", "main.tsx", "setupTests.js"):
+            return False
+    if "/scripts/" in rel:
+        return False
+    return True
 
 
 def _is_backup_artifact(rel: str) -> bool:
@@ -283,28 +318,25 @@ def _is_backup_artifact(rel: str) -> bool:
 
 
 def _lifecycle_for(rel: str, importers: set | None) -> str:
-    """Classify a module's lifecycle from its path + whether anything imports it.
-    Keys match the frontend's LIFECYCLE style table."""
+    """Classify a module's lifecycle from its path + whether anything outside
+    tests imports it. Keys match the frontend's LIFECYCLE style table."""
+    from .corpus import is_test_path
+
     name = rel.rsplit("/", 1)[-1]
     if _is_backup_artifact(rel):
         return "archived"
-    if "/tests/" in rel or rel.startswith("tests/") or name.startswith("test_"):
+    if is_test_path(rel):
         return "test"
-    if any(rel.startswith(p) for p in ("scripts/", "cli/", "training/")):
+    if any(rel.startswith(p) for p in ("scripts/", "cli/", "training/")) or "/scripts/" in rel:
         return "script"
-    if name in ("config.py", "settings.py"):
+    if name in ("config.py", "settings.py") or (
+            not rel.endswith(".py") and not rel.startswith("frontend/src/") and ".config." in name):
         return "config"
-    # Blueprints + package inits are loaded at runtime even with no static importer.
-    if name == "__init__.py" or ("/api/" in rel and rel.endswith("_api.py")):
+    # Blueprints, package inits and the frontend entry are loaded at runtime
+    # even with no static importer.
+    if name == "__init__.py" or ("/api/" in rel and rel.endswith("_api.py")) or \
+            rel in ("frontend/src/main.jsx", "frontend/src/main.js"):
         return "auto-loaded"
     if not importers:
         return "dormant"
     return "active"
-
-
-def _collect_test_basenames(root: Path, extra_excludes: frozenset[str]) -> set[str]:
-    """Set of module stems that have a `test_<stem>.py` somewhere in the tree."""
-    out: set[str] = set()
-    for py in source_files(root, extra_excludes, pattern="test_*.py"):
-        out.add(py.stem[len("test_"):])
-    return out

@@ -161,6 +161,9 @@ const FloatingChatCard = () => {
   // Voice: turns from the global mic arrive in voiceTurns (FloatingChatVoiceSink).
   const voiceTurns = useFloatingChatStore((s) => s.voiceTurns);
   const removeVoiceTurn = useFloatingChatStore((s) => s.removeVoiceTurn);
+  // Turns other pages queue (System Map's "Ask about this").
+  const pendingTurns = useFloatingChatStore((s) => s.pendingTurns);
+  const removePendingTurn = useFloatingChatStore((s) => s.removePendingTurn);
   const voiceSession = useVoiceSession();
   const voiceActive = useVoiceSessionState((s) => Boolean(s.session));
   const { speak, ttsEnabled, speakError, clearSpeakError } = useVoice() || {};
@@ -520,6 +523,14 @@ const FloatingChatCard = () => {
     removeVoiceTurn(turn.id);
     handleSendMessage(turn.text, null, { isVoiceMessage: true });
   }, [voiceTurns, isSending, unifiedChatService, removeVoiceTurn, handleSendMessage]);
+
+  // Send turns queued by other pages, one at a time, after any voice turns.
+  useEffect(() => {
+    if (pendingTurns.length === 0 || voiceTurns.length > 0 || isSending || !unifiedChatService) return;
+    const turn = pendingTurns[0];
+    removePendingTurn(turn.id);
+    handleSendMessage(turn.text, null, turn.options || {});
+  }, [pendingTurns, voiceTurns.length, isSending, unifiedChatService, removePendingTurn, handleSendMessage]);
 
   // The input is disabled while a reply streams, which makes the browser drop
   // focus. Restore it when sending finishes so the user can keep typing without

@@ -7,6 +7,13 @@ from backend.tools import code_search_tools as cst
 from backend.services import mcp_native_proxy
 
 
+@pytest.fixture(autouse=True)
+def _indexed(monkeypatch):
+    """These tests are about the hybrid path, which runs only for a checkout
+    with a code search index; test_system_map_query.py covers the one without."""
+    monkeypatch.setattr(cst, "has_code_index", lambda root: True)
+
+
 @pytest.fixture
 def tool():
     return cst.SearchCodebaseTool()

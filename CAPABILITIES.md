@@ -810,11 +810,16 @@ Plugins can register:
 - **Socket.IO client** — real-time updates
 
 ### System Mapper
-- **Constellation view** — d3-force-driven visualization of the codebase (~712 nodes across the current repo)
-- **Dependency analysis** — Python import graph + JS module graph + cross-language references
-- **Reachability analysis** — flags files that are imported but never executed (stale candidates)
-- **Lifecycle tagging** — every file gets `live` / `dormant` / `stale` based on usage patterns
-- **Codebase audits** — generates reports that drive cleanup work
+- **What it reads** — every Python and JavaScript file git tracks in the checkout (about 2,600 in this repository), each parsed once per change; nothing is imported or run
+- **Constellation view** — d3-force layout of every module on the System Map page; imports made inside functions are drawn fainter than load-time imports
+- **Import graph** — load-time imports, imports inside functions and `TYPE_CHECKING` imports kept apart; relative imports, each plugin folder as its own import root, `importlib.import_module` calls, modules started by a script, and the frontend's `@/` alias are resolved; cycles and hub modules come from load-time imports only
+- **Inventories** — Flask routes and the frontend calls that reach them (a service's own base URL resolved), the endpoints each page reaches, Celery tasks, and every registered tool with its class, file and line, how the chat reaches it and whether MCP clients are offered it
+- **Symbols and calls** — definitions with line ranges, and call sites resolved through each file's imports, best effort: a call on an object of unknown type matches by name only, and the answer says so
+- **Subsystems** — 39 named areas defined in `backend/services/system_mapper/subsystems.json`; source files no subsystem claims are reported
+- **Lifecycle tags** — `active`, `auto-loaded`, `dormant` (nothing outside tests imports it, and no task, route, tool, plugin or script reaches it), `test`, `script`, `config`, `archived`
+- **Findings** — backend routes with no frontend caller and frontend calls with no route, URL collisions, import cycles, dormant and untested modules, unreachable or unregistered tools, backup files, functions referenced nowhere, and runtime-liveness drift; finding ids stay the same across rebuilds
+- **Questions** — `system_map_query` (chat, MCP, `/sysmap <question>`, `GET /api/system-map/query`) answers where a feature lives, what calls a function, what depends on a module and which tests to run after changing it
+- **Freshness** — the stored map is tied to the git HEAD, the file list and the newest file time; a read never rebuilds, and a changed tree is rebuilt in the background (about 7 s for this repository in a fresh process, about 1 s once its files have been read)
 
 ### Key Design Patterns
 - **Modular API layer** — each feature gets its own Flask blueprint, auto-discovered via `blueprint_discovery.py`

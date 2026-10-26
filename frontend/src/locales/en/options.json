@@ -356,7 +356,7 @@
     "websearch": "Search the web, audit one page (site:<address>) or list a sitemap (sitemap:<url>)",
     "gpu": "Inspect live GPU lock, VRAM slots, and running plugins",
     "logs": "Tail a Guaardvark log (optional filename and grep)",
-    "sysmap": "Run the System Mapper (same snapshot as /system-map)",
+    "sysmap": "Report the System Mapper's findings, or ask it about the code: /sysmap where the seed box is, /sysmap module backend/app.py, /sysmap impact backend/services/agent_tools.py",
     "swarm": "Swarm orchestrator status (plugin must be running)",
     "outreach": "Outreach status, short verbs, or natural-language scout/draft (e.g. YouTube topics)",
     "plan": "Plan mode: look into it first, act only on a plan you approve",

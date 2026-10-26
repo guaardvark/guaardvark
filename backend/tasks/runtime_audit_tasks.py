@@ -9,19 +9,19 @@ Beat-driven tasks:
                                     BUT ONLY where static_reachability is not
                                     TRUE. Reachable-but-cold rows (once-a-month
                                     handlers) are kept on purpose.
-  * runtime_audit.reconcile_and_emit (B5, Phase 3) — flush, recompute the static
+  * runtime_audit.reconcile_and_emit (B5, Phase 3) — flush, rebuild the static
                                     map, set static_reachability on each hit,
-                                    compute liveness consensus, append the
-                                    liveness findings into the system-map snapshot
-                                    cache so /api/system-map/findings surfaces
-                                    them, then DIFF findings vs the prior snapshot
-                                    and dispatch ONLY genuinely-new HIGH findings
-                                    whose kind is in DISPATCHABLE_KINDS. By
-                                    construction this EXCLUDES every liveness kind
-                                    — it is a drift alarm, never an auto-prune.
+                                    compute liveness consensus and store those
+                                    findings on their own (every later rebuild
+                                    merges them back in, so a refresh of the
+                                    static map never drops them), then DIFF
+                                    findings vs the prior snapshot and dispatch
+                                    ONLY genuinely-new HIGH findings whose kind is
+                                    in DISPATCHABLE_KINDS. By construction this
+                                    EXCLUDES every liveness kind — it is a drift
+                                    alarm, never an auto-prune.
 """
 
-import json
 import logging
 import os
 from datetime import datetime, timedelta
@@ -90,11 +90,11 @@ def create_runtime_audit_tasks(celery_app: Celery):
 
         Steps:
           1. flush() the tracker so the freshest hits are in symbol_hits.
-          2. codebase_map(GUAARDVARK_ROOT) — the static map.
+          2. rebuild and store the static map of GUAARDVARK_ROOT.
           3. set SymbolHit.static_reachability from the map's node_meta lifecycle.
           4. liveness.analyze(hits, map) — consensus findings.
-          5. append those findings into the snapshot cache (system_map_api format)
-             so /api/system-map/findings surfaces them.
+          5. store those findings (store.write_liveness) and merge them into the
+             snapshot so /api/system-map/findings surfaces them.
           6. diff findings vs the PRIOR cached snapshot by fingerprint(); for NEW
              findings, dispatch ONLY those with kind in DISPATCHABLE_KINDS AND
              severity == HIGH. Liveness kinds are never dispatchable → drift alarm,
@@ -115,17 +115,17 @@ def create_runtime_audit_tasks(celery_app: Celery):
 # Lazily-bound module-level handles so tests can monkeypatch them without
 # importing the live app at module-load time. _ensure_reconcile_deps() fills any
 # that are still None on first real use.
-codebase_map = None
+build_map = None
 dispatch_finding = None
 
 
 def _ensure_reconcile_deps():
     """Bind heavy deps to module globals on first use (keeps import cheap, lets
-    tests monkeypatch `codebase_map` / `dispatch_finding` on this module)."""
-    global codebase_map, dispatch_finding
-    if codebase_map is None:
-        from backend.services.system_mapper import codebase_map as _cm
-        codebase_map = _cm
+    tests monkeypatch `build_map` / `dispatch_finding` on this module)."""
+    global build_map, dispatch_finding
+    if build_map is None:
+        from backend.services.system_mapper.store import build as _build
+        build_map = _build
     if dispatch_finding is None:
         from backend.services.system_mapper.actions import dispatch_finding as _df
         dispatch_finding = _df
@@ -138,8 +138,8 @@ def _reconcile_and_emit_impl():
     from backend.models import db, SymbolHit
     from backend.services.execution_context_tracker import get_tracker
     from backend.services.system_mapper import liveness as liveness_mod
+    from backend.services.system_mapper import store
     from backend.services.system_mapper.actions import DISPATCHABLE_KINDS
-    from backend.api import system_map_api
 
     _ensure_reconcile_deps()
 
@@ -151,12 +151,14 @@ def _reconcile_and_emit_impl():
 
     root = Path(GUAARDVARK_ROOT).resolve()
 
-    # 2. Static map.
-    smap = codebase_map(root)
-    smap_dict = smap.to_dict()
+    # 2. The PRIOR snapshot, for the diff, then a fresh static map (stored).
+    prior, _age = store.read_snapshot(root)
+    prior_ids = {f.get("id") for f in (prior or {}).get("findings", []) if f.get("id")}
+    payload = build_map(root)
+    payload.pop("_cache", None)
 
     # node_meta -> reachable modules (active/auto-loaded or imported).
-    reachable_modules = set(liveness_mod._static_modules(smap_dict))
+    reachable_modules = set(liveness_mod._static_modules(payload))
 
     # 3. Set static_reachability on each SymbolHit from the map.
     hits = SymbolHit.query.all()
@@ -165,33 +167,22 @@ def _reconcile_and_emit_impl():
     db.session.commit()
 
     # 4. Liveness consensus findings (advisory; never dispatchable).
-    liveness_result = liveness_mod.analyze(hits, smap_dict)
-    liveness_findings = liveness_result["findings"]
+    liveness_result = liveness_mod.analyze(hits, payload)
+    liveness_findings = [f.to_dict() for f in liveness_result["findings"]]
 
-    # 5. Read the PRIOR snapshot (for the diff), then append liveness findings
-    #    into the cache so the findings API surfaces them.
-    cache_file = system_map_api._cache_path_for(root)
-    prior_ids: set[str] = set()
-    if cache_file.is_file():
-        try:
-            prior = json.loads(cache_file.read_text())
-            prior_ids = {f.get("id") for f in prior.get("findings", []) if f.get("id")}
-        except Exception:
-            prior_ids = set()
-
-    payload = smap_dict
-    payload["findings"] = list(payload.get("findings", [])) + [
-        f.to_dict() for f in liveness_findings
-    ]
-    payload.setdefault("stats", {})["liveness"] = liveness_result["stats"]
+    # 5. Store them on their own, then in the snapshot. Both writes are atomic,
+    #    and every later rebuild merges the stored liveness back in.
     try:
-        cache_file.write_text(json.dumps(payload))
+        store.write_liveness(root, liveness_findings, liveness_result["stats"])
+        store.merge_liveness(root, payload)
+        store.write_json_atomic(store.snapshot_path(root), payload)
     except Exception as e:
-        logger.warning("reconcile_and_emit: cache write failed: %s", e)
+        logger.warning("reconcile_and_emit: storing liveness failed: %s", e)
 
     # 6. Diff vs prior by fingerprint; dispatch ONLY new HIGH dispatchable.
     #    Liveness kinds are excluded from DISPATCHABLE_KINDS by construction, so
     #    they can NEVER be dispatched here — this is a drift alarm, not a pruner.
+    #    dispatch_finding itself skips a finding whose earlier fix is still open.
     dispatched = []
     for f in payload["findings"]:
         fid = f.get("id")
@@ -202,8 +193,9 @@ def _reconcile_and_emit_impl():
         if f.get("severity") != "high":
             continue
         try:
-            dispatch_finding(f, priority="high")
-            dispatched.append(fid)
+            result = dispatch_finding(f, priority="high")
+            if not (isinstance(result, dict) and result.get("skipped")):
+                dispatched.append(fid)
         except Exception as e:
             logger.warning("reconcile_and_emit: dispatch of %s failed: %s", fid, e)
 

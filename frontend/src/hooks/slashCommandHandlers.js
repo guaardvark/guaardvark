@@ -681,11 +681,17 @@ function handleLogs(args, { onSendMessage }) {
   return { handled: true };
 }
 
+// /sysmap and /sysmap refresh report the map's findings; anything else is a
+// question for system_map_query (/sysmap module backend/app.py,
+// /sysmap what calls run_chat_turn). The backend parses the question.
 function handleSysmap(args, { onSendMessage }) {
-  onSendMessage(args ? `/sysmap ${args}` : "/sysmap", null, {
-    direct_tool: "map_codebase",
+  const text = (args || "").trim();
+  const report = !text || text.toLowerCase() === "refresh";
+  onSendMessage(text ? `/sysmap ${text}` : "/sysmap", null, {
+    direct_tool: report ? "map_codebase" : "system_map_query",
+    direct_tool_params: report ? { refresh: Boolean(text) } : { q: text },
     slash_command: "sysmap",
-    slash_args: args || "",
+    slash_args: text,
   });
   return { handled: true };
 }

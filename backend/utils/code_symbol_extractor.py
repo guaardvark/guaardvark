@@ -118,6 +118,12 @@ def extract_symbols(code: str, language: str) -> List[Dict]:
                 continue
 
             raw_name = groups[0].strip()
+            # Count lines up to the name, not the match: a pattern that begins
+            # with whitespace starts on the line before the definition.
+            name_start = next(
+                match.start(i) for i in range(1, len(match.groups()) + 1)
+                if match.group(i) is not None
+            )
 
             # For imports, may have comma-separated names
             if output_type == "import":
@@ -125,7 +131,7 @@ def extract_symbols(code: str, language: str) -> List[Dict]:
                     name = name.strip().split(" as ")[0].strip()
                     name = name.split(".")[-1].strip()
                     if name and name not in ("*",):
-                        line_num = code[:match.start()].count("\n") + 1
+                        line_num = code[:name_start].count("\n") + 1
                         symbols.append({
                             "name": name,
                             "type": "import",
@@ -134,7 +140,7 @@ def extract_symbols(code: str, language: str) -> List[Dict]:
             else:
                 if raw_name in _KEYWORDS:
                     continue
-                line_num = code[:match.start()].count("\n") + 1
+                line_num = code[:name_start].count("\n") + 1
                 symbols.append({
                     "name": raw_name,
                     "type": output_type,

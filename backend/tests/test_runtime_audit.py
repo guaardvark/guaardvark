@@ -148,9 +148,9 @@ def test_reconcile_and_emit_sets_reachability_emits_consensus_dispatches_only_hi
     import json
     import datetime as _dt
     from backend.tasks import runtime_audit_tasks as rat
-    from backend.api import system_map_api
-    from backend.services.system_mapper.actions import DISPATCHABLE_KINDS
+    from backend.services.system_mapper import store
 
+    monkeypatch.setenv("GUAARDVARK_STORAGE_DIR", str(tmp_path / "storage"))
     with app.app_context():
         # --- seed SymbolHit rows ---------------------------------------------
         now = _dt.datetime.now()
@@ -188,28 +188,14 @@ def test_reconcile_and_emit_sets_reachability_emits_consensus_dispatches_only_hi
             },
             "tool_graph": {}, "reachability": {}, "dependency_graph": {},
         }
+        monkeypatch.setattr(rat, "build_map", lambda root: json.loads(json.dumps(fake_map)))
 
-        class _FakeMap:
-            def to_dict(self):
-                return fake_map
-
-        monkeypatch.setattr(rat, "codebase_map", lambda root: _FakeMap())
-
-        # point the cache at tmp_path so we don't touch the real cache
-        cache_file = tmp_path / "snap.json"
-        monkeypatch.setattr(system_map_api, "_cache_path_for", lambda root: cache_file)
-
-        # capture dispatches
         dispatched = []
-        import backend.services.system_mapper.actions as actions_mod
         monkeypatch.setattr(
-            actions_mod, "dispatch_finding",
+            rat, "dispatch_finding",
             lambda f, priority="medium": dispatched.append(f["id"]) or {"success": True},
         )
-        # reconcile imports dispatch_finding by name at call time
-        monkeypatch.setattr(rat, "dispatch_finding", actions_mod.dispatch_finding, raising=False)
 
-        # GUAARDVARK_ROOT used by the impl
         import backend.config as cfg
         monkeypatch.setattr(cfg, "GUAARDVARK_ROOT", str(tmp_path), raising=False)
 
@@ -222,39 +208,52 @@ def test_reconcile_and_emit_sets_reachability_emits_consensus_dispatches_only_hi
         assert rows["route:bp.live_but_cold"].static_reachability is True
         assert rows["task:dynamic_only"].static_reachability is False
 
-        # liveness findings written into the cache
-        payload = json.loads(cache_file.read_text())
+        # liveness findings written into the stored snapshot and on their own
+        payload = json.loads(store.snapshot_path(tmp_path).read_text())
         kinds = {f["kind"] for f in payload["findings"]}
         assert "runtime-zombie" in kinds          # reachable + cold
         assert "contextual-discovery" in kinds    # fired + not in static map
+        stored = json.loads(store.liveness_path(tmp_path).read_text())
+        assert {f["kind"] for f in stored["findings"]} >= {"runtime-zombie", "contextual-discovery"}
 
         # ONLY the new HIGH dispatchable finding was dispatched.
         assert dispatched == ["newhigh01"]
-        # The non-dispatchable HIGH cycle was NOT dispatched.
         assert "newcyc01" not in dispatched
-        # CRITICAL: a liveness finding was NEVER dispatched.
         liveness_kinds = {"runtime-zombie", "contextual-discovery", "hot-path-spike"}
         liveness_ids = {f["id"] for f in payload["findings"]
                         if f["kind"] in liveness_kinds}
         assert liveness_ids.isdisjoint(set(dispatched))
 
 
+def test_a_later_rebuild_keeps_the_liveness_findings(monkeypatch, tmp_path):
+    """A static rebuild between two audits merges the stored liveness back in
+    instead of dropping it."""
+    from backend.services.system_mapper import store
+
+    monkeypatch.setenv("GUAARDVARK_STORAGE_DIR", str(tmp_path / "storage"))
+    store.write_liveness(tmp_path, [{"id": "z1", "kind": "runtime-zombie", "severity": "high",
+                                     "summary": "cold", "paths": []}], {"runtime_zombies": 1})
+    payload = {"findings": [{"id": "s1", "kind": "dormant-module"},
+                            {"id": "old", "kind": "runtime-zombie"}], "stats": {}}
+    merged = store.merge_liveness(tmp_path, payload)
+    assert [f["id"] for f in merged["findings"]] == ["s1", "z1"]
+    assert merged["stats"]["liveness"]["runtime_zombies"] == 1
+
+
 def test_reconcile_does_not_redispatch_prior_findings(app, monkeypatch, tmp_path):
     """A HIGH dispatchable finding already in the PRIOR snapshot is not re-dispatched."""
     import json
     from backend.tasks import runtime_audit_tasks as rat
-    from backend.api import system_map_api
-    import backend.services.system_mapper.actions as actions_mod
+    from backend.services.system_mapper import store
     import backend.config as cfg
 
+    monkeypatch.setenv("GUAARDVARK_STORAGE_DIR", str(tmp_path / "storage"))
     with app.app_context():
-        cache_file = tmp_path / "snap.json"
-        # prior snapshot already contains the HIGH dispatchable finding
-        cache_file.write_text(json.dumps({
+        store.write_json_atomic(store.snapshot_path(tmp_path), {
             "findings": [{"kind": "backup-artifact", "severity": "high",
                           "summary": "Backup artifact x.BACK", "paths": ["x.BACK"],
                           "id": "newhigh01"}],
-        }))
+        })
 
         fake_map = {
             "findings": [{"kind": "backup-artifact", "severity": "high",
@@ -263,18 +262,12 @@ def test_reconcile_does_not_redispatch_prior_findings(app, monkeypatch, tmp_path
             "stats": {}, "node_meta": {}, "tool_graph": {},
             "reachability": {}, "dependency_graph": {},
         }
-
-        class _FakeMap:
-            def to_dict(self):
-                return fake_map
-
-        monkeypatch.setattr(rat, "codebase_map", lambda root: _FakeMap())
-        monkeypatch.setattr(system_map_api, "_cache_path_for", lambda root: cache_file)
+        monkeypatch.setattr(rat, "build_map", lambda root: json.loads(json.dumps(fake_map)))
         monkeypatch.setattr(cfg, "GUAARDVARK_ROOT", str(tmp_path), raising=False)
 
         dispatched = []
         monkeypatch.setattr(
-            actions_mod, "dispatch_finding",
+            rat, "dispatch_finding",
             lambda f, priority="medium": dispatched.append(f["id"]) or {"success": True},
         )
 

@@ -151,15 +151,11 @@ def test_the_listing_runs_without_a_shell(repo, monkeypatch):
     assert not kwargs.get("shell") and kwargs["timeout"] == core.GIT_LIST_TIMEOUT_S
 
 
-def test_the_analyzers_do_not_count_ignored_copies(repo, monkeypatch):
-    from backend.services.system_mapper import tool_graph
-
-    assert dependency_graph.analyze(repo, frozenset())["file_count"] == 4
+def test_the_analyzers_do_not_count_ignored_copies(repo):
+    # Four Python modules and frontend/src/api.js; the scratch copies are ignored.
+    assert dependency_graph.analyze(repo, frozenset())["file_count"] == 5
     assert [c["file"] for c in reachability._frontend_callers(repo, frozenset())] == ["frontend/src/api.js"]
     assert dispatch_graph._tool_modules(repo, frozenset()) == {"backend.tools.echo_tool"}
-    # The tool-graph pass imports the real tool registry in a subprocess; the
-    # file count under test does not depend on it.
-    monkeypatch.setattr(tool_graph, "analyze", lambda root, extra: {"graph": {}, "findings": [], "stats": {}})
     smap = codebase_map(repo)
-    assert smap.file_count == 4
+    assert smap.file_count == 5
     assert not any("scratch" in path for finding in smap.findings for path in finding.paths)

@@ -1,11 +1,14 @@
 """Search this checkout's source by meaning or keyword.
 
 One tool name for "search the code", whatever is behind it. With the
-zvec-grep plugin connected (plugins/zvec_grep) the query runs hybrid: vector
-plus keyword over one local index, and a plain-language question such as
-"where is it decided whether a model supports thinking" comes back with the
-defining function first. Without it the query degrades to the repository's
-regex search, so the tool never advertises more than the machine can do.
+zvec-grep plugin connected (plugins/zvec_grep) and an index built for the
+checkout (<root>/.zvec-grep, from the System Map page or the plugin's
+scripts/index.sh) the query runs hybrid: vector plus keyword over one local
+index, and a plain-language question such as "where is it decided whether a
+model supports thinking" comes back with the defining function first. Without
+an index the query is the repository's regex search, and both the result and
+the chat's system line say so: the tool never advertises more than the
+machine can do.
 
 The workspace root is never asked of the model: the MCP tool behind this one
 requires an absolute root, and in the first trial the model guessed, ran
@@ -36,10 +39,19 @@ DEFAULT_LIMIT = 8
 MAX_OUTPUT_CHARS = 12000
 
 _SEMANTIC_UNAVAILABLE = (
-    "Semantic code search is unavailable (the zvec_grep plugin is not connected, or has no "
-    "index for this checkout), and the query has no code names to search for literally. Ask "
-    "with a function, class or file name, or start the zvec_grep plugin from the Plugins page."
+    "Semantic code search is unavailable (no code search index for this checkout, or the "
+    "zvec_grep plugin is not running), and the query has no code names to search for literally. "
+    "Ask with a function, class or file name, use system_map_query (where <feature>), or build "
+    "the index from the System Map page."
 )
+
+
+def has_code_index(root: str) -> bool:
+    """Whether zvec-grep has an index for root (<root>/.zvec-grep)."""
+    try:
+        return (Path(root) / ".zvec-grep").is_dir()
+    except OSError:
+        return False
 _SYMBOL = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 
 
@@ -246,16 +258,17 @@ class SearchCodebaseTool(BaseTool):
     name = "search_codebase"
     read_only = True
     description = (
-        "Search this Guaardvark install's own source code by meaning or by symbol. It does not "
-        "search the caller's workspace or any other repository. The checkout is already indexed, "
-        "so no path or upload is needed: ask 'where is it decided whether a model supports "
-        "thinking', 'which function cuts retrieved text', 'callers of think_payload'. The first "
-        "line of the result names the checkout searched and how; then come the matching files "
-        "with checkout-relative line numbers and the code itself. With the zvec_grep plugin "
-        "connected the search is hybrid (meaning plus keyword); without it, a literal search "
-        "for the query and for the code names in it. Use it before saying Guaardvark's code is "
-        "unavailable and before reading whole files. For an exact name or a regular expression "
-        "use search_code; read_code opens a file it finds."
+        "Search this Guaardvark install's own source code. It does not search the caller's "
+        "workspace or any other repository, and no path or upload is needed: ask 'where is it "
+        "decided whether a model supports thinking', 'which function cuts retrieved text', "
+        "'callers of think_payload'. When a code search index has been built for the checkout "
+        "(the zvec_grep plugin; System Map page → Build code search index) the search is hybrid, "
+        "by meaning plus keyword; without one it is a literal search for the query, the code "
+        "names in it, and its words. The first line of the result names the checkout and which "
+        "search ran; then come the matching files with checkout-relative line numbers and the "
+        "code itself. Use it before saying Guaardvark's code is unavailable and before reading "
+        "whole files. For callers, dependents and 'where is this feature' ask system_map_query; "
+        "for an exact name or a regular expression use search_code; read_code opens a file it finds."
     )
     category = "code"
     observation_chars = MAX_OUTPUT_CHARS
@@ -296,7 +309,10 @@ class SearchCodebaseTool(BaseTool):
         label = _root_label(root)
         meta = {"root": root, "limit": limit}
 
-        if over_mcp:
+        indexed = has_code_index(root)
+        if not indexed:
+            text = None  # nothing for zvec-grep to search; skip the call
+        elif over_mcp:
             text = _hybrid_search_via_backend(root, query, limit)
         else:
             text = _hybrid_search(root, query, limit)
@@ -310,10 +326,11 @@ class SearchCodebaseTool(BaseTool):
                 return ToolResult(success=False, error=_SEMANTIC_UNAVAILABLE, metadata={"engine": engine, **meta})
             if hits.startswith("ERROR"):
                 return ToolResult(success=False, error=hits, metadata={"engine": engine, **meta})
+            why = ("the zvec_grep plugin did not answer" if indexed else
+                   "no code search index has been built for this checkout")
             text = (
                 f"[Searched {label}: literal search for {searched_for}, at most {limit} hits listed. "
-                "Semantic search is unavailable (the zvec_grep plugin is not connected, or has no "
-                f"index for this folder).]\n{hits}"
+                f"Search by meaning is unavailable: {why}.]\n{hits}"
             )
         if len(text) > MAX_OUTPUT_CHARS:
             text = text[:MAX_OUTPUT_CHARS].rsplit("\n", 1)[0] + "\n... [more hits omitted]"

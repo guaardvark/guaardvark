@@ -304,11 +304,15 @@ def create_celery_app():
                         MODE_CELERY_TASK,
                     )
                     tracker = get_tracker()
+                    # The module that defines the task: a task named
+                    # "runtime_audit.flush_hits" lives in backend.tasks.runtime_audit_tasks.
+                    run = getattr(self, "run", None)
+                    module = getattr(run, "__module__", None) or type(self).__module__ or ""
                     tracker.record_hit(
                         f"task:{self.name}",
                         "task",
                         self.name,
-                        self.name.rsplit('.', 1)[0] if self.name and '.' in self.name else self.name,
+                        module,
                         mode_bit=MODE_CELERY_TASK,
                     )
                     # Time-based flush so a steady worker doesn't grow the

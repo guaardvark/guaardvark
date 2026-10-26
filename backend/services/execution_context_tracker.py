@@ -37,6 +37,7 @@ class ExecutionContextTracker:
         # symbol_id -> {"kind", "display_name", "module", "count", "last_ts", "mode_flags"}
         self._buffer = {}
         self._last_flush_ts = time.monotonic()
+        self._flushing = threading.Lock()
 
     # ------------------------------------------------------------------ hot path
     def record_hit(self, symbol_id, kind, display_name, module, mode_bit):
@@ -78,6 +79,37 @@ class ExecutionContextTracker:
                 self.flush()
         except Exception:  # noqa: BLE001
             logger.debug("maybe_flush swallowed exception", exc_info=True)
+
+    def maybe_flush_async(self, app, interval_s=60.0):
+        """Flush on a background thread once interval_s has passed since the
+        last flush. For the web process: the beat-driven flush runs in the
+        Celery worker and drains only the worker's own tracker, so route hits
+        recorded here were never written. Never raises, never blocks the request.
+        """
+        try:
+            if self.seconds_since_flush() < interval_s:
+                return
+            if not self._flushing.acquire(blocking=False):
+                return
+            self._last_flush_ts = time.monotonic()
+
+            def run():
+                try:
+                    with app.app_context():
+                        self.flush()
+                        try:
+                            from backend.models import db
+                            db.session.remove()
+                        except Exception:
+                            pass
+                except Exception:  # noqa: BLE001
+                    logger.debug("background flush swallowed exception", exc_info=True)
+                finally:
+                    self._flushing.release()
+
+            threading.Thread(target=run, name="liveness-flush", daemon=True).start()
+        except Exception:  # noqa: BLE001
+            logger.debug("maybe_flush_async swallowed exception", exc_info=True)
 
     # ------------------------------------------------------------------ DB path
     def _drain(self):

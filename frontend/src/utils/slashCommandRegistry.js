@@ -144,7 +144,7 @@ const BUILT_IN_COMMANDS = [
     get description() {
       return translate("options.slashCommands.sysmap");
     },
-    usage: "/sysmap [refresh]",
+    usage: "/sysmap [refresh | where … | module … | symbol … | impact …]",
     category: "utility",
     args: "optional",
     handler: "builtin",
