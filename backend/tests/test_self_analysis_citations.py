@@ -31,7 +31,8 @@ def test_questions_about_guaardvark_count(text):
     assert sa.about_self(text)
 
 
-@pytest.mark.parametrize("text", ["Make a picture of a cat", "Thanks!", "What is the capital of Peru?"])
+@pytest.mark.parametrize("text", ["Make a picture of a cat", "Thanks!", "What is the capital of Peru?",
+                                  "How do you say hello in French?", "How do you make a cake?"])
 def test_other_turns_do_not(text):
     assert not sa.about_self(text)
 
