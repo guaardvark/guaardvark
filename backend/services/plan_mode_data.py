@@ -136,10 +136,12 @@ PLAN_MODE_RESEARCH_NOTE = (
 
 COMPOSE_SYSTEM = (
     "You turn a request and the research done for it into JSON for plan mode.\n"
-    "kind: \"answer\" when the request is a question and the research reply answers it; "
-    "\"question\" when you need something from the person before you can plan (put it in "
-    "question); \"plan\" when the request asks for something to be done, made, changed, "
-    "saved, sent or run.\n"
+    "kind: \"plan\" whenever the request asks for something a tool does: remembering or "
+    "saving something, making a picture, video, sound or speech, writing or changing a file "
+    "or code, using the screen, posting, sending or running something, even when it is one "
+    "simple step. \"answer\" only when a reply in words is all the person asked for and the "
+    "research reply gives it. \"question\" when you need something from the person before "
+    "you can plan (put it in question).\n"
     "For a plan: goal is one sentence of what the person gets. steps are in the order they "
     "run, at most {max_steps}; each has a short title, an action written in plain words (not "
     "code, not a function call) as the instruction you would follow to do that step on its "

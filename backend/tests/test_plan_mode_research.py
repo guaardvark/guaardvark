@@ -179,3 +179,18 @@ def test_availability_follows_the_measured_rows(monkeypatch):
 def test_discord_chats_cannot_plan():
     assert not pm.plan_mode_supported("discord_123")
     assert pm.plan_mode_supported("web-abc")
+
+
+def test_a_url_named_without_its_scheme_is_not_invented(tmp_path):
+    assert not pm._invented("https://example.com", "go to example.com", [str(tmp_path)])
+    assert not pm._invented("https://www.example.com/", "open example.com", [str(tmp_path)])
+
+
+def test_actions_tried_during_research_become_the_plan(registry, monkeypatch):
+    monkeypatch.setattr(pm, "preview_route", lambda *a, **k: None)
+    attempted = [{"tool": "generate_file", "args": {"filename": "a.txt", "content_description": "hello"}}]
+    result = pm.plan_from_attempts(attempted, objective="make a.txt")
+    assert result.kind == "plan" and result.path == "attempted"
+    fields, _warnings = pm.validate(result.data, registry=registry, haystack="make a.txt")
+    assert fields["steps"][0]["direct"] == {"direct_tool": "generate_file",
+                                            "direct_tool_params": {"filename": "a.txt", "content_description": "hello"}}
