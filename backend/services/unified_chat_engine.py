@@ -3095,6 +3095,19 @@ class UnifiedChatEngine:
         if _opts.get("plan_mode_research"):
             from backend.services.plan_mode_data import PLAN_MODE_RESEARCH_NOTE
             context_parts.append(PLAN_MODE_RESEARCH_NOTE)
+        # A question about Guaardvark's own code starts from the System
+        # Mapper's notes on where the answer is; the reply's references are
+        # checked against the checkout afterwards.
+        self._self_focus = None
+        if not _skip_tools:
+            try:
+                from backend.services import self_analysis
+                if self_analysis.about_self(message, _opts):
+                    _dossier, self._self_focus = self_analysis.dossier(message)
+                    if _dossier:
+                        context_parts.append(_dossier)
+            except Exception:
+                logger.debug("self-analysis dossier skipped", exc_info=True)
         _accepted = str(_opts.get("accepted_offer") or "").strip()
         if _accepted:
             context_parts.append(
@@ -4073,6 +4086,17 @@ class UnifiedChatEngine:
         # its finalize_fn; they ride on chat:complete and the saved row.
         complete_extra = options.get("complete_extra")
         complete_extra = dict(complete_extra) if isinstance(complete_extra, dict) else {}
+        if getattr(self, "_self_focus", None) is not None and accumulated_response.strip():
+            try:
+                from backend.services import self_analysis
+                report = self_analysis.check_citations(accumulated_response)
+                if report["invalid"]:
+                    accumulated_response = accumulated_response.rstrip() + "\n\n" + self_analysis.invalid_note(report)
+                elif persist and not complete_extra.get("plan"):
+                    self_analysis.remember(message, accumulated_response, report)
+                complete_extra["self_analysis"] = {"focus": self._self_focus[:6], **report}
+            except Exception:
+                logger.debug("self-analysis reference check skipped", exc_info=True)
 
         # 7. Emit complete
         emit_fn("chat:complete", {
@@ -4087,7 +4111,7 @@ class UnifiedChatEngine:
             "truncated": final_truncated,
             "synthesized": synthesized,
             "web_search_offer": web_search_offer,
-            **{k: v for k, v in complete_extra.items() if k in ("plan", "findings", "plan_kind")},
+            **{k: v for k, v in complete_extra.items() if k in ("plan", "findings", "plan_kind", "self_analysis")},
         })
 
         # 8. Save assistant message (only if we have actual content)

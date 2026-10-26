@@ -187,7 +187,7 @@ const CodeEditorPage = () => {
     // Clear the state so refreshing doesn't re-open
     window.history.replaceState({}, document.title);
     // Delay slightly to let state restoration finish
-    setTimeout(() => openDocumentTab(incoming), 500);
+    setTimeout(() => openDocumentTab(incoming, { line: incoming.line }), 500);
   }, [location.state, openDocumentTab]);
 
   useEffect(() => {

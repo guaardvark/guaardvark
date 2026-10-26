@@ -814,6 +814,7 @@ const ChatPage = () => {
                   // Plan mode: the plan a reply proposed, its research findings,
                   // and which step of a running plan a row belongs to.
                   plan: msg.plan ?? msg.extra_data?.plan,
+                  selfAnalysis: msg.selfAnalysis ?? msg.extra_data?.self_analysis,
                   findings: msg.findings ?? msg.extra_data?.findings,
                   planStep: msg.planStep ?? msg.extra_data?.planStep,
                   planStepTitle: msg.planStepTitle ?? msg.extra_data?.planStepTitle,
@@ -2622,6 +2623,7 @@ const ChatPage = () => {
                   iterations: result.iterations || 0,
                   budget: result.budget || budgetTelemetry,  // Phase 2.1 surface budget telemetry
                   ...planFields(result),
+                  selfAnalysis: result.selfAnalysis || null,
                 };
                 if (result.budget) setBudgetTelemetry(result.budget);
                 setMessages((prev) => [...prev, completedMessage]);

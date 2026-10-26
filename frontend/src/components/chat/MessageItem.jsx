@@ -7,6 +7,7 @@ import PropTypes from "prop-types";
 import { Box, Paper, Avatar, CardMedia, Chip, CircularProgress, Typography } from "@mui/material";
 import ReactMarkdown from "react-markdown";
 import PlanCard from "./PlanCard";
+import SelfAnalysisSources from "./SelfAnalysisSources";
 import { usePlanActions } from "./planActions";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -777,6 +778,10 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
         </Box>
         )}
 
+        {!isUser && message.selfAnalysis && (
+          <SelfAnalysisSources analysis={message.selfAnalysis} sessionId={effectiveSessionId} />
+        )}
+
         {/* The plan comes after the research that led to it. */}
         {isPlanMessage && (
           <PlanCard
@@ -963,6 +968,7 @@ MessageItem.propTypes = {
     source: PropTypes.string,
     orchestratorPlan: PropTypes.object,
     plan: PropTypes.object,
+    selfAnalysis: PropTypes.object,
     findings: PropTypes.string,
     planStep: PropTypes.number,
     planStepTitle: PropTypes.string,
