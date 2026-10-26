@@ -605,16 +605,6 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
           </Box>
         )}
 
-        {isPlanMessage && (
-          <PlanCard
-            plan={message.plan}
-            onRunStarted={planActions?.onRunStarted}
-            onKeepPlanning={planActions?.onKeepPlanning}
-            onStop={planActions?.onStop}
-            onPlanChanged={planActions?.onPlanChanged}
-          />
-        )}
-
         {message.orchestratorPlan && (
           <Box sx={{ mb: 1, mt: 0.5 }}>
             <OrchestratorPlanView
@@ -784,6 +774,17 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
               : typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)}
           </ReactMarkdown>
         </Box>
+        )}
+
+        {/* The plan comes after the research that led to it. */}
+        {isPlanMessage && (
+          <PlanCard
+            plan={message.plan}
+            onRunStarted={planActions?.onRunStarted}
+            onKeepPlanning={planActions?.onKeepPlanning}
+            onStop={planActions?.onStop}
+            onPlanChanged={planActions?.onPlanChanged}
+          />
         )}
         {isUser && message.agentNote && (
           <Typography

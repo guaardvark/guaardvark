@@ -116,6 +116,18 @@ def test_validate_cleans_steps_and_warns(registry, monkeypatch):
     assert steps[2]["tools"] == ["edit_code"]
     assert any("only the first" in w for w in warnings)
     assert any("backend/missing.py" in w for w in warnings)
+    # A file the plan will create is not "invented".
+    assert not any("poem.txt" in w for w in warnings)
+
+
+def test_paths_on_disk_are_not_invented(tmp_path):
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "real.py").write_text("x = 1\n")
+    assert not pm._invented("pkg/real.py", "", [str(tmp_path)])
+    assert pm._invented("pkg/missing.py", "", [str(tmp_path)])
+    assert not pm._invented("notes.txt", "", [str(tmp_path)])
+    assert pm._invented("https://example.com/x", "", [str(tmp_path)])
+    assert not pm._invented("https://example.com/x", "see https://example.com/x", [str(tmp_path)])
 
 
 def test_compose_falls_back_to_a_numbered_list(monkeypatch):

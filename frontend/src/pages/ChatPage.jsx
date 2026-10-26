@@ -1599,7 +1599,10 @@ const ChatPage = () => {
       // bypass file generation detection entirely. These are handled specially later
       // via direct_tool options in the unified send. Otherwise, /imagine inputText
       // can lead to null fileDetection and crash on .isCSVRequest.
-      if (voiceOptions?.direct_tool) {
+      // In plan mode the backend researches and plans the request, so the
+      // page's own routing (the agent loop, the file card) stays out of it.
+      const planModeOn = useAppStore.getState().getSessionPlanMode(sessionId);
+      if (voiceOptions?.direct_tool || planModeOn) {
         fileDetection = { isCSVRequest: false, isCodeRequest: false };
       } else if (useAgentRouting) {
         try {
