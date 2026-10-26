@@ -9,7 +9,6 @@ asks for a new plan for the rest, or stops.
 
 import base64
 import logging
-import mimetypes
 import re
 import threading
 import uuid
@@ -99,27 +98,42 @@ class _StepWatch:
     keeps the step's chat:complete from ending the whole run in the browser,
     and notes what the step's tools did."""
 
-    def __init__(self, emit_fn: Callable, plan_id: str, index: int):
+    def __init__(self, emit_fn: Callable, plan_id: str, index: int, registry=None):
         self.emit_fn = emit_fn
         self.plan_id = plan_id
         self.index = index
+        self.registry = registry
         self.tool_ok = 0
+        # Successful calls of tools that change something, not lookups.
+        self.acted = 0
         self.tool_failed: List[str] = []
         self.response = ""
         self.images: List[Any] = []
         self.made: List[str] = []
+
+    def acts(self, tool_name: Optional[str]) -> bool:
+        """Whether ``tool_name`` changes something rather than looks it up."""
+        if self.registry is None:
+            return pmd.tool_kind(tool_name or "") is not None
+        from backend.services.agent_tools import is_plan_research_tool
+        tool = self.registry.get_tool(tool_name or "")
+        return tool is not None and not is_plan_research_tool(tool)
 
     def __call__(self, event_name: str, payload: Dict[str, Any]):
         payload = dict(payload or {})
         payload["plan_id"] = self.plan_id
         payload["plan_step"] = self.index
         if event_name == "chat:tool_result":
-            if payload.get("success") is False:
-                self.tool_failed.append(str(payload.get("error") or payload.get("tool") or "tool failed")[:300])
-            elif payload.get("success"):
+            # The engine nests the outcome under "result".
+            outcome = payload.get("result") if isinstance(payload.get("result"), dict) else payload
+            if outcome.get("success") is False:
+                self.tool_failed.append(str(outcome.get("error") or payload.get("tool") or "tool failed")[:300])
+            elif outcome.get("success"):
                 self.tool_ok += 1
+                self.acted += self.acts(payload.get("tool") or payload.get("tool_name"))
         if event_name in ("chat:image", "chat:video"):
             self.tool_ok += 1
+            self.acted += 1
         if event_name == "chat:complete":
             self.response = str(payload.get("response") or "")
             self.images = payload.get("generated_images") or []
@@ -127,7 +141,10 @@ class _StepWatch:
                 for call in step.get("tool_calls") or []:
                     if call.get("success"):
                         self.tool_ok += 1
-                        self.made += _FILE_NAME.findall(f"{call.get('params')} {call.get('output_preview')}")
+                        if self.acts(call.get("tool_name") or call.get("tool")):
+                            # A file a lookup only searched for or read was not made.
+                            self.acted += 1
+                            self.made += _FILE_NAME.findall(f"{call.get('params')} {call.get('output_preview')}")
             self.emit_fn("chat:plan_step_done", payload)
             return
         if event_name == "chat:error":
@@ -191,7 +208,8 @@ def execute_plan(plan_id: str, *, session_id: str, emit_fn: Callable, app, agent
             image_data = None
             if attachments and step.get("kind") in ("image", "video"):
                 image_data = _attachment_data(attachments[0])
-            watch = _StepWatch(emit_fn, plan_id, index)
+            watch = _StepWatch(emit_fn, plan_id, index,
+                               registry=getattr(getattr(agent_brain, "state", None), "tool_registry", None))
             _step_tag.value = {"plan_id": plan_id, "index": index, "title": step["title"]}
             try:
                 result = agent_brain.process(
@@ -211,7 +229,7 @@ def execute_plan(plan_id: str, *, session_id: str, emit_fn: Callable, app, agent
                 _set_step(app, plan_id, index, status="stopped", summary=summary)
                 break
             error = _step_error(step, result, watch)
-            if error and not watch.tool_ok and not watch.tool_failed:
+            if error and not watch.acted and not watch.tool_failed:
                 already = _made_earlier(step, made_before)
                 if already:
                     error, summary = "", already
@@ -235,12 +253,15 @@ def _step_count(app, plan_id: str) -> int:
 
 
 def _made_earlier(step: Dict[str, Any], made_before: Dict[str, int]) -> str:
-    """The step's summary when an earlier step already made a file it names,
-    or "". A plan that writes a file's text in one step and saves it in the
-    next runs no tool in the second when the first already saved it."""
-    named = [n for n in _FILE_NAME.findall(f"{step.get('title')} {step.get('action')}")
-             if n.lower() in made_before]
-    return f"{named[0]} was already made in step {made_before[named[0].lower()]}." if named else ""
+    """The step's summary when earlier steps already made every file it
+    names, or "". A plan that writes a file's text in one step and saves it in
+    the next runs no tool in the second when the first already saved it; a
+    step that also names a file nothing made yet ("copy a.txt into b.txt")
+    still has work to do."""
+    named = _FILE_NAME.findall(f"{step.get('title')} {step.get('action')}")
+    if not named or any(n.lower() not in made_before for n in named):
+        return ""
+    return f"{named[0]} was already made in step {made_before[named[0].lower()]}."
 
 
 def _step_error(step: Dict[str, Any], result: Dict[str, Any], watch: _StepWatch) -> str:
@@ -251,11 +272,21 @@ def _step_error(step: Dict[str, Any], result: Dict[str, Any], watch: _StepWatch)
         return ""
     if step.get("kind") == "desktop" and result.get("success"):
         return ""
-    if watch.tool_ok:
+    if watch.acted or (watch.tool_ok and not _needs_action(step, watch)):
         return ""
     if watch.tool_failed:
         return watch.tool_failed[-1]
+    if watch.tool_ok:
+        return "Only lookups ran for this step; nothing was made or changed."
     return "Nothing ran for this step: no tool was called."
+
+
+def _needs_action(step: Dict[str, Any], watch: _StepWatch) -> bool:
+    """Whether the step is done only by a tool that changes something: its
+    kind has such tools (file, image, memory, ...), or it lists one."""
+    if pmd.STEP_KINDS.get(step.get("kind"), {}).get("tools"):
+        return True
+    return any(watch.acts(t) for t in step.get("tools") or [])
 
 
 def _set_step(app, plan_id: str, index: int, **fields) -> None:
