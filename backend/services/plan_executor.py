@@ -10,6 +10,7 @@ asks for a new plan for the rest, or stops.
 import base64
 import logging
 import mimetypes
+import re
 import threading
 import uuid
 from datetime import datetime
@@ -22,8 +23,11 @@ from backend.services import plan_mode_data as pmd
 
 logger = logging.getLogger(__name__)
 
-# Step kinds whose work is the reply itself; any other kind must run a tool.
-_TEXT_KINDS = frozenset({"write", "lookup"})
+# File names a step's tools reported making, and that a later step's action
+# may name.
+_FILE_NAME = re.compile(
+    r"[\w-]+\.(?:md|txt|csv|json|html|py|js|jsx|ts|css|xml|yaml|yml|docx|xlsx|pdf"
+    r"|png|jpe?g|webp|gif|mp4|webm|wav|mp3|flac)\b", re.I)
 
 # The plan step a thread is running, so the rows it saves are tagged.
 _step_tag = threading.local()
@@ -103,6 +107,7 @@ class _StepWatch:
         self.tool_failed: List[str] = []
         self.response = ""
         self.images: List[Any] = []
+        self.made: List[str] = []
 
     def __call__(self, event_name: str, payload: Dict[str, Any]):
         payload = dict(payload or {})
@@ -122,6 +127,7 @@ class _StepWatch:
                 for call in step.get("tool_calls") or []:
                     if call.get("success"):
                         self.tool_ok += 1
+                        self.made += _FILE_NAME.findall(f"{call.get('params')} {call.get('output_preview')}")
             self.emit_fn("chat:plan_step_done", payload)
             return
         if event_name == "chat:error":
@@ -163,6 +169,8 @@ def execute_plan(plan_id: str, *, session_id: str, emit_fn: Callable, app, agent
                 if step.get("status") in ("done", "skipped"):
                     continue
                 context = _context(plan, index)
+                made_before = {name.lower(): s["index"] for s in plan.steps[:index - 1]
+                               if s.get("status") == "done" for name in s.get("made") or []}
             if is_aborted(session_id):
                 outcome = "stopped"
                 _set_step(app, plan_id, index, status="pending")
@@ -203,11 +211,21 @@ def execute_plan(plan_id: str, *, session_id: str, emit_fn: Callable, app, agent
                 _set_step(app, plan_id, index, status="stopped", summary=summary)
                 break
             error = _step_error(step, result, watch)
+            if error and not watch.tool_ok and not watch.tool_failed:
+                # Nothing ran because an earlier step already made what this
+                # one names (a plan that writes a file's text in one step and
+                # saves it in the next, when the first step saved it).
+                named = [n for n in _FILE_NAME.findall(f"{step.get('title')} {step.get('action')}")
+                         if n.lower() in made_before]
+                if named:
+                    error = ""
+                    summary = f"{named[0]} was already made in step {made_before[named[0].lower()]}."
             if error:
                 outcome = "step_failed"
                 _set_step(app, plan_id, index, status="failed", summary=summary, error=error)
                 break
-            _set_step(app, plan_id, index, status="done", summary=summary)
+            _set_step(app, plan_id, index, status="done", summary=summary,
+                      made=sorted(set(watch.made))[:20] or None)
             _emit_plan(app, emit_fn, plan_id)
     finally:
         end_plan_run(session_id)
@@ -225,7 +243,7 @@ def _step_error(step: Dict[str, Any], result: Dict[str, Any], watch: _StepWatch)
     """Why a finished step counts as failed, or "" when it worked."""
     if result.get("success") is False:
         return str(result.get("error") or "The step reported a failure.")[:400]
-    if step.get("kind") in _TEXT_KINDS:
+    if step.get("kind") in pmd.TEXT_KINDS:
         return ""
     if step.get("kind") == "desktop" and result.get("success"):
         return ""
