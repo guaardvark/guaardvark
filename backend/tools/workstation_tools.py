@@ -473,6 +473,26 @@ class SystemMapQueryTool(BaseTool):
             return ToolResult(success=False, error=str(e))
 
 
+def _plan_instead(tool, kwargs, objective: str) -> Optional[ToolResult]:
+    """From a chat, a change to Guaardvark's own code goes through plan mode:
+    the chat is switched to it and the model is told to plan the change, in
+    place of a fix agent that would run with no one looking. None elsewhere
+    (MCP, API, the self-improvement engine's own runs, a plan step)."""
+    ctx = kwargs.get("_agent_context") or getattr(tool, "_context", None) or {}
+    if ctx.get("transport") != "chat" or ctx.get("plan_step"):
+        return None
+    from backend.services.plan_mode import switch_on
+    switched = switch_on(ctx.get("chat_session_id"))
+    return ToolResult(
+        success=True,
+        output=(("Plan mode is now on for this chat. " if switched else "")
+                + "Changes to Guaardvark's own code are planned first: look into the code for this, "
+                  "tell the person what you found and what you would change, and ask them to approve "
+                  f"the plan. Objective: {objective}"),
+        metadata={"plan_mode": switched, "objective": objective},
+    )
+
+
 class DispatchMapFindingTool(BaseTool):
     name = "dispatch_map_finding"
     read_only = False
@@ -514,6 +534,11 @@ class DispatchMapFindingTool(BaseTool):
             finding = find_finding(snapshot, finding_id)
             if not finding:
                 return ToolResult(success=False, error=f"No finding {finding_id} in the stored map. Run map_codebase first.")
+            planned = _plan_instead(self, kwargs, (
+                f"fix System Map finding {finding_id} ({finding.get('kind')}): {finding.get('summary')}; "
+                f"files: {', '.join(finding.get('paths') or [])}. Check in the code that it is real first."))
+            if planned is not None:
+                return planned
             if finding.get("kind") not in DISPATCHABLE_KINDS:
                 return ToolResult(
                     success=False,
@@ -979,6 +1004,9 @@ class SubmitImprovementTool(BaseTool):
 
     def execute(self, **kwargs) -> ToolResult:
         description = (kwargs.get("description") or "").strip()
+        planned = _plan_instead(self, kwargs, description)
+        if planned is not None:
+            return planned
         if not description:
             return ToolResult(success=False, error="description is required")
         try:

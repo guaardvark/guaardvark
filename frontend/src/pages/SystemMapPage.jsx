@@ -54,7 +54,10 @@ import {
   fetchCodeIndexStatus,
   buildCodeIndex,
 } from "../api/systemMapService";
+import ChecklistIcon from "@mui/icons-material/Checklist";
 import { useFloatingChatStore } from "../stores/useFloatingChatStore";
+import { useAppStore } from "../stores/useAppStore";
+import { setPlanMode } from "../api/planModeService";
 import { SOCKET_URL } from "../api/apiClient";
 import { useUiTranslation, translate, Trans } from "../i18n";
 
@@ -358,6 +361,29 @@ export default function SystemMapPage() {
     },
     [map],
   );
+
+  // A finding is fixed through plan mode: the floating chat opens with plan
+  // mode on and the finding as the objective, so the change is researched,
+  // shown as a plan and made only once approved (with a restore point).
+  const floatingSessionId = useFloatingChatStore((s) => s.sessionId);
+  const handlePlanFix = useCallback(async (finding) => {
+    setDispatchingId(finding.id);
+    try {
+      const data = await setPlanMode(floatingSessionId, true);
+      useAppStore.getState().setSessionPlanMode(floatingSessionId, Boolean(data?.plan_mode));
+      enqueueChatTurn({
+        text: t("systemMap.findings.planFixPrompt", {
+          summary: finding.summary,
+          kind: finding.kind,
+          files: (finding.paths || []).join(", "),
+        }),
+      });
+    } catch (e) {
+      setToast({ kind: "failed", reason: String(e?.message || e) });
+    } finally {
+      setDispatchingId(null);
+    }
+  }, [floatingSessionId, enqueueChatTurn, t]);
 
   const handleDispatch = useCallback(async (finding) => {
     setDispatchingId(finding.id);
@@ -1120,6 +1146,7 @@ export default function SystemMapPage() {
               onSevFilter={setSevFilter}
               onSelect={flyToFinding}
               onDispatch={handleDispatch}
+              onPlanFix={handlePlanFix}
               onDismiss={handleDismiss}
               dispatchingId={dispatchingId}
               activeTab={panelTab}
@@ -1253,6 +1280,7 @@ function FindingsView({
   onSevFilter,
   onSelect,
   onDispatch,
+  onPlanFix,
   onDismiss,
   dispatchingId,
   activeTab,
@@ -1383,6 +1411,21 @@ function FindingsView({
                 ))}
               </Box>
               <Stack direction="row" spacing={0.5} sx={{ mt: 0.6 }}>
+                {onPlanFix && (
+                  <Tooltip title={t("systemMap.findings.planFix")}>
+                    <span>
+                      <IconButton
+                        size="small"
+                        disabled={dispatchingId === f.id}
+                        onClick={() => onPlanFix(f)}
+                        aria-label={t("systemMap.findings.planFix")}
+                        sx={{ color: P.ghost(0.8) }}
+                      >
+                        <ChecklistIcon sx={{ fontSize: 15 }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                )}
                 {f.dispatchable && (
                   <Tooltip title={t("systemMap.findings.dispatch")}>
                     <span>
