@@ -27,6 +27,7 @@ import React, {
 } from "react";
 
 import GlobalMicButton from "../voice/GlobalMicButton";
+import ChatFeatureMenu from "./ChatFeatureMenu";
 import { useAppStore } from "../../stores/useAppStore";
 import { useVoiceSession, useVoiceSessionState } from "../../contexts/VoiceSessionContext";
 import useSlashCommands from "../../hooks/useSlashCommands";
@@ -165,6 +166,17 @@ const ChatInput = forwardRef(
       }
     }, [sessionId, planModeActive, setSessionPlanMode]);
 
+    // A feature tile's text goes in the box with the cursor after it.
+    const prefillInput = useCallback((text) => {
+      setInputText(text);
+      requestAnimationFrame(() => {
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(text.length, text.length);
+      });
+    }, []);
+
     useEffect(() => {
       if (!sessionId) return;
       let cancelled = false;
@@ -203,6 +215,14 @@ const ChatInput = forwardRef(
         voiceContext: { toggleVoice: voiceSession.toggleHandsFree, isVoiceActive: voiceListening },
       },
     });
+
+    // A mode tile in the feature grid: plan mode switches quietly, as its
+    // chip does; agent mode goes through /agent and /chat like typing them.
+    const { executeCommand } = slashCmds;
+    const switchMode = useCallback((mode) => {
+      if (mode === "plan") togglePlanMode();
+      else if (mode === "agent") executeCommand(agentModeActive ? "/chat" : "/agent");
+    }, [togglePlanMode, executeCommand, agentModeActive]);
 
     // Voice state for the page's background waveform.
     useEffect(() => {
@@ -892,36 +912,34 @@ Please try a different image or check if the vision model is properly loaded.`;
             )}
           </Tooltip>
 
-          {/* Plan mode toggle; /plan does the same. On, it reads as a labelled
-              chip in the row so the mode is never missed. */}
-          <Tooltip title={planModeNote || (planModeActive ? t("chat.input.planModeOff") : t("chat.input.planModeOn"))}>
-            <span style={{ alignSelf: "center" }}>
-              {planModeActive ? (
+          {/* The feature grid: images, video, files, plan mode and the rest. */}
+          <ChatFeatureMenu
+            onPrefill={prefillInput}
+            onAttach={() => fileRef.current?.click()}
+            onMode={switchMode}
+            modes={{ plan: planModeActive, agent: agentModeActive }}
+            disabled={!sessionId}
+          />
+
+          {/* Plan mode, while on, reads as a labelled chip in the row so the
+              mode is never missed; clicking it (or /plan) turns it off. */}
+          {(planModeActive || planModeNote) && (
+            <Tooltip title={planModeNote || t("chat.input.planModeOff")}>
+              <span style={{ alignSelf: "center" }}>
                 <Chip
                   icon={<ChecklistIcon />}
                   label={t("chat.input.planModeBadge")}
-                  color="primary"
+                  color={planModeActive ? "primary" : "default"}
                   size="small"
                   onClick={togglePlanMode}
-                  aria-pressed
+                  aria-pressed={planModeActive}
                   aria-label={t("chat.input.planModeToggle")}
                   data-testid="plan-mode-toggle"
                   sx={{ fontWeight: 600, letterSpacing: 0.5 }}
                 />
-              ) : (
-                <IconButton
-                  onClick={togglePlanMode}
-                  disabled={!sessionId}
-                  aria-pressed={false}
-                  aria-label={t("chat.input.planModeToggle")}
-                  data-testid="plan-mode-toggle"
-                  sx={{ color: "text.secondary" }}
-                >
-                  <ChecklistIcon />
-                </IconButton>
-              )}
-            </span>
-          </Tooltip>
+              </span>
+            </Tooltip>
+          )}
 
           {/* The global mic: hold to talk, click per the activation mode. */}
           <Box sx={{ display: "flex", alignItems: "center", alignSelf: "center" }}>

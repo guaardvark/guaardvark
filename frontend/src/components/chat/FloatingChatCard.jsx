@@ -34,6 +34,7 @@ import extractSpeakableText from "../../utils/extractSpeakableText";
 import useSlashCommands from "../../hooks/useSlashCommands";
 import { directToolOptions } from "../../utils/slashCommandRegistry";
 import SlashCommandPopup from "./SlashCommandPopup";
+import ChatFeatureMenu from "./ChatFeatureMenu";
 import FileDropOverlay from "./FileDropOverlay";
 import useFileDropZone from "../../hooks/useFileDropZone";
 import { debugLog } from "../../utils/debugLog";
@@ -560,6 +561,25 @@ const FloatingChatCard = () => {
       voiceContext: { toggleVoice: voiceSession.toggleHandsFree, isVoiceActive: voiceActive },
     },
   });
+
+  // The feature grid: a tile's text goes in the box with the cursor after
+  // it; a mode tile runs the slash command that switches the mode.
+  const planModeOn = useAppStore((s) => Boolean(s.sessionPlanModes[sessionId]));
+  const agentModeOn = useAppStore((s) => s.sessionModes[sessionId] === "agent");
+  const { executeCommand } = slashCmds;
+  const prefillInput = useCallback((text) => {
+    setInputText(text);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(text.length, text.length);
+    });
+  }, []);
+  const switchMode = useCallback((mode) => {
+    if (mode === "plan") executeCommand("/plan");
+    else if (mode === "agent") executeCommand(agentModeOn ? "/chat" : "/agent");
+  }, [executeCommand, agentModeOn]);
 
   // Handle streaming completion — add final message to store and recreate service
   const handleStreamingComplete = useCallback((result) => {
@@ -1147,6 +1167,14 @@ const FloatingChatCard = () => {
                   e.target.value = "";
                   if (file) addFiles([file]);
                 }}
+              />
+              <ChatFeatureMenu
+                size="small"
+                onPrefill={prefillInput}
+                onAttach={() => fileRef.current?.click()}
+                onMode={switchMode}
+                modes={{ plan: planModeOn, agent: agentModeOn }}
+                disabled={isSending}
               />
               <Tooltip title={t("chat.input.attach")}>
                 <span>
