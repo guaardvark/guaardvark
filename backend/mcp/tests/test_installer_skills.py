@@ -70,3 +70,42 @@ def test_run_install_with_skills_only_does_not_require_a_client(skills_tree, mon
     monkeypatch.setattr(installer, "_detect", lambda client: False)
     assert installer.run_install(None, dry_run=True, skills=True) == 0
     assert installer.run_install(None, dry_run=True, skills=False) == 1
+
+
+@pytest.fixture
+def entries(skills_tree, monkeypatch):
+    """Record which clients get a bare server entry, and give the checkout
+    the Antigravity plugin."""
+    root, _ = skills_tree
+    plugin = root / ".agents" / "plugins" / "guaardvark"
+    plugin.mkdir(parents=True)
+    (plugin / "plugin.json").write_text('{"name": "guaardvark"}\n')
+    called = []
+
+    def fake_install_client(client, dry_run=False, force=False):
+        called.append(client)
+        return installer.InstallResult(client, "dry-run", "entry")
+
+    monkeypatch.setattr(installer, "install_client", fake_install_client)
+    return called
+
+
+def test_skills_give_antigravity_the_plugin_instead_of_an_entry(entries, skills_tree, capsys):
+    _, home = skills_tree
+    assert installer.run_install(["antigravity", "cursor"], dry_run=True, skills=True) == 0
+    assert entries == ["cursor"]
+    assert "agy plugin install" in capsys.readouterr().out
+    assert not (home / ".config").exists(), "a dry run writes no checkout pointer"
+
+
+def test_antigravity_plugin_only_for_antigravity(entries, capsys):
+    installer.run_install(["claude-code"], dry_run=True, skills=True)
+    assert entries == ["claude-code"]
+    assert "plugin:antigravity" not in capsys.readouterr().out
+
+
+def test_without_skills_antigravity_keeps_the_bare_entry(entries, capsys):
+    installer.run_install(["antigravity"], dry_run=True, skills=False)
+    assert entries == ["antigravity"]
+    assert "plugin:antigravity" not in capsys.readouterr().out
+

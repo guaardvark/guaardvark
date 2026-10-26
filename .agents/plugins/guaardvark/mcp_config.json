@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "guaardvark": {
+      "command": "sh",
+      "args": ["${PLUGIN_ROOT}/scripts/mcp_launcher.sh"]
+    }
+  }
+}
