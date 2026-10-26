@@ -33,6 +33,20 @@ FRAMEWORK_INDICATORS = {
 
 REACT_INDICATORS = {".jsx", ".tsx"}
 _IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+# A name defined in more files than this (execute, get, __init__, render) says
+# nothing about which definition a file uses, so it links nothing in the map.
+MAP_MAX_DEFINERS = 3
+# Files that call into the code but are not where a reader looks for it:
+# tests and bundled or minified output. Their calls still rank what they use.
+def _distinctive(name: str) -> bool:
+    """A name unlikely to be an ordinary word: get_media_service, NewJobModal."""
+    return len(name) >= 6 and ("_" in name.strip("_") or any(c.isupper() for c in name[1:]))
+
+
+_MAP_UNLISTED = re.compile(
+    r"(^|/)(tests?|__tests__|__mocks__|e2e)/|(^|/)test_[^/]*\.py$|_test\.py$|\.(test|spec)\.[jt]sx?$"
+    r"|\.min\.js$|\.bundle\.js$|(^|/)(dist|build|vendor)/"
+)
 VUE_INDICATORS = {".vue"}
 ANGULAR_INDICATOR = "angular.json"
 
@@ -450,10 +464,14 @@ class RepositoryAnalysisService:
 
     @staticmethod
     def _repository_map(title: str, files: list, token_budget: int = 4096) -> str:
-        """A PageRank-ranked map of the classes, functions and methods in ``files``
-        (each with .path, .filename and .content), within ``token_budget``. A file
-        that names a symbol another file defines links to it. "" when no file has
-        symbols."""
+        """A ranked map of the classes, functions and methods in ``files`` (each
+        with .path, .filename and .content), within ``token_budget``.
+
+        Files are ranked by PageRank over who uses whom: a file uses another
+        when it imports it, or names a definition found only there. Within a
+        file, definitions come in order of how many other files use them.
+        Tests and bundled output are left out of the listing but their uses
+        still count. "" when no file has symbols."""
         import networkx as nx
         from backend.utils.code_symbol_extractor import extract_symbols
         from backend.utils.code_chunker import CODE_LANGUAGE_MAP
@@ -470,49 +488,56 @@ class RepositoryAnalysisService:
         if not file_symbols:
             return ""
 
-        G = nx.DiGraph()
+        listed: Dict[str, List[Tuple[str, str]]] = {}
         defined_in: Dict[str, List[str]] = {}
         for path, syms in file_symbols.items():
-            for s in syms:
-                if s["type"] in ("function", "class", "method"):
-                    G.add_node(f"{path}::{s['name']}", path=path, name=s["name"], type=s["type"])
-                    defined_in.setdefault(s["name"], []).append(path)
-
-        # One pass over each file's identifiers instead of searching its text for
-        # every symbol in the repository.
-        for doc in files:
-            if doc.path not in file_symbols or not doc.content:
+            if _MAP_UNLISTED.search(path):
                 continue
-            for name in set(_IDENTIFIER.findall(doc.content)) & defined_in.keys():
-                for other_path in defined_in[name]:
-                    if other_path != doc.path:
-                        G.add_edge(f"{doc.path}::caller", f"{other_path}::{name}")
+            seen = set()
+            for sym in syms:
+                if sym["type"] in ("function", "class", "method") and sym["name"] not in seen:
+                    seen.add(sym["name"])
+                    listed.setdefault(path, []).append((sym["name"], sym["type"]))
+                    defined_in.setdefault(sym["name"], []).append(path)
+        if not listed:
+            return ""
+        linkable = {name for name, paths in defined_in.items()
+                    if len(paths) <= MAP_MAX_DEFINERS and not (name.startswith("__") and name.endswith("__"))}
+
+        # A file uses a definition from a file it imports. Without that edge a
+        # shared word ("start", "first", "show") would link unrelated files, so
+        # only a distinctive name defined in exactly one place links on its own.
+        imports = RepositoryAnalysisService._dependency_graph(files, lambda f: f.path)
+        G = nx.DiGraph()
+        G.add_nodes_from(listed)
+        users: Dict[Tuple[str, str], set] = {}
+        for doc in files:
+            if not doc.content:
+                continue
+            imported = set(imports.get(doc.path, ()))
+            for target in imported:
+                if target in listed and target != doc.path:
+                    G.add_edge(doc.path, target)
+            # One pass over each file's identifiers instead of searching its
+            # text for every symbol in the repository.
+            for name in set(_IDENTIFIER.findall(doc.content)) & linkable:
+                definers = defined_in[name]
+                for other_path in definers:
+                    if other_path != doc.path and (
+                            other_path in imported or (len(definers) == 1 and _distinctive(name))):
+                        G.add_edge(doc.path, other_path)
+                        users.setdefault((other_path, name), set()).add(doc.path)
 
         try:
-            ranks = nx.pagerank(G, max_iter=50) if len(G) > 0 else {}
+            ranks = nx.pagerank(G, max_iter=100)
         except Exception:
-            ranks = {n: 1.0 for n in G.nodes()}
-
-        file_ranked = {}
-        for node_id, rank in ranks.items():
-            data = G.nodes.get(node_id, {})
-            path = data.get("path")
-            if path:
-                file_ranked.setdefault(path, []).append((rank, data.get("name", ""), data.get("type", "")))
-
-        sorted_files = sorted(
-            file_ranked.items(),
-            key=lambda item: max(r for r, _, _ in item[1]),
-            reverse=True,
-        )
+            ranks = {path: float(G.in_degree(path)) for path in G.nodes()}
 
         lines = [f"# Repository Map: {title}\n"]
         char_budget = token_budget * 4  # ~4 chars per token
-        for path, ranked_syms in sorted_files:
-            section = f"\n## {path}\n"
-            ranked_syms.sort(reverse=True)
-            for _, name, sym_type in ranked_syms[:10]:
-                section += f"- {sym_type}: {name}\n"
+        for path in sorted(listed, key=lambda p: (-ranks.get(p, 0.0), p)):
+            syms = sorted(listed[path], key=lambda ns: -len(users.get((path, ns[0]), ())))
+            section = f"\n## {path}\n" + "".join(f"- {sym_type}: {name}\n" for name, sym_type in syms[:10])
             if len("\n".join(lines)) + len(section) > char_budget:
                 lines.append("\n... (truncated to fit token budget)")
                 break
