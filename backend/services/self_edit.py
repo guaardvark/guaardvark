@@ -256,8 +256,9 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
         baseline = _run_tests(tests) if tests else {}
 
         try:
+            _require_one_exact_match(before, old_text)
             apply_exact_replacement(str(file_path), old_text, new_text, expected_hash=expected_hash,
-                                    expected_mtime=expected_mtime, origin=origin, allow_fuzzy=False)
+                                    expected_mtime=expected_mtime, origin=origin)
         except Exception:
             shutil.rmtree(edit_dir, ignore_errors=True)
             raise
@@ -306,6 +307,20 @@ def apply_change(path: str, old_text: str, new_text: str, *, group: str, title: 
         logger.info("Self-edit %s on %s applied (%s)", edit_id, rel,
                     "restart to apply" if record["restart_needed"] else "live now")
         return record
+
+
+def _require_one_exact_match(content: Optional[str], old_text: str) -> None:
+    """An edit to Guaardvark's own code applies to the text that was quoted,
+    once, or not at all: the guarded write would otherwise fall back to a
+    near match."""
+    from backend.services.guarded_code_service import GuardedCodeError
+
+    text = (content or "").replace("\r\n", "\n")
+    count = text.count((old_text or "").replace("\r\n", "\n")) if old_text else 0
+    if count == 0:
+        raise GuardedCodeError("Exact text was not found; edit was not applied.", "TEXT_NOT_FOUND", 409)
+    if count > 1:
+        raise GuardedCodeError("Exact text is not unique; edit was not applied.", "TEXT_NOT_UNIQUE", 409)
 
 
 def _mark_pending(record: Dict[str, Any]) -> None:

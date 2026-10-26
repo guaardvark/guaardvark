@@ -1,8 +1,8 @@
 """Changes Guaardvark made to its own code: list them and revert them.
 
-Reverting writes code into the checkout, so, like applying a staged fix, it
-is refused from other hosts on the network unless they carry the API key
-(MUTATION_PROTECTED_PREFIXES); reading the list stays open.
+Reverting writes code into the checkout, so it is held to the rule every
+protected route applies (auth_guard.caller_is_authorized). Reading the list
+stays open.
 """
 
 from flask import Blueprint, jsonify, request
@@ -31,6 +31,9 @@ def revert_self_edit(edit_or_group):
     """Body: {force?: bool}. Puts back the files of one change, or of every
     change in a group (a plan step or a chat turn), newest first."""
     from backend.services.self_edit import revert
+    from backend.utils.auth_guard import caller_is_authorized
+    if not caller_is_authorized():
+        return jsonify({"success": False, "error": "Reverting a change to Guaardvark's code needs this machine or the API key."}), 403
     force = bool((request.get_json(silent=True) or {}).get("force"))
     result = revert(edit_or_group, force=force)
     if result.get("conflicts"):

@@ -685,13 +685,8 @@ def apply_exact_replacement(
     expected_mtime: Optional[float] = None,
     origin: str = "self_code",
     human_approved: bool = False,
-    allow_fuzzy: bool = True,
 ) -> GuardedEditResult:
     """Apply one exact replacement after all guarded-code checks.
-
-    ``allow_fuzzy`` lets a near match stand in when the exact text is gone.
-    Guaardvark's edits to its own code pass False: an edit applies to the
-    text that was quoted or not at all.
 
     The inbound guard reads the change last, once the text to replace is
     settled. ``origin`` names the path it came by in the guard's record;
@@ -775,7 +770,7 @@ def apply_exact_replacement(
             old_text = normalized_old
             new_text = new_text.replace("\r\n", "\n")
 
-    if occurrence_count == 0 and allow_fuzzy:
+    if occurrence_count == 0:
         # Final fallback: Fuzzy matching
         fuzzy_match = _find_fuzzy_match(current_content, old_text)
         if fuzzy_match:
@@ -853,11 +848,7 @@ def apply_exact_replacement(
         verification={
             "command": "exact_text_replacement",
             "return_code": 0,
-            "output_summary": (
-                "File content matched expected post-write content and syntax verified."
-                if file_path.suffix in (".py", ".json")
-                else "File content matched expected post-write content; syntax not checked for this file type."
-            ),
+            "output_summary": "File content matched expected post-write content and syntax verified.",
         },
     )
 

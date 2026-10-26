@@ -368,8 +368,6 @@ MUTATION_PROTECTED_PREFIXES = (
     '/api/settings/inbound_guard',
     # Approving or applying a staged fix writes code into the checkout.
     '/api/self-improvement/pending-fixes',
-    # Reverting a change Guaardvark made to its own code writes code too.
-    '/api/self-edits',
     # Every Uncle Claude POST sends to Anthropic or changes when it may
     # (escalation mode, scheduled sends); the status stays readable.
     '/api/claude/',
