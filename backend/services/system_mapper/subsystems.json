@@ -1,467 +1,994 @@
 {
-  "_comment": "The named areas of Guaardvark, for the System Mapper and its query tool. Globs are matched against paths relative to the checkout with fnmatch (a * also crosses folders); when several subsystems claim a file, the longest literal prefix wins. A file no subsystem claims is reported as a no-subsystem finding. Keep descriptions to one plain line.",
-  "subsystems": [
-    {
-      "name": "chat engine",
-      "description": "Turns a chat message into an answer: turn routing, tool selection and pins, the tool loop, approval cards, streaming over Socket.IO, slash commands.",
-      "globs": [
-        "backend/services/unified_chat_engine.py", "backend/services/chat_turn.py", "backend/services/turn_router.py",
-        "backend/services/slash_command_executor.py", "backend/services/chat_prompt_blocks.py", "backend/services/chat_keep_ready.py",
-        "backend/services/context_providers.py", "backend/services/step_budget.py", "backend/services/tool_jobs.py",
-        "backend/services/tool_activity.py", "backend/services/tool_approval_prefs.py", "backend/services/tool_confirmation.py",
-        "backend/services/tool_execution_guard.py", "backend/services/prompt_token_budget.py", "backend/services/honesty_steering.py",
-        "backend/services/chat_export_service.py", "backend/services/intent_service.py", "backend/services/nl_control_plane.py",
-        "backend/services/vision_chat_service.py", "backend/services/ollama_chat_model.py",
-        "backend/api/unified_chat_api.py", "backend/api/enhanced_chat_api.py", "backend/api/simple_chat_api.py",
-        "backend/api/chat_sessions_api.py", "backend/api/tools_api.py", "backend/socketio_events.py", "backend/socketio_instance.py",
-        "backend/utils/chat_utils.py", "backend/utils/agent_output_parser.py", "backend/utils/inline_reasoning.py",
-        "backend/utils/intent_classifier.py", "backend/utils/request_phrases.py", "backend/utils/conversation_logger.py",
-        "backend/utils/context_*.py", "backend/utils/prompt_*.py", "backend/utils/response_*.py", "backend/utils/capability_awareness.py",
-        "backend/rule_utils.py"
-      ]
-    },
-    {
-      "name": "chat ui",
-      "description": "The chat page, the floating chat card, slash commands in the browser, and the services that talk to the chat API.",
-      "globs": [
-        "frontend/src/pages/ChatPage.jsx", "frontend/src/components/chat/*", "frontend/src/stores/useFloatingChatStore.js",
-        "frontend/src/hooks/useSlashCommands.js", "frontend/src/hooks/slashCommandHandlers.js", "frontend/src/utils/slashCommandRegistry.js",
-        "frontend/src/api/chatService.js", "frontend/src/api/unifiedChatService.js", "frontend/src/api/chatStopService.js",
-        "frontend/src/hooks/useAgentRouter.js", "frontend/src/utils/chat*.js", "frontend/src/utils/smartContextBuilder.js",
-        "frontend/src/utils/queryClassifier.js", "frontend/src/utils/entityDetector.js", "frontend/src/utils/orchestratorChat.js",
-        "frontend/src/hooks/usePageContext.js", "frontend/src/utils/contextChipLabel.js", "frontend/src/config/floatingChat.js"
-      ]
-    },
-    {
-      "name": "agent brain",
-      "description": "Decides how a turn is handled (reflex, direct tool, deliberate), agent routing, decision models, provenance and the orchestrator that plans multi-step work.",
-      "globs": [
-        "backend/services/agent_brain.py", "backend/services/agent_router.py", "backend/services/agent_config.py",
-        "backend/services/agent_executor.py", "backend/services/agent_prompt_blocks.py", "backend/services/agent_provenance.py",
-        "backend/services/agent_knowledge_validator.py", "backend/services/brain_state.py", "backend/services/decision_*.py",
-        "backend/services/apprentice_engine.py", "backend/services/recipe_stats.py", "backend/services/orchestrator_service.py",
-        "backend/services/feedback_teacher.py", "backend/agents/*", "backend/api/brain_api.py", "backend/api/agents_api.py",
-        "backend/api/agent_chat_api.py", "backend/api/orchestrator_api.py",
-        "frontend/src/pages/AgentsPage.jsx", "frontend/src/components/agents/*", "frontend/src/components/orchestrator/*",
-        "frontend/src/api/agentsService.js", "frontend/src/api/orchestratorService.js", "frontend/src/pages/AgentMemoryPage.jsx"
-      ]
-    },
-    {
-      "name": "screen agent",
-      "description": "The agent that sees and drives a desktop: screen capture, the agent display, mouse and keyboard, Wayland portal bridge, browser automation, eye calibration.",
-      "globs": [
-        "backend/services/agent_control_service.py", "backend/services/local_screen_backend.py", "backend/services/screen_interface.py",
-        "backend/services/wayland_*.py", "backend/services/desktop_automation_service.py", "backend/services/browser_automation_service.py",
-        "backend/services/pipewire_capture.py", "backend/services/dom_metadata_extractor.py", "backend/services/servo_*.py",
-        "backend/tools/agent_control_tools.py", "backend/tools/desktop_tools.py", "backend/tools/browser_tools.py",
-        "backend/tools/eye_*.py", "backend/tools/probe_coord_order.py", "backend/tools/servo_*.py",
-        "backend/utils/agent_*.py", "backend/utils/cursor_overlay.py", "backend/utils/grid_overlay.py",
-        "backend/utils/vision_*.py", "backend/api/agent_control_api.py",
-        "frontend/src/components/agent/*", "frontend/src/api/agentDisplayService.js", "frontend/src/hooks/useKeyboardForwarding.js",
-        "scripts/agent_*.py", "scripts/start_agent_display.sh", "scripts/xfce_template/*"
-      ]
-    },
-    {
-      "name": "tools",
-      "description": "The tool registry and the chat and MCP tools themselves (files, web, memory, code, records, media players, workstation).",
-      "globs": [
-        "backend/tools/*", "backend/services/agent_tools.py", "backend/tools/tool_registry_init.py"
-      ]
-    },
-    {
-      "name": "rag and indexing",
-      "description": "Document upload, chunking, embedding and the vector index; retrieval, reranking and the RAG answer path; corpus summaries; overnight RAG autoresearch.",
-      "globs": [
-        "backend/services/indexing_service.py", "backend/services/simple_indexing_service.py", "backend/services/entity_*.py",
-        "backend/services/metadata_*.py", "backend/services/raptor_service.py", "backend/services/rag_*.py",
-        "backend/services/index_profiles.py", "backend/services/knowledge_sources.py", "backend/services/document_path_resolver.py",
-        "backend/services/research_*.py", "backend/services/excel_content_service.py", "backend/services/image_content_service.py",
-        "backend/utils/*index*", "backend/utils/hybrid_rag_pipeline.py", "backend/utils/reranker.py", "backend/utils/advanced_retrieval_strategies.py",
-        "backend/utils/enhanced_rag_chunking.py", "backend/utils/contextual_prepender.py", "backend/utils/chunk_metadata_cache.py",
-        "backend/utils/query_*.py", "backend/utils/llama_index_local_config.py", "backend/utils/embedding_router.py",
-        "backend/utils/docling_loader.py", "backend/utils/csv_chunker.py", "backend/utils/rag_*.py", "backend/utils/markdown_sections.py",
-        "backend/utils/enhanced_file_processor.py", "backend/utils/file_processor_adapter.py", "backend/utils/entity_context_enhancer.py",
-        "backend/utils/experiment_context.py",
-        "backend/api/indexing_api.py", "backend/api/index_mgmt_api.py", "backend/api/retrieve_api.py", "backend/api/query_api.py",
-        "backend/api/search_api.py", "backend/api/doc_query_api.py", "backend/api/docs_api.py", "backend/api/rag_*.py",
-        "backend/api/metadata_indexing_api.py", "backend/api/entity_*.py",
-        "backend/tasks/index_resume_tasks.py", "backend/tasks/raptor_tasks.py", "backend/tasks/rag_autoresearch_tasks.py",
-        "frontend/src/pages/AutoresearchPage.jsx", "frontend/src/api/ragAutoresearchService.js", "frontend/src/api/ragDebugService.js",
-        "frontend/src/api/indexingService.js", "frontend/src/utils/autoresearchLabels.js",
-        "scripts/rag_validation/*", "scripts/fix_vector_store.py", "scripts/cleanup_stale_indexing.py", "scripts/tune_postgres_for_rag.sh"
-      ]
-    },
-    {
-      "name": "code intelligence",
-      "description": "Reading Guaardvark's own source and uploaded code repositories: code search, repository maps, dependency graphs, guarded code edits.",
-      "globs": [
-        "backend/services/repository_analysis_service.py", "backend/services/code_retrieval.py", "backend/services/code_syntax_check.py",
-        "backend/services/project_root.py", "backend/tools/llama_code_tools.py", "backend/tools/code_search_tools.py",
-        "backend/tools/code_tools.py", "backend/tools/agent_tools/code_manipulation_tools.py", "backend/tools/agent_tools/search_tools.py",
-        "backend/utils/code_*.py", "backend/utils/import_resolution.py", "backend/utils/gitignore_filter.py",
-        "backend/api/code_search_api.py", "backend/api/code_intelligence_api.py", "backend/tasks/repo_analysis_tasks.py",
-        "frontend/src/api/codeIntelligenceService.js", "plugins/zvec_grep/*"
-      ]
-    },
-    {
-      "name": "code editor",
-      "description": "The in-browser code editor and sandboxed code execution.",
-      "globs": [
-        "frontend/src/pages/CodeEditorPage.jsx", "frontend/src/components/codeeditor/*", "frontend/src/components/code/*",
-        "frontend/src/api/codeExecutionService.js", "frontend/src/api/fileOperationsService.js", "frontend/src/utils/monaco.js",
-        "frontend/src/utils/codeStructureParser.js", "frontend/src/utils/languageDetector.js",
-        "backend/api/code_execution_api.py", "backend/api/file_operations_api.py", "backend/utils/code_executor.py",
-        "backend/tools/agent_tools/code_execution_tools.py"
-      ]
-    },
-    {
-      "name": "memory and rules",
-      "description": "Long-term memory (save, search, update, delete), rules and lessons that shape the assistant, rule bundles and the persona.",
-      "globs": [
-        "backend/services/memory_*.py", "backend/utils/memory_*.py", "backend/api/memory_api.py", "backend/tools/memory_tools.py",
-        "backend/tasks/memory_maintenance_tasks.py", "backend/services/lesson_reconciler.py", "backend/api/rules_api.py",
-        "backend/api/lessons_api.py", "backend/api/meta_api.py", "frontend/src/pages/RulesPage.jsx", "frontend/src/api/ruleService.js",
-        "scripts/run_lesson_reconciler.py"
-      ]
-    },
-    {
-      "name": "image generation",
-      "description": "Text-to-image, image editing, background removal, inpaint and outpaint, batch image runs, infographics, through ComfyUI or the offline pipeline.",
-      "globs": [
-        "backend/services/comfyui_image_generator.py", "backend/services/offline_image_generator.py", "backend/services/batch_image_generator.py",
-        "backend/services/image_*.py", "backend/services/stills_*.py", "backend/services/zimage_lora_check.py",
-        "backend/services/background_removal.py", "backend/services/face_restoration_service.py", "backend/services/user_image_models.py",
-        "backend/services/user_model_families.py", "backend/services/infographic_generator.py", "backend/services/generation_history_service.py",
-        "backend/tools/image_tools.py", "backend/api/image_api.py", "backend/api/batch_image_generation_api.py", "backend/api/infographic_api.py",
-        "backend/utils/media_inputs.py",
-        "frontend/src/pages/ImagesPage.jsx", "frontend/src/pages/BatchImageGeneratorPage.jsx", "frontend/src/components/images/*",
-        "frontend/src/utils/batchImage*.js", "frontend/src/utils/imageEditOps.js", "frontend/src/api/infographicService.js",
-        "scripts/migrate_batch_images.py"
-      ]
-    },
-    {
-      "name": "video generation",
-      "description": "Text-to-video and image-to-video renders (Wan, CogVideoX, H3 and others), animations, batch video, the video director and render limits.",
-      "globs": [
-        "backend/services/comfyui_video_*.py", "backend/services/offline_video_generator.py", "backend/services/batch_video_generator.py",
-        "backend/services/video_director.py", "backend/services/video_generation_router.py", "backend/services/video_model_registry.py",
-        "backend/services/video_render_limits.py", "backend/services/video_consistency_metrics.py", "backend/services/animation_generator.py",
-        "backend/services/h3_prompt_compiler.py", "backend/services/user_video_models.py", "backend/services/media_model_registry.py",
-        "backend/services/media_director.py", "backend/api/batch_video_generation_api.py", "backend/api/generation_api.py",
-        "backend/api/unified_generation_api.py", "backend/tasks/video_render_tasks.py", "backend/tools/video/*",
-        "frontend/src/pages/VideoGeneratorPage.jsx", "frontend/src/components/videogen/*", "frontend/src/utils/video*.js",
-        "frontend/src/constants/videoGeneratorPresets.js", "frontend/src/hooks/useBatchVideo.js",
-        "scripts/bench_video_render.py", "scripts/video_*.py"
-      ]
-    },
-    {
-      "name": "video editor",
-      "description": "Timeline video editing, text overlays and the video editor plugin's render service.",
-      "globs": [
-        "backend/services/video_editor_projects.py", "backend/services/video_timeline_render.py", "backend/services/video_text_overlay.py",
-        "backend/services/video_project_registry.py", "backend/api/video_editor_api.py", "backend/api/video_overlay_api.py",
-        "plugins/video_editor/*", "frontend/src/pages/VideoEditorPage.jsx", "frontend/src/pages/VideoTextOverlayPage.jsx",
-        "frontend/src/components/videoeditor/*", "frontend/src/api/videoEditorService.js", "frontend/src/api/videoOverlayService.js",
-        "frontend/src/components/VideoPlayer.jsx"
-      ]
-    },
-    {
-      "name": "music and audio",
-      "description": "Songs, sound effects, narration and voice cloning through the Audio Foundry plugin, speech-to-text, voice chat and the global mic.",
-      "globs": [
-        "backend/services/audio_foundry_models.py", "backend/services/comfyui_music_generator.py", "backend/services/bark_tts_service.py",
-        "backend/api/audio_foundry_api.py", "backend/api/voice_api.py", "backend/tools/audio_tools.py", "backend/tools/voice/*",
-        "backend/utils/music_prompt_rewriter.py", "backend/utils/faster_whisper_utils.py", "backend/services/media_player_service.py",
-        "backend/tools/media_tools.py", "plugins/audio_foundry/*",
-        "frontend/src/pages/AudioFoundryPage.jsx", "frontend/src/pages/VoiceChatPage.jsx", "frontend/src/components/audio/*",
-        "frontend/src/components/voice/*", "frontend/src/contexts/Voice*", "frontend/src/contexts/voiceSessionEngine.js",
-        "frontend/src/stores/useVoiceSessionStore.js", "frontend/src/hooks/useVoice*.js", "frontend/src/hooks/useAudioRecorder.js",
-        "frontend/src/api/audioFoundryService.js", "frontend/src/api/voiceService.js", "frontend/src/utils/voice*.js",
-        "frontend/src/utils/vadSegmenter.js", "frontend/src/utils/wakeWordMatcher.js", "frontend/src/utils/replySpeech.js",
-        "frontend/src/utils/extractSpeakableText.js", "frontend/src/config/voiceDefaults.js", "frontend/public/vad*"
-      ]
-    },
-    {
-      "name": "film crew",
-      "description": "The five-role Film Crew: screenwriter, casting, cinematographer storyboards, keyframe renders and the editor, with human gates.",
-      "globs": [
-        "backend/services/production_*.py", "backend/services/film_curator_service.py", "backend/services/director_service.py",
-        "backend/services/swarm/agents/*", "backend/api/production_api.py", "backend/tasks/production_swarm_tasks.py",
-        "frontend/src/pages/FilmCrewPage.jsx", "frontend/src/components/filmcrew/*", "frontend/src/api/productionService.js"
-      ]
-    },
-    {
-      "name": "music video",
-      "description": "Turns a song into a beat-synced music video: song analysis, per-cut shot prompts, storyboard keyframes, image-to-video and the cut.",
-      "globs": [
-        "backend/services/music_video_*.py", "backend/api/music_video_api.py", "backend/tasks/music_video_tasks.py",
-        "backend/tools/video_pipeline_tools.py", "frontend/src/pages/MusicVideoPage.jsx", "frontend/src/api/musicVideoService.js"
-      ]
-    },
-    {
-      "name": "cast library and lora training",
-      "description": "Consistent characters, environments and props: reference photos, vision bible, samples, identity checks and local LoRA training.",
-      "globs": [
-        "backend/services/cast_*.py", "backend/services/character_*.py", "backend/services/sample_promotion.py",
-        "backend/services/lora_*.py", "backend/services/identity_*.py", "backend/services/consent_records.py",
-        "backend/api/cast_library_api.py", "backend/tasks/character_generation_tasks.py", "backend/tasks/lora_trainer_tasks.py",
-        "plugins/lora_trainer/*", "frontend/src/pages/CastStudioPage.jsx", "frontend/src/pages/CastMemberPage.jsx",
-        "scripts/test_lora_oneshot.py", "scripts/pretrain_gate.py", "scripts/caption_dataset.py", "scripts/eval_identity_methods.py"
-      ]
-    },
-    {
-      "name": "model training",
-      "description": "Fine-tuning language models on the user's own data: datasets, base models, libraries, training runs and export to Ollama.",
-      "globs": [
-        "backend/services/training/*", "backend/services/training_*.py", "backend/services/trainer_truth_probe.py",
-        "backend/services/modelfile_generator.py", "backend/api/training/*", "backend/api/training_datasets_api.py",
-        "backend/tasks/training_tasks.py", "plugins/training/*", "frontend/src/pages/TrainingPage.jsx",
-        "frontend/src/api/trainingService.js", "scripts/training_director/*", "scripts/verify_training_outputs.py"
-      ]
-    },
-    {
-      "name": "swarm",
-      "description": "The Swarm Orchestrator: parallel coding agents in their own git worktrees working a plan and merging back.",
-      "globs": [
-        "backend/services/swarm/*", "backend/api/swarm_api.py", "plugins/swarm/*", "frontend/src/pages/SwarmPage.jsx",
-        "frontend/src/components/swarm/*", "frontend/src/api/swarmService.js"
-      ]
-    },
-    {
-      "name": "interconnector and cluster",
-      "description": "Guaardvark's own machines working together: node identity and auth, file sync between boxes, cluster routing and heartbeats.",
-      "globs": [
-        "backend/services/interconnector_*.py", "backend/services/cluster_*.py", "backend/services/fleet_map.py",
-        "backend/api/interconnector_api.py", "backend/api/cluster_api.py", "backend/api/node_api.py", "backend/api/distributed_api.py",
-        "backend/middleware/*", "backend/tasks/cluster_heartbeat_sweeper.py", "backend/tasks/interconnector_client_heartbeat.py",
-        "backend/utils/node_*.py", "backend/utils/interconnector_image_utils.py", "frontend/src/api/interconnectorService.js",
-        "scripts/fleet_sim.py"
-      ]
-    },
-    {
-      "name": "plugins and gpu orchestration",
-      "description": "Starting and stopping the GPU services (Ollama, ComfyUI, embeddings, vision), VRAM budgeting, model residency, hardware detection and job admission.",
-      "globs": [
-        "backend/plugins/*", "backend/services/plugin_*.py", "backend/services/gpu_*.py", "backend/services/resource_manager.py",
-        "backend/services/hardware_*.py", "backend/services/comfyui_launch_flags.py", "backend/services/comfyui_update_service.py",
-        "backend/services/comfyui_progress_bridge.py", "backend/services/system_load_gate.py", "backend/services/upscale_supervisor.py",
-        "backend/utils/ollama_resource_manager.py", "backend/utils/gpu_check.py", "backend/utils/comfyui_*.py", "backend/utils/plugin_*.py",
-        "backend/utils/sidecar_guard.py", "backend/utils/system_coordinator.py", "backend/oom_priority.py", "backend/cuda_config.py",
-        "backend/api/plugins_api.py", "backend/api/gpu_api.py", "backend/api/gpu_orchestrator_api.py", "backend/api/upscaling_api.py",
-        "backend/tasks/plugin_tasks.py", "plugins/comfyui/*", "plugins/ollama/*", "plugins/gpu_embedding/*", "plugins/vision_pipeline/*",
-        "plugins/upscaling/*", "plugins/__init__.py",
-        "frontend/src/pages/PluginsPage.jsx", "frontend/src/pages/UpscalingPage.jsx", "frontend/src/components/plugins/*",
-        "frontend/src/api/pluginsService.js", "frontend/src/api/gpuService.js", "frontend/src/api/upscalingService.js",
-        "frontend/src/hooks/useGpuIntent.js", "frontend/src/utils/comfyUiLink.js", "scripts/verify_gpu_stack.sh", "scripts/install_pytorch.sh"
-      ]
-    },
-    {
-      "name": "models and llm runtime",
-      "description": "Which chat, vision and embedding models are installed and what they can do, model selection, the LLM call layer and Ollama settings.",
-      "globs": [
-        "backend/services/llm_service.py", "backend/utils/llm_*.py", "backend/services/model_*.py", "backend/services/local_weights.py",
-        "backend/services/sampling_profiles.py", "backend/services/llamanator_api_service.py", "backend/api/model_api.py",
-        "backend/seed_models.py", "frontend/src/api/modelService.js", "frontend/src/utils/modelUtils.js", "frontend/src/hooks/useHfModelLookup.js",
-        "frontend/src/utils/hfUrl.js", "scripts/model_capability_report.py", "scripts/validate_native_toolcalls.py"
-      ]
-    },
-    {
-      "name": "mcp",
-      "description": "Guaardvark's own MCP server for outside agents, and the MCP client that connects external servers into chat.",
-      "globs": [
-        "backend/mcp/*", "backend/services/mcp_*.py", "backend/tools/mcp_tools.py", "backend/api/automation_api.py",
-        "frontend/src/pages/MCPServersPage.jsx", "frontend/src/api/mcpService.js", "scripts/mcp_launcher.sh", "scripts/sync_claude_plugin.py"
-      ]
-    },
-    {
-      "name": "self-improvement",
-      "description": "Proposed fixes the agent stages for human review (PendingFix), guarded code edits with backup and rollback, the codebase lock and the Uncle Claude advisor.",
-      "globs": [
-        "backend/services/self_improvement_service.py", "backend/services/guarded_code_service.py", "backend/services/claude_advisor_service.py",
-        "backend/api/self_improvement_api.py", "backend/api/self_code_api.py", "backend/api/claude_advisor_api.py",
-        "backend/tasks/self_improvement_tasks.py", "frontend/src/pages/SelfImprovementPage.jsx", "frontend/src/components/selfImprovement/*",
-        "frontend/src/api/selfImprovementService.js", "frontend/src/api/claudeAdvisorService.js", "frontend/src/hooks/useUncleNotifications.js"
-      ]
-    },
-    {
-      "name": "system mapper",
-      "description": "Static map of this codebase (imports, routes, tools, tasks, symbols, subsystems), its findings, runtime liveness and the query tool.",
-      "globs": [
-        "backend/services/system_mapper/*", "backend/api/system_map_api.py", "backend/services/execution_context_tracker.py",
-        "backend/tasks/runtime_audit_tasks.py", "frontend/src/pages/SystemMapPage.jsx", "frontend/src/components/systemmap/*",
-        "frontend/src/api/systemMapService.js"
-      ]
-    },
-    {
-      "name": "backups",
-      "description": "Backups of data and settings, restore, retention audits.",
-      "globs": [
-        "backend/services/backup_service.py", "backend/services/retention_audit_service.py", "backend/api/backup_api.py",
-        "backend/tasks/backup_tasks.py", "backend/tools/backup_utils.py", "frontend/src/api/backupService.js"
-      ]
-    },
-    {
-      "name": "inbound guard",
-      "description": "Reads code coming into the repository (pull requests, foreign branches) for outbound paths and other risks before it is merged.",
-      "globs": [
-        "backend/services/inbound_guard_*.py", "backend/api/inbound_guard_api.py", "backend/tools/inbound_guard_tools.py",
-        "scripts/inbound_guard/*", "scripts/check_inbound.py", "frontend/src/api/inboundGuardService.js", "frontend/src/api/heldChanges.js",
-        "scripts/hooks/*", "scripts/pre-commit", "scripts/pre-push", "scripts/commit-msg", "scripts/install_hooks.sh", "scripts/check_portable.sh"
-      ]
-    },
-    {
-      "name": "outreach",
-      "description": "Supervised social outreach (Reddit, YouTube, Discord, Facebook): recon, grounded drafts, grading, the queue and the kill switch.",
-      "globs": [
-        "backend/services/social_outreach/*", "backend/api/social_outreach_api.py", "backend/tasks/social_outreach_tasks.py",
-        "backend/tools/outreach_tools.py", "frontend/src/pages/OutreachPage.jsx", "frontend/src/components/social/*",
-        "frontend/src/api/outreachService.js", "scripts/cleanup_outreach_drafts.py", "plugins/discord/*"
-      ]
-    },
-    {
-      "name": "connections and publishing",
-      "description": "The user's own accounts and channels, the publish queue held for approval, scheduled posts.",
-      "globs": [
-        "backend/services/connections/*", "backend/api/connections_api.py", "backend/tasks/publish_schedule_tasks.py",
-        "backend/tools/connection_tools.py", "backend/utils/credential_store.py", "frontend/src/pages/ConnectionsPage.jsx",
-        "frontend/src/pages/ApprovalsPage.jsx", "frontend/src/pages/SocialAccountsPage.jsx", "frontend/src/pages/SocialPostsPage.jsx",
-        "frontend/src/components/connections/*", "frontend/src/components/approvals/*", "frontend/src/api/connectionsService.js",
-        "frontend/src/hooks/usePendingApprovals.js"
-      ]
-    },
-    {
-      "name": "web, websites and seo",
-      "description": "Web search and page fetching, website crawls, WordPress sites and content, SEO analytics and search-engine indexing.",
-      "globs": [
-        "backend/api/web_search_api.py", "backend/services/website_*.py", "backend/services/website_jobs/*", "backend/api/websites_api.py",
-        "backend/tools/web_tools.py", "backend/utils/web_*.py", "backend/utils/agent_web_gate.py", "backend/services/seo_*.py",
-        "backend/services/google_indexing_service.py", "backend/api/google_indexing_api.py", "backend/tasks/google_indexing_tasks.py",
-        "backend/services/wordpress_*.py", "backend/api/wordpress_api.py", "backend/tools/content_tools.py",
-        "backend/utils/xml_sitemap_handler.py", "backend/utils/html_structure_validator.py", "backend/utils/content_enhancer.py",
-        "frontend/src/pages/Website*.jsx", "frontend/src/pages/WordPress*.jsx", "frontend/src/components/website/*",
-        "frontend/src/api/websiteService.js", "frontend/src/api/wordpressService.js", "frontend/src/api/searchConsoleService.js"
-      ]
-    },
-    {
-      "name": "jobs and progress",
-      "description": "Background work: Celery, the job registry and arbiter, queued tasks, progress events and the activity views.",
-      "globs": [
-        "backend/celery_*.py", "backend/services/job_*.py", "backend/services/task_*.py", "backend/services/task_handlers/*",
-        "backend/services/pipeline_*.py", "backend/tasks/unified_task_executor.py", "backend/tasks/task_scheduler_celery.py",
-        "backend/tasks/cleanup_tasks.py", "backend/tasks/__init__.py", "backend/utils/progress_*.py", "backend/utils/unified_*.py",
-        "backend/utils/batch_job_db.py", "backend/utils/preview_emitter.py", "backend/utils/thread_pool_manager.py",
-        "backend/api/jobs_api.py", "backend/api/unified_jobs_resource_api.py", "backend/api/tasks_api.py", "backend/api/celery_monitor_api.py",
-        "backend/api/task_scheduler_api.py", "backend/api/progress_test_api.py", "backend/celery_tasks_isolated.py",
-        "frontend/src/pages/ActivityPage.jsx", "frontend/src/pages/TaskPage.jsx", "frontend/src/pages/ProgressTestPage.jsx",
-        "frontend/src/components/jobs/*", "frontend/src/contexts/UnifiedProgressContext.jsx", "frontend/src/api/jobsService.js",
-        "frontend/src/api/progressService.js", "frontend/src/api/taskService.js", "frontend/src/api/taskQueue.js",
-        "frontend/src/hooks/useJobsGate.js", "frontend/src/utils/jobPreviewUrls.js", "scripts/cleanup_stuck_progress_jobs.py",
-        "start_celery.sh"
-      ]
-    },
-    {
-      "name": "files and documents",
-      "description": "The file browser and documents page, uploads, generated files and outputs, bulk import, CSV and spreadsheet tools, file generation.",
-      "globs": [
-        "backend/api/files_api.py", "backend/api/upload_api.py", "backend/services/unified_upload_service.py", "backend/services/output_registration.py",
-        "backend/api/outputs_api.py", "backend/api/output_api.py", "backend/routes/*", "backend/services/unified_file_generation.py",
-        "backend/api/bulk_generation_api.py", "backend/api/csv_compare_api.py", "backend/api/excel_api.py", "backend/api/hierarchy_api.py",
-        "backend/api/content_management_api.py", "backend/api/enhanced_context_generation_api.py", "backend/api/admin_filename_cleanup_api.py",
-        "backend/utils/bulk_*.py", "backend/utils/csv_formatter.py", "backend/utils/enhanced_context_csv_generator.py", "backend/utils/file*.py",
-        "backend/utils/tracking_*.py", "backend/utils/uploaded_file_resolver.py", "backend/utils/secure_file_operations.py",
-        "backend/utils/tags_normalizer.py", "backend/utils/category_validator.py", "backend/tasks/proven_csv_generation.py",
-        "frontend/src/pages/DocumentsPage.jsx", "frontend/src/pages/UploadPage.jsx", "frontend/src/pages/BulkImportDocumentsPage.jsx",
-        "frontend/src/pages/FileGenerationPage.jsx", "frontend/src/pages/ContentLibraryPage.jsx", "frontend/src/components/documents/*",
-        "frontend/src/components/filesystem/*", "frontend/src/components/FileBrowser.jsx", "frontend/src/components/FileGenPopup.jsx",
-        "frontend/src/api/documentService.js", "frontend/src/api/outputService.js", "frontend/src/api/bulk*.js", "frontend/src/api/csvService.js",
-        "frontend/src/api/filegenService.js", "frontend/src/utils/csv.js", "frontend/src/utils/droppedFiles.js", "frontend/src/utils/fileTypeUtils.js",
-        "frontend/src/utils/fileDropGuard.js", "frontend/src/hooks/useFileDrop*.js", "frontend/src/utils/xmlRenderer.js",
-        "frontend/src/utils/htmlRenderer.js", "scripts/bulk_import_docs.py", "scripts/clean_csv_files.py", "scripts/archive_ingest/*"
-      ]
-    },
-    {
-      "name": "projects, clients and notes",
-      "description": "Projects, clients, addresses, sticky notes and the records the pages list.",
-      "globs": [
-        "backend/api/projects_api.py", "backend/api/clients_api.py", "backend/api/addresses_api.py", "backend/services/address_lookup.py",
-        "backend/tools/records_tools.py", "frontend/src/pages/ProjectsPage.jsx", "frontend/src/pages/ProjectDetailPage.jsx",
-        "frontend/src/pages/ClientPage.jsx", "frontend/src/pages/StickyNotesPage.jsx", "frontend/src/components/projects/*",
-        "frontend/src/components/notes/*", "frontend/src/api/projectService.js", "frontend/src/api/clientService.js",
-        "frontend/src/api/addressService.js", "frontend/src/utils/entityLinks.js", "frontend/src/utils/formatPhone.js"
-      ]
-    },
-    {
-      "name": "settings and profiles",
-      "description": "Settings, the install profile (workstation, creator), configuration defaults, branding and the settings UI kit.",
-      "globs": [
-        "backend/config.py", "backend/api/settings_api.py", "backend/utils/settings_utils.py", "backend/services/settings_validator.py",
-        "backend/profiles/*", "backend/utils/project_config.py", "backend/api/state_api.py", "backend/api/system_api.py",
-        "frontend/src/pages/SettingsPage.jsx", "frontend/src/components/settings/*", "frontend/src/config/*",
-        "frontend/src/api/settingsService.js", "frontend/src/api/stateService.js", "frontend/src/api/sessionStateService.js",
-        "frontend/src/hooks/useServerSyncedForm.js", "frontend/src/utils/serverFormSync.js", "frontend/src/components/branding/*"
-      ]
-    },
-    {
-      "name": "backend platform and security",
-      "description": "The Flask app, database models and migrations, blueprint discovery, auth, CORS and cross-site guards, path safety, health and diagnostics.",
-      "globs": [
-        "backend/app.py", "backend/models.py", "backend/migrations/*", "backend/__init__.py", "backend/seed_data.py", "backend/no_netrc.py",
-        "backend/extensions/*", "backend/handlers/*", "backend/utils/blueprint_discovery.py", "backend/utils/auth_guard.py",
-        "backend/utils/cors_policy.py", "backend/utils/cross_site_guard.py", "backend/utils/host_check.py", "backend/utils/hosts.py",
-        "backend/utils/path_*.py", "backend/utils/db_utils.py", "backend/utils/migration_utils.py", "backend/utils/password_validation.py",
-        "backend/utils/api_session.py", "backend/utils/backend_http.py", "backend/utils/display_paths.py", "backend/utils/secret_redaction.py",
-        "backend/utils/input_validation.py", "backend/utils/pydantic_models.py", "backend/utils/serialization_utils.py",
-        "backend/utils/monitoring.py", "backend/utils/rate_limiter.py", "backend/utils/cache_manager.py", "backend/utils/platform.py",
-        "backend/utils/privileged_apt.py", "backend/utils/update_state.py", "backend/utils/reboot_log_server.py", "backend/utils/clock.py",
-        "backend/utils/safe_math.py", "backend/utils/slugify.py", "backend/utils/session_ids.py", "backend/utils/text_*.py",
-        "backend/utils/screenshot_urls.py", "backend/utils/integration_patch.py", "backend/utils/__init__.py", "backend/utils/api_usage_analyzer.py",
-        "backend/utils/llm_debug_logger.py", "backend/utils/context_bridge.py",
-        "backend/services/api_key_service.py", "backend/services/network_access_service.py", "backend/services/security_summary.py",
-        "backend/services/quality_scorecard.py", "backend/services/demo_recorder.py", "backend/services/__init__.py",
-        "backend/api/auth_api.py", "backend/api/diagnostics_api.py", "backend/api/log_api.py", "backend/api/reboot_api.py",
-        "backend/api/cache_*.py", "backend/api/response_models.py", "backend/api/__init__.py",
-        "frontend/src/api/apiClient.js", "frontend/src/api/apiAuth.js", "frontend/src/api/authService.js", "frontend/src/api/index.js",
-        "frontend/src/api/devtoolsService.js", "frontend/src/api/toolsService.js", "frontend/src/api/utilService.js",
-        "frontend/src/pages/DevToolsPage.jsx", "frontend/src/pages/ToolsPage.jsx", "frontend/src/components/system/*",
-        "frontend/src/contexts/HealthContext.jsx", "frontend/src/contexts/StatusContext.jsx"
-      ]
-    },
-    {
-      "name": "frontend shell",
-      "description": "The app frame: routes, layout and navigation, dashboard, common components, theme, translations and shared hooks.",
-      "globs": [
-        "frontend/src/App.jsx", "frontend/src/main.jsx", "frontend/src/extensions.js", "frontend/src/components/layout/*",
-        "frontend/src/components/common/*", "frontend/src/components/cards/*", "frontend/src/components/modals/*",
-        "frontend/src/components/dashboard/*", "frontend/src/pages/DashboardPage.jsx", "frontend/src/pages/NotFoundPage.jsx",
-        "frontend/src/theme/*", "frontend/src/theme.js", "frontend/src/i18n/*", "frontend/src/stores/useAppStore.js",
-        "frontend/src/contexts/LayoutContext.jsx", "frontend/src/hooks/*", "frontend/src/utils/*", "frontend/src/constants/*",
-        "frontend/src/config.js", "frontend/src/test/*", "frontend/vite.config.js", "frontend/*.config.js"
-      ]
-    },
-    {
-      "name": "cli",
-      "description": "The llx command-line client: chat, generation, jobs, plugins and the MCP installer from a terminal.",
-      "globs": ["cli/*"]
-    },
-    {
-      "name": "extensions",
-      "description": "The extension seam: client and market verticals that plug pages, routes and services into the stock product.",
-      "globs": ["extensions/*", "frontend/src/extensions.js"]
-    },
-    {
-      "name": "install and maintenance scripts",
-      "description": "Installers, start and stop scripts, preflight and dependency reconciliation, release checks and one-off maintenance scripts.",
-      "globs": [
-        "scripts/*", "*.sh", "manager", "run_tests.py", "conftest.py", "docker/*"
-      ]
-    },
-    {
-      "name": "tests",
-      "description": "Backend and frontend tests.",
-      "globs": [
-        "backend/tests/*", "backend/mcp/tests/*", "*/__tests__/*", "*.test.js", "*.test.jsx", "*.test.ts", "*.test.tsx",
-        "*.spec.js", "*.spec.jsx", "plugins/*/tests/*"
-      ]
-    }
-  ]
+ "_comment": "The named areas of Guaardvark, for the System Mapper and its query tool. Globs are matched against paths relative to the checkout with fnmatch (a * also crosses folders); when several subsystems claim a file, the longest literal prefix wins. A file no subsystem claims is reported as a no-subsystem finding. Keep descriptions to one plain line.",
+ "subsystems": [
+  {
+   "name": "chat engine",
+   "description": "Turns a chat message into an answer: turn routing, tool selection and pins, the tool loop, approval cards, streaming over Socket.IO, slash commands.",
+   "globs": [
+    "backend/services/unified_chat_engine.py",
+    "backend/services/chat_turn.py",
+    "backend/services/turn_router.py",
+    "backend/services/slash_command_executor.py",
+    "backend/services/chat_prompt_blocks.py",
+    "backend/services/chat_keep_ready.py",
+    "backend/services/context_providers.py",
+    "backend/services/step_budget.py",
+    "backend/services/tool_jobs.py",
+    "backend/services/tool_activity.py",
+    "backend/services/tool_approval_prefs.py",
+    "backend/services/tool_confirmation.py",
+    "backend/services/tool_execution_guard.py",
+    "backend/services/prompt_token_budget.py",
+    "backend/services/honesty_steering.py",
+    "backend/services/chat_export_service.py",
+    "backend/services/intent_service.py",
+    "backend/services/nl_control_plane.py",
+    "backend/services/vision_chat_service.py",
+    "backend/services/ollama_chat_model.py",
+    "backend/api/unified_chat_api.py",
+    "backend/api/enhanced_chat_api.py",
+    "backend/api/simple_chat_api.py",
+    "backend/api/chat_sessions_api.py",
+    "backend/api/tools_api.py",
+    "backend/socketio_events.py",
+    "backend/socketio_instance.py",
+    "backend/utils/chat_utils.py",
+    "backend/utils/agent_output_parser.py",
+    "backend/utils/inline_reasoning.py",
+    "backend/utils/intent_classifier.py",
+    "backend/utils/request_phrases.py",
+    "backend/utils/conversation_logger.py",
+    "backend/utils/context_*.py",
+    "backend/utils/prompt_*.py",
+    "backend/utils/response_*.py",
+    "backend/utils/capability_awareness.py",
+    "backend/rule_utils.py"
+   ]
+  },
+  {
+   "name": "chat ui",
+   "description": "The chat page, the floating chat card, slash commands in the browser, and the services that talk to the chat API.",
+   "globs": [
+    "frontend/src/pages/ChatPage.jsx",
+    "frontend/src/components/chat/*",
+    "frontend/src/stores/useFloatingChatStore.js",
+    "frontend/src/hooks/useSlashCommands.js",
+    "frontend/src/hooks/slashCommandHandlers.js",
+    "frontend/src/utils/slashCommandRegistry.js",
+    "frontend/src/api/chatService.js",
+    "frontend/src/api/unifiedChatService.js",
+    "frontend/src/api/chatStopService.js",
+    "frontend/src/hooks/useAgentRouter.js",
+    "frontend/src/utils/chat*.js",
+    "frontend/src/utils/smartContextBuilder.js",
+    "frontend/src/utils/queryClassifier.js",
+    "frontend/src/utils/entityDetector.js",
+    "frontend/src/utils/orchestratorChat.js",
+    "frontend/src/hooks/usePageContext.js",
+    "frontend/src/utils/contextChipLabel.js",
+    "frontend/src/config/floatingChat.js"
+   ]
+  },
+  {
+   "name": "agent brain",
+   "description": "Decides how a turn is handled (reflex, direct tool, deliberate), agent routing, decision models, provenance and the orchestrator that plans multi-step work.",
+   "globs": [
+    "backend/services/agent_brain.py",
+    "backend/services/agent_router.py",
+    "backend/services/agent_config.py",
+    "backend/services/agent_executor.py",
+    "backend/services/agent_prompt_blocks.py",
+    "backend/services/agent_provenance.py",
+    "backend/services/agent_knowledge_validator.py",
+    "backend/services/brain_state.py",
+    "backend/services/decision_*.py",
+    "backend/services/apprentice_engine.py",
+    "backend/services/recipe_stats.py",
+    "backend/services/orchestrator_service.py",
+    "backend/services/feedback_teacher.py",
+    "backend/agents/*",
+    "backend/api/brain_api.py",
+    "backend/api/agents_api.py",
+    "backend/api/agent_chat_api.py",
+    "backend/api/orchestrator_api.py",
+    "frontend/src/pages/AgentsPage.jsx",
+    "frontend/src/components/agents/*",
+    "frontend/src/components/orchestrator/*",
+    "frontend/src/api/agentsService.js",
+    "frontend/src/api/orchestratorService.js",
+    "frontend/src/pages/AgentMemoryPage.jsx"
+   ]
+  },
+  {
+   "name": "plan mode",
+   "description": "Research first, act on an approved plan: the per-chat switch, the read-only research registry, plan composing and checking, the plan table and routes, running a plan step by step, the plan card and /plan.",
+   "globs": [
+    "backend/services/plan_mode.py",
+    "backend/services/plan_mode_data.py",
+    "backend/services/plan_executor.py",
+    "backend/api/chat_plans_api.py",
+    "backend/api/chat_sessions_api.py",
+    "frontend/src/components/chat/PlanCard.jsx",
+    "frontend/src/components/chat/planActions.js",
+    "frontend/src/api/planModeService.js",
+    "cli/llx/plan_mode.py",
+    "scripts/eval_plan_mode.py"
+   ]
+  },
+  {
+   "name": "screen agent",
+   "description": "The agent that sees and drives a desktop: screen capture, the agent display, mouse and keyboard, Wayland portal bridge, browser automation, eye calibration.",
+   "globs": [
+    "backend/services/agent_control_service.py",
+    "backend/services/local_screen_backend.py",
+    "backend/services/screen_interface.py",
+    "backend/services/wayland_*.py",
+    "backend/services/desktop_automation_service.py",
+    "backend/services/browser_automation_service.py",
+    "backend/services/pipewire_capture.py",
+    "backend/services/dom_metadata_extractor.py",
+    "backend/services/servo_*.py",
+    "backend/tools/agent_control_tools.py",
+    "backend/tools/desktop_tools.py",
+    "backend/tools/browser_tools.py",
+    "backend/tools/eye_*.py",
+    "backend/tools/probe_coord_order.py",
+    "backend/tools/servo_*.py",
+    "backend/utils/agent_*.py",
+    "backend/utils/cursor_overlay.py",
+    "backend/utils/grid_overlay.py",
+    "backend/utils/vision_*.py",
+    "backend/api/agent_control_api.py",
+    "frontend/src/components/agent/*",
+    "frontend/src/api/agentDisplayService.js",
+    "frontend/src/hooks/useKeyboardForwarding.js",
+    "scripts/agent_*.py",
+    "scripts/start_agent_display.sh",
+    "scripts/xfce_template/*"
+   ]
+  },
+  {
+   "name": "tools",
+   "description": "The tool registry and the chat and MCP tools themselves (files, web, memory, code, records, media players, workstation).",
+   "globs": [
+    "backend/tools/*",
+    "backend/services/agent_tools.py",
+    "backend/tools/tool_registry_init.py"
+   ]
+  },
+  {
+   "name": "rag and indexing",
+   "description": "Document upload, chunking, embedding and the vector index; retrieval, reranking and the RAG answer path; corpus summaries; overnight RAG autoresearch.",
+   "globs": [
+    "backend/services/indexing_service.py",
+    "backend/services/simple_indexing_service.py",
+    "backend/services/entity_*.py",
+    "backend/services/metadata_*.py",
+    "backend/services/raptor_service.py",
+    "backend/services/rag_*.py",
+    "backend/services/index_profiles.py",
+    "backend/services/knowledge_sources.py",
+    "backend/services/document_path_resolver.py",
+    "backend/services/research_*.py",
+    "backend/services/excel_content_service.py",
+    "backend/services/image_content_service.py",
+    "backend/utils/*index*",
+    "backend/utils/hybrid_rag_pipeline.py",
+    "backend/utils/reranker.py",
+    "backend/utils/advanced_retrieval_strategies.py",
+    "backend/utils/enhanced_rag_chunking.py",
+    "backend/utils/contextual_prepender.py",
+    "backend/utils/chunk_metadata_cache.py",
+    "backend/utils/query_*.py",
+    "backend/utils/llama_index_local_config.py",
+    "backend/utils/embedding_router.py",
+    "backend/utils/docling_loader.py",
+    "backend/utils/csv_chunker.py",
+    "backend/utils/rag_*.py",
+    "backend/utils/markdown_sections.py",
+    "backend/utils/enhanced_file_processor.py",
+    "backend/utils/file_processor_adapter.py",
+    "backend/utils/entity_context_enhancer.py",
+    "backend/utils/experiment_context.py",
+    "backend/api/indexing_api.py",
+    "backend/api/index_mgmt_api.py",
+    "backend/api/retrieve_api.py",
+    "backend/api/query_api.py",
+    "backend/api/search_api.py",
+    "backend/api/doc_query_api.py",
+    "backend/api/docs_api.py",
+    "backend/api/rag_*.py",
+    "backend/api/metadata_indexing_api.py",
+    "backend/api/entity_*.py",
+    "backend/tasks/index_resume_tasks.py",
+    "backend/tasks/raptor_tasks.py",
+    "backend/tasks/rag_autoresearch_tasks.py",
+    "frontend/src/pages/AutoresearchPage.jsx",
+    "frontend/src/api/ragAutoresearchService.js",
+    "frontend/src/api/ragDebugService.js",
+    "frontend/src/api/indexingService.js",
+    "frontend/src/utils/autoresearchLabels.js",
+    "scripts/rag_validation/*",
+    "scripts/fix_vector_store.py",
+    "scripts/cleanup_stale_indexing.py",
+    "scripts/tune_postgres_for_rag.sh"
+   ]
+  },
+  {
+   "name": "code intelligence",
+   "description": "Reading Guaardvark's own source and uploaded code repositories: code search, repository maps, dependency graphs, guarded code edits.",
+   "globs": [
+    "backend/services/repository_analysis_service.py",
+    "backend/services/code_retrieval.py",
+    "backend/services/code_syntax_check.py",
+    "backend/services/project_root.py",
+    "backend/tools/llama_code_tools.py",
+    "backend/tools/code_search_tools.py",
+    "backend/tools/code_tools.py",
+    "backend/tools/agent_tools/code_manipulation_tools.py",
+    "backend/tools/agent_tools/search_tools.py",
+    "backend/utils/code_*.py",
+    "backend/utils/import_resolution.py",
+    "backend/utils/gitignore_filter.py",
+    "backend/api/code_search_api.py",
+    "backend/api/code_intelligence_api.py",
+    "backend/tasks/repo_analysis_tasks.py",
+    "frontend/src/api/codeIntelligenceService.js",
+    "plugins/zvec_grep/*"
+   ]
+  },
+  {
+   "name": "code editor",
+   "description": "The in-browser code editor and sandboxed code execution.",
+   "globs": [
+    "frontend/src/pages/CodeEditorPage.jsx",
+    "frontend/src/components/codeeditor/*",
+    "frontend/src/components/code/*",
+    "frontend/src/api/codeExecutionService.js",
+    "frontend/src/api/fileOperationsService.js",
+    "frontend/src/utils/monaco.js",
+    "frontend/src/utils/codeStructureParser.js",
+    "frontend/src/utils/languageDetector.js",
+    "backend/api/code_execution_api.py",
+    "backend/api/file_operations_api.py",
+    "backend/utils/code_executor.py",
+    "backend/tools/agent_tools/code_execution_tools.py"
+   ]
+  },
+  {
+   "name": "memory and rules",
+   "description": "Long-term memory (save, search, update, delete), rules and lessons that shape the assistant, rule bundles and the persona.",
+   "globs": [
+    "backend/services/memory_*.py",
+    "backend/utils/memory_*.py",
+    "backend/api/memory_api.py",
+    "backend/tools/memory_tools.py",
+    "backend/tasks/memory_maintenance_tasks.py",
+    "backend/services/lesson_reconciler.py",
+    "backend/api/rules_api.py",
+    "backend/api/lessons_api.py",
+    "backend/api/meta_api.py",
+    "frontend/src/pages/RulesPage.jsx",
+    "frontend/src/api/ruleService.js",
+    "scripts/run_lesson_reconciler.py"
+   ]
+  },
+  {
+   "name": "image generation",
+   "description": "Text-to-image, image editing, background removal, inpaint and outpaint, batch image runs, infographics, through ComfyUI or the offline pipeline.",
+   "globs": [
+    "backend/services/comfyui_image_generator.py",
+    "backend/services/offline_image_generator.py",
+    "backend/services/batch_image_generator.py",
+    "backend/services/image_*.py",
+    "backend/services/stills_*.py",
+    "backend/services/zimage_lora_check.py",
+    "backend/services/background_removal.py",
+    "backend/services/face_restoration_service.py",
+    "backend/services/user_image_models.py",
+    "backend/services/user_model_families.py",
+    "backend/services/infographic_generator.py",
+    "backend/services/generation_history_service.py",
+    "backend/tools/image_tools.py",
+    "backend/api/image_api.py",
+    "backend/api/batch_image_generation_api.py",
+    "backend/api/infographic_api.py",
+    "backend/utils/media_inputs.py",
+    "frontend/src/pages/ImagesPage.jsx",
+    "frontend/src/pages/BatchImageGeneratorPage.jsx",
+    "frontend/src/components/images/*",
+    "frontend/src/utils/batchImage*.js",
+    "frontend/src/utils/imageEditOps.js",
+    "frontend/src/api/infographicService.js",
+    "scripts/migrate_batch_images.py"
+   ]
+  },
+  {
+   "name": "video generation",
+   "description": "Text-to-video and image-to-video renders (Wan, CogVideoX, H3 and others), animations, batch video, the video director and render limits.",
+   "globs": [
+    "backend/services/comfyui_video_*.py",
+    "backend/services/offline_video_generator.py",
+    "backend/services/batch_video_generator.py",
+    "backend/services/video_director.py",
+    "backend/services/video_generation_router.py",
+    "backend/services/video_model_registry.py",
+    "backend/services/video_render_limits.py",
+    "backend/services/video_consistency_metrics.py",
+    "backend/services/animation_generator.py",
+    "backend/services/h3_prompt_compiler.py",
+    "backend/services/user_video_models.py",
+    "backend/services/media_model_registry.py",
+    "backend/services/media_director.py",
+    "backend/api/batch_video_generation_api.py",
+    "backend/api/generation_api.py",
+    "backend/api/unified_generation_api.py",
+    "backend/tasks/video_render_tasks.py",
+    "backend/tools/video/*",
+    "frontend/src/pages/VideoGeneratorPage.jsx",
+    "frontend/src/components/videogen/*",
+    "frontend/src/utils/video*.js",
+    "frontend/src/constants/videoGeneratorPresets.js",
+    "frontend/src/hooks/useBatchVideo.js",
+    "scripts/bench_video_render.py",
+    "scripts/video_*.py"
+   ]
+  },
+  {
+   "name": "video editor",
+   "description": "Timeline video editing, text overlays and the video editor plugin's render service.",
+   "globs": [
+    "backend/services/video_editor_projects.py",
+    "backend/services/video_timeline_render.py",
+    "backend/services/video_text_overlay.py",
+    "backend/services/video_project_registry.py",
+    "backend/api/video_editor_api.py",
+    "backend/api/video_overlay_api.py",
+    "plugins/video_editor/*",
+    "frontend/src/pages/VideoEditorPage.jsx",
+    "frontend/src/pages/VideoTextOverlayPage.jsx",
+    "frontend/src/components/videoeditor/*",
+    "frontend/src/api/videoEditorService.js",
+    "frontend/src/api/videoOverlayService.js",
+    "frontend/src/components/VideoPlayer.jsx"
+   ]
+  },
+  {
+   "name": "music and audio",
+   "description": "Songs, sound effects, narration and voice cloning through the Audio Foundry plugin, speech-to-text, voice chat and the global mic.",
+   "globs": [
+    "backend/services/audio_foundry_models.py",
+    "backend/services/comfyui_music_generator.py",
+    "backend/services/bark_tts_service.py",
+    "backend/api/audio_foundry_api.py",
+    "backend/api/voice_api.py",
+    "backend/tools/audio_tools.py",
+    "backend/tools/voice/*",
+    "backend/utils/music_prompt_rewriter.py",
+    "backend/utils/faster_whisper_utils.py",
+    "backend/services/media_player_service.py",
+    "backend/tools/media_tools.py",
+    "plugins/audio_foundry/*",
+    "frontend/src/pages/AudioFoundryPage.jsx",
+    "frontend/src/pages/VoiceChatPage.jsx",
+    "frontend/src/components/audio/*",
+    "frontend/src/components/voice/*",
+    "frontend/src/contexts/Voice*",
+    "frontend/src/contexts/voiceSessionEngine.js",
+    "frontend/src/stores/useVoiceSessionStore.js",
+    "frontend/src/hooks/useVoice*.js",
+    "frontend/src/hooks/useAudioRecorder.js",
+    "frontend/src/api/audioFoundryService.js",
+    "frontend/src/api/voiceService.js",
+    "frontend/src/utils/voice*.js",
+    "frontend/src/utils/vadSegmenter.js",
+    "frontend/src/utils/wakeWordMatcher.js",
+    "frontend/src/utils/replySpeech.js",
+    "frontend/src/utils/extractSpeakableText.js",
+    "frontend/src/config/voiceDefaults.js",
+    "frontend/public/vad*"
+   ]
+  },
+  {
+   "name": "film crew",
+   "description": "The five-role Film Crew: screenwriter, casting, cinematographer storyboards, keyframe renders and the editor, with human gates.",
+   "globs": [
+    "backend/services/production_*.py",
+    "backend/services/film_curator_service.py",
+    "backend/services/director_service.py",
+    "backend/services/swarm/agents/*",
+    "backend/api/production_api.py",
+    "backend/tasks/production_swarm_tasks.py",
+    "frontend/src/pages/FilmCrewPage.jsx",
+    "frontend/src/components/filmcrew/*",
+    "frontend/src/api/productionService.js"
+   ]
+  },
+  {
+   "name": "music video",
+   "description": "Turns a song into a beat-synced music video: song analysis, per-cut shot prompts, storyboard keyframes, image-to-video and the cut.",
+   "globs": [
+    "backend/services/music_video_*.py",
+    "backend/api/music_video_api.py",
+    "backend/tasks/music_video_tasks.py",
+    "backend/tools/video_pipeline_tools.py",
+    "frontend/src/pages/MusicVideoPage.jsx",
+    "frontend/src/api/musicVideoService.js"
+   ]
+  },
+  {
+   "name": "cast library and lora training",
+   "description": "Consistent characters, environments and props: reference photos, vision bible, samples, identity checks and local LoRA training.",
+   "globs": [
+    "backend/services/cast_*.py",
+    "backend/services/character_*.py",
+    "backend/services/sample_promotion.py",
+    "backend/services/lora_*.py",
+    "backend/services/identity_*.py",
+    "backend/services/consent_records.py",
+    "backend/api/cast_library_api.py",
+    "backend/tasks/character_generation_tasks.py",
+    "backend/tasks/lora_trainer_tasks.py",
+    "plugins/lora_trainer/*",
+    "frontend/src/pages/CastStudioPage.jsx",
+    "frontend/src/pages/CastMemberPage.jsx",
+    "scripts/test_lora_oneshot.py",
+    "scripts/pretrain_gate.py",
+    "scripts/caption_dataset.py",
+    "scripts/eval_identity_methods.py"
+   ]
+  },
+  {
+   "name": "model training",
+   "description": "Fine-tuning language models on the user's own data: datasets, base models, libraries, training runs and export to Ollama.",
+   "globs": [
+    "backend/services/training/*",
+    "backend/services/training_*.py",
+    "backend/services/trainer_truth_probe.py",
+    "backend/services/modelfile_generator.py",
+    "backend/api/training/*",
+    "backend/api/training_datasets_api.py",
+    "backend/tasks/training_tasks.py",
+    "plugins/training/*",
+    "frontend/src/pages/TrainingPage.jsx",
+    "frontend/src/api/trainingService.js",
+    "scripts/training_director/*",
+    "scripts/verify_training_outputs.py"
+   ]
+  },
+  {
+   "name": "swarm",
+   "description": "The Swarm Orchestrator: parallel coding agents in their own git worktrees working a plan and merging back.",
+   "globs": [
+    "backend/services/swarm/*",
+    "backend/api/swarm_api.py",
+    "plugins/swarm/*",
+    "frontend/src/pages/SwarmPage.jsx",
+    "frontend/src/components/swarm/*",
+    "frontend/src/api/swarmService.js"
+   ]
+  },
+  {
+   "name": "interconnector and cluster",
+   "description": "Guaardvark's own machines working together: node identity and auth, file sync between boxes, cluster routing and heartbeats.",
+   "globs": [
+    "backend/services/interconnector_*.py",
+    "backend/services/cluster_*.py",
+    "backend/services/fleet_map.py",
+    "backend/api/interconnector_api.py",
+    "backend/api/cluster_api.py",
+    "backend/api/node_api.py",
+    "backend/api/distributed_api.py",
+    "backend/middleware/*",
+    "backend/tasks/cluster_heartbeat_sweeper.py",
+    "backend/tasks/interconnector_client_heartbeat.py",
+    "backend/utils/node_*.py",
+    "backend/utils/interconnector_image_utils.py",
+    "frontend/src/api/interconnectorService.js",
+    "scripts/fleet_sim.py"
+   ]
+  },
+  {
+   "name": "plugins and gpu orchestration",
+   "description": "Starting and stopping the GPU services (Ollama, ComfyUI, embeddings, vision), VRAM budgeting, model residency, hardware detection and job admission.",
+   "globs": [
+    "backend/plugins/*",
+    "backend/services/plugin_*.py",
+    "backend/services/gpu_*.py",
+    "backend/services/resource_manager.py",
+    "backend/services/hardware_*.py",
+    "backend/services/comfyui_launch_flags.py",
+    "backend/services/comfyui_update_service.py",
+    "backend/services/comfyui_progress_bridge.py",
+    "backend/services/system_load_gate.py",
+    "backend/services/upscale_supervisor.py",
+    "backend/utils/ollama_resource_manager.py",
+    "backend/utils/gpu_check.py",
+    "backend/utils/comfyui_*.py",
+    "backend/utils/plugin_*.py",
+    "backend/utils/sidecar_guard.py",
+    "backend/utils/system_coordinator.py",
+    "backend/oom_priority.py",
+    "backend/cuda_config.py",
+    "backend/api/plugins_api.py",
+    "backend/api/gpu_api.py",
+    "backend/api/gpu_orchestrator_api.py",
+    "backend/api/upscaling_api.py",
+    "backend/tasks/plugin_tasks.py",
+    "plugins/comfyui/*",
+    "plugins/ollama/*",
+    "plugins/gpu_embedding/*",
+    "plugins/vision_pipeline/*",
+    "plugins/upscaling/*",
+    "plugins/__init__.py",
+    "frontend/src/pages/PluginsPage.jsx",
+    "frontend/src/pages/UpscalingPage.jsx",
+    "frontend/src/components/plugins/*",
+    "frontend/src/api/pluginsService.js",
+    "frontend/src/api/gpuService.js",
+    "frontend/src/api/upscalingService.js",
+    "frontend/src/hooks/useGpuIntent.js",
+    "frontend/src/utils/comfyUiLink.js",
+    "scripts/verify_gpu_stack.sh",
+    "scripts/install_pytorch.sh"
+   ]
+  },
+  {
+   "name": "models and llm runtime",
+   "description": "Which chat, vision and embedding models are installed and what they can do, model selection, the LLM call layer and Ollama settings.",
+   "globs": [
+    "backend/services/llm_service.py",
+    "backend/utils/llm_*.py",
+    "backend/services/model_*.py",
+    "backend/services/local_weights.py",
+    "backend/services/sampling_profiles.py",
+    "backend/services/llamanator_api_service.py",
+    "backend/api/model_api.py",
+    "backend/seed_models.py",
+    "frontend/src/api/modelService.js",
+    "frontend/src/utils/modelUtils.js",
+    "frontend/src/hooks/useHfModelLookup.js",
+    "frontend/src/utils/hfUrl.js",
+    "scripts/model_capability_report.py",
+    "scripts/validate_native_toolcalls.py"
+   ]
+  },
+  {
+   "name": "mcp",
+   "description": "Guaardvark's own MCP server for outside agents, and the MCP client that connects external servers into chat.",
+   "globs": [
+    "backend/mcp/*",
+    "backend/services/mcp_*.py",
+    "backend/tools/mcp_tools.py",
+    "backend/api/automation_api.py",
+    "frontend/src/pages/MCPServersPage.jsx",
+    "frontend/src/api/mcpService.js",
+    "scripts/mcp_launcher.sh",
+    "scripts/sync_claude_plugin.py"
+   ]
+  },
+  {
+   "name": "self-improvement",
+   "description": "Proposed fixes the agent stages for human review (PendingFix), guarded code edits with backup and rollback, the codebase lock and the Uncle Claude advisor.",
+   "globs": [
+    "backend/services/self_improvement_service.py",
+    "backend/services/guarded_code_service.py",
+    "backend/services/claude_advisor_service.py",
+    "backend/api/self_improvement_api.py",
+    "backend/api/self_code_api.py",
+    "backend/api/claude_advisor_api.py",
+    "backend/tasks/self_improvement_tasks.py",
+    "frontend/src/pages/SelfImprovementPage.jsx",
+    "frontend/src/components/selfImprovement/*",
+    "frontend/src/api/selfImprovementService.js",
+    "frontend/src/api/claudeAdvisorService.js",
+    "frontend/src/hooks/useUncleNotifications.js"
+   ]
+  },
+  {
+   "name": "self-edits",
+   "description": "Changes Guaardvark makes to its own code: restore points, exact writes, syntax/import/test checks with automatic undo, Revert, and the start guard that undoes a change the backend cannot start with.",
+   "globs": [
+    "backend/services/self_edit.py",
+    "backend/api/self_edit_api.py",
+    "scripts/self_edit_guard.py",
+    "frontend/src/components/chat/SelfEditNotice.jsx",
+    "frontend/src/components/selfImprovement/SelfEditsList.jsx",
+    "frontend/src/api/selfEditService.js",
+    "scripts/eval_self_analysis.py"
+   ]
+  },
+  {
+   "name": "system mapper",
+   "description": "Static map of this codebase (imports, routes, tools, tasks, symbols, subsystems), its findings, runtime liveness and the query tool.",
+   "globs": [
+    "backend/services/system_mapper/*",
+    "backend/api/system_map_api.py",
+    "backend/services/execution_context_tracker.py",
+    "backend/tasks/runtime_audit_tasks.py",
+    "frontend/src/pages/SystemMapPage.jsx",
+    "frontend/src/components/systemmap/*",
+    "frontend/src/api/systemMapService.js"
+   ]
+  },
+  {
+   "name": "backups",
+   "description": "Backups of data and settings, restore, retention audits.",
+   "globs": [
+    "backend/services/backup_service.py",
+    "backend/services/retention_audit_service.py",
+    "backend/api/backup_api.py",
+    "backend/tasks/backup_tasks.py",
+    "backend/tools/backup_utils.py",
+    "frontend/src/api/backupService.js"
+   ]
+  },
+  {
+   "name": "inbound guard",
+   "description": "Reads code coming into the repository (pull requests, foreign branches) for outbound paths and other risks before it is merged.",
+   "globs": [
+    "backend/services/inbound_guard_*.py",
+    "backend/api/inbound_guard_api.py",
+    "backend/tools/inbound_guard_tools.py",
+    "scripts/inbound_guard/*",
+    "scripts/check_inbound.py",
+    "frontend/src/api/inboundGuardService.js",
+    "frontend/src/api/heldChanges.js",
+    "scripts/hooks/*",
+    "scripts/pre-commit",
+    "scripts/pre-push",
+    "scripts/commit-msg",
+    "scripts/install_hooks.sh",
+    "scripts/check_portable.sh"
+   ]
+  },
+  {
+   "name": "outreach",
+   "description": "Supervised social outreach (Reddit, YouTube, Discord, Facebook): recon, grounded drafts, grading, the queue and the kill switch.",
+   "globs": [
+    "backend/services/social_outreach/*",
+    "backend/api/social_outreach_api.py",
+    "backend/tasks/social_outreach_tasks.py",
+    "backend/tools/outreach_tools.py",
+    "frontend/src/pages/OutreachPage.jsx",
+    "frontend/src/components/social/*",
+    "frontend/src/api/outreachService.js",
+    "scripts/cleanup_outreach_drafts.py",
+    "plugins/discord/*"
+   ]
+  },
+  {
+   "name": "connections and publishing",
+   "description": "The user's own accounts and channels, the publish queue held for approval, scheduled posts.",
+   "globs": [
+    "backend/services/connections/*",
+    "backend/api/connections_api.py",
+    "backend/tasks/publish_schedule_tasks.py",
+    "backend/tools/connection_tools.py",
+    "backend/utils/credential_store.py",
+    "frontend/src/pages/ConnectionsPage.jsx",
+    "frontend/src/pages/ApprovalsPage.jsx",
+    "frontend/src/pages/SocialAccountsPage.jsx",
+    "frontend/src/pages/SocialPostsPage.jsx",
+    "frontend/src/components/connections/*",
+    "frontend/src/components/approvals/*",
+    "frontend/src/api/connectionsService.js",
+    "frontend/src/hooks/usePendingApprovals.js"
+   ]
+  },
+  {
+   "name": "web, websites and seo",
+   "description": "Web search and page fetching, website crawls, WordPress sites and content, SEO analytics and search-engine indexing.",
+   "globs": [
+    "backend/api/web_search_api.py",
+    "backend/services/website_*.py",
+    "backend/services/website_jobs/*",
+    "backend/api/websites_api.py",
+    "backend/tools/web_tools.py",
+    "backend/utils/web_*.py",
+    "backend/utils/agent_web_gate.py",
+    "backend/services/seo_*.py",
+    "backend/services/google_indexing_service.py",
+    "backend/api/google_indexing_api.py",
+    "backend/tasks/google_indexing_tasks.py",
+    "backend/services/wordpress_*.py",
+    "backend/api/wordpress_api.py",
+    "backend/tools/content_tools.py",
+    "backend/utils/xml_sitemap_handler.py",
+    "backend/utils/html_structure_validator.py",
+    "backend/utils/content_enhancer.py",
+    "frontend/src/pages/Website*.jsx",
+    "frontend/src/pages/WordPress*.jsx",
+    "frontend/src/components/website/*",
+    "frontend/src/api/websiteService.js",
+    "frontend/src/api/wordpressService.js",
+    "frontend/src/api/searchConsoleService.js"
+   ]
+  },
+  {
+   "name": "jobs and progress",
+   "description": "Background work: Celery, the job registry and arbiter, queued tasks, progress events and the activity views.",
+   "globs": [
+    "backend/celery_*.py",
+    "backend/services/job_*.py",
+    "backend/services/task_*.py",
+    "backend/services/task_handlers/*",
+    "backend/services/pipeline_*.py",
+    "backend/tasks/unified_task_executor.py",
+    "backend/tasks/task_scheduler_celery.py",
+    "backend/tasks/cleanup_tasks.py",
+    "backend/tasks/__init__.py",
+    "backend/utils/progress_*.py",
+    "backend/utils/unified_*.py",
+    "backend/utils/batch_job_db.py",
+    "backend/utils/preview_emitter.py",
+    "backend/utils/thread_pool_manager.py",
+    "backend/api/jobs_api.py",
+    "backend/api/unified_jobs_resource_api.py",
+    "backend/api/tasks_api.py",
+    "backend/api/celery_monitor_api.py",
+    "backend/api/task_scheduler_api.py",
+    "backend/api/progress_test_api.py",
+    "backend/celery_tasks_isolated.py",
+    "frontend/src/pages/ActivityPage.jsx",
+    "frontend/src/pages/TaskPage.jsx",
+    "frontend/src/pages/ProgressTestPage.jsx",
+    "frontend/src/components/jobs/*",
+    "frontend/src/contexts/UnifiedProgressContext.jsx",
+    "frontend/src/api/jobsService.js",
+    "frontend/src/api/progressService.js",
+    "frontend/src/api/taskService.js",
+    "frontend/src/api/taskQueue.js",
+    "frontend/src/hooks/useJobsGate.js",
+    "frontend/src/utils/jobPreviewUrls.js",
+    "scripts/cleanup_stuck_progress_jobs.py",
+    "start_celery.sh"
+   ]
+  },
+  {
+   "name": "files and documents",
+   "description": "The file browser and documents page, uploads, generated files and outputs, bulk import, CSV and spreadsheet tools, file generation.",
+   "globs": [
+    "backend/api/files_api.py",
+    "backend/api/upload_api.py",
+    "backend/services/unified_upload_service.py",
+    "backend/services/output_registration.py",
+    "backend/api/outputs_api.py",
+    "backend/api/output_api.py",
+    "backend/routes/*",
+    "backend/services/unified_file_generation.py",
+    "backend/api/bulk_generation_api.py",
+    "backend/api/csv_compare_api.py",
+    "backend/api/excel_api.py",
+    "backend/api/hierarchy_api.py",
+    "backend/api/content_management_api.py",
+    "backend/api/enhanced_context_generation_api.py",
+    "backend/api/admin_filename_cleanup_api.py",
+    "backend/utils/bulk_*.py",
+    "backend/utils/csv_formatter.py",
+    "backend/utils/enhanced_context_csv_generator.py",
+    "backend/utils/file*.py",
+    "backend/utils/tracking_*.py",
+    "backend/utils/uploaded_file_resolver.py",
+    "backend/utils/secure_file_operations.py",
+    "backend/utils/tags_normalizer.py",
+    "backend/utils/category_validator.py",
+    "backend/tasks/proven_csv_generation.py",
+    "frontend/src/pages/DocumentsPage.jsx",
+    "frontend/src/pages/UploadPage.jsx",
+    "frontend/src/pages/BulkImportDocumentsPage.jsx",
+    "frontend/src/pages/FileGenerationPage.jsx",
+    "frontend/src/pages/ContentLibraryPage.jsx",
+    "frontend/src/components/documents/*",
+    "frontend/src/components/filesystem/*",
+    "frontend/src/components/FileBrowser.jsx",
+    "frontend/src/components/FileGenPopup.jsx",
+    "frontend/src/api/documentService.js",
+    "frontend/src/api/outputService.js",
+    "frontend/src/api/bulk*.js",
+    "frontend/src/api/csvService.js",
+    "frontend/src/api/filegenService.js",
+    "frontend/src/utils/csv.js",
+    "frontend/src/utils/droppedFiles.js",
+    "frontend/src/utils/fileTypeUtils.js",
+    "frontend/src/utils/fileDropGuard.js",
+    "frontend/src/hooks/useFileDrop*.js",
+    "frontend/src/utils/xmlRenderer.js",
+    "frontend/src/utils/htmlRenderer.js",
+    "scripts/bulk_import_docs.py",
+    "scripts/clean_csv_files.py",
+    "scripts/archive_ingest/*"
+   ]
+  },
+  {
+   "name": "projects, clients and notes",
+   "description": "Projects, clients, addresses, sticky notes and the records the pages list.",
+   "globs": [
+    "backend/api/projects_api.py",
+    "backend/api/clients_api.py",
+    "backend/api/addresses_api.py",
+    "backend/services/address_lookup.py",
+    "backend/tools/records_tools.py",
+    "frontend/src/pages/ProjectsPage.jsx",
+    "frontend/src/pages/ProjectDetailPage.jsx",
+    "frontend/src/pages/ClientPage.jsx",
+    "frontend/src/pages/StickyNotesPage.jsx",
+    "frontend/src/components/projects/*",
+    "frontend/src/components/notes/*",
+    "frontend/src/api/projectService.js",
+    "frontend/src/api/clientService.js",
+    "frontend/src/api/addressService.js",
+    "frontend/src/utils/entityLinks.js",
+    "frontend/src/utils/formatPhone.js"
+   ]
+  },
+  {
+   "name": "settings and profiles",
+   "description": "Settings, the install profile (workstation, creator), configuration defaults, branding and the settings UI kit.",
+   "globs": [
+    "backend/config.py",
+    "backend/api/settings_api.py",
+    "backend/utils/settings_utils.py",
+    "backend/services/settings_validator.py",
+    "backend/profiles/*",
+    "backend/utils/project_config.py",
+    "backend/api/state_api.py",
+    "backend/api/system_api.py",
+    "frontend/src/pages/SettingsPage.jsx",
+    "frontend/src/components/settings/*",
+    "frontend/src/config/*",
+    "frontend/src/api/settingsService.js",
+    "frontend/src/api/stateService.js",
+    "frontend/src/api/sessionStateService.js",
+    "frontend/src/hooks/useServerSyncedForm.js",
+    "frontend/src/utils/serverFormSync.js",
+    "frontend/src/components/branding/*"
+   ]
+  },
+  {
+   "name": "backend platform and security",
+   "description": "The Flask app, database models and migrations, blueprint discovery, auth, CORS and cross-site guards, path safety, health and diagnostics.",
+   "globs": [
+    "backend/app.py",
+    "backend/models.py",
+    "backend/migrations/*",
+    "backend/__init__.py",
+    "backend/seed_data.py",
+    "backend/no_netrc.py",
+    "backend/extensions/*",
+    "backend/handlers/*",
+    "backend/utils/blueprint_discovery.py",
+    "backend/utils/auth_guard.py",
+    "backend/utils/cors_policy.py",
+    "backend/utils/cross_site_guard.py",
+    "backend/utils/host_check.py",
+    "backend/utils/hosts.py",
+    "backend/utils/path_*.py",
+    "backend/utils/db_utils.py",
+    "backend/utils/migration_utils.py",
+    "backend/utils/password_validation.py",
+    "backend/utils/api_session.py",
+    "backend/utils/backend_http.py",
+    "backend/utils/display_paths.py",
+    "backend/utils/secret_redaction.py",
+    "backend/utils/input_validation.py",
+    "backend/utils/pydantic_models.py",
+    "backend/utils/serialization_utils.py",
+    "backend/utils/monitoring.py",
+    "backend/utils/rate_limiter.py",
+    "backend/utils/cache_manager.py",
+    "backend/utils/platform.py",
+    "backend/utils/privileged_apt.py",
+    "backend/utils/update_state.py",
+    "backend/utils/reboot_log_server.py",
+    "backend/utils/clock.py",
+    "backend/utils/safe_math.py",
+    "backend/utils/slugify.py",
+    "backend/utils/session_ids.py",
+    "backend/utils/text_*.py",
+    "backend/utils/screenshot_urls.py",
+    "backend/utils/integration_patch.py",
+    "backend/utils/__init__.py",
+    "backend/utils/api_usage_analyzer.py",
+    "backend/utils/llm_debug_logger.py",
+    "backend/utils/context_bridge.py",
+    "backend/services/api_key_service.py",
+    "backend/services/network_access_service.py",
+    "backend/services/security_summary.py",
+    "backend/services/quality_scorecard.py",
+    "backend/services/demo_recorder.py",
+    "backend/services/__init__.py",
+    "backend/api/auth_api.py",
+    "backend/api/diagnostics_api.py",
+    "backend/api/log_api.py",
+    "backend/api/reboot_api.py",
+    "backend/api/cache_*.py",
+    "backend/api/response_models.py",
+    "backend/api/__init__.py",
+    "frontend/src/api/apiClient.js",
+    "frontend/src/api/apiAuth.js",
+    "frontend/src/api/authService.js",
+    "frontend/src/api/index.js",
+    "frontend/src/api/devtoolsService.js",
+    "frontend/src/api/toolsService.js",
+    "frontend/src/api/utilService.js",
+    "frontend/src/pages/DevToolsPage.jsx",
+    "frontend/src/pages/ToolsPage.jsx",
+    "frontend/src/components/system/*",
+    "frontend/src/contexts/HealthContext.jsx",
+    "frontend/src/contexts/StatusContext.jsx"
+   ]
+  },
+  {
+   "name": "frontend shell",
+   "description": "The app frame: routes, layout and navigation, dashboard, common components, theme, translations and shared hooks.",
+   "globs": [
+    "frontend/src/App.jsx",
+    "frontend/src/main.jsx",
+    "frontend/src/extensions.js",
+    "frontend/src/components/layout/*",
+    "frontend/src/components/common/*",
+    "frontend/src/components/cards/*",
+    "frontend/src/components/modals/*",
+    "frontend/src/components/dashboard/*",
+    "frontend/src/pages/DashboardPage.jsx",
+    "frontend/src/pages/NotFoundPage.jsx",
+    "frontend/src/theme/*",
+    "frontend/src/theme.js",
+    "frontend/src/i18n/*",
+    "frontend/src/stores/useAppStore.js",
+    "frontend/src/contexts/LayoutContext.jsx",
+    "frontend/src/hooks/*",
+    "frontend/src/utils/*",
+    "frontend/src/constants/*",
+    "frontend/src/config.js",
+    "frontend/src/test/*",
+    "frontend/vite.config.js",
+    "frontend/*.config.js"
+   ]
+  },
+  {
+   "name": "cli",
+   "description": "The llx command-line client: chat, generation, jobs, plugins and the MCP installer from a terminal.",
+   "globs": [
+    "cli/*"
+   ]
+  },
+  {
+   "name": "extensions",
+   "description": "The extension seam: client and market verticals that plug pages, routes and services into the stock product.",
+   "globs": [
+    "extensions/*",
+    "frontend/src/extensions.js"
+   ]
+  },
+  {
+   "name": "install and maintenance scripts",
+   "description": "Installers, start and stop scripts, preflight and dependency reconciliation, release checks and one-off maintenance scripts.",
+   "globs": [
+    "scripts/*",
+    "*.sh",
+    "manager",
+    "run_tests.py",
+    "conftest.py",
+    "docker/*"
+   ]
+  },
+  {
+   "name": "tests",
+   "description": "Backend and frontend tests.",
+   "globs": [
+    "backend/tests/*",
+    "backend/mcp/tests/*",
+    "*/__tests__/*",
+    "*.test.js",
+    "*.test.jsx",
+    "*.test.ts",
+    "*.test.tsx",
+    "*.spec.js",
+    "*.spec.jsx",
+    "plugins/*/tests/*"
+   ]
+  }
+ ]
 }
