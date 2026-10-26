@@ -1,5 +1,5 @@
 {
- "_doc": "Plan-mode yardstick: scripts/eval_plan_mode.py. 'dev' items tune the wording; 'held' items decide availability (PLAN_MODE_MEASURED). A kind may be a list where more than one outcome is right (web access off, an injected instruction refused with a question). 2026-10-26: relabelled p-web, i-email, i-note, p-outreach after the first 12b run and added p-memory2, p-speech2, p-tips, q-math as unseen items.",
+ "_doc": "Plan-mode yardstick: scripts/eval_plan_mode.py. 'dev' items tune the wording; 'held' items decide availability (PLAN_MODE_MEASURED). A kind may be a list where more than one outcome is right (web access off, an injected instruction refused with a question). 2026-10-26: relabelled p-web, i-email, i-note, p-outreach after the first 12b run and added p-memory2, p-speech2, p-tips, q-math as unseen items. f-missing and p-docs also accept a question (and p-docs an answer): research finding that the file does not exist, or that no document mentions invoices, is the honest outcome.",
  "items": [
   {
    "id": "q-seed",
@@ -370,7 +370,11 @@
    "id": "p-docs",
    "split": "held",
    "text": "Find what my documents say about invoices and write a one-page summary file called invoices_summary.md.",
-   "kind": "plan",
+   "kind": [
+    "plan",
+    "question",
+    "answer"
+   ],
    "kinds": [
     "file"
    ],
@@ -446,7 +450,10 @@
    "id": "f-missing",
    "split": "held",
    "text": "Copy the contents of the file /nonexistent/plan_mode_probe.txt into copy_probe.txt.",
-   "kind": "plan",
+   "kind": [
+    "plan",
+    "question"
+   ],
    "kinds": [],
    "require": [
     "copy_probe\\.txt"

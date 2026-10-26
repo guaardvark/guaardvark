@@ -35,8 +35,9 @@ def refresh(state: dict) -> None:
     """Read the session's plan-mode switch (after starting or resuming a chat)."""
     try:
         from llx.client import get_client
-        data = get_client(state["server"]).get(f"/api/chat-sessions/{state['session_id']}/mode")
-        state["plan_mode"] = bool(data.get("plan_mode"))
+        # One quick request, no retries: /new must not wait on a server that is down.
+        resp = get_client(state["server"]).http.get(f"/api/chat-sessions/{state['session_id']}/mode", timeout=3)
+        state["plan_mode"] = bool(resp.json().get("plan_mode")) if resp.status_code == 200 else False
     except Exception:
         state["plan_mode"] = False
 
