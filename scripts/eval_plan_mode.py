@@ -231,6 +231,16 @@ def main(argv=None) -> int:
         if isinstance(data, dict) and data.get("session_id"):
             events.setdefault(data["session_id"], []).append((event, data))
 
+    # A card during research (find_files outside Guaardvark's folders, say)
+    # is declined at once, as a person who did not expect it would; silence
+    # would hold the turn for the card's 5-minute timeout.
+    @sio.on("chat:tool_approval_request")
+    def _decline(data):
+        events.setdefault(data.get("session_id"), []).append(("chat:tool_approval_request", data))
+        sio.emit("chat:tool_approval_response", {
+            "session_id": data.get("session_id"), "approved": False,
+            "approval_id": data.get("approval_id"), "request_id": data.get("request_id")})
+
     sio.connect(API, headers={"Cookie": "plan_mode_eval=1"}, transports=["websocket"], wait_timeout=10)
     results = []
     try:
