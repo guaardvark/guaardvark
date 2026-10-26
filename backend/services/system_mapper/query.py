@@ -33,8 +33,10 @@ MAX_CHARS = 4800
 _STOP = frozenset("""
     a an and are as at be by can code codebase does done file files find for from function functions
     handle handled handles how implement implemented implementation in into is it its me of on or
-    show tell that the this to what where which who why with handles lives live located location
+    show tell that the this to what where which who why with handles lives located location
     defined decided decide decides happen happens part parts piece logic thing things guaardvark
+    you your yours yourself i my we our us would could should will made own good get gets got
+    out take takes without
 """.split())
 
 
@@ -760,11 +762,16 @@ def q_where(v: View, arg: str) -> str:
         return [w for w in words if stems[w] in st]
 
     # 1. Words in the file (identifiers, strings, comments) and in its path.
-    for rel, st in v.stemmed_tokens().items():
+    # A long file holds most words somewhere, so its matches count for less
+    # (BM25's length normalisation, k1=1.2, b=0.75, on distinct words).
+    stemmed = v.stemmed_tokens()
+    avg_len = (sum(len(st) for st in stemmed.values()) / len(stemmed)) if stemmed else 1.0
+    for rel, st in stemmed.items():
         m = [w for w in words if stems[w] in st]
         if not m:
             continue
-        s = sum(weights[w] for w in m) * (len(m) / len(words)) ** 2
+        norm = 2.2 / (1 + 1.2 * (0.25 + 0.75 * len(st) / avg_len))
+        s = sum(weights[w] for w in m) * (len(m) / len(words)) ** 2 * norm
         pm = matched(tokens_of(rel))
         s += 1.5 * sum(weights[w] for w in pm)
         if is_test_path(rel):
