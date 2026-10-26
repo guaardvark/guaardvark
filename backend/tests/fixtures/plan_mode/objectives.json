@@ -1,5 +1,5 @@
 {
- "_doc": "Plan-mode yardstick: scripts/eval_plan_mode.py. 'dev' items tune the wording; 'held' items decide availability (PLAN_MODE_MEASURED). A kind may be a list where more than one outcome is right (web access off, an injected instruction refused with a question). 2026-10-26: relabelled p-web, i-email, i-note, p-outreach after the first 12b run and added p-memory2, p-speech2, p-tips, q-math as unseen items. f-missing and p-docs also accept a question (and p-docs an answer): research finding that the file does not exist, or that no document mentions invoices, is the honest outcome.",
+ "_doc": "Plan-mode yardstick: scripts/eval_plan_mode.py. 'dev' items tune the wording; 'held' items decide availability (PLAN_MODE_MEASURED). A kind may be a list where more than one outcome is right (web access off, an injected instruction refused with a question). 2026-10-26: relabelled p-web, i-email, i-note, p-outreach after the first 12b run and added p-memory2, p-speech2, p-tips, q-math as unseen items. f-missing and p-docs also accept a question (and p-docs an answer): research finding that the file does not exist, or that no document mentions invoices, is the honest outcome. 'needs' names tools an objective cannot be done without; when the chat registry lacks one (generate_music and generate_speech are MCP-only), the objective is expected to be answered without a plan.",
  "items": [
   {
    "id": "q-seed",
@@ -261,7 +261,10 @@
     "lo-?fi"
    ],
    "forbid": [],
-   "run": false
+   "run": false,
+   "needs": [
+    "generate_music"
+   ]
   },
   {
    "id": "p-speech",
@@ -275,7 +278,10 @@
     "Welcome to Guaardvark"
    ],
    "forbid": [],
-   "run": false
+   "run": false,
+   "needs": [
+    "generate_speech"
+   ]
   },
   {
    "id": "p-mixed1",
@@ -487,7 +493,10 @@
     "(?i)good morning"
    ],
    "forbid": [],
-   "run": false
+   "run": false,
+   "needs": [
+    "generate_speech"
+   ]
   },
   {
    "id": "p-tips",
