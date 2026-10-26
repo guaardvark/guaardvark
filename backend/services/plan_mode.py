@@ -296,6 +296,17 @@ class PlanModeRunner:
                 objective=message, reply=reply, steps=steps, attempted=research.attempted,
                 current=current, session_id=session_id,
             )
+            misreported = (result.kind in ("answer", None) and not research.attempted
+                           and not _QUESTION.search(message or "") and misreports(reply))
+            if misreported:
+                # The research reply says it cannot be done or that it is done;
+                # neither is known while planning. One more try with that said.
+                retry = self.compose(
+                    objective=message, reply=reply, steps=steps, attempted=research.attempted,
+                    current=current, session_id=session_id, correction=True,
+                )
+                if retry.kind is not None:
+                    result = retry
             extra["plan_kind"] = result.kind or "none"
             if result.kind == "question" and result.data.get("question"):
                 return str(result.data["question"]).strip()
@@ -315,13 +326,18 @@ class PlanModeRunner:
                     return ((reply or "").strip() + "\n\n" if reply else "") + (
                         "I could not write that up as a plan. Tell me a little more about what you "
                         "want done and I'll try again; nothing has been changed.")
+                if _CLAIMS_DONE.search(reply or ""):
+                    # Nothing that changes anything ran while researching.
+                    return (reply or "").strip() + "\n\n" + NOTHING_CHANGED
                 return None
             plan = self.save(result, session_id=session_id, project_id=project_id, objective=message,
                              current=current, research=research, steps=steps, options=options,
                              image_url=image_url)
             payload = plan.to_dict()
             extra.update({"messageType": "plan", "planId": payload["id"], "plan": payload})
-            findings = (reply or "").strip()[:pmd.COMPOSE_REPLY_CHARS]
+            # A reply that said it cannot be done, or is done, would
+            # contradict the plan under it.
+            findings = "" if misreported else (reply or "").strip()[:pmd.COMPOSE_REPLY_CHARS]
             extra["findings"] = findings
             return f"{findings}\n\n{render_reply(plan)}" if findings else render_reply(plan)
 
@@ -345,7 +361,8 @@ class PlanModeRunner:
 
     # -- compose ------------------------------------------------------------
 
-    def compose(self, *, objective, reply, steps, attempted, current, session_id) -> ComposeResult:
+    def compose(self, *, objective, reply, steps, attempted, current, session_id,
+                correction: bool = False) -> ComposeResult:
         model = getattr(self.llm, "model", None) or ""
         try:
             from backend.utils.ollama_resource_manager import refresh_context_window
@@ -354,9 +371,12 @@ class PlanModeRunner:
             num_ctx = None
         available = sorted(self.full.list_tools())
         system = pmd.COMPOSE_SYSTEM.format(
-            max_steps=pmd.PLAN_MAX_STEPS, kinds=pmd.kinds_text(available), tools=", ".join(available))
+            max_steps=pmd.PLAN_MAX_STEPS, kinds=pmd.kinds_text(available), tools=", ".join(available),
+            missing=pmd.compose_unavailable(available, web=web_access_on()))
         user = compose_input(objective=objective, reply=reply, steps=steps, attempted=attempted,
                              current=current, history=_history_text(session_id))
+        if correction:
+            user += "\n\n" + pmd.COMPOSE_CORRECTION.format(abilities=pmd.abilities(available))
         return compose_plan(model, system, user, num_ctx=num_ctx, reply=reply,
                             schema=pmd.compose_schema(available))
 
@@ -394,6 +414,41 @@ class PlanModeRunner:
 
 
 _QUESTION = re.compile(r"^\s*(where|which|how|why|what|who|when|is|are|does|do|can|could)\b|\?\s*$", re.I)
+
+# A research reply that says the work cannot be done ("I am unable to create
+# pictures", "I am a text-based model"), with the action tools hidden from
+# the model, or that it is done ("I have remembered that..."), when nothing
+# that changes anything can run during research. Both came from gemma4:e2b
+# in plan mode (logs/plan_mode_evals, 2026-10-26).
+_CANNOT = re.compile(
+    r"\bI\s+(?:can(?:not|'t|\u2019t)|am\s+(?:not\s+able|unable)|was\s+unable"
+    r"|(?:do\s+not|don't|don\u2019t)\s+have\s+(?:a\s+|the\s+|any\s+)?(?:tool|tools|access|ability|capability|function))"
+    r"|\bI\s+(?:can\s+)?only\s+(?:generate|process|write|produce|answer|provide)\b"
+    r"|\btext-based\s+(?:model|assistant|AI)\b",
+    re.I,
+)
+_CLAIMS_DONE = re.compile(
+    r"\bI(?:'ve|\u2019ve|\s+have)\s+(?:now\s+|successfully\s+|just\s+|also\s+)?"
+    r"(?:remembered|saved|stored|noted|created|made|generated|written|sent|deleted|removed|updated"
+    r"|added|opened|launched|started|scheduled|copied|moved|renamed|installed|posted)\b",
+    re.I,
+)
+NOTHING_CHANGED = ("Nothing has been changed yet: in plan mode I only look things up until you "
+                   "approve a plan.")
+
+
+def misreports(reply: Optional[str]) -> bool:
+    """Whether a research reply says the work cannot be done or is done."""
+    return bool(reply) and bool(_CANNOT.search(reply) or _CLAIMS_DONE.search(reply))
+
+
+def web_access_on() -> bool:
+    """Settings → web access (off by default); False when it cannot be read."""
+    try:
+        from backend.utils.settings_utils import web_access_block_reason
+        return web_access_block_reason("search the web") is None
+    except Exception:
+        return False
 
 
 def changes_something(data: Dict[str, Any], registry) -> bool:
