@@ -496,7 +496,8 @@
     "title": "About",
     "support": "Support the project",
     "supportHelp": "Built with love by a solo developer. Each link opens in a new tab.",
-    "sponsors": "Sponsors"
+    "sponsors": "Sponsors",
+    "starOnGithub": "Star on GitHub"
   },
   "deleteHistory": {
     "images": "Images",

@@ -43,6 +43,7 @@ import LanguageSetting from "../components/settings/LanguageSetting";
 import JobOrderSetting from "../components/settings/JobOrderSetting";
 import { SOCKET_URL, handleResponse } from "../api/apiClient";
 import { SUPPORT_LINKS } from "../config/constants";
+import { brand } from "../config/brand";
 import CoffeeIcon from "@mui/icons-material/Coffee";
 import StarIcon from "@mui/icons-material/Star";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
@@ -3829,7 +3830,7 @@ const SettingsPage = () => {
               )
             }
           >
-            GitHub
+            {brand.askForGithubStar ? t("settings.aboutPanel.starOnGithub") : "GitHub"}
           </ActionButton>
           <ActionButton
             onClick={() =>

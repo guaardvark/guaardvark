@@ -20,6 +20,15 @@
     "nextTip": "Next tip",
     "stopTips": "Don't show tips"
   },
+  "starAsk": {
+    "regionLabel": "Star on GitHub",
+    "title": "Star {{appName}} on GitHub",
+    "text": "If {{appName}} is useful to you, a star on GitHub helps other people find it.",
+    "star": "Star on GitHub",
+    "later": "Later",
+    "never": "Don't ask again",
+    "close": "Ask me later"
+  },
   "directoryPicker": {
     "title": "Select Directory",
     "loadFailed": "Failed to load the folder",

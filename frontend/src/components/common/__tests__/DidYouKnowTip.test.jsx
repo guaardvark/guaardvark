@@ -6,6 +6,7 @@ import { ThemeProvider, createTheme } from "@mui/material/styles";
 import DidYouKnowTip from "../DidYouKnowTip";
 import { SHOW_SHORTCUTS_EVENT } from "../KeyboardShortcutsOverlay";
 import { readSeenTips, resetTipSessionForTests, SEEN_TIPS_KEY } from "../didYouKnowModel";
+import { readStarAsk, recordWin, STAR_ASK_KEY } from "../starAskModel";
 import { useAppStore } from "../../../stores/useAppStore";
 import { DEFAULT_PROFILE } from "../../../config/profile";
 
@@ -22,14 +23,16 @@ function Where() {
   return <div data-testid="where">{pathname}</div>;
 }
 
-function renderTip(path = "/dashboard") {
+const REPO = "https://github.com/guaardvark/guaardvark";
+
+function renderTip(path = "/dashboard", props = {}) {
   return render(
     <ThemeProvider theme={createTheme()}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="*" element={<Where />} />
         </Routes>
-        <DidYouKnowTip tips={TIPS} delayMs={DELAY} />
+        <DidYouKnowTip tips={TIPS} delayMs={DELAY} starRepoUrl={REPO} starDelayMs={DELAY} {...props} />
       </MemoryRouter>
     </ThemeProvider>,
   );
@@ -193,5 +196,121 @@ describe("DidYouKnowTip", () => {
     renderTip();
     wait();
     expect(screen.getByRole("region", { name: "Did you know" })).toHaveStyle({ left: "256px" });
+  });
+});
+
+describe("DidYouKnowTip star ask", () => {
+  const STAR = { name: "Star on GitHub" };
+  const setStarState = (state) => window.localStorage.setItem(STAR_ASK_KEY, JSON.stringify(state));
+
+  it("asks in place of the session's tip once a render has finished", () => {
+    setStarState({ wins: 1 });
+    renderTip();
+    wait();
+    expect(screen.getByRole("region", STAR)).toBeInTheDocument();
+    expect(screen.getByText("If Guaardvark is useful to you, a star on GitHub helps other people find it.")).toBeInTheDocument();
+    expect(screen.queryByText("First tip text.")).toBeNull();
+    expect(readStarAsk().asks).toBe(1);
+  });
+
+  it("asks on the third day of use", () => {
+    setStarState({ dayCount: 2, lastDay: "2000-01-01" });
+    renderTip();
+    wait();
+    expect(screen.getByRole("region", STAR)).toBeInTheDocument();
+    expect(readStarAsk().dayCount).toBe(3);
+  });
+
+  it("does not ask a new browser on its first day", () => {
+    renderTip();
+    wait();
+    expect(screen.getByText("First tip text.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+  });
+
+  it("asks right after a render finishes when no card is showing", () => {
+    renderTip();
+    wait();
+    fireEvent.click(screen.getByRole("button", { name: "Close tip" }));
+    act(() => {
+      recordWin("image_generation");
+    });
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+    wait();
+    expect(screen.getByRole("region", STAR)).toBeInTheDocument();
+  });
+
+  it("does not cover a tip on screen; the next session asks instead", () => {
+    const { unmount } = renderTip();
+    wait();
+    act(() => {
+      recordWin("video_gen");
+    });
+    wait();
+    expect(screen.getByText("First tip text.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+
+    unmount();
+    window.sessionStorage.clear();
+    resetTipSessionForTests();
+    renderTip();
+    wait();
+    expect(screen.getByRole("region", STAR)).toBeInTheDocument();
+  });
+
+  it("Star on GitHub opens the project page and never asks again", () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    setStarState({ wins: 1 });
+    renderTip();
+    wait();
+    fireEvent.click(screen.getByRole("button", STAR));
+    expect(open).toHaveBeenCalledWith(REPO, "_blank", "noopener,noreferrer");
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+    expect(readStarAsk().done).toBe(true);
+    open.mockRestore();
+  });
+
+  it("Later leaves one more ask, five days of use away", () => {
+    setStarState({ wins: 1, dayCount: 4, lastDay: "2000-01-01" });
+    const { unmount } = renderTip();
+    wait();
+    fireEvent.click(screen.getByRole("button", { name: "Later" }));
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+    expect(readStarAsk()).toMatchObject({ asks: 1, done: false });
+
+    unmount();
+    window.sessionStorage.clear();
+    resetTipSessionForTests();
+    setStarState({ ...readStarAsk(), dayCount: readStarAsk().dayCount + 4, lastDay: "2000-01-02" });
+    renderTip();
+    wait();
+    expect(screen.getByRole("region", STAR)).toBeInTheDocument();
+    expect(readStarAsk().asks).toBe(2);
+  });
+
+  it("Don't ask again ends it", () => {
+    setStarState({ wins: 1 });
+    renderTip();
+    wait();
+    fireEvent.click(screen.getByRole("button", { name: "Don't ask again" }));
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+    expect(readStarAsk().done).toBe(true);
+  });
+
+  it("a rebranded build never asks", () => {
+    setStarState({ wins: 3, dayCount: 9 });
+    renderTip("/dashboard", { starRepoUrl: null });
+    wait();
+    expect(screen.getByText("First tip text.")).toBeInTheDocument();
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+  });
+
+  it("follows the tips switch", () => {
+    useAppStore.setState({ tipsEnabled: false });
+    setStarState({ wins: 1 });
+    renderTip();
+    wait(DELAY * 10);
+    expect(screen.queryByRole("region", STAR)).toBeNull();
+    expect(readStarAsk().asks).toBe(0);
   });
 });
