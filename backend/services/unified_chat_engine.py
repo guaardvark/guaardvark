@@ -49,6 +49,13 @@ from backend.config import CACHE_DIR
 _REASONING_FLUSH_CHARS = 150
 _REASONING_FLUSH_SECS = 0.25
 
+# The most tool calls one model reply may make; the stream is stopped past
+# it. Of 328 replies logged 2026-10-23..26, none of the working ones made
+# more than four. A gemma4:12b reply stuck repeating calls made 196 (42
+# distinct) and took four minutes to write; the duplicate guard blocked most
+# of them, but only after the whole reply had been generated.
+MAX_TOOL_CALLS_PER_REPLY = 8
+
 # Appended as a system message when a thinking model spends its whole turn on
 # reasoning and returns no answer; the call is repeated once with thinking off.
 _ANSWER_AFTER_REASONING_NUDGE = (
@@ -3101,11 +3108,12 @@ class UnifiedChatEngine:
         if provider_context:
             context_parts.append(f"Current context:\n{provider_context}")
         if _opts.get("plan_mode_research"):
+            from backend.services.plan_mode import web_access_on
             from backend.services.plan_mode_data import research_note
             # The research registry hides the action tools; the note names
             # what they can do from the full registry behind it.
             _full = getattr(self.registry, "full", self.registry)
-            context_parts.append(research_note(_full.list_tools()))
+            context_parts.append(research_note(_full.list_tools(), web=web_access_on()))
         # A question about Guaardvark's own code starts from the System
         # Mapper's notes on where the answer is; the reply's references are
         # checked against the checkout afterwards.
@@ -3476,7 +3484,9 @@ class UnifiedChatEngine:
                  self._inject_attached_image(
                      tc.tool_name,
                      self._normalize_parameters(tc.parameters, tool_name=tc.tool_name)))
-                for tc in parsed.tool_calls
+                # A reply stopped for making too many calls ends partway
+                # through one more; the calls before the limit are kept.
+                for tc in parsed.tool_calls[:MAX_TOOL_CALLS_PER_REPLY]
             ]
 
             # Log parsed tool calls
@@ -5475,6 +5485,21 @@ class UnifiedChatEngine:
             # visible content tokens normally (no XML suppression).
             xml_detected = False
             _native_tool_calls_acc = []  # collected message.tool_calls (native path)
+            calls_checked_at = 0
+
+            def _too_many_calls() -> bool:
+                """More than MAX_TOOL_CALLS_PER_REPLY calls so far in this reply.
+                The text is recounted every 16 chunks rather than every token."""
+                nonlocal calls_checked_at
+                if len(_native_tool_calls_acc) > MAX_TOOL_CALLS_PER_REPLY:
+                    return True
+                if len(accumulated) < calls_checked_at:
+                    calls_checked_at = 0  # a retry cleared the reply
+                if len(accumulated) - calls_checked_at < 16:
+                    return False
+                calls_checked_at = len(accumulated)
+                text = "".join(accumulated)
+                return text.count("[tool_call") + text.count("<tool_call") > MAX_TOOL_CALLS_PER_REPLY
 
             def _route_inline_reasoning(events) -> List[str]:
                 """Send inline reasoning to the reasoning channel; return the visible pieces."""
@@ -5502,6 +5527,13 @@ class UnifiedChatEngine:
                 nonlocal input_tokens, output_tokens, done_reason
                 for chunk in chunks:
                     if is_aborted(session_id):
+                        break
+                    if _too_many_calls():
+                        logger.warning(
+                            f"Reply passed {MAX_TOOL_CALLS_PER_REPLY} tool calls (model: {model_name}); "
+                            "stopped it there")
+                        # Closing the stream ends the request, so Ollama stops writing.
+                        getattr(chunks, "close", lambda: None)()
                         break
                     msg = chunk.get("message", {})
                     token = msg.get("content", "")
