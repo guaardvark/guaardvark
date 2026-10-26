@@ -650,7 +650,11 @@ def handle_chat_send(payload):
             return
     try:
         from flask import current_app, request as _req
-        if current_app.config.get("CLUSTER_ENABLED", False):
+        from backend.services.plan_mode import session_in_plan_mode
+        # A plan-mode chat stays here: its plans and their approval live in
+        # this machine's database.
+        if (current_app.config.get("CLUSTER_ENABLED", False)
+                and not session_in_plan_mode((payload or {}).get("session_id") if isinstance(payload, dict) else None)):
             from backend.services.cluster_routing import get_routing_store
             from backend.services.fleet_map import get_fleet_map
             from backend.services.cluster_socketio_bridge import SocketIOBridgeRegistry

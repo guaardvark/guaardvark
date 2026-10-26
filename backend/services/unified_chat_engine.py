@@ -238,6 +238,33 @@ _task_tool_grants: Dict[str, set] = {}
 _approval_batch_meta: Dict[str, Dict[str, Any]] = {}
 
 
+# Plans running on a session (plan_executor), and how the person approved
+# them: "allow_plan_tools" grants the tools the plan named for the whole run,
+# whatever each step's turn clears; "ask" shows a card for every call that
+# changes something, even one that would not ask on its own.
+_plan_runs: Dict[str, Dict[str, Any]] = {}
+
+
+def begin_plan_run(session_id: str, mode: str, tools) -> None:
+    with _approval_lock:
+        _plan_runs[session_id] = {"mode": mode, "tools": set(tools or ())}
+
+
+def end_plan_run(session_id: str) -> None:
+    with _approval_lock:
+        _plan_runs.pop(session_id, None)
+
+
+def _needs_card(session_id: str, tool, tool_name: str, params, preapproved: set) -> bool:
+    """tool_needs_approval_card, with an approved plan's "ask before each action"."""
+    with _approval_lock:
+        run = dict(_plan_runs.get(session_id) or {})
+    if (run.get("mode") == "ask" and tool is not None and tool_name not in preapproved
+            and getattr(tool, "read_only", None) is not True):
+        return True
+    return _tool_needs_approval_card(tool, tool_name, params, preapproved)
+
+
 def clear_task_scoped_tool_grants(session_id: str) -> None:
     """Clear per-user-message tool grants (call at start of each new chat turn)."""
     with _approval_lock:
@@ -254,6 +281,13 @@ def _preapproved_tool_names(session_id: str) -> set:
     with _approval_lock:
         s |= _session_tool_grants.get(session_id, set())
         s |= _task_tool_grants.get(session_id, set())
+        run = _plan_runs.get(session_id)
+        if run and run.get("mode") == "allow_plan_tools":
+            try:
+                from backend.services.tool_approval_prefs import consent_gated
+                s |= {t for t in run["tools"] if not consent_gated(t)}
+            except Exception:
+                logger.debug("plan grants skipped; consent check unavailable", exc_info=True)
         return s
 
 
@@ -3017,6 +3051,9 @@ class UnifiedChatEngine:
         self._local_facts_this_turn = any(name != PAGE_PROVIDER_NAME for name, _ in _entries)
         if provider_context:
             context_parts.append(f"Current context:\n{provider_context}")
+        if _opts.get("plan_mode_research"):
+            from backend.services.plan_mode_data import PLAN_MODE_RESEARCH_NOTE
+            context_parts.append(PLAN_MODE_RESEARCH_NOTE)
         _accepted = str(_opts.get("accepted_offer") or "").strip()
         if _accepted:
             context_parts.append(
@@ -3430,7 +3467,7 @@ class UnifiedChatEngine:
             approval_pending = []
             for tc, tool_name, params in tool_jobs:
                 tool = self.registry.get_tool(tool_name)
-                if _tool_needs_approval_card(tool, tool_name, params, _pre):
+                if _needs_card(session_id, tool, tool_name, params, _pre):
                     approval_jobs.append(tool_name)
                     approval_details.append(_approval_detail(tool, tool_name, params, tc.reasoning))
                     approval_pending.append((tool, params))
@@ -3453,7 +3490,7 @@ class UnifiedChatEngine:
                     rejected_observations = []
                     for tc, tool_name, params in tool_jobs:
                         tool = self.registry.get_tool(tool_name)
-                        if _tool_needs_approval_card(tool, tool_name, params, _pre):
+                        if _needs_card(session_id, tool, tool_name, params, _pre):
                             emit_fn("chat:tool_result", {
                                 "tool": tool_name,
                                 "result": {"success": False, "error": "USER REJECTED: This action was not approved by the user."},
@@ -3474,7 +3511,7 @@ class UnifiedChatEngine:
                     # Remove rejected jobs from tool_jobs so they aren't executed
                     tool_jobs = [
                         (tc, tn, p) for tc, tn, p in tool_jobs
-                        if not _tool_needs_approval_card(self.registry.get_tool(tn), tn, p, _pre)
+                        if not _needs_card(session_id, self.registry.get_tool(tn), tn, p, _pre)
                     ]
                     
                     if not tool_jobs:
@@ -3981,6 +4018,10 @@ class UnifiedChatEngine:
                 logger.exception("[UNIFIED_ENGINE] finalize_fn failed; keeping the model's draft")
 
         web_search_offer = self._web_search_offer(message, steps, session_id, reply=accumulated_response)
+        # A host's additions to the reply (plan mode's plan card), filled in by
+        # its finalize_fn; they ride on chat:complete and the saved row.
+        complete_extra = options.get("complete_extra")
+        complete_extra = dict(complete_extra) if isinstance(complete_extra, dict) else {}
 
         # 7. Emit complete
         emit_fn("chat:complete", {
@@ -3995,6 +4036,7 @@ class UnifiedChatEngine:
             "truncated": final_truncated,
             "synthesized": synthesized,
             "web_search_offer": web_search_offer,
+            **{k: v for k, v in complete_extra.items() if k in ("plan", "findings")},
         })
 
         # 8. Save assistant message (only if we have actual content)
@@ -4021,6 +4063,7 @@ class UnifiedChatEngine:
                 extra_data["thinking"] = final_thinking
             if web_search_offer:
                 extra_data["web_search_offer"] = web_search_offer
+            extra_data.update(complete_extra)
             # Pull agent-loop thinking steps emitted during this turn so they
             # survive hard refresh. Empty list if no agent task ran. Drains the
             # service's accumulator so the next turn starts fresh.
@@ -4367,7 +4410,7 @@ class UnifiedChatEngine:
         # grant, so a tool that refuses without a human answer may run.
         human_approved = tool_name in _pre
         if (
-            _tool_needs_approval_card(_tool_obj, tool_name, params, _pre)
+            _needs_card(session_id, _tool_obj, tool_name, params, _pre)
             and not is_aborted(session_id)
         ):
             detail = _approval_detail(_tool_obj, tool_name, params)

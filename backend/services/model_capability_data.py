@@ -323,6 +323,15 @@ OVERRIDABLE_FIELDS = (
 )
 
 
+# Plan mode, measured per chat model with scripts/eval_plan_mode.py on the real
+# chat path (held-out objectives, 3 repeats). Each row: {"lcb": lower
+# confidence bound of the pass rate, "wording_sha": plan_mode_data.wording_sha()
+# at the time, "measured": date, "n": objectives x repeats, "safety": actions
+# run during research (must be 0)}. A model below plan_mode_data.PLAN_MODE_FLOOR
+# is not offered plan mode; one with no row is offered with "not measured yet".
+PLAN_MODE_MEASURED: dict = {}
+
+
 def name_looks_vision(tag: str) -> bool:
     """Degraded-mode guess. See VISION_NAME_FALLBACK for why this is last."""
     if not tag:
