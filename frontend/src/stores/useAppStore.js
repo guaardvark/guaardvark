@@ -89,6 +89,16 @@ const createUISlice = (set, get) => ({
     })),
   getSessionMode: (sessionId) => (get().sessionModes[sessionId] || "chat"),
 
+  // Per-session plan mode (research first, act on an approved plan), cached
+  // the same way: the session row at /api/chat-sessions/<id>/mode is the
+  // source of truth, ChatInput hydrates it, /plan and the toggle update both.
+  sessionPlanModes: {},
+  setSessionPlanMode: (sessionId, on) =>
+    set((state) => ({
+      sessionPlanModes: { ...state.sessionPlanModes, [sessionId]: Boolean(on) },
+    })),
+  getSessionPlanMode: (sessionId) => Boolean(get().sessionPlanModes[sessionId]),
+
   // Per-session "thinking" override for thinking-capable models (gemma4:12b,
   // qwen3, ...), toggled via the /thinking command. Value is true/false when the
   // user has explicitly set it, or undefined when unset (→ backend falls back to

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -20,6 +20,7 @@ import AttachFileIcon from "@mui/icons-material/AttachFile";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import Tooltip from "@mui/material/Tooltip";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
+import { PlanActionsContext } from "./planActions";
 import UnifiedChatService, { steerAgent } from "../../api/unifiedChatService";
 import { stopChatTurn } from "../../api/chatStopService";
 import StreamingMessage from "./StreamingMessage";
@@ -575,6 +576,10 @@ const FloatingChatCard = () => {
         truncated: result.truncated === true,
         synthesized: result.synthesized === true,
         timestamp: new Date().toISOString(),
+        // A proposed plan shows as a card; a run's closing report as text.
+        ...(result.plan && !result.planResult
+          ? { messageType: "plan", plan: result.plan, findings: result.findings || "" }
+          : {}),
       });
     }
 
@@ -585,6 +590,41 @@ const FloatingChatCard = () => {
       setUnifiedChatService(newService);
     }
   }, [addMessage, setIsSending, sessionId, socketRef, ttsEnabled, speak, finishVoiceReply]);
+
+  // What a plan card here can ask for: follow a started run, prefill the
+  // input for "keep planning", stop, or take in a changed or new plan.
+  const planActions = useMemo(() => ({
+    onRunStarted: () => {
+      setIsSending(true);
+      setIsStreamingMessage(true);
+    },
+    onStop: () => handleStopRef.current?.(),
+    onKeepPlanning: (text) => setInputText(text || ""),
+    onPlanChanged: (plan, opts) => {
+      if (opts?.added) {
+        addMessage({ id: `asst_plan_${plan.id}`, role: "assistant", content: plan.markdown || "",
+                     messageType: "plan", plan, findings: "", timestamp: new Date().toISOString() });
+        return;
+      }
+      for (const m of useFloatingChatStore.getState().messages) {
+        if (m.plan?.id === plan.id) updateMessage(m.id, { plan });
+      }
+    },
+  }), [addMessage, setIsSending, updateMessage]);
+  const handleStopRef = useRef(null);
+
+  // A finished step of a running plan: kept as its own reply while the run
+  // goes on.
+  const handlePlanSegment = useCallback((result) => {
+    addMessage({
+      id: `asst_plan_step_${Date.now()}`,
+      role: "assistant",
+      content: result.content || "",
+      toolCalls: result.toolCalls || [],
+      generatedImages: result.generatedImages || [],
+      timestamp: new Date().toISOString(),
+    });
+  }, [addMessage]);
 
   const handleStop = useCallback(() => {
     // Salvage whatever streamed so far, or it vanishes when the bubble unmounts.
@@ -613,6 +653,7 @@ const FloatingChatCard = () => {
     setIsSending(false);
     finishVoiceReply();
   }, [unifiedChatService, sessionId, setIsSending, addMessage, finishVoiceReply]);
+  handleStopRef.current = handleStop;
 
   // The engine sends no chat:complete after a chat:error, so the error closes
   // the turn in flight: what had streamed is kept, the error joins the thread,
@@ -930,15 +971,17 @@ const FloatingChatCard = () => {
                 </Typography>
               )}
 
-              <List dense disablePadding>
-                {messages.slice(-15).map((msg) => (
-                  <FloatingChatMessage
-                    key={msg.id}
-                    message={msg}
-                    formatTime={formatTime}
-                  />
-                ))}
-              </List>
+              <PlanActionsContext.Provider value={planActions}>
+                <List dense disablePadding>
+                  {messages.slice(-15).map((msg) => (
+                    <FloatingChatMessage
+                      key={msg.id}
+                      message={msg}
+                      formatTime={formatTime}
+                    />
+                  ))}
+                </List>
+              </PlanActionsContext.Provider>
 
               {/* Streaming response via Socket.IO */}
               {isStreamingMessage && unifiedChatService && (
@@ -948,6 +991,7 @@ const FloatingChatCard = () => {
                     chatService={unifiedChatService}
                     sessionId={sessionId}
                     onComplete={handleStreamingComplete}
+                    onSegment={handlePlanSegment}
                   />
                 </Box>
               )}

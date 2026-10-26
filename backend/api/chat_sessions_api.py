@@ -31,9 +31,64 @@ def get_session_mode(session_id: str):
 
         session = db.session.get(LLMSession, session_id)
         mode = (session.mode if session and session.mode else "chat").strip()
-        return jsonify({"success": True, "session_id": session_id, "mode": mode})
+        return jsonify({"success": True, "session_id": session_id, "mode": mode,
+                        **_plan_mode_state(session_id, session)})
     except Exception as e:
         logger.error(f"get_session_mode failed for {session_id}: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _plan_mode_state(session_id: str, session) -> dict:
+    """plan_mode for the session (a chat not started yet follows Settings →
+    Start new chats in plan mode), and whether this chat model can plan."""
+    from backend.services.plan_mode import active_chat_model, availability, default_plan_mode, plan_mode_supported
+
+    if not plan_mode_supported(session_id):
+        return {"plan_mode": False, "plan_mode_available": False,
+                "plan_mode_reason": "Plan mode needs a chat that can show a plan for approval."}
+    on = bool(session.plan_mode) if session is not None else default_plan_mode()
+    available, reason = availability(active_chat_model())
+    return {"plan_mode": on, "plan_mode_available": available, "plan_mode_reason": reason}
+
+
+@chat_sessions_bp.route("/<session_id>/plan-mode", methods=["PATCH"])
+def set_plan_mode(session_id: str):
+    """Turn plan mode on or off for a session. Body: {"on": true|false}.
+
+    UPSERTs the session row, like the mode route, so a fresh chat can start
+    in plan mode before its first message. Turning it on is refused where the
+    chat cannot show a plan, or the chat model measured below the floor.
+    """
+    try:
+        from backend.models import LLMSession, db
+        from backend.services.plan_mode import active_chat_model, availability, plan_mode_supported
+
+        body = request.get_json(silent=True) or {}
+        if not isinstance(body.get("on"), bool):
+            return jsonify({"success": False, "error": "on must be true or false"}), 400
+        on = body["on"]
+        session = db.session.get(LLMSession, session_id)
+        if on:
+            if not plan_mode_supported(session_id):
+                return jsonify({"success": False, "error": "Plan mode needs a chat that can show a plan for approval."}), 409
+            available, reason = availability(active_chat_model())
+            if not available:
+                return jsonify({"success": False, "error": reason}), 409
+        if session is None:
+            session = LLMSession(id=session_id, user="default", plan_mode=on)
+            db.session.add(session)
+        else:
+            session.plan_mode = on
+        db.session.commit()
+        logger.info(f"[CHAT-SESSION] {session_id[:12]} plan mode → {'on' if on else 'off'}")
+        return jsonify({"success": True, "session_id": session_id, **_plan_mode_state(session_id, session)})
+    except Exception as e:
+        logger.error(f"set_plan_mode failed for {session_id}: {e}")
+        try:
+            from backend.models import db
+            db.session.rollback()
+        except Exception:
+            pass
         return jsonify({"success": False, "error": str(e)}), 500
 
 

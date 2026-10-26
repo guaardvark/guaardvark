@@ -128,7 +128,9 @@ def _project_root_dir(value) -> str | None:
 
 def _merge_session_mode_options(session_id: str, options: dict | None) -> dict:
     """Merge persisted session mode into per-request routing options."""
-    merged = dict(options or {})
+    from backend.services.plan_mode import SERVER_ONLY_OPTIONS, default_plan_mode, plan_mode_supported
+
+    merged = {k: v for k, v in (options or {}).items() if k not in SERVER_ONLY_OPTIONS}
     client_agent_screen_active = bool(merged.get("agent_screen_active", False))
     merged["agent_screen_active"] = client_agent_screen_active
 
@@ -140,6 +142,13 @@ def _merge_session_mode_options(session_id: str, options: dict | None) -> dict:
         merged["session_mode"] = session_mode
         if session_mode == "agent":
             merged["agent_screen_active"] = True
+        if session is None and default_plan_mode() and plan_mode_supported(session_id):
+            # "Start new chats in plan mode": the row is made now so the
+            # setting holds for every turn of the chat, not just its first.
+            session = LLMSession(id=session_id, user="default", plan_mode=True)
+            db.session.add(session)
+            db.session.commit()
+        merged["plan_mode"] = bool(session is not None and session.plan_mode)
     except Exception as exc:
         logger.warning(
             "[UNIFIED_CHAT] Failed to load session mode for %s: %s",
@@ -397,6 +406,11 @@ def direct_tool_sync():
     _too_long = session_id_refusal(session_id)
     if _too_long:
         return jsonify({"error": _too_long}), 400
+    from backend.services.plan_mode import plan_mode_refusal
+    _registry = getattr(getattr(current_app, "brain_state", None), "tool_registry", None)
+    _planning = plan_mode_refusal(session_id, tool_name, _registry)
+    if _planning:
+        return jsonify({"success": False, "error": _planning, "plan_mode": True}), 409
 
     # Sanitize image prompts at the API boundary so CLI /imagine and browser
     # direct-tool share the same pure-visual text (and never hit NameError on

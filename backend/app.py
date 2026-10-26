@@ -1398,6 +1398,8 @@ try:
                 ("websites", "local_path", "ALTER TABLE websites ADD COLUMN IF NOT EXISTS local_path VARCHAR(2048)"),
                 # A project's folder on disk, read in place by its chats.
                 ("projects", "root_path", "ALTER TABLE projects ADD COLUMN IF NOT EXISTS root_path VARCHAR(2048)"),
+                # Plan mode (2026-10-26): research first, act after an approved plan.
+                ("llm_sessions", "plan_mode", "ALTER TABLE llm_sessions ADD COLUMN IF NOT EXISTS plan_mode BOOLEAN NOT NULL DEFAULT FALSE"),
                 # Autoresearch 2.0 (2026-08-10): honest eval pairs + experiment
                 # provenance + candidate/promoted config lifecycle.
                 ("eval_pairs", "is_active", "ALTER TABLE eval_pairs ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"),
@@ -1610,6 +1612,13 @@ try:
                         _stale_runs)
             except Exception as e:
                 app.logger.warning("[SELF-IMPROVEMENT] stale run recovery failed: %s", e)
+
+            # ---- Plan runs a restart cut short --------------------------------------
+            # Server only: plan runs live on the server's chat threads. They are
+            # paused, never resumed on their own; the person continues them.
+            if os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true":
+                from backend.services.plan_executor import sweep_interrupted
+                sweep_interrupted(app)
 
             # ---- Documents left INDEXING with nothing indexing them ---------------
             # Server only: Celery workers build this app too, and the worker

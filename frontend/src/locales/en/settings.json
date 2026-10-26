@@ -172,7 +172,10 @@
   "chat": {
     "thinkingOn": "Thinking on by default: thinking models reason step by step (slower). Use /thinking off per chat.",
     "thinkingOff": "Thinking off by default: faster replies. Use /thinking on per chat.",
-    "thinkingFailed": "Failed to update Chat thinking setting"
+    "thinkingFailed": "Failed to update Chat thinking setting",
+    "planModeOn": "New chats start in plan mode",
+    "planModeOff": "New chats start without plan mode",
+    "planModeFailed": "Could not save the plan mode setting"
   },
   "embedding": {
     "notRebuilt": "Not rebuilt automatically: {{items}}",
@@ -309,6 +312,8 @@
     "rulesTooltip": "Persona and behaviour rules from the Rules page. Off swaps them for a plain built-in prompt.",
     "thinking": "Chat thinking",
     "thinkingTooltip": "Default for thinking models. Per chat: /thinking on or off.",
+    "planMode": "Plan mode",
+    "planModeTooltip": "Start new chats in plan mode: look into each request first, and change nothing until you approve a plan. /plan switches it per chat.",
     "webAccess": "Web access",
     "webAccessTooltip": "Lets the web, browser and address tools reach the internet.",
     "voiceChat": "Voice chat",

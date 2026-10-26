@@ -1022,6 +1022,9 @@ class LLMSession(db.Model):
     mode = db.Column(
         db.String(20), nullable=False, default="chat", server_default="chat"
     )
+    # Plan mode, independent of chat/agent mode: research with read-only
+    # tools, then act only on a plan the person approved (ChatPlan).
+    plan_mode = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     created_at = db.Column(db.DateTime, default=lambda: datetime.now())
     messages = db.relationship(
         "LLMMessage", backref="session", lazy="dynamic", cascade="all, delete-orphan"
@@ -3857,6 +3860,80 @@ class WebsitePage(db.Model):
         if include_content:
             out["content"] = self.content
         return out
+
+
+class ChatPlan(db.Model):
+    """One revision of a plan written in plan mode, and how its run went.
+
+    A plan waits for the person (awaiting_approval) and then runs step by
+    step (executing). A revision supersedes the one before it; a run ends
+    done, or paused when a step failed, was stopped or the backend restarted.
+    Approving is an atomic status change, so two tabs cannot run one plan twice.
+    """
+    __tablename__ = "chat_plans"
+    id = db.Column(db.String(32), primary_key=True)
+    session_id = db.Column(
+        db.String(36),
+        db.ForeignKey("llm_sessions.id", name="fk_chatplan_session_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    project_id = db.Column(db.Integer, nullable=True)
+    parent_id = db.Column(db.String(32), nullable=True)
+    revision = db.Column(db.Integer, nullable=False, default=1)
+    # awaiting_approval | superseded | rejected | executing | paused | done
+    status = db.Column(db.String(24), nullable=False, default="awaiting_approval", index=True)
+    # step_failed | stopped | interrupted, while status is paused
+    paused_reason = db.Column(db.String(24), nullable=True)
+    objective = db.Column(db.Text, nullable=False)
+    goal = db.Column(db.Text, nullable=True)
+    # [{index, title, action, kind, tools, done_when, route, status, summary, error, request_id}]
+    steps = db.Column(db.JSON, nullable=False, default=list)
+    checks = db.Column(db.JSON, nullable=False, default=list)
+    risks = db.Column(db.JSON, nullable=False, default=list)
+    questions = db.Column(db.JSON, nullable=False, default=list)
+    warnings = db.Column(db.JSON, nullable=False, default=list)
+    markdown = db.Column(db.Text, nullable=True)
+    # Saved picture URLs the objective came with, so a step can use them after
+    # the approval wait.
+    attachments = db.Column(db.JSON, nullable=False, default=list)
+    options = db.Column(db.JSON, nullable=False, default=dict)
+    # ask | allow_plan_tools
+    approval_mode = db.Column(db.String(24), nullable=True)
+    granted_tools = db.Column(db.JSON, nullable=False, default=list)
+    model = db.Column(db.String(160), nullable=True)
+    wording_sha = db.Column(db.String(16), nullable=True)
+    # schema | json | repair | list | user_edit
+    compose_path = db.Column(db.String(16), nullable=True)
+    research = db.Column(db.JSON, nullable=False, default=dict)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+    approved_at = db.Column(db.DateTime, nullable=True)
+    finished_at = db.Column(db.DateTime, nullable=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "session_id": self.session_id,
+            "parent_id": self.parent_id,
+            "revision": self.revision,
+            "status": self.status,
+            "paused_reason": self.paused_reason,
+            "objective": self.objective,
+            "goal": self.goal,
+            "steps": list(self.steps or []),
+            "checks": list(self.checks or []),
+            "risks": list(self.risks or []),
+            "questions": list(self.questions or []),
+            "warnings": list(self.warnings or []),
+            "markdown": self.markdown,
+            "approval_mode": self.approval_mode,
+            "granted_tools": list(self.granted_tools or []),
+            "model": self.model,
+            "compose_path": self.compose_path,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "approved_at": self.approved_at.isoformat() if self.approved_at else None,
+            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
+        }
 
 
 class SuspendedChatState(db.Model):

@@ -204,6 +204,7 @@ const SettingsPage = () => {
   // Global default for chain-of-thought on thinking models (gemma4:12b, qwen3).
   // Off = faster chat; per-chat /thinking on|off overrides. Backend authoritative.
   const [chatThinkingDefault, setChatThinkingDefaultState] = useState(false);
+  const [planModeDefault, setPlanModeDefaultState] = useState(false);
   const [appVersion, setAppVersion] = useState("");
 
   function getInitialWebSearch() {
@@ -1326,6 +1327,10 @@ const SettingsPage = () => {
       }
     };
     fetchChatThinkingDefault();
+    apiService.getPlanModeDefault().then((result) => {
+      const enabled = result?.data?.plan_mode_default ?? result?.plan_mode_default;
+      if (typeof enabled === "boolean") setPlanModeDefaultState(enabled);
+    });
   }, []);
 
   useEffect(() => {
@@ -2137,6 +2142,17 @@ const SettingsPage = () => {
       setChatThinkingDefaultState(!next);
       showMessage(t("settings.chat.thinkingFailed"), "error");
     }
+  };
+
+  const handlePlanModeDefaultToggle = async (next) => {
+    setPlanModeDefaultState(next);
+    const result = await apiService.setPlanModeDefault(next);
+    if (result?.error) {
+      setPlanModeDefaultState(!next);
+      showMessage(t("settings.chat.planModeFailed"), "error");
+      return;
+    }
+    showMessage(next ? t("settings.chat.planModeOn") : t("settings.chat.planModeOff"), "info");
   };
 
   // Asks first (ConfirmActionDialog below); switchEmbedding runs on confirm.
@@ -3000,6 +3016,12 @@ const SettingsPage = () => {
             on={chatThinkingDefault}
             onToggle={handleChatThinkingToggle}
             tooltip={t("settings.chatPanel.thinkingTooltip")}
+          />
+          <SettingChip
+            label={t("settings.chatPanel.planMode")}
+            on={planModeDefault}
+            onToggle={handlePlanModeDefaultToggle}
+            tooltip={t("settings.chatPanel.planModeTooltip")}
           />
           <SettingChip
             label={t("settings.chatPanel.webAccess")}

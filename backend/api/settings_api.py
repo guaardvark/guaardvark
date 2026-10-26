@@ -524,6 +524,33 @@ def set_rules_enabled():
     return success_response({"rules_enabled": enabled})
 
 
+@settings_bp.route("/plan_mode_default", methods=["GET"])
+def get_plan_mode_default():
+    """Whether new chats start in plan mode (research first, act on an
+    approved plan). Per-chat /plan overrides it. Default: off."""
+    from backend.services.plan_mode import default_plan_mode
+    return success_response({"plan_mode_default": default_plan_mode()})
+
+
+@settings_bp.route("/plan_mode_default", methods=["POST"])
+def set_plan_mode_default():
+    if not request.is_json:
+        return error_response("Request must be JSON")
+    enabled = bool(request.get_json().get("plan_mode_default"))
+    try:
+        setting = db.session.get(Setting, "plan_mode_default")
+        if setting:
+            setting.value = "true" if enabled else "false"
+        else:
+            db.session.add(Setting(key="plan_mode_default", value="true" if enabled else "false"))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to update plan_mode_default setting: {e}", exc_info=True)
+        return error_response("Could not save the setting", 500)
+    return success_response({"plan_mode_default": enabled})
+
+
 @settings_bp.route("/chat_thinking_default", methods=["GET"])
 def get_chat_thinking_default():
     """Global default for whether thinking-capable models (gemma4:12b, qwen3, ...)
