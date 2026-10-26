@@ -59,12 +59,7 @@ def test_backend_routes_are_found_under_any_parent(tmp_path, parent):
     assert [r["path"] for r in routes] == ["/api/things/list"]
 
 
-def test_codebase_map_file_count_matches_under_a_data_parent(tmp_path, monkeypatch):
-    from backend.services.system_mapper import tool_graph
-
-    # The tool-graph pass imports the real tool registry in a subprocess; the
-    # file count under test does not depend on it.
-    monkeypatch.setattr(tool_graph, "analyze", lambda root, extra: {"graph": {}, "findings": [], "stats": {}})
+def test_codebase_map_file_count_matches_under_a_data_parent(tmp_path):
     plain = codebase_map(_tree(tmp_path / "plain"))
     under_data = codebase_map(_tree(tmp_path / "data"))
     assert plain.file_count == under_data.file_count == 4

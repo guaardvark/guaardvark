@@ -35,7 +35,8 @@ def to_markdown(smap: SystemMap, path: str | Path) -> Path:
     lines.append("| Metric | Value |")
     lines.append("|---|---:|")
     lines.append(f"| Modules | {smap.stats.get('dependency', {}).get('modules', 0)} |")
-    lines.append(f"| Internal import edges | {smap.stats.get('dependency', {}).get('internal_edges', 0)} |")
+    lines.append(f"| Import edges at load time | {smap.stats.get('dependency', {}).get('internal_edges', 0)} |")
+    lines.append(f"| Import edges inside functions | {smap.stats.get('dependency', {}).get('lazy_edges', 0)} |")
     lines.append(f"| Import cycles | {smap.stats.get('dependency', {}).get('cycles', 0)} |")
     lines.append(f"| Backend routes | {smap.stats.get('reachability', {}).get('backend_routes', 0)} |")
     lines.append(f"| Frontend API callers | {smap.stats.get('reachability', {}).get('frontend_callers', 0)} |")
@@ -44,8 +45,8 @@ def to_markdown(smap: SystemMap, path: str | Path) -> Path:
     lines.append(f"| URL prefix collisions | {smap.stats.get('reachability', {}).get('prefix_collisions', 0)} |")
     if smap.stats.get('tool', {}).get('applicable'):
         lines.append(f"| LLM tools registered | {smap.stats['tool']['registered_count']} |")
-        lines.append(f"| Wired into CORE_TOOLS | {smap.stats['tool']['wired_count']} |")
-        lines.append(f"| Registered but unwired | {smap.stats['tool']['unwired_count']} |")
+        lines.append(f"| Reachable by the chat or MCP | {smap.stats['tool']['wired_count']} |")
+        lines.append(f"| Registered but unreachable | {smap.stats['tool']['unwired_count']} |")
     lines.append("")
 
     # Findings by severity
@@ -119,12 +120,12 @@ def to_markdown(smap: SystemMap, path: str | Path) -> Path:
         wired = smap.tool_graph.get("wired", [])
         unwired = smap.tool_graph.get("unwired", [])
         unregistered = smap.tool_graph.get("unregistered", [])
-        lines.append(f"**Wired ({len(wired)}):** " + ", ".join(f"`{t}`" for t in wired[:30]))
+        lines.append(f"**Reachable ({len(wired)}):** " + ", ".join(f"`{t}`" for t in wired[:30]))
         if len(wired) > 30:
             lines.append(f"… and {len(wired) - 30} more")
         lines.append("")
         if unwired:
-            lines.append(f"**Unwired ({len(unwired)}):** " + ", ".join(f"`{t}`" for t in unwired))
+            lines.append(f"**Unreachable ({len(unwired)}):** " + ", ".join(f"`{t}`" for t in unwired))
             lines.append("")
         if unregistered:
             lines.append(f"**Listed but unregistered ({len(unregistered)}):** " + ", ".join(f"`{t}`" for t in unregistered))

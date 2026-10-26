@@ -15,18 +15,19 @@ Design contract (mirrors the sibling analyzers):
   * `analyze(root, extra_excludes=...) -> {"graph", "findings", "stats"}`.
   * Never raises. Any internal failure degrades to an empty result + a note in
     stats; the dormant-suppression simply does nothing.
-  * Purely static (AST + json). No imports of the live app, no subprocess.
+  * Purely static (the per-file facts + json). No imports of the live app, no
+    subprocess.
 
 It emits NO new findings of its own — its whole job is to REDUCE false-positive
 dormant findings. (`graph["dynamic_modules"]` is the payload other analyzers read.)
 """
 from __future__ import annotations
 
-import ast
 import json
 from pathlib import Path
 from typing import Any
 
+from . import facts as facts_mod
 from .core import source_files
 
 
@@ -38,57 +39,56 @@ def _module_name(rel: Path) -> str:
     return ".".join(parts)
 
 
+def _python_facts(root: Path, extra_excludes: frozenset[str], corpus=None, under: Path | None = None):
+    """(relative path, facts) for each surveyed Python file, from the corpus
+    when one is given, else from the per-file facts cache."""
+    if corpus is not None:
+        prefix = "" if under is None else under.relative_to(corpus.root).as_posix() + "/"
+        for rel in corpus.python_files():
+            if rel.startswith(prefix):
+                yield Path(rel), corpus.facts[rel]
+        return
+    for py in source_files(root, extra_excludes, pattern="*.py", under=under):
+        try:
+            rel = py.relative_to(root)
+        except ValueError:
+            continue
+        f = facts_mod.file_facts(py, rel.as_posix())
+        if f is not None and f.get("error") is None:
+            yield rel, f
+
+
 # ── Celery task-name strings ─────────────────────────────────────────────────
 
-def _is_task_decorator(dec: ast.expr) -> bool:
-    """True for @shared_task, @celery_app.task, @app.task, @task (with/without call)."""
-    target = dec.func if isinstance(dec, ast.Call) else dec
-    if isinstance(target, ast.Name):
-        return target.id in ("shared_task", "task")
-    if isinstance(target, ast.Attribute):
-        return target.attr in ("task", "shared_task", "periodic_task")
-    return False
+def celery_tasks(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=None) -> list[dict]:
+    """Every Celery task the source defines: {name, module, file, function, line}.
+
+    ``name`` is the explicit ``name=`` when given, else Celery's default,
+    ``<module>.<function>``."""
+    out: list[dict] = []
+    for rel, f in _python_facts(root, extra_excludes, corpus):
+        mod = _module_name(rel)
+        for t in f.get("tasks", []):
+            name = t.get("name") or (f"{mod}.{t['function']}" if t.get("function") else None)
+            if not name:
+                continue
+            out.append({"name": name, "module": mod, "file": rel.as_posix(),
+                        "function": t.get("function"), "line": t.get("line")})
+    return out
 
 
-def _celery_task_modules(root: Path, extra_excludes: frozenset[str]) -> set[str]:
+def _celery_task_modules(root: Path, extra_excludes: frozenset[str], corpus=None) -> set[str]:
     """Modules that define a Celery task (decorated def OR a `name="..."` registration).
 
     A module that registers a task is reachable: Celery beat / the broker invoke
     it by task-name string, never via Python import from another of our modules.
     """
-    reached: set[str] = set()
-    for py in source_files(root, extra_excludes, pattern="*.py"):
-        try:
-            rel = py.relative_to(root)
-        except ValueError:
-            continue
-        try:
-            tree = ast.parse(py.read_text(encoding="utf-8", errors="ignore"))
-        except Exception:
-            continue
-        mod = _module_name(rel)
-        found = False
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if any(_is_task_decorator(d) for d in node.decorator_list):
-                    found = True
-                    break
-            # Factory-registration: `celery_app.task(name="x")(fn)` as a call.
-            if isinstance(node, ast.Call) and _is_task_decorator(node):
-                for kw in node.keywords:
-                    if kw.arg == "name" and isinstance(kw.value, ast.Constant):
-                        found = True
-                        break
-            if found:
-                break
-        if found:
-            reached.add(mod)
-    return reached
+    return {t["module"] for t in celery_tasks(root, extra_excludes, corpus)}
 
 
 # ── Flask blueprint auto-registration ────────────────────────────────────────
 
-def _blueprint_modules(root: Path, extra_excludes: frozenset[str]) -> set[str]:
+def _blueprint_modules(root: Path, extra_excludes: frozenset[str], corpus=None) -> set[str]:
     """Modules defining a Flask Blueprint, plus auto-discovered backend/api/*_api.py.
 
     Blueprints are wired by the app factory at boot (auto_register_blueprints
@@ -96,33 +96,12 @@ def _blueprint_modules(root: Path, extra_excludes: frozenset[str]) -> set[str]:
     graph points at them, so they look dormant. They are not.
     """
     reached: set[str] = set()
-    for py in source_files(root, extra_excludes, pattern="*.py"):
-        try:
-            rel = py.relative_to(root)
-        except ValueError:
-            continue
-        rel_str = str(rel).replace("\\", "/")
-        try:
-            tree = ast.parse(py.read_text(encoding="utf-8", errors="ignore"))
-        except Exception:
-            continue
-        mod = _module_name(rel)
-
-        # Any module under backend/api/ that ends in _api.py is auto-discovered.
+    for rel, f in _python_facts(root, extra_excludes, corpus):
+        rel_str = rel.as_posix()
         if "backend/api/" in rel_str and rel.name.endswith("_api.py"):
-            reached.add(mod)
-            continue
-
-        # Otherwise: does it construct a Blueprint(...) ? Then it's reached by
-        # register_blueprint at boot.
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                func = node.func
-                fname = (func.id if isinstance(func, ast.Name)
-                         else func.attr if isinstance(func, ast.Attribute) else None)
-                if fname == "Blueprint":
-                    reached.add(mod)
-                    break
+            reached.add(_module_name(rel))
+        elif f.get("blueprint"):
+            reached.add(_module_name(rel))
     return reached
 
 
@@ -155,57 +134,40 @@ def _plugin_declared_modules(root: Path) -> set[str]:
 
 # ── MCP / LLM tool tables ─────────────────────────────────────────────────────
 
-def _tool_modules(root: Path, extra_excludes: frozenset[str]) -> set[str]:
+def _tool_modules(root: Path, extra_excludes: frozenset[str], corpus=None) -> set[str]:
     """Modules under backend/tools/ that define a tool class (a class with a
     class-level `name = "..."`). Tools are dispatched by string name through the
     registry (chat engine + MCP tools_adapter), not imported by callers.
     """
-    reached: set[str] = set()
     tools_root = root / "backend" / "tools"
     if not tools_root.is_dir():
-        return reached
-    for py in source_files(root, extra_excludes, pattern="*.py", under=tools_root):
-        try:
-            rel = py.relative_to(root)
-        except ValueError:
-            continue
-        try:
-            tree = ast.parse(py.read_text(encoding="utf-8", errors="ignore"))
-        except Exception:
-            continue
-        defines_tool = False
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
-                for stmt in node.body:
-                    if isinstance(stmt, ast.Assign):
-                        for tgt in stmt.targets:
-                            if (isinstance(tgt, ast.Name) and tgt.id == "name"
-                                    and isinstance(stmt.value, ast.Constant)
-                                    and isinstance(stmt.value.value, str)):
-                                defines_tool = True
-                                break
-                if defines_tool:
-                    break
-        if defines_tool:
-            reached.add(_module_name(rel))
-    return reached
+        return set()
+    return {_module_name(rel) for rel, f in _python_facts(root, extra_excludes, corpus, under=tools_root)
+            if f.get("tool_classes")}
 
 
-def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[str, Any]:
+def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=None) -> dict[str, Any]:
     """Compute the set of modules reached only via dynamic dispatch. Never raises.
 
-    Returns {"graph": {"dynamic_modules": [...], "by_source": {...}},
+    Returns {"graph": {"dynamic_modules": [...], "by_source": {...},
+                       "celery_tasks": [...]},
              "findings": [], "stats": {...}}.
     """
+    root = Path(root).resolve()
     stats: dict[str, Any] = {"applicable": True}
     by_source: dict[str, list[str]] = {}
     dynamic: set[str] = set()
+    tasks: list[dict] = []
+    try:
+        tasks = celery_tasks(root, extra_excludes, corpus)
+    except Exception as exc:  # never raises out of analyze()
+        stats["celery_task_error"] = repr(exc)
 
     for label, fn in (
-        ("celery_task", lambda: _celery_task_modules(root, extra_excludes)),
-        ("blueprint", lambda: _blueprint_modules(root, extra_excludes)),
+        ("celery_task", lambda: {t["module"] for t in tasks}),
+        ("blueprint", lambda: _blueprint_modules(root, extra_excludes, corpus)),
         ("plugin_json", lambda: _plugin_declared_modules(root)),
-        ("tool", lambda: _tool_modules(root, extra_excludes)),
+        ("tool", lambda: _tool_modules(root, extra_excludes, corpus)),
     ):
         try:
             found = fn()
@@ -218,10 +180,13 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[st
     stats["dynamic_module_count"] = len(dynamic)
     stats["by_source_counts"] = {k: len(v) for k, v in by_source.items()}
 
+    stats["celery_tasks"] = len(tasks)
+
     return {
         "graph": {
             "dynamic_modules": sorted(dynamic),
             "by_source": by_source,
+            "celery_tasks": tasks,
         },
         # This analyzer never emits findings — its purpose is to SUPPRESS
         # false-positive dormant findings, not add new ones.

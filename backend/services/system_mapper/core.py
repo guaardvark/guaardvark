@@ -1,8 +1,10 @@
 """SystemMap data model + codebase_map() orchestrator.
 
-The SystemMap is the canonical output: three sub-graphs (dependency, reachability,
-tool) plus a flat list of Findings that downstream consumers (self-improvement,
-LLM agent context, human readers) can iterate.
+The SystemMap is the canonical output: the import graph (load-time and
+inside-function edges), per-module metadata, reachability between frontend and
+backend, the tool inventory, Celery tasks and subsystems, plus a flat list of
+Findings that downstream consumers (self-improvement, the chat model, human
+readers) can iterate.
 """
 from __future__ import annotations
 
@@ -30,10 +32,10 @@ class FindingKind(str, Enum):
     GHOST_API_CALLER = "ghost-api-caller"      # frontend fetch, no backend route
     IMPORT_CYCLE = "import-cycle"
     OVER_COUPLED = "over-coupled"              # module appears in many cycles
-    UNWIRED_TOOL = "unwired-tool"              # registered, not in CORE_TOOLS
-    UNREGISTERED_TOOL = "unregistered-tool"    # in CORE_TOOLS, not registered
+    UNWIRED_TOOL = "unwired-tool"              # registered, nothing in chat can offer it
+    UNREGISTERED_TOOL = "unregistered-tool"    # named in a tool list, not registered
     UNTESTED_MODULE = "untested-module"
-    DORMANT_MODULE = "dormant-module"          # no static importers
+    DORMANT_MODULE = "dormant-module"          # nothing outside tests imports or starts it
     BACKUP_ARTIFACT = "backup-artifact"        # .BACK / __BACKUP / _BACK files
     DEAD_SYMBOL = "dead-symbol"                # function defined, statically referenced nowhere
     # B4: liveness-consensus kinds. NONE of these are dispatchable (see
@@ -42,6 +44,7 @@ class FindingKind(str, Enum):
     RUNTIME_ZOMBIE = "runtime-zombie"          # statically reachable but not fired in N days
     HOT_PATH_SPIKE = "hot-path-spike"          # unusually high recent hit rate
     CONTEXTUAL_DISCOVERY = "contextual-discovery"  # fired at runtime but no static importer
+    NO_SUBSYSTEM = "no-subsystem"              # source files subsystems.json does not claim
 
 
 @dataclass
@@ -55,10 +58,18 @@ class Finding:
 
     def fingerprint(self) -> str:
         """Stable id across re-runs: same defect → same id, so dismissals and
-        dispatched-task state survive re-analysis. Independent of severity (which
-        may be re-tuned) and of path ordering."""
+        dispatched-task state survive re-analysis.
+
+        Built from the kind, the paths (in any order) and ``evidence["key"]``,
+        the analyzer's name for the defect (a route, a tool, a module). The
+        summary is not part of it: summaries carry counts ("participates in 7
+        cycles") that change while the defect stays the same. A finding
+        without a key falls back to its summary. Severity is never part of
+        it, so re-tuning severities keeps ids."""
         import hashlib
-        basis = "|".join([self.kind.value, self.summary, *sorted(self.paths)])
+        key = self.evidence.get("key") if isinstance(self.evidence, dict) else None
+        stable = f"key:{key}" if key is not None else self.summary
+        basis = "|".join([self.kind.value, stable, *sorted(self.paths)])
         return hashlib.sha1(basis.encode()).hexdigest()[:16]
 
     def to_dict(self) -> dict:
@@ -78,16 +89,23 @@ class SystemMap:
     file_count: int                                       # source files surveyed
 
     # Sub-graphs (each module is responsible for its own data shape)
-    dependency_graph: dict = field(default_factory=dict)
-    node_meta: dict = field(default_factory=dict)   # module -> {lifecycle, importers, path}
+    dependency_graph: dict = field(default_factory=dict)  # module -> modules it imports at load time
+    lazy_imports: dict = field(default_factory=dict)      # module -> modules it imports inside functions
+    node_meta: dict = field(default_factory=dict)   # module -> {path, lang, lifecycle, importers, subsystem, ...}
     reachability: dict = field(default_factory=dict)
     tool_graph: dict = field(default_factory=dict)
+    celery_tasks: list = field(default_factory=list)      # [{name, module, file, function, line}]
+    subsystems: dict = field(default_factory=dict)        # {name: {description, files, ...}}
 
     # Flat findings — the bridge to self-improvement
     findings: list[Finding] = field(default_factory=list)
 
     # Stats — useful for the markdown report header
     stats: dict = field(default_factory=dict)
+
+    # The query layer's index (index.build); kept out of to_dict(), which is
+    # what the page and the findings feed load.
+    index: dict | None = field(default=None, repr=False, compare=False)
 
     def findings_by_severity(self) -> dict[str, list[Finding]]:
         out: dict[str, list[Finding]] = {s.value: [] for s in Severity}
@@ -102,9 +120,12 @@ class SystemMap:
             "languages": self.languages,
             "file_count": self.file_count,
             "dependency_graph": self.dependency_graph,
+            "lazy_imports": self.lazy_imports,
             "node_meta": self.node_meta,
             "reachability": self.reachability,
             "tool_graph": self.tool_graph,
+            "celery_tasks": self.celery_tasks,
+            "subsystems": self.subsystems,
             "findings": [f.to_dict() for f in self.findings],
             "stats": self.stats,
         }
@@ -281,13 +302,20 @@ def _path_to_module(rel_str: str) -> str:
 def codebase_map(
     root_path: str | Path,
     extra_excludes: frozenset[str] = frozenset(),
+    *,
+    with_index: bool = False,
 ) -> SystemMap:
     """Generate a SystemMap for the codebase at root_path.
 
-    Imports each analyzer locally so a failure in one doesn't break the others —
-    self-improvement consumers want partial results when one analyzer chokes.
+    The tree is listed and each file read once (corpus.Corpus); every analyzer
+    works from those facts. Each analyzer runs under its own guard so a
+    failure in one doesn't break the others — consumers want partial results
+    when one analyzer chokes. With ``with_index`` the symbol, call and route
+    index the query layer reads is attached as ``smap.index`` (not part of
+    ``to_dict()``).
     """
-    from . import dependency_graph, reachability, tool_graph, dead_symbol, dispatch_graph
+    from . import dependency_graph, reachability, tool_graph, dead_symbol, dispatch_graph, subsystems
+    from .corpus import Corpus
 
     root = Path(root_path).resolve()
     if not root.is_dir():
@@ -300,23 +328,33 @@ def codebase_map(
         file_count=0,
         stats={},
     )
+    timings: dict[str, float] = {}
+
+    t0 = time.perf_counter()
+    corpus = Corpus.build(root, extra_excludes)
+    timings["read"] = time.perf_counter() - t0
 
     # 0. Dynamic-dispatch graph (B3): which modules are reached only by string-keyed
     #    dispatch (Celery task names, blueprint auto-reg, plugin.json, tool tables).
     #    Used to suppress false-positive dormant findings. Never raises.
     dynamic_modules: set[str] = set()
+    t0 = time.perf_counter()
     try:
-        dispatch_result = dispatch_graph.analyze(root, extra_excludes)
+        dispatch_result = dispatch_graph.analyze(root, extra_excludes, corpus=corpus)
         dynamic_modules = set(dispatch_result["graph"].get("dynamic_modules", []))
+        smap.celery_tasks = dispatch_result["graph"].get("celery_tasks", [])
         smap.stats["dispatch"] = dispatch_result["stats"]
     except Exception as e:
         smap.stats["dispatch"] = {"error": str(e)}
+    timings["dispatch"] = time.perf_counter() - t0
 
-    # 1. Dependency graph (cheapest, must run first — others may use its file list)
+    # 1. Dependency graph
+    t0 = time.perf_counter()
     try:
         dep_result = dependency_graph.analyze(root, extra_excludes,
-                                              dynamic_modules=dynamic_modules)
+                                              dynamic_modules=dynamic_modules, corpus=corpus)
         smap.dependency_graph = dep_result["graph"]
+        smap.lazy_imports = dep_result.get("lazy_graph", {})
         smap.node_meta = dep_result.get("node_meta", {})
         smap.findings.extend(dep_result["findings"])
         smap.file_count = dep_result["file_count"]
@@ -326,23 +364,14 @@ def codebase_map(
             kind=FindingKind.IMPORT_CYCLE,
             severity=Severity.INFO,
             summary=f"dependency_graph analyzer failed: {e}",
+            evidence={"key": "analyzer-error"},
         ))
-
-    # 1b. Belt-and-suspenders: even if a dependency_graph version didn't accept the
-    #     dynamic set, post-filter dormant findings for dynamically-reached modules.
-    if dynamic_modules:
-        kept: list[Finding] = []
-        for f in smap.findings:
-            if f.kind == FindingKind.DORMANT_MODULE:
-                mod = _path_to_module(f.paths[0]) if f.paths else None
-                if mod and mod in dynamic_modules:
-                    continue
-            kept.append(f)
-        smap.findings = kept
+    timings["dependency"] = time.perf_counter() - t0
 
     # 2. Reachability (frontend ↔ backend)
+    t0 = time.perf_counter()
     try:
-        reach_result = reachability.analyze(root, extra_excludes)
+        reach_result = reachability.analyze(root, extra_excludes, corpus=corpus)
         smap.reachability = reach_result["graph"]
         smap.findings.extend(reach_result["findings"])
         smap.stats["reachability"] = reach_result["stats"]
@@ -351,11 +380,14 @@ def codebase_map(
             kind=FindingKind.GHOST_ENDPOINT,
             severity=Severity.INFO,
             summary=f"reachability analyzer failed: {e}",
+            evidence={"key": "analyzer-error"},
         ))
+    timings["reachability"] = time.perf_counter() - t0
 
     # 3. Tool graph (Guaardvark-specific; gracefully no-ops elsewhere)
+    t0 = time.perf_counter()
     try:
-        tool_result = tool_graph.analyze(root, extra_excludes)
+        tool_result = tool_graph.analyze(root, extra_excludes, corpus=corpus)
         smap.tool_graph = tool_result["graph"]
         smap.findings.extend(tool_result["findings"])
         smap.stats["tool"] = tool_result["stats"]
@@ -364,12 +396,15 @@ def codebase_map(
             kind=FindingKind.UNWIRED_TOOL,
             severity=Severity.INFO,
             summary=f"tool_graph analyzer failed: {e}",
+            evidence={"key": "analyzer-error"},
         ))
+    timings["tool"] = time.perf_counter() - t0
 
     # 4. Dead-symbol (function-level static dead-code; advisory only, NEVER
     #    auto-dispatched — see DISPATCHABLE_KINDS, deliberately excludes this kind).
+    t0 = time.perf_counter()
     try:
-        dead_result = dead_symbol.analyze(root, extra_excludes)
+        dead_result = dead_symbol.analyze(root, extra_excludes, corpus=corpus)
         smap.findings.extend(dead_result["findings"])
         smap.stats["dead_symbol"] = dead_result["stats"]
     except Exception as e:
@@ -377,6 +412,27 @@ def codebase_map(
             kind=FindingKind.DEAD_SYMBOL,
             severity=Severity.INFO,
             summary=f"dead_symbol analyzer failed: {e}",
+            evidence={"key": "analyzer-error"},
         ))
+    timings["dead_symbol"] = time.perf_counter() - t0
 
+    # 5. Subsystems: the named areas of the product, from the mapped tree's
+    #    own subsystems.json. Files no subsystem claims are reported.
+    t0 = time.perf_counter()
+    try:
+        sub_result = subsystems.analyze(corpus, smap.node_meta)
+        smap.subsystems = sub_result["graph"]
+        smap.findings.extend(sub_result["findings"])
+        smap.stats["subsystems"] = sub_result["stats"]
+    except Exception as e:
+        smap.stats["subsystems"] = {"error": str(e)}
+    timings["subsystems"] = time.perf_counter() - t0
+
+    if with_index:
+        from . import index as index_mod
+        t0 = time.perf_counter()
+        smap.index = index_mod.build(corpus, smap)
+        timings["index"] = time.perf_counter() - t0
+
+    smap.stats["timings_s"] = {k: round(v, 3) for k, v in timings.items()}
     return smap

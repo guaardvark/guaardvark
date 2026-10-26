@@ -32,11 +32,10 @@ Algorithm:
 """
 from __future__ import annotations
 
-import ast
-from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+from . import facts as facts_mod
 from .core import Finding, FindingKind, Severity, source_files
 
 # Cap so a pathological repo can't flood the findings list.
@@ -67,125 +66,26 @@ _FRAMEWORK_METHODS: frozenset[str] = frozenset({
 })
 
 
-class _DefCollector(ast.NodeVisitor):
-    """Collect top-level and class-level def/async-def names, recording for each
-    whether it is decorated and whether it is a class method (vs module-level)."""
-
-    def __init__(self) -> None:
-        # name -> dict(decorated: bool, is_method: bool)
-        self.defs: dict[str, dict[str, bool]] = {}
-
-    def _record(self, node, is_method: bool) -> None:
-        meta = self.defs.setdefault(
-            node.name, {"decorated": False, "is_method": False}
-        )
-        if node.decorator_list:
+def _module_defs(f: dict) -> dict[str, dict[str, bool]]:
+    """{name: {decorated, is_method}} for a module's top-level functions and
+    the methods of its classes (nested classes included), from its facts."""
+    defs: dict[str, dict[str, bool]] = {}
+    for d in f.get("defs", []):
+        if d["kind"] == "class":
+            continue
+        meta = defs.setdefault(d["name"], {"decorated": False, "is_method": False})
+        if d.get("decorated"):
             meta["decorated"] = True
-        if is_method:
+        if d["kind"] == "method":
             meta["is_method"] = True
-
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        self._record(node, is_method=False)
-        # do NOT recurse into the function body for *definitions* — nested
-        # closures are an internal detail, not a public dead-symbol candidate.
-
-    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        self._record(node, is_method=False)
-
-    def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        for child in node.body:
-            if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                self._record(child, is_method=True)
-        # recurse so nested classes' methods are also collected
-        for child in node.body:
-            if isinstance(child, ast.ClassDef):
-                self.visit_ClassDef(child)
-
-
-def _collect_defs(tree: ast.AST) -> dict[str, dict[str, bool]]:
-    c = _DefCollector()
-    # Walk only module top-level + class bodies (handled inside the collector).
-    for node in tree.body if isinstance(tree, ast.Module) else []:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            c._record(node, is_method=False)
-        elif isinstance(node, ast.ClassDef):
-            c.visit_ClassDef(node)
-    return c.defs
-
-
-def _decorator_names(dec: ast.expr) -> set[str]:
-    """Every identifier appearing in a decorator expression (so a decorator
-    *reference* counts as a use of the decorator function itself)."""
-    out: set[str] = set()
-    for sub in ast.walk(dec):
-        if isinstance(sub, ast.Name):
-            out.add(sub.id)
-        elif isinstance(sub, ast.Attribute):
-            out.add(sub.attr)
-    return out
-
-
-def _collect_references(tree: ast.AST) -> tuple[set[str], set[str], set[str]]:
-    """Return (referenced_names, string_literals, all_exports) for one module.
-
-    referenced_names: ast.Name loads + ast.Attribute attrs + decorator idents
-                      + literal getattr() 2nd-arg strings.
-    string_literals:  every string constant anywhere (covers dynamic dispatch).
-    all_exports:      entries of any module-level __all__ list/tuple.
-    """
-    referenced: set[str] = set()
-    strings: set[str] = set()
-    exports: set[str] = set()
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Name):
-            # Only "load" contexts are uses; a bare store/del isn't a reference.
-            if isinstance(node.ctx, ast.Load):
-                referenced.add(node.id)
-        elif isinstance(node, ast.Attribute):
-            referenced.add(node.attr)
-        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
-            strings.add(node.value)
-        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            for dec in node.decorator_list:
-                referenced |= _decorator_names(dec)
-        elif isinstance(node, ast.Call):
-            # getattr(obj, "method") — the literal attr name is a real reference.
-            func = node.func
-            is_getattr = (
-                (isinstance(func, ast.Name) and func.id == "getattr")
-                or (isinstance(func, ast.Attribute) and func.attr == "getattr")
-            )
-            if is_getattr and len(node.args) >= 2:
-                arg = node.args[1]
-                if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
-                    referenced.add(arg.value)
-        elif isinstance(node, ast.Assign):
-            # __all__ = [...] / __all__ += [...]
-            for tgt in node.targets:
-                if isinstance(tgt, ast.Name) and tgt.id == "__all__":
-                    exports |= _string_seq(node.value)
-        elif isinstance(node, ast.AugAssign):
-            if isinstance(node.target, ast.Name) and node.target.id == "__all__":
-                exports |= _string_seq(node.value)
-
-    return referenced, strings, exports
-
-
-def _string_seq(value: ast.expr) -> set[str]:
-    out: set[str] = set()
-    if isinstance(value, (ast.List, ast.Tuple, ast.Set)):
-        for elt in value.elts:
-            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
-                out.add(elt.value)
-    return out
+    return defs
 
 
 def _is_dunder(name: str) -> bool:
     return name.startswith("__") and name.endswith("__")
 
 
-def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[str, Any]:
+def analyze(root: Path, extra_excludes: frozenset[str] = frozenset(), corpus=None) -> dict[str, Any]:
     """Find functions defined but statically referenced nowhere. Never raises."""
     findings: list[Finding] = []
     stats: dict[str, Any] = {
@@ -196,28 +96,32 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[st
     }
 
     try:
-        # 1. Parse every internal module once: collect its defs + references.
+        # 1. Every internal module's defs and references, from its facts.
         #    module_defs: rel_path_str -> {name: meta}
         module_defs: dict[str, dict[str, dict[str, bool]]] = {}
         all_referenced: set[str] = set()
         all_strings: set[str] = set()
         all_exports: set[str] = set()
 
-        for py in source_files(root, extra_excludes, pattern="*.py"):
-            try:
-                rel = str(py.relative_to(root))
-            except ValueError:
-                continue
-            try:
-                tree = ast.parse(py.read_text(encoding="utf-8", errors="ignore"))
-            except Exception:
+        if corpus is not None:
+            items = [(rel, corpus.facts[rel]) for rel in corpus.python_files()]
+        else:
+            items = []
+            for py in source_files(root, extra_excludes, pattern="*.py"):
+                try:
+                    rel = py.relative_to(root).as_posix()
+                except ValueError:
+                    continue
+                f = facts_mod.file_facts(py, rel)
+                if f is not None:
+                    items.append((rel, f))
+        for rel, f in items:
+            if f.get("error"):
                 continue  # unparseable → skip, never raise
-
-            module_defs[rel] = _collect_defs(tree)
-            refs, strings, exports = _collect_references(tree)
-            all_referenced |= refs
-            all_strings |= strings
-            all_exports |= exports
+            module_defs[rel] = _module_defs(f)
+            all_referenced |= f["refs"]
+            all_strings |= f["strings"]
+            all_exports |= f["exports"]
             stats["modules_scanned"] += 1
 
         # 2. Evaluate each defined function against the global reference set.
@@ -262,6 +166,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[st
                             "symbol": name,
                             "defined_in": rel,
                             "reason": "no static reference found",
+                            "key": f"{rel}::{name}",
                         },
                     ))
 
@@ -273,7 +178,7 @@ def analyze(root: Path, extra_excludes: frozenset[str] = frozenset()) -> dict[st
                 summary=f"{stats['dead_symbols'] - _MAX_FINDINGS} additional "
                         f"dead-symbol candidates suppressed (cap={_MAX_FINDINGS})",
                 paths=[],
-                evidence={"total": stats["dead_symbols"], "shown": _MAX_FINDINGS},
+                evidence={"total": stats["dead_symbols"], "shown": _MAX_FINDINGS, "key": "rollup"},
             ))
 
     except Exception as e:  # absolute belt-and-suspenders: never raise

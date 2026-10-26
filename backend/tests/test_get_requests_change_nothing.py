@@ -178,14 +178,27 @@ def _guaardvark_shaped(root: Path) -> Path:
 
 
 def test_an_uploaded_repository_is_mapped_without_running_its_code(monkeypatch, tmp_path):
+    import subprocess
+
+    from backend.services.system_mapper import core
+
     monkeypatch.setattr(backend_config, "UPLOAD_DIR", str(tmp_path / "uploads"))
-    monkeypatch.setattr(tool_graph, "_probe_runtime_registry", _fail("importing the uploaded code"))
+    monkeypatch.setattr(core, "_git_listed_files", lambda start: None)
+    monkeypatch.setattr(subprocess, "run", _fail("starting a process"))
+    monkeypatch.setattr(subprocess, "Popen", _fail("starting a process"))
     result = tool_graph.analyze(_guaardvark_shaped(tmp_path / "uploads" / "repo"))
-    assert result["stats"]["tool_registry_source"] == "ast_fallback"
+    assert result["stats"]["tool_registry_source"] == "static"
 
 
-def test_a_local_checkout_is_still_probed(monkeypatch, tmp_path):
+def test_a_local_checkout_is_read_the_same_way(monkeypatch, tmp_path):
+    import subprocess
+
+    from backend.services.system_mapper import core
+
     monkeypatch.setattr(backend_config, "UPLOAD_DIR", str(tmp_path / "uploads"))
-    monkeypatch.setattr(tool_graph, "_probe_runtime_registry", lambda _root, timeout=20.0: ({"echo"}, {}))
+    monkeypatch.setattr(core, "_git_listed_files", lambda start: None)
+    monkeypatch.setattr(subprocess, "run", _fail("starting a process"))
+    monkeypatch.setattr(subprocess, "Popen", _fail("starting a process"))
     result = tool_graph.analyze(_guaardvark_shaped(tmp_path / "checkout"))
-    assert result["stats"]["tool_registry_source"] == "runtime"
+    assert result["stats"]["tool_registry_source"] == "static"
+
