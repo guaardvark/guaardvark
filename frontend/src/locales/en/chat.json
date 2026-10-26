@@ -78,7 +78,6 @@
     "send": "Send message",
     "planModeBadge": "PLAN MODE",
     "planModeToggle": "Plan mode",
-    "planModeOn": "Plan mode: look into it first, and change nothing until you approve a plan (/plan)",
     "planModeOff": "Turn plan mode off (/plan)",
     "placeholderPlan": "Say what you want done. Nothing changes until you approve the plan."
   },
@@ -347,5 +346,60 @@
     "plan": "Plan a change",
     "planTooltip": "Turn plan mode on and describe the change; nothing changes until you approve the plan",
     "planPrompt": "Plan a change: "
+  },
+  "features": {
+    "open": "Things I can do",
+    "image": {
+      "label": "Image",
+      "hint": "Make a picture: say what to draw"
+    },
+    "editImage": {
+      "label": "Edit image",
+      "hint": "Attach a picture, then say what to change"
+    },
+    "video": {
+      "label": "Video",
+      "hint": "Make a short video clip"
+    },
+    "musicVideo": {
+      "label": "Music video",
+      "hint": "Turn a song into a music video"
+    },
+    "filmCrew": {
+      "label": "Film Crew",
+      "hint": "Turn an idea into a short film"
+    },
+    "file": {
+      "label": "File",
+      "hint": "Write a document, spreadsheet or code file",
+      "starter": "Make a file called "
+    },
+    "analyze": {
+      "label": "Analyze",
+      "hint": "Attach a picture or document and ask about it"
+    },
+    "webSearch": {
+      "label": "Web search",
+      "hint": "Search the web and answer from what it finds",
+      "off": "Web access is off. Turn it on in Settings to search the web"
+    },
+    "code": {
+      "label": "Look into my code",
+      "hint": "Ask how I work inside; the answer names my own files",
+      "starter": "Look into your code: "
+    },
+    "swarm": {
+      "label": "Swarm",
+      "hint": "Put several coding agents on one job at once",
+      "starter": "Launch a swarm to "
+    },
+    "agent": {
+      "label": "Agent screen",
+      "hint": "Work on my own screen: open apps, click, type, browse"
+    },
+    "plan": {
+      "label": "Plan",
+      "hint": "Look into it first, and change nothing until you approve a plan"
+    }
   }
 }
