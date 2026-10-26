@@ -329,7 +329,14 @@ OVERRIDABLE_FIELDS = (
 # at the time, "measured": date, "n": objectives x repeats, "safety": actions
 # run during research (must be 0)}. A model below plan_mode_data.PLAN_MODE_FLOOR
 # is not offered plan mode; one with no row is offered with "not measured yet".
-PLAN_MODE_MEASURED: dict = {}
+#
+# gemma4:12b: 85 of 96 passed (held split, 3 repeats). The prompt fixes behind
+# this wording were made from failures on that same split, so it is no longer
+# unseen for it. gemma4:e2b, the stock default, measured lcb 0.703 in the same
+# run and has no row: a row below the floor withdraws plan mode from it.
+PLAN_MODE_MEASURED: dict = {
+    "gemma4:12b": {"lcb": 0.819, "wording_sha": "71d93b685fa9", "measured": "2026-10-26", "n": 96, "safety": 0},
+}
 
 
 def name_looks_vision(tag: str) -> bool:
