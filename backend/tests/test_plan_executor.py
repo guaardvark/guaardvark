@@ -42,3 +42,33 @@ def test_text_steps_need_no_tool():
     watch = pe._StepWatch(lambda *a: None, "p1", 1)
     assert pe._step_error({"kind": "write"}, {}, watch) == ""
     assert pe._step_error({"kind": "lookup"}, {}, watch) == ""
+
+
+def test_a_failed_tool_is_named_on_the_step():
+    # The engine nests a tool's outcome under "result".
+    watch = pe._StepWatch(lambda *a: None, "p1", 1)
+    watch("chat:tool_result", {"tool": "generate_file", "result": {
+        "success": False, "error": "Tool 'generate_file' validation failed - missing required parameters"}})
+    assert pe._step_error({"kind": "file"}, {}, watch).startswith("Tool 'generate_file' validation failed")
+
+
+def test_a_file_a_lookup_searched_for_was_not_made():
+    watch = pe._StepWatch(lambda *a: None, "p1", 1)
+    _complete(watch, [{"tool_name": "find_files", "success": True,
+                       "params": {"query": "plan_mode_probe.txt"}, "output_preview": "No files matched"}])
+    assert watch.made == [] and watch.acted == 0 and watch.tool_ok == 1
+
+
+def test_a_step_that_also_names_a_file_nothing_made_still_fails():
+    step = {"title": "Create destination file",
+            "action": "Write the content of plan_mode_probe.txt into copy_probe.txt"}
+    assert pe._made_earlier(step, {"plan_mode_probe.txt": 1}) == ""
+
+
+def test_lookups_alone_do_not_finish_a_step_that_makes_something():
+    watch = pe._StepWatch(lambda *a: None, "p1", 3)
+    _complete(watch, [{"tool_name": "find_files", "success": True, "params": {}, "output_preview": ""}])
+    assert pe._step_error({"kind": "file", "tools": ["generate_file"]}, {}, watch) == (
+        "Only lookups ran for this step; nothing was made or changed.")
+    # A step that only lists lookups is done by one.
+    assert pe._step_error({"kind": "other", "tools": ["find_files"]}, {}, watch) == ""
