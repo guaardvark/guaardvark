@@ -54,7 +54,8 @@ class PlanResearchRegistry(ToolRegistry):
     def execute_tool(self, tool_name: str, /, agent_context=None, on_output=None, **kwargs) -> ToolResult:
         if tool_name not in self.tools and self.full.get_tool(tool_name) is not None:
             shown = {k: v for k, v in kwargs.items() if not k.startswith("_")}
-            self.attempted.append({"tool": tool_name, "params": json.dumps(shown, default=str)[:300]})
+            self.attempted.append({"tool": tool_name, "params": json.dumps(shown, default=str)[:300],
+                                   "args": shown})
             return ToolResult(
                 success=False,
                 error=(f"{tool_name} changes something, so it waits for an approved plan. "
@@ -298,6 +299,9 @@ class PlanModeRunner:
             extra["plan_kind"] = result.kind or "none"
             if result.kind == "question" and result.data.get("question"):
                 return str(result.data["question"]).strip()
+            if result.kind != "plan" and research.attempted:
+                # It tried to act while researching: what it tried is the plan.
+                result = plan_from_attempts(research.attempted, objective=message)
             if result.kind != "plan":
                 if result.kind is None and research.attempted:
                     # It meant to act and no plan could be written: say so
@@ -379,6 +383,25 @@ class PlanModeRunner:
             compose_path=result.path, research={"attempted": research.attempted[:10], "web_used": web_used},
             options=kept, parent=current, attachments=[image_url] if image_url else [],
         )
+
+
+_TOOL_KIND = {"generate_image": "image", "edit_image": "image", "remove_background": "image",
+              "outpaint_image": "image", "inpaint_image": "image", "generate_video": "video",
+              "generate_music_video": "video", "start_film_crew": "video", "generate_music": "audio",
+              "generate_speech": "audio", "save_memory": "memory", "update_memory": "memory",
+              "delete_memory": "memory", "generate_file": "file", "codegen": "file",
+              "generate_csv": "file", "edit_code": "code_change"}
+
+
+def plan_from_attempts(attempted: List[Dict[str, Any]], *, objective: str) -> "ComposeResult":
+    """A plan made of the actions the model tried during research, each as
+    the exact call it tried; validate() turns those calls into direct steps."""
+    steps = []
+    for a in attempted[:pmd.PLAN_MAX_STEPS]:
+        args = ", ".join(f"{k}={v!r}" for k, v in (a.get("args") or {}).items())
+        steps.append({"title": f"Run {a['tool']}", "action": f"{a['tool']}({args})",
+                      "kind": _TOOL_KIND.get(a["tool"], "other"), "tools": [a["tool"]]})
+    return ComposeResult("plan", {"kind": "plan", "goal": objective[:200], "steps": steps}, "attempted")
 
 
 def compose_input(*, objective, reply, steps, attempted, current, history) -> str:
@@ -642,7 +665,8 @@ def _invented(target: str, lowered_haystack: str, roots: List[str]) -> bool:
     if target.lower() in lowered_haystack:
         return False
     if target.startswith(("http://", "https://")):
-        return True
+        bare = target.split("://", 1)[1].rstrip("/").lower()
+        return bare not in lowered_haystack and bare.removeprefix("www.") not in lowered_haystack
     if "/" not in target:
         return False
     rel = target.lstrip("./")

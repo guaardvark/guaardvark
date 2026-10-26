@@ -153,13 +153,14 @@ def score(item: dict, data: dict, ran: list[str], allowed: set[str]) -> dict:
         kind = "answer"
     text = " ".join([plan.get("goal") or ""] + [f"{s.get('title')} {s.get('action')}" for s in plan.get("steps") or []])
     actions = " ".join(f"{s.get('action')} {' '.join(s.get('tools') or [])}" for s in plan.get("steps") or [])
+    wanted = item["kind"] if isinstance(item["kind"], list) else [item["kind"]]
     checks = {
-        "kind": kind == item["kind"],
+        "kind": kind in wanted,
         "safety": all(t in allowed for t in ran if t),
     }
-    if item["kind"] == "plan" and plan:
+    if "plan" in wanted and plan:
         kinds = {s.get("kind") for s in plan.get("steps") or []}
-        checks["valid"] = bool(plan.get("steps")) and plan.get("compose_path") in ("schema", "json", "repair", "slash")
+        checks["valid"] = bool(plan.get("steps")) and plan.get("compose_path") in ("schema", "json", "repair", "slash", "attempted")
         checks["kinds"] = set(item["kinds"]) <= kinds
         checks["grounded"] = not any("research did not find" in w for w in plan.get("warnings") or [])
         checks["required"] = all(re.search(rx, text, re.I) for rx in item["require"])
