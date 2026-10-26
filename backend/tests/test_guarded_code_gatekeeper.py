@@ -68,28 +68,28 @@ def test_edit_on_normal_active_file_succeeds(tmp_path, monkeypatch):
 
 # --- Dormant / unrouted module is NOT blocked -----------------------------
 
-def _no_map(monkeypatch):
-    """Make any system-map build fail the test: the gate is a path check."""
-    import backend.services.system_mapper as sm
-    import backend.services.system_mapper.core as core
-
-    def boom(*a, **k):
-        raise AssertionError("the edit gate must not build a system map")
-
-    monkeypatch.setattr(sm, "codebase_map", boom)
-    monkeypatch.setattr(core, "codebase_map", boom)
-
-
 def test_edit_on_dormant_module_succeeds(tmp_path, monkeypatch):
-    """A module nothing imports is 'dormant' to the mapper and must remain
-    editable so it can be wired up."""
+    """A module nothing imports classifies as 'dormant', which must remain
+    editable so it can be wired up. Only 'archived' is blocked by Tier 2."""
     from backend.services import guarded_code_service as gcs
 
     repo = _setup_repo(tmp_path, monkeypatch)
     target = repo / "backend" / "services" / "lonely_module.py"
     target.parent.mkdir(parents=True)
     target.write_text("VALUE = 1\n")
-    _no_map(monkeypatch)
+
+    # Force Tier 2 to actually run and report 'dormant' for our target so we
+    # prove dormant is allowed, independent of how a real map would classify it.
+    def fake_lifecycle(root):
+        return {
+            "backend.services.lonely_module": {
+                "lifecycle": "dormant",
+                "importers": 0,
+                "path": "backend/services/lonely_module.py",
+            }
+        }
+
+    monkeypatch.setattr(gcs, "_lifecycle_node_meta", fake_lifecycle)
 
     result = gcs.apply_exact_replacement(
         "backend/services/lonely_module.py", "VALUE = 1", "VALUE = 2"
@@ -99,17 +99,55 @@ def test_edit_on_dormant_module_succeeds(tmp_path, monkeypatch):
     assert result.verification["return_code"] == 0
 
 
-# --- The gate never builds a map --------------------------------------------
+# --- Tier 2 'archived' lifecycle is blocked (positive Tier-2 case) --------
 
-def test_normal_edit_does_not_build_a_system_map(tmp_path, monkeypatch):
+def test_edit_on_archived_lifecycle_module_rejected(tmp_path, monkeypatch):
+    from backend.services import guarded_code_service as gcs
+
+    repo = _setup_repo(tmp_path, monkeypatch)
+    # A path that is NOT a Tier-1 backup artifact, so only Tier 2 can block it.
+    target = repo / "backend" / "services" / "retired.py"
+    target.parent.mkdir(parents=True)
+    target.write_text("x = 1\n")
+
+    def fake_lifecycle(root):
+        return {
+            "backend.services.retired": {
+                "lifecycle": "archived",
+                "importers": 0,
+                "path": "backend/services/retired.py",
+            }
+        }
+
+    monkeypatch.setattr(gcs, "_lifecycle_node_meta", fake_lifecycle)
+
+    with pytest.raises(gcs.GuardedCodeError) as exc:
+        gcs.apply_exact_replacement("backend/services/retired.py", "x = 1", "x = 2")
+
+    assert exc.value.code == "READONLY_LIFECYCLE"
+    assert target.read_text() == "x = 1\n"
+
+
+# --- Tier 2 FAILS OPEN when the analyzer raises ---------------------------
+
+def test_tier2_fails_open_when_codebase_map_raises(tmp_path, monkeypatch):
     from backend.services import guarded_code_service as gcs
 
     repo = _setup_repo(tmp_path, monkeypatch)
     target = repo / "backend" / "services" / "active_thing.py"
     target.parent.mkdir(parents=True)
     target.write_text("x = 1\n")
-    _no_map(monkeypatch)
+    # Ensure no stale cache lets the build be skipped.
+    gcs.invalidate_lifecycle_cache()
 
+    import backend.services.system_mapper as sm
+
+    def boom(*a, **k):
+        raise RuntimeError("analyzer exploded")
+
+    monkeypatch.setattr(sm, "codebase_map", boom)
+
+    # Active, non-backup file: Tier 1 passes, Tier 2 raises -> fail open -> edit applies.
     result = gcs.apply_exact_replacement(
         "backend/services/active_thing.py", "x = 1", "x = 2"
     )
@@ -118,32 +156,29 @@ def test_normal_edit_does_not_build_a_system_map(tmp_path, monkeypatch):
     assert result.verification["return_code"] == 0
 
 
-def test_backup_artifact_blocked_without_running_map(tmp_path, monkeypatch):
+# --- Tier 1 needs no map: .BACK rejected even if map would crash ----------
+
+def test_tier1_blocks_without_running_map(tmp_path, monkeypatch):
     from backend.services import guarded_code_service as gcs
 
     repo = _setup_repo(tmp_path, monkeypatch)
     target = repo / "backend" / "services" / "thing.py.BACK"
     target.parent.mkdir(parents=True)
     target.write_text("x = 1\n")
-    _no_map(monkeypatch)
+    gcs.invalidate_lifecycle_cache()
+
+    import backend.services.system_mapper as sm
+
+    def boom(*a, **k):
+        raise AssertionError("codebase_map must not be called for Tier-1 block")
+
+    monkeypatch.setattr(sm, "codebase_map", boom)
 
     with pytest.raises(gcs.GuardedCodeError) as exc:
         gcs.apply_exact_replacement("backend/services/thing.py.BACK", "x = 1", "x = 2")
 
     assert exc.value.code == "READONLY_LIFECYCLE"
-
-
-def test_reason_matches_the_mappers_archived_lifecycle():
-    """The gate and the map agree on what is archived, by construction."""
-    from backend.services.guarded_code_service import readonly_lifecycle_reason
-    from backend.services.system_mapper.dependency_graph import _lifecycle_for
-
-    for rel in ("backend/x.py.BACK", "backend/api/_archive/a.py", "backend/backs/b.py",
-                "backend/services/ok.py"):
-        archived = _lifecycle_for(rel, {"someone"}) == "archived"
-        assert bool(readonly_lifecycle_reason(rel)) == archived
-
-
+    assert target.read_text() == "x = 1\n"
 
 
 # --- Order: PROTECTED_FILE wins over READONLY_LIFECYCLE -------------------
