@@ -20,11 +20,28 @@ Claude Code, from anywhere (the repository is a plugin marketplace):
 It asks for the path of your Guaardvark checkout, starts the MCP server from there, and loads
 the skills as `/guaardvark:image` and so on.
 
+Grok Build, from anywhere:
+
+```bash
+grok plugin marketplace add guaardvark/guaardvark
+grok plugin install guaardvark --trust
+```
+
+The plugin comes from the plugin repository, pinned to a commit. Its server finds your checkout
+from `GUAARDVARK_ROOT` or from the pointer `python -m backend.mcp install` saves.
+
+Antigravity, from the Guaardvark checkout (opening the repository in Antigravity also loads it):
+
+```bash
+agy plugin install .agents/plugins/guaardvark
+```
+
 Or from the Guaardvark checkout:
 
 ```bash
 python -m backend.mcp install            # MCP server entry into every detected agent client
-python -m backend.mcp install --skills   # link these skills into ~/.claude/skills (Claude Code, all projects)
+python -m backend.mcp install --skills   # also link these skills for Claude Code, and give
+                                         # Antigravity the plugin instead of a bare entry
 ```
 
 Cursor, Codex and OpenClaw read `.agents/skills/` in the project you open; open the Guaardvark

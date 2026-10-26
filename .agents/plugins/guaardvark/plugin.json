@@ -1,0 +1,12 @@
+{
+  "name": "guaardvark",
+  "displayName": "Guaardvark",
+  "version": "3.3.0",
+  "description": "Drive a self-hosted Guaardvark from your coding agent: local image, video, music-video and Film Crew generation, voice and music, upscaling, LoRA training, Hugging Face model onboarding, agent swarms, local knowledge, code intelligence and supervised outreach, on your own GPU.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Generate an image with Guaardvark",
+    "Inspect GPU status and resident models in Guaardvark",
+    "Start a Film Crew production for my short screenplay"
+  ]
+}

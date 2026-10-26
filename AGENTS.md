@@ -34,7 +34,12 @@ Setup, one line each:
 
 - Claude Code: `/plugin marketplace add guaardvark/guaardvark` then `/plugin install guaardvark@guaardvark`,
   or from the checkout `python -m backend.mcp install --skills`.
-- Codex, Cursor, Grok, Antigravity, opencode, Gemini CLI, Zed, Claude Desktop:
+- Grok Build: `grok plugin marketplace add guaardvark/guaardvark` then
+  `grok plugin install guaardvark --trust`; run `python -m backend.mcp install` once from the
+  checkout so the plugin's server can find it.
+- Antigravity: `agy plugin install .agents/plugins/guaardvark` from the checkout, or
+  `python -m backend.mcp install --skills`. Opening this repository in Antigravity also loads it.
+- Codex, Cursor, Grok, opencode, Gemini CLI, Zed, Claude Desktop:
   `python -m backend.mcp install` (or `guaardvark mcp install`) from the checkout writes the MCP
   entry. Any other MCP client can launch `guaardvark mcp serve`. The skills are read from
   `.agents/skills/` in this repository.

@@ -467,6 +467,44 @@ def _link_skill(src: Path, dest: Path, dry_run: bool) -> str:
         return f"copied (symlinks unavailable) <- {src}"
 
 
+def _antigravity_plugin_source() -> Path:
+    return _project_root() / ".agents" / "plugins" / "guaardvark"
+
+
+def _has_antigravity_plugin() -> bool:
+    return (_antigravity_plugin_source() / "plugin.json").is_file()
+
+
+def install_antigravity_plugin(dry_run: bool = False) -> InstallResult:
+    """Install .agents/plugins/guaardvark with ``agy plugin install``. The
+    plugin carries the skills, the rules and its own MCP server entry, so it
+    takes the place of the bare server entry for Antigravity."""
+    src = _antigravity_plugin_source()
+    if dry_run:
+        return InstallResult("plugin:antigravity", "dry-run", f"would run: agy plugin install {src}")
+    try:
+        proc = subprocess.run(["agy", "plugin", "install", str(src)],
+                              capture_output=True, text=True, timeout=60)
+    except Exception as exc:
+        return InstallResult("plugin:antigravity", "failed", str(exc))
+    if proc.returncode != 0:
+        return InstallResult("plugin:antigravity", "failed", (proc.stderr or proc.stdout or "").strip())
+    return InstallResult("plugin:antigravity", "installed", f"installed guaardvark plugin from {src}")
+
+
+# The launcher in scripts/mcp_launcher.sh reads this when a plugin client
+# cannot tell it where the checkout is (Grok Build, the plugin repository).
+CHECKOUT_POINTER = Path(".config") / "guaardvark" / "root"
+
+
+def _save_checkout_root(dry_run: bool) -> None:
+    if dry_run:
+        return
+    pointer = Path.home() / CHECKOUT_POINTER
+    pointer.parent.mkdir(parents=True, exist_ok=True)
+    pointer.write_text(str(_project_root()) + "\n", encoding="utf-8")
+
+
 def install_skills(dry_run: bool = False) -> list[InstallResult]:
     """Link every ``.agents/skills/guaardvark-*`` folder into each skills target.
 
@@ -504,9 +542,16 @@ def run_install(clients: list[str] | None, dry_run: bool = False, skills: bool =
               f"(looked for: {', '.join(CLIENTS)}).", file=sys.stderr)
         return 1
 
-    results = [install_client(c, dry_run=dry_run, force=explicit) for c in targets]
+    _save_checkout_root(dry_run)
+    # With --skills, Antigravity gets the plugin (skills, rules and server)
+    # instead of a bare server entry, so it does not run the server twice.
+    agy_plugin = skills and "antigravity" in targets and _has_antigravity_plugin()
+    results = [install_client(c, dry_run=dry_run, force=explicit)
+               for c in targets if not (agy_plugin and c == "antigravity")]
     if skills:
         results.extend(install_skills(dry_run=dry_run))
+    if agy_plugin:
+        results.append(install_antigravity_plugin(dry_run=dry_run))
     if not results:
         return 1
 

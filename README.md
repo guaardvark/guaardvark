@@ -34,7 +34,7 @@ https://github.com/user-attachments/assets/c6d9d18b-cfff-4ae2-8220-dc7f329fee5d
 
 - **It runs on your machine.** Language models, retrieval, agents and every generator run on your own hardware, through Ollama, ComfyUI and Guaardvark's own GPU services. No cloud API keys, no per-token or per-minute fees, nothing reported home. Web access, posting and every other outbound path stay off until you switch them on or start them, and all of them are declared in one file, [`egress.json`](scripts/inbound_guard/egress.json).
 - **One install is the whole studio.** Chat and RAG, screen agents, coding swarms and a full media pipeline share one GPU through a single orchestrator, so a video render and a language model take turns instead of fighting over VRAM.
-- **Your coding agent can drive it.** A built-in MCP server, fifteen [agent skills](.agents/skills/README.md) and a Claude Code plugin let Claude Code, Cursor, Codex, Gemini CLI and other agents run every flow: "make a music video from this song", "film this script", "train a LoRA of this character", "swarm this refactor".
+- **Your coding agent can drive it.** A built-in MCP server, fifteen [agent skills](.agents/skills/README.md) and plugins for Claude Code, Grok Build and Antigravity let Claude Code, Grok, Antigravity, Cursor, Codex, Gemini CLI and other agents run every flow: "make a music video from this song", "film this script", "train a LoRA of this character", "swarm this refactor".
 - **You approve what matters.** Nothing posts and no voice is cloned without an explicit yes from you, and fixes Guaardvark writes for its own code wait for your review. The MCP server hides desktop, shell and browser tools unless you allowlist them.
 
 ## Quick start
@@ -138,13 +138,15 @@ Launch several coding agents at once, each in an isolated git worktree on its ow
 
 Film Crew runs on the same orchestrator (see [Directors](#directors-film-crew-music-videos-and-the-editor)).
 
-## MCP server, agent skills and the Claude Code plugin
+## MCP server, agent skills and agent plugins
 
 Guaardvark speaks the Model Context Protocol both ways: it exposes its tools to any MCP client, and it can call tools on other MCP servers. [Episode 21](https://www.youtube.com/watch?v=VScsEFn6ZoY) shows five coding agents (opencode on a local model, Codex, Cursor, Grok and Antigravity) making pictures, clips, songs and voices through it.
 
 - **One-command setup.** `python -m backend.mcp install` finds the agent clients on your machine (Claude Code, Codex, Cursor, Grok, Antigravity, opencode, Claude Desktop, Zed, Gemini CLI) and writes the `guaardvark` server entry into their configs, backing up existing files and leaving other entries alone. `python -m backend.mcp doctor` diagnoses a broken setup with a server self-test, a real stdio handshake, and a scan for stale client configs.
 - **Claude Code plugin.** `/plugin marketplace add guaardvark/guaardvark`, then `/plugin install guaardvark@guaardvark`. It asks for the path of your Guaardvark checkout, starts the MCP server from there, and loads every skill as `/guaardvark:<skill>`.
-- **Agent skills.** [`.agents/skills/`](.agents/skills/README.md) has one skill per flow (images, video, music video, Film Crew, voice, music, upscaling, Cast and LoRA training, Hugging Face model onboarding, swarm, knowledge, code, outreach, operations, setup) in the [Agent Skills](https://agentskills.io) format, so Claude Code, Cursor, Codex and OpenClaw know which tool to call for each job. `python -m backend.mcp install --skills` links them into `~/.claude/skills`.
+- **Grok Build plugin.** `grok plugin marketplace add guaardvark/guaardvark`, then `grok plugin install guaardvark --trust`. It installs the plugin repository at a pinned commit and loads every skill; the server finds your checkout once `python -m backend.mcp install` has run there.
+- **Antigravity plugin.** `agy plugin install .agents/plugins/guaardvark` from the checkout; opening the repository in Antigravity also loads it. It carries all fifteen skills, the MCP server and a short operating guide.
+- **Agent skills.** [`.agents/skills/`](.agents/skills/README.md) has one skill per flow (images, video, music video, Film Crew, voice, music, upscaling, Cast and LoRA training, Hugging Face model onboarding, swarm, knowledge, code, outreach, operations, setup) in the [Agent Skills](https://agentskills.io) format, so Claude Code, Cursor, Codex and OpenClaw know which tool to call for each job. `python -m backend.mcp install --skills` links them into `~/.claude/skills` and gives Antigravity the plugin instead of a bare server entry.
 - **As a server:** `python -m backend.mcp` (stdio) or `python -m backend.mcp http` (streamable HTTP on `127.0.0.1:8788/mcp`, loopback-only by default). `python -m backend.mcp list-tools` prints the live tool list. Generation tools queue by default and return a batch id for `get_generation_status`; every call runs under an enforced timeout.
 - **Default-deny policy** ([`backend/mcp/config.py`](backend/mcp/config.py)): desktop control, agent control, system and shell, browser automation, test execution and MCP meta-tools are hidden unless you allowlist them, and so are tools that need approval. More than 50 tools are exposed by default (RAG, files, generation, memory, code search, web), plus read-only `guaardvark://outputs/` resources.
 - **As a client:** `mcp_connect` and `mcp_execute`, with a live inventory so the chat model can find and use tools from other MCP servers by name. Audit logging, timeouts and circuit breakers are built in.
@@ -540,7 +542,7 @@ Linux with one NVIDIA GPU. Chat, RAG, voice and the coding swarm run CPU-only; 8
 Apple Silicon is supported, with GPU features arriving through Metal; see [INSTALL.md](INSTALL.md#install-macos-apple-silicon). Windows through WSL2 is being verified.
 
 **Can I use it from Claude Code, Cursor or Codex?**
-Yes. Install the Claude Code plugin with the two lines in [Quick start](#quick-start), or run `python -m backend.mcp install` to wire the MCP server into every agent client it finds. See [MCP server, agent skills and the Claude Code plugin](#mcp-server-agent-skills-and-the-claude-code-plugin).
+Yes. Install the Claude Code plugin with the two lines in [Quick start](#quick-start), or run `python -m backend.mcp install` to wire the MCP server into every agent client it finds. See [MCP server, agent skills and agent plugins](#mcp-server-agent-skills-and-agent-plugins).
 
 **How is it different from ComfyUI or Open WebUI?**
 They are excellent at one slice each. Guaardvark puts chat, RAG, agents, coding swarms and the whole media pipeline in one install that shares one GPU, and it hands off to ComfyUI with one click when you want the node graph. See [How Guaardvark compares](#how-guaardvark-compares).
