@@ -145,6 +145,10 @@ def _is_edit_forbidden(filepath: str) -> tuple[bool, str | None]:
 # to 5.3 characters per token, so 60,000 characters is at most about 17,000
 # tokens. 43 of its 1,964 tracked source files are longer and come back in pages.
 READ_CODE_PAGE_CHARS = 60_000
+# What a read_code page in Guaardvark's own chat leaves for everything around
+# the file text: the header (path, counts, SHA-256, mtime), the "Showing
+# lines" line, the next-page footer and the chat's observation wrapper.
+READ_CODE_CHAT_RESERVE = 1_500
 
 _CONTENT_START = "========== FILE CONTENT START ==========\n"
 _CONTENT_END = "\n========== FILE CONTENT END =========="
@@ -269,6 +273,7 @@ class ReadCodeTool(BaseTool):
 
     name = "read_code"
     read_only = True
+    observation_chars = 8000  # the file text is the answer
     description = (
         "Read one UTF-8 text file (up to 10 MB) from this Guaardvark install's own checkout, whole or by line range. "
         "Returns a header (path, line and character counts, SHA-256 of the whole file's text, mtime) and the content "
@@ -335,8 +340,14 @@ class ReadCodeTool(BaseTool):
                     metadata={"filepath": filepath}
                 )
 
+            # Guaardvark's own chat reads observation_chars of a result, so its
+            # pages are cut to fit, with room for the header and the next-page
+            # line; a page cut by the chat instead would lose that line.
+            # MCP clients get the full page.
+            page_chars = None if is_mcp_transport(self) else max(
+                1000, self.observation_chars - READ_CODE_CHAT_RESERVE)
             try:
-                result, page = _page_of_file(result, filepath, start_line, end_line)
+                result, page = _page_of_file(result, filepath, start_line, end_line, max_chars=page_chars)
             except ValueError as e:
                 return ToolResult(success=False, error=f"ERROR reading '{filepath}': {e}", metadata={"filepath": filepath})
 
@@ -359,6 +370,7 @@ class SearchCodeTool(BaseTool):
 
     name = "search_code"
     read_only = True
+    observation_chars = 4000  # each hit is a path, a line number and the matching line
     description = (
         "Find lines matching a case-insensitive Python regular expression in this Guaardvark install's "
         "own source files: tracked files and untracked ones git does not ignore, skipping venv, "
@@ -429,6 +441,7 @@ class EditCodeTool(BaseTool):
     """Tool to edit source code files by text replacement"""
 
     name = "edit_code"
+    read_only = False
     is_dangerous = True
     requires_approval = True
     description = (
@@ -686,6 +699,7 @@ class ListCodeFilesTool(BaseTool):
 
     name = "list_code_files"
     read_only = True
+    observation_chars = 3000  # a path per line
     description = (
         "Show a folder of this Guaardvark install's own source as an indented tree: folders first, then "
         "files with sizes. It lists the files search_code searches plus binary files, so git-ignored data (uploads "
@@ -759,6 +773,7 @@ class VerifyChangeTool(BaseTool):
 
     name = "verify_change"
     read_only = True
+    observation_chars = 2000
     description = (
         "Check whether a text file in this Guaardvark install's checkout contains an exact string: confirm "
         "an edit landed (should_exist=true) or that removed text is gone (should_exist=false). Plain case- "
@@ -885,31 +900,42 @@ def _analysis_stamp(metadata: dict) -> str:
 
 
 PROJECT_FOLDER_MAP_NOTE = (
-    " In a chat inside a project that has a folder, leave folder_id empty: the folder itself is "
-    "read from disk, with paths relative to it, and rebuilt when its source changes."
+    " Leave folder_id empty for the folder the chat works in: a project's folder in a chat inside "
+    "a project that has one, otherwise Guaardvark's own source. That folder is read from disk, "
+    "with paths relative to it, and rebuilt when its source changes."
 )
-NO_FOLDER_ID = (
-    "folder_id is required: take it from list_code_repositories. In a chat inside a project "
-    "that has a folder, it can be left empty to use that folder."
-)
+
+
+def _code_root(tool):
+    """(root, own) for a code tool called without folder_id: the chat's project
+    folder, or Guaardvark's own checkout (own=True)."""
+    root = _turn_project_root(tool)
+    if root:
+        return root, False
+    from backend.tools.llama_code_tools import PROJECT_ROOT
+    return str(PROJECT_ROOT), True
 
 
 def _project_code_map(tool):
-    """(data, None) for the chat's project folder, built from disk; (None, None)
-    when the turn has no folder (or runs over MCP); (None, error) on failure."""
-    root = _turn_project_root(tool)
-    if not root:
-        return None, None
+    """(data, None) for the folder the turn works in (its project folder, or
+    Guaardvark's own checkout), built from disk; (None, error) on failure."""
+    root, own = _code_root(tool)
     import hashlib
     from backend.services.repository_analysis_service import project_code_map
 
     project_id = (getattr(tool, "_context", None) or {}).get("project_id")
-    key = f"project-{int(project_id)}" if project_id else "root-" + hashlib.sha1(root.encode()).hexdigest()[:12]
+    if own:
+        key = "self"
+    elif project_id:
+        key = f"project-{int(project_id)}"
+    else:
+        key = "root-" + hashlib.sha1(root.encode()).hexdigest()[:12]
     try:
-        return project_code_map(key, root), None
+        data = project_code_map(key, root)
     except Exception as e:  # noqa: BLE001 - reported to the model, not raised
         logger.error(f"Mapping {root} failed: {e}", exc_info=True)
-        return None, display_text(f"Could not map the project folder: {e}")
+        return None, display_text(f"Could not map the folder: {e}")
+    return {**data, "own_checkout": own}, None
 
 
 def _folder_of_turn_project(tool, folder_id) -> bool:
@@ -928,8 +954,27 @@ def _folder_of_turn_project(tool, folder_id) -> bool:
     return bool(folder and folder.project_id and int(folder.project_id) == int(project_id))
 
 
+def _fit_map(tool, repo_map: str) -> str:
+    """The ranked map cut to what Guaardvark's own chat reads of a result, at a
+    file boundary, saying how many lower-ranked files were left out. MCP
+    clients get the whole map."""
+    budget = tool.observation_chars - 400
+    if is_mcp_transport(tool) or len(repo_map) <= budget:
+        return repo_map
+    sections = repo_map.split("\n## ")
+    kept = sections[0]
+    for section in sections[1:]:
+        if len(kept) + len(section) + 4 > budget:
+            break
+        kept += "\n## " + section
+    left = repo_map.count("\n## ") - kept.count("\n## ")
+    return kept.rstrip() + f"\n\n... {left} more files of the ranked map not shown; read_code or get_dependency_graph(file=...) for any file."
+
+
 def _project_map_stamp(data):
-    return (f"Mapped from the project folder {display_text(data['root'])} at {data['analyzed_at']} "
+    where = ("Guaardvark's own source" if data.get("own_checkout")
+             else f"the project folder {display_text(data['root'])}")
+    return (f"Mapped from {where} at {data['analyzed_at']} "
             f"({data['file_count']} source files); paths are relative to it.")
 
 
@@ -938,6 +983,7 @@ class GetRepositoryMapTool(BaseTool):
 
     name = "get_repository_map"
     read_only = True
+    observation_chars = 6000  # the ranked map is the answer
     description = (
         "Return the stored architecture overview of an uploaded Code Repository folder: Markdown listing "
         "its files by PageRank, each with up to 10 top-ranked classes, functions and methods, cut off at "
@@ -946,8 +992,7 @@ class GetRepositoryMapTool(BaseTool):
         "its last analysis, not later edits: the first line says when that analysis ran (server local "
         "time) and how many files it covered. Fails with a message if the folder is not a Code Repository "
         "or not analysed yet, and says so when the analysis found no code symbols. For import edges use "
-        "get_dependency_graph; for one Python symbol's source, read_ast_node; for Guaardvark's own "
-        "checkout, map_codebase."
+        "get_dependency_graph; for one Python symbol's source, read_ast_node."
         + PROJECT_FOLDER_MAP_NOTE
     )
     parameters = {
@@ -955,7 +1000,7 @@ class GetRepositoryMapTool(BaseTool):
             name="folder_id",
             type="int",
             required=False,
-            description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id. In a chat inside a project that has a folder, leave it empty to use that folder."
+            description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id. Leave it empty for the chat's project folder, or for Guaardvark's own source when the chat has none."
         )
     }
 
@@ -965,12 +1010,10 @@ class GetRepositoryMapTool(BaseTool):
             data, err = _project_code_map(self)
             if err:
                 return ToolResult(success=False, error=err)
-            if data is None:
-                return ToolResult(success=False, error=NO_FOLDER_ID)
             if not data["repository_map"]:
                 return ToolResult(success=True, output="No classes or functions to map. " + _project_map_stamp(data),
                                   metadata={"root": data["root"]})
-            return ToolResult(success=True, output=f"{_project_map_stamp(data)}\n\n{data['repository_map']}",
+            return ToolResult(success=True, output=f"{_project_map_stamp(data)}\n\n{_fit_map(self, data['repository_map'])}",
                               metadata={"root": data["root"], "analyzed_at": data["analyzed_at"]})
 
         try:
@@ -1035,6 +1078,7 @@ class GetDependencyGraphTool(BaseTool):
 
     name = "get_dependency_graph"
     read_only = True
+    observation_chars = 4000
     description = (
         "Return the file-level import graph of an uploaded Code Repository folder as JSON "
         "{analyzed_at, file_count, graph}, where graph is {file: [in-repository files it imports]} with "
@@ -1053,7 +1097,7 @@ class GetDependencyGraphTool(BaseTool):
             name="folder_id",
             type="int",
             required=False,
-            description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id. In a chat inside a project that has a folder, leave it empty to use that folder."
+            description="Integer id of an analysed Code Repository folder (has_metadata=true in list_code_repositories). Subfolders of a marked folder are listed too but are usually not analysed on their own; use the top folder's id. Leave it empty for the chat's project folder, or for Guaardvark's own source when the chat has none."
         ),
         "file": ToolParameter(
             name="file",
@@ -1069,8 +1113,6 @@ class GetDependencyGraphTool(BaseTool):
             data, err = _project_code_map(self)
             if err:
                 return ToolResult(success=False, error=err)
-            if data is None:
-                return ToolResult(success=False, error=NO_FOLDER_ID)
             head = {"root": display_text(data["root"]), "analyzed_at": data["analyzed_at"],
                     "file_count": data["file_count"]}
             return _graph_result(head, data["dependency_graph"], kwargs.get("file"),
@@ -1107,6 +1149,7 @@ class ReadASTNodeTool(BaseTool):
 
     name = "read_ast_node"
     read_only = True
+    observation_chars = 6000  # one function or class, whole
     description = (
         "Return the source of one Python class or function, decorators included, from a file in an "
         "uploaded Code Repository folder, instead of the whole file. Matches the bare name at any depth "
@@ -1115,15 +1158,15 @@ class ReadASTNodeTool(BaseTool):
         "Fails with a message for non-.py or absolute paths, paths outside the folder, a missing file, "
         "syntax errors or a name not found. Find names with get_repository_map; for the whole file, "
         "read_code with 'data/uploads/' plus the path get_repository_map shows."
-        " In a chat inside a project that has a folder, leave folder_id empty and give the path relative "
-        "to that folder."
+        " Leave folder_id empty to read from the chat's project folder, or from Guaardvark's own source "
+        "when the chat has none, with the path relative to that folder."
     )
     parameters = {
         "folder_id": ToolParameter(
             name="folder_id",
             type="int",
             required=False,
-            description="Integer id of the Code Repository folder, from list_code_repositories. It does not need to be analysed. In a chat inside a project that has a folder, leave it empty to read from that folder."
+            description="Integer id of the Code Repository folder, from list_code_repositories. It does not need to be analysed. Leave it empty for the chat's project folder, or for Guaardvark's own source when the chat has none."
         ),
         "filepath": ToolParameter(
             name="filepath",
@@ -1146,9 +1189,7 @@ class ReadASTNodeTool(BaseTool):
 
         if not filepath or not node_name:
             return ToolResult(success=False, error="Missing required parameter: filepath or node_name")
-        turn_root = _turn_project_root(self) if (not folder_id or _folder_of_turn_project(self, folder_id)) else None
-        if not folder_id and not turn_root:
-            return ToolResult(success=False, error=NO_FOLDER_ID)
+        turn_root = _code_root(self)[0] if (not folder_id or _folder_of_turn_project(self, folder_id)) else None
 
         if not filepath.endswith(".py"):
             return ToolResult(success=False, error="read_ast_node currently only supports Python (.py) files.")
@@ -1240,20 +1281,21 @@ class ReadASTNodeTool(BaseTool):
 
 
 # Guaardvark's own source is always listed, although it is not a Library folder:
-# it has no folder id and cannot be marked as a Code Repository, so the folder
-# tools do not apply to it. Its path is "." because read_code, search_code and
-# list_code_files take paths relative to the checkout root; where the checkout
-# sits on disk is not something a client needs.
+# it has no folder id and cannot be marked as a Code Repository. The folder tools
+# reach it by leaving folder_id empty. Its path is "." because read_code,
+# search_code and list_code_files take paths relative to the checkout root;
+# where the checkout sits on disk is not something a client needs.
 LIVE_CHECKOUT_ENTRY = {
     "id": "live",
     "name": "Guaardvark's own source (live checkout)",
     "path": ".",
     "has_metadata": False,
     "description": (
-        "The source of this Guaardvark install, not a Library folder: 'live' is not a folder_id, and "
-        "get_repository_map, get_dependency_graph and read_ast_node do not work on it. Explore it "
-        "with search_code, search_codebase, list_code_files and read_code, using paths relative to "
-        "the checkout root, or map_codebase for an overview."
+        "The source of this Guaardvark install, not a Library folder: 'live' is not a folder_id. "
+        "Call get_repository_map, get_dependency_graph and read_ast_node with folder_id left empty "
+        "(outside a project that has its own folder) to map it, follow its imports or read one "
+        "function. Explore it with search_code, search_codebase, list_code_files and read_code, "
+        "using paths relative to the checkout root, or map_codebase for findings."
     ),
 }
 

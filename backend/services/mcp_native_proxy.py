@@ -74,6 +74,10 @@ def _make_proxy_class(server: str, mcp_tool: Dict[str, Any]) -> type:
 
     class _MCPProxy(BaseTool):
         name = proxy_name
+        # A third party's server decides what a call does, so plan mode never
+        # runs one while it researches.
+        read_only = False
+        plan_research = False
         # Truncate noisy MCP descriptions; LLM doesn't need 500-char essays.
         description = mcp_description[:300]
 

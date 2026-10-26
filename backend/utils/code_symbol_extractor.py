@@ -77,6 +77,15 @@ _PATTERNS = {
 
 # Alias mappings
 _PATTERNS["typescript"] = _PATTERNS["javascript"]
+
+# Words the patterns can catch that never name a definition: "the function
+# return (x)" in a comment reads as `function return(`.
+_KEYWORDS = frozenset({
+    "return", "if", "else", "for", "while", "do", "switch", "case", "catch", "try", "finally",
+    "function", "new", "typeof", "instanceof", "await", "async", "yield", "delete", "void",
+    "in", "of", "this", "super", "class", "const", "let", "var", "import", "export", "from",
+    "default", "with", "not", "and", "or", "is", "lambda", "pass", "def", "None", "True", "False",
+})
 _PATTERNS["cpp"] = _PATTERNS["c"]
 _PATTERNS["c_sharp"] = _PATTERNS["java"]  # Close enough for extraction
 _PATTERNS["swift"] = _PATTERNS["java"]
@@ -123,6 +132,8 @@ def extract_symbols(code: str, language: str) -> List[Dict]:
                             "line": line_num,
                         })
             else:
+                if raw_name in _KEYWORDS:
+                    continue
                 line_num = code[:match.start()].count("\n") + 1
                 symbols.append({
                     "name": raw_name,

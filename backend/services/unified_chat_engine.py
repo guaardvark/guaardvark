@@ -406,10 +406,26 @@ def _record_approved_consent(tool, params: Dict[str, Any], session_id: str) -> N
         logger.warning("consent record not written for %s: %s", ref, exc)
 
 
+def _decline_waiting_approval(session_id: str) -> None:
+    """Answer a waiting approval card with no, so a stopped turn ends now
+    instead of holding its thread for APPROVAL_TIMEOUT_S."""
+    with _approval_lock:
+        event = _approval_events.get(session_id)
+        if event is None:
+            return
+        meta = _approval_batch_meta.get(session_id)
+        if meta and meta.get("pending"):
+            meta["pending"] = False
+            meta["approved"] = False
+        _approval_responses[session_id] = False
+        event.set()
+
+
 def set_abort_flag(session_id: str):
     """Stop every turn running on a session. Turns begun afterwards run normally."""
     with _abort_lock:
         _stop_counts[session_id] = _stop_counts.get(session_id, 0) + 1
+    _decline_waiting_approval(session_id)
 
 
 def begin_new_turn(session_id: str) -> int:
@@ -422,7 +438,8 @@ def begin_new_turn(session_id: str) -> int:
         mark = _stop_counts.get(session_id, 0) + 1
         _stop_counts[session_id] = mark
         _newest_turn_marks[session_id] = mark
-        return mark
+    _decline_waiting_approval(session_id)
+    return mark
 
 
 def _turn_stack() -> list:

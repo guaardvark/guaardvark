@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class FileWatchTool(BaseTool):
     
     name = "file_watch"
+    read_only = False
     description = "Watch a file or directory for changes (created, modified, deleted, moved). Returns a watch_id to stop watching later."
     parameters = {
         "path": ToolParameter(
@@ -100,6 +101,7 @@ class FileWatchTool(BaseTool):
 class FileBulkOperationTool(BaseTool):
     
     name = "file_bulk_operation"
+    read_only = False
     description = "Perform bulk file operations using glob patterns. Supports copy, move, and delete."
     parameters = {
         "operation": ToolParameter(
@@ -161,6 +163,7 @@ class FileBulkOperationTool(BaseTool):
 class AppLaunchTool(BaseTool):
     
     name = "app_launch"
+    read_only = False
     description = "Launch an application by name. Only whitelisted apps are allowed for security."
     parameters = {
         "app_name": ToolParameter(
@@ -224,6 +227,7 @@ class AppLaunchTool(BaseTool):
 class AppListTool(BaseTool):
     
     name = "app_list"
+    read_only = True
     description = "List running applications/processes with optional filtering."
     parameters = {
         "filter": ToolParameter(
@@ -269,6 +273,7 @@ class AppListTool(BaseTool):
 class AppFocusTool(BaseTool):
     
     name = "app_focus"
+    read_only = False
     description = "Bring a window to the foreground by title or process name."
     parameters = {
         "window_title": ToolParameter(
@@ -320,6 +325,7 @@ class AppFocusTool(BaseTool):
 class GUIClickTool(BaseTool):
     
     name = "gui_click"
+    read_only = False
     description = "Click the mouse at specific screen coordinates. Requires GUI automation to be enabled."
     parameters = {
         "x": ToolParameter(
@@ -397,6 +403,7 @@ class GUIClickTool(BaseTool):
 class GUITypeTool(BaseTool):
     
     name = "gui_type"
+    read_only = False
     description = "Type text using the keyboard. Requires GUI automation to be enabled."
     parameters = {
         "text": ToolParameter(
@@ -462,6 +469,7 @@ def _normalize_hotkey(keys):
 class GUIHotkeyTool(BaseTool):
     
     name = "gui_hotkey"
+    read_only = False
     description = "Press a keyboard shortcut (e.g., Ctrl+C). Requires GUI automation to be enabled."
     parameters = {
         "keys": ToolParameter(
@@ -505,6 +513,7 @@ class GUIHotkeyTool(BaseTool):
 class GUIScreenshotTool(BaseTool):
     
     name = "gui_screenshot"
+    read_only = True
     description = "Capture a screenshot of the screen or a specific region. Returns base64-encoded image."
     parameters = {
         "region": ToolParameter(
@@ -558,6 +567,7 @@ class GUIScreenshotTool(BaseTool):
 class GUILocateImageTool(BaseTool):
     
     name = "gui_locate_image"
+    read_only = True
     description = "Find the location of an image on the screen. Useful for GUI automation."
     parameters = {
         "image_path": ToolParameter(
@@ -617,6 +627,7 @@ class GUILocateImageTool(BaseTool):
 class ClipboardGetTool(BaseTool):
     
     name = "clipboard_get"
+    read_only = True
     description = "Get the current text contents of the system clipboard."
     parameters = {}
     
@@ -650,6 +661,7 @@ class ClipboardGetTool(BaseTool):
 class ClipboardSetTool(BaseTool):
     
     name = "clipboard_set"
+    read_only = False
     description = "Copy text to the system clipboard."
     parameters = {
         "content": ToolParameter(
@@ -693,6 +705,7 @@ class ClipboardSetTool(BaseTool):
 class NotificationSendTool(BaseTool):
     
     name = "notification_send"
+    read_only = False
     description = "Display a desktop notification to the user."
     parameters = {
         "title": ToolParameter(

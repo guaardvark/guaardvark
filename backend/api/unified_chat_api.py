@@ -268,7 +268,7 @@ def unified_chat():
     # keeps the agent locked, so the new task gets "Agent already active").
     # The new turn's mark is taken now, so a Stop that arrives while it is
     # still starting up is not lost.
-    from backend.services.unified_chat_engine import begin_new_turn, turn_replaced
+    from backend.services.unified_chat_engine import begin_new_turn
     turn_mark = begin_new_turn(session_id)
 
     logger.info(
@@ -281,83 +281,16 @@ def unified_chat():
         except (ValueError, TypeError):
             project_id = None
 
-    # Phase 2.2: AgentBrain is the sole canonical router (when AGENT_BRAIN_ENABLED, default true).
-    # Legacy unified_chat_engine is bridge ONLY for explicit disable (GUAARDVARK_AGENT_BRAIN=false)
-    # or when brain_state not ready. No silent fallback when enabled.
-    use_agent_brain = False
-    agent_brain = None
-    agent_brain_enabled = False
-    try:
-        from backend.config import AGENT_BRAIN_ENABLED
-        agent_brain_enabled = AGENT_BRAIN_ENABLED
-        brain_state = getattr(current_app, 'brain_state', None)
-        if AGENT_BRAIN_ENABLED and brain_state and brain_state.is_ready:
-            from backend.services.agent_brain import AgentBrain
-            agent_brain = AgentBrain(state=brain_state)
-            use_agent_brain = True
-            logger.info(f"[UNIFIED_CHAT] Using AgentBrain (sole canonical router per Phase 2.2)")
-    except Exception as e:
-        logger.debug(f"AgentBrain not available: {e}")
-
-    engine = None
-    if not use_agent_brain:
-        if agent_brain_enabled:
-            # Enforce sole: do not fall back when explicitly enabled. Surface clear error.
-            logger.error("[UNIFIED_CHAT] AGENT_BRAIN_ENABLED but brain_state not ready - no legacy fallback")
-            return jsonify({"success": False, "error": "AgentBrain enabled but not ready (brain_state missing or !is_ready)."}), 503
-        # Legacy bridge path only when disabled (deprecated during 2.2)
-        llm = current_app.config.get("LLAMA_INDEX_LLM")
-        if not llm:
-            logger.warning("LLAMA_INDEX_LLM not in app config, creating on demand (legacy)")
-            try:
-                from backend.utils.llm_service import get_llm_for_startup
-                llm = get_llm_for_startup()
-                current_app.config["LLAMA_INDEX_LLM"] = llm
-            except Exception as e:
-                logger.error(f"Failed to create LLM instance: {e}")
-                return jsonify({"success": False, "error": "LLM not available. Check Ollama is running."}), 503
-
-        try:
-            from backend.tools.tool_registry_init import initialize_all_tools
-            registry = initialize_all_tools()
-        except Exception as e:
-            logger.error(f"Failed to initialize tool registry: {e}")
-            return jsonify({"success": False, "error": "Tool registry unavailable"}), 503
-
-        from backend.services.unified_chat_engine import UnifiedChatEngine
-        engine = UnifiedChatEngine(registry, llm)
-        logger.info("Using legacy UnifiedChatEngine bridge (AgentBrain disabled or not ready; Phase 2.2 unification)")
-
-    # Build emit function
-    from backend.socketio_instance import socketio
-
-    def emit_fn(event, data_payload):
-        data_payload["session_id"] = session_id
-        if turn_replaced(session_id, turn_mark):
-            # Stopped and replaced by a newer message: the room belongs to that
-            # turn now, and this one's late events would end or garble it.
-            return
-        if socketio.server is None:
-            logger.warning(f"SocketIO server not initialized, dropping event {event} for session {session_id}")
-            return
-        try:
-            is_think = (event == "chat:thinking")
-            is_agent_think = is_think and data_payload.get("source") == "agent_loop"
-            log_payload = {
-                "iter": data_payload.get("iteration"),
-                "status": data_payload.get("status"),
-                "has_reasoning": bool(data_payload.get("reasoning")) if is_think else None,
-                "reasoning_preview": (str(data_payload.get("reasoning", ""))[:80] + "...") if is_agent_think else None,
-                "response_preview": (str(data_payload.get("response", ""))[:60] + "...") if event == "chat:complete" else None,
-            }
-            logger.info(f"[UNIFIED-EMIT] {event} room={session_id} agent_think={is_agent_think} keys={list(data_payload.keys()) if isinstance(data_payload,dict) else type(data_payload)} payload={log_payload}")
-            socketio.emit(event, data_payload, room=session_id)
-            broadcast_tool_activity(event, data_payload)
-        except Exception as emit_err:
-            logger.warning(f"Failed to emit {event}: {emit_err}")
-
-    # Run in background thread with app context
+    # AgentBrain routes every turn while it is enabled; the legacy engine only
+    # when GUAARDVARK_AGENT_BRAIN=false. Never a silent fallback.
+    from backend.services.chat_turn import build_router, make_session_emit, route_turn, run_chat_turn
     app = current_app._get_current_object()
+    agent_brain, engine, router_error = build_router(app)
+    if router_error:
+        logger.error(f"[UNIFIED_CHAT] {router_error}")
+        return jsonify({"success": False, "error": router_error}), 503
+
+    emit_fn = make_session_emit(session_id, turn_mark)
 
     # Save the attached pictures for chat history, one URL per picture in
     # attach order, ``None`` where a save failed so the positions stay
@@ -389,92 +322,25 @@ def unified_chat():
             pass
 
     def run_engine():
-        import contextlib
-        from backend.services import job_arbiter
-        from backend.services.unified_chat_engine import begin_turn, end_turn
-        begin_turn(session_id, turn_mark)
-        # Job order on: background work holds while this turn runs.
-        interactive_turn = contextlib.ExitStack()
-        interactive_turn.enter_context(
-            job_arbiter.interactive("voice_chat" if is_voice_message else "chat", session_id)
+        run_chat_turn(
+            session_id=session_id,
+            turn_mark=turn_mark,
+            emit_fn=emit_fn,
+            is_voice_message=is_voice_message,
+            body=lambda: route_turn(
+                session_id=session_id,
+                message=message,
+                options=options,
+                emit_fn=emit_fn,
+                app=app,
+                project_id=project_id,
+                image_data=image_data,
+                image_url=image_url,
+                is_voice_message=is_voice_message,
+                agent_brain=agent_brain,
+                engine=engine,
+            ),
         )
-        try:
-            logger.info(f"[SOCKET-CHAT] BACKEND THREAD START for session={session_id}; first chat:thinking may emit BEFORE client join_room completes (race window open)")
-            # Wire the emit_fn into the thread-local so that agent_control tools
-            # (agent_task_execute etc) can stream live "chat:thinking" events with
-            # source=agent_loop for the see-think-act steps. This was only done
-            # inside legacy engine before; AgentBrain/Tier3 paths bypassed it.
-            from backend.services.agent_control_service import set_chat_emit_fn, set_chat_stop_check
-            from backend.services.unified_chat_engine import is_aborted
-            set_chat_emit_fn(emit_fn)
-            set_chat_stop_check(lambda: is_aborted(session_id))
-            logger.debug(
-                f"[EMIT-HANDOFF][UNIFIED_API] set_chat_emit_fn called for session={session_id} "
-                f"thread={threading.get_ident()} emit_fn_id={id(emit_fn)} use_agent_brain={use_agent_brain}"
-            )
-
-            # Direct tool / slash intercept ( /imagine etc ) — do this BEFORE routing
-            # to brain or legacy. This guarantees the bypass even when AgentBrain
-            # is the sole router. Avoids LLM involvement and the associated eviction EOFs.
-            try:
-                from backend.services.slash_command_executor import run_direct_tool_turn
-                if run_direct_tool_turn(options, message, session_id, emit_fn, app,
-                                        project_id=project_id, log_tag="UNIFIED_API"):
-                    return  # done, direct path emitted everything
-            except Exception as _dir_e:
-                logger.debug(f"Direct intercept pre-check skipped or failed (will route normally): {_dir_e}")
-
-            if use_agent_brain and agent_brain:
-                logger.debug(
-                    f"[EMIT-HANDOFF][UNIFIED_API] dispatching to AgentBrain.process session={session_id} "
-                    f"emit_fn_id={id(emit_fn)}"
-                )
-                agent_brain.process(
-                    session_id=session_id,
-                    message=message,
-                    options=options,
-                    emit_fn=emit_fn,
-                    app=app,
-                    project_id=project_id,
-                    image_data=image_data,
-                    image_url=image_url,
-                    is_voice_message=is_voice_message,
-                )
-            elif engine:
-                # legacy bridge only
-                logger.debug(
-                    f"[EMIT-HANDOFF][UNIFIED_API] dispatching to legacy UnifiedChatEngine.chat session={session_id} "
-                    f"emit_fn_id={id(emit_fn)}"
-                )
-                engine.chat(session_id, message, options, emit_fn, app=app,
-                           project_id=project_id, image_data=image_data, image_url=image_url,
-                           is_voice_message=is_voice_message)
-            else:
-                raise RuntimeError("No routing engine available")
-        except Exception as e:
-            logger.error(f"Chat engine thread error: {e}", exc_info=True)
-            emit_fn("chat:error", {"error": str(e)})
-        finally:
-            interactive_turn.close()
-            end_turn(session_id)
-            # Always clear the thread-local emitter when this chat turn ends
-            # (success, error, or abort) so the next turn on this thread gets a fresh one.
-            try:
-                from backend.services.agent_control_service import set_chat_emit_fn, set_chat_stop_check
-                set_chat_emit_fn(None)
-                set_chat_stop_check(None)
-                logger.debug(
-                    f"[EMIT-HANDOFF][UNIFIED_API] cleared chat_emit_fn in finally for session={session_id} "
-                    f"thread={threading.get_ident()}"
-                )
-            except Exception:
-                pass
-            # Drop ourselves from the in-flight map so the next request can
-            # take this slot. Guarded by identity check so a (defensive) race
-            # with a replacement entry doesn't clobber it.
-            with _inflight_lock:
-                if _inflight.get(session_id) is threading.current_thread():
-                    _inflight.pop(session_id, None)
 
     # The previous turn was stopped above (begin_new_turn); give its thread a
     # moment to notice and exit. A thread that is still alive and was not

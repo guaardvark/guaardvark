@@ -133,6 +133,8 @@ class WordPressContentTool(BaseTool):
 
     name = "generate_wordpress_content"
     read_only = True
+    # Changes nothing, but the page it writes is the deliverable: plan it, then run it.
+    plan_research = False
     description = (
         "Compose one WordPress page with Guaardvark's local LLM and return it as a single CSV row of "
         "text, six double-quoted columns with no header: ID, title, HTML content, meta description, "
@@ -272,6 +274,8 @@ class EnhancedWordPressContentTool(BaseTool):
 
     name = "generate_enhanced_wordpress_content"
     read_only = True
+    # Changes nothing, but the page it writes is the deliverable: plan it, then run it.
+    plan_research = False
     description = (
         "Compose one WordPress page grounded in the user's own indexed documents: it searches the whole "
         "knowledge base for the client, topic and services, gives Guaardvark's local LLM up to 6 "

@@ -15,6 +15,7 @@ class ExecutePythonTool(BaseTool):
     """Execute Python code (python3 subprocess with a timeout; NOT sandboxed)"""
     
     name = "execute_python"
+    read_only = False
     description = ("Run Python code on this machine and return the output (30s timeout, not sandboxed; "
                    "the user is asked to approve each run)")
     is_dangerous = True
@@ -118,6 +119,7 @@ class ExecuteJavaScriptTool(BaseTool):
     """Execute JavaScript code safely (wraps existing code_execution_api)"""
     
     name = "execute_javascript"
+    read_only = False
     description = "Execute JavaScript/Node.js code safely and return the output"
     is_dangerous = True
     requires_approval = True
