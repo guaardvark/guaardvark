@@ -90,6 +90,14 @@ def _subsystem_names() -> List[str]:
     return _SUBSYSTEMS
 
 
+_QUESTION = re.compile(r"^\s*(where|which|how|why|what|who|when|is|are|does|do|can|could)\b|\?\s*$", re.I)
+
+
+def asks_about_self(message: str, options: Optional[Dict[str, Any]] = None) -> bool:
+    """A question (not a request) about Guaardvark's own code or workings."""
+    return bool(_QUESTION.search(message or "")) and about_self(message, options)
+
+
 def _map():
     from backend.tools.workstation_tools import _query_inputs
     root = _root()

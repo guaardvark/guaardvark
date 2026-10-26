@@ -2757,8 +2757,16 @@ class UnifiedChatEngine:
         from backend.utils.agent_output_parser import parse_tool_calls_xml, format_tool_result_for_llm, failure_text
 
         # A host that supplies its own routing (options["skip_direct_intercepts"])
-        # bypasses the pattern-matched shortcuts and lets the model choose.
-        if not options.get("skip_direct_intercepts"):
+        # bypasses the pattern-matched shortcuts and lets the model choose. So
+        # does a question about Guaardvark's own code: "where is /imagine
+        # handled?" is not a request for a picture.
+        _asks_about_self = False
+        try:
+            from backend.services.self_analysis import asks_about_self
+            _asks_about_self = asks_about_self(message, options)
+        except Exception:
+            logger.debug("self-question check skipped", exc_info=True)
+        if not options.get("skip_direct_intercepts") and not _asks_about_self:
             # 0. Slash / explicit direct-tool intercept — bypass LLM (e.g. /imagine → generate_image)
             if isinstance(options, dict) and not options.get("direct_tool"):
                 ws_hit = match_workstation_direct(message)
