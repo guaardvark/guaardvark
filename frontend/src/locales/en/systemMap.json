@@ -29,8 +29,11 @@
   "searchPlaceholder": "Search ( / )",
   "resetView": "Reset view (R)",
   "refresh": {
-    "cached": "Cached {{seconds}}s ago — click to re-compute",
-    "computed": "Just computed in {{seconds}}s"
+    "cached": "Built {{seconds}}s ago and up to date with the source — click to rebuild",
+    "computed": "Just computed in {{seconds}}s",
+    "stale": "The source changed since this map was built — click to rebuild",
+    "building": "Building a new map from the changed source…",
+    "button": "Rebuild the map"
   },
   "overlays": {
     "ghostEndpoints": "Ghost endpoints",
@@ -46,7 +49,9 @@
     "importers_other": "{{count}} importers",
     "findings": "Findings ({{count}})",
     "moreFindings": "… and {{count}} more",
-    "escToClear": "Press <code>Esc</code> to clear"
+    "escToClear": "Press <code>Esc</code> to clear",
+    "ask": "Ask about this",
+    "askTooltip": "Open chat with /sysmap module {{path}}"
   },
   "loading": "Mapping the system…",
   "panel": {
@@ -70,5 +75,15 @@
     "seconds": "{{count}}s",
     "minutes": "{{count}}m",
     "hours": "{{count}}h"
+  },
+  "computing": "Building the map for the first time…",
+  "codeIndex": {
+    "build": "Build code search index",
+    "rebuild": "Refresh code search index",
+    "building": "Building the code search index…",
+    "ready": "Code search index built: search_codebase finds code by meaning. Click to refresh it.",
+    "missing": "No code search index yet, so search_codebase matches words and names only. Click to build one with the zvec_grep plugin; nothing is downloaded.",
+    "notInstalled": "Install the zvec_grep plugin from the Plugins page to build a code search index.",
+    "failed": "Building the code search index failed: {{reason}}"
   }
 }

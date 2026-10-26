@@ -5,13 +5,16 @@
 import { BASE_URL, handleResponse } from "./apiClient";
 
 /**
- * Fetch the current SystemMap. Cached server-side (5-min TTL); pass
- * { refresh: true } to force a re-compute.
+ * Fetch the stored SystemMap. A read never rebuilds: the map comes back with
+ * `_cache: { stale, refreshing, age_seconds }`, and a stale map is rebuilt in
+ * the background. Before the first map exists the answer is
+ * `{ success: false, status: "computing" }` (HTTP 202); ask again shortly.
+ * `{ refresh: true }` also starts a rebuild.
  *
  * Returns the SystemMap dict from backend.services.system_mapper.SystemMap:
- *   { root, generated_at, languages, file_count,
- *     dependency_graph, reachability, tool_graph,
- *     findings, stats, _cache }
+ *   { root, generated_at, languages, file_count, dependency_graph,
+ *     lazy_imports, node_meta, reachability, tool_graph, celery_tasks,
+ *     subsystems, findings, stats, _cache }
  */
 export async function fetchSystemMap({ refresh = false, root = null } = {}) {
   const params = new URLSearchParams();
@@ -65,5 +68,36 @@ export async function dismissFinding(findingId, { root = null, undo = false } = 
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ root, undo }),
   });
+  return handleResponse(resp);
+}
+
+/** Start rebuilding the map in the background; poll fetchSystemMap for it. */
+export async function refreshSystemMap({ root = null } = {}) {
+  const resp = await fetch(`${BASE_URL}/system-map/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ root }),
+  });
+  return handleResponse(resp);
+}
+
+/** Ask the map a question: { mode, q } → { answer } (text). */
+export async function querySystemMap({ mode = "", q = "" } = {}) {
+  const params = new URLSearchParams();
+  if (mode) params.set("mode", mode);
+  params.set("q", q);
+  const resp = await fetch(`${BASE_URL}/system-map/query?${params.toString()}`, { method: "GET" });
+  return handleResponse(resp);
+}
+
+/** Whether the checkout has a code search index, and whether one is building. */
+export async function fetchCodeIndexStatus() {
+  const resp = await fetch(`${BASE_URL}/system-map/code-index`, { method: "GET" });
+  return handleResponse(resp);
+}
+
+/** Build or refresh the code search index with the zvec_grep plugin, in the background. */
+export async function buildCodeIndex() {
+  const resp = await fetch(`${BASE_URL}/system-map/code-index`, { method: "POST" });
   return handleResponse(resp);
 }

@@ -37,6 +37,8 @@ import BoltIcon from "@mui/icons-material/Bolt";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import SendIcon from "@mui/icons-material/Send";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import ManageSearchIcon from "@mui/icons-material/ManageSearch";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { io } from "socket.io-client";
 
 import PageLayout from "../components/layout/PageLayout";
@@ -48,7 +50,11 @@ import {
   fetchFindings,
   dispatchFinding,
   dismissFinding,
+  refreshSystemMap,
+  fetchCodeIndexStatus,
+  buildCodeIndex,
 } from "../api/systemMapService";
+import { useFloatingChatStore } from "../stores/useFloatingChatStore";
 import { SOCKET_URL } from "../api/apiClient";
 import { useUiTranslation, translate, Trans } from "../i18n";
 
@@ -80,6 +86,23 @@ function dispatchToastText(toast) {
   }
   return translate("systemMap.dispatch.failed", { error: toast.reason });
 }
+
+// The map's node ids: dotted names for Python, paths for JavaScript.
+function moduleIdsOf(map) {
+  return Object.keys(map?.node_meta || map?.dependency_graph || {});
+}
+
+// path -> node id, so findings (which name files) can find their node.
+function pathIndexOf(map) {
+  const out = {};
+  for (const [id, meta] of Object.entries(map?.node_meta || {})) {
+    if (meta?.path) out[meta.path] = id;
+  }
+  return out;
+}
+
+// How often the page asks again while the map is being built.
+const POLL_MS = 4000;
 
 function severityCounts(map) {
   const c = { high: 0, medium: 0, low: 0, info: 0 };
@@ -207,6 +230,10 @@ export default function SystemMapPage() {
   const [sevFilter, setSevFilter] = useState("high,medium"); // default to actionable
   const [dispatchingId, setDispatchingId] = useState(null);
   const [toast, setToast] = useState(null);
+  const [computing, setComputing] = useState(false);
+  const [codeIndex, setCodeIndex] = useState(null);
+  const [codeIndexError, setCodeIndexError] = useState(null);
+  const enqueueChatTurn = useFloatingChatStore((s) => s.enqueueTurn);
 
   const loadFindings = useCallback(async () => {
     try {
@@ -217,28 +244,104 @@ export default function SystemMapPage() {
     }
   }, [sevFilter]);
 
-  const load = useCallback(async (refresh = false) => {
-    setLoading(true);
-    setError(null);
+  // A read never rebuilds on the server: it returns the stored map, marked
+  // stale while a rebuild runs, or "computing" before the first map exists.
+  // quiet: a poll, which leaves the spinner and the error alone.
+  const load = useCallback(async ({ quiet = false } = {}) => {
+    if (!quiet) {
+      setLoading(true);
+      setError(null);
+    }
     try {
-      const data = await fetchSystemMap({ refresh });
+      const data = await fetchSystemMap();
       if (data && data.file_count != null) {
         setMap(data);
+        setComputing(false);
+      } else if (data && data.status === "computing") {
+        setComputing(true);
       } else if (data && data.success === false) {
-        setError(data.error || SNAPSHOT_FAILED);
+        setError(data.error || data.reason || SNAPSHOT_FAILED);
       } else {
         setMap(data);
       }
     } catch (e) {
-      setError(String(e?.message || e));
+      if (!quiet) setError(String(e?.message || e));
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load(false);
+    load();
   }, [load]);
+
+  // Ask again while the first map or a rebuild is running.
+  const rebuilding = computing || Boolean(map?._cache?.refreshing);
+  useEffect(() => {
+    if (!rebuilding) return undefined;
+    const id = setTimeout(() => {
+      load({ quiet: true });
+      loadFindings();
+    }, POLL_MS);
+    return () => clearTimeout(id);
+  }, [rebuilding, map, load, loadFindings]);
+
+  const handleRefresh = useCallback(async () => {
+    try {
+      await refreshSystemMap();
+      setMap((prev) => (prev ? { ...prev, _cache: { ...(prev._cache || {}), refreshing: true } } : prev));
+      if (!map) setComputing(true);
+    } catch (e) {
+      setError(String(e?.message || e));
+    }
+  }, [map]);
+
+  const loadCodeIndex = useCallback(async () => {
+    try {
+      setCodeIndex(await fetchCodeIndexStatus());
+    } catch {
+      setCodeIndex(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCodeIndex();
+  }, [loadCodeIndex]);
+
+  useEffect(() => {
+    if (!codeIndex?.running) return undefined;
+    const id = setTimeout(loadCodeIndex, POLL_MS);
+    return () => clearTimeout(id);
+  }, [codeIndex, loadCodeIndex]);
+
+  const handleBuildCodeIndex = useCallback(async () => {
+    setCodeIndexError(null);
+    try {
+      const res = await buildCodeIndex();
+      if (res?.success === false) setCodeIndexError(res.reason || res.error || "");
+      loadCodeIndex();
+    } catch (e) {
+      setCodeIndexError(String(e?.message || e));
+    }
+  }, [loadCodeIndex]);
+
+  // Open the floating chat with a question about one module.
+  const askAboutNode = useCallback(
+    (nodeId) => {
+      const path = map?.node_meta?.[nodeId]?.path || moduleNameToPath(nodeId);
+      const args = `module ${path}`;
+      enqueueChatTurn({
+        text: `/sysmap ${args}`,
+        options: {
+          direct_tool: "system_map_query",
+          direct_tool_params: { mode: "module", q: path },
+          slash_command: "sysmap",
+          slash_args: args,
+        },
+      });
+    },
+    [map, enqueueChatTurn],
+  );
 
   useEffect(() => {
     loadFindings();
@@ -247,13 +350,13 @@ export default function SystemMapPage() {
   // Jump the camera to the module a finding points at (first .py path).
   const flyToFinding = useCallback(
     (finding) => {
-      const pyPath = (finding.paths || []).find((p) => p.endsWith(".py"));
-      if (!pyPath) return;
-      const mod = pyPath.slice(0, -3).replace(/\//g, ".");
+      const index = pathIndexOf(map);
+      const mod = (finding.paths || []).map((p) => index[p]).find(Boolean);
+      if (!mod) return;
       if (canvasRef.current) canvasRef.current.flyTo(mod);
       setSelected(mod);
     },
-    [],
+    [map],
   );
 
   const handleDispatch = useCallback(async (finding) => {
@@ -293,7 +396,7 @@ export default function SystemMapPage() {
   // Socket.IO subscription — pulse nodes when chat tools fire.
   useEffect(() => {
     if (!map) return;
-    const moduleNames = Object.keys(map.dependency_graph || {});
+    const moduleNames = moduleIdsOf(map);
     const socket = io(SOCKET_URL, {
       reconnection: true,
       reconnectionAttempts: 5,
@@ -366,7 +469,7 @@ export default function SystemMapPage() {
       e.preventDefault();
       if (!search || !map) return;
       const q = search.toLowerCase();
-      const moduleNames = Object.keys(map.dependency_graph || {});
+      const moduleNames = moduleIdsOf(map);
       const match = moduleNames.find((m) => m.toLowerCase().includes(q));
       if (match && canvasRef.current) {
         canvasRef.current.flyTo(match);
@@ -394,9 +497,10 @@ export default function SystemMapPage() {
   const findingsByModule = useMemo(() => {
     const out = new Map();
     if (!map?.findings) return out;
+    const index = pathIndexOf(map);
     for (const f of map.findings) {
       for (const p of f.paths || []) {
-        const m = p.endsWith(".py") ? p.slice(0, -3).replace(/\//g, ".") : null;
+        const m = index[p] || (p.endsWith(".py") ? p.slice(0, -3).replace(/\//g, ".") : null);
         if (!m) continue;
         if (!out.has(m)) out.set(m, []);
         out.get(m).push(f);
@@ -570,27 +674,63 @@ export default function SystemMapPage() {
             </IconButton>
           </Tooltip>
           {/* Refresh */}
+          {/* Code search index (zvec_grep) */}
           <Tooltip
             title={
-              cacheInfo?.hit
-                ? t("systemMap.refresh.cached", { seconds: cacheInfo.age_seconds })
-                : t("systemMap.refresh.computed", { seconds: cacheInfo?.computed_in_seconds || "?" })
+              codeIndexError
+                ? t("systemMap.codeIndex.failed", { reason: codeIndexError })
+                : codeIndex?.running
+                  ? t("systemMap.codeIndex.building")
+                  : codeIndex?.indexed
+                    ? t("systemMap.codeIndex.ready")
+                    : codeIndex?.installed
+                      ? t("systemMap.codeIndex.missing")
+                      : t("systemMap.codeIndex.notInstalled")
             }
           >
             <span>
               <IconButton
-                onClick={() => {
-                  load(true);
-                  loadFindings();
+                aria-label={codeIndex?.indexed ? t("systemMap.codeIndex.rebuild") : t("systemMap.codeIndex.build")}
+                onClick={handleBuildCodeIndex}
+                disabled={!codeIndex?.installed || codeIndex?.running}
+                sx={{
+                  color: codeIndex?.indexed ? P.ink(0.7) : P.ink(0.45),
+                  pointerEvents: "auto",
+                  "&:hover": { color: P.ink(1) },
                 }}
-                disabled={loading}
+              >
+                {codeIndex?.running ? (
+                  <CircularProgress size={20} sx={{ color: P.ink(0.7) }} />
+                ) : (
+                  <ManageSearchIcon />
+                )}
+              </IconButton>
+            </span>
+          </Tooltip>
+          {/* Refresh */}
+          <Tooltip
+            title={
+              rebuilding
+                ? t("systemMap.refresh.building")
+                : cacheInfo?.stale
+                  ? t("systemMap.refresh.stale")
+                  : cacheInfo?.hit
+                    ? t("systemMap.refresh.cached", { seconds: cacheInfo.age_seconds })
+                    : t("systemMap.refresh.computed", { seconds: cacheInfo?.computed_in_seconds || "?" })
+            }
+          >
+            <span>
+              <IconButton
+                aria-label={t("systemMap.refresh.button")}
+                onClick={handleRefresh}
+                disabled={loading || rebuilding}
                 sx={{
                   color: P.ink(0.7),
                   pointerEvents: "auto",
                   "&:hover": { color: P.ink(1) },
                 }}
               >
-                {loading ? (
+                {loading || rebuilding ? (
                   <CircularProgress size={20} sx={{ color: P.ink(0.7) }} />
                 ) : (
                   <RefreshIcon />
@@ -846,6 +986,29 @@ export default function SystemMapPage() {
                 )}
               </Stack>
 
+              {selected && !hovered && (
+                <Tooltip
+                  title={t("systemMap.detail.askTooltip", {
+                    path: map?.node_meta?.[selected]?.path || moduleNameToPath(selected),
+                  })}
+                >
+                  <Chip
+                    size="small"
+                    icon={<ChatBubbleOutlineIcon sx={{ fontSize: 14 }} />}
+                    label={t("systemMap.detail.ask")}
+                    onClick={() => askAboutNode(selected)}
+                    sx={{
+                      mt: 1,
+                      bgcolor: P.ink(0.10),
+                      color: P.ink(0.9),
+                      fontSize: "0.72rem",
+                      height: 24,
+                      cursor: "pointer",
+                    }}
+                  />
+                </Tooltip>
+              )}
+
               <Box sx={{ mt: 1.5 }}>
                 {activeNode && activeNode.section && (
                   <Chip
@@ -991,8 +1154,8 @@ export default function SystemMapPage() {
           </Alert>
         )}
 
-        {/* Loading overlay (initial only) */}
-        {loading && !map && (
+        {/* Loading overlay (initial only, and while the first map is built) */}
+        {(loading || computing) && !map && (
           <Box
             sx={{
               position: "absolute",
@@ -1013,7 +1176,7 @@ export default function SystemMapPage() {
                 textTransform: "uppercase",
               }}
             >
-              {t("systemMap.loading")}
+              {computing ? t("systemMap.computing") : t("systemMap.loading")}
             </Typography>
           </Box>
         )}
