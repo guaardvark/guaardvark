@@ -89,5 +89,10 @@
     "uncleFeedback": "Opinia Uncle Claude",
     "changesMade": "Wprowadzone zmiany",
     "testResults": "Wyniki testów"
+  },
+  "selfEdits": {
+    "title": "Zmiany, które Guaardvark wprowadziło w swoim kodzie",
+    "none": "Guaardvark nie zmieniło jeszcze własnego kodu. Poproś o to w trybie planowania i zatwierdź plan.",
+    "when": "{{when}} · zmiana {{id}}"
   }
 }

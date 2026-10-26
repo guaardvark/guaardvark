@@ -172,7 +172,10 @@
   "chat": {
     "thinkingOn": "Standardmäßig eingeschaltet: Denken-Modelle schlussfolgern Schritt für Schritt (langsamer). Nutze /thinking off pro Chat.",
     "thinkingOff": "Standardmäßig ausgeschaltet: schnellere Antworten. Nutze /thinking on pro Chat.",
-    "thinkingFailed": "Einstellung für Chat-Denkprozesse konnte nicht aktualisiert werden"
+    "thinkingFailed": "Einstellung für Chat-Denkprozesse konnte nicht aktualisiert werden",
+    "planModeOn": "Neue Chats starten im Planungsmodus",
+    "planModeOff": "Neue Chats starten ohne Planungsmodus",
+    "planModeFailed": "Planungsmodus-Einstellung konnte nicht gespeichert werden"
   },
   "embedding": {
     "notRebuilt": "Nicht automatisch neu erstellt: {{items}}",
@@ -309,6 +312,8 @@
     "rulesTooltip": "Persona- und Verhaltensregeln der Regelseite. Aus ersetzt sie durch einen einfachen integrierten Prompt.",
     "thinking": "Chat-Denkprozesse",
     "thinkingTooltip": "Standard für Denkmodelle. Je Chat: /thinking on oder off.",
+    "planMode": "Planungsmodus",
+    "planModeTooltip": "Neue Chats im Planungsmodus starten: Analysiere jede Anfrage zuerst und ändere nichts, bis du einen Plan genehmigst. /plan schaltet dies pro Chat um.",
     "webAccess": "Webzugriff",
     "webAccessTooltip": "Erlaubt Web-, Browser- und Adresswerkzeugen den Internetzugriff.",
     "voiceChat": "Sprachchat",

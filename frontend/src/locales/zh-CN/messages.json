@@ -377,9 +377,10 @@
       "musicVideo": "用法：`/music-video <song-path-or-id> <style>` — 开始制定计划；在片段渲染前请在工作室中确认。",
       "filmCrew": "用法：`/film-crew <screenplay>` — 启动编剧；渲染将在工作室中等待。",
       "websearch": "用法：`/websearch <query>`，`/websearch site:<address>`（审计单页）或 `/websearch sitemap:<url>`（列出站点地图的页面）",
-      "plan": "用法：`/plan <request>`",
+      "plan": "用法：`/plan [on|off|<request>]`",
       "training": "用法：`/training <task>` — 例如：`/training Work 的评论训练师 — 按照横幅指示，完成后点击 Start Over，不要停止。`",
-      "thinking": "用法：`/thinking on` 或 `/thinking off`（或使用 `/thinking` 查看当前状态）。"
+      "thinking": "用法：`/thinking on` 或 `/thinking off`（或使用 `/thinking` 查看当前状态）。",
+      "orchestrate": "用法：`/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "需要一首歌曲（文档 ID 或音频路径）和一个视觉风格。示例：`/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "未读取站点地图：{{reason}}",
@@ -448,7 +449,13 @@
       "switched": "已切换至**对话模式**。消息将再次通过 LLM 路由。输入 `/agent` 切换回代理模式。",
       "exitFailed": "退出代理模式失败：{{reason}}"
     },
-    "commandFailed": "命令失败：{{reason}}"
+    "commandFailed": "命令失败：{{reason}}",
+    "plan": {
+      "needsSession": "/plan 需要一个对话；请先打开一个。",
+      "switchFailed": "无法切换计划模式：{{reason}}",
+      "on": "**计划模式**已开启。我将研究你的要求并展示一个计划；在你确认之前，任何内容都不会改变。再次输入 `/plan` 可关闭该模式。",
+      "off": "计划模式已关闭。"
+    }
   },
   "autoresearch": {
     "reasons": {

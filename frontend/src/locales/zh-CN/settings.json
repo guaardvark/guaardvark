@@ -172,7 +172,10 @@
   "chat": {
     "thinkingOn": "默认开启思考：思考模型会逐步推理（速度较慢）。在对话中使用 /thinking off 可关闭。",
     "thinkingOff": "默认关闭思考：回复更快。在对话中使用 /thinking on 可开启。",
-    "thinkingFailed": "更新对话思考设置失败"
+    "thinkingFailed": "更新对话思考设置失败",
+    "planModeOn": "新对话将以计划模式开始",
+    "planModeOff": "新对话将不启用计划模式",
+    "planModeFailed": "无法保存计划模式设置"
   },
   "embedding": {
     "notRebuilt": "未自动重建：{{items}}",
@@ -308,6 +311,8 @@
     "rulesTooltip": "来自“规则”页面的角色和行为规则。关闭后将替换为基础内置提示词。",
     "thinking": "对话思考",
     "thinkingTooltip": "思考模型的默认设置。单个对话：输入 /thinking 开启或关闭。",
+    "planMode": "计划模式",
+    "planModeTooltip": "在计划模式下开始新对话：首先分析每个请求，在您确认计划前不进行任何更改。/plan 可在单个对话中切换该模式。",
     "webAccess": "网络访问",
     "webAccessTooltip": "允许网络、浏览器和地址工具连接互联网。",
     "voiceChat": "语音对话",

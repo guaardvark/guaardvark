@@ -75,7 +75,11 @@
     "stop": "Detener (Esc)",
     "preparingImage": "Preparando imagen...",
     "analyzeImage": "Analizar imagen",
-    "send": "Enviar mensaje"
+    "send": "Enviar mensaje",
+    "planModeBadge": "MODO PLAN",
+    "planModeToggle": "Modo plan",
+    "planModeOff": "Desactivar modo plan (/plan)",
+    "placeholderPlan": "Di qué quieres que se haga. Nada cambiará hasta que apruebes el plan."
   },
   "sessions": {
     "loadFailed": "No se pudo cargar la lista de chats.",
@@ -268,5 +272,134 @@
     "error": "Error: {{error}}",
     "tokensIn": "↑ {{tokens}} en",
     "tokensOut": "↓ {{tokens}} fuera"
+  },
+  "plan": {
+    "title": "Plan",
+    "titleRevision": "Plan, revisión {{revision}}",
+    "goal": "Objetivo",
+    "stepHeading": "Paso {{index}}: {{title}}",
+    "stepTitle": "Título del paso {{index}}",
+    "stepKind": "Tipo",
+    "stepAction": "Qué hacer",
+    "stepFailed": "Fallido: {{error}}",
+    "details": "Comprobaciones, riesgos y suposiciones",
+    "checks": "Cómo comprobar que funcionó",
+    "risks": "Qué podría salir mal",
+    "questions": "Suposiciones a confirmar",
+    "status": {
+      "awaiting": "Esperando tu aprobación",
+      "running": "Ejecutando",
+      "runningStep": "Ejecutando paso {{index}} de {{total}}",
+      "pausedFailed": "Pausado: un paso falló",
+      "pausedStopped": "Pausado: detenido",
+      "pausedInterrupted": "Pausado: Guaardvark se reinició",
+      "done": "Finalizado: {{done}} de {{total}} pasos",
+      "rejected": "Rechazado",
+      "superseded": "Reemplazado por una versión más reciente"
+    },
+    "approve": "Aprobar",
+    "approveTooltip": "Ejecuta el plan, preguntándote antes de cada paso que cambie algo",
+    "approveAllow": "Aprobar y permitir sus acciones",
+    "approveAllowTooltip": "Ejecuta el plan sin preguntar de nuevo por: {{tools}}",
+    "approveAllowNoTools": "Ejecuta el plan sin preguntar de nuevo por las herramientas que utiliza",
+    "keepPlanning": "Seguir planificando",
+    "edit": "Editar",
+    "reject": "Rechazar",
+    "saveEdit": "Guardar como una nueva versión",
+    "cancelEdit": "Cancelar",
+    "stop": "Detener",
+    "retry": "Reintentar el paso",
+    "continue": "Continuar",
+    "skip": "Omitir el paso",
+    "replan": "Planificar el resto de nuevo",
+    "drop": "Descartar el resto",
+    "replanPrompt": "El paso {{index}} ({{title}}) falló: {{error}} Planifica los pasos restantes de nuevo.",
+    "kinds": {
+      "write": "Escribir",
+      "file": "Archivo",
+      "code_change": "Cambio de Código",
+      "image": "Imagen",
+      "video": "Video",
+      "audio": "Audio",
+      "desktop": "Escritorio",
+      "lookup": "Buscar",
+      "memory": "Memoria",
+      "other": "Otro"
+    }
+  },
+  "selfEdit": {
+    "appliedRestart": "Guaardvark cambió su propio código ({{files}}). Tendrá efecto tras un reinicio.",
+    "appliedLive": "Guaardvark cambió su propio código ({{files}}). Ya está en vigor.",
+    "live": "El cambio en {{files}} está en vigor.",
+    "undone": "El cambio en {{files}} falló las comprobaciones y fue revertido: {{error}}",
+    "autoReverted": "El cambio en {{files}} impidió que Guaardvark iniciara, por lo que fue revertido.",
+    "reverted": "El cambio en {{files}} fue revertido.",
+    "revertedRestart": "Revertido. Reinicia Guaardvark para que el código antiguo se ejecute de nuevo.",
+    "checkOk": "Aceptar",
+    "conflicts": "{{files}} cambió de nuevo después de este cambio. Revertirlo ahora también hará que se pierdan esos cambios posteriores.",
+    "revert": "Revertir",
+    "revertAnyway": "Revertir de todos modos"
+  },
+  "selfAnalysis": {
+    "checked": "Comprobado frente al Código:",
+    "notFound": "{{ref}} no encontrado",
+    "plan": "Planificar un cambio",
+    "planTooltip": "Activa el modo de planificación y describe el cambio; nada cambiará hasta que apruebes el plan",
+    "planPrompt": "Planificar un cambio: "
+  },
+  "features": {
+    "open": "Cosas que puedo hacer",
+    "image": {
+      "label": "Imagen",
+      "hint": "Crea una imagen: di qué quieres dibujar"
+    },
+    "editImage": {
+      "label": "Editar imagen",
+      "hint": "Adjunta una imagen y luego di qué quieres cambiar"
+    },
+    "video": {
+      "label": "Video",
+      "hint": "Crea un clip de video corto"
+    },
+    "musicVideo": {
+      "label": "Video musical",
+      "hint": "Convierte una canción en un video musical"
+    },
+    "filmCrew": {
+      "label": "Film Crew",
+      "hint": "Convierte una idea en un cortometraje"
+    },
+    "file": {
+      "label": "Archivo",
+      "hint": "Escribe un documento, hoja de cálculo o archivo de Código",
+      "starter": "Crea un archivo llamado "
+    },
+    "analyze": {
+      "label": "Analizar",
+      "hint": "Adjunta una imagen o documento y haz una pregunta sobre ello"
+    },
+    "webSearch": {
+      "label": "Búsqueda web",
+      "hint": "Busca en la web y responde basándote en lo que encuentre",
+      "off": "El acceso a la web está desactivado. Actívalo en Ajustes para buscar en la web"
+    },
+    "code": {
+      "label": "Explora mi Código",
+      "hint": "Pregúntame cómo funciono por dentro; la respuesta mencionará mis propios archivos",
+      "starter": "Examina tu código: "
+    },
+    "swarm": {
+      "label": "Swarm",
+      "hint": "Asigna varios agentes de programación a un mismo trabajo a la vez",
+      "starter": "Lanza un Swarm para "
+    },
+    "agent": {
+      "label": "Pantalla del agente",
+      "hint": "Trabaja en mi propia pantalla: abre apps, haz clic, escribe, navega"
+    },
+    "plan": {
+      "label": "Plan",
+      "hint": "Analízalo primero y no cambies nada hasta que apruebes un plan"
+    }
   }
 }

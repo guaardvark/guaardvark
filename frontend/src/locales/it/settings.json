@@ -172,7 +172,10 @@
   "chat": {
     "thinkingOn": "Pensiero attivo di default: i modelli di pensiero ragionano passo dopo passo (più lento). Usa /thinking off per la chat.",
     "thinkingOff": "Pensiero disattivato di default: risposte più rapide. Usa /thinking on per la chat.",
-    "thinkingFailed": "Impossibile aggiornare l'impostazione di pensiero della Chat"
+    "thinkingFailed": "Impossibile aggiornare l'impostazione di pensiero della Chat",
+    "planModeOn": "Le nuove chat iniziano in modalità piano",
+    "planModeOff": "Le nuove chat iniziano senza modalità piano",
+    "planModeFailed": "Impostazione della modalità piano non salvata"
   },
   "embedding": {
     "notRebuilt": "Non ricostruito automaticamente: {{items}}",
@@ -309,6 +312,8 @@
     "rulesTooltip": "Regole di personalità e comportamento dalla pagina Regole. Se disattivato, le sostituisce con un prompt predefinito.",
     "thinking": "Pensiero della chat",
     "thinkingTooltip": "Predefinito per i modelli di pensiero. Per ogni chat: /thinking on o off.",
+    "planMode": "Modalità piano",
+    "planModeTooltip": "Avvia nuove chat in modalità piano: analizza ogni richiesta prima di modificare qualcosa e non cambiare nulla finché non approvi un piano. /plan la attiva per ogni chat.",
     "webAccess": "Accesso web",
     "webAccessTooltip": "Permette agli strumenti web, browser e indirizzi di raggiungere internet.",
     "voiceChat": "Chat vocale",

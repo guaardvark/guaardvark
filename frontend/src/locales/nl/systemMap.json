@@ -29,8 +29,11 @@
   "searchPlaceholder": "Zoeken ( / )",
   "resetView": "Weergave resetten (R)",
   "refresh": {
-    "cached": "Gecached {{seconds}}s geleden — klik om opnieuw te berekenen",
-    "computed": "Net berekend in {{seconds}}s"
+    "cached": "Gebouwd {{seconds}}s geleden en bijgewerkt met de bron — klik om opnieuw op te bouwen",
+    "computed": "Net berekend in {{seconds}}s",
+    "stale": "De bron is gewijzigd sinds deze kaart is gebouwd — klik om opnieuw op te bouwen",
+    "building": "Nieuwe kaart aan het bouwen vanuit de gewijzigde bron…",
+    "button": "Kaart opnieuw opbouwen"
   },
   "overlays": {
     "ghostEndpoints": "Ghost-endpoints",
@@ -46,7 +49,9 @@
     "importers_other": "{{count}} importers",
     "findings": "Bevindingen ({{count}})",
     "moreFindings": "… en nog {{count}} meer",
-    "escToClear": "Druk op <code>Esc</code> om te wissen"
+    "escToClear": "Druk op <code>Esc</code> om te wissen",
+    "ask": "Vraag hierover",
+    "askTooltip": "Open chat met /sysmap module {{path}}"
   },
   "loading": "Systeem in kaart brengen…",
   "panel": {
@@ -60,7 +65,9 @@
     "intro": "Gerangschikte bevindingen · klik om te lokaliseren · verstuur om te herstellen",
     "empty": "Geen bevindingen bij deze ernst. 🎉",
     "dispatch": "Verstuur naar de Zelfverbetering-agent om een oplossing voor te stellen",
-    "dismiss": "Negeer — erken en stop met het tonen van deze bevinding"
+    "dismiss": "Negeer — erken en stop met het tonen van deze bevinding",
+    "planFix": "Fix plannen: opent de chat in planmodus met deze bevinding; niets verandert totdat je het plan goedkeurt",
+    "planFixPrompt": "Plan een fix voor deze Systeemkaart bevinding: {{summary}} ({{kind}}; bestanden: {{files}}). Controleer eerst in de code of de bevinding echt is; zo niet, geef dat dan aan in plaats van te plannen."
   },
   "activity": {
     "title": "Live activiteit",
@@ -70,5 +77,15 @@
     "seconds": "{{count}}s",
     "minutes": "{{count}}m",
     "hours": "{{count}}h"
+  },
+  "computing": "Kaart voor de eerste keer aan het bouwen…",
+  "codeIndex": {
+    "build": "Codezoekindex bouwen",
+    "rebuild": "Codezoekindex vernieuwen",
+    "building": "Codezoekindex aan het bouwen…",
+    "ready": "Codezoekindex gebouwd: search_codebase vindt code op basis van betekenis. Klik om deze te vernieuwen.",
+    "missing": "Nog geen codezoekindex, dus matcht search_codebase alleen woorden en namen. Klik om er een te bouwen met de zvec_grep plugin; er wordt niets gedownload.",
+    "notInstalled": "Installeer de zvec_grep plugin vanaf de Plugins-pagina om een codezoekindex te bouwen.",
+    "failed": "Fout bij bouwen van de codezoekindex: {{reason}}"
   }
 }

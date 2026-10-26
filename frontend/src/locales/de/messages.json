@@ -379,9 +379,10 @@
       "musicVideo": "Verwendung: `/music-video <song-path-or-id> <style>` — startet einen Plan; genehmige im Studio, bevor die Clips gerendert werden.",
       "filmCrew": "Verwendung: `/film-crew <screenplay>` — startet den Drehbuchautor; das Rendering wartet im Studio.",
       "websearch": "Verwendung: `/websearch <query>`, `/websearch site:<address>` (prüfe eine Seite) oder `/websearch sitemap:<url>` (liste die Seiten einer Sitemap auf)",
-      "plan": "Verwendung: `/plan <request>`",
+      "plan": "Verwendung: `/plan [on|off|<request>]`",
       "training": "Verwendung: `/training <task>` — z. B. `/training Work the Comments Trainer — folge dem Banner, klicke nach Abschluss auf Start Over, halte nicht an.`",
-      "thinking": "Verwendung: `/thinking on` oder `/thinking off` (oder `/thinking`, um den aktuellen Status anzuzeigen)."
+      "thinking": "Verwendung: `/thinking on` oder `/thinking off` (oder `/thinking`, um den aktuellen Status anzuzeigen).",
+      "orchestrate": "Verwendung: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "Ein Song (Dokument-ID oder Audio-Pfad) und ein visueller Stil sind erforderlich. Beispiel: `/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "Sitemap nicht gelesen: {{reason}}",
@@ -452,7 +453,13 @@
       "switched": "Weitgeschaltet auf **Chat-Modus**. Nachrichten werden wieder über das LLM geleitet. Gib `/agent` ein, um zurückzuwechseln.",
       "exitFailed": "Ausstieg aus dem Agentenmodus fehlgeschlagen: {{reason}}"
     },
-    "commandFailed": "Befehl fehlgeschlagen: {{reason}}"
+    "commandFailed": "Befehl fehlgeschlagen: {{reason}}",
+    "plan": {
+      "needsSession": "/plan benötigt einen Chat; öffne zuerst einen.",
+      "switchFailed": "Planmodus konnte nicht umgeschaltet werden: {{reason}}",
+      "on": "**Planmodus** ist an. Ich werde untersuchen, was du fragst, und dir einen Plan zeigen; nichts ändert sich, bis du ihn genehmigst. `/plan` schaltet ihn erneut aus.",
+      "off": "Planmodus ist aus."
+    }
   },
   "autoresearch": {
     "reasons": {

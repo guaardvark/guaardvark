@@ -379,9 +379,10 @@
       "musicVideo": "Utilizzo: `/music-video <song-path-or-id> <style>` — avvia un piano; approvalo in Studio prima del rendering dei clip.",
       "filmCrew": "Utilizzo: `/film-crew <screenplay>` — avvia lo sceneggiatore; il rendering attende in Studio.",
       "websearch": "Utilizzo: `/websearch <query>`, `/websearch site:<address>` (analizza una pagina) o `/websearch sitemap:<url>` (elenca le pagine di una sitemap)",
-      "plan": "Uso: `/plan <request>`",
+      "plan": "Uso: `/plan [on|off|<request>]`",
       "training": "Utilizzo: `/training <task>` — ad esempio: `/training Work il Commenti Trainer — segui il banner, clicca su Start Over quando hai finito, non fermarti.`",
-      "thinking": "Uso: `/thinking on` o `/thinking off` (oppure `/thinking` per mostrare lo stato attuale)."
+      "thinking": "Uso: `/thinking on` o `/thinking off` (oppure `/thinking` per mostrare lo stato attuale).",
+      "orchestrate": "Uso: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "Serve una canzone (ID documento o percorso audio) e uno stile visivo. Esempio: `/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "Sitemap non letta: {{reason}}",
@@ -452,7 +453,13 @@
       "switched": "Passata alla **modalità chat**. I messaggi passano di nuovo attraverso l'LLM. Digita `/agent` per tornare indietro.",
       "exitFailed": "Impossibile uscire dalla modalità agente: {{reason}}"
     },
-    "commandFailed": "Comando fallito: {{reason}}"
+    "commandFailed": "Comando fallito: {{reason}}",
+    "plan": {
+      "needsSession": "/plan richiede una chat; aprine una prima.",
+      "switchFailed": "Impossibile cambiare la modalità del piano: {{reason}}",
+      "on": "**Modalità piano** è attiva. Analizzerò ciò che chiedi e ti mostrerò un piano; nulla cambierà finché non lo approverai. Digita ancora `/plan` per disattivarla.",
+      "off": "La modalità piano è disattivata."
+    }
   },
   "autoresearch": {
     "reasons": {

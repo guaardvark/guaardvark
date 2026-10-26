@@ -29,8 +29,11 @@
   "searchPlaceholder": "搜索 ( / )",
   "resetView": "重置视图 (R)",
   "refresh": {
-    "cached": "缓存于 {{seconds}} 秒前 — 点击重新计算",
-    "computed": "在 {{seconds}} 秒前计算完成"
+    "cached": "于 {{seconds}}s 前构建并与源同步 — 点击重新构建",
+    "computed": "在 {{seconds}} 秒前计算完成",
+    "stale": "自此地图构建以来源已更改 — 点击重新构建",
+    "building": "正在根据更改的源构建新地图……",
+    "button": "重新构建地图"
   },
   "overlays": {
     "ghostEndpoints": "幽灵端点",
@@ -45,7 +48,9 @@
     "importers_other": "{{count}} 个导入器",
     "findings": "发现 ({{count}})",
     "moreFindings": "… 以及还有 {{count}} 个",
-    "escToClear": "按 <code>Esc</code> 键清除"
+    "escToClear": "按 <code>Esc</code> 键清除",
+    "ask": "询问此项",
+    "askTooltip": "打开包含 /sysmap 模块的对话 {{path}}"
   },
   "loading": "正在映射系统……",
   "panel": {
@@ -59,7 +64,9 @@
     "intro": "按等级排序 · 点击定位 · 分派修复",
     "empty": "此严重程度下无发现项。🎉",
     "dispatch": "发送至自我优化代理以建议修复方案",
-    "dismiss": "忽略 — 确认并不再显示此项"
+    "dismiss": "忽略 — 确认并不再显示此项",
+    "planFix": "规划修复：以计划模式打开包含此发现的对话；在您批准计划前，不会有任何更改",
+    "planFixPrompt": "为此系统地图发现规划修复：{{summary}} ({{kind}}；文件：{{files}})。首先在代码中确认该发现是否真实；如果不是，请直接说明而非进行规划。"
   },
   "activity": {
     "title": "实时活动",
@@ -69,5 +76,15 @@
     "seconds": "{{count}}s",
     "minutes": "{{count}}m",
     "hours": "{{count}}h"
+  },
+  "computing": "正在首次构建地图……",
+  "codeIndex": {
+    "build": "构建代码搜索索引",
+    "rebuild": "刷新代码搜索索引",
+    "building": "正在构建代码搜索索引……",
+    "ready": "代码搜索索引已构建：search_codebase 可按语义查找代码。点击可刷新。",
+    "missing": "尚未构建代码搜索索引，因此 search_codebase 仅匹配单词和名称。点击使用 zvec_grep 插件构建一个；不会下载任何内容。",
+    "notInstalled": "请在插件页面安装 zvec_grep 插件以构建代码搜索索引。",
+    "failed": "构建代码搜索索引失败：{{reason}}"
   }
 }

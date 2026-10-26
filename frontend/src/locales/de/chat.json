@@ -75,7 +75,11 @@
     "stop": "Stoppen (Esc)",
     "preparingImage": "Bild wird vorbereitet …",
     "analyzeImage": "Bild analysieren",
-    "send": "Nachricht senden"
+    "send": "Nachricht senden",
+    "planModeBadge": "PLAN-MODUS",
+    "planModeToggle": "Plan-Modus",
+    "planModeOff": "Plan-Modus ausschalten (/plan)",
+    "placeholderPlan": "Sag, was erledigt werden soll. Nichts ändert sich, bis du den Plan genehmigst."
   },
   "sessions": {
     "loadFailed": "Die Chatliste konnte nicht geladen werden.",
@@ -268,5 +272,134 @@
     "error": "Fehler: {{error}}",
     "tokensIn": "↑ {{tokens}} in",
     "tokensOut": "↓ {{tokens}} out"
+  },
+  "plan": {
+    "title": "Plan",
+    "titleRevision": "Plan, Revision {{revision}}",
+    "goal": "Ziel",
+    "stepHeading": "Schritt {{index}}: {{title}}",
+    "stepTitle": "Titel von Schritt {{index}}",
+    "stepKind": "Art",
+    "stepAction": "Was zu tun ist",
+    "stepFailed": "Fehlgeschlagen: {{error}}",
+    "details": "Prüfungen, Risiken und Annahmen",
+    "checks": "Wie man prüft, ob es funktioniert hat",
+    "risks": "Was schiefgehen könnte",
+    "questions": "Annahmen zu bestätigen",
+    "status": {
+      "awaiting": "Wartet auf deine Genehmigung",
+      "running": "Läuft",
+      "runningStep": "Ausführung von Schritt {{index}} von {{total}}",
+      "pausedFailed": "Pausiert: Ein Schritt ist fehlgeschlagen",
+      "pausedStopped": "Pausiert: Gestoppt",
+      "pausedInterrupted": "Pausiert: Guaardvark wurde neu gestartet",
+      "done": "Fertig: {{done}} von {{total}} Schritten",
+      "rejected": "Abgelehnt",
+      "superseded": "Durch eine neuere Version ersetzt"
+    },
+    "approve": "Genehmigen",
+    "approveTooltip": "Führe den Plan aus und frage dich vor jedem Schritt, der etwas ändert.",
+    "approveAllow": "Genehmigen und Aktionen erlauben",
+    "approveAllowTooltip": "Führe den Plan aus, ohne erneut nach: {{tools}} zu fragen",
+    "approveAllowNoTools": "Führe den Plan aus, ohne erneut nach den verwendeten Tools zu fragen",
+    "keepPlanning": "Planung fortsetzen",
+    "edit": "Bearbeiten",
+    "reject": "Ablehnen",
+    "saveEdit": "Als neue Version speichern",
+    "cancelEdit": "Abbrechen",
+    "stop": "Stopp",
+    "retry": "Schritt erneut versuchen",
+    "continue": "Fortsetzen",
+    "skip": "Schritt überspringen",
+    "replan": "Rest planen",
+    "drop": "Rest abbrechen",
+    "replanPrompt": "Schritt {{index}} ({{title}}) fehlgeschlagen: {{error}} Plane die restlichen Schritte erneut.",
+    "kinds": {
+      "write": "Schreiben",
+      "file": "Datei",
+      "code_change": "Code-Änderung",
+      "image": "Bild",
+      "video": "Video",
+      "audio": "Audio",
+      "desktop": "Desktop",
+      "lookup": "Nachschlagen",
+      "memory": "Speicher",
+      "other": "Sonstiges"
+    }
+  },
+  "selfEdit": {
+    "appliedRestart": "Guaardvark hat seinen eigenen Code geändert ({{files}}). Er wird nach einem Neustart wirksam.",
+    "appliedLive": "Guaardvark hat seinen eigenen Code geändert ({{files}}). Die Änderung ist jetzt live.",
+    "live": "Die Änderung an {{files}} ist live.",
+    "undone": "Die Änderung an {{files}} hat die Prüfungen nicht bestanden und wurde rückgängig gemacht: {{error}}",
+    "autoReverted": "Die Änderung an {{files}} hat Guaardvark am Starten gehindert und wurde daher rückgängig gemacht.",
+    "reverted": "Die Änderung an {{files}} wurde rückgängig gemacht.",
+    "revertedRestart": "Rückgängig gemacht. Starte Guaardvark neu, damit der alte Code wieder ausgeführt wird.",
+    "checkOk": "ok",
+    "conflicts": "{{files}} wurde nach dieser Änderung erneut geändert. Das aktuelle Rückgängigmachen führt auch zum Verlust dieser späteren Änderungen.",
+    "revert": "Rückgängig machen",
+    "revertAnyway": "Trotzdem rückgängig machen"
+  },
+  "selfAnalysis": {
+    "checked": "Abgeglichen mit dem Code:",
+    "notFound": "{{ref}} nicht gefunden",
+    "plan": "Änderung planen",
+    "planTooltip": "Plan-Modus einschalten und die Änderung beschreiben; nichts ändert sich, bis du den Plan genehmigst",
+    "planPrompt": "Änderung planen: "
+  },
+  "features": {
+    "open": "Was ich tun kann",
+    "image": {
+      "label": "Bild",
+      "hint": "Erstelle ein Bild: sage, was ich zeichnen soll"
+    },
+    "editImage": {
+      "label": "Bild bearbeiten",
+      "hint": "Füge ein Bild an und sage, was geändert werden soll"
+    },
+    "video": {
+      "label": "Video",
+      "hint": "Erstelle einen kurzen Videoclip"
+    },
+    "musicVideo": {
+      "label": "Musikvideo",
+      "hint": "Verwandle ein Lied in ein Musikvideo"
+    },
+    "filmCrew": {
+      "label": "Film Crew",
+      "hint": "Verwandle eine Idee in einen Kurzfilm"
+    },
+    "file": {
+      "label": "Datei",
+      "hint": "Schreibe ein Dokument, eine Tabelle oder eine Code-Datei",
+      "starter": "Erstelle eine Datei namens "
+    },
+    "analyze": {
+      "label": "Analysieren",
+      "hint": "Füge ein Bild oder Dokument an und stelle eine Frage dazu"
+    },
+    "webSearch": {
+      "label": "Websuche",
+      "hint": "Suche im Web und beantworte basierend auf den Funden",
+      "off": "Webzugriff ist aus. Schalte ihn in den Einstellungen ein, um im Web zu suchen"
+    },
+    "code": {
+      "label": "Meinen Code untersuchen",
+      "hint": "Frage mich, wie ich intern funktioniere; die Antwort nennt meine eigenen Dateien",
+      "starter": "Schau dir deinen Code an: "
+    },
+    "swarm": {
+      "label": "Swarm",
+      "hint": "Setze mehrere Coding-Agenten gleichzeitig auf eine Aufgabe ein",
+      "starter": "Starte ein Swarm, um "
+    },
+    "agent": {
+      "label": "Agentenbildschirm",
+      "hint": "Arbeit auf meinem eigenen Bildschirm: Apps öffnen, klicken, tippen, surfen"
+    },
+    "plan": {
+      "label": "Plan",
+      "hint": "Schau es dir zuerst an und ändere nichts, bis du einen Plan genehmigt hast"
+    }
   }
 }

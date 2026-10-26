@@ -381,9 +381,10 @@
       "musicVideo": "Использование: `/music-video <song-path-or-id> <style>` — запускает план; подтвердите его в Студии перед рендерингом клипов.",
       "filmCrew": "Использование: `/film-crew <screenplay>` — запускает сценариста; рендеринг ожидается в Студии.",
       "websearch": "Использование: `/websearch <query>`, `/websearch site:<address>` (проверка одной страницы) или `/websearch sitemap:<url>` (список страниц карты сайта)",
-      "plan": "Использование: `/plan <request>`",
+      "plan": "Использование: `/plan [on|off|<request>]`",
       "training": "Использование: `/training <task>` — например: `/training Work Обучение Комментариев — следуйте баннеру, нажмите Start Over по завершении, не останавливаясь.`",
-      "thinking": "Использование: `/thinking on` или `/thinking off` (или `/thinking`, чтобы узнать текущее состояние)."
+      "thinking": "Использование: `/thinking on` или `/thinking off` (или `/thinking`, чтобы узнать текущее состояние).",
+      "orchestrate": "Использование: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "Нужна песня (ID документа или путь к аудио) и визуальный стиль. Пример: `/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "Карта сайта не прочитана: {{reason}}",
@@ -456,7 +457,13 @@
       "switched": "Переключено в **режим чата**. Сообщения снова направляются в LLM. Введите `/agent`, чтобы вернуться.",
       "exitFailed": "Не удалось выйти из режима агента: {{reason}}"
     },
-    "commandFailed": "Команда не выполнена: {{reason}}"
+    "commandFailed": "Команда не выполнена: {{reason}}",
+    "plan": {
+      "needsSession": "/plan требует чата; сначала откройте один.",
+      "switchFailed": "Не удалось переключить режим плана: {{reason}}",
+      "on": "**Режим плана** включен. Я изучу ваш запрос и составлю план; ничего не изменится, пока вы не одобрите его. Введите `/plan` еще раз, чтобы выключить.",
+      "off": "Режим плана выключен."
+    }
   },
   "autoresearch": {
     "reasons": {

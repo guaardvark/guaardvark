@@ -172,7 +172,10 @@
   "chat": {
     "thinkingOn": "Pensamiento activado por defecto: los modelos de pensamiento razonan paso a paso (más lento). Usa /thinking off por chat.",
     "thinkingOff": "Pensamiento desactivado por defecto: respuestas más rápidas. Usa /thinking on por chat.",
-    "thinkingFailed": "Error al actualizar el ajuste de pensamiento del Chat"
+    "thinkingFailed": "Error al actualizar el ajuste de pensamiento del Chat",
+    "planModeOn": "Los nuevos chats comienzan en modo plan",
+    "planModeOff": "Los nuevos chats comienzan sin modo plan",
+    "planModeFailed": "No se pudo guardar la configuración del modo plan"
   },
   "embedding": {
     "notRebuilt": "No reconstruido automáticamente: {{items}}",
@@ -309,6 +312,8 @@
     "rulesTooltip": "Reglas de personalidad y comportamiento de la página de Reglas. Desactivado las cambia por un prompt integrado simple.",
     "thinking": "Pensamiento del chat",
     "thinkingTooltip": "Predeterminado para modelos de pensamiento. Por chat: /thinking activado o desactivado.",
+    "planMode": "Modo plan",
+    "planModeTooltip": "Iniciar nuevos chats en modo plan: analiza cada solicitud primero y no cambies nada hasta que apruebes un plan. /plan lo cambia por chat.",
     "webAccess": "Acceso web",
     "webAccessTooltip": "Permite que las herramientas de web, navegador y dirección accedan a internet.",
     "voiceChat": "Chat de voz",

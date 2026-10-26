@@ -29,8 +29,11 @@
   "searchPlaceholder": "Cerca ( / )",
   "resetView": "Ripristina visualizzazione (R)",
   "refresh": {
-    "cached": "In cache {{seconds}}s fa — clicca per ricalcolare",
-    "computed": "Appena calcolato in {{seconds}}s"
+    "cached": "Creato {{seconds}}s fa e aggiornato rispetto alla sorgente — clicca per ricostruire",
+    "computed": "Appena calcolato in {{seconds}}s",
+    "stale": "La sorgente è cambiata dalla creazione di questa mappa — clicca per ricostruire",
+    "building": "Ricostruzione di una nuova mappa dalla sorgente modificata…",
+    "button": "Ricostruisci la mappa"
   },
   "overlays": {
     "ghostEndpoints": "Endpoint fantasma",
@@ -46,7 +49,9 @@
     "importers_other": "{{count}} importatori",
     "findings": "Risultati ({{count}})",
     "moreFindings": "… e altri {{count}}",
-    "escToClear": "Premi <code>Esc</code> per cancellare"
+    "escToClear": "Premi <code>Esc</code> per cancellare",
+    "ask": "Chiedi di questo",
+    "askTooltip": "Apri la chat con il modulo /sysmap {{path}}"
   },
   "loading": "Mappatura del Sistema…",
   "panel": {
@@ -60,7 +65,9 @@
     "intro": "Risultati in classifica · clicca per localizzare · invia per correggere",
     "empty": "Nessun risultato a questo livello di gravità. 🎉",
     "dispatch": "Invia all'agente di Auto-miglioramento per proporre una correzione",
-    "dismiss": "Ignora — conferma e smetti di mostrare questo risultato"
+    "dismiss": "Ignora — conferma e smetti di mostrare questo risultato",
+    "planFix": "Pianifica una correzione: apre la chat in modalità piano con questo risultato; nulla cambia finché non approvi il piano",
+    "planFixPrompt": "Pianifica una correzione per questo risultato della Mappa di Sistema: {{summary}} ({{kind}}; file: {{files}}). Controlla prima nel Codice che il risultato sia reale; se non lo è, segnalalo invece di pianificare."
   },
   "activity": {
     "title": "Attività in tempo reale",
@@ -70,5 +77,15 @@
     "seconds": "{{count}}s",
     "minutes": "{{count}}m",
     "hours": "{{count}}h"
+  },
+  "computing": "Costruzione della mappa per la prima volta…",
+  "codeIndex": {
+    "build": "Costruisci indice di ricerca Codice",
+    "rebuild": "Aggiorna indice di ricerca Codice",
+    "building": "Costruzione dell'indice di ricerca Codice…",
+    "ready": "Indice di ricerca Codice costruito: search_codebase trova il Codice per significato. Clicca per aggiornarlo.",
+    "missing": "Nessun indice di ricerca Codice ancora, quindi search_codebase corrisponde solo a parole e nomi. Clicca per costruirne uno con il plugin zvec_grep; non viene scaricato nulla.",
+    "notInstalled": "Installa il plugin zvec_grep dalla pagina Plugin per costruire un indice di ricerca Codice.",
+    "failed": "La costruzione dell'indice di ricerca Codice è fallita: {{reason}}"
   }
 }

@@ -1438,6 +1438,9 @@
       "en": "dcde929ce3ea",
       "out": "a50627b7e8f7"
     },
+    "page.notInstalledAlert": {
+      "en": "2528fda2958a"
+    },
     "page.voiceTab": {
       "en": "3091c8446f8d",
       "out": "5cf4dba9532b"
@@ -3738,6 +3741,22 @@
       "en": "c70a890d1411",
       "out": "465f9da1ce59"
     },
+    "input.planModeBadge": {
+      "en": "d7edb4db8347",
+      "out": "48a4b7d580dc"
+    },
+    "input.planModeToggle": {
+      "en": "bc0b2affb5d0",
+      "out": "d808a4a0dd60"
+    },
+    "input.planModeOff": {
+      "en": "62f7061d1e18",
+      "out": "d9de2a521da2"
+    },
+    "input.placeholderPlan": {
+      "en": "c98d59739d9c",
+      "out": "3c92a687cf1f"
+    },
     "sessions.loadFailed": {
       "en": "40c10fe4e067",
       "out": "3faa31ba5995"
@@ -4385,6 +4404,378 @@
     "streaming.tokensOut": {
       "en": "769951c32f9a",
       "out": "769951c32f9a"
+    },
+    "plan.title": {
+      "en": "ae2f98a099fe",
+      "out": "71e5b1f87298"
+    },
+    "plan.titleRevision": {
+      "en": "19c19ee6c49a",
+      "out": "47e9af04c272"
+    },
+    "plan.goal": {
+      "en": "9fe00acebc10",
+      "out": "6f944dca0eb7"
+    },
+    "plan.stepHeading": {
+      "en": "fbe247ada2eb",
+      "out": "01d5e689b430"
+    },
+    "plan.stepTitle": {
+      "en": "ebefe4d8fa80",
+      "out": "711e6ea4f00b"
+    },
+    "plan.stepKind": {
+      "en": "e00ac23f2ac2",
+      "out": "6cc6198d9e75"
+    },
+    "plan.stepAction": {
+      "en": "779b1d581eb9",
+      "out": "63e97a8e0699"
+    },
+    "plan.stepFailed": {
+      "en": "b05d1d41eb11",
+      "out": "7ac7720290e6"
+    },
+    "plan.details": {
+      "en": "9d50a7445eb6",
+      "out": "3fcf87712d73"
+    },
+    "plan.checks": {
+      "en": "ca8edccb14e7",
+      "out": "f03c60399188"
+    },
+    "plan.risks": {
+      "en": "5f41a6ff3f29",
+      "out": "0b000a668268"
+    },
+    "plan.questions": {
+      "en": "253db37b2e7d",
+      "out": "317afda49f2c"
+    },
+    "plan.status.awaiting": {
+      "en": "50958475c64b",
+      "out": "a6ab93c9ca9d"
+    },
+    "plan.status.running": {
+      "en": "73989d9c5926",
+      "out": "78ad8c141390"
+    },
+    "plan.status.runningStep": {
+      "en": "f0061a918bdc",
+      "out": "24e215ee300b"
+    },
+    "plan.status.pausedFailed": {
+      "en": "c142b726293c",
+      "out": "b1e2f8e1925d"
+    },
+    "plan.status.pausedStopped": {
+      "en": "a509051e55d8",
+      "out": "cbce8b42dc4c"
+    },
+    "plan.status.pausedInterrupted": {
+      "en": "d1a4000856cf",
+      "out": "b9e97d3ca194"
+    },
+    "plan.status.done": {
+      "en": "f05d94bad16e",
+      "out": "4a4da2bb1351"
+    },
+    "plan.status.rejected": {
+      "en": "27eeb7a291bf",
+      "out": "9869439c47be"
+    },
+    "plan.status.superseded": {
+      "en": "d176d65ea4f5",
+      "out": "f5fd0d4173bc"
+    },
+    "plan.approve": {
+      "en": "7b2c7f146aba",
+      "out": "23d48a366593"
+    },
+    "plan.approveTooltip": {
+      "en": "3c0dcd08a8ab",
+      "out": "91cd2c2fdd70"
+    },
+    "plan.approveAllow": {
+      "en": "ced46874630b",
+      "out": "e80db3cd212d"
+    },
+    "plan.approveAllowTooltip": {
+      "en": "04b25f91ba45",
+      "out": "e529db3fbd11"
+    },
+    "plan.approveAllowNoTools": {
+      "en": "8f6823fb211d",
+      "out": "d51713878dd8"
+    },
+    "plan.keepPlanning": {
+      "en": "29ad85fb5119",
+      "out": "298424661d5e"
+    },
+    "plan.edit": {
+      "en": "5301648dcf6b",
+      "out": "8fc593c58ea0"
+    },
+    "plan.reject": {
+      "en": "2b03b59293b6",
+      "out": "68b880f2a634"
+    },
+    "plan.saveEdit": {
+      "en": "a68a7698e38f",
+      "out": "62dd97fb2005"
+    },
+    "plan.cancelEdit": {
+      "en": "77dfd2135f4d",
+      "out": "6c3de5381be7"
+    },
+    "plan.stop": {
+      "en": "9e253470c876",
+      "out": "c9ec8305590e"
+    },
+    "plan.retry": {
+      "en": "0b92fa08f61d",
+      "out": "84ba323de575"
+    },
+    "plan.continue": {
+      "en": "2e02623966f9",
+      "out": "08ccecb3ed5a"
+    },
+    "plan.skip": {
+      "en": "f6d515237577",
+      "out": "299534f436fc"
+    },
+    "plan.replan": {
+      "en": "85ad43d0d15d",
+      "out": "7aeb8e56af44"
+    },
+    "plan.drop": {
+      "en": "16c329300d8d",
+      "out": "d459b135cf60"
+    },
+    "plan.replanPrompt": {
+      "en": "6f9b62673a2b",
+      "out": "5f5f8c1ec78b"
+    },
+    "plan.kinds.write": {
+      "en": "4a48932789d1",
+      "out": "17dd8c4d3172"
+    },
+    "plan.kinds.file": {
+      "en": "2c3cafa4db3f",
+      "out": "2c3cafa4db3f"
+    },
+    "plan.kinds.code_change": {
+      "en": "187063af1ca9",
+      "out": "ff3034233f8d"
+    },
+    "plan.kinds.image": {
+      "en": "61852524b8f8",
+      "out": "79a0b0906855"
+    },
+    "plan.kinds.video": {
+      "en": "bc17c1f0179a",
+      "out": "bc17c1f0179a"
+    },
+    "plan.kinds.audio": {
+      "en": "acdac205f5e2",
+      "out": "acdac205f5e2"
+    },
+    "plan.kinds.desktop": {
+      "en": "532c67fe1b5a",
+      "out": "532c67fe1b5a"
+    },
+    "plan.kinds.lookup": {
+      "en": "6d7049b88568",
+      "out": "88784e10585f"
+    },
+    "plan.kinds.memory": {
+      "en": "89c8a2851d17",
+      "out": "8b1a8b064430"
+    },
+    "plan.kinds.other": {
+      "en": "6e6a6f2086bb",
+      "out": "ef204ead211e"
+    },
+    "selfEdit.appliedRestart": {
+      "en": "353a482c98a8",
+      "out": "2d22b836d435"
+    },
+    "selfEdit.appliedLive": {
+      "en": "be160f0cde61",
+      "out": "527d5545d6b5"
+    },
+    "selfEdit.live": {
+      "en": "4297fccfe42d",
+      "out": "9c1aedb9bb1b"
+    },
+    "selfEdit.undone": {
+      "en": "52bdaa3580ad",
+      "out": "a4aa7957714a"
+    },
+    "selfEdit.autoReverted": {
+      "en": "02c903d81798",
+      "out": "45f071701b43"
+    },
+    "selfEdit.reverted": {
+      "en": "23655f0afc98",
+      "out": "3d7334cc5716"
+    },
+    "selfEdit.revertedRestart": {
+      "en": "8824e2b77e75",
+      "out": "d0e30a9185fa"
+    },
+    "selfEdit.checkOk": {
+      "en": "7a85f4764bbd",
+      "out": "7a85f4764bbd"
+    },
+    "selfEdit.conflicts": {
+      "en": "539a21d5117c",
+      "out": "a340ce73ca7f"
+    },
+    "selfEdit.revert": {
+      "en": "272607a7bd01",
+      "out": "2f4de6edadde"
+    },
+    "selfEdit.revertAnyway": {
+      "en": "38ccc17c08da",
+      "out": "789f4db7809a"
+    },
+    "selfAnalysis.checked": {
+      "en": "54adfebdc9ee",
+      "out": "8ef1913caa60"
+    },
+    "selfAnalysis.notFound": {
+      "en": "14b4d92d712e",
+      "out": "6f10356ddc90"
+    },
+    "selfAnalysis.plan": {
+      "en": "02efd14ce77b",
+      "out": "f5cbf7cae5ae"
+    },
+    "selfAnalysis.planTooltip": {
+      "en": "cf463e9fd1ff",
+      "out": "9f0a48857e9a"
+    },
+    "selfAnalysis.planPrompt": {
+      "en": "b0e376d431b8",
+      "out": "16e13d3c2bed"
+    },
+    "features.open": {
+      "en": "96009978a7b7",
+      "out": "c5620c14cdad"
+    },
+    "features.image.label": {
+      "en": "50e19fda0d5b",
+      "out": "79a0b0906855"
+    },
+    "features.image.hint": {
+      "en": "4d4b11774d34",
+      "out": "2406bba27783"
+    },
+    "features.editImage.label": {
+      "en": "2b4c1f495ad7",
+      "out": "0119681b1c16"
+    },
+    "features.editImage.hint": {
+      "en": "723f138f928a",
+      "out": "a1467071fcac"
+    },
+    "features.video.label": {
+      "en": "bc17c1f0179a",
+      "out": "bc17c1f0179a"
+    },
+    "features.video.hint": {
+      "en": "2964fad88da8",
+      "out": "35a17b21d8ae"
+    },
+    "features.musicVideo.label": {
+      "en": "c0610eaa7169",
+      "out": "94b752c5453d"
+    },
+    "features.musicVideo.hint": {
+      "en": "c436d83de01e",
+      "out": "3a6a1b5dd24f"
+    },
+    "features.filmCrew.label": {
+      "en": "cc7504e29bc6",
+      "out": "cc7504e29bc6"
+    },
+    "features.filmCrew.hint": {
+      "en": "12203ba149fe",
+      "out": "e6b87ecd8b95"
+    },
+    "features.file.label": {
+      "en": "2c3cafa4db3f",
+      "out": "2c3cafa4db3f"
+    },
+    "features.file.hint": {
+      "en": "4b7b1e2c922d",
+      "out": "57de11e3859e"
+    },
+    "features.file.starter": {
+      "en": "0a83608ea1e5",
+      "out": "96f0018bb4d6"
+    },
+    "features.analyze.label": {
+      "en": "0e524de0b822",
+      "out": "aae12a893b70"
+    },
+    "features.analyze.hint": {
+      "en": "f973bf023c8d",
+      "out": "4ca2215e5b94"
+    },
+    "features.webSearch.label": {
+      "en": "381ceddd75a8",
+      "out": "933fc3338c25"
+    },
+    "features.webSearch.hint": {
+      "en": "163256f227cd",
+      "out": "b49e3c11796f"
+    },
+    "features.webSearch.off": {
+      "en": "edd9033b0790",
+      "out": "38cc831e03b7"
+    },
+    "features.code.label": {
+      "en": "e4bf966af672",
+      "out": "09883d35e8f7"
+    },
+    "features.code.hint": {
+      "en": "7d9d87acc44c",
+      "out": "a30a8fbbed5f"
+    },
+    "features.code.starter": {
+      "en": "fceef13761d0",
+      "out": "a0a90c3331cb"
+    },
+    "features.swarm.label": {
+      "en": "5c7e3aec1f91",
+      "out": "5c7e3aec1f91"
+    },
+    "features.swarm.hint": {
+      "en": "946b69db909c",
+      "out": "d997f269fe87"
+    },
+    "features.swarm.starter": {
+      "en": "f61a0538e7e7",
+      "out": "2f8f01af8c9d"
+    },
+    "features.agent.label": {
+      "en": "a119c6c4bcc7",
+      "out": "adeb1f239848"
+    },
+    "features.agent.hint": {
+      "en": "faa0ee6f52f1",
+      "out": "476906838215"
+    },
+    "features.plan.label": {
+      "en": "ae2f98a099fe",
+      "out": "71e5b1f87298"
+    },
+    "features.plan.hint": {
+      "en": "77306be0f072",
+      "out": "40936ac640d1"
     }
   },
   "chatPage": {
@@ -18921,8 +19312,8 @@
       "out": "5af0c147655e"
     },
     "slash.usage.plan": {
-      "en": "d9d1735d8c8f",
-      "out": "85a43ac4278c"
+      "en": "b54062f1d8ca",
+      "out": "8f03de230e19"
     },
     "slash.usage.training": {
       "en": "94327177852f",
@@ -18931,6 +19322,10 @@
     "slash.usage.thinking": {
       "en": "d346564c6bd5",
       "out": "67d9b0da7ae3"
+    },
+    "slash.usage.orchestrate": {
+      "en": "30270061208d",
+      "out": "e87bb3fb999a"
     },
     "slash.musicVideoNeedsSong": {
       "en": "516b4a41cf82",
@@ -19155,6 +19550,22 @@
     "slash.commandFailed": {
       "en": "9b3fa3ffc4c0",
       "out": "f984aaee05ca"
+    },
+    "slash.plan.needsSession": {
+      "en": "5d65b027f80e",
+      "out": "e3e638c5fabd"
+    },
+    "slash.plan.switchFailed": {
+      "en": "9251bca6db2f",
+      "out": "734676cc4509"
+    },
+    "slash.plan.on": {
+      "en": "88f77a05ec4a",
+      "out": "10059ae1a6a1"
+    },
+    "slash.plan.off": {
+      "en": "a97634a2e38f",
+      "out": "8d85cbf44d70"
     },
     "autoresearch.reasons.ollamaUnreachable": {
       "en": "35f0c3a02d7a",
@@ -22401,8 +22812,8 @@
       "out": "f5fc1cbd322c"
     },
     "slashCommands.sysmap": {
-      "en": "6bcfeb7257ff",
-      "out": "4be0c51d758b"
+      "en": "fef5431065f7",
+      "out": "8934f804ddff"
     },
     "slashCommands.swarm": {
       "en": "e59a5ffb8890",
@@ -22413,8 +22824,12 @@
       "out": "71b11e105f77"
     },
     "slashCommands.plan": {
-      "en": "dfdc6fbfb0f4",
-      "out": "778e4c5f51a1"
+      "en": "41af7cffaa50",
+      "out": "1ba79fb0f8a7"
+    },
+    "slashCommands.orchestrate": {
+      "en": "8b722a1a275e",
+      "out": "b510d8134dba"
     },
     "slashCommands.training": {
       "en": "b2979a849719",
@@ -25143,6 +25558,18 @@
     "runs.testResults": {
       "en": "0bb198d417a4",
       "out": "d8f5b929be46"
+    },
+    "selfEdits.title": {
+      "en": "e587da01d98b",
+      "out": "4382c3838cc9"
+    },
+    "selfEdits.none": {
+      "en": "82472a2aa7e5",
+      "out": "7df9483ad710"
+    },
+    "selfEdits.when": {
+      "en": "a485f665ba44",
+      "out": "9e1d54143a14"
     }
   },
   "settings": {
@@ -25694,6 +26121,18 @@
       "en": "baa804649509",
       "out": "fddcc1e3df3f"
     },
+    "chat.planModeOn": {
+      "en": "c57759a3a923",
+      "out": "0455f3bad44f"
+    },
+    "chat.planModeOff": {
+      "en": "3c07be2077df",
+      "out": "602903b3f593"
+    },
+    "chat.planModeFailed": {
+      "en": "e0a94537c148",
+      "out": "bdb0df22afb9"
+    },
     "embedding.notRebuilt": {
       "en": "498a6628123d",
       "out": "abbde8b89fe5"
@@ -26149,6 +26588,14 @@
     "chatPanel.thinkingTooltip": {
       "en": "47d69e8b2abd",
       "out": "6ea139f34edc"
+    },
+    "chatPanel.planMode": {
+      "en": "bc0b2affb5d0",
+      "out": "d808a4a0dd60"
+    },
+    "chatPanel.planModeTooltip": {
+      "en": "9ba091631614",
+      "out": "740c07c0d90d"
     },
     "chatPanel.webAccess": {
       "en": "a1fee2222a24",
@@ -31889,12 +32336,24 @@
       "out": "465f87524d3f"
     },
     "refresh.cached": {
-      "en": "86b59f4410b5",
-      "out": "967f374d0a2c"
+      "en": "a08ec1af1153",
+      "out": "3d23149cf854"
     },
     "refresh.computed": {
       "en": "ae11c3bc2a69",
       "out": "dcd49fda181f"
+    },
+    "refresh.stale": {
+      "en": "9bd220cceb28",
+      "out": "38715f6706d1"
+    },
+    "refresh.building": {
+      "en": "ec0791d5e70a",
+      "out": "5ce98642a5c0"
+    },
+    "refresh.button": {
+      "en": "7f9c4be5d6c5",
+      "out": "5ff24c1debc6"
     },
     "overlays.ghostEndpoints": {
       "en": "3aedb0d6cf99",
@@ -31944,6 +32403,14 @@
       "en": "dd57fdade3a6",
       "out": "55d6e3335191"
     },
+    "detail.ask": {
+      "en": "85161df37973",
+      "out": "1d382a265448"
+    },
+    "detail.askTooltip": {
+      "en": "45d622268b87",
+      "out": "97080043ebf9"
+    },
     "loading": {
       "en": "0d734f6b9fd5",
       "out": "4588d19d3734"
@@ -31984,6 +32451,14 @@
       "en": "95aaaa05a9a7",
       "out": "2b3c3c3fcfba"
     },
+    "findings.planFix": {
+      "en": "d5cc83e3d3bf",
+      "out": "4a7049bea393"
+    },
+    "findings.planFixPrompt": {
+      "en": "1371efa99f79",
+      "out": "27dc1ce128d6"
+    },
     "activity.title": {
       "en": "97935e2e0f08",
       "out": "c47edaecacf6"
@@ -32011,6 +32486,38 @@
     "activity.hours": {
       "en": "f99f477b0d11",
       "out": "f99f477b0d11"
+    },
+    "computing": {
+      "en": "12453d4dde07",
+      "out": "ba770e27c0b5"
+    },
+    "codeIndex.build": {
+      "en": "dd7264a03635",
+      "out": "02a1e7eea1f2"
+    },
+    "codeIndex.rebuild": {
+      "en": "2c9aca615411",
+      "out": "d7e744aa63d3"
+    },
+    "codeIndex.building": {
+      "en": "6ac1afc864a2",
+      "out": "d3dd94dd5cca"
+    },
+    "codeIndex.ready": {
+      "en": "7f4adc49c1d0",
+      "out": "59644a7647c7"
+    },
+    "codeIndex.missing": {
+      "en": "c6ef6e3bb427",
+      "out": "2509df253456"
+    },
+    "codeIndex.notInstalled": {
+      "en": "4cd834a287ab",
+      "out": "f8e666de377d"
+    },
+    "codeIndex.failed": {
+      "en": "39985c92af8f",
+      "out": "35ec8e491967"
     }
   },
   "tasks": {

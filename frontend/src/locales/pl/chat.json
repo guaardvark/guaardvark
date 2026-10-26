@@ -80,7 +80,11 @@
     "stop": "Zatrzymaj (Esc)",
     "preparingImage": "Przygotowywanie obrazu...",
     "analyzeImage": "Analizuj obraz",
-    "send": "Wyślij wiadomość"
+    "send": "Wyślij wiadomość",
+    "planModeBadge": "TRYB PLANU",
+    "planModeToggle": "Tryb planu",
+    "planModeOff": "Wyłącz tryb planu (/plan)",
+    "placeholderPlan": "Powiedz, co chcesz zrobić. Nic nie zmieni się, dopóki nie zatwierdzisz planu."
   },
   "sessions": {
     "loadFailed": "Nie udało się załadować listy czatów.",
@@ -276,5 +280,134 @@
     "error": "Błąd: {{error}}",
     "tokensIn": "↑ {{tokens}} wejściowych",
     "tokensOut": "↓ {{tokens}} wyjściowych"
+  },
+  "plan": {
+    "title": "Plan",
+    "titleRevision": "Plan, wersja {{revision}}",
+    "goal": "Cel",
+    "stepHeading": "Krok {{index}}: {{title}}",
+    "stepTitle": "Tytuł kroku {{index}}",
+    "stepKind": "Rodzaj",
+    "stepAction": "Co należy zrobić",
+    "stepFailed": "Błąd: {{error}}",
+    "details": "Sprawdzenia, ryzyka i założenia",
+    "checks": "Jak sprawdzić, czy zadziałało",
+    "risks": "Co może pójść nie tak",
+    "questions": "Założenia do potwierdzenia",
+    "status": {
+      "awaiting": "Oczekiwanie na zatwierdzenie",
+      "running": "W trakcie",
+      "runningStep": "Wykonaj krok {{index}} z {{total}}",
+      "pausedFailed": "Wstrzymane: błąd kroku",
+      "pausedStopped": "Wstrzymane: zatrzymane",
+      "pausedInterrupted": "Wstrzymane: Guaardvark został uruchomiony ponownie",
+      "done": "Zakończono: {{done}} z {{total}} kroków",
+      "rejected": "Odrzucony",
+      "superseded": "Zastąpiony nowszą wersją"
+    },
+    "approve": "Zatwierdź",
+    "approveTooltip": "Uruchom plan, prosząc Cię o zgodę przed każdym krokiem, który coś zmienia",
+    "approveAllow": "Zatwierdź i zezwól na działania",
+    "approveAllowTooltip": "Uruchom plan bez ponownego pytania o: {{tools}}",
+    "approveAllowNoTools": "Uruchom plan bez ponownego pytania o używane narzędzia",
+    "keepPlanning": "Kontynuuj planowanie",
+    "edit": "Edytuj",
+    "reject": "Odrzuć",
+    "saveEdit": "Zapisz jako nową wersję",
+    "cancelEdit": "Anuluj",
+    "stop": "Zatrzymaj",
+    "retry": "Powtórz krok",
+    "continue": "Kontynuuj",
+    "skip": "Pomiń krok",
+    "replan": "Zaplanuj resztę ponownie",
+    "drop": "Odrzuć resztę",
+    "replanPrompt": "Krok {{index}} ({{title}}) nie powiódł się: {{error}} Zaplanuj pozostałe kroki ponownie.",
+    "kinds": {
+      "write": "Napisz",
+      "file": "Plik",
+      "code_change": "Zmiana w Kodzie",
+      "image": "Obraz",
+      "video": "Wideo",
+      "audio": "Audio",
+      "desktop": "Desktop",
+      "lookup": "Wyszukaj",
+      "memory": "Pamięć",
+      "other": "Inne"
+    }
+  },
+  "selfEdit": {
+    "appliedRestart": "Guaardvark zmieniło swój Kod ({{files}}). Zmiana zacznie działać po restarcie.",
+    "appliedLive": "Guaardvark zmieniło swój Kod ({{files}}). Zmiana jest aktywna.",
+    "live": "Zmiana w {{files}} jest aktywna.",
+    "undone": "Zmiana w {{files}} nie przeszła testów i została cofnięta: {{error}}",
+    "autoReverted": "Zmiana w {{files}} uniemożliwiła uruchomienie Guaardvark, dlatego została cofnięta.",
+    "reverted": "Zmiana w {{files}} została cofnięta.",
+    "revertedRestart": "Cofnięto. Zrestartuj Guaardvark, aby ponownie uruchomić stary Kod.",
+    "checkOk": "ok",
+    "conflicts": "{{files}} zostało ponownie zmienione po tej zmianie. Cofnięcie teraz spowoduje utratę tych późniejszych zmian.",
+    "revert": "Cofnij",
+    "revertAnyway": "Cofnij mimo wszystko"
+  },
+  "selfAnalysis": {
+    "checked": "Sprawdzone w odniesieniu do kodu:",
+    "notFound": "{{ref}} nie znaleziono",
+    "plan": "Zaplanuj zmianę",
+    "planTooltip": "Włącz tryb planowania i opisz zmianę; nic nie zmieni się, dopóki nie zatwierdzisz planu",
+    "planPrompt": "Zaplanuj zmianę: "
+  },
+  "features": {
+    "open": "Moje możliwości",
+    "image": {
+      "label": "Obraz",
+      "hint": "Stwórz obraz: powiedz, co mam narysować"
+    },
+    "editImage": {
+      "label": "Edytuj obraz",
+      "hint": "Dołącz obraz, a następnie powiedz, co mam zmienić"
+    },
+    "video": {
+      "label": "Wideo",
+      "hint": "Stwórz krótki klip wideo"
+    },
+    "musicVideo": {
+      "label": "Teledysk",
+      "hint": "Zamień utwór na teledysk"
+    },
+    "filmCrew": {
+      "label": "Film Crew",
+      "hint": "Zamień pomysł na krótki film"
+    },
+    "file": {
+      "label": "Plik",
+      "hint": "Napisz dokument, arkusz lub plik z kodem",
+      "starter": "Stwórz plik o nazwie "
+    },
+    "analyze": {
+      "label": "Analiza",
+      "hint": "Dołącz obraz lub dokument i zadaj pytanie na jego temat"
+    },
+    "webSearch": {
+      "label": "Wyszukiwanie w sieci",
+      "hint": "Przeszukaj sieć i odpowiedz na podstawie znalezionych informacji",
+      "off": "Dostęp do sieci jest wyłączony. Włącz go w Ustawieniach, aby przeszukać sieć"
+    },
+    "code": {
+      "label": "Przyjrzyj się mojemu kodowi",
+      "hint": "Zapytaj, jak działam wewnątrz; odpowiedź wymieni moje własne pliki",
+      "starter": "Przejrzyj swój kod: "
+    },
+    "swarm": {
+      "label": "Swarm",
+      "hint": "Wyznacz kilku agentów kodujących do jednego zadania jednocześnie",
+      "starter": "Uruchom Swarm, aby "
+    },
+    "agent": {
+      "label": "Ekran agenta",
+      "hint": "Praca na moim własnym ekranie: otwieranie aplikacji, klikanie, pisanie, przeglądanie"
+    },
+    "plan": {
+      "label": "Plan",
+      "hint": "Najpierw przeanalizuj, a następnie nie zmieniaj niczego, dopóki nie zatwierdzisz planu"
+    }
   }
 }

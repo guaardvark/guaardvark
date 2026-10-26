@@ -29,8 +29,11 @@
   "searchPlaceholder": "Suche ( / )",
   "resetView": "Ansicht zurücksetzen (R)",
   "refresh": {
-    "cached": "Vor {{seconds}}s gecacht – zum Neuberechnen klicken",
-    "computed": "Gerade in {{seconds}}s berechnet"
+    "cached": "Vor {{seconds}}s erstellt und auf dem neuesten Stand der Quelle – klicke zum Neuaufbau",
+    "computed": "Gerade in {{seconds}}s berechnet",
+    "stale": "Die Quelle hat sich seit dem Erstellen dieser Systemübersicht geändert – klicke zum Neuaufbau",
+    "building": "Baue eine neue Systemübersicht aus der geänderten Quelle…",
+    "button": "Systemübersicht neu aufbauen"
   },
   "overlays": {
     "ghostEndpoints": "Ghost-Endpoints",
@@ -46,7 +49,9 @@
     "importers_other": "{{count}} Importeure",
     "findings": "Ergebnisse ({{count}})",
     "moreFindings": "… und {{count}} weitere",
-    "escToClear": "Drücke <code>Esc</code>, um zu löschen"
+    "escToClear": "Drücke <code>Esc</code>, um zu löschen",
+    "ask": "Dazu fragen",
+    "askTooltip": "Chat mit dem /sysmap Modul {{path}} öffnen"
   },
   "loading": "System wird abgebildet…",
   "panel": {
@@ -60,7 +65,9 @@
     "intro": "Rangierte Ergebnisse · klicken zum Lokalisieren · an Agent zur Behebung senden",
     "empty": "Keine Ergebnisse mit dieser Schweregrad. 🎉",
     "dispatch": "An den Agenten für Selbstverbesserung senden, um eine Lösung vorzuschlagen",
-    "dismiss": "Abbrechen — bestätigen und diese Anzeige ausblenden"
+    "dismiss": "Abbrechen — bestätigen und diese Anzeige ausblenden",
+    "planFix": "Fix planen: öffnet den Chat im Planungsmodus mit diesem Befund; es ändert sich nichts, bis du den Plan genehmigst",
+    "planFixPrompt": "Plane einen Fix für diesen Systemübersicht-Befund: {{summary}} ({{kind}}; Dateien: {{files}}). Überprüfe zuerst im Code, ob der Befund real ist; falls nicht, sage dies an, anstatt zu planen."
   },
   "activity": {
     "title": "Live-Aktivität",
@@ -70,5 +77,15 @@
     "seconds": "{{count}}s",
     "minutes": "{{count}}m",
     "hours": "{{count}}h"
+  },
+  "computing": "Baue die Systemübersicht zum ersten Mal…",
+  "codeIndex": {
+    "build": "Code-Suchindex erstellen",
+    "rebuild": "Code-Suchindex aktualisieren",
+    "building": "Baue den Code-Suchindex…",
+    "ready": "Code-Suchindex erstellt: search_codebase findet Code nach Bedeutung. Klicke zum Aktualisieren.",
+    "missing": "Noch kein Code-Suchindex, daher findet search_codebase nur Wörter und Namen. Klicke, um einen mit dem zvec_grep Plugin zu erstellen; es wird nichts heruntergeladen.",
+    "notInstalled": "Installiere das zvec_grep Plugin auf der Plugins-Seite, um einen Code-Suchindex zu erstellen.",
+    "failed": "Fehler beim Erstellen des Code-Suchindex: {{reason}}"
   }
 }

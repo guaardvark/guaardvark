@@ -172,7 +172,10 @@
   "chat": {
     "thinkingOn": "Myślenie włączone domyślnie: modele myślowe analizują krok po kroku (wolniej). Użyj /thinking off dla konkretnego czatu.",
     "thinkingOff": "Myślenie wyłączone domyślnie: szybsze odpowiedzi. Użyj /thinking on dla konkretnego czatu.",
-    "thinkingFailed": "Nie udało się zaktualizować ustawienia myślenia w Czat"
+    "thinkingFailed": "Nie udało się zaktualizować ustawienia myślenia w Czat",
+    "planModeOn": "Nowe czaty zaczynają się w trybie planowania",
+    "planModeOff": "Nowe czaty zaczynają się bez trybu planowania",
+    "planModeFailed": "Nie udało się zapisać ustawienia trybu planowania"
   },
   "embedding": {
     "notRebuilt": "Nie przebudowane automatycznie: {{items}}",
@@ -310,6 +313,8 @@
     "rulesTooltip": "Zasady persony i zachowania ze strony Zasady. Wyłączenie zamienia je na zwykły, wbudowany prompt.",
     "thinking": "Myślenie Czatu",
     "thinkingTooltip": "Domyślne dla modeli myślących. Dla każdego Czatu: /thinking włącz lub wyłącz.",
+    "planMode": "Tryb planowania",
+    "planModeTooltip": "Zaczynaj nowe czaty w trybie planowania: najpierw analizuj każde zapytanie i nie wprowadzaj zmian, dopóki nie zatwierdzisz planu. /plan przełącza to dla konkretnego czatu.",
     "webAccess": "Dostęp do sieci",
     "webAccessTooltip": "Pozwala narzędziom sieciowym, przeglądarkowym i adresowym na dostęp do internetu.",
     "voiceChat": "Czat głosowy",

@@ -29,8 +29,11 @@
   "searchPlaceholder": "검색 ( / )",
   "resetView": "뷰 초기화 (R)",
   "refresh": {
-    "cached": "{{seconds}}초 전 캐시됨 — 클릭하여 다시 계산",
-    "computed": "{{seconds}}초 전 계산됨"
+    "cached": "{{seconds}}초 전에 빌드되었으며 소스와 동기화됨 — 클릭하여 다시 빌드",
+    "computed": "{{seconds}}초 전 계산됨",
+    "stale": "이 맵이 빌드된 이후 소스가 변경되었습니다 — 클릭하여 다시 빌드",
+    "building": "변경된 소스로 새 맵을 빌드하는 중…",
+    "button": "맵 다시 빌드"
   },
   "overlays": {
     "ghostEndpoints": "고스트 엔드포인트",
@@ -45,7 +48,9 @@
     "importers_other": "{{count}} 임포터",
     "findings": "발견 사항 ({{count}})",
     "moreFindings": "… 및 {{count}}개 더",
-    "escToClear": "<code>Esc</code>를 눌러 지우기"
+    "escToClear": "<code>Esc</code>를 눌러 지우기",
+    "ask": "이것에 대해 질문하기",
+    "askTooltip": "`/sysmap` 모듈 {{path}}와 채팅 열기"
   },
   "loading": "시스템 매핑 중…",
   "panel": {
@@ -59,7 +64,9 @@
     "intro": "순위별 결과 · 클릭하여 위치 확인 · 수정을 위해 할당",
     "empty": "이 심각도에 해당하는 결과가 없습니다. 🎉",
     "dispatch": "자기 개선 에이전트에게 보내어 수정 제안 받기",
-    "dismiss": "닫기 — 확인 및 해당 결과 표시 중단"
+    "dismiss": "닫기 — 확인 및 해당 결과 표시 중단",
+    "planFix": "수정 계획: 이 결과와 함께 계획 모드로 채팅을 엽니다. 계획을 승인할 때까지 아무것도 변경되지 않습니다.",
+    "planFixPrompt": "이 시스템 맵 결과에 대한 수정 계획: {{summary}} ({{kind}}; 파일: {{files}}). 먼저 코드에서 해당 결과가 실제인지 확인하십시오. 실제가 아니라면 계획 대신 그렇게 말하십시오."
   },
   "activity": {
     "title": "실시간 활동",
@@ -69,5 +76,15 @@
     "seconds": "{{count}}초",
     "minutes": "{{count}}분",
     "hours": "{{count}}시간"
+  },
+  "computing": "처음으로 맵을 빌드하는 중…",
+  "codeIndex": {
+    "build": "코드 검색 인덱스 빌드",
+    "rebuild": "코드 검색 인덱스 새로고침",
+    "building": "코드 검색 인덱스 빌드 중…",
+    "ready": "코드 검색 인덱스 빌드 완료: search_codebase가 의미에 따라 코드를 찾습니다. 클릭하여 새로고침하십시오.",
+    "missing": "아직 코드 검색 인덱스가 없어 search_codebase가 단어와 이름만 매칭합니다. 클릭하여 zvec_grep 플러그인으로 인덱스를 빌드하십시오. 아무것도 다운로드되지 않습니다.",
+    "notInstalled": "코드 검색 인덱스를 빌드하려면 플러그인 페이지에서 zvec_grep 플러그인을 설치하십시오.",
+    "failed": "코드 검색 인덱스 빌드 실패: {{reason}}"
   }
 }

@@ -29,8 +29,11 @@
   "searchPlaceholder": "Szukaj ( / )",
   "resetView": "Resetuj widok (R)",
   "refresh": {
-    "cached": "Sko-cache'owane {{seconds}}s temu — kliknij, aby przeliczyć",
-    "computed": "Właśnie obliczone {{seconds}}s temu"
+    "cached": "Zbudowane {{seconds}}s temu i aktualne względem źródła — kliknij, aby przebudować",
+    "computed": "Właśnie obliczone {{seconds}}s temu",
+    "stale": "Źródło zmieniło się od czasu zbudowania tej mapy — kliknij, aby przebudować",
+    "building": "Budowanie nowej mapy na podstawie zmienionego źródła…",
+    "button": "Przebuduj mapę"
   },
   "overlays": {
     "ghostEndpoints": "Endpointy-duchy",
@@ -47,7 +50,9 @@
     "importers_one": "{{count}} importer",
     "findings": "Wyniki ({{count}})",
     "moreFindings": "… i jeszcze {{count}}",
-    "escToClear": "Naciśnij <code>Esc</code>, aby wyczyścić"
+    "escToClear": "Naciśnij <code>Esc</code>, aby wyczyścić",
+    "ask": "Zapytaj o to",
+    "askTooltip": "Otwórz Czat z modułem /sysmap {{path}}"
   },
   "loading": "Mapowanie systemu…",
   "panel": {
@@ -61,7 +66,9 @@
     "intro": "Wyniki uszeregowane · kliknij, aby zlokalizować · wyślij do naprawy",
     "empty": "Brak wyników o tym poziomie krytyczności. 🎉",
     "dispatch": "Wyślij do agenta Samodoskonalenia, aby zaproponował poprawkę",
-    "dismiss": "Zamknij — potwierdź i przestań wyświetlać to znalezisko"
+    "dismiss": "Zamknij — potwierdź i przestań wyświetlać to znalezisko",
+    "planFix": "Zaplanuj poprawkę: otwiera Czat w trybie planowania dla tego znaleziska; nic się nie zmieni, dopóki nie zatwierdzisz planu",
+    "planFixPrompt": "Zaplanuj poprawkę dla tego znaleziska w Mapie systemu: {{summary}} ({{kind}}; pliki: {{files}}). Najpierw sprawdź w kodzie, czy znalezisko jest prawdziwe; jeśli nie, zgłoś to zamiast planowania."
   },
   "activity": {
     "title": "Aktywność na żywo",
@@ -71,5 +78,15 @@
     "seconds": "{{count}}s",
     "minutes": "{{count}}m",
     "hours": "{{count}}h"
+  },
+  "computing": "Budowanie mapy po raz pierwszy…",
+  "codeIndex": {
+    "build": "Zbuduj indeks wyszukiwania kodu",
+    "rebuild": "Odśwież indeks wyszukiwania kodu",
+    "building": "Budowanie indeksu wyszukiwania kodu…",
+    "ready": "Indeks wyszukiwania kodu zbudowany: search_codebase znajduje kod po znaczeniu. Kliknij, aby go odświeżyć.",
+    "missing": "Brak indeksu wyszukiwania kodu, więc search_codebase dopasowuje tylko słowa i nazwy. Kliknij, aby zbudować go za pomocą wtyczki zvec_grep; nic nie jest pobierane.",
+    "notInstalled": "Zainstaluj wtyczkę zvec_grep ze strony Wtyczki, aby zbudować indeks wyszukiwania kodu.",
+    "failed": "Budowanie indeksu wyszukiwania kodu nie powiodło się: {{reason}}"
   }
 }

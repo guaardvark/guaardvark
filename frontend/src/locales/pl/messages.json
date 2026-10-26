@@ -381,9 +381,10 @@
       "musicVideo": "Użycie: `/music-video <song-path-or-id> <style>` — rozpoczyna plan; zatwierdź w Studio przed renderowaniem klipów.",
       "filmCrew": "Użycie: `/film-crew <screenplay>` — uruchamia scenarzystę; renderowanie czeka w Studio.",
       "websearch": "Użycie: `/websearch <query>`, `/websearch site:<address>` (audyt jednej strony) lub `/websearch sitemap:<url>` (lista stron z mapy witryny)",
-      "plan": "Użycie: `/plan <request>`",
+      "plan": "Użycie: `/plan [on|off|<request>]`",
       "training": "Użycie: `/training <task>` — np. `/training Work Trener Komentarzy — podążaj za banerem, kliknij Start Over po zakończeniu, nie przerywaj.`",
-      "thinking": "Użycie: `/thinking on` lub `/thinking off` (lub `/thinking`, aby wyświetlić aktualny stan)."
+      "thinking": "Użycie: `/thinking on` lub `/thinking off` (lub `/thinking`, aby wyświetlić aktualny stan).",
+      "orchestrate": "Użycie: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "Wymagany utwór (id dokumentu lub ścieżka audio) oraz styl wizualny. Przykład: `/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "Mapy witryn nie odczytano: {{reason}}",
@@ -456,7 +457,13 @@
       "switched": "Przełączono na **tryb Czat**. Wiadomości są ponownie przekazywane do LLM. Wpisz `/agent`, aby wrócić.",
       "exitFailed": "Nie udało się wyjść z trybu agenta: {{reason}}"
     },
-    "commandFailed": "Błąd polecenia: {{reason}}"
+    "commandFailed": "Błąd polecenia: {{reason}}",
+    "plan": {
+      "needsSession": "/plan wymaga czatu; otwórz go najpierw.",
+      "switchFailed": "Nie udało się przełączyć trybu planu: {{reason}}",
+      "on": "**Tryb planowania** jest włączony. Przeanalizuję Twoje zapytanie i przedstawię plan; nic nie zmieni się, dopóki go nie zatwierdzisz. Ponowne wpisanie `/plan` wyłączy ten tryb.",
+      "off": "Tryb planowania jest wyłączony."
+    }
   },
   "autoresearch": {
     "reasons": {

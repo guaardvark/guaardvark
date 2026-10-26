@@ -377,9 +377,10 @@
       "musicVideo": "使い方: `/music-video <song-path-or-id> <style>` — プランを開始します。クリップのレンダリング前にスタジオで承認してください。",
       "filmCrew": "使い方: `/film-crew <screenplay>` — 脚本家を開始します。レンダリングはスタジオで待機します。",
       "websearch": "使い方: `/websearch <query>`, `/websearch site:<address>` (1ページを調査) または `/websearch sitemap: <url>` (サイトマップのページをリスト表示)",
-      "plan": "使い方: `/plan <request>`",
+      "plan": "使い方: `/plan [on|off|<request>]`",
       "training": "使い方: `/training <task>` — 例: `/training WorkのComments Trainer — バナーに従い、完了時にStart Overをクリックしてください。中断しないでください。`",
-      "thinking": "使い方: `/thinking on` または `/thinking off` (または `/thinking` で現在の状態を表示)"
+      "thinking": "使い方: `/thinking on` または `/thinking off` (または `/thinking` で現在の状態を表示)",
+      "orchestrate": "使い方: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "曲（ドキュメントIDまたはオーディオパス）と視覚スタイルが必要です。例: `/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "サイトマップが読み込めませんでした: {{reason}}",
@@ -448,7 +449,13 @@
       "switched": "**チャットモード**に切り替わりました。メッセージは再度LLM経由で送信されます。元のモードに戻すには `/agent` と入力してください。",
       "exitFailed": "エージェントモードの終了に失敗しました: {{reason}}"
     },
-    "commandFailed": "コマンドに失敗しました: {{reason}}"
+    "commandFailed": "コマンドに失敗しました: {{reason}}",
+    "plan": {
+      "needsSession": "/plan を実行するにはチャットが必要です。まずチャットを「開く」か、作成してください。",
+      "switchFailed": "プランモードの切り替えに失敗しました: {{reason}}",
+      "on": "**プランモード**がオンです。ご質問の内容を検討し、プランを提示します。あなたが承認するまで内容は変更されません。再度 `/plan` を入力するとオフになります。",
+      "off": "プランモードはオフです。"
+    }
   },
   "autoresearch": {
     "reasons": {

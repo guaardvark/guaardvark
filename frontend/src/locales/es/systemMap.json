@@ -29,8 +29,11 @@
   "searchPlaceholder": "Buscar ( / )",
   "resetView": "Restablecer vista (R)",
   "refresh": {
-    "cached": "En caché hace {{seconds}}s — haz clic para recalcular",
-    "computed": "Calculado hace {{seconds}}s"
+    "cached": "Creado hace {{seconds}}s y actualizado con la fuente — haz clic para reconstruir",
+    "computed": "Calculado hace {{seconds}}s",
+    "stale": "La fuente cambió desde que se construyó este mapa — haz clic para reconstruir",
+    "building": "Construyendo un nuevo mapa desde la fuente modificada…",
+    "button": "Reconstruir el mapa"
   },
   "overlays": {
     "ghostEndpoints": "Endpoints fantasma",
@@ -46,7 +49,9 @@
     "importers_other": "{{count}} importadores",
     "findings": "Hallazgos ({{count}})",
     "moreFindings": "… y {{count}} más",
-    "escToClear": "Pulsa <code>Esc</code> para borrar"
+    "escToClear": "Pulsa <code>Esc</code> para borrar",
+    "ask": "Preguntar sobre esto",
+    "askTooltip": "Abrir chat con el módulo /sysmap {{path}}"
   },
   "loading": "Mapeando el sistema…",
   "panel": {
@@ -60,7 +65,9 @@
     "intro": "Hallazgos clasificados · haz clic para localizar · enviar para corregir",
     "empty": "Sin hallazgos en este nivel de gravedad. 🎉",
     "dispatch": "Enviar al agente de Auto-mejora para proponer una corrección",
-    "dismiss": "Descartar — reconocer y dejar de mostrar este hallazgo"
+    "dismiss": "Descartar — reconocer y dejar de mostrar este hallazgo",
+    "planFix": "Planificar una solución: abre el chat en modo de planificación con este hallazgo; nada cambia hasta que apruebes el plan",
+    "planFixPrompt": "Planifica una solución para este hallazgo del Mapa del sistema: {{summary}} ({{kind}}; Archivos: {{files}}). Primero verifica en el Código que el hallazgo sea real; si no lo es, dilo en lugar de planificar."
   },
   "activity": {
     "title": "Actividad en vivo",
@@ -70,5 +77,15 @@
     "seconds": "{{count}}s",
     "minutes": "{{count}}m",
     "hours": "{{count}}h"
+  },
+  "computing": "Construyendo el mapa por primera vez…",
+  "codeIndex": {
+    "build": "Construir índice de búsqueda de Código",
+    "rebuild": "Actualizar índice de búsqueda de Código",
+    "building": "Construyendo el índice de búsqueda de Código…",
+    "ready": "Índice de búsqueda de Código construido: search_codebase encuentra Código por significado. Haz clic para actualizarlo.",
+    "missing": "Aún no hay un índice de búsqueda de Código, por lo que search_codebase solo coincide con palabras y nombres. Haz clic para construir uno con el plugin zvec_grep; no se descarga nada.",
+    "notInstalled": "Instala el plugin zvec_grep desde la página de Plugins para construir un índice de búsqueda de Código.",
+    "failed": "Error al construir el índice de búsqueda de Código: {{reason}}"
   }
 }

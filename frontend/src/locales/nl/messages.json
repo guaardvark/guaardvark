@@ -379,9 +379,10 @@
       "musicVideo": "Gebruik: `/music-video <song-path-or-id> <style>` — start een plan; keur goed in Studio voordat de clips worden gerenderd.",
       "filmCrew": "Gebruik: `/film-crew <screenplay>` — start de scenarist; rendering wacht in Studio.",
       "websearch": "Gebruik: `/websearch <query>`, `/websearch site:<address>` (audit één pagina) of `/websearch sitemap:<url>` (lijst de pagina's van een sitemap op)",
-      "plan": "Gebruik: `/plan <request>`",
+      "plan": "Gebruik: `/plan [on|off|<request>]`",
       "training": "Gebruik: `/training <task>` — bijv. `/training Werk de Comments Trainer — volg de banner, klik op Start Over als klaar, stop niet.`",
-      "thinking": "Gebruik: \u0011/thinking on\u0011 of \u0011/thinking off\u0011 (of \u0011/thinking\u0011 om de huidige status te tonen)."
+      "thinking": "Gebruik: \u0011/thinking on\u0011 of \u0011/thinking off\u0011 (of \u0011/thinking\u0011 om de huidige status te tonen).",
+      "orchestrate": "Gebruik: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "Een nummer (document-id of audiopath) en een visuele stijl nodig. Voorbeeld: \u0011/music-video song.mp3 neon noir rain\u0011",
     "sitemapNotRead": "Sitemap niet gelezen: {{reason}}",
@@ -452,7 +453,13 @@
       "switched": "Gewisseld naar **chatmodus**. Berichten gaan weer via het LLM. Typ `/agent` om terug te schakelen.",
       "exitFailed": "Mislukt om agentmodus te verlaten: {{reason}}"
     },
-    "commandFailed": "Opdracht mislukt: {{reason}}"
+    "commandFailed": "Opdracht mislukt: {{reason}}",
+    "plan": {
+      "needsSession": "/plan heeft een chat nodig; open er eerst een.",
+      "switchFailed": "Kon niet overschakelen naar plan-modus: {{reason}}",
+      "on": "**Plan-modus** staat aan. Ik bekijk wat je vraagt en laat je een plan zien; niets verandert totdat je het goedkeurt. `/plan` zet het weer uit.",
+      "off": "Plan-modus staat uit."
+    }
   },
   "autoresearch": {
     "reasons": {

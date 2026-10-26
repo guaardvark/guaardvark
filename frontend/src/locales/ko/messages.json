@@ -377,9 +377,10 @@
       "musicVideo": "사용법: `/music--video <song-path-or-id> <style>` — 계획을 시작합니다. 클립이 렌더링되기 전에 Studio에서 승인하세요.",
       "filmCrew": "사용법: `/film-crew <screenplay>` — 시나리오 작가를 시작합니다. 렌더링은 Studio에서 대기합니다.",
       "websearch": "사용법: `/websearch <query>`, `/websearch site:<address>` (한 페이지 검토) 또는 `/websearch sitemap:<url>` (사이트맵 페이지 목록)",
-      "plan": "사용법: `/plan <request>`",
+      "plan": "사용법: `/plan [on|off|<request>]`",
       "training": "사용법: `/training <task>` — 예: `/training Work의 Comments Trainer — 배너를 따라가고, 완료 시 Start Over를 클릭하며, 중단하지 마세요.`",
-      "thinking": "사용법: `/thinking on` 또는 `/thinking off` (또는 `/thinking`으로 현재 상태 표시)"
+      "thinking": "사용법: `/thinking on` 또는 `/thinking off` (또는 `/thinking`으로 현재 상태 표시)",
+      "orchestrate": "사용법: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "노래(문서 ID 또는 오디오 경로)와 시각적 스타일이 필요합니다. 예: `/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "사이트맵을 읽지 못함: {{reason}}",
@@ -448,7 +449,13 @@
       "switched": "**채팅 모드**로 전환되었습니다. 메시지가 다시 LLM을 통해 전달됩니다. 다시 전환하려면 `/agent`를 입력하세요.",
       "exitFailed": "에이전트 모드 종료 실패: {{reason}}"
     },
-    "commandFailed": "명령어 실행 실패: {{reason}}"
+    "commandFailed": "명령어 실행 실패: {{reason}}",
+    "plan": {
+      "needsSession": "/plan은 채팅이 필요합니다. 먼저 하나를 열어주세요.",
+      "switchFailed": "플랜 모드 전환 실패: {{reason}}",
+      "on": "**플랜 모드**가 켜졌습니다. 요청하신 내용을 검토하고 계획을 보여드립니다. 승인하기 전까지는 아무것도 변경되지 않습니다. `/plan`을 다시 입력하면 꺼집니다.",
+      "off": "플랜 모드가 꺼졌습니다."
+    }
   },
   "autoresearch": {
     "reasons": {

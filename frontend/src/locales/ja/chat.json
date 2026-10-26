@@ -70,7 +70,11 @@
     "stop": "停止 (Esc)",
     "preparingImage": "画像を準備中...",
     "analyzeImage": "画像を解析",
-    "send": "メッセージを送信"
+    "send": "メッセージを送信",
+    "planModeBadge": "プランモード",
+    "planModeToggle": "プランモード",
+    "planModeOff": "プランモードをオフにする (/plan)",
+    "placeholderPlan": "実行したい内容を入力してください。あなたが承認するまで、何も変更されません。"
   },
   "sessions": {
     "loadFailed": "チャットリストを読み込めませんでした。",
@@ -260,5 +264,134 @@
     "error": "エラー: {{error}}",
     "tokensIn": "↑ 入力 {{tokens}}",
     "tokensOut": "↓ 出力 {{tokens}}"
+  },
+  "plan": {
+    "title": "プラン",
+    "titleRevision": "プラン、リビジョン {{revision}}",
+    "goal": "目標",
+    "stepHeading": "ステップ {{index}}: {{title}}",
+    "stepTitle": "ステップ {{index}} のタイトル",
+    "stepKind": "種類",
+    "stepAction": "実行内容",
+    "stepFailed": "失敗: {{error}}",
+    "details": "確認事項、リスク、前提条件",
+    "checks": "成功の確認方法",
+    "risks": "起こりうる問題",
+    "questions": "確認が必要な前提条件",
+    "status": {
+      "awaiting": "承認待ち",
+      "running": "実行中",
+      "runningStep": "全 {{total}} ステップ中、ステップ {{index}} を実行中",
+      "pausedFailed": "一時停止中：ステップの失敗",
+      "pausedStopped": "一時停止中：停止",
+      "pausedInterrupted": "一時停止中：Guaardvarkを再起動",
+      "done": "完了：全 {{total}} ステップ中 {{done}} を完了",
+      "rejected": "却下",
+      "superseded": "新しいバージョンに置き換えられました"
+    },
+    "approve": "承認",
+    "approveTooltip": "プランを実行します。変更を伴う各ステップの前に確認を求めます。",
+    "approveAllow": "承認して実行を許可",
+    "approveAllowTooltip": "以下のツールについて、再度確認を求めずにプランを実行します: {{tools}}",
+    "approveAllowNoTools": "使用するツールについて、再度確認を求めずにプランを実行",
+    "keepPlanning": "計画を継続",
+    "edit": "編集",
+    "reject": "拒否",
+    "saveEdit": "新しいバージョンとして保存",
+    "cancelEdit": "キャンセル",
+    "stop": "停止",
+    "retry": "ステップを再試行",
+    "continue": "続行",
+    "skip": "ステップをスキップ",
+    "replan": "残りの工程を再計画",
+    "drop": "残りの工程を破棄",
+    "replanPrompt": "ステップ {{index}} ({{title}}) が失敗しました: {{error}} 残りのステップを再計画します。",
+    "kinds": {
+      "write": "書き込み",
+      "file": "ファイル",
+      "code_change": "コードの変更",
+      "image": "画像",
+      "video": "動画",
+      "audio": "オーディオ",
+      "desktop": "デスクトップ",
+      "lookup": "検索",
+      "memory": "メモリ",
+      "other": "その他"
+    }
+  },
+  "selfEdit": {
+    "appliedRestart": "Guaardvarkが自身のコード（{{files}}）を変更しました。再起動後に反映されます。",
+    "appliedLive": "Guaardvarkが自身のコード（{{files}}）を変更しました。現在反映されています。",
+    "live": "{{files}} への変更が反映されました。",
+    "undone": "{{files}} への変更がチェックに失敗したため、取り消されました：{{error}}",
+    "autoReverted": "{{files}} の変更によりGuaardvarkの起動が妨げられたため、取り消されました。",
+    "reverted": "{{files}} の変更を取り消しました。",
+    "revertedRestart": "取り消されました。以前のコードを再度実行するにはGuaardvarkを再起動してください。",
+    "checkOk": "ok",
+    "conflicts": "この変更の後に{{files}} が再度変更されました。現在取り消すと、それ以降の変更も失われます。",
+    "revert": "元に戻す",
+    "revertAnyway": "強制的に元に戻す"
+  },
+  "selfAnalysis": {
+    "checked": "コードとの照合結果:",
+    "notFound": "{{ref}} が見つかりません",
+    "plan": "変更を計画",
+    "planTooltip": "計画モードをオンにして変更内容を記述します。計画を承認するまで変更は適用されません",
+    "planPrompt": "変更を計画: "
+  },
+  "features": {
+    "open": "できること",
+    "image": {
+      "label": "画像",
+      "hint": "画像を作成：何を描くか指示してください"
+    },
+    "editImage": {
+      "label": "画像を編集",
+      "hint": "画像を添付し、変更内容を指示してください"
+    },
+    "video": {
+      "label": "動画",
+      "hint": "短い動画クリップを作成"
+    },
+    "musicVideo": {
+      "label": "ミュージックビデオ",
+      "hint": "曲をミュージックビデオに変換"
+    },
+    "filmCrew": {
+      "label": "Film Crew",
+      "hint": "アイデアを短編映画に変換"
+    },
+    "file": {
+      "label": "ファイル",
+      "hint": "ドキュメント、スプレッドシート、またはコードファイルを記述",
+      "starter": "次の名前でファイルを作成: "
+    },
+    "analyze": {
+      "label": "分析",
+      "hint": "画像やドキュメントを添付して質問する"
+    },
+    "webSearch": {
+      "label": "ウェブ検索",
+      "hint": "ウェブを検索し、見つかった情報から回答",
+      "off": "ウェブアクセスはオフです。ウェブを検索するには設定でオンにしてください"
+    },
+    "code": {
+      "label": "コードを解析",
+      "hint": "内部の仕組みについて質問。回答には自身のファイル名が含まれます",
+      "starter": "コードを確認します: "
+    },
+    "swarm": {
+      "label": "Swarm",
+      "hint": "複数のコーディングエージェントを一つのタスクに同時に割り当てます",
+      "starter": "Swarmを起動して "
+    },
+    "agent": {
+      "label": "エージェント画面",
+      "hint": "自分の画面で操作します：アプリを開く、クリック、入力、閲覧"
+    },
+    "plan": {
+      "label": "計画",
+      "hint": "まず内容を確認し、計画を承認するまで何も変更しません"
+    }
   }
 }

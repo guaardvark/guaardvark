@@ -88,5 +88,10 @@
     "uncleFeedback": "Feedback d'Uncle Claude",
     "changesMade": "Modifications effectuées",
     "testResults": "Résultats des tests"
+  },
+  "selfEdits": {
+    "title": "Modifications apportées par Guaardvark à elle-même",
+    "none": "Guaardvark n'a pas encore modifié son propre code. Demandez-lui de le faire, en mode plan, et approuvez le plan.",
+    "when": "{{when}} · modification de {{id}}"
   }
 }

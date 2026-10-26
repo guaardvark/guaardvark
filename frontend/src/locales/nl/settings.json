@@ -172,7 +172,10 @@
   "chat": {
     "thinkingOn": "Denken standaard aan: denkmodellen redeneren stap voor stap (trager). Gebruik /thinking off per chat.",
     "thinkingOff": "Denken standaard uit: snellere reacties. Gebruik /thinking on per chat.",
-    "thinkingFailed": "Fout bij het bijwerken van de Chat-denkinstelling"
+    "thinkingFailed": "Fout bij het bijwerken van de Chat-denkinstelling",
+    "planModeOn": "Nieuwe chats beginnen in planmodus",
+    "planModeOff": "Nieuwe chats beginnen zonder planmodus",
+    "planModeFailed": "Kon de instelling voor planmodus niet opslaan"
   },
   "embedding": {
     "notRebuilt": "Niet automatisch herbouwd: {{items}}",
@@ -309,6 +312,8 @@
     "rulesTooltip": "Persona- en gedragsregels van de Regels-pagina. Uit schakelt deze en gebruikt een standaard ingebouwde prompt.",
     "thinking": "Chat-denken",
     "thinkingTooltip": "Standaard voor denkmodellen. Per chat: /thinking aan of uit.",
+    "planMode": "Planmodus",
+    "planModeTooltip": "Start nieuwe chats in planmodus: bekijk elke aanvraag eerst en verander niets totdat je een plan goedkeurt. /plan schakelt dit per chat om.",
     "webAccess": "Webtoegang",
     "webAccessTooltip": "Zorgt ervoor dat web-, browser- en adres-tools verbinding maken met het internet.",
     "voiceChat": "Stemchat",

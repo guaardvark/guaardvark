@@ -75,7 +75,11 @@
     "stop": "Stop (Esc)",
     "preparingImage": "Afbeelding wordt voorbereid...",
     "analyzeImage": "Beeld analyseren",
-    "send": "Bericht verzenden"
+    "send": "Bericht verzenden",
+    "planModeBadge": "PLAN MODUS",
+    "planModeToggle": "Planmodus",
+    "planModeOff": "Schakel planmodus uit (/plan)",
+    "placeholderPlan": "Zeg wat je gedaan wilt hebben. Niets verandert totdat je het plan goedkeurt."
   },
   "sessions": {
     "loadFailed": "De chatlijst kon niet worden geladen.",
@@ -268,5 +272,134 @@
     "error": "Fout: {{error}}",
     "tokensIn": "↑ {{tokens}} in",
     "tokensOut": "↓ {{tokens}} out"
+  },
+  "plan": {
+    "title": "Plan",
+    "titleRevision": "Plan, revisie {{revision}}",
+    "goal": "Doel",
+    "stepHeading": "Stap {{index}}: {{title}}",
+    "stepTitle": "Titel stap {{index}}",
+    "stepKind": "Type",
+    "stepAction": "Wat te doen",
+    "stepFailed": "Mislukt: {{error}}",
+    "details": "Controles, risico's en aannames",
+    "checks": "Hoe te controleren of het is gelukt",
+    "risks": "Wat zou er mis kunnen gaan",
+    "questions": "Aannames om te bevestigen",
+    "status": {
+      "awaiting": "Wachten op jouw goedkeuring",
+      "running": "Bezig",
+      "runningStep": "Bezig met stap {{index}} van {{total}}",
+      "pausedFailed": "Pauze: een stap is mislukt",
+      "pausedStopped": "Pauze: gestopt",
+      "pausedInterrupted": "Pauze: Guaardvark herstart",
+      "done": "Klaar: {{done}} van {{total}} stappen",
+      "rejected": "Verworpen",
+      "superseded": "Vervangen door een nieuwere versie"
+    },
+    "approve": "Goedkeuren",
+    "approveTooltip": "Voer het plan uit, waarbij je voor elke stap die iets verandert om toestemming wordt gevraagd",
+    "approveAllow": "Goedkeuren en acties toestaan",
+    "approveAllowTooltip": "Voer het plan uit zonder opnieuw te vragen om: {{tools}}",
+    "approveAllowNoTools": "Voer het plan uit zonder opnieuw te vragen om de tools die het gebruikt",
+    "keepPlanning": "Blijf plannen",
+    "edit": "Bewerken",
+    "reject": "Weigeren",
+    "saveEdit": "Opslaan als nieuwe versie",
+    "cancelEdit": "Annuleren",
+    "stop": "Stop",
+    "retry": "Stap opnieuw proberen",
+    "continue": "Doorgaan",
+    "skip": "Stap overslaan",
+    "replan": "Rest van plan opnieuw maken",
+    "drop": "Rest laten vallen",
+    "replanPrompt": "Stap {{index}} ({{title}}) mislukt: {{error}} Plan de resterende stappen opnieuw.",
+    "kinds": {
+      "write": "Schrijven",
+      "file": "Bestand",
+      "code_change": "Code wijziging",
+      "image": "Afbeelding",
+      "video": "Video",
+      "audio": "Audio",
+      "desktop": "Desktop",
+      "lookup": "Opzoeken",
+      "memory": "Geheugen",
+      "other": "Overig"
+    }
+  },
+  "selfEdit": {
+    "appliedRestart": "Guaardvark heeft zijn eigen code gewijzigd ({{files}}). Dit treden in werking na een herstart.",
+    "appliedLive": "Guaardvark heeft zijn eigen code gewijzigd ({{files}}). Dit is nu live.",
+    "live": "Wijziging aan {{files}} is live.",
+    "undone": "De wijziging aan {{files}} is niet door de controles gekomen en is ongedaan gemaakt: {{error}}",
+    "autoReverted": "De wijziging aan {{files}} verhinderde Guaardvark om te starten, dus is deze ongedaan gemaakt.",
+    "reverted": "De wijziging aan {{files}} is ongedaan gemaakt.",
+    "revertedRestart": "Ongedaan gemaakt. Start Guaardvark opnieuw om de oude code weer te laten draaien.",
+    "checkOk": "ok",
+    "conflicts": "{{files}} is opnieuw gewijzigd na deze wijziging. Het nu terugdraaien zorgt er ook voor dat die latere wijzigingen verloren gaan.",
+    "revert": "Terugdraaien",
+    "revertAnyway": "Toch terugdraaien"
+  },
+  "selfAnalysis": {
+    "checked": "Gecontroleerd tegen de code:",
+    "notFound": "{{ref}} niet gevonden",
+    "plan": "Wijziging plannen",
+    "planTooltip": "Zet de planmodus aan en beschrijf de wijziging; niets verandert totdat je het plan goedkeurt",
+    "planPrompt": "Plan een wijziging: "
+  },
+  "features": {
+    "open": "Dingen die ik kan doen",
+    "image": {
+      "label": "Afbeelding",
+      "hint": "Maak een afbeelding: zeg wat je wilt tekenen"
+    },
+    "editImage": {
+      "label": "Afbeelding bewerken",
+      "hint": "Voeg een afbeelding toe en zeg wat er veranderd moet worden"
+    },
+    "video": {
+      "label": "Video",
+      "hint": "Maak een kort videoclip"
+    },
+    "musicVideo": {
+      "label": "Muziekvideo",
+      "hint": "Maak van een lied een Muziekvideo"
+    },
+    "filmCrew": {
+      "label": "Film Crew",
+      "hint": "Maak van een idee een korte film"
+    },
+    "file": {
+      "label": "Bestand",
+      "hint": "Schrijf een document, spreadsheet of codebestand",
+      "starter": "Maak een bestand met de naam "
+    },
+    "analyze": {
+      "label": "Analyseren",
+      "hint": "Voeg een afbeelding of document toe en stel een vraag erover"
+    },
+    "webSearch": {
+      "label": "Webzoek",
+      "hint": "Zoek op het web en beantwoord op basis van wat er gevonden wordt",
+      "off": "Webtoegang is uit. Zet het aan in Instellingen om op het web te zoeken"
+    },
+    "code": {
+      "label": "Bekijk mijn code",
+      "hint": "Vraag hoe ik intern werk; het antwoord noemt mijn eigen bestanden",
+      "starter": "Bekijk je code: "
+    },
+    "swarm": {
+      "label": "Swarm",
+      "hint": "Zet meerdere coding agents tegelijk aan één taak",
+      "starter": "Start een swarm om "
+    },
+    "agent": {
+      "label": "Agenten-scherm",
+      "hint": "Werk op mijn eigen scherm: open apps, klik, typ, browse"
+    },
+    "plan": {
+      "label": "Plan",
+      "hint": "Bekijk het eerst en verander niets totdat je een plan goedkeurt"
+    }
   }
 }

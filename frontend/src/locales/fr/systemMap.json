@@ -29,8 +29,11 @@
   "searchPlaceholder": "Rechercher ( / )",
   "resetView": "Réinitialiser la vue (R)",
   "refresh": {
-    "cached": "Mis en cache il y a {{seconds}}s — cliquez pour recalculer",
-    "computed": "Calculé il y a {{seconds}}s"
+    "cached": "Construit il y a {{seconds}}s et à jour avec la source — cliquez pour reconstruire",
+    "computed": "Calculé il y a {{seconds}}s",
+    "stale": "La source a changé depuis la création de cette carte — cliquez pour reconstruire",
+    "building": "Construction d'une nouvelle carte à partir de la source modifiée…",
+    "button": "Reconstruire la carte"
   },
   "overlays": {
     "ghostEndpoints": "Points de terminaison fantômes",
@@ -46,7 +49,9 @@
     "importers_other": "{{count}} importateurs",
     "findings": "Résultats ({{count}})",
     "moreFindings": "… et {{count}} autres",
-    "escToClear": "Appuyez sur <code>Esc</code> pour effacer"
+    "escToClear": "Appuyez sur <code>Esc</code> pour effacer",
+    "ask": "Poser une question à ce sujet",
+    "askTooltip": "Ouvrir le chat avec le module /sysmap {{path}}"
   },
   "loading": "Cartographie du système…",
   "panel": {
@@ -60,7 +65,9 @@
     "intro": "Résultats classés · cliquez pour localiser · envoyer pour corriger",
     "empty": "Aucun résultat à ce niveau de gravité. 🎉",
     "dispatch": "Envoyer à l'agent d'auto-amélioration pour proposer une correction",
-    "dismiss": "Ignorer — accuser réception et masquer ce résultat"
+    "dismiss": "Ignorer — accuser réception et masquer ce résultat",
+    "planFix": "Planifier une correction : ouvre le chat en mode planification avec cette découverte ; rien ne change tant que vous n'approuvez pas le plan",
+    "planFixPrompt": "Planifier une correction pour cette découverte de Carte système : {{summary}} ({{kind}} ; Fichiers : {{files}}). Vérifiez d'abord dans le code que la découverte est réelle ; si elle ne l'est pas, indiquez-le au lieu de planifier."
   },
   "activity": {
     "title": "Activité en direct",
@@ -70,5 +77,15 @@
     "seconds": "{{count}}s",
     "minutes": "{{count}}m",
     "hours": "{{count}}h"
+  },
+  "computing": "Construction de la carte pour la première fois…",
+  "codeIndex": {
+    "build": "Construire l'index de recherche de code",
+    "rebuild": "Actualiser l'index de recherche de code",
+    "building": "Construction de l'index de recherche de code…",
+    "ready": "Index de recherche de code construit : search_codebase trouve le code par sens. Cliquez pour l'actualiser.",
+    "missing": "Aucun index de recherche de code pour le moment, donc search_codebase ne correspond qu'aux mots et noms. Cliquez pour en construire un avec le plugin zvec_grep ; rien n'est téléchargé.",
+    "notInstalled": "Installez le plugin zvec_grep depuis la page des Plugins pour construire un index de recherche de code.",
+    "failed": "Échec de la construction de l'index de recherche de code : {{reason}}"
   }
 }

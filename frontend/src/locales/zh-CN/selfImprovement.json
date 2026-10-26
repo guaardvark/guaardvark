@@ -87,5 +87,10 @@
     "uncleFeedback": "Uncle Claude 反馈",
     "changesMade": "已执行更改",
     "testResults": "测试结果"
+  },
+  "selfEdits": {
+    "title": "Guaardvark 对自身的修改",
+    "none": "Guaardvark 尚未修改过自己的代码。请在计划模式下要求它进行修改，并批准该计划。",
+    "when": "{{when}} · 修改 {{id}}"
   }
 }

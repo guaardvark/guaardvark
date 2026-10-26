@@ -379,9 +379,10 @@
       "musicVideo": "Utilisation : `/music-video <song-path-or-id> <style>` — lance un plan ; approuvez dans le Studio avant le rendu des clips.",
       "filmCrew": "Utilisation : `/film-crew <screenplay>` — lance le scénariste ; le rendu attend dans le Studio.",
       "websearch": "Utilisation : `/websearch <query>`, `/websearch site:<address>` (audit d'une page) ou `/websearch sitemap:<url>` (liste des pages d'un sitemap)",
-      "plan": "Utilisation : `/plan <request>`",
+      "plan": "Utilisation : `/plan [on|off|<request>]`",
       "training": "Utilisation : `/training <task>` — ex: `/training Work the Comments Trainer — follow the banner, click Start Over when done, don't stop.`",
-      "thinking": "Utilisation : `/thinking on` ou `/thinking off` (ou `/thinking` pour afficher l'état actuel)."
+      "thinking": "Utilisation : `/thinking on` ou `/thinking off` (ou `/thinking` pour afficher l'état actuel).",
+      "orchestrate": "Utilisation : `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "Une chanson (ID de document ou chemin audio) et un style visuel sont requis. Exemple : `/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "Plan de site non lu : {{reason}}",
@@ -452,7 +453,13 @@
       "switched": "Passage en **mode chat**. Les messages passent à nouveau par le LLM. Tapez `/agent` pour revenir en arrière.",
       "exitFailed": "Échec de la sortie du mode agent : {{reason}}"
     },
-    "commandFailed": "Commande échouée : {{reason}}"
+    "commandFailed": "Commande échouée : {{reason}}",
+    "plan": {
+      "needsSession": "/plan nécessite une discussion ; ouvrez-en une d'abord.",
+      "switchFailed": "Impossible de changer le mode du plan : {{reason}}",
+      "on": "Le **mode Plan** est activé. J'examinerai votre demande et vous proposerai un plan ; rien ne changera tant que vous ne l'aurez pas approuvé. Tapez à nouveau `/plan` pour le désactiver.",
+      "off": "Le mode Plan est désactivé."
+    }
   },
   "autoresearch": {
     "reasons": {

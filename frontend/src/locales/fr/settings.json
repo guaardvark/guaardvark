@@ -172,7 +172,10 @@
   "chat": {
     "thinkingOn": "Réflexion activée par défaut : les modèles de réflexion raisonnent étape par étape (plus lent). Utilisez /thinking off par chat.",
     "thinkingOff": "Réflexion désactivée par défaut : réponses plus rapides. Utilisez /thinking on par chat.",
-    "thinkingFailed": "Échec de la mise à jour du paramètre de réflexion du Chat"
+    "thinkingFailed": "Échec de la mise à jour du paramètre de réflexion du Chat",
+    "planModeOn": "Les nouveaux chats commencent en mode plan",
+    "planModeOff": "Les nouveaux chats commencent sans mode plan",
+    "planModeFailed": "Impossible d'enregistrer le paramètre du mode plan"
   },
   "embedding": {
     "notRebuilt": "Non reconstruit automatiquement : {{items}}",
@@ -309,6 +312,8 @@
     "rulesTooltip": "Règles de persona et de comportement de la page Règles. Désactivé les remplace par un prompt intégré simple.",
     "thinking": "Réflexion du chat",
     "thinkingTooltip": "Par défaut pour les modèles de réflexion. Par chat : /thinking activé ou désactivé.",
+    "planMode": "Mode plan",
+    "planModeTooltip": "Démarrer les nouveaux chats en mode plan : analyser chaque requête d'abord, et ne rien changer avant d'approuver un plan. /plan permet de le basculer par chat.",
     "webAccess": "Accès Web",
     "webAccessTooltip": "Permet aux outils web, navigateur et adresse d'accéder à Internet.",
     "voiceChat": "Chat vocal",

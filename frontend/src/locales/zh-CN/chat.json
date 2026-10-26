@@ -70,7 +70,11 @@
     "stop": "停止 (Esc)",
     "preparingImage": "正在准备图片...",
     "analyzeImage": "分析图片",
-    "send": "发送消息"
+    "send": "发送消息",
+    "planModeBadge": "计划模式",
+    "planModeToggle": "计划模式",
+    "planModeOff": "关闭计划模式 (/plan)",
+    "placeholderPlan": "说明您想要完成的任务。在您批准计划之前，不会有任何更改。"
   },
   "sessions": {
     "loadFailed": "无法加载对话列表。",
@@ -260,5 +264,134 @@
     "error": "错误：{{error}}",
     "tokensIn": "↑ 输入 {{tokens}}",
     "tokensOut": "↓ 输出 {{tokens}}"
+  },
+  "plan": {
+    "title": "计划",
+    "titleRevision": "计划，修订版 {{revision}}",
+    "goal": "目标",
+    "stepHeading": "步骤 {{index}}: {{title}}",
+    "stepTitle": "步骤 {{index}} 标题",
+    "stepKind": "类型",
+    "stepAction": "操作内容",
+    "stepFailed": "失败：{{error}}",
+    "details": "检查、风险和假设",
+    "checks": "如何确认成功",
+    "risks": "可能出现的问题",
+    "questions": "待确认的假设",
+    "status": {
+      "awaiting": "等待您的批准",
+      "running": "运行中",
+      "runningStep": "正在执行第 {{index}} / {{total}} 步",
+      "pausedFailed": "已暂停：步骤失败",
+      "pausedStopped": "已暂停：已停止",
+      "pausedInterrupted": "已暂停：Guaardvark 已重启",
+      "done": "已完成：{{done}} / {{total}} 步",
+      "rejected": "已拒绝",
+      "superseded": "已被新版本取代"
+    },
+    "approve": "批准",
+    "approveTooltip": "运行计划，在每项涉及更改的步骤前征求您的同意",
+    "approveAllow": "批准并允许执行",
+    "approveAllowTooltip": "运行计划，不再询问以下内容：{{tools}}",
+    "approveAllowNoTools": "运行计划，不再询问其使用的工具",
+    "keepPlanning": "继续规划",
+    "edit": "编辑",
+    "reject": "拒绝",
+    "saveEdit": "保存为新版本",
+    "cancelEdit": "取消",
+    "stop": "停止",
+    "retry": "重试该步骤",
+    "continue": "继续",
+    "skip": "跳过该步骤",
+    "replan": "重新规划剩余步骤",
+    "drop": "丢弃剩余步骤",
+    "replanPrompt": "步骤 {{index}} ({{title}}) 失败：{{error}} 重新规划剩余步骤。",
+    "kinds": {
+      "write": "写入",
+      "file": "文件",
+      "code_change": "代码更改",
+      "image": "图片",
+      "video": "视频",
+      "audio": "音频",
+      "desktop": "桌面",
+      "lookup": "查询",
+      "memory": "记忆",
+      "other": "其他"
+    }
+  },
+  "selfEdit": {
+    "appliedRestart": "Guaardvark 修改了其自身的代码 ({{files}})。重启后生效。",
+    "appliedLive": "Guaardvark 修改了其自身的代码 ({{files}})。现已生效。",
+    "live": "对 {{files}} 的更改已生效。",
+    "undone": "对 {{files}} 的更改未通过检查并已撤销：{{error}}",
+    "autoReverted": "对 {{files}} 的更改导致 Guaardvark 无法启动，因此已撤销。",
+    "reverted": "对 {{files}} 的更改已撤销。",
+    "revertedRestart": "已撤销。重启 Guaardvark 以重新运行旧代码。",
+    "checkOk": "确定",
+    "conflicts": "在此更改后，{{files}} 再次发生了变化。现在撤销也会丢失后续的那些更改。",
+    "revert": "还原",
+    "revertAnyway": "仍要还原"
+  },
+  "selfAnalysis": {
+    "checked": "已对照代码核对：",
+    "notFound": "未找到 {{ref}}",
+    "plan": "规划更改",
+    "planTooltip": "开启规划模式并描述更改内容；在您批准计划前，不会有任何更改",
+    "planPrompt": "规划更改： "
+  },
+  "features": {
+    "open": "我能做到的事情",
+    "image": {
+      "label": "图像",
+      "hint": "生成图片：说明你想画什么"
+    },
+    "editImage": {
+      "label": "编辑图像",
+      "hint": "上传一张图片，然后说明要修改的内容"
+    },
+    "video": {
+      "label": "视频",
+      "hint": "制作一段短视频片段"
+    },
+    "musicVideo": {
+      "label": "音乐视频",
+      "hint": "将歌曲转换为音乐视频"
+    },
+    "filmCrew": {
+      "label": "Film Crew",
+      "hint": "将创意转化为短片"
+    },
+    "file": {
+      "label": "文件",
+      "hint": "编写文档、电子表格或代码文件",
+      "starter": "创建一个文件，名为："
+    },
+    "analyze": {
+      "label": "分析",
+      "hint": "上传图片或文档并进行提问"
+    },
+    "webSearch": {
+      "label": "网络搜索",
+      "hint": "搜索网络并根据搜索结果回答",
+      "off": "网络访问已关闭。请在设置中开启以进行网络搜索"
+    },
+    "code": {
+      "label": "查看我的代码",
+      "hint": "询问我的内部运行逻辑；回答将包含我自己的文件名称",
+      "starter": "查看你的代码： "
+    },
+    "swarm": {
+      "label": "Swarm",
+      "hint": "同时让多个编程智能体执行一项任务",
+      "starter": "启动一个 Swarm 来 "
+    },
+    "agent": {
+      "label": "智能体界面",
+      "hint": "在我的屏幕上操作：打开应用、点击、输入、浏览"
+    },
+    "plan": {
+      "label": "计划",
+      "hint": "先查看内容，在您批准计划之前不进行任何更改"
+    }
   }
 }

@@ -379,9 +379,10 @@
       "musicVideo": "Uso: `/music-video <song-path-or-id> <style>` — inicia um plano; aprove no Studio antes de renderizar os clipes.",
       "filmCrew": "Uso: `/film-crew <screenplay>` — inicia o roteirista; a renderização aguarda no Studio.",
       "websearch": "Uso: `/websearch <query>`, `/websearch site:<address>` (auditar uma página) ou `/websearch sitemap:<url>` (listar as páginas de um sitemap)",
-      "plan": "Uso: `/plan <request>`",
+      "plan": "Uso: `/plan [on|off|<request>]`",
       "training": "Uso: `/training <task>` — ex: `/training Work o Treinador de Comentários — siga o banner, clique em Start Over ao terminar, não pare.`",
-      "thinking": "Uso: \u0011thinking on\u0011 ou \u0011thinking off\u0011 (ou \u0011thinking\u0011 para mostrar o estado atual)."
+      "thinking": "Uso: \u0011thinking on\u0011 ou \u0011thinking off\u0011 (ou \u0011thinking\u0011 para mostrar o estado atual).",
+      "orchestrate": "Uso: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "Precisa de uma música (ID do documento ou caminho do áudio) e um estilo visual. Exemplo: \u0011/music-video song.mp3 neon noir rain\u0011",
     "sitemapNotRead": "Sitemap não lido: {{reason}}",
@@ -452,7 +453,13 @@
       "switched": "Alternado para o **modo chat**. As mensagens serão roteadas pelo LLM novamente. Digite `/agent` para voltar.",
       "exitFailed": "Falha ao sair do modo agente: {{reason}}"
     },
-    "commandFailed": "Comando falhou: {{reason}}"
+    "commandFailed": "Comando falhou: {{reason}}",
+    "plan": {
+      "needsSession": "/plan precisa de um chat; abra um primeiro.",
+      "switchFailed": "Não foi possível alternar o modo do plano: {{reason}}",
+      "on": "**Modo de plano** está ativado. Vou analisar o que você pede e mostrar um plano; nada muda até você aprovar. `/plan` novamente desativa.",
+      "off": "O modo de plano está desativado."
+    }
   },
   "autoresearch": {
     "reasons": {

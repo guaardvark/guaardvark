@@ -87,5 +87,10 @@
     "uncleFeedback": "Uncle Claude フィードバック",
     "changesMade": "変更内容",
     "testResults": "テスト結果"
+  },
+  "selfEdits": {
+    "title": "Guaardvarkによる自己変更",
+    "none": "Guaardvarkはまだ自身のコードを変更していません。プランモードで依頼し、プランを承認してください。",
+    "when": "{{when}} · {{id}} を変更"
   }
 }
