@@ -100,6 +100,30 @@ def plan_mode_refusal(session_id: Optional[str], tool_name: Optional[str], regis
             "or turn plan mode off to run it directly.")
 
 
+def switch_on(session_id: Optional[str]) -> bool:
+    """Put a chat in plan mode from the server side (and tell its page)."""
+    if not session_id or not plan_mode_supported(session_id):
+        return False
+    try:
+        from backend.models import LLMSession, db
+        session = db.session.get(LLMSession, session_id)
+        if session is None:
+            session = LLMSession(id=session_id, user="default", plan_mode=True)
+            db.session.add(session)
+        else:
+            session.plan_mode = True
+        db.session.commit()
+    except Exception:
+        logger.warning("could not switch plan mode on for %s", session_id, exc_info=True)
+        return False
+    try:
+        from backend.socketio_instance import socketio
+        socketio.emit("chat:plan_mode", {"session_id": session_id, "plan_mode": True}, room=session_id)
+    except Exception:
+        pass
+    return True
+
+
 def plan_mode_supported(session_id: str) -> bool:
     """Discord chats have no way to show or answer a plan card."""
     return not str(session_id or "").startswith("discord_")

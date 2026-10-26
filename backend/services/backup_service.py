@@ -68,6 +68,12 @@ GLOBAL_IGNORE_PATTERNS = [
     # 2026-08-29 code release came out at 451 MB; 475 MB of it (compressed)
     # was one plugin's pcaps, DB-IP .mmdb files and a google-chrome.deb.
     '*.pcap', '*.pcapng', '*.mmdb', '*.mmdb.gz', '*.deb', '*.rpm',
+    # A plugin's previous install kept after an upgrade (half of a 98 MB code
+    # release on 2026-10-22), plugin run caches (logs, request-state keys),
+    # install stamps and the single-slot .backup copies edits leave beside a
+    # file. No source file is named "cache".
+    'ComfyUI.prev*', 'cache', '*.key', '*.backup',
+    '.requirements_installed', '.custom_nodes_installed',
 ]
 
 # Same as GLOBAL_IGNORE_PATTERNS but WITHOUT database file exclusions (*.db, *.sqlite, *.sqlite3)
@@ -1242,6 +1248,17 @@ def create_full_backup(name: str | None = None) -> str:
                 "backend/tools/voice/piper"
             ]
 
+            # Everything the Interconnector syncs is what a running install
+            # needs; its list is kept complete by a test, where this hand
+            # list missed backend files the app imports at start.
+            try:
+                from backend.services.interconnector_file_sync_service import InterconnectorFileSyncService
+                for synced in InterconnectorFileSyncService().default_sync_paths:
+                    if synced not in critical_files:
+                        critical_files.append(synced)
+            except Exception as e:
+                logger.warning("Code release: the Interconnector's file list was not read: %s", e)
+
             # Copy critical files and directories
             for file_path in critical_files:
                 src_path = project_root / file_path
@@ -2151,6 +2168,19 @@ def _restore_system_settings(data: list[dict]) -> int:
     return count
 
 
+# What a code release writes for a fresh machine: a sanitized .env (no
+# database URL, no secret key), generated install notes and README stand-ins
+# for empty folders. Restored over an install that already has them, the .env
+# breaks the next start and the stand-ins replace real files, so a code
+# release restore leaves the existing ones in place.
+_RELEASE_STAND_INS = frozenset({
+    ".env", "INSTALL.md", "logs/README.md", "pids/README.md", "docs/README.md",
+    "data/outputs/README.md", "data/models/README.md", "data/context/README.md",
+    "data/conversations/README.md", "backend/tools/voice/whisper.cpp/README.md",
+    "backend/tools/voice/piper/README.md",
+})
+
+
 def restore_backup(zip_file: str) -> Dict[str, int]:
     """Restore a backup from ``zip_file``.
 
@@ -2203,8 +2233,12 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
                 except inbound_guard.InboundRefused as refused:
                     raise ValueError(f"Restore refused: {refused}") from refused
 
+            code_release = data.get("backup_type") == "code_release"
             for member in zf.namelist():
                 if member.endswith("/") or member == "guaardvark_backup.json":
+                    continue
+                if code_release and member in _RELEASE_STAND_INS and (project_root / member).exists():
+                    summary.setdefault("kept_existing", []).append(member)
                     continue
 
                 # Extract to temporary location first

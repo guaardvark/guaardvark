@@ -10,6 +10,7 @@ import { ActionButton } from "../components/settings/ui";
 import SelfImprovementControls from "../components/selfImprovement/SelfImprovementControls";
 import SelfImprovementRuns from "../components/selfImprovement/SelfImprovementRuns";
 import CodeKeepsTable from "../components/selfImprovement/CodeKeepsTable";
+import SelfEditsList from "../components/selfImprovement/SelfEditsList";
 import { ragAutoresearchService } from "../api/ragAutoresearchService";
 import { selfImprovementService } from "../api/selfImprovementService";
 import { useUiTranslation } from "../i18n";
@@ -75,6 +76,13 @@ const SelfImprovementPage = () => {
 
         <Paper variant="outlined" sx={{ p: 2 }}>
           <SelfImprovementControls />
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>
+            {t("selfImprovement.selfEdits.title")}
+          </Typography>
+          <SelfEditsList />
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 2 }}>

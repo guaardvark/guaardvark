@@ -2457,6 +2457,24 @@ _ARTIFACT_INLINE_MAX_BYTES = 64 * 1024
 _ARTIFACT_PATH_KEYS = ("output_path", "file_path")
 
 
+def _self_edit_summary(res) -> Optional[Dict[str, Any]]:
+    """What the chat shows of a change Guaardvark made to its own code: which
+    change and group (for Revert), its files, checks and whether it waits for
+    a restart."""
+    record = (getattr(res, "metadata", None) or {}).get("self_edit")
+    if not isinstance(record, dict):
+        return None
+    return {
+        "id": record.get("id"),
+        "group": record.get("group"),
+        "status": record.get("status"),
+        "files": [f.get("path") for f in record.get("files") or []],
+        "restart_needed": bool(record.get("restart_needed")),
+        "checks": record.get("checks") or [],
+        "error": record.get("error"),
+    }
+
+
 def _artifact_for_result(res) -> Optional[Dict[str, Any]]:
     """Describe the file a tool wrote, or None when it wrote nothing.
 
@@ -3569,6 +3587,9 @@ class UnifiedChatEngine:
                 artifact = _artifact_for_result(res) if res.success else None
                 if artifact:
                     result_payload["artifact"] = artifact
+                self_edit = _self_edit_summary(res)
+                if self_edit:
+                    result_payload["self_edit"] = self_edit
                 with _emit_lock:
                     if artifact:
                         artifacts_by_index[job_i] = artifact
@@ -3707,6 +3728,11 @@ class UnifiedChatEngine:
                                     if isinstance(options, dict) else None
                                 ),
                                 "pending_image_prompt": _SESSION_PENDING_IMAGE_PROMPT.get(session_id),
+                                # The turn and plan step a call belongs to: edits to
+                                # Guaardvark's own code are grouped (and reverted) by them.
+                                "request_id": request_id,
+                                "plan_step": options.get("plan_step") if isinstance(options, dict) else None,
+                                "chat_session_id": session_id,
                                 "direct_tool_params": (
                                     options.get("direct_tool_params")
                                     if isinstance(options, dict) else None
@@ -3799,6 +3825,8 @@ class UnifiedChatEngine:
                 }
                 if job_i in artifacts_by_index:
                     step_call["artifact"] = artifacts_by_index[job_i]
+                if _self_edit_summary(result):
+                    step_call["self_edit"] = _self_edit_summary(result)
                 step_info["tool_calls"].append(step_call)
 
                 formatted = format_tool_result_for_llm(tool_name, result, format='xml')

@@ -636,6 +636,10 @@ class EditCodeTool(BaseTool):
                         metadata={"staging_failed": True}
                     )
 
+        from backend.services import self_edit
+        if not dry_run and not self_improvement and self_edit.is_own_code(filepath):
+            return self._edit_own_code(filepath, old_text, new_text, ctx, expected_hash, expected_mtime)
+
         try:
             edit_result = apply_exact_replacement(
                 filepath,
@@ -692,6 +696,61 @@ class EditCodeTool(BaseTool):
                 error=f"Edit failed: {str(e)}",
                 metadata={"filepath": filepath}
             )
+
+
+    def _edit_own_code(self, filepath, old_text, new_text, ctx, expected_hash, expected_mtime) -> ToolResult:
+        """An edit to Guaardvark's own code: a restore point first, then the
+        exact write, then the checks; a failed check puts the file back.
+
+        From a chat, such an edit runs only as a step of a plan the person
+        approved. Otherwise the chat is put in plan mode and the model is
+        told to plan the change, so the person sees it before it is made.
+        """
+        from backend.services import self_edit
+        from backend.services.guarded_code_service import GuardedCodeError
+
+        plan_step = ctx.get("plan_step") if isinstance(ctx, dict) else None
+        if (ctx or {}).get("transport") == "chat" and not plan_step:
+            from backend.services.plan_mode import switch_on
+            switched = switch_on(ctx.get("chat_session_id"))
+            return ToolResult(
+                success=False,
+                error=("Changes to Guaardvark's own code are planned first, so the person sees them before "
+                       "they are made. " + ("Plan mode is now on for this chat: " if switched else "")
+                       + "tell the person what you would change and ask them to approve the plan."),
+                metadata={"blocked_by": "needs_plan", "filepath": filepath},
+            )
+        if plan_step:
+            group = f"plan-{plan_step.get('plan_id')}-{plan_step.get('index')}"
+        else:
+            group = str((ctx or {}).get("request_id") or "") or f"edit-{os.path.basename(filepath)}"
+        try:
+            record = self_edit.apply_change(
+                filepath, old_text, new_text, group=group,
+                expected_hash=expected_hash, expected_mtime=expected_mtime,
+            )
+        except GuardedCodeError as e:
+            error_msg = str(e)
+            if e.code in {"TEXT_NOT_FOUND", "TEXT_NOT_UNIQUE"}:
+                error_msg += ("\n\nSUGGESTION: Use read_code(filepath) first to get the exact text including "
+                              "whitespace, then retry with enough surrounding context for one unique match.")
+            return ToolResult(success=False, error=error_msg, metadata={"filepath": filepath, "blocked_by": e.code})
+        rel = record["files"][0]["path"]
+        checks = "; ".join(f"{c['check']}: {'ok' if c['ok'] else c['detail']}" for c in record["checks"])
+        if record["status"] == "failed_checks":
+            return ToolResult(
+                success=False,
+                error=f"The change to {rel} was made, checked and undone: {record.get('error')}. ({checks})",
+                metadata={"self_edit": record, "filepath": filepath},
+            )
+        effect = ("It takes effect after a restart; the restart banner offers one."
+                  if record.get("restart_needed") else "It is live now.")
+        return ToolResult(
+            success=True,
+            output=(f"Changed {rel} (change {record['id']}). Checks: {checks}. {effect} "
+                    "It can be reverted from the chat or the Self-improvement page."),
+            metadata={"self_edit": record, "filepath": filepath, "relative_path": rel},
+        )
 
 
 class ListCodeFilesTool(BaseTool):

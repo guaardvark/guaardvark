@@ -172,6 +172,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
               duration_ms: tc.durationMs,
               output_preview: tc.result?.success ? tc.result.output : tc.result?.error,
               artifact: tc.result?.artifact || null,
+              self_edit: tc.result?.self_edit || null,
             })),
           }]
         : [];

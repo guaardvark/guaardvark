@@ -1620,6 +1620,18 @@ try:
                 from backend.services.plan_executor import sweep_interrupted
                 sweep_interrupted(app)
 
+            # ---- Changes Guaardvark made to its own code ----------------------------
+            # The server got this far with them in place, so they are live; a
+            # start that fails before here has start.sh put them back.
+            if os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true":
+                try:
+                    from backend.services.self_edit import confirm_boot
+                    _live = confirm_boot()
+                    if _live:
+                        app.logger.info("[SELF-EDIT] %d change(s) to Guaardvark's own code are live", _live)
+                except Exception as e:
+                    app.logger.warning("[SELF-EDIT] could not confirm pending changes: %s", e)
+
             # ---- Documents left INDEXING with nothing indexing them ---------------
             # Server only: Celery workers build this app too, and the worker
             # that starts is the one about to take the queued INDEXING rows.

@@ -327,5 +327,18 @@
       "memory": "Memory",
       "other": "Other"
     }
+  },
+  "selfEdit": {
+    "appliedRestart": "Guaardvark changed its own code ({{files}}). It takes effect after a restart.",
+    "appliedLive": "Guaardvark changed its own code ({{files}}). It is live now.",
+    "live": "Change to {{files}} is live.",
+    "undone": "The change to {{files}} failed its checks and was undone: {{error}}",
+    "autoReverted": "The change to {{files}} stopped Guaardvark from starting, so it was undone.",
+    "reverted": "The change to {{files}} was reverted.",
+    "revertedRestart": "Reverted. Restart Guaardvark for the old code to run again.",
+    "checkOk": "ok",
+    "conflicts": "{{files}} changed again after this change. Reverting now also loses those later changes.",
+    "revert": "Revert",
+    "revertAnyway": "Revert anyway"
   }
 }
