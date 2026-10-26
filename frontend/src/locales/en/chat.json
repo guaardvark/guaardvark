@@ -340,5 +340,12 @@
     "conflicts": "{{files}} changed again after this change. Reverting now also loses those later changes.",
     "revert": "Revert",
     "revertAnyway": "Revert anyway"
+  },
+  "selfAnalysis": {
+    "checked": "Checked against the code:",
+    "notFound": "{{ref}} not found",
+    "plan": "Plan a change",
+    "planTooltip": "Turn plan mode on and describe the change; nothing changes until you approve the plan",
+    "planPrompt": "Plan a change: "
   }
 }

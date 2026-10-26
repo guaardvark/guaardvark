@@ -213,6 +213,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
         plan: data.plan || null,
         findings: data.findings || "",
         planResult: data.plan_result || null,
+        selfAnalysis: data.self_analysis || null,
         planStep: data.plan_step ?? null,
       };
     };
