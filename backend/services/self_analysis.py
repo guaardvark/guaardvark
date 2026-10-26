@@ -36,6 +36,7 @@ NOTES_KEPT_PER_FILE = 6
 NOTE_CHARS = 500
 
 _SELF = re.compile(r"\b(you|your|yours|yourself|guaardvark'?s?)\b", re.I)
+_SELF_OWN = re.compile(r"\b(your|yours|yourself|guaardvark'?s?)\b", re.I)
 _CODE = re.compile(
     r"\b(code|codebase|source|file|files|function|functions|module|modules|class|method|implemented|"
     r"implementation|route|endpoint|service|tool|tools|backend|frontend|bug|bugs|mapper|system map|"
@@ -64,7 +65,11 @@ def about_self(message: str, options: Optional[Dict[str, Any]] = None) -> bool:
                 return bool(_CODE.search(text))
         except OSError:
             pass
-    if _SELF.search(text) and (_CODE.search(text) or _ASKS.search(text)):
+    if _SELF.search(text) and _CODE.search(text):
+        return True
+    # "Where do you ..." alone is often a general question ("how do you say
+    # hello in French"); "your", "yourself" or the product's name is not.
+    if _SELF_OWN.search(text) and _ASKS.search(text):
         return True
     # "Where does plan mode ...": a question that names one of Guaardvark's
     # own parts.
