@@ -683,6 +683,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                       output: tc.output_preview,
                       error: tc.success ? null : tc.output_preview,
                       artifact: tc.artifact || null,
+                      self_edit: tc.self_edit || null,
                     } : null}
                     durationMs={tc.duration_ms}
                     isPending={false}
