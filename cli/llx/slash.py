@@ -140,6 +140,7 @@ class SlashRouter:
         self._commands["voice"] = self._cmd_voice
         self._commands["ingest"] = self._cmd_ingest
         self._commands["agent"] = self._cmd_agent
+        self._commands["plan"] = self._cmd_plan
         self._commands["web"] = self._cmd_web
         self._commands["remember"] = self._cmd_remember
         self._commands["memory"] = self._cmd_memory
@@ -341,6 +342,8 @@ class SlashRouter:
 
         new_id = str(uuid.uuid4())
         self._state["session_id"] = new_id
+        from llx import plan_mode
+        plan_mode.refresh(self._state)  # a new chat follows "Start new chats in plan mode"
         self._state["message_count"] = 0
         self._state["context"] = None
         self._state["working_memory"] = empty_working_memory()
@@ -405,6 +408,8 @@ class SlashRouter:
             from llx.working_memory import normalize_working_memory
 
             self._state["session_id"] = session["id"]
+            from llx import plan_mode
+            plan_mode.refresh(self._state)
             self._state["message_count"] = session.get("message_count", 0)
             self._state["context"] = None
             self._state["working_memory"] = normalize_working_memory(session.get("working_memory"))
@@ -744,6 +749,22 @@ class SlashRouter:
             self._console.print("[llx.dim]Check with: /rag status[/llx.dim]")
         except Exception as e:
             self._console.print(f"[llx.error]Indexing failed: {e}[/llx.error]")
+
+    def _cmd_plan(self, args: list[str]):
+        """Plan mode: /plan toggles, /plan on|off sets, /plan <request> turns
+        it on and sends the request."""
+        from llx import plan_mode
+
+        sub = args[0].lower() if args else ""
+        if sub in ("on", "off") and len(args) == 1:
+            plan_mode.toggle(self._state, self._console, want=(sub == "on"))
+            return
+        if args:
+            plan_mode.toggle(self._state, self._console, want=True)
+            if self._state.get("plan_mode"):
+                self._state["queued_message"] = " ".join(args)
+            return
+        plan_mode.toggle(self._state, self._console)
 
     def _cmd_agent(self, args: list[str]):
         """Toggle agent mode, or capture a screenshot of the agent desktop."""

@@ -81,6 +81,9 @@ class LlxClient:
     def put(self, path: str, json: dict | None = None) -> dict:
         return self._request("PUT", path, json=json)
 
+    def patch(self, path: str, json: dict | None = None) -> dict:
+        return self._request("PATCH", path, json=json)
+
     def delete(self, path: str) -> dict:
         return self._request("DELETE", path)
 

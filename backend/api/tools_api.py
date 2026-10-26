@@ -538,6 +538,11 @@ def route_and_execute():
                 "error": "message is required"
             }), 400
 
+        from backend.services.plan_mode import plan_mode_refusal
+        planning = plan_mode_refusal((context or {}).get("session_id"), None)
+        if planning:
+            return jsonify({"success": False, "error": planning, "plan_mode": True}), 409
+
         # Bridge to legacy for compat. Prefer full AgentBrain/unified_chat paths (they carry budget/memory/lessons/STA).
         # See approved plan: route to brain.process for awareness instead of direct execute_routed.
         import warnings

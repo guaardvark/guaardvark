@@ -381,7 +381,7 @@ def legacy_route(message: str, options: Optional[Mapping[str, Any]], facts: Mapp
     if ab.SOCIAL_TIER2_PATTERNS.fullmatch(stripped):
         return _engine(msg, opts, facts, Route.SOCIAL, image=False)
 
-    if any(p.search(msg) for p in ab.DELIBERATION_SIGNALS):
+    if not opts.get("plan_step") and any(p.search(msg) for p in ab.DELIBERATION_SIGNALS):
         return _deliberate(msg, opts, facts, via="deliberation")
 
     return _engine(msg, opts, facts, Route.CHAT, image=has_image)

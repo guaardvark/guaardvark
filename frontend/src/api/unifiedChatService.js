@@ -175,6 +175,10 @@ class UnifiedChatService {
   onToolApprovalRequest(callback) {
     this._on("chat:tool_approval_request", callback);
   }
+  /** Plan mode: one step of an approved plan finished (the step's own chat:complete). */
+  onPlanStepDone(callback) {
+    this._on("chat:plan_step_done", callback);
+  }
 
   /**
    * Send tool approval response.

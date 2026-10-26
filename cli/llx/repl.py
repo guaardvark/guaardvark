@@ -101,6 +101,8 @@ def _build_prompt(ctx: ContextSnapshot, state: dict) -> HTML:
 
     if state.get("agent_mode"):
         parts.append(f" <style fg='{c['agent']}'>[agent]</style>")
+    if state.get("plan_mode"):
+        parts.append(f" <style fg='{c['info']}'>[plan]</style>")
 
     mem = normalize_working_memory(state.get("working_memory"))
     git = mem.get("git") or {}
@@ -271,8 +273,17 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str, raw_message: s
         # The status line is up before the socket connects, so a slow connect
         # reads "Connecting…" rather than an empty line.
         renderer.start()
+        callbacks = renderer.stream_callbacks()
+        completion: dict = {}
+        _on_complete = callbacks["on_complete"]
+
+        def _keep_complete(data):
+            completion["data"] = data
+            _on_complete(data)
+
+        callbacks["on_complete"] = _keep_complete
         try:
-            streamer.stream_chat(session_id, **renderer.stream_callbacks())
+            streamer.stream_chat(session_id, **callbacks)
 
             posted = False
             for attempt in range(2):
@@ -342,6 +353,9 @@ def _handle_chat(state: dict, ctx: ContextSnapshot, message: str, raw_message: s
                 "Try again, or /abort / /new if it stays stuck.[/llx.error]"
             )
         assistant_text = renderer.text
+        if completed:
+            from llx import plan_mode
+            plan_mode.after_turn(state, console, completion.get("data"))
 
     record_recommendation_summary(memory, raw_message, assistant_text)
     # Track session
@@ -495,6 +509,14 @@ def launch_repl():
             lambda: console.print("\n[llx.dim]Press Ctrl+C again to exit.[/llx.dim]")
         )
 
+    @kb.add("s-tab")
+    def _toggle_plan_mode(event):
+        # Like Claude Code: Shift+Tab switches plan mode. The prompt is
+        # redrawn after the switch so its [plan] marker follows.
+        from llx import plan_mode
+        run_in_terminal(lambda: plan_mode.toggle(state, console))
+        event.app.exit(result="")
+
     # Create prompt session
     history_file = ensure_history_file()
     session = PromptSession(
@@ -519,6 +541,8 @@ def launch_repl():
             pending = state.get("pending_resume")
             if pending:
                 state["session_id"] = pending["id"]
+                from llx import plan_mode
+                plan_mode.refresh(state)
                 state["message_count"] = pending.get("message_count", 0)
                 mem = normalize_working_memory(pending.get("working_memory"))
                 # Preserve or refresh local cwd/git if not present in old session
@@ -539,15 +563,22 @@ def launch_repl():
         # Any typed input clears pending resume
         state.pop("pending_resume", None)
 
-        if line.startswith("/"):
+        from llx.plan_mode import command_runs_in_plan_mode
+
+        # In plan mode a command that would act here goes to the server as the
+        # objective of a plan instead; only looking and switching run locally.
+        if line.startswith("/") and not (state.get("plan_mode") and not command_runs_in_plan_mode(line)):
             keep_going = router.dispatch(line)
             if not keep_going:
                 break
-            continue
+            # "/plan <request>": plan mode on, then the request is sent.
+            line = state.pop("queued_message", "") or ""
+            if not line:
+                continue
 
         from llx.intent_router import resolve_repl_line
 
-        cli_route = resolve_repl_line(line, cwd=state.get("cwd"))
+        cli_route = None if state.get("plan_mode") else resolve_repl_line(line, cwd=state.get("cwd"))
         if cli_route:
             cmd, cmd_args = cli_route
             slash_line = f"/{cmd}"

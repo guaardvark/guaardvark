@@ -177,7 +177,18 @@ const BUILT_IN_COMMANDS = [
     get description() {
       return translate("options.slashCommands.plan");
     },
-    usage: "/plan <request>",
+    usage: "/plan [on|off|<request>]",
+    category: "agent",
+    args: "optional",
+    handler: "builtin",
+    ruleId: null,
+  },
+  {
+    name: "/orchestrate",
+    get description() {
+      return translate("options.slashCommands.orchestrate");
+    },
+    usage: "/orchestrate <request>",
     category: "utility",
     args: "required",
     handler: "builtin",

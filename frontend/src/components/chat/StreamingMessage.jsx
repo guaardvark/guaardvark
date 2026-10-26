@@ -56,7 +56,7 @@ const formatTime = (timestamp) => {
 const joinReasoning = (segments) =>
   segments.map((seg) => seg.text).filter(Boolean).join("\n\n");
 
-const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref) => {
+const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSegment }, ref) => {
   const { t } = useUiTranslation();
   const [status, setStatus] = useState("idle"); // idle | thinking | streaming | complete | error
   const [startTime] = useState(() => new Date());
@@ -92,6 +92,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
   // Use refs for values that change but shouldn't trigger listener re-registration
   const sessionIdRef = useRef(sessionId);
   const onCompleteRef = useRef(onComplete);
+  const onSegmentRef = useRef(onSegment);
   const contentRef = useRef(content);
   const toolCallsRef = useRef(toolCalls);
   const thinkingTextRef = useRef("");
@@ -102,6 +103,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
 
   useEffect(() => { sessionIdRef.current = sessionId; }, [sessionId]);
   useEffect(() => { onCompleteRef.current = onComplete; }, [onComplete]);
+  useEffect(() => { onSegmentRef.current = onSegment; }, [onSegment]);
   useEffect(() => { contentRef.current = content; }, [content]);
   useEffect(() => { toolCallsRef.current = toolCalls; }, [toolCalls]);
   useEffect(() => { agentStepsRef.current = agentThinkingSteps; }, [agentThinkingSteps]);
@@ -140,6 +142,80 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
     }
     mountedRef.current = true;
     debugLog('[StreamingMessage] MOUNTED + listeners attaching for this chatService instance; mountedRef=true');
+
+    // The message a finished turn, or a finished plan step, becomes.
+    const buildResult = (data, isTruncated, isSynthesized, finalThinking) => {
+      // Merge images from socket events with any from the complete payload
+      const socketImages = imagesRef.current || [];
+      const backendImages = (data.generated_images || []).map((img) => ({
+        url: img.url,
+        alt: img.alt || t("chat.generatedMedia.image"),
+        caption: img.caption || "",
+      }));
+      // Deduplicate by URL
+      const seenUrls = new Set(socketImages.map((i) => i.url));
+      const mergedImages = [
+        ...socketImages,
+        ...backendImages.filter((i) => !seenUrls.has(i.url)),
+      ];
+      // Use backend steps if available; fall back to streaming tool calls
+      // (converted to steps format) so cards survive the StreamingMessage → MessageItem handoff.
+      const backendSteps = data.steps && data.steps.length > 0 ? data.steps : null;
+      const streamingSteps = toolCallsRef.current.length > 0
+        ? [{
+            iteration: 1,
+            thoughts: thinkingTextRef.current || "",
+            tool_calls: toolCallsRef.current.map((tc) => ({
+              tool_name: tc.tool,
+              params: tc.params,
+              success: tc.result?.success,
+              duration_ms: tc.durationMs,
+              output_preview: tc.result?.success ? tc.result.output : tc.result?.error,
+              artifact: tc.result?.artifact || null,
+              self_edit: tc.result?.self_edit || null,
+            })),
+          }]
+        : [];
+      if (isSynthesized && !backendSteps) {
+        streamingSteps.push({
+          iteration: (data.iterations || streamingSteps.length) + 1,
+          thoughts: "",
+          tool_calls: [],
+          synthesized: true,
+        });
+      }
+      return {
+        content: data.response || "",
+        toolCalls: backendSteps || streamingSteps,
+        iterations: data.iterations || 0,
+        aborted: data.aborted || false,
+        sessionId: data.session_id,
+        // The turn's id. chat:message_saved names the database row by it
+        // once the reply is written, which is what a thumb refers to.
+        requestId: data.request_id || null,
+        tokenUsage: data.token_usage || null,
+        generatedImages: mergedImages,
+        // Cleared on completion — persisting the last "Calling LLM..."
+        // status into history caused MessageItem's live spinner to never
+        // stop, because its only guard is thinkingText && toolCalls.length.
+        thinkingText: "",
+        // The agent-loop reasoning trail. Persists so the user can scroll
+        // back and see what the agent was thinking on each step instead
+        // of only the post-loop summary.
+        agentThinkingSteps: agentStepsRef.current,
+        thinking: finalThinking,
+        truncated: isTruncated,
+        synthesized: isSynthesized,
+        verified: typeof data.verified === "boolean" ? data.verified : null,
+        webSearchOffer: data.web_search_offer || null,
+        // Plan mode: the plan this reply proposes or reports on, and which
+        // step of a running plan it is.
+        plan: data.plan || null,
+        findings: data.findings || "",
+        planResult: data.plan_result || null,
+        planStep: data.plan_step ?? null,
+      };
+    };
 
     chatService.onThinking((data) => {
       console.debug(`[SOCKET-CHAT] RECV chat:thinking (StreamingMessage cb) session=${data.session_id} iter=${data.iteration} status=${data.status} source=${data.source} (check vs join time)`);
@@ -292,71 +368,38 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete }, ref
         setTokenUsage(data.token_usage);
       }
       if (onCompleteRef.current) {
-        // Merge images from socket events with any from the complete payload
-        const socketImages = imagesRef.current || [];
-        const backendImages = (data.generated_images || []).map((img) => ({
-          url: img.url,
-          alt: img.alt || t("chat.generatedMedia.image"),
-          caption: img.caption || "",
-        }));
-        // Deduplicate by URL
-        const seenUrls = new Set(socketImages.map((i) => i.url));
-        const mergedImages = [
-          ...socketImages,
-          ...backendImages.filter((i) => !seenUrls.has(i.url)),
-        ];
-        // Use backend steps if available; fall back to streaming tool calls
-        // (converted to steps format) so cards survive the StreamingMessage → MessageItem handoff.
-        const backendSteps = data.steps && data.steps.length > 0 ? data.steps : null;
-        const streamingSteps = toolCallsRef.current.length > 0
-          ? [{
-              iteration: 1,
-              thoughts: thinkingTextRef.current || "",
-              tool_calls: toolCallsRef.current.map((tc) => ({
-                tool_name: tc.tool,
-                params: tc.params,
-                success: tc.result?.success,
-                duration_ms: tc.durationMs,
-                output_preview: tc.result?.success ? tc.result.output : tc.result?.error,
-                artifact: tc.result?.artifact || null,
-              })),
-            }]
-          : [];
-        if (isSynthesized && !backendSteps) {
-          streamingSteps.push({
-            iteration: (data.iterations || streamingSteps.length) + 1,
-            thoughts: "",
-            tool_calls: [],
-            synthesized: true,
-          });
-        }
         debugLog('[StreamingMessage] CALLING onComplete prop with agentThinkingSteps.length=', agentStepsRef.current.length);
-        onCompleteRef.current({
-          content: data.response || "",
-          toolCalls: backendSteps || streamingSteps,
-          iterations: data.iterations || 0,
-          aborted: data.aborted || false,
-          sessionId: data.session_id,
-          // The turn's id. chat:message_saved names the database row by it
-          // once the reply is written, which is what a thumb refers to.
-          requestId: data.request_id || null,
-          tokenUsage: data.token_usage || null,
-          generatedImages: mergedImages,
-          // Cleared on completion — persisting the last "Calling LLM..."
-          // status into history caused MessageItem's live spinner to never
-          // stop, because its only guard is thinkingText && toolCalls.length.
-          thinkingText: "",
-          // The agent-loop reasoning trail. Persists so the user can scroll
-          // back and see what the agent was thinking on each step instead
-          // of only the post-loop summary.
-          agentThinkingSteps: agentStepsRef.current,
-          thinking: finalThinking,
-          truncated: isTruncated,
-          synthesized: isSynthesized,
-          verified: typeof data.verified === "boolean" ? data.verified : null,
-          webSearchOffer: data.web_search_offer || null,
-        });
+        onCompleteRef.current(buildResult(data, isTruncated, isSynthesized, finalThinking));
       }
+    });
+
+    // One step of an approved plan finished: hand it over as its own message
+    // and start the next step's stream empty. The run's own chat:complete
+    // arrives after the last step.
+    chatService.onPlanStepDone((data) => {
+      if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
+      const isSynthesized = Array.isArray(data.steps) && data.steps.some((s) => s && s.synthesized === true);
+      const finalThinking = typeof data.thinking === "string" && data.thinking
+        ? data.thinking
+        : joinReasoning(reasoningSegmentsRef.current);
+      if (onSegmentRef.current) {
+        onSegmentRef.current(buildResult(data, data.truncated === true, isSynthesized, finalThinking));
+      }
+      setContent("");
+      setToolCalls([]);
+      setImages([]);
+      imagesRef.current = [];
+      setAgentThinkingSteps([]);
+      agentStepsRef.current = [];
+      reasoningSegmentsRef.current = [];
+      reasoningStartRef.current = null;
+      reasoningElapsedRef.current = null;
+      setReasoningText("");
+      setReasoningElapsedMs(null);
+      setPendingApproval(false);
+      setThinkingText("");
+      thinkingTextRef.current = "";
+      setStatus("thinking");
     });
 
     chatService.onError((data) => {
@@ -752,6 +795,8 @@ StreamingMessage.propTypes = {
   chatService: PropTypes.object.isRequired,
   sessionId: PropTypes.string.isRequired,
   onComplete: PropTypes.func,
+  // A finished step of an approved plan, shaped like onComplete's result.
+  onSegment: PropTypes.func,
 };
 
 export default StreamingMessage;

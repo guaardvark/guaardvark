@@ -12,7 +12,7 @@ import { useAppStore } from "../stores/useAppStore";
 import { BASE_URL, handleResponse } from "../api/apiClient";
 import ChatSessionDrawer from "../components/chat/ChatSessionDrawer";
 // AgentScreenViewer is now global in Sidebar — available on all pages
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { getChatHistory, sendChatMessage } from "../api";
 import { generateFileFromChat } from "../api/filegenService";
@@ -57,6 +57,7 @@ import { attachedPictures, chatErrorMessage } from "../utils/chatAttachment";
 
 import { createPlan } from "../api/orchestratorService";
 import { mergeActivePlanIntoMessages, hydrateOrchestratorFields } from "../utils/orchestratorChat";
+import { PlanActionsContext } from "../components/chat/planActions";
 import { debugLog } from "../utils/debugLog";
 import { directToolOptions } from "../utils/slashCommandRegistry";
 import { useUiTranslation } from "../i18n";
@@ -77,6 +78,14 @@ const USE_UNIFIED_CHAT = () => {
   } catch {
     return true;
   }
+};
+
+/** The plan-mode fields of a finished reply: a proposed plan shows as a card;
+ * a run's closing report keeps its text and updates the card it ran. */
+const planFields = (result) => {
+  if (!result?.plan) return {};
+  if (result.planResult) return { messageType: "plan_result" };
+  return { messageType: "plan", plan: result.plan, findings: result.findings || "" };
 };
 
 const ChatPage = () => {
@@ -802,6 +811,12 @@ const ChatPage = () => {
                   synthesized: msg.synthesized
                     ?? msg.extra_data?.synthesized
                     ?? (Array.isArray(hydratedSteps) && hydratedSteps.some((s) => s?.synthesized === true)),
+                  // Plan mode: the plan a reply proposed, its research findings,
+                  // and which step of a running plan a row belongs to.
+                  plan: msg.plan ?? msg.extra_data?.plan,
+                  findings: msg.findings ?? msg.extra_data?.findings,
+                  planStep: msg.planStep ?? msg.extra_data?.planStep,
+                  planStepTitle: msg.planStepTitle ?? msg.extra_data?.planStepTitle,
                   // Note: these hydrated agentThinkingSteps come from persisted DB extra_data (backend drain on agent complete).
                   // They render via MessageItem + AgentThinkingTrail but are *not* live-streamed steps.
                 });
@@ -906,6 +921,91 @@ const ChatPage = () => {
       }]);
     });
   }, [resourceManager, processId, sessionId, isStreamingMessage, unifiedChatService]);
+
+  // Plan mode. A plan card starts a run (approve, retry, skip); the run then
+  // streams like a turn, one step at a time, until its own chat:complete.
+  const startPlanRun = useCallback(() => {
+    let serviceToUse = unifiedChatService;
+    if (!serviceToUse && socketRef?.current) {
+      serviceToUse = new UnifiedChatService(socketRef.current);
+      serviceToUse.joinSession(sessionId);
+      setUnifiedChatService(serviceToUse);
+    }
+    streamingServiceRef.current = serviceToUse || null;
+    setIsSending(true);
+    setIsStreamingMessage(true);
+  }, [unifiedChatService, socketRef, sessionId]);
+
+  const updatePlanInMessages = useCallback((plan) => {
+    if (!plan?.id) return;
+    setMessages((prev) => prev.map((m) => (m.plan?.id === plan.id ? { ...m, plan } : m)));
+  }, []);
+
+  const planActions = useMemo(() => ({
+    onRunStarted: startPlanRun,
+    onStop: handleStop,
+    onKeepPlanning: (text, opts) => {
+      if (opts?.planMode) useAppStore.getState().setSessionPlanMode(sessionId, true);
+      chatInputRef.current?.setText(text || "");
+    },
+    onPlanChanged: (plan, opts) => {
+      if (opts?.added) {
+        setMessages((prev) => [...prev, {
+          id: `asst_plan_${plan.id}`,
+          role: "assistant",
+          content: plan.markdown || "",
+          messageType: "plan",
+          plan,
+          findings: "",
+          timestamp: new Date().toISOString(),
+        }]);
+      } else {
+        updatePlanInMessages(plan);
+      }
+    },
+  }), [startPlanRun, handleStop, sessionId, updatePlanInMessages]);
+
+  // A running plan's progress and the chat's plan-mode switch, from the
+  // server: the card's step statuses, a heading per step, and plan mode
+  // turning off on approval (or on again for a replan).
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket || !sessionId) return;
+    const onPlanUpdate = (data) => {
+      if (data?.session_id !== sessionId) return;
+      updatePlanInMessages(data.plan);
+    };
+    const onPlanStep = (data) => {
+      if (data?.session_id !== sessionId) return;
+      setMessages((prev) => [...prev, {
+        id: `plan_step_${data.plan_id}_${data.index}_${Date.now()}`,
+        role: "user",
+        messageType: "plan_step",
+        planStep: data.index,
+        planStepTitle: data.title,
+        content: data.title || "",
+        timestamp: new Date().toISOString(),
+      }]);
+    };
+    const onPlanMode = (data) => {
+      if (data?.session_id !== sessionId) return;
+      useAppStore.getState().setSessionPlanMode(sessionId, Boolean(data.plan_mode));
+    };
+    const onRunComplete = (data) => {
+      if (data?.session_id !== sessionId || !data.plan) return;
+      updatePlanInMessages(data.plan);
+    };
+    socket.on("chat:plan_update", onPlanUpdate);
+    socket.on("chat:plan_step", onPlanStep);
+    socket.on("chat:plan_mode", onPlanMode);
+    socket.on("chat:complete", onRunComplete);
+    return () => {
+      socket.off("chat:plan_update", onPlanUpdate);
+      socket.off("chat:plan_step", onPlanStep);
+      socket.off("chat:plan_mode", onPlanMode);
+      socket.off("chat:complete", onRunComplete);
+    };
+  }, [socketRef?.current, sessionId, updatePlanInMessages]);
 
   // Writes the file a chat request asked for: from the card's Create, or at
   // once when the person chose to always allow that tool.
@@ -1439,8 +1539,8 @@ const ChatPage = () => {
         return;
       }
 
-      if (inputText.trim().startsWith('/plan ')) {
-        const planRequest = inputText.trim().substring(6);
+      if (inputText.trim().startsWith('/orchestrate ')) {
+        const planRequest = inputText.trim().substring('/orchestrate '.length);
 
         setIsSending(true);
         updateMessageStatus(userMessageTempId, { status: "sent" });
@@ -1499,7 +1599,10 @@ const ChatPage = () => {
       // bypass file generation detection entirely. These are handled specially later
       // via direct_tool options in the unified send. Otherwise, /imagine inputText
       // can lead to null fileDetection and crash on .isCSVRequest.
-      if (voiceOptions?.direct_tool) {
+      // In plan mode the backend researches and plans the request, so the
+      // page's own routing (the agent loop, the file card) stays out of it.
+      const planModeOn = useAppStore.getState().getSessionPlanMode(sessionId);
+      if (voiceOptions?.direct_tool || planModeOn) {
         fileDetection = { isCSVRequest: false, isCodeRequest: false };
       } else if (useAgentRouting) {
         try {
@@ -2447,12 +2550,14 @@ const ChatPage = () => {
 
       {}
 
-      <MessageList
-        messages={messages}
-        sessionId={sessionId}
-        onOrchestratorUpdate={handleOrchestratorUpdate}
-        onSearchWeb={handleSearchWeb}
-      />
+      <PlanActionsContext.Provider value={planActions}>
+        <MessageList
+          messages={messages}
+          sessionId={sessionId}
+          onOrchestratorUpdate={handleOrchestratorUpdate}
+          onSearchWeb={handleSearchWeb}
+        />
+      </PlanActionsContext.Provider>
 
       {}
       {(() => {
@@ -2471,6 +2576,23 @@ const ChatPage = () => {
             ref={streamingMessageRef}
             chatService={unifiedChatService || streamingServiceRef.current}
             sessionId={sessionId}
+            onSegment={(result) => {
+              // A finished step of a running plan: kept as its own reply while
+              // the run goes on (isSending stays set until the run ends).
+              setMessages((prev) => [...prev, {
+                id: `asst_plan_step_${Date.now()}`,
+                role: "assistant",
+                request_id: result.requestId || null,
+                content: result.content || "",
+                toolCalls: result.toolCalls || [],
+                isUnifiedChat: true,
+                timestamp: new Date().toISOString(),
+                generatedImages: result.generatedImages || [],
+                agentThinkingSteps: result.agentThinkingSteps || [],
+                thinking: result.thinking || "",
+                planStep: result.planStep,
+              }]);
+            }}
             onComplete={(result) => {
               debugLog('[ChatPage] Streaming onComplete handler (from child): agentSteps in result=', (result.agentThinkingSteps||[]).length, 'will append to messages and clear isStreaming');
               setIsStreamingMessage(false);
@@ -2499,6 +2621,7 @@ const ChatPage = () => {
                   web_search_offer: result.webSearchOffer || null,
                   iterations: result.iterations || 0,
                   budget: result.budget || budgetTelemetry,  // Phase 2.1 surface budget telemetry
+                  ...planFields(result),
                 };
                 if (result.budget) setBudgetTelemetry(result.budget);
                 setMessages((prev) => [...prev, completedMessage]);

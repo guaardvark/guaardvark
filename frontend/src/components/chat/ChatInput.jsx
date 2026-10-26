@@ -1,6 +1,7 @@
 // frontend/src/components/chat/ChatInput.jsx
 // Version 2.0: Unified API service integration
 import AttachFileIcon from "@mui/icons-material/AttachFile";
+import ChecklistIcon from "@mui/icons-material/Checklist";
 import CloseIcon from "@mui/icons-material/Close";
 import SendIcon from "@mui/icons-material/Send";
 import StopIcon from "@mui/icons-material/Stop";
@@ -47,6 +48,7 @@ import {
   uploadChatDocument,
 } from "../../utils/chatDocumentUpload";
 import { useUiTranslation } from "../../i18n";
+import { setPlanMode } from "../../api/planModeService";
 
 const ChatInput = forwardRef(
   ({ onSendMessage, onStop, disabled = false, chimeIn = false, onChimeIn, sessionId = "default", codeGenMode = false, onVoiceStateChange = () => { }, onAddMessage, onUpdateMessage, onClearMessages, onPlanCreated, projectId, composerError, onClearComposerError }, ref) => {
@@ -147,6 +149,22 @@ const ChatInput = forwardRef(
     const setSessionMode = useAppStore((s) => s.setSessionMode);
     const agentModeActive = sessionMode === "agent";
 
+    // Plan mode: research with read-only tools, act only on an approved plan.
+    // Independent of agent mode (a screen task can be planned too).
+    const planModeActive = useAppStore((s) => Boolean(s.sessionPlanModes[sessionId]));
+    const setSessionPlanMode = useAppStore((s) => s.setSessionPlanMode);
+    const [planModeNote, setPlanModeNote] = useState("");
+    const togglePlanMode = useCallback(async () => {
+      if (!sessionId) return;
+      setPlanModeNote("");
+      try {
+        const data = await setPlanMode(sessionId, !planModeActive);
+        setSessionPlanMode(sessionId, Boolean(data?.plan_mode));
+      } catch (err) {
+        setPlanModeNote(err.message || String(err));
+      }
+    }, [sessionId, planModeActive, setSessionPlanMode]);
+
     useEffect(() => {
       if (!sessionId) return;
       let cancelled = false;
@@ -160,12 +178,15 @@ const ChatInput = forwardRef(
           if (!cancelled && data?.success && data.mode) {
             setSessionMode(sessionId, data.mode);
           }
+          if (!cancelled && data?.success && typeof data.plan_mode === "boolean") {
+            setSessionPlanMode(sessionId, data.plan_mode);
+          }
         } catch {
           // Network failure → leave the cached value (or "chat" default).
         }
       })();
       return () => { cancelled = true; };
-    }, [sessionId, setSessionMode]);
+    }, [sessionId, setSessionMode, setSessionPlanMode]);
 
     // Slash command hook — popup state, filtering, keyboard nav, command execution
     const slashCmds = useSlashCommands({
@@ -295,6 +316,11 @@ const ChatInput = forwardRef(
         inputRef.current?.focus();
       },
       addFiles,
+      // Put text in the box for the person to finish, e.g. feedback on a plan.
+      setText: (text) => {
+        setInputText(text || "");
+        inputRef.current?.focus();
+      },
     }));
 
     const handleFileSelect = (event) => {
@@ -866,6 +892,37 @@ Please try a different image or check if the vision model is properly loaded.`;
             )}
           </Tooltip>
 
+          {/* Plan mode toggle; /plan does the same. On, it reads as a labelled
+              chip in the row so the mode is never missed. */}
+          <Tooltip title={planModeNote || (planModeActive ? t("chat.input.planModeOff") : t("chat.input.planModeOn"))}>
+            <span style={{ alignSelf: "center" }}>
+              {planModeActive ? (
+                <Chip
+                  icon={<ChecklistIcon />}
+                  label={t("chat.input.planModeBadge")}
+                  color="primary"
+                  size="small"
+                  onClick={togglePlanMode}
+                  aria-pressed
+                  aria-label={t("chat.input.planModeToggle")}
+                  data-testid="plan-mode-toggle"
+                  sx={{ fontWeight: 600, letterSpacing: 0.5 }}
+                />
+              ) : (
+                <IconButton
+                  onClick={togglePlanMode}
+                  disabled={!sessionId}
+                  aria-pressed={false}
+                  aria-label={t("chat.input.planModeToggle")}
+                  data-testid="plan-mode-toggle"
+                  sx={{ color: "text.secondary" }}
+                >
+                  <ChecklistIcon />
+                </IconButton>
+              )}
+            </span>
+          </Tooltip>
+
           {/* The global mic: hold to talk, click per the activation mode. */}
           <Box sx={{ display: "flex", alignItems: "center", alignSelf: "center" }}>
             <GlobalMicButton variant="inline" label={t("common.voice")} showMenu={false} />
@@ -904,6 +961,8 @@ Please try a different image or check if the vision model is properly loaded.`;
             placeholder={
               noteMode
                 ? t("chat.input.placeholderNote")
+                : planModeActive
+                ? t("chat.input.placeholderPlan")
                 : agentModeActive
                 ? t("chat.input.placeholderAgent")
                 : imageState.images.length > 0
@@ -931,6 +990,13 @@ Please try a different image or check if the vision model is properly loaded.`;
             disabled={(disabled && !noteMode) || imageState.analyzing}
             sx={{ 
               minHeight: "40px",
+              ...(planModeActive && !agentModeActive && {
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: 'primary.main', borderWidth: 2 },
+                  '&:hover fieldset': { borderColor: 'primary.main' },
+                  '&.Mui-focused fieldset': { borderColor: 'primary.main' },
+                }
+              }),
               ...(agentModeActive && {
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': {

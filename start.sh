@@ -2796,6 +2796,14 @@ if [ "$_POST_BOOTSTRAP_RC" -ne 0 ]; then
     vader_info "  ./scripts/dep_reconciler.py --force"
     vader_info "  ./scripts/system-manager/system-manager repair ."
     vader_info "Then re-run ./start.sh"
+    # A change Guaardvark made to its own backend code, still waiting for its
+    # first start, is put back and the start tried once more.
+    if [ -z "${GUAARDVARK_SELF_EDIT_RETRY:-}" ] && python3 "$SCRIPT_DIR/scripts/self_edit_guard.py" restore-pending --reason "the backend's code failed to import"; then
+        vader_info "Starting again with that change undone..."
+        deactivate
+        cd "$SCRIPT_DIR"
+        GUAARDVARK_SELF_EDIT_RETRY=1 exec "$SCRIPT_DIR/start.sh" "$@"
+    fi
     deactivate
     cd "$SCRIPT_DIR"
     exit 1
@@ -3016,6 +3024,14 @@ if [ "$BACKEND_ADOPTED" -eq 0 ]; then
         # adopted/older backend.
         if [ -n "$BACKEND_PID" ] && kill -0 "$BACKEND_PID" 2>/dev/null; then
             kill -9 "$BACKEND_PID" > /dev/null 2>&1
+        fi
+        # A change Guaardvark made to its own backend code, still waiting for its
+        # first start, is put back and the start tried once more.
+        if [ -z "${GUAARDVARK_SELF_EDIT_RETRY:-}" ] && python3 "$SCRIPT_DIR/scripts/self_edit_guard.py" restore-pending --reason "the backend did not start listening within 90 seconds"; then
+            vader_info "Starting again with that change undone..."
+            deactivate
+            cd "$SCRIPT_DIR"
+            GUAARDVARK_SELF_EDIT_RETRY=1 exec "$SCRIPT_DIR/start.sh" "$@"
         fi
         deactivate
         cd "$SCRIPT_DIR"

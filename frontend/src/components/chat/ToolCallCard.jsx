@@ -30,6 +30,7 @@ import { BASE_URL } from "../../api/apiClient";
 import { ActionButton } from "../settings/ui";
 import { guardedMediaSrc } from "../../utils/assetGuard";
 import ArtifactCard, { CSVTable, artifactShape } from "./ArtifactCard";
+import SelfEditNotice from "./SelfEditNotice";
 import { consentImageSrc } from "./consentApproval";
 import { translate, useUiTranslation } from "../../i18n";
 
@@ -392,6 +393,8 @@ const ToolCallCard = ({
           )}
 
           {artifact && <ArtifactCard artifact={artifact} />}
+
+          {result?.self_edit && <SelfEditNotice edit={result.self_edit} />}
 
           {/* Thumbs up/down feedback for agent tasks */}
           {showFeedback && (

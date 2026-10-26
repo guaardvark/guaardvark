@@ -105,7 +105,17 @@ def route_turn(
     engine=None,
     log_tag: str = "UNIFIED_API",
 ) -> None:
-    """Route one turn: slash shortcuts first, then the brain (or the legacy engine)."""
+    """Route one turn: plan mode first, then slash shortcuts, then the brain
+    (or the legacy engine)."""
+    # Plan mode sits in front of everything that can act, the no-model slash
+    # shortcut included. The flag comes from the session row, never the client.
+    if options.get("plan_mode") and not options.get("plan_step"):
+        from backend.services.plan_mode import handle_turn
+        if handle_turn(session_id=session_id, message=message, options=options, emit_fn=emit_fn,
+                       app=app, project_id=project_id, image_data=image_data, image_url=image_url,
+                       is_voice_message=is_voice_message, agent_brain=agent_brain, engine=engine):
+            return
+
     # Direct tool / slash intercept (/imagine etc.) runs before any routing,
     # with no model involved.
     try:

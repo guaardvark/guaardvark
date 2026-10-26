@@ -564,7 +564,10 @@ class AgentBrain:
                 )
 
             # -- Check if Tier 3 is needed --
-            if self._needs_deliberation(message):
+            # Not inside a step of an approved plan: the plan already did the
+            # deliberating, and Tier 3 cannot show the approval cards a plan
+            # run may need.
+            if not (options or {}).get("plan_step") and self._needs_deliberation(message):
                 tier_used = 3
                 budget.charge(1, 3, "deliberation signal")
                 return self._deliberate(

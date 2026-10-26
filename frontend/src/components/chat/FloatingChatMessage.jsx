@@ -13,6 +13,8 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import CheckIcon from "@mui/icons-material/Check";
 import MicIcon from "@mui/icons-material/Mic";
 import ThinkingCard from "./ThinkingCard";
+import PlanCard from "./PlanCard";
+import { usePlanActions } from "./planActions";
 import GeneratedMedia from "./GeneratedMedia";
 import ImageLightbox from "../images/ImageLightbox";
 import { agentNoteCaption } from "./agentNoteCaptions";
@@ -27,6 +29,7 @@ import { useUiTranslation, uiLocale } from "../../i18n";
  * opens in the same lightbox.
  */
 const FloatingChatMessage = ({ message, msg, formatTime }) => {
+  const planActions = usePlanActions();
   const { t } = useUiTranslation();
   const m = message || msg || {};
   const theme = useTheme();
@@ -44,6 +47,7 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
 
   const isUser = m.role === "user";
   const isAssistant = m.role === "assistant";
+  const isPlan = isAssistant && m.messageType === "plan" && Boolean(m.plan);
 
   const handleCopy = useCallback(
     async (e) => {
@@ -251,8 +255,17 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
             lineHeight: 1.5,
           }}
         >
-          {m.content || ""}
+          {isPlan ? (m.findings || "") : (m.content || "")}
         </Typography>
+        {isPlan && (
+          <PlanCard
+            plan={m.plan}
+            onRunStarted={planActions?.onRunStarted}
+            onKeepPlanning={planActions?.onKeepPlanning}
+            onStop={planActions?.onStop}
+            onPlanChanged={planActions?.onPlanChanged}
+          />
+        )}
         {m.truncated === true && (
           <Typography
             variant="caption"

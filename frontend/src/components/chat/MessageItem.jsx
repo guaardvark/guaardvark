@@ -6,6 +6,8 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { Box, Paper, Avatar, CardMedia, Chip, CircularProgress, Typography } from "@mui/material";
 import ReactMarkdown from "react-markdown";
+import PlanCard from "./PlanCard";
+import { usePlanActions } from "./planActions";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { a11yDark } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -74,6 +76,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
   // prop so feedback on assistant turns (which often lack message.sessionId)
   // still carries the active chat session.
   const effectiveSessionId = message.sessionId || sessionIdProp || null;
+  const planActions = usePlanActions();
 
   // Read narrate visibility + selected voice from voice settings (localStorage).
   // The voice picked in Settings flows through to NarrateButton's Fast (Piper)
@@ -112,6 +115,11 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
   }, []);
   const isCommand = message.type === "command";
   const isProgress = message.type === "progress";
+  // Plan mode: a proposed plan shows as a card; a step's instruction (saved as
+  // a user row while the plan ran) shows as a step heading, not as a message
+  // the person typed.
+  const isPlanMessage = message.messageType === "plan" && Boolean(message.plan);
+  const isPlanStep = message.messageType === "plan_step";
   // Every picture the user attached to this turn (several), by position: an
   // entry is null where the server could not save that picture, so the file
   // names stay aligned with the pictures. The single-picture case keeps
@@ -220,6 +228,18 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
 
   // Construct the full logo URL if logo path exists
   const logoUrl = logo ? `${UPLOAD_BASE_URL}/${logo}` : undefined;
+
+  if (isPlanStep) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, my: 1, px: 1 }} data-testid="plan-step-heading">
+        <Box sx={{ flex: 1, borderTop: 1, borderColor: "divider" }} />
+        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+          {t("chat.plan.stepHeading", { index: message.planStep, title: message.planStepTitle || "" })}
+        </Typography>
+        <Box sx={{ flex: 1, borderTop: 1, borderColor: "divider" }} />
+      </Box>
+    );
+  }
 
   // Handle agent loop messages specially
   if (isAgentLoop) {
@@ -663,6 +683,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
                       output: tc.output_preview,
                       error: tc.success ? null : tc.output_preview,
                       artifact: tc.artifact || null,
+                      self_edit: tc.self_edit || null,
                     } : null}
                     durationMs={tc.duration_ms}
                     isPending={false}
@@ -749,9 +770,22 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
               },
             }}
           >
-            {typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)}
+            {isPlanMessage
+              ? (message.findings || "")
+              : typeof message.content === 'string' ? message.content : JSON.stringify(message.content, null, 2)}
           </ReactMarkdown>
         </Box>
+        )}
+
+        {/* The plan comes after the research that led to it. */}
+        {isPlanMessage && (
+          <PlanCard
+            plan={message.plan}
+            onRunStarted={planActions?.onRunStarted}
+            onKeepPlanning={planActions?.onKeepPlanning}
+            onStop={planActions?.onStop}
+            onPlanChanged={planActions?.onPlanChanged}
+          />
         )}
         {isUser && message.agentNote && (
           <Typography
@@ -928,6 +962,10 @@ MessageItem.propTypes = {
     badge: PropTypes.string,
     source: PropTypes.string,
     orchestratorPlan: PropTypes.object,
+    plan: PropTypes.object,
+    findings: PropTypes.string,
+    planStep: PropTypes.number,
+    planStepTitle: PropTypes.string,
     orchestratorPlanId: PropTypes.string,
     messageType: PropTypes.string,
     thinking: PropTypes.string,

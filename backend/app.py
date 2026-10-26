@@ -1402,6 +1402,8 @@ try:
                 ("websites", "local_path", "ALTER TABLE websites ADD COLUMN IF NOT EXISTS local_path VARCHAR(2048)"),
                 # A project's folder on disk, read in place by its chats.
                 ("projects", "root_path", "ALTER TABLE projects ADD COLUMN IF NOT EXISTS root_path VARCHAR(2048)"),
+                # Plan mode (2026-10-26): research first, act after an approved plan.
+                ("llm_sessions", "plan_mode", "ALTER TABLE llm_sessions ADD COLUMN IF NOT EXISTS plan_mode BOOLEAN NOT NULL DEFAULT FALSE"),
                 # Autoresearch 2.0 (2026-08-10): honest eval pairs + experiment
                 # provenance + candidate/promoted config lifecycle.
                 ("eval_pairs", "is_active", "ALTER TABLE eval_pairs ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE"),
@@ -1614,6 +1616,25 @@ try:
                         _stale_runs)
             except Exception as e:
                 app.logger.warning("[SELF-IMPROVEMENT] stale run recovery failed: %s", e)
+
+            # ---- Plan runs a restart cut short --------------------------------------
+            # Server only: plan runs live on the server's chat threads. They are
+            # paused, never resumed on their own; the person continues them.
+            if os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true":
+                from backend.services.plan_executor import sweep_interrupted
+                sweep_interrupted(app)
+
+            # ---- Changes Guaardvark made to its own code ----------------------------
+            # The server got this far with them in place, so they are live; a
+            # start that fails before here has start.sh put them back.
+            if os.environ.get("CELERY_WORKER_MODE", "false").lower() != "true":
+                try:
+                    from backend.services.self_edit import confirm_boot
+                    _live = confirm_boot()
+                    if _live:
+                        app.logger.info("[SELF-EDIT] %d change(s) to Guaardvark's own code are live", _live)
+                except Exception as e:
+                    app.logger.warning("[SELF-EDIT] could not confirm pending changes: %s", e)
 
             # ---- Documents left INDEXING with nothing indexing them ---------------
             # Server only: Celery workers build this app too, and the worker
