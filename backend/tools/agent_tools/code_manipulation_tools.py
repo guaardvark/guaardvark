@@ -429,6 +429,7 @@ class EditCodeTool(BaseTool):
     """Tool to edit source code files by text replacement"""
 
     name = "edit_code"
+    read_only = False
     is_dangerous = True
     requires_approval = True
     description = (

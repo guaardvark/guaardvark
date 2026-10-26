@@ -539,6 +539,7 @@ class OutreachApproveDraftTool(BaseTool):
     """Approve a queued draft. Approving does not post it."""
 
     name = "outreach_approve_draft"
+    read_only = False
     description = (
         "Approve an outreach draft by id. Optionally pass draft_text to overwrite "
         "the text before approving (handy when the user asks to tweak it). "
@@ -666,6 +667,7 @@ class OutreachRunPassTool(BaseTool):
     """Trigger a Task-backed outreach pass on demand."""
 
     name = "outreach_run_pass"
+    read_only = False
     description = (
         "Queue an outreach pass without waiting for the cron. platform options: "
         "'reddit', 'self_share', 'recon', 'draft', 'youtube' / 'youtube_recon' "
@@ -756,6 +758,7 @@ class OutreachExecuteIntentTool(BaseTool):
     """Classify natural-language outreach, then dispatch to real tools/ops."""
 
     name = "outreach_execute_intent"
+    read_only = False
     description = (
         "Classify a natural-language outreach request and act: answer status, list the "
         "draft queue, approve/reject a draft id, or (only when clearly asked) queue a "

@@ -86,6 +86,7 @@ def _to_tool_result(server: str, tool: str, result: Dict[str, Any]) -> ToolResul
 # ---------------------------------------------------------------------------
 class MCPListServersTool(BaseTool):
     name = "mcp_list_servers"
+    read_only = True
     description = "List configured MCP servers, their connection status and tool counts."
     parameters = {}
 
@@ -107,6 +108,7 @@ class MCPListServersTool(BaseTool):
 
 class MCPConnectTool(BaseTool):
     name = "mcp_connect"
+    read_only = False
     description = "Connect to a configured MCP server so its tools become available as mcp__<server>__<tool>."
     parameters = {
         "server": ToolParameter(name="server", type="string", required=True,
@@ -133,6 +135,7 @@ class MCPConnectTool(BaseTool):
 
 class MCPDisconnectTool(BaseTool):
     name = "mcp_disconnect"
+    read_only = False
     description = "Disconnect from a connected MCP server."
     parameters = {
         "server": ToolParameter(name="server", type="string", required=True,
@@ -153,6 +156,8 @@ class MCPDisconnectTool(BaseTool):
 
 class MCPListToolsTool(BaseTool):
     name = "mcp_list_tools"
+    read_only = True
+    plan_research = False
     description = "List tools from connected MCP servers (with the names to call them by)."
     parameters = {
         "server": ToolParameter(name="server", type="string", required=False,
@@ -181,6 +186,7 @@ class MCPListToolsTool(BaseTool):
 class MCPExecuteTool(BaseTool):
     observation_chars = 4000
     name = "mcp_execute"
+    read_only = False
     description = ("Execute a tool on an MCP server by name. Prefer calling the "
                    "mcp__<server>__<tool> tools directly.")
     parameters = {
@@ -207,6 +213,7 @@ class MCPExecuteTool(BaseTool):
 
 class MCPGetStateTool(BaseTool):
     name = "mcp_get_state"
+    read_only = True
     description = "Get the current state of the MCP client (servers, tool counts, recent errors)."
     parameters = {}
 
@@ -229,6 +236,8 @@ class MCPGetStateTool(BaseTool):
 
 class MCPListResourcesTool(BaseTool):
     name = "mcp_list_resources"
+    read_only = True
+    plan_research = False
     description = "List readable resources (documents, data) exposed by connected MCP servers."
     parameters = {
         "server": ToolParameter(name="server", type="string", required=False,
@@ -256,6 +265,8 @@ class MCPListResourcesTool(BaseTool):
 class MCPReadResourceTool(BaseTool):
     observation_chars = 4000
     name = "mcp_read_resource"
+    read_only = True
+    plan_research = False
     description = "Read a resource from an MCP server by URI (see mcp_list_resources)."
     parameters = {
         "server": ToolParameter(name="server", type="string", required=True, description="MCP server name"),
@@ -280,6 +291,8 @@ class MCPReadResourceTool(BaseTool):
 
 class MCPListPromptsTool(BaseTool):
     name = "mcp_list_prompts"
+    read_only = True
+    plan_research = False
     description = "List prompt templates offered by connected MCP servers."
     parameters = {
         "server": ToolParameter(name="server", type="string", required=False,
@@ -304,6 +317,8 @@ class MCPListPromptsTool(BaseTool):
 
 class MCPGetPromptTool(BaseTool):
     name = "mcp_get_prompt"
+    read_only = True
+    plan_research = False
     description = "Render a prompt template from an MCP server with arguments."
     parameters = {
         "server": ToolParameter(name="server", type="string", required=True, description="MCP server name"),
@@ -339,6 +354,8 @@ class MCPProxyTool(BaseTool):
     """A single remote MCP tool exposed as a normal registry tool."""
 
     name = "mcp_proxy"  # overwritten per instance
+    read_only = False
+    plan_research = False
     description = "MCP tool"
     observation_chars = 4000  # MCP results (file contents, query rows) are the answer
 

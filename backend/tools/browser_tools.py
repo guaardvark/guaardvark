@@ -58,6 +58,7 @@ def _run_async(coro):
 class BrowserNavigateTool(BaseTool):
     
     name = "browser_navigate"
+    read_only = False
     description = "Navigate browser to a URL. Can wait for page load, network idle, or specific element."
     parameters = {
         "url": ToolParameter(
@@ -191,6 +192,7 @@ class BrowserNavigateTool(BaseTool):
 class BrowserClickTool(BaseTool):
     
     name = "browser_click"
+    read_only = False
     description = "Click an element on a web page using CSS or XPath selector."
     parameters = {
         "url": ToolParameter(
@@ -259,6 +261,7 @@ class BrowserClickTool(BaseTool):
 class BrowserFillTool(BaseTool):
     
     name = "browser_fill"
+    read_only = False
     description = "Fill a form input field with a value. Can optionally submit the form."
     parameters = {
         "url": ToolParameter(
@@ -348,6 +351,7 @@ class BrowserFillTool(BaseTool):
 class BrowserScreenshotTool(BaseTool):
     
     name = "browser_screenshot"
+    read_only = True
     description = "Capture a screenshot of a web page or specific element. Returns base64-encoded image."
     parameters = {
         "url": ToolParameter(
@@ -435,6 +439,7 @@ class BrowserScreenshotTool(BaseTool):
 class BrowserExtractTool(BaseTool):
     
     name = "browser_extract"
+    read_only = True
     description = "Extract text content or attribute values from page elements. Useful for scraping data."
     parameters = {
         "url": ToolParameter(
@@ -520,6 +525,7 @@ class BrowserExtractTool(BaseTool):
 class BrowserWaitTool(BaseTool):
     
     name = "browser_wait"
+    read_only = True
     description = "Wait for an element to be visible, hidden, attached, or detached from the DOM."
     parameters = {
         "url": ToolParameter(
@@ -605,6 +611,7 @@ class BrowserWaitTool(BaseTool):
 class BrowserExecuteJSTool(BaseTool):
     
     name = "browser_execute_js"
+    read_only = False
     description = "Execute JavaScript code on a page and return the result. Useful for complex interactions."
     parameters = {
         "url": ToolParameter(
@@ -673,6 +680,7 @@ class BrowserExecuteJSTool(BaseTool):
 class BrowserGetHTMLTool(BaseTool):
     
     name = "browser_get_html"
+    read_only = True
     description = "Get the HTML content of a page or specific element. Useful for scraping rendered content."
     parameters = {
         "url": ToolParameter(

@@ -18,6 +18,7 @@ class ReadFileTool(BaseTool):
     """Read file contents with optional line range"""
     
     name = "read_file"
+    read_only = True
     description = "Read the contents of a file, optionally specifying a line range"
     parameters = {
         "file_path": ToolParameter(
@@ -119,6 +120,7 @@ class ListFilesTool(BaseTool):
     """List files and directories in a given path"""
     
     name = "list_files"
+    read_only = True
     description = "List files and directories in a specified path"
     parameters = {
         "directory": ToolParameter(

@@ -306,6 +306,7 @@ def _nvidia_smi() -> Dict[str, Any]:
 class MapCodebaseTool(BaseTool):
     name = "map_codebase"
     read_only = True
+    observation_chars = 4000
     description = (
         "Run the System Mapper over Guaardvark's own source checkout, or a folder inside it, and "
         "return JSON: file_count, languages, per-analyzer stats, finding_count and the top findings, "
@@ -386,6 +387,7 @@ class MapCodebaseTool(BaseTool):
 
 class DispatchMapFindingTool(BaseTool):
     name = "dispatch_map_finding"
+    read_only = False
     description = (
         "Hand a System Mapper finding to the self-improvement engine. Creates a "
         "real directed run / PendingFix — same path as POST /api/system-map/findings/<id>/dispatch. "
@@ -701,6 +703,7 @@ class SwarmStatusTool(BaseTool):
 
 class LaunchSwarmTool(BaseTool):
     name = "launch_swarm"
+    read_only = False
     description = (
         "Launch a Swarm Orchestrator run (same as POST /api/swarm/launch). "
         "Self-code swarms target this repo, never auto-merge, and require "
@@ -863,6 +866,7 @@ class SelfImprovementStatusTool(BaseTool):
 
 class SubmitImprovementTool(BaseTool):
     name = "submit_improvement"
+    read_only = False
     description = (
         "Submit a directed self-improvement task (same as the directed SI path). "
         "The engine proposes a real fix staged for review — it will refuse with "

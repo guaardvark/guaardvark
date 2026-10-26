@@ -27,6 +27,8 @@ class SystemCommandTool(BaseTool):
     """
     
     name = "system_command"
+    read_only = True
+    plan_research = False
     description = (
         "Inspect local project files and directories (ls, grep, cat, find). Only for filesystem "
         "operations, NOT for looking up general information — use web_search for that. Runs one "

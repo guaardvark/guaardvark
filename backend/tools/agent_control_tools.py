@@ -80,6 +80,7 @@ def _ensure_agent_display():
 
 class AgentModeStartTool(BaseTool):
     name = "agent_mode_start"
+    read_only = False
     description = "Start agent vision control mode on the local machine. Enables screen capture and mouse/keyboard control."
     parameters = {}
 
@@ -97,6 +98,7 @@ class AgentModeStartTool(BaseTool):
 
 class AgentModeStopTool(BaseTool):
     name = "agent_mode_stop"
+    read_only = False
     description = "Gracefully stop agent vision control mode. For emergency stop, use the kill switch."
     parameters = {}
 
@@ -112,6 +114,7 @@ class AgentModeStopTool(BaseTool):
 
 class AgentTaskExecuteTool(BaseTool):
     name = "agent_task_execute"
+    read_only = False
     description = "Execute a task using vision-based agent control. The agent will analyze the screen and perform mouse/keyboard actions to complete the task."
     is_dangerous = True
     requires_confirmation = True
@@ -228,6 +231,7 @@ class AgentTaskExecuteTool(BaseTool):
 
 class AgentScreenCaptureTool(BaseTool):
     name = "agent_screen_capture"
+    read_only = True
     description = "Take a screenshot of the local screen and analyze it with a vision model. Always pass a prompt that describes what you are looking for or verifying — the vision model will answer your specific question about the screen."
     parameters = {
         "prompt": ToolParameter(
@@ -293,6 +297,7 @@ class AgentScreenCaptureTool(BaseTool):
 
 class AgentReadTextFromElementTool(BaseTool):
     name = "agent_read_text_from_element"
+    read_only = True
     description = (
         "OCR-read the literal text rendered inside a screen region. Use this when you "
         "need ground truth about what is actually shown in a text field — for example, "
@@ -338,6 +343,7 @@ class AgentReadTextFromElementTool(BaseTool):
 
 class AgentStatusTool(BaseTool):
     name = "agent_status"
+    read_only = True
     description = "Get the current status of the agent vision control system, including active recipes/skills, available tools/capabilities (full toolbox awareness), model, screen state, budget, memory/lessons summary. Use this to introspect what tools and skills you have access to in the current context."
     parameters = {}
 

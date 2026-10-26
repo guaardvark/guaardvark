@@ -92,6 +92,11 @@ class BaseTool:
     # undeclared, and the MCP server then advertises no hint.
     read_only: Optional[bool] = None
     destructive: Optional[bool] = None
+    # Whether plan mode may run this tool while it researches an objective,
+    # before anyone has approved a plan. None follows read_only. A read-only
+    # tool that still must wait for approval (a long generation whose output
+    # is the deliverable, a call into a third party's server) says False.
+    plan_research: Optional[bool] = None
     # How much of this tool's result the chat model gets to read before the
     # next turn. 500 keeps a chatty tool from crowding the context; a search
     # tool whose whole point is the text it returns declares more.
@@ -905,6 +910,20 @@ def get_tool_registry() -> ToolRegistry:
 
 
 # Convenience function
+def is_plan_research_tool(tool: Optional[BaseTool]) -> bool:
+    """True when plan mode may run ``tool`` before a plan is approved.
+
+    An undeclared tool counts as an action, so a tool nobody classified can
+    never run during research.
+    """
+    if tool is None:
+        return False
+    declared = getattr(tool, "plan_research", None)
+    if declared is not None:
+        return bool(declared)
+    return getattr(tool, "read_only", None) is True
+
+
 def register_tool(tool: BaseTool):
     """Register a tool in the global registry"""
     registry = get_tool_registry()

@@ -16,6 +16,7 @@ class SearchCodebaseTool(BaseTool):
     """Semantic search across all indexed documents"""
     
     name = "search_codebase"
+    read_only = True
     description = "Search the codebase using semantic search to find relevant information"
     parameters = {
         "query": ToolParameter(
@@ -103,6 +104,7 @@ class GrepSearchTool(BaseTool):
     """Text pattern search in files"""
     
     name = "grep_search"
+    read_only = True
     description = "Search for text patterns in files using grep-like functionality"
     parameters = {
         "pattern": ToolParameter(
