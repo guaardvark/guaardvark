@@ -1341,6 +1341,8 @@ class GenerationStatusTool(BaseTool):
             if info["kind"] == "bulk CSV" and info.get("message"):
                 lines.append(info["message"])
             if info["kind"] == "image":
+                if f.get("model"):
+                    lines.append(f"Model: {f['model']}")
                 lines.append(f"Steps: {f.get('steps') if f.get('steps') is not None else 'unknown'}")
                 if f.get("steps_notice"):
                     lines.append(f["steps_notice"])
