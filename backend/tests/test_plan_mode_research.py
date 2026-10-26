@@ -194,3 +194,73 @@ def test_actions_tried_during_research_become_the_plan(registry, monkeypatch):
     fields, _warnings = pm.validate(result.data, registry=registry, haystack="make a.txt")
     assert fields["steps"][0]["direct"] == {"direct_tool": "generate_file",
                                             "direct_tool_params": {"filename": "a.txt", "content_description": "hello"}}
+
+
+def test_only_kinds_with_registered_tools_are_offered(registry):
+    names = registry.list_tools()
+    offered = pmd.offered_kinds(names)
+    # No picture, video, music or memory tool in this registry.
+    assert not {"image", "video", "audio", "memory"} & set(offered)
+    assert offered["desktop"] == {"agent_task_execute": "a whole task"}
+    assert {"write", "lookup", "other"} <= set(offered)
+    assert "generate_music" not in pmd.kinds_text(names)
+    kinds = pmd.compose_schema(names)["properties"]["steps"]["items"]["properties"]["kind"]["enum"]
+    assert kinds == sorted(offered)
+    note = pmd.research_note(names)
+    assert "the agent's screen" in note and "music" not in note
+
+
+def test_an_other_step_takes_the_kind_of_its_tools(registry, monkeypatch):
+    monkeypatch.setattr(pm, "preview_route", lambda *a, **k: None)
+    data = {"steps": [
+        {"title": "Open", "action": "Use the agent_task_execute tool to open Firefox", "kind": "other"},
+        {"title": "Write", "action": "Write the summary without using mystery", "kind": "other"},
+        {"title": "Beat", "action": "Make a lo-fi beat", "kind": "audio"},
+    ]}
+    fields, _warnings = pm.validate(data, registry=registry, haystack="", session_id=None)
+    steps = fields["steps"]
+    assert (steps[0]["kind"], steps[0]["tools"]) == ("desktop", ["agent_task_execute"])
+    # A tool named only in passing, with no step kind of its own, grants nothing.
+    assert steps[1]["tools"] == []
+    # A kind this registry cannot run is not kept.
+    assert steps[2]["kind"] == "other"
+
+
+def test_lookups_and_text_change_nothing(registry):
+    assert not pm.changes_something({"steps": [{"kind": "lookup", "tools": ["read_code"]},
+                                               {"kind": "write"}]}, registry)
+    assert pm.changes_something({"steps": [{"kind": "write", "tools": ["edit_code"]}]}, registry)
+    assert pm.changes_something({"steps": [{"kind": "file"}]}, registry)
+
+
+def test_a_failed_compose_call_is_not_repeated(monkeypatch):
+    calls = []
+
+    def fake(model, system, user, fmt, num_ctx):
+        calls.append(fmt)
+        return None, f"{pm._CALL_FAILED}: timed out"
+
+    monkeypatch.setattr(pm, "_chat_json", fake)
+    result = pm.compose_plan("m", "s", "u", reply="no list here")
+    assert len(calls) == 1 and result.kind is None
+
+
+def test_compose_calls_are_bounded(monkeypatch):
+    import backend.services.nl_control_plane as ncp
+    seen = {}
+
+    class Client:
+        def chat(self, **kw):
+            seen.update(kw)
+            return {"message": {"content": '{"kind": "answer"}'}}
+
+    def client_for(timeout):
+        seen["timeout"] = timeout
+        return Client()
+
+    monkeypatch.setattr(ncp, "_client_for", client_for)
+    monkeypatch.setattr("backend.utils.ollama_resource_manager.think_payload", lambda model: {})
+    value, err = pm._chat_json("m", "s", "u", "json", 4096)
+    assert value == {"kind": "answer"} and err == ""
+    assert seen["timeout"] == pmd.COMPOSE_TIMEOUT_S
+    assert seen["options"]["num_predict"] == pmd.COMPOSE_MAX_TOKENS

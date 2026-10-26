@@ -212,14 +212,9 @@ def execute_plan(plan_id: str, *, session_id: str, emit_fn: Callable, app, agent
                 break
             error = _step_error(step, result, watch)
             if error and not watch.tool_ok and not watch.tool_failed:
-                # Nothing ran because an earlier step already made what this
-                # one names (a plan that writes a file's text in one step and
-                # saves it in the next, when the first step saved it).
-                named = [n for n in _FILE_NAME.findall(f"{step.get('title')} {step.get('action')}")
-                         if n.lower() in made_before]
-                if named:
-                    error = ""
-                    summary = f"{named[0]} was already made in step {made_before[named[0].lower()]}."
+                already = _made_earlier(step, made_before)
+                if already:
+                    error, summary = "", already
             if error:
                 outcome = "step_failed"
                 _set_step(app, plan_id, index, status="failed", summary=summary, error=error)
@@ -237,6 +232,15 @@ def _step_count(app, plan_id: str) -> int:
     with app.app_context():
         plan = db.session.get(ChatPlan, plan_id)
         return len(plan.steps or []) if plan is not None else 0
+
+
+def _made_earlier(step: Dict[str, Any], made_before: Dict[str, int]) -> str:
+    """The step's summary when an earlier step already made a file it names,
+    or "". A plan that writes a file's text in one step and saves it in the
+    next runs no tool in the second when the first already saved it."""
+    named = [n for n in _FILE_NAME.findall(f"{step.get('title')} {step.get('action')}")
+             if n.lower() in made_before]
+    return f"{named[0]} was already made in step {made_before[named[0].lower()]}." if named else ""
 
 
 def _step_error(step: Dict[str, Any], result: Dict[str, Any], watch: _StepWatch) -> str:
