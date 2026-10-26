@@ -17,7 +17,7 @@ export function mergeActivePlanIntoMessages(messages, activePlan, activePlanId) 
   let insertIdx = -1;
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const content = typeof messages[i].content === 'string' ? messages[i].content.trim() : '';
-    if (messages[i].role === 'user' && content.startsWith('/plan ')) {
+    if (messages[i].role === 'user' && (content.startsWith('/orchestrate ') || content.startsWith('/plan '))) {
       insertIdx = i + 1;
       break;
     }

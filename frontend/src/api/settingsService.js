@@ -579,6 +579,27 @@ export const setBehaviorLearning = async (enabled) => {
   }
 };
 
+export const getPlanModeDefault = async () => {
+  try {
+    return await handleResponse(await fetch(`${BASE_URL}/settings/plan_mode_default`));
+  } catch (err) {
+    return { error: err.message };
+  }
+};
+
+export const setPlanModeDefault = async (enabled) => {
+  try {
+    const response = await fetch(`${BASE_URL}/settings/plan_mode_default`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan_mode_default: !!enabled }),
+    });
+    return await handleResponse(response);
+  } catch (err) {
+    return { error: err.message };
+  }
+};
+
 export const getChatThinkingDefault = async () => {
   try {
     const response = await fetch(`${BASE_URL}/settings/chat_thinking_default`);

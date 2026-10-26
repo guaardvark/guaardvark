@@ -10,6 +10,7 @@ import { stopChatTurn } from "../api/chatStopService";
 import { getChatImageModel, setChatImageModel as persistChatImageModel } from "../api/settingsService";
 import { getPlugin } from "../api/pluginsService";
 import { translate } from "../i18n";
+import { setPlanMode } from "../api/planModeService";
 
 // ============================================================
 // Dispatcher
@@ -45,6 +46,15 @@ export async function executeBuiltinCommand(name, args, context) {
     "/thinking": handleThinking,
   };
 
+  // Plan mode: a command that would act straight from the browser is sent
+  // as a message instead, so the backend plans it like any other objective.
+  const planSession = context.chatState?.sessionId;
+  if (planSession && useAppStore.getState().getSessionPlanMode(planSession)
+      && actsFromBrowser(name, args, context)) {
+    context.onSendMessage?.(`${name} ${args || ""}`.trim(), null);
+    return { handled: true };
+  }
+
   const handler = handlers[name];
   if (!handler) {
     // Check if it's a DB rule command
@@ -54,6 +64,13 @@ export async function executeBuiltinCommand(name, args, context) {
   }
 
   return handler(args, context);
+}
+
+/** Commands whose handler acts from the browser rather than through a chat turn. */
+function actsFromBrowser(name, args, context) {
+  if (name === "/training") return Boolean(args);
+  if (name === "/outreach") return Boolean(args) && !/^(status|queue|help)\b/i.test(args.trim());
+  return Boolean(context.allCommands?.find((c) => c.name === name && c.handler === "rule"));
 }
 
 /** Read persisted chat image model (backend), with store + legacy sessionStorage fallback. */
@@ -809,15 +826,34 @@ async function handleOutreach(args, { addMessage }) {
 }
 
 // ============================================================
-// /plan — stub (migration from ChatPage handled in a follow-up)
+// /plan [on|off|<request>] — plan mode for this chat
 // ============================================================
 
-async function handlePlan(args, { addMessage }) {
-  if (!args) {
-    addMessage({ role: "system", content: translate("messages.slash.usage.plan"), tempId: `plan-${Date.now()}` });
+async function handlePlan(args, { addMessage, onSendMessage, chatState }) {
+  const sessionId = chatState?.sessionId;
+  const say = (content) =>
+    addMessage({ role: "system", content, tempId: `plan-${Date.now()}`, type: "command" });
+  if (!sessionId) {
+    say(translate("messages.slash.plan.needsSession"));
     return { handled: true };
   }
-  return { handled: false };
+  const word = (args || "").trim();
+  const wasOn = useAppStore.getState().getSessionPlanMode(sessionId);
+  const on = !word ? !wasOn : /^off$/i.test(word) ? false : true;
+  try {
+    const data = await setPlanMode(sessionId, on);
+    useAppStore.getState().setSessionPlanMode(sessionId, Boolean(data?.plan_mode));
+  } catch (err) {
+    say(translate("messages.slash.plan.switchFailed", { reason: err.message }));
+    return { handled: true };
+  }
+  if (word && !/^(on|off)$/i.test(word)) {
+    // "/plan <request>": plan mode on, and the request is the objective.
+    onSendMessage?.(word, null);
+    return { handled: true };
+  }
+  say(on ? translate("messages.slash.plan.on") : translate("messages.slash.plan.off"));
+  return { handled: true };
 }
 
 // ============================================================

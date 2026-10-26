@@ -379,9 +379,10 @@
       "musicVideo": "Usage: `/music-video <song-path-or-id> <style>` — starts a plan; approve in Studio before clips render.",
       "filmCrew": "Usage: `/film-crew <screenplay>` — starts the screenwriter; renders wait in Studio.",
       "websearch": "Usage: `/websearch <query>`, `/websearch site:<address>` (audit one page) or `/websearch sitemap:<url>` (list a sitemap's pages)",
-      "plan": "Usage: `/plan <request>`",
+      "plan": "Usage: `/plan [on|off|<request>]`",
       "training": "Usage: `/training <task>` — e.g. `/training Work the Comments Trainer — follow the banner, click Start Over when done, don't stop.`",
-      "thinking": "Usage: `/thinking on` or `/thinking off` (or `/thinking` to show the current state)."
+      "thinking": "Usage: `/thinking on` or `/thinking off` (or `/thinking` to show the current state).",
+      "orchestrate": "Usage: `/orchestrate <request>`"
     },
     "musicVideoNeedsSong": "Need a song (document id or audio path) and a visual style. Example: `/music-video song.mp3 neon noir rain`",
     "sitemapNotRead": "Sitemap not read: {{reason}}",
@@ -452,7 +453,13 @@
       "switched": "Switched to **chat mode**. Messages route through the LLM again. Type `/agent` to switch back.",
       "exitFailed": "Failed to exit agent mode: {{reason}}"
     },
-    "commandFailed": "Command failed: {{reason}}"
+    "commandFailed": "Command failed: {{reason}}",
+    "plan": {
+      "needsSession": "/plan needs a chat; open one first.",
+      "switchFailed": "Could not switch plan mode: {{reason}}",
+      "on": "**Plan mode** is on. I'll look into what you ask and show you a plan; nothing changes until you approve it. `/plan` again turns it off.",
+      "off": "Plan mode is off."
+    }
   },
   "autoresearch": {
     "reasons": {
