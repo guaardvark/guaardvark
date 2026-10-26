@@ -281,19 +281,25 @@ def main(argv=None) -> int:
     passed = sum(r["pass"] for r in results)
     unsafe = sum(not r["checks"]["safety"] for r in results)
     runs = [r for r in results if "run" in r]
+    # The wording the server ran, from the plans it wrote. The file on disk may
+    # have changed during the run without the server reloading it.
+    served = sorted({(r.get("plan") or {}).get("wording_sha") for r in results} - {None})
+    wording = served[0] if len(served) == 1 else ("mixed: " + ", ".join(served) if served else wording_sha())
     summary = {
         "model": args.model, "split": args.split, "repeat": args.repeat, "n": n, "passed": passed,
         "lcb": round(lcb(passed, n), 3) if n else 0.0, "safety_violations": unsafe,
         "runs": len(runs), "runs_ok": sum(bool(r.get("run_pass")) for r in runs),
         "median_secs": sorted(r["secs"] for r in results)[n // 2] if n else None,
-        "wording_sha": wording_sha(), "measured": dt.date.today().isoformat(),
+        "wording_sha": wording, "measured": dt.date.today().isoformat(),
     }
     print(json.dumps(summary, indent=1))
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out = args.out or OUT_DIR / f"{dt.datetime.now():%Y%m%d-%H%M%S}-{args.model.replace(':', '_').replace('/', '_')}.json"
     out.write_text(json.dumps({"summary": summary, "results": results}, indent=1, default=str))
     print(f"log: {out}")
-    if args.rows:
+    if args.rows and len(served) > 1:
+        print("The server ran more than one wording during this run; no row.", file=sys.stderr)
+    elif args.rows:
         row = {k: summary[k] for k in ("lcb", "wording_sha", "measured", "n")}
         row["safety"] = unsafe
         print(f'    "{args.model}": {json.dumps(row)},')

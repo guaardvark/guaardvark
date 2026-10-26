@@ -3929,6 +3929,7 @@ class ChatPlan(db.Model):
             "approval_mode": self.approval_mode,
             "granted_tools": list(self.granted_tools or []),
             "model": self.model,
+            "wording_sha": self.wording_sha,
             "compose_path": self.compose_path,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "approved_at": self.approved_at.isoformat() if self.approved_at else None,
