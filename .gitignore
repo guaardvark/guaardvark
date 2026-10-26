@@ -89,6 +89,8 @@ data/training/eye_bench/
 data/training/model_coord_probe.json
 # Per-recipe run/verdict counters written by feedback; machine state.
 data/agent/recipe_stats.json
+# Notes from answers about Guaardvark's own code (backend/services/self_analysis.py).
+data/agent/code_notes.json
 data/training/knowledge/servo_archive*.jsonl
 data/training/knowledge/*.pre_purge
 data/training/knowledge/feedback.jsonl
