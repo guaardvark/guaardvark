@@ -5,7 +5,7 @@
   "plugins": [
     {
       "name": "guaardvark",
-      "version": "3.3.0",
+      "version": "3.4.0",
       "description": "Local image, video, music-video and Film Crew generation, voice and music, upscaling, LoRA training, Hugging Face model onboarding, agent swarms, local knowledge, code intelligence and supervised outreach, driven from Grok Build through the guaardvark MCP server.",
       "category": "productivity",
       "author": { "name": "Guaardvark" },

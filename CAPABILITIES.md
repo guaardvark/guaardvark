@@ -57,6 +57,13 @@ Guaardvark's chat system is the primary interface for interacting with your AI. 
 - **Visible cue** — agent-mode sessions show an orange chip above the chat input
 - **Speak AND act** — agent-mode messages still route through the chat LLM, so the model narrates briefly, calls `agent_task_execute`, and summarizes the result
 
+### Plan Mode (`/plan`)
+- **Look first, then act** — with plan mode on, a request is researched with read-only tools; a question is answered, and anything that would change something comes back as a plan card (goal, steps, checks, risks, questions)
+- **Approval** — Approve (asks before each action), Approve and allow these actions, Keep planning, Edit, Reject
+- **Step by step** — approved steps run one at a time with live status; a failed step pauses with Retry, Skip, Replan or Stop
+- **Measured per model** — offered on a chat model only once it passes the plan-mode test (`scripts/eval_plan_mode.py`, recorded in `model_capability_data.PLAN_MODE_MEASURED`); below the line the toggle is off and shows the model's score
+- **Where** — the plan tile in the chat box's feature grid, `/plan`, Settings → Chat (start new chats in plan mode), and the CLI (`/plan`); `/orchestrate` runs the multi-agent orchestrator
+
 ### Per-Iteration Thinking Display
 - **Live reasoning trail** — for screen-control tasks, the agent loop's per-step thinking streams into the chat as it happens (no more 30+ second blackouts followed by a single "completed" line)
 - **What you see** — each iteration shows action label + full reasoning ("Step 8 — click: I see the address bar and want to clear it…")
@@ -64,6 +71,7 @@ Guaardvark's chat system is the primary interface for interacting with your AI. 
 - **Persists in history** — the trail stays in the message after streaming completes, so you can scroll back and audit the run
 
 ### Model Management
+- **Default model by hardware** — a fresh install pulls `gemma4:12b` when the GPU has 12 GB (or an Apple silicon Mac has 16 GB), `qwen3.5:4b` otherwise and `qwen3.5:2b` at 5 GB of RAM or less (`hardware_policy.model_tier`, with the measurements behind it)
 - **Runtime model switching** — change the active LLM through Settings; the old model is unloaded from VRAM before the new one loads (prevents OOM)
 - **Embedding model switching** — swap embedding models via dropdown; triggers re-indexing confirmation since vector spaces are incompatible across models
 - **Live health detection** — dashboard probes Ollama on every request to show actual model availability (not a stale startup flag)
@@ -167,6 +175,12 @@ Guaardvark can autonomously test itself, find bugs, and fix them.
 - **Run history** — all runs recorded in database with status, duration, changes made, and test results
 - **Pending fixes queue** — proposed changes can require user approval before applying
 
+### Self-Analysis and Self-Edits
+- **Questions about its own code** — "how does X work in you", "where do you handle Y" start from the System Map: the likely files, the functions read by name, their callers, routes and tests; every `file:line` in the answer is checked against the file
+- **Self-edits** — planned first; a restore point of the touched files (`backups/self_edits/<id>/`), an exact write, then a syntax check (Python, JSON, JS/JSX), an import check and the tests that cover the files, undone automatically when one fails
+- **Revert** — on the chat card and in the Self-improvement page's list of changes Guaardvark made to itself; `/api/self-edits`
+- **Never quietly reaching outside** — a self-edit that names an outside host, imports a hosted AI client, turns off TLS checks or opens a raw socket shows an approval card every time, even inside an approved plan
+
 ### Live Progress
 - **Socket.IO events** at each stage: `starting`, `testing`, `analyzed`, `fixing`, `complete`, `error`
 - **Dashboard card** shows real-time progress bar with color-coded stages
@@ -250,6 +264,8 @@ A ReACT-loop agent that can autonomously work with code and the system.
 - **Fallback suggestions** — when a tool fails, the system suggests alternative approaches
 - **Iteration limits** — configurable maximum iterations per agent run
 - **Tool approval gates** — dangerous tools (file write, shell exec) can require human approval per call
+- **No network for model-run code** — `execute_python` and `execute_javascript` run inside a bubblewrap network namespace on Linux, or not at all where none can be made, unless "Internet for code it runs" is on in Settings → Chat
+- **Web requests only where the chat points** — `fetch_url`, `analyze_website`, `browser_navigate` and a URL in a `web_search` query go only to hosts named in the chat, in an approved plan, or in a search's results in that chat
 
 ### Code Editor Page
 - **Monaco Editor** — VS Code-quality editing in the browser with syntax highlighting for 50+ languages
@@ -357,6 +373,7 @@ Local audio generation for voiceover, music, ambience, and effects. Shipped as t
 - **Kokoro-82M** — fast, light, multilingual TTS (English + Spanish voices, more languages on the model side)
 - **Piper** — local neural TTS fallback for environments where the heavier engines aren't appropriate
 - **Streaming output** — audio chunks stream to the browser as the engine produces them
+- **Speech in chat** — "say this out loud" makes `generate_speech` speak the line and plays it in the reply (music stays on the Audio Studio page)
 
 ### Music Generation
 - **ACE-Step v1 (3.5B)** — full-song generation with vocals; runs locally on GPU
