@@ -273,8 +273,8 @@ class VisionAnalyzer:
         not see (Ollama's "vision" capability, not its name); then a model
         that sees after all, the saved chat model first, then full chat models
         before captioners. A vision model must not quietly become the decider
-        while a text model is installed, but on a stock install (gemma4:e2b and
-        nomic-embed-text) it is the only model that can reply. Embedding and
+        while a text model is installed, but on a stock install (gemma4:12b or
+        qwen3.5, and nomic-embed-text) it is the only model that can reply. Embedding and
         decision models never qualify (_writes_text), the override included:
         they cannot answer.
         """

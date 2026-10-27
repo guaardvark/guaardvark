@@ -2453,13 +2453,13 @@ ollama_pull_retry() {
 # A fresh box boots with ZERO models → first chat 404s and RAG's
 # get_active_embedding_model() throws. start.sh never pulled anything before.
 # This step: if Ollama is up and is missing a chat and/or embedding model, pull a
-# small hardware-appropriate default of each. Sizes are chosen by RAM + arch:
-#   ≤8GB RAM, or aarch64 without an NVIDIA GPU → chat llama3.2:1b + embed nomic-embed-text
-#   otherwise            → chat gemma4:e2b    + embed nomic-embed-text
-# gemma4:e2b (5.1B, vision) is the standard default because the agentic screen-
-# control system is validated against Gemma4; the small/ARM tier stays text-only
-# (a 7.2GB Gemma4 won't fit ≤8GB). hardware_policy.model_tier is the source of
-# truth; these inline values are the fallback when that module isn't importable.
+# hardware-appropriate default of each, chosen by RAM, arch and GPU memory:
+#   ≤8GB RAM, or aarch64 without an NVIDIA/Apple GPU → chat qwen3.5:4b (qwen3.5:2b at ≤5GB)
+#   a GPU with room for it (12 GB card, 16 GB Mac)   → chat gemma4:12b
+#   otherwise                                        → chat qwen3.5:4b
+# and embed nomic-embed-text. hardware_policy.model_tier is the source of truth
+# (with the measurements behind the choice); these inline values are the
+# fallback when that module isn't importable.
 # Models are per-machine (Ollama-local, under data/ for this box) — NOT synced via
 # the Interconnector, so every node bootstraps its own. Guarded by
 # GUAARDVARK_BOOTSTRAP_MODELS (default on; set =0 to skip pulls entirely).
@@ -2502,12 +2502,20 @@ except Exception:
         if { [ "$BOOT_ARCH" = "aarch64" ] || [ "$BOOT_ARCH" = "arm64" ]; } && [ ! -e /proc/driver/nvidia/version ]; then
             _boot_small_arm=1
         fi
+        _boot_vram_mb=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -1 | tr -dc '0-9')
         if [ "${BOOT_RAM_GB:-0}" -le 8 ] && [ "${BOOT_RAM_GB:-0}" -gt 0 ] || [ "$_boot_small_arm" -eq 1 ]; then
-            BOOT_CHAT_MODEL="${GUAARDVARK_DEFAULT_LLM:-llama3.2:1b}"
+            if [ "${BOOT_RAM_GB:-0}" -le 5 ] && [ "${BOOT_RAM_GB:-0}" -gt 0 ]; then
+                BOOT_CHAT_MODEL="${GUAARDVARK_DEFAULT_LLM:-qwen3.5:2b}"
+            else
+                BOOT_CHAT_MODEL="${GUAARDVARK_DEFAULT_LLM:-qwen3.5:4b}"
+            fi
             vader_info "Model bootstrap: small-hardware tier (RAM=${BOOT_RAM_GB}GB arch=${BOOT_ARCH})"
+        elif [ "${_boot_vram_mb:-0}" -ge 11500 ]; then
+            BOOT_CHAT_MODEL="${GUAARDVARK_DEFAULT_LLM:-gemma4:12b}"
+            vader_info "Model bootstrap: standard tier (RAM=${BOOT_RAM_GB}GB GPU=${_boot_vram_mb}MB)"
         else
-            BOOT_CHAT_MODEL="${GUAARDVARK_DEFAULT_LLM:-gemma4:e2b}"
-            vader_info "Model bootstrap: standard tier (RAM=${BOOT_RAM_GB}GB arch=${BOOT_ARCH})"
+            BOOT_CHAT_MODEL="${GUAARDVARK_DEFAULT_LLM:-qwen3.5:4b}"
+            vader_info "Model bootstrap: no GPU room for the standard model (RAM=${BOOT_RAM_GB}GB arch=${BOOT_ARCH})"
         fi
         BOOT_EMBED_MODEL="${GUAARDVARK_EMBEDDING_MODEL:-nomic-embed-text}"
     fi

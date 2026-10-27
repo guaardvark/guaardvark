@@ -37,12 +37,11 @@ tuning, and default models from it — see
 
 What works, and how the system adapts:
 
-- **Chat + RAG.** Ollama runs the default models on CPU. Machines with ≤ 8 GB
-  RAM, or an ARM machine without an NVIDIA GPU (a Raspberry Pi, a Mac), get a
-  small text-only tier (`llama3.2:1b` + `nomic-embed-text`); everything else
-  gets `gemma4:e2b` (5.1B, ~7.2 GB download, vision-capable). With no GPU,
-  models are kept resident in RAM instead of being unloaded, so you pay the
-  load cost once.
+- **Chat + RAG.** Ollama runs the default models on CPU. Without a GPU that
+  has room for `gemma4:12b`, a machine gets `qwen3.5:4b` (3.3 GB download,
+  reads images too), or `qwen3.5:2b` with 5 GB of RAM or less (a 4 GB
+  Raspberry Pi), plus `nomic-embed-text`. With no GPU, models are kept resident
+  in RAM instead of being unloaded, so you pay the load cost once.
 - **Retrieval degrades honestly.** Advanced (vector) RAG defaults off on
   CPU-only hosts; retrieval falls back to keyword-only search under memory
   pressure rather than thrashing.
@@ -128,10 +127,11 @@ behavior, not a bug. Your desktop compositor also permanently holds
 
 ## System RAM, swap, and disk
 
-- **≤ 8 GB RAM, or ARM without an NVIDIA GPU:** the bootstrap installs the
-  small text-only model tier — on ≤ 8 GB the ~7.2 GB Gemma4 download doesn't
-  fit. An ARM machine with an NVIDIA GPU (GB10 / DGX Spark, Jetson) and more
-  than 8 GB gets the standard tier.
+- **≤ 8 GB RAM, or ARM without an NVIDIA or Apple GPU:** the bootstrap
+  installs `qwen3.5:4b` (`qwen3.5:2b` at 5 GB or less). An ARM machine with an
+  NVIDIA GPU (GB10 / DGX Spark, Jetson) and more than 8 GB is judged by its GPU
+  memory like any other: `gemma4:12b` when it has room (12 GB of GPU memory, or
+  16 GB on a Mac), `qwen3.5:4b` when it does not.
 - **Image generation uses serious system RAM** when CPU offload kicks in:
   calibrated figures range from ~10 GB (SDXL) to ~21–24 GB (Z-Image / Krea2)
   of resident memory per job. 32 GB of system RAM is a sensible floor for the
@@ -162,9 +162,8 @@ Partial, actively improving — tracked in
 - **Verified on Apple Silicon:** offline image generation for the Z-Image
   and Krea 2 families runs natively on Metal (MPS; #183, live renders), and
   LoRA training runs on MPS (#182; slow, with timeouts raised to match).
-- **Conservative default:** ARM machines without an NVIDIA GPU, Macs
-  included, currently get the small `llama3.2:1b` tier regardless of unified
-  memory — pull a larger model manually if your machine can hold it.
+- **Default chat model by memory:** a Mac with 16 GB or more gets
+  `gemma4:12b`; one with less gets `qwen3.5:4b`.
 - **Not verified by this project:** video generation through ComfyUI on
   Metal (no render on a Mac is on file); the other offline image families
   on MPS; the offline (diffusers) video path, which has an MPS branch with

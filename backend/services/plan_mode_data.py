@@ -3,7 +3,7 @@ and the wording the model reads.
 
 Plan mode researches an objective with read-only tools, writes a plan, and
 runs it only after the person approves. The limits here are sized for the
-small local models a fresh install runs (gemma4:e2b by default) at an 8192
+local models a fresh install runs (gemma4:12b, or qwen3.5 on smaller machines) at an 8192
 token context; change one only with the measurement behind it
 (scripts/eval_plan_mode.py) recorded next to the number.
 """

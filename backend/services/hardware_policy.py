@@ -114,28 +114,45 @@ def ollama_tuning(gpu: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+# Default chat models. Plan-mode test, held split x3, 2026-10-26/27
+# (model_capability_data.PLAN_MODE_MEASURED): gemma4:12b 85/96, about 8.4 GB of
+# GPU memory at an 8192 context on a 16 GB card; qwen3.5:4b 67/96, a 3.3 GB
+# download; qwen3.5:2b 50/96, 2.7 GB. They replace gemma4:e2b (75/96, a ~7 GB
+# download, kept for people who choose it) and llama3.2:1b (31/96). The standard
+# model stays a Gemma4 because the screen agent is tuned to its box_2d answers;
+# the screen agent reads Qwen3.5's xy answers through its family entry.
+STANDARD_CHAT_MODEL = "gemma4:12b"
+STANDARD_MIN_GPU_MB = 11500        # 12 GB cards report 12,000-12,288 MB
+APPLE_STANDARD_MIN_RAM_GB = 16     # Apple silicon: the GPU uses the system memory
+SMALL_CHAT_MODEL = "qwen3.5:4b"
+TINY_CHAT_MODEL = "qwen3.5:2b"
+SMALL_MAX_RAM_GB = 8
+TINY_MAX_RAM_GB = 5                # 4 GB boards report about 3.7-3.9 GB
+
+
 def model_tier(ram_gb: float, gpu: dict[str, Any], arch: str) -> dict[str, str]:
     """Pick chat + embed models for the host.
 
-    Mirrors start.sh's bootstrap tiers: <=8 GB RAM, or an ARM board without an
-    NVIDIA GPU (a Raspberry Pi class machine) -> 1B chat model; otherwise the
-    standard vision-capable Gemma4 chat model. An ARM machine with an NVIDIA GPU
-    (GB10 / DGX Spark, Jetson) gets the standard tier when it has the memory.
-    Embed model is constant.
-
-    Gemma4 is the default because it's the model the agentic screen-control
-    system (servo / box_2d) is validated against — see the "validate non-Gemma4
-    models" task. e2b (5.1B, ~7.2GB, vision) is the smallest Gemma4, so it's the
-    broadest-running default; the small/ARM tier stays text-only (can't fit it).
-
-    `gpu` is reserved for a future VRAM-aware quantisation tier; today's
-    selection is RAM/arch-driven only.
+    Mirrors start.sh's bootstrap tiers. 8 GB of RAM or less, or an ARM board
+    with no NVIDIA or Apple GPU (a Raspberry Pi class machine): the small model,
+    or the tiny one at 5 GB or less. Otherwise the standard model when the GPU
+    has room for it (an NVIDIA or AMD card with 12 GB, an NVIDIA GPU sharing
+    the machine's memory, a 16 GB Apple silicon Mac), and the small model when
+    it does not. The embed model is constant.
     """
     arch = (arch or "").lower()
-    small_arm = arch in ("aarch64", "arm64") and (gpu or {}).get("vendor") != "nvidia"
-    if small_arm or (0 < (ram_gb or 0) <= 8):
-        return {"chat": "llama3.2:1b", "embed": "nomic-embed-text"}
-    return {"chat": "gemma4:e2b", "embed": "nomic-embed-text"}
+    gpu = gpu or {}
+    vendor = gpu.get("vendor")
+    ram = ram_gb or 0
+    small_arm = arch in ("aarch64", "arm64") and vendor not in ("nvidia", "apple")
+    if small_arm or 0 < ram <= SMALL_MAX_RAM_GB:
+        chat = TINY_CHAT_MODEL if 0 < ram <= TINY_MAX_RAM_GB else SMALL_CHAT_MODEL
+    elif gpu_memory_mb(gpu) >= STANDARD_MIN_GPU_MB or (
+            vendor == "apple" and ram >= APPLE_STANDARD_MIN_RAM_GB):
+        chat = STANDARD_CHAT_MODEL
+    else:
+        chat = SMALL_CHAT_MODEL
+    return {"chat": chat, "embed": "nomic-embed-text"}
 
 
 # Training below this is "not practical" (Settings > Training libraries). It is the

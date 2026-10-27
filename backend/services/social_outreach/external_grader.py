@@ -39,10 +39,11 @@ logger = logging.getLogger(__name__)
 # smaller variant is plenty.
 DEFAULT_GRADER_MODEL = "gemma4:e2b"
 """Override via env GUAARDVARK_OUTREACH_GRADER_MODEL if you want a different one.
-Falls back to gemma4:e2b if the configured model isn't loaded. gemma4:e2b is
-also the stock default chat model, which writes the drafts; a grade from the
-drafter's own build or family is marked not independent, so set the override
-to a model of another family for a check that counts."""
+Falls back to gemma4:e2b if the configured model isn't installed, then to the
+chat model, which writes the drafts on a stock install (gemma4:e2b is no
+longer pulled by default). A grade from the drafter's own build or family is
+marked not independent, so set the override to a model of another family for
+a check that counts."""
 
 FALLBACK_GRADER_MODEL = "gemma4:e2b"
 
@@ -177,11 +178,26 @@ def _resolve_grader_model() -> Optional[str]:
             configured, FALLBACK_GRADER_MODEL,
         )
         return FALLBACK_GRADER_MODEL
+    chat = _chat_model()
+    if chat and chat in loaded:
+        logger.warning(
+            "external grader: neither %s nor %s installed, grading with the chat model %s",
+            configured, FALLBACK_GRADER_MODEL, chat,
+        )
+        return chat
     logger.warning(
         "external grader: neither %s nor %s loaded; will skip the second-opinion gate",
         configured, FALLBACK_GRADER_MODEL,
     )
     return None
+
+
+def _chat_model() -> Optional[str]:
+    try:
+        from backend.config import get_default_llm
+        return get_default_llm()
+    except Exception:
+        return None
 
 
 def grade_draft_externally(draft_text: str, thread_context: str, *, kind: str = "comment") -> dict:

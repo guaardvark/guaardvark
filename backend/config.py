@@ -380,17 +380,28 @@ def _read_saved_model_name():
 def _hardware_default_llm() -> str:
     """Hardware-aware hard fallback for the default chat model.
 
-    Mirrors the get_chat_keep_alive / default_advanced_rag hardware-detection pattern
-    in this file: on a small box (≤8GB RAM) or an ARM board without an NVIDIA GPU, a
-    fresh install should default to a 1-3B tag so first-run chat actually loads
-    (hardware_policy.model_tier is the source of truth); otherwise the
-    standard vision-capable Gemma4 default (gemma4:e2b — the model the agentic
-    system is validated against). GUAARDVARK_DEFAULT_LLM always overrides.
-    Detection failure stays defensive and never crashes.
+    hardware_policy.model_tier decides, from the cached hardware profile when
+    there is one. Without it: a small box (≤8GB RAM) or an ARM board without an
+    NVIDIA GPU gets the small model, anything else the standard one only when an
+    NVIDIA driver is present (the GPU's memory is not known here).
+    GUAARDVARK_DEFAULT_LLM always overrides. Detection failure stays defensive
+    and never crashes.
     """
     env = os.environ.get("GUAARDVARK_DEFAULT_LLM")
     if env:
         return env
+    try:
+        from backend.services import hardware_policy as hp
+        from backend.services.hardware_detector import HardwareDetector
+
+        path = os.environ.get("GUAARDVARK_HARDWARE_JSON",
+                              os.path.expanduser("~/.guaardvark/hardware.json"))
+        profile = HardwareDetector().read_profile(path)
+        if profile:
+            ram = (profile.get("ram", {}) or {}).get("total_gb", 0)
+            return hp.model_tier(ram, profile.get("gpu", {}) or {}, profile.get("arch", ""))["chat"]
+    except Exception:
+        pass
     try:
         import platform
         arch = platform.machine().lower()
@@ -405,10 +416,12 @@ def _hardware_default_llm() -> str:
             ram_gb = 0
         nvidia = os.path.exists("/proc/driver/nvidia/version")
         if (arch in ("aarch64", "arm64") and not nvidia) or (0 < ram_gb <= 8):
-            return "llama3.2:1b"
+            return "qwen3.5:2b" if 0 < ram_gb <= 5 else "qwen3.5:4b"
+        if not nvidia:
+            return "qwen3.5:4b"
     except Exception:
         pass
-    return "gemma4:e2b"
+    return "gemma4:12b"
 
 
 _saved_model_warned: set = set()

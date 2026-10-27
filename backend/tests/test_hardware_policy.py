@@ -91,19 +91,23 @@ def test_ollama_tuning_nvidia_zero_vram_degrades():
 
 def test_model_tier_small_for_low_ram():
     t = hp.model_tier(ram_gb=6, gpu={"vendor": "none"}, arch="x86_64")
-    assert t["chat"] == "llama3.2:1b"
+    assert t["chat"] == "qwen3.5:4b"
     assert t["embed"] == "nomic-embed-text"
+
+
+def test_model_tier_tiny_for_four_gb_boards():
+    assert hp.model_tier(ram_gb=3.8, gpu={"vendor": "none"}, arch="aarch64")["chat"] == "qwen3.5:2b"
 
 
 def test_model_tier_small_for_aarch64():
     t = hp.model_tier(ram_gb=32, gpu={"vendor": "none"}, arch="aarch64")
-    assert t["chat"] == "llama3.2:1b"
+    assert t["chat"] == "qwen3.5:4b"
 
 
 def test_model_tier_arm_wins_even_with_high_ram():
     # ARM forces the small tier regardless of RAM (proves the guard is unconditional).
     t = hp.model_tier(ram_gb=128, gpu={"vendor": "none"}, arch="aarch64")
-    assert t["chat"] == "llama3.2:1b"
+    assert t["chat"] == "qwen3.5:4b"
 
 
 GB10 = {"vendor": "nvidia", "vram_mb": None, "compute_cap": "12.1", "unified_memory_gb": 119.7}
@@ -111,13 +115,13 @@ GB10 = {"vendor": "nvidia", "vram_mb": None, "compute_cap": "12.1", "unified_mem
 
 def test_model_tier_standard_for_arm_with_nvidia_gpu():
     # GB10 / DGX Spark: aarch64 with an NVIDIA GPU is not a Raspberry Pi.
-    assert hp.model_tier(ram_gb=119.7, gpu=GB10, arch="aarch64")["chat"] == "gemma4:e2b"
+    assert hp.model_tier(ram_gb=119.7, gpu=GB10, arch="aarch64")["chat"] == "gemma4:12b"
 
 
 def test_model_tier_small_arm_nvidia_board_stays_small():
-    # A Jetson-class board with 8 GB still gets the 1B model, by its memory.
+    # A Jetson-class board with 8 GB still gets the small model, by its memory.
     jetson = {"vendor": "nvidia", "vram_mb": None, "unified_memory_gb": 7.4}
-    assert hp.model_tier(ram_gb=7.4, gpu=jetson, arch="aarch64")["chat"] == "llama3.2:1b"
+    assert hp.model_tier(ram_gb=7.4, gpu=jetson, arch="aarch64")["chat"] == "qwen3.5:4b"
 
 
 def test_ollama_tuning_uses_unified_memory_when_vram_unreported():
@@ -128,10 +132,21 @@ def test_ollama_tuning_uses_unified_memory_when_vram_unreported():
 
 
 def test_model_tier_standard_for_normal_box():
-    # Pinned to start.sh's actual standard-tier id (vision-capable Gemma4 default).
     t = hp.model_tier(ram_gb=125, gpu={"vendor": "nvidia", "vram_mb": 16311}, arch="x86_64")
-    assert t["chat"] == "gemma4:e2b"
+    assert t["chat"] == "gemma4:12b"
     assert t["embed"] == "nomic-embed-text"
+
+
+def test_model_tier_small_when_the_card_has_no_room():
+    # An 8 GB card, or no GPU, on a big machine: the standard model would not fit.
+    assert hp.model_tier(ram_gb=32, gpu={"vendor": "nvidia", "vram_mb": 8188}, arch="x86_64")["chat"] == "qwen3.5:4b"
+    assert hp.model_tier(ram_gb=32, gpu={"vendor": "none"}, arch="x86_64")["chat"] == "qwen3.5:4b"
+
+
+def test_model_tier_apple_silicon_by_memory():
+    mac = {"vendor": "apple", "accel": "mps", "vram_mb": None}
+    assert hp.model_tier(ram_gb=16, gpu=mac, arch="arm64")["chat"] == "gemma4:12b"
+    assert hp.model_tier(ram_gb=8, gpu=mac, arch="arm64")["chat"] == "qwen3.5:4b"
 
 
 def test_is_stale_profile_flags_nvidia_without_compute_cap():
