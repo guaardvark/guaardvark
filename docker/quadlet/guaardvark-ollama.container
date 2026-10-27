@@ -1,0 +1,22 @@
+[Unit]
+Description=Guaardvark Ollama (AMD ROCm)
+
+[Container]
+ContainerName=guaardvark-ollama
+Image=docker.io/ollama/ollama:rocm
+Network=guaardvark.network
+NetworkAlias=ollama
+Volume=guaardvark-ollama:/root/.ollama
+# AMD GPU. Machines with an iGPU: add Environment=HIP_VISIBLE_DEVICES=0
+AddDevice=/dev/kfd
+AddDevice=/dev/dri
+GroupAdd=keep-groups
+SecurityLabelDisable=true
+# Optional, for tools on this host: PublishPort=127.0.0.1:11434:11434
+
+[Service]
+Restart=always
+TimeoutStartSec=600
+
+[Install]
+WantedBy=default.target

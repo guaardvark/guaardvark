@@ -1,0 +1,18 @@
+[Unit]
+Description=Guaardvark Redis
+
+[Container]
+ContainerName=guaardvark-redis
+Image=docker.io/library/redis:7-alpine
+Network=guaardvark.network
+NetworkAlias=redis
+EnvironmentFile=%h/.config/guaardvark/guaardvark.env
+Exec=sh -c 'exec redis-server --requirepass "$$REDIS_PASSWORD"'
+HealthCmd=sh -c 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG'
+Notify=healthy
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
