@@ -628,7 +628,7 @@ class EnhancedChatManager:
         except Exception as e:
             logger.warning(f"Error getting DEFAULT_LLM: {e}")
 
-        return 'gemma4:e2b'  # Last resort fallback (vision-capable Gemma4 default)
+        return 'gemma4:12b'  # Last resort fallback (the standard default chat model)
 
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count for text"""

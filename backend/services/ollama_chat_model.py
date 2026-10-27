@@ -3,7 +3,7 @@
 Several callers carry a preferred model tag — the Film Crew agents want a
 Gemma4, the music-video director a small JSON-reliable one — while the
 installer's hardware policy decides which tag a machine actually gets
-(``gemma4:e2b`` on most boxes, ``llama3.2:1b`` on small ones). A caller that
+(``gemma4:12b`` where the GPU has room, ``qwen3.5:4b`` elsewhere). A caller that
 sends its preferred tag straight to Ollama fails with a 404 on every machine
 where the policy chose differently, which is most clean installs.
 
