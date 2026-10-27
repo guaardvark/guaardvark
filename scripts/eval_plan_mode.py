@@ -380,8 +380,9 @@ def main(argv=None) -> int:
                 print(f"{item['id']:<12} r{rep} {secs:>6.1f}s {row['kind_seen']:<8} {flag}{extra}", flush=True)
     finally:
         sio.disconnect()
-        if original and original != args.model:
-            switch_model(original)
+        if original and original != args.model and not switch_model(original):
+            print(f"Could not switch the chat model back to {original}; it is still {active_model()}.",
+                  file=sys.stderr)
 
     from backend.services.decision_evidence import lcb
     from backend.services.plan_mode_data import wording_sha
