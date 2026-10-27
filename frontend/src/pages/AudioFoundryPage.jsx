@@ -787,7 +787,9 @@ const AudioFoundryPage = () => {
         if (bpm) payload.bpm = bpm;
         if (arrangement.keyscale) payload.keyscale = arrangement.keyscale;
         if (arrangement.timesignature) payload.timesignature = arrangement.timesignature;
-        if (arrangement.vocal_language) payload.vocal_language = arrangement.vocal_language;
+        if (arrangement.vocal_language && arrangement.vocal_language !== "unknown") {
+          payload.vocal_language = arrangement.vocal_language;
+        }
       } else {
         if (!musicInstrumental && musicLyrics.trim()) payload.lyrics = musicLyrics.trim();
         if (musicModel !== "ace-step") payload.model = musicModel;
@@ -1328,6 +1330,7 @@ const AudioFoundryPage = () => {
                               select
                               label={t("audio.music.language")}
                               size="small"
+                              InputLabelProps={{ shrink: true }}
                               value={arrangement.vocal_language && arrangement.vocal_language !== "unknown" ? arrangement.vocal_language : ""}
                               onChange={(e) => updateArrangement({ vocal_language: e.target.value })}
                               sx={{ flex: 1 }}
