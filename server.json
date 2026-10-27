@@ -3,7 +3,7 @@
   "name": "io.github.guaardvark/guaardvark",
   "title": "Guaardvark",
   "description": "Local AI studio on your GPU: images, video, music, voice, RAG. Needs the Guaardvark app installed.",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "websiteUrl": "https://guaardvark.com/mcp/",
   "repository": {
     "url": "https://github.com/guaardvark/guaardvark",
@@ -23,7 +23,7 @@
       "registryType": "pypi",
       "registryBaseUrl": "https://pypi.org",
       "identifier": "guaardvark",
-      "version": "3.3.0",
+      "version": "3.4.0",
       "runtimeHint": "uvx",
       "transport": {
         "type": "stdio"

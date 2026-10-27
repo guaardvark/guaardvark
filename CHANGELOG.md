@@ -1,5 +1,40 @@
 # Changelog
 
+## 3.4.0 — Plan mode, a Guaardvark that reads and repairs its own code, and speech in chat
+
+- **Plan mode.** `/plan`, or the plan tile in the chat box's feature grid, turns it on for a chat. Every
+  request is looked into first with read-only tools: a question gets its answer, and anything that would
+  make or change something (a file, an image, a video, code, the desktop, a memory) comes back as a plan
+  card with the steps, the checks and the risks. Approve it, approve it with its actions allowed, keep
+  planning, edit the steps or reject it. Approved steps run one at a time with live status; a step that
+  fails pauses with Retry, Skip, Replan and Stop. Plan mode is offered on a model only after it passes the
+  plan-mode test: gemma4:12b handled 168 of 192 held-out requests correctly over two runs. On a model below the
+  line the toggle is off and gives its score. The old orchestrator is `/orchestrate`.
+- **Guaardvark answers questions about its own code.** Ask where something lives or how it works, and it
+  reads its source through the System Mapper, which now resolves imports correctly and answers `where`,
+  `module`, `symbol`, `impact` and `route` queries. Every `file:line` it cites is checked against the file
+  before you see it.
+- **Self-edits come with a Revert button.** A change to Guaardvark's code is planned first, copies the files it
+  touches to a restore point, then runs the syntax check, an import check and the tests that cover those
+  files, and puts everything back if one fails. Revert sits on the chat card and on the Self-improvement
+  page. No git knowledge needed.
+- **Speech in chat.** "Say good morning out loud" plays the spoken line in the reply, through the Audio
+  Foundry plugin. Songs stay on the Audio Studio page.
+- **Limits on what a chat model can reach.** Python and JavaScript the model runs have no network unless
+  "Internet for code it runs" is on in Settings → Chat. Web fetches go only to sites named in the chat or
+  returned by a search made in it. A self-edit that names an outside host, imports a hosted AI client or turns off TLS checks always asks first, even inside an approved plan.
+- **New default models.** A fresh install picks gemma4:12b when the graphics card has 12 GB (or a Mac has
+  16 GB), qwen3.5:4b otherwise, and qwen3.5:2b on 4 GB boards such as a Raspberry Pi. On the plan-mode test
+  llama3.2:1b, the old small default, scored 31 of 96 and qwen3.5:4b 67. Existing installs keep their model.
+- **A feature grid in the chat box** opens image, video, files, analysis, plan mode and the rest from one
+  icon.
+- **The interface in eleven languages**, switched in Settings → General, and any other through
+  `scripts/translate_locales.py`.
+- **Also:** desktop control and recording on GNOME Wayland; projects read their code in place from their
+  own folder; a banner offers a restart when the GPU faults; the Film Crew frames 16:9 by default, gives each
+  character its own voice and plays the finished film; ACE-Step 1.5 songs are arranged before they render;
+  Grok Build and Antigravity plugins; security updates for dompurify, pypdf, zod, cryptography and pillow.
+
 ## 3.3.0 — Reusable seeds, music videos paced to the song, and a Film Crew that finishes the film
 
 - **Seeds you can reuse.** Image Gen and Video Gen have a Seed box; every picture shows its seed,
