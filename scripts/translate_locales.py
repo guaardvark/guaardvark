@@ -126,8 +126,13 @@ def read_json(path: Path) -> dict:
 
 
 def write_json(path: Path, data: dict) -> None:
+    """Leaves a file whose content is unchanged untouched, so a running Vite dev
+    server reloads the page only for areas that really changed."""
+    text = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    if path.exists() and path.read_text(encoding="utf-8") == text:
+        return
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(text, encoding="utf-8")
 
 
 def english_areas() -> dict[str, dict[str, str]]:
