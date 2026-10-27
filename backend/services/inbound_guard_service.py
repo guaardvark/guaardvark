@@ -480,7 +480,6 @@ def _refresh_code_index(event: dict) -> None:
         return
     from backend.services import guarded_code_service
 
-    guarded_code_service.invalidate_lifecycle_cache()
     guarded_code_service._ANALYSIS_CACHE.clear()
     if (REPO_ROOT / ".zvec-grep").is_dir():
         _zvec_pending.set()

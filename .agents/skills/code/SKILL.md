@@ -13,7 +13,7 @@ description: >-
 | tool | use |
 |---|---|
 | `list_code_repositories` | which folders are marked as repositories (gives the folder id) |
-| `search_codebase` | semantic search over the indexed project: "where is thinking enabled per model" |
+| `search_codebase` | search Guaardvark's own source: by meaning once a code search index is built (System Map page), otherwise by words and names |
 | `search_code` | case-insensitive regex across files |
 | `list_code_files` | directory listing to orient |
 | `read_code` | a file, or a line range of it (`start_line`, `end_line`); large files come back in pages |
@@ -23,7 +23,8 @@ description: >-
 | `analyze_code` | structure, patterns, improvement notes for a file |
 | `codegen` | a complete modified version of a file from instructions (writes a new file) |
 | `verify_change` | confirm text now exists in a file after an edit |
-| `map_codebase` | run the System Mapper: stats plus ranked findings |
+| `map_codebase` | run the System Mapper: the most severe findings, then the numbers |
+| `system_map_query` | ask the System Mapper about Guaardvark's code: `where <feature>`, `module <path>`, `symbol <name>` (callers, callees), `route <path>`, `tool <name>`, `subsystem <name>`, `impact <path>` (dependents, tests to run), `findings <scope>` |
 | `self_improvement_status` | can the self-improvement engine run (lock, flag, already running) |
 | `swarm_status` | the coding swarm (see the swarm skill) |
 
@@ -38,5 +39,5 @@ description: >-
 
 - These tools read Guaardvark's index, which can lag the working tree; when it matters, read the
   file from disk too.
-- `map_codebase` and `self_improvement_status` are read-only here. Dispatching a fix to the
+- `map_codebase`, `system_map_query` and `self_improvement_status` are read-only here. Dispatching a fix to the
   self-improvement engine is done in the Studio, on purpose.
