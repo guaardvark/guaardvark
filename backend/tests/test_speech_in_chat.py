@@ -45,7 +45,7 @@ def test_chat_with_speech_offers_speech_and_sends_music_elsewhere():
     assert "speech" in pmd.abilities(available)
     assert "music and speech" not in pmd.abilities(available)
     missing = pmd.unavailable(available)
-    assert "music (that is done on the Audio Studio page)" in missing
+    assert "music (that is done on the Audio Studio page; speech works here)" in missing
     assert "speech" not in missing
 
 
