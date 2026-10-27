@@ -5,8 +5,8 @@ import { guardedMediaSrc } from "../../utils/assetGuard";
 import { useUiTranslation } from "../../i18n";
 
 /**
- * The pictures and videos a reply produced (`message.generatedImages`:
- * `{url, alt, caption, type}`, `type: "video"` for a clip), as a chat bubble
+ * The pictures, videos and spoken audio a reply produced (`message.generatedImages`:
+ * `{url, alt, caption, type}`, `type: "video"` for a clip, `"audio"` for speech), as a chat bubble
  * shows them. Clicking a picture calls `onOpenPicture(pictures, index)` with
  * the reply's pictures as `{url, name}`, so the host can open its lightbox on
  * that one and step through the rest.
@@ -18,7 +18,7 @@ const GeneratedMedia = ({ items, onOpenPicture, maxWidth = 400, maxHeight = 400 
   const openPicture = (img) => {
     if (!onOpenPicture) return;
     const pictures = items
-      .filter((i) => i.type !== "video")
+      .filter((i) => i.type !== "video" && i.type !== "audio")
       .map((i) => ({ url: i.url, name: i.alt || i.caption || t("chat.generatedMedia.image") }));
     const idx = pictures.findIndex((i) => i.url === img.url);
     onOpenPicture(pictures, Math.max(0, idx));
@@ -28,7 +28,15 @@ const GeneratedMedia = ({ items, onOpenPicture, maxWidth = 400, maxHeight = 400 
     <Box sx={{ mb: 1 }}>
       {items.map((img, idx) => (
         <Box key={idx} sx={{ mb: 1 }}>
-          {img.type === "video" ? (
+          {img.type === "audio" ? (
+            <Box
+              component="audio"
+              controls
+              aria-label={img.alt || t("chat.generatedMedia.audio")}
+              sx={{ width: "100%", maxWidth, display: "block" }}
+              src={guardedMediaSrc(img.url)}
+            />
+          ) : img.type === "video" ? (
             <Box
               component="video"
               controls

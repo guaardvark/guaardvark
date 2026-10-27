@@ -154,7 +154,8 @@
   },
   "generatedMedia": {
     "image": "Image générée",
-    "video": "Vidéo générée"
+    "video": "Vidéo générée",
+    "audio": "Audio parlé"
   },
   "synthesized": {
     "label": "Assemblé à partir des résultats des outils",

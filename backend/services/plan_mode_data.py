@@ -102,6 +102,8 @@ STEP_KINDS: Dict[str, Dict[str, Any]] = {
         "description": "Make music or a sound effect, or speak words aloud.",
         "tools": {"generate_music": "music or a sound effect", "generate_speech": "spoken words"},
         "ability": "music and speech",
+        # Chat has speech but not music, so each part is named on its own.
+        "tool_abilities": {"generate_music": "music", "generate_speech": "speech"},
         "elsewhere": "the Audio Studio page",
         "routes": {"chat", "direct_tool"},
         "options": {},
@@ -214,20 +216,40 @@ PLAN_MODE_RESEARCH_NOTE = (
 )
 
 
+def _kind_ability(kind: str, tools: Iterable[str]) -> str:
+    """The kind's ability, or for a kind whose tools do different things
+    (tool_abilities), only the parts these tools do."""
+    spec = STEP_KINDS[kind]
+    parts = spec.get("tool_abilities")
+    if not parts:
+        return spec["ability"]
+    named = [parts[t] for t in spec["tools"] if t in set(tools) and t in parts]
+    return " and ".join(named) or spec["ability"]
+
+
 def abilities(available: Optional[Iterable[str]] = None) -> str:
     """What the registered action tools can do, as the notes name it."""
-    return ", ".join(STEP_KINDS[k]["ability"] for k in offered_kinds(available) if STEP_KINDS[k]["ability"])
+    return ", ".join(_kind_ability(k, tools) for k, tools in offered_kinds(available).items()
+                     if STEP_KINDS[k]["ability"])
 
 
 def unavailable(available: Optional[Iterable[str]] = None, *, web: bool = True) -> str:
     """What a plan cannot do on this install: kinds none of whose tools are
-    registered, and web lookups while web access is off (its default)."""
+    registered, the parts of a kind whose tool is missing (tool_abilities), and
+    web lookups while web access is off (its default)."""
     offered = offered_kinds(available)
     out = []
     for kind, spec in STEP_KINDS.items():
-        if spec["tools"] and kind not in offered and spec["ability"]:
-            out.append(f"{spec['ability']} (that is done on {spec['elsewhere']})"
-                       if spec.get("elsewhere") else spec["ability"])
+        if not spec["tools"] or not spec["ability"]:
+            continue
+        if kind in offered:
+            missing = [t for t in spec.get("tool_abilities", {}) if t not in offered[kind]]
+            ability = _kind_ability(kind, missing) if missing else ""
+        else:
+            ability = spec["ability"]
+        if ability:
+            out.append(f"{ability} (that is done on {spec['elsewhere']})"
+                       if spec.get("elsewhere") else ability)
     if not web:
         out.append("looking things up on the web (web access is off in Settings)")
     return "; ".join(out)

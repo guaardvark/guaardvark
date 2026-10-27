@@ -669,18 +669,20 @@ def register_image_tools() -> List[str]:
 
 
 def register_audio_tools() -> List[str]:
-    """Register music and speech for MCP clients.
+    """Register speech everywhere and music for MCP clients.
 
-    Registered only in the MCP server process, so chat's tool choice is unchanged;
-    agents connected over MCP get the Audio Foundry that the Studio's Audio page uses.
+    Chat offers speech only when a message asks to hear something
+    (unified_chat_engine.user_wants_speech). Music is registered only in the MCP
+    server process, so chat does not make songs; agents connected over MCP get
+    the Audio Foundry that the Studio's Audio page uses.
     """
     from backend.utils.backend_http import in_mcp_process
 
     registered = []
-    if not in_mcp_process():
-        return registered
-    for _cls_name, _tool_name in (("GenerateMusicTool", "generate_music"),
-                                  ("GenerateSpeechTool", "generate_speech")):
+    tools = [("GenerateSpeechTool", "generate_speech")]
+    if in_mcp_process():
+        tools.insert(0, ("GenerateMusicTool", "generate_music"))
+    for _cls_name, _tool_name in tools:
         try:
             from backend.tools import audio_tools as _audio_tools
             register_tool(getattr(_audio_tools, _cls_name)())
