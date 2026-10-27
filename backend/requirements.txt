@@ -177,4 +177,4 @@ tree-sitter-ruby>=0.23.0
 tree-sitter-php>=0.24.1
 tree-sitter-c-sharp>=0.23.5
 pathspec>=1.1.1
-networkx>=3.2
+networkx>=3.7
