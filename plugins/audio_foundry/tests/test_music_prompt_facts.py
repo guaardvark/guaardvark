@@ -98,3 +98,11 @@ def test_an_accepted_card_is_not_reparsed_from_its_caption():
     assert accepted["keyscale"] == "C major"
     assert accepted["timesignature"] == "4"
     assert accepted["vocal_language"] == "en"
+
+
+def test_an_instrumental_card_language_of_unknown_is_left_unset():
+    # The planner writes "unknown" for a card with no sung language; Compose sends the card back as it is.
+    accepted = resolve_accepted_params({"style_prompt": "Taiko drums and strings", "vocal_language": "unknown"})
+    assert "vocal_language" not in accepted
+    with pytest.raises(ValueError, match="language ACE-Step knows"):
+        resolve_accepted_params({"vocal_language": "Klingon"})

@@ -278,8 +278,10 @@ def resolve_accepted_params(params: dict[str, Any]) -> dict[str, Any]:
         out["timesignature"] = require_meter(str(params.get("timesignature")))
     else:
         out.pop("timesignature", None)
-    if _present(params.get("vocal_language")):
-        out["vocal_language"] = require_language(str(params.get("vocal_language")))
+    # "unknown" is the planner's word for no sung language (an instrumental card).
+    language = params.get("vocal_language")
+    if _present(language) and str(language).strip().lower() != "unknown":
+        out["vocal_language"] = require_language(str(language))
     else:
         out.pop("vocal_language", None)
     return out
