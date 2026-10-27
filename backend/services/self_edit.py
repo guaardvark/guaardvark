@@ -20,6 +20,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -38,6 +39,9 @@ TEST_TIMEOUT_S = 180
 MAX_TEST_FILES = 4
 
 _lock = threading.Lock()
+
+# The form apply_change gives every id; anything else is not a stored edit.
+_EDIT_ID = re.compile(r"\d{8}-\d{6}-[0-9a-f]{6}")
 
 
 def repo_root() -> Path:
@@ -84,6 +88,8 @@ def _write_json(path: Path, data: Any) -> None:
 
 
 def load(edit_id: str) -> Optional[Dict[str, Any]]:
+    if not _EDIT_ID.fullmatch(edit_id or ""):
+        return None
     try:
         return json.loads(_manifest_path(edit_id).read_text())
     except (OSError, ValueError):
