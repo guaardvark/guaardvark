@@ -114,7 +114,7 @@ mss>=10.2.0  # Fast screenshot capture for agent virtual display
 
 # ComfyUI / Video Generation Dependencies
 torchsde>=0.2.6
-sentencepiece>=0.2.0
+sentencepiece>=0.2.2
 kornia>=0.7.1
 spandrel>=0.4.2
 av>=18.1.0
