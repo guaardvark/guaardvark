@@ -21,6 +21,7 @@ Environment=PIP_DISABLE_PIP_VERSION_CHECK=1
 Volume=guaardvark-data:/app/data
 Volume=guaardvark-logs:/app/logs
 Volume=guaardvark-config:/root/.config/guaardvark
+Volume=guaardvark-cache:/root/.cache
 PublishPort=127.0.0.1:5000:5000
 AddDevice=/dev/kfd
 AddDevice=/dev/dri
