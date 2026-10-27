@@ -27,7 +27,7 @@ psutil==7.2.2
 # (backend/tools/llama_code_tools.py). transformers, nltk and tiktoken install it
 # too; it is named here because backend code imports it directly. The floor is
 # the one transformers 5.16 already requires.
-regex>=2025.10.22
+regex>=2026.9.29
 
 # Web Scraping & File Processing
 beautifulsoup4==4.15.0
