@@ -175,7 +175,10 @@
     "thinkingFailed": "チャットの思考設定の更新に失敗しました",
     "planModeOn": "新しいチャットはプランモードで開始されます",
     "planModeOff": "新しいチャットはプランモードなしで開始されます",
-    "planModeFailed": "プランモードの設定を保存できませんでした"
+    "planModeFailed": "プランモードの設定を保存できませんでした",
+    "modelCodeNetworkOn": "アシスタントが実行するコードがインターネットに接続できます",
+    "modelCodeNetworkOff": "アシスタントが実行するコードはインターネットに接続できません",
+    "modelCodeNetworkFailed": "アシスタントが実行するコードの設定を保存できませんでした"
   },
   "embedding": {
     "notRebuilt": "自動で再構築されませんでした: {{items}}",
@@ -313,6 +316,8 @@
     "thinkingTooltip": "思考モデルのデフォルト設定。チャットごとに：/thinking でオン/オフを切り替えます。",
     "planMode": "プランモード",
     "planModeTooltip": "新しいチャットをプランモードで開始：各リクエストをまず確認し、プランを承認するまで何も変更しません。 /plan でチャットごとに切り替え。",
+    "modelCodeNetwork": "実行するコードのインターネット接続",
+    "modelCodeNetworkTooltip": "アシスタントが作成し実行するPythonおよびJavaScriptがインターネットに接続できるようにします。オフの場合、そのコードはネットワークなしで実行されるため、このマシン外へ何も送信できません。",
     "webAccess": "Webアクセス",
     "webAccessTooltip": "Web、ブラウザ、およびアドレスツールがインターネットに接続できるようにします。",
     "voiceChat": "音声チャット",

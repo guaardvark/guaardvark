@@ -425,6 +425,11 @@ def _approval_detail(tool, tool_name: str, params: Dict[str, Any], reasoning: st
     generic approve card.
     """
     detail: Dict[str, Any] = {"tool": tool_name, "params": params, "reasoning": reasoning or ""}
+    from backend.services.agent_tools import always_ask_reason
+    warning = always_ask_reason(tool, params) if tool is not None else None
+    if warning:
+        detail["warning"] = warning
+        detail["reasoning"] = f"{warning}\n\n{detail['reasoning']}".strip()
     if getattr(tool, "consent_gate", False):
         detail["consent"] = True
         detail["approval_prompt"] = getattr(tool, "approval_prompt", "") or ""

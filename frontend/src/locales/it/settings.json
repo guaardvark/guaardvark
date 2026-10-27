@@ -175,7 +175,10 @@
     "thinkingFailed": "Impossibile aggiornare l'impostazione di pensiero della Chat",
     "planModeOn": "Le nuove chat iniziano in modalità piano",
     "planModeOff": "Le nuove chat iniziano senza modalità piano",
-    "planModeFailed": "Impostazione della modalità piano non salvata"
+    "planModeFailed": "Impostazione della modalità piano non salvata",
+    "modelCodeNetworkOn": "Il codice che l'assistente esegue può usare internet",
+    "modelCodeNetworkOff": "Il codice che l'assistente esegue non ha accesso a internet",
+    "modelCodeNetworkFailed": "Impossibile salvare l'impostazione per il codice che l'assistente esegue"
   },
   "embedding": {
     "notRebuilt": "Non ricostruito automaticamente: {{items}}",
@@ -314,6 +317,8 @@
     "thinkingTooltip": "Predefinito per i modelli di pensiero. Per ogni chat: /thinking on o off.",
     "planMode": "Modalità piano",
     "planModeTooltip": "Avvia nuove chat in modalità piano: analizza ogni richiesta prima di modificare qualcosa e non cambiare nulla finché non approvi un piano. /plan la attiva per ogni chat.",
+    "modelCodeNetwork": "Internet per il codice che esegue",
+    "modelCodeNetworkTooltip": "Permetti a Python e JavaScript che l'assistente scrive ed esegue di accedere a internet. Off: quel codice viene eseguito senza rete, quindi non può inviare nulla fuori da questa macchina.",
     "webAccess": "Accesso web",
     "webAccessTooltip": "Permette agli strumenti web, browser e indirizzi di raggiungere internet.",
     "voiceChat": "Chat vocale",

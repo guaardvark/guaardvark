@@ -256,6 +256,10 @@ class WebAnalysisTool(BaseTool):
                 success=False,
                 error="URL is required"
             )
+        from backend.services.web_provenance import refusal as _provenance_refusal
+        not_named = _provenance_refusal(kwargs.get("_agent_context"), url)
+        if not_named:
+            return ToolResult(success=False, error=not_named, metadata={"blocked_by": "web_provenance"})
 
         try:
             # Use existing web search API functionality
@@ -465,6 +469,10 @@ class FetchUrlTool(BaseTool):
                 success=False,
                 error="url parameter is required",
             )
+        from backend.services.web_provenance import refusal as _provenance_refusal
+        not_named = _provenance_refusal(kwargs.get("_agent_context"), url)
+        if not_named:
+            return ToolResult(success=False, error=not_named, metadata={"blocked_by": "web_provenance"})
         query = (kwargs.get("query") or "").strip() or None
 
         try:
@@ -579,6 +587,15 @@ class WebSearchTool(BaseTool):
                 output={"query_length": len(query)},
             )
 
+        # A URL in the query is fetched directly, so it is held to the same
+        # rule as fetch_url (web_provenance).
+        from backend.services import web_provenance
+        ctx = kwargs.get("_agent_context")
+        for named in web_provenance.URL_RE.findall(query):
+            not_named = web_provenance.refusal(ctx, named)
+            if not_named:
+                return ToolResult(success=False, error=not_named, metadata={"blocked_by": "web_provenance"})
+
         try:
             from backend.api.web_search_api import enhanced_web_search, search_result_count
 
@@ -646,6 +663,10 @@ class WebSearchTool(BaseTool):
                     "snippet": data.get("snippet", "")
                 }]
 
+            if isinstance(ctx, dict) and ctx.get("transport") == "chat":
+                web_provenance.note_search_results(
+                    ctx.get("chat_session_id"),
+                    [r.get("url", "") for r in formatted_results["results"] if isinstance(r, dict)])
             return ToolResult(
                 success=True,
                 output=formatted_results,

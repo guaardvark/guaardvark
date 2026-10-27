@@ -175,7 +175,10 @@
     "thinkingFailed": "Einstellung für Chat-Denkprozesse konnte nicht aktualisiert werden",
     "planModeOn": "Neue Chats starten im Planungsmodus",
     "planModeOff": "Neue Chats starten ohne Planungsmodus",
-    "planModeFailed": "Planungsmodus-Einstellung konnte nicht gespeichert werden"
+    "planModeFailed": "Planungsmodus-Einstellung konnte nicht gespeichert werden",
+    "modelCodeNetworkOn": "Code, den der Assistent ausführt, kann das Internet nutzen",
+    "modelCodeNetworkOff": "Code, den der Assistent ausführt, hat keinen Internetzugriff",
+    "modelCodeNetworkFailed": "Einstellung für Code, den der Assistent ausführt, konnte nicht gespeichert werden"
   },
   "embedding": {
     "notRebuilt": "Nicht automatisch neu erstellt: {{items}}",
@@ -314,6 +317,8 @@
     "thinkingTooltip": "Standard für Denkmodelle. Je Chat: /thinking on oder off.",
     "planMode": "Planungsmodus",
     "planModeTooltip": "Neue Chats im Planungsmodus starten: Analysiere jede Anfrage zuerst und ändere nichts, bis du einen Plan genehmigst. /plan schaltet dies pro Chat um.",
+    "modelCodeNetwork": "Internet für Code, den er ausführt",
+    "modelCodeNetworkTooltip": "Ermögliche Python und JavaScript, die der Assistent schreibt und ausführt, den Zugriff auf das Internet. Aus: Dieser Code wird ohne Netzwerk ausgeführt und kann nichts von dieser Maschine senden.",
     "webAccess": "Webzugriff",
     "webAccessTooltip": "Erlaubt Web-, Browser- und Adresswerkzeugen den Internetzugriff.",
     "voiceChat": "Sprachchat",

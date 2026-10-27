@@ -25794,6 +25794,18 @@
       "en": "e0a94537c148",
       "out": "69a7b4c62ecc"
     },
+    "chat.modelCodeNetworkOn": {
+      "en": "5e011e6a810f",
+      "out": "c33b2bc584c4"
+    },
+    "chat.modelCodeNetworkOff": {
+      "en": "be44d040006d",
+      "out": "e8d0e0e076f9"
+    },
+    "chat.modelCodeNetworkFailed": {
+      "en": "91fb8ccec638",
+      "out": "55d1af4bc20f"
+    },
     "embedding.notRebuilt": {
       "en": "498a6628123d",
       "out": "329a1e6b3ec8"
@@ -26253,6 +26265,14 @@
     "chatPanel.planModeTooltip": {
       "en": "9ba091631614",
       "out": "0d17db3ad185"
+    },
+    "chatPanel.modelCodeNetwork": {
+      "en": "a192ed47c77a",
+      "out": "8aad4feb1346"
+    },
+    "chatPanel.modelCodeNetworkTooltip": {
+      "en": "07e4b76f1004",
+      "out": "d3486d74f6db"
     },
     "chatPanel.webAccess": {
       "en": "a1fee2222a24",

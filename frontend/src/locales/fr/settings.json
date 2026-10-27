@@ -175,7 +175,10 @@
     "thinkingFailed": "Échec de la mise à jour du paramètre de réflexion du Chat",
     "planModeOn": "Les nouveaux chats commencent en mode plan",
     "planModeOff": "Les nouveaux chats commencent sans mode plan",
-    "planModeFailed": "Impossible d'enregistrer le paramètre du mode plan"
+    "planModeFailed": "Impossible d'enregistrer le paramètre du mode plan",
+    "modelCodeNetworkOn": "Le code que l'assistant exécute peut accéder à Internet",
+    "modelCodeNetworkOff": "Le code que l'assistant exécute n'a pas d'accès à Internet",
+    "modelCodeNetworkFailed": "Impossible d'enregistrer le paramètre pour le code que l'assistant exécute"
   },
   "embedding": {
     "notRebuilt": "Non reconstruit automatiquement : {{items}}",
@@ -314,6 +317,8 @@
     "thinkingTooltip": "Par défaut pour les modèles de réflexion. Par chat : /thinking activé ou désactivé.",
     "planMode": "Mode plan",
     "planModeTooltip": "Démarrer les nouveaux chats en mode plan : analyser chaque requête d'abord, et ne rien changer avant d'approuver un plan. /plan permet de le basculer par chat.",
+    "modelCodeNetwork": "Internet pour le code exécuté",
+    "modelCodeNetworkTooltip": "Permettre au Python et au JavaScript que l'assistant écrit et exécute d'accéder à Internet. Désactivé : ce code s'exécute sans réseau, il ne peut donc rien envoyer hors de cette machine.",
     "webAccess": "Accès Web",
     "webAccessTooltip": "Permet aux outils web, navigateur et adresse d'accéder à Internet.",
     "voiceChat": "Chat vocal",

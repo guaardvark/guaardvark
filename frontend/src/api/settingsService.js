@@ -579,6 +579,27 @@ export const setBehaviorLearning = async (enabled) => {
   }
 };
 
+export const getModelCodeNetwork = async () => {
+  try {
+    return await handleResponse(await fetch(`${BASE_URL}/settings/model_code_network`));
+  } catch (err) {
+    return { error: err.message };
+  }
+};
+
+export const setModelCodeNetwork = async (enabled) => {
+  try {
+    const response = await fetch(`${BASE_URL}/settings/model_code_network`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model_code_network: !!enabled }),
+    });
+    return await handleResponse(response);
+  } catch (err) {
+    return { error: err.message };
+  }
+};
+
 export const getPlanModeDefault = async () => {
   try {
     return await handleResponse(await fetch(`${BASE_URL}/settings/plan_mode_default`));

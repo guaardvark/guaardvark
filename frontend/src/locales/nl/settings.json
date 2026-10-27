@@ -175,7 +175,10 @@
     "thinkingFailed": "Fout bij het bijwerken van de Chat-denkinstelling",
     "planModeOn": "Nieuwe chats beginnen in planmodus",
     "planModeOff": "Nieuwe chats beginnen zonder planmodus",
-    "planModeFailed": "Kon de instelling voor planmodus niet opslaan"
+    "planModeFailed": "Kon de instelling voor planmodus niet opslaan",
+    "modelCodeNetworkOn": "Code die de assistent uitvoert kan verbinding maken met het internet",
+    "modelCodeNetworkOff": "Code die de assistent uitvoert heeft geen toegang tot het internet",
+    "modelCodeNetworkFailed": "Instelling voor code die de assistent uitvoert kon niet worden opgeslagen"
   },
   "embedding": {
     "notRebuilt": "Niet automatisch herbouwd: {{items}}",
@@ -314,6 +317,8 @@
     "thinkingTooltip": "Standaard voor denkmodellen. Per chat: /thinking aan of uit.",
     "planMode": "Planmodus",
     "planModeTooltip": "Start nieuwe chats in planmodus: bekijk elke aanvraag eerst en verander niets totdat je een plan goedkeurt. /plan schakelt dit per chat om.",
+    "modelCodeNetwork": "Internet voor de code die het uitvoert",
+    "modelCodeNetworkTooltip": "Laat Python en JavaScript die de assistent schrijft en uitvoert verbinding maken met het internet. Uit: de code wordt uitgevoerd zonder netwerk, dus kan het niets van deze machine verzenden.",
     "webAccess": "Webtoegang",
     "webAccessTooltip": "Zorgt ervoor dat web-, browser- en adres-tools verbinding maken met het internet.",
     "voiceChat": "Stemchat",

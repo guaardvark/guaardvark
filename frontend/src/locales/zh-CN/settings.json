@@ -175,7 +175,10 @@
     "thinkingFailed": "更新对话思考设置失败",
     "planModeOn": "新对话将以计划模式开始",
     "planModeOff": "新对话将不启用计划模式",
-    "planModeFailed": "无法保存计划模式设置"
+    "planModeFailed": "无法保存计划模式设置",
+    "modelCodeNetworkOn": "助手运行的代码可以使用互联网",
+    "modelCodeNetworkOff": "助手运行的代码无法访问互联网",
+    "modelCodeNetworkFailed": "无法保存助手运行代码的网络设置"
   },
   "embedding": {
     "notRebuilt": "未自动重建：{{items}}",
@@ -313,6 +316,8 @@
     "thinkingTooltip": "思考模型的默认设置。单个对话：输入 /thinking 开启或关闭。",
     "planMode": "计划模式",
     "planModeTooltip": "在计划模式下开始新对话：首先分析每个请求，在您确认计划前不进行任何更改。/plan 可在单个对话中切换该模式。",
+    "modelCodeNetwork": "所运行代码的互联网访问",
+    "modelCodeNetworkTooltip": "允许助手编写并运行的 Python 和 JavaScript 连接互联网。关闭：该代码在无网络状态下运行，因此无法发送任何数据到本机器之外。",
     "webAccess": "网络访问",
     "webAccessTooltip": "允许网络、浏览器和地址工具连接互联网。",
     "voiceChat": "语音对话",
