@@ -87,3 +87,67 @@ use `docker.io/ollama/ollama:latest`.
   PostgreSQL, Redis and Ollama are reachable only inside the `guaardvark` network.
 - Container health checks are set with `HealthCmd=` because `HEALTHCHECK` in the
   Dockerfiles is ignored in the OCI image format.
+
+## System-wide (rootful) install, start at boot without a login
+
+The same units also run as system services. Tested rootful on Podman 5.8.
+
+Images live in the storage of the user that built them. Build as root, or copy
+rootless images over:
+
+```
+sudo podman build -f docker/Dockerfile.frontend -t localhost/guaardvark-frontend .
+sudo podman build -f docker/Dockerfile.backend --build-arg TORCH_CHANNEL=rocm6.3 -t localhost/guaardvark-backend .
+```
+
+or
+
+```
+podman save localhost/guaardvark-backend:latest | sudo podman load
+podman save localhost/guaardvark-frontend:latest | sudo podman load
+```
+
+Put the secrets file (created as in step 2) where the system units can read it:
+
+```
+sudo install -d -m 700 /etc/guaardvark
+sudo cp ~/.config/guaardvark/guaardvark.env /etc/guaardvark/guaardvark.env
+sudo chmod 600 /etc/guaardvark/guaardvark.env
+```
+
+Install adapted copies of the units. In system units `%h` is `/root`, so the
+secrets path is replaced; `WantedBy` becomes `multi-user.target`; `GroupAdd=keep-groups`
+is dropped (not needed as root):
+
+```
+cd docker/quadlet
+sudo install -d /etc/containers/systemd
+for f in *.network *.container; do
+  sed -e 's#%h/.config/guaardvark/guaardvark.env#/etc/guaardvark/guaardvark.env#' \
+      -e 's#^WantedBy=default.target#WantedBy=multi-user.target#' \
+      -e '/^GroupAdd=keep-groups/d' "$f" | sudo tee /etc/containers/systemd/"$f" >/dev/null
+done
+sudo systemctl daemon-reload
+sudo systemctl start guaardvark-frontend
+```
+
+Do not run the rootless and the system-wide units at the same time (ports 5173
+and 5000). Port 5173 is published on all interfaces; open it in the firewall
+only if you want to reach the UI from other devices. Protected actions need the
+API key.
+
+## Using an existing Ollama
+
+If Ollama already runs on the host or in another container that publishes port
+11434, skip `guaardvark-ollama.container` (do not install it) and point the
+backend at it. In `guaardvark-backend.container`, remove `guaardvark-ollama.service`
+from `Requires=` and `After=` and set:
+
+```
+Environment=OLLAMA_BASE_URL=http://host.containers.internal:11434
+Environment=OLLAMA_HOST=http://host.containers.internal:11434
+```
+
+Pull the embedding model that RAG needs into that Ollama
+(`ollama pull nomic-embed-text`). Tested rootful with Ollama running in another
+container on the same host.
