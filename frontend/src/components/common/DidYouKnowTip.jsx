@@ -37,8 +37,8 @@ export const TIP_DELAY_MS = 6000;
 export const STAR_ASK_AFTER_WIN_MS = 4000;
 const DIALOG_RETRY_MS = 5000;
 const GAP = 16;
-// Three actions share one row on the 320 px card; the theme's wide letter
-// spacing would wrap each label onto two lines.
+// The theme's wide letter spacing would break each label onto two lines; in
+// longer languages the row wraps instead, between buttons.
 const starButtonSx = { textTransform: "none", whiteSpace: "nowrap", letterSpacing: 0.2, minWidth: 0, px: 1 };
 
 // Only the stock brand asks; a downstream brand.jsx leaves the flag out.
@@ -219,7 +219,7 @@ const DidYouKnowTip = ({
         <Typography variant="body2" sx={{ color: "text.primary", lineHeight: 1.45 }}>
           {t("layoutCommon.starAsk.text", { appName })}
         </Typography>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 1, mx: -0.75 }}>
+        <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.25, mt: 1, mx: -0.75 }}>
           <Button
             size="small"
             variant="contained"
