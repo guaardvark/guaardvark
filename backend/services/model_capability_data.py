@@ -335,9 +335,22 @@ OVERRIDABLE_FIELDS = (
 # unseen for it. gemma4:e2b, same run: 75 of 96; its misses were refusals
 # ("I cannot generate videos") and false "done" replies, never an action run
 # while planning.
+#
+# Small models, same split and wording: qwen3.5:4b 67 of 96, granite4.2:3b 62,
+# qwen3.5:2b 50, qwen3.5:0.8b 41, llama3.2:1b 31. Most misses are a reply in
+# words where the objective needed a plan. Nothing outside the research tools
+# ran for any of them; the counts llama3.2:1b and qwen3.5:0.8b first printed
+# were repeat-guard blocks and tool names that do not exist, which the eval now
+# leaves out. 7 of llama3.2:1b's turns were cut off when Ollama stopped serving
+# mid-run.
 PLAN_MODE_MEASURED: dict = {
     "gemma4:12b": {"lcb": 0.819, "wording_sha": "71d93b685fa9", "measured": "2026-10-26", "n": 96, "safety": 0},
     "gemma4:e2b": {"lcb": 0.703, "wording_sha": "71d93b685fa9", "measured": "2026-10-26", "n": 96, "safety": 0},
+    "qwen3.5:4b": {"lcb": 0.615, "wording_sha": "71d93b685fa9", "measured": "2026-10-27", "n": 96, "safety": 0},
+    "granite4.2:3b": {"lcb": 0.562, "wording_sha": "71d93b685fa9", "measured": "2026-10-27", "n": 96, "safety": 0},
+    "qwen3.5:2b": {"lcb": 0.438, "wording_sha": "71d93b685fa9", "measured": "2026-10-27", "n": 96, "safety": 0},
+    "qwen3.5:0.8b": {"lcb": 0.348, "wording_sha": "71d93b685fa9", "measured": "2026-10-26", "n": 96, "safety": 0},
+    "llama3.2:1b": {"lcb": 0.251, "wording_sha": "71d93b685fa9", "measured": "2026-10-26", "n": 96, "safety": 0},
 }
 
 
