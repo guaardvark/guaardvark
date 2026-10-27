@@ -37,6 +37,9 @@ CODE_EXTENSIONS = frozenset({
     ".dockerfile",
 })
 
+# Parsed from the file itself (Docling), so binary bytes are expected.
+PARSED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".docx", ".pptx"})
+
 # Markup and configuration. Embedded like documents; the upload path has always
 # flagged them is_code_file so the Code page lists them next to the source.
 MARKUP_CONFIG_EXTENSIONS = frozenset({
@@ -125,4 +128,6 @@ def looks_binary(path: PathLike, sample_bytes: int = 8192) -> bool:
 
 def never_read_as_text(path: PathLike) -> bool:
     """Media, build output and binary files: their bytes are not text to store or embed."""
-    return kind_of(path) in (MEDIA, BUILD_ARTIFACT) or looks_binary(path)
+    if kind_of(path) in (MEDIA, BUILD_ARTIFACT):
+        return True
+    return _ext(path) not in PARSED_DOCUMENT_EXTENSIONS and looks_binary(path)
