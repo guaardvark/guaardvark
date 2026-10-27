@@ -16851,6 +16851,34 @@
       "en": "52f3a7f46c24",
       "out": "3dba50a7cd32"
     },
+    "starAsk.regionLabel": {
+      "en": "9becc508c598",
+      "out": "f143da865b0f"
+    },
+    "starAsk.title": {
+      "en": "0b4bd5620356",
+      "out": "ff1f2be29eda"
+    },
+    "starAsk.text": {
+      "en": "baf4f7d852f8",
+      "out": "f31510ec71ec"
+    },
+    "starAsk.star": {
+      "en": "9becc508c598",
+      "out": "f143da865b0f"
+    },
+    "starAsk.later": {
+      "en": "56e2f5d3634e",
+      "out": "a1ec84cf0451"
+    },
+    "starAsk.never": {
+      "en": "00c773047951",
+      "out": "19d8134fd115"
+    },
+    "starAsk.close": {
+      "en": "43623d0322d6",
+      "out": "45e0e8c4c8f4"
+    },
     "directoryPicker.title": {
       "en": "9e3dfa4e1ec4",
       "out": "1f1651cd180b"
@@ -26141,6 +26169,10 @@
     },
     "aboutPanel.sponsors": {
       "en": "82cebd0cac45"
+    },
+    "aboutPanel.starOnGithub": {
+      "en": "9becc508c598",
+      "out": "e086891f66e4"
     },
     "deleteHistory.images": {
       "en": "09e871c98fef"

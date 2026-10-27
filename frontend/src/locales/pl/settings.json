@@ -497,7 +497,8 @@
     "title": "O programie",
     "support": "Wesprzyj projekt",
     "supportHelp": "Stworzone z miłością przez dewelopera solo. Każdy link otwiera się w nowej karcie.",
-    "sponsors": "Sponsorzy"
+    "sponsors": "Sponsorzy",
+    "starOnGithub": "Dodaj gwiazdkę na GitHub"
   },
   "deleteHistory": {
     "images": "Obrazy",

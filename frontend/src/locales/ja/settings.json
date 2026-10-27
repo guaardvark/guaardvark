@@ -495,7 +495,8 @@
     "title": "概要",
     "support": "プロジェクトを支援する",
     "supportHelp": "個人開発者によって愛情を込めて制作されました。各リンクは新しいタブで開きます。",
-    "sponsors": "スポンサー"
+    "sponsors": "スポンサー",
+    "starOnGithub": "GitHubでスターを付ける"
   },
   "deleteHistory": {
     "images": "画像",

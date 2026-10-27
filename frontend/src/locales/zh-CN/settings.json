@@ -495,7 +495,8 @@
     "title": "关于",
     "support": "支持项目",
     "supportHelp": "由独立开发者倾心打造。每个链接都会在新标签页中打开。",
-    "sponsors": "赞助者"
+    "sponsors": "赞助者",
+    "starOnGithub": "在 GitHub 上加星标"
   },
   "deleteHistory": {
     "images": "图像",

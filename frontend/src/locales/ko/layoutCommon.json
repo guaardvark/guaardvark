@@ -20,6 +20,15 @@
     "nextTip": "다음 팁",
     "stopTips": "팁 표시 안 함"
   },
+  "starAsk": {
+    "regionLabel": "GitHub에서 별표 추가",
+    "title": "GitHub에서 {{appName}}에 별표 추가",
+    "text": "{{appName}}이 유용하다면, GitHub에서 별표를 눌러 다른 사람들이 찾을 수 있게 도와주세요.",
+    "star": "GitHub에서 별표 추가",
+    "later": "나중에",
+    "never": "다시 묻지 않기",
+    "close": "나중에 물어보기"
+  },
   "directoryPicker": {
     "title": "디렉터리 선택",
     "loadFailed": "폴더를 불러오지 못했습니다",

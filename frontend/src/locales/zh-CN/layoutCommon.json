@@ -20,6 +20,15 @@
     "nextTip": "下一个提示",
     "stopTips": "不再显示提示"
   },
+  "starAsk": {
+    "regionLabel": "在 GitHub 上加星标",
+    "title": "在 GitHub 上为 {{appName}} 加星标",
+    "text": "如果 {{appName}} 对您有用，在 GitHub 上为它加星标可以帮助其他人找到它。",
+    "star": "在 GitHub 上加星标",
+    "later": "稍后",
+    "never": "不再提示",
+    "close": "稍后再问我"
+  },
   "directoryPicker": {
     "title": "选择目录",
     "loadFailed": "加载文件夹失败",

@@ -20,6 +20,15 @@
     "nextTip": "Nächster Tipp",
     "stopTips": "Keine Tipps mehr anzeigen"
   },
+  "starAsk": {
+    "regionLabel": "Stern auf GitHub",
+    "title": "{{appName}} auf GitHub mit einem Stern markieren",
+    "text": "Wenn {{appName}} dir nützlich ist, hilft ein Stern auf GitHub anderen Leuten, es zu finden.",
+    "star": "Stern auf GitHub geben",
+    "later": "Später",
+    "never": "Nicht mehr fragen",
+    "close": "Frag mich später"
+  },
   "directoryPicker": {
     "title": "Verzeichnis auswählen",
     "loadFailed": "Ordner konnte nicht geladen werden",

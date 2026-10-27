@@ -496,7 +496,8 @@
     "title": "Über",
     "support": "Projekt unterstützen",
     "supportHelp": "Mit Liebe von einem einzelnen Entwickler erstellt. Jeder Link öffnet einen neuen Tab.",
-    "sponsors": "Unterstützer"
+    "sponsors": "Unterstützer",
+    "starOnGithub": "Auf GitHub mit einem Stern markieren"
   },
   "deleteHistory": {
     "images": "Bilder",
