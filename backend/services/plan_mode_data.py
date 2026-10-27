@@ -242,13 +242,16 @@ def unavailable(available: Optional[Iterable[str]] = None, *, web: bool = True) 
     for kind, spec in STEP_KINDS.items():
         if not spec["tools"] or not spec["ability"]:
             continue
+        works_here = ""
         if kind in offered:
             missing = [t for t in spec.get("tool_abilities", {}) if t not in offered[kind]]
             ability = _kind_ability(kind, missing) if missing else ""
+            # Name the part that does work, or a small model sends it all elsewhere.
+            works_here = f"; {_kind_ability(kind, offered[kind])} works here" if ability else ""
         else:
             ability = spec["ability"]
         if ability:
-            out.append(f"{ability} (that is done on {spec['elsewhere']})"
+            out.append(f"{ability} (that is done on {spec['elsewhere']}{works_here})"
                        if spec.get("elsewhere") else ability)
     if not web:
         out.append("looking things up on the web (web access is off in Settings)")
