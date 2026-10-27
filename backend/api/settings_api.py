@@ -551,6 +551,33 @@ def set_plan_mode_default():
     return success_response({"plan_mode_default": enabled})
 
 
+@settings_bp.route("/model_code_network", methods=["GET"])
+def get_model_code_network():
+    """Whether code the chat model writes and runs (execute_python,
+    execute_javascript) may use the network. Default: off."""
+    from backend.services.code_sandbox import network_allowed
+    return success_response({"model_code_network": network_allowed()})
+
+
+@settings_bp.route("/model_code_network", methods=["POST"])
+def set_model_code_network():
+    if not request.is_json:
+        return error_response("Request must be JSON")
+    enabled = bool(request.get_json().get("model_code_network"))
+    try:
+        setting = db.session.get(Setting, "model_code_network")
+        if setting:
+            setting.value = "true" if enabled else "false"
+        else:
+            db.session.add(Setting(key="model_code_network", value="true" if enabled else "false"))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to update model_code_network setting: {e}", exc_info=True)
+        return error_response("Could not save the setting", 500)
+    return success_response({"model_code_network": enabled})
+
+
 @settings_bp.route("/chat_thinking_default", methods=["GET"])
 def get_chat_thinking_default():
     """Global default for whether thinking-capable models (gemma4:12b, qwen3, ...)

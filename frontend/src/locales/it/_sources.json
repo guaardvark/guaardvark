@@ -26137,6 +26137,18 @@
       "en": "e0a94537c148",
       "out": "bdb0df22afb9"
     },
+    "chat.modelCodeNetworkOn": {
+      "en": "5e011e6a810f",
+      "out": "fe1a9e986966"
+    },
+    "chat.modelCodeNetworkOff": {
+      "en": "be44d040006d",
+      "out": "f8afb88eb8d6"
+    },
+    "chat.modelCodeNetworkFailed": {
+      "en": "91fb8ccec638",
+      "out": "a9dc160ccad7"
+    },
     "embedding.notRebuilt": {
       "en": "498a6628123d",
       "out": "abbde8b89fe5"
@@ -26600,6 +26612,14 @@
     "chatPanel.planModeTooltip": {
       "en": "9ba091631614",
       "out": "740c07c0d90d"
+    },
+    "chatPanel.modelCodeNetwork": {
+      "en": "a192ed47c77a",
+      "out": "c8897d87e885"
+    },
+    "chatPanel.modelCodeNetworkTooltip": {
+      "en": "07e4b76f1004",
+      "out": "ff30674d1fbc"
     },
     "chatPanel.webAccess": {
       "en": "a1fee2222a24",

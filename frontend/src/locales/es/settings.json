@@ -175,7 +175,10 @@
     "thinkingFailed": "Error al actualizar el ajuste de pensamiento del Chat",
     "planModeOn": "Los nuevos chats comienzan en modo plan",
     "planModeOff": "Los nuevos chats comienzan sin modo plan",
-    "planModeFailed": "No se pudo guardar la configuración del modo plan"
+    "planModeFailed": "No se pudo guardar la configuración del modo plan",
+    "modelCodeNetworkOn": "El código que el asistente ejecuta puede usar internet",
+    "modelCodeNetworkOff": "El código que el asistente ejecuta no tiene acceso a internet",
+    "modelCodeNetworkFailed": "No se pudo guardar la configuración para el código que el asistente ejecuta"
   },
   "embedding": {
     "notRebuilt": "No reconstruido automáticamente: {{items}}",
@@ -314,6 +317,8 @@
     "thinkingTooltip": "Predeterminado para modelos de pensamiento. Por chat: /thinking activado o desactivado.",
     "planMode": "Modo plan",
     "planModeTooltip": "Iniciar nuevos chats en modo plan: analiza cada solicitud primero y no cambies nada hasta que apruebes un plan. /plan lo cambia por chat.",
+    "modelCodeNetwork": "Internet para el código que ejecuta",
+    "modelCodeNetworkTooltip": "Permite que el Python y JavaScript que el asistente escribe y ejecuta acceda a internet. Desactivado: ese código se ejecuta sin red, por lo que no puede enviar nada fuera de esta máquina.",
     "webAccess": "Acceso web",
     "webAccessTooltip": "Permite que las herramientas de web, navegador y dirección accedan a internet.",
     "voiceChat": "Chat de voz",

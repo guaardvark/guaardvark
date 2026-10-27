@@ -175,7 +175,10 @@
     "thinkingFailed": "Nie udało się zaktualizować ustawienia myślenia w Czat",
     "planModeOn": "Nowe czaty zaczynają się w trybie planowania",
     "planModeOff": "Nowe czaty zaczynają się bez trybu planowania",
-    "planModeFailed": "Nie udało się zapisać ustawienia trybu planowania"
+    "planModeFailed": "Nie udało się zapisać ustawienia trybu planowania",
+    "modelCodeNetworkOn": "Kod, który uruchamia asystent, może korzystać z internetu",
+    "modelCodeNetworkOff": "Kod, który uruchamia asystent, nie ma dostępu do internetu",
+    "modelCodeNetworkFailed": "Nie udało się zapisać ustawienia dla kodu, który uruchamia asystent"
   },
   "embedding": {
     "notRebuilt": "Nie przebudowane automatycznie: {{items}}",
@@ -315,6 +318,8 @@
     "thinkingTooltip": "Domyślne dla modeli myślących. Dla każdego Czatu: /thinking włącz lub wyłącz.",
     "planMode": "Tryb planowania",
     "planModeTooltip": "Zaczynaj nowe czaty w trybie planowania: najpierw analizuj każde zapytanie i nie wprowadzaj zmian, dopóki nie zatwierdzisz planu. /plan przełącza to dla konkretnego czatu.",
+    "modelCodeNetwork": "Internet dla kodu, który uruchamia",
+    "modelCodeNetworkTooltip": "Zezwól na dostęp do internetu dla kodu w Python i JavaScript, który asystent pisze i uruchamia. Wyłączone: kod uruchamia się bez sieci, więc nie może wysyłać niczego poza tym urządzeniem.",
     "webAccess": "Dostęp do sieci",
     "webAccessTooltip": "Pozwala narzędziom sieciowym, przeglądarkowym i adresowym na dostęp do internetu.",
     "voiceChat": "Czat głosowy",

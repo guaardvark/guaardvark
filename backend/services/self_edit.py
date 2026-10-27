@@ -227,6 +227,26 @@ def tests_enabled() -> bool:
         return True
 
 
+def network_findings(path: str, old_text: str, new_text: str) -> Optional[List[Dict[str, Any]]]:
+    """What a replacement in Guaardvark's own code adds that reaches outside
+    the machine: the inbound guard's outbound-network findings (a new outside
+    host, a hosted AI or telemetry client, TLS checks off, a raw socket),
+    whatever mode the guard is in. None when the change cannot be judged, so a
+    caller can ask instead of assuming it is clean."""
+    from backend.services import inbound_guard_service as guard
+
+    try:
+        file_path = Path(path).resolve()
+        current = file_path.read_text(encoding="utf-8") if file_path.exists() else ""
+        change = guard.change_for_replacement(file_path, current, old_text, new_text or "")
+        verdict = guard.engine().scan([change], source="self_code", subject=f"network check: {file_path.name}",
+                                      mode="observe", repo=guard.REPO_ROOT)
+    except Exception as exc:  # noqa: BLE001 - unknown means ask
+        logger.info("self-edit network check could not judge %s: %s", path, exc)
+        return None
+    return [f.to_dict() for f in verdict.findings if f.pack == "outbound-network"]
+
+
 # ---------------------------------------------------------------------------
 # Apply and revert
 # ---------------------------------------------------------------------------

@@ -205,6 +205,7 @@ const SettingsPage = () => {
   // Off = faster chat; per-chat /thinking on|off overrides. Backend authoritative.
   const [chatThinkingDefault, setChatThinkingDefaultState] = useState(false);
   const [planModeDefault, setPlanModeDefaultState] = useState(false);
+  const [modelCodeNetwork, setModelCodeNetworkState] = useState(false);
   const [appVersion, setAppVersion] = useState("");
 
   function getInitialWebSearch() {
@@ -1331,6 +1332,10 @@ const SettingsPage = () => {
       const enabled = result?.data?.plan_mode_default ?? result?.plan_mode_default;
       if (typeof enabled === "boolean") setPlanModeDefaultState(enabled);
     });
+    apiService.getModelCodeNetwork().then((result) => {
+      const enabled = result?.data?.model_code_network ?? result?.model_code_network;
+      if (typeof enabled === "boolean") setModelCodeNetworkState(enabled);
+    });
   }, []);
 
   useEffect(() => {
@@ -2153,6 +2158,17 @@ const SettingsPage = () => {
       return;
     }
     showMessage(next ? t("settings.chat.planModeOn") : t("settings.chat.planModeOff"), "info");
+  };
+
+  const handleModelCodeNetworkToggle = async (next) => {
+    setModelCodeNetworkState(next);
+    const result = await apiService.setModelCodeNetwork(next);
+    if (result?.error) {
+      setModelCodeNetworkState(!next);
+      showMessage(t("settings.chat.modelCodeNetworkFailed"), "error");
+      return;
+    }
+    showMessage(next ? t("settings.chat.modelCodeNetworkOn") : t("settings.chat.modelCodeNetworkOff"), "info");
   };
 
   // Asks first (ConfirmActionDialog below); switchEmbedding runs on confirm.
@@ -3028,6 +3044,12 @@ const SettingsPage = () => {
             on={webSearchEnabled}
             onToggle={handleWebSearchToggle}
             tooltip={t("settings.chatPanel.webAccessTooltip")}
+          />
+          <SettingChip
+            label={t("settings.chatPanel.modelCodeNetwork")}
+            on={modelCodeNetwork}
+            onToggle={handleModelCodeNetworkToggle}
+            tooltip={t("settings.chatPanel.modelCodeNetworkTooltip")}
           />
           <SettingChip
             label={t("settings.chatPanel.voiceChat")}

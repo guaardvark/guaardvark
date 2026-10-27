@@ -12,12 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class ExecutePythonTool(BaseTool):
-    """Execute Python code (python3 subprocess with a timeout; NOT sandboxed)"""
+    """Execute Python code (python3 subprocess with a timeout; no network unless allowed)"""
     
     name = "execute_python"
     read_only = False
-    description = ("Run Python code on this machine and return the output (30s timeout, not sandboxed; "
-                   "the user is asked to approve each run)")
+    description = ("Run Python code on this machine and return the output (30s timeout; the user is asked "
+                   "to approve each run). It has no internet or network access unless the person allowed "
+                   "it in Settings, so do not fetch URLs or call APIs from it.")
     is_dangerous = True
     requires_approval = True
     parameters = {
@@ -72,12 +73,15 @@ class ExecutePythonTool(BaseTool):
             temp_file = create_temp_file(code, '.py')
             
             try:
-                # Execute with or without stdin
+                # Without the network unless the person allowed it (code_sandbox).
+                from backend.services.code_sandbox import wrap
+                command, refused = wrap(['python3', temp_file])
+                if refused:
+                    cleanup_temp_file(temp_file)
+                    return ToolResult(success=False, error=refused, metadata={"blocked_by": "no_network_sandbox"})
                 if input_data:
-                    command = ['python3', temp_file]
                     result = execute_command_with_stdin(command, timeout, input_data)
                 else:
-                    command = ['python3', temp_file]
                     result = execute_command(command, timeout)
                 
                 # Cleanup temp file
@@ -120,7 +124,8 @@ class ExecuteJavaScriptTool(BaseTool):
     
     name = "execute_javascript"
     read_only = False
-    description = "Execute JavaScript/Node.js code safely and return the output"
+    description = ("Execute JavaScript/Node.js code and return the output. It has no internet or network "
+                   "access unless the person allowed it in Settings.")
     is_dangerous = True
     requires_approval = True
     parameters = {
@@ -153,7 +158,12 @@ class ExecuteJavaScriptTool(BaseTool):
             temp_file = create_temp_file(code, '.js')
             
             try:
-                command = ['node', temp_file]
+                # Without the network unless the person allowed it (code_sandbox).
+                from backend.services.code_sandbox import wrap
+                command, refused = wrap(['node', temp_file])
+                if refused:
+                    cleanup_temp_file(temp_file)
+                    return ToolResult(success=False, error=refused, metadata={"blocked_by": "no_network_sandbox"})
                 result = execute_command(command, timeout)
                 cleanup_temp_file(temp_file)
                 

@@ -88,6 +88,10 @@ class BrowserNavigateTool(BaseTool):
         refusal = _outside_refusal(url)
         if refusal:
             return ToolResult(success=False, error=refusal)
+        from backend.services.web_provenance import refusal as _provenance_refusal
+        not_named = _provenance_refusal(kwargs.get("_agent_context"), url)
+        if not_named:
+            return ToolResult(success=False, error=not_named, metadata={"blocked_by": "web_provenance"})
 
         # If agent virtual display is active, navigate via xdotool on :99
         try:

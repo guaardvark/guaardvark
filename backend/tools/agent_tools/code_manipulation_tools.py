@@ -14,7 +14,7 @@ These tools enable Claude Code-like behavior:
 import logging
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult, register_tool
 from backend.tools.llama_code_tools import (
@@ -697,6 +697,29 @@ class EditCodeTool(BaseTool):
                 metadata={"filepath": filepath}
             )
 
+
+    def always_ask(self, params: Dict[str, Any]) -> Optional[str]:
+        """A change to Guaardvark's own code that reaches outside the machine
+        asks the person every time, also in a plan approved with its actions
+        allowed (agent_tools.always_ask_reason)."""
+        from backend.services import self_edit
+
+        params = params or {}
+        filepath = params.get("filepath")
+        if not filepath or params.get("dry_run") or params.get("old_text") is None:
+            return None
+        if not os.path.isabs(filepath):
+            filepath = os.path.join(os.environ.get("GUAARDVARK_ROOT") or str(self_edit.repo_root()), filepath)
+        if not self_edit.is_own_code(filepath):
+            return None
+        findings = self_edit.network_findings(filepath, params["old_text"], params.get("new_text") or "")
+        if findings is None:
+            return "This change to Guaardvark's own code could not be checked for network calls."
+        if not findings:
+            return None
+        first = findings[0]
+        return (f"This change to Guaardvark's own code reaches outside this machine: {first['why']} "
+                f"({(first.get('excerpt') or '').strip()[:120]}).")
 
     def _edit_own_code(self, filepath, old_text, new_text, ctx, expected_hash, expected_mtime) -> ToolResult:
         """An edit to Guaardvark's own code: a restore point first, then the

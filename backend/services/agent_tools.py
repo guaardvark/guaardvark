@@ -870,13 +870,33 @@ def describe_tool_parameters(tool) -> str:
     return "; ".join(parts) or "none"
 
 
+def always_ask_reason(tool, params: Dict[str, Any]) -> Optional[str]:
+    """Why this call asks even when its tool was approved ahead of time, or None.
+
+    A tool opts in with ``always_ask(params)``, returning the reason for the
+    calls that must always reach a person (edit_code: a change to Guaardvark's
+    own code that adds a network call). A check that fails asks.
+    """
+    check = getattr(tool, "always_ask", None)
+    if not callable(check):
+        return None
+    try:
+        return check(params or {}) or None
+    except Exception:
+        logger.debug("always_ask check failed for %s; asking", getattr(tool, "name", tool), exc_info=True)
+        return "This call could not be checked, so it asks first."
+
+
 def tool_needs_approval_card(tool, tool_name: str, params: Dict[str, Any], preapproved: set) -> bool:
     """Whether this call must pause for a person's approval card.
 
     Chat shows the card; a caller with no card to show refuses the call.
     A consent-gated tool whose reference image already has a consent record
-    does not ask again: the record is the durable answer.
+    does not ask again: the record is the durable answer. A call with an
+    always_ask reason asks even when its tool was approved ahead of time.
     """
+    if tool and always_ask_reason(tool, params):
+        return True
     if not tool or not getattr(tool, "requires_approval", False) or tool_name in preapproved:
         return False
     # A tool can narrow its own approval to the calls that need it, e.g.
