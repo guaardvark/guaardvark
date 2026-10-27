@@ -25,6 +25,9 @@ def _setup_repo(tmp_path, monkeypatch):
         "backend/services/thing.py.BACK",
         "backend/api/backs/old_api.py",
         "backend/api/_archive/dead_api.py",
+        "backend/services/thing.py.backup",
+        "frontend/src/App.jsx.Bak",
+        "backups/self_edits/abc123/backend/services/thing.py",
     ],
 )
 def test_edit_rejected_on_backup_artifact_paths(tmp_path, monkeypatch, rel_path):
@@ -149,7 +152,6 @@ def test_reason_matches_the_mappers_archived_lifecycle():
 # --- Order: PROTECTED_FILE wins over READONLY_LIFECYCLE -------------------
 
 def test_protected_file_beats_readonly_lifecycle(tmp_path, monkeypatch):
-    from backend.services import guarded_code_service as gcs
     from backend.services.guarded_code_service import (
         GuardedCodeError,
         apply_exact_replacement,
