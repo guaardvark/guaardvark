@@ -40,3 +40,19 @@ def test_binary_content_is_never_read_as_text(tmp_path):
     assert fk.never_read_as_text(image)
     assert fk.is_image(image)
     assert not fk.is_image(tmp_path / "song.wav")
+
+
+def test_pdf_with_nul_bytes_is_parsed_not_refused(tmp_path):
+    from backend.utils import file_kinds
+
+    pdf = tmp_path / "doc.pdf"
+    pdf.write_bytes(b"%PDF-1.7\n" + b"\x00" * 64)
+    assert not file_kinds.never_read_as_text(pdf)
+
+
+def test_unknown_binary_with_nul_bytes_is_still_refused(tmp_path):
+    from backend.utils import file_kinds
+
+    blob = tmp_path / "data.bin"
+    blob.write_bytes(b"\x00" * 64)
+    assert file_kinds.never_read_as_text(blob)
