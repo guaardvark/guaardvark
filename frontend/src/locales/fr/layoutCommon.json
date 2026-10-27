@@ -20,6 +20,15 @@
     "nextTip": "Astuce suivante",
     "stopTips": "Ne plus afficher d'astuces"
   },
+  "starAsk": {
+    "regionLabel": "Étoile sur GitHub",
+    "title": "Ajouter une étoile à {{appName}} sur GitHub",
+    "text": "Si {{appName}} vous est utile, une étoile sur GitHub aide les autres à le trouver.",
+    "star": "Ajouter une étoile sur GitHub",
+    "later": "Plus tard",
+    "never": "Ne plus demander",
+    "close": "Me demander plus tard"
+  },
   "directoryPicker": {
     "title": "Sélectionner le répertoire",
     "loadFailed": "Échec du chargement du dossier",

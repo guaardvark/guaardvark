@@ -23,6 +23,9 @@ export const brand = {
   defaultThemeKey: env.VITE_BRAND_THEME || "guaardvark",
   // React component rendered wherever the product logo appears.
   logo: GuaardvarkLogo,
+  // The once-or-twice "star on GitHub" card (components/common/starAskModel.js).
+  // A downstream brand.jsx leaves this out, so a private brand never asks.
+  askForGithubStar: true,
   supportLinks: {
     githubRepo: "https://github.com/guaardvark/guaardvark",
     githubSponsors: "https://github.com/sponsors/guaardvark",

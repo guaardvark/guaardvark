@@ -20,6 +20,15 @@
     "nextTip": "Suggerimento successivo",
     "stopTips": "Non mostrare suggerimenti"
   },
+  "starAsk": {
+    "regionLabel": "Stella su GitHub",
+    "title": "Aggiungi una stella a {{appName}} su GitHub",
+    "text": "Se {{appName}} ti è utile, una stella su GitHub aiuta altre persone a trovarlo.",
+    "star": "Aggiungi una stella su GitHub",
+    "later": "Più tardi",
+    "never": "Non chiedere più",
+    "close": "Chiedimi più tardi"
+  },
   "directoryPicker": {
     "title": "Seleziona Cartella",
     "loadFailed": "Caricamento cartella fallito",

@@ -20,6 +20,15 @@
     "nextTip": "次のヒント",
     "stopTips": "ヒントを表示しない"
   },
+  "starAsk": {
+    "regionLabel": "GitHubでスターを付ける",
+    "title": "GitHubで{{appName}}にスターを付ける",
+    "text": "{{appName}}が役に立つ場合は、GitHubでスターを付けることで他の人が見つけやすくなります。",
+    "star": "GitHubでスターを付ける",
+    "later": "後で",
+    "never": "今後表示しない",
+    "close": "後で通知する"
+  },
   "directoryPicker": {
     "title": "ディレクトリを選択",
     "loadFailed": "フォルダの読み込みに失敗しました",

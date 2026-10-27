@@ -19,6 +19,7 @@ import { BASE_URL as API_BASE, SOCKET_URL } from "../api/apiClient";
 import { debugLog } from "../utils/debugLog";
 import { translate, useUiTranslation } from "../i18n";
 import { UPDATE_APPLIED_EVENT } from "./HealthContext";
+import { recordWin } from "../components/common/starAskModel";
 import {
   applyPreviewFrame,
   clearAllPreviews,
@@ -539,6 +540,8 @@ export const UnifiedProgressProvider = ({ children }) => {
       if (status === "complete" || status === "end" || status === "error" || status === "cancelled") {
         // Update process first
         dispatch({ type: ACTIONS.UPDATE_PROCESS, payload: processData });
+
+        if (status === "complete" || status === "end") recordWin(processData.processType);
 
         // Clear any existing timeout to prevent race conditions
         const existingTimeout = processTimeoutRef.current.get(job_id);

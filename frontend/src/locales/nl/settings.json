@@ -496,7 +496,8 @@
     "title": "Over",
     "support": "Steun het project",
     "supportHelp": "Gemaakt met liefde door een solo-ontwikkelaar. Elke link wordt geopend in een nieuw tabblad.",
-    "sponsors": "Sponsoren"
+    "sponsors": "Sponsoren",
+    "starOnGithub": "Geef een ster op GitHub"
   },
   "deleteHistory": {
     "images": "Afbeeldingen",

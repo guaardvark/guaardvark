@@ -20,6 +20,15 @@
     "nextTip": "Następna wskazówka",
     "stopTips": "Nie pokazuj wskazówek"
   },
+  "starAsk": {
+    "regionLabel": "Gwiazdka na GitHub",
+    "title": "Dodaj gwiazdkę dla {{appName}} na GitHub",
+    "text": "Jeśli {{appName}} jest dla Ciebie przydatne, dodanie gwiazdki na GitHub pomoże innym osobom je znaleźć.",
+    "star": "Dodaj gwiazdkę na GitHub",
+    "later": "Później",
+    "never": "Nie pytaj ponownie",
+    "close": "Zapytaj mnie później"
+  },
   "directoryPicker": {
     "title": "Wybierz katalog",
     "loadFailed": "Nie udało się załadować folderu",

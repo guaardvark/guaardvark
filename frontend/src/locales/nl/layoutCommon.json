@@ -20,6 +20,15 @@
     "nextTip": "Volgende tip",
     "stopTips": "Geen tips meer tonen"
   },
+  "starAsk": {
+    "regionLabel": "Ster op GitHub",
+    "title": "Geef {{appName}} een ster op GitHub",
+    "text": "Als {{appName}} nuttig voor je is, helpt een ster op GitHub anderen om het te vinden.",
+    "star": "Geef een ster op GitHub",
+    "later": "Later",
+    "never": "Niet meer vragen",
+    "close": "Vraag me later"
+  },
   "directoryPicker": {
     "title": "Selecteer map",
     "loadFailed": "Map laden mislukt",

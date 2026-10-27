@@ -20,6 +20,15 @@
     "nextTip": "Siguiente consejo",
     "stopTips": "No mostrar consejos"
   },
+  "starAsk": {
+    "regionLabel": "Estrella en GitHub",
+    "title": "Dale una estrella a {{appName}} en GitHub",
+    "text": "Si {{appName}} te resulta útil, una estrella en GitHub ayuda a que otras personas lo encuentren.",
+    "star": "Dar una estrella en GitHub",
+    "later": "Más tarde",
+    "never": "No volver a preguntar",
+    "close": "Pregúntame más tarde"
+  },
   "directoryPicker": {
     "title": "Seleccionar directorio",
     "loadFailed": "Error al cargar la carpeta",

@@ -495,7 +495,8 @@
     "title": "정보",
     "support": "프로젝트 후원",
     "supportHelp": "1인 개발자가 애정을 담아 제작했습니다. 각 링크는 새 탭에서 열립니다.",
-    "sponsors": "후원자"
+    "sponsors": "후원자",
+    "starOnGithub": "GitHub에서 별표 추가"
   },
   "deleteHistory": {
     "images": "이미지",

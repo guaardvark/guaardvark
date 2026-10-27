@@ -496,7 +496,8 @@
     "title": "À propos",
     "support": "Soutenir le projet",
     "supportHelp": "Créé avec amour par un développeur solo. Chaque lien s'ouvre dans un nouvel onglet.",
-    "sponsors": "Sponsors"
+    "sponsors": "Sponsors",
+    "starOnGithub": "Ajouter une étoile sur GitHub"
   },
   "deleteHistory": {
     "images": "Images",
