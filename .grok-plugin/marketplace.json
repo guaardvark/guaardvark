@@ -13,7 +13,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/guaardvark/guaardvark-plugin.git",
-        "sha": "4c30cc1bb084b400854820d6d4deaa085494ac28"
+        "sha": "f823f4c7bcf2f29fa81eeaaf8b8b51d86d2e5c6b"
       },
       "keywords": ["guaardvark"],
       "domains": ["guaardvark.com"]
