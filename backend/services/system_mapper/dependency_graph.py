@@ -308,12 +308,15 @@ def _dormant_candidate(rel: str) -> bool:
 
 
 def _is_backup_artifact(rel: str) -> bool:
+    # ".backup" is the copy guarded_code_service writes beside a file it edits;
+    # backups/ holds the install's backups and the self-edit restore points.
     return (
         "_BACK" in rel
-        or rel.endswith((".BACK", ".BACKUP", ".bak"))
+        or rel.lower().endswith((".back", ".backup", ".bak"))
         or "__BACKUP" in rel
         or "/backs/" in rel
         or "/_archive/" in rel
+        or rel.startswith("backups/")
     )
 
 
