@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.4.1 — A star request after your first finished render
+
+- **The app asks for a GitHub star once you have made something.** About four seconds after your
+  first image, video, upscale, film or LoRA finishes, a card in the tips corner asks for one;
+  someone who only chats sees it on their third day of use instead. "Later" brings it back once,
+  five days of use on; "Star on GitHub" or "Don't ask again" ends it. Turning tips off in
+  Settings → General turns it off too. The button opens the project page in a new tab and nothing
+  else is sent. A rebranded build never shows it.
+- Settings → About labels its GitHub button "Star on GitHub", and both read in all 12 interface
+  languages.
+
 ## 3.4.0 — Plan mode, a Guaardvark that reads and repairs its own code, and speech in chat
 
 - **Plan mode.** `/plan`, or the plan tile in the chat box's feature grid, turns it on for a chat. Every
