@@ -147,7 +147,8 @@
   },
   "generatedMedia": {
     "image": "生成的图像",
-    "video": "生成的视频"
+    "video": "生成的视频",
+    "audio": "语音音频"
   },
   "synthesized": {
     "label": "由工具结果汇总",

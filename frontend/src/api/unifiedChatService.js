@@ -169,6 +169,9 @@ class UnifiedChatService {
   onVideo(callback) {
     this._on("chat:video", callback);
   }
+  onAudio(callback) {
+    this._on("chat:audio", callback);
+  }
   onToolOutputChunk(callback) {
     this._on("chat:tool_output_chunk", callback);
   }

@@ -202,6 +202,7 @@ def execute_plan(plan_id: str, *, session_id: str, emit_fn: Callable, app, agent
                 **(step.get("direct") or {}),
                 "request_id": str(uuid.uuid4()),
                 "plan_step": {"plan_id": plan_id, "index": index},
+                "step_tools": list(step.get("tools") or []),
                 "context": context,
                 "skip_memory_capture": True,
             }

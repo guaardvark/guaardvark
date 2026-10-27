@@ -1179,6 +1179,27 @@ GPU_HEAVY_TOOLS = frozenset({
 })
 
 
+# Asks to hear words spoken: "say good morning out loud", "read this aloud",
+# "text to speech", "narrate this". Chat offers generate_speech only then; the
+# semantic selector would otherwise put it on any turn that reads like dialogue.
+_SPEECH_REQUEST_RE = re.compile(
+    r"\b(?:out\s+loud|aloud|text[\s-]+to[\s-]+speech|tts|voice[\s-]?over|narrat(?:e|ion)"
+    r"|speak\s+(?:this|it|that|these|the\s+following|the\s+words?))\b",
+    re.IGNORECASE,
+)
+
+
+# "Laughing out loud", "thinking out loud": the words, not a request.
+_OUT_LOUD_IDIOM_RE = re.compile(r"\b(?:laugh|think|wonder)\w*\s+(?:out\s+loud|aloud)\b", re.IGNORECASE)
+
+
+def user_wants_speech(message: str) -> bool:
+    """True when the message asks for words to be spoken aloud, not how to do it."""
+    if not message or _HOW_TO_QUESTION_RE.search(message):
+        return False
+    return bool(_SPEECH_REQUEST_RE.search(_OUT_LOUD_IDIOM_RE.sub(" ", message)))
+
+
 def user_wants_video_generation(message: str) -> bool:
     """True for explicit new-video requests; GIF/animation phrasing stays with generate_animation."""
     if not message or not message.strip():
@@ -2962,6 +2983,14 @@ class UnifiedChatEngine:
                         f"{filtered_before - len(selected_tools)} screen-only tool(s)"
                     )
 
+            # generate_speech only when the message asks to hear words, or a plan
+            # step names the tool (its action is not always worded that way).
+            if user_wants_speech(selection_text) or "generate_speech" in (options.get("step_tools") or ()):
+                if "generate_speech" in self.registry.list_tools() and "generate_speech" not in selected_tools:
+                    selected_tools = ["generate_speech"] + selected_tools
+            else:
+                selected_tools = [t for t in selected_tools if t != "generate_speech"]
+
             allowed_tools = options.get("tool_names")
             if allowed_tools is not None:
                 known = set(self.registry.list_tools())
@@ -3691,6 +3720,21 @@ class UnifiedChatEngine:
                             "video_url": vid_info["url"],
                             "alt": vid_info["alt"],
                             "caption": vid_info["caption"],
+                            "session_id": session_id,
+                        })
+                    if res.metadata and res.metadata.get("audio_url"):
+                        spoken = str((t_params or {}).get("text") or "")
+                        aud_info = {
+                            "url": res.metadata["audio_url"],
+                            "alt": f"Spoken: {spoken[:50]}",
+                            "caption": spoken[:200],
+                            "type": "audio",
+                        }
+                        generated_images.append(aud_info)
+                        emit_fn("chat:audio", {
+                            "audio_url": aud_info["url"],
+                            "alt": aud_info["alt"],
+                            "caption": aud_info["caption"],
                             "session_id": session_id,
                         })
                 try:
@@ -4596,6 +4640,17 @@ class UnifiedChatEngine:
                 "type": "video",
                 "alt": "Generated video",
             })
+        audio_url = (result.metadata or {}).get("audio_url") if result.success else None
+        if audio_url:
+            spoken = str(params.get("text") or "")
+            emit_fn("chat:audio", {
+                "audio_url": audio_url,
+                "alt": f"Spoken: {spoken[:50]}",
+                "caption": spoken[:200],
+                "session_id": session_id,
+            })
+            generated_images.append({"url": audio_url, "type": "audio", "alt": f"Spoken: {spoken[:50]}",
+                                     "caption": spoken[:200]})
         image_url = (result.metadata or {}).get("image_url") if result.success else None
         if image_url:
             caption = (result.metadata or {}).get("prompt") or params.get("prompt") or ""

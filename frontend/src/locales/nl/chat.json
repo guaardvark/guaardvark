@@ -154,7 +154,8 @@
   },
   "generatedMedia": {
     "image": "Gegenereerde afbeelding",
-    "video": "Gegenereerde video"
+    "video": "Gegenereerde video",
+    "audio": "Gesproken audio"
   },
   "synthesized": {
     "label": "Samengesteld uit resultaten van tools",

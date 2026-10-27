@@ -377,4 +377,6 @@ class GenerateSpeechTool(BaseTool):
                   "voice": meta.get("voice") or meta.get("voice_id")}
         if job_id:
             output["job_id"] = job_id
-        return ToolResult(success=True, output=output)
+        # audio_url lets chat play the file in the reply (chat:audio).
+        metadata = {"audio_url": output["url"]} if output.get("url") else None
+        return ToolResult(success=True, output=output, metadata=metadata)

@@ -147,7 +147,8 @@
   },
   "generatedMedia": {
     "image": "生成された画像",
-    "video": "生成された動画"
+    "video": "生成された動画",
+    "audio": "音声"
   },
   "synthesized": {
     "label": "ツールの結果から構成",

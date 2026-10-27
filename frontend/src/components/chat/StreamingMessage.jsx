@@ -151,6 +151,7 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
         url: img.url,
         alt: img.alt || t("chat.generatedMedia.image"),
         caption: img.caption || "",
+        ...(img.type ? { type: img.type } : {}),
       }));
       // Deduplicate by URL
       const seenUrls = new Set(socketImages.map((i) => i.url));
@@ -438,6 +439,21 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
       });
     });
 
+    chatService.onAudio((data) => {
+      if (!mountedRef.current || data.session_id !== sessionIdRef.current) return;
+      const newAud = {
+        url: data.audio_url,
+        alt: data.alt || t("chat.generatedMedia.audio"),
+        caption: data.caption || "",
+        type: "audio",
+      };
+      setImages((prev) => {
+        const updated = [...prev, newAud];
+        imagesRef.current = updated;
+        return updated;
+      });
+    });
+
     return () => {
       debugLog('[StreamingMessage] useEffect CLEANUP running: set mountedRef=false; calling chatService.cleanup()');
       mountedRef.current = false;
@@ -611,12 +627,21 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
           />
         ))}
 
-        {/* Inline images and videos (from tool results) */}
+        {/* Inline images, videos and spoken audio (from tool results) */}
         {images.length > 0 && (
           <Box sx={{ mb: 1 }}>
             {images.map((img, idx) => (
               <Box key={idx} sx={{ mb: 1 }}>
-                {img.type === "video" ? (
+                {img.type === "audio" ? (
+                  <Box
+                    component="audio"
+                    controls
+                    autoPlay
+                    aria-label={img.alt || t("chat.generatedMedia.audio")}
+                    sx={{ width: "100%", maxWidth: 400, display: "block" }}
+                    src={guardedMediaSrc(img.url)}
+                  />
+                ) : img.type === "video" ? (
                   <Box
                     component="video"
                     controls
