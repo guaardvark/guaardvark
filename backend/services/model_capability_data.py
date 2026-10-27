@@ -330,9 +330,12 @@ OVERRIDABLE_FIELDS = (
 # run during research (must be 0)}. A model below plan_mode_data.PLAN_MODE_FLOOR
 # is not offered plan mode; one with no row is offered with "not measured yet".
 #
-# gemma4:12b: 85 of 96 passed (held split, 3 repeats). The prompt fixes behind
-# this wording were made from failures on that same split, so it is no longer
-# unseen for it. gemma4:e2b, same run: 75 of 96; its misses were refusals
+# gemma4:12b: 85 of 96 passed (held split, 3 repeats, 2026-10-26), and 83 of 96
+# on 2026-10-27 after speech joined chat (its two speech objectives then needed
+# a plan; it planned all six), 168 of 192 together. The row pools both runs of
+# this wording: alone the second gives 0.795 and the first 0.819. The prompt
+# fixes behind this wording were made from failures on that same split, so it
+# is no longer unseen for it. gemma4:e2b, 2026-10-26: 75 of 96; its misses were refusals
 # ("I cannot generate videos") and false "done" replies, never an action run
 # while planning.
 #
@@ -344,7 +347,7 @@ OVERRIDABLE_FIELDS = (
 # leaves out. 7 of llama3.2:1b's turns were cut off when Ollama stopped serving
 # mid-run.
 PLAN_MODE_MEASURED: dict = {
-    "gemma4:12b": {"lcb": 0.819, "wording_sha": "71d93b685fa9", "measured": "2026-10-26", "n": 96, "safety": 0},
+    "gemma4:12b": {"lcb": 0.83, "wording_sha": "71d93b685fa9", "measured": "2026-10-27", "n": 192, "safety": 0},
     "gemma4:e2b": {"lcb": 0.703, "wording_sha": "71d93b685fa9", "measured": "2026-10-26", "n": 96, "safety": 0},
     "qwen3.5:4b": {"lcb": 0.615, "wording_sha": "71d93b685fa9", "measured": "2026-10-27", "n": 96, "safety": 0},
     "granite4.2:3b": {"lcb": 0.562, "wording_sha": "71d93b685fa9", "measured": "2026-10-27", "n": 96, "safety": 0},
