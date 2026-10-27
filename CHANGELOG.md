@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.4.2 — PDFs, Office files and spreadsheets index again
+
+- **Uploads of PDF, Word, PowerPoint and Excel files index again.** 3.4.0 began refusing files that
+  hold binary bytes before the document reader saw them, so every PDF, DOCX, PPTX, XLSX, XLS, PPT and
+  EPUB ended "Compiled or binary file: there is no text to read". Formats a reader parses go to that
+  reader again; compiled files and unknown binaries are still refused (thanks @patmansk, #348).
+- An arranged instrumental card composes in the Audio Studio; it was refused for its "unknown" sung
+  language.
+- A self-edit is looked up only by an id of the form Guaardvark gives it.
+
 ## 3.4.1 — A star request after your first finished render
 
 - **The app asks for a GitHub star once you have made something.** About four seconds after your
