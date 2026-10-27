@@ -50,6 +50,15 @@ def test_pdf_with_nul_bytes_is_parsed_not_refused(tmp_path):
     assert not file_kinds.never_read_as_text(pdf)
 
 
+def test_other_reader_formats_are_parsed_not_refused(tmp_path):
+    from backend.utils import file_kinds
+
+    for name in ("sheet.xlsx", "old.xls", "deck.pptm", "book.epub"):
+        f = tmp_path / name
+        f.write_bytes(b"PK\x03\x04\x14\x00\x00\x00" + b"\x00" * 64)
+        assert not file_kinds.never_read_as_text(f), name
+
+
 def test_unknown_binary_with_nul_bytes_is_still_refused(tmp_path):
     from backend.utils import file_kinds
 

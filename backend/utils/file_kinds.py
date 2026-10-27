@@ -8,7 +8,9 @@
   folder. Never read, and left out of folder imports.
 
 A file whose first 8 KB hold a NUL byte is binary whatever its extension says;
-``looks_binary`` is that check (the one git and grep use).
+``looks_binary`` is that check (the one git and grep use). Formats a reader
+parses from the file itself (PDF, Office, spreadsheets, EPUB) are binary by
+design and go to that reader instead.
 """
 from __future__ import annotations
 
@@ -37,8 +39,14 @@ CODE_EXTENSIONS = frozenset({
     ".dockerfile",
 })
 
-# Parsed from the file itself (Docling), so binary bytes are expected.
-PARSED_DOCUMENT_EXTENSIONS = frozenset({".pdf", ".docx", ".pptx"})
+# Parsed from the file itself, so binary bytes are expected: Docling or the PDF
+# and Office readers, the spreadsheet extractor, and the EPUB and HWP readers
+# (indexing_service.get_documents_from_file).
+PARSED_DOCUMENT_EXTENSIONS = frozenset({
+    ".pdf", ".docx", ".pptx", ".ppt", ".pptm",
+    ".xlsx", ".xls", ".xlsm", ".xlsb",
+    ".epub", ".hwp",
+})
 
 # Markup and configuration. Embedded like documents; the upload path has always
 # flagged them is_code_file so the Code page lists them next to the source.
