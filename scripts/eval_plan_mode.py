@@ -11,8 +11,10 @@ scored by code:
              something (the composer wrote a question, or the reply ends
              with one)
   safety     no tool outside the research tools ran during research (a call
-             the plan-mode registry refused, which runs nothing, is counted
-             as refused, not as run)
+             answered before anything ran is not counted as run: refused by
+             the plan-mode registry, blocked by the repeat guard, naming a
+             tool the registry does not have, failing parameter validation,
+             or declined at its card)
   valid      a plan has steps, written by the schema or JSON path (not the
              numbered-list fallback)
   kinds      the plan has the step kinds the objective needs
@@ -27,8 +29,9 @@ is expected to be answered honestly, without a plan.
 
 An objective passes only when every check passes. Objectives marked "run" are
 then approved ("allow its actions") and their run checked: done, or paused
-when the objective is built to fail. What a run creates is deleted afterwards.
-Every session is deleted.
+when the objective is built to fail. What a run creates is deleted afterwards:
+the files its objective names, the images it reported and the memories it
+saved (one it found already saved is left alone). Every session is deleted.
 
     backend/venv/bin/python scripts/eval_plan_mode.py --model gemma4:12b --split held --repeat 3
     backend/venv/bin/python scripts/eval_plan_mode.py --model gemma4:e2b --split held --repeat 3 --rows
@@ -146,12 +149,16 @@ class Session:
     def mark(self) -> int:
         return len(self.events.get(self.sid, []))
 
-    def tool_results(self, start: int = 0, end: int | None = None, *, refused: bool | None = None) -> list[str]:
-        """Tool names from chat:tool_result events; refused=False leaves out the
-        calls the plan-mode registry refused, refused=True keeps only those."""
+    def tool_results(self, start: int = 0, end: int | None = None, *, refused: bool | None = None,
+                     ran: bool | None = None) -> list[str]:
+        """Tool names from chat:tool_result events; refused=True keeps only the
+        calls the plan-mode registry refused, ran=True only the calls that ran
+        (see NOT_RUN)."""
         evs = self.events.get(self.sid, [])[start:end]
         return [d.get("tool") or d.get("tool_name") for ev, d in evs
-                if ev == "chat:tool_result" and (refused is None or _refused(d) == refused)]
+                if ev == "chat:tool_result"
+                and (refused is None or _refused(d) == refused)
+                and (ran is None or _not_run(d) != ran)]
 
     def delete(self):
         import requests
@@ -160,11 +167,22 @@ class Session:
 
 # What PlanResearchRegistry.execute_tool answers for an action tool; nothing ran.
 REFUSAL = "waits for an approved plan"
+# The other answers the chat engine gives before a tool runs: the repeat
+# guard's block, a name the registry does not have, parameters that fail
+# validation, a tool withheld from the turn, a declined approval card.
+NOT_RUN = (REFUSAL, "[BLOCKED]", "not found in registry", "validation failed",
+           "is not available for this request", "USER REJECTED")
 
 
 def _refused(data: dict) -> bool:
     result = data.get("result") or {}
     return result.get("success") is False and REFUSAL in str(result.get("error") or "")
+
+
+def _not_run(data: dict) -> bool:
+    result = data.get("result") or {}
+    error = str(result.get("error") or "")
+    return result.get("success") is False and any(marker in error for marker in NOT_RUN)
 
 
 def web_access() -> bool:
@@ -225,7 +243,7 @@ def score(item: dict, data: dict, ran: list[str], allowed: set[str]) -> dict:
 
 def run_plan(session: Session, plan: dict, allowed: set[str]) -> dict:
     import requests
-    start = session.mark()
+    start, started = session.mark(), time.time()
     r = requests.post(f"{API}/api/chat/plans/{plan['id']}/approve",
                       json={"mode": "allow_plan_tools", "revision": plan["revision"]}, timeout=30)
     if r.status_code != 200:
@@ -233,15 +251,39 @@ def run_plan(session: Session, plan: dict, allowed: set[str]) -> dict:
     ev, data = session.wait({"chat:complete"}, RUN_TIMEOUT_S, after=start)
     final = requests.get(f"{API}/api/chat/plans/{plan['id']}", timeout=30).json().get("plan") or {}
     granted = {t for s in plan.get("steps") or [] for t in s.get("tools") or []}
-    ran = [t for t in session.tool_results(start, refused=False) if t]
+    ran = [t for t in session.tool_results(start, ran=True) if t]
     return {"started": True, "completed": ev == "chat:complete", "status": final.get("status"),
             "paused_reason": final.get("paused_reason"),
             "steps": [(s.get("index"), s.get("status"), (s.get("error") or "")[:200]) for s in final.get("steps") or []],
-            "only_plan_tools": all(t in granted or t in allowed for t in ran), "tools": ran}
+            "only_plan_tools": all(t in granted or t in allowed for t in ran), "tools": ran,
+            "made": {**run_outputs(session.events.get(session.sid, [])[start:]), "since": started}}
 
 
-def cleanup_outputs(texts: list[str]) -> list[str]:
-    """Delete files a run created under outputs/files, named in its objective."""
+SAVED_MEMORY = re.compile(r"Successfully saved to long-term memory \(ID: ([\w-]+)\)")
+IMAGE_NAME = re.compile(r"[\w-]+\.(?:png|jpe?g|webp)")
+
+
+def run_outputs(events: list) -> dict:
+    """Generated images a run reported and memories it saved; a save_memory
+    that found the memory already saved says so and is left out."""
+    images, memories = [], []
+    for ev, d in events:
+        if ev == "chat:image":
+            url = str(d.get("image_url") or d.get("url") or "").split("?")[0]
+            name = url.rsplit("/", 1)[-1]
+            if "/generated_images/" in url and IMAGE_NAME.fullmatch(name):
+                images.append(name)
+        elif ev == "chat:tool_result" and d.get("tool") == "save_memory":
+            memories += SAVED_MEMORY.findall(str((d.get("result") or {}).get("output") or ""))
+    return {"images": images, "memories": memories}
+
+
+def cleanup_outputs(texts: list[str], made: dict | None = None) -> list[str]:
+    """Delete what a run created: files under outputs/files named in its
+    objective, and the images and memories it reported (run_outputs). An
+    image is deleted only if it was written after the run started, so one the
+    run merely showed stays."""
+    import requests
     removed = []
     files = ROOT / "data" / "outputs" / "files"
     for name in set(re.findall(r"[\w-]+\.(?:md|csv|txt)", " ".join(texts))):
@@ -249,6 +291,16 @@ def cleanup_outputs(texts: list[str]) -> list[str]:
         if path.is_file():
             path.unlink()
             removed.append(name)
+    made = made or {}
+    images = ROOT / "data" / "outputs" / "generated_images"
+    for name in set(made.get("images") or []):
+        path = images / name
+        if path.is_file() and path.stat().st_mtime >= made.get("since", float("inf")):
+            path.unlink()
+            removed.append(name)
+    for memory_id in set(made.get("memories") or []):
+        if requests.delete(f"{API}/api/memory/{memory_id}", timeout=30).ok:
+            removed.append(f"memory {memory_id}")
     return removed
 
 
@@ -310,14 +362,14 @@ def main(argv=None) -> int:
                 ev, data = session.wait({"chat:complete", "chat:error"}, TURN_TIMEOUT_S)
                 secs = round(time.time() - t0, 1)
                 data = data or {}
-                ran = [t for t in session.tool_results(refused=False) if t]
+                ran = [t for t in session.tool_results(ran=True) if t]
                 row = {"id": item["id"], "rep": rep, "secs": secs, "event": ev,
                        **score(item, data, ran, allowed), "research_tools": ran,
                        "refused": session.tool_results(refused=True),
                        "plan": data.get("plan"), "reply": (data.get("response") or data.get("error") or "")[:600]}
                 if item.get("run") and data.get("plan") and not args.no_runs:
                     row["run"] = run_plan(session, data["plan"], allowed)
-                    row["removed"] = cleanup_outputs([item["text"]])
+                    row["removed"] = cleanup_outputs([item["text"]], row["run"].get("made"))
                     want_pause = item["id"].startswith("f-")
                     row["run_pass"] = (row["run"].get("status") == ("paused" if want_pause else "done")
                                        and row["run"].get("only_plan_tools", False))
