@@ -1,10 +1,11 @@
 // frontend/src/components/images/InfographicGenerator.jsx
-// Flux-schnell-backed infographic generator. Two modes:
+// Infographic generator. Two modes:
 //   - Structured: guided fields (Title / Scene / Footer / Hashtags / Style / Aspect)
-//   - Freeform:   single textarea pasted straight to Flux
+//   - Freeform:   single textarea sent to the model as written
 //
-// Calls /api/infographic/generate synchronously. Backend blocks ~5s on
-// a 4070 Ti SUPER and returns a proxied image URL the <img> can render.
+// Calls /api/infographic/generate synchronously. The backend renders with the
+// chosen model (Krea 2 Turbo, else Z-Image Turbo, by default) and returns an
+// image URL the <img> can render.
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
@@ -44,6 +45,7 @@ const InfographicGenerator = () => {
   const [callouts, setCallouts] = useState('');
   const [style, setStyle] = useState('editorial');
   const [aspect, setAspect] = useState('16:9');
+  const [model, setModel] = useState('');
 
   // Freeform
   const [rawPrompt, setRawPrompt] = useState('');
@@ -52,20 +54,29 @@ const InfographicGenerator = () => {
   const [generating, setGenerating] = useState(false);
   const [result, setResult] = useState(null); // {image_url, prompt, seed, duration_s, width, height}
   const [error, setError] = useState('');
-  const [status, setStatus] = useState(null); // {ready, comfyui_reachable, assets:{...}}
+  const [status, setStatus] = useState(null); // {ready, default_model, models:[...]}
 
   const refreshStatus = useCallback(async () => {
     try {
-      setStatus(await getInfographicStatus());
+      const next = await getInfographicStatus();
+      setStatus(next);
+      // Keep a choice that is still installed; otherwise follow the default.
+      setModel((prev) => {
+        const installed = (next.models || []).filter((m) => m.installed).map((m) => m.id);
+        return installed.includes(prev) ? prev : (next.default_model || installed[0] || '');
+      });
     } catch (e) {
       setStatus({ ready: false, error: e.message });
     }
   }, []);
 
+  const installedModels = (status?.models || []).filter((m) => m.installed);
+  const chosenModel = installedModels.find((m) => m.id === model);
+
   useEffect(() => { refreshStatus(); }, [refreshStatus]);
 
   const canGenerate = (() => {
-    if (generating) return false;
+    if (generating || !model) return false;
     if (mode === 'freeform') return rawPrompt.trim().length > 0;
     return scene.trim().length > 0;
   })();
@@ -76,8 +87,8 @@ const InfographicGenerator = () => {
     setGenerating(true);
     try {
       const payload = mode === 'freeform'
-        ? { raw_prompt: rawPrompt, style, aspect }
-        : { title, scene, footer, hashtags, callouts, style, aspect };
+        ? { raw_prompt: rawPrompt, style, aspect, model }
+        : { title, scene, footer, hashtags, callouts, style, aspect, model };
       const data = await generateInfographic(payload);
       setResult(data);
     } catch (e) {
@@ -85,7 +96,7 @@ const InfographicGenerator = () => {
     } finally {
       setGenerating(false);
     }
-  }, [mode, rawPrompt, title, scene, footer, hashtags, callouts, style, aspect]);
+  }, [mode, rawPrompt, title, scene, footer, hashtags, callouts, style, aspect, model]);
 
   const reroll = useCallback(async () => {
     if (!result) return handleGenerate();
@@ -94,8 +105,8 @@ const InfographicGenerator = () => {
     setGenerating(true);
     try {
       const payload = mode === 'freeform'
-        ? { raw_prompt: rawPrompt, style, aspect }
-        : { title, scene, footer, hashtags, callouts, style, aspect };
+        ? { raw_prompt: rawPrompt, style, aspect, model }
+        : { title, scene, footer, hashtags, callouts, style, aspect, model };
       const data = await generateInfographic(payload);
       setResult(data);
     } catch (e) {
@@ -103,32 +114,18 @@ const InfographicGenerator = () => {
     } finally {
       setGenerating(false);
     }
-  }, [result, handleGenerate, mode, rawPrompt, title, scene, footer, hashtags, callouts, style, aspect]);
+  }, [result, handleGenerate, mode, rawPrompt, title, scene, footer, hashtags, callouts, style, aspect, model]);
 
-  // Status banner — surfaces missing assets / stopped ComfyUI before
-  // the user wastes a click and waits 60s for a timeout.
+  // Status banner: no model installed means nothing can render, so say how
+  // to get one before the user fills in the form.
   const renderStatusBanner = () => {
-    if (!status) return null;
-    if (status.ready) return null;
-    if (!status.comfyui_reachable) {
-      return (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <Trans i18nKey="images.infographic.comfyuiStopped" components={{ bold: <strong /> }} />
-          <Button size="small" onClick={refreshStatus} sx={{ ml: 1 }}>{t('images.infographic.refresh')}</Button>
-        </Alert>
-      );
-    }
-    const missing = status.assets
-      ? Object.entries(status.assets).filter(([, ok]) => !ok).map(([k]) => k)
-      : [];
-    if (missing.length) {
-      return (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {t('images.infographic.missingAssets', { assets: missing.join(', ') })}
-        </Alert>
-      );
-    }
-    return null;
+    if (!status || installedModels.length) return null;
+    return (
+      <Alert severity="warning" sx={{ mb: 2 }}>
+        <Trans i18nKey="images.infographic.noModel" components={{ bold: <strong /> }} />
+        <Button size="small" onClick={refreshStatus} sx={{ ml: 1 }}>{t('images.infographic.refresh')}</Button>
+      </Alert>
+    );
   };
 
   return (
@@ -222,6 +219,21 @@ const InfographicGenerator = () => {
             />
           )}
 
+          <TextField
+            select
+            label={t('images.infographic.model')}
+            value={chosenModel ? model : ''}
+            onChange={(e) => setModel(e.target.value)}
+            size="small"
+            fullWidth
+            disabled={!installedModels.length}
+            helperText={chosenModel?.license_note || ' '}
+          >
+            {installedModels.map((m) => (
+              <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+            ))}
+          </TextField>
+
           <Stack direction="row" spacing={2}>
             <TextField
               select
@@ -293,7 +305,7 @@ const InfographicGenerator = () => {
             <Stack alignItems="center" spacing={1.5}>
               <CircularProgress size={36} />
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                {t('images.infographic.generatingHint')}
+                {t('images.infographic.generatingHint', { model: chosenModel?.name || model })}
               </Typography>
             </Stack>
           )}
@@ -318,6 +330,11 @@ const InfographicGenerator = () => {
                 }}
               />
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                <Chip
+                  size="small"
+                  label={result.model_name || result.model}
+                  variant="outlined"
+                />
                 <Chip
                   size="small"
                   label={`${result.width}×${result.height}`}

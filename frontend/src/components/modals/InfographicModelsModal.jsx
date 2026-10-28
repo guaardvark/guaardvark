@@ -1,6 +1,8 @@
 // frontend/src/components/modals/InfographicModelsModal.jsx
-// Manage the four Flux schnell assets the Infographic tab needs.
-// Mirrors ImageModelsModal's UX so the modals feel like siblings.
+// The models the Infographic tab can render with, and their Install buttons.
+// They are Image Models catalog entries, so Install and its progress go
+// through the Image Models downloader; this list only narrows it to the
+// models the infographic tab offers.
 
 import React, { useState, useEffect, useCallback } from "react";
 import {
@@ -32,7 +34,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
   const [error, setError] = useState(null);
   const [dl, setDl] = useState({
     is_downloading: false,
-    current_id: null,
+    current_model: null,
     progress: 0,
     status: "idle",
     speed_mbps: 0,
@@ -60,9 +62,9 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await axios.get("/api/infographic/models/download-status");
+      const res = await axios.get("/api/batch-image/models/download-status");
       if (res.data?.success) {
-        const next = res.data;
+        const next = res.data.data || {};
         setDl((prev) => {
           // Refresh list when a download flips to completed / failed
           if (prev.is_downloading && !next.is_downloading) {
@@ -101,13 +103,13 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
 
   const handleInstall = async (assetId) => {
     try {
-      const res = await axios.post("/api/infographic/models/download", { id: assetId });
+      const res = await axios.post("/api/batch-image/models/download", { model_path: assetId });
       if (res.data?.success) {
         const asset = models.find((m) => m.id === assetId);
         showMessage?.(t("models.shared.startedDownloading", { name: asset?.name || assetId }), "info");
         setDl({
           is_downloading: true,
-          current_id: assetId,
+          current_model: assetId,
           progress: 0,
           status: "starting",
           speed_mbps: 0,
@@ -122,40 +124,9 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
       if (err.response?.status === 409) {
         showMessage?.(t("models.shared.anotherDownloadRunning"), "warning");
       } else {
-        showMessage?.(err.message || t("models.shared.errorStartingDownload"), "error");
+        showMessage?.(err.response?.data?.error || err.message || t("models.shared.errorStartingDownload"), "error");
       }
     }
-  };
-
-  // Total size of everything not yet installed — surfaced so the user
-  // sees the commit before clicking "Install all missing".
-  const missingTotalGb = models
-    .filter((m) => !m.installed)
-    .reduce((sum, m) => sum + (m.size_gb || 0), 0);
-
-  const handleInstallAllMissing = async () => {
-    const missing = models.filter((m) => !m.installed);
-    if (!missing.length) return;
-    // Sequential — backend rejects concurrent downloads anyway.
-    // Poll the backend directly between rounds; relying on the local
-    // `dl` ref would capture a stale closure here.
-    for (const m of missing) {
-      await handleInstall(m.id);
-      await new Promise((resolve) => {
-        const check = setInterval(async () => {
-          try {
-            const res = await axios.get("/api/infographic/models/download-status");
-            if (res.data?.success && !res.data.is_downloading) {
-              clearInterval(check);
-              resolve();
-            }
-          } catch {
-            // Keep waiting — the periodic fetchStatus elsewhere will recover
-          }
-        }, 700);
-      });
-    }
-    fetchModels();
   };
 
   return (
@@ -184,7 +155,7 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
         ) : (
           <List disablePadding>
             {models.map((m) => {
-              const isThis = dl.is_downloading && dl.current_id === m.id;
+              const isThis = dl.is_downloading && dl.current_model === m.id;
               return (
                 <ListItem key={m.id} divider sx={{ py: 1.5, alignItems: "flex-start" }}>
                   <ListItemIcon sx={{ mt: 0.5 }}>
@@ -196,7 +167,8 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
                         <Typography variant="body1" fontWeight={500}>
                           {m.name}
                         </Typography>
-                        <Chip label={`${m.size_gb} GB`} size="small" variant="outlined" />
+                        {m.size_gb ? <Chip label={`${m.size_gb} GB`} size="small" variant="outlined" /> : null}
+                        {m.default ? null : <Chip label={t("models.infographicModels.chooseOnTab")} size="small" variant="outlined" />}
                       </Box>
                     }
                     secondary={
@@ -204,12 +176,11 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
                         <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
                           {m.description}
                         </Typography>
-                        <Typography
-                          variant="caption"
-                          sx={{ display: "block", color: "text.secondary", fontFamily: "monospace", mt: 0.25 }}
-                        >
-                          {m.rel_path}
-                        </Typography>
+                        {m.license_note ? (
+                          <Typography variant="caption" sx={{ display: "block", color: "warning.main", mt: 0.25 }}>
+                            {m.license_note}
+                          </Typography>
+                        ) : null}
                       </Box>
                     }
                   />
@@ -264,15 +235,6 @@ const InfographicModelsModal = ({ open, onClose, showMessage }) => {
       </DialogContent>
 
       <DialogActions>
-        {missingTotalGb > 0 && (
-          <Button
-            onClick={handleInstallAllMissing}
-            disabled={dl.is_downloading || loading}
-            startIcon={<CloudDownloadIcon />}
-          >
-            {t("models.shared.installAllMissing", { size: missingTotalGb.toFixed(1) })}
-          </Button>
-        )}
         <Box sx={{ flex: 1 }} />
         <Button onClick={onClose} disabled={dl.is_downloading}>
           {dl.is_downloading ? t("models.shared.downloading") : t("dialogs.shared.close")}

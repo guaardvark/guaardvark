@@ -1,118 +1,59 @@
 # backend/services/infographic_generator.py
-# Flux schnell GGUF infographic generator.
+# Infographic generator.
 #
-# Composes a Flux-friendly prompt from structured fields (title, scene,
-# footer, hashtags) or a freeform blurb, fires the workflow at the
-# already-running ComfyUI on :8188, polls for completion, and returns
-# the saved PNG path. Designed for "type → 5 seconds → PNG" UX.
-#
-# Flux schnell is the model picked here specifically because it renders
-# short bold text legibly. Don't swap for SDXL — that breaks the whole
-# point of having an infographic mode.
+# Composes a text-layout prompt from structured fields (title, scene, labels,
+# footer, hashtags) or takes a freeform prompt as written, and renders it
+# through the shared stills pipeline with a model that spells reliably. The
+# image is saved under outputs/infographics and filed in the Library.
 
 from __future__ import annotations
 
-import copy
 import logging
 import random
+import re
+import shutil
 import time
-import urllib.parse
-import urllib.request
+import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
-import requests
-
-try:
-    from backend.config import COMFYUI_URL  # type: ignore
-except ImportError:
-    COMFYUI_URL = None  # resolved at construction via backend.utils.comfyui_url
 
 logger = logging.getLogger(__name__)
 
 
-# Workflow in ComfyUI's API format (the shape /prompt expects). Stored as
-# a python dict instead of a JSON file so the placeholder substitution
-# stays type-safe and the diff stays readable.
-_FLUX_INFOGRAPHIC_WORKFLOW: Dict[str, Dict[str, Any]] = {
-    "1": {
-        "class_type": "UnetLoaderGGUF",
-        "inputs": {"unet_name": "flux1-schnell-Q8_0.gguf"},
-    },
-    "2": {
-        "class_type": "DualCLIPLoader",
-        "inputs": {
-            "clip_name1": "t5/t5xxl_fp8_e4m3fn.safetensors",
-            "clip_name2": "clip_l.safetensors",
-            "type": "flux",
-        },
-    },
-    "3": {
-        "class_type": "VAELoader",
-        "inputs": {"vae_name": "ae.safetensors"},
-    },
-    "4": {
-        "class_type": "CLIPTextEncode",
-        "inputs": {"text": "", "clip": ["2", 0]},
-    },
-    "5": {
-        "class_type": "CLIPTextEncode",
-        "inputs": {"text": "", "clip": ["2", 0]},
-    },
-    "6": {
-        "class_type": "EmptyLatentImage",
-        "inputs": {"width": 1280, "height": 720, "batch_size": 1},
-    },
-    "7": {
-        "class_type": "KSampler",
-        "inputs": {
-            "seed": 0,
-            "steps": 4,
-            "cfg": 1.0,
-            "sampler_name": "euler",
-            "scheduler": "simple",
-            "denoise": 1.0,
-            "model": ["1", 0],
-            "positive": ["4", 0],
-            "negative": ["5", 0],
-            "latent_image": ["6", 0],
-        },
-    },
-    "8": {
-        "class_type": "VAEDecode",
-        "inputs": {"samples": ["7", 0], "vae": ["3", 0]},
-    },
-    "9": {
-        "class_type": "SaveImage",
-        "inputs": {"filename_prefix": "infographic", "images": ["8", 0]},
-    },
-}
+# Models offered for infographics, in order of preference. Measured 2026-10-27
+# on a 16 GB consumer card: three poster layouts (5, 3 and 4 labels) x three
+# seeds, 78 text elements per model, the prompt from compose_prompt() below,
+# read back by a local vision model and checked by eye. Krea 2 Turbo 78/78 with
+# every poster clean; Qwen-Image 2.1 78/78; Z-Image Turbo 69/78, 2 of 9 posters
+# clean (drops or merges a label when there are five, misspells the odd word).
+# FLUX.1-dev (~39/78) and FLUX.1-schnell (21/78, no poster clean) misspell too
+# often to offer. Krea 2 is gated on Hugging Face, so Z-Image is the model a
+# fresh install can render with. Qwen-Image 2.1 is offered but never picked by
+# default: its licence is non-commercial.
+INFOGRAPHIC_MODELS: List[Dict[str, Any]] = [
+    {"id": "krea2-turbo", "default": True},
+    {"id": "zimage-turbo", "default": True},
+    {"id": "qwen-image-21", "default": False,
+     "license_note": "Qwen Research License: non-commercial use only."},
+]
+
+# Seconds a render waits for the GPU (another render, or the cooldown after
+# one) before it gives up.
+GPU_WAIT_S = 600
 
 
-# Style presets — appended to the scene prompt to nudge Flux toward the
-# look the user wants without bloating every request.
+# Style presets, written as prose: these models read prompts with an LLM text
+# encoder, and comma-separated tag lists are drawn as scene content.
 STYLE_PRESETS: Dict[str, str] = {
-    "editorial": (
-        "dramatic editorial illustration, cinematic lighting, vivid saturated colors, "
-        "comic book composition, bold dynamic style"
-    ),
-    "flat_vector": (
-        "clean flat vector design, geometric shapes, minimal shadows, "
-        "professional infographic illustration, simple icons"
-    ),
-    "photo_real": (
-        "photorealistic, professional photography composition, "
-        "dramatic lighting, cinematic depth of field"
-    ),
-    "comic": (
-        "comic book illustration, bold inked outlines, vibrant flat colors, "
-        "halftone shading, dynamic action panels"
-    ),
+    "editorial": "a dramatic editorial illustration with cinematic lighting and vivid, saturated colours",
+    "flat_vector": "a clean flat vector design with simple geometric shapes, minimal shadows and simple icons",
+    "photo_real": "a photorealistic photograph with professional composition and dramatic lighting",
+    "comic": "a comic book illustration with bold inked outlines, vibrant flat colours and halftone shading",
 }
 
-# Aspect → (width, height). Flux schnell trains at 1MP-ish; these are
-# the standard buckets that don't break it.
+# Aspect -> (width, height) before each model's canvas rules are applied.
 ASPECT_DIMS: Dict[str, tuple] = {
     "16:9": (1280, 720),
     "1:1": (1024, 1024),
@@ -121,10 +62,18 @@ ASPECT_DIMS: Dict[str, tuple] = {
     "3:2": (1216, 832),
 }
 
+_ASPECT_WORDS = {"16:9": "wide", "1:1": "square", "9:16": "tall vertical", "4:5": "portrait", "3:2": "landscape"}
+_NUMBER_WORDS = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight"}
+_ORDINALS = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"]
+
+
+def _clean(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip())
+
 
 @dataclass
 class InfographicSpec:
-    """Structured input. Either build this directly or use compose_from_freeform()."""
+    """Structured input; raw_prompt, when set, is used as written."""
     title: str = ""
     scene: str = ""
     footer: str = ""
@@ -132,205 +81,219 @@ class InfographicSpec:
     style: str = "editorial"
     aspect: str = "16:9"
     callouts: List[str] = field(default_factory=list)
-    raw_prompt: str = ""  # if non-empty, used verbatim instead of composing
+    raw_prompt: str = ""
 
     def compose_prompt(self) -> str:
-        """Turn the structured fields into a single Flux-ready prompt string."""
+        """One sentence per text element, each quoted and placed on the poster.
+        The models measured above spell what they are given in quotes; naming
+        where each element sits keeps labels from merging."""
         if self.raw_prompt.strip():
             return self.raw_prompt.strip()
 
         style_text = STYLE_PRESETS.get(self.style, STYLE_PRESETS["editorial"])
-        parts: List[str] = ["Infographic poster", style_text]
+        shape = _ASPECT_WORDS.get(self.aspect, "wide")
+        parts: List[str] = [f"A {shape} infographic poster designed as {style_text}."]
 
-        if self.scene:
-            parts.append(self.scene.strip().rstrip("."))
+        scene = _clean(self.scene).rstrip(".")
+        if scene:
+            parts.append(f"The artwork behind the text: {scene}.")
 
-        # Flux renders text most reliably when it's quoted and called out
-        # explicitly as "the title reads" / "banner reads" / "text reads".
-        if self.title:
+        title = _clean(self.title)
+        if title:
+            parts.append(f'Across the top of the poster, a large bold headline reads "{title}".')
+
+        callouts = [_clean(c).strip('"') for c in self.callouts if _clean(c).strip('"')]
+        if callouts:
+            count = _NUMBER_WORDS.get(len(callouts), str(len(callouts)))
             parts.append(
-                f'Title at the top reads: "{self.title.strip()}" '
-                f'in bold uppercase typography, large dramatic headline'
+                f"Below the headline sit {count} separate label boxes, "
+                f"each holding one short phrase in bold letters."
             )
+            for i, callout in enumerate(callouts):
+                ordinal = _ORDINALS[i] if i < len(_ORDINALS) else f"number {i + 1}"
+                parts.append(f'The {ordinal} label reads "{callout}".')
 
-        for callout in self.callouts:
-            cleaned = callout.strip().strip('"')
-            if cleaned:
-                parts.append(f'A label reads: "{cleaned}" in bold caps')
+        footer = _clean(self.footer)
+        if footer:
+            parts.append(f'A solid banner runs along the bottom edge with the text "{footer}" in clean white letters.')
 
-        if self.footer:
-            parts.append(
-                f'Bottom banner text reads: "{self.footer.strip()}" '
-                f'in bold uppercase across the bottom'
-            )
+        tags = " ".join(t if t.startswith("#") else f"#{t}" for t in (_clean(t) for t in self.hashtags) if t)
+        if tags:
+            parts.append(f'Under the banner, one line of small text reads "{tags}".')
 
-        if self.hashtags:
-            tag_text = " ".join(
-                t if t.startswith("#") else f"#{t}" for t in self.hashtags
-            )
-            parts.append(
-                f"Bottom row of small hashtag text: {tag_text}, "
-                f"thin sans-serif, centered"
-            )
-
-        parts.append(
-            "vivid colors, professional design, clear composition, "
-            "rendered text is sharp and legible"
-        )
-        return ". ".join(parts) + "."
+        parts.append("Every word is spelled exactly as written, with crisp, evenly spaced, easy-to-read lettering.")
+        return " ".join(parts)
 
 
-class ComfyUIUnavailable(RuntimeError):
-    """ComfyUI on :8188 is unreachable. Plugin probably isn't started."""
+class InfographicModelMissing(RuntimeError):
+    """The requested (or any default) infographic model is not installed."""
+
+
+def _output_dir() -> Path:
+    from backend.config import OUTPUT_DIR
+    out = Path(OUTPUT_DIR) / "infographics"
+    out.mkdir(parents=True, exist_ok=True)
+    return out
 
 
 class InfographicGenerator:
-    """Thin wrapper around ComfyUI's /prompt + /history + /view for Flux."""
+    """Model choice, prompt and output filing around run_stills_pipeline."""
 
-    def __init__(self, comfy_url: Optional[str] = None):
-        from backend.utils.comfyui_url import get_comfyui_url
+    # -- models -------------------------------------------------------------
 
-        self.comfy_url = (comfy_url or get_comfyui_url()).rstrip("/")
+    def models(self) -> List[Dict[str, Any]]:
+        """The offered models with their install state, in preference order."""
+        from backend.services.offline_image_generator import get_image_generator
 
-    # -- public API --------------------------------------------------------
-
-    def is_available(self) -> bool:
         try:
-            r = requests.get(f"{self.comfy_url}/system_stats", timeout=2)
-            return r.status_code == 200
-        except requests.RequestException:
-            return False
+            catalog = get_image_generator().get_available_models(probe_remote=False)
+        except Exception as e:  # noqa: BLE001 — list what we can rather than fail the page
+            logger.warning("Infographic model catalog unavailable: %s", e)
+            catalog = {}
+        rows = []
+        for entry in INFOGRAPHIC_MODELS:
+            info = catalog.get(entry["id"]) or {}
+            rows.append({
+                "id": entry["id"],
+                "name": info.get("label") or entry["id"],
+                "description": info.get("description", ""),
+                "installed": bool(info.get("downloaded")),
+                "gated": bool(info.get("gated")),
+                "size_gb": info.get("size_gb"),
+                "default": bool(entry.get("default")),
+                "license_note": entry.get("license_note"),
+            })
+        return rows
 
-    def generate(self, spec: InfographicSpec, seed: Optional[int] = None) -> Dict[str, Any]:
-        """Queue a generation and block until the PNG is on disk.
+    def default_model(self) -> Optional[str]:
+        for row in self.models():
+            if row["default"] and row["installed"]:
+                return row["id"]
+        return None
 
-        Returns:
-            {
-              "prompt_id": str,
-              "filename": str,        # filename inside ComfyUI/output/
-              "image_url": str,       # served URL the frontend can <img src=> directly
-              "prompt": str,          # what Flux actually got
-              "width": int, "height": int,
-              "duration_s": float,
-            }
-        """
-        if not self.is_available():
-            raise ComfyUIUnavailable(
-                f"ComfyUI not reachable at {self.comfy_url}. "
-                f"Enable the 'comfyui' plugin from /plugins."
+    def resolve_model(self, requested: Optional[str]) -> str:
+        rows = {row["id"]: row for row in self.models()}
+        if requested:
+            row = rows.get(requested)
+            if row is None:
+                raise ValueError(
+                    f"'{requested}' is not an infographic model; choose one of: {', '.join(rows)}"
+                )
+            if not row["installed"]:
+                raise InfographicModelMissing(
+                    f"{row['name']} is not installed. Install it from Settings > Generation > Infographic."
+                )
+            return requested
+        chosen = self.default_model()
+        if not chosen:
+            raise InfographicModelMissing(
+                "No infographic model is installed. Install Krea 2 Turbo or Z-Image Turbo "
+                "from Settings > Generation > Infographic."
             )
+        return chosen
 
+    # -- render ---------------------------------------------------------------
+
+    def generate(self, spec: InfographicSpec, seed: Optional[int] = None,
+                 model: Optional[str] = None) -> Dict[str, Any]:
+        """Render one infographic and wait for it, queueing behind any render
+        already on the GPU.
+
+        Returns {filename, image_url, prompt, model, model_name, width, height,
+        seed, duration_s, document_id}.
+        """
+        from backend.services.gpu_resource_policy import (
+            compositor_vram_reserve_mb,
+            gpu_session_when_free,
+        )
+        from backend.services.image_render_limits import resolve_canvas
+        from backend.services.job_types import JobKind
+        from backend.services.offline_image_generator import get_image_generator
+        from backend.services.stills_pipeline import run_stills_pipeline
+
+        model_id = self.resolve_model(model)
         prompt_text = spec.compose_prompt()
         width, height = ASPECT_DIMS.get(spec.aspect, ASPECT_DIMS["16:9"])
+        width, height, _ = resolve_canvas(width, height, model_id)
         seed = seed if seed is not None else random.randint(1, 2**31 - 1)
+        out_dir = _output_dir()
 
-        workflow = copy.deepcopy(_FLUX_INFOGRAPHIC_WORKFLOW)
-        workflow["4"]["inputs"]["text"] = prompt_text
-        workflow["6"]["inputs"]["width"] = width
-        workflow["6"]["inputs"]["height"] = height
-        workflow["7"]["inputs"]["seed"] = seed
-
+        generator = get_image_generator()
         started = time.monotonic()
-        # Hold the GPU (evict Ollama + free ComfyUI UNDER the lease) so the ~10GB FLUX
-        # infographic render can't OOM against a resident chat model or concurrent render.
-        from backend.services.gpu_resource_policy import gpu_session
-        from backend.services.job_types import JobKind
-        import uuid as _uuid
-        with gpu_session(JobKind.VIDEO_RENDER, f"infographic_{_uuid.uuid4().hex[:8]}",
-                         on_busy="raise", evict_ollama=True, free_comfyui=True,
-                         vram_estimate_mb=10000, require_fit=True, cross_process=True):
-            prompt_id = self._queue(workflow)
+        # One lease for the whole render, waiting its turn; the pipeline's own
+        # session inside it is a same-thread pass-through.
+        with gpu_session_when_free(
+            JobKind.VIDEO_RENDER, f"infographic_{uuid.uuid4().hex[:8]}",
+            wait_s=GPU_WAIT_S,
+            evict_ollama=True,
+            vram_estimate_mb=generator._vram_estimate_mb(model_id, width, height),
+            ram_estimate_gb=generator._ram_estimate_gb(model_id, width, height),
+            require_fit=True,
+            cross_process=True,
+            vram_reserve_mb=compositor_vram_reserve_mb(),
+        ):
             logger.info(
-                f"[INFOGRAPHIC] queued prompt_id={prompt_id} "
-                f"{width}x{height} seed={seed} style={spec.style}"
+                f"[INFOGRAPHIC] {model_id} {width}x{height} seed={seed} style={spec.style}"
             )
-            outputs = self._wait_for(prompt_id, timeout=180)
-        filename, subfolder = self._extract_image(outputs)
+            results = run_stills_pipeline(
+                [prompt_text],
+                model=model_id,
+                width=width,
+                height=height,
+                seed=seed,
+                source="infographic",
+                enhance="none",
+                verbatim=True,
+                auto_enhance=False,
+                enhance_anatomy=False,
+                enhance_faces=False,
+                enhance_hands=False,
+                hold_gpu=True,
+                output="path",
+                output_dir=out_dir,
+            )
+        still = results[0] if results else None
+        if still is None or not still.success or not still.image_path:
+            raise RuntimeError((still.error if still else None) or "The render produced no image.")
 
-        # `/view` is ComfyUI's serving endpoint. The frontend can hit it
-        # directly via the proxy (vite proxies /api/* → backend, but
-        # the static-asset path needs to go through our own thin proxy or
-        # be served via the file system). We surface both: a comfy-direct
-        # URL the user could open, and an api-proxied URL that the
-        # frontend uses by default so we don't hit CORS.
-        proxied_url = f"/api/infographic/view?{urllib.parse.urlencode({'filename': filename, 'subfolder': subfolder})}"
+        name = f"infographic_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.png"
+        dest = out_dir / name
+        shutil.move(str(still.image_path), dest)
 
+        document_id = None
+        try:
+            from backend.services.output_registration import register_file
+            doc = register_file(
+                str(dest), folder_name="Images", subfolder_name="Infographics",
+                file_metadata={"model": model_id, "seed": seed, "prompt": prompt_text,
+                               "width": width, "height": height, "source": "infographic"},
+            )
+            document_id = getattr(doc, "id", None)
+        except Exception as e:  # noqa: BLE001 — the image exists; the Library entry is a convenience
+            logger.warning("Infographic not filed in the Library: %s", e)
+
+        names = {row["id"]: row["name"] for row in self.models()}
         return {
-            "prompt_id": prompt_id,
-            "filename": filename,
-            "subfolder": subfolder,
-            "image_url": proxied_url,
+            "filename": name,
+            "image_url": f"/api/infographic/view?filename={name}",
             "prompt": prompt_text,
+            "model": model_id,
+            "model_name": names.get(model_id, model_id),
             "width": width,
             "height": height,
             "seed": seed,
             "duration_s": round(time.monotonic() - started, 2),
+            "document_id": document_id,
         }
 
-    def fetch_image_bytes(self, filename: str, subfolder: str = "") -> bytes:
-        """Pull a generated PNG from ComfyUI's /view by filename."""
-        params = {"filename": filename, "type": "output"}
-        if subfolder:
-            params["subfolder"] = subfolder
-        url = f"{self.comfy_url}/view?{urllib.parse.urlencode(params)}"
-        with urllib.request.urlopen(url, timeout=30) as resp:
-            return resp.read()
-
-    # -- internals ---------------------------------------------------------
-
-    def _queue(self, workflow: Dict[str, Any]) -> str:
-        r = requests.post(
-            f"{self.comfy_url}/prompt",
-            json={"prompt": workflow},
-            timeout=15,
-        )
-        r.raise_for_status()
-        data = r.json()
-        prompt_id = data.get("prompt_id")
-        if not prompt_id:
-            # ComfyUI returned without queuing — usually a node error.
-            errs = data.get("node_errors") or {}
-            raise RuntimeError(f"ComfyUI rejected workflow: {errs or data}")
-        return prompt_id
-
-    def _wait_for(self, prompt_id: str, timeout: int = 180) -> Dict[str, Any]:
-        deadline = time.monotonic() + timeout
-        backoff = 0.5
-        while time.monotonic() < deadline:
-            try:
-                r = requests.get(
-                    f"{self.comfy_url}/history/{prompt_id}", timeout=5
-                )
-                if r.ok:
-                    history = r.json() or {}
-                    if prompt_id in history:
-                        entry = history[prompt_id]
-                        status = entry.get("status") or {}
-                        if status.get("status_str") == "error":
-                            raise RuntimeError(
-                                f"ComfyUI generation failed: {status.get('messages')}"
-                            )
-                        outputs = entry.get("outputs") or {}
-                        if outputs:
-                            return outputs
-            except requests.RequestException as e:
-                logger.debug(f"history poll transient: {e}")
-            time.sleep(backoff)
-            backoff = min(backoff * 1.3, 2.0)
-        raise TimeoutError(
-            f"ComfyUI generation {prompt_id} didn't complete within {timeout}s"
-        )
-
     @staticmethod
-    def _extract_image(outputs: Dict[str, Any]) -> tuple:
-        """Find the first image entry across all SaveImage nodes."""
-        for _node_id, node_out in outputs.items():
-            images = node_out.get("images") or []
-            for img in images:
-                fname = img.get("filename")
-                if fname:
-                    return fname, img.get("subfolder", "")
-        raise RuntimeError("ComfyUI returned no image in outputs")
+    def image_path(filename: str) -> Optional[Path]:
+        """The saved infographic with this file name, or None."""
+        name = Path(filename or "").name
+        if not name or name != filename or not name.endswith(".png"):
+            return None
+        path = _output_dir() / name
+        return path if path.is_file() else None
 
 
 # Module-level singleton — cheap, no state worth pooling

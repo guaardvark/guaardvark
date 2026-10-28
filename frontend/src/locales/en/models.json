@@ -117,9 +117,10 @@
     "removeKeeps": "the shipped Image Models list"
   },
   "infographicModels": {
-    "title": "Infographic Models (Flux schnell)",
-    "intro": "Four files power the Infographic tab — diffusion model, two text encoders, and a VAE. They install into ComfyUI's model tree, so the comfyui plugin must be enabled to use them.",
-    "noAssets": "No Flux assets configured."
+    "title": "Infographic Models",
+    "intro": "Infographics render with Krea 2 Turbo when it is installed, otherwise Z-Image Turbo. Qwen-Image 2.1 can be picked on the tab. Krea 2 is gated on Hugging Face: accept its licence on the model page and set HF_TOKEN before you install it.",
+    "noAssets": "No infographic models are configured.",
+    "chooseOnTab": "Pick on the tab"
   },
   "upscalingModels": {
     "errorFetching": "Error fetching upscaling models",

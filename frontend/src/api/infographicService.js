@@ -1,8 +1,8 @@
 // frontend/src/api/infographicService.js
-// Thin fetch wrappers for the Flux infographic backend.
-// /api/infographic/generate is synchronous on the backend — it blocks until
-// the PNG is ready (~5s on the target hardware), so the frontend just
-// shows a spinner and renders the result when the promise resolves.
+// Thin fetch wrappers for the infographic backend.
+// /api/infographic/generate is synchronous on the backend — it waits for the
+// GPU and blocks until the PNG is saved, so the frontend just shows a spinner
+// and renders the result when the promise resolves.
 
 import { BASE_URL } from './apiClient';
 import { translate } from '../i18n';
@@ -26,6 +26,7 @@ export async function getInfographicStatus() {
  * @param {string} [spec.aspect]  - "16:9" | "1:1" | "9:16" | "4:5" | "3:2"
  * @param {string} [spec.raw_prompt] - if set, used verbatim instead of composing
  * @param {number} [spec.seed]
+ * @param {string} [spec.model]   - an id from /status models; omitted = the default
  */
 export async function generateInfographic(spec) {
   const res = await fetch(`${API}/generate`, {

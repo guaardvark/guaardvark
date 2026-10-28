@@ -54,10 +54,13 @@ while a render or training job holds the GPU. `POST .../stop` ends it at its nex
 curl -s -X POST $B/api/infographic/generate -H 'Content-Type: application/json' -d '{
   "title": "Three numbers", "scene": "clean flat design, navy and white",
   "callouts": ["42% faster", "0 cloud calls", "1 GPU"], "hashtags": ["#localai"], "footer": "guaardvark.com",
-  "style": "flat", "aspect": "1:1", "seed": 3
+  "style": "flat_vector", "aspect": "1:1", "seed": 3
 }'
 ```
-`GET $B/api/infographic/status` for the job; the image lands in outputs.
+Styles: `editorial`, `flat_vector`, `photo_real`, `comic`; aspects `16:9`, `1:1`, `9:16`, `4:5`, `3:2`.
+The call waits for the GPU and returns when the PNG is saved (`image_url`, also filed in the Library
+under Images › Infographics). `model` is optional: Krea 2 Turbo when installed, else Z-Image Turbo;
+`qwen-image-21` is non-commercial. `GET $B/api/infographic/status` lists the models and which is installed.
 
 ## Rules
 

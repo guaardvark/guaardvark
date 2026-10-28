@@ -29,7 +29,7 @@ from backend.services.gpu_resource_policy import RenderStopped
 
 logger = logging.getLogger(__name__)
 
-Source = Literal["chat", "cli", "batch", "discord", "video", "smoke", "agent"]
+Source = Literal["chat", "cli", "batch", "discord", "video", "smoke", "agent", "infographic"]
 
 
 def zimage_via_comfyui_enabled() -> bool:

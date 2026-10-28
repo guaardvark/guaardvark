@@ -44,14 +44,6 @@ def test_comfyui_url_falls_back_to_the_manifest_default(monkeypatch):
     assert comfyui_url.get_comfyui_url() == "http://localhost:8188"
 
 
-def test_infographic_generator_uses_the_effective_port(monkeypatch):
-    monkeypatch.setenv("GUAARDVARK_COMFYUI_URL", "http://127.0.0.1:8000")
-    from backend.services.infographic_generator import InfographicGenerator
-
-    assert InfographicGenerator().comfy_url == "http://127.0.0.1:8000"
-    assert InfographicGenerator("http://10.0.0.5:8188/").comfy_url == "http://10.0.0.5:8188"
-
-
 def test_font_override_and_candidates(monkeypatch, tmp_path):
     from backend.services import video_text_overlay as vto
 
