@@ -127,7 +127,11 @@ DEFAULT_CONFIG = {
     "auto_sync_enabled": False,
     "sync_interval_seconds": 300,
     "sync_entities": ["clients", "projects", "websites"],
-    "use_master_image_repository": True,  # Use master server for all image storage
+    # Opt-in: client boxes keep and serve their pictures through the master. Off,
+    # each box keeps its own; the Interconnector is for code. Configs saved with the
+    # former "use_master_image_repository" key (on by default, never offered in the
+    # UI) are not read.
+    "images_on_master": False,
     "require_file_approval": True,
 }
 
@@ -416,7 +420,7 @@ def _should_use_master_image_repository():
         return False
     if config.get("node_mode") == "master":
         return False  # Master stores images locally
-    return config.get("use_master_image_repository", True)
+    return bool(config.get("images_on_master", False))
 
 
 def _get_master_image_url(image_path: str) -> Optional[str]:

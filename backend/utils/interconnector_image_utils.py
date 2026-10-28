@@ -1,7 +1,8 @@
 # backend/utils/interconnector_image_utils.py
 """
 Utility functions for handling image storage with interconnector.
-When use_master_image_repository is enabled, client nodes forward images to master.
+With images_on_master enabled (off by default), client nodes forward uploaded
+images to the master and read a picture from it when they have no copy of their own.
 """
 
 import logging
@@ -29,7 +30,7 @@ def should_use_master_image_repository() -> bool:
             return False
         if config.get("node_mode") == "master":
             return False  # Master stores images locally
-        return config.get("use_master_image_repository", True)
+        return bool(config.get("images_on_master", False))
     except Exception as e:
         logger.error(f"Error checking master image repository config: {e}")
         return False
