@@ -395,61 +395,80 @@ async function handleImagine(args, { addMessage, onSendMessage }) {
   return { handled: true };
 }
 
-async function handleRemoveBg(args, { onSendMessage }) {
-  onSendMessage("/removebg", null, {
+// The photo commands work on the picture attached in the composer: it goes with
+// the command in the same fields a picture message sends, or the tool reports
+// that nothing is attached.
+function withAttachedPictures(chatState, options) {
+  const pictures = chatState?.takeAttachedImages?.();
+  return pictures ? { ...options, ...pictures } : options;
+}
+
+async function handleRemoveBg(args, { onSendMessage, chatState }) {
+  onSendMessage("/removebg", null, withAttachedPictures(chatState, {
     direct_tool: "remove_background",
     direct_tool_params: {},
     slash_command: "removebg",
-  });
+  }));
   return { handled: true };
 }
 
-async function handleInpaint(args, { addMessage, onSendMessage }) {
+async function handleInpaint(args, { addMessage, onSendMessage, chatState }) {
   if (!args) {
     addMessage({ role: "system", content: translate("messages.slash.usage.inpaint"), tempId: `img-${Date.now()}`, type: "command" });
     return { handled: true };
   }
-  onSendMessage(`/inpaint ${args}`, null, {
+  onSendMessage(`/inpaint ${args}`, null, withAttachedPictures(chatState, {
     direct_tool: "inpaint_image",
     direct_tool_params: { instruction: args },
     slash_command: "inpaint",
     slash_args: args,
-  });
+  }));
   return { handled: true };
 }
 
 const OUTPAINT_SIDES = new Set(["left", "right", "top", "bottom", "all"]);
+const OUTPAINT_DEFAULT_PX = 256;
+const OUTPAINT_MAX_PX = 2048;
 
-function parseOutpaintArgs(args) {
+// "/outpaint left right 400 continue the valley": the named sides, then an
+// optional amount in pixels (multiples of 8; 256 when none is given), then the
+// fill instruction. An amount with no side named widens all four sides.
+export function parseOutpaintArgs(args) {
   const tokens = (args || "").trim().split(/\s+/).filter(Boolean);
-  const pad = { left: 0, right: 0, top: 0, bottom: 0 };
+  const sides = new Set();
   let i = 0;
   while (i < tokens.length && OUTPAINT_SIDES.has(tokens[i].toLowerCase())) {
     const side = tokens[i].toLowerCase();
-    if (side === "all") {
-      pad.left = pad.right = pad.top = pad.bottom = 256;
-    } else {
-      pad[side] = 256;
-    }
+    if (side === "all") ["left", "right", "top", "bottom"].forEach((s) => sides.add(s));
+    else sides.add(side);
+    i += 1;
+  }
+  let amount = null;
+  const m = i < tokens.length ? /^(\d+)(px)?$/i.exec(tokens[i]) : null;
+  if (m) {
+    amount = Math.min(OUTPAINT_MAX_PX, Math.max(8, Math.round(Number(m[1]) / 8) * 8));
+    if (!sides.size) ["left", "right", "top", "bottom"].forEach((s) => sides.add(s));
     i += 1;
   }
   const instruction = tokens.slice(i).join(" ").trim();
-  const named = pad.left || pad.right || pad.top || pad.bottom;
-  return named ? { ...pad, instruction } : { instruction };
+  if (!sides.size) return { instruction };
+  const pad = { left: 0, right: 0, top: 0, bottom: 0 };
+  sides.forEach((s) => { pad[s] = amount ?? OUTPAINT_DEFAULT_PX; });
+  return { ...pad, instruction };
 }
 
-async function handleOutpaint(args, { onSendMessage }) {
+async function handleOutpaint(args, { onSendMessage, chatState }) {
   const parsed = parseOutpaintArgs(args);
-  onSendMessage(`/outpaint ${args || ""}`.trim(), null, {
+  onSendMessage(`/outpaint ${args || ""}`.trim(), null, withAttachedPictures(chatState, {
     direct_tool: "outpaint_image",
     direct_tool_params: parsed,
     slash_command: "outpaint",
     slash_args: args || "",
-  });
+  }));
   return { handled: true };
 }
 
-async function handleIdentity(args, { addMessage, onSendMessage }) {
+async function handleIdentity(args, { addMessage, onSendMessage, chatState }) {
   if (!args) {
     addMessage({
       role: "system",
@@ -459,12 +478,12 @@ async function handleIdentity(args, { addMessage, onSendMessage }) {
     });
     return { handled: true };
   }
-  onSendMessage(`/identity ${args}`, null, {
+  onSendMessage(`/identity ${args}`, null, withAttachedPictures(chatState, {
     direct_tool: "generate_identity",
     direct_tool_params: { prompt: args, consented: true },
     slash_command: "identity",
     slash_args: args,
-  });
+  }));
   return { handled: true };
 }
 

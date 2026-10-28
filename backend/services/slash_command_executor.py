@@ -177,14 +177,16 @@ def run_direct_tool_turn(
     app,
     project_id: Optional[int] = None,
     log_tag: str = "chat",
+    image_data: Any = None,
 ) -> bool:
     """Run a slash command or direct_tool as the whole turn, before any routing.
 
     The one pre-router bypass for POST /api/chat/unified and Socket.IO
     chat:send: the named registry tool runs through the engine's direct path
-    (approval card, tool events, history) with no model involved. Returns
-    False when the options name no direct tool, True once the turn has run.
-    Errors propagate to the caller.
+    (approval card, tool events, history) with no model involved. ``image_data``
+    is the turn's attached picture, which photo tools (/removebg, /outpaint,
+    /inpaint, /identity) work on. Returns False when the options name no direct
+    tool, True once the turn has run. Errors propagate to the caller.
     """
     tool_name, params = resolve_slash_direct_tool(options)
     if not tool_name:
@@ -205,6 +207,7 @@ def run_direct_tool_turn(
     engine = UnifiedChatEngine(tool_registry=registry, llm_instance=llm or object())
     engine.app = app
     engine._project_id = project_id
+    engine._image_data = image_data
     request_id = str(uuid.uuid4())
     display = message or f"/{options.get('slash_command', tool_name)}"
     try:

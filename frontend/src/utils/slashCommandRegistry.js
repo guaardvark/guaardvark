@@ -45,7 +45,7 @@ const BUILT_IN_COMMANDS = [
     get description() {
       return translate("options.slashCommands.outpaint");
     },
-    usage: "/outpaint [left|right|top|bottom|all] [instruction]",
+    usage: "/outpaint [left|right|top|bottom|all] [pixels] [instruction]",
     category: "generation",
     args: "optional",
     handler: "builtin",

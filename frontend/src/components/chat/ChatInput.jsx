@@ -57,6 +57,9 @@ const ChatInput = forwardRef(
     const [inputText, setInputText] = useState("");
     const fileRef = useRef(null);
     const inputRef = useRef(null);
+    // Hands the composer's attached pictures to a photo slash command
+    // (/removebg, /inpaint, /outpaint, /identity); set once the image state exists.
+    const attachedImagesRef = useRef(null);
 
     // Terminal-style sent-message history. Up/Down navigate when the cursor
     // is at the very start/end of the input and the slash-command popup
@@ -213,6 +216,7 @@ const ChatInput = forwardRef(
         clearMessages: onClearMessages,
         onPlanCreated,
         voiceContext: { toggleVoice: voiceSession.toggleHandsFree, isVoiceActive: voiceListening },
+        takeAttachedImages: () => attachedImagesRef.current?.() ?? null,
       },
     });
 
@@ -444,6 +448,28 @@ const ChatInput = forwardRef(
       }
     };
 
+    // The attached pictures in the fields a picture message sends (see
+    // analyzeImage), taken out of the composer; null when there are none or
+    // one is still being prepared.
+    const takeAttachedImages = () => {
+      const images = imageState.images;
+      if (!images.length || images.some((img) => img.pending)) return null;
+      const base64s = images.map((img) => img.preview.split(",")[1]);
+      clearImage();
+      return {
+        isImageAnalysis: true,
+        imageBase64: base64s[0],
+        imagesBase64: base64s,
+        imageFileName: images[0].file.name,
+        imageFileNames: images.map((img) => img.file.name),
+        imagePreview: images[0].preview,
+        imagePreviews: images.map((img) => img.preview),
+      };
+    };
+    useEffect(() => {
+      attachedImagesRef.current = takeAttachedImages;
+    });
+
     // True while a dropped or pasted picture is still being resized: it is
     // not in the send yet, so Send waits for it instead of dropping it.
     const preparingImage = imageState.images.some((img) => img.pending);
@@ -633,12 +659,6 @@ Please try a different image or check if the vision model is properly loaded.`;
         return;
       }
 
-      // Check if there are images to analyze
-      if (imageState.images.length > 0) {
-        await analyzeImage();
-        return;
-      }
-
       // Fallback: If programmatic input bypassed React state, grab from DOM
       let currentText = inputText;
       if (!currentText && inputRef.current && inputRef.current.value) {
@@ -646,8 +666,10 @@ Please try a different image or check if the vision model is properly loaded.`;
       }
 
       // Slash commands run through their registry handlers before any other
-      // logic. The text is checked as well as isCommand, which only follows
-      // typing: a command recalled from history (Up arrow) must run the same way.
+      // logic, attached pictures included: /outpaint typed with a photo attached
+      // takes the photo through chatState.takeAttachedImages. The text is checked
+      // as well as isCommand, which only follows typing: a command recalled from
+      // history (Up arrow) must run the same way.
       if (slashCmds.isCommand || currentText.trim().startsWith("/")) {
         const result = await slashCmds.executeCommand(currentText);
         if (result?.handled) {
@@ -658,6 +680,12 @@ Please try a different image or check if the vision model is properly loaded.`;
           }
           return;
         }
+      }
+
+      // Check if there are images to analyze
+      if (imageState.images.length > 0) {
+        await analyzeImage();
+        return;
       }
 
       const file = fileRef.current?.files?.[0] || null;

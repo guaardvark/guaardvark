@@ -121,7 +121,7 @@ def route_turn(
     try:
         from backend.services.slash_command_executor import run_direct_tool_turn
         if run_direct_tool_turn(options, message, session_id, emit_fn, app,
-                                project_id=project_id, log_tag=log_tag):
+                                project_id=project_id, log_tag=log_tag, image_data=image_data):
             return
     except Exception as _dir_e:
         logger.debug(f"Direct intercept pre-check skipped or failed (will route normally): {_dir_e}")
