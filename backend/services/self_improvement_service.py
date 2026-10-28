@@ -61,6 +61,15 @@ STALE_RUN_REASON = "Interrupted: the worker running this scan stopped before it 
 def _test_env(**extra) -> Dict[str, str]:
     env = dict(os.environ)
     env.update(DATABASE_URL=_UNREACHABLE_DATABASE_URL, GUAARDVARK_MODE="test", **extra)
+    # A temp dir inside the checkout is dropped so pytest's tmp_path lands in the
+    # system one. start.sh points TMPDIR at data/piptmp while it installs
+    # dependencies, and the processes it starts keep it; a test sandbox under
+    # git-ignored data is refused by the code tools as local data.
+    checkout = Path(os.environ.get("GUAARDVARK_ROOT", ".")).resolve()
+    for var in ("TMPDIR", "TEMP", "TMP"):
+        value = env.get(var)
+        if value and Path(value).resolve().is_relative_to(checkout):
+            del env[var]
     return env
 
 
