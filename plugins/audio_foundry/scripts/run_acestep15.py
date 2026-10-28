@@ -16,7 +16,7 @@ Commands:
     {"op": "plan",
      "params": {
         "query": "...",              # the person's description, not a tag list
-        "lyrics": "",                # empty: the planner writes them, unless instrumental
+        "lyrics": "",                # empty: the planner writes them; given: kept as written
         "instrumental_only": false,
         "duration_s": 60.0,          # locked into the plan
         "bpm": null,                 # null: the planner chooses; a number is kept
@@ -169,23 +169,41 @@ def _do_load() -> dict[str, Any]:
     from acestep.handler import AceStepHandler
     from acestep.llm_inference import LLMHandler
 
-    _eprint(f"[run_acestep15] loading {cat['dit']} + {cat['planner']} from {root / 'checkpoints'}")
-    dit = AceStepHandler()
-    msg, ok = dit.initialize_service(
-        project_root=str(root), config_path=cat["dit"], device="cuda", offload_to_cpu=False,
-    )
-    if not ok:
-        return {"ok": False, "error": f"ACE-Step 1.5 could not load {cat['dit']}: {msg}"}
+    def load(offload: bool, offload_dit: bool) -> tuple[Any, Any, str | None]:
+        _eprint(f"[run_acestep15] loading {cat['dit']} + {cat['planner']} from {root / 'checkpoints'} "
+                f"(offload_to_cpu={offload}, offload_dit_to_cpu={offload_dit})")
+        dit = AceStepHandler()
+        msg, ok = dit.initialize_service(
+            project_root=str(root), config_path=cat["dit"], device="cuda",
+            offload_to_cpu=offload, offload_dit_to_cpu=offload_dit,
+        )
+        if not ok:
+            del dit
+            _free_cuda()
+            return None, None, f"ACE-Step 1.5 could not load {cat['dit']}: {msg}"
+        lm = LLMHandler()
+        msg, ok = lm.initialize(
+            checkpoint_dir=str(root / "checkpoints"), lm_model_path=cat["planner"],
+            backend=_PLANNER_BACKEND, device="cuda", offload_to_cpu=offload, dtype=None,
+        )
+        if not ok:
+            del dit, lm
+            _free_cuda()
+            return None, None, f"ACE-Step 1.5 could not load its planner {cat['planner']}: {msg}"
+        return dit, lm, None
 
-    lm = LLMHandler()
-    msg, ok = lm.initialize(
-        checkpoint_dir=str(root / "checkpoints"), lm_model_path=cat["planner"],
-        backend=_PLANNER_BACKEND, device="cuda", offload_to_cpu=False, dtype=None,
-    )
-    if not ok:
-        del dit
-        _free_cuda()
-        return {"ok": False, "error": f"ACE-Step 1.5 could not load its planner {cat['planner']}: {msg}"}
+    # Everything on the GPU first. When that does not fit (a 16 GB card peaks at
+    # about 15.6 GB loading both models, so an idle ComfyUI or a desktop is
+    # enough to tip it over), load again the way ACE-Step's own GPU table sets
+    # up this card: VAE, text encoder and planner wait on the CPU between uses.
+    dit, lm, err = load(False, False)
+    if err and "out of memory" in err.lower():
+        from acestep.gpu_config import get_gpu_config
+        tier = get_gpu_config()
+        _eprint(f"[run_acestep15] full load did not fit the GPU; loading again with offload ({tier.tier})")
+        dit, lm, err = load(True, bool(tier.offload_dit_to_cpu_default))
+    if err:
+        return {"ok": False, "error": err}
 
     _dit, _lm = dit, lm
     _eprint(f"[run_acestep15] loaded (dtype={getattr(dit, 'dtype', '?')}, planner={_PLANNER_BACKEND})")
@@ -235,7 +253,11 @@ def _clean_caption(text: str) -> str:
 
 def _arrangement_from_metadata(metadata: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     instrumental = bool(params.get("instrumental_only"))
-    lyrics = "[Instrumental]" if instrumental else (metadata.get("lyrics") or params.get("lyrics") or "")
+    # Lyrics the person wrote are kept as written. The planner reads them for the
+    # caption and metadata, but its own copy can come back rewritten or as one
+    # line repeated to the token limit (3 runs on 2026-10-28: 2 of 3 replaced).
+    written = (params.get("lyrics") or "").strip()
+    lyrics = "[Instrumental]" if instrumental else (written or metadata.get("lyrics") or "")
     if not instrumental:
         lyrics = str(lyrics).strip()[:4000]
     meter = str(metadata.get("timesignature") or "").strip()
