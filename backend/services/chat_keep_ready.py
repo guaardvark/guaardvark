@@ -133,6 +133,11 @@ def _gpu_busy_reason() -> Optional[str]:
             # into the gap between its eviction and its load, or beside it,
             # leaves the next song or arrangement out of memory.
             return f"{holder} needs the whole card"
+        cleared = orch.chat_cleared_for() if orch is not None else None
+        if cleared:
+            # The chat model was unloaded to make room for this one; loading it
+            # back while that model loads or works takes the room away again.
+            return f"{cleared} was given the chat model's memory"
     except Exception:
         pass
     try:

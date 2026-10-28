@@ -94,6 +94,16 @@ class Dispatcher:
         # sites can stay branch-free. enabled=False means every method is a no-op.
         self._orch = orchestrator or OrchestratorClient(enabled=False)
 
+    def forget_slots_from_before(self) -> None:
+        """Drop the slots an earlier run of this service left in the orchestrator.
+
+        A new process holds no models, but the backend's registry outlives a
+        service restart. A slot left there is counted as in use, and evicting it
+        is counted as freed although nothing leaves the card. Best-effort: the
+        backend may not be up yet."""
+        for intent in self._backends:
+            self._orch.evict(f"{_SLOT_PREFIX}:{intent.value}")
+
     def register(self, intent: Intent, backend: AudioBackend) -> None:
         """Called from service bootstrap as each backend comes online."""
         with self._state_lock:

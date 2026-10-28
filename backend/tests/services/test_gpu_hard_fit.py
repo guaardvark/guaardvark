@@ -55,6 +55,50 @@ def test_request_model_soft_fit_admits_when_short():
     assert slot.state == SlotState.LOADING
 
 
+def test_request_model_reclaims_when_registry_eviction_frees_nothing_physical():
+    """A registry-only slot (a plugin's) counts as freed but leaves its memory on the
+    card; the admission measures again and reclaims Ollama instead of refusing."""
+    from backend.services.gpu_memory_orchestrator import GPUMemoryOrchestrator, SlotState
+
+    orch = GPUMemoryOrchestrator.__new__(GPUMemoryOrchestrator)
+    orch._lock = __import__("threading").RLock()
+    orch._registry = {}
+    orch._eviction_grace_s = 30
+    orch._idle_timeout_s = 600
+    card = {"free": 5700}
+
+    def fake_vram():
+        return {"success": True, "available_mb": card["free"], "total_mb": 16376}
+
+    def reclaim(needed):
+        card["free"] = 14000
+        return 8000
+
+    with patch.object(orch, "_get_vram_info", side_effect=fake_vram):
+        with patch.object(orch, "_evict_until_free", return_value=14400):
+            with patch.object(orch, "_physical_reclaim_untracked", side_effect=reclaim) as rec:
+                slot = orch.request_model("audio_foundry:fx", vram_estimate_mb=6000, priority=50, hard_fit=True)
+    assert rec.call_count == 1
+    assert slot.state == SlotState.LOADING
+    assert slot.cleared_chat is True
+    assert orch.chat_cleared_for() == "audio_foundry:fx"
+
+
+def test_keep_ready_steps_aside_for_a_slot_given_the_chat_models_memory(monkeypatch):
+    from backend.services import chat_keep_ready
+
+    class Orch:
+        def exclusive_holder(self):
+            return None
+
+        def chat_cleared_for(self):
+            return "audio_foundry:fx"
+
+    monkeypatch.setattr("backend.services.gpu_memory_orchestrator.get_orchestrator_if_created", lambda: Orch())
+    reason = chat_keep_ready._gpu_busy_reason()
+    assert reason and "audio_foundry:fx" in reason
+
+
 # --- Compositor VRAM reserve (2026-08-04 client box 2048² incident) --------------
 # Opt-in per caller: reserved MB are treated as not-free so the desktop
 # compositor's share of the card survives the job. Default 0 keeps existing

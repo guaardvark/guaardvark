@@ -9,6 +9,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import sys
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional
@@ -140,6 +141,7 @@ _orch_client = OrchestratorClient(
 )
 
 _dispatcher = Dispatcher(orchestrator=_orch_client)
+threading.Thread(target=_dispatcher.forget_slots_from_before, name="audio-forget-slots", daemon=True).start()
 _dispatcher.start_idle_unloader(int(_gpu_cfg.get("idle_unload_s", 0) or 0))
 bootstrap(_dispatcher, _config)
 

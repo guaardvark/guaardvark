@@ -67,6 +67,7 @@ class ModelSlot:
     in_use: int = 0                     # Active inference pins; >0 blocks idle/forced yank
     idle_timeout_s: Optional[int] = None  # Overrides the orchestrator's idle timeout for this slot
     exclusive: bool = False             # Asked for the whole card (ACE-Step); the chat model keeps away
+    cleared_chat: bool = False          # Admitted by unloading Ollama; the chat model keeps away while it is loaded
 
     def to_dict(self) -> dict:
         return {
@@ -83,6 +84,7 @@ class ModelSlot:
             "in_use": self.in_use,
             "idle_timeout_s": self.idle_timeout_s,
             "exclusive": self.exclusive,
+            "cleared_chat": self.cleared_chat,
         }
 
 
@@ -305,6 +307,7 @@ class GPUMemoryOrchestrator:
                 "1", "true", "yes", "on",
             )
 
+        reclaimed = False
         with self._lock:
             # Already loaded?
             existing = self._registry.get(slot_id)
@@ -339,10 +342,19 @@ class GPUMemoryOrchestrator:
                     safety_margin_mb = max(1024, int(total_mb * pct)) if total_mb else 1024
                     if available - safety_margin_mb < vram_estimate_mb:
                         needed = vram_estimate_mb - (available - safety_margin_mb)
-                        freed = self._evict_until_free(needed, exclude=[slot_id])
-                        # Registry empty but card full — force physical SD unload + ollama
-                        if freed < needed:
-                            self._physical_reclaim_untracked(needed)
+                        self._evict_until_free(needed, exclude=[slot_id])
+                        # The registry's count is not the card: a plugin slot leaves
+                        # the registry while the plugin still holds its memory, and an
+                        # Ollama model loaded over HTTP was never in it. Measure again,
+                        # and when the card is still short, unload the in-process image
+                        # weights and Ollama's models.
+                        after = self._get_vram_info()
+                        still = needed
+                        if after.get("success"):
+                            still = vram_estimate_mb - (after["available_mb"] - reserve_mb - safety_margin_mb)
+                        if still > 0:
+                            self._physical_reclaim_untracked(still)
+                            reclaimed = True
 
                     # Post-evict re-probe: require safety margin before registering.
                     vram2 = self._get_vram_info()
@@ -395,6 +407,7 @@ class GPUMemoryOrchestrator:
                 priority=priority,
                 state=SlotState.LOADING,
                 exclusive=bool(exclusive),
+                cleared_chat=reclaimed,
             )
             self._registry[slot_id] = slot
             logger.info(f"Model {slot_id} registered (type={model_type.value}, ~{vram_estimate_mb}MB, priority={priority})")
@@ -407,6 +420,19 @@ class GPUMemoryOrchestrator:
         with self._lock:
             for slot in self._registry.values():
                 if (slot.exclusive and slot.state in (SlotState.LOADED, SlotState.LOADING)
+                        and not slot.slot_id.startswith("ollama:")):
+                    return slot.slot_id
+        return None
+
+    def chat_cleared_for(self) -> Optional[str]:
+        """A loading or loaded slot that was admitted by unloading Ollama, if any.
+
+        Reloading the chat model beside it would take back the room it was given:
+        a keep-ready load in the seconds after the reclaim put an 8 GB chat model
+        beside Stable Audio's load and its decode ran out of memory (2026-10-28)."""
+        with self._lock:
+            for slot in self._registry.values():
+                if (slot.cleared_chat and slot.state in (SlotState.LOADED, SlotState.LOADING)
                         and not slot.slot_id.startswith("ollama:")):
                     return slot.slot_id
         return None
