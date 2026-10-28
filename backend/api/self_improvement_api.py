@@ -38,7 +38,11 @@ def get_status():
         SelfImprovementRun.timestamp.desc()
     ).first()
 
-    total_fixes = db.session.query(SelfImprovementRun).filter_by(status="success").count()
+    from backend.models import PendingFix
+    # A successful run is one whose tests passed or that staged a fix; neither
+    # changes a file. Fixes change files only when a person applies them.
+    successful_runs = db.session.query(SelfImprovementRun).filter_by(status="success").count()
+    fixes_applied = db.session.query(PendingFix).filter_by(status="applied").count()
 
     return success_response(data={
         "enabled": enabled_setting.value.lower() == "true" if enabled_setting else False,
@@ -47,7 +51,8 @@ def get_status():
             os.path.exists(lock_file)
         ),
         "last_run": last_run.to_dict() if last_run else None,
-        "total_fixes": total_fixes,
+        "successful_runs": successful_runs,
+        "fixes_applied": fixes_applied,
     })
 
 

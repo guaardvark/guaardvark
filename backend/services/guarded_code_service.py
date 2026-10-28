@@ -871,6 +871,25 @@ def stage_pending_fix(
 
     from backend.models import PendingFix, db
 
+    # A change already waiting for review, or one a person rejected, is the same
+    # question asked again. An applied one is not: its old text is back in the
+    # file only if the change was undone.
+    filed = (
+        PendingFix.query
+        .filter(PendingFix.file_path == str(file_path))
+        .filter(PendingFix.original_content == old_text)
+        .filter(PendingFix.proposed_new_content == new_text)
+        .filter(PendingFix.status.in_(("proposed", "triaged", "approved", "rejected")))
+        .order_by(PendingFix.id)
+        .first()
+    )
+    if filed is not None:
+        raise GuardedCodeError(
+            f"The same change is already filed as pending fix #{filed.id} ({filed.status}); "
+            "it was not staged again.",
+            "ALREADY_FILED", 409,
+        )
+
     if run_id is None:
         logger.info("PendingFix staged without run_id (ad-hoc/manual from guarded; per team audit intentional for non-SI proposals)")
 

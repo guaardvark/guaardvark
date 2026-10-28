@@ -74,7 +74,7 @@ export default function SelfImprovementControls() {
     }
   }, [fetchStatus]);
 
-  const runs = siStatus?.total_fixes || 0;
+  const runs = siStatus?.successful_runs || 0;
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1.25 }}>

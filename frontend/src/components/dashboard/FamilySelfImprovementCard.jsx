@@ -205,9 +205,9 @@ const FamilySelfImprovementCard = React.forwardRef(
             )}
 
             {/* Fixes count */}
-            {(siStatus?.total_fixes || 0) > 0 && (
+            {(siStatus?.fixes_applied || 0) > 0 && (
               <Typography variant="caption" color="text.secondary">
-                {t("dashboard.family.totalFixes", { count: siStatus.total_fixes })}
+                {t("dashboard.family.totalFixes", { count: siStatus.fixes_applied })}
               </Typography>
             )}
 
