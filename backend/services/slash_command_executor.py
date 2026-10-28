@@ -201,7 +201,9 @@ def run_direct_tool_turn(
     registry = initialize_all_tools()
     llm = None
     try:
-        llm = get_llm_for_startup()
+        # The active model is read from the database, which needs the app context.
+        with app.app_context():
+            llm = get_llm_for_startup()
     except Exception:
         pass  # the direct path does not call the model
     engine = UnifiedChatEngine(tool_registry=registry, llm_instance=llm or object())
