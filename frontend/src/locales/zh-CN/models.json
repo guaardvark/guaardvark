@@ -117,9 +117,10 @@
     "removeKeeps": "出厂提供的图像模型列表"
   },
   "infographicModels": {
-    "title": "信息图模型 (Flux schnell)",
-    "intro": "四个“文件”驱动信息图选项卡——扩散模型、两个文本编码器和一个 VAE。它们将安装到 ComfyUI 的模型树中，因此必须启用 ComfyUI 插件才能使用它们。",
-    "noAssets": "未配置 Flux 资源。"
+    "title": "信息图模型",
+    "intro": "若已安装，信息图将使用 Krea 2 Turbo 渲染，否则使用 Z-Image Turbo。可在标签页中选择 Qwen-Image 2.1。Krea 2 在 Hugging Face 上有权限限制：请在模型页面接受其许可，并在安装前设置 HF_TOKEN。",
+    "noAssets": "未配置任何信息图模型。",
+    "chooseOnTab": "在标签页中选择"
   },
   "upscalingModels": {
     "errorFetching": "获取超分辨率模型时出现错误",

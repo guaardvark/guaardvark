@@ -117,9 +117,10 @@
     "removeKeeps": "a lista de Modelos de Imagem fornecida"
   },
   "infographicModels": {
-    "title": "Modelos de Infográfico (Flux schnell)",
-    "intro": "Quatro Arquivos alimentam a aba Infográfico — modelo de difusão, dois codificadores de texto e um VAE. Eles são instalados na árvore de modelos do ComfyUI, então o plugin do ComfyUI deve estar ativado para usá-los.",
-    "noAssets": "Nenhum recurso do Flux configurado."
+    "title": "Modelos de Infográfico",
+    "intro": "Infográficos renderizam com Krea 2 Turbo quando instalado, caso contrário, Z-Image Turbo. Qwen-Image 2.1 pode ser selecionado na aba. Krea 2 é restrito no Hugging Face: aceite a licença na página do modelo e configure o HF_TOKEN antes de instalá-lo.",
+    "noAssets": "Nenhum modelo de infográfico está configurado.",
+    "chooseOnTab": "Escolha na aba"
   },
   "upscalingModels": {
     "errorFetching": "Erro ao buscar modelos de upscaling",

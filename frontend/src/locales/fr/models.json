@@ -117,9 +117,10 @@
     "removeKeeps": "la liste des modèles d'image fournis"
   },
   "infographicModels": {
-    "title": "Modèles Infographie (Flux schnell)",
-    "intro": "Quatre fichiers alimentent l'onglet Infographie — un modèle de diffusion, deux encodeurs de texte et un VAE. Ils s'installent dans l'arborescence des modèles de ComfyUI, le plugin ComfyUI doit donc être activé pour les utiliser.",
-    "noAssets": "Aucun élément Flux configuré."
+    "title": "Modèles d'Infographie",
+    "intro": "Les infographies sont rendues avec Krea 2 Turbo lorsqu'il est installé, sinon avec Z-Image Turbo. Qwen-Image 2.1 peut être sélectionné sur l'onglet. Krea 2 est restreint sur Hugging Face : acceptez sa licence sur la page du modèle et configurez HF_TOKEN avant de l'installer.",
+    "noAssets": "Aucun modèle d'infographie n'est configuré.",
+    "chooseOnTab": "Choisir sur l'onglet"
   },
   "upscalingModels": {
     "errorFetching": "Erreur lors de la récupération des modèles d'upscaling",

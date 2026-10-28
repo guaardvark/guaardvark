@@ -117,9 +117,10 @@
     "removeKeeps": "standardową listę Image Models"
   },
   "infographicModels": {
-    "title": "Infografika Modele (Flux schnell)",
-    "intro": "Cztery pliki napędzają zakładkę Infografika — model dyfuzji, dwa kodery tekstu i VAE. Instalują się one w drzewie modeli ComfyUI, więc wtyczka ComfyUI musi być włączona, aby ich użyć.",
-    "noAssets": "Brak skonfigurowanych zasobów Flux."
+    "title": "Modele Infografik",
+    "intro": "Infografiki renderują za pomocą Krea 2 Turbo, jeśli jest zainstalowane, w przeciwnym razie Z-Image Turbo. Qwen-Image 2.1 można wybrać na karcie. Krea 2 jest ograniczone na Hugging Face: zaakceptuj jego licencję na stronie modelu i ustaw HF_TOKEN przed instalacją.",
+    "noAssets": "Nie skonfigurowano żadnych modeli infografik.",
+    "chooseOnTab": "Wybierz na karcie"
   },
   "upscalingModels": {
     "errorFetching": "Błąd pobierania modeli upscalingu",

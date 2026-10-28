@@ -117,9 +117,10 @@
     "removeKeeps": "기본 제공 이미지 모델 목록"
   },
   "infographicModels": {
-    "title": "인포그래픽 모델 (Flux schnell)",
-    "intro": "인포그래픽 탭은 4개의 파일(확산 모델, 2개의 텍스트 인코더, VAE)로 구성됩니다. 이들은 ComfyUI의 모델 트리로 설치되므로, 사용을 위해 ComfyUI 플러그인이 활성화되어 있어야 합니다.",
-    "noAssets": "구성된 Flux 에셋이 없습니다."
+    "title": "인포그래픽 모델",
+    "intro": "인포그래픽은 설치된 경우 Krea 2 Turbo로 렌더링되며, 그렇지 않으면 Z-Image Turbo를 사용합니다. 탭에서 Qwen-Image 2.1을 선택할 수 있습니다. Krea 2는 Hugging Face에서 제한되어 있으므로, 설치 전 모델 페이지에서 라이선스에 동의하고 HF_TOKEN을 설정해야 합니다.",
+    "noAssets": "설정된 인포그래픽 모델이 없습니다.",
+    "chooseOnTab": "탭에서 선택"
   },
   "upscalingModels": {
     "errorFetching": "업스케일링 모델을 가져오는 중 오류 발생",

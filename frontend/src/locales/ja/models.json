@@ -117,9 +117,10 @@
     "removeKeeps": "同梱の Image Models リスト"
   },
   "infographicModels": {
-    "title": "インフォグラフィック モデル (Flux schnell)",
-    "intro": "インフォグラフィックタブは、拡散モデル、2つのテキストエンコーダ、およびVAEの計4つのファイルで構成されています。これらはComfyUIのモデルツリーにインストールされるため、使用するにはComfyUIプラグインを有効にする必要があります。",
-    "noAssets": "Flux アセットが設定されていません。"
+    "title": "インフォグラフィックモデル",
+    "intro": "インフォグラフィックは、インストールされている場合はKrea 2 Turbo、それ以外の場合はZ-Image Turboでレンダリングされます。Qwen-Image 2.1はタブから選択可能です。Krea 2はHugging Faceで制限がかかっています。インストール前にモデルページでライセンスに同意し、HF_TOKENを設定してください。",
+    "noAssets": "インフォグラフィックモデルが設定されていません。",
+    "chooseOnTab": "タブで選択"
   },
   "upscalingModels": {
     "errorFetching": "アップスケーリング モデルの取得中にエラーが発生しました",

@@ -14856,24 +14856,20 @@
       "en": "e16305f8b09b",
       "out": "20f1b27b4ba0"
     },
-    "infographic.comfyuiStopped": {
-      "en": "a7429c1badbe",
-      "out": "6d4d017dafb8"
+    "infographic.noModel": {
+      "en": "4771e2e596cb",
+      "out": "16f5ea1d530e"
     },
     "infographic.refresh": {
       "en": "56e3badc4e6c"
-    },
-    "infographic.missingAssets": {
-      "en": "3663ed8b2cfc",
-      "out": "e8006b17c618"
     },
     "infographic.title": {
       "en": "f5fea5759cd9",
       "out": "a001b66fc1d0"
     },
     "infographic.intro": {
-      "en": "2ba336070275",
-      "out": "0593cfeaea21"
+      "en": "7e7b42b2d8a3",
+      "out": "fa53635e8845"
     },
     "infographic.structured": {
       "en": "14dde958744d",
@@ -14908,8 +14904,8 @@
       "out": "cb56a273af50"
     },
     "infographic.calloutsHelp": {
-      "en": "e87156091257",
-      "out": "3e02feb88f22"
+      "en": "ef66f8dc0d4e",
+      "out": "0232de395e01"
     },
     "infographic.footerLabel": {
       "en": "d1b85f2f8660",
@@ -14947,6 +14943,10 @@
       "en": "ba573964a6ad",
       "out": "8a496526fe1e"
     },
+    "infographic.model": {
+      "en": "68c2cc7f0cea",
+      "out": "a2eae7cbf204"
+    },
     "infographic.generating": {
       "en": "11edad70c1ff",
       "out": "bfca441a5c87"
@@ -14956,8 +14956,8 @@
       "out": "42ec952255e8"
     },
     "infographic.generatingHint": {
-      "en": "909e20dfc8d2",
-      "out": "5ee030b4fcf1"
+      "en": "2e7fb3925fd1",
+      "out": "d575773f7e33"
     },
     "infographic.previewEmpty": {
       "en": "5203f9948374",
@@ -19743,13 +19743,20 @@
       "en": "225c3f83e0de"
     },
     "infographicModels.title": {
-      "en": "0376fcdb1972"
+      "en": "1a8e040f6d17",
+      "out": "c837bc929c30"
     },
     "infographicModels.intro": {
-      "en": "b852d7f97f95"
+      "en": "44ef02c57db5",
+      "out": "0faa7826bb4e"
     },
     "infographicModels.noAssets": {
-      "en": "9c71c009a582"
+      "en": "2151bd95a085",
+      "out": "55870e76c85b"
+    },
+    "infographicModels.chooseOnTab": {
+      "en": "d0fa78404ae1",
+      "out": "0f5a4937d890"
     },
     "upscalingModels.errorFetching": {
       "en": "4c324f9b7f80",

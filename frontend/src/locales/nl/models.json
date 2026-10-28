@@ -117,9 +117,10 @@
     "removeKeeps": "de meegeleverde Image Models-lijst"
   },
   "infographicModels": {
-    "title": "Infografiekmodellen (Flux schnell)",
-    "intro": "Vier Bestanden maken de Infographic-tab krachtig — een diffusiemodel, twee tekstencoders en een VAE. Ze worden geïnstalleerd in de modelboom van ComfyUI, dus moet de ComfyUI-plugin zijn ingeschakeld om ze te gebruiken.",
-    "noAssets": "Geen Flux-assets geconfigureerd."
+    "title": "Infographic-modellen",
+    "intro": "Infographics worden gerenderd met Krea 2 Turbo als deze is geïnstalleerd, anders met Z-Image Turbo. Qwen-Image 2.1 kan worden geselecteerd in het tabblad. Krea 2 is beperkt op Hugging Face: accepteer de licentie op de modelpagina en stel HF_TOKEN in voordat je het installeert.",
+    "noAssets": "Er zijn geen infographic-modellen geconfigureerd.",
+    "chooseOnTab": "Selecteer in het tabblad"
   },
   "upscalingModels": {
     "errorFetching": "Fout bij ophalen van upscaling-modellen",

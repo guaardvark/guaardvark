@@ -117,9 +117,10 @@
     "removeKeeps": "die mitgelieferte Bildmodellliste"
   },
   "infographicModels": {
-    "title": "Infografikmodelle (Flux schnell)",
-    "intro": "Vier Dateien für Infografiken: Diffusionsmodell, zwei Textencoder und VAE. Installation im ComfyUI-Modellverzeichnis; das comfyui-Plugin muss aktiviert sein.",
-    "noAssets": "Keine Flux-Dateien konfiguriert."
+    "title": "Infografik-Modelle",
+    "intro": "Infografiken werden mit Krea 2 Turbo gerendert, sofern es installiert ist, ansonsten mit Z-Image Turbo. Qwen-Image 2.1 kann im Tab ausgewählt werden. Krea 2 ist auf Hugging Face eingeschränkt: Akzeptiere die Lizenz auf der Modellseite und setze den HF_TOKEN, bevor du es installierst.",
+    "noAssets": "Keine Infografik-Modelle konfiguriert.",
+    "chooseOnTab": "Im Tab auswählen"
   },
   "upscalingModels": {
     "errorFetching": "Fehler beim Abrufen der Hochskalierungsmodelle",
