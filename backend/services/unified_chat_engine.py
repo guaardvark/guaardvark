@@ -614,6 +614,19 @@ _IMAGE_RESULT_TOOLS = frozenset({
     "remove_background", "inpaint_image", "outpaint_image", "generate_identity",
 })
 
+
+def _image_ref_usable(ref) -> bool:
+    """True when a photo tool could open ``ref``: inline image data, or a URL or
+    path the shared media rules resolve to a file (what the tools themselves do)."""
+    text = str(ref or "").strip()
+    if text.startswith("data:") or (len(text) > 256 and "/" not in text[:64] and " " not in text[:64]):
+        return True
+    from backend.utils.media_inputs import resolve_media_ref
+    try:
+        return bool(resolve_media_ref(text, mcp=False, label="image").path)
+    except Exception:  # noqa: BLE001 — an unreadable reference is simply not usable
+        return False
+
 # Narrow create-intent phrases for image/video generation — excludes descriptive
 # "image of X on the website" references that falsely triggered direct generate_image.
 IMAGE_GEN_INTENT_KEYWORDS = [
@@ -2753,9 +2766,15 @@ class UnifiedChatEngine:
 
     def _inject_attached_image(self, tool_name: str, params: dict) -> dict:
         """Forward the user's most-recently-attached chat image into photo tools when
-        the LLM called them without an explicit `image` (the common case: the user
-        attaches a picture and says 'put a cowboy hat on this character')."""
-        if tool_name not in _IMAGE_ATTACHMENT_TOOLS or params.get("image"):
+        the LLM called them without a usable `image` (the common case: the user
+        attaches a picture and says 'put a cowboy hat on this character'). A small
+        model sometimes names the attachment itself ("input_file_0.png"); a name that
+        resolves to no file is replaced by the attachment, while a URL or path that
+        does resolve (an earlier result) is kept."""
+        if tool_name not in _IMAGE_ATTACHMENT_TOOLS:
+            return params
+        given = params.get("image")
+        if given and _image_ref_usable(given):
             return params
         path = self._materialize_attached_image()
         if path:
@@ -3611,7 +3630,7 @@ class UnifiedChatEngine:
                             # Add to steps
                             step_info["tool_calls"].append({
                                 "tool_name": tool_name,
-                                "params": params,
+                                "params": display_params(params),
                                 "success": False,
                                 "duration_ms": 0,
                                 "output_preview": "USER REJECTED",
@@ -3924,7 +3943,7 @@ class UnifiedChatEngine:
                 preview_limit = 1200 if tool_name == "edit_code" else (2000 if _declared > 500 else 200)
                 step_call = {
                     "tool_name": tool_name,
-                    "params": params,
+                    "params": display_params(params),
                     "success": result.success,
                     "duration_ms": duration_ms,
                     "output_preview": out[:preview_limit] if result.success else failure_text(result)[:preview_limit],
@@ -4504,7 +4523,7 @@ class UnifiedChatEngine:
             "thoughts": "",
             "tool_calls": [{
                 "tool_name": tool_name,
-                "params": params,
+                "params": display_params(params),
                 "success": False,
                 "duration_ms": 0,
                 "output_preview": error[:2000],
@@ -4601,7 +4620,7 @@ class UnifiedChatEngine:
                 "thoughts": "",
                 "tool_calls": [{
                     "tool_name": tool_name,
-                    "params": params,
+                    "params": display_params(params),
                     "success": False,
                     "duration_ms": _dur_ms,
                     "output_preview": str(exc)[:2000],
@@ -4750,7 +4769,7 @@ class UnifiedChatEngine:
         # chat:tool_result payload ([:2000]) so persisted == live.
         _direct_call = {
             "tool_name": tool_name,
-            "params": params,
+            "params": display_params(params),
             "success": bool(result.success),
             "duration_ms": _dur_ms,
             "output_preview": (
@@ -4827,7 +4846,7 @@ class UnifiedChatEngine:
                     "thoughts": "",
                     "tool_calls": [{
                         "tool_name": tool_name,
-                        "params": params,
+                        "params": display_params(params),
                         "success": False,
                         "duration_ms": int((time.time() - _t0) * 1000),
                         "output_preview": str(e)[:2000],
@@ -4867,7 +4886,7 @@ class UnifiedChatEngine:
                 "thoughts": "",
                 "tool_calls": [{
                     "tool_name": tool_name,
-                    "params": params,
+                    "params": display_params(params),
                     "success": bool(result.success),
                     "duration_ms": int((time.time() - _t0) * 1000),
                     "output_preview": (
