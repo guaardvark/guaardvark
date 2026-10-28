@@ -1,0 +1,19 @@
+[Unit]
+Description=Guaardvark PostgreSQL (with pgvector)
+
+[Container]
+ContainerName=guaardvark-postgres
+Image=docker.io/pgvector/pgvector:pg16
+Network=guaardvark.network
+NetworkAlias=postgres
+EnvironmentFile=%h/.config/guaardvark/guaardvark.env
+Volume=guaardvark-pgdata:/var/lib/postgresql/data
+HealthCmd=pg_isready -U guaardvark -d guaardvark
+Notify=healthy
+
+[Service]
+Restart=always
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

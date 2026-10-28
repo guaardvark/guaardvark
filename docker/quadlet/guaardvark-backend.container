@@ -1,0 +1,39 @@
+[Unit]
+Description=Guaardvark backend (Flask + Celery)
+Requires=guaardvark-postgres.service guaardvark-redis.service guaardvark-ollama.service
+After=guaardvark-postgres.service guaardvark-redis.service guaardvark-ollama.service
+
+[Container]
+ContainerName=guaardvark-backend
+Image=localhost/guaardvark-backend:latest
+Network=guaardvark.network
+NetworkAlias=backend
+EnvironmentFile=%h/.config/guaardvark/guaardvark.env
+Environment=GUAARDVARK_ROOT=/app
+Environment=GUAARDVARK_DOCKER=1
+Environment=FLASK_PORT=5000
+Environment=OLLAMA_BASE_URL=http://ollama:11434
+Environment=OLLAMA_HOST=http://ollama:11434
+Environment=VITE_ALLOWED_HOSTS=backend
+Environment=HF_HUB_DISABLE_TELEMETRY=1
+Environment=DO_NOT_TRACK=1
+Environment=PIP_DISABLE_PIP_VERSION_CHECK=1
+Volume=guaardvark-data:/app/data
+Volume=guaardvark-logs:/app/logs
+Volume=guaardvark-config:/root/.config/guaardvark
+Volume=guaardvark-cache:/root/.cache
+PublishPort=127.0.0.1:5000:5000
+AddDevice=/dev/kfd
+AddDevice=/dev/dri
+GroupAdd=keep-groups
+SecurityLabelDisable=true
+HealthCmd=curl -f http://localhost:5000/api/health
+HealthStartPeriod=60s
+Exec=sh -c 'cd /app && { flask db upgrade || echo "flask db upgrade failed; the backend starts anyway" >&2; }; python -m flask run --host 0.0.0.0 --port 5000 & CELERY_WORKER_MODE=true celery -A backend.celery_app.celery worker --hostname=main@backend --queues=health,default,indexing,generation,training_gpu --concurrency=1 --max-memory-per-child=4096000 --loglevel=info & CELERY_WORKER_MODE=true celery -A backend.celery_app.celery worker --hostname=training@backend --queues=training --concurrency=1 --max-memory-per-child=4096000 --loglevel=info & wait'
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

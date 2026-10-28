@@ -1,0 +1,17 @@
+[Unit]
+Description=Guaardvark frontend (nginx)
+Requires=guaardvark-backend.service
+After=guaardvark-backend.service
+
+[Container]
+ContainerName=guaardvark-frontend
+Image=localhost/guaardvark-frontend:latest
+Network=guaardvark.network
+PublishPort=5173:5173
+HealthCmd=wget -q --spider http://127.0.0.1:5173/
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
