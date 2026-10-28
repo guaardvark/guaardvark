@@ -90,3 +90,49 @@ def test_an_error_from_the_work_is_not_retried(fake_session):
         with grp.gpu_session_when_free(JobKind.VIDEO_RENDER, "edit", wait_s=600):
             raise GpuBusyError("raised by the work itself")
     assert fake_session["claims"] == 1 and fake_session["exited"] == 1
+
+
+def test_a_waiting_claim_is_on_the_gates_waiting_list_until_it_holds(fake_session, monkeypatch):
+    # Keep ready reads this list; off it, the chat model reloads into the gap
+    # between the holder's release and this claim's next try.
+    import backend.services.job_operation_gate as jog
+
+    gate = jog.JobOperationGate()
+    monkeypatch.setattr(jog, "get_gate", lambda: gate)
+    fake_session["busy_times"] = 2
+    seen = []
+    with grp.gpu_session_when_free(JobKind.VIDEO_RENDER, "edit", wait_s=600,
+                                   on_wait=lambda _r: seen.append(gate.snapshot()["gpu_waiting"])):
+        inside = gate.snapshot()["gpu_waiting"]
+    assert seen == [["video_render:edit"], ["video_render:edit"]]
+    assert inside == [] and gate.snapshot()["gpu_waiting"] == []
+
+
+def test_giving_up_leaves_the_waiting_list(fake_session, monkeypatch):
+    import backend.services.job_operation_gate as jog
+
+    gate = jog.JobOperationGate()
+    monkeypatch.setattr(jog, "get_gate", lambda: gate)
+    fake_session["busy_times"] = 99
+    with pytest.raises(GpuBusyError):
+        with grp.gpu_session_when_free(JobKind.VIDEO_RENDER, "edit", wait_s=60):
+            pass
+    assert gate.snapshot()["gpu_waiting"] == []
+
+
+def test_the_gates_own_wait_is_listed_while_it_waits(monkeypatch):
+    import backend.services.job_operation_gate as jog
+
+    gate = jog.JobOperationGate()
+    assert gate.try_claim_gpu_exclusive(JobKind.VIDEO_RENDER, "first")[0]
+    monkeypatch.setattr(jog.time, "sleep", lambda s: None)
+    seen = []
+
+    def on_wait(_reason):
+        seen.append(gate.snapshot()["gpu_waiting"])
+        gate.release_gpu_exclusive(JobKind.VIDEO_RENDER, "first")
+        gate._gpu_last_released = float("-inf")  # skip the post-release cooldown
+
+    with gate.gpu_exclusive(JobKind.VIDEO_RENDER, "second", on_busy="wait", on_wait=on_wait):
+        inside = gate.snapshot()["gpu_waiting"]
+    assert seen == [["video_render:second"]] and inside == []

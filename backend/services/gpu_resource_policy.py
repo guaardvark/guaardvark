@@ -873,6 +873,14 @@ def gpu_session(
                     if lease_held:
                         heartbeat_stop = _start_lease_heartbeat(_slot, lease_len)
                 release_kept_image_pipeline(image_model)
+                if evict_ollama and require_fit:
+                    # A Keep ready load that started before this claim is not on
+                    # the card yet; measure after it lands so the eviction sees it.
+                    try:
+                        from backend.services.chat_keep_ready import wait_for_load
+                        wait_for_load()
+                    except Exception:  # noqa: BLE001 — never block a claim on this
+                        pass
                 # Evict residents only when the estimate does not already fit and
                 # the card could hold it at all; otherwise the refusal would have
                 # cost the user their chat model for nothing.
@@ -998,7 +1006,7 @@ def gpu_session_when_free(
     """
     from backend.services import job_arbiter
     from backend.services.job_operation_gate import (
-        GpuBusyError, GpuCapacityError, GpuQueuedError, gpu_holder_label,
+        GpuBusyError, GpuCapacityError, GpuQueuedError, get_gate, gpu_holder_label,
     )
     from backend.services.job_priority_data import POLL_S
 
@@ -1012,7 +1020,12 @@ def gpu_session_when_free(
             kind, op_id, evicts_ollama=bool(session_kwargs.get("evict_ollama")),
             slot_id=session_kwargs.get("slot_id"), keep_on_refusal=False,
         )
-    with admission_cm as admission:
+    # From the first refusal until the claim the job is on the gate's waiting
+    # list, so nothing loads into the gap between the holder's release and this
+    # job's next try (backoff sleeps reach 15 s with job order off).
+    waiting = contextlib.ExitStack()
+    on_list = False
+    with admission_cm as admission, waiting:
         deadline = time.monotonic() + max(0.0, float(wait_s))
         backoff = 2.0
         while True:
@@ -1029,6 +1042,9 @@ def gpu_session_when_free(
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise
+                if not on_list:
+                    waiting.enter_context(get_gate().waiting_for_gpu(kind, op_id))
+                    on_list = True
                 if on_wait:
                     try:
                         on_wait(str(e))
@@ -1055,6 +1071,7 @@ def gpu_session_when_free(
                 if not queued:
                     backoff = min(15.0, backoff * 1.5)
                 continue
+            waiting.close()
             with stack:
                 yield held
             return

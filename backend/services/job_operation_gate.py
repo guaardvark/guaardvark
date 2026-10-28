@@ -234,6 +234,8 @@ class JobOperationGate:
         self._holder_thread: Optional[threading.Thread] = None
         # Last-released-at timestamp for cooldown reasoning
         self._gpu_last_released: float = 0.0
+        # "kind:native_id" -> how many waits that job has open; see waiting_for_gpu.
+        self._gpu_waiters: dict[str, int] = {}
 
     # ---- claim / release ---------------------------------------------------
 
@@ -335,6 +337,30 @@ class JobOperationGate:
     # ---- contextmanager ----------------------------------------------------
 
     @contextmanager
+    def waiting_for_gpu(self, kind: JobKind, native_id: str) -> Iterator[None]:
+        """Mark a job as waiting its turn for the GPU for the ``with`` block.
+
+        Between one job's release and the next one's claim the card looks free;
+        anything that would load a model of its own then (Keep ready reloading
+        the chat model) reads ``gpu_waiting`` in the snapshot and holds off, or
+        the waiting job's fit check passes before that memory lands and the job
+        runs out of memory. Wrap only the wait, not the work: a claimed job is
+        already ``gpu_busy``.
+        """
+        key = f"{getattr(kind, 'value', kind)}:{native_id}"
+        with self._lock:
+            self._gpu_waiters[key] = self._gpu_waiters.get(key, 0) + 1
+        try:
+            yield
+        finally:
+            with self._lock:
+                left = self._gpu_waiters.get(key, 0) - 1
+                if left > 0:
+                    self._gpu_waiters[key] = left
+                else:
+                    self._gpu_waiters.pop(key, None)
+
+    @contextmanager
     def gpu_exclusive(
         self,
         kind: JobKind,
@@ -395,19 +421,20 @@ class JobOperationGate:
             import time as _t
             deadline = _t.monotonic() + max(0.0, wait_timeout)
             reported = None
-            while not acquired and _t.monotonic() < deadline:
-                if on_wait is not None and _wait_key(reason) != reported:
-                    reported = _wait_key(reason)
-                    try:
-                        on_wait(reason)
-                    except Exception:  # noqa: BLE001 — a status line must not end the wait
-                        logger.debug("gpu_exclusive on_wait callback failed", exc_info=True)
-                if cancel_event is not None and cancel_event.is_set():
-                    reason = f"cancelled while waiting for the GPU ({reason})"
-                    queued = False
-                    break
-                _t.sleep(min(1.0, max(0.05, deadline - _t.monotonic())))
-                acquired, reason = _attempt()
+            with self.waiting_for_gpu(kind, native_id):
+                while not acquired and _t.monotonic() < deadline:
+                    if on_wait is not None and _wait_key(reason) != reported:
+                        reported = _wait_key(reason)
+                        try:
+                            on_wait(reason)
+                        except Exception:  # noqa: BLE001 — a status line must not end the wait
+                            logger.debug("gpu_exclusive on_wait callback failed", exc_info=True)
+                    if cancel_event is not None and cancel_event.is_set():
+                        reason = f"cancelled while waiting for the GPU ({reason})"
+                        queued = False
+                        break
+                    _t.sleep(min(1.0, max(0.05, deadline - _t.monotonic())))
+                    acquired, reason = _attempt()
             if acquired:
                 logger.info(
                     "gpu_exclusive(%s:%s) acquired after waiting out gate busy/cooldown",
@@ -463,6 +490,7 @@ class JobOperationGate:
                 "gpu_busy": holder is not None,
                 "gpu_holder": holder,
                 "gpu_cooldown_remaining_s": round(cooldown_remaining, 2),
+                "gpu_waiting": sorted(self._gpu_waiters),
                 "gpu_exclusive_kinds": sorted(k.value for k in GPU_EXCLUSIVE_KINDS),
             }
 

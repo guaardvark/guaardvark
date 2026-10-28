@@ -1975,6 +1975,7 @@ class BatchImageGenerator:
                 from backend.services.job_operation_gate import (
                     GpuBusyError,
                     GpuCapacityError,
+                    get_gate,
                 )
                 from backend.services.job_types import JobKind
 
@@ -2085,10 +2086,12 @@ class BatchImageGenerator:
 
                         sleep_for = min(backoff_s, max(0.5, deadline - time.time()))
                         end_sleep = time.time() + sleep_for
-                        while time.time() < end_sleep:
-                            if cancel_event and cancel_event.is_set():
-                                break
-                            time.sleep(min(1.0, end_sleep - time.time()))
+                        # Still in line while asleep: see JobOperationGate.waiting_for_gpu.
+                        with get_gate().waiting_for_gpu(JobKind.VIDEO_RENDER, batch_id):
+                            while time.time() < end_sleep:
+                                if cancel_event and cancel_event.is_set():
+                                    break
+                                time.sleep(min(1.0, end_sleep - time.time()))
                         backoff_s = min(15.0, backoff_s * 1.5)
             else:
                 _run_batch_body()

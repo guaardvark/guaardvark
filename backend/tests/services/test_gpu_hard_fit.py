@@ -99,6 +99,39 @@ def test_keep_ready_steps_aside_for_a_slot_given_the_chat_models_memory(monkeypa
     assert reason and "audio_foundry:fx" in reason
 
 
+
+def test_keep_ready_steps_aside_while_a_job_waits_for_the_gpu(monkeypatch):
+    import backend.services.job_operation_gate as jog
+    from backend.services import chat_keep_ready
+    from backend.services.job_types import JobKind
+
+    class Coord:
+        def get_gpu_status(self):
+            return {"available": True}
+
+    gate = jog.JobOperationGate()
+    monkeypatch.setattr(jog, "get_gate", lambda: gate)
+    monkeypatch.setattr("backend.services.gpu_memory_orchestrator.get_orchestrator_if_created", lambda: None)
+    monkeypatch.setattr("backend.services.gpu_resource_coordinator.get_gpu_coordinator", lambda: Coord())
+    monkeypatch.setattr(chat_keep_ready.requests, "get", MagicMock(side_effect=OSError("no ComfyUI")))
+    assert chat_keep_ready._gpu_busy_reason() is None
+    with gate.waiting_for_gpu(JobKind.VIDEO_RENDER, "edit"):
+        assert chat_keep_ready._gpu_busy_reason() == "a job is waiting for the GPU"
+    assert chat_keep_ready._gpu_busy_reason() is None
+
+
+def test_a_claim_waits_for_a_keep_ready_load_already_under_way(monkeypatch):
+    import threading
+    from backend.services import chat_keep_ready
+
+    landed = threading.Event()
+    load = threading.Thread(target=lambda: landed.wait(5), daemon=True)
+    load.start()
+    monkeypatch.setattr(chat_keep_ready, "_load_thread", load)
+    threading.Timer(0.2, landed.set).start()
+    chat_keep_ready.wait_for_load(timeout_s=5)
+    assert not load.is_alive()
+
 # --- Compositor VRAM reserve (2026-08-04 client box 2048² incident) --------------
 # Opt-in per caller: reserved MB are treated as not-free so the desktop
 # compositor's share of the card survives the job. Default 0 keeps existing

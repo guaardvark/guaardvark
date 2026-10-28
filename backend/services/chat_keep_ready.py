@@ -153,6 +153,10 @@ def _gpu_busy_reason() -> Optional[str]:
         gate = get_gate().snapshot()
         if gate.get("gpu_busy"):
             return "GPU work is running"
+        if gate.get("gpu_waiting"):
+            # The card is between two jobs; a model loaded now takes the memory
+            # the next one has already measured as free.
+            return "a job is waiting for the GPU"
         if gate.get("gpu_cooldown_remaining_s"):
             return "GPU work just finished"
     except Exception:
@@ -222,6 +226,18 @@ def _load(model: str) -> None:
         logger.info("Keep ready: %s loaded in %.1f s", model, time.monotonic() - started)
     except Exception as e:
         _set_status("waiting", f"loading {model} failed: {e}", model)
+
+
+def wait_for_load(timeout_s: float = 60.0) -> None:
+    """Return once a load already under way has finished (or after ``timeout_s``).
+
+    A job that has just claimed the GPU calls this before measuring free memory:
+    a chat model halfway onto the card is not yet counted, so the job would fit
+    on paper, skip the eviction, and run out of memory when the load lands.
+    """
+    thread = _load_thread
+    if thread is not None and thread.is_alive():
+        thread.join(timeout_s)
 
 
 def _warm_speech() -> None:
