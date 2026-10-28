@@ -151,3 +151,15 @@ Environment=OLLAMA_HOST=http://host.containers.internal:11434
 Pull the embedding model that RAG needs into that Ollama
 (`ollama pull nomic-embed-text`). Tested rootful with Ollama running in another
 container on the same host.
+## Limitations
+
+The backend image contains only `backend/`, `scripts/` and `VERSION`. The
+`plugins/` directory is not part of it, so no plugin (Audio Foundry, Video
+Editor, ComfyUI integration, upscaling, LoRA trainer) is available in the
+container. Screen agents additionally need an X desktop (Xvfb, x11vnc, XFCE,
+xdotool, scrot, Firefox) that the image does not install. With these packages
+added by hand the agent could open Firefox using `gemma4:e2b` and `qwen3.5:9b`
+as vision model; a 27B model was too slow for the agent's 45 s step timeout.
+Packages added to a running container are lost when it is recreated. Chat, RAG
+and document indexing work. Host-level features such as swarms with git
+worktrees have not been tested in the container.
