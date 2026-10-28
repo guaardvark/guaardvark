@@ -1270,6 +1270,14 @@
       "en": "23882c575954",
       "out": "18695074daf1"
     },
+    "languages.nl": {
+      "en": "334a85f1b16e",
+      "out": "b07ddf137a83"
+    },
+    "languages.pl": {
+      "en": "d011986407b1",
+      "out": "8dd2950fa71b"
+    },
     "languages.ja": {
       "en": "9239c22d1d1c",
       "out": "c12140a0ffb4"
@@ -1517,6 +1525,10 @@
     "music.describeHint": {
       "en": "d8e5e74422ea",
       "out": "d09a3d9cff08"
+    },
+    "music.englishByDefault": {
+      "en": "3c4b43e6193a",
+      "out": "9c9cc5993f1f"
     },
     "music.describePlaceholder": {
       "en": "1107e2bc1902",

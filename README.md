@@ -204,7 +204,7 @@ Train your own LoRAs on your own GPU and keep the same character, place or objec
 
 The Audio Foundry plugin runs three audio backends with shared GPU arbitration, so they don't trample each other or fight Ollama for VRAM.
 
-- **Music:** ACE-Step v1 (3.5B) writes full songs with vocals, or instrumentals. Pick genre, mood and instrument chips, with an optional LLM "Polish" pass that turns plain English into ACE-Step's tag vocabulary plus a paired negative prompt. ACE-Step 1.5 is an optional install.
+- **Music:** ACE-Step v1 (3.5B) writes full songs with vocals, or instrumentals. Pick genre, mood and instrument chips, with an optional LLM "Polish" pass that turns plain English into ACE-Step's tag vocabulary plus a paired negative prompt. ACE-Step 1.5 is an optional install with an Arrange step: describe the song, add your own lyrics or let it write some, then edit the card it writes (caption, tempo, key, meter, language) before it composes. Songs with words are sung in English unless the description names a language ("sung in Spanish") or you pick one under Language on the card. Audio Studio says so, in your language, when the interface is set to another one.
 - **FX Lab:** Stable Audio Open for sound effects and short ambient pieces.
 - **Neural voice:** Chatterbox as the main text-to-speech engine, Kokoro as a fast fallback, and Piper for narration. Used for chat narration, lines spoken in chat ("say this out loud"), video voiceover and voice chat.
 - **Voice cloning:** opt-in, behind an explicit consent prompt before any clone is created or used. Reference clips stay under your control, and nothing is cloned from incidental audio.

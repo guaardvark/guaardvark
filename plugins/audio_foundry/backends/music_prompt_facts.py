@@ -10,6 +10,9 @@ Ranges match ACE-Step 1.5 (acestep/constants.py): bpm 30–300, meters 2/4, 3/4,
 4/4 and 6/8, language codes from VALID_LANGUAGES. An explicit field outside
 those ranges is an error. A match inside free text that falls outside is
 ignored, so a stray number does not reject the whole description.
+
+A song with words is sung in English unless the description or a field names
+another language (DEFAULT_VOCAL_LANGUAGE).
 """
 from __future__ import annotations
 
@@ -221,6 +224,13 @@ def extract_music_facts(text: str) -> dict[str, Any]:
     return facts
 
 
+# Sung language when neither the description nor a field names one. Left open,
+# the planner chose its own: 2 of 5 English descriptions came back with Italian
+# or German lyrics (2026-10-28). The Audio page tells people using another
+# interface language how to pick theirs. It is not a lock from the description.
+DEFAULT_VOCAL_LANGUAGE = "en"
+
+
 def resolve_plan_params(params: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """Fill empty constraints from the description. An explicit field wins.
 
@@ -259,6 +269,9 @@ def resolve_plan_params(params: dict[str, Any]) -> tuple[dict[str, Any], dict[st
     if "instrumental_only" not in params and facts.get("instrumental"):
         out["instrumental_only"] = True
         locks["instrumental"] = True
+
+    if not out.get("vocal_language") and not out.get("instrumental_only"):
+        out["vocal_language"] = DEFAULT_VOCAL_LANGUAGE
 
     return out, locks
 

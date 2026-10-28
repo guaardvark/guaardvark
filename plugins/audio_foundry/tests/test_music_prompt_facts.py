@@ -77,6 +77,22 @@ def test_description_fills_a_missing_field_and_the_switch_wins():
     assert filled_locks["instrumental"] is True
 
 
+def test_a_song_with_words_is_sung_in_english_unless_a_language_is_named():
+    resolved, locks = resolve_plan_params({"style_prompt": "an epic power ballad, female vocals"})
+    assert resolved["vocal_language"] == "en"
+    assert "vocal_language" not in locks
+
+    named, named_locks = resolve_plan_params({"style_prompt": "a ballad sung in Spanish"})
+    assert named["vocal_language"] == "es"
+    assert named_locks["vocal_language"] == "es"
+
+    field, _ = resolve_plan_params({"style_prompt": "a ballad", "vocal_language": "ja"})
+    assert field["vocal_language"] == "ja"
+
+    bed, _ = resolve_plan_params({"style_prompt": "instrumental piano"})
+    assert "vocal_language" not in bed
+
+
 def test_an_explicit_value_outside_the_model_range_is_rejected():
     with pytest.raises(ValueError, match="30 and 300"):
         require_bpm(20)

@@ -293,7 +293,10 @@ def _expand_query(query: str, instrumental: bool, locked: dict[str, str]) -> tup
             "target_duration": None,
             "user_metadata": locked or None,
             "skip_caption": False,
-            "skip_language": "language" in locked,
+            # The planner still writes the language line, constrained to the locked
+            # value: that line is what the lyrics follow. Skipped, a locked "en" came
+            # back as Portuguese, Russian and Indonesian lyrics (3 of 3, 2026-10-28).
+            "skip_language": False,
             "skip_genres": False,
             "generation_phase": "understand",
             "caption": "",

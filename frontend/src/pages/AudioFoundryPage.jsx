@@ -226,6 +226,8 @@ const vocalLanguages = () => [
   ["de", translate("audio.languages.de")],
   ["it", translate("audio.languages.it")],
   ["pt", translate("audio.languages.pt")],
+  ["nl", translate("audio.languages.nl")],
+  ["pl", translate("audio.languages.pl")],
   ["ja", translate("audio.languages.ja")],
   ["ko", translate("audio.languages.ko")],
   ["zh", translate("audio.languages.zh")],
@@ -255,7 +257,7 @@ const lockSummary = (locks) => {
 };
 
 const AudioFoundryPage = () => {
-  const { t } = useUiTranslation();
+  const { t, language: uiLanguage } = useUiTranslation();
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -682,6 +684,12 @@ const AudioFoundryPage = () => {
   };
 
   const isAce15 = musicModel === "ace-step-1.5";
+  // The interface language as the card names it ("pt-BR" is sung as "pt"), when it is
+  // not English and the card offers it.
+  const uiVocalLanguage = (() => {
+    const code = (uiLanguage || "en").split("-")[0];
+    return code !== "en" && vocalLanguages().some(([value]) => value === code) ? code : null;
+  })();
 
   // Ask the 1.5 planner, already loaded with the turbo model, for a caption
   // and the tempo, key and meter. Nothing is rendered.
@@ -1137,6 +1145,13 @@ const AudioFoundryPage = () => {
                       <Typography variant="caption" color="text.secondary">
                         {t("audio.music.describeHint")}
                       </Typography>
+                    )}
+                    {/* Songs default to English; someone using the interface in another
+                        language the card offers is told how to hear theirs. */}
+                    {isAce15 && !musicInstrumental && uiVocalLanguage && (
+                      <Alert severity="info" variant="outlined" sx={{ py: 0, borderRadius: 2 }}>
+                        {t("audio.music.englishByDefault", { language: languageLabel(uiVocalLanguage) })}
+                      </Alert>
                     )}
                     <TextField
                       fullWidth
