@@ -477,19 +477,30 @@ class TestLessonReconciler:
             assert scan_belief_updates() == 1
             assert db.session.query(PendingFix).count() == 2
 
-    def test_recipes_json_is_not_hedged(self, app, tmp_path):
-        # JSON has no comment syntax: a hedge would make the file invalid.
+    def test_recipes_json_gets_a_verify_first_field(self, app, tmp_path):
+        # JSON has no comment syntax, so the note is a field of the recipe and
+        # the file with the proposal applied is still valid JSON.
         from backend.services.lesson_reconciler import scan_belief_updates
         from backend.models import db, PendingFix
         path = tmp_path / "data" / "agent" / "recipes.json"
-        original = '{\n  "open firefox": {"steps": ["click the Firefox icon"]}\n}\n'
+        original = (
+            '{\n'
+            '  "open_firefox": {\n'
+            '    "description": "Open Firefox.",\n'
+            '    "steps": [{"action": "click", "target_description": "Firefox icon"}]\n'
+            '  }\n'
+            '}\n'
+        )
         path.write_text(original)
         self._seed(app, "Firefox icon", count=5, source="recipes.json", source_line=2)
         with app.app_context():
+            assert scan_belief_updates() == 1
+            fix = db.session.query(PendingFix).one()
+            applied = original.replace(fix.original_content, fix.proposed_new_content, 1)
             assert scan_belief_updates() == 0
-            assert db.session.query(PendingFix).count() == 0
         assert path.read_text() == original
-        json.loads(path.read_text())
+        note = json.loads(applied)["open_firefox"]["verify_first"]
+        assert "5 sessions" in note and "'firefox icon'" in note
 
 
 if __name__ == "__main__":

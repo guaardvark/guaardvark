@@ -13,11 +13,12 @@ Workflow:
   2. Group rows by (source_file, source_line, lowercased element name) using
      the structured tag set Phase 4 attaches.
   3. For each group whose count is at or above the reconciliation threshold
-     (default 3) and whose source is a Markdown knowledge file (not
-     ``model_belief``), synthesise a one-line unified diff against the source
-     file proposing a hedge-strengthened version of that line — and stage it
-     as a ``PendingFix`` row so the user can approve/reject from the existing
-     self-improvement UI.
+     (default 3) and whose source is a knowledge file (not ``model_belief``),
+     synthesise a unified diff against the source file and stage it as a
+     ``PendingFix`` row so the user can approve/reject from the existing
+     self-improvement UI. A Markdown claim gets an evidence-tagged hedge on its
+     line; a recipe in ``recipes.json`` gets a ``verify_first`` field, which
+     the agent's recipe index shows next to that recipe.
 
 It runs on the Celery beat every six hours (``memory.reconcile_belief_updates``;
 ``GUAARDVARK_RECONCILER_BEAT_DISABLED=1`` turns that off), from the CLI
@@ -37,6 +38,7 @@ import difflib
 import json
 import logging
 import os
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -51,13 +53,15 @@ DEFAULT_THRESHOLD = 3
 # Sources we know how to edit. "model_belief" rows are recorded by Phase 4 to
 # keep the next-session prompt honest, but they don't correspond to any line
 # in a knowledge file — so the reconciler has nothing to propose for them.
-# recipes.json is left out on purpose: JSON has no comment syntax, so the hedge
-# would make the file invalid and the guarded apply would refuse it. Its belief
-# updates still reach the next-session prompt.
-_EDITABLE_SOURCES = {"self_knowledge_compact.md", "self_knowledge.md"}
+_RECIPES_FILE = "recipes.json"
+_EDITABLE_SOURCES = {"self_knowledge_compact.md", "self_knowledge.md", _RECIPES_FILE}
 
 # Marks a line the reconciler has hedged. A line carrying it gets no second hedge.
 _HEDGE_MARKER = "<!-- belief-update:"
+
+# JSON has no comments, so a recipe's hedge is a field of the recipe. A recipe
+# that already has one gets no second.
+RECIPE_NOTE_FIELD = "verify_first"
 
 # PendingFix statuses that settle a (file, element) group: still open, applied,
 # or rejected by a person. Only a deleted proposal lets the scan ask again.
@@ -167,6 +171,93 @@ def _build_diff(
     return original_line, proposed_line, diff
 
 
+def _click_targets(recipe) -> set:
+    steps = recipe.get("steps") if isinstance(recipe, dict) else None
+    return {
+        (s.get("target_description") or "").strip().lower()
+        for s in steps or []
+        if isinstance(s, dict) and s.get("action") == "click"
+    }
+
+
+def _build_recipe_diff(
+    abs_path: str,
+    source_line: Optional[int],
+    element: str,
+    sessions_seen: int,
+) -> Tuple[Optional[str], Optional[str], Optional[str], Optional[int]]:
+    """Propose a ``verify_first`` field on the recipe whose click step names ``element``.
+
+    Returns (original_line, proposed_line, unified_diff, recipe_line). The
+    original is the recipe's opening line and the proposal is that line plus
+    the new field, so the guarded apply replaces exactly one unique line. The
+    recipe is found by its click target, preferring the one opening at
+    ``source_line``: a field added to one recipe moves every recipe below it.
+    All four are None when no single recipe names the element, it already has
+    the field, or the result would not be the same JSON plus that one field.
+    """
+    nothing = (None, None, None, None)
+    try:
+        with open(abs_path, encoding="utf-8") as f:
+            text = f.read()
+        data = json.loads(text)
+    except Exception as e:
+        logger.warning(f"[RECONCILER] could not read {abs_path}: {e}")
+        return nothing
+    if not isinstance(data, dict):
+        return nothing
+
+    lines = text.splitlines(keepends=True)
+    opening: Dict[str, int] = {}
+    for idx, raw in enumerate(lines):
+        m = re.match(r'\s*"([^"]+)"\s*:\s*\{\s*$', raw)
+        if m and m.group(1) in data and m.group(1) not in opening:
+            opening[m.group(1)] = idx
+
+    named = [n for n, r in data.items() if not n.startswith("_") and element in _click_targets(r)]
+    at_line = next((n for n, idx in opening.items() if idx + 1 == source_line), None)
+    if at_line in named:
+        name = at_line
+    elif len(named) == 1:
+        name = named[0]
+    else:
+        return nothing
+    if data[name].get(RECIPE_NOTE_FIELD) or name not in opening:
+        return nothing
+
+    idx = opening[name]
+    original_line = lines[idx]
+    if text.count(original_line) != 1 or idx + 1 >= len(lines):
+        return nothing
+    following = lines[idx + 1]
+    indent = following[: len(following) - len(following.lstrip())]
+    note = (
+        f"{sessions_seen} sessions did not see {element!r} on screen; "
+        f"check the screen before relying on this recipe."
+    )
+    field_line = f'{indent}"{RECIPE_NOTE_FIELD}": {json.dumps(note)},\n'
+    proposed_line = original_line + field_line
+
+    proposed_lines = lines.copy()
+    proposed_lines.insert(idx + 1, field_line)
+    try:
+        result = json.loads("".join(proposed_lines))
+    except json.JSONDecodeError:
+        return nothing
+    expected = json.loads(text)
+    expected[name] = {RECIPE_NOTE_FIELD: note, **expected[name]}
+    if result != expected:
+        return nothing
+
+    rel = os.path.relpath(abs_path, _knowledge_root().rsplit("/data/", 1)[0])
+    diff = "".join(difflib.unified_diff(
+        lines, proposed_lines,
+        fromfile=f"a/{rel}", tofile=f"b/{rel}",
+        n=2,
+    ))
+    return original_line, proposed_line, diff, idx + 1
+
+
 def _existing_proposal(file_path: str, element: str) -> bool:
     """True if a PendingFix for this (file, element) is open, applied or rejected.
 
@@ -237,15 +328,24 @@ def plan_belief_updates(threshold: int = DEFAULT_THRESHOLD) -> Plan:
         # rows the group-key parser can't consume) and must not be recounted
         # on every 6h scan.
         .filter(AgentMemory.status == "active")
+        .order_by(AgentMemory.created_at)
         .all()
     )
 
     # Bucket by (file, line, element_lower); count distinct memory rows.
     buckets: Dict[Tuple[str, Optional[int], str], List[AgentMemory]] = defaultdict(list)
+    # A field added to one recipe moves every recipe below it, so one recipe
+    # claim can arrive under two line numbers. Recipe claims are bucketed by
+    # element, keeping the newest line as the hint for finding the recipe.
+    recipe_lines: Dict[str, int] = {}
     for m in memories:
         key = _extract_group_key(_parse_tags(m.tags))
         if key is None:
             continue
+        if key[0] == _RECIPES_FILE:
+            if key[1] is not None:
+                recipe_lines[key[2]] = key[1]
+            key = (key[0], None, key[2])
         buckets[key].append(m)
 
     plan = Plan(memories=len(memories), groups=len(buckets))
@@ -262,12 +362,17 @@ def plan_belief_updates(threshold: int = DEFAULT_THRESHOLD) -> Plan:
             # model_belief rows + future-named sources — keep the lesson in the
             # next-session prompt; don't try to edit a file we don't know.
             reason = "not an editable knowledge file"
-        elif source_line is None:
+        elif source_line is None and source_file != _RECIPES_FILE:
             reason = "no line number"
         else:
             abs_path = os.path.join(_knowledge_root(), source_file)
             if (abs_path, element_lower) in planned or _existing_proposal(abs_path, element_lower):
                 reason = "already proposed, applied or rejected"
+            elif source_file == _RECIPES_FILE:
+                original_line, proposed_line, diff, source_line = _build_recipe_diff(
+                    abs_path, recipe_lines.get(element_lower), element_lower, sessions)
+                if not diff:
+                    reason = "no single recipe clicks it, or it already has a note"
             else:
                 original_line, proposed_line, diff = _build_diff(abs_path, source_line, sessions)
                 if not diff:
@@ -305,6 +410,10 @@ def stage_belief_updates(threshold: int = DEFAULT_THRESHOLD) -> List[Candidate]:
                 import logging
                 logging.getLogger(__name__).info("PendingFix without run_id (ad-hoc lesson; per infra audit intentional)")
 
+            if c.source_file == _RECIPES_FILE:
+                proposal = f"Propose a {RECIPE_NOTE_FIELD} note on the recipe at"
+            else:
+                proposal = "Propose hedging the claim on"
             fix = PendingFix(
                 file_path=c.file_path,
                 original_content=c.original_line,
@@ -312,8 +421,7 @@ def stage_belief_updates(threshold: int = DEFAULT_THRESHOLD) -> List[Candidate]:
                 proposed_diff=c.diff,
                 fix_description=(
                     f"{c.element!r} flagged as not-visible across {c.sessions} "
-                    f"sessions. Propose hedging the claim on "
-                    f"{c.source_file}:{c.source_line}."
+                    f"sessions. {proposal} {c.source_file}:{c.source_line}."
                 ),
                 severity="low",
                 status="proposed",

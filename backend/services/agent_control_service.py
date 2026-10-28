@@ -4041,7 +4041,9 @@ Reply ONLY with JSON:
         if not recipes:
             return ""
         # Disabled recipes are not advertised (the matcher will not run them);
-        # provisional ones, auto-induced and not yet confirmed, say so.
+        # provisional ones, auto-induced and not yet confirmed, say so, and so
+        # does one whose click target sessions keep not finding (verify_first,
+        # proposed by the lesson reconciler and applied by a person).
         try:
             from backend.services import recipe_stats
             stats = recipe_stats.load()
@@ -4054,6 +4056,9 @@ Reply ONLY with JSON:
             if not desc or st.get("disabled"):
                 continue
             suffix = " (provisional)" if st.get("provisional") else ""
+            note = str(recipe.get("verify_first") or "").strip()
+            if note:
+                suffix += f" (verify first: {note})"
             lines.append(f"- {name}: {desc}{suffix}")
         return "\n".join(lines)
 
