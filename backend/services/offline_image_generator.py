@@ -1771,18 +1771,42 @@ class OfflineImageGenerator:
                 load_kwargs["safety_checker"] = None
                 load_kwargs["requires_safety_checker"] = False
 
+            # Repos that publish half-precision weights do so as the "fp16" variant.
+            # Without asking for it diffusers fetches the fp32 files, twice the size
+            # (13.9 GB against 6.9 GB for SDXL Turbo), only to cast them down here.
+            if gpu_dtype != torch.float32:
+                load_kwargs["variant"] = "fp16"
+
+            from huggingface_hub import constants as hf_constants
+            hub_cache_dir = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_id.replace("/", "--"))
+            hub_cache_existed = hub_cache_dir.exists()
+
             logger.info(f"Downloading with {pipeline_class.__name__} (family: {family})")
 
-            pipeline = pipeline_class.from_pretrained(
-                model_id,
-                **load_kwargs
-            )
+            try:
+                pipeline = pipeline_class.from_pretrained(model_id, **load_kwargs)
+            except ValueError as e:
+                # diffusers raises this before fetching any weights when the repo
+                # has no fp16 files (Realistic Vision 5.1, epiCRealism).
+                if "variant" not in load_kwargs or "variant" not in str(e):
+                    raise
+                logger.info(f"{model_id} has no fp16 variant; downloading its default weights")
+                load_kwargs.pop("variant")
+                pipeline = pipeline_class.from_pretrained(model_id, **load_kwargs)
 
             pipeline.save_pretrained(model_path)
 
             del pipeline
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+
+            # Generation loads from model_path, so the hub cache this download filled
+            # is a second full copy of the weights. A cache that was there before
+            # the install is left alone.
+            if not hub_cache_existed and hub_cache_dir.is_dir():
+                import shutil
+                shutil.rmtree(hub_cache_dir, ignore_errors=True)
+                logger.info(f"Removed the hub cache copy of {model_id} ({hub_cache_dir})")
 
             logger.info(f"Model {model_id} downloaded successfully")
             return True, None
