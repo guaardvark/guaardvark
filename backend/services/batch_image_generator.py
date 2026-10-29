@@ -1399,6 +1399,10 @@ class BatchImageGenerator:
                     else (result.metadata or {}).get("guidance"),
                     "seed_used": result.seed_used,
                     "model_used": result.model_used,
+                    # The loader files of any text encoders picked in place of
+                    # the shipped ones, {slot: file}.
+                    **({"text_encoders": result.metadata["text_encoders"]}
+                       if (result.metadata or {}).get("text_encoders") else {}),
                     **({"infographic": prompt.metadata["infographic"]}
                        if (prompt.metadata or {}).get("infographic") else {}),
                 }
