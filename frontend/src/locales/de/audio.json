@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} ist nicht installiert.</bold> Generate wird es nicht im Hintergrund herunterladen – installiere es zuerst.",
     "voiceTab": "Sprache",
     "musicTab": "Musik",
-    "fxTab": "FX Lab"
+    "fxTab": "FX Lab",
+    "retryLoaded": "Lied-Einstellungen geladen. Ändere etwas und klicke dann auf „Generieren“.",
+    "retryFailed": "Einstellungen für dieses Lied konnten nicht geladen werden."
   },
   "voice": {
     "title": "Neuronales Voiceover",

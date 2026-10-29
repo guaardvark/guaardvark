@@ -1461,6 +1461,14 @@
       "en": "9969759f3ea3",
       "out": "9969759f3ea3"
     },
+    "page.retryLoaded": {
+      "en": "94a0a2be8b2b",
+      "out": "9c50847f6e6a"
+    },
+    "page.retryFailed": {
+      "en": "f0882e8f8dc3",
+      "out": "baaf6c511b7f"
+    },
     "voice.title": {
       "en": "247a05e1fb92",
       "out": "ba235e1ce56b"
@@ -15443,6 +15451,10 @@
       "en": "28a794da76c6",
       "out": "e1c46e8dfaf4"
     },
+    "contextMenu.details": {
+      "en": "6616e6a85bcc",
+      "out": "1c1dd19a5382"
+    },
     "infographic.failed": {
       "en": "e16305f8b09b",
       "out": "8fd12e9828ed"
@@ -15552,8 +15564,8 @@
       "out": "e2330d0f17fe"
     },
     "infographic.previewEmpty": {
-      "en": "5203f9948374",
-      "out": "7c5231c9cd25"
+      "en": "5db66452a058",
+      "out": "2fdde75c63b2"
     },
     "infographic.resultAlt": {
       "en": "57b38d9d3bf3",
@@ -15562,6 +15574,62 @@
     "infographic.seed": {
       "en": "95dcc7c73ac4",
       "out": "95dcc7c73ac4"
+    },
+    "infographic.queuing": {
+      "en": "90d650a94e13",
+      "out": "0264c996c8ad"
+    },
+    "infographic.addToQueue": {
+      "en": "69b498ddb194",
+      "out": "5646b3439668"
+    },
+    "infographic.queued_one": {
+      "en": "2c7a7a98fa6c",
+      "out": "5819a17e9721"
+    },
+    "infographic.queued_other": {
+      "en": "3cfe905763f2",
+      "out": "92d687835b32"
+    },
+    "infographic.results": {
+      "en": "612e12d29278",
+      "out": "5f2623e85ec3"
+    },
+    "infographic.progress": {
+      "en": "ecfb88491429",
+      "out": "561adf31975d"
+    },
+    "infographic.waiting": {
+      "en": "300e4de7a5c3",
+      "out": "87186bfd12ce"
+    },
+    "infographic.recent": {
+      "en": "ffd52b0ea1b7",
+      "out": "01507153ea33"
+    },
+    "infographic.seedBlank": {
+      "en": "d45bd738d576",
+      "out": "83b3a5f4e6a5"
+    },
+    "infographic.retryLoaded": {
+      "en": "9ec38a91fd61",
+      "out": "8ca608b6f01c"
+    },
+    "infographic.retryLoadedImage": {
+      "en": "762a07953cf7",
+      "out": "f2c6af4f490a"
+    },
+    "infographic.retryNoSettings": {
+      "en": "e82f336a4f43",
+      "out": "884dbe7a7dc8"
+    },
+    "infographic.retryFailed": {
+      "en": "276a37f6bf1e",
+      "out": "e3f30485c1f0"
+    },
+    "infographic.quantity": {
+      "en": "44f6af694554",
+      "out": "e98885e9639d"
     },
     "tokenCounter.longest": {
       "en": "3974ab256507",
@@ -15762,6 +15830,262 @@
     "video.deleteConfirm": {
       "en": "414639023851",
       "out": "ca03c04b318f"
+    },
+    "video.playAll": {
+      "en": "ebb2ffded13a",
+      "out": "727988dc06da"
+    },
+    "details.prompt": {
+      "en": "a817d7eb8e0f",
+      "out": "a817d7eb8e0f"
+    },
+    "details.sentPrompt": {
+      "en": "af3b820cc63f",
+      "out": "6740b7b147b1"
+    },
+    "details.lyrics": {
+      "en": "8670cb1f9e94",
+      "out": "0bd97a5b18fd"
+    },
+    "details.copy": {
+      "en": "af74f7c5362a",
+      "out": "b5ef5d406240"
+    },
+    "details.copyPrompt": {
+      "en": "dcf5b41b8010",
+      "out": "5ab09d81a7ff"
+    },
+    "details.copySeed": {
+      "en": "8314f8a18f0b",
+      "out": "d1c28d88ff88"
+    },
+    "details.noSettings": {
+      "en": "ddb7791177bc",
+      "out": "08f7961be477"
+    },
+    "details.noPreview": {
+      "en": "643948ad5c82",
+      "out": "2b95025a8517"
+    },
+    "details.regenerate": {
+      "en": "b04c991e58e7",
+      "out": "d778bbcd3672"
+    },
+    "details.sameSeed": {
+      "en": "5d81bf92f048",
+      "out": "6b0b3e8d68d3"
+    },
+    "details.sameSeedTooltip": {
+      "en": "940339d74233",
+      "out": "c4bc7d23fec5"
+    },
+    "details.fullSize": {
+      "en": "3b7b17a9278b",
+      "out": "a1f3d804cec1"
+    },
+    "details.open": {
+      "en": "cf9b77061f7b",
+      "out": "fbb92fee8fae"
+    },
+    "details.close": {
+      "en": "bbfa773e5a63",
+      "out": "a3be8a9af8b7"
+    },
+    "details.previous": {
+      "en": "50f94286ba30",
+      "out": "4dfefd8dd2f6"
+    },
+    "details.next": {
+      "en": "bc981983e7f5",
+      "out": "07f9682b3c61"
+    },
+    "details.clip": {
+      "en": "09f867c42c59",
+      "out": "09f867c42c59"
+    },
+    "details.yes": {
+      "en": "5397e0583f14",
+      "out": "13ba2ac252a0"
+    },
+    "details.no": {
+      "en": "816c52fd2bdd",
+      "out": "816c52fd2bdd"
+    },
+    "details.seconds": {
+      "en": "61052c7d365b",
+      "out": "61052c7d365b"
+    },
+    "details.queued": {
+      "en": "f984091d1198",
+      "out": "972ca3f8cf6d"
+    },
+    "details.queues.image": {
+      "en": "1751a365569c",
+      "out": "b5c477cfcfaf"
+    },
+    "details.queues.infographic": {
+      "en": "80ee7b6303d8",
+      "out": "f1ad98cb0083"
+    },
+    "details.queues.video": {
+      "en": "7c99b6523353",
+      "out": "7bbaa1b6ec84"
+    },
+    "details.queues.song": {
+      "en": "c5ce333758b9",
+      "out": "738cf8590abe"
+    },
+    "details.kinds.image": {
+      "en": "50e19fda0d5b",
+      "out": "79a0b0906855"
+    },
+    "details.kinds.infographic": {
+      "en": "80ee7b6303d8",
+      "out": "f1ad98cb0083"
+    },
+    "details.kinds.video": {
+      "en": "bc17c1f0179a",
+      "out": "bc17c1f0179a"
+    },
+    "details.kinds.song": {
+      "en": "bd1189c35695",
+      "out": "02e11dc78fa9"
+    },
+    "details.kinds.sound": {
+      "en": "705a3585bdae",
+      "out": "280556019f31"
+    },
+    "details.kinds.voice": {
+      "en": "3091c8446f8d",
+      "out": "5cf4dba9532b"
+    },
+    "details.reasons.no_settings": {
+      "en": "333e32a5c725",
+      "out": "830affd42703"
+    },
+    "details.reasons.no_batch_settings": {
+      "en": "1b5af64238af",
+      "out": "ce5319832f91"
+    },
+    "details.reasons.voice": {
+      "en": "37e207bad7c4",
+      "out": "7f5ec09b2247"
+    },
+    "details.rows.model": {
+      "en": "68c2cc7f0cea",
+      "out": "405e6f22075a"
+    },
+    "details.rows.seed": {
+      "en": "32fe9f5bda70",
+      "out": "32fe9f5bda70"
+    },
+    "details.rows.size": {
+      "en": "b7152342a267",
+      "out": "f007f058cab6"
+    },
+    "details.rows.steps": {
+      "en": "cdde4f20ba31",
+      "out": "954818f48c8d"
+    },
+    "details.rows.guidance": {
+      "en": "b5e0b544d4f7",
+      "out": "b5e0b544d4f7"
+    },
+    "details.rows.style": {
+      "en": "99a0efc6cfd8",
+      "out": "36bcfdbc8a3c"
+    },
+    "details.rows.aspect": {
+      "en": "ba573964a6ad",
+      "out": "56089a750f00"
+    },
+    "details.rows.negative_prompt": {
+      "en": "e083520d5d97",
+      "out": "7a61ae8294a5"
+    },
+    "details.rows.preset": {
+      "en": "e3a5544a7179",
+      "out": "7b80a08713ec"
+    },
+    "details.rows.cast": {
+      "en": "d4d7c2caaf5f",
+      "out": "22fe92e8302c"
+    },
+    "details.rows.director": {
+      "en": "34d346a56ece",
+      "out": "6850b2a39c03"
+    },
+    "details.rows.batch": {
+      "en": "8bf1ef5668b1",
+      "out": "8bf1ef5668b1"
+    },
+    "details.rows.title": {
+      "en": "768e0c1c6957",
+      "out": "b2f23da948c4"
+    },
+    "details.rows.callouts": {
+      "en": "2228985493d9",
+      "out": "2c5265955797"
+    },
+    "details.rows.footer": {
+      "en": "26c01e70a337",
+      "out": "e4da4efb14fa"
+    },
+    "details.rows.hashtags": {
+      "en": "338da6e1c3ea",
+      "out": "2e3ebf747ff8"
+    },
+    "details.rows.frames": {
+      "en": "e3e7a3833d19",
+      "out": "91b0658329ef"
+    },
+    "details.rows.fps": {
+      "en": "0d0b09dfb5d4",
+      "out": "63b479d4f6eb"
+    },
+    "details.rows.duration_s": {
+      "en": "3bade34ecbc5",
+      "out": "32c1dabba873"
+    },
+    "details.rows.speed_profile": {
+      "en": "333858586c5b",
+      "out": "5a49027964d1"
+    },
+    "details.rows.prompt_style": {
+      "en": "1e4712996c1e",
+      "out": "284edfdba571"
+    },
+    "details.rows.lora": {
+      "en": "e0dc3e0fb088",
+      "out": "e0dc3e0fb088"
+    },
+    "details.rows.start_image": {
+      "en": "f0b46f761c7b",
+      "out": "499ac2dad08f"
+    },
+    "details.rows.bpm": {
+      "en": "480b413dfe89",
+      "out": "480b413dfe89"
+    },
+    "details.rows.key": {
+      "en": "c67dd20ee842",
+      "out": "f6ed5818e249"
+    },
+    "details.rows.time_signature": {
+      "en": "c831c0a4d5da",
+      "out": "07cca154e373"
+    },
+    "details.rows.language": {
+      "en": "87fb21110060",
+      "out": "665211e1a21f"
+    },
+    "details.rows.instrumental": {
+      "en": "8360a9faab5e",
+      "out": "bae64481e2eb"
+    },
+    "audio.heading": {
+      "en": "e9e15776c614",
+      "out": "210f1dc0239e"
     }
   },
   "imagesBatch": {
@@ -16225,6 +16549,10 @@
       "en": "1c0632475858",
       "out": "8ca196dc108d"
     },
+    "retry.loadedImage": {
+      "en": "2c085e7af009",
+      "out": "408a2c1f68ab"
+    },
     "download.failedHttp": {
       "en": "f64ea73d02cc",
       "out": "ab6746abc4f2"
@@ -16636,6 +16964,10 @@
     "queue.cancelAria": {
       "en": "a14b517e2868",
       "out": "6693dca62798"
+    },
+    "queue.infographic": {
+      "en": "80ee7b6303d8",
+      "out": "f1ad98cb0083"
     },
     "progress.title": {
       "en": "8f00cd3672d7",
@@ -36088,6 +36420,10 @@
     "messages.seedSet": {
       "en": "a1a40e636df4",
       "out": "2b74a3270aae"
+    },
+    "messages.loadedClip": {
+      "en": "f30f799c0408",
+      "out": "659fba39ac76"
     },
     "confirm.deleteVideoTitle": {
       "en": "87c29de72d54",

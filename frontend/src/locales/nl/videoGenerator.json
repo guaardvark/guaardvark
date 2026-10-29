@@ -87,7 +87,8 @@
     "loadedSettings": "Instellingen van \"{{name}}\" geladen in het paneel — pas alles aan en klik dan op Genereer.",
     "loadedCoreSettings": "Kerninstellingen van \"{{name}}\" geladen (oudere batch — controleer resolutie/duur nog even).",
     "renamed": "Hernoemd naar {{name}}.",
-    "seedSet": "Seed {{seed}} is ingesteld in Geavanceerd. Wis deze om weer willekeurige seeds te krijgen."
+    "seedSet": "Seed {{seed}} is ingesteld in Geavanceerd. Wis deze om weer willekeurige seeds te krijgen.",
+    "loadedClip": "Clip geladen uit \"{{name}}\" met prompt en seed. Pas iets aan en genereer opnieuw."
   },
   "confirm": {
     "deleteVideoTitle": "Deze video verwijderen?",

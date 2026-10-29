@@ -118,7 +118,8 @@
     "color": "颜色",
     "viewFullSize": "查看全尺寸",
     "edit": "编辑",
-    "publish": "分享 / 发布…"
+    "publish": "分享 / 发布…",
+    "details": "详情…"
   },
   "infographic": {
     "failed": "生成失败",
@@ -148,9 +149,22 @@
     "generating": "生成中…",
     "reroll": "重试",
     "generatingHint": "正在使用 {{model}} 渲染……",
-    "previewEmpty": "预览显示在此处",
+    "previewEmpty": "排队的信息图将在完成时显示在这里。",
     "resultAlt": "生成的信息图",
-    "seed": "种子 {{seed}}"
+    "seed": "种子 {{seed}}",
+    "queuing": "排队中…",
+    "addToQueue": "加入队列",
+    "queued_other": "已将 {{count}} 个信息图加入队列。",
+    "results": "结果",
+    "progress": "已完成 {{done}} / {{total}}",
+    "waiting": "正在排队等待中…",
+    "recent": "最近的信息图",
+    "seedBlank": "空白：每个信息图都有独立的随机种子。打开其中一个并点击骰子图标即可重用其种子。",
+    "retryLoaded": "已将 \"{{name}}\" 加载到表单中。修改任何内容后点击“生成”。",
+    "retryLoadedImage": "已从 \"{{name}}\" 中加载一个带有种子的信息图。修改任何内容后点击“生成”。",
+    "retryNoSettings": "此批次未保存设置。",
+    "retryFailed": "无法加载设置：{{error}}",
+    "quantity": "数量"
   },
   "tokenCounter": {
     "longest": "最长提示词：{{tokens}} / {{limit}} token",
@@ -203,6 +217,82 @@
     "next": "下一个",
     "open": "打开",
     "deleteTitle": "删除视频批次",
-    "deleteConfirm": "您确定要删除此视频批次吗？此操作无法撤销。"
+    "deleteConfirm": "您确定要删除此视频批次吗？此操作无法撤销。",
+    "playAll": "播放全部"
+  },
+  "details": {
+    "prompt": "提示词",
+    "sentPrompt": "已发送至模型",
+    "lyrics": "歌词",
+    "copy": "复制",
+    "copyPrompt": "复制提示词",
+    "copySeed": "复制种子",
+    "noSettings": "此文件未记录生成设置。",
+    "noPreview": "此文件无预览。",
+    "regenerate": "重新生成",
+    "sameSeed": "相同种子",
+    "sameSeedTooltip": "使用相同的设置和种子重新生成相同的图像或片段。",
+    "fullSize": "全尺寸",
+    "open": "打开",
+    "close": "关闭",
+    "previous": "上一项",
+    "next": "下一项",
+    "clip": "片段 {{number}}",
+    "yes": "是",
+    "no": "否",
+    "seconds": "{{value}} 秒",
+    "queued": "已排入 {{page}} 队列。",
+    "queues": {
+      "image": "图像生成",
+      "infographic": "信息图",
+      "video": "视频生成",
+      "song": "音频工作室"
+    },
+    "kinds": {
+      "image": "图像",
+      "infographic": "信息图",
+      "video": "视频",
+      "song": "歌曲",
+      "sound": "音效",
+      "voice": "语音"
+    },
+    "reasons": {
+      "no_settings": "此文件未保留生成时的设置。",
+      "no_batch_settings": "其批次未保留重新生成的设置。",
+      "voice": "语音片段将通过音频工作室重新制作。"
+    },
+    "rows": {
+      "model": "模型",
+      "seed": "种子",
+      "size": "尺寸",
+      "steps": "步数",
+      "guidance": "引导",
+      "style": "风格",
+      "aspect": "比例",
+      "negative_prompt": "负向提示词",
+      "preset": "内容预设",
+      "cast": "角色阵容",
+      "director": "导演重写",
+      "batch": "批次",
+      "title": "标题",
+      "callouts": "标签",
+      "footer": "页脚",
+      "hashtags": "标签",
+      "frames": "帧数",
+      "fps": "每秒帧数",
+      "duration_s": "时长",
+      "speed_profile": "速度曲线",
+      "prompt_style": "提示词风格",
+      "lora": "LoRA",
+      "start_image": "起始图像",
+      "bpm": "节奏 (BPM)",
+      "key": "调性",
+      "time_signature": "拍号",
+      "language": "人声语言",
+      "instrumental": "纯音乐"
+    }
+  },
+  "audio": {
+    "heading": "歌曲与声音"
   }
 }

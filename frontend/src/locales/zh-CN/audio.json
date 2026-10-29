@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} 未安装。</bold> 生成过程中不会在后台下载它 —— 请先安装。",
     "voiceTab": "语音",
     "musicTab": "音乐",
-    "fxTab": "FX 实验室"
+    "fxTab": "FX 实验室",
+    "retryLoaded": "已加载歌曲设置。修改后点击“生成”。",
+    "retryFailed": "无法加载该歌曲的设置。"
   },
   "voice": {
     "title": "神经语音合成",

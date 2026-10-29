@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} n'est pas installé.</bold> Generate ne le téléchargera pas en arrière-plan : installez-le d'abord.",
     "voiceTab": "Voix",
     "musicTab": "Musique",
-    "fxTab": "Lab FX"
+    "fxTab": "Lab FX",
+    "retryLoaded": "Paramètres de la chanson chargés. Modifiez quoi que ce soit, puis Générer.",
+    "retryFailed": "Impossible de charger les paramètres de cette chanson."
   },
   "voice": {
     "title": "Voix off neuronale",

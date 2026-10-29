@@ -87,7 +87,8 @@
     "loadedSettings": "Configurações de \"{{name}}\" carregadas no painel — ajuste o que precisar e depois clique em Gerar.",
     "loadedCoreSettings": "Configurações principais de \"{{name}}\" carregadas (lote antigo — verifique a resolução/duração).",
     "renamed": "Renomeado para {{name}}.",
-    "seedSet": "Semente {{seed}} definida em Avançado. Limpe-a para obter sementes aleatórias novamente."
+    "seedSet": "Semente {{seed}} definida em Avançado. Limpe-a para obter sementes aleatórias novamente.",
+    "loadedClip": "Carregado um clipe de \"{{name}}\" com seu prompt e semente. Altere qualquer coisa e depois gere."
   },
   "confirm": {
     "deleteVideoTitle": "Excluir este vídeo?",

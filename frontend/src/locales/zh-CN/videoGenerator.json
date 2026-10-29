@@ -87,7 +87,8 @@
     "loadedSettings": "已将 \"{{name}}\" 设置加载到面板中 — 修改后点击生成。",
     "loadedCoreSettings": "已加载 \"{{name}}\" 核心设置（旧批次 — 请核对分辨率/时长）。",
     "renamed": "已重命名为 {{name}}。",
-    "seedSet": "已在高级选项中设置种子 {{seed}}。清除该项可重新获得随机种子。"
+    "seedSet": "已在高级选项中设置种子 {{seed}}。清除该项可重新获得随机种子。",
+    "loadedClip": "从 \"{{name}}\" 加载了一个包含提示词和种子的片段。修改任何内容后即可生成。"
   },
   "confirm": {
     "deleteVideoTitle": "删除此视频？",

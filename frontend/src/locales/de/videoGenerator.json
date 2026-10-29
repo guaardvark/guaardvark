@@ -87,7 +87,8 @@
     "loadedSettings": "Einstellungen für \"{{name}}\" in das Panel geladen – passe alles an und klicke dann auf Generieren.",
     "loadedCoreSettings": "Kern-Einstellungen für \"{{name}}\" geladen (älterer Batch – überprüfe Auflösung/Dauer nochmals).",
     "renamed": "In {{name}} umbenannt.",
-    "seedSet": "Seed {{seed}} ist in Erweitert festgelegt. Lösche ihn, um wieder zufällige Seeds zu erhalten."
+    "seedSet": "Seed {{seed}} ist in Erweitert festgelegt. Lösche ihn, um wieder zufällige Seeds zu erhalten.",
+    "loadedClip": "Ein Clip aus \"{{name}}\" mit Prompt und Seed geladen. Ändere etwas und generiere dann neu."
   },
   "confirm": {
     "deleteVideoTitle": "Dieses Video löschen?",

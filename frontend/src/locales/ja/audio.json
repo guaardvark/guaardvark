@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} がインストールされていません。</bold> 生成時にバックグラウンドでダウンロードされることはありません。先にインストールしてください。",
     "voiceTab": "音声",
     "musicTab": "音楽",
-    "fxTab": "FX Lab"
+    "fxTab": "FX Lab",
+    "retryLoaded": "曲の設定を読み込みました。変更内容を反映させるには「生成」を押してください。",
+    "retryFailed": "その曲の設定を読み込めませんでした。"
   },
   "voice": {
     "title": "Neural Voiceover",

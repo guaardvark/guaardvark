@@ -140,7 +140,8 @@
     "loadedPrompts": "Prompts van \"{{name}}\" geladen in het paneel.",
     "loadedPromptsQty_one": "Geladen \"{{name}}\": {{count}} prompt x qty {{quantity}}.",
     "loadedPromptsQty_other": "Geladen \"{{name}}\": {{count}} prompts x qty {{quantity}}.",
-    "loadFailed": "Instellingen niet geladen: {{error}}"
+    "loadFailed": "Instellingen niet geladen: {{error}}",
+    "loadedImage": "Eén afbeelding geladen uit \"{{name}}\" met de prompt en seed. Pas iets aan en klik op Start Generation."
   },
   "download": {
     "failedHttp": "Download van resultaten mislukt: HTTP {{status}}",
@@ -277,7 +278,8 @@
     "progress": "{{done}}/{{total}} afbeeldingen",
     "cancelRunning": "Lopende batch annuleren",
     "remove": "Verwijderen uit wachtrij",
-    "cancelAria": "batch annuleren"
+    "cancelAria": "batch annuleren",
+    "infographic": "Infographic"
   },
   "progress": {
     "title": "Huidige voortgang",

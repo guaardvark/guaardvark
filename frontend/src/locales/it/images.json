@@ -120,7 +120,8 @@
     "color": "Colore",
     "viewFullSize": "Visualizza a dimensione intera",
     "edit": "Modifica",
-    "publish": "Condividi / Pubblica…"
+    "publish": "Condividi / Pubblica…",
+    "details": "Dettagli…"
   },
   "infographic": {
     "failed": "Generazione fallita",
@@ -150,9 +151,23 @@
     "generating": "Generazione in corso…",
     "reroll": "Rigenera",
     "generatingHint": "Rendering con {{model}}…",
-    "previewEmpty": "L'anteprima appare qui",
+    "previewEmpty": "Le Infografiche che metti in coda appariranno qui quando saranno finite.",
     "resultAlt": "infografica generata",
-    "seed": "seed {{seed}}"
+    "seed": "seed {{seed}}",
+    "queuing": "In coda…",
+    "addToQueue": "Aggiungi alla coda",
+    "queued_one": "Infografica {{count}} messa in coda.",
+    "queued_other": "Infografiche {{count}} messe in coda.",
+    "results": "Risultati",
+    "progress": "Completate {{done}} di {{total}}",
+    "waiting": "In attesa del proprio turno in coda…",
+    "recent": "Infografiche recenti",
+    "seedBlank": "Vuoto: ogni Infografica ha il proprio seed casuale. Aprine una e premi sui dadi per riutilizzare il suo seed.",
+    "retryLoaded": "Caricata \"{{name}}\" nel modulo. Cambia qualcosa, poi Genera.",
+    "retryLoadedImage": "Caricata un'Infografica da \"{{name}}\" con il suo seed. Cambia qualcosa, poi Genera.",
+    "retryNoSettings": "Questo lotto non ha salvato le sue impostazioni.",
+    "retryFailed": "Impossibile caricare le impostazioni: {{error}}",
+    "quantity": "Quantità"
   },
   "tokenCounter": {
     "longest": "Prompt più lungo: {{tokens}} di {{limit}} token",
@@ -208,6 +223,82 @@
     "next": "Successivo",
     "open": "Apri",
     "deleteTitle": "Elimina lotto video",
-    "deleteConfirm": "Sei sicuro di voler eliminare questo lotto di video? Questa azione non può essere annullata."
+    "deleteConfirm": "Sei sicuro di voler eliminare questo lotto di video? Questa azione non può essere annullata.",
+    "playAll": "Riproduci tutto"
+  },
+  "details": {
+    "prompt": "Prompt",
+    "sentPrompt": "Inviato al modello",
+    "lyrics": "Testi",
+    "copy": "Copia",
+    "copyPrompt": "Copia prompt",
+    "copySeed": "Copia seed",
+    "noSettings": "Non sono state registrate impostazioni di generazione per questo file.",
+    "noPreview": "Nessuna anteprima per questo file.",
+    "regenerate": "Rigenera",
+    "sameSeed": "Stesso seed",
+    "sameSeedTooltip": "Rifallo con le stesse impostazioni e seed, per ottenere la stessa immagine o clip.",
+    "fullSize": "Dimensione intera",
+    "open": "Apri",
+    "close": "Chiudi",
+    "previous": "Precedente",
+    "next": "Successivo",
+    "clip": "Clip {{number}}",
+    "yes": "Sì",
+    "no": "No",
+    "seconds": "{{value}} s",
+    "queued": "In coda su {{page}}.",
+    "queues": {
+      "image": "Gen Immagini",
+      "infographic": "Infografica",
+      "video": "Gen Video",
+      "song": "Studio Audio"
+    },
+    "kinds": {
+      "image": "Immagine",
+      "infographic": "Infografica",
+      "video": "Video",
+      "song": "Canzone",
+      "sound": "Effetto sonoro",
+      "voice": "Voce"
+    },
+    "reasons": {
+      "no_settings": "Questo file non ha mantenuto le impostazioni con cui è stato creato.",
+      "no_batch_settings": "Il suo batch non ha mantenuto le impostazioni per rifarlo.",
+      "voice": "Le clip vocali vengono create nuovamente da Studio Audio."
+    },
+    "rows": {
+      "model": "Modello",
+      "seed": "Seed",
+      "size": "Dimensione",
+      "steps": "Passaggi",
+      "guidance": "Guidance",
+      "style": "Stile",
+      "aspect": "Rapporto",
+      "negative_prompt": "Prompt negativo",
+      "preset": "Preset contenuto",
+      "cast": "Personaggi cast",
+      "director": "Riscrittura regista",
+      "batch": "Batch",
+      "title": "Titolo",
+      "callouts": "Etichette",
+      "footer": "Piè di pagina",
+      "hashtags": "Hashtag",
+      "frames": "Frame",
+      "fps": "Frame al secondo",
+      "duration_s": "Durata",
+      "speed_profile": "Profilo velocità",
+      "prompt_style": "Stile prompt",
+      "lora": "LoRA",
+      "start_image": "Immagine iniziale",
+      "bpm": "Tempo (BPM)",
+      "key": "Tonalità",
+      "time_signature": "Firmale",
+      "language": "Lingua vocale",
+      "instrumental": "Strumentale"
+    }
+  },
+  "audio": {
+    "heading": "Canzoni e suoni"
   }
 }

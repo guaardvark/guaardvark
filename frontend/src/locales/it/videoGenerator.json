@@ -87,7 +87,8 @@
     "loadedSettings": "Impostazioni di \"{{name}}\" caricate nel pannello — modifica qualsiasi cosa, poi Genera.",
     "loadedCoreSettings": "Impostazioni principali di \"{{name}}\" caricate (batch precedente — controlla bene risoluzione/durata).",
     "renamed": "Rinominato in {{name}}.",
-    "seedSet": "Seed {{seed}} impostato in Avanzate. Cancellalo per ottenere di nuovo seed casuali."
+    "seedSet": "Seed {{seed}} impostato in Avanzate. Cancellalo per ottenere di nuovo seed casuali.",
+    "loadedClip": "Caricato un clip da \"{{name}}\" con il suo prompt e seed. Cambia qualcosa, poi genera."
   },
   "confirm": {
     "deleteVideoTitle": "Elimina questo video?",

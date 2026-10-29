@@ -140,7 +140,8 @@
     "loadedPrompts": "Prompts de \"{{name}}\" carregados no painel.",
     "loadedPromptsQty_one": "Carregado \"{{name}}\": {{count}} prompt x qtd {{quantity}}.",
     "loadedPromptsQty_other": "Carregados \"{{name}}\": {{count}} prompts x qtd {{quantity}}.",
-    "loadFailed": "Não foi possível carregar as configurações: {{error}}"
+    "loadFailed": "Não foi possível carregar as configurações: {{error}}",
+    "loadedImage": "Uma imagem foi carregada de \"{{name}}\" com seu prompt e semente. Altere qualquer coisa e depois clique em Iniciar Geração."
   },
   "download": {
     "failedHttp": "Falha ao baixar resultados: HTTP {{status}}",
@@ -277,7 +278,8 @@
     "progress": "{{done}}/{{total}} imagens",
     "cancelRunning": "Cancelar lote em execução",
     "remove": "Remover da fila",
-    "cancelAria": "cancelar lote"
+    "cancelAria": "cancelar lote",
+    "infographic": "Infográfico"
   },
   "progress": {
     "title": "Progresso Atual",

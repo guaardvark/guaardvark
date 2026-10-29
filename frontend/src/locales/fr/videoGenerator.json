@@ -87,7 +87,8 @@
     "loadedSettings": "Paramètres de \"{{name}}\" chargés dans le panneau — ajustez ce que vous voulez, puis Générer.",
     "loadedCoreSettings": "Paramètres de base de \"{{name}}\" chargés (ancien lot — vérifiez à nouveau la résolution/durée).",
     "renamed": "Renommé en {{name}}.",
-    "seedSet": "La graine {{seed}} est définie dans Avancé. Effacez-la pour obtenir à nouveau des graines aléatoires."
+    "seedSet": "La graine {{seed}} est définie dans Avancé. Effacez-la pour obtenir à nouveau des graines aléatoires.",
+    "loadedClip": "Un clip chargé depuis «{{name}}» avec son prompt et sa graine. Modifiez quoi que ce soit, puis générez."
   },
   "confirm": {
     "deleteVideoTitle": "Supprimer cette vidéo ?",

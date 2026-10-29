@@ -87,7 +87,8 @@
     "loadedSettings": "\"{{name}}\" 설정을 패널에 불러왔습니다. 필요한 내용을 수정한 후 생성하세요.",
     "loadedCoreSettings": "\"{{name}}\" 핵심 설정을 불러왔습니다. (이전 배치 — 해상도/길이를 다시 확인하세요.)",
     "renamed": "{{name}}으로 이름이 변경되었습니다.",
-    "seedSet": "Advanced에서 시드 {{seed}}가 설정되었습니다. 무작위 시드를 다시 사용하려면 비우세요."
+    "seedSet": "Advanced에서 시드 {{seed}}가 설정되었습니다. 무작위 시드를 다시 사용하려면 비우세요.",
+    "loadedClip": "\"{{name}}\"에서 프롬프트와 시드와 함께 클립 하나를 불러왔습니다. 내용을 변경한 후 생성하세요."
   },
   "confirm": {
     "deleteVideoTitle": "이 비디오를 삭제하시겠습니까?",

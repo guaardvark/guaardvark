@@ -118,7 +118,8 @@
     "color": "色",
     "viewFullSize": "フルサイズで表示",
     "edit": "編集",
-    "publish": "共有 / 公開…"
+    "publish": "共有 / 公開…",
+    "details": "詳細…"
   },
   "infographic": {
     "failed": "生成に失敗しました",
@@ -148,9 +149,22 @@
     "generating": "生成中…",
     "reroll": "再生成",
     "generatingHint": "{{model}}でレンダリング中…",
-    "previewEmpty": "プレビューがここに表示されます",
+    "previewEmpty": "完了したインフォグラフィックがここに表示されます。",
     "resultAlt": "生成されたインフォグラフィック",
-    "seed": "シード {{seed}}"
+    "seed": "シード {{seed}}",
+    "queuing": "キューに追加中…",
+    "addToQueue": "キューに追加",
+    "queued_other": "{{count}} 個のインフォグラフィックをキューに追加しました。",
+    "results": "結果",
+    "progress": "完了: {{done}} / {{total}}",
+    "waiting": "キューの順番を待機中…",
+    "recent": "最近のインフォグラフィック",
+    "seedBlank": "空白: 各インフォグラフィックに固有のランダムなシードが割り当てられます。一つを開いてサイコロボタンを押すと、そのシードを再利用できます。",
+    "retryLoaded": "「{{name}}」をフォームに読み込みました。変更を加えたら「生成」を押してください。",
+    "retryLoadedImage": "「{{name}}」からシードを伴うインフォグラフィックを1つ読み込みました。変更を加えたら「生成」を押してください。",
+    "retryNoSettings": "このバッチの設定は保存されていません。",
+    "retryFailed": "設定を読み込めませんでした: {{error}}",
+    "quantity": "数量"
   },
   "tokenCounter": {
     "longest": "最長プロンプト：{{limit}} トークン中 {{tokens}} トークン",
@@ -203,6 +217,82 @@
     "next": "次へ",
     "open": "開く",
     "deleteTitle": "ビデオの一括削除",
-    "deleteConfirm": "この動画バッチを削除してもよろしいですか？この操作は取り消すことができません。"
+    "deleteConfirm": "この動画バッチを削除してもよろしいですか？この操作は取り消すことができません。",
+    "playAll": "すべて再生"
+  },
+  "details": {
+    "prompt": "プロンプト",
+    "sentPrompt": "モデルに送信済み",
+    "lyrics": "歌詞",
+    "copy": "コピー",
+    "copyPrompt": "プロンプトをコピー",
+    "copySeed": "シードをコピー",
+    "noSettings": "このファイルには生成設定が記録されていません。",
+    "noPreview": "このファイルのプレビューはありません。",
+    "regenerate": "再生成",
+    "sameSeed": "同じシード",
+    "sameSeedTooltip": "同じ設定とシードを使用して、同じ画像やカットを再度生成します。",
+    "fullSize": "フルサイズ",
+    "open": "開く",
+    "close": "閉じる",
+    "previous": "前へ",
+    "next": "次へ",
+    "clip": "クリップ {{number}}",
+    "yes": "はい",
+    "no": "いいえ",
+    "seconds": "{{value}} 秒",
+    "queued": "{{page}} で待機中。",
+    "queues": {
+      "image": "画像生成",
+      "infographic": "インフォグラフィック",
+      "video": "ビデオ生成",
+      "song": "オーディオスタジオ"
+    },
+    "kinds": {
+      "image": "画像",
+      "infographic": "インフォグラフィック",
+      "video": "ビデオ",
+      "song": "楽曲",
+      "sound": "効果音",
+      "voice": "音声"
+    },
+    "reasons": {
+      "no_settings": "このファイルには作成時の設定が含まれていません。",
+      "no_batch_settings": "このバッチには再生成のための設定が含まれていません。",
+      "voice": "音声クリップはオーディオスタジオから再生成されます。"
+    },
+    "rows": {
+      "model": "モデル",
+      "seed": "シード",
+      "size": "サイズ",
+      "steps": "ステップ",
+      "guidance": "ガイダンス",
+      "style": "スタイル",
+      "aspect": "アスペクト比",
+      "negative_prompt": "ネガティブプロンプト",
+      "preset": "コンテンツプリセット",
+      "cast": "キャストキャラクター",
+      "director": "ディレクター書き換え",
+      "batch": "バッチ",
+      "title": "タイトル",
+      "callouts": "ラベル",
+      "footer": "フッター",
+      "hashtags": "ハッシュタグ",
+      "frames": "フレーム",
+      "fps": "フレーム/秒",
+      "duration_s": "長さ",
+      "speed_profile": "速度プロファイル",
+      "prompt_style": "プロンプトスタイル",
+      "lora": "LoRA",
+      "start_image": "開始画像",
+      "bpm": "テンポ (BPM)",
+      "key": "キー",
+      "time_signature": "拍子",
+      "language": "ボーカル言語",
+      "instrumental": "インストゥルメンタル"
+    }
+  },
+  "audio": {
+    "heading": "楽曲とサウンド"
   }
 }

@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} is niet geïnstalleerd.</bold> Genereren zal het niet op de achtergrond downloaden — installeer het eerst.",
     "voiceTab": "Stem",
     "musicTab": "Muziek",
-    "fxTab": "FX Lab"
+    "fxTab": "FX Lab",
+    "retryLoaded": "Liedinstellingen geladen. Pas iets aan en klik daarna op Genereer.",
+    "retryFailed": "Kon de instellingen van dat lied niet laden."
   },
   "voice": {
     "title": "Neurale Stemoverdracht",

@@ -87,7 +87,8 @@
     "loadedSettings": "Załadowano ustawienia \"{{name}}\" do panelu — zmień wszystko, co chcesz, a następnie kliknij Generuj.",
     "loadedCoreSettings": "Załadowano główne ustawienia \"{{name}}\" (starsza partia — sprawdź ponownie rozdzielczość/czas trwania).",
     "renamed": "Zmieniono nazwę na {{name}}.",
-    "seedSet": "Ziarno {{seed}} zostało ustawione w Zaawansowanych. Wyczyść je, aby ponownie otrzymywać losowe ziarna."
+    "seedSet": "Ziarno {{seed}} zostało ustawione w Zaawansowanych. Wyczyść je, aby ponownie otrzymywać losowe ziarna.",
+    "loadedClip": "Załadowano jeden klip z \"{{name}}\" wraz z promptem i ziarnem. Zmień cokolwiek, a następnie wygeneruj."
   },
   "confirm": {
     "deleteVideoTitle": "Usuń to wideo?",

@@ -120,7 +120,8 @@
     "color": "Farbe",
     "viewFullSize": "In voller Größe anzeigen",
     "edit": "Bearbeiten",
-    "publish": "Teilen / Veröffentlichen…"
+    "publish": "Teilen / Veröffentlichen…",
+    "details": "Details…"
   },
   "infographic": {
     "failed": "Generierung fehlgeschlagen",
@@ -150,9 +151,23 @@
     "generating": "Wird generiert…",
     "reroll": "Neu generieren",
     "generatingHint": "Wird mit {{model}} gerendert …",
-    "previewEmpty": "Vorschau erscheint hier",
+    "previewEmpty": "Infografiken, die du anforderst, erscheinen hier, sobald sie fertig sind.",
     "resultAlt": "generierte Infografik",
-    "seed": "Seed {{seed}}"
+    "seed": "Seed {{seed}}",
+    "queuing": "Wird angefordert…",
+    "addToQueue": "Zur Warteschlange hinzufügen",
+    "queued_one": "1 Infografik in die Warteschlange aufgenommen.",
+    "queued_other": "{{count}} Infografiken in die Warteschlange aufgenommen.",
+    "results": "Ergebnisse",
+    "progress": "{{done}} von {{total}} abgeschlossen",
+    "waiting": "Wartet auf seine Position in der Warteschlange…",
+    "recent": "Letzte Infografiken",
+    "seedBlank": "Leer: Jede Infografik erhält einen eigenen Zufalls-Seed. Öffne eine und drücke auf das Würfelchen, um ihren Seed wiederzuverwenden.",
+    "retryLoaded": "\"{{name}}\" wurde in das Formular geladen. Ändere etwas und klicke dann auf Generieren.",
+    "retryLoadedImage": "Eine Infografik aus \"{{name}}\" mit ihrem Seed wurde geladen. Ändere etwas und klicke dann auf Generieren.",
+    "retryNoSettings": "Diese Charge hat keine Einstellungen gespeichert.",
+    "retryFailed": "Einstellungen konnten nicht geladen werden: {{error}}",
+    "quantity": "Anzahl"
   },
   "tokenCounter": {
     "longest": "Längster Prompt: {{tokens}} von {{limit}} Token",
@@ -208,6 +223,82 @@
     "next": "Nächstes",
     "open": "Öffnen",
     "deleteTitle": "Video-Batch löschen",
-    "deleteConfirm": "Bist du sicher, dass du diesen Video-Batch löschen willst? Diese Aktion kann nicht rückgängig gemacht werden."
+    "deleteConfirm": "Bist du sicher, dass du diesen Video-Batch löschen willst? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "playAll": "Alle abspielen"
+  },
+  "details": {
+    "prompt": "Prompt",
+    "sentPrompt": "An das Modell gesendet",
+    "lyrics": "Songtext",
+    "copy": "Kopieren",
+    "copyPrompt": "Prompt kopieren",
+    "copySeed": "Seed kopieren",
+    "noSettings": "Für diese Datei wurden keine Generierungseinstellungen aufgezeichnet.",
+    "noPreview": "Keine Vorschau für diese Datei.",
+    "regenerate": "Neu generieren",
+    "sameSeed": "Gleicher Seed",
+    "sameSeedTooltip": "Erstelle es erneut mit den gleichen Einstellungen und dem Seed für das gleiche Bild oder die gleiche Aufnahme.",
+    "fullSize": "Volle Größe",
+    "open": "Öffnen",
+    "close": "Schließen",
+    "previous": "Vorheriges",
+    "next": "Nächstes",
+    "clip": "Clip {{number}}",
+    "yes": "Ja",
+    "no": "Nein",
+    "seconds": "{{value}} s",
+    "queued": "In die Warteschlange auf {{page}} aufgenommen.",
+    "queues": {
+      "image": "Bildgenerierung",
+      "infographic": "Infografik",
+      "video": "Videogenerierung",
+      "song": "Audio Studio"
+    },
+    "kinds": {
+      "image": "Bild",
+      "infographic": "Infografik",
+      "video": "Video",
+      "song": "Song",
+      "sound": "Soundeffekt",
+      "voice": "Sprache"
+    },
+    "reasons": {
+      "no_settings": "Diese Datei hat die Einstellungen, mit denen sie erstellt wurde, nicht gespeichert.",
+      "no_batch_settings": "Sein Batch hat die Einstellungen nicht gespeichert, um es erneut zu erstellen.",
+      "voice": "Sprachclips werden erneut aus dem Audio Studio erstellt."
+    },
+    "rows": {
+      "model": "Modell",
+      "seed": "Seed",
+      "size": "Größe",
+      "steps": "Schritte",
+      "guidance": "Guidance",
+      "style": "Stil",
+      "aspect": "Seitenverhältnis",
+      "negative_prompt": "Negativer Prompt",
+      "preset": "Inhalts-Preset",
+      "cast": "Charaktere besetzen",
+      "director": "Regie-Überarbeitung",
+      "batch": "Batch",
+      "title": "Titel",
+      "callouts": "Labels",
+      "footer": "Fußzeile",
+      "hashtags": "Hashtags",
+      "frames": "Frames",
+      "fps": "Bilder pro Sekunde",
+      "duration_s": "Länge",
+      "speed_profile": "Geschwindigkeitsprofil",
+      "prompt_style": "Prompt-Stil",
+      "lora": "LoRA",
+      "start_image": "Startbild",
+      "bpm": "Tempo (BPM)",
+      "key": "Tonart",
+      "time_signature": "Taktart",
+      "language": "Vokalsprache",
+      "instrumental": "Instrumental"
+    }
+  },
+  "audio": {
+    "heading": "Songs und Klänge"
   }
 }

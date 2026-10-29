@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} nie jest zainstalowane.</bold> Generowanie nie pobierze go w tle — najpierw je zainstaluj.",
     "voiceTab": "Głos",
     "musicTab": "Muzyka",
-    "fxTab": "Laboratorium FX"
+    "fxTab": "Laboratorium FX",
+    "retryLoaded": "Załadowano ustawienia utworu. Zmień cokolwiek, a następnie kliknij Generuj.",
+    "retryFailed": "Nie udało się załadować ustawień tego utworu."
   },
   "voice": {
     "title": "Neuralny Głos",

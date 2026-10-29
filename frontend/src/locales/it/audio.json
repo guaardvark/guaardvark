@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} non è installato.</bold> La generazione non lo scarica in background: installalo prima.",
     "voiceTab": "Voce",
     "musicTab": "Musica",
-    "fxTab": "FX Lab"
+    "fxTab": "FX Lab",
+    "retryLoaded": "Impostazioni della canzone caricate. Modifica qualcosa, poi Genera.",
+    "retryFailed": "Impossibile caricare le impostazioni di quella canzone."
   },
   "voice": {
     "title": "Voce neurale",

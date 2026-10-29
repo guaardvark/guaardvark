@@ -140,7 +140,8 @@
     "loadedPrompts": "Prompts de « {{name}} » chargés dans le panneau.",
     "loadedPromptsQty_one": "Chargé « {{name}} » : {{count}} prompt x quantité {{quantity}}.",
     "loadedPromptsQty_other": "Chargé « {{name}} » : {{count}} prompts x quantité {{quantity}}.",
-    "loadFailed": "Impossible de charger les paramètres : {{error}}"
+    "loadFailed": "Impossible de charger les paramètres : {{error}}",
+    "loadedImage": "Une image chargée depuis \"{{name}}\" avec son prompt et sa graine. Modifiez quoi que ce soit, puis Lancez la génération."
   },
   "download": {
     "failedHttp": "Échec du téléchargement des résultats : HTTP {{status}}",
@@ -277,7 +278,8 @@
     "progress": "{{done}}/{{total}} images",
     "cancelRunning": "Annuler le lot en cours",
     "remove": "Supprimer de la file",
-    "cancelAria": "annuler le lot"
+    "cancelAria": "annuler le lot",
+    "infographic": "Infographie"
   },
   "progress": {
     "title": "Progression actuelle",

@@ -141,7 +141,8 @@
     "loadedPromptsQty_few": "Загружено «{{name}}»: {{count}} промптов x кол-во {{quantity}}.",
     "loadedPromptsQty_many": "Загружено «{{name}}»: {{count}} промптов x кол-во {{quantity}}.",
     "loadedPromptsQty_one": "Загружен «{{name}}»: {{count}} промпт x кол-во {{quantity}}.",
-    "loadFailed": "Не удалось загрузить настройки: {{error}}"
+    "loadFailed": "Не удалось загрузить настройки: {{error}}",
+    "loadedImage": "Загружено одно изображение из \"{{name}}\" с промптом и сидом. Измените что-нибудь, затем нажмите \"Начать генерацию\"."
   },
   "download": {
     "failedHttp": "Ошибка загрузки результатов: HTTP {{status}}",
@@ -278,7 +279,8 @@
     "progress": "{{done}}/{{total}} изображений",
     "cancelRunning": "Отменить текущий пакет",
     "remove": "Удалить из очереди",
-    "cancelAria": "отмена пакета"
+    "cancelAria": "отмена пакета",
+    "infographic": "Инфографика"
   },
   "progress": {
     "title": "Текущий прогресс",

@@ -140,7 +140,8 @@
     "loadedPrompts": "Prompt di \"{{name}}\" caricati nel pannello.",
     "loadedPromptsQty_one": "Caricato \"{{name}}\": {{count}} prompt x quantità {{quantity}}.",
     "loadedPromptsQty_other": "Caricati \"{{name}}\": {{count}} prompt x quantità {{quantity}}.",
-    "loadFailed": "Impossibile caricare le Impostazioni: {{error}}"
+    "loadFailed": "Impossibile caricare le Impostazioni: {{error}}",
+    "loadedImage": "Caricata un'immagine da \"{{name}}\" con il suo prompt e seed. Cambia qualcosa, poi Avvia Generazione."
   },
   "download": {
     "failedHttp": "Errore nel download dei risultati: HTTP {{status}}",
@@ -277,7 +278,8 @@
     "progress": "{{done}}/{{total}} immagini",
     "cancelRunning": "Annulla batch in esecuzione",
     "remove": "Rimuovi dalla coda",
-    "cancelAria": "annulla batch"
+    "cancelAria": "annulla batch",
+    "infographic": "Infografica"
   },
   "progress": {
     "title": "Progresso attuale",

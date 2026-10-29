@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} no está instalado.</bold> Generate no lo descargará en segundo plano; instálalo primero.",
     "voiceTab": "Voz",
     "musicTab": "Música",
-    "fxTab": "Laboratorio de FX"
+    "fxTab": "Laboratorio de FX",
+    "retryLoaded": "Se cargaron los Ajustes de la canción. Cambia algo y luego pulsa Generar.",
+    "retryFailed": "No se pudieron cargar los Ajustes de esa canción."
   },
   "voice": {
     "title": "Locución Neuronal",

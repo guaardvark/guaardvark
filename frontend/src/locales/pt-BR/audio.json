@@ -85,7 +85,9 @@
     "notInstalledAlert": "<bold>{{name}} não está instalado.</bold> A geração não vai baixá-lo em segundo plano — instale-o primeiro.",
     "voiceTab": "Voz",
     "musicTab": "Música",
-    "fxTab": "Laboratório de FX"
+    "fxTab": "Laboratório de FX",
+    "retryLoaded": "Configurações da música carregadas. Altere qualquer coisa e depois clique em Gerar.",
+    "retryFailed": "Não foi possível carregar as configurações dessa música."
   },
   "voice": {
     "title": "Narração Neural",

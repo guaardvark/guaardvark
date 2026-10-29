@@ -122,7 +122,8 @@
     "color": "Kolor",
     "viewFullSize": "Pokaż pełny rozmiar",
     "edit": "Edytuj",
-    "publish": "Udostępnij / Opublikuj…"
+    "publish": "Udostępnij / Opublikuj…",
+    "details": "Szczegóły…"
   },
   "infographic": {
     "failed": "Błąd generowania",
@@ -152,9 +153,24 @@
     "generating": "Generowanie…",
     "reroll": "Przetwórz ponownie",
     "generatingHint": "Renderowanie z użyciem {{model}}...",
-    "previewEmpty": "Podgląd pojawi się tutaj",
+    "previewEmpty": "Infografiki, które dodasz do kolejki, pojawią się tutaj po zakończeniu generowania.",
     "resultAlt": "wygenerowana infografika",
-    "seed": "seed {{seed}}"
+    "seed": "seed {{seed}}",
+    "queuing": "Dodawanie do kolejki…",
+    "addToQueue": "Dodaj do kolejki",
+    "queued_few": "Dodano {{count}} infografik.",
+    "queued_many": "Dodano {{count}} infografik.",
+    "queued_one": "Dodano {{count}} infografikę.",
+    "results": "Wyniki",
+    "progress": "Zakończono {{done}} z {{total}}",
+    "waiting": "Oczekiwanie na swoją kolej w kolejce…",
+    "recent": "Ostatnie infografiki",
+    "seedBlank": "Puste: każda infografika otrzymuje własne losowe ziarno. Otwórz jedną i kliknij ikonę kostki, aby użyć jej ziarna ponownie.",
+    "retryLoaded": "Załadowano \"{{name}}\" do formularza. Zmień cokolwiek, a następnie kliknij Generuj.",
+    "retryLoadedImage": "Załadowano jedną infografikę z \"{{name}}\" wraz z jej ziarnem. Zmień cokolwiek, a następnie kliknij Generuj.",
+    "retryNoSettings": "Ta partia nie zapisała swoich ustawień.",
+    "retryFailed": "Nie można załadować ustawień: {{error}}",
+    "quantity": "Ilość"
   },
   "tokenCounter": {
     "longest": "Najdłuższy prompt: {{tokens}} z {{limit}} tokenów",
@@ -213,6 +229,82 @@
     "next": "Następny",
     "open": "Otwórz",
     "deleteTitle": "Usuń paczkę wideo",
-    "deleteConfirm": "Czy na pewno chcesz usunąć tę paczkę wideo? Tej akcji nie można cofnąć."
+    "deleteConfirm": "Czy na pewno chcesz usunąć tę paczkę wideo? Tej akcji nie można cofnąć.",
+    "playAll": "Odtwórz wszystkie"
+  },
+  "details": {
+    "prompt": "Prompt",
+    "sentPrompt": "Wysłano do modelu",
+    "lyrics": "Tekst piosenki",
+    "copy": "Kopiuj",
+    "copyPrompt": "Kopiuj prompt",
+    "copySeed": "Kopiuj ziarno",
+    "noSettings": "Dla tego pliku nie zarejestrowano ustawień generowania.",
+    "noPreview": "Brak podglądu dla tego pliku.",
+    "regenerate": "Regeneruj",
+    "sameSeed": "Ten sam seed",
+    "sameSeedTooltip": "Wygeneruj ponownie z tymi samymi ustawieniami i seedem, aby uzyskać ten sam obraz lub ujęcie.",
+    "fullSize": "Pełny rozmiar",
+    "open": "Otwórz",
+    "close": "Zamknij",
+    "previous": "Poprzedni",
+    "next": "Następny",
+    "clip": "Klip {{number}}",
+    "yes": "Tak",
+    "no": "Nie",
+    "seconds": "{{value}} s",
+    "queued": "W kolejce na stronie {{page}}.",
+    "queues": {
+      "image": "Generowanie obrazów",
+      "infographic": "Infografika",
+      "video": "Generowanie wideo",
+      "song": "Studio audio"
+    },
+    "kinds": {
+      "image": "Obraz",
+      "infographic": "Infografika",
+      "video": "Wideo",
+      "song": "Utwór",
+      "sound": "Efekt dźwiękowy",
+      "voice": "Głos"
+    },
+    "reasons": {
+      "no_settings": "Ten plik nie zachował ustawień, z których został utworzony.",
+      "no_batch_settings": "Jego partia nie zachowała ustawień potrzebnych do ponownego wygenerowania.",
+      "voice": "Fragmenty głosowe są generowane ponownie w Studio audio."
+    },
+    "rows": {
+      "model": "Model",
+      "seed": "Seed",
+      "size": "Rozmiar",
+      "steps": "Kroki",
+      "guidance": "Guidance",
+      "style": "Styl",
+      "aspect": "Proporcje",
+      "negative_prompt": "Negatywny prompt",
+      "preset": "Preset treści",
+      "cast": "Obsada postaci",
+      "director": "Przeredagowanie reżyserskie",
+      "batch": "Partia",
+      "title": "Tytuł",
+      "callouts": "Etykiety",
+      "footer": "Stopka",
+      "hashtags": "Hashtagi",
+      "frames": "Klatki",
+      "fps": "Klatek na sekundę",
+      "duration_s": "Długość",
+      "speed_profile": "Profil prędkości",
+      "prompt_style": "Styl promptu",
+      "lora": "LoRA",
+      "start_image": "Obraz początkowy",
+      "bpm": "Tempo (BPM)",
+      "key": "Tonacja",
+      "time_signature": "Metrum",
+      "language": "Język wokalu",
+      "instrumental": "Instrumental"
+    }
+  },
+  "audio": {
+    "heading": "Utwory i dźwięki"
   }
 }

@@ -141,7 +141,8 @@
     "loadedPromptsQty_few": "Załadowano \"{{name}}\": {{count}} promptów x ilość {{quantity}}.",
     "loadedPromptsQty_many": "Załadowano \"{{name}}\": {{count}} promptów x ilość {{quantity}}.",
     "loadedPromptsQty_one": "Załadowano \"{{name}}\": {{count}} prompt x ilość {{quantity}}.",
-    "loadFailed": "Nie można załadować ustawień: {{error}}"
+    "loadFailed": "Nie można załadować ustawień: {{error}}",
+    "loadedImage": "Załadowano jeden obrazek z \"{{name}}\" wraz z promptem i ziarnem. Zmień cokolwiek, a następnie kliknij Start Generation."
   },
   "download": {
     "failedHttp": "Błąd pobierania wyników: HTTP {{status}}",
@@ -278,7 +279,8 @@
     "progress": "{{done}}/{{total}} obrazów",
     "cancelRunning": "Anuluj uruchomioną partię",
     "remove": "Usuń z kolejki",
-    "cancelAria": "anuluj partię"
+    "cancelAria": "anuluj partię",
+    "infographic": "Infografika"
   },
   "progress": {
     "title": "Aktualny postęp",

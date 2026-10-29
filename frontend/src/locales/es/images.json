@@ -120,7 +120,8 @@
     "color": "Color",
     "viewFullSize": "Ver tamaño completo",
     "edit": "Editar",
-    "publish": "Compartir / Publicar…"
+    "publish": "Compartir / Publicar…",
+    "details": "Detalles…"
   },
   "infographic": {
     "failed": "Error en la generación",
@@ -150,9 +151,23 @@
     "generating": "Generando…",
     "reroll": "Reintentar",
     "generatingHint": "Renderizando con {{model}}…",
-    "previewEmpty": "La vista previa aparece aquí",
+    "previewEmpty": "Las Infografías que pongas en cola aparecerán aquí al finalizar.",
     "resultAlt": "infografía generada",
-    "seed": "semilla {{seed}}"
+    "seed": "semilla {{seed}}",
+    "queuing": "Encolando…",
+    "addToQueue": "Añadir a la cola",
+    "queued_one": "Infografía {{count}} encolada.",
+    "queued_other": "Infografías {{count}} encoladas.",
+    "results": "Resultados",
+    "progress": "{{done}} de {{total}} completadas",
+    "waiting": "Esperando su turno en la cola…",
+    "recent": "Infografías recientes",
+    "seedBlank": "En blanco: cada infografía tiene su propia semilla aleatoria. Abre una y pulsa el dado para reutilizar su semilla.",
+    "retryLoaded": "Se ha cargado \"{{name}}\" en el formulario. Cambia cualquier cosa y luego pulsa Generar.",
+    "retryLoadedImage": "Se ha cargado una infografía de \"{{name}}\" con su semilla. Cambia cualquier cosa y luego pulsa Generar.",
+    "retryNoSettings": "Este lote no guardó sus Ajustes.",
+    "retryFailed": "No se pudieron cargar los Ajustes: {{error}}",
+    "quantity": "Cantidad"
   },
   "tokenCounter": {
     "longest": "Prompt más largo: {{tokens}} de {{limit}} tokens",
@@ -208,6 +223,82 @@
     "next": "Siguiente",
     "open": "Abrir",
     "deleteTitle": "Eliminar lote de videos",
-    "deleteConfirm": "¿Estás seguro de que quieres eliminar este lote de videos? Esta acción no se puede deshacer."
+    "deleteConfirm": "¿Estás seguro de que quieres eliminar este lote de videos? Esta acción no se puede deshacer.",
+    "playAll": "Reproducir todo"
+  },
+  "details": {
+    "prompt": "Prompt",
+    "sentPrompt": "Enviado al modelo",
+    "lyrics": "Letra",
+    "copy": "Copiar",
+    "copyPrompt": "Copiar prompt",
+    "copySeed": "Copiar semilla",
+    "noSettings": "No se registraron Ajustes de generación para este archivo.",
+    "noPreview": "Sin vista previa para este archivo.",
+    "regenerate": "Regenerar",
+    "sameSeed": "Misma semilla",
+    "sameSeedTooltip": "Hazlo de nuevo con los mismos ajustes y semilla, para la misma imagen o toma.",
+    "fullSize": "Tamaño completo",
+    "open": "Abrir",
+    "close": "Cerrar",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "clip": "Clip {{number}}",
+    "yes": "Sí",
+    "no": "No",
+    "seconds": "{{value}} s",
+    "queued": "En cola en la página {{page}}.",
+    "queues": {
+      "image": "Gen. de imagen",
+      "infographic": "Infografía",
+      "video": "Gen. de video",
+      "song": "Estudio de audio"
+    },
+    "kinds": {
+      "image": "Imagen",
+      "infographic": "Infografía",
+      "video": "Video",
+      "song": "Canción",
+      "sound": "Efecto de sonido",
+      "voice": "Voz"
+    },
+    "reasons": {
+      "no_settings": "Este archivo no conservó los ajustes con los que se creó.",
+      "no_batch_settings": "Su lote no conservó los ajustes para volver a crearlo.",
+      "voice": "Los clips de Voz se vuelven a crear desde el Estudio de audio."
+    },
+    "rows": {
+      "model": "Modelo",
+      "seed": "Semilla",
+      "size": "Tamaño",
+      "steps": "Pasos",
+      "guidance": "Guía",
+      "style": "Estilo",
+      "aspect": "Relación de aspecto",
+      "negative_prompt": "Prompt negativo",
+      "preset": "Preajuste de contenido",
+      "cast": "Personajes del reparto",
+      "director": "Reescritura del director",
+      "batch": "Lote",
+      "title": "Título",
+      "callouts": "¿Etiquetas?",
+      "footer": "¿Pie de página?",
+      "hashtags": "¿Hashtags?",
+      "frames": "¿Fotogramas?",
+      "fps": "¿Fotogramas por segundo?",
+      "duration_s": "¿Duración?",
+      "speed_profile": "¿Perfil de velocidad?",
+      "prompt_style": "¿Estilo de prompt?",
+      "lora": "LoRA",
+      "start_image": "¿Imagen inicial?",
+      "bpm": "¿Tempo (BPM)?",
+      "key": "¿Tonalidad?",
+      "time_signature": "¿Compás?",
+      "language": "¿Idioma de la voz?",
+      "instrumental": "¿Instrumental?"
+    }
+  },
+  "audio": {
+    "heading": "Canciones y sonidos"
   }
 }

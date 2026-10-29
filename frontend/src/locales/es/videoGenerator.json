@@ -87,7 +87,8 @@
     "loadedSettings": "Ajustes de \"{{name}}\" cargados en el panel; ajusta lo que necesites y luego haz clic en Generar.",
     "loadedCoreSettings": "Ajustes básicos de \"{{name}}\" cargados (lote antiguo; verifica la resolución/duración).",
     "renamed": "Renombrado a {{name}}.",
-    "seedSet": "La semilla {{seed}} está configurada en Avanzado. Bórrala para obtener semillas aleatorias de nuevo."
+    "seedSet": "La semilla {{seed}} está configurada en Avanzado. Bórrala para obtener semillas aleatorias de nuevo.",
+    "loadedClip": "¿Se cargó un clip de \"{{name}}\" con su prompt y semilla. Cambia cualquier cosa y luego genera."
   },
   "confirm": {
     "deleteVideoTitle": "¿Eliminar este video?",

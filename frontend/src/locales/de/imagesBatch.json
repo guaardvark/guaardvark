@@ -140,7 +140,8 @@
     "loadedPrompts": "Prompts für \"{{name}}\" in das Panel geladen.",
     "loadedPromptsQty_one": "Geladen \"{{name}}\": {{count}} Prompt x Menge {{quantity}}.",
     "loadedPromptsQty_other": "Geladen \"{{name}}\": {{count}} Prompts x Menge {{quantity}}.",
-    "loadFailed": "Einstellungen konnten nicht geladen werden: {{error}}"
+    "loadFailed": "Einstellungen konnten nicht geladen werden: {{error}}",
+    "loadedImage": "Ein Bild aus \"{{name}}\" mit seinem Prompt und Seed geladen. Ändere etwas und klicke dann auf Start Generation."
   },
   "download": {
     "failedHttp": "Download der Ergebnisse fehlgeschlagen: HTTP {{status}}",
@@ -277,7 +278,8 @@
     "progress": "{{done}}/{{total}} Bilder",
     "cancelRunning": "Laufende Batch abbrechen",
     "remove": "Aus Warteschlange entfernen",
-    "cancelAria": "Batch abbrechen"
+    "cancelAria": "Batch abbrechen",
+    "infographic": "Infografik"
   },
   "progress": {
     "title": "Aktueller Fortschritt",

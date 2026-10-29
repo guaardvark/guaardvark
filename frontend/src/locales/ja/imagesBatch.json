@@ -139,7 +139,8 @@
     "loadedSettings": "「{{name}}」の設定をコントロールパネルに読み込みました。必要に応じて調整し、「生成開始」を押してください。",
     "loadedPrompts": "「{{name}}」のプロンプトをパネルに読み込みました。",
     "loadedPromptsQty_other": "「{{name}}」を読み込みました: {{count}} プロンプト × 数量 {{quantity}}。",
-    "loadFailed": "設定を読み込めませんでした: {{error}}"
+    "loadFailed": "設定を読み込めませんでした: {{error}}",
+    "loadedImage": "「{{name}}」からプロンプトとシードを含む画像を1枚読み込みました。変更を加えた後、生成を開始してください。"
   },
   "download": {
     "failedHttp": "結果のダウンロードに失敗しました: HTTP {{status}}",
@@ -276,7 +277,8 @@
     "progress": "画像 {{done}}/{{total}}",
     "cancelRunning": "実行中のバッチをキャンセル",
     "remove": "キューから削除",
-    "cancelAria": "バッチをキャンセル"
+    "cancelAria": "バッチをキャンセル",
+    "infographic": "インフォグラフィック"
   },
   "progress": {
     "title": "現在の進捗",

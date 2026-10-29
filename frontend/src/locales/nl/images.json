@@ -120,7 +120,8 @@
     "color": "Kleur",
     "viewFullSize": "Bekijk volledige grootte",
     "edit": "Bewerken",
-    "publish": "Delen / Publiceren…"
+    "publish": "Delen / Publiceren…",
+    "details": "Details…"
   },
   "infographic": {
     "failed": "Generatie mislukt",
@@ -150,9 +151,23 @@
     "generating": "Genereren…",
     "reroll": "Opnieuw genereren",
     "generatingHint": "Renderen met {{model}}…",
-    "previewEmpty": "Preview verschijnt hier",
+    "previewEmpty": "Infographics die je in de wachtrij zet, verschijnen hier zodra ze klaar zijn.",
     "resultAlt": "gegenereerde infographic",
-    "seed": "seed {{seed}}"
+    "seed": "seed {{seed}}",
+    "queuing": "In wachtrij plaatsen…",
+    "addToQueue": "Toevoegen aan wachtrij",
+    "queued_one": "1 infographic toegevoegd naar de wachtrij.",
+    "queued_other": "{{count}} infographics toegevoegd naar de wachtrij.",
+    "results": "Resultaten",
+    "progress": "{{done}} van {{total}} voltooid",
+    "waiting": "Wachten op beurt in de wachtrij…",
+    "recent": "Recente infographics",
+    "seedBlank": "Leeg: elke infographic krijgt een eigen willekeurige seed. Open er een en druk op de dobbelsteen om de seed te hergebruiken.",
+    "retryLoaded": "\"{{name}}\" geladen in het formulier. Verander iets en klik op Genereer.",
+    "retryLoadedImage": "Eén infographic uit \"{{name}}\" geladen met de bijbehorende seed. Verander iets en klik op Genereer.",
+    "retryNoSettings": "Deze batch heeft geen instellingen opgeslagen.",
+    "retryFailed": "Kon de instellingen niet laden: {{error}}",
+    "quantity": "Aantal"
   },
   "tokenCounter": {
     "longest": "Langste prompt: {{tokens}} van {{limit}} tokens",
@@ -208,6 +223,82 @@
     "next": "Volgende",
     "open": "Openen",
     "deleteTitle": "Verwijder video-batch",
-    "deleteConfirm": "Sta je deze video-batch echt te verwijderen? Deze actie kan niet worden ongedaan gemaakt."
+    "deleteConfirm": "Sta je deze video-batch echt te verwijderen? Deze actie kan niet worden ongedaan gemaakt.",
+    "playAll": "Alles afspelen"
+  },
+  "details": {
+    "prompt": "Prompt",
+    "sentPrompt": "Verzonden naar het model",
+    "lyrics": "Songtekst",
+    "copy": "Kopiëren",
+    "copyPrompt": "Prompt kopiëren",
+    "copySeed": "Seed kopiëren",
+    "noSettings": "Er zijn geen generatie-instellingen geregistreerd voor dit bestand.",
+    "noPreview": "Geen voorbeeld voor dit bestand.",
+    "regenerate": "Opnieuw genereren",
+    "sameSeed": "Zelfde seed",
+    "sameSeedTooltip": "Maak het opnieuw met dezelfde instellingen en seed, voor dezelfde afbeelding of take.",
+    "fullSize": "Volledige grootte",
+    "open": "Openen",
+    "close": "Sluiten",
+    "previous": "Vorige",
+    "next": "Volgende",
+    "clip": "Clip {{number}}",
+    "yes": "Ja",
+    "no": "Nee",
+    "seconds": "{{value}} s",
+    "queued": "In de wachtrij op {{page}}.",
+    "queues": {
+      "image": "Afbeelding Gen",
+      "infographic": "Infographic",
+      "video": "Video Gen",
+      "song": "Audio Studio"
+    },
+    "kinds": {
+      "image": "Afbeelding",
+      "infographic": "Infographic",
+      "video": "Video",
+      "song": "Lied",
+      "sound": "Geluidseffect",
+      "voice": "Stem"
+    },
+    "reasons": {
+      "no_settings": "Dit bestand heeft de instellingen niet behouden waarmee het is gemaakt.",
+      "no_batch_settings": "Zijn batch heeft de instellingen niet behouden om het opnieuw te maken.",
+      "voice": "Stemfragmenten worden opnieuw gemaakt vanuit Audio Studio."
+    },
+    "rows": {
+      "model": "Model",
+      "seed": "Seed",
+      "size": "Grootte",
+      "steps": "Stappen",
+      "guidance": "Guidance",
+      "style": "Stijl",
+      "aspect": "Aspect",
+      "negative_prompt": "Negatieve prompt",
+      "preset": "Content preset",
+      "cast": "Cast personages",
+      "director": "Regisseur herschrijving",
+      "batch": "Batch",
+      "title": "Titel",
+      "callouts": "Labels",
+      "footer": "Footer",
+      "hashtags": "Hashtags",
+      "frames": "Frames",
+      "fps": "Frames per seconde",
+      "duration_s": "Lengte",
+      "speed_profile": "Snelheidsprofiel",
+      "prompt_style": "Promptstijl",
+      "lora": "LoRA",
+      "start_image": "Startbeeld",
+      "bpm": "Tempo (BPM)",
+      "key": "Toonsoort",
+      "time_signature": "Maatsoort",
+      "language": "Zangtaal",
+      "instrumental": "Instrumentaal"
+    }
+  },
+  "audio": {
+    "heading": "Nummers en geluiden"
   }
 }

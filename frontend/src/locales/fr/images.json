@@ -120,7 +120,8 @@
     "color": "Couleur",
     "viewFullSize": "Voir en taille réelle",
     "edit": "Modifier",
-    "publish": "Partager / Publier…"
+    "publish": "Partager / Publier…",
+    "details": "Détails…"
   },
   "infographic": {
     "failed": "Échec de la génération",
@@ -150,9 +151,23 @@
     "generating": "Génération…",
     "reroll": "Relancer",
     "generatingHint": "Rendu avec {{model}}…",
-    "previewEmpty": "L'aperçu s'affiche ici",
+    "previewEmpty": "Les Infographies que vous mettez en file d'attente apparaissent ici une fois terminées.",
     "resultAlt": "infographie générée",
-    "seed": "graine {{seed}}"
+    "seed": "graine {{seed}}",
+    "queuing": "Mise en file d'attente…",
+    "addToQueue": "Ajouter à la file d'attente",
+    "queued_one": "Infographie {{count}} en file d'attente.",
+    "queued_other": "{{count}} Infographies mises en file d'attente.",
+    "results": "Résultats",
+    "progress": "{{done}} sur {{total}} terminées",
+    "waiting": "En attente dans la file d'attentente…",
+    "recent": "Infographies récentes",
+    "seedBlank": "Vide : chaque infographie possède sa propre graine aléatoire. Ouvrez-en une et appuyez sur le dé pour réutiliser sa graine.",
+    "retryLoaded": "«{{name}}» chargé dans le formulaire. Modifiez quoi que ce soit, puis Générer.",
+    "retryLoadedImage": "Une infographie de «{{name}}» chargée avec sa graine. Modifiez quoi que ce soit, puis Générer.",
+    "retryNoSettings": "Ce lot n'a pas enregistré ses paramètres.",
+    "retryFailed": "Impossible de charger les paramètres : {{error}}",
+    "quantity": "Quantité"
   },
   "tokenCounter": {
     "longest": "Prompt le plus long : {{tokens}} sur {{limit}} jetons",
@@ -208,6 +223,82 @@
     "next": "Suivant",
     "open": "Ouvrir",
     "deleteTitle": "Supprimer le lot de vidéos",
-    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce lot de vidéos ? Cette action ne peut pas être annulée."
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer ce lot de vidéos ? Cette action ne peut pas être annulée.",
+    "playAll": "Tout lire"
+  },
+  "details": {
+    "prompt": "Prompt",
+    "sentPrompt": "Envoyé au modèle",
+    "lyrics": "Paroles",
+    "copy": "Copier",
+    "copyPrompt": "Copier le prompt",
+    "copySeed": "Copier la graine",
+    "noSettings": "Aucun paramètre de génération n'a été enregistré pour ce fichier.",
+    "noPreview": "Aucune prévisualisation pour ce fichier.",
+    "regenerate": "Régénérer",
+    "sameSeed": "Même graine",
+    "sameSeedTooltip": "Refaire avec les mêmes paramètres et la même graine, pour la même image ou prise.",
+    "fullSize": "Taille réelle",
+    "open": "Ouvrir",
+    "close": "Fermer",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "clip": "Clip {{number}}",
+    "yes": "Oui",
+    "no": "Non",
+    "seconds": "{{value}} s",
+    "queued": "En file d'attente sur {{page}}.",
+    "queues": {
+      "image": "Gén. Image",
+      "infographic": "Infographie",
+      "video": "Gén. Vidéo",
+      "song": "Studio Audio"
+    },
+    "kinds": {
+      "image": "Image",
+      "infographic": "Infographie",
+      "video": "Vidéo",
+      "song": "Chanson",
+      "sound": "Effet sonore",
+      "voice": "Voix"
+    },
+    "reasons": {
+      "no_settings": "Ce fichier n'a pas conservé les paramètres avec lesquels il a été créé.",
+      "no_batch_settings": "Son lot n'a pas conservé les paramètres pour le recréer.",
+      "voice": "Les clips de Voix sont recréés depuis le Studio Audio."
+    },
+    "rows": {
+      "model": "Modèle",
+      "seed": "Graine",
+      "size": "Taille",
+      "steps": "Étapes",
+      "guidance": "Guidance",
+      "style": "Style",
+      "aspect": "Aspect",
+      "negative_prompt": "Prompt négatif",
+      "preset": "Préréglage de contenu",
+      "cast": "Personnages",
+      "director": "Réécriture du réalisateur",
+      "batch": "Lot",
+      "title": "Titre",
+      "callouts": "Étiquettes",
+      "footer": "Pied de page",
+      "hashtags": "Hashtags",
+      "frames": "Images",
+      "fps": "Images par seconde",
+      "duration_s": "Durée",
+      "speed_profile": "Profil de vitesse",
+      "prompt_style": "Style de prompt",
+      "lora": "LoRA",
+      "start_image": "Image de départ",
+      "bpm": "Tempo (BPM)",
+      "key": "Tonalité",
+      "time_signature": "Signature rythmique",
+      "language": "Langue vocale",
+      "instrumental": "Instrumental"
+    }
+  },
+  "audio": {
+    "heading": "Chansons et sons"
   }
 }

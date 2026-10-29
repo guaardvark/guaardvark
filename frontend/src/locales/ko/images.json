@@ -118,7 +118,8 @@
     "color": "색상",
     "viewFullSize": "전체 크기로 보기",
     "edit": "편집",
-    "publish": "공유 / 게시…"
+    "publish": "공유 / 게시…",
+    "details": "상세 정보…"
   },
   "infographic": {
     "failed": "생성 실패",
@@ -148,9 +149,22 @@
     "generating": "생성 중…",
     "reroll": "다시 생성",
     "generatingHint": "{{model}}로 렌더링 중…",
-    "previewEmpty": "미리보기가 여기에 표시됩니다",
+    "previewEmpty": "완료된 인포그래픽이 여기에 표시됩니다.",
     "resultAlt": "생성된 인포그래픽",
-    "seed": "시드 {{seed}}"
+    "seed": "시드 {{seed}}",
+    "queuing": "대기열 추가 중…",
+    "addToQueue": "대기열에 추가",
+    "queued_other": "인포그래픽 {{count}}개가 대기열에 추가되었습니다.",
+    "results": "결과",
+    "progress": "완료: {{done}} / {{total}}",
+    "waiting": "대기열에서 순서를 기다리는 중…",
+    "recent": "최근 인포그래픽",
+    "seedBlank": "빈 값: 각 인포그래픽은 고유한 랜덤 시드를 가집니다. 하나를 열고 주사위 아이콘을 누르면 해당 시드를 재사용할 수 있습니다.",
+    "retryLoaded": "\"{{name}}\"을(를) 양식에 불러왔습니다. 내용을 변경한 후 생성하세요.",
+    "retryLoadedImage": "\"{{name}}\"에서 시드와 함께 인포그래픽 하나를 불러왔습니다. 내용을 변경한 후 생성하세요.",
+    "retryNoSettings": "이 배치의 설정이 저장되지 않았습니다.",
+    "retryFailed": "설정을 불러올 수 없습니다: {{error}}",
+    "quantity": "수량"
   },
   "tokenCounter": {
     "longest": "가장 긴 프롬프트: {{limit}} 토큰 중 {{tokens}} 토큰",
@@ -203,6 +217,82 @@
     "next": "다음",
     "open": "열기",
     "deleteTitle": "비디오 일괄 삭제",
-    "deleteConfirm": "이 비디오 배치를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다."
+    "deleteConfirm": "이 비디오 배치를 삭제하시겠습니까? 이 작업은 취소할 수 없습니다.",
+    "playAll": "모두 재생"
+  },
+  "details": {
+    "prompt": "프롬프트",
+    "sentPrompt": "모델로 전송됨",
+    "lyrics": "가사",
+    "copy": "복사",
+    "copyPrompt": "프롬프트 복사",
+    "copySeed": "시드 복사",
+    "noSettings": "이 파일에 기록된 생성 설정이 없습니다.",
+    "noPreview": "이 파일의 미리보기가 없습니다.",
+    "regenerate": "재생성",
+    "sameSeed": "동일한 시드",
+    "sameSeedTooltip": "동일한 설정과 시드를 사용하여 같은 이미지나 컷을 다시 생성합니다.",
+    "fullSize": "전체 크기",
+    "open": "열기",
+    "close": "닫기",
+    "previous": "이전",
+    "next": "다음",
+    "clip": "클립 {{number}}",
+    "yes": "예",
+    "no": "아니요",
+    "seconds": "{{value}}초",
+    "queued": "{{page}}에 대기 중.",
+    "queues": {
+      "image": "이미지 생성",
+      "infographic": "인포그래픽",
+      "video": "비디오 생성",
+      "song": "오디오 스튜디오"
+    },
+    "kinds": {
+      "image": "이미지",
+      "infographic": "인포그래픽",
+      "video": "비디오",
+      "song": "곡",
+      "sound": "효과음",
+      "voice": "음성"
+    },
+    "reasons": {
+      "no_settings": "이 파일은 생성 시 설정이 유지되지 않았습니다.",
+      "no_batch_settings": "해당 배치의 설정이 재생성을 위해 유지되지 않았습니다.",
+      "voice": "음성 클립은 오디오 스튜디오에서 다시 생성됩니다."
+    },
+    "rows": {
+      "model": "모델",
+      "seed": "시드",
+      "size": "크기",
+      "steps": "단계",
+      "guidance": "가이드",
+      "style": "스타일",
+      "aspect": "종횡비",
+      "negative_prompt": "부정 프롬프트",
+      "preset": "콘텐츠 프리셋",
+      "cast": "캐릭터 출연",
+      "director": "감독 재작성",
+      "batch": "배치",
+      "title": "제목",
+      "callouts": "라벨",
+      "footer": "푸터",
+      "hashtags": "해시태그",
+      "frames": "프레임",
+      "fps": "초당 프레임",
+      "duration_s": "길이",
+      "speed_profile": "속도 프로필",
+      "prompt_style": "프롬프트 스타일",
+      "lora": "LoRA",
+      "start_image": "시작 이미지",
+      "bpm": "템포 (BPM)",
+      "key": "키",
+      "time_signature": "박자",
+      "language": "보컬 언어",
+      "instrumental": "연주곡"
+    }
+  },
+  "audio": {
+    "heading": "곡 및 사운드"
   }
 }

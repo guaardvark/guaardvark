@@ -139,7 +139,8 @@
     "loadedSettings": "已将“{{name}}”设置加载到控制面板 —— 可进行任何调整，然后点击“开始生成”。",
     "loadedPrompts": "已将“{{name}}”提示词加载到面板。",
     "loadedPromptsQty_other": "已加载“{{name}}”：{{count}} 个提示词 x 数量 {{quantity}}。",
-    "loadFailed": "无法加载设置：{{error}}"
+    "loadFailed": "无法加载设置：{{error}}",
+    "loadedImage": "从 \"{{name}}\" 加载了一张包含提示词和种子的图像。修改任何内容后，点击“开始生成”。"
   },
   "download": {
     "failedHttp": "下载结果失败：HTTP {{status}}",
@@ -276,7 +277,8 @@
     "progress": "进度：{{done}}/{{total}} 张图片",
     "cancelRunning": "取消正在运行的批次",
     "remove": "从队列中移除",
-    "cancelAria": "取消批次"
+    "cancelAria": "取消批次",
+    "infographic": "信息图"
   },
   "progress": {
     "title": "当前进度",
