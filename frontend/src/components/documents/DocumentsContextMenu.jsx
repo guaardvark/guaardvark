@@ -2,7 +2,8 @@
 // Provides different menus based on context: Desktop, Folder, or File
 
 import React from 'react';
-import { Menu, MenuItem, Divider, Box } from '@mui/material';
+import { Menu, MenuItem, Divider, Box, ListItemIcon } from '@mui/material';
+import { Check as CheckIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useUiTranslation, translate } from '../../i18n';
 
@@ -29,6 +30,12 @@ const DocumentsContextMenu = ({
   onOpenInCodeEditor,
   onReviewWithAgent,
   onBulkImportHere,
+  // The page's own file actions, first in a file's menu: [{label, onClick}].
+  extraActions = null,
+  // Desktop only: Sort by (name | date | size, with the current one ticked) and Arrange Icons.
+  onSortBy,
+  sortField = null,
+  onArrangeIcons,
   hasClipboard = false,
   _hasSelection = false,
   contextType = 'desktop', // 'desktop', 'folder', 'file'
@@ -100,6 +107,16 @@ const DocumentsContextMenu = ({
             <MenuItem onClick={select(onPaste)}>{t("documents.contextMenu.paste")}</MenuItem>
           </>
         )}
+        {onSortBy && <Divider />}
+        {onSortBy && ['name', 'date', 'size'].map((field) => (
+          <MenuItem key={field} onClick={() => { onSortBy(field); onClose(); }}>
+            <ListItemIcon sx={{ minWidth: 28 }}>
+              {sortField === field && <CheckIcon fontSize="small" />}
+            </ListItemIcon>
+            {t(`documents.contextMenu.sortBy.${field}`)}
+          </MenuItem>
+        ))}
+        {onArrangeIcons && <MenuItem onClick={select(onArrangeIcons)}>{t("documents.contextMenu.arrangeIcons")}</MenuItem>}
       </Menu>
     );
   }
@@ -187,6 +204,10 @@ const DocumentsContextMenu = ({
         }
         sx={menuStyles}
       >
+        {extraActions?.length > 0 && extraActions.filter(Boolean).map((action) => (
+          <MenuItem key={action.label} onClick={select(action.onClick)}>{action.label}</MenuItem>
+        ))}
+        {extraActions?.length > 0 && <Divider />}
         {onCut && <MenuItem onClick={select(onCut)}>{t("documents.contextMenu.cut")}</MenuItem>}
         {onCopy && <MenuItem onClick={select(onCopy)}>{t("documents.contextMenu.copy")}</MenuItem>}
         <MenuItem onClick={select(onPaste)} disabled={!hasClipboard}>{t("documents.contextMenu.paste")}</MenuItem>

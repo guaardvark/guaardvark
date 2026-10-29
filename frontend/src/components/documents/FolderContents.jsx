@@ -27,6 +27,7 @@ import { API_BASE, getFileIcon, getFileIconSmall, FolderIndexIndicator, formatBy
 import MediaView from './MediaView';
 import { folderHasVisualMedia } from './folderViewPolicy';
 import { useUiTranslation } from '../../i18n';
+import useDeferredClick from '../../hooks/useDeferredClick';
 
 // Stable grid components (must be defined outside render to avoid Virtuoso remounts)
 const GridItemWrapper = React.forwardRef(({ children, ...props }, ref) => (
@@ -55,6 +56,7 @@ const FolderContents = ({
   onDragStart,
   onFolderOpen,
   onFileOpen,
+  onFileClick,
   onDrop,
   onFocusContext,
   refreshKey = 0, // Refresh trigger - incrementing this will refresh contents
@@ -77,6 +79,7 @@ const FolderContents = ({
   const [isSelecting, setIsSelecting] = useState(false);
   const contentAreaRef = useRef(null);
   const itemRefs = useRef(new Map());
+  const { schedule: scheduleFileClick, cancel: cancelFileClick } = useDeferredClick();
   const [isFocused, setIsFocused] = useState(false);
   const rafRef = useRef(null);
 
@@ -408,6 +411,7 @@ const FolderContents = ({
 
   // Right-click on an item. A subfolder can be opened in this window from its menu.
   const handleItemContextMenu = (e, item, type) => {
+    cancelFileClick();
     if (!onContextMenu) return;
     const extras = type === 'folder' && onNavigateToPath
       ? { openInPlace: () => onNavigateToPath(item.path) }
@@ -441,6 +445,9 @@ const FolderContents = ({
     } else {
       if (onSelectionChange) {
         onSelectionChange(new Set([getItemKey(item, type)]));
+      }
+      if (type === 'file' && onFileClick) {
+        scheduleFileClick(() => onFileClick(item, items.files));
       }
     }
   };
@@ -479,6 +486,7 @@ const FolderContents = ({
   handlersRef.current = {
     handleItemClick, handleFolderDoubleClick, handleDragStart, handleDrop,
     handleItemContextMenu, handleBackgroundContextMenu, selectedItems, items,
+    cancelFileClick,
   };
 
   // Stable TableRow component for TableVirtuoso — never recreated, reads current data via ref
@@ -502,6 +510,7 @@ const FolderContents = ({
           }}
           onClick={(e) => h.handleItemClick(e, item, item.itemType)}
           onDoubleClick={(e) => {
+            h.cancelFileClick();
             if (isFolder) h.handleFolderDoubleClick(e, item);
             else if (onFileOpen) onFileOpen(e, item, { siblings: h.items.files });
           }}
@@ -844,7 +853,7 @@ const FolderContents = ({
             >
               <CardActionArea
                 onClick={(e) => handleItemClick(e, item, type)}
-                onDoubleClick={(e) => { if (isFolder) handleFolderDoubleClick(e, item); else if (onFileOpen) onFileOpen(e, item, { siblings: items.files }); }}
+                onDoubleClick={(e) => { cancelFileClick(); if (isFolder) handleFolderDoubleClick(e, item); else if (onFileOpen) onFileOpen(e, item, { siblings: items.files }); }}
                 draggable
                 onDragStart={(e) => handleDragStart(e, item, type)}
                 onDragOver={(e) => e.preventDefault()}

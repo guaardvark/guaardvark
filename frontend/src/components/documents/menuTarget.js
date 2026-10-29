@@ -17,13 +17,14 @@ export function parentPath(path) {
  * @param {'desktop'|'folder-window'|'folder'|'file'} contextType What was right-clicked.
  * @param {{path?: string}|null} item The right-clicked item; for 'folder-window'
  *   the window's folder with `path` set to the folder it is showing.
- * @returns {string} '/' for the desktop, otherwise a stored folder path.
+ * @param {string} [root] The folder the desktop shows ('/' on the Files page).
+ * @returns {string} `root` for the desktop, otherwise a stored folder path.
  */
-export function menuTargetPath(contextType, item) {
-  if (!item) return '/';
-  if (contextType === 'folder-window' || contextType === 'folder') return item.path || '/';
+export function menuTargetPath(contextType, item, root = '/') {
+  if (!item) return root;
+  if (contextType === 'folder-window' || contextType === 'folder') return item.path || root;
   if (contextType === 'file') return parentPath(item.path);
-  return '/';
+  return root;
 }
 
 /** Short name for a folder path in messages. */

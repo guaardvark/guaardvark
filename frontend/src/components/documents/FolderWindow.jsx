@@ -27,6 +27,8 @@ const FolderWindow = React.forwardRef(({
   onDrop,
   onFolderOpen,
   onFileOpen,
+  // A plain click on a file (after the double-click window), e.g. the Media page's details.
+  onFileClick,
   onFocusContext,
   refreshKey = 0,
   folderColors = {},
@@ -158,6 +160,7 @@ const FolderWindow = React.forwardRef(({
           onDrop={onDrop}
           onFolderOpen={onFolderOpen}
           onFileOpen={onFileOpen}
+          onFileClick={onFileClick}
           onFocusContext={onFocusContext}
           refreshKey={refreshKey}
           folderColors={folderColors}
