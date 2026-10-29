@@ -738,10 +738,13 @@ class BatchVideoGenerator:
                 self._register_videos(status, [clip], model)
         return result
 
-    def rerender_item(self, batch_id: str, item_id: str) -> Optional[BatchVideoStatus]:
-        """Render one clip again as a new batch, with the batch's saved settings
-        and a fresh seed, and mark the original "rerendered". The one-click
-        re-render a held clip offers; nothing calls it on its own.
+    def rerender_item(self, batch_id: str, item_id: str, *, seed: Optional[int] = None,
+                      mark_review: bool = True) -> Optional[BatchVideoStatus]:
+        """Render one clip again as a new batch, with the batch's saved settings.
+
+        A held clip's re-render (the default) takes a fresh seed and marks the
+        original "rerendered". The Media page's Regenerate passes
+        ``mark_review=False``, and ``seed`` when the same take is wanted.
 
         Raises ValueError when the batch kept no settings to render from.
         Returns None when the batch or clip is unknown.
@@ -755,7 +758,7 @@ class BatchVideoGenerator:
             raise ValueError("this batch did not keep the settings to re-render one clip")
         index = ids.index(item_id)
         params = dict(rd.get("params") or {})
-        params["seed"] = None  # the same seed would render the same clip
+        params["seed"] = seed  # None: a new seed, since the same one renders the same clip
         params["metadata"] = {**dict(params.get("metadata") or {}),
                               "rerender_of": {"batch_id": batch_id, "item_id": item_id}}
         for key in ("guides", "last_frame_paths"):
@@ -774,10 +777,11 @@ class BatchVideoGenerator:
             if index >= len(prompts):
                 raise ValueError("this batch did not keep the prompt for that clip")
             new_status = self.start_batch_from_prompts(prompts=[prompts[index]], **params)
-        result.review = {**(result.review or {}), "state": "rerendered",
-                         "rerender_batch_id": new_status.batch_id,
-                         "rerendered_at": datetime.now().isoformat()}
-        self._save_metadata(status)
+        if mark_review:
+            result.review = {**(result.review or {}), "state": "rerendered",
+                             "rerender_batch_id": new_status.batch_id,
+                             "rerendered_at": datetime.now().isoformat()}
+            self._save_metadata(status)
         return new_status
 
     @staticmethod

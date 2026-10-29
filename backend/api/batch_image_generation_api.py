@@ -1678,6 +1678,91 @@ def generate_from_csv():
         logger.error(f"Error starting CSV batch generation: {e}")
         return error_response(str(e), 500)
 
+class BatchRequestError(ValueError):
+    """A prompts batch the caller has to change; ``status`` is the HTTP code."""
+
+    def __init__(self, message: str, status: int = 400):
+        super().__init__(message)
+        self.status = status
+
+
+def queue_prompts_batch(data: dict) -> dict:
+    """Validate a prompts batch as Image Gen sends it and queue it.
+
+    Returns the route's response data. Shared by POST /generate/prompts and
+    the Media page's Regenerate, so both go through the same parameter
+    parsing, character casting and LoRA resolution.
+    """
+    prompts = data.get('prompts', [])
+    logger.debug(f"Batch image API received prompts (count={len(prompts)})")
+    if not prompts:
+        raise BatchRequestError("No prompts provided")
+    if not isinstance(prompts, list):
+        raise BatchRequestError("Prompts must be a list")
+
+    validated_prompts = []
+    for i, prompt in enumerate(prompts):
+        if isinstance(prompt, str):
+            validated_prompts.append(prompt.strip())
+        elif isinstance(prompt, dict) and 'prompt' in prompt:
+            validated_prompts.append(prompt['prompt'].strip())
+        else:
+            logger.warning(f"Invalid prompt at index {i}: {prompt}")
+
+    if not validated_prompts:
+        raise BatchRequestError("No valid prompts found")
+
+    if len(validated_prompts) > PROMPT_BATCH_MAX_ITEMS:
+        raise BatchRequestError(
+            f"Too many prompts ({len(validated_prompts)}); maximum is {PROMPT_BATCH_MAX_ITEMS} per batch"
+        )
+
+    params, validation_info = _parse_generation_params(data)
+
+    # Character casting: subject_ids → identity core via render_character_still
+    _apply_character_casting(data, params)
+
+    cast_warnings = params.pop("_cast_warnings", None) or []
+    if cast_warnings:
+        validation_info.setdefault("warnings", []).extend(cast_warnings)
+
+    # User LoRAs (Manage Image Models): ids → files + strength. A cast render
+    # goes through the character pipeline, which owns its own adapters.
+    adapters = data.get("adapters") if isinstance(data.get("adapters"), list) else []
+    if adapters:
+        from backend.services.user_image_models import resolve_user_loras
+        paths, scale, lora_err = resolve_user_loras(
+            get_batch_image_generator().image_generator, params.get("model") or "auto", adapters
+        )
+        if lora_err:
+            raise BatchRequestError(lora_err)
+        if params.get("subject_ids"):
+            validation_info.setdefault("warnings", []).append(
+                "A cast character is selected, so your LoRAs were not stacked on this render."
+            )
+        else:
+            params["adapter_loras"] = paths
+            params["adapter_scale"] = scale
+
+    batch_id = start_batch_from_prompts(validated_prompts, **params)
+
+    response_data = {
+        "batch_id": batch_id,
+        "message": "Batch generation started",
+        "prompt_count": len(validated_prompts),
+        "parameters": {k: v for k, v in params.items() if not str(k).startswith("_")},
+    }
+
+    # Include validation warnings if any
+    if validation_info.get("warnings") or validation_info.get("recommendations"):
+        response_data["validation"] = {
+            "warnings": validation_info.get("warnings", []),
+            "recommendations": validation_info.get("recommendations", []),
+            "corrected_values": validation_info.get("corrected_values", {})
+        }
+    return response_data
+
+
 @batch_image_bp.route("/generate/prompts", methods=["POST"])
 def generate_from_prompts():
     """Start batch generation from JSON prompt list."""
@@ -1689,85 +1774,10 @@ def generate_from_prompts():
         if not data:
             return error_response("No JSON data provided", 400)
 
-        # Extract prompts
-        prompts = data.get('prompts', [])
-        logger.debug(f"Batch image API received prompts (count={len(prompts)})")
-        if not prompts:
-            return error_response("No prompts provided", 400)
+        return success_response(queue_prompts_batch(data), status_code=201)
 
-        if not isinstance(prompts, list):
-            return error_response("Prompts must be a list", 400)
-
-        # Validate prompts
-        validated_prompts = []
-        for i, prompt in enumerate(prompts):
-            if isinstance(prompt, str):
-                validated_prompts.append(prompt.strip())
-            elif isinstance(prompt, dict) and 'prompt' in prompt:
-                validated_prompts.append(prompt['prompt'].strip())
-            else:
-                logger.warning(f"Invalid prompt at index {i}: {prompt}")
-
-        if not validated_prompts:
-            return error_response("No valid prompts found", 400)
-
-        if len(validated_prompts) > PROMPT_BATCH_MAX_ITEMS:
-            return error_response(
-                f"Too many prompts ({len(validated_prompts)}); maximum is {PROMPT_BATCH_MAX_ITEMS} per batch",
-                400,
-            )
-
-        # Parse generation parameters
-        params, validation_info = _parse_generation_params(data)
-
-        # Character casting: subject_ids → identity core via render_character_still
-        try:
-            _apply_character_casting(data, params)
-        except ValueError as e:
-            return error_response(str(e), 400)
-
-        cast_warnings = params.pop("_cast_warnings", None) or []
-        if cast_warnings:
-            validation_info.setdefault("warnings", []).extend(cast_warnings)
-
-        # User LoRAs (Manage Image Models): ids → files + strength. A cast render
-        # goes through the character pipeline, which owns its own adapters.
-        adapters = data.get("adapters") if isinstance(data.get("adapters"), list) else []
-        if adapters:
-            from backend.services.user_image_models import resolve_user_loras
-            paths, scale, lora_err = resolve_user_loras(
-                get_batch_image_generator().image_generator, params.get("model") or "auto", adapters
-            )
-            if lora_err:
-                return error_response(lora_err, 400)
-            if params.get("subject_ids"):
-                validation_info.setdefault("warnings", []).append(
-                    "A cast character is selected, so your LoRAs were not stacked on this render."
-                )
-            else:
-                params["adapter_loras"] = paths
-                params["adapter_scale"] = scale
-
-        # Start batch generation
-        batch_id = start_batch_from_prompts(validated_prompts, **params)
-
-        response_data = {
-            "batch_id": batch_id,
-            "message": "Batch generation started",
-            "prompt_count": len(validated_prompts),
-            "parameters": {k: v for k, v in params.items() if not str(k).startswith("_")},
-        }
-        
-        # Include validation warnings if any
-        if validation_info.get("warnings") or validation_info.get("recommendations"):
-            response_data["validation"] = {
-                "warnings": validation_info.get("warnings", []),
-                "recommendations": validation_info.get("recommendations", []),
-                "corrected_values": validation_info.get("corrected_values", {})
-            }
-
-        return success_response(response_data, status_code=201)
-
+    except BatchRequestError as e:
+        return error_response(str(e), e.status)
     except ValueError as e:
         logger.warning(f"Invalid batch image request: {e}")
         return error_response(str(e), 400)
