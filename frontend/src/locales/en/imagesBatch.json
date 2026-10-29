@@ -277,7 +277,8 @@
     "progress": "{{done}}/{{total}} images",
     "cancelRunning": "Cancel running batch",
     "remove": "Remove from queue",
-    "cancelAria": "cancel batch"
+    "cancelAria": "cancel batch",
+    "infographic": "Infographic"
   },
   "progress": {
     "title": "Current Progress",

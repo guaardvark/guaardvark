@@ -46,7 +46,6 @@ import {
   GetApp,
   Visibility,
   Cancel,
-  Close as CloseIcon,
   Settings as SettingsIcon,
   Refresh as RefreshIcon,
   Image as ImageIcon,
@@ -59,6 +58,8 @@ import PageLayout from '../components/layout/PageLayout';
 import CharacterPicker from '../components/filmcrew/CharacterPicker';
 import ImageLightbox from '../components/images/ImageLightbox';
 import BatchHistoryCard from '../components/images/BatchHistoryCard';
+import BatchQueuePanel from '../components/images/BatchQueuePanel';
+import useImageBatchQueue, { POLLABLE_STATUSES, TERMINAL_BATCH_STATUSES } from '../hooks/useImageBatchQueue';
 import PromptTokenCounter from '../components/images/PromptTokenCounter';
 import GpuGateBanner from '../components/common/GpuGateBanner';
 import useJobsGate from '../hooks/useJobsGate';
@@ -128,12 +129,8 @@ const mapBatchResultsToImages = (batchStatus) => {
 };
 
 const INPUT_MODES = ['single', 'bulk', 'csv', 'blueprint'];
-const POLLABLE_STATUSES = new Set(['queued', 'pending', 'running']);
-const TERMINAL_BATCH_STATUSES = new Set(['completed', 'error', 'cancelled']);
 // Recent Batches reloads at most this often while a batch is landing images.
 const GALLERY_REFRESH_MS = 1500;
-// The queue polls every 2.5s: three misses in a row (~7.5s) is an outage, not a blip.
-const QUEUE_FAILURES_BEFORE_NOTICE = 3;
 
 const debugLog = (...args) => {
   if (import.meta.env.DEV) {
@@ -186,10 +183,6 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // On a CUDA card the worker renders one picture at a time whatever Max Workers
   // says (batch_image_generator: one pipeline on one card), so the page shows that.
   const [generatorDevice, setGeneratorDevice] = useState(null);
-  // Live queue panel (mirrors Video Gen) — stacked batches drain one-at-a-time
-  const [queue, setQueue] = useState([]);
-  const queueSignatureRef = useRef('');
-  const queueFailuresRef = useRef(0);
   // Why Recent Batches could not be loaded; shown instead of "No image batches found".
   const [historyError, setHistoryError] = useState(null);
   const { gpuBusy, blockReason, blockDetail } = useJobsGate({ submitMode: 'queue' });
@@ -568,7 +561,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           storedCleared = [];
         }
         const rawBatches = data.data.batches || [];
-        const filtered = rawBatches.filter((b) => !storedCleared.includes(b.batch_id));
+        // Infographic batches share the queue but are listed on their own page.
+        const filtered = rawBatches.filter(
+          (b) => !storedCleared.includes(b.batch_id) && (b.kind || 'image') === 'image',
+        );
         setBatchHistory(filtered);
       }
     } catch (err) {
@@ -590,57 +586,17 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   }
   useEffect(() => () => galleryRefresherRef.current.cancel(), []);
 
-  const fetchQueue = useCallback(async () => {
-    try {
-      const response = await fetch(`${API_BASE}/batch-image/queue`);
-      if (!response.ok) throw new Error(t('imagesBatch.errors.backendHttp', { status: response.status }));
-      const data = await response.json();
-      const rows = data?.data?.queue ?? data?.queue ?? [];
-      // Frontend-only dismissal: hide terminal rows the user cleared. Only
-      // terminal statuses are filtered so a live batch can never be masked.
-      let clearedQueue = [];
-      try {
-        clearedQueue = JSON.parse(localStorage.getItem('clearedImageQueueIds') || '[]');
-      } catch (e) {
-        clearedQueue = [];
-      }
-      const visible = (Array.isArray(rows) ? rows : []).filter(
-        (q) => !(TERMINAL_BATCH_STATUSES.has(q.status) && clearedQueue.includes(q.batch_id))
-      );
-      galleryRefresherRef.current.observeQueue(visible);
-      // This polls every 2.5s. Replacing `queue` with a fresh array each tick re-renders
-      // the whole page — including every batch thumbnail card — even when nothing moved,
-      // so only commit when the queue actually changed.
-      const signature = visible
-        .map((q) => `${q.batch_id}:${q.status}:${q.completed_images ?? ''}/${q.total_images ?? ''}`)
-        .join('|');
-      queueFailuresRef.current = 0;
-      if (signature === queueSignatureRef.current) return;
-      queueSignatureRef.current = signature;
-      setQueue(visible);
-    } catch (err) {
-      console.debug('Failed to load image batch queue:', err);
-      // A poll: one miss stays quiet; a failure that persists is said once.
-      queueFailuresRef.current += 1;
-      if (queueFailuresRef.current === QUEUE_FAILURES_BEFORE_NOTICE) {
-        setError(t('imagesBatch.errors.queueStalled', { error: formatUiError(err) || t('imagesBatch.errors.requestFailed') }));
-      }
-    }
-  }, []);
-
-  const handleClearCompletedQueue = useCallback(() => {
-    const doneIds = queue.filter((q) => TERMINAL_BATCH_STATUSES.has(q.status)).map((q) => q.batch_id);
-    if (doneIds.length === 0) return;
-    // Drop the memoised signature so the next poll re-commits against the new baseline.
-    queueSignatureRef.current = '';
-    try {
-      const stored = JSON.parse(localStorage.getItem('clearedImageQueueIds') || '[]');
-      localStorage.setItem('clearedImageQueueIds', JSON.stringify(Array.from(new Set([...stored, ...doneIds]))));
-    } catch (e) {
-      console.error('Failed to save cleared queue items to localStorage:', e);
-    }
-    setQueue((prev) => prev.filter((q) => !TERMINAL_BATCH_STATUSES.has(q.status)));
-  }, [queue]);
+  // Live queue panel (mirrors Video Gen): stacked batches drain one at a time.
+  // `activeBatch` is never cleared once a batch finishes, so it keeps the slow
+  // poll alive (a batch queued from elsewhere still shows up) and the fast one
+  // only while it runs.
+  const activeBatchRunning = !!activeBatch && POLLABLE_STATUSES.has(activeBatch.status);
+  const { queue, fetchQueue, clearCompleted: handleClearCompletedQueue } = useImageBatchQueue({
+    onRows: (rows) => galleryRefresherRef.current.observeQueue(rows),
+    onStalled: (err) => setError(t('imagesBatch.errors.queueStalled', { error: formatUiError(err) || t('imagesBatch.errors.requestFailed') })),
+    keepWatching: activeBatchRunning,
+    watchIdle: !!activeBatch,
+  });
 
   const handleClearBatchList = useCallback(() => {
     const allIds = batchHistory.map((b) => b.batch_id);
@@ -677,28 +633,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     }
   }, []);
 
-  // Load service status, history and queue on mount
+  // Load service status and history on mount (the queue hook loads itself).
   useEffect(() => {
     checkServiceStatus();
     loadBatchHistory();
-    fetchQueue();
-  }, [fetchQueue, loadBatchHistory]);
-
-  // Refresh the queue panel. `activeBatch` is never cleared once a batch finishes, so
-  // this used to hammer the server every 2.5s for the life of the page. Keep the same
-  // reach — so a batch queued from elsewhere still shows up — but drop to a slow idle
-  // cadence once nothing is running. Depend on scalars rather than `queue` itself so the
-  // interval isn't torn down and rebuilt on every tick.
-  const queueHasActive = queue.some((q) => POLLABLE_STATUSES.has(q.status));
-  const activeBatchRunning = !!activeBatch && POLLABLE_STATUSES.has(activeBatch.status);
-  const anythingRunning = queueHasActive || activeBatchRunning;
-  const shouldPoll = anythingRunning || !!activeBatch || queue.length > 0;
-  const pollIntervalMs = anythingRunning ? 2500 : 15000;
-  useEffect(() => {
-    if (!shouldPoll) return undefined;
-    const id = setInterval(() => { fetchQueue(); }, pollIntervalMs);
-    return () => clearInterval(id);
-  }, [shouldPoll, pollIntervalMs, fetchQueue]);
+  }, [loadBatchHistory]);
 
   const loadBatchById = useCallback(async (batchId) => {
     try {
@@ -2389,110 +2328,17 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         {/* Progress and Results Section */}
         < Grid item xs={12} lg={6} >
           {/* Batch Queue panel — live view of stacked jobs (mirrors Video Gen) */}
-          {queue.length > 0 && (
-            <Card sx={{ mb: 3, boxShadow: 2, borderRadius: 2 }}>
-              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    {t('imagesBatch.queue.title')}
-                  </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    {queue.some((q) => TERMINAL_BATCH_STATUSES.has(q.status)) && (
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="inherit"
-                        onClick={handleClearCompletedQueue}
-                        sx={{ textTransform: 'none', borderRadius: 1 }}
-                      >
-                        {t('imagesBatch.queue.clearCompleted')}
-                      </Button>
-                    )}
-                    <Chip
-                      label={t('imagesBatch.queue.active', { count: queue.filter((q) => POLLABLE_STATUSES.has(q.status)).length })}
-                      size="small"
-                      color="primary"
-                      variant="outlined"
-                    />
-                  </Stack>
-                </Stack>
-                <Stack spacing={1}>
-                  {queue.map((q, idx) => {
-                    const slotTag = `#${idx + 1}`;
-                    const total = q.total_images || 0;
-                    const done = (q.completed_images || 0) + (q.failed_images || 0);
-                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-                    const chipColor =
-                      q.status === 'running' ? 'primary'
-                        : q.status === 'queued' || q.status === 'pending' ? 'default'
-                          : q.status === 'completed' ? 'success'
-                            : q.status === 'cancelled' ? 'warning'
-                              : q.status === 'error' ? 'error' : 'default';
-                    const cancellable = POLLABLE_STATUSES.has(q.status);
-                    return (
-                      <Box
-                        key={q.batch_id}
-                        sx={{
-                          p: 1.5,
-                          border: '1px solid',
-                          borderColor: q.is_running ? 'primary.main' : 'divider',
-                          borderRadius: 1,
-                          bgcolor: q.is_running ? 'action.hover' : 'transparent',
-                        }}
-                      >
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                          <Chip
-                            label={slotTag}
-                            size="small"
-                            variant="outlined"
-                            sx={{ minWidth: 44, fontFamily: 'monospace' }}
-                          />
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" noWrap title={q.display_name || q.batch_id}>
-                              {q.display_name || q.batch_id}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {q.failed_images > 0
-                                ? t('imagesBatch.queue.progressFailed', { done, total, failed: q.failed_images })
-                                : t('imagesBatch.queue.progress', { done, total })}
-                            </Typography>
-                          </Box>
-                          <Chip label={(q.status || '').toUpperCase()} size="small" color={chipColor} />
-                          {cancellable && (
-                            <Tooltip
-                              title={q.status === 'running' ? t('imagesBatch.queue.cancelRunning') : t('imagesBatch.queue.remove')}
-                              arrow
-                            >
-                              <IconButton
-                                size="small"
-                                onClick={async () => {
-                                  const ok = await requestCancel(q.batch_id);
-                                  fetchQueue();
-                                  if (ok && activeBatch?.batch_id === q.batch_id) {
-                                    setActiveBatch((prev) => (prev ? { ...prev, status: 'cancelled' } : prev));
-                                  }
-                                }}
-                                aria-label={t('imagesBatch.queue.cancelAria')}
-                              >
-                                <CloseIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                        </Stack>
-                        {q.status === 'running' && (
-                          <LinearProgress
-                            variant="determinate"
-                            value={pct}
-                            sx={{ mt: 1, height: 4, borderRadius: 2 }}
-                          />
-                        )}
-                      </Box>
-                    );
-                  })}
-                </Stack>
-              </CardContent>
-            </Card>
-          )}
+          <BatchQueuePanel
+            queue={queue}
+            onClearCompleted={handleClearCompletedQueue}
+            onCancel={async (batchId) => {
+              const ok = await requestCancel(batchId);
+              fetchQueue();
+              if (ok && activeBatch?.batch_id === batchId) {
+                setActiveBatch((prev) => (prev ? { ...prev, status: 'cancelled' } : prev));
+              }
+            }}
+          />
 
           {/* Active Batch Progress */}
           {
