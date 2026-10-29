@@ -121,6 +121,12 @@ const MINIMIZED_MAX_WIDTH_PX = 350; // Max pixel width for minimized windows
 const ICON_GRID_W = 120;
 const ICON_GRID_H = 100;
 const ICON_GRID_PAD = 20;
+// Card width plus the gap kept between neighbours.
+const ICON_CARD_SPAN = 108;
+
+/** Whether a card at (x, y) would cover any of `positions` (an array of {x, y}). */
+const coversAny = (x, y, positions) =>
+  positions.some((p) => Math.abs(p.x - x) < ICON_CARD_SPAN && Math.abs(p.y - y) < ICON_GRID_H);
 
 // Shared frozen Set so windows with no selection all get the same reference —
 // avoids spurious re-renders and `.has` on undefined.
@@ -2203,9 +2209,12 @@ const FileDesktop = forwardRef(({
 
   // Compute collision-free positions for ALL icons.
   // Saved positions are kept as-is; unsaved items get the first free grid cell.
+  // Saved places can come from another grid (the Media Library's used 150 px
+  // columns), so a cell is free only when no card would cover it, not when
+  // no saved place rounds to it.
   const resolvedIconPositions = useMemo(() => {
     const positions = {};
-    const occupied = new Set();
+    const placed = [];
     const COLS = iconColumns();
 
     // All icon keys in order: folders first, then files
@@ -2214,32 +2223,27 @@ const FileDesktop = forwardRef(({
       ...rootFiles.map(f => ({ key: getItemKey(f, 'file'), id: f.id, isFile: true })),
     ];
 
-    // First pass: register occupied cells from saved positions
+    // First pass: saved positions are kept as they are
     for (const item of allItems) {
       const saved = iconPositions[item.key];
       if (saved) {
         positions[item.key] = saved;
-        const c = Math.round((saved.x - ICON_GRID_PAD) / ICON_GRID_W);
-        const r = Math.round((saved.y - ICON_GRID_PAD) / ICON_GRID_H);
-        occupied.add(`${c},${r}`);
+        placed.push(saved);
       }
     }
 
-    // Second pass: assign first-free-cell to items without saved positions
+    // Second pass: items without one take the first cell no card covers
     let nextIdx = 0;
     for (const item of allItems) {
       if (positions[item.key]) continue;
-      // Walk grid cells in order until we find an unoccupied one
       while (nextIdx < 10000) {
         const c = nextIdx % COLS;
         const r = Math.floor(nextIdx / COLS);
         nextIdx++;
-        if (!occupied.has(`${c},${r}`)) {
-          positions[item.key] = {
-            x: c * ICON_GRID_W + ICON_GRID_PAD,
-            y: r * ICON_GRID_H + ICON_GRID_PAD,
-          };
-          occupied.add(`${c},${r}`);
+        const cell = { x: c * ICON_GRID_W + ICON_GRID_PAD, y: r * ICON_GRID_H + ICON_GRID_PAD };
+        if (!coversAny(cell.x, cell.y, placed)) {
+          positions[item.key] = cell;
+          placed.push(cell);
           break;
         }
       }
@@ -2256,18 +2260,15 @@ const FileDesktop = forwardRef(({
     col = Math.max(0, col);
     row = Math.max(0, row);
 
-    // Build set of occupied cells (excluding the icon being moved)
-    // currentPositions is the fully-resolved map so every icon has a position
-    const occupied = new Set();
-    for (const [k, pos] of Object.entries(currentPositions)) {
-      if (k === movingKey) continue;
-      const c = Math.round((pos.x - ICON_GRID_PAD) / ICON_GRID_W);
-      const r = Math.round((pos.y - ICON_GRID_PAD) / ICON_GRID_H);
-      occupied.add(`${c},${r}`);
-    }
+    // Every other icon's place (currentPositions is the fully resolved map);
+    // a cell is taken when a card there would cover one of them.
+    const others = Object.entries(currentPositions)
+      .filter(([k]) => k !== movingKey)
+      .map(([, pos]) => pos);
+    const isFree = (c, r) => !coversAny(c * ICON_GRID_W + ICON_GRID_PAD, r * ICON_GRID_H + ICON_GRID_PAD, others);
 
     // If target cell is free, use it
-    if (!occupied.has(`${col},${row}`)) {
+    if (isFree(col, row)) {
       return { x: col * ICON_GRID_W + ICON_GRID_PAD, y: row * ICON_GRID_H + ICON_GRID_PAD };
     }
 
@@ -2279,7 +2280,7 @@ const FileDesktop = forwardRef(({
           const nc = col + dc;
           const nr = row + dr;
           if (nc < 0 || nr < 0) continue;
-          if (!occupied.has(`${nc},${nr}`)) {
+          if (isFree(nc, nr)) {
             return { x: nc * ICON_GRID_W + ICON_GRID_PAD, y: nr * ICON_GRID_H + ICON_GRID_PAD };
           }
         }
@@ -2684,7 +2685,7 @@ const FileDesktop = forwardRef(({
                       handleFolderExpand(window.id);
                     }}
                     onContextMenu={(e) => handleContextMenu(e, window.folder, 'folder', 'desktop')}
-                    sx={{ px: 1, pt: 1.25, pb: 1, textAlign: 'center' }}
+                    sx={{ px: 1, pt: 1, pb: 1, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
                       <Box sx={{ position: 'relative', display: 'inline-flex' }}>
@@ -2820,10 +2821,16 @@ const FileDesktop = forwardRef(({
                       openFile(file, { siblings: rootFiles });
                     }}
                     onContextMenu={(e) => { cancelFileClick(); handleContextMenu(e, file, 'file', 'desktop'); }}
-                    sx={{ px: 1, pt: 1.25, pb: 1, textAlign: 'center' }}
+                    sx={{ px: 1, pt: 1, pb: 1, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
-                      {getFileIcon(file.filename, isSelected, theme, 48, features.indexing ? file.index_status : null, file.path)}
+                      {/* A thumbnail is drawn 16 px larger than its size, so it is asked
+                          for smaller to keep the card inside its row. */}
+                      {getFileIcon(
+                        file.filename, isSelected, theme,
+                        isImageFile(file.filename) || isVideoFile(file.filename) ? 40 : 44,
+                        features.indexing ? file.index_status : null, file.path,
+                      )}
                       <Tooltip title={file.filename} enterDelay={600} placement="bottom">
                         <Typography variant="body2" noWrap sx={{ mt: 0.5 }}>
                           {file.filename}
