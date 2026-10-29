@@ -193,7 +193,8 @@ const FileDesktop = forwardRef(({
   const { showMessage } = useSnackbar();
   const theme = useTheme();
   const isRoot = useCallback((path) => normalizePath(path) === normalizePath(rootPath), [rootPath]);
-  const rootQuery = `path=${encodeURIComponent(rootPath)}&fields=light`;
+  // Slashes stay as they are, so the Files page asks for path=/ as it always has.
+  const rootQuery = `path=${encodeURIComponent(rootPath).replace(/%2F/gi, '/')}&fields=light`;
   const { schedule: scheduleFileClick, cancel: cancelFileClick } = useDeferredClick();
 
   // All folders are represented as windows with different states
