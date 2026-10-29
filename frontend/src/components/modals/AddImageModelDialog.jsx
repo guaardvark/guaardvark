@@ -101,6 +101,10 @@ const AddImageModelDialog = ({ open, onClose, showMessage, onAdded }) => {
       const arch = (preview?.files || []).find((f) => f.src === src)?.arch;
       const match = slotChoices.find((s) => s.arch === arch);
       if (match) setSlot(match.id);
+      // A name still at the repo's default follows the file picked, so two
+      // files added from one repo do not arrive with the same name.
+      const repoName = (preview?.hf_repo || "").split("/").pop();
+      setName((prev) => (!prev.trim() || prev === repoName ? src.split("/").pop().replace(/\.[^.]+$/, "") : prev));
       return;
     }
     setSelected((prev) => (prev.includes(src) ? prev.filter((s) => s !== src) : [...prev, src]));
