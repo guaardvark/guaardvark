@@ -1,6 +1,6 @@
 // Fullscreen preview for image/video files opened from list, grid, or desktop.
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Box, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import MediaView from './MediaView';
@@ -12,14 +12,19 @@ const MediaPreviewOverlay = ({ file, siblings = [], onClose, onFileOpen, onConte
   const files = (siblings.length ? siblings : (file ? [file] : []))
     .filter((f) => isVisualMediaFile(f.filename || f.name));
 
-  const handleKeyDown = useCallback((e) => {
-    if (e.key === 'Escape') onClose?.();
-  }, [onClose]);
-
+  // One listener for the overlay's life, reading the latest onClose. A
+  // listener re-added on every render can be swapped out while Escape is
+  // still being dispatched (the page's own handler re-renders first), and the
+  // browser skips a listener removed mid-dispatch, so Escape did nothing.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
   useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onCloseRef.current?.();
+    };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
+  }, []);
 
   if (!file) return null;
 
