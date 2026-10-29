@@ -195,9 +195,40 @@ def _infographic_model_name(model_id: Optional[str]) -> Optional[str]:
 
 
 def _audio_recipe(doc, meta: Dict[str, Any]) -> Dict[str, Any]:
-    """Songs and sound effects; filled in with their regenerate path in song_recipe."""
+    """Songs, sound effects and voice clips (backend/services/song_recipe.py)."""
     from backend.services.song_recipe import audio_recipe
     return audio_recipe(_base(doc, "song", "audio"), meta)
+
+
+def list_audio(limit: int = 60) -> List[Dict[str, Any]]:
+    """The newest songs and sound effects in the Library, for the Media page:
+    [{document_id, kind, title, model, duration_s, created_at, url}]."""
+    from backend.models import Document
+    from backend.services.song_recipe import audio_kind, audio_title
+
+    rows: List[Dict[str, Any]] = []
+    # Voice clips share the folder, so read past them to fill the list.
+    query = (Document.query.filter(Document.path.like("Audio/%"))
+             .order_by(Document.uploaded_at.desc()).limit(max(1, limit) * 4))
+    for doc in query:
+        if _media_of(doc.filename) != "audio":
+            continue
+        meta = _meta_of(doc)
+        kind = audio_kind(meta)
+        if kind not in ("song", "sound"):
+            continue
+        rows.append({
+            "document_id": doc.id,
+            "kind": kind,
+            "title": audio_title(meta) or doc.filename,
+            "model": meta.get("model") or meta.get("backend"),
+            "duration_s": meta.get("requested_duration_s") or meta.get("duration_s"),
+            "created_at": doc.uploaded_at.isoformat() if doc.uploaded_at else None,
+            "url": f"/api/files/document/{doc.id}/download",
+        })
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 # -- video clips ---------------------------------------------------------------

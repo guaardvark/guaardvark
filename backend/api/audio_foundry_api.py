@@ -334,7 +334,12 @@ def generate_music():
     ("ace-step-1.5"), or MiniMax Music 3 through ComfyUI, which returns a job id
     to poll at /generate/music/status/<id> like the sidecar's own jobs. Any other
     value is refused rather than answered by a different model."""
-    payload = flask_request.get_json(silent=True) or {}
+    return start_music(flask_request.get_json(silent=True) or {})
+
+
+def start_music(payload: dict):
+    """(response, status) for a music request; shared by the route and the
+    Media page's Regenerate (media_recipe_api), so both take the same checks."""
     model = str(payload.get("model") or "").strip()
     if model and model != "ace-step" and not model.startswith("minimax-music3"):
         from backend.services.audio_foundry_models import missing_parts
@@ -446,7 +451,12 @@ def rewrite_music_prompt():
 
 @audio_foundry_bp.route("/generate/fx", methods=["POST"])
 def generate_fx():
-    body, status_code = _proxy_generate("/generate/fx", flask_request.get_json(silent=True) or {})
+    return start_fx(flask_request.get_json(silent=True) or {})
+
+
+def start_fx(payload: dict):
+    """(response, status) for a sound effect request (see start_music)."""
+    body, status_code = _proxy_generate("/generate/fx", payload)
     return body, status_code
 
 

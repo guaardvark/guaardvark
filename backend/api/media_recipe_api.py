@@ -9,6 +9,9 @@
 #       The recipe of one clip of a video batch (the Videos section lists
 #       batches, not documents).
 #
+#   GET  /api/media/audio?limit=60
+#       The newest songs and sound effects, for the Media page's Audio section.
+#
 #   POST /api/media/regenerate
 #       body: {document_id} or {batch_id, item_id} for a clip, plus
 #             same_seed (default false: a new seed, so a new take)
@@ -55,6 +58,17 @@ def clip_recipe(batch_id: str, item_id: str):
     return jsonify({"success": True, "recipe": recipe})
 
 
+@media_recipe_bp.route("/audio", methods=["GET"])
+def audio_library():
+    from backend.services.media_recipe import list_audio
+
+    try:
+        limit = max(1, min(200, int(request.args.get("limit", 60))))
+    except (TypeError, ValueError):
+        limit = 60
+    return jsonify({"success": True, "items": list_audio(limit)})
+
+
 @media_recipe_bp.route("/regenerate", methods=["POST"])
 def regenerate():
     body = request.get_json(silent=True) or {}
@@ -93,9 +107,24 @@ def _regenerate_document(document_id: int, same_seed: bool) -> Dict[str, Any]:
     if recipe["kind"] == "infographic":
         return _regenerate_infographic(meta, same_seed)
     if recipe["kind"] in ("song", "sound"):
-        from backend.services.song_recipe import regenerate_audio
-        return regenerate_audio(meta, same_seed)
+        return _regenerate_audio(meta, same_seed)
     raise RegenerateError("This kind of file cannot be made again here.")
+
+
+def _regenerate_audio(meta: Dict[str, Any], same_seed: bool) -> Dict[str, Any]:
+    """Through Audio Studio's own request handling (audio_foundry_api), so
+    the model checks and the plugin start are the page's."""
+    from backend.api.audio_foundry_api import start_fx, start_music
+    from backend.services.song_recipe import audio_regenerate_request
+
+    route, payload = audio_regenerate_request(meta, same_seed)
+    response, status = (start_fx if route == "fx" else start_music)(payload)
+    body = response.get_json(silent=True) or {}
+    if status >= 400 or body.get("success") is False:
+        error = body.get("error") or body.get("detail") or body.get("message") or f"HTTP {status}"
+        raise RegenerateError(str(error), status if status >= 400 else 400)
+    return {"queue": "song", "job_id": body.get("job_id"), "page": "/audio",
+            "document_id": (body.get("result") or {}).get("document_id") or body.get("document_id")}
 
 
 def _image_batch_settings(batch_id: Optional[str]) -> Dict[str, Any]:
