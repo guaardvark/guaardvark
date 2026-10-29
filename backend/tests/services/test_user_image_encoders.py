@@ -182,8 +182,8 @@ def test_resolve_refuses_with_a_reason(catalog_dir, comfy_models, tmp_path):
 @pytest.mark.parametrize("role, slot, tensors, fragment", [
     ("encoder", "t5", CLIP_L, "is a CLIP-L"),
     ("encoder", "t5", {"double_blocks.0.x": [1]}, "is a diffusion model"),
-    ("generation", None, T5, "is a T5-XXL text encoder, not a FLUX.1 generation"),
-    ("lora", None, CLIP_L, "is a CLIP-L text encoder, not a FLUX.1 lora"),
+    ("generation", None, T5, "is a T5-XXL text encoder, not a FLUX.1 model"),
+    ("lora", None, CLIP_L, "is a CLIP-L text encoder, not a FLUX.1 LoRA"),
     ("lora", None, {"double_blocks.0.x": [1]}, "is a full diffusion model, not a LoRA"),
 ])
 def test_header_problem_turns_the_wrong_file_away_before_download(monkeypatch, role, slot, tensors, fragment):

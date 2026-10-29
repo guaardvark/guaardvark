@@ -288,7 +288,8 @@ def header_problem(*, role: str, family: str, slot: str | None, hf_repo: str,
             f" Add it with the role Text encoder ({GENERATION_FAMILIES[families[0]]['label']})."
             if families else ""
         )
-        return f"{name} is a {te_check.label(arch)} text encoder, not a {spec.get('label', family)} {role}.{where}"
+        what = {"generation": "model", "lora": "LoRA"}.get(role, role)
+        return f"{name} is a {te_check.label(arch)} text encoder, not a {spec.get('label', family)} {what}.{where}"
     if role == "lora" and arch == "diffusion":
         return f"{name} is a full diffusion model, not a LoRA. Add it as a new generation model instead."
     if role == "generation" and arch == "lora":
