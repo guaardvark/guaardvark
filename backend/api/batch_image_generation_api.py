@@ -794,7 +794,7 @@ def list_models():
                 )
                 unavailable.append(row)
 
-        from backend.services.user_image_models import catalog_rows, family_choices
+        from backend.services.user_image_models import catalog_rows, encoder_rows, family_choices
         try:
             from backend.services.image_editing_packs import pack_rows
             editing = pack_rows()
@@ -813,6 +813,8 @@ def list_models():
             # User LoRAs never enter the picker; the page shows them as chips and
             # the modal lists them with Install / Remove.
             "adapters": catalog_rows(generator.image_generator),
+            # User text encoders: picked per render under Text encoder.
+            "encoders": encoder_rows(generator.image_generator),
             "families": family_choices(),
             # Chat photo tools' packs (Qwen-Image-Edit, PuLID, background
             # removal): installed through the video downloader, listed here.
@@ -1174,8 +1176,8 @@ def preview_hf_image_model():
 
 @batch_image_bp.route("/models/user", methods=["POST"])
 def add_user_image_model():
-    """Register a user image model or LoRA, then Install it unless told not to."""
-    from backend.services.user_image_models import add_user_model, preview_hf_url
+    """Register a user image model, LoRA or text encoder, then Install it unless told not to."""
+    from backend.services.user_image_models import add_user_model, header_problem, preview_hf_url
     from backend.services.user_model_families import DuplicateUserModel, hf_inspect_url
     from backend.services.video_model_registry import classify_hf_download_error
     if not service_available:
@@ -1193,7 +1195,7 @@ def add_user_image_model():
         url = hf_inspect_url(hf_repo, revision, src)
     if url:
         try:
-            inspected = preview_hf_url(url)
+            inspected = preview_hf_url(url, read_headers=False)
         except ValueError as e:
             return error_response(str(e), 400)
         except Exception as e:
@@ -1220,14 +1222,27 @@ def add_user_image_model():
                 return error_response(
                     f"{Path(srcs[0]).name} can't be added as a Z-Image LoRA. {problem}", 400
                 )
+    # A text encoder added as a model (or a model added as a text encoder) is
+    # turned away here, from the file's header, before its download starts.
+    role = (data.get("role") or "").strip()
+    family = (data.get("family") or "").strip()
+    slot = (data.get("slot") or "").strip() or None
+    srcs = [f.get("src") if isinstance(f, dict) else f for f in files]
+    if len(srcs) == 1 and srcs[0] and not has_model_index:
+        problem = header_problem(
+            role=role, family=family, slot=slot, hf_repo=hf_repo, src=srcs[0], revision=revision,
+        )
+        if problem:
+            return error_response(problem, 400)
     generator = get_batch_image_generator()
     if not generator.image_generator:
         return error_response("Image generator not initialized", 503)
     try:
         mid, entry = add_user_model(
             generator.image_generator,
-            role=(data.get("role") or "").strip(),
-            family=(data.get("family") or "").strip(),
+            role=role,
+            family=family,
+            slot=slot,
             hf_repo=hf_repo,
             files=files,
             has_model_index=has_model_index,
@@ -1258,7 +1273,10 @@ def add_user_image_model():
             download_payload = body.get("data")
     return success_response({
         "id": mid,
-        "entry": {k: entry.get(k) for k in ("name", "role", "family", "kind", "hf_repo", "files", "size_gb", "applies_to", "engine")},
+        "entry": {k: entry.get(k) for k in (
+            "name", "role", "family", "kind", "hf_repo", "files", "size_gb", "applies_to", "engine",
+            "slot", "shared_with",
+        )},
         "download": download_payload,
     })
 
@@ -1743,6 +1761,22 @@ def queue_prompts_batch(data: dict) -> dict:
         else:
             params["adapter_loras"] = paths
             params["adapter_scale"] = scale
+
+    # User text encoders (Manage Image Models): ids → {slot: loader filename}.
+    encoder_ids = data.get("text_encoders") if isinstance(data.get("text_encoders"), list) else []
+    if encoder_ids:
+        from backend.services.user_image_models import resolve_user_encoders
+        chosen, encoder_err = resolve_user_encoders(
+            get_batch_image_generator().image_generator, params.get("model") or "auto", encoder_ids
+        )
+        if encoder_err:
+            raise BatchRequestError(encoder_err)
+        if params.get("subject_ids"):
+            validation_info.setdefault("warnings", []).append(
+                "A cast character is selected, so your text encoder was not used on this render."
+            )
+        else:
+            params["text_encoders"] = chosen
 
     batch_id = start_batch_from_prompts(validated_prompts, **params)
 

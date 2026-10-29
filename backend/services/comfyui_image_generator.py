@@ -350,6 +350,20 @@ def edit_steps(steps, *, default: int, floor: int = 0, label: str = "") -> tuple
     return int(floor), f"{label} needs at least {floor} steps; raised {asked} to {floor}."
 
 
+def _input_choices(info: dict, node: str, key: str) -> list[str]:
+    """The values ``/object_info`` lists for one loader input, e.g. the files
+    DualCLIPLoader's clip_name1 can name."""
+    try:
+        lst = info.get(node, {}).get("input", {}).get("required", {}).get(key, [])
+        if isinstance(lst, list) and lst and isinstance(lst[0], list):
+            return [str(x) for x in lst[0]]
+        if isinstance(lst, list) and lst and isinstance(lst[0], str):
+            return [str(x) for x in lst]
+    except Exception:
+        pass
+    return []
+
+
 def _failure(kind, message: str):
     """A failure message that carries its RenderErrorKind (job_types)."""
     return RenderFailure(kind, message)
@@ -367,7 +381,8 @@ class ComfyUIImageGenerator:
     def __init__(self, comfy_url: str | None = None, lora_strength: float = 0.25, model: str | None = None,
                  flux_unet: str | None = None, flux_t5: str | None = None,
                  flux_clip: str | None = None, flux_vae: str | None = None,
-                 flux_dev_unet: str | None = None, qwen21_unet: str | None = None):
+                 flux_dev_unet: str | None = None, qwen21_unet: str | None = None,
+                 flux_dev_t5: str | None = None, text_encoders: dict | None = None):
         self.comfy_url = (comfy_url or _COMFY_URL).rstrip("/")
         self.lora_strength = lora_strength
         self.model = model or "sdxl"  # "flux-schnell", "sdxl", "sdxl-lora" etc. (from MV keyframe_model)
@@ -377,8 +392,18 @@ class ComfyUIImageGenerator:
         self.flux_clip = flux_clip or FLUX_CLIP
         self.flux_vae = flux_vae or FLUX_VAE
         self.flux_dev_unet = flux_dev_unet or FLUX_DEV_UNET
+        self.flux_dev_t5 = flux_dev_t5 or FLUX_DEV_T5
         # A user-added Qwen-Image 2.1 UNET; the shipped registry file otherwise.
         self.qwen21_unet = qwen21_unet or QWEN21_UNET
+        # Text encoders picked for this render, {slot: loader filename}
+        # (user_image_models.resolve_user_encoders; slots from the FLUX family
+        # row). A T5-XXL fills the T5 slot of whichever FLUX graph renders, a
+        # CLIP-L the CLIP-L slot of both.
+        self.user_text_encoders = {k: v for k, v in (text_encoders or {}).items() if v}
+        if self.user_text_encoders.get("t5"):
+            self.flux_t5 = self.flux_dev_t5 = self.user_text_encoders["t5"]
+        if self.user_text_encoders.get("clip_l"):
+            self.flux_clip = self.user_text_encoders["clip_l"]
 
     # ── connectivity ──────────────────────────────────────────────────
     def _available(self) -> bool:
@@ -442,15 +467,7 @@ class ComfyUIImageGenerator:
             return []
 
         def _choices(node: str, key: str) -> list[str]:
-            try:
-                lst = info.get(node, {}).get("input", {}).get("required", {}).get(key, [])
-                if isinstance(lst, list) and lst and isinstance(lst[0], list):
-                    return [str(x) for x in lst[0]]
-                if isinstance(lst, list) and lst and isinstance(lst[0], str):
-                    return [str(x) for x in lst]
-            except Exception:
-                pass
-            return []
+            return _input_choices(info, node, key)
 
         unet = set(_choices("UNETLoader", "unet_name"))
         unet_gguf = set(_choices("UnetLoaderGGUF", "unet_name"))
@@ -594,9 +611,10 @@ class ComfyUIImageGenerator:
             # Model-only chain: FLUX character LoRAs don't train the
             # text encoder (SimpleTuner "text encoder was not trained"), so clip is
             # left untouched and the trigger word in the prompt does the identity work.
-            # Dev UNET/T5 come from the FLUX_DEV_* module constants (override via
-            # GUAARDVARK_FLUX_DEV_UNET / _T5) — NOT the per-instance flux_unet/flux_t5,
-            # which default to the schnell GGUF and would break this graph.
+            # Dev UNET/T5 default to the FLUX_DEV_* module constants (override via
+            # GUAARDVARK_FLUX_DEV_UNET / _T5), held per instance as flux_dev_unet /
+            # flux_dev_t5 — NOT flux_unet/flux_t5, which default to the schnell
+            # GGUF and its fp8 T5 and would break this graph.
             model_src = ["unet", 0]
             wf: dict = {
                 "unet": {
@@ -605,7 +623,7 @@ class ComfyUIImageGenerator:
                 },
                 "clip": {
                     "class_type": "DualCLIPLoader",
-                    "inputs": {"clip_name1": FLUX_DEV_T5, "clip_name2": self.flux_clip, "type": "flux"},
+                    "inputs": {"clip_name1": self.flux_dev_t5, "clip_name2": self.flux_clip, "type": "flux"},
                 },
                 "vae_loader": {
                     "class_type": "VAELoader",
@@ -1125,6 +1143,27 @@ class ComfyUIImageGenerator:
             "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-qwen-image-21", "images": ["vae", 0]}},
         }
 
+    def check_text_encoder_files(self, filenames) -> None:
+        """Raise before queueing when the running ComfyUI does not list a text
+        encoder picked for this render, instead of ComfyUI's "Value not in list"
+        naming every file it has. Not probed when nothing was picked or the
+        server cannot be asked; its own validation then speaks."""
+        wanted = [f for f in (filenames or ()) if f]
+        if not wanted:
+            return
+        info = self._object_info(fresh=True)
+        if not info:
+            return
+        listed = set(_input_choices(info, "DualCLIPLoader", "clip_name1"))
+        missing = [f for f in wanted if f not in listed]
+        if missing:
+            raise RuntimeError(_failure(
+                K.COMPANION_MISSING,
+                f"ComfyUI does not list the text encoder {', '.join(missing)} in models/clip or "
+                "models/text_encoders. Install it in Manage Image Models, or restart ComfyUI "
+                "if it was copied there by hand.",
+            ))
+
     def required_node_classes(self, model: str | None) -> tuple:
         """Node classes a model's graph needs beyond ComfyUI's long-standing core."""
         if QWEN21_TAG in (model or "").lower():
@@ -1490,6 +1529,7 @@ class ComfyUIImageGenerator:
             steps_explicit=steps_explicit,
         )
         self.check_graph_nodes(effective_model)
+        self.check_text_encoder_files(self.user_text_encoders.values())
 
         if admit_vram_mb:
             result = self._run_edit_graph(

@@ -92,6 +92,9 @@ class BatchPrompt:
     # path; resolved to paths and one strength at API time.
     adapter_loras: List[str] = field(default_factory=list)
     adapter_scale: float = 0.8
+    # User text encoders (Manage Image Models) for a ComfyUI stills render,
+    # {slot: loader filename}; resolved at API time like the LoRAs.
+    text_encoders: Dict[str, str] = field(default_factory=dict)
     content_preset: Optional[str] = None
     auto_enhance: bool = True
     enhance_anatomy: bool = True
@@ -1023,6 +1026,7 @@ class BatchImageGenerator:
                 flux_unet=unet if model_tag == "flux-schnell" else None,
                 flux_dev_unet=unet if model_tag == "flux-dev" else None,
                 qwen21_unet=unet if family == "qwen-image-21" else None,
+                text_encoders=dict(getattr(prompt, "text_encoders", None) or {}),
             )
             path = gen.generate_image(
                 prompt=prompt.prompt,
@@ -1046,7 +1050,10 @@ class BatchImageGenerator:
                 # The seed actually rendered, not the (often None) requested one —
                 # otherwise the batch cannot report or reproduce its own output.
                 seed_used=seed,
-                metadata={"steps": getattr(gen, "last_steps", steps)},
+                metadata={
+                    "steps": getattr(gen, "last_steps", steps),
+                    **({"text_encoders": dict(gen.user_text_encoders)} if gen.user_text_encoders else {}),
+                },
             )
         except Exception as e:
             logger.error("ComfyUI %s batch generation failed: %s", model_tag, e)
@@ -2792,7 +2799,7 @@ class BatchImageGenerator:
                         'negative_prompt',
                         'content_preset', 'auto_enhance', 'enhance_anatomy',
                         'enhance_faces', 'enhance_hands', 'loras', 'subject_ids',
-                        'trigger_word', 'adapter_loras', 'adapter_scale']
+                        'trigger_word', 'adapter_loras', 'adapter_scale', 'text_encoders']
 
         model = kwargs.get("model") or "auto"
         resolved = resolve_stills_defaults(

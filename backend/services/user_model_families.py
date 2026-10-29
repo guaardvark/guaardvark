@@ -142,7 +142,7 @@ IMAGE_FAMILIES = (
         "label": "FLUX.1",
         "engine": "comfy",
         "like": "flux-dev",
-        "roles": ("generation", "lora"),
+        "roles": ("generation", "lora", "encoder"),
         "layout": "comfy_files",
         "single_file": True,
         "lora_engine": "comfy",
@@ -150,6 +150,25 @@ IMAGE_FAMILIES = (
         # A .gguf UNET renders on the schnell graph (UnetLoaderGGUF, fp8 T5);
         # any other file on the dev graph (`like`). Companions follow the graph.
         "graph_models": {".gguf": "flux-schnell"},
+        # The text encoders a user file can stand in for: the two DualCLIPLoader
+        # slots of both FLUX graphs, the architecture each reads
+        # (text_encoder_check), and the shipped companion it replaces on each
+        # graph. DualCLIPLoader reads .safetensors; a .gguf encoder would need
+        # the GGUF CLIP loader, which these graphs do not use.
+        "encoder_slots": {
+            "t5": {
+                "label": "T5-XXL",
+                "arch": "t5-xxl",
+                "replaces": {"flux-dev": "flux-t5-fp16", "flux-schnell": "flux-t5-fp8"},
+            },
+            "clip_l": {
+                "label": "CLIP-L",
+                "arch": "clip-l",
+                "replaces": {"flux-dev": "flux-clip-l", "flux-schnell": "flux-clip-l"},
+            },
+        },
+        "encoder_subdir": "clip",
+        "encoder_suffixes": (".safetensors",),
         "refused_name_tokens": _MLX_REFUSAL,
         "tokens": ("flux", "flux.1", "flux1"),
         "pipeline_tags": ("flux",),
@@ -374,12 +393,56 @@ def image_generation_families() -> dict:
             "engine": row["engine"],
             "lora": "lora" in row["roles"],
             "lora_engine": row.get("lora_engine"),
+            "encoder": "encoder" in row["roles"],
             "layout": row["layout"],
             "local_subdir": row.get("local_subdir"),
             "comfy_graph": row.get("comfy_graph"),
             "graph_models": dict(row.get("graph_models") or {}),
         }
     return out
+
+
+def encoder_slots(family_id: str) -> dict:
+    """``{slot: {label, arch, replaces}}`` for a family that takes user text
+    encoders; empty for the rest."""
+    row = _image_family_row(family_id) or {}
+    if "encoder" not in (row.get("roles") or ()):
+        return {}
+    return {k: dict(v) for k, v in (row.get("encoder_slots") or {}).items()}
+
+
+def encoder_slot_for_arch(family_id: str, arch: str | None) -> str | None:
+    """The slot of ``family_id`` that reads ``arch``, or None."""
+    for slot, spec in encoder_slots(family_id).items():
+        if spec.get("arch") == arch:
+            return slot
+    return None
+
+
+def encoder_families_for_arch(arch: str | None) -> list:
+    """Wired image families with a slot that reads ``arch``."""
+    return [
+        row["id"] for row in IMAGE_FAMILIES
+        if row["wired"] and encoder_slot_for_arch(row["id"], arch)
+    ]
+
+
+def encoder_file_problem(family_id: str, filename: str | None) -> str | None:
+    """Why a family's text-encoder loader cannot read ``filename``, or None."""
+    row = _image_family_row(family_id) or {}
+    name = Path(filename or "").name
+    accepted = row.get("encoder_suffixes")
+    if name and accepted and not name.lower().endswith(tuple(accepted)):
+        return (
+            f"{name} is not a text encoder {row.get('label', family_id)} loads here; "
+            f"pick a {' or '.join(accepted)} file."
+        )
+    return None
+
+
+def encoder_subdir(family_id: str) -> str:
+    """The ComfyUI models/ folder a family's user text encoders install into."""
+    return (_image_family_row(family_id) or {}).get("encoder_subdir") or "clip"
 
 
 def comfy_graph_model(family_id: str, unet: str | None) -> str | None:
@@ -472,6 +535,11 @@ def family_choices(domain: str = "image") -> list:
             "like": row["like"],
             "single_file": bool(row["single_file"]),
             "lora": "lora" in row["roles"],
+            "encoder": "encoder" in row["roles"],
+            "encoder_slots": [
+                {"id": slot, "label": spec["label"], "arch": spec["arch"]}
+                for slot, spec in encoder_slots(row["id"]).items()
+            ],
             "engine": row["engine"],
         }
         for row in IMAGE_FAMILIES
@@ -794,7 +862,7 @@ def _shipped_generation_match(hf_repo: str, src: str | None) -> dict | None:
 def _guess_role(blob: str, domain: str) -> str:
     if any(k in blob for k in _LORA_HINTS):
         return "lora"
-    if domain == "video" and any(k in blob for k in _ENCODER_HINTS):
+    if any(k in blob for k in _ENCODER_HINTS):
         return "encoder"
     return "generation"
 
@@ -892,6 +960,11 @@ def match_families(
             if row["id"] == "zimage" and role == "lora" and score == 0:
                 score += 1
                 reasons.append("lora-default")
+            if role == "encoder" and score == 0 and row.get("encoder_slots"):
+                # Encoder files rarely name the model they serve; a family that
+                # takes one is the candidate, and the header check decides.
+                score += 1
+                reasons.append("encoder")
             if row["id"] == "qwen-image-21" and qwen_claim == "21" and score == 0:
                 score += 3
                 reasons.append("base_model")

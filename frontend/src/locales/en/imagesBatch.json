@@ -233,7 +233,10 @@
     "qualityPreset": "Quality Preset",
     "style": "Style",
     "quantity": "Number of Images per Prompt",
-    "thumbnails": "Generate Thumbnails"
+    "thumbnails": "Generate Thumbnails",
+    "textEncoderSlot": "Text encoder ({{slot}})",
+    "shippedEncoder": "Shipped encoder",
+    "encodersHint": "Text encoders you added in Manage Image Models. The shipped encoder is used unless you pick one here."
   },
   "enhance": {
     "label": "Enhance prompts automatically",

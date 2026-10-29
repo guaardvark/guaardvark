@@ -14,6 +14,11 @@ person can add three kinds of thing from a pasted Hugging Face URL:
   lora                      an adapter file the offline pipeline stacks on a model
                             of its family (Z-Image today; SDXL and FLUX LoRAs run
                             on the ComfyUI path, which this catalog does not drive)
+  encoder                   a text encoder that stands in for one a ComfyUI family
+                            ships with, in one of the slots its family row declares
+                            (FLUX: T5-XXL or CLIP-L). It installs into its own
+                            folder under ComfyUI/models/clip/user/, so it never
+                            lands on a shipped file's name, and is picked per render
 
 Entries persist in data/user_image_models.json (gitignored) and register into the
 generator at construction so the picker, the downloader and the loader see them.
@@ -33,10 +38,16 @@ import threading
 from collections.abc import Mapping
 from pathlib import Path
 
+from backend.services import text_encoder_check as te_check
 from backend.services.user_model_families import (
     DuplicateUserModel,
     comfy_graph_model,
     comfy_t2i_family,
+    encoder_families_for_arch,
+    encoder_file_problem,
+    encoder_slot_for_arch,
+    encoder_slots,
+    encoder_subdir,
     family_choices as _table_family_choices,
     find_duplicate,
     image_generation_families,
@@ -69,7 +80,13 @@ _FAMILY_MARKERS = {
     "sana": ("sana",),
     "qwen-image-21": ("qwen-image-21",),
 }
-ROLES = ("generation", "lora")
+ROLES = ("generation", "lora", "encoder")
+# Look up reads the headers of a repo's .safetensors files (a few KB each, in
+# parallel) when there are at most this many; a bigger repo is checked on the
+# one file picked, when it is added.
+HEADER_PREVIEW_MAX_FILES = 8
+# User encoders install under <encoder_subdir>/user/<id>/.
+USER_ENCODER_DIR = "user"
 
 
 def user_catalog_path() -> Path:
@@ -118,8 +135,14 @@ def suggest_role_and_family(files: list, src: str | None, hf_repo: str, has_mode
     return top.get("role") or "generation", top.get("family") or "sd"
 
 
-def preview_hf_url(url: str) -> dict:
-    """Parse a paste and list the repo's weight files; says whether it is a diffusers repo."""
+def preview_hf_url(url: str, *, read_headers: bool = True) -> dict:
+    """Parse a paste and list the repo's weight files; says whether it is a diffusers repo.
+
+    With ``read_headers``, each .safetensors file listed (the pasted one alone
+    when a file was pasted) is tagged with the architecture its header shows,
+    and the suggested role follows the file the person is most likely adding:
+    a header beats a file name.
+    """
     inspected = inspect_hf_repo(url)
     matches = match_families(
         domain="image",
@@ -138,6 +161,29 @@ def preview_hf_url(url: str) -> dict:
     files = [dict(f) for f in inspected["files"]]
     if top and top.get("wired") and top.get("role") == "generation":
         warnings.extend(_annotate_weight_problems(files, top.get("family") or ""))
+    suggested_role = (top or {}).get("role") if top and top.get("wired") else None
+    suggested_family = (top or {}).get("family") if top and top.get("wired") else None
+    suggested_slot = None
+    if read_headers and not unwired and not inspected.get("has_model_index"):
+        _annotate_archs(inspected["hf_repo"], inspected.get("revision") or "main", files, inspected.get("src"))
+        picked = _likely_file(files, inspected.get("src"))
+        arch = (picked or {}).get("arch")
+        if te_check.is_text_encoder(arch):
+            families = encoder_families_for_arch(arch)
+            if families:
+                suggested_role, suggested_family = "encoder", families[0]
+                suggested_slot = encoder_slot_for_arch(families[0], arch)
+            else:
+                suggested_role = suggested_family = None
+                warnings.append(_no_slot_message(picked["src"], arch))
+        elif arch == "diffusion" and suggested_role == "encoder":
+            suggested_role = "generation"
+        elif arch == "lora" and suggested_role != "lora":
+            suggested_role = "lora"
+            if suggested_family and suggested_family not in LORA_FAMILIES:
+                suggested_family = None
+        elif suggested_role == "encoder":
+            suggested_slot = _slot_by_name(suggested_family, (picked or {}).get("src"))
     return {
         "hf_repo": inspected["hf_repo"],
         "revision": inspected.get("revision") or "main",
@@ -153,11 +199,101 @@ def preview_hf_url(url: str) -> dict:
         "index_class": inspected.get("index_class"),
         "warnings": warnings,
         "matches": matches,
-        "suggested_role": (top or {}).get("role") if top and top.get("wired") else None,
-        "suggested_family": (top or {}).get("family") if top and top.get("wired") else None,
+        "suggested_role": suggested_role,
+        "suggested_family": suggested_family,
+        "suggested_slot": suggested_slot,
         "unwired": unwired[0] if unwired else None,
         "families": family_choices(),
     }
+
+
+def _annotate_archs(hf_repo: str, revision: str, files: list, src: str | None) -> None:
+    """Tag files with ``arch`` and ``arch_label`` read from their headers on the Hub."""
+    if src:
+        targets = [f for f in files if f.get("src") == src]
+    else:
+        targets = [f for f in files if (f.get("src") or "").lower().endswith(".safetensors")]
+        if len(targets) > HEADER_PREVIEW_MAX_FILES:
+            return
+    targets = [f for f in targets if (f.get("src") or "").lower().endswith(".safetensors")]
+    if not targets:
+        return
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _read(f):
+        tensors = te_check.hf_tensors(hf_repo, f["src"], revision)
+        return f, (te_check.classify(tensors) if tensors else None)
+
+    with ThreadPoolExecutor(max_workers=min(HEADER_PREVIEW_MAX_FILES, len(targets))) as pool:
+        for f, arch in pool.map(_read, targets):
+            if arch:
+                f["arch"] = arch
+                f["arch_label"] = te_check.label(arch)
+
+
+def _likely_file(files: list, src: str | None) -> dict | None:
+    """The file the person is adding: the pasted one, or the only one listed."""
+    if src:
+        return next((f for f in files if f.get("src") == src), None)
+    return files[0] if len(files) == 1 else None
+
+
+def _slot_by_name(family: str | None, src: str | None) -> str | None:
+    """A slot guessed from a file name when its header was not read."""
+    low = Path(src or "").name.lower()
+    slots = encoder_slots(family or "")
+    if "t5" in low and "umt5" not in low and "t5" in slots:
+        return "t5"
+    if "clip" in low and "clip_l" in slots:
+        return "clip_l"
+    return None
+
+
+def _no_slot_message(src: str, arch: str) -> str:
+    takes = []
+    for fam_id, spec in GENERATION_FAMILIES.items():
+        labels = [s["label"] for s in encoder_slots(fam_id).values()]
+        if labels:
+            takes.append(f"{spec['label']} takes a {' or a '.join(labels)}")
+    tail = f" ({'; '.join(takes)})" if takes else ""
+    return (
+        f"{Path(src).name} is a {te_check.label(arch)} text encoder. No image model here "
+        f"takes a replacement one of that kind yet{tail}."
+    )
+
+
+def header_problem(*, role: str, family: str, slot: str | None, hf_repo: str,
+                   src: str | None, revision: str = "main") -> str | None:
+    """Why the picked file cannot be added in this role, read from its header
+    on the Hub; None when it fits, or when the header could not be read (the
+    render checks the downloaded file again)."""
+    if not src or not src.lower().endswith(".safetensors"):
+        return None
+    spec = GENERATION_FAMILIES.get(family) or {}
+    if role == "generation" and spec.get("engine") != "comfy":
+        return None
+    tensors = te_check.hf_tensors(hf_repo, src, revision)
+    if not tensors:
+        return None
+    arch = te_check.classify(tensors)
+    name = Path(src).name
+    if role == "encoder":
+        slot_spec = encoder_slots(family).get(slot or "") or {}
+        if not slot_spec:
+            return None
+        return te_check.mismatch(arch, slot_spec["arch"], src, slot_spec["label"])
+    if te_check.is_text_encoder(arch):
+        families = encoder_families_for_arch(arch)
+        where = (
+            f" Add it with the role Text encoder ({GENERATION_FAMILIES[families[0]]['label']})."
+            if families else ""
+        )
+        return f"{name} is a {te_check.label(arch)} text encoder, not a {spec.get('label', family)} {role}.{where}"
+    if role == "lora" and arch == "diffusion":
+        return f"{name} is a full diffusion model, not a LoRA. Add it as a new generation model instead."
+    if role == "generation" and arch == "lora":
+        return f"{name} is a LoRA, not a model. Add it as a LoRA on a model instead."
+    return None
 
 
 def _annotate_weight_problems(files: list, family: str) -> list:
@@ -212,10 +348,18 @@ def build_user_entry(
     revision: str = "main",
     taken=None,
     known_files: list | None = None,
+    slot: str | None = None,
 ) -> tuple[str, dict]:
-    """Validate the pieces and shape a catalog entry. Does not persist or register."""
+    """Validate the pieces and shape a catalog entry. Does not persist or register.
+
+    ``slot`` is the shipped text encoder an ``encoder`` entry stands in for
+    (a key of the family row's ``encoder_slots``).
+    """
     if role not in ROLES:
-        raise ValueError("Role must be 'generation' (a model to pick) or 'lora' (an adapter on a model).")
+        raise ValueError(
+            "Role must be 'generation' (a model to pick), 'lora' (an adapter on a model) "
+            "or 'encoder' (a text encoder that stands in for the one a model ships with)."
+        )
     if family not in GENERATION_FAMILIES:
         raise ValueError(
             f"Family must be one of {', '.join(GENERATION_FAMILIES)}."
@@ -263,6 +407,27 @@ def build_user_entry(
         if spec.get("lora_engine") == "comfy":
             engine = "comfy"
             local_subdir = "loras"
+    elif role == "encoder":
+        slots = encoder_slots(family)
+        if not slots:
+            takers = [GENERATION_FAMILIES[f]["label"] for f in GENERATION_FAMILIES if encoder_slots(f)]
+            raise ValueError(
+                f"{spec['label']} does not take a replacement text encoder"
+                + (f"; that works for {', '.join(takers)} today." if takers else ".")
+            )
+        if slot not in slots:
+            raise ValueError(
+                "Pick which text encoder it stands in for: "
+                f"{' or '.join(s['label'] for s in slots.values())}."
+            )
+        if len(specs) != 1:
+            raise ValueError("A text encoder is one file. Pick the single .safetensors the loader should read.")
+        problem = encoder_file_problem(family, specs[0]["src"])
+        if problem:
+            raise ValueError(problem)
+        kind = "encoder"
+        engine = "comfy"
+        local_subdir = encoder_subdir(family)
     elif spec.get("engine") == "comfy":
         if len(specs) != 1:
             raise ValueError(
@@ -291,11 +456,19 @@ def build_user_entry(
 
     stem = name or (Path(specs[0]["src"]).stem if specs else hf_repo.split("/")[-1])
     mid = user_model_id(stem, family, taken)
+    shared_with = None
+    if role == "encoder":
+        shipped = _shipped_encoder_file(hf_repo, specs[0]["src"])
+        if shipped:
+            # The file is already one of the shipped companions: point at it
+            # instead of fetching a second copy, and never delete it on Remove.
+            shared_with, local_subdir, specs[0]["dst"] = shipped
+        else:
+            specs[0]["dst"] = f"{USER_ENCODER_DIR}/{mid}/{Path(specs[0]['src']).name}"
+    kind_word = {"lora": "LoRA", "encoder": "text encoder"}.get(role, "model")
     entry = {
         "name": name or stem,
-        "description": description or (
-            f"User {'LoRA' if role == 'lora' else 'model'} · {spec['label']} · {hf_repo}"
-        ),
+        "description": description or f"User {kind_word} · {spec['label']} · {hf_repo}",
         "role": role,
         "family": family,
         "kind": kind,
@@ -304,13 +477,34 @@ def build_user_entry(
         "revision": revision or "main",
         "files": specs,
         "size_gb": size_gb,
-        "applies_to": [family] if role == "lora" else [],
+        "applies_to": [family] if role in ("lora", "encoder") else [],
         "strength": DEFAULT_LORA_STRENGTH if role == "lora" else None,
         "user": True,
         "engine": engine,
         "local_subdir": local_subdir,
     }
+    if role == "encoder":
+        slot_spec = encoder_slots(family)[slot]
+        entry.update({
+            "slot": slot,
+            "arch": slot_spec["arch"],
+            "replaces": dict(slot_spec.get("replaces") or {}),
+            "shared_with": shared_with,
+        })
     return mid, entry
+
+
+def _shipped_encoder_file(hf_repo: str, src: str) -> tuple | None:
+    """``(companion id, local_subdir, dst)`` when ``hf_repo``/``src`` is a file a
+    shipped text-encoder companion already declares."""
+    from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+    for eid, entry in VIDEO_MODEL_REGISTRY.items():
+        if entry.get("user") or entry.get("type") != "encoder" or entry.get("hf_repo") != hf_repo:
+            continue
+        for f in entry.get("files") or []:
+            if f.get("src") == src and f.get("dst"):
+                return eid, entry.get("local_subdir") or "clip", f["dst"]
+    return None
 
 
 # ── registration into the offline generator ─────────────────────────────────
@@ -345,8 +539,9 @@ def register_entry(generator, model_id: str, entry: dict) -> None:
             "family": family,
             "engine": entry.get("engine") or "offline",
             "local_subdir": entry.get("local_subdir"),
+            "shared_with": entry.get("shared_with"),
         }
-    if entry.get("role") == "lora":
+    if entry.get("role") in ("lora", "encoder"):
         generator.hidden_models.add(model_id)
     generator.model_meta[model_id] = {
         "label": entry.get("name") or model_id,
@@ -361,6 +556,7 @@ def register_entry(generator, model_id: str, entry: dict) -> None:
         "size_gb": entry.get("size_gb") or 0.0,
         "applies_to": list(entry.get("applies_to") or []),
         "strength": entry.get("strength"),
+        "slot": entry.get("slot"),
     }
 
 
@@ -429,7 +625,10 @@ def remove_user_model(generator, model_id: str, *, delete_files: bool = False) -
         unregister_entry(generator, model_id)
         _write_catalog(catalog)
     removed = []
-    if delete_files:
+    if delete_files and entry.get("shared_with"):
+        # A shipped companion's file; the shipped models still load it.
+        pass
+    elif delete_files:
         if (entry.get("engine") == "comfy" or entry.get("local_subdir")) and entry.get("files"):
             from backend.services.video_model_registry import comfyui_models_dir
             base = comfyui_models_dir() / (entry.get("local_subdir") or "unet")
@@ -438,6 +637,11 @@ def remove_user_model(generator, model_id: str, *, delete_files: bool = False) -
                 if path.exists() and path.is_file():
                     path.unlink()
                     removed.append(str(path))
+                if entry.get("role") == "encoder" and path.parent.name == model_id:
+                    try:
+                        path.parent.rmdir()
+                    except OSError:
+                        pass
         else:
             base = Path(generator.models_dir)
             target = base / (entry["hf_repo"].replace("/", "--") if entry.get("kind") == "snapshot" else model_id)
@@ -455,7 +659,7 @@ def remove_user_model(generator, model_id: str, *, delete_files: bool = False) -
 # ── generation-time helpers ─────────────────────────────────────────────────
 
 def _user_dest_dir(generator, uf: dict) -> Path:
-    if (uf.get("engine") == "comfy" or uf.get("local_subdir")) and uf.get("kind") in ("lora", "comfy_files"):
+    if (uf.get("engine") == "comfy" or uf.get("local_subdir")) and uf.get("kind") in ("lora", "comfy_files", "encoder"):
         from backend.services.video_model_registry import comfyui_models_dir
         return comfyui_models_dir() / (uf.get("local_subdir") or "unet")
     return Path(generator.models_dir) / uf["dir"]
@@ -696,6 +900,15 @@ def provision_single_file_config(generator, sentinel: str) -> None:
 
 def download_companions(generator, sentinel: str, stop=None) -> tuple[bool, str | None]:
     """Fetch the companions a user ComfyUI model still lacks, through the registry downloader."""
+    for eid in missing_companions(generator, sentinel):
+        ok, err = _download_registry_entry(eid, stop)
+        if not ok:
+            return False, err
+    return True, None
+
+
+def _download_registry_entry(eid: str, stop=None) -> tuple[bool, str | None]:
+    """Fetch one shipped registry entry's files where that entry declares them."""
     from backend.services.video_model_registry import (
         VIDEO_MODEL_REGISTRY, download_entry_files, is_model_installed, resolve_entry_dir,
     )
@@ -704,13 +917,16 @@ def download_companions(generator, sentinel: str, stop=None) -> tuple[bool, str 
         if stop is not None and stop.is_set():
             raise RuntimeError("Download stalled")
 
-    for eid in missing_companions(generator, sentinel):
-        entry = VIDEO_MODEL_REGISTRY[eid]
-        local_dir = resolve_entry_dir(entry)
-        local_dir.mkdir(parents=True, exist_ok=True)
-        download_entry_files(entry, local_dir, check=_check)
-        if not is_model_installed(eid):
-            return False, f"Download of {eid} finished but its files are missing under {local_dir}"
+    entry = VIDEO_MODEL_REGISTRY.get(eid)
+    if not entry:
+        return False, f"{eid} is not in the model registry"
+    if is_model_installed(eid):
+        return True, None
+    local_dir = resolve_entry_dir(entry)
+    local_dir.mkdir(parents=True, exist_ok=True)
+    download_entry_files(entry, local_dir, check=_check)
+    if not is_model_installed(eid):
+        return False, f"Download of {eid} finished but its files are missing under {local_dir}"
     return True, None
 
 
@@ -735,13 +951,25 @@ def download_user_files(generator, sentinel: str, stop=None) -> tuple[bool, str 
             # repo path would otherwise be fetched whole again.
             if want.is_file() and want.stat().st_size > 0:
                 continue
+            if uf.get("kind") == "encoder" and uf.get("shared_with"):
+                ok, err = _download_registry_entry(uf["shared_with"], stop)
+                if not ok:
+                    return False, err
+                continue
+            # An encoder is fetched into its own folder: fetched straight into
+            # clip/, a file named like a shipped one (clip_l.safetensors) would
+            # replace the shipped file before being moved away.
+            fetch_dir = want.parent / ".download" if uf.get("kind") == "encoder" else base
             got = Path(hf_hub_download(
                 repo_id=uf["hf_repo"], filename=spec["src"], revision=uf.get("revision") or "main",
-                local_dir=str(base),
+                local_dir=str(fetch_dir),
             ))
             if got.resolve() != want.resolve():
                 want.parent.mkdir(parents=True, exist_ok=True)
                 got.replace(want)
+            if fetch_dir != base:
+                import shutil
+                shutil.rmtree(fetch_dir, ignore_errors=True)
         if uf.get("kind") == "lora":
             _write_lora_sidecar(base, uf)
         if stop is not None and stop.is_set():
@@ -862,3 +1090,79 @@ def catalog_rows(generator) -> list:
             "user": True,
         })
     return rows
+
+
+def encoder_rows(generator) -> list:
+    """Rows for the text-encoder side of the models list and the page's picker."""
+    rows = []
+    for mid, entry in (getattr(generator, "user_entries", {}) or {}).items():
+        if entry.get("role") != "encoder":
+            continue
+        slot_spec = encoder_slots(entry.get("family") or "").get(entry.get("slot") or "") or {}
+        rows.append({
+            "id": mid,
+            "name": entry.get("name") or mid,
+            "description": entry.get("description") or "",
+            "type": "encoder",
+            "family": entry.get("family"),
+            "slot": entry.get("slot"),
+            "slot_label": slot_spec.get("label") or entry.get("slot"),
+            "applies_to": list(entry.get("applies_to") or []),
+            "hf_repo": entry.get("hf_repo"),
+            "size_gb": entry.get("size_gb") or 0.0,
+            "shared_with": entry.get("shared_with"),
+            "engine": "comfy",
+            "is_downloaded": user_files_present(generator, user_sentinel(mid)),
+            "user": True,
+        })
+    return rows
+
+
+def resolve_user_encoders(generator, model: str, encoder_ids: list) -> tuple[dict, str | None]:
+    """User text-encoder ids → ``({slot: loader filename}, None)`` for a render
+    on ``model``, or ``({}, message)``.
+
+    Each one must be a text encoder the person added for this model's family,
+    one per slot, installed, and (read from the file's header) the architecture
+    its slot reads.
+    """
+    ids = [
+        str((raw.get("id") if isinstance(raw, dict) else raw) or "").strip()
+        for raw in (encoder_ids or [])
+    ]
+    ids = [i for i in ids if i]
+    if not ids:
+        return {}, None
+    family = comfy_t2i_family(model)
+    slots = encoder_slots(family or "")
+    if not slots:
+        return {}, (
+            "This model does not take a replacement text encoder. "
+            "Pick a FLUX model, or leave Text encoder on the shipped one."
+        )
+    entries = getattr(generator, "user_entries", {}) or {}
+    chosen: dict = {}
+    for eid in ids:
+        entry = entries.get(eid) or {}
+        label = entry.get("name") or eid
+        if entry.get("role") != "encoder":
+            return {}, f"'{eid}' is not a text encoder you added."
+        if entry.get("family") != family:
+            fam_label = GENERATION_FAMILIES.get(entry.get("family") or "", {}).get("label", entry.get("family"))
+            return {}, f"{label} is a {fam_label} text encoder and does not apply to this model."
+        slot = entry.get("slot")
+        slot_spec = slots.get(slot or "")
+        if not slot_spec:
+            return {}, f"{label} names a text-encoder slot this model does not have."
+        if slot in chosen:
+            return {}, f"Two text encoders were picked for the {slot_spec['label']} slot. Pick one."
+        sentinel = user_sentinel(eid)
+        if not user_files_present(generator, sentinel):
+            return {}, f"{label} is not installed. Open Manage Image Models to download it."
+        uf = generator.user_files[sentinel]
+        dst = uf["files"][0]["dst"]
+        problem = te_check.local_mismatch(_user_dest_dir(generator, uf) / dst, slot_spec["arch"], slot_spec["label"])
+        if problem:
+            return {}, f"{label} can't be used. {problem}"
+        chosen[slot] = dst
+    return chosen, None

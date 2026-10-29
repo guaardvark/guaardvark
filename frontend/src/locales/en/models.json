@@ -51,14 +51,20 @@
     "addAndInstall": "Add and install"
   },
   "addImageModel": {
-    "hint": "Paste a Hugging Face URL or org/repo. A diffusers repo installs whole; a single .safetensors is a checkpoint (SD, SDXL) or a LoRA. FLUX and Qwen-Image 2.1 stills are one UNET in ComfyUI.",
+    "hint": "Paste a Hugging Face URL or org/repo. A diffusers repo installs whole; a single .safetensors is a checkpoint (SD, SDXL) or a LoRA. FLUX and Qwen-Image 2.1 stills are one UNET in ComfyUI, and FLUX also takes a replacement T5-XXL or CLIP-L text encoder.",
     "diffusersRepo": "diffusers repo",
     "filesOnly": "files only",
     "family": "Family",
     "noLoraFamily": "No family in this list stacks that LoRA.",
     "noWiredFamily": "No wired family fits this repo. Paste a checkpoint, a FLUX or Qwen-Image 2.1 UNET, or a diffusers repo this product already runs.",
     "wholeRepo": "The whole repo installs, the same way the shipped models do.",
-    "familyFallback": "family"
+    "familyFallback": "family",
+    "roleEncoder": "Text encoder",
+    "replacesEncoder": "Replaces the encoder of",
+    "encoderSlot": "Stands in for",
+    "noEncoderFamily": "No model in this list takes a replacement text encoder.",
+    "encoderHint": "One file. Pick it on the Image Gen page under Text encoder and it stands in for the shipped one on every model of that family. The shipped encoder stays installed.",
+    "fileArch": "header: {{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "Text encoder",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "Asks huggingface.co whether each model that is not installed can be downloaded. Sends no token; Install uses yours.",
     "checkAccess": "Check access",
     "removeDescription": "Drops it from your catalog. Downloaded files stay unless you turn on Delete downloaded files.",
-    "removeKeeps": "the shipped Image Models list"
+    "removeKeeps": "the shipped Image Models list",
+    "yourEncoders": "Your text encoders",
+    "encoderChip": "Text encoder · {{slot}} · {{family}}",
+    "sharedFile": "Uses a file that is already installed; nothing extra to download."
   },
   "infographicModels": {
     "title": "Infographic Models",
