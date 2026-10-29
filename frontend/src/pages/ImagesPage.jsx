@@ -46,6 +46,8 @@ import {
   Refresh as RefreshIcon,
   Videocam as VideocamIcon,
   OpenInNew as OpenInNewIcon,
+  MusicNote as MusicNoteIcon,
+  GraphicEq as SoundIcon,
 } from '@mui/icons-material';
 import { BrandLogo } from "../components/branding";
 import ReactGridLayoutLib, { WidthProvider } from 'react-grid-layout/legacy';
@@ -180,6 +182,8 @@ const ImagesPage = () => {
   const [videoLoading, setVideoLoading] = useState(false);
   const [videoPlayer, setVideoPlayer] = useState(null); // { url, title, downloadName, batchId, playlist, currentIndex }
   const [videoDeleteConfirm, setVideoDeleteConfirm] = useState(null);
+  // Songs and sound effects (/api/media/audio), newest first.
+  const [audioItems, setAudioItems] = useState([]);
 
   // Per-window refresh
   const [folderRefreshKeys, setFolderRefreshKeys] = useState({});
@@ -489,10 +493,23 @@ const ImagesPage = () => {
     }
   }, []);
 
+  const fetchAudio = useCallback(async () => {
+    try {
+      const res = await fetch('/api/media/audio?limit=60');
+      if (res.ok) {
+        const data = await res.json();
+        setAudioItems(data.items || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch songs:', err);
+    }
+  }, []);
+
   const refreshVideos = useCallback(() => {
     fetchVideoBatches();
     fetchFilms();
-  }, [fetchVideoBatches, fetchFilms]);
+    fetchAudio();
+  }, [fetchVideoBatches, fetchFilms, fetchAudio]);
 
   // Load video batches when switching to Video Library tab
   useEffect(() => {
@@ -1222,7 +1239,12 @@ const ImagesPage = () => {
       if (!prev?.list) return prev;
       const index = prev.index + delta;
       if (index < 0 || index >= prev.list.length) return prev;
-      return { ...prev, index, target: documentTarget(prev.list[index]) };
+      const item = prev.list[index];
+      // Audio rows come from /api/media/audio, not the file browser.
+      const target = prev.audio
+        ? { kind: 'document', documentId: item.document_id, name: item.title, url: item.url }
+        : documentTarget(item);
+      return { ...prev, index, target };
     });
   }, []);
 
@@ -1314,6 +1336,46 @@ const ImagesPage = () => {
       { label: t('images.shared.delete'), onClick: () => setVideoDeleteConfirm(batch.batch_id), color: 'error.main' },
     ];
   };
+
+  const audioMenu = useContextMenu();
+
+  const audioTarget = (item) => ({ kind: 'document', documentId: item.document_id, name: item.title, url: item.url });
+
+  const openAudioDetails = useCallback((index) => {
+    if (!audioItems[index]) return;
+    setDetails({ target: audioTarget(audioItems[index]), list: audioItems, index, audio: true });
+  }, [audioItems]);
+
+  const audioMenuActions = (item) => [
+    { label: t('images.contextMenu.details'), onClick: () => openAudioDetails(audioItems.indexOf(item)) },
+    {
+      label: t('images.details.regenerate'),
+      dividerBefore: true,
+      onClick: async () => {
+        try {
+          showMessage?.(queuedMessage(await regenerateMedia({ document_id: item.document_id })), 'success');
+        } catch (e) {
+          showMessage?.(e.message, 'error');
+        }
+      },
+    },
+    {
+      label: t('images.batchCard.adjustRetry'),
+      onClick: () => navigate(`/audio?${new URLSearchParams({ retry_doc: String(item.document_id) })}`),
+    },
+    {
+      label: t('images.shared.download'),
+      dividerBefore: true,
+      onClick: () => {
+        const a = document.createElement('a');
+        a.href = item.url;
+        a.download = '';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      },
+    },
+  ];
 
   const handleLightboxPrev = useCallback(() => {
     if (!lightbox || lightbox.fileIndex <= 0) return;
@@ -2447,6 +2509,55 @@ const ImagesPage = () => {
             </Grid>
           </Box>
         )}
+
+        {/* Songs and sound effects — same details view as pictures and clips */}
+        {audioItems.length > 0 && (
+          <Box sx={{ px: 2, pb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <MusicNoteIcon sx={{ fontSize: 20 }} />
+                {t('images.audio.heading')}
+                <Chip label={audioItems.length} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Button size="small" variant="outlined" startIcon={<MusicNoteIcon />} onClick={() => navigate('/audio')}>
+                  {t('images.shared.generate')}
+                </Button>
+                <IconButton size="small" onClick={fetchAudio}>
+                  <RefreshIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+            <Grid container spacing={1.5}>
+              {audioItems.map((item, index) => (
+                <Grid item xs={12} sm={6} md={4} lg={3} key={item.document_id}>
+                  <Card
+                    variant="outlined"
+                    onContextMenu={(e) => audioMenu.open(e, item)}
+                    sx={{ '&:hover': { boxShadow: 3, bgcolor: 'action.hover' } }}
+                  >
+                    <CardActionArea onClick={() => openAudioDetails(index)} sx={{ p: 1.25, display: 'flex', alignItems: 'center', gap: 1.25, justifyContent: 'flex-start' }}>
+                      <Box sx={{ width: 40, height: 40, borderRadius: 1, bgcolor: 'grey.900', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        {item.kind === 'sound'
+                          ? <SoundIcon sx={{ color: 'grey.400' }} />
+                          : <MusicNoteIcon sx={{ color: 'grey.400' }} />}
+                      </Box>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography variant="body2" noWrap title={item.title} sx={{ fontWeight: 500 }}>
+                          {item.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                          {[t(`images.details.kinds.${item.kind}`), item.duration_s ? t('images.details.seconds', { value: Math.round(item.duration_s) }) : null, formatVideoTime(item.created_at)]
+                            .filter(Boolean).join(' · ')}
+                        </Typography>
+                      </Box>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
       </>)}
 
       {/* Image Gen Tab */}
@@ -2516,6 +2627,11 @@ const ImagesPage = () => {
         anchorPosition={videoMenu.anchorPosition}
         onClose={videoMenu.close}
         actions={videoMenu.payload ? videoMenuActions(videoMenu.payload) : []}
+      />
+      <EntityContextMenu
+        anchorPosition={audioMenu.anchorPosition}
+        onClose={audioMenu.close}
+        actions={audioMenu.payload ? audioMenuActions(audioMenu.payload) : []}
       />
 
       <MediaDetailsModal

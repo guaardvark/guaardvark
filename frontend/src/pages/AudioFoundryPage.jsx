@@ -348,6 +348,54 @@ const AudioFoundryPage = () => {
   const [consentStatement, setConsentStatement] = useState("");
   const [consentRequest, setConsentRequest] = useState(null);
 
+  // Adjust & Retry from the Media page: /audio?retry_doc=<document> fills the
+  // Music or FX tab with what that song or sound was made with. An ACE-Step
+  // 1.5 song gets its accepted arrangement back, so it is not planned again;
+  // the others get the prompt that was sent, as written.
+  useEffect(() => {
+    const docId = searchParams.get("retry_doc");
+    if (!docId) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("retry_doc");
+    setSearchParams(next, { replace: true });
+    axios.get(`${API_BASE}/files/document/${docId}`)
+      .then(({ data }) => {
+        const meta = (data?.data || data)?.metadata || {};
+        const planned = meta.arrangement || {};
+        const seconds = Math.round(meta.requested_duration_s || meta.duration_s || 0);
+        if (String(meta.backend || "").startsWith("stable_audio")) {
+          setActiveTab(2);
+          setFxPrompt(meta.prompt || "");
+          if (seconds) setFxDuration(seconds);
+        } else {
+          setActiveTab(1);
+          setMusicGenres([]);
+          setMusicMoods([]);
+          setMusicInstruments([]);
+          setMusicPreview(null);
+          setMusicInstrumental(!!meta.instrumental_only);
+          if (seconds) setDuration(seconds);
+          const lyrics = (meta.lyrics || planned.lyrics || "").trim();
+          setMusicLyrics(lyrics === "[Instrumental]" ? "" : lyrics);
+          if (meta.backend === "ace_step_1.5_turbo") {
+            setMusicModel("ace-step-1.5");
+            setMusicExtra(planned.caption || meta.style_prompt || "");
+            setArrangement({ ...planned, caption: planned.caption || meta.style_prompt || "" });
+          } else {
+            setMusicModel(meta.source === "music_generation" ? (meta.model || "minimax-music3-int8") : "ace-step");
+            setMusicExtra(meta.style_prompt || meta.caption || "");
+            // The filed prompt is the one already polished and sent.
+            setMusicPolish(false);
+            setArrangement(null);
+          }
+        }
+        setResult(null);
+        setError(null);
+        showMessage(t("audio.page.retryLoaded"), "success");
+      })
+      .catch((err) => setError(formatUiError(err.response?.data) || t("audio.page.retryFailed")));
+  }, [searchParams, setSearchParams, showMessage, t]);
+
   // Pull library of existing reference clips. Refreshes after every successful
   // upload/delete so the picker stays current.
   const refreshVoiceClips = useCallback(() => {

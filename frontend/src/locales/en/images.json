@@ -259,12 +259,13 @@
       "infographic": "Infographic",
       "video": "Video",
       "song": "Song",
-      "sound": "Sound effect"
+      "sound": "Sound effect",
+      "voice": "Voice"
     },
     "reasons": {
       "no_settings": "This file did not keep the settings it was made with.",
       "no_batch_settings": "Its batch did not keep the settings to make it again.",
-      "not_yet": "Songs can be made again from Audio Studio."
+      "voice": "Voice clips are made again from Audio Studio."
     },
     "rows": {
       "model": "Model",
@@ -296,5 +297,8 @@
       "language": "Vocal language",
       "instrumental": "Instrumental"
     }
+  },
+  "audio": {
+    "heading": "Songs and sounds"
   }
 }
