@@ -58,6 +58,11 @@ import BreadcrumbNav from '../components/filesystem/BreadcrumbNav';
 import ImageThumbnailGrid from '../components/images/ImageThumbnailGrid';
 import ImagesContextMenu from '../components/images/ImagesContextMenu';
 import ImageLightbox from '../components/images/ImageLightbox';
+import MediaDetailsModal from '../components/media/MediaDetailsModal';
+import EntityContextMenu from '../components/common/EntityContextMenu';
+import useContextMenu from '../hooks/useContextMenu';
+import useDeferredClick from '../hooks/useDeferredClick';
+import { getDocumentRecipe, regenerateMedia } from '../api/mediaRecipeService';
 import FilmCard from '../components/images/FilmCard';
 import { fallbackBatchName } from '../utils/batchNames';
 import PublishModal from '../components/modals/PublishModal';
@@ -146,6 +151,12 @@ const ImagesPage = () => {
   // Lightbox
   const [lightbox, setLightbox] = useState(null);
   const [publishDocuments, setPublishDocuments] = useState([]);
+
+  // Details view (MediaDetailsModal): {target, list, index}. `list` is the
+  // folder the item was opened from, for stepping with the arrows.
+  const [details, setDetails] = useState(null);
+  const videoMenu = useContextMenu();
+  const { schedule: scheduleOpen, cancel: cancelOpen } = useDeferredClick();
 
   // Dialogs
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -1179,6 +1190,7 @@ const ImagesPage = () => {
   }, []);
 
   const handleDesktopImageDoubleClick = useCallback((file) => {
+    cancelOpen();
     const imageUrl = `${API_BASE}/document/${file.id}/download?v=${file.updated_at || Date.now()}`;
     // Navigate through all root-level files in lightbox
     const fileIndex = rootFiles.findIndex(f => f.id === file.id);
@@ -1188,7 +1200,120 @@ const ImagesPage = () => {
       fileIndex: fileIndex >= 0 ? fileIndex : 0,
       fileList: rootFiles,
     });
-  }, [rootFiles]);
+  }, [rootFiles, cancelOpen]);
+
+  // ──────────────────── Details ────────────────────
+
+  const documentTarget = (item) => ({
+    kind: 'document',
+    documentId: item.id,
+    name: item.filename || item.name,
+    url: `${API_BASE}/document/${item.id}/download?v=${item.updated_at || ''}`,
+  });
+
+  const openDocumentDetails = useCallback((item, _fileIndex, fileList) => {
+    const list = fileList && fileList.length ? fileList : [item];
+    const index = Math.max(0, list.findIndex(f => f.id === item.id));
+    setDetails({ target: documentTarget(list[index] || item), list, index });
+  }, []);
+
+  const stepDetails = useCallback((delta) => {
+    setDetails((prev) => {
+      if (!prev?.list) return prev;
+      const index = prev.index + delta;
+      if (index < 0 || index >= prev.list.length) return prev;
+      return { ...prev, index, target: documentTarget(prev.list[index]) };
+    });
+  }, []);
+
+  const openClipDetails = useCallback((batchId, startIndex = 0) => {
+    const playlist = (videoBatchDetails[batchId]?.results || []).filter(r => r.success && r.video_path);
+    if (!playlist.length) return;
+    setDetails({
+      target: {
+        kind: 'clip',
+        batchId,
+        index: startIndex,
+        clips: playlist.map(r => ({
+          itemId: r.item_id,
+          url: `${VIDEO_API_BASE}/video/${batchId}/${r.video_path}`,
+          name: r.video_path.split('/').pop(),
+        })),
+      },
+    });
+  }, [videoBatchDetails]);
+
+  const detailsFullSize = useCallback(() => {
+    if (!details || details.target.kind !== 'document') return;
+    const list = details.list || [];
+    const item = list[details.index];
+    setDetails(null);
+    if (item) handleImageDoubleClick(item, details.index, list);
+  }, [details, handleImageDoubleClick]);
+
+  const queuedMessage = useCallback((queued) => (
+    t('images.details.queued', { page: t(`images.details.queues.${queued.queue}`) })
+  ), [t]);
+
+  const handleDetailsFromMenu = useCallback(() => {
+    setContextMenu(null);
+    if (contextMenuItem) openDocumentDetails(contextMenuItem);
+  }, [contextMenuItem, openDocumentDetails]);
+
+  const handleRegenerateFromMenu = useCallback(async () => {
+    setContextMenu(null);
+    const item = contextMenuItem;
+    if (!item) return;
+    try {
+      showMessage?.(queuedMessage(await regenerateMedia({ document_id: item.id })), 'success');
+    } catch (e) {
+      showMessage?.(e.message, 'error');
+    }
+  }, [contextMenuItem, showMessage, queuedMessage]);
+
+  const handleAdjustFromMenu = useCallback(async () => {
+    setContextMenu(null);
+    const item = contextMenuItem;
+    if (!item) return;
+    try {
+      const recipe = await getDocumentRecipe(item.id);
+      if (!recipe.adjust) {
+        showMessage?.(t('images.details.reasons.no_settings'), 'info');
+        return;
+      }
+      navigate(`${recipe.adjust.path}?${new URLSearchParams(
+        Object.entries(recipe.adjust.query || {}).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]),
+      )}`);
+    } catch (e) {
+      showMessage?.(e.message, 'error');
+    }
+  }, [contextMenuItem, showMessage, navigate]);
+
+  const regenerateClip = useCallback(async (batchId) => {
+    const first = (videoBatchDetails[batchId]?.results || []).find(r => r.success && r.video_path);
+    if (!first) return;
+    try {
+      showMessage?.(queuedMessage(await regenerateMedia({ batch_id: batchId, item_id: first.item_id })), 'success');
+    } catch (e) {
+      showMessage?.(e.message, 'error');
+    }
+  }, [videoBatchDetails, showMessage, queuedMessage]);
+
+  const videoMenuActions = (batch) => {
+    const results = (videoBatchDetails[batch.batch_id]?.results || []).filter(r => r.success && r.video_path);
+    const hasClips = results.length > 0;
+    return [
+      hasClips && { label: t('images.contextMenu.details'), onClick: () => openClipDetails(batch.batch_id) },
+      hasClips && { label: t('images.video.playAll'), onClick: () => handlePlayVideo(batch.batch_id, results[0].video_path, 0) },
+      hasClips && { label: t('images.details.regenerate'), onClick: () => regenerateClip(batch.batch_id), dividerBefore: true },
+      hasClips && {
+        label: t('images.batchCard.adjustRetry'),
+        onClick: () => navigate(`/video?${new URLSearchParams({ retry: batch.batch_id, clip: results[0].item_id })}`),
+      },
+      { label: t('images.shared.download'), onClick: () => handleDownloadVideoBatch(batch.batch_id), dividerBefore: true },
+      { label: t('images.shared.delete'), onClick: () => setVideoDeleteConfirm(batch.batch_id), color: 'error.main' },
+    ];
+  };
 
   const handleLightboxPrev = useCallback(() => {
     if (!lightbox || lightbox.fileIndex <= 0) return;
@@ -1445,6 +1570,8 @@ const ImagesPage = () => {
     const handleKeyDown = (e) => {
       // Only handle when Image Library tab is active
       if (activeTab !== MEDIA_LIBRARY_TAB) return;
+      // The details view has its own keys; Delete must not reach the file behind it.
+      if (details) return;
       if (e.defaultPrevented) return;
       const targetTag = e.target?.tagName;
       if (targetTag === 'INPUT' || targetTag === 'TEXTAREA' || e.target?.isContentEditable) return;
@@ -1494,7 +1621,7 @@ const ImagesPage = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTab, activeContext, selectedItems, handleCopy, handleCut, handlePaste, handleDelete, handleSelectAll, lightbox]);
+  }, [activeTab, activeContext, selectedItems, handleCopy, handleCut, handlePaste, handleDelete, handleSelectAll, lightbox, details]);
 
   // ──────────────────── Icon Positions ────────────────────
 
@@ -1789,10 +1916,13 @@ const ImagesPage = () => {
                             const newSel = new Set(selectedItems);
                             if (newSel.has(key)) newSel.delete(key); else newSel.add(key);
                             setSelectedItems(newSel);
-                          } else { setSelectedItems(new Set([key])); }
+                          } else {
+                            setSelectedItems(new Set([key]));
+                            scheduleOpen(() => openDocumentDetails(file, 0, rootFiles));
+                          }
                         }}
                         onDoubleClick={(e) => { e.stopPropagation(); handleDesktopImageDoubleClick(file); }}
-                        onContextMenu={(e) => handleContextMenu(e, file, 'image')}
+                        onContextMenu={(e) => { cancelOpen(); handleContextMenu(e, file, 'image'); }}
                         sx={{
                           display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 0.75,
                           cursor: 'pointer', userSelect: 'none', borderRadius: 0.5,
@@ -2005,13 +2135,14 @@ const ImagesPage = () => {
                             setSelectedItems(newSelection);
                           } else {
                             setSelectedItems(new Set([key]));
+                            scheduleOpen(() => openDocumentDetails(file, 0, rootFiles));
                           }
                         }}
                         onDoubleClick={(e) => {
                           e.stopPropagation();
                           handleDesktopImageDoubleClick(file);
                         }}
-                        onContextMenu={(e) => handleContextMenu(e, file, 'image')}
+                        onContextMenu={(e) => { cancelOpen(); handleContextMenu(e, file, 'image'); }}
                         sx={{ p: 1, textAlign: 'center' }}
                       >
                         <CardContent sx={{ p: 0 }}>
@@ -2148,6 +2279,7 @@ const ImagesPage = () => {
                             }}
                             onDrop={(e) => handleDrop(e, win.folder)}
                             onImageDoubleClick={handleImageDoubleClick}
+                            onImageOpen={openDocumentDetails}
                             refreshKey={folderRefreshKeys[win.folderId] || 0}
                           />
                         </FolderWindowWrapper>
@@ -2171,7 +2303,7 @@ const ImagesPage = () => {
                 <Chip label={videoCards.length} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
               </Typography>
               <Box sx={{ display: 'flex', gap: 0.5 }}>
-                <Button size="small" variant="outlined" startIcon={<VideoIcon />} onClick={() => window.open('/video', '_self')}>
+                <Button size="small" variant="outlined" startIcon={<VideoIcon />} onClick={() => navigate('/video')}>
                   {t('images.shared.generate')}
                 </Button>
                 <IconButton size="small" onClick={refreshVideos} disabled={videoLoading}>
@@ -2205,10 +2337,9 @@ const ImagesPage = () => {
                   <Grid item xs={6} sm={4} md={3} lg={2} key={batch.batch_id}>
                     <Box
                       onClick={() => {
-                        if (firstResult) {
-                          handlePlayVideo(batch.batch_id, firstResult.video_path);
-                        }
+                        if (firstResult) openClipDetails(batch.batch_id);
                       }}
+                      onContextMenu={(e) => videoMenu.open(e, batch)}
                       sx={{
                         cursor: firstResult ? 'pointer' : 'default',
                         position: 'relative',
@@ -2363,6 +2494,9 @@ const ImagesPage = () => {
         onViewFullSize={handleViewFullSize}
         onEdit={handleEditImage}
         onPublish={handlePublishFromMenu}
+        onDetails={handleDetailsFromMenu}
+        onRegenerate={handleRegenerateFromMenu}
+        onAdjustRetry={handleAdjustFromMenu}
         onColorChange={handleColorChange}
         onSelectAll={contextMenuType === 'folder-background' ? contextMenuItem?.selectAll : handleSelectAll}
         onSortBy={contextMenuType === 'folder-background' ? contextMenuItem?.sortBy : handleSortBy}
@@ -2376,6 +2510,23 @@ const ImagesPage = () => {
         folderColor={contextMenuItem && (contextMenuType === 'folder' || contextMenuType === 'folder-window')
           ? windowColors[windows.find(w => w.folderId === contextMenuItem.id)?.id]
           : null}
+      />
+
+      <EntityContextMenu
+        anchorPosition={videoMenu.anchorPosition}
+        onClose={videoMenu.close}
+        actions={videoMenu.payload ? videoMenuActions(videoMenu.payload) : []}
+      />
+
+      <MediaDetailsModal
+        open={!!details}
+        target={details?.target}
+        onClose={() => setDetails(null)}
+        onPrev={details?.list?.length > 1 ? () => stepDetails(-1) : undefined}
+        onNext={details?.list?.length > 1 ? () => stepDetails(1) : undefined}
+        hasPrev={!!details?.list && details.index > 0}
+        hasNext={!!details?.list && details.index < details.list.length - 1}
+        onFullSize={details?.target?.kind === 'document' ? detailsFullSize : undefined}
       />
 
       {/* Lightbox */}

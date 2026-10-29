@@ -120,7 +120,8 @@
     "color": "Color",
     "viewFullSize": "View Full Size",
     "edit": "Edit",
-    "publish": "Share / Publish…"
+    "publish": "Share / Publish…",
+    "details": "Details…"
   },
   "infographic": {
     "failed": "Generation failed",
@@ -222,6 +223,78 @@
     "next": "Next",
     "open": "Open",
     "deleteTitle": "Delete Video Batch",
-    "deleteConfirm": "Are you sure you want to delete this video batch? This action cannot be undone."
+    "deleteConfirm": "Are you sure you want to delete this video batch? This action cannot be undone.",
+    "playAll": "Play all"
+  },
+  "details": {
+    "prompt": "Prompt",
+    "sentPrompt": "Sent to the model",
+    "lyrics": "Lyrics",
+    "copy": "Copy",
+    "copyPrompt": "Copy prompt",
+    "copySeed": "Copy seed",
+    "noSettings": "No generation settings were recorded for this file.",
+    "noPreview": "No preview for this file.",
+    "regenerate": "Regenerate",
+    "sameSeed": "Same seed",
+    "sameSeedTooltip": "Make it again with the same settings and seed, for the same picture or take.",
+    "fullSize": "Full size",
+    "open": "Open",
+    "close": "Close",
+    "previous": "Previous",
+    "next": "Next",
+    "clip": "Clip {{number}}",
+    "yes": "Yes",
+    "no": "No",
+    "seconds": "{{value}} s",
+    "queued": "Queued on {{page}}.",
+    "queues": {
+      "image": "Image Gen",
+      "infographic": "Infographic",
+      "video": "Video Gen",
+      "song": "Audio Studio"
+    },
+    "kinds": {
+      "image": "Image",
+      "infographic": "Infographic",
+      "video": "Video",
+      "song": "Song",
+      "sound": "Sound effect"
+    },
+    "reasons": {
+      "no_settings": "This file did not keep the settings it was made with.",
+      "no_batch_settings": "Its batch did not keep the settings to make it again.",
+      "not_yet": "Songs can be made again from Audio Studio."
+    },
+    "rows": {
+      "model": "Model",
+      "seed": "Seed",
+      "size": "Size",
+      "steps": "Steps",
+      "guidance": "Guidance",
+      "style": "Style",
+      "aspect": "Aspect",
+      "negative_prompt": "Negative prompt",
+      "preset": "Content preset",
+      "cast": "Cast characters",
+      "director": "Director rewrite",
+      "batch": "Batch",
+      "title": "Title",
+      "callouts": "Labels",
+      "footer": "Footer",
+      "hashtags": "Hashtags",
+      "frames": "Frames",
+      "fps": "Frames per second",
+      "duration_s": "Length",
+      "speed_profile": "Speed profile",
+      "prompt_style": "Prompt style",
+      "lora": "LoRA",
+      "start_image": "Start image",
+      "bpm": "Tempo (BPM)",
+      "key": "Key",
+      "time_signature": "Time signature",
+      "language": "Vocal language",
+      "instrumental": "Instrumental"
+    }
   }
 }

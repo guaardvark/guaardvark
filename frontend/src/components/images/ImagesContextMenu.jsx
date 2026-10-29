@@ -1,6 +1,7 @@
 // frontend/src/components/images/ImagesContextMenu.jsx
 // Context menu for ImagesPage - adapted from DocumentsContextMenu
-// Supports: desktop, folder, folder-window, folder-background (empty space in a window), image
+// Supports: desktop, folder, folder-window, folder-background (empty space in a window), image.
+// The image menu leads with Details, Regenerate and Adjust & Retry when the page passes them.
 
 import React from 'react';
 import { Menu, MenuItem, ListItemIcon, ListItemText, Divider, Box, Tooltip } from '@mui/material';
@@ -19,6 +20,9 @@ import {
   Edit as EditIcon,
   Check as CheckIcon,
   IosShare as ShareIcon,
+  InfoOutlined as DetailsIcon,
+  Autorenew as RegenerateIcon,
+  Tune as AdjustIcon,
 } from '@mui/icons-material';
 import { translate, useUiTranslation } from '../../i18n';
 
@@ -47,6 +51,10 @@ const ImagesContextMenu = ({
   onViewFullSize,
   onEdit,
   onPublish,
+  // How the image was made, and making it again (MediaDetailsModal).
+  onDetails,
+  onRegenerate,
+  onAdjustRetry,
   onColorChange,
   onSelectAll,
   onSortBy,
@@ -200,6 +208,25 @@ const ImagesContextMenu = ({
 
       {/* Image context */}
       {contextType === 'image' && [
+        onDetails && (
+          <MenuItem key="details" onClick={() => { onDetails(); onClose(); }}>
+            <ListItemIcon><DetailsIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('images.contextMenu.details')}</ListItemText>
+          </MenuItem>
+        ),
+        onRegenerate && (
+          <MenuItem key="regenerate" onClick={() => { onRegenerate(); onClose(); }}>
+            <ListItemIcon><RegenerateIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('images.details.regenerate')}</ListItemText>
+          </MenuItem>
+        ),
+        onAdjustRetry && (
+          <MenuItem key="adjust" onClick={() => { onAdjustRetry(); onClose(); }}>
+            <ListItemIcon><AdjustIcon fontSize="small" /></ListItemIcon>
+            <ListItemText>{t('images.batchCard.adjustRetry')}</ListItemText>
+          </MenuItem>
+        ),
+        onDetails && <Divider key="d-details" />,
         <MenuItem key="view" onClick={() => { onViewFullSize?.(); onClose(); }}>
           <ListItemIcon><ViewIcon fontSize="small" /></ListItemIcon>
           <ListItemText>{t('images.contextMenu.viewFullSize')}</ListItemText>

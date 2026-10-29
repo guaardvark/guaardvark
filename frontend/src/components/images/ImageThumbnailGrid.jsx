@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { Folder as FolderIcon, BrokenImage as BrokenImageIcon } from '@mui/icons-material';
 import axios from 'axios';
+import useDeferredClick from '../../hooks/useDeferredClick';
 
 // The app's one API base (VITE_API_BASE_URL, default /api), as everywhere else.
 import { BASE_URL as API_BASE } from '../../api/apiClient';
@@ -27,6 +28,8 @@ const ImageThumbnailGrid = ({
   _onFolderOpen,
   onDrop,
   onImageDoubleClick,
+  // A plain click on an image (after the double-click window): its details.
+  onImageOpen,
   refreshKey = 0,
 }) => {
   const { t } = useUiTranslation();
@@ -38,6 +41,7 @@ const ImageThumbnailGrid = ({
   const [sortDir, setSortDir] = useState('asc');
   const containerRef = useRef(null);
   const lastClickedIndex = useRef(null);
+  const { schedule: scheduleOpen, cancel: cancelOpen } = useDeferredClick();
 
   // Fetch folder contents
   const fetchContents = useCallback(async () => {
@@ -109,12 +113,17 @@ const ImageThumbnailGrid = ({
       onSelectionChange?.(newSelection);
     } else {
       onSelectionChange?.(new Set([key]));
+      if (item.itemType === 'file' && onImageOpen) {
+        const fileIndex = fileItems.findIndex(f => f.key === key);
+        scheduleOpen(() => onImageOpen(item, fileIndex, fileItems));
+      }
     }
     lastClickedIndex.current = index;
-  }, [selectedItems, onSelectionChange, allItems]);
+  }, [selectedItems, onSelectionChange, allItems, fileItems, onImageOpen, scheduleOpen]);
 
   const handleItemDoubleClick = useCallback((e, item) => {
     e.stopPropagation();
+    cancelOpen();
     if (item.itemType === 'folder') {
       onNavigateToPath?.(item.path);
     } else {
@@ -122,16 +131,17 @@ const ImageThumbnailGrid = ({
       const fileIndex = fileItems.findIndex(f => f.key === item.key);
       onImageDoubleClick?.(item, fileIndex, fileItems);
     }
-  }, [onNavigateToPath, onImageDoubleClick, fileItems]);
+  }, [onNavigateToPath, onImageDoubleClick, fileItems, cancelOpen]);
 
   const handleItemContextMenu = useCallback((e, item) => {
     e.preventDefault();
     e.stopPropagation();
+    cancelOpen();
     if (!selectedItems.has(item.key)) {
       onSelectionChange?.(new Set([item.key]));
     }
     onContextMenu?.(e, item, item.itemType === 'folder' ? 'folder' : 'image');
-  }, [selectedItems, onSelectionChange, onContextMenu]);
+  }, [selectedItems, onSelectionChange, onContextMenu, cancelOpen]);
 
   // Empty space in the window: the menu acts on the folder this window shows.
   // Sorting and Select All are this window's own, so the menu calls back here.
