@@ -1458,7 +1458,7 @@ const CastMemberPage = () => {
             <Box sx={{ mt: 2 }}>
               <Typography variant="body2" color="text.secondary">{t('cast.versions.useIn')}</Typography>
               <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
-                <Link component="button" onClick={() => navigate(`/images?character=${subject.id}`)}>{t('cast.versions.useInImages')}</Link>
+                <Link component="button" onClick={() => navigate(`/batch-images?character=${subject.id}`)}>{t('cast.versions.useInImages')}</Link>
                 <Link component="button" onClick={() => navigate('/music-video')}>{t('cast.versions.useInMusicVideo')}</Link>
                 <Link component="button" onClick={() => navigate('/video')}>{t('cast.versions.useInVideo')}</Link>
               </Box>
