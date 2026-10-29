@@ -51,14 +51,20 @@
     "addAndInstall": "Adicionar e instalar"
   },
   "addImageModel": {
-    "hint": "Cole uma URL do Hugging Face ou org/repo. Um repositório diffusers instala tudo; um único .safetensors é um checkpoint (SD, SDXL) ou um LoRA. FLUX e Qwen-Image 2.1 stills são um UNET no ComfyUI.",
+    "hint": "Cole uma URL do Hugging Face ou org/repo. Um repositório diffusers instala o pacote completo; um único .safetensors é um checkpoint (SD, SDXL) ou um LoRA. FLUX e Qwen-Image 2.1 ainda são uma UNET no ComfyUI, e o FLUX também aceita um codificador de texto T5-XXL ou CLIP-L de substituição.",
     "diffusersRepo": "repositório diffusers",
     "filesOnly": "apenas arquivos",
     "family": "Família",
     "noLoraFamily": "Nenhuma família nesta lista empilha esse LoRA.",
     "noWiredFamily": "Nenhuma família wired se ajusta a este repositório. Cole um checkpoint, um UNET de FLUX ou Qwen-Image 2.1, ou um repositório diffusers que este produto já execute.",
     "wholeRepo": "O repositório inteiro é instalado, da mesma forma que os modelos enviados.",
-    "familyFallback": "família"
+    "familyFallback": "família",
+    "roleEncoder": "Codificador de texto",
+    "replacesEncoder": "Substitui o codificador de",
+    "encoderSlot": "Substitui o",
+    "noEncoderFamily": "Nenhum modelo nesta lista aceita um codificador de texto de substituição.",
+    "encoderHint": "Um arquivo. Selecione-o na página de Geração de Imagem em Codificador de texto e ele substituirá o original em todos os modelos dessa família. O codificador original permanece instalado.",
+    "fileArch": "cabeçalho: {{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "Codificador de texto",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "Pergunta ao huggingface.co se cada modelo não instalado pode ser baixado. Não envia token; a Instalação usa o seu.",
     "checkAccess": "Verificar acesso",
     "removeDescription": "Remove do seu catálogo. Os Arquivos baixados permanecem, a menos que você ative Excluir arquivos baixados.",
-    "removeKeeps": "a lista de Modelos de Imagem fornecida"
+    "removeKeeps": "a lista de Modelos de Imagem fornecida",
+    "yourEncoders": "Seus codificadores de texto",
+    "encoderChip": "Codificador de texto · {{slot}} · {{family}}",
+    "sharedFile": "Usa um arquivo que já está instalado; nada extra para baixar."
   },
   "infographicModels": {
     "title": "Modelos de Infográfico",

@@ -232,7 +232,10 @@
     "qualityPreset": "品質プリセット",
     "style": "スタイル",
     "quantity": "プロンプトあたりの画像枚数",
-    "thumbnails": "サムネイルを生成"
+    "thumbnails": "サムネイルを生成",
+    "textEncoderSlot": "テキストエンコーダー（{{slot}}）",
+    "shippedEncoder": "同梱エンコーダー",
+    "encodersHint": "「画像モデルの管理」で追加したテキストエンコーダーです。ここで選択しない限り、同梱エンコーダーが使用されます。"
   },
   "enhance": {
     "label": "プロンプトを自動的に強化",

@@ -232,7 +232,10 @@
     "qualityPreset": "품질 프리셋",
     "style": "스타일",
     "quantity": "프롬프트당 이미지 수",
-    "thumbnails": "썸네일 생성"
+    "thumbnails": "썸네일 생성",
+    "textEncoderSlot": "텍스트 인코더 ({{slot}})",
+    "shippedEncoder": "기본 제공 인코더",
+    "encodersHint": "‘이미지 모델 관리’에서 추가한 텍스트 인코더입니다. 여기서 선택하지 않으면 기본 제공 인코더가 사용됩니다."
   },
   "enhance": {
     "label": "프롬프트 자동 강화",

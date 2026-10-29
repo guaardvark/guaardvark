@@ -34,6 +34,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
   const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
   const [adapters, setAdapters] = useState([]);
+  const [encoders, setEncoders] = useState([]);
   // Chat photo-tool packs (Qwen-Image-Edit, Kontext, PuLID, background removal).
   const [editing, setEditing] = useState([]);
   const [addOpen, setAddOpen] = useState(false);
@@ -70,6 +71,7 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
       if (res.data.success) {
         setModels(res.data.data.models);
         setAdapters(res.data.data.adapters || []);
+        setEncoders(res.data.data.encoders || []);
         setEditing(res.data.data.editing || []);
         setUnavailable(check ? res.data.data.unavailable_models || [] : []);
         setChecked(check);
@@ -384,6 +386,40 @@ const ImageModelsModal = ({ open, onClose, showMessage, installModelId }) => {
                   }
                 />
                 <Box sx={{ ml: 2, minWidth: 120, textAlign: "right" }}>{renderInstallCell(a)}</Box>
+              </ListItem>
+            ))}
+            {encoders.length > 0 && (
+              <Typography variant="overline" color="text.secondary" sx={{ display: "block", mt: 2 }}>
+                {t("models.imageModels.yourEncoders")}
+              </Typography>
+            )}
+            {encoders.map((e) => (
+              <ListItem key={e.id} divider sx={{ py: 1.5 }}>
+                <ListItemIcon>
+                  <ImageIcon color={e.is_downloaded ? "primary" : "action"} />
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Typography variant="body1" fontWeight={500}>
+                        {e.name}
+                      </Typography>
+                      <Chip
+                        label={t("models.imageModels.encoderChip", { slot: e.slot_label, family: e.family })}
+                        size="small"
+                        variant="outlined"
+                      />
+                      {e.size_gb > 0 && <Chip label={`${e.size_gb} GB`} size="small" variant="outlined" />}
+                    </Box>
+                  }
+                  secondary={
+                    <Typography variant="caption" color="text.secondary" component="span" display="block">
+                      {e.hf_repo}
+                      {e.shared_with ? ` · ${t("models.imageModels.sharedFile")}` : ""}
+                    </Typography>
+                  }
+                />
+                <Box sx={{ ml: 2, minWidth: 120, textAlign: "right" }}>{renderInstallCell(e)}</Box>
               </ListItem>
             ))}
             {editing.length > 0 && (

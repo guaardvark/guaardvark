@@ -51,14 +51,20 @@
     "addAndInstall": "Toevoegen en installeren"
   },
   "addImageModel": {
-    "hint": "Plak een Hugging Face URL of org/repo. Een diffusers repo installeert alles; een enkele .safetensors is een checkpoint (SD, SDXL) of een LoRA. FLUX en Qwen-Image 2.1 stills zijn één UNET in ComfyUI.",
+    "hint": "Plak een Hugging Face URL of org/repo. Een diffusers-repo installeert alles; een enkele .safetensors is een checkpoint (SD, SDXL) of een LoRA. FLUX en Qwen-Image 2.1 modellen zijn één UNET in ComfyUI, en FLUX accepteert ook een vervangende T5-XXL of CLIP-L tekstencoder.",
     "diffusersRepo": "diffusers repo",
     "filesOnly": "alleen bestanden",
     "family": "Familie",
     "noLoraFamily": "Geen familie in deze lijst die LoRA stapelt.",
     "noWiredFamily": "Geen wired familie past bij deze repo. Plak een checkpoint, een FLUX of Qwen-Image 2.1 UNET, of een diffusers repo die dit product al uitvoert.",
     "wholeRepo": "Installeert de hele repo, op dezelfde manier als de meegeleverde modellen.",
-    "familyFallback": "familie"
+    "familyFallback": "familie",
+    "roleEncoder": "Tekstencoder",
+    "replacesEncoder": "Vervangt de encoder van",
+    "encoderSlot": "Vervangt",
+    "noEncoderFamily": "Geen model in deze lijst gebruikt een vervangende tekstencoder.",
+    "encoderHint": "Eén bestand. Selecteer het op de Afbeelding Gen-pagina onder Tekstencoder en het vervangt de standaardversie voor elk model van die familie. De standaard encoder blijft geïnstalleerd.",
+    "fileArch": "header: {{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "Tekstencoder",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "Vraagt aan huggingface.co of elk model dat niet is geïnstalleerd gedownload kan worden. Verstuurt geen token; Install gebruikt het jouwe.",
     "checkAccess": "Toegang controleren",
     "removeDescription": "Verwijdert het uit je catalogus. Gedownde Bestanden blijven behouden, tenzij je 'Verwijder gedownde Bestanden' inschakelt.",
-    "removeKeeps": "de meegeleverde Image Models-lijst"
+    "removeKeeps": "de meegeleverde Image Models-lijst",
+    "yourEncoders": "Jouw tekstencoders",
+    "encoderChip": "Tekstencoder · {{slot}} · {{family}}",
+    "sharedFile": "Gebruikt een bestand dat al is geïnstalleerd; niets extra's om te downloaden."
   },
   "infographicModels": {
     "title": "Infographic-modellen",

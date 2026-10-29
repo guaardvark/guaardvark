@@ -233,7 +233,10 @@
     "qualityPreset": "Préréglage de qualité",
     "style": "Style",
     "quantity": "Nombre d'images par prompt",
-    "thumbnails": "Générer des vignettes"
+    "thumbnails": "Générer des vignettes",
+    "textEncoderSlot": "Encodeur de texte ({{slot}})",
+    "shippedEncoder": "Encodeur fourni",
+    "encodersHint": "Encodeurs de texte ajoutés dans Gérer les modèles d'image. L'encodeur fourni est utilisé à moins d'en choisir un ici."
   },
   "enhance": {
     "label": "Améliorer les prompts automatiquement",

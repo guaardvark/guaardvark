@@ -16857,6 +16857,18 @@
       "en": "eb7ab57eed55",
       "out": "f1c1c8e7d9b5"
     },
+    "advanced.textEncoderSlot": {
+      "en": "8648b499c007",
+      "out": "6e036ae629b0"
+    },
+    "advanced.shippedEncoder": {
+      "en": "646372283b7d",
+      "out": "e3de6cd319a5"
+    },
+    "advanced.encodersHint": {
+      "en": "969d757f72d6",
+      "out": "45fa749650cc"
+    },
     "enhance.label": {
       "en": "ba721bd47c49",
       "out": "3271aea6775e"
@@ -20566,8 +20578,8 @@
       "out": "f280d6f488a2"
     },
     "addImageModel.hint": {
-      "en": "71dd24968e2b",
-      "out": "a2b0aba67041"
+      "en": "e7b5cbedf009",
+      "out": "e8fed5677f8a"
     },
     "addImageModel.diffusersRepo": {
       "en": "d1307cc7378d",
@@ -20596,6 +20608,30 @@
     "addImageModel.familyFallback": {
       "en": "c33f059b0ca7",
       "out": "6478d3b7c879"
+    },
+    "addImageModel.roleEncoder": {
+      "en": "da91b1aa1cb2",
+      "out": "1f8f9f508c07"
+    },
+    "addImageModel.replacesEncoder": {
+      "en": "cb9b81c398be",
+      "out": "6ddedfa5bab5"
+    },
+    "addImageModel.encoderSlot": {
+      "en": "a4b6d775da1b",
+      "out": "6264349aaf1c"
+    },
+    "addImageModel.noEncoderFamily": {
+      "en": "d7f361193758",
+      "out": "6ef7b8f1d5f6"
+    },
+    "addImageModel.encoderHint": {
+      "en": "424c5c8f9063",
+      "out": "6b2fec4dfa7f"
+    },
+    "addImageModel.fileArch": {
+      "en": "ceac1cc407a7",
+      "out": "1d6272ae616b"
     },
     "addVideoModel.roleEncoder": {
       "en": "da91b1aa1cb2",
@@ -20788,6 +20824,18 @@
     "imageModels.removeKeeps": {
       "en": "225c3f83e0de",
       "out": "b78244eb34f3"
+    },
+    "imageModels.yourEncoders": {
+      "en": "31dbae274fb0",
+      "out": "4e534ea3ebb9"
+    },
+    "imageModels.encoderChip": {
+      "en": "c2bc7b15b284",
+      "out": "284b6eb020bd"
+    },
+    "imageModels.sharedFile": {
+      "en": "fdf184454fa3",
+      "out": "416b4c85a282"
     },
     "infographicModels.title": {
       "en": "1a8e040f6d17",

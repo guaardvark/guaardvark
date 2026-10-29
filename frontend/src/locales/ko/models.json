@@ -51,14 +51,20 @@
     "addAndInstall": "추가 및 설치"
   },
   "addImageModel": {
-    "hint": "Hugging Face URL 또는 org/repo를 붙여넣으세요. diffusers 저장소는 전체를 설치하며, 단일 .safetensors 파일은 체크포인트(SD, SDXL) 또는 LoRA입니다. FLUX 및 Qwen-Image 2.1 스틸은 ComfyUI에서 하나의 UNET로 처리됩니다.",
+    "hint": "Hugging Face URL 또는 org/repo를 붙여넣으세요. diffusers 저장소는 전체를 설치하며, 단일 .safetensors 파일은 체크포인트(SD, SDXL) 또는 LoRA입니다. FLUX 및 Qwen-Image 2.1은 ComfyUI에서 하나의 UNET로 처리되며, FLUX는 교체용 T5-XXL 또는 CLIP-L 텍스트 인코더를 지원합니다.",
     "diffusersRepo": "diffusers 저장소",
     "filesOnly": "파일만",
     "family": "패밀리",
     "noLoraFamily": "이 목록에 LoRA를 중첩할 수 있는 패밀리가 없습니다.",
     "noWiredFamily": "이 저장소에 적합한 wired 패밀리가 없습니다. 체크포인트, FLUX 또는 Qwen-Image 2.1 UNET, 또는 이 제품이 이미 지원하는 diffusers 저장소를 붙여넣으세요.",
     "wholeRepo": "출시된 모델과 동일한 방식으로 전체 저장소를 설치합니다.",
-    "familyFallback": "family"
+    "familyFallback": "family",
+    "roleEncoder": "텍스트 인코더",
+    "replacesEncoder": "다음의 인코더를 교체합니다:",
+    "encoderSlot": "대체용",
+    "noEncoderFamily": "이 목록의 모델 중 교체용 텍스트 인코더를 사용하는 모델이 없습니다.",
+    "encoderHint": "하나의 파일입니다. 이미지 생성 페이지의 텍스트 인코더 항목에서 선택하면 해당 제품군의 모든 모델에 기본 인코더 대신 적용됩니다. 기존 인코더는 그대로 유지됩니다.",
+    "fileArch": "헤더: {{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "텍스트 인코더",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "설치되지 않은 각 모델을 huggingface.co에서 다운로드할 수 있는지 확인합니다. 토큰을 전송하지 않으며, 설치 시 사용자의 토큰을 사용합니다.",
     "checkAccess": "권한 확인",
     "removeDescription": "카탈로그에서 제거합니다. '다운로드된 파일 삭제'를 켜지 않는 한 다운로드된 파일은 유지됩니다.",
-    "removeKeeps": "기본 제공 이미지 모델 목록"
+    "removeKeeps": "기본 제공 이미지 모델 목록",
+    "yourEncoders": "사용자 텍스트 인코더",
+    "encoderChip": "텍스트 인코더 · {{slot}} · {{family}}",
+    "sharedFile": "이미 설치된 파일을 사용합니다. 추가로 다운로드할 항목이 없습니다."
   },
   "infographicModels": {
     "title": "인포그래픽 모델",

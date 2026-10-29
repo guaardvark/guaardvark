@@ -51,14 +51,20 @@
     "addAndInstall": "Aggiungi e installa"
   },
   "addImageModel": {
-    "hint": "Incolla un URL Hugging Face o org/repo. Un repository diffusers installa tutto; un singolo .safetensors è un checkpoint (SD, SDXL) o un LoRA. FLUX e Qwen-Image 2.1 still sono un unico UNET in ComfyUI.",
+    "hint": "Incolla un URL di Hugging Face o org/repo. Un repository diffusers installa tutto; un singolo file .safetensors è un checkpoint (SD, SDXL) o un LoRA. FLUX e Qwen-Image 2.1 sono un unico UNET in ComfyUI, e FLUX accetta anche un encoder testuale T5-XXL o CLIP-L sostitutivo.",
     "diffusersRepo": "repository diffusers",
     "filesOnly": "solo file",
     "family": "Famiglia",
     "noLoraFamily": "Nessuna famiglia in questa lista supporta LoRA.",
     "noWiredFamily": "Nessuna famiglia wired è adatta a questo repository. Incolla un checkpoint, un UNET FLUX o Qwen-Image 2.1, o un repository diffusers che questo prodotto esegue già.",
     "wholeRepo": "Installa l'intero repository, allo stesso modo in cui vengono installati i modelli forniti.",
-    "familyFallback": "famiglia"
+    "familyFallback": "famiglia",
+    "roleEncoder": "Encoder testuale",
+    "replacesEncoder": "Sostituisce l'encoder di",
+    "encoderSlot": "Sostituisce",
+    "noEncoderFamily": "Nessun modello in questa lista richiede un encoder testuale sostitutivo.",
+    "encoderHint": "Un file. Selezionalo nella pagina Gen Immagini sotto Text encoder e sostituirà quello predefinito per ogni modello di quella famiglia. L'encoder originale rimane installato.",
+    "fileArch": "intestazione: {{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "Encoder di testo",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "Chiede a huggingface.co se ogni modello non installato può essere scaricato. Non invia alcun token; Installa usa il tuo.",
     "checkAccess": "Verifica accesso",
     "removeDescription": "Lo rimuove dal tuo catalogo. I File scaricati rimangono a meno che non attivi Elimina file scaricati.",
-    "removeKeeps": "la lista Image Models fornita"
+    "removeKeeps": "la lista Image Models fornita",
+    "yourEncoders": "I tuoi encoder testuali",
+    "encoderChip": "Encoder testuale · {{slot}} · {{family}}",
+    "sharedFile": "Utilizza un file già installato; nulla da scaricare."
   },
   "infographicModels": {
     "title": "Modelli Infografica",

@@ -232,7 +232,10 @@
     "qualityPreset": "质量预设",
     "style": "风格",
     "quantity": "每个提示词生成的图像数量",
-    "thumbnails": "生成缩略图"
+    "thumbnails": "生成缩略图",
+    "textEncoderSlot": "文本编码器 ({{slot}})",
+    "shippedEncoder": "内置编码器",
+    "encodersHint": "您在“管理图像模型”中添加的文本编码器。除非在此处选择其中一个，否则将使用内置编码器。"
   },
   "enhance": {
     "label": "自动增强提示词",

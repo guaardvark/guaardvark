@@ -51,14 +51,20 @@
     "addAndInstall": "Ajouter et installer"
   },
   "addImageModel": {
-    "hint": "Collez une URL Hugging Face ou org/repo. Un dépôt diffusers installe tout ; un seul .safetensors est un checkpoint (SD, SDXL) ou un LoRA. FLUX et Qwen-Image 2.1 sont un UNET unique dans ComfyUI.",
+    "hint": "Collez une URL Hugging Face ou org/repo. Un dépôt diffusers installe tout ; un fichier .safetensors unique est un checkpoint (SD, SDXL) ou un LoRA. FLUX et Qwen-Image 2.1 sont un UNET unique dans ComfyUI, et FLUX accepte aussi un encodeur de texte de remplacement T5-XXL ou CLIP-L.",
     "diffusersRepo": "répertoire diffusers",
     "filesOnly": "fichiers uniquement",
     "family": "Famille",
     "noLoraFamily": "Aucune famille dans cette liste n'empile ce LoRA.",
     "noWiredFamily": "Aucune famille câblée ne correspond à ce dépôt. Collez un checkpoint, un UNET FLUX ou Qwen-Image 2.1, ou un dépôt diffusers que ce produit exécute déjà.",
     "wholeRepo": "L'ensemble du dépôt est installé, de la même manière que les modèles fournis.",
-    "familyFallback": "famille"
+    "familyFallback": "famille",
+    "roleEncoder": "Encodeur de texte",
+    "replacesEncoder": "Remplace l'encodeur de",
+    "encoderSlot": "Remplace",
+    "noEncoderFamily": "Aucun modèle dans cette liste n'accepte un encodeur de texte de remplacement.",
+    "encoderHint": "Un fichier. Sélectionnez-le sur la page Gén. Image sous Encodeur de texte et il remplacera celui d'origine pour chaque modèle de cette famille. L'encodeur d'origine reste installé.",
+    "fileArch": "en-tête : {{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "Encodeur de texte",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "Demande à huggingface.co si chaque modèle non installé peut être téléchargé. Aucun token n'est envoyé ; l'installation utilise le vôtre.",
     "checkAccess": "Vérifier l'accès",
     "removeDescription": "Le retire de votre catalogue. Les fichiers téléchargés restent sauf si vous activez Supprimer les fichiers téléchargés.",
-    "removeKeeps": "la liste des modèles d'image fournis"
+    "removeKeeps": "la liste des modèles d'image fournis",
+    "yourEncoders": "Vos encodeurs de texte",
+    "encoderChip": "Encodeur de texte · {{slot}} · {{family}}",
+    "sharedFile": "Utilise un fichier déjà installé ; rien d'autre à télécharger."
   },
   "infographicModels": {
     "title": "Modèles d'Infographie",

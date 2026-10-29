@@ -234,7 +234,10 @@
     "qualityPreset": "Preset Jakości",
     "style": "Styl",
     "quantity": "Liczba obrazów na prompt",
-    "thumbnails": "Generuj miniatury"
+    "thumbnails": "Generuj miniatury",
+    "textEncoderSlot": "Kodowanie tekstu ({{slot}})",
+    "shippedEncoder": "Dostarczony enkoder",
+    "encodersHint": "Enkodery tekstu dodane w Zarządzaj modelami obrazów. Używany jest dostarczony enkoder, chyba że wybierzesz inny tutaj."
   },
   "enhance": {
     "label": "Ulepszaj prompty automatycznie",

@@ -233,7 +233,10 @@
     "qualityPreset": "Preset Qualità",
     "style": "Stile",
     "quantity": "Numero di Immagini per Prompt",
-    "thumbnails": "Genera Miniature"
+    "thumbnails": "Genera Miniature",
+    "textEncoderSlot": "Encoder di testo ({{slot}})",
+    "shippedEncoder": "Encoder predefinito",
+    "encodersHint": "Encoder di testo aggiunti in Gestisci Modelli Immagine. Viene usato quello predefinito a meno che non ne selezioni uno qui."
   },
   "enhance": {
     "label": "Migliora i prompt automaticamente",

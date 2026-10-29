@@ -16269,6 +16269,18 @@
       "en": "eb7ab57eed55",
       "out": "5d51849e3cf1"
     },
+    "advanced.textEncoderSlot": {
+      "en": "8648b499c007",
+      "out": "f5c955b89310"
+    },
+    "advanced.shippedEncoder": {
+      "en": "646372283b7d",
+      "out": "746d1de069fe"
+    },
+    "advanced.encodersHint": {
+      "en": "969d757f72d6",
+      "out": "5fe78d9171b7"
+    },
     "enhance.label": {
       "en": "ba721bd47c49",
       "out": "2b7a8caf9ace"
@@ -19911,8 +19923,8 @@
       "out": "ca13c7ea9e0c"
     },
     "addImageModel.hint": {
-      "en": "71dd24968e2b",
-      "out": "26c661e0fdae"
+      "en": "e7b5cbedf009",
+      "out": "e37cdb4e16ce"
     },
     "addImageModel.diffusersRepo": {
       "en": "d1307cc7378d",
@@ -19941,6 +19953,30 @@
     "addImageModel.familyFallback": {
       "en": "c33f059b0ca7",
       "out": "674e9d39f3b0"
+    },
+    "addImageModel.roleEncoder": {
+      "en": "da91b1aa1cb2",
+      "out": "ada649aba43f"
+    },
+    "addImageModel.replacesEncoder": {
+      "en": "cb9b81c398be",
+      "out": "4b8d73cfc3fa"
+    },
+    "addImageModel.encoderSlot": {
+      "en": "a4b6d775da1b",
+      "out": "40f6bd790e02"
+    },
+    "addImageModel.noEncoderFamily": {
+      "en": "d7f361193758",
+      "out": "fa9e949dc3a0"
+    },
+    "addImageModel.encoderHint": {
+      "en": "424c5c8f9063",
+      "out": "e22022c1006f"
+    },
+    "addImageModel.fileArch": {
+      "en": "ceac1cc407a7",
+      "out": "e6491edbfd49"
     },
     "addVideoModel.roleEncoder": {
       "en": "da91b1aa1cb2",
@@ -20109,6 +20145,18 @@
     },
     "imageModels.removeKeeps": {
       "en": "225c3f83e0de"
+    },
+    "imageModels.yourEncoders": {
+      "en": "31dbae274fb0",
+      "out": "c28747689bc3"
+    },
+    "imageModels.encoderChip": {
+      "en": "c2bc7b15b284",
+      "out": "16c2f3b7804f"
+    },
+    "imageModels.sharedFile": {
+      "en": "fdf184454fa3",
+      "out": "84e44d54550e"
     },
     "infographicModels.title": {
       "en": "1a8e040f6d17",

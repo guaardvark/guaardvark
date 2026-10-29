@@ -275,6 +275,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // ids switched on for this run. Sent as adapters; the backend resolves files.
   const [userAdapters, setUserAdapters] = useState([]);
   const [selectedAdapters, setSelectedAdapters] = useState([]);
+  // User text encoders (Manage Image Models) and the one picked per slot for
+  // this run, {slot: id}; an unpicked slot uses the shipped encoder.
+  const [userEncoders, setUserEncoders] = useState([]);
+  const [selectedEncoders, setSelectedEncoders] = useState({});
   // Models the backend filtered out (gated, unreachable). Listed read-only with the
   // reason — picking one used to mean a failed run or, worse, silent SD 1.5 output.
   const [unavailableModels, setUnavailableModels] = useState([]);
@@ -305,6 +309,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         setAutoModel(data.data.auto_model || null);
         setUnavailableModels(data.data.unavailable_models || []);
         setUserAdapters((data.data.adapters || []).filter((a) => a.is_downloaded));
+        setUserEncoders((data.data.encoders || []).filter((e) => e.is_downloaded));
       }
     } catch (e) {
       debugLog('Failed to load image models', e);
@@ -324,6 +329,19 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     const fam = family === 'auto' ? 'zimage' : family.startsWith('krea') ? 'krea2' : family.replace('-turbo', '');
     return userAdapters.filter((a) => (a.applies_to || []).includes(fam));
   }, [userAdapters, family]);
+  // Installed text encoders for the selected model's family, grouped by slot.
+  const encoderSlots = useMemo(() => {
+    const bySlot = {};
+    for (const e of userEncoders) {
+      if (!(e.applies_to || []).includes(family)) continue;
+      if (!bySlot[e.slot]) bySlot[e.slot] = { slot: e.slot, label: e.slot_label, encoders: [] };
+      bySlot[e.slot].encoders.push(e);
+    }
+    return Object.values(bySlot);
+  }, [userEncoders, family]);
+  const pickedEncoderIds = encoderSlots
+    .map((group) => selectedEncoders[group.slot])
+    .filter((id) => id && encoderSlots.some((group) => group.encoders.some((e) => e.id === id)));
 
   // Quality presets — family-aware (see utils/batchImageSettings for the tables).
   const isFlux = family === 'flux';
@@ -1047,6 +1065,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           directorGuidance,
           seedText,
           selectedAdapters,
+          selectedEncoders,
+          // The encoders this request sends (picks for another family are not),
+          // so a Regenerate from the Media page asks for the same ones.
+          textEncoders: pickedEncoderIds,
         };
 
         const typedSeed = parseImageSeed(seedText);
@@ -1063,6 +1085,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
             adapters: selectedAdapters
               .filter((id) => applicableAdapters.some((a) => a.id === id))
               .map((id) => ({ id })),
+            // Text encoders picked under the model select; none = shipped.
+            ...(pickedEncoderIds.length ? { text_encoders: pickedEncoderIds } : {}),
             // Quality enhancement parameters
             content_preset: selectedPreset === 'auto' ? null : selectedPreset,
             auto_enhance: autoEnhance,
@@ -1207,6 +1231,9 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         if (typeof cfg.directorGuidance === 'string') setDirectorGuidance(cfg.directorGuidance);
         setSeedText(typeof cfg.seedText === 'string' ? cfg.seedText : '');
         if (Array.isArray(cfg.selectedAdapters)) setSelectedAdapters(cfg.selectedAdapters);
+        setSelectedEncoders(
+          cfg.selectedEncoders && typeof cfg.selectedEncoders === 'object' ? cfg.selectedEncoders : {},
+        );
         setSuccess(t('imagesBatch.retry.loadedSettings', { name }));
       } else if (Array.isArray(rd.prompts)) {
         // rd.prompts is the EXPANDED list - one entry per generated image. A batch of
@@ -2000,6 +2027,38 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                                   );
                                 })}
                               </Stack>
+                            </Box>
+                          )}
+                          {encoderSlots.length > 0 && (
+                            <Box sx={{ mt: 1.5 }}>
+                              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
+                                {encoderSlots.map((group) => (
+                                  <FormControl key={group.slot} size="small" sx={{ minWidth: 220 }}>
+                                    <InputLabel>{t('imagesBatch.advanced.textEncoderSlot', { slot: group.label })}</InputLabel>
+                                    <Select
+                                      value={
+                                        group.encoders.some((e) => e.id === selectedEncoders[group.slot])
+                                          ? selectedEncoders[group.slot]
+                                          : ''
+                                      }
+                                      label={t('imagesBatch.advanced.textEncoderSlot', { slot: group.label })}
+                                      onChange={(e) =>
+                                        setSelectedEncoders((prev) => ({ ...prev, [group.slot]: e.target.value }))
+                                      }
+                                    >
+                                      <MenuItem value="">{t('imagesBatch.advanced.shippedEncoder')}</MenuItem>
+                                      {group.encoders.map((e) => (
+                                        <MenuItem key={e.id} value={e.id}>
+                                          {e.name}
+                                        </MenuItem>
+                                      ))}
+                                    </Select>
+                                  </FormControl>
+                                ))}
+                              </Stack>
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                {t('imagesBatch.advanced.encodersHint')}
+                              </Typography>
                             </Box>
                           )}
                           {unavailableModels.length > 0 && (

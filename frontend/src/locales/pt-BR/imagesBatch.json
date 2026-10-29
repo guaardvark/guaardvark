@@ -233,7 +233,10 @@
     "qualityPreset": "Predefinição de Qualidade",
     "style": "Estilo",
     "quantity": "Número de Imagens por Prompt",
-    "thumbnails": "Gerar Miniaturas"
+    "thumbnails": "Gerar Miniaturas",
+    "textEncoderSlot": "Codificador de texto ({{slot}})",
+    "shippedEncoder": "Codificador padrão",
+    "encodersHint": "Codificadores de texto que você adicionou em Gerenciar Modelos de Imagem. O codificador padrão é usado, a menos que você escolha um aqui."
   },
   "enhance": {
     "label": "Melhorar prompts automaticamente",

@@ -161,6 +161,8 @@ def image_regenerate_body(meta: Dict[str, Any], rd: Dict[str, Any], same_seed: b
             body["director_guidance"] = cfg["directorGuidance"]
         if cfg.get("selectedAdapters"):
             body["adapters"] = [{"id": a} for a in cfg["selectedAdapters"]]
+        if isinstance(cfg.get("textEncoders"), list) and cfg["textEncoders"]:
+            body["text_encoders"] = [str(e) for e in cfg["textEncoders"] if e]
     else:
         for key in ("model", "style", "width", "height", "steps", "guidance", "content_preset",
                     "auto_enhance", "restore_faces", "remove_background"):

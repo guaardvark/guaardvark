@@ -233,7 +233,10 @@
     "qualityPreset": "Preajuste de calidad",
     "style": "Estilo",
     "quantity": "Número de imágenes por prompt",
-    "thumbnails": "Generar miniaturas"
+    "thumbnails": "Generar miniaturas",
+    "textEncoderSlot": "Codificador de texto ({{slot}})",
+    "shippedEncoder": "Codificador de fábrica",
+    "encodersHint": "Codificadores de texto que añadiste en Gestionar Modelos de Imagen. Se usa el de fábrica a menos que elijas uno aquí."
   },
   "enhance": {
     "label": "Mejorar prompts automáticamente",

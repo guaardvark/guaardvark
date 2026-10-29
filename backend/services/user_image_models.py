@@ -458,7 +458,9 @@ def build_user_entry(
     mid = user_model_id(stem, family, taken)
     shared_with = None
     if role == "encoder":
-        shipped = _shipped_encoder_file(hf_repo, specs[0]["src"])
+        shipped = _shipped_encoder_file(
+            hf_repo, specs[0]["src"], prefer=(encoder_slots(family)[slot].get("replaces") or {}).values(),
+        )
         if shipped:
             # The file is already one of the shipped companions: point at it
             # instead of fetching a second copy, and never delete it on Remove.
@@ -494,17 +496,21 @@ def build_user_entry(
     return mid, entry
 
 
-def _shipped_encoder_file(hf_repo: str, src: str) -> tuple | None:
+def _shipped_encoder_file(hf_repo: str, src: str, prefer=()) -> tuple | None:
     """``(companion id, local_subdir, dst)`` when ``hf_repo``/``src`` is a file a
-    shipped text-encoder companion already declares."""
+    shipped text-encoder companion already declares. One file can be declared by
+    several companions under different names (FLUX's fp8 T5 is also CogVideoX's);
+    an id in ``prefer`` (the companions the slot replaces) wins."""
     from backend.services.video_model_registry import VIDEO_MODEL_REGISTRY
+    found = []
     for eid, entry in VIDEO_MODEL_REGISTRY.items():
         if entry.get("user") or entry.get("type") != "encoder" or entry.get("hf_repo") != hf_repo:
             continue
         for f in entry.get("files") or []:
             if f.get("src") == src and f.get("dst"):
-                return eid, entry.get("local_subdir") or "clip", f["dst"]
-    return None
+                found.append((eid, entry.get("local_subdir") or "clip", f["dst"]))
+    preferred = set(prefer or ())
+    return next((hit for hit in found if hit[0] in preferred), found[0] if found else None)
 
 
 # ── registration into the offline generator ─────────────────────────────────

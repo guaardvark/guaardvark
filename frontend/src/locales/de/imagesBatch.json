@@ -233,7 +233,10 @@
     "qualityPreset": "Qualitätsvorgabe",
     "style": "Stil",
     "quantity": "Anzahl der Bilder pro Prompt",
-    "thumbnails": "Thumbnails generieren"
+    "thumbnails": "Thumbnails generieren",
+    "textEncoderSlot": "Text-Encoder ({{slot}})",
+    "shippedEncoder": "Mitgelieferter Encoder",
+    "encodersHint": "Text-Encoder, die du unter „Manage Image Models“ hinzugefügt hast. Der mitgelieferte Encoder wird verwendet, sofern du hier keinen anderen auswählst."
   },
   "enhance": {
     "label": "Prompts automatisch verbessern",

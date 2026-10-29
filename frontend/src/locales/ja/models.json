@@ -51,14 +51,20 @@
     "addAndInstall": "追加してインストール"
   },
   "addImageModel": {
-    "hint": "Hugging FaceのURLまたはorg/repoを貼り付けてください。diffusersリポジトリは全体をインストールし、単一の.safetensorsはチェックポイント(SD, SDXL)またはLoRAとなります。FLUXおよびQwen-Image 2.1の静止画は、ComfyUIでは1つのUNETとして扱われます。",
+    "hint": "Hugging FaceのURLまたはorg/repoを貼り付けてください。diffusersリポジトリは全体をインストールし、単一の.safetensorsはチェックポイント（SD、SDXL）またはLoRAとなります。FLUXおよびQwen-Image 2.1はComfyUIでは1つのUNETとして扱われ、FLUXは代替のT5-XXLまたはCLIP-Lテキストエンコーダも受け付けます。",
     "diffusersRepo": "diffusersリポジトリ",
     "filesOnly": "ファイルのみ",
     "family": "ファミリー",
     "noLoraFamily": "このリストにLoRAをスタックするファミリーはありません。",
     "noWiredFamily": "このリポジトリに適合するwiredファミリーはありません。チェックポイント、FLUXまたはQwen-Image 2.1のUNET、またはこの製品ですでに動作するdiffusersリポジトリを貼り付けてください。",
     "wholeRepo": "出荷済みのモデルと同様に、リポジトリ全体をインストールします。",
-    "familyFallback": "family"
+    "familyFallback": "family",
+    "roleEncoder": "テキストエンコーダ",
+    "replacesEncoder": "～のエンコーダを置き換える",
+    "encoderSlot": "～の代わりに使用",
+    "noEncoderFamily": "このリスト内のモデルに、代替テキストエンコーダを使用するものはありません。",
+    "encoderHint": "1つのファイル。画像生成ページ内の「テキストエンコーダ」で選択すると、そのファミリーの全モデルにおいて標準のエンコーダの代わりに使用されます。標準のエンコーダはインストールされたまま残ります。",
+    "fileArch": "ヘッダー: {{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "テキストエンコーダー",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "インストールされていない各モデルを huggingface.co からダウンロード可能か確認します。トークンは送信されません。インストール時にあなたのトークンが使用されます。",
     "checkAccess": "アクセス権を確認",
     "removeDescription": "カタログから削除します。 「Delete downloaded files」をオンにしない限り、ダウンロード済みのファイルは保持されます。",
-    "removeKeeps": "同梱の Image Models リスト"
+    "removeKeeps": "同梱の Image Models リスト",
+    "yourEncoders": "お使いのテキストエンコーダ",
+    "encoderChip": "テキストエンコーダ ・ {{slot}} ・ {{family}}",
+    "sharedFile": "既にインストールされているファイルを使用します。追加のダウンロードは不要です。"
   },
   "infographicModels": {
     "title": "インフォグラフィックモデル",

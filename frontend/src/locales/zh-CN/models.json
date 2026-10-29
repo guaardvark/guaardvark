@@ -51,14 +51,20 @@
     "addAndInstall": "添加并安装"
   },
   "addImageModel": {
-    "hint": "粘贴 Hugging Face URL 或 org/repo。diffusers 仓库将安装完整内容；单个 .safetensors 文件是检查点 (SD, SDXL) 或 LoRA。FLUX 和 Qwen-Image 2.1 静态图在 ComfyUI 中是一个 UNET。",
+    "hint": "粘贴 Hugging Face URL 或 org/repo。diffusers 仓库会安装完整模型；单个 .safetensors 文件是检查点 (SD, SDXL) 或 LoRA。FLUX 和 Qwen-Image 2.1 在 ComfyUI 中仍为单个 UNET，且 FLUX 也支持替换 T5-XXL 或 CLIP-L 文本编码器。",
     "diffusersRepo": "diffusers 仓库",
     "filesOnly": "仅文件",
     "family": "系列",
     "noLoraFamily": "此列表中没有支持 LoRA 的系列。",
     "noWiredFamily": "没有匹配此仓库的 wired 系列。请粘贴一个检查点、一个 FLUX 或 Qwen-Image 2.1 UNET，或者该产品已支持的 diffusers 仓库。",
     "wholeRepo": "安装整个仓库，与内置模型相同。",
-    "familyFallback": "family"
+    "familyFallback": "family",
+    "roleEncoder": "文本编码器",
+    "replacesEncoder": "替换以下编码器",
+    "encoderSlot": "替代",
+    "noEncoderFamily": "此列表中的模型均不接受替换文本编码器。",
+    "encoderHint": "单个文件。在“图像生成”页面下的“文本编码器”中选择它，它将替换该系列中所有模型的默认编码器。原有的编码器仍将保留。",
+    "fileArch": "文件头：{{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "文本编码器",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "询问 huggingface.co 是否可以下载每个未安装的模型。不发送 token；安装时将使用您自己的 token。",
     "checkAccess": "检查权限",
     "removeDescription": "从您的目录中移除。除非您开启“删除已下载文件”，否则已下载的“文件”将保留。",
-    "removeKeeps": "出厂提供的图像模型列表"
+    "removeKeeps": "出厂提供的图像模型列表",
+    "yourEncoders": "您的文本编码器",
+    "encoderChip": "文本编码器 · {{slot}} · {{family}}",
+    "sharedFile": "使用已安装的文件；无需额外下载。"
   },
   "infographicModels": {
     "title": "信息图模型",

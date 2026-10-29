@@ -233,7 +233,10 @@
     "qualityPreset": "Kwaliteit Preset",
     "style": "Stijl",
     "quantity": "Aantal afbeeldingen per prompt",
-    "thumbnails": "Thumbnails genereren"
+    "thumbnails": "Thumbnails genereren",
+    "textEncoderSlot": "Tekstencoder ({{slot}})",
+    "shippedEncoder": "Meegestuurde encoder",
+    "encodersHint": "Tekstencoders die je hebt toegevoegd in Beheer afbeeldingmodellen. De meegestuurde encoder wordt gebruikt, tenzij je hier een andere selecteert."
   },
   "enhance": {
     "label": "Prompts automatisch verbeteren",

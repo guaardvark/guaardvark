@@ -51,14 +51,20 @@
     "addAndInstall": "Dodaj i zainstaluj"
   },
   "addImageModel": {
-    "hint": "Wklej Hugging Face URL lub org/repo. Repozytorium diffusers instaluje całość; pojedynczy plik .safetensors to checkpoint (SD, SDXL) lub LoRA. Modele FLUX i Qwen-Image 2.1 w ComfyUI to jeden UNET.",
+    "hint": "Wklej URL Hugging Face lub org/repo. Repozytorium diffusers instaluje całość; pojedynczy plik .safetensors to punkt kontrolny (SD, SDXL) lub LoRA. Modele FLUX i Qwen-Image 2.1 to jeden UNET w ComfyUI, a FLUX akceptuje również zamienny enkoder tekstowy T5-XXL lub CLIP-L.",
     "diffusersRepo": "repozytorium diffusers",
     "filesOnly": "tylko pliki",
     "family": "Rodzina",
     "noLoraFamily": "Brak rodziny w tej liście obsługującej LoRA.",
     "noWiredFamily": "Brak pasującej rodziny wired dla tego repozytorium. Wklej checkpoint, UNET dla FLUX lub Qwen-Image 2.1, lub repozytorium diffusers, które to narzędzie już obsługuje.",
     "wholeRepo": "Całe repozytorium zostanie zainstalowane w ten sam sposób, w jaki instalowane są dostarczane modele.",
-    "familyFallback": "rodzina"
+    "familyFallback": "rodzina",
+    "roleEncoder": "Enkoder tekstowy",
+    "replacesEncoder": "Zastępuje enkoder dla",
+    "encoderSlot": "Zastępuje",
+    "noEncoderFamily": "Żaden model na tej liście nie obsługuje zamiennego enkodera tekstowego.",
+    "encoderHint": "Jeden plik. Wybierz go na stronie Generowanie obrazów w sekcji Enkoder tekstowy, aby zastąpił fabryczny enkoder w każdym modelu z tej rodziny. Fabryczny enkoder pozostaje zainstalowany.",
+    "fileArch": "nagłówek: {{arch}}"
   },
   "addVideoModel": {
     "roleEncoder": "Kodowanie tekstu",
@@ -114,7 +120,10 @@
     "checkAccessTooltip": "Zapytuje huggingface.co, czy każdy model, który nie jest zainstalowany, może zostać pobrany. Nie przesyła tokena; Instaluj używa Twojego.",
     "checkAccess": "Sprawdź dostęp",
     "removeDescription": "Usuwa go z Twojego katalogu. Pobrane pliki pozostają, chyba że włączysz opcję Usuń pobrane pliki.",
-    "removeKeeps": "standardową listę Image Models"
+    "removeKeeps": "standardową listę Image Models",
+    "yourEncoders": "Twoje encodery tekstowe",
+    "encoderChip": "Enkoder tekstowy · {{slot}} · {{family}}",
+    "sharedFile": "Używa pliku, który jest już zainstalowany; nie ma niczego dodatkowego do pobrania."
   },
   "infographicModels": {
     "title": "Modele Infografik",
