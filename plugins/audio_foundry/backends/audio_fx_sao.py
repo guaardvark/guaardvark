@@ -19,7 +19,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from backends.base import AudioBackend, GenerationResult
+from backends.base import AudioBackend, GenerationResult, chosen_seed
 
 # The files Install leaves out: stable-audio-tools' own checkpoints and the card
 # image. Keep in step with the stable-audio-open entry in the backend's catalog.
@@ -203,7 +203,8 @@ class StableAudioOpenBackend(AudioBackend):
 
         prompt: str = params["prompt"]
         duration_s = min(float(params.get("duration_s", 10.0)), self._max_duration_s)
-        seed = params.get("seed")
+        requested_seed = params.get("seed")
+        seed = chosen_seed(requested_seed)
         # output_format is accepted but ignored for MVP — we always write WAV.
         # MP3 conversion is a separate bolt-on (ffmpeg/pydub) once real use surfaces.
         requested_format = params.get("output_format", "wav")
@@ -265,6 +266,7 @@ class StableAudioOpenBackend(AudioBackend):
                 "requested_output_format": requested_format,
                 "actual_output_format": actual_format,
                 "seed": seed,
+                "requested_seed": requested_seed,
                 "generation_seconds": round(gen_seconds, 2),
             },
         )

@@ -8,10 +8,19 @@ Keep this file tiny. Implementation detail belongs in the concrete backend files
 """
 from __future__ import annotations
 
+import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+
+def chosen_seed(seed: Any) -> int:
+    """The seed a render uses: the one asked for, or a new random one picked
+    here so it can be recorded and the take repeated."""
+    if seed is None or seed == "":
+        return random.SystemRandom().randrange(2**31)
+    return int(seed)
 
 
 class GenerationCancelled(Exception):

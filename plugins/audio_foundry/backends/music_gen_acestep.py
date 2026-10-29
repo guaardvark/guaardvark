@@ -25,7 +25,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from backends.base import AudioBackend, GenerationResult
+from backends.base import AudioBackend, GenerationResult, chosen_seed
 from backends.hub_weights import require_hub_files
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,8 @@ class ACEStepBackend(AudioBackend):
         lyrics: str | None = params.get("lyrics")
         instrumental_only = bool(params.get("instrumental_only", False))
         duration_s = min(float(params.get("duration_s", 60.0)), self._max_duration_s)
-        seed = params.get("seed")
+        requested_seed = params.get("seed")
+        seed = chosen_seed(requested_seed)
         requested_format = params.get("output_format", "wav")
 
         self._output_root.mkdir(parents=True, exist_ok=True)
@@ -206,6 +207,7 @@ class ACEStepBackend(AudioBackend):
                 "steps": self._steps,
                 "guidance_scale": self._guidance_scale,
                 "seed": seed,
+                "requested_seed": requested_seed,
                 "requested_output_format": requested_format,
                 "actual_output_format": actual_format,
                 "generation_seconds": round(gen_seconds, 2),
