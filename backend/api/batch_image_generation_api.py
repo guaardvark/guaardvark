@@ -1818,6 +1818,7 @@ def get_batch_generation_status(batch_id: str):
             "estimated_time_remaining": status.estimated_time_remaining,
             "error": status.error,
             "display_name": getattr(status, "display_name", None) or status.batch_id,
+            "kind": getattr(status, "kind", "image"),
             "retry_data": getattr(status, "retry_data", None),
             "gpu_wait_reason": getattr(status, "gpu_wait_reason", None),
             "progress_percentage": _progress_percentage(status),
@@ -1924,6 +1925,7 @@ def list_batch_generations():
                 batch_data = {
                     "batch_id": batch.batch_id,
                     "display_name": getattr(batch, "display_name", None) or batch.batch_id,
+                    "kind": getattr(batch, "kind", "image"),
                     "status": batch.status,
                     "total_images": batch.total_images,
                     "completed_images": batch.completed_images,

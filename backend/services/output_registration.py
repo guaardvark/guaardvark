@@ -29,6 +29,7 @@ DEFAULT_FOLDERS = ["Images", "Videos", "Code", "Audio"]
 BATES_PREFIXES = {
     "image": "ImageGen",
     "image_batch": "ImageBatch",
+    "infographic_batch": "InfographicBatch",
     "video": "VideoGen",
     "video_batch": "VideoBatch",
     "code": "CodeGen",
@@ -73,8 +74,8 @@ def bates_name(content_type: str, extension: str = "", parent_dir: Optional[Path
 
     if parent_dir is None:
         # Guess the folder from content type
-        folder_map = {"image": "Images", "image_batch": "Images", "video": "Videos",
-                      "video_batch": "Videos", "code": "Code", "data": "Code",
+        folder_map = {"image": "Images", "image_batch": "Images", "infographic_batch": "Images",
+                      "video": "Videos", "video_batch": "Videos", "code": "Code", "data": "Code",
                       "audio": "Audio", "audio_batch": "Audio"}
         folder_name = folder_map.get(content_type, "")
         parent_dir = Path(UPLOAD_DIR) / folder_name

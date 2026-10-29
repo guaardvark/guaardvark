@@ -9,6 +9,13 @@
 #       Synchronous: waits for the GPU if another render holds it, then blocks
 #       until the PNG is saved under uploads/Images/Infographics.
 #
+#   POST /api/infographic/batch
+#       body: the /generate fields plus quantity (1 or more), seed? and
+#             ui_config? (the page's form, kept for Adjust & Retry)
+#       returns: {batch_id, total_images, model} at once. The batch runs on
+#       the image batch queue; follow it with /api/batch-image/queue and
+#       /api/batch-image/status/<batch_id>.
+#
 #   GET  /api/infographic/view?filename=...
 #       Serves a saved infographic.
 #
@@ -52,18 +59,13 @@ def list_models():
     return jsonify({"success": True, "models": get_infographic_generator().models()})
 
 
-@infographic_bp.route("/generate", methods=["POST"])
-def generate():
+def _spec_from_body(body: dict):
+    """(InfographicSpec, None) from a request body, or (None, error text)."""
     from backend.services.infographic_generator import (
         ASPECT_DIMS,
         STYLE_PRESETS,
-        InfographicModelMissing,
         InfographicSpec,
-        get_infographic_generator,
     )
-    from backend.services.job_operation_gate import GpuBusyError
-
-    body = request.get_json(silent=True) or {}
 
     # Hashtags arrive as a list or as a single comma/space-separated string;
     # normalize both shapes so the frontend can be lazy.
@@ -78,15 +80,9 @@ def generate():
     style = str(body.get("style") or "editorial")
     aspect = str(body.get("aspect") or "16:9")
     if style not in STYLE_PRESETS:
-        return jsonify({
-            "success": False,
-            "error": f"Unknown style '{style}'; use one of: {', '.join(STYLE_PRESETS)}.",
-        }), 400
+        return None, f"Unknown style '{style}'; use one of: {', '.join(STYLE_PRESETS)}."
     if aspect not in ASPECT_DIMS:
-        return jsonify({
-            "success": False,
-            "error": f"Unknown aspect '{aspect}'; use one of: {', '.join(ASPECT_DIMS)}.",
-        }), 400
+        return None, f"Unknown aspect '{aspect}'; use one of: {', '.join(ASPECT_DIMS)}."
 
     spec = InfographicSpec(
         title=str(body.get("title", "")).strip(),
@@ -98,20 +94,36 @@ def generate():
         aspect=aspect,
         raw_prompt=str(body.get("raw_prompt", "")),
     )
-
     if not (spec.scene or spec.raw_prompt):
-        return jsonify({
-            "success": False,
-            "error": "Either 'scene' or 'raw_prompt' is required.",
-        }), 400
+        return None, "Either 'scene' or 'raw_prompt' is required."
+    return spec, None
 
+
+def _seed_from_body(body: dict):
+    """The typed seed as an int, or None when blank or not a whole number."""
     seed = body.get("seed")
-    if seed is not None:
-        try:
-            seed = int(seed)
-        except (TypeError, ValueError):
-            seed = None
+    if seed is None or str(seed).strip() == "":
+        return None
+    try:
+        return int(str(seed).strip())
+    except (TypeError, ValueError):
+        return None
 
+
+@infographic_bp.route("/generate", methods=["POST"])
+def generate():
+    from backend.services.infographic_generator import (
+        InfographicModelMissing,
+        get_infographic_generator,
+    )
+    from backend.services.job_operation_gate import GpuBusyError
+
+    body = request.get_json(silent=True) or {}
+    spec, error = _spec_from_body(body)
+    if error:
+        return jsonify({"success": False, "error": error}), 400
+
+    seed = _seed_from_body(body)
     model = str(body.get("model") or "").strip() or None
 
     gen = get_infographic_generator()
@@ -128,6 +140,39 @@ def generate():
         return jsonify({"success": False, "error": str(e)}), 500
 
     return jsonify({"success": True, **result})
+
+
+@infographic_bp.route("/batch", methods=["POST"])
+def queue_batch():
+    from backend.services.infographic_generator import (
+        InfographicModelMissing,
+        get_infographic_generator,
+    )
+
+    body = request.get_json(silent=True) or {}
+    spec, error = _spec_from_body(body)
+    if error:
+        return jsonify({"success": False, "error": error}), 400
+    try:
+        quantity = int(body.get("quantity") or 1)
+    except (TypeError, ValueError):
+        return jsonify({"success": False, "error": "Quantity must be a whole number."}), 400
+    ui_config = body.get("ui_config") if isinstance(body.get("ui_config"), dict) else None
+    model = str(body.get("model") or "").strip() or None
+
+    try:
+        queued = get_infographic_generator().queue_batch(
+            [spec], model=model, quantity=quantity, seed=_seed_from_body(body), ui_config=ui_config,
+        )
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+    except InfographicModelMissing as e:
+        return jsonify({"success": False, "error": str(e)}), 409
+    except Exception as e:
+        logger.exception("Infographic batch was not queued")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+    return jsonify({"success": True, **queued}), 201
 
 
 @infographic_bp.route("/view", methods=["GET"])

@@ -129,6 +129,11 @@ class BatchImageRequest:
     # Lets the run download a model that is not installed. No page sets it:
     # models install from Install in Manage models, never from Generate.
     allow_model_download: bool = False
+    # "image" or "infographic". Infographic prompts render through
+    # InfographicGenerator.render_still (see _generate_single_image).
+    kind: str = "image"
+    # Queue and history label; the first prompt when unset.
+    display_name: Optional[str] = None
 
 
 # Batch-level kwargs the create_batch_from_* factories forward into
@@ -175,6 +180,14 @@ class BatchGenerationStatus:
     gpu_wait_reason: Optional[str] = None
     # RenderErrorKind value (job_types) of the batch's own error, when it has one.
     error_kind: Optional[str] = None
+    kind: str = "image"
+
+
+def batch_kind_of(batch_id: str, recorded: Optional[str] = None) -> str:
+    """A batch's kind: the one its metadata records, else read from its id."""
+    if recorded:
+        return recorded
+    return "infographic" if (batch_id or "").startswith("InfographicBatch") else "image"
 
 # Seed space shared with the offline path (offline_image_generator uses
 # torch.randint(0, 2**32)), so seeds stay comparable across generators.
@@ -249,10 +262,12 @@ class BatchImageGenerator:
 
         logger.info(f"BatchImageGenerator initialized - Service available: {self.service_available}")
 
-    def _generate_batch_id(self) -> str:
+    def _generate_batch_id(self, kind: str = "image") -> str:
         from backend.services.output_registration import bates_name
-        # Bates-stamped batch folder: ImageBatch_04-02-2026_001
-        return bates_name("image_batch", "", self.base_output_dir)
+        # Bates-stamped batch folder: ImageBatch_04-02-2026_001, or
+        # InfographicBatch_... for an infographic batch.
+        content_type = "infographic_batch" if kind == "infographic" else "image_batch"
+        return bates_name(content_type, "", self.base_output_dir)
 
     def _create_output_directory(self, batch_id: str) -> Path:
         output_dir = self.base_output_dir / batch_id
@@ -1191,6 +1206,32 @@ class BatchImageGenerator:
             logger.error(f"Character LoRA generation failed: {e}")
             return ImageGenerationResult(success=False, error=_error_with_kind(e), prompt_used=final_prompt)
 
+    def _generate_infographic(self, prompt: BatchPrompt, batch_id: str) -> ImageGenerationResult:
+        """One infographic, rendered as the Infographic page's single render
+        is (InfographicGenerator.render_still). The batch's GPU session is
+        already held, as on the plain stills path."""
+        from backend.services.infographic_generator import InfographicGenerator
+
+        seed = resolve_image_seed(prompt, batch_id)
+        try:
+            still = InfographicGenerator.render_still(
+                prompt.prompt, model_id=prompt.model, width=prompt.width, height=prompt.height,
+                seed=seed, hold_gpu=False, keep_pipeline=True,
+            )
+        except Exception as e:  # noqa: BLE001 — the image fails; the batch goes on
+            logger.error(f"Infographic render failed for prompt {prompt.id}: {e}")
+            return ImageGenerationResult(success=False, error=_error_with_kind(e), prompt_used=prompt.prompt)
+        return ImageGenerationResult(
+            success=True,
+            image_path=still.image_path,
+            prompt_used=still.prompt_used or prompt.prompt,
+            model_used=still.model_used or prompt.model,
+            generation_time=still.generation_time,
+            image_size=(still.width, still.height),
+            seed_used=still.seed_used if still.seed_used is not None else seed,
+            metadata={**(still.metadata or {}), "steps": still.steps, "guidance": still.guidance},
+        )
+
     def _generate_single_image(self, batch_id: str, prompt: BatchPrompt, output_dir: Path,
                              batch_status: BatchGenerationStatus) -> BatchImageResult:
         start_time = time.time()
@@ -1200,9 +1241,13 @@ class BatchImageGenerator:
             face_restoration_weight = getattr(batch_status, 'face_restoration_weight', 0.5)
             remove_background = getattr(batch_status, 'remove_background', False)
 
+            # Infographics first: their own measured render, whatever engine
+            # the model would otherwise route to.
+            if (prompt.metadata or {}).get("render") == "infographic":
+                result = self._generate_infographic(prompt, batch_id)
             # Character casting: subject_ids / LoRAs → character_still_pipeline
             # (Z-Image offline or Comfy SDXL/FLUX by train base).
-            if getattr(prompt, "subject_ids", None) or getattr(prompt, "loras", None):
+            elif getattr(prompt, "subject_ids", None) or getattr(prompt, "loras", None):
                 result = self._generate_with_character_lora(prompt)
             elif self._should_use_comfy_stills(prompt):
                 result = self._generate_with_comfy_flux(prompt, batch_id)
@@ -1342,9 +1387,13 @@ class BatchImageGenerator:
                     "steps_requested": prompt.metadata.get(
                         "steps_requested", (result.metadata or {}).get("steps_requested", prompt.steps)),
                     "steps_notice": (result.metadata or {}).get("steps_notice") or prompt.metadata.get("steps_notice"),
-                    "guidance": prompt.guidance,
+                    # A prompt left to the model's recipe names what it ran with.
+                    "guidance": prompt.guidance if prompt.guidance is not None
+                    else (result.metadata or {}).get("guidance"),
                     "seed_used": result.seed_used,
-                    "model_used": result.model_used
+                    "model_used": result.model_used,
+                    **({"infographic": prompt.metadata["infographic"]}
+                       if (prompt.metadata or {}).get("infographic") else {}),
                 }
             )
 
@@ -1376,6 +1425,7 @@ class BatchImageGenerator:
         try:
             metadata = {
                 "batch_id": batch_status.batch_id,
+                "kind": batch_status.kind,
                 "display_name": getattr(batch_status, "display_name", None),
                 "status": batch_status.status,
                 "error": str(batch_status.error) if batch_status.error else None,
@@ -1612,7 +1662,7 @@ class BatchImageGenerator:
         if not self.service_available:
             raise RuntimeError("Batch image generation service not available")
 
-        batch_id = request.batch_id or self._generate_batch_id()
+        batch_id = request.batch_id or self._generate_batch_id(request.kind)
         request.batch_id = batch_id
         output_dir = self._create_output_directory(batch_id)
         request.output_dir = str(output_dir)
@@ -1630,7 +1680,8 @@ class BatchImageGenerator:
             completed_images=0,
             failed_images=0,
             output_dir=str(output_dir),
-            display_name=first_prompt or batch_id,
+            display_name=request.display_name or first_prompt or batch_id,
+            kind=request.kind,
         )
         
         batch_status.restore_faces = request.restore_faces
@@ -1882,7 +1933,10 @@ class BatchImageGenerator:
                                                 physical_path=str(img_file),
                                                 folder_name="Images",
                                                 subfolder_name=batch_id,
-                                                file_metadata={"source": "batch_generation", "batch_id": batch_id, **img_meta},
+                                                file_metadata={
+                                                    "source": "infographic" if batch_status.kind == "infographic" else "batch_generation",
+                                                    "batch_id": batch_id, **img_meta,
+                                                },
                                             )
                                     logger.info(f"Registered batch {batch_id} images into Documents system")
                                 finally:
@@ -2166,6 +2220,7 @@ class BatchImageGenerator:
                 "start_time": status.start_time.isoformat() if status.start_time else None,
                 "end_time": status.end_time.isoformat() if status.end_time else None,
                 "display_name": status.display_name or batch_id,
+                "kind": status.kind,
                 "error": status.error,
                 # Non-null while the batch is waiting on VRAM rather than stuck.
                 "gpu_wait_reason": getattr(status, "gpu_wait_reason", None),
@@ -2615,6 +2670,7 @@ class BatchImageGenerator:
                 retry_data=metadata.get("retry_data"),
                 error=metadata.get("error"),
                 error_kind=metadata.get("error_kind"),
+                kind=batch_kind_of(metadata.get("batch_id", batch_folder.name), metadata.get("kind")),
             )
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Failed to load metadata for batch {batch_folder.name}: {e}")

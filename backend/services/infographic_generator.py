@@ -43,6 +43,9 @@ INFOGRAPHIC_MODELS: List[Dict[str, Any]] = [
 # one) before it gives up.
 GPU_WAIT_S = 600
 
+# Most images one queued infographic batch may hold (specs x quantity).
+MAX_BATCH_IMAGES = 100
+
 
 # Style presets, written as prose: these models read prompts with an LLM text
 # encoder, and comma-separated tag lists are drawn as scene content.
@@ -124,6 +127,21 @@ class InfographicSpec:
         parts.append("Every word is spelled exactly as written, with crisp, evenly spaced, easy-to-read lettering.")
         return " ".join(parts)
 
+    def record(self) -> Dict[str, Any]:
+        """The fields as filed with each image, enough to load the form again."""
+        if self.raw_prompt.strip():
+            return {"raw_prompt": self.raw_prompt.strip(), "style": self.style, "aspect": self.aspect}
+        return {
+            "title": self.title, "scene": self.scene, "footer": self.footer,
+            "hashtags": list(self.hashtags), "callouts": list(self.callouts),
+            "style": self.style, "aspect": self.aspect,
+        }
+
+    def label(self) -> str:
+        """A short name for the queue and history."""
+        text = _clean(self.title) or _clean(self.scene) or _clean(self.raw_prompt)
+        return text[:80]
+
 
 class InfographicModelMissing(RuntimeError):
     """The requested (or any default) infographic model is not installed."""
@@ -202,6 +220,48 @@ class InfographicGenerator:
 
     # -- render ---------------------------------------------------------------
 
+    @staticmethod
+    def canvas(aspect: str, model_id: str) -> tuple:
+        """(width, height) for an aspect after the model's canvas rules."""
+        from backend.services.image_render_limits import resolve_canvas
+
+        width, height = ASPECT_DIMS.get(aspect, ASPECT_DIMS["16:9"])
+        width, height, _ = resolve_canvas(width, height, model_id)
+        return width, height
+
+    @staticmethod
+    def render_still(prompt_text: str, *, model_id: str, width: int, height: int, seed: int,
+                     hold_gpu: bool, keep_pipeline: bool = False,
+                     output_dir: Optional[Path] = None):
+        """The render the models above were measured with: the prompt as
+        written, no enhancer, no face or hand passes. Both the single render
+        and the batch queue come through here, so the same seed gives the
+        same picture either way. Returns the StillResult; raises on failure."""
+        from backend.services.stills_pipeline import run_stills_pipeline
+
+        results = run_stills_pipeline(
+            [prompt_text],
+            model=model_id,
+            width=width,
+            height=height,
+            seed=seed,
+            source="infographic",
+            enhance="none",
+            verbatim=True,
+            auto_enhance=False,
+            enhance_anatomy=False,
+            enhance_faces=False,
+            enhance_hands=False,
+            hold_gpu=hold_gpu,
+            keep_pipeline=keep_pipeline,
+            output="path",
+            output_dir=output_dir,
+        )
+        still = results[0] if results else None
+        if still is None or not still.success or not still.image_path:
+            raise RuntimeError((still.error if still else None) or "The render produced no image.")
+        return still
+
     def generate(self, spec: InfographicSpec, seed: Optional[int] = None,
                  model: Optional[str] = None) -> Dict[str, Any]:
         """Render one infographic and wait for it, queueing behind any render
@@ -214,15 +274,12 @@ class InfographicGenerator:
             compositor_vram_reserve_mb,
             gpu_session_when_free,
         )
-        from backend.services.image_render_limits import resolve_canvas
         from backend.services.job_types import JobKind
         from backend.services.offline_image_generator import get_image_generator
-        from backend.services.stills_pipeline import run_stills_pipeline
 
         model_id = self.resolve_model(model)
         prompt_text = spec.compose_prompt()
-        width, height = ASPECT_DIMS.get(spec.aspect, ASPECT_DIMS["16:9"])
-        width, height, _ = resolve_canvas(width, height, model_id)
+        width, height = self.canvas(spec.aspect, model_id)
         seed = seed if seed is not None else random.randint(1, 2**31 - 1)
         out_dir = _output_dir()
 
@@ -243,26 +300,10 @@ class InfographicGenerator:
             logger.info(
                 f"[INFOGRAPHIC] {model_id} {width}x{height} seed={seed} style={spec.style}"
             )
-            results = run_stills_pipeline(
-                [prompt_text],
-                model=model_id,
-                width=width,
-                height=height,
-                seed=seed,
-                source="infographic",
-                enhance="none",
-                verbatim=True,
-                auto_enhance=False,
-                enhance_anatomy=False,
-                enhance_faces=False,
-                enhance_hands=False,
-                hold_gpu=True,
-                output="path",
-                output_dir=out_dir,
+            still = self.render_still(
+                prompt_text, model_id=model_id, width=width, height=height, seed=seed,
+                hold_gpu=True, output_dir=out_dir,
             )
-        still = results[0] if results else None
-        if still is None or not still.success or not still.image_path:
-            raise RuntimeError((still.error if still else None) or "The render produced no image.")
 
         name = f"infographic_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.png"
         dest = out_dir / name
@@ -274,7 +315,8 @@ class InfographicGenerator:
             doc = register_file(
                 str(dest), folder_name="Images", subfolder_name="Infographics",
                 file_metadata={"model": model_id, "seed": seed, "prompt": prompt_text,
-                               "width": width, "height": height, "source": "infographic"},
+                               "width": width, "height": height, "source": "infographic",
+                               "infographic": spec.record()},
             )
             document_id = getattr(doc, "id", None)
         except Exception as e:  # noqa: BLE001 — the image exists; the Library entry is a convenience
@@ -293,6 +335,83 @@ class InfographicGenerator:
             "duration_s": round(time.monotonic() - started, 2),
             "document_id": document_id,
         }
+
+    # -- queue ----------------------------------------------------------------
+
+    def queue_batch(self, specs: List[InfographicSpec], *, model: Optional[str] = None,
+                    quantity: int = 1, seed: Optional[int] = None,
+                    ui_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Queue each spec ``quantity`` times on the image batch queue and
+        return at once with {batch_id, total_images, model}.
+
+        A typed seed renders the first image with it and each next image with
+        the next number; without one each image gets its own seed from the
+        batch id (batch_image_generator.resolve_image_seed). Each image is
+        filed in Images/<batch id> with its spec, so it can be made again.
+        """
+        from backend.services.batch_image_generator import (
+            SEED_SPACE,
+            BatchImageRequest,
+            BatchPrompt,
+            get_batch_image_generator,
+        )
+
+        if not specs:
+            raise ValueError("Nothing to render.")
+        quantity = int(quantity)
+        if quantity < 1:
+            raise ValueError("Quantity must be at least 1.")
+        total = len(specs) * quantity
+        if total > MAX_BATCH_IMAGES:
+            raise ValueError(f"{total} images is more than one batch takes ({MAX_BATCH_IMAGES}).")
+        model_id = self.resolve_model(model)
+
+        prompts: List[BatchPrompt] = []
+        for spec in specs:
+            text = spec.compose_prompt()
+            width, height = self.canvas(spec.aspect, model_id)
+            record = spec.record()
+            for _ in range(quantity):
+                n = len(prompts)
+                prompts.append(BatchPrompt(
+                    id=f"prompt_{n + 1}",
+                    prompt=text,
+                    style=spec.style,
+                    width=width,
+                    height=height,
+                    # The model's own recipe decides steps and guidance.
+                    steps=None,
+                    guidance=None,
+                    seed=(int(seed) + n) % SEED_SPACE if seed is not None else None,
+                    model=model_id,
+                    auto_enhance=False,
+                    enhance_anatomy=False,
+                    enhance_faces=False,
+                    enhance_hands=False,
+                    metadata={"render": "infographic", "infographic": record},
+                ))
+
+        request = BatchImageRequest(
+            batch_id="",
+            prompts=prompts,
+            output_dir="",
+            kind="infographic",
+            display_name=specs[0].label() or None,
+            max_workers=1,
+            auto_enhance=False,
+            enhance_anatomy=False,
+            enhance_faces=False,
+            enhance_hands=False,
+            ui_config=ui_config,
+            retry_data={
+                "mode": "infographic",
+                "specs": [spec.record() for spec in specs],
+                "params": {"model": model_id, "quantity": quantity, "seed": seed,
+                           "ui_config": ui_config},
+            },
+        )
+        batch_id = get_batch_image_generator().start_batch_generation(request)
+        return {"batch_id": batch_id, "total_images": total, "model": model_id}
 
     @staticmethod
     def image_path(filename: str) -> Optional[Path]:

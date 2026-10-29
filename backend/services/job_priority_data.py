@@ -98,6 +98,7 @@ JOB_TYPES: dict[str, dict] = {
 OP_ID_PREFIX_TYPES: tuple[tuple[str, str], ...] = (
     ("VideoBatch", "video_batch"),
     ("ImageBatch", "image_batch"),
+    ("InfographicBatch", "infographic"),
     ("blueprint_", "image_batch"),
     ("upload_", "image_batch"),
     ("stills_chat_", "chat_picture"),    # stills_pipeline with source="chat"

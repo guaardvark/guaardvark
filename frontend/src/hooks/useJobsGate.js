@@ -17,6 +17,7 @@ const pictureRendering = () => translate("progress.gpu.pictureRendering");
 const HOLDER_ID_LABELS = [
   ["VideoBatch", videoRendering],
   ["ImageBatch", picturesRendering],
+  ["InfographicBatch", () => translate("progress.gpu.infographicRendering")],
   ["blueprint_", picturesRendering],
   ["upload_", picturesRendering],
   ["stills_", pictureRendering],

@@ -89,6 +89,7 @@ class SystemLoadBusyError(GpuBusyError):
 _HOLDER_ID_LABELS = (
     ("VideoBatch", "Video Gen"),
     ("ImageBatch", "Image Gen"),
+    ("InfographicBatch", "an infographic"),
     ("blueprint_", "Image Gen"),
     ("upload_", "Image Gen"),
     ("stills_", "a picture"),            # stills_pipeline (chat, CLI, MCP, batch)
