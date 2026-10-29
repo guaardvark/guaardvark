@@ -87,7 +87,8 @@
     "loadedSettings": "Loaded \"{{name}}\" settings into the panel — adjust anything, then Generate.",
     "loadedCoreSettings": "Loaded \"{{name}}\" core settings (older batch — double-check resolution/duration).",
     "renamed": "Renamed to {{name}}.",
-    "seedSet": "Seed {{seed}} is set in Advanced. Clear it to get random seeds again."
+    "seedSet": "Seed {{seed}} is set in Advanced. Clear it to get random seeds again.",
+    "loadedClip": "Loaded one clip from \"{{name}}\" with its prompt and seed. Change anything, then generate."
   },
   "confirm": {
     "deleteVideoTitle": "Delete this video?",

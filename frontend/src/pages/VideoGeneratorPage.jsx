@@ -118,6 +118,7 @@ import {
 } from "@mui/icons-material";
 
 import axios from "axios";
+import { useSearchParams } from "react-router-dom";
 import { uploadDroppedMedia } from "../components/videoeditor/useExternalDrop";
 import { formatUiError } from "../utils/uiError";
 import { handleResponse } from "../api/apiClient";
@@ -147,6 +148,7 @@ const VideoModelsModal = lazyWithReload(() => import("../components/modals/Video
 
 const VideoGeneratorPage = ({ embedded = false }) => {
   const { t, language } = useUiTranslation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [inputMode, setInputMode] = useState("text");
   const [promptsText, setPromptsText] = useState("");
   const [videoModelsModalOpen, setVideoModelsModalOpen] = useState(false);
@@ -1511,7 +1513,9 @@ const VideoGeneratorPage = ({ embedded = false }) => {
   // the user can tweak one thing and re-generate (instead of remembering all the
   // settings). New batches store an exact `ui_config` snapshot → restored verbatim;
   // older batches fall back to the core fields from the persisted params.
-  const handleAdjustRetry = async (batchId) => {
+  // With `clipId` (the Media page's Adjust & Retry on one clip), that clip's
+  // prompt or start image and its seed replace the batch's.
+  const handleAdjustRetry = async (batchId, clipId = null) => {
     try {
       const res = await fetch(`${API_BASE}/batch-video/status/${batchId}`);
       if (!res.ok) { setError(t("videoGenerator.errors.settingsHttp", { status: res.status })); return; }
@@ -1605,12 +1609,46 @@ const VideoGeneratorPage = ({ embedded = false }) => {
         }));
         setSuccess(t("videoGenerator.messages.loadedCoreSettings", { name }));
       }
+      const clipIndex = clipId ? (rd.item_ids || []).indexOf(clipId) : -1;
+      if (clipIndex >= 0) {
+        if (rd.mode === "image") {
+          const path = (rd.image_paths || rd.params?.image_paths || [])[clipIndex];
+          if (path) {
+            setInputMode("image");
+            restoreImagesFromPaths([path]);
+          }
+        } else if (Array.isArray(rd.prompts) && rd.prompts[clipIndex] != null) {
+          // The filed prompt carries Look & Feel, which the form keeps in its own field.
+          const look = (rd.params?.ui_config?.lookAndFeel || "").trim();
+          const prompt = rd.prompts[clipIndex];
+          setInputMode("text");
+          setStoryboardMode(false);
+          setPromptsText(look && prompt.endsWith(`, ${look}`) ? prompt.slice(0, -(look.length + 2)) : prompt);
+        }
+        const clip = (data?.data?.results || data?.results || []).find((r) => r.item_id === clipId);
+        if (clip?.metadata?.seed != null) {
+          setAdvancedParams((prev) => ({ ...prev, seed: String(clip.metadata.seed) }));
+        }
+        setSuccess(t("videoGenerator.messages.loadedClip", { name }));
+      }
       setError("");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       setError(t("videoGenerator.errors.settingsFailed", { reason: e.message }));
     }
   };
+
+  // Adjust & Retry from the Media page: ?retry=<batch>[&clip=<clip>], loaded
+  // once, then dropped from the address so a reload does not load it again.
+  useEffect(() => {
+    const retry = searchParams.get("retry");
+    if (!retry) return;
+    handleAdjustRetry(retry, searchParams.get("clip"));
+    const next = new URLSearchParams(searchParams);
+    next.delete("retry");
+    next.delete("clip");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleDeleteVideo = async (batchId, videoName) => {
     try {

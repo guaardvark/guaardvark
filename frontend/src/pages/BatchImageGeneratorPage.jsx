@@ -144,7 +144,7 @@ const errorMessageFrom = (payload, fallback) => formatUiError(payload) || fallba
 const BatchImageGeneratorPage = ({ embedded = false }) => {
   const { t, language } = useUiTranslation();
   const theme = useTheme();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isXs = useMediaQuery(theme.breakpoints.down('sm'));
   const isSm = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
@@ -202,7 +202,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const [castSubjectIds, setCastSubjectIds] = useState([]);
 
   // Pre-cast a character when arriving from the Cast Library "Generate" button
-  // (/images?character=<id>).
+  // (/batch-images?character=<id>).
   useEffect(() => {
     const cid = searchParams.get('character');
     if (cid) setCastSubjectIds([parseInt(cid, 10)]);
@@ -1046,6 +1046,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
           directorEnabled,
           directorGuidance,
           seedText,
+          selectedAdapters,
         };
 
         const typedSeed = parseImageSeed(seedText);
@@ -1173,7 +1174,9 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
   // Stable identity: this is handed to every batch history card, which is memoised.
   // Only state setters and module constants are referenced, so [] deps are sound.
-  const handleAdjustRetry = useCallback(async (batchId) => {
+  // With `documentId` (the Media page's Adjust & Retry on one image), the
+  // batch's settings load and that image's prompt and seed replace the batch's.
+  const handleAdjustRetry = useCallback(async (batchId, documentId = null) => {
     try {
       const res = await fetch(`${API_BASE}/batch-image/status/${batchId}?include_results=true`);
       if (!res.ok) { setError(t('imagesBatch.retry.loadFailedHttp', { status: res.status })); return; }
@@ -1203,6 +1206,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         if (typeof cfg.directorEnabled === 'boolean') setDirectorEnabled(cfg.directorEnabled);
         if (typeof cfg.directorGuidance === 'string') setDirectorGuidance(cfg.directorGuidance);
         setSeedText(typeof cfg.seedText === 'string' ? cfg.seedText : '');
+        if (Array.isArray(cfg.selectedAdapters)) setSelectedAdapters(cfg.selectedAdapters);
         setSuccess(t('imagesBatch.retry.loadedSettings', { name }));
       } else if (Array.isArray(rd.prompts)) {
         // rd.prompts is the EXPANDED list - one entry per generated image. A batch of
@@ -1251,12 +1255,42 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
             : t('imagesBatch.retry.loadedPromptsQty', { name, count: uniquePrompts.length, quantity: repeats[0] })
         );
       }
+      if (documentId) {
+        const docRes = await fetch(`${API_BASE}/files/document/${documentId}`);
+        const docData = await docRes.json().catch(() => ({}));
+        const meta = (docData?.data || docData)?.metadata || {};
+        if (docRes.ok && meta.original_prompt) {
+          // The filed prompt carries the batch's Look & Feel, which the form
+          // keeps in its own field and appends again on Generate.
+          const look = (rd.params?.ui_config?.lookAndFeel || '').trim();
+          const typed = look && meta.original_prompt.endsWith(`, ${look}`)
+            ? meta.original_prompt.slice(0, -(look.length + 2))
+            : meta.original_prompt;
+          setInputMode('single');
+          setBatchItems(typed);
+          setQuantity(1);
+          setSeedText(meta.seed_used != null ? String(meta.seed_used) : '');
+          setSuccess(t('imagesBatch.retry.loadedImage', { name }));
+        }
+      }
       setError('');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (e) {
       setError(t('imagesBatch.retry.loadFailed', { error: e.message }));
     }
   }, []);
+
+  // Adjust & Retry from the Media page: ?retry=<batch>[&doc=<image>], loaded
+  // once, then dropped from the address so a reload does not load it again.
+  useEffect(() => {
+    const retry = searchParams.get('retry');
+    if (!retry) return;
+    handleAdjustRetry(retry, searchParams.get('doc'));
+    const next = new URLSearchParams(searchParams);
+    next.delete('retry');
+    next.delete('doc');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, handleAdjustRetry]);
 
   const downloadResults = useCallback(async (batchId) => {
     try {

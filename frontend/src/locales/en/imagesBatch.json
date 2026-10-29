@@ -140,7 +140,8 @@
     "loadedPrompts": "Loaded \"{{name}}\" prompts into panel.",
     "loadedPromptsQty_one": "Loaded \"{{name}}\": {{count}} prompt x qty {{quantity}}.",
     "loadedPromptsQty_other": "Loaded \"{{name}}\": {{count}} prompts x qty {{quantity}}.",
-    "loadFailed": "Couldn't load settings: {{error}}"
+    "loadFailed": "Couldn't load settings: {{error}}",
+    "loadedImage": "Loaded one image from \"{{name}}\" with its prompt and seed. Change anything, then Start Generation."
   },
   "download": {
     "failedHttp": "Failed to download results: HTTP {{status}}",
