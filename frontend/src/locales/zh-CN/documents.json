@@ -61,7 +61,13 @@
     "openInCodeEditor": "在代码编辑器中打开",
     "index": "索引",
     "open": "打开",
-    "restore": "还原"
+    "restore": "还原",
+    "sortBy": {
+      "name": "按名称排序",
+      "date": "按日期排序",
+      "size": "按大小排序"
+    },
+    "arrangeIcons": "排列图标"
   },
   "codeRepo": {
     "never": "从不",
@@ -161,7 +167,9 @@
     "emptyTitle": "暂无文档",
     "emptyHint": "将文件拖到此处或右键点击以创建文件夹",
     "folderItemCount_other": "有 {{count}} 个项目",
-    "uploadProgress_other": "正在上传 {{current}}/{{count}} 个文件..."
+    "uploadProgress_other": "正在上传 {{current}}/{{count}} 个文件...",
+    "listView": "列表视图",
+    "iconView": "图标视图"
   },
   "import": {
     "nothingToImport": "无内容可导入：{{skipped}}",

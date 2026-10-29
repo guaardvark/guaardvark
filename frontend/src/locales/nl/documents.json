@@ -61,7 +61,13 @@
     "openInCodeEditor": "Openen in Code-editor",
     "index": "Indexeren",
     "open": "Openen",
-    "restore": "Herstellen"
+    "restore": "Herstellen",
+    "sortBy": {
+      "name": "Sorteer op naam",
+      "date": "Sorteer op datum",
+      "size": "Sorteer op grootte"
+    },
+    "arrangeIcons": "Icoontjes ordenen"
   },
   "codeRepo": {
     "never": "Nooit",
@@ -169,7 +175,9 @@
     "folderItemCount_one": "{{count}} item",
     "folderItemCount_other": "{{count}} items",
     "uploadProgress_one": "Uploaden van {{current}}/{{count}} bestand...",
-    "uploadProgress_other": "Uploaden van {{current}}/{{count}} bestanden..."
+    "uploadProgress_other": "Uploaden van {{current}}/{{count}} bestanden...",
+    "listView": "Lijstweergave",
+    "iconView": "Icoonweergave"
   },
   "import": {
     "nothingToImport": "Niets om te importeren: {{skipped}}",

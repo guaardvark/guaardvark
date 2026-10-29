@@ -61,7 +61,13 @@
     "openInCodeEditor": "코드 에디터에서 열기",
     "index": "색인",
     "open": "열기",
-    "restore": "복구"
+    "restore": "복구",
+    "sortBy": {
+      "name": "이름순 정렬",
+      "date": "날짜순 정렬",
+      "size": "크기순 정렬"
+    },
+    "arrangeIcons": "아이콘 정렬"
   },
   "codeRepo": {
     "never": "안 함",
@@ -161,7 +167,9 @@
     "emptyTitle": "아직 문서가 없습니다",
     "emptyHint": "파일을 여기에 끌어다 놓거나 마우스 오른쪽 버튼을 클릭하여 폴더를 생성하세요",
     "folderItemCount_other": "{{count}}개 항목",
-    "uploadProgress_other": "{{current}}/{{count}} 파일 업로드 중..."
+    "uploadProgress_other": "{{current}}/{{count}} 파일 업로드 중...",
+    "listView": "목록 보기",
+    "iconView": "아이콘 보기"
   },
   "import": {
     "nothingToImport": "가져올 항목 없음: {{skipped}}",

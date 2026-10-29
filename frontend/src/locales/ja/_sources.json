@@ -12572,6 +12572,22 @@
       "en": "3cbe6d6b9a8d",
       "out": "442ee7eb767e"
     },
+    "contextMenu.sortBy.name": {
+      "en": "5fa541307296",
+      "out": "428ee8ab71d0"
+    },
+    "contextMenu.sortBy.date": {
+      "en": "1a0143dcf36c",
+      "out": "83612daab906"
+    },
+    "contextMenu.sortBy.size": {
+      "en": "40aebef77c9c",
+      "out": "a67d5ae3e75c"
+    },
+    "contextMenu.arrangeIcons": {
+      "en": "ee0399da3298",
+      "out": "8e6a69b169d2"
+    },
     "codeRepo.never": {
       "en": "80c3052d33cc",
       "out": "1a2e920ba7c6"
@@ -12899,6 +12915,14 @@
     "page.uploadProgress_other": {
       "en": "1e07954d1a0f",
       "out": "b6c83141c47c"
+    },
+    "page.listView": {
+      "en": "694bbd757a31",
+      "out": "b4cf24ebe1ee"
+    },
+    "page.iconView": {
+      "en": "0a07aec1d961",
+      "out": "287fdebe3ebb"
     },
     "import.nothingToImport": {
       "en": "724df7fc1496",

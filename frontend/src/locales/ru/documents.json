@@ -61,7 +61,13 @@
     "openInCodeEditor": "Открыть в Редакторе кода",
     "index": "Индексировать",
     "open": "Открыть",
-    "restore": "Восстановить"
+    "restore": "Восстановить",
+    "sortBy": {
+      "name": "Сортировать по имени",
+      "date": "Сортировать по дате",
+      "size": "Сортировать по размеру"
+    },
+    "arrangeIcons": "Упорядочить значки"
   },
   "codeRepo": {
     "never": "Никогда",
@@ -177,7 +183,9 @@
     "folderItemCount_one": "{{count}} элемент",
     "uploadProgress_few": "Загрузка {{current}}/{{count}} файлов...",
     "uploadProgress_many": "Загрузка {{current}}/{{count}} файлов...",
-    "uploadProgress_one": "Загрузка {{current}}/{{count}} файла..."
+    "uploadProgress_one": "Загрузка {{current}}/{{count}} файла...",
+    "listView": "Список",
+    "iconView": "Сетка"
   },
   "import": {
     "nothingToImport": "Нечего импортировать: {{skipped}}",

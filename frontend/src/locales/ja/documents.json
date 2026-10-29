@@ -61,7 +61,13 @@
     "openInCodeEditor": "コードエディタで開く",
     "index": "インデックス",
     "open": "開く",
-    "restore": "復元"
+    "restore": "復元",
+    "sortBy": {
+      "name": "名前で並べ替え",
+      "date": "日付で並べ替え",
+      "size": "サイズで並べ替え"
+    },
+    "arrangeIcons": "アイコンを整列"
   },
   "codeRepo": {
     "never": "なし",
@@ -161,7 +167,9 @@
     "emptyTitle": "ドキュメントはまだありません",
     "emptyHint": "ここにファイルをドラッグするか、右クリックしてフォルダを作成してください",
     "folderItemCount_other": "{{count}} 個のアイテム",
-    "uploadProgress_other": "{{current}}/{{count}} 個のファイルをアップロード中..."
+    "uploadProgress_other": "{{current}}/{{count}} 個のファイルをアップロード中...",
+    "listView": "リスト表示",
+    "iconView": "アイコン表示"
   },
   "import": {
     "nothingToImport": "インポートするものがありません: {{skipped}}",

@@ -61,7 +61,13 @@
     "openInCodeEditor": "Abrir no Editor de Código",
     "index": "Indexar",
     "open": "Abrir",
-    "restore": "Restaurar"
+    "restore": "Restaurar",
+    "sortBy": {
+      "name": "Ordenar por nome",
+      "date": "Ordenar por data",
+      "size": "Ordenar por tamanho"
+    },
+    "arrangeIcons": "Organizar ícones"
   },
   "codeRepo": {
     "never": "Nunca",
@@ -169,7 +175,9 @@
     "folderItemCount_one": "{{count}} item",
     "folderItemCount_other": "{{count}} itens",
     "uploadProgress_one": "Enviando {{current}}/{{count}} arquivo...",
-    "uploadProgress_other": "Enviando {{current}}/{{count}} arquivos..."
+    "uploadProgress_other": "Enviando {{current}}/{{count}} arquivos...",
+    "listView": "Visualização em lista",
+    "iconView": "Visualização em ícones"
   },
   "import": {
     "nothingToImport": "Nada para importar: {{skipped}}",
