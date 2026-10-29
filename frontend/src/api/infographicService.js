@@ -1,8 +1,8 @@
 // frontend/src/api/infographicService.js
 // Thin fetch wrappers for the infographic backend.
-// /api/infographic/generate is synchronous on the backend — it waits for the
-// GPU and blocks until the PNG is saved, so the frontend just shows a spinner
-// and renders the result when the promise resolves.
+// /api/infographic/batch queues on the image batch queue and returns at once;
+// the page follows the batch through /api/batch-image. /api/infographic/generate
+// is the synchronous single render: it blocks until the PNG is saved.
 
 import { BASE_URL } from './apiClient';
 import { translate } from '../i18n';
@@ -30,6 +30,26 @@ export async function getInfographicStatus() {
  */
 export async function generateInfographic(spec) {
   const res = await fetch(`${API}/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(spec),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return data;
+}
+
+/**
+ * Queue `quantity` infographics from one form.
+ * @param {Object} spec - the generateInfographic fields, plus:
+ * @param {number} spec.quantity
+ * @param {Object} [spec.ui_config] - the form as typed, for Adjust & Retry
+ * @returns {Promise<{batch_id: string, total_images: number, model: string}>}
+ */
+export async function queueInfographicBatch(spec) {
+  const res = await fetch(`${API}/batch`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(spec),
