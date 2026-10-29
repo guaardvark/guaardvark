@@ -47,6 +47,7 @@ import {
   Videocam as VideocamIcon,
   OpenInNew as OpenInNewIcon,
   MusicNote as MusicNoteIcon,
+  ViewModule as ArrangeIcon,
   GraphicEq as SoundIcon,
 } from '@mui/icons-material';
 import { BrandLogo } from "../components/branding";
@@ -1826,7 +1827,7 @@ const ImagesPage = () => {
           {desktopViewMode === 'icons' && (
             <Tooltip title={t('images.shared.arrangeIcons')}>
               <IconButton size="small" sx={{ opacity: 0.6 }} onClick={handleArrangeIcons}>
-                <GridViewIcon fontSize="small" />
+                <ArrangeIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
@@ -1857,7 +1858,10 @@ const ImagesPage = () => {
 
       {/* Media Library Tab */}
       {activeTab === MEDIA_LIBRARY_TAB && (<>
-        <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+        {/* The desktop keeps most of the first screen and Videos and Songs follow
+            below it. As a shrinking flex item it was squeezed to nothing once the
+            sections under it grew (300 video batches), hiding folders and files. */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', flex: '0 0 auto', height: 'calc(100% - 100px)', minHeight: 360, overflow: 'hidden' }}>
           {/* Toolbar */}
           <Box sx={{
             display: 'flex', alignItems: 'center', gap: 1, p: 1,
