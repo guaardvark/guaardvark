@@ -96,6 +96,10 @@ class ComfyUIMusicGenerator:
         floor = int(caps.get("min_steps") or 30)
         steps = max(int(steps or caps.get("default_steps") or 30), floor)
         job_id = uuid.uuid4().hex[:8]
+        # Chosen here rather than inside the workflow builder so the result
+        # (and the Library record) carries the seed the song was made with.
+        if seed is None:
+            seed = int(time.time() * 1000) % (2**31)
         workflow = build_music_workflow(
             caption=caption, lyrics=lyrics, seconds=seconds, seed=seed, steps=steps,
             filename_prefix=f"audio/minimax_music3_{job_id}", model_id=model_id,
@@ -157,6 +161,7 @@ def start_job(**params) -> str:
             app = params.pop("app", None)
             result = ComfyUIMusicGenerator().generate(**params)
             if result.get("success") and app is not None:
+                result["path"] = _move_to_audio_folder(result["path"])
                 result["document_id"] = _register(app, result, params)
             kind = None if result.get("success") else failure_kind(result.get("error"))
             with _JOBS_LOCK:
@@ -181,6 +186,26 @@ def job_status(job_id: str) -> Optional[Dict[str, Any]]:
     with _JOBS_LOCK:
         job = _JOBS.get(job_id)
         return dict(job) if job else None
+
+
+def _move_to_audio_folder(path: str) -> str:
+    """Move the finished song into uploads/Audio, where the Library record
+    says it is, and return its new path. The download lands in the video
+    cache, which the Library's path resolver does not search."""
+    import shutil
+    from backend.config import UPLOAD_DIR
+    src = Path(path)
+    dest_dir = Path(UPLOAD_DIR) / "Audio"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / src.name
+    if dest.exists():
+        dest = dest_dir / f"{src.stem}_{uuid.uuid4().hex[:6]}{src.suffix}"
+    try:
+        shutil.move(str(src), dest)
+    except OSError as e:
+        logger.warning("Music 3 song left in %s: %s", src.parent, e)
+        return path
+    return str(dest)
 
 
 def _register(app, result: Dict[str, Any], params: Dict[str, Any]) -> Optional[int]:

@@ -4,7 +4,7 @@
 # Composes a text-layout prompt from structured fields (title, scene, labels,
 # footer, hashtags) or takes a freeform prompt as written, and renders it
 # through the shared stills pipeline with a model that spells reliably. The
-# image is saved under outputs/infographics and filed in the Library.
+# image is saved under uploads/Images/Infographics and filed in the Library.
 
 from __future__ import annotations
 
@@ -130,10 +130,18 @@ class InfographicModelMissing(RuntimeError):
 
 
 def _output_dir() -> Path:
-    from backend.config import OUTPUT_DIR
-    out = Path(OUTPUT_DIR) / "infographics"
+    """Images/Infographics under the uploads folder, the path the Library
+    records, so thumbnails and downloads find the file."""
+    from backend.config import UPLOAD_DIR
+    out = Path(UPLOAD_DIR) / "Images" / "Infographics"
     out.mkdir(parents=True, exist_ok=True)
     return out
+
+
+def _legacy_output_dir() -> Path:
+    """Where infographics were written before they moved under uploads."""
+    from backend.config import OUTPUT_DIR
+    return Path(OUTPUT_DIR) / "infographics"
 
 
 class InfographicGenerator:
@@ -292,8 +300,11 @@ class InfographicGenerator:
         name = Path(filename or "").name
         if not name or name != filename or not name.endswith(".png"):
             return None
-        path = _output_dir() / name
-        return path if path.is_file() else None
+        for folder in (_output_dir(), _legacy_output_dir()):
+            path = folder / name
+            if path.is_file():
+                return path
+        return None
 
 
 # Module-level singleton — cheap, no state worth pooling

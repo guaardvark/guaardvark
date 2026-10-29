@@ -7,7 +7,7 @@
 #       returns: {filename, image_url, prompt, model, model_name, width, height,
 #                 seed, duration_s, document_id}
 #       Synchronous: waits for the GPU if another render holds it, then blocks
-#       until the PNG is saved under outputs/infographics.
+#       until the PNG is saved under uploads/Images/Infographics.
 #
 #   GET  /api/infographic/view?filename=...
 #       Serves a saved infographic.
