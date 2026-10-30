@@ -154,8 +154,10 @@ def test_a_video_batch_download_leaves_no_temp_file(monkeypatch, tmp_path):
     temp = tmp_path / "temp"
     temp.mkdir()
     monkeypatch.setattr("tempfile.tempdir", str(temp))
+    # The route asks the generator where the batch is now (it may have been moved).
     monkeypatch.setattr(batch_video_generation_api, "get_batch_video_generator",
-                        lambda: SimpleNamespace(base_output_dir=batches))
+                        lambda: SimpleNamespace(base_output_dir=batches,
+                                                _get_batch_dir=lambda batch_id: batches / batch_id))
     client = _client(batch_video_generation_api.batch_video_bp)
 
     response = client.get("/api/batch-video/download/VideoBatch_1")

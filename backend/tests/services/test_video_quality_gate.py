@@ -403,6 +403,7 @@ def registered(monkeypatch):
     """What reached the Documents registration seam, patched where it is read."""
     calls = []
     monkeypatch.setattr("backend.services.output_registration.ensure_subfolder", lambda *a, **k: None)
+    monkeypatch.setattr("backend.services.output_registration.ensure_folder_for_dir", lambda *a, **k: None)
     monkeypatch.setattr("backend.services.output_registration.register_file",
                         lambda **kw: calls.append(Path(kw["physical_path"]).resolve()))
     return calls

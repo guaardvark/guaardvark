@@ -40,6 +40,9 @@ OLD_STILLS_DEFAULTS = {
     "sana": {"width": 1024, "height": 1024, "steps": 2, "guidance": 4.5, "prompt_style": "tags"},
     # Qwen-Image 2.1: the official Comfy-Org template's values; no measured floor yet.
     "qwen-image-21": {"width": 1024, "height": 1024, "steps": 25, "guidance": 1.0, "prompt_style": "natural"},
+    # MOSS-Image and FLUX 3 Klein (distilled): their official templates' values.
+    "moss-image": {"width": 1024, "height": 1024, "steps": 25, "guidance": 2.5, "prompt_style": "natural"},
+    "flux3-klein": {"width": 1024, "height": 1024, "steps": 15, "guidance": 1.0, "prompt_style": "natural"},
 }
 
 OLD_MODEL_SETTINGS = {'epic-realism': {'best_for': ['faces', 'portraits', 'cinematic'],
@@ -81,6 +84,35 @@ OLD_MODEL_SETTINGS = {'epic-realism': {'best_for': ['faces', 'portraits', 'cinem
                        'warnings': ['Runs through ComfyUI 0.37 or newer (needs Comfy up + the Qwen-Image 2.1 weights).',
                                     'Heavy VRAM — batch max_workers forced to 1.',
                                     'Qwen Research License: non-commercial research and evaluation only.']},
+     'moss-image': {'best_for': ['text', 'prompt_adherence', 'high_res'],
+                    'engine': 'comfy',
+                    'force_max_workers': 1,
+                    'guidance_range': (2.5, 6.0),
+                    'hard_clamp': False,
+                    'max_dimensions': (2048, 2048),
+                    'max_pixels': 2097152,
+                    'min_dimensions': (512, 512),
+                    'recommended_dimensions': (1024, 1024),
+                    'recommended_guidance': 2.5,
+                    'recommended_steps': 25,
+                    'steps_range': (12, 50),
+                    'warnings': ['Runs through ComfyUI 0.42 or newer (needs Comfy up + the MOSS-Image weights).',
+                                 'Heavy VRAM — batch max_workers forced to 1.']},
+     'flux3-klein': {'best_for': ['prompt_adherence', 'text', 'high_res'],
+                     'engine': 'comfy',
+                     'force_max_workers': 1,
+                     'guidance_range': (1.0, 1.0),
+                     'hard_clamp': False,
+                     'max_dimensions': (2048, 2048),
+                     'max_pixels': 2097152,
+                     'min_dimensions': (512, 512),
+                     'recommended_dimensions': (1024, 1024),
+                     'recommended_guidance': 1.0,
+                     'recommended_steps': 15,
+                     'steps_range': (4, 16),
+                     'warnings': ['Runs through ComfyUI 0.41 or newer (needs Comfy up + the FLUX 3 Klein weights).',
+                                  'Heavy VRAM — batch max_workers forced to 1.',
+                                  'FLUX Kommunity Licence: commercial use only under US$5M annual revenue.']},
      'krea2-raw': {'best_for': ['creative', 'photorealism', 'versatile', 'high_res', 'mature', 'fine_tune_base'],
                    'guidance_range': (1.0, 7.0),
                    'hard_clamp': False,
@@ -225,7 +257,8 @@ def test_every_model_row_names_a_family_with_a_full_row():
 
 
 def test_the_catalog_models_all_have_a_row():
-    catalog = {"zimage-turbo", "flux-dev", "qwen-image-21", "krea2-turbo", "krea2-raw", "sd-xl", "sdxl-turbo",
+    catalog = {"zimage-turbo", "flux-dev", "qwen-image-21", "moss-image", "flux3-klein", "krea2-turbo",
+               "krea2-raw", "sd-xl", "sdxl-turbo",
                "realistic-vision", "epic-realism", "sana-sprint",
                "sana-sprint-0.6b"}   # OfflineImageGenerator.available_models
     assert catalog <= set(IMAGE_MODEL_LIMITS)
