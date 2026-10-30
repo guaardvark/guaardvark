@@ -52,7 +52,7 @@ import {
   CloudDownload,
 } from '@mui/icons-material';
 
-import { useUnifiedProgress } from '../contexts/UnifiedProgressContext';
+import { useImageProcesses } from '../contexts/UnifiedProgressContext';
 import { useSearchParams } from 'react-router-dom';
 import PageLayout from '../components/layout/PageLayout';
 import CharacterPicker from '../components/filmcrew/CharacterPicker';
@@ -60,6 +60,7 @@ import ImageLightbox from '../components/images/ImageLightbox';
 import BatchHistoryCard from '../components/images/BatchHistoryCard';
 import BatchQueuePanel from '../components/images/BatchQueuePanel';
 import useImageBatchQueue, { POLLABLE_STATUSES, TERMINAL_BATCH_STATUSES } from '../hooks/useImageBatchQueue';
+import DeferredPromptField from '../components/images/DeferredPromptField';
 import PromptTokenCounter from '../components/images/PromptTokenCounter';
 import GpuGateBanner from '../components/common/GpuGateBanner';
 import useJobsGate from '../hooks/useJobsGate';
@@ -94,6 +95,9 @@ import {
   overlayLiveCounts,
 } from '../utils/batchImageQueueWatch';
 import { uiLocale, useUiTranslation } from '../i18n';
+
+// Recent Batches cards drawn at first and per Show more.
+const HISTORY_PAGE = 24;
 
 const ImageModelsModal = lazyWithReload(() => import('../components/modals/ImageModelsModal'));
 
@@ -239,8 +243,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // still apply (pollingRef is cleared on cleanup and must not gate result application).
   const pollingBatchIdRef = useRef(null);
 
-  // Progress system integration
-  const { activeProcesses } = useUnifiedProgress();
+  // Image-generation progress only: other jobs' events do not re-render the page.
+  const imageProcesses = useImageProcesses();
 
   // Style options
   const styleOptions = [
@@ -784,10 +788,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // Monitor progress system for batch updates
   const completionHandledRef = useRef(null);
   useEffect(() => {
-    const batchProcesses = Array.from(activeProcesses.values()).filter(
-      process => (process.processType === 'image_generation' || process.process_type === 'image_generation') &&
-        process.additional_data?.batch_id
-    );
+    const batchProcesses = imageProcesses.filter((process) => process.additional_data?.batch_id);
 
     if (batchProcesses.length > 0 && activeBatch) {
       const batchProcess = batchProcesses.find(
@@ -812,7 +813,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         }
       }
     }
-  }, [activeProcesses, activeBatch?.batch_id, loadBatchById]);
+  }, [imageProcesses, activeBatch?.batch_id, loadBatchById]);
 
   // Every image batch's progress events, not only the open batch's: a finish
   // refreshes Recent Batches and the library, and a batch the queue does not list
@@ -822,14 +823,14 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   useEffect(() => {
     const refresher = galleryRefresherRef.current;
     const { finished, unknown } = imageProcessEvents(
-      activeProcesses.values(), finishedBatchesRef.current, refresher.knownBatchIds(),
+      imageProcesses, finishedBatchesRef.current, refresher.knownBatchIds(),
     );
     finished.forEach((id) => finishedBatchesRef.current.add(id));
     const unread = unknown.filter((id) => !queueReadForRef.current.has(id));
     unread.forEach((id) => queueReadForRef.current.add(id));
     if (finished.length) refresher.schedule({ library: true });
     if (finished.length || unread.length) fetchQueue();
-  }, [activeProcesses, fetchQueue]);
+  }, [imageProcesses, fetchQueue]);
 
   // With no batch open, show the running one live (after a tab switch remounts the
   // page, or when one starts from elsewhere). A ?batch= link picks its own.
@@ -843,10 +844,9 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   }, [queue, activeBatch, searchParams, loadBatchById]);
 
   const liveBatchHistory = useMemo(() => overlayLiveCounts(batchHistory, queue), [batchHistory, queue]);
-
-  const handleBatchItemsChange = (event) => {
-    setBatchItems(event.target.value);
-  };
+  const promptFlushRef = useRef(null);
+  // Recent Batches draws a page of cards at a time; every card loads a preview.
+  const [historyShown, setHistoryShown] = useState(HISTORY_PAGE);
 
   // The exact prompt list that Start Generation submits (single or bulk mode).
   const finalPrompts = useMemo(
@@ -994,6 +994,8 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   };
 
   const startGeneration = async () => {
+    // The prompt box hands its text over after a pause; take what is typed now.
+    const typed = promptFlushRef.current ? promptFlushRef.current() : batchItems;
     setLoading(true);
     setError('');
     setGeneratedImages([]);
@@ -1039,7 +1041,9 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         // builder feeds the Preview dialog, so what is shown is what is sent.
         // No " (i+1)" numbering: the backend keys images by position
         // (prompt_id=prompt_N) and the text encoder read the counter as content.
-        const promptsToGenerate = finalPrompts;
+        const promptsToGenerate = typed === batchItems
+          ? finalPrompts
+          : buildFinalPrompts({ inputMode, batchItems: typed, lookAndFeel, quantity });
         if (promptsToGenerate.length === 0) {
           setError(inputMode === 'single' ? t('imagesBatch.errors.noPrompt') : t('imagesBatch.errors.noPrompts'));
           setLoading(false);
@@ -1050,7 +1054,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
         const uiConfig = {
           inputMode,
-          batchItems,
+          batchItems: typed,
           lookAndFeel,
           negativePrompt,
           quantity,
@@ -1652,13 +1656,14 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                     {t('imagesBatch.single.help')}
                   </Typography>
-                  <TextField
+                  <DeferredPromptField
                     fullWidth
                     multiline
                     rows={8}
                     placeholder={t('imagesBatch.single.placeholder')}
                     value={batchItems}
-                    onChange={handleBatchItemsChange}
+                    onCommit={setBatchItems}
+                    flushRef={promptFlushRef}
                     variant="outlined"
                     sx={{
                       mb: 2,
@@ -1682,13 +1687,14 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                   <Typography variant="subtitle2" sx={{ mb: 2, fontWeight: 500 }}>
                     {t('imagesBatch.bulk.title')}
                   </Typography>
-                  <TextField
+                  <DeferredPromptField
                     fullWidth
                     multiline
                     rows={8}
                     placeholder={t('imagesBatch.bulk.placeholder')}
                     value={batchItems}
-                    onChange={handleBatchItemsChange}
+                    onCommit={setBatchItems}
+                    flushRef={promptFlushRef}
                     variant="outlined"
                     sx={{
                       mb: 2,
@@ -2639,7 +2645,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
 
               <Box sx={{ maxHeight: 520, overflowY: 'auto', pr: 0.5 }}>
                 <Grid container spacing={2}>
-                  {liveBatchHistory.map((batch) => (
+                  {liveBatchHistory.slice(0, historyShown).map((batch) => (
                     <Grid item xs={6} sm={4} md={3} key={batch.batch_id}>
                       <BatchHistoryCard
                         batch={batch}
@@ -2653,6 +2659,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                     </Grid>
                   ))}
                 </Grid>
+                {liveBatchHistory.length > historyShown && (
+                  <Box sx={{ textAlign: 'center', mt: 1.5 }}>
+                    <Button size="small" onClick={() => setHistoryShown((n) => n + HISTORY_PAGE)}>
+                      {t('imagesBatch.history.showMore', { count: Math.min(HISTORY_PAGE, liveBatchHistory.length - historyShown) })}
+                    </Button>
+                  </Box>
+                )}
 
                 {historyError && (
                   <Alert

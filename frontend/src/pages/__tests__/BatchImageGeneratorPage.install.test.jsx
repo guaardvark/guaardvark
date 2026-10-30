@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 
 vi.mock("../../contexts/UnifiedProgressContext", () => ({
   useUnifiedProgress: () => ({ activeProcesses: new Map(), unifiedJobs: new Map(), socketRef: { current: null } }),
+  useImageProcesses: () => [],
 }));
 vi.mock("../../hooks/useJobsGate", () => ({ default: () => ({ gpuBusy: false, blockReason: null }) }));
 vi.mock("../../components/layout/PageLayout", () => ({

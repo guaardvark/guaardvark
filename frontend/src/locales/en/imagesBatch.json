@@ -106,7 +106,8 @@
     "refresh": "Refresh batches",
     "retry": "Retry",
     "loadFailed": "Recent batches could not be loaded: {{reason}}",
-    "empty": "No image batches found"
+    "empty": "No image batches found",
+    "showMore": "Show {{count}} more"
   },
   "messages": {
     "batchFinished": "Batch generation {{status}}",
