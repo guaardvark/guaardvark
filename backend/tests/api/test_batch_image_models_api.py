@@ -30,7 +30,7 @@ def _stub_image_inspect(monkeypatch, *, hf_repo, files, has_model_index=False, u
 
     listed = list(files)
 
-    def fake(_url):
+    def fake(_url, **_kwargs):
         return {
             "hf_repo": hf_repo,
             "revision": "main",
@@ -52,6 +52,19 @@ def _stub_lora_header(monkeypatch, problem):
     """The Z-Image LoRA add check reads the file header from the Hub; keep tests offline."""
     from backend.services import zimage_lora_check
     monkeypatch.setattr(zimage_lora_check, "hf_lora_problem", lambda *_a, **_k: problem)
+
+
+@pytest.fixture(autouse=True)
+def _encoder_headers_offline(monkeypatch):
+    """The add route reads a picked file's header from the Hub; keep tests offline."""
+    monkeypatch.setattr("backend.services.text_encoder_check.hf_tensors", lambda *_a, **_k: None)
+
+
+_T5_HEADER = {"shared.weight": [32128, 4096], "encoder.block.0.layer.0.SelfAttention.q.weight": [4096, 4096]}
+_CLIP_L_HEADER = {
+    "text_model.embeddings.token_embedding.weight": [49408, 768],
+    "text_model.encoder.layers.0.self_attn.q_proj.weight": [768, 768],
+}
 
 
 @pytest.fixture
@@ -122,7 +135,7 @@ def test_user_add_and_delete(client, tmp_path, monkeypatch):
 def test_user_add_ignores_forged_model_index_when_url_inspected(client, monkeypatch):
     from backend.services import user_image_models as uim
 
-    def fake_preview(_url):
+    def fake_preview(_url, **_kwargs):
         return {
             "hf_repo": "x/y",
             "revision": "main",
@@ -420,3 +433,49 @@ def test_download_409_while_thread_still_marked_running(client, monkeypatch):
     finally:
         with api.model_download_lock:
             api.model_download_status["is_downloading"] = False
+
+
+def test_user_add_refuses_a_text_encoder_as_a_flux_model(client, monkeypatch):
+    _stub_image_inspect(monkeypatch, hf_repo="comfyanonymous/flux_text_encoders",
+                        files=[{"src": "t5xxl_fp16.safetensors", "size": 9}])
+    monkeypatch.setattr("backend.services.text_encoder_check.hf_tensors", lambda *_a, **_k: _T5_HEADER)
+    body = {
+        "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/blob/main/t5xxl_fp16.safetensors",
+        "role": "generation", "family": "flux", "files": [{"src": "t5xxl_fp16.safetensors"}], "install": False,
+    }
+    payload = client.post("/api/batch-image/models/user", json=body).get_json()
+    assert payload["success"] is False
+    assert "is a T5-XXL text encoder, not a FLUX.1 model" in payload["error"]["message"]
+
+
+def test_user_add_refuses_an_encoder_in_the_wrong_slot(client, monkeypatch):
+    _stub_image_inspect(monkeypatch, hf_repo="someone/better-clip", files=[{"src": "clip.safetensors", "size": 9}])
+    monkeypatch.setattr("backend.services.text_encoder_check.hf_tensors", lambda *_a, **_k: _CLIP_L_HEADER)
+    body = {
+        "url": "https://huggingface.co/someone/better-clip/blob/main/clip.safetensors",
+        "role": "encoder", "family": "flux", "slot": "t5", "files": [{"src": "clip.safetensors"}], "install": False,
+    }
+    payload = client.post("/api/batch-image/models/user", json=body).get_json()
+    assert payload["success"] is False
+    assert "the T5-XXL slot reads a T5-XXL" in payload["error"]["message"]
+
+
+def test_user_add_encoder_is_listed_with_its_slot(client, monkeypatch):
+    from backend.services import user_image_models as uim
+    _stub_image_inspect(monkeypatch, hf_repo="someone/flan-t5", files=[{"src": "flan.safetensors", "size": 9}])
+    monkeypatch.setattr("backend.services.text_encoder_check.hf_tensors", lambda *_a, **_k: _T5_HEADER)
+    body = {
+        "url": "https://huggingface.co/someone/flan-t5/blob/main/flan.safetensors",
+        "role": "encoder", "family": "flux", "slot": "t5", "files": [{"src": "flan.safetensors"}],
+        "name": "Flan T5", "install": False,
+    }
+    payload = client.post("/api/batch-image/models/user", json=body).get_json()
+    assert payload["success"], payload
+    mid = payload["data"]["id"]
+    try:
+        assert payload["data"]["entry"]["slot"] == "t5"
+        assert payload["data"]["entry"]["files"][0]["dst"] == f"user/{mid}/flan.safetensors"
+        rows = uim.encoder_rows(api.get_batch_image_generator().image_generator)
+        assert [(r["id"], r["slot_label"], r["is_downloaded"]) for r in rows] == [(mid, "T5-XXL", False)]
+    finally:
+        uim.remove_user_model(api.get_batch_image_generator().image_generator, mid)
