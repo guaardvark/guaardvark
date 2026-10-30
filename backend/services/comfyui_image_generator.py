@@ -624,14 +624,9 @@ class ComfyUIImageGenerator:
                     ml = "zimage"
 
         if MOSS_TAG in ml:
-            if lora_names:
-                raise RuntimeError(
-                    "MOSS-Image renders do not take LoRAs yet. Remove the LoRA "
-                    "or pick a FLUX, SDXL or Z-Image model for it."
-                )
             return self._build_moss_workflow(
                 prompt=prompt, negative=negative, width=width, height=height,
-                seed=seed, steps=steps, cfg=cfg,
+                seed=seed, steps=steps, cfg=cfg, lora_names=lora_names,
             )
 
         if QWEN21_TAG in ml:
@@ -1188,7 +1183,7 @@ class ComfyUIImageGenerator:
 
     def _build_moss_workflow(
         self, *, prompt: str, negative: str, width: int, height: int,
-        seed: int, steps: int, cfg: float,
+        seed: int, steps: int, cfg: float, lora_names: list[str] | None = None,
     ) -> dict:
         """The official Comfy-Org MOSS-Image SFT text-to-image graph
         (image_moss_image_t2i) with its prompt enhancer off: UNETLoader +
@@ -1198,7 +1193,9 @@ class ComfyUIImageGenerator:
 
         Steps and cfg default to the template's (25, 2.5) when the caller gives
         none; a value that is given is used as given. Sides snap down to
-        multiples of 16.
+        multiples of 16. LoRAs chain model-only (LoraLoaderModelOnly) between
+        the loader and the sampler; MOSS-Image LoRAs train the transformer, not
+        the Qwen3.5 encoder.
         """
         n = int(steps) if steps and int(steps) > 0 else MOSS_DEFAULT_STEPS
         guidance = float(cfg) if cfg is not None and float(cfg) > 0 else MOSS_DEFAULT_CFG
@@ -1208,11 +1205,21 @@ class ComfyUIImageGenerator:
         # The generic SDXL negative is tag stuffing written for another model;
         # the template's own negative stands in for it.
         neg = MOSS_NEGATIVE if negative in (None, "", DEFAULT_NEGATIVE) else str(negative)
+        model_src = ["unet", 0]
+        loras = {}
+        for i, name in enumerate(lora_names or []):
+            nid = f"lora_{i}"
+            loras[nid] = {
+                "class_type": "LoraLoaderModelOnly",
+                "inputs": {"model": model_src, "lora_name": name, "strength_model": self.lora_strength},
+            }
+            model_src = [nid, 0]
         return {
             "unet": {
                 "class_type": "UNETLoader",
                 "inputs": {"unet_name": self.moss_unet, "weight_dtype": "default"},
             },
+            **loras,
             "clip": {
                 "class_type": "CLIPLoader",
                 "inputs": {"clip_name": MOSS_CLIP, "type": "moss_image"},
@@ -1229,7 +1236,7 @@ class ComfyUIImageGenerator:
                 "inputs": {
                     "seed": seed, "steps": n, "cfg": guidance,
                     "sampler_name": "er_sde", "scheduler": "simple", "denoise": 1.0,
-                    "model": ["unet", 0], "positive": ["positive", 0],
+                    "model": model_src, "positive": ["positive", 0],
                     "negative": ["negative", 0], "latent_image": ["latent", 0],
                 },
             },

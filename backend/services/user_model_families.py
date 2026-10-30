@@ -227,10 +227,10 @@ IMAGE_FAMILIES = (
         "label": "MOSS-Image",
         "engine": "comfy",
         "like": "moss-image",
-        "roles": ("generation",),
+        "roles": ("generation", "lora"),
         "layout": "comfy_files",
         "single_file": True,
-        "lora_engine": None,
+        "lora_engine": "comfy",
         "local_subdir": "diffusion_models",
         "comfy_graph": "moss-image",
         # UNETLoader reads single-file .safetensors. OpenMOSS's own repos are
@@ -1024,8 +1024,8 @@ def match_families(
                 "score": score,
             })
         if not matches and moss_claim:
-            # A MOSS-Image LoRA or text encoder: no graph here takes one, and
-            # the Z-Image LoRA default below would file it under the wrong model.
+            # A MOSS-Image text encoder: no graph here takes a replacement, and
+            # the Z-Image defaults below would file it under the wrong model.
             return [{
                 "family": "moss-image",
                 "label": "MOSS-Image",
@@ -1033,8 +1033,8 @@ def match_families(
                 "like": None,
                 "wired": False,
                 "confidence": "high",
-                "reason": "MOSS-Image LoRAs and text encoders are not wired yet; the MOSS-Image "
-                          "text encoder installs with the model in Manage Image Models.",
+                "reason": "MOSS-Image text encoders are not wired yet; the MOSS-Image text "
+                          "encoder installs with the model in Manage Image Models.",
                 "moe": False,
                 "engine": None,
             }]
