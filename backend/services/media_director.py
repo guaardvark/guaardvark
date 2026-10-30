@@ -168,6 +168,29 @@ def _parse_image_prompts(content: str, n: int) -> List[str]:
             return [data["prompt"].strip()]
     return []
 
+# Media a prompt can name for itself. Chat and the Studio send style "realistic"
+# when nobody picked one; a prompt that asks for a poster, a painting or anime is
+# rewritten as that medium, not as a photograph ("a vintage travel poster" came
+# back as "A realistic travel poster" and rendered as a photo).
+_NAMED_MEDIUM = re.compile(
+    r"\b(poster|illustration|illustrated|painting|painted|watercolou?r|gouache|acrylic|"
+    r"sketch|drawing|drawn|pencil|charcoal|ink|anime|manga|cartoon|comic|pixel art|vector|"
+    r"flat design|3d render|low[- ]poly|infographic|logo|icon|sticker|storybook|claymation|"
+    r"stained glass|mosaic|woodcut|linocut|ukiyo-e|cel[- ]shaded|art deco|risograph|screen ?print)s?\b",
+    re.IGNORECASE,
+)
+
+
+def _style_for(prompts: List[str], style: str) -> str:
+    """The style the rewrite honours: none when it is the unchosen "realistic"
+    and every prompt names its own medium."""
+    if (style or "").strip().lower() == "realistic" and prompts and all(
+        _NAMED_MEDIUM.search(p or "") for p in prompts
+    ):
+        return ""
+    return style
+
+
 def _style_clause(style: Optional[str]) -> str:
     style = (style or "").strip()
     return f"\nGlobal visual style/aesthetic to honor: {style}." if style else ""
@@ -265,6 +288,7 @@ def enhance_prompts(
         log.info("media_director: verbatim prompts ON — sending user prompts to the model as-is (no director rewrite)")
         return list(prompts)
     n = len(prompts)
+    style = _style_for(list(prompts), style)
     prose = (prompt_style or "").lower() == "natural"
     chunk_size = DIRECTOR_BATCH_SIZE if prose else n
     if chunk_size < n:
