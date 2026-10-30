@@ -47,6 +47,15 @@ PLUGIN_ID = "comfyui"
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PLUGIN_ROOT = _REPO_ROOT / "plugins" / "comfyui"
 DEFAULT_PYTHON = _REPO_ROOT / "backend" / "venv" / "bin" / "python"
+
+
+def comfyui_python(plugin_root: Optional[Path] = None) -> Path:
+    """The Python ComfyUI runs from, the one start.sh picks: the plugin's own
+    venv when GUAARDVARK_COMFYUI_OWN_VENV=1 and it is built, else the backend's."""
+    own = Path(plugin_root or DEFAULT_PLUGIN_ROOT) / "venv" / "bin" / "python"
+    if os.environ.get("GUAARDVARK_COMFYUI_OWN_VENV") == "1" and own.is_file():
+        return own
+    return DEFAULT_PYTHON
 RELEASES_FILE = "releases.json"
 LIVE_DIR = "ComfyUI"
 NEXT_DIR = "ComfyUI.next"
@@ -340,7 +349,7 @@ class ComfyUIUpdateService:
         pip_timeout_s: float = 1800.0,
     ):
         self.plugin_root = Path(plugin_root) if plugin_root else DEFAULT_PLUGIN_ROOT
-        self.python = Path(python) if python else DEFAULT_PYTHON
+        self.python = Path(python) if python else comfyui_python(plugin_root)
         self._controller = controller
         self._base_url = base_url
         self.runner = runner

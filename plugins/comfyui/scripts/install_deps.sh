@@ -1,7 +1,7 @@
 #!/bin/bash
-# Install ComfyUI core + custom-node Python deps into backend/venv.
-#
-# ComfyUI has NO separate plugin venv — it shares backend/venv/bin/python.
+# Install ComfyUI core + custom-node Python deps into the venv ComfyUI runs from:
+# backend/venv by default, or plugins/comfyui/venv when GUAARDVARK_COMFYUI_OWN_VENV=1
+# (start.sh and setup_venv.sh pass it as VENV_PYTHON).
 # Called from plugins/comfyui/scripts/start.sh on every start, and from
 # scripts/heal_backend_venv.sh after a venv rebuild/restore.
 #
