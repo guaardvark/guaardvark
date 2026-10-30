@@ -76,19 +76,37 @@ def prompt_style_for_model(model: str | None) -> str:
         return "tags"
 
 
+def _comfy_prose_model(model: str | None) -> bool:
+    """A ComfyUI family that reads prose and samples with real guidance
+    (MOSS-Image, Qwen-Image 2.1). The base and style negatives are tag lists
+    written for SD-era models; such a model reads them as content to avoid,
+    "text" and "illustration" included, so it gets the person's own negative
+    and otherwise its template's."""
+    if not model or model == "auto":
+        return False
+    try:
+        from backend.services.image_render_limits import limits_for
+        lim = limits_for(model)
+    except Exception:
+        return False
+    return lim.get("engine") == "comfy" and lim.get("prompt_style") == "natural"
+
+
 def resolve_stills_negative(
     user_negative: str | None = "",
     *,
     enhance_mode: EnhanceMode = "offline",
     style: str = "realistic",
+    model: str | None = None,
 ) -> str:
     """Single negative policy.
 
     - enhance ``none`` (incl. verbatim): user negative only (may be empty)
+    - a ComfyUI prose model (``_comfy_prose_model``): user negative only
     - offline/director: user + base quality + style negatives (deduped lightly)
     """
     user = (user_negative or "").strip()
-    if enhance_mode == "none":
+    if enhance_mode == "none" or _comfy_prose_model(model):
         return user
 
     parts: list[str] = []

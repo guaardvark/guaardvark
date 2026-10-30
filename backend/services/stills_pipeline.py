@@ -252,7 +252,7 @@ def run_stills_pipeline(
     # A director request still attaches the base quality negatives (not empty).
     neg = resolve_stills_negative(
         negative_prompt, enhance_mode="offline" if enhance_mode == "director" else enhance_mode,
-        style=style,
+        style=style, model=model_id,
     )
 
     results: list[StillResult] = []
