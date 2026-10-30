@@ -331,6 +331,10 @@
         "standard": "Official ComfyUI template (25 steps, cfg 1)",
         "high": "Official pipeline range (40-50 steps), slower"
       },
+      "mossImage": {
+        "standard": "Official ComfyUI template (25 steps, cfg 2.5)",
+        "high": "Official settings from the model's guide (50 steps, cfg 3), slower"
+      },
       "sdxl": {
         "fast": "Quick SDXL",
         "standard": "Balanced SDXL",

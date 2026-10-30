@@ -386,6 +386,8 @@ class OfflineImageGenerator:
             "flux-dev": "comfy:flux-dev",
             # Qwen-Image 2.1 — text-to-image via ComfyUI 0.37+; same sentinel shape.
             "qwen-image-21": "comfy:qwen-image-21",
+            # MOSS-Image — text-to-image via ComfyUI 0.42+; same sentinel shape.
+            "moss-image": "comfy:moss-image",
             # ComfyUI generic backend — chat/batch route to the reachable ComfyUI
             # and pick whichever image engine is installed (Z-Image / FLUX).
             "comfyui": "comfy:comfyui",
@@ -403,7 +405,7 @@ class OfflineImageGenerator:
         # get_available_models() and model_recommender still honour it.
         self.hidden_models: set[str] = set()
         # Offline Diffusers cannot load these — batch/API must route to ComfyUI.
-        self.comfy_only_models = {"flux-dev", "qwen-image-21", "comfyui"}
+        self.comfy_only_models = {"flux-dev", "qwen-image-21", "moss-image", "comfyui"}
         # User-added entries (backend/services/user_image_models.py): family by id
         # or repo, file-kind entries keyed by their "user:<id>" sentinel, and the
         # catalog rows themselves. Filled by load_user_catalog() below.
@@ -416,6 +418,7 @@ class OfflineImageGenerator:
             "zimage-turbo": {"label": "Z-Image Turbo (Best daily)", "description": "Strong prompt adherence + text, fast (~9 steps / CFG 0). Default daily driver.", "recommended": True, "order": 0},
             "flux-dev": {"label": "FLUX.1 Dev (Max quality)", "description": "Highest ceiling stills via ComfyUI (~28 steps, FluxGuidance). Slower; needs Comfy + flux1-dev weights.", "recommended": False, "order": 1, "engine": "comfy"},
             "qwen-image-21": {"label": "Qwen-Image 2.1 (ComfyUI)", "description": "Prose prompts, native 2K, transparent renders; 25 steps, cfg 1 (official template). Needs ComfyUI 0.37+. Qwen Research License: non-commercial research and evaluation only.", "recommended": False, "order": 1, "engine": "comfy"},
+            "moss-image": {"label": "MOSS-Image (ComfyUI)", "description": "Exact lettering in English and Chinese, posters and layouts from long prose prompts; 25 steps, cfg 2.5 (official template). Needs ComfyUI 0.42+. Apache 2.0.", "recommended": False, "order": 1, "engine": "comfy"},
             "comfyui": {"label": "ComfyUI (auto backend)", "description": "Routes image generation to the running ComfyUI plugin and picks the installed engine (Z-Image or FLUX).", "recommended": False, "order": 1, "engine": "comfy"},
             "krea2-turbo": {"label": "Krea 2 Turbo", "description": "12B aesthetic-first model, native 2K, 8 steps CFG-free. Fast inference.", "recommended": False, "order": 2},
             "krea2-raw": {"label": "Krea 2 Raw", "description": "Base 12B checkpoint — less post-trained than Turbo (~52 steps, CFG 3.5). Use for mature/creative prompts or LoRA base.", "recommended": False, "order": 3},
@@ -995,6 +998,8 @@ class OfflineImageGenerator:
             return "zimage"
         if "qwen-image-21" in mid or key.startswith("qwen-image-21"):
             return "qwen-image-21"
+        if "moss-image" in mid or key.startswith("moss-image"):
+            return "moss-image"
         if "flux" in mid or key.startswith("flux"):
             return "flux"
         if "sana" in mid or key.startswith("sana"):
@@ -4237,6 +4242,7 @@ Negative Prompt: {negative_prompt}""",
                     "28-36GB" if "krea" in model_id.lower()
                     else "23GB+Comfy" if "flux" in model_key or "flux" in model_id.lower()
                     else "17GB+Comfy" if "qwen-image-21" in model_key
+                    else "13GB+Comfy" if "moss-image" in model_key
                     else "16GB" if "z-image" in model_id.lower() or "zimage" in model_key
                     else "Comfy backend" if model_key == "comfyui"
                     else "12-15GB" if "xl" in model_id.lower()

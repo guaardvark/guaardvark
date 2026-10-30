@@ -19,6 +19,9 @@ export function modelFamily(model) {
   // the substring families so a slug cannot pull the id elsewhere; the editing
   // model `qwen-image-edit` does not contain this token and is unaffected.
   if (m.includes('qwen-image-21')) return 'qwen-image-21';
+  // Shipped `moss-image` and user `user-moss-image-<slug>`; tested before FLUX
+  // because a MOSS repack can carry the FLUX.2 VAE's name.
+  if (m.includes('moss-image')) return 'moss-image';
   if (m.includes('flux')) return 'flux';
   if (m.includes('zimage') || m.includes('z-image')) return 'zimage';
   if (m.includes('krea')) return m.includes('raw') ? 'krea-raw' : 'krea-turbo';
@@ -56,7 +59,7 @@ export function promptStyleFor(model, modelOptions = [], autoPromptStyle = null)
   const opt = (modelOptions || []).find((o) => o.value === m);
   if (opt?.promptStyle) return opt.promptStyle;
   const fam = modelFamily(m);
-  return fam === 'zimage' || fam === 'qwen-image-21' ? 'natural' : 'tags';
+  return fam === 'zimage' || fam === 'qwen-image-21' || fam === 'moss-image' ? 'natural' : 'tags';
 }
 
 // Qwen-Image 2.1 guidance range. The official ComfyUI template
@@ -66,6 +69,11 @@ export function promptStyleFor(model, modelOptions = [], autoPromptStyle = null)
 // compared at 1024x1024 with a negative prompt, cfg 3 and 5 render clean and
 // cfg 9 crushes the shadows to black.
 export const QWEN_IMAGE_21_GUIDANCE_MAX = 5;
+
+// MOSS-Image guidance range: the model's user guide gives cfg 3.0-6.0, the
+// official ComfyUI template runs 2.5. The slider stops at 6, the upper end of
+// the registry's cfg_range for moss-image (media_model_registry.IMAGE_MODEL_LIMITS).
+export const MOSS_IMAGE_GUIDANCE_MAX = 6;
 
 export const ZIMAGE_STEPS = 9;
 export const ZIMAGE_GUIDANCE = 0;
@@ -123,6 +131,13 @@ const PRESETS_BY_FAMILY = {
     { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 25, guidance: 1.0, get description() { return translate('options.imagePresets.descriptions.qwenImage21.standard'); } },
     { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 40, guidance: 1.0, get description() { return translate('options.imagePresets.descriptions.qwenImage21.high'); } },
   ],
+  // MOSS-Image numbers come from the official ComfyUI template
+  // (image_moss_image_t2i.json: 25 steps, cfg 2.5, er_sde/simple) and the
+  // model's user guide (50 steps, cfg 3.0).
+  'moss-image': [
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 25, guidance: 2.5, get description() { return translate('options.imagePresets.descriptions.mossImage.standard'); } },
+    { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 50, guidance: 3.0, get description() { return translate('options.imagePresets.descriptions.mossImage.high'); } },
+  ],
   sdxl: [
     { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 20, guidance: 6.0, get description() { return translate('options.imagePresets.descriptions.sdxl.fast'); } },
     { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 25, guidance: 7.0, get description() { return translate('options.imagePresets.descriptions.sdxl.standard'); } },
@@ -150,6 +165,7 @@ const DEFAULT_PRESET_BY_FAMILY = {
   'sdxl-turbo': 'standard',
   sana: 'standard',
   'qwen-image-21': 'standard',
+  'moss-image': 'standard',
   sdxl: 'standard',
   sd: 'standard',
 };

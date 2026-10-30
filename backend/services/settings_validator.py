@@ -59,6 +59,11 @@ _MODEL_NOTES = {
                           "Heavy VRAM — batch max_workers forced to 1.",
                           "Qwen Research License: non-commercial research and evaluation only.",
                       ]},
+    "moss-image": {"best_for": ["text", "prompt_adherence", "high_res"],
+                   "warnings": [
+                       "Runs through ComfyUI 0.42 or newer (needs Comfy up + the MOSS-Image weights).",
+                       "Heavy VRAM — batch max_workers forced to 1.",
+                   ]},
     "sana-sprint": {"best_for": ["speed", "previews", "high_res", "low_vram"],
                     "warnings": ["Ignores negative prompts."]},
     "sana-sprint-0.6b": {"best_for": ["speed", "previews", "low_vram"],

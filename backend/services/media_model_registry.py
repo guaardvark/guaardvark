@@ -242,6 +242,17 @@ IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
         "prompt_style": "natural", "engine": "comfy",
         "vram_mb": _registry_vram_mb("qwen-image-21", 9500), "ram_gb": 16.0,
     },
+    # MOSS-Image through ComfyUI. Canvas, steps and cfg are the official
+    # Comfy-Org template's (image_moss_image_t2i: 1024x1024, 25 steps, cfg 2.5,
+    # er_sde/simple); the model's user guide recommends 1 to 2 MP and sides in
+    # multiples of 16. vram_mb is the registry entry's figure.
+    # prompt_style "natural": a Qwen3.5 encoder reads prompts as prose.
+    "moss-image": {
+        "max_side": 2048, "max_pixel_area": 2048 * 1024, "min_side": 512, "dimension_alignment": 16,
+        "width": 1024, "height": 1024, "default_steps": 25, "cfg_when_unset": 2.5,
+        "prompt_style": "natural", "engine": "comfy",
+        "vram_mb": _registry_vram_mb("moss-image", 9500), "ram_gb": 16.0,
+    },
     # SDXL loads whole onto cards of 10 GB and up (vram_mb 8000: ~6.9 GB of fp16
     # weights plus the working set). Below that it runs with CPU model offload,
     # one component on the card at a time. vram_mb_offload measured 2026-10-07 on
@@ -302,6 +313,10 @@ IMAGE_MODEL_LIMITS: dict[str, dict[str, Any]] = {
     # still wins, so the range is not hard-clamped.
     "qwen-image-21": {"family": "qwen-image-21", "steps_range": (10, 50), "cfg_range": (1.0, 5.0),
                       "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
+    # The official settings: 50 steps at cfg 3.0 (user guide, Base), 25 at 2.5
+    # (Comfy templates); the guide's cfg range is 3.0-6.0 for short prompts.
+    "moss-image": {"family": "moss-image", "steps_range": (20, 50), "cfg_range": (2.0, 6.0),
+                   "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
     # SDXL: guidance above 9 renders black images, so its range is enforced.
     "sd-xl": {"family": "sdxl", "steps_range": (20, 40), "cfg_range": (4.0, 9.0),
               "min_dimensions": (768, 768)},

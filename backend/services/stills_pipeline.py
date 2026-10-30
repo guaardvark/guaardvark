@@ -570,7 +570,7 @@ def _generate_comfy_flux(
 ) -> StillResult:
     # The caller's model tag chooses the graph (upstream #218): "flux" + "dev" is
     # the FLUX-dev graph, plain "flux" the schnell GGUF branch, "qwen-image-21"
-    # the Qwen-Image 2.1 graph. The generic ``comfyui`` selector passes the
+    # the Qwen-Image 2.1 graph, "moss-image" the MOSS-Image graph. The generic ``comfyui`` selector passes the
     # engine it resolved via ``comfy_model`` so dispatch matches the family
     # defaults it was resolved from. A user-added model resolves to its family's
     # graph with its own UNET file.
@@ -581,6 +581,8 @@ def _generate_comfy_flux(
         model_tag = target["tag"]
         if target["family"] == "qwen-image-21":
             unet_kwargs["qwen21_unet"] = target["unet"]
+        elif target["family"] == "moss-image":
+            unet_kwargs["moss_unet"] = target["unet"]
         elif model_tag == "flux-schnell":
             unet_kwargs["flux_unet"] = target["unet"]
         else:
@@ -682,7 +684,7 @@ def _comfy_admission_mb(model_tag: str | None) -> int | None:
     without a claim."""
     from backend.services.user_model_families import comfy_t2i_family
     family = comfy_t2i_family(model_tag)
-    if family != "qwen-image-21":
+    if family not in ("qwen-image-21", "moss-image"):
         return None
     from backend.services.video_model_registry import vram_mb_for_model
     return int(vram_mb_for_model(family))
