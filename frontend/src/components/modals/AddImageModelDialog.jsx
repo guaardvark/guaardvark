@@ -1,7 +1,7 @@
 // Add a Hugging Face image model, LoRA or text encoder to the user image catalog,
 // then Install. Role is required: a new generation model of a shipped family (a
-// diffusers repo, a single SD / SDXL checkpoint, or a FLUX or Qwen-Image 2.1
-// UNET), a LoRA stacked on one, or a text encoder that stands in for one a family
+// diffusers repo, a single SD / SDXL checkpoint, or a FLUX, Qwen-Image 2.1 or
+// MOSS-Image UNET), a LoRA stacked on one, or a text encoder that stands in for one a family
 // ships with, in a slot its family declares (FLUX: T5-XXL or CLIP-L). Look up
 // reads each file's header, so the list says what each file is.
 

@@ -68,6 +68,7 @@ import { handleResponse } from '../api/apiClient';
 import { ActionButton, Hint, SettingChip } from '../components/settings/ui';
 import {
   QWEN_IMAGE_21_GUIDANCE_MAX,
+  MOSS_IMAGE_GUIDANCE_MAX,
   ZIMAGE_GUIDANCE,
   ZIMAGE_PRESET_STEPS,
   ZIMAGE_STEPS,
@@ -346,9 +347,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   // Quality presets — family-aware (see utils/batchImageSettings for the tables).
   const isFlux = family === 'flux';
   const isQwenImage21 = family === 'qwen-image-21';
+  const isMossImage = family === 'moss-image';
   // Stills rendered by a ComfyUI graph: one picture at a time, 1K native, and a
   // guidance scale that is not SD-era CFG.
-  const comfyStills = isFlux || isQwenImage21;
+  const comfyStills = isFlux || isQwenImage21 || isMossImage;
   const isZimage = isZimageModel(params.model);
   const unusedNegAnat = ignoresNegativeAndAnatomy(params.model);
   // A prose model (Z-Image, and Auto while it resolves to one) reads tag
@@ -371,7 +373,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const oneAtATime = generatorDevice === 'cuda' || comfyStills;
   const effectiveWorkers = oneAtATime ? 1 : params.max_workers;
   const oneAtATimeNote = comfyStills && generatorDevice !== 'cuda'
-    ? t('imagesBatch.workers.oneAtATimeModel', { model: isFlux ? 'FLUX' : 'Qwen-Image 2.1' })
+    ? t('imagesBatch.workers.oneAtATimeModel', { model: isFlux ? 'FLUX' : isMossImage ? 'MOSS-Image' : 'Qwen-Image 2.1' })
     : t('imagesBatch.workers.oneAtATimeGpu');
 
   // Generating never downloads a model. A picked model that is not installed
@@ -435,12 +437,20 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     { label: t('imagesBatch.dimensions.qwenTall', { width: 1152, height: 2048 }), width: 1152, height: 2048, pack: 'qwen2k' },
     { label: t('imagesBatch.dimensions.qwenLandscape', { width: 2048, height: 1376 }), width: 2048, height: 1376, pack: 'qwen2k' },
     { label: t('imagesBatch.dimensions.qwenPortrait', { width: 1376, height: 2048 }), width: 1376, height: 2048, pack: 'qwen2k' },
+    // MOSS-Image 2 MP pack: the model's user guide recommends 1 to 2 MP and
+    // sides in multiples of 16 (media_model_registry, moss-image family row).
+    { label: t('imagesBatch.dimensions.mossSquare', { width: 1408, height: 1408 }), width: 1408, height: 1408, pack: 'moss2mp' },
+    { label: t('imagesBatch.dimensions.mossWide', { width: 1920, height: 1088 }), width: 1920, height: 1088, pack: 'moss2mp' },
+    { label: t('imagesBatch.dimensions.mossTall', { width: 1088, height: 1920 }), width: 1088, height: 1920, pack: 'moss2mp' },
+    { label: t('imagesBatch.dimensions.mossLandscape', { width: 1728, height: 1152 }), width: 1728, height: 1152, pack: 'moss2mp' },
+    { label: t('imagesBatch.dimensions.mossPortrait', { width: 1152, height: 1728 }), width: 1152, height: 1728, pack: 'moss2mp' },
   ];
 
   const dimensionPresetsForModel = (modelValue) => {
     const fam = modelFamily(modelValue);
     const flux = fam === 'flux';
     const qwen = fam === 'qwen-image-21';
+    const moss = fam === 'moss-image';
     const modernDit = fam === 'auto' || fam === 'zimage' || fam.startsWith('krea');
     const legacySd = fam === 'sd';
     return dimensionPresetsBase.filter((p) => {
@@ -450,6 +460,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
       if (p.pack === '2k') return modernDit && !flux;
       if (p.pack === 'flux2mp') return flux;
       if (p.pack === 'qwen2k') return qwen;
+      if (p.pack === 'moss2mp') return moss;
       return true;
     });
   };
@@ -922,7 +933,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         newParams.steps = ZIMAGE_PRESET_STEPS[presetValue] ?? ZIMAGE_STEPS;
         newParams.guidance = ZIMAGE_GUIDANCE;
       }
-      if (fam === 'flux' || fam === 'qwen-image-21') {
+      if (fam === 'flux' || fam === 'qwen-image-21' || fam === 'moss-image') {
         newParams.max_workers = 1; // VRAM safety — heavy Comfy graph
       }
       // The explicit High 2K preset is the only thing that puts the canvas at 2048².
@@ -2277,7 +2288,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                             value={isZimage ? ZIMAGE_GUIDANCE : params.guidance}
                             onChange={(e, value) => setParams({ ...params, guidance: value })}
                             min={0}
-                            max={isFlux ? 6 : isQwenImage21 ? QWEN_IMAGE_21_GUIDANCE_MAX : 20}
+                            max={isFlux ? 6 : isQwenImage21 ? QWEN_IMAGE_21_GUIDANCE_MAX : isMossImage ? MOSS_IMAGE_GUIDANCE_MAX : 20}
                             step={0.5}
                             marks
                             disabled={isZimage || castLocked}
@@ -2295,6 +2306,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           {isQwenImage21 && !castLocked && (
                             <Typography variant="caption" color="text.secondary">
                               {t('imagesBatch.guidance.qwenHelp')}
+                            </Typography>
+                          )}
+                          {isMossImage && !castLocked && (
+                            <Typography variant="caption" color="text.secondary">
+                              {t('imagesBatch.guidance.mossHelp')}
                             </Typography>
                           )}
                           {family === 'auto' && (

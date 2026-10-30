@@ -78,6 +78,11 @@
     "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "MOSS 2 MP square ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "Dimensions",
     "custom": "Custom ({{width}}x{{height}})",
     "highResWarning": "High-res (>1MP): more VRAM; may OOM on 16GB cards."
@@ -258,6 +263,7 @@
     "scale": "Guidance Scale: {{guidance}}",
     "zimageHelp": "Z-Image runs CFG-free — guidance is fixed at 0. Use Steps for quality.",
     "qwenHelp": "Qwen-Image 2.1 runs at guidance 1 on the official path. Raise it only together with a negative prompt.",
+    "mossHelp": "MOSS-Image runs at guidance 2.5 on the official template; its guide uses 3 to 6 for short prompts.",
     "autoHelp": "Auto routes per prompt. The usual pick (Z-Image) is CFG-free — keep 0 unless you expect an SDXL route."
   },
   "seed": {
