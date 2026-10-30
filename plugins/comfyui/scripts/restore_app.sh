@@ -66,11 +66,17 @@ else
   info "Merging app into $COMFYUI_DIR (preserving models/, custom_nodes/, user/)..."
 fi
 
-# Pin to a release tag. LTX-2.5 needs ≥ 0.32.0 (LTXVDualCFGGuider + DiffVAE).
-# Override with COMFYUI_REF=v0.31.1 (or empty string for unpinned HEAD) only
-# if you are deliberately staying off 2.5.
-#   COMFYUI_REF=v0.32.0 bash plugins/comfyui/scripts/restore_app.sh
-COMFYUI_REF="${COMFYUI_REF-v0.32.0}"
+# Pin to the release the plugin's Update action targets ("target" in
+# plugins/comfyui/releases.json), so a restored tree and an updated one are the
+# same ComfyUI. Override with COMFYUI_REF=<tag> (or an empty string for
+# unpinned HEAD):
+#   COMFYUI_REF=v0.43.0 bash plugins/comfyui/scripts/restore_app.sh
+RELEASE_TARGET="$(sed -n 's/^ *"target": *"\([^"]*\)".*/\1/p' "$PLUGIN_ROOT/releases.json" 2>/dev/null | head -n 1)"
+if [ -z "$RELEASE_TARGET" ] && [ -z "${COMFYUI_REF+x}" ]; then
+  err "No \"target\" in $PLUGIN_ROOT/releases.json; set COMFYUI_REF=<tag> to choose a release."
+  exit 1
+fi
+COMFYUI_REF="${COMFYUI_REF-$RELEASE_TARGET}"
 if [ -n "$COMFYUI_REF" ]; then
   info "Checking out COMFYUI_REF=$COMFYUI_REF in temp clone..."
   git -C "$TMP_DIR/ComfyUI" fetch --tags --depth 1 origin "refs/tags/$COMFYUI_REF:refs/tags/$COMFYUI_REF" 2>/dev/null \

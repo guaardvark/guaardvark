@@ -1,9 +1,22 @@
 {
   "repo": "https://github.com/Comfy-Org/ComfyUI",
-  "target": "v0.39.0",
+  "target": "v0.43.0",
   "min_free_gb": 2,
   "state_dirs": ["models", "custom_nodes", "user", "input", "output", "temp"],
   "releases": {
+    "v0.43.0": {
+      "version": "0.43.0",
+      "commit": "426f5eea52a7ece1dd599fff4cb6cd1f352ddd24",
+      "packages": {
+        "comfyui-frontend-package": "1.57.4",
+        "comfyui-workflow-templates": "0.11.97",
+        "comfyui-embedded-docs": "0.5.15",
+        "comfy-kitchen": "0.2.40",
+        "comfy-aimdo": "0.6.0"
+      },
+      "post_start_nodes": ["TextEncodeQwenImage21", "QwenImage21Cache", "MOSSImageLayoutPrompt", "EmptyFlux2LatentImage", "SkipLayerGuidanceDiTSimple"],
+      "notes": "Measured: the 16 regression paths (Z-Image, FLUX.1-dev, Krea 2, Qwen-Image 2.1, Qwen-Image-Edit, Wan 2.2 5B and 14B GGUF, MiniMax H3) render as they did on 0.39.0, on a 16 GB card with torch 2.6 and comfy-kitchen 0.2.40 after start.sh's torch<2.7 rewrite. Carries MOSS-Image (added in 0.42.0) and FLUX 3 Image Klein (added in 0.41.0)."
+    },
     "v0.39.0": {
       "version": "0.39.0",
       "commit": "b0b743566f65daafc423b4fea8a2fbda94b3384a",
