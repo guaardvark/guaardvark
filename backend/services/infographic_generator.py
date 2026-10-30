@@ -33,11 +33,12 @@ logger = logging.getLogger(__name__)
 # fresh install can render with. Qwen-Image 2.1 is offered but never picked by
 # default: its licence is non-commercial. MOSS-Image, measured 2026-10-30 with the
 # same specs, seeds and reader: 78/78 and 9 of 9 posters clean (the reader returned
-# nothing for one poster, read by eye), Apache 2.0; offered, not yet a default.
+# nothing for one poster, read by eye), Apache 2.0, so when installed it is picked
+# ahead of Z-Image.
 INFOGRAPHIC_MODELS: List[Dict[str, Any]] = [
     {"id": "krea2-turbo", "default": True},
+    {"id": "moss-image", "default": True},
     {"id": "zimage-turbo", "default": True},
-    {"id": "moss-image", "default": False},
     {"id": "qwen-image-21", "default": False,
      "license_note": "Qwen Research License: non-commercial use only."},
 ]
