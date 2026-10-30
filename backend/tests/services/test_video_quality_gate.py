@@ -157,6 +157,8 @@ def _run_one(tmp_path, monkeypatch, source, **request_fields):
     gen.cancel_events = {"b1": threading.Event()}
     gen.batch_lock = threading.Lock()
     gen.active_batches = {}
+    # Clip registration asks _get_batch_dir where the batch is, which reads this.
+    gen.base_output_dir = tmp_path
     batch_dir = tmp_path / "batch"
     request = bvg.BatchVideoRequest(
         batch_id="b1", items=[bvg.BatchVideoItem(id="item1", prompt="a fox")], output_dir=str(batch_dir),
