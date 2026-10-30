@@ -331,6 +331,11 @@
         "standard": "Offizielles ComfyUI-Template (25 Schritte, cfg 1)",
         "high": "Offizielle Pipeline-Spanne (40-50 Schritte), langsamer"
       },
+      "mossImage": {
+        "fast": "Weniger Schritte (16), Beschriftung weiterhin präzise",
+        "standard": "Offizielles ComfyUI-Template (25 Schritte, cfg 2.5)",
+        "high": "Offizielle Einstellungen aus dem Modell-Guide (50 Schritte, cfg 3), langsamer"
+      },
       "sdxl": {
         "fast": "Schnelles SDXL",
         "standard": "Ausgewogenes SDXL",

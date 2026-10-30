@@ -51,12 +51,12 @@
     "addAndInstall": "Toevoegen en installeren"
   },
   "addImageModel": {
-    "hint": "Plak een Hugging Face URL of org/repo. Een diffusers-repo installeert alles; een enkele .safetensors is een checkpoint (SD, SDXL) of een LoRA. FLUX en Qwen-Image 2.1 modellen zijn één UNET in ComfyUI, en FLUX accepteert ook een vervangende T5-XXL of CLIP-L tekstencoder.",
+    "hint": "Plak een Hugging Face URL of org/repo. Een diffusers-repo installeert alles; een enkele .safetensors is een checkpoint (SD, SDXL) of een LoRA. FLUX, Qwen-Image 2.1 en MOSS-Image modellen zijn één UNET in ComfyUI, en FLUX accepteert ook een vervangende T5-XXL of CLIP-L tekstencoder.",
     "diffusersRepo": "diffusers repo",
     "filesOnly": "alleen bestanden",
     "family": "Familie",
     "noLoraFamily": "Geen familie in deze lijst die LoRA stapelt.",
-    "noWiredFamily": "Geen wired familie past bij deze repo. Plak een checkpoint, een FLUX of Qwen-Image 2.1 UNET, of een diffusers repo die dit product al uitvoert.",
+    "noWiredFamily": "Geen wired-familie past bij dit repo. Plak een checkpoint, een FLUX, Qwen-Image 2.1 of MOSS-Image UNET, of een diffusers-repo die dit product al ondersteunt.",
     "wholeRepo": "Installeert de hele repo, op dezelfde manier als de meegeleverde modellen.",
     "familyFallback": "familie",
     "roleEncoder": "Tekstencoder",

@@ -329,6 +329,11 @@
         "standard": "공식 ComfyUI 템플릿 (25단계, cfg 1)",
         "high": "공식 파이프라인 범위 (40-50단계), 더 느림"
       },
+      "mossImage": {
+        "fast": "적은 단계 (16), 정확한 텍스트 표현",
+        "standard": "공식 ComfyUI 템플릿 (25 단계, cfg 2.5)",
+        "high": "모델 가이드의 공식 설정 (50 단계, cfg 3), 느림"
+      },
       "sdxl": {
         "fast": "빠른 SDXL",
         "standard": "균형 잡힌 SDXL",

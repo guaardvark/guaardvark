@@ -78,6 +78,11 @@
     "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "quadrado MOSS 2 MP ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "Dimensões",
     "custom": "Personalizado ({{width}}x{{height}})",
     "highResWarning": "Alta resolução (>1MP): mais VRAM; pode ocorrer OOM em placas de 16GB."
@@ -106,7 +111,8 @@
     "refresh": "Atualizar lotes",
     "retry": "Tentar novamente",
     "loadFailed": "Lotes recentes não puderam ser carregados: {{reason}}",
-    "empty": "Nenhum lote de imagens encontrado"
+    "empty": "Nenhum lote de imagens encontrado",
+    "showMore": "Mostrar mais {{count}}"
   },
   "messages": {
     "batchFinished": "Geração de lote {{status}}",
@@ -258,6 +264,7 @@
     "scale": "Escala de Guidance: {{guidance}}",
     "zimageHelp": "Z-Image roda sem CFG — o guidance é fixo em 0. Use Steps para a qualidade.",
     "qwenHelp": "Qwen-Image 2.1 roda com guidance 1 no caminho oficial. Aumente apenas junto com um prompt negativo.",
+    "mossHelp": "O MOSS-Image roda com guidance 2.5 no modelo oficial. Até 6 também renderiza limpo, com um pouco mais de contraste.",
     "autoHelp": "Rotas automáticas por prompt. A escolha usual (Z-Image) é sem CFG — mantenha em 0, a menos que você espere uma rota SDXL."
   },
   "seed": {

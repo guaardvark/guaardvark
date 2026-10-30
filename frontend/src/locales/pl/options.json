@@ -333,6 +333,11 @@
         "standard": "Oficjalny szablon ComfyUI (25 kroków, cfg 1)",
         "high": "Oficjalny zakres potoku (40-50 kroków), wolniejsze"
       },
+      "mossImage": {
+        "fast": "Mniej kroków (16), napisy nadal dokładne",
+        "standard": "Oficjalny szablon ComfyUI (25 kroków, cfg 2.5)",
+        "high": "Oficjalne ustawienia z przewodnika modelu (50 kroków, cfg 3), wolniejsze"
+      },
       "sdxl": {
         "fast": "Szybkie SDXL",
         "standard": "Zrównoważone SDXL",

@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Sorteer op naam",
       "date": "Sorteer op datum",
-      "size": "Sorteer op grootte"
+      "size": "Sorteer op grootte",
+      "type": "Sorteren op type"
     },
     "arrangeIcons": "Icoontjes ordenen"
   },
@@ -177,7 +178,36 @@
     "uploadProgress_one": "Uploaden van {{current}}/{{count}} bestand...",
     "uploadProgress_other": "Uploaden van {{current}}/{{count}} bestanden...",
     "listView": "Lijstweergave",
-    "iconView": "Icoonweergave"
+    "iconView": "Icoonweergave",
+    "thumbnailView": "Miniatuurweergave",
+    "scopeFolders": "Mappen",
+    "scopeAll": "Alle items",
+    "kindAll": "Alles",
+    "kindImage": "Afbeeldingen",
+    "kindVideo": "Video's",
+    "kindAudio": "Audio",
+    "kindOther": "Overige bestanden",
+    "sortLabel": "Sorteren op",
+    "sortAsc": "Opgelopend",
+    "sortDesc": "Neerwaarts",
+    "search": "Zoek namen en prompts",
+    "clearSearch": "Zoekopdracht wissen",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
+    "loadingAll": "Laden van elk bestand...",
+    "columns": {
+      "name": "Naam",
+      "type": "Type",
+      "date": "Datum",
+      "size": "Grootte"
+    },
+    "kindLabel": {
+      "image": "Afbeelding",
+      "video": "Video",
+      "audio": "Audio",
+      "other": "Bestand",
+      "folder": "Map"
+    }
   },
   "import": {
     "nothingToImport": "Niets om te importeren: {{skipped}}",

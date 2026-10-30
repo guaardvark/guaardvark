@@ -78,6 +78,11 @@
     "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "Carré MOSS 2 MP ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "Dimensions",
     "custom": "Personnalisé ({{width}}x{{height}})",
     "highResWarning": "Haute résolution (>1MP) : plus de VRAM ; risque de dépassement de mémoire sur les cartes de 16 Go."
@@ -106,7 +111,8 @@
     "refresh": "Actualiser les lots",
     "retry": "Réessayer",
     "loadFailed": "Impossible de charger les lots récents : {{reason}}",
-    "empty": "Aucun lot d'images trouvé"
+    "empty": "Aucun lot d'images trouvé",
+    "showMore": "Afficher {{count}} de plus"
   },
   "messages": {
     "batchFinished": "Génération de lot {{status}}",
@@ -258,6 +264,7 @@
     "scale": "Échelle de Guidance : {{guidance}}",
     "zimageHelp": "Z-Image fonctionne sans CFG — la guidance est fixée à 0. Utilisez les Étapes pour la qualité.",
     "qwenHelp": "Qwen-Image 2.1 fonctionne à une guidance de 1 sur le chemin officiel. Augmentez-la uniquement avec un prompt négatif.",
+    "mossHelp": "MOSS-Image fonctionne avec un guidage de 2.5 sur le modèle officiel. Jusqu'à 6 produit également un rendu propre, avec un peu plus de contraste.",
     "autoHelp": "Routes automatiques par prompt. Le choix habituel (Z-Image) est sans CFG — gardez 0 à moins d'attendre une route SDXL."
   },
   "seed": {

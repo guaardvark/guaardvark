@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Сортировать по имени",
       "date": "Сортировать по дате",
-      "size": "Сортировать по размеру"
+      "size": "Сортировать по размеру",
+      "type": "Сортировать по типу"
     },
     "arrangeIcons": "Упорядочить значки"
   },
@@ -185,7 +186,37 @@
     "uploadProgress_many": "Загрузка {{current}}/{{count}} файлов...",
     "uploadProgress_one": "Загрузка {{current}}/{{count}} файла...",
     "listView": "Список",
-    "iconView": "Сетка"
+    "iconView": "Сетка",
+    "thumbnailView": "Просмотр миниатюр",
+    "scopeFolders": "Папки",
+    "scopeAll": "Все элементы",
+    "kindAll": "Все",
+    "kindImage": "Изображения",
+    "kindVideo": "Видео",
+    "kindAudio": "Аудио",
+    "kindOther": "Другие файлы",
+    "sortLabel": "Сортировка",
+    "sortAsc": "По возрастанию",
+    "sortDesc": "По убыванию",
+    "search": "Поиск по именам и промптам",
+    "clearSearch": "Очистить поиск",
+    "itemCount_few": "{{count}} элементов",
+    "itemCount_many": "{{count}} элементов",
+    "itemCount_one": "{{count}} элемент",
+    "loadingAll": "Загрузка всех файлов...",
+    "columns": {
+      "name": "Имя",
+      "type": "Тип",
+      "date": "Дата",
+      "size": "Размер"
+    },
+    "kindLabel": {
+      "image": "Изображение",
+      "video": "Видео",
+      "audio": "Аудио",
+      "other": "Файл",
+      "folder": "Папка"
+    }
   },
   "import": {
     "nothingToImport": "Нечего импортировать: {{skipped}}",

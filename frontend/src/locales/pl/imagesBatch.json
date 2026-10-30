@@ -78,6 +78,11 @@
     "qwenTall": "Qwen Wysoki 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen Pojazd 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "MOSS 2 MP kwadrat ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "Wymiary",
     "custom": "Własne ({{width}}x{{height}})",
     "highResWarning": "Wysoka rozdzielczość (>1MP): wymaga więcej VRAM; może wystąpić błąd OOM na kartach 16GB."
@@ -106,7 +111,8 @@
     "refresh": "Odśwież partie",
     "retry": "Powtórz",
     "loadFailed": "Nie można załadować ostatnich partii: {{reason}}",
-    "empty": "Nie znaleziono partii obrazów"
+    "empty": "Nie znaleziono partii obrazów",
+    "showMore": "Pokaż jeszcze {{count}}"
   },
   "messages": {
     "batchFinished": "Generowanie partii zakończone: {{status}}",
@@ -259,6 +265,7 @@
     "scale": "Skala Guidance: {{guidance}}",
     "zimageHelp": "Z-Image działa bez CFG — guidance jest stałe na 0. Używaj Kroków do poprawy jakości.",
     "qwenHelp": "Qwen-Image 2.1 działa na guidance 1 na oficjalnej ścieżce. Zwiększaj go tylko w połączeniu z promptem negatywnym.",
+    "mossHelp": "MOSS-Image działa przy guidance 2.5 na oficjalnym szablonie. Wartości do 6 również renderują czysto, z nieco większym kontrastem.",
     "autoHelp": "Automatyczne kierowanie na podstawie promptu. Standardowy wybór (Z-Image) jest bez CFG — zachowaj 0, chyba że spodziewasz się ścieżki SDXL."
   },
   "seed": {

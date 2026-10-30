@@ -51,12 +51,12 @@
     "addAndInstall": "追加してインストール"
   },
   "addImageModel": {
-    "hint": "Hugging FaceのURLまたはorg/repoを貼り付けてください。diffusersリポジトリは全体をインストールし、単一の.safetensorsはチェックポイント（SD、SDXL）またはLoRAとなります。FLUXおよびQwen-Image 2.1はComfyUIでは1つのUNETとして扱われ、FLUXは代替のT5-XXLまたはCLIP-Lテキストエンコーダも受け付けます。",
+    "hint": "Hugging FaceのURLまたはorg/repoを貼り付けてください。diffusersリポジトリは全体をインストールし、単一の.safetensorsはチェックポイント（SD、SDXL）またはLoRAとなります。FLUX、Qwen-Image 2.1、MOSS-ImageはComfyUIでは単一のUNETとして扱われ、FLUXは代替のT5-XXLまたはCLIP-Lテキストエンコーダも受け入れます。",
     "diffusersRepo": "diffusersリポジトリ",
     "filesOnly": "ファイルのみ",
     "family": "ファミリー",
     "noLoraFamily": "このリストにLoRAをスタックするファミリーはありません。",
-    "noWiredFamily": "このリポジトリに適合するwiredファミリーはありません。チェックポイント、FLUXまたはQwen-Image 2.1のUNET、またはこの製品ですでに動作するdiffusersリポジトリを貼り付けてください。",
+    "noWiredFamily": "このリポジトリに適合するwiredファミリーはありません。チェックポイント、FLUX、Qwen-Image 2.1、MOSS-ImageのUNET、または本製品ですでに動作するdiffusersリポジトリを貼り付けてください。",
     "wholeRepo": "出荷済みのモデルと同様に、リポジトリ全体をインストールします。",
     "familyFallback": "family",
     "roleEncoder": "テキストエンコーダ",

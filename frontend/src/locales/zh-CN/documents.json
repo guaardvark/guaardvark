@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "按名称排序",
       "date": "按日期排序",
-      "size": "按大小排序"
+      "size": "按大小排序",
+      "type": "按类型排序"
     },
     "arrangeIcons": "排列图标"
   },
@@ -169,7 +170,35 @@
     "folderItemCount_other": "有 {{count}} 个项目",
     "uploadProgress_other": "正在上传 {{current}}/{{count}} 个文件...",
     "listView": "列表视图",
-    "iconView": "图标视图"
+    "iconView": "图标视图",
+    "thumbnailView": "缩略图视图",
+    "scopeFolders": "文件夹",
+    "scopeAll": "所有项目",
+    "kindAll": "全部",
+    "kindImage": "图片",
+    "kindVideo": "视频",
+    "kindAudio": "音频",
+    "kindOther": "其他文件",
+    "sortLabel": "排序方式",
+    "sortAsc": "升序",
+    "sortDesc": "降序",
+    "search": "搜索名称和提示词",
+    "clearSearch": "清除搜索",
+    "itemCount_other": "{{count}} 个项目",
+    "loadingAll": "正在加载所有文件...",
+    "columns": {
+      "name": "名称",
+      "type": "类型",
+      "date": "日期",
+      "size": "大小"
+    },
+    "kindLabel": {
+      "image": "图片",
+      "video": "视频",
+      "audio": "音频",
+      "other": "文件",
+      "folder": "文件夹"
+    }
   },
   "import": {
     "nothingToImport": "无内容可导入：{{skipped}}",

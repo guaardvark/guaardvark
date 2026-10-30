@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "이름순 정렬",
       "date": "날짜순 정렬",
-      "size": "크기순 정렬"
+      "size": "크기순 정렬",
+      "type": "유형별 정렬"
     },
     "arrangeIcons": "아이콘 정렬"
   },
@@ -169,7 +170,35 @@
     "folderItemCount_other": "{{count}}개 항목",
     "uploadProgress_other": "{{current}}/{{count}} 파일 업로드 중...",
     "listView": "목록 보기",
-    "iconView": "아이콘 보기"
+    "iconView": "아이콘 보기",
+    "thumbnailView": "썸네일 보기",
+    "scopeFolders": "폴더",
+    "scopeAll": "모든 항목",
+    "kindAll": "전체",
+    "kindImage": "이미지",
+    "kindVideo": "동영상",
+    "kindAudio": "오디오",
+    "kindOther": "기타 파일",
+    "sortLabel": "정렬 기준",
+    "sortAsc": "오름차순",
+    "sortDesc": "내림차순",
+    "search": "이름 및 프롬프트 검색",
+    "clearSearch": "검색 지우기",
+    "itemCount_other": "{{count}}개 항목",
+    "loadingAll": "모든 파일 불러오는 중...",
+    "columns": {
+      "name": "이름",
+      "type": "유형",
+      "date": "날짜",
+      "size": "크기"
+    },
+    "kindLabel": {
+      "image": "이미지",
+      "video": "동영상",
+      "audio": "오디오",
+      "other": "파일",
+      "folder": "폴더"
+    }
   },
   "import": {
     "nothingToImport": "가져올 항목 없음: {{skipped}}",

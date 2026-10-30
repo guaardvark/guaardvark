@@ -78,6 +78,11 @@
     "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "MOSS 2 MP quadrato ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "Dimensioni",
     "custom": "Personalizzate ({{width}}x{{height}})",
     "highResWarning": "Alta risoluzione (>1MP): più VRAM; rischio OOM su schede da 16GB."
@@ -106,7 +111,8 @@
     "refresh": "Aggiorna batch",
     "retry": "Riprova",
     "loadFailed": "Impossibile caricare i batch recenti: {{reason}}",
-    "empty": "Nessun batch di immagini trovato"
+    "empty": "Nessun batch di immagini trovato",
+    "showMore": "Mostra altri {{count}}"
   },
   "messages": {
     "batchFinished": "Generazione batch {{status}}",
@@ -258,6 +264,7 @@
     "scale": "Scala Guidance: {{guidance}}",
     "zimageHelp": "Z-Image gira senza CFG — la guidance è fissata a 0. Usa i Passaggi per la qualità.",
     "qwenHelp": "Qwen-Image 2.1 gira a guidance 1 sul percorso ufficiale. Aumentala solo insieme a un prompt negativo.",
+    "mossHelp": "MOSS-Image gira a guidance 2.5 sul modello ufficiale. Anche fino a 6 produce risultati puliti, con un po' più di contrasto.",
     "autoHelp": "Instrada automaticamente per ogni prompt. La scelta abituale (Z-Image) è senza CFG — mantieni 0 a meno che non ti aspetti un percorso SDXL."
   },
   "seed": {

@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Ordina per nome",
       "date": "Ordina per data",
-      "size": "Ordina per dimensione"
+      "size": "Ordina per dimensione",
+      "type": "Ordina per tipo"
     },
     "arrangeIcons": "Ordina icone"
   },
@@ -177,7 +178,36 @@
     "uploadProgress_one": "Caricamento di {{current}}/{{count}} file...",
     "uploadProgress_other": "Caricamento di {{current}}/{{count}} file...",
     "listView": "Vista elenco",
-    "iconView": "Vista icone"
+    "iconView": "Vista icone",
+    "thumbnailView": "Vista miniature",
+    "scopeFolders": "Cartelle",
+    "scopeAll": "Tutti gli elementi",
+    "kindAll": "Tutto",
+    "kindImage": "Immagini",
+    "kindVideo": "Video",
+    "kindAudio": "Audio",
+    "kindOther": "Altri file",
+    "sortLabel": "Ordina per",
+    "sortAsc": "Crescente",
+    "sortDesc": "Decrescente",
+    "search": "Cerca nomi e prompt",
+    "clearSearch": "Cancella ricerca",
+    "itemCount_one": "{{count}} elemento",
+    "itemCount_other": "{{count}} elementi",
+    "loadingAll": "Caricamento di ogni file...",
+    "columns": {
+      "name": "Nome",
+      "type": "Tipo",
+      "date": "Data",
+      "size": "Dimensione"
+    },
+    "kindLabel": {
+      "image": "Immagine",
+      "video": "Video",
+      "audio": "Audio",
+      "other": "File",
+      "folder": "Cartella"
+    }
   },
   "import": {
     "nothingToImport": "Nulla da importare: {{skipped}}",

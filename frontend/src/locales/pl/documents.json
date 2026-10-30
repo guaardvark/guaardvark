@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Sortuj według nazwy",
       "date": "Sortuj według daty",
-      "size": "Sortuj według rozmiaru"
+      "size": "Sortuj według rozmiaru",
+      "type": "Sortuj według typu"
     },
     "arrangeIcons": "Ustaw ikon"
   },
@@ -185,7 +186,37 @@
     "uploadProgress_many": "Przesyłanie {{current}}/{{count}} plików...",
     "uploadProgress_one": "Przesyłanie {{current}}/{{count}} pliku...",
     "listView": "Widok listy",
-    "iconView": "Widok ikon"
+    "iconView": "Widok ikon",
+    "thumbnailView": "Widok miniatur",
+    "scopeFolders": "Foldery",
+    "scopeAll": "Wszystkie elementy",
+    "kindAll": "Wszystko",
+    "kindImage": "Obrazy",
+    "kindVideo": "Wideo",
+    "kindAudio": "Audio",
+    "kindOther": "Inne pliki",
+    "sortLabel": "Sortuj według",
+    "sortAsc": "Rosnąco",
+    "sortDesc": "Malejąco",
+    "search": "Szukaj w nazwach i promptach",
+    "clearSearch": "Wyczyść wyszukiwanie",
+    "itemCount_few": "{{count}} elementy",
+    "itemCount_many": "{{count}} elementów",
+    "itemCount_one": "1 element",
+    "loadingAll": "Ładowanie wszystkich plików...",
+    "columns": {
+      "name": "Nazwa",
+      "type": "Typ",
+      "date": "Data",
+      "size": "Rozmiar"
+    },
+    "kindLabel": {
+      "image": "Obraz",
+      "video": "Wideo",
+      "audio": "Audio",
+      "other": "Plik",
+      "folder": "Folder"
+    }
   },
   "import": {
     "nothingToImport": "Nic do zaimportowania: {{skipped}}",

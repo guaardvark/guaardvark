@@ -78,6 +78,11 @@
     "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "MOSS 2 MP Quadrat ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "Dimensionen",
     "custom": "Benutzerdefiniert ({{width}}x{{height}})",
     "highResWarning": "Hohe Auflösung (>1MP): mehr VRAM erforderlich; kann bei 16GB-Karten zu OOM führen."
@@ -106,7 +111,8 @@
     "refresh": "Batches aktualisieren",
     "retry": "Erneut versuchen",
     "loadFailed": "Letzte Batches konnten nicht geladen werden: {{reason}}",
-    "empty": "Keine Bild-Batches gefunden"
+    "empty": "Keine Bild-Batches gefunden",
+    "showMore": "{{count}} weitere anzeigen"
   },
   "messages": {
     "batchFinished": "Batch-Generierung {{status}}",
@@ -258,6 +264,7 @@
     "scale": "Guidance-Skala: {{guidance}}",
     "zimageHelp": "Z-Image läuft ohne CFG – die Guidance ist auf 0 festgesetzt. Nutze Schritte für die Qualität.",
     "qwenHelp": "Qwen-Image 2.1 läuft auf dem offiziellen Pfad bei einer Guidance von 1. Erhöhe sie nur zusammen mit einem negativen Prompt.",
+    "mossHelp": "MOSS-Image läuft auf der offiziellen Vorlage mit einem Guidance von 2,5. Bis zu 6 wird ebenfalls sauber gerendert, mit etwas mehr Kontrast.",
     "autoHelp": "Automatische Routen pro Prompt. Die übliche Auswahl (Z-Image) ist CFG-frei – belasse es bei 0, sofern du keinen SDXL-Pfad erwartest."
   },
   "seed": {

@@ -78,6 +78,11 @@
     "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "MOSS 2 MP квадрат ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "Размеры",
     "custom": "Пользовательские ({{width}}x{{height}})",
     "highResWarning": "Высокое разрешение (>1МП): требуется больше VRAM; возможна ошибка OOM на картах с 16ГБ."
@@ -106,7 +111,8 @@
     "refresh": "Обновить пакеты",
     "retry": "Повторить",
     "loadFailed": "Не удалось загрузить недавние пакеты: {{reason}}",
-    "empty": "Изображения в пакетах не найдены"
+    "empty": "Изображения в пакетах не найдены",
+    "showMore": "Показать еще {{count}}"
   },
   "messages": {
     "batchFinished": "Генерация пакета {{status}}",
@@ -259,6 +265,7 @@
     "scale": "Guidance Scale: {{guidance}}",
     "zimageHelp": "Z-Image работает без CFG — значение guidance зафиксировано на 0. Используйте Steps для улучшения качества.",
     "qwenHelp": "Qwen-Image 2.1 работает с guidance 1 по официальному пути. Увеличивайте его только вместе с отрицательным промптом.",
+    "mossHelp": "MOSS-Image работает с параметром guidance 2.5 на официальном шаблоне. Значение до 6 также дает чистый результат, но с чуть большим контрастом.",
     "autoHelp": "Автоматический выбор пути для каждого промпта. Стандартный выбор (Z-Image) не требует CFG — оставьте 0, если не ожидаете маршрута SDXL."
   },
   "seed": {

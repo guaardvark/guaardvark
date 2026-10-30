@@ -51,12 +51,12 @@
     "addAndInstall": "Aggiungi e installa"
   },
   "addImageModel": {
-    "hint": "Incolla un URL di Hugging Face o org/repo. Un repository diffusers installa tutto; un singolo file .safetensors è un checkpoint (SD, SDXL) o un LoRA. FLUX e Qwen-Image 2.1 sono un unico UNET in ComfyUI, e FLUX accetta anche un encoder testuale T5-XXL o CLIP-L sostitutivo.",
+    "hint": "Incolla un URL di Hugging Face o org/repo. Un repository diffusers installa tutto; un singolo file .safetensors è un checkpoint (SD, SDXL) o un LoRA. FLUX, Qwen-Image 2.1 e MOSS-Image sono un unico UNET in ComfyUI, e FLUX accetta anche un encoder di testo T5-XXL o CLIP-L sostitutivo.",
     "diffusersRepo": "repository diffusers",
     "filesOnly": "solo file",
     "family": "Famiglia",
     "noLoraFamily": "Nessuna famiglia in questa lista supporta LoRA.",
-    "noWiredFamily": "Nessuna famiglia wired è adatta a questo repository. Incolla un checkpoint, un UNET FLUX o Qwen-Image 2.1, o un repository diffusers che questo prodotto esegue già.",
+    "noWiredFamily": "Nessuna famiglia wired è adatta a questo repo. Incolla un checkpoint, un UNET di FLUX, Qwen-Image 2.1 o MOSS-Image, oppure un repository diffusers che questo prodotto supporta già.",
     "wholeRepo": "Installa l'intero repository, allo stesso modo in cui vengono installati i modelli forniti.",
     "familyFallback": "famiglia",
     "roleEncoder": "Encoder testuale",

@@ -331,6 +331,11 @@
         "standard": "Template ufficiale ComfyUI (25 passaggi, cfg 1)",
         "high": "Gamma pipeline ufficiale (40-50 passaggi), più lento"
       },
+      "mossImage": {
+        "fast": "Meno passaggi (16), testo ancora preciso",
+        "standard": "Modello ufficiale ComfyUI (25 passaggi, cfg 2.5)",
+        "high": "Impostazioni ufficiali dalla guida del modello (50 passaggi, cfg 3), più lento"
+      },
       "sdxl": {
         "fast": "SDXL rapida",
         "standard": "SDXL bilanciata",

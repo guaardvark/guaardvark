@@ -51,12 +51,12 @@
     "addAndInstall": "添加并安装"
   },
   "addImageModel": {
-    "hint": "粘贴 Hugging Face URL 或 org/repo。diffusers 仓库会安装完整模型；单个 .safetensors 文件是检查点 (SD, SDXL) 或 LoRA。FLUX 和 Qwen-Image 2.1 在 ComfyUI 中仍为单个 UNET，且 FLUX 也支持替换 T5-XXL 或 CLIP-L 文本编码器。",
+    "hint": "粘贴 Hugging Face URL 或 org/repo。diffusers 仓库会安装完整模型；单个 .safetensors 文件是权重文件 (SD, SDXL) 或 LoRA。FLUX、Qwen-Image 2.1 和 MOSS-Image 静态图在 ComfyUI 中是一个 UNET，且 FLUX 还支持替换 T5-XXL 或 CLIP-L 文本编码器。",
     "diffusersRepo": "diffusers 仓库",
     "filesOnly": "仅文件",
     "family": "系列",
     "noLoraFamily": "此列表中没有支持 LoRA 的系列。",
-    "noWiredFamily": "没有匹配此仓库的 wired 系列。请粘贴一个检查点、一个 FLUX 或 Qwen-Image 2.1 UNET，或者该产品已支持的 diffusers 仓库。",
+    "noWiredFamily": "没有匹配的 wired 系列。请粘贴权重文件、FLUX、Qwen-Image 2.1 或 MOSS-Image UNET，或该产品已支持的 diffusers 仓库。",
     "wholeRepo": "安装整个仓库，与内置模型相同。",
     "familyFallback": "family",
     "roleEncoder": "文本编码器",

@@ -329,6 +329,11 @@
         "standard": "官方 ComfyUI 模板 (25步, cfg 1)",
         "high": "官方流水线范围 (40-50步)，较慢"
       },
+      "mossImage": {
+        "fast": "更少步数 (16)，文字依然精准",
+        "standard": "官方 ComfyUI 模板 (25 步，cfg 2.5)",
+        "high": "模型指南中的官方设置 (50 步，cfg 3)，速度较慢"
+      },
       "sdxl": {
         "fast": "快速 SDXL",
         "standard": "平衡 SDXL",

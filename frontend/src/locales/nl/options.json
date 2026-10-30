@@ -331,6 +331,11 @@
         "standard": "Officieel ComfyUI sjabloon (25 stappen, cfg 1)",
         "high": "Officiële pipeline reeks (40-50 stappen), trager"
       },
+      "mossImage": {
+        "fast": "Minder stappen (16), tekst nog steeds exact",
+        "standard": "Officieel ComfyUI-sjabloon (25 stappen, cfg 2.5)",
+        "high": "Officiële instellingen uit de handleiding van het model (50 stappen, cfg 3), trager"
+      },
       "sdxl": {
         "fast": "Snelle SDXL",
         "standard": "Gebalanceerde SDXL",

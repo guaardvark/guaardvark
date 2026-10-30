@@ -331,6 +331,11 @@
         "standard": "Modelo oficial ComfyUI (25 passos, cfg 1)",
         "high": "Intervalo oficial de pipeline (40-50 passos), mais lento"
       },
+      "mossImage": {
+        "fast": "Menos passos (16), letreiro ainda exato",
+        "standard": "Modelo oficial do ComfyUI (25 passos, cfg 2.5)",
+        "high": "Configurações oficiais do guia do modelo (50 passos, cfg 3), mais lento"
+      },
       "sdxl": {
         "fast": "SDXL rápido",
         "standard": "SDXL equilibrado",

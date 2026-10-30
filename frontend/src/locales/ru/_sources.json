@@ -12880,6 +12880,10 @@
       "en": "40aebef77c9c",
       "out": "2ffd6e772d4d"
     },
+    "contextMenu.sortBy.type": {
+      "en": "0f6b29e07f3b",
+      "out": "df49e78ea0c5"
+    },
     "contextMenu.arrangeIcons": {
       "en": "ee0399da3298",
       "out": "a1688febe37e"
@@ -13283,6 +13287,110 @@
     "page.iconView": {
       "en": "0a07aec1d961",
       "out": "c9244e3a0b22"
+    },
+    "page.thumbnailView": {
+      "en": "8ab530e9ddfb",
+      "out": "d8f9c8332ebc"
+    },
+    "page.scopeFolders": {
+      "en": "19adc47be34b",
+      "out": "38ee4ea3f9e8"
+    },
+    "page.scopeAll": {
+      "en": "6da0aec4d8a4",
+      "out": "4e7f5fbbbbc2"
+    },
+    "page.kindAll": {
+      "en": "6a72085653e4",
+      "out": "fd08da7a630b"
+    },
+    "page.kindImage": {
+      "en": "09e871c98fef",
+      "out": "690e1ec15383"
+    },
+    "page.kindVideo": {
+      "en": "56b71e89fb10",
+      "out": "8e7b9894c7ef"
+    },
+    "page.kindAudio": {
+      "en": "acdac205f5e2",
+      "out": "24321cb5400d"
+    },
+    "page.kindOther": {
+      "en": "b0c0a3787c5b",
+      "out": "3b2b93b2543a"
+    },
+    "page.sortLabel": {
+      "en": "a2a5bdeca939",
+      "out": "ed030118aad8"
+    },
+    "page.sortAsc": {
+      "en": "2b226c7948b4",
+      "out": "a67f9c288678"
+    },
+    "page.sortDesc": {
+      "en": "36377adf4398",
+      "out": "e13ca2f9c43f"
+    },
+    "page.search": {
+      "en": "763b4fb798e3",
+      "out": "7973331050e8"
+    },
+    "page.clearSearch": {
+      "en": "67300d0fed7c",
+      "out": "a736131fb81e"
+    },
+    "page.itemCount_few": {
+      "en": "045fa4c8ea0a",
+      "out": "94266a31c24d"
+    },
+    "page.itemCount_many": {
+      "en": "045fa4c8ea0a",
+      "out": "94266a31c24d"
+    },
+    "page.itemCount_one": {
+      "en": "0fc62391fdf4",
+      "out": "0d5f05c36649"
+    },
+    "page.loadingAll": {
+      "en": "9b8f203cc8cb",
+      "out": "eb8cfda5087c"
+    },
+    "page.columns.name": {
+      "en": "709a23220f2c",
+      "out": "aee78fe86022"
+    },
+    "page.columns.type": {
+      "en": "3deb74565196",
+      "out": "d25691ca401e"
+    },
+    "page.columns.date": {
+      "en": "eb9a4bc1c0c1",
+      "out": "a5b49d2ebad2"
+    },
+    "page.columns.size": {
+      "en": "b7152342a267",
+      "out": "98713e881408"
+    },
+    "page.kindLabel.image": {
+      "en": "50e19fda0d5b",
+      "out": "56a1fd52891d"
+    },
+    "page.kindLabel.video": {
+      "en": "bc17c1f0179a",
+      "out": "8e7b9894c7ef"
+    },
+    "page.kindLabel.audio": {
+      "en": "acdac205f5e2",
+      "out": "24321cb5400d"
+    },
+    "page.kindLabel.other": {
+      "en": "2c3cafa4db3f",
+      "out": "94b8df93b6ec"
+    },
+    "page.kindLabel.folder": {
+      "en": "30baa24967e0",
+      "out": "bc5431b599ff"
     },
     "import.nothingToImport": {
       "en": "724df7fc1496",
@@ -16614,6 +16722,26 @@
       "en": "afbb14b1a58e",
       "out": "afbb14b1a58e"
     },
+    "dimensions.mossSquare": {
+      "en": "d86f87a95fa7",
+      "out": "26175a24c3ba"
+    },
+    "dimensions.mossWide": {
+      "en": "764501c37ad1",
+      "out": "764501c37ad1"
+    },
+    "dimensions.mossTall": {
+      "en": "edab19d391af",
+      "out": "edab19d391af"
+    },
+    "dimensions.mossLandscape": {
+      "en": "93b59a70f874",
+      "out": "93b59a70f874"
+    },
+    "dimensions.mossPortrait": {
+      "en": "fdd61f9cd380",
+      "out": "fdd61f9cd380"
+    },
     "dimensions.title": {
       "en": "9f4ca9ec0871",
       "out": "6df8a4d5d04a"
@@ -16705,6 +16833,10 @@
     "history.empty": {
       "en": "ef0d69dab84d",
       "out": "5dca27e1b937"
+    },
+    "history.showMore": {
+      "en": "fdc92d38b909",
+      "out": "3277406c2b67"
     },
     "messages.batchFinished": {
       "en": "fc47bd81d929",
@@ -17169,6 +17301,10 @@
     "guidance.qwenHelp": {
       "en": "a8b1996478c4",
       "out": "73f6b1baa901"
+    },
+    "guidance.mossHelp": {
+      "en": "8785c88847b5",
+      "out": "4889349e690b"
     },
     "guidance.autoHelp": {
       "en": "fe0b9c64b177",
@@ -20891,8 +21027,8 @@
       "out": "f703b4715003"
     },
     "addImageModel.hint": {
-      "en": "e7b5cbedf009",
-      "out": "7f7ee8df50c0"
+      "en": "d41d2405d8ff",
+      "out": "d3097001c3e8"
     },
     "addImageModel.diffusersRepo": {
       "en": "d1307cc7378d",
@@ -20911,8 +21047,8 @@
       "out": "3f406e67f74f"
     },
     "addImageModel.noWiredFamily": {
-      "en": "ef2e4321fe49",
-      "out": "38b67c44dcd2"
+      "en": "b0ed8e1d63a8",
+      "out": "dc89cd18896a"
     },
     "addImageModel.wholeRepo": {
       "en": "10008a8ecf76",
@@ -23519,6 +23655,18 @@
     "imagePresets.descriptions.qwenImage21.high": {
       "en": "dc739064fd3a",
       "out": "9a4992a8aa39"
+    },
+    "imagePresets.descriptions.mossImage.fast": {
+      "en": "b5cbc8a69170",
+      "out": "499b8095a6da"
+    },
+    "imagePresets.descriptions.mossImage.standard": {
+      "en": "50145d432110",
+      "out": "3cff2e16b811"
+    },
+    "imagePresets.descriptions.mossImage.high": {
+      "en": "6439085c066c",
+      "out": "8c46a6caa52c"
     },
     "imagePresets.descriptions.sdxl.fast": {
       "en": "b9f3678f236f",

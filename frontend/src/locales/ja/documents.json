@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "名前で並べ替え",
       "date": "日付で並べ替え",
-      "size": "サイズで並べ替え"
+      "size": "サイズで並べ替え",
+      "type": "タイプで並べ替え"
     },
     "arrangeIcons": "アイコンを整列"
   },
@@ -169,7 +170,35 @@
     "folderItemCount_other": "{{count}} 個のアイテム",
     "uploadProgress_other": "{{current}}/{{count}} 個のファイルをアップロード中...",
     "listView": "リスト表示",
-    "iconView": "アイコン表示"
+    "iconView": "アイコン表示",
+    "thumbnailView": "サムネイル表示",
+    "scopeFolders": "フォルダ",
+    "scopeAll": "すべてのアイテム",
+    "kindAll": "すべて",
+    "kindImage": "画像",
+    "kindVideo": "動画",
+    "kindAudio": "オーディオ",
+    "kindOther": "その他のファイル",
+    "sortLabel": "並べ替え",
+    "sortAsc": "昇順",
+    "sortDesc": "降順",
+    "search": "名前とプロンプトを検索",
+    "clearSearch": "検索をクリア",
+    "itemCount_other": "{{count}} 個のアイテム",
+    "loadingAll": "すべてのファイルを読み込み中...",
+    "columns": {
+      "name": "名前",
+      "type": "タイプ",
+      "date": "日付",
+      "size": "サイズ"
+    },
+    "kindLabel": {
+      "image": "画像",
+      "video": "動画",
+      "audio": "オーディオ",
+      "other": "ファイル",
+      "folder": "フォルダ"
+    }
   },
   "import": {
     "nothingToImport": "インポートするものがありません: {{skipped}}",

@@ -331,6 +331,11 @@
         "standard": "Plantilla oficial de ComfyUI (25 pasos, cfg 1)",
         "high": "Rango de pipeline oficial (40-50 pasos), más lento"
       },
+      "mossImage": {
+        "fast": "Menos pasos (16), el texto sigue siendo exacto",
+        "standard": "Plantilla oficial de ComfyUI (25 pasos, cfg 2.5)",
+        "high": "Ajustes oficiales de la guía del modelo (50 pasos, cfg 3), más lento"
+      },
       "sdxl": {
         "fast": "SDXL rápido",
         "standard": "SDXL equilibrado",

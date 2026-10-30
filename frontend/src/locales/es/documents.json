@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Ordenar por nombre",
       "date": "Ordenar por fecha",
-      "size": "Ordenar por tamaño"
+      "size": "Ordenar por tamaño",
+      "type": "Ordenar por tipo"
     },
     "arrangeIcons": "Organizar iconos"
   },
@@ -177,7 +178,36 @@
     "uploadProgress_one": "Subiendo {{current}}/{{count}} archivo...",
     "uploadProgress_other": "Subiendo {{current}}/{{count}} archivos...",
     "listView": "Vista de lista",
-    "iconView": "Vista de iconos"
+    "iconView": "Vista de iconos",
+    "thumbnailView": "Vista de miniaturas",
+    "scopeFolders": "Carpetas",
+    "scopeAll": "Todos los elementos",
+    "kindAll": "Todo",
+    "kindImage": "Imágenes",
+    "kindVideo": "Videos",
+    "kindAudio": "Audio",
+    "kindOther": "Otros archivos",
+    "sortLabel": "Ordenar por",
+    "sortAsc": "Ascendente",
+    "sortDesc": "Descendente",
+    "search": "Buscar nombres y prompts",
+    "clearSearch": "Limpiar búsqueda",
+    "itemCount_one": "{{count}} elemento",
+    "itemCount_other": "{{count}} elementos",
+    "loadingAll": "Cargando cada archivo...",
+    "columns": {
+      "name": "Nombre",
+      "type": "Tipo",
+      "date": "Fecha",
+      "size": "Tamaño"
+    },
+    "kindLabel": {
+      "image": "Imagen",
+      "video": "Video",
+      "audio": "Audio",
+      "other": "Archivo",
+      "folder": "Carpeta"
+    }
   },
   "import": {
     "nothingToImport": "Nada que importar: {{skipped}}",

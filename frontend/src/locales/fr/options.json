@@ -331,6 +331,11 @@
         "standard": "Modèle ComfyUI officiel (25 étapes, cfg 1)",
         "high": "Plage de pipeline officielle (40-50 étapes), plus lent"
       },
+      "mossImage": {
+        "fast": "Moins d'étapes (16), lettrage toujours précis",
+        "standard": "Modèle ComfyUI officiel (25 étapes, cfg 2.5)",
+        "high": "Paramètres officiels du guide du modèle (50 étapes, cfg 3), plus lent"
+      },
       "sdxl": {
         "fast": "SDXL rapide",
         "standard": "SDXL équilibré",

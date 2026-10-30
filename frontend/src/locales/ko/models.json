@@ -51,12 +51,12 @@
     "addAndInstall": "추가 및 설치"
   },
   "addImageModel": {
-    "hint": "Hugging Face URL 또는 org/repo를 붙여넣으세요. diffusers 저장소는 전체를 설치하며, 단일 .safetensors 파일은 체크포인트(SD, SDXL) 또는 LoRA입니다. FLUX 및 Qwen-Image 2.1은 ComfyUI에서 하나의 UNET로 처리되며, FLUX는 교체용 T5-XXL 또는 CLIP-L 텍스트 인코더를 지원합니다.",
+    "hint": "Hugging Face URL 또는 org/repo를 붙여넣으세요. diffusers 저장소는 전체를 설치하며, 단일 .safetensors 파일은 체크포인트(SD, SDXL) 또는 LoRA입니다. FLUX, Qwen-Image 2.1 및 MOSS-Image 모델은 ComfyUI에서 하나의 UNET로 처리되며, FLUX는 교체 가능한 T5-XXL 또는 CLIP-L 텍스트 인코더를 지원합니다.",
     "diffusersRepo": "diffusers 저장소",
     "filesOnly": "파일만",
     "family": "패밀리",
     "noLoraFamily": "이 목록에 LoRA를 중첩할 수 있는 패밀리가 없습니다.",
-    "noWiredFamily": "이 저장소에 적합한 wired 패밀리가 없습니다. 체크포인트, FLUX 또는 Qwen-Image 2.1 UNET, 또는 이 제품이 이미 지원하는 diffusers 저장소를 붙여넣으세요.",
+    "noWiredFamily": "이 저장소에 적합한 wired family가 없습니다. 체크포인트, FLUX, Qwen-Image 2.1 또는 MOSS-Image UNET, 또는 이미 지원되는 diffusers 저장소를 붙여넣으세요.",
     "wholeRepo": "출시된 모델과 동일한 방식으로 전체 저장소를 설치합니다.",
     "familyFallback": "family",
     "roleEncoder": "텍스트 인코더",

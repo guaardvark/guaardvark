@@ -329,6 +329,11 @@
         "standard": "公式ComfyUIテンプレート (25ステップ、cfg 1)",
         "high": "公式パイプライン範囲 (40-50ステップ)、低速"
       },
+      "mossImage": {
+        "fast": "少ないステップ数（16）、文字の正確性を維持",
+        "standard": "公式ComfyUIテンプレート（25ステップ、cfg 2.5）",
+        "high": "モデルガイドの公式設定（50ステップ、cfg 3）、低速"
+      },
       "sdxl": {
         "fast": "高速SDXL",
         "standard": "バランス型SDXL",

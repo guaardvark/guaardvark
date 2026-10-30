@@ -78,6 +78,11 @@
     "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "MOSS 2 MP 正方形 ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "サイズ",
     "custom": "カスタム ({{width}}x{{height}})",
     "highResWarning": "高解像度 (>1MP): より多くのVRAMが必要です。16GBのカードではメモリ不足（OOM）になる可能性があります。"
@@ -106,7 +111,8 @@
     "refresh": "バッチを更新",
     "retry": "再試行",
     "loadFailed": "最近のバッチを読み込めませんでした: {{reason}}",
-    "empty": "画像バッチが見つかりません"
+    "empty": "画像バッチが見つかりません",
+    "showMore": "さらに{{count}}件表示"
   },
   "messages": {
     "batchFinished": "バッチ生成 {{status}}",
@@ -257,6 +263,7 @@
     "scale": "ガイダンススケール: {{guidance}}",
     "zimageHelp": "Z-ImageはCFGフリーで動作するため、ガイダンスは0に固定されています。品質の調整にはStepsを使用してください。",
     "qwenHelp": "Qwen-Image 2.1は公式パスでガイダンス1で動作します。ネガティブプロンプトを併用する場合のみ数値を上げてください。",
+    "mossHelp": "MOSS-Imageは公式テンプレートではguidance 2.5で動作します。最大6まで設定しても、よりコントラストを強めた状態で綺麗にレンダリングされます。",
     "autoHelp": "プロンプトごとに自動ルートを振り分けます。通常選択される（Z-Image）はCFGフリーのため、SDXLルートを想定する場合を除き0のままにしてください。"
   },
   "seed": {

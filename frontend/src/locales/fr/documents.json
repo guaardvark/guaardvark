@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Trier par nom",
       "date": "Trier par date",
-      "size": "Trier par taille"
+      "size": "Trier par taille",
+      "type": "Trier par type"
     },
     "arrangeIcons": "Organiser les icônes"
   },
@@ -177,7 +178,36 @@
     "uploadProgress_one": "Téléchargement de {{current}}/{{count}} fichier...",
     "uploadProgress_other": "Téléchargement de {{current}}/{{count}} fichiers...",
     "listView": "Vue en liste",
-    "iconView": "Vue en icônes"
+    "iconView": "Vue en icônes",
+    "thumbnailView": "Vue en vignettes",
+    "scopeFolders": "Dossiers",
+    "scopeAll": "Tous les éléments",
+    "kindAll": "Tout",
+    "kindImage": "Images",
+    "kindVideo": "Vidéos",
+    "kindAudio": "Audio",
+    "kindOther": "Autres fichiers",
+    "sortLabel": "Trier par",
+    "sortAsc": "Croissant",
+    "sortDesc": "Décroissant",
+    "search": "Rechercher les noms et prompts",
+    "clearSearch": "Effacer la recherche",
+    "itemCount_one": "{{count}} élément",
+    "itemCount_other": "{{count}} éléments",
+    "loadingAll": "Chargement de chaque fichier...",
+    "columns": {
+      "name": "Nom",
+      "type": "Type",
+      "date": "Date",
+      "size": "Taille"
+    },
+    "kindLabel": {
+      "image": "Image",
+      "video": "Vidéo",
+      "audio": "Audio",
+      "other": "Fichier",
+      "folder": "Dossier"
+    }
   },
   "import": {
     "nothingToImport": "Rien à importer : {{skipped}}",

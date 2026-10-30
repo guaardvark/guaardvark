@@ -78,6 +78,11 @@
     "qwenTall": "Qwen 2K 9:16 ({{width}}x{{height}})",
     "qwenLandscape": "Qwen 2K 3:2 ({{width}}x{{height}})",
     "qwenPortrait": "Qwen 2K 2:3 ({{width}}x{{height}})",
+    "mossSquare": "MOSS 2 MP 正方形 ({{width}}x{{height}})",
+    "mossWide": "MOSS 2 MP 16:9 ({{width}}x{{height}})",
+    "mossTall": "MOSS 2 MP 9:16 ({{width}}x{{height}})",
+    "mossLandscape": "MOSS 2 MP 3:2 ({{width}}x{{height}})",
+    "mossPortrait": "MOSS 2 MP 2:3 ({{width}}x{{height}})",
     "title": "尺寸",
     "custom": "自定义 ({{width}}x{{height}})",
     "highResWarning": "高分辨率 (>1MP)：需更多 VRAM；16GB 显存卡可能会出现 OOM。"
@@ -106,7 +111,8 @@
     "refresh": "刷新批次",
     "retry": "重试",
     "loadFailed": "无法加载最近批次：{{reason}}",
-    "empty": "未找到图像批次"
+    "empty": "未找到图像批次",
+    "showMore": "显示更多 {{count}} 条"
   },
   "messages": {
     "batchFinished": "批次生成 {{status}}",
@@ -257,6 +263,7 @@
     "scale": "引导比例：{{guidance}}",
     "zimageHelp": "Z-Image 运行在无 CFG 模式下——引导固定为 0。请使用步数来提升质量。",
     "qwenHelp": "Qwen-Image 2.1 在官方路径下运行于引导 1。仅在同时使用负面提示词时才调高此数值。",
+    "mossHelp": "在官方模板中，MOSS-Image 在 guidance 2.5 时效果最佳。设置为最高 6 也能渲染出清晰的图像，但对比度会略高一些。",
     "autoHelp": "根据提示词自动路由。默认选择（Z-Image）是无 CFG 的——除非你预期走 SDXL 路由，否则请保持为 0。"
   },
   "seed": {

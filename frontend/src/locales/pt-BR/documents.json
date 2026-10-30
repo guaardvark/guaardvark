@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Ordenar por nome",
       "date": "Ordenar por data",
-      "size": "Ordenar por tamanho"
+      "size": "Ordenar por tamanho",
+      "type": "Ordenar por Tipo"
     },
     "arrangeIcons": "Organizar ícones"
   },
@@ -177,7 +178,36 @@
     "uploadProgress_one": "Enviando {{current}}/{{count}} arquivo...",
     "uploadProgress_other": "Enviando {{current}}/{{count}} arquivos...",
     "listView": "Visualização em lista",
-    "iconView": "Visualização em ícones"
+    "iconView": "Visualização em ícones",
+    "thumbnailView": "Visualização em miniatura",
+    "scopeFolders": "Pastas",
+    "scopeAll": "Todos os itens",
+    "kindAll": "Tudo",
+    "kindImage": "Imagens",
+    "kindVideo": "Vídeos",
+    "kindAudio": "Áudio",
+    "kindOther": "Outros arquivos",
+    "sortLabel": "Ordenar por",
+    "sortAsc": "Ascendente",
+    "sortDesc": "Descendente",
+    "search": "Pesquisar nomes e prompts",
+    "clearSearch": "Limpar pesquisa",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} itens",
+    "loadingAll": "Carregando cada arquivo...",
+    "columns": {
+      "name": "Nome",
+      "type": "Tipo",
+      "date": "Data",
+      "size": "Tamanho"
+    },
+    "kindLabel": {
+      "image": "Imagem",
+      "video": "Vídeo",
+      "audio": "Áudio",
+      "other": "Arquivo",
+      "folder": "Pasta"
+    }
   },
   "import": {
     "nothingToImport": "Nada para importar: {{skipped}}",

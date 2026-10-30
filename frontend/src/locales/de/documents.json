@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Nach Name sortieren",
       "date": "Nach Datum sortieren",
-      "size": "Nach Größe sortieren"
+      "size": "Nach Größe sortieren",
+      "type": "Nach Typ sortieren"
     },
     "arrangeIcons": "Symbole anordnen"
   },
@@ -177,7 +178,36 @@
     "uploadProgress_one": "Lade {{current}}/{{count}} Datei hoch...",
     "uploadProgress_other": "Lade {{current}}/{{count}} Dateien hoch...",
     "listView": "Listenansicht",
-    "iconView": "Symbolansicht"
+    "iconView": "Symbolansicht",
+    "thumbnailView": "Miniaturansicht",
+    "scopeFolders": "Ordner",
+    "scopeAll": "Alle Elemente",
+    "kindAll": "Alle",
+    "kindImage": "Bilder",
+    "kindVideo": "Videos",
+    "kindAudio": "Audio",
+    "kindOther": "Andere Dateien",
+    "sortLabel": "Sortieren nach",
+    "sortAsc": "Aufsteigend",
+    "sortDesc": "Absteigend",
+    "search": "Namen und Prompts suchen",
+    "clearSearch": "Suche löschen",
+    "itemCount_one": "{{count}} Element",
+    "itemCount_other": "{{count}} Elemente",
+    "loadingAll": "Lade jede Datei...",
+    "columns": {
+      "name": "Name",
+      "type": "Typ",
+      "date": "Datum",
+      "size": "Größe"
+    },
+    "kindLabel": {
+      "image": "Bild",
+      "video": "Video",
+      "audio": "Audio",
+      "other": "Datei",
+      "folder": "Ordner"
+    }
   },
   "import": {
     "nothingToImport": "Nichts zum Importieren: {{skipped}}",
