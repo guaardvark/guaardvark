@@ -917,7 +917,7 @@ class BatchImageGenerator:
     @staticmethod
     def _comfy_t2i_family(model_key: str | None) -> str | None:
         """The ComfyUI text-to-image family a model key renders on ("flux",
-        "qwen-image-21"), or None for offline models and Comfy families without
+        "qwen-image-21", "moss-image"), or None for offline models and Comfy families without
         a stills graph (user_model_families.comfy_t2i_family)."""
         from backend.services.user_model_families import comfy_t2i_family
         return comfy_t2i_family(model_key)
@@ -1027,6 +1027,7 @@ class BatchImageGenerator:
                 flux_unet=unet if model_tag == "flux-schnell" else None,
                 flux_dev_unet=unet if model_tag == "flux-dev" else None,
                 qwen21_unet=unet if family == "qwen-image-21" else None,
+                moss_unet=unet if family == "moss-image" else None,
                 text_encoders=picked_encoders,
             )
             path = gen.generate_image(
