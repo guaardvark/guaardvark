@@ -1570,6 +1570,13 @@ class BatchImageGenerator:
                         )
                     return
 
+            # A LoRA's trigger word and wording are written for the LoRA; the
+            # rewrite drops the trigger and restyles the scene (a gouache LoRA
+            # came back as "a realistic photograph"), so LoRA prompts go as typed.
+            if any(getattr(bp, "adapter_loras", None) for bp in request.prompts):
+                logger.info("Batch %s carries LoRAs; prompts go to the model as typed", request.batch_id)
+                return
+
             # Model is chosen per prompt; the first explicit one stands for the
             # batch (the page sets one model for all rows).
             batch_model = next(
