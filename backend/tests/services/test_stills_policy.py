@@ -48,3 +48,13 @@ def test_negative_user_plus_base():
     neg = resolve_stills_negative("watermark", enhance_mode="offline")
     assert "watermark" in neg
     assert "blurry" in neg or "low quality" in neg
+
+
+def test_negative_comfy_prose_models_get_only_the_users():
+    # MOSS-Image and Qwen-Image 2.1 read the SD-era lists ("text",
+    # "illustration") as content to avoid; their graphs supply their own.
+    for model in ("moss-image", "user-moss-image-sft-bf16", "qwen-image-21"):
+        assert resolve_stills_negative("", enhance_mode="offline", model=model) == ""
+        assert resolve_stills_negative("watermark", enhance_mode="offline", model=model) == "watermark"
+    for model in ("zimage-turbo", "flux-dev", "auto", None):
+        assert "blurry" in resolve_stills_negative("", enhance_mode="offline", model=model)
