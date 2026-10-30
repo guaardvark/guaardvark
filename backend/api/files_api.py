@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import shutil
+import uuid
 from typing import Optional
 from pathlib import Path
 
@@ -1596,6 +1597,97 @@ def _thumbnail_dirs(physical: Path) -> list[Path]:
     return dirs
 
 
+# Long sides a sized thumbnail is made at; a request is rounded up to one of
+# these so each file has at most four cached sizes.
+_THUMB_SIZES = (160, 320, 480, 640)
+_THUMB_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif", ".tif", ".tiff"}
+_THUMB_VIDEO_EXTS = {".mp4", ".webm", ".avi", ".mov", ".mkv", ".flv", ".wmv", ".m4v"}
+
+
+def _thumb_size(raw: str) -> Optional[int]:
+    try:
+        wanted = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if wanted <= 0:
+        return None
+    return next((s for s in _THUMB_SIZES if s >= wanted), _THUMB_SIZES[-1])
+
+
+def _thumb_cache_path(source: Path, tag: str) -> Path:
+    import hashlib
+    from backend.config import CACHE_DIR
+    st = source.stat()
+    key = hashlib.sha1(
+        f"{os.path.abspath(source)}|{st.st_mtime_ns}|{st.st_size}|{tag}".encode()
+    ).hexdigest()
+    return Path(CACHE_DIR) / "thumbnails" / key[:2] / f"{key}.{'jpg' if tag == 'frame' else 'webp'}"
+
+
+def _video_frame(physical: Path) -> Optional[Path]:
+    """A still of a video: the generator's own thumbnail when there is one,
+    else its first frame, extracted once into the thumbnail cache."""
+    for candidate_dir in _thumbnail_dirs(physical):
+        for name in (f"{physical.stem}_thumb.jpg", f"{physical.stem}.jpg"):
+            if (candidate_dir / name).is_file():
+                return candidate_dir / name
+    frame = _thumb_cache_path(physical, "frame")
+    if frame.is_file():
+        return frame
+    import subprocess
+    frame.parent.mkdir(parents=True, exist_ok=True)
+    tmp = frame.with_suffix(f".{uuid.uuid4().hex}.tmp.jpg")
+    try:
+        subprocess.run(
+            ["ffmpeg", "-i", str(physical), "-vf", "select=eq(n\\,0)",
+             "-frames:v", "1", "-q:v", "3", "-y", str(tmp)],
+            capture_output=True, timeout=15,
+        )
+        if tmp.is_file() and tmp.stat().st_size > 0:
+            os.replace(tmp, frame)
+            return frame
+    except Exception as e:
+        logger.warning(f"Failed to take a frame of {physical.name}: {e}")
+    finally:
+        tmp.unlink(missing_ok=True)
+    return None
+
+
+def _sized_thumbnail(physical: Path, size: int) -> Optional[Path]:
+    """A WebP of an image or video at most ``size`` px on its long side, cached
+    under data/cache/thumbnails by path, modification time and size. None for
+    other kinds of file."""
+    ext = physical.suffix.lower()
+    if ext in _THUMB_VIDEO_EXTS:
+        source = _video_frame(physical)
+    elif ext in _THUMB_IMAGE_EXTS:
+        source = physical
+    else:
+        return None
+    if source is None:
+        return None
+    out = _thumb_cache_path(physical, str(size))
+    if out.is_file():
+        return out
+    from PIL import Image, ImageOps
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(f".{uuid.uuid4().hex}.tmp.webp")
+    try:
+        with Image.open(source) as im:
+            im = ImageOps.exif_transpose(im)
+            im.thumbnail((size, size))
+            if im.mode not in ("RGB", "RGBA"):
+                im = im.convert("RGBA" if "A" in im.getbands() or "transparency" in im.info else "RGB")
+            im.save(tmp, "WEBP", quality=80, method=4)
+        os.replace(tmp, out)
+        return out
+    except Exception as e:
+        logger.warning(f"Failed to make a thumbnail of {physical.name}: {e}")
+        return None
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
 @files_bp.route("/thumbnail", methods=["GET"])
 def get_thumbnail():
     """GET /api/files/thumbnail - Get thumbnail for a document.
@@ -1612,6 +1704,12 @@ def get_thumbnail():
     the source, then in the batch's thumbnails/ one level up (see
     _thumbnail_dirs). Generates one on the fly for video files via ffmpeg.
     Falls back to serving the original file when nothing else hits.
+
+      &size=<px>   - a WebP at most that many px on its long side (rounded up
+                     to 160/320/480/640), for images and videos only; other
+                     files get 404 instead of the original.
+      &v=<stamp>   - the file's modification stamp; the reply may then be
+                     cached by the browser for a week.
     """
     doc_id_arg = request.args.get("document_id", "").strip()
     doc_path = request.args.get("path", "").strip()
@@ -1643,6 +1741,14 @@ def get_thumbnail():
     else:
         return error_response("path or document_id parameter required", 400, "NO_TARGET")
 
+    cache_age = 7 * 86400 if request.args.get("v") else None
+    size = _thumb_size(request.args.get("size"))
+    if size:
+        thumb = _sized_thumbnail(doc_physical, size)
+        if thumb is None:
+            return error_response("No thumbnail for this file", 404, "NO_THUMBNAIL")
+        return send_file(str(thumb), mimetype="image/webp", conditional=True, max_age=cache_age)
+
     # Look for a cached thumbnail, nearest location first.
     parent_dir = doc_physical.parent
     thumb_dir = parent_dir / "thumbnails"
@@ -1650,10 +1756,13 @@ def get_thumbnail():
     thumb_path = thumb_dir / thumb_name
 
     for candidate_dir in _thumbnail_dirs(doc_physical):
-        for ext, mimetype in ((".jpg", "image/jpeg"), (".png", "image/png")):
-            candidate = candidate_dir / (doc_physical.stem + ext)
+        # <stem>_thumb.jpg is the video generators' name for a clip's still.
+        for name, mimetype in ((doc_physical.stem + ".jpg", "image/jpeg"),
+                               (doc_physical.stem + ".png", "image/png"),
+                               (doc_physical.stem + "_thumb.jpg", "image/jpeg")):
+            candidate = candidate_dir / name
             if candidate.exists():
-                return send_file(str(candidate), mimetype=mimetype)
+                return send_file(str(candidate), mimetype=mimetype, max_age=cache_age)
 
     # For video files, try to generate a thumbnail on the fly via ffmpeg
     video_exts = {'.mp4', '.webm', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.m4v'}

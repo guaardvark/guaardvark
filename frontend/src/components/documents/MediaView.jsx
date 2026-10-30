@@ -155,7 +155,7 @@ const MediaView = ({
         }}>
           {mediaFiles.map((file, idx) => {
             const isVid = isVideoFile(file.filename || file.name);
-            const thumbSrc = `${API_BASE}/thumbnail?path=${encodeURIComponent(file.path)}`;
+            const thumbSrc = `${API_BASE}/thumbnail?path=${encodeURIComponent(file.path)}&size=160`;
             return (
               <Box
                 key={file.id || idx}

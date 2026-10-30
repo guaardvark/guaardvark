@@ -169,7 +169,7 @@ export const getFileIcon = (filename, isSelected, theme, size = 48, indexStatus 
 
   // If this is an image or video file and we have a path, render a thumbnail
   if (filePath && (isImageFile(filename) || isVideoFile(filename))) {
-    const thumbnailUrl = `${API_BASE}/thumbnail?path=${encodeURIComponent(filePath)}`;
+    const thumbnailUrl = `${API_BASE}/thumbnail?path=${encodeURIComponent(filePath)}&size=160`;
     return (
       <Box sx={{
         position: 'relative',
@@ -308,7 +308,7 @@ export const getFileIconSmall = (filename, isSelected, theme, indexStatus = null
 
   // If this is an image or video file and we have a path, render a small thumbnail
   if (filePath && (isImageFile(filename) || isVideoFile(filename))) {
-    const thumbnailUrl = `${API_BASE}/thumbnail?path=${encodeURIComponent(filePath)}`;
+    const thumbnailUrl = `${API_BASE}/thumbnail?path=${encodeURIComponent(filePath)}&size=160`;
     return (
       <Box sx={{
         position: 'relative',
