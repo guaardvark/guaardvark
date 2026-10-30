@@ -1019,6 +1019,7 @@ class BatchImageGenerator:
             model_tag = target["tag"] if unet else "flux-dev"
         else:
             model_tag = target["tag"]
+        picked_encoders = dict(getattr(prompt, "text_encoders", None) or {})
         try:
             gen = ComfyUIImageGenerator(
                 model=model_tag,
@@ -1026,7 +1027,7 @@ class BatchImageGenerator:
                 flux_unet=unet if model_tag == "flux-schnell" else None,
                 flux_dev_unet=unet if model_tag == "flux-dev" else None,
                 qwen21_unet=unet if family == "qwen-image-21" else None,
-                text_encoders=dict(getattr(prompt, "text_encoders", None) or {}),
+                text_encoders=picked_encoders,
             )
             path = gen.generate_image(
                 prompt=prompt.prompt,
@@ -1052,7 +1053,7 @@ class BatchImageGenerator:
                 seed_used=seed,
                 metadata={
                     "steps": getattr(gen, "last_steps", steps),
-                    **({"text_encoders": dict(gen.user_text_encoders)} if gen.user_text_encoders else {}),
+                    **({"text_encoders": picked_encoders} if picked_encoders else {}),
                 },
             )
         except Exception as e:
