@@ -1007,6 +1007,28 @@ VIDEO_MODEL_REGISTRY = {
         "comfy_nodes": ["MOSSImageLayoutPrompt", "EmptyFlux2LatentImage"],
         "type": "moss-image",
     },
+    # The official MOSS-Image edit LoRA on the SFT transformer: instruction edits
+    # of one photo through TextEncodeMOSSImageEdit (ComfyUI 0.43.0 added edit
+    # LoRAs). Sampling is the official template's (image_moss_image_edit: 30
+    # steps, cfg 4, euler/normal, skip-layer guidance on block 22, ~1 MP).
+    "moss-image-edit": {
+        "name": "MOSS-Image Edit LoRA (rank 64)",
+        "description": "Instruction edits of one photo on MOSS-Image: change a garment, a sign, "
+                       "a colour, keep the rest. Apache 2.0. Needs ComfyUI 0.43 or newer.",
+        "hf_repo": "Comfy-Org/MOSS-Image",
+        "local_subdir": "loras",
+        "files": [
+            {"src": "loras/moss_image_edit_lora_rank_64_bf16.safetensors",
+             "dst": "moss_image_edit_lora_rank_64_bf16.safetensors"},
+        ],
+        "requires": ["moss-image", "moss-image-clip", "moss-image-vae"],
+        "size_gb": 0.30,
+        "default_steps": 30,
+        "default_cfg": 4.0,
+        "vram_mb": 8200,
+        "comfy_nodes": ["TextEncodeMOSSImageEdit", "SkipLayerGuidanceDiTSimple"],
+        "type": "moss-edit",
+    },
     # ── PuLID-FLUX — one face photo → new prompt on flux-dev (no LoRA train) ──
     "pulid-antelopev2": {
         "name": "InsightFace AntelopeV2 (PuLID)",

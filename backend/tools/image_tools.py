@@ -29,6 +29,9 @@ _KONTEXT_MODEL_IDS = frozenset({
 _QWEN_EDIT_MODEL_IDS = frozenset({
     "qwen", "qwen-image-edit", "qwen-edit", "qwenimage-edit",
 })
+_MOSS_EDIT_MODEL_IDS = frozenset({
+    "moss-image-edit", "moss-edit", "moss-image",
+})
 
 # What the media-input parameters accept (rules: backend/utils/media_inputs.py).
 _SERVED_FORMS = (
@@ -2176,8 +2179,9 @@ class EditImageTool(BaseTool):
 
     @staticmethod
     def _pick_edit_backend(model: str) -> Optional[str]:
-        """'qwen', 'kontext' or 'img2img' for ``model``; None when it is 'auto' and
-        neither editing pack is installed.
+        """'qwen', 'kontext', 'moss' or 'img2img' for ``model``; None when it is
+        'auto' and no editing pack is installed. MOSS-Image Edit is picked by name
+        and comes after the other two on 'auto'.
 
         img2img is only ever picked by naming an image model. At the strength an
         edit uses it returns a near copy of the photo, so it is not what 'auto'
@@ -2188,6 +2192,8 @@ class EditImageTool(BaseTool):
             return "qwen"
         if m in _KONTEXT_MODEL_IDS:
             return "kontext"
+        if m in _MOSS_EDIT_MODEL_IDS:
+            return "moss"
         if m != "auto":
             return "img2img"
         try:
@@ -2197,6 +2203,8 @@ class EditImageTool(BaseTool):
                 return "qwen"
             if gen._kontext_installed():
                 return "kontext"
+            if gen.moss_edit_installed():
+                return "moss"
         except Exception:
             pass
         return None
@@ -2216,7 +2224,7 @@ class EditImageTool(BaseTool):
             return ToolResult(success=False, error=missing_message(self.for_tool),
                               metadata={"error_kind": RenderErrorKind.MODEL_NOT_INSTALLED.value})
         if references and backend != "qwen":
-            runs_on = "FLUX.1 Kontext" if backend == "kontext" else f"img2img with '{model}'"
+            runs_on = {"kontext": "FLUX.1 Kontext", "moss": "MOSS-Image Edit"}.get(backend, f"img2img with '{model}'")
             return ToolResult(success=False, error=(
                 f"Reference images are only used by Qwen-Image-Edit. This edit would run on {runs_on}, "
                 "which edits one image and would ignore them. Call again without reference_image_2 and "
@@ -2382,7 +2390,7 @@ class EditImageTool(BaseTool):
             backend = self._edit_backend(effective_model, len(extra))
             if isinstance(backend, ToolResult):
                 return backend
-            if backend != "img2img" and effective_model.lower() not in _QWEN_EDIT_MODEL_IDS | _KONTEXT_MODEL_IDS:
+            if backend != "img2img" and effective_model.lower() not in _QWEN_EDIT_MODEL_IDS | _KONTEXT_MODEL_IDS | _MOSS_EDIT_MODEL_IDS:
                 effective_model = "auto"  # an image model named for a pack-only tool did not run
             output_dir = os.path.join(OUTPUT_DIR, "generated_images")
             os.makedirs(output_dir, exist_ok=True)
@@ -2400,6 +2408,11 @@ class EditImageTool(BaseTool):
                 )
             elif backend == "kontext":
                 gen.edit_image(
+                    image_path=src, instruction=instruction,
+                    output_path=output_path, steps=steps, gpu_wait=gpu_wait,
+                )
+            elif backend == "moss":
+                gen.edit_image_moss(
                     image_path=src, instruction=instruction,
                     output_path=output_path, steps=steps, gpu_wait=gpu_wait,
                 )

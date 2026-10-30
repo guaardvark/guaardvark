@@ -203,6 +203,11 @@ try:
     MOSS_DEFAULT_STEPS = int(_MOSS.get("default_steps") or 25)
     MOSS_DEFAULT_CFG = float(_MOSS.get("default_cfg") or 2.5)
     MOSS_NODES = tuple(_MOSS.get("comfy_nodes") or ("MOSSImageLayoutPrompt", "EmptyFlux2LatentImage"))
+    _MOSS_EDIT = _VMR.get("moss-image-edit") or {}
+    MOSS_EDIT_LORA = ((_MOSS_EDIT.get("files") or [{}])[0].get("dst")
+                      or "moss_image_edit_lora_rank_64_bf16.safetensors")
+    MOSS_EDIT_DEFAULT_STEPS = int(_MOSS_EDIT.get("default_steps") or 30)
+    MOSS_EDIT_DEFAULT_CFG = float(_MOSS_EDIT.get("default_cfg") or 4.0)
 except Exception:  # pragma: no cover - registry import is environment-specific
     KONTEXT_UNET = "flux1-kontext-dev-Q6_K.gguf"
     KONTEXT_DEFAULT_STEPS = 28
@@ -224,6 +229,9 @@ except Exception:  # pragma: no cover - registry import is environment-specific
     MOSS_DEFAULT_STEPS = 25
     MOSS_DEFAULT_CFG = 2.5
     MOSS_NODES = ("MOSSImageLayoutPrompt", "EmptyFlux2LatentImage")
+    MOSS_EDIT_LORA = "moss_image_edit_lora_rank_64_bf16.safetensors"
+    MOSS_EDIT_DEFAULT_STEPS = 30
+    MOSS_EDIT_DEFAULT_CFG = 4.0
     _is_model_installed = None
     _comfy_models_dir = None
 
@@ -1008,6 +1016,9 @@ class ComfyUIImageGenerator:
                 return False
         return False
 
+    def moss_edit_installed(self) -> bool:
+        return self._registry_installed("moss-image-edit")
+
     def qwen_edit_installed(self) -> bool:
         return self._registry_installed("qwen-image-edit")
 
@@ -1244,6 +1255,41 @@ class ComfyUIImageGenerator:
             "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-moss-image", "images": ["vae", 0]}},
         }
 
+    def _build_moss_edit_workflow(
+        self, *, src_name: str, instruction: str, steps: int, cfg: float, seed: int,
+    ) -> dict:
+        """The official Comfy-Org MOSS-Image edit graph (image_moss_image_edit):
+        the photo scaled to ~1 MP on a 16 px grid, MOSS-Image SFT with the edit
+        LoRA at 1.0 and skip-layer guidance on block 22, TextEncodeMOSSImageEdit
+        for both conditionings (the photo and the VAE as reference), a FLUX.2
+        latent the photo's size, KSampler euler/normal."""
+        edit_inputs = {"clip": ["clip", 0], "edit_format": "Moss-Image-Edit", "image_strength": 1.0,
+                       "images.image_0": ["scaled", 0], "vae": ["vae_loader", 0]}
+        return {
+            "src": {"class_type": "LoadImage", "inputs": {"image": src_name}},
+            "scaled": {"class_type": "ImageScaleToTotalPixels", "inputs": {
+                "image": ["src", 0], "upscale_method": "lanczos", "megapixels": 1.0, "resolution_steps": 16}},
+            "size": {"class_type": "GetImageSize", "inputs": {"image": ["scaled", 0]}},
+            "latent": {"class_type": "EmptyFlux2LatentImage", "inputs": {
+                "width": ["size", 0], "height": ["size", 1], "batch_size": 1}},
+            "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": self.moss_unet, "weight_dtype": "default"}},
+            "edit_lora": {"class_type": "LoraLoaderModelOnly", "inputs": {
+                "model": ["unet", 0], "lora_name": MOSS_EDIT_LORA, "strength_model": 1.0}},
+            "slg": {"class_type": "SkipLayerGuidanceDiTSimple", "inputs": {
+                "model": ["edit_lora", 0], "double_layers": "", "single_layers": "22",
+                "start_percent": 0.0, "end_percent": 1.0}},
+            "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": MOSS_CLIP, "type": "moss_image"}},
+            "vae_loader": {"class_type": "VAELoader", "inputs": {"vae_name": MOSS_VAE}},
+            "positive": {"class_type": "TextEncodeMOSSImageEdit", "inputs": {**edit_inputs, "prompt": instruction}},
+            "negative": {"class_type": "TextEncodeMOSSImageEdit", "inputs": {**edit_inputs, "prompt": MOSS_NEGATIVE}},
+            "sampler": {"class_type": "KSampler", "inputs": {
+                "seed": seed, "steps": int(steps), "cfg": float(cfg), "sampler_name": "euler",
+                "scheduler": "normal", "denoise": 1.0, "model": ["slg", 0],
+                "positive": ["positive", 0], "negative": ["negative", 0], "latent_image": ["latent", 0]}},
+            "vae": {"class_type": "VAEDecode", "inputs": {"samples": ["sampler", 0], "vae": ["vae_loader", 0]}},
+            "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-moss-edit", "images": ["vae", 0]}},
+        }
+
     def check_text_encoder_files(self, filenames) -> None:
         """Raise before queueing when the running ComfyUI does not list a text
         encoder picked for this render, instead of ComfyUI's "Value not in list"
@@ -1428,6 +1474,41 @@ class ComfyUIImageGenerator:
             vram_mb=_registry_vram("qwen-image-edit"), timeout=600, gpu_wait=gpu_wait,
         )
         logger.info("Qwen-Image-Edit complete: %s", result)
+        return result
+
+    def edit_image_moss(
+        self, *, image_path: str, instruction: str, output_path: str,
+        steps: int | None = None, cfg: float | None = None, seed: int = 42,
+        gpu_wait: dict | None = None,
+    ) -> str:
+        """Instruction edit of one photo on MOSS-Image with its edit LoRA. No step
+        count renders the template's 30; a given one is used as given."""
+        if not self.moss_edit_installed():
+            from backend.services.image_editing_packs import missing_message
+            raise RuntimeError(_failure(K.MODEL_NOT_INSTALLED, missing_message("edit_image")))
+        self._require_up(f"ComfyUI not reachable at {self.comfy_url} — cannot edit image")
+        if not image_path or not os.path.exists(image_path):
+            raise RuntimeError(f"Source image not found: {image_path}")
+        missing = self.missing_node_classes(("TextEncodeMOSSImageEdit", "SkipLayerGuidanceDiTSimple"))
+        if missing:
+            raise RuntimeError(
+                "MOSS-Image Edit needs ComfyUI 0.43 or newer: the running ComfyUI has no "
+                f"{', '.join(missing)} node. Update the ComfyUI plugin and try again."
+            )
+        name = self._upload_image_to_comfyui(image_path)
+        if not name:
+            raise RuntimeError("Failed to upload the source image to ComfyUI")
+        self.last_steps, self.last_steps_notice = edit_steps(
+            steps, floor=0, default=MOSS_EDIT_DEFAULT_STEPS, label="MOSS-Image Edit")
+        workflow = self._build_moss_edit_workflow(
+            src_name=name, instruction=instruction, steps=self.last_steps,
+            cfg=float(cfg) if cfg else MOSS_EDIT_DEFAULT_CFG, seed=seed,
+        )
+        result = self._run_edit_graph(
+            workflow, output_path, job="chat_moss_edit",
+            vram_mb=_registry_vram("moss-image-edit"), timeout=600, gpu_wait=gpu_wait,
+        )
+        logger.info("MOSS-Image Edit complete: %s", result)
         return result
 
     def generate_with_identity(
