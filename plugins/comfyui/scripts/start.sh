@@ -8,6 +8,15 @@ PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_ROOT="$(cd "$PLUGIN_ROOT/../.." && pwd)"
 COMFYUI_DIR="$PLUGIN_ROOT/ComfyUI"
 VENV_PYTHON="$PROJECT_ROOT/backend/venv/bin/python"
+# GUAARDVARK_COMFYUI_OWN_VENV=1 runs ComfyUI from its own environment on a newer
+# PyTorch (scripts/setup_venv.sh builds it); the backend keeps backend/venv.
+if [ "${GUAARDVARK_COMFYUI_OWN_VENV:-0}" = "1" ]; then
+    if [ -x "$PLUGIN_ROOT/venv/bin/python" ]; then
+        VENV_PYTHON="$PLUGIN_ROOT/venv/bin/python"
+    else
+        echo "GUAARDVARK_COMFYUI_OWN_VENV=1 but $PLUGIN_ROOT/venv is not built; using backend/venv (run plugins/comfyui/scripts/setup_venv.sh)" >&2
+    fi
+fi
 # Port from plugin.local.json (untracked per-install override) or plugin.json; 8188 fallback.
 PORT=$(python3 -c '
 import json, sys
