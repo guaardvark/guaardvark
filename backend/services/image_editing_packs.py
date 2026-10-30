@@ -34,6 +34,15 @@ PACKS = (
         "tools": ("edit_image", "inpaint_image", "outpaint_image"),
     },
     {
+        "id": "moss-image-edit",
+        "name": "MOSS-Image Edit",
+        "short": "MOSS-Image Edit",
+        "description": "Instruction edits of one photo with MOSS-Image's edit LoRA; exact "
+                       "lettering when an edit changes text. Installs MOSS-Image when it is "
+                       "not there yet. Apache-2.0.",
+        "tools": ("edit_image",),
+    },
+    {
         "id": "pulid-flux",
         "name": "PuLID identity on FLUX.1-dev",
         "short": "the PuLID identity pack",
