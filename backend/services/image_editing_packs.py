@@ -37,9 +37,9 @@ PACKS = (
         "id": "moss-image-edit",
         "name": "MOSS-Image Edit",
         "short": "MOSS-Image Edit",
-        "description": "Instruction edits of one photo with MOSS-Image's edit LoRA; exact "
-                       "lettering when an edit changes text. Installs MOSS-Image when it is "
-                       "not there yet. Apache-2.0.",
+        "description": "Instruction edits of one photo with MOSS-Image's edit LoRA: clothing, "
+                       "objects and colours, with the rest of the photo kept. Installs MOSS-Image "
+                       "when it is not there yet. Apache-2.0.",
         "tools": ("edit_image",),
     },
     {

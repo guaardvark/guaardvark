@@ -1011,10 +1011,14 @@ VIDEO_MODEL_REGISTRY = {
     # of one photo through TextEncodeMOSSImageEdit (ComfyUI 0.43.0 added edit
     # LoRAs). Sampling is the official template's (image_moss_image_edit: 30
     # steps, cfg 4, euler/normal, skip-layer guidance on block 22, ~1 MP).
+    # Compared 2026-10-30 through chat at 28 steps: a garment swap on a street
+    # portrait kept face, pose and background; replacing a poster headline merged
+    # the old and new words and dropped the footer, where Qwen-Image-Edit spelled
+    # it exactly and kept the layout. 'auto' prefers Qwen-Image-Edit.
     "moss-image-edit": {
         "name": "MOSS-Image Edit LoRA (rank 64)",
-        "description": "Instruction edits of one photo on MOSS-Image: change a garment, a sign, "
-                       "a colour, keep the rest. Apache 2.0. Needs ComfyUI 0.43 or newer.",
+        "description": "Instruction edits of one photo on MOSS-Image: change a garment, an object "
+                       "or a colour and keep the rest. Apache 2.0. Needs ComfyUI 0.43 or newer.",
         "hf_repo": "Comfy-Org/MOSS-Image",
         "local_subdir": "loras",
         "files": [
