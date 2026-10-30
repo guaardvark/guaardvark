@@ -108,6 +108,8 @@ def _regenerate_document(document_id: int, same_seed: bool) -> Dict[str, Any]:
         return _regenerate_infographic(meta, same_seed)
     if recipe["kind"] in ("song", "sound"):
         return _regenerate_audio(meta, same_seed)
+    if recipe["kind"] == "video" and recipe.get("batch_id") and recipe.get("item_id"):
+        return _regenerate_clip(recipe["batch_id"], recipe["item_id"], same_seed)
     raise RegenerateError("This kind of file cannot be made again here.")
 
 

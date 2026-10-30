@@ -219,7 +219,42 @@ _DOC_SORT_COLS = {
     "name": DBDocument.filename,
     "date": DBDocument.uploaded_at,
     "size": DBDocument.size,
+    "type": DBDocument.type,
 }
+
+# File extensions per kind for browse's kinds= filter. "other" is every file
+# that is none of the three.
+_MEDIA_KIND_EXTS = {
+    "image": ("png", "jpg", "jpeg", "webp", "gif", "bmp"),
+    "video": ("mp4", "webm", "mov", "mkv"),
+    "audio": ("wav", "mp3", "flac", "ogg", "m4a"),
+}
+
+
+def _kind_filter(kinds):
+    """A SQL condition matching documents of any of ``kinds``, or None for all."""
+    from sqlalchemy import and_, or_
+    name = sa_func.lower(DBDocument.filename)
+    def of(exts):
+        return or_(*[name.like(f"%.{ext}") for ext in exts])
+    parts = [of(_MEDIA_KIND_EXTS[k]) for k in kinds if k in _MEDIA_KIND_EXTS]
+    if "other" in kinds:
+        parts.append(and_(*[~of(exts) for exts in _MEDIA_KIND_EXTS.values()]))
+    return or_(*parts) if parts else None
+
+
+def _media_folder_ids() -> set:
+    """Ids of the folders that hold a picture, video or sound somewhere below."""
+    media = _kind_filter(_MEDIA_KIND_EXTS)
+    holding = {fid for (fid,) in db.session.query(DBDocument.folder_id).filter(media).distinct() if fid}
+    if not holding:
+        return set()
+    paths = {p for (p,) in db.session.query(Folder.path).filter(Folder.id.in_(holding))}
+    ancestors = set()
+    for path in paths:
+        parts = path.split("/")
+        ancestors.update("/".join(parts[:i]) for i in range(1, len(parts) + 1))
+    return {fid for (fid,) in db.session.query(Folder.id).filter(Folder.path.in_(ancestors))}
 
 LIVE_REPO_PREFIX = "/__repo__"
 
@@ -284,6 +319,12 @@ def browse_folder():
     """
     GET /api/files/browse?path=/My Projects&fields=light&offset=0&limit=200&sort_by=name&sort_dir=asc
     List contents of a folder (both subfolders and files)
+
+    Also: recursive=1 lists every file below the folder and no folders;
+    kinds=image,video,audio,other keeps those files; media_only=1 keeps the
+    folders holding media and, without kinds, only media files; q= matches
+    names and what a file was made from; sort_by=type; fields=media adds the
+    media fields (title, prompt, model, duration) to the light fields.
     """
     logger.info("API: Browse folder request")
 
@@ -294,7 +335,14 @@ def browse_folder():
         limit = max(0, int(request.args.get("limit", 0)))  # 0 = unlimited (backward compat)
         sort_by = request.args.get("sort_by", "name")
         sort_dir = request.args.get("sort_dir", "asc")
-        use_light = fields == "light"
+        use_media = fields == "media"
+        use_light = fields == "light" or use_media
+        recursive = request.args.get("recursive") in ("1", "true")
+        media_only = request.args.get("media_only") in ("1", "true")
+        kinds = {k.strip() for k in request.args.get("kinds", "").split(",") if k.strip()}
+        if media_only and not kinds:
+            kinds = set(_MEDIA_KIND_EXTS)
+        search = request.args.get("q", "").strip()[:200]
 
         # Safety check
         if not ensure_path_is_safe(folder_path):
@@ -334,6 +382,25 @@ def browse_folder():
             breadcrumbs.insert(0, {"name": "Root", "path": "/"})
             resp_path = folder.path
 
+        if recursive:
+            if folder_id_val is None:
+                doc_q = DBDocument.query
+            else:
+                below = [fid for (fid,) in db.session.query(Folder.id).filter(
+                    Folder.path.startswith(f"{folder.path}/", autoescape=True))]
+                doc_q = DBDocument.query.filter(DBDocument.folder_id.in_([folder.id, *below]))
+            folder_q = Folder.query.filter(sa_false())
+        kind_cond = _kind_filter(kinds) if kinds else None
+        if kind_cond is not None:
+            doc_q = doc_q.filter(kind_cond)
+        if media_only and not recursive:
+            folder_q = folder_q.filter(Folder.id.in_(_media_folder_ids()))
+        if search:
+            pattern = "%" + search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            folder_q = folder_q.filter(Folder.name.ilike(pattern, escape="\\"))
+            doc_q = doc_q.filter(DBDocument.filename.ilike(pattern, escape="\\")
+                                 | DBDocument.file_metadata.ilike(pattern, escape="\\"))
+
         # Get total counts before pagination
         total_folders = folder_q.count()
         total_documents = doc_q.count()
@@ -371,7 +438,11 @@ def browse_folder():
         # Serialize
         if use_light:
             folder_dicts = [f.to_dict_light() for f in folders]
-            doc_dicts = [d.to_dict_light() for d in documents]
+            if use_media:
+                from backend.services.media_recipe import media_row
+                doc_dicts = [media_row(d) for d in documents]
+            else:
+                doc_dicts = [d.to_dict_light() for d in documents]
             # Inject batch counts
             folder_ids = [f.id for f in folders]
             sub_counts = _batch_subfolder_counts(folder_ids)
@@ -385,7 +456,7 @@ def browse_folder():
             folder_dicts = [f.to_dict() for f in folders]
             doc_dicts = [d.to_dict() for d in documents]
 
-        if not folder_path or folder_path == "/":
+        if (not folder_path or folder_path == "/") and not (recursive or media_only or search):
             folder_dicts = [_live_repo_mount_folder(), *folder_dicts]
             total_folders += 1
 

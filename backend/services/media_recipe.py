@@ -108,11 +108,105 @@ def recipe_for_document(document_id: int) -> Optional[Dict[str, Any]]:
         return _infographic_recipe(doc, meta)
     if source == "batch_generation" and meta.get("batch_id") and _media_of(doc.filename) == "image":
         return _image_recipe(doc, meta)
+    if meta.get("batch_id") and _media_of(doc.filename) == "video":
+        item_id = _clip_item_of(doc)
+        clip = recipe_for_clip(meta["batch_id"], item_id) if item_id else None
+        if clip is not None:
+            clip["document_id"] = doc.id
+            clip["url"] = f"/api/files/document/{doc.id}/download"
+            return clip
     if _media_of(doc.filename) == "audio" and (meta.get("backend") or source == "music_generation"):
         return _audio_recipe(doc, meta)
     recipe = _base(doc, "file", _media_of(doc.filename))
     recipe["regenerate"]["reason"] = "no_settings"
     return recipe
+
+
+def _clip_item_of(doc) -> Optional[str]:
+    """The batch item a clip document belongs to: its folder in
+    <batch>/<item>/videos/<clip>."""
+    parts = (doc.path or "").replace("\\", "/").split("/")
+    return parts[-3] if len(parts) >= 3 and parts[-2] == "videos" else None
+
+
+# -- one row of the Library listing ------------------------------------------
+
+_clip_prompts: Dict[str, Any] = {}
+
+
+def _clip_prompt(batch_id: str, item_id: Optional[str]) -> str:
+    """What a video batch item was asked for, read from the batch's metadata
+    and kept until that file changes."""
+    from pathlib import Path
+    from backend.config import UPLOAD_DIR
+    from backend.services.output_registration import BATCH_METADATA_FILE, find_batch_dir
+
+    batch_dir = find_batch_dir(Path(UPLOAD_DIR) / "Videos", batch_id)
+    if batch_dir is None:
+        return ""
+    meta_file = batch_dir / BATCH_METADATA_FILE
+    try:
+        mtime = meta_file.stat().st_mtime_ns
+    except OSError:
+        return ""
+    cached = _clip_prompts.get(batch_id)
+    if cached is None or cached[0] != mtime:
+        try:
+            data = json.loads(meta_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = {}
+        rd = data.get("retry_data") or {}
+        ids = list(rd.get("item_ids") or [])
+        prompts = list(rd.get("prompts") or [])
+        by_item = {i: prompts[n] for n, i in enumerate(ids) if n < len(prompts) and prompts[n]}
+        fallback = rd.get("prompt") or (data.get("metadata") or {}).get("display_name") or ""
+        cached = (mtime, by_item, fallback)
+        _clip_prompts[batch_id] = cached
+    return cached[1].get(item_id) or cached[2]
+
+
+def _short(text: Any, limit: int) -> str:
+    text = " ".join(str(text or "").split())
+    return text[:limit] + ("…" if len(text) > limit else "")
+
+
+def media_row(doc) -> Dict[str, Any]:
+    """A Library document's light fields plus what a media view shows: kind,
+    a title, the prompt it was made from, model, duration and size."""
+    from backend.services.song_recipe import audio_title
+
+    row = doc.to_dict_light()
+    meta = _meta_of(doc)
+    media = _media_of(doc.filename)
+    prompt = ""
+    duration = None
+    if media == "image":
+        prompt = meta.get("original_prompt") or meta.get("prompt") or meta.get("title") or ""
+    elif media == "video":
+        if meta.get("batch_id"):
+            prompt = _clip_prompt(meta["batch_id"], _clip_item_of(doc))
+        prompt = prompt or meta.get("prompt") or ""
+        duration = meta.get("duration_s")
+    elif media == "audio":
+        prompt = audio_title(meta)
+        duration = meta.get("actual_duration_s") or meta.get("requested_duration_s") or meta.get("duration_s")
+    width = height = None
+    dims = str(meta.get("dimensions") or "")
+    if "x" in dims:
+        w, _, h = dims.partition("x")
+        if w.isdigit() and h.isdigit():
+            width, height = int(w), int(h)
+    row.update({
+        "media": media,
+        "source": meta.get("source"),
+        "title": _short(prompt, 90) or doc.filename,
+        "prompt": _short(prompt, 200),
+        "model": meta.get("model_used") or meta.get("model") or meta.get("backend"),
+        "duration_s": duration,
+        "width": width,
+        "height": height,
+    })
+    return row
 
 
 def _image_recipe(doc, meta: Dict[str, Any]) -> Dict[str, Any]:
