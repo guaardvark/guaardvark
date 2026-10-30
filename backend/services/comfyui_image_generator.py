@@ -192,6 +192,17 @@ try:
     QWEN21_DEFAULT_STEPS = int(_QWEN21.get("default_steps") or 25)
     QWEN21_DEFAULT_CFG = float(_QWEN21.get("default_cfg") or 1.0)
     QWEN21_NODES = tuple(_QWEN21.get("comfy_nodes") or ("TextEncodeQwenImage21", "QwenImage21Cache"))
+    # MOSS-Image text-to-image: loader filenames, sampling defaults and nodes.
+    _MOSS = _VMR.get("moss-image") or {}
+    MOSS_UNET = ((_MOSS.get("files") or [{}])[0].get("dst")
+                 or "moss_image_sft_int8_convrot.safetensors")
+    MOSS_CLIP = (((_VMR.get("moss-image-clip") or {}).get("files") or [{}])[0].get("dst")
+                 or "qwen3.5_9b_w4a8_gptq.safetensors")
+    MOSS_VAE = (((_VMR.get("moss-image-vae") or {}).get("files") or [{}])[0].get("dst")
+                or "flux2-vae_small.safetensors")
+    MOSS_DEFAULT_STEPS = int(_MOSS.get("default_steps") or 25)
+    MOSS_DEFAULT_CFG = float(_MOSS.get("default_cfg") or 2.5)
+    MOSS_NODES = tuple(_MOSS.get("comfy_nodes") or ("MOSSImageLayoutPrompt", "EmptyFlux2LatentImage"))
 except Exception:  # pragma: no cover - registry import is environment-specific
     KONTEXT_UNET = "flux1-kontext-dev-Q6_K.gguf"
     KONTEXT_DEFAULT_STEPS = 28
@@ -207,6 +218,12 @@ except Exception:  # pragma: no cover - registry import is environment-specific
     QWEN21_DEFAULT_STEPS = 25
     QWEN21_DEFAULT_CFG = 1.0
     QWEN21_NODES = ("TextEncodeQwenImage21", "QwenImage21Cache")
+    MOSS_UNET = "moss_image_sft_int8_convrot.safetensors"
+    MOSS_CLIP = "qwen3.5_9b_w4a8_gptq.safetensors"
+    MOSS_VAE = "flux2-vae_small.safetensors"
+    MOSS_DEFAULT_STEPS = 25
+    MOSS_DEFAULT_CFG = 2.5
+    MOSS_NODES = ("MOSSImageLayoutPrompt", "EmptyFlux2LatentImage")
     _is_model_installed = None
     _comfy_models_dir = None
 
@@ -217,6 +234,18 @@ QWEN21_TAG = "qwen-image-21"
 QWEN21_ENCODER_RESOLUTION = 1024
 # The sides the model samples on; the template's usage note asks for multiples of 32.
 QWEN21_SIDE_ALIGNMENT = 32
+
+# The model tag the MOSS-Image graph dispatches on (shipped id and the prefix of
+# every user id of the family).
+MOSS_TAG = "moss-image"
+# MOSS-Image samples a FLUX.2 latent; its loader asks for sides in multiples of 16.
+MOSS_SIDE_ALIGNMENT = 16
+# The official templates' negative (image_moss_image_t2i). A caller's own
+# negative replaces it.
+MOSS_NEGATIVE = "nsfw, worst quality, bad anatomy, watermark, jpeg artifact"
+# The ComfyUI release that first carries each family's graph, for the message a
+# render on an older server gets.
+_GRAPH_MIN_COMFY = {QWEN21_TAG: ("Qwen-Image 2.1", "0.37"), MOSS_TAG: ("MOSS-Image", "0.42")}
 
 # A neutral SDXL negative — keeps anatomy/quality sane without fighting the LoRA.
 DEFAULT_NEGATIVE = (
@@ -382,7 +411,8 @@ class ComfyUIImageGenerator:
                  flux_unet: str | None = None, flux_t5: str | None = None,
                  flux_clip: str | None = None, flux_vae: str | None = None,
                  flux_dev_unet: str | None = None, qwen21_unet: str | None = None,
-                 flux_dev_t5: str | None = None, text_encoders: dict | None = None):
+                 flux_dev_t5: str | None = None, text_encoders: dict | None = None,
+                 moss_unet: str | None = None):
         self.comfy_url = (comfy_url or _COMFY_URL).rstrip("/")
         self.lora_strength = lora_strength
         self.model = model or "sdxl"  # "flux-schnell", "sdxl", "sdxl-lora" etc. (from MV keyframe_model)
@@ -395,6 +425,8 @@ class ComfyUIImageGenerator:
         self.flux_dev_t5 = flux_dev_t5 or FLUX_DEV_T5
         # A user-added Qwen-Image 2.1 UNET; the shipped registry file otherwise.
         self.qwen21_unet = qwen21_unet or QWEN21_UNET
+        # A user-added MOSS-Image UNET; the shipped registry file otherwise.
+        self.moss_unet = moss_unet or MOSS_UNET
         # Text encoders picked for this render, {slot: loader filename}
         # (user_image_models.resolve_user_encoders; slots from the FLUX family
         # row). A T5-XXL fills the T5 slot of whichever FLUX graph renders, a
@@ -590,6 +622,17 @@ class ComfyUIImageGenerator:
                     )
                     effective_model = "zimage"
                     ml = "zimage"
+
+        if MOSS_TAG in ml:
+            if lora_names:
+                raise RuntimeError(
+                    "MOSS-Image renders do not take LoRAs yet. Remove the LoRA "
+                    "or pick a FLUX, SDXL or Z-Image model for it."
+                )
+            return self._build_moss_workflow(
+                prompt=prompt, negative=negative, width=width, height=height,
+                seed=seed, steps=steps, cfg=cfg,
+            )
 
         if QWEN21_TAG in ml:
             if lora_names:
@@ -1143,6 +1186,57 @@ class ComfyUIImageGenerator:
             "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-qwen-image-21", "images": ["vae", 0]}},
         }
 
+    def _build_moss_workflow(
+        self, *, prompt: str, negative: str, width: int, height: int,
+        seed: int, steps: int, cfg: float,
+    ) -> dict:
+        """The official Comfy-Org MOSS-Image SFT text-to-image graph
+        (image_moss_image_t2i) with its prompt enhancer off: UNETLoader +
+        CLIPLoader(moss_image) + VAELoader, CLIPTextEncode for both
+        conditionings, EmptyFlux2LatentImage, KSampler er_sde/simple. The
+        model's sampling shift (5.0) is ComfyUI's default for the architecture.
+
+        Steps and cfg default to the template's (25, 2.5) when the caller gives
+        none; a value that is given is used as given. Sides snap down to
+        multiples of 16.
+        """
+        n = int(steps) if steps and int(steps) > 0 else MOSS_DEFAULT_STEPS
+        guidance = float(cfg) if cfg is not None and float(cfg) > 0 else MOSS_DEFAULT_CFG
+        grid = MOSS_SIDE_ALIGNMENT
+        w = max(grid, (int(width) // grid) * grid)
+        h = max(grid, (int(height) // grid) * grid)
+        # The generic SDXL negative is tag stuffing written for another model;
+        # the template's own negative stands in for it.
+        neg = MOSS_NEGATIVE if negative in (None, "", DEFAULT_NEGATIVE) else str(negative)
+        return {
+            "unet": {
+                "class_type": "UNETLoader",
+                "inputs": {"unet_name": self.moss_unet, "weight_dtype": "default"},
+            },
+            "clip": {
+                "class_type": "CLIPLoader",
+                "inputs": {"clip_name": MOSS_CLIP, "type": "moss_image"},
+            },
+            "vae_loader": {"class_type": "VAELoader", "inputs": {"vae_name": MOSS_VAE}},
+            "positive": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["clip", 0], "text": prompt}},
+            "negative": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["clip", 0], "text": neg}},
+            "latent": {
+                "class_type": "EmptyFlux2LatentImage",
+                "inputs": {"width": w, "height": h, "batch_size": 1},
+            },
+            "sampler": {
+                "class_type": "KSampler",
+                "inputs": {
+                    "seed": seed, "steps": n, "cfg": guidance,
+                    "sampler_name": "er_sde", "scheduler": "simple", "denoise": 1.0,
+                    "model": ["unet", 0], "positive": ["positive", 0],
+                    "negative": ["negative", 0], "latent_image": ["latent", 0],
+                },
+            },
+            "vae": {"class_type": "VAEDecode", "inputs": {"samples": ["sampler", 0], "vae": ["vae_loader", 0]}},
+            "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-moss-image", "images": ["vae", 0]}},
+        }
+
     def check_text_encoder_files(self, filenames) -> None:
         """Raise before queueing when the running ComfyUI does not list a text
         encoder picked for this render, instead of ComfyUI's "Value not in list"
@@ -1166,7 +1260,10 @@ class ComfyUIImageGenerator:
 
     def required_node_classes(self, model: str | None) -> tuple:
         """Node classes a model's graph needs beyond ComfyUI's long-standing core."""
-        if QWEN21_TAG in (model or "").lower():
+        ml = (model or "").lower()
+        if MOSS_TAG in ml:
+            return tuple(MOSS_NODES)
+        if QWEN21_TAG in ml:
             return tuple(QWEN21_NODES)
         return ()
 
@@ -1179,8 +1276,11 @@ class ComfyUIImageGenerator:
             return
         missing = self.missing_node_classes(required)
         if missing:
+            ml = (model or "").lower()
+            tag = MOSS_TAG if MOSS_TAG in ml else QWEN21_TAG
+            label, version = _GRAPH_MIN_COMFY[tag]
             raise RuntimeError(
-                "Qwen-Image 2.1 needs ComfyUI 0.37 or newer: the running ComfyUI has no "
+                f"{label} needs ComfyUI {version} or newer: the running ComfyUI has no "
                 f"{', '.join(missing)} node. Update the ComfyUI plugin and try again."
             )
 

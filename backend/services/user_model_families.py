@@ -66,6 +66,9 @@ _QWEN21_TOKENS = (
     "qwen image 2.1",
 )
 
+# MOSS-Image spellings seen in repo ids and file names.
+_MOSS_TOKENS = ("moss-image", "moss_image", "mossimage", "moss image")
+
 IMAGE_FAMILIES = (
     {
         "id": "zimage",
@@ -216,6 +219,35 @@ IMAGE_FAMILIES = (
         "tokens": _QWEN21_TOKENS,
         "pipeline_tags": (),
         "index_classes": (),
+    },
+    {
+        "id": "moss-image",
+        "domain": "image",
+        "wired": True,
+        "label": "MOSS-Image",
+        "engine": "comfy",
+        "like": "moss-image",
+        "roles": ("generation",),
+        "layout": "comfy_files",
+        "single_file": True,
+        "lora_engine": None,
+        "local_subdir": "diffusion_models",
+        "comfy_graph": "moss-image",
+        # UNETLoader reads single-file .safetensors. OpenMOSS's own repos are
+        # sharded diffusers snapshots ComfyUI cannot load; Look up says so.
+        "weight_suffixes": (".safetensors",),
+        "refused_suffixes": {
+            ".gguf": "is a GGUF; the MOSS-Image graph here loads .safetensors with UNETLoader. "
+                     "Pick a .safetensors file instead.",
+        },
+        "refused_name_tokens": {
+            **_MLX_REFUSAL,
+            "-of-": "is one shard of a diffusers snapshot, which ComfyUI cannot load. "
+                    "Use the single-file builds in Comfy-Org/MOSS-Image instead.",
+        },
+        "tokens": _MOSS_TOKENS,
+        "pipeline_tags": (),
+        "index_classes": ("MOSSImagePipeline",),
     },
 )
 
@@ -895,6 +927,11 @@ def match_families(
     tag = (pipeline_tag or "").lower().replace("_", "-")
     cls = _class_stem(index_class)
     qwen_claim = _qwen_claim(blob, cls, base_model) if domain == "image" else None
+    # A MOSS-Image repo ships the FLUX.2 VAE beside the model; its "flux" file
+    # name must not file the paste under FLUX.1.
+    moss_claim = domain == "image" and (
+        any(tok in blob for tok in _MOSS_TOKENS) or cls == "MOSSImagePipeline"
+    )
     unwired = []
     for row in UNWIRED_FAMILIES:
         if row["domain"] != domain:
@@ -935,6 +972,8 @@ def match_families(
     if domain == "image":
         for row in IMAGE_FAMILIES:
             if not row["wired"]:
+                continue
+            if moss_claim and row["id"] != "moss-image":
                 continue
             score = 0
             reasons = []
@@ -984,6 +1023,21 @@ def match_families(
                 "engine": row["engine"],
                 "score": score,
             })
+        if not matches and moss_claim:
+            # A MOSS-Image LoRA or text encoder: no graph here takes one, and
+            # the Z-Image LoRA default below would file it under the wrong model.
+            return [{
+                "family": "moss-image",
+                "label": "MOSS-Image",
+                "role": role,
+                "like": None,
+                "wired": False,
+                "confidence": "high",
+                "reason": "MOSS-Image LoRAs and text encoders are not wired yet; the MOSS-Image "
+                          "text encoder installs with the model in Manage Image Models.",
+                "moe": False,
+                "engine": None,
+            }]
         if not matches and role == "generation" and has_model_index:
             sd = next(r for r in IMAGE_FAMILIES if r["id"] == "sd")
             matches.append({

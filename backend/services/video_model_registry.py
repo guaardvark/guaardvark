@@ -943,6 +943,62 @@ VIDEO_MODEL_REGISTRY = {
         "comfy_nodes": ["TextEncodeQwenImage21", "QwenImage21Cache"],
         "type": "qwen-image",
     },
+    # ── MOSS-Image — text-to-image through ComfyUI ───────────────────────────
+    # OpenMOSS's 5B single-stream DiT, from the Comfy-Org split files. ComfyUI
+    # 0.42.0 added the model (CLIPLoader type moss_image, EmptyFlux2LatentImage);
+    # `comfy_nodes` is checked against the running server before a render is
+    # queued. Licence: Apache 2.0 (huggingface.co/OpenMOSS-Team/MOSS-Image-SFT).
+    "moss-image-vae": {
+        "name": "FLUX.2 small VAE (MOSS-Image)",
+        "description": "The FLUX.2 small decoder MOSS-Image samples in. Apache 2.0.",
+        "hf_repo": "Comfy-Org/MOSS-Image",
+        "local_subdir": "vae",
+        "files": [
+            {"src": "vae/flux2-vae_small.safetensors", "dst": "flux2-vae_small.safetensors"},
+        ],
+        "size_gb": 0.25,
+        "vram_mb": 0,
+        "type": "vae",
+    },
+    "moss-image-clip": {
+        "name": "Qwen3.5 9B text encoder (w4a8 GPTQ, MOSS-Image)",
+        "description": "CLIPLoader type=moss_image for MOSS-Image; the file the official "
+                       "Comfy templates load. Apache 2.0.",
+        "hf_repo": "Comfy-Org/MOSS-Image",
+        "local_subdir": "text_encoders",
+        "files": [
+            {
+                "src": "text_encoders/qwen3.5_9b_w4a8_gptq.safetensors",
+                "dst": "qwen3.5_9b_w4a8_gptq.safetensors",
+            },
+        ],
+        "size_gb": 7.34,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "moss-image": {
+        "name": "MOSS-Image SFT (int8 convrot)",
+        "description": "Text-to-image tuned for exact lettering in English and Chinese, posters "
+                       "and layouts; reads long prose prompts. Apache 2.0. Needs ComfyUI 0.42 or newer.",
+        "hf_repo": "Comfy-Org/MOSS-Image",
+        "local_subdir": "diffusion_models",
+        "files": [
+            {
+                "src": "diffusion_models/moss_image_sft_int8_convrot.safetensors",
+                "dst": "moss_image_sft_int8_convrot.safetensors",
+            },
+        ],
+        "requires": ["moss-image-clip", "moss-image-vae"],
+        "size_gb": 5.41,
+        "default_steps": 25,
+        "default_cfg": 2.5,
+        "vram_mb": 9500,
+        # The graph itself uses core nodes; MOSSImageLayoutPrompt ships in the
+        # same ComfyUI release as the moss_image loader type, so its presence
+        # is what tells a server that can load the model.
+        "comfy_nodes": ["MOSSImageLayoutPrompt", "EmptyFlux2LatentImage"],
+        "type": "moss-image",
+    },
     # ── PuLID-FLUX — one face photo → new prompt on flux-dev (no LoRA train) ──
     "pulid-antelopev2": {
         "name": "InsightFace AntelopeV2 (PuLID)",
