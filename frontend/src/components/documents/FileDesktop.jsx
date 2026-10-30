@@ -1317,10 +1317,23 @@ const FileDesktop = forwardRef(({
 
   // Icon columns that fit the desktop as it is drawn; the layout width is the
   // fallback before it has been measured.
-  const iconColumns = useCallback(() => {
-    const width = desktopContentRef.current?.clientWidth || RGL_WIDTH_PROP_PX;
-    return Math.max(1, Math.floor((width - 40) / ICON_GRID_W));
-  }, [RGL_WIDTH_PROP_PX]);
+  // The desktop's drawn width, kept current as the window resizes.
+  const [desktopWidth, setDesktopWidth] = useState(0);
+  useEffect(() => {
+    const el = desktopContentRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return undefined;
+    const update = () => setDesktopWidth(Math.floor(el.clientWidth));
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loading]);
+  const visibleWidth = desktopWidth || desktopContentRef.current?.clientWidth || RGL_WIDTH_PROP_PX;
+
+  const iconColumns = useCallback(
+    () => Math.max(1, Math.floor((visibleWidth - 40) / ICON_GRID_W)),
+    [visibleWidth],
+  );
 
   // Arrange all desktop icons into a clean grid (reset positions). `ordered`,
   // when given, is the order to lay them out in (Sort by).
@@ -2208,10 +2221,12 @@ const FileDesktop = forwardRef(({
 
 
   // Compute collision-free positions for ALL icons.
-  // Saved positions are kept as-is; unsaved items get the first free grid cell.
-  // Saved places can come from another grid (the Media Library's used 150 px
-  // columns), so a cell is free only when no card would cover it, not when
-  // no saved place rounds to it.
+  // Saved positions are kept as-is while they fit the desktop's width; the
+  // rest, and items never placed, get the first free grid cell. A saved place
+  // past the right edge (a wider window, or the Media Library's old 150 px
+  // columns) is not lost: it comes back when the desktop is wide enough.
+  // Saved places can come from another grid, so a cell is free only when no
+  // card would cover it, not when no saved place rounds to it.
   const resolvedIconPositions = useMemo(() => {
     const positions = {};
     const placed = [];
@@ -2223,10 +2238,10 @@ const FileDesktop = forwardRef(({
       ...rootFiles.map(f => ({ key: getItemKey(f, 'file'), id: f.id, isFile: true })),
     ];
 
-    // First pass: saved positions are kept as they are
+    // First pass: saved positions that fit are kept as they are
     for (const item of allItems) {
       const saved = iconPositions[item.key];
-      if (saved) {
+      if (saved && saved.x + ICON_CARD_SPAN <= visibleWidth) {
         positions[item.key] = saved;
         placed.push(saved);
       }
@@ -2250,14 +2265,16 @@ const FileDesktop = forwardRef(({
     }
 
     return positions;
-  }, [iconPositions, foldedWindows, rootFiles, iconColumns]);
+  }, [iconPositions, foldedWindows, rootFiles, iconColumns, visibleWidth]);
 
   // Find the nearest unoccupied grid cell for an icon
   const snapToGrid = useCallback((rawX, rawY, movingKey, currentPositions) => {
     // Snap to nearest grid cell
     let col = Math.round((rawX - ICON_GRID_PAD) / ICON_GRID_W);
     let row = Math.round((rawY - ICON_GRID_PAD) / ICON_GRID_H);
-    col = Math.max(0, col);
+    // An icon dropped at the right edge stays on the desktop.
+    const maxCols = iconColumns();
+    col = Math.max(0, Math.min(col, maxCols - 1));
     row = Math.max(0, row);
 
     // Every other icon's place (currentPositions is the fully resolved map);
@@ -2279,7 +2296,7 @@ const FileDesktop = forwardRef(({
           if (Math.abs(dc) !== dist && Math.abs(dr) !== dist) continue;
           const nc = col + dc;
           const nr = row + dr;
-          if (nc < 0 || nr < 0) continue;
+          if (nc < 0 || nr < 0 || nc >= maxCols) continue;
           if (isFree(nc, nr)) {
             return { x: nc * ICON_GRID_W + ICON_GRID_PAD, y: nr * ICON_GRID_H + ICON_GRID_PAD };
           }
@@ -2289,7 +2306,7 @@ const FileDesktop = forwardRef(({
 
     // Fallback (shouldn't happen)
     return { x: col * ICON_GRID_W + ICON_GRID_PAD, y: row * ICON_GRID_H + ICON_GRID_PAD };
-  }, []);
+  }, [iconColumns]);
 
   // Handle icon drag end (repositioning)
   const handleIconDrop = useCallback((e, key) => {
