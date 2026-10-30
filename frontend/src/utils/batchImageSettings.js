@@ -70,9 +70,10 @@ export function promptStyleFor(model, modelOptions = [], autoPromptStyle = null)
 // cfg 9 crushes the shadows to black.
 export const QWEN_IMAGE_21_GUIDANCE_MAX = 5;
 
-// MOSS-Image guidance range: the model's user guide gives cfg 3.0-6.0, the
-// official ComfyUI template runs 2.5. The slider stops at 6, the upper end of
-// the registry's cfg_range for moss-image (media_model_registry.IMAGE_MODEL_LIMITS).
+// MOSS-Image guidance range: the official ComfyUI template runs 2.5, the
+// model's user guide 3.0-6.0. The slider stops at 6, the upper end of the
+// registry's cfg_range for moss-image (media_model_registry.IMAGE_MODEL_LIMITS):
+// compared at 1024x1024, 2.5 to 6 all render clean.
 export const MOSS_IMAGE_GUIDANCE_MAX = 6;
 
 export const ZIMAGE_STEPS = 9;
@@ -133,8 +134,11 @@ const PRESETS_BY_FAMILY = {
   ],
   // MOSS-Image numbers come from the official ComfyUI template
   // (image_moss_image_t2i.json: 25 steps, cfg 2.5, er_sde/simple) and the
-  // model's user guide (50 steps, cfg 3.0).
+  // model's user guide (50 steps, cfg 3.0). Fast is 16 steps: compared from 12
+  // to 50 at 1024x1024, 16 renders lettering and figures as clean as 25
+  // (media_model_registry, moss-image row).
   'moss-image': [
+    { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 16, guidance: 2.5, get description() { return translate('options.imagePresets.descriptions.mossImage.fast'); } },
     { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 25, guidance: 2.5, get description() { return translate('options.imagePresets.descriptions.mossImage.standard'); } },
     { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 50, guidance: 3.0, get description() { return translate('options.imagePresets.descriptions.mossImage.high'); } },
   ],

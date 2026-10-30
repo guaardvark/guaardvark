@@ -990,9 +990,17 @@ VIDEO_MODEL_REGISTRY = {
         ],
         "requires": ["moss-image-clip", "moss-image-vae"],
         "size_gb": 5.41,
+        # Sampling defaults are the official Comfy-Org template's
+        # (image_moss_image_t2i: 25 steps, cfg 2.5, er_sde/simple, 1024x1024).
         "default_steps": 25,
         "default_cfg": 2.5,
-        "vram_mb": 9500,
+        # Measured 2026-10-30 on a 16 GB card, ComfyUI 0.43.0, torch 2.6,
+        # --reserve-vram 1, comfy-kitchen attention: the Qwen3.5 encoder (7.0 GB)
+        # and then the transformer (5.2 GB) load whole, one at a time. Peak 9.6 GB
+        # used on the card with 1.5 GB of other processes' contexts; 1024x1024 25
+        # steps in 70 s, 1920x1088 in 136 s. With an 8 GB chat model resident the
+        # loader offloads part of the transformer and the same render takes 72 s.
+        "vram_mb": 8200,
         # The graph itself uses core nodes; MOSSImageLayoutPrompt ships in the
         # same ComfyUI release as the moss_image loader type, so its presence
         # is what tells a server that can load the model.
