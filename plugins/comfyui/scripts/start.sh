@@ -135,7 +135,9 @@ PY
 # tensors laid out for torch 2.7+: on 2.6 every TextGenerate run (FLUX 3 Klein's
 # prompt upsampler, MOSS-Image's prompt enhancer) failed with "Unsupported Flash
 # Attention tensor strides" / "Unsupported tree merge strides". Report the kernel
-# unavailable below 2.7 so ComfyUI decodes on PyTorch attention instead.
+# unavailable below 2.7 so ComfyUI decodes on PyTorch attention instead. That path
+# is slow (measured 1.1 s per token against ~93 tokens/s with the kernel on torch
+# 2.15), so FLUX 3 Klein refuses ComfyUI below 2.7 (comfyui_image_generator).
 "$VENV_PYTHON" - <<'PY'
 import importlib.metadata as m, sys
 from pathlib import Path
