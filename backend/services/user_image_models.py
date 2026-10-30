@@ -80,6 +80,7 @@ _FAMILY_MARKERS = {
     "sana": ("sana",),
     "qwen-image-21": ("qwen-image-21",),
     "moss-image": ("moss-image",),
+    "flux3-klein": ("flux3",),
 }
 ROLES = ("generation", "lora", "encoder")
 # Look up reads the headers of a repo's .safetensors files (a few KB each, in

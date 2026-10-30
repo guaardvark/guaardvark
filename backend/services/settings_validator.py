@@ -59,6 +59,12 @@ _MODEL_NOTES = {
                           "Heavy VRAM — batch max_workers forced to 1.",
                           "Qwen Research License: non-commercial research and evaluation only.",
                       ]},
+    "flux3-klein": {"best_for": ["prompt_adherence", "text", "high_res"],
+                    "warnings": [
+                        "Runs through ComfyUI 0.41 or newer (needs Comfy up + the FLUX 3 Klein weights).",
+                        "Heavy VRAM — batch max_workers forced to 1.",
+                        "FLUX Kommunity Licence: commercial use only under US$5M annual revenue.",
+                    ]},
     "moss-image": {"best_for": ["text", "prompt_adherence", "high_res"],
                    "warnings": [
                        "Runs through ComfyUI 0.42 or newer (needs Comfy up + the MOSS-Image weights).",

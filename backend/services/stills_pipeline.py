@@ -583,6 +583,8 @@ def _generate_comfy_flux(
             unet_kwargs["qwen21_unet"] = target["unet"]
         elif target["family"] == "moss-image":
             unet_kwargs["moss_unet"] = target["unet"]
+        elif target["family"] == "flux3-klein":
+            unet_kwargs["flux3_unet"] = target["unet"]
         elif model_tag == "flux-schnell":
             unet_kwargs["flux_unet"] = target["unet"]
         else:
@@ -684,7 +686,7 @@ def _comfy_admission_mb(model_tag: str | None) -> int | None:
     without a claim."""
     from backend.services.user_model_families import comfy_t2i_family
     family = comfy_t2i_family(model_tag)
-    if family not in ("qwen-image-21", "moss-image"):
+    if family not in ("qwen-image-21", "moss-image", "flux3-klein"):
         return None
     from backend.services.video_model_registry import vram_mb_for_model
     return int(vram_mb_for_model(family))

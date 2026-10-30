@@ -1007,6 +1007,62 @@ VIDEO_MODEL_REGISTRY = {
         "comfy_nodes": ["MOSSImageLayoutPrompt", "EmptyFlux2LatentImage"],
         "type": "moss-image",
     },
+    # ── FLUX 3 Image Klein — text-to-image through ComfyUI ───────────────────
+    # BFL's 5.6B open-weights FLUX 3 model, the step-distilled checkpoint, from
+    # the gated Comfy split (accept the licence on Hugging Face and log in with
+    # `hf auth login` first). ComfyUI 0.41.0 added the model (CLIPLoader type
+    # flux3). The model card says to run it with a prompt upsampler; the graph
+    # runs BFL's Qwen3.5 upsampler through TextGenerate. Licence: FLUX Kommunity
+    # Licence v1.0, commercial use only under US$5M annual revenue.
+    "flux3-klein-vae": {
+        "name": "FLUX.2 VAE (FLUX 3 Klein)",
+        "description": "The FLUX.2 autoencoder FLUX 3 Image Klein samples in.",
+        "hf_repo": "black-forest-labs/flux-3-image-klein-comfy",
+        "local_subdir": "vae",
+        "files": [{"src": "vae/flux2-vae.safetensors", "dst": "flux2-vae.safetensors"}],
+        "size_gb": 0.34,
+        "vram_mb": 0,
+        "type": "vae",
+    },
+    "flux3-klein-clip": {
+        "name": "Qwen3-VL 4B text encoder (int8 convrot, FLUX 3 Klein)",
+        "description": "CLIPLoader type=flux3 for FLUX 3 Image Klein; the file the official templates load.",
+        "hf_repo": "black-forest-labs/flux-3-image-klein-comfy",
+        "local_subdir": "text_encoders",
+        "files": [{"src": "text_encoders/qwen3vl_4b_int8_convrot.safetensors",
+                   "dst": "qwen3vl_4b_int8_convrot.safetensors"}],
+        "size_gb": 4.86,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "flux3-klein-upsampler": {
+        "name": "FLUX 3 prompt upsampler (Qwen3.5 9B w4a8)",
+        "description": "Expands a short request into the full caption FLUX 3 Image Klein expects. Apache 2.0.",
+        "hf_repo": "black-forest-labs/flux-3-image-klein-comfy",
+        "local_subdir": "text_encoders",
+        "files": [{"src": "text_encoders/qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors",
+                   "dst": "qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors"}],
+        "size_gb": 6.72,
+        "vram_mb": 0,
+        "type": "encoder",
+    },
+    "flux3-klein": {
+        "name": "FLUX 3 Image Klein (distilled, int8 convrot)",
+        "description": "BFL's FLUX 3 open-weights model, step-distilled: text, layouts and native 4K. "
+                       "FLUX Kommunity Licence: commercial use only under US$5M annual revenue. "
+                       "Needs ComfyUI 0.41 or newer and a Hugging Face login.",
+        "hf_repo": "black-forest-labs/flux-3-image-klein-comfy",
+        "local_subdir": "diffusion_models",
+        "files": [{"src": "diffusion_models/flux3-image-klein-int8-convrot.safetensors",
+                   "dst": "flux3-image-klein-int8-convrot.safetensors"}],
+        "requires": ["flux3-klein-clip", "flux3-klein-upsampler", "flux3-klein-vae"],
+        "size_gb": 5.83,
+        "default_steps": 15,
+        "default_cfg": 1.0,
+        "vram_mb": 9500,
+        "comfy_nodes": ["Flux3LayoutPrompt", "TextGenerate", "EmptyFlux2LatentImage"],
+        "type": "flux3",
+    },
     # The official MOSS-Image edit LoRA on the SFT transformer: instruction edits
     # of one photo through TextEncodeMOSSImageEdit (ComfyUI 0.43.0 added edit
     # LoRAs). Sampling is the official template's (image_moss_image_edit: 30

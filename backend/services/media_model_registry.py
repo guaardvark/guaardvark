@@ -253,6 +253,16 @@ IMAGE_FAMILY_SPECS: dict[str, dict[str, Any]] = {
         "prompt_style": "natural", "engine": "comfy",
         "vram_mb": _registry_vram_mb("moss-image", 9500), "ram_gb": 16.0,
     },
+    # FLUX 3 Image Klein (distilled) through ComfyUI. Steps and cfg are the
+    # official distilled template's (image_flux3_klein_distilled_t2i: 15 steps,
+    # cfg 1, er_sde/simple, 1024x1024; the docs give 4-16 steps). The template's
+    # canvas is a ResolutionSelector at 1 MP; sides in multiples of 16.
+    "flux3-klein": {
+        "max_side": 2048, "max_pixel_area": 2048 * 1024, "min_side": 512, "dimension_alignment": 16,
+        "width": 1024, "height": 1024, "default_steps": 15, "cfg_when_unset": 1.0,
+        "prompt_style": "natural", "engine": "comfy",
+        "vram_mb": _registry_vram_mb("flux3-klein", 9500), "ram_gb": 16.0,
+    },
     # SDXL loads whole onto cards of 10 GB and up (vram_mb 8000: ~6.9 GB of fp16
     # weights plus the working set). Below that it runs with CPU model offload,
     # one component on the card at a time. vram_mb_offload measured 2026-10-07 on
@@ -318,6 +328,10 @@ IMAGE_MODEL_LIMITS: dict[str, dict[str, Any]] = {
     # lettered poster and a full-length portrait: 12, 16, 20, 25, 35 and 50 steps
     # all render the lettering exactly and the figure clean (12 a little
     # smoother); cfg 2.5, 3, 4.5 and 6 all render clean, higher adding contrast.
+    # Distilled: cfg is fixed at 1 ("raising it does not help", ComfyUI docs).
+    "flux3-klein": {"family": "flux3-klein", "steps_range": (4, 16), "cfg_range": (1.0, 1.0),
+                    "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1,
+                    "distilled": True},
     "moss-image": {"family": "moss-image", "steps_range": (12, 50), "cfg_range": (2.5, 6.0),
                    "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
     # SDXL: guidance above 9 renders black images, so its range is enforced.
