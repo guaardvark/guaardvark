@@ -46,10 +46,11 @@ def test_the_diffusers_repo_is_moss_not_sd():
     assert "GGUF" in F.weight_file_problem("moss-image", "moss_image_sft-Q8_0.gguf")
 
 
-def test_a_moss_lora_is_refused_by_name_not_filed_under_zimage():
-    picked = "loras/moss_image_edit_lora_rank_64_bf16.safetensors"
-    matches = F.match_families(domain="image", files=COMFY_FILES, src=picked, hf_repo="Comfy-Org/MOSS-Image")
-    assert [(m["family"], m["wired"], m["role"]) for m in matches] == [("moss-image", False, "lora")]
+def test_a_moss_lora_is_a_moss_lora_not_a_zimage_one():
+    files = [{"src": "moss_image_gouache_lora.safetensors"}]
+    matches = F.match_families(domain="image", files=files, src=None, hf_repo="axiomofmind/Moss-image-gouache-lora")
+    assert [(m["family"], m["wired"], m["role"]) for m in matches] == [("moss-image", True, "lora")]
+    assert "moss-image" in F.image_lora_families()
 
 
 def test_other_families_still_match():

@@ -76,11 +76,18 @@ def test_user_ids_and_their_unet_reach_the_graph():
     assert wf["clip"]["inputs"]["type"] == "moss_image"
 
 
-def test_loras_on_moss_are_refused_not_dropped():
-    gen = ComfyUIImageGenerator(model="moss-image")
-    with pytest.raises(RuntimeError, match="MOSS-Image renders do not take LoRAs"):
-        gen._build_workflow(prompt="p", negative="", lora_names=["style_v1.safetensors"],
-                            width=1024, height=1024, seed=1, steps=25, cfg=2.5, model="moss-image")
+def test_loras_chain_model_only_between_loader_and_sampler():
+    gen = ComfyUIImageGenerator(model="moss-image", lora_strength=0.9)
+    wf = gen._build_workflow(prompt="p", negative="", lora_names=["style_a.safetensors", "style_b.safetensors"],
+                             width=1024, height=1024, seed=1, steps=25, cfg=2.5, model="moss-image")
+    assert wf["lora_0"] == {"class_type": "LoraLoaderModelOnly", "inputs": {
+        "model": ["unet", 0], "lora_name": "style_a.safetensors", "strength_model": 0.9}}
+    assert wf["lora_1"]["inputs"]["model"] == ["lora_0", 0]
+    assert wf["sampler"]["inputs"]["model"] == ["lora_1", 0]
+    # The encoder is untouched: MOSS-Image LoRAs train the transformer only.
+    assert wf["positive"]["inputs"]["clip"] == ["clip", 0]
+    # No LoRA, no LoRA nodes.
+    assert not any(k.startswith("lora_") for k in _build())
 
 
 def test_other_graphs_are_untouched():
