@@ -28,6 +28,7 @@ import MediaView from './MediaView';
 import { folderHasVisualMedia } from './folderViewPolicy';
 import { useUiTranslation } from '../../i18n';
 import useDeferredClick from '../../hooks/useDeferredClick';
+import { ThumbFileBody, ThumbFolderBody, useFileMetaLine } from './DesktopCards';
 
 // Stable grid components (must be defined outside render to avoid Virtuoso remounts)
 const GridItemWrapper = React.forwardRef(({ children, ...props }, ref) => (
@@ -37,12 +38,23 @@ const GridItemWrapper = React.forwardRef(({ children, ...props }, ref) => (
 ));
 GridItemWrapper.displayName = 'GridItemWrapper';
 
+// The Thumbnails view's card size, as on the desktop.
+const LargeGridItemWrapper = React.forwardRef(({ children, ...props }, ref) => (
+  <Box ref={ref} {...props} sx={{ width: 240, p: 0.5 }}>
+    {children}
+  </Box>
+));
+LargeGridItemWrapper.displayName = 'LargeGridItemWrapper';
+
 const GridListWrapper = React.forwardRef(({ children, ...props }, ref) => (
   <Box ref={ref} {...props} sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, p: 1 }}>
     {children}
   </Box>
 ));
 GridListWrapper.displayName = 'GridListWrapper';
+
+const GRID_COMPONENTS = { Item: GridItemWrapper, List: GridListWrapper };
+const LARGE_GRID_COMPONENTS = { Item: LargeGridItemWrapper, List: GridListWrapper };
 
 const FolderContents = ({
   folder,
@@ -62,7 +74,10 @@ const FolderContents = ({
   refreshKey = 0, // Refresh trigger - incrementing this will refresh contents
   folderColors = {}, // Folder ID → color map for nested color coding
   onMediaDetected, // Callback: fires true/false when folder contents are loaded
+  mediaOnly = false, // only pictures, video and sound, and the folders holding them
+  largeCards = false, // the grid draws the Thumbnails view's cards
 }) => {
+  const metaLine = useFileMetaLine();
   const { t } = useUiTranslation();
   const theme = useTheme();
   const { showMessage } = useSnackbar();
@@ -125,12 +140,13 @@ const FolderContents = ({
       const currentOffset = append ? items.folders.length + items.files.length : 0;
       const params = new URLSearchParams({
         path: pathToFetch,
-        fields: 'light',
+        fields: mediaOnly ? 'media' : 'light',
         offset: currentOffset,
         limit: PAGE_SIZE,
         sort_by: sortByMap[orderBy] || 'name',
         sort_dir: order,
       });
+      if (mediaOnly) params.set('media_only', '1');
       const response = await axios.get(`${API_BASE}/browse?${params.toString()}`);
       const data = response.data.data;
 
@@ -155,7 +171,7 @@ const FolderContents = ({
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [currentPath, folder.path, showMessage, orderBy, order, items.folders.length, items.files.length]);
+  }, [currentPath, folder.path, showMessage, orderBy, order, items.folders.length, items.files.length, mediaOnly]);
 
   // Initial fetch and refresh on path/sort/refreshKey changes
   const fetchInitial = useCallback(async () => {
@@ -165,12 +181,13 @@ const FolderContents = ({
       const pathToFetch = currentPath || folder.path;
       const params = new URLSearchParams({
         path: pathToFetch,
-        fields: 'light',
+        fields: mediaOnly ? 'media' : 'light',
         offset: '0',
         limit: String(PAGE_SIZE),
         sort_by: sortByMap[orderBy] || 'name',
         sort_dir: order,
       });
+      if (mediaOnly) params.set('media_only', '1');
       const response = await axios.get(`${API_BASE}/browse?${params.toString()}`);
       const data = response.data.data;
 
@@ -192,7 +209,7 @@ const FolderContents = ({
     } finally {
       setLoading(false);
     }
-  }, [currentPath, folder.path, showMessage, orderBy, order]);
+  }, [currentPath, folder.path, showMessage, orderBy, order, mediaOnly]);
 
   useEffect(() => {
     fetchInitial();
@@ -823,10 +840,7 @@ const FolderContents = ({
         style={{ height: '100%', width: '100%' }}
         totalCount={allGridItems.length}
         overscan={50}
-        components={{
-          Item: GridItemWrapper,
-          List: GridListWrapper,
-        }}
+        components={largeCards ? LARGE_GRID_COMPONENTS : GRID_COMPONENTS}
         endReached={() => {
           if (hasMore && !loadingMore) loadMore();
         }}
@@ -861,7 +875,15 @@ const FolderContents = ({
                 onContextMenu={(e) => handleItemContextMenu(e, item, type)}
               >
                 <CardContent sx={{ textAlign: 'center', p: 1 }}>
-                  {isFolder ? (
+                  {largeCards ? (isFolder ? (
+                    <ThumbFolderBody
+                      folder={item}
+                      color={folderColors[item.id] || theme.palette.primary.main}
+                      itemCountLabel=""
+                    />
+                  ) : (
+                    <ThumbFileBody file={item} metaLine={metaLine} />
+                  )) : isFolder ? (
                     <>
                       <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                         <Folder

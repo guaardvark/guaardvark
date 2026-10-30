@@ -18,7 +18,10 @@ import {
   GridView as GridViewIcon,
   FolderOutlined,
   Code,
+  ArrowDownward as ArrowDownwardIcon,
+  ArrowUpward as ArrowUpwardIcon,
   UploadFile as UploadFileIcon,
+  ViewComfy as ViewComfyIcon,
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon,
 } from "@mui/icons-material";
@@ -28,7 +31,6 @@ import {
   getFileIconSmall,
   getItemKey,
   FolderIndexIndicator,
-  formatBytes,
   formatDate,
   isImageFile,
   isVideoFile,
@@ -68,6 +70,12 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import { useUiTranslation, translate } from '../../i18n';
 import useDeferredClick from '../../hooks/useDeferredClick';
+import DesktopToolbar from "./DesktopToolbar";
+import { FileThumb, ListFileCells, ThumbFileBody, ThumbFolderBody, useFileMetaLine } from "./DesktopCards";
+import {
+  ALL_KINDS, FILES_VIEW_DEFAULTS, LIST_ROW_HEIGHT, MEDIA_KINDS, geometryOf, kindOf, layoutKeyOf,
+  matchesSearch, resolvePlaces, sortItems,
+} from "./desktopView";
 
 const WindowsGridLayout = WidthProvider(ReactGridLayoutLib);
 const API_BASE = '/api/files'; // Use relative path so Vite proxy handles CORS
@@ -83,26 +91,6 @@ export const FILES_FEATURES = Object.freeze({
 });
 const NO_EVENTS = [];
 
-/** Folders first, then files, in Sort by order: A-Z, newest first, or largest first. */
-const sortDesktopItems = (folderWindows, files, field) => {
-  const byName = (a, b) => (a || '').localeCompare(b || '', undefined, { numeric: true, sensitivity: 'base' });
-  const time = (v) => (v ? new Date(v).getTime() || 0 : 0);
-  const count = (f) => (f.document_count || 0) + (f.subfolder_count || 0);
-  const folders = [...folderWindows];
-  const sortedFiles = [...files];
-  if (field === 'date') {
-    folders.sort((a, b) => time(b.folder.updated_at || b.folder.created_at) - time(a.folder.updated_at || a.folder.created_at));
-    sortedFiles.sort((a, b) => time(b.updated_at || b.uploaded_at) - time(a.updated_at || a.uploaded_at));
-  } else if (field === 'size') {
-    folders.sort((a, b) => count(b.folder) - count(a.folder));
-    sortedFiles.sort((a, b) => (b.size || 0) - (a.size || 0));
-  } else {
-    folders.sort((a, b) => byName(a.folder.name, b.folder.name));
-    sortedFiles.sort((a, b) => byName(a.filename, b.filename));
-  }
-  return { folders, files: sortedFiles };
-};
-
 /** A stored folder path in one form: no leading or trailing slash, '/' for the top. */
 const normalizePath = (path) => String(path || '/').replace(/^\/+|\/+$/g, '') || '/';
 
@@ -115,18 +103,6 @@ const WINDOWS_PADDING = [4, 4];
 const WINDOW_MIN_WIDTH = 15;  // ~270px
 const WINDOW_MIN_HEIGHT = 20; // ~240px
 const MINIMIZED_MAX_WIDTH_PX = 350; // Max pixel width for minimized windows
-
-// Snap-to-grid constants for desktop icons. A card is 100 px wide and at most
-// ICON_GRID_H tall (icon, name and item count), so neighbours never overlap.
-const ICON_GRID_W = 120;
-const ICON_GRID_H = 100;
-const ICON_GRID_PAD = 20;
-// Card width plus the gap kept between neighbours.
-const ICON_CARD_SPAN = 108;
-
-/** Whether a card at (x, y) would cover any of `positions` (an array of {x, y}). */
-const coversAny = (x, y, positions) =>
-  positions.some((p) => Math.abs(p.x - x) < ICON_CARD_SPAN && Math.abs(p.y - y) < ICON_GRID_H);
 
 // Shared frozen Set so windows with no selection all get the same reference —
 // avoids spurious re-renders and `.has` on undefined.
@@ -177,7 +153,9 @@ export const indexingMessage = (queued, skipped, folderCount) => {
  * @param {string} [props.rootPath] - stored path of the folder the desktop shows ('/' for everything)
  * @param {string} props.stateEndpoint - /api/state key the window layout and icon places are kept under
  * @param {Object} [props.features] - FILES_FEATURES, or a subset for a library that is not the Files page
- * @param {'icons'|'list'} [props.viewMode] - how the desktop shows its folders and files
+ * @param {Object} [props.view] - mode (icons, thumbnails, list), scope (folders, all), kinds, sort; see desktopView.js
+ * @param {(patch) => void} [props.onViewChange] - the page keeps the view; this changes part of it
+ * @param {boolean} [props.mediaOnly] - show only pictures, video and sound, and the folders holding them
  * @param {(file, siblings) => void} [props.onFileClick] - a plain click on a file (after the double-click window)
  * @param {(file) => Array<{label: string, onClick: Function}>} [props.fileMenuActions] - first items of a file's menu
  * @param {boolean} [props.keyboardSuspended] - a dialog of the page's own is open; leave the keys alone
@@ -187,7 +165,9 @@ const FileDesktop = forwardRef(({
   rootPath = '/',
   stateEndpoint,
   features = FILES_FEATURES,
-  viewMode = 'icons',
+  view = FILES_VIEW_DEFAULTS,
+  onViewChange,
+  mediaOnly = false,
   onFileClick,
   fileMenuActions,
   keyboardSuspended = false,
@@ -198,9 +178,14 @@ const FileDesktop = forwardRef(({
   const { RGL_WIDTH_PROP_PX } = gridSettings;
   const { showMessage } = useSnackbar();
   const theme = useTheme();
+  const viewMode = view.mode;
+  const showAll = view.scope === 'all';
+  const geom = geometryOf(view.mode);
+  const layoutKey = layoutKeyOf(view);
+  const metaLine = useFileMetaLine();
   const isRoot = useCallback((path) => normalizePath(path) === normalizePath(rootPath), [rootPath]);
   // Slashes stay as they are, so the Files page asks for path=/ as it always has.
-  const rootQuery = `path=${encodeURIComponent(rootPath).replace(/%2F/gi, '/')}&fields=light`;
+  const rootQuery = `path=${encodeURIComponent(rootPath).replace(/%2F/gi, '/')}&fields=media${mediaOnly ? '&media_only=1' : ''}`;
   const { schedule: scheduleFileClick, cancel: cancelFileClick } = useDeferredClick();
 
   // All folders are represented as windows with different states
@@ -218,8 +203,20 @@ const FileDesktop = forwardRef(({
   const [activeContext, setActiveContext] = useState({ type: 'desktop', path: rootPath });
   const [loading, setLoading] = useState(true);
   const [rootFiles, setRootFiles] = useState([]); // Files at root level (desktop)
+  // Every file below the root, for the All items scope, and the search text.
+  const [allFiles, setAllFiles] = useState([]);
+  const [allLoading, setAllLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const showAllRef = useRef(showAll);
+  showAllRef.current = showAll;
+  const loadAllFilesRef = useRef(null);
   const [iconPositions, setIconPositions] = useState({}); // Icon positions: { 'folder-123': { x: 100, y: 200 }, 'file-456': { x: 300, y: 50 } }
   const iconPositionsRef = useRef({}); // Always-current ref to avoid stale closures
+  // Icon places for each placed view and scope (layoutKeyOf); iconPositions
+  // holds those on screen. Saved as iconPositions (icons and folders, the
+  // places the desktop has always kept) and layoutPositions (the others).
+  const layoutPositionsRef = useRef({});
+  const activeLayoutRef = useRef(layoutKey);
   const stateLoadedRef = useRef(false); // Prevent saving before initial load
   const [folderRefreshKeys, setFolderRefreshKeys] = useState({}); // Refresh keys for folder windows: { folderId: refreshKey }
   const windowIdCounter = useRef(0);
@@ -263,6 +260,16 @@ const FileDesktop = forwardRef(({
   useEffect(() => {
     iconPositionsRef.current = iconPositions;
   }, [iconPositions]);
+
+  // Another view or scope shows its own places.
+  useEffect(() => {
+    if (activeLayoutRef.current === layoutKey) return;
+    layoutPositionsRef.current[activeLayoutRef.current] = iconPositionsRef.current;
+    activeLayoutRef.current = layoutKey;
+    const placed = layoutPositionsRef.current[layoutKey] || {};
+    iconPositionsRef.current = placed;
+    setIconPositions(placed);
+  }, [layoutKey]);
 
   // Track mounted state - set to true on mount, false on unmount
   useEffect(() => {
@@ -413,10 +420,13 @@ const FileDesktop = forwardRef(({
           }
           if (savedState.windowZIndex) setWindowZIndex(savedState.windowZIndex);
           if (savedState.maxZIndex) setMaxZIndex(savedState.maxZIndex);
-          if (savedState.iconPositions) {
-            setIconPositions(savedState.iconPositions);
-            iconPositionsRef.current = savedState.iconPositions;
-          }
+          layoutPositionsRef.current = {
+            ...(savedState.layoutPositions && typeof savedState.layoutPositions === 'object' ? savedState.layoutPositions : {}),
+            'icons:folders': savedState.iconPositions || {},
+          };
+          const placed = layoutPositionsRef.current[activeLayoutRef.current] || {};
+          setIconPositions(placed);
+          iconPositionsRef.current = placed;
         }
 
         // Mark state as loaded — saveWindowState can now safely persist
@@ -499,17 +509,21 @@ const FileDesktop = forwardRef(({
           ...finalWindows.map((w) => `folder-${w.folderId}`),
           ...files.map((f) => getItemKey(f, 'file')),
         ]);
-        setIconPositions((prev) => {
-          const next = {};
-          Object.keys(prev).forEach((k) => {
-            if (validKeys.has(k)) next[k] = prev[k];
+        // The root listing names the folders scope's items; All items keeps its places.
+        if (activeLayoutRef.current.endsWith(':folders')) {
+          setIconPositions((prev) => {
+            const next = {};
+            Object.keys(prev).forEach((k) => {
+              if (validKeys.has(k)) next[k] = prev[k];
+            });
+            iconPositionsRef.current = next;
+            return next;
           });
-          iconPositionsRef.current = next;
-          return next;
-        });
+        }
 
         return finalWindows;
       });
+      if (showAllRef.current) loadAllFilesRef.current?.();
       return { folders, files };
     } catch (err) {
       if (isMountedRef.current) {
@@ -691,6 +705,8 @@ const FileDesktop = forwardRef(({
     try {
       // Use explicit param if given, otherwise use ref (always current, avoids stale closures)
       const positionsToSave = currentIconPositions || iconPositionsRef.current;
+      layoutPositionsRef.current[activeLayoutRef.current] = positionsToSave;
+      const { 'icons:folders': savedIconPositions = {}, ...layoutPositions } = layoutPositionsRef.current;
       await fetch(stateEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -700,7 +716,8 @@ const FileDesktop = forwardRef(({
           windowColors: colors,
           windowZIndex: zIndex,
           maxZIndex: maxZ,
-          iconPositions: positionsToSave,
+          iconPositions: savedIconPositions,
+          layoutPositions,
           subfolderColors: subfolderColorsRef.current,
           lastSaved: new Date().toISOString(),
         }),
@@ -1245,8 +1262,47 @@ const FileDesktop = forwardRef(({
   }, [windows, showMessage, refreshData, refreshOpenWindows, rootPath, isRoot]);
 
   // Separate windows by state (needed by arrange callbacks and render)
-  const foldedWindows = windows.filter(w => w.state === 'folded');
-  const activeWindows = windows.filter(w => w.state === 'minimized' || w.state === 'maximized');
+  const foldedWindows = useMemo(() => windows.filter(w => w.state === 'folded'), [windows]);
+  const activeWindows = useMemo(() => windows.filter(w => w.state === 'minimized' || w.state === 'maximized'), [windows]);
+
+  // Every file below the root (All items), filtered on the server by kind and
+  // search. A newer request wins over a slower older one.
+  const allRequestRef = useRef(0);
+  const loadAllFiles = useCallback(async () => {
+    const params = new URLSearchParams({ path: rootPath, recursive: '1', fields: 'media' });
+    if (view.kinds.length) params.set('kinds', view.kinds.join(','));
+    else if (mediaOnly) params.set('media_only', '1');
+    if (search) params.set('q', search);
+    const request = ++allRequestRef.current;
+    setAllLoading(true);
+    try {
+      const response = await axios.get(`${API_BASE}/browse?${params.toString()}`);
+      if (!isMountedRef.current || request !== allRequestRef.current) return;
+      const docs = response.data?.data?.documents || [];
+      setAllFiles(docs.map(f => ({ ...f, filename: f.filename || f.name, itemType: 'file' })));
+    } catch {
+      if (isMountedRef.current && request === allRequestRef.current) {
+        showMessage?.(t('documents.page.refreshFailed'), 'error');
+      }
+    } finally {
+      if (isMountedRef.current && request === allRequestRef.current) setAllLoading(false);
+    }
+  }, [rootPath, view.kinds, mediaOnly, search, showMessage, t]);
+  loadAllFilesRef.current = loadAllFiles;
+  useEffect(() => {
+    if (showAll) loadAllFiles();
+  }, [showAll, loadAllFiles]);
+
+  // What the desktop shows, in the view's order: the root's folders and files
+  // filtered by kind and search, or every file below the root.
+  const sortedDesktop = useMemo(() => {
+    const kinds = new Set(view.kinds);
+    const folders = showAll ? [] : foldedWindows.filter((w) => matchesSearch(search, w.folder));
+    const files = showAll
+      ? allFiles
+      : rootFiles.filter((f) => (kinds.size === 0 || kinds.has(kindOf(f))) && matchesSearch(search, f));
+    return sortItems(folders, files, view.sort);
+  }, [showAll, foldedWindows, rootFiles, allFiles, view.kinds, view.sort, search]);
 
   // Build a dataTransfer payload for desktop icon drags. If the dragged icon is part
   // of a multi-selection, ship the whole set; otherwise just the one item.
@@ -1262,7 +1318,7 @@ const FileDesktop = forwardRef(({
         if (!w) return null;
         return { id, itemType: 'folder', name: w.folder.name, path: w.folder.path };
       }
-      const f = rootFiles.find(rf => rf.id === id);
+      const f = sortedDesktop.files.find(rf => rf.id === id);
       if (!f) return null;
       return { id, itemType: 'file', name: f.filename, filename: f.filename, path: f.path };
     }).filter(Boolean);
@@ -1319,10 +1375,14 @@ const FileDesktop = forwardRef(({
   // fallback before it has been measured.
   // The desktop's drawn width, kept current as the window resizes.
   const [desktopWidth, setDesktopWidth] = useState(0);
+  const [desktopHeight, setDesktopHeight] = useState(0);
   useEffect(() => {
     const el = desktopContentRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return undefined;
-    const update = () => setDesktopWidth(Math.floor(el.clientWidth));
+    const update = () => {
+      setDesktopWidth(Math.floor(el.clientWidth));
+      setDesktopHeight(Math.floor(el.clientHeight));
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(el);
@@ -1331,8 +1391,26 @@ const FileDesktop = forwardRef(({
   const visibleWidth = desktopWidth || desktopContentRef.current?.clientWidth || RGL_WIDTH_PROP_PX;
 
   const iconColumns = useCallback(
-    () => Math.max(1, Math.floor((visibleWidth - 40) / ICON_GRID_W)),
-    [visibleWidth],
+    () => Math.max(1, Math.floor((visibleWidth - 40) / geom.w)),
+    [visibleWidth, geom],
+  );
+
+  // Cards are drawn only near what is in view: one screen above and below.
+  // The band moves every half screen, so scrolling re-renders rarely.
+  const [scrollBand, setScrollBand] = useState(0);
+  const handleDesktopScroll = useCallback((e) => {
+    const el = e.currentTarget;
+    const band = Math.floor(el.scrollTop / Math.max(200, el.clientHeight / 2));
+    setScrollBand((prev) => (prev === band ? prev : band));
+  }, []);
+  const visibleRange = useMemo(() => {
+    const height = desktopHeight || 800;
+    const top = scrollBand * Math.max(200, height / 2);
+    return { from: top - height, to: top + 2 * height };
+  }, [scrollBand, desktopHeight]);
+  const isOnScreen = useCallback(
+    (pos) => !pos || (pos.y + geom.h >= visibleRange.from && pos.y <= visibleRange.to),
+    [visibleRange, geom],
   );
 
   // Arrange all desktop icons into a clean grid (reset positions). `ordered`,
@@ -1343,18 +1421,19 @@ const FileDesktop = forwardRef(({
 
     // Folders first, then files - sequential grid positions
     const allItems = ordered || [
-      ...foldedWindows.map(w => ({ key: `folder-${w.folderId}` })),
-      ...rootFiles.map(f => ({ key: getItemKey(f, 'file') })),
+      ...sortedDesktop.folders.map(w => ({ key: `folder-${w.folderId}` })),
+      ...sortedDesktop.files.map(f => ({ key: getItemKey(f, 'file') })),
     ];
 
     allItems.forEach((item, idx) => {
       newPositions[item.key] = {
-        x: (idx % COLS) * ICON_GRID_W + ICON_GRID_PAD,
-        y: Math.floor(idx / COLS) * ICON_GRID_H + ICON_GRID_PAD,
+        x: (idx % COLS) * geom.w + geom.pad,
+        y: Math.floor(idx / COLS) * geom.h + geom.pad,
       };
     });
 
     setIconPositions(newPositions);
+    iconPositionsRef.current = newPositions;
 
     // Save to backend
     const windowsData = windows.map(w => ({
@@ -1363,39 +1442,29 @@ const FileDesktop = forwardRef(({
       state: w.state,
     }));
     // Need to save with the new positions directly since state hasn't updated yet
-    fetch(stateEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        windows: windowsData,
-        windowLayout,
-        windowColors,
-        windowZIndex,
-        maxZIndex,
-        iconPositions: newPositions,
-        subfolderColors: subfolderColorsRef.current,
-        lastSaved: new Date().toISOString(),
-      }),
-    }).catch(() => { });
-  }, [foldedWindows, rootFiles, windows, windowLayout, windowColors, windowZIndex, maxZIndex, iconColumns, stateEndpoint]);
+    saveWindowState(windowsData, windowLayout, windowColors, windowZIndex, maxZIndex, newPositions);
+  }, [sortedDesktop, windows, windowLayout, windowColors, windowZIndex, maxZIndex, iconColumns, geom, saveWindowState]);
 
-  // Sort by name, date or size: the icons are laid out again in that order,
-  // and the list view keeps it.
-  const [desktopSort, setDesktopSort] = useState('name');
-  const sortedDesktop = useMemo(
-    () => sortDesktopItems(foldedWindows, rootFiles, desktopSort),
-    [foldedWindows, rootFiles, desktopSort],
-  );
-
-  const handleSortBy = useCallback((field) => {
-    setDesktopSort(field);
-    setContextMenu(null);
-    const { folders, files } = sortDesktopItems(foldedWindows, rootFiles, field);
+  // A new sort: the page keeps it, and on a placed view the icons are laid out
+  // again in that order. Asking for the current field again flips its direction.
+  const nextSort = useCallback((field) => (
+    field === view.sort.by
+      ? { by: field, dir: view.sort.dir === 'asc' ? 'desc' : 'asc' }
+      : { by: field, dir: field === 'date' || field === 'size' ? 'desc' : 'asc' }
+  ), [view.sort]);
+  const applySort = useCallback((sort) => {
+    onViewChange?.({ sort });
+    if (viewMode === 'list') return;
+    const { folders, files } = sortItems(sortedDesktop.folders, sortedDesktop.files, sort);
     handleArrangeIcons([
       ...folders.map(w => ({ key: `folder-${w.folderId}` })),
       ...files.map(f => ({ key: getItemKey(f, 'file') })),
     ]);
-  }, [foldedWindows, rootFiles, handleArrangeIcons]);
+  }, [onViewChange, viewMode, sortedDesktop, handleArrangeIcons]);
+  const handleSortBy = useCallback((field) => {
+    setContextMenu(null);
+    applySort(nextSort(field));
+  }, [applySort, nextSort]);
 
   // Context menu handlers
   // Right-click handler. `surface` tells us where the click physically happened —
@@ -2092,12 +2161,14 @@ const FileDesktop = forwardRef(({
     if (e.button !== 0) return;
     if (e.target.closest('.desktop-item-card')) return;
 
-    const rect = desktopContentRef.current?.getBoundingClientRect();
+    const el = desktopContentRef.current;
+    const rect = el?.getBoundingClientRect();
     if (!rect) return;
 
     setDesktopContext();
-    const startX = e.clientX - rect.left;
-    const startY = e.clientY - rect.top;
+    // Content coordinates: the box and the cards scroll together.
+    const startX = e.clientX - rect.left + el.scrollLeft;
+    const startY = e.clientY - rect.top + el.scrollTop;
 
     setIsDesktopSelecting(true);
     setDesktopSelectionBox({ startX, startY, currentX: startX, currentY: startY });
@@ -2105,11 +2176,12 @@ const FileDesktop = forwardRef(({
 
   const handleDesktopSelectionMouseMove = useCallback((e) => {
     if (!isDesktopSelecting || !desktopSelectionBox) return;
-    const rect = desktopContentRef.current?.getBoundingClientRect();
+    const el = desktopContentRef.current;
+    const rect = el?.getBoundingClientRect();
     if (!rect) return;
 
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
+    const currentX = e.clientX - rect.left + el.scrollLeft;
+    const currentY = e.clientY - rect.top + el.scrollTop;
 
     setDesktopSelectionBox(prev => {
       if (!prev) return prev;
@@ -2124,10 +2196,10 @@ const FileDesktop = forwardRef(({
         if (!element) return;
         const itemRect = element.getBoundingClientRect();
         const itemRelativeRect = {
-          left: itemRect.left - rect.left,
-          top: itemRect.top - rect.top,
-          right: itemRect.right - rect.left,
-          bottom: itemRect.bottom - rect.top,
+          left: itemRect.left - rect.left + el.scrollLeft,
+          top: itemRect.top - rect.top + el.scrollTop,
+          right: itemRect.right - rect.left + el.scrollLeft,
+          bottom: itemRect.bottom - rect.top + el.scrollTop,
         };
 
         if (
@@ -2176,8 +2248,8 @@ const FileDesktop = forwardRef(({
         if (activeContext.type === 'desktop') {
           e.preventDefault();
           const allKeys = new Set([
-            ...foldedWindows.filter(f => !isLiveRepoItem(f.folder)).map(f => `folder-${f.folderId}`),
-            ...rootFiles.filter(file => !isLiveRepoItem(file)).map(file => getItemKey(file, 'file')),
+            ...sortedDesktop.folders.filter(f => !isLiveRepoItem(f.folder)).map(f => `folder-${f.folderId}`),
+            ...sortedDesktop.files.filter(file => !isLiveRepoItem(file)).map(file => getItemKey(file, 'file')),
           ]);
           handleSelectionChange('desktop', allKeys);
         }
@@ -2217,7 +2289,7 @@ const FileDesktop = forwardRef(({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeContext, foldedWindows, rootFiles, activeSelection, handleCopy, handleCut, handlePaste, handleDelete, handleSelectionChange, keyboardSuspended, rootPath]);
+  }, [activeContext, sortedDesktop, activeSelection, handleCopy, handleCut, handlePaste, handleDelete, handleSelectionChange, keyboardSuspended, rootPath]);
 
 
   // Compute collision-free positions for ALL icons.
@@ -2228,50 +2300,30 @@ const FileDesktop = forwardRef(({
   // Saved places can come from another grid, so a cell is free only when no
   // card would cover it, not when no saved place rounds to it.
   const resolvedIconPositions = useMemo(() => {
-    const positions = {};
-    const placed = [];
-    const COLS = iconColumns();
-
-    // All icon keys in order: folders first, then files
-    const allItems = [
-      ...foldedWindows.map(w => ({ key: `folder-${w.folderId}`, id: w.folderId, isFile: false })),
-      ...rootFiles.map(f => ({ key: getItemKey(f, 'file'), id: f.id, isFile: true })),
+    if (viewMode === 'list') return {};
+    const items = [
+      ...sortedDesktop.folders.map(w => ({ key: `folder-${w.folderId}` })),
+      ...sortedDesktop.files.map(f => ({ key: getItemKey(f, 'file') })),
     ];
+    return resolvePlaces(items, iconPositions, geom, visibleWidth);
+  }, [viewMode, sortedDesktop, iconPositions, geom, visibleWidth]);
 
-    // First pass: saved positions that fit are kept as they are
-    for (const item of allItems) {
-      const saved = iconPositions[item.key];
-      if (saved && saved.x + ICON_CARD_SPAN <= visibleWidth) {
-        positions[item.key] = saved;
-        placed.push(saved);
-      }
+  // How far down the placed cards reach, so the desktop scrolls to the last
+  // one even though only those near the view are drawn.
+  const desktopExtent = useMemo(() => {
+    if (viewMode === 'list') {
+      return 32 + (sortedDesktop.folders.length + sortedDesktop.files.length) * LIST_ROW_HEIGHT;
     }
-
-    // Second pass: items without one take the first cell no card covers
-    let nextIdx = 0;
-    for (const item of allItems) {
-      if (positions[item.key]) continue;
-      while (nextIdx < 10000) {
-        const c = nextIdx % COLS;
-        const r = Math.floor(nextIdx / COLS);
-        nextIdx++;
-        const cell = { x: c * ICON_GRID_W + ICON_GRID_PAD, y: r * ICON_GRID_H + ICON_GRID_PAD };
-        if (!coversAny(cell.x, cell.y, placed)) {
-          positions[item.key] = cell;
-          placed.push(cell);
-          break;
-        }
-      }
-    }
-
-    return positions;
-  }, [iconPositions, foldedWindows, rootFiles, iconColumns, visibleWidth]);
+    let bottom = 0;
+    Object.values(resolvedIconPositions).forEach((pos) => { if (pos.y > bottom) bottom = pos.y; });
+    return bottom + geom.h + geom.pad;
+  }, [viewMode, sortedDesktop, resolvedIconPositions, geom]);
 
   // Find the nearest unoccupied grid cell for an icon
   const snapToGrid = useCallback((rawX, rawY, movingKey, currentPositions) => {
     // Snap to nearest grid cell
-    let col = Math.round((rawX - ICON_GRID_PAD) / ICON_GRID_W);
-    let row = Math.round((rawY - ICON_GRID_PAD) / ICON_GRID_H);
+    let col = Math.round((rawX - geom.pad) / geom.w);
+    let row = Math.round((rawY - geom.pad) / geom.h);
     // An icon dropped at the right edge stays on the desktop.
     const maxCols = iconColumns();
     col = Math.max(0, Math.min(col, maxCols - 1));
@@ -2282,11 +2334,12 @@ const FileDesktop = forwardRef(({
     const others = Object.entries(currentPositions)
       .filter(([k]) => k !== movingKey)
       .map(([, pos]) => pos);
-    const isFree = (c, r) => !coversAny(c * ICON_GRID_W + ICON_GRID_PAD, r * ICON_GRID_H + ICON_GRID_PAD, others);
+    const covers = (x, y) => others.some((p) => Math.abs(p.x - x) < geom.span && Math.abs(p.y - y) < geom.h);
+    const isFree = (c, r) => !covers(c * geom.w + geom.pad, r * geom.h + geom.pad);
 
     // If target cell is free, use it
     if (isFree(col, row)) {
-      return { x: col * ICON_GRID_W + ICON_GRID_PAD, y: row * ICON_GRID_H + ICON_GRID_PAD };
+      return { x: col * geom.w + geom.pad, y: row * geom.h + geom.pad };
     }
 
     // Otherwise spiral outward to find nearest free cell
@@ -2298,15 +2351,15 @@ const FileDesktop = forwardRef(({
           const nr = row + dr;
           if (nc < 0 || nr < 0 || nc >= maxCols) continue;
           if (isFree(nc, nr)) {
-            return { x: nc * ICON_GRID_W + ICON_GRID_PAD, y: nr * ICON_GRID_H + ICON_GRID_PAD };
+            return { x: nc * geom.w + geom.pad, y: nr * geom.h + geom.pad };
           }
         }
       }
     }
 
     // Fallback (shouldn't happen)
-    return { x: col * ICON_GRID_W + ICON_GRID_PAD, y: row * ICON_GRID_H + ICON_GRID_PAD };
-  }, [iconColumns]);
+    return { x: col * geom.w + geom.pad, y: row * geom.h + geom.pad };
+  }, [iconColumns, geom]);
 
   // Handle icon drag end (repositioning)
   const handleIconDrop = useCallback((e, key) => {
@@ -2319,12 +2372,12 @@ const FileDesktop = forwardRef(({
     if (!container) return;
 
     const rect = container.getBoundingClientRect();
-    const iconWidth = 100;
-    const iconHeight = 80;
+    const iconWidth = geom.cardW;
+    const iconHeight = geom.h * 0.8;
 
-    // Raw position from mouse
-    const rawX = Math.max(0, e.clientX - rect.left - iconWidth / 2);
-    const rawY = Math.max(0, e.clientY - rect.top - iconHeight / 2);
+    // Raw position from mouse, in content coordinates (the desktop scrolls)
+    const rawX = Math.max(0, e.clientX - rect.left + container.scrollLeft - iconWidth / 2);
+    const rawY = Math.max(0, e.clientY - rect.top + container.scrollTop - iconHeight / 2);
 
     // Snap to grid and avoid overlaps (use resolved positions for accurate occupancy)
     const snapped = snapToGrid(rawX, rawY, key, resolvedIconPositions);
@@ -2339,7 +2392,7 @@ const FileDesktop = forwardRef(({
       state: w.state,
     }));
     saveWindowState(windowsData, windowLayout, windowColors, windowZIndex, maxZIndex, newIconPositions);
-  }, [windows, windowLayout, windowColors, windowZIndex, maxZIndex, saveWindowState, snapToGrid, resolvedIconPositions, iconPositions]);
+  }, [windows, windowLayout, windowColors, windowZIndex, maxZIndex, saveWindowState, snapToGrid, resolvedIconPositions, iconPositions, geom]);
 
   // Top-level folders own a window; folders inside a window do not.
   // ?open=<folder path> (Bulk Import's Open Files) opens the window of the
@@ -2397,6 +2450,16 @@ const FileDesktop = forwardRef(({
 
   return (
     <>
+      {onViewChange && (
+        <DesktopToolbar
+          view={view}
+          onViewChange={onViewChange}
+          onSort={applySort}
+          kinds={mediaOnly ? MEDIA_KINDS : ALL_KINDS}
+          itemCount={sortedDesktop.folders.length + sortedDesktop.files.length}
+          onSearch={setSearch}
+        />
+      )}
       <Box ref={windowContainerRef} sx={{ flex: 1, minHeight: 0, position: "relative", overflow: "hidden" }}>
         {entityFilter && (
           <EntityFilesPanel
@@ -2416,6 +2479,7 @@ const FileDesktop = forwardRef(({
             backgroundColor: desktopFileDragOver ? theme.palette.action.hover : "transparent",
           }}
           onContextMenu={handleContextMenu}
+          onScroll={handleDesktopScroll}
           onMouseDown={handleDesktopSelectionMouseDown}
           onDragOver={(e) => {
             e.preventDefault();
@@ -2433,8 +2497,15 @@ const FileDesktop = forwardRef(({
           }}
           onDrop={handleDrop}
         >
+          {/* The bottom of the last card, so the desktop scrolls that far */}
+          <Box sx={{ position: 'absolute', top: desktopExtent, left: 0, width: 1, height: 1, pointerEvents: 'none' }} />
+          {showAll && allLoading && allFiles.length === 0 && (
+            <Typography variant="body2" color="text.secondary" sx={{ position: 'absolute', top: 16, left: 16 }}>
+              {t('documents.page.loadingAll')}
+            </Typography>
+          )}
           {/* Empty state */}
-          {foldedWindows.length === 0 && rootFiles.length === 0 && activeWindows.length === 0 && (
+          {sortedDesktop.folders.length === 0 && sortedDesktop.files.length === 0 && activeWindows.length === 0 && !allLoading && (
             <Box
               sx={{
                 position: 'absolute',
@@ -2475,135 +2546,181 @@ const FileDesktop = forwardRef(({
               }}
             />
           )}
-          {/* List view: one row per folder and file, in Sort by order */}
-          {viewMode === 'list' && (
-            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-              {sortedDesktop.folders.map((window) => {
-                const key = `folder-${window.folderId}`;
-                const isSelected = desktopSelection.has(key);
-                const isDragOver = dragOverFolderId === window.folderId;
-                const itemCount = (window.folder.document_count || 0) + (window.folder.subfolder_count || 0);
-                return (
-                  <Box
-                    key={window.id}
-                    ref={(el) => {
-                      if (el) desktopItemRefs.current.set(key, el);
-                      else desktopItemRefs.current.delete(key);
-                    }}
-                    className="desktop-item-card"
-                    data-folder-id={window.folderId}
-                    data-folder-path={window.folder.path}
-                    draggable
-                    onDragStart={(e) => {
-                      setDesktopContext();
-                      const fallback = { id: window.folderId, itemType: 'folder', name: window.folder.name, path: window.folder.path };
-                      e.dataTransfer.setData('text/plain', JSON.stringify(buildDesktopDragPayload(key, fallback)));
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverFolderId(window.folderId); }}
-                    onDragLeave={(e) => {
-                      e.stopPropagation();
-                      if (!e.currentTarget.contains(e.relatedTarget)) setDragOverFolderId(null);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDragOverFolderId(null);
-                      handleDrop(e, window.folder);
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDesktopContext();
-                      if (e.ctrlKey || e.metaKey) {
-                        const next = new Set(desktopSelection);
-                        if (next.has(key)) next.delete(key); else next.add(key);
-                        handleSelectionChange('desktop', next);
-                      } else {
-                        handleSelectionChange('desktop', new Set([key]));
-                      }
-                    }}
-                    onDoubleClick={(e) => { e.stopPropagation(); handleFolderExpand(window.id); }}
-                    onContextMenu={(e) => handleContextMenu(e, window.folder, 'folder', 'desktop')}
-                    sx={{
-                      display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 0.75, cursor: 'pointer', userSelect: 'none',
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                      bgcolor: isDragOver ? 'action.hover' : isSelected ? 'action.selected' : 'transparent',
-                      outline: isDragOver ? `1px solid ${theme.palette.success.main}` : 'none',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    <FolderOutlined sx={{ fontSize: 22, color: windowColors[window.id] || theme.palette.primary.main }} />
-                    <Typography variant="body2" noWrap sx={{ flex: 1 }}>{window.folder.name}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
-                      {itemCount > 0 ? t('documents.page.folderItemCount', { count: itemCount }) : ''}
-                    </Typography>
+          {/* List view: a header that sorts, then one row per folder and file,
+              drawn only near what is in view */}
+          {viewMode === 'list' && (() => {
+            const rows = [...sortedDesktop.folders, ...sortedDesktop.files];
+            const folderCount = sortedDesktop.folders.length;
+            const first = Math.max(0, Math.floor(visibleRange.from / LIST_ROW_HEIGHT));
+            const last = Math.min(rows.length, Math.ceil(visibleRange.to / LIST_ROW_HEIGHT));
+            const rowSx = {
+              display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, height: LIST_ROW_HEIGHT, flexShrink: 0,
+              boxSizing: 'border-box', cursor: 'pointer', userSelect: 'none',
+              borderBottom: `1px solid ${theme.palette.divider}`,
+            };
+            const header = (field, label, sx) => (
+              <Box
+                component="button"
+                type="button"
+                onClick={() => applySort(nextSort(field))}
+                sx={{
+                  all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.25,
+                  fontSize: '0.75rem', fontWeight: 600,
+                  color: view.sort.by === field ? 'text.primary' : 'text.secondary', ...sx,
+                }}
+              >
+                {label}
+                {view.sort.by === field && (view.sort.dir === 'asc'
+                  ? <ArrowUpwardIcon sx={{ fontSize: 14 }} />
+                  : <ArrowDownwardIcon sx={{ fontSize: 14 }} />)}
+              </Box>
+            );
+            const folderRow = (window) => {
+              const key = `folder-${window.folderId}`;
+              const isSelected = desktopSelection.has(key);
+              const isDragOver = dragOverFolderId === window.folderId;
+              const itemCount = (window.folder.document_count || 0) + (window.folder.subfolder_count || 0);
+              return (
+                <Box
+                  key={key}
+                  ref={(el) => {
+                    if (el) desktopItemRefs.current.set(key, el);
+                    else desktopItemRefs.current.delete(key);
+                  }}
+                  className="desktop-item-card"
+                  data-folder-id={window.folderId}
+                  data-folder-path={window.folder.path}
+                  draggable
+                  onDragStart={(e) => {
+                    setDesktopContext();
+                    const fallback = { id: window.folderId, itemType: 'folder', name: window.folder.name, path: window.folder.path };
+                    e.dataTransfer.setData('text/plain', JSON.stringify(buildDesktopDragPayload(key, fallback)));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOverFolderId(window.folderId); }}
+                  onDragLeave={(e) => {
+                    e.stopPropagation();
+                    if (!e.currentTarget.contains(e.relatedTarget)) setDragOverFolderId(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverFolderId(null);
+                    handleDrop(e, window.folder);
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDesktopContext();
+                    if (e.ctrlKey || e.metaKey) {
+                      const next = new Set(desktopSelection);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      handleSelectionChange('desktop', next);
+                    } else {
+                      handleSelectionChange('desktop', new Set([key]));
+                    }
+                  }}
+                  onDoubleClick={(e) => { e.stopPropagation(); handleFolderExpand(window.id); }}
+                  onContextMenu={(e) => handleContextMenu(e, window.folder, 'folder', 'desktop')}
+                  sx={{
+                    ...rowSx,
+                    bgcolor: isDragOver ? 'action.hover' : isSelected ? 'action.selected' : 'transparent',
+                    outline: isDragOver ? `1px solid ${theme.palette.success.main}` : 'none',
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                >
+                  <Box sx={{ width: 64, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                    <FolderOutlined sx={{ fontSize: 26, color: windowColors[window.id] || theme.palette.primary.main }} />
                   </Box>
-                );
-              })}
-              {sortedDesktop.files.map((file) => {
-                const key = getItemKey(file, 'file');
-                const isSelected = desktopSelection.has(key);
-                return (
-                  <Box
-                    key={key}
-                    ref={(el) => {
-                      if (el) desktopItemRefs.current.set(key, el);
-                      else desktopItemRefs.current.delete(key);
-                    }}
-                    className="desktop-item-card"
-                    data-file-id={file.id}
-                    data-file-path={file.path}
-                    draggable
-                    onDragStart={(e) => {
-                      setDesktopContext();
-                      const fallback = { id: file.id, itemType: 'file', filename: file.filename, name: file.filename, path: file.path };
-                      e.dataTransfer.setData('text/plain', JSON.stringify(buildDesktopDragPayload(`file-${file.id}`, fallback)));
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDesktopContext();
-                      if (e.ctrlKey || e.metaKey) {
-                        const next = new Set(desktopSelection);
-                        if (next.has(key)) next.delete(key); else next.add(key);
-                        handleSelectionChange('desktop', next);
-                      } else {
-                        handleSelectionChange('desktop', new Set([key]));
-                        clickFile(file, sortedDesktop.files);
-                      }
-                    }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      cancelFileClick();
-                      openFile(file, { siblings: sortedDesktop.files });
-                    }}
-                    onContextMenu={(e) => { cancelFileClick(); handleContextMenu(e, file, 'file', 'desktop'); }}
-                    sx={{
-                      display: 'flex', alignItems: 'center', gap: 1.5, px: 1.5, py: 0.75, cursor: 'pointer', userSelect: 'none',
-                      borderBottom: `1px solid ${theme.palette.divider}`,
-                      bgcolor: isSelected ? 'action.selected' : 'transparent',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    {getFileIconSmall(file.filename, isSelected, theme, features.indexing ? file.index_status : null, file.path)}
-                    <Typography variant="body2" noWrap sx={{ flex: 1 }}>{file.filename}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, minWidth: 140, textAlign: 'right' }}>
-                      {formatDate(file.updated_at || file.uploaded_at)}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, minWidth: 64, textAlign: 'right' }}>
-                      {file.size ? formatBytes(file.size) : ''}
-                    </Typography>
+                  <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 0 }}>{window.folder.name}</Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap sx={{ width: 110, flexShrink: 0 }}>
+                    {t('documents.page.kindLabel.folder')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ width: 150, flexShrink: 0, textAlign: 'right' }}>
+                    {formatDate(window.folder.updated_at || window.folder.created_at)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap sx={{ width: 72, flexShrink: 0, textAlign: 'right' }}>
+                    {itemCount > 0 ? t('documents.page.folderItemCount', { count: itemCount }) : ''}
+                  </Typography>
+                </Box>
+              );
+            };
+            const fileRow = (file) => {
+              const key = getItemKey(file, 'file');
+              const isSelected = desktopSelection.has(key);
+              const kind = kindOf(file);
+              return (
+                <Box
+                  key={key}
+                  ref={(el) => {
+                    if (el) desktopItemRefs.current.set(key, el);
+                    else desktopItemRefs.current.delete(key);
+                  }}
+                  className="desktop-item-card"
+                  data-file-id={file.id}
+                  data-file-path={file.path}
+                  draggable
+                  onDragStart={(e) => {
+                    setDesktopContext();
+                    const fallback = { id: file.id, itemType: 'file', filename: file.filename, name: file.filename, path: file.path };
+                    e.dataTransfer.setData('text/plain', JSON.stringify(buildDesktopDragPayload(`file-${file.id}`, fallback)));
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDesktopContext();
+                    if (e.ctrlKey || e.metaKey) {
+                      const next = new Set(desktopSelection);
+                      if (next.has(key)) next.delete(key); else next.add(key);
+                      handleSelectionChange('desktop', next);
+                    } else {
+                      handleSelectionChange('desktop', new Set([key]));
+                      clickFile(file, sortedDesktop.files);
+                    }
+                  }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    cancelFileClick();
+                    openFile(file, { siblings: sortedDesktop.files });
+                  }}
+                  onContextMenu={(e) => { cancelFileClick(); handleContextMenu(e, file, 'file', 'desktop'); }}
+                  sx={{ ...rowSx, bgcolor: isSelected ? 'action.selected' : 'transparent', '&:hover': { bgcolor: 'action.hover' } }}
+                >
+                  <Box sx={{ width: 64, flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+                    {kind === 'other'
+                      ? getFileIconSmall(file.filename, isSelected, theme, features.indexing ? file.index_status : null, null)
+                      : <Box sx={{ width: 64 }}><FileThumb file={file} height={36} size={160} /></Box>}
                   </Box>
-                );
-              })}
-            </Box>
-          )}
+                  <ListFileCells file={file} kindLabel={t(`documents.page.kindLabel.${kind}`)} />
+                </Box>
+              );
+            };
+            return (
+              <Box sx={{ display: 'flex', flexDirection: 'column', mx: -2, mt: -2 }}>
+                <Box
+                  sx={{
+                    position: 'sticky', top: -16, zIndex: 3, display: 'flex', alignItems: 'center', gap: 1.5,
+                    px: 1.5, height: 32, flexShrink: 0, bgcolor: 'background.paper',
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <Box sx={{ width: 64, flexShrink: 0 }} />
+                  {header('name', t('documents.page.columns.name'), { flex: 1 })}
+                  {header('type', t('documents.page.columns.type'), { width: 110, flexShrink: 0 })}
+                  {header('date', t('documents.page.columns.date'), { width: 150, flexShrink: 0, justifyContent: 'flex-end' })}
+                  {header('size', t('documents.page.columns.size'), { width: 72, flexShrink: 0, justifyContent: 'flex-end' })}
+                </Box>
+                <Box sx={{ height: first * LIST_ROW_HEIGHT, flexShrink: 0 }} />
+                {rows.slice(first, last).map((row, i) => (first + i < folderCount ? folderRow(row) : fileRow(row)))}
+                <Box sx={{ height: Math.max(0, rows.length - last) * LIST_ROW_HEIGHT, flexShrink: 0 }} />
+              </Box>
+            );
+          })()}
 
           {/* Folders */}
-          {viewMode !== 'list' && foldedWindows.map((window) => {
+          {viewMode !== 'list' && sortedDesktop.folders.filter((w) => isOnScreen(resolvedIconPositions[`folder-${w.folderId}`])).map((window) => {
             const key = `folder-${window.folderId}`;
-            const pos = resolvedIconPositions[key] || { x: ICON_GRID_PAD, y: ICON_GRID_PAD };
+            const pos = resolvedIconPositions[key] || { x: geom.pad, y: geom.pad };
             const isDragOver = dragOverFolderId === window.folderId;
             const itemCount = (window.folder.document_count || 0) + (window.folder.subfolder_count || 0);
 
@@ -2620,7 +2737,7 @@ const FileDesktop = forwardRef(({
                   position: 'absolute',
                   left: `${pos.x}px`,
                   top: `${pos.y}px`,
-                  width: 100,
+                  width: geom.cardW,
                   cursor: 'grab',
                   '&.desktop-item-card': {},
                   '&:active': {
@@ -2705,6 +2822,13 @@ const FileDesktop = forwardRef(({
                     sx={{ px: 1, pt: 1, pb: 1, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
+                      {viewMode === 'thumbnails' ? (
+                        <ThumbFolderBody
+                          folder={window.folder}
+                          color={windowColors[window.id] || theme.palette.primary.main}
+                          itemCountLabel={itemCount > 0 ? t('documents.page.folderItemCount', { count: itemCount }) : ''}
+                        />
+                      ) : (<>
                       <Box sx={{ position: 'relative', display: 'inline-flex' }}>
                         <FolderOutlined
                           sx={{ fontSize: 44, color: windowColors[window.id] || theme.palette.primary.main, mb: '2px' }}
@@ -2728,6 +2852,7 @@ const FileDesktop = forwardRef(({
                           {t('documents.page.folderItemCount', { count: itemCount })}
                         </Typography>
                       )}
+                      </>)}
                     </CardContent>
                   </CardActionArea>
                 </Card>
@@ -2736,10 +2861,10 @@ const FileDesktop = forwardRef(({
           })}
 
           {/* Files */}
-          {viewMode !== 'list' && rootFiles.map((file) => {
+          {viewMode !== 'list' && sortedDesktop.files.filter((f) => isOnScreen(resolvedIconPositions[getItemKey(f, 'file')])).map((file) => {
             const key = getItemKey(file, 'file');
             const isSelected = desktopSelection.has(key);
-            const pos = resolvedIconPositions[key] || { x: ICON_GRID_PAD, y: ICON_GRID_PAD };
+            const pos = resolvedIconPositions[key] || { x: geom.pad, y: geom.pad };
 
             return (
               <Box
@@ -2754,7 +2879,7 @@ const FileDesktop = forwardRef(({
                   position: 'absolute',
                   left: `${pos.x}px`,
                   top: `${pos.y}px`,
-                  width: 100,
+                  width: geom.cardW,
                   cursor: 'grab',
                   '&.desktop-item-card': {},
                   '&:active': {
@@ -2829,18 +2954,21 @@ const FileDesktop = forwardRef(({
                       } else {
                         // Single select
                         handleSelectionChange('desktop', new Set([key]));
-                        clickFile(file, rootFiles);
+                        clickFile(file, sortedDesktop.files);
                       }
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
                       cancelFileClick();
-                      openFile(file, { siblings: rootFiles });
+                      openFile(file, { siblings: sortedDesktop.files });
                     }}
                     onContextMenu={(e) => { cancelFileClick(); handleContextMenu(e, file, 'file', 'desktop'); }}
                     sx={{ px: 1, pt: 1, pb: 1, textAlign: 'center' }}
                   >
                     <CardContent sx={{ p: 0 }}>
+                      {viewMode === 'thumbnails' ? (
+                        <ThumbFileBody file={file} metaLine={metaLine} />
+                      ) : (<>
                       {/* A thumbnail is drawn 16 px larger than its size, so it is asked
                           for smaller to keep the card inside its row. */}
                       {getFileIcon(
@@ -2853,6 +2981,7 @@ const FileDesktop = forwardRef(({
                           {file.filename}
                         </Typography>
                       </Tooltip>
+                      </>)}
                     </CardContent>
                   </CardActionArea>
                 </Card>
@@ -2932,6 +3061,8 @@ const FileDesktop = forwardRef(({
                       onFocusContext={setActiveContext}
                       refreshKey={folderRefreshKeys[window.folderId] || 0}
                       folderColors={folderIdToColor}
+                      mediaOnly={mediaOnly}
+                      largeCards={viewMode === 'thumbnails'}
                       {...layoutItem}
                     />
                   </div>
@@ -2962,7 +3093,7 @@ const FileDesktop = forwardRef(({
         onBulkImportHere={features.bulkImport && contextMenuType === 'folder' && contextMenuItem?.source_type !== 'live_repo' ? handleBulkImportHere : undefined}
         extraActions={contextMenuType === 'file' && contextMenuItem && fileMenuActions ? fileMenuActions(contextMenuItem) : null}
         onSortBy={contextMenuType === 'desktop' ? handleSortBy : undefined}
-        sortField={desktopSort}
+        sortField={view.sort.by}
         onArrangeIcons={contextMenuType === 'desktop' && viewMode !== 'list' ? () => handleArrangeIcons() : undefined}
         onOpenWindow={contextMenuFolderWindow
           ? (contextMenuFolderWindow.state === 'folded' ? () => handleFolderExpand(contextMenuFolderWindow.id) : undefined)
@@ -3228,13 +3359,26 @@ const FileDesktop = forwardRef(({
 FileDesktop.displayName = 'FileDesktop';
 
 /**
- * The header buttons for a FileDesktop: Import, the icons/list toggle, Arrange
- * Icons (icons only) and Arrange Windows. `desktopRef` is the FileDesktop's ref.
+ * The header buttons for a FileDesktop: Import, the Icons / Thumbnails / List
+ * views, Arrange Icons (placed views) and Arrange Windows. `desktopRef` is the
+ * FileDesktop's ref; `view` and `onViewChange` are the page's view.
  */
-export const FileDesktopActions = ({ desktopRef, viewMode, onViewModeChange }) => {
+export const FileDesktopActions = ({ desktopRef, view, onViewChange }) => {
   const { t } = useUiTranslation();
   const call = (name) => () => desktopRef.current?.[name]?.();
-  const toList = viewMode !== 'list';
+  const mode = view?.mode || 'icons';
+  const viewButton = (value, title, Icon) => (
+    <Tooltip title={title}>
+      <IconButton
+        onClick={() => onViewChange({ mode: value })}
+        size="small"
+        aria-pressed={mode === value}
+        sx={{ opacity: mode === value ? 1 : 0.5, color: mode === value ? 'primary.main' : undefined }}
+      >
+        <Icon fontSize="small" />
+      </IconButton>
+    </Tooltip>
+  );
   return (
     <>
       <Tooltip title={t('documents.page.importFiles')}>
@@ -3242,14 +3386,10 @@ export const FileDesktopActions = ({ desktopRef, viewMode, onViewModeChange }) =
           <UploadFileIcon fontSize="small" />
         </IconButton>
       </Tooltip>
-      {onViewModeChange && (
-        <Tooltip title={toList ? t('documents.page.listView') : t('documents.page.iconView')}>
-          <IconButton onClick={() => onViewModeChange(toList ? 'list' : 'icons')} size="small" sx={{ opacity: 0.6 }}>
-            {toList ? <ViewListIcon fontSize="small" /> : <ViewModuleIcon fontSize="small" />}
-          </IconButton>
-        </Tooltip>
-      )}
-      {viewMode !== 'list' && (
+      {onViewChange && viewButton('icons', t('documents.page.iconView'), ViewModuleIcon)}
+      {onViewChange && viewButton('thumbnails', t('documents.page.thumbnailView'), ViewComfyIcon)}
+      {onViewChange && viewButton('list', t('documents.page.listView'), ViewListIcon)}
+      {mode !== 'list' && (
         <Tooltip title={t('documents.page.arrangeIcons')}>
           <IconButton onClick={call('arrangeIcons')} size="small" sx={{ opacity: 0.6 }}>
             <GridViewIcon fontSize="small" />

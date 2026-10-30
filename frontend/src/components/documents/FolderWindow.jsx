@@ -32,6 +32,9 @@ const FolderWindow = React.forwardRef(({
   onFocusContext,
   refreshKey = 0,
   folderColors = {},
+  // The Media page's windows list only media; Thumbnails draws large cards.
+  mediaOnly = false,
+  largeCards = false,
   ...gridLayoutProps
 }, ref) => {
   const { t } = useUiTranslation();
@@ -165,6 +168,8 @@ const FolderWindow = React.forwardRef(({
           refreshKey={refreshKey}
           folderColors={folderColors}
           onMediaDetected={handleMediaDetected}
+          mediaOnly={mediaOnly}
+          largeCards={largeCards}
         />
       </Box>
     </FolderWindowWrapper>

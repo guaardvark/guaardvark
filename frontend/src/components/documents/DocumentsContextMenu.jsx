@@ -108,7 +108,7 @@ const DocumentsContextMenu = ({
           </>
         )}
         {onSortBy && <Divider />}
-        {onSortBy && ['name', 'date', 'size'].map((field) => (
+        {onSortBy && ['name', 'date', 'size', 'type'].map((field) => (
           <MenuItem key={field} onClick={() => { onSortBy(field); onClose(); }}>
             <ListItemIcon sx={{ minWidth: 28 }}>
               {sortField === field && <CheckIcon fontSize="small" />}

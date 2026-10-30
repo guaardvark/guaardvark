@@ -328,11 +328,12 @@ describe("Files page keyboard and the read-only code mount", () => {
     expect(await screen.findByText("Delete 3 items? This action cannot be undone.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
 
+    // In the order the desktop shows them (sorted by name).
     await waitFor(() => expect(posts()).toContainEqual({
       url: "/api/files/bulk-delete",
       body: { items: [
-        { type: "folder", id: 7 },
         { type: "folder", id: 8 },
+        { type: "folder", id: 7 },
         { type: "document", id: 31 },
       ] },
     }));

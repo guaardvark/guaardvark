@@ -65,7 +65,8 @@
     "sortBy": {
       "name": "Sort by Name",
       "date": "Sort by Date",
-      "size": "Sort by Size"
+      "size": "Sort by Size",
+      "type": "Sort by Type"
     },
     "arrangeIcons": "Arrange Icons"
   },
@@ -177,7 +178,36 @@
     "uploadProgress_one": "Uploading {{current}}/{{count}} file...",
     "uploadProgress_other": "Uploading {{current}}/{{count}} files...",
     "listView": "List view",
-    "iconView": "Icon view"
+    "iconView": "Icon view",
+    "thumbnailView": "Thumbnail view",
+    "scopeFolders": "Folders",
+    "scopeAll": "All items",
+    "kindAll": "All",
+    "kindImage": "Images",
+    "kindVideo": "Videos",
+    "kindAudio": "Audio",
+    "kindOther": "Other files",
+    "sortLabel": "Sort by",
+    "sortAsc": "Ascending",
+    "sortDesc": "Descending",
+    "search": "Search names and prompts",
+    "clearSearch": "Clear search",
+    "itemCount_one": "{{count}} item",
+    "itemCount_other": "{{count}} items",
+    "loadingAll": "Loading every file...",
+    "columns": {
+      "name": "Name",
+      "type": "Type",
+      "date": "Date",
+      "size": "Size"
+    },
+    "kindLabel": {
+      "image": "Image",
+      "video": "Video",
+      "audio": "Audio",
+      "other": "File",
+      "folder": "Folder"
+    }
   },
   "import": {
     "nothingToImport": "Nothing to import: {{skipped}}",
