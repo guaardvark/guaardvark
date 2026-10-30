@@ -39,18 +39,83 @@ BATES_PREFIXES = {
 }
 
 
+_BATCH_PREFIXES = frozenset(v for k, v in BATES_PREFIXES.items() if k.endswith("_batch"))
+
+# A generator batch folder (ImageBatch_..., VideoBatch_...) is the one holding
+# this file. People move batch folders into folders of their own from the Files
+# and Media pages, so a batch is looked for below its top-level folder too.
+BATCH_METADATA_FILE = "batch_metadata.json"
+_BATCH_SCAN_DEPTH = 4
+_batch_dir_cache: dict = {}
+
+
+def iter_batch_dirs(root, max_depth: int = _BATCH_SCAN_DEPTH):
+    """Every batch folder under ``root``, up to ``max_depth`` levels down, the
+    top level first. Batches do not nest, so a batch folder is not entered."""
+    level = [Path(root)]
+    for _ in range(max_depth):
+        next_level = []
+        for parent in level:
+            try:
+                entries = sorted(os.scandir(parent), key=lambda e: e.name)
+            except OSError:
+                continue
+            for entry in entries:
+                if entry.name.startswith("."):
+                    continue
+                try:
+                    if not entry.is_dir(follow_symlinks=False):
+                        continue
+                except OSError:
+                    continue
+                path = Path(entry.path)
+                if (path / BATCH_METADATA_FILE).is_file():
+                    yield path
+                else:
+                    next_level.append(path)
+        if not next_level:
+            return
+        level = next_level
+
+
+def find_batch_dir(root, batch_id: str) -> Optional[Path]:
+    """The folder of batch ``batch_id`` under ``root``, wherever it was moved
+    to, or None. A batch folder carries its batch id as its name."""
+    if not batch_id or batch_id in (".", "..") or "/" in batch_id or "\\" in batch_id:
+        return None
+    root = Path(root)
+    direct = root / batch_id
+    if (direct / BATCH_METADATA_FILE).is_file():
+        return direct
+    cached = _batch_dir_cache.get((str(root), batch_id))
+    if cached is not None and (cached / BATCH_METADATA_FILE).is_file():
+        return cached
+    found = None
+    for path in iter_batch_dirs(root):
+        _batch_dir_cache[(str(root), path.name)] = path
+        if path.name == batch_id and found is None:
+            found = path
+    if found is None:
+        _batch_dir_cache.pop((str(root), batch_id), None)
+    return found
+
+
 def _today_stamp() -> str:
     """MM-DD-YYYY_HHMMSS format for the timestamped Bates stamp."""
     return datetime.now().strftime("%m-%d-%Y_%H%M%S")
 
 
 def _next_sequence(directory: Path, prefix: str, date_stamp: str) -> int:
-    """Scan directory to find the next available sequence number."""
+    """Scan directory to find the next available sequence number. Batch
+    prefixes also count the batch folders moved below it."""
     pattern = re.compile(rf"^{re.escape(prefix)}_.*_(\d{{3}})")
     max_seq = 0
     if directory and directory.exists():
-        for entry in directory.iterdir():
-            match = pattern.match(entry.name)
+        names = [entry.name for entry in directory.iterdir()]
+        if prefix in _BATCH_PREFIXES:
+            names += [path.name for path in iter_batch_dirs(directory)]
+        for name in names:
+            match = pattern.match(name)
             if match:
                 max_seq = max(max_seq, int(match.group(1)))
     return max_seq + 1
@@ -132,8 +197,24 @@ def ensure_subfolder(parent_folder_name: str, subfolder_name: str) -> Folder:
     Creates both the physical directory and DB record.
     Returns the Folder object.
     """
-    parent_path = parent_folder_name
-    child_path = f"{parent_path}/{subfolder_name}"
+    return _ensure_folder_path(f"{parent_folder_name}/{subfolder_name}")
+
+
+def ensure_folder_for_dir(physical_dir) -> Optional[Folder]:
+    """The Folder record for a directory under the uploads folder, wherever it
+    sits (a batch folder that was moved keeps its record). None outside it."""
+    try:
+        rel = contained(UPLOAD_DIR, physical_dir).relative_to(os.path.abspath(UPLOAD_DIR))
+    except (PathEscapesRoot, ValueError):
+        return None
+    if rel == Path("."):
+        return None
+    return _ensure_folder_path(rel.as_posix())
+
+
+def _ensure_folder_path(child_path: str) -> Folder:
+    """Directory and Folder record for one path relative to the uploads folder."""
+    parent_path, _, name = child_path.rpartition("/")
 
     # Ensure physical dir
     physical = contained(UPLOAD_DIR, child_path)
@@ -145,10 +226,10 @@ def ensure_subfolder(parent_folder_name: str, subfolder_name: str) -> Folder:
         return existing
 
     # Get parent folder ID
-    parent = Folder.query.filter_by(path=parent_path).first()
+    parent = Folder.query.filter_by(path=parent_path).first() if parent_path else None
     parent_id = parent.id if parent else None
 
-    new_folder = Folder(name=subfolder_name, path=child_path, parent_id=parent_id)
+    new_folder = Folder(name=name, path=child_path, parent_id=parent_id)
     db.session.add(new_folder)
     try:
         db.session.commit()
@@ -210,9 +291,17 @@ def register_file(
         else:
             db_path = f"{folder_name}/{filename}"
 
-    # Ensure folder record exists
+    # Ensure folder record exists. The subfolder is the one the file really
+    # sits in: a batch folder moved below its top-level folder keeps its record.
     if subfolder_name:
-        folder = ensure_subfolder(folder_name, subfolder_name)
+        folder = None
+        parts = Path(db_path).parts[:-1]
+        for i in range(len(parts), 0, -1):
+            if parts[i - 1] == subfolder_name:
+                folder = _ensure_folder_path("/".join(parts[:i]))
+                break
+        if folder is None:
+            folder = ensure_subfolder(folder_name, subfolder_name)
         folder_id = folder.id if folder else None
     else:
         parent = Folder.query.filter_by(path=folder_name).first()

@@ -221,6 +221,24 @@ def _active_batch_ids(instance) -> set[str]:
         }
 
 
+def live_batch_dirs() -> list[tuple[str, Path]]:
+    """(batch id, folder) of every image and video batch queued or rendering
+    in this process. Their workers keep writing to the folder they were given."""
+    found: list[tuple[str, Path]] = []
+    for kind in ("images", "videos"):
+        instance = _generator_instance(kind)
+        if instance is None:
+            continue
+        lock = getattr(instance, "batch_lock", None) or threading.Lock()
+        with lock:
+            statuses = dict(getattr(instance, "active_batches", {}))
+        for bid, status in statuses.items():
+            out = getattr(status, "output_dir", None)
+            if out and getattr(status, "status", None) in ACTIVE_STATUSES:
+                found.append((bid, Path(out)))
+    return found
+
+
 def _forget_batches(instance, batch_ids: Iterable[str]) -> None:
     if instance is None:
         return
@@ -282,13 +300,17 @@ def _batch_folder_paths(image_ids: Iterable[str], video_ids: Iterable[str]) -> l
     return [f"Images/{b}" for b in image_ids] + [f"Videos/{b}" for b in video_ids]
 
 
-def _batch_targets(image_ids: Iterable[str], video_ids: Iterable[str]) -> tuple[list[int], set[int]]:
-    """(folder ids, document ids) that mirror the given batch directories."""
+def _batch_targets(
+    image_ids: Iterable[str], video_ids: Iterable[str], extra_paths: Iterable[str] = ()
+) -> tuple[list[int], set[int]]:
+    """(folder ids, document ids) that mirror the given batch directories.
+    ``extra_paths`` are folder paths relative to the uploads folder, for batch
+    folders that were moved below Images/ or Videos/."""
     from backend.models import db, Document, Folder
 
     folder_ids: list[int] = []
     doc_ids: set[int] = set()
-    paths = _batch_folder_paths(image_ids, video_ids)
+    paths = _batch_folder_paths(image_ids, video_ids) + list(extra_paths)
     if paths:
         folder_ids = [fid for (fid,) in db.session.query(Folder.id).filter(Folder.path.in_(paths))]
     if folder_ids:
@@ -363,6 +385,7 @@ def delete_batch_history_rows(
     *,
     image_batch_ids: Iterable[str] = (),
     video_batch_ids: Iterable[str] = (),
+    batch_dirs: Iterable[str | Path] = (),
     triggered_by: str = "batch_delete",
 ) -> dict[str, int]:
     """Remove the database rows mirroring these batch directories.
@@ -375,7 +398,14 @@ def delete_batch_history_rows(
     """
     image_ids = [b for b in image_batch_ids if b]
     video_ids = [b for b in video_batch_ids if b]
-    folder_ids, doc_ids = _batch_targets(image_ids, video_ids)
+    upload = _upload_dir().resolve()
+    moved_paths = []
+    for d in batch_dirs:
+        try:
+            moved_paths.append(Path(d).resolve().relative_to(upload).as_posix())
+        except (TypeError, ValueError):
+            continue
+    folder_ids, doc_ids = _batch_targets(image_ids, video_ids, moved_paths)
     jh_ids = _batch_job_history_ids(image_ids + video_ids)
     deleted = _delete_db_rows(folder_ids, sorted(doc_ids), jh_ids)
 

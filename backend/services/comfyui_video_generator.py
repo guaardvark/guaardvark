@@ -2763,9 +2763,12 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
             is_batch_controlled = (request.metadata or {}).get("batch_controlled", False)
             if not is_batch_controlled and result.success:
                 try:
-                    from backend.services.output_registration import register_file, ensure_subfolder
+                    from backend.services.output_registration import (
+                        ensure_folder_for_dir, ensure_subfolder, register_file,
+                    )
                     batch_folder_name = batch_dir.name
-                    ensure_subfolder("Videos", batch_folder_name)
+                    if ensure_folder_for_dir(batch_dir) is None:
+                        ensure_subfolder("Videos", batch_folder_name)
                     for vid_file in videos_dir.glob("*.mp4"):
                         register_file(
                             physical_path=str(vid_file),

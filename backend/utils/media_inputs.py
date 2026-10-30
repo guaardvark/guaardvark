@@ -244,8 +244,10 @@ def resolve_media_ref(ref, *, mcp: bool, label: str = "file",
                             refused=True)
         batch = _BATCH_IMAGE_URL.match(url_path)
         if batch:
+            from backend.services.output_registration import find_batch_dir
             base = (Path(config.UPLOAD_DIR) / "Images").resolve()
-            candidate = (base / batch.group(1) / "images" / batch.group(2)).resolve()
+            batch_dir = find_batch_dir(base, batch.group(1)) or base / batch.group(1)
+            candidate = (batch_dir / "images" / batch.group(2)).resolve()
             if not candidate.is_relative_to(base):
                 return MediaRef(error=f"{label} '{text}' leaves the image batch folder. {accepted}",
                                 refused=True)

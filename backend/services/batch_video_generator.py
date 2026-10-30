@@ -459,14 +459,11 @@ class BatchVideoGenerator:
 
     def _restore_pending_batches(self) -> None:
         """Re-enqueue batches left queued/running on disk after a process restart."""
+        from backend.services.output_registration import iter_batch_dirs
         restored = 0
         try:
-            for batch_dir in self.base_output_dir.iterdir():
-                if not batch_dir.is_dir():
-                    continue
+            for batch_dir in iter_batch_dirs(self.base_output_dir):
                 metadata_file = batch_dir / "batch_metadata.json"
-                if not metadata_file.exists():
-                    continue
                 try:
                     with open(metadata_file, "r") as f:
                         data = json.load(f)
@@ -611,7 +608,13 @@ class BatchVideoGenerator:
             return False
 
     def _get_batch_dir(self, batch_id: str) -> Path:
-        return contained(self.base_output_dir, batch_id)
+        """The batch's folder: Videos/<batch_id>, or wherever it was moved
+        under Videos/. A new batch gets Videos/<batch_id>."""
+        direct = contained(self.base_output_dir, batch_id)
+        if (direct / "batch_metadata.json").is_file():
+            return direct
+        from backend.services.output_registration import find_batch_dir
+        return find_batch_dir(self.base_output_dir, direct.name) or direct
 
     def _attach_quality_metrics(
         self,
@@ -662,7 +665,7 @@ class BatchVideoGenerator:
         batch_id = status.batch_id
         try:
             from flask import current_app
-            from backend.services.output_registration import ensure_subfolder, register_file
+            from backend.services.output_registration import ensure_folder_for_dir, register_file
             try:
                 app = current_app._get_current_object()
             except RuntimeError:
@@ -672,7 +675,7 @@ class BatchVideoGenerator:
                 app = get_or_create_app()
             with app.app_context():
                 try:
-                    ensure_subfolder("Videos", batch_id)
+                    ensure_folder_for_dir(self._get_batch_dir(batch_id))
                     # What the clip is and who made it travels with the
                     # Document: the editor keeps a soundtrack it knows is
                     # there, and publishing can carry the attribution the
@@ -1990,7 +1993,9 @@ class BatchVideoGenerator:
                     end_time=end_time,
                     results=results,
                     error=data.get("error"),
-                    output_dir=data.get("output_dir"),
+                    # Where the metadata was found, not the folder it was
+                    # made in: a moved batch saves to where it is now.
+                    output_dir=str(batch_dir),
                     metadata=data.get("metadata", {}),
                     retry_data=data.get("retry_data"),
                     stage=data.get("stage") or "done",
@@ -2091,16 +2096,13 @@ class BatchVideoGenerator:
                     active.append(status)
                     seen.add(batch_id)
 
+        from backend.services.output_registration import iter_batch_dirs
         try:
-            for batch_dir in self.base_output_dir.iterdir():
-                if not batch_dir.is_dir():
-                    continue
+            for batch_dir in iter_batch_dirs(self.base_output_dir):
                 batch_id = batch_dir.name
                 if batch_id in seen:
                     continue
                 metadata_file = batch_dir / "batch_metadata.json"
-                if not metadata_file.exists():
-                    continue
                 try:
                     with open(metadata_file, "r") as f:
                         data = json.load(f)
@@ -2308,13 +2310,10 @@ class BatchVideoGenerator:
         Called during list_batches to auto-recover from crashes/restarts.
         Only affects batches that are NOT actively tracked in memory.
         """
+        from backend.services.output_registration import iter_batch_dirs
         try:
-            for batch_dir in self.base_output_dir.iterdir():
-                if not batch_dir.is_dir():
-                    continue
+            for batch_dir in iter_batch_dirs(self.base_output_dir):
                 metadata_file = batch_dir / "batch_metadata.json"
-                if not metadata_file.exists():
-                    continue
                 batch_id = batch_dir.name
 
                 # Skip batches that are actively tracked in memory
@@ -2341,11 +2340,10 @@ class BatchVideoGenerator:
         # Auto-cleanup stale batches from previous runs
         self._cleanup_stale_batches()
 
+        from backend.services.output_registration import iter_batch_dirs
         batches = []
         try:
-            for batch_dir in self.base_output_dir.iterdir():
-                if not batch_dir.is_dir():
-                    continue
+            for batch_dir in iter_batch_dirs(self.base_output_dir):
                 metadata_file = batch_dir / "batch_metadata.json"
                 batch_id = batch_dir.name
                 entry = {"batch_id": batch_id, "status": "unknown"}
@@ -2395,7 +2393,8 @@ class BatchVideoGenerator:
         try:
             from backend.services.generation_history_service import delete_batch_history_rows
             delete_batch_history_rows(
-                video_batch_ids=[batch_id], triggered_by="batch_video_delete"
+                video_batch_ids=[batch_id], batch_dirs=[batch_dir],
+                triggered_by="batch_video_delete",
             )
         except Exception as e:
             logger.error(

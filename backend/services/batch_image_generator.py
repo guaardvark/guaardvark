@@ -1924,7 +1924,7 @@ class BatchImageGenerator:
                     if batch_status.status == "completed" and batch_status.completed_images > 0:
                         try:
                             from flask import current_app
-                            from backend.services.output_registration import ensure_subfolder, register_file
+                            from backend.services.output_registration import ensure_folder_for_dir, register_file
                             try:
                                 app = current_app._get_current_object()
                             except RuntimeError:
@@ -1932,7 +1932,7 @@ class BatchImageGenerator:
                                 app = get_or_create_app()
                             with app.app_context():
                                 try:
-                                    ensure_subfolder("Images", batch_id)
+                                    ensure_folder_for_dir(output_dir)
                                     images_dir = output_dir / "images"
                                     for img_file in sorted(images_dir.glob("*")):
                                         if img_file.is_file():
@@ -2710,21 +2710,20 @@ class BatchImageGenerator:
     ) -> Optional[BatchGenerationStatus]:
         """In-memory status first, then the batch's own folder, then a full scan.
 
-        Batch folders are named after the batch id, so the direct path covers
-        every batch from a previous process without the O(batches) scan that
-        list_all_batches() performs; the scan stays as the fallback for folders
-        that were moved.
+        Batch folders are named after the batch id and are found wherever they
+        were moved under Images/; the scan of every batch's metadata stays as
+        the fallback for a folder that was renamed.
         """
         status = self.get_batch_status(batch_id)
         if status:
             return status
 
         from werkzeug.utils import secure_filename
+        from backend.services.output_registration import find_batch_dir
         safe_id = secure_filename(batch_id or "")
-        if safe_id:
-            direct = self._status_from_metadata(
-                self.base_output_dir / safe_id, include_results=include_results
-            )
+        batch_folder = find_batch_dir(self.base_output_dir, safe_id) if safe_id else None
+        if batch_folder:
+            direct = self._status_from_metadata(batch_folder, include_results=include_results)
             if direct:
                 return direct
 
@@ -2748,10 +2747,9 @@ class BatchImageGenerator:
             logger.warning(f"Base output directory does not exist: {self.base_output_dir}")
             return active_batches
         
+        from backend.services.output_registration import iter_batch_dirs
         try:
-            for batch_folder in self.base_output_dir.iterdir():
-                if not batch_folder.is_dir():
-                    continue
+            for batch_folder in iter_batch_dirs(self.base_output_dir):
                 if batch_folder.name in active_batch_ids:
                     continue
                 batch_status = self._status_from_metadata(batch_folder)

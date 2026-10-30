@@ -890,7 +890,7 @@ def get_video(batch_id: str, video_name: str):
     try:
         generator = get_batch_video_generator()
         try:
-            batch_dir = contained(generator.base_output_dir, batch_id)
+            batch_dir = generator._get_batch_dir(batch_id)
             video_path = contained(batch_dir, video_name)
         except PathEscapesRoot:
             return error_response("Invalid video path", 400)
@@ -1138,7 +1138,7 @@ def download_batch(batch_id: str):
     try:
         generator = get_batch_video_generator()
         try:
-            batch_dir = contained(generator.base_output_dir, batch_id)
+            batch_dir = generator._get_batch_dir(batch_id)
         except PathEscapesRoot:
             return error_response("Batch not found", 404)
         if not batch_dir.exists():

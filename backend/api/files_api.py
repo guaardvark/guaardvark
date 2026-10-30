@@ -15,7 +15,7 @@ from flask import Blueprint, current_app, jsonify, request, send_file
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.utils import secure_filename
 
-from sqlalchemy import func as sa_func
+from sqlalchemy import false as sa_false, func as sa_func, literal as sa_literal
 
 from backend.celery_dispatch import TaskNotStarted
 from backend.config import GUAARDVARK_PROJECT_NAME
@@ -459,17 +459,32 @@ def create_folder():
 
 def _update_child_paths(folder: Folder, old_base: str, new_base: str):
     """Batch update paths for all descendants when parent is renamed/moved.
-    Uses bulk SQL UPDATE instead of recursive Python iteration."""
-    # Update all descendant folders in one query
-    Folder.query.filter(Folder.path.like(f"{old_base}/%")).update(
-        {Folder.path: sa_func.replace(Folder.path, old_base, new_base)},
-        synchronize_session='fetch'
-    )
-    # Update all descendant documents in one query
-    DBDocument.query.filter(DBDocument.path.like(f"{old_base}/%")).update(
-        {DBDocument.path: sa_func.replace(DBDocument.path, old_base, new_base)},
-        synchronize_session='fetch'
-    )
+    Uses bulk SQL UPDATE instead of recursive Python iteration. Only the
+    leading old_base is swapped: a descendant whose path repeats that name
+    further down (A/A/f) keeps the rest of its path."""
+    # SQL substr is 1-based, so this starts at the '/' after old_base.
+    tail_from = len(old_base) + 1
+    for model in (Folder, DBDocument):
+        model.query.filter(model.path.startswith(f"{old_base}/", autoescape=True)).update(
+            {model.path: sa_literal(new_base) + sa_func.substr(model.path, tail_from)},
+            synchronize_session='fetch'
+        )
+
+
+def _busy_batch_under(physical: Path) -> Optional[str]:
+    """The id of an image or video batch queued or rendering in ``physical`` or
+    below it. Its worker writes to the folder it started with, so that folder
+    must not be moved or renamed until it finishes."""
+    try:
+        from backend.services.generation_history_service import live_batch_dirs
+        top = os.path.abspath(physical)
+        for batch_id, batch_dir in live_batch_dirs():
+            d = os.path.abspath(batch_dir)
+            if d == top or d.startswith(top + os.sep):
+                return batch_id
+    except Exception as e:
+        logger.warning(f"Could not check for running batches under {physical}: {e}")
+    return None
 
 
 @files_bp.route("/folder/<int:folder_id>", methods=["PUT"])
@@ -495,6 +510,11 @@ def rename_folder(folder_id):
             return error_response("Folder name too long", 400, "INVALID_FILENAME")
         old_path = folder.path
         old_physical_path = get_physical_path(old_path)
+        busy = _busy_batch_under(old_physical_path)
+        if busy:
+            return error_response(
+                f"{busy} is still queued or rendering in this folder. Rename it when it finishes.",
+                409, "BATCH_RUNNING")
         if folder.parent_id:
             parent = db.session.get(Folder, folder.parent_id)
             new_path = f"{parent.path}/{new_name}"
@@ -571,6 +591,11 @@ def move_folder(folder_id):
         # Move physical directory
         old_physical_path = get_physical_path(old_path)
         new_physical_path = get_physical_path(new_path)
+        busy = _busy_batch_under(old_physical_path)
+        if busy:
+            return error_response(
+                f"{busy} is still queued or rendering in this folder. Move it when it finishes.",
+                409, "BATCH_RUNNING")
         if old_physical_path.exists():
             new_physical_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(old_physical_path), str(new_physical_path))

@@ -2537,7 +2537,9 @@ def delete_batch(batch_id: str):
         try:
             from backend.services.generation_history_service import delete_batch_history_rows
             db_removed = delete_batch_history_rows(
-                image_batch_ids=[batch_id], triggered_by="batch_image_delete"
+                image_batch_ids=[batch_id],
+                batch_dirs=[status.output_dir] if status.output_dir else [],
+                triggered_by="batch_image_delete",
             )
         except Exception as e:
             logger.error(f"Batch {batch_id} files deleted but its database rows remain: {e}")
