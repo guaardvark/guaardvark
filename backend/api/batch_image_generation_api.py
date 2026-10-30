@@ -1761,6 +1761,10 @@ def queue_prompts_batch(data: dict) -> dict:
         else:
             params["adapter_loras"] = paths
             params["adapter_scale"] = scale
+            validation_info.setdefault("warnings", []).append(
+                "Your LoRAs are on, so your prompt goes to the model as you wrote it: the prompt "
+                "rewrite would drop a LoRA's trigger word."
+            )
 
     # User text encoders (Manage Image Models): ids → {slot: loader filename}.
     encoder_ids = data.get("text_encoders") if isinstance(data.get("text_encoders"), list) else []
