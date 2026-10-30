@@ -28,6 +28,7 @@ const emitFromServer = (event, data) => {
 
 vi.mock("../../../contexts/UnifiedProgressContext", () => ({
   useUnifiedProgress: () => ({ socketRef: { current: fakeSocket } }),
+  useUnifiedProgressActions: () => ({ socketRef: { current: fakeSocket } }),
 }));
 vi.mock("../../../api/unifiedChatService", () => ({
   default: class {

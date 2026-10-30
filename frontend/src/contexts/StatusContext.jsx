@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useContext,
   useCallback,
+  useMemo,
   useRef,
 } from "react";
 import { getCurrentModel, getModelStatus } from "../api";
@@ -109,7 +110,7 @@ export const StatusProvider = ({ children }) => {
   }, [isBackendOffline, fetchModel, fetchModelStatus]);
 
   // Value provided by the context
-  const contextValue = {
+  const contextValue = useMemo(() => ({
     activeModel,
     isLoadingModel,
     modelError,
@@ -117,7 +118,7 @@ export const StatusProvider = ({ children }) => {
     isLoadingStatus,
     refreshActiveModel: fetchModel,
     refreshModelStatus: fetchModelStatus,
-  };
+  }), [activeModel, isLoadingModel, modelError, modelStatus, isLoadingStatus, fetchModel, fetchModelStatus]);
   return (
     <StatusContext.Provider value={contextValue}>
       {children}

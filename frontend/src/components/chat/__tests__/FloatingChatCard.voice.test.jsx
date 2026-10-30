@@ -12,6 +12,7 @@ const fakeSocket = { connected: true, on: vi.fn(), off: vi.fn(), emit: vi.fn() }
 
 vi.mock("../../../contexts/UnifiedProgressContext", () => ({
   useUnifiedProgress: () => ({ socketRef: { current: fakeSocket } }),
+  useUnifiedProgressActions: () => ({ socketRef: { current: fakeSocket } }),
 }));
 vi.mock("../../../api/unifiedChatService", () => ({
   default: class {

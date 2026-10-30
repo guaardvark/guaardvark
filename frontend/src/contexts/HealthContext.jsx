@@ -1,7 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { getCeleryHealth, getBackendHealth, getDbHealth, getRedisHealth } from '../api';
 
 const HealthContext = createContext();
+
+/** What a poll found, without the backend's uptime, which changes on every poll. */
+const healthContent = (data) => JSON.stringify([
+  data.backend && { ...data.backend, uptime_seconds: undefined },
+  data.db, data.celery, data.redis, data.errors,
+]);
 
 /** Window event that makes the health poll run now (an update was just applied). */
 export const UPDATE_APPLIED_EVENT = 'guaardvark:update-applied';
@@ -26,17 +32,24 @@ export const HealthProvider = ({ children }) => {
   });
 
   const [subscribers, setSubscribers] = useState(new Set());
+  // The latest data and when it was last polled, for the cache check; the state
+  // object itself only changes when a poll finds something different, so the
+  // 10 s poll does not re-render the app when nothing changed.
+  const healthDataRef = useRef(healthData);
+  healthDataRef.current = healthData;
+  const lastPolledRef = useRef(null);
 
   const updateHealthData = useCallback(async (force = false) => {
     const now = Date.now();
     const cacheTimeout = 30000; // 30 seconds cache
 
     // Skip if not forced and cache is still valid
-    if (!force && healthData.lastUpdated && (now - healthData.lastUpdated) < cacheTimeout) {
-      return healthData;
+    if (!force && lastPolledRef.current && (now - lastPolledRef.current) < cacheTimeout) {
+      return healthDataRef.current;
     }
 
-    setHealthData(prev => ({ ...prev, isLoading: true }));
+    // Only the first poll shows as loading; later ones refresh in place.
+    if (lastPolledRef.current === null) setHealthData(prev => ({ ...prev, isLoading: true }));
 
     const results = await Promise.allSettled([
       getBackendHealth(),
@@ -70,9 +83,12 @@ export const HealthProvider = ({ children }) => {
       }
     };
 
-    setHealthData(newData);
+    lastPolledRef.current = now;
+    setHealthData(prev => (
+      prev.lastUpdated !== null && healthContent(prev) === healthContent(newData) ? prev : newData
+    ));
     return newData;
-  }, [healthData.lastUpdated]);
+  }, []);
 
   // Background poll so the app notices the backend going down/coming back without a
   // manual reload. updateHealthData's identity changes every poll (its deps include
@@ -115,7 +131,7 @@ export const HealthProvider = ({ children }) => {
   // is null simply because we haven't checked yet.
   const isBackendOffline = healthData.lastUpdated !== null && healthData.backend === null;
 
-  const value = {
+  const value = useMemo(() => ({
     healthData,
     updateHealthData,
     subscribe,
@@ -128,7 +144,7 @@ export const HealthProvider = ({ children }) => {
     getErrors: () => healthData.errors,
     isLoading: healthData.isLoading,
     lastUpdated: healthData.lastUpdated
-  };
+  }), [healthData, updateHealthData, subscribe, isBackendOffline]);
 
   return (
     <HealthContext.Provider value={value}>

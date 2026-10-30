@@ -7,10 +7,12 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   useReducer,
   useMemo,
+  useSyncExternalStore,
 } from "react";
 import { io } from "socket.io-client";
 
@@ -27,6 +29,11 @@ import {
 } from "../utils/jobPreviewUrls";
 
 const UnifiedProgressContext = createContext();
+// The actions and the socket, which never change identity, and a store of the
+// progress state that a component can read a slice of. A component using these
+// instead of useUnifiedProgress re-renders only when its slice changes, not on
+// every progress event of every job.
+const UnifiedProgressActionsContext = createContext(null);
 
 export const useUnifiedProgress = () => {
   const context = useContext(UnifiedProgressContext);
@@ -37,6 +44,40 @@ export const useUnifiedProgress = () => {
   }
   return context;
 };
+
+export const useUnifiedProgressActions = () => {
+  const context = useContext(UnifiedProgressActionsContext);
+  if (!context) {
+    throw new Error(
+      "useUnifiedProgressActions must be used within a UnifiedProgressProvider"
+    );
+  }
+  return context;
+};
+
+/**
+ * A slice of the progress state ({ activeProcesses, unifiedJobs }). The
+ * component re-renders only when isEqual says the slice changed.
+ */
+export const useProgressSelector = (selector, isEqual = Object.is) => {
+  const { store } = useUnifiedProgressActions();
+  const lastRef = useRef(null);
+  const getSnapshot = () => {
+    const next = selector(store.get());
+    if (lastRef.current && isEqual(lastRef.current.value, next)) return lastRef.current.value;
+    lastRef.current = { value: next };
+    return next;
+  };
+  return useSyncExternalStore(store.subscribe, getSnapshot);
+};
+
+const sameItems = (a, b) => a.length === b.length && a.every((item, i) => item === b[i]);
+const selectImageProcesses = (state) => Array.from(state.activeProcesses.values()).filter(
+  (p) => p.processType === 'image_generation' || p.process_type === 'image_generation'
+);
+
+/** The image-generation processes; other jobs' progress does not re-render. */
+export const useImageProcesses = () => useProgressSelector(selectImageProcesses, sameItems);
 
 // Action types for reducer
 const ACTIONS = {
@@ -54,6 +95,9 @@ const ACTIONS = {
 
 // Reducer for atomic state management
 const FINISHED_STATUSES = new Set(['complete', 'completed', 'error', 'cancelled', 'canceled', 'failed', 'end']);
+// A finished job's last event is kept this long, for the screens that show how
+// a job ended, then dropped so the map does not grow over a long session.
+const FINISHED_JOB_KEEP_MS = 2 * 60 * 1000;
 
 const progressReducer = (state, action) => {
   switch (action.type) {
@@ -106,8 +150,14 @@ const progressReducer = (state, action) => {
       // existing entry for this id; if it's terminal, schedule a delayed
       // removal so the UI can show the final state briefly.
       const job = action.payload;
+      const now = Date.now();
       const newJobs = new Map(state.unifiedJobs || new Map());
-      newJobs.set(job.id, { ...job, _receivedAt: Date.now() });
+      newJobs.set(job.id, { ...job, _receivedAt: now });
+      for (const [id, kept] of newJobs) {
+        if (FINISHED_STATUSES.has(kept.status) && now - (kept._receivedAt || 0) > FINISHED_JOB_KEEP_MS) {
+          newJobs.delete(id);
+        }
+      }
       return { ...state, unifiedJobs: newJobs };
     }
     default:
@@ -133,10 +183,31 @@ export const UnifiedProgressProvider = ({ children }) => {
   const listenersRef = useRef(new Map());
   const activeProcessesRef = useRef(activeProcesses);
   const [connectionState, setConnectionState] = useState('disconnected');
+  const connectionStateRef = useRef(connectionState);
   const cleanupRef = useRef(new Set()); // Track all cleanup functions
 
-  // Keep ref in sync with activeProcesses for use in async callbacks
+  // Keep refs in sync for use in async callbacks and stable actions
   activeProcessesRef.current = activeProcesses;
+  connectionStateRef.current = connectionState;
+
+  // The store useProgressSelector reads: the latest state, and who to tell.
+  const storeRef = useRef(null);
+  if (storeRef.current === null) {
+    const listeners = new Set();
+    storeRef.current = {
+      state,
+      get: () => storeRef.current.state,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      notify: () => listeners.forEach((listener) => listener()),
+    };
+  }
+  storeRef.current.state = state;
+  useLayoutEffect(() => {
+    storeRef.current.notify();
+  }, [state]);
 
   // Detect process type from message - enhanced for ALL services
   const detectProcessType = useCallback((message) => {
@@ -581,7 +652,7 @@ export const UnifiedProgressProvider = ({ children }) => {
         });
       }
     },
-    [activeProcesses, detectProcessType, dispatch]
+    [detectProcessType, dispatch]
   );
 
   // Keep ref in sync with latest handleJobProgress (synchronous assignment, no effect delay)
@@ -650,15 +721,16 @@ export const UnifiedProgressProvider = ({ children }) => {
   // Auto-cleanup old processes with optimized interval
   useEffect(() => {
     const cleanupInterval = setInterval(() => {
-      // Only cleanup if we have processes
-      if (activeProcesses.size === 0) return;
+      // Read through the ref: this interval is set up once, at mount.
+      const processes = activeProcessesRef.current;
+      if (processes.size === 0) return;
 
       const now = Date.now();
       const maxAge = 5 * 60 * 1000; // 5 minutes
       let cleanedCount = 0;
 
       // Create a snapshot of processes to avoid concurrent modification issues
-      const processEntries = Array.from(activeProcesses.entries());
+      const processEntries = Array.from(processes.entries());
 
       // Clean up timeouts and listeners for old processes
       processEntries.forEach(([id, process]) => {
@@ -730,7 +802,7 @@ export const UnifiedProgressProvider = ({ children }) => {
       });
 
       // Subscribe to SocketIO updates for this process
-      if (socketRef.current && socketRef.current.connected && connectionState === 'connected') {
+      if (socketRef.current && socketRef.current.connected && connectionStateRef.current === 'connected') {
         try {
           socketRef.current.emit("subscribe", { job_id: processId });
         } catch (error) {
@@ -740,7 +812,7 @@ export const UnifiedProgressProvider = ({ children }) => {
 
       return processId;
     },
-    [handleJobProgress, connectionState]
+    [handleJobProgress]
   );
 
   const updateProcess = useCallback(
@@ -807,7 +879,7 @@ export const UnifiedProgressProvider = ({ children }) => {
           socketRef.current.io.reconnect();
         }
         // Optimistically mark as attempting; the 'connect' or 'reconnect' event will flip to 'connected'.
-        if (connectionState !== 'connected') {
+        if (connectionStateRef.current !== 'connected') {
           setConnectionState('disconnected');
         }
       } catch (e) {
@@ -816,7 +888,7 @@ export const UnifiedProgressProvider = ({ children }) => {
     } else {
       console.warn("UnifiedProgressContext: No socket to reconnect; a full reload may be required.");
     }
-  }, [connectionState]);
+  }, []);
 
   // Query functions
   const getProcessesByType = useCallback(
@@ -985,10 +1057,42 @@ export const UnifiedProgressProvider = ({ children }) => {
     forceReconnect,
   ]);
 
+  const actionsValue = useMemo(() => ({
+    store: storeRef.current,
+    socketRef,
+    startProcess,
+    updateProcess,
+    completeProcess,
+    errorProcess,
+    cancelProcess,
+    addProcessListener,
+    removeProcessListener,
+    handleJobProgress,
+    getProcessTypeIcon,
+    getProcessTypeColor,
+    detectProcessType,
+    forceReconnect,
+  }), [
+    startProcess,
+    updateProcess,
+    completeProcess,
+    errorProcess,
+    cancelProcess,
+    addProcessListener,
+    removeProcessListener,
+    handleJobProgress,
+    getProcessTypeIcon,
+    getProcessTypeColor,
+    detectProcessType,
+    forceReconnect,
+  ]);
+
   return (
-    <UnifiedProgressContext.Provider value={contextValue}>
-      {children}
-    </UnifiedProgressContext.Provider>
+    <UnifiedProgressActionsContext.Provider value={actionsValue}>
+      <UnifiedProgressContext.Provider value={contextValue}>
+        {children}
+      </UnifiedProgressContext.Provider>
+    </UnifiedProgressActionsContext.Provider>
   );
 };
 

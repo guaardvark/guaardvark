@@ -20,6 +20,7 @@ import {
 import { useUiTranslation } from '../../i18n';
 
 const VIDEO_SEED_REFRESH_MS = 30000;
+const VIDEO_SEED_FINAL_READ_MS = 3000;
 
 /**
  * Video batches in flight from /api/jobs/active: read on connect so a batch that
@@ -40,8 +41,18 @@ function useVideoJobSeed(connectionState, refreshWhile) {
     useEffect(() => {
         if (connectionState === 'connected') load();
     }, [connectionState, load]);
+    // Read once more a few seconds after the last batch leaves the bar: its
+    // finishing event is dropped from the progress state after a while, and a
+    // seed from while it ran would then show it running again.
+    const wasRefreshingRef = useRef(false);
     useEffect(() => {
-        if (!refreshWhile) return undefined;
+        if (!refreshWhile) {
+            if (!wasRefreshingRef.current) return undefined;
+            wasRefreshingRef.current = false;
+            const id = setTimeout(load, VIDEO_SEED_FINAL_READ_MS);
+            return () => clearTimeout(id);
+        }
+        wasRefreshingRef.current = true;
         const id = setInterval(load, VIDEO_SEED_REFRESH_MS);
         return () => clearInterval(id);
     }, [refreshWhile, load]);

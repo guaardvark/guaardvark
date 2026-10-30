@@ -65,6 +65,12 @@ export function describeGpuHolder(holder) {
  *     waits for the GPU (batch video, Celery-dispatched pipelines). gpuBusy stays
  *     true for informational banners and for disabling immediate GPU actions.
  */
+// What a gate reply says, without the holder's running time, which counts up
+// on every poll while the GPU is held and is not shown anywhere.
+const gateKey = (gate) => JSON.stringify(
+  gate && { ...gate, gpu_holder: gate.gpu_holder && { ...gate.gpu_holder, duration_s: undefined } },
+);
+
 export default function useJobsGate({
   enabled = true,
   pollMs = POLL_MS,
@@ -77,7 +83,9 @@ export default function useJobsGate({
   const refresh = useCallback(async () => {
     try {
       const data = await getJobsGate();
-      setGate(data);
+      // Same answer as last poll: keep the old object, so the page using this
+      // hook does not re-render every few seconds for nothing.
+      setGate((prev) => (prev && gateKey(prev) === gateKey(data) ? prev : data));
     } catch {
       // Keep the last known snapshot on transient failures.
     } finally {

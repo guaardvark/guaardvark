@@ -21,7 +21,7 @@ import {
 } from '@mui/icons-material';
 import voiceService from '../../api/voiceService';
 import { BACKEND_URL } from '../../api/apiClient';
-import { useUnifiedProgress } from '../../contexts/UnifiedProgressContext';
+import { useUnifiedProgressActions } from '../../contexts/UnifiedProgressContext';
 import AudioVisualizer from './AudioVisualizer';
 import VolumeMeter from './VolumeMeter';
 import VoiceSettingsModal from './VoiceSettingsModal';
@@ -84,7 +84,7 @@ const VoiceChat = ({
   const streamedResponseRef = useRef('');
 
   // Access shared SocketIO connection for streaming LLM responses
-  const { socketRef, _connectionState } = useUnifiedProgress();
+  const { socketRef } = useUnifiedProgressActions();
   const startTimeRef = useRef(null);
 
   useEffect(() => {

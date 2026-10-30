@@ -19,7 +19,7 @@ import { getChatHistory } from "../../api/chatService";
 import { generateFileFromChat } from "../../api/filegenService";
 import UnifiedChatService from "../../api/unifiedChatService";
 import StreamingMessage from "../chat/StreamingMessage";
-import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
+import { useUnifiedProgressActions } from "../../contexts/UnifiedProgressContext";
 import { uiLocale, useUiTranslation } from "../../i18n";
 
 const SemanticSearchCard = React.forwardRef(
@@ -43,7 +43,7 @@ const SemanticSearchCard = React.forwardRef(
     const inputRef = useRef(null);
 
     // Unified Chat Service (Socket.IO streaming)
-    const { socketRef } = useUnifiedProgress();
+    const { socketRef } = useUnifiedProgressActions();
     const [unifiedChatService, setUnifiedChatService] = useState(null);
     const [isStreamingMessage, setIsStreamingMessage] = useState(false);
 

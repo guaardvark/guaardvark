@@ -21,6 +21,7 @@ vi.mock("../../../api/unifiedChatService", () => ({
 const socket = { on: () => {}, off: () => {} };
 vi.mock("../../../contexts/UnifiedProgressContext", () => ({
   useUnifiedProgress: () => ({ socketRef: { current: socket } }),
+  useUnifiedProgressActions: () => ({ socketRef: { current: socket } }),
 }));
 vi.mock("../../../contexts/VoiceContext", () => ({ useVoice: () => ({}) }));
 vi.mock("../../../contexts/VoiceSessionContext", () => ({

@@ -25,7 +25,7 @@ import UnifiedChatService, { steerAgent } from "../../api/unifiedChatService";
 import { stopChatTurn } from "../../api/chatStopService";
 import StreamingMessage from "./StreamingMessage";
 import FloatingChatMessage from "./FloatingChatMessage";
-import { useUnifiedProgress } from "../../contexts/UnifiedProgressContext";
+import { useUnifiedProgressActions } from "../../contexts/UnifiedProgressContext";
 import GlobalMicButton from "../voice/GlobalMicButton";
 import { useAppStore } from "../../stores/useAppStore";
 import { useVoice } from "../../contexts/VoiceContext";
@@ -172,7 +172,7 @@ const FloatingChatCard = () => {
   const voiceReplyPendingRef = useRef(false);
 
   // Unified Chat Service (Socket.IO streaming)
-  const { socketRef } = useUnifiedProgress();
+  const { socketRef } = useUnifiedProgressActions();
   const [unifiedChatService, setUnifiedChatService] = useState(null);
 
   // Safety: if socket becomes available while floating is open but we have no service yet
