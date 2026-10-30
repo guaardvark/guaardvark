@@ -314,8 +314,11 @@ IMAGE_MODEL_LIMITS: dict[str, dict[str, Any]] = {
     "qwen-image-21": {"family": "qwen-image-21", "steps_range": (10, 50), "cfg_range": (1.0, 5.0),
                       "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
     # The official settings: 50 steps at cfg 3.0 (user guide, Base), 25 at 2.5
-    # (Comfy templates); the guide's cfg range is 3.0-6.0 for short prompts.
-    "moss-image": {"family": "moss-image", "steps_range": (20, 50), "cfg_range": (2.0, 6.0),
+    # (Comfy templates). Compared 2026-10-30 at 1024x1024, seed 1984, on a
+    # lettered poster and a full-length portrait: 12, 16, 20, 25, 35 and 50 steps
+    # all render the lettering exactly and the figure clean (12 a little
+    # smoother); cfg 2.5, 3, 4.5 and 6 all render clean, higher adding contrast.
+    "moss-image": {"family": "moss-image", "steps_range": (12, 50), "cfg_range": (2.5, 6.0),
                    "min_dimensions": (512, 512), "hard_clamp": False, "force_max_workers": 1},
     # SDXL: guidance above 9 renders black images, so its range is enforced.
     "sd-xl": {"family": "sdxl", "steps_range": (20, 40), "cfg_range": (4.0, 9.0),
