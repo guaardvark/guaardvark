@@ -66,6 +66,10 @@ _QWEN21_TOKENS = (
     "qwen image 2.1",
 )
 
+# FLUX 3 Image Klein spellings. "klein" alone also names FLUX.2 Klein, a
+# different model, so every token carries the 3.
+_FLUX3_TOKENS = ("flux3", "flux-3", "flux_3", "flux.3", "flux 3")
+
 # MOSS-Image spellings seen in repo ids and file names.
 _MOSS_TOKENS = ("moss-image", "moss_image", "mossimage", "moss image")
 
@@ -137,6 +141,31 @@ IMAGE_FAMILIES = (
             "StableDiffusionImg2ImgPipeline",
             "StableDiffusionInpaintPipeline",
         ),
+    },
+    {
+        # Ahead of FLUX.1: its "flux" token is in every FLUX 3 id and file name.
+        "id": "flux3-klein",
+        "domain": "image",
+        "wired": True,
+        "label": "FLUX 3 Image Klein",
+        "engine": "comfy",
+        "like": "flux3-klein",
+        "roles": ("generation",),
+        "layout": "comfy_files",
+        "single_file": True,
+        "lora_engine": None,
+        "local_subdir": "diffusion_models",
+        "comfy_graph": "flux3-klein",
+        "weight_suffixes": (".safetensors",),
+        "refused_name_tokens": {
+            **_MLX_REFUSAL,
+            "nvfp4": "is an NVFP4 build, which needs a Blackwell (RTX 50) card. Pick the int8 convrot file.",
+            "base": "is the undistilled base checkpoint, for training; the graph here samples the "
+                    "distilled checkpoint at 15 steps. Pick flux3-image-klein-int8-convrot.",
+        },
+        "tokens": _FLUX3_TOKENS,
+        "pipeline_tags": (),
+        "index_classes": (),
     },
     {
         "id": "flux",
@@ -932,6 +961,8 @@ def match_families(
     moss_claim = domain == "image" and (
         any(tok in blob for tok in _MOSS_TOKENS) or cls == "MOSSImagePipeline"
     )
+    # FLUX 3 names carry "flux" too; FLUX.1's row must not claim them.
+    flux3_claim = domain == "image" and not moss_claim and any(tok in blob for tok in _FLUX3_TOKENS)
     unwired = []
     for row in UNWIRED_FAMILIES:
         if row["domain"] != domain:
@@ -974,6 +1005,8 @@ def match_families(
             if not row["wired"]:
                 continue
             if moss_claim and row["id"] != "moss-image":
+                continue
+            if flux3_claim and row["id"] != "flux3-klein":
                 continue
             score = 0
             reasons = []

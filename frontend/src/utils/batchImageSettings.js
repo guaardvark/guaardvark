@@ -22,6 +22,8 @@ export function modelFamily(model) {
   // Shipped `moss-image` and user `user-moss-image-<slug>`; tested before FLUX
   // because a MOSS repack can carry the FLUX.2 VAE's name.
   if (m.includes('moss-image')) return 'moss-image';
+  // FLUX 3 Image Klein; its ids also contain 'flux', so it is tested first.
+  if (m.includes('flux3')) return 'flux3-klein';
   if (m.includes('flux')) return 'flux';
   if (m.includes('zimage') || m.includes('z-image')) return 'zimage';
   if (m.includes('krea')) return m.includes('raw') ? 'krea-raw' : 'krea-turbo';
@@ -59,7 +61,7 @@ export function promptStyleFor(model, modelOptions = [], autoPromptStyle = null)
   const opt = (modelOptions || []).find((o) => o.value === m);
   if (opt?.promptStyle) return opt.promptStyle;
   const fam = modelFamily(m);
-  return fam === 'zimage' || fam === 'qwen-image-21' || fam === 'moss-image' ? 'natural' : 'tags';
+  return ['zimage', 'qwen-image-21', 'moss-image', 'flux3-klein'].includes(fam) ? 'natural' : 'tags';
 }
 
 // Qwen-Image 2.1 guidance range. The official ComfyUI template
@@ -75,6 +77,10 @@ export const QWEN_IMAGE_21_GUIDANCE_MAX = 5;
 // registry's cfg_range for moss-image (media_model_registry.IMAGE_MODEL_LIMITS):
 // compared at 1024x1024, 2.5 to 6 all render clean.
 export const MOSS_IMAGE_GUIDANCE_MAX = 6;
+
+// FLUX 3 Image Klein is step-distilled: the official template samples at cfg 1
+// and the ComfyUI docs say raising it does not help, so guidance is fixed.
+export const FLUX3_KLEIN_GUIDANCE = 1.0;
 
 export const ZIMAGE_STEPS = 9;
 export const ZIMAGE_GUIDANCE = 0;
@@ -142,6 +148,11 @@ const PRESETS_BY_FAMILY = {
     { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 25, guidance: 2.5, get description() { return translate('options.imagePresets.descriptions.mossImage.standard'); } },
     { value: 'high', get label() { return translate('options.imagePresets.labels.high'); }, steps: 50, guidance: 3.0, get description() { return translate('options.imagePresets.descriptions.mossImage.high'); } },
   ],
+  // FLUX 3 Image Klein numbers come from the official ComfyUI template
+  // (image_flux3_klein_distilled_t2i.json: 15 steps, cfg 1, er_sde/simple).
+  'flux3-klein': [
+    { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 15, guidance: 1.0, get description() { return translate('options.imagePresets.descriptions.flux3Klein.standard'); } },
+  ],
   sdxl: [
     { value: 'fast', get label() { return translate('options.imagePresets.labels.fast'); }, steps: 20, guidance: 6.0, get description() { return translate('options.imagePresets.descriptions.sdxl.fast'); } },
     { value: 'standard', get label() { return translate('options.imagePresets.labels.standard'); }, steps: 25, guidance: 7.0, get description() { return translate('options.imagePresets.descriptions.sdxl.standard'); } },
@@ -170,6 +181,7 @@ const DEFAULT_PRESET_BY_FAMILY = {
   sana: 'standard',
   'qwen-image-21': 'standard',
   'moss-image': 'standard',
+  'flux3-klein': 'standard',
   sdxl: 'standard',
   sd: 'standard',
 };

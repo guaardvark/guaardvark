@@ -1028,6 +1028,7 @@ class BatchImageGenerator:
                 flux_dev_unet=unet if model_tag == "flux-dev" else None,
                 qwen21_unet=unet if family == "qwen-image-21" else None,
                 moss_unet=unet if family == "moss-image" else None,
+                flux3_unet=unet if family == "flux3-klein" else None,
                 text_encoders=picked_encoders,
             )
             path = gen.generate_image(

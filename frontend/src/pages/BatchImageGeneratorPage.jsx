@@ -70,6 +70,7 @@ import { ActionButton, Hint, SettingChip } from '../components/settings/ui';
 import {
   QWEN_IMAGE_21_GUIDANCE_MAX,
   MOSS_IMAGE_GUIDANCE_MAX,
+  FLUX3_KLEIN_GUIDANCE,
   ZIMAGE_GUIDANCE,
   ZIMAGE_PRESET_STEPS,
   ZIMAGE_STEPS,
@@ -352,9 +353,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const isFlux = family === 'flux';
   const isQwenImage21 = family === 'qwen-image-21';
   const isMossImage = family === 'moss-image';
+  const isFlux3Klein = family === 'flux3-klein';
   // Stills rendered by a ComfyUI graph: one picture at a time, 1K native, and a
   // guidance scale that is not SD-era CFG.
-  const comfyStills = isFlux || isQwenImage21 || isMossImage;
+  const comfyStills = isFlux || isQwenImage21 || isMossImage || isFlux3Klein;
   const isZimage = isZimageModel(params.model);
   const unusedNegAnat = ignoresNegativeAndAnatomy(params.model);
   // A prose model (Z-Image, and Auto while it resolves to one) reads tag
@@ -377,7 +379,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
   const oneAtATime = generatorDevice === 'cuda' || comfyStills;
   const effectiveWorkers = oneAtATime ? 1 : params.max_workers;
   const oneAtATimeNote = comfyStills && generatorDevice !== 'cuda'
-    ? t('imagesBatch.workers.oneAtATimeModel', { model: isFlux ? 'FLUX' : isMossImage ? 'MOSS-Image' : 'Qwen-Image 2.1' })
+    ? t('imagesBatch.workers.oneAtATimeModel', { model: isFlux ? 'FLUX' : isMossImage ? 'MOSS-Image' : isFlux3Klein ? 'FLUX 3 Klein' : 'Qwen-Image 2.1' })
     : t('imagesBatch.workers.oneAtATimeGpu');
 
   // Generating never downloads a model. A picked model that is not installed
@@ -933,7 +935,10 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
         newParams.steps = ZIMAGE_PRESET_STEPS[presetValue] ?? ZIMAGE_STEPS;
         newParams.guidance = ZIMAGE_GUIDANCE;
       }
-      if (fam === 'flux' || fam === 'qwen-image-21' || fam === 'moss-image') {
+      if (fam === 'flux3-klein') {
+        newParams.guidance = FLUX3_KLEIN_GUIDANCE;
+      }
+      if (fam === 'flux' || fam === 'qwen-image-21' || fam === 'moss-image' || fam === 'flux3-klein') {
         newParams.max_workers = 1; // VRAM safety — heavy Comfy graph
       }
       // The explicit High 2K preset is the only thing that puts the canvas at 2048².
@@ -2291,13 +2296,13 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                               than left free to drift off the only correct setting. `auto` is left
                               editable: the router may pick SDXL, which does use CFG. */}
                           <Slider
-                            value={isZimage ? ZIMAGE_GUIDANCE : params.guidance}
+                            value={isZimage ? ZIMAGE_GUIDANCE : isFlux3Klein ? FLUX3_KLEIN_GUIDANCE : params.guidance}
                             onChange={(e, value) => setParams({ ...params, guidance: value })}
                             min={0}
                             max={isFlux ? 6 : isQwenImage21 ? QWEN_IMAGE_21_GUIDANCE_MAX : isMossImage ? MOSS_IMAGE_GUIDANCE_MAX : 20}
                             step={0.5}
                             marks
-                            disabled={isZimage || castLocked}
+                            disabled={isZimage || isFlux3Klein || castLocked}
                           />
                           {castLocked && (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
@@ -2312,6 +2317,11 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                           {isQwenImage21 && !castLocked && (
                             <Typography variant="caption" color="text.secondary">
                               {t('imagesBatch.guidance.qwenHelp')}
+                            </Typography>
+                          )}
+                          {isFlux3Klein && !castLocked && (
+                            <Typography variant="caption" color="text.secondary">
+                              {t('imagesBatch.guidance.flux3KleinHelp')}
                             </Typography>
                           )}
                           {isMossImage && !castLocked && (

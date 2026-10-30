@@ -15,6 +15,7 @@ basename because STORAGE_DIR/training/loras is on ComfyUI's LoRA search path
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -203,6 +204,17 @@ try:
     MOSS_DEFAULT_STEPS = int(_MOSS.get("default_steps") or 25)
     MOSS_DEFAULT_CFG = float(_MOSS.get("default_cfg") or 2.5)
     MOSS_NODES = tuple(_MOSS.get("comfy_nodes") or ("MOSSImageLayoutPrompt", "EmptyFlux2LatentImage"))
+    # FLUX 3 Image Klein (distilled): loader filenames, sampling defaults, nodes.
+    _FLUX3 = _VMR.get("flux3-klein") or {}
+    FLUX3_UNET = ((_FLUX3.get("files") or [{}])[0].get("dst") or "flux3-image-klein-int8-convrot.safetensors")
+    FLUX3_CLIP = (((_VMR.get("flux3-klein-clip") or {}).get("files") or [{}])[0].get("dst")
+                  or "qwen3vl_4b_int8_convrot.safetensors")
+    FLUX3_UPSAMPLER = (((_VMR.get("flux3-klein-upsampler") or {}).get("files") or [{}])[0].get("dst")
+                       or "qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors")
+    FLUX3_VAE = (((_VMR.get("flux3-klein-vae") or {}).get("files") or [{}])[0].get("dst")
+                 or "flux2-vae.safetensors")
+    FLUX3_DEFAULT_STEPS = int(_FLUX3.get("default_steps") or 15)
+    FLUX3_NODES = tuple(_FLUX3.get("comfy_nodes") or ("Flux3LayoutPrompt", "TextGenerate", "EmptyFlux2LatentImage"))
     _MOSS_EDIT = _VMR.get("moss-image-edit") or {}
     MOSS_EDIT_LORA = ((_MOSS_EDIT.get("files") or [{}])[0].get("dst")
                       or "moss_image_edit_lora_rank_64_bf16.safetensors")
@@ -229,6 +241,12 @@ except Exception:  # pragma: no cover - registry import is environment-specific
     MOSS_DEFAULT_STEPS = 25
     MOSS_DEFAULT_CFG = 2.5
     MOSS_NODES = ("MOSSImageLayoutPrompt", "EmptyFlux2LatentImage")
+    FLUX3_UNET = "flux3-image-klein-int8-convrot.safetensors"
+    FLUX3_CLIP = "qwen3vl_4b_int8_convrot.safetensors"
+    FLUX3_UPSAMPLER = "qwen3.5_9b_flux3_prompt_upsampler_w4a8.safetensors"
+    FLUX3_VAE = "flux2-vae.safetensors"
+    FLUX3_DEFAULT_STEPS = 15
+    FLUX3_NODES = ("Flux3LayoutPrompt", "TextGenerate", "EmptyFlux2LatentImage")
     MOSS_EDIT_LORA = "moss_image_edit_lora_rank_64_bf16.safetensors"
     MOSS_EDIT_DEFAULT_STEPS = 30
     MOSS_EDIT_DEFAULT_CFG = 4.0
@@ -251,9 +269,34 @@ MOSS_SIDE_ALIGNMENT = 16
 # The official templates' negative (image_moss_image_t2i). A caller's own
 # negative replaces it.
 MOSS_NEGATIVE = "nsfw, worst quality, bad anatomy, watermark, jpeg artifact"
+# The model tag the FLUX 3 Image Klein graph dispatches on. Checked before every
+# FLUX.1 branch: "flux" is in the tag.
+FLUX3_TAG = "flux3"
+# The official distilled template's TextGenerate settings for the prompt
+# upsampler (image_flux3_klein_distilled_t2i).
+FLUX3_UPSAMPLE_MAX_TOKENS = 3584
 # The ComfyUI release that first carries each family's graph, for the message a
 # render on an older server gets.
-_GRAPH_MIN_COMFY = {QWEN21_TAG: ("Qwen-Image 2.1", "0.37"), MOSS_TAG: ("MOSS-Image", "0.42")}
+_GRAPH_MIN_COMFY = {QWEN21_TAG: ("Qwen-Image 2.1", "0.37"), MOSS_TAG: ("MOSS-Image", "0.42"),
+                    FLUX3_TAG: ("FLUX 3 Image Klein", "0.41")}
+
+
+def _flux3_upsampler_instructions() -> str | None:
+    """BFL's system prompt for the FLUX 3 prompt upsampler, read from the
+    official ComfyUI template the comfyui-workflow-templates package installs
+    beside ComfyUI. None when the package or the node is not there."""
+    try:
+        from importlib import resources
+        tpl = resources.files("comfyui_workflow_templates_json") / "templates" / "image_flux3_klein_distilled_t2i.json"
+        data = json.loads(tpl.read_text(encoding="utf-8"))
+        for sg in (data.get("definitions") or {}).get("subgraphs") or []:
+            for node in sg.get("nodes") or []:
+                text = ((node.get("widgets_values") or [""])[0]) if node.get("type") == "PrimitiveStringMultiline" else ""
+                if isinstance(text, str) and "prompt upsampler" in text:
+                    return text
+    except Exception as e:  # noqa: BLE001 — absent package or a changed template
+        logger.warning("FLUX 3 upsampler instructions unavailable: %s", e)
+    return None
 
 # A neutral SDXL negative — keeps anatomy/quality sane without fighting the LoRA.
 DEFAULT_NEGATIVE = (
@@ -420,7 +463,7 @@ class ComfyUIImageGenerator:
                  flux_clip: str | None = None, flux_vae: str | None = None,
                  flux_dev_unet: str | None = None, qwen21_unet: str | None = None,
                  flux_dev_t5: str | None = None, text_encoders: dict | None = None,
-                 moss_unet: str | None = None):
+                 moss_unet: str | None = None, flux3_unet: str | None = None):
         self.comfy_url = (comfy_url or _COMFY_URL).rstrip("/")
         self.lora_strength = lora_strength
         self.model = model or "sdxl"  # "flux-schnell", "sdxl", "sdxl-lora" etc. (from MV keyframe_model)
@@ -435,6 +478,7 @@ class ComfyUIImageGenerator:
         self.qwen21_unet = qwen21_unet or QWEN21_UNET
         # A user-added MOSS-Image UNET; the shipped registry file otherwise.
         self.moss_unet = moss_unet or MOSS_UNET
+        self.flux3_unet = flux3_unet or FLUX3_UNET
         # Text encoders picked for this render, {slot: loader filename}
         # (user_image_models.resolve_user_encoders; slots from the FLUX family
         # row). A T5-XXL fills the T5 slot of whichever FLUX graph renders, a
@@ -635,6 +679,16 @@ class ComfyUIImageGenerator:
             return self._build_moss_workflow(
                 prompt=prompt, negative=negative, width=width, height=height,
                 seed=seed, steps=steps, cfg=cfg, lora_names=lora_names,
+            )
+
+        if FLUX3_TAG in ml:
+            if lora_names:
+                raise RuntimeError(
+                    "FLUX 3 Image Klein renders do not take LoRAs yet. Remove the LoRA "
+                    "or pick a FLUX.1, SDXL, Z-Image or MOSS-Image model for it."
+                )
+            return self._build_flux3_workflow(
+                prompt=prompt, width=width, height=height, seed=seed, steps=steps,
             )
 
         if QWEN21_TAG in ml:
@@ -1255,6 +1309,48 @@ class ComfyUIImageGenerator:
             "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-moss-image", "images": ["vae", 0]}},
         }
 
+    def _build_flux3_workflow(
+        self, *, prompt: str, width: int, height: int, seed: int, steps: int,
+    ) -> dict:
+        """The official Comfy-Org FLUX 3 Image Klein distilled text-to-image graph
+        (image_flux3_klein_distilled_t2i) with its prompt upsampler on, as the
+        model card asks: BFL's Qwen3.5 upsampler expands the prompt through
+        TextGenerate, the Qwen3-VL encoder (CLIPLoader type flux3) reads the
+        result, EmptyFlux2LatentImage, KSampler er_sde/simple at cfg 1 (the
+        checkpoint is distilled; a typed guidance has no use here). Steps default
+        to the template's 15; sides snap to multiples of 16."""
+        instructions = _flux3_upsampler_instructions()
+        if not instructions:
+            raise RuntimeError(
+                "FLUX 3 Image Klein needs its prompt upsampler instructions, which come with "
+                "ComfyUI's workflow templates. Update the ComfyUI plugin and try again."
+            )
+        n = int(steps) if steps and int(steps) > 0 else FLUX3_DEFAULT_STEPS
+        w = max(16, (int(width) // 16) * 16)
+        h = max(16, (int(height) // 16) * 16)
+        return {
+            "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": self.flux3_unet, "weight_dtype": "default"}},
+            "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": FLUX3_CLIP, "type": "flux3"}},
+            "upsampler_clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": FLUX3_UPSAMPLER, "type": "flux3"}},
+            "vae_loader": {"class_type": "VAELoader", "inputs": {"vae_name": FLUX3_VAE}},
+            "upsample": {"class_type": "TextGenerate", "inputs": {
+                "clip": ["upsampler_clip", 0], "prompt": prompt, "system_prompt": instructions,
+                "max_length": FLUX3_UPSAMPLE_MAX_TOKENS, "sampling_mode": "on",
+                "sampling_mode.temperature": 1.0, "sampling_mode.top_k": 1, "sampling_mode.top_p": 0.95,
+                "sampling_mode.min_p": 0.0, "sampling_mode.repetition_penalty": 1.05,
+                "sampling_mode.seed": int(seed) % (2 ** 63), "sampling_mode.presence_penalty": 1.5,
+                "thinking": False, "use_default_template": True, "mtp": "off"}},
+            "positive": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["clip", 0], "text": ["upsample", 0]}},
+            "negative": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["clip", 0], "text": ""}},
+            "latent": {"class_type": "EmptyFlux2LatentImage", "inputs": {"width": w, "height": h, "batch_size": 1}},
+            "sampler": {"class_type": "KSampler", "inputs": {
+                "seed": seed, "steps": n, "cfg": 1.0, "sampler_name": "er_sde", "scheduler": "simple",
+                "denoise": 1.0, "model": ["unet", 0], "positive": ["positive", 0],
+                "negative": ["negative", 0], "latent_image": ["latent", 0]}},
+            "vae": {"class_type": "VAEDecode", "inputs": {"samples": ["sampler", 0], "vae": ["vae_loader", 0]}},
+            "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-flux3-klein", "images": ["vae", 0]}},
+        }
+
     def _build_moss_edit_workflow(
         self, *, src_name: str, instruction: str, steps: int, cfg: float, seed: int,
     ) -> dict:
@@ -1316,6 +1412,8 @@ class ComfyUIImageGenerator:
         ml = (model or "").lower()
         if MOSS_TAG in ml:
             return tuple(MOSS_NODES)
+        if FLUX3_TAG in ml:
+            return tuple(FLUX3_NODES)
         if QWEN21_TAG in ml:
             return tuple(QWEN21_NODES)
         return ()
@@ -1330,7 +1428,7 @@ class ComfyUIImageGenerator:
         missing = self.missing_node_classes(required)
         if missing:
             ml = (model or "").lower()
-            tag = MOSS_TAG if MOSS_TAG in ml else QWEN21_TAG
+            tag = MOSS_TAG if MOSS_TAG in ml else FLUX3_TAG if FLUX3_TAG in ml else QWEN21_TAG
             label, version = _GRAPH_MIN_COMFY[tag]
             raise RuntimeError(
                 f"{label} needs ComfyUI {version} or newer: the running ComfyUI has no "

@@ -131,6 +131,31 @@ if changed:
     print(f"Patched {changed} comfy_kitchen file(s) for torch<2.7 custom-op schemas")
 PY
 
+# The same rewrite leaves comfy-kitchen's flash-attention decode kernel taking
+# tensors laid out for torch 2.7+: on 2.6 every TextGenerate run (FLUX 3 Klein's
+# prompt upsampler, MOSS-Image's prompt enhancer) failed with "Unsupported Flash
+# Attention tensor strides" / "Unsupported tree merge strides". Report the kernel
+# unavailable below 2.7 so ComfyUI decodes on PyTorch attention instead.
+"$VENV_PYTHON" - <<'PY'
+import importlib.metadata as m, sys
+from pathlib import Path
+try:
+    torch_ver = tuple(int(x) for x in m.version("torch").split("+")[0].split(".")[:2])
+except Exception:
+    sys.exit(0)
+if torch_ver >= (2, 7):
+    sys.exit(0)
+path = Path(sys.prefix) / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages" / "comfy_kitchen" / "flash_attention.py"
+if not path.is_file():
+    sys.exit(0)
+src = path.read_text(encoding="utf-8")
+doc = '    """Return whether flash attention decode is available on the requested device."""\n'
+guard = "    return False  # torch<2.7: the decode kernel's tensor layout does not match; patched by Guaardvark start.sh\n"
+if doc in src and guard not in src:
+    path.write_text(src.replace(doc, doc + guard, 1), encoding="utf-8")
+    print("Disabled comfy_kitchen flash-attention decode for torch<2.7")
+PY
+
 # Upstream leak (Comfy-Org/ComfyUI#13109, open as of 0.30.0): unpatch_model()
 # clears self.backup but never self.patches, and offloaded weights hold a live
 # reference to that dict — so on the lowvram path (any 16GB card running Wan)

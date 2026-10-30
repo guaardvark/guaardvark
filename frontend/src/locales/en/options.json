@@ -331,6 +331,9 @@
         "standard": "Official ComfyUI template (25 steps, cfg 1)",
         "high": "Official pipeline range (40-50 steps), slower"
       },
+      "flux3Klein": {
+        "standard": "Official ComfyUI template (15 steps, cfg 1, prompt upsampler on)"
+      },
       "mossImage": {
         "fast": "Fewer steps (16), lettering still exact",
         "standard": "Official ComfyUI template (25 steps, cfg 2.5)",
