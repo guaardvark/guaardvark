@@ -275,6 +275,11 @@ FLUX3_TAG = "flux3"
 # The official distilled template's TextGenerate settings for the prompt
 # upsampler (image_flux3_klein_distilled_t2i).
 FLUX3_UPSAMPLE_MAX_TOKENS = 3584
+# The PyTorch FLUX 3 Klein's upsampler is usable from. Measured 2026-10-30 on a
+# 16 GB card, ComfyUI 0.43.0: on torch 2.15 the upsampler wrote ~93 tokens/s and
+# a 1024x1024 render took 16 s; on torch 2.6, where comfy-kitchen's decode kernel
+# does not run, it wrote 1.1 s per token and a render took more than 5 minutes.
+FLUX3_MIN_TORCH = (2, 7)
 # The ComfyUI release that first carries each family's graph, for the message a
 # render on an older server gets.
 _GRAPH_MIN_COMFY = {QWEN21_TAG: ("Qwen-Image 2.1", "0.37"), MOSS_TAG: ("MOSS-Image", "0.42"),
@@ -1386,6 +1391,29 @@ class ComfyUIImageGenerator:
             "save": {"class_type": "SaveImage", "inputs": {"filename_prefix": "guaardvark-moss-edit", "images": ["vae", 0]}},
         }
 
+    def comfy_torch_version(self) -> tuple | None:
+        """(major, minor) of the PyTorch the running ComfyUI reports, or None."""
+        try:
+            stats = requests.get(f"{self.comfy_url}/system_stats", timeout=5).json()
+            raw = str((stats.get("system") or {}).get("pytorch_version") or "")
+            parts = raw.split("+")[0].split(".")
+            return int(parts[0]), int(parts[1])
+        except Exception:  # noqa: BLE001 — unknown is not a refusal
+            return None
+
+    def check_flux3_torch(self, model: str | None) -> None:
+        """Refuse a FLUX 3 Klein render on a ComfyUI whose PyTorch is too old for
+        its prompt upsampler to finish in reasonable time (FLUX3_MIN_TORCH)."""
+        if FLUX3_TAG not in (model or "").lower():
+            return
+        ver = self.comfy_torch_version()
+        if ver is not None and ver < FLUX3_MIN_TORCH:
+            raise RuntimeError(
+                f"FLUX 3 Image Klein needs ComfyUI on PyTorch {FLUX3_MIN_TORCH[0]}.{FLUX3_MIN_TORCH[1]} "
+                f"or newer: its prompt upsampler runs about 100 times slower on the PyTorch "
+                f"{ver[0]}.{ver[1]} this ComfyUI uses, and a picture would take more than 5 minutes."
+            )
+
     def check_text_encoder_files(self, filenames) -> None:
         """Raise before queueing when the running ComfyUI does not list a text
         encoder picked for this render, instead of ComfyUI's "Value not in list"
@@ -1815,6 +1843,7 @@ class ComfyUIImageGenerator:
             steps_explicit=steps_explicit,
         )
         self.check_graph_nodes(effective_model)
+        self.check_flux3_torch(effective_model)
         self.check_text_encoder_files(self.user_text_encoders.values())
 
         if admit_vram_mb:

@@ -64,3 +64,15 @@ def test_klein_files_it_cannot_sample_are_refused():
     assert "Blackwell" in F.weight_file_problem("flux3-klein", "flux3-image-klein-nvfp4.safetensors")
     assert "base" in F.weight_file_problem("flux3-klein", "flux3-image-klein-base-int8-convrot.safetensors")
     assert F.weight_file_problem("flux3-klein", "flux3-image-klein-int8-convrot.safetensors") is None
+
+
+def test_a_comfyui_below_torch_27_is_refused_with_the_reason(monkeypatch):
+    gen = ComfyUIImageGenerator(model="flux3-klein")
+    monkeypatch.setattr(gen, "comfy_torch_version", lambda: (2, 6))
+    with pytest.raises(RuntimeError, match="PyTorch 2.7 or newer"):
+        gen.check_flux3_torch("flux3-klein")
+    gen.check_flux3_torch("flux-dev")  # other models are not checked
+    monkeypatch.setattr(gen, "comfy_torch_version", lambda: (2, 15))
+    gen.check_flux3_torch("flux3-klein")
+    monkeypatch.setattr(gen, "comfy_torch_version", lambda: None)
+    gen.check_flux3_torch("flux3-klein")  # an unanswered probe does not refuse
