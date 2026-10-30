@@ -1812,6 +1812,21 @@ class BatchImageGenerator:
                     except Exception:
                         pass
 
+                    # The rewrite runs the chat model, which this batch's GPU session
+                    # had just cleared off the card. When the batch no longer fits
+                    # beside it, clear it again before the first image renders: left
+                    # resident it took 8 GB and MOSS-Image rendered from system RAM.
+                    if session_held:
+                        try:
+                            from backend.services.gpu_resource_policy import evict_ollama_models, fit_verdict
+                            if not fit_verdict(vram_mb, reserve_mb=reserve_mb).headroom:
+                                evict_ollama_models()
+                                deadline = time.time() + 15
+                                while time.time() < deadline and not fit_verdict(vram_mb, reserve_mb=reserve_mb).ok:
+                                    time.sleep(0.5)
+                        except Exception as e:  # noqa: BLE001 — the render reports its own memory failure
+                            logger.warning("Batch %s: chat model eviction after the rewrite failed: %s", batch_id, e)
+
                     # One image at a time on a CUDA card: one pipeline per card, and a
                     # second worker only waits on its generation lock. Measured 2026-10-24
                     # on a 16 GB card (Z-Image Turbo, 1344x768, 9 steps, 6 images): one
