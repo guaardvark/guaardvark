@@ -131,3 +131,16 @@ def test_an_answer_from_another_thread_is_bound_too():
     assert uce.set_approval_response(SID, True, approval_id=cards[0]["approval_id"]) is True
     t.join(2)
     assert result["ok"] is True
+
+
+def test_a_waiting_card_can_be_read_until_it_closes():
+    """A client that missed the socket event reads the same card while it waits."""
+    seen = []
+
+    def answer(card):
+        seen.append(uce.pending_approval_cards())
+        uce.set_approval_response(SID, False, approval_id=card["approval_id"])
+
+    _, cards = _ask(answer)
+    assert seen == [cards]
+    assert uce.pending_approval_cards() == []

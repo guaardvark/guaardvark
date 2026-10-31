@@ -37,6 +37,18 @@ def chat_config():
     """
     return success_response(data={"attachment_max_bytes": CHAT_ATTACHMENT_MAX_BYTES})
 
+
+@chat_config_bp.route("/pending-approvals", methods=["GET"])
+def pending_approvals():
+    """
+    GET /api/chat/pending-approvals
+    Returns { pending: [card, ...] }: the tool approval cards still waiting, for a
+    client that missed chat:tool_approval_request while it was disconnected.
+    """
+    from backend.services.unified_chat_engine import pending_approval_cards
+
+    return jsonify({"pending": pending_approval_cards()})
+
 # Per-session in-flight chat threads. Without this, a stuck Ollama vision call
 # would let retries pile up forever — every retry spawned a fresh thread that
 # also hit Ollama, compounding the wedge. New requests for a session that's
