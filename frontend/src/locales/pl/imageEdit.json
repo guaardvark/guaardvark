@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "Nowa scena, ta sama twarz",
+    "edit": "Edytuj zdjęcie",
+    "expand": "Rozszerz",
+    "background": "Usuń tło"
+  },
+  "modeHelp": {
+    "identity": "Zachowuje twarz z Twoich zdjęć i umieszcza osobę w opisywanej przez Ciebie scenie. Działa na PuLID z FLUX.1-dev.",
+    "edit": "Zmienia coś na zdjęciu, zachowując resztę: to samo zdjęcie, ta sama poza.",
+    "expand": "Rozszerza zdjęcie poza jego krawędzie i wypełnia nowy obszar tak, aby pasował.",
+    "background": "Wycina obiekt i pozostawia przezroczyste tło."
+  },
+  "unavailable": "Nie zainstalowano",
+  "install": "Zainstaluj",
+  "loading": "Odczytywanie możliwości tej maszyny…",
+  "capabilitiesFailed": "Nie można odczytać, co ta maszyna może edytować: {{message}}",
+  "photos": {
+    "faces": "Zdjęcia twarzy",
+    "facesHelp": "Dwa lub trzy zdjęcia tej samej osoby z różnych kątów lepiej zachowują podobieństwo niż jedno.",
+    "source": "Zdjęcie",
+    "editSource": "Zdjęcie do edycji",
+    "references": "Zdjęcia referencyjne (opcjonalne)",
+    "referencesHelp": "Inna osoba, obiekt lub styl do wprowadzenia do edycji. Tylko Qwen-Image-Edit ich używa.",
+    "add": "Dodaj zdjęcie",
+    "addAnother": "Dodaj kolejne",
+    "addReference": "Dodaj zdjęcie referencyjne",
+    "drop": "Upuść zdjęcie tutaj lub kliknij, aby wybrać",
+    "uploading": "Przesyłanie…",
+    "remove": "Usuń zdjęcie",
+    "uploadFailed": "Nie można dodać zdjęcia: {{message}}",
+    "notAnImage": "Ten plik nie jest obrazem."
+  },
+  "faces": {
+    "checking": "Sprawdzanie twarzy…",
+    "found": "Znaleziono twarz",
+    "foundMany": "{{count}} twarzy: użyto tej największej",
+    "none": "Nie znaleziono twarzy",
+    "noneHelp": "PuLID pominie to zdjęcie. Użyj takiego, na którym twarz jest większa, wyraźna i widoczna od przodu lub pod kątem trzy czwarte.",
+    "unavailable": "Weryfikacja twarzy niedostępna",
+    "showBox": "Pokaż znalezioną twarz"
+  },
+  "consent": {
+    "question": "Czy masz prawo do wykorzystania wizerunku tej osoby? Jest to Twoje własne zdjęcie lub osoba wyraziła zgodę na jego wykorzystanie.",
+    "confirm": "Tak, mogę go użyć",
+    "confirmed": "Wizerunek potwierdzony",
+    "failed": "Nie udało się zapisać potwierdzenia: {{message}}"
+  },
+  "prompt": {
+    "identity": "Nowa scena",
+    "identityPlaceholder": "Mężczyzna jadący 1950. modelowym kabrioletem wzdłuż alei w Los Angeles, czarno-białe zdjęcie filmowe",
+    "identityHelp": "Zachowaj twarz w widoku: portret średni lub zbliżenie z twarzą skierowaną w stronę aparatu. W szerokim planie lub widoku od tyłu wizerunek nie ma gdzie się wyświetlić.",
+    "edit": "Co zmienić",
+    "editPlaceholder": "Załóż mu czerwoną szarfę na szyi",
+    "expand": "Co pokazuje nowy obszar (opcjonalnie)",
+    "expandPlaceholder": "Kontynuuj ulicę i palmy",
+    "framing": "Dodaj do sceny:"
+  },
+  "framing": {
+    "faceToCamera": "twarz skierowana do aparatu",
+    "mediumCloseUp": "portret średni",
+    "threeQuarter": "widok trzy czwarte",
+    "lookingAtCamera": "patrzący w stronę aparatu"
+  },
+  "settings": {
+    "title": "Ustawienia",
+    "size": "Rozmiar",
+    "sizes": {
+      "portrait": "Portret 768 × 1024",
+      "square": "Kwadrat 1024 × 1024",
+      "landscape": "Pojedynczy 1024 × 768",
+      "wide": "Szeroki 1216 × 704"
+    },
+    "strength": "Siła podobieństwa",
+    "strengthHelp": "1.0 to domyślna wartość. Wyższa wartość mocniej trzyma rysy twarzy i może zacząć dominować nad sceną; niższa pozwala scenie bardziej zmieniać twarz.",
+    "seed": "Seed",
+    "randomSeed": "Nowy seed przy każdym uruchomieniu",
+    "engine": "Model edycji",
+    "engineAuto": "Automatyczny (najlepszy zainstalowany)",
+    "steps": "Kroki",
+    "stepsHelp": "Zostaw puste, aby użyć domyślnej liczby kroków modelu.",
+    "sides": "Dodane piksele",
+    "left": "Lewo",
+    "right": "Prawo",
+    "top": "Góra",
+    "bottom": "Dół",
+    "presetAll": "Wszystkie strony",
+    "presetWider": "Szersze",
+    "presetTaller": "Wyższe",
+    "insideFrame": "Zainstalowany jest tylko FLUX.1 Kontext, więc obraz zachowuje swój rozmiar, a widok rozszerza się wewnątrz niego. Qwen-Image-Edit dodaje realne płótno."
+  },
+  "run": {
+    "identity": "Generuj",
+    "edit": "Zastosuj edycję",
+    "expand": "Rozszerz",
+    "background": "Usuń tło",
+    "needPhoto": "Najpierw dodaj zdjęcie.",
+    "needFace": "Każde zdjęcie twarzy musi zawierać twarz, którą system może wykryć.",
+    "needConsent": "Potwierdź podobieństwo dla każdego zdjęcia twarzy.",
+    "needPrompt": "Opisz, co chcesz uzyskać.",
+    "needSides": "Wybierz, o ile rozszerzyć przynajmniej jedną stronę.",
+    "startFailed": "Nie udało się uruchomić: {{message}}"
+  },
+  "job": {
+    "queued": "W kolejce",
+    "running": "Praca... {{seconds}} s",
+    "lost": "Backend został uruchomiony ponownie, więc ta Praca została utracona. Uruchom ją ponownie.",
+    "pollFailed": "Utracono śledzenie uruchomienia: {{message}}"
+  },
+  "result": {
+    "title": "Wynik",
+    "empty": "Wynik wyświetla się tutaj. Twoje zdjęcia pozostają obok niego, abyś mógł je porównać.",
+    "before": "Twoje zdjęcie",
+    "beforeMany": "Twoje zdjęcia",
+    "after": "Wynik",
+    "failed": "Nie zadziałało",
+    "open": "Otwórz",
+    "download": "Pobierz",
+    "useAsPhoto": "Edytuj ten wynik",
+    "again": "Uruchom ponownie",
+    "reuseSeed": "Zachowaj ziarno {{seed}}",
+    "seed": "Ziarno {{seed}}",
+    "history": "Ostatnie wyniki",
+    "clearHistory": "Wyczyść listę"
+  }
+}

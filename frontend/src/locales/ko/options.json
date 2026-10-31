@@ -84,6 +84,7 @@
   "mediaTabs": {
     "mediaLibrary": "미디어 라이브러리",
     "imageGen": "이미지 생성",
+    "imageEdit": "이미지 편집",
     "infographic": "인포그래픽",
     "videoGen": "비디오 생성",
     "upscaling": "업스케일링"
@@ -328,6 +329,9 @@
       "qwenImage21": {
         "standard": "공식 ComfyUI 템플릿 (25단계, cfg 1)",
         "high": "공식 파이프라인 범위 (40-50단계), 더 느림"
+      },
+      "flux3Klein": {
+        "standard": "공식 ComfyUI 템플릿 (15단계, cfg 1, 프롬프트 업샘플러 활성화)"
       },
       "mossImage": {
         "fast": "적은 단계 (16), 정확한 텍스트 표현",

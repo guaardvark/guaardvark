@@ -84,6 +84,7 @@
   "mediaTabs": {
     "mediaLibrary": "Media Bibliotheek",
     "imageGen": "Afbeelding Gen",
+    "imageEdit": "Afbeeldingsbewerking",
     "infographic": "Infographic",
     "videoGen": "Video Gen",
     "upscaling": "Upscaling"
@@ -330,6 +331,9 @@
       "qwenImage21": {
         "standard": "Officieel ComfyUI sjabloon (25 stappen, cfg 1)",
         "high": "Officiële pipeline reeks (40-50 stappen), trager"
+      },
+      "flux3Klein": {
+        "standard": "Officieel ComfyUI-sjabloon (15 stappen, cfg 1, prompt upsampler aan)"
       },
       "mossImage": {
         "fast": "Minder stappen (16), tekst nog steeds exact",

@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "新しいシーン、同じ顔",
+    "edit": "写真を編集",
+    "expand": "拡張",
+    "background": "背景を削除"
+  },
+  "modeHelp": {
+    "identity": "あなたの写真の顔を維持したまま、説明したシーンに人物を配置します。PuLIDとFLUX.1-devで動作します。",
+    "edit": "写真の一部を変更し、残りの部分は維持します（同じ写真、同じポーズ）。",
+    "expand": "画像の端を越えて範囲を広げ、新しいエリアを周囲に合わせて埋めます。",
+    "background": "被写体を切り抜き、背景を透明にします。"
+  },
+  "unavailable": "未インストール",
+  "install": "インストール",
+  "loading": "このマシンで実行可能な機能を読み込み中…",
+  "capabilitiesFailed": "このマシンで編集可能な機能を読み込めませんでした: {{message}}",
+  "photos": {
+    "faces": "顔の写真",
+    "facesHelp": "同じ人物の異なる角度からの写真を2〜3枚用意すると、より正確に似顔絵を維持できます。",
+    "source": "写真",
+    "editSource": "編集する写真",
+    "references": "参照用写真（任意）",
+    "referencesHelp": "編集に取り入れたい別の人物、オブジェクト、またはスタイル。Qwen-Image-Editのみで使用されます。",
+    "add": "写真を追加",
+    "addAnother": "別のものを追加",
+    "addReference": "参照用写真を追加",
+    "drop": "ここに写真をドロップするか、クリックして選択",
+    "uploading": "アップロード中…",
+    "remove": "写真を削除",
+    "uploadFailed": "写真を追加できませんでした: {{message}}",
+    "notAnImage": "そのファイルは画像ではありません。"
+  },
+  "faces": {
+    "checking": "顔を検知中…",
+    "found": "顔を検出",
+    "foundMany": "{{count}} 個の顔を検出：最大のものが使用されます",
+    "none": "顔が見つかりません",
+    "noneHelp": "PuLIDはこの写真をスキップします。顔が大きく、ピントが合っており、正面または斜め前からのものを使用してください。",
+    "unavailable": "顔の確認が利用できません",
+    "showBox": "検出した顔を表示"
+  },
+  "consent": {
+    "question": "この人物の肖像権を持っていますか？ご自身の写真であるか、または本人がこの使用に同意している必要があります。",
+    "confirm": "はい、使用できます",
+    "confirmed": "肖像権を確認済み",
+    "failed": "確認を保存できませんでした: {{message}}"
+  },
+  "prompt": {
+    "identity": "新しいシーン",
+    "identityPlaceholder": "1950年代のコンバーチブルをロサンゼルスの大通りを運転する男性、白黒映画のスタイル",
+    "identityHelp": "顔を画面内に収めてください。顔がカメラを向いているミディアムショットまたはクローズアップを使用してください。引きの構図や背面からの視点では、肖像を反映できません。",
+    "edit": "変更内容",
+    "editPlaceholder": "首に赤いスカーフを巻く",
+    "expand": "新しいエリアの描写（任意）",
+    "expandPlaceholder": "通りとヤシの木を継続させる",
+    "framing": "シーンへの追加要素:"
+  },
+  "framing": {
+    "faceToCamera": "顔をカメラに向ける",
+    "mediumCloseUp": "ミディアムクローズアップ",
+    "threeQuarter": "斜め前からの視点",
+    "lookingAtCamera": "カメラを見つめる"
+  },
+  "settings": {
+    "title": "設定",
+    "size": "サイズ",
+    "sizes": {
+      "portrait": "ポートレート 768 × 1024",
+      "square": "スクエア 1024 × 1024",
+      "landscape": "ランドスケープ 1024 × 768",
+      "wide": "ワイド 1216 × 704"
+    },
+    "strength": "似ている度合い",
+    "strengthHelp": "1.0が標準の数値です。数値を高くすると顔の造形を強く維持しますが、シーンを上書きし始めます。低くすると、シーンに合わせて顔の造形が変化しやすくなります。",
+    "seed": "シード",
+    "randomSeed": "実行ごとに新しいシード",
+    "engine": "編集モデル",
+    "engineAuto": "自動（最適なものを選択）",
+    "steps": "ステップ",
+    "stepsHelp": "モデル固有の数を使用する場合は空欄のままにしてください。",
+    "sides": "追加するピクセル",
+    "left": "左",
+    "right": "右",
+    "top": "上",
+    "bottom": "下",
+    "presetAll": "全方向",
+    "presetWider": "より広く",
+    "presetTaller": "より高く",
+    "insideFrame": "FLUX.1 Kontextのみがインストールされているため、画像サイズは維持されたまま、枠内が拡大されます。Qwen-Image-Editを使用すると、キャンバス自体が拡張されます。"
+  },
+  "run": {
+    "identity": "生成",
+    "edit": "編集を適用",
+    "expand": "拡張",
+    "background": "背景を削除",
+    "needPhoto": "先に写真をアップロードしてください。",
+    "needFace": "すべての顔写真に、照合可能な顔が含まれている必要があります。",
+    "needConsent": "すべての顔写真について、似ている度合いを確認してください。",
+    "needPrompt": "内容を説明してください。",
+    "needSides": "少なくとも一方の方向をどれだけ拡張するか選択してください。",
+    "startFailed": "開始できませんでした: {{message}}"
+  },
+  "job": {
+    "queued": "待機中",
+    "running": "ワーク中… {{seconds}} 秒",
+    "lost": "バックエンドが再起動したため、この実行は失われました。もう一度開始してください。",
+    "pollFailed": "実行の追跡に失敗しました: {{message}}"
+  },
+  "result": {
+    "title": "結果",
+    "empty": "結果はここに表示されます。比較できるように、元の写真はその隣に保持されます。",
+    "before": "元の写真",
+    "beforeMany": "元の写真",
+    "after": "結果",
+    "failed": "ワークに失敗しました",
+    "open": "開く",
+    "download": "ダウンロード",
+    "useAsPhoto": "この結果を編集",
+    "again": "再実行",
+    "reuseSeed": "シード {{seed}} を維持",
+    "seed": "シード {{seed}}",
+    "history": "最近の結果",
+    "clearHistory": "リストを消去"
+  }
+}

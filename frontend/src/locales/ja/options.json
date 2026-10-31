@@ -84,6 +84,7 @@
   "mediaTabs": {
     "mediaLibrary": "メディアライブラリ",
     "imageGen": "画像生成",
+    "imageEdit": "画像編集",
     "infographic": "インフォグラフィック",
     "videoGen": "ビデオ生成",
     "upscaling": "アップスケーリング"
@@ -328,6 +329,9 @@
       "qwenImage21": {
         "standard": "公式ComfyUIテンプレート (25ステップ、cfg 1)",
         "high": "公式パイプライン範囲 (40-50ステップ)、低速"
+      },
+      "flux3Klein": {
+        "standard": "公式ComfyUIテンプレート（15ステップ、cfg 1、プロンプトアップサンプラーオン）"
       },
       "mossImage": {
         "fast": "少ないステップ数（16）、文字の正確性を維持",

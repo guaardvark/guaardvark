@@ -84,6 +84,7 @@
   "mediaTabs": {
     "mediaLibrary": "Biblioteka mediów",
     "imageGen": "Generowanie obrazów",
+    "imageEdit": "Edycja obrazu",
     "infographic": "Infografika",
     "videoGen": "Generowanie wideo",
     "upscaling": "Upscaling"
@@ -332,6 +333,9 @@
       "qwenImage21": {
         "standard": "Oficjalny szablon ComfyUI (25 kroków, cfg 1)",
         "high": "Oficjalny zakres potoku (40-50 kroków), wolniejsze"
+      },
+      "flux3Klein": {
+        "standard": "Oficjalny szablon ComfyUI (15 kroków, cfg 1, prompt upsampler włączony)"
       },
       "mossImage": {
         "fast": "Mniej kroków (16), napisy nadal dokładne",

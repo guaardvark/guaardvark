@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "Nieuwe scène, hetzelfde gezicht",
+    "edit": "Bewerk de foto",
+    "expand": "Uitbreiden",
+    "background": "Achtergrond verwijderen"
+  },
+  "modeHelp": {
+    "identity": "Houdt het gezicht uit je foto's vast en plaatst de persoon in een scène die je beschrijft. Draait op PuLID met FLUX.1-dev.",
+    "edit": "Verandert iets in de foto en behoudt de rest: dezelfde afbeelding, dezelfde houding.",
+    "expand": "Breidt de afbeelding voorbij de randen uit en vult het nieuwe gebied aan.",
+    "background": "Snijdt het onderwerp uit en laat een transparante achtergrond over."
+  },
+  "unavailable": "Niet geïnstalleerd",
+  "install": "Installeren",
+  "loading": "Lezen wat deze machine kan doen…",
+  "capabilitiesFailed": "Kon niet lezen wat deze machine kan bewerken: {{message}}",
+  "photos": {
+    "faces": "Gezichtsfoto's",
+    "facesHelp": "Twee of drie foto's van dezelfde persoon, vanuit verschillende hoeken, behouden de gelijkenis beter dan één.",
+    "source": "Foto",
+    "editSource": "Foto om te bewerken",
+    "references": "Referentiefoto's (optioneel)",
+    "referencesHelp": "Een andere persoon, object of stijl om in de bewerking op te nemen. Alleen Qwen-Image-Edit maakt gebruik van deze.",
+    "add": "Foto toevoegen",
+    "addAnother": "Nog een toevoegen",
+    "addReference": "Referentiefoto toevoegen",
+    "drop": "Sleep een foto hierheen of klik om er een te kiezen",
+    "uploading": "Uploaden…",
+    "remove": "Foto verwijderen",
+    "uploadFailed": "De foto kon niet worden toegevoegd: {{message}}",
+    "notAnImage": "Dat bestand is geen afbeelding."
+  },
+  "faces": {
+    "checking": "Controleren op een gezicht…",
+    "found": "Gezicht gevonden",
+    "foundMany": "{{count}} gezichten: het grootste wordt gebruikt",
+    "none": "Geen gezicht gevonden",
+    "noneHelp": "PuLID zou deze foto overslaan. Gebruik een foto waar het gezicht groter is, scherp is en van voren of driekwart zichtbaar is.",
+    "unavailable": "Gezichtscontrole niet beschikbaar",
+    "showBox": "Toon het gevonden gezicht"
+  },
+  "consent": {
+    "question": "Heb je het recht om het uiterlijk van deze persoon te gebruiken? Het is je eigen foto, of de persoon heeft toestemming gegeven voor dit gebruik.",
+    "confirm": "Ja, ik mag het gebruiken",
+    "confirmed": "Uiterlijk bevestigd",
+    "failed": "Bevestiging kon niet worden opgeslagen: {{message}}"
+  },
+  "prompt": {
+    "identity": "De nieuwe scène",
+    "identityPlaceholder": "Een man die in een cabriolet uit de jaren 1950 over een boulevard in Los Angeles rijdt, zwart-wit filmfoto",
+    "identityHelp": "Houd het gezicht in beeld: een medium of close-up met het gezicht naar de camera gericht. Bij een breed of achteraanzicht heeft het uiterlijk geen plek om te verschijnen.",
+    "edit": "Wat aan te passen",
+    "editPlaceholder": "Doe een rode sjaal om zijn nek",
+    "expand": "Wat het nieuwe gebied toont (optioneel)",
+    "expandPlaceholder": "Vervolg de straat en de palmbomen",
+    "framing": "Toevoegen aan de scène:"
+  },
+  "framing": {
+    "faceToCamera": "gezicht naar de camera",
+    "mediumCloseUp": "medium close-up",
+    "threeQuarter": "driekwart aanzicht",
+    "lookingAtCamera": "kijkt naar de camera"
+  },
+  "settings": {
+    "title": "Instellingen",
+    "size": "Formaat",
+    "sizes": {
+      "portrait": "Portret 768 × 1024",
+      "square": "Vierkant 1024 × 1024",
+      "landscape": "Landschap 1024 × 768",
+      "wide": "Breed 1216 × 704"
+    },
+    "strength": "Overeenkomst sterkte",
+    "strengthHelp": "1.0 is de standaardwaarde. Hoger houdt het gezicht steviger vast en kan de scène gaan overschrijven; lager laat de scène het gezicht meer veranderen.",
+    "seed": "Seed",
+    "randomSeed": "Nieuwe seed bij elke run",
+    "engine": "Bewerkingsmodel",
+    "engineAuto": "Automatisch (beste geïnstalleerd)",
+    "steps": "Stappen",
+    "stepsHelp": "Laat leeg voor het eigen aantal van het model.",
+    "sides": "Pixels toevoegen",
+    "left": "Links",
+    "right": "Rechts",
+    "top": "Boven",
+    "bottom": "Onder",
+    "presetAll": "Alle zijden",
+    "presetWider": "Breder",
+    "presetTaller": "Hoger",
+    "insideFrame": "Alleen FLUX.1 Kontext is geïnstalleerd, dus de afbeelding behoudt zijn formaat en wordt de weergave erin breder. Qwen-Image-Edit voegt een echt canvas toe."
+  },
+  "run": {
+    "identity": "Genereer",
+    "edit": "Bewerkings aanpassen",
+    "expand": "Uitbreiden",
+    "background": "Achtergrond verwijderen",
+    "needPhoto": "Voeg eerst een foto toe.",
+    "needFace": "Elke gezichtsfoto heeft een gezicht nodig dat de check kan vinden.",
+    "needConsent": "Bevestig de overeenkomst voor elke gezichtsfoto.",
+    "needPrompt": "Beschrijf wat je wilt.",
+    "needSides": "Kies hoe ver je ten minste één zijde wilt uitbreiden.",
+    "startFailed": "Konniet starten: {{message}}"
+  },
+  "job": {
+    "queued": "In wachtrij",
+    "running": "Bezig... {{seconds}} s",
+    "lost": "De backend is opnieuw opgestart, waardoor deze run verloren is gegaan. Start hem opnieuw.",
+    "pollFailed": "Verbinding met run verloren: {{message}}"
+  },
+  "result": {
+    "title": "Resultaat",
+    "empty": "Het resultaat wordt hier getoond. Je foto's blijven ernaast staan zodat je ze kunt vergelijken.",
+    "before": "Je foto",
+    "beforeMany": "Je foto's",
+    "after": "Resultaat",
+    "failed": "Het Werk lukte niet",
+    "open": "Openen",
+    "download": "Downloaden",
+    "useAsPhoto": "Bewerk dit resultaat",
+    "again": "Opnieuw uitvoeren",
+    "reuseSeed": "Seed {{seed}} behouden",
+    "seed": "Seed {{seed}}",
+    "history": "Recente resultaten",
+    "clearHistory": "Lijst wissen"
+  }
+}

@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "Neue Szene, gleiches Gesicht",
+    "edit": "Foto bearbeiten",
+    "expand": "Erweitern",
+    "background": "Hintergrund entfernen"
+  },
+  "modeHelp": {
+    "identity": "Behält das Gesicht aus deinen Fotos bei und setzt die Person in eine von dir beschriebene Szene. Läuft auf PuLID mit FLUX.1-dev.",
+    "edit": "Ändert etwas im Foto und behält den Rest bei: gleiches Bild, dieselbe Pose.",
+    "expand": "Erweitert das Bild über seine Ränder hinaus und füllt den neuen Bereich passend aus.",
+    "background": "Schneidet das Motiv aus und hinterlässt einen transparenten Hintergrund."
+  },
+  "unavailable": "Nicht installiert",
+  "install": "Installieren",
+  "loading": "Lese aus, was diese Maschine kann…",
+  "capabilitiesFailed": "Konnte nicht lesen, was diese Maschine bearbeiten kann: {{message}}",
+  "photos": {
+    "faces": "Gesichtsfotos",
+    "facesHelp": "Zwei oder drei Fotos derselben Person aus verschiedenen Winkeln bewahren die Ähnlichkeit besser als ein einziges.",
+    "source": "Foto",
+    "editSource": "Foto zum Bearbeiten",
+    "references": "Referenzfotos (optional)",
+    "referencesHelp": "Eine andere Person, ein Objekt oder ein Stil, den du in die Bearbeitung einbeziehen möchtest. Nur Qwen-Image-Edit verwendet diese.",
+    "add": "Foto hinzufügen",
+    "addAnother": "Weiteres hinzufügen",
+    "addReference": "Referenzfoto hinzufügen",
+    "drop": "Ziehe ein Foto hierher oder klicke, um eines auszuwählen",
+    "uploading": "Hochladen…",
+    "remove": "Foto entfernen",
+    "uploadFailed": "Das Foto konnte nicht hinzugefügt werden: {{message}}",
+    "notAnImage": "Diese Datei ist kein Bild."
+  },
+  "faces": {
+    "checking": "Suche nach einem Gesicht …",
+    "found": "Gesicht gefunden",
+    "foundMany": "{{count}} Gesichter: das größte wird verwendet",
+    "none": "Kein Gesicht gefunden",
+    "noneHelp": "PuLID würde dieses Foto überspringen. Verwende eines, auf dem das Gesicht größer, scharf und von vorne oder in einer Dreiviertelansicht zu sehen ist.",
+    "unavailable": "Gesichtsprüfung nicht verfügbar",
+    "showBox": "Das gefundene Gesicht anzeigen"
+  },
+  "consent": {
+    "question": "Hast du das Recht, das Abbild dieser Person zu verwenden? Es ist dein eigenes Foto oder die Person hat dieser Verwendung zugestimmt.",
+    "confirm": "Ja, ich darf es verwenden",
+    "confirmed": "Abbild bestätigt",
+    "failed": "Die Bestätigung konnte nicht gespeichert werden: {{message}}"
+  },
+  "prompt": {
+    "identity": "Die neue Szene",
+    "identityPlaceholder": "Ein Mann fährt in einem Cabrio aus den 1950er Jahren einen Boulevard in Los Angeles entlang, Schwarz-Weiß-Filmfoto",
+    "identityHelp": "Halte das Gesicht im Bild: eine Halbnahaufnahme oder Nahaufnahme mit dem Gesicht zur Kamera. In einer Weitwinkel- oder Rückansicht hat das Abbild keinen Platz.",
+    "edit": "Was soll geändert werden",
+    "editPlaceholder": "Umlege ihm einen roten Schal um den Hals",
+    "expand": "Was der neue Bereich zeigt (optional)",
+    "expandPlaceholder": "Führe die Straße und die Palmen fort",
+    "framing": "Füge der Szene hinzu:"
+  },
+  "framing": {
+    "faceToCamera": "Gesicht zur Kamera",
+    "mediumCloseUp": "Halbnahaufnahme",
+    "threeQuarter": "Dreiviertelansicht",
+    "lookingAtCamera": "blickt in die Kamera"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "size": "Größe",
+    "sizes": {
+      "portrait": "Portrait 768 × 1024",
+      "square": "Quadratisch 1024 × 1024",
+      "landscape": "Landschaft 1024 × 768",
+      "wide": "Breit 1216 × 704"
+    },
+    "strength": "Ähnlichkeitsstärke",
+    "strengthHelp": "1.0 ist der Standardwert. Höhere Werte halten das Gesicht fester und können die Szene überschreiben; niedrigere Werte lassen die Szene das Gesicht stärker verändern.",
+    "seed": "Seed",
+    "randomSeed": "Neuer Seed bei jedem Durchlauf",
+    "engine": "Bearbeitungsmodell",
+    "engineAuto": "Automatisch (bestes installiertes)",
+    "steps": "Schritte",
+    "stepsHelp": "Lasse es leer für die eigene Anzahl des Modells.",
+    "sides": "Pixel hinzufügen",
+    "left": "Links",
+    "right": "Rechts",
+    "top": "Oben",
+    "bottom": "Unten",
+    "presetAll": "Alle Seiten",
+    "presetWider": "Breiter",
+    "presetTaller": "Höher",
+    "insideFrame": "Nur FLUX.1 Kontext ist installiert, daher behält das Bild seine Größe und die Ansicht wird darin erweitert. Qwen-Image-Edit fügt eine echte Leinwand hinzu."
+  },
+  "run": {
+    "identity": "Generieren",
+    "edit": "Bearbeitung anwenden",
+    "expand": "Erweitern",
+    "background": "Hintergrund entfernen",
+    "needPhoto": "Füge zuerst ein Foto hinzu.",
+    "needFace": "Jedes Gesichtsfoto benötigt ein Gesicht, das die Prüfung finden kann.",
+    "needConsent": "Bestätige die Ähnlichkeit für jedes Gesichtsfoto.",
+    "needPrompt": "Beschreibe, was du möchtest.",
+    "needSides": "Wähle aus, wie weit mindestens eine Seite erweitert werden soll.",
+    "startFailed": "Nicht starten möglich: {{message}}"
+  },
+  "job": {
+    "queued": "In Warteschlange",
+    "running": "Arbeit... {{seconds}} s",
+    "lost": "Das Backend wurde neu gestartet, daher ging dieser Durchgang verloren. Starte ihn erneut.",
+    "pollFailed": "Verlust des Durchgangs: {{message}}"
+  },
+  "result": {
+    "title": "Ergebnis",
+    "empty": "Das Ergebnis wird hier angezeigt. Deine Fotos bleiben daneben, damit du sie vergleichen kannst.",
+    "before": "Dein Foto",
+    "beforeMany": "Deine Fotos",
+    "after": "Ergebnis",
+    "failed": "Es hat nicht funktioniert",
+    "open": "Öffnen",
+    "download": "Download",
+    "useAsPhoto": "Dieses Ergebnis bearbeiten",
+    "again": "Erneut ausführen",
+    "reuseSeed": "Seed {{seed}} beibehalten",
+    "seed": "Seed {{seed}}",
+    "history": "Letzte Ergebnisse",
+    "clearHistory": "Liste leeren"
+  }
+}

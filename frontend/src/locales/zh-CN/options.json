@@ -84,6 +84,7 @@
   "mediaTabs": {
     "mediaLibrary": "媒体库",
     "imageGen": "图像生成",
+    "imageEdit": "图像编辑",
     "infographic": "信息图",
     "videoGen": "视频生成",
     "upscaling": "超分辨率"
@@ -328,6 +329,9 @@
       "qwenImage21": {
         "standard": "官方 ComfyUI 模板 (25步, cfg 1)",
         "high": "官方流水线范围 (40-50步)，较慢"
+      },
+      "flux3Klein": {
+        "standard": "官方 ComfyUI 模板（15 步，cfg 1，开启提示词上采样）"
       },
       "mossImage": {
         "fast": "更少步数 (16)，文字依然精准",
