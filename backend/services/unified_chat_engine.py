@@ -383,6 +383,20 @@ def set_approval_response(
 # decline. Tests shorten it.
 APPROVAL_TIMEOUT_S = 300
 
+
+def pending_approval_cards() -> List[Dict[str, Any]]:
+    """The chat:tool_approval_request payloads still waiting for an answer.
+
+    The socket sends a card once, so a client that was away reads it here and
+    answers with chat:tool_approval_response as usual.
+    """
+    with _approval_lock:
+        return [
+            dict(meta["card"])
+            for meta in _approval_batch_meta.values()
+            if meta.get("pending") and meta.get("card")
+        ]
+
 # Chat templates that accept a system message only as the first message (the
 # Qwen3.5 Jinja template raises this). The engine adds system lines later in a
 # turn (code-search nudge, retries), so such a model is learned from its first
@@ -4476,6 +4490,10 @@ class UnifiedChatEngine:
         }
         if consent:
             payload["consent"] = True
+        with _approval_lock:
+            meta = _approval_batch_meta.get(session_id)
+            if meta and meta.get("approval_id") == approval_id:
+                meta["card"] = payload
         emit_fn("chat:tool_approval_request", payload)
 
         event.wait(timeout=APPROVAL_TIMEOUT_S)
