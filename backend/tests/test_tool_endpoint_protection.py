@@ -128,3 +128,16 @@ def test_the_opt_out_opens_the_routes_to_other_hosts(client, app, monkeypatch, v
 def test_any_other_value_keeps_the_routes_closed(client, monkeypatch, value):
     monkeypatch.setenv(auth_guard.TOOL_ENDPOINTS_ENV, value)
     assert _execute(client, REMOTE).status_code == 403
+
+
+def test_the_always_approved_list_is_read_freely_and_changed_like_running_code(app):
+    path = "/api/settings/chat_tools_always_approved"
+    assert not _protected(app, path)
+    assert _protected(app, path, "POST")
+    with app.test_request_context(path, method="POST"):
+        assert auth_guard.request_runs_code()
+
+
+def test_killing_every_llm_process_is_protected_and_stopping_the_agent_is_not(app):
+    assert _protected(app, "/api/voice/kill-all-processes", "POST")
+    assert not _protected(app, "/api/agent-control/kill", "POST")
