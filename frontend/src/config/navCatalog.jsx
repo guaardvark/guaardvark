@@ -40,6 +40,7 @@ import PhotoLibraryIcon from "@mui/icons-material/PhotoLibrary";
 import VideoCameraBackIcon from "@mui/icons-material/VideoCameraBack";
 import InsertChartOutlinedIcon from "@mui/icons-material/InsertChartOutlined";
 import AutoFixHighIcon from "@mui/icons-material/AutoFixHigh";
+import FaceRetouchingNaturalIcon from "@mui/icons-material/FaceRetouchingNatural";
 import RecordVoiceOverIcon from "@mui/icons-material/RecordVoiceOver";
 import MicNoneIcon from "@mui/icons-material/MicNone";
 import SchoolIcon from "@mui/icons-material/School";
@@ -246,6 +247,16 @@ export const CORE_NAV_CATALOG = Object.freeze([
     menu: "Studio",
     workspace: "studio",
     stripOrder: 20,
+  }),
+  page({
+    id: "image-edit",
+    path: "/image-edit",
+    label: "Image Edit",
+    icon: <FaceRetouchingNaturalIcon />,
+    sidebarGroup: "Studio",
+    menu: "Studio",
+    workspace: "studio",
+    stripOrder: 25,
   }),
   page({
     id: "infographic",

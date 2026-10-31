@@ -459,6 +459,16 @@ const AppContainer = () => {
                         }
                       />
                       <Route
+                        path="/image-edit"
+                        element={
+                          <AppLayout>
+                            <ErrorBoundary>
+                              <ImagesPage />
+                            </ErrorBoundary>
+                          </AppLayout>
+                        }
+                      />
+                      <Route
                         path="/rules"
                         element={
                           <AppLayout>
