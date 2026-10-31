@@ -2855,6 +2855,21 @@ class GenerateIdentityTool(BaseTool):
             description=f"Face reference. In chat, omit it to use the attached image; otherwise {_IMAGE_INPUT_FORMS}",
             required=False, default="",
         ),
+        "reference_image_2": ToolParameter(
+            name="reference_image_2", type="string",
+            description=("Optional second photo of the same person, in the same forms as image. "
+                         "Its face is averaged with the first, which holds the likeness better."),
+            required=False, default="",
+        ),
+        "reference_image_3": ToolParameter(
+            name="reference_image_3", type="string",
+            description="Optional third photo of the same person; same rules as reference_image_2.",
+            required=False, default="",
+        ),
+        "seed": ToolParameter(
+            name="seed", type="int", required=False, default=None,
+            description="Render seed; the same seed and settings give the same picture (default 42).",
+        ),
         "consented": ToolParameter(
             name="consented", type="bool",
             description=(
@@ -2892,7 +2907,9 @@ class GenerateIdentityTool(BaseTool):
     _PASSTHROUGH = ("weight", "start_at", "end_at", "unet_dtype", "node_variant")
 
     def execute(self, prompt: str, consented: bool = True, image: str = "",
-                width: int = 768, height: int = 1024, steps: int = 20, **kwargs) -> ToolResult:
+                width: int = 768, height: int = 1024, steps: int = 20,
+                reference_image_2: str = "", reference_image_3: str = "", seed=None,
+                **kwargs) -> ToolResult:
         from backend.services.consent_records import has_consent
         consented = str(consented).lower() in ("1", "true", "yes")
         if not consented:
@@ -2902,21 +2919,31 @@ class GenerateIdentityTool(BaseTool):
                       "likeness the user has the right to use (their photo or a Cast subject "
                       "they uploaded).",
             )
-        found = _edit_tool_for(self)._resolve_image_ref(image)
+        editor = _edit_tool_for(self)
+        found = editor._resolve_image_ref(image)
         if not found.path:
             return ToolResult(success=False,
                               error=found.error or "Attach a face photo, then describe the new scene.")
         src = found.path
-        if not has_consent(src):
-            return ToolResult(
-                success=False,
-                error=(
-                    "No consent record for this reference image. The user must confirm "
-                    "they have the right to use this likeness (in chat, approve the consent "
-                    "card; the record is stored next to the photo)."
-                ),
-                metadata={"needs_consent": True, "reference_image": src},
-            )
+        extra = []
+        for label, raw in (("reference_image_2", reference_image_2), ("reference_image_3", reference_image_3)):
+            if not str(raw or "").strip():
+                continue
+            ref = editor._resolve_image_ref(raw, label=label)
+            if not ref.path:
+                return ToolResult(success=False, error=ref.error or f"{label} could not be read.")
+            extra.append(ref.path)
+        for reference in (src, *extra):
+            if not has_consent(reference):
+                return ToolResult(
+                    success=False,
+                    error=(
+                        "No consent record for this reference image. The user must confirm "
+                        "they have the right to use this likeness (in chat, approve the consent "
+                        "card; the record is stored next to the photo)."
+                    ),
+                    metadata={"needs_consent": True, "reference_image": reference},
+                )
         gpu_wait = None
         try:
             from backend.services.comfyui_image_generator import ComfyUIImageGenerator
@@ -2925,22 +2952,26 @@ class GenerateIdentityTool(BaseTool):
                 k: kwargs[k] for k in self._PASSTHROUGH
                 if kwargs.get(k) is not None and kwargs.get(k) != ""
             }
+            if seed not in (None, ""):
+                overrides["seed"] = int(seed)
             gpu_wait = _chat_gpu_wait()
             ComfyUIImageGenerator().generate_with_identity(
                 image_path=src, prompt=prompt, output_path=output_path,
                 width=int(width) or 768, height=int(height) or 1024,
-                steps=int(steps) or 20, gpu_wait=gpu_wait, **overrides,
+                steps=int(steps) or 20, gpu_wait=gpu_wait, extra_image_paths=extra, **overrides,
             )
             image_url = f"/api/outputs/generated_images/{filename}"
+            references = 1 + len(extra)
             return ToolResult(
                 success=True,
                 output=(
-                    f"New image generated from the face reference (PuLID-FLUX).\n"
-                    f"Image URL: {image_url}\nPrompt: {prompt}"
+                    f"New image generated from {'the face reference' if references == 1 else f'{references} face references'} "
+                    f"(PuLID-FLUX).\nImage URL: {image_url}\nPrompt: {prompt}"
                 ),
                 metadata={
                     "image_url": image_url, "filename": filename,
-                    "backend": "pulid-flux", "prompt": prompt,
+                    "backend": "pulid-flux", "prompt": prompt, "references": references,
+                    "seed": overrides.get("seed", 42),
                 },
             )
         except Exception as e:

@@ -1,5 +1,5 @@
 // frontend/src/pages/ImagesPage.jsx
-// The media workspace: one page with five tabs, each its own route (see
+// The media workspace: one page with six tabs, each its own route (see
 // constants/mediaTabs.js). The Media Library tab is the Files page's desktop
 // (components/documents/FileDesktop) on the whole library showing only
 // pictures, videos and sound: the same folders, windows, moves, menus and
@@ -13,6 +13,7 @@ import React, { useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Tabs, Tab } from '@mui/material';
 import BatchImageGeneratorPage from './BatchImageGeneratorPage';
+import ImageEditPage from './ImageEditPage';
 import VideoGeneratorPage from './VideoGeneratorPage';
 import UpscalingPage from './UpscalingPage';
 import InfographicGenerator from '../components/images/InfographicGenerator';
@@ -95,6 +96,12 @@ const ImagesPage = () => {
       {activeTabPath === '/batch-images' && (
         <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 2, p: 1 }}>
           <BatchImageGeneratorPage embedded />
+        </Box>
+      )}
+
+      {activeTabPath === '/image-edit' && (
+        <Box sx={{ flexGrow: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <ImageEditPage />
         </Box>
       )}
 

@@ -42,6 +42,7 @@ describe("catalogToNavGroups", () => {
       ["Studio", "Video Editor", "/video-editor", null],
       ["Studio", "Video Gen", "/video", null],
       ["Studio", "Image Gen", "/batch-images", null],
+      ["Studio", "Image Edit", "/image-edit", null],
       ["Studio", "Infographic", "/infographic", null],
       ["Studio", "Upscaling", "/upscaling", null],
       ["Studio", "Audio Studio", "/audio", null],
@@ -188,6 +189,7 @@ describe("workspaces", () => {
     expect(toolsForWorkspace(CORE_NAV_CATALOG, "studio").map((item) => item.id)).toEqual([
       "video-gen",
       "image-gen",
+      "image-edit",
       "infographic",
       "upscaling",
       "audio",

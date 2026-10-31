@@ -1,4 +1,4 @@
-// The media workspace is one page with five tabs. Each tab owns a route so it
+// The media workspace is one page with six tabs. Each tab owns a route so it
 // is linkable and reachable from the sidebar. Under software (workspace) chrome
 // the Studio tool strip is this strip, so ImagesPage hides the duplicate row.
 
@@ -8,6 +8,7 @@ import { translate } from "../i18n";
 export const MEDIA_TABS = [
   { path: "/images", get label() { return translate("options.mediaTabs.mediaLibrary"); } },
   { path: "/batch-images", get label() { return translate("options.mediaTabs.imageGen"); } },
+  { path: "/image-edit", get label() { return translate("options.mediaTabs.imageEdit"); } },
   { path: "/infographic", get label() { return translate("options.mediaTabs.infographic"); } },
   { path: "/video", get label() { return translate("options.mediaTabs.videoGen"); } },
   { path: "/upscaling", get label() { return translate("options.mediaTabs.upscaling"); } },

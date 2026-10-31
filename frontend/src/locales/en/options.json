@@ -84,6 +84,7 @@
   "mediaTabs": {
     "mediaLibrary": "Media Library",
     "imageGen": "Image Gen",
+    "imageEdit": "Image Edit",
     "infographic": "Infographic",
     "videoGen": "Video Gen",
     "upscaling": "Upscaling"

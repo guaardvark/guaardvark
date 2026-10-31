@@ -1082,6 +1082,15 @@ class ComfyUIImageGenerator:
         return self._registry_installed("qwen-image-edit")
 
     def pulid_installed(self) -> bool:
+        """The whole pack, companions included: the node fetches a missing face
+        file or EVA02 on its own, which is a download nobody pressed Install for."""
+        try:
+            from backend.services.image_editing_packs import pack_by_id, pack_installed
+            pack = pack_by_id("pulid-flux")
+            if pack is not None:
+                return pack_installed(pack)
+        except Exception:  # noqa: BLE001 - fall back to the two main entries
+            logger.debug("PuLID pack check unavailable", exc_info=True)
         return self._registry_installed("pulid-flux") and self._registry_installed("flux-dev")
 
     def _build_qwen_edit_workflow(
@@ -1464,14 +1473,21 @@ class ComfyUIImageGenerator:
             )
 
     def _build_pulid_workflow(
-        self, *, src_image_name: str, prompt: str, width: int, height: int,
+        self, *, src_image_name: str | None = None, prompt: str, width: int, height: int,
         steps: int, seed: int, weight: float | None = None, start_at: float | None = None,
         end_at: float | None = None, unet_dtype: str | None = None,
-        node_variant: str | None = "pulid_flux",
+        node_variant: str | None = "pulid_flux", src_image_names: list[str] | None = None,
     ) -> dict:
         """The PuLID-FLUX graph. Defaults are the product's; the keyword
         overrides are the likeness experiment's switches (see
-        scripts/experiments/pulid_matrix.py)."""
+        scripts/experiments/pulid_matrix.py).
+
+        Several ``src_image_names`` go to the apply node as one batch, which
+        averages their identity embeddings; they must already share a size
+        (face_reference.batch_references)."""
+        names = list(src_image_names or ([src_image_name] if src_image_name else []))
+        if not names:
+            raise ValueError("a PuLID graph needs at least one reference image")
         weight = _identity_default('weight', weight)
         start_at = _identity_default('start_at', start_at)
         end_at = _identity_default('end_at', end_at)
@@ -1482,6 +1498,17 @@ class ComfyUIImageGenerator:
         end_at = float(end_at)
         if not (0.0 <= start_at <= 1.0 and 0.0 <= end_at <= 1.0 and start_at <= end_at):
             raise ValueError(f"start_at/end_at must satisfy 0 <= start_at <= end_at <= 1, got {start_at}/{end_at}")
+        loads: dict = {}
+        if len(names) == 1:
+            loads["load"] = {"class_type": "LoadImage", "inputs": {"image": names[0]}}
+            reference = ["load", 0]
+        else:
+            batch_inputs = {}
+            for i, name in enumerate(names):
+                loads[f"load_{i}"] = {"class_type": "LoadImage", "inputs": {"image": name}}
+                batch_inputs[f"images.image{i}"] = [f"load_{i}", 0]
+            loads["references"] = {"class_type": "BatchImagesNode", "inputs": batch_inputs}
+            reference = ["references", 0]
         return {
             "unet": {
                 "class_type": "UNETLoader",
@@ -1495,7 +1522,7 @@ class ComfyUIImageGenerator:
             "pulid": {"class_type": "PulidFluxModelLoader", "inputs": {"pulid_file": PULID_FLUX_FILE}},
             "insight": {"class_type": "PulidFluxInsightFaceLoader", "inputs": {"provider": "CPU"}},
             "eva": {"class_type": "PulidFluxEvaClipLoader", "inputs": {}},
-            "load": {"class_type": "LoadImage", "inputs": {"image": src_image_name}},
+            **loads,
             "apply": {
                 "class_type": variant["apply_class"],
                 "inputs": {
@@ -1503,7 +1530,7 @@ class ComfyUIImageGenerator:
                     "pulid_flux": ["pulid", 0],
                     "eva_clip": ["eva", 0],
                     "face_analysis": ["insight", 0],
-                    "image": ["load", 0],
+                    "image": reference,
                     "weight": float(weight),
                     "start_at": start_at,
                     "end_at": end_at,
@@ -1642,22 +1669,45 @@ class ComfyUIImageGenerator:
         width: int = 768, height: int = 1024, steps: int = 20, seed: int = 42,
         weight: float | None = None, start_at: float | None = None, end_at: float | None = None,
         unet_dtype: str | None = None, node_variant: str | None = "pulid_flux",
-        gpu_wait: dict | None = None,
+        gpu_wait: dict | None = None, extra_image_paths: list[str] | None = None,
     ) -> str:
+        """A new picture keeping the face of ``image_path`` (and of
+        ``extra_image_paths``, averaged with it). A reference the node's face
+        detector finds nothing in is refused here; the node would skip it and,
+        with nothing left, render without the face while reporting success."""
         weight = _identity_default('weight', weight)
         start_at = _identity_default('start_at', start_at)
         end_at = _identity_default('end_at', end_at)
-        if not os.path.exists(image_path):
-            raise RuntimeError(f"Source image not found: {image_path}")
+        paths = [image_path, *(p for p in (extra_image_paths or []) if p)]
+        for path in paths:
+            if not os.path.exists(path):
+                raise RuntimeError(f"Source image not found: {path}")
         if not self.pulid_installed():
             from backend.services.image_editing_packs import missing_message
             raise RuntimeError(_failure(K.MODEL_NOT_INSTALLED, missing_message("generate_identity")))
         self._require_up(f"ComfyUI not reachable at {self.comfy_url}")
-        src_name = self._upload_image_to_comfyui(image_path)
-        if not src_name:
-            raise RuntimeError("Failed to upload the face reference to ComfyUI")
+        from backend.config import OUTPUT_DIR
+        from backend.services.face_reference import FaceCheckUnavailable, batch_references, find_faces
+        prepared = batch_references(paths, os.path.join(OUTPUT_DIR, "edit_inputs"))
+        for original, path in zip(paths, prepared):
+            try:
+                found = find_faces(path)
+            except FaceCheckUnavailable as e:
+                raise RuntimeError(_failure(K.MODEL_NOT_INSTALLED, str(e)))
+            if not found["count"]:
+                raise RuntimeError(
+                    f"No face was found in {os.path.basename(original)}. PuLID needs a clear, "
+                    "front or three-quarter view of one face; use a photo where the face is "
+                    "larger and in focus."
+                )
+        names = []
+        for path in prepared:
+            name = self._upload_image_to_comfyui(path)
+            if not name:
+                raise RuntimeError("Failed to upload the face reference to ComfyUI")
+            names.append(name)
         workflow = self._build_pulid_workflow(
-            src_image_name=src_name, prompt=prompt,
+            src_image_names=names, prompt=prompt,
             width=width, height=height, steps=steps, seed=seed, weight=weight,
             start_at=start_at, end_at=end_at, unet_dtype=unet_dtype,
             node_variant=node_variant,

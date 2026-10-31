@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "Nouvelle scène, même visage",
+    "edit": "Modifier la photo",
+    "expand": "Agrandir",
+    "background": "Supprimer l'arrière-plan"
+  },
+  "modeHelp": {
+    "identity": "Conserve le visage de vos photos et place la personne dans une scène que vous décrivez. Fonctionne avec PuLID avec FLUX.1-dev.",
+    "edit": "Modifie un élément de la photo tout en gardant le reste : même image, même pose.",
+    "expand": "Étend l'image au-delà de ses bords et remplit la nouvelle zone pour correspondre.",
+    "background": "Détoure le sujet et laisse un arrière-plan transparent."
+  },
+  "unavailable": "Non installé",
+  "install": "Installer",
+  "loading": "Lecture des capacités de cette machine…",
+  "capabilitiesFailed": "Impossible de lire ce que cette machine peut modifier : {{message}}",
+  "photos": {
+    "faces": "Photos de visages",
+    "facesHelp": "Deux ou trois photos de la même personne, sous différents angles, conservent mieux la ressemblance qu'une seule.",
+    "source": "Photo",
+    "editSource": "Photo à modifier",
+    "references": "Photos de référence (facultatif)",
+    "referencesHelp": "Une autre personne, un objet ou un style à intégrer dans la modification. Seul Qwen-Image-Edit les utilise.",
+    "add": "Ajouter une photo",
+    "addAnother": "En ajouter une autre",
+    "addReference": "Ajouter une photo de référence",
+    "drop": "Déposez une photo ici ou cliquez pour en choisir une",
+    "uploading": "Téléchargement…",
+    "remove": "Supprimer la photo",
+    "uploadFailed": "La photo n'a pas pu être ajoutée : {{message}}",
+    "notAnImage": "Ce fichier n'est pas une image."
+  },
+  "faces": {
+    "checking": "Recherche d'un visage…",
+    "found": "Visage trouvé",
+    "foundMany": "{{count}} visages : le plus grand est utilisé",
+    "none": "Aucun visage trouvé",
+    "noneHelp": "PuLID ignorerait cette photo. Utilisez-en une où le visage est plus grand, net, et vu de face ou de trois-quarts.",
+    "unavailable": "Vérification du visage indisponible",
+    "showBox": "Afficher le visage trouvé"
+  },
+  "consent": {
+    "question": "Avez-vous le droit d'utiliser l'image de cette personne ? Il s'agit de votre propre photo, ou la personne a accepté cette utilisation.",
+    "confirm": "Oui, je peux l'utiliser",
+    "confirmed": "Identité confirmée",
+    "failed": "La confirmation n'a pas pu être enregistrée : {{message}}"
+  },
+  "prompt": {
+    "identity": "La nouvelle scène",
+    "identityPlaceholder": "Un homme conduisant une décapotable des années 1950 sur un boulevard de Los Angeles, photo en noir et blanc",
+    "identityHelp": "Gardez le visage en vue : un plan moyen ou rapproché avec le visage tourné vers la caméra. Dans une vue large ou arrière, l'identité n'a aucun endroit où s'afficher.",
+    "edit": "Ce qu'il faut changer",
+    "editPlaceholder": "Mettre une écharpe rouge autour de son cou",
+    "expand": "Ce que la nouvelle zone montre (optionnel)",
+    "expandPlaceholder": "Continuer la rue et les palmiers",
+    "framing": "Ajouter à la scène :"
+  },
+  "framing": {
+    "faceToCamera": "visage tourné vers la caméra",
+    "mediumCloseUp": "plan rapproché",
+    "threeQuarter": "vue de trois-quarts",
+    "lookingAtCamera": "regardant la caméra"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "size": "Taille",
+    "sizes": {
+      "portrait": "Portrait 768 × 1024",
+      "square": "Carré 1024 × 1024",
+      "landscape": "Paysage 1024 × 768",
+      "wide": "Large 1216 × 704"
+    },
+    "strength": "Force de la ressemblance",
+    "strengthHelp": "1.0 est la valeur par défaut. Plus elle est élevée, plus le visage est maintenu fidèlement et peut finir par dominer la scène ; plus elle est basse, plus la scène peut modifier le visage.",
+    "seed": "Graine",
+    "randomSeed": "Nouvelle graine à chaque exécution",
+    "engine": "Modèle d'édition",
+    "engineAuto": "Automatique (meilleur installé)",
+    "steps": "Étapes",
+    "stepsHelp": "Laissez vide pour utiliser le nombre par défaut du modèle.",
+    "sides": "Pixels à ajouter",
+    "left": "Gauche",
+    "right": "Droite",
+    "top": "Haut",
+    "bottom": "Bas",
+    "presetAll": "Tous les côtés",
+    "presetWider": "Plus large",
+    "presetTaller": "Plus haut",
+    "insideFrame": "Seul FLUX.1 Kontext est installé, la photo garde sa taille et la vue s'élargit à l'intérieur. Qwen-Image-Edit ajoute une toile réelle."
+  },
+  "run": {
+    "identity": "Générer",
+    "edit": "Appliquer l'édition",
+    "expand": "Étendre",
+    "background": "Supprimer l'arrière-plan",
+    "needPhoto": "Ajoutez d'abord une photo.",
+    "needFace": "Chaque photo de visage doit comporter un visage que la vérification peut trouver.",
+    "needConsent": "Confirmez la ressemblance pour chaque photo de visage.",
+    "needPrompt": "Décrivez ce que vous voulez.",
+    "needSides": "Choisissez jusqu'à quel point étendre au moins un côté.",
+    "startFailed": "Impossible de démarrer : {{message}}"
+  },
+  "job": {
+    "queued": "En file d'attente",
+    "running": "Travail en cours… {{seconds}} s",
+    "lost": "Le backend a redémarré, cette exécution a été perdue. Relancez-la.",
+    "pollFailed": "Perte de suivi de l'exécution : {{message}}"
+  },
+  "result": {
+    "title": "Résultat",
+    "empty": "Le résultat s'affiche ici. Vos photos restent à côté pour comparaison.",
+    "before": "Votre photo",
+    "beforeMany": "Vos photos",
+    "after": "Résultat",
+    "failed": "Le travail n'a pas fonctionné",
+    "open": "Ouvrir",
+    "download": "Télécharger",
+    "useAsPhoto": "Modifier ce résultat",
+    "again": "Relancer",
+    "reuseSeed": "Conserver la graine {{seed}}",
+    "seed": "Graine {{seed}}",
+    "history": "Résultats récents",
+    "clearHistory": "Effacer la liste"
+  }
+}

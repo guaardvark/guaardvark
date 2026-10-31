@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "新场景，同面孔",
+    "edit": "编辑照片",
+    "expand": "扩图",
+    "background": "移除背景"
+  },
+  "modeHelp": {
+    "identity": "保留您照片中的面孔，并将人物置于您描述的场景中。基于 PuLID 与 FLUX.1-dev 运行。",
+    "edit": "修改照片中的某些内容并保留其余部分：相同的图片，相同的姿势。",
+    "expand": "延伸图片边界并填充新区域以保持一致。",
+    "background": "抠出主体并留下透明背景。"
+  },
+  "unavailable": "未安装",
+  "install": "安装",
+  "loading": "正在读取本机器的功能……",
+  "capabilitiesFailed": "无法读取本机器可编辑的内容：{{message}}",
+  "photos": {
+    "faces": "面孔照片",
+    "facesHelp": "两到三张同一人的不同角度照片比单张照片更能保留相似度。",
+    "source": "照片",
+    "editSource": "待编辑照片",
+    "references": "参考照片（可选）",
+    "referencesHelp": "引入到编辑中的其他人物、物体或风格。仅 Qwen-Image-Edit 使用这些参考。",
+    "add": "添加照片",
+    "addAnother": "添加另一张",
+    "addReference": "添加参考照片",
+    "drop": "将照片拖到此处或点击选择",
+    "uploading": "上传中……",
+    "remove": "移除照片",
+    "uploadFailed": "无法添加照片：{{message}}",
+    "notAnImage": "该文件不是图片。"
+  },
+  "faces": {
+    "checking": "正在检测面部……",
+    "found": "已找到面部",
+    "foundMany": "找到 {{count}} 个面部：已使用最大的一个",
+    "none": "未找到面部",
+    "noneHelp": "PuLID 将跳过此照片。请使用面部更大、对焦清晰、且为正面或四分之三侧面视角的照片。",
+    "unavailable": "面部检测不可用",
+    "showBox": "显示检测到的面部"
+  },
+  "consent": {
+    "question": "您有权使用此人的肖像吗？这是您自己的照片，或者该人已同意此项用途。",
+    "confirm": "是的，我可以使用",
+    "confirmed": "肖像已确认",
+    "failed": "确认信息无法保存：{{message}}"
+  },
+  "prompt": {
+    "identity": "新场景",
+    "identityPlaceholder": "一名男子驾驶 1950 年代的敞篷车行驶在洛杉矶大道上，黑白电影照片",
+    "identityHelp": "确保面部在视野内：使用面部朝向镜头的中景或特写。在广角或背影视角中，肖像无法体现。",
+    "edit": "要更改的内容",
+    "editPlaceholder": "在他脖子上系一条红围巾",
+    "expand": "新区域的内容（可选）",
+    "expandPlaceholder": "延续街道和棕榈树",
+    "framing": "添加到场景中："
+  },
+  "framing": {
+    "faceToCamera": "面部朝向镜头",
+    "mediumCloseUp": "中特写",
+    "threeQuarter": "四分之三侧面视角",
+    "lookingAtCamera": "注视镜头"
+  },
+  "settings": {
+    "title": "设置",
+    "size": "尺寸",
+    "sizes": {
+      "portrait": "纵向 768 × 1024",
+      "square": "正方形 1024 × 1024",
+      "landscape": "横向 1024 × 768",
+      "wide": "宽屏 1216 × 704"
+    },
+    "strength": "相似度强度",
+    "strengthHelp": "1.0 是默认测量值。数值越高，越严格保留面部特征，但可能过度影响场景；数值越低，场景对面部的改变影响越大。",
+    "seed": "种子",
+    "randomSeed": "每次运行使用新种子",
+    "engine": "编辑模型",
+    "engineAuto": "自动（最佳已安装模型）",
+    "steps": "步数",
+    "stepsHelp": "留空则使用模型默认步数。",
+    "sides": "新增像素",
+    "left": "左侧",
+    "right": "右侧",
+    "top": "顶部",
+    "bottom": "底部",
+    "presetAll": "所有方向",
+    "presetWider": "更宽",
+    "presetTaller": "更高",
+    "insideFrame": "仅限安装了 FLUX.1 Kontext 时，图片保持原尺寸并在内部扩展视野。Qwen-Image-Edit 则会增加实际画布。"
+  },
+  "run": {
+    "identity": "生成",
+    "edit": "应用编辑",
+    "expand": "扩展",
+    "background": "移除背景",
+    "needPhoto": "请先添加照片。",
+    "needFace": "每张面部照片都必须包含可识别的面部。",
+    "needConsent": "确认每张面部照片的相似度。",
+    "needPrompt": "描述您想要的内容。",
+    "needSides": "选择至少一个方向的扩展范围。",
+    "startFailed": "无法启动：{{message}}"
+  },
+  "job": {
+    "queued": "已排队",
+    "running": "工作中… {{seconds}} 秒",
+    "lost": "后端已重启，此项运行已丢失。请重新开始。",
+    "pollFailed": "丢失运行状态：{{message}}"
+  },
+  "result": {
+    "title": "结果",
+    "empty": "结果显示在此。您的照片将保留在旁边以便对比。",
+    "before": "您的照片",
+    "beforeMany": "您的照片",
+    "after": "结果",
+    "failed": "工作失败",
+    "open": "打开",
+    "download": "下载",
+    "useAsPhoto": "编辑此结果",
+    "again": "重新运行",
+    "reuseSeed": "保留种子 {{seed}}",
+    "seed": "种子 {{seed}}",
+    "history": "近期结果",
+    "clearHistory": "清除列表"
+  }
+}

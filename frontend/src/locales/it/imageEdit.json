@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "Nuova scena, stesso volto",
+    "edit": "Modifica la foto",
+    "expand": "Espandi",
+    "background": "Rimuovi sfondo"
+  },
+  "modeHelp": {
+    "identity": "Mantiene il volto delle tue foto e inserisce la persona in una scena che descrivi. Esegue su PuLID con FLUX.1-dev.",
+    "edit": "Modifica qualcosa nella foto mantenendo il resto: stessa immagine, stessa posa.",
+    "expand": "Estende l'immagine oltre i bordi e riempie la nuova area per adattarla.",
+    "background": "Taglia il soggetto e lascia uno sfondo trasparente."
+  },
+  "unavailable": "Non installato",
+  "install": "Installa",
+  "loading": "Lettura delle capacità di questa macchina...",
+  "capabilitiesFailed": "Impossibile leggere cosa può modificare questa macchina: {{message}}",
+  "photos": {
+    "faces": "Foto volti",
+    "facesHelp": "Due o tre foto della stessa persona, da diverse angolazioni, mantengono meglio la somiglianza rispetto a una sola.",
+    "source": "Foto",
+    "editSource": "Foto da modificare",
+    "references": "Foto di riferimento (opzionale)",
+    "referencesHelp": "Un'altra persona, oggetto o stile da inserire nella modifica. Solo Qwen-Image-Edit li utilizza.",
+    "add": "Aggiungi foto",
+    "addAnother": "Aggiungi un'altra",
+    "addReference": "Aggiungi una foto di riferimento",
+    "drop": "Trascina una foto qui o clicca per sceglierne una",
+    "uploading": "Caricamento in corso...",
+    "remove": "Rimuovi foto",
+    "uploadFailed": "La foto non è stata aggiunta: {{message}}",
+    "notAnImage": "Quel file non è un'immagine."
+  },
+  "faces": {
+    "checking": "Ricerca del volto in corso…",
+    "found": "Volto trovato",
+    "foundMany": "Trovati {{count}} volti: viene usato quello più grande",
+    "none": "Nessun volto trovato",
+    "noneHelp": "PuLID salterebbe questa foto. Usane una in cui il volto sia più grande, a fuoco e visto frontalmente o di tre quarti.",
+    "unavailable": "Controllo volto non disponibile",
+    "showBox": "Mostra il volto trovato"
+  },
+  "consent": {
+    "question": "Hai il diritto di usare l'immagine di questa persona? È la tua foto o la persona ha acconsentito a questo uso.",
+    "confirm": "Sì, posso usarla",
+    "confirmed": "Immagine confermata",
+    "failed": "La conferma non è stata salvata: {{message}}"
+  },
+  "prompt": {
+    "identity": "La nuova scena",
+    "identityPlaceholder": "Un uomo che guida una cabriolet degli anni 1950 lungo un viale di Los Angeles, foto in bianco e nero",
+    "identityHelp": "Mantieni il volto in vista: un'inquadratura media o ravvicinata con il volto rivolto verso la fotocamera. In una visuale ampia o posteriore, l'immagine non ha spazio per essere mostrata.",
+    "edit": "Cosa cambiare",
+    "editPlaceholder": "Metti una sciarpa rossa intorno al suo collo",
+    "expand": "Cosa mostra la nuova area (opzionale)",
+    "expandPlaceholder": "Continua la strada e le palme",
+    "framing": "Aggiungi alla scena:"
+  },
+  "framing": {
+    "faceToCamera": "volto rivolto verso la fotocamera",
+    "mediumCloseUp": "primo piano medio",
+    "threeQuarter": "vista di tre quarti",
+    "lookingAtCamera": "guarda la fotocamera"
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "size": "Dimensioni",
+    "sizes": {
+      "portrait": "Ritratto 768 × 1024",
+      "square": "Quadrato 1024 × 1024",
+      "landscape": "Paesaggio 1024 × 768",
+      "wide": "Largo 1216 × 704"
+    },
+    "strength": "Intensità somiglianza",
+    "strengthHelp": "1.0 è il valore predefinito. Più alto mantiene il volto più fedelmente e può iniziare a sovrascrivere la scena; più basso permette alla scena di modificare maggiormente il volto.",
+    "seed": "Seed",
+    "randomSeed": "Nuovo seed a ogni esecuzione",
+    "engine": "Modello di editing",
+    "engineAuto": "Automatico (migliore installato)",
+    "steps": "Passaggi",
+    "stepsHelp": "Lascia vuoto per utilizzare il conteggio predefinito del modello.",
+    "sides": "Pixel da aggiungere",
+    "left": "Sinistra",
+    "right": "Destra",
+    "top": "Alto",
+    "bottom": "Basso",
+    "presetAll": "Tutti i lati",
+    "presetWider": "Più largo",
+    "presetTaller": "Più alto",
+    "insideFrame": "Solo FLUX.1 Kontext è installato, quindi l'immagine mantiene la sua dimensione e la visuale si allarga all'interno. Qwen-Image-Edit aggiunge una tela reale."
+  },
+  "run": {
+    "identity": "Genera",
+    "edit": "Applica modifica",
+    "expand": "Espandi",
+    "background": "Rimuovi sfondo",
+    "needPhoto": "Aggiungi prima una foto.",
+    "needFace": "Ogni foto del volto deve contenere un volto che il controllo può trovare.",
+    "needConsent": "Conferma la somiglianza per ogni foto del volto.",
+    "needPrompt": "Descrivi cosa vuoi.",
+    "needSides": "Scegli quanto estendere almeno un lato.",
+    "startFailed": "Impossibile avviare: {{message}}"
+  },
+  "job": {
+    "queued": "In coda",
+    "running": "Lavoro in corso… {{seconds}} s",
+    "lost": "Il backend è stato riavviato, quindi questa esecuzione è andata persa. Avviala di nuovo.",
+    "pollFailed": "Perdita di tracciamento dell'esecuzione: {{message}}"
+  },
+  "result": {
+    "title": "Risultato",
+    "empty": "Il risultato appare qui. Le tue foto restano accanto così puoi confrontarle.",
+    "before": "La tua foto",
+    "beforeMany": "Le tue foto",
+    "after": "Risultato",
+    "failed": "Non ha funzionato",
+    "open": "Apri",
+    "download": "Scarica",
+    "useAsPhoto": "Modifica questo risultato",
+    "again": "Esegui di nuovo",
+    "reuseSeed": "Mantieni seed {{seed}}",
+    "seed": "Seed {{seed}}",
+    "history": "Risultati recenti",
+    "clearHistory": "Cancella lista"
+  }
+}

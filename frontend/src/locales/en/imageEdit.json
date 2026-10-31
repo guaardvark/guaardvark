@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "New scene, same face",
+    "edit": "Edit the photo",
+    "expand": "Expand",
+    "background": "Remove background"
+  },
+  "modeHelp": {
+    "identity": "Keeps the face from your photos and puts the person in a scene you describe. Runs on PuLID with FLUX.1-dev.",
+    "edit": "Changes something in the photo and keeps the rest: same picture, same pose.",
+    "expand": "Extends the picture past its edges and fills the new area to match.",
+    "background": "Cuts the subject out and leaves a transparent background."
+  },
+  "unavailable": "Not installed",
+  "install": "Install",
+  "loading": "Reading what this machine can do…",
+  "capabilitiesFailed": "Could not read what this machine can edit: {{message}}",
+  "photos": {
+    "faces": "Face photos",
+    "facesHelp": "Two or three photos of the same person, from different angles, hold the likeness better than one.",
+    "source": "Photo",
+    "editSource": "Photo to edit",
+    "references": "Reference photos (optional)",
+    "referencesHelp": "Another person, object or style to bring into the edit. Only Qwen-Image-Edit uses them.",
+    "add": "Add photo",
+    "addAnother": "Add another",
+    "addReference": "Add a reference photo",
+    "drop": "Drop a photo here or click to choose one",
+    "uploading": "Uploading…",
+    "remove": "Remove photo",
+    "uploadFailed": "The photo could not be added: {{message}}",
+    "notAnImage": "That file is not a picture."
+  },
+  "faces": {
+    "checking": "Checking for a face…",
+    "found": "Face found",
+    "foundMany": "{{count}} faces: the largest is used",
+    "none": "No face found",
+    "noneHelp": "PuLID would skip this photo. Use one where the face is larger, in focus, and seen from the front or at three-quarters.",
+    "unavailable": "Face check unavailable",
+    "showBox": "Show the face it found"
+  },
+  "consent": {
+    "question": "Do you have the right to use this person's likeness? It is your own photo, or the person agreed to this use.",
+    "confirm": "Yes, I may use it",
+    "confirmed": "Likeness confirmed",
+    "failed": "The confirmation could not be saved: {{message}}"
+  },
+  "prompt": {
+    "identity": "The new scene",
+    "identityPlaceholder": "A man driving a 1950s convertible down a Los Angeles boulevard, black and white film photo",
+    "identityHelp": "Keep the face in view: a medium or close shot with the face toward the camera. In a wide or rear view the likeness has nowhere to show.",
+    "edit": "What to change",
+    "editPlaceholder": "Put a red scarf around his neck",
+    "expand": "What the new area shows (optional)",
+    "expandPlaceholder": "Continue the street and the palm trees",
+    "framing": "Add to the scene:"
+  },
+  "framing": {
+    "faceToCamera": "face toward the camera",
+    "mediumCloseUp": "medium close-up",
+    "threeQuarter": "three-quarter view",
+    "lookingAtCamera": "looking at the camera"
+  },
+  "settings": {
+    "title": "Settings",
+    "size": "Size",
+    "sizes": {
+      "portrait": "Portrait 768 × 1024",
+      "square": "Square 1024 × 1024",
+      "landscape": "Landscape 1024 × 768",
+      "wide": "Wide 1216 × 704"
+    },
+    "strength": "Likeness strength",
+    "strengthHelp": "1.0 is the measured default. Higher holds the face harder and can start to override the scene; lower lets the scene change the face more.",
+    "seed": "Seed",
+    "randomSeed": "New seed each run",
+    "engine": "Editing model",
+    "engineAuto": "Automatic (best installed)",
+    "steps": "Steps",
+    "stepsHelp": "Leave empty for the model's own count.",
+    "sides": "Pixels to add",
+    "left": "Left",
+    "right": "Right",
+    "top": "Top",
+    "bottom": "Bottom",
+    "presetAll": "All sides",
+    "presetWider": "Wider",
+    "presetTaller": "Taller",
+    "insideFrame": "Only FLUX.1 Kontext is installed, so the picture keeps its size and the view widens inside it. Qwen-Image-Edit adds real canvas."
+  },
+  "run": {
+    "identity": "Generate",
+    "edit": "Apply edit",
+    "expand": "Expand",
+    "background": "Remove background",
+    "needPhoto": "Add a photo first.",
+    "needFace": "Every face photo needs a face the check can find.",
+    "needConsent": "Confirm the likeness for every face photo.",
+    "needPrompt": "Describe what you want.",
+    "needSides": "Choose how far to extend at least one side.",
+    "startFailed": "Could not start: {{message}}"
+  },
+  "job": {
+    "queued": "Queued",
+    "running": "Working… {{seconds}} s",
+    "lost": "The backend restarted, so this run was lost. Start it again.",
+    "pollFailed": "Lost track of the run: {{message}}"
+  },
+  "result": {
+    "title": "Result",
+    "empty": "The result shows here. Your photos stay next to it so you can compare.",
+    "before": "Your photo",
+    "beforeMany": "Your photos",
+    "after": "Result",
+    "failed": "It did not work",
+    "open": "Open",
+    "download": "Download",
+    "useAsPhoto": "Edit this result",
+    "again": "Run again",
+    "reuseSeed": "Keep seed {{seed}}",
+    "seed": "Seed {{seed}}",
+    "history": "Recent results",
+    "clearHistory": "Clear list"
+  }
+}

@@ -49,29 +49,66 @@ def background_removal_dir() -> Path:
     return Path(root) / "data" / "models" / "background_removal"
 
 
+def facexlib_weight_dirs() -> list:
+    """Every facexlib weights folder a loader on this machine reads, ComfyUI's first.
+
+    facexlib loads from its own package folder and downloads into it when a file
+    is missing there. ComfyUI's nodes (PuLID-FLUX) import the facexlib of the
+    Python ComfyUI runs from, which is not the backend's once ComfyUI has its
+    own environment (GUAARDVARK_COMFYUI_OWN_VENV); the backend's own copy
+    serves face restoration and the identity face check.
+    """
+    dirs: list = []
+    try:
+        from backend.services.comfyui_update_service import DEFAULT_PYTHON, comfyui_python
+        python = comfyui_python()
+        if python != DEFAULT_PYTHON:
+            env = python.parent.parent
+            for site in sorted(env.glob("lib/python3*/site-packages/facexlib")):
+                dirs.append(site / "weights")
+    except Exception:  # noqa: BLE001 - the backend's own folder is still listed
+        logger.debug("ComfyUI's facexlib folder not resolved", exc_info=True)
+    try:
+        import facexlib
+        dirs.append(Path(facexlib.__file__).resolve().parent / "weights")
+    except Exception:  # noqa: BLE001 - no facexlib in the backend
+        pass
+    if not dirs:
+        dirs.append(comfyui_models_dir() / "facedetection")
+    unique: list = []
+    for folder in dirs:
+        if folder not in unique:
+            unique.append(folder)
+    return unique
+
+
 def resolve_entry_dir(entry: dict) -> Path:
     """Directory an entry's files land in and are checked from.
 
     Default: ComfyUI/models/<local_subdir>. `dest` names another loader's home
     when the code that reads the file is not ComfyUI: "facexlib" (facexlib
-    downloads into its own package folder unless the file is already there),
-    "bgremove" (the backend's background-removal service), "hf_cache" (the
-    Hugging Face cache, for nodes that call hf_hub_download; the directory is
-    only used for progress, the ready check goes through the cache probe).
+    downloads into its own package folder unless the file is already there;
+    the first of facexlib_weight_dirs), "bgremove" (the backend's
+    background-removal service), "hf_cache" (the Hugging Face cache, for nodes
+    that call hf_hub_download; the directory is only used for progress, the
+    ready check goes through the cache probe).
     """
     dest = entry.get("dest")
     if dest == "facexlib":
-        try:
-            import facexlib
-            return Path(facexlib.__file__).resolve().parent / "weights"
-        except Exception:  # noqa: BLE001 — no facexlib: the node cannot run anyway
-            return comfyui_models_dir() / "facedetection"
+        return facexlib_weight_dirs()[0]
     if dest == "bgremove":
         return background_removal_dir()
     if dest == "hf_cache":
         from backend.services.local_weights import hf_repo_cache_dir
         return hf_repo_cache_dir(entry["hf_repo"])
     return comfyui_models_dir() / entry.get("local_subdir", "")
+
+
+def _entry_check_dirs(entry: dict) -> list:
+    """Every folder an entry's files must be in to count as installed."""
+    if entry.get("dest") == "facexlib":
+        return facexlib_weight_dirs()
+    return [resolve_entry_dir(entry)]
 
 
 def entry_files_present(entry: dict) -> bool:
@@ -81,11 +118,11 @@ def entry_files_present(entry: dict) -> bool:
     if entry.get("dest") == "hf_cache":
         from backend.services.local_weights import is_cached
         return all(is_cached(entry["hf_repo"], f["src"]) for f in entry.get("files", []))
-    base = resolve_entry_dir(entry)
-    for check_file in entry.get("check_files", []):
-        fpath = base / check_file
-        if not fpath.exists() or fpath.stat().st_size == 0:
-            return False
+    for base in _entry_check_dirs(entry):
+        for check_file in entry.get("check_files", []):
+            fpath = base / check_file
+            if not fpath.exists() or fpath.stat().st_size == 0:
+                return False
     return bool(entry.get("check_files"))
 
 
@@ -125,11 +162,11 @@ def missing_plan_files(model_id: str) -> list:
                 if not is_cached(info["hf_repo"], f["src"]):
                     missing.append(f"{eid}:{f['src']}")
             continue
-        base = resolve_entry_dir(info)
-        for cf in info.get("check_files", []):
-            fp = base / cf
-            if not fp.exists() or fp.stat().st_size == 0:
-                missing.append(f"{eid}:{cf}")
+        for base in _entry_check_dirs(info):
+            for cf in info.get("check_files", []):
+                fp = base / cf
+                if (not fp.exists() or fp.stat().st_size == 0) and f"{eid}:{cf}" not in missing:
+                    missing.append(f"{eid}:{cf}")
     return missing
 
 
@@ -165,10 +202,19 @@ def download_entry_files(entry: dict, local_dir: Path, *, check=None) -> None:
         for spec in entry["direct_urls"]:
             _check()
             dst = local_dir / spec["dst"]
-            if dst.exists() and dst.stat().st_size > 0:
-                continue
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            urllib.request.urlretrieve(spec["url"], str(dst))
+            if not (dst.exists() and dst.stat().st_size > 0):
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                urllib.request.urlretrieve(spec["url"], str(dst))
+            # One download serves every facexlib on the machine.
+            for other in _entry_check_dirs(entry):
+                copy = other / spec["dst"]
+                if other == local_dir or (copy.exists() and copy.stat().st_size > 0):
+                    continue
+                copy.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    os.link(str(dst), str(copy))
+                except OSError:
+                    shutil.copy2(str(dst), str(copy))
     elif "files" in entry:
         for spec in entry["files"]:
             _check()
@@ -1155,9 +1201,9 @@ VIDEO_MODEL_REGISTRY = {
     },
     "facexlib-face": {
         "name": "facexlib face detector and parser (PuLID, face restoration)",
-        "description": "RetinaFace ResNet50 detector and ParseNet parser PuLID crops the "
-                       "face with, also used by image face restoration (GFPGAN). Lands in "
-                       "facexlib's weights folder.",
+        "description": "RetinaFace ResNet50 detector and the ParseNet and BiSeNet parsers "
+                       "PuLID crops the face with, also used by image face restoration "
+                       "(GFPGAN). Lands in facexlib's weights folder.",
         "dest": "facexlib",
         "local_subdir": "facedetection",
         "direct_urls": [
@@ -1169,8 +1215,13 @@ VIDEO_MODEL_REGISTRY = {
                 "url": "https://github.com/xinntao/facexlib/releases/download/v0.2.2/parsing_parsenet.pth",
                 "dst": "parsing_parsenet.pth",
             },
+            # ApplyPulidFlux parses the face with init_parsing_model('bisenet').
+            {
+                "url": "https://github.com/xinntao/facexlib/releases/download/v0.2.0/parsing_bisenet.pth",
+                "dst": "parsing_bisenet.pth",
+            },
         ],
-        "size_gb": 0.19,
+        "size_gb": 0.25,
         "vram_mb": 0,
         "type": "encoder",
     },

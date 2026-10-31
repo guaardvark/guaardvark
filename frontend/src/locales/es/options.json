@@ -84,6 +84,7 @@
   "mediaTabs": {
     "mediaLibrary": "Biblioteca de multimedia",
     "imageGen": "Gen. de imagen",
+    "imageEdit": "¿Edición de imagen?",
     "infographic": "Infografía",
     "videoGen": "Gen. de video",
     "upscaling": "Escalado"
@@ -330,6 +331,9 @@
       "qwenImage21": {
         "standard": "Plantilla oficial de ComfyUI (25 pasos, cfg 1)",
         "high": "Rango de pipeline oficial (40-50 pasos), más lento"
+      },
+      "flux3Klein": {
+        "standard": "Plantilla oficial de ComfyUI (15 pasos, cfg 1, upsampler de prompt activado)"
       },
       "mossImage": {
         "fast": "Menos pasos (16), el texto sigue siendo exacto",

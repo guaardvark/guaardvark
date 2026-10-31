@@ -84,6 +84,7 @@
   "mediaTabs": {
     "mediaLibrary": "Medienbibliothek",
     "imageGen": "Bildgenerierung",
+    "imageEdit": "Bildbearbeitung",
     "infographic": "Infografik",
     "videoGen": "Videogenerierung",
     "upscaling": "Hochskalierung"
@@ -330,6 +331,9 @@
       "qwenImage21": {
         "standard": "Offizielles ComfyUI-Template (25 Schritte, cfg 1)",
         "high": "Offizielle Pipeline-Spanne (40-50 Schritte), langsamer"
+      },
+      "flux3Klein": {
+        "standard": "Offizielles ComfyUI-Template (15 Schritte, cfg 1, Prompt-Upsampler an)"
       },
       "mossImage": {
         "fast": "Weniger Schritte (16), Beschriftung weiterhin präzise",

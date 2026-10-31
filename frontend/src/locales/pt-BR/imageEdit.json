@@ -1,0 +1,126 @@
+{
+  "modes": {
+    "identity": "Nova cena, mesmo rosto",
+    "edit": "Editar a foto",
+    "expand": "Expandir",
+    "background": "Remover fundo"
+  },
+  "modeHelp": {
+    "identity": "Mantém o rosto das suas fotos e coloca a pessoa em uma cena que você descreve. Roda em PuLID com FLUX.1-dev.",
+    "edit": "Altera algo na foto e mantém o resto: mesma imagem, mesma pose.",
+    "expand": "Estende a imagem além de suas bordas e preenche a nova área para combinar.",
+    "background": "Recorta o objeto e deixa um fundo transparente."
+  },
+  "unavailable": "Não instalado",
+  "install": "Instalar",
+  "loading": "Lendo o que esta máquina pode fazer…",
+  "capabilitiesFailed": "Não foi possível ler o que esta máquina pode editar: {{message}}",
+  "photos": {
+    "faces": "Fotos de rostos",
+    "facesHelp": "Duas ou três fotos da mesma pessoa, de ângulos diferentes, mantêm a semelhança melhor do que uma só.",
+    "source": "Foto",
+    "editSource": "Foto para editar",
+    "references": "Fotos de referência (opcional)",
+    "referencesHelp": "Outra pessoa, objeto ou estilo para trazer para a edição. Apenas o Qwen-Image-Edit os utiliza.",
+    "add": "Adicionar foto",
+    "addAnother": "Adicionar outra",
+    "addReference": "Adicionar uma foto de referência",
+    "drop": "Solte uma foto aqui ou clique para escolher uma",
+    "uploading": "Carregando…",
+    "remove": "Remover foto",
+    "uploadFailed": "A foto não pôde ser adicionada: {{message}}",
+    "notAnImage": "Esse arquivo não é uma imagem."
+  },
+  "faces": {
+    "checking": "Verificando o rosto...",
+    "found": "Rosto encontrado",
+    "foundMany": "{{count}} rostos: o maior é usado",
+    "none": "Nenhum rosto encontrado",
+    "noneHelp": "O PuLID pularia esta foto. Use uma em que o rosto seja maior, esteja em foco e seja visto de frente ou em três quartos.",
+    "unavailable": "Verificação de rosto indisponível",
+    "showBox": "Mostrar o rosto encontrado"
+  },
+  "consent": {
+    "question": "Você tem o direito de usar a semelhança desta pessoa? É uma foto sua ou a pessoa concordou com este uso.",
+    "confirm": "Sim, eu posso usar",
+    "confirmed": "Semelhança confirmada",
+    "failed": "A confirmação não pôde ser salva: {{message}}"
+  },
+  "prompt": {
+    "identity": "A nova cena",
+    "identityPlaceholder": "Um homem dirigindo um conversível dos anos 1950 por uma avenida de Los Angeles, foto de filme em preto e branco",
+    "identityHelp": "Mantenha o rosto em vista: um plano médio ou fechado com o rosto voltado para a câmera. Em uma visão ampla ou traseira, a semelhança não tem onde aparecer.",
+    "edit": "O que mudar",
+    "editPlaceholder": "Coloque um lenço vermelho em volta do pescoço dele",
+    "expand": "O que a nova área mostra (opcional)",
+    "expandPlaceholder": "Continue a rua e as palmeiras",
+    "framing": "Adicionar à cena:"
+  },
+  "framing": {
+    "faceToCamera": "rosto voltado para a câmera",
+    "mediumCloseUp": "primeiro plano médio",
+    "threeQuarter": "visão em três quartos",
+    "lookingAtCamera": "olhando para a câmera"
+  },
+  "settings": {
+    "title": "Configurações",
+    "size": "Tamanho",
+    "sizes": {
+      "portrait": "Retrato 768 × 1024",
+      "square": "Quadrado 1024 × 1024",
+      "landscape": "Paisagem 1024 × 768",
+      "wide": "Largo 1216 × 704"
+    },
+    "strength": "Força de semelhança",
+    "strengthHelp": "1.0 é o padrão medido. Valores mais altos mantêm o rosto com mais firmeza e podem começar a sobrepor a cena; valores mais baixos permitem que a cena altere mais o rosto.",
+    "seed": "Semente",
+    "randomSeed": "Nova semente a cada execução",
+    "engine": "Modelo de edição",
+    "engineAuto": "Automático (melhor instalado)",
+    "steps": "Passos",
+    "stepsHelp": "Deixe em branco para usar a contagem própria do modelo.",
+    "sides": "Pixels para adicionar",
+    "left": "Esquerda",
+    "right": "Direita",
+    "top": "Topo",
+    "bottom": "Base",
+    "presetAll": "Todos os lados",
+    "presetWider": "Mais largo",
+    "presetTaller": "Mais alto",
+    "insideFrame": "Apenas o FLUX.1 Kontext está instalado, então a imagem mantém seu tamanho e a visão se expande dentro dela. O Qwen-Image-Edit adiciona uma tela real."
+  },
+  "run": {
+    "identity": "Gerar",
+    "edit": "Aplicar edição",
+    "expand": "Expandir",
+    "background": "Remover fundo",
+    "needPhoto": "Adicione uma foto primeiro.",
+    "needFace": "Cada foto de rosto precisa de um rosto que a verificação possa encontrar.",
+    "needConsent": "Confirme a semelhança para cada foto de rosto.",
+    "needPrompt": "Descreva o que você quer.",
+    "needSides": "Escolha o quanto estender pelo menos um lado.",
+    "startFailed": "Não foi possível iniciar: {{message}}"
+  },
+  "job": {
+    "queued": "Na fila",
+    "running": "Trabalho… {{seconds}} s",
+    "lost": "O backend foi reiniciado, então esta execução foi perdida. Inicie novamente.",
+    "pollFailed": "Perda de rastreio da execução: {{message}}"
+  },
+  "result": {
+    "title": "Resultado",
+    "empty": "O resultado aparece aqui. Suas fotos permanecem ao lado para você comparar.",
+    "before": "Sua foto",
+    "beforeMany": "Suas fotos",
+    "after": "Resultado",
+    "failed": "Não funcionou",
+    "open": "Abrir",
+    "download": "Download",
+    "useAsPhoto": "Editar este resultado",
+    "again": "Executar novamente",
+    "reuseSeed": "Manter semente {{seed}}",
+    "seed": "Semente {{seed}}",
+    "history": "Resultados recentes",
+    "clearHistory": "Limpar lista"
+  }
+}
