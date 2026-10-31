@@ -41,6 +41,17 @@ COPY VERSION /app/VERSION
 RUN mkdir -p /app/data/uploads /app/data/outputs/narrations /app/data/cache \
     /app/data/context /app/data/database /app/logs /app/pids
 
+# Screen agent (Settings -> Agents): the X desktop the agent drives. Off by default, it adds
+# several hundred MB that chat and RAG users do not need.
+# Build with --build-arg SCREEN_AGENT=1 to include it.
+ARG SCREEN_AGENT=0
+RUN if [ "$SCREEN_AGENT" = "1" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends \
+            xvfb x11vnc xfce4-session xfwm4 xfce4-panel xfdesktop4 xfce4-settings \
+            dbus-x11 xdotool scrot lsof procps firefox-esr \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
+
 ENV GUAARDVARK_ROOT=/app
 ENV FLASK_APP=backend.app
 ENV PYTHONUNBUFFERED=1
