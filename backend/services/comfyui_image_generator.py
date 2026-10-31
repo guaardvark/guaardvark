@@ -1082,6 +1082,15 @@ class ComfyUIImageGenerator:
         return self._registry_installed("qwen-image-edit")
 
     def pulid_installed(self) -> bool:
+        """The whole pack, companions included: the node fetches a missing face
+        file or EVA02 on its own, which is a download nobody pressed Install for."""
+        try:
+            from backend.services.image_editing_packs import pack_by_id, pack_installed
+            pack = pack_by_id("pulid-flux")
+            if pack is not None:
+                return pack_installed(pack)
+        except Exception:  # noqa: BLE001 - fall back to the two main entries
+            logger.debug("PuLID pack check unavailable", exc_info=True)
         return self._registry_installed("pulid-flux") and self._registry_installed("flux-dev")
 
     def _build_qwen_edit_workflow(
