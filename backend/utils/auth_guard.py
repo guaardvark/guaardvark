@@ -234,6 +234,8 @@ def network_access_open() -> bool:
 #   no allow-list), and connecting or reloading them;
 # - approving and applying a staged self-improvement fix, which writes code
 #   into this install that runs at the next restart.
+# - changing the chat's always-approved tools, which stands in for every
+#   approval card those tools would have shown.
 # Network access does not open these to other devices, and the
 # GUAARDVARK_PROTECT_TOOL_ENDPOINTS opt-out does not open them to other hosts:
 # they answer this machine, and the key once there is one, from any address.
@@ -253,6 +255,7 @@ RUNS_CODE_PATHS = (
 RUNS_CODE_MUTATION_PREFIXES = (
     '/api/automation/mcp/servers/',
     '/api/self-improvement/pending-fixes/',
+    '/api/settings/chat_tools_always_approved',
 )
 
 
@@ -366,6 +369,9 @@ MUTATION_PROTECTED_PREFIXES = (
     '/api/settings/confine_tool_paths',
     # Switching the inbound guard off, or approving a change it held, lets code in.
     '/api/settings/inbound_guard',
+    # Stops every LLM process on the machine. Stopping an agent stays open
+    # (/api/agent-control/kill): it must never be harder than starting one.
+    '/api/voice/kill-all-processes',
     # Approving or applying a staged fix writes code into the checkout.
     '/api/self-improvement/pending-fixes',
     # Every Uncle Claude POST sends to Anthropic or changes when it may
@@ -642,6 +648,8 @@ def protected_summary() -> list[str]:
         ]
     items += [
         "Code execution",
+        "Changing which chat tools run without asking",
+        "The kill switch for all LLM processes",
         "Restarting Guaardvark",
         "Creating, restoring and deleting backups",
         "Editing files and browsing the server's folders",
