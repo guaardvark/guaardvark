@@ -12,7 +12,9 @@ node is handed, so a photo it refuses is one the node would have dropped.
 The detector is facexlib's (MIT). InsightFace, which the node also runs, is not
 loaded here: its pretrained models are licensed for non-commercial research
 only (see video_consistency_metrics._identity_via_embed). The weights are read
-from where the facexlib-face pack installs them and never downloaded.
+from where the facexlib-face pack installs them and never downloaded. facexlib
+is an optional extra in the backend's environment; without it the check runs
+in ComfyUI's (face_check_worker.py), which has it for the node.
 
 The node batches several references and averages their identity embeddings.
 ComfyUI's batch node resizes every picture to the first one's size, which would
@@ -26,8 +28,10 @@ central for the other, and in a group photo those can be two people.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import subprocess
 import threading
 import uuid
 from copy import deepcopy
@@ -53,6 +57,8 @@ CROP_MIN_SIDE = 512
 
 _lock = threading.Lock()
 _detector = None
+_WORKER = Path(__file__).with_name("face_check_worker.py")
+WORKER_TIMEOUT_S = 120
 
 
 class FaceCheckUnavailable(RuntimeError):
@@ -119,22 +125,49 @@ def find_faces(image_path: str) -> Dict[str, object]:
     "height"}`` in the photo's own pixels. Raises FaceCheckUnavailable when the
     weights are not installed.
     """
-    import torch
-    from PIL import Image, ImageOps
+    try:
+        detector = _load_detector()
+    except ImportError:
+        boxes, width, height = _detect_in_comfyui(image_path)
+    else:
+        import torch
+        from PIL import Image, ImageOps
 
-    detector = _load_detector()
-    with Image.open(image_path) as opened:
-        image = ImageOps.exif_transpose(opened)
-        image.load()
-    width, height = image.size
-    with torch.no_grad():
-        boxes = detector.detect_faces(_bgr(image), NODE_THRESHOLD)
+        with Image.open(image_path) as opened:
+            image = ImageOps.exif_transpose(opened)
+            image.load()
+        width, height = image.size
+        with torch.no_grad():
+            boxes = detector.detect_faces(_bgr(image), NODE_THRESHOLD)
     faces = []
     for row in boxes:
         x0, y0, x1, y1, score = (float(v) for v in row[:5])
         faces.append({"box": [round(x0), round(y0), round(x1), round(y1)], "score": round(score, 3)})
     faces.sort(key=lambda f: (f["box"][2] - f["box"][0]) * (f["box"][3] - f["box"][1]), reverse=True)
     return {"count": len(faces), "faces": faces, "width": width, "height": height}
+
+
+def _detect_in_comfyui(image_path: str):
+    """find_faces's detection, run in ComfyUI's Python: (boxes, width, height)."""
+    from backend.services.comfyui_update_service import comfyui_python
+    job = {"weights": str(detector_path()), "image": os.path.abspath(image_path), "threshold": NODE_THRESHOLD}
+    try:
+        done = subprocess.run(
+            [str(comfyui_python()), "-I", str(_WORKER)], input=json.dumps(job),
+            capture_output=True, text=True, timeout=WORKER_TIMEOUT_S, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise FaceCheckUnavailable(f"The face check could not run in ComfyUI's environment: {e}")
+    if done.returncode != 0:
+        logger.warning("face check in ComfyUI's environment failed: %s", done.stderr.strip()[-500:])
+        raise FaceCheckUnavailable(
+            "The face check needs facexlib, which is installed neither in the backend's environment nor in "
+            "ComfyUI's. Reinstall the PuLID-FLUX pack from Manage Image Models.")
+    try:
+        found = json.loads(done.stdout)
+        return found["boxes"], found["width"], found["height"]
+    except (ValueError, KeyError):
+        raise FaceCheckUnavailable(f"The face check gave an unreadable answer: {done.stdout[-200:]}")
 
 
 def batch_references(paths: List[str], out_dir: str) -> List[str]:
