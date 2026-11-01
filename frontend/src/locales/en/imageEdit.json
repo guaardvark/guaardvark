@@ -154,7 +154,9 @@
     "no_face": "No face in the result to compare",
     "no_reference_face": "Not measured: no face found in your photos",
     "help": "Measured after the render with the face-recognition model PuLID uses: the face in the result against the photos. Where the face took, renders scored 0.56 to 0.78; a different person 0.2 or less.",
-    "onMany": "This face went onto {{count}} people. To put it on one of them, turn on “With other people”."
+    "onMany": "This face went onto {{count}} people. To put it on one of them, turn on “With other people”.",
+    "retryPulid": "Try again with PuLID",
+    "retryPulidHelp": "Kontext changed the face. PuLID draws a new picture around the face in your photos: in the detective portrait test it kept the face in 9 of 9, Kontext in 1."
   },
   "identityEngine": {
     "pulid": "New picture (PuLID)",

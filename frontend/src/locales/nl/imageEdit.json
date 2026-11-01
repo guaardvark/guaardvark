@@ -154,7 +154,9 @@
     "no_face": "Geen gezicht in het resultaat om te vergelijken",
     "no_reference_face": "Niet gemeten: geen gezicht gevonden in je foto's",
     "help": "Na het renderen gemeten met het gezichtsherkenningsmodel dat PuLID gebruikt: het gezicht in het resultaat vergeleken met de foto's. Waar het gezicht overkwam, scoorden renders 0.56 tot 0.78; een ander persoon 0.2 of lager.",
-    "onMany": "Dit gezicht kwam op {{count}} mensen terecht. Zet „Met andere mensen” aan om het op één van hen te zetten."
+    "onMany": "Dit gezicht kwam op {{count}} mensen terecht. Zet „Met andere mensen” aan om het op één van hen te zetten.",
+    "retryPulid": "Opnieuw proberen met PuLID",
+    "retryPulidHelp": "Kontext heeft het gezicht veranderd. PuLID tekent een nieuw beeld rond het gezicht uit je foto's: in de test met detectiveportretten bleef het gezicht in 9 van 9 behouden, bij Kontext in 1."
   },
   "identityEngine": {
     "pulid": "Nieuw beeld (PuLID)",
