@@ -261,8 +261,9 @@
     "components": {
       "xvfb": "Xvfb (виртуальный X-сервер)",
       "x11vnc": "x11vnc (VNC-мост)",
-      "openbox": "Openbox (менеджер окон)",
-      "taskbar": "Tint2 (панель задач)",
+      "xfce": "XFCE (сессия рабочего стола)",
+      "dbus": "D-Bus (сессионная шина)",
+      "lsof": "lsof (очистка портов)",
       "xdotool": "xdotool (синтез ввода)",
       "scrot": "scrot (запасной захват экрана)",
       "browser": "Браузер (Firefox / Chromium)",

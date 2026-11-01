@@ -31230,13 +31230,17 @@
       "en": "806a68123281",
       "out": "10ef58124532"
     },
-    "agentDisplay.components.openbox": {
-      "en": "42cddfc5d1c5",
-      "out": "b0f8a91c4551"
+    "agentDisplay.components.xfce": {
+      "en": "b3e14a976fc3",
+      "out": "d6ca7a94a413"
     },
-    "agentDisplay.components.taskbar": {
-      "en": "aad9bb714298",
-      "out": "1419070cd373"
+    "agentDisplay.components.dbus": {
+      "en": "a6324aeec4f2",
+      "out": "08985be8f288"
+    },
+    "agentDisplay.components.lsof": {
+      "en": "f62d6e9d993c",
+      "out": "128137a78f67"
     },
     "agentDisplay.components.xdotool": {
       "en": "02d86d956f4e",

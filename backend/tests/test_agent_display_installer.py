@@ -119,11 +119,29 @@ class TestInstallScriptSafety(unittest.TestCase):
         probed |= {pkg for pkg, _ in api._DISPLAY_BROWSER_CHOICES}
         self.assertEqual(probed, set(api._ALLOWED_APT_PACKAGES))
 
+    def test_probes_what_the_start_script_runs(self):
+        # start_agent_display.sh starts the desktop with `dbus-run-session -- startxfce4`
+        # and uses lsof to free the VNC port; openbox and tint2 are no longer used.
+        probed = {cmd for _, cmd in api._DISPLAY_SYSTEM_DEPS}
+        self.assertTrue({"startxfce4", "dbus-run-session", "lsof"} <= probed)
+        self.assertFalse({"openbox", "tint2"} & probed)
+
     def test_manual_command_is_runnable(self):
         self.assertEqual(
             api._manual_apt_command(["xvfb", "x11vnc"]),
             "sudo apt-get update && sudo apt-get install -y xvfb x11vnc",
         )
+
+
+class TestVersionProbe(unittest.TestCase):
+
+    def test_never_runs_programs_that_ignore_the_version_flag(self):
+        # startxfce4 starts an X server when given --version.
+        for cmd in ("startxfce4", "lsof"):
+            with patch("shutil.which", return_value=f"/usr/bin/{cmd}"), \
+                 patch("subprocess.run") as run:
+                self.assertEqual(api._probe_command_version(cmd), "installed")
+                run.assert_not_called()
 
 
 class TestPrivilegeEscalationOrder(unittest.TestCase):

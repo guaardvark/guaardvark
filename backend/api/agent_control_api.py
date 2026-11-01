@@ -1477,7 +1477,7 @@ def promote_candidate_recipe(memory_id: str):
 # Agent Display dependency detector + installer
 #
 # Mirrors voice_api's install-whisper pattern for the virtual display stack:
-# Xvfb, x11vnc, openbox, tint2, xdotool, scrot, a browser, the python `mss`
+# Xvfb, x11vnc, the XFCE session, dbus, xdotool, scrot, lsof, a browser, the python `mss`
 # module, the start_agent_display.sh script, and the live :99 X socket.
 #
 # GET  /api/agent-control/display-status  → per-component {installed, version}
@@ -1489,10 +1489,11 @@ def promote_candidate_recipe(memory_id: str):
 _DISPLAY_SYSTEM_DEPS = [
     ("xvfb", "Xvfb"),
     ("x11vnc", "x11vnc"),
-    ("openbox", "openbox"),
-    ("tint2", "tint2"),
+    ("xfce4-session", "startxfce4"),
+    ("dbus-daemon", "dbus-run-session"),
     ("xdotool", "xdotool"),
     ("scrot", "scrot"),
+    ("lsof", "lsof"),
 ]
 # Browsers — the script auto-picks whichever is present, so any one is fine.
 _DISPLAY_BROWSER_CHOICES = [
@@ -1503,12 +1504,19 @@ _DISPLAY_BROWSER_CHOICES = [
 ]
 
 
+# Not run just to read a version: startxfce4 ignores --version and starts an X server,
+# lsof has no --version and answers with an error message.
+_NO_VERSION_PROBE = frozenset({"startxfce4", "lsof"})
+
+
 def _probe_command_version(cmd: str) -> str | None:
     """Best-effort version string. Quick-and-quiet — falls back to None."""
     import shutil
     import subprocess
     if not shutil.which(cmd):
         return None
+    if cmd in _NO_VERSION_PROBE:
+        return "installed"
     for flag in ("--version", "-version", "-v"):
         try:
             r = subprocess.run(
@@ -1866,7 +1874,7 @@ def _run_display_script(action: str, timeout: int = 60) -> dict:
 @agent_control_bp.route("/start-display", methods=["POST"])
 def start_display():
     """Bring the agent display up. Idempotent — the start script returns
-    fast if Xvfb / openbox / x11vnc are already running.
+    fast if Xvfb / the XFCE session / x11vnc are already running.
 
     Returns 200 on success with a `display_running` flag, 500 on script
     failure with stderr_tail for debugging.

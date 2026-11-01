@@ -259,8 +259,9 @@
     "components": {
       "xvfb": "Xvfb (가상 X 서버)",
       "x11vnc": "x11vnc (VNC 브리지)",
-      "openbox": "Openbox (윈도우 매니저)",
-      "taskbar": "Tint2 (작업 표시줄)",
+      "xfce": "XFCE (데스크톱 세션)",
+      "dbus": "D-Bus (세션 버스)",
+      "lsof": "lsof (포트 정리)",
       "xdotool": "xdotool (입력 합성)",
       "scrot": "scrot (화면 캡처 대체)",
       "browser": "브라우저 (Firefox / Chromium)",

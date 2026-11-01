@@ -31610,13 +31610,17 @@
       "en": "806a68123281",
       "out": "e3bc0cadd337"
     },
-    "agentDisplay.components.openbox": {
-      "en": "42cddfc5d1c5",
-      "out": "090759b7e9a2"
+    "agentDisplay.components.xfce": {
+      "en": "b3e14a976fc3",
+      "out": "0fceb872aaaa"
     },
-    "agentDisplay.components.taskbar": {
-      "en": "aad9bb714298",
-      "out": "05f20c49ea4d"
+    "agentDisplay.components.dbus": {
+      "en": "a6324aeec4f2",
+      "out": "9a6810e530d2"
+    },
+    "agentDisplay.components.lsof": {
+      "en": "f62d6e9d993c",
+      "out": "4f2341e3046b"
     },
     "agentDisplay.components.xdotool": {
       "en": "02d86d956f4e",

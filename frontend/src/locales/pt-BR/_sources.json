@@ -31609,13 +31609,17 @@
       "en": "806a68123281",
       "out": "792e934ab066"
     },
-    "agentDisplay.components.openbox": {
-      "en": "42cddfc5d1c5",
-      "out": "967483fb3224"
+    "agentDisplay.components.xfce": {
+      "en": "b3e14a976fc3",
+      "out": "dea6bff17d61"
     },
-    "agentDisplay.components.taskbar": {
-      "en": "aad9bb714298",
-      "out": "34c16c8bdd24"
+    "agentDisplay.components.dbus": {
+      "en": "a6324aeec4f2",
+      "out": "45279005fba6"
+    },
+    "agentDisplay.components.lsof": {
+      "en": "f62d6e9d993c",
+      "out": "da9a0b3ba302"
     },
     "agentDisplay.components.xdotool": {
       "en": "02d86d956f4e",

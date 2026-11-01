@@ -261,8 +261,9 @@
     "components": {
       "xvfb": "Xvfb (wirtualny serwer X)",
       "x11vnc": "x11vnc (mostek VNC)",
-      "openbox": "Openbox (menedżer okien)",
-      "taskbar": "Tint2 (pasek zadań)",
+      "xfce": "XFCE (sesja desktopowa)",
+      "dbus": "D-Bus (bus sesyjny)",
+      "lsof": "lsof (czyszczenie portów)",
       "xdotool": "xdotool (synteza wejścia)",
       "scrot": "scrot (zapasowe przechwytywanie ekranu)",
       "browser": "Przeglądarka (Firefox / Chromium)",

@@ -29878,13 +29878,17 @@
       "en": "806a68123281",
       "out": "52975fb9627a"
     },
-    "agentDisplay.components.openbox": {
-      "en": "42cddfc5d1c5",
-      "out": "2b04c1c67e78"
+    "agentDisplay.components.xfce": {
+      "en": "b3e14a976fc3",
+      "out": "17d42d975625"
     },
-    "agentDisplay.components.taskbar": {
-      "en": "aad9bb714298",
-      "out": "8a59d1577318"
+    "agentDisplay.components.dbus": {
+      "en": "a6324aeec4f2",
+      "out": "6545914d34e1"
+    },
+    "agentDisplay.components.lsof": {
+      "en": "f62d6e9d993c",
+      "out": "0692c03cf8ae"
     },
     "agentDisplay.components.xdotool": {
       "en": "02d86d956f4e",
