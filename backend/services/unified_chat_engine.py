@@ -384,18 +384,16 @@ def set_approval_response(
 APPROVAL_TIMEOUT_S = 300
 
 
-def pending_approval_cards() -> List[Dict[str, Any]]:
-    """The chat:tool_approval_request payloads still waiting for an answer.
+def pending_approval_cards(session_id: str) -> List[Dict[str, Any]]:
+    """The chat:tool_approval_request payload still waiting in this session, if any.
 
     The socket sends a card once, so a client that was away reads it here and
-    answers with chat:tool_approval_response as usual.
+    answers with chat:tool_approval_response as usual. Only the asking session's
+    card: a card carries the tool's arguments and the id that approves it.
     """
     with _approval_lock:
-        return [
-            dict(meta["card"])
-            for meta in _approval_batch_meta.values()
-            if meta.get("pending") and meta.get("card")
-        ]
+        meta = _approval_batch_meta.get(session_id) or {}
+        return [dict(meta["card"])] if meta.get("pending") and meta.get("card") else []
 
 # Chat templates that accept a system message only as the first message (the
 # Qwen3.5 Jinja template raises this). The engine adds system lines later in a

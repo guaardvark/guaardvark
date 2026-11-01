@@ -283,7 +283,10 @@ def consent():
 def _int(value, default=None, *, low=None, high=None):
     if value in (None, ""):
         return default
-    number = int(float(value))
+    try:
+        number = int(float(value))
+    except OverflowError:
+        raise ValueError(f"{value!r} is not a finite number")
     if low is not None:
         number = max(low, number)
     if high is not None:

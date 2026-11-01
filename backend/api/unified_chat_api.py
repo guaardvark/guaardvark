@@ -41,13 +41,16 @@ def chat_config():
 @chat_config_bp.route("/pending-approvals", methods=["GET"])
 def pending_approvals():
     """
-    GET /api/chat/pending-approvals
-    Returns { pending: [card, ...] }: the tool approval cards still waiting, for a
-    client that missed chat:tool_approval_request while it was disconnected.
+    GET /api/chat/pending-approvals?session_id=<id>
+    Returns { pending: [card] }: the session's tool approval card still waiting,
+    for a client that missed chat:tool_approval_request while it was disconnected.
     """
     from backend.services.unified_chat_engine import pending_approval_cards
 
-    return jsonify({"pending": pending_approval_cards()})
+    session_id = (request.args.get("session_id") or "").strip()
+    if not session_id:
+        return jsonify({"error": "session_id is required"}), 400
+    return jsonify({"pending": pending_approval_cards(session_id)})
 
 # Per-session in-flight chat threads. Without this, a stuck Ollama vision call
 # would let retries pile up forever — every retry spawned a fresh thread that
