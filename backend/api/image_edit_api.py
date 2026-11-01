@@ -58,9 +58,11 @@ EDIT_ENGINES = (
     ("moss-image-edit", "moss-image-edit"),
 )
 # PuLID-FLUX canvases. Measured 2026-10-31 on a 16 GB card (fp8, 20 steps, the
-# pack's weight and start): 1360x768 (Video Gen's 16:9) 44 s and 14.8 GB peak,
-# 1920x1088 60 s and 15.1 GB, 1088x1920 62 s and 15.1 GB, with the face held at
-# each; 768x1024 is the 2026-09-19 default.
+# pack's weight and start, one render each, seed 1984): 1360x768 (Video Gen's
+# 16:9) 44 s, 14.8 GB peak, likeness 0.70; 1920x1088 60 s, 15.1 GB, 0.72;
+# 1088x1920 62 s, 15.1 GB, 0.44, where FLUX added glasses the photo does not
+# have (likeness_score bands: 0.55 and up strong). 768x1024 is the 2026-09-19
+# default.
 IDENTITY_SIZES = {
     "portrait": (768, 1024),
     "square": (1024, 1024),
