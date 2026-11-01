@@ -155,5 +155,11 @@
     "no_reference_face": "Não medida: nenhum rosto encontrado nas suas fotos",
     "help": "Medida depois da geração com o modelo de reconhecimento facial que o PuLID usa: o rosto no resultado comparado às fotos. Onde o rosto foi aplicado, as imagens marcaram de 0.56 a 0.78; uma pessoa diferente, 0.2 ou menos.",
     "onMany": "Este rosto foi parar em {{count}} pessoas. Para colocá-lo em só uma delas, ative \"Com outras pessoas\"."
+  },
+  "identityEngine": {
+    "pulid": "Nova imagem (PuLID)",
+    "kontext": "Reencenar a foto (Kontext)",
+    "pulidHelp": "Desenha uma nova imagem ao redor do rosto. Melhor para fantasias e personagens: manteve o rosto em 9 de 9 retratos de detetive.",
+    "kontextHelp": "Transforma sua foto na nova cena. Melhor para colocar a pessoa em outro lugar ou ao lado de outras pessoas (manteve o rosto em 18 de 18); transformada em personagem, manteve o rosto só em 1 de 9. Usa a primeira foto; descreva qualquer outra pessoa na cena."
   }
 }

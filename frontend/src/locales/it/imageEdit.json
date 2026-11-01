@@ -155,5 +155,11 @@
     "no_reference_face": "Non misurata: nessun volto trovato nelle tue foto",
     "help": "Misurata dopo il rendering con il modello di riconoscimento facciale usato da PuLID: il volto nel risultato confrontato con le foto. Dove il volto ha preso, i rendering hanno ottenuto da 0.56 a 0.78; una persona diversa 0.2 o meno.",
     "onMany": "Questo volto è finito su {{count}} persone. Per metterlo su una sola, attiva «Con altre persone»."
+  },
+  "identityEngine": {
+    "pulid": "Nuova immagine (PuLID)",
+    "kontext": "Rimettere in scena la foto (Kontext)",
+    "pulidHelp": "Disegna una nuova immagine attorno al volto. Ideale per costumi e personaggi: ha mantenuto il volto in 9 ritratti da detective su 9.",
+    "kontextHelp": "Trasforma la tua foto nella nuova scena. Ideale per portare la persona in un posto nuovo o accanto ad altre persone (volto mantenuto in 18 casi su 18); trasformata in un personaggio, il volto è rimasto solo in 1 su 9. Usa la prima foto; descrivi le altre persone nella scena."
   }
 }

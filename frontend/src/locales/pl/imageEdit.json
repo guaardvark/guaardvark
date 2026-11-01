@@ -155,5 +155,11 @@
     "no_reference_face": "Nie zmierzono: na zdjęciach nie znaleziono twarzy",
     "help": "Mierzone po wygenerowaniu modelem rozpoznawania twarzy, którego używa PuLID: twarz w wyniku w porównaniu ze zdjęciami. Gdy twarz się przeniosła, obrazy uzyskiwały od 0.56 do 0.78; inna osoba 0.2 lub mniej.",
     "onMany": "Ta twarz trafiła do kilku osób ({{count}}). Aby nadać ją tylko jednej z nich, włącz „Z innymi osobami”."
+  },
+  "identityEngine": {
+    "pulid": "Nowy obraz (PuLID)",
+    "kontext": "Nowa scena ze zdjęcia (Kontext)",
+    "pulidHelp": "Rysuje nowy obraz wokół twarzy. Najlepsze do kostiumów i postaci: zachowało twarz w 9 z 9 portretów detektywa.",
+    "kontextHelp": "Zmienia twoje zdjęcie w nową scenę. Najlepsze, by umieścić osobę w nowym miejscu lub obok innych ludzi (twarz zachowana w 18 z 18); zmieniona w postać zachowała twarz tylko w 1 z 9. Używa pierwszego zdjęcia; opisz inne osoby w scenie."
   }
 }

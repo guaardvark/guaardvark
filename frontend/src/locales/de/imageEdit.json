@@ -155,5 +155,11 @@
     "no_reference_face": "Nicht gemessen: in deinen Fotos wurde kein Gesicht gefunden",
     "help": "Nach dem Rendern mit dem Gesichtserkennungsmodell gemessen, das PuLID verwendet: das Gesicht im Ergebnis im Vergleich zu den Fotos. Wo das Gesicht übernommen wurde, lagen die Werte bei 0.56 bis 0.78; bei einer anderen Person bei 0.2 oder darunter.",
     "onMany": "Dieses Gesicht ist bei {{count}} Personen gelandet. Um es nur einer davon zu geben, schalte „Mit anderen Personen“ ein."
+  },
+  "identityEngine": {
+    "pulid": "Neues Bild (PuLID)",
+    "kontext": "Foto neu inszenieren (Kontext)",
+    "pulidHelp": "Malt ein neues Bild um das Gesicht. Am besten für Kostüme und Rollen: Es behielt das Gesicht in 9 von 9 Detektivporträts.",
+    "kontextHelp": "Verwandelt dein Foto in die neue Szene. Am besten, um die Person an einen neuen Ort oder neben andere Menschen zu stellen (das Gesicht blieb in 18 von 18 erhalten); als Rolle verkleidet blieb es nur in 1 von 9. Nutzt das erste Foto; beschreibe weitere Personen in der Szene."
   }
 }

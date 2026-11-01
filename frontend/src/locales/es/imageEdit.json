@@ -155,5 +155,11 @@
     "no_reference_face": "Sin medir: no se encontró ninguna cara en tus fotos",
     "help": "Medido después de generar la imagen con el modelo de reconocimiento facial que usa PuLID: la cara del resultado frente a las fotos. Donde la cara se aplicó, las imágenes puntuaron entre 0.56 y 0.78; una persona distinta, 0.2 o menos.",
     "onMany": "Esta cara acabó en {{count}} personas. Para ponerla en una sola, activa «Con otras personas»."
+  },
+  "identityEngine": {
+    "pulid": "Imagen nueva (PuLID)",
+    "kontext": "Reescenificar la foto (Kontext)",
+    "pulidHelp": "Dibuja una imagen nueva alrededor de la cara. Lo mejor para disfraces y personajes: mantuvo la cara en 9 de 9 retratos de detective.",
+    "kontextHelp": "Convierte tu foto en la nueva escena. Lo mejor para llevar a la persona a otro lugar o junto a otras personas (mantuvo la cara en 18 de 18); convertida en un personaje, solo la mantuvo en 1 de 9. Usa la primera foto; describe a cualquier otra persona en la escena."
   }
 }

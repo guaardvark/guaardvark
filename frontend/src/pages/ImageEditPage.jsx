@@ -348,6 +348,8 @@ const ImageEditPage = () => {
   const [pad, setPad] = useState(EXPAND_PRESETS.presetAll);
   // "With other people": the scene first, then the faces placed on the ones chosen.
   const [withOthers, setWithOthers] = useState(false);
+  // "pulid" draws a new picture around the face; "kontext" restages the photo itself.
+  const [identityEngine, setIdentityEngine] = useState("pulid");
   const [person2, setPerson2] = useState([]);
   const [scene, setScene] = useState(null);
   const [assign, setAssign] = useState({ person1: null, person2: null });
@@ -368,6 +370,8 @@ const ImageEditPage = () => {
       setCapsError(null);
       const defaults = res.data?.modes?.identity?.defaults;
       if (defaults?.weight) setStrength(Number(defaults.weight));
+      const identityEngines = res.data?.modes?.identity?.engines;
+      if (identityEngines && !identityEngines.pulid && identityEngines.kontext) setIdentityEngine("kontext");
     } catch (err) {
       setCapsError(err.message);
     }
@@ -381,14 +385,15 @@ const ImageEditPage = () => {
   const identityCaps = caps?.modes?.identity || {};
   const editCaps = caps?.modes?.edit || {};
   const faceMode = mode === "identity";
+  const restage = faceMode && identityEngine === "kontext";
   const maxExtras = mode === "identity"
-    ? Math.max(0, (identityCaps.max_references || 3) - 1)
+    ? (restage ? 0 : Math.max(0, (identityCaps.max_references || 3) - 1))
     : mode === "edit" && (engine === "auto" || engine === "qwen-image-edit")
       ? Math.max(0, (editCaps.max_references || 1) - 1)
       : 0;
   const modeExtras = (extras[mode] || []).slice(0, maxExtras);
   const photos = [primary, ...modeExtras].filter(Boolean);
-  const secondPhotos = faceMode && withOthers ? person2 : [];
+  const secondPhotos = faceMode && withOthers && !restage ? person2 : [];
   const facePhotos = faceMode ? [...photos, ...secondPhotos] : [];
 
   // Face photos need a face check; run it for a photo added under another mode.
@@ -582,8 +587,10 @@ const ImageEditPage = () => {
     setError(null);
     const runSeed = overrideSeed ?? (newSeedEachRun ? randomSeed() : seed);
     if (mode === "identity") setSeed(runSeed);
-    const others = mode === "identity" && withOthers;
-    const settings = mode === "identity"
+    const others = mode === "identity" && withOthers && !restage;
+    const settings = restage
+      ? { engine: "kontext", seed: runSeed }
+      : mode === "identity"
       ? { size, weight: strength, seed: runSeed, ...(others ? { others: true } : {}) }
       : mode === "edit"
         ? { engine, steps: editSteps || undefined }
@@ -733,7 +740,7 @@ const ImageEditPage = () => {
                 {mode === "identity" ? t("imageEdit.photos.faces")
                   : mode === "edit" ? t("imageEdit.photos.editSource") : t("imageEdit.photos.source")}
               </Typography>
-              {mode === "identity" && (
+              {mode === "identity" && !restage && (
                 <Typography variant="caption" color="text.secondary">{t("imageEdit.photos.facesHelp")}</Typography>
               )}
               <Grid container spacing={1}>
@@ -747,6 +754,31 @@ const ImageEditPage = () => {
                 </Typography>
               )}
               {mode === "identity" && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
+                  <ToggleButtonGroup
+                    exclusive
+                    size="small"
+                    value={identityEngine}
+                    onChange={(_e, value) => {
+                      if (!value) return;
+                      setIdentityEngine(value);
+                      setScene(null);
+                    }}
+                  >
+                    <ToggleButton value="pulid" disabled={identityCaps.engines ? !identityCaps.engines.pulid : false}
+                      sx={{ textTransform: "none" }}>
+                      {t("imageEdit.identityEngine.pulid")}
+                    </ToggleButton>
+                    <ToggleButton value="kontext" disabled={!identityCaps.engines?.kontext} sx={{ textTransform: "none" }}>
+                      {t("imageEdit.identityEngine.kontext")}
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                  <Typography variant="caption" color="text.secondary">
+                    {restage ? t("imageEdit.identityEngine.kontextHelp") : t("imageEdit.identityEngine.pulidHelp")}
+                  </Typography>
+                </Box>
+              )}
+              {mode === "identity" && !restage && (
                 <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
                   <ToggleButtonGroup
                     exclusive
@@ -768,7 +800,7 @@ const ImageEditPage = () => {
               )}
             </Paper>
 
-            {mode === "identity" && withOthers && (
+            {mode === "identity" && withOthers && !restage && (
               <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
                 <Typography variant="subtitle2">{t("imageEdit.people.second")}</Typography>
                 <Typography variant="caption" color="text.secondary">{t("imageEdit.people.secondHelp")}</Typography>
@@ -832,28 +864,32 @@ const ImageEditPage = () => {
                 <Typography variant="subtitle2">{t("imageEdit.settings.title")}</Typography>
                 {mode === "identity" && (
                   <>
-                    <FormControl size="small" fullWidth>
-                      <InputLabel>{t("imageEdit.settings.size")}</InputLabel>
-                      <Select value={size} label={t("imageEdit.settings.size")} onChange={(e) => setSize(e.target.value)}>
-                        {SIZES.map((key) => (
-                          <MenuItem key={key} value={key}>{t(`imageEdit.settings.sizes.${key}`)}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                    <Box>
-                      <Typography variant="body2" gutterBottom>
-                        {t("imageEdit.settings.strength")}: {strength.toFixed(2)}
-                      </Typography>
-                      <Slider
-                        value={strength}
-                        min={0.8}
-                        max={1.2}
-                        step={0.05}
-                        marks={[{ value: 0.8, label: "0.8" }, { value: 1.0, label: "1.0" }, { value: 1.2, label: "1.2" }]}
-                        onChange={(_e, value) => setStrength(Number(value))}
-                      />
-                      <Typography variant="caption" color="text.secondary">{t("imageEdit.settings.strengthHelp")}</Typography>
-                    </Box>
+                    {!restage && (
+                      <FormControl size="small" fullWidth>
+                        <InputLabel>{t("imageEdit.settings.size")}</InputLabel>
+                        <Select value={size} label={t("imageEdit.settings.size")} onChange={(e) => setSize(e.target.value)}>
+                          {SIZES.map((key) => (
+                            <MenuItem key={key} value={key}>{t(`imageEdit.settings.sizes.${key}`)}</MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    )}
+                    {!restage && (
+                      <Box>
+                        <Typography variant="body2" gutterBottom>
+                          {t("imageEdit.settings.strength")}: {strength.toFixed(2)}
+                        </Typography>
+                        <Slider
+                          value={strength}
+                          min={0.8}
+                          max={1.2}
+                          step={0.05}
+                          marks={[{ value: 0.8, label: "0.8" }, { value: 1.0, label: "1.0" }, { value: 1.2, label: "1.2" }]}
+                          onChange={(_e, value) => setStrength(Number(value))}
+                        />
+                        <Typography variant="caption" color="text.secondary">{t("imageEdit.settings.strengthHelp")}</Typography>
+                      </Box>
+                    )}
                     <Stack direction="row" spacing={2} alignItems="center">
                       <TextField
                         size="small"
@@ -936,7 +972,7 @@ const ImageEditPage = () => {
                   disabled={Boolean(blocker) || running || !caps}
                   onClick={() => run()}
                 >
-                  {mode === "identity" && withOthers ? t("imageEdit.run.identityScene") : t(`imageEdit.run.${mode}`)}
+                  {mode === "identity" && withOthers && !restage ? t("imageEdit.run.identityScene") : t(`imageEdit.run.${mode}`)}
                 </Button>
               </span>
             </Tooltip>
