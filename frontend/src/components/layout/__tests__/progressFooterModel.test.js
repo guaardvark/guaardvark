@@ -128,6 +128,13 @@ describe("fallback entries", () => {
     const entries = buildFooterEntries([fallback], [videoJob()]);
     expect(entries.map((e) => e.key)).toEqual(["video_gen:VideoBatch_1"]);
   });
+
+  it("keeps it beside unrelated work, where it is the only sign of its job", () => {
+    const indexing = { job_id: "indexing_1", processType: "indexing", status: "processing", progress: 10,
+      message: "Indexing notes", timestamp: 200 };
+    const entries = buildFooterEntries([fallback, indexing], []);
+    expect(entries.map((e) => e.key).sort()).toEqual(["image_generation_ab12cd34ef", "indexing_1"]);
+  });
 });
 
 describe("activeVideoJobs", () => {

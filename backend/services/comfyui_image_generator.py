@@ -1642,7 +1642,7 @@ class ComfyUIImageGenerator:
                 outputs = self._wait(prompt_id, timeout=timeout, should_stop=should_stop)
             finally:
                 if bridge is not None:
-                    bridge.stop()
+                    bridge.stop(wait=True)
             if outputs is None:
                 raise RuntimeError(_failure(K.RENDER_TIMEOUT, f"ComfyUI image job timed out (prompt {prompt_id})"))
             result = self._fetch_first_image(outputs, output_path)

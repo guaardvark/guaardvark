@@ -39,22 +39,26 @@ def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
 
 # Open processes by the thread that opened them, across every UnifiedProgressSystem
 # instance (the image batch keeps its own): footer_jobs asks whether a unit of
-# work already shows in the footer before it opens another entry for it.
-_open_by_thread: Dict[int, Set[str]] = {}
+# work already shows in the footer before it opens another entry for it. Keyed
+# by the Thread object, not its ident: the OS reuses idents, and a process left
+# open by a finished thread must not make a later thread look like it has one.
+_open_by_thread: Dict[threading.Thread, Set[str]] = {}
 _open_lock = threading.Lock()
 
 
 def _note_open(process_id: str) -> None:
     with _open_lock:
-        _open_by_thread.setdefault(threading.get_ident(), set()).add(process_id)
+        for thread in [t for t in _open_by_thread if not t.is_alive()]:
+            del _open_by_thread[thread]
+        _open_by_thread.setdefault(threading.current_thread(), set()).add(process_id)
 
 
 def _note_closed(process_id: str) -> None:
     with _open_lock:
-        for ident in list(_open_by_thread):
-            _open_by_thread[ident].discard(process_id)
-            if not _open_by_thread[ident]:
-                del _open_by_thread[ident]
+        for thread in list(_open_by_thread):
+            _open_by_thread[thread].discard(process_id)
+            if not _open_by_thread[thread]:
+                del _open_by_thread[thread]
 
 
 class ProcessStatus(Enum):
@@ -418,7 +422,7 @@ class UnifiedProgressSystem:
     def has_open_process_on_this_thread(self) -> bool:
         """True while a process this thread opened, in any instance, has not finished."""
         with _open_lock:
-            return bool(_open_by_thread.get(threading.get_ident()))
+            return bool(_open_by_thread.get(threading.current_thread()))
 
     def complete_process(
         self,

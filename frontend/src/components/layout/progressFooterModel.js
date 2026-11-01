@@ -182,10 +182,15 @@ function foldIndexingEntries(entries) {
   return [...rest, folded];
 }
 
+// Footer types that name the same kind of work: a video batch reports as video_gen,
+// its GPU claim's fallback as video_render.
+const WORK_KINDS = { video_gen: "video", video_render: "video" };
+const workKind = (type) => WORK_KINDS[type] || type;
+
 /**
  * One entry per job in flight, running ones first. A clip's video_render steps
  * fold into their batch, matched by batch_id or by the batch's current item.
- * Fallback entries (GPU work with no report of its own) show only when nothing else does.
+ * Fallback entries (GPU work with no report of its own) show unless an entry of the same kind of work does.
  * @param {Iterable<object>} processes  activeProcesses values
  * @param {Array<object>} videoJobs     activeVideoJobs(...)
  * @returns {Array<object>} {key, type, name, waiting, waitKind, text, progress, itemCount, timestamp}
@@ -217,10 +222,13 @@ export function buildFooterEntries(processes, videoJobs) {
     }
     entries.push(processEntry(p));
   }
-  // A fallback entry stands in for GPU work that reports nothing else; while any
-  // other entry shows, it would be the same work listed twice.
-  const reported = entries.filter((e) => !e.fallback);
-  return foldIndexingEntries(reported.length ? reported : entries).sort(
+  // A fallback entry stands in for GPU work that reports nothing else. While an
+  // entry of the same kind of work shows (a video batch's own job beside the
+  // fallback its GPU claim opened), it would be that work listed twice; beside
+  // unrelated work it is the only sign of its job, so it stays.
+  const reportedKinds = new Set(entries.filter((e) => !e.fallback).map((e) => workKind(e.type)));
+  const shown = entries.filter((e) => !e.fallback || !reportedKinds.has(workKind(e.type)));
+  return foldIndexingEntries(shown).sort(
     (a, b) => Number(a.waiting) - Number(b.waiting) || rank(a.type) - rank(b.type) || b.timestamp - a.timestamp,
   );
 }
