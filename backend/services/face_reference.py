@@ -18,6 +18,10 @@ The node batches several references and averages their identity embeddings.
 ComfyUI's batch node resizes every picture to the first one's size, which would
 squash a face that arrived in another shape, so ``batch_references`` letterboxes
 them onto one square canvas first.
+
+A photo of several people is cut down to its largest face (``crop_to_face``):
+the node keeps the largest face for one half of the identity and the most
+central for the other, and in a group photo those can be two people.
 """
 
 from __future__ import annotations
@@ -39,8 +43,13 @@ NODE_THRESHOLD = 0.97
 # 512 px and InsightFace detects at 640 px at most, so a larger photo adds time
 # and no detail.
 MAX_SIDE = 1024
-# The most references one identity render takes; Dean's own test case had three.
+# The most references one identity render takes.
 MAX_REFERENCES = 3
+# A photo with several faces is cut to a square this many face-widths across,
+# centred on the face it keeps, and scaled up to at least CROP_MIN_SIDE so the
+# node's detectors still find a small face.
+CROP_FACE_WIDTHS = 2.5
+CROP_MIN_SIDE = 512
 
 _lock = threading.Lock()
 _detector = None
@@ -154,6 +163,35 @@ def batch_references(paths: List[str], out_dir: str) -> List[str]:
         canvas.save(target)
         out.append(target)
     return out
+
+
+def crop_to_face(path: str, box, out_dir: str) -> str:
+    """The photo cut down to one face, which sits at the centre of a square.
+
+    ApplyPulidFlux reads a reference twice: InsightFace keeps the largest face
+    for the identity embedding, facexlib the face nearest the centre for the
+    EVA-CLIP features. In a photo of several people those can be two people,
+    and the likeness mixes them. Centred on the face find_faces ranked largest,
+    with grey where the photo ends, it is both. ``box`` is in the photo's own
+    (EXIF-upright) pixels, as find_faces reports it.
+    """
+    from PIL import Image, ImageOps
+
+    with Image.open(path) as opened:
+        image = ImageOps.exif_transpose(opened).convert("RGB")
+    x0, y0, x1, y1 = (float(v) for v in box)
+    side = max(1, int(round(CROP_FACE_WIDTHS * max(x1 - x0, y1 - y0))))
+    left = int(round((x0 + x1) / 2 - side / 2))
+    top = int(round((y0 + y1) / 2 - side / 2))
+    canvas = Image.new("RGB", (side, side), (127, 127, 127))
+    region = image.crop((max(0, left), max(0, top), min(image.width, left + side), min(image.height, top + side)))
+    canvas.paste(region, (max(0, -left), max(0, -top)))
+    if side < CROP_MIN_SIDE:
+        canvas = canvas.resize((CROP_MIN_SIDE, CROP_MIN_SIDE), Image.LANCZOS)
+    os.makedirs(out_dir, exist_ok=True)
+    target = os.path.join(out_dir, f"identity_face_{uuid.uuid4().hex[:12]}.png")
+    canvas.save(target)
+    return target
 
 
 def face_mask(box, width: int, height: int, out_dir: str) -> str:

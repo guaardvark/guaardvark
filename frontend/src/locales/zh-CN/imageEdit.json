@@ -17,7 +17,7 @@
   "capabilitiesFailed": "无法读取本机器可编辑的内容：{{message}}",
   "photos": {
     "faces": "面孔照片",
-    "facesHelp": "两到三张同一人的不同角度照片比单张照片更能保留相似度。",
+    "facesHelp": "同一人最多三张照片。PuLID 会把这些脸平均成一个相貌。",
     "source": "照片",
     "editSource": "待编辑照片",
     "references": "参考照片（可选）",
@@ -64,7 +64,7 @@
   "consent": {
     "question": "您有权使用此人的肖像吗？这是您自己的照片，或者该人已同意此项用途。",
     "confirm": "是的，我可以使用",
-    "confirmed": "肖像已确认",
+    "confirmed": "已获使用许可",
     "failed": "确认信息无法保存：{{message}}"
   },
   "prompt": {
@@ -146,5 +146,13 @@
     "seed": "种子 {{seed}}",
     "history": "近期结果",
     "clearHistory": "清除列表"
+  },
+  "likeness": {
+    "strong": "相似度 {{score}}：高",
+    "partial": "相似度 {{score}}：部分",
+    "not_taken": "相似度 {{score}}：脸没有替换上",
+    "no_face": "结果中没有可比较的脸",
+    "help": "生成后用 PuLID 所用的人脸识别模型测量：结果中的脸与照片对比。脸替换成功的图像得分为 0.56 到 0.78；不同的人为 0.2 或更低。",
+    "onMany": "这张脸出现在了 {{count}} 个人身上。要只放在其中一人身上，请打开“包含他人”。"
   }
 }

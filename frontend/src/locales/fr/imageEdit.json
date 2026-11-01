@@ -17,7 +17,7 @@
   "capabilitiesFailed": "Impossible de lire ce que cette machine peut modifier : {{message}}",
   "photos": {
     "faces": "Photos de visages",
-    "facesHelp": "Deux ou trois photos de la même personne, sous différents angles, conservent mieux la ressemblance qu'une seule.",
+    "facesHelp": "Jusqu'à trois photos de la même personne. PuLID fait la moyenne de leurs visages en une seule ressemblance.",
     "source": "Photo",
     "editSource": "Photo à modifier",
     "references": "Photos de référence (facultatif)",
@@ -64,7 +64,7 @@
   "consent": {
     "question": "Avez-vous le droit d'utiliser l'image de cette personne ? Il s'agit de votre propre photo, ou la personne a accepté cette utilisation.",
     "confirm": "Oui, je peux l'utiliser",
-    "confirmed": "Identité confirmée",
+    "confirmed": "Autorisation donnée",
     "failed": "La confirmation n'a pas pu être enregistrée : {{message}}"
   },
   "prompt": {
@@ -146,5 +146,13 @@
     "seed": "Graine {{seed}}",
     "history": "Résultats récents",
     "clearHistory": "Effacer la liste"
+  },
+  "likeness": {
+    "strong": "Ressemblance {{score}} : forte",
+    "partial": "Ressemblance {{score}} : partielle",
+    "not_taken": "Ressemblance {{score}} : le visage n'a pas pris",
+    "no_face": "Aucun visage à comparer dans le résultat",
+    "help": "Mesurée après le rendu avec le modèle de reconnaissance faciale qu'utilise PuLID : le visage du résultat comparé aux photos. Quand le visage a pris, les rendus ont obtenu de 0.56 à 0.78 ; une autre personne, 0.2 ou moins.",
+    "onMany": "Ce visage s'est retrouvé sur {{count}} personnes. Pour le mettre sur une seule, activez « Avec d'autres personnes »."
   }
 }

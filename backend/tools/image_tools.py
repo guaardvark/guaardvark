@@ -2950,6 +2950,22 @@ class GenerateIdentityTool(BaseTool):
             out.append(ref.path)
         return out
 
+    @staticmethod
+    def _likeness(output_path, photos, face_box, second_person):
+        """The render scored against each person's photos (likeness_score), or None."""
+        from backend.services import footer_jobs, likeness_score
+        people = [{"paths": photos, "box": face_box}]
+        if second_person:
+            people.append({"paths": second_person["paths"], "box": second_person["face_box"]})
+        entry = footer_jobs.current()
+        if entry is not None:
+            entry.update("Checking the likeness")
+        try:
+            return likeness_score.score_render(output_path, people)
+        except Exception:  # noqa: BLE001 - the picture is made; a missing score never fails it
+            logger.warning("likeness score failed for %s", output_path, exc_info=True)
+            return None
+
     def execute(self, prompt: str = "", consented: bool = True, image: str = "",
                 width: int = 768, height: int = 1024, steps: int = 20,
                 reference_image_2: str = "", reference_image_3: str = "", seed=None,
@@ -3062,17 +3078,21 @@ class GenerateIdentityTool(BaseTool):
                 )
             references = 1 + len(extra)
             placed = " on the chosen face" if face_box else ""
+            likeness = self._likeness(output_path, [src, *extra], face_box, second_person)
+            from backend.services.likeness_score import describe
+            measured = describe(likeness)
             return ToolResult(
                 success=True,
                 output=(
                     f"New image generated from {'the face reference' if references == 1 else f'{references} face references'}"
                     f"{placed} (PuLID-FLUX).\nImage URL: {image_url}\nPrompt: {prompt}"
+                    + (f"\n{measured}" if measured else "")
                 ),
                 metadata={
                     "image_url": image_url, "filename": filename,
                     "backend": "pulid-flux", "prompt": prompt, "references": references,
                     "seed": seed, "stage": "faces" if face_box else "single",
-                    "scene": scene or None,
+                    "scene": scene or None, "likeness": likeness,
                 },
             )
         except Exception as e:

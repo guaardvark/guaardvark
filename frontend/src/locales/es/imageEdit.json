@@ -17,7 +17,7 @@
   "capabilitiesFailed": "No se pudo leer qué puede editar esta máquina: {{message}}",
   "photos": {
     "faces": "Fotos de rostros",
-    "facesHelp": "Dos o tres fotos de la misma persona, desde diferentes ángulos, mantienen mejor el parecido que una sola.",
+    "facesHelp": "Hasta tres fotos de la misma persona. PuLID promedia sus caras en un solo parecido.",
     "source": "Foto",
     "editSource": "Foto a editar",
     "references": "Fotos de referencia (opcional)",
@@ -64,7 +64,7 @@
   "consent": {
     "question": "¿Tienes derecho a usar la imagen de esta persona? Es tu propia foto o la persona aceptó este uso.",
     "confirm": "Sí, puedo usarla",
-    "confirmed": "Imagen confirmada",
+    "confirmed": "Permiso dado",
     "failed": "No se pudo guardar la confirmación: {{message}}"
   },
   "prompt": {
@@ -146,5 +146,13 @@
     "seed": "Semilla {{seed}}",
     "history": "Resultados recientes",
     "clearHistory": "Limpiar lista"
+  },
+  "likeness": {
+    "strong": "Parecido {{score}}: fuerte",
+    "partial": "Parecido {{score}}: parcial",
+    "not_taken": "Parecido {{score}}: la cara no se aplicó",
+    "no_face": "No hay ninguna cara en el resultado para comparar",
+    "help": "Medido después de generar la imagen con el modelo de reconocimiento facial que usa PuLID: la cara del resultado frente a las fotos. Donde la cara se aplicó, las imágenes puntuaron entre 0.56 y 0.78; una persona distinta, 0.2 o menos.",
+    "onMany": "Esta cara acabó en {{count}} personas. Para ponerla en una sola, activa «Con otras personas»."
   }
 }

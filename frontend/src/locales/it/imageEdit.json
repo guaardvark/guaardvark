@@ -17,7 +17,7 @@
   "capabilitiesFailed": "Impossibile leggere cosa può modificare questa macchina: {{message}}",
   "photos": {
     "faces": "Foto volti",
-    "facesHelp": "Due o tre foto della stessa persona, da diverse angolazioni, mantengono meglio la somiglianza rispetto a una sola.",
+    "facesHelp": "Fino a tre foto della stessa persona. PuLID fa la media dei loro volti in un'unica somiglianza.",
     "source": "Foto",
     "editSource": "Foto da modificare",
     "references": "Foto di riferimento (opzionale)",
@@ -64,7 +64,7 @@
   "consent": {
     "question": "Hai il diritto di usare l'immagine di questa persona? È la tua foto o la persona ha acconsentito a questo uso.",
     "confirm": "Sì, posso usarla",
-    "confirmed": "Immagine confermata",
+    "confirmed": "Autorizzazione data",
     "failed": "La conferma non è stata salvata: {{message}}"
   },
   "prompt": {
@@ -146,5 +146,13 @@
     "seed": "Seed {{seed}}",
     "history": "Risultati recenti",
     "clearHistory": "Cancella lista"
+  },
+  "likeness": {
+    "strong": "Somiglianza {{score}}: forte",
+    "partial": "Somiglianza {{score}}: parziale",
+    "not_taken": "Somiglianza {{score}}: il volto non ha preso",
+    "no_face": "Nessun volto nel risultato da confrontare",
+    "help": "Misurata dopo il rendering con il modello di riconoscimento facciale usato da PuLID: il volto nel risultato confrontato con le foto. Dove il volto ha preso, i rendering hanno ottenuto da 0.56 a 0.78; una persona diversa 0.2 o meno.",
+    "onMany": "Questo volto è finito su {{count}} persone. Per metterlo su una sola, attiva «Con altre persone»."
   }
 }

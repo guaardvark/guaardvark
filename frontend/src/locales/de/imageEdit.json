@@ -17,7 +17,7 @@
   "capabilitiesFailed": "Konnte nicht lesen, was diese Maschine bearbeiten kann: {{message}}",
   "photos": {
     "faces": "Gesichtsfotos",
-    "facesHelp": "Zwei oder drei Fotos derselben Person aus verschiedenen Winkeln bewahren die Ähnlichkeit besser als ein einziges.",
+    "facesHelp": "Bis zu drei Fotos derselben Person. PuLID mittelt ihre Gesichter zu einem Abbild.",
     "source": "Foto",
     "editSource": "Foto zum Bearbeiten",
     "references": "Referenzfotos (optional)",
@@ -64,7 +64,7 @@
   "consent": {
     "question": "Hast du das Recht, das Abbild dieser Person zu verwenden? Es ist dein eigenes Foto oder die Person hat dieser Verwendung zugestimmt.",
     "confirm": "Ja, ich darf es verwenden",
-    "confirmed": "Abbild bestätigt",
+    "confirmed": "Erlaubnis erteilt",
     "failed": "Die Bestätigung konnte nicht gespeichert werden: {{message}}"
   },
   "prompt": {
@@ -146,5 +146,13 @@
     "seed": "Seed {{seed}}",
     "history": "Letzte Ergebnisse",
     "clearHistory": "Liste leeren"
+  },
+  "likeness": {
+    "strong": "Ähnlichkeit {{score}}: stark",
+    "partial": "Ähnlichkeit {{score}}: teilweise",
+    "not_taken": "Ähnlichkeit {{score}}: das Gesicht wurde nicht übernommen",
+    "no_face": "Kein Gesicht im Ergebnis zum Vergleichen",
+    "help": "Nach dem Rendern mit dem Gesichtserkennungsmodell gemessen, das PuLID verwendet: das Gesicht im Ergebnis im Vergleich zu den Fotos. Wo das Gesicht übernommen wurde, lagen die Werte bei 0.56 bis 0.78; bei einer anderen Person bei 0.2 oder darunter.",
+    "onMany": "Dieses Gesicht ist bei {{count}} Personen gelandet. Um es nur einer davon zu geben, schalte „Mit anderen Personen“ ein."
   }
 }

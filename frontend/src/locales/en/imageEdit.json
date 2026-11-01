@@ -17,7 +17,7 @@
   "capabilitiesFailed": "Could not read what this machine can edit: {{message}}",
   "photos": {
     "faces": "Face photos",
-    "facesHelp": "Two or three photos of the same person, from different angles, hold the likeness better than one.",
+    "facesHelp": "Up to three photos of the same person. PuLID averages their faces into one likeness.",
     "source": "Photo",
     "editSource": "Photo to edit",
     "references": "Reference photos (optional)",
@@ -64,7 +64,7 @@
   "consent": {
     "question": "Do you have the right to use this person's likeness? It is your own photo, or the person agreed to this use.",
     "confirm": "Yes, I may use it",
-    "confirmed": "Likeness confirmed",
+    "confirmed": "Permission given",
     "failed": "The confirmation could not be saved: {{message}}"
   },
   "prompt": {
@@ -146,5 +146,13 @@
     "seed": "Seed {{seed}}",
     "history": "Recent results",
     "clearHistory": "Clear list"
+  },
+  "likeness": {
+    "strong": "Likeness {{score}}: strong",
+    "partial": "Likeness {{score}}: partial",
+    "not_taken": "Likeness {{score}}: the face did not take",
+    "no_face": "No face in the result to compare",
+    "help": "Measured after the render with the face-recognition model PuLID uses: the face in the result against the photos. Where the face took, renders scored 0.56 to 0.78; a different person 0.2 or less.",
+    "onMany": "This face went onto {{count}} people. To put it on one of them, turn on “With other people”."
   }
 }
