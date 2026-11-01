@@ -139,3 +139,48 @@ def test_footer_entries_nest_and_a_failed_result_closes_failed(monkeypatch):
     assert len({pid for pid, _, _ in sent}) == 1
     assert sent[0][1] == "start" and sent[-1][1] == "error"
 
+
+
+def test_likeness_bands_follow_the_measured_floors():
+    from backend.services.likeness_score import band
+    assert band(0.72) == "strong"
+    assert band(0.55) == "strong"
+    assert band(0.44) == "partial"
+    assert band(0.19) == "not_taken"
+    assert band(-0.04) == "not_taken"
+    assert band(None) == "no_face"
+
+
+def test_likeness_is_read_at_the_chosen_face_and_counts_every_face_carrying_it(monkeypatch):
+    from backend.services import likeness_score
+    measured = {"refs_found": [3], "faces": [
+        {"box": [360, 220, 470, 364], "scores": [0.72]},
+        {"box": [646, 260, 750, 394], "scores": [0.66]},
+    ]}
+    monkeypatch.setattr(likeness_score, "_measure", lambda image, people: measured)
+    chosen = likeness_score.score_render("x.png", [{"paths": ["a.png"], "box": [646, 258, 754, 394]}])
+    assert chosen["people"][0]["score"] == 0.66
+    single = likeness_score.score_render("x.png", [{"paths": ["a.png"], "box": None}])
+    assert single["people"][0]["score"] == 0.72
+    assert single["people"][0]["faces_with_likeness"] == 2
+    assert "on 2 people" in likeness_score.describe(single)
+    nowhere = likeness_score.score_render("x.png", [{"paths": ["a.png"], "box": [0, 0, 50, 50]}])
+    assert nowhere["people"][0]["band"] == "no_face"
+
+
+def test_no_score_when_it_cannot_be_measured(monkeypatch):
+    from backend.services import likeness_score
+    monkeypatch.setattr(likeness_score, "_measure", lambda image, people: None)
+    assert likeness_score.score_render("x.png", [{"paths": ["a.png"], "box": None}]) is None
+    assert likeness_score.describe(None) == ""
+
+
+def test_a_group_photo_is_cut_to_one_face_at_the_centre(tmp_path):
+    photo = tmp_path / "group.png"
+    Image.new("RGB", (900, 600), (40, 40, 40)).save(photo)
+    out = face_reference.crop_to_face(str(photo), [20, 100, 120, 220], str(tmp_path))
+    with Image.open(out) as cropped:
+        assert cropped.width == cropped.height == face_reference.CROP_MIN_SIDE
+        # The face sat near the left edge; the square stays centred on it, grey past the photo.
+        assert cropped.getpixel((2, cropped.height // 2)) == (127, 127, 127)
+        assert cropped.getpixel((cropped.width // 2, cropped.height // 2)) == (40, 40, 40)

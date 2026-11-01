@@ -17,7 +17,7 @@
   "capabilitiesFailed": "Kon niet lezen wat deze machine kan bewerken: {{message}}",
   "photos": {
     "faces": "Gezichtsfoto's",
-    "facesHelp": "Twee of drie foto's van dezelfde persoon, vanuit verschillende hoeken, behouden de gelijkenis beter dan één.",
+    "facesHelp": "Tot drie foto's van dezelfde persoon. PuLID middelt hun gezichten tot één gelijkenis.",
     "source": "Foto",
     "editSource": "Foto om te bewerken",
     "references": "Referentiefoto's (optioneel)",
@@ -64,7 +64,7 @@
   "consent": {
     "question": "Heb je het recht om het uiterlijk van deze persoon te gebruiken? Het is je eigen foto, of de persoon heeft toestemming gegeven voor dit gebruik.",
     "confirm": "Ja, ik mag het gebruiken",
-    "confirmed": "Uiterlijk bevestigd",
+    "confirmed": "Toestemming gegeven",
     "failed": "Bevestiging kon niet worden opgeslagen: {{message}}"
   },
   "prompt": {
@@ -146,5 +146,13 @@
     "seed": "Seed {{seed}}",
     "history": "Recente resultaten",
     "clearHistory": "Lijst wissen"
+  },
+  "likeness": {
+    "strong": "Gelijkenis {{score}}: sterk",
+    "partial": "Gelijkenis {{score}}: gedeeltelijk",
+    "not_taken": "Gelijkenis {{score}}: het gezicht is niet overgenomen",
+    "no_face": "Geen gezicht in het resultaat om te vergelijken",
+    "help": "Na het renderen gemeten met het gezichtsherkenningsmodel dat PuLID gebruikt: het gezicht in het resultaat vergeleken met de foto's. Waar het gezicht overkwam, scoorden renders 0.56 tot 0.78; een ander persoon 0.2 of lager.",
+    "onMany": "Dit gezicht kwam op {{count}} mensen terecht. Zet „Met andere mensen” aan om het op één van hen te zetten."
   }
 }

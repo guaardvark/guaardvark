@@ -6,10 +6,11 @@
 //   Expand               -> outpaint_image
 //   Remove background    -> remove_background
 // Photos are uploaded to outputs/edit_inputs; a face photo is checked with the
-// detector PuLID crops with, and its likeness is confirmed once (the same
-// consent record chat reads). A run is a tool job polled until it finishes, so
-// leaving the tab does not stop it; the pending job and recent results are kept
-// in this browser.
+// detector PuLID crops with, and the person says once that they may use it (the
+// same consent record chat reads). An identity result comes back with its
+// likeness score, measured after the render (likeness_score.py). A run is a
+// tool job polled until it finishes, so leaving the tab does not stop it; the
+// pending job and recent results are kept in this browser.
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -146,6 +147,37 @@ const FaceStatus = ({ photo, t }) => {
     );
   }
   return null;
+};
+
+const LIKENESS_COLORS = { strong: "success", partial: "warning", not_taken: "error" };
+
+/** How close each person's face in the result is to their photos, as scored after the render. */
+const LikenessReport = ({ likeness, t }) => {
+  const people = likeness?.people || [];
+  if (!people.length) return null;
+  const named = people.length > 1;
+  const spread = people.length === 1 ? people[0].faces_with_likeness : 0;
+  return (
+    <Stack spacing={0.5}>
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
+        {people.map((p) => {
+          const label = t(`imageEdit.likeness.${p.band}`, { score: p.score?.toFixed(2) });
+          const who = p.person === 1 ? t("imageEdit.scene.you") : t("imageEdit.scene.second");
+          return (
+            <Tooltip key={p.person} title={t("imageEdit.likeness.help")}>
+              <Chip size="small" icon={<FaceIcon />} color={LIKENESS_COLORS[p.band] || "default"}
+                label={named ? `${who}: ${label}` : label} />
+            </Tooltip>
+          );
+        })}
+      </Stack>
+      {spread > 1 && (
+        <Typography variant="caption" color="warning.main">
+          {t("imageEdit.likeness.onMany", { count: spread })}
+        </Typography>
+      )}
+    </Stack>
+  );
 };
 
 /** The scene with its faces numbered; clicking a face gives it to the person being chosen. */
@@ -476,6 +508,7 @@ const ImageEditPage = () => {
         seed: meta.seed ?? request.settings?.seed ?? null,
         sources: request.sources || [],
         output: outcome.output || "",
+        likeness: meta.likeness || null,
         created: Date.now(),
       };
       setResult(entry);
@@ -990,6 +1023,7 @@ const ImageEditPage = () => {
                     />
                   </Grid>
                 </Grid>
+                {result.mode === "identity" && <LikenessReport likeness={result.likeness} t={t} />}
                 {result.seed !== null && result.seed !== undefined && result.mode === "identity" && (
                   <Typography variant="caption" color="text.secondary">{t("imageEdit.result.seed", { seed: result.seed })}</Typography>
                 )}

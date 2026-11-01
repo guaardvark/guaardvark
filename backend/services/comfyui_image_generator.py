@@ -1757,23 +1757,35 @@ class ComfyUIImageGenerator:
         self._require_up(f"ComfyUI not reachable at {self.comfy_url}")
         from backend.config import OUTPUT_DIR
         from backend.services.face_reference import (
-            FaceCheckUnavailable, batch_references, face_mask, find_faces,
+            FaceCheckUnavailable, batch_references, crop_to_face, face_mask, find_faces,
         )
         inputs_dir = os.path.join(OUTPUT_DIR, "edit_inputs")
+
+        def faces_in(path, original):
+            try:
+                found = find_faces(path)
+            except FaceCheckUnavailable as e:
+                raise RuntimeError(_failure(K.MODEL_NOT_INSTALLED, str(e)))
+            if not found["count"]:
+                raise RuntimeError(
+                    f"No face was found in {os.path.basename(original)}. PuLID needs a clear, "
+                    "front or three-quarter view of one face; use a photo where the face is "
+                    "larger and in focus."
+                )
+            return found
+
         people = []
         for person in persons:
-            prepared = batch_references(person["paths"], inputs_dir)
-            for original, path in zip(person["paths"], prepared):
-                try:
-                    found = find_faces(path)
-                except FaceCheckUnavailable as e:
-                    raise RuntimeError(_failure(K.MODEL_NOT_INSTALLED, str(e)))
-                if not found["count"]:
-                    raise RuntimeError(
-                        f"No face was found in {os.path.basename(original)}. PuLID needs a clear, "
-                        "front or three-quarter view of one face; use a photo where the face is "
-                        "larger and in focus."
-                    )
+            single = []
+            for original in person["paths"]:
+                found = faces_in(original, original)
+                single.append(original if found["count"] == 1
+                              else crop_to_face(original, found["faces"][0]["box"], inputs_dir))
+            prepared = batch_references(single, inputs_dir)
+            if len(prepared) > 1:
+                # Batching scales each photo down; the face must still be found.
+                for original, path in zip(person["paths"], prepared):
+                    faces_in(path, original)
             names = []
             for path in prepared:
                 name = self._upload_image_to_comfyui(path)
