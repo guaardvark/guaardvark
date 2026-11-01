@@ -1,7 +1,8 @@
 """One browser post, started by a person who is watching it happen.
 
-Reddit, YouTube and Facebook have no posting path here but the agent browser
-(platforms.WATCHED). Such a draft is posted only when, after approving it, a
+Reddit and Facebook have no posting path here but the agent browser, and neither
+does YouTube unless a connected account posts comments (api_post, which takes the
+draft instead). A draft for the browser is posted only when, after approving it, a
 person presses "Post now, I'm watching" for it on the Approvals page while the
 Agent Screen is open and streaming in the app (agent_screen_presence). The
 click starts exactly that one post; a second click is refused while it runs,
@@ -151,6 +152,12 @@ def start(event_id: int, dispatch: Optional[Callable[[int, float], Any]] = None)
     row = _row(event_id)
     if row is None:
         return StartOutcome(False, "not found", None)
+    from backend.services.social_outreach import api_post
+
+    if api_post.handles(row):
+        posted, message = api_post.post(row)
+        _remember(event_id, posted, message)
+        return StartOutcome(posted, message, transitions.current_status(event_id))
     refusal = _refusal(row)
     if refusal:
         return StartOutcome(False, refusal, row.status)
@@ -309,21 +316,7 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
         # The content agent stores a reply's draft_text as a JSON envelope
         # {draft, anchor, incoming_*}: the anchor names the parent comment, and
         # posted_text holds the plain reply typed into the composer.
-        reply_text = (row.posted_text or "").strip()
-        anchor_hint = ""
-        try:
-            if row.draft_text and row.draft_text.strip().startswith("{"):
-                envelope = json.loads(row.draft_text)
-                anchor_hint = (
-                    envelope.get("anchor")
-                    or envelope.get("anchor_hint")
-                    or envelope.get("parent_text")
-                    or ""
-                )[:200]
-                if not reply_text:
-                    reply_text = (envelope.get("draft") or "").strip()
-        except (json.JSONDecodeError, AttributeError, TypeError) as e:
-            logger.warning("reply envelope parse failed for row %s: %s", row.id, e)
+        reply_text, anchor_hint = reply_parts(row)
         if not anchor_hint or not reply_text:
             raise _NotPostable("reply_missing_anchor_or_text")
         from backend.services.social_outreach.youtube_outreach import post_youtube_reply_via_servo
@@ -361,6 +354,26 @@ def _post(row, before_submit: Callable[[], bool]) -> tuple[bool, str]:
         return success, reason
 
     raise _NotPostable(f"unsupported: no poster for action '{action}' on platform '{platform}'")
+
+
+def reply_parts(row) -> tuple[str, str]:
+    """A reply draft's (text, anchor). The anchor names the parent comment."""
+    reply_text = (row.posted_text or "").strip()
+    anchor_hint = ""
+    try:
+        if row.draft_text and row.draft_text.strip().startswith("{"):
+            envelope = json.loads(row.draft_text)
+            anchor_hint = (
+                envelope.get("anchor")
+                or envelope.get("anchor_hint")
+                or envelope.get("parent_text")
+                or ""
+            )[:200]
+            if not reply_text:
+                reply_text = (envelope.get("draft") or "").strip()
+    except (json.JSONDecodeError, AttributeError, TypeError) as e:
+        logger.warning("reply envelope parse failed for row %s: %s", row.id, e)
+    return reply_text, anchor_hint
 
 
 def _record_share(row, posted_text: str) -> None:

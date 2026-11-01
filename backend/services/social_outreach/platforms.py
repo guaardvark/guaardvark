@@ -3,11 +3,12 @@
 Every draft waits for a person's approval; nothing posts on a grade alone.
 What happens after the approval depends on the platform's ``mode``:
 
-``WATCHED``  Reddit, YouTube, Facebook. Only the agent browser posts there, so
-             an approved draft goes out only when a person presses "Post now,
-             I'm watching" for it with the Agent Screen open (watched_post).
-             One click starts one post; nothing drains a queue of them, on a
-             schedule or otherwise.
+``WATCHED``  Reddit, YouTube, Facebook. The agent browser posts there, so an
+             approved draft goes out only when a person presses "Post now, I'm
+             watching" for it with the Agent Screen open (watched_post). One
+             click starts one post; nothing drains a queue of them, on a
+             schedule or otherwise. A YouTube account connected for comments
+             takes the same click through the official API instead (api_post).
 ``BOT``      Discord. The Discord bot plugin sends approved replies through
              the bot API, claiming each one through /claim and /submit.
 ``REFUSED``  X (Twitter) and LinkedIn. Both forbid driving an account with
@@ -107,6 +108,10 @@ def after_approval(platform: Optional[str]) -> str:
     """What happens to an approved draft on ``platform``, in words for the person."""
     policy = policy_for(platform)
     if policy and policy.mode == WATCHED:
+        from backend.services.social_outreach import api_post
+
+        if api_post.platform_ready(platform):
+            return "It posts when you press Post now on the Approvals page."
         return (
             "It posts when you press Post now on the Approvals page with the "
             "Agent Screen open."
