@@ -57,11 +57,17 @@ EDIT_ENGINES = (
     ("flux-kontext-dev", "flux-kontext-dev"),
     ("moss-image-edit", "moss-image-edit"),
 )
+# PuLID-FLUX canvases. Measured 2026-10-31 on a 16 GB card (fp8, 20 steps, the
+# pack's weight and start): 1360x768 (Video Gen's 16:9) 44 s and 14.8 GB peak,
+# 1920x1088 60 s and 15.1 GB, 1088x1920 62 s and 15.1 GB, with the face held at
+# each; 768x1024 is the 2026-09-19 default.
 IDENTITY_SIZES = {
     "portrait": (768, 1024),
     "square": (1024, 1024),
     "landscape": (1024, 768),
-    "wide": (1216, 704),
+    "video": (1360, 768),
+    "fullhd": (1920, 1088),
+    "vertical": (1088, 1920),
 }
 EXPAND_MAX_PX = 1024
 
@@ -277,9 +283,26 @@ def _params_for(mode: str, body: Dict[str, Any], source: str, refs: List[str]):
     text = str(body.get("prompt") or "").strip()
     if mode == "identity":
         from backend.services.consent_records import has_consent
+        if body.get("scene"):
+            # Second step: put the faces on the scene the first step rendered.
+            scene = _resolve(body.get("scene"))
+            if not scene:
+                return None, ("That scene is no longer on this machine; render it again.", 400)
+            params = {"scene": scene, "consented": True, "face": _int(settings.get("face"))}
+            if settings.get("person2_face") not in (None, ""):
+                params["person2_face"] = _int(settings.get("person2_face"))
+            if settings.get("weight") not in (None, ""):
+                params["weight"] = float(settings["weight"])
+            return params, None
         if not text:
             return None, ("Describe the new scene.", 400)
-        for path in (source, *refs):
+        second = []
+        for ref in (body.get("person2") or [])[:2]:
+            path = _resolve(ref)
+            if not path:
+                return None, ("A photo of the second person is no longer on this machine; add it again.", 400)
+            second.append(path)
+        for path in (source, *refs, *second):
             if not has_consent(path):
                 return None, (f"Confirm you may use the likeness in {os.path.basename(path)} first.", 409)
         width, height = IDENTITY_SIZES.get(str(settings.get("size") or "portrait"), IDENTITY_SIZES["portrait"])
@@ -287,6 +310,10 @@ def _params_for(mode: str, body: Dict[str, Any], source: str, refs: List[str]):
                   "width": width, "height": height}
         for i, ref in enumerate(refs[:2], start=2):
             params[f"reference_image_{i}"] = ref
+        if settings.get("others") or second:
+            params["others"] = True
+            for key, path in zip(("person2_image", "person2_image_2"), second):
+                params[key] = path
         steps = _int(settings.get("steps"))
         if steps:
             params["steps"] = steps

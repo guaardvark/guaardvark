@@ -2849,8 +2849,9 @@ class GenerateIdentityTool(BaseTool):
     parameters = {
         "prompt": ToolParameter(
             name="prompt", type="string",
-            description="The new scene, in prose. Do not repeat the person's name; identity comes from the photo.",
-            required=True,
+            description=("The new scene, in prose. Do not repeat the person's name; identity comes from the "
+                         "photo. Not needed with scene, which keeps its own."),
+            required=False, default="",
         ),
         "image": ToolParameter(
             name="image", type="string",
@@ -2871,6 +2872,35 @@ class GenerateIdentityTool(BaseTool):
         "seed": ToolParameter(
             name="seed", type="int", required=False, default=None,
             description="Render seed; the same seed and settings give the same picture (default 42).",
+        ),
+        "others": ToolParameter(
+            name="others", type="bool", required=False, default=False,
+            description=(
+                "True when the scene has other people too. Then the identity would land on every "
+                "face, so this call only renders the scene and returns the faces it found, numbered; "
+                "call again with scene and face to put the person on one of them."
+            ),
+        ),
+        "scene": ToolParameter(
+            name="scene", type="string", required=False, default="",
+            description=("The scene image an others=true call returned. The prompt, size, seed and photos "
+                         "come from that call, so the layout stays."),
+        ),
+        "face": ToolParameter(
+            name="face", type="int", required=False, default=None,
+            description="With scene: the number of the face (as that call listed them) that is the person in the photos.",
+        ),
+        "person2_image": ToolParameter(
+            name="person2_image", type="string", required=False, default="",
+            description="With others=true: a photo of a second person to place in the same scene, same forms as image.",
+        ),
+        "person2_image_2": ToolParameter(
+            name="person2_image_2", type="string", required=False, default="",
+            description="Another photo of the second person.",
+        ),
+        "person2_face": ToolParameter(
+            name="person2_face", type="int", required=False, default=None,
+            description="With scene: the number of the face that is the second person.",
         ),
         "consented": ToolParameter(
             name="consented", type="bool",
@@ -2908,11 +2938,26 @@ class GenerateIdentityTool(BaseTool):
 
     _PASSTHROUGH = ("weight", "start_at", "end_at", "unet_dtype", "node_variant")
 
-    def execute(self, prompt: str, consented: bool = True, image: str = "",
+    def _paths(self, editor, pairs):
+        """Resolved paths for the (label, value) pairs given, or the refusing ToolResult."""
+        out = []
+        for label, raw in pairs:
+            if not str(raw or "").strip():
+                continue
+            ref = editor._resolve_image_ref(raw, label=label)
+            if not ref.path:
+                return ToolResult(success=False, error=ref.error or f"{label} could not be read.")
+            out.append(ref.path)
+        return out
+
+    def execute(self, prompt: str = "", consented: bool = True, image: str = "",
                 width: int = 768, height: int = 1024, steps: int = 20,
                 reference_image_2: str = "", reference_image_3: str = "", seed=None,
+                others: bool = False, scene: str = "", face=None,
+                person2_image: str = "", person2_image_2: str = "", person2_face=None,
                 **kwargs) -> ToolResult:
         from backend.services.consent_records import has_consent
+        from backend.services import identity_scenes
         consented = str(consented).lower() in ("1", "true", "yes")
         if not consented:
             return ToolResult(
@@ -2922,20 +2967,37 @@ class GenerateIdentityTool(BaseTool):
                       "they uploaded).",
             )
         editor = _edit_tool_for(self)
-        found = editor._resolve_image_ref(image)
-        if not found.path:
-            return ToolResult(success=False,
-                              error=found.error or "Attach a face photo, then describe the new scene.")
-        src = found.path
-        extra = []
-        for label, raw in (("reference_image_2", reference_image_2), ("reference_image_3", reference_image_3)):
-            if not str(raw or "").strip():
-                continue
-            ref = editor._resolve_image_ref(raw, label=label)
-            if not ref.path:
-                return ToolResult(success=False, error=ref.error or f"{label} could not be read.")
-            extra.append(ref.path)
-        for reference in (src, *extra):
+        others = str(others).lower() in ("1", "true", "yes")
+        record = None
+        if str(scene or "").strip():
+            found_scene = editor._resolve_image_ref(scene, label="scene")
+            record = identity_scenes.load(found_scene.path) if found_scene.path else None
+            if record is None:
+                return ToolResult(success=False, error=(
+                    "That scene was not made by an others=true identity call on this machine, so its "
+                    "prompt, seed and photos are not known. Render the scene again with others=true."))
+            src, extra, second = record["references"][0], record["references"][1:], record.get("person2") or []
+            prompt, width, height, steps = record["prompt"], record["width"], record["height"], record["steps"]
+            seed = record["seed"]
+        else:
+            if not str(prompt or "").strip():
+                return ToolResult(success=False, error="Describe the new scene.")
+            found = editor._resolve_image_ref(image)
+            if not found.path:
+                return ToolResult(success=False,
+                                  error=found.error or "Attach a face photo, then describe the new scene.")
+            src = found.path
+            extra = self._paths(editor, (("reference_image_2", reference_image_2),
+                                         ("reference_image_3", reference_image_3)))
+            if isinstance(extra, ToolResult):
+                return extra
+            second = self._paths(editor, (("person2_image", person2_image), ("person2_image_2", person2_image_2)))
+            if isinstance(second, ToolResult):
+                return second
+            if second and not others:
+                return ToolResult(success=False, error=(
+                    "A second person needs others=true: the scene is rendered first so each face can be chosen."))
+        for reference in (src, *extra, *second):
             if not has_consent(reference):
                 return ToolResult(
                     success=False,
@@ -2946,34 +3008,71 @@ class GenerateIdentityTool(BaseTool):
                     ),
                     metadata={"needs_consent": True, "reference_image": reference},
                 )
+        face_box = second_person = None
+        if record is not None:
+            faces = record.get("faces") or []
+            picked = identity_scenes.pick(faces, face, "face")
+            if isinstance(picked, str):
+                return ToolResult(success=False, error=picked)
+            face_box = picked
+            if second:
+                picked2 = identity_scenes.pick(faces, person2_face, "person2_face")
+                if isinstance(picked2, str):
+                    return ToolResult(success=False, error=picked2)
+                if picked2 == face_box:
+                    return ToolResult(success=False, error="The two people need two different faces.")
+                second_person = {"paths": second, "face_box": picked2}
+        scene_only = others and record is None
+
         gpu_wait = None
         try:
             from backend.services.comfyui_image_generator import ComfyUIImageGenerator
-            output_path, filename = _chat_png_path("identity")
+            output_path, filename = _chat_png_path("scene" if scene_only else "identity")
             overrides = {
                 k: kwargs[k] for k in self._PASSTHROUGH
                 if kwargs.get(k) is not None and kwargs.get(k) != ""
             }
-            if seed not in (None, ""):
-                overrides["seed"] = int(seed)
+            if record is not None and record.get("weight") is not None and "weight" not in overrides:
+                overrides["weight"] = record["weight"]
+            seed = 42 if seed in (None, "") else int(seed)
             gpu_wait = _chat_gpu_wait()
             ComfyUIImageGenerator().generate_with_identity(
                 image_path=src, prompt=prompt, output_path=output_path,
-                width=int(width) or 768, height=int(height) or 1024,
-                steps=int(steps) or 20, gpu_wait=gpu_wait, extra_image_paths=extra, **overrides,
+                width=int(width) or 768, height=int(height) or 1024, steps=int(steps) or 20,
+                seed=seed, gpu_wait=gpu_wait, extra_image_paths=extra, face_box=face_box,
+                second_person=second_person, scene_only=scene_only, **overrides,
             )
             image_url = f"/api/outputs/generated_images/{filename}"
+            if scene_only:
+                faces = identity_scenes.save(output_path, prompt=prompt, width=int(width) or 768,
+                                             height=int(height) or 1024, steps=int(steps) or 20, seed=seed,
+                                             weight=overrides.get("weight"), references=[src, *extra],
+                                             person2=second)
+                listing = "; ".join(f"face {i + 1} at {f['box']}" for i, f in enumerate(faces)) or "none"
+                return ToolResult(
+                    success=True,
+                    output=(
+                        f"Scene rendered without the face yet: {len(faces)} face(s) found ({listing}).\n"
+                        f"Image URL: {image_url}\nCall again with scene=\"{image_url}\" and face=<number> "
+                        "for the person in the photos" + (" and person2_face=<number>" if second else "") + "."
+                    ),
+                    metadata={"image_url": image_url, "filename": filename, "backend": "pulid-flux",
+                              "stage": "scene", "faces": faces, "prompt": prompt, "seed": seed,
+                              "width": int(width) or 768, "height": int(height) or 1024},
+                )
             references = 1 + len(extra)
+            placed = " on the chosen face" if face_box else ""
             return ToolResult(
                 success=True,
                 output=(
-                    f"New image generated from {'the face reference' if references == 1 else f'{references} face references'} "
-                    f"(PuLID-FLUX).\nImage URL: {image_url}\nPrompt: {prompt}"
+                    f"New image generated from {'the face reference' if references == 1 else f'{references} face references'}"
+                    f"{placed} (PuLID-FLUX).\nImage URL: {image_url}\nPrompt: {prompt}"
                 ),
                 metadata={
                     "image_url": image_url, "filename": filename,
                     "backend": "pulid-flux", "prompt": prompt, "references": references,
-                    "seed": overrides.get("seed", 42),
+                    "seed": seed, "stage": "faces" if face_box else "single",
+                    "scene": scene or None,
                 },
             )
         except Exception as e:

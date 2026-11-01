@@ -81,3 +81,61 @@ def test_facexlib_files_count_only_when_every_loader_has_them(tmp_path, monkeypa
     for name in entry["check_files"]:
         (comfy / name).write_bytes(b"x")
     assert registry.entry_files_present(entry)
+
+
+def test_two_people_get_chained_apply_nodes_each_with_its_mask():
+    wf = ComfyUIImageGenerator()._build_pulid_workflow(
+        people=[{"names": ["a.png"], "weight": 1.0, "mask": "mask_a.png"},
+                {"names": ["b1.png", "b2.png"], "weight": 1.0, "mask": "mask_b.png"}],
+        prompt="a man and a woman in a convertible", width=1360, height=768, steps=20, seed=1,
+    )
+    assert wf["apply"]["inputs"]["model"] == ["unet", 0]
+    assert wf["apply"]["inputs"]["attn_mask"] == ["mask", 0]
+    assert wf["mask"]["inputs"] == {"image": "mask_a.png", "channel": "red"}
+    assert wf["apply_2"]["inputs"]["model"] == ["apply", 0]
+    assert wf["apply_2"]["inputs"]["image"] == ["p2_references", 0]
+    assert wf["apply_2"]["inputs"]["attn_mask"] == ["p2_mask", 0]
+    assert wf["apply"]["inputs"]["unique_id"] != wf["apply_2"]["inputs"]["unique_id"]
+    assert wf["sampler"]["inputs"]["model"] == ["apply_2", 0]
+
+
+def test_the_scene_render_keeps_every_identity_at_weight_zero():
+    wf = ComfyUIImageGenerator()._build_pulid_workflow(
+        people=[{"names": ["a.png"], "weight": 0.0, "mask": None}],
+        prompt="x", width=768, height=1024, steps=20, seed=1,
+    )
+    assert wf["apply"]["inputs"]["weight"] == 0.0
+    assert "attn_mask" not in wf["apply"]["inputs"]
+
+
+def test_face_mask_is_white_on_the_face_and_black_far_from_it(tmp_path):
+    path = face_reference.face_mask([600, 200, 700, 330], 1360, 768, str(tmp_path))
+    mask = Image.open(path)
+    assert mask.size == (1360, 768) and mask.mode == "L"
+    assert mask.getpixel((650, 250)) > 200
+    assert mask.getpixel((100, 700)) == 0
+
+
+def test_a_face_is_picked_by_its_number():
+    from backend.services.identity_scenes import pick
+    faces = [{"box": [1, 1, 2, 2]}, {"box": [5, 5, 6, 6]}]
+    assert pick(faces, 2, "face") == [5, 5, 6, 6]
+    assert "1 to 2" in pick(faces, 3, "face")
+    assert "which one" in pick(faces, None, "face")
+    assert pick([{"box": [1, 1, 2, 2]}], None, "face") == [1, 1, 2, 2]
+    assert "No face" in pick([], 1, "face")
+
+
+def test_footer_entries_nest_and_a_failed_result_closes_failed(monkeypatch):
+    from backend.services import footer_jobs
+    sent = []
+    monkeypatch.setattr(footer_jobs, "_emit", lambda pid, pct, msg, status, ptype, extra=None:
+                        sent.append((pid, status, msg)))
+    monkeypatch.setattr(footer_jobs, "_thread_has_entry", lambda: False)
+    with footer_jobs.footer_job("image_generation", "Image Edit: expand") as outer:
+        with footer_jobs.ensure("image_generation", "Picture for chat", fallback=True) as inner:
+            assert inner is outer
+        outer.fail("Image Edit: expand: out of memory")
+    assert len({pid for pid, _, _ in sent}) == 1
+    assert sent[0][1] == "start" and sent[-1][1] == "error"
+

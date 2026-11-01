@@ -1,5 +1,5 @@
 diff --git a/pulidflux.py b/pulidflux.py
-index 50c0818..431291b 100644
+index 50c0818..e198e97 100644
 --- a/pulidflux.py
 +++ b/pulidflux.py
 @@ -72,7 +72,17 @@ def forward_orig(
@@ -32,7 +32,7 @@ index 50c0818..431291b 100644
      for i, block in enumerate(self.double_blocks):
          img, txt = block(img=img, txt=txt, vec=vec, pe=pe)
  
-@@ -102,10 +117,10 @@ def forward_orig(
+@@ -102,12 +117,14 @@ def forward_orig(
                      img += add
  
          # PuLID attention
@@ -43,9 +43,14 @@ index 50c0818..431291b 100644
 -                for _, node_data in self.pulid_data.items():
 +                for _, node_data in pulid_data.items():
                      if torch.any((node_data['sigma_start'] >= timesteps) & (timesteps >= node_data['sigma_end'])):
-                         img = img + node_data['weight'] * self.pulid_ca[ca_idx](node_data['embedding'], img)
+-                        img = img + node_data['weight'] * self.pulid_ca[ca_idx](node_data['embedding'], img)
++                        delta = node_data['weight'] * self.pulid_ca[ca_idx](node_data['embedding'], img)
++                        mask = _token_mask(node_data.get('mask'), img.shape[1])
++                        img = img + (delta if mask is None else delta * mask.to(delta.device, delta.dtype))
                  ca_idx += 1
-@@ -123,11 +138,11 @@ def forward_orig(
+ 
+     img = torch.cat((txt, img), 1)
+@@ -123,13 +140,15 @@ def forward_orig(
                      img[:, txt.shape[1] :, ...] += add
  
          # PuLID attention
@@ -57,9 +62,53 @@ index 50c0818..431291b 100644
 -                for _, node_data in self.pulid_data.items():
 +                for _, node_data in pulid_data.items():
                      if torch.any((node_data['sigma_start'] >= timesteps) & (timesteps >= node_data['sigma_end'])):
-                         real_img = real_img + node_data['weight'] * self.pulid_ca[ca_idx](node_data['embedding'], real_img)
+-                        real_img = real_img + node_data['weight'] * self.pulid_ca[ca_idx](node_data['embedding'], real_img)
++                        delta = node_data['weight'] * self.pulid_ca[ca_idx](node_data['embedding'], real_img)
++                        mask = _token_mask(node_data.get('mask'), real_img.shape[1])
++                        real_img = real_img + (delta if mask is None else delta * mask.to(delta.device, delta.dtype))
                  ca_idx += 1
-@@ -384,25 +399,23 @@ class ApplyPulidFlux:
+             img = torch.cat((txt, real_img), 1)
+ 
+@@ -138,6 +157,28 @@ def forward_orig(
+     img = self.final_layer(img, vec)  # (N, T, patch_size ** 2 * out_channels)
+     return img
+ 
++def _token_mask(mask, n_tokens):
++    """An attn_mask on the image's token grid, shaped (B, N, 1), or None.
++
++    FLUX packs each 16x16-pixel patch into one token, so the grid keeps the
++    picture's aspect; the mask arrives at picture size and is resized to it."""
++    if mask is None:
++        return None
++    m = mask if mask.dim() == 3 else mask.unsqueeze(0)
++    h, w = m.shape[-2:]
++    best = None
++    for th in range(1, n_tokens + 1):
++        if n_tokens % th:
++            continue
++        tw = n_tokens // th
++        err = abs(th / tw - h / w)
++        if best is None or err < best[0]:
++            best = (err, th, tw)
++    _, th, tw = best
++    grid = torch.nn.functional.interpolate(m[:, None].float(), size=(th, tw), mode="bilinear", align_corners=False)
++    return grid.reshape(m.shape[0], th * tw, 1)
++
++
+ def tensor_to_image(tensor):
+     image = tensor.mul(255).clamp(0, 255).byte().cpu()
+     image = image[..., [2, 1, 0]].numpy()
+@@ -269,7 +310,8 @@ class ApplyPulidFlux:
+         eva_clip.to(device, dtype=dtype)
+         pulid_flux.to(device, dtype=dtype)
+ 
+-        # TODO: Add masking support!
++        # attn_mask limits the identity to the masked part of the picture (1 = this
++        # face, 0 = untouched), so a scene with other people keeps their faces.
+         if attn_mask is not None:
+             if attn_mask.dim() > 3:
+                 attn_mask = attn_mask.squeeze(-1)
+@@ -384,25 +426,24 @@ class ApplyPulidFlux:
              new_method = forward_orig.__get__(flux_model, flux_model.__class__)
              setattr(flux_model, 'forward_orig', new_method)
  
@@ -77,6 +126,7 @@ index 50c0818..431291b 100644
              'embedding': cond,
              'sigma_start': sigma_start,
              'sigma_end': sigma_end,
++            'mask': attn_mask,
          }
 -
 -        # Keep a reference for destructor (if node is deleted the data will be deleted as well)

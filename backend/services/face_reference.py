@@ -154,3 +154,26 @@ def batch_references(paths: List[str], out_dir: str) -> List[str]:
         canvas.save(target)
         out.append(target)
     return out
+
+
+def face_mask(box, width: int, height: int, out_dir: str) -> str:
+    """A soft white oval over one face (head and hair) on black, at render size.
+
+    ``box`` is the face as find_faces reports it, in the render's pixels. The
+    oval reaches past the face box to the hair and jaw, where likeness also
+    lives, and fades out so the identity blends into the rest of the head.
+    """
+    from PIL import Image, ImageDraw, ImageFilter
+
+    x0, y0, x1, y1 = (float(v) for v in box)
+    w, h = max(1.0, x1 - x0), max(1.0, y1 - y0)
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2 - 0.12 * h
+    rx, ry = 0.85 * w, 1.0 * h
+    mask = Image.new("L", (int(width), int(height)), 0)
+    ImageDraw.Draw(mask).ellipse((cx - rx, cy - ry, cx + rx, cy + ry), fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(radius=max(4.0, 0.18 * max(w, h))))
+    os.makedirs(out_dir, exist_ok=True)
+    target = os.path.join(out_dir, f"identity_mask_{uuid.uuid4().hex[:12]}.png")
+    mask.save(target)
+    return target
+

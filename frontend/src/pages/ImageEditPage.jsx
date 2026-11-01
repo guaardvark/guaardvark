@@ -62,7 +62,7 @@ const ImageModelsModal = lazyWithReload(() => import("../components/modals/Image
 
 const MODES = ["identity", "edit", "expand", "background"];
 const FRAMING = ["faceToCamera", "mediumCloseUp", "threeQuarter", "lookingAtCamera"];
-const SIZES = ["portrait", "square", "landscape", "wide"];
+const SIZES = ["portrait", "square", "landscape", "video", "fullhd", "vertical"];
 const MAX_SEED = 2 ** 32 - 1;
 const POLL_WAIT_S = 20;
 const HISTORY_KEY = "imageEdit.history.v1";
@@ -147,6 +147,48 @@ const FaceStatus = ({ photo, t }) => {
   }
   return null;
 };
+
+/** The scene with its faces numbered; clicking a face gives it to the person being chosen. */
+const SceneChooser = ({ scene, assign, onPick, t }) => (
+  <Box sx={{ position: "relative", width: "100%", aspectRatio: `${scene.width} / ${scene.height}` }}>
+    <Box component="img" src={guardedMediaSrc(scene.url)} alt=""
+      sx={{ width: "100%", height: "100%", display: "block", borderRadius: 1 }} />
+    {scene.faces.map((face, i) => {
+      const [x0, y0, x1, y1] = face.box;
+      const who = assign.person1 === i ? "you" : assign.person2 === i ? "second" : null;
+      const color = who === "you" ? "success.main" : who === "second" ? "info.main" : "warning.main";
+      return (
+        <Box
+          key={i}
+          role="button"
+          tabIndex={0}
+          aria-label={t("imageEdit.scene.faceNumber", { number: i + 1 })}
+          onClick={() => onPick(i)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") onPick(i);
+          }}
+          sx={{
+            position: "absolute",
+            left: `${(x0 / scene.width) * 100}%`,
+            top: `${(y0 / scene.height) * 100}%`,
+            width: `${((x1 - x0) / scene.width) * 100}%`,
+            height: `${((y1 - y0) / scene.height) * 100}%`,
+            border: "2px solid",
+            borderColor: color,
+            borderRadius: 1,
+            cursor: "pointer",
+            "&:hover": { bgcolor: "rgba(255,255,255,0.15)" },
+          }}
+        >
+          <Box sx={{ position: "absolute", bottom: "100%", left: -2, mb: 0.25, px: 0.5, bgcolor: color,
+            color: "common.black", fontSize: 12, fontWeight: 600, borderRadius: 0.5, whiteSpace: "nowrap" }}>
+            {i + 1}{who ? ` · ${t(`imageEdit.scene.${who}`)}` : ""}
+          </Box>
+        </Box>
+      );
+    })}
+  </Box>
+);
 
 /** One photo, or the tile that adds one. */
 const PhotoSlot = ({
@@ -272,6 +314,12 @@ const ImageEditPage = () => {
   const [engine, setEngine] = useState("auto");
   const [editSteps, setEditSteps] = useState("");
   const [pad, setPad] = useState(EXPAND_PRESETS.presetAll);
+  // "With other people": the scene first, then the faces placed on the ones chosen.
+  const [withOthers, setWithOthers] = useState(false);
+  const [person2, setPerson2] = useState([]);
+  const [scene, setScene] = useState(null);
+  const [assign, setAssign] = useState({ person1: null, person2: null });
+  const [assignTarget, setAssignTarget] = useState("person1");
   const [job, setJob] = useState(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState(null);
@@ -308,11 +356,13 @@ const ImageEditPage = () => {
       : 0;
   const modeExtras = (extras[mode] || []).slice(0, maxExtras);
   const photos = [primary, ...modeExtras].filter(Boolean);
+  const secondPhotos = faceMode && withOthers ? person2 : [];
+  const facePhotos = faceMode ? [...photos, ...secondPhotos] : [];
 
   // Face photos need a face check; run it for a photo added under another mode.
   useEffect(() => {
     if (!faceMode) return;
-    const unchecked = photos.filter((p) => p && !p.faces && !p.face_check_error && !p.checking);
+    const unchecked = facePhotos.filter((p) => p && !p.faces && !p.face_check_error && !p.checking);
     unchecked.forEach(async (photo) => {
       const mark = (patch) => {
         setPrimary((cur) => (cur?.url === photo.url ? { ...cur, ...patch } : cur));
@@ -320,6 +370,7 @@ const ImageEditPage = () => {
           ...cur,
           identity: cur.identity.map((p) => (p.url === photo.url ? { ...p, ...patch } : p)),
         }));
+        setPerson2((cur) => cur.map((p) => (p.url === photo.url ? { ...p, ...patch } : p)));
       };
       mark({ checking: true });
       try {
@@ -330,7 +381,7 @@ const ImageEditPage = () => {
       }
     });
     // photos is derived each render; which photos and whether each was checked is what matters.
-  }, [faceMode, photos.map((p) => `${p.url}:${Boolean(p.faces)}`).join("|")]);
+  }, [faceMode, facePhotos.map((p) => `${p.url}:${Boolean(p.faces)}`).join("|")]);
 
   const addPhoto = async (slot, file) => {
     if (!file.type.startsWith("image/")) {
@@ -343,6 +394,7 @@ const ImageEditPage = () => {
       const res = await uploadPhoto(file, { checkFaces: faceMode });
       const photo = res.data;
       if (slot === "primary") setPrimary(photo);
+      else if (slot === "person2") setPerson2((cur) => [...cur, photo]);
       else setExtras((cur) => ({ ...cur, [mode]: [...(cur[mode] || []), photo] }));
     } catch (err) {
       setError(t("imageEdit.photos.uploadFailed", { message: err.message }));
@@ -352,7 +404,9 @@ const ImageEditPage = () => {
   };
 
   const removePhoto = (photo) => {
-    if (primary?.url === photo.url) {
+    if (person2.some((p) => p.url === photo.url)) {
+      setPerson2((cur) => cur.filter((p) => p.url !== photo.url));
+    } else if (primary?.url === photo.url) {
       const [next, ...rest] = modeExtras;
       setPrimary(next || null);
       if (next) setExtras((cur) => ({ ...cur, [mode]: rest }));
@@ -368,6 +422,7 @@ const ImageEditPage = () => {
       const mark = (p) => (p?.url === photo.url ? { ...p, consented: true } : p);
       setPrimary(mark);
       setExtras((cur) => ({ ...cur, identity: cur.identity.map(mark), edit: cur.edit.map(mark) }));
+      setPerson2((cur) => cur.map(mark));
     } catch (err) {
       setError(t("imageEdit.consent.failed", { message: err.message }));
     } finally {
@@ -389,14 +444,14 @@ const ImageEditPage = () => {
     if (!modeCaps.available) return modeCaps.reason;
     if (!primary) return t("imageEdit.run.needPhoto");
     if (mode === "identity") {
-      if (photos.some((p) => !p.faces?.count)) return t("imageEdit.run.needFace");
-      if (photos.some((p) => !p.consented)) return t("imageEdit.run.needConsent");
+      if (facePhotos.some((p) => !p.faces?.count)) return t("imageEdit.run.needFace");
+      if (facePhotos.some((p) => !p.consented)) return t("imageEdit.run.needConsent");
       if (!prompts.identity.trim()) return t("imageEdit.run.needPrompt");
     }
     if (mode === "edit" && !prompts.edit.trim()) return t("imageEdit.run.needPrompt");
     if (mode === "expand" && !Object.values(pad).some((v) => Number(v) > 0)) return t("imageEdit.run.needSides");
     return null;
-  }, [caps, modeCaps, primary, mode, photos, prompts, pad, t]);
+  }, [caps, modeCaps, primary, mode, facePhotos, prompts, pad, t]);
 
   const finish = useCallback((snapshot, request) => {
     const outcome = snapshot.result || {};
@@ -404,7 +459,16 @@ const ImageEditPage = () => {
     writeStored(PENDING_KEY, null);
     setRunning(false);
     setJob(null);
+    if (snapshot.status === "done" && meta.stage === "scene") {
+      const faces = meta.faces || [];
+      setScene({ url: meta.image_url, faces, width: meta.width, height: meta.height,
+        seed: meta.seed, prompt: request.prompt || "", sources: request.sources || [] });
+      setAssign({ person1: faces.length === 1 ? 0 : null, person2: null });
+      setAssignTarget(faces.length === 1 ? "person2" : "person1");
+      return;
+    }
     if (snapshot.status === "done" && meta.image_url) {
+      setScene(null);
       const entry = {
         url: meta.image_url,
         mode: request.mode,
@@ -464,29 +528,13 @@ const ImageEditPage = () => {
     };
   }, [poll]);
 
-  const run = async (overrideSeed) => {
-    if (blocker || running) return;
-    setError(null);
-    const runSeed = overrideSeed ?? (newSeedEachRun ? randomSeed() : seed);
-    if (mode === "identity") setSeed(runSeed);
-    const settings = mode === "identity"
-      ? { size, weight: strength, seed: runSeed }
-      : mode === "edit"
-        ? { engine, steps: editSteps || undefined }
-        : mode === "expand" ? { ...pad } : {};
-    const request = {
-      mode,
-      image: primary.url,
-      references: modeExtras.map((p) => p.url),
-      prompt: mode === "background" ? "" : prompts[mode] || "",
-      settings,
-    };
+  const startJob = async (request, sources) => {
     setRunning(true);
     setResult(null);
     try {
       const res = await startRun(request);
       const snapshot = res.data;
-      const stored = { ...request, sources: photos.map((p) => p.url) };
+      const stored = { ...request, sources };
       writeStored(PENDING_KEY, { jobId: snapshot.job_id, request: stored });
       setJob(snapshot);
       poll(snapshot.job_id, stored);
@@ -495,6 +543,52 @@ const ImageEditPage = () => {
       setError(t("imageEdit.run.startFailed", { message: err.message }));
     }
   };
+
+  const run = async (overrideSeed) => {
+    if (blocker || running) return;
+    setError(null);
+    const runSeed = overrideSeed ?? (newSeedEachRun ? randomSeed() : seed);
+    if (mode === "identity") setSeed(runSeed);
+    const others = mode === "identity" && withOthers;
+    const settings = mode === "identity"
+      ? { size, weight: strength, seed: runSeed, ...(others ? { others: true } : {}) }
+      : mode === "edit"
+        ? { engine, steps: editSteps || undefined }
+        : mode === "expand" ? { ...pad } : {};
+    const request = {
+      mode,
+      image: primary.url,
+      references: modeExtras.map((p) => p.url),
+      ...(others && person2.length ? { person2: person2.map((p) => p.url) } : {}),
+      prompt: mode === "background" ? "" : prompts[mode] || "",
+      settings,
+    };
+    if (others) {
+      setScene(null);
+      setAssign({ person1: null, person2: null });
+    }
+    await startJob(request, [...photos, ...(others ? person2 : [])].map((p) => p.url));
+  };
+
+  // Second step of "With other people": the chosen faces get their identities.
+  const placeFaces = async () => {
+    if (!scene || assign.person1 === null || running || !primary) return;
+    setError(null);
+    const settings = { face: assign.person1 + 1, weight: strength };
+    if (person2.length && assign.person2 !== null) settings.person2_face = assign.person2 + 1;
+    await startJob({ mode: "identity", image: primary.url, scene: scene.url, prompt: scene.prompt, settings },
+      scene.sources);
+  };
+
+  const pickFace = (index) => {
+    if (assignTarget === "person2" && person2.length) {
+      setAssign((cur) => ({ person1: cur.person1 === index ? null : cur.person1, person2: index }));
+      return;
+    }
+    setAssign((cur) => ({ person1: index, person2: cur.person2 === index ? null : cur.person2 }));
+    if (person2.length) setAssignTarget("person2");
+  };
+  const facesReady = scene && assign.person1 !== null && (!person2.length || assign.person2 !== null);
 
   const editResult = (entry) => {
     setPrimary({ url: entry.url, name: entry.url.split("/").pop(), consented: false,
@@ -619,7 +713,62 @@ const ImageEditPage = () => {
                   {t("imageEdit.photos.references")}: {t("imageEdit.photos.referencesHelp")}
                 </Typography>
               )}
+              {mode === "identity" && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mt: 1 }}>
+                  <ToggleButtonGroup
+                    exclusive
+                    size="small"
+                    value={withOthers ? "others" : "only"}
+                    onChange={(_e, value) => {
+                      if (!value) return;
+                      setWithOthers(value === "others");
+                      setScene(null);
+                    }}
+                  >
+                    <ToggleButton value="only" sx={{ textTransform: "none" }}>{t("imageEdit.people.only")}</ToggleButton>
+                    <ToggleButton value="others" sx={{ textTransform: "none" }}>{t("imageEdit.people.others")}</ToggleButton>
+                  </ToggleButtonGroup>
+                  <Typography variant="caption" color="text.secondary">
+                    {withOthers ? t("imageEdit.people.othersHelp") : t("imageEdit.people.onlyHelp")}
+                  </Typography>
+                </Box>
+              )}
             </Paper>
+
+            {mode === "identity" && withOthers && (
+              <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <Typography variant="subtitle2">{t("imageEdit.people.second")}</Typography>
+                <Typography variant="caption" color="text.secondary">{t("imageEdit.people.secondHelp")}</Typography>
+                <Grid container spacing={1}>
+                  {person2.map((photo) => (
+                    <Grid item xs={12} sm={6} key={photo.url}>
+                      <PhotoSlot
+                        photo={photo}
+                        label={t("imageEdit.people.second")}
+                        onFile={() => {}}
+                        onRemove={() => removePhoto(photo)}
+                        faceCheck
+                        needConsent
+                        onConfirm={() => confirmLikeness(photo)}
+                        confirming={confirming === photo.url}
+                        t={t}
+                      />
+                    </Grid>
+                  ))}
+                  {person2.length < 2 && (
+                    <Grid item xs={12} sm={person2.length ? 6 : 12}>
+                      <PhotoSlot
+                        photo={null}
+                        label={person2.length ? t("imageEdit.photos.addAnother") : t("imageEdit.people.addSecond")}
+                        uploading={uploadingSlot === "person2"}
+                        onFile={(file) => addPhoto("person2", file)}
+                        t={t}
+                      />
+                    </Grid>
+                  )}
+                </Grid>
+              </Paper>
+            )}
 
             {mode !== "background" && (
               <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -754,7 +903,7 @@ const ImageEditPage = () => {
                   disabled={Boolean(blocker) || running || !caps}
                   onClick={() => run()}
                 >
-                  {t(`imageEdit.run.${mode}`)}
+                  {mode === "identity" && withOthers ? t("imageEdit.run.identityScene") : t(`imageEdit.run.${mode}`)}
                 </Button>
               </span>
             </Tooltip>
@@ -777,10 +926,46 @@ const ImageEditPage = () => {
                 </Typography>
               </Box>
             )}
-            {!running && !result && (
+            {!running && scene && (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <Typography variant="subtitle2">{t("imageEdit.scene.title")}</Typography>
+                {scene.faces.length === 0 ? (
+                  <Alert severity="warning">{t("imageEdit.scene.noFaces")}</Alert>
+                ) : (
+                  <>
+                    <Typography variant="body2" color="text.secondary">
+                      {assignTarget === "person2" && person2.length
+                        ? t("imageEdit.scene.helpSecond") : t("imageEdit.scene.help")}
+                    </Typography>
+                    {person2.length > 0 && (
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography variant="caption" color="text.secondary">{t("imageEdit.scene.pickFor")}</Typography>
+                        <Chip size="small" label={t("imageEdit.scene.you")}
+                          color={assignTarget === "person1" ? "success" : "default"}
+                          onClick={() => setAssignTarget("person1")} />
+                        <Chip size="small" label={t("imageEdit.scene.second")}
+                          color={assignTarget === "person2" ? "info" : "default"}
+                          onClick={() => setAssignTarget("person2")} />
+                      </Stack>
+                    )}
+                    <SceneChooser scene={scene} assign={assign} onPick={pickFace} t={t} />
+                  </>
+                )}
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Button variant="contained" size="small" disabled={!facesReady || running} onClick={placeFaces}>
+                    {t("imageEdit.scene.apply")}
+                  </Button>
+                  <Button size="small" startIcon={<ReplayIcon />} disabled={Boolean(blocker) || running}
+                    onClick={() => run(randomSeed())}>
+                    {t("imageEdit.scene.newScene")}
+                  </Button>
+                </Stack>
+              </Box>
+            )}
+            {!running && !result && !scene && (
               <Typography variant="body2" color="text.secondary">{t("imageEdit.result.empty")}</Typography>
             )}
-            {result && (
+            {result && !scene && (
               <>
                 <Grid container spacing={1} alignItems="flex-start">
                   <Grid item xs={4}>

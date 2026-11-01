@@ -31,6 +31,27 @@
     "uploadFailed": "The photo could not be added: {{message}}",
     "notAnImage": "That file is not a picture."
   },
+  "people": {
+    "only": "Only this person",
+    "onlyHelp": "One render: everyone in the picture gets this face, so describe a scene with this person alone.",
+    "others": "With other people",
+    "othersHelp": "The scene is made first. Then you click the face that should be this person, and only that face changes; everyone else keeps their own.",
+    "second": "Second person (optional)",
+    "secondHelp": "Photos of another person to put on another face in the same scene. Leave empty to keep whoever the scene makes.",
+    "addSecond": "Add a photo of the second person"
+  },
+  "scene": {
+    "title": "Choose the faces",
+    "help": "Click the face that should be your person.",
+    "helpSecond": "Now click the face for the second person.",
+    "you": "Your person",
+    "second": "Second person",
+    "pickFor": "Choosing:",
+    "apply": "Put the faces on",
+    "newScene": "New scene",
+    "noFaces": "No faces were found in this scene. Try a new scene, or a closer shot in the description.",
+    "faceNumber": "Face {{number}}"
+  },
   "faces": {
     "checking": "Checking for a face…",
     "found": "Face found",
@@ -69,7 +90,9 @@
       "portrait": "Portrait 768 × 1024",
       "square": "Square 1024 × 1024",
       "landscape": "Landscape 1024 × 768",
-      "wide": "Wide 1216 × 704"
+      "video": "Video 16:9 1360 × 768",
+      "fullhd": "Full HD 16:9 1920 × 1088",
+      "vertical": "Vertical Full HD 1088 × 1920"
     },
     "strength": "Likeness strength",
     "strengthHelp": "1.0 is the measured default. Higher holds the face harder and can start to override the scene; lower lets the scene change the face more.",
@@ -99,7 +122,8 @@
     "needConsent": "Confirm the likeness for every face photo.",
     "needPrompt": "Describe what you want.",
     "needSides": "Choose how far to extend at least one side.",
-    "startFailed": "Could not start: {{message}}"
+    "startFailed": "Could not start: {{message}}",
+    "identityScene": "Make the scene"
   },
   "job": {
     "queued": "Queued",

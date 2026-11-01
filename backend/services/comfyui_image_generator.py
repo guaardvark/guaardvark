@@ -1485,6 +1485,7 @@ class ComfyUIImageGenerator:
         steps: int, seed: int, weight: float | None = None, start_at: float | None = None,
         end_at: float | None = None, unet_dtype: str | None = None,
         node_variant: str | None = "pulid_flux", src_image_names: list[str] | None = None,
+        people: list[dict] | None = None,
     ) -> dict:
         """The PuLID-FLUX graph. Defaults are the product's; the keyword
         overrides are the likeness experiment's switches (see
@@ -1492,11 +1493,18 @@ class ComfyUIImageGenerator:
 
         Several ``src_image_names`` go to the apply node as one batch, which
         averages their identity embeddings; they must already share a size
-        (face_reference.batch_references)."""
-        names = list(src_image_names or ([src_image_name] if src_image_name else []))
-        if not names:
-            raise ValueError("a PuLID graph needs at least one reference image")
-        weight = _identity_default('weight', weight)
+        (face_reference.batch_references).
+
+        ``people`` places more than one identity, or one on part of the
+        picture: each ``{"names": [...], "weight": w, "mask": name}`` gets its
+        own apply node, chained, and its identity only where its mask (an
+        uploaded grayscale picture, white = this face) is. The first person
+        keeps the single-person node names."""
+        if people is None:
+            names = list(src_image_names or ([src_image_name] if src_image_name else []))
+            people = [{"names": names, "weight": weight, "mask": None}]
+        if not people or not all(p.get("names") for p in people):
+            raise ValueError("a PuLID graph needs at least one reference image per person")
         start_at = _identity_default('start_at', start_at)
         end_at = _identity_default('end_at', end_at)
         n = max(int(steps), PULID_MIN_STEPS)
@@ -1506,17 +1514,41 @@ class ComfyUIImageGenerator:
         end_at = float(end_at)
         if not (0.0 <= start_at <= 1.0 and 0.0 <= end_at <= 1.0 and start_at <= end_at):
             raise ValueError(f"start_at/end_at must satisfy 0 <= start_at <= end_at <= 1, got {start_at}/{end_at}")
-        loads: dict = {}
-        if len(names) == 1:
-            loads["load"] = {"class_type": "LoadImage", "inputs": {"image": names[0]}}
-            reference = ["load", 0]
-        else:
-            batch_inputs = {}
-            for i, name in enumerate(names):
-                loads[f"load_{i}"] = {"class_type": "LoadImage", "inputs": {"image": name}}
-                batch_inputs[f"images.image{i}"] = [f"load_{i}", 0]
-            loads["references"] = {"class_type": "BatchImagesNode", "inputs": batch_inputs}
-            reference = ["references", 0]
+
+        nodes: dict = {}
+        model_ref = ["unet", 0]
+        for k, person in enumerate(people):
+            tag = "" if k == 0 else f"p{k + 1}_"
+            names = list(person["names"])
+            if len(names) == 1:
+                nodes[f"{tag}load"] = {"class_type": "LoadImage", "inputs": {"image": names[0]}}
+                reference = [f"{tag}load", 0]
+            else:
+                batch_inputs = {}
+                for i, name in enumerate(names):
+                    nodes[f"{tag}load_{i}"] = {"class_type": "LoadImage", "inputs": {"image": name}}
+                    batch_inputs[f"images.image{i}"] = [f"{tag}load_{i}", 0]
+                nodes[f"{tag}references"] = {"class_type": "BatchImagesNode", "inputs": batch_inputs}
+                reference = [f"{tag}references", 0]
+            apply_id = "apply" if k == 0 else f"apply_{k + 1}"
+            inputs = {
+                "model": model_ref,
+                "pulid_flux": ["pulid", 0],
+                "eva_clip": ["eva", 0],
+                "face_analysis": ["insight", 0],
+                "image": reference,
+                "weight": float(_identity_default('weight', person.get("weight"))),
+                "start_at": start_at,
+                "end_at": end_at,
+                "unique_id": "pulid_apply" if k == 0 else f"pulid_apply_{k + 1}",
+            }
+            if person.get("mask"):
+                nodes[f"{tag}mask"] = {"class_type": "LoadImageMask",
+                                       "inputs": {"image": person["mask"], "channel": "red"}}
+                inputs["attn_mask"] = [f"{tag}mask", 0]
+            nodes[apply_id] = {"class_type": variant["apply_class"], "inputs": inputs}
+            model_ref = [apply_id, 0]
+
         return {
             "unet": {
                 "class_type": "UNETLoader",
@@ -1530,21 +1562,7 @@ class ComfyUIImageGenerator:
             "pulid": {"class_type": "PulidFluxModelLoader", "inputs": {"pulid_file": PULID_FLUX_FILE}},
             "insight": {"class_type": "PulidFluxInsightFaceLoader", "inputs": {"provider": "CPU"}},
             "eva": {"class_type": "PulidFluxEvaClipLoader", "inputs": {}},
-            **loads,
-            "apply": {
-                "class_type": variant["apply_class"],
-                "inputs": {
-                    "model": ["unet", 0],
-                    "pulid_flux": ["pulid", 0],
-                    "eva_clip": ["eva", 0],
-                    "face_analysis": ["insight", 0],
-                    "image": reference,
-                    "weight": float(weight),
-                    "start_at": start_at,
-                    "end_at": end_at,
-                    "unique_id": "pulid_apply",
-                },
-            },
+            **nodes,
             "pos": {"class_type": "CLIPTextEncode", "inputs": {"text": prompt, "clip": ["clip", 0]}},
             "guid": {"class_type": "FluxGuidance", "inputs": {"conditioning": ["pos", 0], "guidance": FLUX_DEV_GUIDANCE}},
             "neg": {"class_type": "CLIPTextEncode", "inputs": {"text": "", "clip": ["clip", 0]}},
@@ -1557,7 +1575,7 @@ class ComfyUIImageGenerator:
                 "inputs": {
                     "seed": seed, "steps": n, "cfg": 1.0,
                     "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0,
-                    "model": ["apply", 0], "positive": ["guid", 0],
+                    "model": model_ref, "positive": ["guid", 0],
                     "negative": ["neg", 0], "latent_image": ["latent", 0],
                 },
             },
@@ -1705,53 +1723,79 @@ class ComfyUIImageGenerator:
         weight: float | None = None, start_at: float | None = None, end_at: float | None = None,
         unet_dtype: str | None = None, node_variant: str | None = "pulid_flux",
         gpu_wait: dict | None = None, extra_image_paths: list[str] | None = None,
+        face_box: list | None = None, second_person: dict | None = None, scene_only: bool = False,
     ) -> str:
         """A new picture keeping the face of ``image_path`` (and of
         ``extra_image_paths``, averaged with it). A reference the node's face
         detector finds nothing in is refused here; the node would skip it and,
-        with nothing left, render without the face while reporting success."""
-        weight = _identity_default('weight', weight)
+        with nothing left, render without the face while reporting success.
+
+        In a scene with other people the identity would land on every face, so
+        the work is done in two renders of one graph and seed. ``scene_only``
+        renders it with every identity at weight 0: the people where the prompt
+        put them, faces found by find_faces. The second render passes the face
+        chosen for this person as ``face_box`` (render pixels), and optionally
+        ``second_person`` ``{"paths": [...], "face_box": [...]}``; each identity
+        is then masked to its face. PuLID starts at start_at (0.2), after the
+        composition is set, so the second render keeps the first one's layout."""
         start_at = _identity_default('start_at', start_at)
         end_at = _identity_default('end_at', end_at)
-        paths = [image_path, *(p for p in (extra_image_paths or []) if p)]
-        for path in paths:
-            if not os.path.exists(path):
-                raise RuntimeError(f"Source image not found: {path}")
+        persons = [{"paths": [image_path, *(p for p in (extra_image_paths or []) if p)],
+                    "box": face_box, "weight": weight}]
+        if second_person:
+            persons.append({"paths": [p for p in second_person.get("paths") or [] if p],
+                            "box": second_person.get("face_box"), "weight": second_person.get("weight", weight)})
+        for person in persons:
+            if not person["paths"]:
+                raise RuntimeError("Every person needs at least one face photo")
+            for path in person["paths"]:
+                if not os.path.exists(path):
+                    raise RuntimeError(f"Source image not found: {path}")
         if not self.pulid_installed():
             from backend.services.image_editing_packs import missing_message
             raise RuntimeError(_failure(K.MODEL_NOT_INSTALLED, missing_message("generate_identity")))
         self._require_up(f"ComfyUI not reachable at {self.comfy_url}")
         from backend.config import OUTPUT_DIR
-        from backend.services.face_reference import FaceCheckUnavailable, batch_references, find_faces
-        prepared = batch_references(paths, os.path.join(OUTPUT_DIR, "edit_inputs"))
-        for original, path in zip(paths, prepared):
-            try:
-                found = find_faces(path)
-            except FaceCheckUnavailable as e:
-                raise RuntimeError(_failure(K.MODEL_NOT_INSTALLED, str(e)))
-            if not found["count"]:
-                raise RuntimeError(
-                    f"No face was found in {os.path.basename(original)}. PuLID needs a clear, "
-                    "front or three-quarter view of one face; use a photo where the face is "
-                    "larger and in focus."
-                )
-        names = []
-        for path in prepared:
-            name = self._upload_image_to_comfyui(path)
-            if not name:
-                raise RuntimeError("Failed to upload the face reference to ComfyUI")
-            names.append(name)
+        from backend.services.face_reference import (
+            FaceCheckUnavailable, batch_references, face_mask, find_faces,
+        )
+        inputs_dir = os.path.join(OUTPUT_DIR, "edit_inputs")
+        people = []
+        for person in persons:
+            prepared = batch_references(person["paths"], inputs_dir)
+            for original, path in zip(person["paths"], prepared):
+                try:
+                    found = find_faces(path)
+                except FaceCheckUnavailable as e:
+                    raise RuntimeError(_failure(K.MODEL_NOT_INSTALLED, str(e)))
+                if not found["count"]:
+                    raise RuntimeError(
+                        f"No face was found in {os.path.basename(original)}. PuLID needs a clear, "
+                        "front or three-quarter view of one face; use a photo where the face is "
+                        "larger and in focus."
+                    )
+            names = []
+            for path in prepared:
+                name = self._upload_image_to_comfyui(path)
+                if not name:
+                    raise RuntimeError("Failed to upload the face reference to ComfyUI")
+                names.append(name)
+            mask_name = None
+            if person["box"] and not scene_only:
+                mask_name = self._upload_image_to_comfyui(face_mask(person["box"], width, height, inputs_dir))
+                if not mask_name:
+                    raise RuntimeError("Failed to upload the face mask to ComfyUI")
+            people.append({"names": names, "mask": mask_name,
+                           "weight": 0.0 if scene_only else person["weight"]})
         workflow = self._build_pulid_workflow(
-            src_image_names=names, prompt=prompt,
-            width=width, height=height, steps=steps, seed=seed, weight=weight,
-            start_at=start_at, end_at=end_at, unet_dtype=unet_dtype,
-            node_variant=node_variant,
+            people=people, prompt=prompt, width=width, height=height, steps=steps, seed=seed,
+            start_at=start_at, end_at=end_at, unet_dtype=unet_dtype, node_variant=node_variant,
         )
         result = self._run_edit_graph(
             workflow, output_path, job="chat_pulid",
             vram_mb=_registry_vram("pulid-flux"), timeout=600, gpu_wait=gpu_wait,
         )
-        logger.info("PuLID-FLUX identity generate complete: %s", result)
+        logger.info("PuLID-FLUX identity %s complete: %s", "scene" if scene_only else "generate", result)
         return result
 
     def _build_kontext_workflow(self, *, src_image_name: str, instruction: str,

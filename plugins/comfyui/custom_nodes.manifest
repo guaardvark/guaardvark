@@ -24,6 +24,7 @@
 # revision by install_deps.sh (ComfyUI-PuLID-Flux: forward_orig accepts the newer
 #   kwargs, and the identity data rides on the cloned patcher's transformer_options
 #   instead of the module plus a __del__ that current ComfyUI fires before sampling;
+#   attn_mask, accepted but ignored upstream, limits an identity to its face;
 # kwargs ComfyUI >= 0.3.60 passes; upstream is unmaintained).
 #
 # Pins are the master box's tested revisions (captured 2026-08-04). To bump:
