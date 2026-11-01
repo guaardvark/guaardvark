@@ -155,5 +155,11 @@
     "no_reference_face": "Not measured: no face found in your photos",
     "help": "Measured after the render with the face-recognition model PuLID uses: the face in the result against the photos. Where the face took, renders scored 0.56 to 0.78; a different person 0.2 or less.",
     "onMany": "This face went onto {{count}} people. To put it on one of them, turn on “With other people”."
+  },
+  "identityEngine": {
+    "pulid": "New picture (PuLID)",
+    "kontext": "Restage the photo (Kontext)",
+    "pulidHelp": "Draws a new picture around the face. Best for costumes and characters: it kept the face in 9 of 9 detective portraits.",
+    "kontextHelp": "Turns your photo into the new scene. Best for putting the person somewhere new or beside other people (it kept the face in 18 of 18); turned into a character, it kept the face in only 1 of 9. Uses the first photo; describe anyone else in the scene."
   }
 }

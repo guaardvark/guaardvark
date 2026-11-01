@@ -72,6 +72,15 @@ IDENTITY_SIZES = {
     "vertical": (1088, 1920),
 }
 EXPAND_MAX_PX = 1024
+# "New scene, same face" can restage the photo with FLUX.1 Kontext instead of
+# drawing a new picture with PuLID. Measured 2026-10-31 on three made-up faces,
+# three seeds each, scored with likeness_score: put in a new place (full body on
+# a desert road) or beside another person, Kontext held the face in 18 of 18
+# (medians 0.74 and 0.85; PuLID 0.56 and 0.73); turned into a character (a 1940s
+# detective portrait) it held it in 1 of 9 (median 0.44; PuLID 9 of 9, 0.77).
+# Every Kontext instruction in that test ended with this sentence.
+RESTAGE_ENGINE = "flux-kontext-dev"
+RESTAGE_KEEP = "Keep the same face, age and features."
 
 
 def _outputs_dir() -> str:
@@ -148,6 +157,7 @@ def capabilities():
         pulid = _pack_state("pulid-flux")
         engines = [dict(_pack_state(pack_id), model=model) for pack_id, model in EDIT_ENGINES]
         engines = [e for e in engines if e.get("enabled")]
+        restage = next((e for e in engines if e["model"] == RESTAGE_ENGINE), {"installed": False})
         qwen = next((e for e in engines if e["id"] == "qwen-image-edit"), {"installed": False})
         any_engine = any(e["installed"] for e in engines)
         bg_packs = [_pack_state("bgremove-birefnet"), _pack_state("bgremove-u2net")]
@@ -157,8 +167,10 @@ def capabilities():
         data = {
             "modes": {
                 "identity": {
-                    "available": pulid["installed"],
-                    "reason": None if pulid["installed"] else missing_message("generate_identity"),
+                    "available": pulid["installed"] or restage["installed"],
+                    "reason": None if pulid["installed"] or restage["installed"]
+                    else missing_message("generate_identity"),
+                    "engines": {"pulid": pulid["installed"], "kontext": restage["installed"]},
                     "install": "pulid-flux",
                     "max_references": MAX_REFERENCES,
                     "face_check": detector_path() is not None,
@@ -285,6 +297,17 @@ def _params_for(mode: str, body: Dict[str, Any], source: str, refs: List[str]):
     text = str(body.get("prompt") or "").strip()
     if mode == "identity":
         from backend.services.consent_records import has_consent
+        if _restage(mode, body):
+            if not text:
+                return None, ("Describe the new scene.", 400)
+            if not has_consent(source):
+                return None, (f"Confirm you may use the likeness in {os.path.basename(source)} first.", 409)
+            params = {"instruction": f"{text.rstrip(' .')}. {RESTAGE_KEEP}", "image": source,
+                      "model": RESTAGE_ENGINE}
+            seed = _int(settings.get("seed"), low=0, high=2**32 - 1)
+            if seed is not None:
+                params["seed"] = seed
+            return params, None
         if body.get("scene"):
             # Second step: put the faces on the scene the first step rendered.
             scene = _resolve(body.get("scene"))
@@ -348,6 +371,34 @@ def _params_for(mode: str, body: Dict[str, Any], source: str, refs: List[str]):
     return None, (f"Unknown mode '{mode}'.", 400)
 
 
+def _restage(mode: str, body: Dict[str, Any]) -> bool:
+    """An identity run that restages the photo with Kontext rather than PuLID."""
+    return mode == "identity" and str((body.get("settings") or {}).get("engine") or "") == "kontext"
+
+
+def _score_restage(result, photos: List[str]) -> None:
+    """Give a Kontext restage the likeness score generate_identity gives its renders."""
+    meta = dict(getattr(result, "metadata", None) or {})
+    if not getattr(result, "success", False) or not meta.get("filename"):
+        return
+    from backend.services import footer_jobs, likeness_score
+    entry = footer_jobs.current()
+    if entry is not None:
+        entry.update("Checking the likeness")
+    try:
+        likeness = likeness_score.score_render(
+            os.path.join(_outputs_dir(), RESULT_DIR_NAME, meta["filename"]),
+            [{"paths": photos, "box": None}])
+    except Exception:  # noqa: BLE001 - the picture is made; a missing score never fails it
+        logger.warning("likeness score failed for %s", meta["filename"], exc_info=True)
+        likeness = None
+    meta.update(likeness=likeness, stage="single", engine="kontext")
+    result.metadata = meta
+    line = likeness_score.describe(likeness)
+    if line:
+        result.output = f"{result.output or ''}\n{line}"
+
+
 @image_edit_bp.route("/run", methods=["POST"])
 def run():
     """Start one edit as a tool job; answer with the job to poll."""
@@ -356,6 +407,9 @@ def run():
     tool_name = MODE_TOOLS.get(mode)
     if tool_name is None:
         return error_response(f"Unknown mode '{mode}'.", 400)
+    restage = _restage(mode, body)
+    if restage:
+        tool_name = MODE_TOOLS["edit"]
     source = _resolve(body.get("image"))
     if not source:
         return error_response("Add a photo first.", 400)
@@ -386,11 +440,16 @@ def run():
     def _run():
         # The person pressed the button on this page; that is the approval.
         with trusted_caller("rest:image_edit"):
-            return registry.execute_tool(tool_name, **params)
+            result = registry.execute_tool(tool_name, **params)
+        if restage:
+            _score_restage(result, [source])
+        return result
 
     try:
         title = MODE_TITLES[mode]
-        if mode == "identity" and params.get("others"):
+        if restage:
+            title = "Image Edit: restage the photo (Kontext)"
+        elif mode == "identity" and params.get("others"):
             title = "Image Edit: scene for the faces"
         elif mode == "identity" and params.get("scene"):
             title = "Image Edit: putting the faces on"

@@ -193,3 +193,15 @@ def test_photos_without_a_readable_face_are_not_reported_as_a_faceless_result(mo
     report = likeness_score.score_render("x.png", [{"paths": ["a.png"], "box": None}])
     assert report["people"][0]["band"] == "no_reference_face"
     assert "no face in the photos" in likeness_score.describe(report)
+
+
+def test_a_restage_runs_kontext_with_the_keep_sentence(monkeypatch):
+    from backend.api import image_edit_api as api
+    monkeypatch.setattr("backend.services.consent_records.has_consent", lambda path: True)
+    body = {"mode": "identity", "prompt": "a man on a pier at dawn.", "settings": {"engine": "kontext", "seed": 7}}
+    assert api._restage("identity", body)
+    assert not api._restage("identity", {"settings": {}})
+    params, refusal = api._params_for("identity", body, "/x/a.png", [])
+    assert refusal is None
+    assert params == {"instruction": "a man on a pier at dawn. " + api.RESTAGE_KEEP, "image": "/x/a.png",
+                      "model": "flux-kontext-dev", "seed": 7}
