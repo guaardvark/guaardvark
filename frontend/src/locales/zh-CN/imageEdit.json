@@ -31,6 +31,27 @@
     "uploadFailed": "无法添加照片：{{message}}",
     "notAnImage": "该文件不是图片。"
   },
+  "people": {
+    "only": "仅此人",
+    "onlyHelp": "单次渲染：画面中的所有人都会变成此人，因此请描述一个只有此人的场景。",
+    "others": "包含他人",
+    "othersHelp": "先生成场景。然后点击应由此人担任的脸部，仅该脸部会改变；其他人保持原样。",
+    "second": "第二人（可选）",
+    "secondHelp": "提供另一人的照片，用于替换同一场景中的另一张脸。留空则保留场景生成的原始面孔。",
+    "addSecond": "添加第二人的照片"
+  },
+  "scene": {
+    "title": "选择面孔",
+    "help": "点击应由你的角色担任的脸部。",
+    "helpSecond": "现在点击第二人的脸部。",
+    "you": "你的角色",
+    "second": "第二人",
+    "pickFor": "选择目标：",
+    "apply": "应用面孔",
+    "newScene": "新场景",
+    "noFaces": "此场景中未检测到面孔。请尝试新场景，或在描述中要求更近距离的镜头。",
+    "faceNumber": "面孔 {{number}}"
+  },
   "faces": {
     "checking": "正在检测面部……",
     "found": "已找到面部",
@@ -69,7 +90,9 @@
       "portrait": "纵向 768 × 1024",
       "square": "正方形 1024 × 1024",
       "landscape": "横向 1024 × 768",
-      "wide": "宽屏 1216 × 704"
+      "video": "视频 16:9 1360 × 768",
+      "fullhd": "全高清 16:9 1920 × 1088",
+      "vertical": "竖屏全高清 1088 × 1920"
     },
     "strength": "相似度强度",
     "strengthHelp": "1.0 是默认测量值。数值越高，越严格保留面部特征，但可能过度影响场景；数值越低，场景对面部的改变影响越大。",
@@ -99,7 +122,8 @@
     "needConsent": "确认每张面部照片的相似度。",
     "needPrompt": "描述您想要的内容。",
     "needSides": "选择至少一个方向的扩展范围。",
-    "startFailed": "无法启动：{{message}}"
+    "startFailed": "无法启动：{{message}}",
+    "identityScene": "生成场景"
   },
   "job": {
     "queued": "已排队",

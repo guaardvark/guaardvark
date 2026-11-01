@@ -31,6 +31,27 @@
     "uploadFailed": "Das Foto konnte nicht hinzugefügt werden: {{message}}",
     "notAnImage": "Diese Datei ist kein Bild."
   },
+  "people": {
+    "only": "Nur diese Person",
+    "onlyHelp": "Ein Rendering: Alle Personen im Bild erhalten dieses Gesicht, also beschreibe eine Szene mit nur dieser Person.",
+    "others": "Mit anderen Personen",
+    "othersHelp": "Die Szene wird zuerst erstellt. Dann klickst du auf das Gesicht, das diese Person sein soll, und nur dieses Gesicht ändert sich; alle anderen behalten ihr eigenes.",
+    "second": "Zweite Person (optional)",
+    "secondHelp": "Fotos einer anderen Person, um sie auf ein anderes Gesicht in derselben Szene zu setzen. Lass es leer, um die Person zu behalten, die die Szene erstellt.",
+    "addSecond": "Foto der zweiten Person hinzufügen"
+  },
+  "scene": {
+    "title": "Gesichter auswählen",
+    "help": "Klicke auf das Gesicht, das deine Person sein soll.",
+    "helpSecond": "Klicke nun auf das Gesicht für die zweite Person.",
+    "you": "Deine Person",
+    "second": "Zweite Person",
+    "pickFor": "Auswahl für:",
+    "apply": "Gesichter anwenden",
+    "newScene": "Neue Szene",
+    "noFaces": "In dieser Szene wurden keine Gesichter gefunden. Versuche eine neue Szene oder eine Nahaufnahme in der Beschreibung.",
+    "faceNumber": "Gesicht {{number}}"
+  },
   "faces": {
     "checking": "Suche nach einem Gesicht …",
     "found": "Gesicht gefunden",
@@ -69,7 +90,9 @@
       "portrait": "Portrait 768 × 1024",
       "square": "Quadratisch 1024 × 1024",
       "landscape": "Landschaft 1024 × 768",
-      "wide": "Breit 1216 × 704"
+      "video": "Video 16:9 1360 × 768",
+      "fullhd": "Full HD 16:9 1920 × 1088",
+      "vertical": "Vertikales Full HD 1088 × 1920"
     },
     "strength": "Ähnlichkeitsstärke",
     "strengthHelp": "1.0 ist der Standardwert. Höhere Werte halten das Gesicht fester und können die Szene überschreiben; niedrigere Werte lassen die Szene das Gesicht stärker verändern.",
@@ -99,7 +122,8 @@
     "needConsent": "Bestätige die Ähnlichkeit für jedes Gesichtsfoto.",
     "needPrompt": "Beschreibe, was du möchtest.",
     "needSides": "Wähle aus, wie weit mindestens eine Seite erweitert werden soll.",
-    "startFailed": "Nicht starten möglich: {{message}}"
+    "startFailed": "Nicht starten möglich: {{message}}",
+    "identityScene": "Szene erstellen"
   },
   "job": {
     "queued": "In Warteschlange",

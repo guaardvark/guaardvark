@@ -31,6 +31,27 @@
     "uploadFailed": "A foto não pôde ser adicionada: {{message}}",
     "notAnImage": "Esse arquivo não é uma imagem."
   },
+  "people": {
+    "only": "Apenas esta pessoa",
+    "onlyHelp": "Uma renderização: todos na imagem receberão este rosto, então descreva uma cena com apenas esta pessoa.",
+    "others": "Com outras pessoas",
+    "othersHelp": "A cena é criada primeiro. Depois, você clica no rosto que deve ser esta pessoa, e apenas esse rosto muda; todos os outros mantêm os seus.",
+    "second": "Segunda pessoa (opcional)",
+    "secondHelp": "Fotos de outra pessoa para colocar em outro rosto na mesma cena. Deixe em branco para manter quem a cena criar.",
+    "addSecond": "Adicionar foto da segunda pessoa"
+  },
+  "scene": {
+    "title": "Escolha os rostos",
+    "help": "Clique no rosto que deve ser a sua pessoa.",
+    "helpSecond": "Agora clique no rosto da segunda pessoa.",
+    "you": "Sua pessoa",
+    "second": "Segunda pessoa",
+    "pickFor": "Escolhendo:",
+    "apply": "Aplicar rostos",
+    "newScene": "Nova cena",
+    "noFaces": "Nenhum rosto foi encontrado nesta cena. Tente uma nova cena ou um plano mais próximo na descrição.",
+    "faceNumber": "Rosto {{number}}"
+  },
   "faces": {
     "checking": "Verificando o rosto...",
     "found": "Rosto encontrado",
@@ -69,7 +90,9 @@
       "portrait": "Retrato 768 × 1024",
       "square": "Quadrado 1024 × 1024",
       "landscape": "Paisagem 1024 × 768",
-      "wide": "Largo 1216 × 704"
+      "video": "Vídeo 16:9 1360 × 768",
+      "fullhd": "Full HD 16:9 1920 × 1088",
+      "vertical": "Vertical Full HD 1088 × 1920"
     },
     "strength": "Força de semelhança",
     "strengthHelp": "1.0 é o padrão medido. Valores mais altos mantêm o rosto com mais firmeza e podem começar a sobrepor a cena; valores mais baixos permitem que a cena altere mais o rosto.",
@@ -99,7 +122,8 @@
     "needConsent": "Confirme a semelhança para cada foto de rosto.",
     "needPrompt": "Descreva o que você quer.",
     "needSides": "Escolha o quanto estender pelo menos um lado.",
-    "startFailed": "Não foi possível iniciar: {{message}}"
+    "startFailed": "Não foi possível iniciar: {{message}}",
+    "identityScene": "Criar a cena"
   },
   "job": {
     "queued": "Na fila",

@@ -31,6 +31,27 @@
     "uploadFailed": "La foto non è stata aggiunta: {{message}}",
     "notAnImage": "Quel file non è un'immagine."
   },
+  "people": {
+    "only": "Solo questa persona",
+    "onlyHelp": "Un solo rendering: tutti i volti nell'immagine avranno questo volto, quindi descrivi una scena con solo questa persona.",
+    "others": "Con altre persone",
+    "othersHelp": "La scena viene creata prima. Poi clicchi sul volto che deve essere questa persona e solo quel volto cambierà; tutti gli altri manterranno il proprio.",
+    "second": "Seconda persona (opzionale)",
+    "secondHelp": "Foto di un'altra persona da applicare a un altro volto nella stessa scena. Lascia vuoto per mantenere chiunque la scena generi.",
+    "addSecond": "Aggiungi una foto della seconda persona"
+  },
+  "scene": {
+    "title": "Scegli i volti",
+    "help": "Clicca sul volto che deve essere la tua persona.",
+    "helpSecond": "Ora clicca sul volto per la seconda persona.",
+    "you": "La tua persona",
+    "second": "Seconda persona",
+    "pickFor": "Selezione per:",
+    "apply": "Applica i volti",
+    "newScene": "Nuova scena",
+    "noFaces": "Nessun volto trovato in questa scena. Prova una nuova scena o un'inquadratura più ravvicinata nella descrizione.",
+    "faceNumber": "Viso {{number}}"
+  },
   "faces": {
     "checking": "Ricerca del volto in corso…",
     "found": "Volto trovato",
@@ -69,7 +90,9 @@
       "portrait": "Ritratto 768 × 1024",
       "square": "Quadrato 1024 × 1024",
       "landscape": "Paesaggio 1024 × 768",
-      "wide": "Largo 1216 × 704"
+      "video": "Video 16:9 1360 × 768",
+      "fullhd": "Full HD 16:9 1920 × 1088",
+      "vertical": "Verticale Full HD 1088 × 1920"
     },
     "strength": "Intensità somiglianza",
     "strengthHelp": "1.0 è il valore predefinito. Più alto mantiene il volto più fedelmente e può iniziare a sovrascrivere la scena; più basso permette alla scena di modificare maggiormente il volto.",
@@ -99,7 +122,8 @@
     "needConsent": "Conferma la somiglianza per ogni foto del volto.",
     "needPrompt": "Descrivi cosa vuoi.",
     "needSides": "Scegli quanto estendere almeno un lato.",
-    "startFailed": "Impossibile avviare: {{message}}"
+    "startFailed": "Impossibile avviare: {{message}}",
+    "identityScene": "Crea la scena"
   },
   "job": {
     "queued": "In coda",

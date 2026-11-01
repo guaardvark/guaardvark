@@ -31,6 +31,27 @@
     "uploadFailed": "De foto kon niet worden toegevoegd: {{message}}",
     "notAnImage": "Dat bestand is geen afbeelding."
   },
+  "people": {
+    "only": "Alleen deze persoon",
+    "onlyHelp": "Eén render: iedereen in de afbeelding krijgt dit gezicht, dus beschrijf een scène met alleen deze persoon.",
+    "others": "Met andere mensen",
+    "othersHelp": "De scène wordt eerst gemaakt. Daarna klik je op het gezicht dat deze persoon moet zijn, en alleen dat gezicht verandert; de rest behoudt hun eigen gezicht.",
+    "second": "Tweede persoon (optioneel)",
+    "secondHelp": "Foto's van een andere persoon om op een ander gezicht in dezelfde scène te plaatsen. Laat leeg om de persoon te behouden die de scène genereert.",
+    "addSecond": "Voeg een foto van de tweede persoon toe"
+  },
+  "scene": {
+    "title": "Kies de gezichten",
+    "help": "Klik op het gezicht dat jouw persoon moet zijn.",
+    "helpSecond": "Klik nu op het gezicht voor de tweede persoon.",
+    "you": "Jouw persoon",
+    "second": "Tweede persoon",
+    "pickFor": "Selecteren voor:",
+    "apply": "Gezichten plaatsen",
+    "newScene": "Nieuwe scène",
+    "noFaces": "Er zijn geen gezichten gevonden in deze scène. Probeer een nieuwe scène of een closer shot in de beschrijving.",
+    "faceNumber": "Gezicht {{number}}"
+  },
   "faces": {
     "checking": "Controleren op een gezicht…",
     "found": "Gezicht gevonden",
@@ -69,7 +90,9 @@
       "portrait": "Portret 768 × 1024",
       "square": "Vierkant 1024 × 1024",
       "landscape": "Landschap 1024 × 768",
-      "wide": "Breed 1216 × 704"
+      "video": "Video 16:9 1360 × 768",
+      "fullhd": "Full HD 16:9 1920 × 1088",
+      "vertical": "Verticaal Full HD 1088 × 1920"
     },
     "strength": "Overeenkomst sterkte",
     "strengthHelp": "1.0 is de standaardwaarde. Hoger houdt het gezicht steviger vast en kan de scène gaan overschrijven; lager laat de scène het gezicht meer veranderen.",
@@ -99,7 +122,8 @@
     "needConsent": "Bevestig de overeenkomst voor elke gezichtsfoto.",
     "needPrompt": "Beschrijf wat je wilt.",
     "needSides": "Kies hoe ver je ten minste één zijde wilt uitbreiden.",
-    "startFailed": "Konniet starten: {{message}}"
+    "startFailed": "Konniet starten: {{message}}",
+    "identityScene": "Maak de scène"
   },
   "job": {
     "queued": "In wachtrij",

@@ -31,6 +31,27 @@
     "uploadFailed": "La photo n'a pas pu être ajoutée : {{message}}",
     "notAnImage": "Ce fichier n'est pas une image."
   },
+  "people": {
+    "only": "Uniquement cette personne",
+    "onlyHelp": "Un seul rendu : tout le monde sur l'image aura ce visage, alors décrivez une scène avec cette personne seule.",
+    "others": "Avec d'autres personnes",
+    "othersHelp": "La scène est créée en premier. Ensuite, vous cliquez sur le visage qui doit être cette personne, et seul ce visage change ; les autres gardent les leurs.",
+    "second": "Deuxième personne (optionnel)",
+    "secondHelp": "Photos d'une autre personne à placer sur un autre visage dans la même scène. Laissez vide pour conserver le personnage généré par la scène.",
+    "addSecond": "Ajouter une photo de la deuxième personne"
+  },
+  "scene": {
+    "title": "Choisir les visages",
+    "help": "Cliquez sur le visage qui doit être votre personne.",
+    "helpSecond": "Cliquez maintenant sur le visage de la deuxième personne.",
+    "you": "Votre personne",
+    "second": "Deuxième personne",
+    "pickFor": "Sélection pour :",
+    "apply": "Appliquer les visages",
+    "newScene": "Nouvelle scène",
+    "noFaces": "Aucun visage n'a été trouvé dans cette scène. Essayez une nouvelle scène ou un plan plus rapproché dans la description.",
+    "faceNumber": "Visage {{number}}"
+  },
   "faces": {
     "checking": "Recherche d'un visage…",
     "found": "Visage trouvé",
@@ -69,7 +90,9 @@
       "portrait": "Portrait 768 × 1024",
       "square": "Carré 1024 × 1024",
       "landscape": "Paysage 1024 × 768",
-      "wide": "Large 1216 × 704"
+      "video": "Vidéo 16:9 1360 × 768",
+      "fullhd": "Full HD 16:9 1920 × 1088",
+      "vertical": "Vertical Full HD 1088 × 1920"
     },
     "strength": "Force de la ressemblance",
     "strengthHelp": "1.0 est la valeur par défaut. Plus elle est élevée, plus le visage est maintenu fidèlement et peut finir par dominer la scène ; plus elle est basse, plus la scène peut modifier le visage.",
@@ -99,7 +122,8 @@
     "needConsent": "Confirmez la ressemblance pour chaque photo de visage.",
     "needPrompt": "Décrivez ce que vous voulez.",
     "needSides": "Choisissez jusqu'à quel point étendre au moins un côté.",
-    "startFailed": "Impossible de démarrer : {{message}}"
+    "startFailed": "Impossible de démarrer : {{message}}",
+    "identityScene": "Générer la scène"
   },
   "job": {
     "queued": "En file d'attente",

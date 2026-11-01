@@ -15488,6 +15488,74 @@
       "en": "e9dba9d25485",
       "out": "49795a75ca00"
     },
+    "people.only": {
+      "en": "bbb010ef221c",
+      "out": "83a341871f10"
+    },
+    "people.onlyHelp": {
+      "en": "4e970a2fe9a2",
+      "out": "0f8d687cdf38"
+    },
+    "people.others": {
+      "en": "63ec0df87b20",
+      "out": "17b285fc20fc"
+    },
+    "people.othersHelp": {
+      "en": "90d32f8f64d2",
+      "out": "deb595062e8f"
+    },
+    "people.second": {
+      "en": "afbf18ba4605",
+      "out": "506ecf3e16b6"
+    },
+    "people.secondHelp": {
+      "en": "9f4d218fd18f",
+      "out": "690261b761c3"
+    },
+    "people.addSecond": {
+      "en": "f1e255348964",
+      "out": "3a8441a1b394"
+    },
+    "scene.title": {
+      "en": "75ed1b93143f",
+      "out": "4c116576449d"
+    },
+    "scene.help": {
+      "en": "c1490548ee7f",
+      "out": "027b073b89d2"
+    },
+    "scene.helpSecond": {
+      "en": "9593ce336fa1",
+      "out": "769252ba2d95"
+    },
+    "scene.you": {
+      "en": "2f7ee83252fa",
+      "out": "d87156930014"
+    },
+    "scene.second": {
+      "en": "488043293c44",
+      "out": "bc511d6c1105"
+    },
+    "scene.pickFor": {
+      "en": "c83984571f98",
+      "out": "fe53f6c8d659"
+    },
+    "scene.apply": {
+      "en": "7fde5e85a8ed",
+      "out": "4215bb9c0774"
+    },
+    "scene.newScene": {
+      "en": "2e2d9b129740",
+      "out": "4ca690dc837f"
+    },
+    "scene.noFaces": {
+      "en": "5d9f0ba3baf8",
+      "out": "f0cd339bfac7"
+    },
+    "scene.faceNumber": {
+      "en": "6d0dc4d0af2c",
+      "out": "61c0881113d7"
+    },
     "faces.checking": {
       "en": "8981ceffd335",
       "out": "fd1bdc5339ba"
@@ -15600,9 +15668,17 @@
       "en": "5acc9405352a",
       "out": "1c6bca4a11e7"
     },
-    "settings.sizes.wide": {
-      "en": "a10dfb136a60",
-      "out": "8e4aafec1c67"
+    "settings.sizes.video": {
+      "en": "e6ad20e1bf33",
+      "out": "bd13949efc16"
+    },
+    "settings.sizes.fullhd": {
+      "en": "29fbf80f203d",
+      "out": "29fbf80f203d"
+    },
+    "settings.sizes.vertical": {
+      "en": "713b7aaf1e90",
+      "out": "c1e02a9de123"
     },
     "settings.strength": {
       "en": "a02bd5132f1f",
@@ -15711,6 +15787,10 @@
     "run.startFailed": {
       "en": "744b0fad23c5",
       "out": "160e8cac87f3"
+    },
+    "run.identityScene": {
+      "en": "a33c5ab3252c",
+      "out": "49deeeedd030"
     },
     "job.queued": {
       "en": "6a599877d753",

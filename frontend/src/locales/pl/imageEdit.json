@@ -31,6 +31,27 @@
     "uploadFailed": "Nie można dodać zdjęcia: {{message}}",
     "notAnImage": "Ten plik nie jest obrazem."
   },
+  "people": {
+    "only": "Tylko ta osoba",
+    "onlyHelp": "Jeden render: każda osoba na zdjęciu otrzyma tę twarz, więc opisz scenę z tą osobą w pojedynkę.",
+    "others": "Z innymi osobami",
+    "othersHelp": "Najpierw tworzona jest scena. Następnie klikasz twarz, która ma być tą osobą, i tylko ta twarz się zmienia; pozostali zachowują swoje twarze.",
+    "second": "Druga osoba (opcjonalnie)",
+    "secondHelp": "Zdjęcie innej osoby do nałożenia na drugą twarz w tej samej scenie. Zostaw puste, aby zachować postać wygenerowaną przez scenę.",
+    "addSecond": "Dodaj zdjęcie drugiej osoby"
+  },
+  "scene": {
+    "title": "Wybierz twarze",
+    "help": "Kliknij twarz, która ma być Twoją osobą.",
+    "helpSecond": "Teraz kliknij twarz dla drugiej osoby.",
+    "you": "Twoja osoba",
+    "second": "Druga osoba",
+    "pickFor": "Wybierasz dla:",
+    "apply": "Nałóż twarze",
+    "newScene": "Nowa scena",
+    "noFaces": "Nie znaleziono twarzy w tej scenie. Spróbuj nowej sceny lub opisz zbliżenie.",
+    "faceNumber": "Twarz {{number}}"
+  },
   "faces": {
     "checking": "Sprawdzanie twarzy…",
     "found": "Znaleziono twarz",
@@ -69,7 +90,9 @@
       "portrait": "Portret 768 × 1024",
       "square": "Kwadrat 1024 × 1024",
       "landscape": "Pojedynczy 1024 × 768",
-      "wide": "Szeroki 1216 × 704"
+      "video": "Wideo 16:9 1360 × 768",
+      "fullhd": "Full HD 16:9 1920 × 1088",
+      "vertical": "Pionowe Full HD 1088 × 1920"
     },
     "strength": "Siła podobieństwa",
     "strengthHelp": "1.0 to domyślna wartość. Wyższa wartość mocniej trzyma rysy twarzy i może zacząć dominować nad sceną; niższa pozwala scenie bardziej zmieniać twarz.",
@@ -99,7 +122,8 @@
     "needConsent": "Potwierdź podobieństwo dla każdego zdjęcia twarzy.",
     "needPrompt": "Opisz, co chcesz uzyskać.",
     "needSides": "Wybierz, o ile rozszerzyć przynajmniej jedną stronę.",
-    "startFailed": "Nie udało się uruchomić: {{message}}"
+    "startFailed": "Nie udało się uruchomić: {{message}}",
+    "identityScene": "Stwórz scenę"
   },
   "job": {
     "queued": "W kolejce",

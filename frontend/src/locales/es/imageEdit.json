@@ -31,6 +31,27 @@
     "uploadFailed": "No se pudo añadir la foto: {{message}}",
     "notAnImage": "Ese archivo no es una imagen."
   },
+  "people": {
+    "only": "Solo esta persona",
+    "onlyHelp": "Una sola renderización: todos en la imagen tendrán esta cara, así que describe una escena con esta persona sola.",
+    "others": "Con otras personas",
+    "othersHelp": "Primero se crea la escena. Luego haces clic en la cara que debe ser esta persona y solo esa cara cambia; los demás mantienen la suya.",
+    "second": "Segunda persona (opcional)",
+    "secondHelp": "Fotos de otra persona para poner en otra cara en la misma escena. Déjalo vacío para mantener a quien la escena genere.",
+    "addSecond": "Añadir foto de la segunda persona"
+  },
+  "scene": {
+    "title": "Elige las caras",
+    "help": "Haz clic en la cara que debe ser tu persona.",
+    "helpSecond": "Ahora haz clic en la cara de la segunda persona.",
+    "you": "Tu persona",
+    "second": "Segunda persona",
+    "pickFor": "Eligiendo:",
+    "apply": "Aplicar caras",
+    "newScene": "Nueva escena",
+    "noFaces": "No se encontraron caras en esta escena. Prueba con una nueva escena o con un plano más cercano en la descripción.",
+    "faceNumber": "Cara {{number}}"
+  },
   "faces": {
     "checking": "Buscando rostro…",
     "found": "Rostro encontrado",
@@ -69,7 +90,9 @@
       "portrait": "Retrato 768 × 1024",
       "square": "Cuadrado 1024 × 1024",
       "landscape": "Paisaje 1024 × 768",
-      "wide": "Ancho 1216 × 704"
+      "video": "Video 16:9 1360 × 768",
+      "fullhd": "Full HD 16:9 1920 × 1088",
+      "vertical": "Vertical Full HD 1088 × 1920"
     },
     "strength": "Fuerza de parecido",
     "strengthHelp": "1.0 es el valor predeterminado. Un valor más alto mantiene el rostro con más fuerza y puede empezar a dominar la escena; uno más bajo permite que la escena cambie más el rostro.",
@@ -99,7 +122,8 @@
     "needConsent": "Confirma el parecido para cada foto de rostro.",
     "needPrompt": "Describe lo que quieres.",
     "needSides": "Elige cuánto extender al menos un lado.",
-    "startFailed": "No se pudo iniciar: {{message}}"
+    "startFailed": "No se pudo iniciar: {{message}}",
+    "identityScene": "Crear la escena"
   },
   "job": {
     "queued": "En cola",
