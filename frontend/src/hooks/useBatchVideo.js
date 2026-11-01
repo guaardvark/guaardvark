@@ -11,6 +11,11 @@ const STATUS_POLL_MS = 2000;
 // Queue and list polls: this many misses in a row is an outage, said once.
 const POLL_FAILURES_BEFORE_NOTICE = 3;
 
+// Every poll parses into new objects. Keeping the old one when the content is the
+// same stops a poll that found nothing new from re-rendering the whole page.
+const keepIfUnchanged = (prev, next) =>
+  JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+
 /**
  * Batch video queue state, WebSocket progress, and batch lifecycle handlers.
  * HTTP status polling runs while a batch is active so progress survives WS drops.
@@ -68,7 +73,8 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       const data = await handleResponse(res, { quiet: true });
       queueFailuresRef.current = 0;
       if (data.success) {
-        setQueue(data.data.queue || []);
+        const next = data.data.queue || [];
+        setQueue((prev) => keepIfUnchanged(prev, next));
       }
     } catch (e) {
       // A poll: one miss stays quiet; a failure that persists is said once.
@@ -101,7 +107,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       const res = await fetch(`${API_BASE}/batch-video/status/${batchId}`);
       const data = await res.json();
       if (data.success) {
-        setBatchStatus(data.data);
+        setBatchStatus((prev) => keepIfUnchanged(prev, data.data));
         if (TERMINAL_STATUSES.has(data.data.status)) {
           stopPolling();
           fetchBatches();
@@ -140,7 +146,7 @@ export function useBatchVideo({ setError, setSuccess, computedParams } = {}) {
       ) {
         return;
       }
-      setBatchStatus(data);
+      setBatchStatus((prev) => keepIfUnchanged(prev, data));
       if (TERMINAL_STATUSES.has(data.status)) {
         stopPolling();
         fetchBatches();
