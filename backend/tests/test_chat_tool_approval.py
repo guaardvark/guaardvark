@@ -138,9 +138,10 @@ def test_a_waiting_card_can_be_read_until_it_closes():
     seen = []
 
     def answer(card):
-        seen.append(uce.pending_approval_cards())
+        seen.append(uce.pending_approval_cards(SID))
+        assert uce.pending_approval_cards("another-session") == []
         uce.set_approval_response(SID, False, approval_id=card["approval_id"])
 
     _, cards = _ask(answer)
     assert seen == [cards]
-    assert uce.pending_approval_cards() == []
+    assert uce.pending_approval_cards(SID) == []

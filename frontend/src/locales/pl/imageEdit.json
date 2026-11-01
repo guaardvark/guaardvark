@@ -154,7 +154,9 @@
     "no_face": "Brak twarzy w wyniku do porównania",
     "no_reference_face": "Nie zmierzono: na zdjęciach nie znaleziono twarzy",
     "help": "Mierzone po wygenerowaniu modelem rozpoznawania twarzy, którego używa PuLID: twarz w wyniku w porównaniu ze zdjęciami. Gdy twarz się przeniosła, obrazy uzyskiwały od 0.56 do 0.78; inna osoba 0.2 lub mniej.",
-    "onMany": "Ta twarz trafiła do kilku osób ({{count}}). Aby nadać ją tylko jednej z nich, włącz „Z innymi osobami”."
+    "onMany": "Ta twarz trafiła do kilku osób ({{count}}). Aby nadać ją tylko jednej z nich, włącz „Z innymi osobami”.",
+    "retryPulid": "Spróbuj ponownie z PuLID",
+    "retryPulidHelp": "Kontext zmienił twarz. PuLID rysuje nowy obraz wokół twarzy z Twoich zdjęć: w teście portretów detektywa zachował twarz w 9 z 9, Kontext w 1."
   },
   "identityEngine": {
     "pulid": "Nowy obraz (PuLID)",

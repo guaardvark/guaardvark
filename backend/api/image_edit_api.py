@@ -60,9 +60,13 @@ EDIT_ENGINES = (
 # PuLID-FLUX canvases. Measured 2026-10-31 on a 16 GB card (fp8, 20 steps, the
 # pack's weight and start, one render each, seed 1984): 1360x768 (Video Gen's
 # 16:9) 44 s, 14.8 GB peak, likeness 0.70; 1920x1088 60 s, 15.1 GB, 0.72;
-# 1088x1920 62 s, 15.1 GB, 0.44, where FLUX added glasses the photo does not
-# have (likeness_score bands: 0.55 and up strong). 768x1024 is the 2026-09-19
-# default.
+# 1088x1920 62 s, 15.1 GB. 768x1024 is the 2026-09-19 default.
+# 1088x1920 against 768x1024, 2026-11-01, likeness_score (0.55 and up strong):
+# four made-up faces, a car and a street prompt, seeds 11/22/33 (and 1984 for
+# one face), 22 renders per size. 1088x1920 median 0.75, 20 of 22 strong;
+# 768x1024 median 0.65, 17 of 22. The 1088x1920 lows were small faces and
+# glasses FLUX added at seed 1984 (0.44); the 768x1024 lows were the driver
+# seen from behind or turned away.
 IDENTITY_SIZES = {
     "portrait": (768, 1024),
     "square": (1024, 1024),
@@ -283,7 +287,10 @@ def consent():
 def _int(value, default=None, *, low=None, high=None):
     if value in (None, ""):
         return default
-    number = int(float(value))
+    try:
+        number = int(float(value))
+    except OverflowError:
+        raise ValueError(f"{value!r} is not a finite number")
     if low is not None:
         number = max(low, number)
     if high is not None:

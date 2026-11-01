@@ -150,6 +150,8 @@ const FaceStatus = ({ photo, t }) => {
 };
 
 const LIKENESS_COLORS = { strong: "success", partial: "warning", not_taken: "error" };
+// Bands below "strong" where the face was lost; a restage that lands here is offered a PuLID render.
+const LIKENESS_MISSED = ["partial", "not_taken", "no_face"];
 
 /** How close each person's face in the result is to their photos, as scored after the render. */
 const LikenessReport = ({ likeness, t }) => {
@@ -350,6 +352,8 @@ const ImageEditPage = () => {
   const [withOthers, setWithOthers] = useState(false);
   // "pulid" draws a new picture around the face; "kontext" restages the photo itself.
   const [identityEngine, setIdentityEngine] = useState("pulid");
+  // Set by "Try again with PuLID": the run starts once the page has switched engines.
+  const [retryWithPulid, setRetryWithPulid] = useState(false);
   const [person2, setPerson2] = useState([]);
   const [scene, setScene] = useState(null);
   const [assign, setAssign] = useState({ person1: null, person2: null });
@@ -481,14 +485,15 @@ const ImageEditPage = () => {
     if (!modeCaps.available) return modeCaps.reason;
     if (!primary) return t("imageEdit.run.needPhoto");
     if (mode === "identity") {
-      if (facePhotos.some((p) => !p.faces?.count)) return t("imageEdit.run.needFace");
+      // PuLID skips a photo its detector finds no face in; a Kontext restage edits the photo as it is.
+      if (!restage && facePhotos.some((p) => !p.faces?.count)) return t("imageEdit.run.needFace");
       if (facePhotos.some((p) => !p.consented)) return t("imageEdit.run.needConsent");
       if (!prompts.identity.trim()) return t("imageEdit.run.needPrompt");
     }
     if (mode === "edit" && !prompts.edit.trim()) return t("imageEdit.run.needPrompt");
     if (mode === "expand" && !Object.values(pad).some((v) => Number(v) > 0)) return t("imageEdit.run.needSides");
     return null;
-  }, [caps, modeCaps, primary, mode, facePhotos, prompts, pad, t]);
+  }, [caps, modeCaps, primary, mode, restage, facePhotos, prompts, pad, t]);
 
   const finish = useCallback((snapshot, request) => {
     const outcome = snapshot.result || {};
@@ -511,6 +516,7 @@ const ImageEditPage = () => {
         mode: request.mode,
         prompt: request.prompt || "",
         seed: meta.seed ?? request.settings?.seed ?? null,
+        engine: request.settings?.engine || null,
         sources: request.sources || [],
         output: outcome.output || "",
         likeness: meta.likeness || null,
@@ -593,7 +599,7 @@ const ImageEditPage = () => {
       : mode === "identity"
       ? { size, weight: strength, seed: runSeed, ...(others ? { others: true } : {}) }
       : mode === "edit"
-        ? { engine, steps: editSteps || undefined }
+        ? { engine, steps: editSteps || undefined, seed: runSeed }
         : mode === "expand" ? { ...pad } : {};
     const request = {
       mode,
@@ -609,6 +615,16 @@ const ImageEditPage = () => {
     }
     await startJob(request, [...photos, ...(others ? person2 : [])].map((p) => p.url));
   };
+
+  useEffect(() => {
+    if (!retryWithPulid || restage) return;
+    setRetryWithPulid(false);
+    if (!blocker && !running) run();
+  }, [retryWithPulid, restage, blocker, running]);
+
+  const restageMissed = faceMode && result?.mode === "identity" && result.engine === "kontext"
+    && Boolean(identityCaps.engines?.pulid)
+    && (result.likeness?.people || []).some((p) => LIKENESS_MISSED.includes(p.band));
 
   // Second step of "With other people": the chosen faces get their identities.
   const placeFaces = async () => {
@@ -1060,10 +1076,19 @@ const ImageEditPage = () => {
                   </Grid>
                 </Grid>
                 {result.mode === "identity" && <LikenessReport likeness={result.likeness} t={t} />}
+                {restageMissed && (
+                  <Typography variant="caption" color="text.secondary">{t("imageEdit.likeness.retryPulidHelp")}</Typography>
+                )}
                 {result.seed !== null && result.seed !== undefined && result.mode === "identity" && (
                   <Typography variant="caption" color="text.secondary">{t("imageEdit.result.seed", { seed: result.seed })}</Typography>
                 )}
                 <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  {restageMissed && (
+                    <Button size="small" variant="outlined" startIcon={<FaceIcon />} disabled={running}
+                      onClick={() => { setIdentityEngine("pulid"); setRetryWithPulid(true); }}>
+                      {t("imageEdit.likeness.retryPulid")}
+                    </Button>
+                  )}
                   <Button size="small" startIcon={<OpenIcon />} onClick={() => setLightbox(result)}>
                     {t("imageEdit.result.open")}
                   </Button>

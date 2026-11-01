@@ -58,7 +58,8 @@
     "foundMany": "{{count}}개의 얼굴 발견: 가장 큰 얼굴이 사용됨",
     "none": "얼굴을 찾을 수 없음",
     "unavailable": "얼굴 확인 불가",
-    "showBox": "찾은 얼굴 표시"
+    "showBox": "찾은 얼굴 표시",
+    "noneHelp": "PuLID는 이 사진을 건너뜁니다. 얼굴이 더 크고 초점이 맞으며 정면이나 3/4 각도에서 보이는 사진을 사용하세요."
   },
   "consent": {
     "question": "이 사람의 초상권을 사용할 권한이 있습니까? 본인의 사진이거나, 해당 인물이 동의한 경우에만 사용하십시오.",
@@ -79,7 +80,8 @@
   "framing": {
     "faceToCamera": "얼굴이 카메라를 향함",
     "mediumCloseUp": "미디엄 클로즈업",
-    "lookingAtCamera": "카메라 응시"
+    "lookingAtCamera": "카메라 응시",
+    "threeQuarter": "3/4 측면"
   },
   "settings": {
     "title": "설정",
@@ -89,7 +91,7 @@
       "square": "정사각형 1024 × 1024",
       "landscape": "가로형 1024 × 768",
       "video": "비디오 16:9 1360 × 768",
-      "fullhd": "Full HD 16:9 1920 × 1088",
+      "fullhd": "풀 HD 16:9 1920 × 1088",
       "vertical": "세로형 Full HD 1088 × 1920"
     },
     "strength": "유사도 강도",
@@ -152,7 +154,9 @@
     "no_face": "결과에 비교할 얼굴이 없습니다",
     "no_reference_face": "측정 안 됨: 사진에서 얼굴을 찾지 못했습니다",
     "help": "생성 후 PuLID가 쓰는 얼굴 인식 모델로 결과 속 얼굴을 사진과 비교해 측정합니다. 얼굴이 적용된 이미지는 0.56~0.78, 다른 사람은 0.2 이하였습니다.",
-    "onMany": "이 얼굴이 {{count}}명에게 적용되었습니다. 한 명에게만 넣으려면 '다른 사람들과 함께'을(를) 켜세요."
+    "onMany": "이 얼굴이 {{count}}명에게 적용되었습니다. 한 명에게만 넣으려면 '다른 사람들과 함께'을(를) 켜세요.",
+    "retryPulid": "PuLID로 다시 시도",
+    "retryPulidHelp": "Kontext가 얼굴을 바꿨습니다. PuLID는 사진 속 얼굴을 중심으로 새 이미지를 그립니다. 탐정 초상 테스트에서 9장 중 9장에서 얼굴을 유지했고, Kontext는 1장이었습니다."
   },
   "identityEngine": {
     "pulid": "새 이미지 (PuLID)",

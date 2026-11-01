@@ -154,7 +154,9 @@
     "no_face": "结果中没有可比较的脸",
     "no_reference_face": "未测量：你的照片中没有找到人脸",
     "help": "生成后用 PuLID 所用的人脸识别模型测量：结果中的脸与照片对比。脸替换成功的图像得分为 0.56 到 0.78；不同的人为 0.2 或更低。",
-    "onMany": "这张脸出现在了 {{count}} 个人身上。要只放在其中一人身上，请打开“包含他人”。"
+    "onMany": "这张脸出现在了 {{count}} 个人身上。要只放在其中一人身上，请打开“包含他人”。",
+    "retryPulid": "用 PuLID 重试",
+    "retryPulidHelp": "Kontext 改变了脸。PuLID 会围绕你照片中的脸画出新的画面：在侦探肖像测试中，它 9 张中 9 张保住了脸，Kontext 只有 1 张。"
   },
   "identityEngine": {
     "pulid": "新画面（PuLID）",

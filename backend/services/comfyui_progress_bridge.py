@@ -215,13 +215,17 @@ class ComfyUIProgressBridge:
         self._thread.start()
         logger.info(f"ComfyUI ws progress bridge started for process {process_id}")
 
-    def stop(self) -> None:
+    def stop(self, wait: bool = False) -> None:
+        """Stop listening; ``wait`` joins the listener so no late step event
+        lands on a job its owner is about to close."""
         self._stop.set()
         try:
             if self._ws is not None:
                 self._ws.close()
         except Exception:
             pass
+        if wait and self._thread is not None:
+            self._thread.join(timeout=8)
 
     def finish(self, success: bool, message: str = "") -> None:
         """Stop, then close the job the bridge reported on: complete or error.
