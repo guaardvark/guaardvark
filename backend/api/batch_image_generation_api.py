@@ -358,13 +358,14 @@ def _apply_character_casting(data: Dict[str, Any], params: Dict[str, Any]) -> No
 
     When ``subject_ids`` is omitted, auto-resolves from prompt text (trigger words,
     ``[bracket]`` tokens, cast names) so Discord / bare callers load LoRAs the same
-    way the chat ``generate_image`` tool does.
+    way the chat ``generate_image`` tool does. ``auto_cast: false`` turns that off,
+    for a caller passing on text from people who must not reach the Cast Library.
 
     Raises ValueError if every selected id is untrained or missing.
     """
     subject_ids = data.get("subject_ids") or []
     auto_resolved = False
-    if not subject_ids:
+    if not subject_ids and data.get("auto_cast", True) is not False:
         subject_ids = _resolve_subject_ids_from_prompts(data.get("prompts"))
         auto_resolved = bool(subject_ids)
         if auto_resolved:

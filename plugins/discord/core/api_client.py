@@ -173,13 +173,14 @@ class GuaardvarkClient:
         subject_ids: list = None,
         guidance: float = None,
         model: str = None,
+        auto_cast: bool = True,
     ) -> dict:
         """POST /batch-image/generate/prompts
 
         Optional ``subject_ids`` loads Cast Library LoRAs (identity lock).
         When omitted, the backend still auto-resolves cast from trigger tokens
-        in the prompt (e.g. ``[batman_2]``). Without ``model`` the backend's
-        auto-router picks one.
+        in the prompt (e.g. ``[batman_2]``) unless ``auto_cast`` is False.
+        Without ``model`` the backend's auto-router picks one.
         """
         payload: dict = {
             "prompts": [prompt],
@@ -193,6 +194,8 @@ class GuaardvarkClient:
             payload["guidance"] = guidance
         if model:
             payload["model"] = model
+        if not auto_cast:
+            payload["auto_cast"] = False
         return await self._post("/batch-image/generate/prompts", json=payload)
 
     async def list_cast_subjects(self) -> list:

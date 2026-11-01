@@ -12,6 +12,10 @@ security:
   admin_roles: ["Admin", "Bot Admin"]
   allowed_channels: []
   allow_dms: true
+  # Strangers can reach an install with private data: /imagine only, in these
+  # channels, no Cast characters. See core/public_mode.py.
+  public_mode: "${DISCORD_PUBLIC_MODE:-}"
+  public_channels: "${DISCORD_PUBLIC_CHANNELS:-}"
   max_prompt_length: 2000
   max_image_prompt_length: 2000
 
