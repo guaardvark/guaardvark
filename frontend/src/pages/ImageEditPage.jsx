@@ -481,14 +481,15 @@ const ImageEditPage = () => {
     if (!modeCaps.available) return modeCaps.reason;
     if (!primary) return t("imageEdit.run.needPhoto");
     if (mode === "identity") {
-      if (facePhotos.some((p) => !p.faces?.count)) return t("imageEdit.run.needFace");
+      // PuLID skips a photo its detector finds no face in; a Kontext restage edits the photo as it is.
+      if (!restage && facePhotos.some((p) => !p.faces?.count)) return t("imageEdit.run.needFace");
       if (facePhotos.some((p) => !p.consented)) return t("imageEdit.run.needConsent");
       if (!prompts.identity.trim()) return t("imageEdit.run.needPrompt");
     }
     if (mode === "edit" && !prompts.edit.trim()) return t("imageEdit.run.needPrompt");
     if (mode === "expand" && !Object.values(pad).some((v) => Number(v) > 0)) return t("imageEdit.run.needSides");
     return null;
-  }, [caps, modeCaps, primary, mode, facePhotos, prompts, pad, t]);
+  }, [caps, modeCaps, primary, mode, restage, facePhotos, prompts, pad, t]);
 
   const finish = useCallback((snapshot, request) => {
     const outcome = snapshot.result || {};
@@ -593,7 +594,7 @@ const ImageEditPage = () => {
       : mode === "identity"
       ? { size, weight: strength, seed: runSeed, ...(others ? { others: true } : {}) }
       : mode === "edit"
-        ? { engine, steps: editSteps || undefined }
+        ? { engine, steps: editSteps || undefined, seed: runSeed }
         : mode === "expand" ? { ...pad } : {};
     const request = {
       mode,
