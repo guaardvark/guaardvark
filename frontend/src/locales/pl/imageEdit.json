@@ -6,7 +6,7 @@
     "background": "Usuń tło"
   },
   "modeHelp": {
-    "identity": "Zachowuje twarz z Twoich zdjęć i umieszcza osobę w opisywanej przez Ciebie scenie. Działa na PuLID z FLUX.1-dev.",
+    "identity": "Zachowuje twarz z Twoich zdjęć i umieszcza osobę w opisywanej przez Ciebie scenie.",
     "edit": "Zmienia coś na zdjęciu, zachowując resztę: to samo zdjęcie, ta sama poza.",
     "expand": "Rozszerza zdjęcie poza jego krawędzie i wypełnia nowy obszar tak, aby pasował.",
     "background": "Wycina obiekt i pozostawia przezroczyste tło."

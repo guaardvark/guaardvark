@@ -6,7 +6,7 @@
     "background": "Remover fundo"
   },
   "modeHelp": {
-    "identity": "Mantém o rosto das suas fotos e coloca a pessoa em uma cena que você descreve. Roda em PuLID com FLUX.1-dev.",
+    "identity": "Mantém o rosto das suas fotos e coloca a pessoa em uma cena que você descreve.",
     "edit": "Altera algo na foto e mantém o resto: mesma imagem, mesma pose.",
     "expand": "Estende a imagem além de suas bordas e preenche a nova área para combinar.",
     "background": "Recorta o objeto e deixa um fundo transparente."

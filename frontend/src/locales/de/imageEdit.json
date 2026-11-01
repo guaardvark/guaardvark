@@ -6,7 +6,7 @@
     "background": "Hintergrund entfernen"
   },
   "modeHelp": {
-    "identity": "Behält das Gesicht aus deinen Fotos bei und setzt die Person in eine von dir beschriebene Szene. Läuft auf PuLID mit FLUX.1-dev.",
+    "identity": "Behält das Gesicht aus deinen Fotos bei und setzt die Person in eine von dir beschriebene Szene.",
     "edit": "Ändert etwas im Foto und behält den Rest bei: gleiches Bild, dieselbe Pose.",
     "expand": "Erweitert das Bild über seine Ränder hinaus und füllt den neuen Bereich passend aus.",
     "background": "Schneidet das Motiv aus und hinterlässt einen transparenten Hintergrund."

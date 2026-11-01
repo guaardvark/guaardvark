@@ -6,7 +6,7 @@
     "background": "Remove background"
   },
   "modeHelp": {
-    "identity": "Keeps the face from your photos and puts the person in a scene you describe. Runs on PuLID with FLUX.1-dev.",
+    "identity": "Keeps the face from your photos and puts the person in a scene you describe.",
     "edit": "Changes something in the photo and keeps the rest: same picture, same pose.",
     "expand": "Extends the picture past its edges and fills the new area to match.",
     "background": "Cuts the subject out and leaves a transparent background."

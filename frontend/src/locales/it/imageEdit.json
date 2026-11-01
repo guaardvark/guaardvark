@@ -6,7 +6,7 @@
     "background": "Rimuovi sfondo"
   },
   "modeHelp": {
-    "identity": "Mantiene il volto delle tue foto e inserisce la persona in una scena che descrivi. Esegue su PuLID con FLUX.1-dev.",
+    "identity": "Mantiene il volto delle tue foto e inserisce la persona in una scena che descrivi.",
     "edit": "Modifica qualcosa nella foto mantenendo il resto: stessa immagine, stessa posa.",
     "expand": "Estende l'immagine oltre i bordi e riempie la nuova area per adattarla.",
     "background": "Taglia il soggetto e lascia uno sfondo trasparente."

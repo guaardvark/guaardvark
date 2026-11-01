@@ -6,7 +6,7 @@
     "background": "Achtergrond verwijderen"
   },
   "modeHelp": {
-    "identity": "Houdt het gezicht uit je foto's vast en plaatst de persoon in een scène die je beschrijft. Draait op PuLID met FLUX.1-dev.",
+    "identity": "Houdt het gezicht uit je foto's vast en plaatst de persoon in een scène die je beschrijft.",
     "edit": "Verandert iets in de foto en behoudt de rest: dezelfde afbeelding, dezelfde houding.",
     "expand": "Breidt de afbeelding voorbij de randen uit en vult het nieuwe gebied aan.",
     "background": "Snijdt het onderwerp uit en laat een transparante achtergrond over."

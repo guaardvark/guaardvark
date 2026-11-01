@@ -6,7 +6,7 @@
     "background": "Supprimer l'arrière-plan"
   },
   "modeHelp": {
-    "identity": "Conserve le visage de vos photos et place la personne dans une scène que vous décrivez. Fonctionne avec PuLID avec FLUX.1-dev.",
+    "identity": "Conserve le visage de vos photos et place la personne dans une scène que vous décrivez.",
     "edit": "Modifie un élément de la photo tout en gardant le reste : même image, même pose.",
     "expand": "Étend l'image au-delà de ses bords et remplit la nouvelle zone pour correspondre.",
     "background": "Détoure le sujet et laisse un arrière-plan transparent."
