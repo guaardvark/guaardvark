@@ -34,6 +34,9 @@ COPY scripts/ /app/scripts/
 # Plugin sources (Audio Foundry, Video Editor, ...). Per-machine environments, checkouts and
 # weights are excluded in .dockerignore; plugins create their environments on first start.
 COPY plugins/ /app/plugins/
+# The plugin start scripts and the ComfyUI update service expect /app/backend/venv. The
+# packages are installed system-wide in this image, so the venv only has to see them.
+RUN python -m venv --system-site-packages /app/backend/venv
 # app.py reads the version from here; without it /api/health reports a stale fallback.
 COPY VERSION /app/VERSION
 
