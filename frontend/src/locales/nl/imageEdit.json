@@ -152,6 +152,7 @@
     "partial": "Gelijkenis {{score}}: gedeeltelijk",
     "not_taken": "Gelijkenis {{score}}: het gezicht is niet overgenomen",
     "no_face": "Geen gezicht in het resultaat om te vergelijken",
+    "no_reference_face": "Niet gemeten: geen gezicht gevonden in je foto's",
     "help": "Na het renderen gemeten met het gezichtsherkenningsmodel dat PuLID gebruikt: het gezicht in het resultaat vergeleken met de foto's. Waar het gezicht overkwam, scoorden renders 0.56 tot 0.78; een ander persoon 0.2 of lager.",
     "onMany": "Dit gezicht kwam op {{count}} mensen terecht. Zet „Met andere mensen” aan om het op één van hen te zetten."
   }

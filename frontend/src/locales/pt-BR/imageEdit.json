@@ -152,6 +152,7 @@
     "partial": "Semelhança {{score}}: parcial",
     "not_taken": "Semelhança {{score}}: o rosto não foi aplicado",
     "no_face": "Nenhum rosto no resultado para comparar",
+    "no_reference_face": "Não medida: nenhum rosto encontrado nas suas fotos",
     "help": "Medida depois da geração com o modelo de reconhecimento facial que o PuLID usa: o rosto no resultado comparado às fotos. Onde o rosto foi aplicado, as imagens marcaram de 0.56 a 0.78; uma pessoa diferente, 0.2 ou menos.",
     "onMany": "Este rosto foi parar em {{count}} pessoas. Para colocá-lo em só uma delas, ative \"Com outras pessoas\"."
   }

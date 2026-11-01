@@ -2147,6 +2147,12 @@ class EditImageTool(BaseTool):
                          "where it is raised and the result says so."),
             required=False, default=28,
         ),
+        "seed": ToolParameter(
+            name="seed", type="int",
+            description=("Seed for the edit. Omit for the model's fixed default (42); the same seed, photo and "
+                         "instruction give the same picture, another seed another take."),
+            required=False, default=None,
+        ),
         "model": ToolParameter(
             name="model", type="string",
             description=(
@@ -2342,11 +2348,12 @@ class EditImageTool(BaseTool):
 
     def execute(self, instruction: str, image: str = "", steps: int = 28,
                 model: str = "auto", reference_image_2: str = "",
-                reference_image_3: str = "", wait_for_result: bool = False, **kwargs) -> ToolResult:
+                reference_image_3: str = "", wait_for_result: bool = False, seed=None,
+                **kwargs) -> ToolResult:
         if is_mcp_transport(self):
             # The edit renders on the GPU, which belongs to the backend process.
             return _forward_tool_job(self, {
-                "instruction": instruction, "image": image, "steps": steps, "model": model,
+                "instruction": instruction, "image": image, "steps": steps, "model": model, "seed": seed,
                 "reference_image_2": reference_image_2, "reference_image_3": reference_image_3,
             }, wait_for_result)
         inputs = self._edit_inputs(image, reference_image_2, reference_image_3)
@@ -2358,7 +2365,7 @@ class EditImageTool(BaseTool):
         if isinstance(backend, ToolResult):
             return backend
         return _run_or_queue(self, lambda: self._edit(
-            src, extra, instruction=instruction, steps=steps, model=model,
+            src, extra, instruction=instruction, steps=steps, model=model, seed=seed,
         ))
 
     def _edit_inputs(self, image: str, reference_image_2: str = "", reference_image_3: str = ""):
@@ -2380,7 +2387,7 @@ class EditImageTool(BaseTool):
             extra.append(ref.path)
         return found.path, extra
 
-    def _edit(self, src: str, extra: list, *, instruction: str, steps, model: str) -> ToolResult:
+    def _edit(self, src: str, extra: list, *, instruction: str, steps, model: str, seed=None) -> ToolResult:
         gpu_wait = None
         try:
             from backend.config import OUTPUT_DIR
@@ -2401,20 +2408,22 @@ class EditImageTool(BaseTool):
 
             # No step count (None or 0) renders the model's own default; a given one
             # is used as given unless the model's registry entry declares a floor.
+            # No seed keeps each model's fixed default.
+            seeded = {} if seed in (None, "") else {"seed": int(seed)}
             if backend == "qwen":
                 gen.edit_image_qwen(
                     image_paths=[src, *extra], instruction=instruction,
-                    output_path=output_path, steps=steps, gpu_wait=gpu_wait,
+                    output_path=output_path, steps=steps, gpu_wait=gpu_wait, **seeded,
                 )
             elif backend == "kontext":
                 gen.edit_image(
                     image_path=src, instruction=instruction,
-                    output_path=output_path, steps=steps, gpu_wait=gpu_wait,
+                    output_path=output_path, steps=steps, gpu_wait=gpu_wait, **seeded,
                 )
             elif backend == "moss":
                 gen.edit_image_moss(
                     image_path=src, instruction=instruction,
-                    output_path=output_path, steps=steps, gpu_wait=gpu_wait,
+                    output_path=output_path, steps=steps, gpu_wait=gpu_wait, **seeded,
                 )
             else:
                 img2img_result = self._edit_via_img2img(
@@ -2444,6 +2453,7 @@ class EditImageTool(BaseTool):
                     "instruction": instruction,
                     "model": effective_model,
                     "backend": backend,
+                    "seed": seeded.get("seed"),
                     **_steps_metadata(gen),
                 },
             )

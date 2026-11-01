@@ -152,6 +152,7 @@
     "partial": "Ressemblance {{score}} : partielle",
     "not_taken": "Ressemblance {{score}} : le visage n'a pas pris",
     "no_face": "Aucun visage à comparer dans le résultat",
+    "no_reference_face": "Non mesurée : aucun visage trouvé dans vos photos",
     "help": "Mesurée après le rendu avec le modèle de reconnaissance faciale qu'utilise PuLID : le visage du résultat comparé aux photos. Quand le visage a pris, les rendus ont obtenu de 0.56 à 0.78 ; une autre personne, 0.2 ou moins.",
     "onMany": "Ce visage s'est retrouvé sur {{count}} personnes. Pour le mettre sur une seule, activez « Avec d'autres personnes »."
   }

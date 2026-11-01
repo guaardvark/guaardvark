@@ -39,6 +39,9 @@ LIKENESS_BANDS = (
 )
 BELOW_BANDS = "not_taken"
 NO_FACE = "no_face"
+# None of the person's photos had a face the scorer could read, so there is
+# nothing to compare the render with; it says nothing about the render.
+NO_REFERENCE = "no_reference_face"
 # A face counts as carrying the likeness from the lowest band up; strangers
 # stayed under 0.2 in every scene scored.
 CARRIES_LIKENESS = LIKENESS_BANDS[-1][0]
@@ -112,13 +115,19 @@ def score_render(image_path: str, people: List[Dict[str, Any]]) -> Optional[Dict
     A person with a box is scored on the face found there; without one (a
     single render, where every face gets the identity) on the face closest to
     the photos, with ``faces_with_likeness`` counting the faces that carry it.
+    ``faces`` lists every face found with its score against each person.
     """
     measured = _measure(image_path, [p["paths"] for p in people])
     if measured is None:
         return None
     faces = measured.get("faces") or []
+    refs_found = measured.get("refs_found") or []
     report = []
     for i, person in enumerate(people):
+        if i < len(refs_found) and not refs_found[i]:
+            report.append({"person": i + 1, "score": None, "band": NO_REFERENCE, "box": None,
+                           "faces_with_likeness": 0})
+            continue
         scored = [(f, f["scores"][i]) for f in faces if f["scores"][i] is not None]
         if person.get("box"):
             near = [(f, s) for f, s in scored if _overlap(f["box"], person["box"]) >= MIN_OVERLAP]
@@ -133,7 +142,7 @@ def score_render(image_path: str, people: List[Dict[str, Any]]) -> Optional[Dict
             "box": chosen[0]["box"] if chosen else None,
             "faces_with_likeness": sum(1 for _, s in scored if s >= CARRIES_LIKENESS),
         })
-    return {"people": report, "faces_found": len(faces)}
+    return {"people": report, "faces_found": len(faces), "faces": faces}
 
 
 _BAND_WORDS = {
@@ -152,6 +161,8 @@ def describe(likeness: Optional[Dict[str, Any]]) -> str:
         who = f"person {person['person']} " if len(likeness["people"]) > 1 else ""
         if person["band"] == NO_FACE:
             parts.append(f"{who}no face in the result to compare with the photos")
+        elif person["band"] == NO_REFERENCE:
+            parts.append(f"{who}not measured, the scorer found no face in the photos")
         else:
             parts.append(f"{who}{person['score']:.2f} ({_BAND_WORDS[person['band']]})")
     line = "Likeness to the photos (ArcFace similarity; 0.55 and up is strong): " + "; ".join(parts) + "."
