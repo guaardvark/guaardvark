@@ -57,7 +57,12 @@ def emit_progress_event(
             "unknown": ProcessType.UNKNOWN
         }
 
-        process_type_enum = process_type_mapping.get(process_type, ProcessType.UNKNOWN)
+        process_type_enum = process_type_mapping.get(process_type)
+        if process_type_enum is None:
+            try:
+                process_type_enum = ProcessType(process_type)
+            except ValueError:
+                process_type_enum = ProcessType.UNKNOWN
 
         # Handle different status types
         if status == "start":

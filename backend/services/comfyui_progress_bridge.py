@@ -156,6 +156,8 @@ class ComfyUIProgressBridge:
         self._last_preview_emit = 0.0
         self._process_id: Optional[str] = None
         self._reported = False
+        self._process_type = "video_render"
+        self._message_prefix = ""
 
     def start(
         self,
@@ -166,9 +168,15 @@ class ComfyUIProgressBridge:
         *,
         max_seconds: int = 7200,
         extra: Optional[Dict] = None,
+        process_type: str = "video_render",
+        message_prefix: str = "",
     ) -> None:
+        """``process_type`` is the footer entry's type; ``message_prefix`` leads
+        each step line ("Image edit: ") so the entry keeps naming the work."""
         if not ws_progress_enabled():
             return
+        self._process_type = process_type
+        self._message_prefix = message_prefix
         self._last_preview_emit = 0.0
         # Build node_id -> friendly label map from the workflow we're about to queue.
         # Wan MoE: two KSamplerAdvanced nodes in step order → high/low noise labels
@@ -234,7 +242,7 @@ class ComfyUIProgressBridge:
             progress=100 if success else 99,
             message=message or ("Render finished" if success else "Render failed"),
             status="complete" if success else "error",
-            process_type="video_render",
+            process_type=self._process_type,
         )
 
     # ── the listener thread ──────────────────────────────────────────────────
@@ -287,7 +295,7 @@ class ComfyUIProgressBridge:
                     pct = max(1, min(99, pct))
                     if pct != last_pct:
                         last_pct = pct
-                        msg = f"{stage} {value}/{total}"
+                        msg = f"{self._message_prefix}{stage} {value}/{total}"
                         free_mb = _free_vram_mb()
                         add = {"stage": stage, "node": node, "step": value, "steps": total, **extra}
                         # Surface offload thrash risk on the UnifiedProgress rail
@@ -304,7 +312,7 @@ class ComfyUIProgressBridge:
                             progress=pct,
                             message=msg,
                             status="processing",
-                            process_type="video_render",
+                            process_type=self._process_type,
                             additional_data=add,
                         )
                         self._reported = True

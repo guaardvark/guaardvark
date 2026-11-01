@@ -39,6 +39,13 @@ _SERVED_PREFIXES = {
 UPLOAD_MAX_SIDE = 2048
 UPLOAD_MAX_BYTES = 40 * 1024 * 1024
 
+# What the progress footer calls each mode's job.
+MODE_TITLES = {
+    "identity": "Image Edit: new scene, same face",
+    "edit": "Image Edit: edit the photo",
+    "expand": "Image Edit: expand",
+    "background": "Image Edit: remove background",
+}
 MODE_TOOLS = {
     "identity": "generate_identity",
     "edit": "edit_image",
@@ -350,7 +357,12 @@ def run():
             return registry.execute_tool(tool_name, **params)
 
     try:
-        snapshot = tool_jobs.submit(tool_name, _run, for_mcp=False)
+        title = MODE_TITLES[mode]
+        if mode == "identity" and params.get("others"):
+            title = "Image Edit: scene for the faces"
+        elif mode == "identity" and params.get("scene"):
+            title = "Image Edit: putting the faces on"
+        snapshot = tool_jobs.submit(tool_name, _run, for_mcp=False, title=title)
     except tool_jobs.ToolJobsBusy as e:
         return error_response(str(e), 429)
     logger.info("Image Edit page: %s started as %s", tool_name, snapshot["job_id"])

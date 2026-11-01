@@ -737,6 +737,37 @@ def _noting_wait(admission, on_wait):
 
 # --- The front door -----------------------------------------------------------
 
+# The footer type for each job type (job_priority_data.JOB_TYPES); anything not
+# named here shows as plain processing.
+_FOOTER_TYPES = {
+    "chat_picture": "image_generation", "picture": "image_generation",
+    "image_batch": "image_generation", "infographic": "image_generation",
+    "character_pictures": "image_generation", "storyboard": "image_generation",
+    "video_batch": "video_render", "video_render": "video_render",
+    "film_crew": "video_render", "music_video": "video_render",
+    "upscale": "upscale", "lora_train": "training", "training": "training",
+}
+
+
+def _footer_for_session(kind, op_id: str, slot_id: Optional[str]):
+    """Every GPU claim shows in the progress footer.
+
+    Work that already opened its own entry on this thread keeps it
+    (footer_jobs.ensure); anything else gets a fallback entry named for its job
+    type, which the footer shows while nothing else is showing, so no GPU job
+    runs with an empty footer.
+    """
+    try:
+        from backend.services import footer_jobs
+        from backend.services.job_priority_data import JOB_TYPES, job_type_for_session
+        job_type = job_type_for_session(kind, op_id, slot_id)
+        label = (JOB_TYPES.get(job_type) or {}).get("label") or "GPU job"
+        return footer_jobs.ensure(_FOOTER_TYPES.get(job_type, "processing"), label, fallback=True)
+    except Exception:  # noqa: BLE001 - the footer never blocks a GPU claim
+        log.debug("no footer entry for gpu_session(%s)", op_id, exc_info=True)
+        return contextlib.nullcontext()
+
+
 @contextlib.contextmanager
 def gpu_session(
     kind,
@@ -937,7 +968,8 @@ def gpu_session(
         if admission is not None:
             admission.started()
         try:
-            yield acquired
+            with _footer_for_session(kind, op_id, slot_id):
+                yield acquired
             # Clean exit: LOADING -> LOADED so the orchestrator's tracked VRAM
             # and eviction scoring stay accurate.
             if acquired and vram_estimate_mb:

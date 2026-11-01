@@ -449,6 +449,11 @@ def _input_choices(info: dict, node: str, key: str) -> list[str]:
     return []
 
 
+def _uuid_hex() -> str:
+    import uuid
+    return uuid.uuid4().hex
+
+
 def _failure(kind, message: str):
     """A failure message that carries its RenderErrorKind (job_types)."""
     return RenderFailure(kind, message)
@@ -974,8 +979,11 @@ class ComfyUIImageGenerator:
         return wf
 
     # ── submission ────────────────────────────────────────────────────
-    def _queue(self, workflow: dict) -> Optional[str]:
-        resp = requests.post(f"{self.comfy_url}/prompt", json={"prompt": workflow}, timeout=15)
+    def _queue(self, workflow: dict, client_id: Optional[str] = None) -> Optional[str]:
+        body = {"prompt": workflow}
+        if client_id:
+            body["client_id"] = client_id
+        resp = requests.post(f"{self.comfy_url}/prompt", json=body, timeout=15)
         resp.raise_for_status()
         return resp.json().get("prompt_id")
 
@@ -1576,6 +1584,28 @@ class ComfyUIImageGenerator:
             )
         return gpu_session(JobKind.VIDEO_RENDER, op_id, on_busy="raise", **session_kwargs)
 
+    def _step_bridge(self, workflow: dict):
+        """ComfyUI's step progress, relayed onto this work's footer entry
+        (footer_jobs; gpu_session opens one when nothing else did). None when
+        the thread's entry belongs to other code, or the relay is off."""
+        try:
+            from backend.services import footer_jobs
+            from backend.services.comfyui_progress_bridge import ComfyUIProgressBridge
+            entry = footer_jobs.current()
+            if entry is None:
+                return None
+            bridge = ComfyUIProgressBridge()
+            bridge.client_id = _uuid_hex()
+            bridge.start(
+                client_id=bridge.client_id, process_id=entry.process_id, comfy_url=self.comfy_url,
+                workflow=workflow, max_seconds=1800, process_type=entry.process_type,
+                message_prefix=f"{entry.title}: ",
+            )
+            return bridge
+        except Exception:  # noqa: BLE001 - progress only; the render goes on without it
+            logger.debug("no step progress for this image job", exc_info=True)
+            return None
+
     def _run_edit_graph(self, workflow: dict, output_path: str, *, job: str, vram_mb: int, timeout: int,
                         gpu_wait: dict | None = None, should_stop=None) -> str:
         import uuid as _uuid
@@ -1586,10 +1616,15 @@ class ComfyUIImageGenerator:
             vram_estimate_mb=vram_mb, require_fit=True, cross_process=True,
         ):
             raise_if_stopped(should_stop, "before ComfyUI was given the graph")
-            prompt_id = self._queue(workflow)
-            if not prompt_id:
-                raise RuntimeError(_failure(K.NODE_ERROR, "ComfyUI did not accept the image workflow"))
-            outputs = self._wait(prompt_id, timeout=timeout, should_stop=should_stop)
+            bridge = self._step_bridge(workflow)
+            try:
+                prompt_id = self._queue(workflow, client_id=bridge.client_id if bridge else None)
+                if not prompt_id:
+                    raise RuntimeError(_failure(K.NODE_ERROR, "ComfyUI did not accept the image workflow"))
+                outputs = self._wait(prompt_id, timeout=timeout, should_stop=should_stop)
+            finally:
+                if bridge is not None:
+                    bridge.stop()
             if outputs is None:
                 raise RuntimeError(_failure(K.RENDER_TIMEOUT, f"ComfyUI image job timed out (prompt {prompt_id})"))
             result = self._fetch_first_image(outputs, output_path)

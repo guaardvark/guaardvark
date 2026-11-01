@@ -108,6 +108,28 @@ describe("buildFooterEntries", () => {
   });
 });
 
+describe("fallback entries", () => {
+  const fallback = {
+    job_id: "image_generation_ab12cd34ef",
+    processType: "video_render",
+    status: "processing",
+    progress: 0,
+    message: "Video Gen batch",
+    timestamp: 300,
+    additional_data: { fallback: true },
+  };
+
+  it("shows GPU work that reports nothing else", () => {
+    const entries = buildFooterEntries([fallback], []);
+    expect(entries.map((e) => e.key)).toEqual(["image_generation_ab12cd34ef"]);
+  });
+
+  it("hides it while the work's own entry shows, so nothing is listed twice", () => {
+    const entries = buildFooterEntries([fallback], [videoJob()]);
+    expect(entries.map((e) => e.key)).toEqual(["video_gen:VideoBatch_1"]);
+  });
+});
+
 describe("activeVideoJobs", () => {
   it("keeps only video batches still in flight", () => {
     const jobs = new Map([

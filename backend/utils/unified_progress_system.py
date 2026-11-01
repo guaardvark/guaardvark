@@ -37,6 +37,26 @@ def _atomic_write_json(path: Path, data: Dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+# Open processes by the thread that opened them, across every UnifiedProgressSystem
+# instance (the image batch keeps its own): footer_jobs asks whether a unit of
+# work already shows in the footer before it opens another entry for it.
+_open_by_thread: Dict[int, Set[str]] = {}
+_open_lock = threading.Lock()
+
+
+def _note_open(process_id: str) -> None:
+    with _open_lock:
+        _open_by_thread.setdefault(threading.get_ident(), set()).add(process_id)
+
+
+def _note_closed(process_id: str) -> None:
+    with _open_lock:
+        for ident in list(_open_by_thread):
+            _open_by_thread[ident].discard(process_id)
+            if not _open_by_thread[ident]:
+                del _open_by_thread[ident]
+
+
 class ProcessStatus(Enum):
     """Process status enumeration"""
     START = "start"
@@ -310,6 +330,7 @@ class UnifiedProgressSystem:
 
             self._active_processes[safe_process_id] = event
             self._process_history[safe_process_id] = [event]
+        _note_open(safe_process_id)
 
         # Emit the event through all channels
         self._emit_event(event)
@@ -394,6 +415,11 @@ class UnifiedProgressSystem:
         
         return True
     
+    def has_open_process_on_this_thread(self) -> bool:
+        """True while a process this thread opened, in any instance, has not finished."""
+        with _open_lock:
+            return bool(_open_by_thread.get(threading.get_ident()))
+
     def complete_process(
         self,
         process_id: str,
@@ -468,6 +494,7 @@ class UnifiedProgressSystem:
             
             self._active_processes[process_id] = event
             self._process_history[process_id].append(event)
+        _note_closed(process_id)
         
         # Emit the event through all channels
         self._emit_event(event)
@@ -542,6 +569,7 @@ class UnifiedProgressSystem:
             # Timers change under the same lock, so a request thread finishing
             # or updating the job cannot interleave with them.
             if terminal:
+                _note_closed(process_id)
                 self._cancel_timeout_timer(process_id)
                 self._schedule_cleanup(process_id)
             else:

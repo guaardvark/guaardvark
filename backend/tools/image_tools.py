@@ -2622,9 +2622,11 @@ class RemoveBackgroundTool(BaseTool):
             BackgroundRemovalNotInstalled, device_used, installed_model, remove_background,
         )
         from backend.services.image_editing_packs import pack_by_id
+        from backend.services import footer_jobs
         try:
             model_id = installed_model()
-            with Image.open(src) as im:
+            # CPU work takes no GPU session, so it opens its own footer entry.
+            with footer_jobs.ensure("image_generation", "Remove background"), Image.open(src) as im:
                 out = remove_background(im, model_id)
             output_path, filename = _chat_png_path("nobg")
             out.save(output_path)

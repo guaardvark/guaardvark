@@ -67,6 +67,9 @@ class ToolJobsBusy(RuntimeError):
 class _Job:
     job_id: str
     tool: str
+    # What the progress footer calls this job, and the footer type it shows under.
+    title: str = ""
+    footer_type: str = "image_generation"
     created: float = field(default_factory=time.time)
     created_mono: float = field(default_factory=time.monotonic)
     status: str = "queued"  # queued | running | done | failed
@@ -126,6 +129,10 @@ def note_gpu_wait(reason: str) -> None:
     with _lock:
         job.gpu_wait_note = f"Waiting for the GPU: {reason}"[:300]
         job.gpu_wait_mono = time.monotonic()
+    from backend.services import footer_jobs
+    entry = footer_jobs.current()
+    if entry is not None:
+        entry.update(f"{job.title or job.tool}: waiting for the GPU. {reason}")
 
 
 def _prune(now: float) -> None:
@@ -148,14 +155,29 @@ def _flask_app():
         return None
 
 
-def submit(tool: str, run: Callable[[], Any], *, for_mcp: bool = True) -> Dict[str, Any]:
+# How the progress footer names a tool's job when the caller gives no title.
+TOOL_TITLES = {
+    "generate_identity": "New scene, same face",
+    "edit_image": "Image edit",
+    "inpaint_image": "Image edit",
+    "outpaint_image": "Expand image",
+    "remove_background": "Remove background",
+    "generate_animation": "Animation",
+}
+
+
+def submit(tool: str, run: Callable[[], Any], *, for_mcp: bool = True,
+           title: Optional[str] = None, footer_type: str = "image_generation") -> Dict[str, Any]:
     """Start ``run`` (returns a ToolResult) on its own thread; return the job's snapshot.
 
     The thread gets the caller's Flask app context and, with ``for_mcp``, the
     MCP-client mark (``calls_for_mcp_client``), so the work runs under the same
-    rules as the request that started it. Raises ToolJobsBusy at MAX_ACTIVE_JOBS.
+    rules as the request that started it. The job shows in the progress footer
+    from start to finish under ``title``. Raises ToolJobsBusy at MAX_ACTIVE_JOBS.
     """
-    job = _Job(job_id=f"{JOB_ID_PREFIX}{_PROCESS_TOKEN}_{uuid.uuid4().hex[:12]}", tool=tool)
+    job = _Job(job_id=f"{JOB_ID_PREFIX}{_PROCESS_TOKEN}_{uuid.uuid4().hex[:12]}", tool=tool,
+               title=title or TOOL_TITLES.get(tool, tool.replace("_", " ").capitalize()),
+               footer_type=footer_type)
     with _lock:
         _prune(time.monotonic())
         active = sum(1 for j in _jobs.values() if j.finished_mono is None)
@@ -174,6 +196,7 @@ def submit(tool: str, run: Callable[[], Any], *, for_mcp: bool = True) -> Dict[s
 
 
 def _run(job: _Job, run: Callable[[], Any], app: Any, for_mcp: bool) -> None:
+    from backend.services import footer_jobs
     from backend.utils.backend_http import calls_for_mcp_client
 
     payload: Dict[str, Any]
@@ -185,7 +208,10 @@ def _run(job: _Job, run: Callable[[], Any], app: Any, for_mcp: bool) -> None:
             if app is not None:
                 stack.enter_context(app.app_context())
             stack.enter_context(calls_for_mcp_client(for_mcp))
+            entry = stack.enter_context(footer_jobs.footer_job(job.footer_type, job.title))
             result = run()
+            if hasattr(result, "success") and not result.success:
+                entry.fail(f"{job.title}: {getattr(result, 'error', None) or 'failed'}")
         if hasattr(result, "to_dict"):
             payload = result.to_dict()
         else:

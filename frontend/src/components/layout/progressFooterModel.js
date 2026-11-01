@@ -144,6 +144,8 @@ function processEntry(p) {
         ? { current: ad.generated_count, total: ad.target_count }
         : null,
     timestamp: p.timestamp || 0,
+    // Opened by the backend only so GPU work is never invisible (footer_jobs.ensure).
+    fallback: Boolean(ad.fallback),
   };
 }
 
@@ -183,6 +185,7 @@ function foldIndexingEntries(entries) {
 /**
  * One entry per job in flight, running ones first. A clip's video_render steps
  * fold into their batch, matched by batch_id or by the batch's current item.
+ * Fallback entries (GPU work with no report of its own) show only when nothing else does.
  * @param {Iterable<object>} processes  activeProcesses values
  * @param {Array<object>} videoJobs     activeVideoJobs(...)
  * @returns {Array<object>} {key, type, name, waiting, waitKind, text, progress, itemCount, timestamp}
@@ -214,7 +217,10 @@ export function buildFooterEntries(processes, videoJobs) {
     }
     entries.push(processEntry(p));
   }
-  return foldIndexingEntries(entries).sort(
+  // A fallback entry stands in for GPU work that reports nothing else; while any
+  // other entry shows, it would be the same work listed twice.
+  const reported = entries.filter((e) => !e.fallback);
+  return foldIndexingEntries(reported.length ? reported : entries).sort(
     (a, b) => Number(a.waiting) - Number(b.waiting) || rank(a.type) - rank(b.type) || b.timestamp - a.timestamp,
   );
 }
