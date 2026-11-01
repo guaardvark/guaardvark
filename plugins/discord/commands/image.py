@@ -14,6 +14,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from core import public_mode
 from core.api_client import GuaardvarkClient, APIError
 from core.rate_limiter import RateLimiter
 from core.security import sanitize_input
@@ -106,6 +107,8 @@ class ImageCog(commands.Cog):
         interaction: discord.Interaction,
         current: str,
     ) -> list[app_commands.Choice[str]]:
+        if public_mode.enabled(self.config):
+            return []
         trained = await self._trained_cast()
         cur = (current or "").lower().strip()
         choices = []
@@ -158,6 +161,13 @@ class ImageCog(commands.Cog):
             )
             return
 
+        public = public_mode.enabled(self.config)
+        if public and interaction.channel_id not in public_mode.channels(self.config):
+            await interaction.response.send_message(
+                "/imagine is not available in this channel.", ephemeral=True
+            )
+            return
+
         allowed, _, retry_after = self.rate_limiter.check(
             interaction.user.id, "imagine"
         )
@@ -168,7 +178,8 @@ class ImageCog(commands.Cog):
             return
 
         img_config = self.config["image"]
-        if self._active_jobs >= img_config.get("max_queue_depth", 5):
+        queue_depth = public_mode.MAX_QUEUE_DEPTH if public else img_config.get("max_queue_depth", 5)
+        if self._active_jobs >= queue_depth:
             await interaction.response.send_message(
                 "GPU queue is full. Please wait.", ephemeral=True
             )
@@ -183,8 +194,19 @@ class ImageCog(commands.Cog):
             )
             return
 
+        if public and public_mode.refuses(cleaned):
+            logger.info("Public mode refused a prompt from user %s", interaction.user.id)
+            await interaction.response.send_message(
+                "That prompt can't run on this server.", ephemeral=True
+            )
+            return
+        if public:
+            character = None
+
         await interaction.response.defer()
         self._active_jobs += 1
+        if public:
+            public_mode.mark_job(True)
 
         subject_ids: list[int] = []
         cast_label = None
@@ -217,6 +239,7 @@ class ImageCog(commands.Cog):
                 subject_ids=subject_ids or None,
                 # A Cast character renders on its own LoRA's base model.
                 model=None if subject_ids else (img_config.get("model") or None),
+                auto_cast=not public,
             )
             batch_id = result.get("batch_id")
             if not batch_id:
@@ -284,6 +307,8 @@ class ImageCog(commands.Cog):
             )
         finally:
             self._active_jobs = max(0, self._active_jobs - 1)
+            if public and self._active_jobs == 0:
+                public_mode.mark_job(False)
 
     @app_commands.command(
         name="enhance-prompt", description="Improve an image generation prompt"

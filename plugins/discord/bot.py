@@ -15,6 +15,7 @@ import yaml
 import json
 from pathlib import Path
 
+from core import public_mode
 from core.api_client import GuaardvarkClient
 
 # Setup logging — configure only our logger, prevent propagation to root to avoid duplicates
@@ -114,14 +115,20 @@ class GuaardvarkBot(commands.Bot):
         except Exception as e:
             logger.warning("Backend health check failed: %s (bot will start anyway)", e)
 
-        for module in COG_MODULES:
+        public = public_mode.enabled(self.config)
+        for module in public_mode.COGS if public else COG_MODULES:
             try:
                 await self.load_extension(module)
                 logger.info("Loaded cog: %s", module)
             except Exception as e:
                 logger.error("Failed to load cog %s: %s", module, e)
 
-        if self.config.get("voice", {}).get("enabled", False):
+        if public:
+            for command in list(self.tree.get_commands()):
+                if command.name not in public_mode.COMMANDS:
+                    self.tree.remove_command(command.name)
+            logger.info("Public mode: offering %s", sorted(c.name for c in self.tree.get_commands()))
+        elif self.config.get("voice", {}).get("enabled", False):
             try:
                 await self.load_extension("commands.voice")
                 logger.info("Loaded cog: commands.voice")
