@@ -35,6 +35,7 @@ from backend.services.connections.base import (
     AIDisclosure,
     BotLabel,
     Capabilities,
+    ConfigField,
     ConnCtx,
     CredentialField,
     DeleteRequest,
@@ -57,7 +58,12 @@ TOKEN_URI = "https://oauth2.googleapis.com/token"
 AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
 UPLOAD_URL = "https://www.googleapis.com/upload/youtube/v3/videos"
 API_URL = "https://www.googleapis.com/youtube/v3"
-SCOPES = ["https://www.googleapis.com/auth/youtube"]
+COMMENT_SCOPE = "https://www.googleapis.com/auth/youtube.force-ssl"
+SCOPES = ["https://www.googleapis.com/auth/youtube", COMMENT_SCOPE]
+# Comments and uploads share one account, so posting comments is switched on per
+# account: a person with two channels must not comment from the wrong one.
+OUTREACH_COMMENTS_FIELD = "outreach_comments"
+COMMENT_PAGES_SEARCHED = 3
 CATEGORY_SCIENCE_TECH = "28"
 
 AI_DISCLOSURE_SOURCE = "https://support.google.com/youtube/answer/14328491"
@@ -81,6 +87,19 @@ SPEC = ProviderSpec(
             label="Refresh token",
             required=False,
             help="Filled in automatically once you complete the authorization step.",
+        ),
+    ),
+    config_fields=(
+        ConfigField(
+            name=OUTREACH_COMMENTS_FIELD,
+            label="Post approved Outreach comments from this account",
+            default="no",
+            choices=("no", "yes"),
+            help=(
+                "Yes sends approved YouTube comments through the official API as this channel. "
+                "Each one still waits for your Post now. Reauthorize once if this account was "
+                "connected before comments existed."
+            ),
         ),
     ),
     capabilities=Capabilities(
@@ -271,6 +290,115 @@ def test(ctx: ConnCtx) -> Tuple[bool, str, Dict]:
         "display_name": title,
         "config": {"channel_id": items[0].get("id")},
     }
+
+
+def _api_error(resp, doing: str) -> RuntimeError:
+    """Say why YouTube refused, in words a person can act on."""
+    try:
+        errors = ((resp.json() or {}).get("error") or {}).get("errors") or []
+        reason = (errors[0] or {}).get("reason") or ""
+    except (ValueError, AttributeError, IndexError):
+        reason = ""
+    if reason in ("insufficientPermissions", "ACCESS_TOKEN_SCOPE_INSUFFICIENT"):
+        return RuntimeError("This connection cannot post comments yet. Reauthorize it.")
+    if reason == "commentsDisabled":
+        return RuntimeError("Comments are turned off on this video.")
+    if reason in ("quotaExceeded", "rateLimitExceeded"):
+        return RuntimeError("YouTube's daily API quota is used up. It resets at midnight Pacific.")
+    return RuntimeError(f"YouTube refused to {doing} ({resp.status_code} {reason}).".replace(" )", ")"))
+
+
+def _video_channel(token: str, video_id: str) -> str:
+    resp = requests.get(
+        f"{API_URL}/videos",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"part": "snippet", "id": video_id},
+        timeout=TIMEOUT,
+    )
+    if resp.status_code >= 400:
+        raise _api_error(resp, "find the video")
+    items = (resp.json() or {}).get("items") or []
+    if not items:
+        raise RuntimeError(f"YouTube has no public video {video_id}.")
+    return items[0]["snippet"]["channelId"]
+
+
+def post_comment(ctx: ConnCtx, video_id: str, text: str) -> str:
+    """Post a top-level comment as this account. Returns the comment id."""
+    token = _access_token(ctx)
+    resp = requests.post(
+        f"{API_URL}/commentThreads",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"part": "snippet"},
+        json={"snippet": {
+            "channelId": _video_channel(token, video_id),
+            "videoId": video_id,
+            "topLevelComment": {"snippet": {"textOriginal": text}},
+        }},
+        timeout=TIMEOUT,
+    )
+    if resp.status_code >= 400:
+        raise _api_error(resp, "post the comment")
+    return (resp.json() or {})["id"]
+
+
+def post_reply(ctx: ConnCtx, parent_id: str, text: str) -> str:
+    """Reply under comment ``parent_id`` as this account. Returns the reply's id."""
+    resp = requests.post(
+        f"{API_URL}/comments",
+        headers={"Authorization": f"Bearer {_access_token(ctx)}"},
+        params={"part": "snippet"},
+        json={"snippet": {"parentId": parent_id, "textOriginal": text}},
+        timeout=TIMEOUT,
+    )
+    if resp.status_code >= 400:
+        raise _api_error(resp, "post the reply")
+    return (resp.json() or {})["id"]
+
+
+def find_comment(ctx: ConnCtx, video_id: str, text: str) -> str | None:
+    """The id of the top-level comment on ``video_id`` that starts with ``text``, if any."""
+    wanted = " ".join((text or "").split()).lower()
+    if not wanted:
+        return None
+    token = _access_token(ctx)
+    page = None
+    for _ in range(COMMENT_PAGES_SEARCHED):
+        params = {"part": "snippet", "videoId": video_id, "maxResults": 100, "textFormat": "plainText"}
+        if page:
+            params["pageToken"] = page
+        resp = requests.get(
+            f"{API_URL}/commentThreads",
+            headers={"Authorization": f"Bearer {token}"},
+            params=params,
+            timeout=TIMEOUT,
+        )
+        if resp.status_code >= 400:
+            raise _api_error(resp, "read the comments")
+        data = resp.json() or {}
+        for thread in data.get("items") or []:
+            top = thread["snippet"]["topLevelComment"]
+            body = " ".join((top["snippet"].get("textOriginal") or "").split()).lower()
+            if body.startswith(wanted) or wanted.startswith(body):
+                return top["id"]
+        page = data.get("nextPageToken")
+        if not page:
+            break
+    return None
+
+
+def comment_text(ctx: ConnCtx, comment_id: str) -> str | None:
+    """The text YouTube now holds for ``comment_id``, or None when it shows nothing."""
+    resp = requests.get(
+        f"{API_URL}/comments",
+        headers={"Authorization": f"Bearer {_access_token(ctx)}"},
+        params={"part": "snippet", "id": comment_id, "textFormat": "plainText"},
+        timeout=TIMEOUT,
+    )
+    if resp.status_code >= 400:
+        return None
+    items = (resp.json() or {}).get("items") or []
+    return items[0]["snippet"].get("textOriginal") if items else None
 
 
 def _start_resumable(token: str, body: Dict, item) -> str:

@@ -1,6 +1,7 @@
 // Outreach drafts waiting for a person. Every draft waits here until someone
 // approves it; approving posts nothing. An approved Reddit, YouTube or Facebook
-// draft then waits for "Post now, I'm watching": that click starts that one
+// draft then waits for "Post now, I'm watching" (a YouTube account connected
+// for comments says plain "Post now" and needs no Agent Screen): that click starts that one
 // post, which the agent drives in its browser on the Agent Screen while the
 // person watches. Approved Discord drafts are sent by the Discord bot.
 import React, { useCallback, useEffect, useState } from "react";
@@ -193,14 +194,15 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
     const running = watched?.running;
     const runningThis = running?.event_id === selected.id;
     const last = watched?.last?.event_id === selected.id ? watched.last : null;
-    const watching = Boolean(watched?.watching);
+    const byApi = (watched?.api_platforms || []).includes((selected.platform || "").toLowerCase());
+    const watching = Boolean(watched?.watching) || byApi;
     return (
       <>
         <Paper variant="outlined" sx={{ p: 2, mt: 2, whiteSpace: "pre-wrap" }}>
           <Typography variant="body2">{selected.draft_text || t("approvals.noText")}</Typography>
         </Paper>
         <Alert severity="info" icon={<DesktopWindowsIcon />} sx={{ mt: 2 }}>
-          {t("approvals.outreach.postNowNote")}
+          {byApi ? t("approvals.outreach.postNowApiNote") : t("approvals.outreach.postNowNote")}
         </Alert>
         {!watching && (
           <Alert
@@ -233,11 +235,13 @@ const OutreachDraftsPanel = ({ drafts, waiting: waitingFromHook, loading, onChan
         <Stack direction="row" spacing={1} sx={{ mt: 2 }} alignItems="center">
           <Button
             variant="contained"
-            startIcon={<VisibilityIcon />}
+            startIcon={byApi ? undefined : <VisibilityIcon />}
             disabled={busy || !watching || Boolean(running)}
             onClick={startPost}
           >
-            {busy ? t("approvals.outreach.starting") : t("approvals.outreach.postNow")}
+            {busy
+              ? t("approvals.outreach.starting")
+              : t(byApi ? "approvals.outreach.postNowApi" : "approvals.outreach.postNow")}
           </Button>
           <Button color="error" startIcon={<CancelIcon />} disabled={busy || runningThis} onClick={() => act(false)}>
             {t("approvals.outreach.reject")}

@@ -270,7 +270,7 @@ def watched_post_status():
     from sqlalchemy import func
 
     from backend.models import SocialOutreachLog
-    from backend.services.social_outreach import watched_post
+    from backend.services.social_outreach import api_post, watched_post
 
     rows = (
         SocialOutreachLog.query
@@ -281,16 +281,18 @@ def watched_post_status():
         .all()
     )
     waiting = [r.to_dict() for r in rows if platforms.posts(r.platform, r.action)]
-    return jsonify({**watched_post.status(), "waiting": waiting})
+    return jsonify({**watched_post.status(), "waiting": waiting, "api_platforms": api_post.ready_platforms()})
 
 
 @social_outreach_bp.post("/post-now/<int:event_id>")
 def post_now(event_id: int):
-    """Start the one browser post for an approved draft ("Post now, I'm watching").
+    """Start the one post for an approved draft ("Post now, I'm watching").
 
     202 when it is queued; the agent then drives its browser on the Agent
-    Screen. 409 with the reason when it may not start (the Agent Screen is not
-    open, another post is running, a limit or switch says no).
+    Screen. A YouTube account connected for comments has already posted by
+    then, through the official API. 409 with the reason when it may not start
+    (the Agent Screen is not open, another post is running, a limit or switch
+    says no).
     """
     from backend.services.social_outreach import watched_post
 

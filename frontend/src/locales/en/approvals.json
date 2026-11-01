@@ -125,6 +125,8 @@
     "readyHeading": "Approved: ready for Post now ({{count}})",
     "waitingHeading": "Waiting for approval ({{count}})",
     "postNowNote": "Post now drives the agent's browser on the Agent Screen: it opens the page above, types this text and submits it, one post per click. Keep the Agent Screen open and watch until it finishes; if the screen is closed before the submit step, nothing is posted.",
+    "postNowApiNote": "Post now sends this one comment through YouTube's official API as your connected channel. YouTube may hold it for review.",
+    "postNowApi": "Post now",
     "openAgentScreen": "Open Agent Screen",
     "screenClosed": "The Agent Screen is not open.",
     "postingNow": "Posting now. Watch the Agent Screen.",

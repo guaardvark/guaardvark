@@ -88,7 +88,7 @@
       "hosts": ["www.googleapis.com", "oauth2.googleapis.com", "youtube.googleapis.com", "bsky.social", "*.bsky.network", "api.telegram.org", "discord.com", "discordapp.com"],
       "any_host": true,
       "switch": {"check": "publish_connections"},
-      "sends": "posts a person approves or publishes, at once or at the time scheduled for them, and deletes a person asks for on Social Posts"
+      "sends": "posts a person approves or publishes, at once or at the time scheduled for them, deletes a person asks for on Social Posts, and YouTube comments a person approves and starts with Post now, from an account they switched on for it"
     },
     {
       "id": "publish-linkedin",
