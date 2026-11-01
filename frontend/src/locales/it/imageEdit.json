@@ -152,6 +152,7 @@
     "partial": "Somiglianza {{score}}: parziale",
     "not_taken": "Somiglianza {{score}}: il volto non ha preso",
     "no_face": "Nessun volto nel risultato da confrontare",
+    "no_reference_face": "Non misurata: nessun volto trovato nelle tue foto",
     "help": "Misurata dopo il rendering con il modello di riconoscimento facciale usato da PuLID: il volto nel risultato confrontato con le foto. Dove il volto ha preso, i rendering hanno ottenuto da 0.56 a 0.78; una persona diversa 0.2 o meno.",
     "onMany": "Questo volto è finito su {{count}} persone. Per metterlo su una sola, attiva «Con altre persone»."
   }

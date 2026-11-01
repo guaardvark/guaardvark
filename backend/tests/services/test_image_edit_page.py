@@ -184,3 +184,12 @@ def test_a_group_photo_is_cut_to_one_face_at_the_centre(tmp_path):
         # The face sat near the left edge; the square stays centred on it, grey past the photo.
         assert cropped.getpixel((2, cropped.height // 2)) == (127, 127, 127)
         assert cropped.getpixel((cropped.width // 2, cropped.height // 2)) == (40, 40, 40)
+
+
+def test_photos_without_a_readable_face_are_not_reported_as_a_faceless_result(monkeypatch):
+    from backend.services import likeness_score
+    measured = {"refs_found": [0], "faces": [{"box": [10, 10, 60, 60], "scores": [None]}]}
+    monkeypatch.setattr(likeness_score, "_measure", lambda image, people: measured)
+    report = likeness_score.score_render("x.png", [{"paths": ["a.png"], "box": None}])
+    assert report["people"][0]["band"] == "no_reference_face"
+    assert "no face in the photos" in likeness_score.describe(report)

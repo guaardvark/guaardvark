@@ -334,6 +334,9 @@ def _params_for(mode: str, body: Dict[str, Any], source: str, refs: List[str]):
         steps = _int(settings.get("steps"))
         if steps:
             params["steps"] = steps
+        seed = _int(settings.get("seed"), low=0, high=2**32 - 1)
+        if seed is not None:
+            params["seed"] = seed
         return params, None
     if mode == "expand":
         pad = {side: _int(settings.get(side), 0, low=0, high=EXPAND_MAX_PX) for side in ("left", "right", "top", "bottom")}

@@ -152,6 +152,7 @@
     "partial": "Likeness {{score}}: partial",
     "not_taken": "Likeness {{score}}: the face did not take",
     "no_face": "No face in the result to compare",
+    "no_reference_face": "Not measured: no face found in your photos",
     "help": "Measured after the render with the face-recognition model PuLID uses: the face in the result against the photos. Where the face took, renders scored 0.56 to 0.78; a different person 0.2 or less.",
     "onMany": "This face went onto {{count}} people. To put it on one of them, turn on “With other people”."
   }
