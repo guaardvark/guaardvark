@@ -10,6 +10,8 @@ from backend.services.unified_chat_engine import (
     parse_outpaint_pad,
     user_wants_background_remove,
     user_wants_identity_generate,
+    asks_for_person_in_photo,
+    photo_person_prompt,
     user_wants_outpaint,
 )
 
@@ -52,6 +54,22 @@ def test_identity_intent_does_not_steal_hat_on_person():
     assert user_wants_identity_generate("put this person in a rainy alley") is True
     assert user_wants_identity_generate("put a cowboy hat on this person") is False
     assert user_wants_identity_generate("same face, new scene") is True
+
+
+def test_picture_request_pointing_at_the_photographed_person():
+    assert asks_for_person_in_photo("Make an image of this man driving a convertible") is True
+    assert asks_for_person_in_photo("make a picture of me as an astronaut") is True
+    assert asks_for_person_in_photo("draw her in a red coat") is True
+    assert asks_for_person_in_photo("draw me a cat") is False
+    assert asks_for_person_in_photo("put a hat on this man") is False
+    assert asks_for_person_in_photo("make an image of this woman's dress") is False
+    assert asks_for_person_in_photo("describe this man") is False
+
+
+def test_pointing_words_become_a_subject_for_the_face():
+    assert photo_person_prompt("Make an image of this man driving") == "a man driving"
+    assert photo_person_prompt("make a picture of me as an astronaut") == "a person as an astronaut"
+    assert photo_person_prompt("draw her in a red coat") == "a person in a red coat"
 
 
 def test_background_and_outpaint_intent():
