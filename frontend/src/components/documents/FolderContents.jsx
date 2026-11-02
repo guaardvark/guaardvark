@@ -215,6 +215,67 @@ const FolderContents = ({
     fetchInitial();
   }, [fetchInitial, refreshKey]);
 
+  // Browse lists folders, then files. Re-read that same slice while a listed
+  // file is still PENDING or INDEXING, and write index_status onto those rows only.
+  useEffect(() => {
+    const lastPendingIndex = items.files.reduce((last, file, index) => (
+      file.index_status === 'PENDING' || file.index_status === 'INDEXING' ? index : last
+    ), -1);
+    if (loading || lastPendingIndex < 0) return undefined;
+
+    let alive = true;
+    let inFlight = false;
+    const pathToFetch = currentPath || folder.path;
+    const limit = Math.max(PAGE_SIZE, items.folders.length + lastPendingIndex + 1);
+
+    const pollStatuses = async () => {
+      if (!alive || inFlight) return;
+      inFlight = true;
+      try {
+        const params = new URLSearchParams({
+          path: pathToFetch,
+          fields: mediaOnly ? 'media' : 'light',
+          offset: '0',
+          limit: String(limit),
+          sort_by: sortByMap[orderBy] || 'name',
+          sort_dir: order,
+        });
+        if (mediaOnly) params.set('media_only', '1');
+        const response = await axios.get(`${API_BASE}/browse?${params.toString()}`);
+        if (!alive) return;
+        const documents = response.data?.data?.documents || [];
+        const statusById = new Map();
+        documents.forEach((doc) => {
+          if (doc && doc.id != null && doc.index_status != null) {
+            statusById.set(doc.id, doc.index_status);
+          }
+        });
+        setItems((prev) => {
+          let changed = false;
+          const files = prev.files.map((file) => {
+            if (!statusById.has(file.id)) return file;
+            const indexStatus = statusById.get(file.id);
+            if (indexStatus === file.index_status) return file;
+            changed = true;
+            return { ...file, index_status: indexStatus };
+          });
+          if (!changed) return prev;
+          return { folders: prev.folders, files };
+        });
+      } catch {
+        // A missed poll leaves the dots unchanged until the next tick.
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    const timer = setInterval(pollStatuses, 5000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [loading, items.files, items.folders.length, currentPath, folder.path, mediaOnly, orderBy, order]);
+
   // Optimistic removal listener: instantly drop deleted items from this window's local list
   // when deletes happen anywhere (desktop or other windows). Keys use getItemKey format.
   useEffect(() => {
