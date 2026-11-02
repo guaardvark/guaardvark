@@ -1805,6 +1805,36 @@ _IDENTITY_PLACE_RE = re.compile(
 )
 
 
+# A new picture of the person in an attached photo: "make an image of this man
+# driving". "draw me a cat" is not one, so "me" counts only after "of".
+_PHOTO_PERSON_WORDS = r"man|woman|person|guy|girl|boy|lady|gentleman|kid|child"
+_PHOTO_PERSON_RE = re.compile(
+    rf"\b(?:this|that)\s+(?:{_PHOTO_PERSON_WORDS})\b(?!['\u2019]s)"
+    r"|\bof\s+(?:me|myself|him|her|them)\b"
+    r"|\b(?:draw|paint|render|sketch)\s+(?:him|her|them)\b",
+    re.IGNORECASE,
+)
+
+
+def asks_for_person_in_photo(message: str) -> bool:
+    """True when a picture request points at the person in an attached photo."""
+    text = message or ""
+    if _EDIT_ON_PERSON_RE.search(text) or not _PHOTO_PERSON_RE.search(text):
+        return False
+    return user_wants_image_generation(text)
+
+
+def photo_person_prompt(message: str) -> str:
+    """The scene for a request that points at the photo. The pointing word becomes a
+    subject ("a man driving"), since identity comes from the photo and FLUX needs a
+    person in the prompt for the face to land on."""
+    from backend.services.image_prompt_sanitize import sanitize_image_prompt
+
+    text = sanitize_image_prompt(message) or (message or "").strip()
+    text = re.sub(rf"\b(?:this|that)\s+({_PHOTO_PERSON_WORDS})\b", r"a \1", text, flags=re.IGNORECASE)
+    return re.sub(r"^(?:of\s+)?(?:me|myself|him|her|them)\b", "a person", text, flags=re.IGNORECASE)
+
+
 def identity_prompt_from_message(message: str) -> str:
     """The scene prompt for generate_identity.
 
@@ -4941,8 +4971,14 @@ class UnifiedChatEngine:
         if not img_path:
             return None
 
-        if user_wants_identity_generate(message) and self.registry.get_tool("generate_identity"):
-            prompt = identity_prompt_from_message(message)
+        named_identity = user_wants_identity_generate(message)
+        points_at_photo = (
+            not named_identity
+            and bool(getattr(self, "_image_data", None))
+            and asks_for_person_in_photo(message)
+        )
+        if (named_identity or points_at_photo) and self.registry.get_tool("generate_identity"):
+            prompt = photo_person_prompt(message) if points_at_photo else identity_prompt_from_message(message)
             logger.info("Identity direct: generate_identity(prompt=%r)", prompt[:80])
             return self._run_direct_tool_execution(
                 "generate_identity",
