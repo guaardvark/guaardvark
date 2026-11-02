@@ -151,13 +151,16 @@ Environment=OLLAMA_HOST=http://host.containers.internal:11434
 Pull the embedding model that RAG needs into that Ollama
 (`ollama pull nomic-embed-text`). Tested rootful with Ollama running in another
 container on the same host.
+
 ## Screen agent (optional)
 
 The agent desktop (Settings -> Agents) needs Xvfb, x11vnc, an XFCE session, dbus,
 xdotool, scrot, lsof and a browser. They are not part of the default image. Build
 with the `SCREEN_AGENT` argument to include them (several hundred MB more):
 
+```
 podman build -f docker/Dockerfile.backend --build-arg TORCH_CHANNEL=rocm6.3 --build-arg SCREEN_AGENT=1 -t guaardvark-backend
+```
 
 Tested with `gemma4:e2b` as the vision model: the agent opened Firefox in the
 container. A 27B model was too slow for the agent's 45 s step timeout.
@@ -180,9 +183,9 @@ Tested on AMD (RX 7900 XTX, ROCm, rootless Podman) with an image built with
 | Code Search | needs its in-app Install step first, then starts |
 | Video Editor | starts; `melt` is not in the image, so rendering to MP4 returns an error |
 | Audio Foundry | times out after 150 s on the first start; it builds its own environments |
-| GPU Embedding | does not start: its health check times out |
-| Vision Pipeline | does not start: it depends on the Ollama plugin, which is probed at `localhost:11434` inside the container, while Ollama runs on the host or in another container |
-| Ollama | with "I run Ollama myself" the card looks for Ollama at `localhost:11434` inside the container and reports that nothing answers |
+| GPU Embedding | does not start: it inherits `FLASK_RUN_FROM_CLI` from the backend (`flask run`), so its `app.run()` is skipped and port 8204 never opens. Started by hand without that variable it answers HTTP 503 ("degraded", `gpu_available: false`): its GPU check only runs `nvidia-smi`, and the plugin manager accepts only HTTP 200 |
+| Vision Pipeline | does not start: "Required dependency 'ollama' is not running" although Ollama runs outside the container (the plugin manager builds service URLs as `http://localhost:<port>`, which inside the container is not the host) |
+| Ollama | the image has no `ollama` binary: with "I run Ollama myself" on, the card cannot be switched off (by design); with it off, Start fails with "ollama command not found" |
 | ComfyUI | not part of the image; the plugin's restore script needs `rsync`, which the image does not contain |
 | Discord | needs `DISCORD_BOT_TOKEN` in the environment; not tested with a token |
 
