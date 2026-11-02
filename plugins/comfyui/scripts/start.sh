@@ -282,6 +282,7 @@ export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export HF_HUB_DISABLE_TELEMETRY=1
 export DO_NOT_TRACK=1
+export ORT_DISABLE_TELEMETRY=1
 cd "$COMFYUI_DIR"
 # Under memory pressure the kernel must kill ComfyUI, never the desktop
 # (2026-08-04 client box lockups). Children inherit; unprivileged raises allowed.

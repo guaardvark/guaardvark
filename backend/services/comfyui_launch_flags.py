@@ -23,6 +23,7 @@ LOCAL_ONLY_ENV = {
     "TRANSFORMERS_OFFLINE": "1",
     "HF_HUB_DISABLE_TELEMETRY": "1",
     "DO_NOT_TRACK": "1",
+    "ORT_DISABLE_TELEMETRY": "1",
 }
 LOCAL_ONLY_CLI_ARGS = ("--disable-api-nodes",)
 

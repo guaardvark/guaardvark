@@ -220,6 +220,7 @@ export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export HF_HUB_DISABLE_TELEMETRY=1
 export DO_NOT_TRACK=1
+export ORT_DISABLE_TELEMETRY=1
 # The service has no auth and every caller (the backend proxy, generation
 # history, the GPU policy, the swarm Editor) is on this host, so it listens on
 # loopback only. GUAARDVARK_AUDIO_FOUNDRY_HOST=0.0.0.0 in .env opens it to the
