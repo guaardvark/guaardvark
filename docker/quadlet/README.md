@@ -151,15 +151,39 @@ Environment=OLLAMA_HOST=http://host.containers.internal:11434
 Pull the embedding model that RAG needs into that Ollama
 (`ollama pull nomic-embed-text`). Tested rootful with Ollama running in another
 container on the same host.
+## Screen agent (optional)
+
+The agent desktop (Settings -> Agents) needs Xvfb, x11vnc, an XFCE session, dbus,
+xdotool, scrot, lsof and a browser. They are not part of the default image. Build
+with the `SCREEN_AGENT` argument to include them (several hundred MB more):
+
+podman build -f docker/Dockerfile.backend --build-arg TORCH_CHANNEL=rocm6.3 --build-arg SCREEN_AGENT=1 -t guaardvark-backend
+
+Tested with `gemma4:e2b` as the vision model: the agent opened Firefox in the
+container. A 27B model was too slow for the agent's 45 s step timeout.
+
 ## Limitations
 
-The backend image contains only `backend/`, `scripts/` and `VERSION`. The
-`plugins/` directory is not part of it, so no plugin (Audio Foundry, Video
-Editor, ComfyUI integration, upscaling, LoRA trainer) is available in the
-container. Screen agents additionally need an X desktop (Xvfb, x11vnc, XFCE,
-xdotool, scrot, Firefox) that the image does not install. With these packages
-added by hand the agent could open Firefox using `gemma4:e2b` and `qwen3.5:9b`
-as vision model; a 27B model was too slow for the agent's 45 s step timeout.
-Packages added to a running container are lost when it is recreated. Chat, RAG
-and document indexing work. Host-level features such as swarms with git
-worktrees have not been tested in the container.
+The image contains the plugin sources (`plugins/`) and a `/app/backend/venv` that
+sees the system-wide packages, which the plugin start scripts expect. Plugins that
+need their own environment create it on first start inside the container. Those
+environments are part of the container layer and are lost when the container is
+recreated (for example after a restart of the unit).
+
+Tested on AMD (RX 7900 XTX, ROCm, rootless Podman) with an image built with
+`TORCH_CHANNEL=rocm6.3` and `SCREEN_AGENT=1`:
+
+| Plugin | Result |
+|---|---|
+| Swarm Orchestrator, Upscaling | start (no job was run in the container) |
+| LoRA Trainer | starts (no training was run) |
+| Code Search | needs its in-app Install step first, then starts |
+| Video Editor | starts; `melt` is not in the image, so rendering to MP4 returns an error |
+| Audio Foundry | times out after 150 s on the first start; it builds its own environments |
+| GPU Embedding | does not start: its health check times out |
+| Vision Pipeline | does not start: it depends on the Ollama plugin, which is probed at `localhost:11434` inside the container, while Ollama runs on the host or in another container |
+| Ollama | with "I run Ollama myself" the card looks for Ollama at `localhost:11434` inside the container and reports that nothing answers |
+| ComfyUI | not part of the image; the plugin's restore script needs `rsync`, which the image does not contain |
+| Discord | needs `DISCORD_BOT_TOKEN` in the environment; not tested with a token |
+
+Chat, RAG and document indexing work.
