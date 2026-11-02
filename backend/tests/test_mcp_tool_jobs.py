@@ -192,7 +192,7 @@ def test_an_mcp_call_in_the_backend_returns_a_job_and_other_callers_run_inline(t
 
     gate = threading.Event()
 
-    def fake_edit(self, src, extra, *, instruction, steps, model):
+    def fake_edit(self, src, extra, *, instruction, steps, model, seed=None):
         gate.wait(5)
         return ToolResult(success=True, output=f"Image edited.\nImage URL: {EDITED}", metadata={"image_url": EDITED})
 
