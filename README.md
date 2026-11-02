@@ -65,7 +65,7 @@ Other ways in: [Docker](INSTALL.md#alternative-docker-linux-core-stack-only) · 
 - **MCP, both ways.** An MCP server that plugs into Claude Code, Cursor, Codex, Gemini CLI, Zed and more with one command, and an MCP client so chat can use tools from other servers. [▶ Ep 21](https://www.youtube.com/watch?v=VScsEFn6ZoY) · [▶ Ep 16](https://www.youtube.com/watch?v=1qc6GZBLy5k)
 - **Video generation.** 13 local video models across five families (Wan 2.2, LTX, HunyuanVideo, CogVideoX, and MiniMax H3 with its own soundtrack), video LoRAs, a batch queue, frame interpolation, and one click into ComfyUI. [▶ Ep 6](https://www.youtube.com/watch?v=9rae9IJhXow)
 - **LoRA training and consistent characters.** Train character, environment and prop LoRAs from a few reference photos on your own GPU, import LoRAs trained elsewhere, and keep the same character across images, video, music videos and Film Crew productions. [Details](#lora-training-and-consistent-characters)
-- **Images.** Z-Image, FLUX.1, Krea 2, SDXL and Sana Sprint (1024 stills in seconds, even on 8 GB cards) generation, photo edits by instruction, inpainting and outpainting, and 4K/8K upscaling. [▶ Ep 5](https://www.youtube.com/watch?v=s9I_0gD9Iko)
+- **Images.** Z-Image, FLUX.1, FLUX 3 Klein, Krea 2, MOSS-Image, Qwen-Image 2.1, SDXL and Sana Sprint generation (Sana Sprint runs even on 8 GB cards), an Image Edit page that keeps a face across new scenes and scores the likeness, photo edits by instruction, inpainting and outpainting, and 4K/8K upscaling. [▶ Ep 5](https://www.youtube.com/watch?v=s9I_0gD9Iko)
 - **Music and voice.** Full songs with vocals, sound effects, three neural text-to-speech engines, consent-gated voice cloning, and hands-free voice chat. [▶ Ep 7](https://www.youtube.com/watch?v=BXlm7p-SxtU)
 - **Directors.** A beat-synced music-video director, a five-role Film Crew that turns a logline into a finished video, and a built-in video editor. [▶ Ep 8](https://www.youtube.com/watch?v=l2LqKA9GQDc) · [▶ Ep 9](https://www.youtube.com/watch?v=sq104u9N4Qg)
 - **Self-improvement.** Ask how part of Guaardvark works and it answers from its own source with checked `file:line` links. A change it makes to itself is planned, checked, undone when a check fails, and one button reverts it. The System Map draws the whole codebase from its real imports. [▶ Ep 11](https://www.youtube.com/watch?v=7kHvi_2vT6U) · [▶ Ep 14](https://www.youtube.com/watch?v=yEy1tVKxsF0)
@@ -171,7 +171,7 @@ All generation runs on your GPU. No cloud APIs, no per-minute billing.
 | **LTX-2.5 Distilled Int8** | Text + image to video | ~10 s (161 frames @ 16 fps) | 768x512 | 16 GB |
 | **HunyuanVideo 13B** (GGUF Q5) | Text to video | ~3 s (73 frames @ 24 fps, up to 129) | 848x480 | 16 GB |
 | **HunyuanVideo 13B I2V** (GGUF Q5) | Image to video | ~3 s (73 frames @ 24 fps, up to 129) | 848x480 | 16 GB |
-| **MiniMax H3** (pruned Int8) | Text, first frame, last frame, first + last frame to video **with its own stereo soundtrack** (dialogue, ambience, score) | ~7 s offered (175 frames @ 24 fps; the model trains to 15 s) | 864x480 default, 1344x768 max | 16 GB card; measured 6.5 min for a 5 s clip at 864x480, 20 steps, on a 16 GB RTX 40-series card |
+| **MiniMax H3** (pruned Int8) | Text, first frame, last frame, first + last frame to video **with its own stereo soundtrack** (dialogue, ambience, score) | ~7 s offered (175 frames @ 24 fps; the model trains to 15 s) | 864x480 default, 1344x768 max | 16 GB |
 | **MiniMax H3 Reference** (pruned Int8) | Up to 9 images, 3 clips and 3 audio files to video with soundtrack (identity, motion, voice, editing) | same | same | same |
 
 MiniMax H3 also comes as unpruned Int8 and BF16 builds for 24 GB and 48 GB cards, which makes 13 video models in all.
@@ -195,7 +195,8 @@ Train your own LoRAs on your own GPU and keep the same character, place or objec
 
 ### Images and upscaling
 
-- **Image generation** with Z-Image, FLUX.1, Krea 2, SDXL and Stable Diffusion 1.5 fine-tunes, batch runs from a prompt list or CSV, and anatomy controls.
+- **Image generation** with Z-Image, FLUX.1, FLUX 3 Klein, Krea 2, MOSS-Image, Qwen-Image 2.1, SDXL, Sana Sprint and Stable Diffusion 1.5 fine-tunes, batch runs from a prompt list or CSV, and anatomy controls. Qwen-Image 2.1 is licensed for non-commercial use.
+- **New scene, same face** on the Image Edit page: up to three photos of one person, a face check and consent step for each, a measured likeness score on the result, and a way to put the face on one person in a group scene.
 - **Photo editing** by instruction (Qwen-Image-Edit, FLUX.1 Kontext), inpainting, outpainting and background removal, from the Images pages or straight from chat.
 - **Add any Hugging Face model** (checkpoint or LoRA) from its URL.
 - **4K and 8K upscaling** on the GPU with nine models, from HAT-L (maximum-quality restoration) to anime-tuned Real-ESRGAN variants: two-pass mode, FP16/BF16 with optional `torch.compile`, frame-by-frame video upscaling, and an optional watch folder. The model table is in [CAPABILITIES.md](CAPABILITIES.md#gpu-image--video-upscaling).
@@ -204,7 +205,7 @@ Train your own LoRAs on your own GPU and keep the same character, place or objec
 
 The Audio Foundry plugin runs three audio backends with shared GPU arbitration, so they don't trample each other or fight Ollama for VRAM.
 
-- **Music:** ACE-Step v1 (3.5B) writes full songs with vocals, or instrumentals. Pick genre, mood and instrument chips, with an optional LLM "Polish" pass that turns plain English into ACE-Step's tag vocabulary plus a paired negative prompt. ACE-Step 1.5 is an optional install with an Arrange step: describe the song, add your own lyrics or let it write some, then edit the card it writes (caption, tempo, key, meter, language) before it composes. Songs with words are sung in English unless the description names a language ("sung in Spanish") or you pick one under Language on the card. Audio Studio says so, in your language, when the interface is set to another one.
+- **Music:** ACE-Step v1 (3.5B) writes full songs with vocals, or instrumentals. Pick genre, mood and instrument chips, with an optional LLM "Polish" pass that turns plain English into ACE-Step's tag vocabulary plus a paired negative prompt. ACE-Step 1.5 is an optional install with an Arrange step: describe the song, add your own lyrics or let it write some, then edit the card it writes (caption, tempo, key, meter, language) before it composes. Songs with words are sung in English unless the description names a language ("sung in Spanish") or you pick one under Language on the card. Audio Studio says so, in your language, when the interface is set to another one. MiniMax Music 3 is a second optional install, through ComfyUI: songs with vocals from a caption and tagged lyrics, up to about 5 minutes.
 - **FX Lab:** Stable Audio Open for sound effects and short ambient pieces.
 - **Neural voice:** Chatterbox as the main text-to-speech engine, Kokoro as a fast fallback, and Piper for narration. Used for chat narration, lines spoken in chat ("say this out loud"), video voiceover and voice chat.
 - **Voice cloning:** opt-in, behind an explicit consent prompt before any clone is created or used. Reference clips stay under your control, and nothing is cloned from incidental audio.
@@ -255,7 +256,8 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 - **Supervised outreach.** Drafts replies to threads on Reddit, YouTube, Discord and Facebook, grounded in your own indexed documents, graded for relevance before they reach the queue, with nothing posted until you approve it. Reddit, YouTube and Facebook posts go out one at a time while you watch the Agent Screen, or through YouTube's official API for a channel you connect. Kill switch, per-platform cadence limits and a JSONL audit trail.
 - **Files and projects.** A desktop-style file manager (folders as windows, drag and drop, right-click menus) with clients, projects, websites and notes linked together and indexed recursively. Files stream into the browser's own players and viewers, so video plays without a codec pack and PDFs start rendering before they finish downloading.
 - **Rules, prompts, lessons and memory.** Portable rule bundles, lessons that teach the agent from a good run, and "remember …" notes that carry across chats.
-- **Discord bot** plugin for chat, `/imagine` images and search against your own install.
+- **Social posting.** Connect Bluesky, Discord, LinkedIn, Mastodon, Telegram and YouTube accounts; posts wait for your approval, can be edited first, and can be scheduled.
+- **Discord bot** plugin for chat, `/imagine` images and search against your own install, with a public mode for installs that hold private data.
 - **WordPress** (opt-in): pull pages and posts from your sites, generate content in bulk, and push it back.
 - **Multi-machine Interconnector.** Master and client nodes with approval gates, code and data sync, and shared learnings.
 - **Operations.** Jobs and scheduling (Celery beat), schema-aware backup and restore, live GPU and CPU monitoring, and 11 first-party plugins with health checks and a GPU memory orchestrator.
@@ -508,7 +510,7 @@ PostgreSQL  Redis  Ollama  Agent Display (:99, on-demand)  ComfyUI / Audio Found
 - `backend/mcp/config.py` controls the MCP server's default-deny policy.
 
 **Frontend:** React 18 · Vite · Material-UI v5 · Zustand · Monaco Editor · Socket.IO<br>
-**Core models and engines:** Gemma4 / Llama-family / Moondream (vision) · Z-Image / FLUX.1 / Krea 2 / SDXL · Wan 2.2 / LTX / HunyuanVideo / CogVideoX / MiniMax H3 · ACE-Step / Stable Audio Open / Chatterbox / Kokoro / Piper · Real-ESRGAN family + HAT · Whisper
+**Core models and engines:** Gemma4 / Llama-family / Moondream (vision) · Z-Image / FLUX.1 / FLUX 3 Klein / Krea 2 / MOSS-Image / Qwen-Image 2.1 / SDXL · Wan 2.2 / LTX / HunyuanVideo / CogVideoX / MiniMax H3 · ACE-Step / MiniMax Music 3 / Stable Audio Open / Chatterbox / Kokoro / Piper · Real-ESRGAN family + HAT · Whisper
 
 More: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · [agent mental model](docs/AGENT_MENTAL_MODEL.md).
 

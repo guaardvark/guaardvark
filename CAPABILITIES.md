@@ -19,8 +19,9 @@ This document is the comprehensive reference of everything Guaardvark can do (mo
 - [MCP Integration](#mcp-integration)
 - [Image & Video Generation](#image--video-generation)
 - [Audio Studio (Audio Foundry)](#audio-studio-audio-foundry)
-- [Video Editor — Shotcut-lite](#video-editor--shotcut-lite)
+- [Video Editor](#video-editor)
 - [Outreach System](#outreach-system)
+- [Social Accounts and Posts](#social-accounts-and-posts)
 - [Swarm Orchestrator & Film Crew](#swarm-orchestrator--film-crew)
 - [GPU Image & Video Upscaling](#gpu-image--video-upscaling)
 - [Content Generation Pipelines](#content-generation-pipelines)
@@ -303,13 +304,22 @@ Guaardvark speaks Model Context Protocol — both as a server (exposing its tool
 ## Image & Video Generation
 
 ### Image Generation
-- **Stable Diffusion** via Diffusers library — runs directly on your GPU
+- **Nine model families** — Z-Image, Krea 2, FLUX.1, FLUX 3 Klein, MOSS-Image, Qwen-Image 2.1, SDXL, Sana Sprint and Stable Diffusion 1.5, through Diffusers or ComfyUI per family
 - **Batch generation** — queue multiple prompts with different parameters
 - **Auto-registration** — generated images are automatically added to the Documents/Files system under `/Images/`
 - **Celery background processing** — generation runs as async jobs with progress tracking
 - **Image library** — dedicated page with thumbnail grid, lightbox preview, keyboard navigation, batch operations
-- **Image model management** — ImageModelsModal for downloading and managing Stable Diffusion checkpoints
+- **Image model management** — ImageModelsModal installs models and adds checkpoints or LoRAs from a Hugging Face URL
 - **Inline images in chat** — when the chat generates an image, it appears inline and persists in history with the assistant message
+- **Infographic page** — picks Krea 2 Turbo, then MOSS-Image, then Z-Image Turbo, whichever is installed first; Qwen-Image 2.1 is offered and labelled non-commercial
+
+### Image Edit
+- **New scene, same face** — keeps the face from up to three photos and puts the person in a scene you describe (PuLID-FLUX, with a FLUX.1 Kontext restage as an option); each photo gets a face check and a consent step, and the result gets a measured likeness score
+- **One face in a group** — renders the scene, numbers its faces, and puts the person on the one you pick
+- **Edit the photo** — changes by instruction and keeps the rest (Qwen-Image-Edit, FLUX.1 Kontext, MOSS-Image Edit LoRA)
+- **Expand** — extends the picture past its edges and fills the new area to match
+- **Remove background** — BiRefNet or u2net, with a transparent result
+- **Seeds** — photo edits take a seed, so a result can be repeated
 
 ### Video Generation
 
@@ -377,7 +387,9 @@ Local audio generation for voiceover, music, ambience, and effects. Shipped as t
 
 ### Music Generation
 - **ACE-Step v1 (3.5B)** — full-song generation with vocals; runs locally on GPU
-- **Suno-compatible workflow** — same prompt shape as Suno's hosted service, but local
+- **Tag chips** — pick genre, mood and instruments, with an optional Polish pass that turns plain English into tags
+- **ACE-Step 1.5** (optional install) — an Arrange step lets you edit the caption, tempo, key, meter, language and lyrics before it composes
+- **MiniMax Music 3** (optional install, through ComfyUI) — songs with vocals from a caption and tagged lyrics, up to about 5 minutes
 
 ### Sound Effects / Ambience
 - **Stable Audio Open** — generate sound effects and ambience tracks via diffusion
@@ -395,32 +407,21 @@ Local audio generation for voiceover, music, ambience, and effects. Shipped as t
 
 ---
 
-## Video Editor — Shotcut-lite
+## Video Editor
 
-A non-linear video editor built into Guaardvark for assembling generated clips into finished videos.
+Montage assembly built into Guaardvark: put clips in a bin, pick a song, and an Art Director plans the cut.
 
-### Timeline
-- **Multi-track timeline** — video, audio, overlay
-- **Drag-and-drop clips** from the Media Library directly onto the timeline
-- **Trim, split, ripple-delete** standard timeline operations
-- **Keyboard shortcuts** — J/K/L playback, arrow-key nudging, etc.
-- **1-step undo** with on-screen indicator
+### Workflow
+- **Bin and song** — drag clips from the Media Library or drop files from your computer, and pick a song the same way
+- **Plan** — clips are scanned for the ranges worth keeping, the song for beats and sections, and a vision model reads sampled frames from each clip (cached) to arrange the cut
+- **Style Recipes** — Default, Grunge, Dark, Cinematic and Music Video; each biases the Art Director and limits its filters and transitions
+- **Director's Notes** — per clip: subject, energy, palette, motion and mood, a filter from the catalog, or a fresh analysis
+- **Filters and transitions** — Color, Motion, Stylize and Glitch filters; hard cut, cross dissolve, dip to black, luma circle and luma wipe
+- **Render** — writes an MLT project and an MP4, both registered in Documents; **Quick Render** chains Plan and Render, and **Open in Shotcut** takes the project on for hand edits
+- **Undo** — Ctrl+Z steps back through the last timeline changes, and Space plays or pauses the preview
 
-### Audio
-- **Audio Foundry track** — generate voiceover or music directly into a timeline track
-- **Mix volume per clip / per track**
-
-### Media Library
-- **Project-scoped media bin** — clips from prior video generations show up automatically
-- **N+1 fix** — bulk-loaded thumbnails (no per-clip request storm)
-
-### Export
-- **Celery async render** — long renders run in the background, progress visible in the footer bar
-- **UUID-tracked jobs** — each render gets a stable ID for status polling
-- **MP4 / WebM** output
-
-### Orchestrator Integration
-- The video editor can be driven by the Production Pipeline (Film Crew) — agents drop generated clips into the timeline automatically
+### Film Crew
+- The Production Pipeline (Film Crew) can drive the editor, dropping generated clips into a project on its own
 
 **Linux & macOS:** `melt` (from Shotcut) is required for renders and is detected at runtime (supports Homebrew on macOS, apt/flatpak/snap on Linux). ffmpeg is installed by the platform bootstrap. See the plugin README for setup commands.
 
@@ -454,6 +455,16 @@ Supervised AI for social-media engagement. Production path: **recon → draft �
 - **Outreach Review page** at `/outreach` (port from `VITE_PORT`, default 5173)
 - **Activity feed** — Task-backed outreach jobs as `JobKind.OUTREACH`
 - **CLI** — `llx outreach status|queue|approve|<NL>`
+
+---
+
+## Social Accounts and Posts
+
+Your own accounts, connected one panel per platform. This is separate from outreach and sends nothing until you approve it.
+
+- **Connections** — Bluesky, Discord, LinkedIn, Mastodon, Telegram and YouTube
+- **Posts** — wait for a person, can be edited before approval, and can be scheduled
+- **YouTube comments** — an approved outreach comment can go through YouTube's official API from a connected channel, still one click per comment
 
 ---
 
@@ -760,7 +771,7 @@ Each plugin lives in `plugins/<name>/` with a `plugin.json` manifest declaring i
 |---|---|---|
 | **Ollama** | 11434 | Local LLM and embedding inference (chat, RAG, agents) |
 | **ComfyUI** | 8188 | Image + video generation (Wan2.2, CogVideoX, LTX-2.3, LTX-2.5, RIFE, Real-ESRGAN) |
-| **Audio Foundry** | 8206 | Voiceover (Chatterbox / Kokoro / Piper), music (ACE-Step / Suno), SFX/ambience (Stable Audio Open). Dual-venv with torch isolation |
+| **Audio Foundry** | 8206 | Voiceover (Chatterbox / Kokoro / Piper), music (ACE-Step), SFX/ambience (Stable Audio Open). Dual-venv with torch isolation |
 | **Upscaling** | 8202 | GPU image/video upscaling via spandrel + torch.compile |
 | **Vision Pipeline** | 8201 | Real-time scene narration, camera feed, video chat input |
 | **Swarm** | 8210 | Parallel agent orchestration in isolated worktrees |
@@ -816,13 +827,11 @@ Plugins can register:
 - **Ollama** — local LLM and embedding model inference (managed plugin)
 - **ComfyUI** — video/image generation server supporting Wan2.2, CogVideoX, LTX-2.3, LTX-2.5, RIFE, Real-ESRGAN (managed plugin)
 - **Socket.IO** — real-time bidirectional communication for streaming and progress
-- **Ariadne** — GraphQL API layer
 
 ### Frontend Stack
 - **React 18** with Vite build system
 - **Material-UI v5** — component library with custom dark themes
 - **Zustand** — lightweight state management
-- **Apollo Client** — GraphQL state management
 - **Monaco Editor** — code editing
 - **Socket.IO client** — real-time updates
 
