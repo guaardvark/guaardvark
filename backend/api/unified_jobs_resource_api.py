@@ -262,6 +262,14 @@ _COLLECTORS = {
 }
 
 
+def _sortable_time(ts: datetime | None) -> datetime:
+    """A time every job can be sorted on. Collectors mix naive and aware
+    timestamps, which cannot be compared, and a job with none sorts last."""
+    if ts is None:
+        return datetime.min
+    return ts.replace(tzinfo=None) if ts.tzinfo else ts
+
+
 def _parse_kinds(raw: str | None) -> set[JobKind]:
     """Parse ?kind=task,training into a set of JobKind. Empty/None = all kinds."""
     if not raw:
@@ -342,16 +350,8 @@ def list_jobs():
         except Exception as e:
             logger.exception("/api/jobs: collector for %s failed: %s", kind.value, e)
 
-    # Sort by most-recent activity. Use finished_at if terminal else started_at,
-    # falling back to a fake epoch so missing timestamps land at the bottom.
-    def _sort_key(j: Job) -> datetime:
-        ts = j.finished_at or j.started_at
-        if ts is None:
-            return datetime.min  # naive — must match the stripped real timestamps below
-        # Strip tz for stable comparison — naive vs aware mix would otherwise raise.
-        return ts.replace(tzinfo=None) if ts.tzinfo else ts
-
-    jobs.sort(key=_sort_key, reverse=True)
+    # Most recent activity first: finished_at if terminal, else started_at.
+    jobs.sort(key=lambda j: _sortable_time(j.finished_at or j.started_at), reverse=True)
     jobs = jobs[:limit]
 
     return jsonify({
@@ -392,10 +392,7 @@ def active_jobs():
         except Exception as e:
             logger.exception("/api/jobs/active: collector %s failed: %s", kind.value, e)
 
-    active.sort(
-        key=lambda j: j.started_at or datetime.min.replace(tzinfo=None),
-        reverse=True,
-    )
+    active.sort(key=lambda j: _sortable_time(j.started_at), reverse=True)
     active = active[:limit]
 
     return jsonify({
