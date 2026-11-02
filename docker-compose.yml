@@ -102,6 +102,7 @@ services:
       # pip version checks.
       HF_HUB_DISABLE_TELEMETRY: "1"
       DO_NOT_TRACK: "1"
+      ORT_DISABLE_TELEMETRY: "1"
       UNSLOTH_DISABLE_STATISTICS: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
       # Optional — set your Anthropic key for Uncle Claude:

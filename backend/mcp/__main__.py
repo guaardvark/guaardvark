@@ -26,6 +26,7 @@ os.environ.setdefault("GUAARDVARK_MCP_PROCESS", "1")
 for _key, _value in (
     ("HF_HUB_DISABLE_TELEMETRY", "1"),
     ("DO_NOT_TRACK", "1"),
+    ("ORT_DISABLE_TELEMETRY", "1"),
     ("UNSLOTH_DISABLE_STATISTICS", "1"),
     ("PIP_DISABLE_PIP_VERSION_CHECK", "1"),
 ):

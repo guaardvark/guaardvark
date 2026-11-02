@@ -346,11 +346,12 @@ export HF_HUB_DISABLE_XET="${HF_HUB_DISABLE_XET:-1}"
 
 # Libraries and tools stay quiet in every process started from here (backend,
 # Celery, the research worker, plugin services): no usage telemetry from the
-# Hugging Face client, TRL or Unsloth, and no pip or npm checks for their own
+# Hugging Face client, ONNX Runtime, TRL or Unsloth, and no pip or npm checks for their own
 # newer versions. Install downloads are unaffected. Keep start_celery.sh and
 # backend/mcp/__main__.py in step.
 export HF_HUB_DISABLE_TELEMETRY="${HF_HUB_DISABLE_TELEMETRY:-1}"
 export DO_NOT_TRACK="${DO_NOT_TRACK:-1}"
+export ORT_DISABLE_TELEMETRY="${ORT_DISABLE_TELEMETRY:-1}"
 export UNSLOTH_DISABLE_STATISTICS="${UNSLOTH_DISABLE_STATISTICS:-1}"
 export PIP_DISABLE_PIP_VERSION_CHECK="${PIP_DISABLE_PIP_VERSION_CHECK:-1}"
 export NPM_CONFIG_UPDATE_NOTIFIER="${NPM_CONFIG_UPDATE_NOTIFIER:-false}"

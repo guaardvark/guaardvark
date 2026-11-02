@@ -220,6 +220,7 @@ export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True,max_split_size_mb:512,g
 # Same quiet-library settings as start.sh, for workers started on their own.
 export HF_HUB_DISABLE_TELEMETRY="${HF_HUB_DISABLE_TELEMETRY:-1}"
 export DO_NOT_TRACK="${DO_NOT_TRACK:-1}"
+export ORT_DISABLE_TELEMETRY="${ORT_DISABLE_TELEMETRY:-1}"
 export UNSLOTH_DISABLE_STATISTICS="${UNSLOTH_DISABLE_STATISTICS:-1}"
 export PIP_DISABLE_PIP_VERSION_CHECK="${PIP_DISABLE_PIP_VERSION_CHECK:-1}"
 
