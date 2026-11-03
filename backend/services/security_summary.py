@@ -221,9 +221,10 @@ def _guard_checks(debug: bool) -> tuple[list[dict], bool]:
             "On. Every device on this machine's local network can run protected actions "
             "without the API key, and can use chat, including the tools chat asks approval "
             "for, since the device that asks is the device that approves. The Code "
-            "Editor's Run, running tools directly, MCP server changes and applying staged "
-            "fixes still need this machine or the key. Turn it off in Settings → Access on "
-            "a network you do not trust.",
+            "Editor's Run, running tools directly, MCP server changes, applying staged "
+            "fixes, backups and the Interconnector's settings and fleet controls still need "
+            "this machine or the key. Turn it off in Settings → Access on a network you do "
+            "not trust.",
         ))
 
     if auth_guard.tool_endpoints_protected():

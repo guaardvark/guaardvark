@@ -29,6 +29,7 @@ export const AUTH_REFUSAL_CODES = [
   "outside_local_network",
   "runs_code_key_required",
   "fleet_key_required",
+  "backups_key_required",
   "api_key_required",
 ];
 
@@ -116,6 +117,9 @@ export function describeAuthRefusal(code, rejected = false, machine = translate(
   }
   if (code === "fleet_key_required") {
     return translate("messages.access.fleetKeyRequired", { machine });
+  }
+  if (code === "backups_key_required") {
+    return translate("messages.access.backupsKeyRequired", { machine });
   }
   if (code === "local_only") {
     return rejected

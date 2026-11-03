@@ -959,3 +959,80 @@ def test_network_access_still_opens_other_protected_routes_beside_the_fleet(app,
     monkeypatch.delenv("GUAARDVARK_API_KEY", raising=False)
     response = app.test_client().post("/api/files/write", json={}, environ_base={"REMOTE_ADDR": LAN_DEVICE})
     assert response.status_code == 200
+
+
+BACKUP_ROUTES = [
+    ("GET", "/api/backups"),
+    ("GET", "/api/backups/a.zip/download"),
+    ("POST", "/api/backups/create"),
+    ("POST", "/api/backups/restore"),
+    ("DELETE", "/api/backups/a.zip"),
+    ("POST", "/api/meta/backup/export"),
+]
+LAN_ADDR = {"REMOTE_ADDR": "192.168.1.20"}
+LOCAL_ADDR = {"REMOTE_ADDR": "127.0.0.1"}
+
+
+@pytest.fixture
+def backup_app():
+    test_app = Flask(__name__)
+    test_app.before_request(auth_guard.check_endpoint_auth)
+    for i, (method, rule) in enumerate(BACKUP_ROUTES):
+        test_app.add_url_rule(rule, f"backup_{i}", lambda **_: {"ok": True}, methods=[method])
+    return test_app
+
+
+@pytest.mark.parametrize("method,path", BACKUP_ROUTES)
+def test_backups_stay_closed_to_a_lan_device_under_network_access(backup_app, monkeypatch, method, path):
+    monkeypatch.setenv(auth_guard.NETWORK_ACCESS_ENV, "1")
+    monkeypatch.delenv(auth_guard.API_KEY_ENV, raising=False)
+    response = backup_app.test_client().open(path, method=method, json={}, environ_base=LAN_ADDR)
+    assert response.status_code == 403
+    assert response.get_json()["code"] == auth_guard.BACKUPS_CODE
+
+
+@pytest.mark.parametrize("method,path", BACKUP_ROUTES)
+def test_backups_stay_closed_to_a_lan_device_through_the_local_proxy(backup_app, monkeypatch, method, path):
+    monkeypatch.setenv(auth_guard.NETWORK_ACCESS_ENV, "1")
+    monkeypatch.delenv(auth_guard.API_KEY_ENV, raising=False)
+    response = backup_app.test_client().open(
+        path, method=method, json={}, headers={"X-Forwarded-For": "192.168.1.20"}, environ_base=LOCAL_ADDR,
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize("method,path", BACKUP_ROUTES)
+def test_backups_refuse_another_host_with_network_access_off(backup_app, monkeypatch, method, path):
+    monkeypatch.delenv(auth_guard.NETWORK_ACCESS_ENV, raising=False)
+    monkeypatch.delenv(auth_guard.API_KEY_ENV, raising=False)
+    response = backup_app.test_client().open(path, method=method, json={}, environ_base=LAN_ADDR)
+    assert response.status_code == 403
+    assert response.get_json()["code"] == auth_guard.LOCAL_ONLY_CODE
+
+
+@pytest.mark.parametrize("network_access", [None, "1"])
+@pytest.mark.parametrize("method,path", BACKUP_ROUTES)
+def test_backups_answer_this_machine(backup_app, monkeypatch, network_access, method, path):
+    monkeypatch.delenv(auth_guard.API_KEY_ENV, raising=False)
+    if network_access:
+        monkeypatch.setenv(auth_guard.NETWORK_ACCESS_ENV, network_access)
+    else:
+        monkeypatch.delenv(auth_guard.NETWORK_ACCESS_ENV, raising=False)
+    response = backup_app.test_client().open(path, method=method, json={}, environ_base=LOCAL_ADDR)
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("method,path", BACKUP_ROUTES)
+def test_backups_take_the_key_from_a_lan_device(backup_app, monkeypatch, method, path):
+    monkeypatch.setenv(auth_guard.NETWORK_ACCESS_ENV, "1")
+    monkeypatch.setenv(auth_guard.API_KEY_ENV, "install-key")
+    client = backup_app.test_client()
+    without_key = client.open(path, method=method, json={}, environ_base=LAN_ADDR)
+    assert without_key.status_code == 401
+    assert without_key.get_json()["code"] == auth_guard.API_KEY_CODE
+    with_key = client.open(path, method=method, json={}, headers={"X-API-Key": "install-key"}, environ_base=LAN_ADDR)
+    assert with_key.status_code == 200
+
+
+def test_settings_access_lists_downloading_backups():
+    assert any("downloading" in item and "backups" in item for item in auth_guard.protected_summary())

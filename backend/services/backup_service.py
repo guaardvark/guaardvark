@@ -90,7 +90,28 @@ DATA_IGNORE_PATTERNS = [
     # AI model files — never include in backups
     '*.safetensors', '*.ckpt', '*.pt', '*.pth', '*.bin', '*.onnx',
     '*.gguf', '*.ggml',
+    # The agent browser's profiles: saved sign-ins, cookies and their key.
+    'firefox_profile', 'chromium_profile',
 ]
+
+
+def _private_backup_dir() -> None:
+    """Create BACKUP_DIR if needed and keep it to its owner."""
+    os.makedirs(config.BACKUP_DIR, exist_ok=True)
+    try:
+        os.chmod(config.BACKUP_DIR, 0o700)
+    except OSError as e:
+        logger.warning("Could not restrict %s to its owner: %s", config.BACKUP_DIR, e)
+
+
+def _private_zip(zip_path) -> ZipFile:
+    """A new backup zip that only its owner can read, from the first byte."""
+    os.close(os.open(zip_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
+    try:
+        os.chmod(zip_path, 0o600)
+    except OSError as e:
+        logger.warning("Could not restrict %s to its owner: %s", zip_path, e)
+    return ZipFile(zip_path, "w", ZIP_DEFLATED)
 
 
 _ALL_COMPONENTS = [
@@ -834,7 +855,7 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
             data["system_settings"] = settings
             file_map.update(files)
 
-        os.makedirs(config.BACKUP_DIR, exist_ok=True)
+        _private_backup_dir()
         backup_name = _generate_backup_filename("data", name)
         zip_path = contained(config.BACKUP_DIR, f"{backup_name}.zip")
 
@@ -952,7 +973,7 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
-            with ZipFile(zip_path, "w", ZIP_DEFLATED) as zf:
+            with _private_zip(zip_path) as zf:
                 for root, _dirs, filenames in os.walk(tmp):
                     for fn in filenames:
                         file_path = Path(root) / fn
@@ -1064,7 +1085,7 @@ def create_full_backup(name: str | None = None) -> str:
         # Extract timestamp for installation instructions
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        os.makedirs(config.BACKUP_DIR, exist_ok=True)
+        _private_backup_dir()
         
         with TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
@@ -1412,7 +1433,7 @@ The startup script handles everything: dependencies, database, frontend build, a
                 logger.info("Created empty directory with README: %s", dir_name)
             
             # Create ZIP archive
-            with ZipFile(zip_path, "w", ZIP_DEFLATED) as zf:
+            with _private_zip(zip_path) as zf:
                 for root, _dirs, filenames in os.walk(tmp):
                     for name in filenames:
                         file_path = Path(root) / name
@@ -1478,7 +1499,7 @@ def create_code_release(name: str | None = None) -> str:
         # Extract timestamp for installation instructions
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        os.makedirs(config.BACKUP_DIR, exist_ok=True)
+        _private_backup_dir()
         
         with TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
@@ -1830,7 +1851,7 @@ To restore existing data, use a separate Guaardvark data backup.
                 logger.info("Created empty directory with README: %s", dir_name)
             
             # Create ZIP archive
-            with ZipFile(zip_path, "w", ZIP_DEFLATED) as zf:
+            with _private_zip(zip_path) as zf:
                 for root, _dirs, filenames in os.walk(tmp):
                     for name in filenames:
                         file_path = Path(root) / name

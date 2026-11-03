@@ -4,6 +4,7 @@
     "outsideLocalNetwork": "이 기능은 {{machine}} 및 해당 로컬 네트워크 내의 기기에서만 작동하며, 현재 기기는 네트워크 외부에 있습니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
     "runsCodeKeyRequired": "이 기능은 {{machine}}에서 프로그램을 실행하며, 네트워크 접속이 활성화된 상태라도 {{machine}} 자체 또는 API 키가 있는 경우에만 작동합니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
     "fleetKeyRequired": "이 Interconnector 작업은 네트워크 접속이 활성화된 상태라도 {{machine}} 자체 또는 API 키가 있는 경우에만 작동합니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
+    "backupsKeyRequired": "백업에는 데이터베이스를 포함해 {{machine}}의 모든 것이 들어 있으므로, 네트워크 접속이 활성화된 상태라도 {{machine}} 자체 또는 API 키가 있는 경우에만 작동합니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
     "localOnlyKeyRemoved": "{{machine}}에 더 이상 API 키가 없으므로, 이 기능은 {{machine}} 본체에서만 작동합니다. 설정 → 액세스 → 네트워크 액세스에서 기능을 켜거나, 해당 위치에서 새 키를 생성하여 이 기기의 설정 → 액세스에 입력하세요.",
     "localOnly": "이 기능은 {{machine}} 자체에서만 작동합니다. 여기서 사용하려면 {{machine}}의 설정 → Access → Network access를 켜거나, 거기에서 API 키를 생성하여 이 기기의 설정 → Access에 입력하십시오.",
     "keyOutOfDate": "이 브라우저는 {{machine}}이 더 이상 사용하지 않는 키로 로그인되었습니다. 설정 → Access에서 현재 키를 입력하십시오.",

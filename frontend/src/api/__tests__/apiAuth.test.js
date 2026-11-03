@@ -158,6 +158,16 @@ describe("handleResponse on a refusal", () => {
     expect(describeAuthRefusal("fleet_key_required", false, "studio")).toContain("Interconnector action works only on studio");
   });
 
+  it("words a backup route refused under network access", async () => {
+    await expect(
+      handleResponse(jsonResponse(403, { code: "backups_key_required", machine: "studio" }), { quiet: true }),
+    ).rejects.toMatchObject({
+      authRefused: "backups_key_required",
+      message: describeAuthRefusal("backups_key_required", false, "studio"),
+    });
+    expect(describeAuthRefusal("backups_key_required", false, "studio")).toContain("Backups hold everything on studio");
+  });
+
   it("words an out-of-date sign-in differently", async () => {
     await expect(
       handleResponse(jsonResponse(401, { code: "api_key_required", credential_rejected: true }), { quiet: true }),

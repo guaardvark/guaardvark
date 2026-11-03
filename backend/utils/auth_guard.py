@@ -9,9 +9,10 @@ Settings → Access obtains). When unset, requests from this machine pass and
 other hosts are refused. With network access on (GUAARDVARK_NETWORK_ACCESS),
 every device on this machine's local network passes as well, key or not,
 except on the routes that run a program a caller supplies or names
-(RUNS_CODE_PATHS and RUNS_CODE_MUTATION_PREFIXES) and the Interconnector's
-operator routes (FLEET_*): those keep the rule above from every other device,
-whatever GUAARDVARK_PROTECT_TOOL_ENDPOINTS says. A client also answers its
+(RUNS_CODE_PATHS and RUNS_CODE_MUTATION_PREFIXES), the backup routes
+(BACKUP_PREFIXES) and the Interconnector's operator routes (FLEET_*): those
+keep the rule above from every other device, whatever
+GUAARDVARK_PROTECT_TOOL_ENDPOINTS says. A client also answers its
 fleet master's signed request to start a sync (MASTER_SIGNED_PATHS).
 /api/auth/ reports the state, signs browsers in and out, and manages the key
 and network access.
@@ -40,8 +41,6 @@ PROTECTED_PREFIXES = (
     # Turning network access on or off.
     '/api/auth/network-access',
     '/api/code-execution/',
-    '/api/backups/restore',
-    '/api/backups/create',
     '/api/self-code/',
     # Restarting Guaardvark (stops every running job) and the restart log.
     '/api/reboot',
@@ -162,6 +161,9 @@ RUNS_CODE_CODE = "runs_code_key_required"
 # fleet_key_required: network access is on, no key, and the route controls the
 # Interconnector fleet, which network access does not open to other devices.
 FLEET_CODE = "fleet_key_required"
+# backups_key_required: network access is on, no key, and the route lists,
+# hands out, makes, restores or deletes a backup.
+BACKUPS_CODE = "backups_key_required"
 API_KEY_CODE = "api_key_required"
 SCREENSHOT_LINK_CODE = "screenshot_link_invalid"
 LOCAL_ONLY_MESSAGE = (
@@ -189,6 +191,13 @@ FLEET_MESSAGE = (
     "Settings → Access on {machine} and enter it on this device; command-line "
     "and API clients send it in the X-API-Key header."
 )
+BACKUPS_MESSAGE = (
+    "Backups hold everything on {machine}, its database included, so they "
+    "work only on {machine} itself or with its API key, even while Network "
+    "access is on. Create an API key in Settings → Access on {machine} and "
+    "enter it on this device; command-line and API clients send it in the "
+    "X-API-Key header."
+)
 API_KEY_MESSAGE = (
     "This action needs {machine}'s API key. In the web UI, enter it in "
     "Settings → Access; command-line and API clients send it in the "
@@ -210,7 +219,8 @@ def tool_endpoints_protected() -> bool:
 # Settings → Access → Network access. On (1, true, yes, on), every protected
 # action is open to this machine, with or without the API key, and to every
 # device on its local network, except the routes that run a program
-# (RUNS_CODE_* below) and the Interconnector's operator routes (FLEET_* above);
+# (RUNS_CODE_* below), the backup routes (BACKUP_PREFIXES below) and the
+# Interconnector's operator routes (FLEET_* above);
 # an address outside the local network still needs the key. Off or unset keeps
 # the rules above. Read per request, like GUAARDVARK_API_KEY;
 # backend/services/network_access_service.py changes it.
@@ -268,6 +278,20 @@ def request_runs_code() -> bool:
     return request.method not in ('GET', 'HEAD', 'OPTIONS') and path.startswith(RUNS_CODE_MUTATION_PREFIXES)
 
 
+# Listing, downloading, creating, restoring and deleting backups, and the older
+# entity export. A backup is a copy of the install, database and uploads
+# included, so these get the same rule as the routes that run code.
+BACKUP_PREFIXES = (
+    '/api/backups',
+    '/api/meta/backup/',
+)
+
+
+def request_touches_backups() -> bool:
+    """True when the current request targets a backup route (BACKUP_PREFIXES)."""
+    return request.path.startswith(BACKUP_PREFIXES)
+
+
 def request_controls_fleet() -> bool:
     """True when the current request targets an Interconnector operator route
     (the FLEET_* lists above)."""
@@ -292,13 +316,14 @@ def network_access_covers_request() -> bool:
     """True when network access is on and opens the current request to the
     caller: this machine on every protected route (as it was before the
     routes that run code were set apart), and a local-network address on any
-    protected route but those and the Interconnector's operator routes."""
+    protected route but those, the backup routes and the Interconnector's
+    operator routes."""
     if not network_access_open():
         return False
     if request_is_from_this_machine():
         return True
     return (request_is_from_local_network() and not request_runs_code()
-            and not request_controls_fleet())
+            and not request_touches_backups() and not request_controls_fleet())
 
 
 def machine_name() -> str:
@@ -331,7 +356,6 @@ PROTECTED_FILE_PREFIXES = (
 
 # Endpoints protected only on DELETE
 PROTECTED_DELETE_PREFIXES = (
-    '/api/backups/',
     # Cast subjects, reference images and samples; generate/train stay LAN-usable.
     '/api/cast-library/',
     # Clearing the audio job history; generation and cancel stay LAN-usable.
@@ -520,7 +544,7 @@ def _is_protected():
         if path.startswith(prefix):
             return False
     # Before the tool-endpoint opt-out: it never opens a route that runs code.
-    if request_runs_code() or request_controls_fleet():
+    if request_runs_code() or request_touches_backups() or request_controls_fleet():
         return True
     for prefix in PROTECTED_PREFIXES:
         if path.startswith(prefix):
@@ -606,8 +630,8 @@ def credential_rejected() -> bool:
 
 def caller_is_authorized() -> bool:
     """The rule every protected route applies: any device on the local network
-    while network access is on, except on a route that runs code or controls
-    the Interconnector fleet; otherwise the key (header or signed-in browser)
+    while network access is on, except on a route that runs code, touches
+    backups or controls the Interconnector fleet; otherwise the key (header or signed-in browser)
     once one is configured, this machine until then."""
     if network_access_covers_request():
         return True
@@ -651,7 +675,8 @@ def protected_summary() -> list[str]:
         "Changing which chat tools run without asking",
         "The kill switch for all LLM processes",
         "Restarting Guaardvark",
-        "Creating, restoring and deleting backups",
+        "Listing, downloading, creating, restoring and deleting backups, "
+        "which Network access does not open to other devices",
         "Editing files and browsing the server's folders",
         "Reading Guaardvark's own source (self-code)",
         "Social outreach",
@@ -685,8 +710,8 @@ def check_endpoint_auth():
     - If endpoint is not protected → allow
     - A client's sync started by its fleet master's signed request → allow
     - If network access is on → allow this machine, and the local network
-      except on a route that runs a program or controls the Interconnector
-      fleet (the rules below apply there)
+      except on a route that runs a program, touches backups or controls the
+      Interconnector fleet (the rules below apply there)
     - If GUAARDVARK_API_KEY is set → require X-API-Key header (any host)
     - If GUAARDVARK_API_KEY is NOT set → allow localhost, block remote
     """
@@ -721,6 +746,8 @@ def check_endpoint_auth():
         if network_access_open():
             if request_runs_code():
                 return _refusal(RUNS_CODE_MESSAGE, RUNS_CODE_CODE, 403)
+            if request_touches_backups():
+                return _refusal(BACKUPS_MESSAGE, BACKUPS_CODE, 403)
             if request_controls_fleet():
                 return _refusal(FLEET_MESSAGE, FLEET_CODE, 403)
             return _refusal(OUTSIDE_NETWORK_MESSAGE, OUTSIDE_NETWORK_CODE, 403)
