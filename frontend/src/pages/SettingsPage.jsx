@@ -2684,7 +2684,7 @@ const SettingsPage = () => {
                     ? `/api/uploads/${systemLogo}`
                     : persistedSystemLogo
                       ? `/api/uploads/${persistedSystemLogo}`
-                      : `/api/uploads/system/profile-default.png`
+                      : undefined
               }
               variant="rounded"
               sx={{

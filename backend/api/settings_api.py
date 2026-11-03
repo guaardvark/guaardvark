@@ -696,9 +696,8 @@ def get_branding():
             logo = logo_row.value
     except Exception as e:
         current_app.logger.error(f"Failed to read system settings: {e}")
-    # Default to profile-default.png if no logo set
-    if not logo:
-        logo = "system/profile-default.png"
+    # No logo set stays empty: the frontend then draws the built-in mark. The
+    # system/profile-default.png this used to name ships with no install.
     # The active profile rides on this response: it is the only config fetch
     # the frontend makes at startup. DB branding wins over the profile's brand.
     from backend import profiles as P
