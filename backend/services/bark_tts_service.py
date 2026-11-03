@@ -82,8 +82,9 @@ DEFAULT_BARK_VOICE = "bark_speaker_3"
 def _evict_ollama_models():
     """Evict all Ollama models from VRAM by setting keep_alive=0."""
     try:
+        from backend.config import OLLAMA_BASE_URL
         # Get list of loaded models
-        resp = requests.get("http://127.0.0.1:11434/api/ps", timeout=5)
+        resp = requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=5)
         if resp.status_code == 200:
             data = resp.json()
             models = data.get("models", [])
@@ -92,7 +93,7 @@ def _evict_ollama_models():
                 if model_name:
                     logger.info(f"Bark TTS: Evicting Ollama model '{model_name}' from VRAM")
                     requests.post(
-                        "http://127.0.0.1:11434/api/generate",
+                        f"{OLLAMA_BASE_URL}/api/generate",
                         json={"model": model_name, "prompt": "", "keep_alive": 0},
                         timeout=15,
                     )

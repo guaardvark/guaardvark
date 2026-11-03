@@ -127,7 +127,8 @@ def _probe_loaded_models() -> list:
     try:
         import urllib.request
         import urllib.error
-        req = urllib.request.Request("http://127.0.0.1:11434/api/ps")
+        from backend.config import OLLAMA_BASE_URL
+        req = urllib.request.Request(f"{OLLAMA_BASE_URL}/api/ps")
         with urllib.request.urlopen(req, timeout=1.0) as resp:
             data = json.loads(resp.read())
             return [m.get("name") for m in data.get("models", []) if m.get("name")]

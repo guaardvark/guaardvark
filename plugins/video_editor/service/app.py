@@ -77,7 +77,7 @@ _jobs = JobTable(
 )
 
 # v1 Crew implementation. Swap to FilmCrewClient when plugins/film_crew/ lands.
-_crew = LocalArtDirector(ollama_url="http://localhost:11434")
+_crew = LocalArtDirector(ollama_url=os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"))
 
 _GUARD_MODULE = "guaardvark_sidecar_guard"
 

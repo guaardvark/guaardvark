@@ -1173,8 +1173,9 @@ class AgentBrain:
             # Evict Gemma4 from VRAM so Stable Diffusion can load without OOM
             try:
                 import requests as _req
+                from backend.config import OLLAMA_BASE_URL
                 _req.post(
-                    "http://127.0.0.1:11434/api/generate",
+                    f"{OLLAMA_BASE_URL}/api/generate",
                     json={"model": self.state.active_model, "keep_alive": 0},
                     timeout=5,
                 )

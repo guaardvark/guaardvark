@@ -367,7 +367,8 @@ def _detect_active_model() -> str:
     """Detect the currently active chat model from Ollama."""
     try:
         import requests as _requests
-        resp = _requests.get("http://127.0.0.1:11434/api/ps", timeout=3)
+        from backend.config import OLLAMA_BASE_URL
+        resp = _requests.get(f"{OLLAMA_BASE_URL}/api/ps", timeout=3)
         if resp.status_code == 200:
             models = resp.json().get("models", [])
             if models:
