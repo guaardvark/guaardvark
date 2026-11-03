@@ -573,6 +573,56 @@ def _load_music_video(native_id):
     return db.session.get(MusicVideo, int(native_id))
 
 
+def _load_video_analysis(native_id):
+    from backend.services.scorsese import jobs
+    return jobs.load_job(str(native_id))
+
+
+_VIDEO_ANALYSIS_STATUS = {
+    "pending": JobStatus.PENDING,
+    "running": JobStatus.RUNNING,
+    "complete": JobStatus.COMPLETED,
+    "failed": JobStatus.FAILED,
+    "cancelled": JobStatus.CANCELLED,
+}
+
+
+def adapt_video_analysis(job: dict) -> Job:
+    """Scorsese job record (backend/services/scorsese/jobs.py) → Job."""
+    status = _VIDEO_ANALYSIS_STATUS.get(job.get("status"), JobStatus.PENDING)
+    started = _parse_iso(job.get("created_at"))
+    finished = _parse_iso(job.get("finished_at")) if status.is_terminal else None
+    return Job(
+        id=f"video_analysis:{job['id']}",
+        kind=JobKind.VIDEO_ANALYSIS,
+        native_id=job["id"],
+        status=status,
+        label=f"Scorsese: {job.get('name') or job['id']} ({job.get('stage')})",
+        progress=float(job.get("progress") or 0) if status.is_active else None,
+        started_at=started,
+        finished_at=finished,
+        duration_s=_compute_duration(started, finished),
+        cancellable=status.is_active,
+        error_message=job.get("error"),
+        metadata={
+            "job_id": job["id"],
+            "stage": job.get("stage"),
+            "message": job.get("message"),
+            "video_path": job.get("video_path"),
+            "document_id": job.get("document_id"),
+        },
+    )
+
+
+def _parse_iso(text):
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(str(text).replace("Z", "+00:00")).replace(tzinfo=None)
+    except ValueError:
+        return None
+
+
 # Per-kind (loader, adapter) pairs. Add a new kind here + a single adapter
 # function and the rest of the system (API resource, socket emitter,
 # Tasks/Jobs page) picks it up automatically.
@@ -588,6 +638,7 @@ REGISTRY: dict[JobKind, tuple[LoaderFn, AdapterFn]] = {
     JobKind.UNIFIED_PROGRESS: (_load_unified_progress, adapt_unified_progress),
     JobKind.VIDEO_GEN: (_load_video_gen, adapt_video_gen),
     JobKind.MUSIC_VIDEO: (_load_music_video, adapt_music_video),
+    JobKind.VIDEO_ANALYSIS: (_load_video_analysis, adapt_video_analysis),
 }
 
 

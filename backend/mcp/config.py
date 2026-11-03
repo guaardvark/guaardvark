@@ -75,6 +75,7 @@ DEFAULT_OUTPUT_FOLDERS: List[str] = [
     "files",                 # generate_file (tools/generation_tools.py)
     "code",                  # codegen (tools/code_tools.py)
     "upscaling/output",      # upscaled images and video (api/upscaling_api.py)
+    "scorsese",              # Scorsese analysis keyframes (services/scorsese/jobs.py)
 ]
 
 

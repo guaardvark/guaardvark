@@ -262,6 +262,12 @@ def _cancel_video_render(native_id: str) -> bool:
     return False
 
 
+def _cancel_video_analysis(native_id: str) -> bool:
+    """Scorsese analysis: flag the job so the next stage stops before it starts."""
+    from backend.services.scorsese import jobs
+    return jobs.request_cancel(str(native_id))
+
+
 CANCEL_DISPATCH: dict[JobKind, Callable[[str], bool]] = {
     JobKind.TASK: _cancel_task,
     JobKind.WEBSITE: _cancel_task,  # website_* runs are Task rows; native_id is the Task id
@@ -273,6 +279,7 @@ CANCEL_DISPATCH: dict[JobKind, Callable[[str], bool]] = {
     JobKind.BATCH_CSV: _cancel_batch_csv,
     JobKind.VIDEO_GEN: _cancel_video_gen,
     JobKind.MUSIC_VIDEO: _cancel_music_video,
+    JobKind.VIDEO_ANALYSIS: _cancel_video_analysis,
     JobKind.VIDEO_RENDER: _cancel_video_render,
     JobKind.LORA_TRAIN: _cancel_lora_train,
     JobKind.UNIFIED_PROGRESS: _cancel_unified_progress,
