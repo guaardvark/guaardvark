@@ -1390,6 +1390,10 @@
       "en": "6709bd64d203",
       "out": "610b588d1f9d"
     },
+    "page.badSeed": {
+      "en": "ac0d3c9954ba",
+      "out": "eff4bef06f9f"
+    },
     "page.title": {
       "en": "c5ce333758b9",
       "out": "0f1e63d07785"
@@ -1533,6 +1537,54 @@
     "music.polishWithAi": {
       "en": "20472ae7b739",
       "out": "846821ab7485"
+    },
+    "music.arrangeWithAi": {
+      "en": "6a4433e5a317",
+      "out": "7e5aa9171898"
+    },
+    "music.directHint": {
+      "en": "a2b835eec23f",
+      "out": "43eea7c63f6b"
+    },
+    "music.directFields": {
+      "en": "9dbd4e8c6760",
+      "out": "0611887c3663"
+    },
+    "music.directFieldsHint": {
+      "en": "0c8fa70fa1b8",
+      "out": "ec05ce89797d"
+    },
+    "music.seed": {
+      "en": "32fe9f5bda70",
+      "out": "32fe9f5bda70"
+    },
+    "music.seedHelp": {
+      "en": "5bf558b28a1a",
+      "out": "2581dda89230"
+    },
+    "music.useSeed": {
+      "en": "151ab4a32834",
+      "out": "4006df26d2e8"
+    },
+    "music.audioSketch": {
+      "en": "22a5a046e286",
+      "out": "739c07a85bf9"
+    },
+    "music.audioSketchHelp": {
+      "en": "0515f2a57865",
+      "out": "80b216ac1ff4"
+    },
+    "music.captionTokens": {
+      "en": "82b69c93cb5f",
+      "out": "a2dce0ffaced"
+    },
+    "music.captionOver": {
+      "en": "7119c093bea3",
+      "out": "35abf37c2220"
+    },
+    "music.lyricsOver": {
+      "en": "d6986b1adadd",
+      "out": "1374b64bd908"
     },
     "music.genre": {
       "en": "2aa31fca5e4f",
@@ -1769,6 +1821,14 @@
     "monitor.lyricsSent": {
       "en": "7714267c292f",
       "out": "ce54df05e159"
+    },
+    "monitor.sentDirect": {
+      "en": "ca83689e298e",
+      "out": "7378d0622f24"
+    },
+    "monitor.sentSketch": {
+      "en": "297935d35736",
+      "out": "ddb9e96c1166"
     },
     "monitor.registered": {
       "en": "dc672fc60d05",
@@ -27784,8 +27844,8 @@
       "out": "bcf1fa21f28f"
     },
     "generationPanel.verbatimTooltip": {
-      "en": "81a55c41fc4b",
-      "out": "4d60b3e68d72"
+      "en": "5e4cf9ecd4d6",
+      "out": "4415a42e90fe"
     },
     "generationPanel.stillsModels": {
       "en": "8c41f9a2bdfc",

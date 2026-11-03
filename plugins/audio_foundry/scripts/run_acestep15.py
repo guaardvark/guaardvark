@@ -39,13 +39,18 @@ Commands:
         "vocal_language": "",
         "use_cot_caption": true,     # false once a caption was accepted, so a second
                                      # planner pass does not replace it
+        "use_cot_metas": true,       # false: blank bpm, key and meter stay blank
+        "use_cot_language": true,    # false: the language given is the one encoded
         "steps": 8,
+        "shift": 1.0,                # timestep shift: 1.0, 2.0 or 3.0 on the turbo DiT
         "seed": null,                # null: a fresh one; the seed used is reported back
-        "thinking": true,            # the 1.7B planner writes metadata and audio codes first
+        "thinking": true,            # the 1.7B planner writes metadata and audio codes first;
+                                     # with this and all three use_cot flags false it does not run
         "out_path": "/abs/path/to/output.wav"
      }}
         -> {"ok": true, "samples": <int>, "channels": <int>, "duration_s": <float>,
-            "sample_rate": <int, as written: 48000>, "seed": <int, the seed used>}
+            "sample_rate": <int, as written: 48000>, "seed": <int, the seed used>,
+            "planner_filled": {"bpm", "keyscale", "timesignature"}}  # blanks the planner set
         -> {"ok": false, "error": "..."}
 
     {"op": "unload"}
@@ -383,8 +388,11 @@ def _do_generate(params: dict[str, Any]) -> dict[str, Any]:
         timesignature=meter,
         vocal_language=language,
         inference_steps=int(params.get("steps", 8)),
+        shift=float(params.get("shift", 1.0)),
         thinking=bool(params.get("thinking", True)),
         use_cot_caption=use_cot_caption,
+        use_cot_metas=bool(params.get("use_cot_metas", True)),
+        use_cot_language=bool(params.get("use_cot_language", True)),
     )
     # generate_music takes the DiT's seed from the config, never from
     # GenerationParams.seed. The planner seeds itself only for batches, so with one
@@ -398,7 +406,7 @@ def _do_generate(params: dict[str, Any]) -> dict[str, Any]:
     _eprint(
         f"[run_acestep15] generate style={style_prompt[:60]!r} duration={duration_s:.1f}s "
         f"lyrics={len(lyrics)}-chars instrumental={instrumental_only} bpm={bpm} "
-        f"cot_caption={use_cot_caption} seed={seed}"
+        f"cot_caption={use_cot_caption} thinking={gen_params.thinking} shift={gen_params.shift} seed={seed}"
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     # Same filesystem as out_path, so the move is a rename; anything else ACE-Step
@@ -420,6 +428,11 @@ def _do_generate(params: dict[str, Any]) -> dict[str, Any]:
         "duration_s": info.frames / rate if rate else 0.0,
         "sample_rate": rate,
         "seed": seed,
+        "planner_filled": {
+            "bpm": None if bpm else gen_params.cot_bpm,
+            "keyscale": "" if keyscale else gen_params.cot_keyscale,
+            "timesignature": "" if meter else gen_params.cot_timesignature,
+        },
     }
 
 

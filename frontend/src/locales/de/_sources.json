@@ -1355,6 +1355,10 @@
       "en": "6709bd64d203",
       "out": "d1515182fdce"
     },
+    "page.badSeed": {
+      "en": "ac0d3c9954ba",
+      "out": "2ffa643a27ad"
+    },
     "page.title": {
       "en": "c5ce333758b9"
     },
@@ -1495,6 +1499,54 @@
     "music.polishWithAi": {
       "en": "20472ae7b739",
       "out": "b236aefff903"
+    },
+    "music.arrangeWithAi": {
+      "en": "6a4433e5a317",
+      "out": "82bc29c3fde6"
+    },
+    "music.directHint": {
+      "en": "a2b835eec23f",
+      "out": "adfd5455e80a"
+    },
+    "music.directFields": {
+      "en": "9dbd4e8c6760",
+      "out": "148b605d5482"
+    },
+    "music.directFieldsHint": {
+      "en": "0c8fa70fa1b8",
+      "out": "dc04974b225d"
+    },
+    "music.seed": {
+      "en": "32fe9f5bda70",
+      "out": "32fe9f5bda70"
+    },
+    "music.seedHelp": {
+      "en": "5bf558b28a1a",
+      "out": "700d53e37b6a"
+    },
+    "music.useSeed": {
+      "en": "151ab4a32834",
+      "out": "aa2cd0feb72d"
+    },
+    "music.audioSketch": {
+      "en": "22a5a046e286",
+      "out": "5ceff7f7cea8"
+    },
+    "music.audioSketchHelp": {
+      "en": "0515f2a57865",
+      "out": "f6a2b8d99a96"
+    },
+    "music.captionTokens": {
+      "en": "82b69c93cb5f",
+      "out": "8618e85b86c7"
+    },
+    "music.captionOver": {
+      "en": "7119c093bea3",
+      "out": "5da82f7ab454"
+    },
+    "music.lyricsOver": {
+      "en": "d6986b1adadd",
+      "out": "6378170822f6"
     },
     "music.genre": {
       "en": "2aa31fca5e4f",
@@ -1728,6 +1780,14 @@
     "monitor.lyricsSent": {
       "en": "7714267c292f",
       "out": "14e1f3447d3b"
+    },
+    "monitor.sentDirect": {
+      "en": "ca83689e298e",
+      "out": "bf2ef116915f"
+    },
+    "monitor.sentSketch": {
+      "en": "297935d35736",
+      "out": "95bc36f017a0"
     },
     "monitor.registered": {
       "en": "dc672fc60d05",

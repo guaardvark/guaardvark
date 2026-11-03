@@ -26,6 +26,7 @@ import os
 import subprocess
 import threading
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -334,6 +335,46 @@ def missing_parts(model_id: str) -> List[str]:
         return []
     return (missing_environment(entry) + missing_hub_files(entry)
             + [p["package"] for p in missing_venv_packages(entry)])
+
+
+# The text ACE-Step 1.5's DiT encodes (acestep/constants.py SFT_GEN_PROMPT, _format_lyrics).
+# BPM, key and meter sit after the caption, so a long caption pushes them past the limit too.
+_ACE15_TEXT_PROMPT = (
+    "# Instruction\nFill the audio semantic mask based on the given conditions:\n\n"
+    "# Caption\n{caption}\n\n# Metas\n"
+    "- bpm: {bpm}\n- timesignature: {meter}\n- keyscale: {key}\n- duration: {seconds} seconds\n"
+    "<|endoftext|>\n"
+)
+_ACE15_LYRIC_PROMPT = "# Languages\n{language}\n\n# Lyric\n{lyrics}<|endoftext|>"
+
+
+@lru_cache(maxsize=1)
+def _ace15_tokenizer(path: str) -> Any:
+    from tokenizers import Tokenizer
+
+    return Tokenizer.from_file(path)
+
+
+def ace15_text_usage(caption: str, lyrics: str = "", bpm: Any = None, keyscale: str = "",
+                     timesignature: str = "", duration_s: float = 60.0,
+                     vocal_language: str = "") -> Optional[Dict[str, Dict[str, int]]]:
+    """Tokens a song's text takes of what ACE-Step 1.5 reads, counted with its own
+    tokenizer. The model drops the rest without a word. None before it is installed."""
+    cat = json.loads((PLUGIN_SOURCE_DIR / "backends" / "acestep15_files.json").read_text(encoding="utf-8"))
+    encoder = cat["text_encoder"]
+    path = REPO_ROOT / cat["local_dir"] / "checkpoints" / encoder["tokenizer"]
+    if not path.is_file():
+        return None
+    tokenizer = _ace15_tokenizer(str(path))
+    text = _ACE15_TEXT_PROMPT.format(
+        caption=caption or "", bpm=bpm or "N/A", meter=(timesignature or "").strip() or "N/A",
+        key=(keyscale or "").strip() or "N/A", seconds=int(float(duration_s or 60)),
+    )
+    sung = _ACE15_LYRIC_PROMPT.format(language=(vocal_language or "").strip() or "unknown", lyrics=lyrics or "")
+    return {
+        "caption": {"tokens": len(tokenizer.encode(text).ids), "limit": int(encoder["caption_tokens"])},
+        "lyrics": {"tokens": len(tokenizer.encode(sung).ids), "limit": int(encoder["lyrics_tokens"])},
+    }
 
 
 def environment_supported(entry: Dict[str, Any]) -> Optional[str]:

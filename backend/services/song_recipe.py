@@ -117,12 +117,18 @@ def audio_regenerate_request(meta: Dict[str, Any], same_seed: bool) -> Tuple[str
     model = AUDIO_BACKENDS[backend][1]
     if model == "ace-step-1.5":
         # The accepted arrangement goes back as it was, so it is not planned again.
+        # A direct song goes back direct, or the planner would step in.
         arrangement = meta.get("arrangement") or {}
         payload.update({
             "model": model,
-            "arrangement_accepted": True,
             "style_prompt": arrangement.get("caption") or meta.get("style_prompt") or "",
         })
+        if meta.get("direct"):
+            payload["direct"] = True
+            if meta.get("audio_sketch"):
+                payload["audio_sketch"] = True
+        else:
+            payload["arrangement_accepted"] = True
         lyrics = arrangement.get("lyrics") or meta.get("lyrics") or ""
         if not instrumental and lyrics.strip() and lyrics.strip() != "[Instrumental]":
             payload["lyrics"] = lyrics.strip()

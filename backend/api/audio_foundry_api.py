@@ -327,6 +327,21 @@ def plan_music():
     return body, status_code
 
 
+@audio_foundry_bp.route("/text-usage", methods=["POST"])
+def text_usage():
+    """Tokens a song's caption and lyrics take of what ACE-Step 1.5 reads. No GPU."""
+    from backend.services.audio_foundry_models import ace15_text_usage
+    data = flask_request.get_json(silent=True) or {}
+    usage = ace15_text_usage(
+        data.get("caption") or "", data.get("lyrics") or "", bpm=data.get("bpm"),
+        keyscale=data.get("keyscale") or "", timesignature=data.get("timesignature") or "",
+        duration_s=data.get("duration_s") or 60, vocal_language=data.get("vocal_language") or "",
+    )
+    if usage is None:
+        return jsonify({"success": False, "error": "ACE-Step 1.5 is not installed"}), 404
+    return jsonify({"success": True, **usage}), 200
+
+
 @audio_foundry_bp.route("/generate/music", methods=["POST"])
 def generate_music():
     """Music generation. ``model`` picks the backend: the sidecar's ACE-Step v1
@@ -341,6 +356,11 @@ def start_music(payload: dict):
     """(response, status) for a music request; shared by the route and the
     Media page's Regenerate (media_recipe_api), so both take the same checks."""
     model = str(payload.get("model") or "").strip()
+    # Verbatim Prompts covers a song no one arranged on purpose, such as a chat request.
+    if model == "ace-step-1.5" and not payload.get("arrangement_accepted") and "direct" not in payload:
+        from backend.services.media_director import verbatim_prompts_enabled
+        if verbatim_prompts_enabled():
+            payload = {**payload, "direct": True}
     if model and model != "ace-step" and not model.startswith("minimax-music3"):
         from backend.services.audio_foundry_models import missing_parts
         if model != "ace-step-1.5":

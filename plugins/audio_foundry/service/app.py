@@ -95,6 +95,10 @@ class MusicRequest(BaseModel):
     timesignature: Optional[str] = Field(None, max_length=8)
     vocal_language: Optional[str] = Field(None, max_length=16)
     arrangement_accepted: bool = False
+    # ACE-Step 1.5: render this text as sent, with no planner at any stage.
+    # audio_sketch lets the planner lay out audio codes under that same text.
+    direct: bool = False
+    audio_sketch: bool = False
 
 
 # ---------- app setup --------------------------------------------------------
@@ -426,7 +430,8 @@ def generate_voice_stream(req: VoiceRequest) -> Any:
 def plan_music(req: MusicRequest) -> Any:
     """ACE-Step 1.5 only: expand a description into a caption and metadata. No audio."""
     params = req.model_dump(exclude_none=True)
-    for key in ("async_mode", "output_format", "negative_prompt", "seed", "arrangement_accepted"):
+    drop = ("async_mode", "output_format", "negative_prompt", "seed", "arrangement_accepted", "direct", "audio_sketch")
+    for key in drop:
         params.pop(key, None)
     if params.get("model") not in (None, "ace-step-1.5"):
         raise HTTPException(status_code=400, detail="Arrange is for ACE-Step 1.5")

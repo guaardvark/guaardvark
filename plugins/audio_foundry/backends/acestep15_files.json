@@ -12,6 +12,11 @@
     "uv": "0.12.23"
   },
   "environment": "venv-music15",
+  "text_encoder": {
+    "tokenizer": "Qwen3-Embedding-0.6B/tokenizer.json",
+    "caption_tokens": 256,
+    "lyrics_tokens": 2048
+  },
   "files": [
     "Qwen3-Embedding-0.6B/added_tokens.json",
     "Qwen3-Embedding-0.6B/chat_template.jinja",

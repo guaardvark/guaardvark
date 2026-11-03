@@ -340,7 +340,7 @@
     "verbatim": "Prompt letterali",
     "forcedByEnv": "forzato dall'ambiente",
     "verbatimForcedTooltip": "VERBATIM_PROMPTS è impostato nell'ambiente del server. Rimuovilo e riavvia per controllarlo qui.",
-    "verbatimTooltip": "Attivo: disabilita la riscrittura dei prompt da parte dell'IA e l'aggiunta automatica di stili. Limiti di prompt del modello e il rispetto delle istruzioni restano attivi. Disattivato: consente il potenziamento del prompt.",
+    "verbatimTooltip": "Attivo: disabilita la riscrittura del prompt da parte dell'IA e l'aggiunta automatica di stili per immagini, video e canzoni. Lo Studio Audio si avvia con Polish e Arrange disattivati, ma puoi comunque attivarli lì. I limiti del prompt del modello e il rispetto delle istruzioni restano applicati. Disattivato: consente il potenziamento del prompt.",
     "stillsModels": "Modelli immagini",
     "stillsModelsHelp": "I modelli immagine predefiniti di Guaardvark. La base Cast LoRA è il modello su cui vengono addestrati i LoRA dei nuovi personaggi; un LoRA funziona solo con modelli della stessa famiglia.",
     "stills": "Immagini",

@@ -340,7 +340,7 @@
     "verbatim": "Letterlijke prompts",
     "forcedByEnv": "gedwongen door omgeving",
     "verbatimForcedTooltip": "VERBATIM_PROMPTS is ingesteld in de serveromgeving. Verwijder het en start opnieuw om dit hier te beheren.",
-    "verbatimTooltip": "Aan: schakelt het herschrijven van prompts door AI en automatische stijltoevoegingen uit. Model-promptlimieten en instructies volgen nog steeds. Uit: staat promptverbetering toe.",
+    "verbatimTooltip": "Aan: schakelt het herschrijven van AI-prompts en automatische stijltoevoegingen voor afbeeldingen, video's en nummers uit. Audio Studio start met 'Polish' en 'Arrange' uit, en je kunt deze daar nog steeds aanzetten. Model-promptlimieten en instructievolging blijven van kracht. Uit: staat promptverbetering toe.",
     "stillsModels": "Stills modellen",
     "stillsModelsHelp": "De beeldmodellen waar Guaardvark standaard naar kijkt. De Cast LoRA basis is het model waarop nieuwe personage LoRA's zijn getraind; een LoRA werkt alleen met modellen uit dezelfde familie.",
     "stills": "Stills",

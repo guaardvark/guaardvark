@@ -339,7 +339,7 @@
     "verbatim": "逐字提示词",
     "forcedByEnv": "由环境强制",
     "verbatimForcedTooltip": "服务器环境中设置了 VERBATIM_PROMPTS。请移除该设置并重启，以便在此处进行控制。",
-    "verbatimTooltip": "开启：禁用 AI 提示词重写和自动添加风格。模型提示词限制和指令遵循规则依然适用。关闭：允许提示词增强。",
+    "verbatimTooltip": "开启：禁用 AI 对图像、视频和歌曲提示词的重写及自动添加样式。在“音频工作室”中，默认关闭“Polish”和“Arrange”，您仍可以在其中开启。模型提示词限制和指令遵循规则依然适用。关闭：允许提示词增强。",
     "stillsModels": "静态图像模型",
     "stillsModelsHelp": "Guaardvark 默认使用的图像模型。Cast LoRA 基座是新角色 LoRA 训练所用的模型；LoRA 仅在同系列的模型上生效。",
     "stills": "静态图像",

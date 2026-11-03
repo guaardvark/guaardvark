@@ -341,7 +341,7 @@
     "verbatim": "Prompty dosłowne",
     "forcedByEnv": "wymuszone przez środowisko",
     "verbatimForcedTooltip": "Zmienna VERBATIM_PROMPTS jest ustawiona w środowisku serwera. Usuń ją i zrestartuj, aby kontrolować to tutaj.",
-    "verbatimTooltip": "Włączone: wyłącza przepisywanie promptów przez AI i automatyczne dodawanie stylów. Limity promptów modelu i przestrzeganie instrukcji nadal obowiązują. Wyłączone: pozwala na ulepszanie promptów.",
+    "verbatimTooltip": "Włącz.: wyłącza przepisywanie promptów przez AI i automatyczne dodawanie stylów dla obrazów, wideo i utworów. Studio audio uruchamia się z wyłączonymi opcjami „Polish” i „Arrange”, które można włączyć w tym miejscu. Limity promptów modelu i przestrzeganie instrukcji nadal obowiązują. Wyłącz.: umożliwia ulepszanie promptów.",
     "stillsModels": "Modele obrazów",
     "stillsModelsHelp": "Modele obrazów, które Guaardvark wybiera domyślnie. Baza Cast LoRA to model, na którym trenowane są nowe LoRA postaci; LoRA działa tylko z modelami z tej samej rodziny.",
     "stills": "Obrazy",

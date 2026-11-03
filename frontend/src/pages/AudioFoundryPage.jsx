@@ -37,6 +37,7 @@ import {
   Close as CloseIcon,
 } from "@mui/icons-material";
 import { useSearchParams } from "react-router-dom";
+import Ace15TextCounter from "../components/audio/Ace15TextCounter";
 import PageLayout from "../components/layout/PageLayout";
 import WaveformPlayer from "../components/audio/WaveformPlayer";
 import axios from "axios";
@@ -210,6 +211,8 @@ const composeAce15Query = (genres, moods, instruments, extraText) => {
   return hints.join(", ");
 };
 
+const MAX_SEED = 4294967295;
+
 const METERS = [
   { value: "4", label: "4/4" },
   { value: "3", label: "3/4" },
@@ -331,6 +334,11 @@ const AudioFoundryPage = () => {
   // ACE-Step 1.5 arrangement from the loaded planner. Editable, then composed.
   const [arrangement, setArrangement] = useState(null);
   const [arranging, setArranging] = useState(false);
+  // Off: the text and these fields go straight to the model, with no planner.
+  const [musicArrange, setMusicArrange] = useState(true);
+  const [directFields, setDirectFields] = useState({
+    bpm: null, keyscale: "", timesignature: "", vocal_language: "en", seed: "", sketch: false,
+  });
   const [voiceBackend, setVoiceBackend] = useState("auto");
   const [voiceId, setVoiceId] = useState(DEFAULT_VOICE);
   const [voiceGroups, setVoiceGroups] = useState(FALLBACK_VOICES);
@@ -347,6 +355,20 @@ const AudioFoundryPage = () => {
   // is used. {file} or {clip} while the dialog is open.
   const [consentStatement, setConsentStatement] = useState("");
   const [consentRequest, setConsentRequest] = useState(null);
+
+  // Verbatim prompts in Settings starts songs with the AI passes off. A retry
+  // keeps the way that song was made.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("retry_doc")) return;
+    axios.get(`${API_BASE}/settings/verbatim_prompts`)
+      .then(({ data }) => {
+        if (data?.data?.enabled) {
+          setMusicArrange(false);
+          setMusicPolish(false);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Adjust & Retry from the Media page: /audio?retry_doc=<document> fills the
   // Music or FX tab with what that song or sound was made with. An ACE-Step
@@ -377,8 +399,22 @@ const AudioFoundryPage = () => {
           if (seconds) setDuration(seconds);
           const lyrics = (meta.lyrics || planned.lyrics || "").trim();
           setMusicLyrics(lyrics === "[Instrumental]" ? "" : lyrics);
-          if (meta.backend === "ace_step_1.5_turbo") {
+          if (meta.backend === "ace_step_1.5_turbo" && meta.direct) {
             setMusicModel("ace-step-1.5");
+            setMusicArrange(false);
+            setMusicExtra(meta.style_prompt || planned.caption || "");
+            setArrangement(null);
+            setDirectFields({
+              bpm: planned.bpm ?? null,
+              keyscale: planned.keyscale || "",
+              timesignature: planned.timesignature || "",
+              vocal_language: planned.vocal_language || "",
+              seed: meta.seed != null ? String(meta.seed) : "",
+              sketch: !!meta.audio_sketch,
+            });
+          } else if (meta.backend === "ace_step_1.5_turbo") {
+            setMusicModel("ace-step-1.5");
+            setMusicArrange(true);
             setMusicExtra(planned.caption || meta.style_prompt || "");
             setArrangement({ ...planned, caption: planned.caption || meta.style_prompt || "" });
           } else {
@@ -732,6 +768,7 @@ const AudioFoundryPage = () => {
   };
 
   const isAce15 = musicModel === "ace-step-1.5";
+  const direct = isAce15 && !musicArrange;
   // The interface language as the card names it ("pt-BR" is sung as "pt"), when it is
   // not English and the card offers it.
   const uiVocalLanguage = (() => {
@@ -780,28 +817,33 @@ const AudioFoundryPage = () => {
     setArrangement((prev) => (prev ? { ...prev, ...patch } : prev));
   };
 
+  const updateDirect = (patch) => setDirectFields((prev) => ({ ...prev, ...patch }));
+
   // Final generation: send {style_prompt, negative_prompt, duration_s,
   // instrumental_only} to /generate/music. Resolves the prompt from the
   // preview if one exists, otherwise from the raw chip+text composition.
   // ACE-Step 1.5 sends the edited arrangement and does not plan a second time.
+  // Direct sends the description box as typed; the chips are hidden in that mode.
   const generateMusic = async () => {
-    const intent = isAce15
-      ? composeAce15Query(musicGenres, musicMoods, musicInstruments, musicExtra)
-      : composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra);
-    if (!intent && !musicPreview && !arrangement) {
+    const intent = direct
+      ? musicExtra.trim()
+      : isAce15
+        ? composeAce15Query(musicGenres, musicMoods, musicInstruments, musicExtra)
+        : composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra);
+    if (!intent && !musicPreview && !(arrangement && !direct)) {
       setError(t("audio.page.needMusicInput"));
       return;
     }
-    if (isAce15 && !arrangement?.caption?.trim()) {
+    if (isAce15 && !direct && !arrangement?.caption?.trim()) {
       setError(t("audio.page.arrangeFirst"));
       return;
     }
 
     let stylePrompt = intent;
     let negativePrompt = "";
-    if (isAce15) {
+    if (isAce15 && !direct) {
       stylePrompt = arrangement.caption.trim();
-    } else if (musicPreview) {
+    } else if (!isAce15 && musicPreview) {
       stylePrompt = musicPreview.style_prompt || intent;
       negativePrompt = musicPreview.negative_prompt || "";
     }
@@ -816,12 +858,17 @@ const AudioFoundryPage = () => {
       openModels(missingRows[0].id);
       return;
     }
-    if (isAce15 && arrangement?.bpm) {
-      const bpm = Number(arrangement.bpm);
+    const card = direct ? directFields : arrangement;
+    if (isAce15 && card?.bpm) {
+      const bpm = Number(card.bpm);
       if (!Number.isInteger(bpm) || bpm < 30 || bpm > 300) {
         setError(t("audio.page.badTempo"));
         return;
       }
+    }
+    if (direct && directFields.seed !== "" && Number(directFields.seed) > MAX_SEED) {
+      setError(t("audio.page.badSeed"));
+      return;
     }
 
     setLoading(true);
@@ -835,16 +882,21 @@ const AudioFoundryPage = () => {
       if (negativePrompt) payload.negative_prompt = negativePrompt;
       if (isAce15) {
         payload.model = "ace-step-1.5";
-        payload.arrangement_accepted = true;
-        if (!musicInstrumental && (arrangement.lyrics || "").trim()) {
-          payload.lyrics = arrangement.lyrics.trim();
+        if (direct) {
+          payload.direct = true;
+          if (directFields.sketch && !musicInstrumental) payload.audio_sketch = true;
+          if (directFields.seed !== "") payload.seed = Number(directFields.seed);
+        } else {
+          payload.arrangement_accepted = true;
         }
-        const bpm = Number(arrangement.bpm);
+        const words = (direct ? musicLyrics : arrangement.lyrics) || "";
+        if (!musicInstrumental && words.trim()) payload.lyrics = words.trim();
+        const bpm = Number(card.bpm);
         if (bpm) payload.bpm = bpm;
-        if (arrangement.keyscale) payload.keyscale = arrangement.keyscale;
-        if (arrangement.timesignature) payload.timesignature = arrangement.timesignature;
-        if (arrangement.vocal_language && arrangement.vocal_language !== "unknown") {
-          payload.vocal_language = arrangement.vocal_language;
+        if (card.keyscale) payload.keyscale = card.keyscale;
+        if (card.timesignature) payload.timesignature = card.timesignature;
+        if (card.vocal_language && card.vocal_language !== "unknown") {
+          payload.vocal_language = card.vocal_language;
         }
       } else {
         if (!musicInstrumental && musicLyrics.trim()) payload.lyrics = musicLyrics.trim();
@@ -875,6 +927,66 @@ const AudioFoundryPage = () => {
     if (activeTab === 1) return "#2196f3"; // Music: Blue
     return "#ff9800"; // FX: Orange
   };
+
+  const ace15Fields = (values, update) => (
+    <>
+      <Stack direction="row" spacing={1}>
+        <TextField
+          label={t("audio.music.bpm")}
+          size="small"
+          type="number"
+          value={values.bpm ?? ""}
+          onChange={(e) => update({ bpm: e.target.value === "" ? null : Number(e.target.value) })}
+          inputProps={{ min: 30, max: 300 }}
+          sx={{ width: 100 }}
+        />
+        <TextField
+          label={t("audio.music.key")}
+          size="small"
+          value={values.keyscale || ""}
+          onChange={(e) => update({ keyscale: e.target.value })}
+          placeholder="A minor"
+          sx={{ flex: 1 }}
+        />
+      </Stack>
+      <Stack direction="row" spacing={1}>
+        <TextField
+          select
+          label={t("audio.music.meter")}
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          value={values.timesignature || ""}
+          onChange={(e) => update({ timesignature: e.target.value })}
+          sx={{ flex: 1 }}
+          SelectProps={{ native: true }}
+        >
+          <option value="">{t("audio.languages.auto")}</option>
+          {METERS.map((m) => (
+            <option key={m.value} value={m.value}>{m.label}</option>
+          ))}
+        </TextField>
+        <TextField
+          select
+          label={t("audio.music.language")}
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          value={values.vocal_language && values.vocal_language !== "unknown" ? values.vocal_language : ""}
+          onChange={(e) => update({ vocal_language: e.target.value })}
+          sx={{ flex: 1 }}
+          SelectProps={{ native: true }}
+        >
+          {vocalLanguages().map(([code, label]) => (
+            <option key={code || "auto"} value={code}>{label}</option>
+          ))}
+          {values.vocal_language
+            && values.vocal_language !== "unknown"
+            && !vocalLanguages().some(([code]) => code === values.vocal_language) && (
+            <option value={values.vocal_language}>{values.vocal_language}</option>
+          )}
+        </TextField>
+      </Stack>
+    </>
+  );
 
   const installedCount = catalog.filter((m) => m.installed).length;
   const missingCount = catalog.filter((m) => !m.installed).length;
@@ -1118,6 +1230,19 @@ const AudioFoundryPage = () => {
                   <Stack spacing={2.5}>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <Typography variant="h6" fontWeight="bold">{t("audio.music.title")}</Typography>
+                      {isAce15 && (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={musicArrange}
+                              onChange={(e) => { setMusicArrange(e.target.checked); setArrangement(null); }}
+                              size="small"
+                            />
+                          }
+                          label={<Typography variant="caption">{t("audio.music.arrangeWithAi")}</Typography>}
+                          sx={{ m: 0 }}
+                        />
+                      )}
                       {!isAce15 && (
                         <FormControlLabel
                           control={
@@ -1133,70 +1258,74 @@ const AudioFoundryPage = () => {
                       )}
                     </Box>
 
-                    {/* Genre row — pick the anchor that keeps ACE-Step v1 from drifting to country.
-                        On 1.5 these are hints; the description is what the planner reads. */}
-                    <Box>
-                      <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.genre")}</Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
-                        {MUSIC_GENRES.map((g) => (
-                          <Chip
-                            key={g}
-                            label={musicTagLabel(g)}
-                            size="small"
-                            color={musicGenres.includes(g) ? "primary" : "default"}
-                            variant={musicGenres.includes(g) ? "filled" : "outlined"}
-                            onClick={() => toggleMusicChip("genre", g)}
-                            clickable
-                          />
-                        ))}
-                      </Box>
-                    </Box>
+                    {!direct && (
+                      <>
+                        {/* Genre row — pick the anchor that keeps ACE-Step v1 from drifting to country.
+                            On 1.5 these are hints; the description is what the planner reads. */}
+                        <Box>
+                          <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.genre")}</Typography>
+                          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
+                            {MUSIC_GENRES.map((g) => (
+                              <Chip
+                                key={g}
+                                label={musicTagLabel(g)}
+                                size="small"
+                                color={musicGenres.includes(g) ? "primary" : "default"}
+                                variant={musicGenres.includes(g) ? "filled" : "outlined"}
+                                onClick={() => toggleMusicChip("genre", g)}
+                                clickable
+                              />
+                            ))}
+                          </Box>
+                        </Box>
 
-                    {/* Mood row */}
-                    <Box>
-                      <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.mood")}</Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
-                        {MUSIC_MOODS.map((m) => (
-                          <Chip
-                            key={m}
-                            label={musicTagLabel(m)}
-                            size="small"
-                            color={musicMoods.includes(m) ? "secondary" : "default"}
-                            variant={musicMoods.includes(m) ? "filled" : "outlined"}
-                            onClick={() => toggleMusicChip("mood", m)}
-                            clickable
-                          />
-                        ))}
-                      </Box>
-                    </Box>
+                        {/* Mood row */}
+                        <Box>
+                          <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.mood")}</Typography>
+                          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
+                            {MUSIC_MOODS.map((m) => (
+                              <Chip
+                                key={m}
+                                label={musicTagLabel(m)}
+                                size="small"
+                                color={musicMoods.includes(m) ? "secondary" : "default"}
+                                variant={musicMoods.includes(m) ? "filled" : "outlined"}
+                                onClick={() => toggleMusicChip("mood", m)}
+                                clickable
+                              />
+                            ))}
+                          </Box>
+                        </Box>
 
-                    {/* Instrument row */}
-                    <Box>
-                      <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.instruments")}</Typography>
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
-                        {MUSIC_INSTRUMENTS.map((i) => (
-                          <Chip
-                            key={i}
-                            label={musicTagLabel(i)}
-                            size="small"
-                            color={musicInstruments.includes(i) ? "info" : "default"}
-                            variant={musicInstruments.includes(i) ? "filled" : "outlined"}
-                            onClick={() => toggleMusicChip("instrument", i)}
-                            clickable
-                          />
-                        ))}
-                      </Box>
-                    </Box>
+                        {/* Instrument row */}
+                        <Box>
+                          <Typography variant="caption" fontWeight="bold" color="text.secondary">{t("audio.music.instruments")}</Typography>
+                          <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.75, mt: 0.5 }}>
+                            {MUSIC_INSTRUMENTS.map((i) => (
+                              <Chip
+                                key={i}
+                                label={musicTagLabel(i)}
+                                size="small"
+                                color={musicInstruments.includes(i) ? "info" : "default"}
+                                variant={musicInstruments.includes(i) ? "filled" : "outlined"}
+                                onClick={() => toggleMusicChip("instrument", i)}
+                                clickable
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                      </>
+                    )}
 
                     {/* Free-text "additional details" — anything the chips don't cover */}
                     {isAce15 && (
                       <Typography variant="caption" color="text.secondary">
-                        {t("audio.music.describeHint")}
+                        {direct ? t("audio.music.directHint") : t("audio.music.describeHint")}
                       </Typography>
                     )}
                     {/* Songs default to English; someone using the interface in another
                         language the card offers is told how to hear theirs. */}
-                    {isAce15 && !musicInstrumental && uiVocalLanguage && (
+                    {isAce15 && !direct && !musicInstrumental && uiVocalLanguage && (
                       <Alert severity="info" variant="outlined" sx={{ py: 0, borderRadius: 2 }}>
                         {t("audio.music.englishByDefault", { language: languageLabel(uiVocalLanguage) })}
                       </Alert>
@@ -1274,6 +1403,56 @@ const AudioFoundryPage = () => {
                       />
                     </Box>
 
+                    {direct && (
+                      <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
+                        <Stack spacing={1.25}>
+                          <Typography variant="caption" fontWeight="bold" color="primary">
+                            {t("audio.music.directFields")}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {t("audio.music.directFieldsHint")}
+                          </Typography>
+                          {ace15Fields(directFields, updateDirect)}
+                          <TextField
+                            label={t("audio.music.seed")}
+                            size="small"
+                            value={directFields.seed}
+                            onChange={(e) => updateDirect({ seed: e.target.value.replace(/\D/g, "") })}
+                            helperText={t("audio.music.seedHelp")}
+                            inputProps={{ inputMode: "numeric" }}
+                            fullWidth
+                          />
+                          {!musicInstrumental && (
+                            <Box>
+                              <FormControlLabel
+                                control={
+                                  <Switch
+                                    checked={directFields.sketch}
+                                    onChange={(e) => updateDirect({ sketch: e.target.checked })}
+                                    size="small"
+                                  />
+                                }
+                                label={<Typography variant="caption">{t("audio.music.audioSketch")}</Typography>}
+                                sx={{ m: 0 }}
+                              />
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                {t("audio.music.audioSketchHelp")}
+                              </Typography>
+                            </Box>
+                          )}
+                          <Ace15TextCounter
+                            caption={musicExtra}
+                            lyrics={musicInstrumental ? "" : musicLyrics}
+                            bpm={directFields.bpm}
+                            keyscale={directFields.keyscale}
+                            timesignature={directFields.timesignature}
+                            durationS={duration}
+                            vocalLanguage={directFields.vocal_language}
+                          />
+                        </Stack>
+                      </Paper>
+                    )}
+
                     {/* v1 polish preview. 1.5 shows an editable arrangement from its planner. */}
                     {!isAce15 && musicPolish && musicPreview && (
                       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
@@ -1311,7 +1490,7 @@ const AudioFoundryPage = () => {
                       </Paper>
                     )}
 
-                    {isAce15 && arrangement && (
+                    {isAce15 && !direct && arrangement && (
                       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: "action.hover" }}>
                         <Stack spacing={1.25}>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -1355,60 +1534,16 @@ const AudioFoundryPage = () => {
                               fullWidth
                             />
                           )}
-                          <Stack direction="row" spacing={1}>
-                            <TextField
-                              label={t("audio.music.bpm")}
-                              size="small"
-                              type="number"
-                              value={arrangement.bpm ?? ""}
-                              onChange={(e) => updateArrangement({ bpm: e.target.value === "" ? null : Number(e.target.value) })}
-                              inputProps={{ min: 30, max: 300 }}
-                              sx={{ width: 100 }}
-                            />
-                            <TextField
-                              label={t("audio.music.key")}
-                              size="small"
-                              value={arrangement.keyscale || ""}
-                              onChange={(e) => updateArrangement({ keyscale: e.target.value })}
-                              placeholder="A minor"
-                              sx={{ flex: 1 }}
-                            />
-                          </Stack>
-                          <Stack direction="row" spacing={1}>
-                            <TextField
-                              select
-                              label={t("audio.music.meter")}
-                              size="small"
-                              value={arrangement.timesignature || ""}
-                              onChange={(e) => updateArrangement({ timesignature: e.target.value })}
-                              sx={{ flex: 1 }}
-                              SelectProps={{ native: true }}
-                            >
-                              <option value="">{t("audio.languages.auto")}</option>
-                              {METERS.map((m) => (
-                                <option key={m.value} value={m.value}>{m.label}</option>
-                              ))}
-                            </TextField>
-                            <TextField
-                              select
-                              label={t("audio.music.language")}
-                              size="small"
-                              InputLabelProps={{ shrink: true }}
-                              value={arrangement.vocal_language && arrangement.vocal_language !== "unknown" ? arrangement.vocal_language : ""}
-                              onChange={(e) => updateArrangement({ vocal_language: e.target.value })}
-                              sx={{ flex: 1 }}
-                              SelectProps={{ native: true }}
-                            >
-                              {vocalLanguages().map(([code, label]) => (
-                                <option key={code || "auto"} value={code}>{label}</option>
-                              ))}
-                              {arrangement.vocal_language
-                                && arrangement.vocal_language !== "unknown"
-                                && !vocalLanguages().some(([code]) => code === arrangement.vocal_language) && (
-                                <option value={arrangement.vocal_language}>{arrangement.vocal_language}</option>
-                              )}
-                            </TextField>
-                          </Stack>
+                          {ace15Fields(arrangement, updateArrangement)}
+                          <Ace15TextCounter
+                            caption={arrangement.caption}
+                            lyrics={musicInstrumental ? "" : arrangement.lyrics}
+                            bpm={arrangement.bpm}
+                            keyscale={arrangement.keyscale}
+                            timesignature={arrangement.timesignature}
+                            durationS={duration}
+                            vocalLanguage={arrangement.vocal_language}
+                          />
                           {arrangement.genres && (
                             <Typography variant="caption" color="text.secondary">
                               {t("audio.music.genres", { genres: arrangement.genres })}
@@ -1419,7 +1554,7 @@ const AudioFoundryPage = () => {
                     )}
 
                     {/* 1.5 arranges before compose. v1 polishes into tags, or composes directly. */}
-                    {isAce15 && !arrangement ? (
+                    {isAce15 && !direct && !arrangement ? (
                       <Button
                         variant="contained"
                         size="large"
@@ -1448,9 +1583,11 @@ const AudioFoundryPage = () => {
                         startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <MusicIcon />}
                         disabled={
                           loading ||
-                          (isAce15
-                            ? !arrangement?.caption?.trim()
-                            : (!composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra) && !musicPreview))
+                          (direct
+                            ? !musicExtra.trim()
+                            : isAce15
+                              ? !arrangement?.caption?.trim()
+                              : (!composeMusicIntent(musicGenres, musicMoods, musicInstruments, musicExtra) && !musicPreview))
                         }
                         onClick={generateMusic}
                         sx={{ py: 1.5, borderRadius: 2, backgroundColor: "#2196f3", "&:hover": { backgroundColor: "#1976d2" } }}
@@ -1586,6 +1723,15 @@ const AudioFoundryPage = () => {
                           <Grid item xs={6}>
                             <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.seed")}</Typography>
                             <Typography variant="body2" fontWeight="bold">{String(result.meta.seed)}</Typography>
+                            {direct && result.meta.direct && (
+                              <Button
+                                size="small"
+                                onClick={() => updateDirect({ seed: String(result.meta.seed) })}
+                                sx={{ minWidth: 0, p: 0, textTransform: "none" }}
+                              >
+                                {t("audio.music.useSeed")}
+                              </Button>
+                            )}
                           </Grid>
                         )}
                         <Grid item xs={12}>
@@ -1599,6 +1745,11 @@ const AudioFoundryPage = () => {
                         {result.meta?.arrangement && (
                           <Grid item xs={12}>
                             <Typography variant="caption" display="block" color="text.secondary">{t("audio.monitor.captionSent")}</Typography>
+                            {result.meta.direct && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                {result.meta.audio_sketch ? t("audio.monitor.sentSketch") : t("audio.monitor.sentDirect")}
+                              </Typography>
+                            )}
                             <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
                               {result.meta.arrangement.caption || "—"}
                             </Typography>

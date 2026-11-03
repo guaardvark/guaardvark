@@ -339,7 +339,7 @@
     "verbatim": "원문 그대로 사용",
     "forcedByEnv": "환경에 의해 강제됨",
     "verbatimForcedTooltip": "서버 환경에 VERBATIM_PROMPTS가 설정되어 있습니다. 여기서 제어하려면 해당 설정을 제거하고 재시작하세요.",
-    "verbatimTooltip": "켜기: AI 프롬프트 재작성 및 자동 스타일 추가를 비활성화합니다. 모델 프롬프트 제한 및 지시 사항 준수 규칙은 그대로 적용됩니다. 끄기: 프롬프트 강화 기능을 허용합니다.",
+    "verbatimTooltip": "켜기: 이미지, 비디오, 노래에 대한 AI 프롬프트 재작성 및 자동 스타일 추가를 비활성화합니다. 오디오 스튜디오는 Polish 및 Arrange가 꺼진 상태로 시작되며, 해당 설정에서 다시 켤 수 있습니다. 모델 프롬프트 제한 및 지시 사항 준수 규칙은 그대로 적용됩니다. 끄기: 프롬프트 강화 기능을 활성화합니다.",
     "stillsModels": "이미지 모델",
     "stillsModelsHelp": "Guaardvark이 기본으로 사용하는 이미지 모델입니다. Cast LoRA 기반은 새로운 캐릭터 LoRA가 학습된 모델이며, LoRA는 동일한 계열의 모델에서만 작동합니다.",
     "stills": "이미지",

@@ -340,7 +340,7 @@
     "verbatim": "Verbatim prompts",
     "forcedByEnv": "forced by environment",
     "verbatimForcedTooltip": "VERBATIM_PROMPTS is set in the server environment. Remove it and restart to control this here.",
-    "verbatimTooltip": "On: disables AI prompt rewriting and automatic style additions. Model prompt limits and instruction-following still apply. Off: allows prompt enhancement.",
+    "verbatimTooltip": "On: disables AI prompt rewriting and automatic style additions for images, video and songs. Audio Studio starts with Polish and Arrange off, and you can still turn them on there. Model prompt limits and instruction-following still apply. Off: allows prompt enhancement.",
     "stillsModels": "Stills models",
     "stillsModelsHelp": "The image models Guaardvark defaults to. Cast LoRA base is the model new character LoRAs are trained on; a LoRA only works with models of the same family.",
     "stills": "Stills",

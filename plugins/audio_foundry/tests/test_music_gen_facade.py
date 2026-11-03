@@ -149,6 +149,58 @@ def test_the_15_backend_refuses_before_spawning_when_not_installed(tmp_path, mon
     assert spawned == []
 
 
+def _fake_15_backend(tmp_path, monkeypatch):
+    from backends import music_gen_acestep15 as m
+
+    backend = m.ACEStep15Backend(output_root=tmp_path / "out")
+    sent = []
+
+    def send(cmd, timeout_s=None):
+        sent.append(cmd)
+        return {"ok": True, "duration_s": 10.0, "sample_rate": 48000, "seed": 7,
+                "planner_filled": {"bpm": None, "keyscale": "A minor", "timesignature": "2"}}
+
+    monkeypatch.setattr(m.ACEStep15Backend, "is_loaded", property(lambda self: True))
+    monkeypatch.setattr(backend, "_send", send)
+    monkeypatch.setattr(backend, "post_process", lambda path, output_format="wav": path)
+    return backend, sent
+
+
+def test_direct_sends_the_text_as_written_and_never_runs_the_planner(tmp_path, monkeypatch):
+    backend, sent = _fake_15_backend(tmp_path, monkeypatch)
+    text = "very slow blues, 120 bpm in the words, in G minor"
+    result = backend.generate(style_prompt=text, lyrics="[Verse]\nhey", direct=True, duration_s=10.0)
+
+    assert [c["op"] for c in sent] == ["generate"]
+    params = sent[0]["params"]
+    assert params["style_prompt"] == text
+    assert params["bpm"] is None and params["keyscale"] == ""
+    assert not params["thinking"] and not params["use_cot_caption"]
+    assert not params["use_cot_metas"] and not params["use_cot_language"]
+    assert params["shift"] == backend.DIRECT_SHIFT
+    assert result.meta["direct"] is True and result.meta["planner"] is None
+
+
+def test_audio_sketch_keeps_the_text_and_reports_what_the_planner_filled(tmp_path, monkeypatch):
+    backend, sent = _fake_15_backend(tmp_path, monkeypatch)
+    result = backend.generate(style_prompt="slow blues", bpm=52, direct=True, audio_sketch=True, duration_s=10.0)
+
+    params = sent[0]["params"]
+    assert params["style_prompt"] == "slow blues" and params["thinking"] and params["use_cot_metas"]
+    assert not params["use_cot_caption"] and not params["use_cot_language"]
+    assert result.meta["arrangement"]["keyscale"] == "A minor"
+    assert result.meta["arrangement"]["bpm"] == 52
+
+
+def test_an_accepted_arrangement_renders_as_it_did(tmp_path, monkeypatch):
+    backend, sent = _fake_15_backend(tmp_path, monkeypatch)
+    backend.generate(style_prompt="a caption", arrangement_accepted=True, duration_s=10.0)
+
+    params = sent[0]["params"]
+    assert params["thinking"] and params["use_cot_metas"] and params["use_cot_language"]
+    assert not params["use_cot_caption"] and params["shift"] == backend.ARRANGED_SHIFT
+
+
 def test_music_request_accepts_only_the_two_ace_step_models():
     from pydantic import ValidationError
     from service.app import MusicRequest

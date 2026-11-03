@@ -128,6 +128,11 @@ class ACEStep15Backend(ACEStepBackend):
     # The turbo DiT is distilled for 8 steps (upstream default); every 1.5 render
     # measured on 2026-10-03 used 8.
     STEPS = 8
+    # Upstream's turbo schedule. Direct renders use it: on 2026-11-02, same seeds, the
+    # planner-free DiT at shift 1.0 was the dullest setup tested (centroid about 2300 Hz,
+    # planner renders 2500-3240) and 3.0 reached about 2650. Arranged songs stay at 1.0.
+    DIRECT_SHIFT = 3.0
+    ARRANGED_SHIFT = 1.0
 
     def __init__(self, output_root: Path, max_duration_s: float = 240.0) -> None:
         super().__init__(output_root=output_root, max_duration_s=max_duration_s)
@@ -205,8 +210,16 @@ class ACEStep15Backend(ACEStepBackend):
         negative_prompt: str | None = params.get("negative_prompt")
         seed = params.get("seed")
         requested_format = params.get("output_format", "wav")
+        # Direct: the caption, lyrics and fields reach the DiT as sent. The planner
+        # writes neither metadata nor the audio codes that otherwise steer the render.
+        # audio_sketch keeps the text as sent and lets the planner lay out audio codes,
+        # filling a blank bpm, key or meter: on 2026-11-02, three seeds, that sang 0.80-0.90
+        # of a 134-word lyric at 150 s against 0.55-0.81 without it. Both repeat exactly.
+        direct = bool(params.get("direct"))
+        sketch = direct and bool(params.get("audio_sketch"))
+        planner_runs = sketch or not direct
         accepted = bool(params.get("arrangement_accepted"))
-        if accepted:
+        if direct or accepted:
             resolved = resolve_accepted_params(params)
             arrangement = _arrangement_from_request(resolved)
             arrangement["accepted"] = True
@@ -230,7 +243,10 @@ class ACEStep15Backend(ACEStepBackend):
         lyrics = resolved.get("lyrics") or ""
         instrumental_only = bool(resolved.get("instrumental_only", False))
         duration_s = min(float(resolved.get("duration_s", 60.0)), self._max_duration_s)
-        arrangement["planner"] = arrangement.get("planner") or self._planner
+        planner = self._planner if planner_runs else None
+        arrangement["planner"] = arrangement.get("planner") or planner
+        arrangement["direct"] = direct
+        arrangement["audio_sketch"] = sketch
         arrangement["duration_s"] = duration_s
 
         self._output_root.mkdir(parents=True, exist_ok=True)
@@ -251,9 +267,12 @@ class ACEStep15Backend(ACEStepBackend):
                     "vocal_language": arrangement.get("vocal_language") or "",
                     # The caption above is the one that was planned or edited.
                     "use_cot_caption": False,
+                    "use_cot_metas": planner_runs,
+                    "use_cot_language": not direct,
                     "steps": self.STEPS,
+                    "shift": self.DIRECT_SHIFT if direct else self.ARRANGED_SHIFT,
                     "seed": seed,
-                    "thinking": True,
+                    "thinking": planner_runs,
                     "out_path": str(wav_path),
                 },
             },
@@ -265,6 +284,10 @@ class ACEStep15Backend(ACEStepBackend):
             if result.get("traceback"):
                 logger.error("ACE-Step 1.5 daemon traceback:\n%s", result["traceback"])
             raise RuntimeError(f"ACE-Step 1.5 generate failed: {result.get('error', '<no error>')}")
+
+        if sketch:
+            filled = result.get("planner_filled") or {}
+            arrangement.update({k: v for k, v in filled.items() if v})
 
         final_path = self.post_process(wav_path, output_format=requested_format)
         logger.info(
@@ -288,8 +311,10 @@ class ACEStep15Backend(ACEStepBackend):
                 "requested_duration_s": duration_s,
                 "arrangement": arrangement,
                 "use_cot_caption": False,
+                "direct": direct,
+                "audio_sketch": sketch,
                 "steps": self.STEPS,
-                "planner": self._planner,
+                "planner": planner,
                 # The seed the render used, so the take can be repeated even when
                 # none was asked for.
                 "seed": result.get("seed", seed),
