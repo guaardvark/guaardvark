@@ -147,6 +147,12 @@ def create_celery_app():
                 'schedule': 86400.0,  # 24 hours
                 'options': {'queue': 'default'},
             },
+            # Progress-store entries of jobs that died without finishing.
+            'cleanup-stuck-progress-jobs': {
+                'task': 'maintenance.cleanup_stuck_progress_jobs',
+                'schedule': 21600.0,  # 6 hours
+                'options': {'queue': 'default'},
+            },
             # Documents left PENDING by an interrupted run — a reboot, a killed
             # worker — would otherwise sit there indefinitely, because indexing
             # progress is durable but nothing restarted it. Deliberately slow and
@@ -520,8 +526,15 @@ def create_celery_app():
         logger.warning(f"Could not import video render tasks: {e}")
 
     try:
+        from backend.tasks.progress_cleanup_tasks import cleanup_stuck_progress_jobs  # noqa: F401
+        logger.info("Stuck progress-job cleanup task imported successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import progress cleanup task: {e}")
+
+    try:
         from backend.tasks.backup_tasks import daily_backup  # noqa: F401
         logger.info("Backup tasks imported successfully")
+        gate_beat_entries(celery_app, {'daily-backup': 'daily_backup'})
     except ImportError as e:
         logger.warning(f"Could not import backup tasks: {e}")
 

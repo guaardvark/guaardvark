@@ -114,6 +114,12 @@ def uncle_claude_scheduled_gate() -> bool:
     return raw.strip().lower() in _TRUE
 
 
+def daily_backup_gate() -> bool:
+    """Settings → Backups → Daily backup. On unless switched off."""
+    raw = _read_setting("backup_daily_enabled", "true") or "true"
+    return raw.strip().lower() in _TRUE
+
+
 def interconnector_client_gate() -> bool:
     """This node is an enabled Interconnector *client* with a master URL."""
     raw = _read_setting("interconnector_config")
@@ -131,6 +137,7 @@ def interconnector_client_gate() -> bool:
 
 
 GATES: Dict[str, Callable[[], bool]] = {
+    "daily_backup": daily_backup_gate,
     "autoresearch": autoresearch_gate,
     "social_outreach": social_outreach_gate,
     "self_improvement": self_improvement_gate,

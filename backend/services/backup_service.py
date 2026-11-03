@@ -16,7 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Dict, List, Optional
@@ -93,6 +93,52 @@ DATA_IGNORE_PATTERNS = [
     # The agent browser's profiles: saved sign-ins, cookies and their key.
     'firefox_profile', 'chromium_profile',
 ]
+
+# Folders whose weight files a backup keeps even though weights are ignored
+# everywhere else: these are the person's own work (LoRAs they trained), a
+# few tens of MB each, not downloadable models.
+KEEP_WEIGHTS_UNDER = ("data/training/loras",)
+_WEIGHT_SUFFIXES = ('.safetensors', '.ckpt', '.pt', '.pth', '.bin')
+
+# Backups a person pinned stay out of every automatic deletion. The list
+# lives beside the zips so it travels with them.
+PINNED_FILE = "pinned.json"
+
+
+class BackupPinned(Exception):
+    """Raised when a pinned backup would be deleted."""
+
+
+def _data_ignore(project_root) -> callable:
+    """shutil ignore function: DATA_IGNORE_PATTERNS, except weights under KEEP_WEIGHTS_UNDER."""
+    base = shutil.ignore_patterns(*DATA_IGNORE_PATTERNS, '*.tmp')
+    root = Path(project_root).resolve()
+    keep_dirs = [(root / k).resolve() for k in KEEP_WEIGHTS_UNDER]
+
+    def ignore(dirname, names):
+        ignored = set(base(dirname, names))
+        try:
+            here = Path(dirname).resolve()
+        except OSError:
+            return ignored
+        if any(here == k or k in here.parents for k in keep_dirs):
+            for n in list(ignored):
+                if n.lower().endswith(_WEIGHT_SUFFIXES):
+                    ignored.discard(n)
+        return ignored
+
+    return ignore
+
+
+def _staging_dir() -> str:
+    """Where a backup is assembled before it is zipped.
+
+    The system temp dir is a RAM disk on many Linux installs, so a multi-GB
+    backup staged there costs that much memory; staging next to the zips
+    keeps it on the same disk as the result."""
+    path = os.path.join(config.BACKUP_DIR, ".staging")
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    return path
 
 
 def _private_backup_dir() -> None:
@@ -890,9 +936,10 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
             "data/training/servo_logs/",
             "data/memory/",
             "data/agent/",
+            "data/training/loras/",
         ]
 
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir=_staging_dir()) as tmpdir:
             tmp = Path(tmpdir)
             json_path = tmp / "guaardvark_backup.json"
             with open(json_path, "w", encoding="utf-8") as f:
@@ -924,7 +971,7 @@ def create_data_backup(components: List[str] | None = None, name: str | None = N
                     try:
                         shutil.copytree(
                             src_path, dest_dir,
-                            ignore=shutil.ignore_patterns(*DATA_IGNORE_PATTERNS, '*.tmp'),
+                            ignore=_data_ignore(project_root),
                         )
                     except Exception as e:
                         logger.warning("Failed to copy data directory %s: %s", data_dir, e)
@@ -1087,7 +1134,7 @@ def create_full_backup(name: str | None = None) -> str:
         
         _private_backup_dir()
         
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir=_staging_dir()) as tmpdir:
             tmp = Path(tmpdir)
             
             # Create JSON manifest
@@ -1230,6 +1277,7 @@ def create_full_backup(name: str | None = None) -> str:
                 "data/training/failures/",    # Servo failure logs (forensics + future training)
                 "data/training/knowledge/",   # Learned calibration data, feedback, servo archive
                 "data/training/servo_logs/",  # Interaction logs for future fine-tuning
+                "data/training/loras/",       # LoRAs the person trained
                 "data/memory/",        # User-saved memories (memories.jsonl)
                 "data/agent/",         # Agent self-knowledge, recipes, files
                 "data/cluster/",       # Cluster config
@@ -1346,10 +1394,7 @@ def create_full_backup(name: str | None = None) -> str:
                         shutil.copytree(
                             src_path,
                             dest_dir,
-                            ignore=shutil.ignore_patterns(
-                                *DATA_IGNORE_PATTERNS,
-                                '*.tmp'
-                            )
+                            ignore=_data_ignore(project_root),
                         )
                         logger.info("Copied data directory: %s", data_path)
                     except Exception as e:
@@ -1501,7 +1546,7 @@ def create_code_release(name: str | None = None) -> str:
         
         _private_backup_dir()
         
-        with TemporaryDirectory() as tmpdir:
+        with TemporaryDirectory(dir=_staging_dir()) as tmpdir:
             tmp = Path(tmpdir)
             
             # Metadata about the backup (no data included)
@@ -2220,7 +2265,7 @@ def restore_backup(zip_file: str) -> Dict[str, int]:
     try:
         _ensure_document_folder_column()
         with ZipFile(zip_file, "r") as zf:
-            tmpdir = TemporaryDirectory()
+            tmpdir = TemporaryDirectory(dir=_staging_dir())
             tmp_path = Path(tmpdir.name)
             meta_path = None
 
@@ -2342,6 +2387,7 @@ def list_backups() -> list:
     if not os.path.isdir(config.BACKUP_DIR):
         return []
     entries = []
+    pinned = list_pinned()
     for f in sorted(os.listdir(config.BACKUP_DIR)):
         if not f.endswith(".zip"):
             continue
@@ -2369,19 +2415,141 @@ def list_backups() -> list:
             "size": size,
             "type": btype,
             "modified": mtime,
+            "pinned": f in pinned,
         })
     # Sort newest first
     entries.sort(key=lambda e: e["modified"], reverse=True)
     return entries
 
 
-def delete_backup(filename: str) -> bool:
-    """Delete a backup file."""
+def _pinned_path() -> str:
+    return os.path.join(config.BACKUP_DIR, PINNED_FILE)
+
+
+def list_pinned() -> set:
+    """Names of the pinned backups."""
+    try:
+        with open(_pinned_path(), "r", encoding="utf-8") as f:
+            names = json.load(f)
+    except (OSError, ValueError):
+        return set()
+    return {n for n in names if isinstance(n, str)} if isinstance(names, list) else set()
+
+
+def set_pinned(filename: str, pinned: bool) -> bool:
+    """Pin or unpin one backup. False when the file is not a backup here."""
     try:
         path = contained_path(config.BACKUP_DIR, filename)
     except PathEscapesRoot:
         return False
+    if not filename.endswith(".zip") or not os.path.isfile(path):
+        return False
+    names = list_pinned()
+    if pinned:
+        names.add(filename)
+    else:
+        names.discard(filename)
+    _private_backup_dir()
+    tmp = _pinned_path() + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(sorted(names), f, indent=2)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, _pinned_path())
+    return True
+
+
+def delete_backup(filename: str, force: bool = False) -> bool:
+    """Delete a backup file. A pinned backup raises BackupPinned unless force."""
+    try:
+        path = contained_path(config.BACKUP_DIR, filename)
+    except PathEscapesRoot:
+        return False
+    if not force and filename in list_pinned():
+        raise BackupPinned(filename)
     if os.path.exists(path):
         os.remove(path)
+        names = list_pinned()
+        if filename in names:
+            set_pinned_names(names - {filename})
         return True
     return False
+
+
+def set_pinned_names(names) -> None:
+    """Replace the pinned list (used after a pinned file is removed by hand)."""
+    _private_backup_dir()
+    tmp = _pinned_path() + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(sorted(set(names)), f, indent=2)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, _pinned_path())
+
+
+# Automatic-backup retention. Only backups the daily job made ("auto") are
+# ever removed; a backup a person named is theirs until they delete it.
+DEFAULT_KEEP_LAST = 7
+DEFAULT_MAX_AGE_DAYS = 30
+DEFAULT_MAX_TOTAL_GB = 0        # 0 = no size cap
+DEFAULT_MIN_FREE_GB = 5
+
+
+def prune_auto_backups(keep_last: int = DEFAULT_KEEP_LAST,
+                       max_age_days: int = DEFAULT_MAX_AGE_DAYS,
+                       max_total_bytes: int = 0,
+                       now: Optional[datetime] = None) -> list:
+    """Remove automatic backups past the limits. Returns the names removed.
+
+    The newest ``keep_last`` automatic backups always stay, pinned ones
+    always stay, and a backup goes only when it is older than
+    ``max_age_days`` or the automatic backups together exceed
+    ``max_total_bytes`` (0 = no cap)."""
+    now = now or datetime.now()
+    keep_last = max(0, int(keep_last))
+    pinned = list_pinned()
+    autos = [e for e in list_backups() if e["type"] == "auto"]   # newest first
+    removed = []
+
+    def _remove(entry):
+        try:
+            if delete_backup(entry["name"], force=False):
+                removed.append(entry["name"])
+        except BackupPinned:
+            pass
+
+    candidates = autos[keep_last:]
+    if max_age_days and max_age_days > 0:
+        cutoff = now - timedelta(days=int(max_age_days))
+        for e in list(candidates):
+            if e["name"] in pinned:
+                continue
+            if datetime.fromtimestamp(e["modified"]) < cutoff:
+                _remove(e)
+                candidates.remove(e)
+    if max_total_bytes and max_total_bytes > 0:
+        total = sum(e["size"] for e in autos if e["name"] not in removed)
+        for e in reversed(candidates):          # oldest first
+            if total <= max_total_bytes:
+                break
+            if e["name"] in pinned:
+                continue
+            _remove(e)
+            total -= e["size"]
+    return removed
+
+
+def backup_disk_check(min_free_bytes: int) -> dict:
+    """Is there room for another automatic backup?
+
+    Needs the size of the newest automatic backup (a fair guess of the next
+    one) plus ``min_free_bytes`` left over afterwards."""
+    _private_backup_dir()
+    usage = shutil.disk_usage(config.BACKUP_DIR)
+    autos = [e for e in list_backups() if e["type"] == "auto"]
+    expected = autos[0]["size"] if autos else 0
+    needed = expected + max(0, int(min_free_bytes))
+    return {
+        "ok": usage.free >= needed,
+        "free": usage.free,
+        "needed": needed,
+        "expected_backup_size": expected,
+    }

@@ -116,6 +116,55 @@ def download_backup_endpoint(filename: str):
 
 @backup_bp.route("/<filename>", methods=["DELETE"])
 def delete_backup_endpoint(filename: str):
-    if backup_service.delete_backup(filename):
+    try:
+        deleted = backup_service.delete_backup(filename)
+    except backup_service.BackupPinned:
+        return jsonify({"error": "This backup is pinned. Unpin it first.", "code": "backup_pinned"}), 409
+    if deleted:
         return jsonify({"deleted": filename})
     return jsonify({"error": "not found"}), 404
+
+
+@backup_bp.route("/<filename>/pin", methods=["POST"])
+def pin_backup_endpoint(filename: str):
+    """Pin (body ``{"pinned": true}``) or unpin a backup. Pinned backups are never pruned."""
+    if not filename or '..' in filename or '/' in filename or '\\' in filename:
+        return jsonify({"error": "Invalid filename"}), 400
+    payload = request.get_json(silent=True) or {}
+    pinned = bool(payload.get("pinned", True))
+    if backup_service.set_pinned(filename, pinned):
+        return jsonify({"name": filename, "pinned": pinned})
+    return jsonify({"error": "not found"}), 404
+
+
+@backup_bp.route("/settings", methods=["GET"])
+def get_backup_settings_endpoint():
+    """The automatic-backup settings: on/off, keep-last, age, size cap, free-space margin."""
+    from backend.tasks.backup_tasks import SETTING_KEYS
+    from backend.utils.settings_utils import get_setting
+    out = {k: get_setting(k, default) for k, default in SETTING_KEYS.items()}
+    out["disk"] = backup_service.backup_disk_check(
+        int(float(out["backup_min_free_gb"] or 0)) * 1024 ** 3)
+    return jsonify(out)
+
+
+@backup_bp.route("/settings", methods=["POST"])
+def set_backup_settings_endpoint():
+    from backend.tasks.backup_tasks import SETTING_KEYS
+    from backend.utils.settings_utils import save_setting
+    payload = request.get_json(silent=True) or {}
+    saved = {}
+    for key in SETTING_KEYS:
+        if key not in payload:
+            continue
+        value = payload[key]
+        if key == "backup_daily_enabled":
+            text = "true" if value in (True, "true", "1", 1, "on", "yes") else "false"
+        else:
+            try:
+                text = str(max(0, int(float(value))))
+            except (TypeError, ValueError):
+                return jsonify({"error": f"{key} must be a whole number"}), 400
+        save_setting(key, text)
+        saved[key] = text
+    return jsonify({"saved": saved})

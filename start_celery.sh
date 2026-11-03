@@ -131,7 +131,10 @@ start_beat() {
   # gitignored. --pidfile makes stop.sh's pid sweep deterministic.
   vader_info "Starting Celery beat scheduler"
 
-  clean_beat_schedule
+  # The schedule file is kept between starts on purpose: it holds when each
+  # job last ran, so a daily job that is overdue fires soon after start
+  # instead of 24 unbroken hours later. A corrupt file is wiped by the retry
+  # below, not on every start.
   mkdir -p "$SCRIPT_DIR/pids" "$SCRIPT_DIR/data"
 
   # Use a path WITHOUT a trailing .db so shelve creates a single
