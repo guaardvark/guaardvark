@@ -91,7 +91,7 @@ class PipelineConfig:
     camera_reconnect_delay_seconds: int = 2
     # Service
     service_url: str = "http://localhost:8201"
-    ollama_url: str = "http://localhost:11434"
+    ollama_url: str = field(default_factory=lambda: os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434"))
 
 
 def _flatten_yaml(data: dict, prefix: str = "") -> dict:

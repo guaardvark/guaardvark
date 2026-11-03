@@ -3950,7 +3950,8 @@ Reply ONLY with JSON:
         """Find the best available thinking model for obstacle escalation."""
         try:
             import requests as _requests
-            response = _requests.get("http://127.0.0.1:11434/api/tags", timeout=5)
+            from backend.config import OLLAMA_BASE_URL
+            response = _requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
             if response.status_code == 200:
                 models = [m["name"] for m in response.json().get("models", [])]
                 for preferred in ["lfm2.5-thinking:1.2b-bf16", "deepseek-r1:8b"]:

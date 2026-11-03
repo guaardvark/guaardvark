@@ -175,7 +175,7 @@ def force_local_llama_index_config():
         # Configure embedding model via VRAM-aware selection in config.py
         try:
             from llama_index.embeddings.ollama import OllamaEmbedding
-            from backend.config import get_active_embedding_model, get_embedding_keep_alive
+            from backend.config import OLLAMA_BASE_URL, get_active_embedding_model, get_embedding_keep_alive
 
             model_name = get_active_embedding_model()
             query_instruction, text_instruction = get_embedding_instructions(model_name)
@@ -188,7 +188,7 @@ def force_local_llama_index_config():
                 _instr_kwargs["text_instruction"] = text_instruction
             local_embed_model = OllamaEmbedding(
                 model_name=model_name,
-                base_url="http://127.0.0.1:11434",
+                base_url=OLLAMA_BASE_URL,
                 ollama_additional_kwargs={"mirostat": 0},
                 # Hardware-aware: short TTL on GPU (frees VRAM after idle, no per-query churn),
                 # resident on CPU-only (no disk reload every cycle). See config.get_embedding_keep_alive.
@@ -260,7 +260,7 @@ def get_local_embedding_model():
     """
     # Use direct Ollama embedding to avoid circular imports and initialization hangs
     try:
-        from backend.config import get_active_embedding_model, get_embedding_keep_alive
+        from backend.config import OLLAMA_BASE_URL, get_active_embedding_model, get_embedding_keep_alive
         from llama_index.embeddings.ollama import OllamaEmbedding
 
         model_name = get_active_embedding_model()
@@ -278,7 +278,7 @@ def get_local_embedding_model():
 
         return OllamaEmbedding(
             model_name=model_name,
-            base_url="http://127.0.0.1:11434",
+            base_url=OLLAMA_BASE_URL,
             keep_alive=get_embedding_keep_alive(),  # consistent with the primary client
             **_instr_kwargs,
         )

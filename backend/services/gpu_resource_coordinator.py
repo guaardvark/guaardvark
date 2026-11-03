@@ -803,7 +803,7 @@ class GPUResourceCoordinator:
                 "available_mb": 0
             }
 
-    def unload_ollama_models(self, ollama_url: str = "http://127.0.0.1:11434") -> Dict[str, Any]:
+    def unload_ollama_models(self, ollama_url: Optional[str] = None) -> Dict[str, Any]:
         """
         Unload all models from Ollama to free GPU memory.
 
@@ -815,6 +815,9 @@ class GPUResourceCoordinator:
             - models_unloaded: List of models that were unloaded
             - vram_freed_mb: Approximate VRAM freed (if available)
         """
+        if ollama_url is None:
+            from backend.config import OLLAMA_BASE_URL
+            ollama_url = OLLAMA_BASE_URL
         models_unloaded = []
         initial_vram = self.get_available_vram()
 
@@ -961,6 +964,6 @@ def has_gpu() -> bool:
         return False
 
 
-def unload_ollama_models(ollama_url: str = "http://127.0.0.1:11434") -> Dict[str, Any]:
+def unload_ollama_models(ollama_url: Optional[str] = None) -> Dict[str, Any]:
     """Unload Ollama models. Convenience wrapper for get_gpu_coordinator().unload_ollama_models()"""
     return get_gpu_coordinator().unload_ollama_models(ollama_url)
