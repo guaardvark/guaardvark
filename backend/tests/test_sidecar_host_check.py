@@ -380,20 +380,25 @@ def test_the_web_terminal_listens_on_loopback_and_checks_origin():
     assert '(umask 077 && echo "${user}:${pass}" > "$AUTH_FILE")' in text
 
 
-def test_docker_publishes_its_database_queue_and_ollama_on_loopback_only():
+def test_docker_publishes_every_port_on_loopback_only():
     import yaml
 
     services = yaml.safe_load((ROOT / "docker-compose.yml").read_text())["services"]
     expected = {
-        "postgres": "${GUAARDVARK_POSTGRES_PUBLISH_HOST:-127.0.0.1}:5432:5432",
-        "redis": "${GUAARDVARK_REDIS_PUBLISH_HOST:-127.0.0.1}:6379:6379",
-        "ollama": "${GUAARDVARK_OLLAMA_PUBLISH_HOST:-127.0.0.1}:11434:11434",
+        "postgres": ("POSTGRES", 5432),
+        "redis": ("REDIS", 6379),
+        "ollama": ("OLLAMA", 11434),
+        "backend": ("BACKEND", 5000),
+        "frontend": ("FRONTEND", 5173),
     }
-    for name, port in expected.items():
-        assert services[name]["ports"] == [port]
-    # The UI and the API stay reachable from other devices (with the API key).
-    assert services["frontend"]["ports"] == ["5173:5173"]
-    assert services["backend"]["ports"] == ["5000:5000"]
+    # Docker's port rules bypass UFW, so nothing is published past this host
+    # unless *_PUBLISH_HOST says so; *_PUBLISH_PORT moves the port on this host.
+    for name, (var, port) in expected.items():
+        assert services[name]["ports"] == [
+            f"${{GUAARDVARK_{var}_PUBLISH_HOST:-127.0.0.1}}:${{GUAARDVARK_{var}_PUBLISH_PORT:-{port}}}:{port}"
+        ]
+    # Browsers use the Web UI's port on this host as their origin.
+    assert services["backend"]["environment"]["VITE_PORT"] == "${GUAARDVARK_FRONTEND_PUBLISH_PORT:-5173}"
 
 
 def test_docker_database_and_queue_take_the_install_passwords():
