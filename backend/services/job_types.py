@@ -39,6 +39,7 @@ class JobKind(str, Enum):
     OUTREACH = "outreach"               # Social outreach Task rows and progress events
     PUBLISH = "publish"                 # Publishing an asset to a social connection
     WEBSITE = "website"                 # Website Task rows (crawl/index/code, type=website_*)
+    VIDEO_ANALYSIS = "video_analysis"   # Scorsese style analysis (backend/services/scorsese/jobs.py)
     UNIFIED_PROGRESS = "unified"        # in-memory-only process
 
 

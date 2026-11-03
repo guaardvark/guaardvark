@@ -107,6 +107,7 @@ def create_celery_app():
             # Custom-named like production.* — explicit route so the per-clip
             # tail-call dispatch can't fall to the unconsumed 'celery' queue.
             'music_video.*': {'queue': 'default'},
+            'scorsese.*': {'queue': 'default'},
             # video_render_tasks.* were dispatched to an unconsumed 'renders' queue;
             # route explicitly so send_task(..., queue=...) overrides still land on main.
             'video_render_tasks.*': {'queue': 'default'},
@@ -446,6 +447,13 @@ def create_celery_app():
         logger.info("Music video tasks registered successfully")
     except ImportError as e:
         logger.warning(f"Could not import music video tasks: {e}")
+
+    try:
+        from backend.tasks.scorsese_tasks import create_scorsese_tasks
+        create_scorsese_tasks(celery_app)
+        logger.info("Scorsese analysis tasks registered successfully")
+    except ImportError as e:
+        logger.warning(f"Could not import scorsese tasks: {e}")
 
     try:
         from backend.tasks.character_generation_tasks import create_character_generation_tasks

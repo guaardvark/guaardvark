@@ -629,6 +629,15 @@ def register_image_tools() -> List[str]:
         logger.warning(f"Failed to register music-video tool: {e}")
 
     try:
+        from backend.tools.scorsese_tools import AnalyzeVideoStyleTool
+        register_tool(AnalyzeVideoStyleTool())
+        registered.append("analyze_video_style")
+        _tool_categories["analyze_video_style"] = "image"
+        logger.debug("Registered: AnalyzeVideoStyleTool")
+    except Exception as e:
+        logger.warning(f"Failed to register video style tool: {e}")
+
+    try:
         from backend.tools.video_pipeline_tools import FilmCrewTool
         register_tool(FilmCrewTool())
         registered.append("start_film_crew")
