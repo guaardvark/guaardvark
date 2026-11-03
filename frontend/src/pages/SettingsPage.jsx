@@ -277,6 +277,7 @@ const SettingsPage = () => {
   const [manageBackupsOpen, setManageBackupsOpen] = useState(false);
   const [isProcessingBackup, setIsProcessingBackup] = useState(false);
   const [backupList, setBackupList] = useState([]);
+  const [backupSettings, setBackupSettings] = useState(null);
 
   const [isPurging, setIsPurging] = useState(false);
   const [purgeModalOpen, setPurgeModalOpen] = useState(false);
@@ -2026,8 +2027,16 @@ const SettingsPage = () => {
     await fetchBackupList();
     setRestoreBackupOpen(true);
   };
+  const fetchBackupSettings = async () => {
+    try {
+      setBackupSettings(await apiService.getBackupSettings());
+    } catch (e) {
+      console.error("Failed to load backup settings:", e);
+      setBackupSettings(null);
+    }
+  };
   const openManageBackups = async () => {
-    await fetchBackupList();
+    await Promise.all([fetchBackupList(), fetchBackupSettings()]);
     setManageBackupsOpen(true);
   };
   const closeManageBackups = () => setManageBackupsOpen(false);
@@ -4040,9 +4049,26 @@ const SettingsPage = () => {
           await handleRestoreConfirm(name);
         }}
         onDelete={async (name) => {
-          await apiService.deleteServerBackup(name);
+          try {
+            await apiService.deleteServerBackup(name);
+          } catch (e) {
+            console.error("Delete failed:", e);
+          }
           openManageBackups();
         }}
+        onPin={async (name, pinned) => {
+          try {
+            await apiService.pinServerBackup(name, pinned);
+          } catch (e) {
+            console.error("Pin failed:", e);
+          }
+          await fetchBackupList();
+        }}
+        onSaveSettings={async (draft) => {
+          await apiService.saveBackupSettings(draft);
+          await fetchBackupSettings();
+        }}
+        settings={backupSettings}
         onDownload={async (name) => {
           try {
             await apiService.downloadServerBackup(name);

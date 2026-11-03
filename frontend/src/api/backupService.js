@@ -55,3 +55,26 @@ export const downloadServerBackup = async (name) => {
   a.remove();
   window.URL.revokeObjectURL(url);
 };
+
+export const pinServerBackup = async (name, pinned = true) => {
+  const res = await fetch(`${BASE_URL}/backups/${encodeURIComponent(name)}/pin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pinned }),
+  });
+  return handleResponse(res);
+};
+
+export const getBackupSettings = async () => {
+  const res = await fetch(`${BASE_URL}/backups/settings`);
+  return handleResponse(res);
+};
+
+export const saveBackupSettings = async (settings) => {
+  const res = await fetch(`${BASE_URL}/backups/settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  });
+  return handleResponse(res);
+};

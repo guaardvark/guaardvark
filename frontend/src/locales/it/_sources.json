@@ -2725,6 +2725,86 @@
       "en": "9ef4ed713cf5",
       "out": "bcafb8001ebf"
     },
+    "manageBackups.pin": {
+      "en": "59bf1e6a4e08",
+      "out": "f918e016411f"
+    },
+    "manageBackups.unpin": {
+      "en": "1267763353c1",
+      "out": "fffbd2019950"
+    },
+    "manageBackups.pinned": {
+      "en": "f9312169efb2",
+      "out": "d813485ebbc3"
+    },
+    "manageBackups.unpinFirst": {
+      "en": "1fb9a29e4b10",
+      "out": "3e13ca666758"
+    },
+    "manageBackups.autoTitle": {
+      "en": "8a772f3c6b5f",
+      "out": "c56ac045f6ad"
+    },
+    "manageBackups.autoHelp": {
+      "en": "3f92721369b8",
+      "out": "0d9b28cf13ec"
+    },
+    "manageBackups.dailySwitch": {
+      "en": "ccad619c63e0",
+      "out": "820809281480"
+    },
+    "manageBackups.keepLast": {
+      "en": "beb41cf1a06c",
+      "out": "e7dd207f5982"
+    },
+    "manageBackups.keepLastUnit": {
+      "en": "829e977414c1",
+      "out": "89121dc99c7d"
+    },
+    "manageBackups.maxAgeDays": {
+      "en": "31020cb7ecb2",
+      "out": "d60a957dae5c"
+    },
+    "manageBackups.maxAgeDaysUnit": {
+      "en": "5548ae4f34cb",
+      "out": "aacd348c9b1f"
+    },
+    "manageBackups.maxTotalGb": {
+      "en": "2c66f3517d2e",
+      "out": "6c6f3312d9ee"
+    },
+    "manageBackups.maxTotalGbUnit": {
+      "en": "43d2f189d435",
+      "out": "0c73dc3bdf6b"
+    },
+    "manageBackups.minFreeGb": {
+      "en": "8b5c57f78b5f",
+      "out": "c42aaf476eef"
+    },
+    "manageBackups.minFreeGbUnit": {
+      "en": "505a44facaa3",
+      "out": "505a44facaa3"
+    },
+    "manageBackups.diskLine": {
+      "en": "490968d9cbb9",
+      "out": "4a9808fef34f"
+    },
+    "manageBackups.diskLow": {
+      "en": "cef65b98f28b",
+      "out": "f815c59ff05c"
+    },
+    "manageBackups.save": {
+      "en": "6231c5bdceef",
+      "out": "89980cdd847b"
+    },
+    "manageBackups.saved": {
+      "en": "c0ae8f6ea841",
+      "out": "bd9870869f9f"
+    },
+    "manageBackups.saveFailed": {
+      "en": "faba7cb98aa5",
+      "out": "e37f6e0f3948"
+    },
     "purgeIndex.title": {
       "en": "8537e1bd370b",
       "out": "e5747e5f953d"
