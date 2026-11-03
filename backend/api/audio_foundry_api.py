@@ -327,6 +327,20 @@ def plan_music():
     return body, status_code
 
 
+@audio_foundry_bp.route("/polish-song", methods=["POST"])
+def polish_song_route():
+    """ACE-Step 1.5: tempo, key, meter, language and length for a song, with the
+    style and words left as typed (backend/services/song_polisher.py). No audio."""
+    from backend.services.song_polisher import polish_song
+    data = flask_request.get_json(silent=True) or {}
+    style = (data.get("style") or "").strip()
+    if not style:
+        return jsonify({"success": False, "error": "style is required"}), 400
+    given = {k: data.get(k) for k in ("bpm", "keyscale", "timesignature", "vocal_language", "duration_s")}
+    result = polish_song(style, data.get("lyrics") or "", bool(data.get("instrumental")), given)
+    return jsonify({"success": True, **result}), 200
+
+
 @audio_foundry_bp.route("/text-usage", methods=["POST"])
 def text_usage():
     """Tokens a song's caption and lyrics take of what ACE-Step 1.5 reads. No GPU."""

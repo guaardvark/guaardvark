@@ -1359,6 +1359,10 @@
       "en": "ac0d3c9954ba",
       "out": "2ffa643a27ad"
     },
+    "page.polishSongFailed": {
+      "en": "dfe981268438",
+      "out": "d21596522763"
+    },
     "page.title": {
       "en": "c5ce333758b9"
     },
@@ -1503,6 +1507,70 @@
     "music.arrangeWithAi": {
       "en": "6a4433e5a317",
       "out": "82bc29c3fde6"
+    },
+    "music.advanced": {
+      "en": "c8fef35bb005",
+      "out": "267bfe92b0f4"
+    },
+    "music.styleLabel": {
+      "en": "99a0efc6cfd8",
+      "out": "820cfc2922d6"
+    },
+    "music.lyricsLabel": {
+      "en": "8670cb1f9e94",
+      "out": "8670cb1f9e94"
+    },
+    "music.lyricsEmptyInstrumental": {
+      "en": "946893770aeb",
+      "out": "5b66a2df8c11"
+    },
+    "music.lyricsEmptyPlanner": {
+      "en": "61313923cc95",
+      "out": "1e43d16a0cea"
+    },
+    "music.polishHelpAce15": {
+      "en": "044f93b5318d",
+      "out": "659ac46e0608"
+    },
+    "music.polishHelpTags": {
+      "en": "bbf3f68e2d5b",
+      "out": "de09098f4542"
+    },
+    "music.plannerRewrite": {
+      "en": "b17e4f8b5e6a",
+      "out": "e1b3b9414f8d"
+    },
+    "music.plannerRewriteHelp": {
+      "en": "534e60941ec2",
+      "out": "36a0af683769"
+    },
+    "music.polishedSettings": {
+      "en": "2e5c74b61d13",
+      "out": "f2b64af78699"
+    },
+    "music.polishedKeepsWords": {
+      "en": "95725d24b8f7",
+      "out": "e0ce3f2e5fe4"
+    },
+    "music.polishedTags": {
+      "en": "4dd20534edab",
+      "out": "a34dd95bfba2"
+    },
+    "music.polishedYours": {
+      "en": "922cce49ed16",
+      "out": "961fccd67c90"
+    },
+    "music.polishedNoModel": {
+      "en": "572c06611102",
+      "out": "bfecd6726b9e"
+    },
+    "music.polishedTooLong": {
+      "en": "dd9af005a8ae",
+      "out": "09e75fef16fa"
+    },
+    "music.sketchOn": {
+      "en": "e9a8ae5bd9c3",
+      "out": "32c3a28338ad"
     },
     "music.directHint": {
       "en": "a2b835eec23f",
