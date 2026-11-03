@@ -5,18 +5,26 @@ capture:
   width: 512
   format: "jpeg"
 
+# Defaults chosen 2026-11-03 against published video benchmarks (Video-MME,
+# no subtitles): qwen3.5:4b 76.9, qwen3.5:9b 78.4, the best that fit a 16 GB
+# card beside ComfyUI. gemma4 publishes no video score and is the still-frame
+# fallback; minicpm-v4.6 and moondream are the cheap last resorts. llava:13b,
+# the previous escalation default, is not in the Ollama library we install.
+# Which installed models can see is read from Ollama /api/show at runtime.
 models:
-  monitor: "moondream"
-  escalation: "llava:13b"
+  monitor: "qwen3.5:4b"
+  escalation: "qwen3.5:9b"
   auto_select: true
   fallback_order:
+    - "gemma4:e4b"
+    - "gemma4:12b"
+    - "minicpm-v4.6"
     - "moondream"
-    - "llava:7b"
-    - "llava:latest"
-    - "bakllava"
 
 analysis:
-  change_threshold: 0.3
+  # Hamming distance (0..64) between perceptual hashes above which a frame
+  # is re-analysed. 8 is the value the loop was tuned with.
+  phash_threshold: 8
   periodic_refresh_seconds: 10
   monitor_prompt: "Describe what you see in one brief sentence."
   escalation_prompt: "Describe this image in detail including objects, text, people, actions, and anything notable."

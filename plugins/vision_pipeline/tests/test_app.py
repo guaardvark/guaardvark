@@ -1,7 +1,9 @@
 import pytest
 import time
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+from conftest import fake_ollama_get, fake_ollama_post
 from fastapi.testclient import TestClient
 from PIL import Image
 import io
@@ -18,19 +20,8 @@ def _make_frame(color="red"):
 @pytest.fixture
 def client():
     """Create test client with mocked Ollama and pre-authenticated."""
-    with patch("service.model_tier.requests.get") as mock_get, \
-         patch("service.frame_analyzer.requests.post") as mock_post:
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=MagicMock(return_value={"models": [{"name": "moondream"}]})
-        )
-        mock_post.return_value = MagicMock(
-            status_code=200,
-            json=MagicMock(return_value={
-                "message": {"content": "A test scene"},
-                "done": True
-            })
-        )
+    with patch("service.model_tier.requests.get", side_effect=fake_ollama_get), \
+         patch("service.frame_analyzer.requests.post", side_effect=fake_ollama_post):
         from service.app import app, _auth_token
         # An address the service's Host check answers.
         with TestClient(app, base_url="http://127.0.0.1:8201") as c:
@@ -107,6 +98,25 @@ class TestConfigEndpoint:
         resp = client.get("/config")
         assert resp.status_code == 200
         assert "max_fps" in resp.json()
+        assert resp.json()["phash_threshold"] == 8
+
+    def test_fps_edit_reaches_the_throttle(self, client):
+        from service import app as app_module
+        resp = client.put("/config", json={"max_fps": 1.0, "phash_threshold": 12})
+        assert resp.status_code == 200
+        assert app_module._adaptive_throttle.max_fps == 1.0
+        assert app_module._change_detector.phash_threshold == 12
+        client.put("/config", json={"max_fps": 2.0, "phash_threshold": 8})
+
+    def test_frame_keeps_the_callers_timestamp(self, client):
+        from service import app as app_module
+        resp = client.post("/stream/start", json={"source_type": "camera"})
+        stream_id = resp.json()["stream_id"]
+        client.post("/frame", json={"stream_id": stream_id, "frame": _make_frame(),
+                                    "timestamp": 1700000000.5})
+        latest = app_module._stream_manager.get_latest_frame(stream_id)
+        assert latest["timestamp"] == 1700000000.5
+        client.post("/stream/stop", json={"stream_id": stream_id})
 
 class TestStatusEndpoint:
     def test_status(self, client):

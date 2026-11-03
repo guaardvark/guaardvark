@@ -108,17 +108,23 @@ class StreamManager:
         if stream_id in self.streams:
             self.streams[stream_id].status = "active"
 
-    def submit_frame(self, stream_id: str, frame_base64: str) -> dict:
+    def submit_frame(self, stream_id: str, frame_base64: str,
+                     timestamp: float | None = None) -> dict:
+        """Queue a frame. ``timestamp`` is the caller's capture time (wall
+        clock seconds); it travels with the frame into FrameAnalysis.captured_at
+        and /frame/latest. Without it, submit time is used."""
         if stream_id not in self._frame_queues:
             return {"accepted": False, "dropped": False, "queue_depth": 0}
 
+        now = time.time()
+        captured_at = float(timestamp) if timestamp else now
         # Always store latest frame for /frame/latest
-        self._latest_frames[stream_id] = {"frame": frame_base64, "timestamp": time.time()}
-        self.streams[stream_id].last_frame_time = time.time()
+        self._latest_frames[stream_id] = {"frame": frame_base64, "timestamp": captured_at}
+        self.streams[stream_id].last_frame_time = now
         self.streams[stream_id].frame_count += 1
 
         try:
-            self._frame_queues[stream_id].put_nowait(frame_base64)
+            self._frame_queues[stream_id].put_nowait((frame_base64, captured_at))
             return {"accepted": True, "dropped": False,
                     "queue_depth": self._frame_queues[stream_id].qsize()}
         except queue.Full:
@@ -156,7 +162,7 @@ class StreamManager:
         while not shutdown.is_set():
             # 1. Get frame from queue
             try:
-                frame_base64 = frame_queue.get(timeout=1.0)
+                frame_base64, captured_at = frame_queue.get(timeout=1.0)
             except queue.Empty:
                 continue
 
@@ -183,7 +189,8 @@ class StreamManager:
             model, prompt = self.model_tier.select_model(trigger)
 
             # 5. Vision inference
-            result = self.frame_analyzer.analyze(frame_base64, model, prompt)
+            result = self.frame_analyzer.analyze(frame_base64, model, prompt,
+                                                 captured_at=captured_at)
             self.adaptive_throttle.record_inference(result.inference_ms)
 
             # 6. Update context buffer

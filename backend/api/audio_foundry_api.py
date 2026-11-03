@@ -4,9 +4,10 @@ Audio Foundry API — proxy endpoints for the audio_foundry plugin service.
 Modeled on upscaling_api.py: thin Flask blueprint that forwards JSON requests
 to the FastAPI service running on port 8206 and returns its responses verbatim.
 
-No auth token — audio_foundry runs locally and unauthenticated, same as
-vision_pipeline. If that ever changes, mirror upscaling_api.py's
-_get_auth_token + _auth_headers pattern here.
+No auth token: audio_foundry listens on loopback and is unauthenticated.
+(The vision_pipeline sidecar is not: it requires a bearer token, see
+backend/utils/sidecar_guard.py.) If that ever changes here, mirror
+upscaling_api.py's _get_auth_token + _auth_headers pattern.
 
 Generation endpoints get a long timeout (10 min) because ACE-Step can take
 1-4 minutes to render a song and Chatterbox can take ~30s for long text.

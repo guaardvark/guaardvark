@@ -1,9 +1,10 @@
 """Hardware profiling across Ollama vision models.
 
-Benchmarks each model at multiple resolutions, scoring speed, quality,
-and VRAM usage. Recommends optimal monitor and escalation models.
-_compute_quality_score and _assign_role are module-level functions
-(tests import them directly).
+Benchmarks each model at multiple resolutions for latency and VRAM, and
+recommends monitor and escalation models by speed alone. It does not score
+answer quality: the earlier token-count rubric rewarded verbosity, not
+accuracy, and was removed rather than left to steer a model choice.
+_assign_role is a module-level function (tests import it directly).
 """
 import time
 import json
@@ -14,13 +15,9 @@ from dataclasses import dataclass, asdict
 from typing import List, Optional, Generator
 
 import requests
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 logger = logging.getLogger("vision_pipeline.benchmarker")
-
-# Spatial relationship keywords for quality scoring
-SPATIAL_KEYWORDS = ["left", "right", "above", "below", "behind", "next to",
-                    "in front", "beside", "between", "on top", "under", "near"]
 
 
 @dataclass
@@ -32,40 +29,7 @@ class BenchmarkResult:
     max_inference_ms: float
     sustainable_fps: float
     vram_used_mb: float
-    quality_score: float
     recommended_role: str
-
-
-def _compute_quality_score(description: str) -> float:
-    """Quality rubric (1-10):
-    - 1pt per 10 tokens (max 5)
-    - 1pt per distinct entity/object (max 3) — count nouns heuristically
-    - 2pt if spatial relationships referenced
-    """
-    if not description:
-        return 0.0
-
-    tokens = description.split()
-    # Token count score (max 5)
-    token_score = min(len(tokens) / 10.0, 5.0)
-
-    # Entity score (max 3) — count capitalized words and common object nouns
-    entities = set()
-    for word in tokens:
-        cleaned = word.strip(".,;:!?\"'()[]")
-        if len(cleaned) > 2 and (cleaned[0].isupper() or cleaned in {
-            "person", "people", "car", "desk", "laptop", "phone", "book",
-            "chair", "table", "screen", "window", "door", "wall", "floor",
-            "building", "tree", "road", "sign", "light", "camera"
-        }):
-            entities.add(cleaned.lower())
-    entity_score = min(len(entities), 3.0)
-
-    # Spatial score (0 or 2)
-    desc_lower = description.lower()
-    spatial_score = 2.0 if any(kw in desc_lower for kw in SPATIAL_KEYWORDS) else 0.0
-
-    return min(token_score + entity_score + spatial_score, 10.0)
 
 
 def _assign_role(avg_ms: float) -> str:
@@ -78,8 +42,9 @@ def _assign_role(avg_ms: float) -> str:
 
 
 class Benchmarker:
-    def __init__(self, ollama_url: str = "http://localhost:11434"):
+    def __init__(self, ollama_url: str = "http://localhost:11434", capabilities=None):
         self.ollama_url = ollama_url
+        self.capabilities = capabilities
         self.results: List[BenchmarkResult] = []
 
     def run(self, models: List[str] = None, frame_count: int = 5,
@@ -101,7 +66,6 @@ class Benchmarker:
         """Benchmark a single model at a single resolution."""
         frame = self._generate_test_frame(resolution)
         timings = []
-        last_description = ""
 
         for i in range(frame_count):
             start = time.time()
@@ -117,8 +81,8 @@ class Benchmarker:
                 )
                 elapsed_ms = (time.time() - start) * 1000
                 timings.append(elapsed_ms)
-                if resp.status_code == 200:
-                    last_description = resp.json().get("message", {}).get("content", "")
+                if resp.status_code != 200:
+                    logger.warning("Benchmark: %s returned %s", model, resp.status_code)
             except Exception as e:
                 elapsed_ms = (time.time() - start) * 1000
                 timings.append(elapsed_ms)
@@ -135,18 +99,17 @@ class Benchmarker:
             max_inference_ms=round(max(timings), 1) if timings else 0,
             sustainable_fps=round(min(1000.0 / avg_ms, 10.0), 2) if avg_ms > 0 else 0,
             vram_used_mb=vram,
-            quality_score=round(_compute_quality_score(last_description), 1),
             recommended_role=_assign_role(avg_ms),
         )
 
     def get_recommendations(self) -> dict:
-        """Return best monitor + escalation models from results."""
+        """Fastest model in each latency band. Speed only; see the module docstring."""
         monitors = [r for r in self.results if r.recommended_role == "monitor"]
         escalations = [r for r in self.results if r.recommended_role == "escalation"]
 
         return {
             "monitor_model": min(monitors, key=lambda r: r.avg_inference_ms).model if monitors else None,
-            "escalation_model": max(escalations, key=lambda r: r.quality_score).model if escalations else None,
+            "escalation_model": min(escalations, key=lambda r: r.avg_inference_ms).model if escalations else None,
             "max_fps": min(monitors, key=lambda r: r.avg_inference_ms).sustainable_fps if monitors else 1.0,
             "recommended_resolution": 512,
         }
@@ -173,18 +136,10 @@ class Benchmarker:
         return base64.b64encode(buf.getvalue()).decode()
 
     def _discover_vision_models(self) -> List[str]:
-        """Query Ollama for available vision models."""
-        from service.model_tier import VISION_MODEL_PATTERNS
-        import re
-        try:
-            resp = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
-            if resp.status_code == 200:
-                models = [m["name"] for m in resp.json().get("models", [])]
-                return [m for m in models
-                        if any(re.search(p, m.lower()) for p in VISION_MODEL_PATTERNS)]
-        except Exception:
-            pass
-        return []
+        """Installed models that report the vision capability."""
+        from service.model_tier import OllamaCapabilities
+        caps = self.capabilities or OllamaCapabilities(self.ollama_url)
+        return caps.vision_models()
 
     def _get_vram_usage(self) -> float:
         """Query current VRAM usage in MB. Best-effort."""
