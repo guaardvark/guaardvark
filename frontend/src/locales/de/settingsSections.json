@@ -260,8 +260,9 @@
     "components": {
       "xvfb": "Xvfb (virtueller X-Server)",
       "x11vnc": "x11vnc (VNC-Bridge)",
-      "openbox": "Openbox (Fenstermanager)",
-      "taskbar": "Tint2 (Taskleiste)",
+      "xfce": "XFCE (Desktop-Sitzung)",
+      "dbus": "D-Bus (Sitzungsbus)",
+      "lsof": "lsof (Port-Bereinigung)",
       "xdotool": "xdotool (Eingabesynthese)",
       "scrot": "scrot (Fallback für Bildschirmaufnahme)",
       "browser": "Browser (Firefox / Chromium)",

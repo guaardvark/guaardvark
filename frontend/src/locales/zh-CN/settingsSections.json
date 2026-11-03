@@ -259,8 +259,9 @@
     "components": {
       "xvfb": "Xvfb (虚拟 X 服务器)",
       "x11vnc": "x11vnc (VNC 网桥)",
-      "openbox": "Openbox (窗口管理器)",
-      "taskbar": "Tint2 (任务栏)",
+      "xfce": "XFCE (桌面会话)",
+      "dbus": "D-Bus (会话总线)",
+      "lsof": "lsof (端口清理)",
       "xdotool": "xdotool (输入合成)",
       "scrot": "scrot (屏幕截图备选)",
       "browser": "浏览器 (Firefox / Chromium)",

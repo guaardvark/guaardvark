@@ -260,8 +260,9 @@
     "components": {
       "xvfb": "Xvfb (virtuele X-server)",
       "x11vnc": "x11vnc (VNC-brug)",
-      "openbox": "Openbox (vensterbeheerder)",
-      "taskbar": "Tint2 (taakbalk)",
+      "xfce": "XFCE (desktop sessie)",
+      "dbus": "D-Bus (sessiebus)",
+      "lsof": "lsof (poort opruiming)",
       "xdotool": "xdotool (inputsynthese)",
       "scrot": "scrot (fallback voor schermopname)",
       "browser": "Browser (Firefox / Chromium)",

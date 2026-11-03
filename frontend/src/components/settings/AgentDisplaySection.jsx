@@ -1,6 +1,6 @@
 // frontend/src/components/settings/AgentDisplaySection.jsx
 // Detector + installer for the Agent Vision Control virtual display stack
-// (Xvfb, x11vnc, openbox, tint2, xdotool, scrot, browser, python mss).
+// (Xvfb, x11vnc, the XFCE session, dbus, xdotool, scrot, lsof, browser, python mss).
 //
 // Mirrors VoiceSettingsContent's Whisper installer — same alert + button shape.
 
@@ -30,10 +30,11 @@ import {
 const componentLabels = () => ({
   Xvfb: translate("settingsSections.agentDisplay.components.xvfb"),
   x11vnc: translate("settingsSections.agentDisplay.components.x11vnc"),
-  openbox: translate("settingsSections.agentDisplay.components.openbox"),
-  tint2: translate("settingsSections.agentDisplay.components.taskbar"),
+  startxfce4: translate("settingsSections.agentDisplay.components.xfce"),
+  'dbus-run-session': translate("settingsSections.agentDisplay.components.dbus"),
   xdotool: translate("settingsSections.agentDisplay.components.xdotool"),
   scrot: translate("settingsSections.agentDisplay.components.scrot"),
+  lsof: translate("settingsSections.agentDisplay.components.lsof"),
   browser: translate("settingsSections.agentDisplay.components.browser"),
   mss: translate("settingsSections.agentDisplay.components.mss"),
   start_script: 'start_agent_display.sh',
@@ -41,7 +42,7 @@ const componentLabels = () => ({
 });
 
 const COMPONENT_ORDER = [
-  'Xvfb', 'x11vnc', 'openbox', 'tint2', 'xdotool', 'scrot',
+  'Xvfb', 'x11vnc', 'startxfce4', 'dbus-run-session', 'xdotool', 'scrot', 'lsof',
   'browser', 'mss', 'start_script', 'display_running',
 ];
 

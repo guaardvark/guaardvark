@@ -31,12 +31,29 @@ RUN pip install --no-cache-dir -c /tmp/torch-pins.txt -r /app/backend/requiremen
 # Copy application code
 COPY backend/ /app/backend/
 COPY scripts/ /app/scripts/
+# Plugin sources (Audio Foundry, Video Editor, ...). Per-machine environments, checkouts and
+# weights are excluded in .dockerignore; plugins create their environments on first start.
+COPY plugins/ /app/plugins/
+# The plugin start scripts and the ComfyUI update service expect /app/backend/venv. The
+# packages are installed system-wide in this image, so the venv only has to see them.
+RUN python -m venv --system-site-packages /app/backend/venv
 # app.py reads the version from here; without it /api/health reports a stale fallback.
 COPY VERSION /app/VERSION
 
 # Create data directories
 RUN mkdir -p /app/data/uploads /app/data/outputs/narrations /app/data/cache \
     /app/data/context /app/data/database /app/logs /app/pids
+
+# Screen agent (Settings -> Agents): the X desktop the agent drives. Off by default, it adds
+# several hundred MB that chat and RAG users do not need.
+# Build with --build-arg SCREEN_AGENT=1 to include it.
+ARG SCREEN_AGENT=0
+RUN if [ "$SCREEN_AGENT" = "1" ]; then \
+        apt-get update && apt-get install -y --no-install-recommends \
+            xvfb x11vnc xfce4-session xfwm4 xfce4-panel xfdesktop4 xfce4-settings \
+            dbus-x11 xdotool scrot lsof procps firefox-esr \
+        && rm -rf /var/lib/apt/lists/*; \
+    fi
 
 ENV GUAARDVARK_ROOT=/app
 ENV FLASK_APP=backend.app

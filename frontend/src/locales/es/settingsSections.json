@@ -260,8 +260,9 @@
     "components": {
       "xvfb": "Xvfb (servidor X virtual)",
       "x11vnc": "x11vnc (puente VNC)",
-      "openbox": "Openbox (gestor de ventanas)",
-      "taskbar": "Tint2 (barra de tareas)",
+      "xfce": "XFCE (sesión de escritorio)",
+      "dbus": "D-Bus (bus de sesión)",
+      "lsof": "lsof (limpieza de puertos)",
       "xdotool": "xdotool (síntesis de entrada)",
       "scrot": "scrot (respaldo de captura de pantalla)",
       "browser": "Navegador (Firefox / Chromium)",

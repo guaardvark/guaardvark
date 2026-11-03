@@ -259,8 +259,9 @@
     "components": {
       "xvfb": "Xvfb (仮想Xサーバー)",
       "x11vnc": "x11vnc (VNCブリッジ)",
-      "openbox": "Openbox (ウィンドウマネージャ)",
-      "taskbar": "Tint2 (タスクバー)",
+      "xfce": "XFCE (デスクトップセッション)",
+      "dbus": "D-Bus (セッションバス)",
+      "lsof": "lsof (ポートクリーンアップ)",
       "xdotool": "xdotool (入力合成)",
       "scrot": "scrot (スクリーンキャプチャのフォールバック)",
       "browser": "ブラウザ (Firefox / Chromium)",

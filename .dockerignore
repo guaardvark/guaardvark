@@ -47,3 +47,24 @@ docs/prompts/
 # Training data
 training/
 unsloth_compiled_cache/
+
+# Plugins: sources go into the image, per-machine environments, third-party checkouts,
+# model weights and runtime output do not
+plugins/*/venv*/
+plugins/*/.venv*/
+plugins/comfyui/ComfyUI*/
+plugins/comfyui/.update_job.json
+plugins/comfyui/.custom_nodes_installed
+plugins/lora_trainer/SimpleTuner/
+plugins/lora_trainer/ai-toolkit/
+plugins/lora_trainer/musubi-tuner/
+plugins/lora_trainer/sd-scripts-flux/
+plugins/upscaling/models/*.pth
+plugins/upscaling/gfpgan/weights/
+plugins/*/outputs/
+plugins/*/output/
+plugins/*/cache/
+plugins/*/tmp/
+plugins/*/.cache/
+plugins/*/__pycache__/
+plugins/*/plugin.local.json
