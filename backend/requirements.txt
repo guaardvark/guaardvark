@@ -71,7 +71,7 @@ loguru==0.7.2
 # LLM/AI Dependencies
 ollama>=0.6.2
 llama-index-core>=0.13.0,<0.15.0  # Compatible with llama-index-embeddings-ollama
-llama-index-llms-ollama>=0.7.0  # Updated for llama-index-core 0.14.x
+llama-index-llms-ollama>=0.11.0  # Updated for llama-index-core 0.14.x
 llama-index-embeddings-ollama>=0.8.0
 llama-index-readers-file>=0.5.0  # Updated for llama-index-core 0.14.x
 llama-index-retrievers-bm25>=0.8.0  # Hybrid search: BM25 keyword retrieval
