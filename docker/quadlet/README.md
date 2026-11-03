@@ -82,7 +82,6 @@ use `docker.io/ollama/ollama:latest`.
 
 ## Differences from docker-compose.yml
 
-- PostgreSQL uses `pgvector/pgvector:pg16` instead of `postgres:16-alpine`.
 - Only the frontend (5173) and the backend (127.0.0.1:5000) are published.
   PostgreSQL, Redis and Ollama are reachable only inside the `guaardvark` network.
 - Container health checks are set with `HealthCmd=` because `HEALTHCHECK` in the
