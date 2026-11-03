@@ -86,7 +86,7 @@ torchsde>=0.2.6
 sentencepiece>=0.2.2
 kornia>=0.7.1
 spandrel>=0.4.2
-av>=18.1.0
+av>=19.0.2
 pydantic-settings>=2.15.0
 
 # Face-restore heavy CV deps moved to the OPTIONAL extra
