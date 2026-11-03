@@ -150,7 +150,8 @@ class GenerateMusicTool(BaseTool):
         "been installed in Audio Studio → Manage models; it is refused otherwise, never "
         "downloaded. ACE-Step 1.5 expands a plain-language style into a caption, lyrics, "
         "tempo, key and meter with the planner loaded beside it, and keeps a bpm or key "
-        "written in the style. For a spoken line use generate_speech; for a music video "
+        "written in the style. With Verbatim Prompts on in Settings it skips the planner and "
+        "renders the style and lyrics as written. For a spoken line use generate_speech; for a music video "
         "set to a song, generate_music_video."
     )
     parameters = {
@@ -181,7 +182,8 @@ class GenerateMusicTool(BaseTool):
             enum=list(MUSIC_MODELS),
             description="'ace-step' (default): ACE-Step v1, tag-style prompts. 'ace-step-1.5': ACE-Step 1.5, "
                         "available once installed in Audio Studio → Manage models. 1.5 expands a sentence "
-                        "into the caption it renders and keeps a stated bpm or key.",
+                        "into the caption it renders and keeps a stated bpm or key, unless Verbatim "
+                        "Prompts is on, when it renders the text as written.",
         ),
     }
 
