@@ -27,12 +27,12 @@ def generate_enhanced_csv_endpoint():
     
     Expected payload:
     {
-        "client_id": 6,
-        "project_name": "Tractor Equipment Content",
-        "competitor_url": "https://www.homesteadimplements.com/grill-guards/",
+        "client_id": 1,
+        "project_name": "Product Line Content",
+        "competitor_url": "https://example.com/category/",
         "num_pages": 25,
-        "output_filename": "bamw_tractor_guards_enhanced.csv",
-        "target_keywords": ["tractor brush guards", "heavy duty", "metal fabrication"]
+        "output_filename": "product_line_enhanced.csv",
+        "target_keywords": ["product category", "heavy duty", "custom fabrication"]
     }
     """
     try:
