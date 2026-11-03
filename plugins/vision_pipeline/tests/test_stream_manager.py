@@ -11,14 +11,14 @@ def _make_deps():
     config.stale_timeout_seconds = 5
     frame_analyzer = MagicMock()
     frame_analyzer.analyze.return_value = MagicMock(
-        description="test scene", model_used="moondream",
+        description="test scene", model_used="qwen3.5:4b",
         inference_ms=100, timestamp=time.time(), frame_dimensions=(512, 512)
     )
     change_detector = MagicMock()
     change_detector.should_process.return_value = (True, "new_scene")
     context_buffer = MagicMock()
     model_tier = MagicMock()
-    model_tier.select_model.return_value = ("moondream", "Describe.")
+    model_tier.select_model.return_value = ("qwen3.5:4b", "Describe.")
     adaptive_throttle = MagicMock()
     adaptive_throttle.get_interval.return_value = 0.5
     adaptive_throttle.is_paused = False
@@ -51,6 +51,22 @@ class TestStreamManager:
         sm.start_stream("test-1", "camera")
         result = sm.submit_frame("test-1", "base64data")
         assert result["accepted"] is True
+
+    def test_submit_frame_keeps_the_callers_timestamp(self):
+        sm = StreamManager(*_make_deps())
+        sm.start_stream("test-1", "camera")
+        sm.submit_frame("test-1", "base64data", timestamp=1700000000.5)
+        assert sm.get_latest_frame("test-1")["timestamp"] == 1700000000.5
+
+    def test_loop_passes_captured_at_to_the_analyzer(self):
+        deps = _make_deps()
+        sm = StreamManager(*deps)
+        sm.start_stream("test-1", "camera")
+        sm.submit_frame("test-1", "base64data", timestamp=1700000000.5)
+        time.sleep(0.3)
+        frame_analyzer = deps[1]
+        assert frame_analyzer.analyze.call_args.kwargs["captured_at"] == 1700000000.5
+        sm.stop_stream("test-1")
 
     def test_submit_frame_unknown_stream(self):
         sm = StreamManager(*_make_deps())

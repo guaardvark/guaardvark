@@ -15,11 +15,10 @@ logger = logging.getLogger("vision_pipeline.adaptive_throttle")
 
 class AdaptiveThrottle:
     def __init__(self, config):
-        self.max_fps = getattr(config, 'max_fps', 2.0)
-        self.min_fps = getattr(config, 'min_fps', 0.25)
-        self.pause_threshold = getattr(config, 'utilization_pause_threshold', 90)
-        self.throttle_threshold = getattr(config, 'utilization_throttle_threshold', 75)
-        self.contention_behavior = getattr(config, 'contention_behavior', 'min_fps')
+        # The limits are read from the config object on every call, so a
+        # PUT /config that changes max_fps or a threshold takes effect on the
+        # next interval instead of waiting for a restart.
+        self.config = config
         self.current_fps = self.max_fps
         self._inference_history = deque(maxlen=20)
         self._consecutive_no_change = 0
@@ -27,6 +26,26 @@ class AdaptiveThrottle:
         self._gpu_utilization = 0
         self._last_gpu_check = 0
         self._gpu_check_interval = 5  # seconds
+
+    @property
+    def max_fps(self) -> float:
+        return float(getattr(self.config, 'max_fps', 2.0))
+
+    @property
+    def min_fps(self) -> float:
+        return float(getattr(self.config, 'min_fps', 0.25))
+
+    @property
+    def pause_threshold(self) -> float:
+        return float(getattr(self.config, 'utilization_pause_threshold', 90))
+
+    @property
+    def throttle_threshold(self) -> float:
+        return float(getattr(self.config, 'utilization_throttle_threshold', 75))
+
+    @property
+    def contention_behavior(self) -> str:
+        return getattr(self.config, 'contention_behavior', 'min_fps')
 
     def get_interval(self) -> float:
         """Return seconds to wait between frame analyses."""

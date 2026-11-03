@@ -10,10 +10,10 @@
 # the shared backend venv in one pip call, so an exact pin here conflicts with
 # the floors the other plugins declare (swarm asks for uvicorn>=0.32) and the
 # whole plugin bundle fails to reconcile.
+# The perceptual hash is service/phash.py (Pillow + numpy); no imagehash.
 fastapi>=0.115.0
 uvicorn>=0.30.0
 Pillow>=10.0.0
-imagehash>=4.3.0
 pynvml>=11.5.0
 requests>=2.31.0
 PyYAML>=6.0

@@ -21,7 +21,7 @@ from pydantic import BaseModel
 from service.config_loader import load_config
 from service.change_detector import ChangeDetector
 from service.context_buffer import ContextBuffer
-from service.model_tier import ModelTier
+from service.model_tier import ModelTier, OllamaCapabilities
 from service.frame_analyzer import FrameAnalyzer
 from service.adaptive_throttle import AdaptiveThrottle
 from service.stream_manager import StreamManager
@@ -108,7 +108,7 @@ def startup():
     _config = load_config(plugin_root)
 
     _change_detector = ChangeDetector(
-        semantic_threshold=_config.change_threshold,
+        phash_threshold=_config.phash_threshold,
         periodic_refresh_seconds=_config.periodic_refresh_seconds,
     )
     _context_buffer = ContextBuffer(
@@ -118,6 +118,7 @@ def startup():
         max_context_tokens=_config.max_context_tokens,
         default_max_fps=_config.max_fps,
     )
+    capabilities = OllamaCapabilities(_config.ollama_url)
     _model_tier = ModelTier(
         monitor_model=_config.monitor_model,
         escalation_model=_config.escalation_model,
@@ -125,15 +126,19 @@ def startup():
         ollama_url=_config.ollama_url,
         monitor_prompt=_config.monitor_prompt,
         escalation_prompt=_config.escalation_prompt,
+        capabilities=capabilities,
     )
     _frame_analyzer = FrameAnalyzer(ollama_url=_config.ollama_url)
     _frame_analyzer.escalation_model = _config.escalation_model
+    # /analyze without a model walks the same fallback chain as the loop.
+    _frame_analyzer.model_resolver = lambda: _model_tier.select_model("user_query")[0]
+    _frame_analyzer.supports_thinking = capabilities.supports_thinking
     _adaptive_throttle = AdaptiveThrottle(_config)
     _stream_manager = StreamManager(
         _config, _frame_analyzer, _change_detector,
         _context_buffer, _model_tier, _adaptive_throttle,
     )
-    _benchmarker = Benchmarker(ollama_url=_config.ollama_url)
+    _benchmarker = Benchmarker(ollama_url=_config.ollama_url, capabilities=capabilities)
 
     _camera_capture = CameraCapture(_stream_manager, _config)
     # The token file exists before the first request, so the backend has a
@@ -270,7 +275,8 @@ def stream_resume(req: StreamStopRequest):
 @app.post("/frame")
 def submit_frame(req: FrameRequest, request: Request):
     _verify_token(request)
-    return _stream_manager.submit_frame(req.stream_id, req.frame)
+    return _stream_manager.submit_frame(req.stream_id, req.frame,
+                                        timestamp=req.timestamp or None)
 
 @app.get("/context")
 def get_context(stream_id: Optional[str] = None):
@@ -312,21 +318,29 @@ def gpu_contention(req: ContentionRequest):
     return {"throttle_state": "paused" if _adaptive_throttle.is_paused else "active",
             "previous_fps": prev_fps}
 
+def _benchmark_results_path() -> str:
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "benchmark_results.json"
+    )
+
 @app.post("/benchmark")
 def run_benchmark(req: BenchmarkRequest):
-    """Stream NDJSON benchmark results."""
+    """Stream NDJSON benchmark results, then save the run for GET /benchmark/results."""
     resolutions = [tuple(r) for r in req.resolutions] if req.resolutions else None
     def generate():
+        _benchmarker.results = []
         for result in _benchmarker.run(req.models, req.frame_count, resolutions):
             yield json.dumps(asdict(result)) + "\n"
+        try:
+            _benchmarker.save_results(_benchmark_results_path())
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Could not save benchmark results: %s", e)
     return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 @app.get("/benchmark/results")
 def benchmark_results():
-    results_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "benchmark_results.json"
-    )
+    results_path = _benchmark_results_path()
     if os.path.exists(results_path):
         with open(results_path) as f:
             return json.load(f)
@@ -342,7 +356,13 @@ def update_config(updates: dict, request: Request):
     restart_required = False
     for key, value in updates.items():
         if hasattr(_config, key):
-            if key in ("monitor_model", "escalation_model"):
-                restart_required = True
+            if key in ("monitor_model", "escalation_model", "fallback_order"):
+                # The tier reads its own copies; swap them in place.
+                setattr(_model_tier, key, value)
+            elif key == "phash_threshold":
+                _change_detector.phash_threshold = int(value)
+            elif key == "periodic_refresh_seconds":
+                _change_detector.periodic_refresh_seconds = value
             setattr(_config, key, value)
+    # max_fps, min_fps and the GPU thresholds are read live by the throttle.
     return {"updated": True, "restart_required": restart_required}

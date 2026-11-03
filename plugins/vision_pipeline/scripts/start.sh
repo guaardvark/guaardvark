@@ -38,7 +38,7 @@ source "$PROJECT_ROOT/backend/venv/bin/activate"
 # (install_pytorch.sh + backend/constraints.txt). An unconstrained pass here
 # pulled opencv-python-headless 5.x and with it numpy 2.x over the ML stack's
 # pin, corrupting C extensions mid-restart. Other plugin deps (fastapi,
-# imagehash, watchdog...) are still installed.
+# PyYAML...) are still installed.
 if [ -z "${PIP_CONSTRAINT:-}" ] && [ -f "$PROJECT_ROOT/backend/constraints.txt" ]; then
     export PIP_CONSTRAINT="$PROJECT_ROOT/backend/constraints.txt"
 fi
@@ -47,8 +47,19 @@ FILTERED_REQS="$(mktemp)"
 grep -v -iE '^(torch|torchvision|torchaudio|xformers|flash|pynvml|nvidia-ml-py|numpy)([<>=!~]|[[:space:]]|$)' \
     "$PLUGIN_ROOT/requirements.txt" > "$FILTERED_REQS" 2>/dev/null \
     || cp "$PLUGIN_ROOT/requirements.txt" "$FILTERED_REQS"
-pip install -q -r "$FILTERED_REQS" 2>/dev/null || true
+if ! pip install -q -r "$FILTERED_REQS"; then
+    echo "Warning: pip could not install the Vision Pipeline requirements; checking what is already present"
+fi
 rm -f "$FILTERED_REQS"
+# A missing module fails the start here, with its name, instead of a
+# ModuleNotFoundError buried in the log after uvicorn has forked.
+if ! python -c "import fastapi, uvicorn, PIL, numpy, yaml, requests, cv2" 2>/tmp/vision_pipeline_import_err.txt; then
+    echo "Error: Vision Pipeline requirements are missing from backend/venv:"
+    tail -1 /tmp/vision_pipeline_import_err.txt
+    rm -f /tmp/vision_pipeline_import_err.txt
+    exit 1
+fi
+rm -f /tmp/vision_pipeline_import_err.txt
 
 # Log file
 LOG_DIR="$PROJECT_ROOT/logs"

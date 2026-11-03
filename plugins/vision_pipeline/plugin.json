@@ -18,14 +18,14 @@
     "service_url": "http://localhost:8201",
     "timeout": 30,
     "fallback_enabled": true,
-    "monitor_model": "moondream",
-    "escalation_model": "llava:13b",
+    "monitor_model": "qwen3.5:4b",
+    "escalation_model": "qwen3.5:9b",
     "max_fps": 2,
     "min_fps": 0.25,
     "frame_quality": 70,
     "frame_width": 512,
     "context_window_seconds": 30,
-    "change_threshold": 0.3
+    "phash_threshold": 8
   },
   "requirements": {
     "gpu": false,

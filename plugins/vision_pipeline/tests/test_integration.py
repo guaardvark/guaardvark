@@ -4,7 +4,9 @@ Tests the complete path: start stream → submit frames → get context → stop
 """
 import time
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
+
+from conftest import fake_ollama_get, fake_ollama_post
 from fastapi.testclient import TestClient
 from PIL import Image
 import io
@@ -20,21 +22,8 @@ def _make_frame(color="red"):
 
 @pytest.fixture
 def client():
-    with patch("service.frame_analyzer.requests.post") as mock_post, \
-         patch("service.model_tier.requests.get") as mock_get:
-        # Mock Ollama model list
-        mock_get.return_value = MagicMock(
-            status_code=200,
-            json=MagicMock(return_value={"models": [{"name": "moondream"}]})
-        )
-        # Mock Ollama inference
-        mock_post.return_value = MagicMock(
-            status_code=200,
-            json=MagicMock(return_value={
-                "message": {"content": "A person at a desk with a laptop"},
-                "done": True
-            })
-        )
+    with patch("service.model_tier.requests.get", side_effect=fake_ollama_get), \
+         patch("service.frame_analyzer.requests.post", side_effect=fake_ollama_post):
         from service.app import app, _auth_token
         with TestClient(app, base_url="http://127.0.0.1:8201") as c:
             c.headers["Authorization"] = f"Bearer {_auth_token()}"

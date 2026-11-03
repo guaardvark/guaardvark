@@ -56,10 +56,22 @@ class TestChangeDetector:
         assert should is True
         assert reason == "periodic_refresh"
 
-    def test_semantic_change_detection(self):
-        cd = ChangeDetector(semantic_threshold=0.3)
-        assert cd.has_semantic_change("a red car on a road", "a blue truck in a field") is True
-        assert cd.has_semantic_change("person at desk typing", "person at desk typing on laptop") is False
+    def test_threshold_is_a_hamming_distance(self):
+        # A threshold above 64 bits can never fire; a zero threshold fires on
+        # any difference.
+        strict = ChangeDetector(phash_threshold=0)
+        strict.should_process(_make_frame("red"))
+        assert strict.should_process(_make_frame("blue")) == (True, "visual_change")
+        lenient = ChangeDetector(phash_threshold=64)
+        lenient.should_process(_make_frame("red"))
+        assert lenient.should_process(_make_frame("blue")) == (False, "no_change")
+
+    def test_phash_matches_imagehash_construction(self):
+        from service.phash import hamming, phash
+        img = Image.new("RGB", (64, 64), "red")
+        value = phash(img)
+        assert 0 <= value < 2 ** 64
+        assert hamming(value, value) == 0
 
     def test_update_description(self):
         cd = ChangeDetector()

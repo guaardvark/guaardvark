@@ -58,6 +58,14 @@ class TestAdaptiveThrottle:
         interval = at.get_interval()
         assert interval == pytest.approx(0.5, abs=0.1)
 
+    def test_config_edits_take_effect_without_restart(self):
+        cfg = FakeConfig()
+        at = AdaptiveThrottle(cfg)
+        assert at.get_interval() == pytest.approx(0.5, abs=0.1)
+        cfg.max_fps = 1.0
+        assert at.max_fps == 1.0
+        assert at.get_interval() == pytest.approx(1.0, abs=0.1)
+
     def test_pause_property(self):
         at = AdaptiveThrottle(FakeConfig())
         assert at.is_paused is False

@@ -8,7 +8,7 @@ from service.context_buffer import ContextBuffer, VisionContext
 @dataclass
 class FakeAnalysis:
     description: str
-    model_used: str = "moondream"
+    model_used: str = "qwen3.5:4b"
     inference_ms: int = 100
     timestamp: float = 0
     frame_dimensions: tuple = (512, 512)

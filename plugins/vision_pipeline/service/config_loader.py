@@ -26,7 +26,7 @@ YAML_TO_CANONICAL = {
     "models.escalation": "escalation_model",
     "models.auto_select": "auto_select",
     "models.fallback_order": "fallback_order",
-    "analysis.change_threshold": "change_threshold",
+    "analysis.phash_threshold": "phash_threshold",
     "analysis.periodic_refresh_seconds": "periodic_refresh_seconds",
     "analysis.monitor_prompt": "monitor_prompt",
     "analysis.escalation_prompt": "escalation_prompt",
@@ -63,13 +63,19 @@ class PipelineConfig:
     frame_quality: int = 70
     frame_width: int = 512
     frame_format: str = "jpeg"
-    # Models
-    monitor_model: str = "moondream"
-    escalation_model: str = "llava:13b"
+    # Models. Chosen 2026-11-03 against published video benchmarks: qwen3.5
+    # 4B scores Video-MME 76.9 and 9B 78.4, the best of anything that fits a
+    # 16 GB card beside ComfyUI; gemma4 publishes no video numbers and is the
+    # fallback for still-frame reasoning; minicpm-v4.6 and moondream are the
+    # cheap last resorts. The previous llava:13b default was not installed.
+    monitor_model: str = "qwen3.5:4b"
+    escalation_model: str = "qwen3.5:9b"
     auto_select: bool = True
-    fallback_order: List[str] = field(default_factory=lambda: ["moondream", "llava:7b", "llava:latest", "bakllava"])
-    # Analysis
-    change_threshold: float = 0.3
+    fallback_order: List[str] = field(default_factory=lambda: [
+        "gemma4:e4b", "gemma4:12b", "minicpm-v4.6", "moondream"])
+    # Analysis. phash_threshold is a Hamming distance (0..64) between the
+    # 64-bit perceptual hashes of two frames; above it the frame is re-analysed.
+    phash_threshold: int = 8
     periodic_refresh_seconds: int = 10
     monitor_prompt: str = "Describe what you see in one brief sentence."
     escalation_prompt: str = "Describe this image in detail including objects, text, people, actions, and anything notable."
