@@ -114,6 +114,19 @@ def _web_answer_source(search_results: Dict[str, Any]) -> str:
     return data.get("source") or data.get("url") or search_results.get("strategy_used", "unknown")
 
 
+_CONTEXT_OVERFLOW = re.compile(
+    r"request \((\d+) tokens\) exceeds the available context size \((\d+) tokens\)"
+)
+
+
+def _context_overflow(error: BaseException) -> Optional[Tuple[int, int]]:
+    """(tokens sent, window) when Ollama refused a request for not fitting the
+    model's context window, else None. Ollama 0.40 answers such a request with
+    HTTP 400 instead of truncating it."""
+    match = _CONTEXT_OVERFLOW.search(str(error))
+    return (int(match.group(1)), int(match.group(2))) if match else None
+
+
 class StaticResponseStream:
     """Adapter wrapping a completed LLM response for stream-compatible callers."""
 
@@ -1258,6 +1271,63 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
             logger.warning(f"Vector store validation failed: {e}")
             return False
     
+    # Characters per token assumed when fitting passages to a window. Measured
+    # 2026-11-03 on pages of a NASA review board PDF (prompt_eval_count, Ollama
+    # 0.40.13): 3.2-3.7 for front matter, 2.6-3.3 for prose, 2.30-2.51 for
+    # tables across qwen3.5:2b, granite4.2:3b and gemma4:12b. 2.25 sits under
+    # the densest of those.
+    _FIT_CHARS_PER_TOKEN = 2.25
+
+    def _answer_within_window(self, session_id: str, model_name: str, question: str,
+                              rag_context: List[Dict[str, Any]], overflow: Tuple[int, int],
+                              web_search_context: str, voice_mode: bool,
+                              bypass_rules: bool) -> List[str]:
+        """Answer again after Ollama refused the request for not fitting the window.
+
+        The retry uses the simple engine, so the chat engine's own retrieval adds
+        nothing, and sends passages search found ahead of whole uploaded files,
+        as many as fit in half the window, then the question. A second attempt
+        uses a quarter of the window, without web results and with fresh memory.
+        """
+        sent, window = overflow
+
+        def rank(chunk: Dict[str, Any]) -> int:
+            if (chunk.get("metadata") or {}).get("file_type") == "uploaded_file":
+                return 2
+            return 0 if chunk.get("content_type", "document") == "document" else 1
+
+        ordered = sorted((c for c in rag_context or [] if isinstance(c, dict)), key=rank)
+        last_error: Optional[BaseException] = None
+        for share, web_context in ((0.5, web_search_context), (0.25, "")):
+            budget = int(window * share * self._FIT_CHARS_PER_TOKEN)
+            parts, used = [], 0
+            for chunk in ordered:
+                room = budget - used
+                if room < 400:
+                    break
+                text = f"[RAG Source: {chunk.get('source', 'Unknown')}] {chunk.get('content', '')}"[:room]
+                parts.append(text)
+                used += len(text)
+            prompt = question
+            if parts:
+                prompt = ("=== KNOWLEDGE BASE CONTEXT ===\n" + "\n\n".join(parts)
+                          + "\n=== END KNOWLEDGE BASE CONTEXT ===\n\n" + f"User Question: {question}")
+            logger.warning(
+                "Enhanced chat: a %d-token request did not fit the %d-token window; "
+                "answering again with %d characters of passages", sent, window, used)
+            self.chat_engines.pop(session_id, None)
+            if share < 0.5:
+                self.session_memories.pop(session_id, None)
+            engine = self._create_simple_chat_engine(
+                session_id, model_name, web_context, voice_mode, bypass_rules)
+            try:
+                return list(engine.stream_chat(prompt).response_gen)
+            except Exception as error:
+                if not _context_overflow(error):
+                    raise
+                last_error = error
+        raise last_error
+
     def _create_simple_chat_engine(self, session_id: str, model_name: str, web_search_context: str = "", voice_mode: bool = False, bypass_rules: bool = False):
         """Create a simple chat engine without RAG capabilities but with web search context"""
         if session_id in self.chat_engines:
@@ -3296,7 +3366,11 @@ You are analyzing code files. When responding to questions about code:
             try:
                 response_stream = chat_engine.stream_chat(enhanced_message_with_context)
             except ValueError as ve:
-                if "available context size" in str(ve):
+                if _context_overflow(ve):
+                    response_stream = StaticResponseStream("".join(self._answer_within_window(
+                        session_id, model_name, enhanced_message, rag_context, _context_overflow(ve),
+                        web_search_context, voice_mode, bypass_rules)))
+                elif "available context size" in str(ve):
                     logger.warning(f"Context window overflow: {ve}. Clearing cached engine and retrying with fresh memory.")
                     # Clear stale cached engine/memory for this session
                     self.chat_engines.pop(session_id, None)
@@ -3418,6 +3492,14 @@ You are analyzing code files. When responding to questions about code:
                     simple_mode = True
                     chat_engine = self._create_simple_chat_engine(session_id, model_name, web_search_context, voice_mode)
                     response_stream = chat_engine.stream_chat(enhanced_message_with_context)
+            except Exception as call_error:
+                # The condense step calls the model at once when there is history.
+                overflow = _context_overflow(call_error)
+                if not overflow:
+                    raise
+                response_stream = StaticResponseStream("".join(self._answer_within_window(
+                    session_id, model_name, enhanced_message, rag_context, overflow,
+                    web_search_context, voice_mode, bypass_rules)))
             logger.info(f"Enhanced chat: Response stream obtained")
             logger.debug("Got response_stream from chat_engine")
 
@@ -3427,9 +3509,14 @@ You are analyzing code files. When responding to questions about code:
             try:
                 for chunk in response_stream.response_gen:
                     response_chunks.append(chunk)
-            except ValueError as ve:
-                if "multiple blocks" in str(ve) and response_chunks:
-                    logger.warning(f"LlamaIndex multi-block error during history write (non-critical, {len(response_chunks)} chunks collected): {ve}")
+            except Exception as stream_error:
+                overflow = None if response_chunks else _context_overflow(stream_error)
+                if overflow:
+                    response_chunks = self._answer_within_window(
+                        session_id, model_name, enhanced_message, rag_context, overflow,
+                        web_search_context, voice_mode, bypass_rules)
+                elif isinstance(stream_error, ValueError) and "multiple blocks" in str(stream_error) and response_chunks:
+                    logger.warning(f"LlamaIndex multi-block error during history write (non-critical, {len(response_chunks)} chunks collected): {stream_error}")
                 else:
                     raise
             logger.info(f"Enhanced chat: Collected {len(response_chunks)} response chunks")
