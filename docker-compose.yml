@@ -7,13 +7,15 @@
 ###############################################################################
 
 services:
-  # PostgreSQL, Redis and Ollama are published on this host's loopback only.
-  # The backend reaches them over the compose network (postgres:5432,
-  # redis:6379, ollama:11434); the published ports are for tools on this host
-  # (psql, redis-cli, ollama). ./start-docker.sh gives a new install its own
-  # random GUAARDVARK_POSTGRES_PASSWORD and GUAARDVARK_REDIS_PASSWORD in the
-  # .env next to this file; without them both fall back to the stock
-  # "guaardvark". Ollama has no login. GUAARDVARK_POSTGRES_PUBLISH_HOST,
+  # Every port is published on this host's loopback only; Docker's port rules
+  # bypass UFW, so a port on 0.0.0.0 is open to the whole network. Containers
+  # reach each other over the compose network (postgres:5432, redis:6379,
+  # ollama:11434, backend:5000), and the frontend passes /api/ to the backend
+  # there. ./start-docker.sh gives a new install its own random
+  # GUAARDVARK_POSTGRES_PASSWORD and GUAARDVARK_REDIS_PASSWORD in the .env next
+  # to this file; without them both fall back to the stock "guaardvark".
+  # Ollama has no login. GUAARDVARK_FRONTEND_PUBLISH_HOST,
+  # GUAARDVARK_BACKEND_PUBLISH_HOST, GUAARDVARK_POSTGRES_PUBLISH_HOST,
   # GUAARDVARK_REDIS_PUBLISH_HOST and GUAARDVARK_OLLAMA_PUBLISH_HOST in that
   # .env (e.g. 0.0.0.0) publish one on other interfaces deliberately; see
   # INSTALL.md.
@@ -109,7 +111,7 @@ services:
       # Optional — set your Anthropic key for Uncle Claude:
       # ANTHROPIC_API_KEY: sk-ant-...
     ports:
-      - "5000:5000"
+      - "${GUAARDVARK_BACKEND_PUBLISH_HOST:-127.0.0.1}:5000:5000"
     volumes:
       - app_data:/app/data
       - app_logs:/app/logs
@@ -144,7 +146,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.frontend
     ports:
-      - "5173:5173"
+      - "${GUAARDVARK_FRONTEND_PUBLISH_HOST:-127.0.0.1}:5173:5173"
     depends_on:
       - backend
 
