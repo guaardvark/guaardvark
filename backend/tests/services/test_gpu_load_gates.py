@@ -459,3 +459,67 @@ def test_no_casting_director_send_task_anywhere():
     # but casting is never a next_agent (screenwriter -> next_agent=None).
     assert 'next_agent="casting' not in full
     assert "next_agent='casting" not in full
+
+
+# ----------------------------------------------------------------------------
+# VRAM probe: nvidia-smi first, rocm-smi as the fallback
+# ----------------------------------------------------------------------------
+
+# Integrated GPU listed first, and a warning line before the JSON, as rocm-smi prints it.
+_ROCM_TWO_CARDS = (
+    "WARNING: AMD GPU device(s) is/are in a low-power state.\n\n"
+    '{"card0": {"VRAM Total Memory (B)": "3221225472", "VRAM Total Used Memory (B)": "778117120"}, '
+    '"card1": {"VRAM Total Memory (B)": "25753026560", "VRAM Total Used Memory (B)": "839303168"}}\n'
+)
+
+
+class _Proc:
+    def __init__(self, stdout="", returncode=0):
+        self.stdout = stdout
+        self.returncode = returncode
+
+
+def _fake_run(tools):
+    """subprocess.run stand-in: a tool that is not in `tools` raises FileNotFoundError."""
+    def run(cmd, *args, **kwargs):
+        if cmd[0] not in tools:
+            raise FileNotFoundError(cmd[0])
+        return tools[cmd[0]]
+    return run
+
+
+def test_read_vram_free_gb_prefers_nvidia_smi(monkeypatch):
+    import backend.services.system_load_gate as slg
+    monkeypatch.setattr(slg.subprocess, "run", _fake_run({
+        "nvidia-smi": _Proc("8192\n"),
+        "rocm-smi": _Proc(_ROCM_TWO_CARDS),
+    }))
+    assert slg._read_vram_free_gb() == pytest.approx(8.0)
+
+
+def test_read_vram_free_gb_falls_back_to_rocm_smi_largest_card(monkeypatch):
+    import backend.services.system_load_gate as slg
+    monkeypatch.setattr(slg.subprocess, "run", _fake_run({"rocm-smi": _Proc(_ROCM_TWO_CARDS)}))
+    assert slg._read_vram_free_gb() == pytest.approx((25753026560 - 839303168) / slg.GB)
+
+
+def test_read_vram_free_gb_uses_rocm_smi_after_failing_nvidia_smi(monkeypatch):
+    import backend.services.system_load_gate as slg
+    monkeypatch.setattr(slg.subprocess, "run", _fake_run({
+        "nvidia-smi": _Proc("", returncode=9),
+        "rocm-smi": _Proc(_ROCM_TWO_CARDS),
+    }))
+    assert slg._read_vram_free_gb() == pytest.approx((25753026560 - 839303168) / slg.GB)
+
+
+def test_read_vram_free_gb_none_when_neither_tool_answers(monkeypatch):
+    import backend.services.system_load_gate as slg
+    monkeypatch.setattr(slg.subprocess, "run", _fake_run({}))
+    assert slg._read_vram_free_gb() is None
+
+
+@pytest.mark.parametrize("out", ["", "no json here", "{broken", '{"card0": {"foo": "bar"}}'])
+def test_read_vram_free_gb_rocm_smi_garbage_is_unknown(monkeypatch, out):
+    import backend.services.system_load_gate as slg
+    monkeypatch.setattr(slg.subprocess, "run", _fake_run({"rocm-smi": _Proc(out)}))
+    assert slg._read_vram_free_gb() is None

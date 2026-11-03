@@ -183,3 +183,49 @@ def test_detect_includes_network_key():
     profile = d.detect()
     assert "network" in profile
     assert isinstance(profile["network"], list)
+
+
+# ----------------------------------------------------------------------------
+# AMD VRAM probe shared with the load gate
+# ----------------------------------------------------------------------------
+
+_ROCM_TWO_CARDS = (
+    "WARNING: AMD GPU device(s) is/are in a low-power state.\n\n"
+    '{"card0": {"VRAM Total Memory (B)": "3221225472", "VRAM Total Used Memory (B)": "778117120"}, '
+    '"card1": {"VRAM Total Memory (B)": "25753026560", "VRAM Total Used Memory (B)": "839303168"}}\n'
+)
+
+
+class _RocmProc:
+    def __init__(self, stdout="", returncode=0):
+        self.stdout = stdout
+        self.returncode = returncode
+
+
+def test_probe_amd_vram_bytes_picks_the_card_with_most_vram(monkeypatch):
+    from backend.services import hardware_detector as hd
+    monkeypatch.setattr(hd.subprocess, "run", lambda *a, **k: _RocmProc(_ROCM_TWO_CARDS))
+    assert hd.probe_amd_vram_bytes() == (25753026560, 839303168)
+
+
+def test_probe_amd_vram_bytes_does_not_read_used_as_total(monkeypatch):
+    from backend.services import hardware_detector as hd
+    out = '{"card0": {"VRAM Total Used Memory (B)": "111", "VRAM Total Memory (B)": "222"}}'
+    monkeypatch.setattr(hd.subprocess, "run", lambda *a, **k: _RocmProc(out))
+    assert hd.probe_amd_vram_bytes() == (222, 111)
+
+
+def test_probe_amd_vram_bytes_none_without_rocm_smi(monkeypatch):
+    from backend.services import hardware_detector as hd
+
+    def _missing(*a, **k):
+        raise FileNotFoundError("rocm-smi")
+
+    monkeypatch.setattr(hd.subprocess, "run", _missing)
+    assert hd.probe_amd_vram_bytes() is None
+
+
+def test_amd_vram_mb_reports_the_same_card(monkeypatch):
+    from backend.services import hardware_detector as hd
+    monkeypatch.setattr(hd.subprocess, "run", lambda *a, **k: _RocmProc(_ROCM_TWO_CARDS))
+    assert hd.HardwareDetector()._probe_amd_vram_mb() == 24560

@@ -192,8 +192,19 @@ class LoadReading:
         return self.ram_avail_gb - self.reserved_ram_gb
 
 
+def _read_vram_free_gb_rocm() -> Optional[float]:
+    """Free VRAM in GB on the AMD card with the most VRAM; None without a rocm-smi answer."""
+    from backend.services.hardware_detector import probe_amd_vram_bytes
+
+    card = probe_amd_vram_bytes()
+    if card is None:
+        return None
+    total, used = card
+    return (total - used) / GB
+
+
 def _read_vram_free_gb() -> Optional[float]:
-    """Free VRAM in GB via nvidia-smi. None when nvidia-smi is missing/fails.
+    """Free VRAM in GB via nvidia-smi, else rocm-smi. None when neither answers.
 
     Returning None (UNKNOWN) is deliberate: a missing nvidia-smi means either a
     CPU-only host or a probe failure — neither should hard-block all work.
@@ -205,12 +216,12 @@ def _read_vram_free_gb() -> Optional[float]:
             capture_output=True, text=True, timeout=10,
         )
     except (FileNotFoundError, subprocess.SubprocessError, OSError) as e:
-        logger.debug("nvidia-smi unavailable for VRAM probe (%s) — VRAM UNKNOWN", e)
-        return None
+        logger.debug("nvidia-smi unavailable for VRAM probe (%s) — trying rocm-smi", e)
+        return _read_vram_free_gb_rocm()
 
     if result.returncode != 0:
-        logger.debug("nvidia-smi returned %s — VRAM UNKNOWN", result.returncode)
-        return None
+        logger.debug("nvidia-smi returned %s — trying rocm-smi", result.returncode)
+        return _read_vram_free_gb_rocm()
 
     line = (result.stdout or "").strip().splitlines()
     if not line:

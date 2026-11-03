@@ -52,6 +52,53 @@ KNOWN_NIC_QUIRKS: dict[str, dict[str, str]] = {
 }
 
 
+def probe_amd_vram_bytes(timeout: float = 5) -> tuple[int, int] | None:
+    """(total, used) VRAM in bytes of the AMD card with the most VRAM, via rocm-smi.
+
+    With an integrated GPU next to a discrete card, the discrete card has the most
+    VRAM. rocm-smi can print warnings around its JSON, so parsing starts at the
+    first brace. Returns None when rocm-smi is missing, fails or lists no card.
+    """
+    try:
+        out = subprocess.run(
+            ["rocm-smi", "--showmeminfo", "vram", "--json"],
+            capture_output=True, text=True, timeout=timeout, check=False,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+    if out.returncode != 0:
+        return None
+    start = out.stdout.find("{")
+    if start < 0:
+        return None
+    try:
+        cards, _ = json.JSONDecoder().raw_decode(out.stdout[start:])
+    except ValueError:
+        return None
+    if not isinstance(cards, dict):
+        return None
+
+    def field(card: dict, must: tuple, exclude: tuple = ()) -> int:
+        for key, val in card.items():
+            k = key.lower()
+            if all(w in k for w in must) and not any(w in k for w in exclude):
+                return int(val)
+        raise KeyError(must)
+
+    best = None
+    for card in cards.values():
+        if not isinstance(card, dict):
+            continue
+        try:
+            total = field(card, ("vram", "total"), exclude=("used",))
+            used = field(card, ("vram", "used"))
+        except (KeyError, TypeError, ValueError):
+            continue
+        if best is None or total > best[0]:
+            best = (total, used)
+    return best
+
+
 class HardwareDetector:
     def __init__(self, node_id_path: str = DEFAULT_NODE_ID_PATH):
         self._node_id_path = node_id_path
@@ -227,28 +274,11 @@ class HardwareDetector:
         return {"vendor": "amd", "vram_mb": self._probe_amd_vram_mb()}
 
     def _probe_amd_vram_mb(self) -> int | None:
-        """Best-effort total VRAM via rocm-smi JSON. Unverified on real AMD
-        hardware; the routing builder only treats AMD as GPU-eligible once a
-        VRAM figure is known, so a None here just keeps it CPU-only (safe)."""
-        try:
-            out = subprocess.run(
-                ["rocm-smi", "--showmeminfo", "vram", "--json"],
-                capture_output=True, text=True, timeout=5, check=False,
-            )
-            if out.returncode != 0 or not out.stdout.strip():
-                return None
-            data = json.loads(out.stdout)
-            for card in data.values():
-                if not isinstance(card, dict):
-                    continue
-                for key, val in card.items():
-                    k = key.lower()
-                    if "vram" in k and "total" in k:
-                        return int(int(val) / 1024 / 1024)  # bytes → MB
-        except (subprocess.SubprocessError, ValueError, json.JSONDecodeError,
-                OSError, AttributeError):
-            pass
-        return None
+        """Total VRAM in MB of the AMD card with the most VRAM, via rocm-smi.
+        The routing builder only treats AMD as GPU-eligible once a VRAM figure is
+        known, so a None here just keeps it CPU-only (safe)."""
+        card = probe_amd_vram_bytes()
+        return None if card is None else int(card[0] / 1024 / 1024)  # bytes -> MB
 
     def _probe_gpu_intel(self) -> dict | None:
         if shutil.which("intel_gpu_top") is None:

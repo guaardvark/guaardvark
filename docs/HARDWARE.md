@@ -179,6 +179,16 @@ are NVIDIA-only, so generation paths should be considered NVIDIA-first for
 now. If you run Guaardvark on an AMD card, an issue report with logs would
 genuinely help.
 
+With an integrated GPU next to a discrete AMD card, both are listed as GPUs. The
+VRAM checks (load gate and hardware profile) use the card with the most VRAM. To
+make PyTorch use only the discrete card, set `HIP_VISIBLE_DEVICES=0` in the
+environment of the backend (for example `Environment=HIP_VISIBLE_DEVICES=0` in a
+container unit). The numbering can differ between `rocm-smi` and PyTorch;
+`torch.cuda.get_device_properties(0)` shows which card is device 0.
+
+Checked on an RX 7900 XTX with a Radeon 780M iGPU: `torch.cuda.device_count()` is
+2, and 1 with `HIP_VISIBLE_DEVICES=0`.
+
 ## Where these numbers live
 
 For contributors updating this guide: hardware detection and policy are in
