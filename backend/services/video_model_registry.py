@@ -423,7 +423,9 @@ VIDEO_MODEL_REGISTRY = {
         "local_subdir": "CogVideo/CogVideoX-5b",
         # Snapshot download → explicit check paths (subpaths inside the snapshot).
         "check_files": ["transformer/diffusion_pytorch_model-00001-of-00002.safetensors", "vae/diffusion_pytorch_model.safetensors"],
-        "size_gb": 11.3,
+        # The whole diffusers snapshot (transformer, VAE, T5 text encoder,
+        # tokenizer): 21.5 GB on disk after the Install, measured 2026-11-02.
+        "size_gb": 21.5,
         "vram_mb": 16000,
         # CogVideoXWrapper (fdb8abd, latest upstream) defines its latent format
         # without latent_rgb_factors_reshape, which ComfyUI's Latent2RGB previewer

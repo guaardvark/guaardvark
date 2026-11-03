@@ -385,12 +385,12 @@ def code_index_build():
         return jsonify({"success": False, "reason": "The zvec_grep plugin is not part of this install."}), 400
     if not p["zg"].exists():
         return jsonify({"success": False, "reason": (
-            "The zvec_grep plugin is not installed. Install it from the Plugins page first; "
+            "The zvec_grep plugin is not installed. Run plugins/zvec_grep/scripts/setup.sh first; "
             "building the index downloads nothing.")}), 400
     if not (p["models"].is_dir() and any(p["models"].iterdir())):
         return jsonify({"success": False, "reason": (
             "The zvec_grep plugin's embedding model is missing from plugins/zvec_grep/cache/models. "
-            "Run the plugin's Install from the Plugins page; this button does not download it.")}), 400
+            "Run plugins/zvec_grep/scripts/setup.sh; this button does not download it.")}), 400
     with _index_lock:
         job = _index_job.get(str(root))
         if job and job.get("proc") is not None and job["proc"].poll() is None:

@@ -65,7 +65,7 @@ Before the first generation in a session, establish four facts and keep them in 
 | Tier | VRAM | What this box can do |
 |---|---|---|
 | A, no NVIDIA GPU | none | chat, retrieval, voice in and out, the coding swarm, the video editor, MCP. No image, video, music or upscaling |
-| B, entry GPU | 8–12 GB | plus vector retrieval, screen agents, SD/SDXL-class images, upscaling; music at 12 GB. Video is refused below 16 GB |
+| B, entry GPU | 8–12 GB | plus vector retrieval, screen agents, SD/SDXL-class images, upscaling; music at 12 GB. Video: Wan 2.2 5B from 11 GB; every other video family needs 16 GB |
 | C, design target | 16 GB | the full stack, one heavy job at a time: FLUX-class images, Wan 2.2 / LTX / CogVideoX / MiniMax H3 video, music and neural voice, Film Crew, music videos |
 | D, headroom | 20–24 GB+ | concurrency and quality: two resident LLMs, heavier image models by default, full-batch LoRA training |
 
@@ -135,9 +135,10 @@ Outreach never posts from an agent: drafts queue, the user approves in the Studi
 - **The GPU is exclusive.** One heavy model owns it. The orchestrator evicts the chat model
   for a render and brings it back; the first call after a switch is slow, and two renders do
   not run at once. Warn before a long batch, and check `inspect_gpu` before blaming a tool.
-- **Outputs are files.** Everything lands under `data/outputs/` in the checkout (batches under
-  `data/uploads/Images/<batch>/`), is served by the routes the skills name, appears in the
-  Studio media library, and is exposed read-only over MCP as `guaardvark://outputs/...`.
+- **Outputs are files.** Renders land under `data/outputs/` in the checkout (image batches under
+  `data/uploads/Images/<batch>/`, songs and voice under `data/uploads/Audio/`), are served by the
+  routes the skills name, appear in the Studio media library, and the `data/outputs/` folders are
+  exposed read-only over MCP as `guaardvark://outputs/...`.
   Report the URL and the path; the user decides where it goes next.
 - **Nothing leaves the machine.** No upload of the user's files, prompts, references or
   outputs anywhere, ever, unless the user names the destination.

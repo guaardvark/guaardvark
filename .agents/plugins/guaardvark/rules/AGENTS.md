@@ -48,7 +48,7 @@ Before the first generation in a session, establish four facts:
 | Tier | VRAM | What this box can do |
 |---|---|---|
 | A, no NVIDIA GPU | none | chat, retrieval, voice in and out, coding swarm, video editor, MCP. No image/video/music/upscaling |
-| B, entry GPU | 8–12 GB | plus vector retrieval, screen agents, SD/SDXL-class images, upscaling; music at 12 GB. Video refused below 16 GB |
+| B, entry GPU | 8–12 GB | plus vector retrieval, screen agents, SD/SDXL-class images, upscaling; music at 12 GB. Video: Wan 2.2 5B from 11 GB, the rest need 16 GB |
 | C, design target | 16 GB | full stack, one heavy job at a time: FLUX-class images, Wan 2.2 / LTX / CogVideoX / MiniMax H3 video, music and voice, Film Crew |
 | D, headroom | 20–24 GB+ | concurrency and quality: two resident LLMs, heavier image models by default, full-batch LoRA training |
 

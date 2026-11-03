@@ -1,7 +1,9 @@
 bot:
   token: "${DISCORD_BOT_TOKEN}"
-  # Guaardvark Discord server — enables instant slash-command sync on boot
-  guild_id: 1481468315187810306
+  # Your Discord server's id (DISCORD_GUILD_ID in .env). Set, slash commands
+  # sync to that server at once; empty, they sync to every server the bot has
+  # joined, then globally (which Discord can take up to an hour to show).
+  guild_id: "${DISCORD_GUILD_ID:-}"
 
 api:
   base_url: "http://localhost:${FLASK_PORT:-5000}/api"

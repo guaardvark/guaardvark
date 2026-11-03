@@ -1,8 +1,4 @@
-# Guaardvark Code Release
-
-## Backup Information
-- **Date:** (filled by Code Release)
-- **Type:** Code Release (no data — database and files are created fresh on first run)
+# Installing Guaardvark
 
 ## Install (Linux)
 
@@ -18,19 +14,22 @@ Clones to `~/guaardvark` (override with `GUAARDVARK_HOME=/path`) and hands off t
 
 **Not sure what your machine can run?** See [docs/HARDWARE.md](docs/HARDWARE.md) — a tier-by-tier guide to what works CPU-only, on 8–12 GB cards, on the 16 GB design target, and beyond.
 
-**Or from a release zip:**
+**Or from a clone:**
 
-1. **Extract:**
-   ```bash
-   unzip guaardvark-release.zip
-   cd guaardvark
-   chmod +x start.sh start-docker.sh
-   ```
+```bash
+git clone https://github.com/guaardvark/guaardvark.git
+cd guaardvark
+./start.sh
+```
 
-2. **Start:**
-   ```bash
-   ./start.sh
-   ```
+**Or from a release zip:** download *Source code (zip)* from the [latest release](https://github.com/guaardvark/guaardvark/releases/latest), then
+
+```bash
+unzip guaardvark-*.zip
+cd guaardvark-*/
+chmod +x start.sh start-docker.sh
+./start.sh
+```
 
 The startup script handles everything: Python 3.12 (auto-installed if needed), dependencies, database, frontend build, and all services.
 
@@ -103,7 +102,7 @@ If you want to evaluate the UI/API without a native Python install:
 ./start-docker.sh --gpu    # NVIDIA GPU (requires nvidia-container-toolkit)
 ```
 
-Docker runs the **core stack** (API, UI, PostgreSQL, Redis, Ollama). It does not include plugins, ComfyUI, or the virtual agent display. For the full experience, use `./start.sh`.
+Docker runs the **core stack** (API, UI, Celery with its scheduler, PostgreSQL with pgvector, Redis, Ollama). It does not include plugins, ComfyUI, or the virtual agent display. For the full experience, use `./start.sh`.
 
 **Before the first start (Ubuntu).** A fresh Ubuntu has no Docker, and Ubuntu's `docker.io` does not bring Compose or buildx with it:
 

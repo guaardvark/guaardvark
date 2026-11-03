@@ -159,6 +159,11 @@ class GuaardvarkBot(commands.Bot):
         logger.info("Connected to %d guilds", len(self.guilds))
 
         guild_id = self.config.get("bot", {}).get("guild_id")
+        try:
+            guild_id = int(guild_id) if guild_id else None
+        except (TypeError, ValueError):
+            logger.warning("DISCORD_GUILD_ID is not a server id: %r; syncing to joined servers instead", guild_id)
+            guild_id = None
         if guild_id:
             try:
                 guild = discord.Object(id=guild_id)
