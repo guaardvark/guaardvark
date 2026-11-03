@@ -21,7 +21,8 @@ services:
   # ── PostgreSQL ─────────────────────────────────────────────────────────
   postgres:
     restart: unless-stopped
-    image: postgres:16-alpine
+    # Document search stores its vectors here and needs the pgvector extension.
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: guaardvark
       # Read only when the image creates the database (an empty pgdata volume).

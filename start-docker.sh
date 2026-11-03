@@ -172,6 +172,22 @@ if [ -z "${GUAARDVARK_POSTGRES_PASSWORD:-}" ] && [ -z "$(env_file_value GUAARDVA
     fi
 fi
 
+# ── Database indexes ───────────────────────────────────────────────────────
+# A database first created by the postgres:16-alpine image (musl) sorts text
+# differently from pgvector/pgvector:pg16 (glibc), so its text indexes would
+# return wrong results. Rebuild them once per database volume; a marker in the
+# data directory skips this afterwards, and on a new volume it takes a moment.
+echo "Starting PostgreSQL..."
+"${COMPOSE[@]}" "${COMPOSE_FILES[@]}" up -d --wait postgres
+if ! "${COMPOSE[@]}" "${COMPOSE_FILES[@]}" exec -T -u postgres postgres sh -c '
+        marker="$PGDATA/.guaardvark-indexes-rebuilt"
+        [ -f "$marker" ] && exit 0
+        echo "Rebuilding database indexes once for this PostgreSQL image..."
+        psql -v ON_ERROR_STOP=1 -q -U guaardvark -d guaardvark -c "REINDEX DATABASE guaardvark" \
+            && touch "$marker"'; then
+    echo "Warning: could not rebuild the database indexes; they are tried again on the next start." >&2
+fi
+
 UP_ARGS=(up --build)
 if [ "$DETACH" -eq 1 ]; then
     UP_ARGS+=(-d)
