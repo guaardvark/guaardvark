@@ -64,22 +64,31 @@ COMPOSE_FILES=(-f docker-compose.yml)
 if [ "$GPU_PROFILE" -eq 1 ]; then
     COMPOSE_FILES+=(-f docker-compose.gpu.yml)
 
-    # --gpu hands the NVIDIA GPU to containers through the nvidia runtime from
-    # NVIDIA Container Toolkit, which is not in Ubuntu's own archive. Without it
-    # the stack builds for minutes and then stops at "could not select device
-    # driver nvidia", so check first.
-    if ! docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'; then
-        echo "Error: --gpu needs NVIDIA Container Toolkit, and Docker has no nvidia runtime." >&2
-        echo "  INSTALL.md (Docker section, GPU) has the commands, ending with:" >&2
+    # --gpu hands the NVIDIA GPU to containers. On Linux that takes the nvidia
+    # runtime from NVIDIA Container Toolkit, which is not in Ubuntu's own
+    # archive. Docker Desktop on Windows passes the GPU through WSL 2 and need
+    # not list that runtime, so when it is absent ask Docker for a GPU once,
+    # with the redis image the stack pulls anyway. Without a GPU the stack
+    # builds for minutes and then stops at "could not select device driver".
+    if ! docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"' \
+        && ! docker run --rm --gpus all --entrypoint true redis:7-alpine >/dev/null 2>&1; then
+        echo "Error: --gpu needs a GPU Docker can hand to containers, and Docker could not." >&2
+        echo "  Linux: install NVIDIA Container Toolkit (INSTALL.md, Docker section, GPU), ending with:" >&2
         echo "  sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker" >&2
+        echo "  Windows: Docker Desktop with the WSL 2 backend, a current NVIDIA driver, and wsl --update." >&2
         echo "  Or run without --gpu (CPU only)." >&2
         exit 1
     fi
 
     # PyTorch for this card, the same table as hardware_policy.torch_channel.
     # The PyPI default build has no kernels below sm_75 (Pascal, Volta).
-    if [ -z "${GUAARDVARK_TORCH_CHANNEL:-}" ] && command -v nvidia-smi >/dev/null 2>&1; then
-        COMPUTE_MAJOR="$(nvidia-smi --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n 1 | cut -d. -f1 | tr -dc '0-9')"
+    # WSL keeps nvidia-smi in /usr/lib/wsl/lib; look there when it is not on PATH.
+    NVIDIA_SMI="$(command -v nvidia-smi || true)"
+    if [ -z "$NVIDIA_SMI" ] && [ -x /usr/lib/wsl/lib/nvidia-smi ]; then
+        NVIDIA_SMI=/usr/lib/wsl/lib/nvidia-smi
+    fi
+    if [ -z "${GUAARDVARK_TORCH_CHANNEL:-}" ] && [ -n "$NVIDIA_SMI" ]; then
+        COMPUTE_MAJOR="$("$NVIDIA_SMI" --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n 1 | cut -d. -f1 | tr -dc '0-9')"
         if [ -n "$COMPUTE_MAJOR" ]; then
             if [ "$COMPUTE_MAJOR" -ge 9 ]; then GUAARDVARK_TORCH_CHANNEL=cu128
             elif [ "$COMPUTE_MAJOR" -ge 8 ]; then GUAARDVARK_TORCH_CHANNEL=cu124
@@ -200,10 +209,12 @@ fi
 
 "${COMPOSE[@]}" "${COMPOSE_FILES[@]}" "${UP_ARGS[@]}"
 
+WEB_PORT="${GUAARDVARK_FRONTEND_PUBLISH_PORT:-$(env_file_value GUAARDVARK_FRONTEND_PUBLISH_PORT)}"
+API_PORT="${GUAARDVARK_BACKEND_PUBLISH_PORT:-$(env_file_value GUAARDVARK_BACKEND_PUBLISH_PORT)}"
 echo ""
-echo "  Web UI:       http://localhost:5173"
-echo "  API:          http://localhost:5000"
-echo "  Health:       http://localhost:5000/api/health"
+echo "  Web UI:       http://localhost:${WEB_PORT:-5173}"
+echo "  API:          http://localhost:${API_PORT:-5000}"
+echo "  Health:       http://localhost:${API_PORT:-5000}/api/health"
 echo "  Stop:         docker compose down"
 echo ""
 echo "  Only this machine can open these. To use the Web UI from another device,"
