@@ -517,6 +517,37 @@ def model_digests(model_name: str, tags: Optional[list] = None) -> frozenset:
     return frozenset(found)
 
 
+def installed_name_for(model_name: str, tags: Optional[list] = None) -> Optional[str]:
+    """The name /api/tags lists for ``model_name``, or None when it is not installed.
+
+    The same name wins; a name without a tag matches ``:latest``. A
+    ``llamacpp:<digest>`` alias resolves to the listed name of that build:
+    Ollama 0.40 listed such aliases and a saved chat model can still be one,
+    but later versions answer to the alias without listing it, so a lookup by
+    name alone calls the model missing. ``tags`` is an /api/tags "models" list
+    the caller already has.
+    """
+    full = _full_model_name(model_name)
+    if not full:
+        return None
+    if tags is None:
+        tags = _ollama_tags()
+    names = [str(entry.get("name") or "") for entry in tags if entry.get("name")]
+    for name in names:
+        if _full_model_name(name) == full:
+            return name
+    alias = _LLAMACPP_ALIAS.match(full)
+    if not alias:
+        return None
+    prefix = alias.group(1)[:DIGEST_PREFIX_LEN]
+    same_build = sorted(
+        str(entry.get("name") or "")
+        for entry in tags
+        if entry.get("name") and _short_digest(entry.get("digest")) == prefix
+    )
+    return same_build[0] if same_build else None
+
+
 def model_families(model_name: str, tags: Optional[list] = None) -> frozenset:
     """The model families Ollama reports for ``model_name`` (``details.family``).
 
