@@ -53,7 +53,7 @@
     "killResults": "Resultados do Encerramento",
     "killed": "Sucesso ao encerrar {{count}} processos",
     "killedWithFailures": "Processos {{count}} encerrados com sucesso, {{failed}} falhas",
-    "webAccessOff": "O acesso à web está desligado: nenhuma ferramenta, tarefa de agente ou navegador de agente pode acessar sites externos. Ele permanecerá desligado até que você o ative novamente em Configurações.",
+    "webAccessOff": "O acesso à web está desativado: nenhuma ferramenta, tarefa de agente, navegador de agente ou código que o assistente executa pode acessar sites externos. Ele permanecerá desativado até que você o reative nas Configurações.",
     "webAccessFailed": "O acesso à web não pôde ser desligado: {{error}}",
     "unknownError": "erro desconhecido",
     "agentTaskStopped": "A tarefa do agente em execução foi interrompida.",

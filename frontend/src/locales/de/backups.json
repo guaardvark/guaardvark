@@ -53,7 +53,7 @@
     "killResults": "Beendete Prozesse",
     "killed": "{{count}} Prozesse erfolgreich beendet",
     "killedWithFailures": "Erfolgreich {{count}} Prozesse beendet, {{failed}} fehlgeschlagen",
-    "webAccessOff": "Webzugriff ist jetzt aus: Werkzeuge, Agentenaufgaben und Agentenbrowser erreichen keine externen Seiten. Er bleibt aus, bis du ihn in den Einstellungen wieder aktivierst.",
+    "webAccessOff": "Der Webzugriff ist jetzt deaktiviert: Kein Tool, keine Agentenaufgabe, kein Agenten-Browser und kein Code, den der Assistent ausführt, kann auf externe Seiten zugreifen. Er bleibt deaktiviert, bis du ihn in den Einstellungen wieder einschaltest.",
     "webAccessFailed": "Webzugriff konnte nicht deaktiviert werden: {{error}}",
     "unknownError": "unbekannter Fehler",
     "agentTaskStopped": "Die laufende Agentenaufgabe wurde gestoppt.",

@@ -2615,8 +2615,8 @@
       "out": "28e0f8a9508c"
     },
     "killSwitch.webAccessOff": {
-      "en": "5caeb229b244",
-      "out": "6d9c1b91c1c2"
+      "en": "0c9a7ce33517",
+      "out": "1ec96c86ed8a"
     },
     "killSwitch.webAccessFailed": {
       "en": "d1751a003502",
@@ -19443,20 +19443,24 @@
       "out": "623d26128fe1"
     },
     "access.runsCodeKeyRequired": {
-      "en": "be0b7375825a",
-      "out": "59d9e8490f3b"
+      "en": "06c73f93bd4c",
+      "out": "fb7fc264fdbf"
     },
     "access.fleetKeyRequired": {
-      "en": "57cab25f92a9",
-      "out": "0e41f6cd93b2"
+      "en": "faa5f9555788",
+      "out": "e9e5c2a08c6b"
+    },
+    "access.backupsKeyRequired": {
+      "en": "78d173972654",
+      "out": "0d10e3ac53e7"
     },
     "access.localOnlyKeyRemoved": {
-      "en": "087967e8a6ef",
-      "out": "f0ed3ae3dd5f"
+      "en": "91403a06bc3c",
+      "out": "3c72231c4c09"
     },
     "access.localOnly": {
-      "en": "c65732b91fd8",
-      "out": "0cfc8b38beee"
+      "en": "ddd5acef0605",
+      "out": "5ecb71e83535"
     },
     "access.keyOutOfDate": {
       "en": "0bbac0c90226",
@@ -21209,9 +21213,6 @@
     "appStore.brandingFailed": {
       "en": "c8775adeb537",
       "out": "9df225187d84"
-    },
-    "access.backupsKeyRequired": {
-      "en": "4e4c35c01451"
     }
   },
   "models": {
@@ -26924,12 +26925,12 @@
       "out": "36f95f2c3f60"
     },
     "interconnector.enabled": {
-      "en": "d96bcc099817",
-      "out": "0f7ad4d8f894"
+      "en": "0f45cf37a186",
+      "out": "24116a08a89b"
     },
     "interconnector.disabled": {
-      "en": "c7c21dcfc1dc",
-      "out": "c3cda75d792a"
+      "en": "ba454dce51a7",
+      "out": "6e209c0412d4"
     },
     "interconnector.notChanged": {
       "en": "517025fb44ce",
@@ -27912,20 +27913,24 @@
       "out": "94c40e6d791f"
     },
     "chatPanel.modelCodeNetwork": {
-      "en": "a192ed47c77a",
-      "out": "34dda6f8b572"
+      "en": "f788cd41c340",
+      "out": "e621e6c8a450"
     },
     "chatPanel.modelCodeNetworkTooltip": {
-      "en": "07e4b76f1004",
-      "out": "c21cd157709c"
+      "en": "5c713f89e4f5",
+      "out": "4641e18514dd"
+    },
+    "chatPanel.modelCodeNetworkNeedsWeb": {
+      "en": "3d3c04b71b27",
+      "out": "954f533aa17e"
     },
     "chatPanel.webAccess": {
       "en": "a1fee2222a24",
       "out": "61721314196a"
     },
     "chatPanel.webAccessTooltip": {
-      "en": "1fb51716f9d9",
-      "out": "67af8bd3cf75"
+      "en": "b17948127a97",
+      "out": "feb00a6724bb"
     },
     "chatPanel.voiceChat": {
       "en": "906f81362ca7",
@@ -28386,6 +28391,42 @@
     "syncPanel.interconnectorTooltip": {
       "en": "726c40c24dbd",
       "out": "7367c4ab5f6f"
+    },
+    "syncPanel.notConnected": {
+      "en": "993f8cdf5d50",
+      "out": "e10b0bfd0b18"
+    },
+    "syncPanel.connectedTo": {
+      "en": "24391cdc5027",
+      "out": "173640411323"
+    },
+    "syncPanel.connectedClient": {
+      "en": "d18810643ac8",
+      "out": "838d44aa2cbc"
+    },
+    "syncPanel.connectedMaster": {
+      "en": "05b0be0394a0",
+      "out": "2c44843c2252"
+    },
+    "syncPanel.connect": {
+      "en": "925985236aae",
+      "out": "a50c5c5098be"
+    },
+    "syncPanel.connectTooltip": {
+      "en": "725f15c2bfa4",
+      "out": "cb0db592a3c6"
+    },
+    "syncPanel.manage": {
+      "en": "c7f73bb54d92",
+      "out": "9751f876e9e7"
+    },
+    "syncPanel.disconnect": {
+      "en": "ed28e0686e12",
+      "out": "f2bfd8e2632b"
+    },
+    "syncPanel.disconnectTooltip": {
+      "en": "f64073499a3d",
+      "out": "cdac74675afe"
     },
     "syncPanel.pending": {
       "en": "2e4ea677adc1",
@@ -28958,19 +28999,20 @@
       "out": "00608e533113"
     },
     "apiKey.noKeyElsewhere": {
-      "en": "f678da7f4c65",
-      "out": "533671ec9281"
+      "en": "325616f5c1ef",
+      "out": "457a39d24ae1"
     },
     "apiKey.status.checking": {
       "en": "28cfb479fbfa",
       "out": "20df4aa3572e"
     },
     "apiKey.status.networkAccess": {
-      "en": "7aecb6011bde",
-      "out": "2a5e56ef68c4"
+      "en": "826997527204",
+      "out": "6fce552bb241"
     },
     "apiKey.status.networkAccessText": {
-      "en": "9fe33eea6675"
+      "en": "237eddcf8425",
+      "out": "d6c63b2d97ff"
     },
     "apiKey.status.signedIn": {
       "en": "72e15bf5984b",
@@ -29009,8 +29051,8 @@
       "out": "2df5e1121322"
     },
     "apiKey.manageOnMachine": {
-      "en": "aa6134309f2c",
-      "out": "22838e49cf74"
+      "en": "be0945d68f20",
+      "out": "f72f6154825d"
     },
     "apiKey.manageSignIn": {
       "en": "e33351499ea3",
@@ -29081,8 +29123,8 @@
       "out": "1e3735e453c8"
     },
     "apiKey.help": {
-      "en": "3b023bf9e593",
-      "out": "cc96912bd163"
+      "en": "5a6416cd7437",
+      "out": "6186817b2b81"
     },
     "apiKey.protected": {
       "en": "84d15a1a6458",
@@ -29093,7 +29135,8 @@
       "out": "cc9db3a79557"
     },
     "apiKey.networkHelp": {
-      "en": "5a9c523de6eb"
+      "en": "238959d8b5fa",
+      "out": "62ba5cec1229"
     },
     "apiKey.networkNoteOpen": {
       "en": "1e6badc32d21",
@@ -29104,8 +29147,8 @@
       "out": "df022e625b46"
     },
     "apiKey.networkAccess": {
-      "en": "5e5da2cd3c81",
-      "out": "665cb4a92ef0"
+      "en": "7a5c2aa4ebbf",
+      "out": "2dba0aa56d37"
     },
     "apiKey.networkTooltip": {
       "en": "d4cd695c308f"
