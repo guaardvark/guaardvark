@@ -1314,20 +1314,29 @@ class OfflineImageGenerator:
 
         return _cb
 
-    def _denoise_callback(self, should_stop: Optional[Callable[[], bool]] = None):
-        """Per-step denoise callback: the RAM watchdog, plus the caller's stop
-        check when one is given. None when there is neither.
+    def _denoise_callback(self, should_stop: Optional[Callable[[], bool]] = None,
+                          total_steps: Optional[int] = None):
+        """Per-step denoise callback: the RAM watchdog, the caller's stop check
+        when one is given, and the step count on the progress footer entry this
+        render shows on. None when there is none of these.
 
         A stop raises RenderStopped for the same reason the watchdog raises:
         pipeline._interrupt would still run the VAE decode and hand back an image.
         """
+        from backend.services import footer_jobs
         watchdog = self._ram_watchdog_callback()
-        if should_stop is None:
+        entry = footer_jobs.current() if total_steps else None
+        if should_stop is None and entry is None:
             return watchdog
         from backend.services.gpu_resource_policy import raise_if_stopped
 
         def _cb(pipe, step, timestep, callback_kwargs):
-            raise_if_stopped(should_stop, f"at denoise step {step}")
+            if should_stop is not None:
+                raise_if_stopped(should_stop, f"at denoise step {step}")
+            if entry is not None:
+                done = min(int(step) + 1, int(total_steps))
+                entry.update(f"{entry.title}: step {done} of {total_steps}",
+                             progress=5 + done * 90 // int(total_steps))
             if watchdog is not None:
                 return watchdog(pipe, step, timestep, callback_kwargs)
             return callback_kwargs
@@ -3123,7 +3132,7 @@ Negative Prompt: {negative_prompt}""",
                 # Mid-denoise RAM floor (2026-08-04): admission can't guard a
                 # minutes-long forward; the watchdog aborts per-step on breach.
                 # The same callback ends the forward when the caller stops.
-                _watchdog = self._denoise_callback(request.should_stop)
+                _watchdog = self._denoise_callback(request.should_stop, request.num_inference_steps)
                 _watchdog_kwargs = (
                     {"callback_on_step_end": _watchdog} if _watchdog else {}
                 )

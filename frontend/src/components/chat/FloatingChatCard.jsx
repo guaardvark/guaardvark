@@ -21,6 +21,7 @@ import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import Tooltip from "@mui/material/Tooltip";
 import { useFloatingChatStore } from "../../stores/useFloatingChatStore";
 import { PlanActionsContext } from "./planActions";
+import { applyMediaReady, mediaReadyFromStatus, pendingMediaOf } from "./pendingMedia";
 import UnifiedChatService, { steerAgent } from "../../api/unifiedChatService";
 import { stopChatTurn } from "../../api/chatStopService";
 import StreamingMessage from "./StreamingMessage";
@@ -209,6 +210,43 @@ const FloatingChatCard = () => {
       setUnifiedChatService(null);
     };
   }, [sessionId, socketRef?.current]);
+
+  // A video this chat queued finished: its reply swaps the placeholder for the clip.
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket || !sessionId) return;
+    const handleMediaReady = (data) => {
+      if (!data || data.session_id !== sessionId) return;
+      useFloatingChatStore.setState((state) => ({ messages: applyMediaReady(state.messages, data) }));
+    };
+    socket.on("chat:media_ready", handleMediaReady);
+    return () => {
+      socket.off("chat:media_ready", handleMediaReady);
+    };
+  }, [sessionId, socketRef?.current]);
+
+  // The thread is kept in the browser, so a clip that finished while the page
+  // was closed is looked up once when the card opens.
+  useEffect(() => {
+    if (!isOpen) return;
+    const waiting = useFloatingChatStore.getState().messages
+      .flatMap((m) => pendingMediaOf(m))
+      .filter((p) => p.batch_id && p.status !== "failed");
+    waiting.forEach(async ({ batch_id: batchId }) => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_BASE_URL || "/api"}/batch-video/status/${batchId}`);
+        const body = await res.json();
+        const ready = res.status === 404
+          ? { batch_id: batchId, media: [], error: "Batch not found" }
+          : mediaReadyFromStatus(body?.data);
+        if (ready) {
+          useFloatingChatStore.setState((state) => ({ messages: applyMediaReady(state.messages, ready) }));
+        }
+      } catch {
+        // Offline backend: the placeholder stays until the next open.
+      }
+    });
+  }, [isOpen]);
 
   // Hydrate session mode from backend on sessionId change so `/agent` state
   // survives reloads / re-mounts. Without this, the floating card's
@@ -604,6 +642,7 @@ const FloatingChatCard = () => {
         toolCalls: result.toolCalls || [],
         thinking: result.thinking || "",
         generatedImages,
+        pendingMedia: result.pendingMedia || [],
         truncated: result.truncated === true,
         synthesized: result.synthesized === true,
         timestamp: new Date().toISOString(),

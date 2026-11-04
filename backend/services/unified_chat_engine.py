@@ -20,6 +20,7 @@ from typing import Dict, List, Any, Optional, Callable
 logger = logging.getLogger(__name__)
 
 from backend.utils.display_paths import display_params
+from backend.services import chat_media_followup
 # Shared with AgentExecutor, which refuses these calls instead of showing a card.
 from backend.services.agent_tools import (
     consent_reference as _consent_reference,
@@ -1200,6 +1201,16 @@ _VIDEO_CHROME_RE = re.compile(
     r"(?:short\s+|quick\s+)?video\s*(?:clip\s*)?(?:of|about|showing|where|with|:)?\s*)",
     re.IGNORECASE,
 )
+
+# What is left of "make a video from this image?" once the chrome is gone: a
+# pointer at the picture, which describes neither the scene nor its motion.
+_BACK_REFERENCE_ONLY_RE = re.compile(
+    r"^(?:[\s?.!,]|\b(?:from|of|with|using|based|on|out|for|this|that|the|it|my|same|last|"
+    r"previous|above|image|picture|photo|pic|still|one|please|thanks?|now)\b)*$",
+    re.IGNORECASE,
+)
+# The prompt for a picture someone attached and only pointed at.
+_ANIMATE_AS_IS_PROMPT = "The scene comes to life with natural, gentle motion; the camera holds steady."
 
 # Image, animation, edit, and cinema-clip tools all need the resident chat
 # model off the card before they run.
@@ -3322,6 +3333,7 @@ class UnifiedChatEngine:
         tools_called = False  # Track if any tools were successfully called
         tool_output_snippets: List[str] = []  # Track tool outputs for grounding check
         generated_images: List[Dict[str, str]] = []  # Track generated image URLs for persistence
+        pending_media: List[Dict[str, str]] = []  # Clips still rendering; chat_media_followup adds them
         # Thought continuity: compact per-iteration progress notes that are
         # prepended to each subsequent iteration's user message so the LLM has
         # an explicit working-memory summary instead of having to re-derive its
@@ -3788,6 +3800,9 @@ class UnifiedChatEngine:
                             "caption": vid_info["caption"],
                             "session_id": session_id,
                         })
+                    queued_clip = chat_media_followup.pending_entry(t_name, res.metadata) if res.success else None
+                    if queued_clip:
+                        pending_media.append(queued_clip)
                     if res.metadata and res.metadata.get("audio_url"):
                         spoken = str((t_params or {}).get("text") or "")
                         aud_info = {
@@ -4238,6 +4253,7 @@ class UnifiedChatEngine:
             "request_id": request_id,
             "token_usage": token_usage,
             "generated_images": generated_images,
+            "pending_media": pending_media,
             "thinking": final_thinking,
             "truncated": final_truncated,
             "synthesized": synthesized,
@@ -4265,6 +4281,8 @@ class UnifiedChatEngine:
             extra_data = {"steps": steps, "iterations": iteration} if steps else {}
             if generated_images:
                 extra_data["generatedImages"] = generated_images
+            if pending_media:
+                extra_data["pendingMedia"] = pending_media
             if final_thinking:
                 extra_data["thinking"] = final_thinking
             if web_search_offer:
@@ -4288,7 +4306,9 @@ class UnifiedChatEngine:
                     extra_data["agentThinkingSteps"] = agent_thinking_steps
             except Exception as e:
                 logger.warning(f"[THINKING-PERSIST] drain failed: {e}", exc_info=True)
-            self._save_message(session_id, "assistant", clean_response, extra_data=extra_data or None)
+            saved_id = self._save_message(session_id, "assistant", clean_response, extra_data=extra_data or None)
+            for clip in pending_media:
+                chat_media_followup.follow(self.app, session_id, saved_id, clip["batch_id"])
             self._maybe_summarize_session(session_id)
 
         return {
@@ -4696,6 +4716,8 @@ class UnifiedChatEngine:
         emit_fn("chat:tool_result", {"tool": tool_name, "result": _direct_result})
 
         generated_images = []
+        queued_clip = chat_media_followup.pending_entry(tool_name, result.metadata) if result.success else None
+        pending_media = [queued_clip] if queued_clip else []
         video_url = (result.metadata or {}).get("video_url") if result.success else None
         if video_url:
             caption = (result.metadata or {}).get("prompt") or params.get("prompt") or ""
@@ -4776,6 +4798,9 @@ class UnifiedChatEngine:
 
         if result.success and video_url:
             response = "Here's the generated video."
+        elif queued_clip:
+            response = ("Making the video now. It will play here when it's done, and the bar at the "
+                        "bottom shows how far along it is.")
         elif result.success and image_url:
             response = "Here's the generated image." if tool_name == "generate_image" else str(result.output)
         elif result.success and tool_name in _WORKSTATION_PROSE_TOOLS:
@@ -4797,6 +4822,8 @@ class UnifiedChatEngine:
         }
         if generated_images:
             complete_payload["generated_images"] = generated_images
+        if pending_media:
+            complete_payload["pending_media"] = pending_media
         if tool_name == "generate_image" and not result.success and session_id in _SESSION_PENDING_IMAGE_PROMPT:
             complete_payload["gpu_busy"] = True
             complete_payload["pending_image_prompt"] = _SESSION_PENDING_IMAGE_PROMPT[session_id]
@@ -4807,6 +4834,8 @@ class UnifiedChatEngine:
         emit_fn("chat:complete", complete_payload)
         _dur_ms = int((time.time() - _t0) * 1000)
         extra_data = {"generatedImages": generated_images} if generated_images else None
+        if pending_media:
+            extra_data = {**(extra_data or {}), "pendingMedia": pending_media}
         # Persist the tool-call step (params + result) so the ToolCallCard "thinking
         # step" survives a hard refresh. The /history endpoint maps extra_data["steps"]
         # → toolCalls + isUnifiedChat=True, exactly like the main ReACT loop. Without
@@ -4838,7 +4867,9 @@ class UnifiedChatEngine:
                 extra_data["agentThinkingSteps"] = agent_steps
         except Exception:
             pass
-        self._save_message(session_id, "assistant", response, extra_data=extra_data)
+        saved_id = self._save_message(session_id, "assistant", response, extra_data=extra_data)
+        for clip in pending_media:
+            chat_media_followup.follow(self.app, session_id, saved_id, clip["batch_id"])
         # The CLI calls this over HTTP with no socket to receive chat:image on,
         # so the reply carries the files too.
         return {
@@ -4849,6 +4880,7 @@ class UnifiedChatEngine:
             "request_id": request_id,
             "session_id": session_id,
             "generated_images": generated_images,
+            "pending_media": pending_media,
         }
 
     def _try_media_direct(self, message: str, session_id: str,
@@ -5218,6 +5250,11 @@ class UnifiedChatEngine:
         first_frame = self._video_first_frame(message, session_id)
         if first_frame:
             params["first_image"] = first_frame
+            if _BACK_REFERENCE_ONLY_RE.match(prompt):
+                # The picture made earlier in this chat is described by its own
+                # prompt; an attached one by a plain motion line.
+                made_here = None if getattr(self, "_image_data", None) else _SESSION_LAST_IMAGE_PROMPT.get(session_id)
+                params["prompt"] = made_here or _ANIMATE_AS_IS_PROMPT
         logger.info("Video-gen direct (natural lang): generate_video(prompt=%r, first_image=%s)",
                     prompt[:80], bool(first_frame))
         return self._run_direct_tool_execution(

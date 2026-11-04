@@ -148,7 +148,10 @@
   "generatedMedia": {
     "image": "생성된 이미지",
     "video": "생성된 비디오",
-    "audio": "음성 오디오"
+    "audio": "음성 오디오",
+    "videoPending": "동영상을 만들고 있습니다. 완성되면 여기에서 재생됩니다.",
+    "videoFailed": "동영상을 완성하지 못했습니다: {{error}}",
+    "openInVideoGen": "비디오 생성에서 열기"
   },
   "synthesized": {
     "label": "도구 결과로 조합됨",

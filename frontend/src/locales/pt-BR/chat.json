@@ -155,7 +155,10 @@
   "generatedMedia": {
     "image": "Imagem gerada",
     "video": "Vídeo gerado",
-    "audio": "Áudio falado"
+    "audio": "Áudio falado",
+    "videoPending": "Criando o vídeo. Ele será reproduzido aqui quando estiver pronto.",
+    "videoFailed": "O vídeo não foi concluído: {{error}}",
+    "openInVideoGen": "Abrir em Geração de Vídeo"
   },
   "synthesized": {
     "label": "Montado a partir dos resultados das ferramentas",

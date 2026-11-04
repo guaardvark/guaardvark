@@ -31,6 +31,7 @@ import AgentResultDisplay from "./AgentResultDisplay";
 import { StatusChip } from "../../utils/familyColors";
 import ToolCallCard from "./ToolCallCard";
 import GeneratedMedia from "./GeneratedMedia";
+import { pendingMediaOf } from "./pendingMedia";
 import ThinkingCard from "./ThinkingCard";
 import SynthesizedAnswerChip from "./SynthesizedAnswerChip";
 import { isSynthesizedMessage, isSynthesizedStep } from "./synthesizedAnswer";
@@ -577,6 +578,7 @@ const MessageItem = ({ message, sessionId: sessionIdProp, onOrchestratorUpdate, 
         {/* Generated images and videos (from agent tool calls) */}
         <GeneratedMedia
           items={message.generatedImages}
+          pending={pendingMediaOf(message)}
           onOpenPicture={(pictures, index) =>
             openLightbox(pictures[index].url, pictures[index].name, pictures, index)
           }

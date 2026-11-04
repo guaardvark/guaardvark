@@ -58,6 +58,7 @@ import { attachedPictures, chatErrorMessage } from "../utils/chatAttachment";
 import { createPlan } from "../api/orchestratorService";
 import { mergeActivePlanIntoMessages, hydrateOrchestratorFields } from "../utils/orchestratorChat";
 import { PlanActionsContext } from "../components/chat/planActions";
+import { applyMediaReady } from "../components/chat/pendingMedia";
 import { debugLog } from "../utils/debugLog";
 import { directToolOptions } from "../utils/slashCommandRegistry";
 import { useUiTranslation } from "../i18n";
@@ -350,6 +351,21 @@ const ChatPage = () => {
     return () => {
       socket.off("chat:complete", handleComplete);
       socket.off("chat:thinking", handleAgentStep);
+    };
+  }, [socketRef?.current, sessionId]);
+
+  // chat:media_ready — a video this chat queued finished (or failed): its
+  // reply swaps the placeholder for the clip.
+  useEffect(() => {
+    const socket = socketRef?.current;
+    if (!socket || !sessionId) return;
+    const handleMediaReady = (data) => {
+      if (!data || data.session_id !== sessionId) return;
+      setMessages((prev) => applyMediaReady(prev, data));
+    };
+    socket.on("chat:media_ready", handleMediaReady);
+    return () => {
+      socket.off("chat:media_ready", handleMediaReady);
     };
   }, [socketRef?.current, sessionId]);
 
@@ -799,6 +815,7 @@ const ChatPage = () => {
                   agentThinkingSteps: msg.agentThinkingSteps ?? msg.extra_data?.agentThinkingSteps,
                   agentNote: msg.agentNote ?? msg.extra_data?.agentNote,
                   generatedImages: msg.generatedImages ?? msg.extra_data?.generatedImages,
+                  pendingMedia: msg.pendingMedia ?? msg.extra_data?.pendingMedia,
                   // The pictures the user attached, saved by the HTTP route.
                   imageUrl: msg.imageUrl ?? msg.extra_data?.imageUrl,
                   imageUrls: msg.imageUrls ?? msg.extra_data?.imageUrls,
@@ -2589,6 +2606,7 @@ const ChatPage = () => {
                 isUnifiedChat: true,
                 timestamp: new Date().toISOString(),
                 generatedImages: result.generatedImages || [],
+                pendingMedia: result.pendingMedia || [],
                 agentThinkingSteps: result.agentThinkingSteps || [],
                 thinking: result.thinking || "",
                 planStep: result.planStep,
@@ -2613,6 +2631,7 @@ const ChatPage = () => {
                   isUnifiedChat: true,
                   timestamp: new Date().toISOString(),
                   generatedImages: result.generatedImages || [],
+                  pendingMedia: result.pendingMedia || [],
                   thinkingText: result.thinkingText || "",
                   agentThinkingSteps: result.agentThinkingSteps || [],
                   thinking: result.thinking || "",
