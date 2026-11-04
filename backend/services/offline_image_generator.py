@@ -417,7 +417,10 @@ class OfflineImageGenerator:
         # UI metadata for the visible models (label/description/recommended/order).
         # Drives the centralized dropdown via get_available_models().
         self.model_meta = {
-            "zimage-turbo": {"label": "Z-Image Turbo (Best daily)", "description": "Strong prompt adherence + text, fast (~9 steps / CFG 0). Default daily driver.", "recommended": True, "order": 0},
+            "zimage-turbo": {"label": "Z-Image Turbo (Best daily)", "description": "Strong prompt adherence + text, fast (~9 steps / CFG 0). Default daily driver.", "recommended": True, "order": 0,
+                             # Largest size rendered cleanly on a card this size; Image Gen warns about memory only above it.
+                             "high_res": {"max_pixels": 2688 * 1472, "min_vram_gb": 16,
+                                          "measured": "2688x1472, four pictures per batch, 16 GB NVIDIA card, 2026-11-03"}},
             "flux-dev": {"label": "FLUX.1 Dev (Max quality)", "description": "Highest ceiling stills via ComfyUI (~28 steps, FluxGuidance). Slower; needs Comfy + flux1-dev weights.", "recommended": False, "order": 1, "engine": "comfy"},
             "qwen-image-21": {"label": "Qwen-Image 2.1 (ComfyUI)", "description": "Prose prompts, native 2K, transparent renders; 25 steps, cfg 1 (official template). Needs ComfyUI 0.37+. Qwen Research License: non-commercial research and evaluation only.", "recommended": False, "order": 1, "engine": "comfy"},
             "moss-image": {"label": "MOSS-Image (ComfyUI)", "description": "Exact lettering in English and Chinese, posters and layouts from long prose prompts; 25 steps, cfg 2.5 (official template). Needs ComfyUI 0.42+. Apache 2.0.", "recommended": False, "order": 1, "engine": "comfy"},

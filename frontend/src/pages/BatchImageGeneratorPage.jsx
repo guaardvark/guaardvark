@@ -328,6 +328,12 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
     loadImageModels();
   }, [loadImageModels]);
 
+  // Up to this size the selected model is measured to fit this machine's card (backend registry "high_res").
+  const highResOkPixels = useMemo(() => {
+    const id = params.model === 'auto' ? autoModel : params.model;
+    return (fetchedModelRows.find((m) => m.id === id) || {}).high_res_ok_pixels || null;
+  }, [fetchedModelRows, params.model, autoModel]);
+
   // LoRAs that stack on the selected model's family. "auto" resolves to the
   // stills default on the backend, which is the Z-Image family.
   const family = modelFamily(params.model);
@@ -2248,7 +2254,7 @@ const BatchImageGeneratorPage = ({ embedded = false }) => {
                               ))}
                             </Select>
                             {(comfyStills || isModernDit)
-                              && (params.width * params.height > 1024 * 1024) && (
+                              && (params.width * params.height > Math.max(1024 * 1024, highResOkPixels || 0)) && (
                               <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, display: 'block' }}>
                                 {t('imagesBatch.dimensions.highResWarning')}
                               </Typography>
