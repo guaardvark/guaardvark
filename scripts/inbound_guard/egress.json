@@ -54,6 +54,14 @@
       "sends": "search queries the model writes, so local text can be in them; fetches of public pages they name"
     },
     {
+      "id": "model-code",
+      "title": "Code a chat model writes and runs (execute_python, execute_javascript)",
+      "hosts": [],
+      "any_host": true,
+      "switch": {"all": [{"setting": "allow_web_search"}, {"setting": "model_code_network"}]},
+      "sends": "whatever that code sends; off, it runs with no network or is not run"
+    },
+    {
       "id": "address-suggestions",
       "title": "Address suggestions (Geoapify)",
       "hosts": ["api.geoapify.com"],

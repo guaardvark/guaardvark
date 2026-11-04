@@ -265,7 +265,7 @@ A ReACT-loop agent that can autonomously work with code and the system.
 - **Fallback suggestions** — when a tool fails, the system suggests alternative approaches
 - **Iteration limits** — configurable maximum iterations per agent run
 - **Tool approval gates** — dangerous tools (file write, shell exec) can require human approval per call
-- **No network for model-run code** — `execute_python` and `execute_javascript` run inside a bubblewrap network namespace on Linux, or not at all where none can be made, unless "Internet for code it runs" is on in Settings → Chat
+- **No network for model-run code** — `execute_python` and `execute_javascript` run inside a bubblewrap network namespace on Linux, or not at all where none can be made, unless Web access and its "+ Code it runs" option are both on in Settings → Chat (Web access off or the kill switch turns the option off too)
 - **Web requests only where the chat points** — `fetch_url`, `analyze_website`, `browser_navigate` and a URL in a `web_search` query go only to hosts named in the chat, in an approved plan, or in a search's results in that chat
 
 ### Code Editor Page
@@ -632,8 +632,8 @@ Centralized configuration across six sections.
 - **Voice model selection** — choose TTS voice model
 
 ### Integrations
-- **Web search** — enable/disable web search tool
-- **Interconnector** — toggle and configure multi-machine sync
+- **Web access** — enable/disable the web, browser and address tools; "+ Code it runs" extends it to code the assistant runs
+- **Interconnector** — connect, disconnect and configure multi-machine sync, with a status line in Sync
 - **Pending updates banner** — shows when Interconnector has available updates
 
 ### Appearance

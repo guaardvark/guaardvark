@@ -20,6 +20,13 @@ def test_without_network_the_command_runs_in_a_network_namespace(monkeypatch):
     assert command[-2:] == ["python3", "x.py"]
 
 
+def test_code_network_counts_only_while_web_access_is_on(monkeypatch):
+    for web, code, allowed in ((True, True, True), (False, True, False), (True, False, False)):
+        settings = {code_sandbox.WEB_ACCESS_KEY: web, code_sandbox.SETTING_KEY: code}
+        monkeypatch.setattr(code_sandbox, "_on", lambda key, s=settings: s[key])
+        assert code_sandbox.network_allowed() is allowed
+
+
 def test_without_a_sandbox_the_code_is_not_run(monkeypatch):
     monkeypatch.setattr(code_sandbox, "network_allowed", lambda: False)
     monkeypatch.setattr(code_sandbox, "_bwrap", lambda: None)

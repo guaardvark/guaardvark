@@ -26,15 +26,15 @@ from backend.utils.auth_guard import NETWORK_ACCESS_ENV, network_access_open
 
 DOCKER_NOTE = (
     "This install runs in Docker, where every device reaches Guaardvark through "
-    "Docker's network, so network access cannot tell local devices from others. "
+    "Docker's network, so Trust local network cannot tell local devices from others. "
     "Use the API key instead."
 )
 ENVIRONMENT_NOTE = (
-    "Network access was set outside Settings (in the environment Guaardvark was "
+    "Trust local network was set outside Settings (in the environment Guaardvark was "
     "started with, not in its .env file). Change it where it was set, then "
     "restart Guaardvark."
 )
-READ_ONLY_NOTE = "Guaardvark cannot write its .env file, so network access cannot be changed from here."
+READ_ONLY_NOTE = "Guaardvark cannot write its .env file, so Trust local network cannot be changed from here."
 
 _lock = threading.Lock()
 

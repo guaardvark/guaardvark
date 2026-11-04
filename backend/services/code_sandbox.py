@@ -1,8 +1,9 @@
 """Run code a model wrote without network access.
 
 execute_python and execute_javascript run what a chat model writes. Unless
-the person allows it (Settings, model_code_network; off by default), that code
-runs with no network: on Linux inside a bubblewrap network namespace, where
+the person allows it (Settings, model_code_network, a sub-option of Web access
+that counts only while Web access is on; both off by default), that code runs
+with no network: on Linux inside a bubblewrap network namespace, where
 connections fail with "Network is unreachable" and names do not resolve, while
 files, devices and the working folder stay as they are. Loopback inside the
 namespace is its own, so the code cannot reach local services either. Where no
@@ -24,17 +25,23 @@ from typing import List, Optional, Tuple
 logger = logging.getLogger(__name__)
 
 SETTING_KEY = "model_code_network"
+WEB_ACCESS_KEY = "allow_web_search"
 
 # Same files and devices as a normal run; only the network is new and empty.
 _BWRAP_ARGS = ["--bind", "/", "/", "--dev-bind", "/dev", "/dev", "--proc", "/proc",
                "--unshare-net", "--die-with-parent", "--"]
 
 
+def _on(key: str) -> bool:
+    from backend.utils.settings_utils import get_setting
+    return str(get_setting(key, default="false")).strip().lower() in ("true", "1", "yes", "on")
+
+
 def network_allowed() -> bool:
-    """Whether the person let model-run code use the network (off by default)."""
+    """Whether model-run code may use the network: Web access and its
+    "code it runs" sub-option both on (both off by default)."""
     try:
-        from backend.utils.settings_utils import get_setting
-        return str(get_setting(SETTING_KEY, default="false")).strip().lower() in ("true", "1", "yes", "on")
+        return _on(WEB_ACCESS_KEY) and _on(SETTING_KEY)
     except Exception:
         return False
 
@@ -81,5 +88,5 @@ def wrap(command: List[str]) -> Tuple[Optional[List[str]], Optional[str]]:
     else:
         how = "This system has no sandbox Guaardvark can use to cut code off from the network."
     return None, ("Code the assistant writes runs without internet access, and this machine cannot "
-                  f"enforce that. {how} To run it with network access, turn on \"Let code the "
-                  "assistant runs use the internet\" in Settings → Chat.")
+                  f"enforce that. {how} To run it with network access, turn on Web access and "
+                  "its \"code it runs\" option in Settings → Chat.")

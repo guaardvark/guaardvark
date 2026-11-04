@@ -53,7 +53,7 @@
     "killResults": "Kill Results",
     "killed": "Successfully killed {{count}} processes",
     "killedWithFailures": "Successfully killed {{count}} processes, {{failed}} failed",
-    "webAccessOff": "Web access is now off: no tool, agent task or agent browser can reach outside sites. It stays off until you turn it back on in Settings.",
+    "webAccessOff": "Web access is now off: no tool, agent task, agent browser or code the assistant runs can reach outside sites. It stays off until you turn it back on in Settings.",
     "webAccessFailed": "Web access could not be turned off: {{error}}",
     "unknownError": "unknown error",
     "agentTaskStopped": "The running agent task was stopped.",
