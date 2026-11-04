@@ -31,7 +31,8 @@ export const clearPycache = async () => {
 
 export const getProfile = async () => {
   const response = await fetch(`${BASE_URL}/settings/profile`);
-  return await handleResponse(response);
+  const body = await handleResponse(response);
+  return body?.data ?? body;
 };
 
 export const setProfile = async (name) => {

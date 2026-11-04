@@ -5,6 +5,7 @@ import { useAppStore } from "../../stores/useAppStore";
 import { useSnackbar } from "../common/SnackbarProvider";
 import { ActionButton, Cluster, Line } from "./ui";
 import { useUiTranslation, Trans } from "../../i18n";
+import { DEFAULT_PROFILE } from "../../config/profile";
 
 /**
  * Product Profile — one switch that sets the product shape.
@@ -13,6 +14,10 @@ import { useUiTranslation, Trans } from "../../i18n";
  * restart, because env flags are read once at boot. Nothing is removed by a
  * profile: hidden pages stay reachable by URL, and this card can always put
  * them back.
+ *
+ * Stock installs never need it, so the card shows only when a custom project
+ * does: an extension ships its own profile, or this install runs or has chosen
+ * a profile other than the default (so whoever switched can switch back).
  */
 const ProfileSection = () => {
   const { t } = useUiTranslation();
@@ -61,9 +66,16 @@ const ProfileSection = () => {
     }
   };
 
+  const needed =
+    Boolean(info) &&
+    (available.some((p) => p.source === "extension") ||
+      (info.configured || DEFAULT_PROFILE.name) !== DEFAULT_PROFILE.name ||
+      (activeName || DEFAULT_PROFILE.name) !== DEFAULT_PROFILE.name);
+
   if (error) {
     return <Alert severity="warning">{t("settingsSections.profile.unavailable", { error })}</Alert>;
   }
+  if (!needed) return null;
 
   return (
     <Cluster
