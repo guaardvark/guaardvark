@@ -34,7 +34,7 @@ def launch(
     services and open the REPL (auto-loads GUAARDVARK.md, explores build.py/CSS, etc.).
 
     Lite mode (default): instant start with SQLite, no external dependencies.
-    Full mode: PostgreSQL, Redis, Celery, web UI at localhost:5175.
+    Full mode: PostgreSQL, Redis, Celery, web UI at localhost:5173.
     """
     console = make_console()
 

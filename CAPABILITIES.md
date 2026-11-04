@@ -429,7 +429,7 @@ Montage assembly built into Guaardvark: put clips in a bin, pick a song, and an 
 
 ## Outreach System
 
-Supervised AI for social-media engagement. Production path: **recon → draft → human approve → dispatch** (cadence-gated). Natural language from chat, `/outreach …`, or `llx outreach "…"` queues the same jobs.
+Supervised AI for social-media engagement. Production path: **recon → draft → human approve → dispatch** (cadence-gated). Natural language from chat, `/outreach …`, or `guaardvark outreach "…"` queues the same jobs.
 
 ### Three Phases
 1. **Recon** — search for candidate posts/threads (YouTube keyword topics, Reddit subs, Discord channels). Outputs candidates; **never posts**
@@ -438,7 +438,7 @@ Supervised AI for social-media engagement. Production path: **recon → draft �
 
 ### Natural language control
 - GUI Chat / slash: `/outreach comment on some youtube videos regarding Offline AI or ComfyUI`
-- CLI: `llx outreach "comment on youtube videos regarding Offline AI or ComfyUI"`
+- CLI: `guaardvark outreach "comment on youtube videos regarding Offline AI or ComfyUI"`
 - Chat tools: `outreach_execute_intent`, `outreach_run_pass` (youtube + topics), approve/reject/status/queue
 
 ### Safety
@@ -454,7 +454,7 @@ Supervised AI for social-media engagement. Production path: **recon → draft �
 ### Surfaces
 - **Outreach Review page** at `/outreach` (port from `VITE_PORT`, default 5173)
 - **Activity feed** — Task-backed outreach jobs as `JobKind.OUTREACH`
-- **CLI** — `llx outreach status|queue|approve|<NL>`
+- **CLI** — `guaardvark outreach status|queue|approve|<NL>`
 
 ---
 
@@ -775,7 +775,7 @@ Each plugin lives in `plugins/<name>/` with a `plugin.json` manifest declaring i
 | **Upscaling** | 8202 | GPU image/video upscaling via spandrel + torch.compile |
 | **Vision Pipeline** | 8201 | Real-time scene narration, camera feed, video chat input |
 | **Swarm** | 8210 | Parallel agent orchestration in isolated worktrees |
-| **LoRA Trainer** | 8203 | Train character/environment/prop LoRAs for the Film Crew (CUDA, bf16) |
+| **LoRA Trainer** | — | Train character/environment/prop LoRAs for the Film Crew (CUDA, bf16); runs as a training job, not a server |
 | **Discord Bot** | 8200 | Discord bot integration — chat, image generation, search via Guaardvark backend |
 | **GPU Embedding** | 8204 | GPU-accelerated text embeddings for faster indexing (CPU fallback) |
 | **Video Editor** | 8207 | MLT/Shotcut + auto-editor timelines and renders for the Video Editor and music videos (CPU) |
@@ -808,19 +808,15 @@ Each plugin lives in `plugins/<name>/` with a `plugin.json` manifest declaring i
 - All modals show real-time download progress with speed (MB/s), downloaded/total size, and percentage
 - Accessible from Settings page and relevant generation pages
 
-### Plugin API
-Plugins can register:
-- New API endpoints
-- Background tasks
-- Tool extensions
-- Service hooks
+### Plugins and extensions
+A plugin is a sidecar process: a port, a health check, start and stop, a VRAM budget. Code that runs inside the backend (API blueprints, models, Celery tasks, tools, frontend routes) ships as an extension under `extensions/<id>/`; see [docs/EXTENSIONS.md](docs/EXTENSIONS.md).
 
 ---
 
 ## System Architecture
 
 ### Backend Stack
-- **Flask 3.0** — HTTP server with about 96 REST API modules (auto-discovered)
+- **Flask 3.1** — HTTP server with about 100 REST API modules (auto-discovered)
 - **SQLAlchemy + PostgreSQL** — ORM with about 67 models; Alembic migrations + a custom `schema_sync.py` (single master)
 - **Celery + Redis** — async task processing with two worker pools (main + training/GPU), plus a research worker that an autoresearch run starts for itself and stops when it is done
 - **LlamaIndex** — RAG pipeline with vector storage, entity extraction, hybrid retrieval
@@ -841,7 +837,7 @@ Plugins can register:
 - **Import graph** — load-time imports, imports inside functions and `TYPE_CHECKING` imports kept apart; relative imports, each plugin folder as its own import root, `importlib.import_module` calls, modules started by a script, and the frontend's `@/` alias are resolved; cycles and hub modules come from load-time imports only
 - **Inventories** — Flask routes and the frontend calls that reach them (a service's own base URL resolved), the endpoints each page reaches, Celery tasks, and every registered tool with its class, file and line, how the chat reaches it and whether MCP clients are offered it
 - **Symbols and calls** — definitions with line ranges, and call sites resolved through each file's imports, best effort: a call on an object of unknown type matches by name only, and the answer says so
-- **Subsystems** — 39 named areas defined in `backend/services/system_mapper/subsystems.json`; source files no subsystem claims are reported
+- **Subsystems** — 41 named areas defined in `backend/services/system_mapper/subsystems.json`; source files no subsystem claims are reported
 - **Lifecycle tags** — `active`, `auto-loaded`, `dormant` (nothing outside tests imports it, and no task, route, tool, plugin or script reaches it), `test`, `script`, `config`, `archived`
 - **Findings** — backend routes with no frontend caller and frontend calls with no route, URL collisions, import cycles, dormant and untested modules, unreachable or unregistered tools, backup files, functions referenced nowhere, and runtime-liveness drift; finding ids stay the same across rebuilds
 - **Questions** — `system_map_query` (chat, MCP, `/sysmap <question>`, `GET /api/system-map/query`) answers where a feature lives, what calls a function, what depends on a module and which tests to run after changing it

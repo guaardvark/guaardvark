@@ -166,7 +166,7 @@ All generation runs on your GPU. No cloud APIs, no per-minute billing.
 | **Wan 2.2 14B MoE** | Text to video | 5 s (81 frames @ 16 fps) | 832x480 | 16 GB |
 | **Wan 2.2 14B I2V** | Image to video | 5 s (81 frames @ 16 fps) | 832x480 | 16 GB |
 | **CogVideoX-5B** | Text to video | 6 s (49 frames @ 8 fps) | 720x480 | 16 GB |
-| **CogVideoX-5B I2V** | Image to video | 6 s (49 frames @ 8 fps) | 720x480 | 16 GB |
+| **CogVideoX 1.5 5B I2V** | Image to video | 5 s (81 frames @ 16 fps) | 1360x768 | 16 GB |
 | **LTX-2.3 Distilled FP8** | Text + image to video | ~10 s (161 frames @ 16 fps) | 768x512 | 16 GB |
 | **LTX-2.5 Distilled Int8** | Text + image to video | ~10 s (161 frames @ 16 fps) | 768x512 | 16 GB |
 | **HunyuanVideo 13B** (GGUF Q5) | Text to video | ~3 s (73 frames @ 24 fps, up to 129) | 848x480 | 16 GB |
@@ -484,7 +484,7 @@ Config: `~/.guaardvark/cli.json` (legacy `~/.llx/config.json` is still read). Th
 Browser / CLI (PyPI: guaardvark) / MCP Client (Claude Desktop, Cursor, etc.)
     | HTTP + WebSocket / stdio MCP
     v
-Flask (about 96 API modules, auto-discovered) + Socket.IO
+Flask (about 100 API modules, auto-discovered) + Socket.IO
     |
     +-- AgentBrain (3-tier routing: Reflex → Instinct → Deliberation)
     |
@@ -565,7 +565,7 @@ Guaardvark is open source (MIT) and built in public. Whether you want to try the
 
 | Where | What |
 |-------|------|
-| **Discord** | The Discord bot ships as a plugin: connect it to your own server for local chat, `/imagine` images and search against your own install (see `plugins/discord/`). |
+| **Discord** | The Discord bot ships as a plugin: put your bot token in `.env` as `DISCORD_BOT_TOKEN` (and your server's id as `DISCORD_GUILD_ID` so slash commands appear at once) for local chat, `/imagine` images and search against your own install (see `plugins/discord/`). |
 | **[GitHub Issues](https://github.com/guaardvark/guaardvark/issues)** | Bugs, features, and labeled starter work |
 | **[GitHub Discussions](https://github.com/guaardvark/guaardvark/discussions)** | Questions, ideas and show-and-tell |
 

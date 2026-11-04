@@ -129,8 +129,8 @@ services:
         condition: service_healthy
       ollama:
         condition: service_started
-    # The API plus the two Celery workers start_celery.sh runs natively, with the
-    # same queues. An autoresearch run's worker (queue research) is started in
+    # The API, the two Celery workers start_celery.sh runs natively with the
+    # same queues, and beat for the scheduled jobs. An autoresearch run's worker (queue research) is started in
     # this container on demand by backend/services/research_worker.py.
     command: >
       sh -c "
@@ -139,6 +139,7 @@ services:
         python -m flask run --host 0.0.0.0 --port 5000 &
         CELERY_WORKER_MODE=true celery -A backend.celery_app.celery worker --hostname=main@%h --queues=health,default,indexing,generation,training_gpu --concurrency=1 --max-memory-per-child=4096000 --loglevel=info &
         CELERY_WORKER_MODE=true celery -A backend.celery_app.celery worker --hostname=training@%h --queues=training --concurrency=1 --max-memory-per-child=4096000 --loglevel=info &
+        celery -A backend.celery_app.celery beat --scheduler=backend.celery_beat_gates:GatedScheduler --schedule=/app/data/celerybeat-schedule --loglevel=info &
         wait
       "
 

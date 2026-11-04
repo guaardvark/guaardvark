@@ -2,11 +2,11 @@
 
 Guaardvark is an MCP **client** as well as an MCP server. This page is about
 the client side: it starts MCP servers on this machine (stdio) and gives their
-tools to the assistant in chat, the agents, the web UI and the `llx` CLI.
+tools to the assistant in chat, the agents, the web UI and the `guaardvark` CLI.
 Remote (HTTP) MCP servers are not supported; a config entry with a `url` is
 rejected.
 
-For Guaardvark as an MCP server for other agents, see `llx mcp --help`
+For Guaardvark as an MCP server for other agents, see `guaardvark mcp --help`
 (`serve`, `config`, `install`, `doctor`).
 
 - Client: `backend/services/mcp_client_service.py`, built on the official
@@ -20,7 +20,7 @@ For Guaardvark as an MCP server for other agents, see `llx mcp --help`
 Servers live in `data/config/mcp_servers.json`, in the same `mcpServers`
 format as Claude Desktop; see `mcp_servers.json.example` beside it. You can
 also add servers on the **MCP Servers** page (Settings → Agents → Manage MCP
-servers), with `llx mcp client add`, or through the REST API. Each of these
+servers), with `guaardvark mcp client add`, or through the REST API. Each of these
 writes the file atomically with mode 0600.
 
 ```json
@@ -88,7 +88,7 @@ model, and server-provided descriptions are sanitised.
 | **confirm** | matches `confirmTools`; or the server marks it `destructiveHint`; or it has no `readOnlyHint` and its name looks mutating (write, delete, run, create, send, ...) | The person approves each call |
 | **allow** | matches `autoApproveTools`, marked `readOnlyHint`, or none of the above | Runs without asking |
 
-A **confirm** tool raises the chat's approval card (web and `llx chat`), the
+A **confirm** tool raises the chat's approval card (web and `guaardvark chat`), the
 same card other approval-gated tools use, with its once / session / task
 scopes. It runs only after a yes. On any path with no one to ask (the sync
 chat endpoint, `/api/agent/chat`, Celery, the screen loop) it refuses with an
@@ -98,17 +98,17 @@ explanatory error. `mcp_execute` never approves a gated tool; it names the
 ## CLI
 
 ```bash
-llx mcp client status            # enabled, SDK version, servers, recent errors
-llx mcp client servers           # configured servers and their status
-llx mcp client add fs --command npx --arg -y --arg @modelcontextprotocol/server-filesystem \
+guaardvark mcp client status            # enabled, SDK version, servers, recent errors
+guaardvark mcp client servers           # configured servers and their status
+guaardvark mcp client add fs --command npx --arg -y --arg @modelcontextprotocol/server-filesystem \
     --arg /path/to/shared --auto-connect --deny move_file
-llx mcp client tools fs          # tools with their policy
-llx mcp client call fs read_text_file --arg path=/path/to/shared/notes.md
-llx mcp client call fs write_file --args '{"path": "x", "content": "y"}'   # asks first
-llx mcp client resources | read | prompts | show NAME | reload | remove NAME | audit
+guaardvark mcp client tools fs          # tools with their policy
+guaardvark mcp client call fs read_text_file --arg path=/path/to/shared/notes.md
+guaardvark mcp client call fs write_file --args '{"path": "x", "content": "y"}'   # asks first
+guaardvark mcp client resources | read | prompts | show NAME | reload | remove NAME | audit
 ```
 
-`llx mcp client call` asks `Approve? [y/N]` before a confirm tool. Without a
+`guaardvark mcp client call` asks `Approve? [y/N]` before a confirm tool. Without a
 terminal (`--json`, pipes) it refuses unless the tool matches
 `--approve <glob>`.
 

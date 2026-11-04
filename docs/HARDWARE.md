@@ -193,9 +193,8 @@ Checked on an RX 7900 XTX with a Radeon 780M iGPU: `torch.cuda.device_count()` i
 
 For contributors updating this guide: hardware detection and policy are in
 `backend/services/hardware_policy.py` and `hardware_detector.py`; per-model
-VRAM budgets in `backend/services/video_model_registry.py`; the video
-preflight minimums in `backend/services/comfyui_video_generator.py`
-(`MODEL_MIN_VRAM_GB`); arbitration in
+VRAM budgets and the video preflight floors (`vram_mb` per model and
+`min_vram_gb` per family) in `backend/services/video_model_registry.py`; arbitration in
 `backend/services/gpu_memory_orchestrator.py` and `gpu_resource_policy.py`;
 plugin budgets in each `plugins/*/plugin.json` (`vram_estimate_mb`).
 

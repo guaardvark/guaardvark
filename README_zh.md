@@ -1,6 +1,8 @@
 # Guaardvark
 
-**版本 2.4.1** · [guaardvark.com](https://guaardvark.com)
+**版本 3.4.2** · [guaardvark.com](https://guaardvark.com)
+
+> 本译文基于较早的 README，更新会滞后；最新、最完整的说明请见英文 [README.md](README.md)。
 
 一个完全运行在您自己硬件上的自托管 AI 平台。通过 RAG 与您的文档对话，生成图像和视频，通过桌面风格的 UI 管理文件，使用智能体助手自动化代码，并通过语音与您的 AI 交流——所有这些都通过一个由本地 LLM（通过 Ollama）支持的统一界面完成。
 
@@ -30,7 +32,7 @@
 - **图像库** — 将 AI 生成的图像整理到文件夹中，支持缩略图浏览、带键盘导航的全尺寸灯箱
 - **WordPress 集成** — 从 WordPress 网站拉取内容，进行规模化生成并同步返回
 - **自动化工具** — 浏览器自动化（Playwright），桌面自动化（pyautogui），MCP 服务器集成
-- **CLI** — 通过带有交互式 REPL 的 `llx` 终端工具访问整个平台
+- **CLI** — 通过带有交互式 REPL 的 `guaardvark` 终端工具访问整个平台
 - **插件系统** — 无需修改核心代码的即插即用扩展
 - **主题** — 六个内置主题（五个深色，一个浅色），支持强调色 UI
 - **支持离线** — 所有 AI 处理均通过 Ollama 在本地运行；无需云服务
@@ -96,7 +98,7 @@ cp .env.example .env       # 使用您的配置进行编辑
 ## 架构
 
 ```
-浏览器 UI / llx CLI
+浏览器 UI / guaardvark CLI
         │ HTTP + WebSocket
         ▼
 Flask 应用 (端口 5000)
@@ -146,7 +148,7 @@ guaardvark/
 │   │   ├── hooks/      # 自定义 React hooks
 │   │   └── api/        # 39 个 API 服务模块
 │   └── dist/           # 生产环境构建
-├── cli/                # llx CLI 工具
+├── cli/                # guaardvark CLI 工具
 ├── plugins/            # 插件扩展
 ├── scripts/            # 实用工具和系统管理
 ├── data/               # 运行时数据 (gitignored)
@@ -155,26 +157,26 @@ guaardvark/
 
 ---
 
-## CLI — `llx`
+## CLI — `guaardvark`
 
 安装并使用终端客户端：
 
 ```bash
-cd cli && pip install -e .
-llx init
+pip install guaardvark
+guaardvark init
 ```
 
 ```bash
-llx status                      # 系统仪表盘
-llx chat "explain this codebase" # 带着 RAG 流的对话
-llx chat --no-rag "hello"       # 直连 LLM，无文档上下文
-llx search "query"              # 跨文档语义搜索
-llx files list                  # 浏览文件
-llx files upload report.pdf     # 上传并索引文件
-llx generate csv "50 blog post ideas about AI" --output ideas.csv
-llx jobs watch JOB_ID           # 实时任务进度
-llx rules list                  # 列出系统提示词
-llx                             # 交互式 REPL
+guaardvark status                      # 系统仪表盘
+guaardvark chat "explain this codebase" # 带着 RAG 流的对话
+guaardvark chat --no-rag "hello"       # 直连 LLM，无文档上下文
+guaardvark search "query"              # 跨文档语义搜索
+guaardvark files list                  # 浏览文件
+guaardvark files upload report.pdf     # 上传并索引文件
+guaardvark generate csv "50 blog post ideas about AI" --output ideas.csv
+guaardvark jobs watch JOB_ID           # 实时任务进度
+guaardvark rules list                  # 列出系统提示词
+guaardvark                             # 交互式 REPL
 ```
 
 ---
