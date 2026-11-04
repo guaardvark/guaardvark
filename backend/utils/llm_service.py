@@ -519,22 +519,35 @@ def get_llm_for_startup() -> Ollama:
     from backend.config import LLM_REQUEST_TIMEOUT, get_chat_keep_alive
 
     # Probe what Ollama actually has pulled — ground truth beats stored config.
-    installed = []
+    tags = []
     try:
         import requests
         resp = requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
         if resp.status_code == 200:
-            installed = [m.get("name", "") for m in resp.json().get("models", []) if m.get("name")]
+            tags = [m for m in resp.json().get("models", []) if m.get("name")]
     except Exception as e:
         logger.warning("Could not list Ollama models at startup: %s", e)
+    installed = [m["name"] for m in tags]
 
     model_name = DEFAULT_LLM
     try:
         saved_name = get_saved_active_model_name()
+        listed = None
+        if saved_name and installed and saved_name not in installed:
+            from backend.utils.ollama_resource_manager import installed_name_for
+            listed = installed_name_for(saved_name, tags)
         if saved_name:
             if not installed or saved_name in installed:
                 model_name = saved_name
                 logger.info("Using saved active model: %s", saved_name)
+            elif listed:
+                # The same build under the name Ollama lists. Saving it keeps
+                # every reader of the saved name (chat, Keep ready, the GPU
+                # orchestrator) on one model instead of a fallback.
+                model_name = listed
+                persist_active_model_name(listed)
+                logger.info("Saved active model '%s' is installed as '%s'; using and saving that name.",
+                            saved_name, listed)
             else:
                 logger.warning(
                     "Saved active model '%s' is not installed in Ollama. "
