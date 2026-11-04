@@ -478,7 +478,6 @@
     "backend/api/interconnector_api.py",
     "backend/api/cluster_api.py",
     "backend/api/node_api.py",
-    "backend/api/distributed_api.py",
     "backend/middleware/*",
     "backend/tasks/cluster_heartbeat_sweeper.py",
     "backend/tasks/interconnector_client_heartbeat.py",
@@ -537,7 +536,6 @@
    "name": "models and llm runtime",
    "description": "Which chat, vision and embedding models are installed and what they can do, model selection, the LLM call layer and Ollama settings.",
    "globs": [
-    "backend/services/llm_service.py",
     "backend/utils/llm_*.py",
     "backend/services/model_*.py",
     "backend/services/local_weights.py",
@@ -653,7 +651,6 @@
     "frontend/src/pages/OutreachPage.jsx",
     "frontend/src/components/social/*",
     "frontend/src/api/outreachService.js",
-    "scripts/cleanup_outreach_drafts.py",
     "plugins/discord/*"
    ]
   },
@@ -760,7 +757,6 @@
     "backend/api/bulk_generation_api.py",
     "backend/api/csv_compare_api.py",
     "backend/api/excel_api.py",
-    "backend/api/hierarchy_api.py",
     "backend/api/content_management_api.py",
     "backend/api/enhanced_context_generation_api.py",
     "backend/api/admin_filename_cleanup_api.py",
@@ -887,7 +883,6 @@
     "backend/utils/session_ids.py",
     "backend/utils/text_*.py",
     "backend/utils/screenshot_urls.py",
-    "backend/utils/integration_patch.py",
     "backend/utils/__init__.py",
     "backend/utils/api_usage_analyzer.py",
     "backend/utils/llm_debug_logger.py",

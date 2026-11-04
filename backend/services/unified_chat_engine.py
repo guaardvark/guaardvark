@@ -3449,7 +3449,7 @@ class UnifiedChatEngine:
                         .replace("[tool]", "<tool>")
                         .replace("[/tool]", "</tool>"))
                     # Convert [param_name]value[/param_name] back to XML. Models also
-                    # mix the two forms ("[name>albenze</name>"); left alone, that
+                    # mix the two forms ("[name>value</name>"); left alone, that
                     # parameter was dropped and the call ran with none.
                     parse_input = re.sub(r'\[/(\w+)[\]>]', r'</\1>', parse_input)
                     parse_input = re.sub(r'\[(\w+)[\]>]', r'<\1>', parse_input)

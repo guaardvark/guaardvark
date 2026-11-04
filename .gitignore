@@ -142,7 +142,6 @@ pids/
 
 # Local-only dev tooling config (not part of the shipped test config)
 pyrightconfig.json
-pytest.ini
 
 # Runtime cluster state — regenerated on startup, never committed
 data/cluster/
