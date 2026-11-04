@@ -737,6 +737,22 @@ def _auto_resolves_to(gen) -> Optional[str]:
     return None
 
 
+_VRAM_GB: list = []
+
+
+def _high_res_ok_pixels(meta) -> int | None:
+    """The measured size a model renders cleanly at on this machine's card, from its registry row; None when no
+    measurement covers a card this size. nvidia-smi is read once per process."""
+    high = (meta or {}).get("high_res")
+    if not high:
+        return None
+    if not _VRAM_GB:
+        from backend.services.modelfile_generator import detect_vram_gb
+        _VRAM_GB.append(max(detect_vram_gb() or [0.0]))
+    # A "16 GB" card reports a little under 16 (16376 MiB is 15.99 GiB).
+    return int(high["max_pixels"]) if _VRAM_GB[0] >= high["min_vram_gb"] - 0.5 else None
+
+
 @batch_image_bp.route("/models", methods=["GET"])
 def list_models():
     """List all available models and their installation status."""
@@ -783,6 +799,7 @@ def list_models():
                 # applied (offline_image_generator.enhance_prompt_for_quality).
                 # "tags": CLIP-era models that take the tag suffixes.
                 "prompt_style": prompt_style_for_family(family) if family else prompt_style(model_id),
+                "high_res_ok_pixels": _high_res_ok_pixels(generator.image_generator.model_meta.get(model_id)),
             }
             # A model the user cannot actually run must not sit in the picker — that
             # is how a gated Krea 2 got selected and silently produced SD 1.5 output.
