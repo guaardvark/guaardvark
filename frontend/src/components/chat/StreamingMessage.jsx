@@ -196,6 +196,8 @@ const StreamingMessage = forwardRef(({ chatService, sessionId, onComplete, onSeg
         requestId: data.request_id || null,
         tokenUsage: data.token_usage || null,
         generatedImages: mergedImages,
+        // Clips still rendering; chat:media_ready swaps each for its video.
+        pendingMedia: data.pending_media || [],
         // Cleared on completion — persisting the last "Calling LLM..."
         // status into history caused MessageItem's live spinner to never
         // stop, because its only guard is thinkingText && toolCalls.length.

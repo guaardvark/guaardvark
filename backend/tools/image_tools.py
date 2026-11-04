@@ -374,56 +374,63 @@ class ImageGeneratorTool(BaseTool):
         # Inside a chat turn, Stop ends this render: only the one this call
         # starts, never a Studio or batch job sharing the GPU or ComfyUI.
         should_stop = _chat_stop_check()
+        from backend.services import footer_jobs
         try:
-            if sid_list:
-                from backend.services.character_still_pipeline import render_character_still
-                import tempfile, time as _time
-                out = os.path.join(
-                    tempfile.gettempdir(), f"chat_cast_{int(_time.time() * 1000)}.png"
-                )
-                still = render_character_still(
-                    prompt,
-                    subject_ids=sid_list,
-                    include_bible=True,
-                    source="chat",
-                    width=width,
-                    height=height,
-                    steps=kwargs.get("steps"),
-                    guidance=kwargs.get("guidance") or kwargs.get("guidance_scale"),
-                    seed=seed,
-                    negative_prompt=negative,
-                    output_path=out,
-                    style=style,
-                    keep_pipeline=False,
-                    image_model=model,
-                    should_stop=should_stop,
-                )
-                results = [still]
-                cast_used = True
-            else:
-                from backend.services.stills_pipeline import run_stills_pipeline
+            # A named entry: the GPU claim's own is a fallback the footer hides
+            # while anything else shows. The render reports its steps on it.
+            with footer_jobs.ensure("image_generation", f"Picture: {prompt[:60]}") as footer:
+                if sid_list:
+                    from backend.services.character_still_pipeline import render_character_still
+                    import tempfile, time as _time
+                    out = os.path.join(
+                        tempfile.gettempdir(), f"chat_cast_{int(_time.time() * 1000)}.png"
+                    )
+                    still = render_character_still(
+                        prompt,
+                        subject_ids=sid_list,
+                        include_bible=True,
+                        source="chat",
+                        width=width,
+                        height=height,
+                        steps=kwargs.get("steps"),
+                        guidance=kwargs.get("guidance") or kwargs.get("guidance_scale"),
+                        seed=seed,
+                        negative_prompt=negative,
+                        output_path=out,
+                        style=style,
+                        keep_pipeline=False,
+                        image_model=model,
+                        should_stop=should_stop,
+                    )
+                    results = [still]
+                    cast_used = True
+                else:
+                    from backend.services.stills_pipeline import run_stills_pipeline
 
-                results = run_stills_pipeline(
-                    [prompt],
-                    model=model,
-                    width=width,
-                    height=height,
-                    steps=kwargs.get("steps"),
-                    guidance=kwargs.get("guidance") or kwargs.get("guidance_scale"),
-                    style=style,
-                    negative_prompt=negative,
-                    seed=seed,
-                    source="chat",
-                    enhance=enhance,
-                    director=director,
-                    keep_pipeline=False,
-                    output="chat_copy",
-                    restore_faces=bool(kwargs.get("restore_faces", False)),
-                    hold_gpu=True,
-                    replace_legacy_sd_markers=False,
-                    should_stop=should_stop,
-                )
-                cast_used = False
+                    results = run_stills_pipeline(
+                        [prompt],
+                        model=model,
+                        width=width,
+                        height=height,
+                        steps=kwargs.get("steps"),
+                        guidance=kwargs.get("guidance") or kwargs.get("guidance_scale"),
+                        style=style,
+                        negative_prompt=negative,
+                        seed=seed,
+                        source="chat",
+                        enhance=enhance,
+                        director=director,
+                        keep_pipeline=False,
+                        output="chat_copy",
+                        restore_faces=bool(kwargs.get("restore_faces", False)),
+                        hold_gpu=True,
+                        replace_legacy_sd_markers=False,
+                        should_stop=should_stop,
+                    )
+                    cast_used = False
+                failed = results[0] if results and not results[0].success else None
+                if footer is not None and failed and not (failed.metadata or {}).get("stopped"):
+                    footer.fail(failed.error or "Image generation failed")
             still = results[0] if results else None
             if not still:
                 return ToolResult(success=False, error="No result from stills pipeline")
@@ -1588,6 +1595,62 @@ def _dims_for_ratio(ratio: str, caps: dict) -> tuple:
     return width, height
 
 
+def _ratio_value(ratio: str) -> float:
+    w_part, h_part = ratio.split(":")
+    return float(w_part) / float(h_part)
+
+
+def _frame_for_picture(path: str, model_id: str) -> Optional[tuple]:
+    """(width, height, ratio) for an image-to-video clip asked for with no
+    aspect ratio: the model's declared ratio nearest the picture's, so a
+    square still is not cropped to a wide frame. None when the model's own
+    default frame already has that shape, or the picture cannot be read.
+
+    Sized the way Studio Video Gen sizes it: a model with a declared canvas
+    keeps its short side, any other keeps its default frame's pixel area
+    (Wan 2.2: 1312x736 by default, 992x992 square, as the page's HD Square)."""
+    import math
+    from PIL import Image
+    from backend.services.video_model_registry import clip_defaults_for, model_capabilities
+    caps = model_capabilities(model_id) or {}
+    ratios = [r for r in caps.get("aspect_ratios") or [] if ":" in r]
+    if len(ratios) < 2:
+        return None
+    try:
+        with Image.open(path) as im:
+            pic_w, pic_h = im.size
+        native = clip_defaults_for(model_id)
+        native_w, native_h = int(native["width"]), int(native["height"])
+        picture = pic_w / pic_h
+        best = min(ratios, key=lambda r: abs(math.log(_ratio_value(r) / picture)))
+        r = _ratio_value(best)
+    except Exception:  # noqa: BLE001 - the model's default frame still renders
+        logger.debug("no picture-shaped frame for %s", path, exc_info=True)
+        return None
+    if abs(math.log(r / (native_w / native_h))) < 0.05:
+        return None
+    align = int(caps.get("dimension_alignment") or 16)
+    short_side, max_long = caps.get("short_side"), caps.get("max_long_side")
+    if short_side and max_long:
+        wide = r if r >= 1 else 1 / r
+        long_side = max(short_side, int(round(min(short_side * wide, max_long) / align) * align))
+        if long_side > max_long:
+            long_side = int(max_long // align) * align
+        width, height = (long_side, short_side) if r >= 1 else (short_side, long_side)
+        return width, height, best
+    budget = native_w * native_h
+    if caps.get("max_pixel_area"):
+        budget = min(budget, int(caps["max_pixel_area"]))
+    width = (budget * r) ** 0.5
+    height = width / r
+    width = max(align, int(round(width / align) * align))
+    height = max(align, int(round(height / align) * align))
+    if caps.get("max_pixel_area") and width * height > int(caps["max_pixel_area"]):
+        width = max(align, int((budget * r) ** 0.5 // align) * align)
+        height = max(align, int(((budget * r) ** 0.5 / r) // align) * align)
+    return width, height, best
+
+
 def _ref_list(value) -> list:
     """A reference argument as a list of non-empty strings: a list, one
     string, or a comma-separated string."""
@@ -1968,6 +2031,10 @@ class VideoGeneratorTool(BaseTool):
                 resolved_refs[key].append({"path": path, "include_audio": False} if key == "ref_videos" else path)
         if err:
             return ToolResult(success=False, error=err)
+        if first_path and not (aspect_ratio or "").strip() and not any(resolved_refs.values()):
+            fitted = _frame_for_picture(first_path, model_id)
+            if fitted:
+                params["width"], params["height"], params["metadata"]["aspect_ratio"] = fitted
 
         logger.info("VideoGeneratorTool: model=%s frames=%s steps=%s wait=%s prompt=%r",
                     model_id, duration_frames, num_inference_steps, wait_for_result, prompt[:100])
@@ -2018,7 +2085,9 @@ class VideoGeneratorTool(BaseTool):
                         f"Frames: {duration_frames} | Steps: {num_inference_steps}",
                         f"Open Video Gen: {studio_url}",
                         f"Jobs: {jobs_url}",
-                        "The clip will appear in Studio → Video Gen when finished.",
+                        ("The clip will play in this chat reply when it finishes, and appear in "
+                         "Studio → Video Gen." if _chat_stop_check() is not None else
+                         "The clip will appear in Studio → Video Gen when finished."),
                     ]),
                     metadata={
                         "prompt": prompt,

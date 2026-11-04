@@ -4950,6 +4950,9 @@ def get_chat_history(session_id: str):
 
         # Apply limit and get messages
         messages = query.limit(limit).all()
+        # A clip that finished while no one was waiting for it lands now.
+        from backend.services.chat_media_followup import resolve_history
+        resolve_history(messages)
 
         # Convert to frontend format
         formatted_messages = []
@@ -4970,7 +4973,7 @@ def get_chat_history(session_id: str):
                              'relatedImageUrl', 'imageAnalysis', 'analysisDetails',
                              'generatedImages', 'agentThinkingSteps',
                              'orchestratorPlan', 'orchestratorPlanId',
-                             'web_search_offer')
+                             'web_search_offer', 'pendingMedia')
                 for key in flattened:
                     if key in msg.extra_data:
                         msg_data[key] = msg.extra_data[key]

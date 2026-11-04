@@ -16,6 +16,7 @@ import ThinkingCard from "./ThinkingCard";
 import PlanCard from "./PlanCard";
 import { usePlanActions } from "./planActions";
 import GeneratedMedia from "./GeneratedMedia";
+import { pendingMediaOf } from "./pendingMedia";
 import ImageLightbox from "../images/ImageLightbox";
 import { agentNoteCaption } from "./agentNoteCaptions";
 import copyText from "../../utils/copyText";
@@ -232,6 +233,7 @@ const FloatingChatMessage = ({ message, msg, formatTime }) => {
         {isAssistant && (
           <GeneratedMedia
             items={m.generatedImages}
+            pending={pendingMediaOf(m)}
             onOpenPicture={(images, index) => setLightbox({ images, index })}
             maxWidth="100%"
             maxHeight={300}
