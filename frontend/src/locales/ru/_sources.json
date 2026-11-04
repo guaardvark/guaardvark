@@ -5077,6 +5077,15 @@
     "features.plan.hint": {
       "en": "77306be0f072",
       "out": "5c6b3cac269f"
+    },
+    "generatedMedia.videoPending": {
+      "en": "1e26186fcb97"
+    },
+    "generatedMedia.videoFailed": {
+      "en": "42e5851ba291"
+    },
+    "generatedMedia.openInVideoGen": {
+      "en": "805dfe627528"
     }
   },
   "chatPage": {

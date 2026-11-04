@@ -162,7 +162,10 @@
   "generatedMedia": {
     "image": "Wygenerowany obraz",
     "video": "Wygenerowany film",
-    "audio": "Audio wypowiedziane"
+    "audio": "Audio wypowiedziane",
+    "videoPending": "Tworzę wideo. Odtworzy się tutaj, gdy będzie gotowe.",
+    "videoFailed": "Nie udało się ukończyć wideo: {{error}}",
+    "openInVideoGen": "Otwórz w Generowaniu wideo"
   },
   "synthesized": {
     "label": "Złożone z wyników narzędzi",

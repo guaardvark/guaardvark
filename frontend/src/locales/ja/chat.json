@@ -148,7 +148,10 @@
   "generatedMedia": {
     "image": "生成された画像",
     "video": "生成された動画",
-    "audio": "音声"
+    "audio": "音声",
+    "videoPending": "動画を作成しています。完成するとここで再生されます。",
+    "videoFailed": "動画を完成できませんでした: {{error}}",
+    "openInVideoGen": "ビデオ生成で開く"
   },
   "synthesized": {
     "label": "ツールの結果から構成",

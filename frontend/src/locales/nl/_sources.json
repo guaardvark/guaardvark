@@ -5008,6 +5008,15 @@
     "features.plan.hint": {
       "en": "77306be0f072",
       "out": "b5df42b8fdac"
+    },
+    "generatedMedia.videoPending": {
+      "en": "1e26186fcb97"
+    },
+    "generatedMedia.videoFailed": {
+      "en": "42e5851ba291"
+    },
+    "generatedMedia.openInVideoGen": {
+      "en": "805dfe627528"
     }
   },
   "chatPage": {

@@ -155,7 +155,10 @@
   "generatedMedia": {
     "image": "Gegenereerde afbeelding",
     "video": "Gegenereerde video",
-    "audio": "Gesproken audio"
+    "audio": "Gesproken audio",
+    "videoPending": "De video wordt gemaakt. Hij wordt hier afgespeeld zodra hij klaar is.",
+    "videoFailed": "De video is niet afgemaakt: {{error}}",
+    "openInVideoGen": "Openen in Video Gen"
   },
   "synthesized": {
     "label": "Samengesteld uit resultaten van tools",

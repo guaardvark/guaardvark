@@ -148,7 +148,10 @@
   "generatedMedia": {
     "image": "生成的图像",
     "video": "生成的视频",
-    "audio": "语音音频"
+    "audio": "语音音频",
+    "videoPending": "正在生成视频，完成后会在这里播放。",
+    "videoFailed": "视频未能完成：{{error}}",
+    "openInVideoGen": "在视频生成中打开"
   },
   "synthesized": {
     "label": "由工具结果汇总",
