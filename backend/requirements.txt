@@ -17,7 +17,7 @@ Flask-Executor==1.0.0
 Flask-Migrate==4.1.0
 Flask-SQLAlchemy==3.1.1
 Flask-SocketIO==5.7.0
-flask-cors==6.0.0
+flask-cors==6.0.5
 alembic==1.20.0
 anthropic>=1.7.0
 python-dotenv==1.2.4
