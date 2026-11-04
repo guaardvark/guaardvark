@@ -195,12 +195,65 @@ def _model_size_mb(model: str) -> Optional[int]:
 
 def _loaded_entry(model: str) -> Optional[dict]:
     """The model's /api/ps entry, None when it is not loaded. Raises when
-    Ollama does not answer."""
+    Ollama does not answer.
+
+    Ollama 0.40 lists a model first loaded by a ``llamacpp:<digest>`` alias as
+    ``sha256-<digest>:latest``, so an entry also matches by build when the name
+    resolves to exactly one. Matching by name alone reloaded such a model on
+    every pass."""
     running = requests.get(f"{_ollama_url()}/api/ps", timeout=5).json().get("models", [])
     for entry in running:
         if same_model(entry.get("name"), model):
             return entry
+    if running:
+        from backend.utils.ollama_resource_manager import _short_digest, model_digests
+        digests = model_digests(model)
+        if len(digests) == 1:
+            for entry in running:
+                if _short_digest(entry.get("digest")) in digests:
+                    return entry
     return None
+
+
+def _chat_num_ctx(model: str) -> Optional[int]:
+    """The num_ctx chat sends for ``model``, so the load here is the one chat reuses.
+
+    Ollama reloads a loaded model when a request asks for another num_ctx
+    (gemma4:e2b, 2026-11-03: about 2 s each way, 0.02 s when it matches), and a
+    load without one runs at the Modelfile's default. The window comes from the
+    instance chat calls: AgentBrain's, else the app's, else the resource
+    manager's sizing for the model.
+    """
+    from backend.services.brain_state import BrainState
+    from backend.utils.ollama_resource_manager import refresh_context_window, resolve_num_ctx
+
+    state = BrainState.existing()
+    candidates = []
+    if state is not None:
+        candidates.append(getattr(state, "llm", None))
+        app = getattr(state, "_app", None)
+        if app is not None:
+            candidates.append(app.config.get("LLAMA_INDEX_LLM"))
+    for llm in candidates:
+        name = getattr(llm, "model", None)
+        if not name or not (same_model(name, model) or _same_build(name, model)):
+            continue
+        try:
+            window = refresh_context_window(llm)
+        except Exception:
+            window = getattr(llm, "context_window", 0)
+        if window and window > 0:
+            return int(window)
+    try:
+        return resolve_num_ctx(model)
+    except Exception:
+        return None
+
+
+def _same_build(a: str, b: str) -> bool:
+    from backend.utils.ollama_resource_manager import model_digests
+    da, db = model_digests(a), model_digests(b)
+    return len(da) == 1 and da == db
 
 
 def _pinned(entry: dict) -> bool:
@@ -214,16 +267,16 @@ def _pinned(entry: dict) -> bool:
 
 def _load(model: str) -> None:
     started = time.monotonic()
+    body = {"model": model, "prompt": "", "keep_alive": -1}
+    num_ctx = _chat_num_ctx(model)
+    if num_ctx:
+        body["options"] = {"num_ctx": num_ctx}
     try:
         # An empty prompt loads the model and returns; keep_alive -1 keeps it.
-        response = requests.post(
-            f"{_ollama_url()}/api/generate",
-            json={"model": model, "prompt": "", "keep_alive": -1},
-            timeout=300,
-        )
+        response = requests.post(f"{_ollama_url()}/api/generate", json=body, timeout=300)
         response.raise_for_status()
         _set_status("ready", model=model)
-        logger.info("Keep ready: %s loaded in %.1f s", model, time.monotonic() - started)
+        logger.info("Keep ready: %s loaded at num_ctx %s in %.1f s", model, num_ctx, time.monotonic() - started)
     except Exception as e:
         _set_status("waiting", f"loading {model} failed: {e}", model)
 

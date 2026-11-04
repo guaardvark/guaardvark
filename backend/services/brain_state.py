@@ -292,6 +292,11 @@ class BrainState:
         return cls._instance
 
     @classmethod
+    def existing(cls) -> Optional["BrainState"]:
+        """The singleton when something has created it, without creating one."""
+        return cls._instance
+
+    @classmethod
     def reset(cls):
         """Reset singleton (for testing)."""
         with cls._lock:
