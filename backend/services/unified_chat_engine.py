@@ -1094,6 +1094,12 @@ def _log_whole_read(session_id, tool_name: str, params, out: str) -> None:
         logger.debug("reading log: %s", exc)
 
 
+def _request_line(message: str, limit: int = 600) -> str:
+    """The user's message on one line, cut to ``limit`` characters."""
+    text = " ".join(str(message or "").split())
+    return text if len(text) <= limit else text[:limit].rstrip() + "…"
+
+
 def _research_block(session_id) -> str:
     try:
         from backend.services import research_workspace
@@ -3289,7 +3295,13 @@ class UnifiedChatEngine:
             try:
                 from backend.services import self_analysis
                 if self_analysis.about_self(message, _opts):
-                    _dossier, self._self_focus = self_analysis.dossier(message)
+                    if _opts.get("research_mode"):
+                        # Research reads the code itself; the dossier only points
+                        # the way, and the window needs the room for the reads.
+                        from backend.services.research_mode import DOSSIER_CHARS
+                        _dossier, self._self_focus = self_analysis.dossier(message, budget=DOSSIER_CHARS)
+                    else:
+                        _dossier, self._self_focus = self_analysis.dossier(message)
                     if _dossier:
                         context_parts.append(_dossier)
             except Exception:
@@ -3411,6 +3423,7 @@ class UnifiedChatEngine:
         iteration_thoughts: list = []   # [(iteration_num, note_str), ...]
         # Ids of results cut short this turn and kept whole (research_workspace).
         kept_this_turn: list = []
+        depth_nudged = False   # research mode: one "read more first" per turn
         # Token budget tracking — accumulated across all ReACT iterations.
         token_usage: Dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
 
@@ -3582,6 +3595,20 @@ class UnifiedChatEngine:
                                    and "search_knowledge_base" in (selected_tools or [])
                                    and bool(_UNSEARCHED_GAP_RE.search(final_text)))
                 _unread = not steps and not _skip_tools and bool(options.get("research_mode"))
+                _shallow = (not _unread and not depth_nudged and not _skip_tools
+                            and not options.get("skip_nudges")
+                            and options.get("research_mode") == "code" and not is_aborted(session_id))
+                if _shallow:
+                    from backend.services import research_mode
+                    _depth_nudge = research_mode.depth_nudge(
+                        steps, getattr(self, "_self_focus", None) or [], session_id)
+                    if _depth_nudge:
+                        depth_nudged = True
+                        logger.info(f"[UNIFIED_ENGINE] iter={iteration} research answer after too little reading; asking to read on")
+                        emit_fn("chat:token", {"content": "", "reset": True, "session_id": session_id})
+                        ollama_messages.append({"role": "assistant", "content": final_text[:800]})
+                        ollama_messages.append({"role": "system", "content": _depth_nudge})
+                        continue
                 if not options.get("skip_nudges") and (_claims or _unlooked or _unsearched_gap or _unread):
                     if not claimed_search_retried and not _skip_tools and not is_aborted(session_id):
                         claimed_search_retried = True
@@ -4219,6 +4246,10 @@ class UnifiedChatEngine:
                     f"{continuity_block}"
                     f"Latest tool results:\n{observation_text}\n\n"
                     f"{kb_block}"
+                    # The message that asked is the first to go when the window
+                    # is pruned; without it the model answered a question nobody
+                    # asked (2026-11-05 research yardstick).
+                    f"The user's request: {_request_line(message)}\n"
                     "Continue reasoning toward the user's goal using all findings above. "
                     "If you have sufficient information, give your final answer directly. "
                     "Otherwise, call another tool. Do not repeat a call with the same arguments; "

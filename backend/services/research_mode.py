@@ -59,6 +59,15 @@ _METHOD = {
     ),
 }
 
+# Self-analysis dossier in research mode, in characters (ordinary chat: 6,000).
+# The dossier points at files; the reads are the answer material and need the
+# room in an 8,192-token window.
+DOSSIER_CHARS = 3000
+# Reading calls a code research answer needs before it is accepted: one look
+# at a search hit is not reading the code.
+MIN_CODE_READS = 2
+READ_TOOLS = {"read_code", "read_result", "read_ast_node", "scan", "read_document_section"}
+
 RESEARCH_NUDGE = (
     "This question is answered by reading, and no tool has run yet. Before you answer, look it "
     "up: search for where the answer is, read it, and keep what you find with note. Then answer."
@@ -87,3 +96,25 @@ def method_note(research_kind: str) -> str:
 
 def tools_for(research_kind: str) -> List[str]:
     return CODE_TOOLS if research_kind == "code" else DOCUMENT_TOOLS if research_kind == "documents" else []
+
+
+def depth_nudge(steps: List[Dict[str, Any]], focus: List[str], session_id: Optional[str]) -> str:
+    """The push to read on when a code research answer comes after fewer than
+    MIN_CODE_READS reading calls; empty when it has read enough."""
+    reads = sum(1 for step in steps or [] for call in (step.get("tool_calls") or [])
+                if isinstance(call, dict) and call.get("tool_name") in READ_TOOLS and call.get("success", True))
+    if reads >= MIN_CODE_READS:
+        return ""
+    try:
+        from backend.services import research_workspace
+        read = research_workspace.read_sources(session_id)
+    except Exception:  # noqa: BLE001
+        read = set()
+    unread = [f for f in focus if f not in read][:3]
+    where = (f" Start with {', '.join(unread)}." if unread else
+             " Read the files your answer depends on.")
+    return (
+        f"Before answering: you have read {reads} place(s) of code for this question, and an answer "
+        f"about how code works needs the code itself.{where} Read them with read_code (in pages), "
+        "keep what you find with note, then answer from your notes with file:line."
+    )
