@@ -251,6 +251,9 @@ class ProcessFileTool(BaseTool):
     """Extract the text of a document or image the user points at."""
 
     name = "process_file"
+    # The extracted text is the answer; a longer text is kept whole and read
+    # on with read_result.
+    observation_chars = 4000
     read_only = True
     description = (
         "Extract the text of one document or image, after a header line 'Text of <path> (<format>, "

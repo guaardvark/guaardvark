@@ -374,7 +374,7 @@ class PlanModeRunner:
             max_steps=pmd.PLAN_MAX_STEPS, kinds=pmd.kinds_text(available), tools=", ".join(available),
             missing=pmd.compose_unavailable(available, web=web_access_on()))
         user = compose_input(objective=objective, reply=reply, steps=steps, attempted=attempted,
-                             current=current, history=_history_text(session_id))
+                             current=current, history=_history_text(session_id), session_id=session_id)
         if correction:
             user += "\n\n" + pmd.COMPOSE_CORRECTION.format(abilities=pmd.abilities(available))
         return compose_plan(model, system, user, num_ctx=num_ctx, reply=reply,
@@ -386,7 +386,7 @@ class PlanModeRunner:
              steps, options, image_url):
         haystack = "\n".join([
             objective or "", _history_text(session_id),
-            research_digest(steps),
+            research_text(steps, session_id),
             current.markdown if current is not None and current.markdown else "",
         ])
         web_used = any(
@@ -478,7 +478,7 @@ def plan_from_attempts(attempted: List[Dict[str, Any]], *, objective: str) -> "C
     return ComposeResult("plan", {"kind": "plan", "goal": objective[:200], "steps": steps}, "attempted")
 
 
-def compose_input(*, objective, reply, steps, attempted, current, history) -> str:
+def compose_input(*, objective, reply, steps, attempted, current, history, session_id=None) -> str:
     parts = [f"Request: {objective}"]
     if history:
         parts.append(f"Conversation before it (latest last):\n{history[-pmd.COMPOSE_HISTORY_CHARS:]}")
@@ -488,7 +488,7 @@ def compose_input(*, objective, reply, steps, attempted, current, history) -> st
         if done:
             parts.append("These steps already ran; write only the steps that remain:\n"
                          + "\n".join(f"- {s.get('title')}" for s in done))
-    found = research_digest(steps)
+    found = research_digest(steps, session_id)
     if found:
         parts.append(f"What the research found:\n{found}")
     if reply:
@@ -499,19 +499,48 @@ def compose_input(*, objective, reply, steps, attempted, current, history) -> st
     return "\n\n".join(parts)
 
 
-def research_digest(steps: List[Dict[str, Any]]) -> str:
-    """Tool calls and their results from the research, newest last, cut to fit."""
+def _call_text(call: Dict[str, Any], session_id: Optional[str]) -> str:
+    """A research call's whole result when the chat kept it, else its preview."""
+    rid = call.get("result_id")
+    if rid and session_id:
+        from backend.services import research_workspace
+        kept = research_workspace.load(session_id, rid)
+        if kept is not None:
+            return kept
+    return str(call.get("output_preview") or "")
+
+
+def _research_calls(steps: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [call for step in steps or [] for call in (step.get("tool_calls") or [])
+            if isinstance(call, dict)]
+
+
+def research_digest(steps: List[Dict[str, Any]], session_id: Optional[str] = None) -> str:
+    """Tool calls and their results from the research, each with a fair share
+    of COMPOSE_RESEARCH_CHARS, so the first search is not dropped to make room
+    for the last read."""
+    calls = _research_calls(steps)
+    if not calls:
+        return ""
+    share = max(400, pmd.COMPOSE_RESEARCH_CHARS // len(calls) - 220)
     lines: List[str] = []
-    for step in steps or []:
-        for call in step.get("tool_calls") or []:
-            if not isinstance(call, dict):
-                continue
-            name = call.get("tool_name") or "?"
-            outcome = "" if call.get("success", True) else "(failed) "
-            lines.append(f"[{name}] {json.dumps(call.get('params') or {}, default=str)[:200]}\n"
-                         f"{outcome}{str(call.get('output_preview') or '')[:1500]}")
-    text = "\n\n".join(lines)
-    return text[-pmd.COMPOSE_RESEARCH_CHARS:]
+    for call in calls:
+        name = call.get("tool_name") or "?"
+        outcome = "" if call.get("success", True) else "(failed) "
+        text = _call_text(call, session_id)
+        if len(text) > share:
+            text = text[:share].rstrip() + f" … [{len(text):,} characters in all]"
+        lines.append(f"[{name}] {json.dumps(call.get('params') or {}, default=str)[:200]}\n"
+                     f"{outcome}{text}")
+    return "\n\n".join(lines)[-pmd.COMPOSE_RESEARCH_CHARS:]
+
+
+def research_text(steps: List[Dict[str, Any]], session_id: Optional[str] = None) -> str:
+    """Everything the research read, uncut: what a plan's names and paths are
+    checked against, so a path found early is not called invented."""
+    return "\n\n".join(
+        f"{json.dumps(call.get('params') or {}, default=str)}\n{_call_text(call, session_id)}"
+        for call in _research_calls(steps))
 
 
 def _history_text(session_id: str) -> str:

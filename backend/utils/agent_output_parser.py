@@ -513,27 +513,33 @@ def format_tool_result_for_llm(tool_name: str, result, format: str = 'json') -> 
                 obs["output"] = _cap(relativize_local_paths(str(result.output)))
         return json.dumps(obs, default=str)
 
-    # Legacy XML format (kept for unified_chat_engine)
+    # Legacy XML format (kept for unified_chat_engine). Metadata comes before
+    # the output: the chat cuts a long observation from the end, and the
+    # facts about a result (a page's line range, a file's size) must survive.
+    prefix, out_text = observation_parts(tool_name, result)
+    if not result.success and not out_text:
+        return f"{prefix}{_cap(failure_text(result))}\n</observation>"
+    return f"{prefix}{_cap(out_text)}\n</observation>"
+
+
+def observation_parts(tool_name: str, result) -> tuple:
+    """The XML observation split in two: everything before the output, and
+    the output itself, uncapped. The chat keeps the output in full when it is
+    longer than the model's window and shows its head (research_workspace)."""
     if result.success:
-        output = f"<observation tool='{tool_name}'>\n"
-        output += f"Status: Success\n"
+        prefix = f"<observation tool='{tool_name}'>\nStatus: Success\n"
+        if result.metadata and tool_name not in ("generate_image", "generate_animation"):
+            prefix += f"Metadata: {_compact_metadata(result.metadata)}\n"
         out_text = str(result.output) if result.output else ""
         if tool_name in ("generate_image", "generate_animation", "agent_screen_capture"):
             import re
             out_text = re.sub(r'/api/\S+', '[image delivered to user]', out_text)
             out_text = re.sub(r'/home/\S+', '', out_text)
             out_text = re.sub(r'gen_\w+\.png', '', out_text)
-        output += f"Output:\n{_cap(out_text)}\n"
-        if result.metadata and tool_name not in ("generate_image", "generate_animation"):
-            output += f"\nMetadata: {_compact_metadata(result.metadata)}\n"
-        output += "</observation>"
-    else:
-        output = f"<observation tool='{tool_name}'>\n"
-        output += f"Status: Failed\n"
-        output += f"Error: {_cap(failure_text(result))}\n"
-        if result.output and result.error:
-            output += f"Output:\n{_cap(relativize_local_paths(str(result.output)))}\n"
-        output += "</observation>"
-
-    return output
+        return prefix + "Output:\n", out_text
+    prefix = f"<observation tool='{tool_name}'>\nStatus: Failed\n"
+    if result.output and result.error:
+        prefix += f"Error: {_cap(failure_text(result))}\nOutput:\n"
+        return prefix, relativize_local_paths(str(result.output))
+    return prefix + "Error: ", ""
 

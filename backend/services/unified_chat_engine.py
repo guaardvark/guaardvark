@@ -1049,6 +1049,28 @@ _MEDIA_CALL_AS_TEXT_RE = re.compile(
 )
 
 
+def _cut_observation(session_id, tool_name: str, params, result, formatted: str, budget: int):
+    """An observation longer than its budget: the head the model reads, and
+    the id the whole output is kept under (None when it could not be kept).
+
+    The output is kept in full for the chat (research_workspace) and the
+    footer says how much was shown and the read_result call that reads on.
+    When keeping fails the old cut stands, with the sizes said plainly.
+    """
+    from backend.utils.agent_output_parser import observation_parts
+    prefix, out_text = observation_parts(tool_name, result)
+    if out_text and len(prefix) < budget // 2:
+        try:
+            from backend.services import research_workspace
+            text, kept_id = research_workspace.cut_with_handle(
+                session_id, tool_name, params, out_text, prefix, budget)
+            return text + "\n</observation>", kept_id
+        except Exception as exc:  # noqa: BLE001 - a full disk must not end the turn
+            logger.warning("Could not keep the %s result: %s", tool_name, exc)
+    head = cut_on_whitespace(formatted, budget)
+    return f"{head}\n[Cut: shown {len(head):,} of {len(formatted):,} characters.]", None
+
+
 def _assistant_turn_text(llm_response: str, tool_calls) -> str:
     """What the next prompt shows as this step's assistant turn: the reply, or,
     when the calls came as structured tool_calls with no text, those calls in
@@ -3339,6 +3361,8 @@ class UnifiedChatEngine:
         # an explicit working-memory summary instead of having to re-derive its
         # progress from the raw XML message history.
         iteration_thoughts: list = []   # [(iteration_num, note_str), ...]
+        # Ids of results cut short this turn and kept whole (research_workspace).
+        kept_this_turn: list = []
         # Token budget tracking — accumulated across all ReACT iterations.
         token_usage: Dict[str, int] = {"input_tokens": 0, "output_tokens": 0}
 
@@ -4012,6 +4036,20 @@ class UnifiedChatEngine:
                 step_info["tool_calls"].append(step_call)
 
                 formatted = format_tool_result_for_llm(tool_name, result, format='xml')
+                # The model reads each result through the tool's own window
+                # (BaseTool.observation_chars): a search tool's result is the
+                # answer material, 500 chars of it left the model with a header
+                # and no code in the 2026-09-08 trial. A longer result is kept
+                # whole under an id, and the model is told how much it saw and
+                # how to read on, instead of losing the rest.
+                _tool_obj = self.registry.get_tool(tool_name)
+                _budget = int(getattr(_tool_obj, "observation_chars", 500) or 500)
+                if len(formatted) > _budget:
+                    formatted, kept_id = _cut_observation(
+                        session_id, tool_name, params, result, formatted, _budget)
+                    if kept_id:
+                        step_call["result_id"] = kept_id
+                        kept_this_turn.append(kept_id)
                 if not result.success:
                     fallback = guard.suggest_fallback(tool_name)
                     fallback_msg = f" Alternative: {fallback}" if fallback else ""
@@ -4019,14 +4057,6 @@ class UnifiedChatEngine:
                         f"\n[TOOL ERROR: {tool_name} failed: {failure_text(result)[:300]}. "
                         f"Do NOT retry with the same parameters.{fallback_msg}]"
                     )
-                # Cap tool result text to reduce context bloat between iterations.
-                # The budget is the tool's own (BaseTool.observation_chars): a
-                # search tool's result is the answer material, 500 chars of it
-                # left the model with a header and no code in the 2026-09-08 trial.
-                _tool_obj = self.registry.get_tool(tool_name)
-                _budget = int(getattr(_tool_obj, "observation_chars", 500) or 500)
-                if len(formatted) > _budget:
-                    formatted = cut_on_whitespace(formatted, _budget) + "... [truncated]"
                 observation_text += formatted + "\n"
 
             # Append any blocked-call observations
@@ -4130,7 +4160,10 @@ class UnifiedChatEngine:
                     f"{kb_block}"
                     "Continue reasoning toward the user's goal using all findings above. "
                     "If you have sufficient information, give your final answer directly. "
-                    "Otherwise, call another tool. Do not repeat tool calls that already ran."
+                    "Otherwise, call another tool. Do not repeat a call with the same arguments; "
+                    "reading the next part of a result or file is a new call."
+                    + (f" Results cut short are kept whole ({', '.join(kept_this_turn[-6:])}); "
+                       "read_result reads on in them." if kept_this_turn else "")
                 )
             })
 

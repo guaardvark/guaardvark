@@ -131,7 +131,12 @@ def test_findings_for_a_folder(mapped):
 def test_unknown_things_say_so(mapped):
     assert "No definition named 'nope_xyz'" in _ask(mapped, "symbol", "nope_xyz")
     assert "No backend route" in _ask(mapped, "route", "/api/none")
-    assert "Unknown mode" in _ask(mapped, "explain", "x")
+
+
+def test_an_unknown_mode_is_answered_as_where(mapped):
+    text = _ask(mapped, "search", "chat engine")
+    assert text.startswith("(No mode 'search'; answered as 'where'.")
+    assert "Unknown mode" not in text
 
 
 @pytest.mark.parametrize("question, mode, arg", [

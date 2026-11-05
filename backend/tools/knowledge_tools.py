@@ -23,6 +23,9 @@ from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 logger = logging.getLogger(__name__)
 
 _MAX_TEXT = 1200
+# Characters of passages one read_document_section call returns (inside its
+# observation_chars with the header).
+SECTION_PAGE_CHARS = 5200
 
 # RAPTOR writes corpus-level summaries into the same table as the documents they
 # were built from (backend/services/raptor_service.py). They are retrievable
@@ -378,7 +381,10 @@ class ReadDocumentSectionTool(BaseTool):
 
     name = "read_document_section"
     read_only = True
-    observation_chars = 2000  # a section is up to _MAX_TEXT (1200) characters plus its header
+    # A page of passages plus the header; SECTION_PAGE_CHARS keeps the page
+    # inside it, so the offset the reply gives starts at the first passage
+    # the model did not see.
+    observation_chars = 6000
     description = (
         "Read the stored text of an indexed document, without searching, in document order. Pass "
         "source_filename plus heading_path or page_label from get_document_outline to read one "
@@ -386,9 +392,9 @@ class ReadDocumentSectionTool(BaseTool):
         "'(no section)' reads the passages the outline lists under that label (no heading and no "
         "page, e.g. a plain .txt file); any other heading_path matches every section whose path "
         "contains the text (case-insensitive), so a short value can return several sections. With "
-        "neither, it reads the whole document from the start. Returns up to 25 passages per call, "
-        "each cut at 1,200 characters and labelled with its section or page as the outline names "
-        "it; the header gives the total and the offset for the next call. When several indexed "
+        "neither, it reads the whole document from the start. Returns the passages that fit in one "
+        "page (up to 25), each cut at 1,200 characters and labelled with its section or page as the "
+        "outline names it; the header gives the total and the offset for the next call. When several indexed "
         "files share the filename, the reply lists them with their document_id and no text: call "
         "again with document_id. To locate a topic first "
         "use search_knowledge_base; for a file that is not indexed, process_file."
@@ -477,10 +483,7 @@ class ReadDocumentSectionTool(BaseTool):
             head += f" · page {page_label}"
         if not heading_path and not page_label:
             head += " · whole document"
-        span = f"passages {offset + 1}-{offset + len(rows)}" + (f" of {total}" if total is not None else "")
-        lines = [f"{head} — {span}"]
-        if total is not None and offset + len(rows) < total:
-            lines.append(f"(more: call again with offset={offset + len(rows)})")
+        passages, used = [], 0
         for i, (text, meta) in enumerate(rows, 1):
             m = _meta(meta)
             # Chunks are stored with a contextual prefix for embedding; show the raw text.
@@ -488,8 +491,20 @@ class ReadDocumentSectionTool(BaseTool):
             if len(body) > _MAX_TEXT:
                 body = body[:_MAX_TEXT].rstrip() + "…"
             label = _section_label(m.get("heading_path"), m.get("page_label"))
-            lines.append(f"\n[{i}] {label}\n{body}")
-        return ToolResult(success=True, output="\n".join(lines), metadata={"passages": len(rows)})
+            block = f"\n[{offset + i}] {label}\n{body}"
+            if passages and used + len(block) > SECTION_PAGE_CHARS:
+                break
+            passages.append(block)
+            used += len(block)
+        shown_to = offset + len(passages)
+        span = f"passages {offset + 1}-{shown_to}" + (f" of {total}" if total is not None else "")
+        lines = [f"{head} — {span}"]
+        if total is not None and shown_to < total:
+            lines.append(f"(more: call again with offset={shown_to})")
+        lines.extend(passages)
+        return ToolResult(success=True, output="\n".join(lines),
+                          metadata={"passages": len(passages), "next_offset": shown_to
+                                    if total is not None and shown_to < total else None})
 
 
 class CorpusSummaryTool(BaseTool):

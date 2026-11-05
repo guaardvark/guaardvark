@@ -950,12 +950,16 @@ def parse(question: str) -> tuple[str, str]:
 
 def answer(root: Path, snapshot: dict, index: dict, mode: str, arg: str) -> str:
     mode = (mode or "").strip().lower()
+    note = ""
     if mode not in _HANDLERS:
-        return f"Unknown mode '{mode}'. Modes: {', '.join(MODES)}"
+        # A model that guesses "search" or "find" means a lookup; answering
+        # with an error ended its research on the first call.
+        note = f"(No mode '{mode}'; answered as 'where'. Modes: {', '.join(MODES)}.)\n"
+        mode, arg = parse(arg)
     if mode != "findings" and not (arg or "").strip():
-        return f"{mode} needs something to look up, e.g. {mode} " + {
+        return note + f"{mode} needs something to look up, e.g. {mode} " + {
             "where": "image seed box", "module": "backend/services/chat_turn.py", "symbol": "run_chat_turn",
             "route": "/api/chat/unified", "tool": "generate_image", "subsystem": "chat engine",
             "impact": "backend/services/agent_tools.py"}.get(mode, "x")
     v = view_for(root, snapshot, index)
-    return _HANDLERS[mode](v, arg)
+    return note + _HANDLERS[mode](v, arg)

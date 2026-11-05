@@ -424,6 +424,28 @@ def register_system_tools() -> List[str]:
     return registered
 
 
+def register_research_tools() -> List[str]:
+    """Register the reader for tool results the chat kept in full (research_workspace)."""
+    global _tool_categories
+    registered = []
+    category = "research"
+
+    try:
+        from backend.tools.research_tools import ReadResultTool
+
+        register_tool(ReadResultTool())
+        registered.append("read_result")
+        _tool_categories["read_result"] = category
+        logger.debug("Registered: ReadResultTool")
+
+    except ImportError as e:
+        logger.error(f"Failed to import research tools: {e}")
+    except Exception as e:
+        logger.error(f"Failed to register research tools: {e}")
+
+    return registered
+
+
 def register_records_tools() -> List[str]:
     """Register the lookup over Guaardvark's own records (projects, clients, ...)"""
     global _tool_categories
@@ -900,6 +922,7 @@ def initialize_all_tools() -> ToolRegistry:
     _registered_tools.extend(register_system_tools())
     _registered_tools.extend(register_memory_tools())
     _registered_tools.extend(register_records_tools())
+    _registered_tools.extend(register_research_tools())
     _registered_tools.extend(register_rag_tools())
     _registered_tools.extend(register_media_tools())
     _registered_tools.extend(register_image_tools())
