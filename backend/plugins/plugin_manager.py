@@ -86,6 +86,33 @@ def _ollama_external_refusal(verb: str) -> Dict[str, Any]:
     }
 
 
+# A service does not always answer at ``localhost:<port>``. When the backend
+# runs in a container, a host-run Ollama or ComfyUI is reachable only through an
+# address the user exported (``OLLAMA_BASE_URL=http://host.containers.internal:11434``,
+# ``GUAARDVARK_COMFYUI_URL=...``). Every consumer already reads those, but the
+# manager probed localhost, so the Plugins page said "stopped" and each plugin
+# depending on the service refused to start (#377).
+SERVICE_URL_ENV = {
+    'ollama': 'OLLAMA_BASE_URL',
+    'comfyui': 'GUAARDVARK_COMFYUI_URL',
+}
+
+
+def service_url_override(plugin_id: Optional[str]) -> Optional[str]:
+    """The address the user pointed this service at, if they set one.
+
+    Only an exported variable counts. ``backend.config`` defaults
+    ``OLLAMA_BASE_URL`` to ``127.0.0.1:11434``, which is the address the
+    manifest already carries, so reading a default would restate the manifest
+    and would silently outrank a ``plugin.local.json`` overlay.
+    """
+    env_name = SERVICE_URL_ENV.get(str(plugin_id or '').strip().lower())
+    if not env_name:
+        return None
+    value = (os.environ.get(env_name) or '').strip()
+    return value.rstrip('/') or None
+
+
 class PluginOperationGate:
     """Traffic light for plugin start/stop operations.
 
@@ -488,6 +515,11 @@ class PluginManager:
 
     @staticmethod
     def _service_url(metadata: PluginMetadata) -> Optional[str]:
+        # An exported address is an explicit choice and wins, the same order
+        # backend/utils/comfyui_url.py documents for its consumers.
+        override = service_url_override(getattr(metadata, 'id', None))
+        if override:
+            return override
         service_url = metadata.config.service_url
         if not service_url and metadata.port:
             service_url = f"http://localhost:{metadata.port}"
@@ -1476,11 +1508,8 @@ class PluginManager:
         
         if metadata.type == 'service':
             health_endpoint = metadata.endpoints.get('health', '/health')
-            service_url = metadata.config.service_url
-            
-            if not service_url and metadata.port:
-                service_url = f"http://localhost:{metadata.port}"
-            
+            service_url = self._service_url(metadata)
+
             if not service_url:
                 return {'status': 'error', 'error': 'No service URL configured'}
             
