@@ -14,7 +14,7 @@ something is untested we say so and under-promise.
 |------|----------|----------------|
 | **A — CPU-only / no NVIDIA GPU** | none | Chat + RAG (keyword-first retrieval), voice in and out, the parallel coding-agent Swarm, the video editor, MCP. No image, video, or music generation; no upscaling. |
 | **B — Entry GPU** | 8–12 GB | Everything above, plus vector RAG, screen agents, SD/SDXL-class image generation, upscaling, and (at 12 GB) music generation. Video: at 12 GB the Wan 2.2 5B passes the preflight (its floor is 11 GB); every other video family needs 16 GB, and 8 GB cards get no video. |
-| **C — Design target** | 16 GB | The tier Guaardvark is built and tested on. The full stack: FLUX-class images, Wan 2.2 / LTX / CogVideoX video, music + neural voice, Film Crew, music videos — one heavy job at a time. |
+| **C — Design target** | 16 GB | The whole studio: every image model, every video model except the two larger MiniMax H3 builds (24 GB and 48 GB), music, sound effects and voices, LoRA training, Film Crew, music videos. |
 | **D — Headroom** | 20–24 GB+ | Concurrency and quality upgrades: two resident LLMs, heavier image models preferred automatically, text encoders stay on-GPU, larger agent step budgets, full-batch LoRA training. |
 
 A single NVIDIA (CUDA) GPU is the primary target. AMD and Apple Silicon support
@@ -81,20 +81,26 @@ What works, and how the system adapts:
 
 ## Tier C — the 16 GB design target
 
-16 GB is the tier the project is engineered against ("the 16 GB ceiling is the
-design target" — `hardware_policy.py`), and where everything has been tuned to
-coexist:
+One 16 GB card runs the whole studio ("the 16 GB ceiling is the design target" —
+`hardware_policy.py`):
 
-- Wan 2.2 TI2V-5B, the default video model, was built for 16 GB cards; the
-  LTX-2.3 FP8 and LTX-2.5 int8 variants specifically target 16 GB
+- Every image model: Z-Image Turbo, FLUX.1, FLUX 3 Klein, Krea 2, Qwen-Image 2.1,
+  MOSS-Image and SDXL, and the Qwen-Image-Edit, FLUX Kontext and MOSS-Image
+  editors. Each needs 8–14 GB (`video_model_registry.py`, `media_model_registry.py`).
+- Every video model except the two larger MiniMax H3 builds (Int8 unpruned for
+  24 GB, BF16 for 48 GB): Wan 2.2 14B and 5B, LTX-2.3 FP8, LTX-2.5 Int8,
+  HunyuanVideo 13B, CogVideoX-5B, and MiniMax H3 Int8 and H3 Reference Int8 with
+  their own soundtrack. LTX-2.3 FP8 and LTX-2.5 Int8 were made for 16 GB
   Ada-generation cards.
-- Image pipelines automatically enable sequential CPU offload on cards
-  ≤ 18 GB; Wan's text encoders are placed on the CPU on cards ≤ 20 GB. Both
-  are automatic — no settings to find.
-- Film Crew and music-video renders claim ~14 GB exclusively and evict the
-  chat model and ComfyUI caches before starting (see the contention section).
-- Expect **one heavy job at a time**: chat plus a render works because the
-  render evicts chat and it reloads after; two renders do not overlap.
+- Image pipelines switch on sequential CPU offload by themselves on cards
+  ≤ 18 GB, and Wan's text encoders sit on the CPU on cards ≤ 20 GB. No settings
+  to find.
+- The GPU orchestrator gives each render the card it needs: Film Crew and
+  music-video renders claim ~14 GB and move the chat model and ComfyUI caches
+  out first, chat reloads afterwards, and the next render starts as soon as the
+  card is free (see the contention section).
+
+Everything Guaardvark does runs on that one card: Video Generation, Image Generation, Image Editing, Infographics, Upscaling (4K/8K), Music Generation, Sound Effects, Text to Speech, Voice Cloning, Voice Chat, RAG (Chat With Your Files), Local Chat, Plan Mode, Film Crew Agents, Music Video Director, Video Editor, LoRA Training, Cast Library (Consistent Characters), Agent Screen, Desktop Control, Coding Agents (Swarm), Code Editor, System Map, Self-Improvement, Autoresearch, MCP Server and Client, Agent Skills, Claude Code, Grok and Antigravity Plugins, CLI, GPU Orchestrator, Plugin Manager, Multi-Machine Sync, File Manager, Projects, Clients and Websites, Notes, Jobs and Scheduling, Backups, Social Posting, WordPress, Discord Bot, Inbound Code Guard, Works Offline, 12 Interface Languages.
 
 ## Tier D — headroom (20–24 GB+)
 
