@@ -825,7 +825,23 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
         return NumCtxDecision(default, resolved=False)
 
     resources = get_system_resources()
+    if _count_resident_model():
+        entry = resident_entry(model_name)
+        if entry:
+            # The model's own weights and cache are part of "used": sized
+            # against what was left, a loaded gemma4:12b looked like it needed
+            # CPU offload and got 8,192. On a 16 GB card it takes 7.80 GiB at
+            # 8,192 and 7.84 GiB at 32,768, all on the GPU (measured 2026-11-05).
+            resources = dict(resources, gpu_free_mb=resources["gpu_free_mb"]
+                             + int(entry.get("size_vram") or 0) / (1024 * 1024))
     return NumCtxDecision(_size_num_ctx(model_name, model_info, resources), resolved=True)
+
+
+def _count_resident_model() -> bool:
+    """Hook, off by default: size a loaded model counting its own memory as
+    free (GUAARDVARK_CTX_COUNT_RESIDENT=1). Off, a loaded model is sized
+    against what is left beside it, the behaviour fresh installs have."""
+    return os.environ.get("GUAARDVARK_CTX_COUNT_RESIDENT", "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]) -> int:
