@@ -431,12 +431,13 @@ def register_research_tools() -> List[str]:
     category = "research"
 
     try:
-        from backend.tools.research_tools import ReadResultTool
+        from backend.tools.research_tools import NoteTool, ReadResultTool
 
-        register_tool(ReadResultTool())
-        registered.append("read_result")
-        _tool_categories["read_result"] = category
-        logger.debug("Registered: ReadResultTool")
+        for tool in (ReadResultTool(), NoteTool()):
+            register_tool(tool)
+            registered.append(tool.name)
+            _tool_categories[tool.name] = category
+        logger.debug("Registered: research tools %s", registered)
 
     except ImportError as e:
         logger.error(f"Failed to import research tools: {e}")

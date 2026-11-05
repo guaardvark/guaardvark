@@ -163,6 +163,10 @@ def cut_with_handle(session_id: str, tool_name: str, params: Optional[Dict[str, 
     )
     if kept["clipped"]:
         footer += f"\n[{kept['id']} keeps the first {MAX_RESULT_CHARS:,} characters; the output was longer.]"
+    if tool_name == "system_command":
+        src = _source_of({"params": params or {}})
+        if src:
+            log_read(session_id, src, 1, max(1, next_line - 1), kept["lines"])
     hint = _file_hint(tool_name, params, next_line)
     if hint:
         footer += f"\n[{hint}]"
@@ -223,3 +227,145 @@ def find_lines(text: str, pattern: str, max_hits: int = MAX_PATTERN_HITS) -> Dic
             if len(hits) < max_hits:
                 hits.append(f"{n}: {line[:300]}")
     return {"text": "\n".join(hits), "count": count, "shown": len(hits)}
+
+
+# --- Notes and reading log -------------------------------------------------
+#
+# The chat model's window rolls: old tool results are pruned to fit, and a
+# small model forgets what it read three calls ago. The notes pad is what it
+# chooses to keep (written with the note tool, rewritten when full, the
+# MemAgent pattern); the reading log is what it has read, kept by the engine
+# without a model call. Both are shown on every step and at the next turn of
+# the same chat, so research builds up instead of starting over.
+
+# Longest notes pad, in characters (about 400 tokens: a fifth of what an
+# 8,192-token window leaves after the system prompt and tools).
+NOTES_MAX_CHARS = 1500
+# Sources the reading log lists, most recent first.
+READING_LOG_SOURCES = 12
+
+
+def _notes_path(session_id: str) -> Path:
+    return _session_dir(session_id) / "notes.md"
+
+
+def notes(session_id: str) -> str:
+    try:
+        return _notes_path(session_id).read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def write_note(session_id: str, text: str, replace: bool = False) -> Dict[str, Any]:
+    """Add ``text`` to the notes (or replace them). Refuses, without writing,
+    when the notes would pass NOTES_MAX_CHARS: the model rewrites them shorter."""
+    text = (text or "").strip()
+    with _lock:
+        folder = _session_dir(session_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        current = "" if replace else notes(session_id)
+        updated = f"{current.rstrip()}\n- {text}".strip() if current and text else (
+            text if text.startswith("- ") or not text else f"- {text}")
+        if len(updated) > NOTES_MAX_CHARS:
+            return {"ok": False, "chars": len(current), "notes": current}
+        _notes_path(session_id).write_text(updated, encoding="utf-8")
+    return {"ok": True, "chars": len(updated), "notes": updated}
+
+
+def _reading_path(session_id: str) -> Path:
+    return _session_dir(session_id) / "reading.json"
+
+
+def _load_reading(session_id: str) -> Dict[str, Any]:
+    try:
+        return json.loads(_reading_path(session_id).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def log_read(session_id: str, source: str, first: int, last: int, total: Optional[int],
+             unit: str = "lines") -> None:
+    """Record that ``source`` was read from ``first`` to ``last`` (inclusive)."""
+    if not session_id or not source or last < first:
+        return
+    with _lock:
+        folder = _session_dir(session_id)
+        folder.mkdir(parents=True, exist_ok=True)
+        log = _load_reading(session_id)
+        entry = log.get(source) or {"spans": [], "total": total, "unit": unit}
+        spans = sorted(entry["spans"] + [[int(first), int(last)]])
+        merged: list = []
+        for a, b in spans:
+            if merged and a <= merged[-1][1] + 1:
+                merged[-1][1] = max(merged[-1][1], b)
+            else:
+                merged.append([a, b])
+        entry.update({"spans": merged, "total": total or entry.get("total"), "unit": unit,
+                      "at": time.time()})
+        log[source] = entry
+        _reading_path(session_id).write_text(json.dumps(log), encoding="utf-8")
+
+
+def reading_summary(session_id: str) -> str:
+    """One line per source read in this chat: which parts, of how many."""
+    log = _load_reading(session_id)
+    rows = sorted(log.items(), key=lambda kv: kv[1].get("at", 0), reverse=True)[:READING_LOG_SOURCES]
+    out = []
+    for source, e in rows:
+        spans = ", ".join(f"{a}-{b}" if a != b else f"{a}" for a, b in e["spans"])
+        total = e.get("total")
+        whole = total and e["spans"] == [[1, total]]
+        tail = " (all of it)" if whole else (f" of {total}" if total else "")
+        out.append(f"- {source}: {e.get('unit', 'lines')} {spans}{tail}")
+    return "\n".join(out)
+
+
+def research_block(session_id: str) -> str:
+    """The notes and the reading log, as the model reads them; empty when
+    nothing has been noted or read in this chat."""
+    if not session_id:
+        return ""
+    pad, read = notes(session_id), reading_summary(session_id)
+    if not pad and not read:
+        return ""
+    parts = []
+    if read:
+        parts.append(f"What you have read in this chat:\n{read}")
+    parts.append(f"Your notes ({len(pad)}/{NOTES_MAX_CHARS} characters):\n{pad}" if pad else
+                 "Your notes: none yet. Keep what you find with note(text=\"...\") so it is not lost "
+                 "when old results scroll out of view.")
+    return "\n\n".join(parts)
+
+
+def log_tool_read(session_id: str, tool_name: str, params: Optional[Dict[str, Any]],
+                  metadata: Optional[Dict[str, Any]]) -> None:
+    """Add a reading tool's result to the reading log, from what it reports."""
+    p, m = params or {}, metadata or {}
+    try:
+        if tool_name == "read_code" and m.get("total_lines") is not None:
+            path = p.get("filepath") or p.get("file_path") or p.get("path") or m.get("filepath")
+            if m.get("past_end"):
+                return
+            first = m.get("start_line") or 1
+            last = m.get("end_line") or m.get("total_lines")
+            log_read(session_id, str(path), first, last, m.get("total_lines"))
+        elif tool_name == "read_result" and m.get("id"):
+            info = describe(session_id, m["id"]) or {}
+            source = _source_of(info) or m["id"]
+            log_read(session_id, source, m["first"], m["last"], m.get("total"))
+        elif tool_name == "read_document_section" and m.get("passages"):
+            name = p.get("source_filename") or "?"
+            where = p.get("page_label") or p.get("heading_path")
+            source = f"{name}" + (f" ({where})" if where else "")
+            first = int(p.get("offset") or 0) + 1
+            log_read(session_id, source, first, first + int(m["passages"]) - 1,
+                     None, unit="passages")
+    except Exception as exc:  # noqa: BLE001 - the log is a help, never a failure
+        logger.debug("reading log skipped for %s: %s", tool_name, exc)
+
+
+def _source_of(info: Dict[str, Any]) -> Optional[str]:
+    """The file a kept result came from, when it was a shell read of one file."""
+    command = str((info.get("params") or {}).get("command") or "")
+    m = re.match(r"\s*cat\s+([^\s|;&<>]+)\s*$", command)
+    return m.group(1) if m else None

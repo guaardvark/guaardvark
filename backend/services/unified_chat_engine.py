@@ -1071,6 +1071,38 @@ def _cut_observation(session_id, tool_name: str, params, result, formatted: str,
     return f"{head}\n[Cut: shown {len(head):,} of {len(formatted):,} characters.]", None
 
 
+def _log_tool_read(session_id, tool_name: str, params, metadata) -> None:
+    """Add what a reading tool covered to the chat's reading log."""
+    try:
+        from backend.services import research_workspace
+        research_workspace.log_tool_read(session_id, tool_name, params, metadata)
+    except Exception as exc:  # noqa: BLE001 - the log is a help, never a failure
+        logger.debug("reading log: %s", exc)
+
+
+def _log_whole_read(session_id, tool_name: str, params, out: str) -> None:
+    """A shell read of one file that fit in the window was read whole."""
+    if tool_name != "system_command" or not out:
+        return
+    try:
+        from backend.services import research_workspace
+        source = research_workspace._source_of({"params": params or {}})
+        if source:
+            lines = out.count("\n") + (0 if out.endswith("\n") else 1)
+            research_workspace.log_read(session_id, source, 1, lines, lines)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("reading log: %s", exc)
+
+
+def _research_block(session_id) -> str:
+    try:
+        from backend.services import research_workspace
+        return research_workspace.research_block(session_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("research block: %s", exc)
+        return ""
+
+
 def _assistant_turn_text(llm_response: str, tool_calls) -> str:
     """What the next prompt shows as this step's assistant turn: the reply, or,
     when the calls came as structured tool_calls with no text, those calls in
@@ -3255,6 +3287,12 @@ class UnifiedChatEngine:
                         context_parts.append(_dossier)
             except Exception:
                 logger.debug("self-analysis dossier skipped", exc_info=True)
+        # What earlier turns of this chat read and noted, so a follow-up
+        # ("suggest improvements") starts from it instead of from nothing.
+        if not _skip_tools:
+            _earlier = _research_block(session_id)
+            if _earlier:
+                context_parts.append(f"From earlier in this chat. {_earlier}")
         _accepted = str(_opts.get("accepted_offer") or "").strip()
         if _accepted:
             context_parts.append(
@@ -4050,6 +4088,10 @@ class UnifiedChatEngine:
                     if kept_id:
                         step_call["result_id"] = kept_id
                         kept_this_turn.append(kept_id)
+                elif result.success:
+                    _log_whole_read(session_id, tool_name, params, out)
+                if result.success:
+                    _log_tool_read(session_id, tool_name, params, result.metadata)
                 if not result.success:
                     fallback = guard.suggest_fallback(tool_name)
                     fallback_msg = f" Alternative: {fallback}" if fallback else ""
@@ -4092,6 +4134,11 @@ class UnifiedChatEngine:
                 )
             else:
                 continuity_block = ""
+            # What has been read and noted stays in view after the results
+            # themselves are pruned to fit the window.
+            research_now = _research_block(session_id)
+            if research_now:
+                continuity_block += f"{research_now}\n\n"
 
             # Append assistant response (truncated to limit context growth)
             ollama_messages.append({
@@ -6744,6 +6791,18 @@ You are a private, local AI assistant running on the user's own hardware. There 
             )
 
         result = [m for j, m in enumerate(messages) if j not in pruned]
+        dropped_results = [j for j in pruned if _tier(j) == 0]
+        if dropped_results:
+            # Say what left the window and how to get it back; silently missing
+            # results read to a small model as results it never had.
+            kept = sorted({r for j in dropped_results
+                           for r in re.findall(r"kept as (R\d+)", messages[j].get("content", ""))},
+                          key=lambda r: int(r[1:]))
+            notice = (f"{len(dropped_results)} older tool result message(s) were dropped to fit the "
+                      "context window. Your notes and the reading log still hold what was found")
+            notice += (f"; the whole results {', '.join(kept)} can be reopened with read_result."
+                       if kept else ".")
+            result.insert(1, {"role": "system", "content": notice})
         if pruned:
             logger.info(
                 f"Context pruning: {n} → {len(result)} messages "
