@@ -1,0 +1,967 @@
+{
+ "decision": "skip_rag",
+ "wording_sha": "0246467dae4b",
+ "set_version": 1,
+ "provenance": "replies of the named builds to the labelled set, as received; synthetic items",
+ "runs": [
+  {
+   "model": "gemma4:12b",
+   "digest": "4eb23ef187e2",
+   "recorded": "2026-11-05",
+   "replies": [
+    {
+     "id": "rag-gate-1",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-2",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-3",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-4",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-5",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-6",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-7",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-8",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-9",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-10",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-11",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-12",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-13",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-14",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rag-gate-15",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-16",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-17",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-18",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-19",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-20",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-21",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-22",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-23",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-24",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-25",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-26",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-27",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-28",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-29",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-30",
+     "raw": "{\"answer\": true, \"confidence\": 0.8}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rag-gate-31",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-32",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-33",
+     "raw": "{\"answer\": false, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-34",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-35",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-36",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-37",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-38",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-39",
+     "raw": "{\"answer\": true, \"confidence\": 0.8}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rag-gate-40",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-41",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-42",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-43",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-44",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-45",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-46",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-47",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-48",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-49",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-50",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-51",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-52",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-53",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-54",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-55",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-56",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-57",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-58",
+     "raw": "{\"answer\": false, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-59",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-60",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-61",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-62",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-63",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-64",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-65",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-66",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-67",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-68",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-69",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-70",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-71",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-72",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-73",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-74",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-75",
+     "raw": "{\"answer\": false, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-76",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-77",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-78",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-79",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-80",
+     "raw": "{\"answer\": true, \"confidence\": 0.8}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-81",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-82",
+     "raw": "{\"answer\": true, \"confidence\": 0.95}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-83",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-84",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-85",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-86",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-87",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-88",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-89",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-90",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-91",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-92",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-93",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-94",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-95",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-96",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-97",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-98",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-99",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-100",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-101",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-102",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-103",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-104",
+     "raw": "{\"answer\": false, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": false,
+     "want": true
+    },
+    {
+     "id": "rag-gate-105",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-106",
+     "raw": "{\"answer\": true, \"confidence\": 0.8}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-107",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-108",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-109",
+     "raw": "{\"answer\": true, \"confidence\": 0.8}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-110",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-111",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-112",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-113",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-114",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-115",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-116",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-117",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-118",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-119",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-120",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-121",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-122",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-123",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-124",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": false,
+     "want": true
+    },
+    {
+     "id": "rag-gate-125",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-126",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-127",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-128",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-129",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-130",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-131",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-132",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rag-gate-133",
+     "raw": "{\"answer\": true, \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag-gate-134",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": true
+    },
+    {
+     "id": "rag-gate-135",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag-gate-136",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    }
+   ]
+  }
+ ]
+}

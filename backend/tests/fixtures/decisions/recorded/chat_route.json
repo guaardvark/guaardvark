@@ -1,265 +1,13 @@
 {
  "decision": "chat_route",
  "wording_sha": "f9568f399086",
- "set_version": 1,
+ "set_version": 2,
  "provenance": "replies of the named builds to the labelled set, as received; synthetic items",
  "runs": [
   {
-   "model": "gemma4:e2b",
-   "digest": "2cf98652fdc6",
-   "recorded": "2026-10-16",
-   "replies": [
-    {
-     "id": "route0",
-     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "image_generation",
-     "want": "image_generation"
-    },
-    {
-     "id": "route1",
-     "raw": "{\"choice\": \"image_generation\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "image_generation",
-     "want": "image_generation"
-    },
-    {
-     "id": "route2",
-     "raw": "{\"choice\": \"image_generation\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "image_generation",
-     "want": "image_generation"
-    },
-    {
-     "id": "route3",
-     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "image_generation",
-     "want": "image_generation"
-    },
-    {
-     "id": "route4",
-     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_agent",
-     "want": "screen_agent"
-    },
-    {
-     "id": "route5",
-     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_agent",
-     "want": "screen_agent"
-    },
-    {
-     "id": "route6",
-     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_agent",
-     "want": "screen_agent"
-    },
-    {
-     "id": "route7",
-     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_agent",
-     "want": "screen_agent"
-    },
-    {
-     "id": "route8",
-     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "screen_agent",
-     "want": "screen_agent"
-    },
-    {
-     "id": "route9",
-     "raw": "{\"choice\": \"web_search\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "web_search",
-     "want": "web_search"
-    },
-    {
-     "id": "route10",
-     "raw": "{\"choice\": \"web_search\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "web_search",
-     "want": "web_search"
-    },
-    {
-     "id": "route11",
-     "raw": "{\"choice\": \"web_search\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "web_search",
-     "want": "web_search"
-    },
-    {
-     "id": "route12",
-     "raw": "{\"choice\": \"web_search\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "web_search",
-     "want": "web_search"
-    },
-    {
-     "id": "route13",
-     "raw": "{\"choice\": \"web_search\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "web_search",
-     "want": "web_search"
-    },
-    {
-     "id": "route14",
-     "raw": "{\"choice\": \"search_documents\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "search_documents",
-     "want": "search_documents"
-    },
-    {
-     "id": "route15",
-     "raw": "{\"choice\": \"search_documents\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "search_documents",
-     "want": "search_documents"
-    },
-    {
-     "id": "route16",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "search_documents"
-    },
-    {
-     "id": "route17",
-     "raw": "{\"choice\": \"search_documents\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "search_documents",
-     "want": "search_documents"
-    },
-    {
-     "id": "route18",
-     "raw": "{\"choice\": \"search_documents\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "search_documents",
-     "want": "search_documents"
-    },
-    {
-     "id": "route19",
-     "raw": "{\"choice\": \"search_documents\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "search_documents",
-     "want": "search_documents"
-    },
-    {
-     "id": "route20",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route21",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route22",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route23",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route24",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route25",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route26",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route27",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route28",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route29",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "route30",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "inj6a",
-     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "chat_answer",
-     "want": "chat_answer"
-    },
-    {
-     "id": "inj6b",
-     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "image_generation",
-     "want": "chat_answer"
-    },
-    {
-     "id": "inj7a",
-     "raw": "{\"choice\": \"search_documents\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "search_documents",
-     "want": "search_documents"
-    },
-    {
-     "id": "inj7b",
-     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "web_search",
-     "want": "search_documents"
-    }
-   ]
-  },
-  {
    "model": "gemma4:12b",
    "digest": "4eb23ef187e2",
-   "recorded": "2026-10-16",
+   "recorded": "2026-11-05",
    "replies": [
     {
      "id": "route0",
@@ -501,10 +249,654 @@
     },
     {
      "id": "inj7b",
-     "raw": "{\"choice\": \"search_documents\", \"confidence\": 0.9}",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "search_documents"
+    },
+    {
+     "id": "route31",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route32",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route33",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route34",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route35",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route36",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route37",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route38",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route39",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route40",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route41",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route42",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route43",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route44",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route45",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route46",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route47",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route48",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "route49",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route50",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route51",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route52",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route53",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route54",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route55",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route56",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route57",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route58",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route59",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route60",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route61",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route62",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route63",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route64",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route65",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route66",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route67",
+     "raw": "{\"choice\": \"screen_agent\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "screen_agent",
+     "want": "screen_agent"
+    },
+    {
+     "id": "route68",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route69",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route70",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route71",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route72",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route73",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route74",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route75",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route76",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route77",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route78",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route79",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route80",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route81",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route82",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route83",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route84",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route85",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "route86",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
      "reason": "ok",
      "answer": "search_documents",
      "want": "search_documents"
+    },
+    {
+     "id": "route87",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route88",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route89",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route90",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route91",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route92",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route93",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route94",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route95",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route96",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route97",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route98",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route99",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route100",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route101",
+     "raw": "{\"choice\": \"search_documents\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "search_documents",
+     "want": "search_documents"
+    },
+    {
+     "id": "route102",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route103",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route104",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route105",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route106",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route107",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route108",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route109",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route110",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route111",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route112",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route113",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route114",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route115",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "route116",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "inj18a",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "inj18b",
+     "raw": "{\"choice\": \"chat_answer\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "chat_answer",
+     "want": "chat_answer"
+    },
+    {
+     "id": "inj19a",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "inj19b",
+     "raw": "{\"choice\": \"web_search\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "web_search",
+     "want": "web_search"
+    },
+    {
+     "id": "inj20a",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
+    },
+    {
+     "id": "inj20b",
+     "raw": "{\"choice\": \"image_generation\", \"confidence\": 0.95}",
+     "reason": "ok",
+     "answer": "image_generation",
+     "want": "image_generation"
     }
    ]
   }

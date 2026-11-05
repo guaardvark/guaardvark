@@ -1,230 +1,13 @@
 {
  "decision": "image_intent",
  "wording_sha": "67841514f6ac",
- "set_version": 1,
+ "set_version": 2,
  "provenance": "replies of the named builds to the labelled set, as received; synthetic items",
  "runs": [
   {
-   "model": "gemma4:e2b",
-   "digest": "2cf98652fdc6",
-   "recorded": "2026-10-16",
-   "replies": [
-    {
-     "id": "img0",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "new_image"
-    },
-    {
-     "id": "img1",
-     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "new_image",
-     "want": "new_image"
-    },
-    {
-     "id": "img2",
-     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "new_image",
-     "want": "new_image"
-    },
-    {
-     "id": "img4",
-     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "new_image",
-     "want": "new_image"
-    },
-    {
-     "id": "img5",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img6",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img7",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img8",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img9",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "neither"
-    },
-    {
-     "id": "img10",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img11",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img12",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "edit_image"
-    },
-    {
-     "id": "img13",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "edit_image"
-    },
-    {
-     "id": "img14",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img15",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "edit_image"
-    },
-    {
-     "id": "img16",
-     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "new_image",
-     "want": "new_image"
-    },
-    {
-     "id": "img17",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img18",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img19",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "neither"
-    },
-    {
-     "id": "img20",
-     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "new_image",
-     "want": "new_image"
-    },
-    {
-     "id": "img21",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img22",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "edit_image"
-    },
-    {
-     "id": "img23",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "edit_image"
-    },
-    {
-     "id": "img24",
-     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "new_image",
-     "want": "new_image"
-    },
-    {
-     "id": "img25",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img26",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img27",
-     "raw": "{\"choice\": \"neither\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "neither",
-     "want": "neither"
-    },
-    {
-     "id": "img28",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "edit_image"
-    },
-    {
-     "id": "img29",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "neither"
-    },
-    {
-     "id": "img30",
-     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.95}",
-     "reason": "ok",
-     "answer": "edit_image",
-     "want": "neither"
-    }
-   ]
-  },
-  {
    "model": "gemma4:12b",
    "digest": "4eb23ef187e2",
-   "recorded": "2026-10-16",
+   "recorded": "2026-11-05",
    "replies": [
     {
      "id": "img0",
@@ -435,6 +218,699 @@
      "reason": "ok",
      "answer": "neither",
      "want": "neither"
+    },
+    {
+     "id": "img31",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img32",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img33",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img34",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img35",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img36",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img37",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img38",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img39",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img40",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img41",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img42",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img43",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img44",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img45",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img46",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img47",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img48",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img49",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img50",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img51",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img52",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img53",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img54",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img55",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img56",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img57",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img58",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img59",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img60",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img61",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img62",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img63",
+     "raw": "{\"choice\": \"new_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "new_image",
+     "want": "new_image"
+    },
+    {
+     "id": "img64",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img65",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img66",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img67",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img68",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img69",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img70",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img71",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img72",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img73",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img74",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img75",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img76",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img77",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img78",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img79",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img80",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img81",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img82",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img83",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img84",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img85",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img86",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img87",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img88",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img89",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img90",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img91",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img92",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img93",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img94",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img95",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img96",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img97",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img98",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img99",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img100",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "img101",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "neither"
+    },
+    {
+     "id": "img102",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img103",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img104",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img105",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img106",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img107",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img108",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img109",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img110",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img111",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img112",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img113",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img114",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img115",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img116",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img117",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img118",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img119",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img120",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "img121",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "inj10a",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "inj10b",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "inj11a",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "inj11b",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "inj12a",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "inj12b",
+     "raw": "{\"choice\": \"neither\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "neither",
+     "want": "neither"
+    },
+    {
+     "id": "inj13a",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
+    },
+    {
+     "id": "inj13b",
+     "raw": "{\"choice\": \"edit_image\", \"confidence\": 0.9}",
+     "reason": "ok",
+     "answer": "edit_image",
+     "want": "edit_image"
     }
    ]
   }
