@@ -9,7 +9,8 @@
      Asset registry: https://github.com/guaardvark/guaardvark/issues/64
      batman:    c6d9d18b-cfff-4ae2-8220-dc7f329fee5d
      bladevark: 158c431c-0ff8-4b25-a1b2-b5fbebdc81d4
-     batvark:   b8f28582-6c1d-45b8-862e-9206a28cf103 -->
+     batvark:   b8f28582-6c1d-45b8-862e-9206a28cf103
+     hey babe:  6ee72d6a-3a25-4380-92a9-a4b66e8b7e05 -->
 
 <div align="center">
 
@@ -26,7 +27,7 @@
 
 [Quick start](#quick-start) · [Features](#features) · [Videos](#watch-it-work) · [FAQ](#faq) · [Full capability list](CAPABILITIES.md) · [guaardvark.com](https://guaardvark.com)
 
-https://github.com/user-attachments/assets/c6d9d18b-cfff-4ae2-8220-dc7f329fee5d
+https://github.com/user-attachments/assets/6ee72d6a-3a25-4380-92a9-a4b66e8b7e05
 
 </div>
 
