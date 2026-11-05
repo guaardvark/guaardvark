@@ -355,6 +355,10 @@ class AgentBrain:
         request_id = str((options or {}).get("request_id") or "") or str(uuid.uuid4())
         if isinstance(options, dict):
             options["request_id"] = request_id
+            # The turn's questions to the chat model (chat_decisions); the
+            # engine adopts this ctx and asks its shadow questions at the end.
+            from backend.services.chat_decisions import turn_context
+            options.setdefault("_decide_ctx", turn_context(request_id, None))
         self._decide_turn(session_id, message, options, app, image_data, force_tier,
                           is_voice_message, request_id)
         tier_used = 0
@@ -540,17 +544,16 @@ class AgentBrain:
                 )
 
             # -- "Yes" to the assistant's own offer: do it, with tools --
-            if AFFIRMATION_PATTERNS.fullmatch(message.strip()):
-                offer = pending_offer(_last_assistant_text(app, session_id))
-                if offer:
-                    tier_used = 2
-                    route_intent = "accepted_offer"
-                    budget.charge(1, 2, "accepted offer")
-                    return self._instinct(
-                        session_id, message, {**(options or {}), "accepted_offer": offer},
-                        emit_fn, app, project_id=project_id,
-                        is_voice_message=is_voice_message, budget=budget,
-                    )
+            offer = self._accepted_offer(session_id, message, options, app)
+            if offer:
+                tier_used = 2
+                route_intent = "accepted_offer"
+                budget.charge(1, 2, "accepted offer")
+                return self._instinct(
+                    session_id, message, {**(options or {}), "accepted_offer": offer},
+                    emit_fn, app, project_id=project_id,
+                    is_voice_message=is_voice_message, budget=budget,
+                )
 
             # -- Social / conversational (Tier 2, skip_tools, real LLM) --
             if SOCIAL_TIER2_PATTERNS.fullmatch(message.strip()):
@@ -605,6 +608,10 @@ class AgentBrain:
 
         finally:
             end_turn(session_id)
+            # Shadow questions of a turn the engine did not run (the engine
+            # starts its own when it ends; a second call finds none left).
+            from backend.services.chat_decisions import finish_turn
+            finish_turn((options or {}).get("_decide_ctx") if isinstance(options, dict) else None)
             # Record telemetry
             elapsed_ms = int((time.monotonic() - start_time) * 1000)
             telemetry = TierTelemetry(
@@ -630,6 +637,40 @@ class AgentBrain:
 
     # -- Gemma4 direct path -------------------------------------------------
 
+    def _accepted_offer(self, session_id: str, message: str, options: Optional[Dict[str, Any]],
+                        app) -> Optional[str]:
+        """The offer this reply accepts, or None.
+
+        A bare yes to an offer in the assistant's last reply accepts it. With
+        the accepted_offer decision not off, a longer reply (at most 200
+        characters: "sure, but only PDFs") is put to the chat model too.
+        """
+        from backend.services import chat_decisions
+        reply = (message or "").strip()
+        bare_yes = bool(AFFIRMATION_PATTERNS.fullmatch(reply))
+        if not bare_yes and (len(reply) > 200 or chat_decisions.mode("accepted_offer") == "off"):
+            return None
+        offer = pending_offer(_last_assistant_text(app, session_id))
+        if not offer or bare_yes:
+            return offer
+        result = chat_decisions.ask("accepted_offer", {"assistant_offer": offer, "user_reply": reply},
+                                    fallback=False, ctx=(options or {}).get("_decide_ctx"))
+        return offer if result.answer is True else None
+
+    def _screen_task_by_decision(self, message: str, options: Optional[Dict[str, Any]]) -> bool:
+        """Whether a message reaching the agent screen asks for work on it.
+        Today's rule sends every message that is not small talk there; with
+        screen_or_chat not off, the chat model may keep a question in the chat.
+        An explicit screen request (VISION_PATTERNS) is not asked about."""
+        from backend.services import chat_decisions
+        if chat_decisions.mode("screen_or_chat") == "off" or VISION_PATTERNS.search(message or ""):
+            return True
+        if len(message or "") > 600:
+            return True
+        result = chat_decisions.ask("screen_or_chat", {"message": message, "screen_active": True},
+                                    fallback="screen_task", ctx=(options or {}).get("_decide_ctx"))
+        return result.answer != "chat"
+
     def _screen_direct(
         self,
         session_id: str,
@@ -653,6 +694,8 @@ class AgentBrain:
         """
         # If it's purely conversational, let the normal instinct path handle it
         if NO_SCREEN_CONTEXT.match(message.strip()):
+            return None
+        if not self._screen_task_by_decision(message, options):
             return None
 
         try:

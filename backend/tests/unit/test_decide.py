@@ -45,6 +45,20 @@ def network(monkeypatch):
     return counts
 
 
+@pytest.fixture(autouse=True)
+def shadow_jobs(monkeypatch):
+    """Shadow questions started during the test, held instead of run on the
+    shadow worker; a test runs them with run_jobs()."""
+    jobs: list = []
+    monkeypatch.setattr(ncp, "_submit_shadow", jobs.append)
+    return jobs
+
+
+def run_jobs(jobs):
+    while jobs:
+        jobs.pop(0)()
+
+
 @pytest.fixture
 def modes(monkeypatch):
     """Decision modes for the test; anything unset is off."""
@@ -105,11 +119,12 @@ def test_off_records_nothing(network, modes, monkeypatch):
     assert seen == []
 
 
-def test_the_record_carries_a_hash_not_the_text(network, modes, monkeypatch):
+def test_the_record_carries_a_hash_not_the_text(network, modes, monkeypatch, shadow_jobs):
     seen = []
     modes["needs_live_data"] = "shadow"
     monkeypatch.setattr(ncp, "_recorder", lambda event, state: seen.append(event))
     ncp.decide("needs_live_data", {"message": "my private sentence"}, fallback=False)
+    run_jobs(shadow_jobs)
     (event,) = seen
     assert "my private sentence" not in repr(event)
     assert len(event["state_sha256"]) == 16
@@ -212,11 +227,46 @@ def test_the_call_is_made_at_temperature_0_with_the_loaded_context(network, mode
     assert network["ollama.chat"] == 0
 
 
-def test_shadow_returns_the_fallback_without_asking(network, modes, model, qualified):
+def test_shadow_returns_the_fallback_and_asks_afterwards(network, modes, model, qualified, shadow_jobs,
+                                                        monkeypatch):
+    seen = []
+    monkeypatch.setattr(ncp, "_recorder", lambda event, state: seen.append(event))
     modes["needs_live_data"] = "shadow"
+    model.replies = [{"answer": True, "confidence": 0.7}]
     result = ncp.decide("needs_live_data", LIVE, fallback=False)
     assert (result.answer, result.reason) == (False, "shadow")
-    assert model.asked == []
+    assert model.asked == [] and seen == []
+    run_jobs(shadow_jobs)
+    assert len(model.asked) == 1
+    (event,) = seen
+    assert (event["llm_answer"], event["fallback_answer"], event["used_answer"]) == (True, False, False)
+    assert (event["mode"], event["reason"]) == ("shadow", "shadow")
+
+
+def test_a_turn_holds_its_shadow_questions_until_it_ends(network, modes, model, qualified, shadow_jobs):
+    modes["needs_live_data"] = "shadow"
+    ctx = {"request_id": "r1", ncp.SHADOW_KEY: []}
+    ncp.decide("needs_live_data", LIVE, fallback=False, ctx=ctx)
+    assert shadow_jobs == [] and len(ctx[ncp.SHADOW_KEY]) == 1
+    assert ncp.run_shadow(ctx) == 1
+    run_jobs(shadow_jobs)
+    assert len(model.asked) == 1
+    assert ncp.run_shadow(ctx) == 0
+
+
+def test_shadow_asks_below_the_floor_but_not_on_a_busy_gpu(network, modes, model, shadow_jobs, monkeypatch):
+    seen = []
+    monkeypatch.setattr(ncp, "_recorder", lambda event, state: seen.append(event))
+    monkeypatch.setitem(MEASURED_ACCURACY, "needs_live_data", [])
+    modes["needs_live_data"] = "shadow"
+    ncp.decide("needs_live_data", LIVE, fallback=False)
+    run_jobs(shadow_jobs)
+    assert len(model.asked) == 1
+    model.busy = "video_render is running"
+    ncp.decide("needs_live_data", {"message": "score of the game tonight?"}, fallback=False)
+    run_jobs(shadow_jobs)
+    assert len(model.asked) == 1
+    assert seen[-1]["reason"] == "gpu_busy" and seen[-1]["llm_answer"] is None
 
 
 @pytest.mark.parametrize("setup, reason", [
