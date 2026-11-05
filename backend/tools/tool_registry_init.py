@@ -431,9 +431,9 @@ def register_research_tools() -> List[str]:
     category = "research"
 
     try:
-        from backend.tools.research_tools import NoteTool, ReadResultTool
+        from backend.tools.research_tools import NoteTool, ReadResultTool, ScanTool
 
-        for tool in (ReadResultTool(), NoteTool()):
+        for tool in (ReadResultTool(), NoteTool(), ScanTool()):
             register_tool(tool)
             registered.append(tool.name)
             _tool_categories[tool.name] = category
