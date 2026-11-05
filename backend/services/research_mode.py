@@ -17,10 +17,9 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
-# Steps a research turn may take (Tier 2). Ordinary chat takes 5. Sized for a
-# search, three or four reads, notes and the answer; still bounded by the
-# turn's step budget. Measured with scripts/eval_research.py (see the
-# research_evals log named in the commit that set it).
+# Steps a research turn may take (Tier 2). Ordinary chat takes 5. On the
+# 2026-11-05 yardstick runs research turns made 0-16 tool calls (mean 4.7 at
+# an 8K window, 3.2 at 32K).
 RESEARCH_MAX_ITERATIONS = 12
 
 _ASK = re.compile(
@@ -77,8 +76,21 @@ RESEARCH_NUDGE = (
 )
 
 
+def enabled() -> bool:
+    """Hook, off by default (GUAARDVARK_RESEARCH_MODE=1). Measured 2026-11-05 on
+    scripts/eval_research.py with gemma4:12b: mean facts 0.493 with research
+    mode at a 32K window against 0.484 without, document questions up, code
+    questions flat, median turn 62.5 s against 24.5 s. It stays opt-in until it
+    measures better than ordinary chat."""
+    import os
+    return os.environ.get("GUAARDVARK_RESEARCH_MODE", "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def kind(message: str, options: Optional[Dict[str, Any]] = None) -> Optional[str]:
-    """'code' or 'documents' when the message is a research question, else None."""
+    """'code' or 'documents' when the message is a research question and
+    research mode is on, else None."""
+    if not enabled():
+        return None
     text = message or ""
     if not text.strip():
         return None
