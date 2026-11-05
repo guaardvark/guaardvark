@@ -266,6 +266,7 @@ REASONS = (
     "parse_fail",        # the reply held no usable answer
     "error",             # the call failed, or something failed inside decide()
     "third_party_unlock",  # the answer would unlock, and some of the state is third-party text
+    "shadow_skipped",    # a shadow question not asked: chat stayed busy for SHADOW_WAIT_S
 )
 
 # With the decision on, these mean no model answer could be used. A layer
@@ -615,6 +616,25 @@ def _live_model(ctx: Optional[Mapping[str, Any]], authors: Optional[tuple]):
 SHADOW_KEY = "_decide_shadow"
 _shadow_pool = None
 _shadow_pool_lock = threading.Lock()
+# Nobody waits on a shadow answer, so it gets longer than a person would, and
+# it waits for the model to be free: with OLLAMA_NUM_PARALLEL=1 a question sent
+# while a chat reply streams queues behind it, and one sent between a turn's
+# model calls delays the next. ``busy_check`` is set by the chat
+# (chat_decisions): True while a chat turn is running.
+SHADOW_TIMEOUT_S = 30.0
+SHADOW_WAIT_S = 120.0
+busy_check: Optional[Callable[[], bool]] = None
+
+
+def _wait_until_idle() -> bool:
+    """False when chat stayed busy for SHADOW_WAIT_S."""
+    check = busy_check
+    deadline = time.monotonic() + SHADOW_WAIT_S
+    while check is not None and check():
+        if time.monotonic() > deadline:
+            return False
+        time.sleep(0.5)
+    return True
 
 
 def _submit_shadow(job: Callable[[], None]) -> None:
@@ -637,10 +657,12 @@ def _queue_shadow(entry, decision, state, fallback, timeout_s, ctx, run, authors
         started = time.perf_counter()
         asked, model, digest = None, None, None
         try:
-            reason, model, digest, num_ctx = _live_model(turn, authors)
+            reason = None if _wait_until_idle() else "shadow_skipped"
             if not reason:
-                asked = ask_question(entry, state, model=model, timeout_s=max(0.1, float(timeout_s)),
-                                     num_ctx=num_ctx)
+                reason, model, digest, num_ctx = _live_model(turn, authors)
+            if not reason:
+                asked = ask_question(entry, state, model=model,
+                                     timeout_s=max(float(timeout_s), SHADOW_TIMEOUT_S), num_ctx=num_ctx)
                 reason = "shadow" if asked.reason == "ok" else asked.reason
         except Exception as e:  # noqa: BLE001 - a shadow question never reaches the turn
             logger.warning("decide(%s) shadow question failed: %s", decision, e)

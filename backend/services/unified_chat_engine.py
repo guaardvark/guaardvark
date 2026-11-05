@@ -2774,13 +2774,14 @@ class UnifiedChatEngine:
         self._prov = {"request_id": request_id, "tier": int((options or {}).get("tier", 2) or 2)}
         self._turn_t0 = time.perf_counter()
         self._turn_first_chunk = False
-        from backend.services.chat_decisions import finish_turn, turn_context
+        from backend.services.chat_decisions import finish_turn, turn_context, turn_ended, turn_started
         _model = getattr(getattr(self, "llm", None), "model", None)
         self._decide_ctx = (options or {}).get("_decide_ctx") or turn_context(request_id, _model)
         if isinstance(self._decide_ctx, dict) and not self._decide_ctx.get("model"):
             self._decide_ctx["model"] = _model
 
         begin_turn(session_id)
+        turn_started()
         try:
             # Store app reference for thread-safe DB access in helper methods
             self.app = app
@@ -2811,6 +2812,7 @@ class UnifiedChatEngine:
             return {"success": False, "error": str(e), "request_id": request_id}
         finally:
             end_turn(session_id)
+            turn_ended()
             finish_turn(getattr(self, "_decide_ctx", None))
 
     def _format_interface_context(self, options: Dict[str, Any]) -> str:

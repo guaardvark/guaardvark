@@ -57,6 +57,36 @@ def any_active(decisions: Iterable[str]) -> bool:
     return any(mode(d) != "off" for d in decisions)
 
 
+_turns = {"running": 0}
+_turns_lock = threading.Lock()
+
+
+def turn_started() -> None:
+    with _turns_lock:
+        _turns["running"] += 1
+
+
+def turn_ended() -> None:
+    with _turns_lock:
+        _turns["running"] = max(0, _turns["running"] - 1)
+
+
+def turns_running() -> bool:
+    """True while a chat turn is running in this process."""
+    return _turns["running"] > 0
+
+
+def _install_busy_check() -> None:
+    try:
+        from backend.services import nl_control_plane
+        nl_control_plane.busy_check = turns_running
+    except Exception:  # noqa: BLE001
+        pass
+
+
+_install_busy_check()
+
+
 def turn_context(request_id: Optional[str], model: Optional[str]) -> dict:
     """The ctx dict decide() takes for one chat turn. Shadow questions wait in
     it until the turn ends (finish_turn)."""
