@@ -766,11 +766,17 @@ def _env_flag(value) -> bool:
 
 @settings_bp.route("/ollama_lifecycle", methods=["GET"])
 def get_ollama_lifecycle():
-    """How stop.sh and start.sh treat Ollama, as recorded in .env."""
+    """How stop.sh and start.sh treat Ollama, as recorded in .env.
+
+    "external" comes from the plugin manager's own reader, so the card shows
+    the switch the manager enforces (in a container with no .env, the
+    exported variable).
+    """
     from backend import profiles as P
+    from backend.plugins.plugin_manager import ollama_is_external
     return success_response({
         "keep_running": _env_flag(P.read_env_value(OLLAMA_KEEP_ENV)),
-        "external": _env_flag(P.read_env_value(OLLAMA_EXTERNAL_ENV)),
+        "external": ollama_is_external(),
         "env_writable": P.env_file_writable(),
     })
 
@@ -790,9 +796,10 @@ def set_ollama_lifecycle():
         return error_response(str(e), 400)
     except OSError as e:
         return error_response(f"could not write .env: {e}", 500)
+    from backend.plugins.plugin_manager import ollama_is_external
     return success_response({
         "keep_running": _env_flag(P.read_env_value(OLLAMA_KEEP_ENV)),
-        "external": _env_flag(P.read_env_value(OLLAMA_EXTERNAL_ENV)),
+        "external": ollama_is_external(),
     })
 
 
