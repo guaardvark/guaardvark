@@ -369,3 +369,8 @@ def _source_of(info: Dict[str, Any]) -> Optional[str]:
     command = str((info.get("params") or {}).get("command") or "")
     m = re.match(r"\s*cat\s+([^\s|;&<>]+)\s*$", command)
     return m.group(1) if m else None
+
+
+def read_sources(session_id: str) -> set:
+    """The files and documents this chat has read any part of."""
+    return set(_load_reading(session_id)) if session_id else set()

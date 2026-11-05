@@ -3082,6 +3082,13 @@ class UnifiedChatEngine:
             selected_tools = _pin_image_generation_tools(
                 selection_text, selected_tools, self.registry.list_tools(), session_id=session_id,
             )
+            _research_kind = options.get("research_mode") if isinstance(options, dict) else None
+            if _research_kind and not _skip_tools:
+                from backend.services import research_mode
+                _available = set(self.registry.list_tools())
+                _pinned = [t for t in research_mode.tools_for(_research_kind)
+                           if t in _available and t not in selected_tools]
+                selected_tools = _pinned + list(selected_tools)
 
             # Semantic selector can return CORE-only when embeddings are cold; keyword
             # router still knows which category matched — merge so action tools survive.
@@ -3293,6 +3300,9 @@ class UnifiedChatEngine:
             _earlier = _research_block(session_id)
             if _earlier:
                 context_parts.append(f"From earlier in this chat. {_earlier}")
+            if _opts.get("research_mode"):
+                from backend.services import research_mode
+                context_parts.append(research_mode.method_note(_opts["research_mode"]))
         _accepted = str(_opts.get("accepted_offer") or "").strip()
         if _accepted:
             context_parts.append(
@@ -3433,7 +3443,8 @@ class UnifiedChatEngine:
             # data is available. Pushed once at iteration 3 so the LLM still
             # has plenty of room (max=8) but a clear cue to stop spinning.
             if (
-                iteration == 3 and tools_called and not wrap_up_nudge_pushed
+                iteration == (max(3, self.max_iterations - 2) if options.get("research_mode") else 3)
+                and tools_called and not wrap_up_nudge_pushed
                 and not options.get("skip_nudges")
             ):
                 ollama_messages.append({
@@ -3570,12 +3581,15 @@ class UnifiedChatEngine:
                 _unsearched_gap = (not steps and not _skip_tools
                                    and "search_knowledge_base" in (selected_tools or [])
                                    and bool(_UNSEARCHED_GAP_RE.search(final_text)))
-                if not options.get("skip_nudges") and (_claims or _unlooked or _unsearched_gap):
+                _unread = not steps and not _skip_tools and bool(options.get("research_mode"))
+                if not options.get("skip_nudges") and (_claims or _unlooked or _unsearched_gap or _unread):
                     if not claimed_search_retried and not _skip_tools and not is_aborted(session_id):
                         claimed_search_retried = True
+                        from backend.services.research_mode import RESEARCH_NUDGE
                         reason, nudge = (
                             ("claimed search", _CLAIMED_SEARCH_NUDGE) if _claims
                             else ("lookup request", _LOOKUP_REQUEST_NUDGE) if _unlooked
+                            else ("research question", RESEARCH_NUDGE) if _unread
                             else ("unsearched gap", _UNSEARCHED_GAP_NUDGE)
                         )
                         logger.info(
@@ -4319,7 +4333,9 @@ class UnifiedChatEngine:
                 if report["invalid"]:
                     accumulated_response = accumulated_response.rstrip() + "\n\n" + self_analysis.invalid_note(report)
                 elif persist and not complete_extra.get("plan"):
-                    self_analysis.remember(message, accumulated_response, report)
+                    from backend.services import research_workspace
+                    self_analysis.remember(message, accumulated_response, report,
+                                           read=research_workspace.read_sources(session_id))
                 complete_extra["self_analysis"] = {"focus": self._self_focus[:6], **report}
             except Exception:
                 logger.debug("self-analysis reference check skipped", exc_info=True)

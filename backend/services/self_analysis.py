@@ -125,7 +125,7 @@ def dossier(message: str, *, budget: int = DOSSIER_CHARS) -> Tuple[str, List[str
     where = q.answer(root, snapshot, index, "where", message)
     focus = []
     for line in where.splitlines():
-        m = re.match(r"\s+((?:backend|frontend|cli|scripts|plugins)/\S+)", line)
+        m = re.match(r"\s+((?:backend|frontend|cli|scripts|plugins)/[\w./-]+\w)", line)
         if m and m.group(1) not in focus:
             focus.append(m.group(1))
     parts = [where.strip()]
@@ -206,13 +206,19 @@ def notes_for(files: List[str]) -> List[str]:
     return out
 
 
-def remember(question: str, answer: str, report: Dict[str, Any]) -> int:
+def remember(question: str, answer: str, report: Dict[str, Any],
+             read: Optional[set] = None) -> int:
     """Keep the answer as a note on each file it cites, when every reference
-    it made holds. Returns how many files got the note."""
+    it made holds and, given ``read`` (the files the chat read, from its
+    reading log), every cited file was read. A note is served to later
+    questions as established, so an answer that only named files does not
+    become one. Returns how many files got the note."""
     if report["invalid"] or not report["valid"]:
         return 0
     root = _root()
     files = sorted({v["path"] for v in report["valid"]})
+    if read is not None and any(f not in read for f in files):
+        return 0
     with _notes_lock:
         notes = _load_notes()
         for rel in files:

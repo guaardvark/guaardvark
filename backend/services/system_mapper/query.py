@@ -36,7 +36,8 @@ _STOP = frozenset("""
     show tell that the this to what where which who why with handles lives located location
     defined decided decide decides happen happens part parts piece logic thing things guaardvark
     you your yours yourself i my we our us would could should will made own good get gets got
-    out take takes without
+    out take takes without look about please explain describe suggest suggestions improve
+    improvements
 """.split())
 
 
@@ -59,7 +60,11 @@ def stem(word: str) -> str:
     if len(w) > 4 and w.endswith(("sses", "xes", "zes", "ches", "shes")):
         return w[:-2]
     if len(w) > 5 and w.endswith("ing"):
-        return w[:-3]
+        w = w[:-3]
+        # "planning" meets "plan", "setting" meets "set"; "calling" keeps "call".
+        if len(w) > 2 and w[-1] == w[-2] and w[-1] not in "lsz":
+            w = w[:-1]
+        return w
     if len(w) > 3 and w.endswith("s") and not w.endswith(("ss", "us", "is")):
         return w[:-1]
     return w
