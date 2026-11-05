@@ -66,7 +66,7 @@ Before the first generation in a session, establish four facts and keep them in 
 |---|---|---|
 | A, no NVIDIA GPU | none | chat, retrieval, voice in and out, the coding swarm, the video editor, MCP. No image, video, music or upscaling |
 | B, entry GPU | 8–12 GB | plus vector retrieval, screen agents, SD/SDXL-class images, upscaling; music at 12 GB. Video: Wan 2.2 5B from 11 GB; every other video family needs 16 GB |
-| C, design target | 16 GB | the full stack, one heavy job at a time: FLUX-class images, Wan 2.2 / LTX / CogVideoX / MiniMax H3 video, music and neural voice, Film Crew, music videos |
+| C, design target | 16 GB | the whole studio: every image model, every video model except the two larger MiniMax H3 builds (24 GB and 48 GB), music and neural voice, LoRA training, Film Crew, music videos |
 | D, headroom | 20–24 GB+ | concurrency and quality: two resident LLMs, heavier image models by default, full-batch LoRA training |
 
 Present the envelope honestly: "this machine can do X and Y; Z needs a 16 GB card" beats a
