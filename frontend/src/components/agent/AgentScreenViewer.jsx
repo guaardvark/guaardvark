@@ -18,6 +18,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import CircleIcon from '@mui/icons-material/Circle';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import KeyboardOutlinedIcon from '@mui/icons-material/KeyboardOutlined';
+import MouseIcon from '@mui/icons-material/Mouse';
+import MouseOutlinedIcon from '@mui/icons-material/MouseOutlined';
 import axios from 'axios';
 import { useAppStore } from '../../stores/useAppStore';
 import {
@@ -26,6 +28,8 @@ import {
   cancelDisplayIdle,
 } from '../../api/agentDisplayService';
 import { useUiTranslation } from '../../i18n';
+import { attachMouseForwarding } from './screenInput';
+import { attachKeyForwarding } from '../../hooks/useKeyboardForwarding';
 
 const API_BASE = '/api';
 const STORAGE_KEY = 'guaardvark_agent_screen_state';
@@ -36,6 +40,9 @@ const STORAGE_KEY = 'guaardvark_agent_screen_state';
 const DEFAULT_WIDTH = 380;
 const DEFAULT_HEIGHT = DEFAULT_WIDTH;
 const DOUBLE_CLICK_MS = 400;
+// After an input, fetch frames sooner than the FPS timer would, so a click at
+// 1-2 fps still shows its result right away.
+const REFRESH_AFTER_INPUT_MS = [150, 600];
 
 function loadState() {
   try {
@@ -102,10 +109,21 @@ export default function AgentScreenViewer({ open, onClose }) {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0, w: 0, h: 0 });
   const [isTraining, setIsTraining] = useState(false);
+  // Control mode: clicks, wheel and keys on the picture go to the display.
+  // Starts off every time the viewer mounts; it is never saved.
+  const [interactive, setInteractive] = useState(false);
   const intervalRef = useRef(null);
   const popupIntervalRef = useRef(null);
   const lastClickRef = useRef(0);
   const imgRef = useRef(null);
+  const screenBoxRef = useRef(null);
+  // Listeners attached outside React (the popup, native wheel events) read
+  // these refs so they always see the current mode.
+  const interactRef = useRef(false);
+  const trainingRef = useRef(false);
+  const captureFrameRef = useRef(null);
+  const popupStreamRef = useRef(null);
+  const popupDetachRef = useRef(null);
 
   // Persist state
   useEffect(() => {
@@ -118,6 +136,17 @@ export default function AgentScreenViewer({ open, onClose }) {
   // closed, which briefly flipped agent_screen_active off mid-request.
   const kbdForwarding = useAppStore((s) => s.keyboardForwardingEnabled);
   const toggleKbdForwarding = useAppStore((s) => s.toggleKeyboardForwarding);
+  const setKbdForwarding = useAppStore((s) => s.setKeyboardForwardingEnabled);
+
+  useEffect(() => { interactRef.current = interactive; }, [interactive]);
+  useEffect(() => { trainingRef.current = isTraining; }, [isTraining]);
+
+  // Control turns keyboard forwarding on with it, and off again when it ends.
+  const setControl = useCallback((on) => {
+    interactRef.current = on;
+    setInteractive(on);
+    setKbdForwarding(on);
+  }, [setKbdForwarding]);
 
   const [captureError, setCaptureError] = useState(null);
   const [displayStarting, setDisplayStarting] = useState(false);
@@ -158,6 +187,14 @@ export default function AgentScreenViewer({ open, onClose }) {
       setCaptureError(t('agents.screen.connectionLost'));
     }
   }, []);
+  captureFrameRef.current = captureFrame;
+
+  const refreshSoon = useCallback(() => {
+    REFRESH_AFTER_INPUT_MS.forEach((ms) => setTimeout(() => {
+      if (popupStreamRef.current) popupStreamRef.current();
+      else captureFrameRef.current?.();
+    }, ms));
+  }, []);
 
   // Start display on open; arm idle shutdown when an open viewer closes.
   // Not on mount: every page mounts the viewer closed, and each arm restarts
@@ -167,6 +204,7 @@ export default function AgentScreenViewer({ open, onClose }) {
     if (!open) {
       setDisplayReady(false);
       setDisplayStarting(false);
+      if (interactRef.current) setControl(false);
       if (wasOpen.current) armDisplayIdle().catch(() => {});
       wasOpen.current = false;
       return undefined;
@@ -211,26 +249,57 @@ export default function AgentScreenViewer({ open, onClose }) {
     return undefined;
   }, [open, displayReady, streaming, collapsed, fps, captureFrame, popupWindow]);
 
+  const detachPopupInput = useCallback(() => {
+    try {
+      popupDetachRef.current?.();
+    } catch {
+      // the popup's document is gone; its listeners went with it
+    }
+    popupDetachRef.current = null;
+    popupStreamRef.current = null;
+  }, []);
+
   useEffect(() => {
     return () => {
       if (imageSrcRef.current) URL.revokeObjectURL(imageSrcRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (popupIntervalRef.current) clearInterval(popupIntervalRef.current);
+      detachPopupInput();
     };
-  }, []);
+  }, [detachPopupInput]);
 
   // Monitor popup close
   useEffect(() => {
     if (!popupWindow) return;
     const check = setInterval(() => {
       if (popupWindow.closed) {
+        detachPopupInput();
         setPopupWindow(null);
         clearInterval(popupIntervalRef.current);
         setStreaming(true);
       }
     }, 1000);
     return () => clearInterval(check);
-  }, [popupWindow]);
+  }, [popupWindow, detachPopupInput]);
+
+  // Mouse input on the floating viewer's picture: always in Control mode,
+  // left clicks only while a demonstration is being recorded.
+  useEffect(() => {
+    const el = screenBoxRef.current;
+    if (!open || collapsed || !el) return undefined;
+    return attachMouseForwarding(el, () => imgRef.current, {
+      isActive: () => interactRef.current || trainingRef.current,
+      onSent: refreshSoon,
+      onError: (err) => console.error('Screen input failed:', err?.message || err),
+    });
+  }, [open, collapsed, refreshSoon]);
+
+  // Keep the popup's cursor in step with the mode.
+  useEffect(() => {
+    if (!popupWindow || popupWindow.closed) return;
+    const img = popupWindow.document.getElementById('screen');
+    if (img) img.style.cursor = interactive || isTraining ? 'crosshair' : 'default';
+  }, [interactive, isTraining, popupWindow]);
 
   // Drag handlers
   const handleHeaderMouseDown = useCallback((e) => {
@@ -297,24 +366,6 @@ export default function AgentScreenViewer({ open, onClose }) {
     return () => clearInterval(id);
   }, [open]);
 
-  // --- Training mode: handle clicks on the screen image ---
-  const handleScreenClick = useCallback((e) => {
-    if (!isTraining || !imgRef.current) return;
-    const img = imgRef.current;
-    const rect = img.getBoundingClientRect();
-    // Translate browser coords to virtual display coords (1000 matches current
-    // agent display resolution + Gemma4 box_2d normalization grid).
-    const scaleX = 1000 / rect.width;
-    const scaleY = 1000 / rect.height;
-    const x = Math.round((e.clientX - rect.left) * scaleX);
-    const y = Math.round((e.clientY - rect.top) * scaleY);
-    const cx = Math.max(0, Math.min(1000, x));
-    const cy = Math.max(0, Math.min(1000, y));
-    axios.post(`${API_BASE}/agent-control/learn/input`, {
-      action: 'click', x: cx, y: cy,
-    }).catch((err) => console.error('Training click failed:', err));
-  }, [isTraining]);
-
   const openPopup = useCallback(() => {
     if (popupWindow && !popupWindow.closed) { popupWindow.focus(); return; }
     const w = 1064, h = 1064;
@@ -326,6 +377,8 @@ export default function AgentScreenViewer({ open, onClose }) {
     win.document.body.style.cssText = 'margin:0;padding:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;';
     win.document.body.innerHTML = '<img id="screen" style="max-width:100%;max-height:100%;object-fit:contain;" />';
     const img = win.document.getElementById('screen');
+    img.draggable = false;
+    img.style.cursor = interactRef.current || trainingRef.current ? 'crosshair' : 'default';
     const stream = async () => {
       try {
         const res = await fetch(`${API_BASE}/agent-control/capture/raw`, {
@@ -339,9 +392,22 @@ export default function AgentScreenViewer({ open, onClose }) {
     };
     stream();
     popupIntervalRef.current = setInterval(stream, 1000 / fps);
+    popupStreamRef.current = stream;
+    // The popup is a separate window: its clicks and keys need their own
+    // listeners, gated by the same mode as the floating viewer.
+    const detachMouse = attachMouseForwarding(win.document.body, () => img, {
+      isActive: () => interactRef.current || trainingRef.current,
+      onSent: refreshSoon,
+      onError: (err) => console.error('Screen input failed:', err?.message || err),
+    });
+    const detachKeys = attachKeyForwarding(win, {
+      isActive: () => interactRef.current,
+      onSent: refreshSoon,
+    });
+    popupDetachRef.current = () => { detachMouse(); detachKeys(); };
     setPopupWindow(win);
     setStreaming(false);
-  }, [popupWindow, fps]);
+  }, [popupWindow, fps, refreshSoon]);
 
   if (!open) return null;
   const isInPopup = popupWindow && !popupWindow.closed;
@@ -358,7 +424,7 @@ export default function AgentScreenViewer({ open, onClose }) {
         borderRadius: 1.5,
         overflow: 'hidden',
         border: 1,
-        borderColor: isTraining ? 'error.dark' : streaming || isInPopup ? 'success.dark' : 'divider',
+        borderColor: isTraining ? 'error.dark' : interactive ? 'warning.main' : streaming || isInPopup ? 'success.dark' : 'divider',
         userSelect: isDragging || isResizing ? 'none' : 'auto',
       }}
     >
@@ -391,6 +457,14 @@ export default function AgentScreenViewer({ open, onClose }) {
               sx={{ height: 16, fontSize: '0.55rem', '& .MuiChip-icon': { ml: 0.25 }, '& .MuiChip-label': { px: 0.5 } }}
             />
           )}
+          {!isTraining && interactive && (
+            <Chip
+              label={t('agents.screen.control')}
+              size="small"
+              color="warning"
+              sx={{ height: 16, fontSize: '0.55rem', '& .MuiChip-label': { px: 0.5 } }}
+            />
+          )}
           {!isTraining && (streaming || isInPopup) && (
             <Chip
               icon={<CircleIcon sx={{ fontSize: '5px !important' }} />}
@@ -402,6 +476,16 @@ export default function AgentScreenViewer({ open, onClose }) {
           )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+          <Tooltip title={interactive ? t('agents.screen.controlOn') : t('agents.screen.controlOff')}>
+            <IconButton
+              className="header-btn"
+              size="small"
+              onClick={() => setControl(!interactive)}
+              sx={{ p: 0.2, color: interactive ? 'warning.main' : 'text.secondary' }}
+            >
+              {interactive ? <MouseIcon sx={{ fontSize: 13 }} /> : <MouseOutlinedIcon sx={{ fontSize: 13 }} />}
+            </IconButton>
+          </Tooltip>
           <Tooltip title={kbdForwarding ? t('agents.keyboard.forwardingOn') : t('agents.keyboard.forwardingOff')}>
             <IconButton
               className="header-btn"
@@ -426,7 +510,7 @@ export default function AgentScreenViewer({ open, onClose }) {
 
       {/* Screen */}
       {!collapsed && (
-        <Box sx={{ position: 'relative', bgcolor: '#000' }}>
+        <Box ref={screenBoxRef} sx={{ position: 'relative', bgcolor: '#000' }}>
           <Box sx={{ aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {isInPopup ? (
               <Typography variant="caption" color="grey.600">{t('agents.screen.inPopup')}</Typography>
@@ -435,12 +519,12 @@ export default function AgentScreenViewer({ open, onClose }) {
                 ref={imgRef}
                 src={imageSrc}
                 alt={t('agents.screen.imageAlt')}
-                onClick={handleScreenClick}
+                draggable={false}
                 style={{
                   maxWidth: '100%',
                   maxHeight: '100%',
                   objectFit: 'contain',
-                  cursor: isTraining ? 'crosshair' : 'default',
+                  cursor: isTraining || interactive ? 'crosshair' : 'default',
                 }}
               />
             ) : (

@@ -124,7 +124,10 @@
     "starting": "Agentenanzeige wird gestartet…",
     "connecting": "Verbinde...",
     "paused": "Pausiert",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "Steuerung",
+    "controlOn": "Deine Maus und Tastatur steuern den Agentenbildschirm (klicke zum Stoppen)",
+    "controlOff": "Steuere den Agentenbildschirm mit deiner Maus und Tastatur"
   },
   "keyboard": {
     "forwardingOn": "Tastatur → Agent: AN (klicken zum Stoppen)",

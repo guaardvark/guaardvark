@@ -122,7 +122,10 @@
     "starting": "에이전트 디스플레이 시작 중…",
     "connecting": "연결 중...",
     "paused": "일시정지",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "제어",
+    "controlOn": "마우스와 키보드로 에이전트 화면을 제어합니다 (클릭하여 중지)",
+    "controlOff": "마우스와 키보드로 에이전트 화면 제어"
   },
   "keyboard": {
     "forwardingOn": "키보드 → 에이전트 화면: 켜짐 (클릭하여 중지)",

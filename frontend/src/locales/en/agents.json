@@ -124,7 +124,10 @@
     "starting": "Starting agent display…",
     "connecting": "Connecting...",
     "paused": "Paused",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "Control",
+    "controlOn": "Your mouse and keyboard control the Agent Screen (click to stop)",
+    "controlOff": "Control the Agent Screen with your mouse and keyboard"
   },
   "keyboard": {
     "forwardingOn": "Keyboard → Agent: ON (click to stop)",

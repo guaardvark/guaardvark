@@ -430,6 +430,18 @@
       "en": "fce204ae554c",
       "out": "fce204ae554c"
     },
+    "screen.control": {
+      "en": "ea1d3df298ca",
+      "out": "20dc27435f4a"
+    },
+    "screen.controlOn": {
+      "en": "8d202f2f3ae3",
+      "out": "e0300ad3850f"
+    },
+    "screen.controlOff": {
+      "en": "3143f5aeaf1d",
+      "out": "f95a162b30af"
+    },
     "keyboard.forwardingOn": {
       "en": "46678746df09",
       "out": "7a30cc9e83a8"

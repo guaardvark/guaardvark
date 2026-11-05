@@ -122,7 +122,10 @@
     "starting": "エージェントのディスプレイを起動中…",
     "connecting": "接続中...",
     "paused": "一時停止中",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "コントロール",
+    "controlOn": "マウスとキーボードでエージェント画面を操作中（クリックで停止）",
+    "controlOff": "マウスとキーボードでエージェント画面を操作する"
   },
   "keyboard": {
     "forwardingOn": "キーボード → エージェント画面: ON (クリックで停止)",

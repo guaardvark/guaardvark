@@ -122,7 +122,10 @@
     "starting": "正在启动智能体显示……",
     "connecting": "正在连接...",
     "paused": "已暂停",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "控制",
+    "controlOn": "您的鼠标和键盘正在控制智能体界面（点击停止）",
+    "controlOff": "使用鼠标和键盘控制智能体界面"
   },
   "keyboard": {
     "forwardingOn": "键盘 → 智能体界面：开启 (点击停止)",

@@ -124,7 +124,10 @@
     "starting": "Avvio visualizzazione agente…",
     "connecting": "Connessione in corso...",
     "paused": "Pausa",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "Controllo",
+    "controlOn": "Mouse e tastiera controllano la Schermata Agente (clicca per interrompere)",
+    "controlOff": "Controlla la Schermata Agente con il tuo mouse e tastiera"
   },
   "keyboard": {
     "forwardingOn": "Tastiera → Agente: ON (clicca per interrompere)",

@@ -124,7 +124,10 @@
     "starting": "Iniciando pantalla del agente…",
     "connecting": "Conectando...",
     "paused": "Pausado",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "Control",
+    "controlOn": "Tu ratón y teclado controlan la Pantalla del agente (haz clic para detener)",
+    "controlOff": "Controla la Pantalla del agente con tu ratón y teclado"
   },
   "keyboard": {
     "forwardingOn": "Teclado → Agente: ACTIVADO (haz clic para detener)",

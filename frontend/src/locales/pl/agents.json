@@ -126,7 +126,10 @@
     "starting": "Uruchamianie wyświetlania agenta…",
     "connecting": "Łączenie...",
     "paused": "Pauza",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "Sterowanie",
+    "controlOn": "Twoja mysz i klawiatura sterują Ekranem agenta (kliknij, aby wyłączyć)",
+    "controlOff": "Steruj Ekranem agenta za pomocą myszy i klawiatury"
   },
   "keyboard": {
     "forwardingOn": "Klawiatura → Agent: WŁ. (kliknij, aby wyłączyć)",

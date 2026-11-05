@@ -124,7 +124,10 @@
     "starting": "Agent wordt gestart…",
     "connecting": "Verbinden...",
     "paused": "Pauze",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "Bediening",
+    "controlOn": "Je muis en toetsenbord bedienen het Agenten-scherm (klik om te stoppen)",
+    "controlOff": "Bedien het Agenten-scherm met je muis en toetsenbord"
   },
   "keyboard": {
     "forwardingOn": "Toetsenbord → Agent: AAN (klik om te stoppen)",

@@ -124,7 +124,10 @@
     "starting": "Démarrage de l'affichage de l'agent…",
     "connecting": "Connexion...",
     "paused": "Pause",
-    "fps": "FPS"
+    "fps": "FPS",
+    "control": "Contrôle",
+    "controlOn": "Votre souris et votre clavier contrôlent l'Écran Agent (cliquez pour arrêter)",
+    "controlOff": "Contrôlez l'Écran Agent avec votre souris et votre clavier"
   },
   "keyboard": {
     "forwardingOn": "Clavier → Agent : ACTIVÉ (cliquez pour arrêter)",
