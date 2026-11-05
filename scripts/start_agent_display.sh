@@ -999,12 +999,28 @@ if [ "$(uname -s 2>/dev/null)" = Darwin ]; then
     esac
 fi
 
+# Two starters can ask at the same moment: start.sh when a plugin needs the
+# display, and the backend when the Agent Screen or an agent tool does. Each
+# found no session on the display and launched one, and the second session's
+# xfdesktop and at-spi-bus-launcher aborted ("another desktop manager is
+# already running"), which the host showed as crash reports. Starts take
+# turns; the second finds the session running. -o keeps the session's
+# long-lived children from holding the lock.
+locked_start() {
+    if [ -n "$AGENT_DISPLAY_START_LOCKED" ] || ! command -v flock > /dev/null 2>&1; then
+        start
+        return
+    fi
+    mkdir -p "$PID_DIR"
+    AGENT_DISPLAY_START_LOCKED=1 flock -o -w 180 "$PID_DIR/agent_display.start.lock" bash "$0" start
+}
+
 case "${1:-start}" in
-    start)  start ;;
+    start)  locked_start ;;
     stop)   stop ;;
     status) status ;;
     sync)   sync_only ;;
-    restart) stop; sleep 2; start ;;
+    restart) stop; sleep 2; locked_start ;;
     *) echo "Usage: $0 {start|stop|status|sync|restart}" ;;
 esac
 
