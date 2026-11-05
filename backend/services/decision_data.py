@@ -885,27 +885,33 @@ DECISIONS: dict = {
      'type': 'need',
      'key': 'own_documents_could_help',
      'kind': 'bool',
-     'instructions': "Could passages from the user's own indexed documents help answer this message? Greetings, "
-                     'thanks and pure commands to the computer (open, click, launch, draw) cannot. A question that '
-                     "only starts with a command word ('run me through my notes on...', 'go to the pricing part of "
-                     "my proposal') can.",
+     'instructions': "documents lists the user's indexed files by name. Could passages from those files help "
+                     "answer this message? Answer true when the message asks about something a listed file may "
+                     "cover (judge by the file names), refers to the user's own files, notes, reports, records or "
+                     "earlier work, or follows up previous_message about such things. When documents ends with "
+                     "'and N more', answer true unless the message needs no document at all. Answer false for "
+                     "greetings, thanks and small talk; writing something new (a poem, story, joke, slogan, email) "
+                     "with no reference to their material; rewriting, translating or checking text given in the "
+                     "message; arithmetic; general knowledge or programming questions none of the listed files is "
+                     "about; and pure commands to the computer (open, click, launch, play).",
      'choices': None,
-     'state': {'message': ('user', 600)},
-     'anchor': 'backend/services/unified_chat_engine.py UnifiedChatEngine._should_skip_rag; '
-               'backend/api/enhanced_chat_api.py _is_simple_message',
-     'precheck': '_should_skip_rag or _is_simple_message wants to skip retrieval; the anchored small-talk patterns '
-                 '(is_conversational, SOCIAL_TIER2_PATTERNS) are not asked',
-     'fallback': 'False (skip, as the rule says today)',
+     'state': {'message': ('user', 600), 'previous_message': ('user', 300), 'documents': ('system', 900)},
+     'anchor': 'backend/services/unified_chat_engine.py UnifiedChatEngine._rag_for_turn',
+     'precheck': 'the chat would search the knowledge base this turn (or _should_skip_rag skipped it on a command '
+                 'word), the index lists at least one document, and the message is not anchored small talk '
+                 '(is_conversational)',
+     'fallback': "today's rule: search unless _should_skip_rag matches",
      'safe_side': True,
      'unlocks': (),
      'side_effect': 'prompt',
      'mode_default': 'off',
      'floor': 0.95,
-     'set': None,
-     'hard_negatives': ('command_word_question', 'greeting_plus_question', 'pure_command', 'small_talk'),
-     'notes': 'A True only adds one retrieval and labelled passages, which context_answers can still mark as not '
-              'answering. In the turn router this is a TurnDecision flag. Labelled set not written yet (planned: '
-              'skip_rag.json).'},
+     'set': 'skip_rag.json',
+     'hard_negatives': ('command_word_question', 'general_knowledge', 'file_name_match', 'follow_up',
+                        'creative', 'truncated_listing'),
+     'notes': 'A False skips the search for this turn; the model can still call search_knowledge_base. The search '
+              'starts beside the question, so a True costs no wait and a False ends the wait for the search. '
+              'documents is the cached list of indexed file names (knowledge_listing).'},
     'chunk_strategy': {'feature': 'rag',
      'layer': 'L3',
      'type': 'label',
