@@ -86,7 +86,6 @@ def test_a_line_range_returns_exactly_those_lines(checkout):
 TWENTY_LINES = "".join(f"l{i}\n" for i in range(1, 21))
 # (read_code arguments on a 20-line file, text the error must contain).
 RANGE_ERRORS = [
-    ({"start_line": 21}, "past the end"),
     ({"start_line": 3, "end_line": 1}, "before start_line"),
     ({"start_line": 0}, "1 or more"),
     ({"end_line": "many"}, "whole number"),
@@ -99,6 +98,14 @@ def test_a_range_outside_the_file_is_an_error(checkout, arguments, expected):
     result = _mcp(cmt.ReadCodeTool).execute(filepath="mod.py", **arguments)
     assert not result.success
     assert expected in result.error
+
+
+def test_a_start_past_the_end_says_where_the_file_ended(checkout):
+    (checkout / "mod.py").write_text(TWENTY_LINES)
+    result = _mcp(cmt.ReadCodeTool).execute(filepath="mod.py", start_line=21)
+    assert result.success
+    assert "Nothing after line 20" in result.output
+    assert result.metadata["past_end"] is True
 
 
 def test_one_line_longer_than_a_page_is_cut_and_said_so(checkout, monkeypatch):

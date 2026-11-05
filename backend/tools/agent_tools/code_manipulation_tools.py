@@ -175,7 +175,8 @@ def _page_of_file(result: str, filepath: str, start_line: int | None, end_line: 
     Lines are split on "\n", the numbering search_code reports. A whole file
     that fits in a page, asked for without a range, is returned unchanged. A
     page ends on a line boundary; one line longer than a page is cut. Raises
-    ValueError for a range outside the file."""
+    ValueError for an end_line before start_line; a start_line past the end
+    returns the header and a line saying the file ended there."""
     max_chars = READ_CODE_PAGE_CHARS if max_chars is None else max_chars
     head, marker, rest = result.partition(_CONTENT_START)
     if not marker or not rest.endswith(_CONTENT_END):
@@ -193,7 +194,10 @@ def _page_of_file(result: str, filepath: str, start_line: int | None, end_line: 
     if end_line is not None and end_line < first:
         raise ValueError(f"end_line ({end_line}) is before start_line ({first})")
     if first > max(total, 1):
-        raise ValueError(f"start_line {first} is past the end of '{filepath}', which has {total} lines")
+        # Not an error: a reader paging through a file hears where it ended,
+        # and two errors in a row would switch read_code off for the turn.
+        return (f"{head.rstrip()}\nNothing after line {total}: '{filepath}' has {total} lines, "
+                f"and that was the end."), {"total_lines": total, "past_end": True}
     if total == 0:
         return result, {"total_lines": 0, "complete": True}
     wanted_last = min(end_line or total, total)
@@ -272,6 +276,10 @@ class ReadCodeTool(BaseTool):
     """Tool to read source code files"""
 
     name = "read_code"
+    chat_summary = (
+        "Read a file of Guaardvark's own code, whole or by start_line/end_line; a long file comes in "
+        "pages, each ending with the next start_line. Use it rather than cat."
+    )
     read_only = True
     observation_chars = 8000  # the file text is the answer
     description = (
@@ -280,8 +288,8 @@ class ReadCodeTool(BaseTool):
         "between START/END markers, without line numbers. One call returns at most 60,000 characters of "
         "content, in whole lines: a longer file comes back as its first page with a 'Showing lines A-B of N' "
         "line naming the start_line of the next page. Pass start_line and end_line (1-based, inclusive, "
-        "the line numbers search_code reports) to read part of a file; a range past the end of the file "
-        "is an error. Paths are relative to the checkout root; an "
+        "the line numbers search_code reports) to read part of a file; a start_line past the end says "
+        "where the file ended. Paths are relative to the checkout root; an "
         "absolute path works when it lies inside the checkout. Refused: git-ignored local data (files "
         "under data/uploads and data/outputs stay readable), .env and credential or key files (*.pem, "
         "*.key, id_rsa, .netrc, credentials.* and similar), and anything under .git, venv, node_modules, "
@@ -369,6 +377,10 @@ class SearchCodeTool(BaseTool):
     """Tool to search for patterns across the codebase"""
 
     name = "search_code"
+    chat_summary = (
+        "Find lines matching a regex in Guaardvark's own code; returns numbered path:line hits. "
+        "file_glob narrows it to one file or folder."
+    )
     read_only = True
     observation_chars = 4000  # each hit is a path, a line number and the matching line
     description = (
@@ -1230,6 +1242,10 @@ class ReadASTNodeTool(BaseTool):
     """Tool to precisely extract a class or function from a Python file using AST."""
 
     name = "read_ast_node"
+    chat_summary = (
+        "Read one Python function or class whole: filepath and node_name (folder_id empty reads "
+        "Guaardvark's own code)."
+    )
     read_only = True
     observation_chars = 6000  # one function or class, whole
     description = (

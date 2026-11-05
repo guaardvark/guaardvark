@@ -174,6 +174,8 @@ class SearchMemoryTool(BaseTool):
     
     name = "search_memory"
     read_only = True
+    # The entries are the answer; 500 characters held about two of them.
+    observation_chars = 3000
     description = (
         "Look up entries in Guaardvark's long-term memory: facts, preferences and notes saved with "
         "save_memory or in the app, and the entries Guaardvark keeps itself, which are lessons "

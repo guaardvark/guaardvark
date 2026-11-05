@@ -256,6 +256,10 @@ def _regex_search(query: str, limit: int = DEFAULT_LIMIT, root: Optional[str] = 
 
 class SearchCodebaseTool(BaseTool):
     name = "search_codebase"
+    chat_summary = (
+        "Search Guaardvark's own code by question or name; returns matching files with line numbers "
+        "and the code. Start here, then read_code the files it names."
+    )
     read_only = True
     description = (
         "Search this Guaardvark install's own source code. It does not search the caller's "
