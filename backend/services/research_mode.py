@@ -33,9 +33,9 @@ _DOCUMENTS = re.compile(
     r"spreadsheets?|transcripts?|minutes|contracts?)\b", re.I)
 
 CODE_TOOLS = ["search_codebase", "system_map_query", "search_code", "read_code", "read_ast_node",
-              "read_result", "note"]
+              "read_result", "note", "scan"]
 DOCUMENT_TOOLS = ["search_knowledge_base", "list_documents", "get_document_outline",
-                  "read_document_section", "read_result", "note"]
+                  "read_document_section", "read_result", "note", "scan"]
 
 _METHOD = {
     "code": (
@@ -45,8 +45,10 @@ _METHOD = {
         "end_line, or read_result for a result that was cut short; read every file the answer "
         "touches, not only the first. 3) After each read, keep what you learned with "
         "note(text=\"fact, file:line\"). 4) Read on (the next lines, the caller, the other file) "
-        "until your notes answer every part of the question. Then answer from your notes, in full, "
-        "with file:line for each point. The short-reply rule does not apply to this answer."
+        "until your notes answer every part of the question. For a question about the whole of a "
+        "long file (every place, a summary), scan(source, question) reads all of it. Then answer "
+        "from your notes, in full, with file:line for each point. The short-reply rule does not "
+        "apply to this answer."
     ),
     "documents": (
         "Research mode: answer this from the documents, not from memory. Work in rounds. "
@@ -54,7 +56,8 @@ _METHOD = {
         "get_document_outline. 2) Read those pages or sections with read_document_section, and "
         "the next offset when the answer continues; for several reports, find each one. 3) After "
         "each read, keep what you found with note(text=\"fact, report, page\"). 4) Read on until "
-        "your notes answer every part of the question. Then answer from your notes, naming the "
+        "your notes answer every part of the question. For a question about the whole of a long "
+        "report, scan(source, question) reads all of it. Then answer from your notes, naming the "
         "report and page for each point. The short-reply rule does not apply to this answer."
     ),
 }

@@ -126,3 +126,57 @@ class NoteTool(BaseTool):
                 f"Not added: the notes would pass {rw.NOTES_MAX_CHARS:,} characters. Rewrite them "
                 f"shorter with note(text=\"...\", replace=true). Current notes:\n{done['notes']}"))
         return ToolResult(success=True, output=f"Noted ({done['chars']:,}/{rw.NOTES_MAX_CHARS:,} characters).")
+
+
+class ScanTool(BaseTool):
+    name = "scan"
+    description = (
+        "Read a whole long source part by part for one question and return what it found, with line "
+        "numbers or pages: a file of Guaardvark's own code (path), an indexed document (its filename "
+        "as list_documents prints it) or a kept result (R3). For questions about the whole of "
+        "something: every place X happens, what a long report says about Y, a summary of a large "
+        "file. Slow: one model call per part, so a 300-page report takes minutes and shows progress "
+        "in the footer; Stop ends it with what was found so far. For one fact, search and read "
+        "instead."
+    )
+    chat_summary = (
+        "Read a whole long file, indexed document or kept result (R3) for one question; returns "
+        "findings with lines or pages. Slow; for 'every place' or whole-document questions."
+    )
+    read_only = True
+    # A scan holds the chat model for minutes; plan research stays bounded.
+    plan_research = False
+    observation_chars = 4000
+    parameters = {
+        "source": ToolParameter(name="source", type="string", required=True,
+                                description="A code path (backend/services/x.py), an indexed document's filename, or R3."),
+        "question": ToolParameter(name="question", type="string", required=True,
+                                  description="What to look for, as a full question."),
+    }
+
+    def execute(self, source: str = "", question: str = "", _agent_context: Optional[Dict[str, Any]] = None,
+                **_ignored) -> ToolResult:
+        import re
+        from backend.services import research_scan, research_workspace
+        from backend.services.agent_control_service import get_chat_stop_check
+
+        if not (source or "").strip() or not (question or "").strip():
+            return ToolResult(success=False, output=None, error="scan needs a source and a question.")
+        session_id = _session_of(_agent_context or self._context)
+        try:
+            done = research_scan.scan(source, question, session_id=session_id, stop=get_chat_stop_check())
+        except research_scan.ScanRefused as exc:
+            return ToolResult(success=False, output=None, error=str(exc))
+        whole = done["read"] == done["parts"]
+        head = (f"Scan of {source} ({done['kind']}): read {done['read']} of {done['parts']} parts"
+                f"{'' if whole else ', stopped early'} in {done['secs']:.0f} s, for: {question}")
+        if session_id and done["read"]:
+            last = done["spans"][-1]
+            m = re.search(r"lines \d+-(\d+) of (\d+)", last)
+            if m:
+                research_workspace.log_read(session_id, source, 1, int(m.group(1)), int(m.group(2)))
+            else:
+                research_workspace.log_read(session_id, source, 1, done["read"], done["parts"], unit="parts")
+        body = done["memory"] or "Nothing in it answers the question."
+        return ToolResult(success=True, output=f"{head}\n{body}",
+                          metadata={"parts": done["parts"], "read": done["read"], "secs": done["secs"]})
