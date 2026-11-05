@@ -450,6 +450,30 @@
       "en": "3143f5aeaf1d",
       "out": "29f6a70f7c80"
     },
+    "screen.popOut": {
+      "en": "eadda350b9c2",
+      "out": "1c7724ec5f8a"
+    },
+    "screen.popoutBlocked": {
+      "en": "c3083cb6c890",
+      "out": "21f094e38e96"
+    },
+    "screen.dock": {
+      "en": "ea6e4137a628",
+      "out": "085ccadbd44f"
+    },
+    "screen.reconnecting": {
+      "en": "c41fc7c87cf8",
+      "out": "b41a67aaa69e"
+    },
+    "screen.pause": {
+      "en": "76face8250db",
+      "out": "7e99c7799256"
+    },
+    "screen.resume": {
+      "en": "77e0cc121c26",
+      "out": "27d787b7b9f4"
+    },
     "keyboard.forwardingOn": {
       "en": "46678746df09",
       "out": "9d96f7435435"

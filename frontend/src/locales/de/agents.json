@@ -127,7 +127,13 @@
     "fps": "FPS",
     "control": "Steuerung",
     "controlOn": "Deine Maus und Tastatur steuern den Agentenbildschirm (klicke zum Stoppen)",
-    "controlOff": "Steuere den Agentenbildschirm mit deiner Maus und Tastatur"
+    "controlOff": "Steuere den Agentenbildschirm mit deiner Maus und Tastatur",
+    "popOut": "Öffnen des Agentenbildschirms in einem eigenen Fenster",
+    "popoutBlocked": "Der Browser hat das Fenster blockiert. Erlaube Pop-ups für Guaardvark und versuche es erneut.",
+    "dock": "Zurück ins Guaardvark-Fenster",
+    "reconnecting": "Bild verloren, Verbindung wird neu aufgebaut…",
+    "pause": "Bild pausieren",
+    "resume": "Bild fortsetzen"
   },
   "keyboard": {
     "forwardingOn": "Tastatur → Agent: AN (klicken zum Stoppen)",

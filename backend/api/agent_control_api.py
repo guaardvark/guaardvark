@@ -535,13 +535,50 @@ def learn_answer():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+# A button pressed through "down" and never released (the browser lost the
+# mouseup, the tab closed mid-drag) would leave the display's pointer stuck.
+# Each press arms a release that fires unless "up" arrives first.
+HELD_BUTTON_RELEASE_SECONDS = 30
+_held_buttons = {}
+_held_lock = threading.Lock()
+
+
+def _arm_held_release(button: str) -> None:
+    def _release():
+        with _held_lock:
+            if _held_buttons.get(button) is not timer:
+                return
+            _held_buttons.pop(button, None)
+        from backend.services.local_screen_backend import LocalScreenBackend
+        logger.warning(f"Releasing {button} button held for {HELD_BUTTON_RELEASE_SECONDS}s with no release")
+        LocalScreenBackend().mouse_up(None, None, button=button)
+
+    timer = threading.Timer(HELD_BUTTON_RELEASE_SECONDS, _release)
+    timer.daemon = True
+    with _held_lock:
+        old = _held_buttons.pop(button, None)
+        if old:
+            old.cancel()
+        _held_buttons[button] = timer
+    timer.start()
+
+
+def _cancel_held_release(button: str) -> None:
+    with _held_lock:
+        timer = _held_buttons.pop(button, None)
+    if timer:
+        timer.cancel()
+
+
 @agent_control_bp.route("/learn/input", methods=["POST"])
 def learn_input():
-    """Forward user input to the virtual display during training.
+    """Forward user input to the virtual display.
 
-    Accepts: {action: "click"|"type"|"hotkey"|"scroll", x, y, text, keys}
-    Executes the action on display :99 via LocalScreenBackend and feeds
-    the event directly to DemoRecorder for step capture.
+    Accepts: {action, x, y, text, keys, button, amount} where action is
+    "click", "type", "hotkey", "scroll", "move", "down" or "up". Executes
+    the action on display :99 via LocalScreenBackend. While a demonstration
+    is being recorded, click, type, hotkey and scroll are also fed to the
+    DemoRecorder as steps; move, down and up are not recorded.
     """
     try:
         data = request.get_json() or {}
@@ -553,8 +590,11 @@ def learn_input():
             return jsonify({"success": False, "error": "Missing 'text' for type action"}), 400
         if action == "hotkey" and not data.get("keys", ""):
             return jsonify({"success": False, "error": "Missing 'keys' for hotkey action"}), 400
-        if action not in ("click", "type", "hotkey", "scroll"):
+        if action not in ("click", "type", "hotkey", "scroll", "move", "down", "up"):
             return jsonify({"success": False, "error": f"Unknown action: {action}"}), 400
+        button = data.get("button", "left")
+        if button not in ("left", "middle", "right"):
+            return jsonify({"success": False, "error": f"Unknown button: {button}"}), 400
 
         recorder = None
         try:
@@ -567,6 +607,8 @@ def learn_input():
 
         if action == "scroll":
             x, y = int(data.get("x", 640)), int(data.get("y", 360))
+        elif action == "up" and (data.get("x") is None or data.get("y") is None):
+            x, y = None, None  # release where the pointer is
         else:
             x, y = int(data.get("x", 0)), int(data.get("y", 0))
         amount = int(data.get("amount", -3))
@@ -578,17 +620,25 @@ def learn_input():
         # display listener must not record the injected copy as well.
         with (recorder.injected_input() if recorder else contextlib.nullcontext()):
             if action == "click":
-                button = data.get("button", "left")
                 result = screen.click(x, y, button=button)
             elif action == "type":
                 result = screen.type_text(data.get("text", ""))
             elif action == "hotkey":
                 result = screen.hotkey(*data.get("keys", "").split("+"))
+            elif action == "move":
+                result = screen.move(x, y)
+            elif action == "down":
+                result = screen.mouse_down(x, y, button=button)
+                if result.get("success"):
+                    _arm_held_release(button)
+            elif action == "up":
+                _cancel_held_release(button)
+                result = screen.mouse_up(x, y, button=button)
             else:
                 result = screen.scroll(x, y, amount=amount)
 
         # Feed the event to DemoRecorder if recording is active
-        if result.get("success") and recorder:
+        if result.get("success") and recorder and action in ("click", "type", "hotkey", "scroll"):
             try:
                 recorder.record_event(
                     action=action,
@@ -1299,6 +1349,72 @@ def capture_raw():
         _capture_error_cache["expires"] = now + 5
         logger.error(f"Error in raw capture: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# A frame identical to the last one sent is skipped, but one goes out at least
+# this often so the connection never sits silent.
+STREAM_KEEPALIVE_SECONDS = 2.0
+
+
+@agent_control_bp.route("/stream", methods=["GET"])
+def stream_frames():
+    """Stream the virtual display as MJPEG (multipart/x-mixed-replace).
+
+    An <img> pointed here shows the display live over one connection.
+    Query: fps (1-15, default 8), quality (30-95, default 70),
+    auto_start=1 to start the display first. The stream ends when the
+    client disconnects or the display stops answering.
+    """
+    import hashlib
+    from io import BytesIO
+    from flask import Response, stream_with_context
+    from backend.services.local_screen_backend import LocalScreenBackend
+    from backend.utils.agent_display_utils import start_agent_display_if_needed
+    from backend.utils.agent_screen_presence import note_frame
+
+    def _arg(name, default, lo, hi, cast):
+        try:
+            return max(lo, min(hi, cast(request.args.get(name, default))))
+        except (TypeError, ValueError):
+            return default
+
+    fps = _arg("fps", 8, 1, 15, float)
+    quality = _arg("quality", 70, 30, 95, int)
+
+    if not _probe_display_socket(99):
+        if request.args.get("auto_start") != "1" or not start_agent_display_if_needed():
+            return jsonify({"success": False, "error": "Agent display not running"}), 503
+
+    def frames():
+        screen = LocalScreenBackend()
+        interval = 1.0 / fps
+        last_digest = None
+        last_sent = 0.0
+        while True:
+            started = _time.time()
+            try:
+                shot, _ = screen.capture()
+            except Exception as e:
+                logger.info(f"Agent screen stream ended: {e}")
+                return
+            digest = hashlib.blake2b(shot.tobytes(), digest_size=16).digest()
+            if digest != last_digest or started - last_sent >= STREAM_KEEPALIVE_SECONDS:
+                buf = BytesIO()
+                shot.save(buf, format="JPEG", quality=quality)
+                jpeg = buf.getvalue()
+                note_frame()
+                yield (b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+                       + str(len(jpeg)).encode() + b"\r\n\r\n" + jpeg + b"\r\n")
+                last_digest, last_sent = digest, started
+            pause = interval - (_time.time() - started)
+            if pause > 0:
+                _time.sleep(pause)
+
+    response = Response(stream_with_context(frames()),
+                        mimetype="multipart/x-mixed-replace; boundary=frame")
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Accel-Buffering"] = "no"
+    return response
 
 
 # Candidate recipes: the AgentMemory audit rows written when a thumbs-up

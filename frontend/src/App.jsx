@@ -4,6 +4,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "r
 import useNavigationCancel from "./hooks/useNavigationCancel";
 import useGpuIntent from "./hooks/useGpuIntent";
 import useKeyboardForwarding from "./hooks/useKeyboardForwarding";
+import useAgentScreenPopoutSync from "./hooks/useAgentScreenPopoutSync";
+import { AGENT_SCREEN_PATH } from "./utils/agentScreenChannel";
 import useFileDropGuard from "./hooks/useFileDropGuard";
 import {
   ThemeProvider as MuiThemeProvider,
@@ -33,6 +35,7 @@ import NotFoundPage from "./pages/NotFoundPage";
 
 // Lazy-loaded — loaded on demand when route is visited
 const SettingsPage = lazyWithReload(() => import("./pages/SettingsPage"));
+const AgentScreenPage = lazyWithReload(() => import("./pages/AgentScreenPage"));
 const ProjectsPage = lazyWithReload(() => import("./pages/ProjectsPage"));
 const TaskPage = lazyWithReload(() => import("./pages/TaskPage"));
 const ActivityPage = lazyWithReload(() => import("./pages/ActivityPage"));
@@ -174,6 +177,22 @@ const GlobalTrainer = () => {
   return <TrainingFloater open={trainerOpen} onClose={() => setTrainerOpen(false)} />;
 };
 
+// The floating chat, trainer, shortcut overlay and tips, on every page except
+// the Agent Screen window: that window is the display alone, and anything
+// floating over it would sit on top of what the person is clicking.
+const AppOverlays = () => {
+  const { pathname } = useLocation();
+  if (pathname === AGENT_SCREEN_PATH) return null;
+  return (
+    <>
+      <FloatingChatProvider />
+      <GlobalTrainer />
+      <KeyboardShortcutsOverlay />
+      <DidYouKnowTip />
+    </>
+  );
+};
+
 const AppContainer = () => {
   const themeName = useAppStore((state) => state.themeName);
   const theme = useLocalizedTheme(
@@ -191,6 +210,8 @@ const AppContainer = () => {
   // Route keystrokes to DISPLAY=:99 when the user flips the toggle on either
   // floater. No-op when disabled.
   useKeyboardForwarding();
+  // Only one of the floating viewer and the /agent-screen window shows.
+  useAgentScreenPopoutSync();
   useFileDropGuard();
 
   React.useEffect(() => {
@@ -262,6 +283,15 @@ const AppContainer = () => {
                               </ErrorBoundary>
                             </AppLayout>
                           )
+                        }
+                      />
+                      {/* The Agent Screen in its own window: no sidebar or header. */}
+                      <Route
+                        path="/agent-screen"
+                        element={
+                          <ErrorBoundary>
+                            <AgentScreenPage />
+                          </ErrorBoundary>
                         }
                       />
                       <Route
@@ -774,10 +804,7 @@ const AppContainer = () => {
                       />
                     </Routes>
                     </Suspense>
-                    <FloatingChatProvider />
-                    <GlobalTrainer />
-                    <KeyboardShortcutsOverlay />
-                    <DidYouKnowTip />
+                    <AppOverlays />
                   </ErrorProvider>
                 </SnackbarProvider>
               </VoiceSessionProvider>

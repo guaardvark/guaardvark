@@ -29,7 +29,7 @@ import {
 } from '../../api/agentDisplayService';
 import { useUiTranslation } from '../../i18n';
 import { attachMouseForwarding } from './screenInput';
-import { attachKeyForwarding } from '../../hooks/useKeyboardForwarding';
+import { openAgentScreenWindow } from '../../utils/agentScreenChannel';
 
 const API_BASE = '/api';
 const STORAGE_KEY = 'guaardvark_agent_screen_state';
@@ -43,6 +43,7 @@ const DOUBLE_CLICK_MS = 400;
 // After an input, fetch frames sooner than the FPS timer would, so a click at
 // 1-2 fps still shows its result right away.
 const REFRESH_AFTER_INPUT_MS = [150, 600];
+const NOTICE_MS = 8000;
 
 function loadState() {
   try {
@@ -94,7 +95,9 @@ export default function AgentScreenViewer({ open, onClose }) {
   // capture imageSrc at mount time (null) and never revoke the live blob URL.
   // Mirror imageSrc into a ref so cleanup can read the latest value.
   const imageSrcRef = useRef(null);
-  const [popupWindow, setPopupWindow] = useState(null);
+  // While the screen is in its own window (/agent-screen) this viewer hides.
+  const popout = useAppStore((s) => s.agentScreenPopout);
+  const setAgentScreenPopout = useAppStore((s) => s.setAgentScreenPopout);
   const [position, setPosition] = useState(() => {
     const x = saved.x ?? window.innerWidth - DEFAULT_WIDTH - 20;
     const y = saved.y ?? 60;
@@ -113,17 +116,14 @@ export default function AgentScreenViewer({ open, onClose }) {
   // Starts off every time the viewer mounts; it is never saved.
   const [interactive, setInteractive] = useState(false);
   const intervalRef = useRef(null);
-  const popupIntervalRef = useRef(null);
   const lastClickRef = useRef(0);
   const imgRef = useRef(null);
   const screenBoxRef = useRef(null);
-  // Listeners attached outside React (the popup, native wheel events) read
+  // Listeners attached outside React (native mouse and wheel events) read
   // these refs so they always see the current mode.
   const interactRef = useRef(false);
   const trainingRef = useRef(false);
   const captureFrameRef = useRef(null);
-  const popupStreamRef = useRef(null);
-  const popupDetachRef = useRef(null);
 
   // Persist state
   useEffect(() => {
@@ -189,11 +189,10 @@ export default function AgentScreenViewer({ open, onClose }) {
   }, []);
   captureFrameRef.current = captureFrame;
 
-  const refreshSoon = useCallback(() => {
-    REFRESH_AFTER_INPUT_MS.forEach((ms) => setTimeout(() => {
-      if (popupStreamRef.current) popupStreamRef.current();
-      else captureFrameRef.current?.();
-    }, ms));
+  // Pointer moves come many a second; only real actions earn an early frame.
+  const refreshSoon = useCallback((payload) => {
+    if (payload?.action === 'move') return;
+    REFRESH_AFTER_INPUT_MS.forEach((ms) => setTimeout(() => captureFrameRef.current?.(), ms));
   }, []);
 
   // Start display on open; arm idle shutdown when an open viewer closes.
@@ -240,66 +239,47 @@ export default function AgentScreenViewer({ open, onClose }) {
   }, [open]);
 
   useEffect(() => {
-    if (open && displayReady && streaming && !collapsed && !popupWindow) {
+    if (open && displayReady && streaming && !collapsed && !popout) {
       captureFrame();
       intervalRef.current = setInterval(captureFrame, 1000 / fps);
       return () => clearInterval(intervalRef.current);
     }
     if (intervalRef.current) clearInterval(intervalRef.current);
     return undefined;
-  }, [open, displayReady, streaming, collapsed, fps, captureFrame, popupWindow]);
-
-  const detachPopupInput = useCallback(() => {
-    try {
-      popupDetachRef.current?.();
-    } catch {
-      // the popup's document is gone; its listeners went with it
-    }
-    popupDetachRef.current = null;
-    popupStreamRef.current = null;
-  }, []);
+  }, [open, displayReady, streaming, collapsed, fps, captureFrame, popout]);
 
   useEffect(() => {
     return () => {
       if (imageSrcRef.current) URL.revokeObjectURL(imageSrcRef.current);
       if (intervalRef.current) clearInterval(intervalRef.current);
-      if (popupIntervalRef.current) clearInterval(popupIntervalRef.current);
-      detachPopupInput();
     };
-  }, [detachPopupInput]);
+  }, []);
 
-  // Monitor popup close
+  // Popping out hands control to the window, so this page stops forwarding.
+  // Coming back, the closing window may have armed the idle shutdown; the
+  // screen is in view again, so disarm it.
+  const wasPopout = useRef(false);
   useEffect(() => {
-    if (!popupWindow) return;
-    const check = setInterval(() => {
-      if (popupWindow.closed) {
-        detachPopupInput();
-        setPopupWindow(null);
-        clearInterval(popupIntervalRef.current);
-        setStreaming(true);
-      }
-    }, 1000);
-    return () => clearInterval(check);
-  }, [popupWindow, detachPopupInput]);
+    if (popout) {
+      if (interactRef.current) setControl(false);
+    } else if (wasPopout.current && open) {
+      cancelDisplayIdle().catch(() => {});
+    }
+    wasPopout.current = popout;
+  }, [popout]);
 
-  // Mouse input on the floating viewer's picture: always in Control mode,
-  // left clicks only while a demonstration is being recorded.
+  // Mouse input on the floating viewer's picture. In Control mode it
+  // presses, moves and releases (hover and drag work); while a
+  // demonstration is recorded it sends whole clicks the recorder can keep.
   useEffect(() => {
     const el = screenBoxRef.current;
-    if (!open || collapsed || !el) return undefined;
+    if (!open || collapsed || popout || !el) return undefined;
     return attachMouseForwarding(el, () => imgRef.current, {
-      isActive: () => interactRef.current || trainingRef.current,
+      getMode: () => (trainingRef.current ? 'click' : interactRef.current ? 'full' : 'off'),
       onSent: refreshSoon,
       onError: (err) => console.error('Screen input failed:', err?.message || err),
     });
-  }, [open, collapsed, refreshSoon]);
-
-  // Keep the popup's cursor in step with the mode.
-  useEffect(() => {
-    if (!popupWindow || popupWindow.closed) return;
-    const img = popupWindow.document.getElementById('screen');
-    if (img) img.style.cursor = interactive || isTraining ? 'crosshair' : 'default';
-  }, [interactive, isTraining, popupWindow]);
+  }, [open, collapsed, popout, refreshSoon]);
 
   // Drag handlers
   const handleHeaderMouseDown = useCallback((e) => {
@@ -366,51 +346,24 @@ export default function AgentScreenViewer({ open, onClose }) {
     return () => clearInterval(id);
   }, [open]);
 
-  const openPopup = useCallback(() => {
-    if (popupWindow && !popupWindow.closed) { popupWindow.focus(); return; }
-    const w = 1064, h = 1064;
-    const left = (window.screen.width - w) / 2, top = (window.screen.height - h) / 2;
-    const win = window.open('', 'agent_screen',
-      `width=${w},height=${h},left=${left},top=${top},resizable=yes,scrollbars=no,toolbar=no,menubar=no,location=no,status=no`);
-    if (!win) return;
-    win.document.title = t('agents.screen.popupTitle');
-    win.document.body.style.cssText = 'margin:0;padding:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;';
-    win.document.body.innerHTML = '<img id="screen" style="max-width:100%;max-height:100%;object-fit:contain;" />';
-    const img = win.document.getElementById('screen');
-    img.draggable = false;
-    img.style.cursor = interactRef.current || trainingRef.current ? 'crosshair' : 'default';
-    const stream = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/agent-control/capture/raw`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quality: 70, auto_start: true }),
-        });
-        if (res.ok) { const blob = await res.blob(); const url = URL.createObjectURL(blob); if (img.src) URL.revokeObjectURL(img.src); img.src = url; }
-      } catch {
-        // dropped frame — next interval tick will try again
-      }
-    };
-    stream();
-    popupIntervalRef.current = setInterval(stream, 1000 / fps);
-    popupStreamRef.current = stream;
-    // The popup is a separate window: its clicks and keys need their own
-    // listeners, gated by the same mode as the floating viewer.
-    const detachMouse = attachMouseForwarding(win.document.body, () => img, {
-      isActive: () => interactRef.current || trainingRef.current,
-      onSent: refreshSoon,
-      onError: (err) => console.error('Screen input failed:', err?.message || err),
-    });
-    const detachKeys = attachKeyForwarding(win, {
-      isActive: () => interactRef.current,
-      onSent: refreshSoon,
-    });
-    popupDetachRef.current = () => { detachMouse(); detachKeys(); };
-    setPopupWindow(win);
-    setStreaming(false);
-  }, [popupWindow, fps, refreshSoon]);
+  // The window announces itself over the channel too; setting popout here
+  // hides this viewer at once instead of after the window has loaded.
+  const [notice, setNotice] = useState(null);
+  useEffect(() => {
+    if (!notice) return undefined;
+    const id = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(id);
+  }, [notice]);
 
-  if (!open) return null;
-  const isInPopup = popupWindow && !popupWindow.closed;
+  const openPopout = useCallback(() => {
+    if (!openAgentScreenWindow()) {
+      setNotice(t('agents.screen.popoutBlocked'));
+      return;
+    }
+    setAgentScreenPopout(true);
+  }, [setAgentScreenPopout]);
+
+  if (!open || popout) return null;
 
   return (
     <Paper
@@ -424,7 +377,7 @@ export default function AgentScreenViewer({ open, onClose }) {
         borderRadius: 1.5,
         overflow: 'hidden',
         border: 1,
-        borderColor: isTraining ? 'error.dark' : interactive ? 'warning.main' : streaming || isInPopup ? 'success.dark' : 'divider',
+        borderColor: isTraining ? 'error.dark' : interactive ? 'warning.main' : streaming ? 'success.dark' : 'divider',
         userSelect: isDragging || isResizing ? 'none' : 'auto',
       }}
     >
@@ -465,10 +418,10 @@ export default function AgentScreenViewer({ open, onClose }) {
               sx={{ height: 16, fontSize: '0.55rem', '& .MuiChip-label': { px: 0.5 } }}
             />
           )}
-          {!isTraining && (streaming || isInPopup) && (
+          {!isTraining && streaming && (
             <Chip
               icon={<CircleIcon sx={{ fontSize: '5px !important' }} />}
-              label={isInPopup ? t('agents.screen.popup') : t('agents.screen.fpsValue', { fps })}
+              label={t('agents.screen.fpsValue', { fps })}
               size="small"
               color="success"
               sx={{ height: 16, fontSize: '0.55rem', '& .MuiChip-icon': { ml: 0.25 }, '& .MuiChip-label': { px: 0.5 } }}
@@ -496,9 +449,11 @@ export default function AgentScreenViewer({ open, onClose }) {
               {kbdForwarding ? <KeyboardIcon sx={{ fontSize: 13 }} /> : <KeyboardOutlinedIcon sx={{ fontSize: 13 }} />}
             </IconButton>
           </Tooltip>
-          <IconButton className="header-btn" size="small" onClick={openPopup} sx={{ p: 0.2 }}>
-            <OpenInNewIcon sx={{ fontSize: 13 }} />
-          </IconButton>
+          <Tooltip title={t('agents.screen.popOut')}>
+            <IconButton className="header-btn" size="small" onClick={openPopout} sx={{ p: 0.2 }}>
+              <OpenInNewIcon sx={{ fontSize: 13 }} />
+            </IconButton>
+          </Tooltip>
           <IconButton className="header-btn" size="small" onClick={() => setStreaming((s) => !s)} sx={{ p: 0.2 }}>
             {streaming ? <PauseIcon sx={{ fontSize: 13 }} /> : <PlayArrowIcon sx={{ fontSize: 13 }} />}
           </IconButton>
@@ -512,9 +467,7 @@ export default function AgentScreenViewer({ open, onClose }) {
       {!collapsed && (
         <Box ref={screenBoxRef} sx={{ position: 'relative', bgcolor: '#000' }}>
           <Box sx={{ aspectRatio: '1 / 1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {isInPopup ? (
-              <Typography variant="caption" color="grey.600">{t('agents.screen.inPopup')}</Typography>
-            ) : imageSrc ? (
+            {imageSrc ? (
               <img
                 ref={imgRef}
                 src={imageSrc}
@@ -534,18 +487,28 @@ export default function AgentScreenViewer({ open, onClose }) {
             )}
           </Box>
 
-          {/* FPS slider */}
-          {!isInPopup && (
-            <Box sx={{
-              position: 'absolute', bottom: 2, right: 4,
-              display: 'flex', alignItems: 'center', gap: 0.5,
-              bgcolor: 'rgba(0,0,0,0.5)', borderRadius: 1, px: 0.5, py: 0.1,
-            }}>
-              <Typography variant="caption" color="grey.500" sx={{ fontSize: '0.55rem' }}>{t('agents.screen.fps')}</Typography>
-              <Slider value={fps} onChange={(_, v) => setFps(v)} min={1} max={10} step={1} size="small"
-                sx={{ width: 40, color: 'grey.600', py: 0 }} />
-            </Box>
+          {notice && (
+            <Typography
+              variant="caption"
+              sx={{
+                position: 'absolute', top: 4, left: 4, right: 4,
+                bgcolor: 'rgba(0,0,0,0.75)', color: 'warning.light', borderRadius: 1, px: 0.75, py: 0.25,
+              }}
+            >
+              {notice}
+            </Typography>
           )}
+
+          {/* FPS slider */}
+          <Box sx={{
+            position: 'absolute', bottom: 2, right: 4,
+            display: 'flex', alignItems: 'center', gap: 0.5,
+            bgcolor: 'rgba(0,0,0,0.5)', borderRadius: 1, px: 0.5, py: 0.1,
+          }}>
+            <Typography variant="caption" color="grey.500" sx={{ fontSize: '0.55rem' }}>{t('agents.screen.fps')}</Typography>
+            <Slider value={fps} onChange={(_, v) => setFps(v)} min={1} max={10} step={1} size="small"
+              sx={{ width: 40, color: 'grey.600', py: 0 }} />
+          </Box>
 
           {/* Resize handle */}
           <Box

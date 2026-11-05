@@ -71,6 +71,7 @@ const Sidebar = () => {
   // the viewer state non-shareable and lost on every reload.
   const agentScreenOpen = useAppStore((s) => s.agentScreenOpen);
   const setAgentScreenOpen = useAppStore((s) => s.setAgentScreenOpen);
+  const toggleAgentScreen = useAppStore((s) => s.toggleAgentScreen);
   const isBelowMd = useMediaQuery(theme.breakpoints.down("md"));
   // Live counts for nav items that declare a `badge` key, as the Workspaces bar has them.
   const { count: pendingApprovals } = usePendingApprovals();
@@ -325,7 +326,7 @@ const Sidebar = () => {
             {/* Agent Screen toggle */}
             <Tooltip title={isExpanded ? "" : t("navigation.agentScreen")} placement="right" arrow>
               <IconButton
-                onClick={() => setAgentScreenOpen(!agentScreenOpen)}
+                onClick={toggleAgentScreen}
                 sx={{
                   width: "100%",
                   height: 36,

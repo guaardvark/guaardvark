@@ -127,7 +127,13 @@
     "fps": "FPS",
     "control": "Bediening",
     "controlOn": "Je muis en toetsenbord bedienen het Agenten-scherm (klik om te stoppen)",
-    "controlOff": "Bedien het Agenten-scherm met je muis en toetsenbord"
+    "controlOff": "Bedien het Agenten-scherm met je muis en toetsenbord",
+    "popOut": "Open het Agenten-scherm in een eigen venster",
+    "popoutBlocked": "De browser heeft het venster geblokkeerd. Sta pop-ups toe voor Guaardvark en probeer het opnieuw.",
+    "dock": "Terug naar het Guaardvark-venster",
+    "reconnecting": "Beeld verloren, opnieuw verbinden…",
+    "pause": "Pauzeer het beeld",
+    "resume": "Speel het beeld voort"
   },
   "keyboard": {
     "forwardingOn": "Toetsenbord → Agent: AAN (klik om te stoppen)",

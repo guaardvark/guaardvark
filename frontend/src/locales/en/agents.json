@@ -127,7 +127,13 @@
     "fps": "FPS",
     "control": "Control",
     "controlOn": "Your mouse and keyboard control the Agent Screen (click to stop)",
-    "controlOff": "Control the Agent Screen with your mouse and keyboard"
+    "controlOff": "Control the Agent Screen with your mouse and keyboard",
+    "popOut": "Open the Agent Screen in its own window",
+    "popoutBlocked": "The browser blocked the window. Allow pop-ups for Guaardvark and try again.",
+    "dock": "Back into the Guaardvark window",
+    "reconnecting": "Picture lost, reconnecting…",
+    "pause": "Pause the picture",
+    "resume": "Resume the picture"
   },
   "keyboard": {
     "forwardingOn": "Keyboard → Agent: ON (click to stop)",

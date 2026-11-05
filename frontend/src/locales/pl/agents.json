@@ -129,7 +129,13 @@
     "fps": "FPS",
     "control": "Sterowanie",
     "controlOn": "Twoja mysz i klawiatura sterują Ekranem agenta (kliknij, aby wyłączyć)",
-    "controlOff": "Steruj Ekranem agenta za pomocą myszy i klawiatury"
+    "controlOff": "Steruj Ekranem agenta za pomocą myszy i klawiatury",
+    "popOut": "Otwórz Ekran agenta w osobnym oknie",
+    "popoutBlocked": "Przeglądarka zablokowała okno. Zezwól na wyskakujące okienka dla Guaardvark i spróbuj ponownie.",
+    "dock": "Powrót do okna Guaardvark",
+    "reconnecting": "Obraz utracony, łączenie ponownie…",
+    "pause": "Zatrzymaj obraz",
+    "resume": "Wznów obraz"
   },
   "keyboard": {
     "forwardingOn": "Klawiatura → Agent: WŁ. (kliknij, aby wyłączyć)",

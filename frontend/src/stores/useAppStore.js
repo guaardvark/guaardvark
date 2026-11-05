@@ -5,6 +5,7 @@ import { DEFAULT_PROFILE } from "../config/profile";
 import { extensionStoreSlices } from "../extensions";
 import { DEFAULT_ACTIVATION_MODE, isActivationMode } from "../config/voiceDefaults";
 import { translate } from "../i18n";
+import { postAgentScreen } from "../utils/agentScreenChannel";
 
 // Extensions may add state (extensions/<id>/frontend/index.jsx storeSlice);
 // their persisted keys join partialize below.
@@ -75,6 +76,23 @@ const createUISlice = (set, get) => ({
   // ReACT path instead of the screen-action direct path.
   agentScreenOpen: false,
   setAgentScreenOpen: (open) => set({ agentScreenOpen: open }),
+
+  // True while the Agent Screen shows in its own window (/agent-screen)
+  // instead of the floating viewer. agentScreenOpen stays true meanwhile:
+  // the screen is still in view, which is what the chat sender reads.
+  agentScreenPopout: false,
+  setAgentScreenPopout: (popout) => set({ agentScreenPopout: popout }),
+  // The sidebar's Agent Screen button. While the screen is in its own
+  // window, it brings the screen back into the page and closes the window;
+  // otherwise it opens or closes the floating viewer.
+  toggleAgentScreen: () => {
+    if (get().agentScreenPopout) {
+      set({ agentScreenPopout: false, agentScreenOpen: true });
+      postAgentScreen('dock');
+    } else {
+      set((state) => ({ agentScreenOpen: !state.agentScreenOpen }));
+    }
+  },
 
   // Modal session mode — per-session "chat" | "agent". Backend at
   // /api/chat-sessions/<id>/mode is the source of truth; this is just a

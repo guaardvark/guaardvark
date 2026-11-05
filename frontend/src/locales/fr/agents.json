@@ -127,7 +127,13 @@
     "fps": "FPS",
     "control": "Contrôle",
     "controlOn": "Votre souris et votre clavier contrôlent l'Écran Agent (cliquez pour arrêter)",
-    "controlOff": "Contrôlez l'Écran Agent avec votre souris et votre clavier"
+    "controlOff": "Contrôlez l'Écran Agent avec votre souris et votre clavier",
+    "popOut": "Ouvrir l'Écran Agent dans une fenêtre séparée",
+    "popoutBlocked": "Le navigateur a bloqué la fenêtre. Autorisez les fenêtres surgissantes pour Guaardvark et réessayez.",
+    "dock": "Retour à la fenêtre Guaardvark",
+    "reconnecting": "Image perdue, reconnexion…",
+    "pause": "Mettre l'image en pause",
+    "resume": "Reprendre l'image"
   },
   "keyboard": {
     "forwardingOn": "Clavier → Agent : ACTIVÉ (cliquez pour arrêter)",

@@ -125,7 +125,13 @@
     "fps": "FPS",
     "control": "제어",
     "controlOn": "마우스와 키보드로 에이전트 화면을 제어합니다 (클릭하여 중지)",
-    "controlOff": "마우스와 키보드로 에이전트 화면 제어"
+    "controlOff": "마우스와 키보드로 에이전트 화면 제어",
+    "popOut": "\"에이전트 화면\"을 별도 창으로 열기",
+    "popoutBlocked": "브라우저에서 창을 차단했습니다. Guaardvark의 팝업을 허용하고 다시 시도하세요.",
+    "dock": "Guaardvark 창으로 돌아가기",
+    "reconnecting": "화면 연결이 끊겼습니다. 재연결 중…",
+    "pause": "화면 일시 중지",
+    "resume": "화면 재개"
   },
   "keyboard": {
     "forwardingOn": "키보드 → 에이전트 화면: 켜짐 (클릭하여 중지)",

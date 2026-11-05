@@ -80,6 +80,7 @@ const SoftwareNav = () => {
   const systemLogo = useAppStore((state) => state.systemLogo);
   const agentScreenOpen = useAppStore((state) => state.agentScreenOpen);
   const setAgentScreenOpen = useAppStore((state) => state.setAgentScreenOpen);
+  const toggleAgentScreen = useAppStore((state) => state.toggleAgentScreen);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const { count: pendingApprovals } = usePendingApprovals();
   // Core keys first; a distribution's navBadges.js adds its own.
@@ -238,7 +239,7 @@ const SoftwareNav = () => {
             {agentScreenAction && (
               <Tooltip title={navigationLabel(agentScreenAction.label, agentScreenAction)}>
                 <ButtonBase
-                  onClick={() => setAgentScreenOpen(!agentScreenOpen)}
+                  onClick={toggleAgentScreen}
                   aria-label={navigationLabel(agentScreenAction.label, agentScreenAction)}
                   sx={pinButtonSx(agentScreenOpen, "success.main")}
                 >

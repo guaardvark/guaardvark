@@ -127,7 +127,13 @@
     "fps": "FPS",
     "control": "Controle",
     "controlOn": "Seu mouse e teclado controlam a Tela do Agente (clique para parar)",
-    "controlOff": "Controle a Tela do Agente com seu mouse e teclado"
+    "controlOff": "Controle a Tela do Agente com seu mouse e teclado",
+    "popOut": "Abrir a Tela do Agente em sua própria janela",
+    "popoutBlocked": "O navegador bloqueou a janela. Permita pop-ups para o Guaardvark e tente novamente.",
+    "dock": "Voltar para a janela do Guaardvark",
+    "reconnecting": "Imagem perdida, reconectando…",
+    "pause": "Pausar a imagem",
+    "resume": "Retomar a imagem"
   },
   "keyboard": {
     "forwardingOn": "Teclado $\rightarrow$ Agente: ATIVO (clique para parar)",

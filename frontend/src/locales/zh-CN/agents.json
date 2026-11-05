@@ -125,7 +125,13 @@
     "fps": "FPS",
     "control": "控制",
     "controlOn": "您的鼠标和键盘正在控制智能体界面（点击停止）",
-    "controlOff": "使用鼠标和键盘控制智能体界面"
+    "controlOff": "使用鼠标和键盘控制智能体界面",
+    "popOut": "在独立窗口中“打开”智能体界面",
+    "popoutBlocked": "浏览器拦截了窗口。请允许 Guaardvark 的弹出窗口并重试。",
+    "dock": "回到 Guaardvark 窗口",
+    "reconnecting": "画面丢失，正在重新连接……",
+    "pause": "暂停画面",
+    "resume": "继续播放画面"
   },
   "keyboard": {
     "forwardingOn": "键盘 → 智能体界面：开启 (点击停止)",

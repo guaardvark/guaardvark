@@ -13,7 +13,7 @@ import shutil
 import subprocess
 import threading
 import time
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import mss
 from PIL import Image
@@ -154,6 +154,33 @@ class LocalScreenBackend(ScreenInterface):
     # ------------------------------------------------------------------
 
     _BTN_MAP = {"left": "1", "middle": "2", "right": "3"}
+
+    def mouse_down(self, x: int, y: int, button: str = "left") -> Dict[str, Any]:
+        """Move to (x, y) and press a button without releasing it.
+
+        The caller owns the release: a button left down wedges the X
+        session's input, so pair every call with mouse_up().
+        """
+        return self._press(x, y, button, "mousedown", "mouse_down")
+
+    def mouse_up(self, x: Optional[int], y: Optional[int], button: str = "left") -> Dict[str, Any]:
+        """Release a button, at (x, y) if given, else where the pointer is."""
+        return self._press(x, y, button, "mouseup", "mouse_up")
+
+    def _press(self, x: Optional[int], y: Optional[int], button: str,
+               command: str, action_name: str) -> Dict[str, Any]:
+        try:
+            if x is not None and y is not None:
+                r = self._xdotool("mousemove", "--screen", "0", str(x), str(y))
+                if r.returncode != 0:
+                    return {"success": False, "error": r.stderr.strip() or "mousemove failed"}
+            r = self._xdotool(command, self._BTN_MAP.get(button, "1"))
+            if r.returncode != 0:
+                return {"success": False, "error": r.stderr.strip() or f"{command} failed"}
+            return {"success": True, "action": action_name, "x": x, "y": y, "button": button}
+        except Exception as e:
+            logger.error(f"{action_name} at ({x}, {y}) failed: {e}")
+            return {"success": False, "error": str(e)}
 
     def double_click(self, x: int, y: int, button: str = "left") -> Dict[str, Any]:
         """Native double-click via xdotool --repeat. Both clicks fire
