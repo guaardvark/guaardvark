@@ -575,6 +575,7 @@ def test_a_token_in_a_plugins_health_reply_is_not_relayed(monkeypatch):
             type="service", endpoints={"health": "/health"}, port=8201,
         )),
         _record_health=lambda pid, answering: None,
+        _service_url=PluginManager._service_url,
     )
     health = PluginManager.health_check(manager, "vision_pipeline")
     assert leaked not in repr(health)
