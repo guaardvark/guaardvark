@@ -88,3 +88,41 @@ class ReadResultTool(BaseTool):
         return ToolResult(success=True, output=f"{head}.\n{page['text']}\n{footer}",
                           metadata={"id": rid, "first": page["first"], "last": page["last"],
                                     "total": page["total"]})
+
+
+class NoteTool(BaseTool):
+    name = "note"
+    description = (
+        "Keep a finding in your notes for this chat: what you learned, where (file:line or page), "
+        "and what is still to check. The notes are shown to you on every step and at the next "
+        "message, after old tool results have scrolled out of view. They hold "
+        "about 1,500 characters; when full, call again with replace=true and a shorter rewrite."
+    )
+    chat_summary = (
+        "Keep a finding (with file:line or page) in your notes for this chat; they stay in view when "
+        "old results scroll out. replace=true rewrites them when full."
+    )
+    read_only = True
+    plan_research = True
+    observation_chars = 2000
+    parameters = {
+        "text": ToolParameter(name="text", type="string", required=True,
+                              description="What to keep, short: the fact and where it is."),
+        "replace": ToolParameter(name="replace", type="bool", required=False, default=False,
+                                 description="True to replace all notes with text (to rewrite them shorter)."),
+    }
+
+    def execute(self, text: str = "", replace: Any = False, _agent_context: Optional[Dict[str, Any]] = None,
+                **_ignored) -> ToolResult:
+        from backend.services import research_workspace as rw
+
+        session_id = _session_of(_agent_context or self._context)
+        if not session_id:
+            return ToolResult(success=False, output=None, error="Notes need a chat session.")
+        replace = str(replace).strip().lower() in ("1", "true", "yes", "on")
+        done = rw.write_note(session_id, text, replace=replace)
+        if not done["ok"]:
+            return ToolResult(success=True, output=(
+                f"Not added: the notes would pass {rw.NOTES_MAX_CHARS:,} characters. Rewrite them "
+                f"shorter with note(text=\"...\", replace=true). Current notes:\n{done['notes']}"))
+        return ToolResult(success=True, output=f"Noted ({done['chars']:,}/{rw.NOTES_MAX_CHARS:,} characters).")

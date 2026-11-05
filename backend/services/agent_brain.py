@@ -1257,6 +1257,13 @@ class AgentBrain:
             if budget is None:
                 budget = StepBudget.from_total(self.TOTAL_STEP_CAP)
             iters = 1 if skip_tools else 5
+            # A question answered by reading code or documents gets more steps,
+            # its reading tools and a method (research_mode).
+            from backend.services import research_mode
+            research_kind = None if skip_tools else research_mode.kind(message, options)
+            if research_kind:
+                iters = research_mode.RESEARCH_MAX_ITERATIONS
+                options = {**(options or {}), "research_mode": research_kind}
             iters = min(iters, budget.remaining)
             budget.charge(1, 2, "tier2 instinct entry")
             engine = UnifiedChatEngine(

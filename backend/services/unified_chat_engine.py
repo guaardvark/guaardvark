@@ -1071,6 +1071,38 @@ def _cut_observation(session_id, tool_name: str, params, result, formatted: str,
     return f"{head}\n[Cut: shown {len(head):,} of {len(formatted):,} characters.]", None
 
 
+def _log_tool_read(session_id, tool_name: str, params, metadata) -> None:
+    """Add what a reading tool covered to the chat's reading log."""
+    try:
+        from backend.services import research_workspace
+        research_workspace.log_tool_read(session_id, tool_name, params, metadata)
+    except Exception as exc:  # noqa: BLE001 - the log is a help, never a failure
+        logger.debug("reading log: %s", exc)
+
+
+def _log_whole_read(session_id, tool_name: str, params, out: str) -> None:
+    """A shell read of one file that fit in the window was read whole."""
+    if tool_name != "system_command" or not out:
+        return
+    try:
+        from backend.services import research_workspace
+        source = research_workspace._source_of({"params": params or {}})
+        if source:
+            lines = out.count("\n") + (0 if out.endswith("\n") else 1)
+            research_workspace.log_read(session_id, source, 1, lines, lines)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("reading log: %s", exc)
+
+
+def _research_block(session_id) -> str:
+    try:
+        from backend.services import research_workspace
+        return research_workspace.research_block(session_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("research block: %s", exc)
+        return ""
+
+
 def _assistant_turn_text(llm_response: str, tool_calls) -> str:
     """What the next prompt shows as this step's assistant turn: the reply, or,
     when the calls came as structured tool_calls with no text, those calls in
@@ -3050,6 +3082,13 @@ class UnifiedChatEngine:
             selected_tools = _pin_image_generation_tools(
                 selection_text, selected_tools, self.registry.list_tools(), session_id=session_id,
             )
+            _research_kind = options.get("research_mode") if isinstance(options, dict) else None
+            if _research_kind and not _skip_tools:
+                from backend.services import research_mode
+                _available = set(self.registry.list_tools())
+                _pinned = [t for t in research_mode.tools_for(_research_kind)
+                           if t in _available and t not in selected_tools]
+                selected_tools = _pinned + list(selected_tools)
 
             # Semantic selector can return CORE-only when embeddings are cold; keyword
             # router still knows which category matched — merge so action tools survive.
@@ -3255,6 +3294,15 @@ class UnifiedChatEngine:
                         context_parts.append(_dossier)
             except Exception:
                 logger.debug("self-analysis dossier skipped", exc_info=True)
+        # What earlier turns of this chat read and noted, so a follow-up
+        # ("suggest improvements") starts from it instead of from nothing.
+        if not _skip_tools:
+            _earlier = _research_block(session_id)
+            if _earlier:
+                context_parts.append(f"From earlier in this chat. {_earlier}")
+            if _opts.get("research_mode"):
+                from backend.services import research_mode
+                context_parts.append(research_mode.method_note(_opts["research_mode"]))
         _accepted = str(_opts.get("accepted_offer") or "").strip()
         if _accepted:
             context_parts.append(
@@ -3395,7 +3443,8 @@ class UnifiedChatEngine:
             # data is available. Pushed once at iteration 3 so the LLM still
             # has plenty of room (max=8) but a clear cue to stop spinning.
             if (
-                iteration == 3 and tools_called and not wrap_up_nudge_pushed
+                iteration == (max(3, self.max_iterations - 2) if options.get("research_mode") else 3)
+                and tools_called and not wrap_up_nudge_pushed
                 and not options.get("skip_nudges")
             ):
                 ollama_messages.append({
@@ -3532,12 +3581,15 @@ class UnifiedChatEngine:
                 _unsearched_gap = (not steps and not _skip_tools
                                    and "search_knowledge_base" in (selected_tools or [])
                                    and bool(_UNSEARCHED_GAP_RE.search(final_text)))
-                if not options.get("skip_nudges") and (_claims or _unlooked or _unsearched_gap):
+                _unread = not steps and not _skip_tools and bool(options.get("research_mode"))
+                if not options.get("skip_nudges") and (_claims or _unlooked or _unsearched_gap or _unread):
                     if not claimed_search_retried and not _skip_tools and not is_aborted(session_id):
                         claimed_search_retried = True
+                        from backend.services.research_mode import RESEARCH_NUDGE
                         reason, nudge = (
                             ("claimed search", _CLAIMED_SEARCH_NUDGE) if _claims
                             else ("lookup request", _LOOKUP_REQUEST_NUDGE) if _unlooked
+                            else ("research question", RESEARCH_NUDGE) if _unread
                             else ("unsearched gap", _UNSEARCHED_GAP_NUDGE)
                         )
                         logger.info(
@@ -4050,6 +4102,10 @@ class UnifiedChatEngine:
                     if kept_id:
                         step_call["result_id"] = kept_id
                         kept_this_turn.append(kept_id)
+                elif result.success:
+                    _log_whole_read(session_id, tool_name, params, out)
+                if result.success:
+                    _log_tool_read(session_id, tool_name, params, result.metadata)
                 if not result.success:
                     fallback = guard.suggest_fallback(tool_name)
                     fallback_msg = f" Alternative: {fallback}" if fallback else ""
@@ -4092,6 +4148,11 @@ class UnifiedChatEngine:
                 )
             else:
                 continuity_block = ""
+            # What has been read and noted stays in view after the results
+            # themselves are pruned to fit the window.
+            research_now = _research_block(session_id)
+            if research_now:
+                continuity_block += f"{research_now}\n\n"
 
             # Append assistant response (truncated to limit context growth)
             ollama_messages.append({
@@ -4272,7 +4333,9 @@ class UnifiedChatEngine:
                 if report["invalid"]:
                     accumulated_response = accumulated_response.rstrip() + "\n\n" + self_analysis.invalid_note(report)
                 elif persist and not complete_extra.get("plan"):
-                    self_analysis.remember(message, accumulated_response, report)
+                    from backend.services import research_workspace
+                    self_analysis.remember(message, accumulated_response, report,
+                                           read=research_workspace.read_sources(session_id))
                 complete_extra["self_analysis"] = {"focus": self._self_focus[:6], **report}
             except Exception:
                 logger.debug("self-analysis reference check skipped", exc_info=True)
@@ -6744,6 +6807,18 @@ You are a private, local AI assistant running on the user's own hardware. There 
             )
 
         result = [m for j, m in enumerate(messages) if j not in pruned]
+        dropped_results = [j for j in pruned if _tier(j) == 0]
+        if dropped_results:
+            # Say what left the window and how to get it back; silently missing
+            # results read to a small model as results it never had.
+            kept = sorted({r for j in dropped_results
+                           for r in re.findall(r"kept as (R\d+)", messages[j].get("content", ""))},
+                          key=lambda r: int(r[1:]))
+            notice = (f"{len(dropped_results)} older tool result message(s) were dropped to fit the "
+                      "context window. Your notes and the reading log still hold what was found")
+            notice += (f"; the whole results {', '.join(kept)} can be reopened with read_result."
+                       if kept else ".")
+            result.insert(1, {"role": "system", "content": notice})
         if pruned:
             logger.info(
                 f"Context pruning: {n} → {len(result)} messages "
