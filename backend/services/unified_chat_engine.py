@@ -6452,6 +6452,9 @@ class UnifiedChatEngine:
         chunks = [f"[Source: {p['label']}]\n{p['text']}" for p in found.get("passages") or []]
         sources = [p["source"] for p in found.get("passages") or []]
         self._prov_note("rag_sources", list(dict.fromkeys(sources))[:10])
+        scores = [round(p["score"], 3) for p in found.get("passages") or [] if isinstance(p.get("score"), (int, float))]
+        if scores:
+            self._prov_note("rag_scores", scores[:10])
         return "\n\n".join(chunks)
 
     def _rag_for_turn(self, message: str, history: List[Dict[str, str]], options: Dict[str, Any],

@@ -363,24 +363,32 @@ DECISIONS: dict = {
     },
     # ------------------------------------------------------------------ in-engine checks (L2)
     "context_answers": {
-        "feature": "rag", "layer": "L2", "type": "evidence", "key": "passage_answers_question", "kind": "bool",
+        "feature": "rag", "layer": "L2", "type": "evidence", "key": "passage_helps_answer", "kind": "bool",
         "instructions": (
-            "Does the retrieved passage contain the information needed to answer the question? Being on the "
-            "same topic is not enough; the specific fact asked for must be in the passage."
+            "Does the retrieved passage hold information the reply to this message needs? For a specific "
+            "question, the fact asked for must be in the passage; a passage on the same topic without it does "
+            "not count. For a broad question (an overview, a summary, what something is or does, its main "
+            "features) a passage that covers part of the answer counts. Answer false when the message needs no "
+            "document (writing something new, general knowledge the passage does not state, rewriting text given "
+            "in the message) and when the passage only shares words with it."
         ),
         "choices": None,
         "state": {"question": ("user", 600), "passage": ("third_party", 1500)},
         "anchor": "backend/services/unified_chat_engine.py RAG context assembly, backend/utils/reranker.py "
                   "drop_unrelated",
-        "precheck": "retrieval returned passages above the reranker floor",
+        "precheck": "retrieval returned passages above the reranker floor, scored below "
+                    "chat_decisions.CONFIDENT_RERANK_SCORE",
         "fallback": "keep the passages (no answerability check today)",
         "safe_side": False,
         "unlocks": (True,),
         "side_effect": "prompt",
         "mode_default": "off", "floor": DEFAULT_FLOOR,
         "set": "context_answers.json",
-        "hard_negatives": ("adjacent_fact", "same_topic", "injection"),
-        "notes": "A 'no' labels the context as not answering; it never deletes or hides the passage.",
+        "hard_negatives": ("adjacent_fact", "same_topic", "broad_question", "injection"),
+        "notes": "A 'no' leaves the passage out of the chat prompt (chat_decisions.check_passages); the model can "
+                 "still search. Worded for chat in v3: the strict 'the specific fact must be in the passage' left "
+                 "out every README passage for 'What are the main features of Guaardvark?' and the model searched "
+                 "on its own for 21-28 s instead of answering in 9 s (A/B 2026-11-05).",
     },
     # ------------------------------------------------------------------ verification (L4)
     "task_done": {
@@ -1508,7 +1516,7 @@ MEASURED_ACCURACY: dict = {
         {"backend": "chat", "model": "gemma4:12b", "digest": "4eb23ef187e2", "wording_sha": "f9568f399086", "set_version": 2, "correct": 126, "n": 127, "injection_misses": 1, "date": "2026-11-05"},
     ],
     "context_answers": [
-        {"backend": "chat", "model": "gemma4:12b", "digest": "4eb23ef187e2", "wording_sha": "dedb9e3021a1", "set_version": 2, "correct": 126, "n": 129, "injection_misses": 1, "date": "2026-11-05"},
+        {"backend": "chat", "model": "gemma4:12b", "digest": "4eb23ef187e2", "wording_sha": "bec9ced4955e", "set_version": 3, "correct": 152, "n": 159, "injection_misses": 2, "date": "2026-11-05"},
     ],
     "image_intent": [
         {"backend": "chat", "model": "gemma4:12b", "digest": "4eb23ef187e2", "wording_sha": "67841514f6ac", "set_version": 2, "correct": 127, "n": 129, "injection_misses": 0, "date": "2026-11-05"},
@@ -1547,7 +1555,7 @@ QUALIFY_BY_RULE = frozenset({"skip_rag", "context_answers", "needs_live_data", "
 # Today's rule (the decision's fallback) scored on the same labelled set,
 # per set version, by scripts/eval_decision_rules.py.
 RULE_ACCURACY: dict = {
-    "context_answers": [{"set_version": 2, "correct": 64, "n": 129, "date": "2026-11-05"}],
+    "context_answers": [{"set_version": 3, "correct": 78, "n": 159, "date": "2026-11-05"}],
     "needs_live_data": [{"set_version": 2, "correct": 80, "n": 122, "date": "2026-11-05"}],
     "screen_or_chat": [{"set_version": 2, "correct": 61, "n": 121, "date": "2026-11-05"}],
     "skip_rag": [{"set_version": 1, "correct": 70, "n": 136, "date": "2026-11-05"}],

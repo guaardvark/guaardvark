@@ -1,6 +1,6 @@
 {
   "decision": "context_answers",
-  "set_version": 2,
+  "set_version": 3,
   "provenance": "synthetic, hand-labelled for this test; not human-rated",
   "options": [
     true,
@@ -333,12 +333,13 @@
         "question": "Explain in simple terms why someone would run AI locally instead of in the cloud.",
         "passage": "Runs on your own GPU. No account, no cloud, no subscription.\n\nChat with your documents, generate images and video, make music and narration, and let an agent drive a desktop, all on one machine. Everything you index stays in a local PostgreSQL database; nothing is uploaded.\n\n## Why local?\n\nBecause the files people most want help with are the ones they should not paste into a website: contracts, medical letters, tax returns, a manuscript in progress."
       },
-      "want": null,
+      "want": true,
       "tags": [
-        "ambiguous",
+        "contrast",
+        "broad_question",
         "holdout"
       ],
-      "note": "a general question the model can answer alone, yet the passage gives one of the reasons; keep and drop are both defensible"
+      "note": "a broad 'why' question; the passage states one of the reasons (files you should not paste into a website, nothing uploaded), and the general-knowledge exclusion covers only what the passage does not state"
     },
     {
       "id": "rag26",
@@ -588,12 +589,12 @@
         "question": "Write a poem about the Apollo 13 crew making it home.",
         "passage": "At 55:54:53 ground elapsed time the crew heard a loud bang, and the master alarm sounded with a main bus B undervoltage warning. The spacecraft was then about 200,000 statute miles from Earth. Swigert reported the problem, and Lovell repeated it seconds later."
       },
-      "want": null,
+      "want": false,
       "tags": [
-        "ambiguous",
+        "contrast",
         "holdout"
       ],
-      "note": "a poem needs no information, but this factual passage holds the scene a poem would draw on"
+      "note": "writing something new needs no document; the poem asks for no fact from the passage (as rag56)"
     },
     {
       "id": "rag46",
@@ -1695,6 +1696,416 @@
         "holdout"
       ],
       "note": "both figures sit near the end of a long chunk"
+    },
+    {
+      "id": "rag131",
+      "state": {
+        "question": "What are the main features of the app?",
+        "passage": "## Features\n\n- **Chat with your documents.** PDFs, Word files, spreadsheets and saved web pages are indexed into a local database, and answers cite the file and page they came from.\n- **Images.** Text to image with several checkpoints, batch prompts from a list or a CSV, and a seed box so the same prompt and seed give the same picture again.\n- **Video.** Short clips from a prompt or from a still image, at 480p or 720p.\n- **Narration.** Long scripts read aloud in several stock voices, split at sentence ends.\n\nEverything runs on your own machine; nothing you index is uploaded."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question"
+      ],
+      "note": "a README feature list covering part of the product; the case the v3 wording was written for, so not holdout"
+    },
+    {
+      "id": "rag132",
+      "state": {
+        "question": "What are the main features of the app?",
+        "passage": "## Troubleshooting\n\n**The page does not load.** Check that the backend is running: `./start.sh` prints the port it bound. If another process holds that port, stop it or set BACKEND_PORT in .env and start again.\n\n**Database connection refused.** PostgreSQL has to be running before start.sh. On Ubuntu: `sudo systemctl start postgresql`.\n\n**Where are the logs?** Backend logs go to logs/backend.log. Each restart starts a new file and the last five are kept.\n\n**Still stuck?** Run `./start.sh --doctor` and attach its output when you open an issue."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "same_topic",
+        "holdout"
+      ],
+      "note": "the same README's troubleshooting section names the start script and logs but no feature"
+    },
+    {
+      "id": "rag133",
+      "state": {
+        "question": "so what does this app actually do?",
+        "passage": "Point it at a folder of PDFs, notes and spreadsheets and ask about them in plain language. Answers quote the passage they rest on and link the file, so you can check them. Indexing runs on your machine into a local PostgreSQL database with pgvector; no account is needed and nothing is sent to a server.\n\nSee docs/indexing.md for the supported file types and how re-indexing works."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "covers the document side of what the app does; partial coverage counts for a broad question"
+    },
+    {
+      "id": "rag134",
+      "state": {
+        "question": "What is this app and what is it for?",
+        "passage": "## Release checklist (maintainers)\n\n1. Bump VERSION and add the release to CHANGELOG.md.\n2. Run the test suite and the linters.\n3. Commit, tag the release with a signed tag, and push the tag.\n4. Wait for CI to build and publish the package.\n5. Confirm the package index serves the new version before announcing it anywhere."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "maintainers' release steps; nothing about what the app is or does"
+    },
+    {
+      "id": "rag135",
+      "state": {
+        "question": "Summarize the inquiry report on the Ariane 5 Flight 501 failure.",
+        "passage": "…the launcher began to disintegrate about 39 seconds after lift-off, under aerodynamic loads from an angle of attack of more than 20 degrees. The angle came from full nozzle deflections of the boosters and the main engine, commanded by the on-board computer on the basis of data from the active inertial reference system. Those data were not flight data but a diagnostic bit pattern: the unit had shut down after a software exception. The back-up unit, running the same software, had failed in the same way one data cycle (72 milliseconds) earlier.\n\nThe exception was raised while converting a 64-bit floating-point value, the horizontal bias, to a 16-bit signed integer. The value was larger than a 16-bit integer can hold, and that conversion was one of three left unprotected. The code belonged to the alignment function, which yields meaningful results only before lift-off but kept running for about 40 seconds into flight, a carry-over from the Ariane 4 design. Ariane 5's early trajectory produces much higher horizontal velocities than Ariane 4's, so the value overflowed."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "covers the failure sequence and cause, not the recommendations; partial coverage counts"
+    },
+    {
+      "id": "rag136",
+      "state": {
+        "question": "Summarize the inquiry report on the Ariane 5 Flight 501 failure.",
+        "passage": "A few days after landing in July 1997, the Pathfinder lander began resetting itself, and each reset cost time and some of the day's data. Engineers reproduced the fault on a copy of the flight system in the lab. A low-priority meteorological task took a mutex guarding the shared information bus; a high-priority bus management task then blocked waiting for it, and a medium-priority communications task, which needed neither, preempted the low-priority task and kept running. With the bus task stalled past its deadline, a watchdog concluded the system had hung and reset the computer.\n\nThis is priority inversion: a high-priority task left waiting on a resource held by a low-priority one, while tasks of middle priority run ahead of both. The real-time operating system offered priority inheritance, which lends the waiting task's priority to the holder until it releases the resource, but the option was off for that mutex. The team turned it on with a small patch sent to the spacecraft, and the resets stopped."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "a different mission's software fault; shares only the vocabulary"
+    },
+    {
+      "id": "rag137",
+      "state": {
+        "question": "What is priority inversion?",
+        "passage": "A few days after landing in July 1997, the Pathfinder lander began resetting itself, and each reset cost time and some of the day's data. Engineers reproduced the fault on a copy of the flight system in the lab. A low-priority meteorological task took a mutex guarding the shared information bus; a high-priority bus management task then blocked waiting for it, and a medium-priority communications task, which needed neither, preempted the low-priority task and kept running. With the bus task stalled past its deadline, a watchdog concluded the system had hung and reset the computer.\n\nThis is priority inversion: a high-priority task left waiting on a resource held by a low-priority one, while tasks of middle priority run ahead of both. The real-time operating system offered priority inheritance, which lends the waiting task's priority to the holder until it releases the resource, but the option was off for that mutex. The team turned it on with a small patch sent to the spacecraft, and the resets stopped."
+      },
+      "want": true,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "general knowledge, but the passage states the definition, so the exclusion for what the passage does not state does not apply (as rag82)"
+    },
+    {
+      "id": "rag138",
+      "state": {
+        "question": "What is a race condition?",
+        "passage": "## 2.4.1\n\n### Fixed\n- A race condition in the upload queue could drop the last file when two uploads finished in the same second.\n- The settings page no longer resets the theme on reload.\n- Exported CSVs keep leading zeros in ID columns."
+      },
+      "want": false,
+      "tags": [
+        "code",
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "uses the term without saying what it is; general knowledge the passage does not state"
+    },
+    {
+      "id": "rag139",
+      "state": {
+        "question": "Summarize what happened to the Tacoma Narrows Bridge.",
+        "passage": "The first Tacoma Narrows Bridge, a suspension bridge with a main span of 2,800 feet, collapsed on November 7, 1940. Its deck was a shallow plate girder only 8 feet deep, and it had moved up and down in moderate winds from the start, which earned it the nickname Galloping Gertie. On the morning of the collapse, in a steady wind of about 40 miles an hour, the vertical motion changed to a twisting one after a cable band at mid-span slipped. The twisting grew for about an hour until a section of the deck broke away and fell into the water. No person died; a dog left in a car on the deck was the only fatality. Later wind-tunnel studies put the cause down to aeroelastic flutter, a self-reinforcing interaction between the wind and the deck's own twisting, rather than simple resonance with gusts."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ]
+    },
+    {
+      "id": "rag140",
+      "state": {
+        "question": "Tell me about the cost of the Tacoma Narrows Bridge.",
+        "passage": "The first Tacoma Narrows Bridge, a suspension bridge with a main span of 2,800 feet, collapsed on November 7, 1940. Its deck was a shallow plate girder only 8 feet deep, and it had moved up and down in moderate winds from the start, which earned it the nickname Galloping Gertie. On the morning of the collapse, in a steady wind of about 40 miles an hour, the vertical motion changed to a twisting one after a cable band at mid-span slipped. The twisting grew for about an hour until a section of the deck broke away and fell into the water. No person died; a dog left in a car on the deck was the only fatality. Later wind-tunnel studies put the cause down to aeroelastic flutter, a self-reinforcing interaction between the wind and the deck's own twisting, rather than simple resonance with gusts."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "same_topic",
+        "holdout"
+      ],
+      "note": "phrased broadly but asks for a figure; the passage gives none"
+    },
+    {
+      "id": "rag141",
+      "state": {
+        "question": "What are the main features of the thermostat?",
+        "passage": "Schedules and modes\n\nSet up to four periods a day (Wake, Leave, Return, Sleep), each with its own heating and cooling targets; weekdays and weekends can differ. Away mode holds an energy-saving temperature until you cancel it or the next period you chose begins. Early Start learns how long your home takes to warm up and starts heating in time to reach the target at the start of each period, not after it. Keypad lock stops changes from the front panel; the phone app can still change settings."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "one section of the manual; partial coverage counts"
+    },
+    {
+      "id": "rag142",
+      "state": {
+        "question": "What are the main features of the thermostat?",
+        "passage": "Limited warranty\n\nThe manufacturer warrants this thermostat against defects in materials and workmanship for two years from the date of purchase. The warranty does not cover damage caused by incorrect wiring, power surges, water, or unauthorized repair. To make a claim, keep the receipt and contact support with the model and serial number printed on the back plate. A repaired or replacement unit is warranted for the rest of the original period or 90 days, whichever is longer. This warranty gives you specific legal rights; you may have others that vary by state."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "same_topic",
+        "holdout"
+      ],
+      "note": "the warranty terms say nothing about what the thermostat does"
+    },
+    {
+      "id": "rag143",
+      "state": {
+        "question": "Tell me about the deadline for the arts fund application.",
+        "passage": "About the fund\n\nThe Neighbourhood Arts Fund makes grants of $2,000 to $15,000 for public art, workshops and performances that take place in the county. Individuals, collectives and registered nonprofits may apply; schools and for-profit businesses may not. Projects must be finished within 12 months of the award, and at least half of the activity must be free to attend. Panels score applications on artistic quality, benefit to the community and a realistic budget."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "same_topic",
+        "holdout"
+      ],
+      "note": "'tell me about' but a deadline is a date, and this passage has none"
+    },
+    {
+      "id": "rag144",
+      "state": {
+        "question": "Tell me about the deadline for the arts fund application.",
+        "passage": "How to apply\n\nApplications open on the portal on January 6 and close at 5:00 pm Eastern on March 3, 2027. The portal does not accept late or partial applications, so submit at least a day early; staff answer questions by phone until noon on the closing day. Each application needs a project description of up to 1,000 words, a budget on the fund's template and up to ten work samples. Decisions are sent by May 15."
+      },
+      "want": true,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "holdout"
+      ]
+    },
+    {
+      "id": "rag145",
+      "state": {
+        "question": "Tell me about your refund policy.",
+        "passage": "Returns and refunds: hardware\n\nUnopened devices can be returned within 30 days of delivery for a full refund to the original payment method. Opened devices in working order can be returned within 14 days, less a 15% restocking fee. Return shipping is paid by the customer unless the device arrived damaged or faulty. Refunds are issued within 5 business days of the return reaching our warehouse.\n\nSubscriptions are covered in section 4."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "covers the hardware half; subscriptions are in another section; partial coverage counts"
+    },
+    {
+      "id": "rag146",
+      "state": {
+        "question": "Tell me about the price of the Pro plan.",
+        "passage": "Plans\n\nFree: three projects, community forum support, watermarked exports.\nPro: unlimited projects, 90 days of version history, priority support, no watermark.\nTeam: everything in Pro, plus shared workspaces, admin roles and single sign-on.\n\nPrices depend on region and billing period and are shown at checkout."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "same_topic",
+        "holdout"
+      ],
+      "note": "phrased broadly but asks for a price; the passage lists features and says prices are shown at checkout"
+    },
+    {
+      "id": "rag147",
+      "state": {
+        "question": "Summarize my notes from the apartment viewings.",
+        "passage": "Viewings Sat 8 Nov\n\n14 Alder St, 2nd floor: bright south-facing living room, new windows. $1,950/mo, heat included, coin laundry in the basement. Landlord said one cat is fine with a $300 pet deposit. Kitchen is tiny, two burners. Bus stop at the corner, 25 min to work. Bar across the street, so maybe noisy on weekends; ask the downstairs tenant.\n\n(Birch Ave and Elm Court notes are in the other file.)"
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "notes on one of three viewings; partial coverage counts"
+    },
+    {
+      "id": "rag148",
+      "state": {
+        "question": "Summarize my notes from the apartment viewings.",
+        "passage": "Moving checklist\n\n- Book movers for the 28th, two quotes first\n- Forward the mail from the 25th\n- Cancel internet at the old apartment; return the router\n- Defrost the freezer the night before\n- Photograph the old apartment empty for the deposit\n- Hand the keys to the super by 6 pm on the 30th"
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "shares 'apartment' only; nothing from the viewings"
+    },
+    {
+      "id": "rag149",
+      "state": {
+        "question": "Give me an overview of the annual report.",
+        "passage": "Annual Report 2025\n\nContents\n\nA letter from the director ........ 2\nThe year in numbers ........ 4\nOur programs ........ 6\nVolunteers ........ 14\nFinancial statements ........ 18\nLooking ahead ........ 22\nBoard and staff ........ 24"
+      },
+      "want": null,
+      "tags": [
+        "ambiguous",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "a contents list shows the report's structure and none of its content; whether that is part of an overview is arguable"
+    },
+    {
+      "id": "rag150",
+      "state": {
+        "question": "Write a blog post about why people should care about running AI on their own computer.",
+        "passage": "Runs on your own GPU. No account, no cloud, no subscription.\n\nChat with your documents, generate images and video, make music and narration, and let an agent drive a desktop, all on one machine. Everything you index stays in a local PostgreSQL database; nothing is uploaded.\n\n## Why local?\n\nBecause the files people most want help with are the ones they should not paste into a website: contracts, medical letters, tax returns, a manuscript in progress."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "writing something new on a general theme needs no document (as rag23); contrast with rag25"
+    },
+    {
+      "id": "rag151",
+      "state": {
+        "question": "What does the backup script do?",
+        "passage": "#!/usr/bin/env bash\n# backup.sh: nightly backup of the app's data.\n#\n# Dumps the PostgreSQL database with pg_dump in custom format, copies the\n# uploads folder, and writes both into one dated tar.gz under $BACKUP_DIR\n# (default ./backups). Archives older than $KEEP_DAYS (default 14) are\n# deleted. Exits non-zero if the dump fails, so cron mails the error.\n#\n# Usage: ./backup.sh [--no-uploads]\nset -euo pipefail"
+      },
+      "want": true,
+      "tags": [
+        "code",
+        "broad_question",
+        "holdout"
+      ]
+    },
+    {
+      "id": "rag152",
+      "state": {
+        "question": "What does the backup script do?",
+        "passage": "def pick_codec(preferred: str = \"opus\") -> str:\n    \"\"\"Return the audio codec to encode narration with.\n\n    Uses the preferred codec when ffmpeg was built with it, otherwise the\n    backup codec, AAC, which every build has. The choice is logged once\n    per process.\n    \"\"\""
+      },
+      "want": false,
+      "tags": [
+        "code",
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "shares the word 'backup' only"
+    },
+    {
+      "id": "rag153",
+      "state": {
+        "question": "What were the main findings of the library survey report?",
+        "passage": "4. Findings\n\nMost respondents use the library often: 68% visit at least once a month and 22% every week. The most requested change was longer hours; 41% said they would come more often if both branches stayed open until 8 pm on weekdays. E-book loans have doubled since 2022, yet 57% of respondents did not know the library lends e-books at all. Satisfaction with staff was the highest-rated item, 4.6 out of 5, while the study rooms scored lowest, 3.1, mostly for noise and for having to book a week ahead."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ]
+    },
+    {
+      "id": "rag154",
+      "state": {
+        "question": "What were the main findings of the library survey report?",
+        "passage": "3. Method\n\nThe survey ran from 3 to 28 March 2025, online and on paper at both branches. Invitations went to 9,800 card holders chosen at random; 1,214 completed questionnaires came back, a response rate of 12%, plus 306 paper forms from walk-in visitors, which are reported separately. Results were weighted by age band and branch to match the card-holder population. Margins of error are about ±3 points for the whole sample and wider for the branch breakdowns."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "same_topic",
+        "holdout"
+      ],
+      "note": "how the survey was run, not what it found"
+    },
+    {
+      "id": "rag155",
+      "state": {
+        "question": "Tell me about the survey's response rate.",
+        "passage": "4. Findings\n\nMost respondents use the library often: 68% visit at least once a month and 22% every week. The most requested change was longer hours; 41% said they would come more often if both branches stayed open until 8 pm on weekdays. E-book loans have doubled since 2022, yet 57% of respondents did not know the library lends e-books at all. Satisfaction with staff was the highest-rated item, 4.6 out of 5, while the study rooms scored lowest, 3.1, mostly for noise and for having to book a week ahead."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "same_topic",
+        "holdout"
+      ],
+      "note": "phrased broadly but asks for one figure; it is in the method section (rag154's passage), not here"
+    },
+    {
+      "id": "rag156",
+      "state": {
+        "question": "Tell me about Apollo 13.",
+        "passage": "At 55:54:53 ground elapsed time the crew heard a loud bang, and the master alarm sounded with a main bus B undervoltage warning. The spacecraft was then about 200,000 statute miles from Earth. Swigert reported the problem, and Lovell repeated it seconds later."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "covers one moment of the mission; partial coverage counts"
+    },
+    {
+      "id": "rag157",
+      "state": {
+        "question": "Tell me about Apollo 13.",
+        "passage": "Apollo 15 was the first mission to carry the Lunar Roving Vehicle. Over three EVAs at Hadley–Apennine, Scott and Irwin drove it about 27.8 km in total, reaching the edge of Hadley Rille and the lower slopes of Mount Hadley Delta. The rover's front steering did not respond during checkout before the first EVA, so the first traverse was driven with rear steering only; front steering worked again from the second EVA."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "another mission; shares 'Apollo' only"
+    },
+    {
+      "id": "rag158",
+      "state": {
+        "question": "Give me an overview of the Mercury program.",
+        "passage": "Mercury is the smallest planet in the Solar System and the closest to the Sun. It orbits once every 88 Earth days but turns slowly on its axis, so one solar day there lasts about 176 Earth days. With almost no atmosphere to hold heat, its surface swings from about 430 °C in daylight to about −180 °C at night. Mariner 10 flew past it three times in 1974 and 1975, and MESSENGER orbited it from 2011 until it was crashed into the surface in 2015."
+      },
+      "want": false,
+      "tags": [
+        "contrast",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "the planet, not the spaceflight program; shares the name only"
+    },
+    {
+      "id": "rag159",
+      "state": {
+        "question": "Give me an overview of the Hubble servicing missions.",
+        "passage": "The first servicing mission, STS-61 in December 1993, installed COSTAR, a set of corrective mirrors for the axial instruments, and replaced the Wide Field and Planetary Camera with WFPC2, which carried its own correction. Astronauts also replaced the solar arrays and gyroscopes over five spacewalks."
+      },
+      "want": true,
+      "tags": [
+        "plain",
+        "broad_question",
+        "holdout"
+      ],
+      "note": "the first of the five servicing missions; partial coverage counts"
     }
   ]
 }

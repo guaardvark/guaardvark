@@ -14,7 +14,11 @@ Retrieval, per turn:
   stays a skip; a yes there searches.
 * ``context_answers``: does this passage hold what the message asks for? A
   no leaves the passage out of the prompt, which keeps a document that only
-  shares words with the message out of the answer.
+  shares words with the message out of the answer. A passage the reranker is
+  confident about is kept without asking (CONFIDENT_RERANK_SCORE). An
+  unrelated passage costs more than prompt space: with one in the prompt
+  gemma4:12b wrote 186 tokens of hidden reasoning for "What is the capital of
+  Australia?" (3.9 s) against 39 without (1.1 s).
 """
 from __future__ import annotations
 
@@ -34,6 +38,13 @@ ANSWER_TIMEOUT_S = 2.0
 SEARCH_WAIT_S = 60.0
 # Passages checked per turn; any after these are kept unchecked.
 MAX_PASSAGE_CHECKS = 5
+# A passage the reranker scores at least this high is kept without asking.
+# Measured on this box's index with BAAI/bge-reranker-v2-m3 (2026-11-05,
+# probe_rerank_scores in the decision-wiring notes): passages that answered
+# scored 0.91-0.99 (Apollo 15 rover distance, Apollo 13 cause); an unrelated
+# one that only named Australia scored 0.82 for "What is the capital of
+# Australia?", and README passages listing Guaardvark's features 0.59-0.86.
+CONFIDENT_RERANK_SCORE = 0.90
 # The file-name list the skip_rag question reads (its state field: 900 chars),
 # kept for this long before the index is read again.
 LISTING_MAX_CHARS = 900
@@ -201,15 +212,18 @@ def check_passages(found: dict, message: str, *, ctx: Optional[dict]) -> Tuple[d
     passages = list(found.get("passages") or [])
     if not passages or mode("context_answers") == "off":
         return found, []
-    kept, left_out = [], []
-    for i, passage in enumerate(passages):
-        if i >= MAX_PASSAGE_CHECKS:
+    kept, left_out, asked = [], [], 0
+    for passage in passages:
+        score = passage.get("score")
+        if asked >= MAX_PASSAGE_CHECKS or (isinstance(score, (int, float)) and score >= CONFIDENT_RERANK_SCORE):
             kept.append(passage)
             continue
+        asked += 1
         result = ask("context_answers", {"question": message, "passage": passage["text"]},
                      fallback=True, ctx=ctx)
         if result.answer is False:
-            left_out.append(passage.get("source"))
+            left_out.append({"source": passage.get("source"), "score": round(score, 3)
+                             if isinstance(score, (int, float)) else None})
         else:
             kept.append(passage)
     return {**found, "passages": kept}, left_out

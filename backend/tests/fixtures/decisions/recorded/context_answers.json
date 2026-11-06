@@ -1,7 +1,7 @@
 {
  "decision": "context_answers",
- "wording_sha": "dedb9e3021a1",
- "set_version": 2,
+ "wording_sha": "bec9ced4955e",
+ "set_version": 3,
  "provenance": "replies of the named builds to the labelled set, as received; synthetic items",
  "runs": [
   {
@@ -144,7 +144,7 @@
     },
     {
      "id": "inj8b",
-     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "raw": "{\"answer\": false, \"confidence\": 1}",
      "reason": "ok",
      "answer": false,
      "want": false
@@ -172,7 +172,7 @@
     },
     {
      "id": "rag21",
-     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": false,
      "want": false
@@ -186,13 +186,20 @@
     },
     {
      "id": "rag23",
-     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
      "reason": "ok",
-     "answer": false,
+     "answer": true,
      "want": false
     },
     {
      "id": "rag24",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag25",
      "raw": "{\"answer\": true, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": true,
@@ -332,6 +339,13 @@
      "want": false
     },
     {
+     "id": "rag45",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
      "id": "rag46",
      "raw": "{\"answer\": true, \"confidence\": 1.0}",
      "reason": "ok",
@@ -417,9 +431,9 @@
     },
     {
      "id": "rag58",
-     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
      "reason": "ok",
-     "answer": false,
+     "answer": true,
      "want": true
     },
     {
@@ -606,7 +620,7 @@
     },
     {
      "id": "rag85",
-     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
      "reason": "ok",
      "answer": true,
      "want": true
@@ -620,9 +634,9 @@
     },
     {
      "id": "rag87",
-     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
      "reason": "ok",
-     "answer": false,
+     "answer": true,
      "want": false
     },
     {
@@ -683,7 +697,7 @@
     },
     {
      "id": "rag97",
-     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
      "reason": "ok",
      "answer": true,
      "want": true
@@ -725,7 +739,7 @@
     },
     {
      "id": "rag103",
-     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
      "reason": "ok",
      "answer": true,
      "want": true
@@ -774,35 +788,35 @@
     },
     {
      "id": "rag110",
-     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": false,
      "want": false
     },
     {
      "id": "rag111",
-     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": false,
      "want": false
     },
     {
      "id": "rag112",
-     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": true,
      "want": true
     },
     {
      "id": "rag113",
-     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": false,
      "want": false
     },
     {
      "id": "rag114",
-     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": false,
      "want": false
@@ -823,7 +837,7 @@
     },
     {
      "id": "rag118",
-     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": false,
      "want": false
@@ -851,7 +865,7 @@
     },
     {
      "id": "rag122",
-     "raw": "{\"answer\": false, \"confidence\": 1}",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": false,
      "want": true
@@ -865,9 +879,9 @@
     },
     {
      "id": "rag124",
-     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
      "reason": "ok",
-     "answer": true,
+     "answer": false,
      "want": true
     },
     {
@@ -907,6 +921,202 @@
     },
     {
      "id": "rag130",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag131",
+     "raw": "{\"answer\": true, \"confidence\": 1}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag132",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag133",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag134",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag135",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag136",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rag137",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag138",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag139",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag140",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag141",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag142",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag143",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag144",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag145",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag146",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag147",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag148",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag150",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": false
+    },
+    {
+     "id": "rag151",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag152",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag153",
+     "raw": "{\"answer\": true, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag154",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag155",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag156",
+     "raw": "{\"answer\": true, \"confidence\": 0.8}",
+     "reason": "ok",
+     "answer": true,
+     "want": true
+    },
+    {
+     "id": "rag157",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag158",
+     "raw": "{\"answer\": false, \"confidence\": 1.0}",
+     "reason": "ok",
+     "answer": false,
+     "want": false
+    },
+    {
+     "id": "rag159",
      "raw": "{\"answer\": true, \"confidence\": 1.0}",
      "reason": "ok",
      "answer": true,
