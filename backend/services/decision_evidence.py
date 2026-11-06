@@ -175,7 +175,8 @@ def qualifying_row(decision: str, digest: Optional[str], *, backend: str = "chat
 
     A row counts when it was measured on ``backend`` and on that build, with
     the decision's current wording (wording_sha) and labelled-set version, and
-    its lower bound reaches the decision's floor. A gate must also have
+    its lower bound reaches the decision's floor, or, for a decision in
+    QUALIFY_BY_RULE, beats today's rule on that set by the rule margin. A gate must also have
     missed none of the set's injection items: a gate row without
     ``injection_misses`` 0 does not count. Rows for other builds never
     transfer, whatever their names: Ollama 0.40 lists one name under two
@@ -202,9 +203,28 @@ def qualifying_row(decision: str, digest: Optional[str], *, backend: str = "chat
             correct, n = int(row["correct"]), int(row["n"])
         except (KeyError, TypeError, ValueError):
             continue
-        if lcb(correct, n) >= entry["floor"]:
+        if lcb(correct, n) >= entry["floor"] or _beats_rule(decision, set_version, correct, n):
             return row
     return None
+
+
+def _beats_rule(decision: str, set_version: int, correct: int, n: int) -> bool:
+    """True when ``decision`` may qualify by beating today's rule
+    (decision_data.QUALIFY_BY_RULE) and the model's lower bound is at least
+    EVIDENCE["rule_margin"] above the rule's score on the same set version."""
+    from backend.services.decision_data import QUALIFY_BY_RULE, RULE_ACCURACY
+
+    if decision not in QUALIFY_BY_RULE:
+        return False
+    for rule in RULE_ACCURACY.get(decision, ()):
+        if rule.get("set_version") != set_version:
+            continue
+        try:
+            rule_score = int(rule["correct"]) / int(rule["n"])
+        except (KeyError, TypeError, ValueError, ZeroDivisionError):
+            continue
+        return lcb(correct, n) >= rule_score + float(EVIDENCE.get("rule_margin", 1.0))
+    return False
 
 
 def qualifies(decision: str, digest: Optional[str], *, backend: str = "chat") -> bool:

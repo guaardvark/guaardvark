@@ -124,6 +124,9 @@ EVIDENCE = {
     # new evidence: it confirms a row, or marks it disputed when it disagrees,
     # and adds nothing to correct or n. Only new labelled items add up.
     "fleet_label_weight": 0.0,
+    # For a decision in QUALIFY_BY_RULE, how far the model's lower bound has to
+    # be above today's rule on the same labelled items (RULE_ACCURACY).
+    "rule_margin": 0.10,
 }
 
 # What counts as an independent check of something a model produced: a draft
@@ -1532,6 +1535,24 @@ MEASURED_ACCURACY: dict = {
         {"backend": "chat", "model": "gemma4:e2b", "digest": "2cf98652fdc6", "wording_sha": "d22e245015fd", "set_version": 1, "correct": 17, "n": 21, "injection_misses": 0, "date": "2026-10-16"},
     ],
 }
+# Decisions that may also qualify by beating today's rule rather than by
+# reaching their floor. Only ones whose answer changes the prompt or vetoes:
+# skipping a search, leaving out a passage, the web-search nudge, keeping a
+# message in the chat instead of the agent screen. Nothing here starts a job,
+# writes, sends or acts. On gemma4:12b (2026-11-05) each was 95-98% right
+# where today's rule was 50-66%, and none can reach a 0.95 floor at the
+# lower bound at that accuracy, however large the set.
+QUALIFY_BY_RULE = frozenset({"skip_rag", "context_answers", "needs_live_data", "screen_or_chat"})
+
+# Today's rule (the decision's fallback) scored on the same labelled set,
+# per set version, by scripts/eval_decision_rules.py.
+RULE_ACCURACY: dict = {
+    "context_answers": [{"set_version": 2, "correct": 64, "n": 129, "date": "2026-11-05"}],
+    "needs_live_data": [{"set_version": 2, "correct": 80, "n": 122, "date": "2026-11-05"}],
+    "screen_or_chat": [{"set_version": 2, "correct": 61, "n": 121, "date": "2026-11-05"}],
+    "skip_rag": [{"set_version": 1, "correct": 70, "n": 136, "date": "2026-11-05"}],
+}
+
 MEASURED_SOURCE = (
     "Hand-labelled synthetic sets in backend/tests/fixtures/decisions (labels written for the test, not "
     "human-rated); chat backend = nl_control_plane.json_chat at temperature 0 with a short closed-set "
