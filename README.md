@@ -61,7 +61,7 @@ Other ways in: [Docker](INSTALL.md#alternative-docker-linux-core-stack-only) · 
 
 - **Chat with your own files.** Local RAG on pgvector: keyword and vector search fused per query, cross-encoder reranking, source citations, and retrieval that shows the chunks and scores behind an answer. Autoresearch tunes retrieval overnight. [▶ Ep 3](https://www.youtube.com/watch?v=pT_J93qTCL0)
 - **Plan mode.** Turn it on with `/plan` and every request is looked into with read-only tools first, then comes back as a plan card you approve, edit or reject; approved steps run one at a time and pause when one fails. It is offered on a model only once that model passes the plan-mode test.
-- **Agents on a real desktop.** Screen agents get an Ubuntu desktop of their own, see it with a vision model, click with closed-loop targeting, and work in a real browser while you watch from any page. [▶ Ep 4](https://www.youtube.com/watch?v=3VfHrJmqYos)
+- **Agents on a real desktop.** Screen agents get an Ubuntu desktop of their own, see it with a vision model, click with closed-loop targeting, and work in a real browser while you watch from any page. [▶ Ep 4](https://www.youtube.com/watch?v=sL7F8EqwQ2w)
 - **Parallel coding agents.** A swarm of coding agents, each in its own git worktree, merged back in dependency order. Runs on Claude Code or fully locally through Ollama.
 - **MCP, both ways.** An MCP server that plugs into Claude Code, Cursor, Codex, Gemini CLI, Zed and more with one command, and an MCP client so chat can use tools from other servers. [▶ Ep 21](https://www.youtube.com/watch?v=VScsEFn6ZoY) · [▶ Ep 16](https://www.youtube.com/watch?v=1qc6GZBLy5k)
 - **Video generation.** 13 local video models across five families (Wan 2.2, LTX, HunyuanVideo, CogVideoX, and MiniMax H3 with its own soundtrack), video LoRAs, a batch queue, frame interpolation, and one click into ComfyUI. [▶ Ep 6](https://www.youtube.com/watch?v=9rae9IJhXow)
@@ -285,7 +285,7 @@ The local-AI ecosystem has excellent tools for every slice: chat UIs, RAG worksp
 |---|:---:|:---:|:---:|:---:|:---:|:---|
 | Local chat + RAG | core | core | — | — | via tools | core ([Ep 3](https://www.youtube.com/watch?v=pT_J93qTCL0)) |
 | Media production (video · image · music · voice) | — | — | image/video graphs | — | via connected tools | core, with director engines ([Eps 5–9](https://www.youtube.com/playlist?list=PLYycooXIy1Qs)) |
-| Agents on a real desktop | — | — | — | — | browser/tool use | core ([Ep 4](https://www.youtube.com/watch?v=3VfHrJmqYos)) |
+| Agents on a real desktop | — | — | — | — | browser/tool use | core ([Ep 4](https://www.youtube.com/watch?v=sL7F8EqwQ2w)) |
 | Parallel coding swarms | — | — | — | usually one agent | — | up to 20 in git worktrees |
 | Self-improvement behind human gates | — | — | — | — | — | core ([Ep 11](https://www.youtube.com/watch?v=7kHvi_2vT6U)) |
 | One-GPU resource arbitration | — | — | — | — | — | core ([Ep 12](https://www.youtube.com/watch?v=A1-_ykcHOhQ)) |
@@ -347,7 +347,7 @@ Short screen recordings of the real system doing real work, narrated by its own 
 | [**7 · Voice clone**](https://www.youtube.com/watch?v=BXlm7p-SxtU) | Consent-gated and self-checking |
 | [**6 · Video generation**](https://www.youtube.com/watch?v=9rae9IJhXow) | Seven models, one GPU |
 | [**5 · Image generation**](https://www.youtube.com/watch?v=s9I_0gD9Iko) | One prompt, a whole story |
-| [**4 · Screen agent**](https://www.youtube.com/watch?v=3VfHrJmqYos) | Its own desktop, eyes and hands |
+| [**4 · Screen agent**](https://www.youtube.com/watch?v=sL7F8EqwQ2w) | Its own desktop, eyes and hands |
 | [**3 · File desktop**](https://www.youtube.com/watch?v=pT_J93qTCL0) | Your files get a desktop, plus RAG that shows its work |
 | [**2 · Chat brain**](https://www.youtube.com/watch?v=5HcSAf96j_M) | One chat box, three speeds |
 
