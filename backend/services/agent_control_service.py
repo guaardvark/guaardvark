@@ -1425,7 +1425,22 @@ class AgentControlService:
                             proof, screen, timeout_s=10.0, allow_dom_fastpath=False,
                         )
                         if not bool(done_verify.get("success", False)):
+                            # A drawn mark or click_at is verified next to its own
+                            # points, so it stands as evidence. A plain click is
+                            # verified by any change where it landed, which a wrong
+                            # window opening also produces: that needs a second look.
+                            advisory_ok = False
                             if has_recent_verified and not proof_grounded:
+                                if self._latest_click_kind(self._action_history) in ("click_at", "draw"):
+                                    advisory_ok = True
+                                else:
+                                    second = self._second_look_done(task, screen)
+                                    advisory_ok = bool(second.get("success"))
+                                    logger.info(
+                                        f"[AGENT][DONE] second look on the task: "
+                                        f"{'finished' if advisory_ok else 'not finished'} ({second})"
+                                    )
+                            if advisory_ok:
                                 # Advisory path: prior servo evidence (DPC change) + user-visible
                                 # goal already confirm the achievement. Log + emit advisory note
                                 # (visible in AgentThinkingTrail), append non-failed advisory step
@@ -3554,6 +3569,56 @@ class AgentControlService:
             return not st.failed and (
                 bool(r.get("verified")) or str(r.get("post_action_effect") or "") == "verified")
         return False
+
+    @classmethod
+    def _latest_click_kind(cls, history) -> Optional[str]:
+        """Action type of the click that _task_has_verified_click reads, or None."""
+        for st in reversed(history):
+            kind = st.action.action_type
+            if kind == "navigate":
+                return None
+            if kind in cls._CLICK_FAMILY + ("click_at", "draw"):
+                return kind
+        return None
+
+    def _second_look_done(self, task: str, screen) -> Dict[str, Any]:
+        """One fresh look at the whole task before an unproven "done" counts.
+
+        A click is "verified" when pixels changed where it landed, which is
+        also what happens when the wrong thing opens there: on 2026-11-07 the
+        agent opened Downloads three times for "Open the Documents folder", its
+        own proof check said the Documents window was not visible, and the
+        advisory path still reported success on the strength of that click.
+        Asking the task's eye whether the screen shows the task finished
+        separates the two cases the advisory path exists for (goal reached,
+        model's proof sentence unseen) from a click that changed the wrong thing.
+        """
+        from backend.utils.vision_analyzer import VisionAnalyzer
+
+        analyzer = VisionAnalyzer()
+        be = getattr(self, "_brain_eye", None)
+        model = (be.eye if be is not None and be.eye else None) or analyzer.default_model
+        try:
+            img, _ = screen.capture()
+            result = analyzer.analyze(
+                img,
+                prompt=(
+                    f"The task was: \"{task}\"\n"
+                    "Does this screenshot show that task finished, right now?\n"
+                    "Answer with EXACTLY one word on the first line: yes or no.\n"
+                    "Only say yes if the image itself shows it; do not guess."
+                ),
+                num_predict=8,
+                temperature=0.0,
+                model=model,
+            )
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+        if not result.success:
+            return {"success": False, "error": result.error}
+        answer = (result.description or "").strip().lower()
+        first = answer.split()[0] if answer.split() else ""
+        return {"success": first.startswith("yes"), "answer": answer[:40]}
 
     _NUMBER_WORDS = {
         "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,

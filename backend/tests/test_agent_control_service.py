@@ -750,6 +750,60 @@ class TestLatestClickVerified(unittest.TestCase):
         self.assertFalse(self._has(history))
 
 
+class TestLatestClickKind(unittest.TestCase):
+    """Which kind of click the advisory "done" would lean on: a drawn mark
+    stands on its own, a plain click gets a second look."""
+
+    def _kind(self, history):
+        from backend.services.agent_control_service import AgentControlService
+        return AgentControlService._latest_click_kind(history)
+
+    def test_plain_click_after_a_draw_is_a_click(self):
+        history = [_stepped("smiley", action_type="draw", verified=True),
+                   _stepped("Documents folder icon", verified=True, effect="verified")]
+        self.assertEqual(self._kind(history), "click")
+
+    def test_draw_last_is_a_draw(self):
+        history = [_stepped("Documents folder icon", verified=True),
+                   _stepped("smiley", action_type="draw", verified=True), _stepped("", action_type="wait")]
+        self.assertEqual(self._kind(history), "draw")
+
+    def test_navigate_clears_it(self):
+        history = [_stepped("Post button", verified=True), _stepped("", action_type="navigate")]
+        self.assertIsNone(self._kind(history))
+
+
+class TestSecondLookDone(unittest.TestCase):
+    """The second look answers whether the screen shows the task finished;
+    anything but a plain yes, including a failed read, is "not finished"."""
+
+    def _look(self, description, success=True, error=None):
+        from backend.services.agent_control_service import AgentControlService
+        svc = AgentControlService.__new__(AgentControlService)
+        screen = MagicMock()
+        screen.capture.return_value = ("img", None)
+        result = MagicMock(success=success, description=description, error=error)
+        with patch("backend.utils.vision_analyzer.VisionAnalyzer") as va:
+            va.return_value.analyze.return_value = result
+            va.return_value.default_model = "eye"
+            out = svc._second_look_done("Open the Documents folder on the desktop.", screen)
+            prompt = va.return_value.analyze.call_args.kwargs["prompt"]
+        return out, prompt
+
+    def test_yes_is_finished_and_the_prompt_names_the_task(self):
+        out, prompt = self._look("Yes")
+        self.assertTrue(out["success"])
+        self.assertIn("Open the Documents folder on the desktop.", prompt)
+
+    def test_no_is_not_finished(self):
+        out, _ = self._look("no, the Downloads folder is open")
+        self.assertFalse(out["success"])
+
+    def test_a_failed_read_is_not_finished(self):
+        out, _ = self._look("", success=False, error="model unreachable")
+        self.assertFalse(out["success"])
+
+
 class TestFailedToolsSayWhy(unittest.TestCase):
     """A failed tool's own explanation reaches the model; a block says how
     long it lasts."""
