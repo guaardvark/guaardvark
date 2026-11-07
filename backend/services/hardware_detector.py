@@ -51,6 +51,46 @@ KNOWN_NIC_QUIRKS: dict[str, dict[str, str]] = {
     },
 }
 
+# PCI vendor ids as the kernel writes them to /sys/class/drm/cardN/device/vendor.
+PCI_DISPLAY_VENDORS = {"0x8086": "intel", "0x10de": "nvidia", "0x1002": "amd"}
+VULKAN_ICD_DIRS = ("/usr/share/vulkan/icd.d", "/etc/vulkan/icd.d")
+
+
+def display_vendors(sys_class_drm: str = "/sys/class/drm") -> set[str]:
+    """Vendors of the GPUs the kernel has a DRM device for, e.g. {"intel"}.
+
+    Read from sysfs, so it sees an integrated GPU that has no vendor tool
+    installed. Connector entries (card0-HDMI-A-1) are skipped. Empty off Linux.
+    """
+    vendors: set[str] = set()
+    try:
+        names = os.listdir(sys_class_drm)
+    except OSError:
+        return vendors
+    for name in names:
+        if not name.startswith("card") or "-" in name:
+            continue
+        try:
+            with open(os.path.join(sys_class_drm, name, "device", "vendor")) as fh:
+                vendor_id = fh.read().strip().lower()
+        except OSError:
+            continue
+        vendors.add(PCI_DISPLAY_VENDORS.get(vendor_id, vendor_id))
+    return vendors
+
+
+def intel_vulkan_driver(icd_dirs: tuple[str, ...] = VULKAN_ICD_DIRS) -> bool:
+    """True when a Vulkan driver for Intel GPUs is installed (Mesa's ANV, or
+    hasvk for older generations), which Ollama's Vulkan backend needs."""
+    for icd_dir in icd_dirs:
+        try:
+            names = os.listdir(icd_dir)
+        except OSError:
+            continue
+        if any(n.startswith("intel") and n.endswith(".json") for n in names):
+            return True
+    return False
+
 
 def probe_amd_vram_bytes(timeout: float = 5) -> tuple[int, int] | None:
     """(total, used) VRAM in bytes of the AMD card with the most VRAM, via rocm-smi.
@@ -212,8 +252,22 @@ class HardwareDetector:
                       self._probe_gpu_apple, self._probe_gpu_intel):
             result = probe()
             if result is not None:
-                return result
-        return {"vendor": "none"}
+                break
+        else:
+            result = {"vendor": "none"}
+        if result["vendor"] in ("none", "intel"):
+            integrated = self._probe_integrated_intel()
+            if integrated:
+                result["integrated"] = integrated
+        return result
+
+    def _probe_integrated_intel(self, sys_class_drm: str = "/sys/class/drm") -> dict | None:
+        """An Intel GPU that is the machine's only GPU (a laptop or office PC's
+        integrated graphics). Kept out of `vendor`, which routing reads as "has
+        a GPU for image and video work"; only Ollama's tuning uses it."""
+        if display_vendors(sys_class_drm) != {"intel"}:
+            return None
+        return {"vendor": "intel", "vulkan": intel_vulkan_driver()}
 
     def _probe_gpu_apple(self) -> dict | None:
         """Apple Silicon (Metal/MPS). No discrete VRAM — reports the unified-memory

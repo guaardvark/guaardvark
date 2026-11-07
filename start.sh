@@ -2273,6 +2273,11 @@ if [ "${GUAARDVARK_OLLAMA_TUNING:-1}" != "0" ]; then
             # Parse the Environment="OLLAMA_FOO=bar" lines emitted by the policy.
             eval "$(echo "$_POLICY_OLLAMA" | sed -n 's/^Environment="\([^"]*\)"/\1/p' | sed 's/^/export /')"
             vader_info "Ollama tuning: derived from hardware_policy (NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-?})"
+            # Intel integrated graphics as the only GPU: the policy turns on
+            # Ollama's Vulkan backend for them. GUAARDVARK_OLLAMA_IGPU=0 keeps the CPU.
+            if [ "${OLLAMA_IGPU_ENABLE:-0}" = "1" ]; then
+                vader_info "Ollama: using the Intel integrated GPU through Vulkan (GUAARDVARK_OLLAMA_IGPU=0 to keep the CPU)"
+            fi
         fi
     fi
     # Safe fallbacks (policy may have already set these).
