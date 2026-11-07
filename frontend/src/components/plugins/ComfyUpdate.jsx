@@ -11,6 +11,7 @@ import { ActionButton, ConfirmActionDialog, Hint, Line, StatusPill } from '../se
 import {
   checkComfyUpdate,
   getComfyUpdateStatus,
+  installComfy,
   repairComfyUpdate,
   restoreComfyPrevious,
   startComfyUpdate,
@@ -20,7 +21,11 @@ import { translate, useUiTranslation } from '../../i18n';
 const POLL_MS = 1000;
 
 const RESULT = {
-  succeeded: { tone: 'ok', label: () => translate('plugins.comfyUpdate.resultUpdated') },
+  succeeded: {
+    tone: 'ok',
+    label: (status) =>
+      translate(status?.kind === 'install' ? 'plugins.comfyUpdate.resultInstalled' : 'plugins.comfyUpdate.resultUpdated'),
+  },
   rolled_back: { tone: 'warn', label: () => translate('plugins.comfyUpdate.resultSwitchedBack') },
   failed: { tone: 'error', label: () => translate('plugins.comfyUpdate.resultFailed') },
 };
@@ -102,7 +107,12 @@ export const useComfyUpdate = (plugin, showMessage) => {
   }, [running, refreshCheck]);
 
   const confirm = useCallback(async () => {
-    const start = { update: startComfyUpdate, restore: restoreComfyPrevious, repair: repairComfyUpdate }[dialog];
+    const start = {
+      install: installComfy,
+      update: startComfyUpdate,
+      restore: restoreComfyPrevious,
+      repair: repairComfyUpdate,
+    }[dialog];
     if (!start) return;
     setBusy(true);
     try {
@@ -143,10 +153,12 @@ export const useComfyUpdate = (plugin, showMessage) => {
     dialog,
     busy,
     installed: check?.installed || null,
+    installable: Boolean(check?.installable) && !running && !needsRepair,
     available: Boolean(check?.available) && !running && !needsRepair,
     previous: (!running && !needsRepair && check?.previous) || null,
     blocked: check?.busy || null,
     repair,
+    openInstall: () => setDialog('install'),
     openUpdate: () => setDialog('update'),
     openRestore: () => setDialog('restore'),
     openRepair: () => setDialog('repair'),
@@ -225,11 +237,17 @@ const UpdateDialog = ({ comfy }) => {
   const { check, dialog, busy, closeDialog, confirm } = comfy;
   if (dialog === 'repair') return <RepairDialog comfy={comfy} />;
   if (!check) return null;
+  const install = dialog === 'install';
   const restore = dialog === 'restore';
   const target = restore ? check.previous : check.target;
-  const facts = [{ label: t('plugins.comfyUpdate.factVersion'), value: versionArrow(check.installed, target) }];
+  const facts = [
+    {
+      label: t('plugins.comfyUpdate.factVersion'),
+      value: install ? target : versionArrow(check.installed, target),
+    },
+  ];
   if (!restore) {
-    facts.push(...(check.package_changes || []).map(packageChange));
+    if (!install) facts.push(...(check.package_changes || []).map(packageChange));
     if (check.download) facts.push({ label: t('plugins.comfyUpdate.factDownload'), value: check.download });
   }
   if (typeof check.disk_free_gb === 'number') {
@@ -238,21 +256,29 @@ const UpdateDialog = ({ comfy }) => {
       value: t('plugins.comfyUpdate.freeDiskValue', { size: check.disk_free_gb.toFixed(1) }),
     });
   }
-  const description = restore
-    ? t('plugins.comfyUpdate.restoreDescription', { target, installed: check.installed })
-    : t('plugins.comfyUpdate.updateDescription', { target, installed: check.installed });
+  const description = install
+    ? t('plugins.comfyUpdate.installDescription', { target })
+    : restore
+      ? t('plugins.comfyUpdate.restoreDescription', { target, installed: check.installed })
+      : t('plugins.comfyUpdate.updateDescription', { target, installed: check.installed });
+  const title = install
+    ? t('plugins.comfyUpdate.installTitle', { target })
+    : restore
+      ? t('plugins.comfyUpdate.restoreTitle', { target })
+      : t('plugins.comfyUpdate.updateTitle', { target });
+  const confirmLabel = install
+    ? t('plugins.comfyUpdate.installNow')
+    : restore
+      ? t('plugins.comfyUpdate.restoreNow')
+      : t('plugins.comfyUpdate.updateNow');
   return (
     <ConfirmActionDialog
       open={dialog !== null}
-      title={
-        restore
-          ? t('plugins.comfyUpdate.restoreTitle', { target })
-          : t('plugins.comfyUpdate.updateTitle', { target })
-      }
+      title={title}
       description={description}
       facts={facts}
-      keeps={check.keeps?.length ? check.keeps.join(', ') : undefined}
-      confirmLabel={restore ? t('plugins.comfyUpdate.restoreNow') : t('plugins.comfyUpdate.updateNow')}
+      keeps={!install && check.keeps?.length ? check.keeps.join(', ') : undefined}
+      confirmLabel={confirmLabel}
       busy={busy}
       reversible
       onConfirm={confirm}
@@ -268,7 +294,7 @@ const UpdateDialog = ({ comfy }) => {
  */
 export const ComfyUpdateSection = ({ comfy }) => {
   const { t } = useUiTranslation();
-  const { active, check, status, running, result, available, previous, blocked, repair } = comfy;
+  const { active, check, status, running, result, installable, available, previous, blocked, repair } = comfy;
   if (!active || (!check && !running && !result && !repair)) return null;
 
   const percent = Math.max(0, Math.min(100, Number(status?.percent) || 0));
@@ -286,6 +312,21 @@ export const ComfyUpdateSection = ({ comfy }) => {
               tooltip={blocked || t('plugins.comfyUpdate.repairTooltip')}
             >
               {t('plugins.comfyUpdate.repair')}
+            </ActionButton>
+          </Line>
+        </Box>
+      )}
+
+      {installable && (
+        <Box data-testid="comfyui-install" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Hint>{t('plugins.comfyUpdate.notInstalled')}</Hint>
+          <Line>
+            <ActionButton
+              onClick={comfy.openInstall}
+              disabled={Boolean(blocked)}
+              tooltip={blocked || t('plugins.comfyUpdate.installTooltip', { version: check.target })}
+            >
+              {t('plugins.comfyUpdate.installVersion', { version: check.target })}
             </ActionButton>
           </Line>
         </Box>
@@ -332,7 +373,7 @@ export const ComfyUpdateSection = ({ comfy }) => {
       {!running && result && (
         <Box data-testid="comfyui-update-result" sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           <Line>
-            <StatusPill label={RESULT[result.state].label()} tone={RESULT[result.state].tone} />
+            <StatusPill label={RESULT[result.state].label(result)} tone={RESULT[result.state].tone} />
             {result.message && <Hint>{result.message}</Hint>}
             <ActionButton kind="link" onClick={comfy.dismissResult}>
               {t('plugins.comfyUpdate.dismiss')}
