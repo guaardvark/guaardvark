@@ -61,6 +61,10 @@ if ! DOCKER_INFO_ERR="$(docker info 2>&1 >/dev/null)"; then
 fi
 
 COMPOSE_FILES=(-f docker-compose.yml)
+
+# The backend container answers to this machine's name, and says it in messages
+# that send someone here (docker-compose.yml, backend hostname).
+export GUAARDVARK_DOCKER_HOSTNAME="${GUAARDVARK_DOCKER_HOSTNAME:-$(hostname 2>/dev/null || echo guaardvark)}"
 if [ "$GPU_PROFILE" -eq 1 ]; then
     COMPOSE_FILES+=(-f docker-compose.gpu.yml)
 
