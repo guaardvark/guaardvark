@@ -32,7 +32,14 @@
     "restore": "{{version}} 복구",
     "progress": "ComfyUI {{versions}}: {{phase}} ({{percent}}%)",
     "working": "작동 중",
-    "dismiss": "닫기"
+    "dismiss": "닫기",
+    "resultInstalled": "설치됨",
+    "notInstalled": "이 기기에 아직 ComfyUI가 설치되어 있지 않습니다. 비디오 생성은 물론 FLUX.1, FLUX 3 Klein, Qwen-Image 2.1 및 MOSS-Image 모델도 여기서 실행됩니다.",
+    "installVersion": "ComfyUI {{version}} 설치",
+    "installTooltip": "ComfyUI {{version}}을(를) 다운로드하고 시작합니다",
+    "installTitle": "ComfyUI {{target}} 설치",
+    "installDescription": "GitHub에서 ComfyUI {{target}}을(를) 다운로드하고 PyPI에서 Python 패키지를 가져온 뒤 실행합니다. 모델은 포함되지 않으며, 각 모델의 설치 버튼을 누를 때마다 개별적으로 다운로드됩니다.",
+    "installNow": "지금 설치"
   },
   "status": {
     "running": "실행 중",

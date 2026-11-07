@@ -32,7 +32,14 @@
     "restore": "恢复 {{version}}",
     "progress": "ComfyUI {{versions}}: {{phase}} ({{percent}}%)",
     "working": "运行中",
-    "dismiss": "忽略"
+    "dismiss": "忽略",
+    "resultInstalled": "已安装",
+    "notInstalled": "此机器尚未安装 ComfyUI。视频生成、FLUX.1、FLUX 3 Klein、Qwen-Image 2.1 以及 MOSS-Image 模型均运行在其之上。",
+    "installVersion": "安装 ComfyUI {{version}}",
+    "installTooltip": "下载并启动 ComfyUI {{version}}",
+    "installTitle": "安装 ComfyUI {{target}}",
+    "installDescription": "从 GitHub 下载 ComfyUI {{target}} 及其 PyPI Python 软件包，然后启动。模型不包含在内：每种模型在您点击其对应的安装按钮时才会下载。",
+    "installNow": "立即安装"
   },
   "status": {
     "running": "运行中",

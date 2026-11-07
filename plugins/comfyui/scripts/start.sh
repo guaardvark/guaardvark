@@ -34,6 +34,10 @@ else:
 err() { echo "Error: $*" >&2; }
 
 # Check ComfyUI app tree exists
+if [ ! -e "$COMFYUI_DIR" ]; then
+    err "ComfyUI is not installed yet. Install it with the Install button on the ComfyUI card (Plugins page)."
+    exit 1
+fi
 if [ ! -f "$COMFYUI_DIR/main.py" ]; then
     err "ComfyUI not found at $COMFYUI_DIR/main.py"
     err "Restore the app tree (preserves models/): bash $SCRIPT_DIR/restore_app.sh"

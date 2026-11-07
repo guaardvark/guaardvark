@@ -8,6 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     libpq-dev \
     curl \
+    wget \
+    rsync \
+    lsof \
+    procps \
+    melt \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -33,7 +38,12 @@ COPY backend/ /app/backend/
 COPY scripts/ /app/scripts/
 # Plugin sources (Audio Foundry, Video Editor, ...). Per-machine environments, checkouts and
 # weights are excluded in .dockerignore; plugins create their environments on first start.
-COPY plugins/ /app/plugins/
+# /app/plugins is a volume in docker-compose.yml, so what plugins build there (the ComfyUI
+# app and its models, plugin environments) survives an image update. The image keeps its
+# copy here, and docker/entrypoint.sh brings it onto the volume at every start.
+COPY plugins/ /app/.plugins-dist/
+COPY docker/entrypoint.sh docker/sync_plugins.py /app/docker/
+RUN chmod +x /app/docker/entrypoint.sh
 # The plugin start scripts and the ComfyUI update service expect /app/backend/venv. The
 # packages are installed system-wide in this image, so the venv only has to see them.
 RUN python -m venv --system-site-packages /app/backend/venv
@@ -65,4 +75,5 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
     CMD curl -f http://localhost:5000/api/health || exit 1
 
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
 CMD ["python", "-m", "flask", "run", "--host", "0.0.0.0", "--port", "5000"]
