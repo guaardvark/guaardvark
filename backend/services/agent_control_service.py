@@ -415,6 +415,9 @@ class AgentControlService:
         self._learning_answer_queue = queue.Queue()
         self._step_confirm_event = threading.Event()
         self._step_confirm_data = None
+        # The replay running a guided attempt, so a Confirm from the Trainer
+        # reaches the event it actually waits on.
+        self._apprentice_engine = None
         self._current_task: Optional[str] = None
         self._active_task_id: str = ""
         self._task_context: Optional[AgentTaskContext] = None
@@ -2299,6 +2302,20 @@ class AgentControlService:
         logger.info(f"Learning mode started: demo_id={demo_id}, name={name}")
         return {"success": True, "demonstration_id": demo_id}
 
+    def confirm_apprentice_step(self, data: Optional[Dict] = None) -> bool:
+        """Hand a Trainer Confirm (or correction) to the replay waiting on it.
+
+        The socket handlers used to set this service's own _step_confirm_event,
+        which the replay never waits on: every guided attempt started from the
+        Trainer timed out at its first step. Returns False when no replay is
+        running.
+        """
+        engine = self._apprentice_engine
+        if engine is None:
+            return False
+        engine.confirm_step(data)
+        return True
+
     def stop_learning(self):
         """Stop recording and save the demonstration."""
         if not self._learning or not self._demo_recorder:
@@ -2393,8 +2410,8 @@ class AgentControlService:
                     servo=servo,
                     collector=collector,
                 )
-                engine._step_confirm_event = self._step_confirm_event
                 engine._answer_queue = self._learning_answer_queue
+                self._apprentice_engine = engine
 
                 def _apprentice_emit(event: str, payload: dict) -> None:
                     """Adapt the engine's emit_fn(event, payload) contract to
@@ -2466,6 +2483,7 @@ class AgentControlService:
             except Exception as e:
                 logger.error(f"Attempt failed: {e}", exc_info=True)
             finally:
+                self._apprentice_engine = None
                 self._active = False
 
         thread = threading.Thread(target=_run, daemon=True)

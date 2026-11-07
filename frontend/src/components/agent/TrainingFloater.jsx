@@ -253,12 +253,14 @@ export default function TrainingFloater({ open, onClose, _onNavigateAway }) {
         complete: true,
         success: data.success,
         stepsCompleted: data.steps_completed,
+        totalSteps: data.total_steps ?? prev?.totalSteps,
       }));
+      // Long enough to read the result; the list refreshes at once.
+      loadDemonstrations();
       setTimeout(() => {
         setMode('idle');
         setAttemptInfo(null);
-        loadDemonstrations();
-      }, 3000);
+      }, 15000);
     });
 
     return () => {
