@@ -211,6 +211,18 @@ class TestStepExecution:
         assert result["success"] is True
         mock_servo.click_target.assert_called_once_with("the Login button centered below the password field")
 
+    def test_a_click_that_changed_nothing_fails_the_step(self, engine, demo_steps, mock_servo):
+        mock_servo.click_target.return_value = {
+            "success": True, "verified": False, "post_action_effect": "no_visible_change", "x": 104, "y": 378}
+        result = engine._execute_step(demo_steps[0])
+        assert result["success"] is False
+        assert "changed nothing" in result["error"]
+
+    def test_a_click_that_changed_the_screen_passes(self, engine, demo_steps, mock_servo):
+        mock_servo.click_target.return_value = {
+            "success": True, "verified": True, "post_action_effect": "changed", "x": 104, "y": 460}
+        assert engine._execute_step(demo_steps[0])["success"] is True
+
     def test_execute_type_step(self, engine, demo_steps, mock_screen):
         result = engine._execute_step(demo_steps[1], variable_input="admin@test.com")
         assert result["success"] is True
@@ -367,3 +379,30 @@ class TestConfidenceEstimate:
         mock_screen.capture.side_effect = RuntimeError("no display")
 
         assert engine._estimate_confidence(self.STEP) == 0.0
+
+
+class TestTrainerConfirmReachesTheReplay:
+    """A Confirm from the Trainer must reach the event the replay waits on."""
+
+    def test_confirm_goes_to_the_running_replay(self, engine):
+        from backend.services.agent_control_service import AgentControlService
+        svc = AgentControlService.__new__(AgentControlService)
+        svc._apprentice_engine = engine
+        waiter = {}
+
+        def wait():
+            waiter["got"] = engine._wait_for_confirmation(timeout=5)
+
+        t = threading.Thread(target=wait)
+        t.start()
+        import time
+        time.sleep(0.2)
+        assert svc.confirm_apprentice_step({"step_index": 0}) is True
+        t.join(timeout=5)
+        assert waiter["got"] == {"step_index": 0}
+
+    def test_confirm_with_no_replay_running_says_so(self):
+        from backend.services.agent_control_service import AgentControlService
+        svc = AgentControlService.__new__(AgentControlService)
+        svc._apprentice_engine = None
+        assert svc.confirm_apprentice_step({"step_index": 0}) is False
