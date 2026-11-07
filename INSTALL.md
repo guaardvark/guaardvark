@@ -93,16 +93,28 @@ A fresh Apple Silicon runner installs and imports the backend in CI on every pus
 regression in the above shows up before a person hits it. Report anything else under the
 `mac` label — the install thread is issue #41.
 
-## Alternative: Docker (Linux, core stack only)
+## Alternative: Docker (Linux)
 
-If you want to evaluate the UI/API without a native Python install:
+To run Guaardvark without a native Python install:
 
 ```bash
 ./start-docker.sh          # CPU
 ./start-docker.sh --gpu    # NVIDIA GPU (requires nvidia-container-toolkit)
 ```
 
-Docker runs the **core stack** (API, UI, Celery with its scheduler, PostgreSQL with pgvector, Redis, Ollama). It does not include plugins, ComfyUI, or the virtual agent display. For the full experience, use `./start.sh`.
+Docker runs five containers: the backend (the API, Celery and its scheduler), the UI, PostgreSQL with pgvector, Redis and Ollama. ComfyUI (the image and video models), Audio Foundry and Upscaling run inside the backend container: install and start them from their cards on the **Plugins** page, and each model from its own Install button, as in a native install. The screen agent's desktop is not in the default image; use `./start.sh` for it.
+
+**First models.** Ollama starts empty under Docker. Pull a chat model and the embedding model document search uses, once:
+
+```bash
+docker compose exec backend python -m backend.services.hardware_policy model_tier   # the two for this machine
+docker compose exec ollama ollama pull gemma4:12b
+docker compose exec ollama ollama pull nomic-embed-text
+```
+
+`gemma4:12b` is the pick for a graphics card with 12 GB or more; smaller machines get `qwen3.5:4b`.
+
+**What is kept.** Models, the plugins' apps and Python environments, uploads, generated media, the database and your settings live in Docker volumes, so restarts, `docker compose down` and image rebuilds keep them; `docker compose down -v` deletes them. Leave room on the disk Docker uses: Audio Foundry's three Python environments come to about 23 GB, built on its first start (several minutes), and the models are several GB each (Wan 2.2 5B with its encoders is 17 GB).
 
 **Before the first start (Ubuntu).** A fresh Ubuntu has no Docker, and Ubuntu's `docker.io` does not bring Compose or buildx with it:
 

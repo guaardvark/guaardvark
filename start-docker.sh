@@ -19,8 +19,9 @@ for arg in "$@"; do
             echo "  --gpu          Enable NVIDIA GPU profile for Ollama/backend (requires nvidia-container-toolkit)"
             echo "  --foreground   Run in foreground (default: detached -d)"
             echo ""
-            echo "Core stack only: API, UI, PostgreSQL, Redis, Ollama."
-            echo "For the full native stack (plugins, agent display, ComfyUI), use ./start.sh"
+            echo "Runs the API, UI, workers, PostgreSQL, Redis and Ollama. ComfyUI, Audio"
+            echo "Foundry and Upscaling install and start from the Plugins page. The screen"
+            echo "agent's desktop is not in the default image; ./start.sh has it."
             exit 0
             ;;
     esac
@@ -254,5 +255,9 @@ if [ "$STOCK_POSTGRES_PASSWORD" -eq 1 ]; then
     echo "  PostgreSQL still uses the stock password from when its database was"
     echo "  created. INSTALL.md (Docker → Passwords) shows how to change it."
 fi
-echo ""
-echo "  Note: Docker mode runs the core stack only. Use ./start.sh for the full install."
+# Ollama starts empty in its container; chat and document search need a model each.
+if ! "${COMPOSE[@]}" "${COMPOSE_FILES[@]}" exec -T ollama ollama list 2>/dev/null | awk 'NR > 1' | grep -q .; then
+    echo ""
+    echo "  Ollama has no models yet. Pull a chat model and nomic-embed-text once:"
+    echo "  INSTALL.md (Docker, First models) has the commands."
+fi

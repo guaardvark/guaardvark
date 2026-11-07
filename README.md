@@ -55,7 +55,7 @@ Then open **http://localhost:5173**. The script is [install.sh](install.sh) from
 /plugin install guaardvark@guaardvark
 ```
 
-Other ways in: [Docker](INSTALL.md#alternative-docker-linux-core-stack-only) · [macOS on Apple Silicon](INSTALL.md#install-macos-apple-silicon) · [the CLI from PyPI](#cli) · [the full install guide](INSTALL.md). The current release is in the [VERSION](VERSION) file.
+Other ways in: [Docker](INSTALL.md#alternative-docker-linux) · [macOS on Apple Silicon](INSTALL.md#install-macos-apple-silicon) · [the CLI from PyPI](#cli) · [the full install guide](INSTALL.md). The current release is in the [VERSION](VERSION) file.
 
 ## Features
 
