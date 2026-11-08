@@ -68,7 +68,12 @@ MEDIA_MODEL_REGISTRY: dict[str, dict[str, Any]] = {
             "PEFT flow-matching LoRA on Z-Image Turbo (16GB-safe: cache latents, "
             "768 default). Optional Ostris turbo adapter via ZIMAGE_TURBO_TRAIN_ADAPTER."
         ),
-        "vram_train_mb": 12000,
+        # Peak 12818 MB for the trainer process (nvidia-smi, 0.5 s samples),
+        # measured 2026-11-07 on a 16 GB NVIDIA card: 512 px, rank 16, bf16
+        # transformer on the card for the whole run. The fit check adds 1 GB
+        # headroom and the compositor reserve, so a 12 GB card is refused.
+        "vram_train_mb": 12900,
+        "vram_train_measured": "peak 12818 MB, 512 px, rank 16, 2026-11-07",
         "vram_infer_mb": 11000,
         "order": 0,
     },
@@ -138,6 +143,7 @@ MEDIA_MODEL_REGISTRY: dict[str, dict[str, Any]] = {
         "train_ready": True,  # only fully wired trainer today
         "train_status_note": "Legacy. Prefer Z-Image once its train backend is ready.",
         "vram_train_mb": 12000,
+        "vram_train_measured": "not measured",
         "vram_infer_mb": 8000,
         "order": 99,
         "deprecated": True,
