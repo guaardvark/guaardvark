@@ -1638,7 +1638,10 @@ def _check_index_embedding_model(project_id=None) -> bool:
             return True
         with open(path) as f:
             stored = (json.load(f) or {}).get("embedding_model")
-        if stored and stored != active:
+        # "nomic-embed-text" and "nomic-embed-text:latest" are one model. The active
+        # name comes from Ollama's model list, or bare when that list cannot be read.
+        from backend.utils.ollama_resource_manager import same_model
+        if stored and same_model(stored, active) is not True:
             logger.warning(
                 "RAG index was built with embedding model '%s' but the active model is '%s'. "
                 "Vector search is disabled until the index is rebuilt (Settings -> reset/reindex). "
