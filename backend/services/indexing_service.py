@@ -2147,6 +2147,149 @@ def _expand_query(query: str) -> Optional[str]:
     return None
 
 
+class _VectorScores:
+    """The vector leg, keeping each node's own similarity to the query.
+
+    Fusion rescales every leg's scores to 0-1 within the one query, so the best
+    passage scores 1.0 however unrelated it is; only the leg's own cosine says
+    how close the passage really is.
+    """
+
+    def __init__(self, retriever):
+        self._retriever = retriever
+        self.scores: Dict[str, float] = {}
+
+    def _keep(self, nodes):
+        for nws in nodes or []:
+            node_id = getattr(getattr(nws, "node", None), "node_id", None)
+            if node_id is not None and nws.score is not None:
+                self.scores[node_id] = max(float(nws.score), self.scores.get(node_id, -1.0))
+        return nodes
+
+    def retrieve(self, query):
+        return self._keep(self._retriever.retrieve(query))
+
+    def _retrieve(self, query):
+        return self.retrieve(query)
+
+    async def aretrieve(self, query):
+        return self._keep(await self._retriever.aretrieve(query))
+
+    async def _aretrieve(self, query):
+        return await self.aretrieve(query)
+
+
+# A word of the message is rare when at most this share of the index's passages
+# (and at least 3) contain it.
+RARE_WORD_SHARE = 0.01
+
+
+def _stored_similarity(table: str, query: str, node_ids: List[str]) -> Dict[str, float]:
+    """Cosine between the query and the stored vectors of `node_ids`, for passages
+    only the keyword leg found. Empty when it cannot be read."""
+    vec = _get_cached_query_embedding(query)
+    if not vec or not node_ids:
+        return {}
+    try:
+        from psycopg2 import sql as pgsql
+        conn = _pg_connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(pgsql.SQL(
+                    "SELECT node_id, 1 - (embedding <=> %s::vector) FROM {} WHERE node_id = ANY(%s)"
+                ).format(pgsql.Identifier(f"data_{table}")),
+                    ("[" + ",".join(repr(float(x)) for x in vec) + "]", list(node_ids)))
+                return {nid: float(sim) for nid, sim in cur.fetchall() if sim is not None}
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.debug("Stored similarity unavailable (%s)", e)
+        return {}
+
+
+def _passages_sharing_rare_words(table: str, query: str, node_ids: List[str]) -> Optional[set]:
+    """The node ids among `node_ids` that contain a word of the query found in at
+    most max(3, RARE_WORD_SHARE) of the table's passages, or None when that cannot
+    be checked.
+
+    Words are Postgres English lexemes, so stop words drop out and "released"
+    meets "release". A name or term the question shares with a passage holds it
+    even when the embedding scores the two far apart ("What colour is the ledger
+    Tobias Wren uses?"); a word most passages contain says nothing.
+    """
+    try:
+        from psycopg2 import sql as pgsql
+        tbl = pgsql.Identifier(f"data_{table}")
+        conn = _pg_connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT lexeme FROM unnest(to_tsvector('english', %s))", (query,))
+                words = [r[0] for r in cur.fetchall()]
+                if not words:
+                    return set()
+                cur.execute("SELECT reltuples::bigint FROM pg_class WHERE oid = to_regclass(%s)",
+                            (pgsql.Identifier(f"data_{table}").as_string(cur),))
+                row = cur.fetchone()
+                total = row[0] if row and row[0] and row[0] > 0 else None
+                if total is None:
+                    cur.execute(pgsql.SQL("SELECT count(*) FROM {}").format(tbl))
+                    total = cur.fetchone()[0]
+                cap = max(3, int(total * RARE_WORD_SHARE))
+                rare = []
+                for w in words:
+                    cur.execute(pgsql.SQL(
+                        "SELECT count(*) FROM (SELECT 1 FROM {} WHERE text_search_tsv @@ "
+                        "quote_literal(%s)::tsquery LIMIT %s) s").format(tbl), (w, cap + 1))
+                    if cur.fetchone()[0] <= cap:
+                        rare.append(w)
+                if not rare:
+                    return set()
+                cur.execute(pgsql.SQL(
+                    "SELECT node_id FROM {} WHERE node_id = ANY(%s) AND text_search_tsv @@ ANY("
+                    "SELECT quote_literal(w)::tsquery FROM unnest(%s::text[]) w)").format(tbl),
+                    (list(node_ids), rare))
+                return {r[0] for r in cur.fetchall()}
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.debug("Shared-word check unavailable (%s); passages left unjudged", e)
+        return None
+
+
+def _judge_by_vector_score(results: List[Dict[str, Any]], query: str, table: Optional[str],
+                           trace: Dict[str, Any]) -> None:
+    """Mark each passage ``vector_related`` True or False against the active
+    embedding model's floor (config.VECTOR_RELEVANCE_FLOORS).
+
+    For a search the cross-encoder did not score. A passage below the floor
+    stays related when it shares a rare word with the query. Nothing is marked
+    when the model has no floor or the index cannot be read, which keeps every
+    passage, as before. reranker.drop_unrelated acts on the marks.
+    """
+    from backend.config import get_active_embedding_model, get_vector_relevance_floor
+    floor = get_vector_relevance_floor(trace.get("embedding_model") or get_active_embedding_model())
+    judged = [r for r in results if "vector_score" in r]
+    if not floor or not judged or not table:
+        return
+    unscored = [r["node_id"] for r in judged if r["vector_score"] is None]
+    if unscored:
+        stored = _stored_similarity(table, query, unscored)
+        for r in judged:
+            if r["vector_score"] is None and r["node_id"] in stored:
+                r["vector_score"] = stored[r["node_id"]]
+    low = [r for r in judged if r["vector_score"] is None or r["vector_score"] < floor]
+    shared: Optional[set] = set()
+    if low:
+        shared = _passages_sharing_rare_words(table, query, [r["node_id"] for r in low])
+        if shared is None:
+            return
+    low_ids = {id(r) for r in low}
+    for r in judged:
+        r["vector_related"] = id(r) not in low_ids or r["node_id"] in shared
+    trace["vector_floor"] = floor
+    trace["vector_unrelated"] = sum(1 for r in judged if not r["vector_related"])
+
+
 def search_with_llamaindex(
     query: str,
     max_chunks: Optional[int] = None,
@@ -2346,6 +2489,8 @@ def search_with_llamaindex(
         else:
             base_retriever = local_index.as_retriever(similarity_top_k=candidate_top_k)
             trace["filters_applied"] = None
+        vector_scores = _VectorScores(base_retriever)
+        base_retriever = vector_scores
         # Hybrid search: add BM25 retrieval alongside vector search.
         # Promoted/experiment alpha wins; env var is the legacy default.
         hybrid_alpha = overlay.get(
@@ -2519,7 +2664,10 @@ def search_with_llamaindex(
             
             if 'source_filename' not in result['metadata']:
                 result['metadata']['source_filename'] = result['metadata'].get('filename', 'Unknown')
-                
+            if "vector" in trace["legs"]:
+                # None: only the keyword leg found it.
+                result["vector_score"] = vector_scores.scores.get(result["node_id"])
+
             results.append(result)
             
         logger.info(
@@ -2562,6 +2710,19 @@ def search_with_llamaindex(
                 and rerank_on):
             results = _mmr_rerank(results)
             trace["mmr_applied"] = True
+
+        if not _ce_ordered and isinstance(query, str):
+            # The shared-word check reads the vector table; the file-backed
+            # store has none, and there passages stay unjudged.
+            _table = None
+            if _vector_backend() == "pgvector" and not _vs_fallback:
+                _table = getattr(bm25_retriever, "table", None)
+                if _table is None:
+                    try:
+                        _table = resolve_existing_vector_table(_store_scope(project_id), profile)
+                    except Exception:
+                        _table = None
+            _judge_by_vector_score(results, query, _table, trace)
 
         # Expand results with cross-file dependency context
         try:
