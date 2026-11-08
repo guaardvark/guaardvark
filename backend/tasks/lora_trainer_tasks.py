@@ -79,6 +79,7 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
             trigger=token,
             identity_marks=marks,
             class_token=resolve_class_token(s),
+            kind=s.kind or "character",
         )
         logger.info(
             "lora_trainer: caption ensure for subject %s written=%s skipped=%s failed=%s",

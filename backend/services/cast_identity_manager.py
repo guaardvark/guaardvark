@@ -141,6 +141,7 @@ def sync_identity_from_refs(
         refs,
         name=subject.name or "",
         trigger_word=subject.trigger_word or None,
+        kind=getattr(subject, "kind", None) or "character",
     )
     if not result.get("ok"):
         return {
