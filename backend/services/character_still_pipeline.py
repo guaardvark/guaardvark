@@ -155,7 +155,11 @@ def render_character_still(
     ``should_stop`` ends the render once it answers True; the result then has
     ``metadata["stopped"]`` set.
     """
-    from backend.services.cast_lock import apply_lock, resolve_lora_strength
+    from backend.services.cast_lock import (
+        apply_lock,
+        resolve_lora_strength,
+        stacked_lora_strength,
+    )
     from backend.services.image_prompt_sanitize import sanitize_image_prompt
     from backend.services.media_model_registry import (
         get_profile,
@@ -292,6 +296,10 @@ def render_character_still(
         or "zimage-turbo"
     )
     strength = resolve_lora_strength(strength_model, lora_strength)
+    if lora_strength is None:
+        # A strength the caller set is used as given; the default is shared out
+        # when several LoRAs stack.
+        strength = stacked_lora_strength(strength_model, strength, len(paths))
 
     from backend.services.image_render_limits import resolve_canvas, strict_limits_enabled
     strict = strict_limits_enabled()
