@@ -511,6 +511,9 @@ def clip_input_hash(clip: dict, settings: dict | None, fallback_prompt: str | No
         "rerenders": int(clip.get("rerenders") or 0),
         "settings": {k: s.get(k) for k in CLIP_RENDER_SETTING_KEYS},
     }
+    # Only when set, so clips rendered before per-cut cast keep their digest.
+    if "subject_ids" in clip:
+        payload["subject_ids"] = clip.get("subject_ids")
     raw = _json.dumps(payload, sort_keys=True, default=str)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
 

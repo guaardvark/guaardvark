@@ -305,3 +305,78 @@ def test_only_a_held_cut_can_be_approved_or_re_rendered(client, app, tmp_path):
     assert client.post(f"/api/music-video/{mv_id}/cut/0/approve").status_code == 409
     assert client.post(f"/api/music-video/{mv_id}/cut/0/rerender").status_code == 409
     assert client.post(f"/api/music-video/{mv_id}/cut/9/approve").status_code == 404
+
+
+def _gate_with_two_cuts(tmp_path):
+    from backend.models import Subject
+    doc = _song_doc(tmp_path)
+    mv = MusicVideoService(db.session).create(
+        name="x", song_document_id=doc.id, song_path=str(tmp_path / "song.wav"),
+        style_prompt="x", project_id=None,
+    )
+    mv.current_stage = "awaiting_approval"
+    mv.status = "awaiting_approval"
+    mv.clips = [
+        {"index": 0, "start": 0.0, "end": 2.0, "prompt": "a studio", "storyboard_path": "/sb0.png"},
+        {"index": 1, "start": 2.0, "end": 4.0, "prompt": "a street"},
+    ]
+    singer = Subject(kind="character", name="Singer")
+    db.session.add(singer)
+    db.session.commit()
+    return mv.id, singer.id
+
+
+def test_a_cut_takes_its_own_cast_and_drops_its_storyboard(client, app, tmp_path):
+    with app.app_context():
+        mv_id, singer = _gate_with_two_cuts(tmp_path)
+
+    resp = client.post(f"/api/music-video/{mv_id}/cut/0", json={"subject_ids": [singer]})
+
+    assert resp.status_code == 200
+    with app.app_context():
+        cut = db.session.get(MusicVideo, mv_id).clips[0]
+        assert cut["subject_ids"] == [singer]
+        assert cut["storyboard_path"] is None
+
+
+def test_a_cut_cast_is_refused_for_an_unknown_subject(client, app, tmp_path):
+    with app.app_context():
+        mv_id, _singer = _gate_with_two_cuts(tmp_path)
+
+    assert client.post(f"/api/music-video/{mv_id}/cut/0", json={"subject_ids": [999]}).status_code == 400
+    assert client.post(f"/api/music-video/{mv_id}/cut/0", json={"subject_ids": "1"}).status_code == 400
+
+
+def test_keyframe_cast_follows_the_cut_list_over_the_video_list(app, monkeypatch):
+    from types import SimpleNamespace
+    from backend.models import Subject
+    from backend.tasks.music_video_tasks import _keyframe_cast_context
+
+    def no_selection(subjects):
+        raise RuntimeError("selection not under test")
+
+    monkeypatch.setattr("backend.services.cast_lora_selection.select_cast_loras", no_selection)
+    monkeypatch.setattr(
+        "backend.services.cast_lock.subjects_to_lock",
+        lambda subjects, include_bible=False: ([f"/loras/{x.id}.safetensors" for x in subjects], None),
+    )
+    singer, car = Subject(kind="character", name="Singer"), Subject(kind="prop", name="Car")
+    db.session.add_all([singer, car])
+    db.session.commit()
+    mv = SimpleNamespace(id=1)
+    s = {"use_lora_consistency": True, "subject_ids": [singer.id, car.id]}
+
+    paths, sids, _ = _keyframe_cast_context(mv, s, "a studio", cut={"subject_ids": [singer.id]})
+    assert sids == [singer.id] and paths == [f"/loras/{singer.id}.safetensors"]
+    # Without a cut list the video's list decides, as before.
+    _, sids, _ = _keyframe_cast_context(mv, s, "a street", cut={})
+    assert sids == [singer.id, car.id]
+    assert _keyframe_cast_context(mv, s, "a skyline", cut={"subject_ids": []}) == ([], [], "a skyline")
+
+
+def test_clip_digest_is_unchanged_for_a_cut_without_its_own_cast():
+    from backend.services.music_video_service import clip_input_hash
+
+    plain = {"index": 0, "start": 0.0, "end": 2.0, "prompt": "a street"}
+    assert clip_input_hash(plain, {}) == clip_input_hash(dict(plain), {})
+    assert clip_input_hash({**plain, "subject_ids": [3]}, {}) != clip_input_hash(plain, {})

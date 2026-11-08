@@ -844,7 +844,7 @@ def regen_mv_storyboard(mv_id, idx):
 
     # Cast: raw scene prompt + subject_ids; identity core applied in render_character_still.
     kf_lora_strength = _keyframe_lora_strength(s)
-    kf_loras, kf_sids, kf_prompt = _keyframe_cast_context(mv, s, prompt)
+    kf_loras, kf_sids, kf_prompt = _keyframe_cast_context(mv, s, prompt, cut=target)
 
     still_path = str(out_dir / f"storyboard_{idx}.png")
     try:
@@ -1235,7 +1235,10 @@ def revise_music_video(mv_id):
 
 @bp.post("/<int:mv_id>/cut/<int:idx>")
 def edit_cut(mv_id, idx):
-    """Edit one cut: {prompt?, seed? (int|null), locked? (bool)}.
+    """Edit one cut: {prompt?, seed? (int|null), locked? (bool), subject_ids? (list|null)}.
+
+    ``subject_ids`` names the Cast subjects this cut's keyframe carries (null goes
+    back to the video's own list).
 
     At the approval gate: changes the plan (a changed prompt clears that cut's
     storyboard). While generating, a changed prompt/seed sends just this cut
@@ -1284,6 +1287,28 @@ def edit_cut(mv_id, idx):
             changed_render = True
     if "locked" in body:
         cut["locked"] = bool(body.get("locked"))
+    if "subject_ids" in body:
+        raw = body.get("subject_ids")
+        if raw is None:
+            new_ids = None
+        elif isinstance(raw, list) and all(
+            isinstance(x, int) and not isinstance(x, bool) for x in raw
+        ):
+            new_ids = list(dict.fromkeys(raw))
+            from backend.models import Subject
+            unknown = [x for x in new_ids if db.session.get(Subject, x) is None]
+            if unknown:
+                return jsonify({"error": f"no Cast subject with id {unknown[0]}"}), 400
+        else:
+            return jsonify({"error": "subject_ids must be a list of Cast subject ids or null"}), 400
+        if new_ids != cut.get("subject_ids"):
+            if new_ids is None:
+                cut.pop("subject_ids", None)
+            else:
+                cut["subject_ids"] = new_ids
+            cut["storyboard_path"] = None
+            cut.pop("storyboard_variation", None)
+            changed_render = True
 
     was_idle = _generator_idle(mv)
     if changed_render and cut.get("status") in ("done", "failed"):
