@@ -67,6 +67,45 @@ _VLM_CAPTION_PROMPT = (
     "or costume than what is shown. Keep it under 30 words. Start with the framing tag."
 )
 
+# Props and environments get their own wording: asked about "a cast character", the
+# VLM hunts for a figure in a street scene and captions a city as whatever creature
+# it finds there. Framing words stay within FRAMING_TAGS so the coverage check reads them.
+_VLM_CAPTION_PROMPTS = {
+    "character": _VLM_CAPTION_PROMPT,
+    "prop": (
+        "You are writing a concise training caption for ONE image of a prop: a single object, "
+        "vehicle or item. "
+        "Output ONLY comma-separated visual tags (no sentences, no 'the image shows', no name). "
+        "Cover, in this order:\n"
+        "1) FRAMING — choose EXACTLY ONE: close-up (a detail of the object), three-quarter view, "
+        "full body (the whole object fills the frame), wide shot (the object small in a scene).\n"
+        "2) viewing angle: front, side, rear, top-down or interior.\n"
+        "3) its state in this shot, if any (doors open, lights on, in motion).\n"
+        "4) background/setting.\n"
+        "5) lighting.\n"
+        "Describe ONLY these VARIABLE shot attributes, not the object's own shape, colours or "
+        "materials. Keep it under 30 words. Start with the framing tag."
+    ),
+    "environment": (
+        "You are writing a concise training caption for ONE image of an environment: a place "
+        "that keeps the same look in every shot. "
+        "Output ONLY comma-separated visual tags (no sentences, no 'the image shows', no name). "
+        "Cover, in this order:\n"
+        "1) FRAMING — choose EXACTLY ONE: wide shot, close-up (a detail of the place).\n"
+        "2) viewpoint: street level, aerial, from the water, interior, or similar.\n"
+        "3) which part of the place this shot shows (a market street, a rooftop terrace, a room).\n"
+        "4) people, vehicles or objects in the shot.\n"
+        "5) weather and lighting.\n"
+        "Describe ONLY these VARIABLE shot attributes, not the place's overall style or colour "
+        "palette. Keep it under 30 words. Start with the framing tag."
+    ),
+}
+
+
+def caption_prompt_for(kind: str | None) -> str:
+    """Caption instruction for a Cast subject kind (character, prop, environment)."""
+    return _VLM_CAPTION_PROMPTS.get((kind or "character").strip().lower(), _VLM_CAPTION_PROMPT)
+
 
 def _analyzer():
     """Lazy-build the shared offline vision wrapper (same one film_curator uses)."""
@@ -144,31 +183,43 @@ def compose_caption(
     return out
 
 
+def vlm_shot_description(
+    image_path: str | Path,
+    *,
+    kind: str = "character",
+    analyzer=None,
+) -> Optional[str]:
+    """The VLM's variable-attribute tags for one image, or None when it gave none."""
+    analyzer = analyzer or _analyzer()
+    try:
+        # VisionAnalyzer.analyze expects a PIL Image (it base64-encodes internally), not a path.
+        from PIL import Image
+        img = Image.open(str(image_path)).convert("RGB")
+        res = analyzer.analyze(img, caption_prompt_for(kind), think=False)
+        if getattr(res, "success", False) and getattr(res, "description", "").strip():
+            return res.description
+        log.warning("captioner: VLM failed for %s (%s)",
+                    image_path, getattr(res, "error", "no description"))
+    except Exception as e:  # noqa: BLE001 — captioning must never explode a dataset run
+        log.warning("captioner: exception on %s (%s)", image_path, e)
+    return None
+
+
 def caption_image(
     image_path: str | Path,
     *,
     trigger: str,
     identity_marks: str = "",
     class_token: str = "person",
+    kind: str = "character",
     analyzer=None,
 ) -> str:
     """Caption a single image. Returns the composed caption string, or a minimal
     identity-core fallback if the VLM is unavailable."""
-    analyzer = analyzer or _analyzer()
-    try:
-        # VisionAnalyzer.analyze expects a PIL Image (it base64-encodes internally), not a path.
-        from PIL import Image
-        img = Image.open(str(image_path)).convert("RGB")
-        res = analyzer.analyze(img, _VLM_CAPTION_PROMPT, think=False)
-        if getattr(res, "success", False) and getattr(res, "description", "").strip():
-            return compose_caption(
-                trigger, res.description, identity_marks, class_token=class_token,
-            )
-        log.warning("captioner: VLM failed for %s (%s); using trigger+marks fallback",
-                    image_path, getattr(res, "error", "no description"))
-    except Exception as e:  # noqa: BLE001 — captioning must never explode a dataset run
-        log.warning("captioner: exception on %s (%s); using trigger+marks fallback", image_path, e)
-    return compose_caption(trigger, "", identity_marks, class_token=class_token)
+    desc = vlm_shot_description(image_path, kind=kind, analyzer=analyzer)
+    if desc is None:
+        log.warning("captioner: using trigger+marks fallback for %s", image_path)
+    return compose_caption(trigger, desc or "", identity_marks, class_token=class_token)
 
 
 def caption_dataset(
@@ -253,13 +304,17 @@ def ensure_subject_image_captions(
     trigger: str,
     identity_marks: str = "",
     class_token: str = "person",
+    kind: str = "character",
     overwrite: bool = False,
     analyzer=None,
 ) -> dict:
     """Write ``.txt`` sidecars for cast ref/sample images missing rich captions.
 
     Used by cast upload + train dispatch so in-app LoRA training is not stuck with
-    bare ``"a photo of {token}"`` fallbacks. Skips images that already have a
+    bare ``"a photo of {token}"`` fallbacks. An image the VLM could not caption gets
+    no sidecar and counts as failed, so the next pass (train dispatch, the train
+    task) captions it again instead of keeping a fallback that looks finished.
+    Skips images that already have a
     non-bare sidecar unless ``overwrite``. Never raises on a single image failure.
     """
     token = (trigger or "").strip()
@@ -322,14 +377,15 @@ def ensure_subject_image_captions(
             results.append({"image": p.name, "caption": existing, "framing": fr, "action": "skipped"})
             continue
         try:
-            caption = caption_image(
-                p, trigger=token or p.stem, identity_marks=marks,
-                class_token=class_token, analyzer=analyzer,
+            desc = vlm_shot_description(p, kind=kind, analyzer=analyzer)
+            if desc is None:
+                failed += 1
+                results.append({"image": p.name, "error": "vision model gave no caption",
+                                "action": "failed"})
+                continue
+            caption = compose_caption(
+                token or p.stem, desc, marks, class_token=class_token,
             )
-            if not caption.strip():
-                caption = compose_caption(
-                    token or p.stem, "", marks, class_token=class_token,
-                )
             sidecar.write_text(caption + "\n", encoding="utf-8")
             written += 1
             fr = detect_framing(caption)

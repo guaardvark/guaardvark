@@ -467,6 +467,7 @@ def upload_subject_refs(subject_id):
                 trigger=token,
                 identity_marks=marks,
                 class_token=resolve_class_token(s),
+                kind=s.kind or "character",
             )
         except Exception as e:
             caption_summary = {"error": str(e)[:200]}
@@ -859,6 +860,7 @@ def dispatch_train(subject_id: int):
             trigger=token,
             identity_marks=marks,
             class_token=resolve_class_token(s),
+            kind=s.kind or "character",
         )
     except Exception:
         pass
