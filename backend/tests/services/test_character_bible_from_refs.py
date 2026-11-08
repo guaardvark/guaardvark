@@ -227,3 +227,73 @@ def test_compose_prompt_wolf_class_anchor():
     assert "white wolf" in prompt
     assert "amber eyes" in prompt
     assert "ignored bible" not in prompt
+
+
+def _place_refs(tmp_path, n=2):
+    from PIL import Image
+    paths = []
+    for i in range(n):
+        p = tmp_path / f"street_{i}.png"
+        Image.new("RGB", (8, 8)).save(p)
+        paths.append(str(p))
+    return paths
+
+
+class _RecordingAnalyzer:
+    """Stands in for VisionAnalyzer and keeps every prompt it was asked."""
+
+    def __init__(self, description):
+        self.description = description
+        self.prompts = []
+
+    def analyze(self, img, prompt, **kw):
+        from types import SimpleNamespace
+        self.prompts.append(prompt)
+        return SimpleNamespace(success=True, description=self.description)
+
+
+def test_environment_refs_are_described_as_a_place(tmp_path):
+    from backend.services.character_bible_from_refs import rebuild_bible_from_refs
+    analyzer = _RecordingAnalyzer(
+        "A night harbor city of neon-lit towers over wet streets, with holographic koi.")
+    seen = {}
+
+    def fake_llm(*, system, user, model=None):
+        seen["user"] = user
+        return ('{"class_token":"harbor city",'
+                '"marks":"neon towers, wet streets, holographic koi, rooftop gardens",'
+                '"bible":"A neon harbor city at night. Keep this exact appearance in every shot."}')
+
+    out = rebuild_bible_from_refs(_place_refs(tmp_path), name="Neon Harbor",
+                                  analyzer=analyzer, llm=fake_llm, kind="environment")
+
+    assert out["ok"] is True and out["class_token"] == "harbor city"
+    assert all("ONE place" in p and "cast character" not in p for p in analyzer.prompts)
+    assert "SAME place" in seen["user"] and "white wolf" not in seen["user"]
+
+
+def test_place_without_a_class_from_consensus_is_not_a_person(tmp_path):
+    from backend.services.character_bible_from_refs import rebuild_bible_from_refs
+
+    def no_class_llm(*, system, user, model=None):
+        return '{"marks":"neon towers","bible":"A neon city. Keep this exact appearance in every shot."}'
+
+    out = rebuild_bible_from_refs(_place_refs(tmp_path), name="Neon Harbor",
+                                  analyzer=_RecordingAnalyzer("A neon city at night."),
+                                  llm=no_class_llm, kind="environment")
+
+    assert out["class_token"] == "place"
+
+
+def test_prop_refs_are_described_as_an_object(tmp_path):
+    from backend.services.character_bible_from_refs import rebuild_bible_from_refs
+    analyzer = _RecordingAnalyzer("A red two-seat roadster with chrome bumpers.")
+
+    def fake_llm(*, system, user, model=None):
+        return ('{"class_token":"sports car","marks":"red paint, chrome bumpers",'
+                '"bible":"A red roadster. Keep this exact appearance in every shot."}')
+
+    rebuild_bible_from_refs(_place_refs(tmp_path), name="The Ruby", analyzer=analyzer,
+                            llm=fake_llm, kind="prop")
+
+    assert all("ONE prop" in p for p in analyzer.prompts)

@@ -30,20 +30,70 @@ _PER_IMAGE_PROMPT = (
 )
 
 _CONSENSUS_PROMPT = (
-    "These are independent descriptions of the SAME cast character from different reference photos.\n"
+    "These are independent descriptions of the SAME {what} from different reference photos.\n"
     "Label (may be wrong — trust the photos/descriptions): {name}\n\n"
     "Descriptions:\n{block}\n\n"
     "Synthesize ONE identity record. Prefer traits that appear in multiple descriptions; "
-    "drop one-off pose/background noise; do not invent traits unsupported by the descriptions.\n"
+    "drop one-off {noise} noise; do not invent traits unsupported by the descriptions.\n"
     "Return ONLY valid JSON (no markdown fences):\n"
     '{{\n'
-    '  "class_token": "what it IS — short noun phrase, e.g. man, woman, white wolf, dog, robot, '
-    'costumed man (not a proper name)",\n'
+    '  "class_token": "what it IS — short noun phrase, e.g. {examples} (not a proper name)",\n'
     '  "marks": "comma-separated distinctive FIXED traits, about 8–20 words",\n'
     '  "bible": "2–4 sentence identity paragraph: what it is + consistent appearance. '
     'End with: Keep this exact appearance in every shot."\n'
     "}}"
 )
+
+# Props and environments are described as what they are. Asked about "ONE cast
+# character", the vision model finds a figure in a street scene and the place's
+# identity becomes that figure (a city of 23 photos came back as "ethereal koi fish").
+_PER_IMAGE_PROMPTS = {
+    "character": _PER_IMAGE_PROMPT,
+    "prop": (
+        "Look at this reference photo of ONE prop: a single object, vehicle or item that must "
+        "look the same in every shot.\n"
+        "In 2–4 short sentences, describe the FIXED design you actually see: what kind of "
+        "object it is, its shape, colours, materials, markings and ornaments.\n"
+        "Do NOT invent anything not visible. "
+        "Do NOT describe people, the background or the lighting. "
+        "Do NOT mention camera angle or shot framing. Plain prose only."
+    ),
+    "environment": (
+        "Look at this reference photo of ONE place: an environment that must keep the same "
+        "look in every shot.\n"
+        "In 2–4 short sentences, describe the FIXED look of the place you actually see: what "
+        "kind of place it is, its architecture or landscape, colour palette, light, weather "
+        "and signature details.\n"
+        "People, vehicles and creatures passing through are not the place; mention them only "
+        "when they are part of its look. "
+        "Do NOT invent anything not visible. "
+        "Do NOT mention camera angle or shot framing. Plain prose only."
+    ),
+}
+
+_CONSENSUS_WORDING = {
+    "character": {
+        "what": "cast character", "noise": "pose/background",
+        "examples": "man, woman, white wolf, dog, robot, costumed man",
+    },
+    "prop": {
+        "what": "prop (one object)", "noise": "angle/background",
+        "examples": "sports car, sword, desk lamp, guitar",
+    },
+    "environment": {
+        "what": "place (one environment, seen in different views)",
+        "noise": "passer-by/vehicle",
+        "examples": "harbor city, pine forest, desert town, recording studio",
+    },
+}
+
+# Class anchor when consensus names none; "person" would make a place a human.
+_FALLBACK_CLASS = {"prop": "prop", "environment": "place"}
+
+
+def _kind(kind: Optional[str]) -> str:
+    k = (kind or "character").strip().lower()
+    return k if k in _PER_IMAGE_PROMPTS else "character"
 
 
 def sample_ref_paths(paths: list[str], *, max_n: int = 12) -> list[str]:
@@ -67,7 +117,7 @@ def _strip_fences(text: str) -> str:
     return t.strip().strip('"').strip("'")
 
 
-def describe_identity_open(image_path: str, *, analyzer=None) -> str:
+def describe_identity_open(image_path: str, *, analyzer=None, kind: str = "character") -> str:
     """Open vision prose for one ref. Empty string on failure."""
     try:
         from PIL import Image
@@ -75,7 +125,7 @@ def describe_identity_open(image_path: str, *, analyzer=None) -> str:
         az = analyzer or VisionAnalyzer()
         img = Image.open(str(image_path)).convert("RGB")
         res = az.analyze(
-            img, _PER_IMAGE_PROMPT, think=False, temperature=0.2, num_predict=220,
+            img, _PER_IMAGE_PROMPTS[_kind(kind)], think=False, temperature=0.2, num_predict=220,
         )
         if not getattr(res, "success", False):
             log.warning(
@@ -169,6 +219,7 @@ def consensus_identity_from_descriptions(
     name: str = "",
     llm=None,
     model: Optional[str] = None,
+    kind: str = "character",
 ) -> dict[str, str]:
     """Merge open per-photo descriptions into class_token / marks / bible.
 
@@ -182,7 +233,9 @@ def consensus_identity_from_descriptions(
     # Single description: still ask consensus so class_token/marks are structured,
     # but if LLM fails, fall back to the prose as bible.
     block = "\n".join(f"{i + 1}. {d}" for i, d in enumerate(cleaned))
-    user = _CONSENSUS_PROMPT.format(name=(name or "character").strip(), block=block)
+    user = _CONSENSUS_PROMPT.format(
+        name=(name or "character").strip(), block=block, **_CONSENSUS_WORDING[_kind(kind)],
+    )
     system = (
         "You synthesize visual identity for offline cast/LoRA training. "
         "Output JSON only. Trust the photo descriptions over the label name."
@@ -299,6 +352,7 @@ def rebuild_bible_from_refs(
     min_tag_count: int = 1,  # noqa: ARG001 — kept for call-site compat
     llm=None,
     consensus_model: Optional[str] = None,
+    kind: str = "character",
 ) -> dict[str, Any]:
     """Scan refs with open vision + consensus; return grounded bible dict.
 
@@ -344,7 +398,7 @@ def rebuild_bible_from_refs(
     descriptions: list[str] = []
     errors: list[str] = []
     for p in sampled:
-        prose = describe_identity_open(p, analyzer=analyzer)
+        prose = describe_identity_open(p, analyzer=analyzer, kind=kind)
         if prose:
             descriptions.append(prose)
         else:
@@ -364,15 +418,18 @@ def rebuild_bible_from_refs(
         }
 
     consensus = consensus_identity_from_descriptions(
-        descriptions, name=name, llm=llm, model=consensus_model,
+        descriptions, name=name, llm=llm, model=consensus_model, kind=kind,
     )
     bible = (consensus.get("bible") or "").strip()
     marks = (consensus.get("marks") or "").strip() or marks_from_bible(bible)
     cls = sanitize_class_token(consensus.get("class_token") or "")
     # If consensus left class empty, infer from bible/marks text
     if cls == "person" and not (consensus.get("class_token") or "").strip():
-        from backend.services.character_identity_prompt import resolve_class_token
-        cls = resolve_class_token(tags=[marks], bible=bible, description=name)
+        if _kind(kind) in _FALLBACK_CLASS:
+            cls = _FALLBACK_CLASS[_kind(kind)]
+        else:
+            from backend.services.character_identity_prompt import resolve_class_token
+            cls = resolve_class_token(tags=[marks], bible=bible, description=name)
 
     if not bible:
         return {
@@ -426,8 +483,9 @@ def persist_bible_on_subject(subject, result: dict, *, refresh_captions: bool = 
     cfg["bible_vision_tags"] = list(result.get("tags") or [])[:32]
     cfg["bible_identity_marks"] = result.get("marks") or ""
     cls = sanitize_class_token(result.get("class_token") or "")
+    kind = _kind(getattr(subject, "kind", None))
     if cls == "person" and not result.get("class_token"):
-        cls = resolve_class_token(
+        cls = _FALLBACK_CLASS.get(kind) or resolve_class_token(
             subject,
             tags=list(result.get("tags") or []),
             bible=result.get("bible") or "",
@@ -446,6 +504,7 @@ def persist_bible_on_subject(subject, result: dict, *, refresh_captions: bool = 
                 trigger=(subject.trigger_word or subject.name or "").strip(),
                 identity_marks=result.get("marks") or "",
                 class_token=cls,
+                kind=kind,
                 overwrite=True,
             )
             result["captions_refreshed"] = True

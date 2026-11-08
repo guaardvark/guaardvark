@@ -11,13 +11,17 @@ from backend.services.character_captioner import ensure_subject_image_captions
 class _StubAnalyzer:
     """Stands in for VisionAnalyzer; counts calls so a skip is observable."""
 
-    def __init__(self, description="full body, standing in snow, soft daylight"):
+    def __init__(self, description="full body, standing in snow, soft daylight", success=True):
         self.description = description
+        self.success = success
         self.calls = 0
+        self.prompts = []
 
     def analyze(self, img, prompt, think=False, **kw):
         self.calls += 1
-        return SimpleNamespace(success=True, description=self.description)
+        self.prompts.append(prompt)
+        return SimpleNamespace(success=self.success, description=self.description,
+                               error=None if self.success else "Connection error")
 
 
 def _image(tmp_path, name="ref_01.png"):
@@ -91,3 +95,31 @@ def test_human_subject_accepts_any_human_class_word(tmp_path):
 
     assert analyzer.calls == 0
     assert out["skipped"] == 1
+
+
+def test_image_the_vision_model_cannot_caption_gets_no_sidecar(tmp_path):
+    img = _image(tmp_path)
+
+    out = ensure_subject_image_captions(
+        [str(img)], trigger="trig", class_token="woman",
+        analyzer=_StubAnalyzer(description="", success=False),
+    )
+
+    assert out["failed"] == 1 and out["written"] == 0
+    assert not img.with_suffix(".txt").exists()
+
+
+def test_environment_is_captioned_as_a_place(tmp_path):
+    img = _image(tmp_path)
+    analyzer = _StubAnalyzer("wide shot, street level, market street, crowds, rain, neon light")
+
+    out = ensure_subject_image_captions(
+        [str(img)], trigger="city", class_token="harbor city", kind="environment",
+        analyzer=analyzer,
+    )
+
+    assert out["written"] == 1
+    assert "environment" in analyzer.prompts[0]
+    assert "cast character" not in analyzer.prompts[0]
+    caption = img.with_suffix(".txt").read_text(encoding="utf-8")
+    assert caption.startswith("a photo of city, harbor city, wide shot")

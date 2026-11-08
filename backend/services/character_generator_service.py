@@ -227,7 +227,7 @@ def generate_character_sheet(
         try:
             from backend.services.character_bible_from_refs import rebuild_bible_from_refs
             grounded = rebuild_bible_from_refs(
-                refs, name=name, trigger_word=trigger or None,
+                refs, name=name, trigger_word=trigger or None, kind=kind,
             )
             if grounded.get("ok") and grounded.get("bible"):
                 bible = grounded["bible"].strip()
