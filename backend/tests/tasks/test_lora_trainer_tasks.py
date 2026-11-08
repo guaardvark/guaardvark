@@ -39,6 +39,7 @@ def _no_live_gpu(monkeypatch):
         yield
 
     monkeypatch.setattr("backend.services.gpu_resource_policy.gpu_session", no_gpu_session)
+    monkeypatch.setattr("backend.services.gpu_resource_policy.gpu_session_when_free", no_gpu_session)
     monkeypatch.setattr(
         "backend.services.gpu_resource_policy.compositor_vram_reserve_mb", lambda: 0
     )
@@ -267,7 +268,7 @@ def test_gpu_claim_uses_the_bases_measured_training_vram(app, tmp_path, monkeypa
         seen.update(kwargs)
         yield
 
-    monkeypatch.setattr("backend.services.gpu_resource_policy.gpu_session", capture_gpu_session)
+    monkeypatch.setattr("backend.services.gpu_resource_policy.gpu_session_when_free", capture_gpu_session)
     monkeypatch.setattr("backend.tasks.lora_trainer_tasks._output_dir", lambda: str(tmp_path))
     monkeypatch.setenv("GUAARDVARK_LORA_BACKEND", "real")
     monkeypatch.setattr(
@@ -280,3 +281,6 @@ def test_gpu_claim_uses_the_bases_measured_training_vram(app, tmp_path, monkeypa
 
     assert seen["require_fit"] is True
     assert seen["vram_estimate_mb"] == get_profile(base_id)["vram_train_mb"]
+    # A run queued behind another waits out the release cooldown instead of failing.
+    from backend.tasks.lora_trainer_tasks import CAST_TRAIN_GPU_WAIT_S
+    assert seen["wait_s"] == CAST_TRAIN_GPU_WAIT_S
