@@ -185,15 +185,15 @@ class TestRamReserve:
 class TestSmallMachine:
     """The web UI's chat prompt measured 2,131-2,431 tokens (2026-11-08)."""
 
-    def _loaded(self, monkeypatch, size_mb, vram_mb):
-        entry = {"name": "qwen3.5:4b", "model": "qwen3.5:4b",
+    def _loaded(self, monkeypatch, size_mb, vram_mb, ctx=8192):
+        entry = {"name": "qwen3.5:4b", "model": "qwen3.5:4b", "context_length": ctx,
                  "size": int(size_mb * MIB), "size_vram": int(vram_mb * MIB)}
         monkeypatch.setattr(orm, "resident_models", lambda ttl_s=orm.RESIDENT_TTL_S: [entry])
 
     def test_floor_clears_the_ui_prompt(self):
         assert orm.MIN_NUM_CTX >= 4096
 
-    def test_loaded_model_counts_its_own_ram(self, monkeypatch):
+    def test_loaded_model_keeps_its_window_beside_itself(self, monkeypatch):
         self._loaded(monkeypatch, 3004, 320)
         with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
              patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
@@ -219,6 +219,33 @@ class TestSmallMachine:
         with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
              patch.object(orm, "get_system_resources", return_value=resources):
             assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == 7168
+
+    def test_its_own_memory_never_grows_a_loaded_model(self, monkeypatch):
+        """7,168 unloaded and 8,192 loaded would reload the model on every change."""
+        self._loaded(monkeypatch, 3004, 320, ctx=7168)
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == 7168
+
+    def test_a_model_loaded_below_the_floor_is_raised_to_it(self, monkeypatch):
+        self._loaded(monkeypatch, 3004, 320, ctx=2048)
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == orm.MIN_NUM_CTX
+
+    def test_memory_freed_elsewhere_still_grows_a_loaded_model(self, monkeypatch):
+        self._loaded(monkeypatch, 3004, 320, ctx=4096)
+        roomy = dict(CPU8_RESOURCES, ram_free_mb=6000.0)
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=roomy):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == orm.DEFAULT_TEXT_NUM_CTX
+
+    def test_a_shrinking_budget_still_shrinks_a_loaded_model(self, monkeypatch):
+        self._loaded(monkeypatch, 3004, 320, ctx=8192)
+        tight = dict(CPU8_RESOURCES, ram_free_mb=2600.0)
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=tight):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx < 8192
 
     def test_validation_sizes_from_the_same_memory(self, monkeypatch):
         self._loaded(monkeypatch, 3004, 320)

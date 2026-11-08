@@ -881,21 +881,51 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
         logger.info("No model info for '%s', using default num_ctx=%d", model_name, default)
         return NumCtxDecision(default, resolved=False)
 
-    return NumCtxDecision(_size_num_ctx(model_name, model_info, _sizing_resources(model_name)), resolved=True)
-
-
-def _sizing_resources(model_name: str) -> Dict[str, float]:
-    """:func:`get_system_resources`, with ``model_name``'s own memory counted
-    as free when Ollama has it loaded."""
-    resources = get_system_resources()
     entry = loaded_entry(model_name)
-    if entry:
+    own_ram_mb = _own_ram_mb(entry)
+    resources = _sizing_resources(model_name)
+    num_ctx = _size_num_ctx(model_name, model_info, resources, log=own_ram_mb <= 0)
+    if own_ram_mb > 0:
         # A loaded model's RAM share is its own, not "used": a machine without
         # a GPU keeps the chat model loaded, and sized against what was left
-        # beside it, qwen3.5:4b on 7.7 GiB got the floor (2026-11-08).
+        # beside it, qwen3.5:4b on 7.7 GiB got the floor. Counted back, it only
+        # keeps the model at the window it is loaded with: Linux still reports
+        # most of a loaded model's memory as available, so growing on it would
+        # disagree with the size picked before the model loaded, and every
+        # change of size reloads the model (qwen3.5:4b on 8 GB: 7,168 unloaded,
+        # 8,192 loaded; a reload there costs 30-45 s; measured 2026-11-08).
+        with_own = _size_num_ctx(
+            model_name, model_info,
+            dict(resources, ram_free_mb=resources["ram_free_mb"] + own_ram_mb), log=False,
+        )
+        kept = min(int(entry.get("context_length") or 0), with_own)
+        logger.info(
+            "Adaptive context for loaded '%s': num_ctx=%d (loaded at %s, %d without its "
+            "own %.0fMB, %d with it)",
+            model_name, max(num_ctx, kept), entry.get("context_length"), num_ctx, own_ram_mb, with_own,
+        )
+        num_ctx = max(num_ctx, kept)
+    return NumCtxDecision(num_ctx, resolved=True)
+
+
+def _own_ram_mb(entry: Optional[dict]) -> float:
+    """RAM (MB) a loaded model holds outside the GPU, from its /api/ps entry."""
+    if not entry:
+        return 0.0
+    try:
         size_mb = int(entry.get("size") or 0) / (1024 * 1024)
         vram_mb = int(entry.get("size_vram") or 0) / (1024 * 1024)
-        resources = dict(resources, ram_free_mb=resources["ram_free_mb"] + max(0.0, size_mb - vram_mb))
+    except (TypeError, ValueError):
+        return 0.0
+    return max(0.0, size_mb - vram_mb)
+
+
+def _sizing_resources(model_name: str, own_ram_mb: float = 0.0) -> Dict[str, float]:
+    """:func:`get_system_resources` with ``own_ram_mb`` added to free RAM, and
+    the model's VRAM when the resident hook is on."""
+    resources = get_system_resources()
+    if own_ram_mb > 0:
+        resources = dict(resources, ram_free_mb=resources["ram_free_mb"] + own_ram_mb)
     if _count_resident_model():
         entry = resident_entry(model_name)
         if entry:
@@ -910,8 +940,9 @@ def _sizing_resources(model_name: str) -> Dict[str, float]:
 
 def _count_resident_model() -> bool:
     """Hook, off by default: size a loaded model counting its VRAM as free
-    too (GUAARDVARK_CTX_COUNT_RESIDENT=1). Its RAM share is always counted.
-    Off, a model on the GPU is sized against what is left beside it."""
+    too (GUAARDVARK_CTX_COUNT_RESIDENT=1). Its RAM share always keeps it at
+    its loaded window (see decide_num_ctx). Off, a model on the GPU is sized
+    against what is left beside it."""
     return os.environ.get("GUAARDVARK_CTX_COUNT_RESIDENT", "").strip().lower() in ("1", "true", "yes", "on")
 
 
@@ -929,7 +960,7 @@ def _min_num_ctx(model_info: dict) -> int:
     return min(MIN_NUM_CTX, native_ctx) if native_ctx > 0 else MIN_NUM_CTX
 
 
-def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]) -> int:
+def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float], log: bool = True) -> int:
     gpu_free_mb = resources["gpu_free_mb"]
     gpu_budget_mb = max(0, gpu_free_mb - GPU_RESERVE_MB)
     ram_reserve = ram_reserve_mb(resources.get("ram_total_mb", 0.0))
@@ -940,10 +971,11 @@ def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]
     floor = _min_num_ctx(model_info)
 
     if total_budget_mb <= 0:
-        logger.warning(
-            "Very low available memory (GPU free: %.0fMB, RAM free: %.0fMB). Using minimum context.",
-            gpu_free_mb, resources["ram_free_mb"],
-        )
+        if log:
+            logger.warning(
+                "Very low available memory (GPU free: %.0fMB, RAM free: %.0fMB). Using minimum context.",
+                gpu_free_mb, resources["ram_free_mb"],
+            )
         return floor
 
     model_weight_mb = model_info["size_mb"]
@@ -952,10 +984,11 @@ def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]
     profile = overhead_profile(model_name, model_info)
 
     if model_weight_mb > total_budget_mb:
-        logger.warning(
-            "Model '%s' weights (%.0fMB) exceed available budget (%.0fMB). Using minimum context.",
-            model_name, model_weight_mb, total_budget_mb,
-        )
+        if log:
+            logger.warning(
+                "Model '%s' weights (%.0fMB) exceed available budget (%.0fMB). Using minimum context.",
+                model_name, model_weight_mb, total_budget_mb,
+            )
         return floor
 
     # Strategy: check if model + KV cache at DEFAULT context (8192) fits entirely
@@ -999,6 +1032,8 @@ def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]
     optimal = (optimal // 1024) * 1024
     optimal = max(optimal, floor)
 
+    if not log:
+        return optimal
     est_total = _total_at_ctx(optimal)
     logger.info(
         "Adaptive context for '%s': num_ctx=%d (native=%d, ceiling=%d, "
@@ -1023,7 +1058,7 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
     if not model_info:
         return True, "Model info unavailable — proceeding with defaults", _fallback_num_ctx(model_name)
 
-    resources = _sizing_resources(model_name)
+    resources = _sizing_resources(model_name, _own_ram_mb(loaded_entry(model_name)))
     total_available_mb = (
         max(0, resources["gpu_free_mb"] - GPU_RESERVE_MB) +
         max(0, resources["ram_free_mb"] - ram_reserve_mb(resources.get("ram_total_mb", 0.0)))
