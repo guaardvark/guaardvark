@@ -2787,10 +2787,21 @@ Negative Prompt: {negative_prompt}""",
             if request.model in (None, "", "auto"):
                 request.model = self._auto_select_model(request.prompt, request.style)
                 if not request.model:
-                    result.error = (
-                        "No image model is downloaded yet. Open Settings → Image Models "
-                        "and download one (Z-Image Turbo is the recommended default)."
-                    )
+                    if self._device not in ("cuda", "mps"):
+                        # The recommended models refuse to run on the processor
+                        # (see the family guard in _generate), so suggesting a
+                        # download here would only waste it.
+                        result.error = (
+                            "No image model is downloaded, and image generation has no GPU "
+                            "to use on this machine (no working NVIDIA or Apple silicon "
+                            "device). The recommended models, Z-Image Turbo and Krea 2, "
+                            "do not run on the processor. See docs/HARDWARE.md."
+                        )
+                    else:
+                        result.error = (
+                            "No image model is downloaded yet. Open Settings → Image Models "
+                            "and download one (Z-Image Turbo is the recommended default)."
+                        )
                     return result
             if (
                 self._has_text_intent(request.prompt)
