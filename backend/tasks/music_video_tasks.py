@@ -1061,7 +1061,7 @@ def _generate_one_clip(mv: MusicVideo, clip: dict):
                         steps=kf_steps if kf_loras else s.get("keyframe_steps"),
                         seed=still_seed,
                         output_path=still_path,
-                        lora_strength=kf_lora_strength,
+                        lora_strength=s.get("keyframe_lora_strength"),  # unset: shared out when stacked
                         keep_pipeline=False,
                     )
                     if not still.success:
@@ -1455,7 +1455,7 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
                             steps=(s.get("keyframe_steps") or 20) if kf_loras else s.get("keyframe_steps"),
                             seed=2000 + idx,
                             output_path=still_path,
-                            lora_strength=kf_lora_strength,
+                            lora_strength=s.get("keyframe_lora_strength"),  # unset: shared out when stacked
                             keep_pipeline=True,
                         )
                         if not still.success:

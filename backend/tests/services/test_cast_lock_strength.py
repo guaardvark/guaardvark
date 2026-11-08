@@ -70,3 +70,20 @@ def test_apply_lock_skips_double_prefix():
     already = "a photo of tok, man, shaved, neon alley"
     assert apply_lock(already, lock) == already
     assert apply_lock("a photo of tok, different scene", lock) == "a photo of tok, different scene"
+
+
+def test_stacked_zimage_loras_share_the_default_strength():
+    from backend.services.cast_lock import stacked_lora_strength
+
+    single = DEFAULT_ZIMAGE_STRENGTH
+    assert stacked_lora_strength("zimage-turbo", single, 1) == single
+    assert abs(stacked_lora_strength("zimage-turbo", single, 2) - 0.6) < 1e-9
+    assert abs(stacked_lora_strength("zimage-turbo", single, 3) - 0.45) < 1e-9
+    assert abs(stacked_lora_strength("zimage-turbo", single, 5) - 0.27) < 1e-9
+
+
+def test_stacking_keeps_strength_for_unmeasured_families():
+    from backend.services.cast_lock import stacked_lora_strength
+
+    assert stacked_lora_strength("sdxl", DEFAULT_SDXL_STRENGTH, 3) == DEFAULT_SDXL_STRENGTH
+    assert stacked_lora_strength("flux-dev", DEFAULT_FLUX_DEV_STRENGTH, 2) == DEFAULT_FLUX_DEV_STRENGTH
