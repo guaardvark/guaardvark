@@ -22,6 +22,11 @@ from backend.utils.platform import (
 
 logger = logging.getLogger(__name__)
 
+# How long a Cast training waits for the card (a release cooldown, a batch of
+# stills) before failing as busy. Wait plus the 30 min train cap stays under the
+# 45 min stuck-training reap, which reads the subject's updated_at.
+CAST_TRAIN_GPU_WAIT_S = 10 * 60
+
 
 def _output_dir() -> str:
     from backend.config import STORAGE_DIR
@@ -167,7 +172,7 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
         # instead of leaving it stuck in 'training'.
         from backend.services.job_operation_gate import GpuBusyError, GpuCapacityError
         from backend.services.job_types import JobKind
-        from backend.services.gpu_resource_policy import gpu_session
+        from backend.services.gpu_resource_policy import gpu_session_when_free
         from backend.services.plugin_bridge import ensure_plugins_for_stage
         # The base's measured training peak from the media registry, not one
         # figure shared by every base.
@@ -185,11 +190,22 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
             # cross_process: the Flask API renders stills under its own in-PID
             # gate, so only the file lease keeps training off a card mid-render.
             from backend.services.gpu_resource_policy import compositor_vram_reserve_mb
-            with gpu_session(JobKind.LORA_TRAIN, f"subject_{s.id}",
-                             evict_ollama=True, free_comfyui=True,
-                             vram_estimate_mb=train_vram_mb, require_fit=True,
-                             cross_process=True, lease_seconds=4 * 3600,
-                             vram_reserve_mb=compositor_vram_reserve_mb()):
+
+            def _waiting(reason):
+                if job_id:
+                    try:
+                        get_unified_progress().update_process(job_id, 20, f"Waiting for the GPU: {reason}")
+                    except Exception:
+                        pass
+
+            # Waits its turn: a run queued behind another one otherwise failed on
+            # the 8 s release cooldown alone.
+            with gpu_session_when_free(JobKind.LORA_TRAIN, f"subject_{s.id}",
+                                       wait_s=CAST_TRAIN_GPU_WAIT_S, on_wait=_waiting,
+                                       evict_ollama=True, free_comfyui=True,
+                                       vram_estimate_mb=train_vram_mb, require_fit=True,
+                                       cross_process=True, lease_seconds=4 * 3600,
+                                       vram_reserve_mb=compositor_vram_reserve_mb()):
                 if job_id:
                     try:
                         get_unified_progress().update_process(job_id, 30, "GPU claimed, training epochs running (can take hours)")
