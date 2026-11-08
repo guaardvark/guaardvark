@@ -244,3 +244,39 @@ def test_backend_selector_uses_real_when_real_available_in_auto(app, tmp_path, m
         train_subject_lora_for_subject(s_id)
         
     assert called_real
+
+
+@pytest.mark.parametrize("base_id", ["zimage-turbo", "sdxl-legacy"])
+def test_gpu_claim_uses_the_bases_measured_training_vram(app, tmp_path, monkeypatch, base_id):
+    """The claim asks for the training base's own vram_train_mb from the media
+    registry. A single figure for every base refused every 12 GB card, since
+    the fit check adds a 1 GB margin and the compositor reserve on top."""
+    from contextlib import contextmanager
+    from backend.services.media_model_registry import get_profile
+
+    s_id = _seed_trainable_subject(app, tmp_path)
+    with app.app_context():
+        s = db.session.get(Subject, s_id)
+        s.training_settings_json = {"base_model_id": base_id}
+        db.session.commit()
+
+    seen = {}
+
+    @contextmanager
+    def capture_gpu_session(*args, **kwargs):
+        seen.update(kwargs)
+        yield
+
+    monkeypatch.setattr("backend.services.gpu_resource_policy.gpu_session", capture_gpu_session)
+    monkeypatch.setattr("backend.tasks.lora_trainer_tasks._output_dir", lambda: str(tmp_path))
+    monkeypatch.setenv("GUAARDVARK_LORA_BACKEND", "real")
+    monkeypatch.setattr(
+        "plugins.lora_trainer.real_trainer.RealLoraTrainer.train_subject_lora",
+        lambda *a, **k: {"status": "ok", "lora_path": str(tmp_path / "x.safetensors"), "lora_version": 1},
+    )
+
+    with app.app_context():
+        train_subject_lora_for_subject(s_id)
+
+    assert seen["require_fit"] is True
+    assert seen["vram_estimate_mb"] == get_profile(base_id)["vram_train_mb"]

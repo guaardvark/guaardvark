@@ -165,10 +165,13 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
         # gated. On contention, return a clean failed result (rather than
         # raising) so train_subject_lora_for_subject marks the Subject 'failed'
         # instead of leaving it stuck in 'training'.
-        from backend.services.job_operation_gate import GpuBusyError
+        from backend.services.job_operation_gate import GpuBusyError, GpuCapacityError
         from backend.services.job_types import JobKind
         from backend.services.gpu_resource_policy import gpu_session
         from backend.services.plugin_bridge import ensure_plugins_for_stage
+        # The base's measured training peak from the media registry, not one
+        # figure shared by every base.
+        train_vram_mb = int(train_profile.get("vram_train_mb") or 12000)
         try:
             # Cast train stage is reclaim-only (empty plugin list) — symmetry hook
             # for future requirements; lora_trainer is a tool, not a sidecar.
@@ -184,7 +187,7 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
             from backend.services.gpu_resource_policy import compositor_vram_reserve_mb
             with gpu_session(JobKind.LORA_TRAIN, f"subject_{s.id}",
                              evict_ollama=True, free_comfyui=True,
-                             vram_estimate_mb=12000, require_fit=True,
+                             vram_estimate_mb=train_vram_mb, require_fit=True,
                              cross_process=True, lease_seconds=4 * 3600,
                              vram_reserve_mb=compositor_vram_reserve_mb()):
                 if job_id:
@@ -233,6 +236,13 @@ def _train_impl(subject_id: int, job_id: str | None = None) -> dict:
                         _TRAINER.shutdown()
                     except Exception as _e:
                         logger.warning(f"lora_trainer: daemon shutdown after subject {subject_id} failed (non-fatal): {_e}")
+        except GpuCapacityError as e:
+            # Waiting cannot help, so say what the base needs rather than "busy".
+            logger.warning(f"lora_trainer: card too small for subject {subject_id}: {e}")
+            msg = (f"{train_profile.get('name')} character training needs about "
+                   f"{train_vram_mb / 1024:.1f} GB of GPU memory, more than this card can "
+                   f"give it. {e}")
+            return {"status": "failed", "error": msg, "used_images": train_images}
         except GpuBusyError as e:
             logger.warning(f"lora_trainer: GPU busy for subject {subject_id}: {e}")
             return {"status": "failed", "error": f"GPU busy: {e}", "used_images": train_images}
