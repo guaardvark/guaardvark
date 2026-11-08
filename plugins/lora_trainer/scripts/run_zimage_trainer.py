@@ -277,11 +277,16 @@ def _do_train(cmd: dict) -> dict:
         return {"ok": False, "error": "no ref_image_paths provided"}
 
     resolution = max(512, (int(params.get("resolution") or 512) // 64) * 64)
+    # "float8" keeps the frozen base's weights in float8 on the card and computes
+    # in bf16 (diffusers layerwise casting), about half the transformer's memory.
+    base_storage = (params.get("base_storage") or "bf16").lower()
     # Soft-cap: on ≤16.5GB cards 768 train_loop peaks ~13GB for the trainer alone;
     # with desktop/other CUDA (~0.7–1GB) + allocator holes it OOMs around step 7–8.
     # 512 leaves ~1GB headroom on the 16GB dev card (measured).
     gpu_gb = _gpu_total_gb()
     max_res = 512 if gpu_gb and gpu_gb <= 16.5 else 768
+    if base_storage == "float8":
+        max_res = 1024
     if resolution > max_res:
         _eprint(
             f"[run_zimage_trainer] clamping resolution {resolution} -> {max_res} "
@@ -322,6 +327,13 @@ def _do_train(cmd: dict) -> dict:
 
         if hasattr(transformer, "enable_gradient_checkpointing"):
             transformer.enable_gradient_checkpointing()
+        if base_storage == "float8":
+            # Before PEFT wraps the attention layers, so the casting hooks sit on
+            # the frozen base layers and the LoRA weights stay bf16.
+            transformer.enable_layerwise_casting(
+                storage_dtype=_torch.float8_e4m3fn, compute_dtype=_torch.bfloat16,
+            )
+            _eprint("[run_zimage_trainer] base transformer stored in float8, computed in bf16")
 
         lora_config = LoraConfig(
             r=rank,
