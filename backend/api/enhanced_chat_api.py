@@ -2003,10 +2003,12 @@ Context: {context_info.get('total_contexts', 0)} conversation contexts available
             logger.error(f"Enhanced chat: process_chat_message traceback:\n{traceback.format_exc()}")
             error_details = f"Error: {type(e).__name__}: {str(e)}"
             traceback_details = traceback.format_exc()
+            from backend.utils.ollama_resource_manager import missing_model_user_message
             return {
                 "success": False,
                 "error": str(e),
-                "response": f"Sorry, I encountered an error: {error_details}",
+                "response": missing_model_user_message(str(e))
+                or f"Sorry, I encountered an error: {error_details}",
                 "error_type": type(e).__name__,
                 "error_traceback": traceback_details[:500] if traceback_details else ""
             }

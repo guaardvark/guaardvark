@@ -111,6 +111,26 @@ def get_ollama_base_url() -> str:
         return "http://127.0.0.1:11434"
 
 
+_MISSING_MODEL_RE = re.compile(r"model ['\"]([^'\"]+)['\"] not found")
+
+
+def missing_model_user_message(error_str: str) -> Optional[str]:
+    """Plain-language reply when Ollama says a model is not installed, else None.
+
+    Ollama answers a request for an absent model with
+    "model 'NAME' not found (status code: 404)". Passed through as is, that
+    reads like a crash, and nothing says how to get the model.
+    """
+    match = _MISSING_MODEL_RE.search(error_str or "")
+    if not match:
+        return None
+    name = match.group(1)
+    return (
+        f"The model {name} is not installed in Ollama yet, so this can't be answered. "
+        f"Run ./start.sh again to download the models this machine needs, or run: ollama pull {name}"
+    )
+
+
 def is_vision_model(model_name: str) -> bool:
     """Whether this model can accept images. Delegates to the capability resolver.
 

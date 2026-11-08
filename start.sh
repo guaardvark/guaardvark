@@ -1896,8 +1896,28 @@ if ! command_exists "ollama"; then
             vader_info "Installing zstd (required by ollama installer)..."
             sudo apt-get install -y zstd >/dev/null 2>&1 || vader_warn "zstd install failed; ollama install likely will too."
         fi
-        _vader_run "$SETUP_LOG" -- bash -c 'curl -fsSL https://ollama.com/install.sh | sh' || OLLAMA_AVAILABLE=0
-        command_exists "ollama" || OLLAMA_AVAILABLE=0
+        # Judge the result by the binary, not the installer's exit code: the
+        # installer puts ollama in place and starts its service before it fetches
+        # the optional GPU add-ons (ROCm, JetPack), and a failed add-on download
+        # exits non-zero. Treating that as "no Ollama" skipped the model pull
+        # and left a fresh box with nothing to chat with.
+        # The installer is saved under logs/ before it runs, so the script that
+        # ran can be read afterwards.
+        _ollama_installer="$LOGS_DIR/ollama-install.sh"
+        _ollama_install_rc=0
+        mkdir -p "$LOGS_DIR"
+        _vader_run "$SETUP_LOG" -- curl -fsSL https://ollama.com/install.sh -o "$_ollama_installer" \
+            && _vader_run "$SETUP_LOG" -- sh "$_ollama_installer" \
+            || _ollama_install_rc=$?
+        hash -r
+        if command_exists "ollama"; then
+            if [ "$_ollama_install_rc" -ne 0 ]; then
+                vader_warn "Ollama is installed, but its installer reported an error after that (often a GPU add-on download); see $SETUP_LOG. Continuing with the installed Ollama."
+            fi
+        else
+            vader_warn "Ollama could not be installed (see $SETUP_LOG). Chat needs it: install it from https://ollama.com/download, then run ./start.sh again."
+            OLLAMA_AVAILABLE=0
+        fi
     else
         OLLAMA_AVAILABLE=0
     fi
@@ -3529,6 +3549,18 @@ vader_ready_card "$DURATION" \
     "http://localhost:$FLASK_PORT" \
     "$LAN_IPS_PRINTED" \
     "$BACKEND_STARTUP_LOG_FILE"
+
+# The ready card alone reads as "everything works". When the Ollama these
+# scripts manage has no chat model, chat cannot answer, so say that under it.
+if [ "$OLLAMA_ENABLED" != "False" ] && ! ollama_flag_on "${GUAARDVARK_OLLAMA_EXTERNAL:-}"; then
+    if [ "$OLLAMA_AVAILABLE" -ne 1 ]; then
+        vader_warn "Chat cannot answer yet: Ollama is not installed. Install it from https://ollama.com/download, then run ./start.sh again."
+    elif ! _ready_models="$(timeout 10 ollama list 2>/dev/null)"; then
+        vader_warn "Chat cannot answer yet: Ollama is not answering. Check: systemctl status ollama"
+    elif ! printf '%s\n' "$_ready_models" | ollama_model_kinds | grep -q $'\tchat\t'; then
+        vader_warn "Chat cannot answer yet: no chat model is installed. Run ./start.sh again to download ${BOOT_CHAT_MODEL:-one picked for this machine}${BOOT_CHAT_MODEL:+ (or: ollama pull $BOOT_CHAT_MODEL)}."
+    fi
+fi
 
 if [ "$TEST_MODE" -eq 1 ]; then
     vader_success "Test mode completed - all systems checked."

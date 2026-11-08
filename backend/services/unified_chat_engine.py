@@ -2800,8 +2800,10 @@ class UnifiedChatEngine:
                 return self._run_chat(session_id, message, options, emit_fn, request_id, steps)
         except Exception as e:
             logger.error(f"UnifiedChatEngine error: {e}", exc_info=True)
-            emit_fn("chat:error", {"error": str(e), "session_id": session_id})
-            return {"success": False, "error": str(e), "request_id": request_id}
+            from backend.utils.ollama_resource_manager import missing_model_user_message
+            error_text = missing_model_user_message(str(e)) or str(e)
+            emit_fn("chat:error", {"error": error_text, "session_id": session_id})
+            return {"success": False, "error": error_text, "request_id": request_id}
         finally:
             end_turn(session_id)
 
@@ -3514,7 +3516,10 @@ class UnifiedChatEngine:
                 elif "connection" in error_str.lower() or "refused" in error_str.lower():
                     friendly_error = "Cannot connect to Ollama. Is the Ollama service running?"
                 else:
-                    friendly_error = f"LLM error: {error_str}"
+                    from backend.utils.ollama_resource_manager import missing_model_user_message
+                    friendly_error = (
+                        missing_model_user_message(error_str) or f"LLM error: {error_str}"
+                    )
 
                 emit_fn("chat:error", {"error": friendly_error, "session_id": session_id})
                 return {
