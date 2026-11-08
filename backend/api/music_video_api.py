@@ -862,7 +862,7 @@ def regen_mv_storyboard(mv_id, idx):
                     height=s.get("still_height", 576),
                     seed=3000 + int(idx) + variation,
                     output_path=still_path,
-                    lora_strength=kf_lora_strength,
+                    lora_strength=s.get("keyframe_lora_strength"),  # unset: shared out when stacked
                     keep_pipeline=False,
                 )
                 if not still.success:

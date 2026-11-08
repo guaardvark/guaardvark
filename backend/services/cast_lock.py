@@ -31,6 +31,15 @@ from typing import Iterable, Optional
 DEFAULT_ZIMAGE_STRENGTH = 0.9
 DEFAULT_FLUX_DEV_STRENGTH = 0.9
 DEFAULT_SDXL_STRENGTH = 0.25
+
+# Per-LoRA strength when several cast LoRAs stack on one Z-Image render, as a
+# share of the single-LoRA strength. Each at 0.9 dissolves the frame into
+# speckle. Measured 2026-11-08 on three Z-Image Turbo cast LoRAs (a character, a
+# prop, an environment; rank 16, 512 px), 1024x576, 9 steps, seeds 3101/3102:
+# two at 0.75 grainy (prop + environment), at 0.6 clean; three at 0.6 grainy,
+# at 0.45 clean. More than three: the same total, split evenly (unmeasured).
+ZIMAGE_STACKED_STRENGTH = {2: 0.6, 3: 0.45}
+ZIMAGE_STACKED_TOTAL = 1.35
 _MIN_STRENGTH, _MAX_STRENGTH = 0.0, 1.5
 
 # SystemSetting keys (optional operator overrides).
@@ -85,6 +94,18 @@ def resolve_lora_strength(model: Optional[str], override=None) -> float:
         from_settings = _setting_float(setting_key)
         val = from_settings if from_settings is not None else default
     return max(_MIN_STRENGTH, min(_MAX_STRENGTH, val))
+
+
+def stacked_lora_strength(model: Optional[str], strength: float, n_loras: int) -> float:
+    """Per-LoRA strength for ``n_loras`` cast LoRAs on one render.
+
+    Scales the resolved single-LoRA ``strength`` by the measured stacking share
+    for the family; families without a measurement keep ``strength``.
+    """
+    if n_loras < 2 or "zimage" not in (model or "").lower():
+        return strength
+    stacked = ZIMAGE_STACKED_STRENGTH.get(n_loras, ZIMAGE_STACKED_TOTAL / n_loras)
+    return max(_MIN_STRENGTH, strength * stacked / DEFAULT_ZIMAGE_STRENGTH)
 
 
 def _dedup(seq: Iterable[str]) -> list[str]:
