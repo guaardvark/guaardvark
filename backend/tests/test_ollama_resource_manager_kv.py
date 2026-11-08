@@ -36,6 +36,37 @@ GEMMA4_E4B_INFO = dict(
 )
 
 
+# qwen3.5:4b as Ollama 0.40.15 describes it: 4.21B params, a 3,170 MiB file.
+QWEN35_4B_INFO = {
+    "size_mb": 3170.0,
+    "parameter_count": 4_205_751_296,
+    "native_context": 262_144,
+    "architecture": "qwen35",
+    "families": ["qwen35"],
+    "quantization": "Q4_K_M",
+    "is_vision": False,
+    "capabilities": ["completion", "tools", "thinking"],
+}
+QWEN35_08B_INFO = dict(QWEN35_4B_INFO, size_mb=1261.0, parameter_count=752_393_024)
+QWEN35_9B_INFO = dict(QWEN35_4B_INFO, size_mb=6297.0, parameter_count=9_197_093_888)
+
+# An 8 GB machine without an NVIDIA card (7,834 MB total), with Guaardvark running.
+CPU8_RESOURCES = {
+    "gpu_free_mb": 0.0,
+    "gpu_total_mb": 0.0,
+    "ram_free_mb": 4400.0,
+    "ram_total_mb": 7834.0,
+}
+
+MIB = 1024 * 1024
+
+
+@pytest.fixture(autouse=True)
+def _nothing_loaded(monkeypatch):
+    """No model is loaded unless a test says so; sizing never reads the real /api/ps."""
+    monkeypatch.setattr(orm, "resident_models", lambda ttl_s=orm.RESIDENT_TTL_S: [])
+
+
 @pytest.fixture(autouse=True)
 def _clean_caches():
     orm.clear_cache()
@@ -108,6 +139,102 @@ class TestOverheadProfile:
                   - orm._estimate_total_overhead_mb(params, 8192, profile))
         # Observed growth 8192 -> 32768 on e4b was 278 MiB.
         assert growth >= 278
+
+
+class TestQwen35Profile:
+    """Growth figures are the 2026-11-08 measurements recorded beside the profile."""
+
+    def test_matched_by_family_and_by_name(self):
+        profile = orm.OVERHEAD_PROFILES["qwen35"]
+        assert orm.overhead_profile("anything:latest", {"architecture": "qwen35"}) is profile
+        assert orm.overhead_profile("qwen3.5:4b", {"architecture": "unknown"}) is profile
+        assert orm.overhead_profile("qwen3:8b", {"architecture": "qwen3"}) is orm.FALLBACK_OVERHEAD
+
+    def test_4b_does_not_undershoot_measured_growth(self):
+        params, profile = QWEN35_4B_INFO["parameter_count"], orm.OVERHEAD_PROFILES["qwen35"]
+        est = lambda ctx: orm._estimate_total_overhead_mb(params, ctx, profile)
+        assert est(16384) - est(2048) >= 524    # CPU: 3,004 -> 3,528 MB
+        assert est(32768) - est(2048) >= 1096   # card: 3,831 -> 4,927 MiB
+
+    def test_small_and_large_sizes_do_not_undershoot(self):
+        profile = orm.OVERHEAD_PROFILES["qwen35"]
+        for info, measured in ((QWEN35_08B_INFO, 570), (QWEN35_9B_INFO, 1126)):
+            params = info["parameter_count"]
+            growth = (orm._estimate_total_overhead_mb(params, 32768, profile)
+                      - orm._estimate_total_overhead_mb(params, 2048, profile))
+            assert growth >= measured
+
+    def test_4b_estimate_is_far_below_flat_fallback(self):
+        params = QWEN35_4B_INFO["parameter_count"]
+        qwen = orm._estimate_total_overhead_mb(params, 8192, orm.OVERHEAD_PROFILES["qwen35"])
+        assert qwen < orm._estimate_total_overhead_mb(params, 8192) / 5
+
+
+class TestRamReserve:
+    @pytest.mark.parametrize("total,reserve", [
+        (7834.0, 7834.0 * 0.25),
+        (4096.0, orm.RAM_RESERVE_MIN_MB),
+        (32768.0, 8192.0),
+        (65536.0, orm.RAM_RESERVE_MB),
+        (0.0, orm.RAM_RESERVE_MB),
+    ])
+    def test_a_quarter_of_ram_within_bounds(self, total, reserve):
+        assert orm.ram_reserve_mb(total) == pytest.approx(reserve)
+
+
+class TestSmallMachine:
+    """The web UI's chat prompt measured 2,131-2,431 tokens (2026-11-08)."""
+
+    def _loaded(self, monkeypatch, size_mb, vram_mb):
+        entry = {"name": "qwen3.5:4b", "model": "qwen3.5:4b",
+                 "size": int(size_mb * MIB), "size_vram": int(vram_mb * MIB)}
+        monkeypatch.setattr(orm, "resident_models", lambda ttl_s=orm.RESIDENT_TTL_S: [entry])
+
+    def test_floor_clears_the_ui_prompt(self):
+        assert orm.MIN_NUM_CTX >= 4096
+
+    def test_loaded_model_counts_its_own_ram(self, monkeypatch):
+        self._loaded(monkeypatch, 3004, 320)
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == orm.DEFAULT_TEXT_NUM_CTX
+
+    def test_a_model_wholly_on_the_cpu_counts_too(self, monkeypatch):
+        self._loaded(monkeypatch, 3004, 0)
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == orm.DEFAULT_TEXT_NUM_CTX
+
+    def test_another_loaded_model_is_not_counted(self, monkeypatch):
+        entry = {"name": "nomic-embed-text:latest", "model": "nomic-embed-text:latest",
+                 "size": 414 * MIB, "size_vram": 0}
+        monkeypatch.setattr(orm, "resident_models", lambda ttl_s=orm.RESIDENT_TTL_S: [entry])
+        monkeypatch.setattr(orm, "model_digests", lambda name, tags=None: frozenset())
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == orm.MIN_NUM_CTX
+
+    def test_unloaded_model_on_8gb_gets_more_than_the_floor(self):
+        resources = dict(CPU8_RESOURCES, ram_free_mb=5400.0)
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=resources):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == 7168
+
+    def test_validation_sizes_from_the_same_memory(self, monkeypatch):
+        self._loaded(monkeypatch, 3004, 320)
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            safe, _, num_ctx = orm.validate_model_before_load("qwen3.5:4b")
+        assert safe is True
+        assert num_ctx == orm.DEFAULT_TEXT_NUM_CTX
+
+    def test_a_short_native_window_is_not_exceeded(self):
+        info = dict(QWEN35_4B_INFO, native_context=2048)
+        starved = dict(CPU8_RESOURCES, ram_free_mb=500.0)
+        with patch.object(orm, "get_model_info", return_value=info), \
+             patch.object(orm, "get_system_resources", return_value=starved):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx == 2048
+            assert orm.validate_model_before_load("qwen3.5:4b")[2] == 2048
 
 
 class TestDecideNumCtx:

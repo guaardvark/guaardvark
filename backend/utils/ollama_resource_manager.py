@@ -29,10 +29,18 @@ from backend.services.model_capability_data import (  # noqa: E402
 
 # Memory reserves (MB)
 GPU_RESERVE_MB = 2048   # 2GB for embedding model + display + system
-RAM_RESERVE_MB = 10240  # 10GB for system + other processes
+# RAM kept back for the system and other processes: a quarter of the machine,
+# at least RAM_RESERVE_MIN_MB, at most RAM_RESERVE_MB (see ram_reserve_mb). A
+# flat 10 GB left nothing on an 8 GB machine, so chat always got the floor.
+RAM_RESERVE_MB = 10240
+RAM_RESERVE_MIN_MB = 1536
+RAM_RESERVE_SHARE = 0.25
 
 # Context window limits
-MIN_NUM_CTX = 2048
+# The web UI's chat prompt (system prompt and tool list before the question)
+# measured 2,131-2,431 tokens with qwen3.5:4b on 3.4.2 (2026-11-08); at 2,048
+# every reply was cut to one token. 4,096 costs that model 69 MB more than 2,048.
+MIN_NUM_CTX = 4096
 MAX_NUM_CTX = 32768
 DEFAULT_TEXT_NUM_CTX = 8192
 DEFAULT_VISION_NUM_CTX = 4096
@@ -58,10 +66,18 @@ _provisional_lock = threading.Lock()
 
 
 class OverheadProfile(NamedTuple):
-    """Per-architecture memory model: ``fixed_mb_per_b`` + ``mb_per_b_per_ctx * num_ctx``, both scaled by billions of params."""
+    """Per-architecture memory model: ``fixed_mb_per_b`` + ``mb_per_b_per_ctx * num_ctx``, both scaled by billions of params.
+
+    ``min_mb_per_ctx`` is a floor on the per-token cost, for families whose
+    small sizes keep a cache that does not shrink with the parameter count.
+    """
 
     mb_per_b_per_ctx: float
     fixed_mb_per_b: float
+    min_mb_per_ctx: float = 0.0
+
+    def mb_per_ctx_token(self, params_b: float) -> float:
+        return max(params_b * self.mb_per_b_per_ctx, self.min_mb_per_ctx)
 
 
 # gemma4: measured on a 16 GiB card with Ollama's f16 KV cache and flash
@@ -76,13 +92,27 @@ class OverheadProfile(NamedTuple):
 #     estimate overshoots real use ~2x for e2b/e4b; that errs towards less
 #     context, never towards OOM. At 32768 e4b sat at 6826 MiB of 16376.
 # Sliding-window attention on most layers keeps the slope ~50x below the fallback.
+#
+# qwen35 (Qwen 3.5): full attention on every fourth layer, linear attention on
+# the rest. Measured 2026-11-08 on Ollama 0.40.15 with an f16 KV cache, memory
+# growth per context token between num_ctx 2,048 and 32,768:
+#   * 16 GiB NVIDIA card, flash attention on, nvidia-smi above idle:
+#     0.8b 0.0186 MB/token, 2b 0.0154, 4b 0.0357, 9b 0.0367.
+#   * CPU only (i5-7400, 7.7 GiB, flash attention off), Ollama's own size:
+#     4b 3,004 MB @2048, 3,210 @8192, 3,528 @16384, i.e. 0.0366 MB/token.
+# The slope is 4b's per billion params (the highest among 2b, 4b and 9b); the
+# floor covers 0.8b and 2b, whose cache does not shrink with their size. The
+# /api/tags file size charged as weights covered every CPU total; on the card
+# the ~0.6 GB above it is the runner's CUDA context, inside GPU_RESERVE_MB.
 OVERHEAD_PROFILES: Dict[str, OverheadProfile] = {
     "gemma4": OverheadProfile(mb_per_b_per_ctx=0.0015, fixed_mb_per_b=110.0),
+    "qwen35": OverheadProfile(mb_per_b_per_ctx=0.0087, fixed_mb_per_b=0.0, min_mb_per_ctx=0.019),
 }
 
 # Name patterns for families whose /api/show "family" may be missing or generic.
 _FAMILY_NAME_PATTERNS = {
     "gemma4": r"gemma[\-_]?4",
+    "qwen35": r"qwen[\-_]?3[\.\-_]?5(?!\d)",
 }
 
 # Unmeasured families: 0.08 MB per billion params per context token, the top of
@@ -661,36 +691,43 @@ def _expires_in_s(entry: dict) -> Optional[float]:
     return (when - datetime.now(timezone.utc)).total_seconds()
 
 
-def resident_entry(model_name: str, tags: Optional[list] = None) -> Optional[dict]:
-    """The /api/ps entry for ``model_name`` when it is loaded and staying loaded, else None.
+def loaded_entry(model_name: str, tags: Optional[list] = None) -> Optional[dict]:
+    """The /api/ps entry for ``model_name`` when Ollama has it loaded anywhere
+    (GPU, CPU or split), else None.
 
-    Loaded means: on the GPU (``size_vram`` > 0) and not dropped within
-    RESIDENT_EXPIRY_MARGIN_S. Ollama 0.40 can list a loaded alias under a name
-    nobody asked for (``sha256-<digest>:latest`` for a ``llamacpp:<digest>``
-    model), so an entry matches when its name is the same name, or when
-    ``model_name`` resolves to exactly one manifest digest and the entry is
-    that build. A name listed under two builds (gemma4:e2b on 0.40) matches
-    only by name: a request by that name may load the other build. Another
-    size or tag of the same family never matches (gemma4:e2b is not
-    gemma4:12b). ``tags`` is an /api/tags list the caller already has.
+    Ollama 0.40 can list a loaded alias under a name nobody asked for
+    (``sha256-<digest>:latest`` for a ``llamacpp:<digest>`` model), so an entry
+    matches when its name is the same name, or when ``model_name`` resolves to
+    exactly one manifest digest and the entry is that build. A name listed
+    under two builds (gemma4:e2b on 0.40) matches only by name: a request by
+    that name may load the other build. Another size or tag of the same family
+    never matches (gemma4:e2b is not gemma4:12b). ``tags`` is an /api/tags list
+    the caller already has.
     """
     name = _full_model_name(model_name)
     if not name:
         return None
     running = resident_models()
-    match = None
     for entry in running:
         names = {_full_model_name(str(entry.get(k) or "")) for k in ("name", "model")}
         if name in names:
-            match = entry
-            break
-    if match is None and running:
+            return dict(entry)
+    if running:
         digests = model_digests(name, tags)
         if len(digests) == 1:
             for entry in running:
                 if _short_digest(entry.get("digest")) in digests:
-                    match = entry
-                    break
+                    return dict(entry)
+    return None
+
+
+def resident_entry(model_name: str, tags: Optional[list] = None) -> Optional[dict]:
+    """The /api/ps entry for ``model_name`` when it is loaded and staying loaded, else None.
+
+    Loaded means: matched by :func:`loaded_entry`, on the GPU (``size_vram`` > 0)
+    and not dropped within RESIDENT_EXPIRY_MARGIN_S.
+    """
+    match = loaded_entry(model_name, tags)
     if match is None:
         return None
     try:
@@ -701,7 +738,7 @@ def resident_entry(model_name: str, tags: Optional[list] = None) -> Optional[dic
     remaining = _expires_in_s(match)
     if remaining is not None and remaining <= RESIDENT_EXPIRY_MARGIN_S:
         return None
-    return dict(match)
+    return match
 
 
 def model_supports_tools(model_name: str) -> bool:
@@ -791,7 +828,7 @@ def _estimate_total_overhead_mb(
         parameter_count = 7_000_000_000
 
     params_b = parameter_count / 1e9
-    return params_b * (profile.fixed_mb_per_b + num_ctx * profile.mb_per_b_per_ctx)
+    return params_b * profile.fixed_mb_per_b + num_ctx * profile.mb_per_ctx_token(params_b)
 
 
 def _fallback_num_ctx(model_name: str) -> int:
@@ -844,7 +881,21 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
         logger.info("No model info for '%s', using default num_ctx=%d", model_name, default)
         return NumCtxDecision(default, resolved=False)
 
+    return NumCtxDecision(_size_num_ctx(model_name, model_info, _sizing_resources(model_name)), resolved=True)
+
+
+def _sizing_resources(model_name: str) -> Dict[str, float]:
+    """:func:`get_system_resources`, with ``model_name``'s own memory counted
+    as free when Ollama has it loaded."""
     resources = get_system_resources()
+    entry = loaded_entry(model_name)
+    if entry:
+        # A loaded model's RAM share is its own, not "used": a machine without
+        # a GPU keeps the chat model loaded, and sized against what was left
+        # beside it, qwen3.5:4b on 7.7 GiB got the floor (2026-11-08).
+        size_mb = int(entry.get("size") or 0) / (1024 * 1024)
+        vram_mb = int(entry.get("size_vram") or 0) / (1024 * 1024)
+        resources = dict(resources, ram_free_mb=resources["ram_free_mb"] + max(0.0, size_mb - vram_mb))
     if _count_resident_model():
         entry = resident_entry(model_name)
         if entry:
@@ -854,32 +905,49 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
             # 8,192 and 7.84 GiB at 32,768, all on the GPU (measured 2026-11-05).
             resources = dict(resources, gpu_free_mb=resources["gpu_free_mb"]
                              + int(entry.get("size_vram") or 0) / (1024 * 1024))
-    return NumCtxDecision(_size_num_ctx(model_name, model_info, resources), resolved=True)
+    return resources
 
 
 def _count_resident_model() -> bool:
-    """Hook, off by default: size a loaded model counting its own memory as
-    free (GUAARDVARK_CTX_COUNT_RESIDENT=1). Off, a loaded model is sized
-    against what is left beside it, the behaviour fresh installs have."""
+    """Hook, off by default: size a loaded model counting its VRAM as free
+    too (GUAARDVARK_CTX_COUNT_RESIDENT=1). Its RAM share is always counted.
+    Off, a model on the GPU is sized against what is left beside it."""
     return os.environ.get("GUAARDVARK_CTX_COUNT_RESIDENT", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def ram_reserve_mb(ram_total_mb: float) -> float:
+    """RAM to keep back for the system and other processes on a machine with
+    ``ram_total_mb``; the full RAM_RESERVE_MB when the total is unknown."""
+    if not ram_total_mb or ram_total_mb <= 0:
+        return float(RAM_RESERVE_MB)
+    return min(float(RAM_RESERVE_MB), max(float(RAM_RESERVE_MIN_MB), RAM_RESERVE_SHARE * ram_total_mb))
+
+
+def _min_num_ctx(model_info: dict) -> int:
+    """MIN_NUM_CTX, or the model's own window when it was trained on a shorter one."""
+    native_ctx = model_info.get("native_context", 0)
+    return min(MIN_NUM_CTX, native_ctx) if native_ctx > 0 else MIN_NUM_CTX
 
 
 def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]) -> int:
     gpu_free_mb = resources["gpu_free_mb"]
     gpu_budget_mb = max(0, gpu_free_mb - GPU_RESERVE_MB)
-    ram_budget_mb = max(0, resources["ram_free_mb"] - RAM_RESERVE_MB)
+    ram_reserve = ram_reserve_mb(resources.get("ram_total_mb", 0.0))
+    ram_budget_mb = max(0, resources["ram_free_mb"] - ram_reserve)
     total_budget_mb = gpu_budget_mb + ram_budget_mb
+
+    native_ctx = model_info.get("native_context", 0)
+    floor = _min_num_ctx(model_info)
 
     if total_budget_mb <= 0:
         logger.warning(
             "Very low available memory (GPU free: %.0fMB, RAM free: %.0fMB). Using minimum context.",
             gpu_free_mb, resources["ram_free_mb"],
         )
-        return MIN_NUM_CTX
+        return floor
 
     model_weight_mb = model_info["size_mb"]
     param_count = model_info["parameter_count"]
-    native_ctx = model_info.get("native_context", 0)
     params_b = param_count / 1e9 if param_count > 0 else 7.0
     profile = overhead_profile(model_name, model_info)
 
@@ -888,7 +956,7 @@ def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]
             "Model '%s' weights (%.0fMB) exceed available budget (%.0fMB). Using minimum context.",
             model_name, model_weight_mb, total_budget_mb,
         )
-        return MIN_NUM_CTX
+        return floor
 
     # Strategy: check if model + KV cache at DEFAULT context (8192) fits entirely
     # in GPU. If yes, allow up to MAX_NUM_CTX (GPU-fast inference). If not, the
@@ -919,7 +987,7 @@ def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]
 
     # Also verify total fits in combined GPU+RAM budget
     remaining_mb = total_budget_mb - model_weight_mb - params_b * profile.fixed_mb_per_b
-    mb_per_ctx_token = params_b * profile.mb_per_b_per_ctx
+    mb_per_ctx_token = profile.mb_per_ctx_token(params_b)
     if mb_per_ctx_token > 0:
         max_ctx_by_memory = int(remaining_mb / mb_per_ctx_token)
     else:
@@ -927,17 +995,18 @@ def _size_num_ctx(model_name: str, model_info: dict, resources: Dict[str, float]
 
     # Apply floor, ceiling, memory limit, and round to nearest 1024
     optimal = min(max_ctx_by_memory, ceiling)
-    optimal = max(optimal, MIN_NUM_CTX)
+    optimal = max(optimal, floor)
     optimal = (optimal // 1024) * 1024
-    optimal = max(optimal, MIN_NUM_CTX)
+    optimal = max(optimal, floor)
 
     est_total = _total_at_ctx(optimal)
     logger.info(
         "Adaptive context for '%s': num_ctx=%d (native=%d, ceiling=%d, "
-        "model=%.0fMB, est_total=%.0fMB, gpu_only=%s, gpu_free=%.0fMB, ram_free=%.0fMB)",
+        "model=%.0fMB, est_total=%.0fMB, gpu_only=%s, gpu_free=%.0fMB, ram_free=%.0fMB, "
+        "ram_reserve=%.0fMB)",
         model_name, optimal, native_ctx, ceiling,
         model_weight_mb, est_total, fits_in_gpu,
-        gpu_free_mb, resources["ram_free_mb"],
+        gpu_free_mb, resources["ram_free_mb"], ram_reserve,
     )
 
     return optimal
@@ -954,11 +1023,12 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
     if not model_info:
         return True, "Model info unavailable — proceeding with defaults", _fallback_num_ctx(model_name)
 
-    resources = get_system_resources()
+    resources = _sizing_resources(model_name)
     total_available_mb = (
         max(0, resources["gpu_free_mb"] - GPU_RESERVE_MB) +
-        max(0, resources["ram_free_mb"] - RAM_RESERVE_MB)
+        max(0, resources["ram_free_mb"] - ram_reserve_mb(resources.get("ram_total_mb", 0.0)))
     )
+    floor = _min_num_ctx(model_info)
 
     model_weight_mb = model_info["size_mb"]
 
@@ -969,21 +1039,21 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
             f"Model weights ({model_weight_mb:.0f}MB) exceed available memory "
             f"({total_available_mb:.0f}MB = {resources['gpu_free_mb']:.0f}MB GPU + "
             f"{resources['ram_free_mb']:.0f}MB RAM - reserves)",
-            MIN_NUM_CTX,
+            floor,
         )
 
     recommended_ctx = compute_optimal_num_ctx(model_name)
 
     # Check if we can give at least minimum context
     overhead_at_min = _estimate_total_overhead_mb(
-        model_info["parameter_count"], MIN_NUM_CTX, overhead_profile(model_name, model_info),
+        model_info["parameter_count"], floor, overhead_profile(model_name, model_info),
     )
     if model_weight_mb + overhead_at_min > total_available_mb:
         return (
             False,
             f"Model '{model_name}' needs {model_weight_mb + overhead_at_min:.0f}MB even at "
-            f"minimum context ({MIN_NUM_CTX}), but only {total_available_mb:.0f}MB available",
-            MIN_NUM_CTX,
+            f"minimum context ({floor}), but only {total_available_mb:.0f}MB available",
+            floor,
         )
 
     return True, f"OK — recommended num_ctx={recommended_ctx}", recommended_ctx
