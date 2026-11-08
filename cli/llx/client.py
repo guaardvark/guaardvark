@@ -2,10 +2,30 @@ import httpx
 from pathlib import Path
 from typing import Any
 
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 
 from llx.config import get_server_url, get_api_key, get_timeout
 from llx.global_opts import get_global_timeout
+
+
+_READ_ONLY_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def _safe_to_retry(exc: BaseException) -> bool:
+    """Retry only when a second attempt cannot repeat work on the server.
+
+    Connect failures never reached it. A read timeout on a POST may still be
+    running there (a chat on a slow CPU), and sending it again hits the
+    duplicate-request guard instead of returning the answer.
+    """
+    if isinstance(exc, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)):
+        return True
+    if isinstance(exc, httpx.TimeoutException):
+        try:
+            return exc.request.method.upper() in _READ_ONLY_METHODS
+        except RuntimeError:
+            return False
+    return False
 
 
 class LlxError(Exception):
@@ -43,8 +63,12 @@ class LlxClient:
             return {"raw": resp.text}
 
         if resp.status_code >= 400:
-            msg = data.get("error") or data.get("message") or f"HTTP {resp.status_code}"
-            raise LlxError(msg, resp.status_code)
+            err = data.get("error")
+            # Structured errors carry the readable text in error.message.
+            if isinstance(err, dict):
+                err = err.get("message") or err.get("code")
+            msg = err or data.get("message") or f"HTTP {resp.status_code}"
+            raise LlxError(str(msg), resp.status_code)
 
         return data
 
@@ -66,7 +90,7 @@ class LlxClient:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=1, max=8),
-        retry=retry_if_exception_type((httpx.ConnectError, httpx.TimeoutException)),
+        retry=retry_if_exception(_safe_to_retry),
         reraise=True,
     )
     def _request_with_retry(self, method: str, path: str, **kwargs):
