@@ -158,6 +158,20 @@ def test_dimension_lock_blocks_on_model_mismatch(tmp_path, monkeypatch):
         assert ix._check_index_embedding_model() is True      # match → allowed
 
 
+@pytest.mark.parametrize("stored,active", [("nomic-embed-text:latest", "nomic-embed-text"),
+                                           ("nomic-embed-text", "nomic-embed-text:latest")])
+def test_dimension_lock_takes_the_latest_tag_as_the_same_model(tmp_path, monkeypatch, stored, active):
+    import json
+    from backend.services import indexing_service as ix
+    from backend.utils import ollama_resource_manager as orm
+    monkeypatch.setenv("GUAARDVARK_INDEX_ROOT", str(tmp_path))
+    monkeypatch.setenv("GUAARDVARK_PROJECT_INDEX_MODE", "single")
+    monkeypatch.setattr(orm, "_ollama_tags", lambda: pytest.fail("the names alone settle it"))
+    (tmp_path / "embedding_meta.json").write_text(json.dumps({"embedding_model": stored}))
+    with patch("backend.config.get_active_embedding_model", return_value=active):
+        assert ix._check_index_embedding_model() is True
+
+
 def test_dimension_lock_backfills_when_missing(tmp_path, monkeypatch):
     from backend.services import indexing_service as ix
     monkeypatch.setenv("GUAARDVARK_INDEX_ROOT", str(tmp_path))
