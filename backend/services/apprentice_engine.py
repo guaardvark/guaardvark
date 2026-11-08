@@ -416,7 +416,14 @@ class ApprenticeEngine:
                 context = step.get("element_context", "")
                 if context:
                     target = f"{target} {context}"
-                return self.servo.click_target(target)
+                result = self.servo.click_target(target)
+                # A sent click is not a done step: when nothing changed where it
+                # landed, the target was missed (a replay once clicked 80 px above
+                # the Pictures icon and still counted the step as completed).
+                if result.get("success") and result.get("post_action_effect") == "no_visible_change":
+                    return {**result, "success": False,
+                            "error": "The click changed nothing on screen where it landed."}
+                return result
 
             elif action_type == "type":
                 text = variable_input if variable_input is not None else step.get("text", "")

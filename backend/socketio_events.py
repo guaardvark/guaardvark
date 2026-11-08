@@ -482,22 +482,17 @@ def handle_learning_answer(data):
 def handle_step_confirm(data):
     """User confirms a previewed step in GUIDED mode."""
     from backend.services.agent_control_service import get_agent_control_service
-    service = get_agent_control_service()
-    if hasattr(service, '_step_confirm_event'):
-        service._step_confirm_data = data
-        service._step_confirm_event.set()
-    logger.info(f"Step confirmed: step_index={data.get('step_index')}")
+    delivered = get_agent_control_service().confirm_apprentice_step(data)
+    logger.info(f"Step confirmed: step_index={data.get('step_index')} delivered={delivered}")
 
 
 @socketio.on("agent:step_correct")
 def handle_step_correct(data):
     """User corrects a previewed step in GUIDED mode."""
     from backend.services.agent_control_service import get_agent_control_service
-    service = get_agent_control_service()
-    if hasattr(service, '_step_confirm_event'):
-        service._step_confirm_data = data
-        service._step_confirm_event.set()
-    logger.info(f"Step corrected: step_index={data.get('step_index')}, correction={data.get('correction')}")
+    delivered = get_agent_control_service().confirm_apprentice_step(data)
+    logger.info(f"Step corrected: step_index={data.get('step_index')}, correction={data.get('correction')} "
+                f"delivered={delivered}")
 
 
 # --- Swarm Events ---
