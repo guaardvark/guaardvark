@@ -323,7 +323,7 @@ def _resolve_song_path(mv: MusicVideo) -> str | None:
 
 
 def _keyframe_cast_context(
-    mv: MusicVideo, s: dict, base_prompt: str
+    mv: MusicVideo, s: dict, base_prompt: str, cut: dict | None = None
 ) -> tuple[list[str], list[int], str]:
     """Resolve cast for music-video keyframes.
 
@@ -332,7 +332,9 @@ def _keyframe_cast_context(
     bible-clause anchors). Scene prompt is returned raw.
 
     Settings: ``use_lora_consistency`` + ``subject_ids`` and/or explicit
-    ``loras`` / ``lora_paths``. Empty paths when consistency is off.
+    ``loras`` / ``lora_paths``. Empty paths when consistency is off. A cut with
+    its own ``subject_ids`` list casts only those subjects (an empty list casts
+    none), so a studio shot need not carry the car and the city.
     """
     if not s.get("use_lora_consistency"):
         return [], [], base_prompt
@@ -347,6 +349,8 @@ def _keyframe_cast_context(
                 lora_paths.append(p.strip())
 
     raw_ids = s.get("subject_ids") or []
+    if cut is not None and isinstance(cut.get("subject_ids"), list):
+        raw_ids = cut["subject_ids"]
     if isinstance(raw_ids, (list, tuple)) and raw_ids:
         from backend.models import Subject
         from backend.services.cast_lock import subjects_to_lock
@@ -1042,7 +1046,7 @@ def _generate_one_clip(mv: MusicVideo, clip: dict):
                     f"Clip {idx + 1}/{clip_count}: generating keyframe still…",
                 )
                 kf_steps = s.get("keyframe_steps") or 45
-                kf_loras, kf_sids, kf_prompt = _keyframe_cast_context(mv, s, clip_prompt)
+                kf_loras, kf_sids, kf_prompt = _keyframe_cast_context(mv, s, clip_prompt, cut=clip)
                 kf_lora_strength = _keyframe_lora_strength(s)
                 if kf_loras or _zimage_keyframes(s):
                     from backend.services.character_still_pipeline import render_character_still
@@ -1437,7 +1441,7 @@ def run_storyboard_generator(mv_id: int, force: bool = False):
                 idx = c["index"]
                 still_path = str(out_dir / f"storyboard_{idx}.png")
                 try:
-                    kf_loras, kf_sids, kf_prompt = _keyframe_cast_context(mv, s, prompt)
+                    kf_loras, kf_sids, kf_prompt = _keyframe_cast_context(mv, s, prompt, cut=c)
                     if kf_loras or _zimage_keyframes(s):
                         from backend.services.character_still_pipeline import render_character_still
                         still = render_character_still(
