@@ -475,9 +475,9 @@ def _do_train(cmd: dict) -> dict:
             xt = (1.0 - u_b) * x0 + u_b * noise
             target = noise - x0
 
-            # Model expects timestep like inference: normalized; pipeline uses (1000-t)/1000
-            # For continuous u we pass u as the normalized "how much noise"
-            timestep = u.to(dtype=_torch.float32)
+            # The pipeline feeds the transformer (1000 - t) / 1000 with t = sigma * 1000,
+            # so 1.0 means clean and 0.0 pure noise (its t_clean embedding is ones).
+            timestep = (1.0 - u).to(dtype=_torch.float32)
 
             latent_in = xt.unsqueeze(2)  # match pipeline unsqueeze
             latent_list = list(latent_in.unbind(dim=0))
