@@ -889,7 +889,8 @@ CHAT_MEMORY_TOKEN_LIMIT = (
 
 PROJECT_INDEX_MODE = os.environ.get("GUAARDVARK_PROJECT_INDEX_MODE", "global").lower()
 
-DISABLE_CELERY = os.environ.get("DISABLE_CELERY", "false").lower() == "true"
+# Honoured by backend/celery_app.py, which reads the variable itself.
+DISABLE_CELERY = os.environ.get("DISABLE_CELERY", "").strip().lower() in ("1", "true", "yes")
 
 # ---- Cluster Foundation (spec §6.2) ------------------------------------
 CLUSTER_ENABLED = os.getenv("CLUSTER_ENABLED", "false").lower() in ("1", "true", "yes")
