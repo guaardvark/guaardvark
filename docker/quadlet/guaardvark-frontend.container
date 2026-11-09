@@ -7,7 +7,9 @@ After=guaardvark-backend.service
 ContainerName=guaardvark-frontend
 Image=localhost/guaardvark-frontend:latest
 Network=guaardvark.network
-PublishPort=5173:5173
+# This machine only, as in docker-compose.yml. To reach the UI from other devices,
+# change it to PublishPort=5173:5173; protected actions still need the API key.
+PublishPort=127.0.0.1:5173:5173
 HealthCmd=wget -q --spider http://127.0.0.1:5173/
 
 [Service]
