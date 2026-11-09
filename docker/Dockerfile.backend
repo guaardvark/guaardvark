@@ -19,14 +19,24 @@ WORKDIR /app
 
 # PyTorch for the card this image will run on. start-docker.sh --gpu passes
 # the channel backend/services/hardware_policy.torch_channel gives for the host
-# GPU (cu118 for Pascal-Turing, cu124 Ampere/Ada, cu128 Hopper/Blackwell); the
-# PyPI default build has no kernels below sm_75. Empty keeps the PyPI default.
+# GPU (cu132 with driver 580+, cu126 for older drivers and Pascal/Volta, cu118
+# below driver 525, cu128 for Blackwell below 580). The pins match
+# scripts/install_pytorch.sh: 2.14.1 is the newest torch Unsloth accepts, and
+# TorchCodec (with the ffmpeg libraries above) gives torchaudio its file I/O.
+# Empty installs the PyPI build, which has no kernels below sm_75.
 ARG TORCH_CHANNEL=
-RUN if [ -n "$TORCH_CHANNEL" ]; then \
-        pip install --no-cache-dir --index-url "https://download.pytorch.org/whl/$TORCH_CHANNEL" \
-            torch torchvision torchaudio \
-        && pip freeze | grep -E '^(torch|torchvision|torchaudio)==' > /tmp/torch-pins.txt; \
-    else : > /tmp/torch-pins.txt; fi
+RUN codec="" && case "$TORCH_CHANNEL" in \
+        cu132|cpu|"") pins="torch==2.14.1 torchvision==0.29.1 torchaudio==2.11.1 torchcodec==0.17.0" ;; \
+        cu126) pins="torch==2.14.1 torchvision==0.29.1 torchaudio==2.11.0 torchcodec==0.17.0" ;; \
+        cu128) pins="torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 torchcodec==0.11.1" ;; \
+        cu118) pins="torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 torchcodec==0.5" ;; \
+        rocm6.3) pins="torch torchvision torchaudio"; codec="torchcodec==0.9.1" ;; \
+        *) pins="torch torchvision torchaudio" ;; \
+    esac \
+    && idx="" && if [ -n "$TORCH_CHANNEL" ]; then idx="--index-url https://download.pytorch.org/whl/$TORCH_CHANNEL"; fi \
+    && pip install --no-cache-dir $idx $pins \
+    && if [ -n "$codec" ]; then pip install --no-cache-dir --no-deps --index-url https://download.pytorch.org/whl/cpu $codec; fi \
+    && pip freeze | grep -E '^(torch|torchvision|torchaudio|torchcodec)==' > /tmp/torch-pins.txt
 
 # Install Python dependencies (cached layer). The pins keep the channel build:
 # a requirement that needs a newer torch fails the build instead of replacing it.

@@ -149,18 +149,20 @@ fi
 # stamp, and forced yet another full bootstrap next boot (observed 2026-08-31:
 # ten DNS drops across one setup, torch never wrong once).
 #
-# So probe first. "Correct" means torch, torchvision AND torchaudio import,
-# all three carry the expected local tag (none at all for the default PyPI
-# wheel on macOS), and the accelerator the tag promises is actually reachable.
+# So probe first. "Correct" means torch, torchvision and torchaudio import, all
+# three carry the expected local tag (none at all for the default PyPI wheel on
+# macOS), every pinned package is at its pinned release, and the accelerator the
+# tag promises is reachable.
 # Anything short of that falls through to the full swap unchanged.
 # GUAARDVARK_TORCH_FORCE=1 restores the old always-reinstall behaviour.
-_pt_already_correct() {  # usage: _pt_already_correct <tag-substring|""> <cuda|none>; prints version on hit
+_pt_already_correct() {  # usage: _pt_already_correct <tag-substring|""> <cuda|none> [pins]; prints version on hit
     if [ "${GUAARDVARK_TORCH_FORCE:-0}" = "1" ] || [ -n "${USE_PRE:-}" ]; then
         return 1
     fi
-    python3 - "$1" "$2" <<'EOF' 2>/dev/null
+    python3 - "$1" "$2" "${3:-}" <<'EOF' 2>/dev/null
 import sys
-tag, accel = sys.argv[1], sys.argv[2]
+from importlib import metadata
+tag, accel, pins = sys.argv[1], sys.argv[2], sys.argv[3].split()
 try:
     import torch, torchvision, torchaudio
 except Exception:
@@ -169,6 +171,15 @@ for v in (torch.__version__, torchvision.__version__, torchaudio.__version__):
     if tag and f"+{tag}" not in v:
         sys.exit(1)
     if not tag and "+" in v:
+        sys.exit(1)
+for spec in pins:
+    name, _, want = spec.partition("==")
+    if not want:
+        continue
+    try:
+        if metadata.version(name).split("+")[0] != want:
+            sys.exit(1)
+    except metadata.PackageNotFoundError:
         sys.exit(1)
 if accel == "cuda" and not torch.cuda.is_available():
     sys.exit(1)
@@ -197,9 +208,9 @@ if torch.cuda.is_available():
 EOF
 }
 
-_pt_skip_if_current() {  # usage: _pt_skip_if_current <tag-substring|""> <cuda|none>; exits 0 on hit
+_pt_skip_if_current() {  # usage: _pt_skip_if_current <tag-substring|""> <cuda|none> [pins]; exits 0 on hit
     local ver
-    ver="$(_pt_already_correct "$1" "$2")" || return 0
+    ver="$(_pt_already_correct "$1" "$2" "${3:-}")" || return 0
     vader_success "PyTorch ${ver} already matches the target build — skipping download and reinstall."
     vader_detail "Force the full swap with GUAARDVARK_TORCH_FORCE=1"
     # Keep the shared-venv contract on the fast path too: these are the known
@@ -208,6 +219,26 @@ _pt_skip_if_current() {  # usage: _pt_skip_if_current <tag-substring|""> <cuda|n
     _pt_report_installed
     vader_header "PyTorch Installation Complete"
     exit 0
+}
+
+# The PyTorch set for each wheel channel. torch 2.14.1 is the newest release the
+# optional Training libraries accept (Unsloth requires torch<2.15); older channels
+# get the last release their index carries. torchaudio stops at 2.11 on every
+# index; its stable-ABI builds load on newer torch. torchaudio 2.9+ reads and
+# writes audio files through TorchCodec, which needs FFmpeg's shared libraries.
+# backend/services/hardware_policy.py picks the channel.
+_pt_pins() {  # usage: _pt_pins <channel>; prints the requirement specs to install
+    if [ -n "${USE_PRE:-}" ]; then
+        echo "${USE_PRE}torch torchvision torchaudio"
+        return
+    fi
+    case "$1" in
+        cu132|cpu|macos-arm64) echo "torch==2.14.1 torchvision==0.29.1 torchaudio==2.11.1 torchcodec==0.17.0" ;;
+        cu126) echo "torch==2.14.1 torchvision==0.29.1 torchaudio==2.11.0 torchcodec==0.17.0" ;;
+        cu128) echo "torch==2.11.0 torchvision==0.26.0 torchaudio==2.11.0 torchcodec==0.11.1" ;;
+        cu118) echo "torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 torchcodec==0.5" ;;
+        *) echo "torch torchvision torchaudio" ;;
+    esac
 }
 
 # Pin-convergence: constrain the SHARED backend venv so `--upgrade
@@ -285,10 +316,12 @@ if [ "$UNAME_S" = "Darwin" ]; then
     # MPS-capable build; the whl/cpu index would strip Metal support. Swap-safety
     # uninstall first (same rationale as the other branches) but no CUDA/triton
     # cleanup — those never exist on macOS — and no pynvml removal.
-    _pt_skip_if_current "" none
-    _pt_stage_wheels "" torch torchvision torchaudio || exit 1
-    pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
-    _pt_install_staged "" torch torchvision torchaudio
+    # Intel Macs stopped at torch 2.2, so only Apple Silicon takes the pin.
+    PT_MAC="macos-$(uname -m 2>/dev/null)"
+    _pt_skip_if_current "" none "$(_pt_pins "$PT_MAC")"
+    _pt_stage_wheels "" $(_pt_pins "$PT_MAC") || exit 1
+    pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
+    _pt_install_staged "" $(_pt_pins "$PT_MAC")
 
     _pt_repin_pillow
 
@@ -337,15 +370,23 @@ if command -v rocm-smi &> /dev/null || _hardware_json_says_amd; then
     # Swap-safety: clean prior torch + any lingering CUDA/triton bloat from a
     # previous build, then force-reinstall the ROCm variant (the +rocm local
     # tag collides with +cpu/+cuXXX in pip's resolver, same as the CUDA path).
-    _pt_skip_if_current "$ROCM_WHL" cuda
+    # torchaudio 2.9 reads and writes audio files through TorchCodec. The ROCm
+    # index carries none; the CPU build matching rocm6.3's torch 2.9 covers it.
+    PT_ROCM_CODEC=""
+    [ "$ROCM_WHL" = "rocm6.3" ] && PT_ROCM_CODEC="torchcodec==0.9.1"
+    _pt_skip_if_current "$ROCM_WHL" cuda "$PT_ROCM_CODEC"
     _pt_stage_wheels "https://download.pytorch.org/whl/${ROCM_WHL}" torch torchvision torchaudio || exit 1
-    pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
+    pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
     pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
     # Purge flash-attn/xformers/pynvml for the same reasons as CUDA/CPU paths (shared
     # backend/venv contract; custom nodes and some plugin reqs inject incompatible
     # versions leading to diffusers import crashes with aten schema errors).
     pip uninstall -y flash-attn flash_attn xformers pynvml nvidia-ml-py 2>/dev/null | tail -3 || true
     _pt_install_staged "https://download.pytorch.org/whl/${ROCM_WHL}" torch torchvision torchaudio
+    if [ -n "$PT_ROCM_CODEC" ] \
+       && ! pip install --no-deps --index-url https://download.pytorch.org/whl/cpu "$PT_ROCM_CODEC" >/dev/null 2>&1; then
+        vader_warn "TorchCodec did not install; torchaudio cannot read or write audio files."
+    fi
 
     _pt_repin_pillow
 
@@ -417,38 +458,31 @@ if command -v nvidia-smi &> /dev/null; then
         vader_section "Architecture Detection:"
 
         if [ -z "${GUAARDVARK_TORCH_CHANNEL:-}" ]; then
-        if [ "$COMPUTE_MAJOR" -ge 12 ]; then
-            CUDA_VERSION="cu128"
-            CUDA_NAME="12.8"
+        # Same table as hardware_policy.torch_channel, for when the venv cannot
+        # answer yet. CUDA 13 needs driver 580 and sm_75+; CUDA 12 needs 525.
+        DRIVER_MAJOR="$(echo "${DRIVER_VERSION:-}" | cut -d. -f1 | tr -dc '0-9')"
+        if [ "$COMPUTE_MAJOR" -ge 10 ]; then
             ARCH_NAME="Blackwell"
-            vader_info "Detected ${ARCH_NAME} architecture (compute ${COMPUTE_CAP})"
-            vader_detail "Using CUDA ${CUDA_NAME} for sm_120 kernel support"
-        elif [ "$COMPUTE_MAJOR" -ge 9 ]; then
-            CUDA_VERSION="cu128"
-            CUDA_NAME="12.8"
-            ARCH_NAME="Hopper"
-            vader_info "Detected ${ARCH_NAME} architecture (compute ${COMPUTE_CAP})"
-            vader_detail "Using CUDA ${CUDA_NAME} for optimal performance"
-        elif [ "$COMPUTE_MAJOR" -ge 8 ]; then
-            # cu124, matching hardware_policy.torch_channel: the cu121 index tops
-            # out at torch 2.5.1 (CVE-2025-32434, torch.load RCE, fixed in 2.6.0).
-            CUDA_VERSION="cu124"
-            CUDA_NAME="12.4"
-            ARCH_NAME="Ampere/Ada Lovelace"
-            vader_info "Detected ${ARCH_NAME} architecture (compute ${COMPUTE_CAP})"
-            vader_detail "Using CUDA ${CUDA_NAME} for modern GPU support"
-        elif [ "$COMPUTE_MAJOR" -ge 7 ]; then
-            CUDA_VERSION="cu118"
-            CUDA_NAME="11.8"
-            ARCH_NAME="Volta/Turing"
-            vader_info "Detected ${ARCH_NAME} architecture (compute ${COMPUTE_CAP})"
-            vader_detail "Using CUDA ${CUDA_NAME} for compatibility"
+            if [ -n "$DRIVER_MAJOR" ] && [ "$DRIVER_MAJOR" -ge 580 ]; then
+                CUDA_VERSION="cu132"; CUDA_NAME="13.2"
+            else
+                CUDA_VERSION="cu128"; CUDA_NAME="12.8"
+            fi
+        elif [ "$COMPUTE_MAJOR" -ge 6 ] && [ -n "$DRIVER_MAJOR" ] && [ "$DRIVER_MAJOR" -lt 525 ]; then
+            CUDA_VERSION="cu118"; CUDA_NAME="11.8"
+            ARCH_NAME="compute ${COMPUTE_CAP}, driver ${DRIVER_VERSION}"
+            vader_detail "Driver ${DRIVER_VERSION} predates CUDA 12; a driver 580+ gets a newer PyTorch"
+        elif [ "$COMPUTE_MAJOR" -ge 8 ] || { [ "$COMPUTE_MAJOR" -eq 7 ] && [ "${COMPUTE_MINOR:-0}" -ge 5 ]; }; then
+            ARCH_NAME="Turing/Ampere/Ada/Hopper"
+            if [ -n "$DRIVER_MAJOR" ] && [ "$DRIVER_MAJOR" -ge 580 ]; then
+                CUDA_VERSION="cu132"; CUDA_NAME="13.2"
+            else
+                CUDA_VERSION="cu126"; CUDA_NAME="12.6"
+            fi
         elif [ "$COMPUTE_MAJOR" -ge 6 ]; then
-            CUDA_VERSION="cu118"
-            CUDA_NAME="11.8"
-            ARCH_NAME="Pascal"
-            vader_info "Detected ${ARCH_NAME} architecture (compute ${COMPUTE_CAP})"
-            vader_detail "Using CUDA ${CUDA_NAME} for legacy GPU support"
+            # CUDA 13 builds have no Pascal or Volta kernels; 2.14.1 is their last torch.
+            CUDA_VERSION="cu126"; CUDA_NAME="12.6"
+            ARCH_NAME="Pascal/Volta"
         else
             CUDA_VERSION="cpu"
             CUDA_NAME="CPU-only"
@@ -456,14 +490,16 @@ if command -v nvidia-smi &> /dev/null; then
             vader_warn "GPU compute capability ${COMPUTE_CAP} is too old for CUDA support"
             vader_detail "Falling back to CPU-only mode"
         fi
+        [ "$CUDA_VERSION" != "cpu" ] && vader_info "Detected ${ARCH_NAME} (compute ${COMPUTE_CAP}): CUDA ${CUDA_NAME}"
         fi  # end: [ -z "${GUAARDVARK_TORCH_CHANNEL:-}" ]
 
         vader_section "Installation Plan:"
 
+        PT_PKGS="$(_pt_pins "$CUDA_VERSION")"
         if [ "$CUDA_VERSION" != "cpu" ]; then
-            _pt_skip_if_current "$CUDA_VERSION" cuda
+            _pt_skip_if_current "$CUDA_VERSION" cuda "$PT_PKGS"
         else
-            _pt_skip_if_current cpu none
+            _pt_skip_if_current cpu none "$PT_PKGS"
         fi
 
         # --force-reinstall is required because pip's resolver treats the
@@ -478,11 +514,11 @@ if command -v nvidia-smi &> /dev/null; then
         # (and without the old one either). Let the script finish. The verify
         # gate at the end of start.sh will surface the problem if it happens.
         if [ "$CUDA_VERSION" != "cpu" ]; then
-            _pt_stage_wheels "https://download.pytorch.org/whl/$CUDA_VERSION" ${USE_PRE:-}torch torchvision torchaudio || exit 1
+            _pt_stage_wheels "https://download.pytorch.org/whl/$CUDA_VERSION" $PT_PKGS || exit 1
         else
-            _pt_stage_wheels "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio || exit 1
+            _pt_stage_wheels "https://download.pytorch.org/whl/cpu" $PT_PKGS || exit 1
         fi
-        pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
+        pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
         pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
         # Purge flash-attn / xformers (the #1 source of "Current Torch with Flash-Attention 2.5.7
         # doesnt have a compatible aten::_flash_attention_forward schema (philox_seed vs rng_state)"
@@ -499,7 +535,7 @@ if command -v nvidia-smi &> /dev/null; then
             echo ""
             vader_info "Installing PyTorch with CUDA ${CUDA_NAME} support..."
             echo ""
-            _pt_install_staged "https://download.pytorch.org/whl/$CUDA_VERSION" ${USE_PRE:-}torch torchvision torchaudio
+            _pt_install_staged "https://download.pytorch.org/whl/$CUDA_VERSION" $PT_PKGS
             # Re-add nvidia-ml-py after the blanket purge above. The purge exists
             # to kill the DEPRECATED `pynvml` dist (torch FutureWarning source);
             # nvidia-ml-py is the official replacement and powers the VRAM queries
@@ -514,7 +550,7 @@ if command -v nvidia-smi &> /dev/null; then
             echo ""
             vader_info "Installing CPU-only PyTorch..."
             echo ""
-            _pt_install_staged "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio
+            _pt_install_staged "https://download.pytorch.org/whl/cpu" $PT_PKGS
             # pynvml is deprecated and fires FutureWarning on every `import torch`
             # via torch/cuda/__init__.py. On CPU-only hosts it serves no purpose —
             # torch handles the ImportError gracefully. Remove it to silence the noise.
@@ -563,10 +599,10 @@ EOF
         vader_warn "Could not detect GPU compute capability"
         vader_info "Installing CPU-only PyTorch as fallback..."
         echo ""
-        _pt_skip_if_current cpu none
-        _pt_stage_wheels "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio || exit 1
-        pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
-        _pt_install_staged "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio
+        _pt_skip_if_current cpu none "$(_pt_pins cpu)"
+        _pt_stage_wheels "https://download.pytorch.org/whl/cpu" $(_pt_pins cpu) || exit 1
+        pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
+        _pt_install_staged "https://download.pytorch.org/whl/cpu" $(_pt_pins cpu)
         pip uninstall -y pynvml flash-attn flash_attn xformers nvidia-ml-py 2>/dev/null | tail -2 || true
 
         _pt_repin_pillow
@@ -582,14 +618,14 @@ else
     vader_info "Installing CPU-only PyTorch..."
     echo ""
     # Same variant-swap safety: uninstall first, force-reinstall, drop pynvml.
-    _pt_skip_if_current cpu none
-    _pt_stage_wheels "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio || exit 1
-    pip uninstall -y torch torchvision torchaudio 2>/dev/null | tail -3 || true
+    _pt_skip_if_current cpu none "$(_pt_pins cpu)"
+    _pt_stage_wheels "https://download.pytorch.org/whl/cpu" $(_pt_pins cpu) || exit 1
+    pip uninstall -y torch torchvision torchaudio torchcodec 2>/dev/null | tail -3 || true
     pip freeze 2>/dev/null | grep -iE "^(nvidia-|cuda-bindings|cuda-pathfinder|cuda-toolkit|triton)" | awk -F'==' '{print $1}' | xargs -r pip uninstall -y 2>/dev/null | tail -3 || true
     # Also purge flash/xformers/pynvml here (see main CUDA clean comment for rationale:
     # prevents schema mismatch on diffusers import + repeated FutureWarnings from plugins).
     pip uninstall -y flash-attn flash_attn xformers pynvml nvidia-ml-py 2>/dev/null | tail -3 || true
-    _pt_install_staged "https://download.pytorch.org/whl/cpu" torch torchvision torchaudio
+    _pt_install_staged "https://download.pytorch.org/whl/cpu" $(_pt_pins cpu)
 
     _pt_repin_pillow
 

@@ -14,42 +14,66 @@ from typing import Any
 DEFAULT_ROCM_WHL = "rocm6.3"
 
 
-def _compute_major(gpu: dict[str, Any]) -> int | None:
+# NVIDIA driver floors for the CUDA wheel channels. CUDA 13 (cu132) needs 580 and
+# Turing (sm_75) or newer; CUDA 12 (cu126, cu128) needs 525. Every channel here
+# reaches torch >= 2.6 (CVE-2025-32434, torch.load RCE, fixed in 2.6.0).
+CUDA13_MIN_DRIVER = 580
+CUDA12_MIN_DRIVER = 525
+
+
+def _compute_cap(gpu: dict[str, Any]) -> tuple[int, int] | None:
     cap = gpu.get("compute_cap")
     if not cap:
         return None
     try:
-        return int(str(cap).split(".")[0])
+        parts = str(cap).split(".")
+        return int(parts[0]), int(parts[1]) if len(parts) > 1 and parts[1] else 0
     except (ValueError, IndexError):
+        return None
+
+
+def _compute_major(gpu: dict[str, Any]) -> int | None:
+    cap = _compute_cap(gpu)
+    return cap[0] if cap else None
+
+
+def _driver_major(gpu: dict[str, Any]) -> int | None:
+    try:
+        return int(str(gpu.get("driver") or "").split(".")[0])
+    except ValueError:
         return None
 
 
 def torch_channel(gpu: dict[str, Any], rocm_whl: str = DEFAULT_ROCM_WHL) -> str:
     """Map a GPU descriptor to a PyTorch wheel channel.
 
-    Mirrors the arch table historically embedded in scripts/install_pytorch.sh.
-    NVIDIA: Blackwell/Hopper(>=9) -> cu128 ; Ampere/Ada(8) -> cu124 ;
-    Volta/Turing/Pascal(6-7) -> cu118 ; older/unknown -> cpu.
+    scripts/install_pytorch.sh carries the same table as its fallback and the
+    torch/torchvision pin for each channel.
+    NVIDIA, by compute capability and driver:
+      sm_75+ (Turing..Hopper), driver >= 580  -> cu132
+      Blackwell (sm_100+), driver >= 580      -> cu132, else cu128
+      sm_60..sm_90, driver 525-579 or unknown -> cu126 (Pascal and Volta always)
+      sm_60..sm_90, driver < 525              -> cu118
+      older                                   -> cpu
     """
     vendor = (gpu or {}).get("vendor", "none")
     if vendor == "amd":
         return rocm_whl
     if vendor != "nvidia":
         return "cpu"
-    major = _compute_major(gpu)
-    if major is None:
+    cap = _compute_cap(gpu)
+    if cap is None or cap[0] < 6:
         return "cpu"
-    if major >= 9:
-        return "cu128"
-    if major >= 8:
-        # cu124, NOT cu121: the cu121 wheel index tops out at torch 2.5.1, which is
-        # permanently vulnerable to CVE-2025-32434 (torch.load RCE, fixed in 2.6.0).
-        # Routing Ampere/Ada here made that CVE structurally unpatchable for every
-        # 30/40-series user. cu124 reaches 2.6.0 and supports sm_80-sm_89.
-        return "cu124"
-    if major >= 6:
+    driver = _driver_major(gpu)
+    cuda13 = driver is not None and driver >= CUDA13_MIN_DRIVER
+    if cap[0] >= 10:
+        # Blackwell drivers start at 570, so cu128 always loads where cu132 cannot.
+        return "cu132" if cuda13 else "cu128"
+    if driver is not None and driver < CUDA12_MIN_DRIVER:
         return "cu118"
-    return "cpu"
+    if cuda13 and cap >= (7, 5):
+        return "cu132"
+    return "cu126"
 
 
 def gpu_memory_mb(gpu: dict[str, Any]) -> int:
@@ -241,13 +265,12 @@ def _is_stale_profile(profile: dict[str, Any]) -> bool:
     """A cached hardware.json is stale if it lacks a decision-critical field a
     current detector would provide.
 
-    Today that field is ``gpu.compute_cap`` (added 2026-06-14): an NVIDIA GPU
-    cached by an older detector has no compute_cap, which would make
-    ``torch_channel`` silently fall back to ``cpu`` on a perfectly good GPU —
-    the exact silent-CPU failure this module exists to prevent.
+    Today those fields are ``gpu.compute_cap`` and ``gpu.driver``: without
+    compute_cap ``torch_channel`` falls back to ``cpu`` on a working GPU, and
+    without the driver it cannot pick the CUDA 13 channel.
     """
     gpu = (profile or {}).get("gpu", {}) or {}
-    if gpu.get("vendor") == "nvidia" and not gpu.get("compute_cap"):
+    if gpu.get("vendor") == "nvidia" and not (gpu.get("compute_cap") and gpu.get("driver")):
         return True
     # Extend here whenever torch_channel/ollama_tuning/model_tier start
     # depending on a new field a current detector provides but an old cache lacks.
