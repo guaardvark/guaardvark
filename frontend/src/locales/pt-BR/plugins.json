@@ -151,5 +151,18 @@
     "loading": "Carregando plugins...",
     "emptyTitle": "Nenhum Plugin Encontrado",
     "emptyBody": "Adicione plugins ao diretório /plugins/ e clique em Atualizar."
+  },
+  "install": {
+    "notInstalled": "Ainda não instalado. Instalar baixa o que este plugin precisa, uma única vez.",
+    "downloads": "Downloads: {{what}}",
+    "install": "Instalar",
+    "installing": "Instalando…",
+    "done": "{{name}} está instalado.",
+    "failed": "Falha ao instalar {{name}} (saída {{code}}). O log está no cartão.",
+    "failedHint": "A última instalação falhou (saída {{code}})."
+  },
+  "embeddingPath": {
+    "inUse": "O indexador gera embeddings através deste plugin: {{model}}, {{dim}} dimensões, vetor de busca correspondido.",
+    "notUsed": "O indexador não está usando este plugin: {{reason}}"
   }
 }

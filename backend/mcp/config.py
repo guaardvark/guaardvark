@@ -25,7 +25,7 @@ import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, NamedTuple, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,90 @@ DEFAULT_ALLOW_TOOLS: List[str] = ["update_memory", "delete_memory"]
 # turn router; a client choosing between two names for one operation gains
 # nothing.
 DEFAULT_DENY_TOOLS: List[str] = ["inpaint_image"]
+
+class Toolset(NamedTuple):
+    """A named slice of the exposed tools, for a client that wants one focused server."""
+    summary: str
+    tools: Tuple[str, ...]
+
+
+# Toolsets narrow the server after the policy above has applied: a tool the
+# policy hides stays hidden, so on a stock install ``desktop`` serves only the
+# media player tools. "all" is everything the policy exposes. Each named set
+# stays at or under MAX_TOOLSET_SIZE; a tool may sit in more than one.
+TOOLSETS: Dict[str, Toolset] = {
+    "media": Toolset(
+        "images, video, songs, speech and Film Crew productions rendered on this machine",
+        ("generate_image", "edit_image", "outpaint_image", "remove_background",
+         "generate_animation", "generate_video", "generate_music_video", "analyze_video_style",
+         "start_film_crew", "generate_music", "generate_speech", "get_generation_status"),
+    ),
+    "knowledge": Toolset(
+        "the user's indexed documents, Guaardvark's records and memory",
+        ("search_knowledge_base", "list_documents", "get_document_outline", "read_document_section",
+         "summarize_corpus", "index_document", "process_file", "find_records",
+         "save_memory", "search_memory", "update_memory", "delete_memory"),
+    ),
+    "research": Toolset(
+        "web search, page fetching and reading long sources part by part",
+        ("web_search", "fetch_url", "analyze_website", "scan", "note", "read_result"),
+    ),
+    "code": Toolset(
+        "code search, reading and analysis over indexed repositories, and the System Map",
+        ("search_codebase", "search_code", "read_code", "list_code_files", "list_code_repositories",
+         "read_ast_node", "get_repository_map", "get_dependency_graph", "analyze_code", "codegen",
+         "verify_change", "check_inbound_change", "map_codebase", "system_map_query",
+         "self_improvement_status"),
+    ),
+    "content": Toolset(
+        "written content and data files, and supervised outreach drafts and posts",
+        ("generate_wordpress_content", "generate_enhanced_wordpress_content", "generate_file",
+         "generate_csv", "generate_bulk_csv", "outreach_status", "outreach_list_queue",
+         "outreach_draft_post", "outreach_reject_draft", "request_publish"),
+    ),
+    "ops": Toolset(
+        "GPU state, logs, render status, swarms and self-improvement status",
+        ("inspect_gpu", "read_logs", "get_generation_status", "swarm_status",
+         "self_improvement_status"),
+    ),
+    "desktop": Toolset(
+        "the media player and, where mcp.json allows them, desktop and app control",
+        ("media_play", "media_control", "media_volume", "media_status", "gui_screenshot",
+         "gui_click", "gui_type", "gui_hotkey", "gui_locate_image", "app_launch", "app_focus",
+         "app_list"),
+    ),
+}
+ALL_TOOLSET = "all"
+MAX_TOOLSET_SIZE = 15
+TOOLSET_ENV = "GUAARDVARK_MCP_TOOLSET"
+
+
+class UnknownToolset(ValueError):
+    """The selected toolset name is not one of TOOLSETS or ``all``."""
+
+
+def toolset_names() -> List[str]:
+    return [*TOOLSETS, ALL_TOOLSET]
+
+
+def toolsets_with(tool_name: str) -> List[str]:
+    """The named toolsets that carry ``tool_name``."""
+    return [name for name, toolset in TOOLSETS.items() if tool_name in toolset.tools]
+
+
+def toolset_members(policy: "ToolPolicy") -> frozenset[str] | None:
+    """Tool names the active toolset keeps; None for ``all``.
+    Raises ``UnknownToolset`` naming the valid choices and where the bad name came from."""
+    name = policy.toolset
+    if name == ALL_TOOLSET:
+        return None
+    if name not in TOOLSETS:
+        source = f" (from {policy.toolset_source})" if policy.toolset_source else ""
+        raise UnknownToolset(
+            f"unknown toolset '{name}'{source}. Choose one of: {', '.join(toolset_names())}."
+        )
+    return frozenset(TOOLSETS[name].tools)
+
 
 # Folders under the outputs root that MCP clients may list and read: the ones
 # Guaardvark's generators write media and documents into (writer in the
@@ -100,6 +184,11 @@ class ToolPolicy:
     argument_defaults: Dict[str, Dict[str, Any]] = field(
         default_factory=lambda: {"generate_image": {"wait_for_result": False}}
     )
+    # One of TOOLSETS, or "all". ``load_config`` picks it: --toolset, then
+    # GUAARDVARK_MCP_TOOLSET, then server.tools.toolset in mcp.json.
+    toolset: str = ALL_TOOLSET
+    # The setting that chose it, for messages; empty for the default.
+    toolset_source: str = ""
 
 
 @dataclass
@@ -250,6 +339,15 @@ def _names(value: Any, where: str) -> List[str] | None:
     return None
 
 
+def _set_toolset(cfg: MCPConfig, value: Any, source: str) -> None:
+    """Select a toolset by name. An empty value leaves the earlier choice; an
+    unknown name is kept so ``toolset_members`` refuses it rather than serving more."""
+    name = str(value).strip().lower() if value is not None else ""
+    if name:
+        cfg.tools.toolset = name
+        cfg.tools.toolset_source = source
+
+
 def _apply_file(cfg: MCPConfig, raw: Any) -> None:
     """Write the settings of a parsed mcp.json over ``cfg``. A value of the
     wrong type is reported and skipped; the rest of the file still applies."""
@@ -289,6 +387,8 @@ def _apply_file(cfg: MCPConfig, raw: Any) -> None:
             flag = _flag(tools[key], f"server.tools.{key} in mcp.json")
             if flag is not None:
                 setattr(cfg.tools, key, flag)
+    if "toolset" in tools:
+        _set_toolset(cfg, tools["toolset"], "server.tools.toolset in data/config/mcp.json")
 
     resources = _table(server, "resources", "server.resources")
     for key in ("outputs_enabled", "outputs_root_files"):
@@ -316,14 +416,15 @@ def _apply_file(cfg: MCPConfig, raw: Any) -> None:
                            "keeping the default", limit)
 
 
-def load_config() -> MCPConfig:
+def load_config(toolset: str | None = None) -> MCPConfig:
     """
     Load MCP config. Precedence (lowest → highest):
       1. Built-in defaults
       2. ``data/config/mcp.json`` (if it exists)
-      3. Env vars: ``GUAARDVARK_MCP_SERVER_ENABLED``, and
-         ``GUAARDVARK_MCP_SERVER_TIMEOUT`` or, when that is unset,
+      3. Env vars: ``GUAARDVARK_MCP_SERVER_ENABLED``, ``GUAARDVARK_MCP_TOOLSET``,
+         and ``GUAARDVARK_MCP_SERVER_TIMEOUT`` or, when that is unset,
          ``GUAARDVARK_MCP_TIMEOUT``.
+      4. ``toolset``, the command line's ``--toolset``.
     Missing keys are fine; we fill with defaults.
     """
     cfg = MCPConfig()
@@ -362,6 +463,8 @@ def load_config() -> MCPConfig:
         cfg.timeout_seconds = seconds
         break
 
+    _set_toolset(cfg, os.environ.get(TOOLSET_ENV), TOOLSET_ENV)
+    _set_toolset(cfg, toolset, "--toolset")
     return cfg
 
 

@@ -54,8 +54,9 @@ def _initialize_service():
     """Initialize the service"""
     logger.info("Initializing GPU Embedding Service...")
     
-    # Initialize model
-    model_name = config.get("model")
+    # use_system_model: serve the embedding model chosen in Settings, the one
+    # the indexer checks vectors against before it sends anything here.
+    model_name = None if config.get("use_system_model") else config.get("model")
     ollama_base_url = config.get("ollama_base_url", "http://localhost:11434")
     
     success = initialize_model(model_name, ollama_base_url)
@@ -285,7 +286,7 @@ if __name__ == '__main__':
     logger.info(f"Starting GPU Embedding Service on {host}:{port}")
     
     # Initialize model before starting server
-    model_name = config.get("model")
+    model_name = None if config.get("use_system_model") else config.get("model")
     ollama_base_url = config.get("ollama_base_url", "http://localhost:11434")
     initialize_model(model_name, ollama_base_url)
     

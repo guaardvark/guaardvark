@@ -121,7 +121,8 @@
     "viewFullSize": "Bekijk volledige grootte",
     "edit": "Bewerken",
     "publish": "Delen / Publiceren…",
-    "details": "Details…"
+    "details": "Details…",
+    "upscale": "Upscalen"
   },
   "infographic": {
     "failed": "Generatie mislukt",
@@ -300,5 +301,12 @@
   },
   "audio": {
     "heading": "Nummers en geluiden"
+  },
+  "upscale": {
+    "running": "Upscalen van {{name}}…",
+    "done": "Upscalede kopie opgeslagen ernaast als {{name}}.",
+    "queued": "Upscale in de wachtrij. {{name}} verschijnt naast de video als de taak klaar is; voortgang staat in de voettekst.",
+    "videoDone": "{{name}} is klaar naast de video.",
+    "videoFailed": "Upscalen van {{name}} mislukte: {{error}}"
   }
 }

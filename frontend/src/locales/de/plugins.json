@@ -151,5 +151,18 @@
     "loading": "Plugins werden geladen...",
     "emptyTitle": "Keine Plugins gefunden",
     "emptyBody": "Füge Plugins zum /plugins/ Verzeichnis hinzu und klicke auf Aktualisieren."
+  },
+  "install": {
+    "notInstalled": "Noch nicht installiert. Install lädt die benötigten Dateien für dieses Plugin einmalig herunter.",
+    "downloads": "Downloads: {{what}}",
+    "install": "Installieren",
+    "installing": "Installiere...",
+    "done": "{{name}} ist installiert.",
+    "failed": "Installation von {{name}} fehlgeschlagen (Exit {{code}}). Das Log befindet sich auf der Karte.",
+    "failedHint": "Die letzte Installation ist fehlgeschlagen (Exit {{code}})."
+  },
+  "embeddingPath": {
+    "inUse": "Der Indexer nutzt dieses Plugin: {{model}}, {{dim}} Dimensionen, Probe-Vektor abgeglichen.",
+    "notUsed": "Der Indexer nutzt dieses Plugin nicht: {{reason}}"
   }
 }

@@ -121,7 +121,8 @@
     "viewFullSize": "View Full Size",
     "edit": "Edit",
     "publish": "Share / Publish…",
-    "details": "Details…"
+    "details": "Details…",
+    "upscale": "Upscale"
   },
   "infographic": {
     "failed": "Generation failed",
@@ -300,5 +301,12 @@
   },
   "audio": {
     "heading": "Songs and sounds"
+  },
+  "upscale": {
+    "running": "Upscaling {{name}}…",
+    "done": "Upscaled copy saved beside it as {{name}}.",
+    "queued": "Upscale queued. {{name}} appears beside the video when the job finishes; progress is in the footer.",
+    "videoDone": "{{name}} is ready beside the video.",
+    "videoFailed": "Upscaling {{name}} failed: {{error}}"
   }
 }

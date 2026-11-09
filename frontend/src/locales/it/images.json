@@ -121,7 +121,8 @@
     "viewFullSize": "Visualizza a dimensione intera",
     "edit": "Modifica",
     "publish": "Condividi / Pubblica…",
-    "details": "Dettagli…"
+    "details": "Dettagli…",
+    "upscale": "Upscale"
   },
   "infographic": {
     "failed": "Generazione fallita",
@@ -300,5 +301,12 @@
   },
   "audio": {
     "heading": "Canzoni e suoni"
+  },
+  "upscale": {
+    "running": "Upscaling di {{name}}…",
+    "done": "Copia upscalata salvata accanto come {{name}}.",
+    "queued": "Upscale in coda. {{name}} apparirà accanto al video quando il lavoro sarà finito; il progresso è nel piè di pagina.",
+    "videoDone": "{{name}} è pronto accanto al video.",
+    "videoFailed": "Upscaling di {{name}} fallito: {{error}}"
   }
 }

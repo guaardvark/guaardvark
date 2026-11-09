@@ -101,6 +101,7 @@ class UnifiedUploadService:
         metadata: Optional[Dict[str, Any]] = None,
         store_content: bool = True,  # Whether to store content in DB for text/code files
         auto_index: bool = True,     # Whether to automatically trigger indexing
+        onto_existing_file: bool = False,  # the upload is the file already at that name in uploads
     ) -> Tuple[DBDocument, Optional[str]]:
         """
         Upload a file with unified handling
@@ -153,22 +154,30 @@ class UnifiedUploadService:
         # between Document.filename (clean) and basename(Document.path)
         # (timestamped) that broke path resolution for any consumer assuming
         # the two agreed.
-        from backend.utils.filename_resolver import resolve_filename
+        from backend.utils.filename_resolver import resolve_storage_filename
         # A folder drop names each file by its path inside the dropped folder
         # ("service/app.py"); the folder arrives as folder_path, so keep the base
         # name. secure_filename alone would flatten it to "service_app.py".
         original_filename = secure_filename(os.path.basename((file.filename or "").replace("\\", "/")))
-        chosen_filename = resolve_filename(
-            folder_id, original_filename, db.session, DBDocument,
-        )
+        # For database paths like '/002', remove leading slash for filesystem
+        folder_path_clean = folder_path.lstrip('/') if folder_path and folder_path != "/" else ""
+        # The file is stored under its display name, so the name must be free
+        # on disk and as a row's path too, not only among sibling names.
+        if onto_existing_file:
+            from backend.utils.filename_resolver import resolve_filename
+            chosen_filename = resolve_filename(folder_id, original_filename, db.session, DBDocument)
+        else:
+            chosen_filename = resolve_storage_filename(
+                folder_id,
+                contained_path(upload_folder, folder_path_clean) if folder_path_clean else upload_folder,
+                folder_path_clean,
+                original_filename,
+                db.session,
+                DBDocument,
+            )
 
         # Determine storage path (filesystem path under UPLOAD_FOLDER)
-        if folder_path and folder_path != "/":
-            # For database paths like '/002', remove leading slash for filesystem
-            folder_path_clean = folder_path.lstrip('/')
-            storage_path = f"{folder_path_clean}/{chosen_filename}"
-        else:
-            storage_path = chosen_filename
+        storage_path = f"{folder_path_clean}/{chosen_filename}" if folder_path_clean else chosen_filename
 
         # Construct full file path
         file_path = contained_path(upload_folder, storage_path)

@@ -121,7 +121,8 @@
     "viewFullSize": "Ver Tamanho Total",
     "edit": "Editar",
     "publish": "Compartilhar / Publicar…",
-    "details": "Detalhes…"
+    "details": "Detalhes…",
+    "upscale": "Aumentar Resolução"
   },
   "infographic": {
     "failed": "Falha na geração",
@@ -300,5 +301,12 @@
   },
   "audio": {
     "heading": "Músicas e sons"
+  },
+  "upscale": {
+    "running": "Aumentando resolução de {{name}}…",
+    "done": "Cópia com resolução aumentada salva ao lado como {{name}}.",
+    "queued": "Aumento de resolução na fila. {{name}} aparecerá ao lado do vídeo quando o trabalho terminar; o progresso está no rodapé.",
+    "videoDone": "{{name}} está pronto ao lado do vídeo.",
+    "videoFailed": "Falha ao aumentar resolução de {{name}}: {{error}}"
   }
 }

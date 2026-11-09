@@ -121,7 +121,8 @@
     "viewFullSize": "Ver tamaño completo",
     "edit": "Editar",
     "publish": "Compartir / Publicar…",
-    "details": "Detalles…"
+    "details": "Detalles…",
+    "upscale": "Escalar"
   },
   "infographic": {
     "failed": "Error en la generación",
@@ -300,5 +301,12 @@
   },
   "audio": {
     "heading": "Canciones y sonidos"
+  },
+  "upscale": {
+    "running": "Escalando {{name}}…",
+    "done": "Copia escalada guardada al lado como {{name}}.",
+    "queued": "Escalado en cola. {{name}} aparecerá junto al video cuando termine el trabajo; el progreso está en el pie de página.",
+    "videoDone": "{{name}} está listo junto al video.",
+    "videoFailed": "Error al escalar {{name}}: {{error}}"
   }
 }

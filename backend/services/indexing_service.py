@@ -1611,6 +1611,42 @@ def _index_embedding_meta_path(persist_dir: str) -> str:
     return os.path.join(persist_dir, "embedding_meta.json")
 
 
+def _embedding_path_counts() -> dict:
+    try:
+        from backend.utils.embedding_router import get_embedding_router
+        return get_embedding_router().path_counts()
+    except Exception:
+        return {}
+
+
+def _record_embedding_path(db_document, before: dict, timings: dict) -> None:
+    """Note which embedding path indexed this document while the GPU Embedding plugin is on.
+
+    Written to the log, the phase timings and ``file_metadata["embedding_path"]``;
+    nothing is written while the plugin is off.
+    """
+    try:
+        from backend.utils.embedding_router import get_embedding_router
+        router = get_embedding_router()
+        gate = router.plugin_gate()
+        if not gate.enabled():
+            return
+        after = router.path_counts()
+        used = {k: after[k] - before.get(k, 0) for k in after if after[k] - before.get(k, 0) > 0}
+        status = gate.status()
+        record = {"texts": used, "plugin_in_use": status["in_use"], "plugin_reason": status["reason"]}
+        timings["embedding_path"] = used
+        logger.info("Embedded %s via %s (GPU Embedding plugin: %s)",
+                    getattr(db_document, "filename", "?"),
+                    ", ".join(f"{k}={v}" for k, v in used.items()) or "nothing", status["reason"])
+        meta = json.loads(db_document.file_metadata) if db_document.file_metadata else {}
+        if isinstance(meta, dict):
+            meta["embedding_path"] = record
+            db_document.file_metadata = json.dumps(meta)
+    except Exception as e:
+        logger.debug(f"Could not record embedding path: {e}")
+
+
 def _record_index_embedding_model(project_id=None):
     """Stamp the active embedding model onto the index dir (best-effort). Called whenever
     content is indexed, so the sidecar reflects the model the index was actually built with."""
@@ -3851,6 +3887,7 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                     _dispatcher.add_event_handler(_embed_clock)
                 except Exception:
                     pass
+                _paths_before = _embedding_path_counts()
                 try:
                     with _phase("insert_ms", timings):
                         index.insert_nodes(nodes)
@@ -3861,6 +3898,7 @@ def add_file_to_index(file_path: str, db_document: DBDocument, progress_callback
                         except Exception:
                             pass
                 _record_index_embedding_model(getattr(db_document, "project_id", None))  # stamp model
+                _record_embedding_path(db_document, _paths_before, timings)
 
                 # Replace, don't append: pgvector INSERTs rather than upserting by
                 # node id, so the previous copy (rows up to the watermark) goes now

@@ -139,6 +139,8 @@ class EmbeddingRouter:
         self._active_model_name = None
         self._embed_dim = None
         self._choice_checked_at = 0.0
+        self._plugin_gate = None
+        self._paths = threading.local()
 
         logger.info(
             f"EmbeddingRouter initialized: profile={self.hardware_profile.value}, "
@@ -477,16 +479,73 @@ class EmbeddingRouter:
                 except Exception:
                     return self._route_to_cpu(texts)
 
+    def _note_path(self, path: str, n: int) -> None:
+        counts = getattr(self._paths, "counts", None)
+        if counts is None:
+            counts = self._paths.counts = {}
+        counts[path] = counts.get(path, 0) + n
+
+    def path_counts(self) -> Dict[str, int]:
+        """Texts this thread has embedded so far, per path."""
+        return dict(getattr(self._paths, "counts", None) or {})
+
+    def plugin_gate(self):
+        if self._plugin_gate is None:
+            from backend.utils.gpu_embedding_plugin import PluginEmbeddingGate
+            self._plugin_gate = PluginEmbeddingGate()
+        return self._plugin_gate
+
+    def _own_path(self, texts: List[str]) -> List[List[float]]:
+        if self.profile_config["gpu_enabled"]:
+            try:
+                return self._route_to_gpu(texts)
+            except Exception as e:
+                logger.warning(f"GPU failed, falling back to CPU: {e}")
+        return self._route_to_cpu(texts)
+
+    def _own_client(self):
+        return self._get_gpu_embedding() if self.profile_config["gpu_enabled"] else self._get_cpu_embedding()
+
+    def _via_plugin_check(self) -> bool:
+        """Whether the plugin would embed the next call (runs the gate's check)."""
+        return self.plugin_gate().usable(self._model_name(), self._own_path, self._own_client()._format_text)
+
+    def _via_plugin(self, texts: List[str]) -> Optional[List[List[float]]]:
+        """Vectors from the GPU Embedding plugin, or None to use the router's own path."""
+        gate = self.plugin_gate()
+        if not gate.enabled():
+            return None
+        client = self._own_client()
+        vectors = None
+        if gate.usable(self._model_name(), self._own_path, client._format_text):
+            try:
+                vectors = gate.embed(texts, client._format_text)
+            except Exception as e:
+                logger.warning(f"GPU Embedding plugin failed, using the indexer's own path: {e}")
+        if vectors is None:
+            gate.texts_via_fallback += len(texts)
+            return None
+        gate.texts_via_plugin += len(texts)
+        self._note_path("gpu_embedding_plugin", len(texts))
+        return vectors
+
     def get_embedding(self, text: str) -> List[float]:
         """Get embedding for a single text. Uses GPU if available, else CPU."""
         with self.lock:
             self._follow_saved_choice()
+            via_plugin = self._via_plugin([text])
+            if via_plugin is not None:
+                return via_plugin[0]
             if self.profile_config["gpu_enabled"]:
                 try:
-                    return self._route_to_gpu([text])[0]
+                    out = self._route_to_gpu([text])[0]
+                    self._note_path("ollama_gpu", 1)
+                    return out
                 except Exception as e:
                     logger.warning(f"GPU failed, falling back to CPU: {e}")
-            return self._route_to_cpu([text])[0]
+            out = self._route_to_cpu([text])[0]
+            self._note_path("ollama_cpu", 1)
+            return out
 
     def get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
         """Get embeddings for multiple texts.
@@ -499,6 +558,10 @@ class EmbeddingRouter:
                 return []
             self._follow_saved_choice()
 
+            via_plugin = self._via_plugin(texts)
+            if via_plugin is not None:
+                return via_plugin
+
             threshold = self.profile_config["parallel_threshold"]
 
             # Large batch: parallel GPU+CPU
@@ -506,18 +569,24 @@ class EmbeddingRouter:
                     and threshold > 0
                     and len(texts) >= threshold):
                 try:
-                    return self._parallel_batch(texts)
+                    out = self._parallel_batch(texts)
+                    self._note_path("ollama_gpu_cpu_split", len(texts))
+                    return out
                 except Exception as e:
                     logger.warning(f"Parallel batch failed: {e}, falling back")
 
             # Small batch or CPU-only: single path
             if self.profile_config["gpu_enabled"]:
                 try:
-                    return self._route_to_gpu(texts)
+                    out = self._route_to_gpu(texts)
+                    self._note_path("ollama_gpu", len(texts))
+                    return out
                 except Exception as e:
                     logger.warning(f"GPU batch failed, CPU fallback: {e}")
 
-            return self._route_to_cpu(texts)
+            out = self._route_to_cpu(texts)
+            self._note_path("ollama_cpu", len(texts))
+            return out
 
     def get_stats(self) -> Dict[str, Any]:
         # Get model name without triggering lazy init
@@ -538,6 +607,8 @@ class EmbeddingRouter:
             "active_model": model_name,
             "embed_dim": self.embed_dim,
             "latency": self.latency_tracker.get_stats(),
+            **({"gpu_embedding_plugin": self._plugin_gate.status()}
+               if self._plugin_gate is not None and self._plugin_gate.enabled() else {}),
         }
 
 

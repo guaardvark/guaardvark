@@ -5,8 +5,9 @@ Sync the Claude plugin repository (github.com/guaardvark/guaardvark-plugin) from
 Anthropic's plugin directory installs only the plugin folder and refuses large
 files, so the directory listing is built from a separate repository that holds
 the plugin alone. This repo stays the source of truth: the skills in
-.agents/skills/, the MCP launcher and the manifest are copied from a git ref,
-never from the working tree, so the plugin cannot get ahead of what is public.
+.agents/skills/, the MCP launcher, the logo and the manifest (its MCP server
+split out into .mcp.json) are copied from a git ref, never from the working
+tree, so the plugin cannot get ahead of what is public.
 
 The plugin repo's README.md is its directory listing and is maintained there by
 hand; this script never touches it.
@@ -33,7 +34,9 @@ PLUGIN_REPO_URL = "https://github.com/guaardvark/guaardvark-plugin"
 COPIED_FILES = {
     "scripts/mcp_launcher.sh": "scripts/mcp_launcher.sh",
     "LICENSE": "LICENSE",
+    "frontend/public/icon-512.png": "assets/logo.png",
 }
+LOGO = "assets/logo.png"
 SKILLS_SRC = ".agents/skills"
 
 
@@ -88,13 +91,22 @@ def main():
     ).stdout)
     manifest["skills"] = "./skills/"
     manifest["repository"] = PLUGIN_REPO_URL
+    manifest["logo"] = LOGO
+    # The server goes in a root .mcp.json, the one place every client reads it from:
+    # plugin indexes such as cursor.directory find servers nowhere else, and Claude
+    # Code and Grok load it the same as the inline entry.
+    servers = manifest.pop("mcpServers")
     os.makedirs(os.path.join(dest, ".claude-plugin"), exist_ok=True)
     with open(os.path.join(dest, ".claude-plugin", "plugin.json"), "w") as f:
         json.dump(manifest, f, indent=2)
         f.write("\n")
+    with open(os.path.join(dest, ".mcp.json"), "w") as f:
+        json.dump({"mcpServers": servers}, f, indent=2)
+        f.write("\n")
 
     count = len(os.listdir(skills_dest))
-    print(f"synced {count} skills, launcher, LICENSE and manifest v{manifest['version']} from {args.ref}")
+    print(f"synced {count} skills, launcher, logo, LICENSE, .mcp.json and manifest "
+          f"v{manifest['version']} from {args.ref}")
     subprocess.run(["git", "-C", dest, "status", "--short"], check=False)
 
 
