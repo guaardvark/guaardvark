@@ -164,13 +164,20 @@ EXTERNAL_MODEL_ROWS: dict = {}
 # Each row holds only for the exact build it was measured on: `digest` is the
 # prefix of the Ollama manifest digest from /api/tags, and a tag whose installed
 # digest differs (re-pulled, re-quantised, a Modelfile variant) is treated as
-# unmeasured rather than assumed to point the same.
+# unmeasured rather than assumed to point the same. A tag whose build changed
+# upstream maps to a list of rows, one per build; a row measured another way
+# carries its own `source`.
 SHIPPED_ACCURACY_SCREEN = "1000x1000"
 SHIPPED_ACCURACY_SOURCE = (
     "eye_bakeoff --mode anchor, 2026-09-24: 30 targets on two 1000x1000 vision "
     "trainer boards (six frames of five labelled dots), each model read in its own "
     "axis order, calibration off. Median distance from the dot centre; a hit is "
     "within the dot's 26px radius."
+)
+HOLDOUT_ACCURACY_SOURCE = (
+    "eye_bakeoff --mode anchor, 2026-11-07: 40 targets on the 1000x1000 "
+    "20260922_012610_holdout board, calibration off. Median distance from the "
+    "dot centre; a hit is within the dot's 26px radius."
 )
 SHIPPED_EYE_ACCURACY = {
     "gemma4:e2b": {"digest": "7fbdbf8f5e45", "median_px": 255.0, "median_x": 34.0,
@@ -179,8 +186,17 @@ SHIPPED_EYE_ACCURACY = {
                    "median_y": 38.0, "hit_rate": 0.13, "n": 30},
     "gemma4:latest": {"digest": "c6eb396dbd59", "median_px": 48.8, "median_x": 23.0,
                       "median_y": 38.0, "hit_rate": 0.13, "n": 30},
-    "gemma4:12b": {"digest": "4eb23ef187e2", "median_px": 5.8, "median_x": 3.0,
-                   "median_y": 4.0, "hit_rate": 1.0, "n": 30},
+    "gemma4:12b": [
+        {"digest": "4eb23ef187e2", "median_px": 5.8, "median_x": 3.0,
+         "median_y": 4.0, "hit_rate": 1.0, "n": 30},
+        # The build Ollama serves for this tag since 2026-11-07: X still lands,
+        # Y lands about 75px above the target. The 4eb23ef187e2 build read
+        # 6.9px / 40 of 40 on this same board. Its Y answers come in two
+        # scales (most at ~0.79x, some unscaled, mostly low on the board), so
+        # a linear calibration still misses 13 of these 40.
+        {"digest": "6114515d63c1", "median_px": 75.5, "median_x": 3.0,
+         "median_y": 75.5, "hit_rate": 0.03, "n": 40, "source": HOLDOUT_ACCURACY_SOURCE},
+    ],
     "qwen3.5:9b": {"digest": "6488c96fa5fa", "median_px": 14.4, "median_x": 7.0,
                    "median_y": 8.0, "hit_rate": 0.73, "n": 30},
     "qwen3.6:27b-q4_K_M": {"digest": "3a40c32f1450", "median_px": 2.2, "median_x": 1.0,
@@ -201,7 +217,12 @@ SHIPPED_EYE_JUDGE = {
     "gemma4:e2b": {"digest": "7fbdbf8f5e45", "both_rate": 0.76, "n": 25, "ms_median": 174},
     "gemma4:e4b": {"digest": "c6eb396dbd59", "both_rate": 1.0, "n": 25, "ms_median": 259},
     "gemma4:latest": {"digest": "c6eb396dbd59", "both_rate": 1.0, "n": 25, "ms_median": 259},
-    "gemma4:12b": {"digest": "4eb23ef187e2", "both_rate": 1.0, "n": 25, "ms_median": 461},
+    "gemma4:12b": [
+        {"digest": "4eb23ef187e2", "both_rate": 1.0, "n": 25, "ms_median": 461},
+        {"digest": "6114515d63c1", "both_rate": 0.84, "n": 25, "ms_median": 290,
+         "source": "eye_bakeoff --judge, 2026-11-07: 25 probes on the first frame of the "
+                   "20260922_012610_holdout board, both axes right / probes."},
+    ],
     "qwen3.5:9b": {"digest": "6488c96fa5fa", "both_rate": 0.96, "n": 25, "ms_median": 492},
     "qwen3.6:27b-q4_K_M": {"digest": "3a40c32f1450", "both_rate": 1.0, "n": 25, "ms_median": 2956},
     "minicpm-v4.6:latest": {"digest": "e95583acac77", "both_rate": 0.2, "n": 25, "ms_median": 5137},
