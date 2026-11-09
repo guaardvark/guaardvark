@@ -11,8 +11,8 @@ podman build -f docker/Dockerfile.frontend -t guaardvark-frontend .
 podman build -f docker/Dockerfile.backend --build-arg TORCH_CHANNEL=rocm6.3 -t guaardvark-backend .
 ```
 
-`TORCH_CHANNEL` picks the PyTorch wheels: `rocm6.3` for AMD, `cu124` and so on
-for NVIDIA. The backend image is large (about 27 GB with ROCm).
+`TORCH_CHANNEL` picks the PyTorch wheels: `rocm6.3` for AMD, `cu132` and so on
+for NVIDIA (INSTALL.md lists which card and driver takes which). The backend image is large (about 27 GB with ROCm).
 
 ## 2. Create the secrets file
 

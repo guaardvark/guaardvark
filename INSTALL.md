@@ -174,7 +174,7 @@ sudo apt update && sudo apt install -y nvidia-container-toolkit
 sudo nvidia-ctk runtime configure --runtime=docker && sudo systemctl restart docker
 ```
 
-`./start-docker.sh` checks each of these before it builds anything and says which one is missing. With `--gpu` it also builds PyTorch for your card: `cu118` for GTX 10/16 and RTX 20 cards, `cu124` for RTX 30/40, `cu128` for newer ones. Set `GUAARDVARK_TORCH_CHANNEL` to pick one yourself.
+`./start-docker.sh` checks each of these before it builds anything and says which one is missing. With `--gpu` it also builds PyTorch for your card and driver: `cu132` (PyTorch 2.14.1) for GTX 16, RTX 20 and newer on driver 580 or later, `cu126` (2.14.1) for GTX 10 and Volta cards or a driver from 525 to 579, `cu128` (2.11) for RTX 50 cards on a driver below 580, and `cu118` (2.7.1) for a driver older than 525. Set `GUAARDVARK_TORCH_CHANNEL` to pick one yourself.
 
 **Restarts.** The containers start again on their own after a reboot or a crash. `docker compose down` stops them until the next `./start-docker.sh`.
 

@@ -103,14 +103,23 @@ if [ "$GPU_PROFILE" -eq 1 ]; then
         NVIDIA_SMI=/usr/lib/wsl/lib/nvidia-smi
     fi
     if [ -z "${GUAARDVARK_TORCH_CHANNEL:-}" ] && [ -n "$NVIDIA_SMI" ]; then
-        COMPUTE_MAJOR="$("$NVIDIA_SMI" --query-gpu=compute_cap --format=csv,noheader 2>/dev/null | head -n 1 | cut -d. -f1 | tr -dc '0-9')"
+        GPU_INFO="$("$NVIDIA_SMI" --query-gpu=compute_cap,driver_version --format=csv,noheader 2>/dev/null | head -n 1)"
+        COMPUTE_MAJOR="$(echo "$GPU_INFO" | cut -d, -f1 | cut -d. -f1 | tr -dc '0-9')"
+        COMPUTE_MINOR="$(echo "$GPU_INFO" | cut -d, -f1 | cut -d. -f2 | tr -dc '0-9')"
+        DRIVER_MAJOR="$(echo "$GPU_INFO" | cut -d, -f2 | cut -d. -f1 | tr -dc '0-9')"
         if [ -n "$COMPUTE_MAJOR" ]; then
-            if [ "$COMPUTE_MAJOR" -ge 9 ]; then GUAARDVARK_TORCH_CHANNEL=cu128
-            elif [ "$COMPUTE_MAJOR" -ge 8 ]; then GUAARDVARK_TORCH_CHANNEL=cu124
-            elif [ "$COMPUTE_MAJOR" -ge 6 ]; then GUAARDVARK_TORCH_CHANNEL=cu118
-            else GUAARDVARK_TORCH_CHANNEL=cpu
+            # CUDA 13 (cu132) needs driver 580 and sm_75+; CUDA 12 needs driver 525.
+            CUDA13=0
+            [ -n "$DRIVER_MAJOR" ] && [ "$DRIVER_MAJOR" -ge 580 ] && CUDA13=1
+            if [ "$COMPUTE_MAJOR" -ge 10 ]; then
+                if [ "$CUDA13" = 1 ]; then GUAARDVARK_TORCH_CHANNEL=cu132; else GUAARDVARK_TORCH_CHANNEL=cu128; fi
+            elif [ "$COMPUTE_MAJOR" -lt 6 ]; then GUAARDVARK_TORCH_CHANNEL=cpu
+            elif [ -n "$DRIVER_MAJOR" ] && [ "$DRIVER_MAJOR" -lt 525 ]; then GUAARDVARK_TORCH_CHANNEL=cu118
+            elif [ "$CUDA13" = 1 ] && [ $((COMPUTE_MAJOR * 10 + ${COMPUTE_MINOR:-0})) -ge 75 ]; then
+                GUAARDVARK_TORCH_CHANNEL=cu132
+            else GUAARDVARK_TORCH_CHANNEL=cu126
             fi
-            echo "PyTorch build for this GPU (compute ${COMPUTE_MAJOR}.x): ${GUAARDVARK_TORCH_CHANNEL}"
+            echo "PyTorch build for this GPU (compute ${COMPUTE_MAJOR}.${COMPUTE_MINOR:-x}, driver ${DRIVER_MAJOR:-unknown}): ${GUAARDVARK_TORCH_CHANNEL}"
         fi
     fi
     export GUAARDVARK_TORCH_CHANNEL="${GUAARDVARK_TORCH_CHANNEL:-}"

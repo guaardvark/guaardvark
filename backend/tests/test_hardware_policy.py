@@ -1,24 +1,42 @@
 from backend.services import hardware_policy as hp
 
 
-# NOTE: blackwell(12.0) and hopper(9.0) both resolve through the single
-# `major >= 9` branch in torch_channel — there is no separate >=12 path today.
-# If Blackwell ever needs a distinct channel (e.g. cu130), split that branch
-# AND give it its own assertion here.
-def test_torch_channel_blackwell_is_cu128():
-    assert hp.torch_channel({"vendor": "nvidia", "compute_cap": "12.0"}) == "cu128"
+def _nv(cap, driver=None):
+    gpu = {"vendor": "nvidia", "compute_cap": cap}
+    if driver is not None:
+        gpu["driver"] = driver
+    return gpu
 
 
-def test_torch_channel_hopper_is_cu128():
-    assert hp.torch_channel({"vendor": "nvidia", "compute_cap": "9.0"}) == "cu128"
+def test_torch_channel_cuda13_driver_takes_cu132_from_turing_up():
+    for cap in ("7.5", "8.6", "8.9", "9.0", "12.0"):
+        assert hp.torch_channel(_nv(cap, "580.65.06")) == "cu132", cap
 
 
-def test_torch_channel_ampere_ada_is_cu124():
-    assert hp.torch_channel({"vendor": "nvidia", "compute_cap": "8.9"}) == "cu124"
+def test_torch_channel_cuda12_driver_takes_cu126():
+    for cap in ("7.5", "8.9", "9.0"):
+        assert hp.torch_channel(_nv(cap, "550.120")) == "cu126", cap
 
 
-def test_torch_channel_turing_is_cu118():
-    assert hp.torch_channel({"vendor": "nvidia", "compute_cap": "7.5"}) == "cu118"
+def test_torch_channel_blackwell_without_cuda13_driver_is_cu128():
+    assert hp.torch_channel(_nv("12.0", "575.51.03")) == "cu128"
+    assert hp.torch_channel(_nv("10.0")) == "cu128"
+
+
+def test_torch_channel_pascal_volta_stay_on_cu126():
+    # CUDA 13 wheels have no sm_60/sm_70 kernels, whatever the driver.
+    assert hp.torch_channel(_nv("6.1", "595.99.02")) == "cu126"
+    assert hp.torch_channel(_nv("7.0", "595.99.02")) == "cu126"
+
+
+def test_torch_channel_old_driver_is_cu118():
+    assert hp.torch_channel(_nv("6.1", "470.256.02")) == "cu118"
+    assert hp.torch_channel(_nv("8.6", "520.61.05")) == "cu118"
+
+
+def test_torch_channel_unknown_driver_is_cu126():
+    assert hp.torch_channel(_nv("8.9")) == "cu126"
+    assert hp.torch_channel(_nv("8.9", "N/A")) == "cu126"
 
 
 def test_torch_channel_pre_pascal_is_cpu():
@@ -155,8 +173,14 @@ def test_is_stale_profile_flags_nvidia_without_compute_cap():
     assert hp._is_stale_profile(stale) is True
 
 
+def test_is_stale_profile_flags_nvidia_without_driver():
+    stale = {"gpu": {"vendor": "nvidia", "vram_mb": 16311, "compute_cap": "12.0"}}
+    assert hp._is_stale_profile(stale) is True
+
+
 def test_is_stale_profile_accepts_current_nvidia():
-    current = {"gpu": {"vendor": "nvidia", "vram_mb": 16311, "compute_cap": "12.0"}}
+    current = {"gpu": {"vendor": "nvidia", "vram_mb": 16311, "compute_cap": "12.0",
+                       "driver": "595.99.02"}}
     assert hp._is_stale_profile(current) is False
 
 
