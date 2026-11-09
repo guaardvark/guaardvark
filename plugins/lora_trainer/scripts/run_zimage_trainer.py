@@ -280,6 +280,9 @@ def _do_train(cmd: dict) -> dict:
     # "float8" keeps the frozen base's weights in float8 on the card and computes
     # in bf16 (diffusers layerwise casting), about half the transformer's memory.
     base_storage = (params.get("base_storage") or "bf16").lower()
+    # "attention" adapts q/k/v/out only; "attention_ffn" also adapts each block's
+    # feed-forward (w1/w2/w3), the layout ai-toolkit's Z-Image LoRAs use.
+    lora_targets = (params.get("lora_targets") or "attention").lower()
     # Soft-cap: on ≤16.5GB cards 768 train_loop peaks ~13GB for the trainer alone;
     # with desktop/other CUDA (~0.7–1GB) + allocator holes it OOMs around step 7–8.
     # 512 leaves ~1GB headroom on the 16GB dev card (measured).
@@ -338,7 +341,11 @@ def _do_train(cmd: dict) -> dict:
         lora_config = LoraConfig(
             r=rank,
             lora_alpha=alpha,
-            target_modules=["to_q", "to_k", "to_v", "to_out.0"],
+            target_modules=(
+                ["to_q", "to_k", "to_v", "to_out.0", "w1", "w2", "w3"]
+                if lora_targets == "attention_ffn"
+                else ["to_q", "to_k", "to_v", "to_out.0"]
+            ),
             init_lora_weights="gaussian",
         )
         transformer = get_peft_model(transformer, lora_config)
