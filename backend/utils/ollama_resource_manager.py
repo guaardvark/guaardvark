@@ -874,7 +874,14 @@ def decide_num_ctx(model_name: str) -> NumCtxDecision:
 
     Without model info the result is a placeholder (``resolved=False``); see
     :func:`refresh_context_window` for picking up the real value later.
+
+    A size set for the model in GUAARDVARK_NUM_CTX replaces all of this.
     """
+    override = num_ctx_override(model_name)
+    if override:
+        logger.info("Context for '%s': num_ctx=%d from %s, not sized", model_name, override, NUM_CTX_ENV)
+        return NumCtxDecision(override, resolved=True)
+
     model_info = get_model_info(model_name)
     if not model_info:
         default = _fallback_num_ctx(model_name)
@@ -944,6 +951,44 @@ def _count_resident_model() -> bool:
     its loaded window (see decide_num_ctx). Off, a model on the GPU is sized
     against what is left beside it."""
     return os.environ.get("GUAARDVARK_CTX_COUNT_RESIDENT", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+# Hook, off by default: a fixed num_ctx for the models named in
+# GUAARDVARK_NUM_CTX, as comma-separated name=size pairs:
+#   GUAARDVARK_NUM_CTX=qwen3.8:27b=32768,gemma4:12b=65536
+# A name without a tag means :latest. The size is sent as given, above
+# MAX_NUM_CTX too: sizing estimates from a per-family profile, and on a card
+# with room to spare the estimate sets the limit, not the memory.
+NUM_CTX_ENV = "GUAARDVARK_NUM_CTX"
+_num_ctx_overrides_parsed: Dict[str, Dict[str, int]] = {}
+
+
+def _num_ctx_overrides() -> Dict[str, int]:
+    raw = os.environ.get(NUM_CTX_ENV, "").strip()
+    if not raw:
+        return {}
+    parsed = _num_ctx_overrides_parsed.get(raw)
+    if parsed is not None:
+        return parsed
+    parsed = {}
+    for item in filter(None, (part.strip() for part in raw.split(","))):
+        name, sep, value = item.rpartition("=")
+        try:
+            size = int(value.strip())
+        except ValueError:
+            size = 0
+        if not sep or not name.strip() or size <= 0:
+            logger.warning("%s: ignoring %r, expected name=size such as qwen3.5:9b=16384", NUM_CTX_ENV, item)
+            continue
+        parsed[_full_model_name(name)] = size
+    _num_ctx_overrides_parsed[raw] = parsed
+    return parsed
+
+
+def num_ctx_override(model_name: str) -> Optional[int]:
+    """The num_ctx GUAARDVARK_NUM_CTX sets for ``model_name``, or None."""
+    overrides = _num_ctx_overrides()
+    return overrides.get(_full_model_name(model_name)) if overrides else None
 
 
 def ram_reserve_mb(ram_total_mb: float) -> float:
@@ -1053,10 +1098,14 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
 
     Returns:
         (safe_to_load, reason, recommended_num_ctx)
+
+    A size set in GUAARDVARK_NUM_CTX is the recommendation in every case;
+    ``safe_to_load`` and ``reason`` still report the memory check.
     """
+    override = num_ctx_override(model_name)
     model_info = get_model_info(model_name)
     if not model_info:
-        return True, "Model info unavailable — proceeding with defaults", _fallback_num_ctx(model_name)
+        return True, "Model info unavailable — proceeding with defaults", override or _fallback_num_ctx(model_name)
 
     resources = _sizing_resources(model_name, _own_ram_mb(loaded_entry(model_name)))
     total_available_mb = (
@@ -1074,7 +1123,7 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
             f"Model weights ({model_weight_mb:.0f}MB) exceed available memory "
             f"({total_available_mb:.0f}MB = {resources['gpu_free_mb']:.0f}MB GPU + "
             f"{resources['ram_free_mb']:.0f}MB RAM - reserves)",
-            floor,
+            override or floor,
         )
 
     recommended_ctx = compute_optimal_num_ctx(model_name)
@@ -1088,7 +1137,7 @@ def validate_model_before_load(model_name: str) -> Tuple[bool, str, int]:
             False,
             f"Model '{model_name}' needs {model_weight_mb + overhead_at_min:.0f}MB even at "
             f"minimum context ({floor}), but only {total_available_mb:.0f}MB available",
-            floor,
+            override or floor,
         )
 
     return True, f"OK — recommended num_ctx={recommended_ctx}", recommended_ctx
