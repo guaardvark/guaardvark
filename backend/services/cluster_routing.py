@@ -16,6 +16,7 @@ from dataclasses import dataclass, field, asdict
 from datetime import datetime
 from typing import Any, Literal
 
+from backend.services.hardware_policy import gpu_memory_mb, shares_system_memory
 from backend.utils.clock import utcnow
 
 
@@ -246,15 +247,16 @@ class RoutingTableBuilder:
             services = profile.get("services", {}) or {}
             if not all(services.get(s, {}).get("installed") for s in spec["services"]):
                 continue
-            # arch check
+            gpu = profile.get("gpu", {}) or {}
+            # arch check; an NVIDIA GPU on the machine's own memory (GB10) is
+            # admitted on ARM too
             allowed = spec.get("allowed_archs")
-            if allowed and profile.get("arch") not in allowed:
+            if allowed and profile.get("arch") not in allowed and not shares_system_memory(gpu):
                 continue
             # GPU gate — parallel workloads accept any GPU node with the right service;
             # singular workloads hard-filter by min_vram_mb.
-            gpu = profile.get("gpu", {}) or {}
             vendor = gpu.get("vendor")
-            vram_mb = gpu.get("vram_mb") or 0
+            vram_mb = gpu_memory_mb(gpu)
             has_gpu = vendor not in (None, "none")
             min_vram = spec.get("min_vram_mb")
             cpu_ok = spec.get("cpu_acceptable", False)
@@ -325,7 +327,7 @@ class RoutingTableBuilder:
                 if free is not None:
                     return -free  # negative for desc sort
             profile = fleet.get_profile(c)
-            return -(profile.get("gpu", {}).get("vram_mb") or 0) if profile else 0
+            return -gpu_memory_mb(profile.get("gpu", {}) or {}) if profile else 0
         return sorted(candidates, key=key)
 
     # ---- spread ----------------------------------------------------
@@ -357,7 +359,7 @@ class RoutingTableBuilder:
         for nid in candidates:
             profile = profiles.get(nid) or {}
             gpu = profile.get("gpu") or {}
-            vram = gpu.get("vram_mb") or 0
+            vram = gpu_memory_mb(gpu)
             bench = profile.get("benchmark_score")
             score = (bench if (weight_by == "benchmark_score_or_vram" and bench)
                      else vram)

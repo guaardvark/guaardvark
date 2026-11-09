@@ -253,3 +253,37 @@ def test_training_names_the_gpu_vendor_it_is_not_set_up_for():
 
 def test_training_fit_tolerates_a_missing_gpu_dict():
     assert hp.training_fit(0, None, "")["practical"] is False
+
+
+# ---- GPUs on the machine's own memory (GB10 / DGX Spark) -------------------
+
+GB10 = {"vendor": "nvidia", "model": "NVIDIA GB10", "vram_mb": None, "unified_memory_gb": 119.7}
+
+
+def test_shares_system_memory_only_for_an_nvidia_gpu_without_vram():
+    assert hp.shares_system_memory(GB10) is True
+    assert hp.shares_system_memory({"vendor": "nvidia", "vram_mb": 16376}) is False
+    assert hp.shares_system_memory({"vendor": "nvidia", "vram_mb": None}) is False
+    assert hp.shares_system_memory({"vendor": "apple", "unified_memory_gb": 32}) is False
+
+
+def test_training_fit_reads_the_unified_pool():
+    fit = hp.training_fit(119.7, GB10, "aarch64")
+    assert fit["practical"] is True
+    assert "sharing the machine's 120 GB" in fit["reason"]
+    # A discrete card is judged exactly as before.
+    assert hp.training_fit(62, {"vendor": "nvidia", "vram_mb": 16376}, "x86_64")["reason"] == \
+        "NVIDIA GPU with 16 GB of memory."
+    assert hp.training_fit(32, {"vendor": "nvidia", "vram_mb": None}, "x86_64")["practical"] is False
+
+
+def test_unified_pool_mb_is_zero_for_a_discrete_card(monkeypatch):
+    monkeypatch.setattr(hp, "_load_hardware", lambda: {"gpu": {"vendor": "nvidia", "vram_mb": 16376}})
+    hp.unified_pool_mb.cache_clear()
+    try:
+        assert hp.unified_pool_mb() == 0
+        monkeypatch.setattr(hp, "_load_hardware", lambda: {"gpu": GB10})
+        hp.unified_pool_mb.cache_clear()
+        assert hp.unified_pool_mb() == int(119.7 * 1024)
+    finally:
+        hp.unified_pool_mb.cache_clear()

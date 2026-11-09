@@ -2643,9 +2643,18 @@ NO_VIDEO_GPU_MESSAGE = "GPU required for video generation: no NVIDIA GPU detecte
 
 
 def _probe_total_vram_mb():
+    """The card's memory in MB; a GPU on the machine's own memory (GB10), which
+    the probe reads as 0, gives its unified pool. 0 when neither is known."""
     try:
         from backend.services.gpu_resource_coordinator import get_available_vram
-        return (get_available_vram() or {}).get("total_mb") or 0
+        total = (get_available_vram() or {}).get("total_mb") or 0
+    except Exception:
+        total = 0
+    if total:
+        return total
+    try:
+        from backend.services.hardware_policy import unified_pool_mb
+        return unified_pool_mb()
     except Exception:
         return 0
 
@@ -2972,11 +2981,7 @@ def tier_defaults_for(model_id: str, total_vram_mb: int | float | None = None) -
     if not tiers:
         return {}
     if total_vram_mb is None:
-        try:
-            from backend.services.gpu_resource_coordinator import get_available_vram
-            total_vram_mb = (get_available_vram() or {}).get("total_mb") or 0
-        except Exception:
-            total_vram_mb = 0
+        total_vram_mb = _probe_total_vram_mb()
     key = vram_tier_for(total_vram_mb, tiers)
     if key is None:
         return {}
