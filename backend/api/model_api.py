@@ -880,6 +880,18 @@ def set_embedding_model():
         return error_response(f"Failed to switch embedding model: {str(e)}", 500, "SWITCH_FAILED")
 
 
+def _listed_chat_model(requested: str, available_models) -> "str | None":
+    """The chat-model list's name for ``requested``, or None when it is not listed.
+
+    The match is exact in any case, a name without a tag reads as ``:latest``,
+    and a ``llamacpp:<digest>`` alias gives its build's plain name. A part of a
+    name ("e2b") matches nothing: the switch would run under that part.
+    """
+    from backend.utils.ollama_resource_manager import installed_name_for
+    entries = [m for m in available_models if isinstance(m, dict)]
+    return installed_name_for(requested, entries)
+
+
 def switch_active_model(new_model_name: str):
     """Switch the active LLM model without using the HTTP API."""
     if not llama_index_available or not local_imports_ok:
@@ -899,16 +911,12 @@ def switch_active_model(new_model_name: str):
             f"Failed to validate model existence: {available_models_data['error']}"
         )
 
-    available_model_names = [
-        m.get("name", "").lower() for m in available_models_data if isinstance(m, dict)
-    ]
-    if not any(
-        n == new_model_name.lower() or new_model_name.lower() in n
-        for n in available_model_names
-    ):
+    listed = _listed_chat_model(new_model_name, available_models_data)
+    if not listed:
         raise ValueError(
             f"Model '{new_model_name}' not found or available via Ollama API."
         )
+    new_model_name = listed
 
     # Compute context window
     try:
@@ -1075,14 +1083,10 @@ def _switch_model_background(app, new_model_name: str):
             if isinstance(available_models_data, dict) and available_models_data.get("error"):
                 raise RuntimeError(f"Failed to validate model: {available_models_data['error']}")
 
-            available_model_names = [
-                m.get("name", "").lower() for m in available_models_data if isinstance(m, dict)
-            ]
-            if not any(
-                n == new_model_name.lower() or new_model_name.lower() in n
-                for n in available_model_names
-            ):
+            listed = _listed_chat_model(new_model_name, available_models_data)
+            if not listed:
                 raise ValueError(f"Model '{new_model_name}' not found in Ollama.")
+            new_model_name = listed
 
             socketio.emit("model_switch", {
                 "status": "loading",
@@ -1313,17 +1317,10 @@ def set_current_model():
     if isinstance(available_models_data, dict) and available_models_data.get("error"):
         return jsonify({"error": f"Cannot verify model: {available_models_data['error']}"}), 500
 
-    available_model_names = [
-        m.get("name", "").lower() for m in available_models_data if isinstance(m, dict)
-    ]
-    from backend.utils.ollama_resource_manager import is_llamacpp_alias, listed_name_for_alias
-    if is_llamacpp_alias(new_model_name):
-        new_model_name = listed_name_for_alias(new_model_name)
-    if not any(
-        n == new_model_name.lower() or new_model_name.lower() in n
-        for n in available_model_names
-    ):
+    listed = _listed_chat_model(new_model_name, available_models_data)
+    if not listed:
         return jsonify({"error": f"Model '{new_model_name}' not found in Ollama"}), 404
+    new_model_name = listed
 
     # Start background thread for model switching
     app = current_app._get_current_object()
