@@ -182,6 +182,56 @@ class TestRamReserve:
         assert orm.ram_reserve_mb(total) == pytest.approx(reserve)
 
 
+class TestNumCtxOverride:
+    """GUAARDVARK_NUM_CTX: a size set for a model replaces the sizing."""
+
+    @pytest.fixture(autouse=True)
+    def _no_override(self, monkeypatch):
+        monkeypatch.delenv(orm.NUM_CTX_ENV, raising=False)
+
+    def test_unset_leaves_the_sizing_alone(self):
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            sized = orm.decide_num_ctx("qwen3.5:4b")
+        assert orm.num_ctx_override("qwen3.5:4b") is None
+        assert sized.resolved and sized.num_ctx < orm.MAX_NUM_CTX
+
+    def test_named_model_gets_its_size_above_the_ceiling(self, monkeypatch):
+        monkeypatch.setenv(orm.NUM_CTX_ENV, "qwen3.5:4b=65536, gemma4:12b=16384")
+        with patch.object(orm, "get_model_info", side_effect=AssertionError("not sized")):
+            assert orm.decide_num_ctx("qwen3.5:4b") == orm.NumCtxDecision(65536, resolved=True)
+            assert orm.decide_num_ctx("gemma4:12b").num_ctx == 16384
+
+    def test_untagged_name_means_latest(self, monkeypatch):
+        monkeypatch.setenv(orm.NUM_CTX_ENV, "Qwen3.8=32768")
+        assert orm.num_ctx_override("qwen3.8:latest") == 32768
+        assert orm.num_ctx_override("qwen3.8") == 32768
+        assert orm.num_ctx_override("qwen3.8:27b") is None
+
+    def test_other_models_are_still_sized(self, monkeypatch):
+        monkeypatch.setenv(orm.NUM_CTX_ENV, "gemma4:12b=65536")
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            assert orm.decide_num_ctx("qwen3.5:4b").num_ctx < orm.MAX_NUM_CTX
+
+    def test_pre_load_check_recommends_the_set_size(self, monkeypatch):
+        monkeypatch.setenv(orm.NUM_CTX_ENV, "qwen3.5:4b=65536")
+        with patch.object(orm, "get_model_info", return_value=None):
+            assert orm.validate_model_before_load("qwen3.5:4b")[2] == 65536
+        # 3,170 MB of weights against the 8 GB machine's 2,442 MB budget: still
+        # reported as not fitting, with the set size kept.
+        with patch.object(orm, "get_model_info", return_value=QWEN35_4B_INFO), \
+             patch.object(orm, "get_system_resources", return_value=CPU8_RESOURCES):
+            safe, _reason, num_ctx = orm.validate_model_before_load("qwen3.5:4b")
+        assert not safe and num_ctx == 65536
+
+    @pytest.mark.parametrize("raw", ["qwen3.5:4b", "qwen3.5:4b=", "qwen3.5:4b=big", "qwen3.5:4b=0", "=8192"])
+    def test_malformed_entries_are_ignored(self, monkeypatch, raw):
+        monkeypatch.setenv(orm.NUM_CTX_ENV, f"{raw},gemma4:12b=16384")
+        assert orm.num_ctx_override("qwen3.5:4b") is None
+        assert orm.num_ctx_override("gemma4:12b") == 16384
+
+
 class TestSmallMachine:
     """The web UI's chat prompt measured 2,131-2,431 tokens (2026-11-08)."""
 

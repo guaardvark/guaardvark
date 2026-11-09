@@ -122,6 +122,9 @@ services:
       # (FLUX 3 Klein, for one) are gated and download only with it, and
       # downloads without one can be rate-limited.
       HF_TOKEN: ${HF_TOKEN:-}
+      # A fixed chat context size for named models instead of the one sized
+      # from free memory, e.g. qwen3.8:27b=32768 (see INSTALL.md).
+      GUAARDVARK_NUM_CTX: ${GUAARDVARK_NUM_CTX:-}
       # Optional — set your Anthropic key for Uncle Claude:
       # ANTHROPIC_API_KEY: sk-ant-...
     ports:

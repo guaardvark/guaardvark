@@ -214,14 +214,25 @@ def _installed_digests() -> Dict[str, str]:
     return digests
 
 
+def _shipped_row(table: Dict[str, Any], tag: str) -> Optional[Dict[str, Any]]:
+    """The row in a shipped eye table for the build of this tag installed here."""
+    rows = table.get(tag or "")
+    if not rows:
+        return None
+    installed = str(_installed_digests().get(tag, ""))
+    for row in rows if isinstance(rows, list) else [rows]:
+        if installed.startswith(row["digest"]):
+            return row
+    return None
+
+
 def _shipped_accuracy(tag: str) -> Optional[Dict[str, Any]]:
     """The shipped accuracy row for this tag, only if the installed build matches."""
-    row = SHIPPED_EYE_ACCURACY.get(tag or "")
+    row = _shipped_row(SHIPPED_EYE_ACCURACY, tag)
     if not row:
         return None
-    if not str(_installed_digests().get(tag, "")).startswith(row["digest"]):
-        return None
-    return dict(row, mode="anchor", source=SHIPPED_ACCURACY_SOURCE, shipped=True)
+    return dict(row, mode="anchor", source=row.get("source", SHIPPED_ACCURACY_SOURCE),
+                shipped=True)
 
 
 def accuracy_px(tag: str, screen: Optional[Tuple[int, int]] = None) -> Optional[float]:
@@ -236,8 +247,8 @@ def judge_rate(tag: str, screen: Optional[Tuple[int, int]] = None) -> Optional[f
     local = (_measurements(tag, screen).get("judge") or {}).get("both_rate")
     if local is not None:
         return float(local)
-    row = SHIPPED_EYE_JUDGE.get(tag or "")
-    if row and str(_installed_digests().get(tag, "")).startswith(row["digest"]):
+    row = _shipped_row(SHIPPED_EYE_JUDGE, tag)
+    if row:
         return float(row["both_rate"])
     return None
 

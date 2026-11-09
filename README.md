@@ -61,7 +61,7 @@ Other ways in: [Docker](INSTALL.md#alternative-docker-linux) · [macOS on Apple 
 
 - **Chat with your own files.** Local RAG on pgvector: keyword and vector search fused per query, cross-encoder reranking, source citations, and retrieval that shows the chunks and scores behind an answer. Autoresearch tunes retrieval overnight. [▶ Ep 3](https://www.youtube.com/watch?v=pT_J93qTCL0)
 - **Plan mode.** Turn it on with `/plan` and every request is looked into with read-only tools first, then comes back as a plan card you approve, edit or reject; approved steps run one at a time and pause when one fails. It is offered on a model only once that model passes the plan-mode test.
-- **Agents on a real desktop.** Screen agents get an Ubuntu desktop of their own, see it with a vision model, click with closed-loop targeting, and work in a real browser while you watch from any page. [▶ Ep 4](https://www.youtube.com/watch?v=sL7F8EqwQ2w)
+- **Agents on a real desktop.** Screen agents get an Ubuntu desktop of their own, see it with a vision model, click with closed-loop targeting, and work in a real browser while you watch from any page. [▶ Ep 4](https://www.youtube.com/watch?v=oMFCPXrxd_M)
 - **Parallel coding agents.** A swarm of coding agents, each in its own git worktree, merged back in dependency order. Runs on Claude Code or fully locally through Ollama.
 - **MCP, both ways.** An MCP server that plugs into Claude Code, Cursor, Codex, Gemini CLI, Zed and more with one command, and an MCP client so chat can use tools from other servers. [▶ Ep 21](https://www.youtube.com/watch?v=VScsEFn6ZoY) · [▶ Ep 16](https://www.youtube.com/watch?v=1qc6GZBLy5k)
 - **Video generation.** 13 local video models across five families (Wan 2.2, LTX, HunyuanVideo, CogVideoX, and MiniMax H3 with its own soundtrack), video LoRAs, a batch queue, frame interpolation, and one click into ComfyUI. [▶ Ep 6](https://www.youtube.com/watch?v=9rae9IJhXow)
@@ -69,7 +69,7 @@ Other ways in: [Docker](INSTALL.md#alternative-docker-linux) · [macOS on Apple 
 - **Images.** Z-Image, FLUX.1, FLUX 3 Klein, Krea 2, MOSS-Image, Qwen-Image 2.1, SDXL and Sana Sprint generation (Sana Sprint runs even on 8 GB cards), an Image Edit page that keeps a face across new scenes and scores the likeness, photo edits by instruction, inpainting and outpainting, and 4K/8K upscaling. [▶ Ep 5](https://www.youtube.com/watch?v=s9I_0gD9Iko)
 - **Music and voice.** Full songs with vocals, sound effects, three neural text-to-speech engines, consent-gated voice cloning, and hands-free voice chat. [▶ Ep 7](https://www.youtube.com/watch?v=BXlm7p-SxtU)
 - **Directors.** A beat-synced music-video director, a five-role Film Crew that turns a logline into a finished video, and a built-in video editor. [▶ Ep 8](https://www.youtube.com/watch?v=l2LqKA9GQDc) · [▶ Ep 9](https://www.youtube.com/watch?v=sq104u9N4Qg)
-- **Self-improvement.** Ask how part of Guaardvark works and it answers from its own source with checked `file:line` links. A change it makes to itself is planned, checked, undone when a check fails, and one button reverts it. The System Map draws the whole codebase from its real imports. [▶ Ep 11](https://www.youtube.com/watch?v=7kHvi_2vT6U) · [▶ Ep 14](https://www.youtube.com/watch?v=yEy1tVKxsF0)
+- **Self-improvement.** Ask how part of Guaardvark works and it answers from its own source with checked `file:line` links. A change it makes to itself is planned, checked, undone when a check fails, and one button reverts it. The System Map draws the whole codebase from its real imports. [▶ Ep 11](https://www.youtube.com/watch?v=RuduOwfy2fI) · [▶ Ep 14](https://www.youtube.com/watch?v=yEy1tVKxsF0)
 - **Command center.** A GPU orchestrator, a plugin manager with a live VRAM budget, jobs and scheduling, schema-aware backups, and a multi-machine Interconnector. [▶ Ep 12](https://www.youtube.com/watch?v=A1-_ykcHOhQ)
 - **Terminal and API.** The `guaardvark` [CLI](#cli) with an interactive REPL, plus REST and Socket.IO. [▶ Ep 20](https://www.youtube.com/watch?v=Z3nXVtfdlSI)
 
@@ -231,7 +231,7 @@ The Audio Foundry plugin runs three audio backends with shared GPU arbitration, 
 
 ## Self-improvement, System Map and code intelligence
 
-- **Self-improvement.** Guaardvark runs its own tests, sends a code agent to read the failure and the source, drafts a fix, verifies it, and stages it as a pending fix for your review; applying fixes on its own stays off unless you turn it on. Three modes: scheduled (every six hours), reactive (after repeated server errors) and directed (tasks you give it). A codebase lock stops all changes, and what it learns can be shared with your other machines over the Interconnector ([Episode 11](https://www.youtube.com/watch?v=7kHvi_2vT6U)).
+- **Self-improvement.** Guaardvark runs its own tests, sends a code agent to read the failure and the source, drafts a fix, verifies it, and stages it as a pending fix for your review; applying fixes on its own stays off unless you turn it on. Three modes: scheduled (every six hours), reactive (after repeated server errors) and directed (tasks you give it). A codebase lock stops all changes, and what it learns can be shared with your other machines over the Interconnector ([Episode 11](https://www.youtube.com/watch?v=RuduOwfy2fI)).
 - **Self-analysis and self-edits.** A question about Guaardvark itself ("where does the seed box keep its value?") starts from the System Map: the files most likely involved, the functions read by name, their callers and tests. Each `file:line` in the answer is checked against the file. A change to its own code is planned first, copies the files it touches to a restore point, runs a syntax check, an import check and the tests that cover those files, and puts them back if one fails. Revert is on the chat card and on the Self-improvement page.
 - **System Map.** A force-directed constellation of every Python and JavaScript module in the checkout, drawn from its real imports, with lifecycle tags (active, dormant, auto-loaded, test, script, config) and ranked findings you can hand to the self-improvement agent, which stages a proposed fix for your review. Ask it about the code with `system_map_query` in chat or over MCP, or `/sysmap <question>`: where a feature lives, what calls a function, what depends on a module, which tests to run after changing it ([Episode 14](https://www.youtube.com/watch?v=yEy1tVKxsF0)).
 - **Code intelligence.** A Monaco code editor with tabs and an assistant pane, repository maps, dependency graphs and AST-aware search (`get_repository_map`, `read_ast_node`, `search_code`, also over MCP). Every AI code write goes through one verified exact-replacement gate behind the codebase lock.
@@ -285,9 +285,9 @@ The local-AI ecosystem has excellent tools for every slice: chat UIs, RAG worksp
 |---|:---:|:---:|:---:|:---:|:---:|:---|
 | Local chat + RAG | core | core | — | — | via tools | core ([Ep 3](https://www.youtube.com/watch?v=pT_J93qTCL0)) |
 | Media production (video · image · music · voice) | — | — | image/video graphs | — | via connected tools | core, with director engines ([Eps 5–9](https://www.youtube.com/playlist?list=PLYycooXIy1Qs)) |
-| Agents on a real desktop | — | — | — | — | browser/tool use | core ([Ep 4](https://www.youtube.com/watch?v=sL7F8EqwQ2w)) |
+| Agents on a real desktop | — | — | — | — | browser/tool use | core ([Ep 4](https://www.youtube.com/watch?v=oMFCPXrxd_M)) |
 | Parallel coding swarms | — | — | — | usually one agent | — | up to 20 in git worktrees |
-| Self-improvement behind human gates | — | — | — | — | — | core ([Ep 11](https://www.youtube.com/watch?v=7kHvi_2vT6U)) |
+| Self-improvement behind human gates | — | — | — | — | — | core ([Ep 11](https://www.youtube.com/watch?v=RuduOwfy2fI)) |
 | One-GPU resource arbitration | — | — | — | — | — | core ([Ep 12](https://www.youtube.com/watch?v=A1-_ykcHOhQ)) |
 | Integrations and plugins | varies | varies | **enormous** | growing | **enormous** | 11 first-party plugins, plus MCP both ways |
 | Hosted or mobile option | often | often | often | often | often | none, by design: it's your machine |
@@ -341,13 +341,13 @@ Short screen recordings of the real system doing real work, narrated by its own 
 | [**14 · A map of everything**](https://www.youtube.com/watch?v=yEy1tVKxsF0) | Every module drawn from its real imports; findings that carry their own fix |
 | [**13 · The new front door**](https://www.youtube.com/watch?v=3-3XHJHHVmA) | The Workspaces bar, and everything new since the first series |
 | [**12 · Command center**](https://www.youtube.com/watch?v=A1-_ykcHOhQ) | See everything, gate everything, kill everything |
-| [**11 · Self-repair**](https://www.youtube.com/watch?v=7kHvi_2vT6U) | It fixes its own code, behind a gate you control |
+| [**11 · Self-repair**](https://www.youtube.com/watch?v=RuduOwfy2fI) | It fixes its own code, behind a gate you control |
 | [**9 · Film Crew**](https://www.youtube.com/watch?v=sq104u9N4Qg) | Script, cast, storyboard, cut |
 | [**8 · Music video**](https://www.youtube.com/watch?v=l2LqKA9GQDc) | Drop a song, get a film |
 | [**7 · Voice clone**](https://www.youtube.com/watch?v=BXlm7p-SxtU) | Consent-gated and self-checking |
 | [**6 · Video generation**](https://www.youtube.com/watch?v=9rae9IJhXow) | Seven models, one GPU |
 | [**5 · Image generation**](https://www.youtube.com/watch?v=s9I_0gD9Iko) | One prompt, a whole story |
-| [**4 · Screen agent**](https://www.youtube.com/watch?v=sL7F8EqwQ2w) | Its own desktop, eyes and hands |
+| [**4 · Screen agent**](https://www.youtube.com/watch?v=oMFCPXrxd_M) | Its own desktop, eyes and hands |
 | [**3 · File desktop**](https://www.youtube.com/watch?v=pT_J93qTCL0) | Your files get a desktop, plus RAG that shows its work |
 | [**2 · Chat brain**](https://www.youtube.com/watch?v=5HcSAf96j_M) | One chat box, three speeds |
 

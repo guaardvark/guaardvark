@@ -118,7 +118,8 @@ def collect_samples(model: str, n: int, settle_s: float = 0.8):
         servo._estimate_coordinates(img, f"colored circle with number {truth['label']}")
         # The correction targets the ANCHOR (it places the refine crop) — parse
         # the raw anchor box from the verbatim telemetry, not the refined final.
-        m = re.search(r'anchor:.*?"box_2d":\s*\[([\d\s,.-]+)\]', servo._last_raw_response or "")
+        # re.S: the eye answers in a fenced, multi-line JSON block.
+        m = re.search(r'anchor:.*?"box_2d":\s*\[([\d\s,.-]+)\]', servo._last_raw_response or "", re.S)
         if m:
             y1, x1, y2, x2 = [float(v) for v in m.group(1).split(",")[:4]]
             ax = (x1 + x2) / 2 / 1000 * servo.screen_w

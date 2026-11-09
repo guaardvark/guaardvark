@@ -236,6 +236,20 @@ class ShippedAccuracyTest(unittest.TestCase):
              patch.object(R, "_installed_digests", return_value={"gemma4:e2b": "0123456789ab"}):
             self.assertIsNone(R.accuracy_px("gemma4:e2b", (1000, 1000)))
 
+    def test_each_build_of_a_tag_gets_its_own_row(self):
+        empty = {"screen": None, "coords": None, "accuracy": None, "judge": None}
+        with patch("backend.services.servo_knowledge_store.load_model_measurements", return_value=empty):
+            with patch.object(R, "_installed_digests", return_value={"gemma4:12b": "4eb23ef187e2"}):
+                self.assertEqual(R.accuracy_px("gemma4:12b", (1000, 1000)), 5.8)
+                self.assertEqual(R.judge_rate("gemma4:12b"), 1.0)
+            with patch.object(R, "_installed_digests", return_value={"gemma4:12b": "6114515d63c1"}):
+                self.assertEqual(R.accuracy_px("gemma4:12b", (1000, 1000)), 75.5)
+                self.assertEqual(R.judge_rate("gemma4:12b"), 0.84)
+                self.assertIn("2026-11-07", R._shipped_accuracy("gemma4:12b")["source"])
+            with patch.object(R, "_installed_digests", return_value={"gemma4:12b": "0123456789ab"}):
+                self.assertIsNone(R.accuracy_px("gemma4:12b", (1000, 1000)))
+                self.assertIsNone(R.judge_rate("gemma4:12b"))
+
     def test_judge_rate_is_shipped_for_the_measured_build_and_local_wins(self):
         empty = {"screen": None, "coords": None, "accuracy": None, "judge": None}
         with patch("backend.services.servo_knowledge_store.load_model_measurements", return_value=empty), \
