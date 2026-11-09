@@ -52,6 +52,8 @@ pyarrow<26                   # 25.0.1 runs on numpy 1.26; 26.0.1 refuses numpy<2
                              # no numpy requirement, so pip picks it (datasets, sentence-transformers)
 fsspec<=2026.2.0             # datasets 4.8.5 (Training libraries) needs it; the torch install would move
                              # it to the index's newest. 2026.2.0 is on every download.pytorch.org index.
+Pillow<13                    # docling-core / docling-parse / docling-ibm-models declare Pillow<13;
+                             # install_pytorch.sh's post-torch re-pin (--no-deps --upgrade) took 13.0.0.
 
 # setuptools<81,>=80.9.0  -- REMOVED: unsatisfiable from the PyTorch index.
 #   install_pytorch.sh installs with --index-url https://download.pytorch.org/whl/<ver>,
