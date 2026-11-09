@@ -816,6 +816,8 @@ class AgentControlService:
         if native:
             schema = schema.replace('"target_description": "...", ',
                                     '"target_description": "...", ' + native[0], 1)
+        if getattr(self, "_brain_sees", False):
+            schema = schema.replace('"IN_PROGRESS|COMPLETE"', '"IN_PROGRESS|COMPLETE|BLOCKED"', 1)
         return schema
 
     def _point_block(self) -> str:
@@ -1424,6 +1426,39 @@ class AgentControlService:
                     # looked at, so nothing re-asks it. (AGENT_TEST_001: "Ok you did
                     # good, complete task" was rejected 13 times by a proof check.)
                     on_note = self._done_on_note(decision)
+                    blocked = (not on_note and self._brain_sees and (
+                        (decision.status or "").upper() == "BLOCKED"
+                        or self._proof_denies_task(task, decision.action.success_proof or "")))
+                    if blocked:
+                        words = (decision.action.success_proof or decision.action.reasoning or "")[:400]
+                        logger.info(f"[AGENT][DONE] the model says it cannot do this: {words!r}")
+                        return finish(AgentResult(
+                            success=False, reason="blocked: the model saw it cannot be done",
+                            steps=self._action_history,
+                            total_time_seconds=time.time() - start_time,
+                            final_words=words,
+                        ))
+                    proof_now = decision.action.success_proof or ""
+                    if (not on_note and self._brain_sees and not training_mode
+                            and (not proof_now.strip() or self._HISTORY_PROOF.search(proof_now))
+                            and not any((st.result or {}).get("reason") == "done_from_history"
+                                        for st in self._action_history[-1:])):
+                        # Asked once to look; a second history-only done stands.
+                        logger.info(f"[AGENT][DONE] proof recounts steps, asking for a look: {proof_now!r}")
+                        self._emit_thinking(
+                            iteration=iteration + 1, label="done — say what you see",
+                            reasoning=("The proof described earlier steps, not the screen. "
+                                       "Looking again before finishing."),
+                        )
+                        self._action_history.append(ActionStep(
+                            iteration=iteration, scene_description=scene_desc or "no scene",
+                            action=AgentAction(action_type="done",
+                                               target_description=proof_now[:120] or "(no proof)"),
+                            result={"success": False, "reason": "done_from_history",
+                                    "error": "a done says what the screen shows now"},
+                            failed=True,
+                        ))
+                        continue
                     if on_note or self._brain_sees:
                         reason_done = "completed (on your note)" if on_note else "completed"
                         logger.info(
@@ -3661,6 +3696,10 @@ class AgentControlService:
     # Neutral on purpose. "It probably missed" sent a model that had hit all
     # five trainer dots back for a sixth click: on that page a hit changes
     # nothing at the dot, only the score in the header (2026-09-24 live run).
+    _SENT_LEGEND = (
+        "[SENT] = the click went where you aimed. Nothing has checked what it did: "
+        "look at this screenshot to see whether it landed on the target.\n"
+    )
     _NO_CHANGE_LEGEND = (
         "[NO CHANGE] = the click was sent but nothing changed where it landed. That "
         "is not proof of a miss: check the screen (a counter, a new page, a marker) "
@@ -3687,6 +3726,11 @@ class AgentControlService:
         effect = str((step.result or {}).get("post_action_effect") or "")
         if step.action.action_type in cls._CLICK_FAMILY and effect in cls._NO_CHANGE_EFFECTS:
             return "NO CHANGE"
+        if getattr(step.action, "native_point", None) and effect == "pending_observation":
+            # Sent where the model aimed. Whether it hit is for its own eyes:
+            # tagged [OK], it read a click beside the circle as a hit
+            # (2026-11-09 pencil-dots trial).
+            return "SENT"
         return "OK"
 
     @classmethod
@@ -3853,9 +3897,10 @@ class AgentControlService:
                 p0, pn = h.action.points[0], h.action.points[-1]
                 desc = f"{len(h.action.points)} points from ({p0[0]}, {p0[1]}) to ({pn[0]}, {pn[1]})"
             steps.append(f"  {h.action.action_type}: {desc} [{status}]")
-        legend = (AgentControlService._NO_CHANGE_LEGEND
-                  if any(AgentControlService._step_status(h) == "NO CHANGE" for h in history[-n:])
-                  else "")
+        shown = {AgentControlService._step_status(h) for h in history[-n:]}
+        legend = AgentControlService._NO_CHANGE_LEGEND if "NO CHANGE" in shown else ""
+        if "SENT" in shown:
+            legend += AgentControlService._SENT_LEGEND
         return header + "\n" + "\n".join(steps) + "\n" + legend
 
     @classmethod
@@ -4082,13 +4127,61 @@ class AgentControlService:
 
 {self._SCROLL_RULE}
 
-{self._point_block()}{self._DONE_RULE}
+{self._point_block()}{self._sighted_block()}{self._DONE_RULE}
 
 Reply ONLY with JSON:
 {self._schema_full()}
 
 {self._TOOLBOX_NOTE}
 """
+
+    # A sighted model's done ends the task, so a done that means "I can't" has
+    # to be said as such: "No notification bell icon is visible" came back as
+    # a done and was reported as success (2026-11-09 trial).
+    _SIGHTED_RULE = (
+        "Your done ends the task, so success_proof says what you see on this screenshot "
+        "now that shows it finished, not what earlier steps did. If you can see that the "
+        "task cannot be done here (the thing it needs is not on the screen and nothing you "
+        "can do will bring it), reply action=\"done\" with status=\"BLOCKED\" and say what "
+        "you see in success_proof."
+    )
+    # A proof that only recounts the model's own steps is not something it saw:
+    # "notification bell icon was successfully targeted and clicked in previous
+    # steps", on a page with no bell (2026-11-09 trial).
+    _HISTORY_PROOF = re.compile(
+        r"\b(?:in|from|during)\s+(?:the\s+)?(?:previous|earlier|prior|last)\s+steps?\b|"
+        r"\b(?:previous|earlier|prior)\s+(?:steps?|clicks?|actions?|attempts?)\b|"
+        r"\b(?:was|were|has\s+been|have\s+been)\s+(?:successfully\s+)?"
+        r"(?:clicked|targeted|completed|done|sent)\b|\bhistory\b",
+        re.IGNORECASE)
+
+    def _sighted_block(self) -> str:
+        return self._SIGHTED_RULE + "\n\n" if getattr(self, "_brain_sees", False) else ""
+
+    _CANNOT = re.compile(r"\b(?:cannot|can'?t|unable to|impossible)\b", re.IGNORECASE)
+    _TASK_VERBS = {"click", "open", "find", "press", "select", "type", "go", "please", "top", "right",
+                   "left", "bottom", "each", "once", "screen", "page", "your", "agent"}
+
+    @classmethod
+    def _proof_denies_task(cls, task: str, proof: str) -> bool:
+        """The model's own proof says the task's target is not there.
+
+        Only the task's own words count: "no notification bell icon is visible"
+        for a bell task. "The popup is no longer visible" for a close-the-popup
+        task does not match, and is the success it reads as.
+        """
+        if not proof.strip():
+            return False
+        if cls._CANNOT.search(proof):
+            return True
+        words = [t for t in cls._significant_tokens(task) if t not in cls._TASK_VERBS]
+        for t in words:
+            w = re.escape(t)
+            if re.search(rf"\bno\s+(?:\w+\s+){{0,3}}{w}", proof, re.IGNORECASE):
+                return True
+            if re.search(rf"\b{w}\w*\s+(?:\w+\s+){{0,2}}(?:is|was|are|were)\s+not\b", proof, re.IGNORECASE):
+                return True
+        return False
 
     @staticmethod
     def _get_unified_model(active: str = "", screen=None) -> str:
