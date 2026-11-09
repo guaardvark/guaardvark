@@ -217,7 +217,7 @@ def _guard_checks(debug: bool) -> tuple[list[dict], bool]:
 
     if auth_guard.network_access_open():
         checks.append(_check(
-            "network_access", "Network access", WARN,
+            "network_access", "Trust local network", WARN,
             "On. Every device on this machine's local network can run protected actions "
             "without the API key, and can use chat, including the tools chat asks approval "
             "for, since the device that asks is the device that approves. The Code "

@@ -103,7 +103,7 @@ const FleetMembership = ({ identity }) => {
   );
 };
 
-const InterconnectorSettings = () => {
+const InterconnectorSettings = ({ startConnecting = false }) => {
   const { t } = useUiTranslation();
   const { showMessage } = useSnackbar();
   const systemName = useAppStore((state) => state.systemName);
@@ -338,6 +338,16 @@ const InterconnectorSettings = () => {
     return () => clearInterval(autoSyncInterval);
   }, [savedConfig, isSyncingData]);
 
+  // Opened from Sync's Connect: show a disabled config at the enable step
+  // (fields open, name filled in), as the Enable chip does. Nothing is saved
+  // until Save; Cancel returns to the saved config.
+  const withConnectStep = (cfg) => {
+    if (!startConnecting || cfg.is_enabled) return cfg;
+    const nodeName = cfg.node_name?.trim() ? cfg.node_name : systemName;
+    if (!nodeName) return cfg;
+    return { ...cfg, is_enabled: true, node_name: nodeName };
+  };
+
   const loadConfiguration = async () => {
     setIsLoading(true);
     try {
@@ -348,16 +358,12 @@ const InterconnectorSettings = () => {
         // Keep default config - don't call setConfig since state is already initialized
       } else if (response.error) {
         showMessage(t("settingsInterconnector.messages.loadConfigFailed", { error: response.error }), "error");
-      } else if (response.data?.config) {
-        const loadedConfig = response.data.config;
-        setConfig(loadedConfig);
+      } else if (response.data?.config || response.config) {
+        const loadedConfig = response.data?.config || response.config;
+        setConfig(withConnectStep(loadedConfig));
         // The registration effect registers a client node from this saved
         // config; nothing is sent from here.
         rememberSaved(loadedConfig);
-      } else if (response.config) {
-        // Fallback for direct config in response
-        setConfig(response.config);
-        rememberSaved(response.config);
       }
     } catch (error) {
       // Silently handle if plugin is not enabled

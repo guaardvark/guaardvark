@@ -53,7 +53,7 @@
     "killResults": "Wyniki wyłączenia",
     "killed": "Pomyślnie wyłączono {{count}} procesów",
     "killedWithFailures": "Pomyślnie zakończono {{count}} procesów, {{failed}} nie udało się",
-    "webAccessOff": "Dostęp do sieci został wyłączony: żadne narzędzie, zadanie agenta ani przeglądarka agenta nie może łączyć się z zewnętrznymi witrynami. Pozostanie wyłączony, dopóki nie włączysz go ponownie w Ustawieniach.",
+    "webAccessOff": "Dostęp do sieci jest teraz wyłączony: żadne narzędzie, zadanie agenta, przeglądarka agenta ani Kod, który uruchamia asystent, nie może łączyć się z zewnętrznymi witrynami. Pozostanie wyłączony, dopóki nie włączysz go ponownie w Ustawieniach.",
     "webAccessFailed": "Nie udało się wyłączyć dostępu do sieci: {{error}}",
     "unknownError": "nieznany błąd",
     "agentTaskStopped": "Uruchomione zadanie agenta zostało zatrzymane.",

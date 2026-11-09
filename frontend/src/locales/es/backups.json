@@ -53,7 +53,7 @@
     "killResults": "Resultados del cierre",
     "killed": "Se han finalizado {{count}} procesos con éxito",
     "killedWithFailures": "Se han eliminado con éxito {{count}} procesos, {{failed}} fallaron",
-    "webAccessOff": "El acceso web está desactivado: ninguna herramienta, tarea de agente o navegador de agente puede acceder a sitios externos. Permanecerá desactivado hasta que lo actives en Ajustes.",
+    "webAccessOff": "El acceso web está desactivado: ninguna herramienta, tarea de agente, navegador de agente o código que ejecute el asistente puede acceder a sitios externos. Permanecerá desactivado hasta que lo vuelvas a activar en Ajustes.",
     "webAccessFailed": "No se pudo desactivar el acceso web: {{error}}",
     "unknownError": "error desconocido",
     "agentTaskStopped": "La tarea del agente en ejecución se detuvo.",

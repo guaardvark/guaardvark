@@ -2,11 +2,11 @@
   "access": {
     "defaultMachine": "Guaardvark 머신",
     "outsideLocalNetwork": "이 기능은 {{machine}} 및 해당 로컬 네트워크 내의 기기에서만 작동하며, 현재 기기는 네트워크 외부에 있습니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
-    "runsCodeKeyRequired": "이 기능은 {{machine}}에서 프로그램을 실행하며, 네트워크 접속이 활성화된 상태라도 {{machine}} 자체 또는 API 키가 있는 경우에만 작동합니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
-    "fleetKeyRequired": "이 Interconnector 작업은 네트워크 접속이 활성화된 상태라도 {{machine}} 자체 또는 API 키가 있는 경우에만 작동합니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
-    "backupsKeyRequired": "백업에는 데이터베이스를 포함해 {{machine}}의 모든 것이 들어 있으므로, 네트워크 접속이 활성화된 상태라도 {{machine}} 자체 또는 API 키가 있는 경우에만 작동합니다. {{machine}}의 설정 → Access에서 API 키를 생성한 후, 이 기기의 설정 → Access에 입력하십시오.",
-    "localOnlyKeyRemoved": "{{machine}}에 더 이상 API 키가 없으므로, 이 기능은 {{machine}} 본체에서만 작동합니다. 설정 → 액세스 → 네트워크 액세스에서 기능을 켜거나, 해당 위치에서 새 키를 생성하여 이 기기의 설정 → 액세스에 입력하세요.",
-    "localOnly": "이 기능은 {{machine}} 자체에서만 작동합니다. 여기서 사용하려면 {{machine}}의 설정 → Access → Network access를 켜거나, 거기에서 API 키를 생성하여 이 기기의 설정 → Access에 입력하십시오.",
+    "runsCodeKeyRequired": "이 기능은 {{machine}}에서 프로그램을 실행하며, '로컬 네트워크 신뢰'가 켜져 있어도 {{machine}} 자체 또는 해당 기기의 API 키가 있어야만 작동합니다. 설정 → {{machine}}의 액세스에서 API 키를 생성한 후, 이 기기의 설정 → 액세스에 입력하세요.",
+    "fleetKeyRequired": "이 Interconnector 작업은 '로컬 네트워크 신뢰'가 켜져 있어도 {{machine}} 자체 또는 해당 기기의 API 키가 있어야만 작동합니다. 설정 → {{machine}}의 액세스에서 API 키를 생성한 후, 이 기기의 설정 → 액세스에 입력하세요.",
+    "backupsKeyRequired": "백업은 데이터베이스를 포함한 {{machine}}의 모든 데이터를 보유하므로, '로컬 네트워크 신뢰'가 활성화된 상태에서도 오직 {{machine}} 자체 또는 해당 기기의 API 키가 있어야만 작동합니다. {{machine}}의 설정 → 액세스에서 API 키를 생성한 후, 이 기기의 설정 → 액세스에 입력해 주세요.",
+    "localOnlyKeyRemoved": "{{machine}}에 더 이상 API 키가 없으므로, 이 기능은 {{machine}} 본체에서만 작동합니다. 설정 → 접근 → 로컬 네트워크 신뢰를 켜거나, 해당 기기에서 새 키를 생성하여 이 기기의 설정 → 접근에 입력하세요.",
+    "localOnly": "이 기능은 {{machine}} 자체에서만 작동합니다. 여기서 사용하려면 {{machine}}의 설정 → 액세스 → 로컬 네트워크 신뢰를 켜거나, 거기에서 API 키를 생성하여 이 기기의 설정 → 액세스에 입력하세요.",
     "keyOutOfDate": "이 브라우저는 {{machine}}이 더 이상 사용하지 않는 키로 로그인되었습니다. 설정 → Access에서 현재 키를 입력하십시오.",
     "keyRequired": "설정 → Access에서 {{machine}}의 API 키를 입력하세요. 키는 생성 시 표시되며, {{machine}}은 이를 .env 파일에 GUAARDVARK_API_KEY로 저장합니다."
   },
