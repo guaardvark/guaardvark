@@ -1,5 +1,6 @@
 {
   "filter": {
+    "status": "Status",
     "all": "All",
     "active": "Active",
     "completed": "Completed",
@@ -19,7 +20,10 @@
     "cancelRefused": "Could not cancel VideoGen job",
     "cancelFailed": "Cancel failed",
     "title": "Video Batch Jobs",
-    "intro": "Queued and running batches from the unified VIDEO_GEN pipeline (Batch Video / Video Generator). This page (Job Scheduler) also handles legacy scheduled jobs for code, content, CSV, analysis, and custom tasks via the New Job menu.",
+    "intro": "Queued and running batches from Video and Batch Video.",
+    "cancelTitle": "Cancel {{label}}",
+    "cancelDescription": "This batch stops. A clip that is rendering now is interrupted.",
+    "cancelKeeps": "clips already written",
     "refresh": "Refresh Video Batch jobs",
     "empty": "No pending video batch jobs.",
     "label": "Label",
@@ -44,7 +48,8 @@
     "title": "Delete this task",
     "description": "\"{{name}}\" is deleted.",
     "thisTask": "this task",
-    "confirm": "Delete task"
+    "confirm": "Delete task",
+    "keeps": "the output file already written"
   },
   "deleteFailed": "Failed to delete task: {{error}}",
   "start": {
@@ -56,15 +61,17 @@
   },
   "clear": {
     "none": "No tasks to clear",
-    "title": "Delete all tasks",
-    "description": "Every task in this list is deleted.",
+    "title": "Delete all jobs",
+    "description": "Every job is deleted, including ones a filter is hiding.",
+    "keeps": "output files already written",
     "tasksFact": "Tasks",
+    "onScreen": "On screen",
     "confirm": "Delete all",
     "clearing": "Clearing all tasks...",
     "done": "Successfully deleted {{count}} tasks",
     "failed": "Failed to clear tasks: {{error}}"
   },
-  "title": "Job Scheduler",
+  "title": "Jobs",
   "counts": {
     "pending": "{{count}} Pending",
     "queued": "{{count}} Queued",
@@ -76,7 +83,7 @@
   "newJob": "New Job",
   "newMenu": {
     "code": "Code Generation",
-    "csv": "CSV / Bulk Content",
+    "csv": "CSV file",
     "content": "Content Generation",
     "analysis": "Data Analysis",
     "custom": "Custom Job"
@@ -85,20 +92,40 @@
     "label": "Type",
     "all": "All Types",
     "code": "Code Gen",
-    "csv": "CSV / Bulk",
+    "csv": "CSV file",
     "content": "Content",
-    "analysis": "Analysis"
+    "analysis": "Analysis",
+    "bulk": "Bulk content",
+    "website": "Website",
+    "custom": "Custom"
+  },
+  "types": {
+    "file_generation": "CSV file",
+    "code_generation": "Code",
+    "content_generation": "Content",
+    "bulk_content_generation": "Bulk content",
+    "data_analysis": "Analysis",
+    "website_analysis": "Website",
+    "custom": "Custom"
   },
   "loading": "Loading tasks...",
-  "emptyTitle": "No tasks found",
-  "emptyDescription": "Use the quick actions above to create your first task",
+  "emptyTitle": "No jobs yet",
+  "emptyDescription": "Use New Job to add one.",
+  "emptyFilteredTitle": "No jobs match",
+  "emptyFilteredDescription": "The status or type filter is hiding them.",
+  "clearFilters": "Show all",
+  "stop": {
+    "noJob": "This job has not started, so there is nothing to cancel.",
+    "stopped": "Stopped \"{{name}}\".",
+    "failed": "Could not stop the job: {{error}}"
+  },
   "menu": {
     "start": "Start",
     "cancel": "Cancel",
     "edit": "Edit",
     "duplicate": "Duplicate",
     "newCode": "New Code Generation",
-    "newCsv": "New CSV / Bulk Content",
+    "newCsv": "New CSV file",
     "newContent": "New Content Generation",
     "newAnalysis": "New Data Analysis",
     "newCustom": "New Custom Job"
