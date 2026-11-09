@@ -23,7 +23,7 @@ import time
 import uuid
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional
 
 import requests
 
@@ -104,6 +104,7 @@ class UpscaleJob:
     service_job: Dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     cancel: threading.Event = field(default_factory=threading.Event)
+    on_complete: Optional[Callable[["UpscaleJob"], None]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """The shape the Upscaling page reads (the service's job dict), keyed by this job's id."""
@@ -171,8 +172,12 @@ class UpscaleSupervisor:
 
     # ---- queued jobs -----------------------------------------------------------
 
-    def submit(self, kind: str, path: str, payload: Dict[str, Any], label: str) -> tuple[Optional[dict], Optional[str], int]:
-        """Queue a job. Returns (job dict, None, 200) or (None, refusal, status)."""
+    def submit(self, kind: str, path: str, payload: Dict[str, Any], label: str,
+               on_complete: Optional[Callable[[UpscaleJob], None]] = None) -> tuple[Optional[dict], Optional[str], int]:
+        """Queue a job. Returns (job dict, None, 200) or (None, refusal, status).
+
+        ``on_complete`` runs on the worker thread once the job has completed.
+        """
         down = _ensure_service()
         if down:
             return None, f"Upscaling is not available: {down}", 503
@@ -187,6 +192,7 @@ class UpscaleSupervisor:
         job = UpscaleJob(
             id=f"up_{uuid.uuid4().hex[:12]}", kind=kind, path=path,
             payload={**payload, "model": model}, model=model, vram_mb=vram_mb, label=label,
+            on_complete=on_complete,
         )
         with self._lock:
             self._jobs[job.id] = job
@@ -424,6 +430,12 @@ class UpscaleSupervisor:
             pass
 
     def _finish(self, job: UpscaleJob, status: str, error: Optional[str]) -> None:
+        if status == "completed" and job.on_complete is not None:
+            try:
+                job.on_complete(job)
+            except Exception as e:  # noqa: BLE001
+                logger.error("upscale %s finished but its result was not filed: %s", job.id, e)
+                status, error = "failed", f"Upscaled, but the result was not filed: {e}"
         job.status, job.error = status, error
         job.message = {"completed": f"Upscaled {job.label}", "cancelled": "Cancelled"}.get(status, error or "Failed")
         try:

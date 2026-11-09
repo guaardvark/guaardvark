@@ -555,6 +555,112 @@ def upscale_images():
     return error_response(_proxy_error(data, "Failed to submit image batch"), status)
 
 
+# Formats the upscaler reads: OpenCV for stills, ffmpeg for video.
+DOCUMENT_IMAGE_EXTENSIONS = frozenset({".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"})
+DOCUMENT_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mov", ".mkv", ".avi"})
+
+
+def _free_sibling_name(document, physical_path: Path, ext: str) -> tuple[Path, str]:
+    """``<stem>_upscaled<ext>`` beside the source (``_upscaled_2`` and up when taken)."""
+    from backend.models import Document as DBDocument
+
+    counter = 1
+    while True:
+        name = f"{physical_path.stem}_upscaled{f'_{counter}' if counter > 1 else ''}{ext}"
+        out_path = physical_path.parent / name
+        doc_path = str(Path(document.path).parent / name)
+        if not out_path.exists() and DBDocument.query.filter_by(path=doc_path).first() is None:
+            return out_path, doc_path
+        counter += 1
+
+
+def _file_beside(source_id: int, out_path: Path, doc_path: str) -> dict:
+    """Add the upscaled file to the source document's folder."""
+    from backend.models import Document as DBDocument, db
+    from backend.utils.clock import utcnow
+
+    source = db.session.get(DBDocument, source_id)
+    row = DBDocument(
+        filename=out_path.name,
+        path=doc_path,
+        folder_id=source.folder_id if source else None,
+        type=out_path.suffix.lower(),
+        size=out_path.stat().st_size,
+        index_status="NOT_INDEXED",
+        uploaded_at=utcnow(),
+    )
+    db.session.add(row)
+    db.session.commit()
+    return {"document_id": row.id, "filename": row.filename, "path": row.path}
+
+
+@upscaling_bp.route("/upscale/document", methods=["POST"])
+def upscale_document():
+    """Upscale an image or video from the Files page; the result is filed beside it.
+
+    JSON: ``document_id`` plus the usual knobs (model, scale, sharpen,
+    denoise_strength, two_pass, face_enhance). An image returns the new
+    document; a video is queued and its document appears when the job completes.
+    """
+    from flask import current_app
+    from backend.api.files_api import get_physical_path
+    from backend.models import Document as DBDocument, db
+
+    body = flask_request.get_json(silent=True) or {}
+    try:
+        doc_id = int(body.get("document_id"))
+    except (TypeError, ValueError):
+        return error_response("document_id is required", 400)
+    document = db.session.get(DBDocument, doc_id)
+    if document is None:
+        return error_response("Document not found", 404)
+    try:
+        source = get_physical_path(document.path)
+    except Exception:
+        return error_response("Document path is outside the library", 400)
+    if not source.is_file():
+        return error_response("File not found on disk", 404)
+
+    ext = source.suffix.lower()
+    is_video = ext in DOCUMENT_VIDEO_EXTENSIONS
+    if not is_video and ext not in DOCUMENT_IMAGE_EXTENSIONS:
+        return error_response(f"{ext or 'This file'} cannot be upscaled; images and videos only", 400)
+
+    options = _image_options_from_form({k: (str(v) if v is not None else None)
+                                        for k, v in body.items() if k != "document_id"})
+    out_path, doc_path = _free_sibling_name(document, source, ".mp4" if is_video else ".png")
+
+    if is_video:
+        if not upscale_supervisor.enabled():
+            return error_response("Upscaling a video from Files needs the upscale queue "
+                                  "(GUAARDVARK_UPSCALE_GPU_SESSION is off)", 409)
+        app = current_app._get_current_object()
+
+        def file_it(job, _id=doc_id, _out=out_path, _dp=doc_path):
+            with app.app_context():
+                _file_beside(_id, _out, _dp)
+
+        payload = {"input_path": str(source), "output_path": str(out_path), "suffix": "upscaled", **options}
+        job, refusal, status = upscale_supervisor.get_supervisor().submit(
+            "video", "/upscale/video", payload, source.name, on_complete=file_it)
+        if refusal:
+            return error_response(refusal, status)
+        return success_response(data={**job, "output_file": out_path.name}, message="Upscale job queued")
+
+    down = _start_upscaling_for_job()
+    if down:
+        return down
+    payload = {"input_path": str(source), "output_path": str(out_path), **options}
+    try:
+        with _gpu_turn(payload.get("model")):
+            data, status = _proxy_post("/upscale/image", payload, timeout=UPSCALING_IMAGE_TIMEOUT)
+    except upscale_supervisor.UpscaleGpuBusy as e:
+        return error_response(str(e), 409)
+    if status != 200 or not out_path.is_file():
+        return error_response(_proxy_error(data, "Failed to upscale image"), status if status != 200 else 500)
+    return success_response(data=_file_beside(doc_id, out_path, doc_path), message="Image upscaled")
+
+
 @upscaling_bp.route("/output/image/<path:filename>", methods=["GET"])
 def serve_image_output(filename):
     """Serve an upscaled still out of the plugin's image output directory."""
