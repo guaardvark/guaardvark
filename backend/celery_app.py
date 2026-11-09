@@ -56,6 +56,13 @@ def create_celery_app():
     
     broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
     result_backend = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+    if os.environ.get("DISABLE_CELERY", "").strip().lower() in ("1", "true", "yes"):
+        # Tests and isolated checks: a task sent stays in this process and no
+        # worker runs it. Celery reads these variables ahead of its own
+        # settings, so they are replaced too.
+        broker_url, result_backend = "memory://", "cache+memory://"
+        os.environ["CELERY_BROKER_URL"] = broker_url
+        os.environ["CELERY_RESULT_BACKEND"] = result_backend
 
     celery_app = GuaardvarkCelery(
         __name__,

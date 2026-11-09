@@ -31,6 +31,15 @@ from backend.celery_dispatch import (
 REFUSED = "redis://127.0.0.1:1/0"
 
 
+@pytest.fixture(autouse=True)
+def _broker_from_the_test(monkeypatch):
+    """Celery reads CELERY_BROKER_URL and CELERY_RESULT_BACKEND ahead of the
+    broker an app is built with. With .env exported they named the live Redis,
+    and dispatch_bound_test.noop reached it instead of the dead address."""
+    monkeypatch.delenv("CELERY_BROKER_URL", raising=False)
+    monkeypatch.delenv("CELERY_RESULT_BACKEND", raising=False)
+
+
 def _app(url: str) -> GuaardvarkCelery:
     app = GuaardvarkCelery("dispatch-bound-test", broker=url, backend=url, set_as_current=False)
     apply_sender_bounds(app.conf)

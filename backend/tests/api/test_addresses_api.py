@@ -13,6 +13,7 @@ import pytest
 try:
     from flask import Flask
     from sqlalchemy import Column, Integer, String
+    from sqlalchemy.orm import declarative_base
 
     from backend.api import addresses_api
     from backend.api.addresses_api import addresses_bp, register_local_source
@@ -22,8 +23,16 @@ except Exception:  # pragma: no cover - environment guard
     pytest.skip("Backend modules not available", allow_module_level=True)
 
 
-class Place(db.Model):
+# Not db.Model: a table in db.metadata is created by every db.create_all() in
+# the session, and the app factory runs one on the configured database, so
+# test_places used to appear in the live one.
+_PlaceBase = declarative_base()
+
+
+class Place(_PlaceBase):
     """Stand-in for whatever address-bearing table a distribution registers."""
+
+    query = db.session.query_property()
 
     __tablename__ = "test_places"
     id = Column(Integer, primary_key=True)
@@ -48,12 +57,14 @@ def app(monkeypatch):
     application.register_blueprint(addresses_bp)
     with application.app_context():
         db.create_all()
+        _PlaceBase.metadata.create_all(db.engine)
         db.session.add(
             Place(address="210 O'Connor Dr", city="Elkhorn", state="WI", zip="53121")
         )
         db.session.commit()
         yield application
         db.session.remove()
+        _PlaceBase.metadata.drop_all(db.engine)
         db.drop_all()
 
 
