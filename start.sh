@@ -1943,8 +1943,15 @@ if ! command_exists curl || ! command_exists wget || ! command_exists git; then
     vader_warn "Some system dependencies missing (curl, wget, git)"
 fi
 
-if ! command_exists ffmpeg; then
-    vader_warn "FFmpeg not found. Voice features require FFmpeg."
+# torchaudio reads and writes audio files through TorchCodec, which loads FFmpeg's
+# shared libraries (libavcodec and friends); a static ffmpeg binary is not enough.
+_ffmpeg_libs_missing() {
+    local ldc
+    ldc="$(command -v ldconfig || echo /sbin/ldconfig)"
+    [ -x "$ldc" ] && ! "$ldc" -p 2>/dev/null | grep -q 'libavcodec\.so\.'
+}
+if ! command_exists ffmpeg || _ffmpeg_libs_missing; then
+    vader_warn "FFmpeg or its shared libraries not found. Voice features and audio file I/O require them."
     if command_exists apt-get && [ "$FAST_START" -ne 1 ]; then
         _vader_sudo_v "install ffmpeg" || true
         if _vader_run "$SETUP_LOG" -- sudo apt-get update && _vader_run "$SETUP_LOG" -- sudo apt-get install -y ffmpeg; then
