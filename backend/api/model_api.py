@@ -636,6 +636,27 @@ def get_resources():
     }, "Resources retrieved")
 
 
+@model_bp.route("/embedding/path", methods=["GET"])
+def embedding_path():
+    """Which path the indexer embeds through: the GPU Embedding plugin or its own Ollama path, and why."""
+    try:
+        from backend.utils.embedding_router import get_embedding_router
+        router = get_embedding_router()
+        gate = router.plugin_gate()
+        if gate.enabled():
+            # One real decision (and a probe the first time per model), so the
+            # answer is the one the next indexing call would get.
+            with router.lock:
+                router._via_plugin_check()
+        status = gate.status()
+        status["model"] = router._model_name()
+        status["path"] = "gpu_embedding_plugin" if status["in_use"] else (
+            "ollama_gpu" if router.profile_config["gpu_enabled"] else "ollama_cpu")
+        return success_response(status, "Embedding path")
+    except Exception as e:
+        return error_response(f"Could not read the embedding path: {e}", 500, "EMBEDDING_PATH_ERROR")
+
+
 @model_bp.route("/embedding/list", methods=["GET"])
 def list_embedding_models():
     """List available embedding models from Ollama."""

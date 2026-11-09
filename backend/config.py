@@ -901,14 +901,15 @@ CLUSTER_MASTER_NODE_ID = os.getenv("CLUSTER_MASTER_NODE_ID", "")
 CLUSTER_SWEEP_INTERVAL_S = int(os.getenv("CLUSTER_SWEEP_INTERVAL_S", "5"))
 CLUSTER_HEARTBEAT_TIMEOUT_S = int(os.getenv("CLUSTER_HEARTBEAT_TIMEOUT_S", "15"))
 
-# GPU embedding plugin was removed — the EmbeddingRouter now handles
-# GPU/CPU routing natively via Ollama num_gpu=0 for the CPU path.
-# Legacy stubs kept for backward compatibility with any remaining imports.
+# The EmbeddingRouter sends work to the GPU Embedding plugin itself; see
+# backend/utils/gpu_embedding_plugin.py for when it does and why it falls back.
 def is_gpu_embedding_plugin_enabled() -> bool:
-    return False
+    from backend.utils.gpu_embedding_plugin import plugin_enabled
+    return plugin_enabled()
 
 def is_gpu_embedding_service_available() -> bool:
-    return False
+    from backend.utils.embedding_router import get_embedding_router
+    return get_embedding_router().plugin_gate().status()["in_use"]
 
 GPU_EMBEDDING_SERVICE_URL = ""
 GPU_EMBEDDING_TIMEOUT = 30
