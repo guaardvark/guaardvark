@@ -18,7 +18,15 @@ from typing import Any
 from mcp.server.lowlevel import Server
 
 from backend.mcp import MCP_NAME, MCP_TITLE, get_version
-from backend.mcp.config import MCPConfig, load_config
+from backend.mcp.config import (
+    ALL_TOOLSET,
+    TOOLSET_ENV,
+    TOOLSETS,
+    MCPConfig,
+    load_config,
+    toolset_members,
+    toolset_names,
+)
 from backend.mcp.resources_adapter import build_resource_handlers
 from backend.mcp.tools_adapter import build_tool_handlers
 
@@ -39,13 +47,35 @@ class MCPServerDisabled(RuntimeError):
     """The configuration switches the server off; nothing is built or served."""
 
 
-def build_server(config: MCPConfig | None = None) -> tuple[Server, dict[str, int]]:
+_SUPPORT = "Docs: https://guaardvark.com/mcp/ · Support: support@guaardvark.com"
+
+
+def _instructions(cfg: MCPConfig, tool_count: int) -> str:
+    """What the client is told about this server, naming a narrowed toolset."""
+    name = cfg.tools.toolset
+    if name == ALL_TOOLSET:
+        return (
+            f"{MCP_TITLE} — local-first AI platform. Exposes generation, RAG, "
+            f"memory, and web tools plus generated outputs as MCP resources. {_SUPPORT}"
+        )
+    others = ", ".join(other for other in toolset_names() if other != name)
+    return (
+        f"{MCP_TITLE} — local-first AI platform. This server runs the '{name}' toolset: "
+        f"{TOOLSETS[name].summary} ({tool_count} tools), plus generated outputs as MCP "
+        f"resources. Other toolsets: {others}; choose one with --toolset or {TOOLSET_ENV}. "
+        f"{_SUPPORT}"
+    )
+
+
+def build_server(config: MCPConfig | None = None) -> tuple[Server, dict[str, Any]]:
     """
     Construct the MCP server with all adapters wired up.
 
-    Returns (server, stats) where stats is ``{"tools": N, "resources": M}``.
+    Returns (server, stats) where stats is
+    ``{"tools": N, "resources": M, "toolset": name}``.
     Callers print the stats banner before handing off to a transport.
-    Raises ``MCPServerDisabled`` when the configuration turns the server off.
+    Raises ``MCPServerDisabled`` when the configuration turns the server off,
+    and ``UnknownToolset`` when it names a toolset that does not exist.
     """
     cfg = config or load_config()
     if not cfg.enabled:
@@ -54,6 +84,7 @@ def build_server(config: MCPConfig | None = None) -> tuple[Server, dict[str, int
             f"{cfg.disabled_by or 'its configuration'}. Set it to true, or remove it, "
             "to let MCP clients connect."
         )
+    toolset_members(cfg.tools)
     version = get_version()
 
     _ensure_tools_initialized()
@@ -65,11 +96,7 @@ def build_server(config: MCPConfig | None = None) -> tuple[Server, dict[str, int
     server: Server = Server(
         name=MCP_NAME,
         version=version,
-        instructions=(
-            f"{MCP_TITLE} — local-first AI platform. Exposes generation, RAG, "
-            "memory, and web tools plus generated outputs as MCP resources. "
-            "Docs: https://guaardvark.com/mcp/ · Support: support@guaardvark.com"
-        ),
+        instructions=_instructions(cfg, tool_count),
         website_url="https://guaardvark.com",
         on_list_tools=on_list_tools,
         on_call_tool=on_call_tool,
@@ -77,12 +104,12 @@ def build_server(config: MCPConfig | None = None) -> tuple[Server, dict[str, int
         on_read_resource=on_read_resource,
     )
 
-    return server, {"tools": tool_count, "resources": resource_count}
+    return server, {"tools": tool_count, "resources": resource_count, "toolset": cfg.tools.toolset}
 
 
 async def run_stdio(
     config: MCPConfig | None = None,
-    prebuilt: tuple[Server, dict[str, int]] | None = None,
+    prebuilt: tuple[Server, dict[str, Any]] | None = None,
 ) -> None:
     """
     Run the server on stdin/stdout. Blocks until the peer disconnects.
@@ -93,8 +120,8 @@ async def run_stdio(
 
     server, stats = prebuilt or build_server(config)
     logger.info(
-        "MCP server ready: %s v%s — %d tools, %d resources",
-        MCP_NAME, get_version(), stats["tools"], stats["resources"],
+        "MCP server ready: %s v%s — %d tools (toolset %s), %d resources",
+        MCP_NAME, get_version(), stats["tools"], stats.get("toolset", ALL_TOOLSET), stats["resources"],
     )
     async with stdio_server() as (read, write):
         await server.run(read, write, server.create_initialization_options())
@@ -104,7 +131,7 @@ def run_http(
     host: str = "127.0.0.1",
     port: int = 8788,
     config: MCPConfig | None = None,
-    prebuilt: tuple[Server, dict[str, int]] | None = None,
+    prebuilt: tuple[Server, dict[str, Any]] | None = None,
 ) -> None:
     """
     Serve MCP over streamable HTTP at ``http://{host}:{port}/mcp``.
@@ -118,8 +145,9 @@ def run_http(
 
     server, stats = prebuilt or build_server(config)
     logger.info(
-        "MCP server ready (http): %s v%s — %d tools, %d resources on http://%s:%d/mcp",
-        MCP_NAME, get_version(), stats["tools"], stats["resources"], host, port,
+        "MCP server ready (http): %s v%s — %d tools (toolset %s), %d resources on http://%s:%d/mcp",
+        MCP_NAME, get_version(), stats["tools"], stats.get("toolset", ALL_TOOLSET), stats["resources"],
+        host, port,
     )
     uvicorn.run(http_app(server, host), host=host, port=port, log_level="info")
 

@@ -2,7 +2,7 @@
 Adapter: Guaardvark ``BaseTool`` → MCP ``Tool``.
 
 Walks the in-process ``ToolRegistry``, filters through the configured policy
-(``config.py``), emits MCP tool descriptors with proper JSON Schemas, and
+and the active toolset (``config.py``), emits MCP tool descriptors with proper JSON Schemas, and
 dispatches ``tools/call`` to the tool on a worker thread behind a
 ``ToolExecutionGuard`` kept per client session.
 
@@ -32,8 +32,12 @@ from backend.mcp.config import (
     SERVER_TIMEOUT_ENV,
     WAIT_HEADROOM_SECONDS,
     WAIT_TIMEOUT_SECONDS,
+    ALL_TOOLSET,
     MCPConfig,
+    ToolPolicy,
     tool_is_exposed,
+    toolset_members,
+    toolsets_with,
 )
 from backend.services.agent_tools import BaseTool, get_tool_registry
 from backend.services.tool_execution_guard import ToolExecutionGuard
@@ -192,6 +196,43 @@ def collect_exposed_tools(config: MCPConfig) -> list[tuple[BaseTool, mcp_types.T
 
     logger.info("MCP: exposing %d of %d registered tools", len(out), len(registry.list_tools()))
     return out
+
+
+def narrow_to_toolset(
+    exposed: list[tuple[BaseTool, mcp_types.Tool]], policy: ToolPolicy,
+) -> tuple[list[tuple[BaseTool, mcp_types.Tool]], dict[str, list[str]]]:
+    """Keep the exposed tools that belong to the active toolset.
+
+    Returns (kept, outside): ``outside`` maps each exposed tool the toolset
+    leaves out to the named toolsets that carry it, for the refusal message.
+    Raises ``UnknownToolset`` for a name that is not a toolset.
+    """
+    members = toolset_members(policy)
+    if members is None:
+        homeless = [mcp_tool.name for _base, mcp_tool in exposed if not toolsets_with(mcp_tool.name)]
+        if homeless:
+            logger.info("MCP: in no named toolset, served only by '%s': %s", ALL_TOOLSET, ", ".join(homeless))
+        return exposed, {}
+    kept = [pair for pair in exposed if pair[1].name in members]
+    outside = {mcp_tool.name: toolsets_with(mcp_tool.name)
+               for _base, mcp_tool in exposed if mcp_tool.name not in members}
+    logger.info("MCP: toolset '%s' serves %d of %d exposed tools", policy.toolset, len(kept), len(exposed))
+    return kept, outside
+
+
+def _outside_toolset_message(name: str, active: str, homes: list[str]) -> str:
+    if homes:
+        where = " or ".join(f"'{home}'" for home in homes)
+        switch = homes[0]
+        return (
+            f"Tool '{name}' is not in this server's toolset '{active}'. It is in the {where} "
+            f"toolset and in '{ALL_TOOLSET}': start the server with --toolset {switch} "
+            f"(or GUAARDVARK_MCP_TOOLSET={switch}) to use it."
+        )
+    return (
+        f"Tool '{name}' is not in this server's toolset '{active}'. Only the '{ALL_TOOLSET}' "
+        f"toolset carries it: start the server with --toolset {ALL_TOOLSET} to use it."
+    )
 
 
 def _image_blocks(tool_result: Any) -> list[mcp_types.ContentBlock]:
@@ -394,7 +435,7 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
     Build the ``on_list_tools`` / ``on_call_tool`` handlers for the mcp 2.x
     ``Server`` constructor. Returns (on_list_tools, on_call_tool, tool_count).
     """
-    exposed = collect_exposed_tools(config)
+    exposed, outside = narrow_to_toolset(collect_exposed_tools(config), config.tools)
     by_name = {mcp_tool.name: (base_tool, mcp_tool) for base_tool, mcp_tool in exposed}
     validators: dict[str, Draft202012Validator | None] = {}
     for name, (_base, mcp_tool) in by_name.items():
@@ -449,6 +490,10 @@ def build_tool_handlers(config: MCPConfig) -> tuple[Any, Any, int]:
             rec["bytes_in"] = len(json.dumps(arguments, default=str))
 
             pair = by_name.get(name)
+            if pair is None and name in outside:
+                rec["outcome"] = "error"
+                rec["error_code"] = "tool_not_in_toolset"
+                return _error_result(_outside_toolset_message(name, config.tools.toolset, outside[name]))
             if pair is None:
                 rec["outcome"] = "error"
                 rec["error_code"] = "tool_not_exposed"

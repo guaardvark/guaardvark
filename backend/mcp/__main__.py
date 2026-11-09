@@ -82,7 +82,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m backend.mcp")
     sub = parser.add_subparsers(dest="cmd")
 
-    sub.add_parser("stdio", help="Run MCP server on stdin/stdout (default)")
+    stdio_cmd = sub.add_parser("stdio", help="Run MCP server on stdin/stdout (default)")
 
     http_cmd = sub.add_parser("http", help="Run MCP server over streamable HTTP")
     http_cmd.add_argument("--host", default="127.0.0.1",
@@ -140,6 +140,15 @@ def _build_parser() -> argparse.ArgumentParser:
             "-v", "--verbose", action="store_true", default=argparse.SUPPRESS,
             help="Show INFO-level logging to stderr",
         )
+
+    from backend.mcp.config import TOOLSET_ENV, toolset_names
+    toolset_help = (
+        f"Serve one named toolset: {', '.join(toolset_names())} (default: "
+        f"{TOOLSET_ENV}, then server.tools.toolset in data/config/mcp.json, then all)"
+    )
+    parser.add_argument("--toolset", metavar="NAME", help=toolset_help)
+    for command in (stdio_cmd, http_cmd, list_tools_cmd):
+        command.add_argument("--toolset", metavar="NAME", default=argparse.SUPPRESS, help=toolset_help)
     return parser
 
 
@@ -161,10 +170,11 @@ def main(argv: list[str] | None = None) -> int:
         # Import + tool registry boot are loud — quarantine them from stdout
         # so the JSON-RPC pipe stays clean when Claude Desktop pipes us in.
         with _stdout_to_stderr():
+            from backend.mcp.config import UnknownToolset, load_config
             from backend.mcp.server import MCPServerDisabled, build_server, run_stdio
             try:
-                prebuilt = build_server()
-            except MCPServerDisabled as exc:
+                prebuilt = build_server(load_config(toolset=args.toolset))
+            except (MCPServerDisabled, UnknownToolset) as exc:
                 return _refuse_to_start(exc)
         try:
             # Not asyncio.run: the LlamaIndex setup applies nest_asyncio, whose
@@ -179,10 +189,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if cmd == "http":
         with _stdout_to_stderr():
+            from backend.mcp.config import UnknownToolset, load_config
             from backend.mcp.server import MCPServerDisabled, build_server, run_http
             try:
-                prebuilt = build_server()
-            except MCPServerDisabled as exc:
+                prebuilt = build_server(load_config(toolset=args.toolset))
+            except (MCPServerDisabled, UnknownToolset) as exc:
                 return _refuse_to_start(exc)
         try:
             run_http(host=args.host, port=args.port, prebuilt=prebuilt)
@@ -204,14 +215,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if cmd == "list-tools":
         with _stdout_to_stderr():
-            from backend.mcp.config import load_config
+            from backend.mcp.config import UnknownToolset, load_config, toolset_members
             from backend.mcp.server import _ensure_tools_initialized
-            from backend.mcp.tools_adapter import collect_exposed_tools
+            from backend.mcp.tools_adapter import collect_exposed_tools, narrow_to_toolset
+            cfg = load_config(toolset=args.toolset)
+            try:
+                toolset_members(cfg.tools)
+            except UnknownToolset as exc:
+                return _refuse_to_start(exc)
             _ensure_tools_initialized()
-            exposed = collect_exposed_tools(load_config())
+            exposed, _outside = narrow_to_toolset(collect_exposed_tools(cfg), cfg.tools)
         for _base, mcp_tool in exposed:
             print(f"{mcp_tool.name}\t{(mcp_tool.description or '').splitlines()[0][:80]}")
-        print(f"\n({len(exposed)} tools exposed)", file=sys.stderr)
+        print(f"\n({len(exposed)} tools exposed, toolset {cfg.tools.toolset})", file=sys.stderr)
         return 0
 
     parser.print_help(sys.stderr)
