@@ -2,9 +2,11 @@
 from datetime import datetime, timedelta
 
 from backend.services.music_video_progress import (
+    FALLBACK_SECONDS_PER_CLIP,
     NEEDS_REVIEW,
     clip_progress_pct,
     compute_progress,
+    estimate_seconds_per_clip,
 )
 
 NOW = datetime(2026, 10, 15, 12, 0, 0)
@@ -170,3 +172,29 @@ def test_needs_review_matches_the_quality_gate_constant():
     import pathlib
     src = pathlib.Path(__file__).resolve().parents[2] / "services" / "video_consistency_metrics.py"
     assert f'NEEDS_REVIEW = "{NEEDS_REVIEW}"' in src.read_text(encoding="utf-8")
+
+
+MEASURED = {"seconds": 800, "steps": 25, "width": 832, "height": 480, "frames": 81}
+
+
+def test_estimate_uses_the_models_figure_as_measured():
+    assert estimate_seconds_per_clip(history=[], measured=MEASURED) == (800.0, "model")
+    assert estimate_seconds_per_clip(history=None, measured=MEASURED, steps=None,
+                                     width=832, height=480) == (800.0, "model")
+
+
+def test_estimate_scales_the_figure_to_steps_and_size():
+    sec, basis = estimate_seconds_per_clip(history=[], measured=MEASURED, steps=50, width=832, height=480)
+    assert (sec, basis) == (1600.0, "model")
+    sec, _ = estimate_seconds_per_clip(history=[], measured=MEASURED, width=1664, height=480)
+    assert sec == 1600.0
+
+
+def test_estimate_prefers_enough_history():
+    # Two cuts are not enough to replace the measured figure; three are.
+    assert estimate_seconds_per_clip(history=[100.0, 120.0], measured=MEASURED)[1] == "model"
+    assert estimate_seconds_per_clip(history=[100.0, 120.0, 500.0], measured=MEASURED) == (120.0, "history")
+
+
+def test_estimate_falls_back_without_a_figure():
+    assert estimate_seconds_per_clip(history=[], measured=None) == (FALLBACK_SECONDS_PER_CLIP, "fallback")

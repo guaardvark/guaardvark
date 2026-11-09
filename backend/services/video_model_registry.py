@@ -607,6 +607,13 @@ VIDEO_MODEL_REGISTRY = {
         "native_fps": 16,
         "max_frames": 81,
         "speed_profiles": WAN14B_SPEED_PROFILES["i2v"],
+        # Wall-clock per music-video cut after the storyboards (i2v, RIFE, conform,
+        # quality check), used for the approval estimate until the box has
+        # finished cuts of its own. Median 844 s between finished cuts over a
+        # 27-cut video (2026-10-14, 16 GB RTX 40-series card, 832x480, 81 frames,
+        # 25 standard steps, RIFE 2x, storyboards rendered beforehand, the 12 s
+        # GPU cooldown included). One cut on 2026-11-09 took 763 s.
+        "music_video_cut_s": {"seconds": 844, "steps": 25, "width": 832, "height": 480, "frames": 81},
         # flf2v: the same experts conditioned on a start and an end frame through
         # ComfyUI's WanFirstLastFrameToVideo, so a clip can be made to arrive at a
         # given picture.
@@ -652,6 +659,12 @@ VIDEO_MODEL_REGISTRY = {
         "default_steps": 20,
         "native_fps": 24,
         "max_frames": 121,
+        # Wall-clock per music-video cut (see wan22-14b-i2v). Median 86 s between
+        # finished cuts over a 27-cut video (2026-10-13, 16 GB RTX 40-series card,
+        # 832x480, 25 steps, RIFE 2x, storyboards rendered beforehand); cuts ran
+        # 34-121 frames, 73 s at 36 frames and 181 s at 121, so a plan of long
+        # cuts takes longer than this.
+        "music_video_cut_s": {"seconds": 86, "steps": 25, "width": 832, "height": 480, "frames": 47},
         # Fits an 11 GB card without offload; the other Wan entries take the family's 16.
         "min_vram_gb": 11,
         # video_wan2_2_5B_ti2v: KSampler cfg 5 (the 14B templates use 3.5).
@@ -2072,6 +2085,15 @@ def vram_mb_for_model(model_id: str, *, default: int = 11000) -> int:
     entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
     vram = int(entry.get("vram_mb") or 0)
     return vram if vram > 0 else default
+
+
+def music_video_cut_seconds(model_id: str) -> Optional[dict]:
+    """The measured wall-clock of one music-video cut on ``model_id`` with the
+    settings it was measured at ({seconds, steps, width, height, frames}), or
+    None when the entry records no measurement."""
+    entry = VIDEO_MODEL_REGISTRY.get(model_id or "") or {}
+    figure = entry.get("music_video_cut_s")
+    return dict(figure) if isinstance(figure, dict) and figure.get("seconds") else None
 
 
 def live_preview_for_model(model_id: str) -> bool:

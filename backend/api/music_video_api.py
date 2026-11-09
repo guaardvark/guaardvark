@@ -39,9 +39,77 @@ STORYBOARD_FLAG_TTL_S = 1800
 # writes for native-audio models run to a few thousand characters.
 MAX_PROMPT_CHARS = 8000
 
-# Rough per-clip wall-clock for the approval-gate estimate: FLUX still (~20s) +
-# WAN i2v (~45s) + gate cooldown (~8s) + ffmpeg fill (~2s). Display-only.
-_SECONDS_PER_CLIP = 75
+# Finished-cut timings are read from every video at most this often; the list
+# view builds an estimate per video and the page polls progress.
+CUT_HISTORY_TTL_S = 60.0
+_cut_history_cache: dict = {"at": 0.0, "rows": None}
+
+
+def _shown_i2v_model(s: dict) -> str:
+    """The i2v model a video's settings name, as the page shows it."""
+    from backend.services.video_model_registry import DEFAULT_I2V_MODEL
+    return s.get("i2v_model") or (
+        "cogvideox-5b-i2v" if s.get("i2v_engine") == "cogvideox" else DEFAULT_I2V_MODEL
+    )
+
+
+def _render_key(s: dict) -> tuple:
+    """What one cut's wall-clock depends on: model, steps (None: the default)
+    and i2v size."""
+    from backend.tasks.music_video_tasks import DEFAULT_I2V_WIDTH, DEFAULT_I2V_HEIGHT
+    try:
+        steps = int(s["i2v_steps"]) if s.get("i2v_steps") else None
+        width = int(s.get("i2v_width") or DEFAULT_I2V_WIDTH)
+        height = int(s.get("i2v_height") or DEFAULT_I2V_HEIGHT)
+    except (TypeError, ValueError):
+        steps, width, height = None, DEFAULT_I2V_WIDTH, DEFAULT_I2V_HEIGHT
+    return (_shown_i2v_model(s), steps, width, height)
+
+
+def _cut_history() -> dict:
+    """{render key: [elapsed_s of every cut finished on this box]}."""
+    now = time.monotonic()
+    cached = _cut_history_cache["rows"]
+    if cached is not None and now - _cut_history_cache["at"] < CUT_HISTORY_TTL_S:
+        return cached
+    rows: dict = {}
+    try:
+        with db.session.no_autoflush:
+            found = db.session.query(MusicVideo.settings_json, MusicVideo.clips).all()
+        for settings, clips in found:
+            times = [
+                float(c["elapsed_s"]) for c in (clips or [])
+                if isinstance(c, dict) and c.get("status") == "done"
+                and isinstance(c.get("elapsed_s"), (int, float)) and c["elapsed_s"] > 0
+            ]
+            if times:
+                rows.setdefault(_render_key(settings or {}), []).extend(times)
+    except Exception as e:  # noqa: BLE001 - the estimate falls back to the model's figure
+        log.warning("music video cut history unavailable: %s", e)
+        return {}
+    _cut_history_cache.update(at=now, rows=rows)
+    return rows
+
+
+def _seconds_per_clip(s: dict) -> tuple[float, str]:
+    """(seconds one cut takes, basis) for a video's settings: this box's
+    finished cuts at the same model and settings, else the model's measured
+    figure, else a generic fallback (music_video_progress)."""
+    from backend.services.music_video_progress import (
+        FALLBACK_SECONDS_PER_CLIP, estimate_seconds_per_clip,
+    )
+    try:
+        from backend.services.video_model_registry import music_video_cut_seconds
+        key = _render_key(s)
+        model, steps, width, height = key
+        return estimate_seconds_per_clip(
+            history=_cut_history().get(key),
+            measured=music_video_cut_seconds(model),
+            steps=steps, width=width, height=height,
+        )
+    except Exception as e:  # noqa: BLE001 - an estimate never breaks the video's record
+        log.warning("music video estimate unavailable: %s", e)
+        return FALLBACK_SECONDS_PER_CLIP, "fallback"
 
 
 def _assembly_blocked(then: str) -> tuple | None:
@@ -119,7 +187,7 @@ def _progress_for(mv: MusicVideo) -> dict:
             clips=mv.clips,
             settings=mv.settings_json,
             live=_live_clip_job(mv),
-            seconds_per_clip=_SECONDS_PER_CLIP,
+            seconds_per_clip=_seconds_per_clip(mv.settings_json or {})[0],
         )
     except Exception as e:  # noqa: BLE001 — never break the detail view over the meter
         log.warning("music_video %s: progress unavailable: %s", mv.id, e)
@@ -162,10 +230,14 @@ def _mv_dict(mv: MusicVideo) -> dict:
     out["cuts_to_render"] = to_render
     # Surface the cost estimate once the plan exists (i.e. at the approval gate).
     if cut_count:
-        est = to_render * _SECONDS_PER_CLIP
+        per_clip, basis = _seconds_per_clip(raw_settings)
+        est = int(round(to_render * per_clip))
         out["estimate"] = {
             "clips_to_generate": to_render,
-            "seconds_per_clip": _SECONDS_PER_CLIP,
+            "seconds_per_clip": round(per_clip, 1),
+            # "history" (this box's finished cuts), "model" (the registry's
+            # measured figure) or "fallback".
+            "basis": basis,
             "estimated_seconds": est,
             "estimated_human": f"~{est // 3600}h {(est % 3600) // 60}m" if est >= 3600 else f"~{est // 60}m",
         }
@@ -182,10 +254,7 @@ def _mv_dict(mv: MusicVideo) -> dict:
     out["director_model"] = dm
     out["use_lora_consistency"] = s.get("use_lora_consistency", False)
     out["keyframe_model"] = s.get("keyframe_model", "flux-schnell")
-    from backend.services.video_model_registry import DEFAULT_I2V_MODEL
-    out["i2v_model"] = s.get("i2v_model") or (
-        "cogvideox-5b-i2v" if s.get("i2v_engine") == "cogvideox" else DEFAULT_I2V_MODEL
-    )
+    out["i2v_model"] = _shown_i2v_model(s)
     try:
         from backend.services.video_model_registry import model_capabilities
         out["i2v_native_audio"] = bool((model_capabilities(out["i2v_model"]) or {}).get("audio_out"))
