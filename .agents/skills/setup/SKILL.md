@@ -69,6 +69,7 @@ If the backend is not reachable, tell the user to start it from the Guaardvark c
 | voice | narration, TTS, consent-gated voice cloning |
 | music | full songs with lyrics, instrumentals, sound effects |
 | upscale | 2x to 8K upscaling of images and video |
+| video-editor | edit existing clips: cut to a song's beat, trim dead air, titles, Shotcut projects |
 | cast | Cast Library subjects and LoRA training for consistent characters |
 | models | add any Hugging Face model or LoRA from a URL |
 | swarm | parallel coding agents in git worktrees from a plan file |
