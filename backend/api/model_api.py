@@ -673,7 +673,7 @@ def list_embedding_models():
         name = m.get("name", "").lower()
         if any(p in name for p in embedding_patterns):
             # Get embedding dimensions from model details
-            # The key is architecture-prefixed, e.g. "bert.embedding_length" or "llama.embedding_length"
+            # Keys are architecture-prefixed, e.g. "bert.embedding_length"
             dims = None
             try:
                 detail_resp = requests.post(
@@ -683,10 +683,11 @@ def list_embedding_models():
                 if detail_resp.ok:
                     show_data = detail_resp.json()
                     model_info = show_data.get("model_info", {})
-                    for key, value in model_info.items():
-                        if key.endswith(".embedding_length"):
-                            dims = value
-                            break
+                    widths = {key.rsplit(".", 1)[-1]: value for key, value in model_info.items()
+                              if key.count(".") == 1}
+                    # The vector width: embedding_length_out where the model projects
+                    # its hidden state (gemma-embedding2: 512 hidden, 768 out).
+                    dims = widths.get("embedding_length_out") or widths.get("embedding_length")
             except Exception:
                 pass
             embedding_models.append({

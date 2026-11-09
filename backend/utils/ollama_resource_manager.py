@@ -423,11 +423,16 @@ def get_model_info(model_name: str) -> Optional[dict]:
         native_context = 0
         loose_context = 0
         embedding_length = 0
+        embedding_out = 0
         for key, value in model_info_raw.items():
             # "<arch>.embedding_length" only: multimodal models also report
             # "<arch>.vision.embedding_length" and "<arch>.audio.embedding_length".
             if key.endswith(".embedding_length") and key.count(".") == 1:
                 embedding_length = int(value)
+            # Some embedders project the hidden state to a wider vector
+            # (gemma-embedding2: embedding_length 512, embedding_length_out 768).
+            if key.endswith(".embedding_length_out") and key.count(".") == 1:
+                embedding_out = int(value)
             if key.endswith(".context_length"):
                 native_context = int(value)
             elif "context_length" in key:
@@ -474,7 +479,7 @@ def get_model_info(model_name: str) -> Optional[dict]:
             "size_mb": size_bytes / (1024 * 1024) if size_bytes else 0,
             "parameter_count": parameter_count,
             "native_context": native_context,
-            "embedding_length": embedding_length,
+            "embedding_length": embedding_out or embedding_length,
             "architecture": details.get("family", "unknown"),
             "families": details.get("families", []),
             "quantization": details.get("quantization_level", "unknown"),
