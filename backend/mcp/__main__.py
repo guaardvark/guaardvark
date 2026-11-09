@@ -167,7 +167,12 @@ def main(argv: list[str] | None = None) -> int:
             except MCPServerDisabled as exc:
                 return _refuse_to_start(exc)
         try:
-            asyncio.run(run_stdio(prebuilt=prebuilt))
+            # Not asyncio.run: the LlamaIndex setup applies nest_asyncio, whose
+            # asyncio.run never closes the loop, so AnyIO's idle worker threads
+            # are never stopped and the process outlives a client that closes
+            # stdin. Runner closes the loop, which lets them stop.
+            with asyncio.Runner() as runner:
+                runner.run(run_stdio(prebuilt=prebuilt))
         except KeyboardInterrupt:
             return 0
         return 0
