@@ -598,6 +598,35 @@ def installed_name_for(model_name: str, tags: Optional[list] = None) -> Optional
     return same_build[0] if same_build else None
 
 
+def is_llamacpp_alias(model_name: str) -> bool:
+    """Whether ``model_name`` is a ``llamacpp:<digest>`` build alias."""
+    return bool(_LLAMACPP_ALIAS.match((model_name or "").strip().lower()))
+
+
+def listed_name_for_alias(model_name: str, tags: Optional[list] = None) -> str:
+    """``model_name``, or for a ``llamacpp:<digest>`` alias the plain name Ollama
+    lists for the same build, when it lists one.
+
+    Ollama 0.40.1 listed these aliases in /api/tags beside the plain name, so a
+    model picker could offer and save one. Chat under the alias works, but every
+    reader that matches by name (Keep ready, the GPU orchestrator, the startup
+    check) misses it. Only an alias costs a /api/tags call.
+    """
+    alias = _LLAMACPP_ALIAS.match((model_name or "").strip().lower())
+    if not alias:
+        return model_name
+    if tags is None:
+        tags = _ollama_tags()
+    prefix = alias.group(1)[:DIGEST_PREFIX_LEN]
+    plain = sorted(
+        str(entry.get("name") or "")
+        for entry in tags
+        if entry.get("name") and not is_llamacpp_alias(str(entry.get("name")))
+        and _short_digest(entry.get("digest")) == prefix
+    )
+    return plain[0] if plain else model_name
+
+
 def model_families(model_name: str, tags: Optional[list] = None) -> frozenset:
     """The model families Ollama reports for ``model_name`` (``details.family``).
 

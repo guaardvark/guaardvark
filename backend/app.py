@@ -202,40 +202,47 @@ LOG_FILE_PATH = os.path.join(LOG_DIR, "backend.log")
 
 root_logger = logging.getLogger()
 
-for handler in root_logger.handlers[:]:
-    root_logger.removeHandler(handler)
-    handler.close()
+# A Celery worker imports this module lazily, inside the first task that needs
+# the app. Celery already logs through the root logger to the worker's own
+# --logfile at its --loglevel; stripping those handlers and pinning the root to
+# WARNING here silenced the worker's log from that task on. The worker keeps
+# the logging Celery set up; only the web process installs backend.log.
+_celery_worker = os.environ.get("CELERY_WORKER_MODE", "false").lower() == "true"
+if not _celery_worker:
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+        handler.close()
 
-file_event_handler = TimedRotatingFileHandler(
-    LOG_FILE_PATH,
-    when="midnight",
-    interval=1,
-    backupCount=10,
-    encoding="utf-8",
-    delay=False,
-    utc=False,
-)
-formatter = logging.Formatter(
-    "%(asctime)s %(levelname)s %(name)s [PID:%(process)d TID:%(thread)d] : %(message)s"
-)
-file_event_handler.setFormatter(formatter)
-_adv_debug = os.getenv("ADVANCED_DEBUG", "false").lower() == "true"
-debug_env = os.getenv("FLASK_DEBUG", "false").lower() == "true" or _adv_debug
-log_level_env = os.getenv("BACKEND_LOG_LEVEL")
-base_log_level = (
-    getattr(logging, log_level_env.upper(), logging.INFO)
-    if log_level_env
-    else (logging.DEBUG if debug_env else logging.WARNING)
-)
-file_event_handler.setLevel(base_log_level)
+    file_event_handler = TimedRotatingFileHandler(
+        LOG_FILE_PATH,
+        when="midnight",
+        interval=1,
+        backupCount=10,
+        encoding="utf-8",
+        delay=False,
+        utc=False,
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s [PID:%(process)d TID:%(thread)d] : %(message)s"
+    )
+    file_event_handler.setFormatter(formatter)
+    _adv_debug = os.getenv("ADVANCED_DEBUG", "false").lower() == "true"
+    debug_env = os.getenv("FLASK_DEBUG", "false").lower() == "true" or _adv_debug
+    log_level_env = os.getenv("BACKEND_LOG_LEVEL")
+    base_log_level = (
+        getattr(logging, log_level_env.upper(), logging.INFO)
+        if log_level_env
+        else (logging.DEBUG if debug_env else logging.WARNING)
+    )
+    file_event_handler.setLevel(base_log_level)
 
-root_logger.addHandler(file_event_handler)
-root_logger.setLevel(base_log_level)
+    root_logger.addHandler(file_event_handler)
+    root_logger.setLevel(base_log_level)
 
-console_handler = logging.StreamHandler(sys.stdout)
-console_handler.setFormatter(formatter)
-console_handler.setLevel(base_log_level)
-root_logger.addHandler(console_handler)
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    console_handler.setLevel(base_log_level)
+    root_logger.addHandler(console_handler)
 
 werkzeug_level = os.getenv("WERKZEUG_LOG_LEVEL")
 if werkzeug_level:

@@ -63,3 +63,23 @@ def test_show_style_digests_are_read_too():
     tags = [{"name": "m:1", "digest": f"sha256:{QWEN}"}, {"name": "n:1", "digest": QWEN.upper()}]
 
     assert orm.same_model("m:1", "n:1", tags) is True
+
+
+@pytest.mark.parametrize("name, listed", [
+    (f"llamacpp:{LLAMACPP}", "gemma4:e2b"),               # listed alias -> its build's plain name
+    (f"llamacpp:{LLAMACPP[:12]}", "gemma4:e2b"),          # a short digest works the same
+    (f"llamacpp:{E4B}", "gemma4:e4b"),                    # unlisted alias; two plain names, first wins
+    (f"llamacpp:{'f' * 64}", f"llamacpp:{'f' * 64}"),     # no plain name for the build: unchanged
+    ("gemma4:e2b", "gemma4:e2b"),                         # plain names are never touched
+    ("", ""),
+])
+def test_listed_name_for_alias(name, listed):
+    assert orm.listed_name_for_alias(name, TAGS) == listed
+
+
+def test_a_plain_name_costs_no_tags_call(monkeypatch):
+    def no_call():
+        raise AssertionError("listed_name_for_alias read /api/tags for a plain name")
+    monkeypatch.setattr(orm, "_ollama_tags", no_call)
+
+    assert orm.listed_name_for_alias("qwen3:14b") == "qwen3:14b"
