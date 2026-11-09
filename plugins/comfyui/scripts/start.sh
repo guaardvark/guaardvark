@@ -91,7 +91,7 @@ install_comfyui_python_deps
 
 # Comfy-Org/ComfyUI#15441: comfy-kitchen>=0.2.28 annotates torch.library
 # custom ops with PEP 585 list[int] / X | None. infer_schema accepts those
-# only from torch 2.7+. This venv is 2.6+cu124, so a raw 0.2.31 import
+# only from torch 2.7+. On torch 2.6 a raw 0.2.31 import
 # crashed main.py before --listen bound the plugin port. Rewrite those
 # annotations in site-packages (re-applied after pip). Do not downgrade
 # kitchen — current ComfyUI needs 0.2.31 APIs (int8_attention_is_available).
@@ -100,7 +100,7 @@ import importlib.metadata as m, sys
 from pathlib import Path
 def ver(name):
     try:
-        return tuple(int(x) for x in m.version(name).split(".")[:3])
+        return tuple(int(x) for x in m.version(name).split("+")[0].split(".")[:3])
     except Exception:
         return (0, 0, 0)
 if ver("torch") >= (2, 7):
@@ -158,14 +158,18 @@ try:
     torch_ver = tuple(int(x) for x in m.version("torch").split("+")[0].split(".")[:2])
 except Exception:
     sys.exit(0)
-if torch_ver >= (2, 7):
-    sys.exit(0)
 path = Path(sys.prefix) / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages" / "comfy_kitchen" / "flash_attention.py"
 if not path.is_file():
     sys.exit(0)
 src = path.read_text(encoding="utf-8")
 doc = '    """Return whether flash attention decode is available on the requested device."""\n'
 guard = "    return False  # torch<2.7: the decode kernel's tensor layout does not match; patched by Guaardvark start.sh\n"
+if torch_ver >= (2, 7):
+    # A venv patched on 2.6 and since moved to a newer torch gets the kernel back.
+    if guard in src:
+        path.write_text(src.replace(guard, "", 1), encoding="utf-8")
+        print("Re-enabled comfy_kitchen flash-attention decode on torch 2.7+")
+    sys.exit(0)
 if doc in src and guard not in src:
     path.write_text(src.replace(doc, doc + guard, 1), encoding="utf-8")
     print("Disabled comfy_kitchen flash-attention decode for torch<2.7")

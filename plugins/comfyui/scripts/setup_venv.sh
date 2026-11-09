@@ -3,12 +3,11 @@
 # Build ComfyUI its own Python environment at plugins/comfyui/venv, on a newer
 # PyTorch than the backend's, and leave the backend venv as it is.
 #
-# Why: Ampere/Ada cards get the cu124 channel for the backend (hardware_policy),
-# which stops at torch 2.6. Measured 2026-10-30 on a 16 GB card, ComfyUI 0.43.0:
-# on torch 2.15 MOSS-Image renders 84 -> 40 s, MiniMax H3 140 -> 92 s, and FLUX
-# 3 Klein's prompt upsampler runs (~93 tokens/s; 1.1 s per token on 2.6), while
-# the backend's own Z-Image pipeline was ~40% slower on 2.15, so only ComfyUI
-# moves.
+# Why: the backend venv stays on the newest torch the Training libraries accept
+# (Unsloth requires <2.15; hardware_policy picks the channel), while ComfyUI can
+# follow PyTorch. Measured 2026-10-30 on a 16 GB card, ComfyUI 0.43.0: on torch
+# 2.15 MOSS-Image renders 84 -> 40 s, MiniMax H3 140 -> 92 s, and FLUX 3 Klein's
+# prompt upsampler runs (~93 tokens/s; 1.1 s per token on 2.6).
 #
 # Used when GUAARDVARK_COMFYUI_OWN_VENV=1 (start.sh and the Update action read
 # it). Idempotent: a venv that imports torch, runs a CUDA kernel and imports
