@@ -2,11 +2,11 @@
   "access": {
     "defaultMachine": "the Guaardvark machine",
     "outsideLocalNetwork": "This works only on {{machine}} and on devices on its local network, and this device is outside it. Create an API key in Settings → Access on {{machine}}, then enter it in Settings → Access on this device.",
-    "runsCodeKeyRequired": "This runs a program on {{machine}}, which works only on {{machine}} itself or with its API key, even while Network access is on. Create an API key in Settings → Access on {{machine}}, then enter it in Settings → Access on this device.",
-    "fleetKeyRequired": "This Interconnector action works only on {{machine}} itself or with its API key, even while Network access is on. Create an API key in Settings → Access on {{machine}}, then enter it in Settings → Access on this device.",
-    "backupsKeyRequired": "Backups hold everything on {{machine}}, its database included, so they work only on {{machine}} itself or with its API key, even while Network access is on. Create an API key in Settings → Access on {{machine}}, then enter it in Settings → Access on this device.",
-    "localOnlyKeyRemoved": "{{machine}} no longer has an API key, so this works only on {{machine}} itself. Turn on Settings → Access → Network access there, or create a new key there and enter it in Settings → Access on this device.",
-    "localOnly": "This works only on {{machine}} itself. To use it here, turn on Settings → Access → Network access on {{machine}}, or create an API key there and enter it in Settings → Access on this device.",
+    "runsCodeKeyRequired": "This runs a program on {{machine}}, which works only on {{machine}} itself or with its API key, even while Trust local network is on. Create an API key in Settings → Access on {{machine}}, then enter it in Settings → Access on this device.",
+    "fleetKeyRequired": "This Interconnector action works only on {{machine}} itself or with its API key, even while Trust local network is on. Create an API key in Settings → Access on {{machine}}, then enter it in Settings → Access on this device.",
+    "backupsKeyRequired": "Backups hold everything on {{machine}}, its database included, so they work only on {{machine}} itself or with its API key, even while Trust local network is on. Create an API key in Settings → Access on {{machine}}, then enter it in Settings → Access on this device.",
+    "localOnlyKeyRemoved": "{{machine}} no longer has an API key, so this works only on {{machine}} itself. Turn on Settings → Access → Trust local network there, or create a new key there and enter it in Settings → Access on this device.",
+    "localOnly": "This works only on {{machine}} itself. To use it here, turn on Settings → Access → Trust local network on {{machine}}, or create an API key there and enter it in Settings → Access on this device.",
     "keyOutOfDate": "This browser was signed in with a key {{machine}} no longer uses. Enter the current key in Settings → Access.",
     "keyRequired": "Enter {{machine}}'s API key in Settings → Access. It is shown when it is created, and {{machine}} keeps it in its .env file as GUAARDVARK_API_KEY."
   },

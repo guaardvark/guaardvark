@@ -6,13 +6,14 @@ import { Dialog, DialogTitle, DialogContent } from "@mui/material";
 import InterconnectorSettings from "../settings/InterconnectorSettings";
 import { useUiTranslation } from "../../i18n";
 
-const InterconnectorSettingsModal = ({ open, onClose }) => {
+// startConnecting: opened from Sync's Connect, so the setup starts enabled.
+const InterconnectorSettingsModal = ({ open, onClose, startConnecting = false }) => {
   const { t } = useUiTranslation();
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{t("dialogs.interconnectorSettings.title")}</DialogTitle>
       <DialogContent dividers>
-        <InterconnectorSettings />
+        <InterconnectorSettings startConnecting={startConnecting} />
       </DialogContent>
     </Dialog>
   );

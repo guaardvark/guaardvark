@@ -1428,7 +1428,8 @@ class ComfyUIImageGenerator:
             raise RuntimeError(
                 f"FLUX 3 Image Klein needs ComfyUI on PyTorch {FLUX3_MIN_TORCH[0]}.{FLUX3_MIN_TORCH[1]} "
                 f"or newer: its prompt upsampler runs about 100 times slower on the PyTorch "
-                f"{ver[0]}.{ver[1]} this ComfyUI uses, and a picture would take more than 5 minutes."
+                f"{ver[0]}.{ver[1]} this ComfyUI uses. Run ComfyUI from its own environment on a newer PyTorch, "
+                f"or pick another model."
             )
 
     def check_text_encoder_files(self, filenames) -> None:

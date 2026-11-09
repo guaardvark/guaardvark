@@ -53,7 +53,7 @@
     "killResults": "Resultaten Noodstop",
     "killed": "Succesvol {{count}} processen beëindigd",
     "killedWithFailures": "Succesvol {{count}} processen beëindigd, {{failed}} mislukt",
-    "webAccessOff": "Webtoegang is nu uit: geen tool, agent-taak of agent-browser kan externe sites bereiken. Het blijft uit tot je het weer aanzet in Instellingen.",
+    "webAccessOff": "Webtoegang is nu uitgeschakeld: geen enkele tool, agent-taak, agent-browser of code die de assistent uitvoert kan externe sites bereiken. Het blijft uitgeschakeld totdat je het weer inschakelt in Instellingen.",
     "webAccessFailed": "Webtoegang kon niet worden uitgeschakeld: {{error}}",
     "unknownError": "onbekende fout",
     "agentTaskStopped": "De actieve agent-taak is gestopt.",

@@ -2,11 +2,11 @@
   "access": {
     "defaultMachine": "Guaardvark 机器",
     "outsideLocalNetwork": "此功能仅在 {{machine}} 及其本地网络设备上可用，而当前设备处于网络之外。请在 {{machine}} 的“设置 → 访问”中创建 API 密钥，然后在当前设备的“设置 → 访问”中输入该密钥。",
-    "runsCodeKeyRequired": "此操作将在 {{machine}} 上运行程序，即使开启了网络访问，也仅在 {{machine}} 本身或使用其 API 密钥时有效。请在 {{machine}} 的“设置 → 访问”中创建 API 密钥，然后在当前设备的“设置 → 访问”中输入该密钥。",
-    "fleetKeyRequired": "此 Interconnector 操作仅在 {{machine}} 本身或使用其 API 密钥时有效，即使开启了网络访问。请在 {{machine}} 的“设置 → 访问”中创建 API 密钥，然后在当前设备的“设置 → 访问”中输入该密钥。",
-    "backupsKeyRequired": "备份包含 {{machine}} 上的全部内容，包括数据库，因此即使开启了网络访问，也仅在 {{machine}} 本身或使用其 API 密钥时有效。请在 {{machine}} 的“设置 → 访问”中创建 API 密钥，然后在当前设备的“设置 → 访问”中输入该密钥。",
-    "localOnlyKeyRemoved": "{{machine}} 不再拥有 API 密钥，因此此功能仅在 {{machine}} 本机上可用。请在“设置”→“访问”→“网络访问”中开启，或在该处创建新密钥并在本设备的“设置”→“访问”中输入。",
-    "localOnly": "此功能仅在 {{machine}} 本身上可用。若要在当前设备上使用，请在 {{machine}} 上开启“设置 → 访问 → 网络访问”，或在其中创建 API 密钥并在当前设备的“设置 → 访问”中输入。",
+    "runsCodeKeyRequired": "此操作将在 {{machine}} 上运行程序，即使开启了“信任本地网络”，也仅能在 {{machine}} 本机或使用其 API 密钥时运行。请在 {{machine}} 的“设置”→“访问”中创建 API 密钥，然后在当前设备的“设置”→“访问”中输入该密钥。",
+    "fleetKeyRequired": "此 Interconnector 操作仅能在 {{machine}} 本机或使用其 API 密钥时运行，即使开启了“信任本地网络”。请在 {{machine}} 的“设置”→“访问”中创建 API 密钥，然后在当前设备的“设置”→“访问”中输入该密钥。",
+    "backupsKeyRequired": "备份包含 {{machine}} 上的所有内容（包括其数据库），因此即使在开启“信任本地网络”时，它们也仅能在 {{machine}} 本机上或通过其 API 密钥运行。请在 {{machine}} 的“设置”→“访问”中创建一个 API 密钥，然后在当前设备的“设置”→“访问”中输入该密钥。",
+    "localOnlyKeyRemoved": "{{machine}} 不再拥有 API 密钥，因此此项仅在 {{machine}} 本机上有效。请在“设置 → 访问”中开启“信任本地网络”，或在该设备上创建新密钥并在本设备的“设置 → 访问”中输入。",
+    "localOnly": "此项仅在 {{machine}} 本机上有效。若要在当前设备上使用，请在 {{machine}} 上开启“设置”→“访问”→“信任本地网络”，或在其中创建一个 API 密钥并输入到当前设备的“设置”→“访问”中。",
     "keyOutOfDate": "此浏览器使用的密钥 {{machine}} 已不再使用。请在“设置 → 访问”中输入当前密钥。",
     "keyRequired": "请在“设置”→“访问”中输入 {{machine}} 的 API 密钥。创建时会显示该密钥，且 {{machine}} 会将其保存在 .env 文件中的 GUAARDVARK_API_KEY 中。"
   },

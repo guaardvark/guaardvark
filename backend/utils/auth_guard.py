@@ -167,9 +167,9 @@ BACKUPS_CODE = "backups_key_required"
 API_KEY_CODE = "api_key_required"
 SCREENSHOT_LINK_CODE = "screenshot_link_invalid"
 LOCAL_ONLY_MESSAGE = (
-    "This action works only on {machine} itself: network access is off and "
-    "this install has no API key. To use it from another device, turn on "
-    "Settings → Access → Network access on {machine}, or create an API key "
+    "This action works only on {machine} itself: Trust local network is off "
+    "and this install has no API key. To use it from another device, turn on "
+    "Settings → Access → Trust local network on {machine}, or create an API key "
     "there and enter it on that device; command-line and API clients send "
     "it in the X-API-Key header."
 )
@@ -181,20 +181,20 @@ OUTSIDE_NETWORK_MESSAGE = (
 )
 RUNS_CODE_MESSAGE = (
     "This action runs a program on {machine}, which works only on {machine} "
-    "itself or with its API key, even while Network access is on. Create an "
-    "API key in Settings → Access on {machine} and enter it on this device; "
+    "itself or with its API key, even while Trust local network is on. Create "
+    "an API key in Settings → Access on {machine} and enter it on this device; "
     "command-line and API clients send it in the X-API-Key header."
 )
 FLEET_MESSAGE = (
     "This Interconnector action works only on {machine} itself or with its "
-    "API key, even while Network access is on. Create an API key in "
+    "API key, even while Trust local network is on. Create an API key in "
     "Settings → Access on {machine} and enter it on this device; command-line "
     "and API clients send it in the X-API-Key header."
 )
 BACKUPS_MESSAGE = (
     "Backups hold everything on {machine}, its database included, so they "
-    "work only on {machine} itself or with its API key, even while Network "
-    "access is on. Create an API key in Settings → Access on {machine} and "
+    "work only on {machine} itself or with its API key, even while Trust "
+    "local network is on. Create an API key in Settings → Access on {machine} and "
     "enter it on this device; command-line and API clients send it in the "
     "X-API-Key header."
 )
@@ -676,7 +676,7 @@ def protected_summary() -> list[str]:
         "The kill switch for all LLM processes",
         "Restarting Guaardvark",
         "Listing, downloading, creating, restoring and deleting backups, "
-        "which Network access does not open to other devices",
+        "which Trust local network does not open to other devices",
         "Editing files and browsing the server's folders",
         "Reading Guaardvark's own source (self-code)",
         "Social outreach",

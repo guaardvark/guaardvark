@@ -5,6 +5,9 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 os.environ.setdefault("PYTEST_SKIP_MIGRATION_CHECK", "1")
 os.environ.setdefault("PYTEST_SKIP_LLAMA_CHECK", "1")
+# Before anything imports backend.celery_app: tasks a test sends stay in this
+# process instead of reaching the live worker through the broker in .env.
+os.environ.setdefault("DISABLE_CELERY", "true")
 
 from types import SimpleNamespace
 
@@ -184,6 +187,29 @@ def _isolate_job_queue_ledger(tmp_path_factory):
         yield
     finally:
         job_arbiter._LEDGER = original
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_servo_archive(tmp_path_factory):
+    """Keep the test session off the servo archive.
+
+    ServoController.click records every attempt into
+    data/training/knowledge/servo_archive.jsonl, which self-improvement reads
+    as real clicks. Point the singleton at a private folder for the session.
+    """
+    try:
+        from backend.services.servo_knowledge_store import get_servo_archive
+    except Exception:
+        yield
+        return
+    archive = get_servo_archive()
+    original = (archive._archive_dir, archive._archive_path)
+    archive._archive_dir = tmp_path_factory.mktemp("servo_knowledge")
+    archive._archive_path = archive._archive_dir / "servo_archive.jsonl"
+    try:
+        yield
+    finally:
+        archive._archive_dir, archive._archive_path = original
 
 
 @pytest.fixture(autouse=True)

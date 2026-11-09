@@ -53,7 +53,7 @@ def test_execute_is_refused_to_other_hosts_and_says_where_it_works(client):
     refused = _execute(client, REMOTE)
     assert refused.status_code == 403
     assert refused.get_json()["error"] == auth_guard.LOCAL_ONLY_MESSAGE.format(machine=auth_guard.machine_name())
-    assert "Network access" in auth_guard.LOCAL_ONLY_MESSAGE and "API key" in auth_guard.LOCAL_ONLY_MESSAGE
+    assert "Trust local network" in auth_guard.LOCAL_ONLY_MESSAGE and "API key" in auth_guard.LOCAL_ONLY_MESSAGE
 
 
 def test_execute_runs_for_this_machine(client):

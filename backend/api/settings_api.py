@@ -74,14 +74,12 @@ def set_web_access():
             status_code=409,
         )
     try:
-        setting = db.session.get(Setting, "allow_web_search")
-        if setting:
-            setting.value = "true" if allow else "false"
-        else:
-            setting = Setting(
-                key="allow_web_search", value="true" if allow else "false"
-            )
-            db.session.add(setting)
+        _put_bool_setting("allow_web_search", allow)
+        # "Code it runs" is a sub-option of Web access. Turning Web access off
+        # clears it, so turning Web access back on later does not quietly
+        # give model-run code the internet again.
+        if not allow:
+            _put_bool_setting("model_code_network", False)
         db.session.commit()
     except Exception as e:
         db.session.rollback()
@@ -91,7 +89,19 @@ def set_web_access():
     # kept reaching any site with web access off.
     from backend.utils.agent_web_gate import enforce
     agent_browser = enforce(allow, "Settings: web access")
-    return success_response({"allow_web_search": allow, "agent_browser": agent_browser})
+    payload = {"allow_web_search": allow, "agent_browser": agent_browser}
+    if not allow:
+        payload["model_code_network"] = False
+    return success_response(payload)
+
+
+def _put_bool_setting(key: str, value: bool) -> None:
+    """Stage a "true"/"false" Setting row; the caller commits."""
+    setting = db.session.get(Setting, key)
+    if setting:
+        setting.value = "true" if value else "false"
+    else:
+        db.session.add(Setting(key=key, value="true" if value else "false"))
 
 
 @settings_bp.route("/address_provider", methods=["GET"])
@@ -554,7 +564,8 @@ def set_plan_mode_default():
 @settings_bp.route("/model_code_network", methods=["GET"])
 def get_model_code_network():
     """Whether code the chat model writes and runs (execute_python,
-    execute_javascript) may use the network. Default: off."""
+    execute_javascript) may use the network: a sub-option of Web access that
+    counts only while Web access is on. Default: off."""
     from backend.services.code_sandbox import network_allowed
     return success_response({"model_code_network": network_allowed()})
 
@@ -564,12 +575,13 @@ def set_model_code_network():
     if not request.is_json:
         return error_response("Request must be JSON")
     enabled = bool(request.get_json().get("model_code_network"))
+    if enabled and not get_web_access():
+        return error_response(
+            "Turn on Web access first: internet for code the assistant runs is part of it.",
+            status_code=409,
+        )
     try:
-        setting = db.session.get(Setting, "model_code_network")
-        if setting:
-            setting.value = "true" if enabled else "false"
-        else:
-            db.session.add(Setting(key="model_code_network", value="true" if enabled else "false"))
+        _put_bool_setting("model_code_network", enabled)
         db.session.commit()
     except Exception as e:
         db.session.rollback()

@@ -263,8 +263,8 @@ def _cancel_video_render(native_id: str) -> bool:
 
 
 def _cancel_video_analysis(native_id: str) -> bool:
-    """Scorsese analysis: flag the job so the next stage stops before it starts."""
-    from backend.services.scorsese import jobs
+    """Video style analysis: flag the job so the next stage stops before it starts."""
+    from backend.services.video_style import jobs
     return jobs.request_cancel(str(native_id))
 
 

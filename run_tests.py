@@ -160,7 +160,12 @@ def run_all(quick: bool = False, extra_args: list = None):
     if not os.path.exists(check_script):
         raise RuntimeError(f"Migration check script missing: {check_script}")
 
-    if not is_collect:
+    # An isolated run (Diagnostics → Run tests) has no database on purpose; the
+    # check cannot tell that from a schema that needs stamping.
+    no_live_state = os.environ.get("GUAARDVARK_NO_LIVE_STATE") == "1"
+    if no_live_state and not is_collect:
+        phases["config"].append("schema check skipped: this run has no database")
+    elif not is_collect:
         mig_proc = subprocess.run(
             [sys.executable, check_script, "--merge"],
             capture_output=True,

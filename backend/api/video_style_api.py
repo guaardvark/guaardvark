@@ -1,13 +1,13 @@
-"""Scorsese: measure a video's style, read the result, keep it as a recipe.
+"""Style analysis: measure a video's style, read the result, keep it as a recipe.
 
-POST /api/scorsese/analyze     start an analysis (video_document_id or path)
-GET  /api/scorsese             recent analyses
-GET  /api/scorsese/recipes     style recipes on disk (hand-written and measured)
-GET  /api/scorsese/<job>       job record plus the profile when complete
-GET  /api/scorsese/<job>/shots per-shot measurements with keyframe URLs
-POST /api/scorsese/<job>/recipe  save the profile as data/agent/style_recipes/<slug>.json
-POST /api/scorsese/<job>/cancel
-POST /api/scorsese/compare     distance between two jobs' or recipes' profiles
+POST /api/video-style/analyze     start an analysis (video_document_id or path)
+GET  /api/video-style             recent analyses
+GET  /api/video-style/recipes     style recipes on disk (hand-written and measured)
+GET  /api/video-style/<job>       job record plus the profile when complete
+GET  /api/video-style/<job>/shots per-shot measurements with keyframe URLs
+POST /api/video-style/<job>/recipe  save the profile as data/agent/style_recipes/<slug>.json
+POST /api/video-style/<job>/cancel
+POST /api/video-style/compare     distance between two jobs' or recipes' profiles
 
 A video is named the way every other media input is named (a library
 document id, an /api/outputs URL, a guaardvark://outputs URI, or a path under
@@ -22,11 +22,11 @@ from typing import Any, Dict, Optional, Tuple
 
 from flask import Blueprint, jsonify, request
 
-from backend.services.scorsese import analyze, jobs, recipe as recipes
+from backend.services.video_style import analyze, jobs, recipe as recipes
 
 logger = logging.getLogger(__name__)
 
-bp = Blueprint("scorsese_api", __name__, url_prefix="/api/scorsese")
+bp = Blueprint("video_style_api", __name__, url_prefix="/api/video-style")
 
 VIDEO_EXT = {".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi", ".mts", ".m2ts"}
 
@@ -89,14 +89,14 @@ def start_analysis():
     job = jobs.new_job(path, name=name, settings=_settings(body), document_id=doc_id)
     if body.get("sync"):
         # Inline for callers that wait (the CLI's --wait, tests); the worker path is the default.
-        from backend.tasks.scorsese_tasks import run_stage
+        from backend.tasks.video_style_tasks import run_stage
 
         stage: Optional[str] = "probing"
         while stage:
             stage = run_stage(job["id"], stage)
         return jsonify(_job_view(jobs.load_job(job["id"]) or job)), 200
     try:
-        from backend.tasks.scorsese_tasks import dispatch
+        from backend.tasks.video_style_tasks import dispatch
 
         dispatch(job["id"])
         dispatched, warning = True, None
@@ -145,14 +145,14 @@ def _profile_from_ref(ref: Any) -> Tuple[Optional[Dict[str, Any]], Optional[str]
             return None, f"job {text} has no finished profile"
         return analysis["profile"], None
     rec = recipes.load_recipe(text)
-    if rec and rec.get("scorsese"):
+    if rec and rec.get("measured"):
         return _recipe_profile(rec), None
     return None, f"{text}: no job or measured recipe by that name"
 
 
 def _recipe_profile(rec: Dict[str, Any]) -> Dict[str, Any]:
     """The profile blocks a measured recipe carries, in profile shape for distance()."""
-    s = rec["scorsese"]
+    s = rec["measured"]
     pacing, mixes, look = s.get("pacing") or {}, s.get("mixes") or {}, s.get("look_targets") or {}
     cut = pacing.get("cut_on_beat") or {}
     return {

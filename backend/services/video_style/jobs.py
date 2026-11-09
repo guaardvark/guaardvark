@@ -1,4 +1,4 @@
-"""On-disk record of an analysis run: data/outputs/scorsese/<job_id>/job.json.
+"""On-disk record of an analysis run: data/outputs/video_style/<job_id>/job.json.
 
 A run has no database row. The folder holds the job record, the analysis
 document and the keyframes, so a finished analysis survives restarts and
@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-FOLDER = "scorsese"
+FOLDER = "video_style"
 STAGES = ("probing", "shots", "measure", "audio", "distill", "complete")
 STATUSES = ("pending", "running", "complete", "failed", "cancelled")
 

@@ -53,7 +53,7 @@
     "killResults": "终止结果",
     "killed": "成功终止 {{count}} 个进程",
     "killedWithFailures": "成功终止 {{count}} 个进程，{{failed}} 个失败",
-    "webAccessOff": "网络访问已关闭：任何工具、代理任务或代理浏览器都无法访问外部网站。除非您在“设置”中重新开启，否则将保持关闭状态。",
+    "webAccessOff": "“网络访问已关闭：助手运行的任何工具、代理任务、代理浏览器或代码都无法访问外部网站。除非您在“设置”中重新开启，否则它将保持关闭状态。”",
     "webAccessFailed": "无法关闭网络访问：{{error}}",
     "unknownError": "未知错误",
     "agentTaskStopped": "运行中的代理任务已停止。",

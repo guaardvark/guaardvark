@@ -53,7 +53,7 @@
     "killResults": "Risultati Termine",
     "killed": "Terminati con successo {{count}} processi",
     "killedWithFailures": "Processi terminati con successo: {{count}}, falliti: {{failed}}",
-    "webAccessOff": "L'accesso Web è ora disattivato: nessun strumento, compito dell'agente o browser dell'agente può raggiungere siti esterni. Rimarrà disattivato finché non lo riattiverai nelle Impostazioni.",
+    "webAccessOff": "L'accesso Web è ora disattivato: nessuno strumento, compito dell'agente, browser dell'agente o codice eseguito dall'assistente può raggiungere siti esterni. Rimarrà disattivato finché non lo riattiverai nelle Impostazioni.",
     "webAccessFailed": "Impossibile disattivare l'accesso Web: {{error}}",
     "unknownError": "Errore sconosciuto",
     "agentTaskStopped": "Il compito dell'agente in esecuzione è stato interrotto.",

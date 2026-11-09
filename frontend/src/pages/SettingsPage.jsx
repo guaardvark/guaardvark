@@ -290,6 +290,10 @@ const SettingsPage = () => {
   const [interconnectorPendingCount, setInterconnectorPendingCount] =
     useState(0);
   const [interconnectorIsClient, setInterconnectorIsClient] = useState(false);
+  // Host of the master this client syncs with, for the Sync status line.
+  const [interconnectorMasterHost, setInterconnectorMasterHost] = useState("");
+  // Connect opens the setup dialog ready to enable; the gear opens it as is.
+  const [interconnectorConnecting, setInterconnectorConnecting] = useState(false);
   const [interconnectorUpdateStatus, setInterconnectorUpdateStatus] =
     useState(null);
   const [interconnectorApplying, setInterconnectorApplying] = useState(false);
@@ -771,6 +775,15 @@ const SettingsPage = () => {
           const nodeMode =
             res?.data?.config?.node_mode || res?.config?.node_mode;
           setInterconnectorIsClient(nodeMode === "client");
+          const masterUrl =
+            res?.data?.config?.master_url || res?.config?.master_url || "";
+          let masterHost = "";
+          try {
+            masterHost = masterUrl ? new URL(masterUrl.includes("://") ? masterUrl : `http://${masterUrl}`).hostname : "";
+          } catch {
+            masterHost = masterUrl;
+          }
+          setInterconnectorMasterHost(masterHost);
           // Check for pending approvals
           interconnectorApi
             .getPendingApprovals?.()
@@ -784,6 +797,7 @@ const SettingsPage = () => {
           setInterconnectorEnabled(false);
           setInterconnectorPendingCount(0);
           setInterconnectorIsClient(false);
+          setInterconnectorMasterHost("");
           setInterconnectorUpdateStatus(null);
         }
       })
@@ -1813,6 +1827,8 @@ const SettingsPage = () => {
       return;
     }
     debugLog("Web Search toggled", { isEnabled });
+    // The server clears "code it runs" with Web access; mirror it.
+    if (!isEnabled) setModelCodeNetworkState(false);
     showMessage(
       isEnabled
         ? t("settings.web.enabled")
@@ -2175,7 +2191,8 @@ const SettingsPage = () => {
     const result = await apiService.setModelCodeNetwork(next);
     if (result?.error) {
       setModelCodeNetworkState(!next);
-      showMessage(t("settings.chat.modelCodeNetworkFailed"), "error");
+      const reason = typeof result.error === "string" ? result.error.trim() : "";
+      showMessage(reason || t("settings.chat.modelCodeNetworkFailed"), "error");
       return;
     }
     showMessage(next ? t("settings.chat.modelCodeNetworkOn") : t("settings.chat.modelCodeNetworkOff"), "info");
@@ -3049,18 +3066,26 @@ const SettingsPage = () => {
             onToggle={handlePlanModeDefaultToggle}
             tooltip={t("settings.chatPanel.planModeTooltip")}
           />
-          <SettingChip
-            label={t("settings.chatPanel.webAccess")}
-            on={webSearchEnabled}
-            onToggle={handleWebSearchToggle}
-            tooltip={t("settings.chatPanel.webAccessTooltip")}
-          />
-          <SettingChip
-            label={t("settings.chatPanel.modelCodeNetwork")}
-            on={modelCodeNetwork}
-            onToggle={handleModelCodeNetworkToggle}
-            tooltip={t("settings.chatPanel.modelCodeNetworkTooltip")}
-          />
+          <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+            <SettingChip
+              label={t("settings.chatPanel.webAccess")}
+              on={webSearchEnabled}
+              onToggle={handleWebSearchToggle}
+              tooltip={t("settings.chatPanel.webAccessTooltip")}
+            />
+            <SettingChip
+              label={t("settings.chatPanel.modelCodeNetwork")}
+              on={webSearchEnabled && modelCodeNetwork}
+              onToggle={handleModelCodeNetworkToggle}
+              disabled={!webSearchEnabled}
+              tooltip={
+                webSearchEnabled
+                  ? t("settings.chatPanel.modelCodeNetworkTooltip")
+                  : t("settings.chatPanel.modelCodeNetworkNeedsWeb")
+              }
+              sx={{ height: 24, fontSize: "0.72rem", px: 1.25 }}
+            />
+          </Box>
           <SettingChip
             label={t("settings.chatPanel.voiceChat")}
             on={voiceChatEnabled}
@@ -3595,13 +3620,43 @@ const SettingsPage = () => {
       help={t("settings.syncPanel.help")}
     >
       <Line>
-        <SettingChip
-          label={t("settings.syncPanel.interconnector")}
-          on={interconnectorEnabled}
-          onToggle={handleInterconnectorToggle}
-          onSettings={() => setInterconnectorModalOpen(true)}
+        <StatusPill
+          tone={interconnectorEnabled ? "ok" : "neutral"}
+          label={
+            !interconnectorEnabled
+              ? t("settings.syncPanel.notConnected")
+              : interconnectorIsClient
+                ? interconnectorMasterHost
+                  ? t("settings.syncPanel.connectedTo", { host: interconnectorMasterHost })
+                  : t("settings.syncPanel.connectedClient")
+                : t("settings.syncPanel.connectedMaster")
+          }
           tooltip={t("settings.syncPanel.interconnectorTooltip")}
         />
+        {interconnectorEnabled ? (
+          <>
+            <ActionButton onClick={() => setInterconnectorModalOpen(true)}>
+              {t("settings.syncPanel.manage")}
+            </ActionButton>
+            <ActionButton
+              onClick={() => handleInterconnectorToggle(false)}
+              tooltip={t("settings.syncPanel.disconnectTooltip")}
+            >
+              {t("settings.syncPanel.disconnect")}
+            </ActionButton>
+          </>
+        ) : (
+          <ActionButton
+            kind="primary"
+            onClick={() => {
+              setInterconnectorConnecting(true);
+              setInterconnectorModalOpen(true);
+            }}
+            tooltip={t("settings.syncPanel.connectTooltip")}
+          >
+            {t("settings.syncPanel.connect")}
+          </ActionButton>
+        )}
         {interconnectorEnabled && interconnectorPendingCount > 0 && (
           <StatusPill
             tone="warn"
@@ -4108,8 +4163,10 @@ const SettingsPage = () => {
       />
       <InterconnectorSettingsModal
         open={interconnectorModalOpen}
+        startConnecting={interconnectorConnecting}
         onClose={() => {
           setInterconnectorModalOpen(false);
+          setInterconnectorConnecting(false);
           interconnectorApi
             .getInterconnectorConfig()
             .then((res) => {

@@ -221,9 +221,9 @@ def _collect_music_video(*, since, limit) -> Iterable[Job]:
 
 
 def _collect_video_analysis(*, since, limit) -> Iterable[Job]:
-    """Scorsese style analyses (job records on disk)."""
+    """Video style analyses (job records on disk)."""
     try:
-        from backend.services.scorsese import jobs
+        from backend.services.video_style import jobs
         from backend.services.job_registry import adapt_video_analysis, _parse_iso
     except ImportError:
         return

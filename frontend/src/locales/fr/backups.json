@@ -53,7 +53,7 @@
     "killResults": "Résultats de l'arrêt",
     "killed": "{{count}} processus arrêtés avec succès",
     "killedWithFailures": "Succès : {{count}} processus arrêtés, {{failed}} échecs",
-    "webAccessOff": "L'accès Web est désactivé : aucun outil, tâche d'agent ou navigateur d'agent ne peut accéder à des sites externes. Il restera désactivé jusqu'à ce que vous le réactiviez dans les Paramètres.",
+    "webAccessOff": "L'accès au Web est désactivé : aucun outil, tâche d'agent, navigateur d'agent ou code exécuté par l'assistant ne peut accéder à des sites externes. Il reste désactivé jusqu'à ce que vous le réactiviez dans les Paramètres.",
     "webAccessFailed": "L'accès Web n'a pas pu être désactivé : {{error}}",
     "unknownError": "erreur inconnue",
     "agentTaskStopped": "La tâche de l'agent en cours a été arrêtée.",

@@ -504,18 +504,21 @@ def get_system_status():
         }), 500
 
 def _kill_switch_web_access_off() -> dict:
-    """Turn web access off and make the agent browser follow. Never raises:
-    a failure here is reported, the rest of the kill switch still runs."""
+    """Turn web access and its "code it runs" sub-option off and make the
+    agent browser follow. Never raises: a failure here is reported, the rest
+    of the kill switch still runs."""
     out = {"allow_web_search": None}
     try:
         from backend.models import Setting, db
-        setting = db.session.get(Setting, "allow_web_search")
-        if setting:
-            setting.value = "false"
-        else:
-            db.session.add(Setting(key="allow_web_search", value="false"))
+        for key in ("allow_web_search", "model_code_network"):
+            setting = db.session.get(Setting, key)
+            if setting:
+                setting.value = "false"
+            else:
+                db.session.add(Setting(key=key, value="false"))
         db.session.commit()
         out["allow_web_search"] = False
+        out["model_code_network"] = False
     except Exception as e:
         try:
             from backend.models import db
@@ -548,8 +551,9 @@ def kill_all_llm_processes():
         # Get system status after killing
         after_status = process_monitor.get_system_status()
 
-        # The kill switch also cuts outside access: web access goes off (it
-        # stays off until turned back on in Settings), the running screen
+        # The kill switch also cuts outside access: web access and internet
+        # for code the assistant runs go off (they stay off until turned back
+        # on in Settings), the running screen
         # task stops and the agent browser closes.
         web_off = _kill_switch_web_access_off()
 
