@@ -17,10 +17,9 @@ if "PYTORCH_CUDA_ALLOC_CONF" not in os.environ:
 
 def check_dependencies():
     missing = []
-    try:
-        import unsloth
-        from unsloth import FastVisionModel
-    except ImportError:
+    # Looked up, not imported: importing Unsloth without a GPU probes the network.
+    import importlib.util
+    if importlib.util.find_spec("unsloth") is None:
         missing.append("unsloth (FastVisionModel)")
 
     if missing:
@@ -47,6 +46,9 @@ def finetune(
     """Fine-tune a vision model with LoRA; with ``resume``, continue from the
     newest checkpoint under the output directory when there is one."""
 
+    from finetune_model import require_cuda
+
+    require_cuda()
     from unsloth import FastVisionModel, is_bf16_supported
     from trl import SFTTrainer
     from transformers import TrainingArguments

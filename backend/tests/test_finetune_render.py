@@ -275,6 +275,28 @@ def test_check_report_is_not_ok_without_the_libraries(script, monkeypatch):
     assert "CUDA is not available to the trainer" in report["problems"]
 
 
+def test_check_report_never_imports_unsloth_without_a_gpu(script, monkeypatch):
+    # Without a usable GPU, importing Unsloth probes download.pytorch.org for a ROCm index.
+    import torch
+
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    touched = []
+
+    class Watched(types.ModuleType):
+        def __getattr__(self, name):
+            touched.append(f"{self.__name__}.{name}")
+            raise AttributeError(name)
+
+    for name in ("unsloth", "unsloth.chat_templates"):
+        monkeypatch.setitem(sys.modules, name, Watched(name))
+
+    report = script.check_report()
+
+    assert touched == []
+    assert report["train_on_responses_only"] is False
+    assert "CUDA is not available to the trainer" in report["problems"]
+
+
 def test_merge_folds_the_adapter_into_a_bf16_base_offline(script, tmp_path, monkeypatch):
     import torch
 

@@ -339,6 +339,40 @@ def manual_stop_blocked_reason(plugin_id: str) -> Optional[str]:
     return None
 
 
+AUDIO_FOUNDRY_ACTIVE_JOB_STATES = frozenset({"queued", "running"})
+
+
+def _audio_foundry_jobs_blocked_reason() -> Optional[str]:
+    """Why stopping Audio Foundry now would end a song or voice-over, or None.
+
+    Reads the sidecar's own job list (GET /jobs). Requests the sidecar answers
+    inline, without a job id, do not appear there. A sidecar that refuses the
+    connection has nothing to protect; one that answers badly or too slowly
+    is kept, since a busy service is the likelier cause.
+    """
+    import requests
+
+    base = "http://127.0.0.1:8206"
+    try:
+        pm = _plugin_manager()
+        meta = pm.registry.get_plugin("audio_foundry")
+        base = (pm._service_url(meta) if meta is not None else None) or base
+    except Exception:
+        pass
+    try:
+        resp = requests.get(f"{base.rstrip('/')}/jobs", timeout=(1.0, 5.0))
+        resp.raise_for_status()
+        jobs = resp.json().get("jobs") or []
+    except requests.ConnectionError:
+        return None
+    except Exception as e:  # noqa: BLE001 - timeout, HTTP error or bad JSON
+        return f"Audio Foundry did not report its jobs ({e.__class__.__name__})"
+    active = [j for j in jobs if isinstance(j, dict) and j.get("status") in AUDIO_FOUNDRY_ACTIVE_JOB_STATES]
+    if active:
+        return f"{len(active)} audio job(s) queued or running in Audio Foundry"
+    return None
+
+
 def _stop_blocked_reason(plugin_id: str) -> Optional[str]:
     """Return a human reason if an active job blocks stopping this plugin."""
     if plugin_id == "upscaling":
@@ -347,6 +381,10 @@ def _stop_blocked_reason(plugin_id: str) -> Optional[str]:
         n = _count_active_video_render_jobs()
         if n > 0:
             return f"{n} active video render job(s) in progress"
+    if plugin_id == "audio_foundry":
+        reason = _audio_foundry_jobs_blocked_reason()
+        if reason:
+            return reason
 
     try:
         from backend.services.job_operation_gate import get_gate
@@ -824,4 +862,99 @@ def prepare_plugins_for_route(route: str) -> Dict[str, Any]:
     except Exception as exc:
         logger.warning("plugin_bridge: stage ensure failed for %s: %s", route, exc)
     _emit_plugins_status(f"route:{route}")
+    return result
+
+
+def _lift_user_stop(plugin_id: str) -> Optional[str]:
+    """Undo a person's earlier stop or disable of ``plugin_id``, because they
+    have now asked for it. Returns why it could not be enabled, or None."""
+    if _is_external(plugin_id) or _is_running(plugin_id):
+        return None
+    with _state_lock:
+        _user_controlled.discard(plugin_id)
+    pm = _plugin_manager()
+    try:
+        disabled = (
+            pm.state_store.get_user_enabled().get(plugin_id) is False
+            or not pm.is_effectively_enabled(plugin_id)
+        )
+    except Exception:
+        disabled = False
+    if not disabled:
+        return None
+    res = pm.enable_plugin(plugin_id)
+    if not res.get("success"):
+        return f"could not enable '{plugin_id}': {res.get('error')}"
+    logger.info("plugin_bridge: enabled '%s' at a person's request", plugin_id)
+    return None
+
+
+def start_route_plugins(route: str, *, prepare=None) -> Dict[str, Any]:
+    """A person clicked Start for the plugins ``route`` needs.
+
+    The click lifts their earlier stop or disable of those plugins, then the
+    normal route path runs (``prepare``: the GPU orchestrator's
+    prepare_for_route from the API, prepare_plugins_for_route by default). A
+    plugin that path starts is claimed and stopped again when the person
+    leaves the page; one that was already running is left as it was. With the
+    auto-orchestrator off this is a plain start, kept until someone stops it.
+
+    Returns the route result plus ``success``, ``error`` and ``started`` (one
+    row per plugin: plugin_id, running, outcome, error).
+    """
+    needed = plugins_for_route(route)
+    lift_errors: Dict[str, str] = {}
+    for pid in needed:
+        err = _lift_user_stop(pid)
+        if err:
+            lift_errors[pid] = err
+
+    outcomes: Dict[str, Dict[str, Any]] = {}
+    if auto_orchestrator_enabled():
+        result = (prepare or prepare_plugins_for_route)(route)
+        bridge = result.get("plugins") if isinstance(result.get("plugins"), dict) else result
+        for action in bridge.get("actions") or []:
+            if action.get("plugin_id") in needed:
+                outcomes[action["plugin_id"]] = action
+        route_error = bridge.get("error")
+    else:
+        result = {"route": route, "plain_start": True}
+        route_error = None
+        for pid in needed:
+            if pid in lift_errors:
+                continue
+            ok, detail = _try_start_plugin(pid)
+            if ok:
+                mark_user_controlled(pid)
+            outcomes[pid] = {
+                "action": "start" if ok else "start_failed",
+                "plugin_id": pid,
+                ("detail" if ok else "error"): detail,
+            }
+
+    rows = []
+    for pid in needed:
+        running = _is_running(pid)
+        action = outcomes.get(pid, {})
+        error = None
+        if not running:
+            error = (
+                lift_errors.get(pid)
+                or action.get("error")
+                or route_error
+                or f"{SERVICE_LABELS.get(pid, pid)} did not start"
+            )
+        rows.append({
+            "plugin_id": pid,
+            "running": running,
+            "outcome": action.get("action"),
+            "error": error,
+        })
+
+    result["started"] = rows
+    result["success"] = bool(rows) and all(r["running"] for r in rows)
+    if not rows:
+        result["error"] = f"no plugin is declared for {route}"
+    else:
+        result["error"] = "; ".join(r["error"] for r in rows if r["error"]) or None
     return result

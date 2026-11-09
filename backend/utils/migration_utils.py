@@ -47,18 +47,27 @@ def get_heads(migrations_dir: str = MIGRATIONS_DIR):
     return script.get_heads()
 
 
-def get_database_revision(migrations_dir: str = MIGRATIONS_DIR) -> str:
+def _read_database_revision(migrations_dir: str = MIGRATIONS_DIR):
+    """(revision, None), or (None, reason) when the database can't be reached.
+
+    A database with no alembic_version row is reachable and returns (None, None).
+    """
     cfg = _alembic_config(migrations_dir)
     database_url = cfg.get_main_option("sqlalchemy.url")
     engine = create_engine(database_url)
     try:
         with engine.connect() as conn:
             context = MigrationContext.configure(conn)
-            return context.get_current_revision()
-    except Exception:
-        return None
+            return context.get_current_revision(), None
+    except Exception as exc:
+        reason = (str(exc).strip().splitlines() or [type(exc).__name__])[0]
+        return None, reason[:200]
     finally:
         engine.dispose()
+
+
+def get_database_revision(migrations_dir: str = MIGRATIONS_DIR) -> str:
+    return _read_database_revision(migrations_dir)[0]
 
 
 def _revision_paths_for_head(migrations_dir: str, head: str) -> set[Path]:
@@ -221,7 +230,12 @@ def get_health(migrations_dir: str = MIGRATIONS_DIR) -> dict:
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
     head = heads[0] if heads else None
-    db_rev = get_database_revision(migrations_dir)
+    db_rev, db_error = _read_database_revision(migrations_dir)
+
+    # Without a connection the revision is unknown, not behind: saying
+    # "needs re-stamp" here sends people to the wrong fix.
+    if db_error is not None:
+        return {"status": "db_unreachable", "head": head, "db_revision": None, "error": db_error}
 
     if len(heads) > 1:
         return {"status": "multiple_heads", "heads": list(heads), "db_revision": db_rev}
@@ -250,7 +264,7 @@ def get_comprehensive_health(migrations_dir: str = MIGRATIONS_DIR) -> dict:
     health["model_changes"] = {"has_changes": False, "summary": "N/A -- schema-first approach"}
     health["has_model_changes"] = False
     health["current"] = health.get("head")
-    health["action_needed"] = None if health["status"] == "ok" else "stamp"
+    health["action_needed"] = {"ok": None, "db_unreachable": "start_database"}.get(health["status"], "stamp")
 
     return health
 

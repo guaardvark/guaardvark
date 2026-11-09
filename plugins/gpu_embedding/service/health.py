@@ -19,8 +19,8 @@ def get_uptime_seconds() -> float:
     return time.time() - _start_time
 
 
-def check_gpu_available() -> Dict[str, Any]:
-    """Check if GPU is available and get GPU info"""
+def _check_nvidia_smi() -> Dict[str, Any]:
+    """Check for an NVIDIA GPU through nvidia-smi"""
     try:
         result = subprocess.run(
             ['nvidia-smi', '--query-gpu=name,memory.total,memory.used', '--format=csv,noheader,nounits'],
@@ -59,6 +59,36 @@ def check_gpu_available() -> Dict[str, Any]:
         return {"available": False, "error": str(e)}
 
 
+def _check_rocm_smi() -> Dict[str, Any]:
+    """An AMD GPU, through the probe the backend's hardware profile uses."""
+    try:
+        from backend.services.hardware_detector import probe_amd_vram_bytes
+    except Exception as e:  # the service can run without the backend on its path
+        return {"available": False, "error": f"rocm probe unavailable: {e}"}
+    card = probe_amd_vram_bytes()
+    if card is None:
+        return {"available": False, "error": "rocm-smi not found or reported no card"}
+    total, used = card
+    return {
+        "available": True,
+        "count": 1,
+        "gpus": [{
+            "name": "AMD GPU (rocm-smi)",
+            "memory_total_mb": total // (1024 * 1024),
+            "memory_used_mb": used // (1024 * 1024),
+        }],
+    }
+
+
+def check_gpu_available() -> Dict[str, Any]:
+    """Check if a GPU is visible: nvidia-smi first, rocm-smi as the fallback."""
+    nvidia = _check_nvidia_smi()
+    if nvidia.get("available"):
+        return nvidia
+    amd = _check_rocm_smi()
+    return amd if amd.get("available") else nvidia
+
+
 def get_health_status() -> Dict[str, Any]:
     """
     Get comprehensive health status of the service.
@@ -70,7 +100,7 @@ def get_health_status() -> Dict[str, Any]:
     model_info = get_model_info()
     
     health = {
-        "status": "healthy" if (is_model_loaded() and gpu_status.get("available", False)) else "degraded",
+        "status": "healthy" if is_model_loaded() else "unhealthy",
         "gpu_available": gpu_status.get("available", False),
         "model_loaded": is_model_loaded(),
         "model_name": get_model_name(),
@@ -84,8 +114,9 @@ def get_health_status() -> Dict[str, Any]:
         health["status"] = "unhealthy"
         health["issues"] = ["Model not loaded"]
     elif not gpu_status.get("available", False):
-        health["status"] = "degraded"
-        health["issues"] = ["GPU not available - running in CPU mode"]
+        # The embeddings are computed by Ollama, wherever it runs. A GPU this
+        # process cannot see is a fact for the health body, not a reason to answer 503.
+        health["issues"] = ["No GPU visible to this service (embeddings are computed by Ollama)"]
     
     return health
 

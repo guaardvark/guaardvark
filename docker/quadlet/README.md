@@ -82,7 +82,8 @@ use `docker.io/ollama/ollama:latest`.
 
 ## Differences from docker-compose.yml
 
-- Only the frontend (5173) and the backend (127.0.0.1:5000) are published.
+- Only the frontend (127.0.0.1:5173) and the backend (127.0.0.1:5000) are published,
+  on this machine only.
   PostgreSQL, Redis and Ollama are reachable only inside the `guaardvark` network.
 - Container health checks are set with `HealthCmd=` because `HEALTHCHECK` in the
   Dockerfiles is ignored in the OCI image format.
@@ -131,9 +132,11 @@ sudo systemctl start guaardvark-frontend
 ```
 
 Do not run the rootless and the system-wide units at the same time (ports 5173
-and 5000). Port 5173 is published on all interfaces; open it in the firewall
-only if you want to reach the UI from other devices. Protected actions need the
-API key.
+and 5000). Port 5173 is published on this machine only. To reach the UI from
+other devices, change `PublishPort=127.0.0.1:5173:5173` to `PublishPort=5173:5173`
+in your copy of `guaardvark-frontend.container`; the UI is then reachable from every
+network this machine is on unless a firewall blocks the port.
+Protected actions still need the API key.
 
 ## Using an existing Ollama
 
@@ -168,9 +171,9 @@ container. A 27B model was too slow for the agent's 45 s step timeout.
 
 The image contains the plugin sources (`plugins/`) and a `/app/backend/venv` that
 sees the system-wide packages, which the plugin start scripts expect. Plugins that
-need their own environment create it on first start inside the container. Those
-environments are part of the container layer and are lost when the container is
-recreated (for example after a restart of the unit).
+need their own environment create it on first start inside the container, on the
+`guaardvark-plugins` volume, so it survives a restart of the unit and an image update;
+the image's plugin sources are copied onto the volume at every start.
 
 Tested on AMD (RX 7900 XTX, ROCm, rootless Podman) with an image built with
 `TORCH_CHANNEL=rocm6.3` and `SCREEN_AGENT=1`:

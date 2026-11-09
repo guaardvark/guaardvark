@@ -48,6 +48,12 @@ def main():
                 f"Database schema up to date (head: {health.get('current', 'unknown')})",
                 details=health)
 
+        if status == "db_unreachable":
+            return output_result("connection_error",
+                f"Database unreachable: {health.get('error', 'no connection')}",
+                fix="Start PostgreSQL, then check DATABASE_URL in .env",
+                details=health)
+
         if status == "needs_stamp":
             return output_result("pending",
                 "Database needs re-stamp to current schema head",

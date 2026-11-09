@@ -76,10 +76,15 @@ def service_env(base: Optional[dict] = None) -> dict:
     CUDA_VISIBLE_DEVICES to ""), and every process it spawns inherits that,
     this sidecar included. A service a background task starts would then run
     on the CPU until restarted. A device number someone chose is kept.
+
+    A backend started through the Flask CLI (``flask run``, as in the container
+    images) carries FLASK_RUN_FROM_CLI. Inherited by a plugin service, it makes
+    Flask skip that service's own ``app.run()``, so its port never opens.
     """
     env = dict(os.environ if base is None else base)
     if env.get("CUDA_VISIBLE_DEVICES", None) == "":
         env.pop("CUDA_VISIBLE_DEVICES")
+    env.pop("FLASK_RUN_FROM_CLI", None)
     return env
 
 

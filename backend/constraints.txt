@@ -48,6 +48,8 @@ opencv-contrib-python==4.11.0.86
 # numpy line:
 tifffile<2026.4              # 2026.3.3 last with unpinned numpy; 2026.4.11 needs >=2.0, later >=2.1
 ml-dtypes<0.6                # 0.5.4 allows numpy>=1.26 on py3.12; 0.6.0 needs >=2.0
+pyarrow<26                   # 25.0.1 runs on numpy 1.26; 26.0.1 refuses numpy<2 at import and declares
+                             # no numpy requirement, so pip picks it (datasets, sentence-transformers)
 
 # setuptools<81,>=80.9.0  -- REMOVED: unsatisfiable from the PyTorch index.
 #   install_pytorch.sh installs with --index-url https://download.pytorch.org/whl/<ver>,

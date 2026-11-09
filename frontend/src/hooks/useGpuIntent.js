@@ -8,11 +8,32 @@
  * - Debounces 300ms to collapse rapid page switches
  * - Uses fetch (marked _persistent so useNavigationCancel won't abort it)
  * - Fires and forgets — never blocks navigation
+ *
+ * startPluginsForRoute is the same signal for a person's Start click.
  */
 
 import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { BASE_URL } from "../api/apiClient";
+import { BASE_URL, handleResponse } from "../api/apiClient";
+
+const INTENT_URL = `${BASE_URL}/gpu/memory/intent`;
+
+/**
+ * A person clicked Start for the plugins `route` needs. The backend lifts
+ * their earlier disable and runs the navigation path, so a plugin it starts is
+ * stopped again when they leave that page; one already running stays up.
+ * Resolves to the backend's answer: { success, error, started: [{ plugin_id,
+ * running, outcome, error }] }. Waits for the start, which can take minutes.
+ */
+export async function startPluginsForRoute(route) {
+  const response = await fetch(INTENT_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ route, user_start: true }),
+    _persistent: true, // Exempt from useNavigationCancel
+  });
+  return handleResponse(response);
+}
 
 export default function useGpuIntent() {
   const location = useLocation();
@@ -28,7 +49,7 @@ export default function useGpuIntent() {
 
     debounceRef.current = setTimeout(() => {
       try {
-        fetch(`${BASE_URL}/gpu/memory/intent`, {
+        fetch(INTENT_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ route: location.pathname }),
