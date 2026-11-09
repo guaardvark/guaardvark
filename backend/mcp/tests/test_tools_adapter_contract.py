@@ -12,13 +12,30 @@ from backend.mcp.config import MCPConfig
 from backend.services.agent_tools import BaseTool, ToolParameter, ToolResult
 
 
+class _Connection:
+    """Stands in for the SDK's connection: one per client, weak-referenceable."""
+
+
 class _Session:
-    """Stands in for the SDK's ServerSession: hashable and weak-referenceable."""
+    """Stands in for the SDK's ServerSession, which mcp 2.x builds per request."""
+
+    def __init__(self, connection):
+        self._connection = connection
 
 
 class _Ctx:
+    def __init__(self, connection=None):
+        self.session = _Session(connection or _Connection())
+
+
+class _Client:
+    """One client connection; every call gets a new session object, as over real stdio."""
+
     def __init__(self):
-        self.session = _Session()
+        self.connection = _Connection()
+
+    def ctx(self):
+        return _Ctx(self.connection)
 
 
 def _handlers(monkeypatch, *tools, config=None):
@@ -171,7 +188,7 @@ async def test_a_hidden_tool_cannot_be_called_by_name(monkeypatch):
 # ── sessions, duplicates, retries ─────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_a_tripped_breaker_in_one_session_does_not_block_another(monkeypatch):
+async def test_a_tripped_breaker_in_one_connection_does_not_block_another(monkeypatch):
     class Flaky(BaseTool):
         name, description, read_only = "flaky", "always fails", True
         parameters = {"i": ToolParameter(name="i", type="int", required=False)}
@@ -180,12 +197,12 @@ async def test_a_tripped_breaker_in_one_session_does_not_block_another(monkeypat
             return ToolResult(success=False, error="down")
 
     on_call = _handlers(monkeypatch, Flaky())
-    first, second = _Ctx(), _Ctx()
+    first, second = _Client(), _Client()
     for i in range(2):
-        await on_call(first, _params("flaky", {"i": i}))
-    blocked = await on_call(first, _params("flaky", {"i": 9}))
+        await on_call(first.ctx(), _params("flaky", {"i": i}))
+    blocked = await on_call(first.ctx(), _params("flaky", {"i": 9}))
     assert "paused" in blocked.content[0].text
-    other = await on_call(second, _params("flaky", {"i": 9}))
+    other = await on_call(second.ctx(), _params("flaky", {"i": 9}))
     assert other.content[0].text == "down"
 
 
@@ -210,13 +227,13 @@ async def test_a_retry_with_the_same_key_waits_for_the_first_run(monkeypatch):
     cfg = MCPConfig()
     cfg.timeout_seconds = 0.1
     on_call = _handlers(monkeypatch, tool, config=cfg)
-    ctx = _Ctx()
+    client = _Client()
 
-    first = await on_call(ctx, _params("slow_write", {"idempotency_key": "k1"}))
+    first = await on_call(client.ctx(), _params("slow_write", {"idempotency_key": "k1"}))
     assert first.is_error and "same idempotency_key" in first.content[0].text
 
     cfg.timeout_seconds = 5
-    second = await on_call(ctx, _params("slow_write", {"idempotency_key": "k1"}))
+    second = await on_call(client.ctx(), _params("slow_write", {"idempotency_key": "k1"}))
     assert not second.is_error and second.content[0].text == "done"
     assert len(tool.runs) == 1
     assert "idempotency_key" not in tool.runs[0]
@@ -226,40 +243,65 @@ async def test_a_retry_with_the_same_key_waits_for_the_first_run(monkeypatch):
 async def test_a_key_reused_for_a_different_call_is_refused(monkeypatch):
     tool = _SlowWrite(seconds=0)
     on_call = _handlers(monkeypatch, tool)
-    ctx = _Ctx()
-    await on_call(ctx, _params("slow_write", {"a": 1, "idempotency_key": "k"}))
-    result = await on_call(ctx, _params("slow_write", {"a": 2, "idempotency_key": "k"}))
+    client = _Client()
+    await on_call(client.ctx(), _params("slow_write", {"a": 1, "idempotency_key": "k"}))
+    result = await on_call(client.ctx(), _params("slow_write", {"a": 2, "idempotency_key": "k"}))
     assert result.is_error and "different call" in result.content[0].text
     assert len(tool.runs) == 1
 
 
 @pytest.mark.asyncio
-async def test_an_identical_call_sent_while_the_first_runs_is_blocked(monkeypatch):
+async def test_an_identical_call_sent_while_the_first_runs_waits_for_it(monkeypatch):
     tool = _SlowWrite()
     on_call = _handlers(monkeypatch, tool)
-    ctx = _Ctx()
-    first = asyncio.create_task(on_call(ctx, _params("slow_write", {"a": 1})))
+    client = _Client()
+    first = asyncio.create_task(on_call(client.ctx(), _params("slow_write", {"a": 1})))
     await asyncio.sleep(0.1)
-    second = await on_call(ctx, _params("slow_write", {"a": 1}))
-    assert second.is_error and "still running" in second.content[0].text
+    second = await on_call(client.ctx(), _params("slow_write", {"a": 1}))
+    assert not second.is_error and second.content[0].text == "done"
     assert not (await first).is_error
     assert len(tool.runs) == 1
+
+
+@pytest.mark.asyncio
+async def test_a_retry_after_a_timeout_returns_the_first_run(monkeypatch):
+    tool = _SlowWrite()
+    cfg = MCPConfig()
+    cfg.timeout_seconds = 0.1
+    on_call = _handlers(monkeypatch, tool, config=cfg)
+    client = _Client()
+    first = await on_call(client.ctx(), _params("slow_write", {"a": 1}))
+    assert first.is_error and "waits for this run" in first.content[0].text
+    cfg.timeout_seconds = 5
+    second = await on_call(client.ctx(), _params("slow_write", {"a": 1}))
+    assert not second.is_error and len(tool.runs) == 1
+
+
+@pytest.mark.asyncio
+async def test_identical_calls_on_two_connections_both_run(monkeypatch):
+    tool = _SlowWrite()
+    on_call = _handlers(monkeypatch, tool)
+    results = await asyncio.gather(
+        on_call(_Client().ctx(), _params("slow_write", {"a": 1})),
+        on_call(_Client().ctx(), _params("slow_write", {"a": 1})),
+    )
+    assert not any(r.is_error for r in results) and len(tool.runs) == 2
 
 
 @pytest.mark.asyncio
 async def test_a_finished_call_may_be_sent_again(monkeypatch):
     tool = _SlowWrite(seconds=0)
     on_call = _handlers(monkeypatch, tool)
-    ctx = _Ctx()
+    client = _Client()
     for _ in range(3):
-        assert not (await on_call(ctx, _params("slow_write", {"a": 1}))).is_error
+        assert not (await on_call(client.ctx(), _params("slow_write", {"a": 1}))).is_error
     assert len(tool.runs) == 3
 
 
 def test_timeout_messages_do_not_advise_resubmitting_a_write():
     write = tools_adapter._timeout_message("generate_video", 120)
-    assert "second run" in write and "get_generation_status" in write
+    assert "starts a second run" in write and "get_generation_status" in write
     keyed = tools_adapter._timeout_message("generate_video", 120, key="k9")
     assert "'k9'" in keyed and "will not start a second one" in keyed
     read = tools_adapter._timeout_message("search_code", 120, read_only=True)
-    assert "safe" in read and "starts a second one behind it" in read
+    assert "waits for this run" in read and "second one" in read
