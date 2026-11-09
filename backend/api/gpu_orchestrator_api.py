@@ -3,7 +3,7 @@ GPU Orchestrator API — REST endpoints for GPU memory management.
 
 Provides:
     GET  /api/gpu/memory/status   — VRAM usage, loaded models, tier, eviction queue
-    POST /api/gpu/memory/intent   — Frontend signals route navigation intent
+    POST /api/gpu/memory/intent   — Frontend signals route navigation intent, or a Start click (user_start)
     GET  /api/gpu/memory/tier     — Get current quality tier
     POST /api/gpu/memory/tier     — Set quality tier (speed/balanced/quality)
     POST /api/gpu/memory/evict    — Force-evict a specific model
@@ -42,12 +42,21 @@ def gpu_status():
 
 @gpu_orchestrator_bp.route("/intent", methods=["POST"])
 def gpu_intent():
-    """Receive navigation intent from frontend. Triggers predictive model management."""
+    """Receive navigation intent from frontend. Triggers predictive model management.
+
+    ``user_start: true`` means a person clicked Start for the route's plugins:
+    their earlier disable is lifted and the reply carries ``success``,
+    ``error`` and ``started`` (see plugin_bridge.start_route_plugins).
+    """
     data = request.get_json(silent=True) or {}
     route = data.get("route", "/")
 
     try:
-        result = _get_orch().prepare_for_route(route)
+        if data.get("user_start") is True:
+            from backend.services.plugin_bridge import start_route_plugins
+            result = start_route_plugins(route, prepare=_get_orch().prepare_for_route)
+        else:
+            result = _get_orch().prepare_for_route(route)
         return jsonify(result), 200
     except Exception as e:
         logger.error(f"GPU intent error: {e}")

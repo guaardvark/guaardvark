@@ -43,6 +43,9 @@ import Ace15TextCounter from "../components/audio/Ace15TextCounter";
 import PageLayout from "../components/layout/PageLayout";
 import WaveformPlayer from "../components/audio/WaveformPlayer";
 import axios from "axios";
+import { io } from "socket.io-client";
+import { SOCKET_URL } from "../api/apiClient";
+import { startPluginsForRoute } from "../hooks/useGpuIntent";
 import { ActionButton, DashboardStrip, DashboardTile } from "../components/settings/ui";
 import AlertSnackbar from "../components/common/AlertSnackbar";
 import VoiceConsentDialog from "../components/audio/VoiceConsentDialog";
@@ -55,6 +58,11 @@ import { useUiTranslation, translate, Trans } from "../i18n";
 const AudioFoundryModelsModal = lazyWithReload(() => import("../components/modals/AudioFoundryModelsModal"));
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
+
+// Start goes through the same route path as opening this page, so a plugin it
+// starts is stopped again when the person leaves Audio Studio.
+const AUDIO_ROUTE = "/audio";
+const AUDIO_PLUGIN_ID = "audio_foundry";
 
 // Hardcoded fallback if /api/audio-foundry/voices is unreachable (the backend
 // answers it from the checkout's catalog while the plugin is stopped, so this
@@ -319,6 +327,39 @@ const AudioFoundryPage = () => {
       .catch(() => {});
   }, []);
   useEffect(() => { refreshCatalog(); }, [refreshCatalog]);
+  // Plugin list pushes keep the tile, banner and Generate current however
+  // Audio Foundry is started or stopped; the read above is the first value.
+  useEffect(() => {
+    const socket = io(SOCKET_URL, {
+      reconnection: true,
+      reconnectionAttempts: 5,
+      transports: ["polling", "websocket"],
+    });
+    socket.on("connect", () => socket.emit("subscribe_plugins"));
+    socket.on("plugins:status", (payload) => {
+      const entry = (payload?.plugins || []).find((p) => p.id === AUDIO_PLUGIN_ID);
+      if (!entry) return;
+      setPluginInfo((prev) => ({ ...prev, running: !!entry.running, status: entry.status || prev.status }));
+    });
+    return () => socket.disconnect();
+  }, []);
+  const [startRequested, setStartRequested] = useState(false);
+  const startAudioFoundry = useCallback(async () => {
+    setStartRequested(true);
+    try {
+      const res = await startPluginsForRoute(AUDIO_ROUTE);
+      if (res?.success) {
+        showMessage(t("models.audioFoundryModels.pluginStarted"), "success");
+      } else {
+        showMessage(res?.error || t("models.audioFoundryModels.pluginStartFailed"), "error");
+      }
+    } catch (err) {
+      showMessage(err?.message || t("models.audioFoundryModels.pluginStartFailed"), "error");
+    } finally {
+      setStartRequested(false);
+      refreshCatalog();
+    }
+  }, [refreshCatalog, showMessage, t]);
   // /audio?models=<id> opens Manage models on that row; the Cast page's voice
   // picker links here for a voice that is not installed.
   const [searchParams, setSearchParams] = useSearchParams();
@@ -548,7 +589,10 @@ const AudioFoundryPage = () => {
   // requires a CUDA GPU and reports unavailable on machines without one.
   // Unknown (plugin offline / older plugin) leaves everything enabled.
   const [fxUnavailableReason, setFxUnavailableReason] = useState(null);
+  const pluginRunning = !!pluginInfo.running;
+  const pluginStarting = startRequested || pluginInfo.status === "starting";
   useEffect(() => {
+    if (!pluginRunning) return undefined;
     let cancelled = false;
     axios.get(`${API_BASE}/audio-foundry/status`)
       .then((res) => {
@@ -562,7 +606,14 @@ const AudioFoundryPage = () => {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [pluginRunning]);
+
+  // A "not running" refusal from Generate is cleared once the plugin is up.
+  useEffect(() => {
+    if (!pluginRunning) return;
+    const stale = [t("audio.page.notRunning"), t("audio.page.startingAlert")];
+    setError((prev) => (stale.includes(prev) ? null : prev));
+  }, [pluginRunning, t]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -640,7 +691,6 @@ const AudioFoundryPage = () => {
 
   const tabNeed = idsForTab(activeTab, voiceBackend, musicModel, voiceId, referenceClip);
   const missingRows = missingCatalogRows(catalog, tabNeed.ids, tabNeed.any);
-  const pluginRunning = !!pluginInfo.running;
   const openModels = (modelId) => {
     setHighlightModelId(modelId || missingRows[0]?.id || null);
     setModelsModalOpen(true);
@@ -648,8 +698,7 @@ const AudioFoundryPage = () => {
 
   const generateAudio = async (type) => {
     if (!pluginRunning) {
-      setError(t("audio.page.notRunning"));
-      openModels();
+      setError(t(pluginStarting ? "audio.page.startingAlert" : "audio.page.notRunning"));
       return;
     }
     if (missingRows.length) {
@@ -964,8 +1013,7 @@ const AudioFoundryPage = () => {
     }
 
     if (musicModel !== "minimax-music3-int8" && !pluginRunning) {
-      setError(t("audio.page.notRunning"));
-      openModels();
+      setError(t(pluginStarting ? "audio.page.startingAlert" : "audio.page.notRunning"));
       return;
     }
     if (missingRows.length) {
@@ -1106,6 +1154,18 @@ const AudioFoundryPage = () => {
   const installedCount = catalog.filter((m) => m.installed).length;
   const missingCount = catalog.filter((m) => !m.installed).length;
 
+  const startButton = (
+    <Button
+      color="inherit"
+      size="small"
+      startIcon={pluginStarting ? <CircularProgress size={14} color="inherit" /> : <PlayIcon />}
+      disabled={pluginStarting}
+      onClick={startAudioFoundry}
+    >
+      {t("audio.page.start")}
+    </Button>
+  );
+
   return (
     <PageLayout
       title={t("audio.page.title")}
@@ -1119,7 +1179,7 @@ const AudioFoundryPage = () => {
           <DashboardTile
             label={t("audio.page.plugin")}
             value={pluginRunning ? t("audio.page.running") : (pluginInfo.status || t("audio.page.stopped"))}
-            sub={pluginRunning ? "Audio Foundry" : t("audio.page.startFromModels")}
+            sub={pluginRunning || pluginStarting ? "Audio Foundry" : t("audio.page.startBelow")}
             tone={pluginRunning ? "ok" : "error"}
             onClick={() => openModels()}
           />
@@ -1134,15 +1194,18 @@ const AudioFoundryPage = () => {
 
         {!pluginRunning && (
           <Alert
-            severity="warning"
+            severity={pluginStarting ? "info" : "warning"}
             sx={{ mt: 2, mb: 1 }}
             action={
-              <Button color="inherit" size="small" startIcon={<SettingsIcon />} onClick={() => openModels()}>
-                {t("audio.page.manageModels")}
-              </Button>
+              <Stack direction="row" spacing={1}>
+                {startButton}
+                <Button color="inherit" size="small" startIcon={<SettingsIcon />} onClick={() => openModels()}>
+                  {t("audio.page.manageModels")}
+                </Button>
+              </Stack>
             }
           >
-            {t("audio.page.notRunningAlert")}
+            {pluginStarting ? t("audio.page.startingAlert") : t("audio.page.notRunningAlert")}
           </Alert>
         )}
 
@@ -1821,7 +1884,15 @@ const AudioFoundryPage = () => {
                   </Stack>
                 )}
 
-                {error && <Alert severity="error" sx={{ mt: 2, borderRadius: 2 }}>{error}</Alert>}
+                {error && (
+                  <Alert
+                    severity="error"
+                    sx={{ mt: 2, borderRadius: 2 }}
+                    action={pluginRunning ? undefined : startButton}
+                  >
+                    {error}
+                  </Alert>
+                )}
               </Box>
             </Paper>
           </Grid>
@@ -1981,6 +2052,8 @@ const AudioFoundryPage = () => {
           showMessage={showMessage}
           highlightModelId={highlightModelId}
           onChanged={refreshCatalog}
+          startRoute={AUDIO_ROUTE}
+          plugin={{ ...pluginInfo, status: pluginStarting && !pluginRunning ? "starting" : pluginInfo.status }}
         />
       </Suspense>
       <VoiceConsentDialog

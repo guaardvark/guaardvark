@@ -25,6 +25,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import axios from "axios";
 import { ActionButton, StatusPill } from "../settings/ui";
 import { enablePlugin, startPlugin } from "../../api/pluginsService";
+import { startPluginsForRoute } from "../../hooks/useGpuIntent";
 import { translate, useUiTranslation, Trans } from "../../i18n";
 
 const groupLabels = () => ({
@@ -42,16 +43,23 @@ const sizeLabel = (gb) => {
   return `${Math.round(n * 1024)} MB`;
 };
 
+// startRoute: the page whose route path starts the plugin (Audio Studio passes
+// "/audio", so a plugin started here stops when the person leaves that page).
+// Without it, Start is the Plugins page's start and the plugin stays up.
+// plugin: the page's live plugin state, used instead of this modal's own read.
 const AudioFoundryModelsModal = ({
   open,
   onClose,
   showMessage,
   highlightModelId,
   onChanged,
+  startRoute,
+  plugin: livePlugin,
 }) => {
   const { t } = useUiTranslation();
   const [models, setModels] = useState([]);
-  const [plugin, setPlugin] = useState({ running: false, enabled: false, status: "unknown" });
+  const [fetchedPlugin, setPlugin] = useState({ running: false, enabled: false, status: "unknown" });
+  const plugin = livePlugin || fetchedPlugin;
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState(null);
@@ -201,16 +209,34 @@ const AudioFoundryModelsModal = ({
     onChanged?.();
   };
 
+  // Returns why the plugin did not start, or null once it runs.
+  const requestStart = async () => {
+    if (startRoute) {
+      const res = await startPluginsForRoute(startRoute);
+      return res?.success ? null : res?.error || t("models.audioFoundryModels.pluginStartFailed");
+    }
+    try {
+      await enablePlugin("audio_foundry");
+    } catch {
+      /* already enabled is fine */
+    }
+    const res = await startPlugin("audio_foundry");
+    // A gate refusal (cooling down, GPU busy) answers 200 with data.success false.
+    if (res?.data?.success === false) {
+      return res.data.error || res.message || t("models.audioFoundryModels.pluginStartFailed");
+    }
+    return null;
+  };
+
   const handleStartPlugin = async () => {
     setStarting(true);
     try {
-      try {
-        await enablePlugin("audio_foundry");
-      } catch {
-        /* already enabled is fine */
+      const refused = await requestStart();
+      if (refused) {
+        showMessageRef.current?.(refused, "error");
+      } else {
+        showMessageRef.current?.(t("models.audioFoundryModels.pluginStarted"), "success");
       }
-      await startPlugin("audio_foundry");
-      showMessageRef.current?.(t("models.audioFoundryModels.pluginStarted"), "success");
       await fetchModels();
       onChanged?.();
     } catch (err) {
@@ -364,7 +390,7 @@ const AudioFoundryModelsModal = ({
             }
           />
           {!pluginRunning && (
-            <ActionButton onClick={handleStartPlugin} loading={starting}>
+            <ActionButton onClick={handleStartPlugin} loading={starting || plugin.status === "starting"}>
               {t("models.audioFoundryModels.startPlugin")}
             </ActionButton>
           )}
