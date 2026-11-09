@@ -99,6 +99,19 @@ def test_loaders_name_the_files_the_registry_installs(model):
     assert loaders == {"CLIPLoader": unet["clip"], "VAELoader": unet["vae"]}
 
 
+@pytest.mark.parametrize("model", MODELS)
+@pytest.mark.parametrize("frames", (49, 81, 121))
+def test_tiled_decode_keeps_the_clip_in_one_temporal_piece(model, frames):
+    # The Wan VAEs decode causally; a temporal tile restarts the cache mid-clip and
+    # shows as a brightness step (vae_decode_whole_clip in FAMILY_SPECS).
+    wf = _build(model, width=832, height=480, num_frames=frames)
+    wc.assert_valid(wf)
+    _, decode = wc.one(wf, "VAEDecodeTiled")
+    assert decode["inputs"]["temporal_size"] >= frames
+    assert decode["inputs"]["temporal_size"] % 4 == 0
+    assert decode["inputs"]["tile_size"] == 480
+
+
 # ── Rendered graphs: what generate_video resolved ────────────────────────────
 
 @pytest.mark.parametrize("model", MODELS)

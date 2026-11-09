@@ -2403,11 +2403,20 @@ WAN_REFERENCE_NEGATIVE = (
 LTX_REFERENCE_NEGATIVE = "pc game, console game, video game, cartoon, childish, ugly"
 
 FAMILY_SPECS = {
+    # vae_decode_whole_clip: both Wan VAEs (2.1 for the 14B, 2.2 for the 5B) decode
+    # causally, carrying a cache from each latent frame to the next, so a temporal
+    # tile restarts that cache mid-clip. Measured 2026-11-09 on a 14B I2V clip
+    # (832x480, 81 frames, RIFE 2x) decoded in 64-frame pieces: mean luma (YAVG)
+    # held 73.5-74 to frame 108, fell to 69.1 where the second piece begins
+    # (frames 112-120, native 56-60) and stayed at 71.4-72.9 after it. ComfyUI's
+    # Wan 2.2 templates decode with plain VAEDecode, which keeps a Wan clip whole
+    # in time even when it falls back to tiles.
     "wan": {"dimension_alignment": 16, "max_pixel_area": 1_050_000, "min_vram_gb": 16, "frame_rule": "4n+1",
             "lora_slot": "model_only", "audio_out": False, "guidance": 3.5,
             "frame_snap": None, "negative_prompt": True,
             "cfg_when_unset": 3.5, "negative_when_unset": WAN_REFERENCE_NEGATIVE,
-            "text_encoder_cpu_max_vram_mb": 20 * 1024, "attention": "pytorch"},
+            "text_encoder_cpu_max_vram_mb": 20 * 1024, "attention": "pytorch",
+            "vae_decode_whole_clip": True},
     "cogvideox": {"dimension_alignment": 16, "max_pixel_area": None, "min_vram_gb": 16, "frame_rule": "8n+1",
                   "lora_slot": None, "audio_out": False, "guidance": 6.0,
                   "frame_snap": None, "negative_prompt": True, "cfg_when_unset": 6.0},
@@ -2461,11 +2470,15 @@ FAMILY_SPECS = {
 #   attention_verified  on an entry only: {backend: [speed profile ids]} measured
 #                       clean. PyTorch, ComfyUI's default and the backend every
 #                       render was measured with, is verified everywhere.
+#   vae_decode_whole_clip  decode the clip in one temporal piece, tiling only in
+#                       space; for a VAE that decodes causally, where a temporal
+#                       tile seam shows as a brightness step (Wan, measured above)
 # An entry may declare any of these to override its family.
 RENDER_LIMIT_KEYS = (
     "frame_snap", "min_frames", "frames_when_unset", "enforce_min_steps", "cfg_when_unset",
     "cfg_range", "negative_prompt", "text_encoder_cpu_max_vram_mb", "attention",
     "negative_when_unset", "prompt_styles_withheld", "output_alignment",
+    "vae_decode_whole_clip",
 )
 
 
