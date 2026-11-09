@@ -37,7 +37,7 @@ def test_split_prompt_has_what_unified_has():
     assert svc._proof_contract is True, "split mode must ask for a proof so the done-guard enforces one"
     assert '"success_proof"' in p and '"tool"' in p
     assert "STOP." in p, "the 2-identical pivot must reach the brain before the loop breaker fires"
-    assert "TRAINING MODE" in p and "Recent conversation context" in p
+    assert "TRAINING MODE" in p and "Earlier messages in this chat" in p
     assert "WORLD_OBSERVED: fixture" in p
     assert svc._pending_world_observed == "", "re-grounding output must be consumed, not left to pad every prompt"
     assert "target_description rules" in p

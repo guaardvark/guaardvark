@@ -41,4 +41,3 @@
 - **[STRATEGY]** If the `navigate` action produces no visible change, the browser likely lacks focus or is not open. First ensure a browser window is visible (use re-ground to list actual desktop icons or running apps; target the exact name from WORLD_OBSERVED like "Firefox" or "web browser icon", click it once, then WAIT using the gate or xdotool check for "Mozilla Firefox" window; if still no window after 10-12s, use direct launch fallback or describe the screen and pivot to menu/hotkey). Limit launcher retries to 1-2; trust fresh observations over old knowledge.
 - **[STRATEGY]** If clicking a "Close" icon fails, use `Alt+F4` or `Ctrl+W`.
 - **[STRATEGY]** To clear an address bar, use the `navigate` action instead.
-- **[STRATEGY]** If the vision model says "Done" but no change is seen, ignore and re-Act.

@@ -894,18 +894,41 @@ class AgentBrain:
         reason = (getattr(agent_result, "reason", "") or "").strip()
         success = bool(getattr(agent_result, "success", False))
 
-        actions_taken: List[str] = []
-        last_scene = ""
+        # What actually happened, step by step, with the person's notes and the
+        # model's own last words. Given only action-type names and a screen
+        # description from before the last step, the narration contradicted the
+        # step trail: "still loading" after the page was confirmed shown, "a
+        # series of wait checks" for a run the person had called finished.
+        trail: List[str] = []
+        notes_read: List[str] = []
+        unconfirmed_dones = 0
+        last_reasoning = ""
         try:
-            steps = getattr(agent_result, "steps", None) or []
-            for step in steps[-5:]:
-                action_type = getattr(getattr(step, "action", None), "action_type", "") or ""
-                if action_type:
-                    actions_taken.append(action_type)
-            if steps:
-                last_scene = (getattr(steps[-1], "scene_description", "") or "")[:200]
+            for step in getattr(agent_result, "steps", None) or []:
+                act = getattr(step, "action", None)
+                kind = getattr(act, "action_type", "") or ""
+                res = getattr(step, "result", None) or {}
+                for n in res.get("user_notes") or []:
+                    if n not in notes_read:
+                        notes_read.append(n)
+                if kind == "wait_until_visible":
+                    unconfirmed_dones += 1
+                    continue
+                if not kind:
+                    continue
+                what = (act.target_description or act.text or act.url
+                        or " ".join(act.keys or [])).strip()
+                if res.get("refused"):
+                    tail = f" (not sent: {res.get('refusal')})"
+                elif getattr(step, "failed", False):
+                    tail = f" (failed: {res.get('reason') or res.get('error') or 'no reason given'})"
+                else:
+                    tail = ""
+                trail.append(f"{kind} {what}{tail}".strip())
+                last_reasoning = (getattr(act, "reasoning", "") or last_reasoning).strip()
         except Exception:
             pass
+        final_words = (getattr(agent_result, "final_words", "") or last_reasoning)[:400]
 
         from backend.config import GUAARDVARK_PROJECT_NAME
 
@@ -916,15 +939,29 @@ class AgentBrain:
             + "Reply in 1-2 short sentences about what just happened on screen. "
               "Direct, no corporate filler, no exclamation marks unless something "
               "genuinely went wrong. Don't restate the user's request verbatim, "
-              "don't quote internal status codes — just say what you did, in your voice."
+              "don't quote internal status codes — just say what you did, in your voice. "
+              "Say only what the steps below show."
         )
-        user_prompt = (
-            f'I just asked: "{user_message}"\n'
-            f"You took these actions: {', '.join(actions_taken) or 'none recorded'}\n"
-            f"Outcome: {'success' if success else 'failure'} — internal reason code: {reason or 'unknown'}\n"
-        )
-        if last_scene:
-            user_prompt += f"Last thing visible on screen: {last_scene}\n"
+        if reason.startswith("completed (on your note"):
+            ended = "finished: you stopped because of my note"
+        elif success:
+            ended = "finished"
+        else:
+            ended = f"stopped before finishing (internal reason, do not quote it: {reason or 'unknown'})"
+        user_prompt = f'I just asked: "{user_message}"\n'
+        if trail:
+            user_prompt += "What you did, in order:\n" + "\n".join(f"- {t}" for t in trail[-12:]) + "\n"
+        else:
+            user_prompt += "You took no screen actions.\n"
+        if notes_read:
+            user_prompt += ("Notes I sent while you worked: "
+                            + "; ".join(f'"{n}"' for n in notes_read) + "\n")
+        if unconfirmed_dones:
+            user_prompt += (f"You said it was finished {unconfirmed_dones} time(s) before the end, "
+                            "but the screen check could not confirm it.\n")
+        user_prompt += f"How it ended: {ended}\n"
+        if final_words:
+            user_prompt += f"Your own last words on it: {final_words}\n"
         user_prompt += "\nReply to me now."
 
         # Thinking is off for this call: a thinking model reasons in Ollama's

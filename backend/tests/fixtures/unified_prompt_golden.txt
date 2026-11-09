@@ -7,7 +7,7 @@ YOUR NEXT ACTION MUST BE EXACTLY ONE OF THESE, or a click on something you can a
   • {"action": "hotkey", "keys": ["Page_Down"], "reasoning": "page down"}
 Pick one. Do not pick the exact same "scroll: 3" again.
 
-Recent conversation context:
+Earlier messages in this chat (already handled; use them only when the Task below refers back to them, e.g. "try again"):
 user said hi
 
 Task: open youtube and find the comments
