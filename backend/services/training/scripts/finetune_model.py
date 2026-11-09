@@ -73,10 +73,12 @@ def check_dependencies():
     except ImportError:
         missing.append("torch")
 
-    try:
-        import unsloth  # noqa: F401
+    # Looked up, not imported: importing Unsloth without a GPU probes the
+    # network (require_cuda); finetune() imports it after that check.
+    import importlib.util
+    if importlib.util.find_spec("unsloth") is not None:
         print("Unsloth: installed")
-    except ImportError:
+    else:
         missing.append("unsloth")
 
     try:
@@ -175,8 +177,10 @@ def check_report() -> dict:
             report["bf16"] = bool(report["cuda"] and torch.cuda.is_bf16_supported())
         except Exception as e:
             report["problems"].append(f"torch: {type(e).__name__}: {e}")
+        cuda_ok = False
         try:
             require_cuda()
+            cuda_ok = True
             import unsloth  # noqa: F401  (patches transformers and TRL on import)
             from unsloth import FastLanguageModel  # noqa: F401
         except Exception as e:
@@ -194,11 +198,14 @@ def check_report() -> dict:
                 report["problems"].append("trl: SFTConfig has neither max_length nor max_seq_length")
         except Exception as e:
             report["problems"].append(f"trl: {type(e).__name__}: {e}")
-        try:
-            from unsloth.chat_templates import train_on_responses_only  # noqa: F401
-            report["train_on_responses_only"] = True
-        except Exception:
-            report["train_on_responses_only"] = False
+        # Any unsloth import probes the network without a GPU (require_cuda).
+        report["train_on_responses_only"] = False
+        if cuda_ok:
+            try:
+                from unsloth.chat_templates import train_on_responses_only  # noqa: F401
+                report["train_on_responses_only"] = True
+            except Exception:
+                pass
         try:
             from datasets import Dataset  # noqa: F401
         except Exception as e:
