@@ -12,6 +12,7 @@ const api = {
 
 vi.mock("../../api/pluginsService", () => ({
   listPlugins: vi.fn(),
+  pluginGateRefusal: vi.fn(() => null),
   startPlugin: vi.fn(),
   stopPlugin: vi.fn(),
   enablePlugin: vi.fn(),

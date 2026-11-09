@@ -47,7 +47,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import * as upscalingService from "../api/upscalingService";
 import { formatUiError } from "../utils/uiError";
-import { enablePlugin, listPlugins, startPlugin } from "../api/pluginsService";
+import { enablePlugin, listPlugins, pluginGateRefusal, startPlugin } from "../api/pluginsService";
 import lazyWithReload from "../utils/lazyWithReload";
 import { translate, useUiTranslation } from "../i18n";
 
@@ -192,10 +192,13 @@ const UpscalingPage = ({ embedded = false }) => {
       if (upscaling?.status === "disabled") {
         await enablePlugin("upscaling");
       }
-      const started = await startPlugin("upscaling");
-      // A start held back by the GPU gate or a cooldown answers 200 with success=false.
-      if (started?.data?.success === false) {
-        setError(t("upscaling.service.startRefused", { reason: started.message || started.data.error || t("upscaling.service.tryAgainShortly") }));
+      try {
+        await startPlugin("upscaling");
+      } catch (e) {
+        // A start held back by the GPU gate or a cooldown is a 409 with the gate's reason.
+        const gate = pluginGateRefusal(e);
+        if (!gate) throw e;
+        setError(t("upscaling.service.startRefused", { reason: gate.message || t("upscaling.service.tryAgainShortly") }));
         return;
       }
       const deadline = Date.now() + 60000;
