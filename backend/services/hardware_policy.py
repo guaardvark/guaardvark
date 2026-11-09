@@ -6,6 +6,7 @@ Pure functions over the dict produced by HardwareDetector.detect()["gpu"]
 """
 from __future__ import annotations
 
+import functools
 import hashlib
 from typing import Any
 
@@ -69,6 +70,26 @@ def intel_igpu_only(gpu: dict[str, Any]) -> bool:
     driver installed (the detector's `integrated` entry)."""
     integrated = (gpu or {}).get("integrated") or {}
     return integrated.get("vendor") == "intel" and integrated.get("vulkan") is True
+
+
+def shares_system_memory(gpu: dict[str, Any]) -> bool:
+    """An NVIDIA GPU with no VRAM of its own and a unified pool instead (GB10 /
+    DGX Spark). The unified-memory rules key on this, so a discrete card never
+    takes them."""
+    gpu = gpu or {}
+    return (gpu.get("vendor") == "nvidia" and not (gpu.get("vram_mb") or 0) > 0
+            and (gpu.get("unified_memory_gb") or 0) > 0)
+
+
+@functools.lru_cache(maxsize=1)
+def unified_pool_mb() -> int:
+    """This machine's unified pool in MB when its GPU shares system memory,
+    else 0. Read once per process from the hardware profile."""
+    try:
+        gpu = (_load_hardware() or {}).get("gpu") or {}
+    except Exception:
+        return 0
+    return gpu_memory_mb(gpu) if shares_system_memory(gpu) else 0
 
 
 def ollama_tuning(gpu: dict[str, Any], igpu: bool = True) -> dict[str, Any]:
@@ -193,7 +214,7 @@ def training_fit(ram_gb: float, gpu: dict[str, Any], arch: str) -> dict[str, Any
     """
     gpu = gpu or {}
     vendor = gpu.get("vendor") or "none"
-    vram = gpu.get("vram_mb") or 0
+    vram = gpu_memory_mb(gpu)
     if vendor != "nvidia":
         if vendor == "none":
             reason = "No GPU was found. Guaardvark's trainer needs an NVIDIA GPU."
@@ -212,6 +233,9 @@ def training_fit(ram_gb: float, gpu: dict[str, Any], arch: str) -> dict[str, Any
         return {"practical": False,
                 "reason": (f"This machine has {ram_gb:g} GB of memory. Loading a base model "
                            f"for training needs more than {TRAINING_MAX_SMALL_RAM_GB} GB.")}
+    if shares_system_memory(gpu):
+        return {"practical": True,
+                "reason": f"NVIDIA GPU sharing the machine's {vram / 1024:.0f} GB of memory."}
     return {"practical": True, "reason": f"NVIDIA GPU with {vram / 1024:.0f} GB of memory."}
 
 
