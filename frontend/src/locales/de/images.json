@@ -121,7 +121,8 @@
     "viewFullSize": "In voller Größe anzeigen",
     "edit": "Bearbeiten",
     "publish": "Teilen / Veröffentlichen…",
-    "details": "Details…"
+    "details": "Details…",
+    "upscale": "Hochskalieren"
   },
   "infographic": {
     "failed": "Generierung fehlgeschlagen",
@@ -300,5 +301,12 @@
   },
   "audio": {
     "heading": "Songs und Klänge"
+  },
+  "upscale": {
+    "running": "Hochskalierung von {{name}} …",
+    "done": "Hochskalierte Kopie als {{name}} daneben gespeichert.",
+    "queued": "Hochskalierung in die Warteschlange gestellt. {{name}} erscheint neben dem Video, wenn der Vorgang abgeschlossen ist; der Fortschritt wird in der Fußzeile angezeigt.",
+    "videoDone": "{{name}} ist neben dem Video bereit.",
+    "videoFailed": "Hochskalierung von {{name}} fehlgeschlagen: {{error}}"
   }
 }

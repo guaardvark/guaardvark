@@ -118,6 +118,24 @@ export const refreshPlugins = async () => {
 /**
  * Get plugin logs
  */
+/** The plugin's declared Install step: {state, installed, downloads, exit_code, log_tail}. */
+export const getPluginInstall = async (pluginId) => {
+  const response = await fetch(`${BASE_URL}/${pluginId}/install`, { method: "GET" });
+  return handleResponse(response);
+};
+
+/** Run the plugin's declared Install step in the background. */
+export const startPluginInstall = async (pluginId) => {
+  const response = await fetch(`${BASE_URL}/${pluginId}/install`, { method: "POST" });
+  return handleResponse(response);
+};
+
+/** Which path the indexer embeds through (GPU Embedding plugin or its own), and why. */
+export const getEmbeddingPath = async () => {
+  const response = await fetch(`${API_BASE_URL}/model/embedding/path`, { method: "GET" });
+  return handleResponse(response);
+};
+
 export const getPluginLogs = async (pluginId, lines = 100) => {
   const response = await fetch(`${BASE_URL}/${pluginId}/logs?lines=${lines}`, {
     method: "GET",

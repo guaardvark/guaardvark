@@ -72,6 +72,7 @@ import {
 import { getGpuStatus } from '../api/gpuService';
 import OllamaLifecycleSection from '../components/settings/OllamaLifecycleSection';
 import { ComfyUpdateSection, useComfyUpdate } from '../components/plugins/ComfyUpdate';
+import { EmbeddingPathSection, PluginInstallSection } from '../components/plugins/PluginInstall';
 import { translate, useUiTranslation } from '../i18n';
 
 // ── Constants ──────────────────────────────────────────────────────────
@@ -454,6 +455,8 @@ export const PluginCard = ({ plugin, onAction, onConfigOpen, showMessage }) => {
         </Stack>
 
         <ComfyUpdateSection comfy={comfy} />
+        <PluginInstallSection plugin={plugin} showMessage={showMessage} />
+        <EmbeddingPathSection plugin={plugin} />
 
         <Collapse in={expanded}>
           <Divider sx={{ my: 1.5 }} />

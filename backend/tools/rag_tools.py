@@ -368,5 +368,6 @@ def _queue_for_index(path, project_id):
     with stream:
         document, _job_id = UnifiedUploadService.upload_file(
             FileStorage(stream=stream, filename=path.name), project_id=project_id,
+            onto_existing_file=in_place,
         )
     return document, not in_place

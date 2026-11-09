@@ -106,8 +106,12 @@ def list_plugins():
         
         plugins = manager.list_plugins()
         logger.debug(f"Retrieved {len(plugins)} plugins from manager")
+        from backend.services import plugin_install_service
         for plugin in plugins:
             enrich_with_secrets(plugin.get("id", ""), plugin)
+            install = plugin_install_service.status(plugin.get("id", ""))
+            if install is not None:
+                plugin["install"] = install
 
         return success_response(
             data={
@@ -469,6 +473,26 @@ def get_all_status():
     except Exception as e:
         logger.error(f"Error getting plugin status: {e}", exc_info=True)
         return error_response(str(e), 500, "STATUS_ERROR")
+
+
+@plugins_bp.route("/<plugin_id>/install", methods=["GET"])
+def plugin_install_status(plugin_id):
+    """Whether the plugin's declared Install step has run, and its progress."""
+    from backend.services import plugin_install_service
+    status = plugin_install_service.status(plugin_id)
+    if status is None:
+        return error_response("This plugin has no Install step", 404, "NO_INSTALL_STEP")
+    return success_response(data=status, message="Install status")
+
+
+@plugins_bp.route("/<plugin_id>/install", methods=["POST"])
+def plugin_install_start(plugin_id):
+    """Run the plugin's declared Install step (the only place its downloads happen)."""
+    from backend.services import plugin_install_service
+    status, refusal = plugin_install_service.start(plugin_id)
+    if refusal:
+        return error_response(refusal, 404 if "no Install" in refusal else 409, "INSTALL_REFUSED")
+    return success_response(data=status, message="Install started", status_code=202)
 
 
 @plugins_bp.route("/<plugin_id>/logs", methods=["GET"])

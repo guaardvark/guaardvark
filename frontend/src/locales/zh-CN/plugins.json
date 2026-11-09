@@ -151,5 +151,18 @@
     "loading": "正在加载插件...",
     "emptyTitle": "未找到插件",
     "emptyBody": "将插件添加到 /plugins/ 目录并点击“刷新”。"
+  },
+  "install": {
+    "notInstalled": "尚未安装。安装将一次性下载此插件所需的内容。",
+    "downloads": "正在下载：{{what}}",
+    "install": "安装",
+    "installing": "正在安装…",
+    "done": "{{name}} 已安装。",
+    "failed": "安装 {{name}} 失败（退出代码 {{code}}）。日志已在卡片上。",
+    "failedHint": "上一次安装失败（退出代码 {{code}}）。"
+  },
+  "embeddingPath": {
+    "inUse": "索引器通过此插件进行嵌入：{{model}}，{{dim}} 维度，匹配探测向量。",
+    "notUsed": "索引器未调用此插件：{{reason}}"
   }
 }

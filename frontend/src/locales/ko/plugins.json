@@ -151,5 +151,18 @@
     "loading": "플러그인 로딩 중...",
     "emptyTitle": "플러그인을 찾을 수 없음",
     "emptyBody": "/plugins/ 디렉토리에 플러그인을 추가하고 새로고침을 클릭하세요."
+  },
+  "install": {
+    "notInstalled": "아직 설치되지 않았습니다. 설치를 클릭하면 이 플러그인에 필요한 항목을 한 번 다운로드합니다.",
+    "downloads": "다운로드 중: {{what}}",
+    "install": "설치",
+    "installing": "설치 중…",
+    "done": "{{name}}이(가) 설치되었습니다.",
+    "failed": "{{name}} 설치 실패 (종료 코드 {{code}}). 로그를 카드에서 확인하세요.",
+    "failedHint": "최근 설치가 실패했습니다 (종료 코드 {{code}})."
+  },
+  "embeddingPath": {
+    "inUse": "인덱서가 이 플러그인을 통해 임베딩을 생성합니다: {{model}}, {{dim}} 차원, 프로브 벡터 일치.",
+    "notUsed": "인덱서가 이 플러그인을 사용하지 않습니다: {{reason}}"
   }
 }

@@ -151,5 +151,18 @@
     "loading": "Cargando plugins...",
     "emptyTitle": "No se encontraron plugins",
     "emptyBody": "Añade plugins al directorio /plugins/ y haz clic en Actualizar."
+  },
+  "install": {
+    "notInstalled": "Aún no está instalado. Instala las descargas que este plugin necesita, una sola vez.",
+    "downloads": "Descargas: {{what}}",
+    "install": "Instalar",
+    "installing": "Instalando…",
+    "done": "{{name}} está instalado.",
+    "failed": "Error al instalar {{name}} (salida {{code}}). El registro está en la tarjeta.",
+    "failedHint": "La última instalación falló (salida {{code}})."
+  },
+  "embeddingPath": {
+    "inUse": "El indexador genera embeddings a través de este plugin: {{model}}, {{dim}} dimensiones, vector de sonda coincidente.",
+    "notUsed": "El indexador no está usando este plugin: {{reason}}"
   }
 }
