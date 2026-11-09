@@ -395,7 +395,8 @@ class RealLoraTrainer:
                     mock=False,
                     extra={
                         "train_backend": train_backend_name,
-                        "resolution": resolution,
+                        # The trainer may cap the resolution to fit the card; record what it used.
+                        "resolution": int(train_resp.get("resolution") or resolution),
                         "rank": rank,
                         "alpha": alpha,
                     },
@@ -427,6 +428,7 @@ class RealLoraTrainer:
                 "lora_path": str(output_path),
                 "lora_version": v,
                 "base_model_id": registry_base,
+                "resolution": int(train_resp.get("resolution") or resolution),
             }
 
     def shutdown(self) -> None:
