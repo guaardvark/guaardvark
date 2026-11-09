@@ -91,7 +91,7 @@ install_comfyui_python_deps
 
 # Comfy-Org/ComfyUI#15441: comfy-kitchen>=0.2.28 annotates torch.library
 # custom ops with PEP 585 list[int] / X | None. infer_schema accepts those
-# only from torch 2.7+. This venv is 2.6+cu124, so a raw 0.2.31 import
+# only from torch 2.7+. On torch 2.6 a raw 0.2.31 import
 # crashed main.py before --listen bound the plugin port. Rewrite those
 # annotations in site-packages (re-applied after pip). Do not downgrade
 # kitchen — current ComfyUI needs 0.2.31 APIs (int8_attention_is_available).
@@ -100,7 +100,7 @@ import importlib.metadata as m, sys
 from pathlib import Path
 def ver(name):
     try:
-        return tuple(int(x) for x in m.version(name).split(".")[:3])
+        return tuple(int(x) for x in m.version(name).split("+")[0].split(".")[:3])
     except Exception:
         return (0, 0, 0)
 if ver("torch") >= (2, 7):
