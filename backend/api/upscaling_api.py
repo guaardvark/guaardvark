@@ -561,17 +561,15 @@ DOCUMENT_VIDEO_EXTENSIONS = frozenset({".mp4", ".webm", ".mov", ".mkv", ".avi"})
 
 
 def _free_sibling_name(document, physical_path: Path, ext: str) -> tuple[Path, str]:
-    """``<stem>_upscaled<ext>`` beside the source (``_upscaled_2`` and up when taken)."""
-    from backend.models import Document as DBDocument
+    """``<stem>_upscaled<ext>`` beside the source, ``(2)`` and up when the name is taken."""
+    from backend.models import Document as DBDocument, db
+    from backend.utils.filename_resolver import resolve_storage_filename
 
-    counter = 1
-    while True:
-        name = f"{physical_path.stem}_upscaled{f'_{counter}' if counter > 1 else ''}{ext}"
-        out_path = physical_path.parent / name
-        doc_path = str(Path(document.path).parent / name)
-        if not out_path.exists() and DBDocument.query.filter_by(path=doc_path).first() is None:
-            return out_path, doc_path
-        counter += 1
+    rel_dir = str(Path(document.path).parent)
+    rel_dir = "" if rel_dir == "." else rel_dir
+    name = resolve_storage_filename(document.folder_id, physical_path.parent, rel_dir,
+                                    f"{physical_path.stem}_upscaled{ext}", db.session, DBDocument)
+    return physical_path.parent / name, (f"{rel_dir}/{name}" if rel_dir else name)
 
 
 def _file_beside(source_id: int, out_path: Path, doc_path: str) -> dict:
