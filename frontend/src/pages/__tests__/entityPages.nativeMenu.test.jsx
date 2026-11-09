@@ -127,8 +127,8 @@ describe("entity pages keep the browser menu where it is needed", () => {
     expect(rightClick(field)).toBe(true);
     expect(menuOpen()).toBe(false);
 
-    const typeInput = document.querySelector("input.MuiSelect-nativeInput");
-    expect(rightClick(typeInput)).toBe(true);
+    const typeFilter = screen.getByTestId("task-type-filter");
+    expect(rightClick(typeFilter)).toBe(true);
     expect(menuOpen()).toBe(false);
   });
 
