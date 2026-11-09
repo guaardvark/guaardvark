@@ -1,4 +1,4 @@
-"""Scorsese: measure how a video is shot and cut, then keep that as a style recipe.
+"""Style analysis: measure how a video is shot and cut, then keep that as a style recipe.
 
 ``analyze`` measures a video with ffmpeg, OpenCV and librosa (shots, camera
 motion, lighting, colour, pacing, beat alignment) into one JSON document.
@@ -11,8 +11,8 @@ Every number here is measured by classical computer vision and carries
 replace a measured value.
 """
 
-from backend.services.scorsese.analyze import analyze_video, detect_shots, probe
-from backend.services.scorsese.recipe import (
+from backend.services.video_style.analyze import analyze_video, detect_shots, probe
+from backend.services.video_style.recipe import (
     build_recipe,
     distance,
     list_recipes,

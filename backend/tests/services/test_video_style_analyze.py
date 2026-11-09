@@ -1,4 +1,4 @@
-"""Scorsese Measure engine on a synthetic clip with five hard cuts.
+"""The video style measure engine on a synthetic clip with five hard cuts.
 
 The clip is six lavfi sources of different luma (2, 3, 4, 2, 3, 4 seconds)
 concatenated, each with a sine tone, built by ffmpeg in a tmp dir. Skipped
@@ -14,7 +14,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 os.environ["GUAARDVARK_MODE"] = "test"
 
-from backend.services.scorsese import analyze  # noqa: E402
+from backend.services.video_style import analyze  # noqa: E402
 
 pytestmark = pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
                                 reason="ffmpeg is required")

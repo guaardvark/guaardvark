@@ -652,7 +652,7 @@ def register_image_tools() -> List[str]:
         logger.warning(f"Failed to register music-video tool: {e}")
 
     try:
-        from backend.tools.scorsese_tools import AnalyzeVideoStyleTool
+        from backend.tools.video_style_tools import AnalyzeVideoStyleTool
         register_tool(AnalyzeVideoStyleTool())
         registered.append("analyze_video_style")
         _tool_categories["analyze_video_style"] = "image"

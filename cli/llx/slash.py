@@ -36,7 +36,7 @@ _HELP_GROUPS: list[tuple[str, list[str]]] = [
     ("Local Coding (agentic)", ["ls", "cd", "pwd", "read", "grep", "edit", "run", "test", "todo", "diff", "apply", "undo"]),
     ("Backend Tools", ["tools", "tool"]),
     ("Context & State", ["context", "suggest", "analyze", "init", "load", "skills"]),
-    ("Multi-Modal Commands", ["imagine", "video", "music-video", "scorsese", "film-crew", "voice", "ingest", "agent", "web"]),
+    ("Multi-Modal Commands", ["imagine", "video", "music-video", "style", "film-crew", "voice", "ingest", "agent", "web"]),
     ("Admin Commands", ["jobs", "outreach", "logs", "backup", "family", "recipes"]),
     ("Studio Commands", ["plugins", "gpu", "audio", "swarm", "lessons", "mcp"]),
     ("Config Commands", ["config", "settings", "theme", "quality"]),
@@ -209,7 +209,7 @@ class SlashRouter:
         from llx.commands.images import images_app
         from llx.commands.videos import videos_app
         from llx.commands.music_video import music_video_app
-        from llx.commands.scorsese import scorsese_app
+        from llx.commands.style import style_app
         from llx.commands.film_crew import film_crew_app
         from llx.commands.system import models_app
         from llx.commands.quality import quality_app
@@ -242,7 +242,7 @@ class SlashRouter:
             "images": images_app,
             "videos": videos_app,
             "music-video": music_video_app,
-            "scorsese": scorsese_app,
+            "style": style_app,
             "film-crew": film_crew_app,
             "models": models_app,
             "quality": quality_app,

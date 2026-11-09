@@ -26,7 +26,7 @@ from llx.commands.tasks import tasks_app
 from llx.commands.images import images_app
 from llx.commands.videos import videos_app
 from llx.commands.music_video import music_video_app
-from llx.commands.scorsese import scorsese_app
+from llx.commands.style import style_app
 from llx.commands.film_crew import film_crew_app
 from llx.commands.launch import launch
 from llx.commands.quality import quality_app
@@ -166,7 +166,7 @@ app.add_typer(tasks_app, name="tasks")
 app.add_typer(images_app, name="images")
 app.add_typer(videos_app, name="videos")
 app.add_typer(music_video_app, name="music-video")
-app.add_typer(scorsese_app, name="scorsese")
+app.add_typer(style_app, name="style")
 app.add_typer(film_crew_app, name="film-crew")
 app.add_typer(quality_app, name="quality")
 app.add_typer(outreach_app, name="outreach")

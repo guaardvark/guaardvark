@@ -574,7 +574,7 @@ def _load_music_video(native_id):
 
 
 def _load_video_analysis(native_id):
-    from backend.services.scorsese import jobs
+    from backend.services.video_style import jobs
     return jobs.load_job(str(native_id))
 
 
@@ -588,7 +588,7 @@ _VIDEO_ANALYSIS_STATUS = {
 
 
 def adapt_video_analysis(job: dict) -> Job:
-    """Scorsese job record (backend/services/scorsese/jobs.py) → Job."""
+    """Video style analysis record (backend/services/video_style/jobs.py) → Job."""
     status = _VIDEO_ANALYSIS_STATUS.get(job.get("status"), JobStatus.PENDING)
     started = _parse_iso(job.get("created_at"))
     finished = _parse_iso(job.get("finished_at")) if status.is_terminal else None
@@ -597,7 +597,7 @@ def adapt_video_analysis(job: dict) -> Job:
         kind=JobKind.VIDEO_ANALYSIS,
         native_id=job["id"],
         status=status,
-        label=f"Scorsese: {job.get('name') or job['id']} ({job.get('stage')})",
+        label=f"Style analysis: {job.get('name') or job['id']} ({job.get('stage')})",
         progress=float(job.get("progress") or 0) if status.is_active else None,
         started_at=started,
         finished_at=finished,

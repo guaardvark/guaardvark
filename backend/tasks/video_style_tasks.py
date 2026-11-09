@@ -1,4 +1,4 @@
-"""Celery stages of a Scorsese analysis: probing → shots → measure → audio → distill.
+"""Celery stages of a video style analysis: probing → shots → measure → audio → distill.
 
 Each stage loads the job and the analysis document from the job folder, runs
 one analyzer stage, saves, advances the job and tail-calls the next task, so
@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 
 from celery import Celery
 
-from backend.services.scorsese import analyze, jobs
+from backend.services.video_style import analyze, jobs
 from backend.utils.progress_emitter import emit_progress_event
 
 log = logging.getLogger(__name__)
@@ -31,11 +31,11 @@ PROCESS_TYPE = "analysis"
 
 
 def _process_id(job_id: str) -> str:
-    return f"scorsese_{job_id}"
+    return f"video_style_{job_id}"
 
 
 def _emit(job: Dict[str, Any], progress: int, message: str, status: str) -> None:
-    emit_progress_event(_process_id(job["id"]), progress, f"Scorsese: {job['name']}: {message}", status,
+    emit_progress_event(_process_id(job["id"]), progress, f"Style analysis: {job['name']}: {message}", status,
                         PROCESS_TYPE, {"job_id": job["id"], "stage": job.get("stage")})
 
 
@@ -70,7 +70,7 @@ def run_stage(job_id: str, stage: str) -> Optional[Dict[str, Any]]:
     try:
         analyze.run_stage(analysis, analyzer_stage, progress=progress)
     except Exception as e:  # noqa: BLE001 - recorded on the job; Celery must not retry
-        log.exception("scorsese %s: stage %s failed", job_id, stage)
+        log.exception("video style %s: stage %s failed", job_id, stage)
         jobs.update(job_id, status="failed", error=str(e), message=f"{stage} failed")
         _emit(job, lo, f"{stage} failed: {e}", "error")
         return None
@@ -87,16 +87,16 @@ def dispatch(job_id: str, stage: str = "probing") -> None:
     """Queue one stage. Raises TaskNotStarted (via GuaardvarkCelery) when no worker can take it."""
     from backend.celery_app import celery
 
-    celery.send_task(f"scorsese.run_{stage}", args=[job_id])
+    celery.send_task(f"video_style.run_{stage}", args=[job_id])
 
 
-def create_scorsese_tasks(celery_app: Celery):
+def create_video_style_tasks(celery_app: Celery):
     from flask import current_app
 
     tasks = {}
     for stage in PIPELINE:
         def make(stage_name: str):
-            @celery_app.task(name=f"scorsese.run_{stage_name}")
+            @celery_app.task(name=f"video_style.run_{stage_name}")
             def task(job_id: str):
                 with current_app.app_context():
                     nxt = run_stage(job_id, stage_name)
