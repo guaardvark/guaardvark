@@ -39,6 +39,11 @@ logger = logging.getLogger(__name__)
 # Mirror of PluginManager.GPU_EXCLUSIVE_PLUGIN_IDS — avoid import cycle at module load.
 GPU_EXCLUSIVE_PLUGIN_IDS = frozenset({"ollama", "comfyui"})
 
+# Services a page change never stops, even one a page started. Ollama serves
+# chat for the Discord bot, the CLI, MCP and agents as well as the open page;
+# its GPU memory is freed by unloading the model, not by stopping the service.
+ROUTE_KEEPS_RUNNING = frozenset({"ollama"})
+
 # Frontend route → sidecar plugins required for that page.
 # In-process models (SD pipeline, whisper.cpp) stay in gpu_memory_orchestrator.
 ROUTE_PLUGIN_MAP: Dict[str, List[str]] = {
@@ -427,7 +432,7 @@ def _resolve_gpu_conflict(needed: Set[str]) -> List[Dict[str, Any]]:
     actions: List[Dict[str, Any]] = []
     pm = _plugin_manager()
     for pid in GPU_EXCLUSIVE_PLUGIN_IDS:
-        if pid in needed or not _is_running(pid):
+        if pid in needed or pid in ROUTE_KEEPS_RUNNING or not _is_running(pid):
             continue
         with _state_lock:
             if pid in _user_controlled:
@@ -715,6 +720,7 @@ def prepare_plugins_for_route(route: str) -> Dict[str, Any]:
             to_release = [
                 pid for pid in _orchestrator_claims
                 if pid not in needed and pid not in _user_controlled
+                and pid not in ROUTE_KEEPS_RUNNING
             ]
         for pid in to_release:
             if pid in prev_needed or pid not in needed:

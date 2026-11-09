@@ -1,4 +1,4 @@
-"""A page change stops only the plugins a page started.
+"""A page change stops only the plugins a page started, and never Ollama.
 
 Opening Chat used to claim an Ollama that start.sh had started, and the next
 page that does not list Ollama stopped it with `systemctl stop ollama`, which
@@ -67,3 +67,13 @@ def test_comfyui_a_job_started_survives_leaving_video(bridge):
     pb.prepare_plugins_for_route("/chat")
 
     assert bridge.stops == []
+
+
+@pytest.mark.parametrize("next_page", ["/", "/video"])
+def test_an_ollama_chat_started_survives_leaving_chat(bridge, next_page):
+    pb.prepare_plugins_for_route("/chat")
+    pb.prepare_plugins_for_route(next_page)
+
+    assert "ollama" in bridge.starts
+    assert "ollama" not in bridge.stops
+    assert "ollama" in bridge.running
