@@ -1,6 +1,6 @@
 # Guaardvark
 
-**版本 3.4.2** · [guaardvark.com](https://guaardvark.com)
+**版本 3.5.0** · [guaardvark.com](https://guaardvark.com)
 
 > 本译文基于较早的 README，更新会滞后；最新、最完整的说明请见英文 [README.md](README.md)。
 
