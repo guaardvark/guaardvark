@@ -64,6 +64,8 @@ PLUGIN_URL = "http://127.0.0.1:8207"   # video_editor plugin (analyze + assemble
 GPU_COOLDOWN_RETRY_S = 12
 # Longest a single clip may keep deferring on GPU-busy / plugin-unavailable before the stage fails.
 CLIP_DEFER_MAX_S = int(os.environ.get("GUAARDVARK_MV_CLIP_DEFER_MAX_S", str(3 * 3600)))
+# i2v render size when a video's settings name none (see _settings).
+DEFAULT_I2V_WIDTH, DEFAULT_I2V_HEIGHT = 832, 480
 
 
 def _settings(mv: MusicVideo) -> dict:
@@ -86,8 +88,8 @@ def _settings(mv: MusicVideo) -> dict:
     # renders SQUARE, then the fill cover-crops it (the "square video" bug). The
     # fill step cover-scales this to the final width/height (1920x1080), and since
     # it's already 16:9 there's no crop. Bump to 1280x720 for more detail if VRAM allows.
-    s.setdefault("i2v_width", 832)
-    s.setdefault("i2v_height", 480)
+    s.setdefault("i2v_width", DEFAULT_I2V_WIDTH)
+    s.setdefault("i2v_height", DEFAULT_I2V_HEIGHT)
     # i2v model selection. Prefer explicit "i2v_model" (e.g. "wan22-14b-i2v") for full
     # flexibility like the main VideoGeneratorPage. Falls back to the legacy i2v_engine
     # mapping for backward compat.

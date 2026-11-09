@@ -58,6 +58,7 @@ import { io } from 'socket.io-client';
 import { SOCKET_URL } from '../api/apiClient';
 import {
   listPlugins,
+  pluginGateRefusal,
   startPlugin,
   stopPlugin,
   enablePlugin,
@@ -875,6 +876,17 @@ const PluginsPage = () => {
 
   const handlePluginAction = async (pluginId, action) => {
     const settles = action === 'start' || action === 'stop';
+    // The operation gate held the start or stop back: a notice with the wait,
+    // not an error, and the card counts the cooldown down.
+    const showGateRefusal = (gate) => {
+      const notice = gate.message || t('plugins.page.coolingDown');
+      showMessage(gate.cooldown ? t('plugins.page.gatedWait', { message: notice, seconds: gate.cooldown }) : notice, 'warning');
+      if (gate.cooldown) {
+        setPlugins((prev) => prev.map((p) => (
+          p.id === pluginId ? { ...p, cooldown_remaining: gate.cooldown } : p
+        )));
+      }
+    };
     try {
       let response;
       switch (action) {
@@ -916,20 +928,9 @@ const PluginsPage = () => {
         default: throw new Error(`Unknown action: ${action}`);
       }
       if (response.success) {
-        // Backend returned 200. Two sub-cases:
-        //  1. Operation succeeded → data.success === true
-        //  2. Operation was rate-limited by the traffic light → data.gated === true
-        const data = response.data || {};
-        if (data.gated) {
-          // Friendly cooldown notice, not an error
-          const cd = data.cooldown_remaining ? Math.ceil(data.cooldown_remaining) : null;
-          const notice = data.error || t('plugins.page.coolingDown');
-          showMessage(cd ? t('plugins.page.gatedWait', { message: notice, seconds: cd }) : notice, 'warning');
-          if (cd) {
-            setPlugins((prev) => prev.map((p) => (
-              p.id === pluginId ? { ...p, cooldown_remaining: cd } : p
-            )));
-          }
+        const gate = pluginGateRefusal(response);
+        if (gate) {
+          showGateRefusal(gate);
           return;
         }
         showMessage(response.message || actionSucceeded(action), 'success');
@@ -965,7 +966,12 @@ const PluginsPage = () => {
         showMessage(response.message || actionFailed(action), 'error');
       }
     } catch (err) {
-      showMessage(err.message || actionFailed(action), 'error');
+      const gate = pluginGateRefusal(err);
+      if (gate) {
+        showGateRefusal(gate);
+      } else {
+        showMessage(err.message || actionFailed(action), 'error');
+      }
     } finally {
       // Replace the 'starting'/'stopping' shown during the call with the
       // backend's settled status, whether the call worked, failed or was gated.
