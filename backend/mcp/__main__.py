@@ -130,6 +130,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "list-tools",
         help="Print exposed tools and exit (no transport, useful for smoke tests)",
     )
+    list_tools_cmd.add_argument(
+        "--json", action="store_true",
+        help="Print a JSON array: name, description, read_only and the toolsets that carry each tool",
+    )
 
     parser.add_argument(
         "-v", "--verbose", action="store_true",
@@ -215,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if cmd == "list-tools":
         with _stdout_to_stderr():
-            from backend.mcp.config import UnknownToolset, load_config, toolset_members
+            from backend.mcp.config import UnknownToolset, load_config, toolset_members, toolsets_with
             from backend.mcp.server import _ensure_tools_initialized
             from backend.mcp.tools_adapter import collect_exposed_tools, narrow_to_toolset
             cfg = load_config(toolset=args.toolset)
@@ -225,8 +229,17 @@ def main(argv: list[str] | None = None) -> int:
                 return _refuse_to_start(exc)
             _ensure_tools_initialized()
             exposed, _outside = narrow_to_toolset(collect_exposed_tools(cfg), cfg.tools)
-        for _base, mcp_tool in exposed:
-            print(f"{mcp_tool.name}\t{(mcp_tool.description or '').splitlines()[0][:80]}")
+        if args.json:
+            import json
+            print(json.dumps([
+                {"name": mcp_tool.name, "description": mcp_tool.description or "",
+                 "read_only": getattr(base, "read_only", None) is True,
+                 "toolsets": toolsets_with(mcp_tool.name)}
+                for base, mcp_tool in exposed
+            ], indent=2))
+        else:
+            for _base, mcp_tool in exposed:
+                print(f"{mcp_tool.name}\t{(mcp_tool.description or '').splitlines()[0][:80]}")
         print(f"\n({len(exposed)} tools exposed, toolset {cfg.tools.toolset})", file=sys.stderr)
         return 0
 

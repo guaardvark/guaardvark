@@ -11,6 +11,7 @@ import typer
 
 from llx import output
 from llx.commands.system import _find_project_root
+from llx.global_opts import get_global_json
 from llx.theme import make_console
 
 console = make_console()
@@ -154,8 +155,11 @@ def mcp_doctor(
 def mcp_list_tools(
     toolset: str = typer.Option(None, "--toolset", "-t", help=_TOOLSET_HELP),
 ):
-    """Print tools the MCP server exposes."""
-    raise typer.Exit(_run_mcp(["list-tools", "--toolset", toolset] if toolset else ["list-tools"]))
+    """Print tools the MCP server exposes (a JSON array with --json)."""
+    args = ["list-tools", "--toolset", toolset] if toolset else ["list-tools"]
+    if get_global_json() or output.is_json_mode():
+        args.append("--json")
+    raise typer.Exit(_run_mcp(args))
 
 
 # `guaardvark mcp client ...`: the external MCP servers the agent itself uses.
