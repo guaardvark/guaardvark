@@ -1,5 +1,86 @@
 # Changelog
 
+## 3.5.0 — Image Edit, one desktop for Files and Media, Docker runs the Studio plugins, installs without NVIDIA
+
+- **Before you update:** Redis 6.0 or newer is now required (redis-py 8.1 and kombu 5.7); the Docker image's Redis 7,
+  Ubuntu 22.04 and later, and Homebrew all qualify. The video style measure moved to `/api/video-style/*` and
+  `llx style`, and its old routes and command are gone.
+- **ONNX Runtime's usage telemetry is off, and the trainer check stays offline.** ONNX Runtime, a dependency, sends
+  usage events to Microsoft unless told not to: a device id, the interpreter's path, the CPU and OS, and the file
+  names of the models it loads. Every Guaardvark process now sets the switch that turns this off. Installs from
+  3.0.0 on carried it, and it was not declared in `egress.json`. Update and restart to pick up the switch. On a
+  machine without a usable GPU, the check that ends a Training libraries install no longer imports Unsloth, whose
+  error hint fetched download.pytorch.org.
+- **The Image Edit page.** New scene, same face keeps a person's face from up to three photos and puts them
+  in a scene you describe, with a face check and a consent step per photo and a measured likeness score on
+  the result. It can also put the face on one person in a group scene, or restage the original photo with
+  FLUX.1 Kontext. Edit, Expand and Remove background share the page, and photo edits take a seed.
+- **New image models.** MOSS-Image renders in the Studio, in chat and for infographics, with LoRA stacking
+  and an Edit LoRA. FLUX 3 Image Klein is in the Studio; it renders on a ComfyUI running PyTorch 2.7 or newer, which
+  RTX 30 and 40 cards get by running ComfyUI from its own environment, and its refusal says how to get there. FLUX.1
+  models (dev and schnell) can take a replacement T5-XXL or CLIP-L text encoder, picked per render.
+- **Files and Media share one desktop,** with Icons, Thumbnails and List views, and it lists everything below
+  a folder by kind. Songs and sounds appear in Media, and a details view shows each file's recipe. Media
+  regenerates images, clips, songs and sound effects from their recipes, and Image Gen and Video Gen open
+  pre-filled for one item.
+- **Docker runs the Studio plugins too.** ComfyUI, Audio Foundry and Upscaling ship in the backend image, and
+  ComfyUI installs from its plugin card on a machine that has none, so a new install gets video and the ComfyUI
+  image models. What plugins build (ComfyUI, its models, plugin environments) lives on a volume and survives image
+  updates, and the web app and API are published on this machine only, under Docker Compose and in the rootless
+  Podman Quadlet units alike. Plugin services built on Flask, GPU Embedding among them, now start their own server
+  in the containers, and GPU Embedding reports healthy with a note when no GPU is visible to it. The database runs on pgvector, `start-docker.sh` finds
+  the GPU under Docker Desktop, and the screen agent is opt-in (thanks @patmansk, #350, #363, #385).
+- **Installs without an NVIDIA GPU.** On a machine with AMD graphics or none, a fresh install keeps its model
+  pull when Ollama's installer stumbles, chat names a missing model and how to get it, video says
+  it needs a GPU, and with no image model installed, the error says the machine has no GPU for image generation
+  instead of suggesting a Z-Image download. Chat gets a usable context window on an
+  8 GB machine, and the CLI no longer resends a slow chat as a duplicate. AMD cards are measured through one
+  shared `rocm-smi` probe (thanks @patmansk, #362).
+- **GB10 and DGX Spark, code-ready.** A GPU that shares the machine's memory now counts that unified pool when
+  Guaardvark judges training, picks a video model and routes cluster work. It has not yet been run on the hardware.
+- **Changing pages no longer stops Ollama.** Going from Chat, Documents, Voice Chat, Film Crew or Music Video to a
+  page that does not use Ollama stopped the Ollama start.sh had started, which cut chat for the Discord bot, the
+  CLI, MCP and agents. A page change now stops only
+  a plugin that page started itself, and never Ollama.
+- **Network switches, named for what they do.** "Internet for code it runs" is now "+ Code it runs" beside Web
+  access, and Web access or the kill switch turns it off too. "Network access" is now "Trust local network", since
+  it decides which devices may skip the API key. The Interconnector has a status pill with Connect, Settings and
+  Disconnect. A fresh install still starts with both network options off.
+- **Chat reads long material.** Tool results too long for the window are kept whole and read on in parts, a
+  notes pad and a reading log outlast the window, and the question stays in view when older turns are pruned.
+  A new `scan` tool reads a whole long indexed document, or a file of Guaardvark's own code, for one question. A
+  research mode with more steps is available behind `GUAARDVARK_RESEARCH_MODE=1`.
+- **Chat plays the video it made** in the reply that asked for it, instead of only in the Studio.
+- **Chat answers from your documents more carefully.** Without the optional reranker, passages far off the message's
+  topic are left out, so one indexed note no longer turns up in every answer; on a large library the
+  reranker still filters best. When Ollama refuses a document question sent through `llx chat` or the REST chat
+  API as too long, it is answered again from fewer passages instead of failing. Context windows are sized from
+  measured costs for Qwen 3.5 models, and a model's window can be set by hand, e.g.
+  `GUAARDVARK_NUM_CTX=gemma4:12b=32768` (thanks @patmansk, #383).
+- **Cast and LoRA training.** Z-Image training claims the GPU from its measured peak and waits up to ten minutes
+  for a busy card instead of failing at once. Props and places are described as what they are, each music-video
+  cut can name its own Cast subjects through the API, several Cast LoRAs on one Z-Image render share the strength
+  in chat, Image Gen, music videos and Film Crew, and a LoRA records the resolution it was actually trained at.
+  The Z-Image trainer now trains on the timestep the renderer uses. A fresh Training libraries install imports
+  again: pyarrow 26, which needs NumPy 2, is held back.
+- **Songs as written.** ACE-Step 1.5 can send a song straight to the model, so the same text and seed give the same
+  song, and a Polish step fills in tempo, key and length without rewriting the words. Audio Studio's "not running"
+  banner has a Start button: it starts Audio Foundry, which stops again when you leave the page unless it was
+  already running, and never while a song is queued or rendering.
+- **Agent Screen.** Watch the agent in its own window with a live stream, and take the mouse and keyboard
+  yourself. An unproven click gets a second look before it counts as done.
+- **Backups.** The daily backup now fires on machines that are switched off at night, retention can be set in
+  Manage Backups, and listing or downloading a backup needs this machine or the API key.
+- **Also:** the progress footer now shows photo edits, identity renders and tool jobs; the Jobs page has new job
+  cards, with start, stop and Edit in a row of their own; infographics queue like image batches; ComfyUI 0.43.0, with an option to run it from its own environment on a newer PyTorch; approved
+  YouTube comments can go through YouTube's official API and the Discord bot has a public mode; editing the
+  always-approved chat tools in Settings needs this machine or the API key, even with Trust local network on; the
+  chat model switches only to a listed name, and llamacpp aliases are no longer offered or saved; a job with no
+  prompt sends the model its description instead of only its name; a database the backend cannot reach is
+  reported as unreachable instead of asking for a re-stamp; Diagnostics runs its tests away from the live database
+  and queue; the Vision Pipeline reads vision support from Ollama; Spanish labels lost stray question marks; public
+  docs were corrected in several places to match the product; and Dependabot's frontend and backend updates are in.
+
 ## 3.4.2 — PDFs, Office files and spreadsheets index again
 
 - **Uploads of PDF, Word, PowerPoint and Excel files index again.** 3.4.0 began refusing files that
