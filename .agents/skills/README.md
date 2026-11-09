@@ -1,7 +1,7 @@
 # Guaardvark agent skills
 
 Skill files that let an AI coding agent (Claude Code, Cursor, Codex, OpenClaw, Gemini CLI, Zed)
-drive a running Guaardvark: local image, video, music-video, Film Crew, voice, music, upscaling,
+drive a running Guaardvark: local image, video, video editing, music-video, Film Crew, voice, music, upscaling,
 Cast/LoRA training, model onboarding, swarms, knowledge, code intelligence, outreach and operations.
 
 Format: [Agent Skills](https://agentskills.io) — one folder per skill with a `SKILL.md`

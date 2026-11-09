@@ -6,7 +6,7 @@ agent swarms, local knowledge, code intelligence and supervised outreach, on you
 
 ## What is Included
 
-- **15 Agent Skills**:
+- **16 Agent Skills**:
   - `guaardvark-setup`: Health, plugins, models, GPU inspection.
   - `guaardvark-image`: Text-to-image, instruction edits, background cut-out, inpaint/outpaint, consistent characters.
   - `guaardvark-video`: Text-to-video, image-to-video, camera motions, video batches.
@@ -15,6 +15,7 @@ agent swarms, local knowledge, code intelligence and supervised outreach, on you
   - `guaardvark-voice`: Voiceover, TTS (Chatterbox, Kokoro, Piper), consent-gated voice cloning.
   - `guaardvark-music`: Song generation with vocals/instrumentals (ACE-Step) and sound effects (Stable Audio).
   - `guaardvark-upscale`: Real-ESRGAN, HAT-L, SwinIR 2x/4x/8x upscaling for image and video.
+  - `guaardvark-video-editor`: Cut clips to a song's beat, trim dead air, titles and soundtrack on a clip, Shotcut projects.
   - `guaardvark-cast`: Consistent characters, props, Cast Library, local LoRA training.
   - `guaardvark-models`: Onboard Hugging Face checkpoints, LoRAs, and registry models.
   - `guaardvark-swarm`: Parallel coding swarms in isolated git worktrees with deterministic merging.
