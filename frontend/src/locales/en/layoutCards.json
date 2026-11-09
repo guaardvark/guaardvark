@@ -33,6 +33,8 @@
     "noDescriptionAvailable": "No description available.",
     "noDescription": "No description",
     "deleteTask": "Delete Task",
+    "edit": "Edit",
+    "noJobToStop": "Nothing to cancel until this job has started",
     "runTask": "Run Task",
     "startJob": "Start Job",
     "cancelQueuedTask": "Cancel Queued Task",

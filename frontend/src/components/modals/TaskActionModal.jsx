@@ -1,6 +1,5 @@
 // frontend/src/components/modals/TaskActionModal.jsx
-// Version 2.0: Complete rewrite with Rules integration and job management
-// Unified task creation with built-in job execution for file_generation tasks
+// New job and edit dialog. Creating a file or code job can queue and start it.
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
@@ -8,9 +7,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
-  Grid,
   CircularProgress,
   Box,
   Alert,
@@ -21,22 +18,15 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Chip,
-  LinearProgress,
-  Divider,
-  Card,
-  CardContent,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
+  Stack,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import StopIcon from "@mui/icons-material/Stop";
-import FileCopyIcon from "@mui/icons-material/FileCopy";
-import DeleteIcon from "@mui/icons-material/Delete";
 import DownloadIcon from "@mui/icons-material/Download";
-import InfoIcon from "@mui/icons-material/Info";
+import ActionButton from "../settings/ui/ActionButton";
+import ChoiceChips from "../settings/ui/ChoiceChips";
+import SettingChip from "../settings/ui/SettingChip";
+import StatusPill from "../settings/ui/StatusPill";
+import { Cluster, Hint } from "../settings/ui/SettingsCluster";
 import * as apiService from "../../api";
 import { getRules } from "../../api/ruleService";
 import { getWebsites } from "../../api/websiteService";
@@ -62,8 +52,6 @@ const TaskActionModal = ({
   onSave,
   isSaving,
   onTaskCreated, // New callback for when task is created and job started
-  onTaskDeleted, // Callback for when task is deleted
-  onTaskDuplicated, // Callback for when task is duplicated
   defaults = null, // New task only: { project_id, client_id, client_name, website_id } to start from
 }) => {
   const { t } = useUiTranslation();
@@ -108,26 +96,21 @@ const TaskActionModal = ({
   const [selectedWebsite, setSelectedWebsite] = useState(null);
   const [isCreatingJob, setIsCreatingJob] = useState(false);
   
-  // Task management state
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isDuplicating, setIsDuplicating] = useState(false);
-  const [isStartingJob, setIsStartingJob] = useState(false);
-  const [isStoppingJob, setIsStoppingJob] = useState(false);
   const [fileInfo, setFileInfo] = useState(null);
   const [isLoadingFileInfo, setIsLoadingFileInfo] = useState(false);
 
-  // FileGenerationPage-specific fields (Bug fixes #1-5)
+  // CSV extras. They still submit when More is closed.
   const [batchItems, setBatchItems] = useState("");
   const [insertContent, setInsertContent] = useState("");
   const [insertPosition, setInsertPosition] = useState("none");
   const [clientWebsite, setClientWebsite] = useState("");
 
-  // Enhanced CSV generation parameters (Phase 1 - Session Handoff)
   const [clientNotes, setClientNotes] = useState("");
   const [competitorUrl, setCompetitorUrl] = useState("");
   const [targetWordCount, setTargetWordCount] = useState(1000);
   const [concurrentWorkers, setConcurrentWorkers] = useState(3);
   const [batchSize, setBatchSize] = useState(10);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Progress integration
   const { _activeProcesses, getProcess } = useUnifiedProgress();
@@ -311,6 +294,13 @@ const TaskActionModal = ({
         if (workflowConfig.batch_size) {
           setBatchSize(workflowConfig.batch_size);
         }
+        setMoreOpen(Boolean(
+          (workflowConfig.insert_position && workflowConfig.insert_position !== "none")
+          || workflowConfig.insert_content
+          || workflowConfig.client_notes
+          || workflowConfig.competitor_url
+          || workflowConfig.client_website,
+        ));
       } else {
         // Create mode with smart defaults, or with a quick action's template
         const template = taskData || {};
@@ -346,6 +336,7 @@ const TaskActionModal = ({
         setTargetWordCount(1000);
         setConcurrentWorkers(3);
         setBatchSize(10);
+        setMoreOpen(false);
       }
       
       setFormError(null);
@@ -459,6 +450,25 @@ const TaskActionModal = ({
     appliedDefaultWebsiteRef.current = wanted;
     handleWebsiteSelection(null, site);
   }, [open, isEditMode, defaults, availableWebsites]);
+
+  // An existing job keeps the website it was saved with, once the list arrives.
+  const appliedEditWebsiteRef = useRef(null);
+  useEffect(() => {
+    if (!open) {
+      appliedEditWebsiteRef.current = null;
+      return;
+    }
+    if (!isEditMode || appliedEditWebsiteRef.current) return;
+    const wantedId = taskData?.website_id;
+    const wantedUrl = formData.target_website;
+    if (!wantedId && !wantedUrl) return;
+    const site = availableWebsites.find((w) =>
+      (wantedId && String(w.id) === String(wantedId))
+      || (wantedUrl && w.url === wantedUrl));
+    if (!site) return;
+    appliedEditWebsiteRef.current = site.id;
+    setSelectedWebsite(site);
+  }, [open, isEditMode, taskData, formData.target_website, availableWebsites]);
 
   // Validation function
   const validateForm = () => {
@@ -704,126 +714,6 @@ const TaskActionModal = ({
     return result;
   };
 
-  // Task management action handlers
-  const handleStartJob = async () => {
-    if (!taskData?.id) return;
-    
-    setIsStartingJob(true);
-    try {
-      const response = await fetch(`/api/tasks/${taskData.id}/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || t("dialogs.taskAction.errors.startTaskFallback"));
-      }
-      
-      const result = await response.json();
-      setFormError(null);
-      
-      // Update task data with new job_id
-      if (result.task) {
-        setFormData(prev => ({ ...prev, job_id: result.task.job_id, status: 'in-progress' }));
-      }
-      
-    } catch (err) {
-      setFormError(t("dialogs.taskAction.errors.startTask", { error: err.message }));
-    } finally {
-      setIsStartingJob(false);
-    }
-  };
-
-  const handleStopJob = async () => {
-    if (!taskData?.job_id) return;
-    
-    setIsStoppingJob(true);
-    try {
-      const response = await fetch(`/api/meta/cancel_job/${taskData.job_id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || t("dialogs.taskAction.errors.stopJobFallback"));
-      }
-      
-      setFormError(null);
-      
-      // Update task status
-      setFormData(prev => ({ ...prev, status: 'cancelled' }));
-      
-    } catch (err) {
-      setFormError(t("dialogs.taskAction.errors.stopJob", { error: err.message }));
-    } finally {
-      setIsStoppingJob(false);
-    }
-  };
-
-  const handleDuplicateTask = async () => {
-    if (!taskData?.id) return;
-    
-    setIsDuplicating(true);
-    try {
-      const response = await fetch(`/api/tasks/${taskData.id}/duplicate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || t("dialogs.taskAction.errors.duplicateFallback"));
-      }
-      
-      const result = await response.json();
-      setFormError(null);
-      
-      if (onTaskDuplicated) {
-        onTaskDuplicated(result);
-      }
-      
-    } catch (err) {
-      setFormError(t("dialogs.taskAction.errors.duplicate", { error: err.message }));
-    } finally {
-      setIsDuplicating(false);
-    }
-  };
-
-  const handleDeleteTask = async () => {
-    if (!taskData?.id) return;
-    
-    const confirmed = window.confirm(t("dialogs.taskAction.deleteConfirm", { name: taskData.name }));
-    if (!confirmed) return;
-    
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/tasks/${taskData.id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || t("dialogs.taskAction.errors.deleteFallback"));
-      }
-      
-      setFormError(null);
-      
-      if (onTaskDeleted) {
-        onTaskDeleted(taskData.id);
-      }
-      
-      onClose();
-      
-    } catch (err) {
-      setFormError(t("dialogs.taskAction.errors.delete", { error: err.message }));
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
   const handleDownloadFile = async () => {
     if (!taskData?.id) return;
     
@@ -853,39 +743,73 @@ const TaskActionModal = ({
 
   const getTitleText = () => {
     if (isEditMode) {
-      return t("dialogs.taskAction.manageTitle", { name: formData.name || t("dialogs.taskAction.notAvailable") });
+      return formData.name || t("dialogs.taskAction.notAvailable");
     }
-    return isFileGeneration ? t("dialogs.taskAction.createFileTitle") : t("dialogs.taskAction.createTitle");
+    return t("dialogs.taskAction.createTitle");
   };
 
-  const anyActionInProgress = isSaving || isCreatingJob || isDeleting || isDuplicating || isStartingJob || isStoppingJob;
+  const statusTone = isCompleted ? "ok"
+    : isFailed ? "error"
+    : isRunning ? "info"
+    : realTimeStatus === "paused" || realTimeStatus === "cancelled" || realTimeStatus === "canceled" ? "warn"
+    : "neutral";
+
+  const anyActionInProgress = isSaving || isCreatingJob;
+
+  const modelField = (
+    <FormControl fullWidth margin="dense">
+      <InputLabel id="task-model-label">{t("dialogs.taskAction.model")}</InputLabel>
+      <Select
+        labelId="task-model-label"
+        name="model_name"
+        value={formData.model_name}
+        onChange={handleInputChange}
+        disabled={anyActionInProgress || isLoadingModels}
+        label={t("dialogs.taskAction.model")}
+      >
+        <MenuItem value="">
+          <em>{t("dialogs.taskAction.defaultModel")}</em>
+        </MenuItem>
+        {availableModels.map((model) => (
+          <MenuItem key={model.name} value={model.name}>
+            {model.name}
+          </MenuItem>
+        ))}
+        {formData.model_name && !availableModels.find((m) => m.name === formData.model_name) && (
+          <MenuItem value={formData.model_name}>
+            {t("dialogs.taskAction.modelUnavailable", { model: formData.model_name })}
+          </MenuItem>
+        )}
+      </Select>
+    </FormControl>
+  );
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
       fullWidth
-      maxWidth="lg"
+      maxWidth="md"
       aria-labelledby="task-action-modal-title"
     >
       <DialogTitle
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          pt: 1.5,
-          pb: 1,
-          m: 0,
-        }}
+        id="task-action-modal-title"
+        sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1, pt: 1.5, pb: 1 }}
       >
-        <Typography variant="h6" component="div" noWrap>
-          {getTitleText()}
-        </Typography>
-        <IconButton
-          onClick={onClose}
-          size="small"
-          disabled={anyActionInProgress}
-        >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+          <Typography variant="h6" component="div" noWrap>
+            {getTitleText()}
+          </Typography>
+          {isEditMode && (
+            <StatusPill label={realTimeStatus || t("dialogs.taskAction.unknown")} tone={statusTone} />
+          )}
+          {isEditMode && isRunning && (
+            <Typography variant="caption" color="text.secondary">
+              {t("dialogs.taskAction.progress", { progress: Math.round(realTimeProgress) })}
+            </Typography>
+          )}
+        </Box>
+        <IconButton onClick={onClose} size="small" disabled={anyActionInProgress} aria-label={t("dialogs.shared.close")}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
@@ -902,251 +826,127 @@ const TaskActionModal = ({
           </Alert>
         )}
 
-        {/* Task Management Section - Only show for existing tasks */}
-        {isEditMode && (
-          <Card sx={{ mb: 3, border: '1px solid', borderColor: 'divider' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <InfoIcon />
-                {t("dialogs.taskAction.taskManagement")}
-              </Typography>
-              
-              {/* Real-time Status and Progress */}
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {t("dialogs.taskAction.status")}:
-                    </Typography>
-                    <Chip
-                      label={realTimeStatus || t("dialogs.taskAction.unknown")}
-                      size="small"
-                      color={
-                        isCompleted ? 'success' :
-                        isFailed ? 'warning' :
-                        isRunning ? 'info' : 'default'
-                      }
-                      variant={isRunning ? 'filled' : 'outlined'}
-                    />
-                  </Box>
-                  {taskData?.job_id && (
-                    <Typography variant="caption" color="text.secondary">
-                      {t("dialogs.taskAction.jobId", { id: taskData.job_id })}
-                    </Typography>
-                  )}
-                </Box>
-                
-                {isRunning && (
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {t("dialogs.taskAction.progress", { progress: realTimeProgress })}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {processData?.message || t("dialogs.taskAction.processing")}
-                      </Typography>
-                    </Box>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={realTimeProgress} 
-                      sx={{ height: 8, borderRadius: 4 }}
-                    />
-                  </Box>
-                )}
-              </Box>
+        <Stack spacing={2.5} sx={{ mt: 1 }}>
+          <Cluster label={t("dialogs.taskAction.identity")}>
+            <TextField
+              fullWidth
+              margin="dense"
+              label={t("dialogs.taskAction.taskName")}
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              disabled={anyActionInProgress}
+              required
+            />
+            <ChoiceChips
+              ariaLabel={t("dialogs.taskAction.taskType")}
+              options={taskTypes().map((type) => ({ value: type.value, label: type.label }))}
+              value={formData.type}
+              onChange={(value) => setFormData((prev) => ({ ...prev, type: value }))}
+              disabled={anyActionInProgress}
+            />
+            <Hint>
+              {taskTypes().find((type) => type.value === formData.type)?.description}
+            </Hint>
+            <TextField
+              fullWidth
+              margin="dense"
+              label={["code_generation", "content_generation", "data_analysis"].includes(formData.type) ? t("dialogs.taskAction.prompt") : t("dialogs.taskAction.description")}
+              name="description"
+              value={formData.description}
+              onChange={handleInputChange}
+              disabled={anyActionInProgress}
+              multiline
+              rows={["code_generation", "content_generation", "data_analysis"].includes(formData.type) ? 6 : 3}
+            />
+          </Cluster>
 
-              {/* File Information */}
-              {taskData?.output_filename && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    {t("dialogs.taskAction.outputFile", { name: taskData.output_filename })}
-                  </Typography>
-                  {isLoadingFileInfo ? (
-                    <CircularProgress size={20} />
-                  ) : fileInfo ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {t("dialogs.taskAction.fileDetails", { size: fileInfo.file_size_mb, type: fileInfo.file_type, status: fileInfo.task_status })}
-                      </Typography>
-                      {fileInfo.can_download && (
-                        <Button
-                          size="small"
-                          startIcon={<DownloadIcon />}
-                          onClick={handleDownloadFile}
-                          disabled={anyActionInProgress}
-                        >
-                          {t("dialogs.shared.download")}
-                        </Button>
-                      )}
-                    </Box>
-                  ) : (
-                    <Typography variant="body2" color="text.secondary">
-                      {t("dialogs.taskAction.notGenerated")}
+          <Cluster label={t("dialogs.taskAction.belongs")}>
+            <Autocomplete
+              options={projects}
+              loading={isLoadingProjects}
+              getOptionLabel={(option) => {
+                if (typeof option === "string") return option;
+                return option.name || t("dialogs.taskAction.projectId", { id: option.id });
+              }}
+              value={formProjectValue}
+              onChange={handleProjectChange}
+              freeSolo
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t("dialogs.taskAction.project")}
+                  margin="dense"
+                  helperText={t("dialogs.taskAction.projectCreates")}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {isLoadingProjects ? <CircularProgress size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              disabled={anyActionInProgress || isLoadingProjects}
+            />
+            <Autocomplete
+              options={availableRules}
+              loading={isLoadingRules}
+              getOptionLabel={(option) => option.name || t("dialogs.taskAction.ruleId", { id: option.id })}
+              value={formRuleValue}
+              onChange={handleRuleChange}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={t("dialogs.taskAction.promptRule")}
+                  margin="dense"
+                  helperText={t("dialogs.taskAction.promptRuleHelp")}
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {isLoadingRules ? <CircularProgress size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              renderOption={(props, option) => (
+                <Box component="li" {...props}>
+                  <Box>
+                    <Typography variant="body2">{option.name}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {option.description || `${(option.rule_text || "").substring(0, 100)}...`}
                     </Typography>
-                  )}
+                  </Box>
                 </Box>
               )}
-
-              <Divider sx={{ my: 2 }} />
-
-              {/* Action Buttons */}
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {/* Job Control Buttons */}
-                {!isCompleted && !isFailed && (
-                  <>
-                    {!isRunning ? (
-                      <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={<PlayArrowIcon />}
-                        onClick={handleStartJob}
-                        disabled={anyActionInProgress}
-                        size="small"
-                      >
-                        {isStartingJob ? <CircularProgress size={16} /> : t("dialogs.taskAction.startJob")}
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="contained"
-                        color="warning"
-                        startIcon={<StopIcon />}
-                        onClick={handleStopJob}
-                        disabled={anyActionInProgress}
-                        size="small"
-                      >
-                        {isStoppingJob ? <CircularProgress size={16} /> : t("dialogs.taskAction.stopJob")}
-                      </Button>
-                    )}
-                  </>
-                )}
-
-                {/* Management Actions */}
-                <Button
-                  variant="outlined"
-                  startIcon={<FileCopyIcon />}
-                  onClick={handleDuplicateTask}
-                  disabled={anyActionInProgress}
-                  size="small"
-                >
-                  {isDuplicating ? <CircularProgress size={16} /> : t("dialogs.taskAction.duplicate")}
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  startIcon={<DeleteIcon />}
-                  onClick={handleDeleteTask}
-                  disabled={anyActionInProgress}
-                  size="small"
-                >
-                  {isDeleting ? <CircularProgress size={16} /> : t("dialogs.shared.delete")}
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
-        )}
-
-        <Box component="form" noValidate autoComplete="off" sx={{ mt: 1 }}>
-          <Grid container spacing={2}>
-            {/* Basic Task Information */}
-            <Grid item xs={12} md={8}>
-              <TextField
-                fullWidth
-                margin="dense"
-                label={t("dialogs.taskAction.taskName")}
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                disabled={anyActionInProgress}
-                required
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth margin="dense">
-                <InputLabel>{t("dialogs.taskAction.taskType")}</InputLabel>
-                <Select
-                  name="type"
-                  value={formData.type}
-                  onChange={handleInputChange}
-                  disabled={anyActionInProgress}
-                  label={t("dialogs.taskAction.taskType")}
-                >
-                  {taskTypes().map((type) => (
-                    <MenuItem key={type.value} value={type.value}>
-                      <Box>
-                        <Typography variant="body2">{type.label}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {type.description}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                margin="dense"
-                label={['code_generation', 'content_generation', 'data_analysis'].includes(formData.type) ? t("dialogs.taskAction.prompt") : t("dialogs.taskAction.description")}
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                disabled={anyActionInProgress}
-                multiline
-                rows={['code_generation', 'content_generation', 'data_analysis'].includes(formData.type) ? 6 : 3}
-              />
-            </Grid>
-
-            {/* Project and Rule Selection */}
-            <Grid item xs={12} md={6}>
+              disabled={anyActionInProgress || isLoadingRules}
+            />
+            {isFileGeneration && (
               <Autocomplete
-                options={projects}
-                loading={isLoadingProjects}
+                options={availableWebsites}
+                loading={isLoadingWebsites}
                 getOptionLabel={(option) => {
                   if (typeof option === "string") return option;
-                  return option.name || t("dialogs.taskAction.projectId", { id: option.id });
+                  return option.url || t("dialogs.taskAction.websiteId", { id: option.id });
                 }}
-                value={formProjectValue}
-                onChange={handleProjectChange}
-                freeSolo
+                value={selectedWebsite}
+                onChange={handleWebsiteSelection}
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    label={t("dialogs.taskAction.project")}
+                    label={t("dialogs.taskAction.selectWebsite")}
                     margin="dense"
+                    helperText={t("dialogs.taskAction.selectWebsiteHelp")}
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
                         <>
-                          {isLoadingProjects ? <CircularProgress size={20} /> : null}
-                          {params.InputProps.endAdornment}
-                        </>
-                      ),
-                    }}
-                  />
-                )}
-                disabled={anyActionInProgress || isLoadingProjects}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Autocomplete
-                options={availableRules}
-                loading={isLoadingRules}
-                getOptionLabel={(option) => option.name || t("dialogs.taskAction.ruleId", { id: option.id })}
-                value={formRuleValue}
-                onChange={handleRuleChange}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={t("dialogs.taskAction.promptRule")}
-                    margin="dense"
-                    helperText={t("dialogs.taskAction.promptRuleHelp")}
-                    InputProps={{
-                      ...params.InputProps,
-                      endAdornment: (
-                        <>
-                          {isLoadingRules ? <CircularProgress size={20} /> : null}
+                          {isLoadingWebsites ? <CircularProgress size={20} /> : null}
                           {params.InputProps.endAdornment}
                         </>
                       ),
@@ -1156,109 +956,104 @@ const TaskActionModal = ({
                 renderOption={(props, option) => (
                   <Box component="li" {...props}>
                     <Box>
-                      <Typography variant="body2">{option.name}</Typography>
+                      <Typography variant="body2">{option.url}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.description || option.rule_text?.substring(0, 100) + "..."}
+                        {t("dialogs.taskAction.websiteOption", { client: option.client?.name || t("dialogs.taskAction.unknown"), project: option.project?.name || t("dialogs.taskAction.unknown") })}
                       </Typography>
                     </Box>
                   </Box>
                 )}
-                disabled={anyActionInProgress || isLoadingRules}
+                disabled={anyActionInProgress || isLoadingWebsites}
               />
-            </Grid>
+            )}
+          </Cluster>
 
-            {/* File Generation Specific Fields */}
-            {(isFileGeneration || isCodeGeneration) && (
+          <Cluster label={t("dialogs.taskAction.produces")}>
+            {isFileGeneration && (
               <>
-                <Grid item xs={12}>
-                  <Typography variant="h6" sx={{ mt: 2, mb: 1 }}>
-                    {isFileGeneration ? t("dialogs.taskAction.fileSettings") : t("dialogs.taskAction.codeSettings")}
-                  </Typography>
-                </Grid>
-                {isFileGeneration && (
-                  <>
-                  <Grid item xs={12}>
-                    <Autocomplete
-                      options={availableWebsites}
-                      loading={isLoadingWebsites}
-                    getOptionLabel={(option) => {
-                      if (typeof option === "string") return option;
-                      return option.url || t("dialogs.taskAction.websiteId", { id: option.id });
-                    }}
-                    value={selectedWebsite}
-                    onChange={handleWebsiteSelection}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label={t("dialogs.taskAction.selectWebsite")}
-                        margin="dense"
-                        helperText={t("dialogs.taskAction.selectWebsiteHelp")}
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {isLoadingWebsites ? <CircularProgress size={20} /> : null}
-                              {params.InputProps.endAdornment}
-                            </>
-                          ),
-                        }}
-                      />
-                    )}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props}>
-                        <Box>
-                          <Typography variant="body2">{option.url}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {t("dialogs.taskAction.websiteOption", { client: option.client?.name || t("dialogs.taskAction.unknown"), project: option.project?.name || t("dialogs.taskAction.unknown") })}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    )}
-                    disabled={anyActionInProgress || isLoadingWebsites}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    margin="dense"
-                    label={t("dialogs.taskAction.clientName")}
-                    name="client_name"
-                    value={formData.client_name}
-                    onChange={handleInputChange}
-                    disabled={anyActionInProgress}
-                    required
-                    helperText={t("dialogs.taskAction.clientNameHelp")}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    margin="dense"
-                    label={t("dialogs.taskAction.targetWebsite")}
-                    name="target_website"
-                    value={formData.target_website}
-                    onChange={handleInputChange}
-                    disabled={anyActionInProgress}
-                    placeholder="https://example.com"
-                    helperText={t("dialogs.taskAction.targetWebsiteHelp")}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    margin="dense"
-                    label={t("dialogs.taskAction.pageCount")}
-                    name="page_count"
-                    type="number"
-                    value={formData.page_count}
-                    onChange={handleInputChange}
-                    disabled={anyActionInProgress}
-                    inputProps={{ min: 1, max: 1000 }}
-                  />
-                </Grid>
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label={t("dialogs.taskAction.clientName")}
+                  name="client_name"
+                  value={formData.client_name}
+                  onChange={handleInputChange}
+                  disabled={anyActionInProgress}
+                  required
+                  helperText={t("dialogs.taskAction.clientNameHelp")}
+                />
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label={t("dialogs.taskAction.targetWebsite")}
+                  name="target_website"
+                  value={formData.target_website}
+                  onChange={handleInputChange}
+                  disabled={anyActionInProgress}
+                  placeholder="https://example.com"
+                  helperText={t("dialogs.taskAction.targetWebsiteHelp")}
+                />
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label={t("dialogs.taskAction.pageCount")}
+                  name="page_count"
+                  type="number"
+                  value={formData.page_count}
+                  onChange={handleInputChange}
+                  disabled={anyActionInProgress}
+                  inputProps={{ min: 1, max: 1000 }}
+                />
+                <TextField
+                  fullWidth
+                  margin="dense"
+                  label={t("dialogs.taskAction.items")}
+                  multiline
+                  rows={4}
+                  value={batchItems}
+                  onChange={(e) => setBatchItems(e.target.value)}
+                  disabled={anyActionInProgress}
+                  placeholder="Tampa\nOrlando\nMiami\nJacksonville"
+                  helperText={t("dialogs.taskAction.itemsHelp")}
+                />
+              </>
+            )}
+            {(isFileGeneration || isCodeGeneration) && (
+              <TextField
+                fullWidth
+                margin="dense"
+                label={t("dialogs.taskAction.outputFilename")}
+                name="output_filename"
+                value={formData.output_filename}
+                onChange={handleInputChange}
+                disabled={anyActionInProgress}
+                required
+                helperText={isCodeGeneration ? t("dialogs.taskAction.outputFilenameHelp") : ""}
+              />
+            )}
+            {modelField}
+            {isEditMode && fileInfo?.can_download && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  {t("dialogs.taskAction.fileDetails", { size: fileInfo.file_size_mb, type: fileInfo.file_type, status: fileInfo.task_status })}
+                </Typography>
+                <ActionButton startIcon={<DownloadIcon />} onClick={handleDownloadFile} disabled={anyActionInProgress}>
+                  {t("dialogs.shared.download")}
+                </ActionButton>
+              </Box>
+            )}
+            {isEditMode && taskData?.output_filename && !fileInfo?.can_download && !isLoadingFileInfo && (
+              <Hint>{t("dialogs.taskAction.notGenerated")}</Hint>
+            )}
+          </Cluster>
 
-                {/* BUG FIX #4: Add Client Website field (separate from Target Website) */}
-                <Grid item xs={12} md={6}>
+          {isFileGeneration && (
+            <Box>
+              <ActionButton onClick={() => setMoreOpen((openNow) => !openNow)} disabled={anyActionInProgress}>
+                {moreOpen ? t("dialogs.taskAction.hideMore") : t("dialogs.taskAction.more")}
+              </ActionButton>
+              {moreOpen && (
+                <Cluster label={t("dialogs.taskAction.advancedSettings")}>
                   <TextField
                     fullWidth
                     margin="dense"
@@ -1269,44 +1064,19 @@ const TaskActionModal = ({
                     placeholder="https://client-website.com"
                     helperText={t("dialogs.taskAction.clientWebsiteHelp")}
                   />
-                </Grid>
-
-                {/* BUG FIX #1: Add Items/Topics field */}
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    margin="dense"
-                    label={t("dialogs.taskAction.items")}
-                    multiline
-                    rows={4}
-                    value={batchItems}
-                    onChange={(e) => setBatchItems(e.target.value)}
+                  <Hint>{t("dialogs.taskAction.contentInsertion")}</Hint>
+                  <ChoiceChips
+                    ariaLabel={t("dialogs.taskAction.contentInsertion")}
+                    options={[
+                      { value: "none", label: t("dialogs.taskAction.noInsert") },
+                      { value: "top", label: t("dialogs.taskAction.insertTop") },
+                      { value: "bottom", label: t("dialogs.taskAction.insertBottom") },
+                    ]}
+                    value={insertPosition}
+                    onChange={setInsertPosition}
                     disabled={anyActionInProgress}
-                    placeholder="Tampa\nOrlando\nMiami\nJacksonville"
-                    helperText={t("dialogs.taskAction.itemsHelp")}
                   />
-                </Grid>
-
-                {/* BUG FIX #2 & #3: Add Insert Content and Position fields */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    {t("dialogs.taskAction.contentInsertion")}
-                  </Typography>
-                  <FormControl component="fieldset" disabled={anyActionInProgress}>
-                    <RadioGroup
-                      row
-                      value={insertPosition}
-                      onChange={(e) => setInsertPosition(e.target.value)}
-                    >
-                      <FormControlLabel value="none" control={<Radio />} label={t("dialogs.taskAction.noInsert")} />
-                      <FormControlLabel value="top" control={<Radio />} label={t("dialogs.taskAction.insertTop")} />
-                      <FormControlLabel value="bottom" control={<Radio />} label={t("dialogs.taskAction.insertBottom")} />
-                    </RadioGroup>
-                  </FormControl>
-                </Grid>
-
-                {insertPosition !== "none" && (
-                  <Grid item xs={12}>
+                  {insertPosition !== "none" && (
                     <TextField
                       fullWidth
                       margin="dense"
@@ -1319,17 +1089,7 @@ const TaskActionModal = ({
                       placeholder={t("dialogs.taskAction.insertPlaceholder")}
                       helperText={t("dialogs.taskAction.insertHelp")}
                     />
-                  </Grid>
-                )}
-
-                {/* Enhanced CSV Generation Parameters (Phase 1) */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 600 }}>
-                    {t("dialogs.taskAction.advancedSettings")}
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
+                  )}
                   <TextField
                     fullWidth
                     margin="dense"
@@ -1340,23 +1100,17 @@ const TaskActionModal = ({
                     placeholder="https://competitor-website.com"
                     helperText={t("dialogs.taskAction.competitorHelp")}
                   />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
                     margin="dense"
                     label={t("dialogs.taskAction.wordCount")}
                     type="number"
                     value={targetWordCount}
-                    onChange={(e) => setTargetWordCount(parseInt(e.target.value) || 1000)}
+                    onChange={(e) => setTargetWordCount(parseInt(e.target.value, 10) || 1000)}
                     disabled={anyActionInProgress}
                     inputProps={{ min: 100, max: 5000 }}
                     helperText={t("dialogs.taskAction.wordCountHelp")}
                   />
-                </Grid>
-
-                <Grid item xs={12}>
                   <TextField
                     fullWidth
                     margin="dense"
@@ -1369,96 +1123,43 @@ const TaskActionModal = ({
                     placeholder={t("dialogs.taskAction.clientNotesPlaceholder")}
                     helperText={t("dialogs.taskAction.clientNotesHelp")}
                   />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
                     margin="dense"
                     label={t("dialogs.taskAction.workers")}
                     type="number"
                     value={concurrentWorkers}
-                    onChange={(e) => setConcurrentWorkers(parseInt(e.target.value) || 3)}
+                    onChange={(e) => setConcurrentWorkers(parseInt(e.target.value, 10) || 3)}
                     disabled={anyActionInProgress}
                     inputProps={{ min: 1, max: 10 }}
                     helperText={t("dialogs.taskAction.workersHelp")}
                   />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
                   <TextField
                     fullWidth
                     margin="dense"
                     label={t("dialogs.taskAction.batchSize")}
                     type="number"
                     value={batchSize}
-                    onChange={(e) => setBatchSize(parseInt(e.target.value) || 10)}
+                    onChange={(e) => setBatchSize(parseInt(e.target.value, 10) || 10)}
                     disabled={anyActionInProgress}
                     inputProps={{ min: 1, max: 50 }}
                     helperText={t("dialogs.taskAction.batchSizeHelp")}
                   />
-                </Grid>
-                  </>
-                )}
+                </Cluster>
+              )}
+            </Box>
+          )}
 
-                {/* Common fields for both file and code generation */}
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    margin="dense"
-                    label={t("dialogs.taskAction.outputFilename")}
-                    name="output_filename"
-                    value={formData.output_filename}
-                    onChange={handleInputChange}
-                    disabled={anyActionInProgress}
-                    required
-                    helperText={isCodeGeneration ? t("dialogs.taskAction.outputFilenameHelp") : ""}
-                  />
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth margin="dense">
-                    <InputLabel>{t("dialogs.taskAction.model")}</InputLabel>
-                    <Select
-                      name="model_name"
-                      value={formData.model_name}
-                      onChange={handleInputChange}
-                      disabled={anyActionInProgress || isLoadingModels}
-                      label={t("dialogs.taskAction.model")}
-                    >
-                      <MenuItem value="">
-                        <em>{t("dialogs.taskAction.defaultModel")}</em>
-                      </MenuItem>
-                      {availableModels.map((model) => (
-                        <MenuItem key={model.name} value={model.name}>
-                          {model.name}
-                        </MenuItem>
-                      ))}
-                      {/* Add current model if it's not in available models (for editing) */}
-                      {formData.model_name && 
-                       !availableModels.find(m => m.name === formData.model_name) && (
-                        <MenuItem value={formData.model_name}>
-                          {t("dialogs.taskAction.modelUnavailable", { model: formData.model_name })}
-                        </MenuItem>
-                      )}
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </>
-            )}
-
-            {/* Auto-start option for file and code generation */}
-            {!isEditMode && (isFileGeneration || isCodeGeneration) && (
-              <Grid item xs={12}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <PlayArrowIcon fontSize="small" />
-                  <Typography variant="body2">
-                    {t("dialogs.taskAction.autoStart")}
-                  </Typography>
-                </Box>
-              </Grid>
-            )}
-          </Grid>
-        </Box>
+          {!isEditMode && (isFileGeneration || isCodeGeneration) && (
+            <SettingChip
+              label={t("dialogs.taskAction.autoStartChip")}
+              on={Boolean(formData.auto_start_job)}
+              onToggle={(next) => setFormData((prev) => ({ ...prev, auto_start_job: next }))}
+              tooltip={t("dialogs.taskAction.autoStart")}
+              disabled={anyActionInProgress}
+            />
+          )}
+        </Stack>
       </DialogContent>
 
       <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 2, pt: 2 }}>
@@ -1468,55 +1169,18 @@ const TaskActionModal = ({
               {t("dialogs.taskAction.creatingAndStarting")}
             </Typography>
           )}
-          {isStartingJob && (
-            <Typography variant="body2" color="text.secondary">
-              {t("dialogs.taskAction.startingJob")}
-            </Typography>
-          )}
-          {isStoppingJob && (
-            <Typography variant="body2" color="text.secondary">
-              {t("dialogs.taskAction.stoppingJob")}
-            </Typography>
-          )}
-          {isDuplicating && (
-            <Typography variant="body2" color="text.secondary">
-              {t("dialogs.taskAction.duplicating")}
-            </Typography>
-          )}
-          {isDeleting && (
-            <Typography variant="body2" color="text.secondary">
-              {t("dialogs.taskAction.deleting")}
-            </Typography>
-          )}
         </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
-          <Button
-            onClick={onClose}
-            disabled={anyActionInProgress}
-            color="inherit"
-          >
+          <ActionButton kind="link" onClick={onClose} disabled={anyActionInProgress}>
             {isEditMode ? t("dialogs.shared.close") : t("dialogs.shared.cancel")}
-          </Button>
-          {!isEditMode && (
-            <Button
-              onClick={handleCreateTask}
-              variant="contained"
-              disabled={anyActionInProgress}
-              startIcon={anyActionInProgress ? <CircularProgress size={20} /> : null}
-            >
-              {(isFileGeneration || isCodeGeneration) && formData.auto_start_job ? t("dialogs.taskAction.createAndStart") : t("dialogs.taskAction.createTask")}
-            </Button>
-          )}
-          {isEditMode && (
-            <Button
-              onClick={handleCreateTask}
-              variant="contained"
-              disabled={anyActionInProgress}
-              startIcon={anyActionInProgress ? <CircularProgress size={20} /> : null}
-            >
-              {t("dialogs.taskAction.saveChanges")}
-            </Button>
-          )}
+          </ActionButton>
+          <ActionButton kind="primary" onClick={handleCreateTask} loading={anyActionInProgress}>
+            {isEditMode
+              ? t("dialogs.taskAction.saveChanges")
+              : (isFileGeneration || isCodeGeneration) && formData.auto_start_job
+                ? t("dialogs.taskAction.createAndStart")
+                : t("dialogs.taskAction.createTask")}
+          </ActionButton>
         </Box>
       </DialogActions>
     </Dialog>

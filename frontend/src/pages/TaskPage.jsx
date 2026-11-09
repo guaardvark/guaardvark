@@ -1,20 +1,18 @@
 // frontend/src/pages/TaskPage.jsx
-// Version 3.0: Enhanced GUI with default task model, cleaner interface, and progress integration
-// - Added Default Task Model dropdown to top right
-// - Removed progress bars from tasks, added percentage completion text
-// - Integrated with Progress Footer Bar for processing tasks
-// - Cleaner, more useful interface
+// Jobs: scheduler tasks the person creates, plus the video batches already running.
 
 import { formatUiError } from "../utils/uiError";
+import ActionButton from "../components/settings/ui/ActionButton";
+import ChoiceChips from "../components/settings/ui/ChoiceChips";
 import ConfirmActionDialog from "../components/settings/ui/ConfirmActionDialog";
+import DashboardStrip, { DashboardTile } from "../components/settings/ui/DashboardStrip";
+import SettingsPanel from "../components/settings/ui/SettingsPanel";
+import StatusPill from "../components/settings/ui/StatusPill";
 import {
   Alert,
   Box,
-  Button,
   Chip,
   Divider,
-  FormControl,
-  InputLabel,
   IconButton,
   LinearProgress,
   ListItemIcon,
@@ -23,7 +21,6 @@ import {
   MenuItem as MuiMenuItem,
   Alert as MuiAlert,
   Paper,
-  Select,
   Snackbar,
   Stack,
   Table,
@@ -50,7 +47,6 @@ import {
   cancelJob,
   createTask,
   deleteTask,
-  getAvailableModels,
   getProjects,
   getTasks,
   updateTask,
@@ -124,7 +120,6 @@ const TaskPage = () => {
   // State management
   const [tasks, setTasks] = useState([]);
   const [availableProjects, setAvailableProjects] = useState([]);
-  const [, setAvailableModels] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -157,9 +152,6 @@ const TaskPage = () => {
   // The linked client and website: undefined while loading, null if not found.
   const [linkedClient, setLinkedClient] = useState(undefined);
   const [linkedWebsite, setLinkedWebsite] = useState(undefined);
-
-  // Sorting state (simplified for card view)
-  const [sortBy] = useState("created_at");
 
   // New Job menu state
   const [newTaskMenuAnchor, setNewTaskMenuAnchor] = useState(null);
@@ -224,25 +216,6 @@ const TaskPage = () => {
     }
   }, []);
 
-  // Fetch available models
-  const fetchAvailableModels = useCallback(async () => {
-    try {
-      const result = await getAvailableModels();
-      if (!result.error) {
-        setAvailableModels(result);
-        noteLookup("models", null);
-      } else {
-        noteLookup("models", t("tasks.lookup.modelsFailed", { error: formatUiError(result.error) }));
-      }
-    } catch (err) {
-      console.error("Failed to fetch models:", err);
-      noteLookup(
-        "models",
-        t("tasks.lookup.modelsFailed", { error: formatUiError(err) || t("tasks.lookup.requestFailed") }),
-      );
-    }
-  }, []);
-
   const fetchVideoGenJobs = useCallback(async () => {
     setVideoGenLoading(true);
     setVideoGenError(null);
@@ -259,6 +232,16 @@ const TaskPage = () => {
       setVideoGenLoading(false);
     }
   }, []);
+
+  const requestCancelVideoGenJob = (job) => {
+    setPendingConfirm({
+      title: t("tasks.video.cancelTitle", { label: job.label || job.id }),
+      description: t("tasks.video.cancelDescription"),
+      keeps: t("tasks.video.cancelKeeps"),
+      confirmLabel: t("tasks.video.cancel"),
+      run: () => handleCancelVideoGenJob(job.id),
+    });
+  };
 
   const handleCancelVideoGenJob = async (jobId) => {
     try {
@@ -289,7 +272,6 @@ const TaskPage = () => {
   // Load data on component mount
   useEffect(() => {
     fetchProjects();
-    fetchAvailableModels();
     fetchVideoGenJobs();
   }, [fetchVideoGenJobs]);
 
@@ -375,8 +357,6 @@ const TaskPage = () => {
     const interval = setInterval(() => { fetchVideoGenJobs(); }, 10000);
     return () => clearInterval(interval);
   }, [videoGenJobs.length, fetchVideoGenJobs]);
-
-  // Removed sorting and progress handlers - now handled in TaskCard component
 
   // Process queue
   const processQueue = async () => {
@@ -557,6 +537,7 @@ const TaskPage = () => {
     setPendingConfirm({
       title: t("tasks.delete.title"),
       description: t("tasks.delete.description", { name: taskName || t("tasks.delete.thisTask") }),
+      keeps: t("tasks.delete.keeps"),
       confirmLabel: t("tasks.delete.confirm"),
       run: () => deleteTaskConfirmed(taskId),
     });
@@ -634,6 +615,32 @@ const TaskPage = () => {
     }
   };
 
+  const handleStopTask = async (task) => {
+    if (!task?.job_id) {
+      setFeedback({
+        open: true,
+        message: t("tasks.stop.noJob"),
+        severity: "warning",
+      });
+      return;
+    }
+    try {
+      await cancelJob(task.job_id);
+      setFeedback({
+        open: true,
+        message: t("tasks.stop.stopped", { name: task.name || t("tasks.start.unnamed") }),
+        severity: "success",
+      });
+      setTimeout(fetchTasks, 1000);
+    } catch (err) {
+      setFeedback({
+        open: true,
+        message: t("tasks.stop.failed", { error: formatUiError(err) || err.message }),
+        severity: "error",
+      });
+    }
+  };
+
   const handleClearAllTasks = async () => {
     if (tasks.length === 0) {
       setFeedback({
@@ -644,10 +651,15 @@ const TaskPage = () => {
       return;
     }
 
+    const facts = [{ label: t("tasks.clear.tasksFact"), value: tasks.length }];
+    if (sortedTasks.length !== tasks.length) {
+      facts.push({ label: t("tasks.clear.onScreen"), value: sortedTasks.length });
+    }
     setPendingConfirm({
       title: t("tasks.clear.title"),
       description: t("tasks.clear.description"),
-      facts: [{ label: t("tasks.clear.tasksFact"), value: tasks.length }],
+      facts,
+      keeps: t("tasks.clear.keeps"),
       confirmLabel: t("tasks.clear.confirm"),
       run: clearAllTasksConfirmed,
     });
@@ -698,7 +710,7 @@ const TaskPage = () => {
     if (statusFilter === 'active') {
       filtered = filtered.filter(t => ['pending', 'queued', 'in-progress', 'running', 'processing'].includes(t.status?.toLowerCase()));
     } else if (statusFilter === 'completed') {
-      filtered = filtered.filter(t => t.status?.toLowerCase() === 'completed');
+      filtered = filtered.filter(t => ['completed', 'complete'].includes(t.status?.toLowerCase()));
     } else if (statusFilter === 'failed') {
       filtered = filtered.filter(t => ['failed', 'error', 'cancelled', 'canceled'].includes(t.status?.toLowerCase()));
     }
@@ -720,36 +732,8 @@ const TaskPage = () => {
         (linkedWebsite?.url && t.target_website === linkedWebsite.url));
     }
 
-    return filtered.sort((a, b) => {
-      if (sortBy === "created_at") {
-        return new Date(b.created_at) - new Date(a.created_at);
-      }
-      if (sortBy === "name") {
-        return (a.name || "").localeCompare(b.name || "");
-      }
-      if (sortBy === "status") {
-        // Complete status order mapping including all possible states
-        const statusOrder = {
-          "in-progress": 0,
-          "running": 1,
-          "processing": 2,
-          "queued": 3,
-          "pending": 4,
-          "paused": 5,
-          "completed": 6,
-          "complete": 7,
-          "failed": 8,
-          "error": 9,
-          "cancelled": 10,
-          "canceled": 11
-        };
-        const aOrder = statusOrder[a.status?.toLowerCase()] ?? 99;
-        const bOrder = statusOrder[b.status?.toLowerCase()] ?? 99;
-        return aOrder - bOrder;
-      }
-      return 0;
-    });
-  }, [tasks, sortBy, statusFilter, typeFilter, clientFilter, websiteFilter, linkedClient, linkedWebsite]);
+    return filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  }, [tasks, statusFilter, typeFilter, clientFilter, websiteFilter, linkedClient, linkedWebsite]);
 
   const entityFilterLabel = [
     projectFilter &&
@@ -762,32 +746,52 @@ const TaskPage = () => {
     .filter(Boolean)
     .join(" · ");
 
+  const statusOf = (task) => task.status?.toLowerCase();
+  const pendingCount = tasks.filter((task) => statusOf(task) === "pending").length;
+  const queuedCount = tasks.filter((task) => statusOf(task) === "queued").length;
+  const runningCount = tasks.filter((task) =>
+    ["in-progress", "running", "processing"].includes(statusOf(task)),
+  ).length;
+  const statusOptions = ["all", "active", "completed", "failed"].map((value) => ({
+    value,
+    label: statusFilterLabel(value),
+  }));
+  const typeOptions = [
+    ["all", "tasks.typeFilter.all"],
+    ["code_generation", "tasks.types.code_generation"],
+    ["file_generation", "tasks.types.file_generation"],
+    ["content_generation", "tasks.types.content_generation"],
+    ["bulk_content_generation", "tasks.types.bulk_content_generation"],
+    ["data_analysis", "tasks.types.data_analysis"],
+    ["website_analysis", "tasks.types.website_analysis"],
+    ["custom", "tasks.types.custom"],
+  ].map(([value, key]) => ({ value, label: t(key) }));
+  const videoTone = (status) => ({
+    running: "info",
+    paused: "warn",
+    failed: "error",
+    completed: "ok",
+    cancelled: "warn",
+  })[status] || "neutral";
+
   return (
     <PageLayout
       title={t("tasks.title")}
       variant="standard"
       actions={
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Chip label={t("tasks.counts.pending", { count: tasks.filter((task) => task.status === "pending").length })} size="small" variant="outlined" />
-          <Chip label={t("tasks.counts.queued", { count: tasks.filter((task) => task.status === "queued").length })} size="small" variant="outlined" color="info" />
-          <Chip label={t("tasks.counts.running", { count: tasks.filter((task) => task.status === "in-progress").length })} size="small" variant="outlined" />
           {queueOrder.length > 0 && (
-            <Button variant="contained" size="small" startIcon={<PlayArrowIcon />} onClick={processQueue} disabled={isProcessingQueue || isLoading}>
+            <ActionButton startIcon={<PlayArrowIcon />} onClick={processQueue} loading={isProcessingQueue} disabled={isLoading}>
               {t("tasks.runQueue", { count: queueOrder.length })}
-            </Button>
+            </ActionButton>
           )}
-          {tasks.length > 0 && (
-            <Button variant="outlined" size="small" startIcon={<ClearAllIcon />} onClick={handleClearAllTasks} disabled={isLoading || isSaving}>{t("tasks.clearAll")}</Button>
-          )}
-          <Button
-            variant="contained"
-            size="small"
+          <ActionButton
             startIcon={<AddIcon />}
             onClick={(e) => setNewTaskMenuAnchor(e.currentTarget)}
             disabled={isLoading || isSaving}
           >
             {t("tasks.newJob")}
-          </Button>
+          </ActionButton>
           <Menu
             anchorEl={newTaskMenuAnchor}
             open={Boolean(newTaskMenuAnchor)}
@@ -850,9 +854,9 @@ const TaskPage = () => {
             severity="warning"
             sx={{ mb: 2 }}
             action={
-              <Button color="inherit" size="small" onClick={() => { fetchProjects(); fetchAvailableModels(); }}>
+              <ActionButton kind="link" onClick={() => fetchProjects()}>
                 {t("common.retry")}
-              </Button>
+              </ActionButton>
             }
           >
             {Object.values(lookupErrors).join(". ")}.
@@ -864,6 +868,7 @@ const TaskPage = () => {
           title={pendingConfirm?.title || ""}
           description={pendingConfirm?.description}
           facts={pendingConfirm?.facts || []}
+          keeps={pendingConfirm?.keeps}
           confirmLabel={pendingConfirm?.confirmLabel}
           onConfirm={() => {
             const run = pendingConfirm?.run;
@@ -886,9 +891,25 @@ const TaskPage = () => {
           onTaskDuplicated={handleTaskDuplicated}
         />
 
-        {/* Video batch jobs (VIDEO_GEN kind) surfaced from the unified /api/jobs system.
-            Separate from legacy Task scheduler below and from music-video pipeline (which has its own MusicVideoPage + stages). */}
-        <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+        <DashboardStrip>
+          <DashboardTile
+            label={t("layoutCards.task.status.pending")}
+            value={pendingCount}
+            tone={pendingCount > 0 ? "ok" : "off"}
+          />
+          <DashboardTile
+            label={t("layoutCards.task.status.queued")}
+            value={queuedCount}
+            tone={queuedCount > 0 ? "ok" : "off"}
+          />
+          <DashboardTile
+            label={t("layoutCards.task.status.running")}
+            value={runningCount}
+            tone={runningCount > 0 ? "ok" : "off"}
+          />
+        </DashboardStrip>
+
+        <Paper sx={{ p: 2, mb: 2, mt: 2, borderRadius: 2 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
             <Box>
               <Typography variant="subtitle1" fontWeight={600}>
@@ -927,7 +948,7 @@ const TaskPage = () => {
                   <TableRow key={job.id} hover>
                     <TableCell>{job.label}</TableCell>
                     <TableCell>
-                      <Chip label={jobStatusLabel(job.status)} size="small" color={job.status === "running" ? "info" : "default"} />
+                      <StatusPill label={jobStatusLabel(job.status)} tone={videoTone(job.status)} />
                     </TableCell>
                     <TableCell>
                       {job.progress != null ? (
@@ -947,15 +968,12 @@ const TaskPage = () => {
                     </TableCell>
                     <TableCell align="right">
                       {job.cancellable && (
-                        <Button
-                          size="small"
-                          color="error"
-                          variant="outlined"
+                        <ActionButton
                           startIcon={<CancelIcon />}
-                          onClick={() => handleCancelVideoGenJob(job.id)}
+                          onClick={() => requestCancelVideoGenJob(job)}
                         >
                           {t("tasks.video.cancel")}
-                        </Button>
+                        </ActionButton>
                       )}
                     </TableCell>
                   </TableRow>
@@ -965,40 +983,31 @@ const TaskPage = () => {
           )}
         </Paper>
 
-        {/* Filter bar */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box sx={{ display: "flex", gap: 1, mb: 2, flexWrap: "wrap", alignItems: "center" }}>
           {entityFilterLabel && (
-            <>
-              <Chip
-                label={entityFilterLabel}
-                size="small"
-                color="primary"
-                onDelete={() => dropParams(TASK_PARAMS.project, TASK_PARAMS.client, TASK_PARAMS.website)}
-              />
-              <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-            </>
-          )}
-          {['all', 'active', 'completed', 'failed'].map(f => (
             <Chip
-              key={f}
-              label={statusFilterLabel(f)}
+              label={entityFilterLabel}
               size="small"
-              variant={statusFilter === f ? 'filled' : 'outlined'}
-              color={statusFilter === f ? 'primary' : 'default'}
-              onClick={() => setStatusFilter(f)}
+              color="primary"
+              onDelete={() => dropParams(TASK_PARAMS.project, TASK_PARAMS.client, TASK_PARAMS.website)}
             />
-          ))}
-          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>{t("tasks.typeFilter.label")}</InputLabel>
-            <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} label={t("tasks.typeFilter.label")}>
-              <MuiMenuItem value="all">{t("tasks.typeFilter.all")}</MuiMenuItem>
-              <MuiMenuItem value="code_generation">{t("tasks.typeFilter.code")}</MuiMenuItem>
-              <MuiMenuItem value="file_generation">{t("tasks.typeFilter.csv")}</MuiMenuItem>
-              <MuiMenuItem value="content_generation">{t("tasks.typeFilter.content")}</MuiMenuItem>
-              <MuiMenuItem value="data_analysis">{t("tasks.typeFilter.analysis")}</MuiMenuItem>
-            </Select>
-          </FormControl>
+          )}
+          <Box data-native-contextmenu data-testid="task-status-filter">
+            <ChoiceChips
+              ariaLabel={t("tasks.filter.status")}
+              options={statusOptions}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+          </Box>
+          <Box data-native-contextmenu data-testid="task-type-filter">
+            <ChoiceChips
+              ariaLabel={t("tasks.typeFilter.label")}
+              options={typeOptions}
+              value={typeFilter}
+              onChange={setTypeFilter}
+            />
+          </Box>
         </Box>
 
         {/* Tasks Display */}
@@ -1010,9 +1019,16 @@ const TaskPage = () => {
           <Paper sx={{ p: 4, textAlign: "center", borderRadius: 3 }}>
             <EmptyState
               icon={<AssignmentOutlined />}
-              title={t("tasks.emptyTitle")}
-              description={t("tasks.emptyDescription")}
+              title={tasks.length === 0 ? t("tasks.emptyTitle") : t("tasks.emptyFilteredTitle")}
+              description={tasks.length === 0 ? t("tasks.emptyDescription") : t("tasks.emptyFilteredDescription")}
             />
+            {tasks.length > 0 && (
+              <Box sx={{ mt: 2 }}>
+                <ActionButton onClick={() => { setStatusFilter("all"); setTypeFilter("all"); }}>
+                  {t("tasks.clearFilters")}
+                </ActionButton>
+              </Box>
+            )}
           </Paper>
         ) : (
           <>
@@ -1035,16 +1051,35 @@ const TaskPage = () => {
                   <TaskCard
                     task={task}
                     onEdit={handleEditTask}
-                    onDuplicate={handleDuplicateTask}
-                    onDelete={handleDeleteTask}
                     onStartJob={handleStartSingleTask}
+                    onStopJob={handleStopTask}
                     availableProjects={availableProjects}
                   />
                 </div>
               ))}
             </Box>
-
           </>
+        )}
+
+        {tasks.length > 0 && !isLoading && (
+          <Box sx={{ mt: 2 }}>
+            <SettingsPanel
+              danger
+              title={t("tasks.clear.title")}
+              description={t("tasks.clear.description")}
+            >
+              <Box>
+                <ActionButton
+                  kind="destructive"
+                  startIcon={<ClearAllIcon />}
+                  onClick={handleClearAllTasks}
+                  disabled={isSaving}
+                >
+                  {t("tasks.clearAll")}
+                </ActionButton>
+              </Box>
+            </SettingsPanel>
+          </Box>
         )}
 
       </Box>
@@ -1060,13 +1095,8 @@ const TaskPage = () => {
             },
             {
               label: t("tasks.menu.cancel"),
-              onClick: () => {
-                if (contextItem.job_id) {
-                  cancelJob(contextItem.job_id);
-                  setTimeout(fetchTasks, 1000);
-                }
-              },
-              disabled: !['in-progress', 'running', 'processing', 'queued'].includes(contextItem.status?.toLowerCase()),
+              onClick: () => handleStopTask(contextItem),
+              disabled: !['in-progress', 'running', 'processing', 'queued'].includes(contextItem.status?.toLowerCase()) || !contextItem.job_id,
             },
             { label: t("tasks.menu.edit"), onClick: () => handleEditTask(contextItem), dividerBefore: true },
             { label: t("tasks.menu.duplicate"), onClick: () => handleDuplicateTask(contextItem.id) },
