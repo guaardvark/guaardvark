@@ -394,6 +394,11 @@ def text_encoder_device(model_id: str, total_vram_mb: Optional[int] = None,
     return "default"
 
 
+def vae_decode_whole_clip(model_id: str, family: Optional[str] = None) -> bool:
+    """True when the model's VAE must decode the clip in one temporal piece."""
+    return bool(limits_for(model_id, _family_of(model_id, family)).get("vae_decode_whole_clip"))
+
+
 def attention_pin(model_id: str, speed_profile: Optional[str], launch_backend: str,
                   family: Optional[str] = None) -> Optional[str]:
     """The backend to pin in the graph, or None to leave ComfyUI's choice.

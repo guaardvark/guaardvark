@@ -11,7 +11,7 @@ import os
 import time
 from typing import Optional
 
-from backend.services.video_render_limits import UNKNOWN_PROFILE
+from backend.services.video_render_limits import UNKNOWN_PROFILE, vae_decode_whole_clip
 
 logger = logging.getLogger(__name__)
 
@@ -656,7 +656,7 @@ class ComfyUIVideoWorkflowMixin:
 
             # ── Decode + Output ────────────────────────────────────────────
             # Node 12: VAE Decode — tiled for HD+ so your GPU doesn't rage-quit
-            "12": self._build_vae_decode_node("11", "4", width, height),
+            "12": self._build_vae_decode_node("11", "4", width, height, model_key=model_key, num_frames=num_frames),
             # Node 13: Create video from frames
             "13": {
                 "class_type": "VHS_VideoCombine",
@@ -855,7 +855,7 @@ class ComfyUIVideoWorkflowMixin:
                     "return_with_leftover_noise": "disable",
                 },
             },
-            "12": self._build_vae_decode_node("11", "4", width, height),
+            "12": self._build_vae_decode_node("11", "4", width, height, model_key=model_key, num_frames=num_frames),
             "13": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
@@ -999,7 +999,7 @@ class ComfyUIVideoWorkflowMixin:
                     "denoise": 1.0,
                 },
             },
-            "12": self._build_vae_decode_node("10", "4", width, height),
+            "12": self._build_vae_decode_node("10", "4", width, height, model_key=model_key, num_frames=num_frames),
             "13": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
@@ -1164,7 +1164,7 @@ class ComfyUIVideoWorkflowMixin:
                 "class_type": "LTXVSeparateAVLatent",
                 "inputs": {"av_latent": ["12", 0]},
             },
-            "14": self._build_vae_decode_node("13", "3", width, height),
+            "14": self._build_vae_decode_node("13", "3", width, height, model_key=model_key, num_frames=length),
             "15": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
@@ -1325,7 +1325,7 @@ class ComfyUIVideoWorkflowMixin:
                 "class_type": "LTXVSeparateAVLatent",
                 "inputs": {"av_latent": ["14", 0]},
             },
-            "16": self._build_vae_decode_node("15", "3", width, height),
+            "16": self._build_vae_decode_node("15", "3", width, height, model_key=model_key, num_frames=length),
             "17": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
@@ -1553,7 +1553,7 @@ class ComfyUIVideoWorkflowMixin:
                 "class_type": "LTXVSeparateAVLatent",
                 "inputs": {"av_latent": ["21", 0]},
             },
-            "23": self._build_vae_decode_node("22", "3", width, height),
+            "23": self._build_vae_decode_node("22", "3", width, height, model_key=model_key, num_frames=length),
             "24": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
@@ -1762,7 +1762,7 @@ class ComfyUIVideoWorkflowMixin:
                 "class_type": "LTXVSeparateAVLatent",
                 "inputs": {"av_latent": ["23", 0]},
             },
-            "25": self._build_vae_decode_node("24", "3", width, height),
+            "25": self._build_vae_decode_node("24", "3", width, height, model_key=model_key, num_frames=length),
             "26": {
                 "class_type": "VHS_VideoCombine",
                 "inputs": {
@@ -2431,11 +2431,27 @@ class ComfyUIVideoWorkflowMixin:
         self._pin_model_attention(workflow, model_key, speed_profile)
         return workflow
 
-    def _build_vae_decode_node(self, samples_node: str, vae_node: str, width: int, height: int) -> dict:
+    # VAEDecodeTiled's temporal_size input (frames per piece): min, max, step.
+    _VAE_TEMPORAL_SIZE_LIMITS = (8, 4096, 4)
+
+    def _vae_temporal_size(self, model_key: Optional[str], num_frames: Optional[int]) -> int:
+        """Frames per temporal piece: the whole clip for a model that declares
+        vae_decode_whole_clip, else 64."""
+        if not model_key or not vae_decode_whole_clip(model_key, self._model_family(model_key)):
+            return 64
+        low, high, step = self._VAE_TEMPORAL_SIZE_LIMITS
+        if not num_frames:
+            return high
+        return min(high, max(low, -(-int(num_frames) // step) * step))
+
+    def _build_vae_decode_node(self, samples_node: str, vae_node: str, width: int, height: int,
+                               *, model_key: Optional[str] = None, num_frames: Optional[int] = None) -> dict:
         """Pick the right VAE decode strategy based on resolution.
 
         Standard VAEDecode works fine for tiny tests. Above that, tiled decoding
         saves your VRAM from a very bad day. Lowered threshold to 720 for video.
+        The tiles are spatial and, unless the model's VAE needs the whole clip in
+        one piece, also temporal (64 frames).
         """
         use_tiled = width >= 720 or height >= 720
         if use_tiled:
@@ -2446,7 +2462,7 @@ class ComfyUIVideoWorkflowMixin:
                     "vae": [vae_node, 0],
                     "tile_size": 480,
                     "overlap": 64,
-                    "temporal_size": 64,
+                    "temporal_size": self._vae_temporal_size(model_key, num_frames),
                     "temporal_overlap": 8,
                 }
             }
