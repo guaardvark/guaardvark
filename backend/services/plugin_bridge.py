@@ -752,9 +752,11 @@ def prepare_plugins_for_route(route: str) -> Dict[str, Any]:
             })
             continue
 
+        # A plugin already running is not claimed: something else started it
+        # (start.sh, the Plugins page, a job) and may still use it, as the
+        # Discord bot, CLI and MCP use Ollama. Only what a route starts is
+        # stopped by a later route change or GPU swap.
         if _is_running(plugin_id):
-            with _state_lock:
-                _orchestrator_claims.add(plugin_id)
             actions.append({"action": "already_running", "plugin_id": plugin_id})
             continue
 
