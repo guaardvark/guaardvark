@@ -44,6 +44,26 @@ MAX_PROMPT_CHARS = 8000
 _SECONDS_PER_CLIP = 75
 
 
+def _assembly_blocked(then: str) -> tuple | None:
+    """A 409 when the plugin that assembles the final cut could not be started
+    for it, else None.
+
+    Assembly runs last, after every clip has rendered; a plugin the person
+    turned off is never started for a job, so without this the render runs
+    for hours and only then fails. Their setting is left as it is.
+    """
+    from backend.services.plugin_bridge import job_plugin_blocker, plugins_for_stage
+    for pid in plugins_for_stage("music-video", "assembling"):
+        blocker = job_plugin_blocker(pid)
+        if blocker:
+            reason, remedy = blocker
+            return jsonify({
+                "error": f"{reason}, and it assembles the finished music video. {remedy}, then {then}.",
+                "plugin_id": pid,
+            }), 409
+    return None
+
+
 def _resolve_song(song_document_id) -> str | None:
     """Absolute on-disk path for a song Document id, or None if unresolvable.
 
@@ -335,6 +355,9 @@ def approve(mv_id):
         return jsonify({
             "error": "Song analysis is not complete yet — use Continue & Analyze first."
         }), 409
+    blocked = _assembly_blocked("approve again")
+    if blocked:
+        return blocked
 
     # LoRA/Comfy preflight+clamp resumed (P1-5/P3-12 media items from team audit; was WIP
     # after phase-map/flux wiring). Now consistent with clip path + generator helper.
@@ -471,6 +494,9 @@ def reassemble(mv_id):
         return jsonify({"error": f"cuts {missing} have no rendered clip on disk; re-plan to render them"}), 409
     if held_cuts(clips):
         return jsonify({"error": "a cut is held for review"}), 409
+    blocked = _assembly_blocked("assemble again")
+    if blocked:
+        return blocked
     _save_revision(mv, reason="reassemble", label="Before re-assembly")
     mv.current_stage = "assembling"
     mv.status = "assembling"
