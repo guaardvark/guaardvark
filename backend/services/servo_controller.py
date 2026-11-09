@@ -245,6 +245,59 @@ class ServoController:
         cy = max(0, min(self.screen_h - 1, int(round(cy))))
         return (cx, cy)
 
+    def read_point(self, answer: Dict[str, Any],
+                   image_size: Optional[Tuple[int, int]] = None) -> Optional[Tuple[int, int]]:
+        """Screen coordinates for a point the model gave itself, in its own dialect.
+
+        The model's convention and this machine's calibration for it are how its
+        numbers are read, the same as for the servo's own anchor call. No second
+        look: the model saw the frame and chose the spot.
+        """
+        try:
+            coords = self._parse_detection_response(json.dumps(answer), image_size=image_size)
+        except (TypeError, ValueError):
+            coords = None
+        if coords is None:
+            return None
+        x, y = coords
+        if self._calibration:
+            x, y = self._apply_calibration(x, y)
+        return (max(0, min(self.screen_w - 1, int(x))), max(0, min(self.screen_h - 1, int(y))))
+
+    def click_point(self, x: int, y: int, target_description: str = "",
+                    button: str = "left", screenshot: Optional[Image.Image] = None,
+                    answer: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Click where the model itself placed the target and record it.
+
+        Nothing here judges the result: the model's next look at the screen does.
+        """
+        start = time.time()
+        move = self.screen.move(x, y)
+        clicked = {"success": False, "error": move.get("error", "move failed")}
+        if move.get("success", False):
+            time.sleep(0.1)
+            clicked = self.screen.click(x, y, button=button)
+        issued = bool(clicked.get("success", False))
+        elapsed_ms = int((time.time() - start) * 1000)
+        self._last_raw_response = f"native: {json.dumps(answer)}" if answer else ""
+        self._last_parse_path = "native"
+        self._last_detection_source = "native"
+        logger.info(f"Servo: clicked \"{target_description}\" at ({x}, {y}) where the model placed it")
+        if screenshot is not None:
+            self._record_interaction(
+                screenshot=screenshot, target_description=target_description,
+                coords=(x, y), success=issued, target_found=True, click_issued=issued,
+                elapsed_ms=elapsed_ms, reason="" if issued else clicked.get("error", "click_failed"),
+                post_action_effect="pending_observation",
+            )
+        return {
+            "success": issued, "verified": False, "target_found": True, "click_issued": issued,
+            "post_action_effect": "pending_observation", "x": x, "y": y,
+            "corrections": 0, "attempt": 1, "time_ms": elapsed_ms,
+            "reason": "" if issued else "click_failed", "error": clicked.get("error"),
+            "detection_source": "native", "parse_path": "native",
+        }
+
     def locate_target(self, target_description: str) -> Dict[str, Any]:
         """Find a described target on screen. SEE only — no move, no click,
         no archive write. Returns coords + parse telemetry for callers that
