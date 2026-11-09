@@ -23,6 +23,9 @@ Volume=guaardvark-data:/app/data
 Volume=guaardvark-logs:/app/logs
 Volume=guaardvark-config:/root/.config/guaardvark
 Volume=guaardvark-cache:/root/.cache
+# What plugins build at runtime (the ComfyUI app and its models, plugin environments);
+# the image's plugin sources are copied onto it at every start (docker/entrypoint.sh).
+Volume=guaardvark-plugins:/app/plugins
 PublishPort=127.0.0.1:5000:5000
 AddDevice=/dev/kfd
 AddDevice=/dev/dri
