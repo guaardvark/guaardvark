@@ -15,9 +15,10 @@ python-dotenv==1.2.4
 
 # Background Tasks & Caching
 celery==5.6.3
-# kombu 5.7 refuses redis-py below 6.4 at run time; celery accepts any kombu >= 5.6.
-kombu==5.6.2
-redis==5.0.4
+# kombu 5.7 refuses redis-py below 6.4 at run time, so the two move together.
+# redis-py 8 speaks RESP3 and needs a Redis server of 6.0 or newer.
+kombu==5.7.0
+redis==8.1.0
 eventlet==0.41.2
 
 # Data Processing & Analysis
