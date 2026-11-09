@@ -84,6 +84,24 @@ jobs:
           python -m pip install --upgrade twine
           twine check dist/*
 
+      # The suite CI runs on every push, run again on the exact commit being published.
+      - name: CLI test suite
+        run: |
+          python -m pip install -e ./cli pytest
+          python -m pytest cli/tests -q
+
+      - name: The wheel installs on its own and both commands run
+        run: |
+          version="$(cat VERSION)"
+          python -m venv "$RUNNER_TEMP/wheel-check"
+          "$RUNNER_TEMP/wheel-check/bin/pip" install "dist/guaardvark-${version}-py3-none-any.whl"
+          reported="$("$RUNNER_TEMP/wheel-check/bin/guaardvark" --version)"
+          if [ "$reported" != "guaardvark ${version}" ]; then
+            echo "::error::the installed wheel reports '$reported', not guaardvark ${version}"
+            exit 1
+          fi
+          "$RUNNER_TEMP/wheel-check/bin/llx" --help > /dev/null
+
       - name: Publish to PyPI
         if: startsWith(github.ref, 'refs/tags/') || inputs.publish
         uses: pypa/gh-action-pypi-publish@release/v1
