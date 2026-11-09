@@ -201,6 +201,14 @@ The optional web terminal (`scripts/terminal_server.sh start`, ttyd on port 7682
   after; the ComfyUI plugin's start log prints the backend it chose. Measured on
   MiniMax H3 (16 GB RTX 40-series, 864x480, 20 steps): `ck` took 339 s against
   390 s with frames indistinguishable at the same seed.
+- **A chat model gets a smaller context window than your card can hold**: Guaardvark sizes each
+  model's window (`num_ctx`) from free GPU and system memory and a per-family estimate of what a
+  token costs, up to 32,768. To choose it yourself, name the models in `GUAARDVARK_NUM_CTX` in
+  `.env` (under Docker, the `.env` next to `docker-compose.yml`), e.g.
+  `GUAARDVARK_NUM_CTX=qwen3.8:27b=32768,gemma4:12b=65536` (a name without a tag means `:latest`),
+  and restart the backend. The size is sent as given; what does not fit on the card Ollama keeps in
+  system memory, which is slower. The backend log names where each window came from:
+  `Adaptive context for '<model>'` when sized, `from GUAARDVARK_NUM_CTX` when set there.
 - **Video clips from chat or MCP look washed out or over-cooked**: a request that names no
   guidance renders with the model's own template value (LTX 1, Wan 14B 3.5, Wan 5B 5). Set
   `GUAARDVARK_VIDEO_REFERENCE_DEFAULTS=1` in `.env` (off by default) and restart the backend to
