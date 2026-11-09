@@ -188,7 +188,10 @@
     "already": "嵌入模型已是 {{model}}；索引保留。",
     "switchFailed": "切换嵌入失败",
     "notSwitched": "嵌入模型未切换：{{error}}",
-    "requestFailed": "请求失败"
+    "requestFailed": "请求失败",
+    "reindexStarted": "正在使用 {{model}} 的文档提示词重新索引：{{queued}} 份文档已排队。每份文档在其新副本就绪前仍可搜索。",
+    "reindexStartedPending": "正在使用 {{model}} 的文档提示词重新索引：{{queued}} 份文档已排队；{{pending}} 待索引恢复。",
+    "reindexFailed": "重新索引未能启动：{{error}}"
   },
   "media": {
     "saved": "{{label}}: {{model}}",
@@ -303,7 +306,10 @@
     "embeddingModel": "嵌入模型",
     "embeddingSetTooltip": "相同的向量宽度可保留索引。不同的宽度将清空索引，且所有文档必须重新建立索引。",
     "embeddingRefreshTooltip": "刷新嵌入模型（将检测每一个模型，可能需要一点时间）",
-    "embeddingRefreshAria": "刷新嵌入模型"
+    "embeddingRefreshAria": "刷新嵌入模型",
+    "reindexHint": "此索引在构建时未使用 {{model}} 的文档提示词。使用它重新索引后，搜索更常找到正确的段落。",
+    "reindex": "重新索引以改进搜索",
+    "reindexTooltip": "使用模型的文档提示词重新嵌入每份已索引的文档。运行期间搜索照常可用；进度显示在页脚。"
   },
   "chatPanel": {
     "title": "对话",
@@ -533,6 +539,11 @@
     "newModel": "新模型",
     "embeddingKeeps": "您的文档本身不会丢失；仅重新构建它们的搜索索引。",
     "embeddingConfirm": "切换并重新索引",
+    "reindexTitle": "重新索引以改进搜索",
+    "reindexDescription": "每份已索引的文档都会使用 {{model}} 的文档提示词重新嵌入，搜索也会改用对应的查询提示词。每份文档在其新副本就绪前仍可搜索；进度显示在页脚。",
+    "documentPrompt": "文档提示词",
+    "reindexKeeps": "您的文档，以及每份文档在新条目就绪前的现有搜索条目。",
+    "reindexConfirm": "重新索引",
     "rebootTitle": "重启 Guaardvark",
     "rebootDescription": "重启后端、工作进程和 ComfyUI。所有正在进行的生成、索引任务和对话回复都将丢失，且此页面将断开连接直到服务恢复。",
     "rebootKeeps": "文档、对话、媒体、规则和设置。",

@@ -906,6 +906,66 @@ def set_embedding_model():
         return error_response(f"Failed to switch embedding model: {str(e)}", 500, "SWITCH_FAILED")
 
 
+@model_bp.route("/embedding/prompts", methods=["GET"])
+def embedding_prompts():
+    """The prompts the index embeds with, against those a new index would use for
+    the active model.
+
+    ``reindex_suggested`` is true when a new index would use a document prompt this
+    one was built without; only a re-index (POST /embedding/reindex) changes that.
+    """
+    try:
+        from backend.services.embedding_prompts import prompt_status
+        return success_response(prompt_status(), "Embedding prompts")
+    except Exception as e:
+        return error_response(f"Could not read the embedding prompts: {e}", 500, "EMBEDDING_PROMPTS_ERROR")
+
+
+@model_bp.route("/embedding/reindex", methods=["POST"])
+def reindex_with_model_prompts():
+    """Index every document again with the prompts a new index uses for the active model.
+
+    The prompts are recorded on the index first, so the indexer and every
+    search use them from then on; the documents then go through the usual
+    catch-up, with its progress in the footer. The tables are not emptied:
+    each document's previous rows stay searchable until its new ones are in.
+    Rows with no document behind them keep their vectors (``not_rebuilt``).
+    """
+    try:
+        from backend.config import get_active_embedding_model
+        from backend.services.embedding_prompts import prompt_status, record_declared_prompts
+        import backend.services.indexing_service as idx_svc
+
+        model = get_active_embedding_model()
+        status = prompt_status(model)
+        if not status["reindex_suggested"]:
+            return error_response(
+                f"The index already embeds with {model}'s document prompt", 409, "ALREADY_PROMPTED")
+        query, document = record_declared_prompts(model)
+        # This process's client and index handle; others follow on their next call.
+        idx_svc._sync_embed_model(model)
+        not_rebuilt = idx_svc.rows_not_rebuilt(idx_svc._active_embed_dim())
+
+        from backend.api.indexing_api import requeue_documents_for_new_index
+        requeued = requeue_documents_for_new_index()
+        logger.info(
+            "Re-index for %s's prompts (document %r, query %r): %d document(s) queued, %d left pending",
+            model, document, query, requeued["queued"], requeued["pending"],
+        )
+        return success_response({
+            "model": model,
+            "query_prompt": query,
+            "document_prompt": document,
+            "reindex_queued": requeued["queued"],
+            "reindex_pending": requeued["pending"],
+            "reindex_by_status": requeued.get("by_status", {}),
+            "not_rebuilt": not_rebuilt,
+        }, f"Re-indexing for {model}'s prompts")
+    except Exception as e:
+        logger.error(f"Re-index for the embedding prompts failed: {e}", exc_info=True)
+        return error_response(f"Could not start the re-index: {e}", 500, "REINDEX_FAILED")
+
+
 def _listed_chat_model(requested: str, available_models) -> "str | None":
     """The chat-model list's name for ``requested``, or None when it is not listed.
 

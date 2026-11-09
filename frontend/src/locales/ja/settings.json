@@ -188,7 +188,10 @@
     "already": "埋め込みモデルはすでに {{model}} です。インデックスは保持されました。",
     "switchFailed": "埋め込みの切り替えに失敗しました",
     "notSwitched": "埋め込みモデルが切り替わりませんでした: {{error}}",
-    "requestFailed": "リクエストに失敗しました"
+    "requestFailed": "リクエストに失敗しました",
+    "reindexStarted": "{{model}} のドキュメントプロンプトで再インデックス中: {{queued}} 個のドキュメントをキューに追加しました。新しいコピーが入るまで、各ドキュメントは検索できます。",
+    "reindexStartedPending": "{{model}} のドキュメントプロンプトで再インデックス中: {{queued}} 個のドキュメントをキューに追加しました。{{pending}} がインデックスの再開を待機中です。",
+    "reindexFailed": "再インデックスを開始できませんでした: {{error}}"
   },
   "media": {
     "saved": "{{label}}: {{model}}",
@@ -303,7 +306,10 @@
     "embeddingModel": "Embeddingモデル",
     "embeddingSetTooltip": "同じベクトル幅であればインデックスを維持します。異なる幅に変更するとインデックスは空になり、すべてのドキュメントを再インデックスする必要があります。",
     "embeddingRefreshTooltip": "Embeddingモデルを更新（各モデルを調査するため、時間がかかる場合があります）",
-    "embeddingRefreshAria": "Embeddingモデルを更新"
+    "embeddingRefreshAria": "Embeddingモデルを更新",
+    "reindexHint": "このインデックスは {{model}} のドキュメントプロンプトなしで作成されました。プロンプト付きで再インデックスすると、検索で正しい箇所が見つかりやすくなります。",
+    "reindex": "検索改善のため再インデックス",
+    "reindexTooltip": "インデックス済みの各ドキュメントを、モデルのドキュメントプロンプトで埋め込み直します。実行中も検索は使えます。進捗はフッターに表示されます。"
   },
   "chatPanel": {
     "title": "チャット",
@@ -533,6 +539,11 @@
     "newModel": "新しいモデル",
     "embeddingKeeps": "ドキュメント自体は保持されます。再構築されるのは検索インデックスのみです。",
     "embeddingConfirm": "切り替えて再インデックス",
+    "reindexTitle": "検索改善のため再インデックス",
+    "reindexDescription": "インデックス済みの各ドキュメントを {{model}} のドキュメントプロンプトで埋め込み直し、検索は対応するクエリプロンプトに切り替わります。新しいコピーが入るまで各ドキュメントは検索できます。進捗はフッターに表示されます。",
+    "documentPrompt": "ドキュメントプロンプト",
+    "reindexKeeps": "ドキュメント自体と、新しいエントリが入るまでの各ドキュメントの現在の検索エントリ。",
+    "reindexConfirm": "再インデックス",
     "rebootTitle": "Guaardvarkを再起動",
     "rebootDescription": "バックエンド、ワーカー、およびComfyUIを再起動します。実行中のすべての生成、インデックス処理、およびチャットの返信は失われ、サービスが復旧するまでこのページは切断されます。",
     "rebootKeeps": "ドキュメント、チャット、メディア、ルール、および設定。",
