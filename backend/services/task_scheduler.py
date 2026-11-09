@@ -70,7 +70,7 @@ def _execute_task(app, task_id: int) -> None:
                 else:
                     logger.info("Task %s uses model %s", task_id, model_name)
 
-                prompt = task.prompt_text or task.name
+                prompt = task_prompt(task)
 
                 # Update progress to 25%
                 if process_id:
@@ -193,6 +193,19 @@ def _installed_ollama_models() -> Optional[list]:
     except Exception as e:
         logger.warning(f"Could not query Ollama for models: {e}")
         return None
+
+
+def task_prompt(task) -> str:
+    """What a job asks the model: its prompt, else its description, else its name.
+
+    The Jobs page saves its prompt box as the job's description, so a job
+    without prompt_text still carries what the person typed there.
+    """
+    for key in ("prompt_text", "description", "name"):
+        value = task.get(key) if isinstance(task, dict) else getattr(task, key, None)
+        if value and str(value).strip():
+            return str(value).strip()
+    return ""
 
 
 def _resolve_task_model(task) -> tuple:
@@ -414,7 +427,7 @@ def _generate_code_file_fallback(task, model_name) -> str:
 
     try:
         # Create enhanced prompt for code generation
-        prompt = task.prompt_text or task.name
+        prompt = task_prompt(task)
 
         # Enhanced system prompt for code generation with JSX-specific handling
         if task.output_filename:
