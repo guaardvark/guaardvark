@@ -178,10 +178,20 @@ def test_an_unread_card_fits_nothing(monkeypatch):
     monkeypatch.setattr(vmr, "_video_setting", lambda k: "")
     monkeypatch.setattr(vmr, "is_model_installed", lambda m: True)
     monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: 0)
+    monkeypatch.setattr(vmr, "_no_gpu_hardware", lambda: False)
     assert vmr._fits_card("wan22-5b", 0) is False
     assert vmr._fits_card("wan22-5b", None) is False
     mid, err = vmr.resolve_active_video_model("t2v")
     assert mid is None and "could not be read" in err
+
+
+def test_a_host_without_a_gpu_is_told_video_needs_one(monkeypatch):
+    _always_ready(monkeypatch)
+    monkeypatch.setattr(vmr, "_video_setting", lambda k: "")
+    monkeypatch.setattr(vmr, "_probe_total_vram_mb", lambda: 0)
+    monkeypatch.setattr(vmr, "_no_gpu_hardware", lambda: True)
+    mid, err = vmr.resolve_active_video_model("t2v")
+    assert mid is None and err == vmr.NO_VIDEO_GPU_MESSAGE
 
 
 def test_a_t2v_job_under_an_i2v_only_global_stays_in_its_family(monkeypatch):

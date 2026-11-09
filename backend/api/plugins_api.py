@@ -499,9 +499,9 @@ def get_plugin_logs(plugin_id):
         return error_response(str(e), 500, "PLUGIN_LOGS_ERROR")
 
 
-# ── ComfyUI update (plugins/comfyui/releases.json declares the target) ──────
-# The only routes here that reach the network, and only on the POST: a clone
-# from GitHub and a pip install from PyPI, both named in the check payload.
+# ── ComfyUI install and update (plugins/comfyui/releases.json declares the target) ──
+# The only routes here that reach the network, and only on the install and update
+# POSTs: a clone from GitHub and a pip install from PyPI, both named in the check payload.
 
 @plugins_bp.route("/comfyui/update/check", methods=["GET"])
 def comfyui_update_check():
@@ -531,6 +531,23 @@ def comfyui_update_start():
     except Exception as e:
         logger.error(f"ComfyUI update failed to start: {e}", exc_info=True)
         return error_response(str(e), 500, "COMFYUI_UPDATE_ERROR")
+
+
+@plugins_bp.route("/comfyui/install", methods=["POST"])
+def comfyui_install_start():
+    """Install ComfyUI where there is none yet; 202 with the job status, 409 with the refusal.
+    The job is reported through /comfyui/update/status like an update."""
+    from backend.services.comfyui_update_service import UpdateRefused, get_update_service
+
+    data = request.get_json(silent=True) or {}
+    try:
+        status = get_update_service().install(data.get("target"))
+        return success_response(data=status, message="ComfyUI install started", status_code=202)
+    except UpdateRefused as e:
+        return error_response(str(e), 409, "COMFYUI_INSTALL_REFUSED")
+    except Exception as e:
+        logger.error(f"ComfyUI install failed to start: {e}", exc_info=True)
+        return error_response(str(e), 500, "COMFYUI_INSTALL_ERROR")
 
 
 @plugins_bp.route("/comfyui/update/status", methods=["GET"])

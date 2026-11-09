@@ -32,7 +32,14 @@
     "restore": "Restaurar {{version}}",
     "progress": "ComfyUI {{versions}}: {{phase}} ({{percent}}%)",
     "working": "trabajando",
-    "dismiss": "Descartar"
+    "dismiss": "Descartar",
+    "resultInstalled": "Instalado",
+    "notInstalled": "ComfyUI aún no está en esta máquina. La generación de video se ejecuta en ella, al igual que los modelos FLUX.1, FLUX 3 Klein, Qwen-Image 2.1 y MOSS-Image.",
+    "installVersion": "Instalar ComfyUI {{version}}",
+    "installTooltip": "Descarga ComfyUI {{version}} y arráncala",
+    "installTitle": "Instalar ComfyUI {{target}}",
+    "installDescription": "Descarga ComfyUI {{target}} desde GitHub y sus paquetes de Python desde PyPI, luego lo arranca. Los modelos no forman parte de él: cada uno se descarga cuando pulsas su propio botón de Instalación.",
+    "installNow": "Instalar ahora"
   },
   "status": {
     "running": "Ejecutando",

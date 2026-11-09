@@ -210,6 +210,48 @@ def get_dedup_threshold(model_name: str) -> float:
             return val
     return CHUNK_SIMILARITY_THRESHOLD
 
+
+# Without a cross-encoder score (the reranker is installed separately), a retrieved
+# passage counts as unrelated to the message when the vector leg's cosine for it is
+# below this floor and it shares no word that few passages in the index contain.
+# Per model, matched on a substring of the active model name, longest key first; a
+# model not listed gets no floor.
+#
+# Measured 2026-11-08 on a single 400-byte note and on 8,664 passages (mission
+# reports, product docs, short notes): 34 questions the documents answer, 30 messages
+# they do not (a haiku, the capital of France, a recipe, ...), and the 78 answering
+# passages of the chat passage-check set. nomic-embed-text, which every install pulls:
+# the unrelated messages scored 0.39-0.56 against the note, except "three fruits that
+# grow in an orchard" (0.73); answering passages without a shared rare word scored
+# 0.68 or more, except two broad questions ("Tell me about Apollo 13." 0.59, "so what
+# does this app actually do?" 0.52). At 0.60, 29 of the 30 lost the note; on the large
+# index 105 of 170 unrelated top-5 passages stay, where only the cross-encoder
+# separates well. embeddinggemma and embeddinggemma-2 were measured the same way.
+VECTOR_RELEVANCE_FLOORS = {
+    "nomic-embed-text": 0.60,
+    "embeddinggemma-2": 0.62,
+    "embeddinggemma": 0.30,
+}
+
+
+def get_vector_relevance_floor(model_name: str):
+    """The vector-leg cosine a passage needs to count as related, or None.
+
+    GUAARDVARK_RAG_MIN_VECTOR_SCORE overrides the measured value; 0 turns the
+    floor off.
+    """
+    raw = os.environ.get("GUAARDVARK_RAG_MIN_VECTOR_SCORE", "").strip()
+    if raw:
+        try:
+            return float(raw) or None
+        except ValueError:
+            pass
+    name = (model_name or "").lower()
+    for key in sorted(VECTOR_RELEVANCE_FLOORS, key=len, reverse=True):
+        if key in name:
+            return VECTOR_RELEVANCE_FLOORS[key]
+    return None
+
 # RAG Autoresearch configuration
 AUTORESEARCH_ENABLED = os.environ.get("GUAARDVARK_AUTORESEARCH_ENABLED", "true").lower() == "true"
 AUTORESEARCH_IDLE_MINUTES = int(os.environ.get("GUAARDVARK_AUTORESEARCH_IDLE_MINUTES", "10"))

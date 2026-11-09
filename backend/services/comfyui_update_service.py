@@ -228,6 +228,10 @@ class PluginManagerController:
     def start(self) -> Dict[str, Any]:
         return self._retry_gate(lambda: self._manager().start_plugin(PLUGIN_ID))
 
+    def enable(self) -> Dict[str, Any]:
+        """Turn the plugin on (a fresh install has it off); a no-op when it already is."""
+        return self._manager().enable_plugin(PLUGIN_ID) or {}
+
     def _retry_gate(self, op) -> Dict[str, Any]:
         cooldowns = 0
         gpu_waited = 0.0
@@ -552,12 +556,15 @@ class ComfyUIUpdateService:
         except UpdateError as e:
             logger.warning("package comparison skipped: %s", e)
             changes = []
+        needs_repair = self.needs_repair()
         return {
             "installed": installed,
             "target": rel["version"],
             "target_tag": tag,
             "commit": rel.get("commit"),
             "available": available,
+            # No ComfyUI on this machine yet (a fresh install): Install fetches the target.
+            "installable": installed is None and not needs_repair and not self.previous_trees(),
             "busy": self.busy_reason(),
             "disk_free_gb": self.free_gb(),
             "min_free_gb": data.get("min_free_gb", 0),
@@ -569,7 +576,7 @@ class ComfyUIUpdateService:
                 f"and its Python packages from PyPI."
             ),
             "notes": rel.get("notes"),
-            "needs_repair": self.needs_repair(),
+            "needs_repair": needs_repair,
         }
 
     def status(self) -> Dict[str, Any]:
@@ -592,7 +599,7 @@ class ComfyUIUpdateService:
             _epoch += 1
             _status = _idle_status()
             _status.update({
-                "state": "running", "from": old_version, "to": new_version,
+                "state": "running", "kind": kind, "from": old_version, "to": new_version,
                 "started_at": _utc_now(), "epoch": _epoch,
             })
             _log_tail.clear()
@@ -628,6 +635,30 @@ class ComfyUIUpdateService:
             lambda: self._run_update(tag, rel, check["installed"], epoch),
             background=background,
         )
+
+    def install(self, target: Optional[str] = None, *, background: bool = True) -> Dict[str, Any]:
+        """Fetch ComfyUI on a machine that has none yet, then start it.
+
+        Raises :class:`UpdateRefused` instead of starting.
+        """
+        tag, rel = self._release(target)
+        check = self.check(tag)
+        if not check["installable"]:
+            if check["installed"] is not None:
+                raise UpdateRefused(f"ComfyUI {check['installed']} is already installed.")
+            if check["needs_repair"]:
+                raise UpdateRefused(f"Repair the interrupted job first. {check['needs_repair']}")
+            kept = ", ".join(p.name for p in self.previous_trees())
+            raise UpdateRefused(
+                f"{self.live_dir} is missing but {kept} is kept in {self.plugin_root}; "
+                f"restore it instead of installing over it."
+            )
+        self._refuse_if_blocked(check)
+        set_aside = self._stale_next_holding_state()
+        if set_aside:
+            raise UpdateRefused(f"Not started: {set_aside}.")
+        epoch = self._claim("install", None, rel["version"])
+        return self._launch(lambda: self._run_install(tag, rel, epoch), background=background)
 
     def restore_previous(self, *, background: bool = True) -> Dict[str, Any]:
         """Swap back to the kept ``ComfyUI.prev-*`` tree."""
@@ -741,6 +772,62 @@ class ComfyUIUpdateService:
             else:
                 self._rollback_or_fail(ctx, e)
 
+    def _run_install(self, tag: str, rel: Dict[str, Any], epoch: int) -> None:
+        """fetch → swap → install → start → post-check, with nothing of the user's in the way.
+
+        A failure before the tree is in place removes this job's clone. After that the
+        tree stays: starting the plugin installs any packages that are still missing.
+        """
+        version = rel["version"]
+        placed = False
+        try:
+            data = self.releases()
+            self._phase(epoch, "fetch")
+            self._fetch(epoch, data["repo"], tag, rel, keep_placeholders=True)
+            self._phase(epoch, "swap")
+            if os.path.lexists(self.live_dir):
+                raise UpdateError(f"{self.live_dir} appeared while ComfyUI was downloading; nothing was moved")
+            os.rename(self.next_dir, self.live_dir)
+            placed = True
+            self._log(epoch, f"{self.next_dir.name} -> {self.live_dir.name}")
+            self._phase(epoch, "install")
+            requirements = self.live_dir / "requirements.txt"
+            self.pip_install(["-r", requirements])
+            self.write_stamp(requirements_stamp(requirements.read_bytes()))
+            self._phase(epoch, "start")
+            # Pressing Install is asking for ComfyUI, and a fresh install has the plugin off.
+            enabled = self.controller.enable() or {}
+            if not enabled.get("success"):
+                raise UpdateError(f"the ComfyUI plugin could not be turned on: {enabled.get('error') or enabled}")
+            started = self.controller.start() or {}
+            if not started.get("success"):
+                raise UpdateError(f"ComfyUI did not start: {started.get('error') or started}")
+            self.wait_healthy()
+            self._phase(epoch, "post-check")
+            running = self.running_version()
+            if running != version:
+                raise UpdateError(f"the running ComfyUI reports version {running}, expected {version}")
+            missing = self.missing_nodes(self.expected_nodes(list(rel.get("post_start_nodes") or [])))
+            if missing:
+                raise UpdateError(f"ComfyUI {version} started without these nodes: {', '.join(missing)}")
+            try:
+                self.invalidate_caches()
+            except Exception as e:  # noqa: BLE001
+                self._log(epoch, f"object_info caches not invalidated: {e}")
+            self._phase(epoch, "done")
+            self._finish(epoch, "succeeded", f"ComfyUI {version} is installed and running.")
+        except Exception as e:  # noqa: BLE001
+            if not placed and os.path.lexists(self.next_dir):
+                try:
+                    shutil.rmtree(self.next_dir)
+                except OSError as cleanup_error:
+                    self._log(epoch, f"could not remove {self.next_dir.name}: {cleanup_error}")
+            where = (
+                f"It is in place at {self.live_dir}; starting the ComfyUI plugin installs what is still missing."
+                if placed else "Nothing was installed."
+            )
+            self._finish(epoch, "failed", f"Install failed: {str(e).rstrip('.')}. {where}")
+
     def _run_restore(self, prev: Path, prev_version: str, old_version: Optional[str], epoch: int) -> None:
         ctx: Optional[_Transition] = None
         try:
@@ -773,7 +860,8 @@ class ComfyUIUpdateService:
             self._finish(ctx.epoch, "failed",
                          f"{headline or error}. Rolling back crashed: {e}. Use Repair, or read {self.log_path}.")
 
-    def _fetch(self, epoch: int, repo: str, tag: str, rel: Dict[str, Any]) -> None:
+    def _fetch(self, epoch: int, repo: str, tag: str, rel: Dict[str, Any], *,
+               keep_placeholders: bool = False) -> None:
         nxt = self.next_dir
         if os.path.lexists(nxt):
             set_aside = self._stale_next_holding_state()
@@ -789,7 +877,8 @@ class ComfyUIUpdateService:
             raise UpdateError(f"git clone failed: {(result.stderr or '').strip()[-400:]}")
         # The clone ships placeholder state dirs; the user's own move in at
         # the swap, and a tree without any of them is known to be a bare clone.
-        for name in state_dirs_present(nxt, self.state_dirs()):
+        # A fresh install has no state of its own to move, so it keeps them.
+        for name in ([] if keep_placeholders else state_dirs_present(nxt, self.state_dirs())):
             path = nxt / name
             if path.is_dir() and not path.is_symlink():
                 shutil.rmtree(path)

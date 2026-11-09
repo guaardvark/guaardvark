@@ -70,6 +70,10 @@ services:
   # ── Backend (Flask + Celery) ───────────────────────────────────────────
   backend:
     restart: unless-stopped
+    # Messages that send someone to "this machine" (the API key one, for
+    # instance) name it by host name; a container's own is a random id.
+    # start-docker.sh passes this machine's name.
+    hostname: ${GUAARDVARK_DOCKER_HOSTNAME:-guaardvark}
     build:
       context: .
       dockerfile: docker/Dockerfile.backend
@@ -95,6 +99,9 @@ services:
       GUAARDVARK_API_KEY: ${GUAARDVARK_API_KEY:-}
       # Tells Settings → API key that the key is managed in that .env.
       GUAARDVARK_DOCKER: "1"
+      # Ollama is the ollama service above, so the backend never starts or
+      # stops it (the Ollama card's "I run Ollama myself" switch).
+      GUAARDVARK_OLLAMA_EXTERNAL: "1"
       # Browser origins besides http://localhost:5173, comma-separated, e.g.
       # http://192.168.1.20:5173 to open the UI from another device. The
       # container cannot see this host's addresses. The backend answers only
@@ -111,6 +118,10 @@ services:
       ORT_DISABLE_TELEMETRY: "1"
       UNSLOTH_DISABLE_STATISTICS: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      # A Hugging Face token from the .env next to this file: some models
+      # (FLUX 3 Klein, for one) are gated and download only with it, and
+      # downloads without one can be rate-limited.
+      HF_TOKEN: ${HF_TOKEN:-}
       # Optional — set your Anthropic key for Uncle Claude:
       # ANTHROPIC_API_KEY: sk-ant-...
     ports:
@@ -122,6 +133,16 @@ services:
       # and WordPress site keys and the key that encrypts them. A volume of its
       # own, so they outlive a rebuilt or recreated container.
       - app_config:/root/.config/guaardvark
+      # What plugins build at runtime: the ComfyUI app and its models, plugin
+      # environments, install stamps. The image's plugin sources are copied in
+      # at every start (docker/entrypoint.sh), so an update keeps all of it.
+      - plugins:/app/plugins
+      # Downloaded model caches (Hugging Face, torch hub) and pip's cache.
+      - app_cache:/root/.cache
+      # This install's node id and the hardware it detected.
+      - app_home:/root/.guaardvark
+      # The .env the app writes its own settings to.
+      - app_state:/app/state
     depends_on:
       postgres:
         condition: service_healthy
@@ -160,3 +181,7 @@ volumes:
   app_data:
   app_logs:
   app_config:
+  plugins:
+  app_cache:
+  app_home:
+  app_state:

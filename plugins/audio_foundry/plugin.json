@@ -15,6 +15,7 @@
     "default_auto_start": false,
     "service_url": "http://127.0.0.1:8206",
     "timeout": 120,
+    "start_timeout": 1800,
     "fallback_enabled": true,
     "default_voice_backend": "chatterbox",
     "default_output_format": "wav",

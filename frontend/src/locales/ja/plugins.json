@@ -32,7 +32,14 @@
     "restore": "{{version}}を復元",
     "progress": "ComfyUI {{versions}}: {{phase}} ({{percent}}%)",
     "working": "動作中",
-    "dismiss": "閉じる"
+    "dismiss": "閉じる",
+    "resultInstalled": "インストール済み",
+    "notInstalled": "このマシンにまだComfyUIがインストールされていません。ビデオ生成、およびFLUX.1、FLUX 3 Klein、Qwen-Image 2.1、MOSS-ImageモデルはComfyUI上で動作します。",
+    "installVersion": "ComfyUI {{version}}をインストール",
+    "installTooltip": "ComfyUI {{version}}をダウンロードして起動します",
+    "installTitle": "ComfyUI {{target}}をインストール",
+    "installDescription": "GitHubからComfyUI {{target}}を、PyPIからPythonパッケージをダウンロードして起動します。モデルは含まれません。各モデルは個別のインストールボタンを押すことでダウンロードされます。",
+    "installNow": "今すぐインストール"
   },
   "status": {
     "running": "実行中",

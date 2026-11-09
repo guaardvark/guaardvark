@@ -2639,12 +2639,28 @@ def _video_setting(key: str) -> str:
         return ""
 
 
+NO_VIDEO_GPU_MESSAGE = "GPU required for video generation: no NVIDIA GPU detected on this host."
+
+
 def _probe_total_vram_mb():
     try:
         from backend.services.gpu_resource_coordinator import get_available_vram
         return (get_available_vram() or {}).get("total_mb") or 0
     except Exception:
         return 0
+
+
+def _no_gpu_hardware() -> bool:
+    """True when the probe found no NVIDIA card and no Apple GPU at all.
+
+    Separates a machine that cannot render video from a card that could not be
+    read this time; only the second is helped by picking a model by hand.
+    """
+    try:
+        from backend.services.gpu_resource_coordinator import get_available_vram
+        return (get_available_vram() or {}).get("reason") == "no_gpu_hardware"
+    except Exception:
+        return False
 
 
 def _accept_or_refuse(model_id: str, role: str, comfyui_down_ok: bool = False) -> tuple:
@@ -2773,6 +2789,8 @@ def resolve_active_video_model(
 
     total_vram_mb = _probe_total_vram_mb()
     if not total_vram_mb:
+        if _no_gpu_hardware():
+            return None, NO_VIDEO_GPU_MESSAGE
         return None, (
             "The GPU's memory could not be read, so no video model was picked "
             "automatically. Pick a model for this job, or set the active video model "

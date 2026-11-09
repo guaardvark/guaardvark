@@ -24870,6 +24870,34 @@
       "en": "70afe9eff3f2",
       "out": "94b7dba15907"
     },
+    "comfyUpdate.resultInstalled": {
+      "en": "7bb4405cdfc9",
+      "out": "5dc9829cf918"
+    },
+    "comfyUpdate.notInstalled": {
+      "en": "9a0597d6beeb",
+      "out": "64329c7bba21"
+    },
+    "comfyUpdate.installVersion": {
+      "en": "ccab00605085",
+      "out": "dae291f0f8d0"
+    },
+    "comfyUpdate.installTooltip": {
+      "en": "9960373ba36e",
+      "out": "6e925219e900"
+    },
+    "comfyUpdate.installTitle": {
+      "en": "8bda552b7c39",
+      "out": "974fba4f72ac"
+    },
+    "comfyUpdate.installDescription": {
+      "en": "39856b507d2b",
+      "out": "1402074e3a91"
+    },
+    "comfyUpdate.installNow": {
+      "en": "8607e4bae1d0",
+      "out": "71b0bd10fcc4"
+    },
     "status.running": {
       "en": "73989d9c5926",
       "out": "0d01d3e76aac"

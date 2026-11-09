@@ -187,6 +187,12 @@ export const startComfyUpdate = async () => {
   return unwrapData(await handleResponse(response));
 };
 
+/** Install ComfyUI on a machine that has none yet. Same contract as startComfyUpdate. */
+export const installComfy = async () => {
+  const response = await fetch(`${BASE_URL}/comfyui/install`, { method: "POST" });
+  return unwrapData(await handleResponse(response));
+};
+
 /** The current or last update job: state, phase, percent, message, log tail. */
 export const getComfyUpdateStatus = async () => {
   const response = await fetch(`${BASE_URL}/comfyui/update/status`, { method: "GET" });

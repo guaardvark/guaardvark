@@ -32,7 +32,14 @@
     "restore": "Восстановить {{version}}",
     "progress": "ComfyUI {{versions}}: {{phase}} ({{percent}}%)",
     "working": "работает",
-    "dismiss": "Игнорировать"
+    "dismiss": "Игнорировать",
+    "resultInstalled": "Установлено",
+    "notInstalled": "ComfyUI еще не установлен на этом устройстве. Генерация видео, а также модели FLUX.1, FLUX 3 Klein, Qwen-Image 2.1 и MOSS-Image работают через него.",
+    "installVersion": "Установить ComfyUI {{version}}",
+    "installTooltip": "Скачать и запустить ComfyUI {{version}}",
+    "installTitle": "Установка ComfyUI {{target}}",
+    "installDescription": "Скачивает ComfyUI {{target}} из GitHub и пакеты Python из PyPI, затем запускает его. Модели в комплект не входят: каждая скачивается при нажатии на соответствующую кнопку установки.",
+    "installNow": "Установить сейчас"
   },
   "status": {
     "running": "Запущено",

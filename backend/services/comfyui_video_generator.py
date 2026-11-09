@@ -1161,7 +1161,8 @@ class ComfyUIVideoGenerator(ComfyUIVideoWorkflowMixin):
                 except Exception:
                     mps_ok = False
                 if not mps_ok:
-                    return "GPU required for video generation: no NVIDIA GPU detected on this host."
+                    from backend.services.video_model_registry import NO_VIDEO_GPU_MESSAGE
+                    return NO_VIDEO_GPU_MESSAGE
                 # Fall through and let the MPS path run.
             else:
                 logger.warning("VRAM preflight: probe unavailable (%s); proceeding", reason)

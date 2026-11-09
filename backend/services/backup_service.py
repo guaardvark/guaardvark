@@ -1846,14 +1846,14 @@ The startup script handles everything: Python 3.12 (auto-installed if needed), d
 
 First run may ask for your password once (PostgreSQL, Node.js, or Python packages via apt).
 
-## Alternative: Docker (Linux, core stack only)
+## Alternative: Docker (Linux)
 
 ```bash
 ./start-docker.sh          # CPU
 ./start-docker.sh --gpu    # NVIDIA GPU (requires nvidia-container-toolkit)
 ```
 
-Docker runs the **core stack** (API, UI, PostgreSQL, Redis, Ollama). It does not include plugins, ComfyUI, or the virtual agent display. For the full experience, use `./start.sh`.
+Docker runs the API, UI, PostgreSQL, Redis and Ollama in containers; ComfyUI, Audio Foundry and Upscaling install and start from the Plugins page. Ollama starts empty: pull a chat model and `nomic-embed-text` with `docker compose exec ollama ollama pull <model>`. INSTALL.md (Docker) has the details.
 
 Stop: `docker compose down`
 

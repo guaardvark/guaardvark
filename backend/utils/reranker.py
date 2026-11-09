@@ -128,27 +128,41 @@ def relevance_floor() -> Optional[float]:
 
 
 def drop_unrelated(results: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], int]:
-    """Keep the retrieved passages this reranker rates related to the question.
+    """Keep the retrieved passages rated related to the question.
 
-    Applies only when the reranker scored this retrieval and its model has a
-    floor. A hit it did not score, such as a dependency-expansion chunk, stays
-    only beside a surviving scored hit from the same source. Returns (kept,
+    When this reranker scored the retrieval, its floor decides, if its model
+    has one. Otherwise the search's ``vector_related`` mark decides
+    (indexing_service._judge_by_vector_score), where the embedding model has a
+    floor. A hit that was not rated, such as a dependency-expansion chunk, stays
+    only beside a surviving rated hit from the same source. Returns (kept,
     number dropped).
     """
-    floor = relevance_floor()
-    scored = [r for r in results if r.get("rerank_score") is not None]
-    if not floor or not scored:
+    if any(r.get("rerank_score") is not None for r in results):
+        floor = relevance_floor()
+        if not floor:
+            return results, 0
+
+        def _rated(r):
+            return r.get("rerank_score") is not None
+
+        def _related(r):
+            return r["rerank_score"] >= floor
+    else:
+        def _rated(r):
+            return r.get("vector_related") is not None
+
+        def _related(r):
+            return r["vector_related"]
+
+    rated = [r for r in results if _rated(r)]
+    if not rated:
         return results, 0
 
     def _source(r):
         return (r.get("metadata") or {}).get("source_filename")
 
-    related_sources = {_source(r) for r in scored if r["rerank_score"] >= floor}
-    kept = [
-        r for r in results
-        if (r["rerank_score"] >= floor if r.get("rerank_score") is not None
-            else _source(r) in related_sources)
-    ]
+    related_sources = {_source(r) for r in rated if _related(r)}
+    kept = [r for r in results if (_related(r) if _rated(r) else _source(r) in related_sources)]
     return kept, len(results) - len(kept)
 
 
