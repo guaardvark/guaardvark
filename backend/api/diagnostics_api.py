@@ -942,6 +942,7 @@ def export_diagnostics():
 @diagnostics_bp.route("/run-tests", methods=["POST"])
 def run_tests_endpoint():
     logger.info("API: Received POST /api/meta/run-tests request")
+    from backend.utils.isolated_env import isolated_env
     try:
         script_path = os.path.abspath(
             os.path.join(current_app.root_path, "..", "run_tests.py")
@@ -956,13 +957,12 @@ def run_tests_endpoint():
             capture_output=True,
             text=True,
             timeout=300,
-            env={
-                **os.environ,
-                "GUAARDVARK_MODE": "test",
-                "DISABLE_CELERY": "true",
-                "SKIP_PREFIGHT": "1",  # suppress noisy pip "already satisfied" + starlette conflict spam in GUI runs; makes test suites from GUI useful
-                "GUAARDVARK_TEST_QUIET": "1",
-            },
+            # No live database, task queue or Redis: the tests run in a child of
+            # the live backend and would otherwise write into all three.
+            env=isolated_env(
+                SKIP_PREFIGHT="1",  # suppress noisy pip "already satisfied" + starlette conflict spam in GUI runs; makes test suites from GUI useful
+                GUAARDVARK_TEST_QUIET="1",
+            ),
         )
         stdout = proc.stdout.strip()
         stderr = proc.stderr.strip()

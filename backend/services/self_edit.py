@@ -164,17 +164,8 @@ def _module_of(rel: str) -> Optional[str]:
 def _isolated_env() -> Dict[str, str]:
     """Environment for checks: nothing they run reaches the live database or
     the task queue."""
-    env = dict(os.environ)
-    env.update({
-        "GUAARDVARK_MODE": "test",
-        "DATABASE_URL": "postgresql://self-edit-check@127.0.0.1:1/unreachable",
-        "CELERY_BROKER_URL": "redis://127.0.0.1:1/0",
-        "CELERY_RESULT_BACKEND": "redis://127.0.0.1:1/0",
-        "REDIS_URL": "redis://127.0.0.1:1/0",
-        "DISABLE_CELERY": "1",
-        "PYTHONDONTWRITEBYTECODE": "1",
-    })
-    return env
+    from backend.utils.isolated_env import isolated_env
+    return isolated_env(PYTHONDONTWRITEBYTECODE="1")
 
 
 def _import_check(modules: List[str]) -> Optional[str]:
