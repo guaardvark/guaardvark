@@ -252,6 +252,81 @@ def get_vector_relevance_floor(model_name: str):
             return VECTOR_RELEVANCE_FLOORS[key]
     return None
 
+
+# The retrieval prompts each embedding model was trained with: "query" goes before a
+# search query, "document" before every passage at index time. Matched on a substring
+# of the model name, longest key first; a model not listed gets no prompt.
+#
+# Strings as published, from each model's config_sentence_transformers.json
+# ("prompts") or, where that has none, its model card. They are stored without the
+# trailing space: OllamaEmbedding joins prompt and text with one space, which gives
+# the published form for every entry except Qwen3, whose card writes "Query:" with
+# no space before the query.
+#
+# "index": whether a new index embeds with these prompts. On only where a run
+# through search_with_llamaindex measured a gain; off leaves both sides unprompted,
+# as before. Each index records the prompts its vectors were embedded with
+# (backend/services/embedding_prompts.py), so an index keeps what it was built with
+# until it is re-indexed.
+#
+# Measured 2026-11-09: 8,663 passages (mission reports, product docs, notes), 45
+# hand-written questions with a known answering passage, keyword leg on, no
+# cross-encoder; MRR@10 of the returned list (and of the vector leg alone),
+# unprompted -> prompted. "Unrelated kept": of the top-5 passages for 30 messages
+# the documents do not answer, how many stay above VECTOR_RELEVANCE_FLOORS.
+#   embeddinggemma-2    0.309 -> 0.397  (vector 0.392 -> 0.510)  unrelated kept 106 -> 71
+#   embeddinggemma      0.412 -> 0.493  (vector 0.542 -> 0.662)  unrelated kept  48 -> 42
+#   nomic-embed-text    0.381 -> 0.374  (vector 0.521 -> 0.506)  unrelated kept  47 -> 64
+#   qwen3-embedding:4b  0.438 -> 0.433  (vector 0.555 -> 0.492)  query prompt only, no floor
+# No answering passage fell below a floor either way. The other entries were not measured.
+EMBEDDING_PROMPTS = {
+    # ai.google.dev/gemma/docs/embeddinggemma/model_card (retrieval query / document)
+    "embeddinggemma": {"query": "task: search result | query:", "document": "title: none | text:",
+                       "index": True},
+    # huggingface.co/google/embeddinggemma-2 config_sentence_transformers.json
+    "embeddinggemma-2": {"query": "task: search result | query:", "document": "title: none | text:",
+                         "index": True},
+    # huggingface.co/nomic-ai/nomic-embed-text-v1.5 README
+    "nomic-embed-text": {"query": "search_query:", "document": "search_document:", "index": False},
+    # huggingface.co/Qwen/Qwen3-Embedding-4B config_sentence_transformers.json
+    "qwen3-embedding": {
+        "query": "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:",
+        "document": None,
+        "index": False,
+    },
+    # huggingface.co/mixedbread-ai/mxbai-embed-large-v1 config_sentence_transformers.json
+    "mxbai-embed-large": {"query": "Represent this sentence for searching relevant passages:", "document": None,
+                          "index": False},
+    # huggingface.co/BAAI/bge-m3 README: no instruction on queries or passages
+    "bge-m3": {"query": None, "document": None, "index": False},
+    # huggingface.co/BAAI/bge-large-en-v1.5 README (bge-*-en-v1.5)
+    "bge": {"query": "Represent this sentence for searching relevant passages:", "document": None,
+            "index": False},
+    # huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0 config_sentence_transformers.json
+    "arctic-embed2": {"query": "query:", "document": None, "index": False},
+    # huggingface.co/Snowflake/snowflake-arctic-embed-l config_sentence_transformers.json
+    "arctic-embed": {"query": "Represent this sentence for searching relevant passages:", "document": None,
+                     "index": False},
+    # huggingface.co/intfloat/e5-large-v2 README
+    "e5": {"query": "query:", "document": "passage:", "index": False},
+}
+
+
+def get_embedding_prompts(model_name: str, for_index: bool = False) -> tuple:
+    """(query_prompt, document_prompt) declared for an embedding model; None for none.
+
+    ``for_index`` gives the pair a new index embeds with: the declared one where the
+    entry's "index" is on, else none.
+    """
+    name = (model_name or "").lower()
+    for key in sorted(EMBEDDING_PROMPTS, key=len, reverse=True):
+        if key in name:
+            entry = EMBEDDING_PROMPTS[key]
+            if for_index and not entry.get("index"):
+                return None, None
+            return entry.get("query") or None, entry.get("document") or None
+    return None, None
+
 # RAG Autoresearch configuration
 AUTORESEARCH_ENABLED = os.environ.get("GUAARDVARK_AUTORESEARCH_ENABLED", "true").lower() == "true"
 AUTORESEARCH_IDLE_MINUTES = int(os.environ.get("GUAARDVARK_AUTORESEARCH_IDLE_MINUTES", "10"))

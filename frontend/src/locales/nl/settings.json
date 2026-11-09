@@ -188,7 +188,10 @@
     "already": "Embeddingsmodel is al {{model}}; index behouden.",
     "switchFailed": "Fout bij het wisselen van de embedding",
     "notSwitched": "Het embeddingsmodel is niet gewisseld: {{error}}",
-    "requestFailed": "de aanvraag is mislukt"
+    "requestFailed": "de aanvraag is mislukt",
+    "reindexStarted": "Opnieuw indexeren met de documentprompt van {{model}}: {{queued}} document(en) in de wachtrij. Elk blijft doorzoekbaar tot de nieuwe kopie klaar is.",
+    "reindexStartedPending": "Opnieuw indexeren met de documentprompt van {{model}}: {{queued}} document(en) in de wachtrij; {{pending}} wachten tot de indexering hervat.",
+    "reindexFailed": "Het opnieuw indexeren is niet gestart: {{error}}"
   },
   "media": {
     "saved": "{{label}}: {{model}}",
@@ -304,7 +307,10 @@
     "embeddingModel": "Embedding-model",
     "embeddingSetTooltip": "Hetzelfde vectorbreedte behoudt de index. Een andere breedte maakt deze leeg en moet elk document opnieuw worden geïndexeerd.",
     "embeddingRefreshTooltip": "Vernieuw embedding-modellen (onderzoekt elk model, kan even duren)",
-    "embeddingRefreshAria": "Vernieuw embedding-modellen"
+    "embeddingRefreshAria": "Vernieuw embedding-modellen",
+    "reindexHint": "Deze index is gebouwd zonder de documentprompt van {{model}}. Opnieuw geïndexeerd daarmee vindt het zoeken vaker de juiste passage.",
+    "reindex": "Opnieuw indexeren voor beter zoeken",
+    "reindexTooltip": "Embedt elk geïndexeerd document opnieuw met de documentprompt van het model. Zoeken blijft werken terwijl dit loopt; voortgang staat in de voettekst."
   },
   "chatPanel": {
     "title": "Chat",
@@ -534,6 +540,11 @@
     "newModel": "Nieuw model",
     "embeddingKeeps": "je documenten zelf; alleen hun zoekindex wordt opnieuw opgebouwd.",
     "embeddingConfirm": "Wisselen en opnieuw indexeren",
+    "reindexTitle": "Opnieuw indexeren voor beter zoeken",
+    "reindexDescription": "Elk geïndexeerd document wordt opnieuw ge-embed met de documentprompt van {{model}}, en zoekopdrachten gebruiken de bijbehorende queryprompt. Elk document blijft doorzoekbaar tot de nieuwe kopie klaar is; voortgang staat in de voettekst.",
+    "documentPrompt": "Documentprompt",
+    "reindexKeeps": "je documenten, en de huidige zoekitems van elk document tot de nieuwe klaar zijn.",
+    "reindexConfirm": "Opnieuw indexeren",
     "rebootTitle": "Herstart Guaardvark",
     "rebootDescription": "Start de backend, de workers en ComfyUI opnieuw op. Elke generatie, index-taak en chatreactie die momenteel bezig is, gaat verloren, en deze pagina verbreekt de verbinding totdat de diensten weer beschikbaar zijn.",
     "rebootKeeps": "documenten, chats, media, regels en instellingen.",

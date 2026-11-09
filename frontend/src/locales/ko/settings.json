@@ -188,7 +188,10 @@
     "already": "임베딩 모델이 이미 {{model}}입니다. 인덱스가 유지됩니다.",
     "switchFailed": "임베딩 전환 실패",
     "notSwitched": "임베딩 모델이 전환되지 않았습니다: {{error}}",
-    "requestFailed": "요청이 실패했습니다"
+    "requestFailed": "요청이 실패했습니다",
+    "reindexStarted": "{{model}}의 문서 프롬프트로 재인덱싱 중: {{queued}}개의 문서가 대기열에 추가되었습니다. 새 사본이 들어올 때까지 각 문서는 계속 검색됩니다.",
+    "reindexStartedPending": "{{model}}의 문서 프롬프트로 재인덱싱 중: {{queued}}개의 문서가 대기열에 추가되었습니다. {{pending}}개가 인덱싱 재개 대기 중입니다.",
+    "reindexFailed": "재인덱싱이 시작되지 않았습니다: {{error}}"
   },
   "media": {
     "saved": "{{label}}: {{model}}",
@@ -303,7 +306,10 @@
     "embeddingModel": "임베딩 모델",
     "embeddingSetTooltip": "동일한 벡터 너비는 인덱스를 유지합니다. 다른 너비는 인덱스를 비우며 모든 문서를 다시 인덱싱해야 합니다.",
     "embeddingRefreshTooltip": "임베딩 모델 새로고침 (각 모델을 확인하며 시간이 다소 소요될 수 있습니다)",
-    "embeddingRefreshAria": "임베딩 모델 새로고침"
+    "embeddingRefreshAria": "임베딩 모델 새로고침",
+    "reindexHint": "이 인덱스는 {{model}}의 문서 프롬프트 없이 만들어졌습니다. 프롬프트로 재인덱싱하면 검색이 올바른 구절을 더 자주 찾습니다.",
+    "reindex": "더 나은 검색을 위해 재인덱싱",
+    "reindexTooltip": "인덱싱된 모든 문서를 모델의 문서 프롬프트로 다시 임베딩합니다. 진행 중에도 검색은 계속 작동하며, 진행 상황은 하단에 표시됩니다."
   },
   "chatPanel": {
     "title": "채팅",
@@ -533,6 +539,11 @@
     "newModel": "새 모델",
     "embeddingKeeps": "문서 자체는 유지되며, 검색 인덱스만 재구축됩니다.",
     "embeddingConfirm": "전환 및 재인덱싱",
+    "reindexTitle": "더 나은 검색을 위해 재인덱싱",
+    "reindexDescription": "인덱싱된 모든 문서를 {{model}}의 문서 프롬프트로 다시 임베딩하고, 검색은 그에 맞는 쿼리 프롬프트로 전환됩니다. 새 사본이 들어올 때까지 각 문서는 계속 검색되며, 진행 상황은 하단에 표시됩니다.",
+    "documentPrompt": "문서 프롬프트",
+    "reindexKeeps": "문서 자체와, 새 항목이 들어올 때까지 각 문서의 현재 검색 항목.",
+    "reindexConfirm": "재인덱싱",
     "rebootTitle": "Guaardvark 재부팅",
     "rebootDescription": "백엔드, 워커 및 ComfyUI를 재시작합니다. 진행 중인 모든 생성, 인덱싱 작업 및 채팅 응답이 손실되며, 서비스가 복구될 때까지 이 페이지의 연결이 끊어집니다.",
     "rebootKeeps": "문서, 채팅, 미디어, 규칙 및 설정.",

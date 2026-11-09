@@ -188,7 +188,10 @@
     "already": "Embedding model is already {{model}}; index kept.",
     "switchFailed": "Failed to switch embedding",
     "notSwitched": "The embedding model was not switched: {{error}}",
-    "requestFailed": "the request failed"
+    "requestFailed": "the request failed",
+    "reindexStarted": "Re-indexing with {{model}}'s document prompt: {{queued}} document(s) queued. Each stays searchable until its new copy is in.",
+    "reindexStartedPending": "Re-indexing with {{model}}'s document prompt: {{queued}} document(s) queued; {{pending}} wait for indexing to resume.",
+    "reindexFailed": "The re-index did not start: {{error}}"
   },
   "media": {
     "saved": "{{label}}: {{model}}",
@@ -304,7 +307,10 @@
     "embeddingModel": "Embedding model",
     "embeddingSetTooltip": "Same vector width keeps the index. A different width empties it and every document must be re-indexed.",
     "embeddingRefreshTooltip": "Refresh embedding models (probes each one, can take a moment)",
-    "embeddingRefreshAria": "Refresh embedding models"
+    "embeddingRefreshAria": "Refresh embedding models",
+    "reindexHint": "This index was built without {{model}}'s document prompt. Re-indexed with it, searches find the right passage more often.",
+    "reindex": "Re-index for better search",
+    "reindexTooltip": "Embeds every indexed document again with the model's document prompt. Search keeps working while it runs; progress is in the footer."
   },
   "chatPanel": {
     "title": "Chat",
@@ -534,6 +540,11 @@
     "newModel": "New model",
     "embeddingKeeps": "your documents themselves; only their search index is rebuilt.",
     "embeddingConfirm": "Switch and re-index",
+    "reindexTitle": "Re-index for better search",
+    "reindexDescription": "Every indexed document is embedded again with {{model}}'s document prompt, and searches switch to its matching query prompt. Each document stays searchable until its new copy is in; progress is in the footer.",
+    "documentPrompt": "Document prompt",
+    "reindexKeeps": "your documents, and each one's current search entries until its new ones are in.",
+    "reindexConfirm": "Re-index",
     "rebootTitle": "Reboot Guaardvark",
     "rebootDescription": "Restarts the backend, the workers and ComfyUI. Every generation, index job and chat reply in flight is lost, and this page will disconnect until the services are back.",
     "rebootKeeps": "documents, chats, media, rules and settings.",

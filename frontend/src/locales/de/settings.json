@@ -188,7 +188,10 @@
     "already": "Das Embedding-Modell ist bereits {{model}}; Index wurde beibehalten.",
     "switchFailed": "Fehler beim Wechseln des Embeddings",
     "notSwitched": "Das Embedding-Modell wurde nicht gewechselt: {{error}}",
-    "requestFailed": "die Anfrage ist fehlgeschlagen"
+    "requestFailed": "die Anfrage ist fehlgeschlagen",
+    "reindexStarted": "Neu indexieren mit dem Dokument-Prompt von {{model}}: {{queued}} Dokument(e) angestellt. Jedes bleibt durchsuchbar, bis seine neue Fassung bereit ist.",
+    "reindexStartedPending": "Neu indexieren mit dem Dokument-Prompt von {{model}}: {{queued}} Dokument(e) angestellt; {{pending}} warten darauf, dass das Indexieren fortgesetzt wird.",
+    "reindexFailed": "Das Neuindexieren wurde nicht gestartet: {{error}}"
   },
   "media": {
     "saved": "{{label}}: {{model}}",
@@ -304,7 +307,10 @@
     "embeddingModel": "Embedding-Modell",
     "embeddingSetTooltip": "Gleiche Vektorbreite erhält den Index. Eine andere Breite leert ihn und erfordert eine neue Indexierung aller Dokumente.",
     "embeddingRefreshTooltip": "Embedding-Modelle aktualisieren (prüft jedes Modell; kann einen Moment dauern)",
-    "embeddingRefreshAria": "Embedding-Modelle aktualisieren"
+    "embeddingRefreshAria": "Embedding-Modelle aktualisieren",
+    "reindexHint": "Dieser Index wurde ohne den Dokument-Prompt von {{model}} erstellt. Damit neu indexiert, findet die Suche die passende Stelle häufiger.",
+    "reindex": "Neu indexieren für bessere Suche",
+    "reindexTooltip": "Bettet jedes indexierte Dokument erneut mit dem Dokument-Prompt des Modells ein. Die Suche funktioniert währenddessen weiter; der Fortschritt wird in der Fußzeile angezeigt."
   },
   "chatPanel": {
     "title": "Chat",
@@ -534,6 +540,11 @@
     "newModel": "Neues Modell",
     "embeddingKeeps": "deine Dokumente selbst; nur ihr Suchindex wird neu aufgebaut.",
     "embeddingConfirm": "Wechseln und neu indexieren",
+    "reindexTitle": "Neu indexieren für bessere Suche",
+    "reindexDescription": "Jedes indexierte Dokument wird erneut mit dem Dokument-Prompt von {{model}} eingebettet, und Suchen verwenden den passenden Abfrage-Prompt. Jedes Dokument bleibt durchsuchbar, bis seine neue Fassung bereit ist; der Fortschritt wird in der Fußzeile angezeigt.",
+    "documentPrompt": "Dokument-Prompt",
+    "reindexKeeps": "deine Dokumente und die bisherigen Sucheinträge jedes Dokuments, bis die neuen bereit sind.",
+    "reindexConfirm": "Neu indexieren",
     "rebootTitle": "Guaardvark neu starten",
     "rebootDescription": "Startet Backend, Worker und ComfyUI neu. Laufende Generierungen, Indexaufträge und Chatantworten gehen verloren. Diese Seite trennt die Verbindung, bis die Dienste wieder laufen.",
     "rebootKeeps": "Dokumente, Chats, Medien, Regeln und Einstellungen.",
