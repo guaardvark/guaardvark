@@ -23,6 +23,8 @@ from typing import Optional, Dict, Any
 from sqlalchemy import create_engine, text as sa_text
 from sqlalchemy.orm import sessionmaker
 
+from backend.services.task_scheduler import task_prompt
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -201,7 +203,7 @@ def execute_generic_llm_task(task: Dict[str, Any], progress_callback) -> str:
         if not model_name:
             raise ValueError("No LLM model available. Pull a model with 'ollama pull <model>' or choose a default model in Settings.")
 
-        prompt = task.get('prompt_text') or task.get('name') or ''
+        prompt = task_prompt(task)
         if not prompt:
             return "Error: No prompt provided for task"
 
@@ -267,7 +269,7 @@ def _generate_llm_content(task: Dict[str, Any], model_name: str, progress_callba
 
         llm = build_ollama(model_name, base_url=ollama_base_url, request_timeout=min(timeout, 300.0))
 
-        prompt = task.get('prompt_text') or task.get('name')
+        prompt = task_prompt(task)
 
         progress_callback(50, f"LLM generating content...")
 
@@ -296,7 +298,7 @@ def _generate_code_file(task: Dict[str, Any], model_name: str, progress_callback
 
         llm = build_ollama(model_name, base_url=ollama_base_url, request_timeout=min(timeout, 600.0))
 
-        prompt = task.get('prompt_text') or task.get('name')
+        prompt = task_prompt(task)
         output_filename = task.get('output_filename', '')
 
         # Build enhanced prompt based on file type
