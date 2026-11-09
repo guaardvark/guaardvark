@@ -158,14 +158,18 @@ try:
     torch_ver = tuple(int(x) for x in m.version("torch").split("+")[0].split(".")[:2])
 except Exception:
     sys.exit(0)
-if torch_ver >= (2, 7):
-    sys.exit(0)
 path = Path(sys.prefix) / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}" / "site-packages" / "comfy_kitchen" / "flash_attention.py"
 if not path.is_file():
     sys.exit(0)
 src = path.read_text(encoding="utf-8")
 doc = '    """Return whether flash attention decode is available on the requested device."""\n'
 guard = "    return False  # torch<2.7: the decode kernel's tensor layout does not match; patched by Guaardvark start.sh\n"
+if torch_ver >= (2, 7):
+    # A venv patched on 2.6 and since moved to a newer torch gets the kernel back.
+    if guard in src:
+        path.write_text(src.replace(guard, "", 1), encoding="utf-8")
+        print("Re-enabled comfy_kitchen flash-attention decode on torch 2.7+")
+    sys.exit(0)
 if doc in src and guard not in src:
     path.write_text(src.replace(doc, doc + guard, 1), encoding="utf-8")
     print("Disabled comfy_kitchen flash-attention decode for torch<2.7")
