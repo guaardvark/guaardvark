@@ -388,7 +388,7 @@ Local audio generation for voiceover, music, ambience, and effects. Shipped as t
 ### Music Generation
 - **ACE-Step v1 (3.5B)** — full-song generation with vocals; runs locally on GPU
 - **Tag chips** — pick genre, mood and instruments, with an optional Polish pass that turns plain English into tags
-- **ACE-Step 1.5** (optional install) — an Arrange step lets you edit the caption, tempo, key, meter, language and lyrics before it composes
+- **ACE-Step 1.5** (optional install) — your style and lyrics go to the model as typed, so the same text and seed give the same song; Polish, on by default, fills in tempo, key, meter, language and length without changing your words, and under Advanced Settings ACE-Step's own planner can rewrite the song into an arrangement you edit before it composes
 - **MiniMax Music 3** (optional install, through ComfyUI) — songs with vocals from a caption and tagged lyrics, up to about 5 minutes
 
 ### Sound Effects / Ambience
